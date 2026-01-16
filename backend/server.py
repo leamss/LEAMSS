@@ -75,7 +75,7 @@ class WorkflowStep(BaseModel):
 
 class ProductResponse(ProductBase):
     id: str
-    workflow_steps: List[WorkflowStep] = []
+    workflow_steps: List[Dict[str, Any]] = []
 
 class WorkflowStepCreate(BaseModel):
     product_id: str
