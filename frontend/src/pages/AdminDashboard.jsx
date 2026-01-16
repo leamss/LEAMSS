@@ -1074,7 +1074,25 @@ const AdminDashboard = () => {
                 />
               </div>
               <div>
-                <Label>Commission (%)</Label>
+                <Label>Commission Type</Label>
+                <Select 
+                  value={productDialog.data?.commission_type || 'fixed'} 
+                  onValueChange={(value) => setProductDialog({ ...productDialog, data: { ...productDialog.data, commission_type: value } })}
+                >
+                  <SelectTrigger data-testid="commission-type-select">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="fixed">Fixed Percentage</SelectItem>
+                    <SelectItem value="tiered">Tiered (Volume-based)</SelectItem>
+                    <SelectItem value="custom">Custom (Per Partner)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            {productDialog.data?.commission_type === 'fixed' && (
+              <div>
+                <Label>Commission Rate (%)</Label>
                 <Input
                   type="number"
                   value={productDialog.data?.commission_rate || 0}
@@ -1082,7 +1100,70 @@ const AdminDashboard = () => {
                   data-testid="product-commission-input"
                 />
               </div>
-            </div>
+            )}
+            {productDialog.data?.commission_type === 'tiered' && (
+              <div className="p-4 bg-slate-50 rounded-lg">
+                <Label className="mb-2 block">Commission Tiers</Label>
+                <p className="text-xs text-slate-500 mb-3">Define tiers based on total sales count. Example: 0-10 sales = 5%, 11-50 = 7%</p>
+                <div className="space-y-2">
+                  {(productDialog.data?.commission_tiers || []).map((tier, idx) => (
+                    <div key={idx} className="flex items-center gap-2 text-sm">
+                      <span className="text-slate-600">{tier.min_sales}-{tier.max_sales} sales:</span>
+                      <span className="font-medium text-[#2a777a]">{tier.rate}%</span>
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        onClick={() => {
+                          const tiers = (productDialog.data?.commission_tiers || []).filter((_, i) => i !== idx);
+                          setProductDialog({ ...productDialog, data: { ...productDialog.data, commission_tiers: tiers } });
+                        }}
+                        className="h-6 w-6 p-0"
+                      >
+                        <Trash2 className="h-3 w-3 text-red-500" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-2 mt-3">
+                  <Input placeholder="Min" type="number" className="w-20" id="tier-min" />
+                  <Input placeholder="Max" type="number" className="w-20" id="tier-max" />
+                  <Input placeholder="Rate %" type="number" className="w-20" id="tier-rate" />
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => {
+                      const min = document.getElementById('tier-min').value;
+                      const max = document.getElementById('tier-max').value;
+                      const rate = document.getElementById('tier-rate').value;
+                      if (min && max && rate) {
+                        const tiers = [...(productDialog.data?.commission_tiers || []), { min_sales: parseInt(min), max_sales: parseInt(max), rate: parseFloat(rate) }];
+                        setProductDialog({ ...productDialog, data: { ...productDialog.data, commission_tiers: tiers } });
+                        document.getElementById('tier-min').value = '';
+                        document.getElementById('tier-max').value = '';
+                        document.getElementById('tier-rate').value = '';
+                      }
+                    }}
+                  >
+                    Add Tier
+                  </Button>
+                </div>
+              </div>
+            )}
+            {productDialog.data?.commission_type === 'custom' && (
+              <div className="p-4 bg-slate-50 rounded-lg">
+                <Label className="mb-2 block">Custom Commission</Label>
+                <p className="text-xs text-slate-500">Commission will be set individually for each partner in their profile settings.</p>
+                <div className="mt-2">
+                  <Label>Default Rate (%)</Label>
+                  <Input
+                    type="number"
+                    value={productDialog.data?.commission_rate || 0}
+                    onChange={(e) => setProductDialog({ ...productDialog, data: { ...productDialog.data, commission_rate: parseFloat(e.target.value) || 0 } })}
+                    data-testid="product-commission-default-input"
+                  />
+                </div>
+              </div>
+            )}
             <Button onClick={() => handleSaveProduct(productDialog.data)} className="w-full bg-[#2a777a] hover:bg-[#236466] text-white" data-testid="save-product-btn">
               Save Product
             </Button>
