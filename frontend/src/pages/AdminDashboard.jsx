@@ -1276,15 +1276,19 @@ const AdminDashboard = () => {
               {/* Messages Card */}
                 <h4 className="font-semibold mb-4 text-slate-800">Messages ({selectedTicket.messages?.length || 0})</h4>
                 <div className="space-y-3 mb-4 max-h-96 overflow-y-auto">
-                  {selectedTicket.messages?.map((msg, idx) => (
-                    <div key={idx} className={`p-3 rounded-lg ${msg.user_role === 'admin' ? 'bg-blue-50 ml-8' : 'bg-slate-50 mr-8'}`}>
-                      <div className="flex justify-between items-center mb-1">
-                        <p className="text-sm font-medium text-slate-800">{msg.user_name} <span className="text-slate-500">({msg.user_role})</span></p>
-                        <p className="text-xs text-slate-500">{new Date(msg.created_at).toLocaleString()}</p>
+                  {selectedTicket.messages?.length === 0 ? (
+                    <p className="text-sm text-slate-500 text-center py-4">No messages yet</p>
+                  ) : (
+                    selectedTicket.messages?.map((msg, idx) => (
+                      <div key={idx} className={`p-3 rounded-lg ${msg.user_role === 'admin' ? 'bg-blue-50 ml-8' : 'bg-slate-50 mr-8'}`}>
+                        <div className="flex justify-between items-center mb-1">
+                          <p className="text-sm font-medium text-slate-800">{msg.user_name} <span className="text-slate-500">({msg.user_role})</span></p>
+                          <p className="text-xs text-slate-500">{new Date(msg.created_at).toLocaleString()}</p>
+                        </div>
+                        <p className="text-slate-700">{msg.message}</p>
                       </div>
-                      <p className="text-slate-700">{msg.message}</p>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
                 <div className="flex gap-2">
                   <Textarea value={ticketReplyText} onChange={(e) => setTicketReplyText(e.target.value)} placeholder="Type your reply..." rows={2} className="flex-1" />
