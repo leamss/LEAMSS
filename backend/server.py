@@ -587,7 +587,7 @@ async def approve_sale(approval: SaleApproval, background_tasks: BackgroundTasks
 @api_router.get("/sales/all")
 async def get_all_sales(
     partner_id: Optional[str] = None,
-    status: Optional[str] = None,
+    sale_status: Optional[str] = None,
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
     period: Optional[str] = None,  # lifetime, weekly, monthly, yearly
@@ -596,10 +596,10 @@ async def get_all_sales(
     """Get all sales with filtering options"""
     query = {}
     
-    if partner_id:
+    if partner_id and partner_id != "all":
         query["partner_id"] = partner_id
-    if status:
-        query["status"] = status
+    if sale_status:
+        query["status"] = sale_status
     
     # Handle date filtering
     if period:
