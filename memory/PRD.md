@@ -140,32 +140,30 @@ Build a comprehensive "LEAMSS Portal" for an immigration service with four disti
 ### P0 (Critical) - None remaining
 
 ### P1 (High Priority)
-1. **Commission Structure Enhancement**
-   - Add flexible commission options per product (fixed %, tiered, custom)
-   - Admin can set commission type when creating/editing products
-   
-2. **Document Download in Case Manager**
-   - Verify document download functionality
-   - Add preview capability
+1. **Configure Gmail Credentials** (User Action Required)
+   - User needs to set GMAIL_EMAIL and GMAIL_APP_PASSWORD in backend/.env
+   - Instructions provided in .env file
+
+2. **Document Download Verification**
+   - Verify Case Manager document viewing works correctly
+   - Test document preview capability
 
 ### P2 (Medium Priority)
-3. **Ticketing System Integration**
-   - Wire NotificationBell and CreateTicket components
-   - User-targeted ticket creation
+3. **Ticketing System Enhancement**
+   - Real-time notification updates
+   - User-targeted ticket creation from Admin
    
-4. **Notification System**
-   - Real-time notifications for case updates
-   - Email notifications
+4. **Notification System Enhancement**
+   - Real-time in-app notifications
+   - Mark as read functionality
 
 ### P3 (Low Priority)
 5. **Backend Refactoring**
    - Split server.py into router modules
    - Improve code organization
 
-6. **Additional Features**
-   - Request additional documents (Case Manager)
-   - Admin direct client creation
-   - Payment gateway integration (Stripe/Razorpay)
+6. **Payment Gateway Integration**
+   - Stripe/Razorpay integration for payments
 
 ---
 
