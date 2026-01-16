@@ -760,7 +760,7 @@ async def get_case_documents(case_id: str, user: dict = Depends(get_current_user
     return [DocumentResponse(**d) for d in documents]
 
 @api_router.post("/documents/review")
-async def review_document(review: DocumentReview, user: dict = Depends(require_role([UserRole.CASE_MANAGER, UserRole.ADMIN]))):
+async def review_document(review: DocumentReview, background_tasks: BackgroundTasks, user: dict = Depends(require_role([UserRole.CASE_MANAGER, UserRole.ADMIN]))):
     doc = await db.documents.find_one({"id": review.document_id})
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
@@ -784,6 +784,26 @@ async def review_document(review: DocumentReview, user: dict = Depends(require_r
             "doc_reviewed",
             case["id"]
         )
+        
+        # Send email notification to client
+        if review.status == "approved":
+            background_tasks.add_task(
+                email_service.send_document_approved_email,
+                case["client_email"],
+                case["client_name"],
+                doc["filename"],
+                doc.get("step_name", "N/A"),
+                case["case_id"]
+            )
+        elif review.status == "rejected":
+            background_tasks.add_task(
+                email_service.send_document_rejected_email,
+                case["client_email"],
+                case["client_name"],
+                doc["filename"],
+                review.comment or "",
+                case["case_id"]
+            )
     
     return {"message": "Document reviewed"}
 
