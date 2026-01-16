@@ -904,6 +904,160 @@ async def get_dashboard_stats(user: dict = Depends(get_current_user)):
     
     return stats
 
+
+# Admin - Edit Product
+@api_router.put("/products/{product_id}")
+async def update_product(product_id: str, product: ProductCreate, user: dict = Depends(require_role([UserRole.ADMIN]))):
+    result = await db.products.update_one(
+        {"id": product_id},
+        {"$set": {
+            "name": product.name,
+            "description": product.description,
+            "fee": product.fee,
+            "commission_rate": product.commission_rate
+        }}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Product not found")
+    return {"message": "Product updated"}
+
+# Admin - Delete Product
+@api_router.delete("/products/{product_id}")
+async def delete_product(product_id: str, user: dict = Depends(require_role([UserRole.ADMIN]))):
+    result = await db.products.delete_one({"id": product_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Product not found")
+    return {"message": "Product deleted"}
+
+# Admin - Update Workflow Step
+@api_router.put("/products/{product_id}/workflow-step/{step_order}")
+async def update_workflow_step(product_id: str, step_order: int, step: WorkflowStepCreate, user: dict = Depends(require_role([UserRole.ADMIN]))):
+    product = await db.products.find_one({"id": product_id})
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    
+    steps = product.get("workflow_steps", [])
+    updated = False
+    for i, s in enumerate(steps):
+        if s["step_order"] == step_order:
+            steps[i] = {
+                "step_name": step.step_name,
+                "step_order": step.step_order,
+                "description": step.description,
+                "duration_days": step.duration_days,
+                "required_documents": [doc.model_dump() for doc in step.required_documents]
+            }
+            updated = True
+            break
+    
+    if not updated:
+        raise HTTPException(status_code=404, detail="Step not found")
+    
+    await db.products.update_one(
+        {"id": product_id},
+        {"$set": {"workflow_steps": steps}}
+    )
+    return {"message": "Workflow step updated"}
+
+# Admin - Delete Workflow Step
+@api_router.delete("/products/{product_id}/workflow-step/{step_order}")
+async def delete_workflow_step(product_id: str, step_order: int, user: dict = Depends(require_role([UserRole.ADMIN]))):
+    product = await db.products.find_one({"id": product_id})
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    
+    steps = [s for s in product.get("workflow_steps", []) if s["step_order"] != step_order]
+    
+    await db.products.update_one(
+        {"id": product_id},
+        {"$set": {"workflow_steps": steps}}
+    )
+    return {"message": "Workflow step deleted"}
+
+# Admin - Get All Users
+@api_router.get("/users")
+async def get_all_users(user: dict = Depends(require_role([UserRole.ADMIN]))):
+    users = await db.users.find({}, {"_id": 0, "password": 0}).to_list(1000)
+    return users
+
+# Admin - Update User
+@api_router.put("/users/{user_id}")
+async def update_user(user_id: str, update_data: dict, user: dict = Depends(require_role([UserRole.ADMIN]))):
+    if "password" in update_data:
+        update_data["password"] = pwd_context.hash(update_data["password"])
+    
+    result = await db.users.update_one(
+        {"id": user_id},
+        {"$set": update_data}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"message": "User updated"}
+
+# Admin - Delete User
+@api_router.delete("/users/{user_id}")
+async def delete_user(user_id: str, user: dict = Depends(require_role([UserRole.ADMIN]))):
+    result = await db.users.delete_one({"id": user_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"message": "User deleted"}
+
+# Admin - Update Case Manager Assignment
+@api_router.put("/cases/{case_id}/assign-manager")
+async def reassign_case_manager(case_id: str, case_manager_id: str, user: dict = Depends(require_role([UserRole.ADMIN]))):
+    case_manager = await db.users.find_one({"id": case_manager_id, "role": UserRole.CASE_MANAGER})
+    if not case_manager:
+        raise HTTPException(status_code=404, detail="Case manager not found")
+    
+    result = await db.cases.update_one(
+        {"id": case_id},
+        {"$set": {
+            "case_manager_id": case_manager_id,
+            "case_manager_name": case_manager["name"]
+        }}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Case not found")
+    
+    case = await db.cases.find_one({"id": case_id})
+    await create_notification(
+        case_manager_id,
+        "Case Reassigned",
+        f"Case {case['case_id']} for {case['client_name']} has been reassigned to you",
+        "case_assigned",
+        case_id
+    )
+    
+    return {"message": "Case manager updated"}
+
+# Admin - Impersonate User (Get Token)
+@api_router.post("/admin/impersonate/{user_id}")
+async def impersonate_user(user_id: str, admin: dict = Depends(require_role([UserRole.ADMIN]))):
+    target_user = await db.users.find_one({"id": user_id})
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    token = create_access_token({"sub": target_user["email"], "role": target_user["role"]})
+    target_user.pop("password")
+    target_user.pop("_id")
+    return {
+        "token": token,
+        "user": UserResponse(**target_user)
+    }
+
+# Get Sale Documents (for admin approval view)
+@api_router.get("/sales/{sale_id}/documents")
+async def get_sale_documents(sale_id: str, user: dict = Depends(require_role([UserRole.ADMIN, UserRole.PARTNER]))):
+    sale = await db.sales.find_one({"id": sale_id})
+    if not sale:
+        raise HTTPException(status_code=404, detail="Sale not found")
+    
+    if user["role"] == UserRole.PARTNER and sale["partner_id"] != user["id"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    return sale.get("documents", [])
+
+
 app.include_router(api_router)
 
 app.add_middleware(
