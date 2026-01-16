@@ -926,20 +926,6 @@ async def update_ticket_status(
     
     return {"message": f"Ticket status updated to {new_status}"}
 
-@api_router.get("/tickets/{ticket_id}")
-async def get_ticket_details(ticket_id: str, user: dict = Depends(get_current_user)):
-    """Get detailed ticket information"""
-    ticket = await db.tickets.find_one({"id": ticket_id}, {"_id": 0})
-    if not ticket:
-        raise HTTPException(status_code=404, detail="Ticket not found")
-    
-    # Check access
-    if user["role"] not in [UserRole.ADMIN, UserRole.CASE_MANAGER]:
-        if ticket["created_by"] != user["id"]:
-            raise HTTPException(status_code=403, detail="Not authorized")
-    
-    return ticket
-
 @api_router.get("/tickets/stats")
 async def get_ticket_stats(user: dict = Depends(require_role([UserRole.ADMIN]))):
     """Get ticket statistics"""
@@ -963,6 +949,20 @@ async def get_ticket_stats(user: dict = Depends(require_role([UserRole.ADMIN])))
             "case_manager": len([t for t in all_tickets if t["created_by_role"] == UserRole.CASE_MANAGER])
         }
     }
+
+@api_router.get("/tickets/{ticket_id}")
+async def get_ticket_details(ticket_id: str, user: dict = Depends(get_current_user)):
+    """Get detailed ticket information"""
+    ticket = await db.tickets.find_one({"id": ticket_id}, {"_id": 0})
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    
+    # Check access
+    if user["role"] not in [UserRole.ADMIN, UserRole.CASE_MANAGER]:
+        if ticket["created_by"] != user["id"]:
+            raise HTTPException(status_code=403, detail="Not authorized")
+    
+    return ticket
 
 @api_router.get("/cases/my-cases", response_model=List[CaseResponse])
 async def get_my_cases(user: dict = Depends(get_current_user)):
