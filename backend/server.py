@@ -577,7 +577,7 @@ async def get_case(case_id: str, user: dict = Depends(get_current_user)):
     return CaseResponse(**case)
 
 @api_router.post("/cases/update-step")
-async def update_case_step(update: StepUpdate, user: dict = Depends(require_role([UserRole.CASE_MANAGER, UserRole.ADMIN]))):
+async def update_case_step(update: StepUpdate, background_tasks: BackgroundTasks, user: dict = Depends(require_role([UserRole.CASE_MANAGER, UserRole.ADMIN]))):
     case = await db.cases.find_one({"id": update.case_id})
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
@@ -588,6 +588,7 @@ async def update_case_step(update: StepUpdate, user: dict = Depends(require_role
     if current_step_index is None:
         raise HTTPException(status_code=404, detail="Step not found")
     
+    next_step_name = None
     if update.status == "completed":
         steps[current_step_index]["status"] = "completed"
         steps[current_step_index]["approved_by"] = user["id"]
@@ -612,6 +613,16 @@ async def update_case_step(update: StepUpdate, user: dict = Depends(require_role
                 {"id": update.case_id},
                 {"$set": {"steps": steps, "status": "completed"}}
             )
+        
+        # Send email notification for step completion
+        background_tasks.add_task(
+            email_service.send_step_completed_email,
+            case["client_email"],
+            case["client_name"],
+            update.step_name,
+            next_step_name or "",
+            case["case_id"]
+        )
     else:
         steps[current_step_index]["status"] = update.status
         steps[current_step_index]["notes"] = update.notes or ""
