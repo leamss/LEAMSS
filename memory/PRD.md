@@ -109,7 +109,25 @@ Build a comprehensive "LEAMSS Portal" for an immigration service with four disti
    - White card backgrounds (NO YELLOW)
    - Dark slate sidebars
 
-3. **All Portals Working**
+3. **Flexible Commission Structure** (NEW)
+   - **Fixed Percentage**: Standard commission rate per product
+   - **Tiered (Volume-based)**: Commission varies by total sales count
+   - **Custom (Per Partner)**: Individual rates set per partner
+   - Commission type selector in product creation/edit dialog
+   - Commission type badges displayed on product cards
+
+4. **Email Notification System** (NEW)
+   - Gmail SMTP integration for transactional emails
+   - Professional HTML email templates with LEAMSS branding
+   - Email notifications for:
+     - Welcome emails with login credentials
+     - Document approval/rejection
+     - Step completion notifications
+     - Additional document requests
+     - Sale approval/rejection (for partners)
+   - Graceful handling when email not configured
+
+5. **All Portals Working**
    - Admin Portal: Full functionality
    - Partner Portal: Sales creation, commission tracking
    - Case Manager Portal: Case management, document review
