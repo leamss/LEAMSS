@@ -70,29 +70,20 @@ const AdminDashboard = () => {
   });
   const [reassignDialog, setReassignDialog] = useState({ open: false, case_id: null });
 
-  useEffect(() => {
-    const userData = JSON.parse(localStorage.getItem('user'));
-    if (!userData || userData.role !== 'admin') {
-      navigate('/');
-      return;
-    }
-    setUser(userData);
-    loadData();
-  }, [navigate]);
-
   const getAuthHeader = () => ({
     headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
   });
 
   const loadData = async () => {
     try {
+      const authHeader = getAuthHeader();
       const [statsRes, pendingSalesRes, casesRes, productsRes, usersRes, allSalesRes] = await Promise.all([
-        axios.get(`${API}/stats/dashboard`, getAuthHeader()),
-        axios.get(`${API}/sales/pending`, getAuthHeader()),
-        axios.get(`${API}/cases`, getAuthHeader()),
-        axios.get(`${API}/products`, getAuthHeader()),
-        axios.get(`${API}/users`, getAuthHeader()),
-        axios.get(`${API}/sales/pending`, getAuthHeader()).catch(() => ({ data: [] }))
+        axios.get(`${API}/stats/dashboard`, authHeader),
+        axios.get(`${API}/sales/pending`, authHeader),
+        axios.get(`${API}/cases`, authHeader),
+        axios.get(`${API}/products`, authHeader),
+        axios.get(`${API}/users`, authHeader),
+        axios.get(`${API}/sales/pending`, authHeader).catch(() => ({ data: [] }))
       ]);
       setStats(statsRes.data);
       setPendingSales(pendingSalesRes.data);
@@ -105,6 +96,16 @@ const AdminDashboard = () => {
       toast.error('Failed to load data');
     }
   };
+
+  useEffect(() => {
+    const userData = JSON.parse(localStorage.getItem('user'));
+    if (!userData || userData.role !== 'admin') {
+      navigate('/');
+      return;
+    }
+    setUser(userData);
+    loadData();
+  }, [navigate]);
 
   const handleLogout = () => {
     localStorage.clear();
@@ -125,7 +126,8 @@ const AdminDashboard = () => {
       };
       
       toast.success(`Switched to ${targetUser.name}'s account`);
-      window.location.href = routes[response.data.user.role];
+      const targetRoute = routes[response.data.user.role];
+      setTimeout(() => { window.location.assign(targetRoute); }, 100);
     } catch (error) {
       toast.error('Failed to impersonate user');
     }
@@ -1103,7 +1105,7 @@ const AdminDashboard = () => {
               <div className="text-center py-8 border-2 border-dashed rounded-lg">
                 <Settings className="h-12 w-12 text-slate-400 mx-auto mb-4" />
                 <p className="text-slate-600">No workflow steps defined</p>
-                <p className="text-sm text-slate-500">Click "Add Step" to create your first workflow step</p>
+                <p className="text-sm text-slate-500">Click &quot;Add Step&quot; to create your first workflow step</p>
               </div>
             ) : (
               <div className="space-y-3">
