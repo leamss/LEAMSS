@@ -175,39 +175,6 @@ const AdminDashboard = () => {
     toast.success('Sales report downloaded!');
   };
 
-  const downloadCommissionsReport = () => {
-    if (commissionData.length === 0) {
-      toast.error('No commission data to export');
-      return;
-    }
-    
-    // Create CSV content
-    const headers = ['Partner Name', 'Partner Email', 'Total Sales', 'Approved Sales', 'Total Commission', 'Status'];
-    const rows = commissionData.map(partner => [
-      partner.partner_name,
-      partner.partner_email,
-      partner.total_sales,
-      partner.approved_sales,
-      partner.total_commission,
-      partner.total_commission > 0 ? 'Payable' : 'No Commission'
-    ]);
-    
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
-    ].join('\n');
-    
-    // Create and download file
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `commission_report_${new Date().toISOString().split('T')[0]}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast.success('Commission report downloaded!');
-  };
-
   // Sales report functions
   const loadSalesReport = async () => {
     try {
