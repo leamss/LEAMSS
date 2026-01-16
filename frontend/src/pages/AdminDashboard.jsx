@@ -63,7 +63,7 @@ const AdminDashboard = () => {
     newDoc: { doc_name: '', description: '', is_mandatory: true }
   });
   const [userDialog, setUserDialog] = useState({ open: false, mode: 'create', data: null });
-  const [ticketDialog, setTicketDialog] = useState({ open: false, subject: '', description: '', category: 'general', priority: 'medium', target_user_id: '' });
+  const [ticketDialog, setTicketDialog] = useState({ open: false, subject: '', description: '', category: 'general', priority: 'medium', target_user_ids: [], target_role: '' });
   const [reassignDialog, setReassignDialog] = useState({ open: false, case_id: null });
 
   const getAuthHeader = () => ({
