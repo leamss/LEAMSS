@@ -1230,7 +1230,50 @@ const AdminDashboard = () => {
                 )}
               </Card>
 
+              {/* Attachments Card */}
               <Card className="p-6">
+                <h4 className="font-semibold mb-4 text-slate-800 flex items-center gap-2">
+                  <FileText className="h-5 w-5" /> Attachments ({selectedTicket.attachments?.length || 0})
+                </h4>
+                <div className="space-y-2 mb-4">
+                  {selectedTicket.attachments?.length === 0 ? (
+                    <p className="text-sm text-slate-500 text-center py-4">No attachments</p>
+                  ) : (
+                    selectedTicket.attachments?.map((att, idx) => (
+                      <div key={idx} className="flex justify-between items-center p-3 border rounded-lg hover:bg-slate-50">
+                        <div>
+                          <p className="font-medium text-slate-800">{att.filename}</p>
+                          <p className="text-xs text-slate-500">
+                            Uploaded by {att.uploaded_by_name} on {new Date(att.uploaded_at).toLocaleString()}
+                            {att.file_size && ` • ${(att.file_size / 1024).toFixed(1)} KB`}
+                          </p>
+                        </div>
+                        <Button size="sm" variant="outline" onClick={() => downloadTicketAttachment(selectedTicket.id, att.id, att.filename)} data-testid={`download-attachment-${idx}`}>
+                          <Download className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))
+                  )}
+                </div>
+                {selectedTicket.status !== 'closed' && (
+                  <div className="pt-3 border-t">
+                    <Label className="text-sm mb-2 block">Upload Attachment (max 10MB)</Label>
+                    <Input
+                      type="file"
+                      onChange={(e) => {
+                        if (e.target.files?.[0]) {
+                          uploadTicketAttachment(selectedTicket.id, e.target.files[0]);
+                          e.target.value = '';
+                        }
+                      }}
+                      className="cursor-pointer"
+                      data-testid="ticket-attachment-input"
+                    />
+                  </div>
+                )}
+              </Card>
+
+              {/* Messages Card */}
                 <h4 className="font-semibold mb-4 text-slate-800">Messages ({selectedTicket.messages?.length || 0})</h4>
                 <div className="space-y-3 mb-4 max-h-96 overflow-y-auto">
                   {selectedTicket.messages?.map((msg, idx) => (
