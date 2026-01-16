@@ -381,21 +381,33 @@ async def create_sale(sale: SaleCreate, user: dict = Depends(require_role([UserR
         raise HTTPException(status_code=404, detail="Product not found")
     
     # Calculate commission based on commission type
-    commission_rate = product["commission_rate"]
+    commission_rate = product.get("commission_rate", 0)
     commission_type = product.get("commission_type", "fixed")
     
     if commission_type == "tiered":
-        # Count partner's approved sales for tiered calculation
+        # Count partner's approved sales for tiered calculation (including this new sale)
         partner_sales_count = await db.sales.count_documents({
             "partner_id": user["id"],
             "status": "approved"
         })
+        # Add 1 for the current sale being created
+        partner_sales_count += 1
         
         tiers = product.get("commission_tiers", [])
-        for tier in sorted(tiers, key=lambda x: x.get("min_sales", 0)):
-            if tier.get("min_sales", 0) <= partner_sales_count <= tier.get("max_sales", 999999):
-                commission_rate = tier.get("rate", commission_rate)
-                break
+        if tiers:
+            # Sort tiers by min_sales in ascending order
+            sorted_tiers = sorted(tiers, key=lambda x: int(x.get("min_sales", 0)))
+            # Find the appropriate tier
+            for tier in sorted_tiers:
+                min_sales = int(tier.get("min_sales", 0))
+                max_sales = int(tier.get("max_sales", 999999))
+                if min_sales <= partner_sales_count <= max_sales:
+                    commission_rate = float(tier.get("rate", commission_rate))
+                    break
+            else:
+                # If no tier matched but tiers exist, use the highest tier
+                if sorted_tiers:
+                    commission_rate = float(sorted_tiers[-1].get("rate", commission_rate))
     elif commission_type == "custom":
         # Check if partner has custom rate
         partner = await db.users.find_one({"id": user["id"]})
