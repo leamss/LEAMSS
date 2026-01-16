@@ -1216,8 +1216,8 @@ const AdminDashboard = () => {
 
                 {selectedTicket.status !== 'resolved' && selectedTicket.status !== 'closed' && (
                   <div className="mb-4">
-                    <Label>Resolution Note (optional)</Label>
-                    <Textarea value={resolutionNote} onChange={(e) => setResolutionNote(e.target.value)} placeholder="Add a note when resolving this ticket..." rows={2} />
+                    <Label>Resolution Note (required for resolve/close - min 10 chars)</Label>
+                    <Textarea value={resolutionNote} onChange={(e) => setResolutionNote(e.target.value)} placeholder="Add a resolution note when resolving or closing this ticket..." rows={2} data-testid="resolution-note-input" />
                   </div>
                 )}
 
