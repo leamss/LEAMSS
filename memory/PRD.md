@@ -109,14 +109,15 @@ Build a comprehensive "LEAMSS Portal" for an immigration service with four disti
    - White card backgrounds (NO YELLOW)
    - Dark slate sidebars
 
-3. **Flexible Commission Structure** (NEW)
+3. **Flexible Commission Structure** 
    - **Fixed Percentage**: Standard commission rate per product
    - **Tiered (Volume-based)**: Commission varies by total sales count
    - **Custom (Per Partner)**: Individual rates set per partner
    - Commission type selector in product creation/edit dialog
    - Commission type badges displayed on product cards
+   - **Commission Effective Date**: Set when commission changes take effect
 
-4. **Email Notification System** (NEW)
+4. **Email Notification System**
    - Gmail SMTP integration for transactional emails
    - Professional HTML email templates with LEAMSS branding
    - Email notifications for:
@@ -125,9 +126,33 @@ Build a comprehensive "LEAMSS Portal" for an immigration service with four disti
      - Step completion notifications
      - Additional document requests
      - Sale approval/rejection (for partners)
+     - Ticket resolution notifications
    - Graceful handling when email not configured
 
-5. **All Portals Working**
+5. **Total Sales Report Section** (NEW)
+   - Search by partner
+   - Filter by period (Lifetime, Weekly, Monthly, Yearly, Custom date range)
+   - Summary cards (Total Sales, Approved, Revenue, Commission)
+   - Sales records table with export to CSV
+   - Partner-specific detailed reports with download
+
+6. **Partner Commissions Section** (NEW)
+   - View commission payable to each partner
+   - Breakdown by Weekly, Monthly, Yearly, Lifetime
+   - Total revenue generated per partner
+   - Export all commission data
+
+7. **Support Tickets Section** (NEW)
+   - Full ticket management system
+   - View all tickets from all users (Admin, Client, Partner, Case Manager)
+   - Filter by Status (Open, In Progress, Resolved, Closed)
+   - Filter by Priority (Urgent, High, Medium, Low)
+   - Filter by Role (Client, Partner, Case Manager)
+   - Update ticket status with resolution notes
+   - Notify users when tickets are resolved
+   - Ticket messaging/replies
+
+8. **All Portals Working**
    - Admin Portal: Full functionality
    - Partner Portal: Sales creation, commission tracking
    - Case Manager Portal: Case management, document review
