@@ -1274,6 +1274,7 @@ const AdminDashboard = () => {
               </Card>
 
               {/* Messages Card */}
+              <Card className="p-6">
                 <h4 className="font-semibold mb-4 text-slate-800">Messages ({selectedTicket.messages?.length || 0})</h4>
                 <div className="space-y-3 mb-4 max-h-96 overflow-y-auto">
                   {selectedTicket.messages?.length === 0 ? (
