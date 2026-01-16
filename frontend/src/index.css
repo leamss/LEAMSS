@@ -13,29 +13,34 @@ body {
 
 @layer base {
   :root {
-    --background: 235 235 235;
-    --foreground: 51 54 59;
+    /* LEAMSS Brand Colors */
+    --leamss-orange: #f7620b;
+    --leamss-teal: #2a777a;
+    --leamss-red: #d81f26;
+    
+    --background: 245 247 250;
+    --foreground: 30 41 59;
     --card: 255 255 255;
-    --card-foreground: 51 54 59;
+    --card-foreground: 30 41 59;
     --popover: 255 255 255;
-    --popover-foreground: 51 54 59;
-    --primary: 168 181 162;
+    --popover-foreground: 30 41 59;
+    --primary: 42 119 122;
     --primary-foreground: 255 255 255;
-    --secondary: 217 119 93;
+    --secondary: 247 98 11;
     --secondary-foreground: 255 255 255;
-    --muted: 235 235 235;
-    --muted-foreground: 107 114 128;
-    --accent: 211 169 107;
-    --accent-foreground: 51 54 59;
-    --destructive: 220 38 38;
+    --muted: 241 245 249;
+    --muted-foreground: 100 116 139;
+    --accent: 247 98 11;
+    --accent-foreground: 255 255 255;
+    --destructive: 216 31 38;
     --destructive-foreground: 255 255 255;
-    --border: 229 231 235;
-    --input: 229 231 235;
-    --ring: 168 181 162;
+    --border: 226 232 240;
+    --input: 226 232 240;
+    --ring: 42 119 122;
     --radius: 0.5rem;
-    --success: 168 181 162;
-    --warning: 217 119 93;
-    --info: 81 208 222;
+    --success: 22 163 74;
+    --warning: 247 98 11;
+    --info: 42 119 122;
   }
 }
 
@@ -44,7 +49,7 @@ body {
     @apply border-border;
   }
   body {
-    @apply bg-[#EBEBEB] text-[#33363B];
+    @apply bg-[#F5F7FA] text-slate-800;
   }
   h1, h2, h3 {
     font-family: 'Poppins', sans-serif;
@@ -57,47 +62,53 @@ body {
     text-wrap: balance;
   }
   
-  .bg-leamss-sage {
-    background-color: #A8B5A2;
+  /* LEAMSS Brand Color Utilities */
+  .bg-leamss-orange {
+    background-color: #f7620b;
   }
   
-  .bg-leamss-terra {
-    background-color: #D9775D;
+  .bg-leamss-teal {
+    background-color: #2a777a;
   }
   
-  .bg-leamss-gold {
-    background-color: #D3A96B;
+  .bg-leamss-red {
+    background-color: #d81f26;
   }
   
-  .bg-leamss-blue {
-    background-color: #51D0DE;
+  .text-leamss-orange {
+    color: #f7620b;
   }
   
-  .text-leamss-sage {
-    color: #A8B5A2;
+  .text-leamss-teal {
+    color: #2a777a;
   }
   
-  .text-leamss-terra {
-    color: #D9775D;
+  .text-leamss-red {
+    color: #d81f26;
   }
   
-  .text-leamss-gold {
-    color: #D3A96B;
+  .border-leamss-orange {
+    border-color: #f7620b;
   }
   
-  .text-leamss-blue {
-    color: #51D0DE;
+  .border-leamss-teal {
+    border-color: #2a777a;
   }
   
-  .border-leamss-sage {
-    border-color: #A8B5A2;
+  .border-leamss-red {
+    border-color: #d81f26;
   }
   
-  .border-leamss-terra {
-    border-color: #D9775D;
+  .hover\:bg-leamss-orange:hover {
+    background-color: #e55a09;
   }
   
-  .border-leamss-gold {
-    border-color: #D3A96B;
+  .hover\:bg-leamss-teal:hover {
+    background-color: #236466;
+  }
+  
+  /* Sidebar styling */
+  .sidebar-dark {
+    background-color: #1e293b;
   }
 }
