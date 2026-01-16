@@ -778,15 +778,15 @@ async def get_sales_summary(
 
 @api_router.get("/tickets/all")
 async def get_all_tickets(
-    status: Optional[str] = None,
+    ticket_status: Optional[str] = None,
     priority: Optional[str] = None,
     created_by_role: Optional[str] = None,
     user: dict = Depends(require_role([UserRole.ADMIN]))
 ):
     """Get all tickets with filtering options (Admin only)"""
     query = {}
-    if status:
-        query["status"] = status
+    if ticket_status:
+        query["status"] = ticket_status
     if priority:
         query["priority"] = priority
     if created_by_role:
@@ -798,7 +798,7 @@ async def get_all_tickets(
 @api_router.put("/tickets/{ticket_id}/status")
 async def update_ticket_status(
     ticket_id: str,
-    status: str,
+    new_status: str,
     resolution_note: Optional[str] = None,
     background_tasks: BackgroundTasks = None,
     user: dict = Depends(require_role([UserRole.ADMIN, UserRole.CASE_MANAGER]))
