@@ -90,17 +90,18 @@ Build a comprehensive "LEAMSS Portal" for an immigration service with four disti
 
 ---
 
-## Implementation Status (Updated: December 16, 2025)
+## Implementation Status (Updated: January 16, 2026)
 
 ### Completed Features ✅
 1. **Admin Dashboard Overhaul**
    - Products & Workflows tab with full workflow editor
    - Add/Edit/Delete workflow steps with required documents
    - Users tab with search and user management
-   - User impersonation (Switch Portal button)
+   - User impersonation (Switch Portal button) with Return to Admin banner
    - Revenue & Commission dashboard
    - Sales approval workflow
    - Case management with reassignment
+   - **NEW**: "Create Ticket for User" button in Users tab
 
 2. **Color Scheme Update**
    - All 4 dashboards updated to LEAMSS brand colors
@@ -111,7 +112,7 @@ Build a comprehensive "LEAMSS Portal" for an immigration service with four disti
 
 3. **Flexible Commission Structure** 
    - **Fixed Percentage**: Standard commission rate per product
-   - **Tiered (Volume-based)**: Commission varies by total sales count
+   - **Tiered (Volume-based)**: Commission varies by total sales count (FIXED)
    - **Custom (Per Partner)**: Individual rates set per partner
    - Commission type selector in product creation/edit dialog
    - Commission type badges displayed on product cards
@@ -129,30 +130,39 @@ Build a comprehensive "LEAMSS Portal" for an immigration service with four disti
      - Ticket resolution notifications
    - Graceful handling when email not configured
 
-5. **Total Sales Report Section** (NEW)
+5. **Total Sales Report Section**
    - Search by partner
    - Filter by period (Lifetime, Weekly, Monthly, Yearly, Custom date range)
    - Summary cards (Total Sales, Approved, Revenue, Commission)
-   - Sales records table with export to CSV
+   - Sales records table with export to CSV (IMPLEMENTED)
    - Partner-specific detailed reports with download
 
-6. **Partner Commissions Section** (NEW)
+6. **Partner Commissions Section**
    - View commission payable to each partner
    - Breakdown by Weekly, Monthly, Yearly, Lifetime
    - Total revenue generated per partner
    - Export all commission data
 
-7. **Support Tickets Section** (NEW)
+7. **Support Tickets Section** (ENHANCED)
    - Full ticket management system
    - View all tickets from all users (Admin, Client, Partner, Case Manager)
    - Filter by Status (Open, In Progress, Resolved, Closed)
    - Filter by Priority (Urgent, High, Medium, Low)
    - Filter by Role (Client, Partner, Case Manager)
-   - Update ticket status with resolution notes
+   - Update ticket status with resolution notes (REQUIRED for resolve/close)
+   - **NEW**: File attachments upload/download (max 10MB)
+   - **NEW**: Activity log tracking all changes
+   - **NEW**: User targeting - assign to specific users or roles
+   - **NEW**: Create ticket directly for a user from Users tab
    - Notify users when tickets are resolved
    - Ticket messaging/replies
 
-8. **All Portals Working**
+8. **Admin Impersonation UX Improvement** (NEW)
+   - Admin token preserved when switching to another user
+   - "Return to Admin" banner displayed on impersonated user's dashboard
+   - One-click return to admin account without re-login
+
+9. **All Portals Working**
    - Admin Portal: Full functionality
    - Partner Portal: Sales creation, commission tracking
    - Case Manager Portal: Case management, document review
