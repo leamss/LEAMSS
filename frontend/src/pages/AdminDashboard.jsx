@@ -137,9 +137,12 @@ const AdminDashboard = () => {
 
   const handleAddWorkflowStep = async () => {
     try {
-      await axios.post(`${API}/products/workflow-step`, newStep, getAuthHeader());
+      await axios.post(`${API}/products/workflow-step`, {
+        ...newStep,
+        required_documents: newStep.required_documents || []
+      }, getAuthHeader());
       toast.success('Workflow step added!');
-      setNewStep({ product_id: '', step_name: '', step_order: 1, description: '' });
+      setNewStep({ product_id: '', step_name: '', step_order: 1, description: '', duration_days: null, required_documents: [] });
       loadData();
     } catch (error) {
       toast.error('Failed to add workflow step');
