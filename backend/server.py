@@ -1379,6 +1379,110 @@ async def add_ticket_message(ticket_id: str, message: TicketMessage, background_
     
     return {"message": "Message added"}
 
+# Maximum file size for ticket attachments (10MB)
+MAX_TICKET_ATTACHMENT_SIZE = 10 * 1024 * 1024
+
+@api_router.post("/tickets/{ticket_id}/attachment")
+async def upload_ticket_attachment(
+    ticket_id: str,
+    file: UploadFile = File(...),
+    user: dict = Depends(get_current_user)
+):
+    """Upload an attachment to a ticket"""
+    ticket = await db.tickets.find_one({"id": ticket_id})
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    
+    # Check access - only ticket creator, targeted users, or admin can upload
+    if user["role"] != UserRole.ADMIN:
+        if (ticket["created_by"] != user["id"] and 
+            user["id"] not in ticket.get("target_user_ids", []) and
+            user["role"] != ticket.get("target_role")):
+            raise HTTPException(status_code=403, detail="Not authorized to upload attachments to this ticket")
+    
+    # Read file content
+    file_content = await file.read()
+    file_size = len(file_content)
+    
+    # Check file size
+    if file_size > MAX_TICKET_ATTACHMENT_SIZE:
+        raise HTTPException(status_code=400, detail=f"File too large. Maximum size is {MAX_TICKET_ATTACHMENT_SIZE // (1024*1024)}MB")
+    
+    # Upload to GridFS
+    file_id = await fs.upload_from_stream(
+        file.filename,
+        io.BytesIO(file_content),
+        metadata={
+            "ticket_id": ticket_id,
+            "uploaded_by": user["id"],
+            "uploaded_by_name": user["name"],
+            "upload_date": datetime.now(timezone.utc).isoformat(),
+            "file_size": file_size
+        }
+    )
+    
+    # Add attachment record to ticket
+    attachment_record = {
+        "id": str(file_id),
+        "filename": file.filename,
+        "file_size": file_size,
+        "uploaded_by": user["id"],
+        "uploaded_by_name": user["name"],
+        "uploaded_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    # Add activity log entry
+    activity_entry = {
+        "action": "attachment_added",
+        "by_user_id": user["id"],
+        "by_user_name": user["name"],
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "details": f"Attachment '{file.filename}' added by {user['name']}"
+    }
+    
+    await db.tickets.update_one(
+        {"id": ticket_id},
+        {
+            "$push": {
+                "attachments": attachment_record,
+                "activity_log": activity_entry
+            }
+        }
+    )
+    
+    return {"message": "Attachment uploaded", "file_id": str(file_id), "filename": file.filename}
+
+@api_router.get("/tickets/{ticket_id}/attachment/{file_id}")
+async def download_ticket_attachment(
+    ticket_id: str,
+    file_id: str,
+    user: dict = Depends(get_current_user)
+):
+    """Download a ticket attachment"""
+    ticket = await db.tickets.find_one({"id": ticket_id})
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    
+    # Check access - only ticket creator, targeted users, or admin can download
+    if user["role"] != UserRole.ADMIN:
+        if (ticket["created_by"] != user["id"] and 
+            user["id"] not in ticket.get("target_user_ids", []) and
+            user["role"] != ticket.get("target_role")):
+            raise HTTPException(status_code=403, detail="Not authorized to access this ticket's attachments")
+    
+    try:
+        grid_out = await fs.open_download_stream(ObjectId(file_id))
+        contents = await grid_out.read()
+        filename = grid_out.filename or "attachment"
+        
+        return StreamingResponse(
+            io.BytesIO(contents),
+            media_type="application/octet-stream",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=f"Attachment not found: {str(e)}")
+
 @api_router.get("/notifications", response_model=List[NotificationResponse])
 async def get_notifications(user: dict = Depends(get_current_user)):
     notifications = await db.notifications.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(100)
