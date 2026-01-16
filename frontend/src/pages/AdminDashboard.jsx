@@ -104,8 +104,15 @@ const AdminDashboard = () => {
       return;
     }
     setUser(userData);
-    loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigate]);
+
+  useEffect(() => {
+    if (user) {
+      loadData();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   const handleLogout = () => {
     localStorage.clear();
