@@ -808,12 +808,15 @@ async def get_all_tickets(
     tickets = await db.tickets.find(query, {"_id": 0}).sort("created_at", -1).to_list(10000)
     return tickets
 
+class TicketStatusUpdate(BaseModel):
+    status: str
+    resolution_note: Optional[str] = None
+
 @api_router.put("/tickets/{ticket_id}/status")
 async def update_ticket_status(
     ticket_id: str,
-    new_status: str,
-    resolution_note: Optional[str] = None,
-    background_tasks: BackgroundTasks = None,
+    status_update: TicketStatusUpdate,
+    background_tasks: BackgroundTasks,
     user: dict = Depends(require_role([UserRole.ADMIN, UserRole.CASE_MANAGER]))
 ):
     """Update ticket status (open, in_progress, resolved, closed)"""
