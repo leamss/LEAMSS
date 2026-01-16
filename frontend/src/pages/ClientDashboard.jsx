@@ -107,10 +107,10 @@ const ClientDashboard = () => {
   };
 
   const getStepIcon = (step) => {
-    if (step.status === 'completed') return <CheckCircle className=\"h-5 w-5 text-emerald-600\" />;
-    if (step.status === 'in_progress' && !step.is_locked) return <Clock className=\"h-5 w-5 text-blue-600\" />;
-    if (step.is_locked) return <Lock className=\"h-5 w-5 text-slate-400\" />;
-    return <AlertCircle className=\"h-5 w-5 text-amber-600\" />;
+    if (step.status === 'completed') return <CheckCircle className="h-5 w-5 text-emerald-600" />;
+    if (step.status === 'in_progress' && !step.is_locked) return <Clock className="h-5 w-5 text-blue-600" />;
+    if (step.is_locked) return <Lock className="h-5 w-5 text-slate-400" />;
+    return <AlertCircle className="h-5 w-5 text-amber-600" />;
   };
 
   const getProgressPercentage = () => {
