@@ -8,7 +8,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { LayoutDashboard, FileText, Users, Briefcase, LogOut, Plus } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import NotificationBell from '@/components/NotificationBell';
+import CreateTicket from '@/components/CreateTicket';
+import { LayoutDashboard, FileText, Users, Briefcase, LogOut, Plus, Download } from 'lucide-react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
