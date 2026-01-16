@@ -1290,10 +1290,12 @@ const AdminDashboard = () => {
                     ))
                   )}
                 </div>
-                <div className="flex gap-2">
-                  <Textarea value={ticketReplyText} onChange={(e) => setTicketReplyText(e.target.value)} placeholder="Type your reply..." rows={2} className="flex-1" />
-                  <Button onClick={() => addTicketReply(selectedTicket.id)} className="bg-[#2a777a] hover:bg-[#236466]">Send</Button>
-                </div>
+                {selectedTicket.status !== 'closed' && (
+                  <div className="flex gap-2">
+                    <Textarea value={ticketReplyText} onChange={(e) => setTicketReplyText(e.target.value)} placeholder="Type your reply..." rows={2} className="flex-1" data-testid="ticket-reply-input" />
+                    <Button onClick={() => addTicketReply(selectedTicket.id)} className="bg-[#2a777a] hover:bg-[#236466]" data-testid="send-reply-btn">Send</Button>
+                  </div>
+                )}
               </Card>
             </div>
           )}
