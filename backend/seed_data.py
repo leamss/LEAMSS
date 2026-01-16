@@ -23,6 +23,8 @@ async def seed_database():
     await db.sales.delete_many({})
     await db.cases.delete_many({})
     await db.documents.delete_many({})
+    await db.notifications.delete_many({})
+    await db.tickets.delete_many({})
     
     print("Creating demo users...")
     users = [
@@ -67,7 +69,7 @@ async def seed_database():
     await db.users.insert_many(users)
     print(f"Created {len(users)} demo users")
     
-    print("Creating demo products...")
+    print("Creating demo products with detailed workflows...")
     products = [
         {
             "id": str(ObjectId()),
@@ -76,42 +78,159 @@ async def seed_database():
             "fee": 5000.00,
             "commission_rate": 15.0,
             "workflow_steps": [
-                {"step_name": "Onboarding & KYC", "step_order": 1, "description": "Initial client verification"},
-                {"step_name": "Skills Assessment", "step_order": 2, "description": "Professional skills evaluation"},
-                {"step_name": "EOI Submission", "step_order": 3, "description": "Expression of Interest filing"},
-                {"step_name": "ITA Received", "step_order": 4, "description": "Invitation to Apply"},
-                {"step_name": "Visa Documents", "step_order": 5, "description": "Final document preparation"},
-                {"step_name": "Visa Lodged", "step_order": 6, "description": "Application submitted"},
-                {"step_name": "Decision", "step_order": 7, "description": "Final visa decision"}
+                {
+                    "step_name": "Registration",
+                    "step_order": 1,
+                    "description": "Initial registration and client onboarding",
+                    "duration_days": 15,
+                    "required_documents": [
+                        {"doc_name": "Passport Copy", "description": "Valid passport with minimum 6 months validity", "is_mandatory": True},
+                        {"doc_name": "Photo", "description": "Recent passport-sized photograph", "is_mandatory": True},
+                        {"doc_name": "Resume/CV", "description": "Detailed work experience", "is_mandatory": True}
+                    ]
+                },
+                {
+                    "step_name": "Document Collection",
+                    "step_order": 2,
+                    "description": "Collect all required documents for assessment",
+                    "duration_days": 7,
+                    "required_documents": [
+                        {"doc_name": "Educational Certificates", "description": "All degree certificates and transcripts", "is_mandatory": True},
+                        {"doc_name": "Work Experience Letters", "description": "Employment letters from all employers", "is_mandatory": True},
+                        {"doc_name": "Salary Slips", "description": "Last 6 months salary slips", "is_mandatory": True},
+                        {"doc_name": "Bank Statements", "description": "6 months bank statements", "is_mandatory": True}
+                    ]
+                },
+                {
+                    "step_name": "Skills Assessment",
+                    "step_order": 3,
+                    "description": "Professional skills evaluation by assessing authority",
+                    "duration_days": 45,
+                    "required_documents": [
+                        {"doc_name": "Skills Assessment Application", "description": "Completed application form", "is_mandatory": True},
+                        {"doc_name": "Reference Letters", "description": "Professional reference letters", "is_mandatory": True}
+                    ]
+                },
+                {
+                    "step_name": "EOI Submission",
+                    "step_order": 4,
+                    "description": "Expression of Interest filing",
+                    "duration_days": 15,
+                    "required_documents": [
+                        {"doc_name": "Skills Assessment Letter", "description": "Approved skills assessment", "is_mandatory": True},
+                        {"doc_name": "IELTS/PTE Scorecard", "description": "English language test results", "is_mandatory": True}
+                    ]
+                },
+                {
+                    "step_name": "ITA Received",
+                    "step_order": 5,
+                    "description": "Invitation to Apply received",
+                    "duration_days": 60,
+                    "required_documents": []
+                },
+                {
+                    "step_name": "Visa Documents",
+                    "step_order": 6,
+                    "description": "Final document preparation for visa application",
+                    "duration_days": 30,
+                    "required_documents": [
+                        {"doc_name": "Police Clearance Certificate", "description": "PCC from all countries lived for 12+ months", "is_mandatory": True},
+                        {"doc_name": "Medical Certificate", "description": "Health examination results", "is_mandatory": True},
+                        {"doc_name": "Form 80", "description": "Character assessment form", "is_mandatory": True},
+                        {"doc_name": "Marriage Certificate", "description": "If applicable", "is_mandatory": False}
+                    ]
+                },
+                {
+                    "step_name": "Visa Lodged",
+                    "step_order": 7,
+                    "description": "Visa application submitted to DHA",
+                    "duration_days": 20,
+                    "required_documents": [
+                        {"doc_name": "Payment Receipt", "description": "Visa application fee payment", "is_mandatory": True}
+                    ]
+                },
+                {
+                    "step_name": "Decision",
+                    "step_order": 8,
+                    "description": "Final visa decision",
+                    "duration_days": 90,
+                    "required_documents": []
+                }
             ],
             "created_at": datetime.now(timezone.utc).isoformat()
         },
         {
             "id": str(ObjectId()),
-            "name": "Canada Express Entry",
-            "description": "Federal skilled worker program for Canada",
-            "fee": 4500.00,
+            "name": "Canada Study Visa",
+            "description": "Study permit for Canadian universities",
+            "fee": 3500.00,
             "commission_rate": 12.0,
             "workflow_steps": [
-                {"step_name": "Profile Creation", "step_order": 1, "description": "Express Entry profile"},
-                {"step_name": "Document Collection", "step_order": 2, "description": "Gather required documents"},
-                {"step_name": "ITA Response", "step_order": 3, "description": "Respond to invitation"},
-                {"step_name": "Medical & Police", "step_order": 4, "description": "Medical and police clearance"},
-                {"step_name": "PR Application", "step_order": 5, "description": "Submit PR application"}
-            ],
-            "created_at": datetime.now(timezone.utc).isoformat()
-        },
-        {
-            "id": str(ObjectId()),
-            "name": "UK Skilled Worker Visa",
-            "description": "Tier 2 skilled worker visa for UK",
-            "fee": 3500.00,
-            "commission_rate": 10.0,
-            "workflow_steps": [
-                {"step_name": "Job Offer Verification", "step_order": 1, "description": "Verify sponsorship"},
-                {"step_name": "Document Preparation", "step_order": 2, "description": "Prepare visa documents"},
-                {"step_name": "Application Submission", "step_order": 3, "description": "Submit visa application"},
-                {"step_name": "Biometrics", "step_order": 4, "description": "Biometric appointment"}
+                {
+                    "step_name": "Registration",
+                    "step_order": 1,
+                    "description": "Student registration and intake",
+                    "duration_days": 15,
+                    "required_documents": [
+                        {"doc_name": "Passport", "description": "Valid passport", "is_mandatory": True},
+                        {"doc_name": "Academic Transcripts", "description": "All previous education records", "is_mandatory": True}
+                    ]
+                },
+                {
+                    "step_name": "Document Collection",
+                    "step_order": 2,
+                    "description": "Gather application documents",
+                    "duration_days": 7,
+                    "required_documents": [
+                        {"doc_name": "SOP", "description": "Statement of Purpose", "is_mandatory": True},
+                        {"doc_name": "Financial Documents", "description": "Proof of funds", "is_mandatory": True}
+                    ]
+                },
+                {
+                    "step_name": "University Application",
+                    "step_order": 3,
+                    "description": "Apply to Canadian universities",
+                    "duration_days": 30,
+                    "required_documents": [
+                        {"doc_name": "Application Form", "description": "Completed university application", "is_mandatory": True}
+                    ]
+                },
+                {
+                    "step_name": "Offer Letter",
+                    "step_order": 4,
+                    "description": "Receive university offer letter",
+                    "duration_days": 45,
+                    "required_documents": []
+                },
+                {
+                    "step_name": "GIC & Fees",
+                    "step_order": 5,
+                    "description": "GIC account and fee payment",
+                    "duration_days": 15,
+                    "required_documents": [
+                        {"doc_name": "GIC Certificate", "description": "Guaranteed Investment Certificate", "is_mandatory": True},
+                        {"doc_name": "Fee Payment Receipt", "description": "Tuition fee payment proof", "is_mandatory": True}
+                    ]
+                },
+                {
+                    "step_name": "Medical & Biometrics",
+                    "step_order": 6,
+                    "description": "Medical exam and biometrics",
+                    "duration_days": 20,
+                    "required_documents": [
+                        {"doc_name": "Medical Report", "description": "Approved medical examination", "is_mandatory": True},
+                        {"doc_name": "Biometrics Receipt", "description": "Biometrics submission proof", "is_mandatory": True}
+                    ]
+                },
+                {
+                    "step_name": "Visa Application",
+                    "step_order": 7,
+                    "description": "Submit study permit application",
+                    "duration_days": 30,
+                    "required_documents": [
+                        {"doc_name": "Visa Application Form", "description": "IMM forms completed", "is_mandatory": True}
+                    ]
+                }
             ],
             "created_at": datetime.now(timezone.utc).isoformat()
         }
@@ -151,12 +270,17 @@ async def seed_database():
     print("Created demo sale")
     
     case_steps = []
-    for step in product["workflow_steps"]:
+    for idx, step in enumerate(product["workflow_steps"]):
         case_steps.append({
             "step_name": step["step_name"],
             "step_order": step["step_order"],
-            "status": "pending" if step["step_order"] > 1 else "in_progress",
-            "notes": ""
+            "status": "in_progress" if idx == 0 else "locked",
+            "notes": "",
+            "uploaded_documents": [],
+            "required_documents": step["required_documents"],
+            "approved_by": None,
+            "approved_at": None,
+            "is_locked": False if idx == 0 else True
         })
     
     case = {
@@ -174,7 +298,9 @@ async def seed_database():
         "sale_id": sale_id,
         "status": "active",
         "current_step": case_steps[0]["step_name"],
+        "current_step_order": 1,
         "steps": case_steps,
+        "additional_doc_requests": [],
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     
