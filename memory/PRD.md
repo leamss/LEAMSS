@@ -169,26 +169,24 @@ Build a comprehensive "LEAMSS Portal" for an immigration service with four disti
    - User needs to set GMAIL_EMAIL and GMAIL_APP_PASSWORD in backend/.env
    - Instructions provided in .env file
 
-2. **Document Download Verification**
-   - Verify Case Manager document viewing works correctly
-   - Test document preview capability
-
 ### P2 (Medium Priority)
-3. **Ticketing System Enhancement**
-   - Real-time notification updates
-   - User-targeted ticket creation from Admin
-   
-4. **Notification System Enhancement**
-   - Real-time in-app notifications
-   - Mark as read functionality
+2. **Real-time Notifications**
+   - WebSocket for instant notification updates
+   - Push notifications
+
+3. **Ticket System Enhancements**
+   - Ticket categories analytics
+   - SLA tracking
+   - Auto-assignment rules
 
 ### P3 (Low Priority)
-5. **Backend Refactoring**
+4. **Backend Refactoring**
    - Split server.py into router modules
    - Improve code organization
 
-6. **Payment Gateway Integration**
+5. **Payment Gateway Integration**
    - Stripe/Razorpay integration for payments
+   - Commission payout tracking
 
 ---
 
