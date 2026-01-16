@@ -25,9 +25,12 @@ const AdminDashboard = () => {
   const [products, setProducts] = useState([]);
   const [caseManagers, setCaseManagers] = useState([]);
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [selectedCase, setSelectedCase] = useState(null);
+  const [caseDocuments, setCaseDocuments] = useState([]);
   const [newProduct, setNewProduct] = useState({ name: '', description: '', fee: 0, commission_rate: 0 });
   const [newUser, setNewUser] = useState({ email: '', name: '', password: '', role: 'case_manager', mobile: '' });
-  const [newStep, setNewStep] = useState({ product_id: '', step_name: '', step_order: 1, description: '' });
+  const [newStep, setNewStep] = useState({ product_id: '', step_name: '', step_order: 1, description: '', duration_days: null, required_documents: [] });
+  const [newDocRequirement, setNewDocRequirement] = useState({ doc_name: '', description: '', is_mandatory: true });
 
   useEffect(() => {
     const userData = JSON.parse(localStorage.getItem('user'));
