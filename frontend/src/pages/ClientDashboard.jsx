@@ -373,7 +373,7 @@ const ClientDashboard = () => {
                       <p className="text-sm text-slate-500">Uploaded: {new Date(doc.upload_date).toLocaleDateString()}</p>
                       {doc.review_comment && (
                         <div className="mt-2 p-2 bg-blue-50 rounded text-sm">
-                          <p className="font-medium text-gray-900">Case Manager's Comment:</p>
+                          <p className="font-medium text-gray-900">Case Manager&apos;s Comment:</p>
                           <p className="text-slate-700">{doc.review_comment}</p>
                         </div>
                       )}
