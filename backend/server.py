@@ -582,6 +582,338 @@ async def approve_sale(approval: SaleApproval, background_tasks: BackgroundTasks
     
     return {"message": f"Sale {approval.status}"}
 
+# ==================== SALES REPORTS & COMMISSION ENDPOINTS ====================
+
+@api_router.get("/sales/all")
+async def get_all_sales(
+    partner_id: Optional[str] = None,
+    status: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    period: Optional[str] = None,  # lifetime, weekly, monthly, yearly
+    user: dict = Depends(require_role([UserRole.ADMIN]))
+):
+    """Get all sales with filtering options"""
+    query = {}
+    
+    if partner_id:
+        query["partner_id"] = partner_id
+    if status:
+        query["status"] = status
+    
+    # Handle date filtering
+    if period:
+        now = datetime.now(timezone.utc)
+        if period == "weekly":
+            start_date = now - timedelta(days=7)
+        elif period == "monthly":
+            start_date = now - timedelta(days=30)
+        elif period == "yearly":
+            start_date = now - timedelta(days=365)
+        else:  # lifetime
+            start_date = None
+        
+        if start_date:
+            query["created_at"] = {"$gte": start_date.isoformat()}
+    elif date_from or date_to:
+        date_query = {}
+        if date_from:
+            date_query["$gte"] = date_from
+        if date_to:
+            date_query["$lte"] = date_to
+        if date_query:
+            query["created_at"] = date_query
+    
+    sales = await db.sales.find(query, {"_id": 0}).sort("created_at", -1).to_list(10000)
+    return sales
+
+@api_router.get("/sales/partner-report/{partner_id}")
+async def get_partner_sales_report(
+    partner_id: str,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    period: Optional[str] = None,
+    user: dict = Depends(require_role([UserRole.ADMIN]))
+):
+    """Get detailed sales report for a specific partner"""
+    query = {"partner_id": partner_id}
+    
+    # Handle date filtering
+    if period:
+        now = datetime.now(timezone.utc)
+        if period == "weekly":
+            start_date = now - timedelta(days=7)
+        elif period == "monthly":
+            start_date = now - timedelta(days=30)
+        elif period == "yearly":
+            start_date = now - timedelta(days=365)
+        else:
+            start_date = None
+        
+        if start_date:
+            query["created_at"] = {"$gte": start_date.isoformat()}
+    elif date_from or date_to:
+        date_query = {}
+        if date_from:
+            date_query["$gte"] = date_from
+        if date_to:
+            date_query["$lte"] = date_to
+        if date_query:
+            query["created_at"] = date_query
+    
+    sales = await db.sales.find(query, {"_id": 0}).to_list(10000)
+    partner = await db.users.find_one({"id": partner_id}, {"_id": 0, "password": 0})
+    
+    # Calculate totals
+    total_sales = len(sales)
+    approved_sales = [s for s in sales if s["status"] == "approved"]
+    pending_sales = [s for s in sales if s["status"] == "pending"]
+    rejected_sales = [s for s in sales if s["status"] == "rejected"]
+    
+    total_revenue = sum(s.get("fee_amount", 0) for s in approved_sales)
+    total_commission = sum(s.get("commission_amount", 0) for s in approved_sales)
+    
+    return {
+        "partner": partner,
+        "summary": {
+            "total_sales": total_sales,
+            "approved_sales": len(approved_sales),
+            "pending_sales": len(pending_sales),
+            "rejected_sales": len(rejected_sales),
+            "total_revenue": total_revenue,
+            "total_commission_payable": total_commission
+        },
+        "sales": sales
+    }
+
+@api_router.get("/reports/partner-commissions")
+async def get_all_partner_commissions(user: dict = Depends(require_role([UserRole.ADMIN]))):
+    """Get commission summary for all partners"""
+    partners = await db.users.find({"role": UserRole.PARTNER}, {"_id": 0, "password": 0}).to_list(1000)
+    
+    result = []
+    for partner in partners:
+        approved_sales = await db.sales.find({
+            "partner_id": partner["id"],
+            "status": "approved"
+        }, {"_id": 0}).to_list(10000)
+        
+        total_revenue = sum(s.get("fee_amount", 0) for s in approved_sales)
+        total_commission = sum(s.get("commission_amount", 0) for s in approved_sales)
+        
+        # Calculate by period
+        now = datetime.now(timezone.utc)
+        weekly_commission = sum(
+            s.get("commission_amount", 0) for s in approved_sales 
+            if s.get("created_at", "") >= (now - timedelta(days=7)).isoformat()
+        )
+        monthly_commission = sum(
+            s.get("commission_amount", 0) for s in approved_sales 
+            if s.get("created_at", "") >= (now - timedelta(days=30)).isoformat()
+        )
+        yearly_commission = sum(
+            s.get("commission_amount", 0) for s in approved_sales 
+            if s.get("created_at", "") >= (now - timedelta(days=365)).isoformat()
+        )
+        
+        result.append({
+            "partner_id": partner["id"],
+            "partner_name": partner["name"],
+            "partner_email": partner["email"],
+            "total_sales_count": len(approved_sales),
+            "total_revenue_generated": total_revenue,
+            "lifetime_commission": total_commission,
+            "weekly_commission": weekly_commission,
+            "monthly_commission": monthly_commission,
+            "yearly_commission": yearly_commission
+        })
+    
+    return result
+
+@api_router.get("/reports/sales-summary")
+async def get_sales_summary(
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    period: Optional[str] = None,
+    user: dict = Depends(require_role([UserRole.ADMIN]))
+):
+    """Get overall sales summary with filters"""
+    query = {}
+    
+    if period:
+        now = datetime.now(timezone.utc)
+        if period == "weekly":
+            start_date = now - timedelta(days=7)
+        elif period == "monthly":
+            start_date = now - timedelta(days=30)
+        elif period == "yearly":
+            start_date = now - timedelta(days=365)
+        else:
+            start_date = None
+        
+        if start_date:
+            query["created_at"] = {"$gte": start_date.isoformat()}
+    elif date_from or date_to:
+        date_query = {}
+        if date_from:
+            date_query["$gte"] = date_from
+        if date_to:
+            date_query["$lte"] = date_to
+        if date_query:
+            query["created_at"] = date_query
+    
+    all_sales = await db.sales.find(query, {"_id": 0}).to_list(10000)
+    approved_sales = [s for s in all_sales if s["status"] == "approved"]
+    
+    return {
+        "total_sales": len(all_sales),
+        "approved_sales": len(approved_sales),
+        "pending_sales": len([s for s in all_sales if s["status"] == "pending"]),
+        "rejected_sales": len([s for s in all_sales if s["status"] == "rejected"]),
+        "total_revenue": sum(s.get("fee_amount", 0) for s in approved_sales),
+        "total_commission_payable": sum(s.get("commission_amount", 0) for s in approved_sales)
+    }
+
+# ==================== ENHANCED TICKET ENDPOINTS ====================
+
+@api_router.get("/tickets/all")
+async def get_all_tickets(
+    status: Optional[str] = None,
+    priority: Optional[str] = None,
+    created_by_role: Optional[str] = None,
+    user: dict = Depends(require_role([UserRole.ADMIN]))
+):
+    """Get all tickets with filtering options (Admin only)"""
+    query = {}
+    if status:
+        query["status"] = status
+    if priority:
+        query["priority"] = priority
+    if created_by_role:
+        query["created_by_role"] = created_by_role
+    
+    tickets = await db.tickets.find(query, {"_id": 0}).sort("created_at", -1).to_list(10000)
+    return tickets
+
+@api_router.put("/tickets/{ticket_id}/status")
+async def update_ticket_status(
+    ticket_id: str,
+    status: str,
+    resolution_note: Optional[str] = None,
+    background_tasks: BackgroundTasks = None,
+    user: dict = Depends(require_role([UserRole.ADMIN, UserRole.CASE_MANAGER]))
+):
+    """Update ticket status (open, in_progress, resolved, closed)"""
+    ticket = await db.tickets.find_one({"id": ticket_id})
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    
+    update_data = {
+        "status": status,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "updated_by": user["id"],
+        "updated_by_name": user["name"]
+    }
+    
+    if status in ["resolved", "closed"] and resolution_note:
+        update_data["resolution_note"] = resolution_note
+        update_data["resolved_at"] = datetime.now(timezone.utc).isoformat()
+        update_data["resolved_by"] = user["id"]
+        update_data["resolved_by_name"] = user["name"]
+    
+    await db.tickets.update_one(
+        {"id": ticket_id},
+        {"$set": update_data}
+    )
+    
+    # Notify the ticket creator
+    status_messages = {
+        "in_progress": "Your ticket is now being processed",
+        "resolved": "Your ticket has been resolved",
+        "closed": "Your ticket has been closed"
+    }
+    
+    if status in status_messages:
+        await create_notification(
+            ticket["created_by"],
+            f"Ticket Update: {ticket['subject']}",
+            status_messages[status] + (f". Note: {resolution_note}" if resolution_note else ""),
+            "ticket_status_update",
+            ticket_id
+        )
+        
+        # Send email notification if resolved
+        if status == "resolved" and background_tasks:
+            ticket_creator = await db.users.find_one({"id": ticket["created_by"]})
+            if ticket_creator:
+                background_tasks.add_task(
+                    email_service.send_email,
+                    ticket_creator["email"],
+                    f"Ticket Resolved: {ticket['subject']}",
+                    email_service.get_base_template(f"""
+                        <h2>Your Ticket Has Been Resolved</h2>
+                        <p>Hello {ticket_creator['name']},</p>
+                        <div class="success-box">
+                            <p>Your support ticket has been resolved.</p>
+                        </div>
+                        <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+                            <tr>
+                                <td style="padding: 10px; border-bottom: 1px solid #e5e7eb;"><strong>Subject:</strong></td>
+                                <td style="padding: 10px; border-bottom: 1px solid #e5e7eb;">{ticket['subject']}</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 10px; border-bottom: 1px solid #e5e7eb;"><strong>Resolution Note:</strong></td>
+                                <td style="padding: 10px; border-bottom: 1px solid #e5e7eb;">{resolution_note or 'Issue has been resolved.'}</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 10px;"><strong>Resolved By:</strong></td>
+                                <td style="padding: 10px;">{user['name']}</td>
+                            </tr>
+                        </table>
+                        <p>If you have any further questions, please create a new ticket.</p>
+                    """)
+                )
+    
+    return {"message": f"Ticket status updated to {status}"}
+
+@api_router.get("/tickets/{ticket_id}")
+async def get_ticket_details(ticket_id: str, user: dict = Depends(get_current_user)):
+    """Get detailed ticket information"""
+    ticket = await db.tickets.find_one({"id": ticket_id}, {"_id": 0})
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    
+    # Check access
+    if user["role"] not in [UserRole.ADMIN, UserRole.CASE_MANAGER]:
+        if ticket["created_by"] != user["id"]:
+            raise HTTPException(status_code=403, detail="Not authorized")
+    
+    return ticket
+
+@api_router.get("/tickets/stats")
+async def get_ticket_stats(user: dict = Depends(require_role([UserRole.ADMIN]))):
+    """Get ticket statistics"""
+    all_tickets = await db.tickets.find({}, {"_id": 0}).to_list(10000)
+    
+    return {
+        "total": len(all_tickets),
+        "open": len([t for t in all_tickets if t["status"] == "open"]),
+        "in_progress": len([t for t in all_tickets if t["status"] == "in_progress"]),
+        "resolved": len([t for t in all_tickets if t["status"] == "resolved"]),
+        "closed": len([t for t in all_tickets if t["status"] == "closed"]),
+        "by_priority": {
+            "urgent": len([t for t in all_tickets if t["priority"] == "urgent"]),
+            "high": len([t for t in all_tickets if t["priority"] == "high"]),
+            "medium": len([t for t in all_tickets if t["priority"] == "medium"]),
+            "low": len([t for t in all_tickets if t["priority"] == "low"])
+        },
+        "by_role": {
+            "client": len([t for t in all_tickets if t["created_by_role"] == UserRole.CLIENT]),
+            "partner": len([t for t in all_tickets if t["created_by_role"] == UserRole.PARTNER]),
+            "case_manager": len([t for t in all_tickets if t["created_by_role"] == UserRole.CASE_MANAGER])
+        }
+    }
+
 @api_router.get("/cases/my-cases", response_model=List[CaseResponse])
 async def get_my_cases(user: dict = Depends(get_current_user)):
     query = {}
