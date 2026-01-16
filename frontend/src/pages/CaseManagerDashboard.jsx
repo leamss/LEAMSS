@@ -218,7 +218,9 @@ const CaseManagerDashboard = () => {
   };
 
   return (
-    <div className="flex min-h-screen bg-slate-50">
+    <div className="flex flex-col min-h-screen bg-slate-50">
+      <AdminReturnBanner />
+      <div className="flex flex-1">
       <aside className="w-64 bg-slate-800 text-white p-6 flex flex-col" data-testid="case-manager-sidebar">
         <div className="flex items-center gap-2 mb-8">
           <Briefcase className="h-8 w-8 text-[#f7620b]" />
