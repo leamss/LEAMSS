@@ -1110,6 +1110,7 @@ const AdminDashboard = () => {
                         <div key={usr.id} className="flex justify-between items-center p-3 border rounded-lg hover:bg-slate-50">
                           <div><p className="font-medium text-slate-800">{usr.name}</p><p className="text-sm text-slate-600">{usr.email}</p></div>
                           <div className="flex gap-2">
+                            {usr.role !== 'admin' && <Button onClick={() => openTicketForUser(usr)} size="sm" variant="outline" className="text-[#f7620b] border-[#f7620b] hover:bg-[#f7620b]/10" data-testid={`ticket-for-${usr.id}`}><MessageSquare className="h-4 w-4 mr-1" />Ticket</Button>}
                             {usr.role !== 'admin' && <Button onClick={() => handleImpersonate(usr)} size="sm" className="bg-[#2a777a] hover:bg-[#236466] text-white" data-testid={`impersonate-${usr.id}`}><Eye className="h-4 w-4 mr-1" />Switch</Button>}
                             <Button onClick={() => setUserDialog({ open: true, mode: 'edit', data: usr })} size="sm" variant="outline" data-testid={`edit-user-${usr.id}`}><Edit className="h-4 w-4" /></Button>
                             {usr.role !== 'admin' && <Button onClick={() => handleDeleteUser(usr.id)} size="sm" variant="destructive" data-testid={`delete-user-${usr.id}`}><Trash2 className="h-4 w-4" /></Button>}
