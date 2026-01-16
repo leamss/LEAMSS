@@ -643,7 +643,7 @@ async def update_case_step(update: StepUpdate, background_tasks: BackgroundTasks
     return {"message": "Step updated"}
 
 @api_router.post("/cases/request-additional-document")
-async def request_additional_document(request: AdditionalDocRequest, user: dict = Depends(require_role([UserRole.CASE_MANAGER, UserRole.ADMIN]))):
+async def request_additional_document(request: AdditionalDocRequest, background_tasks: BackgroundTasks, user: dict = Depends(require_role([UserRole.CASE_MANAGER, UserRole.ADMIN]))):
     case = await db.cases.find_one({"id": request.case_id})
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
@@ -671,6 +671,17 @@ async def request_additional_document(request: AdditionalDocRequest, user: dict 
         f"Case Manager has requested: {request.document_name}",
         "doc_requested",
         case["id"]
+    )
+    
+    # Send email notification
+    background_tasks.add_task(
+        email_service.send_additional_doc_request_email,
+        case["client_email"],
+        case["client_name"],
+        request.document_name,
+        request.description,
+        request.due_date or "",
+        case["case_id"]
     )
     
     return {"message": "Document request created", "request_id": doc_request["id"]}
