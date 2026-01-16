@@ -25,25 +25,16 @@ const ClientDashboard = () => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploadingFor, setUploadingFor] = useState(null);
 
-  useEffect(() => {
-    const userData = JSON.parse(localStorage.getItem('user'));
-    if (!userData || userData.role !== 'client') {
-      navigate('/');
-      return;
-    }
-    setUser(userData);
-    loadData();
-  }, [navigate]);
-
   const getAuthHeader = () => ({
     headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
   });
 
   const loadData = async () => {
     try {
+      const authHeader = getAuthHeader();
       const [statsRes, casesRes] = await Promise.all([
-        axios.get(`${API}/stats/dashboard`, getAuthHeader()),
-        axios.get(`${API}/cases/my-cases`, getAuthHeader())
+        axios.get(`${API}/stats/dashboard`, authHeader),
+        axios.get(`${API}/cases/my-cases`, authHeader)
       ]);
       setStats(statsRes.data);
       
@@ -51,13 +42,29 @@ const ClientDashboard = () => {
         const myCase = casesRes.data[0];
         setCaseData(myCase);
         setAdditionalDocRequests(myCase.additional_doc_requests || []);
-        const docsRes = await axios.get(`${API}/documents/case/${myCase.id}`, getAuthHeader());
+        const docsRes = await axios.get(`${API}/documents/case/${myCase.id}`, authHeader);
         setDocuments(docsRes.data);
       }
     } catch (error) {
       toast.error('Failed to load data');
     }
   };
+
+  useEffect(() => {
+    const userData = JSON.parse(localStorage.getItem('user'));
+    if (!userData || userData.role !== 'client') {
+      navigate('/');
+      return;
+    }
+    setUser(userData);
+  }, [navigate]);
+
+  useEffect(() => {
+    if (user) {
+      loadData();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   const handleLogout = () => {
     localStorage.clear();

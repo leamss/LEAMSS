@@ -28,25 +28,16 @@ const CaseManagerDashboard = () => {
   const [reviewDialog, setReviewDialog] = useState({ open: false, document: null, status: '', comment: '' });
   const [additionalDocDialog, setAdditionalDocDialog] = useState({ open: false, document_name: '', description: '', due_date: '' });
 
-  useEffect(() => {
-    const userData = JSON.parse(localStorage.getItem('user'));
-    if (!userData || userData.role !== 'case_manager') {
-      navigate('/');
-      return;
-    }
-    setUser(userData);
-    loadData();
-  }, [navigate]);
-
   const getAuthHeader = () => ({
     headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
   });
 
   const loadData = async () => {
     try {
+      const authHeader = getAuthHeader();
       const [statsRes, casesRes] = await Promise.all([
-        axios.get(`${API}/stats/dashboard`, getAuthHeader()),
-        axios.get(`${API}/cases/my-cases`, getAuthHeader())
+        axios.get(`${API}/stats/dashboard`, authHeader),
+        axios.get(`${API}/cases/my-cases`, authHeader)
       ]);
       setStats(statsRes.data);
       setCases(casesRes.data);
@@ -54,6 +45,22 @@ const CaseManagerDashboard = () => {
       toast.error('Failed to load data');
     }
   };
+
+  useEffect(() => {
+    const userData = JSON.parse(localStorage.getItem('user'));
+    if (!userData || userData.role !== 'case_manager') {
+      navigate('/');
+      return;
+    }
+    setUser(userData);
+  }, [navigate]);
+
+  useEffect(() => {
+    if (user) {
+      loadData();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   const loadCaseDetails = async (caseId) => {
     try {

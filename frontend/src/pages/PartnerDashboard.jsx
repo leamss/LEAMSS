@@ -38,26 +38,17 @@ const PartnerDashboard = () => {
     passport: null
   });
 
-  useEffect(() => {
-    const userData = JSON.parse(localStorage.getItem('user'));
-    if (!userData || userData.role !== 'partner') {
-      navigate('/');
-      return;
-    }
-    setUser(userData);
-    loadData();
-  }, [navigate]);
-
   const getAuthHeader = () => ({
     headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
   });
 
   const loadData = async () => {
     try {
+      const authHeader = getAuthHeader();
       const [statsRes, salesRes, productsRes] = await Promise.all([
-        axios.get(`${API}/stats/dashboard`, getAuthHeader()),
-        axios.get(`${API}/sales/my-sales`, getAuthHeader()),
-        axios.get(`${API}/products`, getAuthHeader())
+        axios.get(`${API}/stats/dashboard`, authHeader),
+        axios.get(`${API}/sales/my-sales`, authHeader),
+        axios.get(`${API}/products`, authHeader)
       ]);
       setStats(statsRes.data);
       setSales(salesRes.data);
@@ -66,6 +57,22 @@ const PartnerDashboard = () => {
       toast.error('Failed to load data');
     }
   };
+
+  useEffect(() => {
+    const userData = JSON.parse(localStorage.getItem('user'));
+    if (!userData || userData.role !== 'partner') {
+      navigate('/');
+      return;
+    }
+    setUser(userData);
+  }, [navigate]);
+
+  useEffect(() => {
+    if (user) {
+      loadData();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   const handleLogout = () => {
     localStorage.clear();
