@@ -8,10 +8,62 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Briefcase, FileText, DollarSign, LogOut, Plus } from 'lucide-react';
+import { Briefcase, FileText, DollarSign, LogOut, Plus, ArrowLeft } from 'lucide-react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
+
+// Return to Admin Banner Component
+const AdminReturnBanner = () => {
+  const [isImpersonating, setIsImpersonating] = useState(false);
+  const [adminUser, setAdminUser] = useState(null);
+
+  useEffect(() => {
+    const adminToken = localStorage.getItem('admin_token');
+    const adminUserData = localStorage.getItem('admin_user');
+    if (adminToken && adminUserData) {
+      setIsImpersonating(true);
+      try {
+        setAdminUser(JSON.parse(adminUserData));
+      } catch (e) {
+        console.error('Failed to parse admin user data');
+      }
+    }
+  }, []);
+
+  const handleReturnToAdmin = () => {
+    const adminToken = localStorage.getItem('admin_token');
+    const adminUserData = localStorage.getItem('admin_user');
+    if (adminToken && adminUserData) {
+      localStorage.setItem('token', adminToken);
+      localStorage.setItem('user', adminUserData);
+      localStorage.removeItem('admin_token');
+      localStorage.removeItem('admin_user');
+      toast.success('Returned to Admin account');
+      window.location.assign('/admin');
+    }
+  };
+
+  if (!isImpersonating) return null;
+
+  return (
+    <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white px-4 py-2 flex items-center justify-between shadow-lg" data-testid="admin-return-banner">
+      <div className="flex items-center gap-2">
+        <span className="text-sm font-medium">🔒 Viewing as impersonated user</span>
+        {adminUser && <span className="text-xs opacity-80">(Admin: {adminUser.name})</span>}
+      </div>
+      <Button 
+        onClick={handleReturnToAdmin} 
+        size="sm" 
+        className="bg-white text-orange-600 hover:bg-orange-50 font-medium"
+        data-testid="return-to-admin-btn"
+      >
+        <ArrowLeft className="h-4 w-4 mr-1" />
+        Return to Admin
+      </Button>
+    </div>
+  );
+};
 
 const PartnerDashboard = () => {
   const navigate = useNavigate();
