@@ -178,7 +178,7 @@ const ClientDashboard = () => {
           <Card className="p-12 text-center">
             <FileText className="h-16 w-16 text-slate-400 mx-auto mb-4" />
             <h2 className="text-2xl font-semibold mb-2">No Active Case</h2>
-            <p className="text-slate-600">Your case is being set up. You'll receive an email when it's ready.</p>
+            <p className="text-slate-600">Your case is being set up. You&apos;ll receive an email when it&apos;s ready.</p>
           </Card>
         ) : (
           <div className="space-y-6">
