@@ -367,7 +367,30 @@ async def create_sale(sale: SaleCreate, user: dict = Depends(require_role([UserR
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
     
-    commission_amount = sale.fee_amount * (product["commission_rate"] / 100)
+    # Calculate commission based on commission type
+    commission_rate = product["commission_rate"]
+    commission_type = product.get("commission_type", "fixed")
+    
+    if commission_type == "tiered":
+        # Count partner's approved sales for tiered calculation
+        partner_sales_count = await db.sales.count_documents({
+            "partner_id": user["id"],
+            "status": "approved"
+        })
+        
+        tiers = product.get("commission_tiers", [])
+        for tier in sorted(tiers, key=lambda x: x.get("min_sales", 0)):
+            if tier.get("min_sales", 0) <= partner_sales_count <= tier.get("max_sales", 999999):
+                commission_rate = tier.get("rate", commission_rate)
+                break
+    elif commission_type == "custom":
+        # Check if partner has custom rate
+        partner = await db.users.find_one({"id": user["id"]})
+        custom_rates = partner.get("custom_commission_rates", {})
+        if sale.product_id in custom_rates:
+            commission_rate = custom_rates[sale.product_id]
+    
+    commission_amount = sale.fee_amount * (commission_rate / 100)
     
     sale_doc = {
         "id": str(ObjectId()),
@@ -383,7 +406,8 @@ async def create_sale(sale: SaleCreate, user: dict = Depends(require_role([UserR
         "payment_method": sale.payment_method,
         "payment_reference": sale.payment_reference,
         "status": "pending",
-        "commission_rate": product["commission_rate"],
+        "commission_type": commission_type,
+        "commission_rate": commission_rate,
         "commission_amount": commission_amount,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "documents": []
