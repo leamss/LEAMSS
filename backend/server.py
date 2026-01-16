@@ -77,6 +77,8 @@ class ProductBase(BaseModel):
     description: str
     fee: float
     commission_rate: float
+    commission_type: str = "fixed"  # fixed, tiered, custom
+    commission_tiers: Optional[List[Dict[str, Any]]] = None  # For tiered commissions
 
 class ProductCreate(ProductBase):
     pass
