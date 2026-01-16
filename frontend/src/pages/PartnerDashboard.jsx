@@ -473,6 +473,7 @@ const PartnerDashboard = () => {
           )}
         </div>
       </main>
+      </div>
     </div>
   );
 };
