@@ -1026,18 +1026,64 @@ async def get_dashboard_stats(user: dict = Depends(get_current_user)):
 
 # Admin - Edit Product
 @api_router.put("/products/{product_id}")
-async def update_product(product_id: str, product: ProductCreate, user: dict = Depends(require_role([UserRole.ADMIN]))):
-    result = await db.products.update_one(
-        {"id": product_id},
-        {"$set": {
-            "name": product.name,
-            "description": product.description,
-            "fee": product.fee,
-            "commission_rate": product.commission_rate
-        }}
-    )
-    if result.matched_count == 0:
+async def update_product(product_id: str, product: ProductUpdate, user: dict = Depends(require_role([UserRole.ADMIN]))):
+    existing_product = await db.products.find_one({"id": product_id})
+    if not existing_product:
         raise HTTPException(status_code=404, detail="Product not found")
+    
+    update_data = {}
+    
+    # Check if commission structure is changing
+    commission_changed = False
+    if product.commission_type is not None and product.commission_type != existing_product.get("commission_type"):
+        commission_changed = True
+    if product.commission_rate is not None and product.commission_rate != existing_product.get("commission_rate"):
+        commission_changed = True
+    if product.commission_tiers is not None and product.commission_tiers != existing_product.get("commission_tiers"):
+        commission_changed = True
+    
+    # Build update data
+    if product.name is not None:
+        update_data["name"] = product.name
+    if product.description is not None:
+        update_data["description"] = product.description
+    if product.fee is not None:
+        update_data["fee"] = product.fee
+    if product.commission_rate is not None:
+        update_data["commission_rate"] = product.commission_rate
+    if product.commission_type is not None:
+        update_data["commission_type"] = product.commission_type
+    if product.commission_tiers is not None:
+        update_data["commission_tiers"] = product.commission_tiers
+    
+    # If commission changed, add to history
+    if commission_changed:
+        effective_from = product.commission_effective_from or datetime.now(timezone.utc).isoformat()
+        commission_history_entry = {
+            "changed_at": datetime.now(timezone.utc).isoformat(),
+            "effective_from": effective_from,
+            "changed_by": user["id"],
+            "previous_type": existing_product.get("commission_type", "fixed"),
+            "previous_rate": existing_product.get("commission_rate", 0),
+            "previous_tiers": existing_product.get("commission_tiers", []),
+            "new_type": product.commission_type or existing_product.get("commission_type"),
+            "new_rate": product.commission_rate or existing_product.get("commission_rate"),
+            "new_tiers": product.commission_tiers or existing_product.get("commission_tiers", [])
+        }
+        
+        await db.products.update_one(
+            {"id": product_id},
+            {"$push": {"commission_history": commission_history_entry}}
+        )
+        
+        update_data["commission_effective_from"] = effective_from
+    
+    if update_data:
+        await db.products.update_one(
+            {"id": product_id},
+            {"$set": update_data}
+        )
+    
     return {"message": "Product updated"}
 
 # Admin - Delete Product
