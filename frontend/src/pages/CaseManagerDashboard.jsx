@@ -19,36 +19,26 @@ const API = `${BACKEND_URL}/api`;
 
 // Return to Admin Banner Component
 const AdminReturnBanner = () => {
-  const [isImpersonating, setIsImpersonating] = useState(false);
-  const [adminUser, setAdminUser] = useState(null);
-
-  useEffect(() => {
-    const adminToken = localStorage.getItem('admin_token');
-    const adminUserData = localStorage.getItem('admin_user');
-    if (adminToken && adminUserData) {
-      setIsImpersonating(true);
-      try {
-        setAdminUser(JSON.parse(adminUserData));
-      } catch (e) {
-        console.error('Failed to parse admin user data');
-      }
-    }
-  }, []);
+  const adminToken = localStorage.getItem('admin_token');
+  const adminUserData = localStorage.getItem('admin_user');
+  
+  if (!adminToken || !adminUserData) return null;
+  
+  let adminUser = null;
+  try {
+    adminUser = JSON.parse(adminUserData);
+  } catch (e) {
+    console.error('Failed to parse admin user data');
+  }
 
   const handleReturnToAdmin = () => {
-    const adminToken = localStorage.getItem('admin_token');
-    const adminUserData = localStorage.getItem('admin_user');
-    if (adminToken && adminUserData) {
-      localStorage.setItem('token', adminToken);
-      localStorage.setItem('user', adminUserData);
-      localStorage.removeItem('admin_token');
-      localStorage.removeItem('admin_user');
-      toast.success('Returned to Admin account');
-      window.location.assign('/admin');
-    }
+    localStorage.setItem('token', adminToken);
+    localStorage.setItem('user', adminUserData);
+    localStorage.removeItem('admin_token');
+    localStorage.removeItem('admin_user');
+    toast.success('Returned to Admin account');
+    window.location.assign('/admin');
   };
-
-  if (!isImpersonating) return null;
 
   return (
     <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white px-4 py-2 flex items-center justify-between shadow-lg" data-testid="admin-return-banner">
