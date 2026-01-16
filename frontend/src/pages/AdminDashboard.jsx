@@ -457,15 +457,32 @@ const AdminDashboard = () => {
     if (!ticketDialog.subject || !ticketDialog.description) { toast.error('Please fill subject and description'); return; }
     try {
       await axios.post(`${API}/tickets`, {
-        subject: ticketDialog.subject, description: ticketDialog.description,
-        category: ticketDialog.category, priority: ticketDialog.priority, case_id: null
+        subject: ticketDialog.subject, 
+        description: ticketDialog.description,
+        category: ticketDialog.category, 
+        priority: ticketDialog.priority, 
+        case_id: null,
+        target_user_ids: ticketDialog.target_user_ids.length > 0 ? ticketDialog.target_user_ids : null,
+        target_role: ticketDialog.target_role || null
       }, getAuthHeader());
       toast.success('Ticket created!');
-      setTicketDialog({ open: false, subject: '', description: '', category: 'general', priority: 'medium', target_user_id: '' });
+      setTicketDialog({ open: false, subject: '', description: '', category: 'general', priority: 'medium', target_user_ids: [], target_role: '' });
       loadData();
     } catch (error) {
       toast.error('Failed to create ticket');
     }
+  };
+
+  const openTicketForUser = (targetUser) => {
+    setTicketDialog({
+      open: true,
+      subject: '',
+      description: '',
+      category: 'general',
+      priority: 'medium',
+      target_user_ids: [targetUser.id],
+      target_role: ''
+    });
   };
 
   const handleReassignCase = async (caseId, newManagerId) => {
