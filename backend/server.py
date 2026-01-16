@@ -820,6 +820,9 @@ async def update_ticket_status(
     user: dict = Depends(require_role([UserRole.ADMIN, UserRole.CASE_MANAGER]))
 ):
     """Update ticket status (open, in_progress, resolved, closed)"""
+    new_status = status_update.status
+    resolution_note = status_update.resolution_note
+    
     ticket = await db.tickets.find_one({"id": ticket_id})
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
