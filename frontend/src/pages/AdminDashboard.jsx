@@ -194,7 +194,12 @@ const AdminDashboard = () => {
 
   const updateTicketStatus = async (ticketId, status) => {
     try {
-      await axios.put(`${API}/tickets/${ticketId}/status?status=${status}&resolution_note=${encodeURIComponent(resolutionNote)}`, {}, getAuthHeader());
+      // Validate resolution note for resolve/close actions
+      if ((status === 'resolved' || status === 'closed') && (!resolutionNote || resolutionNote.trim().length < 10)) {
+        toast.error('Resolution note is required (minimum 10 characters) to resolve or close a ticket');
+        return;
+      }
+      await axios.put(`${API}/tickets/${ticketId}/status`, { status, resolution_note: resolutionNote || null }, getAuthHeader());
       toast.success(`Ticket ${status}`);
       setResolutionNote('');
       loadTickets();
@@ -203,7 +208,42 @@ const AdminDashboard = () => {
         setSelectedTicket(res.data);
       }
     } catch (error) {
-      toast.error('Failed to update ticket');
+      toast.error(error.response?.data?.detail || 'Failed to update ticket');
+    }
+  };
+
+  const uploadTicketAttachment = async (ticketId, file) => {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      await axios.post(`${API}/tickets/${ticketId}/attachment`, formData, {
+        ...getAuthHeader(),
+        headers: { ...getAuthHeader().headers, 'Content-Type': 'multipart/form-data' }
+      });
+      toast.success('Attachment uploaded');
+      const res = await axios.get(`${API}/tickets/${ticketId}`, getAuthHeader());
+      setSelectedTicket(res.data);
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to upload attachment');
+    }
+  };
+
+  const downloadTicketAttachment = async (ticketId, fileId, filename) => {
+    try {
+      const response = await axios.get(`${API}/tickets/${ticketId}/attachment/${fileId}`, {
+        ...getAuthHeader(),
+        responseType: 'blob'
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      toast.success('Attachment downloaded');
+    } catch (error) {
+      toast.error('Failed to download attachment');
     }
   };
 
