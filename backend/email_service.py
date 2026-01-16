@@ -177,7 +177,7 @@ class EmailService:
     
     async def send_document_rejected_email(self, to_email: str, client_name: str, document_name: str, reason: str, case_id: str):
         """Notify client that their document has been rejected"""
-        subject = f"Action Required - Document Needs Resubmission"
+        subject = "Action Required - Document Needs Resubmission"
         
         content = f"""
         <h2>Document Requires Resubmission</h2>
@@ -217,7 +217,7 @@ class EmailService:
     
     async def send_step_completed_email(self, to_email: str, client_name: str, step_name: str, next_step: str, case_id: str):
         """Notify client that a workflow step has been completed"""
-        subject = f"Case Progress Update - Step Completed!"
+        subject = "Case Progress Update - Step Completed!"
         
         content = f"""
         <h2>Congratulations! Step Completed</h2>
