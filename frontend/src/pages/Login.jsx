@@ -65,7 +65,7 @@ const Login = () => {
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
         <div className="w-full max-w-md">
           <div className="flex items-center gap-2 mb-8">
-            <ShieldCheck className="h-8 w-8 text-blue-600" />
+            <ShieldCheck className="h-8 w-8 text-[#2a777a]" />
             <h2 className="text-2xl font-bold" style={{ fontFamily: 'Merriweather, serif' }}>Login</h2>
           </div>
 
@@ -102,13 +102,13 @@ const Login = () => {
               type="submit"
               disabled={loading}
               data-testid="login-button"
-              className="w-full h-11 bg-slate-900 hover:bg-slate-800 text-white font-medium"
+              className="w-full h-11 bg-[#2a777a] hover:bg-[#236466] text-white font-medium"
             >
               {loading ? 'Logging in...' : 'Login'}
             </Button>
           </form>
 
-          <div className="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="mt-8 p-4 bg-[#2a777a]/10 border border-[#2a777a]/30 rounded-lg">
             <p className="text-sm text-slate-600 font-medium mb-2">Demo Credentials:</p>
             <p className="text-xs text-slate-500">Admin: admin@leamss.com / Admin@123</p>
             <p className="text-xs text-slate-500">Partner: partner@leamss.com / Partner@123</p>
