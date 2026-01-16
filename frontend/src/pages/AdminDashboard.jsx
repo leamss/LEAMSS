@@ -1194,6 +1194,12 @@ const AdminDashboard = () => {
                     <p className="text-sm text-slate-600">Category: {selectedTicket.category}</p>
                     <p className="text-sm text-slate-600">Created by: {selectedTicket.created_by_name} ({selectedTicket.created_by_role})</p>
                     <p className="text-sm text-slate-600">Created: {new Date(selectedTicket.created_at).toLocaleString()}</p>
+                    {selectedTicket.target_user_ids?.length > 0 && (
+                      <p className="text-sm text-slate-600">Assigned to: {selectedTicket.target_user_ids.length} user(s)</p>
+                    )}
+                    {selectedTicket.target_role && (
+                      <p className="text-sm text-slate-600">Target Role: <Badge variant="outline" className="capitalize">{selectedTicket.target_role.replace('_', ' ')}</Badge></p>
+                    )}
                   </div>
                   <div className="flex gap-2">
                     {selectedTicket.status === 'open' && <Button onClick={() => updateTicketStatus(selectedTicket.id, 'in_progress')} size="sm" className="bg-purple-500 hover:bg-purple-600"><Clock className="mr-1 h-4 w-4" />Start</Button>}
