@@ -107,10 +107,10 @@ const ClientDashboard = () => {
   };
 
   const getStepIcon = (step) => {
-    if (step.status === 'completed') return <CheckCircle className="h-5 w-5 text-emerald-600" />;
-    if (step.status === 'in_progress' && !step.is_locked) return <Clock className="h-5 w-5 text-blue-600" />;
+    if (step.status === 'completed') return <CheckCircle className="h-5 w-5 text-[#2a777a]" />;
+    if (step.status === 'in_progress' && !step.is_locked) return <Clock className="h-5 w-5 text-[#2a777a]" />;
     if (step.is_locked) return <Lock className="h-5 w-5 text-slate-400" />;
-    return <AlertCircle className="h-5 w-5 text-amber-600" />;
+    return <AlertCircle className="h-5 w-5 text-[#f7620b]" />;
   };
 
   const getProgressPercentage = () => {
@@ -141,8 +141,8 @@ const ClientDashboard = () => {
       <header className="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-emerald-100 flex items-center justify-center">
-              <User className="h-5 w-5 text-emerald-600" />
+            <div className="h-10 w-10 rounded-full bg-[#2a777a]/20 flex items-center justify-center">
+              <User className="h-5 w-5 text-[#2a777a]" />
             </div>
             <div>
               <h1 className="text-lg font-semibold text-gray-900">Client Portal</h1>
@@ -176,7 +176,7 @@ const ClientDashboard = () => {
         ) : (
           <div className="space-y-6">
             {/* Case Overview Card */}
-            <Card className="p-6 bg-gradient-to-r from-emerald-500 to-teal-600 text-white" data-testid="case-overview">
+            <Card className="p-6 bg-gradient-to-r from-[#2a777a] to-[#236466] text-white" data-testid="case-overview">
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <h2 className="text-2xl font-bold mb-1">{caseData.case_id}</h2>
@@ -197,17 +197,17 @@ const ClientDashboard = () => {
 
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Card className="p-4 border-l-4 border-l-emerald-500">
+              <Card className="p-4 border-l-4 border-l-[#2a777a]">
                 <p className="text-sm text-slate-600 mb-1">Current Step</p>
                 <p className="text-lg font-semibold text-gray-900">{caseData.current_step}</p>
               </Card>
-              <Card className="p-4 border-l-4 border-l-blue-500">
+              <Card className="p-4 border-l-4 border-l-[#2a777a]">
                 <p className="text-sm text-slate-600 mb-1">Completed Steps</p>
-                <p className="text-lg font-semibold text-blue-600">{stats.completed_steps || 0}</p>
+                <p className="text-lg font-semibold text-[#2a777a]">{stats.completed_steps || 0}</p>
               </Card>
-              <Card className="p-4 border-l-4 border-l-amber-500">
+              <Card className="p-4 border-l-4 border-l-[#f7620b]">
                 <p className="text-sm text-slate-600 mb-1">Pending Actions</p>
-                <p className="text-lg font-semibold text-amber-600">{stats.pending_doc_requests || 0}</p>
+                <p className="text-lg font-semibold text-[#f7620b]">{stats.pending_doc_requests || 0}</p>
               </Card>
             </div>
 
@@ -215,8 +215,8 @@ const ClientDashboard = () => {
             <Card className="p-6">
               <h3 className="text-lg font-semibold mb-4 text-gray-900">Your Case Manager</h3>
               <div className="flex items-center gap-3">
-                <div className="h-12 w-12 bg-emerald-100 rounded-full flex items-center justify-center">
-                  <User className="h-6 w-6 text-emerald-600" />
+                <div className="h-12 w-12 bg-[#2a777a]/20 rounded-full flex items-center justify-center">
+                  <User className="h-6 w-6 text-[#2a777a]" />
                 </div>
                 <div>
                   <p className="font-medium text-gray-900">{caseData.case_manager_name}</p>
@@ -227,10 +227,10 @@ const ClientDashboard = () => {
 
             {/* Current Active Step Upload */}
             {currentStep && (
-              <Card className="p-6 border-2 border-emerald-500">
+              <Card className="p-6 border-2 border-[#2a777a]">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="h-10 w-10 rounded-full bg-emerald-100 flex items-center justify-center">
-                    <Upload className="h-5 w-5 text-emerald-600" />
+                  <div className="h-10 w-10 rounded-full bg-[#2a777a]/20 flex items-center justify-center">
+                    <Upload className="h-5 w-5 text-[#2a777a]" />
                   </div>
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900">Current Step: {currentStep.step_name}</h3>
@@ -265,7 +265,7 @@ const ClientDashboard = () => {
                   <Button
                     onClick={() => handleFileUpload(currentStep.step_name)}
                     disabled={!selectedFile}
-                    className="w-full bg-emerald-600 hover:bg-emerald-700"
+                    className="w-full bg-[#2a777a] hover:bg-[#236466]"
                     data-testid="upload-button"
                   >
                     <Upload className="mr-2 h-4 w-4" />
@@ -277,18 +277,18 @@ const ClientDashboard = () => {
 
             {/* Additional Document Requests */}
             {additionalDocRequests.length > 0 && additionalDocRequests.some(r => r.status === 'pending') && (
-              <Card className="p-6 border-2 border-amber-500">
+              <Card className="p-6 border-2 border-[#f7620b]">
                 <h3 className="text-lg font-semibold mb-4 text-gray-900">Additional Documents Requested</h3>
                 <div className="space-y-4">
                   {additionalDocRequests.filter(r => r.status === 'pending').map((request) => (
-                    <div key={request.id} className="p-4 bg-amber-50 rounded-lg">
+                    <div key={request.id} className="p-4 bg-[#f7620b]/10 rounded-lg">
                       <div className="flex justify-between items-start mb-2">
                         <div>
                           <p className="font-medium text-gray-900">{request.document_name}</p>
                           <p className="text-sm text-slate-600">{request.description}</p>
                           <p className="text-xs text-slate-500 mt-1">Requested by: {request.requested_by_name}</p>
                         </div>
-                        <Badge variant="outline" className="bg-amber-100 text-amber-700 border-amber-300">
+                        <Badge variant="outline" className="bg-[#f7620b]/20 text-[#f7620b] border-[#f7620b]/50">
                           Required
                         </Badge>
                       </div>
@@ -303,7 +303,7 @@ const ClientDashboard = () => {
                           onClick={() => handleFileUpload(request.document_name, true, request.id)}
                           disabled={!selectedFile}
                           size="sm"
-                          className="bg-amber-600 hover:bg-amber-700"
+                          className="bg-[#f7620b] hover:bg-[#e55a09]"
                         >
                           Upload
                         </Button>
@@ -322,8 +322,8 @@ const ClientDashboard = () => {
                   <div
                     key={index}
                     className={`flex items-start gap-3 p-4 rounded-lg border-2 transition-all ${
-                      step.status === 'completed' ? 'bg-emerald-50 border-emerald-200' :
-                      step.status === 'in_progress' && !step.is_locked ? 'bg-blue-50 border-blue-300 shadow-sm' :
+                      step.status === 'completed' ? 'bg-[#2a777a]/10 border-[#2a777a]/30' :
+                      step.status === 'in_progress' && !step.is_locked ? 'bg-[#2a777a]/5 border-[#2a777a] shadow-sm' :
                       step.is_locked ? 'bg-slate-50 border-slate-200 opacity-60' :
                       'bg-white border-slate-200'
                     }`}
