@@ -153,8 +153,8 @@ const AdminDashboard = () => {
     <div className="flex min-h-screen bg-slate-50">
       <aside className="w-64 bg-slate-900 text-white p-6 flex flex-col" data-testid="admin-sidebar">
         <div className="flex items-center gap-2 mb-8">
-          <Briefcase className="h-8 w-8" />
-          <h1 className="text-xl font-bold" style={{ fontFamily: 'Merriweather, serif' }}>LEAMSS Admin</h1>
+          <Briefcase className="h-8 w-8 text-emerald-400" />
+          <h1 className="text-xl font-bold" style={{ fontFamily: 'Poppins, serif' }}>LEAMSS Admin</h1>
         </div>
         
         <nav className="flex-1 space-y-2">
