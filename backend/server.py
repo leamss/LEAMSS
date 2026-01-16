@@ -95,6 +95,8 @@ class SaleCreate(BaseModel):
     agreement_signed: bool
 
 class SaleResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    
     id: str
     partner_id: str
     partner_name: str
@@ -111,7 +113,7 @@ class SaleResponse(BaseModel):
     commission_rate: float
     commission_amount: float
     created_at: str
-    documents: List[str] = []
+    documents: List[Dict[str, Any]] = []
 
 class SaleApproval(BaseModel):
     sale_id: str
