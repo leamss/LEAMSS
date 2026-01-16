@@ -809,13 +809,13 @@ async def update_ticket_status(
         raise HTTPException(status_code=404, detail="Ticket not found")
     
     update_data = {
-        "status": status,
+        "status": new_status,
         "updated_at": datetime.now(timezone.utc).isoformat(),
         "updated_by": user["id"],
         "updated_by_name": user["name"]
     }
     
-    if status in ["resolved", "closed"] and resolution_note:
+    if new_status in ["resolved", "closed"] and resolution_note:
         update_data["resolution_note"] = resolution_note
         update_data["resolved_at"] = datetime.now(timezone.utc).isoformat()
         update_data["resolved_by"] = user["id"]
@@ -833,17 +833,17 @@ async def update_ticket_status(
         "closed": "Your ticket has been closed"
     }
     
-    if status in status_messages:
+    if new_status in status_messages:
         await create_notification(
             ticket["created_by"],
             f"Ticket Update: {ticket['subject']}",
-            status_messages[status] + (f". Note: {resolution_note}" if resolution_note else ""),
+            status_messages[new_status] + (f". Note: {resolution_note}" if resolution_note else ""),
             "ticket_status_update",
             ticket_id
         )
         
         # Send email notification if resolved
-        if status == "resolved" and background_tasks:
+        if new_status == "resolved" and background_tasks:
             ticket_creator = await db.users.find_one({"id": ticket["created_by"]})
             if ticket_creator:
                 background_tasks.add_task(
