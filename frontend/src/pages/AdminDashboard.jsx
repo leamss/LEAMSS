@@ -241,15 +241,38 @@ const AdminDashboard = () => {
   };
 
   const downloadReport = (data, filename) => {
-    const csvContent = "data:text/csv;charset=utf-8," + 
-      Object.keys(data[0] || {}).join(",") + "\n" +
-      data.map(row => Object.values(row).join(",")).join("\n");
-    const link = document.createElement("a");
-    link.setAttribute("href", encodeURI(csvContent));
-    link.setAttribute("download", `${filename}.csv`);
+    if (!data || data.length === 0) {
+      toast.error('No data to export');
+      return;
+    }
+    
+    // Get headers from first object
+    const headers = Object.keys(data[0]);
+    
+    // Build CSV rows with proper escaping
+    const csvRows = data.map(row => {
+      return headers.map(header => {
+        let cell = row[header];
+        if (cell === null || cell === undefined) cell = '';
+        // Convert to string and escape quotes
+        cell = String(cell).replace(/"/g, '""');
+        // Wrap in quotes if contains comma, newline, or quotes
+        if (cell.includes(',') || cell.includes('\n') || cell.includes('"')) {
+          cell = `"${cell}"`;
+        }
+        return cell;
+      }).join(',');
+    });
+    
+    const csvContent = [headers.join(','), ...csvRows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.setAttribute('download', `${filename}_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     link.remove();
+    URL.revokeObjectURL(link.href);
     toast.success('Report downloaded');
   };
 
