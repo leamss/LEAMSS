@@ -430,7 +430,7 @@ async def get_pending_sales(user: dict = Depends(require_role([UserRole.ADMIN]))
     return [SaleResponse(**s) for s in sales]
 
 @api_router.post("/sales/approve")
-async def approve_sale(approval: SaleApproval, user: dict = Depends(require_role([UserRole.ADMIN]))):
+async def approve_sale(approval: SaleApproval, background_tasks: BackgroundTasks, user: dict = Depends(require_role([UserRole.ADMIN]))):
     sale = await db.sales.find_one({"id": approval.sale_id})
     if not sale:
         raise HTTPException(status_code=404, detail="Sale not found")
@@ -441,13 +441,14 @@ async def approve_sale(approval: SaleApproval, user: dict = Depends(require_role
     )
     
     if approval.status == "approved":
+        temp_password = "Welcome@123"
         client_doc = {
             "id": str(ObjectId()),
             "name": sale["client_name"],
             "email": sale["client_email"],
             "mobile": sale["client_mobile"],
             "role": UserRole.CLIENT,
-            "password": pwd_context.hash("Welcome@123"),
+            "password": pwd_context.hash(temp_password),
             "created_at": datetime.now(timezone.utc).isoformat()
         }
         await db.users.insert_one(client_doc)
@@ -507,6 +508,38 @@ async def approve_sale(approval: SaleApproval, user: dict = Depends(require_role
             "case_created",
             case_doc["id"]
         )
+        
+        # Send email notifications
+        background_tasks.add_task(
+            email_service.send_welcome_email,
+            sale["client_email"],
+            sale["client_name"],
+            temp_password,
+            case_doc["case_id"]
+        )
+        
+        # Notify partner about approved sale
+        partner = await db.users.find_one({"id": sale["partner_id"]})
+        if partner:
+            background_tasks.add_task(
+                email_service.send_sale_approved_email,
+                partner["email"],
+                partner["name"],
+                sale["client_name"],
+                sale["product_name"],
+                sale.get("commission_amount", 0)
+            )
+    else:
+        # Sale rejected - notify partner
+        partner = await db.users.find_one({"id": sale["partner_id"]})
+        if partner:
+            background_tasks.add_task(
+                email_service.send_sale_rejected_email,
+                partner["email"],
+                partner["name"],
+                sale["client_name"],
+                sale["product_name"]
+            )
     
     return {"message": f"Sale {approval.status}"}
 
