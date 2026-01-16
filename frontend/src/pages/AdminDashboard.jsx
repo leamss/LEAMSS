@@ -14,7 +14,8 @@ import NotificationBell from '@/components/NotificationBell';
 import CreateTicket from '@/components/CreateTicket';
 import { 
   LayoutDashboard, FileText, Users, Briefcase, LogOut, Plus, 
-  Download, Edit, Trash2, UserPlus, Eye, ArrowRight, Settings 
+  Download, Edit, Trash2, UserPlus, Eye, ArrowRight, Settings,
+  Search, DollarSign, TrendingUp
 } from 'lucide-react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -29,17 +30,39 @@ const AdminDashboard = () => {
   const [products, setProducts] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
   const [caseManagers, setCaseManagers] = useState([]);
+  const [sales, setSales] = useState([]);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedCase, setSelectedCase] = useState(null);
   const [selectedSale, setSelectedSale] = useState(null);
   const [saleDocuments, setSaleDocuments] = useState([]);
   const [caseDocuments, setCaseDocuments] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [dateFilter, setDateFilter] = useState({ month: '', year: '' });
   
   // Dialogs
   const [productDialog, setProductDialog] = useState({ open: false, mode: 'create', data: null });
   const [userDialog, setUserDialog] = useState({ open: false, mode: 'create', data: null });
-  const [workflowDialog, setWorkflowDialog] = useState({ open: false, product_id: null, data: null });
-  const [impersonateDialog, setImpersonateDialog] = useState({ open: false, user: null });
+  const [workflowDialog, setWorkflowDialog] = useState({ 
+    open: false, 
+    product_id: null, 
+    steps: [],
+    currentStep: {
+      step_name: '',
+      step_order: 1,
+      description: '',
+      duration_days: null,
+      required_documents: []
+    },
+    currentDoc: { doc_name: '', description: '', is_mandatory: true }
+  });
+  const [ticketDialog, setTicketDialog] = useState({ 
+    open: false, 
+    subject: '', 
+    description: '', 
+    category: 'general',
+    priority: 'medium',
+    target_user_id: null 
+  });
   const [reassignDialog, setReassignDialog] = useState({ open: false, case_id: null });
 
   useEffect(() => {
@@ -58,12 +81,13 @@ const AdminDashboard = () => {
 
   const loadData = async () => {
     try {
-      const [statsRes, salesRes, casesRes, productsRes, usersRes] = await Promise.all([
+      const [statsRes, salesRes, casesRes, productsRes, usersRes, allSalesRes] = await Promise.all([
         axios.get(`${API}/stats/dashboard`, getAuthHeader()),
         axios.get(`${API}/sales/pending`, getAuthHeader()),
         axios.get(`${API}/cases`, getAuthHeader()),
         axios.get(`${API}/products`, getAuthHeader()),
-        axios.get(`${API}/users`, getAuthHeader())
+        axios.get(`${API}/users`, getAuthHeader()),
+        axios.get(`${API}/sales/pending`, getAuthHeader()).catch(() => ({ data: [] }))
       ]);
       setStats(statsRes.data);
       setPendingSales(salesRes.data);
@@ -71,6 +95,7 @@ const AdminDashboard = () => {
       setProducts(productsRes.data);
       setAllUsers(usersRes.data);
       setCaseManagers(usersRes.data.filter(u => u.role === 'case_manager'));
+      setSales(allSalesRes.data);
     } catch (error) {
       toast.error('Failed to load data');
     }
@@ -86,8 +111,6 @@ const AdminDashboard = () => {
       const response = await axios.post(`${API}/admin/impersonate/${targetUser.id}`, {}, getAuthHeader());
       localStorage.setItem('token', response.data.token);
       localStorage.setItem('user', JSON.stringify(response.data.user));
-      localStorage.setItem('impersonating', 'true');
-      localStorage.setItem('admin_token', localStorage.getItem('token'));
       
       const routes = {
         admin: '/admin',
@@ -189,13 +212,83 @@ const AdminDashboard = () => {
     }
   };
 
+  const openWorkflowEditor = (product) => {
+    setWorkflowDialog({
+      ...workflowDialog,
+      open: true,
+      product_id: product.id,
+      steps: product.workflow_steps || [],
+      currentStep: {
+        step_name: '',
+        step_order: (product.workflow_steps?.length || 0) + 1,
+        description: '',
+        duration_days: null,
+        required_documents: []
+      }
+    });
+  };
+
+  const addDocToCurrentStep = () => {
+    const { currentDoc, currentStep } = workflowDialog;
+    if (!currentDoc.doc_name) {
+      toast.error('Please enter document name');
+      return;
+    }
+    setWorkflowDialog({
+      ...workflowDialog,
+      currentStep: {
+        ...currentStep,
+        required_documents: [...currentStep.required_documents, { ...currentDoc }]
+      },
+      currentDoc: { doc_name: '', description: '', is_mandatory: true }
+    });
+  };
+
+  const addStepToWorkflow = () => {
+    const { currentStep, steps } = workflowDialog;
+    if (!currentStep.step_name) {
+      toast.error('Please enter step name');
+      return;
+    }
+    setWorkflowDialog({
+      ...workflowDialog,
+      steps: [...steps, currentStep],
+      currentStep: {
+        step_name: '',
+        step_order: steps.length + 2,
+        description: '',
+        duration_days: null,
+        required_documents: []
+      }
+    });
+  };
+
+  const saveWorkflow = async () => {
+    try {
+      const { steps, product_id } = workflowDialog;
+      for (const step of steps) {
+        await axios.post(`${API}/products/workflow-step`, {
+          product_id,
+          ...step
+        }, getAuthHeader());
+      }
+      toast.success('Workflow saved!');
+      setWorkflowDialog({ ...workflowDialog, open: false });
+      loadData();
+    } catch (error) {
+      toast.error('Failed to save workflow');
+    }
+  };
+
   const handleSaveUser = async (userData) => {
     try {
       if (userDialog.mode === 'create') {
         await axios.post(`${API}/auth/register`, userData, getAuthHeader());
         toast.success('User created!');
       } else {
-        await axios.put(`${API}/users/${userDialog.data.id}`, userData, getAuthHeader());
+        const updateData = { ...userData };
+        if (!updateData.password) delete updateData.password;
+        await axios.put(`${API}/users/${userDialog.data.id}`, updateData, getAuthHeader());
         toast.success('User updated!');
       }
       setUserDialog({ open: false, mode: 'create', data: null });
@@ -216,18 +309,66 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleCreateTicket = async () => {
+    try {
+      await axios.post(`${API}/tickets`, {
+        subject: ticketDialog.subject,
+        description: ticketDialog.description,
+        category: ticketDialog.category,
+        priority: ticketDialog.priority,
+        case_id: null
+      }, getAuthHeader());
+      
+      if (ticketDialog.target_user_id) {
+        // Notification will be handled by backend
+      }
+      
+      toast.success('Ticket created!');
+      setTicketDialog({ open: false, subject: '', description: '', category: 'general', priority: 'medium', target_user_id: null });
+    } catch (error) {
+      toast.error('Failed to create ticket');
+    }
+  };
+
   const handleReassignCase = async (caseId, newManagerId) => {
     try {
-      await axios.put(`${API}/cases/${caseId}/assign-manager`, null, {
-        ...getAuthHeader(),
-        params: { case_manager_id: newManagerId }
-      });
+      await axios.put(`${API}/cases/${caseId}/assign-manager?case_manager_id=${newManagerId}`, {}, getAuthHeader());
       toast.success('Case manager reassigned!');
       setReassignDialog({ open: false, case_id: null });
       loadData();
     } catch (error) {
       toast.error('Failed to reassign case');
     }
+  };
+
+  const filteredCases = cases.filter(c => 
+    c.case_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    c.client_name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const filteredUsers = allUsers.filter(u =>
+    u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    u.email.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const getRevenueData = () => {
+    const partnerRevenue = {};
+    sales.forEach(sale => {
+      if (sale.status === 'approved') {
+        if (!partnerRevenue[sale.partner_id]) {
+          partnerRevenue[sale.partner_id] = {
+            partner_name: sale.partner_name,
+            total_sales: 0,
+            total_commission: 0,
+            sales_count: 0
+          };
+        }
+        partnerRevenue[sale.partner_id].total_sales += sale.fee_amount;
+        partnerRevenue[sale.partner_id].total_commission += sale.commission_amount;
+        partnerRevenue[sale.partner_id].sales_count += 1;
+      }
+    });
+    return Object.values(partnerRevenue);
   };
 
   return (
@@ -285,6 +426,15 @@ const AdminDashboard = () => {
             <Users className="h-5 w-5" />
             <span>Users</span>
           </button>
+          <button
+            onClick={() => setActiveTab('revenue')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-md transition-colors ${
+              activeTab === 'revenue' ? 'bg-[#A8B5A2] text-white' : 'hover:bg-gray-700'
+            }`}
+          >
+            <DollarSign className="h-5 w-5" />
+            <span>Revenue</span>
+          </button>
         </nav>
         
         <Button
@@ -307,11 +457,19 @@ const AdminDashboard = () => {
               {activeTab === 'cases' && 'All Cases'}
               {activeTab === 'products' && 'Products & Workflows'}
               {activeTab === 'users' && 'User Management'}
+              {activeTab === 'revenue' && 'Revenue & Commission Report'}
               {activeTab === 'sale-docs' && `Sale Documents - ${selectedSale?.client_name}`}
               {activeTab === 'case-detail' && `Case Details - ${selectedCase?.case_id}`}
             </h2>
             <div className="flex items-center gap-3">
-              <CreateTicket />
+              <Button
+                onClick={() => setTicketDialog({ ...ticketDialog, open: true })}
+                variant="outline"
+                size="sm"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Raise Ticket
+              </Button>
               <NotificationBell />
             </div>
           </div>
@@ -350,7 +508,7 @@ const AdminDashboard = () => {
                       <Button
                         onClick={() => viewSaleDocuments(sale)}
                         size="sm"
-                        className="bg-[#51D0DE] hover:bg-[#51D0DE]/90"
+                        className="bg-[#51D0DE] hover:bg-[#51D0DE]/90 text-white"
                       >
                         <Eye className="mr-2 h-4 w-4" />
                         View Documents
@@ -392,12 +550,12 @@ const AdminDashboard = () => {
                 Back to Sales
               </Button>
               <Card className="p-6">
-                <h3 className="text-lg font-semibold mb-4">Uploaded Documents</h3>
+                <h3 className="text-lg font-semibold mb-4 text-[#33363B]">Uploaded Documents</h3>
                 <div className="space-y-3">
                   {saleDocuments.map((doc, idx) => (
                     <div key={idx} className="flex justify-between items-center p-3 border rounded-lg">
                       <div>
-                        <p className="font-medium">{doc.filename}</p>
+                        <p className="font-medium text-[#33363B]">{doc.filename}</p>
                         <p className="text-sm text-gray-600">Type: {doc.type}</p>
                       </div>
                       <Button
@@ -415,8 +573,8 @@ const AdminDashboard = () => {
                 </div>
               </Card>
               <div className="flex gap-3">
-                <Select onValueChange={(managerId) => handleApproveSale(selectedSale.id, 'approved', managerId)}>
-                  <SelectTrigger className="flex-1">
+                <Select onValueChange={(managerId) => handleApproveSale(selectedSale.id, 'approved', managerId)} className="flex-1">
+                  <SelectTrigger>
                     <SelectValue placeholder="Assign Case Manager & Approve" />
                   </SelectTrigger>
                   <SelectContent>
@@ -440,7 +598,18 @@ const AdminDashboard = () => {
           {/* Cases Tab */}
           {activeTab === 'cases' && (
             <div className="space-y-4">
-              {cases.map((caseItem) => (
+              <div className="flex gap-3 mb-6">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Search by case ID or client name..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+              {filteredCases.map((caseItem) => (
                 <Card key={caseItem.id} className="p-6 cursor-pointer hover:shadow-md transition-shadow" onClick={() => viewCaseDetails(caseItem)}>
                   <div className="flex justify-between items-start">
                     <div>
@@ -450,7 +619,7 @@ const AdminDashboard = () => {
                       <p className="text-sm text-gray-600">Case Manager: {caseItem.case_manager_name}</p>
                     </div>
                     <div className="text-right">
-                      <Badge className="bg-[#A8B5A2]">{caseItem.current_step}</Badge>
+                      <Badge className="bg-[#A8B5A2] text-white">{caseItem.current_step}</Badge>
                       <Button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -470,7 +639,7 @@ const AdminDashboard = () => {
             </div>
           )}
 
-          {/* Case Detail View */}
+          {/* Case Detail View - ENHANCED */}
           {activeTab === 'case-detail' && selectedCase && (
             <div className="space-y-6">
               <Button onClick={() => setActiveTab('cases')} variant="outline">
@@ -478,45 +647,81 @@ const AdminDashboard = () => {
                 Back to Cases
               </Button>
               <Card className="p-6">
-                <h3 className="text-lg font-semibold mb-4">Case Information</h3>
+                <h3 className="text-lg font-semibold mb-4 text-[#33363B]">Case Information</h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-gray-600">Client</p>
-                    <p className="font-medium">{selectedCase.client_name}</p>
+                    <p className="font-medium text-[#33363B]">{selectedCase.client_name}</p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-600">Email</p>
-                    <p className="font-medium">{selectedCase.client_email}</p>
+                    <p className="font-medium text-[#33363B]">{selectedCase.client_email}</p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-600">Product</p>
-                    <p className="font-medium">{selectedCase.product_name}</p>
+                    <p className="font-medium text-[#33363B]">{selectedCase.product_name}</p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-600">Case Manager</p>
-                    <p className="font-medium">{selectedCase.case_manager_name}</p>
+                    <p className="font-medium text-[#33363B]">{selectedCase.case_manager_name}</p>
                   </div>
                 </div>
               </Card>
+
               <Card className="p-6">
-                <h3 className="text-lg font-semibold mb-4">Documents</h3>
+                <h3 className="text-lg font-semibold mb-4 text-[#33363B]">Workflow Steps (All Stages)</h3>
+                <div className="space-y-3">
+                  {selectedCase.steps && selectedCase.steps.map((step, idx) => (
+                    <div key={idx} className={`p-4 rounded-lg border-2 ${
+                      step.status === 'completed' ? 'bg-green-50 border-green-200' :
+                      step.status === 'in_progress' ? 'bg-blue-50 border-blue-200' :
+                      'bg-gray-50 border-gray-200'
+                    }`}>
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="font-semibold text-[#33363B]">{step.step_order}. {step.step_name}</p>
+                          {step.notes && <p className="text-sm text-gray-600 mt-1">{step.notes}</p>}
+                          {step.required_documents && step.required_documents.length > 0 && (
+                            <div className="mt-2">
+                              <p className="text-xs font-medium text-gray-700">Required Documents:</p>
+                              <ul className="text-xs text-gray-600 ml-4 list-disc">
+                                {step.required_documents.map((doc, i) => (
+                                  <li key={i}>{doc.doc_name}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                        <Badge className={
+                          step.status === 'completed' ? 'bg-green-600 text-white' :
+                          step.status === 'in_progress' ? 'bg-blue-600 text-white' :
+                          'bg-gray-400 text-white'
+                        }>
+                          {step.status}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+
+              <Card className="p-6">
+                <h3 className="text-lg font-semibold mb-4 text-[#33363B]">Documents</h3>
                 <div className="space-y-3">
                   {caseDocuments.map((doc) => (
                     <div key={doc.id} className="flex justify-between items-center p-3 border rounded-lg">
                       <div>
-                        <p className="font-medium">{doc.filename}</p>
+                        <p className="font-medium text-[#33363B]">{doc.filename}</p>
                         <p className="text-sm text-gray-600">Step: {doc.step_name}</p>
+                        <p className="text-sm text-gray-600">Status: {doc.status}</p>
                       </div>
-                      <div className="flex gap-2">
-                        <Badge>{doc.status}</Badge>
-                        <Button
-                          onClick={() => downloadDocument(doc.id, doc.filename)}
-                          size="sm"
-                          variant="outline"
-                        >
-                          <Download className="h-4 w-4" />
-                        </Button>
-                      </div>
+                      <Button
+                        onClick={() => downloadDocument(doc.id, doc.filename)}
+                        size="sm"
+                        variant="outline"
+                      >
+                        <Download className="h-4 w-4" />
+                      </Button>
                     </div>
                   ))}
                 </div>
@@ -530,7 +735,7 @@ const AdminDashboard = () => {
               <div className="flex justify-end">
                 <Button
                   onClick={() => setProductDialog({ open: true, mode: 'create', data: { name: '', description: '', fee: 0, commission_rate: 0 } })}
-                  className="bg-[#D3A96B] hover:bg-[#D3A96B]/90"
+                  className="bg-[#D3A96B] hover:bg-[#D3A96B]/90 text-white"
                 >
                   <Plus className="mr-2 h-4 w-4" />
                   Create Product
@@ -546,6 +751,14 @@ const AdminDashboard = () => {
                         <p className="text-sm text-gray-600 mt-2">Fee: ${product.fee} | Commission: {product.commission_rate}%</p>
                       </div>
                       <div className="flex gap-2">
+                        <Button
+                          onClick={() => openWorkflowEditor(product)}
+                          size="sm"
+                          className="bg-[#51D0DE] hover:bg-[#51D0DE]/90 text-white"
+                        >
+                          <Settings className="h-4 w-4 mr-1" />
+                          Edit Workflow
+                        </Button>
                         <Button
                           onClick={() => setProductDialog({ open: true, mode: 'edit', data: product })}
                           size="sm"
@@ -564,11 +777,11 @@ const AdminDashboard = () => {
                     </div>
                     {product.workflow_steps && product.workflow_steps.length > 0 && (
                       <div>
-                        <p className="font-medium mb-2">Workflow Steps:</p>
+                        <p className="font-medium mb-2 text-[#33363B]">Workflow Steps:</p>
                         <div className="space-y-2">
                           {product.workflow_steps.map((step, idx) => (
                             <div key={idx} className="text-sm p-2 bg-gray-50 rounded">
-                              {step.step_order}. {step.step_name}
+                              <span className="font-medium text-[#33363B]">{step.step_order}. {step.step_name}</span>
                               {step.required_documents && step.required_documents.length > 0 && (
                                 <span className="text-xs text-gray-500 ml-2">
                                   ({step.required_documents.length} docs required)
@@ -588,10 +801,19 @@ const AdminDashboard = () => {
           {/* Users Tab */}
           {activeTab === 'users' && (
             <div className="space-y-6">
-              <div className="flex justify-end">
+              <div className="flex justify-between items-center">
+                <div className="relative flex-1 mr-4">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Search users..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
                 <Button
                   onClick={() => setUserDialog({ open: true, mode: 'create', data: { email: '', name: '', password: '', role: 'partner', mobile: '' } })}
-                  className="bg-[#D3A96B] hover:bg-[#D3A96B]/90"
+                  className="bg-[#D3A96B] hover:bg-[#D3A96B]/90 text-white"
                 >
                   <UserPlus className="mr-2 h-4 w-4" />
                   Create User
@@ -600,21 +822,21 @@ const AdminDashboard = () => {
               
               {['partner', 'case_manager', 'client'].map(role => (
                 <Card key={role} className="p-6">
-                  <h3 className="text-lg font-semibold mb-4 capitalize">
+                  <h3 className="text-lg font-semibold mb-4 capitalize text-[#33363B]">
                     {role === 'case_manager' ? 'Case Managers' : `${role}s`}
                   </h3>
                   <div className="space-y-3">
-                    {allUsers.filter(u => u.role === role).map((usr) => (
+                    {filteredUsers.filter(u => u.role === role).map((usr) => (
                       <div key={usr.id} className="flex justify-between items-center p-3 border rounded-lg">
                         <div>
-                          <p className="font-medium">{usr.name}</p>
+                          <p className="font-medium text-[#33363B]">{usr.name}</p>
                           <p className="text-sm text-gray-600">{usr.email}</p>
                         </div>
                         <div className="flex gap-2">
                           <Button
                             onClick={() => handleImpersonate(usr)}
                             size="sm"
-                            className="bg-[#51D0DE] hover:bg-[#51D0DE]/90"
+                            className="bg-[#51D0DE] hover:bg-[#51D0DE]/90 text-white"
                           >
                             <Eye className="h-4 w-4 mr-1" />
                             Switch
@@ -641,12 +863,39 @@ const AdminDashboard = () => {
               ))}
             </div>
           )}
+
+          {/* Revenue Tab - NEW */}
+          {activeTab === 'revenue' && (
+            <div className="space-y-6">
+              <Card className="p-6">
+                <h3 className="text-lg font-semibold mb-4 text-[#33363B]">Partner Revenue & Commission Report</h3>
+                <div className="space-y-4">
+                  {getRevenueData().map((data, idx) => (
+                    <div key={idx} className="p-4 border rounded-lg">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="font-semibold text-[#33363B]">{data.partner_name}</p>
+                          <p className="text-sm text-gray-600">Total Sales: {data.sales_count}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm text-gray-600">Total Revenue</p>
+                          <p className="text-lg font-bold text-[#A8B5A2]">${data.total_sales.toFixed(2)}</p>
+                          <p className="text-sm text-gray-600 mt-2">Commission Payable</p>
+                          <p className="text-lg font-bold text-[#D3A96B]">${data.total_commission.toFixed(2)}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            </div>
+          )}
         </div>
       </main>
 
       {/* Product Dialog */}
       <Dialog open={productDialog.open} onOpenChange={(open) => setProductDialog({ ...productDialog, open })}>
-        <DialogContent>
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>{productDialog.mode === 'create' ? 'Create' : 'Edit'} Product</DialogTitle>
           </DialogHeader>
@@ -683,8 +932,157 @@ const AdminDashboard = () => {
                 />
               </div>
             </div>
-            <Button onClick={() => handleSaveProduct(productDialog.data)} className="w-full bg-[#A8B5A2] hover:bg-[#A8B5A2]/90">
+            <Button onClick={() => handleSaveProduct(productDialog.data)} className="w-full bg-[#A8B5A2] hover:bg-[#A8B5A2]/90 text-white">
               Save Product
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Workflow Editor Dialog - NEW ENHANCED */}
+      <Dialog open={workflowDialog.open} onOpenChange={(open) => setWorkflowDialog({ ...workflowDialog, open })}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Workflow Steps</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6 py-4">
+            {/* Existing Steps */}
+            {workflowDialog.steps.length > 0 && (
+              <div>
+                <h4 className="font-semibold mb-2 text-[#33363B]">Current Steps:</h4>
+                <div className="space-y-2">
+                  {workflowDialog.steps.map((step, idx) => (
+                    <div key={idx} className="p-3 bg-gray-50 rounded border">
+                      <p className="font-medium text-[#33363B]">{step.step_order}. {step.step_name}</p>
+                      <p className="text-sm text-gray-600">{step.description}</p>
+                      {step.required_documents.length > 0 && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          Documents: {step.required_documents.map(d => d.doc_name).join(', ')}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Add New Step */}
+            <div className="border-t pt-4">
+              <h4 className="font-semibold mb-3 text-[#33363B]">Add New Step:</h4>
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label>Step Name *</Label>
+                    <Input
+                      value={workflowDialog.currentStep.step_name}
+                      onChange={(e) => setWorkflowDialog({ 
+                        ...workflowDialog, 
+                        currentStep: { ...workflowDialog.currentStep, step_name: e.target.value }
+                      })}
+                      placeholder="e.g., Document Verification"
+                    />
+                  </div>
+                  <div>
+                    <Label>Step Order</Label>
+                    <Input
+                      type="number"
+                      value={workflowDialog.currentStep.step_order}
+                      onChange={(e) => setWorkflowDialog({ 
+                        ...workflowDialog, 
+                        currentStep: { ...workflowDialog.currentStep, step_order: parseInt(e.target.value) }
+                      })}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label>Description</Label>
+                  <Textarea
+                    value={workflowDialog.currentStep.description}
+                    onChange={(e) => setWorkflowDialog({ 
+                      ...workflowDialog, 
+                      currentStep: { ...workflowDialog.currentStep, description: e.target.value }
+                    })}
+                    rows={2}
+                  />
+                </div>
+                <div>
+                  <Label>Duration (days)</Label>
+                  <Input
+                    type="number"
+                    value={workflowDialog.currentStep.duration_days || ''}
+                    onChange={(e) => setWorkflowDialog({ 
+                      ...workflowDialog, 
+                      currentStep: { ...workflowDialog.currentStep, duration_days: parseInt(e.target.value) || null }
+                    })}
+                  />
+                </div>
+
+                {/* Document Requirements */}
+                <div className="border-t pt-3">
+                  <h5 className="font-medium mb-2 text-[#33363B]">Document Requirements:</h5>
+                  {workflowDialog.currentStep.required_documents.length > 0 && (
+                    <div className="space-y-1 mb-2">
+                      {workflowDialog.currentStep.required_documents.map((doc, i) => (
+                        <div key={i} className="text-sm p-2 bg-blue-50 rounded flex justify-between">
+                          <span className="text-[#33363B]">{doc.doc_name} {doc.is_mandatory && '*'}</span>
+                          <button
+                            onClick={() => {
+                              const docs = [...workflowDialog.currentStep.required_documents];
+                              docs.splice(i, 1);
+                              setWorkflowDialog({
+                                ...workflowDialog,
+                                currentStep: { ...workflowDialog.currentStep, required_documents: docs }
+                              });
+                            }}
+                            className="text-red-600 hover:text-red-800"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      placeholder="Document name"
+                      value={workflowDialog.currentDoc.doc_name}
+                      onChange={(e) => setWorkflowDialog({
+                        ...workflowDialog,
+                        currentDoc: { ...workflowDialog.currentDoc, doc_name: e.target.value }
+                      })}
+                    />
+                    <Input
+                      placeholder="Description"
+                      value={workflowDialog.currentDoc.description}
+                      onChange={(e) => setWorkflowDialog({
+                        ...workflowDialog,
+                        currentDoc: { ...workflowDialog.currentDoc, description: e.target.value }
+                      })}
+                    />
+                  </div>
+                  <Button
+                    onClick={addDocToCurrentStep}
+                    size="sm"
+                    variant="outline"
+                    className="mt-2"
+                  >
+                    <Plus className="h-3 w-3 mr-1" />
+                    Add Document
+                  </Button>
+                </div>
+
+                <Button
+                  onClick={addStepToWorkflow}
+                  className="w-full bg-[#51D0DE] hover:bg-[#51D0DE]/90 text-white"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add This Step to Workflow
+                </Button>
+              </div>
+            </div>
+
+            <Button onClick={saveWorkflow} className="w-full bg-[#A8B5A2] hover:bg-[#A8B5A2]/90 text-white">
+              Save Complete Workflow
             </Button>
           </div>
         </DialogContent>
@@ -745,8 +1143,86 @@ const AdminDashboard = () => {
                 </SelectContent>
               </Select>
             </div>
-            <Button onClick={() => handleSaveUser(userDialog.data)} className="w-full bg-[#A8B5A2] hover:bg-[#A8B5A2]/90">
+            <Button onClick={() => handleSaveUser(userDialog.data)} className="w-full bg-[#A8B5A2] hover:bg-[#A8B5A2]/90 text-white">
               Save User
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Ticket Dialog - ENHANCED */}
+      <Dialog open={ticketDialog.open} onOpenChange={(open) => setTicketDialog({ ...ticketDialog, open })}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Raise Ticket</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label>Send To (Optional)</Label>
+              <Select
+                value={ticketDialog.target_user_id || ''}
+                onValueChange={(value) => setTicketDialog({ ...ticketDialog, target_user_id: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select user or leave blank for all" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Users</SelectItem>
+                  {allUsers.map((usr) => (
+                    <SelectItem key={usr.id} value={usr.id}>
+                      {usr.name} ({usr.role})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Subject</Label>
+              <Input
+                value={ticketDialog.subject}
+                onChange={(e) => setTicketDialog({ ...ticketDialog, subject: e.target.value })}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Category</Label>
+                <Select value={ticketDialog.category} onValueChange={(value) => setTicketDialog({ ...ticketDialog, category: value })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="general">General</SelectItem>
+                    <SelectItem value="document">Document</SelectItem>
+                    <SelectItem value="payment">Payment</SelectItem>
+                    <SelectItem value="technical">Technical</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Priority</Label>
+                <Select value={ticketDialog.priority} onValueChange={(value) => setTicketDialog({ ...ticketDialog, priority: value })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="urgent">Urgent</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div>
+              <Label>Description</Label>
+              <Textarea
+                value={ticketDialog.description}
+                onChange={(e) => setTicketDialog({ ...ticketDialog, description: e.target.value })}
+                rows={4}
+              />
+            </div>
+            <Button onClick={handleCreateTicket} className="w-full bg-[#A8B5A2] hover:bg-[#A8B5A2]/90 text-white">
+              Create Ticket
             </Button>
           </div>
         </DialogContent>
