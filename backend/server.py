@@ -82,9 +82,19 @@ class ProductBase(BaseModel):
     commission_rate: float
     commission_type: str = "fixed"  # fixed, tiered, custom
     commission_tiers: Optional[List[Dict[str, Any]]] = None  # For tiered commissions
+    commission_effective_from: Optional[str] = None  # When commission changes take effect
 
 class ProductCreate(ProductBase):
     pass
+
+class ProductUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    fee: Optional[float] = None
+    commission_rate: Optional[float] = None
+    commission_type: Optional[str] = None
+    commission_tiers: Optional[List[Dict[str, Any]]] = None
+    commission_effective_from: Optional[str] = None
 
 class ProductResponse(ProductBase):
     model_config = ConfigDict(extra="ignore")
@@ -92,6 +102,7 @@ class ProductResponse(ProductBase):
     workflow_steps: List[Dict[str, Any]] = []
     commission_type: str = "fixed"
     commission_tiers: List[Dict[str, Any]] = []
+    commission_history: List[Dict[str, Any]] = []  # Track commission changes
 
 class WorkflowStepCreate(BaseModel):
     product_id: str
