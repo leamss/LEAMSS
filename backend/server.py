@@ -215,6 +215,8 @@ class TicketCreate(BaseModel):
     category: str
     priority: str
     description: str
+    target_user_ids: Optional[List[str]] = None  # Specific users
+    target_role: Optional[str] = None  # Target all users of a role
 
 class TicketResponse(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -230,10 +232,21 @@ class TicketResponse(BaseModel):
     status: str
     created_at: str
     messages: List[Dict[str, Any]] = []
+    target_user_ids: List[str] = []
+    target_role: Optional[str] = None
+    activity_log: List[Dict[str, Any]] = []
+    attachments: List[Dict[str, Any]] = []
+    resolution_note: Optional[str] = None
+    resolved_by: Optional[str] = None
+    resolved_by_name: Optional[str] = None
+    resolved_at: Optional[str] = None
 
 class TicketMessage(BaseModel):
-    ticket_id: str
     message: str
+
+class TicketUpdate(BaseModel):
+    description: Optional[str] = None
+    resolution_note: Optional[str] = None
 
 class NotificationResponse(BaseModel):
     model_config = ConfigDict(extra="ignore")
