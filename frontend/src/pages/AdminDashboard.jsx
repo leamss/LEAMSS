@@ -161,7 +161,7 @@ const AdminDashboard = () => {
           <button
             onClick={() => setActiveTab('dashboard')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-md transition-colors ${
-              activeTab === 'dashboard' ? 'bg-blue-600' : 'hover:bg-slate-800'
+              activeTab === 'dashboard' ? 'bg-emerald-600' : 'hover:bg-slate-800'
             }`}
             data-testid="nav-dashboard"
           >
