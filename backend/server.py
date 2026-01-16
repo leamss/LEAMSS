@@ -68,9 +68,14 @@ class ProductBase(BaseModel):
 class ProductCreate(ProductBase):
     pass
 
+class WorkflowStep(BaseModel):
+    step_name: str
+    step_order: int
+    description: Optional[str] = None
+
 class ProductResponse(ProductBase):
     id: str
-    workflow_steps: List[str] = []
+    workflow_steps: List[WorkflowStep] = []
 
 class WorkflowStepCreate(BaseModel):
     product_id: str
