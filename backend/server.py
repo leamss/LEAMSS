@@ -821,6 +821,22 @@ async def update_ticket_status(
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
     
+    # Validation: Cannot close/resolve without resolution note
+    if new_status in ["resolved", "closed"]:
+        if not resolution_note or len(resolution_note.strip()) < 10:
+            raise HTTPException(
+                status_code=400, 
+                detail="Resolution note is required (minimum 10 characters) to resolve or close a ticket"
+            )
+    
+    activity_entry = {
+        "action": f"status_changed_to_{new_status}",
+        "by_user_id": user["id"],
+        "by_user_name": user["name"],
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "details": f"Status changed to {new_status} by {user['name']}" + (f". Note: {resolution_note}" if resolution_note else "")
+    }
+    
     update_data = {
         "status": new_status,
         "updated_at": datetime.now(timezone.utc).isoformat(),
@@ -828,7 +844,7 @@ async def update_ticket_status(
         "updated_by_name": user["name"]
     }
     
-    if new_status in ["resolved", "closed"] and resolution_note:
+    if new_status in ["resolved", "closed"]:
         update_data["resolution_note"] = resolution_note
         update_data["resolved_at"] = datetime.now(timezone.utc).isoformat()
         update_data["resolved_by"] = user["id"]
@@ -836,7 +852,10 @@ async def update_ticket_status(
     
     await db.tickets.update_one(
         {"id": ticket_id},
-        {"$set": update_data}
+        {
+            "$set": update_data,
+            "$push": {"activity_log": activity_entry}
+        }
     )
     
     # Notify the ticket creator
