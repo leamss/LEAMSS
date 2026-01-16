@@ -14,8 +14,8 @@ import NotificationBell from '@/components/NotificationBell';
 import { 
   LayoutDashboard, FileText, Users, Briefcase, LogOut, Plus, 
   Download, Edit, Trash2, UserPlus, Eye, ArrowRight, Settings,
-  Search, DollarSign, TrendingUp, ChevronDown, ChevronUp, GripVertical,
-  CheckCircle, XCircle, Clock
+  Search, DollarSign, TrendingUp, CheckCircle, XCircle, Clock,
+  MessageSquare, Filter, Calendar, RefreshCw
 } from 'lucide-react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -38,36 +38,32 @@ const AdminDashboard = () => {
   const [caseDocuments, setCaseDocuments] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [userSearchTerm, setUserSearchTerm] = useState('');
-  const [dateFilter, setDateFilter] = useState({ month: '', year: '' });
+  
+  // New state for sales reports
+  const [salesReport, setSalesReport] = useState([]);
+  const [partnerCommissions, setPartnerCommissions] = useState([]);
+  const [salesFilter, setSalesFilter] = useState({ partner_id: '', period: 'lifetime', date_from: '', date_to: '' });
+  const [selectedPartnerReport, setSelectedPartnerReport] = useState(null);
+  
+  // New state for tickets
+  const [allTickets, setAllTickets] = useState([]);
+  const [ticketStats, setTicketStats] = useState({});
+  const [ticketFilter, setTicketFilter] = useState({ status: '', priority: '', created_by_role: '' });
+  const [selectedTicket, setSelectedTicket] = useState(null);
+  const [ticketReplyText, setTicketReplyText] = useState('');
+  const [resolutionNote, setResolutionNote] = useState('');
   
   // Dialogs
   const [productDialog, setProductDialog] = useState({ open: false, mode: 'create', data: null });
-  const [workflowDialog, setWorkflowDialog] = useState({ 
-    open: false, 
-    product: null,
-    editingStepIndex: null
-  });
+  const [workflowDialog, setWorkflowDialog] = useState({ open: false, product: null, editingStepIndex: null });
   const [stepEditorDialog, setStepEditorDialog] = useState({
     open: false,
     mode: 'create',
-    stepData: {
-      step_name: '',
-      step_order: 1,
-      description: '',
-      duration_days: '',
-      required_documents: []
-    },
+    stepData: { step_name: '', step_order: 1, description: '', duration_days: '', required_documents: [] },
     newDoc: { doc_name: '', description: '', is_mandatory: true }
   });
   const [userDialog, setUserDialog] = useState({ open: false, mode: 'create', data: null });
-  const [ticketDialog, setTicketDialog] = useState({ 
-    open: false, 
-    subject: '', 
-    description: '', 
-    category: 'general',
-    priority: 'medium',
-    target_user_id: '' 
-  });
+  const [ticketDialog, setTicketDialog] = useState({ open: false, subject: '', description: '', category: 'general', priority: 'medium', target_user_id: '' });
   const [reassignDialog, setReassignDialog] = useState({ open: false, case_id: null });
 
   const getAuthHeader = () => ({
@@ -77,13 +73,16 @@ const AdminDashboard = () => {
   const loadData = async () => {
     try {
       const authHeader = getAuthHeader();
-      const [statsRes, pendingSalesRes, casesRes, productsRes, usersRes, allSalesRes] = await Promise.all([
+      const [statsRes, pendingSalesRes, casesRes, productsRes, usersRes, allSalesRes, commissionsRes, ticketsRes, ticketStatsRes] = await Promise.all([
         axios.get(`${API}/stats/dashboard`, authHeader),
         axios.get(`${API}/sales/pending`, authHeader),
         axios.get(`${API}/cases`, authHeader),
         axios.get(`${API}/products`, authHeader),
         axios.get(`${API}/users`, authHeader),
-        axios.get(`${API}/sales/pending`, authHeader).catch(() => ({ data: [] }))
+        axios.get(`${API}/sales/all`, authHeader).catch(() => ({ data: [] })),
+        axios.get(`${API}/reports/partner-commissions`, authHeader).catch(() => ({ data: [] })),
+        axios.get(`${API}/tickets/all`, authHeader).catch(() => ({ data: [] })),
+        axios.get(`${API}/tickets/stats`, authHeader).catch(() => ({ data: {} }))
       ]);
       setStats(statsRes.data);
       setPendingSales(pendingSalesRes.data);
@@ -92,6 +91,9 @@ const AdminDashboard = () => {
       setAllUsers(usersRes.data);
       setCaseManagers(usersRes.data.filter(u => u.role === 'case_manager'));
       setAllSales(allSalesRes.data);
+      setPartnerCommissions(commissionsRes.data);
+      setAllTickets(ticketsRes.data);
+      setTicketStats(ticketStatsRes.data);
     } catch (error) {
       toast.error('Failed to load data');
     }
@@ -123,19 +125,98 @@ const AdminDashboard = () => {
       const response = await axios.post(`${API}/admin/impersonate/${targetUser.id}`, {}, getAuthHeader());
       localStorage.setItem('token', response.data.token);
       localStorage.setItem('user', JSON.stringify(response.data.user));
-      
-      const routes = {
-        admin: '/admin',
-        partner: '/partner',
-        case_manager: '/case-manager',
-        client: '/client'
-      };
-      
+      const routes = { admin: '/admin', partner: '/partner', case_manager: '/case-manager', client: '/client' };
       toast.success(`Switched to ${targetUser.name}'s account`);
-      const targetRoute = routes[response.data.user.role];
-      setTimeout(() => { window.location.assign(targetRoute); }, 100);
+      setTimeout(() => { window.location.assign(routes[response.data.user.role]); }, 100);
     } catch (error) {
       toast.error('Failed to impersonate user');
+    }
+  };
+
+  // Sales report functions
+  const loadSalesReport = async () => {
+    try {
+      let url = `${API}/sales/all?`;
+      if (salesFilter.partner_id) url += `partner_id=${salesFilter.partner_id}&`;
+      if (salesFilter.period && salesFilter.period !== 'custom') url += `period=${salesFilter.period}&`;
+      if (salesFilter.period === 'custom') {
+        if (salesFilter.date_from) url += `date_from=${salesFilter.date_from}&`;
+        if (salesFilter.date_to) url += `date_to=${salesFilter.date_to}&`;
+      }
+      const response = await axios.get(url, getAuthHeader());
+      setSalesReport(response.data);
+    } catch (error) {
+      toast.error('Failed to load sales report');
+    }
+  };
+
+  const loadPartnerReport = async (partnerId) => {
+    try {
+      let url = `${API}/sales/partner-report/${partnerId}?`;
+      if (salesFilter.period && salesFilter.period !== 'custom') url += `period=${salesFilter.period}&`;
+      if (salesFilter.period === 'custom') {
+        if (salesFilter.date_from) url += `date_from=${salesFilter.date_from}&`;
+        if (salesFilter.date_to) url += `date_to=${salesFilter.date_to}&`;
+      }
+      const response = await axios.get(url, getAuthHeader());
+      setSelectedPartnerReport(response.data);
+    } catch (error) {
+      toast.error('Failed to load partner report');
+    }
+  };
+
+  const downloadReport = (data, filename) => {
+    const csvContent = "data:text/csv;charset=utf-8," + 
+      Object.keys(data[0] || {}).join(",") + "\n" +
+      data.map(row => Object.values(row).join(",")).join("\n");
+    const link = document.createElement("a");
+    link.setAttribute("href", encodeURI(csvContent));
+    link.setAttribute("download", `${filename}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    toast.success('Report downloaded');
+  };
+
+  // Ticket functions
+  const loadTickets = async () => {
+    try {
+      let url = `${API}/tickets/all?`;
+      if (ticketFilter.status) url += `status=${ticketFilter.status}&`;
+      if (ticketFilter.priority) url += `priority=${ticketFilter.priority}&`;
+      if (ticketFilter.created_by_role) url += `created_by_role=${ticketFilter.created_by_role}&`;
+      const response = await axios.get(url, getAuthHeader());
+      setAllTickets(response.data);
+    } catch (error) {
+      toast.error('Failed to load tickets');
+    }
+  };
+
+  const updateTicketStatus = async (ticketId, status) => {
+    try {
+      await axios.put(`${API}/tickets/${ticketId}/status?status=${status}&resolution_note=${encodeURIComponent(resolutionNote)}`, {}, getAuthHeader());
+      toast.success(`Ticket ${status}`);
+      setResolutionNote('');
+      loadTickets();
+      if (selectedTicket?.id === ticketId) {
+        const res = await axios.get(`${API}/tickets/${ticketId}`, getAuthHeader());
+        setSelectedTicket(res.data);
+      }
+    } catch (error) {
+      toast.error('Failed to update ticket');
+    }
+  };
+
+  const addTicketReply = async (ticketId) => {
+    if (!ticketReplyText.trim()) return;
+    try {
+      await axios.post(`${API}/tickets/${ticketId}/message`, { message: ticketReplyText }, getAuthHeader());
+      toast.success('Reply added');
+      setTicketReplyText('');
+      const res = await axios.get(`${API}/tickets/${ticketId}`, getAuthHeader());
+      setSelectedTicket(res.data);
+    } catch (error) {
+      toast.error('Failed to add reply');
     }
   };
 
@@ -166,10 +247,7 @@ const AdminDashboard = () => {
 
   const downloadDocument = async (docId, filename) => {
     try {
-      const response = await axios.get(`${API}/documents/download/${docId}`, {
-        ...getAuthHeader(),
-        responseType: 'blob'
-      });
+      const response = await axios.get(`${API}/documents/download/${docId}`, { ...getAuthHeader(), responseType: 'blob' });
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
@@ -185,11 +263,7 @@ const AdminDashboard = () => {
 
   const handleApproveSale = async (saleId, status, caseManagerId) => {
     try {
-      await axios.post(`${API}/sales/approve`, { 
-        sale_id: saleId, 
-        status, 
-        case_manager_id: caseManagerId 
-      }, getAuthHeader());
+      await axios.post(`${API}/sales/approve`, { sale_id: saleId, status, case_manager_id: caseManagerId }, getAuthHeader());
       toast.success(`Sale ${status}!`);
       loadData();
       setActiveTab('sales');
@@ -227,33 +301,21 @@ const AdminDashboard = () => {
 
   // Workflow Management Functions
   const openWorkflowEditor = (product) => {
-    setWorkflowDialog({
-      open: true,
-      product: product,
-      editingStepIndex: null
-    });
+    setWorkflowDialog({ open: true, product: product, editingStepIndex: null });
   };
 
   const openStepEditor = (mode, stepIndex = null) => {
     if (mode === 'create') {
       const nextOrder = (workflowDialog.product?.workflow_steps?.length || 0) + 1;
       setStepEditorDialog({
-        open: true,
-        mode: 'create',
-        stepData: {
-          step_name: '',
-          step_order: nextOrder,
-          description: '',
-          duration_days: '',
-          required_documents: []
-        },
+        open: true, mode: 'create',
+        stepData: { step_name: '', step_order: nextOrder, description: '', duration_days: '', required_documents: [] },
         newDoc: { doc_name: '', description: '', is_mandatory: true }
       });
     } else {
       const step = workflowDialog.product.workflow_steps[stepIndex];
       setStepEditorDialog({
-        open: true,
-        mode: 'edit',
+        open: true, mode: 'edit',
         stepData: { ...step, duration_days: step.duration_days || '' },
         newDoc: { doc_name: '', description: '', is_mandatory: true }
       });
@@ -263,64 +325,41 @@ const AdminDashboard = () => {
 
   const addDocToStep = () => {
     const { newDoc, stepData } = stepEditorDialog;
-    if (!newDoc.doc_name.trim()) {
-      toast.error('Please enter document name');
-      return;
-    }
+    if (!newDoc.doc_name.trim()) { toast.error('Please enter document name'); return; }
     setStepEditorDialog({
       ...stepEditorDialog,
-      stepData: {
-        ...stepData,
-        required_documents: [...stepData.required_documents, { ...newDoc }]
-      },
+      stepData: { ...stepData, required_documents: [...stepData.required_documents, { ...newDoc }] },
       newDoc: { doc_name: '', description: '', is_mandatory: true }
     });
   };
 
   const removeDocFromStep = (docIndex) => {
     const updatedDocs = stepEditorDialog.stepData.required_documents.filter((_, i) => i !== docIndex);
-    setStepEditorDialog({
-      ...stepEditorDialog,
-      stepData: { ...stepEditorDialog.stepData, required_documents: updatedDocs }
-    });
+    setStepEditorDialog({ ...stepEditorDialog, stepData: { ...stepEditorDialog.stepData, required_documents: updatedDocs } });
   };
 
   const saveWorkflowStep = async () => {
     const { stepData, mode } = stepEditorDialog;
-    if (!stepData.step_name.trim()) {
-      toast.error('Please enter step name');
-      return;
-    }
-
+    if (!stepData.step_name.trim()) { toast.error('Please enter step name'); return; }
     try {
       const productId = workflowDialog.product.id;
-      
       if (mode === 'create') {
         await axios.post(`${API}/products/workflow-step`, {
-          product_id: productId,
-          step_name: stepData.step_name,
-          step_order: stepData.step_order,
-          description: stepData.description,
-          duration_days: stepData.duration_days ? parseInt(stepData.duration_days) : null,
+          product_id: productId, step_name: stepData.step_name, step_order: stepData.step_order,
+          description: stepData.description, duration_days: stepData.duration_days ? parseInt(stepData.duration_days) : null,
           required_documents: stepData.required_documents
         }, getAuthHeader());
         toast.success('Workflow step added!');
       } else {
         const stepOrder = workflowDialog.product.workflow_steps[workflowDialog.editingStepIndex].step_order;
         await axios.put(`${API}/products/${productId}/workflow-step/${stepOrder}`, {
-          product_id: productId,
-          step_name: stepData.step_name,
-          step_order: stepData.step_order,
-          description: stepData.description,
-          duration_days: stepData.duration_days ? parseInt(stepData.duration_days) : null,
+          product_id: productId, step_name: stepData.step_name, step_order: stepData.step_order,
+          description: stepData.description, duration_days: stepData.duration_days ? parseInt(stepData.duration_days) : null,
           required_documents: stepData.required_documents
         }, getAuthHeader());
         toast.success('Workflow step updated!');
       }
-      
       setStepEditorDialog({ ...stepEditorDialog, open: false });
-      
-      // Reload products and update workflow dialog
       const productsRes = await axios.get(`${API}/products`, getAuthHeader());
       setProducts(productsRes.data);
       const updatedProduct = productsRes.data.find(p => p.id === productId);
@@ -332,13 +371,10 @@ const AdminDashboard = () => {
 
   const deleteWorkflowStep = async (stepOrder) => {
     if (!window.confirm('Are you sure you want to delete this step?')) return;
-    
     try {
       const productId = workflowDialog.product.id;
       await axios.delete(`${API}/products/${productId}/workflow-step/${stepOrder}`, getAuthHeader());
       toast.success('Workflow step deleted!');
-      
-      // Reload products and update workflow dialog
       const productsRes = await axios.get(`${API}/products`, getAuthHeader());
       setProducts(productsRes.data);
       const updatedProduct = productsRes.data.find(p => p.id === productId);
@@ -378,20 +414,15 @@ const AdminDashboard = () => {
   };
 
   const handleCreateTicket = async () => {
-    if (!ticketDialog.subject || !ticketDialog.description) {
-      toast.error('Please fill subject and description');
-      return;
-    }
+    if (!ticketDialog.subject || !ticketDialog.description) { toast.error('Please fill subject and description'); return; }
     try {
       await axios.post(`${API}/tickets`, {
-        subject: ticketDialog.subject,
-        description: ticketDialog.description,
-        category: ticketDialog.category,
-        priority: ticketDialog.priority,
-        case_id: null
+        subject: ticketDialog.subject, description: ticketDialog.description,
+        category: ticketDialog.category, priority: ticketDialog.priority, case_id: null
       }, getAuthHeader());
       toast.success('Ticket created!');
       setTicketDialog({ open: false, subject: '', description: '', category: 'general', priority: 'medium', target_user_id: '' });
+      loadData();
     } catch (error) {
       toast.error('Failed to create ticket');
     }
@@ -409,36 +440,9 @@ const AdminDashboard = () => {
   };
 
   // Filtered data
-  const filteredCases = cases.filter(c => 
-    c.case_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.client_name?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const filteredUsers = allUsers.filter(u =>
-    u.name?.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
-    u.email?.toLowerCase().includes(userSearchTerm.toLowerCase())
-  );
-
-  // Revenue calculations
-  const getRevenueData = () => {
-    const partnerRevenue = {};
-    allSales.forEach(sale => {
-      if (sale.status === 'approved') {
-        if (!partnerRevenue[sale.partner_id]) {
-          partnerRevenue[sale.partner_id] = {
-            partner_name: sale.partner_name,
-            total_sales: 0,
-            total_commission: 0,
-            sales_count: 0
-          };
-        }
-        partnerRevenue[sale.partner_id].total_sales += sale.fee_amount || 0;
-        partnerRevenue[sale.partner_id].total_commission += sale.commission_amount || 0;
-        partnerRevenue[sale.partner_id].sales_count += 1;
-      }
-    });
-    return Object.values(partnerRevenue);
-  };
+  const filteredCases = cases.filter(c => c.case_id?.toLowerCase().includes(searchTerm.toLowerCase()) || c.client_name?.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filteredUsers = allUsers.filter(u => u.name?.toLowerCase().includes(userSearchTerm.toLowerCase()) || u.email?.toLowerCase().includes(userSearchTerm.toLowerCase()));
+  const partners = allUsers.filter(u => u.role === 'partner');
 
   const getStatusBadge = (status) => {
     const badges = {
@@ -448,9 +452,21 @@ const AdminDashboard = () => {
       active: <Badge className="bg-blue-100 text-blue-700 border-blue-300">Active</Badge>,
       completed: <Badge className="bg-green-100 text-green-700 border-green-300">Completed</Badge>,
       in_progress: <Badge className="bg-blue-100 text-blue-700 border-blue-300">In Progress</Badge>,
-      locked: <Badge className="bg-slate-100 text-slate-600 border-slate-300">Locked</Badge>
+      open: <Badge className="bg-blue-100 text-blue-700 border-blue-300">Open</Badge>,
+      resolved: <Badge className="bg-green-100 text-green-700 border-green-300">Resolved</Badge>,
+      closed: <Badge className="bg-slate-100 text-slate-600 border-slate-300">Closed</Badge>
     };
     return badges[status] || <Badge>{status}</Badge>;
+  };
+
+  const getPriorityBadge = (priority) => {
+    const badges = {
+      urgent: <Badge className="bg-red-500 text-white">Urgent</Badge>,
+      high: <Badge className="bg-orange-500 text-white">High</Badge>,
+      medium: <Badge className="bg-yellow-500 text-white">Medium</Badge>,
+      low: <Badge className="bg-slate-400 text-white">Low</Badge>
+    };
+    return badges[priority] || <Badge>{priority}</Badge>;
   };
 
   return (
@@ -466,59 +482,53 @@ const AdminDashboard = () => {
           {[
             { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
             { id: 'sales', icon: FileText, label: 'Pending Sales' },
+            { id: 'total-sales', icon: TrendingUp, label: 'Total Sales' },
+            { id: 'commissions', icon: DollarSign, label: 'Commissions' },
             { id: 'cases', icon: Briefcase, label: 'All Cases' },
             { id: 'products', icon: Settings, label: 'Products' },
             { id: 'users', icon: Users, label: 'Users' },
-            { id: 'revenue', icon: DollarSign, label: 'Revenue' }
+            { id: 'tickets', icon: MessageSquare, label: 'Tickets' }
           ].map(item => (
             <button
               key={item.id}
-              onClick={() => { setActiveTab(item.id); setSelectedCase(null); setSelectedSale(null); }}
+              onClick={() => { setActiveTab(item.id); setSelectedCase(null); setSelectedSale(null); setSelectedPartnerReport(null); setSelectedTicket(null); }}
               data-testid={`nav-${item.id}`}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                activeTab === item.id ? 'bg-[#2a777a] text-white' : 'hover:bg-slate-700 text-slate-300'
-              }`}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === item.id ? 'bg-[#2a777a] text-white' : 'hover:bg-slate-700 text-slate-300'}`}
             >
               <item.icon className="h-5 w-5" />
               <span>{item.label}</span>
+              {item.id === 'tickets' && ticketStats.open > 0 && (
+                <Badge className="ml-auto bg-red-500 text-white text-xs">{ticketStats.open}</Badge>
+              )}
             </button>
           ))}
         </nav>
         
-        <Button
-          onClick={handleLogout}
-          variant="ghost"
-          className="w-full justify-start text-white hover:bg-slate-700 mt-4"
-          data-testid="logout-button"
-        >
-          <LogOut className="mr-2 h-5 w-5" />
-          Logout
+        <Button onClick={handleLogout} variant="ghost" className="w-full justify-start text-white hover:bg-slate-700 mt-4" data-testid="logout-button">
+          <LogOut className="mr-2 h-5 w-5" />Logout
         </Button>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 p-8">
+      <main className="flex-1 p-8 overflow-auto">
         <div className="max-w-7xl mx-auto">
           <div className="flex justify-between items-center mb-8">
             <h2 className="text-3xl font-bold text-slate-800" data-testid="page-title">
               {activeTab === 'dashboard' && 'Dashboard'}
               {activeTab === 'sales' && 'Pending Sales Approval'}
+              {activeTab === 'total-sales' && 'Total Sales Report'}
+              {activeTab === 'commissions' && 'Partner Commissions'}
               {activeTab === 'cases' && !selectedCase && 'All Cases'}
               {activeTab === 'products' && 'Products & Workflows'}
               {activeTab === 'users' && 'User Management'}
-              {activeTab === 'revenue' && 'Revenue & Commission Report'}
+              {activeTab === 'tickets' && !selectedTicket && 'Support Tickets'}
               {activeTab === 'sale-docs' && `Sale Documents - ${selectedSale?.client_name}`}
               {activeTab === 'case-detail' && `Case Details - ${selectedCase?.case_id}`}
+              {selectedTicket && `Ticket: ${selectedTicket?.subject}`}
             </h2>
             <div className="flex items-center gap-3">
-              <Button
-                onClick={() => setTicketDialog({ ...ticketDialog, open: true })}
-                variant="outline"
-                size="sm"
-                data-testid="raise-ticket-btn"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Raise Ticket
+              <Button onClick={() => setTicketDialog({ ...ticketDialog, open: true })} variant="outline" size="sm" data-testid="raise-ticket-btn">
+                <Plus className="mr-2 h-4 w-4" />Raise Ticket
               </Button>
               <NotificationBell />
             </div>
@@ -527,7 +537,7 @@ const AdminDashboard = () => {
           {/* Dashboard Tab */}
           {activeTab === 'dashboard' && (
             <div className="space-y-6" data-testid="dashboard-content">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <Card className="p-6 border-l-4 border-l-[#f7620b]">
                   <p className="text-sm text-slate-600 font-medium">Pending Sales</p>
                   <p className="text-3xl font-bold text-slate-800 mt-2">{stats.pending_sales || 0}</p>
@@ -539,6 +549,10 @@ const AdminDashboard = () => {
                 <Card className="p-6 border-l-4 border-l-green-500">
                   <p className="text-sm text-slate-600 font-medium">Total Revenue</p>
                   <p className="text-3xl font-bold text-slate-800 mt-2">${(stats.total_revenue || 0).toFixed(2)}</p>
+                </Card>
+                <Card className="p-6 border-l-4 border-l-purple-500">
+                  <p className="text-sm text-slate-600 font-medium">Open Tickets</p>
+                  <p className="text-3xl font-bold text-slate-800 mt-2">{ticketStats.open || 0}</p>
                 </Card>
               </div>
 
@@ -552,9 +566,27 @@ const AdminDashboard = () => {
                           <p className="font-medium text-slate-800">{sale.client_name}</p>
                           <p className="text-sm text-slate-600">{sale.product_name}</p>
                         </div>
-                        <Button size="sm" onClick={() => viewSaleDocuments(sale)} className="bg-[#2a777a] hover:bg-[#236466]">
-                          Review
-                        </Button>
+                        <Button size="sm" onClick={() => viewSaleDocuments(sale)} className="bg-[#2a777a] hover:bg-[#236466]">Review</Button>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              )}
+
+              {allTickets.filter(t => t.status === 'open' || t.priority === 'urgent').length > 0 && (
+                <Card className="p-6">
+                  <h3 className="text-lg font-semibold mb-4 text-slate-800">Urgent/Open Tickets</h3>
+                  <div className="space-y-3">
+                    {allTickets.filter(t => t.status === 'open' || t.priority === 'urgent').slice(0, 5).map(ticket => (
+                      <div key={ticket.id} className="flex justify-between items-center p-3 bg-red-50 rounded-lg border border-red-200">
+                        <div>
+                          <p className="font-medium text-slate-800">{ticket.subject}</p>
+                          <p className="text-sm text-slate-600">By: {ticket.created_by_name} ({ticket.created_by_role})</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {getPriorityBadge(ticket.priority)}
+                          <Button size="sm" onClick={() => { setSelectedTicket(ticket); setActiveTab('tickets'); }} className="bg-[#2a777a] hover:bg-[#236466]">View</Button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -563,7 +595,224 @@ const AdminDashboard = () => {
             </div>
           )}
 
-          {/* Sales Tab */}
+          {/* Total Sales Tab */}
+          {activeTab === 'total-sales' && !selectedPartnerReport && (
+            <div className="space-y-6" data-testid="total-sales-content">
+              <Card className="p-6">
+                <h3 className="text-lg font-semibold mb-4 text-slate-800 flex items-center gap-2">
+                  <Filter className="h-5 w-5" /> Filters
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                  <div>
+                    <Label>Partner</Label>
+                    <Select value={salesFilter.partner_id} onValueChange={(v) => setSalesFilter({ ...salesFilter, partner_id: v })}>
+                      <SelectTrigger><SelectValue placeholder="All Partners" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Partners</SelectItem>
+                        {partners.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Period</Label>
+                    <Select value={salesFilter.period} onValueChange={(v) => setSalesFilter({ ...salesFilter, period: v })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="lifetime">Lifetime</SelectItem>
+                        <SelectItem value="weekly">Weekly</SelectItem>
+                        <SelectItem value="monthly">Monthly</SelectItem>
+                        <SelectItem value="yearly">Yearly</SelectItem>
+                        <SelectItem value="custom">Custom Range</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {salesFilter.period === 'custom' && (
+                    <>
+                      <div>
+                        <Label>From Date</Label>
+                        <Input type="date" value={salesFilter.date_from} onChange={(e) => setSalesFilter({ ...salesFilter, date_from: e.target.value })} />
+                      </div>
+                      <div>
+                        <Label>To Date</Label>
+                        <Input type="date" value={salesFilter.date_to} onChange={(e) => setSalesFilter({ ...salesFilter, date_to: e.target.value })} />
+                      </div>
+                    </>
+                  )}
+                  <div className="flex items-end gap-2">
+                    <Button onClick={loadSalesReport} className="bg-[#2a777a] hover:bg-[#236466]"><Search className="mr-2 h-4 w-4" />Search</Button>
+                    <Button onClick={() => downloadReport(salesReport, 'sales_report')} variant="outline"><Download className="mr-2 h-4 w-4" />Export</Button>
+                  </div>
+                </div>
+              </Card>
+
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <Card className="p-4 bg-blue-50 border-blue-200">
+                  <p className="text-sm text-slate-600">Total Sales</p>
+                  <p className="text-2xl font-bold text-blue-700">{salesReport.length}</p>
+                </Card>
+                <Card className="p-4 bg-green-50 border-green-200">
+                  <p className="text-sm text-slate-600">Approved</p>
+                  <p className="text-2xl font-bold text-green-700">{salesReport.filter(s => s.status === 'approved').length}</p>
+                </Card>
+                <Card className="p-4 bg-amber-50 border-amber-200">
+                  <p className="text-sm text-slate-600">Total Revenue</p>
+                  <p className="text-2xl font-bold text-amber-700">${salesReport.filter(s => s.status === 'approved').reduce((sum, s) => sum + (s.fee_amount || 0), 0).toFixed(2)}</p>
+                </Card>
+                <Card className="p-4 bg-purple-50 border-purple-200">
+                  <p className="text-sm text-slate-600">Total Commission</p>
+                  <p className="text-2xl font-bold text-purple-700">${salesReport.filter(s => s.status === 'approved').reduce((sum, s) => sum + (s.commission_amount || 0), 0).toFixed(2)}</p>
+                </Card>
+              </div>
+
+              <Card className="p-6">
+                <h3 className="text-lg font-semibold mb-4 text-slate-800">Sales Records</h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left p-3">Date</th>
+                        <th className="text-left p-3">Client</th>
+                        <th className="text-left p-3">Partner</th>
+                        <th className="text-left p-3">Product</th>
+                        <th className="text-right p-3">Amount</th>
+                        <th className="text-right p-3">Commission</th>
+                        <th className="text-center p-3">Status</th>
+                        <th className="text-center p-3">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {salesReport.slice(0, 50).map(sale => (
+                        <tr key={sale.id} className="border-b hover:bg-slate-50">
+                          <td className="p-3">{new Date(sale.created_at).toLocaleDateString()}</td>
+                          <td className="p-3">{sale.client_name}</td>
+                          <td className="p-3">{sale.partner_name}</td>
+                          <td className="p-3">{sale.product_name}</td>
+                          <td className="p-3 text-right">${sale.fee_amount}</td>
+                          <td className="p-3 text-right">${sale.commission_amount?.toFixed(2)}</td>
+                          <td className="p-3 text-center">{getStatusBadge(sale.status)}</td>
+                          <td className="p-3 text-center">
+                            <Button size="sm" variant="outline" onClick={() => loadPartnerReport(sale.partner_id)}>
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+            </div>
+          )}
+
+          {/* Partner Report Detail */}
+          {activeTab === 'total-sales' && selectedPartnerReport && (
+            <div className="space-y-6" data-testid="partner-report-content">
+              <Button onClick={() => setSelectedPartnerReport(null)} variant="outline"><ArrowRight className="mr-2 h-4 w-4 rotate-180" />Back to Sales</Button>
+              
+              <Card className="p-6">
+                <div className="flex justify-between items-start mb-6">
+                  <div>
+                    <h3 className="text-xl font-semibold text-slate-800">{selectedPartnerReport.partner?.name}</h3>
+                    <p className="text-slate-600">{selectedPartnerReport.partner?.email}</p>
+                  </div>
+                  <Button onClick={() => downloadReport(selectedPartnerReport.sales, `partner_${selectedPartnerReport.partner?.name}_report`)} variant="outline">
+                    <Download className="mr-2 h-4 w-4" />Download Report
+                  </Button>
+                </div>
+                
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+                  <div className="p-4 bg-blue-50 rounded-lg">
+                    <p className="text-sm text-slate-600">Total Sales</p>
+                    <p className="text-2xl font-bold text-blue-700">{selectedPartnerReport.summary?.total_sales}</p>
+                  </div>
+                  <div className="p-4 bg-green-50 rounded-lg">
+                    <p className="text-sm text-slate-600">Approved</p>
+                    <p className="text-2xl font-bold text-green-700">{selectedPartnerReport.summary?.approved_sales}</p>
+                  </div>
+                  <div className="p-4 bg-amber-50 rounded-lg">
+                    <p className="text-sm text-slate-600">Pending</p>
+                    <p className="text-2xl font-bold text-amber-700">{selectedPartnerReport.summary?.pending_sales}</p>
+                  </div>
+                  <div className="p-4 bg-purple-50 rounded-lg">
+                    <p className="text-sm text-slate-600">Total Revenue</p>
+                    <p className="text-2xl font-bold text-purple-700">${selectedPartnerReport.summary?.total_revenue?.toFixed(2)}</p>
+                  </div>
+                  <div className="p-4 bg-[#2a777a]/10 rounded-lg">
+                    <p className="text-sm text-slate-600">Commission Payable</p>
+                    <p className="text-2xl font-bold text-[#2a777a]">${selectedPartnerReport.summary?.total_commission_payable?.toFixed(2)}</p>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          )}
+
+          {/* Commissions Tab */}
+          {activeTab === 'commissions' && (
+            <div className="space-y-6" data-testid="commissions-content">
+              <div className="flex justify-end">
+                <Button onClick={() => downloadReport(partnerCommissions, 'partner_commissions')} variant="outline">
+                  <Download className="mr-2 h-4 w-4" />Export All
+                </Button>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Card className="p-4 bg-gradient-to-br from-[#2a777a] to-[#236466] text-white">
+                  <p className="text-sm opacity-80">Total Lifetime Commission</p>
+                  <p className="text-3xl font-bold mt-2">${partnerCommissions.reduce((sum, p) => sum + (p.lifetime_commission || 0), 0).toFixed(2)}</p>
+                </Card>
+                <Card className="p-4 bg-gradient-to-br from-[#f7620b] to-[#e55a09] text-white">
+                  <p className="text-sm opacity-80">Monthly Commission</p>
+                  <p className="text-3xl font-bold mt-2">${partnerCommissions.reduce((sum, p) => sum + (p.monthly_commission || 0), 0).toFixed(2)}</p>
+                </Card>
+                <Card className="p-4 bg-gradient-to-br from-purple-500 to-purple-600 text-white">
+                  <p className="text-sm opacity-80">Total Partners</p>
+                  <p className="text-3xl font-bold mt-2">{partnerCommissions.length}</p>
+                </Card>
+              </div>
+
+              <Card className="p-6">
+                <h3 className="text-lg font-semibold mb-4 text-slate-800">Partner Commission Details</h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-slate-50">
+                        <th className="text-left p-3">Partner</th>
+                        <th className="text-left p-3">Email</th>
+                        <th className="text-center p-3">Sales</th>
+                        <th className="text-right p-3">Revenue</th>
+                        <th className="text-right p-3">Weekly</th>
+                        <th className="text-right p-3">Monthly</th>
+                        <th className="text-right p-3">Yearly</th>
+                        <th className="text-right p-3">Lifetime</th>
+                        <th className="text-center p-3">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {partnerCommissions.map(partner => (
+                        <tr key={partner.partner_id} className="border-b hover:bg-slate-50">
+                          <td className="p-3 font-medium">{partner.partner_name}</td>
+                          <td className="p-3">{partner.partner_email}</td>
+                          <td className="p-3 text-center">{partner.total_sales_count}</td>
+                          <td className="p-3 text-right">${partner.total_revenue_generated?.toFixed(2)}</td>
+                          <td className="p-3 text-right text-green-600">${partner.weekly_commission?.toFixed(2)}</td>
+                          <td className="p-3 text-right text-blue-600">${partner.monthly_commission?.toFixed(2)}</td>
+                          <td className="p-3 text-right text-purple-600">${partner.yearly_commission?.toFixed(2)}</td>
+                          <td className="p-3 text-right font-bold text-[#2a777a]">${partner.lifetime_commission?.toFixed(2)}</td>
+                          <td className="p-3 text-center">
+                            <Button size="sm" variant="outline" onClick={() => { setSalesFilter({ ...salesFilter, partner_id: partner.partner_id }); loadPartnerReport(partner.partner_id); setActiveTab('total-sales'); }}>
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+            </div>
+          )}
+
+          {/* Pending Sales Tab */}
           {activeTab === 'sales' && (
             <div className="space-y-4" data-testid="sales-content">
               {pendingSales.length === 0 ? (
@@ -582,35 +831,16 @@ const AdminDashboard = () => {
                         <p className="text-sm text-slate-600">Fee: ${sale.fee_amount} | Partner: {sale.partner_name}</p>
                       </div>
                       <div className="flex flex-col gap-2">
-                        <Button
-                          onClick={() => viewSaleDocuments(sale)}
-                          size="sm"
-                          className="bg-[#2a777a] hover:bg-[#236466] text-white"
-                          data-testid={`view-docs-${sale.id}`}
-                        >
-                          <Eye className="mr-2 h-4 w-4" />
-                          View Documents
+                        <Button onClick={() => viewSaleDocuments(sale)} size="sm" className="bg-[#2a777a] hover:bg-[#236466] text-white" data-testid={`view-docs-${sale.id}`}>
+                          <Eye className="mr-2 h-4 w-4" />View Documents
                         </Button>
                         <Select onValueChange={(managerId) => handleApproveSale(sale.id, 'approved', managerId)}>
-                          <SelectTrigger className="w-48" data-testid={`assign-manager-${sale.id}`}>
-                            <SelectValue placeholder="Assign & Approve" />
-                          </SelectTrigger>
+                          <SelectTrigger className="w-48" data-testid={`assign-manager-${sale.id}`}><SelectValue placeholder="Assign & Approve" /></SelectTrigger>
                           <SelectContent>
-                            {caseManagers.map((manager) => (
-                              <SelectItem key={manager.id} value={manager.id}>
-                                {manager.name}
-                              </SelectItem>
-                            ))}
+                            {caseManagers.map((manager) => <SelectItem key={manager.id} value={manager.id}>{manager.name}</SelectItem>)}
                           </SelectContent>
                         </Select>
-                        <Button
-                          onClick={() => handleApproveSale(sale.id, 'rejected', null)}
-                          variant="destructive"
-                          size="sm"
-                          data-testid={`reject-sale-${sale.id}`}
-                        >
-                          Reject
-                        </Button>
+                        <Button onClick={() => handleApproveSale(sale.id, 'rejected', null)} variant="destructive" size="sm" data-testid={`reject-sale-${sale.id}`}>Reject</Button>
                       </div>
                     </div>
                   </Card>
@@ -622,31 +852,15 @@ const AdminDashboard = () => {
           {/* Sale Documents View */}
           {activeTab === 'sale-docs' && selectedSale && (
             <div className="space-y-6" data-testid="sale-docs-content">
-              <Button onClick={() => setActiveTab('sales')} variant="outline">
-                <ArrowRight className="mr-2 h-4 w-4 rotate-180" />
-                Back to Sales
-              </Button>
+              <Button onClick={() => setActiveTab('sales')} variant="outline"><ArrowRight className="mr-2 h-4 w-4 rotate-180" />Back to Sales</Button>
               <Card className="p-6">
                 <h3 className="text-lg font-semibold mb-4 text-slate-800">Sale Information</h3>
                 <div className="grid grid-cols-2 gap-4 mb-6">
-                  <div>
-                    <p className="text-sm text-slate-500">Client</p>
-                    <p className="font-medium text-slate-800">{selectedSale.client_name}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-slate-500">Email</p>
-                    <p className="font-medium text-slate-800">{selectedSale.client_email}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-slate-500">Product</p>
-                    <p className="font-medium text-slate-800">{selectedSale.product_name}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-slate-500">Fee Amount</p>
-                    <p className="font-medium text-slate-800">${selectedSale.fee_amount}</p>
-                  </div>
+                  <div><p className="text-sm text-slate-500">Client</p><p className="font-medium text-slate-800">{selectedSale.client_name}</p></div>
+                  <div><p className="text-sm text-slate-500">Email</p><p className="font-medium text-slate-800">{selectedSale.client_email}</p></div>
+                  <div><p className="text-sm text-slate-500">Product</p><p className="font-medium text-slate-800">{selectedSale.product_name}</p></div>
+                  <div><p className="text-sm text-slate-500">Fee Amount</p><p className="font-medium text-slate-800">${selectedSale.fee_amount}</p></div>
                 </div>
-                
                 <h4 className="font-semibold mb-3 text-slate-800">Uploaded Documents</h4>
                 <div className="space-y-3">
                   {saleDocuments.length === 0 ? (
@@ -654,13 +868,8 @@ const AdminDashboard = () => {
                   ) : (
                     saleDocuments.map((doc, idx) => (
                       <div key={idx} className="flex justify-between items-center p-3 border rounded-lg">
-                        <div>
-                          <p className="font-medium text-slate-800">{doc.filename}</p>
-                          <p className="text-sm text-slate-600">Type: {doc.type}</p>
-                        </div>
-                        <Button onClick={() => downloadDocument(doc.file_id, doc.filename)} size="sm" variant="outline">
-                          <Download className="h-4 w-4" />
-                        </Button>
+                        <div><p className="font-medium text-slate-800">{doc.filename}</p><p className="text-sm text-slate-600">Type: {doc.type}</p></div>
+                        <Button onClick={() => downloadDocument(doc.file_id, doc.filename)} size="sm" variant="outline"><Download className="h-4 w-4" /></Button>
                       </div>
                     ))
                   )}
@@ -668,18 +877,10 @@ const AdminDashboard = () => {
               </Card>
               <div className="flex gap-3">
                 <Select onValueChange={(managerId) => handleApproveSale(selectedSale.id, 'approved', managerId)} className="flex-1">
-                  <SelectTrigger data-testid="assign-case-manager">
-                    <SelectValue placeholder="Assign Case Manager & Approve" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {caseManagers.map((manager) => (
-                      <SelectItem key={manager.id} value={manager.id}>{manager.name}</SelectItem>
-                    ))}
-                  </SelectContent>
+                  <SelectTrigger data-testid="assign-case-manager"><SelectValue placeholder="Assign Case Manager & Approve" /></SelectTrigger>
+                  <SelectContent>{caseManagers.map((manager) => <SelectItem key={manager.id} value={manager.id}>{manager.name}</SelectItem>)}</SelectContent>
                 </Select>
-                <Button onClick={() => handleApproveSale(selectedSale.id, 'rejected', null)} variant="destructive">
-                  Reject Sale
-                </Button>
+                <Button onClick={() => handleApproveSale(selectedSale.id, 'rejected', null)} variant="destructive">Reject Sale</Button>
               </div>
             </div>
           )}
@@ -690,28 +891,14 @@ const AdminDashboard = () => {
               <div className="flex gap-3 mb-6">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
-                  <Input
-                    placeholder="Search by case ID or client name..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                    data-testid="case-search"
-                  />
+                  <Input placeholder="Search by case ID or client name..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" data-testid="case-search" />
                 </div>
               </div>
               {filteredCases.length === 0 ? (
-                <Card className="p-12 text-center">
-                  <Briefcase className="h-12 w-12 text-slate-400 mx-auto mb-4" />
-                  <p className="text-slate-600">No cases found</p>
-                </Card>
+                <Card className="p-12 text-center"><Briefcase className="h-12 w-12 text-slate-400 mx-auto mb-4" /><p className="text-slate-600">No cases found</p></Card>
               ) : (
                 filteredCases.map((caseItem) => (
-                  <Card 
-                    key={caseItem.id} 
-                    className="p-6 cursor-pointer hover:shadow-md transition-shadow" 
-                    onClick={() => viewCaseDetails(caseItem)}
-                    data-testid={`case-card-${caseItem.id}`}
-                  >
+                  <Card key={caseItem.id} className="p-6 cursor-pointer hover:shadow-md transition-shadow" onClick={() => viewCaseDetails(caseItem)} data-testid={`case-card-${caseItem.id}`}>
                     <div className="flex justify-between items-start">
                       <div>
                         <h3 className="text-lg font-semibold text-slate-800">{caseItem.case_id}</h3>
@@ -722,18 +909,8 @@ const AdminDashboard = () => {
                       <div className="text-right">
                         {getStatusBadge(caseItem.status || 'active')}
                         <p className="text-sm text-slate-600 mt-2">Step: {caseItem.current_step}</p>
-                        <Button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setReassignDialog({ open: true, case_id: caseItem.id });
-                          }}
-                          size="sm"
-                          variant="outline"
-                          className="mt-2"
-                          data-testid={`reassign-${caseItem.id}`}
-                        >
-                          <Edit className="h-4 w-4 mr-1" />
-                          Change Manager
+                        <Button onClick={(e) => { e.stopPropagation(); setReassignDialog({ open: true, case_id: caseItem.id }); }} size="sm" variant="outline" className="mt-2" data-testid={`reassign-${caseItem.id}`}>
+                          <Edit className="h-4 w-4 mr-1" />Change Manager
                         </Button>
                       </div>
                     </div>
@@ -746,55 +923,25 @@ const AdminDashboard = () => {
           {/* Case Detail View */}
           {activeTab === 'case-detail' && selectedCase && (
             <div className="space-y-6" data-testid="case-detail-content">
-              <Button onClick={() => { setActiveTab('cases'); setSelectedCase(null); }} variant="outline">
-                <ArrowRight className="mr-2 h-4 w-4 rotate-180" />
-                Back to Cases
-              </Button>
+              <Button onClick={() => { setActiveTab('cases'); setSelectedCase(null); }} variant="outline"><ArrowRight className="mr-2 h-4 w-4 rotate-180" />Back to Cases</Button>
               <Card className="p-6">
                 <h3 className="text-lg font-semibold mb-4 text-slate-800">Case Information</h3>
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-slate-500">Client</p>
-                    <p className="font-medium text-slate-800">{selectedCase.client_name}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-slate-500">Email</p>
-                    <p className="font-medium text-slate-800">{selectedCase.client_email}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-slate-500">Product</p>
-                    <p className="font-medium text-slate-800">{selectedCase.product_name}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-slate-500">Case Manager</p>
-                    <p className="font-medium text-slate-800">{selectedCase.case_manager_name}</p>
-                  </div>
+                  <div><p className="text-sm text-slate-500">Client</p><p className="font-medium text-slate-800">{selectedCase.client_name}</p></div>
+                  <div><p className="text-sm text-slate-500">Email</p><p className="font-medium text-slate-800">{selectedCase.client_email}</p></div>
+                  <div><p className="text-sm text-slate-500">Product</p><p className="font-medium text-slate-800">{selectedCase.product_name}</p></div>
+                  <div><p className="text-sm text-slate-500">Case Manager</p><p className="font-medium text-slate-800">{selectedCase.case_manager_name}</p></div>
                 </div>
               </Card>
-
               <Card className="p-6">
                 <h3 className="text-lg font-semibold mb-4 text-slate-800">Workflow Progress</h3>
                 <div className="space-y-3">
                   {selectedCase.steps && selectedCase.steps.map((step, idx) => (
-                    <div key={idx} className={`p-4 rounded-lg border-2 ${
-                      step.status === 'completed' ? 'bg-green-50 border-green-200' :
-                      step.status === 'in_progress' ? 'bg-blue-50 border-blue-300' :
-                      'bg-slate-50 border-slate-200'
-                    }`}>
+                    <div key={idx} className={`p-4 rounded-lg border-2 ${step.status === 'completed' ? 'bg-green-50 border-green-200' : step.status === 'in_progress' ? 'bg-blue-50 border-blue-300' : 'bg-slate-50 border-slate-200'}`}>
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
                           <p className="font-semibold text-slate-800">{step.step_order}. {step.step_name}</p>
                           {step.notes && <p className="text-sm text-slate-600 mt-1">{step.notes}</p>}
-                          {step.required_documents && step.required_documents.length > 0 && (
-                            <div className="mt-2">
-                              <p className="text-xs font-medium text-slate-700">Required Documents:</p>
-                              <ul className="text-xs text-slate-600 ml-4 list-disc">
-                                {step.required_documents.map((doc, i) => (
-                                  <li key={i}>{doc.doc_name}</li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
                         </div>
                         {getStatusBadge(step.status)}
                       </div>
@@ -802,7 +949,6 @@ const AdminDashboard = () => {
                   ))}
                 </div>
               </Card>
-
               <Card className="p-6">
                 <h3 className="text-lg font-semibold mb-4 text-slate-800">Documents</h3>
                 <div className="space-y-3">
@@ -811,14 +957,8 @@ const AdminDashboard = () => {
                   ) : (
                     caseDocuments.map((doc) => (
                       <div key={doc.id} className="flex justify-between items-center p-3 border rounded-lg">
-                        <div>
-                          <p className="font-medium text-slate-800">{doc.filename}</p>
-                          <p className="text-sm text-slate-600">Step: {doc.step_name}</p>
-                          <p className="text-sm text-slate-500">Status: {doc.status}</p>
-                        </div>
-                        <Button onClick={() => downloadDocument(doc.id, doc.filename)} size="sm" variant="outline">
-                          <Download className="h-4 w-4" />
-                        </Button>
+                        <div><p className="font-medium text-slate-800">{doc.filename}</p><p className="text-sm text-slate-600">Step: {doc.step_name}</p><p className="text-sm text-slate-500">Status: {doc.status}</p></div>
+                        <Button onClick={() => downloadDocument(doc.id, doc.filename)} size="sm" variant="outline"><Download className="h-4 w-4" /></Button>
                       </div>
                     ))
                   )}
@@ -831,21 +971,13 @@ const AdminDashboard = () => {
           {activeTab === 'products' && (
             <div className="space-y-6" data-testid="products-content">
               <div className="flex justify-end">
-                <Button
-                  onClick={() => setProductDialog({ open: true, mode: 'create', data: { name: '', description: '', fee: 0, commission_rate: 0 } })}
-                  className="bg-[#f7620b] hover:bg-[#e55a09] text-white"
-                  data-testid="create-product-btn"
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Create Product
+                <Button onClick={() => setProductDialog({ open: true, mode: 'create', data: { name: '', description: '', fee: 0, commission_rate: 0, commission_type: 'fixed', commission_tiers: [] } })} className="bg-[#f7620b] hover:bg-[#e55a09] text-white" data-testid="create-product-btn">
+                  <Plus className="mr-2 h-4 w-4" />Create Product
                 </Button>
               </div>
               <div className="space-y-4">
                 {products.length === 0 ? (
-                  <Card className="p-12 text-center">
-                    <Settings className="h-12 w-12 text-slate-400 mx-auto mb-4" />
-                    <p className="text-slate-600">No products created yet</p>
-                  </Card>
+                  <Card className="p-12 text-center"><Settings className="h-12 w-12 text-slate-400 mx-auto mb-4" /><p className="text-slate-600">No products created yet</p></Card>
                 ) : (
                   products.map((product) => (
                     <Card key={product.id} className="p-6" data-testid={`product-card-${product.id}`}>
@@ -854,44 +986,22 @@ const AdminDashboard = () => {
                           <h3 className="text-lg font-semibold text-slate-800">{product.name}</h3>
                           <p className="text-sm text-slate-600">{product.description}</p>
                           <div className="flex items-center gap-4 mt-2">
-                            <p className="text-sm text-slate-600">
-                              Fee: <span className="font-medium">${product.fee}</span>
-                            </p>
-                            <p className="text-sm text-slate-600">
-                              Commission: <span className="font-medium">{product.commission_rate}%</span>
-                            </p>
-                            <Badge variant="outline" className="text-xs">
-                              {product.commission_type === 'fixed' ? 'Fixed %' : 
-                               product.commission_type === 'tiered' ? 'Tiered' : 'Custom'}
-                            </Badge>
+                            <p className="text-sm text-slate-600">Fee: <span className="font-medium">${product.fee}</span></p>
+                            <p className="text-sm text-slate-600">Commission: <span className="font-medium">{product.commission_rate}%</span></p>
+                            <Badge variant="outline" className="text-xs">{product.commission_type === 'fixed' ? 'Fixed %' : product.commission_type === 'tiered' ? 'Tiered' : 'Custom'}</Badge>
                           </div>
+                          {product.commission_type === 'tiered' && product.commission_tiers?.length > 0 && (
+                            <div className="mt-2 text-xs text-slate-500">
+                              Tiers: {product.commission_tiers.map((t, i) => `${t.min_sales}-${t.max_sales}: ${t.rate}%`).join(' | ')}
+                            </div>
+                          )}
                         </div>
                         <div className="flex gap-2">
-                          <Button
-                            onClick={() => openWorkflowEditor(product)}
-                            size="sm"
-                            className="bg-[#2a777a] hover:bg-[#236466] text-white"
-                            data-testid={`edit-workflow-${product.id}`}
-                          >
-                            <Settings className="h-4 w-4 mr-1" />
-                            Edit Workflow
+                          <Button onClick={() => openWorkflowEditor(product)} size="sm" className="bg-[#2a777a] hover:bg-[#236466] text-white" data-testid={`edit-workflow-${product.id}`}>
+                            <Settings className="h-4 w-4 mr-1" />Edit Workflow
                           </Button>
-                          <Button
-                            onClick={() => setProductDialog({ open: true, mode: 'edit', data: product })}
-                            size="sm"
-                            variant="outline"
-                            data-testid={`edit-product-${product.id}`}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            onClick={() => handleDeleteProduct(product.id)}
-                            size="sm"
-                            variant="destructive"
-                            data-testid={`delete-product-${product.id}`}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          <Button onClick={() => setProductDialog({ open: true, mode: 'edit', data: product })} size="sm" variant="outline" data-testid={`edit-product-${product.id}`}><Edit className="h-4 w-4" /></Button>
+                          <Button onClick={() => handleDeleteProduct(product.id)} size="sm" variant="destructive" data-testid={`delete-product-${product.id}`}><Trash2 className="h-4 w-4" /></Button>
                         </div>
                       </div>
                       {product.workflow_steps && product.workflow_steps.length > 0 && (
@@ -900,16 +1010,10 @@ const AdminDashboard = () => {
                           <div className="space-y-2">
                             {product.workflow_steps.sort((a, b) => a.step_order - b.step_order).map((step, idx) => (
                               <div key={idx} className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
-                                <span className="w-8 h-8 rounded-full bg-[#2a777a] text-white flex items-center justify-center text-sm font-medium">
-                                  {step.step_order}
-                                </span>
+                                <span className="w-8 h-8 rounded-full bg-[#2a777a] text-white flex items-center justify-center text-sm font-medium">{step.step_order}</span>
                                 <div className="flex-1">
                                   <p className="font-medium text-slate-800">{step.step_name}</p>
-                                  {step.required_documents && step.required_documents.length > 0 && (
-                                    <p className="text-xs text-slate-500">
-                                      {step.required_documents.length} document(s) required
-                                    </p>
-                                  )}
+                                  {step.required_documents && step.required_documents.length > 0 && <p className="text-xs text-slate-500">{step.required_documents.length} document(s) required</p>}
                                 </div>
                               </div>
                             ))}
@@ -929,28 +1033,15 @@ const AdminDashboard = () => {
               <div className="flex justify-between items-center">
                 <div className="relative flex-1 mr-4">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
-                  <Input
-                    placeholder="Search users..."
-                    value={userSearchTerm}
-                    onChange={(e) => setUserSearchTerm(e.target.value)}
-                    className="pl-10"
-                    data-testid="user-search"
-                  />
+                  <Input placeholder="Search users..." value={userSearchTerm} onChange={(e) => setUserSearchTerm(e.target.value)} className="pl-10" data-testid="user-search" />
                 </div>
-                <Button
-                  onClick={() => setUserDialog({ open: true, mode: 'create', data: { email: '', name: '', password: '', role: 'partner', mobile: '' } })}
-                  className="bg-[#f7620b] hover:bg-[#e55a09] text-white"
-                  data-testid="create-user-btn"
-                >
-                  <UserPlus className="mr-2 h-4 w-4" />
-                  Create User
+                <Button onClick={() => setUserDialog({ open: true, mode: 'create', data: { email: '', name: '', password: '', role: 'partner', mobile: '' } })} className="bg-[#f7620b] hover:bg-[#e55a09] text-white" data-testid="create-user-btn">
+                  <UserPlus className="mr-2 h-4 w-4" />Create User
                 </Button>
               </div>
-              
               {['admin', 'case_manager', 'partner', 'client'].map(role => {
                 const roleUsers = filteredUsers.filter(u => u.role === role);
                 if (roleUsers.length === 0) return null;
-                
                 return (
                   <Card key={role} className="p-6" data-testid={`users-${role}`}>
                     <h3 className="text-lg font-semibold mb-4 capitalize text-slate-800">
@@ -960,40 +1051,11 @@ const AdminDashboard = () => {
                     <div className="space-y-3">
                       {roleUsers.map((usr) => (
                         <div key={usr.id} className="flex justify-between items-center p-3 border rounded-lg hover:bg-slate-50">
-                          <div>
-                            <p className="font-medium text-slate-800">{usr.name}</p>
-                            <p className="text-sm text-slate-600">{usr.email}</p>
-                          </div>
+                          <div><p className="font-medium text-slate-800">{usr.name}</p><p className="text-sm text-slate-600">{usr.email}</p></div>
                           <div className="flex gap-2">
-                            {usr.role !== 'admin' && (
-                              <Button
-                                onClick={() => handleImpersonate(usr)}
-                                size="sm"
-                                className="bg-[#2a777a] hover:bg-[#236466] text-white"
-                                data-testid={`impersonate-${usr.id}`}
-                              >
-                                <Eye className="h-4 w-4 mr-1" />
-                                Switch
-                              </Button>
-                            )}
-                            <Button
-                              onClick={() => setUserDialog({ open: true, mode: 'edit', data: usr })}
-                              size="sm"
-                              variant="outline"
-                              data-testid={`edit-user-${usr.id}`}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            {usr.role !== 'admin' && (
-                              <Button
-                                onClick={() => handleDeleteUser(usr.id)}
-                                size="sm"
-                                variant="destructive"
-                                data-testid={`delete-user-${usr.id}`}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            )}
+                            {usr.role !== 'admin' && <Button onClick={() => handleImpersonate(usr)} size="sm" className="bg-[#2a777a] hover:bg-[#236466] text-white" data-testid={`impersonate-${usr.id}`}><Eye className="h-4 w-4 mr-1" />Switch</Button>}
+                            <Button onClick={() => setUserDialog({ open: true, mode: 'edit', data: usr })} size="sm" variant="outline" data-testid={`edit-user-${usr.id}`}><Edit className="h-4 w-4" /></Button>
+                            {usr.role !== 'admin' && <Button onClick={() => handleDeleteUser(usr.id)} size="sm" variant="destructive" data-testid={`delete-user-${usr.id}`}><Trash2 className="h-4 w-4" /></Button>}
                           </div>
                         </div>
                       ))}
@@ -1004,44 +1066,141 @@ const AdminDashboard = () => {
             </div>
           )}
 
-          {/* Revenue Tab */}
-          {activeTab === 'revenue' && (
-            <div className="space-y-6" data-testid="revenue-content">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card className="p-6 bg-gradient-to-br from-[#2a777a] to-[#236466] text-white">
-                  <p className="text-sm opacity-80">Total Revenue</p>
-                  <p className="text-4xl font-bold mt-2">${(stats.total_revenue || 0).toFixed(2)}</p>
-                </Card>
-                <Card className="p-6 bg-gradient-to-br from-[#f7620b] to-[#e55a09] text-white">
-                  <p className="text-sm opacity-80">Approved Sales</p>
-                  <p className="text-4xl font-bold mt-2">{allSales.filter(s => s.status === 'approved').length}</p>
-                </Card>
+          {/* Tickets Tab */}
+          {activeTab === 'tickets' && !selectedTicket && (
+            <div className="space-y-6" data-testid="tickets-content">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                <Card className="p-4 bg-blue-50 border-blue-200"><p className="text-sm text-slate-600">Total</p><p className="text-2xl font-bold text-blue-700">{ticketStats.total || 0}</p></Card>
+                <Card className="p-4 bg-amber-50 border-amber-200"><p className="text-sm text-slate-600">Open</p><p className="text-2xl font-bold text-amber-700">{ticketStats.open || 0}</p></Card>
+                <Card className="p-4 bg-purple-50 border-purple-200"><p className="text-sm text-slate-600">In Progress</p><p className="text-2xl font-bold text-purple-700">{ticketStats.in_progress || 0}</p></Card>
+                <Card className="p-4 bg-green-50 border-green-200"><p className="text-sm text-slate-600">Resolved</p><p className="text-2xl font-bold text-green-700">{ticketStats.resolved || 0}</p></Card>
+                <Card className="p-4 bg-slate-50 border-slate-200"><p className="text-sm text-slate-600">Closed</p><p className="text-2xl font-bold text-slate-700">{ticketStats.closed || 0}</p></Card>
               </div>
 
               <Card className="p-6">
-                <h3 className="text-lg font-semibold mb-4 text-slate-800">Partner Revenue & Commission Report</h3>
-                {getRevenueData().length === 0 ? (
-                  <p className="text-center text-slate-500 py-8">No approved sales yet</p>
+                <div className="flex items-center gap-4 mb-4">
+                  <h3 className="text-lg font-semibold text-slate-800 flex items-center gap-2"><Filter className="h-5 w-5" />Filters</h3>
+                  <Select value={ticketFilter.status} onValueChange={(v) => setTicketFilter({ ...ticketFilter, status: v })}>
+                    <SelectTrigger className="w-36"><SelectValue placeholder="Status" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="open">Open</SelectItem>
+                      <SelectItem value="in_progress">In Progress</SelectItem>
+                      <SelectItem value="resolved">Resolved</SelectItem>
+                      <SelectItem value="closed">Closed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select value={ticketFilter.priority} onValueChange={(v) => setTicketFilter({ ...ticketFilter, priority: v })}>
+                    <SelectTrigger className="w-36"><SelectValue placeholder="Priority" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Priority</SelectItem>
+                      <SelectItem value="urgent">Urgent</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="low">Low</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select value={ticketFilter.created_by_role} onValueChange={(v) => setTicketFilter({ ...ticketFilter, created_by_role: v })}>
+                    <SelectTrigger className="w-36"><SelectValue placeholder="Role" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Roles</SelectItem>
+                      <SelectItem value="client">Client</SelectItem>
+                      <SelectItem value="partner">Partner</SelectItem>
+                      <SelectItem value="case_manager">Case Manager</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button onClick={loadTickets} size="sm" variant="outline"><RefreshCw className="h-4 w-4 mr-1" />Refresh</Button>
+                </div>
+              </Card>
+
+              <div className="space-y-3">
+                {allTickets.length === 0 ? (
+                  <Card className="p-12 text-center"><MessageSquare className="h-12 w-12 text-slate-400 mx-auto mb-4" /><p className="text-slate-600">No tickets found</p></Card>
                 ) : (
-                  <div className="space-y-4">
-                    {getRevenueData().map((data, idx) => (
-                      <div key={idx} className="p-4 border rounded-lg">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <p className="font-semibold text-slate-800">{data.partner_name}</p>
-                            <p className="text-sm text-slate-600">Total Sales: {data.sales_count}</p>
+                  allTickets.map(ticket => (
+                    <Card key={ticket.id} className="p-4 cursor-pointer hover:shadow-md transition-shadow" onClick={() => setSelectedTicket(ticket)}>
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className="font-semibold text-slate-800">{ticket.subject}</h4>
+                            {getPriorityBadge(ticket.priority)}
+                            {getStatusBadge(ticket.status)}
                           </div>
-                          <div className="text-right">
-                            <p className="text-sm text-slate-500">Total Revenue</p>
-                            <p className="text-lg font-bold text-[#2a777a]">${data.total_sales.toFixed(2)}</p>
-                            <p className="text-sm text-slate-500 mt-2">Commission Payable</p>
-                            <p className="text-lg font-bold text-[#f7620b]">${data.total_commission.toFixed(2)}</p>
-                          </div>
+                          <p className="text-sm text-slate-600 line-clamp-1">{ticket.description}</p>
+                          <p className="text-xs text-slate-500 mt-1">By: {ticket.created_by_name} ({ticket.created_by_role}) | {new Date(ticket.created_at).toLocaleString()}</p>
                         </div>
+                        <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); setSelectedTicket(ticket); }}><Eye className="h-4 w-4" /></Button>
                       </div>
-                    ))}
+                    </Card>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Ticket Detail View */}
+          {activeTab === 'tickets' && selectedTicket && (
+            <div className="space-y-6" data-testid="ticket-detail-content">
+              <Button onClick={() => setSelectedTicket(null)} variant="outline"><ArrowRight className="mr-2 h-4 w-4 rotate-180" />Back to Tickets</Button>
+              
+              <Card className="p-6">
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <h3 className="text-xl font-semibold text-slate-800">{selectedTicket.subject}</h3>
+                      {getPriorityBadge(selectedTicket.priority)}
+                      {getStatusBadge(selectedTicket.status)}
+                    </div>
+                    <p className="text-sm text-slate-600">Category: {selectedTicket.category}</p>
+                    <p className="text-sm text-slate-600">Created by: {selectedTicket.created_by_name} ({selectedTicket.created_by_role})</p>
+                    <p className="text-sm text-slate-600">Created: {new Date(selectedTicket.created_at).toLocaleString()}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    {selectedTicket.status === 'open' && <Button onClick={() => updateTicketStatus(selectedTicket.id, 'in_progress')} size="sm" className="bg-purple-500 hover:bg-purple-600"><Clock className="mr-1 h-4 w-4" />Start</Button>}
+                    {selectedTicket.status !== 'resolved' && selectedTicket.status !== 'closed' && (
+                      <Button onClick={() => updateTicketStatus(selectedTicket.id, 'resolved')} size="sm" className="bg-green-500 hover:bg-green-600"><CheckCircle className="mr-1 h-4 w-4" />Resolve</Button>
+                    )}
+                    {selectedTicket.status !== 'closed' && <Button onClick={() => updateTicketStatus(selectedTicket.id, 'closed')} size="sm" variant="outline"><XCircle className="mr-1 h-4 w-4" />Close</Button>}
+                  </div>
+                </div>
+                
+                <div className="p-4 bg-slate-50 rounded-lg mb-4">
+                  <p className="text-slate-800">{selectedTicket.description}</p>
+                </div>
+
+                {selectedTicket.status !== 'resolved' && selectedTicket.status !== 'closed' && (
+                  <div className="mb-4">
+                    <Label>Resolution Note (optional)</Label>
+                    <Textarea value={resolutionNote} onChange={(e) => setResolutionNote(e.target.value)} placeholder="Add a note when resolving this ticket..." rows={2} />
                   </div>
                 )}
+
+                {selectedTicket.resolution_note && (
+                  <div className="p-4 bg-green-50 rounded-lg mb-4 border border-green-200">
+                    <p className="text-sm font-medium text-green-800">Resolution Note:</p>
+                    <p className="text-green-700">{selectedTicket.resolution_note}</p>
+                    {selectedTicket.resolved_by_name && <p className="text-xs text-green-600 mt-1">Resolved by {selectedTicket.resolved_by_name} on {new Date(selectedTicket.resolved_at).toLocaleString()}</p>}
+                  </div>
+                )}
+              </Card>
+
+              <Card className="p-6">
+                <h4 className="font-semibold mb-4 text-slate-800">Messages ({selectedTicket.messages?.length || 0})</h4>
+                <div className="space-y-3 mb-4 max-h-96 overflow-y-auto">
+                  {selectedTicket.messages?.map((msg, idx) => (
+                    <div key={idx} className={`p-3 rounded-lg ${msg.user_role === 'admin' ? 'bg-blue-50 ml-8' : 'bg-slate-50 mr-8'}`}>
+                      <div className="flex justify-between items-center mb-1">
+                        <p className="text-sm font-medium text-slate-800">{msg.user_name} <span className="text-slate-500">({msg.user_role})</span></p>
+                        <p className="text-xs text-slate-500">{new Date(msg.created_at).toLocaleString()}</p>
+                      </div>
+                      <p className="text-slate-700">{msg.message}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <Textarea value={ticketReplyText} onChange={(e) => setTicketReplyText(e.target.value)} placeholder="Type your reply..." rows={2} className="flex-1" />
+                  <Button onClick={() => addTicketReply(selectedTicket.id)} className="bg-[#2a777a] hover:bg-[#236466]">Send</Button>
+                </div>
               </Card>
             </div>
           )}
@@ -1050,46 +1209,17 @@ const AdminDashboard = () => {
 
       {/* Product Dialog */}
       <Dialog open={productDialog.open} onOpenChange={(open) => setProductDialog({ ...productDialog, open })}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>{productDialog.mode === 'create' ? 'Create' : 'Edit'} Product</DialogTitle>
-          </DialogHeader>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>{productDialog.mode === 'create' ? 'Create' : 'Edit'} Product</DialogTitle></DialogHeader>
           <div className="space-y-4 py-4">
-            <div>
-              <Label>Product Name</Label>
-              <Input
-                value={productDialog.data?.name || ''}
-                onChange={(e) => setProductDialog({ ...productDialog, data: { ...productDialog.data, name: e.target.value } })}
-                data-testid="product-name-input"
-              />
-            </div>
-            <div>
-              <Label>Description</Label>
-              <Textarea
-                value={productDialog.data?.description || ''}
-                onChange={(e) => setProductDialog({ ...productDialog, data: { ...productDialog.data, description: e.target.value } })}
-                data-testid="product-description-input"
-              />
-            </div>
+            <div><Label>Product Name</Label><Input value={productDialog.data?.name || ''} onChange={(e) => setProductDialog({ ...productDialog, data: { ...productDialog.data, name: e.target.value } })} data-testid="product-name-input" /></div>
+            <div><Label>Description</Label><Textarea value={productDialog.data?.description || ''} onChange={(e) => setProductDialog({ ...productDialog, data: { ...productDialog.data, description: e.target.value } })} data-testid="product-description-input" /></div>
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Fee ($)</Label>
-                <Input
-                  type="number"
-                  value={productDialog.data?.fee || 0}
-                  onChange={(e) => setProductDialog({ ...productDialog, data: { ...productDialog.data, fee: parseFloat(e.target.value) || 0 } })}
-                  data-testid="product-fee-input"
-                />
-              </div>
+              <div><Label>Fee ($)</Label><Input type="number" value={productDialog.data?.fee || 0} onChange={(e) => setProductDialog({ ...productDialog, data: { ...productDialog.data, fee: parseFloat(e.target.value) || 0 } })} data-testid="product-fee-input" /></div>
               <div>
                 <Label>Commission Type</Label>
-                <Select 
-                  value={productDialog.data?.commission_type || 'fixed'} 
-                  onValueChange={(value) => setProductDialog({ ...productDialog, data: { ...productDialog.data, commission_type: value } })}
-                >
-                  <SelectTrigger data-testid="commission-type-select">
-                    <SelectValue />
-                  </SelectTrigger>
+                <Select value={productDialog.data?.commission_type || 'fixed'} onValueChange={(value) => setProductDialog({ ...productDialog, data: { ...productDialog.data, commission_type: value } })}>
+                  <SelectTrigger data-testid="commission-type-select"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="fixed">Fixed Percentage</SelectItem>
                     <SelectItem value="tiered">Tiered (Volume-based)</SelectItem>
@@ -1099,82 +1229,55 @@ const AdminDashboard = () => {
               </div>
             </div>
             {productDialog.data?.commission_type === 'fixed' && (
-              <div>
-                <Label>Commission Rate (%)</Label>
-                <Input
-                  type="number"
-                  value={productDialog.data?.commission_rate || 0}
-                  onChange={(e) => setProductDialog({ ...productDialog, data: { ...productDialog.data, commission_rate: parseFloat(e.target.value) || 0 } })}
-                  data-testid="product-commission-input"
-                />
-              </div>
+              <div><Label>Commission Rate (%)</Label><Input type="number" value={productDialog.data?.commission_rate || 0} onChange={(e) => setProductDialog({ ...productDialog, data: { ...productDialog.data, commission_rate: parseFloat(e.target.value) || 0 } })} data-testid="product-commission-input" /></div>
             )}
             {productDialog.data?.commission_type === 'tiered' && (
               <div className="p-4 bg-slate-50 rounded-lg">
                 <Label className="mb-2 block">Commission Tiers</Label>
-                <p className="text-xs text-slate-500 mb-3">Define tiers based on total sales count. Example: 0-10 sales = 5%, 11-50 = 7%</p>
-                <div className="space-y-2">
+                <p className="text-xs text-slate-500 mb-3">Define tiers based on total sales count</p>
+                <div className="space-y-2 mb-3">
                   {(productDialog.data?.commission_tiers || []).map((tier, idx) => (
-                    <div key={idx} className="flex items-center gap-2 text-sm">
+                    <div key={idx} className="flex items-center gap-2 text-sm p-2 bg-white rounded border">
                       <span className="text-slate-600">{tier.min_sales}-{tier.max_sales} sales:</span>
                       <span className="font-medium text-[#2a777a]">{tier.rate}%</span>
-                      <Button 
-                        size="sm" 
-                        variant="ghost" 
-                        onClick={() => {
-                          const tiers = (productDialog.data?.commission_tiers || []).filter((_, i) => i !== idx);
-                          setProductDialog({ ...productDialog, data: { ...productDialog.data, commission_tiers: tiers } });
-                        }}
-                        className="h-6 w-6 p-0"
-                      >
-                        <Trash2 className="h-3 w-3 text-red-500" />
-                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => { const tiers = (productDialog.data?.commission_tiers || []).filter((_, i) => i !== idx); setProductDialog({ ...productDialog, data: { ...productDialog.data, commission_tiers: tiers } }); }} className="h-6 w-6 p-0 ml-auto"><Trash2 className="h-3 w-3 text-red-500" /></Button>
                     </div>
                   ))}
                 </div>
-                <div className="flex gap-2 mt-3">
+                <div className="flex gap-2">
                   <Input placeholder="Min" type="number" className="w-20" id="tier-min" />
                   <Input placeholder="Max" type="number" className="w-20" id="tier-max" />
-                  <Input placeholder="Rate %" type="number" className="w-20" id="tier-rate" />
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={() => {
-                      const min = document.getElementById('tier-min').value;
-                      const max = document.getElementById('tier-max').value;
-                      const rate = document.getElementById('tier-rate').value;
-                      if (min && max && rate) {
-                        const tiers = [...(productDialog.data?.commission_tiers || []), { min_sales: parseInt(min), max_sales: parseInt(max), rate: parseFloat(rate) }];
-                        setProductDialog({ ...productDialog, data: { ...productDialog.data, commission_tiers: tiers } });
-                        document.getElementById('tier-min').value = '';
-                        document.getElementById('tier-max').value = '';
-                        document.getElementById('tier-rate').value = '';
-                      }
-                    }}
-                  >
-                    Add Tier
-                  </Button>
+                  <Input placeholder="%" type="number" className="w-16" id="tier-rate" />
+                  <Button size="sm" variant="outline" onClick={() => {
+                    const min = document.getElementById('tier-min').value;
+                    const max = document.getElementById('tier-max').value;
+                    const rate = document.getElementById('tier-rate').value;
+                    if (min && max && rate) {
+                      const tiers = [...(productDialog.data?.commission_tiers || []), { min_sales: parseInt(min), max_sales: parseInt(max), rate: parseFloat(rate) }];
+                      setProductDialog({ ...productDialog, data: { ...productDialog.data, commission_tiers: tiers } });
+                      document.getElementById('tier-min').value = '';
+                      document.getElementById('tier-max').value = '';
+                      document.getElementById('tier-rate').value = '';
+                    }
+                  }}>Add</Button>
                 </div>
               </div>
             )}
             {productDialog.data?.commission_type === 'custom' && (
               <div className="p-4 bg-slate-50 rounded-lg">
                 <Label className="mb-2 block">Custom Commission</Label>
-                <p className="text-xs text-slate-500">Commission will be set individually for each partner in their profile settings.</p>
-                <div className="mt-2">
-                  <Label>Default Rate (%)</Label>
-                  <Input
-                    type="number"
-                    value={productDialog.data?.commission_rate || 0}
-                    onChange={(e) => setProductDialog({ ...productDialog, data: { ...productDialog.data, commission_rate: parseFloat(e.target.value) || 0 } })}
-                    data-testid="product-commission-default-input"
-                  />
-                </div>
+                <p className="text-xs text-slate-500 mb-2">Commission will be set individually for each partner</p>
+                <div><Label>Default Rate (%)</Label><Input type="number" value={productDialog.data?.commission_rate || 0} onChange={(e) => setProductDialog({ ...productDialog, data: { ...productDialog.data, commission_rate: parseFloat(e.target.value) || 0 } })} /></div>
               </div>
             )}
-            <Button onClick={() => handleSaveProduct(productDialog.data)} className="w-full bg-[#2a777a] hover:bg-[#236466] text-white" data-testid="save-product-btn">
-              Save Product
-            </Button>
+            {productDialog.mode === 'edit' && (
+              <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
+                <Label className="mb-2 block text-amber-800"><Calendar className="inline h-4 w-4 mr-1" />Commission Effective Date</Label>
+                <p className="text-xs text-amber-700 mb-2">When should the new commission structure take effect?</p>
+                <Input type="datetime-local" value={productDialog.data?.commission_effective_from || ''} onChange={(e) => setProductDialog({ ...productDialog, data: { ...productDialog.data, commission_effective_from: e.target.value } })} />
+              </div>
+            )}
+            <Button onClick={() => handleSaveProduct(productDialog.data)} className="w-full bg-[#2a777a] hover:bg-[#236466] text-white" data-testid="save-product-btn">Save Product</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -1182,62 +1285,33 @@ const AdminDashboard = () => {
       {/* Workflow Editor Dialog */}
       <Dialog open={workflowDialog.open} onOpenChange={(open) => setWorkflowDialog({ ...workflowDialog, open })}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit Workflow - {workflowDialog.product?.name}</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Edit Workflow - {workflowDialog.product?.name}</DialogTitle></DialogHeader>
           <div className="space-y-6 py-4">
             <div className="flex justify-between items-center">
-              <p className="text-sm text-slate-600">
-                Define the steps for this product workflow. Each step can have required documents.
-              </p>
-              <Button onClick={() => openStepEditor('create')} className="bg-[#f7620b] hover:bg-[#e55a09] text-white" data-testid="add-step-btn">
-                <Plus className="mr-2 h-4 w-4" />
-                Add Step
-              </Button>
+              <p className="text-sm text-slate-600">Define the steps for this product workflow.</p>
+              <Button onClick={() => openStepEditor('create')} className="bg-[#f7620b] hover:bg-[#e55a09] text-white" data-testid="add-step-btn"><Plus className="mr-2 h-4 w-4" />Add Step</Button>
             </div>
-
             {workflowDialog.product?.workflow_steps?.length === 0 ? (
-              <div className="text-center py-8 border-2 border-dashed rounded-lg">
-                <Settings className="h-12 w-12 text-slate-400 mx-auto mb-4" />
-                <p className="text-slate-600">No workflow steps defined</p>
-                <p className="text-sm text-slate-500">Click &quot;Add Step&quot; to create your first workflow step</p>
-              </div>
+              <div className="text-center py-8 border-2 border-dashed rounded-lg"><Settings className="h-12 w-12 text-slate-400 mx-auto mb-4" /><p className="text-slate-600">No workflow steps defined</p></div>
             ) : (
               <div className="space-y-3">
                 {workflowDialog.product?.workflow_steps?.sort((a, b) => a.step_order - b.step_order).map((step, idx) => (
                   <div key={idx} className="p-4 border rounded-lg bg-white shadow-sm" data-testid={`workflow-step-${idx}`}>
                     <div className="flex justify-between items-start">
                       <div className="flex items-start gap-3 flex-1">
-                        <span className="w-10 h-10 rounded-full bg-[#2a777a] text-white flex items-center justify-center font-bold">
-                          {step.step_order}
-                        </span>
+                        <span className="w-10 h-10 rounded-full bg-[#2a777a] text-white flex items-center justify-center font-bold">{step.step_order}</span>
                         <div className="flex-1">
                           <h4 className="font-semibold text-slate-800">{step.step_name}</h4>
                           {step.description && <p className="text-sm text-slate-600 mt-1">{step.description}</p>}
-                          {step.duration_days && (
-                            <p className="text-xs text-slate-500 mt-1">Duration: {step.duration_days} days</p>
-                          )}
+                          {step.duration_days && <p className="text-xs text-slate-500 mt-1">Duration: {step.duration_days} days</p>}
                           {step.required_documents && step.required_documents.length > 0 && (
-                            <div className="mt-2">
-                              <p className="text-xs font-medium text-slate-700">Required Documents:</p>
-                              <div className="flex flex-wrap gap-1 mt-1">
-                                {step.required_documents.map((doc, docIdx) => (
-                                  <Badge key={docIdx} variant="outline" className="text-xs">
-                                    {doc.doc_name} {doc.is_mandatory && '*'}
-                                  </Badge>
-                                ))}
-                              </div>
-                            </div>
+                            <div className="mt-2"><p className="text-xs font-medium text-slate-700">Required Documents:</p><div className="flex flex-wrap gap-1 mt-1">{step.required_documents.map((doc, docIdx) => <Badge key={docIdx} variant="outline" className="text-xs">{doc.doc_name} {doc.is_mandatory && '*'}</Badge>)}</div></div>
                           )}
                         </div>
                       </div>
                       <div className="flex gap-2">
-                        <Button size="sm" variant="outline" onClick={() => openStepEditor('edit', idx)} data-testid={`edit-step-${idx}`}>
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button size="sm" variant="destructive" onClick={() => deleteWorkflowStep(step.step_order)} data-testid={`delete-step-${idx}`}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => openStepEditor('edit', idx)} data-testid={`edit-step-${idx}`}><Edit className="h-4 w-4" /></Button>
+                        <Button size="sm" variant="destructive" onClick={() => deleteWorkflowStep(step.step_order)} data-testid={`delete-step-${idx}`}><Trash2 className="h-4 w-4" /></Button>
                       </div>
                     </div>
                   </div>
@@ -1251,136 +1325,38 @@ const AdminDashboard = () => {
       {/* Step Editor Dialog */}
       <Dialog open={stepEditorDialog.open} onOpenChange={(open) => setStepEditorDialog({ ...stepEditorDialog, open })}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{stepEditorDialog.mode === 'create' ? 'Add New' : 'Edit'} Workflow Step</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>{stepEditorDialog.mode === 'create' ? 'Add New' : 'Edit'} Workflow Step</DialogTitle></DialogHeader>
           <div className="space-y-4 py-4">
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Step Name *</Label>
-                <Input
-                  value={stepEditorDialog.stepData.step_name}
-                  onChange={(e) => setStepEditorDialog({
-                    ...stepEditorDialog,
-                    stepData: { ...stepEditorDialog.stepData, step_name: e.target.value }
-                  })}
-                  placeholder="e.g., Document Verification"
-                  data-testid="step-name-input"
-                />
-              </div>
-              <div>
-                <Label>Step Order</Label>
-                <Input
-                  type="number"
-                  value={stepEditorDialog.stepData.step_order}
-                  onChange={(e) => setStepEditorDialog({
-                    ...stepEditorDialog,
-                    stepData: { ...stepEditorDialog.stepData, step_order: parseInt(e.target.value) || 1 }
-                  })}
-                  data-testid="step-order-input"
-                />
-              </div>
+              <div><Label>Step Name *</Label><Input value={stepEditorDialog.stepData.step_name} onChange={(e) => setStepEditorDialog({ ...stepEditorDialog, stepData: { ...stepEditorDialog.stepData, step_name: e.target.value } })} placeholder="e.g., Document Verification" data-testid="step-name-input" /></div>
+              <div><Label>Step Order</Label><Input type="number" value={stepEditorDialog.stepData.step_order} onChange={(e) => setStepEditorDialog({ ...stepEditorDialog, stepData: { ...stepEditorDialog.stepData, step_order: parseInt(e.target.value) || 1 } })} data-testid="step-order-input" /></div>
             </div>
-            <div>
-              <Label>Description</Label>
-              <Textarea
-                value={stepEditorDialog.stepData.description}
-                onChange={(e) => setStepEditorDialog({
-                  ...stepEditorDialog,
-                  stepData: { ...stepEditorDialog.stepData, description: e.target.value }
-                })}
-                placeholder="Describe what happens in this step..."
-                rows={2}
-                data-testid="step-description-input"
-              />
-            </div>
-            <div>
-              <Label>Duration (days)</Label>
-              <Input
-                type="number"
-                value={stepEditorDialog.stepData.duration_days}
-                onChange={(e) => setStepEditorDialog({
-                  ...stepEditorDialog,
-                  stepData: { ...stepEditorDialog.stepData, duration_days: e.target.value }
-                })}
-                placeholder="Estimated days to complete"
-                data-testid="step-duration-input"
-              />
-            </div>
-
-            {/* Document Requirements Section */}
+            <div><Label>Description</Label><Textarea value={stepEditorDialog.stepData.description} onChange={(e) => setStepEditorDialog({ ...stepEditorDialog, stepData: { ...stepEditorDialog.stepData, description: e.target.value } })} placeholder="Describe what happens in this step..." rows={2} data-testid="step-description-input" /></div>
+            <div><Label>Duration (days)</Label><Input type="number" value={stepEditorDialog.stepData.duration_days} onChange={(e) => setStepEditorDialog({ ...stepEditorDialog, stepData: { ...stepEditorDialog.stepData, duration_days: e.target.value } })} placeholder="Estimated days to complete" data-testid="step-duration-input" /></div>
             <div className="border-t pt-4">
               <h4 className="font-semibold mb-3 text-slate-800">Document Requirements</h4>
-              
               {stepEditorDialog.stepData.required_documents.length > 0 && (
                 <div className="space-y-2 mb-4">
                   {stepEditorDialog.stepData.required_documents.map((doc, idx) => (
                     <div key={idx} className="flex items-center justify-between p-2 bg-blue-50 rounded-lg">
-                      <div>
-                        <p className="font-medium text-slate-800">{doc.doc_name}</p>
-                        <p className="text-xs text-slate-600">{doc.description}</p>
-                        {doc.is_mandatory && <Badge className="mt-1 text-xs bg-red-100 text-red-700">Mandatory</Badge>}
-                      </div>
-                      <Button size="sm" variant="ghost" onClick={() => removeDocFromStep(idx)}>
-                        <XCircle className="h-4 w-4 text-red-500" />
-                      </Button>
+                      <div><p className="font-medium text-slate-800">{doc.doc_name}</p><p className="text-xs text-slate-600">{doc.description}</p>{doc.is_mandatory && <Badge className="mt-1 text-xs bg-red-100 text-red-700">Mandatory</Badge>}</div>
+                      <Button size="sm" variant="ghost" onClick={() => removeDocFromStep(idx)}><XCircle className="h-4 w-4 text-red-500" /></Button>
                     </div>
                   ))}
                 </div>
               )}
-
               <div className="p-4 bg-slate-50 rounded-lg space-y-3">
                 <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label className="text-sm">Document Name</Label>
-                    <Input
-                      value={stepEditorDialog.newDoc.doc_name}
-                      onChange={(e) => setStepEditorDialog({
-                        ...stepEditorDialog,
-                        newDoc: { ...stepEditorDialog.newDoc, doc_name: e.target.value }
-                      })}
-                      placeholder="e.g., Passport Copy"
-                      data-testid="doc-name-input"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-sm">Description</Label>
-                    <Input
-                      value={stepEditorDialog.newDoc.description}
-                      onChange={(e) => setStepEditorDialog({
-                        ...stepEditorDialog,
-                        newDoc: { ...stepEditorDialog.newDoc, description: e.target.value }
-                      })}
-                      placeholder="Additional info..."
-                      data-testid="doc-description-input"
-                    />
-                  </div>
+                  <div><Label className="text-sm">Document Name</Label><Input value={stepEditorDialog.newDoc.doc_name} onChange={(e) => setStepEditorDialog({ ...stepEditorDialog, newDoc: { ...stepEditorDialog.newDoc, doc_name: e.target.value } })} placeholder="e.g., Passport Copy" data-testid="doc-name-input" /></div>
+                  <div><Label className="text-sm">Description</Label><Input value={stepEditorDialog.newDoc.description} onChange={(e) => setStepEditorDialog({ ...stepEditorDialog, newDoc: { ...stepEditorDialog.newDoc, description: e.target.value } })} placeholder="Additional info..." data-testid="doc-description-input" /></div>
                 </div>
                 <div className="flex items-center justify-between">
-                  <label className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={stepEditorDialog.newDoc.is_mandatory}
-                      onChange={(e) => setStepEditorDialog({
-                        ...stepEditorDialog,
-                        newDoc: { ...stepEditorDialog.newDoc, is_mandatory: e.target.checked }
-                      })}
-                      className="rounded"
-                      data-testid="doc-mandatory-checkbox"
-                    />
-                    Mandatory Document
-                  </label>
-                  <Button size="sm" onClick={addDocToStep} variant="outline" data-testid="add-doc-btn">
-                    <Plus className="h-4 w-4 mr-1" />
-                    Add Document
-                  </Button>
+                  <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={stepEditorDialog.newDoc.is_mandatory} onChange={(e) => setStepEditorDialog({ ...stepEditorDialog, newDoc: { ...stepEditorDialog.newDoc, is_mandatory: e.target.checked } })} className="rounded" data-testid="doc-mandatory-checkbox" />Mandatory Document</label>
+                  <Button size="sm" onClick={addDocToStep} variant="outline" data-testid="add-doc-btn"><Plus className="h-4 w-4 mr-1" />Add Document</Button>
                 </div>
               </div>
             </div>
-
-            <Button onClick={saveWorkflowStep} className="w-full bg-[#2a777a] hover:bg-[#236466] text-white" data-testid="save-step-btn">
-              {stepEditorDialog.mode === 'create' ? 'Add Step' : 'Update Step'}
-            </Button>
+            <Button onClick={saveWorkflowStep} className="w-full bg-[#2a777a] hover:bg-[#236466] text-white" data-testid="save-step-btn">{stepEditorDialog.mode === 'create' ? 'Add Step' : 'Update Step'}</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -1388,64 +1364,20 @@ const AdminDashboard = () => {
       {/* User Dialog */}
       <Dialog open={userDialog.open} onOpenChange={(open) => setUserDialog({ ...userDialog, open })}>
         <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>{userDialog.mode === 'create' ? 'Create' : 'Edit'} User</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>{userDialog.mode === 'create' ? 'Create' : 'Edit'} User</DialogTitle></DialogHeader>
           <div className="space-y-4 py-4">
-            <div>
-              <Label>Name</Label>
-              <Input
-                value={userDialog.data?.name || ''}
-                onChange={(e) => setUserDialog({ ...userDialog, data: { ...userDialog.data, name: e.target.value } })}
-                data-testid="user-name-input"
-              />
-            </div>
-            <div>
-              <Label>Email</Label>
-              <Input
-                type="email"
-                value={userDialog.data?.email || ''}
-                onChange={(e) => setUserDialog({ ...userDialog, data: { ...userDialog.data, email: e.target.value } })}
-                data-testid="user-email-input"
-              />
-            </div>
-            <div>
-              <Label>Mobile</Label>
-              <Input
-                value={userDialog.data?.mobile || ''}
-                onChange={(e) => setUserDialog({ ...userDialog, data: { ...userDialog.data, mobile: e.target.value } })}
-                data-testid="user-mobile-input"
-              />
-            </div>
+            <div><Label>Name</Label><Input value={userDialog.data?.name || ''} onChange={(e) => setUserDialog({ ...userDialog, data: { ...userDialog.data, name: e.target.value } })} data-testid="user-name-input" /></div>
+            <div><Label>Email</Label><Input type="email" value={userDialog.data?.email || ''} onChange={(e) => setUserDialog({ ...userDialog, data: { ...userDialog.data, email: e.target.value } })} data-testid="user-email-input" /></div>
+            <div><Label>Mobile</Label><Input value={userDialog.data?.mobile || ''} onChange={(e) => setUserDialog({ ...userDialog, data: { ...userDialog.data, mobile: e.target.value } })} data-testid="user-mobile-input" /></div>
             <div>
               <Label>Role</Label>
-              <Select 
-                value={userDialog.data?.role || 'partner'} 
-                onValueChange={(value) => setUserDialog({ ...userDialog, data: { ...userDialog.data, role: value } })}
-              >
-                <SelectTrigger data-testid="user-role-select">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="case_manager">Case Manager</SelectItem>
-                  <SelectItem value="partner">Partner</SelectItem>
-                  <SelectItem value="client">Client</SelectItem>
-                </SelectContent>
+              <Select value={userDialog.data?.role || 'partner'} onValueChange={(value) => setUserDialog({ ...userDialog, data: { ...userDialog.data, role: value } })}>
+                <SelectTrigger data-testid="user-role-select"><SelectValue /></SelectTrigger>
+                <SelectContent><SelectItem value="admin">Admin</SelectItem><SelectItem value="case_manager">Case Manager</SelectItem><SelectItem value="partner">Partner</SelectItem><SelectItem value="client">Client</SelectItem></SelectContent>
               </Select>
             </div>
-            <div>
-              <Label>{userDialog.mode === 'edit' ? 'New Password (leave blank to keep)' : 'Password'}</Label>
-              <Input
-                type="password"
-                value={userDialog.data?.password || ''}
-                onChange={(e) => setUserDialog({ ...userDialog, data: { ...userDialog.data, password: e.target.value } })}
-                data-testid="user-password-input"
-              />
-            </div>
-            <Button onClick={() => handleSaveUser(userDialog.data)} className="w-full bg-[#2a777a] hover:bg-[#236466] text-white" data-testid="save-user-btn">
-              {userDialog.mode === 'create' ? 'Create User' : 'Update User'}
-            </Button>
+            <div><Label>{userDialog.mode === 'edit' ? 'New Password (leave blank to keep)' : 'Password'}</Label><Input type="password" value={userDialog.data?.password || ''} onChange={(e) => setUserDialog({ ...userDialog, data: { ...userDialog.data, password: e.target.value } })} data-testid="user-password-input" /></div>
+            <Button onClick={() => handleSaveUser(userDialog.data)} className="w-full bg-[#2a777a] hover:bg-[#236466] text-white" data-testid="save-user-btn">{userDialog.mode === 'create' ? 'Create User' : 'Update User'}</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -1453,79 +1385,27 @@ const AdminDashboard = () => {
       {/* Ticket Dialog */}
       <Dialog open={ticketDialog.open} onOpenChange={(open) => setTicketDialog({ ...ticketDialog, open })}>
         <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Create Support Ticket</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Create Support Ticket</DialogTitle></DialogHeader>
           <div className="space-y-4 py-4">
-            <div>
-              <Label>Target User (Optional)</Label>
-              <Select
-                value={ticketDialog.target_user_id}
-                onValueChange={(value) => setTicketDialog({ ...ticketDialog, target_user_id: value })}
-              >
-                <SelectTrigger data-testid="ticket-target-select">
-                  <SelectValue placeholder="Select user or leave for all" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Users</SelectItem>
-                  {allUsers.map((usr) => (
-                    <SelectItem key={usr.id} value={usr.id}>
-                      {usr.name} ({usr.role})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Subject</Label>
-              <Input
-                value={ticketDialog.subject}
-                onChange={(e) => setTicketDialog({ ...ticketDialog, subject: e.target.value })}
-                data-testid="ticket-subject-input"
-              />
-            </div>
+            <div><Label>Subject</Label><Input value={ticketDialog.subject} onChange={(e) => setTicketDialog({ ...ticketDialog, subject: e.target.value })} data-testid="ticket-subject-input" /></div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Category</Label>
                 <Select value={ticketDialog.category} onValueChange={(value) => setTicketDialog({ ...ticketDialog, category: value })}>
-                  <SelectTrigger data-testid="ticket-category-select">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="general">General</SelectItem>
-                    <SelectItem value="document">Document</SelectItem>
-                    <SelectItem value="payment">Payment</SelectItem>
-                    <SelectItem value="technical">Technical</SelectItem>
-                  </SelectContent>
+                  <SelectTrigger data-testid="ticket-category-select"><SelectValue /></SelectTrigger>
+                  <SelectContent><SelectItem value="general">General</SelectItem><SelectItem value="document">Document</SelectItem><SelectItem value="payment">Payment</SelectItem><SelectItem value="technical">Technical</SelectItem></SelectContent>
                 </Select>
               </div>
               <div>
                 <Label>Priority</Label>
                 <Select value={ticketDialog.priority} onValueChange={(value) => setTicketDialog({ ...ticketDialog, priority: value })}>
-                  <SelectTrigger data-testid="ticket-priority-select">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="low">Low</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
-                    <SelectItem value="urgent">Urgent</SelectItem>
-                  </SelectContent>
+                  <SelectTrigger data-testid="ticket-priority-select"><SelectValue /></SelectTrigger>
+                  <SelectContent><SelectItem value="low">Low</SelectItem><SelectItem value="medium">Medium</SelectItem><SelectItem value="high">High</SelectItem><SelectItem value="urgent">Urgent</SelectItem></SelectContent>
                 </Select>
               </div>
             </div>
-            <div>
-              <Label>Description</Label>
-              <Textarea
-                value={ticketDialog.description}
-                onChange={(e) => setTicketDialog({ ...ticketDialog, description: e.target.value })}
-                rows={4}
-                data-testid="ticket-description-input"
-              />
-            </div>
-            <Button onClick={handleCreateTicket} className="w-full bg-[#2a777a] hover:bg-[#236466] text-white" data-testid="create-ticket-btn">
-              Create Ticket
-            </Button>
+            <div><Label>Description</Label><Textarea value={ticketDialog.description} onChange={(e) => setTicketDialog({ ...ticketDialog, description: e.target.value })} rows={4} data-testid="ticket-description-input" /></div>
+            <Button onClick={handleCreateTicket} className="w-full bg-[#2a777a] hover:bg-[#236466] text-white" data-testid="create-ticket-btn">Create Ticket</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -1533,19 +1413,11 @@ const AdminDashboard = () => {
       {/* Reassign Dialog */}
       <Dialog open={reassignDialog.open} onOpenChange={(open) => setReassignDialog({ ...reassignDialog, open })}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Reassign Case Manager</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Reassign Case Manager</DialogTitle></DialogHeader>
           <div className="space-y-4 py-4">
             <Select onValueChange={(value) => handleReassignCase(reassignDialog.case_id, value)}>
-              <SelectTrigger data-testid="reassign-manager-select">
-                <SelectValue placeholder="Select new case manager" />
-              </SelectTrigger>
-              <SelectContent>
-                {caseManagers.map((manager) => (
-                  <SelectItem key={manager.id} value={manager.id}>{manager.name}</SelectItem>
-                ))}
-              </SelectContent>
+              <SelectTrigger data-testid="reassign-manager-select"><SelectValue placeholder="Select new case manager" /></SelectTrigger>
+              <SelectContent>{caseManagers.map((manager) => <SelectItem key={manager.id} value={manager.id}>{manager.name}</SelectItem>)}</SelectContent>
             </Select>
           </div>
         </DialogContent>
