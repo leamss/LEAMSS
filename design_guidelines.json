@@ -1,0 +1,161 @@
+{
+  "design_system": {
+    "identity": {
+      "name": "ImmigrationPortal",
+      "archetype": "Swiss & High-Contrast",
+      "emotional_tone": "Trustworthy, Efficient, Global, Authoritative",
+      "theme_strategy": "Light Mode Primary (Document Focus) with Dark Sidebar (Navigation)",
+      "primary_font": "Inter",
+      "heading_font": "Merriweather"
+    },
+    "colors": {
+      "palette": {
+        "primary": {
+          "name": "Deep Slate",
+          "hex": "#0F172A",
+          "usage": "Sidebar, Primary Buttons, Headings"
+        },
+        "secondary": {
+          "name": "Off-White",
+          "hex": "#F8FAFC",
+          "usage": "Page Backgrounds"
+        },
+        "accent": {
+          "name": "Electric Blue",
+          "hex": "#2563EB",
+          "usage": "Active States, Links, Primary CTAs"
+        },
+        "success": {
+          "name": "Visa Green",
+          "hex": "#059669",
+          "usage": "Approved Status, Success Toasts"
+        },
+        "warning": {
+          "name": "Pending Amber",
+          "hex": "#D97706",
+          "usage": "Pending Actions, Alerts"
+        },
+        "error": {
+          "name": "Reject Red",
+          "hex": "#DC2626",
+          "usage": "Errors, Rejections"
+        }
+      },
+      "backgrounds": {
+        "app_bg": "bg-slate-50",
+        "card_bg": "bg-white",
+        "sidebar_bg": "bg-slate-900"
+      }
+    },
+    "typography": {
+      "font_family": {
+        "heading": "Merriweather, serif",
+        "body": "Inter, sans-serif",
+        "mono": "JetBrains Mono, monospace"
+      },
+      "scale": {
+        "h1": "text-4xl font-bold tracking-tight text-slate-900",
+        "h2": "text-3xl font-semibold tracking-tight text-slate-900",
+        "h3": "text-2xl font-semibold text-slate-800",
+        "body_lg": "text-lg leading-relaxed text-slate-700",
+        "body_base": "text-base leading-relaxed text-slate-600",
+        "caption": "text-sm text-slate-500"
+      }
+    },
+    "spacing": {
+      "container_padding": "p-6 md:p-8 lg:p-12",
+      "section_gap": "gap-8",
+      "component_gap": "gap-4"
+    },
+    "shadows": {
+      "card": "shadow-[0_2px_8px_rgba(0,0,0,0.08)]",
+      "dropdown": "shadow-[0_4px_20px_rgba(0,0,0,0.12)]",
+      "hover": "shadow-[0_8px_30px_rgba(0,0,0,0.12)]"
+    },
+    "border_radius": {
+      "card": "rounded-xl",
+      "button": "rounded-md",
+      "input": "rounded-md"
+    }
+  },
+  "components": {
+    "buttons": {
+      "primary": "bg-slate-900 text-white hover:bg-slate-800 shadow-sm transition-all active:scale-95",
+      "secondary": "bg-white text-slate-900 border border-slate-200 hover:bg-slate-50 shadow-sm",
+      "ghost": "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
+      "destructive": "bg-red-600 text-white hover:bg-red-700"
+    },
+    "cards": {
+      "default": "bg-white border border-slate-200 shadow-sm rounded-xl p-6",
+      "interactive": "bg-white border border-slate-200 shadow-sm rounded-xl p-6 hover:shadow-md transition-all cursor-pointer hover:border-blue-200"
+    },
+    "inputs": {
+      "default": "flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm ring-offset-white file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+    },
+    "status_badges": {
+      "approved": "inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700",
+      "pending": "inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-700",
+      "rejected": "inline-flex items-center rounded-full border border-red-200 bg-red-50 px-2.5 py-0.5 text-xs font-semibold text-red-700",
+      "draft": "inline-flex items-center rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-700"
+    }
+  },
+  "layout_strategies": {
+    "admin_dashboard": {
+      "type": "Bento Grid Mode B (High Density)",
+      "structure": "Sidebar (Fixed Left) + Header (Sticky Top) + Main Content (Scrollable)",
+      "grid_cols": "grid-cols-1 md:grid-cols-4",
+      "gap": "gap-6"
+    },
+    "client_portal": {
+      "type": "Wizard / Step-by-Step",
+      "structure": "Centered Container with Progress Bar",
+      "max_width": "max-w-5xl mx-auto"
+    }
+  },
+  "assets": {
+    "images": {
+      "login_hero": {
+        "url": "https://images.unsplash.com/photo-1726533765275-a69cfd7f9897?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxODF8MHwxfHNlYXJjaHw0fHxtb2Rlcm4lMjBvZmZpY2UlMjBza3lzY3JhcGVyJTIwc2t5bGluZXxlbnwwfHx8fDE3Njg1NTIyNTJ8MA&ixlib=rb-4.1.0&q=85",
+        "alt": "Modern City Skyline",
+        "usage": "Login Page Background / Hero Section"
+      },
+      "dashboard_team": {
+        "url": "https://images.unsplash.com/photo-1758691737158-18ffa31c0a46?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NjZ8MHwxfHNlYXJjaHwxfHxwcm9mZXNzaW9uYWwlMjBidXNpbmVzcyUyMG1lZXRpbmclMjBkaXZlcnNlJTIwdGVhbXxlbnwwfHx8fDE3Njg1NTIyNDh8MA&ixlib=rb-4.1.0&q=85",
+        "alt": "Professional Team",
+        "usage": "About Us / Team Widget"
+      },
+      "documents_hero": {
+        "url": "https://images.unsplash.com/photo-1639034741369-1e0c771adaeb?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxNzV8MHwxfHNlYXJjaHwxfHxwYXNzcG9ydCUyMGFuZCUyMHRyYXZlbCUyMGRvY3VtZW50cyUyMG9uJTIwZGVza3xlbnwwfHx8fDE3Njg1NTIyNTB8MA&ixlib=rb-4.1.0&q=85",
+        "alt": "Passport and Documents",
+        "usage": "Document Upload Section / Empty State"
+      }
+    },
+    "icons": {
+      "library": "lucide-react",
+      "preferred_icons": [
+        "FileText",
+        "Users",
+        "Briefcase",
+        "CheckCircle",
+        "AlertCircle",
+        "Globe",
+        "ShieldCheck",
+        "LayoutDashboard"
+      ]
+    }
+  },
+  "universal_guidelines": [
+    "Use 'Inter' for all UI text and 'Merriweather' for Page Titles (h1, h2).",
+    "Do not use gradients for backgrounds; use solid colors or subtle noise textures.",
+    "All interactive elements must have a hover state (change color or shadow).",
+    "Use 'sonner' for all toast notifications.",
+    "Forms must use 'react-hook-form' with 'zod' validation.",
+    "Tables must be dense and readable, avoiding excessive padding in rows.",
+    "Always include 'data-testid' for interactive elements.",
+    "Mobile responsiveness is mandatory: Stack grids to 1 column on mobile.",
+    "Use 'lucide-react' for icons.",
+    "Do not use 'alert()' or 'confirm()'; use Shadcn Dialogs.",
+    "Ensure high contrast for text (Slate 600+ on white)."
+  ],
+  "instructions_to_main_agent": "Follow the 'Swiss & High-Contrast' archetype. Build a professional, trust-inducing interface. Prioritize clarity in data presentation. Use the provided image URLs for placeholders. Implement role-based layouts as defined."
+}
