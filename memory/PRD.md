@@ -216,6 +216,16 @@ Build a comprehensive "LEAMSS Portal" for an immigration service with four disti
 - `/api/sales/approve` - Approve/reject sales
 - `/api/stats/dashboard` - Dashboard statistics
 - `/api/admin/impersonate/{user_id}` - User impersonation
+- `/api/tickets` - Create ticket
+- `/api/tickets/all` - Get all tickets (with filters)
+- `/api/tickets/stats` - Get ticket statistics
+- `/api/tickets/{id}` - Get ticket details
+- `/api/tickets/{id}/status` - Update ticket status (body: {status, resolution_note})
+- `/api/tickets/{id}/message` - Add message to ticket
+- `/api/tickets/{id}/attachment` - Upload attachment (POST)
+- `/api/tickets/{id}/attachment/{file_id}` - Download attachment (GET)
+- `/api/reports/sales` - Sales report with filters
+- `/api/reports/partner-commissions` - Partner commission data
 
 ## Database Collections
 - users
