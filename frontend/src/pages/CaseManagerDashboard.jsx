@@ -548,6 +548,7 @@ const CaseManagerDashboard = () => {
           </div>
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   );
 };
