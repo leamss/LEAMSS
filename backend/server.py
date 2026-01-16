@@ -1227,24 +1227,67 @@ async def create_ticket(ticket: TicketCreate, user: dict = Depends(get_current_u
         "description": ticket.description,
         "status": "open",
         "messages": [],
+        "target_user_ids": ticket.target_user_ids or [],
+        "target_role": ticket.target_role,
+        "attachments": [],
+        "activity_log": [{
+            "action": "created",
+            "by_user_id": user["id"],
+            "by_user_name": user["name"],
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "details": f"Ticket created by {user['name']}"
+        }],
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     await db.tickets.insert_one(ticket_doc)
     ticket_doc.pop("_id")
     
-    admin_users = await db.users.find({"role": UserRole.ADMIN}, {"_id": 0}).to_list(100)
-    for admin in admin_users:
-        await create_notification(
-            admin["id"],
-            f"New Ticket: {ticket.subject}",
-            f"Ticket raised by {user['name']} ({user['role']})",
-            "ticket_created",
-            ticket_doc["id"]
-        )
+    # Notify target users
+    notified_users = set()
+    
+    # If specific users are targeted
+    if ticket.target_user_ids:
+        for target_id in ticket.target_user_ids:
+            if target_id not in notified_users:
+                await create_notification(
+                    target_id,
+                    f"New Ticket: {ticket.subject}",
+                    f"Ticket raised by {user['name']} ({user['role']}): {ticket.description[:100]}...",
+                    "ticket_created",
+                    ticket_doc["id"]
+                )
+                notified_users.add(target_id)
+    
+    # If targeting a role
+    if ticket.target_role:
+        role_users = await db.users.find({"role": ticket.target_role}, {"_id": 0}).to_list(1000)
+        for role_user in role_users:
+            if role_user["id"] not in notified_users:
+                await create_notification(
+                    role_user["id"],
+                    f"New Ticket: {ticket.subject}",
+                    f"Ticket raised by {user['name']} ({user['role']})",
+                    "ticket_created",
+                    ticket_doc["id"]
+                )
+                notified_users.add(role_user["id"])
+    
+    # If no specific target, notify admins
+    if not ticket.target_user_ids and not ticket.target_role:
+        admin_users = await db.users.find({"role": UserRole.ADMIN}, {"_id": 0}).to_list(100)
+        for admin in admin_users:
+            if admin["id"] not in notified_users:
+                await create_notification(
+                    admin["id"],
+                    f"New Ticket: {ticket.subject}",
+                    f"Ticket raised by {user['name']} ({user['role']})",
+                    "ticket_created",
+                    ticket_doc["id"]
+                )
     
     if ticket.case_id:
         case = await db.cases.find_one({"id": ticket.case_id})
-        if case and case["case_manager_id"] != user["id"]:
+        if case and case["case_manager_id"] != user["id"] and case["case_manager_id"] not in notified_users:
             await create_notification(
                 case["case_manager_id"],
                 f"New Ticket: {ticket.subject}",
@@ -1260,11 +1303,18 @@ async def get_my_tickets(user: dict = Depends(get_current_user)):
     if user["role"] == UserRole.ADMIN:
         tickets = await db.tickets.find({}, {"_id": 0}).to_list(1000)
     else:
-        tickets = await db.tickets.find({"created_by": user["id"]}, {"_id": 0}).to_list(1000)
+        # Get tickets created by user OR targeted to user
+        tickets = await db.tickets.find({
+            "$or": [
+                {"created_by": user["id"]},
+                {"target_user_ids": user["id"]},
+                {"target_role": user["role"]}
+            ]
+        }, {"_id": 0}).to_list(1000)
     return [TicketResponse(**t) for t in tickets]
 
 @api_router.post("/tickets/{ticket_id}/message")
-async def add_ticket_message(ticket_id: str, message: TicketMessage, user: dict = Depends(get_current_user)):
+async def add_ticket_message(ticket_id: str, message: TicketMessage, background_tasks: BackgroundTasks, user: dict = Depends(get_current_user)):
     ticket = await db.tickets.find_one({"id": ticket_id})
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
@@ -1277,11 +1327,22 @@ async def add_ticket_message(ticket_id: str, message: TicketMessage, user: dict 
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     
+    activity_entry = {
+        "action": "message_added",
+        "by_user_id": user["id"],
+        "by_user_name": user["name"],
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "details": f"Message added by {user['name']}"
+    }
+    
     await db.tickets.update_one(
         {"id": ticket_id},
-        {"$push": {"messages": msg}}
+        {
+            "$push": {"messages": msg, "activity_log": activity_entry}
+        }
     )
     
+    # Notify ticket creator if not the one adding message
     if ticket["created_by"] != user["id"]:
         await create_notification(
             ticket["created_by"],
