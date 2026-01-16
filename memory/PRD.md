@@ -180,21 +180,26 @@ Build a comprehensive "LEAMSS Portal" for an immigration service with four disti
    - Instructions provided in .env file
 
 ### P2 (Medium Priority)
-2. **Real-time Notifications**
+2. **Commission "Effective Date" for Commission Changes**
+   - Add date picker when editing product commission
+   - Implement historical commission lookup based on sale date
+   - Commission history array in product model
+
+3. **Real-time Notifications**
    - WebSocket for instant notification updates
    - Push notifications
 
-3. **Ticket System Enhancements**
+4. **Ticket System Analytics**
    - Ticket categories analytics
    - SLA tracking
    - Auto-assignment rules
 
 ### P3 (Low Priority)
-4. **Backend Refactoring**
-   - Split server.py into router modules
+5. **Backend Refactoring**
+   - Split server.py into router modules (admin.py, tickets.py, reports.py, etc.)
    - Improve code organization
 
-5. **Payment Gateway Integration**
+6. **Payment Gateway Integration**
    - Stripe/Razorpay integration for payments
    - Commission payout tracking
 
