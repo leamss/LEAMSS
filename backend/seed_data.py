@@ -187,8 +187,6 @@ async def seed_database():
     print("Case Manager: manager@leamss.com / Manager@123")
     print("Partner: partner@leamss.com / Partner@123")
     print("Client: client@leamss.com / Client@123")
-    
-    client.close()
 
 if __name__ == "__main__":
     asyncio.run(seed_database())
