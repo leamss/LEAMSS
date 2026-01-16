@@ -160,9 +160,9 @@ const CaseManagerDashboard = () => {
 
   return (
     <div className="flex min-h-screen bg-slate-50">
-      <aside className="w-64 bg-slate-900 text-white p-6 flex flex-col" data-testid="case-manager-sidebar">
+      <aside className="w-64 bg-slate-800 text-white p-6 flex flex-col" data-testid="case-manager-sidebar">
         <div className="flex items-center gap-2 mb-8">
-          <Briefcase className="h-8 w-8 text-emerald-400" />
+          <Briefcase className="h-8 w-8 text-[#f7620b]" />
           <h1 className="text-xl font-bold">Case Manager</h1>
         </div>
         
@@ -170,7 +170,7 @@ const CaseManagerDashboard = () => {
           <button
             onClick={() => { setActiveTab('dashboard'); setSelectedCase(null); }}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-md transition-colors ${
-              activeTab === 'dashboard' ? 'bg-emerald-600' : 'hover:bg-slate-800'
+              activeTab === 'dashboard' ? 'bg-[#2a777a]' : 'hover:bg-slate-700'
             }`}
             data-testid="nav-dashboard"
           >
@@ -180,7 +180,7 @@ const CaseManagerDashboard = () => {
           <button
             onClick={() => { setActiveTab('cases'); setSelectedCase(null); }}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-md transition-colors ${
-              activeTab === 'cases' ? 'bg-emerald-600' : 'hover:bg-slate-800'
+              activeTab === 'cases' ? 'bg-[#2a777a]' : 'hover:bg-slate-700'
             }`}
             data-testid="nav-cases"
           >
@@ -192,7 +192,7 @@ const CaseManagerDashboard = () => {
         <Button
           onClick={handleLogout}
           variant="ghost"
-          className="w-full justify-start text-white hover:bg-slate-800 mt-4"
+          className="w-full justify-start text-white hover:bg-slate-700 mt-4"
           data-testid="logout-button"
         >
           <LogOut className="mr-2 h-5 w-5" />
@@ -217,11 +217,11 @@ const CaseManagerDashboard = () => {
           {activeTab === 'dashboard' && (
             <div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8" data-testid="case-manager-stats">
-                <Card className="p-6 border-l-4 border-l-emerald-500">
+                <Card className="p-6 border-l-4 border-l-[#2a777a]">
                   <p className="text-sm text-slate-600 font-medium">My Cases</p>
                   <p className="text-3xl font-bold text-gray-900 mt-2">{stats.my_cases || 0}</p>
                 </Card>
-                <Card className="p-6 border-l-4 border-l-amber-500">
+                <Card className="p-6 border-l-4 border-l-[#f7620b]">
                   <p className="text-sm text-slate-600 font-medium">Pending Documents</p>
                   <p className="text-3xl font-bold text-gray-900 mt-2">{stats.pending_documents || 0}</p>
                 </Card>
@@ -288,7 +288,7 @@ const CaseManagerDashboard = () => {
                   <Button
                     onClick={() => setAdditionalDocDialog({ ...additionalDocDialog, open: true })}
                     size="sm"
-                    className="bg-emerald-600 hover:bg-emerald-700"
+                    className="bg-[#2a777a] hover:bg-[#236466]"
                   >
                     <Plus className="mr-2 h-4 w-4" />
                     Request Additional Document
@@ -372,7 +372,7 @@ const CaseManagerDashboard = () => {
                             size="sm"
                             onClick={() => setReviewDialog({ open: true, document: doc, status: '', comment: '' })}
                             data-testid={`review-doc-${doc.id}`}
-                            className="bg-emerald-600 hover:bg-emerald-700"
+                            className="bg-[#2a777a] hover:bg-[#236466]"
                           >
                             Review
                           </Button>
