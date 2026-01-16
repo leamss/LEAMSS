@@ -853,10 +853,18 @@ const AdminDashboard = () => {
                         <div>
                           <h3 className="text-lg font-semibold text-slate-800">{product.name}</h3>
                           <p className="text-sm text-slate-600">{product.description}</p>
-                          <p className="text-sm text-slate-600 mt-2">
-                            Fee: <span className="font-medium">${product.fee}</span> | 
-                            Commission: <span className="font-medium">{product.commission_rate}%</span>
-                          </p>
+                          <div className="flex items-center gap-4 mt-2">
+                            <p className="text-sm text-slate-600">
+                              Fee: <span className="font-medium">${product.fee}</span>
+                            </p>
+                            <p className="text-sm text-slate-600">
+                              Commission: <span className="font-medium">{product.commission_rate}%</span>
+                            </p>
+                            <Badge variant="outline" className="text-xs">
+                              {product.commission_type === 'fixed' ? 'Fixed %' : 
+                               product.commission_type === 'tiered' ? 'Tiered' : 'Custom'}
+                            </Badge>
+                          </div>
                         </div>
                         <div className="flex gap-2">
                           <Button
