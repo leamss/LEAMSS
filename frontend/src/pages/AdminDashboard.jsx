@@ -1519,7 +1519,7 @@ const AdminDashboard = () => {
 
       {/* Ticket Dialog */}
       <Dialog open={ticketDialog.open} onOpenChange={(open) => setTicketDialog({ ...ticketDialog, open })}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Create Support Ticket</DialogTitle></DialogHeader>
           <div className="space-y-4 py-4">
             <div><Label>Subject</Label><Input value={ticketDialog.subject} onChange={(e) => setTicketDialog({ ...ticketDialog, subject: e.target.value })} data-testid="ticket-subject-input" /></div>
@@ -1540,6 +1540,54 @@ const AdminDashboard = () => {
               </div>
             </div>
             <div><Label>Description</Label><Textarea value={ticketDialog.description} onChange={(e) => setTicketDialog({ ...ticketDialog, description: e.target.value })} rows={4} data-testid="ticket-description-input" /></div>
+            
+            {/* Assignment Section */}
+            <div className="border-t pt-4">
+              <h4 className="font-semibold mb-3 text-slate-800">Assignment (Optional)</h4>
+              <p className="text-xs text-slate-500 mb-3">Assign to specific users or a role. If left empty, admins will be notified.</p>
+              
+              <div className="space-y-3">
+                <div>
+                  <Label>Target Role</Label>
+                  <Select value={ticketDialog.target_role} onValueChange={(value) => setTicketDialog({ ...ticketDialog, target_role: value === 'none' ? '' : value })}>
+                    <SelectTrigger data-testid="ticket-target-role-select"><SelectValue placeholder="Select target role" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None (Admins)</SelectItem>
+                      <SelectItem value="case_manager">Case Managers</SelectItem>
+                      <SelectItem value="partner">Partners</SelectItem>
+                      <SelectItem value="client">Clients</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div>
+                  <Label>Assign to Specific Users</Label>
+                  <div className="max-h-32 overflow-y-auto border rounded-lg p-2 mt-1 space-y-1">
+                    {allUsers.filter(u => u.role !== 'admin').map(usr => (
+                      <label key={usr.id} className="flex items-center gap-2 p-1 hover:bg-slate-50 rounded cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={ticketDialog.target_user_ids.includes(usr.id)}
+                          onChange={(e) => {
+                            const newIds = e.target.checked
+                              ? [...ticketDialog.target_user_ids, usr.id]
+                              : ticketDialog.target_user_ids.filter(id => id !== usr.id);
+                            setTicketDialog({ ...ticketDialog, target_user_ids: newIds });
+                          }}
+                          className="rounded"
+                        />
+                        <span className="text-sm">{usr.name}</span>
+                        <Badge variant="outline" className="text-xs capitalize ml-auto">{usr.role.replace('_', ' ')}</Badge>
+                      </label>
+                    ))}
+                  </div>
+                  {ticketDialog.target_user_ids.length > 0 && (
+                    <p className="text-xs text-slate-500 mt-1">{ticketDialog.target_user_ids.length} user(s) selected</p>
+                  )}
+                </div>
+              </div>
+            </div>
+            
             <Button onClick={handleCreateTicket} className="w-full bg-[#2a777a] hover:bg-[#236466] text-white" data-testid="create-ticket-btn">Create Ticket</Button>
           </div>
         </DialogContent>
