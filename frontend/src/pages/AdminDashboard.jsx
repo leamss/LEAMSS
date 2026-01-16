@@ -1297,6 +1297,27 @@ const AdminDashboard = () => {
                   </div>
                 )}
               </Card>
+
+              {/* Activity Log Card */}
+              <Card className="p-6">
+                <h4 className="font-semibold mb-4 text-slate-800 flex items-center gap-2">
+                  <RefreshCw className="h-5 w-5" /> Activity Log ({selectedTicket.activity_log?.length || 0})
+                </h4>
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {selectedTicket.activity_log?.length === 0 ? (
+                    <p className="text-sm text-slate-500 text-center py-4">No activity logged</p>
+                  ) : (
+                    [...(selectedTicket.activity_log || [])].reverse().map((activity, idx) => (
+                      <div key={idx} className="flex items-start gap-3 p-2 border-l-2 border-slate-300 pl-4">
+                        <div className="flex-1">
+                          <p className="text-sm text-slate-800">{activity.details}</p>
+                          <p className="text-xs text-slate-500">{new Date(activity.timestamp).toLocaleString()}</p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </Card>
             </div>
           )}
         </div>
