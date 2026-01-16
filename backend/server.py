@@ -1,5 +1,6 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, UploadFile, File, Form
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.responses import StreamingResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorGridFSBucket
@@ -59,6 +60,18 @@ class LoginResponse(BaseModel):
     token: str
     user: UserResponse
 
+class DocumentRequirement(BaseModel):
+    doc_name: str
+    description: str
+    is_mandatory: bool = True
+
+class WorkflowStepDetail(BaseModel):
+    step_name: str
+    step_order: int
+    description: Optional[str] = None
+    duration_days: Optional[int] = None
+    required_documents: List[DocumentRequirement] = []
+
 class ProductBase(BaseModel):
     name: str
     description: str
@@ -68,12 +81,8 @@ class ProductBase(BaseModel):
 class ProductCreate(ProductBase):
     pass
 
-class WorkflowStep(BaseModel):
-    step_name: str
-    step_order: int
-    description: Optional[str] = None
-
 class ProductResponse(ProductBase):
+    model_config = ConfigDict(extra="ignore")
     id: str
     workflow_steps: List[Dict[str, Any]] = []
 
@@ -82,6 +91,8 @@ class WorkflowStepCreate(BaseModel):
     step_name: str
     step_order: int
     description: Optional[str] = None
+    duration_days: Optional[int] = None
+    required_documents: List[DocumentRequirement] = []
 
 class SaleCreate(BaseModel):
     client_name: str
@@ -120,7 +131,19 @@ class SaleApproval(BaseModel):
     status: str
     case_manager_id: Optional[str] = None
 
+class CaseStepStatus(BaseModel):
+    step_name: str
+    step_order: int
+    status: str
+    notes: str = ""
+    uploaded_documents: List[str] = []
+    required_documents: List[DocumentRequirement] = []
+    approved_by: Optional[str] = None
+    approved_at: Optional[str] = None
+    is_locked: bool = True
+
 class CaseResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
     id: str
     case_id: str
     client_id: str
@@ -134,8 +157,10 @@ class CaseResponse(BaseModel):
     partner_name: str
     status: str
     current_step: str
+    current_step_order: int = 1
     created_at: str
-    steps: List[Dict] = []
+    steps: List[Dict[str, Any]] = []
+    additional_doc_requests: List[Dict[str, Any]] = []
 
 class DocumentResponse(BaseModel):
     id: str
@@ -145,7 +170,9 @@ class DocumentResponse(BaseModel):
     upload_date: str
     status: str
     step_name: Optional[str] = None
+    document_type: Optional[str] = None
     review_comment: Optional[str] = None
+    file_size: Optional[int] = None
 
 class DocumentReview(BaseModel):
     document_id: str
@@ -157,6 +184,49 @@ class StepUpdate(BaseModel):
     step_name: str
     status: str
     notes: Optional[str] = None
+
+class AdditionalDocRequest(BaseModel):
+    case_id: str
+    document_name: str
+    description: str
+    due_date: Optional[str] = None
+
+class TicketCreate(BaseModel):
+    case_id: Optional[str] = None
+    subject: str
+    category: str
+    priority: str
+    description: str
+
+class TicketResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str
+    case_id: Optional[str] = None
+    created_by: str
+    created_by_name: str
+    created_by_role: str
+    subject: str
+    category: str
+    priority: str
+    description: str
+    status: str
+    created_at: str
+    messages: List[Dict[str, Any]] = []
+
+class TicketMessage(BaseModel):
+    ticket_id: str
+    message: str
+
+class NotificationResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str
+    user_id: str
+    title: str
+    message: str
+    type: str
+    related_id: Optional[str] = None
+    is_read: bool = False
+    created_at: str
 
 def create_access_token(data: dict):
     to_encode = data.copy()
@@ -185,6 +255,19 @@ def require_role(allowed_roles: List[str]):
             raise HTTPException(status_code=403, detail="Insufficient permissions")
         return user
     return role_checker
+
+async def create_notification(user_id: str, title: str, message: str, notification_type: str, related_id: Optional[str] = None):
+    notification = {
+        "id": str(ObjectId()),
+        "user_id": user_id,
+        "title": title,
+        "message": message,
+        "type": notification_type,
+        "related_id": related_id,
+        "is_read": False,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.notifications.insert_one(notification)
 
 @api_router.post("/auth/register", response_model=UserResponse)
 async def register(user: UserCreate):
@@ -247,7 +330,9 @@ async def add_workflow_step(step: WorkflowStepCreate, user: dict = Depends(requi
     step_doc = {
         "step_name": step.step_name,
         "step_order": step.step_order,
-        "description": step.description
+        "description": step.description,
+        "duration_days": step.duration_days,
+        "required_documents": [doc.model_dump() for doc in step.required_documents]
     }
     
     await db.products.update_one(
@@ -286,6 +371,17 @@ async def create_sale(sale: SaleCreate, user: dict = Depends(require_role([UserR
     
     await db.sales.insert_one(sale_doc)
     sale_doc.pop("_id")
+    
+    admin_users = await db.users.find({"role": UserRole.ADMIN}, {"_id": 0}).to_list(100)
+    for admin in admin_users:
+        await create_notification(
+            admin["id"],
+            "New Sale Pending Approval",
+            f"New sale from {user['name']} for {sale.client_name} - {product['name']}",
+            "sale_created",
+            sale_doc["id"]
+        )
+    
     return SaleResponse(**sale_doc)
 
 @api_router.post("/sales/{sale_id}/upload-document")
@@ -356,12 +452,17 @@ async def approve_sale(approval: SaleApproval, user: dict = Depends(require_role
         
         case_steps = []
         if product and "workflow_steps" in product:
-            for step in product["workflow_steps"]:
+            for idx, step in enumerate(sorted(product["workflow_steps"], key=lambda x: x["step_order"])):
                 case_steps.append({
                     "step_name": step["step_name"],
                     "step_order": step["step_order"],
-                    "status": "pending",
-                    "notes": ""
+                    "status": "in_progress" if idx == 0 else "locked",
+                    "notes": "",
+                    "uploaded_documents": [],
+                    "required_documents": step.get("required_documents", []),
+                    "approved_by": None,
+                    "approved_at": None,
+                    "is_locked": False if idx == 0 else True
                 })
         
         case_doc = {
@@ -379,10 +480,28 @@ async def approve_sale(approval: SaleApproval, user: dict = Depends(require_role
             "sale_id": sale["id"],
             "status": "active",
             "current_step": case_steps[0]["step_name"] if case_steps else "Onboarding",
+            "current_step_order": 1,
             "steps": case_steps,
+            "additional_doc_requests": [],
             "created_at": datetime.now(timezone.utc).isoformat()
         }
         await db.cases.insert_one(case_doc)
+        
+        await create_notification(
+            case_manager["id"],
+            "New Case Assigned",
+            f"New case {case_doc['case_id']} for {sale['client_name']} has been assigned to you",
+            "case_assigned",
+            case_doc["id"]
+        )
+        
+        await create_notification(
+            client_doc["id"],
+            "Welcome to LEAMSS Portal",
+            f"Your case {case_doc['case_id']} has been created. Login with password: Welcome@123",
+            "case_created",
+            case_doc["id"]
+        )
     
     return {"message": f"Sale {approval.status}"}
 
@@ -414,6 +533,8 @@ async def get_case(case_id: str, user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=403, detail="Not authorized")
     elif user["role"] == UserRole.CLIENT and case["client_id"] != user["id"]:
         raise HTTPException(status_code=403, detail="Not authorized")
+    elif user["role"] == UserRole.PARTNER and case["partner_id"] != user["id"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
     
     return CaseResponse(**case)
 
@@ -423,21 +544,93 @@ async def update_case_step(update: StepUpdate, user: dict = Depends(require_role
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
     
-    await db.cases.update_one(
-        {"id": update.case_id, "steps.step_name": update.step_name},
-        {"$set": {
-            "steps.$.status": update.status,
-            "steps.$.notes": update.notes,
-            "current_step": update.step_name
-        }}
+    steps = case.get("steps", [])
+    current_step_index = next((i for i, s in enumerate(steps) if s["step_name"] == update.step_name), None)
+    
+    if current_step_index is None:
+        raise HTTPException(status_code=404, detail="Step not found")
+    
+    if update.status == "completed":
+        steps[current_step_index]["status"] = "completed"
+        steps[current_step_index]["approved_by"] = user["id"]
+        steps[current_step_index]["approved_at"] = datetime.now(timezone.utc).isoformat()
+        steps[current_step_index]["is_locked"] = True
+        
+        if current_step_index + 1 < len(steps):
+            steps[current_step_index + 1]["status"] = "in_progress"
+            steps[current_step_index + 1]["is_locked"] = False
+            next_step_name = steps[current_step_index + 1]["step_name"]
+            
+            await db.cases.update_one(
+                {"id": update.case_id},
+                {"$set": {
+                    "steps": steps,
+                    "current_step": next_step_name,
+                    "current_step_order": current_step_index + 2
+                }}
+            )
+        else:
+            await db.cases.update_one(
+                {"id": update.case_id},
+                {"$set": {"steps": steps, "status": "completed"}}
+            )
+    else:
+        steps[current_step_index]["status"] = update.status
+        steps[current_step_index]["notes"] = update.notes or ""
+        
+        await db.cases.update_one(
+            {"id": update.case_id},
+            {"$set": {"steps": steps}}
+        )
+    
+    await create_notification(
+        case["client_id"],
+        "Case Update",
+        f"Step '{update.step_name}' has been updated to {update.status}",
+        "step_updated",
+        case["id"]
     )
     
     return {"message": "Step updated"}
+
+@api_router.post("/cases/request-additional-document")
+async def request_additional_document(request: AdditionalDocRequest, user: dict = Depends(require_role([UserRole.CASE_MANAGER, UserRole.ADMIN]))):
+    case = await db.cases.find_one({"id": request.case_id})
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+    
+    doc_request = {
+        "id": str(ObjectId()),
+        "document_name": request.document_name,
+        "description": request.description,
+        "requested_by": user["id"],
+        "requested_by_name": user["name"],
+        "requested_at": datetime.now(timezone.utc).isoformat(),
+        "due_date": request.due_date,
+        "status": "pending",
+        "uploaded_file_id": None
+    }
+    
+    await db.cases.update_one(
+        {"id": request.case_id},
+        {"$push": {"additional_doc_requests": doc_request}}
+    )
+    
+    await create_notification(
+        case["client_id"],
+        "Additional Document Required",
+        f"Case Manager has requested: {request.document_name}",
+        "doc_requested",
+        case["id"]
+    )
+    
+    return {"message": "Document request created", "request_id": doc_request["id"]}
 
 @api_router.post("/documents/upload")
 async def upload_document(
     case_id: str = Form(...),
     step_name: str = Form(...),
+    document_type: str = Form("general"),
     file: UploadFile = File(...),
     user: dict = Depends(get_current_user)
 ):
@@ -445,16 +638,25 @@ async def upload_document(
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
     
+    if user["role"] == UserRole.CLIENT:
+        current_step = next((s for s in case.get("steps", []) if s["status"] == "in_progress" and not s["is_locked"]), None)
+        if not current_step or current_step["step_name"] != step_name:
+            raise HTTPException(status_code=403, detail="Cannot upload documents for locked or future steps")
+    
     file_content = await file.read()
+    file_size = len(file_content)
+    
     file_id = await fs.upload_from_stream(
         file.filename,
         io.BytesIO(file_content),
         metadata={
             "case_id": case_id,
             "step_name": step_name,
+            "document_type": document_type,
             "uploaded_by": user["id"],
             "upload_date": datetime.now(timezone.utc).isoformat(),
-            "status": "pending_review"
+            "status": "pending_review",
+            "file_size": file_size
         }
     )
     
@@ -465,11 +667,54 @@ async def upload_document(
         "uploaded_by": user["id"],
         "upload_date": datetime.now(timezone.utc).isoformat(),
         "status": "pending_review",
-        "step_name": step_name
+        "step_name": step_name,
+        "document_type": document_type,
+        "file_size": file_size
     }
     await db.documents.insert_one(doc_entry)
     
+    await db.cases.update_one(
+        {"id": case_id, "steps.step_name": step_name},
+        {"$push": {"steps.$.uploaded_documents": str(file_id)}}
+    )
+    
+    await create_notification(
+        case["case_manager_id"],
+        "New Document Uploaded",
+        f"Client {case['client_name']} uploaded {file.filename} for step {step_name}",
+        "doc_uploaded",
+        case_id
+    )
+    
     return {"message": "Document uploaded", "file_id": str(file_id)}
+
+@api_router.get("/documents/download/{file_id}")
+async def download_document(file_id: str, user: dict = Depends(get_current_user)):
+    try:
+        grid_out = await fs.open_download_stream(ObjectId(file_id))
+        metadata = grid_out.metadata or {}
+        
+        case_id = metadata.get("case_id")
+        if case_id:
+            case = await db.cases.find_one({"id": case_id})
+            if case:
+                if user["role"] == UserRole.CLIENT and case["client_id"] != user["id"]:
+                    raise HTTPException(status_code=403, detail="Not authorized")
+                elif user["role"] == UserRole.CASE_MANAGER and case["case_manager_id"] != user["id"]:
+                    raise HTTPException(status_code=403, detail="Not authorized")
+                elif user["role"] == UserRole.PARTNER and case["partner_id"] != user["id"]:
+                    raise HTTPException(status_code=403, detail="Not authorized")
+        
+        contents = await grid_out.read()
+        filename = grid_out.filename or "document"
+        
+        return StreamingResponse(
+            io.BytesIO(contents),
+            media_type="application/octet-stream",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=f"Document not found: {str(e)}")
 
 @api_router.get("/documents/case/{case_id}", response_model=List[DocumentResponse])
 async def get_case_documents(case_id: str, user: dict = Depends(get_current_user)):
@@ -478,6 +723,10 @@ async def get_case_documents(case_id: str, user: dict = Depends(get_current_user
 
 @api_router.post("/documents/review")
 async def review_document(review: DocumentReview, user: dict = Depends(require_role([UserRole.CASE_MANAGER, UserRole.ADMIN]))):
+    doc = await db.documents.find_one({"id": review.document_id})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    
     await db.documents.update_one(
         {"id": review.document_id},
         {"$set": {
@@ -487,7 +736,111 @@ async def review_document(review: DocumentReview, user: dict = Depends(require_r
             "reviewed_at": datetime.now(timezone.utc).isoformat()
         }}
     )
+    
+    case = await db.cases.find_one({"id": doc["case_id"]})
+    if case:
+        await create_notification(
+            case["client_id"],
+            "Document Reviewed",
+            f"Your document '{doc['filename']}' has been {review.status}",
+            "doc_reviewed",
+            case["id"]
+        )
+    
     return {"message": "Document reviewed"}
+
+@api_router.post("/tickets", response_model=TicketResponse)
+async def create_ticket(ticket: TicketCreate, user: dict = Depends(get_current_user)):
+    ticket_doc = {
+        "id": str(ObjectId()),
+        "case_id": ticket.case_id,
+        "created_by": user["id"],
+        "created_by_name": user["name"],
+        "created_by_role": user["role"],
+        "subject": ticket.subject,
+        "category": ticket.category,
+        "priority": ticket.priority,
+        "description": ticket.description,
+        "status": "open",
+        "messages": [],
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.tickets.insert_one(ticket_doc)
+    ticket_doc.pop("_id")
+    
+    admin_users = await db.users.find({"role": UserRole.ADMIN}, {"_id": 0}).to_list(100)
+    for admin in admin_users:
+        await create_notification(
+            admin["id"],
+            f"New Ticket: {ticket.subject}",
+            f"Ticket raised by {user['name']} ({user['role']})",
+            "ticket_created",
+            ticket_doc["id"]
+        )
+    
+    if ticket.case_id:
+        case = await db.cases.find_one({"id": ticket.case_id})
+        if case and case["case_manager_id"] != user["id"]:
+            await create_notification(
+                case["case_manager_id"],
+                f"New Ticket: {ticket.subject}",
+                f"Ticket raised by {user['name']} for case {case['case_id']}",
+                "ticket_created",
+                ticket_doc["id"]
+            )
+    
+    return TicketResponse(**ticket_doc)
+
+@api_router.get("/tickets/my-tickets", response_model=List[TicketResponse])
+async def get_my_tickets(user: dict = Depends(get_current_user)):
+    if user["role"] == UserRole.ADMIN:
+        tickets = await db.tickets.find({}, {"_id": 0}).to_list(1000)
+    else:
+        tickets = await db.tickets.find({"created_by": user["id"]}, {"_id": 0}).to_list(1000)
+    return [TicketResponse(**t) for t in tickets]
+
+@api_router.post("/tickets/{ticket_id}/message")
+async def add_ticket_message(ticket_id: str, message: TicketMessage, user: dict = Depends(get_current_user)):
+    ticket = await db.tickets.find_one({"id": ticket_id})
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    
+    msg = {
+        "user_id": user["id"],
+        "user_name": user["name"],
+        "user_role": user["role"],
+        "message": message.message,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.tickets.update_one(
+        {"id": ticket_id},
+        {"$push": {"messages": msg}}
+    )
+    
+    if ticket["created_by"] != user["id"]:
+        await create_notification(
+            ticket["created_by"],
+            f"New message on ticket: {ticket['subject']}",
+            f"{user['name']} replied to your ticket",
+            "ticket_message",
+            ticket_id
+        )
+    
+    return {"message": "Message added"}
+
+@api_router.get("/notifications", response_model=List[NotificationResponse])
+async def get_notifications(user: dict = Depends(get_current_user)):
+    notifications = await db.notifications.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    return [NotificationResponse(**n) for n in notifications]
+
+@api_router.post("/notifications/{notification_id}/read")
+async def mark_notification_read(notification_id: str, user: dict = Depends(get_current_user)):
+    await db.notifications.update_one(
+        {"id": notification_id, "user_id": user["id"]},
+        {"$set": {"is_read": True}}
+    )
+    return {"message": "Notification marked as read"}
 
 @api_router.get("/users/case-managers")
 async def get_case_managers(user: dict = Depends(require_role([UserRole.ADMIN]))):
@@ -504,39 +857,49 @@ async def get_dashboard_stats(user: dict = Depends(get_current_user)):
         total_revenue = 0
         sales = await db.sales.find({"status": "approved"}).to_list(1000)
         total_revenue = sum(s["amount_received"] for s in sales)
+        unread_notifications = await db.notifications.count_documents({"user_id": user["id"], "is_read": False})
         
         stats = {
             "pending_sales": pending_sales,
             "active_cases": active_cases,
-            "total_revenue": total_revenue
+            "total_revenue": total_revenue,
+            "unread_notifications": unread_notifications
         }
     elif user["role"] == UserRole.CASE_MANAGER:
         my_cases = await db.cases.count_documents({"case_manager_id": user["id"]})
         pending_docs = await db.documents.count_documents({"status": "pending_review"})
+        unread_notifications = await db.notifications.count_documents({"user_id": user["id"], "is_read": False})
         stats = {
             "my_cases": my_cases,
-            "pending_documents": pending_docs
+            "pending_documents": pending_docs,
+            "unread_notifications": unread_notifications
         }
     elif user["role"] == UserRole.PARTNER:
         my_sales = await db.sales.count_documents({"partner_id": user["id"]})
         approved_sales = await db.sales.count_documents({"partner_id": user["id"], "status": "approved"})
         sales = await db.sales.find({"partner_id": user["id"], "status": "approved"}).to_list(1000)
         total_commission = sum(s["commission_amount"] for s in sales)
+        unread_notifications = await db.notifications.count_documents({"user_id": user["id"], "is_read": False})
         stats = {
             "total_sales": my_sales,
             "approved_sales": approved_sales,
-            "total_commission": total_commission
+            "total_commission": total_commission,
+            "unread_notifications": unread_notifications
         }
     elif user["role"] == UserRole.CLIENT:
         my_case = await db.cases.find_one({"client_id": user["id"]}, {"_id": 0})
+        unread_notifications = await db.notifications.count_documents({"user_id": user["id"], "is_read": False})
         if my_case:
-            pending_steps = len([s for s in my_case.get("steps", []) if s["status"] == "pending"])
+            pending_steps = len([s for s in my_case.get("steps", []) if s["status"] in ["pending", "in_progress"]])
             completed_steps = len([s for s in my_case.get("steps", []) if s["status"] == "completed"])
+            pending_doc_requests = len([r for r in my_case.get("additional_doc_requests", []) if r["status"] == "pending"])
             stats = {
                 "case_id": my_case.get("case_id"),
                 "current_step": my_case.get("current_step"),
                 "pending_steps": pending_steps,
-                "completed_steps": completed_steps
+                "completed_steps": completed_steps,
+                "pending_doc_requests": pending_doc_requests,
+                "unread_notifications": unread_notifications
             }
     
     return stats
