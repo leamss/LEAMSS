@@ -314,6 +314,8 @@ async def create_product(product: ProductCreate, user: dict = Depends(require_ro
         "description": product.description,
         "fee": product.fee,
         "commission_rate": product.commission_rate,
+        "commission_type": product.commission_type,
+        "commission_tiers": product.commission_tiers or [],
         "workflow_steps": [],
         "created_at": datetime.now(timezone.utc).isoformat()
     }
