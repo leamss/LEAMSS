@@ -104,7 +104,6 @@ const AdminDashboard = () => {
       return;
     }
     setUser(userData);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigate]);
 
   useEffect(() => {
