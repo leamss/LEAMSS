@@ -127,7 +127,7 @@ const PartnerDashboard = () => {
           <button
             onClick={() => setActiveTab('dashboard')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-md transition-colors ${
-              activeTab === 'dashboard' ? 'bg-blue-600' : 'hover:bg-slate-800'
+              activeTab === 'dashboard' ? 'bg-[#2a777a]' : 'hover:bg-slate-800'
             }`}
             data-testid="nav-dashboard"
           >
@@ -137,7 +137,7 @@ const PartnerDashboard = () => {
           <button
             onClick={() => setActiveTab('sales')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-md transition-colors ${
-              activeTab === 'sales' ? 'bg-blue-600' : 'hover:bg-slate-800'
+              activeTab === 'sales' ? 'bg-[#2a777a]' : 'hover:bg-slate-800'
             }`}
             data-testid="nav-sales"
           >
@@ -147,7 +147,7 @@ const PartnerDashboard = () => {
           <button
             onClick={() => setActiveTab('commission')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-md transition-colors ${
-              activeTab === 'commission' ? 'bg-blue-600' : 'hover:bg-slate-800'
+              activeTab === 'commission' ? 'bg-[#2a777a]' : 'hover:bg-slate-800'
             }`}
             data-testid="nav-commission"
           >
@@ -179,7 +179,7 @@ const PartnerDashboard = () => {
             {(activeTab === 'sales' || activeTab === 'dashboard') && (
               <Dialog open={showNewSaleDialog} onOpenChange={setShowNewSaleDialog}>
                 <DialogTrigger asChild>
-                  <Button className="bg-blue-600 hover:bg-blue-700" data-testid="new-sale-button">
+                  <Button className="bg-[#f7620b] hover:bg-[#e55a09]" data-testid="new-sale-button">
                     <Plus className="mr-2 h-4 w-4" />
                     New Sale
                   </Button>
@@ -319,15 +319,15 @@ const PartnerDashboard = () => {
           {activeTab === 'dashboard' && (
             <div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8" data-testid="partner-stats">
-                <Card className="p-6 border-l-4 border-l-blue-600">
+                <Card className="p-6 border-l-4 border-l-[#2a777a]">
                   <p className="text-sm text-slate-600 font-medium">Total Sales</p>
                   <p className="text-3xl font-bold text-slate-900 mt-2">{stats.total_sales || 0}</p>
                 </Card>
-                <Card className="p-6 border-l-4 border-l-emerald-600">
+                <Card className="p-6 border-l-4 border-l-[#2a777a]">
                   <p className="text-sm text-slate-600 font-medium">Approved Sales</p>
                   <p className="text-3xl font-bold text-slate-900 mt-2">{stats.approved_sales || 0}</p>
                 </Card>
-                <Card className="p-6 border-l-4 border-l-amber-500">
+                <Card className="p-6 border-l-4 border-l-[#f7620b]">
                   <p className="text-sm text-slate-600 font-medium">Total Commission</p>
                   <p className="text-3xl font-bold text-slate-900 mt-2">${stats.total_commission?.toFixed(2) || 0}</p>
                 </Card>
@@ -386,9 +386,9 @@ const PartnerDashboard = () => {
 
           {activeTab === 'commission' && (
             <div className="space-y-4" data-testid="commission-list">
-              <Card className="p-6 bg-blue-50 border-blue-200">
+              <Card className="p-6 bg-[#2a777a]/10 border-[#2a777a]/30">
                 <h3 className="text-lg font-semibold mb-2">Total Commission Earned</h3>
-                <p className="text-4xl font-bold text-blue-700">${stats.total_commission?.toFixed(2) || 0}</p>
+                <p className="text-4xl font-bold text-[#2a777a]">${stats.total_commission?.toFixed(2) || 0}</p>
               </Card>
               
               <div className="space-y-4">
