@@ -90,6 +90,8 @@ class ProductResponse(ProductBase):
     model_config = ConfigDict(extra="ignore")
     id: str
     workflow_steps: List[Dict[str, Any]] = []
+    commission_type: str = "fixed"
+    commission_tiers: List[Dict[str, Any]] = []
 
 class WorkflowStepCreate(BaseModel):
     product_id: str
