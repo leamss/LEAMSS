@@ -65,6 +65,39 @@ const AdminDashboard = () => {
     }
   };
 
+  const loadCaseDetails = async (caseId) => {
+    try {
+      const [caseRes, docsRes] = await Promise.all([
+        axios.get(`${API}/cases/${caseId}`, getAuthHeader()),
+        axios.get(`${API}/documents/case/${caseId}`, getAuthHeader())
+      ]);
+      setSelectedCase(caseRes.data);
+      setCaseDocuments(docsRes.data);
+      setActiveTab('case-detail');
+    } catch (error) {
+      toast.error('Failed to load case details');
+    }
+  };
+
+  const downloadDocument = async (docId, filename) => {
+    try {
+      const response = await axios.get(`${API}/documents/download/${docId}`, {
+        ...getAuthHeader(),
+        responseType: 'blob'
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      toast.success('Document downloaded');
+    } catch (error) {
+      toast.error('Failed to download document');
+    }
+  };
+
   const handleLogout = () => {
     localStorage.clear();
     navigate('/');
