@@ -874,7 +874,7 @@ async def update_ticket_status(
                     """)
                 )
     
-    return {"message": f"Ticket status updated to {status}"}
+    return {"message": f"Ticket status updated to {new_status}"}
 
 @api_router.get("/tickets/{ticket_id}")
 async def get_ticket_details(ticket_id: str, user: dict = Depends(get_current_user)):
