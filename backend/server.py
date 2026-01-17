@@ -144,7 +144,6 @@ async def run_scheduled_expiry_check():
 @app.on_event("startup")
 async def startup_event():
     """Application startup event"""
-    import asyncio
     global expiry_check_task
     
     logger.info("LEAMSS Portal API starting up...")
