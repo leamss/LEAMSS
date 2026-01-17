@@ -3,83 +3,41 @@ The user wants to build a comprehensive LEAMSS Portal for an immigration service
 
 **PRODUCT REQUIREMENTS:**
 1.  **Role-Based Access Control:** Separate dashboards for Admin, Case Manager, Partner, and Client.
-2.  **Dynamic Workflow Management (Admin):** Admins must be able to create, edit, and manage multi-stage workflows for each immigration product, including defining steps and required documents.
-3.  **Case Management:** Clients upload documents based on the workflow. Case Managers review, approve, or reject documents. Workflow steps are locked until prior steps are approved.
+2.  **Dynamic Workflow Management (Admin):** Admins must be able to create, edit, and manage multi-stage workflows, including defining steps and required documents with expiry/validity timelines.
+3.  **Case Management:**
+    *   Clients upload documents based on the workflow. Case Managers review, approve, or reject documents.
+    *   Case Managers can, with Admin permission, customize workflows on a per-client basis by requesting additional documents for specific steps.
+    *   Admin dashboard needs robust case search/filtering capabilities.
 4.  **Sales & Onboarding:** Partners create sales, which require Admin approval before a Case Manager is assigned and a client account is created.
 5.  **Admin Oversight & Reporting:**
-    *   Admins need a switch portal (impersonation) feature.
-    *   A comprehensive sales dashboard with filters (by partner, date range) and export functionality.
+    *   Admins need an improved switch portal (impersonation) feature that allows them to return to their session easily.
+    *   A comprehensive sales dashboard with filters and export functionality.
     *   A commission report to track payable commissions for each partner.
-6.  **Commission Structure:** The system must support multiple commission types per product (Fixed Percentage, Tiered by volume, Custom per partner) and allow changes to become effective from a specific date.
+6.  **Commission Structure:** The system must support multiple commission types (Fixed, Tiered) and allow changes to become effective from a specific date, with a full history.
 7.  **Communication & Support:**
-    *   A real-time notification system (via UI and Email) for all major events (case updates, ticket replies, etc.).
-    *   A full-featured ticketing system for users to raise issues. Admins must be able to filter/manage all tickets, and tickets should support status tracking, priority, attachments, and targeted assignment to specific users.
-8.  **UI/UX:** The design must be professional, following the color scheme , ,  and removing the previous dark yellow theme.
+    *   A real-time notification system (via WebSockets and UI) for all major events, which are clickable and navigate to the relevant item (e.g., ticket, case).
+    *   A full-featured ticketing system for users to raise issues, supporting attachments, status tracking, user assignment, and activity history.
+8.  **UI/UX:** The design must be professional and attractive, particularly for the Client Portal, following the color scheme , , .
 
 **User's preferred language**: English
 
 **what currently exists?**
-A full-stack application (FastAPI backend, React frontend, MongoDB) with a functional UI for all four user roles. The application's color scheme has been completely overhauled to match the user's specifications. The Admin Dashboard is now highly functional, featuring a working product/workflow editor, a user management section with impersonation, a sales report dashboard, and a partner commission tracking dashboard. A backend email notification service using Gmail SMTP has been integrated. The ticketing system has been built out but has several bugs and missing features reported by the user, which was the last item being worked on.
+The application is a full-stack portal with a FastAPI backend, React frontend, and MongoDB database. All major user-facing features from the PRD have been implemented. This includes a complete ticketing system with user assignment, attachments, and activity logging. The Admin dashboard features advanced case filtering, product management with document expiry settings, and a global toggle to grant Case Managers workflow customization permissions. The Case Manager dashboard allows for adding custom documents to a client's workflow. The Client dashboard has been significantly redesigned for a better user experience and correctly displays all required documents (both standard and custom). A persistent bug with document uploads for clients has been fixed. The commission system now supports effective dates with a full history log. A real-time notification system using WebSockets has been implemented on both the backend and frontend.
 
 **Last working item**:
--   **Last item agent was working:** Refactoring the ticketing system on the backend to address user feedback. The agent was implementing validation to prevent a ticket from being closed without a resolution message and updating the data models to support document attachments, ticket history (activity log), and assignment to specific users. The last specific action was modifying the ticket status update endpoint in .
--   **Status:** IN PROGRESS
+-   **Last item agent was working:** Implementing real-time notifications using WebSockets. The backend was updated with a WebSocket endpoint (), a , and logic to broadcast notifications. The frontend  component was refactored to establish a WebSocket connection instead of polling for updates.
+-   **Status:** TESTING PENDING
 -   **Agent Testing Done:** N
--   **Which testing method agent to use?** both. The backend requires thorough API testing for the new ticket logic (creation with assignment, status validation, activity logging, attachments). The frontend  will need significant updates to support these new features, which must be verified by the frontend testing agent.
+-   **Which testing method agent to use?** both. A backend test is needed to confirm that an event (e.g., creating a ticket) triggers a WebSocket broadcast. A frontend test is needed to verify the UI receives the message and updates in real-time without a page refresh.
 -   **User Testing Done:** N
 
 **All Pending/In progress Issue list**:
--   **Issue 1 (P0 - CRITICAL):** Ticketing system is buggy and lacks features.
--   **Issue 2 (P0 - BUG):** Tiered commission structure is not calculating or saving data correctly.
--   **Issue 3 (P1):** Admin Switch Portal feature needs UX improvement.
--   **Issue 4 (P2):** Sales report download functionality is not implemented.
--   **Issue 5 (P2):** Commission structure changes need an effective date option.
--   **Issue 6 (P3 - RECURRING):** Frontend JSX files are susceptible to syntax errors on edits.
-
-**Issues Detail:**
--   **Issue 1: Ticketing system is buggy and lacks features**
-    -   **Attempted fixes:** The agent created new backend models and endpoints for a more advanced ticketing system. However, the user reported several issues immediately after.
-    -   **Next debug checklist:**
-        1.  **Backend ():**
-            *   Modify the  creation endpoint to accept an  array of user IDs.
-            *   Add a file upload endpoint for ticket attachments, linking them to a ticket ID.
-            *   Modify the ticket update endpoint to automatically log all changes (status, new messages) to an  array within the ticket document.
-            *   Add validation to the status update endpoint to block changing status to 'Closed' or 'Resolved' if the last activity was not from an admin or the assigned user.
-        2.  **Frontend ():**
-            *   In the Create Ticket modal, add a multi-select dropdown to choose specific users or roles.
-            *   In the View Ticket modal, add a file upload component for attachments and display an activity/history log.
-            *   In the Users tab, add a Create Ticket for this User button on each user's profile card.
-    -   **Why fix this issue and what will be achieved with the fix?** A robust ticketing system is a core requirement for user support within the portal. This will make communication auditable and efficient.
-    -   **Status:** IN PROGRESS
-    -   **Is recurring issue?** N
-    -   **Should Test frontend/backend/both after fix?** Both
-
--   **Issue 2: Tiered commission structure is not calculating or saving data correctly**
-    -   **Attempted fixes:** The agent added the  and  fields to the product model and UI. However, the user reported that the data doesn't function correctly. The agent did not test the calculation logic.
-    -   **Next debug checklist:**
-        1.  Review the  function in  to ensure it correctly processes  commission logic based on sales volume.
-        2.  Write a temporary test script or use  to create a product with a tiered structure, create multiple sales for a partner, and then call the  endpoint to verify the calculated commission is correct.
-        3.  Ensure the product creation/update endpoints correctly save the  array.
-    -   **Why fix this issue and what will be achieved with the fix?** This is a critical business logic bug that affects partner payments and revenue tracking.
-    -   **Status:** NOT STARTED
-    -   **Is recurring issue?** N
-    -   **Should Test frontend/backend/both after fix?** Backend
-
--   **Issue 3: Admin Switch Portal feature needs UX improvement**
-    -   **Attempted fixes:** None. This is a new request.
-    -   **Next debug checklist:**
-        1.  In , find the  function.
-        2.  Change the  call to . The backend  endpoint likely sets a new token in local storage, which won't work across tabs.
-        3.  A better approach: When the admin clicks Switch, store the admin's token in a separate local storage key (e.g., ). When they are on another user's dashboard, display a Return to Admin banner that retrieves the  and restores their session.
-    -   **Why fix this issue and what will be achieved with the fix?** Improves admin usability, allowing them to inspect user portals without losing their own session context.
-    -   **Status:** NOT STARTED
-    -   **Is recurring issue?** N
-    -   **Should Test frontend/backend/both after fix?** Frontend
+There are no outstanding bugs or issues reported by the user. All previously reported issues, including the buggy ticketing system, incorrect commission calculations, and the client document upload failure, have been resolved.
 
 **In progress Task List**:
--   **Task 1: Complete the Ticket System Overhaul**
-    -   **Where to resume:** Continue editing . The models have been updated. The next step is to fully implement the logic for the , , , and new attachment endpoints.
-    -   **What will be achieved with this?** A fully functional, user-centric support ticketing system that meets all of the user's latest requirements.
+-   **Task 1: Test and Verify Real-time WebSocket Notifications (P0)**
+    -   **Where to resume:** The implementation is complete. The next step is to test the end-to-end flow.
+    -   **What will be achieved with this?** Confirmation that the real-time notification system is fully functional, providing instant updates to users.
     -   **Status:** IN PROGRESS
     -   **Should Test frontend/backend/both after fix?** Both
     -   **Blocked on something:** No.
@@ -87,104 +45,122 @@ A full-stack application (FastAPI backend, React frontend, MongoDB) with a funct
 **Upcoming and Future Tasks**
 
 **Upcoming Tasks:**
--   **P0:** Fix Tiered Commission Bug (Issue #2).
--   **P1:** Implement Admin Switch Portal UX Improvement (Issue #3).
--   **P1:** Implement Sales Report Download functionality in . This will require a library like  or  on the frontend to convert the JSON data from the  endpoint into a downloadable file.
--   **P2:** Implement Effective Date for Commission Changes. This involves adding a  array to the product model in  and logic to select the correct commission rate based on the sale's date. The UI in  will need a date picker when editing a product's commission.
+-   **P1:** Refactor the monolithic  into smaller, domain-specific router files (e.g., , , ). The file is now over 2000 lines and is difficult to maintain.
+-   **P2:** Enable email notifications for all key events. The  exists but is not yet integrated with all user actions (e.g., new ticket message, document approval/rejection).
 
 **Future Tasks:**
--   **P3:** Refactor the monolithic  into smaller router files (e.g., , , , ) to improve maintainability.
--   **P3:** Integrate a payment gateway like Stripe or Razorpay.
+-   **P2:** Implement automated document expiry reminders. This could send notifications or emails to clients and case managers before a document's validity period ends.
+-   **P3:** Integrate a payment gateway (e.g., Stripe, Razorpay) for client fee collection.
 
 **Completed work in this session**
--   **Major UI/UX Overhaul:** Implemented the user's new color scheme (, , ) across the entire application, resolving the persistent yellow background bug.
--   **Admin Dashboard - Product Editor:** Fixed the non-functional product workflow editor, allowing admins to dynamically manage product steps.
--   **Admin Dashboard - Reporting:**
-    -   Implemented a Total Sales Report with filtering by partner and date.
-    -   Implemented a Partner Commissions dashboard to view commissions owed to each partner.
--   **Commission Structure:** Implemented a multi-type commission system (Fixed, Tiered, Custom) on both the backend and frontend.
--   **Email Notifications:** Integrated an email service () using Gmail SMTP to send notifications for key events.
--   **Ticketing System (Initial version):** Built a comprehensive UI for ticket management in the Admin Dashboard with stats, filters, and a detailed list view.
--   **Code Packaging:** Created a distributable  file of the entire project and provided a detailed  for local setup.
+-   **Ticketing System Overhaul (FIXED & ENHANCED):**
+    -   Implemented user assignment, file attachments, activity logging, and resolution note validation.
+    -   Fixed a bug with the  route order.
+-   **Tiered Commission Bug (FIXED):** Corrected the backend calculation logic.
+-   **Admin Switch Portal UX (ENHANCED):** Implemented a Return to Admin banner for seamless impersonation.
+-   **Sales Report Download (IMPLEMENTED):** Added CSV download functionality for sales reports.
+-   **Client Document Upload Bug (FIXED):** Resolved an issue where clients couldn't upload additional documents due to an incorrect step lock check.
+-   **Client Document Visibility Bug (FIXED):** Ensured custom documents requested by Case Managers are visible in the Client Portal.
+-   **New Feature: Admin Dashboard Enhancements:**
+    -   Added robust search and filtering for the All Cases tab.
+    -   Added a Settings tab with a global toggle to enable/disable Case Manager workflow customization.
+-   **New Feature: Product & Workflow Enhancements:**
+    -   Admins can now define expiry/validity details for documents within a product workflow.
+-   **New Feature: Case Manager Workflow Customization:**
+    -   Case Managers can add custom document requests to a specific step in a client's workflow, provided the previous step is complete and the admin has enabled the feature.
+-   **New Feature: Client Dashboard Redesign:**
+    -   Completely redesigned the client UI for a more modern and intuitive experience, especially for viewing and uploading documents.
+-   **New Feature: Clickable Notifications:**
+    -   Notifications are now clickable and navigate the user directly to the relevant item (e.g., opening the specific ticket dialog).
+-   **New Feature: Commission Effective Date:**
+    -   Implemented logic to handle commission rate changes with an effective date and viewable history.
+-   **New Feature: Real-time WebSocket Notifications:**
+    -   Integrated a WebSocket backend and updated the frontend to provide real-time notification updates.
 
 **Earlier issues found/mentioned but not fixed**
--   The issues from the previous handoff have been addressed. The current active issues are listed in the All Pending/In progress Issue list section above.
+-   None. All issues raised by the user or identified in the previous handoff have been addressed.
 
 **Known issue recurrence from previous fork**
--   **Issue recurrence in previous fork:** Generating/editing  files with improperly escaped quotes (), which breaks the React application.
+-   **Issue recurrence in previous fork:** Generating/editing  files with syntax errors.
 -   **Recurrence count:** 3+
--   **Status:** RESOLVED (for now). The agent successfully identified and fixed multiple linting issues during this session but the next agent should remain cautious, especially when making large edits to JSX files.
+-   **Status:** RESOLVED. The agent was diligent about using the linter after every significant change, catching and fixing multiple JSX and Python errors before they became an issue. This practice should be continued.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
--   **Backend:** FastAPI, Pydantic, Motor (async MongoDB driver), JWT for auth,  for email.
+-   **Backend:** FastAPI, Pydantic, Motor (async MongoDB driver), JWT for auth, , **FastAPI WebSockets**.
 -   **Frontend:** React, React Router, TailwindCSS, Shadcn UI components.
 -   **Database:** MongoDB.
--   **Architecture:** Monolithic backend serving a REST API to a component-based React SPA.
+-   **Architecture:** Monolithic backend serving a REST API and WebSocket to a React SPA.
 
 **key DB schema**
--   **users:** 
+-   **users:**  (unchanged)
 -   **products:** 
 -   **cases:** 
--   **sales:** 
--   **tickets:** 
--   **notifications:** 
+-   **sales:**  (unchanged)
+-   **tickets:**  (unchanged)
+-   **notifications:**  (unchanged)
+-   **settings:** **(New)** 
 
 **All files of reference**
--   : The monolithic backend file, containing all new logic for reports, commissions, and tickets.
--   : The main frontend file, containing all new UI for reports, commissions, and tickets. Needs further updates for the ticketing system.
--   : The new module for handling email sending.
--   : The product requirements document, updated with recent changes.
+-   : Heavily modified to add all new features, bug fixes, and WebSocket logic.
+-   : Updated for case filtering, settings, and clickable notifications.
+-   : Updated to allow step-specific document requests.
+-   : Completely redesigned UI and fixed upload logic.
+-   : Updated to include the Return to Admin banner.
+-   : Rewritten to use WebSockets instead of polling.
+-   : Updated with all completed features and new backlog items.
 
 **Areas that need refactoring**:
--   : This file has grown significantly and is now over 1300 lines. It is critically in need of being broken down into smaller, manageable FastAPI  modules (e.g., , ).
+-   : **CRITICAL**. This file is now extremely large and complex. It must be broken down into smaller  modules as the next high-priority task to ensure maintainability.
 
 **key api endpoints**
--   : **(New)** GET endpoint to fetch sales data with filters.
--   : **(New)** GET endpoint to fetch aggregated partner commission data.
--   : **(Updated)** Endpoints for creating, viewing, and updating tickets.
--   : **(Updated)** PUT endpoint to handle commission structure changes.
+-   ****: (New) WebSocket endpoint for real-time notifications.
+-   ****: (New) Fetches global system settings.
+-   ****: (New) Updates global system settings.
+-   ****: (New) Allows Case Managers to add a document request to a specific step.
+-   ****: (Updated) Logic now correctly handles uploads for additional documents, bypassing step-lock checks.
+-   ****: (Updated) Commission calculation now uses the new  helper to respect effective dates.
+-   ****: (Updated) Now archives old commission structures into the  array.
 
 **Critical Info for New Agent**
--   The user is highly engaged and provides very specific, detailed feedback. You must address every point in their requests.
--   Your immediate priority is to fix the ticketing system (Issue #1). This is a blocker for the user.
--   After fixing the tickets, your next priority should be the tiered commission bug (Issue #2), as it affects core business logic.
--   The backend  is extremely large. Be very careful when editing it. A full refactor is a future task, but you should consider logical placement of any new code.
--   Always lint your code after making changes, especially on  and  files, to catch errors early.
+-   Your immediate priority is to thoroughly test the WebSocket notification system. A user action (like creating a ticket) should trigger a real-time UI update for the assigned user without a page refresh.
+-   After testing, the most critical task is to refactor the monolithic  file. This technical debt is significant and will impede future development if not addressed.
+-   The user is highly detail-oriented. Ensure all parts of a request are fully implemented and tested.
+-   Continue the practice of linting all modified files (, ) before committing changes. It has proven effective at catching errors early.
 
 **documents and test reports created in this job**
--   /app/memory/PRD.md
--   /app/test_reports/iteration_2.json
--   /app/DEPLOYMENT_GUIDE.md
--   /app/leamss-portal.zip (and )
+-    (updated)
+-    (new)
+-    (updated)
+-    (created/updated)
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **User:** Requests major changes to the Admin dashboard: enhanced sales report with search/download, a separate commission payable section, and a full-featured ticketing system. Reports that the tiered commission feature is not working. Asks for an effective date option for commission changes.
-2.  **Agent:** Confirms understanding and starts implementing.
-3.  **User:** Asks for the whole project in a zip file to run locally.
-4.  **Agent:** Creates the zip, a deployment guide, and provides a download link.
-5.  **User:** Asks for help with local VS Code deployment.
-6.  **Agent:** Provides a detailed step-by-step guide for Windows setup.
-7.  **User:** Confirms they will continue building the project and asks agent to wait.
-8.  **Agent:** Acknowledges and waits.
-9.  **User:** Returns from break and is ready to provide more changes.
-10. **Agent:** Welcomes the user back and asks for the new requirements.
-11. **User (PENDING):** Reports multiple bugs and missing features in the new ticketing system (user targeting, validation, attachments, history) and requests a UX improvement for the admin switch portal feature.
+1.  **User:** Requests multiple new features: document expiry timelines, case search filters, and case manager workflow customization with admin controls. (COMPLETED)
+2.  **Agent:** Proposes a plan and priority order.
+3.  **User:** Approves the plan and priorities.
+4.  **Agent:** Implements the features.
+5.  **User:** Reports a bug: clients cannot see documents requested by the case manager. (PENDING)
+6.  **Agent:** Investigates and fixes the bug by consolidating custom document arrays in the backend and enhancing the client UI. (COMPLETED)
+7.  **User:** Reports a new bug: document uploads fail for clients. Also requests UI improvements for the client portal and implementation of clickable notifications. (PENDING)
+8.  **Agent:** Analyzes the screenshot, identifies the bug in the backend validation logic, and implements a fix. Also redesigns the client UI and implements clickable notifications. (COMPLETED)
+9.  **User:** Asks agent to proceed with the next action items from the agent's summary. (PENDING - This is the current work state)
+10. **Agent:** Acknowledges and starts work on the commission Effective Date feature. (COMPLETED)
 
 **Project Health Check:**
--   **Broken:** The ticketing system is not functioning as per the user's latest request. The core business logic for tiered commissions is bugged.
--   **Mocked:** The Export to CSV/Excel functionality for reports is present as a button in the UI but is not implemented.
+-   **Broken:** None known. The last implemented feature (WebSockets) is awaiting testing.
+-   **Mocked:** None.
 
 **3rd Party Integrations**
--   **Gmail SMTP:** Implemented for transactional emails via Python's . Credentials need to be configured in .
+-   **Gmail SMTP:** Implemented via Python's .
+-   **FastAPI WebSockets:** Newly integrated for real-time notifications.
 
 **Testing status**
--   **Testing agent used after significant changes:** YES,  was used successfully after the major UI overhaul and returned a 100% success rate (). It has not been used since the latest features (reports, tickets) were added.
+-   **Testing agent used after significant changes:** YES,  was used to run a comprehensive test suite (), which passed 40/40 tests and fixed a backend route ordering issue.
 -   **Troubleshoot agent used after agent stuck in loop:** NO
--   **Test files created:** None persistent.
--   **Known regressions:** The tiered commission logic appears to be a regression or an incompletely implemented feature.
+-   **Test files created:** 
+-   **Known regressions:** None.
 
 **Credentials to test flow:**
 -   **Admin:**  / 
@@ -193,5 +169,4 @@ A full-stack application (FastAPI backend, React frontend, MongoDB) with a funct
 -   **Client:**  / 
 
 **What agent forgot to execute**
--   The agent did not fully test the backend calculation logic for the **tiered commission** structure after implementing the models and UI, leading to the user reporting it as a bug.
--   The agent implemented UI for new features like Export Report but did not implement the underlying functionality, leaving it as a non-functional button.</analysis>
+-   The agent has not yet tested the real-time WebSocket notification feature after implementing it. This is the most critical next step.</analysis>
