@@ -1,17 +1,19 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Bell, FileText, MessageSquare, CheckCircle, AlertCircle, DollarSign, User, Wifi, WifiOff } from 'lucide-react';
+import { Bell, FileText, MessageSquare, CheckCircle, AlertCircle, DollarSign, User, Wifi, WifiOff, BellRing } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
+import usePushNotifications from '@/hooks/usePushNotifications';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
