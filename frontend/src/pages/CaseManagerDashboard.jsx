@@ -84,6 +84,7 @@ const CaseManagerDashboard = () => {
   const [pendingReviewDocs, setPendingReviewDocs] = useState([]);
   const [documentSearch, setDocumentSearch] = useState({ query: '', type: 'all', status: 'all' });
   const [allDocuments, setAllDocuments] = useState([]);
+  const [initialTicketId, setInitialTicketId] = useState(null);
 
   const getAuthHeader = () => ({
     headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
