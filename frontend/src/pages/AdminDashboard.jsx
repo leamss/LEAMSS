@@ -796,27 +796,39 @@ const AdminDashboard = () => {
           ))}
         </nav>
         
-        <Button onClick={handleLogout} variant="ghost" className="w-full justify-start text-white hover:bg-slate-700 mt-4" data-testid="logout-button">
-          <LogOut className="mr-2 h-5 w-5" />Logout
-        </Button>
+        <div className="p-4 border-t border-slate-100">
+          <div className="flex items-center gap-3 px-3 py-2 mb-3">
+            <div className="h-9 w-9 rounded-full bg-slate-200 flex items-center justify-center">
+              <span className="text-slate-600 font-medium text-sm">{user?.name?.charAt(0) || 'A'}</span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-slate-800 truncate">{user?.name}</p>
+              <p className="text-xs text-slate-500 truncate">{user?.email}</p>
+            </div>
+          </div>
+          <Button onClick={handleLogout} variant="ghost" className="w-full justify-start text-slate-600 hover:text-slate-800 hover:bg-slate-50" data-testid="logout-button">
+            <LogOut className="mr-2 h-4 w-4" />Logout
+          </Button>
+        </div>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 p-8 overflow-auto">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex justify-between items-center mb-8">
-            <h2 className="text-3xl font-bold text-slate-800" data-testid="page-title">
+      <main className="flex-1 ml-64">
+        {/* Header */}
+        <header className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-slate-200 px-8 py-4">
+          <div className="flex justify-between items-center max-w-7xl mx-auto">
+            <h2 className="text-2xl font-bold text-slate-800" data-testid="page-title">
               {activeTab === 'dashboard' && 'Dashboard'}
-              {activeTab === 'sales' && 'Pending Sales Approval'}
-              {activeTab === 'total-sales' && 'Total Sales Report'}
-              {activeTab === 'commissions' && 'Partner Commissions'}
+              {activeTab === 'sales' && 'Pending Sales'}
+              {activeTab === 'total-sales' && 'Sales Report'}
+              {activeTab === 'commissions' && 'Commissions'}
               {activeTab === 'cases' && !selectedCase && 'All Cases'}
-              {activeTab === 'products' && 'Products & Workflows'}
-              {activeTab === 'users' && 'User Management'}
-              {activeTab === 'tickets' && !selectedTicket && 'Support Tickets'}
-              {activeTab === 'settings' && 'System Settings'}
-              {activeTab === 'sale-docs' && `Sale Documents - ${selectedSale?.client_name}`}
-              {activeTab === 'case-detail' && `Case Details - ${selectedCase?.case_id}`}
+              {activeTab === 'products' && 'Products'}
+              {activeTab === 'users' && 'Users'}
+              {activeTab === 'tickets' && !selectedTicket && 'Tickets'}
+              {activeTab === 'settings' && 'Settings'}
+              {activeTab === 'sale-docs' && `Sale: ${selectedSale?.client_name}`}
+              {activeTab === 'case-detail' && `Case: ${selectedCase?.case_id}`}
               {selectedTicket && `Ticket: ${selectedTicket?.subject}`}
             </h2>
             <div className="flex items-center gap-3">
@@ -826,26 +838,30 @@ const AdminDashboard = () => {
               <NotificationBell onNotificationClick={handleNotificationClick} />
             </div>
           </div>
+        </header>
 
+        {/* Content */}
+        <div className="p-8">
+          <div className="max-w-7xl mx-auto">
           {/* Dashboard Tab */}
           {activeTab === 'dashboard' && (
             <div className="space-y-6" data-testid="dashboard-content">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <Card className="p-6 border-l-4 border-l-[#f7620b]">
-                  <p className="text-sm text-slate-600 font-medium">Pending Sales</p>
-                  <p className="text-3xl font-bold text-slate-800 mt-2">{stats.pending_sales || 0}</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <Card className="p-6 bg-white rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                  <p className="text-sm text-slate-500 font-medium">Pending Sales</p>
+                  <p className="text-3xl font-bold text-[#f7620b] mt-2">{stats.pending_sales || 0}</p>
                 </Card>
-                <Card className="p-6 border-l-4 border-l-[#2a777a]">
-                  <p className="text-sm text-slate-600 font-medium">Active Cases</p>
+                <Card className="p-6 bg-white rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                  <p className="text-sm text-slate-500 font-medium">Active Cases</p>
                   <p className="text-3xl font-bold text-slate-800 mt-2">{stats.active_cases || 0}</p>
                 </Card>
-                <Card className="p-6 border-l-4 border-l-green-500">
-                  <p className="text-sm text-slate-600 font-medium">Total Revenue</p>
-                  <p className="text-3xl font-bold text-slate-800 mt-2">${(stats.total_revenue || 0).toFixed(2)}</p>
+                <Card className="p-6 bg-white rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                  <p className="text-sm text-slate-500 font-medium">Total Revenue</p>
+                  <p className="text-3xl font-bold text-emerald-600 mt-2">${(stats.total_revenue || 0).toFixed(2)}</p>
                 </Card>
-                <Card className="p-6 border-l-4 border-l-purple-500">
-                  <p className="text-sm text-slate-600 font-medium">Open Tickets</p>
-                  <p className="text-3xl font-bold text-slate-800 mt-2">{ticketStats.open || 0}</p>
+                <Card className="p-6 bg-white rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                  <p className="text-sm text-slate-500 font-medium">Open Tickets</p>
+                  <p className="text-3xl font-bold text-[#2a777a] mt-2">{ticketStats.open || 0}</p>
                 </Card>
               </div>
 
