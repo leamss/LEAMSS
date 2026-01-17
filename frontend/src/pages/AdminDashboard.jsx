@@ -83,7 +83,7 @@ const AdminDashboard = () => {
         axios.get(`${API}/cases`, authHeader),
         axios.get(`${API}/products`, authHeader),
         axios.get(`${API}/users`, authHeader),
-        axios.get(`${API}/sales/all`, authHeader).catch(() => ({ data: [] })),
+        axios.get(`${API}/sales`, authHeader).catch(() => ({ data: [] })),
         axios.get(`${API}/reports/partner-commissions`, authHeader).catch(() => ({ data: [] })),
         axios.get(`${API}/tickets/all`, authHeader).catch(() => ({ data: [] })),
         axios.get(`${API}/tickets/stats`, authHeader).catch(() => ({ data: {} })),
