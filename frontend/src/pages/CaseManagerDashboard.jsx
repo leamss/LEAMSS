@@ -751,7 +751,7 @@ const CaseManagerDashboard = () => {
                               <span>Case: {doc.case_id}</span>
                               <span>•</span>
                               <Clock className="h-3 w-3" />
-                              <span>{new Date(doc.uploaded_at || doc.created_at).toLocaleDateString()}</span>
+                              <span>{formatDate(doc.uploaded_at || doc.created_at)}</span>
                             </div>
                           </div>
                         </div>
