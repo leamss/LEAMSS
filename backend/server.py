@@ -458,6 +458,44 @@ def get_applicable_commission(product: dict, sale_date: str = None) -> tuple:
     
     return commission_rate, commission_type, commission_tiers
 
+async def send_push_notification(user_id: str, title: str, body: str, url: str = None):
+    """Send push notification to all subscribed devices for a user"""
+    if not PUSH_ENABLED or not VAPID_PRIVATE_KEY:
+        return
+    
+    try:
+        subscriptions = await db.push_subscriptions.find({"user_id": user_id}).to_list(100)
+        
+        for sub in subscriptions:
+            try:
+                payload = json.dumps({
+                    "title": title,
+                    "body": body,
+                    "icon": "/logo192.png",
+                    "badge": "/logo192.png",
+                    "url": url or "/",
+                    "timestamp": datetime.now(timezone.utc).isoformat()
+                })
+                
+                webpush(
+                    subscription_info={
+                        "endpoint": sub["endpoint"],
+                        "keys": sub["keys"]
+                    },
+                    data=payload,
+                    vapid_private_key=VAPID_PRIVATE_KEY,
+                    vapid_claims={"sub": f"mailto:{VAPID_CLAIMS_EMAIL}"}
+                )
+            except WebPushException as e:
+                logging.error(f"Push notification failed: {e}")
+                # Remove invalid subscriptions
+                if e.response and e.response.status_code in [404, 410]:
+                    await db.push_subscriptions.delete_one({"_id": sub["_id"]})
+            except Exception as e:
+                logging.error(f"Push notification error: {e}")
+    except Exception as e:
+        logging.error(f"Failed to send push notifications: {e}")
+
 async def create_notification(user_id: str, title: str, message: str, notification_type: str, related_id: Optional[str] = None):
     notification = {
         "id": str(ObjectId()),
@@ -494,6 +532,12 @@ async def create_notification(user_id: str, title: str, message: str, notificati
         await sse_manager.send_notification(user_id, notification_payload)
     except Exception as e:
         logging.error(f"Failed to send SSE notification: {e}")
+    
+    # Send browser push notification
+    try:
+        await send_push_notification(user_id, title, message, f"/?notification={notification['id']}")
+    except Exception as e:
+        logging.error(f"Failed to send push notification: {e}")
 
 # WebSocket endpoint
 @app.websocket("/ws/{token}")
