@@ -91,17 +91,18 @@ const TicketSection = ({ caseId = null, assignedCaseManagerId = null, clientId =
     }
   };
 
-  const updateTicketStatus = async (status, resolutionNote = '') => {
+  const updateTicketStatus = async (status) => {
     if (!selectedTicket) return;
 
-    if ((status === 'resolved' || status === 'closed') && !resolutionNote) {
-      toast.error('Resolution note is required');
+    // Require resolution note for resolved/closed
+    if ((status === 'resolved' || status === 'closed') && resolutionNote.length < 10) {
+      toast.error('Resolution note is required (min 10 characters)');
       return;
     }
 
     try {
       await axios.put(`${API}/tickets/${selectedTicket.id}/status`, 
-        { status, resolution_note: resolutionNote || undefined }, 
+        { status, resolution_note: resolutionNote || selectedTicket.resolution_note || 'Resolved' }, 
         getAuthHeader()
       );
       toast.success(`Ticket ${status}`);
@@ -109,6 +110,32 @@ const TicketSection = ({ caseId = null, assignedCaseManagerId = null, clientId =
       loadTickets();
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Failed to update status');
+    }
+  };
+
+  const uploadAttachment = async (file) => {
+    if (!selectedTicket || !file) return;
+    
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('File size must be less than 10MB');
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      await axios.post(`${API}/tickets/${selectedTicket.id}/attachment`, formData, {
+        ...getAuthHeader(),
+        headers: {
+          ...getAuthHeader().headers,
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+      toast.success('Attachment uploaded');
+      loadTicketDetails(selectedTicket.id);
+    } catch (error) {
+      toast.error('Failed to upload attachment');
     }
   };
 
