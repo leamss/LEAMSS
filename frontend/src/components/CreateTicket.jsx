@@ -48,76 +48,21 @@ const CreateTicket = ({ caseId = null, onTicketCreated, assignedCaseManagerId = 
 
   const loadAvailableTargets = async () => {
     try {
-      // Load admins for "include admin" option
-      if (currentUser.role !== 'admin') {
-        const usersRes = await axios.get(`${API}/users`, getAuthHeader()).catch(() => ({ data: [] }));
-        const adminUsers = usersRes.data.filter(u => u.role === 'admin');
-        setAdmins(adminUsers);
-      }
-
-      // Set available targets based on current user role
-      let targets = [];
-      
-      if (currentUser.role === 'client') {
-        // Client can send to their assigned Case Manager
-        if (assignedCaseManagerId) {
-          try {
-            const casesRes = await axios.get(`${API}/cases/my-cases`, getAuthHeader());
-            if (casesRes.data.length > 0) {
-              const myCase = casesRes.data[0];
-              targets.push({
-                id: myCase.case_manager_id,
-                name: myCase.case_manager_name,
-                role: 'case_manager',
-                label: `${myCase.case_manager_name} (Case Manager)`
-              });
-            }
-          } catch (e) {
-            console.error('Error loading case manager:', e);
-          }
-        }
-      } else if (currentUser.role === 'case_manager') {
-        // Case Manager can send to their clients
-        try {
-          const casesRes = await axios.get(`${API}/cases/my-cases`, getAuthHeader());
-          const uniqueClients = [];
-          const seenIds = new Set();
-          casesRes.data.forEach(c => {
-            if (!seenIds.has(c.client_id)) {
-              seenIds.add(c.client_id);
-              uniqueClients.push({
-                id: c.client_id,
-                name: c.client_name,
-                role: 'client',
-                label: `${c.client_name} (Client)`
-              });
-            }
-          });
-          targets = uniqueClients;
-        } catch (e) {
-          console.error('Error loading clients:', e);
-        }
-      } else if (currentUser.role === 'partner') {
-        // Partner can only send to Admin (handled by include_admin)
-        targets = [];
-      } else if (currentUser.role === 'admin') {
-        // Admin can send to anyone
-        try {
-          const usersRes = await axios.get(`${API}/users`, getAuthHeader());
-          targets = usersRes.data
-            .filter(u => u.id !== currentUser.id)
-            .map(u => ({
-              id: u.id,
-              name: u.name,
-              role: u.role,
-              label: `${u.name} (${u.role.replace('_', ' ')})`
-            }));
-        } catch (e) {
-          console.error('Error loading users:', e);
-        }
-      }
-
+      // Use the new ticket-recipients endpoint that returns role-appropriate targets
+      const response = await axios.get(`${API}/users/ticket-recipients`, getAuthHeader());
+      const targets = response.data.map(u => ({
+        id: u.id,
+        name: u.name,
+        role: u.role,
+        label: `${u.name} (${u.role?.replace('_', ' ')})`
+      }));
       setAvailableTargets(targets);
+      
+      // Get admins separately for escalation option
+      if (currentUser.role !== 'admin') {
+        const adminTargets = response.data.filter(u => u.role === 'admin');
+        setAdmins(adminTargets);
+      }
     } catch (error) {
       console.error('Error loading targets:', error);
     }
