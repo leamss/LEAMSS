@@ -36,8 +36,18 @@ const NotificationBell = ({ onNotificationClick }) => {
   };
 
   useEffect(() => {
-    loadNotifications();
-    const interval = setInterval(loadNotifications, 30000);
+    const fetchNotifications = async () => {
+      try {
+        const response = await axios.get(`${API}/notifications`, getAuthHeader());
+        setNotifications(response.data);
+        setUnreadCount(response.data.filter(n => !n.is_read).length);
+      } catch (error) {
+        console.error('Failed to load notifications', error);
+      }
+    };
+    
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 30000);
     return () => clearInterval(interval);
   }, []);
 
