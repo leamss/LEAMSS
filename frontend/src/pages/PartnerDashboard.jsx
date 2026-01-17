@@ -267,9 +267,10 @@ const PartnerDashboard = () => {
   };
 
   return (
-    <div className="flex min-h-screen bg-[#F5F7FA]" data-testid="partner-dashboard">
+    <div className="min-h-screen bg-[#F5F7FA]" data-testid="partner-dashboard">
       <AdminReturnBanner />
       
+      <div className="flex">
       {/* Modern White Sidebar */}
       <aside className="w-64 bg-white border-r border-slate-200 flex flex-col fixed h-screen" data-testid="sidebar">
         <div className="p-6 border-b border-slate-100">
