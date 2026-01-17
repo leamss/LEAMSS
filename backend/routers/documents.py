@@ -79,7 +79,7 @@ async def upload_document(
         metadata={
             "content_type": file.content_type,
             "case_id": case_id,
-            "step_name": step_name,
+            "step_name": actual_step_name,
             "document_type": document_type,
             "additional_doc_id": additional_doc_id
         }
@@ -91,7 +91,7 @@ async def upload_document(
         "file_id": str(file_id),
         "filename": file.filename,
         "case_id": case_id,
-        "step_name": step_name,
+        "step_name": actual_step_name,
         "document_type": document_type,
         "uploaded_by": user["id"],
         "uploaded_by_name": user["name"],
@@ -106,7 +106,7 @@ async def upload_document(
     step["uploaded_documents"].append(doc_record["id"])
     
     # Update case steps
-    step_index = next(i for i, s in enumerate(steps) if s["step_name"] == step_name)
+    step_index = next(i for i, s in enumerate(steps) if s["step_name"] == actual_step_name)
     steps[step_index] = step
     await db.cases.update_one({"id": case_id}, {"$set": {"steps": steps}})
     
@@ -114,14 +114,26 @@ async def upload_document(
     if additional_doc_id:
         await db.cases.update_one(
             {"id": case_id, "additional_doc_requests.id": additional_doc_id},
-            {"$set": {"additional_doc_requests.$.status": "uploaded"}}
+            {
+                "$set": {
+                    "additional_doc_requests.$.status": "uploaded",
+                    "additional_doc_requests.$.uploaded_at": datetime.now(timezone.utc).isoformat(),
+                    "additional_doc_requests.$.document_id": doc_record["id"]
+                }
+            }
         )
     
     # Notify case manager
+    notification_msg = f"Client {case['client_name']} uploaded "
+    if is_additional_doc:
+        notification_msg += f"additional document '{document_type}' for '{actual_step_name}'"
+    else:
+        notification_msg += f"'{document_type}' for step '{actual_step_name}'"
+    
     await create_notification(
         case["case_manager_id"],
         "New Document Uploaded",
-        f"Client {case['client_name']} uploaded '{document_type}' for step '{step_name}'",
+        notification_msg,
         "doc_uploaded",
         case_id
     )
