@@ -399,7 +399,7 @@ const ClientDashboard = () => {
                             data-testid={`file-input-${reqIndex}`}
                           />
                           <Button
-                            onClick={() => handleFileUpload(request.doc_name || request.document_name, true, request.id)}
+                            onClick={() => handleFileUpload(request.doc_name || request.document_name, true, request.id, request.step_name)}
                             disabled={!selectedFile || uploadingFor !== request.id}
                             className="bg-[#f7620b] hover:bg-[#e55a09] whitespace-nowrap"
                             data-testid={`upload-btn-${reqIndex}`}
