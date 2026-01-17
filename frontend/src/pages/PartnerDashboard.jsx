@@ -410,7 +410,11 @@ const PartnerDashboard = () => {
             )}
             </div>
           </div>
+        </header>
 
+        {/* Content */}
+        <div className="p-8">
+          <div className="max-w-7xl mx-auto">
           {activeTab === 'dashboard' && (
             <div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8" data-testid="partner-stats">
