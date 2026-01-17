@@ -1850,7 +1850,7 @@ async def request_custom_document_for_case(
     if user["role"] == UserRole.CASE_MANAGER and case["case_manager_id"] != user["id"]:
         raise HTTPException(status_code=403, detail="Not authorized to modify this case")
     
-    # Create the custom document request
+    # Create the custom document request - use same structure as additional_doc_requests
     custom_doc = {
         "id": str(ObjectId()),
         "document_name": request.document_name,
@@ -1864,13 +1864,14 @@ async def request_custom_document_for_case(
         "requested_by": user["id"],
         "requested_by_name": user["name"],
         "requested_at": datetime.now(timezone.utc).isoformat(),
-        "is_custom": True  # Mark as custom/additional document
+        "is_custom": True,  # Mark as custom/additional document
+        "uploaded_file_id": None  # For client to upload
     }
     
-    # Add to case's additional_documents array
+    # Add to case's additional_doc_requests array (same as standard endpoint for consistency)
     await db.cases.update_one(
         {"id": case_id},
-        {"$push": {"additional_documents": custom_doc}}
+        {"$push": {"additional_doc_requests": custom_doc}}
     )
     
     # Notify the client
