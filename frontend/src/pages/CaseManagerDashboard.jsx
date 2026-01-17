@@ -80,6 +80,10 @@ const CaseManagerDashboard = () => {
     step_order: null
   });
   const [canCustomizeWorkflow, setCanCustomizeWorkflow] = useState(false);
+  const [pendingReviewCount, setPendingReviewCount] = useState(0);
+  const [pendingReviewDocs, setPendingReviewDocs] = useState([]);
+  const [documentSearch, setDocumentSearch] = useState({ query: '', type: 'all', status: 'all' });
+  const [allDocuments, setAllDocuments] = useState([]);
 
   const getAuthHeader = () => ({
     headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
