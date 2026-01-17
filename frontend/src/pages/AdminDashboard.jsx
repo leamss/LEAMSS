@@ -15,7 +15,7 @@ import {
   LayoutDashboard, FileText, Users, Briefcase, LogOut, Plus, 
   Download, Edit, Trash2, UserPlus, Eye, ArrowRight, Settings,
   Search, DollarSign, TrendingUp, CheckCircle, XCircle, Clock,
-  MessageSquare, Filter, Calendar, RefreshCw
+  MessageSquare, Filter, Calendar, RefreshCw, AlertTriangle
 } from 'lucide-react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
