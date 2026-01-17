@@ -66,6 +66,7 @@ app.include_router(tickets_router, prefix="/api")
 app.include_router(notifications_router, prefix="/api")
 app.include_router(reports_router, prefix="/api")
 app.include_router(admin_router, prefix="/api")
+app.include_router(scheduler_router, prefix="/api")
 
 
 # ==================== WebSocket Endpoint ====================
