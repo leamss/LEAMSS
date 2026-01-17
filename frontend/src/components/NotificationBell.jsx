@@ -39,88 +39,93 @@ const NotificationBell = ({ onNotificationClick }) => {
     }
   }, []);
 
-  // WebSocket connection
-  const connectWebSocket = useCallback(() => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
-
-    try {
-      const ws = new WebSocket(`${WS_URL}/ws/${token}`);
-      
-      ws.onopen = () => {
-        console.log('WebSocket connected');
-        // Send ping every 30 seconds to keep alive
-        const pingInterval = setInterval(() => {
-          if (ws.readyState === WebSocket.OPEN) {
-            ws.send('ping');
-          }
-        }, 30000);
-        ws.pingInterval = pingInterval;
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (data.type === 'notification') {
-            // Add new notification to the list
-            const newNotification = {
-              id: data.data.id,
-              title: data.data.title,
-              message: data.data.message,
-              type: data.data.notification_type,
-              related_id: data.data.related_id,
-              is_read: false,
-              created_at: data.data.created_at
-            };
-            
-            setNotifications(prev => [newNotification, ...prev]);
-            setUnreadCount(prev => prev + 1);
-            
-            // Show toast notification
-            toast.info(data.data.title, {
-              description: data.data.message,
-              duration: 5000
-            });
-          }
-        } catch (e) {
-          console.error('Failed to parse WebSocket message', e);
-        }
-      };
-
-      ws.onclose = () => {
-        console.log('WebSocket disconnected');
-        if (ws.pingInterval) clearInterval(ws.pingInterval);
-        // Reconnect after 5 seconds
-        reconnectTimeoutRef.current = setTimeout(connectWebSocket, 5000);
-      };
-
-      ws.onerror = (error) => {
-        console.error('WebSocket error', error);
-      };
-
-      wsRef.current = ws;
-    } catch (error) {
-      console.error('Failed to create WebSocket', error);
-    }
-  }, []);
-
   useEffect(() => {
     loadNotifications();
-    connectWebSocket();
     
     // Also poll every 60 seconds as fallback
     const interval = setInterval(loadNotifications, 60000);
+
+    // WebSocket connection
+    const token = localStorage.getItem('token');
+    let ws = null;
+    let pingInterval = null;
+    let reconnectTimeout = null;
+
+    const connectWebSocket = () => {
+      if (!token) return;
+
+      try {
+        ws = new WebSocket(`${WS_URL}/ws/${token}`);
+        
+        ws.onopen = () => {
+          console.log('WebSocket connected');
+          // Send ping every 30 seconds to keep alive
+          pingInterval = setInterval(() => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+              ws.send('ping');
+            }
+          }, 30000);
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.type === 'notification') {
+              // Add new notification to the list
+              const newNotification = {
+                id: data.data.id,
+                title: data.data.title,
+                message: data.data.message,
+                type: data.data.notification_type,
+                related_id: data.data.related_id,
+                is_read: false,
+                created_at: data.data.created_at
+              };
+              
+              setNotifications(prev => [newNotification, ...prev]);
+              setUnreadCount(prev => prev + 1);
+              
+              // Show toast notification
+              toast.info(data.data.title, {
+                description: data.data.message,
+                duration: 5000
+              });
+            }
+          } catch (e) {
+            console.error('Failed to parse WebSocket message', e);
+          }
+        };
+
+        ws.onclose = () => {
+          console.log('WebSocket disconnected');
+          if (pingInterval) clearInterval(pingInterval);
+          // Reconnect after 5 seconds
+          reconnectTimeout = setTimeout(connectWebSocket, 5000);
+        };
+
+        ws.onerror = (error) => {
+          console.error('WebSocket error', error);
+        };
+      } catch (error) {
+        console.error('Failed to create WebSocket', error);
+      }
+    };
+
+    connectWebSocket();
     
     return () => {
       clearInterval(interval);
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
       }
-      if (wsRef.current) {
-        wsRef.current.close();
+      if (pingInterval) {
+        clearInterval(pingInterval);
+      }
+      if (ws) {
+        ws.close();
       }
     };
-  }, [loadNotifications, connectWebSocket]);
+  }, [loadNotifications]);
 
   const markAsRead = async (notificationId) => {
     try {
