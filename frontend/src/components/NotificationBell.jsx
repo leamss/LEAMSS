@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
-import { Bell, FileText, MessageSquare, CheckCircle, AlertCircle, DollarSign, User, Wifi, WifiOff, BellRing } from 'lucide-react';
+import { Bell, FileText, MessageSquare, CheckCircle, AlertCircle, DollarSign, User, Wifi, WifiOff, BellRing, History, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
