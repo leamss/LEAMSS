@@ -517,6 +517,14 @@ const PartnerDashboard = () => {
           <div className="max-w-7xl mx-auto">
           {activeTab === 'dashboard' && (
             <div>
+              {/* Quick Actions Widget */}
+              <div className="mb-6">
+                <QuickActions 
+                  userRole="partner" 
+                  onNavigate={(tab) => setActiveTab(tab)} 
+                />
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8" data-testid="partner-stats">
                 <Card className="p-6 border-l-4 border-l-[#2a777a]">
                   <p className="text-sm text-slate-600 font-medium">Total Sales</p>
