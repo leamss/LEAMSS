@@ -1143,13 +1143,15 @@ async def upload_document(
     step_name: str = Form(...),
     document_type: str = Form("general"),
     file: UploadFile = File(...),
+    request_id: Optional[str] = Form(None),
     user: dict = Depends(get_current_user)
 ):
     case = await db.cases.find_one({"id": case_id})
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
     
-    if user["role"] == UserRole.CLIENT:
+    # For additional document requests, skip the step lock check
+    if user["role"] == UserRole.CLIENT and document_type != "additional":
         current_step = next((s for s in case.get("steps", []) if s["status"] == "in_progress" and not s["is_locked"]), None)
         if not current_step or current_step["step_name"] != step_name:
             raise HTTPException(status_code=403, detail="Cannot upload documents for locked or future steps")
@@ -1167,7 +1169,8 @@ async def upload_document(
             "uploaded_by": user["id"],
             "upload_date": datetime.now(timezone.utc).isoformat(),
             "status": "pending_review",
-            "file_size": file_size
+            "file_size": file_size,
+            "request_id": request_id
         }
     )
     
@@ -1180,19 +1183,35 @@ async def upload_document(
         "status": "pending_review",
         "step_name": step_name,
         "document_type": document_type,
-        "file_size": file_size
+        "file_size": file_size,
+        "request_id": request_id
     }
     await db.documents.insert_one(doc_entry)
     
-    await db.cases.update_one(
-        {"id": case_id, "steps.step_name": step_name},
-        {"$push": {"steps.$.uploaded_documents": str(file_id)}}
-    )
+    # If it's a workflow document, add to step's uploaded documents
+    if document_type != "additional":
+        await db.cases.update_one(
+            {"id": case_id, "steps.step_name": step_name},
+            {"$push": {"steps.$.uploaded_documents": str(file_id)}}
+        )
+    else:
+        # For additional documents, update the request status
+        if request_id:
+            await db.cases.update_one(
+                {"id": case_id, "additional_doc_requests.id": request_id},
+                {
+                    "$set": {
+                        "additional_doc_requests.$.status": "uploaded",
+                        "additional_doc_requests.$.uploaded_file_id": str(file_id),
+                        "additional_doc_requests.$.uploaded_at": datetime.now(timezone.utc).isoformat()
+                    }
+                }
+            )
     
     await create_notification(
         case["case_manager_id"],
         "New Document Uploaded",
-        f"Client {case['client_name']} uploaded {file.filename} for step {step_name}",
+        f"Client {case['client_name']} uploaded {file.filename}" + (f" (Additional document)" if document_type == "additional" else f" for step {step_name}"),
         "doc_uploaded",
         case_id
     )
