@@ -70,6 +70,8 @@ const ClientDashboard = () => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploadingFor, setUploadingFor] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
+  const [initialTicketId, setInitialTicketId] = useState(null);
+  const [highlightedDocId, setHighlightedDocId] = useState(null);
 
   const getAuthHeader = () => ({
     headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
