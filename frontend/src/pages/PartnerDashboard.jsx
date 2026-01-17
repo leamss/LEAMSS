@@ -67,6 +67,7 @@ const PartnerDashboard = () => {
   const [showNewSaleDialog, setShowNewSaleDialog] = useState(false);
   const [commissionFilter, setCommissionFilter] = useState({ period: 'all' });
   const [filteredCommissions, setFilteredCommissions] = useState([]);
+  const [initialTicketId, setInitialTicketId] = useState(null);
   const [newSale, setNewSale] = useState({
     client_name: '',
     client_email: '',
