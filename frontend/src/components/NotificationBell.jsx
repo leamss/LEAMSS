@@ -134,7 +134,7 @@ const NotificationBell = ({ onNotificationClick }) => {
         eventSourceRef.current.close();
       }
     };
-  }, [loadNotifications, connectSSE]);
+  }, [loadNotifications, handleNewNotification]);
 
   const markAsRead = async (notificationId) => {
     try {
