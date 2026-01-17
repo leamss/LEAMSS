@@ -501,6 +501,90 @@ async def websocket_endpoint(websocket: WebSocket, token: str):
         except Exception:
             pass
 
+# SSE Connection Manager for real-time notifications (works through HTTP ingress)
+class SSEConnectionManager:
+    def __init__(self):
+        self.active_connections: Dict[str, List[asyncio.Queue]] = {}
+    
+    def connect(self, user_id: str) -> asyncio.Queue:
+        """Create a new queue for a user's SSE connection"""
+        queue = asyncio.Queue()
+        if user_id not in self.active_connections:
+            self.active_connections[user_id] = []
+        self.active_connections[user_id].append(queue)
+        logging.info(f"SSE connected for user {user_id}")
+        return queue
+    
+    def disconnect(self, user_id: str, queue: asyncio.Queue):
+        """Remove a queue when SSE connection closes"""
+        if user_id in self.active_connections:
+            if queue in self.active_connections[user_id]:
+                self.active_connections[user_id].remove(queue)
+            if not self.active_connections[user_id]:
+                del self.active_connections[user_id]
+        logging.info(f"SSE disconnected for user {user_id}")
+    
+    async def send_notification(self, user_id: str, notification: dict):
+        """Send notification to a specific user via SSE"""
+        if user_id in self.active_connections:
+            for queue in self.active_connections[user_id]:
+                try:
+                    await queue.put(notification)
+                except Exception as e:
+                    logging.error(f"Error sending SSE notification: {e}")
+
+sse_manager = SSEConnectionManager()
+
+async def get_user_from_token(token: str):
+    """Extract user from JWT token for SSE endpoint"""
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email = payload.get("sub")
+        if not email:
+            return None
+        user = await db.users.find_one({"email": email})
+        return user
+    except JWTError:
+        return None
+
+@api_router.get("/notifications/stream")
+async def notification_stream(token: str):
+    """Server-Sent Events endpoint for real-time notifications"""
+    user = await get_user_from_token(token)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    
+    user_id = user["id"]
+    queue = sse_manager.connect(user_id)
+    
+    async def event_generator():
+        try:
+            # Send initial connection confirmation
+            yield f"data: {json.dumps({'type': 'connected', 'user_id': user_id})}\n\n"
+            
+            while True:
+                try:
+                    # Wait for notification with timeout for keep-alive
+                    notification = await asyncio.wait_for(queue.get(), timeout=30)
+                    yield f"data: {json.dumps(notification)}\n\n"
+                except asyncio.TimeoutError:
+                    # Send keep-alive ping every 30 seconds
+                    yield f"data: {json.dumps({'type': 'ping'})}\n\n"
+        except asyncio.CancelledError:
+            pass
+        finally:
+            sse_manager.disconnect(user_id, queue)
+    
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )
+
 @api_router.post("/auth/register", response_model=UserResponse)
 async def register(user: UserCreate):
     existing = await db.users.find_one({"email": user.email})
