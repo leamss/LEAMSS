@@ -35,14 +35,37 @@ async def upload_document(
     if user["role"] == UserRole.CLIENT and case["client_id"] != user["id"]:
         raise HTTPException(status_code=403, detail="Access denied")
     
-    # Find the step
     steps = case.get("steps", [])
-    step = next((s for s in steps if s["step_name"] == step_name), None)
+    actual_step_name = step_name
+    is_additional_doc = additional_doc_id is not None
+    
+    # For additional documents, find the step from the request
+    if is_additional_doc:
+        additional_requests = case.get("additional_doc_requests", [])
+        request = next((r for r in additional_requests if r.get("id") == additional_doc_id), None)
+        if request:
+            # Use the step_name from the request if available
+            actual_step_name = request.get("step_name") or step_name
+            # If step_name is a document name, try to find the actual step
+            if not any(s["step_name"] == actual_step_name for s in steps):
+                # Use step_order to find the step
+                step_order = request.get("step_order")
+                if step_order:
+                    step_by_order = next((s for s in steps if s.get("step_order") == step_order), None)
+                    if step_by_order:
+                        actual_step_name = step_by_order["step_name"]
+    
+    # Find the step
+    step = next((s for s in steps if s["step_name"] == actual_step_name), None)
+    
+    # If step still not found for additional docs, use the first unlocked step
+    if not step and is_additional_doc:
+        step = next((s for s in steps if not s.get("is_locked", True)), None)
+        if step:
+            actual_step_name = step["step_name"]
+    
     if not step:
         raise HTTPException(status_code=404, detail="Step not found")
-    
-    # Check if this is an additional document request
-    is_additional_doc = additional_doc_id is not None
     
     # Only check step lock for non-additional documents
     if not is_additional_doc and step.get("is_locked", True):
