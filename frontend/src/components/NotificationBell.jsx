@@ -41,7 +41,12 @@ const NotificationBell = ({ onNotificationClick }) => {
   const fetchNotifications = async () => {
     try {
       const response = await axios.get(`${API}/notifications`, getAuthHeader());
-      return response.data;
+      const allNotifications = response.data;
+      setNotifications(allNotifications);
+      const unread = allNotifications.filter(n => !n.is_read);
+      setUnreadNotifications(unread);
+      setUnreadCount(unread.length);
+      return allNotifications;
     } catch (error) {
       console.error('Failed to load notifications', error);
       return null;
@@ -61,6 +66,7 @@ const NotificationBell = ({ onNotificationClick }) => {
       };
       
       setNotifications(prev => [newNotification, ...prev]);
+      setUnreadNotifications(prev => [newNotification, ...prev]);
       setUnreadCount(prev => prev + 1);
       
       // Show toast notification
@@ -75,22 +81,12 @@ const NotificationBell = ({ onNotificationClick }) => {
     // Initial load of notifications
     if (!initialLoadRef.current) {
       initialLoadRef.current = true;
-      fetchNotifications().then(data => {
-        if (data) {
-          setNotifications(data);
-          setUnreadCount(data.filter(n => !n.is_read).length);
-        }
-      });
+      fetchNotifications();
     }
 
     // Poll every 60 seconds as fallback
     const interval = setInterval(() => {
-      fetchNotifications().then(data => {
-        if (data) {
-          setNotifications(data);
-          setUnreadCount(data.filter(n => !n.is_read).length);
-        }
-      });
+      fetchNotifications();
     }, 60000);
 
     // SSE Connection function (primary - works through HTTP ingress)
