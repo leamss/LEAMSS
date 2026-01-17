@@ -276,20 +276,30 @@ const CaseManagerDashboard = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-50">
+    <div className="flex min-h-screen bg-[#F5F7FA]" data-testid="case-manager-dashboard">
       <AdminReturnBanner />
-      <div className="flex flex-1">
-      <aside className="w-64 bg-slate-800 text-white p-6 flex flex-col" data-testid="case-manager-sidebar">
-        <div className="flex items-center gap-2 mb-8">
-          <Briefcase className="h-8 w-8 text-[#f7620b]" />
-          <h1 className="text-xl font-bold">Case Manager</h1>
+      
+      {/* Modern White Sidebar */}
+      <aside className="w-64 bg-white border-r border-slate-200 flex flex-col fixed h-screen" data-testid="case-manager-sidebar">
+        <div className="p-6 border-b border-slate-100">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-[#2a777a] flex items-center justify-center">
+              <span className="text-white font-bold text-lg">L</span>
+            </div>
+            <div>
+              <h1 className="text-lg font-bold text-slate-800">LEAMSS</h1>
+              <p className="text-xs text-slate-500">Case Manager</p>
+            </div>
+          </div>
         </div>
         
-        <nav className="flex-1 space-y-2">
+        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           <button
             onClick={() => { setActiveTab('dashboard'); setSelectedCase(null); }}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-md transition-colors ${
-              activeTab === 'dashboard' ? 'bg-[#2a777a]' : 'hover:bg-slate-700'
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all font-medium ${
+              activeTab === 'dashboard' 
+                ? 'bg-teal-50 text-[#2a777a]' 
+                : 'text-slate-600 hover:bg-slate-50'
             }`}
             data-testid="nav-dashboard"
           >
@@ -298,8 +308,10 @@ const CaseManagerDashboard = () => {
           </button>
           <button
             onClick={() => { setActiveTab('cases'); setSelectedCase(null); }}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-md transition-colors ${
-              activeTab === 'cases' ? 'bg-[#2a777a]' : 'hover:bg-slate-700'
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all font-medium ${
+              activeTab === 'cases' 
+                ? 'bg-teal-50 text-[#2a777a]' 
+                : 'text-slate-600 hover:bg-slate-50'
             }`}
             data-testid="nav-cases"
           >
@@ -308,23 +320,27 @@ const CaseManagerDashboard = () => {
           </button>
           <button
             onClick={() => { setActiveTab('pending-review'); setSelectedCase(null); }}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-md transition-colors ${
-              activeTab === 'pending-review' ? 'bg-[#2a777a]' : 'hover:bg-slate-700'
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all font-medium ${
+              activeTab === 'pending-review' 
+                ? 'bg-orange-50 text-[#f7620b]' 
+                : 'text-slate-600 hover:bg-slate-50'
             }`}
             data-testid="nav-pending-review"
           >
             <AlertCircle className="h-5 w-5" />
             <span>Pending Review</span>
             {pendingReviewCount > 0 && (
-              <span className="ml-auto bg-red-500 text-white text-xs px-2 py-0.5 rounded-full animate-pulse">
+              <span className="ml-auto bg-[#f7620b] text-white text-xs px-2 py-0.5 rounded-full animate-pulse">
                 {pendingReviewCount}
               </span>
             )}
           </button>
           <button
             onClick={() => { setActiveTab('documents'); setSelectedCase(null); }}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-md transition-colors ${
-              activeTab === 'documents' ? 'bg-[#2a777a]' : 'hover:bg-slate-700'
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all font-medium ${
+              activeTab === 'documents' 
+                ? 'bg-teal-50 text-[#2a777a]' 
+                : 'text-slate-600 hover:bg-slate-50'
             }`}
             data-testid="nav-documents"
           >
@@ -333,51 +349,130 @@ const CaseManagerDashboard = () => {
           </button>
           <button
             onClick={() => { setActiveTab('tickets'); setSelectedCase(null); }}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-md transition-colors ${
-              activeTab === 'tickets' ? 'bg-[#2a777a]' : 'hover:bg-slate-700'
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all font-medium ${
+              activeTab === 'tickets' 
+                ? 'bg-teal-50 text-[#2a777a]' 
+                : 'text-slate-600 hover:bg-slate-50'
             }`}
             data-testid="nav-tickets"
           >
             <MessageSquare className="h-5 w-5" />
-            <span>Support Tickets</span>
+            <span>Support</span>
           </button>
         </nav>
         
-        <Button
-          onClick={handleLogout}
-          variant="ghost"
-          className="w-full justify-start text-white hover:bg-slate-700 mt-4"
-          data-testid="logout-button"
-        >
-          <LogOut className="mr-2 h-5 w-5" />
-          Logout
-        </Button>
+        <div className="p-4 border-t border-slate-100">
+          <div className="flex items-center gap-3 px-3 py-2 mb-3">
+            <div className="h-9 w-9 rounded-full bg-slate-200 flex items-center justify-center">
+              <span className="text-slate-600 font-medium text-sm">{user?.name?.charAt(0) || 'C'}</span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-slate-800 truncate">{user?.name}</p>
+              <p className="text-xs text-slate-500 truncate">{user?.email}</p>
+            </div>
+          </div>
+          <Button
+            onClick={handleLogout}
+            variant="ghost"
+            className="w-full justify-start text-slate-600 hover:text-slate-800 hover:bg-slate-50"
+            data-testid="logout-button"
+          >
+            <LogOut className="mr-2 h-4 w-4" />
+            Logout
+          </Button>
+        </div>
       </aside>
 
-      <main className="flex-1 p-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex justify-between items-center mb-8">
-            <h2 className="text-3xl font-bold text-gray-900">
-              {activeTab === 'dashboard' && 'Dashboard'}
-              {activeTab === 'cases' && !selectedCase && 'My Cases'}
-              {activeTab === 'pending-review' && 'Pending Review'}
-              {activeTab === 'documents' && 'All Documents'}
-              {activeTab === 'tickets' && 'Support Tickets'}
-              {selectedCase && `Case: ${selectedCase.case_id}`}
-            </h2>
+      <main className="flex-1 ml-64">
+        {/* Header */}
+        <header className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-slate-200 px-8 py-4">
+          <div className="flex justify-between items-center max-w-7xl mx-auto">
+            <div className="flex items-center gap-3">
+              {selectedCase && (
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={() => { setSelectedCase(null); setActiveTab('cases'); }}
+                  className="mr-2"
+                >
+                  <ArrowLeft className="h-5 w-5" />
+                </Button>
+              )}
+              <h2 className="text-2xl font-bold text-slate-800">
+                {activeTab === 'dashboard' && 'Dashboard'}
+                {activeTab === 'cases' && !selectedCase && 'My Cases'}
+                {activeTab === 'pending-review' && 'Pending Review'}
+                {activeTab === 'documents' && 'All Documents'}
+                {activeTab === 'tickets' && 'Support'}
+                {selectedCase && `Case: ${selectedCase.case_id}`}
+              </h2>
+            </div>
             <div className="flex items-center gap-3">
               {selectedCase && <CreateTicket caseId={selectedCase.id} />}
               <NotificationBell />
             </div>
           </div>
+        </header>
 
+        {/* Content */}
+        <div className="p-8">
+          <div className="max-w-7xl mx-auto">
           {activeTab === 'dashboard' && (
             <div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8" data-testid="case-manager-stats">
-                <Card className="p-6 border-l-4 border-l-[#2a777a]">
-                  <p className="text-sm text-slate-600 font-medium">My Cases</p>
-                  <p className="text-3xl font-bold text-gray-900 mt-2">{stats.my_cases || 0}</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8" data-testid="case-manager-stats">
+                <Card className="p-6 bg-white rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                  <p className="text-sm text-slate-500 font-medium">My Cases</p>
+                  <p className="text-3xl font-bold text-slate-800 mt-2">{stats.my_cases || 0}</p>
                 </Card>
+                <Card className="p-6 bg-white rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                  <p className="text-sm text-slate-500 font-medium">Pending Review</p>
+                  <p className="text-3xl font-bold text-[#f7620b] mt-2">{pendingReviewCount}</p>
+                </Card>
+                <Card className="p-6 bg-white rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                  <p className="text-sm text-slate-500 font-medium">Documents</p>
+                  <p className="text-3xl font-bold text-slate-800 mt-2">{allDocuments.length}</p>
+                </Card>
+                <Card className="p-6 bg-white rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                  <p className="text-sm text-slate-500 font-medium">Approved</p>
+                  <p className="text-3xl font-bold text-emerald-600 mt-2">
+                    {allDocuments.filter(d => d.status === 'approved').length}
+                  </p>
+                </Card>
+              </div>
+
+              {/* Quick Actions */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Card 
+                  className="p-6 bg-white rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                  onClick={() => setActiveTab('pending-review')}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-amber-100 rounded-lg">
+                      <AlertCircle className="h-6 w-6 text-amber-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-slate-800">Pending Reviews</h3>
+                      <p className="text-sm text-slate-500">{pendingReviewCount} documents need your attention</p>
+                    </div>
+                  </div>
+                </Card>
+                <Card 
+                  className="p-6 bg-white rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                  onClick={() => setActiveTab('cases')}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-teal-100 rounded-lg">
+                      <FileText className="h-6 w-6 text-[#2a777a]" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-slate-800">View All Cases</h3>
+                      <p className="text-sm text-slate-500">Manage your assigned cases</p>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+            </div>
+          )}
                 <Card className="p-6 border-l-4 border-l-[#f7620b]">
                   <p className="text-sm text-slate-600 font-medium">Pending Documents</p>
                   <p className="text-3xl font-bold text-gray-900 mt-2">{stats.pending_documents || 0}</p>
