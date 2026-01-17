@@ -879,6 +879,12 @@ const AdminDashboard = () => {
           {/* Dashboard Tab */}
           {activeTab === 'dashboard' && (
             <div className="space-y-6" data-testid="dashboard-content">
+              {/* Quick Actions Widget */}
+              <QuickActions 
+                userRole="admin" 
+                onNavigate={(tab) => setActiveTab(tab)} 
+              />
+
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <Card className="p-6 bg-white rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
                   <p className="text-sm text-slate-500 font-medium">Pending Sales</p>
