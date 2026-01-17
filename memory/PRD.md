@@ -207,6 +207,13 @@ Build a comprehensive "LEAMSS Portal" for an immigration service with four disti
     - Toast notifications when new events arrive
     - 60-second polling fallback for redundancy
 
+13. **Browser Push Notifications (NEW - January 17, 2026)**
+    - Desktop alerts even when portal is closed
+    - Service worker handles push events
+    - VAPID key authentication for secure delivery
+    - "Enable Desktop Alerts" button in notification dropdown
+    - Auto-cleanup of invalid subscriptions
+
 ---
 
 ## Prioritized Backlog
@@ -214,14 +221,14 @@ Build a comprehensive "LEAMSS Portal" for an immigration service with four disti
 ### P0 (Critical) - None remaining
 
 ### P1 (High Priority)
-1. **Configure Gmail Credentials** (User Action Required)
+1. **Backend Refactoring (CRITICAL)**
+   - Split server.py into router modules (admin.py, tickets.py, reports.py, etc.)
+   - File is now 2300+ lines and difficult to maintain
+   - Improve code organization
+
+2. **Configure Gmail Credentials** (User Action Required)
    - User needs to set GMAIL_EMAIL and GMAIL_APP_PASSWORD in backend/.env
    - Instructions provided in .env file
-
-2. **Backend Refactoring (CRITICAL)**
-   - Split server.py into router modules (admin.py, tickets.py, reports.py, etc.)
-   - File is now 2200+ lines and difficult to maintain
-   - Improve code organization
 
 ### P2 (Medium Priority)
 3. **Ticket System Analytics**
