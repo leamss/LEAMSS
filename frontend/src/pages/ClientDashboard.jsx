@@ -345,6 +345,10 @@ const ClientDashboard = () => {
                   <FileCheck className="h-4 w-4 mr-2" />
                   My Documents
                 </TabsTrigger>
+                <TabsTrigger value="tickets" className="data-[state=active]:bg-[#2a777a] data-[state=active]:text-white rounded-lg px-6">
+                  <MessageSquare className="h-4 w-4 mr-2" />
+                  Support
+                </TabsTrigger>
               </TabsList>
 
               {/* Overview Tab */}
