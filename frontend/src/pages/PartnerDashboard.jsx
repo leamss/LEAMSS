@@ -178,6 +178,21 @@ const PartnerDashboard = () => {
       return;
     }
     setUser(userData);
+    
+    // Check if there's a ticket to open from notification click
+    const storedTicketId = sessionStorage.getItem('openTicketId');
+    if (storedTicketId) {
+      setActiveTab('tickets');
+      setInitialTicketId(storedTicketId);
+      sessionStorage.removeItem('openTicketId');
+    }
+    
+    // Check if there's a tab to open
+    const storedTab = sessionStorage.getItem('activeTab');
+    if (storedTab) {
+      setActiveTab(storedTab);
+      sessionStorage.removeItem('activeTab');
+    }
   }, [navigate]);
 
   useEffect(() => {
@@ -186,6 +201,21 @@ const PartnerDashboard = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  // Handle notification click - navigate to correct tab/item
+  const handleNotificationClick = (notification) => {
+    const type = notification.type || '';
+    const relatedId = notification.related_id;
+    
+    if (type.includes('ticket')) {
+      setActiveTab('tickets');
+      setInitialTicketId(relatedId);
+    } else if (type.includes('sale')) {
+      setActiveTab('sales');
+    } else if (type.includes('commission')) {
+      setActiveTab('commission');
+    }
+  };
 
   const handleLogout = () => {
     localStorage.clear();
