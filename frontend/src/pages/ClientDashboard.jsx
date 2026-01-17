@@ -10,10 +10,11 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import NotificationBell from '@/components/NotificationBell';
 import CreateTicket from '@/components/CreateTicket';
+import TicketSection from '@/components/TicketSection';
 import { 
   User, FileText, Upload, LogOut, CheckCircle, Clock, AlertCircle, 
   Lock, Download, FileCheck, ArrowLeft, Calendar, Shield, 
-  FolderOpen, AlertTriangle, FileUp, Eye, ChevronRight
+  FolderOpen, AlertTriangle, FileUp, Eye, ChevronRight, MessageSquare
 } from 'lucide-react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
