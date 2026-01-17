@@ -38,6 +38,7 @@ const AdminDashboard = () => {
   const [caseDocuments, setCaseDocuments] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [userSearchTerm, setUserSearchTerm] = useState('');
+  const [caseFilter, setCaseFilter] = useState({ search: '', case_manager_id: '', status: '' });
   
   // New state for sales reports
   const [salesReport, setSalesReport] = useState([]);
