@@ -20,7 +20,9 @@ const API = `${BACKEND_URL}/api`;
 
 const NotificationBell = ({ onNotificationClick }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [notifications, setNotifications] = useState([]);
+  const [unreadNotifications, setUnreadNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
