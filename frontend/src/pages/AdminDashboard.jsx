@@ -619,7 +619,8 @@ const AdminDashboard = () => {
             { id: 'cases', icon: Briefcase, label: 'All Cases' },
             { id: 'products', icon: Settings, label: 'Products' },
             { id: 'users', icon: Users, label: 'Users' },
-            { id: 'tickets', icon: MessageSquare, label: 'Tickets' }
+            { id: 'tickets', icon: MessageSquare, label: 'Tickets' },
+            { id: 'settings', icon: Settings, label: 'Settings' }
           ].map(item => (
             <button
               key={item.id}
