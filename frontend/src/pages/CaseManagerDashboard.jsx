@@ -13,7 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import NotificationBell from '@/components/NotificationBell';
 import CreateTicket from '@/components/CreateTicket';
 import TicketSection from '@/components/TicketSection';
-import { Briefcase, FileText, CheckCircle, AlertCircle, LogOut, Download, Plus, Send, ArrowLeft, MessageSquare } from 'lucide-react';
+import { Briefcase, FileText, CheckCircle, AlertCircle, LogOut, Download, Plus, Send, ArrowLeft, MessageSquare, Search, Filter, Clock, Eye } from 'lucide-react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
