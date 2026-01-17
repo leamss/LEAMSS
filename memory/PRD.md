@@ -200,6 +200,13 @@ Build a comprehensive "LEAMSS Portal" for an immigration service with four disti
     - Case Manager Portal: Case management, document review, workflow customization
     - Client Portal: Document upload, progress tracking
 
+12. **Real-time Notifications via SSE (NEW - January 17, 2026)**
+    - Server-Sent Events endpoint for real-time notification delivery
+    - Works through Kubernetes HTTP ingress (unlike WebSocket)
+    - Connection status indicator (green = connected, yellow = polling mode)
+    - Toast notifications when new events arrive
+    - 60-second polling fallback for redundancy
+
 ---
 
 ## Prioritized Backlog
@@ -211,29 +218,24 @@ Build a comprehensive "LEAMSS Portal" for an immigration service with four disti
    - User needs to set GMAIL_EMAIL and GMAIL_APP_PASSWORD in backend/.env
    - Instructions provided in .env file
 
-2. **Commission "Effective Date" for Commission Changes**
-   - Add date picker when editing product commission
-   - Implement historical commission lookup based on sale date
-   - Commission history array in product model
+2. **Backend Refactoring (CRITICAL)**
+   - Split server.py into router modules (admin.py, tickets.py, reports.py, etc.)
+   - File is now 2200+ lines and difficult to maintain
+   - Improve code organization
 
 ### P2 (Medium Priority)
-3. **Real-time Notifications**
-   - WebSocket for instant notification updates
-   - Push notifications
-
-4. **Ticket System Analytics**
+3. **Ticket System Analytics**
    - Ticket categories analytics
    - SLA tracking
    - Auto-assignment rules
 
 ### P3 (Low Priority)
-5. **Backend Refactoring**
-   - Split server.py into router modules (admin.py, tickets.py, reports.py, etc.)
-   - Improve code organization
-
-6. **Payment Gateway Integration**
+4. **Payment Gateway Integration**
    - Stripe/Razorpay integration for payments
    - Commission payout tracking
+
+5. **Document Expiry Reminders**
+   - Automated notifications before documents expire
 
 ---
 
