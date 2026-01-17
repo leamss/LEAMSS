@@ -338,6 +338,17 @@ class AdditionalDocRequest(BaseModel):
     validity_months: Optional[int] = None  # Must be valid for X months
     doc_type: Optional[str] = None
 
+class PushSubscription(BaseModel):
+    endpoint: str
+    keys: Dict[str, str]
+
+class PushSubscriptionResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str
+    user_id: str
+    endpoint: str
+    created_at: str
+
 def create_access_token(data: dict):
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
