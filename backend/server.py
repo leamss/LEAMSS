@@ -1088,6 +1088,10 @@ async def request_additional_document(request: AdditionalDocRequest, background_
         "requested_by_name": user["name"],
         "requested_at": datetime.now(timezone.utc).isoformat(),
         "due_date": request.due_date,
+        "expiry_date": request.expiry_date,
+        "validity_months": request.validity_months,
+        "doc_type": request.doc_type,
+        "step_order": request.step_order,
         "status": "pending",
         "uploaded_file_id": None
     }
@@ -1111,7 +1115,7 @@ async def request_additional_document(request: AdditionalDocRequest, background_
         case["client_email"],
         case["client_name"],
         request.document_name,
-        request.description,
+        request.description or "",
         request.due_date or "",
         case["case_id"]
     )
