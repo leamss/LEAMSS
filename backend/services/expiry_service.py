@@ -387,7 +387,7 @@ async def get_expiring_documents_summary() -> List[Dict]:
                         "expiry_date": expiry_date_str,
                         "days_remaining": days_remaining
                     })
-            except:
+            except Exception:
                 continue
     
     # Sort by days remaining (most urgent first)
