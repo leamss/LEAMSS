@@ -670,6 +670,7 @@ const AdminDashboard = () => {
               {activeTab === 'products' && 'Products & Workflows'}
               {activeTab === 'users' && 'User Management'}
               {activeTab === 'tickets' && !selectedTicket && 'Support Tickets'}
+              {activeTab === 'settings' && 'System Settings'}
               {activeTab === 'sale-docs' && `Sale Documents - ${selectedSale?.client_name}`}
               {activeTab === 'case-detail' && `Case Details - ${selectedCase?.case_id}`}
               {selectedTicket && `Ticket: ${selectedTicket?.subject}`}
