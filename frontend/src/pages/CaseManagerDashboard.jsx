@@ -474,7 +474,7 @@ const CaseManagerDashboard = () => {
                   restrictToClient={true}
                 />
               )}
-              <NotificationBell />
+              <NotificationBell onNotificationClick={handleNotificationClick} />
             </div>
           </div>
         </header>
