@@ -447,21 +447,29 @@ async def create_notification(user_id: str, title: str, message: str, notificati
     }
     await db.notifications.insert_one(notification)
     
-    # Send real-time WebSocket notification
+    notification_payload = {
+        "type": "notification",
+        "data": {
+            "id": notification["id"],
+            "title": title,
+            "message": message,
+            "notification_type": notification_type,
+            "related_id": related_id,
+            "created_at": notification["created_at"]
+        }
+    }
+    
+    # Send via WebSocket (may not work through ingress)
     try:
-        await manager.send_personal_message({
-            "type": "notification",
-            "data": {
-                "id": notification["id"],
-                "title": title,
-                "message": message,
-                "notification_type": notification_type,
-                "related_id": related_id,
-                "created_at": notification["created_at"]
-            }
-        }, user_id)
+        await manager.send_personal_message(notification_payload, user_id)
     except Exception as e:
         logging.error(f"Failed to send WebSocket notification: {e}")
+    
+    # Also send via SSE (works through HTTP ingress)
+    try:
+        await sse_manager.send_notification(user_id, notification_payload)
+    except Exception as e:
+        logging.error(f"Failed to send SSE notification: {e}")
 
 # WebSocket endpoint
 @app.websocket("/ws/{token}")
