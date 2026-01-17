@@ -250,35 +250,42 @@ const NotificationBell = ({ onNotificationClick }) => {
     
     // Default navigation based on notification type
     if (type.includes('ticket')) {
-      // Navigate to tickets - for admin/case manager, go to ticket detail
+      // Navigate to tickets - store ticket ID to open
+      sessionStorage.setItem('openTicketId', relatedId);
+      sessionStorage.setItem('activeTab', 'tickets');
       if (user.role === 'admin') {
-        // Store the ticket ID to open after navigation
-        sessionStorage.setItem('openTicketId', relatedId);
         navigate('/admin');
-        window.location.reload(); // Force reload to pick up the ticket
       } else if (user.role === 'case_manager') {
         navigate('/case-manager');
-      } else {
+      } else if (user.role === 'client') {
         navigate('/client');
+      } else {
+        navigate('/partner');
       }
-    } else if (type.includes('doc') || type.includes('step') || type.includes('case')) {
-      // Navigate to case/documents
+      window.location.reload();
+    } else if (type.includes('expiry') || type.includes('doc') || type.includes('step') || type.includes('case')) {
+      // Navigate to documents/case
+      sessionStorage.setItem('openCaseId', relatedId);
+      if (type.includes('expiry')) {
+        sessionStorage.setItem('activeTab', 'documents');
+      }
       if (user.role === 'admin') {
-        sessionStorage.setItem('openCaseId', relatedId);
         navigate('/admin');
       } else if (user.role === 'case_manager') {
-        sessionStorage.setItem('openCaseId', relatedId);
         navigate('/case-manager');
       } else if (user.role === 'client') {
         navigate('/client');
       }
+      window.location.reload();
     } else if (type.includes('sale')) {
       // Navigate to sales
+      sessionStorage.setItem('activeTab', 'sales');
       if (user.role === 'admin') {
         navigate('/admin');
       } else if (user.role === 'partner') {
         navigate('/partner');
       }
+      window.location.reload();
     }
   };
 
