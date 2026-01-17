@@ -41,6 +41,16 @@ const TicketSection = ({ caseId = null, assignedCaseManagerId = null, clientId =
     }
   }, []);
 
+  // Handle initial ticket ID from notification navigation
+  useEffect(() => {
+    if (initialTicketId && tickets.length > 0) {
+      const ticket = tickets.find(t => t.id === initialTicketId);
+      if (ticket) {
+        loadTicketDetails(initialTicketId);
+      }
+    }
+  }, [initialTicketId, tickets]);
+
   const loadTickets = useCallback(async () => {
     try {
       const response = await axios.get(`${API}/tickets/my-tickets`, getAuthHeader());
