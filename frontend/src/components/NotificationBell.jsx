@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Bell, FileText, MessageSquare, CheckCircle, AlertCircle, DollarSign, User } from 'lucide-react';
@@ -11,21 +11,25 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { toast } from 'sonner';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
+const WS_URL = BACKEND_URL.replace('https://', 'wss://').replace('http://', 'ws://');
 
 const NotificationBell = ({ onNotificationClick }) => {
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
+  const wsRef = useRef(null);
+  const reconnectTimeoutRef = useRef(null);
 
   const getAuthHeader = () => ({
     headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
   });
 
-  const loadNotifications = async () => {
+  const loadNotifications = useCallback(async () => {
     try {
       const response = await axios.get(`${API}/notifications`, getAuthHeader());
       setNotifications(response.data);
@@ -33,21 +37,79 @@ const NotificationBell = ({ onNotificationClick }) => {
     } catch (error) {
       console.error('Failed to load notifications', error);
     }
-  };
+  }, []);
+
+  // WebSocket connection
+  const connectWebSocket = useCallback(() => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    try {
+      const ws = new WebSocket(`${WS_URL}/ws/${token}`);
+      
+      ws.onopen = () => {
+        console.log('WebSocket connected');
+        // Send ping every 30 seconds to keep alive
+        const pingInterval = setInterval(() => {
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send('ping');
+          }
+        }, 30000);
+        ws.pingInterval = pingInterval;
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'notification') {
+            // Add new notification to the list
+            const newNotification = {
+              id: data.data.id,
+              title: data.data.title,
+              message: data.data.message,
+              type: data.data.notification_type,
+              related_id: data.data.related_id,
+              is_read: false,
+              created_at: data.data.created_at
+            };
+            
+            setNotifications(prev => [newNotification, ...prev]);
+            setUnreadCount(prev => prev + 1);
+            
+            // Show toast notification
+            toast.info(data.data.title, {
+              description: data.data.message,
+              duration: 5000
+            });
+          }
+        } catch (e) {
+          console.error('Failed to parse WebSocket message', e);
+        }
+      };
+
+      ws.onclose = () => {
+        console.log('WebSocket disconnected');
+        if (ws.pingInterval) clearInterval(ws.pingInterval);
+        // Reconnect after 5 seconds
+        reconnectTimeoutRef.current = setTimeout(connectWebSocket, 5000);
+      };
+
+      ws.onerror = (error) => {
+        console.error('WebSocket error', error);
+      };
+
+      wsRef.current = ws;
+    } catch (error) {
+      console.error('Failed to create WebSocket', error);
+    }
+  }, []);
 
   useEffect(() => {
-    const fetchNotifications = async () => {
-      try {
-        const response = await axios.get(`${API}/notifications`, getAuthHeader());
-        setNotifications(response.data);
-        setUnreadCount(response.data.filter(n => !n.is_read).length);
-      } catch (error) {
-        console.error('Failed to load notifications', error);
-      }
-    };
+    loadNotifications();
+    connectWebSocket();
     
-    fetchNotifications();
-    const interval = setInterval(fetchNotifications, 30000);
+    // Also poll every 60 seconds as fallback
+    const interval = setInterval(loadNotifications, 60000);
     return () => clearInterval(interval);
   }, []);
 
