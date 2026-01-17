@@ -248,15 +248,15 @@ const AdminDashboard = () => {
   // Sales report functions
   const loadSalesReport = async () => {
     try {
-      let url = `${API}/sales/all?`;
+      let url = `${API}/reports/sales?`;
       if (salesFilter.partner_id) url += `partner_id=${salesFilter.partner_id}&`;
       if (salesFilter.period && salesFilter.period !== 'custom') url += `period=${salesFilter.period}&`;
       if (salesFilter.period === 'custom') {
-        if (salesFilter.date_from) url += `date_from=${salesFilter.date_from}&`;
-        if (salesFilter.date_to) url += `date_to=${salesFilter.date_to}&`;
+        if (salesFilter.date_from) url += `start_date=${salesFilter.date_from}&`;
+        if (salesFilter.date_to) url += `end_date=${salesFilter.date_to}&`;
       }
       const response = await axios.get(url, getAuthHeader());
-      setSalesReport(response.data);
+      setSalesReport(response.data.sales || response.data);
     } catch (error) {
       toast.error('Failed to load sales report');
     }
