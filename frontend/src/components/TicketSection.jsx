@@ -68,7 +68,8 @@ const TicketSection = ({ caseId = null, assignedCaseManagerId = null, clientId =
     try {
       const response = await axios.get(`${API}/tickets/${ticketId}`, getAuthHeader());
       setSelectedTicket(response.data);
-      setTicketDialogOpen(true);
+      setViewMode('detail');
+      setResolutionNote('');
     } catch (error) {
       toast.error('Failed to load ticket details');
     }
