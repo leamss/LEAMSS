@@ -272,18 +272,24 @@ const NotificationBell = ({ onNotificationClick }) => {
   const markAllAsRead = async () => {
     try {
       await Promise.all(
-        notifications.filter(n => !n.is_read).map(n => 
+        unreadNotifications.map(n => 
           axios.post(`${API}/notifications/${n.id}/read`, {}, getAuthHeader())
         )
       );
-      const data = await fetchNotifications();
-      if (data) {
-        setNotifications(data);
-        setUnreadCount(data.filter(n => !n.is_read).length);
-      }
+      // Clear unread list and update all to read
+      setUnreadNotifications([]);
+      setNotifications(prev => prev.map(n => ({...n, is_read: true})));
+      setUnreadCount(0);
+      toast.success('All notifications marked as read');
     } catch (error) {
       console.error('Failed to mark all as read', error);
     }
+  };
+
+  // Navigate to notification history
+  const goToHistory = () => {
+    setIsOpen(false);
+    navigate('/notifications');
   };
 
   return (
