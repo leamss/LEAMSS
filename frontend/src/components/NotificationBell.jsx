@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Bell, FileText, MessageSquare, CheckCircle, AlertCircle, DollarSign, User } from 'lucide-react';
+import { Bell, FileText, MessageSquare, CheckCircle, AlertCircle, DollarSign, User, Wifi, WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -15,13 +15,15 @@ import { toast } from 'sonner';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
-const WS_URL = BACKEND_URL.replace('https://', 'wss://').replace('http://', 'ws://');
 
 const NotificationBell = ({ onNotificationClick }) => {
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
+  const eventSourceRef = useRef(null);
+  const reconnectTimeoutRef = useRef(null);
 
   const getAuthHeader = () => ({
     headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
@@ -37,93 +39,102 @@ const NotificationBell = ({ onNotificationClick }) => {
     }
   }, []);
 
+  const handleNewNotification = useCallback((data) => {
+    if (data.type === 'notification') {
+      const newNotification = {
+        id: data.data.id,
+        title: data.data.title,
+        message: data.data.message,
+        type: data.data.notification_type,
+        related_id: data.data.related_id,
+        is_read: false,
+        created_at: data.data.created_at
+      };
+      
+      setNotifications(prev => [newNotification, ...prev]);
+      setUnreadCount(prev => prev + 1);
+      
+      // Show toast notification
+      toast.info(data.data.title, {
+        description: data.data.message,
+        duration: 5000
+      });
+    }
+  }, []);
+
+  // SSE Connection (primary - works through HTTP ingress)
+  const connectSSE = useCallback(() => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    // Close existing connection
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+    }
+
+    try {
+      const sseUrl = `${API}/notifications/stream?token=${encodeURIComponent(token)}`;
+      const eventSource = new EventSource(sseUrl);
+      eventSourceRef.current = eventSource;
+
+      eventSource.onopen = () => {
+        console.log('SSE connected');
+        setIsConnected(true);
+      };
+
+      eventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          
+          if (data.type === 'connected') {
+            console.log('SSE connection confirmed for user:', data.user_id);
+            setIsConnected(true);
+          } else if (data.type === 'ping') {
+            // Keep-alive ping, do nothing
+          } else if (data.type === 'notification') {
+            handleNewNotification(data);
+          }
+        } catch (e) {
+          console.error('Failed to parse SSE message', e);
+        }
+      };
+
+      eventSource.onerror = (error) => {
+        console.error('SSE connection error', error);
+        setIsConnected(false);
+        eventSource.close();
+        
+        // Reconnect after 5 seconds
+        if (reconnectTimeoutRef.current) {
+          clearTimeout(reconnectTimeoutRef.current);
+        }
+        reconnectTimeoutRef.current = setTimeout(connectSSE, 5000);
+      };
+    } catch (error) {
+      console.error('Failed to create SSE connection', error);
+      setIsConnected(false);
+    }
+  }, [handleNewNotification]);
+
   useEffect(() => {
     loadNotifications();
     
-    // Also poll every 60 seconds as fallback
+    // Poll every 60 seconds as fallback
     const interval = setInterval(loadNotifications, 60000);
 
-    // WebSocket connection
-    const token = localStorage.getItem('token');
-    let ws = null;
-    let pingInterval = null;
-    let reconnectTimeout = null;
-
-    const connectWebSocket = () => {
-      if (!token) return;
-
-      try {
-        ws = new WebSocket(`${WS_URL}/ws/${token}`);
-        
-        ws.onopen = () => {
-          console.log('WebSocket connected');
-          // Send ping every 30 seconds to keep alive
-          pingInterval = setInterval(() => {
-            if (ws && ws.readyState === WebSocket.OPEN) {
-              ws.send('ping');
-            }
-          }, 30000);
-        };
-
-        ws.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data);
-            if (data.type === 'notification') {
-              // Add new notification to the list
-              const newNotification = {
-                id: data.data.id,
-                title: data.data.title,
-                message: data.data.message,
-                type: data.data.notification_type,
-                related_id: data.data.related_id,
-                is_read: false,
-                created_at: data.data.created_at
-              };
-              
-              setNotifications(prev => [newNotification, ...prev]);
-              setUnreadCount(prev => prev + 1);
-              
-              // Show toast notification
-              toast.info(data.data.title, {
-                description: data.data.message,
-                duration: 5000
-              });
-            }
-          } catch (e) {
-            console.error('Failed to parse WebSocket message', e);
-          }
-        };
-
-        ws.onclose = () => {
-          console.log('WebSocket disconnected');
-          if (pingInterval) clearInterval(pingInterval);
-          // Reconnect after 5 seconds
-          reconnectTimeout = setTimeout(connectWebSocket, 5000);
-        };
-
-        ws.onerror = (error) => {
-          console.error('WebSocket error', error);
-        };
-      } catch (error) {
-        console.error('Failed to create WebSocket', error);
-      }
-    };
-
-    connectWebSocket();
+    // Connect to SSE for real-time notifications
+    connectSSE();
     
     return () => {
       clearInterval(interval);
-      if (reconnectTimeout) {
-        clearTimeout(reconnectTimeout);
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
       }
-      if (pingInterval) {
-        clearInterval(pingInterval);
-      }
-      if (ws) {
-        ws.close();
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
       }
     };
-  }, [loadNotifications]);
+  }, [loadNotifications, connectSSE]);
 
   const markAsRead = async (notificationId) => {
     try {
@@ -262,11 +273,20 @@ const NotificationBell = ({ onNotificationClick }) => {
               {unreadCount > 9 ? '9+' : unreadCount}
             </span>
           )}
+          {/* Connection status indicator */}
+          <span className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-yellow-500'}`} title={isConnected ? 'Real-time connected' : 'Polling mode'}></span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-96">
         <div className="px-4 py-3 border-b flex justify-between items-center bg-slate-50">
-          <h3 className="font-semibold text-slate-800">Notifications</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="font-semibold text-slate-800">Notifications</h3>
+            {isConnected ? (
+              <Wifi className="h-3 w-3 text-green-500" title="Real-time connected" />
+            ) : (
+              <WifiOff className="h-3 w-3 text-yellow-500" title="Polling mode" />
+            )}
+          </div>
           {unreadCount > 0 && (
             <Button 
               variant="ghost" 
