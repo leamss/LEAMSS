@@ -167,6 +167,7 @@ const NotificationBell = ({ onNotificationClick }) => {
         eventSourceRef.current.close();
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [handleNewNotification]);
 
   const markAsRead = async (notificationId) => {
