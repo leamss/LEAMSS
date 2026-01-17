@@ -800,7 +800,7 @@ const ClientDashboard = () => {
 
               {/* Support Tickets Tab */}
               <TabsContent value="tickets" className="space-y-6">
-                <TicketSection caseId={caseData?.id} />
+                <TicketSection caseId={caseData?.id} initialTicketId={initialTicketId} />
               </TabsContent>
             </Tabs>
           </>
