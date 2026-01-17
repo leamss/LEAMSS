@@ -138,8 +138,6 @@ async def check_expiring_documents() -> Dict[str, int]:
                         "sent_at": now.isoformat()
                     })
                             
-                            break  # Only send one reminder per document per check
-                            
                 except Exception as e:
                     logger.error(f"Error processing document {doc.get('id')}: {e}")
                     continue
