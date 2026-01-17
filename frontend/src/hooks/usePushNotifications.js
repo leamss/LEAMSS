@@ -19,9 +19,13 @@ function urlBase64ToUint8Array(base64String) {
 }
 
 export function usePushNotifications() {
-  const [isSupported, setIsSupported] = useState(false);
+  // Initialize support check immediately
+  const browserSupported = typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window;
+  const initialPermission = typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'default';
+  
+  const [isSupported] = useState(browserSupported);
   const [isSubscribed, setIsSubscribed] = useState(false);
-  const [permission, setPermission] = useState('default');
+  const [permission, setPermission] = useState(initialPermission);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const initializedRef = useRef(false);
@@ -30,29 +34,22 @@ export function usePushNotifications() {
     headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
   }), []);
 
-  // Initialize on mount - check support and subscription
+  // Check subscription status on mount
   useEffect(() => {
-    if (initializedRef.current) return;
+    if (initializedRef.current || !browserSupported) return;
     initializedRef.current = true;
-
-    const supported = 'serviceWorker' in navigator && 'PushManager' in window;
-    setIsSupported(supported);
     
-    if (supported && 'Notification' in window) {
-      setPermission(Notification.permission);
-      
-      // Check subscription status
-      navigator.serviceWorker.ready.then(registration => {
-        registration.pushManager.getSubscription().then(subscription => {
-          setIsSubscribed(!!subscription);
-        }).catch(err => {
-          console.error('Error checking subscription:', err);
-        });
+    // Check subscription status asynchronously
+    navigator.serviceWorker.ready.then(registration => {
+      registration.pushManager.getSubscription().then(subscription => {
+        setIsSubscribed(!!subscription);
       }).catch(err => {
-        console.error('Service worker not ready:', err);
+        console.error('Error checking subscription:', err);
       });
-    }
-  }, []);
+    }).catch(err => {
+      console.error('Service worker not ready:', err);
+    });
+  }, [browserSupported]);
 
   // Check current subscription status
   const checkSubscription = useCallback(async () => {
