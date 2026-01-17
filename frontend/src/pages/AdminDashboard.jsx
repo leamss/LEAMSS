@@ -733,7 +733,7 @@ const AdminDashboard = () => {
               <Button onClick={() => setTicketDialog({ ...ticketDialog, open: true })} variant="outline" size="sm" data-testid="raise-ticket-btn">
                 <Plus className="mr-2 h-4 w-4" />Raise Ticket
               </Button>
-              <NotificationBell />
+              <NotificationBell onNotificationClick={handleNotificationClick} />
             </div>
           </div>
 
