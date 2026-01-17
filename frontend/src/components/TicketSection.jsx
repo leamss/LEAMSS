@@ -20,11 +20,12 @@ import {
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
-const TicketSection = ({ caseId = null, assignedCaseManagerId = null, clientId = null }) => {
+const TicketSection = ({ caseId = null, assignedCaseManagerId = null, clientId = null, initialTicketId = null }) => {
   const [tickets, setTickets] = useState([]);
   const [selectedTicket, setSelectedTicket] = useState(null);
-  const [ticketDialogOpen, setTicketDialogOpen] = useState(false);
+  const [viewMode, setViewMode] = useState('list'); // 'list' or 'detail'
   const [newMessage, setNewMessage] = useState('');
+  const [resolutionNote, setResolutionNote] = useState('');
   const [activeTab, setActiveTab] = useState('open');
   const [loading, setLoading] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
