@@ -118,7 +118,7 @@ async def download_document(file_id: str, user: dict = Depends(get_current_user)
             media_type=grid_out.metadata.get("content_type", "application/octet-stream"),
             headers={"Content-Disposition": f"attachment; filename={grid_out.filename}"}
         )
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=404, detail="File not found")
 
 
