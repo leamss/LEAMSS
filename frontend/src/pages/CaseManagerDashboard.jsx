@@ -164,6 +164,28 @@ const CaseManagerDashboard = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
+  // Handle notification click - navigate to correct tab/item
+  const handleNotificationClick = async (notification) => {
+    const type = notification.type || '';
+    const relatedId = notification.related_id;
+    
+    if (type.includes('ticket')) {
+      setActiveTab('tickets');
+      setInitialTicketId(relatedId);
+    } else if (type.includes('expiry') || type.includes('doc') || type.includes('step') || type.includes('case')) {
+      // For document/case related, try to load the case
+      if (relatedId) {
+        setActiveTab('cases');
+        const caseItem = cases.find(c => c.id === relatedId);
+        if (caseItem) {
+          await loadCaseDetails(caseItem.id);
+        }
+      } else {
+        setActiveTab('documents');
+      }
+    }
+  };
+
   const loadCaseDetails = async (caseId) => {
     try {
       const [caseRes, docsRes] = await Promise.all([
