@@ -110,6 +110,36 @@ const ClientDashboard = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
+  // Handle notification navigation from sessionStorage
+  useEffect(() => {
+    const handleNotificationNavigation = () => {
+      const openTicketId = sessionStorage.getItem('openTicketId');
+      const activeTabFromStorage = sessionStorage.getItem('activeTab');
+      const openCaseId = sessionStorage.getItem('openCaseId');
+      
+      if (openTicketId) {
+        sessionStorage.removeItem('openTicketId');
+        setActiveTab('tickets');
+        setInitialTicketId(openTicketId);
+      } else if (activeTabFromStorage === 'documents' || openCaseId) {
+        sessionStorage.removeItem('activeTab');
+        sessionStorage.removeItem('openCaseId');
+        // Switch to action tab to show documents requiring action
+        setActiveTab('action');
+        // If there's a specific case/doc ID, we could highlight it
+        if (openCaseId) {
+          setHighlightedDocId(openCaseId);
+          // Clear highlight after 5 seconds
+          setTimeout(() => setHighlightedDocId(null), 5000);
+        }
+      }
+    };
+
+    // Run after a small delay to ensure component is mounted
+    const timer = setTimeout(handleNotificationNavigation, 100);
+    return () => clearTimeout(timer);
+  }, []);
+
   const handleLogout = () => {
     localStorage.clear();
     navigate('/');
