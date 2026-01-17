@@ -514,9 +514,9 @@ const PartnerDashboard = () => {
           {activeTab === 'tickets' && (
             <TicketSection />
           )}
+          </div>
         </div>
       </main>
-      </div>
     </div>
   );
 };
