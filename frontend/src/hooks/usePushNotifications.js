@@ -175,13 +175,6 @@ export function usePushNotifications() {
     }
   }, [isSupported, getAuthHeader]);
 
-  // Check subscription on mount
-  useEffect(() => {
-    if (isSupported) {
-      checkSubscription();
-    }
-  }, [isSupported, checkSubscription]);
-
   return {
     isSupported,
     isSubscribed,
