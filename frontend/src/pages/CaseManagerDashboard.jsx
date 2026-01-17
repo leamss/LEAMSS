@@ -172,18 +172,49 @@ const CaseManagerDashboard = () => {
     }
 
     try {
-      await axios.post(`${API}/cases/request-additional-document`, {
+      // Use the new custom document request endpoint if step_order is specified
+      const endpoint = additionalDocDialog.step_order !== null 
+        ? `${API}/cases/${selectedCase.id}/custom-document-request`
+        : `${API}/cases/request-additional-document`;
+      
+      const requestData = {
         case_id: selectedCase.id,
         document_name: additionalDocDialog.document_name,
         description: additionalDocDialog.description,
-        due_date: additionalDocDialog.due_date
-      }, getAuthHeader());
+        due_date: additionalDocDialog.due_date || null,
+        expiry_date: additionalDocDialog.expiry_date || null,
+        validity_months: additionalDocDialog.validity_months ? parseInt(additionalDocDialog.validity_months) : null,
+        doc_type: additionalDocDialog.doc_type || null,
+        step_order: additionalDocDialog.step_order
+      };
+
+      await axios.post(endpoint, requestData, getAuthHeader());
       toast.success('Additional document requested!');
-      setAdditionalDocDialog({ open: false, document_name: '', description: '', due_date: '' });
+      setAdditionalDocDialog({ 
+        open: false, document_name: '', description: '', due_date: '',
+        expiry_date: '', validity_months: '', doc_type: '', step_order: null
+      });
       loadCaseDetails(selectedCase.id);
     } catch (error) {
-      toast.error('Failed to request document');
+      toast.error(error.response?.data?.detail || 'Failed to request document');
     }
+  };
+
+  const openCustomDocDialog = (stepOrder) => {
+    if (!canCustomizeWorkflow) {
+      toast.error('Workflow customization is not enabled. Please contact Admin.');
+      return;
+    }
+    setAdditionalDocDialog({
+      open: true,
+      document_name: '',
+      description: '',
+      due_date: '',
+      expiry_date: '',
+      validity_months: '',
+      doc_type: '',
+      step_order: stepOrder
+    });
   };
 
   const downloadDocument = async (docId, filename) => {
