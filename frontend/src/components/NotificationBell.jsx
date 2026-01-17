@@ -152,7 +152,7 @@ const NotificationBell = ({ onNotificationClick }) => {
         eventSourceRef.current.close();
       }
     };
-  }, [loadNotifications, handleNewNotification]);
+  }, [handleNewNotification]);
 
   const markAsRead = async (notificationId) => {
     try {
