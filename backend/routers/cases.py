@@ -233,6 +233,9 @@ async def request_custom_document_for_case(
         "step_order": step_order,
         "step_name": steps[target_step_index]["step_name"],
         "due_date": due_date,
+        "expiry_date": expiry_date,
+        "validity_months": validity_months,
+        "doc_type": doc_type,
         "is_mandatory": True,
         "requested_by": user["id"],
         "requested_by_name": user["name"],
@@ -247,6 +250,10 @@ async def request_custom_document_for_case(
         "description": description or f"Custom document: {document_name}",
         "is_mandatory": True,
         "is_custom": True,
+        "has_expiry": bool(expiry_date or validity_months),
+        "expiry_date": expiry_date,
+        "validity_months": validity_months,
+        "doc_type": doc_type,
         "request_id": custom_doc["id"]
     })
     
