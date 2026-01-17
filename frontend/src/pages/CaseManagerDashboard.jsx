@@ -473,35 +473,6 @@ const CaseManagerDashboard = () => {
               </div>
             </div>
           )}
-                <Card className="p-6 border-l-4 border-l-[#f7620b]">
-                  <p className="text-sm text-slate-600 font-medium">Pending Documents</p>
-                  <p className="text-3xl font-bold text-gray-900 mt-2">{stats.pending_documents || 0}</p>
-                </Card>
-              </div>
-              
-              <Card className="p-6">
-                <h3 className="text-lg font-semibold mb-4 text-gray-900">Recent Cases</h3>
-                <div className="space-y-3">
-                  {cases.slice(0, 5).map((caseItem) => (
-                    <div
-                      key={caseItem.id}
-                      className="flex justify-between items-center p-3 border rounded-lg cursor-pointer hover:bg-slate-50 transition-colors"
-                      onClick={() => {
-                        setActiveTab('cases');
-                        loadCaseDetails(caseItem.id);
-                      }}
-                    >
-                      <div>
-                        <p className="font-medium text-gray-900">{caseItem.client_name}</p>
-                        <p className="text-sm text-slate-600">{caseItem.product_name}</p>
-                      </div>
-                      {getStatusBadge('in_progress')}
-                    </div>
-                  ))}
-                </div>
-              </Card>
-            </div>
-          )}
 
           {activeTab === 'cases' && !selectedCase && (
             <div className="space-y-4" data-testid="cases-list">
