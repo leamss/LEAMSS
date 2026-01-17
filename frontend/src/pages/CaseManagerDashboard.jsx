@@ -141,6 +141,14 @@ const CaseManagerDashboard = () => {
       sessionStorage.removeItem('activeTab');
     }
     
+    // Check if there's a ticket to open
+    const storedTicketId = sessionStorage.getItem('openTicketId');
+    if (storedTicketId) {
+      setActiveTab('tickets');
+      setInitialTicketId(storedTicketId);
+      sessionStorage.removeItem('openTicketId');
+    }
+    
     // Check if there's a case to open
     const storedCaseId = sessionStorage.getItem('openCaseId');
     if (storedCaseId) {
