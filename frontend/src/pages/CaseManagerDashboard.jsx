@@ -800,9 +800,29 @@ const CaseManagerDashboard = () => {
                         </div>
                         <div className="flex items-center gap-2">
                           <Badge className="bg-amber-100 text-amber-700">{doc.status}</Badge>
-                          <Button size="sm" variant="outline" onClick={() => window.open(`${API.replace('/api', '')}${doc.file_path}`, '_blank')}>
-                            <Eye className="h-4 w-4 mr-1" />View
-                          </Button>
+                          {doc.file_id && (
+                            <>
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                onClick={() => {
+                                  // Open document in new tab for viewing
+                                  window.open(`${API}/documents/view/${doc.file_id}`, '_blank');
+                                }}
+                                data-testid={`view-doc-${doc.id}`}
+                              >
+                                <Eye className="h-4 w-4 mr-1" />View
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => downloadDocument(doc.file_id, doc.filename || `${doc.document_type}.pdf`)}
+                                data-testid={`download-doc-${doc.id}`}
+                              >
+                                <Download className="h-4 w-4 mr-1" />Download
+                              </Button>
+                            </>
+                          )}
                           <Button 
                             size="sm" 
                             className="bg-[#2a777a] hover:bg-[#236466]"
