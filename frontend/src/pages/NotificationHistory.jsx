@@ -28,10 +28,12 @@ const NotificationHistory = () => {
 
   useEffect(() => {
     loadNotifications();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     applyFilters();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [notifications, filter]);
 
   const loadNotifications = async () => {
