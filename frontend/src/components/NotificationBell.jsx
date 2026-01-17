@@ -78,11 +78,23 @@ const NotificationBell = ({ onNotificationClick }) => {
   }, []);
 
   useEffect(() => {
-    // Initial load of notifications
-    if (!initialLoadRef.current) {
-      initialLoadRef.current = true;
-      fetchNotifications();
-    }
+    // Initial load of notifications (using an IIFE to avoid the linting warning)
+    const loadInitial = async () => {
+      if (!initialLoadRef.current) {
+        initialLoadRef.current = true;
+        try {
+          const response = await axios.get(`${API}/notifications`, getAuthHeader());
+          const allNotifications = response.data;
+          setNotifications(allNotifications);
+          const unread = allNotifications.filter(n => !n.is_read);
+          setUnreadNotifications(unread);
+          setUnreadCount(unread.length);
+        } catch (error) {
+          console.error('Failed to load notifications', error);
+        }
+      }
+    };
+    loadInitial();
 
     // Poll every 60 seconds as fallback
     const interval = setInterval(() => {
