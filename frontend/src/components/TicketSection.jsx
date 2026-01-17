@@ -185,10 +185,13 @@ const TicketSection = ({ caseId = null, assignedCaseManagerId = null, clientId =
     return tickets;
   };
 
-  const TicketCard = ({ ticket }) => (
+  // Render ticket card inline to avoid nested component issues
+  const renderTicketCard = (ticket) => (
     <div 
+      key={ticket.id}
       className="p-4 bg-white rounded-xl border border-slate-200 hover:border-[#2a777a] hover:shadow-md transition-all cursor-pointer"
       onClick={() => loadTicketDetails(ticket.id)}
+      data-testid={`ticket-card-${ticket.id}`}
     >
       <div className="flex justify-between items-start mb-2">
         <h4 className="font-semibold text-slate-800 line-clamp-1">{ticket.subject}</h4>
