@@ -54,6 +54,9 @@ const AdminDashboard = () => {
   const [ticketReplyText, setTicketReplyText] = useState('');
   const [resolutionNote, setResolutionNote] = useState('');
   
+  // System Settings
+  const [systemSettings, setSystemSettings] = useState({ allow_case_manager_workflow_customization: false });
+  
   // Dialogs
   const [productDialog, setProductDialog] = useState({ open: false, mode: 'create', data: null });
   const [workflowDialog, setWorkflowDialog] = useState({ open: false, product: null, editingStepIndex: null });
