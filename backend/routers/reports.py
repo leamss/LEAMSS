@@ -3,7 +3,7 @@ Reports and analytics routes for LEAMSS Portal
 """
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 import io
 import csv
@@ -15,10 +15,30 @@ from services.commission_service import get_applicable_commission
 router = APIRouter(prefix="/reports", tags=["Reports"])
 
 
+def get_date_range_from_period(period: str):
+    """Calculate start_date and end_date from period string"""
+    now = datetime.now(timezone.utc)
+    end_date = now.isoformat()
+    
+    if period == "weekly":
+        start_date = (now - timedelta(days=7)).isoformat()
+    elif period == "monthly":
+        start_date = (now - timedelta(days=30)).isoformat()
+    elif period == "quarterly":
+        start_date = (now - timedelta(days=90)).isoformat()
+    elif period == "yearly":
+        start_date = (now - timedelta(days=365)).isoformat()
+    else:  # lifetime
+        return None, None
+    
+    return start_date, end_date
+
+
 @router.get("/sales")
 async def get_sales_report(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
+    period: Optional[str] = None,
     status: Optional[str] = None,
     partner_id: Optional[str] = None,
     product_id: Optional[str] = None,
@@ -27,6 +47,13 @@ async def get_sales_report(
 ):
     """Get sales report with optional filters"""
     query = {}
+    
+    # Handle period filter
+    if period and period not in ["lifetime", "custom"]:
+        period_start, period_end = get_date_range_from_period(period)
+        if period_start:
+            start_date = period_start
+            end_date = period_end
     
     if start_date:
         query["created_at"] = {"$gte": start_date}
@@ -37,7 +64,7 @@ async def get_sales_report(
             query["created_at"] = {"$lte": end_date}
     if status:
         query["status"] = status
-    if partner_id:
+    if partner_id and partner_id != "all":
         query["partner_id"] = partner_id
     if product_id:
         query["product_id"] = product_id
@@ -99,10 +126,19 @@ async def get_sales_report(
 async def get_partner_commissions(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
+    period: Optional[str] = None,
+    format: Optional[str] = "json",
     user: dict = Depends(require_role([UserRole.ADMIN]))
 ):
-    """Get commission report by partner"""
+    """Get commission report by partner with date filters"""
     query = {"status": "approved"}
+    
+    # Handle period filter
+    if period and period not in ["lifetime", "custom"]:
+        period_start, period_end = get_date_range_from_period(period)
+        if period_start:
+            start_date = period_start
+            end_date = period_end
     
     if start_date:
         query["created_at"] = {"$gte": start_date}
@@ -126,8 +162,33 @@ async def get_partner_commissions(
     ]
     
     results = await db.sales.aggregate(pipeline).to_list(1000)
+    grand_total = sum(r.get("total_commission", 0) for r in results)
+    total_revenue = sum(r.get("total_fee", 0) for r in results)
+    
+    if format == "csv":
+        output = io.StringIO()
+        writer = csv.writer(output)
+        
+        writer.writerow(["Partner Name", "Total Sales", "Total Revenue", "Total Commission"])
+        for partner in results:
+            writer.writerow([
+                partner.get("partner_name", ""),
+                partner.get("total_sales", 0),
+                partner.get("total_fee", 0),
+                partner.get("total_commission", 0)
+            ])
+        writer.writerow([])
+        writer.writerow(["GRAND TOTAL", sum(r.get("total_sales", 0) for r in results), total_revenue, grand_total])
+        
+        output.seek(0)
+        return StreamingResponse(
+            io.BytesIO(output.getvalue().encode()),
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename=partner_commissions_{datetime.now().strftime('%Y%m%d')}.csv"}
+        )
     
     return {
         "commissions": results,
-        "grand_total": sum(r.get("total_commission", 0) for r in results)
+        "grand_total": grand_total,
+        "total_revenue": total_revenue
     }
