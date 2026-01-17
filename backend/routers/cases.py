@@ -165,16 +165,34 @@ async def request_additional_document(
 @router.post("/{case_id}/custom-document-request")
 async def request_custom_document_for_case(
     case_id: str,
-    document_name: str,
-    step_order: int,
-    description: str = None,
-    due_date: str = None,
+    request_data: dict,
     user: dict = Depends(require_role([UserRole.CASE_MANAGER, UserRole.ADMIN]))
 ):
     """
     Add a custom document request to a specific step (Case Manager with permission).
     This adds a new document requirement to the workflow step.
+    
+    Request body:
+    - document_name: str (required)
+    - step_order: int (required)
+    - description: str (optional)
+    - due_date: str (optional)
+    - expiry_date: str (optional)
+    - validity_months: int (optional)
+    - doc_type: str (optional)
     """
+    # Extract fields from request body
+    document_name = request_data.get("document_name")
+    step_order = request_data.get("step_order")
+    description = request_data.get("description")
+    due_date = request_data.get("due_date")
+    expiry_date = request_data.get("expiry_date")
+    validity_months = request_data.get("validity_months")
+    doc_type = request_data.get("doc_type")
+    
+    if not document_name or step_order is None:
+        raise HTTPException(status_code=400, detail="document_name and step_order are required")
+    
     # Check if the feature is enabled
     settings = await db.settings.find_one({"key": "global"})
     if user["role"] == UserRole.CASE_MANAGER:
