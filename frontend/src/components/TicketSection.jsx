@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -13,7 +14,7 @@ import CreateTicket from './CreateTicket';
 import { 
   MessageSquare, Clock, CheckCircle, XCircle, AlertCircle, 
   Send, Paperclip, Download, User, Calendar, ChevronRight,
-  Inbox, CheckCheck, Archive
+  Inbox, CheckCheck, Archive, FileText, RefreshCw, Upload, ArrowLeft
 } from 'lucide-react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
