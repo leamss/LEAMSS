@@ -196,12 +196,12 @@ Build a comprehensive "LEAMSS Portal" for an immigration service with four disti
    - User needs to set GMAIL_EMAIL and GMAIL_APP_PASSWORD in backend/.env
    - Instructions provided in .env file
 
-### P2 (Medium Priority)
 2. **Commission "Effective Date" for Commission Changes**
    - Add date picker when editing product commission
    - Implement historical commission lookup based on sale date
    - Commission history array in product model
 
+### P2 (Medium Priority)
 3. **Real-time Notifications**
    - WebSocket for instant notification updates
    - Push notifications
