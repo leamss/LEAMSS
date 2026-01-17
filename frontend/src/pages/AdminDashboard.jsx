@@ -77,7 +77,7 @@ const AdminDashboard = () => {
   const loadData = async () => {
     try {
       const authHeader = getAuthHeader();
-      const [statsRes, pendingSalesRes, casesRes, productsRes, usersRes, allSalesRes, commissionsRes, ticketsRes, ticketStatsRes] = await Promise.all([
+      const [statsRes, pendingSalesRes, casesRes, productsRes, usersRes, allSalesRes, commissionsRes, ticketsRes, ticketStatsRes, settingsRes] = await Promise.all([
         axios.get(`${API}/stats/dashboard`, authHeader),
         axios.get(`${API}/sales/pending`, authHeader),
         axios.get(`${API}/cases`, authHeader),
@@ -86,7 +86,8 @@ const AdminDashboard = () => {
         axios.get(`${API}/sales/all`, authHeader).catch(() => ({ data: [] })),
         axios.get(`${API}/reports/partner-commissions`, authHeader).catch(() => ({ data: [] })),
         axios.get(`${API}/tickets/all`, authHeader).catch(() => ({ data: [] })),
-        axios.get(`${API}/tickets/stats`, authHeader).catch(() => ({ data: {} }))
+        axios.get(`${API}/tickets/stats`, authHeader).catch(() => ({ data: {} })),
+        axios.get(`${API}/settings`, authHeader).catch(() => ({ data: { allow_case_manager_workflow_customization: false } }))
       ]);
       setStats(statsRes.data);
       setPendingSales(pendingSalesRes.data);
@@ -98,8 +99,19 @@ const AdminDashboard = () => {
       setPartnerCommissions(commissionsRes.data);
       setAllTickets(ticketsRes.data);
       setTicketStats(ticketStatsRes.data);
+      setSystemSettings(settingsRes.data);
     } catch (error) {
       toast.error('Failed to load data');
+    }
+  };
+
+  const updateSystemSettings = async (newSettings) => {
+    try {
+      await axios.put(`${API}/settings`, newSettings, getAuthHeader());
+      setSystemSettings(newSettings);
+      toast.success('Settings updated!');
+    } catch (error) {
+      toast.error('Failed to update settings');
     }
   };
 
