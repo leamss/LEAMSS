@@ -13,7 +13,7 @@ import { MessageSquarePlus, Users, User } from 'lucide-react';
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
-const CreateTicket = ({ caseId = null, onTicketCreated, assignedCaseManagerId = null, clientId = null }) => {
+const CreateTicket = ({ caseId = null, onTicketCreated, assignedCaseManagerId = null, clientId = null, clientName = null, restrictToClient = false }) => {
   const [open, setOpen] = useState(false);
   const [ticket, setTicket] = useState({
     case_id: caseId,
@@ -28,6 +28,7 @@ const CreateTicket = ({ caseId = null, onTicketCreated, assignedCaseManagerId = 
   const [currentUser, setCurrentUser] = useState(null);
   const [availableTargets, setAvailableTargets] = useState([]);
   const [admins, setAdmins] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const getAuthHeader = () => ({
     headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
@@ -47,16 +48,30 @@ const CreateTicket = ({ caseId = null, onTicketCreated, assignedCaseManagerId = 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, currentUser]);
 
+  // Auto-select client if restricted to specific client
+  useEffect(() => {
+    if (restrictToClient && clientId && open) {
+      setTicket(prev => ({ ...prev, target_user_ids: [clientId] }));
+    }
+  }, [restrictToClient, clientId, open]);
+
   const loadAvailableTargets = async () => {
     try {
       // Use the new ticket-recipients endpoint that returns role-appropriate targets
       const response = await axios.get(`${API}/users/ticket-recipients`, getAuthHeader());
-      const targets = response.data.map(u => ({
+      let targets = response.data.map(u => ({
         id: u.id,
         name: u.name,
+        email: u.email,
         role: u.role,
         label: `${u.name} (${u.role?.replace('_', ' ')})`
       }));
+      
+      // If restricted to specific client, only show that client
+      if (restrictToClient && clientId) {
+        targets = targets.filter(t => t.id === clientId || t.role === 'admin');
+      }
+      
       setAvailableTargets(targets);
       
       // Get admins separately for escalation option
@@ -68,6 +83,13 @@ const CreateTicket = ({ caseId = null, onTicketCreated, assignedCaseManagerId = 
       console.error('Error loading targets:', error);
     }
   };
+
+  // Filter targets by search query
+  const filteredTargets = availableTargets.filter(t => 
+    !searchQuery || 
+    t.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    t.email?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   const handleSubmit = async () => {
     if (!ticket.subject || !ticket.description) {
