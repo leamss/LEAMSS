@@ -484,29 +484,94 @@ const PartnerDashboard = () => {
           )}
 
           {activeTab === 'commission' && (
-            <div className="space-y-4" data-testid="commission-list">
-              <Card className="p-6 bg-[#2a777a]/10 border-[#2a777a]/30">
-                <h3 className="text-lg font-semibold mb-2">Total Commission Earned</h3>
-                <p className="text-4xl font-bold text-[#2a777a]">${stats.total_commission?.toFixed(2) || 0}</p>
+            <div className="space-y-6" data-testid="commission-list">
+              {/* Filters */}
+              <Card className="p-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <Filter className="h-4 w-4 text-slate-500" />
+                  <span className="text-sm font-medium text-slate-700">Filter Commissions</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <Select value={commissionFilter.period} onValueChange={(v) => setCommissionFilter({ ...commissionFilter, period: v })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Period" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Time</SelectItem>
+                      <SelectItem value="weekly">This Week</SelectItem>
+                      <SelectItem value="monthly">This Month</SelectItem>
+                      <SelectItem value="quarterly">This Quarter</SelectItem>
+                      <SelectItem value="yearly">This Year</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <div className="flex items-end gap-2 md:col-span-2">
+                    <Button onClick={applyCommissionFilter} variant="outline" className="text-[#2a777a] border-[#2a777a]">
+                      Apply Filter
+                    </Button>
+                    <Button onClick={downloadMyCommissions} variant="outline" className="gap-2">
+                      <Download className="h-4 w-4" />
+                      Download CSV
+                    </Button>
+                  </div>
+                </div>
               </Card>
-              
-              <div className="space-y-4">
-                {sales.filter(s => s.status === 'approved').map((sale) => (
-                  <Card key={sale.id} className="p-6">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <p className="font-semibold">{sale.client_name}</p>
-                        <p className="text-sm text-slate-600">{sale.product_name}</p>
-                        <p className="text-sm text-slate-500">Rate: {sale.commission_rate}% on ${sale.fee_amount}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-2xl font-bold text-emerald-600">${sale.commission_amount.toFixed(2)}</p>
-                        <p className="text-xs text-slate-500">{new Date(sale.created_at).toLocaleDateString()}</p>
-                      </div>
-                    </div>
-                  </Card>
-                ))}
+
+              {/* Stats Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Card className="p-6 bg-gradient-to-br from-[#2a777a] to-[#236466] text-white">
+                  <p className="text-sm opacity-80">Total Commission</p>
+                  <p className="text-3xl font-bold mt-2">${filteredCommissions.reduce((sum, s) => sum + (s.commission_amount || 0), 0).toFixed(2)}</p>
+                </Card>
+                <Card className="p-6 bg-gradient-to-br from-emerald-500 to-emerald-600 text-white">
+                  <p className="text-sm opacity-80">Approved Sales</p>
+                  <p className="text-3xl font-bold mt-2">{filteredCommissions.length}</p>
+                </Card>
+                <Card className="p-6 bg-gradient-to-br from-amber-500 to-amber-600 text-white">
+                  <p className="text-sm opacity-80">Total Revenue Generated</p>
+                  <p className="text-3xl font-bold mt-2">${filteredCommissions.reduce((sum, s) => sum + (s.fee_amount || 0), 0).toFixed(2)}</p>
+                </Card>
               </div>
+              
+              {/* Commission List */}
+              <Card className="p-6">
+                <h3 className="text-lg font-semibold mb-4 text-slate-800">Commission Details</h3>
+                {filteredCommissions.length === 0 ? (
+                  <p className="text-center text-slate-500 py-8">No commissions found for the selected period.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-slate-50 border-b">
+                          <th className="text-left p-3">Date</th>
+                          <th className="text-left p-3">Client</th>
+                          <th className="text-left p-3">Product</th>
+                          <th className="text-right p-3">Fee Amount</th>
+                          <th className="text-right p-3">Rate</th>
+                          <th className="text-right p-3">Commission</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredCommissions.map((sale) => (
+                          <tr key={sale.id} className="border-b hover:bg-slate-50">
+                            <td className="p-3">{new Date(sale.created_at).toLocaleDateString()}</td>
+                            <td className="p-3 font-medium">{sale.client_name}</td>
+                            <td className="p-3">{sale.product_name}</td>
+                            <td className="p-3 text-right">${sale.fee_amount?.toFixed(2)}</td>
+                            <td className="p-3 text-right">{sale.commission_rate}%</td>
+                            <td className="p-3 text-right font-bold text-emerald-600">${sale.commission_amount?.toFixed(2)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr className="bg-slate-100 font-bold">
+                          <td colSpan={5} className="p-3 text-right">Total:</td>
+                          <td className="p-3 text-right text-emerald-600">${filteredCommissions.reduce((sum, s) => sum + (s.commission_amount || 0), 0).toFixed(2)}</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                )}
+              </Card>
             </div>
           )}
 
