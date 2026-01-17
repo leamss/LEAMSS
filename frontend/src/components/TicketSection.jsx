@@ -41,6 +41,17 @@ const TicketSection = ({ caseId = null, assignedCaseManagerId = null, clientId =
     }
   }, []);
 
+  const loadTicketDetails = useCallback(async (ticketId) => {
+    try {
+      const response = await axios.get(`${API}/tickets/${ticketId}`, getAuthHeader());
+      setSelectedTicket(response.data);
+      setViewMode('detail');
+      setResolutionNote('');
+    } catch (error) {
+      toast.error('Failed to load ticket details');
+    }
+  }, [getAuthHeader]);
+
   // Handle initial ticket ID from notification navigation
   useEffect(() => {
     if (initialTicketId && tickets.length > 0) {
@@ -49,7 +60,7 @@ const TicketSection = ({ caseId = null, assignedCaseManagerId = null, clientId =
         loadTicketDetails(initialTicketId);
       }
     }
-  }, [initialTicketId, tickets]);
+  }, [initialTicketId, tickets, loadTicketDetails]);
 
   const loadTickets = useCallback(async () => {
     try {
@@ -63,17 +74,6 @@ const TicketSection = ({ caseId = null, assignedCaseManagerId = null, clientId =
   useEffect(() => {
     loadTickets();
   }, [loadTickets]);
-
-  const loadTicketDetails = async (ticketId) => {
-    try {
-      const response = await axios.get(`${API}/tickets/${ticketId}`, getAuthHeader());
-      setSelectedTicket(response.data);
-      setViewMode('detail');
-      setResolutionNote('');
-    } catch (error) {
-      toast.error('Failed to load ticket details');
-    }
-  };
 
   const sendMessage = async () => {
     if (!newMessage.trim() || !selectedTicket) return;
