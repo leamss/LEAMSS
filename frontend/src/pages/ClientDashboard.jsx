@@ -267,7 +267,7 @@ const ClientDashboard = () => {
             </div>
             
             <div className="flex items-center gap-4">
-              <NotificationBell />
+              <NotificationBell onNotificationClick={handleNotificationClick} />
               <CreateTicket caseId={caseData?.id} />
               <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-full">
                 <User className="h-4 w-4 text-[#2a777a]" />
