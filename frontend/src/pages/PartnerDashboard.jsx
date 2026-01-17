@@ -225,17 +225,31 @@ const PartnerDashboard = () => {
 
   const handleCreateSale = async () => {
     try {
-      const response = await axios.post(`${API}/sales`, newSale, getAuthHeader());
-      const saleId = response.data.id;
+      // Create FormData for multipart request
+      const formData = new FormData();
+      formData.append('client_name', newSale.client_name);
+      formData.append('client_email', newSale.client_email);
+      formData.append('client_mobile', newSale.client_mobile);
+      formData.append('product_id', newSale.product_id);
+      formData.append('fee_amount', newSale.fee_amount.toString());
+      formData.append('amount_received', newSale.amount_received.toString());
+      formData.append('payment_method', newSale.payment_method);
+      formData.append('payment_reference', newSale.payment_reference);
+      formData.append('agreement_signed', newSale.agreement_signed.toString());
       
+      // Append document files
       for (const [docType, file] of Object.entries(uploadFiles)) {
         if (file) {
-          const formData = new FormData();
-          formData.append('file', file);
-          formData.append('document_type', docType);
-          await axios.post(`${API}/sales/${saleId}/upload-document`, formData, getAuthHeader());
+          formData.append('documents', file);
         }
       }
+      
+      await axios.post(`${API}/sales`, formData, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'multipart/form-data'
+        }
+      });
       
       toast.success('Sale created successfully!');
       setShowNewSaleDialog(false);
@@ -253,7 +267,8 @@ const PartnerDashboard = () => {
       setUploadFiles({ payment_receipt: null, agreement: null, passport: null });
       loadData();
     } catch (error) {
-      toast.error('Failed to create sale');
+      console.error('Create sale error:', error);
+      toast.error(error.response?.data?.detail || 'Failed to create sale');
     }
   };
 
