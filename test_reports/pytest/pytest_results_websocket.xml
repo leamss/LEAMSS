@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="4" skipped="0" tests="7" time="52.358" timestamp="2026-01-17T06:03:05.843889+00:00" hostname="agent-env-c6340b8e-b5d3-4520-a9af-18177aa59dd7"><testcase classname="tests.test_websocket.TestWebSocketConnection" name="test_websocket_connection_with_valid_token" time="10.321"><failure message="Failed: WebSocket connection failed: timed out during opening handshake">/root/.venv/lib/python3.11/site-packages/websockets/asyncio/client.py:543: in __await_impl__
+    await self.connection.handshake(
+/root/.venv/lib/python3.11/site-packages/websockets/asyncio/client.py:104: in handshake
+    await asyncio.wait(
+/usr/local/lib/python3.11/asyncio/tasks.py:428: in wait
+    return await _wait(fs, timeout, return_when, loop)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/asyncio/tasks.py:535: in _wait
+    await waiter
+E   asyncio.exceptions.CancelledError
+
+The above exception was the direct cause of the following exception:
+/root/.venv/lib/python3.11/site-packages/websockets/asyncio/client.py:539: in __await_impl__
+    async with asyncio_timeout(self.open_timeout):
+/usr/local/lib/python3.11/asyncio/timeouts.py:115: in __aexit__
+    raise TimeoutError from exc_val
+E   TimeoutError
+
+The above exception was the direct cause of the following exception:
+tests/test_websocket.py:81: in test_websocket_connection_with_valid_token
+    async with websockets.connect(ws_url, close_timeout=5) as websocket:
+/root/.venv/lib/python3.11/site-packages/websockets/asyncio/client.py:587: in __aenter__
+    return await self
+           ^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/websockets/asyncio/client.py:578: in __await_impl__
+    raise TimeoutError("timed out during opening handshake") from exc
+E   TimeoutError: timed out during opening handshake
+
+During handling of the above exception, another exception occurred:
+tests/test_websocket.py:87: in test_websocket_connection_with_valid_token
+    pytest.fail(f"WebSocket connection failed: {str(e)}")
+E   Failed: WebSocket connection failed: timed out during opening handshake</failure></testcase><testcase classname="tests.test_websocket.TestWebSocketConnection" name="test_websocket_ping_pong" time="10.322"><failure message="Failed: Timeout waiting for pong response">/root/.venv/lib/python3.11/site-packages/websockets/asyncio/client.py:543: in __await_impl__
+    await self.connection.handshake(
+/root/.venv/lib/python3.11/site-packages/websockets/asyncio/client.py:104: in handshake
+    await asyncio.wait(
+/usr/local/lib/python3.11/asyncio/tasks.py:428: in wait
+    return await _wait(fs, timeout, return_when, loop)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/asyncio/tasks.py:535: in _wait
+    await waiter
+E   asyncio.exceptions.CancelledError
+
+The above exception was the direct cause of the following exception:
+/root/.venv/lib/python3.11/site-packages/websockets/asyncio/client.py:539: in __await_impl__
+    async with asyncio_timeout(self.open_timeout):
+/usr/local/lib/python3.11/asyncio/timeouts.py:115: in __aexit__
+    raise TimeoutError from exc_val
+E   TimeoutError
+
+The above exception was the direct cause of the following exception:
+tests/test_websocket.py:96: in test_websocket_ping_pong
+    async with websockets.connect(ws_url, close_timeout=5) as websocket:
+/root/.venv/lib/python3.11/site-packages/websockets/asyncio/client.py:587: in __aenter__
+    return await self
+           ^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/websockets/asyncio/client.py:578: in __await_impl__
+    raise TimeoutError("timed out during opening handshake") from exc
+E   TimeoutError: timed out during opening handshake
+
+During handling of the above exception, another exception occurred:
+tests/test_websocket.py:111: in test_websocket_ping_pong
+    pytest.fail("Timeout waiting for pong response")
+E   Failed: Timeout waiting for pong response</failure></testcase><testcase classname="tests.test_websocket.TestWebSocketConnection" name="test_websocket_invalid_token_rejected" time="10.008" /><testcase classname="tests.test_websocket.TestWebSocketNotificationBroadcast" name="test_notification_broadcast_on_ticket_creation" time="10.566"><failure message="TimeoutError: timed out during opening handshake">/root/.venv/lib/python3.11/site-packages/websockets/asyncio/client.py:543: in __await_impl__
+    await self.connection.handshake(
+/root/.venv/lib/python3.11/site-packages/websockets/asyncio/client.py:104: in handshake
+    await asyncio.wait(
+/usr/local/lib/python3.11/asyncio/tasks.py:428: in wait
+    return await _wait(fs, timeout, return_when, loop)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/asyncio/tasks.py:535: in _wait
+    await waiter
+E   asyncio.exceptions.CancelledError
+
+The above exception was the direct cause of the following exception:
+/root/.venv/lib/python3.11/site-packages/websockets/asyncio/client.py:539: in __await_impl__
+    async with asyncio_timeout(self.open_timeout):
+/usr/local/lib/python3.11/asyncio/timeouts.py:115: in __aexit__
+    raise TimeoutError from exc_val
+E   TimeoutError
+
+The above exception was the direct cause of the following exception:
+tests/test_websocket.py:188: in test_notification_broadcast_on_ticket_creation
+    async with websockets.connect(ws_url, close_timeout=10) as websocket:
+/root/.venv/lib/python3.11/site-packages/websockets/asyncio/client.py:587: in __aenter__
+    return await self
+           ^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/websockets/asyncio/client.py:578: in __await_impl__
+    raise TimeoutError("timed out during opening handshake") from exc
+E   TimeoutError: timed out during opening handshake</failure></testcase><testcase classname="tests.test_websocket.TestWebSocketNotificationBroadcast" name="test_multiple_ping_pong_cycles" time="10.290"><failure message="Failed: Multiple ping/pong test failed: timed out during opening handshake">/root/.venv/lib/python3.11/site-packages/websockets/asyncio/client.py:543: in __await_impl__
+    await self.connection.handshake(
+/root/.venv/lib/python3.11/site-packages/websockets/asyncio/client.py:104: in handshake
+    await asyncio.wait(
+/usr/local/lib/python3.11/asyncio/tasks.py:428: in wait
+    return await _wait(fs, timeout, return_when, loop)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/asyncio/tasks.py:535: in _wait
+    await waiter
+E   asyncio.exceptions.CancelledError
+
+The above exception was the direct cause of the following exception:
+/root/.venv/lib/python3.11/site-packages/websockets/asyncio/client.py:539: in __await_impl__
+    async with asyncio_timeout(self.open_timeout):
+/usr/local/lib/python3.11/asyncio/timeouts.py:115: in __aexit__
+    raise TimeoutError from exc_val
+E   TimeoutError
+
+The above exception was the direct cause of the following exception:
+tests/test_websocket.py:256: in test_multiple_ping_pong_cycles
+    async with websockets.connect(ws_url, close_timeout=10) as websocket:
+/root/.venv/lib/python3.11/site-packages/websockets/asyncio/client.py:587: in __aenter__
+    return await self
+           ^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/websockets/asyncio/client.py:578: in __await_impl__
+    raise TimeoutError("timed out during opening handshake") from exc
+E   TimeoutError: timed out during opening handshake
+
+During handling of the above exception, another exception occurred:
+tests/test_websocket.py:268: in test_multiple_ping_pong_cycles
+    pytest.fail(f"Multiple ping/pong test failed: {str(e)}")
+E   Failed: Multiple ping/pong test failed: timed out during opening handshake</failure></testcase><testcase classname="tests.test_websocket.TestNotificationAPI" name="test_get_notifications" time="0.311" /><testcase classname="tests.test_websocket.TestNotificationAPI" name="test_mark_notification_as_read" time="0.337" /></testsuite></testsuites>
