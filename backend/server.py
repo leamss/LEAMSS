@@ -1892,6 +1892,65 @@ async def mark_notification_read(notification_id: str, user: dict = Depends(get_
     )
     return {"message": "Notification marked as read"}
 
+# Push Notification Subscription Endpoints
+@api_router.get("/push/vapid-public-key")
+async def get_vapid_public_key():
+    """Get VAPID public key for push subscription"""
+    if not VAPID_PUBLIC_KEY:
+        raise HTTPException(status_code=503, detail="Push notifications not configured")
+    return {"publicKey": VAPID_PUBLIC_KEY}
+
+@api_router.post("/push/subscribe")
+async def subscribe_push(subscription: PushSubscription, user: dict = Depends(get_current_user)):
+    """Subscribe to push notifications"""
+    if not PUSH_ENABLED:
+        raise HTTPException(status_code=503, detail="Push notifications not available")
+    
+    # Check if subscription already exists
+    existing = await db.push_subscriptions.find_one({
+        "user_id": user["id"],
+        "endpoint": subscription.endpoint
+    })
+    
+    if existing:
+        # Update existing subscription
+        await db.push_subscriptions.update_one(
+            {"_id": existing["_id"]},
+            {"$set": {"keys": subscription.keys, "updated_at": datetime.now(timezone.utc).isoformat()}}
+        )
+        return {"message": "Subscription updated", "id": existing["id"]}
+    
+    # Create new subscription
+    sub_doc = {
+        "id": str(ObjectId()),
+        "user_id": user["id"],
+        "endpoint": subscription.endpoint,
+        "keys": subscription.keys,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.push_subscriptions.insert_one(sub_doc)
+    
+    return {"message": "Subscribed to push notifications", "id": sub_doc["id"]}
+
+@api_router.delete("/push/unsubscribe")
+async def unsubscribe_push(endpoint: str, user: dict = Depends(get_current_user)):
+    """Unsubscribe from push notifications"""
+    result = await db.push_subscriptions.delete_one({
+        "user_id": user["id"],
+        "endpoint": endpoint
+    })
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Subscription not found")
+    
+    return {"message": "Unsubscribed from push notifications"}
+
+@api_router.get("/push/subscriptions")
+async def get_push_subscriptions(user: dict = Depends(get_current_user)):
+    """Get user's push subscriptions"""
+    subs = await db.push_subscriptions.find({"user_id": user["id"]}, {"_id": 0, "keys": 0}).to_list(100)
+    return subs
+
 @api_router.get("/users/case-managers")
 async def get_case_managers(user: dict = Depends(require_role([UserRole.ADMIN]))):
     managers = await db.users.find({"role": UserRole.CASE_MANAGER}, {"_id": 0, "password": 0}).to_list(1000)
