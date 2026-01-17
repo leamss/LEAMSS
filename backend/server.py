@@ -67,6 +67,10 @@ class DocumentRequirement(BaseModel):
     doc_name: str
     description: str
     is_mandatory: bool = True
+    has_expiry: bool = False  # Whether this document has an expiry date
+    expiry_date: Optional[str] = None  # Specific expiry date (YYYY-MM-DD format)
+    validity_months: Optional[int] = None  # Alternative: document must be valid for X months
+    doc_type: Optional[str] = None  # Document type (passport, visa, certificate, etc.)
 
 class WorkflowStepDetail(BaseModel):
     step_name: str
