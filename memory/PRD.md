@@ -107,32 +107,47 @@ Build a comprehensive "LEAMSS Portal" for an immigration service with four disti
 1. **Admin Dashboard Overhaul**
    - Products & Workflows tab with full workflow editor
    - Add/Edit/Delete workflow steps with required documents
-   - **NEW**: Document type, expiry date, validity months fields
+   - Document type, expiry date, validity months fields
    - Users tab with search and user management
    - User impersonation (Switch Portal button) with Return to Admin banner
    - Revenue & Commission dashboard
    - Sales approval workflow
    - Case management with reassignment
    - "Create Ticket for User" button in Users tab
-   - **NEW**: System Settings tab with global controls
+   - System Settings tab with global controls
 
-2. **Case Search/Filter Enhancement (NEW)**
+2. **Case Search/Filter Enhancement**
    - Search by Case ID, Client Name, Case Manager Name
    - Filter by Case Manager dropdown
    - Filter by Status dropdown
    - Clear filters button
    - Results count display
 
-3. **Case Manager Workflow Customization (NEW)**
+3. **Case Manager Workflow Customization**
    - Global toggle controlled by Admin (Settings tab)
    - When enabled, Case Managers can:
      - Request additional documents for specific workflow steps
      - Set document name, description, type
      - Set due date, expiry date, or validity months
    - "Customization Enabled" badge in CM dashboard
-   - "Add Doc" button on each workflow step
+   - "Add Doc" button enabled only when previous step is completed
+   - Documents appear in Client portal for upload
 
-4. **Color Scheme Update**
+4. **Client Portal Enhanced UI (NEW)**
+   - Attractive "Action Required" section with gradient design
+   - Each document request in a styled card with shadows
+   - Pill-style badges for: Step number, Document type, Due date, Validity
+   - Separate "Uploaded Documents" section for submitted docs
+   - Upload functionality fixed for additional document requests
+
+5. **Clickable Notifications (NEW)**
+   - Notifications show type-specific icons (ticket, document, sale)
+   - Color-coded badges by notification type
+   - "Mark all read" button
+   - Click to navigate to relevant section (tickets, cases, sales)
+   - Time ago display (Just now, 5m ago, 2h ago, etc.)
+
+6. **Color Scheme Update**
    - All 4 dashboards updated to LEAMSS brand colors
    - Teal primary (#2a777a)
    - Orange secondary (#f7620b)
