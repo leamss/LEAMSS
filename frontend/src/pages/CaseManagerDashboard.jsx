@@ -100,6 +100,26 @@ const CaseManagerDashboard = () => {
       setStats(statsRes.data);
       setCases(casesRes.data);
       setCanCustomizeWorkflow(settingsRes.data?.allow_case_manager_workflow_customization || false);
+      
+      // Load all documents across all cases to find pending reviews
+      const allCases = casesRes.data;
+      let allDocs = [];
+      let pendingDocs = [];
+      
+      for (const c of allCases) {
+        try {
+          const docsRes = await axios.get(`${API}/documents/case/${c.id}`, authHeader);
+          const caseDocs = docsRes.data.map(d => ({ ...d, case_id: c.case_id, client_name: c.client_name }));
+          allDocs = [...allDocs, ...caseDocs];
+          pendingDocs = [...pendingDocs, ...caseDocs.filter(d => d.status === 'uploaded' || d.status === 'pending')];
+        } catch (e) {
+          // Skip if can't load docs for this case
+        }
+      }
+      
+      setAllDocuments(allDocs);
+      setPendingReviewDocs(pendingDocs);
+      setPendingReviewCount(pendingDocs.length);
     } catch (error) {
       toast.error('Failed to load data');
     }
