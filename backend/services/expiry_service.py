@@ -151,8 +151,6 @@ async def send_expiry_notification(
 ):
     """Send expiry notification to client via in-app + email"""
     
-    urgency = "urgent" if days_remaining <= 3 else "warning"
-    
     # Create in-app notification
     await create_notification(
         user_id=user_id,
