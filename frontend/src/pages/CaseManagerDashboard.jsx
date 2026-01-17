@@ -310,6 +310,28 @@ const CaseManagerDashboard = () => {
     }
   };
 
+  // View document in new tab (like Gmail preview)
+  const viewDocument = async (fileId, filename) => {
+    try {
+      toast.info('Opening document...');
+      const response = await axios.get(`${API}/documents/view/${fileId}`, {
+        ...getAuthHeader(),
+        responseType: 'blob'
+      });
+      
+      // Get the content type from response or guess from filename
+      const contentType = response.headers['content-type'] || 'application/pdf';
+      const blob = new Blob([response.data], { type: contentType });
+      const blobUrl = window.URL.createObjectURL(blob);
+      
+      // Open in new tab
+      window.open(blobUrl, '_blank');
+    } catch (error) {
+      console.error('View error:', error);
+      toast.error('Failed to open document');
+    }
+  };
+
   // Helper function to format dates safely
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
