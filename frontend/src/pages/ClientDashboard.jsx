@@ -5,12 +5,16 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import NotificationBell from '@/components/NotificationBell';
 import CreateTicket from '@/components/CreateTicket';
-import { User, FileText, Upload, LogOut, CheckCircle, Clock, AlertCircle, Lock, Download, FileCheck, ArrowLeft } from 'lucide-react';
+import { 
+  User, FileText, Upload, LogOut, CheckCircle, Clock, AlertCircle, 
+  Lock, Download, FileCheck, ArrowLeft, Calendar, Shield, 
+  FolderOpen, AlertTriangle, FileUp, Eye, ChevronRight
+} from 'lucide-react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -60,46 +64,41 @@ const AdminReturnBanner = () => {
 const ClientDashboard = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
-  const [stats, setStats] = useState({});
   const [caseData, setCaseData] = useState(null);
   const [documents, setDocuments] = useState([]);
-  const [additionalDocRequests, setAdditionalDocRequests] = useState([]);
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploadingFor, setUploadingFor] = useState(null);
+  const [activeTab, setActiveTab] = useState('overview');
 
   const getAuthHeader = () => ({
     headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
   });
 
-  const loadData = async () => {
-    try {
-      const authHeader = getAuthHeader();
-      const [statsRes, casesRes] = await Promise.all([
-        axios.get(`${API}/stats/dashboard`, authHeader),
-        axios.get(`${API}/cases/my-cases`, authHeader)
-      ]);
-      setStats(statsRes.data);
-      
-      if (casesRes.data.length > 0) {
-        const myCase = casesRes.data[0];
-        setCaseData(myCase);
-        setAdditionalDocRequests(myCase.additional_doc_requests || []);
-        const docsRes = await axios.get(`${API}/documents/case/${myCase.id}`, authHeader);
-        setDocuments(docsRes.data);
-      }
-    } catch (error) {
-      toast.error('Failed to load data');
-    }
-  };
-
   useEffect(() => {
-    const userData = JSON.parse(localStorage.getItem('user'));
-    if (!userData || userData.role !== 'client') {
+    const userData = localStorage.getItem('user');
+    if (!userData) {
       navigate('/');
       return;
     }
-    setUser(userData);
+    setUser(JSON.parse(userData));
   }, [navigate]);
+
+  const loadData = async () => {
+    try {
+      const [casesRes, docsRes] = await Promise.all([
+        axios.get(`${API}/cases/my-cases`, getAuthHeader()),
+        axios.get(`${API}/documents/case/${caseData?.id || 'none'}`, getAuthHeader()).catch(() => ({ data: [] }))
+      ]);
+      
+      if (casesRes.data.length > 0) {
+        setCaseData(casesRes.data[0]);
+        const docsResponse = await axios.get(`${API}/documents/case/${casesRes.data[0].id}`, getAuthHeader());
+        setDocuments(docsResponse.data);
+      }
+    } catch (error) {
+      console.error('Error loading data:', error);
+    }
+  };
 
   useEffect(() => {
     if (user) {
@@ -158,367 +157,593 @@ const ClientDashboard = () => {
     }
   };
 
-  const getStepIcon = (step) => {
-    if (step.status === 'completed') return <CheckCircle className="h-5 w-5 text-[#2a777a]" />;
-    if (step.status === 'in_progress' && !step.is_locked) return <Clock className="h-5 w-5 text-[#2a777a]" />;
-    if (step.is_locked) return <Lock className="h-5 w-5 text-slate-400" />;
-    return <AlertCircle className="h-5 w-5 text-[#f7620b]" />;
-  };
-
   const getProgressPercentage = () => {
     if (!caseData || !caseData.steps) return 0;
     const completed = caseData.steps.filter(s => s.status === 'completed').length;
     return (completed / caseData.steps.length) * 100;
   };
 
-  const getDocumentStatusBadge = (status) => {
-    const badges = {
-      pending_review: <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">Pending Review</Badge>,
-      approved: <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">Approved</Badge>,
-      rejected: <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">Rejected</Badge>,
-      revision_required: <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Revision Required</Badge>
-    };
-    return badges[status] || <Badge>{status}</Badge>;
+  // Get additional document requests
+  const additionalDocRequests = caseData?.additional_doc_requests || [];
+  const pendingAdditionalDocs = additionalDocRequests.filter(r => r.status === 'pending');
+  const uploadedAdditionalDocs = additionalDocRequests.filter(r => r.status === 'uploaded');
+
+  // Get documents by step
+  const getDocumentsByStep = (stepName) => {
+    return documents.filter(d => d.step_name === stepName);
   };
 
-  const getCurrentStep = () => {
-    if (!caseData || !caseData.steps) return null;
-    return caseData.steps.find(s => s.status === 'in_progress' && !s.is_locked);
+  // Get pending workflow documents
+  const getPendingWorkflowDocs = () => {
+    if (!caseData?.steps) return [];
+    const pending = [];
+    caseData.steps.forEach(step => {
+      if (!step.is_locked) {
+        step.required_documents?.forEach(doc => {
+          const uploaded = documents.find(d => 
+            d.step_name === step.step_name && 
+            (d.document_type === doc.doc_name || d.document_type === 'workflow')
+          );
+          if (!uploaded) {
+            pending.push({ ...doc, step_name: step.step_name, step_order: step.step_order });
+          }
+        });
+      }
+    });
+    return pending;
   };
 
-  const currentStep = getCurrentStep();
+  if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
       <AdminReturnBanner />
+      
+      {/* Header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-[#2a777a]/20 flex items-center justify-center">
-              <User className="h-5 w-5 text-[#2a777a]" />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-[#2a777a] to-[#236466] rounded-xl flex items-center justify-center shadow-lg">
+                <span className="text-white font-bold text-lg">L</span>
+              </div>
+              <div>
+                <h1 className="text-xl font-bold bg-gradient-to-r from-[#2a777a] to-[#236466] bg-clip-text text-transparent">
+                  LEAMSS Portal
+                </h1>
+                <p className="text-xs text-slate-500">Client Dashboard</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-lg font-semibold text-gray-900">Client Portal</h1>
-              <p className="text-xs text-gray-500">{user?.name}</p>
+            
+            <div className="flex items-center gap-4">
+              <NotificationBell />
+              <CreateTicket caseId={caseData?.id} />
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-full">
+                <User className="h-4 w-4 text-[#2a777a]" />
+                <span className="text-sm font-medium text-slate-700">{user.name}</span>
+              </div>
+              <Button variant="ghost" onClick={handleLogout} className="text-slate-600 hover:text-red-600">
+                <LogOut className="h-4 w-4" />
+              </Button>
             </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <CreateTicket caseId={caseData?.id} />
-            <NotificationBell />
-            <Button
-              onClick={handleLogout}
-              variant="ghost"
-              size="sm"
-              className="text-gray-600"
-              data-testid="logout-button"
-            >
-              <LogOut className="mr-2 h-4 w-4" />
-              Logout
-            </Button>
           </div>
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto p-6 md:p-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {!caseData ? (
-          <Card className="p-12 text-center">
-            <FileText className="h-16 w-16 text-slate-400 mx-auto mb-4" />
-            <h2 className="text-2xl font-semibold mb-2">No Active Case</h2>
-            <p className="text-slate-600">Your case is being set up. You&apos;ll receive an email when it&apos;s ready.</p>
+          <Card className="p-12 text-center bg-white shadow-xl rounded-2xl border-0">
+            <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-slate-100 to-slate-200 rounded-full flex items-center justify-center">
+              <FileText className="h-10 w-10 text-slate-400" />
+            </div>
+            <h2 className="text-2xl font-bold text-slate-800 mb-2">No Active Case</h2>
+            <p className="text-slate-500 max-w-md mx-auto">
+              You don't have any active cases yet. Please contact your case manager or partner for assistance.
+            </p>
           </Card>
         ) : (
-          <div className="space-y-6">
-            {/* Case Overview Card */}
-            <Card className="p-6 bg-gradient-to-r from-[#2a777a] to-[#236466] text-white" data-testid="case-overview">
-              <div className="flex justify-between items-start mb-4">
-                <div>
-                  <h2 className="text-2xl font-bold mb-1">{caseData.case_id}</h2>
-                  <p className="text-emerald-100">{caseData.product_name}</p>
+          <>
+            {/* Case Overview Header */}
+            <div className="mb-8">
+              <div className="bg-gradient-to-r from-[#2a777a] via-[#2a777a] to-[#236466] rounded-2xl p-6 text-white shadow-xl">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Badge className="bg-white/20 text-white border-0">{caseData.case_id}</Badge>
+                      <Badge className={`border-0 ${caseData.status === 'active' ? 'bg-green-500' : 'bg-amber-500'}`}>
+                        {caseData.status?.toUpperCase()}
+                      </Badge>
+                    </div>
+                    <h2 className="text-2xl font-bold mb-1">{caseData.product_name}</h2>
+                    <p className="text-white/80 text-sm">Case Manager: {caseData.case_manager_name}</p>
+                  </div>
+                  <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 min-w-[200px]">
+                    <p className="text-white/80 text-sm mb-2">Current Step</p>
+                    <p className="font-semibold text-lg">{caseData.current_step}</p>
+                    <div className="mt-3">
+                      <div className="flex justify-between text-xs mb-1">
+                        <span>Progress</span>
+                        <span>{Math.round(getProgressPercentage())}%</span>
+                      </div>
+                      <Progress value={getProgressPercentage()} className="h-2 bg-white/20" />
+                    </div>
+                  </div>
                 </div>
-                <Badge className="bg-white/20 text-white border-white/30">
-                  {caseData.status}
-                </Badge>
               </div>
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Overall Progress</span>
-                  <span className="font-semibold">{getProgressPercentage().toFixed(0)}%</span>
-                </div>
-                <Progress value={getProgressPercentage()} className="h-2 bg-white/20" />
-              </div>
-            </Card>
+            </div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Card className="p-4 border-l-4 border-l-[#2a777a]">
-                <p className="text-sm text-slate-600 mb-1">Current Step</p>
-                <p className="text-lg font-semibold text-gray-900">{caseData.current_step}</p>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+              <Card className="p-4 bg-white border-0 shadow-md hover:shadow-lg transition-shadow">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-gradient-to-br from-[#f7620b] to-[#e55a09] rounded-xl flex items-center justify-center shadow-lg">
+                    <AlertTriangle className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-slate-800">{pendingAdditionalDocs.length}</p>
+                    <p className="text-xs text-slate-500">Pending Requests</p>
+                  </div>
+                </div>
               </Card>
-              <Card className="p-4 border-l-4 border-l-[#2a777a]">
-                <p className="text-sm text-slate-600 mb-1">Completed Steps</p>
-                <p className="text-lg font-semibold text-[#2a777a]">{stats.completed_steps || 0}</p>
+              <Card className="p-4 bg-white border-0 shadow-md hover:shadow-lg transition-shadow">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-gradient-to-br from-[#2a777a] to-[#236466] rounded-xl flex items-center justify-center shadow-lg">
+                    <FileCheck className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-slate-800">{documents.filter(d => d.status === 'approved').length}</p>
+                    <p className="text-xs text-slate-500">Approved Docs</p>
+                  </div>
+                </div>
               </Card>
-              <Card className="p-4 border-l-4 border-l-[#f7620b]">
-                <p className="text-sm text-slate-600 mb-1">Pending Actions</p>
-                <p className="text-lg font-semibold text-[#f7620b]">{stats.pending_doc_requests || 0}</p>
+              <Card className="p-4 bg-white border-0 shadow-md hover:shadow-lg transition-shadow">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl flex items-center justify-center shadow-lg">
+                    <Clock className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-slate-800">{documents.filter(d => d.status === 'pending_review').length}</p>
+                    <p className="text-xs text-slate-500">Under Review</p>
+                  </div>
+                </div>
+              </Card>
+              <Card className="p-4 bg-white border-0 shadow-md hover:shadow-lg transition-shadow">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                    <FolderOpen className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-slate-800">{caseData.steps?.filter(s => s.status === 'completed').length || 0}</p>
+                    <p className="text-xs text-slate-500">Steps Completed</p>
+                  </div>
+                </div>
               </Card>
             </div>
 
-            {/* Case Manager Info */}
-            <Card className="p-6">
-              <h3 className="text-lg font-semibold mb-4 text-gray-900">Your Case Manager</h3>
-              <div className="flex items-center gap-3">
-                <div className="h-12 w-12 bg-[#2a777a]/20 rounded-full flex items-center justify-center">
-                  <User className="h-6 w-6 text-[#2a777a]" />
-                </div>
-                <div>
-                  <p className="font-medium text-gray-900">{caseData.case_manager_name}</p>
-                  <p className="text-sm text-slate-600">Managing your application process</p>
-                </div>
-              </div>
-            </Card>
+            {/* Main Content Tabs */}
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+              <TabsList className="bg-white shadow-md rounded-xl p-1 border-0">
+                <TabsTrigger value="overview" className="data-[state=active]:bg-[#2a777a] data-[state=active]:text-white rounded-lg px-6">
+                  <Eye className="h-4 w-4 mr-2" />
+                  Overview
+                </TabsTrigger>
+                <TabsTrigger value="additional" className="data-[state=active]:bg-[#f7620b] data-[state=active]:text-white rounded-lg px-6 relative">
+                  <AlertTriangle className="h-4 w-4 mr-2" />
+                  Action Required
+                  {pendingAdditionalDocs.length > 0 && (
+                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                      {pendingAdditionalDocs.length}
+                    </span>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="workflow" className="data-[state=active]:bg-[#2a777a] data-[state=active]:text-white rounded-lg px-6">
+                  <FileText className="h-4 w-4 mr-2" />
+                  Workflow Steps
+                </TabsTrigger>
+                <TabsTrigger value="uploaded" className="data-[state=active]:bg-[#2a777a] data-[state=active]:text-white rounded-lg px-6">
+                  <FileCheck className="h-4 w-4 mr-2" />
+                  My Documents
+                </TabsTrigger>
+              </TabsList>
 
-            {/* Current Active Step Upload */}
-            {currentStep && (
-              <Card className="p-6 border-2 border-[#2a777a]">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="h-10 w-10 rounded-full bg-[#2a777a]/20 flex items-center justify-center">
-                    <Upload className="h-5 w-5 text-[#2a777a]" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">Current Step: {currentStep.step_name}</h3>
-                    <p className="text-sm text-slate-600">Upload required documents to proceed</p>
-                  </div>
-                </div>
-
-                {currentStep.required_documents && currentStep.required_documents.length > 0 && (
-                  <div className="mb-4 p-4 bg-blue-50 rounded-lg">
-                    <h4 className="font-medium text-sm mb-2 text-gray-900">Required Documents:</h4>
-                    <ul className="space-y-2">
-                      {currentStep.required_documents.map((doc, idx) => (
-                        <li key={idx} className="flex items-start gap-2 text-sm">
-                          <FileCheck className="h-4 w-4 text-blue-600 mt-0.5" />
-                          <div>
-                            <p className="font-medium text-gray-900">{doc.doc_name} {doc.is_mandatory && <span className="text-red-500">*</span>}</p>
-                            <p className="text-xs text-slate-600">{doc.description}</p>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                <div className="space-y-3">
-                  <Input
-                    type="file"
-                    accept=".pdf,.jpg,.jpeg,.png"
-                    onChange={(e) => setSelectedFile(e.target.files[0])}
-                    data-testid="file-input"
-                  />
-                  <Button
-                    onClick={() => handleFileUpload(currentStep.step_name)}
-                    disabled={!selectedFile}
-                    className="w-full bg-[#2a777a] hover:bg-[#236466]"
-                    data-testid="upload-button"
-                  >
-                    <Upload className="mr-2 h-4 w-4" />
-                    Upload Document
-                  </Button>
-                </div>
-              </Card>
-            )}
-
-            {/* Additional Document Requests - Enhanced Design */}
-            {additionalDocRequests.length > 0 && additionalDocRequests.some(r => r.status === 'pending') && (
-              <Card className="p-6 border-2 border-[#f7620b] bg-gradient-to-br from-orange-50 to-white">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="h-12 w-12 rounded-full bg-[#f7620b]/20 flex items-center justify-center">
-                    <AlertCircle className="h-6 w-6 text-[#f7620b]" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-gray-900">Action Required</h3>
-                    <p className="text-sm text-slate-600">{additionalDocRequests.filter(r => r.status === 'pending').length} additional document(s) requested by your Case Manager</p>
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  {additionalDocRequests.filter(r => r.status === 'pending').map((request, reqIndex) => (
-                    <div key={request.id} className="bg-white rounded-xl shadow-sm border border-orange-200 overflow-hidden">
-                      <div className="p-4 border-b border-orange-100 bg-orange-50/50">
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <h4 className="font-semibold text-gray-900">{request.doc_name || request.document_name}</h4>
-                              <Badge className="bg-[#f7620b] text-white text-xs">Required</Badge>
-                            </div>
-                            <p className="text-sm text-slate-600">{request.description}</p>
-                          </div>
-                        </div>
+              {/* Overview Tab */}
+              <TabsContent value="overview" className="space-y-6">
+                {/* Alert for Pending Actions */}
+                {pendingAdditionalDocs.length > 0 && (
+                  <Card className="p-6 bg-gradient-to-r from-[#f7620b]/10 to-[#f7620b]/5 border-l-4 border-[#f7620b] shadow-md">
+                    <div className="flex items-start gap-4">
+                      <div className="w-12 h-12 bg-[#f7620b] rounded-full flex items-center justify-center flex-shrink-0">
+                        <AlertTriangle className="h-6 w-6 text-white" />
                       </div>
-                      <div className="p-4">
-                        <div className="flex flex-wrap gap-2 mb-4">
-                          {(request.step_order || request.step_name) && (
-                            <div className="flex items-center gap-1 px-3 py-1 bg-slate-100 rounded-full text-xs text-slate-700">
-                              <FileText className="h-3 w-3" />
-                              {request.step_name || `Step ${request.step_order}`}
-                            </div>
-                          )}
-                          {request.doc_type && (
-                            <div className="flex items-center gap-1 px-3 py-1 bg-blue-100 rounded-full text-xs text-blue-700 capitalize">
-                              {request.doc_type}
-                            </div>
-                          )}
-                          {request.due_date && (
-                            <div className="flex items-center gap-1 px-3 py-1 bg-amber-100 rounded-full text-xs text-amber-700">
-                              <Clock className="h-3 w-3" />
-                              Due: {new Date(request.due_date).toLocaleDateString()}
-                            </div>
-                          )}
-                          {request.expiry_date && (
-                            <div className="flex items-center gap-1 px-3 py-1 bg-red-100 rounded-full text-xs text-red-700">
-                              Expires: {new Date(request.expiry_date).toLocaleDateString()}
-                            </div>
-                          )}
-                          {request.validity_months && (
-                            <div className="flex items-center gap-1 px-3 py-1 bg-purple-100 rounded-full text-xs text-purple-700">
-                              Valid for {request.validity_months} months
-                            </div>
-                          )}
-                        </div>
-                        <p className="text-xs text-slate-500 mb-3">
-                          Requested by {request.requested_by_name} on {new Date(request.requested_at).toLocaleDateString()}
+                      <div className="flex-1">
+                        <h3 className="font-bold text-lg text-slate-800 mb-1">Action Required</h3>
+                        <p className="text-slate-600 mb-3">
+                          Your Case Manager has requested {pendingAdditionalDocs.length} additional document(s). 
+                          Please upload them as soon as possible.
                         </p>
-                        <div className="flex gap-2 items-center">
-                          <Input
-                            type="file"
-                            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-                            onChange={(e) => {
-                              setSelectedFile(e.target.files[0]);
-                              setUploadingFor(request.id);
-                            }}
-                            className="flex-1 text-sm"
-                            data-testid={`file-input-${reqIndex}`}
-                          />
-                          <Button
-                            onClick={() => handleFileUpload(request.doc_name || request.document_name, true, request.id, request.step_name)}
-                            disabled={!selectedFile || uploadingFor !== request.id}
-                            className="bg-[#f7620b] hover:bg-[#e55a09] whitespace-nowrap"
-                            data-testid={`upload-btn-${reqIndex}`}
-                          >
-                            <Upload className="h-4 w-4 mr-1" />
-                            Upload
-                          </Button>
-                        </div>
+                        <Button 
+                          onClick={() => setActiveTab('additional')} 
+                          className="bg-[#f7620b] hover:bg-[#e55a09]"
+                        >
+                          View Requests <ChevronRight className="h-4 w-4 ml-1" />
+                        </Button>
                       </div>
                     </div>
-                  ))}
-                </div>
-              </Card>
-            )}
-
-            {/* Uploaded Additional Documents */}
-            {additionalDocRequests.length > 0 && additionalDocRequests.some(r => r.status === 'uploaded') && (
-              <Card className="p-6">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
-                    <CheckCircle className="h-5 w-5 text-green-600" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">Uploaded Documents</h3>
-                    <p className="text-sm text-slate-600">Additional documents you have submitted</p>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  {additionalDocRequests.filter(r => r.status === 'uploaded').map((request) => (
-                    <div key={request.id} className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
-                      <div className="flex items-center gap-3">
-                        <FileCheck className="h-5 w-5 text-green-600" />
-                        <div>
-                          <p className="font-medium text-gray-900">{request.doc_name || request.document_name}</p>
-                          <p className="text-xs text-slate-600">Uploaded on {new Date(request.uploaded_at || request.requested_at).toLocaleDateString()}</p>
-                        </div>
-                      </div>
-                      <Badge className="bg-green-100 text-green-700">Submitted</Badge>
-                    </div>
-                  ))}
-                </div>
-              </Card>
-            )}
-
-            {/* Workflow Checklist */}
-            <Card className="p-6">
-              <h3 className="text-lg font-semibold mb-4 text-gray-900">Workflow Progress</h3>
-              <div className="space-y-3" data-testid="workflow-checklist">
-                {caseData.steps && caseData.steps.map((step, index) => (
-                  <div
-                    key={index}
-                    className={`flex items-start gap-3 p-4 rounded-lg border-2 transition-all ${
-                      step.status === 'completed' ? 'bg-[#2a777a]/10 border-[#2a777a]/30' :
-                      step.status === 'in_progress' && !step.is_locked ? 'bg-[#2a777a]/5 border-[#2a777a] shadow-sm' :
-                      step.is_locked ? 'bg-slate-50 border-slate-200 opacity-60' :
-                      'bg-white border-slate-200'
-                    }`}
-                  >
-                    {getStepIcon(step)}
-                    <div className="flex-1">
-                      <div className="flex justify-between items-start mb-1">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <p className="font-semibold text-gray-900">{step.step_order}. {step.step_name}</p>
-                            {step.is_locked && <Lock className="h-4 w-4 text-slate-400" />}
-                          </div>
-                          {step.notes && <p className="text-sm text-slate-600 mt-1">{step.notes}</p>}
-                        </div>
-                        <Badge variant={step.status === 'completed' ? 'default' : 'outline'}>
-                          {step.status === 'in_progress' && !step.is_locked ? 'Active' : step.status}
-                        </Badge>
-                      </div>
-                      {step.is_locked && step.status !== 'completed' && (
-                        <p className="text-xs text-slate-500 italic">Complete previous steps to unlock</p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Card>
-
-            {/* My Documents */}
-            <Card className="p-6">
-              <h3 className="text-lg font-semibold mb-4 text-gray-900">My Documents</h3>
-              <div className="space-y-3" data-testid="documents-list">
-                {documents.map((doc) => (
-                  <div key={doc.id} className="flex justify-between items-start p-4 border rounded-lg hover:bg-slate-50">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <FileText className="h-4 w-4 text-slate-400" />
-                        <p className="font-medium text-gray-900">{doc.filename}</p>
-                      </div>
-                      <p className="text-sm text-slate-600">Step: {doc.step_name}</p>
-                      <p className="text-sm text-slate-500">Uploaded: {new Date(doc.upload_date).toLocaleDateString()}</p>
-                      {doc.review_comment && (
-                        <div className="mt-2 p-2 bg-blue-50 rounded text-sm">
-                          <p className="font-medium text-gray-900">Case Manager&apos;s Comment:</p>
-                          <p className="text-slate-700">{doc.review_comment}</p>
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex flex-col items-end gap-2">
-                      {getDocumentStatusBadge(doc.status)}
-                      <Button
-                        onClick={() => downloadDocument(doc.id, doc.filename)}
-                        size="sm"
-                        variant="outline"
-                      >
-                        <Download className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-                {documents.length === 0 && (
-                  <p className="text-center text-slate-500 py-8">No documents uploaded yet</p>
+                  </Card>
                 )}
-              </div>
-            </Card>
-          </div>
+
+                {/* Workflow Progress */}
+                <Card className="p-6 bg-white shadow-md border-0">
+                  <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
+                    <Shield className="h-5 w-5 text-[#2a777a]" />
+                    Case Progress
+                  </h3>
+                  <div className="space-y-4">
+                    {caseData.steps?.map((step, index) => (
+                      <div key={index} className={`flex items-center gap-4 p-4 rounded-xl transition-all ${
+                        step.status === 'completed' ? 'bg-green-50 border border-green-200' :
+                        step.status === 'in_progress' ? 'bg-blue-50 border border-blue-200' :
+                        step.is_locked ? 'bg-slate-50 border border-slate-200' : 'bg-amber-50 border border-amber-200'
+                      }`}>
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                          step.status === 'completed' ? 'bg-green-500' :
+                          step.status === 'in_progress' ? 'bg-blue-500' :
+                          step.is_locked ? 'bg-slate-300' : 'bg-amber-500'
+                        }`}>
+                          {step.status === 'completed' ? <CheckCircle className="h-5 w-5 text-white" /> :
+                           step.is_locked ? <Lock className="h-5 w-5 text-white" /> :
+                           <Clock className="h-5 w-5 text-white" />}
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-semibold text-slate-800">Step {step.step_order}: {step.step_name}</h4>
+                            <Badge className={`text-xs ${
+                              step.status === 'completed' ? 'bg-green-100 text-green-700' :
+                              step.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
+                              step.is_locked ? 'bg-slate-100 text-slate-600' : 'bg-amber-100 text-amber-700'
+                            }`}>
+                              {step.status === 'completed' ? 'Completed' : step.is_locked ? 'Locked' : 'In Progress'}
+                            </Badge>
+                          </div>
+                          {step.description && <p className="text-sm text-slate-500 mt-1">{step.description}</p>}
+                        </div>
+                        <div className="text-sm text-slate-500">
+                          {getDocumentsByStep(step.step_name).length} docs
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              </TabsContent>
+
+              {/* Additional Documents Tab */}
+              <TabsContent value="additional" className="space-y-6">
+                {/* Pending Additional Document Requests */}
+                <Card className="p-6 bg-white shadow-md border-0">
+                  <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
+                    <AlertTriangle className="h-5 w-5 text-[#f7620b]" />
+                    Pending Document Requests
+                    {pendingAdditionalDocs.length > 0 && (
+                      <Badge className="bg-[#f7620b] text-white ml-2">{pendingAdditionalDocs.length}</Badge>
+                    )}
+                  </h3>
+                  
+                  {pendingAdditionalDocs.length === 0 ? (
+                    <div className="text-center py-12 bg-slate-50 rounded-xl">
+                      <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-3" />
+                      <p className="text-slate-600 font-medium">No pending document requests!</p>
+                      <p className="text-sm text-slate-500">All requested documents have been uploaded.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {pendingAdditionalDocs.map((request, index) => (
+                        <div key={request.id} className="bg-gradient-to-br from-[#f7620b]/5 to-white rounded-xl border border-[#f7620b]/20 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                          <div className="bg-gradient-to-r from-[#f7620b] to-[#e55a09] px-4 py-3">
+                            <div className="flex items-center justify-between">
+                              <h4 className="font-semibold text-white">{request.doc_name || request.document_name}</h4>
+                              <Badge className="bg-white/20 text-white border-0 text-xs">Required</Badge>
+                            </div>
+                          </div>
+                          <div className="p-4">
+                            <p className="text-sm text-slate-600 mb-4">{request.description}</p>
+                            
+                            <div className="flex flex-wrap gap-2 mb-4">
+                              {request.step_name && (
+                                <Badge variant="outline" className="bg-slate-50 text-slate-600 text-xs">
+                                  <FileText className="h-3 w-3 mr-1" />
+                                  {request.step_name}
+                                </Badge>
+                              )}
+                              {request.doc_type && (
+                                <Badge variant="outline" className="bg-blue-50 text-blue-600 text-xs capitalize">
+                                  {request.doc_type}
+                                </Badge>
+                              )}
+                              {request.due_date && (
+                                <Badge variant="outline" className="bg-amber-50 text-amber-600 text-xs">
+                                  <Calendar className="h-3 w-3 mr-1" />
+                                  Due: {new Date(request.due_date).toLocaleDateString()}
+                                </Badge>
+                              )}
+                              {request.expiry_date && (
+                                <Badge variant="outline" className="bg-red-50 text-red-600 text-xs">
+                                  Expires: {new Date(request.expiry_date).toLocaleDateString()}
+                                </Badge>
+                              )}
+                              {request.validity_months && (
+                                <Badge variant="outline" className="bg-purple-50 text-purple-600 text-xs">
+                                  Valid: {request.validity_months} months
+                                </Badge>
+                              )}
+                            </div>
+
+                            <p className="text-xs text-slate-500 mb-3">
+                              Requested by {request.requested_by_name} on {new Date(request.requested_at).toLocaleDateString()}
+                            </p>
+
+                            <div className="flex gap-2">
+                              <Input
+                                type="file"
+                                accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                                onChange={(e) => {
+                                  setSelectedFile(e.target.files[0]);
+                                  setUploadingFor(request.id);
+                                }}
+                                className="flex-1 text-sm"
+                                data-testid={`additional-file-input-${index}`}
+                              />
+                              <Button
+                                onClick={() => handleFileUpload(
+                                  request.doc_name || request.document_name, 
+                                  true, 
+                                  request.id, 
+                                  request.step_name
+                                )}
+                                disabled={!selectedFile || uploadingFor !== request.id}
+                                className="bg-[#f7620b] hover:bg-[#e55a09] whitespace-nowrap"
+                                data-testid={`additional-upload-btn-${index}`}
+                              >
+                                <Upload className="h-4 w-4 mr-1" />
+                                Upload
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </Card>
+
+                {/* Uploaded Additional Documents */}
+                {uploadedAdditionalDocs.length > 0 && (
+                  <Card className="p-6 bg-white shadow-md border-0">
+                    <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
+                      <FileCheck className="h-5 w-5 text-green-500" />
+                      Submitted Additional Documents
+                      <Badge className="bg-green-100 text-green-700 ml-2">{uploadedAdditionalDocs.length}</Badge>
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {uploadedAdditionalDocs.map((request) => (
+                        <div key={request.id} className="flex items-center gap-3 p-4 bg-green-50 rounded-xl border border-green-200">
+                          <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+                            <FileCheck className="h-5 w-5 text-white" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-slate-800 truncate">{request.doc_name || request.document_name}</p>
+                            <p className="text-xs text-slate-500">Uploaded {new Date(request.uploaded_at || request.requested_at).toLocaleDateString()}</p>
+                          </div>
+                          <Badge className="bg-green-100 text-green-700 flex-shrink-0">Submitted</Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
+                )}
+              </TabsContent>
+
+              {/* Workflow Steps Tab */}
+              <TabsContent value="workflow" className="space-y-6">
+                {caseData.steps?.map((step, stepIndex) => (
+                  <Card key={stepIndex} className={`p-6 bg-white shadow-md border-0 ${step.is_locked ? 'opacity-60' : ''}`}>
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                          step.status === 'completed' ? 'bg-gradient-to-br from-green-500 to-green-600' :
+                          step.is_locked ? 'bg-gradient-to-br from-slate-300 to-slate-400' :
+                          'bg-gradient-to-br from-[#2a777a] to-[#236466]'
+                        }`}>
+                          {step.status === 'completed' ? <CheckCircle className="h-6 w-6 text-white" /> :
+                           step.is_locked ? <Lock className="h-6 w-6 text-white" /> :
+                           <span className="text-white font-bold">{step.step_order}</span>}
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-bold text-slate-800">{step.step_name}</h3>
+                          {step.description && <p className="text-sm text-slate-500">{step.description}</p>}
+                        </div>
+                      </div>
+                      <Badge className={`${
+                        step.status === 'completed' ? 'bg-green-100 text-green-700' :
+                        step.is_locked ? 'bg-slate-100 text-slate-600' :
+                        'bg-[#2a777a]/10 text-[#2a777a]'
+                      }`}>
+                        {step.status === 'completed' ? 'Completed' : step.is_locked ? 'Locked' : 'In Progress'}
+                      </Badge>
+                    </div>
+
+                    {step.is_locked ? (
+                      <div className="text-center py-8 bg-slate-50 rounded-xl">
+                        <Lock className="h-8 w-8 text-slate-400 mx-auto mb-2" />
+                        <p className="text-slate-500">Complete previous steps to unlock</p>
+                      </div>
+                    ) : (
+                      <>
+                        {/* Required Documents for this step */}
+                        {step.required_documents?.length > 0 && (
+                          <div className="mb-4">
+                            <h4 className="font-medium text-slate-700 mb-3">Required Documents</h4>
+                            <div className="space-y-3">
+                              {step.required_documents.map((doc, docIndex) => {
+                                const uploadedDoc = documents.find(d => 
+                                  d.step_name === step.step_name && 
+                                  (d.document_type === doc.doc_name || d.document_type === 'workflow')
+                                );
+                                return (
+                                  <div key={docIndex} className={`p-4 rounded-xl border ${
+                                    uploadedDoc ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'
+                                  }`}>
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center gap-3">
+                                        {uploadedDoc ? 
+                                          <FileCheck className="h-5 w-5 text-green-600" /> :
+                                          <FileUp className="h-5 w-5 text-amber-600" />
+                                        }
+                                        <div>
+                                          <p className="font-medium text-slate-800">{doc.doc_name}</p>
+                                          {doc.description && <p className="text-xs text-slate-500">{doc.description}</p>}
+                                        </div>
+                                      </div>
+                                      {uploadedDoc ? (
+                                        <Badge className="bg-green-100 text-green-700">Uploaded</Badge>
+                                      ) : (
+                                        <Badge className="bg-amber-100 text-amber-700">Pending</Badge>
+                                      )}
+                                    </div>
+                                    {!uploadedDoc && (
+                                      <div className="flex gap-2 mt-3">
+                                        <Input
+                                          type="file"
+                                          accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                                          onChange={(e) => {
+                                            setSelectedFile(e.target.files[0]);
+                                            setUploadingFor(`${step.step_name}-${doc.doc_name}`);
+                                          }}
+                                          className="flex-1 text-sm"
+                                        />
+                                        <Button
+                                          onClick={() => handleFileUpload(step.step_name, false, null, step.step_name)}
+                                          disabled={!selectedFile || uploadingFor !== `${step.step_name}-${doc.doc_name}`}
+                                          className="bg-[#2a777a] hover:bg-[#236466]"
+                                        >
+                                          <Upload className="h-4 w-4 mr-1" />
+                                          Upload
+                                        </Button>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Documents uploaded for this step */}
+                        {getDocumentsByStep(step.step_name).length > 0 && (
+                          <div>
+                            <h4 className="font-medium text-slate-700 mb-3">Uploaded Documents</h4>
+                            <div className="space-y-2">
+                              {getDocumentsByStep(step.step_name).map((doc) => (
+                                <div key={doc.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                                  <div className="flex items-center gap-3">
+                                    <FileText className="h-4 w-4 text-slate-500" />
+                                    <span className="text-sm font-medium text-slate-700">{doc.filename}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Badge className={`text-xs ${
+                                      doc.status === 'approved' ? 'bg-green-100 text-green-700' :
+                                      doc.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                                      'bg-amber-100 text-amber-700'
+                                    }`}>
+                                      {doc.status === 'pending_review' ? 'Under Review' : doc.status}
+                                    </Badge>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => downloadDocument(doc.file_id, doc.filename)}
+                                    >
+                                      <Download className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </Card>
+                ))}
+              </TabsContent>
+
+              {/* My Documents Tab */}
+              <TabsContent value="uploaded" className="space-y-6">
+                <Card className="p-6 bg-white shadow-md border-0">
+                  <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
+                    <FolderOpen className="h-5 w-5 text-[#2a777a]" />
+                    All Uploaded Documents
+                    <Badge className="bg-[#2a777a]/10 text-[#2a777a] ml-2">{documents.length}</Badge>
+                  </h3>
+
+                  {documents.length === 0 ? (
+                    <div className="text-center py-12 bg-slate-50 rounded-xl">
+                      <FolderOpen className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+                      <p className="text-slate-600 font-medium">No documents uploaded yet</p>
+                      <p className="text-sm text-slate-500">Upload documents from the Workflow Steps tab</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="border-b border-slate-200">
+                            <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600">Document</th>
+                            <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600">Step</th>
+                            <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600">Type</th>
+                            <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600">Uploaded</th>
+                            <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600">Status</th>
+                            <th className="text-right py-3 px-4 text-sm font-semibold text-slate-600">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {documents.map((doc) => (
+                            <tr key={doc.id} className="border-b border-slate-100 hover:bg-slate-50">
+                              <td className="py-3 px-4">
+                                <div className="flex items-center gap-2">
+                                  <FileText className="h-4 w-4 text-[#2a777a]" />
+                                  <span className="font-medium text-slate-800">{doc.filename}</span>
+                                </div>
+                              </td>
+                              <td className="py-3 px-4 text-sm text-slate-600">{doc.step_name}</td>
+                              <td className="py-3 px-4 text-sm text-slate-600 capitalize">{doc.document_type}</td>
+                              <td className="py-3 px-4 text-sm text-slate-600">
+                                {new Date(doc.upload_date).toLocaleDateString()}
+                              </td>
+                              <td className="py-3 px-4">
+                                <Badge className={`text-xs ${
+                                  doc.status === 'approved' ? 'bg-green-100 text-green-700' :
+                                  doc.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                                  'bg-amber-100 text-amber-700'
+                                }`}>
+                                  {doc.status === 'pending_review' ? 'Under Review' : doc.status}
+                                </Badge>
+                              </td>
+                              <td className="py-3 px-4 text-right">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => downloadDocument(doc.file_id, doc.filename)}
+                                >
+                                  <Download className="h-4 w-4 mr-1" />
+                                  Download
+                                </Button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </Card>
+              </TabsContent>
+            </Tabs>
+          </>
         )}
       </main>
     </div>
