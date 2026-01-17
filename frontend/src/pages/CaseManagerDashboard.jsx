@@ -877,6 +877,7 @@ const CaseManagerDashboard = () => {
               </div>
             </div>
           )}
+          </div>
         </div>
       </main>
 
