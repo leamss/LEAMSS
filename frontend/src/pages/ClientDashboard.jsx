@@ -328,62 +328,116 @@ const ClientDashboard = () => {
               </Card>
             )}
 
-            {/* Additional Document Requests */}
+            {/* Additional Document Requests - Enhanced Design */}
             {additionalDocRequests.length > 0 && additionalDocRequests.some(r => r.status === 'pending') && (
-              <Card className="p-6 border-2 border-[#f7620b]">
-                <h3 className="text-lg font-semibold mb-4 text-gray-900">Additional Documents Requested</h3>
+              <Card className="p-6 border-2 border-[#f7620b] bg-gradient-to-br from-orange-50 to-white">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="h-12 w-12 rounded-full bg-[#f7620b]/20 flex items-center justify-center">
+                    <AlertCircle className="h-6 w-6 text-[#f7620b]" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900">Action Required</h3>
+                    <p className="text-sm text-slate-600">{additionalDocRequests.filter(r => r.status === 'pending').length} additional document(s) requested by your Case Manager</p>
+                  </div>
+                </div>
                 <div className="space-y-4">
-                  {additionalDocRequests.filter(r => r.status === 'pending').map((request) => (
-                    <div key={request.id} className="p-4 bg-[#f7620b]/10 rounded-lg">
-                      <div className="flex justify-between items-start mb-2">
+                  {additionalDocRequests.filter(r => r.status === 'pending').map((request, reqIndex) => (
+                    <div key={request.id} className="bg-white rounded-xl shadow-sm border border-orange-200 overflow-hidden">
+                      <div className="p-4 border-b border-orange-100 bg-orange-50/50">
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h4 className="font-semibold text-gray-900">{request.document_name}</h4>
+                              <Badge className="bg-[#f7620b] text-white text-xs">Required</Badge>
+                            </div>
+                            <p className="text-sm text-slate-600">{request.description}</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="p-4">
+                        <div className="flex flex-wrap gap-2 mb-4">
+                          {request.step_order && (
+                            <div className="flex items-center gap-1 px-3 py-1 bg-slate-100 rounded-full text-xs text-slate-700">
+                              <FileText className="h-3 w-3" />
+                              Step {request.step_order}
+                            </div>
+                          )}
+                          {request.doc_type && (
+                            <div className="flex items-center gap-1 px-3 py-1 bg-blue-100 rounded-full text-xs text-blue-700 capitalize">
+                              {request.doc_type}
+                            </div>
+                          )}
+                          {request.due_date && (
+                            <div className="flex items-center gap-1 px-3 py-1 bg-amber-100 rounded-full text-xs text-amber-700">
+                              <Clock className="h-3 w-3" />
+                              Due: {new Date(request.due_date).toLocaleDateString()}
+                            </div>
+                          )}
+                          {request.expiry_date && (
+                            <div className="flex items-center gap-1 px-3 py-1 bg-red-100 rounded-full text-xs text-red-700">
+                              Expires: {new Date(request.expiry_date).toLocaleDateString()}
+                            </div>
+                          )}
+                          {request.validity_months && (
+                            <div className="flex items-center gap-1 px-3 py-1 bg-purple-100 rounded-full text-xs text-purple-700">
+                              Valid for {request.validity_months} months
+                            </div>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-500 mb-3">
+                          Requested by {request.requested_by_name} on {new Date(request.requested_at).toLocaleDateString()}
+                        </p>
+                        <div className="flex gap-2 items-center">
+                          <Input
+                            type="file"
+                            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                            onChange={(e) => {
+                              setSelectedFile(e.target.files[0]);
+                              setUploadingFor(request.id);
+                            }}
+                            className="flex-1 text-sm"
+                            data-testid={`file-input-${reqIndex}`}
+                          />
+                          <Button
+                            onClick={() => handleFileUpload(request.document_name, true, request.id)}
+                            disabled={!selectedFile || uploadingFor !== request.id}
+                            className="bg-[#f7620b] hover:bg-[#e55a09] whitespace-nowrap"
+                            data-testid={`upload-btn-${reqIndex}`}
+                          >
+                            <Upload className="h-4 w-4 mr-1" />
+                            Upload
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
+
+            {/* Uploaded Additional Documents */}
+            {additionalDocRequests.length > 0 && additionalDocRequests.some(r => r.status === 'uploaded') && (
+              <Card className="p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
+                    <CheckCircle className="h-5 w-5 text-green-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">Uploaded Documents</h3>
+                    <p className="text-sm text-slate-600">Additional documents you have submitted</p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  {additionalDocRequests.filter(r => r.status === 'uploaded').map((request) => (
+                    <div key={request.id} className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
+                      <div className="flex items-center gap-3">
+                        <FileCheck className="h-5 w-5 text-green-600" />
                         <div>
                           <p className="font-medium text-gray-900">{request.document_name}</p>
-                          <p className="text-sm text-slate-600">{request.description}</p>
-                          <div className="flex flex-wrap gap-2 mt-2">
-                            {request.step_order && (
-                              <Badge variant="outline" className="text-xs">Step {request.step_order}</Badge>
-                            )}
-                            {request.doc_type && (
-                              <Badge variant="outline" className="text-xs capitalize">{request.doc_type}</Badge>
-                            )}
-                            {request.due_date && (
-                              <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200">
-                                Due: {new Date(request.due_date).toLocaleDateString()}
-                              </Badge>
-                            )}
-                            {request.expiry_date && (
-                              <Badge variant="outline" className="text-xs bg-red-50 text-red-700 border-red-200">
-                                Expires: {new Date(request.expiry_date).toLocaleDateString()}
-                              </Badge>
-                            )}
-                            {request.validity_months && (
-                              <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
-                                Must be valid for {request.validity_months} months
-                              </Badge>
-                            )}
-                          </div>
-                          <p className="text-xs text-slate-500 mt-2">Requested by: {request.requested_by_name} on {new Date(request.requested_at).toLocaleDateString()}</p>
+                          <p className="text-xs text-slate-600">Uploaded on {new Date(request.uploaded_at).toLocaleDateString()}</p>
                         </div>
-                        <Badge variant="outline" className="bg-[#f7620b]/20 text-[#f7620b] border-[#f7620b]/50">
-                          Required
-                        </Badge>
                       </div>
-                      <div className="flex gap-2 mt-3">
-                        <Input
-                          type="file"
-                          accept=".pdf,.jpg,.jpeg,.png"
-                          onChange={(e) => setSelectedFile(e.target.files[0])}
-                          className="flex-1"
-                        />
-                        <Button
-                          onClick={() => handleFileUpload(request.document_name, true, request.id)}
-                          disabled={!selectedFile}
-                          size="sm"
-                          className="bg-[#f7620b] hover:bg-[#e55a09]"
-                        >
-                          Upload
-                        </Button>
-                      </div>
+                      <Badge className="bg-green-100 text-green-700">Submitted</Badge>
                     </div>
                   ))}
                 </div>
