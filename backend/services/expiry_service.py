@@ -94,7 +94,7 @@ async def check_expiring_documents() -> Dict[str, int]:
                     
                     doc_name = doc.get("filename") or doc.get("document_type", "Document")
                     doc_id = doc.get("id")
-                            
+                    
                     # Check if we already sent a reminder for this threshold
                     existing_reminder = await db.expiry_reminders.find_one({
                         "document_id": doc_id,
@@ -103,40 +103,40 @@ async def check_expiring_documents() -> Dict[str, int]:
                     
                     if existing_reminder:
                         continue  # Already sent this reminder
-                            
-                            # Send notification to client
-                            await send_expiry_notification(
-                                user_id=client_id,
-                                client_name=client_name,
-                                client_email=client_email,
-                                document_name=doc_name,
-                                expiry_date=expiry_date_str,
-                                days_remaining=days_until_expiry,
-                                case_id=case.get("case_id", case_id)
-                            )
-                            stats["notifications_sent"] += 1
-                            
-                            # Also notify case manager
-                            if case_manager_id and cm_email:
-                                await send_expiry_notification_to_cm(
-                                    user_id=case_manager_id,
-                                    cm_name=cm_name,
-                                    cm_email=cm_email,
-                                    client_name=client_name,
-                                    document_name=doc_name,
-                                    expiry_date=expiry_date_str,
-                                    days_remaining=days_until_expiry,
-                                    case_id=case.get("case_id", case_id)
-                                )
-                                stats["notifications_sent"] += 1
-                            
-                            # Record that we sent this reminder
-                            await db.expiry_reminders.insert_one({
-                                "document_id": doc_id,
-                                "case_id": case_id,
-                                "days_before": threshold,
-                                "sent_at": now.isoformat()
-                            })
+                    
+                    # Send notification to client
+                    await send_expiry_notification(
+                        user_id=client_id,
+                        client_name=client_name,
+                        client_email=client_email,
+                        document_name=doc_name,
+                        expiry_date=expiry_date_str,
+                        days_remaining=days_until_expiry,
+                        case_id=case.get("case_id", case_id)
+                    )
+                    stats["notifications_sent"] += 1
+                    
+                    # Also notify case manager
+                    if case_manager_id and cm_email:
+                        await send_expiry_notification_to_cm(
+                            user_id=case_manager_id,
+                            cm_name=cm_name,
+                            cm_email=cm_email,
+                            client_name=client_name,
+                            document_name=doc_name,
+                            expiry_date=expiry_date_str,
+                            days_remaining=days_until_expiry,
+                            case_id=case.get("case_id", case_id)
+                        )
+                        stats["notifications_sent"] += 1
+                    
+                    # Record that we sent this reminder
+                    await db.expiry_reminders.insert_one({
+                        "document_id": doc_id,
+                        "case_id": case_id,
+                        "days_before": appropriate_threshold,
+                        "sent_at": now.isoformat()
+                    })
                             
                             break  # Only send one reminder per document per check
                             
