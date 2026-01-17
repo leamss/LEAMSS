@@ -157,6 +157,23 @@ async def download_document(file_id: str, user: dict = Depends(get_current_user)
         raise HTTPException(status_code=404, detail="File not found")
 
 
+@router.get("/view/{file_id}")
+async def view_document(file_id: str, user: dict = Depends(get_current_user)):
+    """View a document inline (for PDFs, images, etc.)"""
+    try:
+        grid_out = await fs.open_download_stream(ObjectId(file_id))
+        content = await grid_out.read()
+        content_type = grid_out.metadata.get("content_type", "application/octet-stream")
+        
+        return StreamingResponse(
+            io.BytesIO(content),
+            media_type=content_type,
+            headers={"Content-Disposition": f"inline; filename={grid_out.filename}"}
+        )
+    except Exception:
+        raise HTTPException(status_code=404, detail="File not found")
+
+
 @router.get("/case/{case_id}", response_model=List[DocumentResponse])
 async def get_case_documents(case_id: str, user: dict = Depends(get_current_user)):
     """Get all documents for a case"""
