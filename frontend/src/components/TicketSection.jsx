@@ -220,242 +220,275 @@ const TicketSection = ({ caseId = null, assignedCaseManagerId = null, clientId =
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-800">Support Tickets</h2>
-          <p className="text-slate-500">Manage your support requests</p>
-        </div>
-        <CreateTicket 
-          caseId={caseId} 
-          assignedCaseManagerId={assignedCaseManagerId}
-          clientId={clientId}
-          onTicketCreated={loadTickets} 
-        />
-      </div>
+      {/* Detail View */}
+      {viewMode === 'detail' && selectedTicket ? (
+        <div className="space-y-6" data-testid="ticket-detail-view">
+          <Button onClick={() => { setViewMode('list'); setSelectedTicket(null); }} variant="outline">
+            <ArrowLeft className="mr-2 h-4 w-4" />Back to Tickets
+          </Button>
+          
+          {/* Ticket Info Card */}
+          <Card className="p-6">
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <h3 className="text-xl font-semibold text-slate-800">{selectedTicket.subject}</h3>
+                  {getPriorityBadge(selectedTicket.priority)}
+                  {getStatusBadge(selectedTicket.status)}
+                </div>
+                <p className="text-sm text-slate-600">Category: {selectedTicket.category}</p>
+                <p className="text-sm text-slate-600">Created by: {selectedTicket.created_by_name} ({selectedTicket.created_by_role})</p>
+                <p className="text-sm text-slate-600">Created: {new Date(selectedTicket.created_at).toLocaleString()}</p>
+                {selectedTicket.target_user_ids?.length > 0 && (
+                  <p className="text-sm text-slate-600">Assigned to: {selectedTicket.target_user_ids.length} user(s)</p>
+                )}
+              </div>
+              <div className="flex gap-2">
+                {selectedTicket.status === 'open' && (
+                  <Button onClick={() => updateTicketStatus('in_progress')} size="sm" className="bg-purple-500 hover:bg-purple-600">
+                    <Clock className="mr-1 h-4 w-4" />Start
+                  </Button>
+                )}
+                {selectedTicket.status !== 'resolved' && selectedTicket.status !== 'closed' && (
+                  <Button onClick={() => updateTicketStatus('resolved')} size="sm" className="bg-green-500 hover:bg-green-600">
+                    <CheckCircle className="mr-1 h-4 w-4" />Resolve
+                  </Button>
+                )}
+                {selectedTicket.status === 'resolved' && (
+                  <Button onClick={() => updateTicketStatus('closed')} size="sm" variant="outline">
+                    <Archive className="mr-1 h-4 w-4" />Close
+                  </Button>
+                )}
+              </div>
+            </div>
+            
+            <div className="p-4 bg-slate-50 rounded-lg mb-4">
+              <p className="text-slate-800">{selectedTicket.description}</p>
+            </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="p-4 bg-gradient-to-br from-blue-500 to-blue-600 text-white">
-          <div className="flex items-center gap-3">
-            <Inbox className="h-8 w-8 opacity-80" />
-            <div>
-              <p className="text-2xl font-bold">{filterTickets('open').length}</p>
-              <p className="text-xs opacity-80">Open</p>
-            </div>
-          </div>
-        </Card>
-        <Card className="p-4 bg-gradient-to-br from-amber-500 to-amber-600 text-white">
-          <div className="flex items-center gap-3">
-            <Clock className="h-8 w-8 opacity-80" />
-            <div>
-              <p className="text-2xl font-bold">{filterTickets('in_progress').length}</p>
-              <p className="text-xs opacity-80">In Progress</p>
-            </div>
-          </div>
-        </Card>
-        <Card className="p-4 bg-gradient-to-br from-green-500 to-green-600 text-white">
-          <div className="flex items-center gap-3">
-            <CheckCheck className="h-8 w-8 opacity-80" />
-            <div>
-              <p className="text-2xl font-bold">{filterTickets('resolved').length}</p>
-              <p className="text-xs opacity-80">Resolved</p>
-            </div>
-          </div>
-        </Card>
-        <Card className="p-4 bg-gradient-to-br from-slate-500 to-slate-600 text-white">
-          <div className="flex items-center gap-3">
-            <Archive className="h-8 w-8 opacity-80" />
-            <div>
-              <p className="text-2xl font-bold">{filterTickets('closed').length}</p>
-              <p className="text-xs opacity-80">Closed</p>
-            </div>
-          </div>
-        </Card>
-      </div>
-
-      {/* Tickets Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="bg-white shadow rounded-lg p-1">
-          <TabsTrigger value="open" className="data-[state=active]:bg-blue-500 data-[state=active]:text-white">
-            Open ({filterTickets('open').length})
-          </TabsTrigger>
-          <TabsTrigger value="in_progress" className="data-[state=active]:bg-amber-500 data-[state=active]:text-white">
-            In Progress ({filterTickets('in_progress').length})
-          </TabsTrigger>
-          <TabsTrigger value="resolved" className="data-[state=active]:bg-green-500 data-[state=active]:text-white">
-            Resolved ({filterTickets('resolved').length})
-          </TabsTrigger>
-          <TabsTrigger value="closed" className="data-[state=active]:bg-slate-500 data-[state=active]:text-white">
-            Closed ({filterTickets('closed').length})
-          </TabsTrigger>
-        </TabsList>
-
-        {['open', 'in_progress', 'resolved', 'closed'].map(status => (
-          <TabsContent key={status} value={status} className="mt-4">
-            {filterTickets(status).length === 0 ? (
-              <Card className="p-12 text-center bg-slate-50">
-                <MessageSquare className="h-12 w-12 mx-auto mb-3 text-slate-300" />
-                <p className="text-slate-500">No {status.replace('_', ' ')} tickets</p>
-              </Card>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filterTickets(status).map(ticket => (
-                  <TicketCard key={ticket.id} ticket={ticket} />
-                ))}
+            {/* Resolution Note Input - show when not resolved/closed */}
+            {selectedTicket.status !== 'resolved' && selectedTicket.status !== 'closed' && (
+              <div className="mb-4">
+                <Label>Resolution Note (required for resolve/close - min 10 chars)</Label>
+                <Textarea 
+                  value={resolutionNote} 
+                  onChange={(e) => setResolutionNote(e.target.value)} 
+                  placeholder="Add a resolution note when resolving or closing this ticket..." 
+                  rows={2} 
+                  data-testid="resolution-note-input" 
+                />
               </div>
             )}
-          </TabsContent>
-        ))}
-      </Tabs>
 
-      {/* Ticket Detail Dialog */}
-      <Dialog open={ticketDialogOpen} onOpenChange={setTicketDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-          {selectedTicket && (
-            <>
-              <DialogHeader>
-                <DialogTitle className="flex items-center justify-between">
-                  <span className="line-clamp-1">{selectedTicket.subject}</span>
-                  <div className="flex gap-2">
-                    {getStatusBadge(selectedTicket.status)}
-                    {getPriorityBadge(selectedTicket.priority)}
-                  </div>
-                </DialogTitle>
-              </DialogHeader>
-
-              <div className="flex-1 overflow-hidden flex flex-col">
-                {/* Ticket Info */}
-                <div className="p-4 bg-slate-50 rounded-lg mb-4">
-                  <p className="text-sm text-slate-600 mb-2">{selectedTicket.description}</p>
-                  <div className="flex flex-wrap gap-4 text-xs text-slate-500">
-                    <span className="flex items-center gap-1">
-                      <User className="h-3 w-3" />
-                      {selectedTicket.created_by_name}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Calendar className="h-3 w-3" />
-                      {new Date(selectedTicket.created_at).toLocaleString()}
-                    </span>
-                    <Badge variant="outline">{selectedTicket.category}</Badge>
-                  </div>
-                </div>
-
-                {/* Messages */}
-                <ScrollArea className="flex-1 pr-4 mb-4">
-                  <div className="space-y-3">
-                    {selectedTicket.messages?.map((msg, idx) => (
-                      <div 
-                        key={idx} 
-                        className={`p-3 rounded-lg ${
-                          msg.user_id === currentUser?.id 
-                            ? 'bg-[#2a777a]/10 ml-8' 
-                            : 'bg-slate-100 mr-8'
-                        }`}
-                      >
-                        <div className="flex justify-between items-center mb-1">
-                          <span className="font-medium text-sm">{msg.user_name}</span>
-                          <span className="text-xs text-slate-500">
-                            {new Date(msg.created_at).toLocaleString()}
-                          </span>
-                        </div>
-                        <p className="text-sm text-slate-700">{msg.message}</p>
-                      </div>
-                    ))}
-                  </div>
-                </ScrollArea>
-
-                {/* Attachments */}
-                {selectedTicket.attachments?.length > 0 && (
-                  <div className="mb-4">
-                    <p className="text-sm font-medium mb-2">Attachments</p>
-                    <div className="flex flex-wrap gap-2">
-                      {selectedTicket.attachments.map((att, idx) => (
-                        <Button
-                          key={idx}
-                          size="sm"
-                          variant="outline"
-                          onClick={() => downloadAttachment(att.file_id, att.filename)}
-                        >
-                          <Download className="h-3 w-3 mr-1" />
-                          {att.filename}
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Resolution Note */}
-                {selectedTicket.resolution_note && (
-                  <div className="p-3 bg-green-50 rounded-lg border border-green-200 mb-4">
-                    <p className="text-sm font-medium text-green-800 mb-1">Resolution</p>
-                    <p className="text-sm text-green-700">{selectedTicket.resolution_note}</p>
-                    <p className="text-xs text-green-600 mt-1">
-                      By {selectedTicket.resolved_by_name} on {new Date(selectedTicket.resolved_at).toLocaleString()}
-                    </p>
-                  </div>
-                )}
-
-                {/* Reply Box - Only show for non-closed tickets */}
-                {selectedTicket.status !== 'closed' && (
-                  <div className="space-y-3">
-                    <div className="flex gap-2">
-                      <Input
-                        value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
-                        placeholder="Type your message..."
-                        onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-                        className="flex-1"
-                      />
-                      <Button onClick={sendMessage} className="bg-[#2a777a] hover:bg-[#236466]">
-                        <Send className="h-4 w-4" />
-                      </Button>
-                    </div>
-
-                    {/* Status Actions */}
-                    <div className="flex gap-2 flex-wrap">
-                      {selectedTicket.status === 'open' && (
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={() => updateTicketStatus('in_progress')}
-                        >
-                          <Clock className="h-4 w-4 mr-1" />
-                          Mark In Progress
-                        </Button>
-                      )}
-                      {(selectedTicket.status === 'open' || selectedTicket.status === 'in_progress') && (
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          className="text-green-600 border-green-600"
-                          onClick={() => {
-                            const note = prompt('Enter resolution note:');
-                            if (note) updateTicketStatus('resolved', note);
-                          }}
-                        >
-                          <CheckCircle className="h-4 w-4 mr-1" />
-                          Resolve
-                        </Button>
-                      )}
-                      {selectedTicket.status === 'resolved' && (
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={() => updateTicketStatus('closed', selectedTicket.resolution_note || 'Closed')}
-                        >
-                          <Archive className="h-4 w-4 mr-1" />
-                          Close Ticket
-                        </Button>
-                      )}
-                    </div>
-                  </div>
+            {/* Display Resolution Note when resolved */}
+            {selectedTicket.resolution_note && (
+              <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                <p className="text-sm font-medium text-green-800">Resolution Note:</p>
+                <p className="text-green-700">{selectedTicket.resolution_note}</p>
+                {selectedTicket.resolved_by_name && (
+                  <p className="text-xs text-green-600 mt-1">
+                    Resolved by {selectedTicket.resolved_by_name} on {new Date(selectedTicket.resolved_at).toLocaleString()}
+                  </p>
                 )}
               </div>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+            )}
+          </Card>
+
+          {/* Attachments Card */}
+          <Card className="p-6">
+            <h4 className="font-semibold mb-4 text-slate-800 flex items-center gap-2">
+              <FileText className="h-5 w-5" /> Attachments ({selectedTicket.attachments?.length || 0})
+            </h4>
+            <div className="space-y-2 mb-4">
+              {selectedTicket.attachments?.length === 0 ? (
+                <p className="text-sm text-slate-500 text-center py-4">No attachments</p>
+              ) : (
+                selectedTicket.attachments?.map((att, idx) => (
+                  <div key={idx} className="flex justify-between items-center p-3 border rounded-lg hover:bg-slate-50">
+                    <div>
+                      <p className="font-medium text-slate-800">{att.filename}</p>
+                      <p className="text-xs text-slate-500">
+                        Uploaded by {att.uploaded_by_name} on {new Date(att.uploaded_at).toLocaleString()}
+                        {att.file_size && ` • ${(att.file_size / 1024).toFixed(1)} KB`}
+                      </p>
+                    </div>
+                    <Button size="sm" variant="outline" onClick={() => downloadAttachment(att.file_id, att.filename)} data-testid={`download-attachment-${idx}`}>
+                      <Download className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))
+              )}
+            </div>
+            {selectedTicket.status !== 'closed' && (
+              <div className="pt-3 border-t">
+                <Label className="text-sm mb-2 block">Upload Attachment (max 10MB)</Label>
+                <Input
+                  type="file"
+                  onChange={(e) => {
+                    if (e.target.files?.[0]) {
+                      uploadAttachment(e.target.files[0]);
+                      e.target.value = '';
+                    }
+                  }}
+                  className="cursor-pointer"
+                  data-testid="ticket-attachment-input"
+                />
+              </div>
+            )}
+          </Card>
+
+          {/* Messages Card */}
+          <Card className="p-6">
+            <h4 className="font-semibold mb-4 text-slate-800">Messages ({selectedTicket.messages?.length || 0})</h4>
+            <div className="space-y-3 mb-4 max-h-96 overflow-y-auto">
+              {selectedTicket.messages?.length === 0 ? (
+                <p className="text-sm text-slate-500 text-center py-4">No messages yet</p>
+              ) : (
+                selectedTicket.messages?.map((msg, idx) => (
+                  <div key={idx} className={`p-3 rounded-lg ${msg.user_id === currentUser?.id ? 'bg-[#2a777a]/10 ml-8' : 'bg-slate-100 mr-8'}`}>
+                    <div className="flex justify-between items-center mb-1">
+                      <p className="text-sm font-medium text-slate-800">{msg.user_name} <span className="text-slate-500">({msg.user_role})</span></p>
+                      <p className="text-xs text-slate-500">{new Date(msg.created_at).toLocaleString()}</p>
+                    </div>
+                    <p className="text-slate-700">{msg.message}</p>
+                  </div>
+                ))
+              )}
+            </div>
+            {selectedTicket.status !== 'closed' && (
+              <div className="flex gap-2">
+                <Textarea 
+                  value={newMessage} 
+                  onChange={(e) => setNewMessage(e.target.value)} 
+                  placeholder="Type your reply..." 
+                  rows={2} 
+                  className="flex-1" 
+                  data-testid="ticket-reply-input"
+                  onKeyPress={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
+                />
+                <Button onClick={sendMessage} className="bg-[#2a777a] hover:bg-[#236466]" data-testid="send-reply-btn">
+                  <Send className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+          </Card>
+
+          {/* Activity Log Card */}
+          <Card className="p-6">
+            <h4 className="font-semibold mb-4 text-slate-800 flex items-center gap-2">
+              <RefreshCw className="h-5 w-5" /> Activity Log ({selectedTicket.activity_log?.length || 0})
+            </h4>
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {selectedTicket.activity_log?.length === 0 ? (
+                <p className="text-sm text-slate-500 text-center py-4">No activity logged</p>
+              ) : (
+                [...(selectedTicket.activity_log || [])].reverse().map((activity, idx) => (
+                  <div key={idx} className="flex items-start gap-3 p-2 border-l-2 border-slate-300 pl-4">
+                    <div className="flex-1">
+                      <p className="text-sm text-slate-800">{activity.details}</p>
+                      <p className="text-xs text-slate-500">
+                        {activity.user_name} • {new Date(activity.timestamp).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </Card>
+        </div>
+      ) : (
+        /* List View */
+        <>
+          {/* Header */}
+          <div className="flex justify-between items-center">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-800">Support Tickets</h2>
+              <p className="text-slate-500">Manage your support requests</p>
+            </div>
+            <CreateTicket 
+              caseId={caseId} 
+              assignedCaseManagerId={assignedCaseManagerId}
+              clientId={clientId}
+              onTicketCreated={loadTickets} 
+            />
+          </div>
+
+          {/* Stats Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Card className="p-4 bg-gradient-to-br from-blue-500 to-blue-600 text-white">
+              <div className="flex items-center gap-3">
+                <Inbox className="h-8 w-8 opacity-80" />
+                <div>
+                  <p className="text-2xl font-bold">{filterTickets('open').length}</p>
+                  <p className="text-xs opacity-80">Open</p>
+                </div>
+              </div>
+            </Card>
+            <Card className="p-4 bg-gradient-to-br from-amber-500 to-amber-600 text-white">
+              <div className="flex items-center gap-3">
+                <Clock className="h-8 w-8 opacity-80" />
+                <div>
+                  <p className="text-2xl font-bold">{filterTickets('in_progress').length}</p>
+                  <p className="text-xs opacity-80">In Progress</p>
+                </div>
+              </div>
+            </Card>
+            <Card className="p-4 bg-gradient-to-br from-green-500 to-green-600 text-white">
+              <div className="flex items-center gap-3">
+                <CheckCheck className="h-8 w-8 opacity-80" />
+                <div>
+                  <p className="text-2xl font-bold">{filterTickets('resolved').length}</p>
+                  <p className="text-xs opacity-80">Resolved</p>
+                </div>
+              </div>
+            </Card>
+            <Card className="p-4 bg-gradient-to-br from-slate-500 to-slate-600 text-white">
+              <div className="flex items-center gap-3">
+                <Archive className="h-8 w-8 opacity-80" />
+                <div>
+                  <p className="text-2xl font-bold">{filterTickets('closed').length}</p>
+                  <p className="text-xs opacity-80">Closed</p>
+                </div>
+              </div>
+            </Card>
+          </div>
+
+          {/* Tickets Tabs */}
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="bg-white shadow rounded-lg p-1">
+              <TabsTrigger value="open" className="data-[state=active]:bg-blue-500 data-[state=active]:text-white">
+                Open ({filterTickets('open').length})
+              </TabsTrigger>
+              <TabsTrigger value="in_progress" className="data-[state=active]:bg-amber-500 data-[state=active]:text-white">
+                In Progress ({filterTickets('in_progress').length})
+              </TabsTrigger>
+              <TabsTrigger value="resolved" className="data-[state=active]:bg-green-500 data-[state=active]:text-white">
+                Resolved ({filterTickets('resolved').length})
+              </TabsTrigger>
+              <TabsTrigger value="closed" className="data-[state=active]:bg-slate-500 data-[state=active]:text-white">
+                Closed ({filterTickets('closed').length})
+              </TabsTrigger>
+            </TabsList>
+
+            {['open', 'in_progress', 'resolved', 'closed'].map(status => (
+              <TabsContent key={status} value={status} className="mt-4">
+                {filterTickets(status).length === 0 ? (
+                  <Card className="p-12 text-center bg-slate-50">
+                    <MessageSquare className="h-12 w-12 mx-auto mb-3 text-slate-300" />
+                    <p className="text-slate-500">No {status.replace('_', ' ')} tickets</p>
+                  </Card>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {filterTickets(status).map(ticket => (
+                      <TicketCard key={ticket.id} ticket={ticket} />
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+            ))}
+          </Tabs>
+        </>
+      )}
     </div>
   );
 };
