@@ -612,6 +612,205 @@ const CaseManagerDashboard = () => {
           {activeTab === 'tickets' && (
             <TicketSection />
           )}
+
+          {/* Pending Review Section */}
+          {activeTab === 'pending-review' && (
+            <div className="space-y-6" data-testid="pending-review-section">
+              <Card className="p-6 bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-amber-100 rounded-full">
+                    <AlertCircle className="h-8 w-8 text-amber-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-amber-800">{pendingReviewCount} Documents Awaiting Review</h3>
+                    <p className="text-sm text-amber-600">These documents need your attention</p>
+                  </div>
+                </div>
+              </Card>
+
+              {pendingReviewDocs.length === 0 ? (
+                <Card className="p-12 text-center">
+                  <CheckCircle className="h-16 w-16 mx-auto mb-4 text-green-500" />
+                  <h3 className="text-lg font-semibold text-gray-700">All Caught Up!</h3>
+                  <p className="text-gray-500">No documents pending review</p>
+                </Card>
+              ) : (
+                <div className="grid gap-4">
+                  {pendingReviewDocs.map((doc) => (
+                    <Card key={doc.id} className="p-4 hover:shadow-md transition-shadow border-l-4 border-l-amber-500" data-testid={`pending-doc-${doc.id}`}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className="p-2 bg-amber-100 rounded-lg">
+                            <FileText className="h-5 w-5 text-amber-600" />
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-800">{doc.filename || doc.document_type}</p>
+                            <div className="flex items-center gap-2 text-sm text-gray-500">
+                              <span className="font-medium text-[#2a777a]">{doc.client_name}</span>
+                              <span>•</span>
+                              <span>Case: {doc.case_id}</span>
+                              <span>•</span>
+                              <Clock className="h-3 w-3" />
+                              <span>{new Date(doc.uploaded_at || doc.created_at).toLocaleDateString()}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge className="bg-amber-100 text-amber-700">{doc.status}</Badge>
+                          <Button size="sm" variant="outline" onClick={() => window.open(`${API.replace('/api', '')}${doc.file_path}`, '_blank')}>
+                            <Eye className="h-4 w-4 mr-1" />View
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            className="bg-[#2a777a] hover:bg-[#236466]"
+                            onClick={() => {
+                              // Find the case and load its details
+                              const caseInfo = cases.find(c => c.case_id === doc.case_id);
+                              if (caseInfo) {
+                                loadCaseDetails(caseInfo.id);
+                                setActiveTab('cases');
+                                setReviewDialog({ open: true, document: doc, status: '', comment: '' });
+                              }
+                            }}
+                          >
+                            Review
+                          </Button>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* All Documents Section with Search */}
+          {activeTab === 'documents' && (
+            <div className="space-y-6" data-testid="documents-section">
+              <Card className="p-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <Filter className="h-4 w-4 text-slate-500" />
+                  <span className="text-sm font-medium text-slate-700">Search & Filter Documents</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="relative md:col-span-2">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                    <Input
+                      placeholder="Search by document name, type, or client..."
+                      value={documentSearch.query}
+                      onChange={(e) => setDocumentSearch({ ...documentSearch, query: e.target.value })}
+                      className="pl-10"
+                      data-testid="document-search-input"
+                    />
+                  </div>
+                  <Select value={documentSearch.type} onValueChange={(v) => setDocumentSearch({ ...documentSearch, type: v })}>
+                    <SelectTrigger data-testid="document-type-filter">
+                      <SelectValue placeholder="Document Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Types</SelectItem>
+                      <SelectItem value="passport">Passport</SelectItem>
+                      <SelectItem value="visa">Visa</SelectItem>
+                      <SelectItem value="bank_statement">Bank Statement</SelectItem>
+                      <SelectItem value="educational">Educational</SelectItem>
+                      <SelectItem value="employment">Employment</SelectItem>
+                      <SelectItem value="financial">Financial</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select value={documentSearch.status} onValueChange={(v) => setDocumentSearch({ ...documentSearch, status: v })}>
+                    <SelectTrigger data-testid="document-status-filter">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="uploaded">Uploaded/Pending</SelectItem>
+                      <SelectItem value="approved">Approved</SelectItem>
+                      <SelectItem value="rejected">Rejected</SelectItem>
+                      <SelectItem value="revision_required">Revision Required</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </Card>
+
+              <div className="text-sm text-slate-500 mb-2">
+                Showing {allDocuments.filter(d => {
+                  const matchesQuery = !documentSearch.query || 
+                    d.filename?.toLowerCase().includes(documentSearch.query.toLowerCase()) ||
+                    d.document_type?.toLowerCase().includes(documentSearch.query.toLowerCase()) ||
+                    d.client_name?.toLowerCase().includes(documentSearch.query.toLowerCase());
+                  const matchesType = documentSearch.type === 'all' || d.document_type === documentSearch.type;
+                  const matchesStatus = documentSearch.status === 'all' || 
+                    (documentSearch.status === 'uploaded' ? ['uploaded', 'pending'].includes(d.status) : d.status === documentSearch.status);
+                  return matchesQuery && matchesType && matchesStatus;
+                }).length} of {allDocuments.length} documents
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm" data-testid="documents-table">
+                  <thead>
+                    <tr className="bg-slate-100">
+                      <th className="text-left p-3">Document</th>
+                      <th className="text-left p-3">Client</th>
+                      <th className="text-left p-3">Case</th>
+                      <th className="text-left p-3">Type</th>
+                      <th className="text-center p-3">Status</th>
+                      <th className="text-left p-3">Uploaded</th>
+                      <th className="text-center p-3">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {allDocuments
+                      .filter(d => {
+                        const matchesQuery = !documentSearch.query || 
+                          d.filename?.toLowerCase().includes(documentSearch.query.toLowerCase()) ||
+                          d.document_type?.toLowerCase().includes(documentSearch.query.toLowerCase()) ||
+                          d.client_name?.toLowerCase().includes(documentSearch.query.toLowerCase());
+                        const matchesType = documentSearch.type === 'all' || d.document_type === documentSearch.type;
+                        const matchesStatus = documentSearch.status === 'all' || 
+                          (documentSearch.status === 'uploaded' ? ['uploaded', 'pending'].includes(d.status) : d.status === documentSearch.status);
+                        return matchesQuery && matchesType && matchesStatus;
+                      })
+                      .map((doc) => (
+                        <tr key={doc.id} className="border-b hover:bg-slate-50">
+                          <td className="p-3 font-medium">{doc.filename || 'Unknown'}</td>
+                          <td className="p-3 text-[#2a777a]">{doc.client_name}</td>
+                          <td className="p-3">{doc.case_id}</td>
+                          <td className="p-3 capitalize">{doc.document_type?.replace(/_/g, ' ')}</td>
+                          <td className="p-3 text-center">
+                            <Badge className={getStatusBadge(doc.status)}>{doc.status}</Badge>
+                          </td>
+                          <td className="p-3 text-slate-500">{new Date(doc.uploaded_at || doc.created_at).toLocaleDateString()}</td>
+                          <td className="p-3 text-center">
+                            <div className="flex items-center justify-center gap-1">
+                              <Button size="sm" variant="ghost" onClick={() => window.open(`${API.replace('/api', '')}${doc.file_path}`, '_blank')}>
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              {['uploaded', 'pending'].includes(doc.status) && (
+                                <Button 
+                                  size="sm" 
+                                  className="bg-[#2a777a] hover:bg-[#236466]"
+                                  onClick={() => {
+                                    const caseInfo = cases.find(c => c.case_id === doc.case_id);
+                                    if (caseInfo) {
+                                      loadCaseDetails(caseInfo.id);
+                                      setActiveTab('cases');
+                                      setReviewDialog({ open: true, document: doc, status: '', comment: '' });
+                                    }
+                                  }}
+                                >
+                                  Review
+                                </Button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       </main>
 
