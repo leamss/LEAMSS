@@ -1646,8 +1646,24 @@ const AdminDashboard = () => {
             {productDialog.mode === 'edit' && (
               <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
                 <Label className="mb-2 block text-amber-800"><Calendar className="inline h-4 w-4 mr-1" />Commission Effective Date</Label>
-                <p className="text-xs text-amber-700 mb-2">When should the new commission structure take effect?</p>
-                <Input type="datetime-local" value={productDialog.data?.commission_effective_from || ''} onChange={(e) => setProductDialog({ ...productDialog, data: { ...productDialog.data, commission_effective_from: e.target.value } })} />
+                <p className="text-xs text-amber-700 mb-2">When should the new commission structure take effect? Leave blank for immediate effect.</p>
+                <Input type="date" value={productDialog.data?.commission_effective_from?.split('T')[0] || ''} onChange={(e) => setProductDialog({ ...productDialog, data: { ...productDialog.data, commission_effective_from: e.target.value ? new Date(e.target.value).toISOString() : '' } })} />
+              </div>
+            )}
+            {productDialog.mode === 'edit' && productDialog.data?.commission_history?.length > 0 && (
+              <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                <Label className="mb-2 block text-slate-800"><RefreshCw className="inline h-4 w-4 mr-1" />Commission History</Label>
+                <div className="max-h-32 overflow-y-auto space-y-2">
+                  {productDialog.data.commission_history.slice().reverse().map((entry, idx) => (
+                    <div key={idx} className="text-xs p-2 bg-white rounded border border-slate-200">
+                      <div className="flex justify-between">
+                        <span className="font-medium">{entry.new_type}: {entry.new_rate}%</span>
+                        <span className="text-slate-500">Effective: {new Date(entry.effective_from).toLocaleDateString()}</span>
+                      </div>
+                      <p className="text-slate-500">Changed on {new Date(entry.changed_at).toLocaleString()}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
             <Button onClick={() => handleSaveProduct(productDialog.data)} className="w-full bg-[#2a777a] hover:bg-[#236466] text-white" data-testid="save-product-btn">Save Product</Button>
