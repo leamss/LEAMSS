@@ -228,6 +228,24 @@ const ClientDashboard = () => {
 
   if (!user) return null;
 
+  // Handle notification click - navigate to correct tab/item
+  const handleNotificationClick = (notification) => {
+    const type = notification.type || '';
+    const relatedId = notification.related_id;
+    
+    if (type.includes('ticket')) {
+      setActiveTab('tickets');
+      setInitialTicketId(relatedId);
+    } else if (type.includes('expiry') || type.includes('doc') || type.includes('step') || type.includes('case')) {
+      // Switch to action tab for document-related notifications
+      setActiveTab('action');
+      if (relatedId) {
+        setHighlightedDocId(relatedId);
+        setTimeout(() => setHighlightedDocId(null), 5000);
+      }
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
       <AdminReturnBanner />
