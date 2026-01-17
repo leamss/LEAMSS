@@ -37,6 +37,7 @@ from routers import (
     reports_router,
     admin_router
 )
+from routers.scheduler import router as scheduler_router
 
 # Create FastAPI application
 app = FastAPI(
