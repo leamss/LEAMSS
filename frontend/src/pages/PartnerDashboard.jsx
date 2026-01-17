@@ -167,20 +167,30 @@ const PartnerDashboard = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-50">
+    <div className="flex min-h-screen bg-[#F5F7FA]" data-testid="partner-dashboard">
       <AdminReturnBanner />
-      <div className="flex flex-1">
-      <aside className="w-64 bg-slate-900 text-white p-6 flex flex-col" data-testid="partner-sidebar">
-        <div className="flex items-center gap-2 mb-8">
-          <Briefcase className="h-8 w-8" />
-          <h1 className="text-xl font-bold" style={{ fontFamily: 'Merriweather, serif' }}>Partner Portal</h1>
+      
+      {/* Modern White Sidebar */}
+      <aside className="w-64 bg-white border-r border-slate-200 flex flex-col fixed h-screen" data-testid="sidebar">
+        <div className="p-6 border-b border-slate-100">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-[#2a777a] flex items-center justify-center">
+              <span className="text-white font-bold text-lg">L</span>
+            </div>
+            <div>
+              <h1 className="text-lg font-bold text-slate-800">LEAMSS</h1>
+              <p className="text-xs text-slate-500">Partner Portal</p>
+            </div>
+          </div>
         </div>
         
-        <nav className="flex-1 space-y-2">
+        <nav className="flex-1 p-4 space-y-1">
           <button
             onClick={() => setActiveTab('dashboard')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-md transition-colors ${
-              activeTab === 'dashboard' ? 'bg-[#2a777a]' : 'hover:bg-slate-800'
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all font-medium ${
+              activeTab === 'dashboard' 
+                ? 'bg-teal-50 text-[#2a777a]' 
+                : 'text-slate-600 hover:bg-slate-50'
             }`}
             data-testid="nav-dashboard"
           >
@@ -189,8 +199,10 @@ const PartnerDashboard = () => {
           </button>
           <button
             onClick={() => setActiveTab('sales')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-md transition-colors ${
-              activeTab === 'sales' ? 'bg-[#2a777a]' : 'hover:bg-slate-800'
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all font-medium ${
+              activeTab === 'sales' 
+                ? 'bg-teal-50 text-[#2a777a]' 
+                : 'text-slate-600 hover:bg-slate-50'
             }`}
             data-testid="nav-sales"
           >
@@ -199,8 +211,10 @@ const PartnerDashboard = () => {
           </button>
           <button
             onClick={() => setActiveTab('commission')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-md transition-colors ${
-              activeTab === 'commission' ? 'bg-[#2a777a]' : 'hover:bg-slate-800'
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all font-medium ${
+              activeTab === 'commission' 
+                ? 'bg-teal-50 text-[#2a777a]' 
+                : 'text-slate-600 hover:bg-slate-50'
             }`}
             data-testid="nav-commission"
           >
@@ -209,35 +223,49 @@ const PartnerDashboard = () => {
           </button>
           <button
             onClick={() => setActiveTab('tickets')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-md transition-colors ${
-              activeTab === 'tickets' ? 'bg-[#2a777a]' : 'hover:bg-slate-800'
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all font-medium ${
+              activeTab === 'tickets' 
+                ? 'bg-teal-50 text-[#2a777a]' 
+                : 'text-slate-600 hover:bg-slate-50'
             }`}
             data-testid="nav-tickets"
           >
             <MessageSquare className="h-5 w-5" />
-            <span>Support Tickets</span>
+            <span>Support</span>
           </button>
         </nav>
         
-        <Button
-          onClick={handleLogout}
-          variant="ghost"
-          className="w-full justify-start text-white hover:bg-slate-800 mt-4"
-          data-testid="logout-button"
-        >
-          <LogOut className="mr-2 h-5 w-5" />
-          Logout
-        </Button>
+        <div className="p-4 border-t border-slate-100">
+          <div className="flex items-center gap-3 px-3 py-2 mb-3">
+            <div className="h-9 w-9 rounded-full bg-slate-200 flex items-center justify-center">
+              <span className="text-slate-600 font-medium text-sm">{user?.name?.charAt(0) || 'P'}</span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-slate-800 truncate">{user?.name}</p>
+              <p className="text-xs text-slate-500 truncate">{user?.email}</p>
+            </div>
+          </div>
+          <Button
+            onClick={handleLogout}
+            variant="ghost"
+            className="w-full justify-start text-slate-600 hover:text-slate-800 hover:bg-slate-50"
+            data-testid="logout-button"
+          >
+            <LogOut className="mr-2 h-4 w-4" />
+            Logout
+          </Button>
+        </div>
       </aside>
 
-      <main className="flex-1 p-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex justify-between items-center mb-8">
-            <h2 className="text-3xl font-bold" style={{ fontFamily: 'Merriweather, serif' }}>
+      <main className="flex-1 ml-64">
+        {/* Header */}
+        <header className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-slate-200 px-8 py-4">
+          <div className="flex justify-between items-center max-w-7xl mx-auto">
+            <h2 className="text-2xl font-bold text-slate-800">
               {activeTab === 'dashboard' && 'Dashboard'}
               {activeTab === 'sales' && 'My Sales'}
-              {activeTab === 'commission' && 'Commission Tracking'}
-              {activeTab === 'tickets' && 'Support Tickets'}
+              {activeTab === 'commission' && 'Commission'}
+              {activeTab === 'tickets' && 'Support'}
             </h2>
             
             <div className="flex items-center gap-3">
