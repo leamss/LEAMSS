@@ -1365,21 +1365,6 @@ async def create_ticket(ticket: TicketCreate, user: dict = Depends(get_current_u
     
     return TicketResponse(**ticket_doc)
 
-@api_router.get("/tickets/my-tickets", response_model=List[TicketResponse])
-async def get_my_tickets(user: dict = Depends(get_current_user)):
-    if user["role"] == UserRole.ADMIN:
-        tickets = await db.tickets.find({}, {"_id": 0}).to_list(1000)
-    else:
-        # Get tickets created by user OR targeted to user
-        tickets = await db.tickets.find({
-            "$or": [
-                {"created_by": user["id"]},
-                {"target_user_ids": user["id"]},
-                {"target_role": user["role"]}
-            ]
-        }, {"_id": 0}).to_list(1000)
-    return [TicketResponse(**t) for t in tickets]
-
 @api_router.post("/tickets/{ticket_id}/message")
 async def add_ticket_message(ticket_id: str, message: TicketMessage, background_tasks: BackgroundTasks, user: dict = Depends(get_current_user)):
     ticket = await db.tickets.find_one({"id": ticket_id})
