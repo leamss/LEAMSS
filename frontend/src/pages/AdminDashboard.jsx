@@ -44,6 +44,7 @@ const AdminDashboard = () => {
   const [salesReport, setSalesReport] = useState([]);
   const [partnerCommissions, setPartnerCommissions] = useState([]);
   const [salesFilter, setSalesFilter] = useState({ partner_id: '', period: 'lifetime', date_from: '', date_to: '' });
+  const [commissionFilter, setCommissionFilter] = useState({ period: 'lifetime', date_from: '', date_to: '' });
   const [selectedPartnerReport, setSelectedPartnerReport] = useState(null);
   
   // New state for tickets
