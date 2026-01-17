@@ -8,7 +8,7 @@ from core.database import db
 from core.auth import get_current_user, require_role, UserRole, create_access_token
 from core.models import SystemSettings
 
-router = APIRouter(prefix="/admin", tags=["Admin"])
+router = APIRouter(tags=["Admin"])
 
 
 @router.post("/impersonate/{user_id}")
