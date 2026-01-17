@@ -163,6 +163,8 @@ const PartnerDashboard = () => {
       setStats(statsRes.data);
       setSales(salesRes.data);
       setProducts(productsRes.data);
+      // Initialize filtered commissions
+      setFilteredCommissions(salesRes.data.filter(s => s.status === 'approved'));
     } catch (error) {
       toast.error('Failed to load data');
     }
