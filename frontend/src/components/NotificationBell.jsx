@@ -110,8 +110,17 @@ const NotificationBell = ({ onNotificationClick }) => {
     
     // Also poll every 60 seconds as fallback
     const interval = setInterval(loadNotifications, 60000);
-    return () => clearInterval(interval);
-  }, []);
+    
+    return () => {
+      clearInterval(interval);
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
+    };
+  }, [loadNotifications, connectWebSocket]);
 
   const markAsRead = async (notificationId) => {
     try {
