@@ -24,24 +24,40 @@ export function usePushNotifications() {
   const [permission, setPermission] = useState('default');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const initializedRef = useRef(false);
 
   const getAuthHeader = useCallback(() => ({
     headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
   }), []);
 
-  // Check if push notifications are supported
+  // Initialize on mount - check support and subscription
   useEffect(() => {
+    if (initializedRef.current) return;
+    initializedRef.current = true;
+
     const supported = 'serviceWorker' in navigator && 'PushManager' in window;
     setIsSupported(supported);
     
     if (supported && 'Notification' in window) {
       setPermission(Notification.permission);
+      
+      // Check subscription status
+      navigator.serviceWorker.ready.then(registration => {
+        registration.pushManager.getSubscription().then(subscription => {
+          setIsSubscribed(!!subscription);
+        }).catch(err => {
+          console.error('Error checking subscription:', err);
+        });
+      }).catch(err => {
+        console.error('Service worker not ready:', err);
+      });
     }
   }, []);
 
   // Check current subscription status
   const checkSubscription = useCallback(async () => {
-    if (!isSupported) return false;
+    const supported = 'serviceWorker' in navigator && 'PushManager' in window;
+    if (!supported) return false;
 
     try {
       const registration = await navigator.serviceWorker.ready;
@@ -52,7 +68,7 @@ export function usePushNotifications() {
       console.error('Error checking subscription:', err);
       return false;
     }
-  }, [isSupported]);
+  }, []);
 
   // Register service worker
   const registerServiceWorker = useCallback(async () => {
