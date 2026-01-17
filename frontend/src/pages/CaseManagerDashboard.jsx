@@ -68,7 +68,17 @@ const CaseManagerDashboard = () => {
   const [caseDocuments, setCaseDocuments] = useState([]);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [reviewDialog, setReviewDialog] = useState({ open: false, document: null, status: '', comment: '' });
-  const [additionalDocDialog, setAdditionalDocDialog] = useState({ open: false, document_name: '', description: '', due_date: '' });
+  const [additionalDocDialog, setAdditionalDocDialog] = useState({ 
+    open: false, 
+    document_name: '', 
+    description: '', 
+    due_date: '',
+    expiry_date: '',
+    validity_months: '',
+    doc_type: '',
+    step_order: null
+  });
+  const [canCustomizeWorkflow, setCanCustomizeWorkflow] = useState(false);
 
   const getAuthHeader = () => ({
     headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
@@ -77,12 +87,14 @@ const CaseManagerDashboard = () => {
   const loadData = async () => {
     try {
       const authHeader = getAuthHeader();
-      const [statsRes, casesRes] = await Promise.all([
+      const [statsRes, casesRes, settingsRes] = await Promise.all([
         axios.get(`${API}/stats/dashboard`, authHeader),
-        axios.get(`${API}/cases/my-cases`, authHeader)
+        axios.get(`${API}/cases/my-cases`, authHeader),
+        axios.get(`${API}/settings`, authHeader).catch(() => ({ data: { allow_case_manager_workflow_customization: false } }))
       ]);
       setStats(statsRes.data);
       setCases(casesRes.data);
+      setCanCustomizeWorkflow(settingsRes.data?.allow_case_manager_workflow_customization || false);
     } catch (error) {
       toast.error('Failed to load data');
     }
