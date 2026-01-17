@@ -370,11 +370,36 @@ const NotificationBell = ({ onNotificationClick }) => {
             ))
           )}
         </ScrollArea>
-        {notifications.length > 0 && (
-          <div className="p-2 border-t bg-slate-50 text-center">
-            <p className="text-xs text-slate-500">Click on a notification to view details</p>
-          </div>
-        )}
+        <DropdownMenuSeparator />
+        <div className="p-3 bg-slate-50">
+          {pushSupported && !pushSubscribed && pushPermission !== 'denied' && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full mb-2 text-[#2a777a] border-[#2a777a] hover:bg-[#2a777a]/10"
+              onClick={async (e) => {
+                e.stopPropagation();
+                const success = await subscribePush();
+                if (success) {
+                  toast.success('Push notifications enabled! You will receive alerts even when the portal is closed.');
+                } else if (pushPermission === 'denied') {
+                  toast.error('Please enable notifications in browser settings');
+                }
+              }}
+              data-testid="enable-push-notifications"
+            >
+              <BellRing className="h-4 w-4 mr-2" />
+              Enable Desktop Alerts
+            </Button>
+          )}
+          {pushSubscribed && (
+            <div className="flex items-center justify-center gap-2 text-xs text-green-600 mb-2">
+              <BellRing className="h-3 w-3" />
+              Desktop alerts enabled
+            </div>
+          )}
+          <p className="text-xs text-slate-500 text-center">Click on a notification to view details</p>
+        </div>
       </DropdownMenuContent>
     </DropdownMenu>
   );
