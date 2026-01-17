@@ -287,6 +287,7 @@ Build a comprehensive "LEAMSS Portal" for an immigration service with four disti
 1. **Configure Gmail Credentials** (User Action Required)
    - User needs to set GMAIL_EMAIL and GMAIL_APP_PASSWORD in backend/.env
    - Instructions provided in .env file
+   - Once configured, expiry emails will be sent automatically
 
 ### P2 (Medium Priority)
 2. **Ticket System Analytics**
@@ -294,14 +295,28 @@ Build a comprehensive "LEAMSS Portal" for an immigration service with four disti
    - SLA tracking
    - Auto-assignment rules
 
-3. **Document Expiry Reminders**
-   - Automated notifications before documents expire
-   - Email alerts for upcoming expirations
-
 ### P3 (Low Priority)
-4. **Payment Gateway Integration**
+3. **Payment Gateway Integration**
    - Stripe/Razorpay integration for payments
    - Commission payout tracking
+
+---
+
+## Recently Completed
+
+### Document Expiry Reminders (DONE - January 17, 2026)
+- **Automated daily background checker** runs on server startup and every 24 hours
+- Sends notifications at 30, 14, 7, 3, and 1 days before expiry
+- **Dual notification system:**
+  - In-app notifications to both client and case manager
+  - Email notifications (when Gmail is configured)
+- **Admin Dashboard section** showing "Documents Expiring Soon"
+- Color-coded urgency badges (red ≤3 days, amber ≤7 days, yellow ≤30 days)
+- "Send Reminders Now" button for manual trigger
+- Prevents duplicate reminders via `expiry_reminders` collection
+- **API Endpoints:**
+  - `GET /api/scheduler/expiring-documents` - List expiring docs
+  - `POST /api/scheduler/run-expiry-check-now` - Trigger immediate check
 
 ---
 
