@@ -221,27 +221,22 @@ Build a comprehensive "LEAMSS Portal" for an immigration service with four disti
 ### P0 (Critical) - None remaining
 
 ### P1 (High Priority)
-1. **Backend Refactoring (CRITICAL)**
-   - Split server.py into router modules (admin.py, tickets.py, reports.py, etc.)
-   - File is now 2300+ lines and difficult to maintain
-   - Improve code organization
-
-2. **Configure Gmail Credentials** (User Action Required)
+1. **Configure Gmail Credentials** (User Action Required)
    - User needs to set GMAIL_EMAIL and GMAIL_APP_PASSWORD in backend/.env
    - Instructions provided in .env file
 
 ### P2 (Medium Priority)
-3. **Ticket System Analytics**
+2. **Ticket System Analytics**
    - Ticket categories analytics
    - SLA tracking
    - Auto-assignment rules
 
 ### P3 (Low Priority)
-4. **Payment Gateway Integration**
+3. **Payment Gateway Integration**
    - Stripe/Razorpay integration for payments
    - Commission payout tracking
 
-5. **Document Expiry Reminders**
+4. **Document Expiry Reminders**
    - Automated notifications before documents expire
 
 ---
