@@ -157,7 +157,11 @@ const NotificationBell = ({ onNotificationClick }) => {
   const markAsRead = async (notificationId) => {
     try {
       await axios.post(`${API}/notifications/${notificationId}/read`, {}, getAuthHeader());
-      loadNotifications();
+      const data = await fetchNotifications();
+      if (data) {
+        setNotifications(data);
+        setUnreadCount(data.filter(n => !n.is_read).length);
+      }
     } catch (error) {
       console.error('Failed to mark as read', error);
     }
