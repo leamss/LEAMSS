@@ -277,6 +277,24 @@ Build a comprehensive "LEAMSS Portal" for an immigration service with four disti
     - Typography: Manrope for headings, Public Sans for body
     - Consistent color palette: teal primary, orange accent
 
+20. **Final User Feedback Refinements (DONE - January 17, 2026)**
+    - **Enhanced Ticket Detail View**: All user portals (Client, Case Manager, Partner) now have the same detailed ticket view as Admin:
+      - Full-page detail view with "Back to Tickets" button
+      - Ticket info card with status/priority badges
+      - Resolution note input (required for resolve/close - min 10 chars)
+      - Attachments section with upload capability (max 10MB)
+      - Messages section with reply input and send button
+      - Activity log showing ticket history
+      - Status action buttons (Start, Resolve, Close)
+    - **Notification Click Navigation**: Clicking a notification navigates directly to the relevant item without page reload:
+      - Ticket notifications → Support tab and opens ticket detail view
+      - Document notifications → Action Required tab for Client
+      - Custom `onNotificationClick` handlers in all dashboards
+    - **Delete Permissions**: All delete operations restricted to Admin only:
+      - Backend delete endpoints protected with `require_role([UserRole.ADMIN])`
+      - Non-admin users receive 403 Forbidden when attempting delete
+    - **Client Portal "Action Required" Focus**: When navigated from a document notification, automatically switches to Action Required tab
+
 ---
 
 ## Prioritized Backlog
