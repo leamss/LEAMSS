@@ -271,7 +271,11 @@ Build a comprehensive "LEAMSS Portal" for an immigration service with four disti
 - `/api/tickets/{id}/attachment/{file_id}` - Download attachment (GET)
 - `/api/reports/sales` - Sales report with filters
 - `/api/reports/partner-commissions` - Partner commission data
-- `/api/notifications/stream` - **NEW**: SSE endpoint for real-time notifications (query param: token)
+- `/api/notifications/stream` - SSE endpoint for real-time notifications (query param: token)
+- `/api/push/vapid-public-key` - **NEW**: Get VAPID public key for push subscription
+- `/api/push/subscribe` - **NEW**: Subscribe to push notifications
+- `/api/push/unsubscribe` - **NEW**: Unsubscribe from push notifications
+- `/api/push/subscriptions` - **NEW**: List user's push subscriptions
 
 ## Database Collections
 - users
@@ -281,3 +285,4 @@ Build a comprehensive "LEAMSS Portal" for an immigration service with four disti
 - documents
 - tickets
 - notifications
+- push_subscriptions - **NEW**: Store push notification subscriptions
