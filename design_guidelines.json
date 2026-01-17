@@ -1,161 +1,145 @@
 {
-  "design_system": {
-    "identity": {
-      "name": "ImmigrationPortal",
-      "archetype": "Swiss & High-Contrast",
-      "emotional_tone": "Trustworthy, Efficient, Global, Authoritative",
-      "theme_strategy": "Light Mode Primary (Document Focus) with Dark Sidebar (Navigation)",
-      "primary_font": "Inter",
-      "heading_font": "Merriweather"
+  "typography": {
+    "font_family": {
+      "headings": "Manrope, sans-serif",
+      "body": "Public Sans, sans-serif",
+      "mono": "JetBrains Mono, monospace"
     },
-    "colors": {
-      "palette": {
-        "primary": {
-          "name": "Deep Slate",
-          "hex": "#0F172A",
-          "usage": "Sidebar, Primary Buttons, Headings"
-        },
-        "secondary": {
-          "name": "Off-White",
-          "hex": "#F8FAFC",
-          "usage": "Page Backgrounds"
-        },
-        "accent": {
-          "name": "Electric Blue",
-          "hex": "#2563EB",
-          "usage": "Active States, Links, Primary CTAs"
-        },
-        "success": {
-          "name": "Visa Green",
-          "hex": "#059669",
-          "usage": "Approved Status, Success Toasts"
-        },
-        "warning": {
-          "name": "Pending Amber",
-          "hex": "#D97706",
-          "usage": "Pending Actions, Alerts"
-        },
-        "error": {
-          "name": "Reject Red",
-          "hex": "#DC2626",
-          "usage": "Errors, Rejections"
-        }
+    "weights": {
+      "light": 300,
+      "regular": 400,
+      "medium": 500,
+      "semibold": 600,
+      "bold": 700
+    },
+    "scale": {
+      "h1": "text-4xl font-bold tracking-tight lg:text-5xl",
+      "h2": "text-3xl font-semibold tracking-tight",
+      "h3": "text-2xl font-semibold tracking-tight",
+      "p": "leading-7 [&:not(:first-child)]:mt-6"
+    },
+    "imports": [
+      "@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Public+Sans:wght@300;400;500;600&display=swap');"
+    ]
+  },
+  "colors": {
+    "palette": {
+      "primary": {
+        "DEFAULT": "#2a777a",
+        "hover": "#236466",
+        "foreground": "#ffffff",
+        "50": "#f0f9fa",
+        "100": "#d6f0f2",
+        "500": "#2a777a",
+        "900": "#134e50"
       },
-      "backgrounds": {
-        "app_bg": "bg-slate-50",
-        "card_bg": "bg-white",
-        "sidebar_bg": "bg-slate-900"
+      "accent": {
+        "DEFAULT": "#f7620b",
+        "hover": "#e55a09",
+        "foreground": "#ffffff",
+        "50": "#fff5eb",
+        "100": "#ffe6cc",
+        "500": "#f7620b"
+      },
+      "background": {
+        "body": "#F5F7FA",
+        "card": "#ffffff",
+        "sidebar": "#ffffff"
+      },
+      "text": {
+        "main": "#1e293b",
+        "muted": "#64748b",
+        "inverted": "#ffffff"
+      },
+      "status": {
+        "success": "#10b981",
+        "warning": "#f59e0b",
+        "error": "#ef4444",
+        "info": "#3b82f6"
       }
     },
-    "typography": {
-      "font_family": {
-        "heading": "Merriweather, serif",
-        "body": "Inter, sans-serif",
-        "mono": "JetBrains Mono, monospace"
-      },
-      "scale": {
-        "h1": "text-4xl font-bold tracking-tight text-slate-900",
-        "h2": "text-3xl font-semibold tracking-tight text-slate-900",
-        "h3": "text-2xl font-semibold text-slate-800",
-        "body_lg": "text-lg leading-relaxed text-slate-700",
-        "body_base": "text-base leading-relaxed text-slate-600",
-        "caption": "text-sm text-slate-500"
-      }
+    "usage_rules": {
+      "primary_action": "Use Teal (#2a777a) for primary buttons, active navigation states, and key brand elements.",
+      "secondary_action": "Use White with Slate-200 border for secondary actions.",
+      "accent_usage": "Use Orange (#f7620b) SPARINGLY for 'New', 'Pending Action', 'Urgent', or 'Upgrade' CTAs. Do not use for main navigation.",
+      "backgrounds": "Use #F5F7FA for the main app background to create contrast with white cards."
+    }
+  },
+  "layout": {
+    "structure": {
+      "sidebar": "Fixed width (256px), white background, border-r border-slate-200. Navigation items should use 'Ghost' style with Teal text/bg on active state.",
+      "header": "Sticky top, white background/80 backdrop-blur, border-b border-slate-200. Height 64px.",
+      "main_content": "Padding p-8. Max-width 1600px centered for large screens."
     },
     "spacing": {
-      "container_padding": "p-6 md:p-8 lg:p-12",
-      "section_gap": "gap-8",
-      "component_gap": "gap-4"
+      "container_padding": "p-6 md:p-8",
+      "card_padding": "p-6",
+      "section_gap": "gap-8"
     },
-    "shadows": {
-      "card": "shadow-[0_2px_8px_rgba(0,0,0,0.08)]",
-      "dropdown": "shadow-[0_4px_20px_rgba(0,0,0,0.12)]",
-      "hover": "shadow-[0_8px_30px_rgba(0,0,0,0.12)]"
-    },
-    "border_radius": {
-      "card": "rounded-xl",
-      "button": "rounded-md",
-      "input": "rounded-md"
+    "grid_system": {
+      "dashboard_overview": "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6",
+      "bento_grid": "Use col-span-2 for main charts, col-span-1 for stats/lists."
     }
   },
   "components": {
-    "buttons": {
-      "primary": "bg-slate-900 text-white hover:bg-slate-800 shadow-sm transition-all active:scale-95",
-      "secondary": "bg-white text-slate-900 border border-slate-200 hover:bg-slate-50 shadow-sm",
-      "ghost": "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
-      "destructive": "bg-red-600 text-white hover:bg-red-700"
-    },
     "cards": {
-      "default": "bg-white border border-slate-200 shadow-sm rounded-xl p-6",
-      "interactive": "bg-white border border-slate-200 shadow-sm rounded-xl p-6 hover:shadow-md transition-all cursor-pointer hover:border-blue-200"
+      "style": "bg-white rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow duration-200",
+      "header": "flex flex-row items-center justify-between space-y-0 pb-2"
     },
-    "inputs": {
-      "default": "flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm ring-offset-white file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+    "buttons": {
+      "primary": "bg-[#2a777a] hover:bg-[#236466] text-white shadow-sm rounded-lg px-4 py-2 font-medium transition-all active:scale-95",
+      "secondary": "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm rounded-lg px-4 py-2 font-medium",
+      "accent": "bg-[#f7620b] hover:bg-[#e55a09] text-white shadow-sm rounded-lg px-4 py-2 font-medium"
     },
-    "status_badges": {
-      "approved": "inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700",
-      "pending": "inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-700",
-      "rejected": "inline-flex items-center rounded-full border border-red-200 bg-red-50 px-2.5 py-0.5 text-xs font-semibold text-red-700",
-      "draft": "inline-flex items-center rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-700"
+    "tabs": {
+      "style": "border-b border-slate-200 w-full",
+      "list": "flex w-full justify-start gap-6 bg-transparent p-0",
+      "trigger": "relative h-10 rounded-none border-b-2 border-transparent bg-transparent px-4 pb-3 pt-2 font-medium text-slate-500 shadow-none transition-none data-[state=active]:border-[#2a777a] data-[state=active]:text-[#2a777a] data-[state=active]:shadow-none"
+    },
+    "tables": {
+      "wrapper": "rounded-md border border-slate-200 bg-white overflow-hidden",
+      "header": "bg-slate-50/50",
+      "row": "hover:bg-slate-50/50 transition-colors border-b border-slate-100 last:border-0"
+    },
+    "badges": {
+      "default": "border-transparent bg-slate-100 text-slate-900 hover:bg-slate-200/80",
+      "success": "border-transparent bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
+      "warning": "border-transparent bg-amber-50 text-amber-700 hover:bg-amber-100",
+      "teal": "border-transparent bg-teal-50 text-teal-700 hover:bg-teal-100"
     }
   },
-  "layout_strategies": {
-    "admin_dashboard": {
-      "type": "Bento Grid Mode B (High Density)",
-      "structure": "Sidebar (Fixed Left) + Header (Sticky Top) + Main Content (Scrollable)",
-      "grid_cols": "grid-cols-1 md:grid-cols-4",
-      "gap": "gap-6"
+  "visual_enhancers": {
+    "shadows": {
+      "card": "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)",
+      "hover": "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)"
     },
-    "client_portal": {
-      "type": "Wizard / Step-by-Step",
-      "structure": "Centered Container with Progress Bar",
-      "max_width": "max-w-5xl mx-auto"
-    }
+    "borders": "1px solid #e2e8f0",
+    "radius": "0.75rem (12px)"
   },
-  "assets": {
-    "images": {
-      "login_hero": {
-        "url": "https://images.unsplash.com/photo-1726533765275-a69cfd7f9897?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxODF8MHwxfHNlYXJjaHw0fHxtb2Rlcm4lMjBvZmZpY2UlMjBza3lzY3JhcGVyJTIwc2t5bGluZXxlbnwwfHx8fDE3Njg1NTIyNTJ8MA&ixlib=rb-4.1.0&q=85",
-        "alt": "Modern City Skyline",
-        "usage": "Login Page Background / Hero Section"
-      },
-      "dashboard_team": {
-        "url": "https://images.unsplash.com/photo-1758691737158-18ffa31c0a46?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NjZ8MHwxfHNlYXJjaHwxfHxwcm9mZXNzaW9uYWwlMjBidXNpbmVzcyUyMG1lZXRpbmclMjBkaXZlcnNlJTIwdGVhbXxlbnwwfHx8fDE3Njg1NTIyNDh8MA&ixlib=rb-4.1.0&q=85",
-        "alt": "Professional Team",
-        "usage": "About Us / Team Widget"
-      },
-      "documents_hero": {
-        "url": "https://images.unsplash.com/photo-1639034741369-1e0c771adaeb?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxNzV8MHwxfHNlYXJjaHwxfHxwYXNzcG9ydCUyMGFuZCUyMHRyYXZlbCUyMGRvY3VtZW50cyUyMG9uJTIwZGVza3xlbnwwfHx8fDE3Njg1NTIyNTB8MA&ixlib=rb-4.1.0&q=85",
-        "alt": "Passport and Documents",
-        "usage": "Document Upload Section / Empty State"
-      }
-    },
-    "icons": {
-      "library": "lucide-react",
-      "preferred_icons": [
-        "FileText",
-        "Users",
-        "Briefcase",
-        "CheckCircle",
-        "AlertCircle",
-        "Globe",
-        "ShieldCheck",
-        "LayoutDashboard"
-      ]
-    }
+  "image_urls": {
+    "avatars": [
+      "https://images.unsplash.com/photo-1655249481446-25d575f1c054?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "https://images.unsplash.com/photo-1576558656222-ba66febe3dec?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "https://images.unsplash.com/photo-1562228802-4b1052d0f845?crop=entropy&cs=srgb&fm=jpg&q=85"
+    ],
+    "collaboration": [
+      "https://images.unsplash.com/photo-1758518729685-f88df7890776?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "https://images.unsplash.com/photo-1758873268663-5a362616b5a7?crop=entropy&cs=srgb&fm=jpg&q=85"
+    ]
   },
-  "universal_guidelines": [
-    "Use 'Inter' for all UI text and 'Merriweather' for Page Titles (h1, h2).",
-    "Do not use gradients for backgrounds; use solid colors or subtle noise textures.",
-    "All interactive elements must have a hover state (change color or shadow).",
-    "Use 'sonner' for all toast notifications.",
-    "Forms must use 'react-hook-form' with 'zod' validation.",
-    "Tables must be dense and readable, avoiding excessive padding in rows.",
-    "Always include 'data-testid' for interactive elements.",
-    "Mobile responsiveness is mandatory: Stack grids to 1 column on mobile.",
-    "Use 'lucide-react' for icons.",
-    "Do not use 'alert()' or 'confirm()'; use Shadcn Dialogs.",
-    "Ensure high contrast for text (Slate 600+ on white)."
+  "instructions_to_main_agent": [
+    "1. UPDATE TYPOGRAPHY: Replace Inter/Poppins with Manrope (Headings) and Public Sans (Body) in index.css.",
+    "2. REFACTOR SIDEBAR: Create a modern Sidebar component. Use white background, subtle border. Active items should have a Teal tint background and Teal text.",
+    "3. IMPLEMENT DASHBOARDS: Build the Admin, Case Manager, and Partner dashboards using the 'Bento Grid' layout defined above.",
+    "4. USE SHADCN COMPONENTS: Use Cards, Tables, Tabs, and Badges. CUSTOMIZE them via className to match the 'components' section above (e.g., remove default heavy borders, add soft shadows).",
+    "5. COLOR APPLICATION: Ensure the Primary Teal (#2a777a) is used for 'Call to Action' and 'Active States'. Use Orange (#f7620b) only for notifications or 'pending' status badges.",
+    "6. DATA-TESTID: Add data-testid to all interactive elements (buttons, inputs, tabs, table rows)."
   ],
-  "instructions_to_main_agent": "Follow the 'Swiss & High-Contrast' archetype. Build a professional, trust-inducing interface. Prioritize clarity in data presentation. Use the provided image URLs for placeholders. Implement role-based layouts as defined."
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "Avoid generic 'AI slop' designs. Use generous spacing (p-6, p-8).",
+    "Do not use gradients for backgrounds. Use solid colors or subtle noise textures if needed.",
+    "Ensure all text has sufficient contrast. Use Slate-600/700 for body text, not Slate-400.",
+    "Use 'sonner' for toasts.",
+    "Create responsive layouts (mobile-first)."
+  ]
 }
