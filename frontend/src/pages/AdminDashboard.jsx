@@ -898,9 +898,10 @@ const AdminDashboard = () => {
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="lifetime">Lifetime</SelectItem>
-                        <SelectItem value="weekly">Weekly</SelectItem>
-                        <SelectItem value="monthly">Monthly</SelectItem>
-                        <SelectItem value="yearly">Yearly</SelectItem>
+                        <SelectItem value="weekly">This Week</SelectItem>
+                        <SelectItem value="monthly">This Month</SelectItem>
+                        <SelectItem value="quarterly">This Quarter</SelectItem>
+                        <SelectItem value="yearly">This Year</SelectItem>
                         <SelectItem value="custom">Custom Range</SelectItem>
                       </SelectContent>
                     </Select>
