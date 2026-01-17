@@ -132,6 +132,20 @@ const CaseManagerDashboard = () => {
       return;
     }
     setUser(userData);
+    
+    // Check if there's a tab to open from notification click
+    const storedTab = sessionStorage.getItem('activeTab');
+    if (storedTab) {
+      setActiveTab(storedTab);
+      sessionStorage.removeItem('activeTab');
+    }
+    
+    // Check if there's a case to open
+    const storedCaseId = sessionStorage.getItem('openCaseId');
+    if (storedCaseId) {
+      setActiveTab('cases');
+      // We'll load case details after data is loaded
+    }
   }, [navigate]);
 
   useEffect(() => {
