@@ -62,65 +62,65 @@ const NotificationBell = ({ onNotificationClick }) => {
     }
   }, []);
 
-  // SSE Connection (primary - works through HTTP ingress)
-  const connectSSE = useCallback(() => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
-
-    // Close existing connection
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-    }
-
-    try {
-      const sseUrl = `${API}/notifications/stream?token=${encodeURIComponent(token)}`;
-      const eventSource = new EventSource(sseUrl);
-      eventSourceRef.current = eventSource;
-
-      eventSource.onopen = () => {
-        console.log('SSE connected');
-        setIsConnected(true);
-      };
-
-      eventSource.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          
-          if (data.type === 'connected') {
-            console.log('SSE connection confirmed for user:', data.user_id);
-            setIsConnected(true);
-          } else if (data.type === 'ping') {
-            // Keep-alive ping, do nothing
-          } else if (data.type === 'notification') {
-            handleNewNotification(data);
-          }
-        } catch (e) {
-          console.error('Failed to parse SSE message', e);
-        }
-      };
-
-      eventSource.onerror = (error) => {
-        console.error('SSE connection error', error);
-        setIsConnected(false);
-        eventSource.close();
-        
-        // Reconnect after 5 seconds
-        if (reconnectTimeoutRef.current) {
-          clearTimeout(reconnectTimeoutRef.current);
-        }
-        reconnectTimeoutRef.current = setTimeout(connectSSE, 5000);
-      };
-    } catch (error) {
-      console.error('Failed to create SSE connection', error);
-      setIsConnected(false);
-    }
-  }, [handleNewNotification]);
-
   useEffect(() => {
     loadNotifications();
     
     // Poll every 60 seconds as fallback
     const interval = setInterval(loadNotifications, 60000);
+
+    // SSE Connection function (primary - works through HTTP ingress)
+    const connectSSE = () => {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      // Close existing connection
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+      }
+
+      try {
+        const sseUrl = `${API}/notifications/stream?token=${encodeURIComponent(token)}`;
+        const eventSource = new EventSource(sseUrl);
+        eventSourceRef.current = eventSource;
+
+        eventSource.onopen = () => {
+          console.log('SSE connected');
+          setIsConnected(true);
+        };
+
+        eventSource.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            
+            if (data.type === 'connected') {
+              console.log('SSE connection confirmed for user:', data.user_id);
+              setIsConnected(true);
+            } else if (data.type === 'ping') {
+              // Keep-alive ping, do nothing
+            } else if (data.type === 'notification') {
+              handleNewNotification(data);
+            }
+          } catch (e) {
+            console.error('Failed to parse SSE message', e);
+          }
+        };
+
+        eventSource.onerror = (error) => {
+          console.error('SSE connection error', error);
+          setIsConnected(false);
+          eventSource.close();
+          
+          // Reconnect after 5 seconds
+          if (reconnectTimeoutRef.current) {
+            clearTimeout(reconnectTimeoutRef.current);
+          }
+          reconnectTimeoutRef.current = setTimeout(connectSSE, 5000);
+        };
+      } catch (error) {
+        console.error('Failed to create SSE connection', error);
+        setIsConnected(false);
+      }
+    };
 
     // Connect to SSE for real-time notifications
     connectSSE();
