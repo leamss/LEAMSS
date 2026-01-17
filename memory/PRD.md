@@ -214,6 +214,15 @@ Build a comprehensive "LEAMSS Portal" for an immigration service with four disti
     - "Enable Desktop Alerts" button in notification dropdown
     - Auto-cleanup of invalid subscriptions
 
+14. **Backend Modular Architecture (NEW - January 17, 2026)**
+    - Refactored monolithic server.py (2356 lines) into modular structure
+    - New structure:
+      - `/backend/server.py` - Main app entry point (132 lines)
+      - `/backend/routers/` - 10 domain-specific routers (auth, users, products, sales, cases, documents, tickets, notifications, reports, admin)
+      - `/backend/core/` - Config, auth, database, models
+      - `/backend/services/` - Notification and commission services
+    - Improved maintainability and code organization
+
 ---
 
 ## Prioritized Backlog
