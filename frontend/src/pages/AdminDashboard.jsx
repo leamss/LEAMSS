@@ -61,7 +61,7 @@ const AdminDashboard = () => {
     open: false,
     mode: 'create',
     stepData: { step_name: '', step_order: 1, description: '', duration_days: '', required_documents: [] },
-    newDoc: { doc_name: '', description: '', is_mandatory: true }
+    newDoc: { doc_name: '', description: '', is_mandatory: true, has_expiry: false, expiry_date: '', validity_months: '', doc_type: '' }
   });
   const [userDialog, setUserDialog] = useState({ open: false, mode: 'create', data: null });
   const [ticketDialog, setTicketDialog] = useState({ open: false, subject: '', description: '', category: 'general', priority: 'medium', target_user_ids: [], target_role: '' });
