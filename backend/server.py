@@ -120,15 +120,53 @@ async def root():
 
 # ==================== Startup/Shutdown Events ====================
 
+# Background task for document expiry checks
+expiry_check_task = None
+
+async def run_scheduled_expiry_check():
+    """Background task that runs expiry checks daily"""
+    import asyncio
+    from services.expiry_service import check_expiring_documents
+    
+    while True:
+        try:
+            logger.info("Running scheduled document expiry check...")
+            stats = await check_expiring_documents()
+            logger.info(f"Expiry check complete: {stats}")
+        except Exception as e:
+            logger.error(f"Scheduled expiry check failed: {e}")
+        
+        # Wait 24 hours before next check
+        await asyncio.sleep(24 * 60 * 60)
+
+
 @app.on_event("startup")
 async def startup_event():
     """Application startup event"""
+    import asyncio
+    global expiry_check_task
+    
     logger.info("LEAMSS Portal API starting up...")
     logger.info("Modular architecture loaded successfully")
+    
+    # Start background expiry check task
+    expiry_check_task = asyncio.create_task(run_scheduled_expiry_check())
+    logger.info("Document expiry scheduler started")
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
     """Application shutdown event"""
+    global expiry_check_task
+    
     logger.info("LEAMSS Portal API shutting down...")
+    
+    # Cancel background task
+    if expiry_check_task:
+        expiry_check_task.cancel()
+        try:
+            await expiry_check_task
+        except asyncio.CancelledError:
+            pass
+    
     await shutdown_db()
