@@ -416,14 +416,14 @@ const AdminDashboard = () => {
       setStepEditorDialog({
         open: true, mode: 'create',
         stepData: { step_name: '', step_order: nextOrder, description: '', duration_days: '', required_documents: [] },
-        newDoc: { doc_name: '', description: '', is_mandatory: true }
+        newDoc: { doc_name: '', description: '', is_mandatory: true, has_expiry: false, expiry_date: '', validity_months: '', doc_type: '' }
       });
     } else {
       const step = workflowDialog.product.workflow_steps[stepIndex];
       setStepEditorDialog({
         open: true, mode: 'edit',
         stepData: { ...step, duration_days: step.duration_days || '' },
-        newDoc: { doc_name: '', description: '', is_mandatory: true }
+        newDoc: { doc_name: '', description: '', is_mandatory: true, has_expiry: false, expiry_date: '', validity_months: '', doc_type: '' }
       });
       setWorkflowDialog({ ...workflowDialog, editingStepIndex: stepIndex });
     }
@@ -435,7 +435,7 @@ const AdminDashboard = () => {
     setStepEditorDialog({
       ...stepEditorDialog,
       stepData: { ...stepData, required_documents: [...stepData.required_documents, { ...newDoc }] },
-      newDoc: { doc_name: '', description: '', is_mandatory: true }
+      newDoc: { doc_name: '', description: '', is_mandatory: true, has_expiry: false, expiry_date: '', validity_months: '', doc_type: '' }
     });
   };
 
