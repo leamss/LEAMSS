@@ -933,6 +933,42 @@ const AdminDashboard = () => {
                   </div>
                 </Card>
               )}
+
+              {/* Expiring Documents Alert */}
+              {expiringDocuments.length > 0 && (
+                <Card className="p-6 border-l-4 border-l-amber-500">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
+                      <AlertTriangle className="h-5 w-5 text-amber-500" />
+                      Documents Expiring Soon ({expiringDocuments.length})
+                    </h3>
+                    <Button size="sm" variant="outline" onClick={triggerExpiryCheck} className="text-amber-600 border-amber-300 hover:bg-amber-50">
+                      Send Reminders Now
+                    </Button>
+                  </div>
+                  <div className="space-y-3 max-h-64 overflow-y-auto">
+                    {expiringDocuments.slice(0, 5).map((doc, idx) => (
+                      <div key={idx} className="flex justify-between items-center p-3 bg-amber-50 rounded-lg border border-amber-200">
+                        <div>
+                          <p className="font-medium text-slate-800">{doc.document_name}</p>
+                          <p className="text-sm text-slate-600">{doc.client_name} • Case: {doc.case_id}</p>
+                        </div>
+                        <div className="text-right">
+                          <Badge className={`${doc.days_remaining <= 3 ? 'bg-red-500' : doc.days_remaining <= 7 ? 'bg-amber-500' : 'bg-yellow-500'} text-white`}>
+                            {doc.days_remaining} day{doc.days_remaining !== 1 ? 's' : ''}
+                          </Badge>
+                          <p className="text-xs text-slate-500 mt-1">Expires: {doc.expiry_date?.slice(0, 10)}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {expiringDocuments.length > 5 && (
+                    <p className="text-sm text-slate-500 mt-3 text-center">
+                      +{expiringDocuments.length - 5} more documents expiring soon
+                    </p>
+                  )}
+                </Card>
+              )}
             </div>
           )}
 
