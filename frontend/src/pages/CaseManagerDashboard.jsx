@@ -307,6 +307,31 @@ const CaseManagerDashboard = () => {
             <span>My Cases</span>
           </button>
           <button
+            onClick={() => { setActiveTab('pending-review'); setSelectedCase(null); }}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-md transition-colors ${
+              activeTab === 'pending-review' ? 'bg-[#2a777a]' : 'hover:bg-slate-700'
+            }`}
+            data-testid="nav-pending-review"
+          >
+            <AlertCircle className="h-5 w-5" />
+            <span>Pending Review</span>
+            {pendingReviewCount > 0 && (
+              <span className="ml-auto bg-red-500 text-white text-xs px-2 py-0.5 rounded-full animate-pulse">
+                {pendingReviewCount}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => { setActiveTab('documents'); setSelectedCase(null); }}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-md transition-colors ${
+              activeTab === 'documents' ? 'bg-[#2a777a]' : 'hover:bg-slate-700'
+            }`}
+            data-testid="nav-documents"
+          >
+            <Download className="h-5 w-5" />
+            <span>All Documents</span>
+          </button>
+          <button
             onClick={() => { setActiveTab('tickets'); setSelectedCase(null); }}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-md transition-colors ${
               activeTab === 'tickets' ? 'bg-[#2a777a]' : 'hover:bg-slate-700'
@@ -335,6 +360,8 @@ const CaseManagerDashboard = () => {
             <h2 className="text-3xl font-bold text-gray-900">
               {activeTab === 'dashboard' && 'Dashboard'}
               {activeTab === 'cases' && !selectedCase && 'My Cases'}
+              {activeTab === 'pending-review' && 'Pending Review'}
+              {activeTab === 'documents' && 'All Documents'}
               {activeTab === 'tickets' && 'Support Tickets'}
               {selectedCase && `Case: ${selectedCase.case_id}`}
             </h2>
