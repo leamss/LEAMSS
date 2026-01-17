@@ -113,7 +113,10 @@ const CaseManagerDashboard = () => {
           const docsRes = await axios.get(`${API}/documents/case/${c.id}`, authHeader);
           const caseDocs = docsRes.data.map(d => ({ ...d, case_id: c.case_id, client_name: c.client_name }));
           allDocs = [...allDocs, ...caseDocs];
-          pendingDocs = [...pendingDocs, ...caseDocs.filter(d => d.status === 'uploaded' || d.status === 'pending')];
+          // Include all statuses that need review: uploaded, pending, pending_review
+          pendingDocs = [...pendingDocs, ...caseDocs.filter(d => 
+            d.status === 'uploaded' || d.status === 'pending' || d.status === 'pending_review'
+          )];
         } catch (e) {
           // Skip if can't load docs for this case
         }
