@@ -1,0 +1,96 @@
+{
+  "summary": "Tested WebSocket notification system for LEAMSS Portal. Backend WebSocket implementation is CORRECT and working locally. External WebSocket connections fail due to Kubernetes ingress not supporting WebSocket upgrade requests. Notification system has a working fallback via REST API polling.",
+  
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "/ws/{token}",
+        "issue": "WebSocket connections fail through external URL (wss://immi-hub-1.preview.emergentagent.com/ws/{token}). Error: 'WebSocket is closed before the connection is established'. This is an INFRASTRUCTURE issue - Kubernetes ingress needs WebSocket upgrade support configuration.",
+        "priority": "HIGH",
+        "root_cause": "Kubernetes ingress/load balancer not configured to support WebSocket upgrade requests",
+        "workaround": "Notification system falls back to REST API polling every 60 seconds"
+      }
+    ],
+    "minor": []
+  },
+  
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Real-time WebSocket notifications",
+        "issue": "WebSocket connection fails on external URL, but frontend correctly handles this with reconnection attempts and REST API polling fallback",
+        "affected_selectors": ["NotificationBell.jsx WebSocket connection"]
+      }
+    ],
+    "design_issues": []
+  },
+  
+  "local_websocket_tests": {
+    "connection_with_valid_token": "PASSED - WebSocket connects successfully on localhost:8001",
+    "ping_pong_mechanism": "PASSED - Sends 'ping', receives {'type': 'pong'}",
+    "notification_broadcast": "PASSED - When ticket is created, targeted user receives real-time WebSocket notification",
+    "invalid_token_rejection": "PASSED - Connection rejected with invalid JWT token"
+  },
+  
+  "external_websocket_tests": {
+    "connection_with_valid_token": "FAILED - Timeout during opening handshake",
+    "ping_pong_mechanism": "FAILED - Cannot establish connection",
+    "notification_broadcast": "FAILED - Cannot establish connection",
+    "reason": "Kubernetes ingress does not support WebSocket upgrade"
+  },
+  
+  "notification_api_tests": {
+    "GET /api/notifications": "PASSED - Returns list of notifications",
+    "POST /api/notifications/{id}/read": "PASSED - Marks notification as read"
+  },
+  
+  "frontend_verification": {
+    "notification_bell_present": true,
+    "unread_count_badge": "Working - Shows '9+' for unread notifications",
+    "notification_dropdown": "Working - Shows notifications loaded via REST API",
+    "mark_all_read_button": "Present and functional",
+    "toast_notifications": "Cannot test without working WebSocket"
+  },
+  
+  "test_report_links": [
+    "/app/tests/test_websocket.py",
+    "/app/test_reports/pytest/pytest_results_websocket.xml"
+  ],
+  
+  "action_items": [
+    "INFRASTRUCTURE: Configure Kubernetes ingress to support WebSocket connections. This typically requires adding annotations like 'nginx.ingress.kubernetes.io/proxy-read-timeout: 3600' and 'nginx.ingress.kubernetes.io/proxy-send-timeout: 3600' and ensuring WebSocket upgrade headers are passed through.",
+    "ALTERNATIVE: If ingress WebSocket support cannot be enabled, consider using Server-Sent Events (SSE) as an alternative for real-time notifications, which works over standard HTTP."
+  ],
+  
+  "critical_code_review_comments": [
+    "Backend WebSocket implementation is correct - ConnectionManager, ping/pong, and notification broadcast all work locally",
+    "Frontend NotificationBell.jsx correctly implements WebSocket client with reconnection logic and REST API polling fallback",
+    "The 60-second polling interval provides a reasonable fallback when WebSocket is unavailable"
+  ],
+  
+  "updated_files": [
+    "/app/tests/test_websocket.py - Created comprehensive WebSocket test suite"
+  ],
+  
+  "success_rate": {
+    "backend_local": "100% - All WebSocket features work locally",
+    "backend_external": "0% - WebSocket connections fail through ingress",
+    "notification_api": "100% - REST API endpoints work correctly",
+    "frontend": "90% - UI works, WebSocket connection fails due to infrastructure"
+  },
+  
+  "test_credentials": {
+    "admin": "admin@leamss.com / Admin@123",
+    "case_manager": "manager@leamss.com / Manager@123",
+    "partner": "partner@leamss.com / Partner@123",
+    "client": "client@leamss.com / Client@123"
+  },
+  
+  "seed_data_creation": "Created test tickets with prefix 'TEST_WS_Notification_' for WebSocket testing",
+  
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  
+  "context_for_next_testing_agent": "WebSocket notification system code is correct and works locally. The issue is INFRASTRUCTURE - Kubernetes ingress needs to be configured to support WebSocket upgrade requests. The frontend has a working fallback mechanism (REST API polling every 60 seconds) so notifications still work, just not in real-time. To verify WebSocket works, test locally with ws://localhost:8001/ws/{token}."
+}
