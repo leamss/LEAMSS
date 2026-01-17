@@ -446,6 +446,60 @@ async def create_notification(user_id: str, title: str, message: str, notificati
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     await db.notifications.insert_one(notification)
+    
+    # Send real-time WebSocket notification
+    try:
+        await manager.send_personal_message({
+            "type": "notification",
+            "data": {
+                "id": notification["id"],
+                "title": title,
+                "message": message,
+                "notification_type": notification_type,
+                "related_id": related_id,
+                "created_at": notification["created_at"]
+            }
+        }, user_id)
+    except Exception as e:
+        logging.error(f"Failed to send WebSocket notification: {e}")
+
+# WebSocket endpoint
+@app.websocket("/ws/{token}")
+async def websocket_endpoint(websocket: WebSocket, token: str):
+    """WebSocket endpoint for real-time notifications"""
+    try:
+        # Verify the token
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email = payload.get("sub")
+        if not email:
+            await websocket.close(code=4001)
+            return
+        
+        user = await db.users.find_one({"email": email})
+        if not user:
+            await websocket.close(code=4001)
+            return
+        
+        user_id = user["id"]
+        await manager.connect(websocket, user_id)
+        
+        try:
+            while True:
+                # Keep connection alive, listen for client messages
+                data = await websocket.receive_text()
+                # Client can send ping to keep alive
+                if data == "ping":
+                    await websocket.send_json({"type": "pong"})
+        except WebSocketDisconnect:
+            manager.disconnect(websocket, user_id)
+    except JWTError:
+        await websocket.close(code=4001)
+    except Exception as e:
+        logging.error(f"WebSocket error: {e}")
+        try:
+            await websocket.close(code=4000)
+        except Exception:
+            pass
 
 @api_router.post("/auth/register", response_model=UserResponse)
 async def register(user: UserCreate):
