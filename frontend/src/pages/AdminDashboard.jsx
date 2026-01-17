@@ -563,7 +563,16 @@ const AdminDashboard = () => {
   };
 
   // Filtered data
-  const filteredCases = cases.filter(c => c.case_id?.toLowerCase().includes(searchTerm.toLowerCase()) || c.client_name?.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filteredCases = cases.filter(c => {
+    const searchMatch = !caseFilter.search || 
+      c.case_id?.toLowerCase().includes(caseFilter.search.toLowerCase()) || 
+      c.client_name?.toLowerCase().includes(caseFilter.search.toLowerCase()) ||
+      c.case_manager_name?.toLowerCase().includes(caseFilter.search.toLowerCase()) ||
+      c.id?.toLowerCase().includes(caseFilter.search.toLowerCase());
+    const managerMatch = !caseFilter.case_manager_id || c.case_manager_id === caseFilter.case_manager_id;
+    const statusMatch = !caseFilter.status || c.status === caseFilter.status;
+    return searchMatch && managerMatch && statusMatch;
+  });
   const filteredUsers = allUsers.filter(u => u.name?.toLowerCase().includes(userSearchTerm.toLowerCase()) || u.email?.toLowerCase().includes(userSearchTerm.toLowerCase()));
   const partners = allUsers.filter(u => u.role === 'partner');
 
