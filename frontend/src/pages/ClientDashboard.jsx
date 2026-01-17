@@ -238,7 +238,7 @@ const ClientDashboard = () => {
             </div>
             <h2 className="text-2xl font-bold text-slate-800 mb-2">No Active Case</h2>
             <p className="text-slate-500 max-w-md mx-auto">
-              You don't have any active cases yet. Please contact your case manager or partner for assistance.
+              You don&apos;t have any active cases yet. Please contact your case manager or partner for assistance.
             </p>
           </Card>
         ) : (
