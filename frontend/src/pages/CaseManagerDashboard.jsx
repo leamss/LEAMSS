@@ -275,6 +275,18 @@ const CaseManagerDashboard = () => {
     }
   };
 
+  // Helper function to format dates safely
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return 'N/A';
+      return date.toLocaleDateString();
+    } catch {
+      return 'N/A';
+    }
+  };
+
   const getStatusBadge = (status) => {
     const badges = {
       pending: <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">Pending</Badge>,
