@@ -207,12 +207,6 @@ class StepUpdate(BaseModel):
     status: str
     notes: Optional[str] = None
 
-class AdditionalDocRequest(BaseModel):
-    case_id: str
-    document_name: str
-    description: str
-    due_date: Optional[str] = None
-
 class TicketCreate(BaseModel):
     case_id: Optional[str] = None
     subject: str
