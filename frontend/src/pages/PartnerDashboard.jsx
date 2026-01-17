@@ -676,7 +676,7 @@ const PartnerDashboard = () => {
 
           {/* Tickets Section */}
           {activeTab === 'tickets' && (
-            <TicketSection />
+            <TicketSection initialTicketId={initialTicketId} />
           )}
           </div>
         </div>
