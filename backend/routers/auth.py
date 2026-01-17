@@ -36,7 +36,12 @@ async def register(user: UserCreate):
 async def login(credentials: LoginRequest):
     """Login and get access token"""
     user = await db.users.find_one({"email": credentials.email})
-    if not user or not pwd_context.verify(credentials.password, user["password_hash"]):
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    
+    # Handle both old 'password' and new 'password_hash' field names
+    password_field = user.get("password_hash") or user.get("password")
+    if not password_field or not pwd_context.verify(credentials.password, password_field):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
     token = create_access_token({"sub": user["email"]})
