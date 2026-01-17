@@ -477,6 +477,11 @@ const PartnerDashboard = () => {
               </div>
             </div>
           )}
+
+          {/* Tickets Section */}
+          {activeTab === 'tickets' && (
+            <TicketSection />
+          )}
         </div>
       </main>
       </div>
