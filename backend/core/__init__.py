@@ -8,4 +8,3 @@ from core.auth import (
     UserRole, pwd_context, security,
     create_access_token, get_current_user, require_role, get_user_from_token
 )
-from core.models import *
