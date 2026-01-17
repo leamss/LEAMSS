@@ -485,6 +485,14 @@ const CaseManagerDashboard = () => {
           <div className="max-w-7xl mx-auto">
           {activeTab === 'dashboard' && (
             <div>
+              {/* Quick Actions Widget */}
+              <div className="mb-6">
+                <QuickActions 
+                  userRole="case_manager" 
+                  onNavigate={(tab) => setActiveTab(tab)} 
+                />
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8" data-testid="case-manager-stats">
                 <Card className="p-6 bg-white rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
                   <p className="text-sm text-slate-500 font-medium">My Cases</p>
