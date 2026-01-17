@@ -39,6 +39,17 @@ async def mark_notification_read(notification_id: str, user: dict = Depends(get_
     return {"message": "Notification marked as read"}
 
 
+@router.delete("/notifications/{notification_id}")
+async def delete_notification(notification_id: str, user: dict = Depends(get_current_user)):
+    """Delete a notification"""
+    result = await db.notifications.delete_one(
+        {"id": notification_id, "user_id": user["id"]}
+    )
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    return {"message": "Notification deleted"}
+
+
 @router.get("/notifications/stream")
 async def notification_stream(token: str):
     """Server-Sent Events endpoint for real-time notifications"""
