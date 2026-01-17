@@ -741,7 +741,7 @@ const CaseManagerDashboard = () => {
 
           {/* Tickets Section */}
           {activeTab === 'tickets' && (
-            <TicketSection />
+            <TicketSection initialTicketId={initialTicketId} />
           )}
 
           {/* Pending Review Section */}
