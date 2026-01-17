@@ -233,7 +233,14 @@ const CaseManagerDashboard = () => {
       }, getAuthHeader());
       toast.success('Document reviewed!');
       setReviewDialog({ open: false, document: null, status: '', comment: '' });
-      loadCaseDetails(selectedCase.id);
+      
+      // Reload case details if viewing a case
+      if (selectedCase) {
+        loadCaseDetails(selectedCase.id);
+      }
+      
+      // Reload data to update pending review count and list
+      loadData();
     } catch (error) {
       toast.error('Failed to review document');
     }
