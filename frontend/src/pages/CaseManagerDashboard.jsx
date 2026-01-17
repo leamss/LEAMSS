@@ -544,18 +544,42 @@ const CaseManagerDashboard = () => {
 
       {/* Request Additional Document Dialog */}
       <Dialog open={additionalDocDialog.open} onOpenChange={(open) => setAdditionalDocDialog({ ...additionalDocDialog, open })}>
-        <DialogContent>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Request Additional Document</DialogTitle>
+            <DialogTitle>
+              {additionalDocDialog.step_order !== null 
+                ? `Request Document for Step ${additionalDocDialog.step_order}` 
+                : 'Request Additional Document'}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div>
-              <Label>Document Name *</Label>
-              <Input
-                value={additionalDocDialog.document_name}
-                onChange={(e) => setAdditionalDocDialog({ ...additionalDocDialog, document_name: e.target.value })}
-                placeholder="e.g., Updated Bank Statement"
-              />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Document Name *</Label>
+                <Input
+                  value={additionalDocDialog.document_name}
+                  onChange={(e) => setAdditionalDocDialog({ ...additionalDocDialog, document_name: e.target.value })}
+                  placeholder="e.g., Updated Bank Statement"
+                />
+              </div>
+              <div>
+                <Label>Document Type</Label>
+                <Select value={additionalDocDialog.doc_type || ''} onValueChange={(value) => setAdditionalDocDialog({ ...additionalDocDialog, doc_type: value === 'none' ? '' : value })}>
+                  <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    <SelectItem value="passport">Passport</SelectItem>
+                    <SelectItem value="visa">Visa</SelectItem>
+                    <SelectItem value="certificate">Certificate</SelectItem>
+                    <SelectItem value="id_card">ID Card</SelectItem>
+                    <SelectItem value="photo">Photo</SelectItem>
+                    <SelectItem value="financial">Financial Document</SelectItem>
+                    <SelectItem value="medical">Medical Document</SelectItem>
+                    <SelectItem value="legal">Legal Document</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div>
               <Label>Description *</Label>
@@ -566,14 +590,34 @@ const CaseManagerDashboard = () => {
                 rows={3}
               />
             </div>
-            <div>
-              <Label>Due Date (Optional)</Label>
-              <Input
-                type="date"
-                value={additionalDocDialog.due_date}
-                onChange={(e) => setAdditionalDocDialog({ ...additionalDocDialog, due_date: e.target.value })}
-              />
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <Label>Due Date</Label>
+                <Input
+                  type="date"
+                  value={additionalDocDialog.due_date}
+                  onChange={(e) => setAdditionalDocDialog({ ...additionalDocDialog, due_date: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label>Expiry Date</Label>
+                <Input
+                  type="date"
+                  value={additionalDocDialog.expiry_date}
+                  onChange={(e) => setAdditionalDocDialog({ ...additionalDocDialog, expiry_date: e.target.value, validity_months: '' })}
+                />
+              </div>
+              <div>
+                <Label>Validity (months)</Label>
+                <Input
+                  type="number"
+                  placeholder="e.g., 6"
+                  value={additionalDocDialog.validity_months}
+                  onChange={(e) => setAdditionalDocDialog({ ...additionalDocDialog, validity_months: e.target.value, expiry_date: '' })}
+                />
+              </div>
             </div>
+            <p className="text-xs text-slate-500">* Set either Expiry Date OR Validity in months (not both)</p>
             <Button onClick={handleRequestAdditionalDoc} className="w-full bg-emerald-600 hover:bg-emerald-700">
               <Send className="mr-2 h-4 w-4" />
               Send Request
