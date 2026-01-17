@@ -1028,11 +1028,66 @@ const AdminDashboard = () => {
           {/* Commissions Tab */}
           {activeTab === 'commissions' && (
             <div className="space-y-6" data-testid="commissions-content">
-              <div className="flex justify-end">
-                <Button onClick={() => downloadReport(partnerCommissions, 'partner_commissions')} variant="outline">
-                  <Download className="mr-2 h-4 w-4" />Export All
-                </Button>
-              </div>
+              {/* Filters Card */}
+              <Card className="p-6">
+                <h3 className="text-lg font-semibold mb-4 text-slate-800 flex items-center gap-2">
+                  <Filter className="h-5 w-5" /> Filters
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                  <div>
+                    <Label>Period</Label>
+                    <Select value={commissionFilter.period} onValueChange={(v) => setCommissionFilter({ ...commissionFilter, period: v })}>
+                      <SelectTrigger data-testid="commission-period-filter"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="lifetime">Lifetime</SelectItem>
+                        <SelectItem value="weekly">This Week</SelectItem>
+                        <SelectItem value="monthly">This Month</SelectItem>
+                        <SelectItem value="quarterly">This Quarter</SelectItem>
+                        <SelectItem value="yearly">This Year</SelectItem>
+                        <SelectItem value="custom">Custom Range</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {commissionFilter.period === 'custom' && (
+                    <>
+                      <div>
+                        <Label>From Date</Label>
+                        <Input type="date" value={commissionFilter.date_from} onChange={(e) => setCommissionFilter({ ...commissionFilter, date_from: e.target.value })} data-testid="commission-date-from" />
+                      </div>
+                      <div>
+                        <Label>To Date</Label>
+                        <Input type="date" value={commissionFilter.date_to} onChange={(e) => setCommissionFilter({ ...commissionFilter, date_to: e.target.value })} data-testid="commission-date-to" />
+                      </div>
+                    </>
+                  )}
+                  <div className="flex items-end gap-2">
+                    <Button onClick={loadCommissions} className="bg-[#2a777a] hover:bg-[#236466]" data-testid="commission-search-btn">
+                      <Search className="mr-2 h-4 w-4" />Search
+                    </Button>
+                  </div>
+                  <div className="flex items-end gap-2">
+                    <Button onClick={() => downloadReport(partnerCommissions, 'partner_commissions')} variant="outline" data-testid="commission-export-csv">
+                      <Download className="mr-2 h-4 w-4" />CSV
+                    </Button>
+                    <Button 
+                      onClick={() => downloadPDF(
+                        partnerCommissions, 
+                        'Partner Commission Report',
+                        [
+                          { key: 'partner_name', header: 'Partner' },
+                          { key: 'total_sales', header: 'Sales' },
+                          { key: 'total_fee', header: 'Revenue', format: (v) => `$${(v || 0).toFixed(2)}` },
+                          { key: 'total_commission', header: 'Commission', format: (v) => `$${(v || 0).toFixed(2)}` }
+                        ]
+                      )} 
+                      variant="outline"
+                      data-testid="commission-export-pdf"
+                    >
+                      <FileText className="mr-2 h-4 w-4" />PDF
+                    </Button>
+                  </div>
+                </div>
+              </Card>
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Card className="p-4 bg-gradient-to-br from-[#2a777a] to-[#236466] text-white">
