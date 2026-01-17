@@ -433,8 +433,8 @@ const ClientDashboard = () => {
                       <div className="flex items-center gap-3">
                         <FileCheck className="h-5 w-5 text-green-600" />
                         <div>
-                          <p className="font-medium text-gray-900">{request.document_name}</p>
-                          <p className="text-xs text-slate-600">Uploaded on {new Date(request.uploaded_at).toLocaleDateString()}</p>
+                          <p className="font-medium text-gray-900">{request.doc_name || request.document_name}</p>
+                          <p className="text-xs text-slate-600">Uploaded on {new Date(request.uploaded_at || request.requested_at).toLocaleDateString()}</p>
                         </div>
                       </div>
                       <Badge className="bg-green-100 text-green-700">Submitted</Badge>
