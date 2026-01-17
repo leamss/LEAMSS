@@ -125,6 +125,9 @@ const ClientDashboard = () => {
       formData.append('case_id', caseData.id);
       formData.append('step_name', stepName);
       formData.append('document_type', isAdditional ? 'additional' : 'workflow');
+      if (requestId) {
+        formData.append('request_id', requestId);
+      }
       
       await axios.post(`${API}/documents/upload`, formData, getAuthHeader());
       toast.success('Document uploaded successfully!');
