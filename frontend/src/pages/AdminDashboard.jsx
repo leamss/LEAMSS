@@ -104,6 +104,14 @@ const AdminDashboard = () => {
       setAllTickets(ticketsRes.data);
       setTicketStats(ticketStatsRes.data);
       setSystemSettings(settingsRes.data);
+      
+      // Load expiring documents
+      try {
+        const expiringRes = await axios.get(`${API}/scheduler/expiring-documents`, getAuthHeader());
+        setExpiringDocuments(expiringRes.data.documents || []);
+      } catch (e) {
+        console.error('Failed to load expiring documents:', e);
+      }
     } catch (error) {
       toast.error('Failed to load data');
     }
