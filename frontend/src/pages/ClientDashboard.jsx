@@ -347,7 +347,7 @@ const ClientDashboard = () => {
                         <div className="flex justify-between items-start">
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-1">
-                              <h4 className="font-semibold text-gray-900">{request.document_name}</h4>
+                              <h4 className="font-semibold text-gray-900">{request.doc_name || request.document_name}</h4>
                               <Badge className="bg-[#f7620b] text-white text-xs">Required</Badge>
                             </div>
                             <p className="text-sm text-slate-600">{request.description}</p>
@@ -356,10 +356,10 @@ const ClientDashboard = () => {
                       </div>
                       <div className="p-4">
                         <div className="flex flex-wrap gap-2 mb-4">
-                          {request.step_order && (
+                          {(request.step_order || request.step_name) && (
                             <div className="flex items-center gap-1 px-3 py-1 bg-slate-100 rounded-full text-xs text-slate-700">
                               <FileText className="h-3 w-3" />
-                              Step {request.step_order}
+                              {request.step_name || `Step ${request.step_order}`}
                             </div>
                           )}
                           {request.doc_type && (
@@ -399,7 +399,7 @@ const ClientDashboard = () => {
                             data-testid={`file-input-${reqIndex}`}
                           />
                           <Button
-                            onClick={() => handleFileUpload(request.document_name, true, request.id)}
+                            onClick={() => handleFileUpload(request.doc_name || request.document_name, true, request.id)}
                             disabled={!selectedFile || uploadingFor !== request.id}
                             className="bg-[#f7620b] hover:bg-[#e55a09] whitespace-nowrap"
                             data-testid={`upload-btn-${reqIndex}`}
