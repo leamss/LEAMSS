@@ -263,6 +263,19 @@ class NotificationResponse(BaseModel):
     is_read: bool = False
     created_at: str
 
+class SystemSettings(BaseModel):
+    allow_case_manager_workflow_customization: bool = False  # Global toggle for CM workflow customization
+
+class AdditionalDocRequest(BaseModel):
+    case_id: str
+    step_order: int
+    document_name: str
+    description: Optional[str] = None
+    due_date: Optional[str] = None
+    expiry_date: Optional[str] = None  # Specific expiry date
+    validity_months: Optional[int] = None  # Must be valid for X months
+    doc_type: Optional[str] = None
+
 def create_access_token(data: dict):
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
