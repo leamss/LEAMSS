@@ -511,10 +511,29 @@ const CaseManagerDashboard = () => {
                     {selectedCase.additional_doc_requests.map((req) => (
                       <div key={req.id} className="p-3 border rounded-lg bg-blue-50">
                         <div className="flex justify-between items-start">
-                          <div>
-                            <p className="font-medium text-gray-900">{req.document_name}</p>
+                          <div className="flex-1">
+                            <p className="font-medium text-gray-900">{req.doc_name || req.document_name}</p>
                             <p className="text-sm text-slate-600">{req.description}</p>
-                            <p className="text-xs text-slate-500 mt-1">Requested: {new Date(req.requested_at).toLocaleDateString()}</p>
+                            {req.step_name && (
+                              <p className="text-xs text-blue-600 mt-1">Step: {req.step_name}</p>
+                            )}
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              {req.doc_type && (
+                                <Badge variant="outline" className="text-xs">Type: {req.doc_type}</Badge>
+                              )}
+                              {req.due_date && (
+                                <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700">Due: {new Date(req.due_date).toLocaleDateString()}</Badge>
+                              )}
+                              {req.expiry_date && (
+                                <Badge variant="outline" className="text-xs bg-red-50 text-red-700">Expiry: {new Date(req.expiry_date).toLocaleDateString()}</Badge>
+                              )}
+                              {req.validity_months && (
+                                <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700">Valid: {req.validity_months} months</Badge>
+                              )}
+                            </div>
+                            <p className="text-xs text-slate-500 mt-1">
+                              Requested by {req.requested_by_name} on {new Date(req.requested_at).toLocaleDateString()}
+                            </p>
                           </div>
                           {getStatusBadge(req.status)}
                         </div>
