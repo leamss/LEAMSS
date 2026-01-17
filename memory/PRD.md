@@ -22,12 +22,23 @@ Build a comprehensive "LEAMSS Portal" for an immigration service with four disti
 - [x] Each stage has: name, description, duration, required documents
 - [x] Add/Edit/Delete workflow steps
 - [x] Document requirements per step with mandatory flag
+- [x] **NEW**: Document type, expiry date, validity months per document
 
 ### Case Management
 - [x] Clients upload documents according to workflow
 - [x] Case Managers review documents
 - [x] Workflow progress tracking
 - [x] Additional document requests
+- [x] **NEW**: Case Manager workflow customization (when enabled by Admin)
+
+### Case Search/Filter (Admin)
+- [x] **NEW**: Search by Case ID, Client Name, Case Manager Name
+- [x] **NEW**: Filter by Case Manager (dropdown)
+- [x] **NEW**: Filter by Status (Active, Completed, On Hold)
+
+### System Settings (Admin)
+- [x] **NEW**: Global settings management
+- [x] **NEW**: Toggle for Case Manager workflow customization authority
 
 ### Sales & Onboarding
 - [x] Partners create sales for new clients
@@ -35,9 +46,9 @@ Build a comprehensive "LEAMSS Portal" for an immigration service with four disti
 - [x] Client accounts created after approval
 
 ### Admin Oversight
-- [x] View all cases
+- [x] View all cases with advanced filtering
 - [x] Manage all users (create/view/edit/delete)
-- [x] User impersonation ("Switch Portal")
+- [x] User impersonation ("Switch Portal") with Return to Admin banner
 - [x] Sales/Revenue dashboard with commission tracking
 - [x] Search functionality for users
 
