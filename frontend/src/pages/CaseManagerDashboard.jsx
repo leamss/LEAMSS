@@ -555,6 +555,11 @@ const CaseManagerDashboard = () => {
               )}
             </div>
           )}
+
+          {/* Tickets Section */}
+          {activeTab === 'tickets' && (
+            <TicketSection />
+          )}
         </div>
       </main>
 
