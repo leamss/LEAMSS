@@ -62,9 +62,12 @@ const NotificationBell = ({ onNotificationClick }) => {
     }
   }, []);
 
+  // Load notifications on mount
   useEffect(() => {
     loadNotifications();
-    
+  }, [loadNotifications]);
+
+  useEffect(() => {
     // Poll every 60 seconds as fallback
     const interval = setInterval(loadNotifications, 60000);
 
