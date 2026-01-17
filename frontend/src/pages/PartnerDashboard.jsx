@@ -691,6 +691,7 @@ const PartnerDashboard = () => {
           </div>
         </div>
       </main>
+      </div>
     </div>
   );
 };
