@@ -237,8 +237,11 @@ const PartnerDashboard = () => {
               {activeTab === 'dashboard' && 'Dashboard'}
               {activeTab === 'sales' && 'My Sales'}
               {activeTab === 'commission' && 'Commission Tracking'}
+              {activeTab === 'tickets' && 'Support Tickets'}
             </h2>
             
+            <div className="flex items-center gap-3">
+              <NotificationBell />
             {(activeTab === 'sales' || activeTab === 'dashboard') && (
               <Dialog open={showNewSaleDialog} onOpenChange={setShowNewSaleDialog}>
                 <DialogTrigger asChild>
