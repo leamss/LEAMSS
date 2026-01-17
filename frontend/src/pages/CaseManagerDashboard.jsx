@@ -827,10 +827,7 @@ const CaseManagerDashboard = () => {
                               <Button 
                                 size="sm" 
                                 variant="outline" 
-                                onClick={() => {
-                                  // Open document in new tab for viewing
-                                  window.open(`${API}/documents/view/${doc.file_id}`, '_blank');
-                                }}
+                                onClick={() => viewDocument(doc.file_id, doc.filename || `${doc.document_type}.pdf`)}
                                 data-testid={`view-doc-${doc.id}`}
                               >
                                 <Eye className="h-4 w-4 mr-1" />View
