@@ -380,6 +380,7 @@ const PartnerDashboard = () => {
                 </DialogContent>
               </Dialog>
             )}
+            </div>
           </div>
 
           {activeTab === 'dashboard' && (
