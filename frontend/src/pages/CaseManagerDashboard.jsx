@@ -409,7 +409,12 @@ const CaseManagerDashboard = () => {
               </Card>
 
               <Card className="p-6">
-                <h3 className="text-lg font-semibold mb-4 text-gray-900">Workflow Steps</h3>
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Workflow Steps</h3>
+                  {canCustomizeWorkflow && (
+                    <Badge className="bg-green-100 text-green-700">Customization Enabled</Badge>
+                  )}
+                </div>
                 <div className="space-y-4" data-testid="workflow-steps">
                   {selectedCase.steps && selectedCase.steps.map((step, index) => (
                     <div key={index} className="border rounded-lg p-4">
@@ -435,6 +440,16 @@ const CaseManagerDashboard = () => {
                             <SelectItem value="completed">Mark Complete</SelectItem>
                           </SelectContent>
                         </Select>
+                        {canCustomizeWorkflow && (
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => openCustomDocDialog(step.step_order)}
+                            data-testid={`add-doc-step-${index}`}
+                          >
+                            <Plus className="h-4 w-4 mr-1" />Add Doc
+                          </Button>
+                        )}
                       </div>
                     </div>
                   ))}
