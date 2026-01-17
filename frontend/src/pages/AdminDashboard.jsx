@@ -1467,6 +1467,62 @@ const AdminDashboard = () => {
               </Card>
             </div>
           )}
+
+          {/* Settings Tab */}
+          {activeTab === 'settings' && (
+            <div className="space-y-6" data-testid="settings-content">
+              <Card className="p-6">
+                <h3 className="text-lg font-semibold mb-6 text-slate-800 flex items-center gap-2">
+                  <Settings className="h-5 w-5" /> Case Manager Permissions
+                </h3>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
+                    <div>
+                      <p className="font-medium text-slate-800">Allow Workflow Customization</p>
+                      <p className="text-sm text-slate-600">When enabled, Case Managers can request additional documents for individual client cases on specific workflow steps.</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={systemSettings.allow_case_manager_workflow_customization}
+                        onChange={(e) => updateSystemSettings({ ...systemSettings, allow_case_manager_workflow_customization: e.target.checked })}
+                        className="sr-only peer"
+                        data-testid="cm-workflow-toggle"
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#2a777a]/20 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#2a777a]"></div>
+                    </label>
+                  </div>
+                  {systemSettings.allow_case_manager_workflow_customization && (
+                    <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                      <p className="text-sm text-green-800">
+                        <CheckCircle className="h-4 w-4 inline mr-1" />
+                        Case Managers can now request additional documents for their cases. They can add documents with custom names, descriptions, due dates, and validity requirements.
+                      </p>
+                    </div>
+                  )}
+                  {!systemSettings.allow_case_manager_workflow_customization && (
+                    <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                      <p className="text-sm text-amber-800">
+                        <XCircle className="h-4 w-4 inline mr-1" />
+                        Workflow customization is currently disabled. Only Admins can modify workflow documents.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </Card>
+
+              <Card className="p-6">
+                <h3 className="text-lg font-semibold mb-4 text-slate-800">Last Updated</h3>
+                <div className="text-sm text-slate-600">
+                  {systemSettings.updated_at ? (
+                    <p>Settings last modified on {new Date(systemSettings.updated_at).toLocaleString()} by {systemSettings.updated_by_name || 'System'}</p>
+                  ) : (
+                    <p>Using default settings</p>
+                  )}
+                </div>
+              </Card>
+            </div>
+          )}
         </div>
       </main>
 
