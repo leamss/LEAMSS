@@ -190,21 +190,43 @@ const CreateTicket = ({ caseId = null, onTicketCreated, assignedCaseManagerId = 
           <div className="space-y-3">
             <Label className="flex items-center gap-2">
               <Users className="h-4 w-4" />
-              Send To *
+              Send To {restrictToClient && clientName ? `(${clientName})` : '*'}
             </Label>
             
-            {availableTargets.length > 0 && (
+            {/* Search input */}
+            {!restrictToClient && availableTargets.length > 3 && (
+              <Input
+                placeholder="Search by name or email..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="mb-2"
+              />
+            )}
+            
+            {/* Restricted client info */}
+            {restrictToClient && clientName && (
+              <div className="p-3 bg-teal-50 border border-teal-200 rounded-lg">
+                <p className="text-sm text-teal-700">
+                  <User className="h-4 w-4 inline mr-2" />
+                  This ticket will be sent to: <strong>{clientName}</strong>
+                </p>
+              </div>
+            )}
+            
+            {!restrictToClient && filteredTargets.length > 0 && (
               <div className="border rounded-lg p-3 space-y-2 max-h-40 overflow-y-auto bg-slate-50">
-                {availableTargets.map(target => (
+                {filteredTargets.map(target => (
                   <div key={target.id} className="flex items-center gap-2">
                     <Checkbox
                       id={`target-${target.id}`}
                       checked={ticket.target_user_ids.includes(target.id)}
                       onCheckedChange={() => toggleTarget(target.id)}
                     />
-                    <label htmlFor={`target-${target.id}`} className="text-sm cursor-pointer flex items-center gap-2">
+                    <label htmlFor={`target-${target.id}`} className="text-sm cursor-pointer flex items-center gap-2 flex-1">
                       <User className="h-3 w-3 text-slate-500" />
-                      {target.label}
+                      <span>{target.name}</span>
+                      {target.email && <span className="text-xs text-slate-400">({target.email})</span>}
+                      <span className="text-xs text-slate-500 ml-auto">{target.role?.replace('_', ' ')}</span>
                     </label>
                   </div>
                 ))}
