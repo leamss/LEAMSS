@@ -113,7 +113,7 @@ const ClientDashboard = () => {
     navigate('/');
   };
 
-  const handleFileUpload = async (stepName, isAdditional = false, requestId = null) => {
+  const handleFileUpload = async (docName, isAdditional = false, requestId = null, stepName = null) => {
     if (!selectedFile) {
       toast.error('Please select a file');
       return;
@@ -123,10 +123,10 @@ const ClientDashboard = () => {
       const formData = new FormData();
       formData.append('file', selectedFile);
       formData.append('case_id', caseData.id);
-      formData.append('step_name', stepName);
-      formData.append('document_type', isAdditional ? 'additional' : 'workflow');
+      formData.append('step_name', stepName || docName);
+      formData.append('document_type', isAdditional ? docName : 'workflow');
       if (requestId) {
-        formData.append('request_id', requestId);
+        formData.append('additional_doc_id', requestId);
       }
       
       await axios.post(`${API}/documents/upload`, formData, getAuthHeader());
