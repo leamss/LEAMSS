@@ -332,19 +332,18 @@ const NotificationBell = ({ onNotificationClick }) => {
             </Button>
           )}
         </div>
-        <ScrollArea className="max-h-[400px]">
-          {notifications.length === 0 ? (
+        <ScrollArea className="max-h-[350px]">
+          {unreadNotifications.length === 0 ? (
             <div className="p-8 text-center text-slate-500">
-              <Bell className="h-12 w-12 mx-auto mb-2 opacity-30" />
-              <p className="text-sm">No notifications yet</p>
+              <CheckCircle className="h-12 w-12 mx-auto mb-2 opacity-30 text-green-500" />
+              <p className="text-sm font-medium">All caught up!</p>
+              <p className="text-xs mt-1">No new notifications</p>
             </div>
           ) : (
-            notifications.map((notification) => (
+            unreadNotifications.slice(0, 10).map((notification) => (
               <DropdownMenuItem
                 key={notification.id}
-                className={`p-4 cursor-pointer border-b border-slate-100 focus:bg-slate-50 ${
-                  notification.is_read ? 'opacity-70 bg-white' : 'bg-blue-50/50'
-                }`}
+                className="p-4 cursor-pointer border-b border-slate-100 focus:bg-slate-50 bg-blue-50/30"
                 onClick={() => handleNotificationClick(notification)}
               >
                 <div className="w-full flex gap-3">
@@ -354,9 +353,7 @@ const NotificationBell = ({ onNotificationClick }) => {
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-start gap-2 mb-1">
                       <h4 className="font-medium text-sm text-slate-800 truncate">{notification.title}</h4>
-                      {!notification.is_read && (
-                        <span className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0 mt-1"></span>
-                      )}
+                      <span className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0 mt-1"></span>
                     </div>
                     <p className="text-xs text-slate-600 line-clamp-2 mb-2">{notification.message}</p>
                     <div className="flex items-center justify-between">
