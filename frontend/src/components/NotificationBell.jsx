@@ -371,12 +371,12 @@ const NotificationBell = ({ onNotificationClick }) => {
           )}
         </ScrollArea>
         <DropdownMenuSeparator />
-        <div className="p-3 bg-slate-50">
+        <div className="p-3 bg-slate-50 space-y-2">
           {pushSupported && !pushSubscribed && pushPermission !== 'denied' && (
             <Button
               variant="outline"
               size="sm"
-              className="w-full mb-2 text-[#2a777a] border-[#2a777a] hover:bg-[#2a777a]/10"
+              className="w-full text-[#2a777a] border-[#2a777a] hover:bg-[#2a777a]/10"
               onClick={async (e) => {
                 e.stopPropagation();
                 const success = await subscribePush();
@@ -393,12 +393,22 @@ const NotificationBell = ({ onNotificationClick }) => {
             </Button>
           )}
           {pushSubscribed && (
-            <div className="flex items-center justify-center gap-2 text-xs text-green-600 mb-2">
+            <div className="flex items-center justify-center gap-2 text-xs text-green-600">
               <BellRing className="h-3 w-3" />
               Desktop alerts enabled
             </div>
           )}
-          <p className="text-xs text-slate-500 text-center">Click on a notification to view details</p>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full text-slate-600 hover:text-slate-800"
+            onClick={goToHistory}
+            data-testid="view-notification-history"
+          >
+            <History className="h-4 w-4 mr-2" />
+            View All Notifications
+            <ExternalLink className="h-3 w-3 ml-auto" />
+          </Button>
         </div>
       </DropdownMenuContent>
     </DropdownMenu>
