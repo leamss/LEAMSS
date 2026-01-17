@@ -1786,6 +1786,127 @@ async def get_sale_documents(sale_id: str, user: dict = Depends(require_role([Us
     
     return sale.get("documents", [])
 
+# System Settings Endpoints
+@api_router.get("/settings")
+async def get_system_settings(user: dict = Depends(get_current_user)):
+    """Get system settings - Admin sees all, others see relevant settings"""
+    settings = await db.system_settings.find_one({"key": "global"}, {"_id": 0})
+    if not settings:
+        # Initialize default settings
+        default_settings = {
+            "key": "global",
+            "allow_case_manager_workflow_customization": False,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "updated_by": None
+        }
+        await db.system_settings.insert_one(default_settings)
+        settings = default_settings
+    
+    # Remove internal fields for non-admin users
+    if user["role"] != UserRole.ADMIN:
+        return {"allow_case_manager_workflow_customization": settings.get("allow_case_manager_workflow_customization", False)}
+    
+    return settings
+
+@api_router.put("/settings")
+async def update_system_settings(
+    settings: SystemSettings,
+    user: dict = Depends(require_role([UserRole.ADMIN]))
+):
+    """Update system settings (Admin only)"""
+    update_data = {
+        "allow_case_manager_workflow_customization": settings.allow_case_manager_workflow_customization,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "updated_by": user["id"],
+        "updated_by_name": user["name"]
+    }
+    
+    await db.system_settings.update_one(
+        {"key": "global"},
+        {"$set": update_data},
+        upsert=True
+    )
+    
+    return {"message": "Settings updated", **update_data}
+
+# Case Manager Workflow Customization Endpoints
+@api_router.post("/cases/{case_id}/custom-document-request")
+async def request_custom_document_for_case(
+    case_id: str,
+    request: AdditionalDocRequest,
+    background_tasks: BackgroundTasks,
+    user: dict = Depends(require_role([UserRole.CASE_MANAGER, UserRole.ADMIN]))
+):
+    """Case Manager requests additional document for a specific step (if authorized)"""
+    # Check if CM workflow customization is allowed (unless admin)
+    if user["role"] == UserRole.CASE_MANAGER:
+        settings = await db.system_settings.find_one({"key": "global"})
+        if not settings or not settings.get("allow_case_manager_workflow_customization", False):
+            raise HTTPException(status_code=403, detail="Workflow customization is not enabled. Please contact Admin.")
+    
+    case = await db.cases.find_one({"id": case_id})
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+    
+    # Case Manager can only modify their own cases
+    if user["role"] == UserRole.CASE_MANAGER and case["case_manager_id"] != user["id"]:
+        raise HTTPException(status_code=403, detail="Not authorized to modify this case")
+    
+    # Create the custom document request
+    custom_doc = {
+        "id": str(ObjectId()),
+        "document_name": request.document_name,
+        "description": request.description,
+        "due_date": request.due_date,
+        "expiry_date": request.expiry_date,
+        "validity_months": request.validity_months,
+        "doc_type": request.doc_type,
+        "step_order": request.step_order,
+        "status": "pending",
+        "requested_by": user["id"],
+        "requested_by_name": user["name"],
+        "requested_at": datetime.now(timezone.utc).isoformat(),
+        "is_custom": True  # Mark as custom/additional document
+    }
+    
+    # Add to case's additional_documents array
+    await db.cases.update_one(
+        {"id": case_id},
+        {"$push": {"additional_documents": custom_doc}}
+    )
+    
+    # Notify the client
+    await create_notification(
+        case["client_id"],
+        "Additional Document Requested",
+        f"Your case manager has requested an additional document: {request.document_name}",
+        "document_request",
+        case_id
+    )
+    
+    # Send email notification
+    client = await db.users.find_one({"id": case["client_id"]})
+    if client:
+        background_tasks.add_task(
+            email_service.send_email,
+            client["email"],
+            f"Additional Document Required: {request.document_name}",
+            email_service.get_base_template(f"""
+                <h2>Additional Document Required</h2>
+                <p>Hello {client['name']},</p>
+                <p>Your case manager has requested an additional document for your case.</p>
+                <div class="info-box">
+                    <p><strong>Document:</strong> {request.document_name}</p>
+                    <p><strong>Description:</strong> {request.description or 'N/A'}</p>
+                    {f'<p><strong>Due Date:</strong> {request.due_date}</p>' if request.due_date else ''}
+                    {f'<p><strong>Valid for:</strong> {request.validity_months} months</p>' if request.validity_months else ''}
+                </div>
+                <p>Please upload this document at your earliest convenience.</p>
+            """)
+        )
+    
+    return {"message": "Document request sent", "document_id": custom_doc["id"]}
+
 
 app.include_router(api_router)
 
