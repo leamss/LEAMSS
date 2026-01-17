@@ -441,14 +441,23 @@ const CaseManagerDashboard = () => {
                           </SelectContent>
                         </Select>
                         {canCustomizeWorkflow && (
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => openCustomDocDialog(step.step_order)}
-                            data-testid={`add-doc-step-${index}`}
-                          >
-                            <Plus className="h-4 w-4 mr-1" />Add Doc
-                          </Button>
+                          (() => {
+                            // Check if previous step is completed (for step_order > 1)
+                            const prevStepCompleted = step.step_order === 1 || 
+                              selectedCase.steps.find(s => s.step_order === step.step_order - 1)?.status === 'completed';
+                            return (
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => openCustomDocDialog(step.step_order)}
+                                disabled={!prevStepCompleted}
+                                title={!prevStepCompleted ? 'Previous step must be completed first' : 'Add custom document'}
+                                data-testid={`add-doc-step-${index}`}
+                              >
+                                <Plus className="h-4 w-4 mr-1" />Add Doc
+                              </Button>
+                            );
+                          })()
                         )}
                       </div>
                     </div>
