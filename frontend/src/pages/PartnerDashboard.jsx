@@ -368,7 +368,7 @@ const PartnerDashboard = () => {
             </h2>
             
             <div className="flex items-center gap-3">
-              <NotificationBell />
+              <NotificationBell onNotificationClick={handleNotificationClick} />
             {(activeTab === 'sales' || activeTab === 'dashboard') && (
               <Dialog open={showNewSaleDialog} onOpenChange={setShowNewSaleDialog}>
                 <DialogTrigger asChild>
