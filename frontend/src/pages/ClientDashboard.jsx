@@ -324,6 +324,15 @@ const ClientDashboard = () => {
               </div>
             </div>
 
+            {/* Quick Actions Widget */}
+            <div className="mb-6">
+              <QuickActions 
+                userRole="client" 
+                caseId={caseData?.id}
+                onNavigate={(tab) => setActiveTab(tab)} 
+              />
+            </div>
+
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
               <Card className="p-4 bg-white border-0 shadow-md hover:shadow-lg transition-shadow">
