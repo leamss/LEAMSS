@@ -92,7 +92,7 @@ async def websocket_endpoint(websocket: WebSocket, token: str):
         ws_manager.disconnect(websocket, user_id)
         try:
             await websocket.close(code=4000)
-        except:
+        except Exception:
             pass
 
 
