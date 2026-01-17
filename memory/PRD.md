@@ -246,13 +246,13 @@ Build a comprehensive "LEAMSS Portal" for an immigration service with four disti
 - `/api/products/workflow-step` - Add workflow step
 - `/api/products/{id}/workflow-step/{order}` - Update/Delete workflow step
 - `/api/cases` - Case management (now returns case_manager_name for filtering)
-- `/api/cases/{case_id}/custom-document-request` - **NEW**: CM custom doc request
+- `/api/cases/{case_id}/custom-document-request` - CM custom doc request
 - `/api/cases/request-additional-document` - Request additional document
 - `/api/sales/pending` - Pending sales approval
 - `/api/sales/approve` - Approve/reject sales
 - `/api/stats/dashboard` - Dashboard statistics
 - `/api/admin/impersonate/{user_id}` - User impersonation
-- `/api/settings` - **NEW**: GET/PUT system settings
+- `/api/settings` - GET/PUT system settings
 - `/api/tickets` - Create ticket
 - `/api/tickets/all` - Get all tickets (with filters)
 - `/api/tickets/stats` - Get ticket statistics
@@ -264,6 +264,7 @@ Build a comprehensive "LEAMSS Portal" for an immigration service with four disti
 - `/api/tickets/{id}/attachment/{file_id}` - Download attachment (GET)
 - `/api/reports/sales` - Sales report with filters
 - `/api/reports/partner-commissions` - Partner commission data
+- `/api/notifications/stream` - **NEW**: SSE endpoint for real-time notifications (query param: token)
 
 ## Database Collections
 - users
