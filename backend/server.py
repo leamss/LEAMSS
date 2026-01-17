@@ -17,11 +17,24 @@ import io
 import asyncio
 import json
 
+# Web Push imports
+try:
+    from pywebpush import webpush, WebPushException
+    PUSH_ENABLED = True
+except ImportError:
+    PUSH_ENABLED = False
+    logging.warning("pywebpush not installed - push notifications disabled")
+
 # Import email service
 from email_service import email_service
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
+
+# VAPID keys for push notifications
+VAPID_PUBLIC_KEY = os.environ.get("VAPID_PUBLIC_KEY", "")
+VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY", "")
+VAPID_CLAIMS_EMAIL = os.environ.get("VAPID_CLAIMS_EMAIL", "admin@leamss.com")
 
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
