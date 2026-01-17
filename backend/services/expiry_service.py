@@ -75,13 +75,25 @@ async def check_expiring_documents() -> Dict[str, int]:
                     
                     days_until_expiry = (expiry_date - now).days
                     
-                    # Check if this falls within any reminder threshold
+                    # Skip if already expired or more than 30 days away
+                    if days_until_expiry < 0 or days_until_expiry > 30:
+                        continue
+                    
+                    # Find the appropriate threshold for this document
+                    # Send reminder at each threshold (30, 14, 7, 3, 1 days)
+                    appropriate_threshold = None
                     for threshold in REMINDER_THRESHOLDS:
-                        if days_until_expiry == threshold:
-                            stats["expiring_soon"] += 1
-                            
-                            doc_name = doc.get("filename") or doc.get("document_type", "Document")
-                            doc_id = doc.get("id")
+                        if days_until_expiry <= threshold:
+                            appropriate_threshold = threshold
+                            break
+                    
+                    if appropriate_threshold is None:
+                        continue
+                        
+                    stats["expiring_soon"] += 1
+                    
+                    doc_name = doc.get("filename") or doc.get("document_type", "Document")
+                    doc_id = doc.get("id")
                             
                             # Check if we already sent a reminder for this threshold
                             existing_reminder = await db.expiry_reminders.find_one({
