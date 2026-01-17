@@ -79,6 +79,15 @@ class WorkflowStepDetail(BaseModel):
     duration_days: Optional[int] = None
     required_documents: List[DocumentRequirement] = []
 
+class CommissionHistoryEntry(BaseModel):
+    commission_rate: float
+    commission_type: str
+    commission_tiers: Optional[List[Dict[str, Any]]] = None
+    effective_from: str  # ISO date string
+    created_at: str
+    created_by: Optional[str] = None
+    created_by_name: Optional[str] = None
+
 class ProductBase(BaseModel):
     name: str
     description: str
@@ -86,7 +95,8 @@ class ProductBase(BaseModel):
     commission_rate: float
     commission_type: str = "fixed"  # fixed, tiered, custom
     commission_tiers: Optional[List[Dict[str, Any]]] = None  # For tiered commissions
-    commission_effective_from: Optional[str] = None  # When commission changes take effect
+    commission_effective_from: Optional[str] = None  # When current commission takes effect
+    commission_history: Optional[List[Dict[str, Any]]] = None  # Historical commission rates
 
 class ProductCreate(ProductBase):
     pass
@@ -98,6 +108,7 @@ class ProductUpdate(BaseModel):
     commission_rate: Optional[float] = None
     commission_type: Optional[str] = None
     commission_tiers: Optional[List[Dict[str, Any]]] = None
+    commission_effective_from: Optional[str] = None  # New effective date for commission change
     commission_effective_from: Optional[str] = None
 
 class ProductResponse(ProductBase):
