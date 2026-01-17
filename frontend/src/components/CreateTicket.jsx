@@ -44,6 +44,7 @@ const CreateTicket = ({ caseId = null, onTicketCreated, assignedCaseManagerId = 
     if (open && currentUser) {
       loadAvailableTargets();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, currentUser]);
 
   const loadAvailableTargets = async () => {
