@@ -316,6 +316,79 @@ const AdminDashboard = () => {
     toast.success('Report downloaded');
   };
 
+  // Load commissions with filters
+  const loadCommissions = async () => {
+    try {
+      let url = `${API}/reports/partner-commissions?`;
+      if (commissionFilter.period && commissionFilter.period !== 'custom') {
+        url += `period=${commissionFilter.period}&`;
+      }
+      if (commissionFilter.period === 'custom') {
+        if (commissionFilter.date_from) url += `start_date=${commissionFilter.date_from}&`;
+        if (commissionFilter.date_to) url += `end_date=${commissionFilter.date_to}&`;
+      }
+      const response = await axios.get(url, getAuthHeader());
+      setPartnerCommissions(response.data?.commissions || response.data || []);
+    } catch (error) {
+      toast.error('Failed to load commissions');
+    }
+  };
+
+  // Download as PDF (simple HTML to print approach)
+  const downloadPDF = (data, title, columns) => {
+    if (!data || data.length === 0) {
+      toast.error('No data to export');
+      return;
+    }
+
+    // Create printable HTML
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>${title}</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20px; }
+          h1 { color: #2a777a; margin-bottom: 20px; }
+          .summary { margin-bottom: 20px; padding: 15px; background: #f5f5f5; border-radius: 8px; }
+          .summary-item { display: inline-block; margin-right: 30px; }
+          .summary-label { font-size: 12px; color: #666; }
+          .summary-value { font-size: 24px; font-weight: bold; color: #2a777a; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th { background: #2a777a; color: white; padding: 12px 8px; text-align: left; }
+          td { padding: 10px 8px; border-bottom: 1px solid #ddd; }
+          tr:hover { background: #f9f9f9; }
+          .total-row { font-weight: bold; background: #e8f5f5; }
+          .footer { margin-top: 20px; text-align: center; font-size: 12px; color: #666; }
+        </style>
+      </head>
+      <body>
+        <h1>${title}</h1>
+        <p>Generated on: ${new Date().toLocaleString()}</p>
+        <table>
+          <thead>
+            <tr>${columns.map(c => `<th>${c.header}</th>`).join('')}</tr>
+          </thead>
+          <tbody>
+            ${data.map(row => `<tr>${columns.map(c => `<td>${c.format ? c.format(row[c.key]) : (row[c.key] ?? '')}</td>`).join('')}</tr>`).join('')}
+          </tbody>
+        </table>
+        <div class="footer">LEAMSS Portal - Commission Report</div>
+      </body>
+      </html>
+    `;
+
+    // Open print dialog
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+    }, 500);
+    toast.success('PDF ready for printing');
+  };
+
   // Ticket functions
   const loadTickets = async () => {
     try {
