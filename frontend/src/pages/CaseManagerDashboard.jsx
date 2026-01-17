@@ -282,6 +282,16 @@ const CaseManagerDashboard = () => {
             <FileText className="h-5 w-5" />
             <span>My Cases</span>
           </button>
+          <button
+            onClick={() => { setActiveTab('tickets'); setSelectedCase(null); }}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-md transition-colors ${
+              activeTab === 'tickets' ? 'bg-[#2a777a]' : 'hover:bg-slate-700'
+            }`}
+            data-testid="nav-tickets"
+          >
+            <MessageSquare className="h-5 w-5" />
+            <span>Support Tickets</span>
+          </button>
         </nav>
         
         <Button
