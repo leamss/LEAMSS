@@ -1211,7 +1211,7 @@ async def upload_document(
     await create_notification(
         case["case_manager_id"],
         "New Document Uploaded",
-        f"Client {case['client_name']} uploaded {file.filename}" + (f" (Additional document)" if document_type == "additional" else f" for step {step_name}"),
+        f"Client {case['client_name']} uploaded {file.filename}" + (" (Additional document)" if document_type == "additional" else f" for step {step_name}"),
         "doc_uploaded",
         case_id
     )
