@@ -1585,7 +1585,16 @@ const AdminDashboard = () => {
                 <div className="space-y-2 mb-4">
                   {stepEditorDialog.stepData.required_documents.map((doc, idx) => (
                     <div key={idx} className="flex items-center justify-between p-2 bg-blue-50 rounded-lg">
-                      <div><p className="font-medium text-slate-800">{doc.doc_name}</p><p className="text-xs text-slate-600">{doc.description}</p>{doc.is_mandatory && <Badge className="mt-1 text-xs bg-red-100 text-red-700">Mandatory</Badge>}</div>
+                      <div>
+                        <p className="font-medium text-slate-800">{doc.doc_name}</p>
+                        <p className="text-xs text-slate-600">{doc.description}</p>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {doc.is_mandatory && <Badge className="text-xs bg-red-100 text-red-700">Mandatory</Badge>}
+                          {doc.doc_type && <Badge variant="outline" className="text-xs">{doc.doc_type}</Badge>}
+                          {doc.has_expiry && doc.expiry_date && <Badge className="text-xs bg-amber-100 text-amber-700">Expires: {doc.expiry_date}</Badge>}
+                          {doc.has_expiry && doc.validity_months && <Badge className="text-xs bg-blue-100 text-blue-700">Valid: {doc.validity_months} months</Badge>}
+                        </div>
+                      </div>
                       <Button size="sm" variant="ghost" onClick={() => removeDocFromStep(idx)}><XCircle className="h-4 w-4 text-red-500" /></Button>
                     </div>
                   ))}
@@ -1593,10 +1602,49 @@ const AdminDashboard = () => {
               )}
               <div className="p-4 bg-slate-50 rounded-lg space-y-3">
                 <div className="grid grid-cols-2 gap-3">
-                  <div><Label className="text-sm">Document Name</Label><Input value={stepEditorDialog.newDoc.doc_name} onChange={(e) => setStepEditorDialog({ ...stepEditorDialog, newDoc: { ...stepEditorDialog.newDoc, doc_name: e.target.value } })} placeholder="e.g., Passport Copy" data-testid="doc-name-input" /></div>
-                  <div><Label className="text-sm">Description</Label><Input value={stepEditorDialog.newDoc.description} onChange={(e) => setStepEditorDialog({ ...stepEditorDialog, newDoc: { ...stepEditorDialog.newDoc, description: e.target.value } })} placeholder="Additional info..." data-testid="doc-description-input" /></div>
+                  <div><Label className="text-sm">Document Name *</Label><Input value={stepEditorDialog.newDoc.doc_name} onChange={(e) => setStepEditorDialog({ ...stepEditorDialog, newDoc: { ...stepEditorDialog.newDoc, doc_name: e.target.value } })} placeholder="e.g., Passport Copy" data-testid="doc-name-input" /></div>
+                  <div>
+                    <Label className="text-sm">Document Type</Label>
+                    <Select value={stepEditorDialog.newDoc.doc_type || ''} onValueChange={(value) => setStepEditorDialog({ ...stepEditorDialog, newDoc: { ...stepEditorDialog.newDoc, doc_type: value === 'none' ? '' : value } })}>
+                      <SelectTrigger data-testid="doc-type-select"><SelectValue placeholder="Select type" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">None</SelectItem>
+                        <SelectItem value="passport">Passport</SelectItem>
+                        <SelectItem value="visa">Visa</SelectItem>
+                        <SelectItem value="certificate">Certificate</SelectItem>
+                        <SelectItem value="id_card">ID Card</SelectItem>
+                        <SelectItem value="photo">Photo</SelectItem>
+                        <SelectItem value="financial">Financial Document</SelectItem>
+                        <SelectItem value="medical">Medical Document</SelectItem>
+                        <SelectItem value="legal">Legal Document</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-                <div className="flex items-center justify-between">
+                <div><Label className="text-sm">Description</Label><Input value={stepEditorDialog.newDoc.description} onChange={(e) => setStepEditorDialog({ ...stepEditorDialog, newDoc: { ...stepEditorDialog.newDoc, description: e.target.value } })} placeholder="Additional info..." data-testid="doc-description-input" /></div>
+                
+                {/* Expiry/Validity Section */}
+                <div className="border-t pt-3 mt-2">
+                  <label className="flex items-center gap-2 text-sm mb-2">
+                    <input type="checkbox" checked={stepEditorDialog.newDoc.has_expiry} onChange={(e) => setStepEditorDialog({ ...stepEditorDialog, newDoc: { ...stepEditorDialog.newDoc, has_expiry: e.target.checked, expiry_date: '', validity_months: '' } })} className="rounded" data-testid="doc-expiry-checkbox" />
+                    <span className="font-medium">Set Expiry/Validity</span>
+                  </label>
+                  {stepEditorDialog.newDoc.has_expiry && (
+                    <div className="grid grid-cols-2 gap-3 mt-2">
+                      <div>
+                        <Label className="text-sm">Specific Expiry Date</Label>
+                        <Input type="date" value={stepEditorDialog.newDoc.expiry_date} onChange={(e) => setStepEditorDialog({ ...stepEditorDialog, newDoc: { ...stepEditorDialog.newDoc, expiry_date: e.target.value, validity_months: '' } })} data-testid="doc-expiry-date-input" />
+                      </div>
+                      <div>
+                        <Label className="text-sm">OR Validity (months)</Label>
+                        <Input type="number" placeholder="e.g., 6" value={stepEditorDialog.newDoc.validity_months} onChange={(e) => setStepEditorDialog({ ...stepEditorDialog, newDoc: { ...stepEditorDialog.newDoc, validity_months: e.target.value, expiry_date: '' } })} data-testid="doc-validity-months-input" />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between pt-2">
                   <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={stepEditorDialog.newDoc.is_mandatory} onChange={(e) => setStepEditorDialog({ ...stepEditorDialog, newDoc: { ...stepEditorDialog.newDoc, is_mandatory: e.target.checked } })} className="rounded" data-testid="doc-mandatory-checkbox" />Mandatory Document</label>
                   <Button size="sm" onClick={addDocToStep} variant="outline" data-testid="add-doc-btn"><Plus className="h-4 w-4 mr-1" />Add Document</Button>
                 </div>
