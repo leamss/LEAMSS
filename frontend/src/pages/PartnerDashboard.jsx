@@ -65,6 +65,8 @@ const PartnerDashboard = () => {
   const [products, setProducts] = useState([]);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showNewSaleDialog, setShowNewSaleDialog] = useState(false);
+  const [commissionFilter, setCommissionFilter] = useState({ period: 'all' });
+  const [filteredCommissions, setFilteredCommissions] = useState([]);
   const [newSale, setNewSale] = useState({
     client_name: '',
     client_email: '',
@@ -85,6 +87,70 @@ const PartnerDashboard = () => {
   const getAuthHeader = () => ({
     headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
   });
+
+  // Apply commission filter
+  const applyCommissionFilter = () => {
+    let filtered = sales.filter(s => s.status === 'approved');
+    
+    if (commissionFilter.period !== 'all') {
+      const now = new Date();
+      let startDate;
+      
+      switch (commissionFilter.period) {
+        case 'weekly':
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case 'monthly':
+          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          break;
+        case 'quarterly':
+          startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+          break;
+        case 'yearly':
+          startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+          break;
+        default:
+          startDate = null;
+      }
+      
+      if (startDate) {
+        filtered = filtered.filter(s => new Date(s.created_at) >= startDate);
+      }
+    }
+    
+    setFilteredCommissions(filtered);
+  };
+
+  // Download commission CSV
+  const downloadMyCommissions = () => {
+    if (filteredCommissions.length === 0) {
+      toast.error('No commissions to download');
+      return;
+    }
+    
+    const headers = ['Date', 'Client', 'Product', 'Fee Amount', 'Commission Rate', 'Commission'];
+    const rows = filteredCommissions.map(s => [
+      new Date(s.created_at).toLocaleDateString(),
+      s.client_name,
+      s.product_name,
+      s.fee_amount,
+      s.commission_rate + '%',
+      s.commission_amount
+    ]);
+    
+    // Add total row
+    rows.push(['', '', '', '', 'TOTAL:', filteredCommissions.reduce((sum, s) => sum + (s.commission_amount || 0), 0).toFixed(2)]);
+    
+    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `my_commissions_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast.success('Commission report downloaded!');
+  };
 
   const loadData = async () => {
     try {
