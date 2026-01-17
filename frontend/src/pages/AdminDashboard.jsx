@@ -249,6 +249,27 @@ const AdminDashboard = () => {
     toast.success('Sales report downloaded!');
   };
 
+  // Load expiring documents
+  const loadExpiringDocuments = async () => {
+    try {
+      const response = await axios.get(`${API}/scheduler/expiring-documents`, getAuthHeader());
+      setExpiringDocuments(response.data.documents || []);
+    } catch (error) {
+      console.error('Failed to load expiring documents:', error);
+    }
+  };
+
+  // Trigger expiry check manually
+  const triggerExpiryCheck = async () => {
+    try {
+      await axios.post(`${API}/scheduler/run-expiry-check-now`, {}, getAuthHeader());
+      toast.success('Expiry check completed! Notifications sent to affected users.');
+      loadExpiringDocuments();
+    } catch (error) {
+      toast.error('Failed to run expiry check');
+    }
+  };
+
   // Sales report functions
   const loadSalesReport = async () => {
     try {
