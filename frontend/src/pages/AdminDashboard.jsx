@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import NotificationBell from '@/components/NotificationBell';
+import QuickActions from '@/components/QuickActions';
 import { 
   LayoutDashboard, FileText, Users, Briefcase, LogOut, Plus, 
   Download, Edit, Trash2, UserPlus, Eye, ArrowRight, Settings,
