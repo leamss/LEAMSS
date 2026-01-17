@@ -409,7 +409,14 @@ const CaseManagerDashboard = () => {
               </h2>
             </div>
             <div className="flex items-center gap-3">
-              {selectedCase && <CreateTicket caseId={selectedCase.id} />}
+              {selectedCase && (
+                <CreateTicket 
+                  caseId={selectedCase.id} 
+                  clientId={selectedCase.client_id}
+                  clientName={selectedCase.client_name}
+                  restrictToClient={true}
+                />
+              )}
               <NotificationBell />
             </div>
           </div>
