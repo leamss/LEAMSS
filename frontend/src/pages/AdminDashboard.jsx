@@ -1020,11 +1020,47 @@ const AdminDashboard = () => {
           {/* Cases Tab */}
           {activeTab === 'cases' && !selectedCase && (
             <div className="space-y-4" data-testid="cases-content">
-              <div className="flex gap-3 mb-6">
-                <div className="relative flex-1">
+              <div className="flex flex-wrap gap-3 mb-6">
+                <div className="relative flex-1 min-w-[250px]">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
-                  <Input placeholder="Search by case ID or client name..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" data-testid="case-search" />
+                  <Input 
+                    placeholder="Search by Case ID, Client Name, or Manager..." 
+                    value={caseFilter.search} 
+                    onChange={(e) => setCaseFilter({ ...caseFilter, search: e.target.value })} 
+                    className="pl-10" 
+                    data-testid="case-search" 
+                  />
                 </div>
+                <Select value={caseFilter.case_manager_id} onValueChange={(value) => setCaseFilter({ ...caseFilter, case_manager_id: value === 'all' ? '' : value })}>
+                  <SelectTrigger className="w-[200px]" data-testid="case-manager-filter">
+                    <SelectValue placeholder="Filter by Manager" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Managers</SelectItem>
+                    {caseManagers.map(cm => (
+                      <SelectItem key={cm.id} value={cm.id}>{cm.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={caseFilter.status} onValueChange={(value) => setCaseFilter({ ...caseFilter, status: value === 'all' ? '' : value })}>
+                  <SelectTrigger className="w-[150px]" data-testid="case-status-filter">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="on_hold">On Hold</SelectItem>
+                  </SelectContent>
+                </Select>
+                {(caseFilter.search || caseFilter.case_manager_id || caseFilter.status) && (
+                  <Button variant="outline" onClick={() => setCaseFilter({ search: '', case_manager_id: '', status: '' })} data-testid="clear-case-filters">
+                    <XCircle className="h-4 w-4 mr-1" />Clear
+                  </Button>
+                )}
+              </div>
+              <div className="text-sm text-slate-500 mb-2">
+                Showing {filteredCases.length} of {cases.length} cases
               </div>
               {filteredCases.length === 0 ? (
                 <Card className="p-12 text-center"><Briefcase className="h-12 w-12 text-slate-400 mx-auto mb-4" /><p className="text-slate-600">No cases found</p></Card>
