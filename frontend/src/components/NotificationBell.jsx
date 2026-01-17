@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Bell, FileText, MessageSquare, CheckCircle, AlertCircle, DollarSign, User } from 'lucide-react';
@@ -22,8 +22,6 @@ const NotificationBell = ({ onNotificationClick }) => {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
-  const wsRef = useRef(null);
-  const reconnectTimeoutRef = useRef(null);
 
   const getAuthHeader = () => ({
     headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
