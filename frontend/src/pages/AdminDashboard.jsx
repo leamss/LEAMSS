@@ -96,7 +96,7 @@ const AdminDashboard = () => {
       setAllUsers(usersRes.data);
       setCaseManagers(usersRes.data.filter(u => u.role === 'case_manager'));
       setAllSales(allSalesRes.data);
-      setPartnerCommissions(commissionsRes.data);
+      setPartnerCommissions(commissionsRes.data?.commissions || commissionsRes.data || []);
       setAllTickets(ticketsRes.data);
       setTicketStats(ticketStatsRes.data);
       setSystemSettings(settingsRes.data);
