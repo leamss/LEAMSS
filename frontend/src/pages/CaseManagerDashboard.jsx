@@ -311,6 +311,7 @@ const CaseManagerDashboard = () => {
             <h2 className="text-3xl font-bold text-gray-900">
               {activeTab === 'dashboard' && 'Dashboard'}
               {activeTab === 'cases' && !selectedCase && 'My Cases'}
+              {activeTab === 'tickets' && 'Support Tickets'}
               {selectedCase && `Case: ${selectedCase.case_id}`}
             </h2>
             <div className="flex items-center gap-3">
