@@ -24,20 +24,22 @@ const NotificationBell = ({ onNotificationClick }) => {
   const [isConnected, setIsConnected] = useState(false);
   const eventSourceRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
+  const initialLoadRef = useRef(false);
 
   const getAuthHeader = () => ({
     headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
   });
 
-  const loadNotifications = useCallback(async () => {
+  // Fetch notifications from API
+  const fetchNotifications = async () => {
     try {
       const response = await axios.get(`${API}/notifications`, getAuthHeader());
-      setNotifications(response.data);
-      setUnreadCount(response.data.filter(n => !n.is_read).length);
+      return response.data;
     } catch (error) {
       console.error('Failed to load notifications', error);
+      return null;
     }
-  }, []);
+  };
 
   const handleNewNotification = useCallback((data) => {
     if (data.type === 'notification') {
@@ -61,11 +63,6 @@ const NotificationBell = ({ onNotificationClick }) => {
       });
     }
   }, []);
-
-  // Load notifications on mount
-  useEffect(() => {
-    loadNotifications();
-  }, [loadNotifications]);
 
   useEffect(() => {
     // Poll every 60 seconds as fallback
