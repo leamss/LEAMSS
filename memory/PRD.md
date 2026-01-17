@@ -101,83 +101,89 @@ Build a comprehensive "LEAMSS Portal" for an immigration service with four disti
 
 ---
 
-## Implementation Status (Updated: January 16, 2026)
+## Implementation Status (Updated: January 17, 2026)
 
 ### Completed Features ✅
 1. **Admin Dashboard Overhaul**
    - Products & Workflows tab with full workflow editor
    - Add/Edit/Delete workflow steps with required documents
+   - **NEW**: Document type, expiry date, validity months fields
    - Users tab with search and user management
    - User impersonation (Switch Portal button) with Return to Admin banner
    - Revenue & Commission dashboard
    - Sales approval workflow
    - Case management with reassignment
-   - **NEW**: "Create Ticket for User" button in Users tab
+   - "Create Ticket for User" button in Users tab
+   - **NEW**: System Settings tab with global controls
 
-2. **Color Scheme Update**
+2. **Case Search/Filter Enhancement (NEW)**
+   - Search by Case ID, Client Name, Case Manager Name
+   - Filter by Case Manager dropdown
+   - Filter by Status dropdown
+   - Clear filters button
+   - Results count display
+
+3. **Case Manager Workflow Customization (NEW)**
+   - Global toggle controlled by Admin (Settings tab)
+   - When enabled, Case Managers can:
+     - Request additional documents for specific workflow steps
+     - Set document name, description, type
+     - Set due date, expiry date, or validity months
+   - "Customization Enabled" badge in CM dashboard
+   - "Add Doc" button on each workflow step
+
+4. **Color Scheme Update**
    - All 4 dashboards updated to LEAMSS brand colors
    - Teal primary (#2a777a)
    - Orange secondary (#f7620b)
    - White card backgrounds (NO YELLOW)
    - Dark slate sidebars
 
-3. **Flexible Commission Structure** 
+5. **Flexible Commission Structure** 
    - **Fixed Percentage**: Standard commission rate per product
    - **Tiered (Volume-based)**: Commission varies by total sales count (FIXED)
    - **Custom (Per Partner)**: Individual rates set per partner
    - Commission type selector in product creation/edit dialog
    - Commission type badges displayed on product cards
-   - **Commission Effective Date**: Set when commission changes take effect
 
-4. **Email Notification System**
+6. **Email Notification System**
    - Gmail SMTP integration for transactional emails
    - Professional HTML email templates with LEAMSS branding
-   - Email notifications for:
-     - Welcome emails with login credentials
-     - Document approval/rejection
-     - Step completion notifications
-     - Additional document requests
-     - Sale approval/rejection (for partners)
-     - Ticket resolution notifications
+   - Email notifications for key events
    - Graceful handling when email not configured
 
-5. **Total Sales Report Section**
+7. **Total Sales Report Section**
    - Search by partner
    - Filter by period (Lifetime, Weekly, Monthly, Yearly, Custom date range)
    - Summary cards (Total Sales, Approved, Revenue, Commission)
-   - Sales records table with export to CSV (IMPLEMENTED)
-   - Partner-specific detailed reports with download
+   - Sales records table with export to CSV
 
-6. **Partner Commissions Section**
+8. **Partner Commissions Section**
    - View commission payable to each partner
    - Breakdown by Weekly, Monthly, Yearly, Lifetime
    - Total revenue generated per partner
    - Export all commission data
 
-7. **Support Tickets Section** (ENHANCED)
+9. **Support Tickets Section**
    - Full ticket management system
-   - View all tickets from all users (Admin, Client, Partner, Case Manager)
-   - Filter by Status (Open, In Progress, Resolved, Closed)
-   - Filter by Priority (Urgent, High, Medium, Low)
-   - Filter by Role (Client, Partner, Case Manager)
-   - Update ticket status with resolution notes (REQUIRED for resolve/close)
-   - **NEW**: File attachments upload/download (max 10MB)
-   - **NEW**: Activity log tracking all changes
-   - **NEW**: User targeting - assign to specific users or roles
-   - **NEW**: Create ticket directly for a user from Users tab
-   - Notify users when tickets are resolved
+   - Filter by Status, Priority, Role
+   - Resolution note validation (required for resolve/close)
+   - File attachments upload/download (max 10MB)
+   - Activity log tracking all changes
+   - User targeting - assign to specific users or roles
+   - Create ticket directly for a user from Users tab
    - Ticket messaging/replies
 
-8. **Admin Impersonation UX Improvement** (NEW)
-   - Admin token preserved when switching to another user
-   - "Return to Admin" banner displayed on impersonated user's dashboard
-   - One-click return to admin account without re-login
+10. **Admin Impersonation UX Improvement**
+    - Admin token preserved when switching to another user
+    - "Return to Admin" banner displayed on impersonated user's dashboard
+    - One-click return to admin account without re-login
 
-9. **All Portals Working**
-   - Admin Portal: Full functionality
-   - Partner Portal: Sales creation, commission tracking
-   - Case Manager Portal: Case management, document review
-   - Client Portal: Document upload, progress tracking
+11. **All Portals Working**
+    - Admin Portal: Full functionality
+    - Partner Portal: Sales creation, commission tracking
+    - Case Manager Portal: Case management, document review, workflow customization
+    - Client Portal: Document upload, progress tracking
 
 ---
 
