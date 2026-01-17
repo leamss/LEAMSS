@@ -748,18 +748,25 @@ const AdminDashboard = () => {
 
   return (
     <div className="flex min-h-screen bg-[#F5F7FA]" data-testid="admin-dashboard">
-      {/* Sidebar */}
-      <aside className="w-64 bg-slate-800 text-white p-6 flex flex-col" data-testid="admin-sidebar">
-        <div className="flex items-center gap-2 mb-8">
-          <Briefcase className="h-8 w-8 text-[#f7620b]" />
-          <h1 className="text-xl font-bold">LEAMSS Admin</h1>
+      {/* Modern White Sidebar */}
+      <aside className="w-64 bg-white border-r border-slate-200 flex flex-col fixed h-screen" data-testid="admin-sidebar">
+        <div className="p-6 border-b border-slate-100">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-[#2a777a] flex items-center justify-center">
+              <span className="text-white font-bold text-lg">L</span>
+            </div>
+            <div>
+              <h1 className="text-lg font-bold text-slate-800">LEAMSS</h1>
+              <p className="text-xs text-slate-500">Admin Portal</p>
+            </div>
+          </div>
         </div>
         
-        <nav className="flex-1 space-y-2">
+        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           {[
             { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
             { id: 'sales', icon: FileText, label: 'Pending Sales' },
-            { id: 'total-sales', icon: TrendingUp, label: 'Total Sales' },
+            { id: 'total-sales', icon: TrendingUp, label: 'Sales Report' },
             { id: 'commissions', icon: DollarSign, label: 'Commissions' },
             { id: 'cases', icon: Briefcase, label: 'All Cases' },
             { id: 'products', icon: Settings, label: 'Products' },
@@ -771,12 +778,19 @@ const AdminDashboard = () => {
               key={item.id}
               onClick={() => { setActiveTab(item.id); setSelectedCase(null); setSelectedSale(null); setSelectedPartnerReport(null); setSelectedTicket(null); }}
               data-testid={`nav-${item.id}`}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === item.id ? 'bg-[#2a777a] text-white' : 'hover:bg-slate-700 text-slate-300'}`}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all font-medium ${
+                activeTab === item.id 
+                  ? 'bg-teal-50 text-[#2a777a]' 
+                  : 'text-slate-600 hover:bg-slate-50'
+              }`}
             >
               <item.icon className="h-5 w-5" />
               <span>{item.label}</span>
               {item.id === 'tickets' && ticketStats.open > 0 && (
-                <Badge className="ml-auto bg-red-500 text-white text-xs">{ticketStats.open}</Badge>
+                <span className="ml-auto bg-[#f7620b] text-white text-xs px-2 py-0.5 rounded-full">{ticketStats.open}</span>
+              )}
+              {item.id === 'sales' && pendingSales.length > 0 && (
+                <span className="ml-auto bg-[#f7620b] text-white text-xs px-2 py-0.5 rounded-full">{pendingSales.length}</span>
               )}
             </button>
           ))}
