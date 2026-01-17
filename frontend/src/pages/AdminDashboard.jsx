@@ -55,6 +55,9 @@ const AdminDashboard = () => {
   const [ticketReplyText, setTicketReplyText] = useState('');
   const [resolutionNote, setResolutionNote] = useState('');
   
+  // Expiring documents state
+  const [expiringDocuments, setExpiringDocuments] = useState([]);
+  
   // System Settings
   const [systemSettings, setSystemSettings] = useState({ allow_case_manager_workflow_customization: false });
   
