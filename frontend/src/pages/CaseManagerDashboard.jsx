@@ -276,58 +276,59 @@ const CaseManagerDashboard = () => {
   };
 
   return (
-    <div className="flex min-h-screen bg-[#F5F7FA]" data-testid="case-manager-dashboard">
+    <div className="min-h-screen bg-[#F5F7FA]" data-testid="case-manager-dashboard">
       <AdminReturnBanner />
       
-      {/* Modern White Sidebar */}
-      <aside className="w-64 bg-white border-r border-slate-200 flex flex-col fixed h-screen" data-testid="case-manager-sidebar">
-        <div className="p-6 border-b border-slate-100">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-[#2a777a] flex items-center justify-center">
-              <span className="text-white font-bold text-lg">L</span>
-            </div>
-            <div>
-              <h1 className="text-lg font-bold text-slate-800">LEAMSS</h1>
-              <p className="text-xs text-slate-500">Case Manager</p>
+      <div className="flex">
+        {/* Modern White Sidebar */}
+        <aside className="w-64 bg-white border-r border-slate-200 flex flex-col fixed h-screen top-0 left-0 z-20" data-testid="case-manager-sidebar">
+          <div className="p-6 border-b border-slate-100">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-[#2a777a] flex items-center justify-center">
+                <span className="text-white font-bold text-lg">L</span>
+              </div>
+              <div>
+                <h1 className="text-lg font-bold text-slate-800">LEAMSS</h1>
+                <p className="text-xs text-slate-500">Case Manager</p>
+              </div>
             </div>
           </div>
-        </div>
-        
-        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-          <button
-            onClick={() => { setActiveTab('dashboard'); setSelectedCase(null); }}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all font-medium ${
-              activeTab === 'dashboard' 
-                ? 'bg-teal-50 text-[#2a777a]' 
-                : 'text-slate-600 hover:bg-slate-50'
-            }`}
-            data-testid="nav-dashboard"
-          >
-            <Briefcase className="h-5 w-5" />
-            <span>Dashboard</span>
-          </button>
-          <button
-            onClick={() => { setActiveTab('cases'); setSelectedCase(null); }}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all font-medium ${
-              activeTab === 'cases' 
-                ? 'bg-teal-50 text-[#2a777a]' 
-                : 'text-slate-600 hover:bg-slate-50'
-            }`}
-            data-testid="nav-cases"
-          >
-            <FileText className="h-5 w-5" />
-            <span>My Cases</span>
-          </button>
-          <button
-            onClick={() => { setActiveTab('pending-review'); setSelectedCase(null); }}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all font-medium ${
-              activeTab === 'pending-review' 
-                ? 'bg-orange-50 text-[#f7620b]' 
-                : 'text-slate-600 hover:bg-slate-50'
-            }`}
-            data-testid="nav-pending-review"
-          >
-            <AlertCircle className="h-5 w-5" />
+          
+          <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+            <button
+              onClick={() => { setActiveTab('dashboard'); setSelectedCase(null); }}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all font-medium ${
+                activeTab === 'dashboard' 
+                  ? 'bg-teal-50 text-[#2a777a]' 
+                  : 'text-slate-600 hover:bg-slate-50'
+              }`}
+              data-testid="nav-dashboard"
+            >
+              <Briefcase className="h-5 w-5" />
+              <span>Dashboard</span>
+            </button>
+            <button
+              onClick={() => { setActiveTab('cases'); setSelectedCase(null); }}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all font-medium ${
+                activeTab === 'cases' 
+                  ? 'bg-teal-50 text-[#2a777a]' 
+                  : 'text-slate-600 hover:bg-slate-50'
+              }`}
+              data-testid="nav-cases"
+            >
+              <FileText className="h-5 w-5" />
+              <span>My Cases</span>
+            </button>
+            <button
+              onClick={() => { setActiveTab('pending-review'); setSelectedCase(null); }}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all font-medium ${
+                activeTab === 'pending-review' 
+                  ? 'bg-orange-50 text-[#f7620b]' 
+                  : 'text-slate-600 hover:bg-slate-50'
+              }`}
+              data-testid="nav-pending-review"
+            >
+              <AlertCircle className="h-5 w-5" />
             <span>Pending Review</span>
             {pendingReviewCount > 0 && (
               <span className="ml-auto bg-[#f7620b] text-white text-xs px-2 py-0.5 rounded-full animate-pulse">
