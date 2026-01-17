@@ -295,6 +295,18 @@ Build a comprehensive "LEAMSS Portal" for an immigration service with four disti
       - Non-admin users receive 403 Forbidden when attempting delete
     - **Client Portal "Action Required" Focus**: When navigated from a document notification, automatically switches to Action Required tab
 
+21. **Quick Actions Widget (DONE - January 17, 2026)**
+    - New reusable `QuickActions` component added to all 4 dashboards
+    - Shows pending items across different sections for faster navigation:
+      - **Admin**: Expiring Documents (urgent), High Priority Tickets (urgent), Open Tickets
+      - **Case Manager**: Documents to Review, Open Tickets, Active Cases
+      - **Partner**: Awaiting Approval, Approved Sales, Open Tickets
+      - **Client**: Documents Required, Under Review, Workflow Progress, Open Tickets
+    - Each action is clickable and navigates to the relevant section
+    - Priority badges: "Urgent" (red/pulse), "Action Needed" (orange)
+    - Auto-refresh every 60 seconds with manual refresh button
+    - Shows "All Caught Up!" message when no pending actions
+
 ---
 
 ## Prioritized Backlog
