@@ -204,6 +204,7 @@ class AdditionalDocRequest(BaseModel):
 
 class DocumentResponse(BaseModel):
     id: str
+    file_id: Optional[str] = None
     filename: str
     case_id: str
     uploaded_by: str
@@ -213,6 +214,8 @@ class DocumentResponse(BaseModel):
     document_type: Optional[str] = None
     review_comment: Optional[str] = None
     file_size: Optional[int] = None
+    uploaded_by_name: Optional[str] = None
+    uploaded_at: Optional[str] = None
 
 
 class DocumentReview(BaseModel):
