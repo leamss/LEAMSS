@@ -115,6 +115,60 @@ const AdminDashboard = () => {
     }
   };
 
+  // Handle notification navigation - open specific ticket or case
+  const handleNotificationNavigation = async () => {
+    const openTicketId = sessionStorage.getItem('openTicketId');
+    const openCaseId = sessionStorage.getItem('openCaseId');
+    
+    if (openTicketId) {
+      sessionStorage.removeItem('openTicketId');
+      setActiveTab('tickets');
+      try {
+        const response = await axios.get(`${API}/tickets/${openTicketId}`, getAuthHeader());
+        setSelectedTicket(response.data);
+      } catch (error) {
+        console.error('Failed to load ticket', error);
+      }
+    }
+    
+    if (openCaseId) {
+      sessionStorage.removeItem('openCaseId');
+      setActiveTab('cases');
+      const caseItem = cases.find(c => c.id === openCaseId);
+      if (caseItem) {
+        setSelectedCase(caseItem);
+      }
+    }
+  };
+
+  // Custom notification click handler for admin
+  const handleNotificationClick = async (notification) => {
+    const type = notification.type || '';
+    const relatedId = notification.related_id;
+    
+    if (type.includes('ticket')) {
+      setActiveTab('tickets');
+      if (relatedId) {
+        try {
+          const response = await axios.get(`${API}/tickets/${relatedId}`, getAuthHeader());
+          setSelectedTicket(response.data);
+        } catch (error) {
+          toast.error('Failed to load ticket');
+        }
+      }
+    } else if (type.includes('doc') || type.includes('case') || type.includes('step')) {
+      setActiveTab('cases');
+      if (relatedId) {
+        const caseItem = cases.find(c => c.id === relatedId);
+        if (caseItem) {
+          setSelectedCase(caseItem);
+        }
+      }
+    } else if (type.includes('sale')) {
+      setActiveTab('sales');
+    }
+  };
+
   useEffect(() => {
     const userData = JSON.parse(localStorage.getItem('user'));
     if (!userData || userData.role !== 'admin') {
