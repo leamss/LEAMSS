@@ -336,7 +336,30 @@ const ClientDashboard = () => {
                         <div>
                           <p className="font-medium text-gray-900">{request.document_name}</p>
                           <p className="text-sm text-slate-600">{request.description}</p>
-                          <p className="text-xs text-slate-500 mt-1">Requested by: {request.requested_by_name}</p>
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            {request.step_order && (
+                              <Badge variant="outline" className="text-xs">Step {request.step_order}</Badge>
+                            )}
+                            {request.doc_type && (
+                              <Badge variant="outline" className="text-xs capitalize">{request.doc_type}</Badge>
+                            )}
+                            {request.due_date && (
+                              <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200">
+                                Due: {new Date(request.due_date).toLocaleDateString()}
+                              </Badge>
+                            )}
+                            {request.expiry_date && (
+                              <Badge variant="outline" className="text-xs bg-red-50 text-red-700 border-red-200">
+                                Expires: {new Date(request.expiry_date).toLocaleDateString()}
+                              </Badge>
+                            )}
+                            {request.validity_months && (
+                              <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                                Must be valid for {request.validity_months} months
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-500 mt-2">Requested by: {request.requested_by_name} on {new Date(request.requested_at).toLocaleDateString()}</p>
                         </div>
                         <Badge variant="outline" className="bg-[#f7620b]/20 text-[#f7620b] border-[#f7620b]/50">
                           Required
