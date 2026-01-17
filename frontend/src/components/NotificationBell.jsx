@@ -27,6 +27,9 @@ const NotificationBell = ({ onNotificationClick }) => {
   const eventSourceRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
   const initialLoadRef = useRef(false);
+  
+  // Push notifications hook
+  const { isSupported: pushSupported, isSubscribed: pushSubscribed, subscribe: subscribePush, permission: pushPermission } = usePushNotifications();
 
   const getAuthHeader = () => ({
     headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
