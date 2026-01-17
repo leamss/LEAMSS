@@ -880,7 +880,7 @@ const CaseManagerDashboard = () => {
                           <td className="p-3 text-center">
                             <Badge className={getStatusBadge(doc.status)}>{doc.status}</Badge>
                           </td>
-                          <td className="p-3 text-slate-500">{new Date(doc.uploaded_at || doc.created_at).toLocaleDateString()}</td>
+                          <td className="p-3 text-slate-500">{formatDate(doc.uploaded_at || doc.created_at)}</td>
                           <td className="p-3 text-center">
                             <div className="flex items-center justify-center gap-1">
                               <Button size="sm" variant="ghost" onClick={() => window.open(`${API.replace('/api', '')}${doc.file_path}`, '_blank')}>
