@@ -960,12 +960,12 @@ const AdminDashboard = () => {
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Card className="p-4 bg-gradient-to-br from-[#2a777a] to-[#236466] text-white">
-                  <p className="text-sm opacity-80">Total Lifetime Commission</p>
-                  <p className="text-3xl font-bold mt-2">${partnerCommissions.reduce((sum, p) => sum + (p.lifetime_commission || 0), 0).toFixed(2)}</p>
+                  <p className="text-sm opacity-80">Total Commission</p>
+                  <p className="text-3xl font-bold mt-2">${partnerCommissions.reduce((sum, p) => sum + (p.total_commission || 0), 0).toFixed(2)}</p>
                 </Card>
                 <Card className="p-4 bg-gradient-to-br from-[#f7620b] to-[#e55a09] text-white">
-                  <p className="text-sm opacity-80">Monthly Commission</p>
-                  <p className="text-3xl font-bold mt-2">${partnerCommissions.reduce((sum, p) => sum + (p.monthly_commission || 0), 0).toFixed(2)}</p>
+                  <p className="text-sm opacity-80">Total Revenue</p>
+                  <p className="text-3xl font-bold mt-2">${partnerCommissions.reduce((sum, p) => sum + (p.total_fee || 0), 0).toFixed(2)}</p>
                 </Card>
                 <Card className="p-4 bg-gradient-to-br from-purple-500 to-purple-600 text-white">
                   <p className="text-sm opacity-80">Total Partners</p>
@@ -980,29 +980,21 @@ const AdminDashboard = () => {
                     <thead>
                       <tr className="border-b bg-slate-50">
                         <th className="text-left p-3">Partner</th>
-                        <th className="text-left p-3">Email</th>
-                        <th className="text-center p-3">Sales</th>
-                        <th className="text-right p-3">Revenue</th>
-                        <th className="text-right p-3">Weekly</th>
-                        <th className="text-right p-3">Monthly</th>
-                        <th className="text-right p-3">Yearly</th>
-                        <th className="text-right p-3">Lifetime</th>
+                        <th className="text-center p-3">Total Sales</th>
+                        <th className="text-right p-3">Total Fee</th>
+                        <th className="text-right p-3">Commission</th>
                         <th className="text-center p-3">Action</th>
                       </tr>
                     </thead>
                     <tbody>
                       {partnerCommissions.map(partner => (
-                        <tr key={partner.partner_id} className="border-b hover:bg-slate-50">
+                        <tr key={partner._id} className="border-b hover:bg-slate-50">
                           <td className="p-3 font-medium">{partner.partner_name}</td>
-                          <td className="p-3">{partner.partner_email}</td>
-                          <td className="p-3 text-center">{partner.total_sales_count}</td>
-                          <td className="p-3 text-right">${partner.total_revenue_generated?.toFixed(2)}</td>
-                          <td className="p-3 text-right text-green-600">${partner.weekly_commission?.toFixed(2)}</td>
-                          <td className="p-3 text-right text-blue-600">${partner.monthly_commission?.toFixed(2)}</td>
-                          <td className="p-3 text-right text-purple-600">${partner.yearly_commission?.toFixed(2)}</td>
-                          <td className="p-3 text-right font-bold text-[#2a777a]">${partner.lifetime_commission?.toFixed(2)}</td>
+                          <td className="p-3 text-center">{partner.total_sales}</td>
+                          <td className="p-3 text-right">${partner.total_fee?.toFixed(2)}</td>
+                          <td className="p-3 text-right font-bold text-[#2a777a]">${partner.total_commission?.toFixed(2)}</td>
                           <td className="p-3 text-center">
-                            <Button size="sm" variant="outline" onClick={() => { setSalesFilter({ ...salesFilter, partner_id: partner.partner_id }); loadPartnerReport(partner.partner_id); setActiveTab('total-sales'); }}>
+                            <Button size="sm" variant="outline" onClick={() => { setSalesFilter({ ...salesFilter, partner_id: partner._id }); setActiveTab('total-sales'); }}>
                               <Eye className="h-4 w-4" />
                             </Button>
                           </td>
