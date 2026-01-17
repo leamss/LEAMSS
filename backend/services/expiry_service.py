@@ -95,14 +95,14 @@ async def check_expiring_documents() -> Dict[str, int]:
                     doc_name = doc.get("filename") or doc.get("document_type", "Document")
                     doc_id = doc.get("id")
                             
-                            # Check if we already sent a reminder for this threshold
-                            existing_reminder = await db.expiry_reminders.find_one({
-                                "document_id": doc_id,
-                                "days_before": threshold
-                            })
-                            
-                            if existing_reminder:
-                                continue  # Already sent this reminder
+                    # Check if we already sent a reminder for this threshold
+                    existing_reminder = await db.expiry_reminders.find_one({
+                        "document_id": doc_id,
+                        "days_before": appropriate_threshold
+                    })
+                    
+                    if existing_reminder:
+                        continue  # Already sent this reminder
                             
                             # Send notification to client
                             await send_expiry_notification(
