@@ -223,6 +223,18 @@ Build a comprehensive "LEAMSS Portal" for an immigration service with four disti
       - `/backend/services/` - Notification and commission services
     - Improved maintainability and code organization
 
+15. **Ticketing System Overhaul (NEW - January 17, 2026)**
+    - Users can now create tickets and assign to specific users (not just Admin)
+    - Role-based recipient filtering:
+      - Admin: Can send to any user
+      - Case Manager: Can send to their clients + Admin (with escalation option)
+      - Client: Can send to their Case Manager + Admin
+      - Partner: Can send to Admin only
+    - Unified `TicketSection` component integrated in all 4 portals
+    - New `/api/users/ticket-recipients` endpoint for role-appropriate recipients
+    - Support Tickets navigation added to CaseManager, Partner, and Client dashboards
+    - Full ticket lifecycle: Open → In Progress → Resolved → Closed
+
 ---
 
 ## Prioritized Backlog
@@ -230,23 +242,42 @@ Build a comprehensive "LEAMSS Portal" for an immigration service with four disti
 ### P0 (Critical) - None remaining
 
 ### P1 (High Priority)
-1. **Configure Gmail Credentials** (User Action Required)
+1. **Fix Admin Dashboard Sales & Commission Reports**
+   - Sales section: Date range and period filters not working
+   - Commission section: Add date range filters (Week, Month, Quarter)
+   - Add export-to-PDF/Excel feature for commission data
+
+2. **Configure Gmail Credentials** (User Action Required)
    - User needs to set GMAIL_EMAIL and GMAIL_APP_PASSWORD in backend/.env
    - Instructions provided in .env file
 
 ### P2 (Medium Priority)
-2. **Ticket System Analytics**
+3. **Notification System Enhancements**
+   - Fix clickable notifications to navigate to correct item
+   - Implement "auto-read" feature for read notifications
+   - Add "Notification History" page
+   - Fix dropdown scroll behavior
+
+4. **Ticket System Analytics**
    - Ticket categories analytics
    - SLA tracking
    - Auto-assignment rules
 
 ### P3 (Low Priority)
-3. **Payment Gateway Integration**
+5. **Case Manager Portal Enhancements**
+   - Add "Pending Review" section with real-time document count
+   - Add document search bar with filters (type, name, workflow step)
+
+6. **Payment Gateway Integration**
    - Stripe/Razorpay integration for payments
    - Commission payout tracking
 
-4. **Document Expiry Reminders**
+7. **Document Expiry Reminders**
    - Automated notifications before documents expire
+
+### P4 (Future)
+8. **UI/UX Consistency Redesign**
+   - Redesign Admin, Case Manager, and Partner portals to match Client Portal design
 
 ---
 
@@ -273,13 +304,14 @@ Build a comprehensive "LEAMSS Portal" for an immigration service with four disti
 - `/api/tickets/{id}/message` - Add message to ticket
 - `/api/tickets/{id}/attachment` - Upload attachment (POST)
 - `/api/tickets/{id}/attachment/{file_id}` - Download attachment (GET)
+- `/api/users/ticket-recipients` - **NEW**: Get role-appropriate ticket recipients
 - `/api/reports/sales` - Sales report with filters
 - `/api/reports/partner-commissions` - Partner commission data
 - `/api/notifications/stream` - SSE endpoint for real-time notifications (query param: token)
-- `/api/push/vapid-public-key` - **NEW**: Get VAPID public key for push subscription
-- `/api/push/subscribe` - **NEW**: Subscribe to push notifications
-- `/api/push/unsubscribe` - **NEW**: Unsubscribe from push notifications
-- `/api/push/subscriptions` - **NEW**: List user's push subscriptions
+- `/api/push/vapid-public-key` - Get VAPID public key for push subscription
+- `/api/push/subscribe` - Subscribe to push notifications
+- `/api/push/unsubscribe` - Unsubscribe from push notifications
+- `/api/push/subscriptions` - List user's push subscriptions
 
 ## Database Collections
 - users
@@ -289,4 +321,4 @@ Build a comprehensive "LEAMSS Portal" for an immigration service with four disti
 - documents
 - tickets
 - notifications
-- push_subscriptions - **NEW**: Store push notification subscriptions
+- push_subscriptions
