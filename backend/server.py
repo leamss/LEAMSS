@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from pathlib import Path
 import os
 import logging
+import asyncio
 
 # Load environment variables
 ROOT_DIR = Path(__file__).parent
