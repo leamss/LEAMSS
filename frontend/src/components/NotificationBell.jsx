@@ -65,8 +65,26 @@ const NotificationBell = ({ onNotificationClick }) => {
   }, []);
 
   useEffect(() => {
+    // Initial load of notifications
+    if (!initialLoadRef.current) {
+      initialLoadRef.current = true;
+      fetchNotifications().then(data => {
+        if (data) {
+          setNotifications(data);
+          setUnreadCount(data.filter(n => !n.is_read).length);
+        }
+      });
+    }
+
     // Poll every 60 seconds as fallback
-    const interval = setInterval(loadNotifications, 60000);
+    const interval = setInterval(() => {
+      fetchNotifications().then(data => {
+        if (data) {
+          setNotifications(data);
+          setUnreadCount(data.filter(n => !n.is_read).length);
+        }
+      });
+    }, 60000);
 
     // SSE Connection function (primary - works through HTTP ingress)
     const connectSSE = () => {
