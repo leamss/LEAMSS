@@ -11,7 +11,7 @@ from core.models import SystemSettings
 router = APIRouter(tags=["Admin"])
 
 
-@router.post("/impersonate/{user_id}")
+@router.post("/admin/impersonate/{user_id}")
 async def impersonate_user(user_id: str, admin: dict = Depends(require_role([UserRole.ADMIN]))):
     """Impersonate a user (Admin only)"""
     target_user = await db.users.find_one({"id": user_id})
