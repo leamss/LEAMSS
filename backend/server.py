@@ -483,9 +483,9 @@ async def create_sale(sale: SaleCreate, user: dict = Depends(require_role([UserR
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
     
-    # Calculate commission based on commission type
-    commission_rate = product.get("commission_rate", 0)
-    commission_type = product.get("commission_type", "fixed")
+    # Get applicable commission based on current date (sales use today's rate)
+    sale_date = datetime.now(timezone.utc).isoformat()
+    commission_rate, commission_type, commission_tiers = get_applicable_commission(product, sale_date)
     
     if commission_type == "tiered":
         # Count partner's approved sales for tiered calculation (including this new sale)
@@ -496,7 +496,7 @@ async def create_sale(sale: SaleCreate, user: dict = Depends(require_role([UserR
         # Add 1 for the current sale being created
         partner_sales_count += 1
         
-        tiers = product.get("commission_tiers", [])
+        tiers = commission_tiers or []
         if tiers:
             # Sort tiers by min_sales in ascending order
             sorted_tiers = sorted(tiers, key=lambda x: int(x.get("min_sales", 0)))
