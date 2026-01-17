@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Briefcase, FileText, DollarSign, LogOut, Plus, ArrowLeft, MessageSquare, Filter, Download } from 'lucide-react';
 import NotificationBell from '@/components/NotificationBell';
 import TicketSection from '@/components/TicketSection';
+import QuickActions from '@/components/QuickActions';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
