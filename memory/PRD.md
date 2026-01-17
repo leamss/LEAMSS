@@ -235,6 +235,48 @@ Build a comprehensive "LEAMSS Portal" for an immigration service with four disti
     - Support Tickets navigation added to CaseManager, Partner, and Client dashboards
     - Full ticket lifecycle: Open → In Progress → Resolved → Closed
 
+16. **Admin Sales & Commission Reports Fixed (DONE - January 17, 2026)**
+    - Sales report period filter: weekly, monthly, quarterly, yearly, custom date range
+    - Commission report: same filters plus partner grouping
+    - CSV export for both reports (via StreamingResponse)
+    - PDF export via print-friendly HTML popup
+    - Backend `get_date_range_from_period()` calculates proper date ranges
+
+17. **Notification System Enhanced (DONE - January 17, 2026)**
+    - Dropdown shows only unread notifications (auto-read on click)
+    - "View All Notifications" button navigates to `/notifications`
+    - New Notification History page with:
+      - Full notification list with read/unread status
+      - Search filter (by title/message)
+      - Type filter (tickets, documents, sales, cases, workflow)
+      - Status filter (all, unread, read)
+      - Delete individual notifications
+      - Mark all as read button
+    - Backend DELETE endpoint added for notifications
+
+18. **Case Manager Portal Enhanced (DONE - January 17, 2026)**
+    - New "Pending Review" section:
+      - Shows real-time count in sidebar with animated badge
+      - Lists documents awaiting review across all assigned cases
+      - Quick review/view buttons for each document
+    - New "All Documents" section:
+      - Searchable document table with filters
+      - Filter by: document type, status (uploaded/approved/rejected)
+      - Shows client name, case ID, upload date
+      - Quick review action for pending documents
+
+19. **Modern UI/UX Redesign (DONE - January 17, 2026)**
+    - All 3 dashboards (Admin, Case Manager, Partner) redesigned to match Client Portal
+    - Modern white sidebar with:
+      - LEAMSS logo and portal name
+      - Teal (#2a777a) accent on active navigation
+      - User profile at bottom (avatar, name, email)
+      - Logout button with hover effect
+    - Sticky header with backdrop blur effect
+    - Modern card design with subtle shadows and hover transitions
+    - Typography: Manrope for headings, Public Sans for body
+    - Consistent color palette: teal primary, orange accent
+
 ---
 
 ## Prioritized Backlog
@@ -242,42 +284,24 @@ Build a comprehensive "LEAMSS Portal" for an immigration service with four disti
 ### P0 (Critical) - None remaining
 
 ### P1 (High Priority)
-1. **Fix Admin Dashboard Sales & Commission Reports**
-   - Sales section: Date range and period filters not working
-   - Commission section: Add date range filters (Week, Month, Quarter)
-   - Add export-to-PDF/Excel feature for commission data
-
-2. **Configure Gmail Credentials** (User Action Required)
+1. **Configure Gmail Credentials** (User Action Required)
    - User needs to set GMAIL_EMAIL and GMAIL_APP_PASSWORD in backend/.env
    - Instructions provided in .env file
 
 ### P2 (Medium Priority)
-3. **Notification System Enhancements**
-   - Fix clickable notifications to navigate to correct item
-   - Implement "auto-read" feature for read notifications
-   - Add "Notification History" page
-   - Fix dropdown scroll behavior
-
-4. **Ticket System Analytics**
+2. **Ticket System Analytics**
    - Ticket categories analytics
    - SLA tracking
    - Auto-assignment rules
 
-### P3 (Low Priority)
-5. **Case Manager Portal Enhancements**
-   - Add "Pending Review" section with real-time document count
-   - Add document search bar with filters (type, name, workflow step)
+3. **Document Expiry Reminders**
+   - Automated notifications before documents expire
+   - Email alerts for upcoming expirations
 
-6. **Payment Gateway Integration**
+### P3 (Low Priority)
+4. **Payment Gateway Integration**
    - Stripe/Razorpay integration for payments
    - Commission payout tracking
-
-7. **Document Expiry Reminders**
-   - Automated notifications before documents expire
-
-### P4 (Future)
-8. **UI/UX Consistency Redesign**
-   - Redesign Admin, Case Manager, and Partner portals to match Client Portal design
 
 ---
 
