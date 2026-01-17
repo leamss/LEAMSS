@@ -339,7 +339,7 @@ def get_applicable_commission(product: dict, sale_date: str = None) -> tuple:
                 sale_datetime = datetime.strptime(sale_date, '%Y-%m-%d').replace(tzinfo=timezone.utc)
         else:
             sale_datetime = sale_date
-    except:
+    except (ValueError, TypeError, AttributeError):
         return commission_rate, commission_type, commission_tiers
     
     # Find the applicable commission based on effective_from dates
@@ -365,7 +365,7 @@ def get_applicable_commission(product: dict, sale_date: str = None) -> tuple:
                     entry.get("new_type", commission_type),
                     entry.get("new_tiers", commission_tiers)
                 )
-        except:
+        except (ValueError, TypeError, AttributeError):
             continue
     
     # If no matching history entry, check if there's a previous rate before all history
@@ -385,7 +385,7 @@ def get_applicable_commission(product: dict, sale_date: str = None) -> tuple:
                     oldest_entry.get("previous_type", commission_type),
                     oldest_entry.get("previous_tiers", commission_tiers)
                 )
-        except:
+        except (ValueError, TypeError, AttributeError):
             pass
     
     return commission_rate, commission_type, commission_tiers
