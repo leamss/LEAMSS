@@ -14,8 +14,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Import database and models
-from core.database import engine, init_db, test_connection, Base
-from core.models import *  # Import all models to register them
+from core.database import engine, init_db, test_connection, sync_engine
+from core.models import Base  # Import Base for table creation
+from core import models  # Import all models to register them
 
 # Import routers
 from routers.auth import router as auth_router
