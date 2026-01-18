@@ -158,8 +158,8 @@ const PartnerDashboard = () => {
     try {
       const authHeader = getAuthHeader();
       const [statsRes, salesRes, productsRes] = await Promise.all([
-        axios.get(`${API}/stats/dashboard`, authHeader),
-        axios.get(`${API}/sales`, authHeader),
+        axios.get(`${API}/stats/partner-dashboard`, authHeader),
+        axios.get(`${API}/sales/my-sales`, authHeader),
         axios.get(`${API}/products`, authHeader)
       ]);
       setStats(statsRes.data);
