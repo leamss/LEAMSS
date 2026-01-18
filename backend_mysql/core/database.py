@@ -67,8 +67,8 @@ async def get_db():
 # Initialize database (create tables)
 async def init_db():
     """Create all tables using sync engine"""
-    from core.models import Base as ModelBase
-    ModelBase.metadata.create_all(bind=sync_engine)
+    from core.models import Base
+    Base.metadata.create_all(bind=sync_engine)
 
 # Test database connection
 async def test_connection():
@@ -80,3 +80,8 @@ async def test_connection():
     except Exception as e:
         print(f"Database connection failed: {e}")
         return False
+
+# Re-export Base from models for convenience
+def get_base():
+    from core.models import Base
+    return Base
