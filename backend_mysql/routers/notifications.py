@@ -158,21 +158,39 @@ async def delete_all_notifications(
 
 @router.get("/stream")
 async def notification_stream(
-    current_user: dict = Depends(get_current_user),
+    token: str = None,
     db: AsyncSession = Depends(get_db)
 ):
     """Server-sent events stream for real-time notifications"""
+    from core.auth import decode_token
+    
+    # Validate token
+    if not token:
+        return StreamingResponse(
+            iter([f"data: {json.dumps({'type': 'error', 'message': 'No token provided'})}\n\n"]),
+            media_type="text/event-stream"
+        )
+    
+    payload = decode_token(token)
+    if not payload:
+        return StreamingResponse(
+            iter([f"data: {json.dumps({'type': 'error', 'message': 'Invalid token'})}\n\n"]),
+            media_type="text/event-stream"
+        )
+    
+    user_id = payload.get("sub")
+    
     async def event_generator():
         yield f"data: {json.dumps({'type': 'connected', 'message': 'Connected to notification stream'})}\n\n"
         
         while True:
             await asyncio.sleep(5)  # Check every 5 seconds
             
-            # Get unread count
-            async with db.begin():
+            try:
+                # Get unread count
                 result = await db.execute(
                     select(Notification)
-                    .where(Notification.user_id == current_user["id"])
+                    .where(Notification.user_id == user_id)
                     .where(Notification.is_read == False)
                 )
                 unread = result.scalars().all()
@@ -182,6 +200,9 @@ async def notification_stream(
                     yield f"data: {json.dumps({'type': 'notification', 'count': len(unread), 'latest': {'id': latest.id, 'title': latest.title, 'message': latest.message}})}\n\n"
                 else:
                     yield f"data: {json.dumps({'type': 'ping'})}\n\n"
+            except Exception as e:
+                yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+                break
     
     return StreamingResponse(
         event_generator(),
