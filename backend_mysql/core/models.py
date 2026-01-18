@@ -4,7 +4,10 @@ SQLAlchemy Models for LEAMSS Portal
 from sqlalchemy import Column, String, Integer, Float, Boolean, Text, DateTime, Enum, ForeignKey, JSON, Date
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from core.database import Base
+from sqlalchemy.orm import DeclarativeBase
+
+class Base(DeclarativeBase):
+    pass
 import uuid
 import enum
 
