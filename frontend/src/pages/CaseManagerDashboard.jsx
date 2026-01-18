@@ -95,7 +95,7 @@ const CaseManagerDashboard = () => {
     try {
       const authHeader = getAuthHeader();
       const [statsRes, casesRes, settingsRes] = await Promise.all([
-        axios.get(`${API}/stats/dashboard`, authHeader),
+        axios.get(`${API}/stats/case-manager-dashboard`, authHeader),
         axios.get(`${API}/cases/my-cases`, authHeader),
         axios.get(`${API}/settings`, authHeader).catch(() => ({ data: { allow_case_manager_workflow_customization: false } }))
       ]);
