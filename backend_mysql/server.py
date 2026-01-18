@@ -29,6 +29,8 @@ from routers.tickets import router as tickets_router
 from routers.notifications import router as notifications_router
 from routers.reports import router as reports_router
 from routers.settings import router as settings_router
+from routers.stats import router as stats_router
+from routers.scheduler import router as scheduler_router
 
 
 @asynccontextmanager
