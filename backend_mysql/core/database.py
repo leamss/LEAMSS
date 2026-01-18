@@ -3,7 +3,6 @@ Database Configuration and Connection for MySQL
 """
 import os
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy import text, create_engine
 from sqlalchemy.pool import QueuePool
 from dotenv import load_dotenv
