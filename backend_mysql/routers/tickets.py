@@ -148,6 +148,105 @@ async def get_my_tickets(
     return [serialize_ticket(t, user_map) for t in tickets]
 
 
+@router.get("/stats", response_model=dict)
+async def get_ticket_stats(
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get ticket statistics"""
+    user_id = current_user["id"]
+    user_role = current_user["role"]
+    
+    if user_role == "admin":
+        # Admin sees all tickets
+        total_result = await db.execute(select(func.count(Ticket.id)))
+        total = total_result.scalar()
+        
+        open_result = await db.execute(
+            select(func.count(Ticket.id)).where(Ticket.status == TicketStatus.open)
+        )
+        open_count = open_result.scalar()
+        
+        high_priority_result = await db.execute(
+            select(func.count(Ticket.id))
+            .where(Ticket.priority.in_([TicketPriority.high, TicketPriority.urgent]))
+            .where(Ticket.status.in_([TicketStatus.open, TicketStatus.in_progress]))
+        )
+        high_priority = high_priority_result.scalar()
+    else:
+        # Other users see their own tickets
+        total_result = await db.execute(
+            select(func.count(Ticket.id))
+            .outerjoin(TicketTarget)
+            .where(
+                or_(
+                    Ticket.created_by == user_id,
+                    TicketTarget.user_id == user_id,
+                    Ticket.target_role == user_role
+                )
+            )
+        )
+        total = total_result.scalar()
+        
+        open_result = await db.execute(
+            select(func.count(Ticket.id))
+            .outerjoin(TicketTarget)
+            .where(
+                or_(
+                    Ticket.created_by == user_id,
+                    TicketTarget.user_id == user_id,
+                    Ticket.target_role == user_role
+                )
+            )
+            .where(Ticket.status == TicketStatus.open)
+        )
+        open_count = open_result.scalar()
+        high_priority = 0
+    
+    return {
+        "total": total,
+        "open": open_count,
+        "high_priority": high_priority
+    }
+
+
+@router.get("/all", response_model=List[dict])
+async def get_all_tickets(
+    current_user: dict = Depends(require_role([UserRole.admin])),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get all tickets (Admin only)"""
+    result = await db.execute(
+        select(Ticket)
+        .options(
+            selectinload(Ticket.messages),
+            selectinload(Ticket.attachments),
+            selectinload(Ticket.activity_log),
+            selectinload(Ticket.targets)
+        )
+        .order_by(Ticket.created_at.desc())
+    )
+    tickets = result.scalars().all()
+    
+    # Get all user IDs
+    user_ids = set()
+    for t in tickets:
+        user_ids.add(t.created_by)
+        if t.resolved_by:
+            user_ids.add(t.resolved_by)
+        for msg in t.messages:
+            user_ids.add(msg.user_id)
+        for att in t.attachments:
+            user_ids.add(att.uploaded_by)
+        for log in t.activity_log:
+            if log.user_id:
+                user_ids.add(log.user_id)
+    
+    user_map = await get_user_map(db, list(user_ids))
+    
+    return [serialize_ticket(t, user_map) for t in tickets]
+
+
 @router.get("/{ticket_id}", response_model=dict)
 async def get_ticket(
     ticket_id: str,
