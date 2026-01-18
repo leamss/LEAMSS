@@ -186,3 +186,40 @@ async def get_dashboard_stats(
         "total_revenue": total_revenue,
         "total_commission": total_commission
     }
+
+
+
+@router.get("/partner-commissions", response_model=List[dict])
+async def get_partner_commissions(
+    current_user: dict = Depends(require_role([UserRole.admin])),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get commission summary by partner (Admin only)"""
+    result = await db.execute(
+        select(
+            User.id,
+            User.name,
+            User.email,
+            func.count(Sale.id).label("total_sales"),
+            func.sum(Sale.fee_amount).label("total_revenue"),
+            func.sum(Sale.commission_amount).label("total_commission")
+        )
+        .join(Sale, User.id == Sale.partner_id)
+        .where(User.role == UserRole.partner)
+        .where(Sale.status == SaleStatus.approved)
+        .group_by(User.id, User.name, User.email)
+        .order_by(func.sum(Sale.commission_amount).desc())
+    )
+    partners = result.all()
+    
+    return [
+        {
+            "partner_id": p.id,
+            "partner_name": p.name,
+            "partner_email": p.email,
+            "total_sales": p.total_sales,
+            "total_revenue": float(p.total_revenue) if p.total_revenue else 0,
+            "total_commission": float(p.total_commission) if p.total_commission else 0
+        }
+        for p in partners
+    ]
