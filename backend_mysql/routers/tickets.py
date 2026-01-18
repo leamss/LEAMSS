@@ -391,24 +391,58 @@ async def upload_attachment(
 
 @router.get("/stats", response_model=dict)
 async def get_ticket_stats(
-    current_user: dict = Depends(require_role([UserRole.admin])),
+    current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get ticket statistics (Admin only)"""
-    total_result = await db.execute(select(func.count(Ticket.id)))
-    total = total_result.scalar()
+    """Get ticket statistics"""
+    user_id = current_user["id"]
+    user_role = current_user["role"]
     
-    open_result = await db.execute(
-        select(func.count(Ticket.id)).where(Ticket.status == TicketStatus.open)
-    )
-    open_count = open_result.scalar()
-    
-    high_priority_result = await db.execute(
-        select(func.count(Ticket.id))
-        .where(Ticket.priority.in_([TicketPriority.high, TicketPriority.urgent]))
-        .where(Ticket.status.in_([TicketStatus.open, TicketStatus.in_progress]))
-    )
-    high_priority = high_priority_result.scalar()
+    if user_role == "admin":
+        # Admin sees all tickets
+        total_result = await db.execute(select(func.count(Ticket.id)))
+        total = total_result.scalar()
+        
+        open_result = await db.execute(
+            select(func.count(Ticket.id)).where(Ticket.status == TicketStatus.open)
+        )
+        open_count = open_result.scalar()
+        
+        high_priority_result = await db.execute(
+            select(func.count(Ticket.id))
+            .where(Ticket.priority.in_([TicketPriority.high, TicketPriority.urgent]))
+            .where(Ticket.status.in_([TicketStatus.open, TicketStatus.in_progress]))
+        )
+        high_priority = high_priority_result.scalar()
+    else:
+        # Other users see their own tickets
+        total_result = await db.execute(
+            select(func.count(Ticket.id))
+            .outerjoin(TicketTarget)
+            .where(
+                or_(
+                    Ticket.created_by == user_id,
+                    TicketTarget.user_id == user_id,
+                    Ticket.target_role == user_role
+                )
+            )
+        )
+        total = total_result.scalar()
+        
+        open_result = await db.execute(
+            select(func.count(Ticket.id))
+            .outerjoin(TicketTarget)
+            .where(
+                or_(
+                    Ticket.created_by == user_id,
+                    TicketTarget.user_id == user_id,
+                    Ticket.target_role == user_role
+                )
+            )
+            .where(Ticket.status == TicketStatus.open)
+        )
+        open_count = open_result.scalar()
+        high_priority = 0
     
     return {
         "total": total,
