@@ -52,10 +52,6 @@ AsyncSessionLocal = async_sessionmaker(
     autoflush=False
 )
 
-# Base class for models
-class Base(DeclarativeBase):
-    pass
-
 # Dependency to get database session
 async def get_db():
     async with AsyncSessionLocal() as session:
