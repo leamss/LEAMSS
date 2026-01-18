@@ -4,7 +4,8 @@ Database Configuration and Connection for MySQL
 import os
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy import text
+from sqlalchemy import text, create_engine
+from sqlalchemy.pool import QueuePool
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -16,7 +17,13 @@ MYSQL_USER = os.getenv("MYSQL_USER", "root")
 MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "")
 MYSQL_DATABASE = os.getenv("MYSQL_DATABASE", "leamss_portal")
 
-DATABASE_URL = f"mysql+aiomysql://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DATABASE}"
+# Build URL with proper handling of empty password
+if MYSQL_PASSWORD:
+    DATABASE_URL = f"mysql+aiomysql://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DATABASE}"
+    SYNC_DATABASE_URL = f"mysql+pymysql://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DATABASE}"
+else:
+    DATABASE_URL = f"mysql+aiomysql://{MYSQL_USER}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DATABASE}"
+    SYNC_DATABASE_URL = f"mysql+pymysql://{MYSQL_USER}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DATABASE}"
 
 # Create async engine
 engine = create_async_engine(
@@ -24,6 +31,15 @@ engine = create_async_engine(
     echo=False,  # Set to True for SQL query logging
     pool_size=10,
     max_overflow=20,
+    pool_pre_ping=True
+)
+
+# Create sync engine for table creation
+sync_engine = create_engine(
+    SYNC_DATABASE_URL,
+    echo=False,
+    pool_size=5,
+    max_overflow=10,
     pool_pre_ping=True
 )
 
@@ -50,14 +66,16 @@ async def get_db():
 
 # Initialize database (create tables)
 async def init_db():
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    """Create all tables using sync engine"""
+    from core.models import Base as ModelBase
+    ModelBase.metadata.create_all(bind=sync_engine)
 
 # Test database connection
 async def test_connection():
     try:
-        async with engine.connect() as conn:
-            await conn.execute(text("SELECT 1"))
+        # Use sync engine for testing
+        with sync_engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
             return True
     except Exception as e:
         print(f"Database connection failed: {e}")
