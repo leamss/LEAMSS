@@ -339,8 +339,7 @@ with Session(sync_engine) as session:
         id=str(uuid.uuid4()),
         ticket_id=ticket.id,
         user_id=client.id,
-        message="Please let me know if PDF format is acceptable or do I need to upload JPG?",
-        is_internal=False
+        message="Please let me know if PDF format is acceptable or do I need to upload JPG?"
     )
     session.add(ticket_msg)
     print("  Created 1 ticket with message")
