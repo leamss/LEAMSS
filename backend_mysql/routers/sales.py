@@ -226,7 +226,7 @@ async def approve_sale(
         sale.approved_at = datetime.utcnow()
         
         # Calculate commission
-        sale.commission_amount = sale.fee_amount * (sale.commission_rate / 100)
+        sale.commission_amount = sale.fee_amount * ((sale.commission_rate or 0) / 100)
         
         # Create or get client user
         client_result = await db.execute(select(User).where(User.email == sale.client_email))
@@ -318,6 +318,38 @@ async def approve_sale(
     await db.commit()
     
     return {"message": f"Sale {request.status} successfully"}
+
+
+@router.get("/{sale_id}/documents", response_model=list)
+async def get_sale_documents(
+    sale_id: str,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get documents for a specific sale"""
+    result = await db.execute(
+        select(Sale)
+        .options(selectinload(Sale.documents))
+        .where(Sale.id == sale_id)
+    )
+    sale = result.scalar_one_or_none()
+    
+    if not sale:
+        raise HTTPException(status_code=404, detail="Sale not found")
+    
+    return [
+        {
+            "id": doc.id,
+            "file_id": doc.id,
+            "document_type": doc.document_type,
+            "type": doc.document_type,
+            "filename": doc.filename,
+            "file_size": doc.file_size,
+            "content_type": doc.content_type,
+            "uploaded_at": doc.uploaded_at.isoformat() if doc.uploaded_at else None
+        }
+        for doc in (sale.documents or [])
+    ]
 
 
 @router.get("/stats", response_model=dict)

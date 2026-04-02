@@ -211,7 +211,7 @@ const AdminDashboard = () => {
       localStorage.setItem('admin_token', currentToken);
       localStorage.setItem('admin_user', currentUser);
       
-      const response = await axios.post(`${API}/admin/impersonate/${targetUser.id}`, {}, getAuthHeader());
+      const response = await axios.post(`${API}/auth/impersonate/${targetUser.id}`, {}, getAuthHeader());
       localStorage.setItem('token', response.data.token);
       localStorage.setItem('user', JSON.stringify(response.data.user));
       const routes = { admin: '/admin', partner: '/partner', case_manager: '/case-manager', client: '/client' };
@@ -628,7 +628,7 @@ const AdminDashboard = () => {
     try {
       const productId = workflowDialog.product.id;
       if (mode === 'create') {
-        await axios.post(`${API}/products/workflow-step`, {
+        await axios.post(`${API}/products/${productId}/workflow-step`, {
           product_id: productId, step_name: stepData.step_name, step_order: stepData.step_order,
           description: stepData.description, duration_days: stepData.duration_days ? parseInt(stepData.duration_days) : null,
           required_documents: stepData.required_documents

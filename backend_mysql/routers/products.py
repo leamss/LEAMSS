@@ -317,6 +317,52 @@ async def add_workflow_step(
     return {"message": "Workflow step added successfully", "step_id": step.id}
 
 
+@router.put("/{product_id}/workflow-step/{step_order}", response_model=dict)
+async def update_workflow_step(
+    product_id: str,
+    step_order: int,
+    request: WorkflowStepCreate,
+    current_user: dict = Depends(require_role([UserRole.admin])),
+    db: AsyncSession = Depends(get_db)
+):
+    """Update workflow step (Admin only)"""
+    result = await db.execute(
+        select(WorkflowStep)
+        .where(WorkflowStep.product_id == product_id)
+        .where(WorkflowStep.step_order == step_order)
+    )
+    step = result.scalar_one_or_none()
+    
+    if not step:
+        raise HTTPException(status_code=404, detail="Workflow step not found")
+    
+    step.step_name = request.step_name
+    step.step_order = request.step_order
+    step.description = request.description
+    step.duration_days = request.duration_days
+    
+    # Delete existing document requirements and recreate
+    await db.execute(
+        delete(DocumentRequirement).where(DocumentRequirement.workflow_step_id == step.id)
+    )
+    
+    for doc in request.required_documents:
+        doc_req = DocumentRequirement(
+            workflow_step_id=step.id,
+            doc_name=doc.doc_name,
+            description=doc.description,
+            is_mandatory=doc.is_mandatory,
+            has_expiry=doc.has_expiry,
+            validity_months=doc.validity_months,
+            doc_type=doc.doc_type
+        )
+        db.add(doc_req)
+    
+    await db.commit()
+    
+    return {"message": "Workflow step updated successfully"}
+
+
 @router.delete("/{product_id}/workflow-step/{step_order}")
 async def delete_workflow_step(
     product_id: str,

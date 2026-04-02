@@ -282,6 +282,50 @@ async def request_additional_document(
     return {"message": "Document requested successfully"}
 
 
+@router.put("/{case_id}/assign-manager", response_model=dict)
+async def assign_case_manager(
+    case_id: str,
+    case_manager_id: str,
+    current_user: dict = Depends(require_role([UserRole.admin])),
+    db: AsyncSession = Depends(get_db)
+):
+    """Reassign case manager (Admin only)"""
+    result = await db.execute(
+        select(Case)
+        .options(selectinload(Case.client))
+        .where(Case.id == case_id)
+    )
+    case = result.scalar_one_or_none()
+    
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+    
+    # Verify the manager exists and is a case_manager
+    mgr_result = await db.execute(
+        select(User).where(User.id == case_manager_id).where(User.role == UserRole.case_manager)
+    )
+    manager = mgr_result.scalar_one_or_none()
+    
+    if not manager:
+        raise HTTPException(status_code=404, detail="Case manager not found")
+    
+    case.case_manager_id = case_manager_id
+    
+    # Notify the new case manager
+    notification = Notification(
+        user_id=case_manager_id,
+        title="New Case Assigned",
+        message=f"You have been assigned to case {case.case_id}",
+        type="case_assigned",
+        related_id=case.id
+    )
+    db.add(notification)
+    
+    await db.commit()
+    
+    return {"message": "Case manager reassigned successfully"}
+
+
 @router.get("/stats/my-stats", response_model=dict)
 async def get_case_manager_stats(
     current_user: dict = Depends(require_role([UserRole.case_manager])),

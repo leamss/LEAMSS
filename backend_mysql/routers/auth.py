@@ -91,6 +91,41 @@ async def get_me(current_user: dict = Depends(get_current_user)):
     return current_user
 
 
+@router.post("/impersonate/{user_id}")
+async def impersonate_user(
+    user_id: str,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Admin impersonation - switch to another user's account"""
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    result = await db.execute(select(User).where(User.id == user_id))
+    target_user = result.scalar_one_or_none()
+    
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    if target_user.status != UserStatus.active:
+        raise HTTPException(status_code=400, detail="User account is not active")
+    
+    token = create_access_token({"sub": target_user.id, "role": target_user.role.value})
+    
+    return {
+        "token": token,
+        "user": {
+            "id": target_user.id,
+            "email": target_user.email,
+            "name": target_user.name,
+            "role": target_user.role.value,
+            "mobile": target_user.mobile,
+            "status": target_user.status.value,
+            "created_at": target_user.created_at.isoformat() if target_user.created_at else None
+        }
+    }
+
+
 @router.post("/change-password")
 async def change_password(
     old_password: str,
