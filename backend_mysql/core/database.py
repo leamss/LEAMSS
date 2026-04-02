@@ -15,14 +15,25 @@ MYSQL_PORT = os.getenv("MYSQL_PORT", "3306")
 MYSQL_USER = os.getenv("MYSQL_USER", "root")
 MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "")
 MYSQL_DATABASE = os.getenv("MYSQL_DATABASE", "leamss_portal")
+MYSQL_SOCKET = os.getenv("MYSQL_SOCKET", "/var/run/mysqld/mysqld.sock")
 
-# Build URL with proper handling of empty password
-if MYSQL_PASSWORD:
-    DATABASE_URL = f"mysql+aiomysql://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DATABASE}"
-    SYNC_DATABASE_URL = f"mysql+pymysql://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DATABASE}"
+# Build URL with unix socket support for local connections
+if MYSQL_HOST in ["localhost", "127.0.0.1"] and os.path.exists(MYSQL_SOCKET):
+    # Use unix socket for local connections
+    if MYSQL_PASSWORD:
+        DATABASE_URL = f"mysql+aiomysql://{MYSQL_USER}:{MYSQL_PASSWORD}@localhost/{MYSQL_DATABASE}?unix_socket={MYSQL_SOCKET}"
+        SYNC_DATABASE_URL = f"mysql+pymysql://{MYSQL_USER}:{MYSQL_PASSWORD}@localhost/{MYSQL_DATABASE}?unix_socket={MYSQL_SOCKET}"
+    else:
+        DATABASE_URL = f"mysql+aiomysql://{MYSQL_USER}@localhost/{MYSQL_DATABASE}?unix_socket={MYSQL_SOCKET}"
+        SYNC_DATABASE_URL = f"mysql+pymysql://{MYSQL_USER}@localhost/{MYSQL_DATABASE}?unix_socket={MYSQL_SOCKET}"
 else:
-    DATABASE_URL = f"mysql+aiomysql://{MYSQL_USER}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DATABASE}"
-    SYNC_DATABASE_URL = f"mysql+pymysql://{MYSQL_USER}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DATABASE}"
+    # Use TCP for remote connections
+    if MYSQL_PASSWORD:
+        DATABASE_URL = f"mysql+aiomysql://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DATABASE}"
+        SYNC_DATABASE_URL = f"mysql+pymysql://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DATABASE}"
+    else:
+        DATABASE_URL = f"mysql+aiomysql://{MYSQL_USER}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DATABASE}"
+        SYNC_DATABASE_URL = f"mysql+pymysql://{MYSQL_USER}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DATABASE}"
 
 # Create async engine
 engine = create_async_engine(
