@@ -6,6 +6,8 @@ import PartnerDashboard from '@/pages/PartnerDashboard';
 import CaseManagerDashboard from '@/pages/CaseManagerDashboard';
 import ClientDashboard from '@/pages/ClientDashboard';
 import NotificationHistory from '@/pages/NotificationHistory';
+import AnalyticsDashboard from '@/pages/AnalyticsDashboard';
+import ActivityLog from '@/pages/ActivityLog';
 import '@/App.css';
 
 function App() {
@@ -15,6 +17,8 @@ function App() {
         <Routes>
           <Route path="/" element={<Login />} />
           <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/admin/analytics" element={<AnalyticsDashboard />} />
+          <Route path="/admin/activity" element={<ActivityLog />} />
           <Route path="/partner" element={<PartnerDashboard />} />
           <Route path="/case-manager" element={<CaseManagerDashboard />} />
           <Route path="/client" element={<ClientDashboard />} />
