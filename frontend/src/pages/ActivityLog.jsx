@@ -137,14 +137,14 @@ const ActivityLog = () => {
         <CardContent className="pt-6">
           <div className="flex flex-wrap gap-4">
             <Select 
-              value={filters.entityType} 
-              onValueChange={(v) => setFilters({ ...filters, entityType: v })}
+              value={filters.entityType || "all"} 
+              onValueChange={(v) => setFilters({ ...filters, entityType: v === "all" ? "" : v })}
             >
               <SelectTrigger className="w-40">
                 <SelectValue placeholder="Entity Type" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Types</SelectItem>
+                <SelectItem value="all">All Types</SelectItem>
                 {entityTypes.map(type => (
                   <SelectItem key={type} value={type} className="capitalize">{type}</SelectItem>
                 ))}
