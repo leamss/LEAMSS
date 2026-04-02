@@ -31,6 +31,10 @@ from routers.reports import router as reports_router
 from routers.settings import router as settings_router
 from routers.stats import router as stats_router
 from routers.scheduler import router as scheduler_router
+from routers.activity import router as activity_router
+from routers.export import router as export_router
+from routers.analytics import router as analytics_router
+from routers.search import router as search_router
 
 
 @asynccontextmanager
