@@ -173,11 +173,11 @@ with Session(sync_engine) as session:
         (workflow_steps_product1[6].id, "Police Clearance", True, "Police clearance certificate from all countries"),
     ]
     
-    for step_id, doc_name, mandatory, desc in doc_requirements:
+    for workflow_step_id, doc_name, mandatory, desc in doc_requirements:
         doc_req = DocumentRequirement(
             id=str(uuid.uuid4()),
-            step_id=step_id,
-            document_name=doc_name,
+            workflow_step_id=workflow_step_id,
+            doc_name=doc_name,
             is_mandatory=mandatory,
             description=desc
         )
