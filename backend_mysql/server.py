@@ -35,6 +35,7 @@ from routers.activity import router as activity_router
 from routers.export import router as export_router
 from routers.analytics import router as analytics_router
 from routers.search import router as search_router
+from routers.payments import router as payments_router
 
 
 @asynccontextmanager
