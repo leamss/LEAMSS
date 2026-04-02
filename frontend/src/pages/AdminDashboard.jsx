@@ -805,11 +805,19 @@ const AdminDashboard = () => {
             { id: 'products', icon: Settings, label: 'Products' },
             { id: 'users', icon: Users, label: 'Users' },
             { id: 'tickets', icon: MessageSquare, label: 'Tickets' },
+            { id: 'analytics', icon: TrendingUp, label: 'Analytics', isLink: '/admin/analytics' },
+            { id: 'activity', icon: Clock, label: 'Activity Log', isLink: '/admin/activity' },
             { id: 'settings', icon: Settings, label: 'Settings' }
           ].map(item => (
             <button
               key={item.id}
-              onClick={() => { setActiveTab(item.id); setSelectedCase(null); setSelectedSale(null); setSelectedPartnerReport(null); setSelectedTicket(null); }}
+              onClick={() => { 
+                if (item.isLink) {
+                  navigate(item.isLink);
+                } else {
+                  setActiveTab(item.id); setSelectedCase(null); setSelectedSale(null); setSelectedPartnerReport(null); setSelectedTicket(null);
+                }
+              }}
               data-testid={`nav-${item.id}`}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all font-medium ${
                 activeTab === item.id 
