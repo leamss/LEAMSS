@@ -74,6 +74,7 @@ const AdminDashboard = () => {
   const [userDialog, setUserDialog] = useState({ open: false, mode: 'create', data: null });
   const [ticketDialog, setTicketDialog] = useState({ open: false, subject: '', description: '', category: 'general', priority: 'medium', target_user_ids: [], target_role: '' });
   const [reassignDialog, setReassignDialog] = useState({ open: false, case_id: null });
+  const [clientCredentialsDialog, setClientCredentialsDialog] = useState({ open: false, credentials: null });
 
   const getAuthHeader = () => ({
     headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
@@ -300,7 +301,8 @@ const AdminDashboard = () => {
 
   const loadPartnerReport = async (partnerId) => {
     try {
-      let url = `${API}/sales/partner-report/${partnerId}?`;
+      let url = `${API}/sales/partner-report?`;
+      if (partnerId && partnerId !== 'all') url += `partner_id=${partnerId}&`;
       if (salesFilter.period && salesFilter.period !== 'custom') url += `period=${salesFilter.period}&`;
       if (salesFilter.period === 'custom') {
         if (salesFilter.date_from) url += `date_from=${salesFilter.date_from}&`;
@@ -547,8 +549,18 @@ const AdminDashboard = () => {
 
   const handleApproveSale = async (saleId, status, caseManagerId) => {
     try {
-      await axios.post(`${API}/sales/approve`, { sale_id: saleId, status, case_manager_id: caseManagerId }, getAuthHeader());
+      const response = await axios.post(`${API}/sales/approve`, { sale_id: saleId, status, case_manager_id: caseManagerId || null }, getAuthHeader());
       toast.success(`Sale ${status}!`);
+      
+      // Show client credentials if new client was created
+      if (response.data.client_credentials) {
+        const creds = response.data.client_credentials;
+        setClientCredentialsDialog({
+          open: true,
+          credentials: creds
+        });
+      }
+      
       loadData();
       setActiveTab('sales');
     } catch (error) {
@@ -1274,12 +1286,9 @@ const AdminDashboard = () => {
                         <Button onClick={() => viewSaleDocuments(sale)} size="sm" className="bg-[#2a777a] hover:bg-[#236466] text-white" data-testid={`view-docs-${sale.id}`}>
                           <Eye className="mr-2 h-4 w-4" />View Documents
                         </Button>
-                        <Select onValueChange={(managerId) => handleApproveSale(sale.id, 'approved', managerId)}>
-                          <SelectTrigger className="w-48" data-testid={`assign-manager-${sale.id}`}><SelectValue placeholder="Assign & Approve" /></SelectTrigger>
-                          <SelectContent>
-                            {caseManagers.map((manager) => <SelectItem key={manager.id} value={manager.id}>{manager.name}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
+                        <Button onClick={() => handleApproveSale(sale.id, 'approved', null)} size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" data-testid={`approve-sale-${sale.id}`}>
+                          <CheckCircle className="mr-2 h-4 w-4" />Approve Sale
+                        </Button>
                         <Button onClick={() => handleApproveSale(sale.id, 'rejected', null)} variant="destructive" size="sm" data-testid={`reject-sale-${sale.id}`}>Reject</Button>
                       </div>
                     </div>
@@ -1316,10 +1325,9 @@ const AdminDashboard = () => {
                 </div>
               </Card>
               <div className="flex gap-3">
-                <Select onValueChange={(managerId) => handleApproveSale(selectedSale.id, 'approved', managerId)} className="flex-1">
-                  <SelectTrigger data-testid="assign-case-manager"><SelectValue placeholder="Assign Case Manager & Approve" /></SelectTrigger>
-                  <SelectContent>{caseManagers.map((manager) => <SelectItem key={manager.id} value={manager.id}>{manager.name}</SelectItem>)}</SelectContent>
-                </Select>
+                <Button onClick={() => handleApproveSale(selectedSale.id, 'approved', null)} className="bg-emerald-600 hover:bg-emerald-700 text-white flex-1" data-testid="approve-sale-btn">
+                  <CheckCircle className="mr-2 h-4 w-4" />Approve Sale
+                </Button>
                 <Button onClick={() => handleApproveSale(selectedSale.id, 'rejected', null)} variant="destructive">Reject Sale</Button>
               </div>
             </div>
@@ -2142,6 +2150,36 @@ const AdminDashboard = () => {
               <SelectTrigger data-testid="reassign-manager-select"><SelectValue placeholder="Select new case manager" /></SelectTrigger>
               <SelectContent>{caseManagers.map((manager) => <SelectItem key={manager.id} value={manager.id}>{manager.name}</SelectItem>)}</SelectContent>
             </Select>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Client Credentials Dialog */}
+      <Dialog open={clientCredentialsDialog.open} onOpenChange={(open) => setClientCredentialsDialog({ ...clientCredentialsDialog, open })}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Client Login Credentials Created</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-4">
+            {clientCredentialsDialog.credentials && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <p className="text-sm font-medium text-green-800 mb-3">{clientCredentialsDialog.credentials.message}</p>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-slate-600 w-20">Name:</span>
+                    <span className="font-medium text-slate-800">{clientCredentialsDialog.credentials.name}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-slate-600 w-20">Email:</span>
+                    <code className="bg-white px-2 py-1 rounded text-sm font-mono border">{clientCredentialsDialog.credentials.email}</code>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-slate-600 w-20">Password:</span>
+                    <code className="bg-white px-2 py-1 rounded text-sm font-mono border">{clientCredentialsDialog.credentials.password}</code>
+                  </div>
+                </div>
+                <p className="text-xs text-green-600 mt-3">Please share these credentials with the client. They can change the password after first login.</p>
+              </div>
+            )}
+            <Button onClick={() => setClientCredentialsDialog({ open: false, credentials: null })} className="w-full bg-[#2a777a] hover:bg-[#236466] text-white">Done</Button>
           </div>
         </DialogContent>
       </Dialog>

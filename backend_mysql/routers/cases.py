@@ -160,7 +160,7 @@ async def get_case(
     return serialize_case(case)
 
 
-@router.put("/update-step", response_model=dict)
+@router.post("/update-step", response_model=dict)
 async def update_step_status(
     request: StepUpdate,
     current_user: dict = Depends(require_role([UserRole.admin, UserRole.case_manager])),
@@ -356,3 +356,191 @@ async def get_case_manager_stats(
         "active_cases": active,
         "completed_cases": completed
     }
+
+
+@router.post("/{case_id}/custom-document-request", response_model=dict)
+async def custom_document_request(
+    case_id: str,
+    request: AdditionalDocRequestSchema,
+    current_user: dict = Depends(require_role([UserRole.admin, UserRole.case_manager])),
+    db: AsyncSession = Depends(get_db)
+):
+    """Request additional document for a specific case (alias endpoint)"""
+    result = await db.execute(
+        select(Case).options(selectinload(Case.client)).where(Case.id == case_id)
+    )
+    case = result.scalar_one_or_none()
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+    
+    due_date = None
+    expiry_date = None
+    if request.due_date:
+        try:
+            due_date = datetime.fromisoformat(request.due_date.replace('Z', '+00:00')).date()
+        except:
+            pass
+    if request.expiry_date:
+        try:
+            expiry_date = datetime.fromisoformat(request.expiry_date.replace('Z', '+00:00')).date()
+        except:
+            pass
+    
+    doc_request = AdditionalDocRequest(
+        case_id=case.id,
+        step_order=request.step_order,
+        document_name=request.document_name,
+        description=request.description,
+        due_date=due_date,
+        expiry_date=expiry_date,
+        validity_months=request.validity_months,
+        doc_type=request.doc_type,
+        status=DocumentStatus.pending,
+        requested_by=current_user["id"]
+    )
+    db.add(doc_request)
+    
+    notification = Notification(
+        user_id=case.client_id,
+        title="Document Requested",
+        message=f"A new document '{request.document_name}' has been requested for your case",
+        type="document_request",
+        related_id=case.id
+    )
+    db.add(notification)
+    await db.commit()
+    return {"message": "Document requested successfully"}
+
+
+# ==================== INFORMATION SHEET ENDPOINTS ====================
+
+@router.get("/{case_id}/information-sheet", response_model=dict)
+async def get_information_sheet(
+    case_id: str,
+    current_user: dict = Depends(require_role([UserRole.admin, UserRole.case_manager, UserRole.client])),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get client information sheet for a case"""
+    from core.models import ClientInformationSheet
+    result = await db.execute(
+        select(ClientInformationSheet).where(ClientInformationSheet.case_id == case_id)
+    )
+    sheet = result.scalar_one_or_none()
+    
+    if not sheet:
+        # Return empty template
+        return {"exists": False, "data": {}}
+    
+    return {
+        "exists": True,
+        "data": {
+            "id": sheet.id,
+            "case_id": sheet.case_id,
+            "client_id": sheet.client_id,
+            "full_name": sheet.full_name,
+            "date_of_birth": sheet.date_of_birth.isoformat() if sheet.date_of_birth else None,
+            "gender": sheet.gender,
+            "nationality": sheet.nationality,
+            "passport_number": sheet.passport_number,
+            "passport_expiry": sheet.passport_expiry.isoformat() if sheet.passport_expiry else None,
+            "phone": sheet.phone,
+            "email": sheet.email,
+            "address": sheet.address,
+            "city": sheet.city,
+            "state": sheet.state,
+            "country": sheet.country,
+            "postal_code": sheet.postal_code,
+            "highest_education": sheet.highest_education,
+            "field_of_study": sheet.field_of_study,
+            "institution_name": sheet.institution_name,
+            "graduation_year": sheet.graduation_year,
+            "current_occupation": sheet.current_occupation,
+            "employer_name": sheet.employer_name,
+            "years_of_experience": sheet.years_of_experience,
+            "job_title": sheet.job_title,
+            "primary_language": sheet.primary_language,
+            "english_proficiency": sheet.english_proficiency,
+            "ielts_score": sheet.ielts_score,
+            "other_languages": sheet.other_languages,
+            "marital_status": sheet.marital_status,
+            "spouse_name": sheet.spouse_name,
+            "number_of_dependents": sheet.number_of_dependents,
+            "previous_visa_refusals": sheet.previous_visa_refusals,
+            "previous_travel_history": sheet.previous_travel_history,
+            "intended_destination": sheet.intended_destination,
+            "purpose_of_immigration": sheet.purpose_of_immigration,
+            "additional_notes": sheet.additional_notes,
+            "custom_fields": sheet.custom_fields,
+            "updated_at": sheet.updated_at.isoformat() if sheet.updated_at else None
+        }
+    }
+
+
+@router.post("/{case_id}/information-sheet", response_model=dict)
+async def save_information_sheet(
+    case_id: str,
+    data: dict,
+    current_user: dict = Depends(require_role([UserRole.admin, UserRole.case_manager])),
+    db: AsyncSession = Depends(get_db)
+):
+    """Create or update client information sheet"""
+    from core.models import ClientInformationSheet
+    
+    # Verify case exists
+    case_result = await db.execute(select(Case).where(Case.id == case_id))
+    case = case_result.scalar_one_or_none()
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+    
+    result = await db.execute(
+        select(ClientInformationSheet).where(ClientInformationSheet.case_id == case_id)
+    )
+    sheet = result.scalar_one_or_none()
+    
+    field_map = [
+        "full_name", "gender", "nationality", "passport_number",
+        "phone", "email", "address", "city", "state", "country", "postal_code",
+        "highest_education", "field_of_study", "institution_name",
+        "current_occupation", "employer_name", "job_title",
+        "primary_language", "english_proficiency", "other_languages",
+        "marital_status", "spouse_name",
+        "previous_visa_refusals", "previous_travel_history",
+        "intended_destination", "purpose_of_immigration", "additional_notes"
+    ]
+    
+    if not sheet:
+        sheet = ClientInformationSheet(case_id=case_id, client_id=case.client_id)
+        db.add(sheet)
+    
+    for field in field_map:
+        if field in data:
+            setattr(sheet, field, data[field])
+    
+    # Handle date fields
+    for date_field in ["date_of_birth", "passport_expiry"]:
+        if date_field in data and data[date_field]:
+            try:
+                setattr(sheet, date_field, date.fromisoformat(data[date_field]))
+            except:
+                pass
+    
+    # Handle integer fields
+    for int_field in ["graduation_year", "years_of_experience", "number_of_dependents"]:
+        if int_field in data and data[int_field] is not None:
+            try:
+                setattr(sheet, int_field, int(data[int_field]))
+            except:
+                pass
+    
+    # Handle float fields
+    if "ielts_score" in data and data["ielts_score"] is not None:
+        try:
+            sheet.ielts_score = float(data["ielts_score"])
+        except:
+            pass
+    
+    if "custom_fields" in data:
+        sheet.custom_fields = data["custom_fields"]
+    
+    await db.commit()
+    return {"message": "Information sheet saved successfully"}

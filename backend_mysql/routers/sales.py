@@ -209,7 +209,7 @@ async def approve_sale(
     current_user: dict = Depends(require_role([UserRole.admin])),
     db: AsyncSession = Depends(get_db)
 ):
-    """Approve or reject a sale (Admin only)"""
+    """Approve or reject a sale (Admin only). Approval and case manager assignment are separate steps."""
     result = await db.execute(
         select(Sale)
         .options(selectinload(Sale.product).selectinload(Product.workflow_steps).selectinload(WorkflowStep.document_requirements))
@@ -232,10 +232,14 @@ async def approve_sale(
         client_result = await db.execute(select(User).where(User.email == sale.client_email))
         client = client_result.scalar_one_or_none()
         
+        client_password = "Client@123"
+        client_is_new = False
+        
         if not client:
+            client_is_new = True
             client = User(
                 email=sale.client_email,
-                password=get_password_hash("Client@123"),  # Default password
+                password=get_password_hash(client_password),
                 name=sale.client_name,
                 role=UserRole.client,
                 mobile=sale.client_mobile,
@@ -244,7 +248,7 @@ async def approve_sale(
             db.add(client)
             await db.flush()
         
-        # Create case
+        # Create case (without case_manager_id - will be assigned separately)
         case_number = f"CASE-{datetime.now().strftime('%Y%m%d')}-{str(uuid.uuid4())[:4].upper()}"
         
         first_step = None
@@ -257,7 +261,7 @@ async def approve_sale(
             sale_id=sale.id,
             client_id=client.id,
             product_id=sale.product_id,
-            case_manager_id=request.case_manager_id,
+            case_manager_id=request.case_manager_id,  # Can be None
             partner_id=sale.partner_id,
             status="active",
             current_step=first_step,
@@ -317,7 +321,18 @@ async def approve_sale(
     
     await db.commit()
     
-    return {"message": f"Sale {request.status} successfully"}
+    response = {"message": f"Sale {request.status} successfully"}
+    
+    # Include client credentials if a new client was created
+    if request.status == "approved" and client_is_new:
+        response["client_credentials"] = {
+            "email": sale.client_email,
+            "password": client_password,
+            "name": sale.client_name,
+            "message": "New client account created. Please share these login credentials with the client."
+        }
+    
+    return response
 
 
 @router.get("/{sale_id}/documents", response_model=list)
@@ -407,3 +422,79 @@ async def get_sales_stats(
             "approved_sales": approved,
             "total_commission": commission
         }
+
+
+@router.get("/partner-report", response_model=dict)
+async def get_partner_report(
+    partner_id: Optional[str] = None,
+    period: Optional[str] = "lifetime",
+    current_user: dict = Depends(require_role([UserRole.admin])),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get partner-wise sales report (Admin only)"""
+    from sqlalchemy import and_
+    
+    query = select(Sale).options(
+        selectinload(Sale.partner),
+        selectinload(Sale.product)
+    )
+    
+    if partner_id:
+        query = query.where(Sale.partner_id == partner_id)
+    
+    if period and period != "lifetime":
+        from datetime import timedelta
+        now = datetime.utcnow()
+        if period == "month":
+            query = query.where(Sale.created_at >= now - timedelta(days=30))
+        elif period == "quarter":
+            query = query.where(Sale.created_at >= now - timedelta(days=90))
+        elif period == "year":
+            query = query.where(Sale.created_at >= now - timedelta(days=365))
+    
+    result = await db.execute(query.order_by(Sale.created_at.desc()))
+    sales = result.scalars().all()
+    
+    total_sales = len(sales)
+    approved_sales = len([s for s in sales if s.status == SaleStatus.approved])
+    total_revenue = sum(s.fee_amount for s in sales if s.status == SaleStatus.approved)
+    total_commission = sum((s.commission_amount or 0) for s in sales if s.status == SaleStatus.approved)
+    
+    sales_data = []
+    for sale in sales:
+        sales_data.append({
+            "id": sale.id,
+            "date": sale.created_at.isoformat() if sale.created_at else None,
+            "client_name": sale.client_name,
+            "client_email": sale.client_email,
+            "partner_name": sale.partner.name if sale.partner else "N/A",
+            "product_name": sale.product.name if sale.product else "N/A",
+            "fee_amount": sale.fee_amount,
+            "commission_amount": sale.commission_amount or 0,
+            "commission_rate": sale.commission_rate or 0,
+            "status": sale.status.value if hasattr(sale.status, 'value') else str(sale.status),
+            "payment_method": sale.payment_method,
+            "payment_reference": sale.payment_reference
+        })
+    
+    # Get partner breakdown
+    partner_breakdown = {}
+    for sale in sales:
+        pid = sale.partner_id
+        pname = sale.partner.name if sale.partner else "Unknown"
+        if pid not in partner_breakdown:
+            partner_breakdown[pid] = {"name": pname, "total_sales": 0, "approved": 0, "revenue": 0, "commission": 0}
+        partner_breakdown[pid]["total_sales"] += 1
+        if sale.status == SaleStatus.approved:
+            partner_breakdown[pid]["approved"] += 1
+            partner_breakdown[pid]["revenue"] += sale.fee_amount
+            partner_breakdown[pid]["commission"] += (sale.commission_amount or 0)
+    
+    return {
+        "total_sales": total_sales,
+        "approved_sales": approved_sales,
+        "total_revenue": total_revenue,
+        "total_commission": total_commission,
+        "sales": sales_data,
+        "partner_breakdown": list(partner_breakdown.values())
+    }

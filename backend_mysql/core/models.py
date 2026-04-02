@@ -543,3 +543,70 @@ class PaymentTransaction(Base):
     user = relationship("User", foreign_keys=[user_id])
     sale = relationship("Sale", foreign_keys=[sale_id])
     case = relationship("Case", foreign_keys=[case_id])
+
+
+
+class ClientInformationSheet(Base):
+    """Stores client profile information collected by case managers"""
+    __tablename__ = "client_information_sheets"
+    
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    case_id = Column(String(36), ForeignKey("cases.id"), nullable=False, unique=True)
+    client_id = Column(String(36), ForeignKey("users.id"), nullable=False)
+    
+    # Personal Info
+    full_name = Column(String(255))
+    date_of_birth = Column(Date)
+    gender = Column(String(20))
+    nationality = Column(String(100))
+    passport_number = Column(String(50))
+    passport_expiry = Column(Date)
+    
+    # Contact
+    phone = Column(String(20))
+    email = Column(String(255))
+    address = Column(Text)
+    city = Column(String(100))
+    state = Column(String(100))
+    country = Column(String(100))
+    postal_code = Column(String(20))
+    
+    # Education
+    highest_education = Column(String(100))
+    field_of_study = Column(String(255))
+    institution_name = Column(String(255))
+    graduation_year = Column(Integer)
+    
+    # Work Experience
+    current_occupation = Column(String(255))
+    employer_name = Column(String(255))
+    years_of_experience = Column(Integer)
+    job_title = Column(String(255))
+    
+    # Language
+    primary_language = Column(String(100))
+    english_proficiency = Column(String(50))
+    ielts_score = Column(Float)
+    other_languages = Column(Text)
+    
+    # Family
+    marital_status = Column(String(50))
+    spouse_name = Column(String(255))
+    number_of_dependents = Column(Integer)
+    
+    # Immigration
+    previous_visa_refusals = Column(Text)
+    previous_travel_history = Column(Text)
+    intended_destination = Column(String(255))
+    purpose_of_immigration = Column(Text)
+    
+    # Additional
+    additional_notes = Column(Text)
+    custom_fields = Column(JSON)
+    
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    case = relationship("Case", foreign_keys=[case_id])
+    client = relationship("User", foreign_keys=[client_id])

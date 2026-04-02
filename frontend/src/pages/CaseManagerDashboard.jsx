@@ -86,6 +86,8 @@ const CaseManagerDashboard = () => {
   const [documentSearch, setDocumentSearch] = useState({ query: '', type: 'all', status: 'all' });
   const [allDocuments, setAllDocuments] = useState([]);
   const [initialTicketId, setInitialTicketId] = useState(null);
+  const [infoSheetDialog, setInfoSheetDialog] = useState({ open: false, data: {} });
+  const [infoSheetLoading, setInfoSheetLoading] = useState(false);
 
   const getAuthHeader = () => ({
     headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
@@ -317,7 +319,34 @@ const CaseManagerDashboard = () => {
     }
   };
 
-  // View document in new tab (like Gmail preview)
+  const loadInfoSheet = async (caseId) => {
+    setInfoSheetLoading(true);
+    try {
+      const response = await axios.get(`${API}/cases/${caseId}/information-sheet`, getAuthHeader());
+      setInfoSheetDialog({ open: true, data: response.data.data || {} });
+    } catch (error) {
+      setInfoSheetDialog({ open: true, data: {} });
+    }
+    setInfoSheetLoading(false);
+  };
+
+  const saveInfoSheet = async () => {
+    try {
+      await axios.post(`${API}/cases/${selectedCase.id}/information-sheet`, infoSheetDialog.data, getAuthHeader());
+      toast.success('Information sheet saved!');
+    } catch (error) {
+      toast.error('Failed to save information sheet');
+    }
+  };
+
+  const updateInfoField = (field, value) => {
+    setInfoSheetDialog(prev => ({
+      ...prev,
+      data: { ...prev.data, [field]: value }
+    }));
+  };
+
+  // View document in new tab
   const viewDocument = async (fileId, filename) => {
     try {
       toast.info('Opening document...');
@@ -614,14 +643,25 @@ const CaseManagerDashboard = () => {
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900">Case Information</h3>
                   </div>
-                  <Button
-                    onClick={() => setAdditionalDocDialog({ ...additionalDocDialog, open: true })}
-                    size="sm"
-                    className="bg-[#2a777a] hover:bg-[#236466]"
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Request Additional Document
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => loadInfoSheet(selectedCase.id)}
+                      size="sm"
+                      variant="outline"
+                      data-testid="info-sheet-btn"
+                    >
+                      <FileText className="mr-2 h-4 w-4" />
+                      Information Sheet
+                    </Button>
+                    <Button
+                      onClick={() => setAdditionalDocDialog({ ...additionalDocDialog, open: true })}
+                      size="sm"
+                      className="bg-[#2a777a] hover:bg-[#236466]"
+                    >
+                      <Plus className="mr-2 h-4 w-4" />
+                      Request Additional Document
+                    </Button>
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -1116,6 +1156,137 @@ const CaseManagerDashboard = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Information Sheet Dialog */}
+      <Dialog open={infoSheetDialog.open} onOpenChange={(open) => setInfoSheetDialog({ ...infoSheetDialog, open })}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Client Information Sheet</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6 py-4">
+            {/* Personal Information */}
+            <div>
+              <h4 className="font-semibold text-slate-800 mb-3 border-b pb-2">Personal Information</h4>
+              <div className="grid grid-cols-3 gap-3">
+                <div><Label>Full Name</Label><Input value={infoSheetDialog.data.full_name || ''} onChange={(e) => updateInfoField('full_name', e.target.value)} data-testid="info-full-name" /></div>
+                <div><Label>Date of Birth</Label><Input type="date" value={infoSheetDialog.data.date_of_birth || ''} onChange={(e) => updateInfoField('date_of_birth', e.target.value)} /></div>
+                <div><Label>Gender</Label>
+                  <Select value={infoSheetDialog.data.gender || ''} onValueChange={(v) => updateInfoField('gender', v)}>
+                    <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="male">Male</SelectItem>
+                      <SelectItem value="female">Female</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div><Label>Nationality</Label><Input value={infoSheetDialog.data.nationality || ''} onChange={(e) => updateInfoField('nationality', e.target.value)} /></div>
+                <div><Label>Passport Number</Label><Input value={infoSheetDialog.data.passport_number || ''} onChange={(e) => updateInfoField('passport_number', e.target.value)} /></div>
+                <div><Label>Passport Expiry</Label><Input type="date" value={infoSheetDialog.data.passport_expiry || ''} onChange={(e) => updateInfoField('passport_expiry', e.target.value)} /></div>
+              </div>
+            </div>
+
+            {/* Contact */}
+            <div>
+              <h4 className="font-semibold text-slate-800 mb-3 border-b pb-2">Contact Information</h4>
+              <div className="grid grid-cols-3 gap-3">
+                <div><Label>Phone</Label><Input value={infoSheetDialog.data.phone || ''} onChange={(e) => updateInfoField('phone', e.target.value)} /></div>
+                <div><Label>Email</Label><Input value={infoSheetDialog.data.email || ''} onChange={(e) => updateInfoField('email', e.target.value)} /></div>
+                <div><Label>Postal Code</Label><Input value={infoSheetDialog.data.postal_code || ''} onChange={(e) => updateInfoField('postal_code', e.target.value)} /></div>
+                <div className="col-span-3"><Label>Address</Label><Input value={infoSheetDialog.data.address || ''} onChange={(e) => updateInfoField('address', e.target.value)} /></div>
+                <div><Label>City</Label><Input value={infoSheetDialog.data.city || ''} onChange={(e) => updateInfoField('city', e.target.value)} /></div>
+                <div><Label>State</Label><Input value={infoSheetDialog.data.state || ''} onChange={(e) => updateInfoField('state', e.target.value)} /></div>
+                <div><Label>Country</Label><Input value={infoSheetDialog.data.country || ''} onChange={(e) => updateInfoField('country', e.target.value)} /></div>
+              </div>
+            </div>
+
+            {/* Education */}
+            <div>
+              <h4 className="font-semibold text-slate-800 mb-3 border-b pb-2">Education</h4>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>Highest Education</Label><Input value={infoSheetDialog.data.highest_education || ''} onChange={(e) => updateInfoField('highest_education', e.target.value)} /></div>
+                <div><Label>Field of Study</Label><Input value={infoSheetDialog.data.field_of_study || ''} onChange={(e) => updateInfoField('field_of_study', e.target.value)} /></div>
+                <div><Label>Institution</Label><Input value={infoSheetDialog.data.institution_name || ''} onChange={(e) => updateInfoField('institution_name', e.target.value)} /></div>
+                <div><Label>Graduation Year</Label><Input type="number" value={infoSheetDialog.data.graduation_year || ''} onChange={(e) => updateInfoField('graduation_year', e.target.value)} /></div>
+              </div>
+            </div>
+
+            {/* Work */}
+            <div>
+              <h4 className="font-semibold text-slate-800 mb-3 border-b pb-2">Work Experience</h4>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>Current Occupation</Label><Input value={infoSheetDialog.data.current_occupation || ''} onChange={(e) => updateInfoField('current_occupation', e.target.value)} /></div>
+                <div><Label>Employer Name</Label><Input value={infoSheetDialog.data.employer_name || ''} onChange={(e) => updateInfoField('employer_name', e.target.value)} /></div>
+                <div><Label>Job Title</Label><Input value={infoSheetDialog.data.job_title || ''} onChange={(e) => updateInfoField('job_title', e.target.value)} /></div>
+                <div><Label>Years of Experience</Label><Input type="number" value={infoSheetDialog.data.years_of_experience || ''} onChange={(e) => updateInfoField('years_of_experience', e.target.value)} /></div>
+              </div>
+            </div>
+
+            {/* Language */}
+            <div>
+              <h4 className="font-semibold text-slate-800 mb-3 border-b pb-2">Language Proficiency</h4>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>Primary Language</Label><Input value={infoSheetDialog.data.primary_language || ''} onChange={(e) => updateInfoField('primary_language', e.target.value)} /></div>
+                <div><Label>English Proficiency</Label>
+                  <Select value={infoSheetDialog.data.english_proficiency || ''} onValueChange={(v) => updateInfoField('english_proficiency', v)}>
+                    <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="native">Native</SelectItem>
+                      <SelectItem value="fluent">Fluent</SelectItem>
+                      <SelectItem value="intermediate">Intermediate</SelectItem>
+                      <SelectItem value="basic">Basic</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div><Label>IELTS Score</Label><Input type="number" step="0.5" value={infoSheetDialog.data.ielts_score || ''} onChange={(e) => updateInfoField('ielts_score', e.target.value)} /></div>
+                <div><Label>Other Languages</Label><Input value={infoSheetDialog.data.other_languages || ''} onChange={(e) => updateInfoField('other_languages', e.target.value)} /></div>
+              </div>
+            </div>
+
+            {/* Family */}
+            <div>
+              <h4 className="font-semibold text-slate-800 mb-3 border-b pb-2">Family Details</h4>
+              <div className="grid grid-cols-3 gap-3">
+                <div><Label>Marital Status</Label>
+                  <Select value={infoSheetDialog.data.marital_status || ''} onValueChange={(v) => updateInfoField('marital_status', v)}>
+                    <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="single">Single</SelectItem>
+                      <SelectItem value="married">Married</SelectItem>
+                      <SelectItem value="divorced">Divorced</SelectItem>
+                      <SelectItem value="widowed">Widowed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div><Label>Spouse Name</Label><Input value={infoSheetDialog.data.spouse_name || ''} onChange={(e) => updateInfoField('spouse_name', e.target.value)} /></div>
+                <div><Label>Number of Dependents</Label><Input type="number" value={infoSheetDialog.data.number_of_dependents || ''} onChange={(e) => updateInfoField('number_of_dependents', e.target.value)} /></div>
+              </div>
+            </div>
+
+            {/* Immigration */}
+            <div>
+              <h4 className="font-semibold text-slate-800 mb-3 border-b pb-2">Immigration Details</h4>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>Intended Destination</Label><Input value={infoSheetDialog.data.intended_destination || ''} onChange={(e) => updateInfoField('intended_destination', e.target.value)} /></div>
+                <div><Label>Purpose of Immigration</Label><Input value={infoSheetDialog.data.purpose_of_immigration || ''} onChange={(e) => updateInfoField('purpose_of_immigration', e.target.value)} /></div>
+                <div className="col-span-2"><Label>Previous Visa Refusals</Label><Textarea rows={2} value={infoSheetDialog.data.previous_visa_refusals || ''} onChange={(e) => updateInfoField('previous_visa_refusals', e.target.value)} /></div>
+                <div className="col-span-2"><Label>Previous Travel History</Label><Textarea rows={2} value={infoSheetDialog.data.previous_travel_history || ''} onChange={(e) => updateInfoField('previous_travel_history', e.target.value)} /></div>
+              </div>
+            </div>
+
+            {/* Notes */}
+            <div>
+              <Label>Additional Notes</Label>
+              <Textarea rows={3} value={infoSheetDialog.data.additional_notes || ''} onChange={(e) => updateInfoField('additional_notes', e.target.value)} />
+            </div>
+
+            <Button onClick={saveInfoSheet} className="w-full bg-[#2a777a] hover:bg-[#236466]" data-testid="save-info-sheet-btn">
+              Save Information Sheet
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       </div>
     </div>
   );
