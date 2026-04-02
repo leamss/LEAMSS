@@ -218,6 +218,7 @@ class Sale(Base):
     amount_received = Column(Float, nullable=False, default=0.0)
     payment_method = Column(Enum(PaymentMethod), default=PaymentMethod.bank_transfer)
     payment_reference = Column(String(255))
+    payment_status = Column(String(50), default="unpaid")  # unpaid, partial, paid
     agreement_signed = Column(Boolean, default=False)
     status = Column(Enum(SaleStatus), default=SaleStatus.pending, index=True)
     commission_rate = Column(Float)
