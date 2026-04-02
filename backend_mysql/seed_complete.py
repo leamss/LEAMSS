@@ -242,11 +242,10 @@ with Session(sync_engine) as session:
         product_id=product1.id,
         client_name="John Doe",
         client_email="john.doe@email.com",
-        client_phone="+91 9876543210",
+        client_mobile="+91 9876543210",
         fee_amount=150000.00,
         commission_amount=15000.00,
         status=SaleStatus.approved,
-        notes="Client referred by existing customer",
         approved_by=admin.id,
         approved_at=datetime.utcnow() - timedelta(days=5)
     )
@@ -258,11 +257,10 @@ with Session(sync_engine) as session:
         product_id=product2.id,
         client_name="Jane Smith",
         client_email="jane.smith@email.com",
-        client_phone="+91 9876543211",
+        client_mobile="+91 9876543211",
         fee_amount=120000.00,
         commission_amount=14400.00,
-        status=SaleStatus.pending,
-        notes="New client enquiry"
+        status=SaleStatus.pending
     )
     session.add(sale2)
     
