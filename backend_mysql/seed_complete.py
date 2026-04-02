@@ -320,14 +320,15 @@ with Session(sync_engine) as session:
     # ============ CREATE SAMPLE TICKET ============
     print("Creating sample ticket...")
     
+    from core.models import TicketCategory, TicketPriority, TicketStatus
+    
     ticket = Ticket(
         id=str(uuid.uuid4()),
-        ticket_number="TKT-2024-0001",
         subject="Document clarification needed",
         description="I need clarification on which format is acceptable for the passport copy.",
-        category="document",
-        priority="medium",
-        status="open",
+        category=TicketCategory.document,
+        priority=TicketPriority.medium,
+        status=TicketStatus.open,
         created_by=client.id,
         target_role="case_manager"
     )
