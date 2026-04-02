@@ -181,6 +181,7 @@ async def get_case_manager_dashboard_stats(
     
     return {
         "total_cases": total_cases,
+        "my_cases": total_cases,
         "active_cases": active_cases,
         "completed_cases": completed_cases,
         "pending_reviews": pending_reviews
