@@ -111,6 +111,7 @@ app.include_router(activity_router, prefix="/api")
 app.include_router(export_router, prefix="/api")
 app.include_router(analytics_router, prefix="/api")
 app.include_router(search_router, prefix="/api")
+app.include_router(payments_router, prefix="/api")
 
 
 @app.get("/")
