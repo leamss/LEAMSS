@@ -106,6 +106,10 @@ app.include_router(reports_router, prefix="/api")
 app.include_router(settings_router, prefix="/api")
 app.include_router(stats_router, prefix="/api")
 app.include_router(scheduler_router, prefix="/api")
+app.include_router(activity_router, prefix="/api")
+app.include_router(export_router, prefix="/api")
+app.include_router(analytics_router, prefix="/api")
+app.include_router(search_router, prefix="/api")
 
 
 @app.get("/")
