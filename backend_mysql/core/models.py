@@ -501,3 +501,44 @@ class AuditLog(Base):
     ip_address = Column(String(45))
     user_agent = Column(Text)
     created_at = Column(DateTime, server_default=func.now(), index=True)
+
+
+
+class PaymentStatus(enum.Enum):
+    initiated = "initiated"
+    pending = "pending"
+    paid = "paid"
+    failed = "failed"
+    expired = "expired"
+    refunded = "refunded"
+
+
+class PaymentTransaction(Base):
+    __tablename__ = "payment_transactions"
+    
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    session_id = Column(String(255), unique=True, nullable=False, index=True)
+    user_id = Column(String(36), ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    sale_id = Column(String(36), ForeignKey("sales.id", ondelete="SET NULL"), index=True)
+    case_id = Column(String(36), ForeignKey("cases.id", ondelete="SET NULL"), index=True)
+    
+    amount = Column(Float, nullable=False)
+    currency = Column(String(10), default="inr")
+    
+    payment_type = Column(String(50))  # fee_payment, commission_payout
+    payment_method = Column(String(50))  # card, upi, etc.
+    
+    status = Column(Enum(PaymentStatus), default=PaymentStatus.initiated)
+    payment_status = Column(String(50))  # Raw status from Stripe
+    
+    metadata = Column(JSON)
+    stripe_payment_intent = Column(String(255))
+    
+    paid_at = Column(DateTime)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    user = relationship("User", foreign_keys=[user_id])
+    sale = relationship("Sale", foreign_keys=[sale_id])
+    case = relationship("Case", foreign_keys=[case_id])
