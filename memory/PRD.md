@@ -3,9 +3,9 @@
 ## Overview
 LEAMSS Portal is a comprehensive immigration service management system designed to streamline visa consulting and case management operations. The system supports four user roles with distinct capabilities and workflows.
 
-**Current Version:** 2.1 (MySQL + Enhanced Features)  
+**Current Version:** 2.2 (All Core Features Fixed)  
 **Last Updated:** April 2, 2026  
-**Status:** ✅ Production Ready
+**Status:** Production Ready
 
 ---
 
@@ -197,6 +197,16 @@ LEAMSS Portal is a comprehensive immigration service management system designed 
 ---
 
 ## Change Log
+
+### April 2, 2026 - Version 2.2
+- Fixed: Sale approval crashing on null commission_rate
+- Fixed: Missing GET /api/sales/{id}/documents endpoint
+- Fixed: Missing PUT /api/cases/{id}/assign-manager endpoint (case reassignment)
+- Fixed: Missing POST /api/auth/impersonate/{id} endpoint (user switching)
+- Fixed: Missing PUT /api/products/{id}/workflow-step/{order} endpoint (workflow editing)
+- Fixed: Frontend workflow step creation URL mismatch
+- Fixed: Frontend impersonate URL pointing to wrong router
+- Fixed: SQLAlchemy reserved 'metadata' column name in PaymentTransaction model
 
 ### April 2, 2026 - Version 2.1
 - ✅ Added Analytics Dashboard with charts
