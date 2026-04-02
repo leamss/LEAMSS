@@ -291,21 +291,25 @@ with Session(sync_engine) as session:
             status = StepStatus.completed
             started = datetime.utcnow() - timedelta(days=30)
             completed = datetime.utcnow() - timedelta(days=23)
+            is_locked = False
         elif i == 1:
             status = StepStatus.in_progress
             started = datetime.utcnow() - timedelta(days=23)
             completed = None
+            is_locked = False
         else:
             status = StepStatus.locked
             started = None
             completed = None
+            is_locked = True
             
         case_step = CaseStep(
             id=str(uuid.uuid4()),
             case_id=case1.id,
-            step_id=ws.id,
+            step_name=ws.step_name,
             step_order=i + 1,
             status=status,
+            is_locked=is_locked,
             started_at=started,
             completed_at=completed
         )
