@@ -161,7 +161,7 @@ async def create_checkout_session(
             payment_type=payment_type,
             status=PaymentStatus.initiated,
             payment_status="initiated",
-            metadata=metadata
+            payment_metadata=metadata
         )
         db.add(payment_transaction)
         await db.commit()
@@ -295,7 +295,7 @@ async def get_payment_history(
             "payment_status": t.payment_status,
             "paid_at": t.paid_at.isoformat() if t.paid_at else None,
             "created_at": t.created_at.isoformat() if t.created_at else None,
-            "metadata": t.metadata
+            "metadata": t.payment_metadata
         }
         for t in transactions
     ]

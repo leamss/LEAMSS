@@ -532,7 +532,7 @@ class PaymentTransaction(Base):
     status = Column(Enum(PaymentStatus), default=PaymentStatus.initiated)
     payment_status = Column(String(50))  # Raw status from Stripe
     
-    metadata = Column(JSON)
+    payment_metadata = Column("payment_metadata", JSON)
     stripe_payment_intent = Column(String(255))
     
     paid_at = Column(DateTime)
