@@ -279,9 +279,9 @@ with Session(sync_engine) as session:
         partner_id=partner.id,
         case_manager_id=manager.id,
         status=CaseStatus.active,
-        current_step=2,
-        start_date=datetime.utcnow().date() - timedelta(days=30),
-        expected_completion=datetime.utcnow().date() + timedelta(days=150)
+        current_step="Document Collection",
+        current_step_order=2,
+        notes="Client referred by existing customer"
     )
     session.add(case1)
     session.flush()
