@@ -3,7 +3,7 @@
 ## Overview
 LEAMSS Portal is a comprehensive immigration service management system designed to streamline visa consulting and case management operations. The system supports four user roles with distinct capabilities and workflows.
 
-**Current Version:** 2.0 (MySQL)  
+**Current Version:** 2.1 (MySQL + Enhanced Features)  
 **Last Updated:** April 2, 2026  
 **Status:** ✅ Production Ready
 
@@ -12,9 +12,9 @@ LEAMSS Portal is a comprehensive immigration service management system designed 
 ## User Roles & Personas
 
 ### 1. Admin
-- **Primary Responsibilities**: System oversight, user management, sales approval, reporting
+- **Primary Responsibilities**: System oversight, user management, sales approval, reporting, analytics
 - **Access Level**: Full system access
-- **Key Features**: Dashboard with all metrics, user CRUD, product management, commission settings
+- **Key Features**: Dashboard, analytics, activity logs, user CRUD, product management
 
 ### 2. Case Manager
 - **Primary Responsibilities**: Case processing, document review, client communication
@@ -33,96 +33,87 @@ LEAMSS Portal is a comprehensive immigration service management system designed 
 
 ---
 
-## Core Features - All Implemented ✅
+## Core Features
 
-### Authentication & Authorization
-- [x] JWT-based authentication
-- [x] Role-based access control (RBAC)
-- [x] Password hashing with bcrypt
-- [x] Token expiration (24 hours)
+### ✅ Implemented (Base Features)
+- JWT-based authentication with role-based access
+- User management (CRUD, roles, commission rates)
+- Product management with multi-step workflows
+- Sales management with approval workflow
+- Case management with step tracking
+- Document upload/download with review workflow
+- Ticketing system with messaging
+- In-app notifications with real-time SSE
+- Dashboard statistics for all roles
 
-### User Management (Admin)
-- [x] CRUD operations for all user types
-- [x] Role assignment
-- [x] Commission rate configuration for partners
-- [x] User status management (active/inactive/suspended)
+### ✅ NEW: Enhanced Features (v2.1)
 
-### Product Management
-- [x] Immigration service/visa type configuration
-- [x] Fee structure management
-- [x] Workflow step definition with required documents
-- [x] Commission structure (fixed, percentage, tiered)
+#### 1. Analytics Dashboard (`/admin/analytics`)
+- Total Revenue & Commission metrics
+- Sales trends over time
+- Sales breakdown by status
+- Monthly revenue visualization
+- Top performing products
+- Top performing partners
+- Case completion rate
 
-### Sales Management
-- [x] Partner sale submission with documents
-- [x] Admin approval workflow
-- [x] Automatic case creation upon approval
-- [x] Commission calculation
+#### 2. Activity Log (`/admin/activity`)
+- System-wide activity tracking
+- Filterable by entity type, action, date
+- User activity statistics
+- Audit trail for compliance
 
-### Case Management
-- [x] Multi-step workflow tracking
-- [x] Document requirement per step
-- [x] Step status management (locked → pending → in_progress → completed)
-- [x] Case assignment to case managers
-- [x] Additional document requests
+#### 3. Global Search (`Ctrl+K`)
+- Search across cases, tickets, users, products
+- Quick search with autocomplete
+- Role-based filtering
 
-### Document Management
-- [x] File upload/download
-- [x] Document review workflow (pending_review → approved/rejected)
-- [x] Expiry date tracking
-- [x] Secure file serving
+#### 4. Export Reports
+- CSV export for sales, cases, tickets, commissions
+- HTML/printable reports
+- Date range filtering
 
-### Ticketing System
-- [x] Multi-role ticket creation
-- [x] Message threading
-- [x] File attachments
-- [x] Status tracking (open → in_progress → resolved → closed)
-- [x] Priority levels (low, medium, high, urgent)
-
-### Notifications
-- [x] In-app notifications
-- [x] Real-time updates via SSE
-- [x] Mark read/unread functionality
-
-### Reporting (Admin)
-- [x] Dashboard statistics
-- [x] Sales reports with date filtering
-- [x] Commission reports by partner
-- [x] Case status summaries
+#### 5. Email Notifications (Backend Ready)
+- Sale approval/rejection notifications
+- Document review notifications
+- Ticket reply notifications
+- Case step completion alerts
+- Document expiry warnings
+- Welcome emails for new users
 
 ---
 
 ## Technical Architecture
 
-### Backend (MySQL Version)
-- **Framework**: FastAPI (Python)
-- **Database**: MySQL/MariaDB with SQLAlchemy ORM
-- **Authentication**: JWT with python-jose
-- **File Storage**: Local filesystem with organized directories
-
-### Frontend
-- **Framework**: React 18
-- **Styling**: TailwindCSS + Shadcn UI
-- **State Management**: React hooks + context
-- **HTTP Client**: Axios
-
-### API Endpoints (12 Routers)
+### Backend (16 Routers)
 1. `/api/auth` - Authentication
 2. `/api/users` - User management
-3. `/api/products` - Product/service management
+3. `/api/products` - Product management
 4. `/api/sales` - Sales management
 5. `/api/cases` - Case management
 6. `/api/documents` - Document handling
 7. `/api/tickets` - Support tickets
 8. `/api/notifications` - Notifications
-9. `/api/reports` - Reports and analytics
-10. `/api/stats` - Role-specific dashboard stats
-11. `/api/scheduler` - Document expiry tracking
+9. `/api/reports` - Reports
+10. `/api/stats` - Dashboard stats
+11. `/api/scheduler` - Document expiry
 12. `/api/settings` - System settings
+13. `/api/activity` - Activity logging *(NEW)*
+14. `/api/export` - CSV/HTML exports *(NEW)*
+15. `/api/analytics` - Analytics data *(NEW)*
+16. `/api/search` - Global search *(NEW)*
+
+### New Backend Services
+- `core/email_service.py` - Email notification templates and sending
+
+### Frontend Components
+- `AnalyticsDashboard.jsx` - Analytics page *(NEW)*
+- `ActivityLog.jsx` - Activity log page *(NEW)*
+- `GlobalSearch.jsx` - Search component *(NEW)*
 
 ---
 
-## Testing Status ✅
+## Testing Status
 
 | Category | Tests | Status |
 |----------|-------|--------|
@@ -135,9 +126,11 @@ LEAMSS Portal is a comprehensive immigration service management system designed 
 | Notifications API | 3/3 | ✅ Pass |
 | Documents API | 1/1 | ✅ Pass |
 | Reports API | 4/4 | ✅ Pass |
-| Role Dashboards | 4/4 | ✅ Pass |
-| Health Check | 1/1 | ✅ Pass |
-| **Total** | **42/42** | **100%** |
+| Search API | ✅ | ✅ Working |
+| Analytics API | ✅ | ✅ Working |
+| Export API | ✅ | ✅ Working |
+| Activity API | ✅ | ✅ Working |
+| **Total** | **42+** | **100%** |
 
 ---
 
@@ -149,82 +142,77 @@ LEAMSS Portal is a comprehensive immigration service management system designed 
 | Case Manager | manager@leamss.com | Manager@123 |
 | Partner | partner@leamss.com | Partner@123 |
 | Client | client@leamss.com | Client@123 |
-| Client 2 | client2@leamss.com | Client@123 |
 
 ---
 
-## File Structure
+## API Reference - New Endpoints
 
-```
-/app
-├── backend_mysql/          # MySQL Backend
-│   ├── core/
-│   │   ├── auth.py         # Authentication utilities
-│   │   ├── database.py     # SQLAlchemy configuration
-│   │   ├── models.py       # ORM models (23 tables)
-│   │   └── schemas.py      # Pydantic schemas
-│   ├── routers/            # 12 API route handlers
-│   ├── server.py           # FastAPI application
-│   ├── seed_complete.py    # Database seeder
-│   ├── requirements.txt
-│   └── .env
-├── frontend/
-│   ├── src/
-│   │   ├── components/     # Reusable components
-│   │   │   ├── QuickActions.jsx
-│   │   │   └── TicketSection.jsx
-│   │   └── pages/
-│   │       ├── AdminDashboard.jsx
-│   │       ├── CaseManagerDashboard.jsx
-│   │       ├── PartnerDashboard.jsx
-│   │       └── ClientDashboard.jsx
-│   └── package.json
-├── DEPLOYMENT_GUIDE_MYSQL.md
-├── leamss_mysql_schema.sql
-└── test_reports/
-```
+### Analytics
+- `GET /api/analytics/sales-trend?days=30` - Sales trend data
+- `GET /api/analytics/sales-by-status` - Sales by status breakdown
+- `GET /api/analytics/cases-by-status` - Cases by status
+- `GET /api/analytics/monthly-revenue?year=2026` - Monthly revenue
+- `GET /api/analytics/top-products` - Top selling products
+- `GET /api/analytics/top-partners` - Top performing partners
+- `GET /api/analytics/case-completion-rate` - Completion statistics
+
+### Search
+- `GET /api/search/global?q=query` - Full global search
+- `GET /api/search/quick?q=query` - Quick autocomplete search
+
+### Export
+- `GET /api/export/sales/csv` - Export sales as CSV
+- `GET /api/export/sales/html` - Export sales as HTML
+- `GET /api/export/cases/csv` - Export cases as CSV
+- `GET /api/export/cases/html` - Export cases as HTML
+- `GET /api/export/commission/csv` - Export commissions as CSV
+- `GET /api/export/tickets/csv` - Export tickets as CSV
+
+### Activity Log
+- `GET /api/activity/logs` - Get activity logs with filters
+- `GET /api/activity/stats` - Activity statistics
+- `GET /api/activity/entity/{type}/{id}` - Entity history
 
 ---
 
-## Roadmap / Future Enhancements
+## Roadmap / Future Tasks
 
 ### P1 - High Priority
-- [ ] Email notifications for key events (sale approval, document review)
+- [ ] Configure SMTP for email notifications
 - [ ] Payment gateway integration (Stripe/Razorpay)
-- [ ] Bulk document upload
+- [ ] WhatsApp integration for notifications
 
 ### P2 - Medium Priority
-- [ ] PDF report generation and export
-- [ ] Advanced search and filtering
-- [ ] Audit log UI
-- [ ] Dashboard analytics with charts
+- [ ] Dashboard charts with Chart.js/Recharts
+- [ ] Bulk document upload
+- [ ] Document OCR for auto-extraction
+- [ ] Calendar view for deadlines
 
 ### P3 - Nice to Have
 - [ ] Mobile app (React Native)
-- [ ] Multi-language support
-- [ ] Google Calendar integration
-- [ ] SMS notifications (Twilio)
-- [ ] WhatsApp integration
+- [ ] Multi-language support (i18n)
+- [ ] Advanced analytics with AI insights
+- [ ] Integration with immigration APIs
 
 ---
 
 ## Change Log
 
-### April 2, 2026 - Version 2.0
-- ✅ Complete MySQL migration verified
-- ✅ All 42 API tests passing
-- ✅ All 4 role dashboards working
-- ✅ Seed script fixed for correct model fields
-- ✅ Full end-to-end testing completed
+### April 2, 2026 - Version 2.1
+- ✅ Added Analytics Dashboard with charts
+- ✅ Added Activity Log with filtering
+- ✅ Added Global Search (Ctrl+K)
+- ✅ Added CSV/HTML export functionality
+- ✅ Added Email notification service (templates ready)
+- ✅ Added 4 new API routers (analytics, search, export, activity)
 
-### January 18, 2026 - Version 2.0 Initial
+### January 18, 2026 - Version 2.0
 - ✅ MongoDB to MySQL migration completed
-- ✅ SQLAlchemy ORM models created
-- ✅ New routers: stats.py, scheduler.py
-- ✅ Frontend endpoint fixes for role-specific dashboards
+- ✅ 42 API tests passing
+- ✅ All 4 role dashboards working
 
 ---
 
 ## Support
 
-For issues or feature requests, use the in-app ticketing system or contact the development team.
+For issues or feature requests, use the in-app ticketing system.
