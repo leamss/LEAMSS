@@ -1,228 +1,116 @@
 # LEAMSS Immigration Portal - Product Requirements Document
 
-## Overview
-LEAMSS Portal is a comprehensive immigration service management system designed to streamline visa consulting and case management operations. The system supports four user roles with distinct capabilities and workflows.
-
-**Current Version:** 2.2 (All Core Features Fixed)  
-**Last Updated:** April 2, 2026  
+**Current Version:** 2.3 (All Features Fixed + New Features)
+**Last Updated:** April 2, 2026
 **Status:** Production Ready
 
 ---
 
-## User Roles & Personas
+## 1. Original Problem Statement
+Build a comprehensive immigration service portal (LEAMSS Portal) supporting Admin, Case Manager, Partner, and Client roles. Migrated from MongoDB to MySQL. Features include role-based dashboards, multi-step case workflows, document management, ticketing, analytics, and payment processing.
 
-### 1. Admin
-- **Primary Responsibilities**: System oversight, user management, sales approval, reporting, analytics
-- **Access Level**: Full system access
-- **Key Features**: Dashboard, analytics, activity logs, user CRUD, product management
+## 2. Core Architecture
+- **Frontend:** React + TailwindCSS + Shadcn UI
+- **Backend:** FastAPI + SQLAlchemy (async) + MySQL/MariaDB
+- **Database:** MariaDB with full relational schema
 
-### 2. Case Manager
-- **Primary Responsibilities**: Case processing, document review, client communication
-- **Access Level**: Assigned cases and documents
-- **Key Features**: Case workflow management, document approval, ticket handling
+## 3. Implemented Features
 
-### 3. Partner
-- **Primary Responsibilities**: Client acquisition, sales submission
-- **Access Level**: Own sales and referred cases
-- **Key Features**: Sales creation, commission tracking, client referrals
+### Authentication & Roles
+- JWT-based auth with role-based access control
+- 4 roles: Admin, Case Manager, Partner, Client
+- Admin impersonation (switch to any user)
 
-### 4. Client
-- **Primary Responsibilities**: Document submission, case tracking
-- **Access Level**: Own case only
-- **Key Features**: Document upload, case status, support tickets
+### Admin Dashboard
+- Overview stats (pending sales, active cases, revenue, tickets)
+- Pending Sales with separate **Approve** and **Reject** buttons (2-step process)
+- Client credentials dialog shown on sale approval (for new clients)
+- Case manager assignment from Cases page (separate from approval)
+- User management with Switch (impersonate) capability
+- Products & Workflow management (full CRUD)
+- Settings, Notifications, Sales Reports
 
----
+### Case Manager Dashboard
+- My Cases with case detail view
+- Workflow step status updates (in_progress/completed)
+- Document review (approve/reject with comments)
+- **Information Sheet** - comprehensive client profile collection (Personal, Contact, Education, Work, Language, Family, Immigration details)
+- Additional document request system
+- Support tickets
 
-## Core Features
+### Partner Dashboard
+- Sales tracking with commission visibility
+- Commission reports
+- Support tickets
 
-### ✅ Implemented (Base Features)
-- JWT-based authentication with role-based access
-- User management (CRUD, roles, commission rates)
-- Product management with multi-step workflows
-- Sales management with approval workflow
-- Case management with step tracking
-- Document upload/download with review workflow
-- Ticketing system with messaging
-- In-app notifications with real-time SSE
-- Dashboard statistics for all roles
+### Client Dashboard
+- Case status & workflow progress
+- Document uploads
+- Support tickets
 
-### ✅ NEW: Enhanced Features (v2.1)
+### Advanced Features
+- Analytics Dashboard (sales trends, revenue, top products/partners)
+- Global Search (Ctrl+K)
+- Activity Log UI (audit trail)
+- Partner Sales Report
+- Stripe Payment integration (scaffolded)
 
-#### 1. Analytics Dashboard (`/admin/analytics`)
-- Total Revenue & Commission metrics
-- Sales trends over time
-- Sales breakdown by status
-- Monthly revenue visualization
-- Top performing products
-- Top performing partners
-- Case completion rate
+## 4. Key API Endpoints
+- `POST /api/auth/login` - Login
+- `POST /api/auth/impersonate/{user_id}` - Admin user switching
+- `POST /api/sales/approve` - 2-step approval (no CM required)
+- `GET /api/sales/partner-report` - Partner report
+- `POST /api/cases/update-step` - Update workflow step
+- `PUT /api/cases/{id}/assign-manager` - Assign case manager
+- `GET/POST /api/cases/{id}/information-sheet` - Information sheet CRUD
+- `POST /api/cases/{id}/custom-document-request` - Request documents
+- `GET /api/analytics/*` - Analytics endpoints
+- `GET /api/search/global` - Global search
 
-#### 2. Activity Log (`/admin/activity`)
-- System-wide activity tracking
-- Filterable by entity type, action, date
-- User activity statistics
-- Audit trail for compliance
+## 5. Changelog
 
-#### 3. Global Search (`Ctrl+K`)
-- Search across cases, tickets, users, products
-- Quick search with autocomplete
-- Role-based filtering
-
-#### 4. Export Reports
-- CSV export for sales, cases, tickets, commissions
-- HTML/printable reports
-- Date range filtering
-
-#### 5. Email Notifications (Backend Ready)
-- Sale approval/rejection notifications
-- Document review notifications
-- Ticket reply notifications
-- Case step completion alerts
-- Document expiry warnings
-- Welcome emails for new users
-
----
-
-## Technical Architecture
-
-### Backend (16 Routers)
-1. `/api/auth` - Authentication
-2. `/api/users` - User management
-3. `/api/products` - Product management
-4. `/api/sales` - Sales management
-5. `/api/cases` - Case management
-6. `/api/documents` - Document handling
-7. `/api/tickets` - Support tickets
-8. `/api/notifications` - Notifications
-9. `/api/reports` - Reports
-10. `/api/stats` - Dashboard stats
-11. `/api/scheduler` - Document expiry
-12. `/api/settings` - System settings
-13. `/api/activity` - Activity logging *(NEW)*
-14. `/api/export` - CSV/HTML exports *(NEW)*
-15. `/api/analytics` - Analytics data *(NEW)*
-16. `/api/search` - Global search *(NEW)*
-
-### New Backend Services
-- `core/email_service.py` - Email notification templates and sending
-
-### Frontend Components
-- `AnalyticsDashboard.jsx` - Analytics page *(NEW)*
-- `ActivityLog.jsx` - Activity log page *(NEW)*
-- `GlobalSearch.jsx` - Search component *(NEW)*
-
----
-
-## Testing Status
-
-| Category | Tests | Status |
-|----------|-------|--------|
-| Authentication | 6/6 | ✅ Pass |
-| Users API | 4/4 | ✅ Pass |
-| Products API | 5/5 | ✅ Pass |
-| Sales API | 4/4 | ✅ Pass |
-| Cases API | 5/5 | ✅ Pass |
-| Tickets API | 5/5 | ✅ Pass |
-| Notifications API | 3/3 | ✅ Pass |
-| Documents API | 1/1 | ✅ Pass |
-| Reports API | 4/4 | ✅ Pass |
-| Search API | ✅ | ✅ Working |
-| Analytics API | ✅ | ✅ Working |
-| Export API | ✅ | ✅ Working |
-| Activity API | ✅ | ✅ Working |
-| **Total** | **42+** | **100%** |
-
----
-
-## Credentials for Testing
-
-| Role | Email | Password |
-|------|-------|----------|
-| Admin | admin@leamss.com | Admin@123 |
-| Case Manager | manager@leamss.com | Manager@123 |
-| Partner | partner@leamss.com | Partner@123 |
-| Client | client@leamss.com | Client@123 |
-
----
-
-## API Reference - New Endpoints
-
-### Analytics
-- `GET /api/analytics/sales-trend?days=30` - Sales trend data
-- `GET /api/analytics/sales-by-status` - Sales by status breakdown
-- `GET /api/analytics/cases-by-status` - Cases by status
-- `GET /api/analytics/monthly-revenue?year=2026` - Monthly revenue
-- `GET /api/analytics/top-products` - Top selling products
-- `GET /api/analytics/top-partners` - Top performing partners
-- `GET /api/analytics/case-completion-rate` - Completion statistics
-
-### Search
-- `GET /api/search/global?q=query` - Full global search
-- `GET /api/search/quick?q=query` - Quick autocomplete search
-
-### Export
-- `GET /api/export/sales/csv` - Export sales as CSV
-- `GET /api/export/sales/html` - Export sales as HTML
-- `GET /api/export/cases/csv` - Export cases as CSV
-- `GET /api/export/cases/html` - Export cases as HTML
-- `GET /api/export/commission/csv` - Export commissions as CSV
-- `GET /api/export/tickets/csv` - Export tickets as CSV
-
-### Activity Log
-- `GET /api/activity/logs` - Get activity logs with filters
-- `GET /api/activity/stats` - Activity statistics
-- `GET /api/activity/entity/{type}/{id}` - Entity history
-
----
-
-## Roadmap / Future Tasks
-
-### P1 - High Priority
-- [ ] Configure SMTP for email notifications
-- [ ] Payment gateway integration (Stripe/Razorpay)
-- [ ] WhatsApp integration for notifications
-
-### P2 - Medium Priority
-- [ ] Dashboard charts with Chart.js/Recharts
-- [ ] Bulk document upload
-- [ ] Document OCR for auto-extraction
-- [ ] Calendar view for deadlines
-
-### P3 - Nice to Have
-- [ ] Mobile app (React Native)
-- [ ] Multi-language support (i18n)
-- [ ] Advanced analytics with AI insights
-- [ ] Integration with immigration APIs
-
----
-
-## Change Log
+### April 2, 2026 - Version 2.3
+- Fixed: update-step endpoint changed from PUT to POST
+- Added: GET /api/sales/partner-report endpoint
+- Added: POST /api/cases/{id}/custom-document-request endpoint
+- Added: ClientInformationSheet model and CRUD endpoints
+- Refactored: Sale approval is now 2-step (approve first, assign CM separately)
+- Added: Client login credentials returned on sale approval
+- Added: Information Sheet dialog in Case Manager dashboard
+- Added: Client Credentials dialog in Admin dashboard
+- Fixed: Frontend partner-report URL (path param → query param)
+- Testing: 30/30 backend tests passed, all frontend features verified
 
 ### April 2, 2026 - Version 2.2
 - Fixed: Sale approval crashing on null commission_rate
 - Fixed: Missing GET /api/sales/{id}/documents endpoint
-- Fixed: Missing PUT /api/cases/{id}/assign-manager endpoint (case reassignment)
-- Fixed: Missing POST /api/auth/impersonate/{id} endpoint (user switching)
-- Fixed: Missing PUT /api/products/{id}/workflow-step/{order} endpoint (workflow editing)
-- Fixed: Frontend workflow step creation URL mismatch
-- Fixed: Frontend impersonate URL pointing to wrong router
-- Fixed: SQLAlchemy reserved 'metadata' column name in PaymentTransaction model
+- Fixed: Missing PUT /api/cases/{id}/assign-manager endpoint
+- Fixed: Missing POST /api/auth/impersonate/{id} endpoint
+- Fixed: Missing PUT /api/products/{id}/workflow-step/{order} endpoint
+- Fixed: SQLAlchemy reserved 'metadata' column name
+- Testing: 29/29 backend tests passed
 
-### April 2, 2026 - Version 2.1
-- ✅ Added Analytics Dashboard with charts
-- ✅ Added Activity Log with filtering
-- ✅ Added Global Search (Ctrl+K)
-- ✅ Added CSV/HTML export functionality
-- ✅ Added Email notification service (templates ready)
-- ✅ Added 4 new API routers (analytics, search, export, activity)
+### Earlier Versions
+- MongoDB → MySQL backend migration (DONE)
+- Fixed database seed scripts (DONE)
+- Analytics Dashboard implementation (DONE)
+- Global Search functionality (DONE)
+- Activity Log UI and Admin Sidebar integration (DONE)
 
-### January 18, 2026 - Version 2.0
-- ✅ MongoDB to MySQL migration completed
-- ✅ 42 API tests passing
-- ✅ All 4 role dashboards working
+## 6. Remaining Backlog
 
----
+### P0
+- Complete & test Stripe payment flow end-to-end
 
-## Support
+### P1
+- Implement Activity Log backend logging (inject audit events into core routers)
+- Wire email notifications to key events (email_service.py exists but not triggered)
 
-For issues or feature requests, use the in-app ticketing system.
+### P2
+- PDF report generation from frontend
+- Bulk document upload
+
+### P3
+- SMS Notifications (Twilio)
+- Google Calendar Integration
+- WhatsApp integration
