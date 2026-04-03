@@ -10,10 +10,22 @@ router = APIRouter(prefix="/reports", tags=["Reports"])
 @router.get("/sales")
 async def get_sales_report(current_user: dict = Depends(get_current_user)):
     sales = await sales_col.find({}, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    
+    if not sales:
+        return []
+    
+    # Batch fetch
+    partner_ids = list(set(s.get("partner_id") for s in sales if s.get("partner_id")))
+    product_ids = list(set(s.get("product_id") for s in sales if s.get("product_id")))
+    partners_list = await users_col.find({"id": {"$in": partner_ids}}, {"_id": 0, "password": 0}).to_list(500) if partner_ids else []
+    products_list = await products_col.find({"id": {"$in": product_ids}}, {"_id": 0}).to_list(500) if product_ids else []
+    partners_map = {p["id"]: p for p in partners_list}
+    products_map = {p["id"]: p for p in products_list}
+    
     result = []
     for s in sales:
-        partner = await users_col.find_one({"id": s.get("partner_id")}, {"_id": 0, "password": 0})
-        product = await products_col.find_one({"id": s.get("product_id")}, {"_id": 0})
+        partner = partners_map.get(s.get("partner_id"))
+        product = products_map.get(s.get("product_id"))
         fee = s.get("fee_amount", 0) or 0
         received = s.get("amount_received", 0) or 0
         result.append({

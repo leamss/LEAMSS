@@ -64,9 +64,20 @@ async def get_sales(status: str = None, current_user: dict = Depends(get_current
     
     sales = await sales_col.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
     
+    if not sales:
+        return sales
+    
+    # Batch-fetch partners and products to avoid N+1
+    partner_ids = list(set(s.get("partner_id") for s in sales if s.get("partner_id")))
+    product_ids = list(set(s.get("product_id") for s in sales if s.get("product_id")))
+    partners_list = await users_col.find({"id": {"$in": partner_ids}}, {"_id": 0, "password": 0}).to_list(500)
+    products_list = await products_col.find({"id": {"$in": product_ids}}, {"_id": 0}).to_list(500)
+    partners_map = {p["id"]: p for p in partners_list}
+    products_map = {p["id"]: p for p in products_list}
+    
     for sale in sales:
-        partner = await users_col.find_one({"id": sale.get("partner_id")}, {"_id": 0, "password": 0})
-        product = await products_col.find_one({"id": sale.get("product_id")}, {"_id": 0})
+        partner = partners_map.get(sale.get("partner_id"))
+        product = products_map.get(sale.get("product_id"))
         sale["partner_name"] = partner["name"] if partner else "N/A"
         sale["product_name"] = product["name"] if product else "N/A"
         sale["product_category"] = product.get("category", "N/A") if product else "N/A"
@@ -91,9 +102,19 @@ async def get_pending_sales(current_user: dict = Depends(get_current_user)):
     
     sales = await sales_col.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
     
+    if not sales:
+        return sales
+    
+    partner_ids = list(set(s.get("partner_id") for s in sales if s.get("partner_id")))
+    product_ids = list(set(s.get("product_id") for s in sales if s.get("product_id")))
+    partners_list = await users_col.find({"id": {"$in": partner_ids}}, {"_id": 0, "password": 0}).to_list(500)
+    products_list = await products_col.find({"id": {"$in": product_ids}}, {"_id": 0}).to_list(500)
+    partners_map = {p["id"]: p for p in partners_list}
+    products_map = {p["id"]: p for p in products_list}
+    
     for sale in sales:
-        partner = await users_col.find_one({"id": sale.get("partner_id")}, {"_id": 0, "password": 0})
-        product = await products_col.find_one({"id": sale.get("product_id")}, {"_id": 0})
+        partner = partners_map.get(sale.get("partner_id"))
+        product = products_map.get(sale.get("product_id"))
         sale["partner_name"] = partner["name"] if partner else "N/A"
         sale["product_name"] = product["name"] if product else "N/A"
         sale["product_category"] = product.get("category", "N/A") if product else "N/A"
@@ -114,10 +135,16 @@ async def get_my_sales(current_user: dict = Depends(get_current_user)):
     
     sales = await sales_col.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
     
+    if not sales:
+        return sales
+    
+    product_ids = list(set(s.get("product_id") for s in sales if s.get("product_id")))
+    products_list = await products_col.find({"id": {"$in": product_ids}}, {"_id": 0}).to_list(500)
+    products_map = {p["id"]: p for p in products_list}
+    
     for sale in sales:
-        partner = await users_col.find_one({"id": sale.get("partner_id")}, {"_id": 0, "password": 0})
-        product = await products_col.find_one({"id": sale.get("product_id")}, {"_id": 0})
-        sale["partner_name"] = partner["name"] if partner else "N/A"
+        product = products_map.get(sale.get("product_id"))
+        sale["partner_name"] = current_user.get("name", "N/A")
         sale["product_name"] = product["name"] if product else "N/A"
         sale["product_category"] = product.get("category", "N/A") if product else "N/A"
         fee = sale.get("fee_amount", 0) or 0
@@ -344,10 +371,18 @@ async def get_partner_report(partner_id: str = None, period: str = "lifetime", c
     total_pending = sum(s.get("pending_amount", s["fee_amount"] - s.get("amount_received", 0)) for s in approved)
     commission = sum(s.get("commission_amount", 0) for s in approved)
     
+    # Batch fetch partners and products
+    partner_ids = list(set(s.get("partner_id") for s in sales if s.get("partner_id")))
+    product_ids = list(set(s.get("product_id") for s in sales if s.get("product_id")))
+    partners_list = await users_col.find({"id": {"$in": partner_ids}}, {"_id": 0, "password": 0}).to_list(500) if partner_ids else []
+    products_list = await products_col.find({"id": {"$in": product_ids}}, {"_id": 0}).to_list(500) if product_ids else []
+    partners_map = {p["id"]: p for p in partners_list}
+    products_map = {p["id"]: p for p in products_list}
+    
     sales_data = []
     for s in sales:
-        partner = await users_col.find_one({"id": s.get("partner_id")}, {"_id": 0, "password": 0})
-        product = await products_col.find_one({"id": s.get("product_id")}, {"_id": 0})
+        partner = partners_map.get(s.get("partner_id"))
+        product = products_map.get(s.get("product_id"))
         sd = {
             "id": s["id"], "client_name": s["client_name"], "client_email": s["client_email"],
             "partner_name": partner["name"] if partner else "N/A",

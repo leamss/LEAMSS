@@ -48,6 +48,68 @@ def _serialize(case):
     return c
 
 
+async def _enrich_cases(cases):
+    """Batch-enrich cases with user/product/step data to avoid N+1 queries"""
+    if not cases:
+        return cases
+    
+    # Collect all unique IDs
+    user_ids = set()
+    product_ids = set()
+    case_ids = []
+    for c in cases:
+        case_ids.append(c["id"])
+        for field in ["client_id", "case_manager_id", "partner_id"]:
+            if c.get(field):
+                user_ids.add(c[field])
+        if c.get("product_id"):
+            product_ids.add(c["product_id"])
+    
+    # Batch fetch
+    users_list = await users_col.find({"id": {"$in": list(user_ids)}}, {"_id": 0, "password": 0}).to_list(500) if user_ids else []
+    products_list = await products_col.find({"id": {"$in": list(product_ids)}}, {"_id": 0}).to_list(500) if product_ids else []
+    all_steps = await case_steps_col.find({"case_id": {"$in": case_ids}}, {"_id": 0}).to_list(5000)
+    all_docs = await additional_doc_requests_col.find({"case_id": {"$in": case_ids}}, {"_id": 0}).to_list(5000)
+    
+    users_map = {u["id"]: u for u in users_list}
+    products_map = {p["id"]: p for p in products_list}
+    steps_map = {}
+    for s in all_steps:
+        steps_map.setdefault(s["case_id"], []).append(s)
+    docs_map = {}
+    for d in all_docs:
+        docs_map.setdefault(d["case_id"], []).append(d)
+    
+    for case in cases:
+        client = users_map.get(case.get("client_id"))
+        product = products_map.get(case.get("product_id"))
+        manager = users_map.get(case.get("case_manager_id"))
+        partner = users_map.get(case.get("partner_id"))
+        
+        case["client_name"] = client["name"] if client else "N/A"
+        case["client_email"] = client.get("email", "") if client else ""
+        case["product_name"] = product["name"] if product else "N/A"
+        case["case_manager_name"] = manager["name"] if manager else "Not Assigned"
+        case["partner_name"] = partner["name"] if partner else "N/A"
+        
+        case_steps = steps_map.get(case["id"], [])
+        case_steps.sort(key=lambda x: x.get("step_order", 0))
+        case["steps"] = case_steps
+        
+        additional_docs = docs_map.get(case["id"], [])
+        for doc in additional_docs:
+            for f in ["created_at", "due_date", "expiry_date"]:
+                if isinstance(doc.get(f), datetime):
+                    doc[f] = doc[f].isoformat()
+        case["additional_doc_requests"] = additional_docs
+        
+        for f in ["created_at", "updated_at"]:
+            if isinstance(case.get(f), datetime):
+                case[f] = case[f].isoformat()
+    
+    return cases
+
+
 @router.get("")
 async def get_cases(current_user: dict = Depends(get_current_user)):
     query = {}
@@ -59,34 +121,7 @@ async def get_cases(current_user: dict = Depends(get_current_user)):
         query["partner_id"] = current_user["id"]
     
     cases = await cases_col.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
-    
-    for case in cases:
-        client = await users_col.find_one({"id": case.get("client_id")}, {"_id": 0, "password": 0})
-        product = await products_col.find_one({"id": case.get("product_id")}, {"_id": 0})
-        manager = await users_col.find_one({"id": case.get("case_manager_id")}, {"_id": 0, "password": 0})
-        partner = await users_col.find_one({"id": case.get("partner_id")}, {"_id": 0, "password": 0})
-        
-        case["client_name"] = client["name"] if client else "N/A"
-        case["client_email"] = client.get("email", "") if client else ""
-        case["product_name"] = product["name"] if product else "N/A"
-        case["case_manager_name"] = manager["name"] if manager else "Not Assigned"
-        case["partner_name"] = partner["name"] if partner else "N/A"
-        
-        steps = await case_steps_col.find({"case_id": case["id"]}, {"_id": 0}).sort("step_order", 1).to_list(100)
-        case["steps"] = steps
-        
-        additional_docs = await additional_doc_requests_col.find({"case_id": case["id"]}, {"_id": 0}).to_list(100)
-        for doc in additional_docs:
-            for f in ["created_at", "due_date", "expiry_date"]:
-                if isinstance(doc.get(f), datetime):
-                    doc[f] = doc[f].isoformat()
-        case["additional_doc_requests"] = additional_docs
-        
-        for f in ["created_at", "updated_at"]:
-            if isinstance(case.get(f), datetime):
-                case[f] = case[f].isoformat()
-    
-    return cases
+    return await _enrich_cases(cases)
 
 
 @router.get("/my-cases")
@@ -98,34 +133,7 @@ async def get_my_cases(current_user: dict = Depends(get_current_user)):
         query["client_id"] = current_user["id"]
     
     cases = await cases_col.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
-    
-    for case in cases:
-        client = await users_col.find_one({"id": case.get("client_id")}, {"_id": 0, "password": 0})
-        product = await products_col.find_one({"id": case.get("product_id")}, {"_id": 0})
-        manager = await users_col.find_one({"id": case.get("case_manager_id")}, {"_id": 0, "password": 0})
-        partner = await users_col.find_one({"id": case.get("partner_id")}, {"_id": 0, "password": 0})
-        
-        case["client_name"] = client["name"] if client else "N/A"
-        case["client_email"] = client.get("email", "") if client else ""
-        case["product_name"] = product["name"] if product else "N/A"
-        case["case_manager_name"] = manager["name"] if manager else "Not Assigned"
-        case["partner_name"] = partner["name"] if partner else "N/A"
-        
-        steps = await case_steps_col.find({"case_id": case["id"]}, {"_id": 0}).sort("step_order", 1).to_list(100)
-        case["steps"] = steps
-        
-        additional_docs = await additional_doc_requests_col.find({"case_id": case["id"]}, {"_id": 0}).to_list(100)
-        for doc in additional_docs:
-            for f in ["created_at", "due_date", "expiry_date"]:
-                if isinstance(doc.get(f), datetime):
-                    doc[f] = doc[f].isoformat()
-        case["additional_doc_requests"] = additional_docs
-        
-        for f in ["created_at", "updated_at"]:
-            if isinstance(case.get(f), datetime):
-                case[f] = case[f].isoformat()
-    
-    return cases
+    return await _enrich_cases(cases)
 
 
 @router.get("/{case_id}")
