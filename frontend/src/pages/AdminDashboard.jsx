@@ -73,6 +73,10 @@ const AdminDashboard = () => {
   // Refunds
   const [refundDialog, setRefundDialog] = useState({ open: false, sale_id: null, amount: 0, reason: '', refund_method: 'original_payment', notes: '' });
   const [refunds, setRefunds] = useState([]);
+
+  // Custom per-partner product commissions
+  const [customCommissions, setCustomCommissions] = useState([]);
+  const [newCustomCommission, setNewCustomCommission] = useState({ partner_id: '', product_id: '', commission_rate: 0 });
   
   // Dialogs
   const [productDialog, setProductDialog] = useState({ open: false, mode: 'create', data: null });
@@ -264,6 +268,7 @@ const AdminDashboard = () => {
   useEffect(() => {
     if (user) {
       loadData();
+      loadCustomCommissions();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
@@ -441,6 +446,43 @@ const AdminDashboard = () => {
       setPartnerCommissions(response.data?.commissions || response.data || []);
     } catch (error) {
       toast.error('Failed to load commissions');
+    }
+  };
+
+  const loadCustomCommissions = async () => {
+    try {
+      const res = await axios.get(`${API}/partner-commissions`, getAuthHeader());
+      setCustomCommissions(res.data || []);
+    } catch (error) {
+      console.error('Failed to load custom commissions');
+    }
+  };
+
+  const saveCustomCommission = async () => {
+    if (!newCustomCommission.partner_id || !newCustomCommission.product_id) {
+      toast.error('Select a partner and product');
+      return;
+    }
+    try {
+      await axios.post(`${API}/partner-commissions`, newCustomCommission, getAuthHeader());
+      toast.success('Custom commission saved');
+      loadCustomCommissions();
+      setNewCustomCommission({ partner_id: '', product_id: '', commission_rate: 0 });
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to save');
+    }
+  };
+
+  const deleteCustomCommission = async (partnerId, productId) => {
+    try {
+      await axios.delete(`${API}/partner-commissions`, {
+        ...getAuthHeader(),
+        data: { partner_id: partnerId, product_id: productId }
+      });
+      toast.success('Custom commission removed');
+      loadCustomCommissions();
+    } catch (error) {
+      toast.error('Failed to remove');
     }
   };
 
@@ -1021,7 +1063,7 @@ const AdminDashboard = () => {
                 </Card>
                 <Card className="p-6 bg-white rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
                   <p className="text-sm text-slate-500 font-medium">Total Revenue</p>
-                  <p className="text-3xl font-bold text-emerald-600 mt-2">${(stats.total_revenue || 0).toLocaleString()}</p>
+                  <p className="text-3xl font-bold text-emerald-600 mt-2">₹{(stats.total_revenue || 0).toLocaleString()}</p>
                   <div className="flex justify-between text-xs mt-2 text-slate-500">
                     <span className="text-green-600">Received: ${(stats.total_received || 0).toLocaleString()}</span>
                     <span className="text-amber-600">Pending: ${(stats.total_pending_amount || 0).toLocaleString()}</span>
@@ -1263,11 +1305,11 @@ const AdminDashboard = () => {
                 </Card>
                 <Card className="p-4 bg-amber-50 border-amber-200">
                   <p className="text-sm text-slate-600">Total Revenue</p>
-                  <p className="text-2xl font-bold text-amber-700">${salesReport.filter(s => s.status === 'approved').reduce((sum, s) => sum + (s.fee_amount || 0), 0).toFixed(2)}</p>
+                  <p className="text-2xl font-bold text-amber-700">₹{salesReport.filter(s => s.status === 'approved').reduce((sum, s) => sum + (s.fee_amount || 0), 0).toLocaleString()}</p>
                 </Card>
                 <Card className="p-4 bg-purple-50 border-purple-200">
                   <p className="text-sm text-slate-600">Total Commission</p>
-                  <p className="text-2xl font-bold text-purple-700">${salesReport.filter(s => s.status === 'approved').reduce((sum, s) => sum + (s.commission_amount || 0), 0).toFixed(2)}</p>
+                  <p className="text-2xl font-bold text-purple-700">₹{salesReport.filter(s => s.status === 'approved').reduce((sum, s) => sum + (s.commission_amount || 0), 0).toLocaleString()}</p>
                 </Card>
               </div>
 
@@ -1298,10 +1340,10 @@ const AdminDashboard = () => {
                           <td className="p-3">
                             <Badge variant="outline" className="capitalize">{sale.product_category || 'N/A'}</Badge>
                           </td>
-                          <td className="p-3 text-right">${sale.fee_amount?.toLocaleString()}</td>
-                          <td className="p-3 text-right text-green-700">${(sale.amount_received || 0).toLocaleString()}</td>
-                          <td className="p-3 text-right text-amber-700">${(sale.pending_amount || 0).toLocaleString()}</td>
-                          <td className="p-3 text-right">${sale.commission_amount?.toFixed(2)}</td>
+                          <td className="p-3 text-right">₹{sale.fee_amount?.toLocaleString()}</td>
+                          <td className="p-3 text-right text-green-700">₹{(sale.amount_received || 0).toLocaleString()}</td>
+                          <td className="p-3 text-right text-amber-700">₹{(sale.pending_amount || 0).toLocaleString()}</td>
+                          <td className="p-3 text-right">₹{sale.commission_amount?.toLocaleString()}</td>
                           <td className="p-3 text-center">{getStatusBadge(sale.status)}</td>
                           <td className="p-3 text-sm text-red-600">{sale.rejection_reason || '-'}</td>
                         </tr>
@@ -1344,11 +1386,11 @@ const AdminDashboard = () => {
                   </div>
                   <div className="p-4 bg-purple-50 rounded-lg">
                     <p className="text-sm text-slate-600">Total Revenue</p>
-                    <p className="text-2xl font-bold text-purple-700">${selectedPartnerReport.summary?.total_revenue?.toFixed(2)}</p>
+                    <p className="text-2xl font-bold text-purple-700">₹{selectedPartnerReport.summary?.total_revenue?.toLocaleString()}</p>
                   </div>
                   <div className="p-4 bg-[#2a777a]/10 rounded-lg">
                     <p className="text-sm text-slate-600">Commission Payable</p>
-                    <p className="text-2xl font-bold text-[#2a777a]">${selectedPartnerReport.summary?.total_commission_payable?.toFixed(2)}</p>
+                    <p className="text-2xl font-bold text-[#2a777a]">₹{selectedPartnerReport.summary?.total_commission_payable?.toLocaleString()}</p>
                   </div>
                 </div>
               </Card>
@@ -1406,8 +1448,8 @@ const AdminDashboard = () => {
                         [
                           { key: 'partner_name', header: 'Partner' },
                           { key: 'total_sales', header: 'Sales' },
-                          { key: 'total_fee', header: 'Revenue', format: (v) => `$${(v || 0).toFixed(2)}` },
-                          { key: 'total_commission', header: 'Commission', format: (v) => `$${(v || 0).toFixed(2)}` }
+                          { key: 'total_fee', header: 'Revenue', format: (v) => `₹${(v || 0).toLocaleString()}` },
+                          { key: 'total_commission', header: 'Commission', format: (v) => `₹${(v || 0).toLocaleString()}` }
                         ]
                       )} 
                       variant="outline"
@@ -1422,11 +1464,11 @@ const AdminDashboard = () => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Card className="p-4 bg-gradient-to-br from-[#2a777a] to-[#236466] text-white">
                   <p className="text-sm opacity-80">Total Commission</p>
-                  <p className="text-3xl font-bold mt-2">${partnerCommissions.reduce((sum, p) => sum + (p.total_commission || 0), 0).toFixed(2)}</p>
+                  <p className="text-3xl font-bold mt-2">₹{partnerCommissions.reduce((sum, p) => sum + (p.total_commission || 0), 0).toLocaleString()}</p>
                 </Card>
                 <Card className="p-4 bg-gradient-to-br from-[#f7620b] to-[#e55a09] text-white">
                   <p className="text-sm opacity-80">Total Revenue</p>
-                  <p className="text-3xl font-bold mt-2">${partnerCommissions.reduce((sum, p) => sum + (p.total_fee || 0), 0).toFixed(2)}</p>
+                  <p className="text-3xl font-bold mt-2">₹{partnerCommissions.reduce((sum, p) => sum + (p.total_fee || 0), 0).toLocaleString()}</p>
                 </Card>
                 <Card className="p-4 bg-gradient-to-br from-purple-500 to-purple-600 text-white">
                   <p className="text-sm opacity-80">Total Partners</p>
@@ -1452,8 +1494,8 @@ const AdminDashboard = () => {
                         <tr key={partner._id} className="border-b hover:bg-slate-50">
                           <td className="p-3 font-medium">{partner.partner_name}</td>
                           <td className="p-3 text-center">{partner.total_sales}</td>
-                          <td className="p-3 text-right">${partner.total_fee?.toFixed(2)}</td>
-                          <td className="p-3 text-right font-bold text-[#2a777a]">${partner.total_commission?.toFixed(2)}</td>
+                          <td className="p-3 text-right">₹{partner.total_fee?.toLocaleString()}</td>
+                          <td className="p-3 text-right font-bold text-[#2a777a]">₹{partner.total_commission?.toLocaleString()}</td>
                           <td className="p-3 text-center">
                             <Button size="sm" variant="outline" onClick={() => { setSalesFilter({ ...salesFilter, partner_id: partner._id }); setActiveTab('total-sales'); }}>
                               <Eye className="h-4 w-4" />
@@ -1464,6 +1506,97 @@ const AdminDashboard = () => {
                     </tbody>
                   </table>
                 </div>
+              </Card>
+
+              {/* Custom Per-Partner Product Commissions */}
+              <Card className="p-6" data-testid="custom-commissions-card">
+                <h3 className="text-lg font-semibold mb-4 text-slate-800 flex items-center gap-2">
+                  <Settings className="h-5 w-5 text-[#f7620b]" />
+                  Custom Product Commissions Per Partner
+                </h3>
+                <p className="text-sm text-slate-500 mb-4">
+                  Set custom commission rates for specific partners on specific products. These override the partner's default rate.
+                </p>
+
+                {/* Add New Custom Commission */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-6 p-4 bg-slate-50 rounded-lg">
+                  <div>
+                    <Label>Partner</Label>
+                    <Select value={newCustomCommission.partner_id} onValueChange={(v) => setNewCustomCommission({ ...newCustomCommission, partner_id: v })}>
+                      <SelectTrigger data-testid="custom-comm-partner-select"><SelectValue placeholder="Select Partner" /></SelectTrigger>
+                      <SelectContent>
+                        {allUsers.filter(u => u.role === 'partner').map(u => (
+                          <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Product</Label>
+                    <Select value={newCustomCommission.product_id} onValueChange={(v) => setNewCustomCommission({ ...newCustomCommission, product_id: v })}>
+                      <SelectTrigger data-testid="custom-comm-product-select"><SelectValue placeholder="Select Product" /></SelectTrigger>
+                      <SelectContent>
+                        {products.map(p => (
+                          <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Commission Rate (%)</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.5"
+                      value={newCustomCommission.commission_rate}
+                      onChange={(e) => setNewCustomCommission({ ...newCustomCommission, commission_rate: parseFloat(e.target.value) || 0 })}
+                      data-testid="custom-comm-rate-input"
+                    />
+                  </div>
+                  <div className="flex items-end">
+                    <Button onClick={saveCustomCommission} className="bg-[#2a777a] hover:bg-[#236466] w-full" data-testid="save-custom-comm-btn">
+                      <Plus className="h-4 w-4 mr-2" /> Save
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Existing Custom Commissions Table */}
+                {customCommissions.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b bg-slate-50">
+                          <th className="text-left p-3">Partner</th>
+                          <th className="text-left p-3">Product</th>
+                          <th className="text-center p-3">Custom Rate</th>
+                          <th className="text-center p-3">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {customCommissions.map((cc, idx) => (
+                          <tr key={idx} className="border-b hover:bg-slate-50">
+                            <td className="p-3 font-medium">{cc.partner_name}</td>
+                            <td className="p-3">{cc.product_name}</td>
+                            <td className="p-3 text-center">
+                              <span className="bg-[#2a777a] text-white px-3 py-1 rounded-full text-xs font-bold">{cc.commission_rate}%</span>
+                            </td>
+                            <td className="p-3 text-center">
+                              <Button size="sm" variant="destructive" onClick={() => deleteCustomCommission(cc.partner_id, cc.product_id)} data-testid={`delete-custom-comm-${idx}`}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-slate-500">
+                    <p>No custom product commissions configured yet.</p>
+                    <p className="text-xs mt-1">All partners are using their default commission rates.</p>
+                  </div>
+                )}
               </Card>
             </div>
           )}
@@ -1510,16 +1643,16 @@ const AdminDashboard = () => {
                           {' | '}Partner: {sale.partner_name}
                         </p>
                         <div className="flex flex-wrap gap-4 mt-1 text-sm">
-                          <span className="text-slate-600">Fee: <span className="font-semibold">${(sale.fee_amount || 0).toLocaleString()}</span></span>
-                          <span className="text-green-700">Received: <span className="font-semibold">${(sale.amount_received || 0).toLocaleString()}</span></span>
+                          <span className="text-slate-600">Fee: <span className="font-semibold">₹{(sale.fee_amount || 0).toLocaleString()}</span></span>
+                          <span className="text-green-700">Received: <span className="font-semibold">₹{(sale.amount_received || 0).toLocaleString()}</span></span>
                           {(sale.pending_amount || 0) > 0 && (
-                            <span className="text-amber-700">Pending: <span className="font-semibold">${(sale.pending_amount || 0).toLocaleString()}</span></span>
+                            <span className="text-amber-700">Pending: <span className="font-semibold">₹{(sale.pending_amount || 0).toLocaleString()}</span></span>
                           )}
                           <span className="text-slate-600">Payment: {sale.payment_method} {sale.payment_reference ? `(${sale.payment_reference})` : ''}</span>
                         </div>
                         {sale.commission_rate > 0 && (
                           <p className="text-sm text-slate-600 mt-1">
-                            Commission: {sale.commission_rate}% of received = <span className="font-semibold text-[#2a777a]">${(sale.commission_amount || 0).toFixed(2)}</span>
+                            Commission: {sale.commission_rate}% of received = <span className="font-semibold text-[#2a777a]">₹{(sale.commission_amount || 0).toLocaleString()}</span>
                           </p>
                         )}
                         {sale.rejection_reason && (
@@ -1747,7 +1880,7 @@ const AdminDashboard = () => {
                           <h3 className="text-lg font-semibold text-slate-800">{product.name}</h3>
                           <p className="text-sm text-slate-600">{product.description}</p>
                           <div className="flex items-center gap-4 mt-2">
-                            <p className="text-sm text-slate-600">Fee: <span className="font-medium">${product.fee}</span></p>
+                            <p className="text-sm text-slate-600">Fee: <span className="font-medium">₹{product.fee?.toLocaleString() || product.base_fee?.toLocaleString()}</span></p>
                             <p className="text-sm text-slate-600">Commission: <span className="font-medium">{product.commission_rate}%</span></p>
                             <Badge variant="outline" className="text-xs">{product.commission_type === 'fixed' ? 'Fixed %' : product.commission_type === 'tiered' ? 'Tiered' : 'Custom'}</Badge>
                           </div>

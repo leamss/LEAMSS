@@ -17,7 +17,14 @@ async def get_settings(current_user: dict = Depends(get_current_user)):
         "require_document_verification": True,
         "auto_assign_case_manager": False,
         "allow_case_manager_workflow_customization": False,
-        "base_currency": "USD",
+        "base_currency": "INR",
+        "exchange_rates": {
+            "USD": 83.50,
+            "AUD": 55.00,
+            "CAD": 62.00,
+            "GBP": 106.00,
+            "EUR": 91.00
+        },
         "exchange_rate_usd_to_inr": 83.50,
         "show_dual_currency": True
     }
@@ -36,12 +43,16 @@ async def update_settings(data: dict, current_user: dict = Depends(get_current_u
 
 @router.get("/exchange-rate")
 async def get_exchange_rate(current_user: dict = Depends(get_current_user)):
-    """Get current USD to INR exchange rate"""
+    """Get current exchange rates (base currency is INR)"""
     settings = await settings_col.find_one({"key": "global"}, {"_id": 0})
-    rate = settings.get("exchange_rate_usd_to_inr", 83.50) if settings else 83.50
+    default_rates = {"USD": 83.50, "AUD": 55.00, "CAD": 62.00, "GBP": 106.00, "EUR": 91.00}
+    rates = settings.get("exchange_rates", default_rates) if settings else default_rates
+    # Backward compat
+    usd_rate = rates.get("USD", settings.get("exchange_rate_usd_to_inr", 83.50) if settings else 83.50)
     return {
-        "base_currency": "USD",
+        "base_currency": "INR",
+        "exchange_rates": rates,
+        "rate": usd_rate,
         "target_currency": "INR",
-        "rate": rate,
         "show_dual_currency": settings.get("show_dual_currency", True) if settings else True
     }

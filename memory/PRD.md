@@ -1,62 +1,105 @@
-# LEAMSS Immigration Portal - PRD
+# LEAMSS Immigration Portal — PRD
 
-**Version:** 6.0 (MongoDB) | **Updated:** April 3, 2026 | **Status:** Production Ready
+## Original Problem Statement
+Build a comprehensive immigration services portal (LEAMSS) with role-based dashboards for Admin, Case Manager, Partner, and Client. The portal handles sales tracking, case management, document processing, ticketing, commission tracking, and payment collection.
 
-## Problem Statement
-Comprehensive immigration service portal with Admin, Case Manager, Partner, Client roles. User uploaded a 30-point PRD across 3 phases.
+## Tech Stack
+- **Frontend**: React, TailwindCSS, Shadcn UI
+- **Backend**: FastAPI (Python), MongoDB (Motor async driver)
+- **Auth**: JWT-based custom authentication
 
-## Architecture
-- **Backend:** Python FastAPI + MongoDB (motor async driver)
-- **Frontend:** React + TailwindCSS + Shadcn UI
-- **Database:** MongoDB (auto-seeds on startup)
+## User Personas
+- **Admin**: Full system access, user management, commission config, reports
+- **Case Manager**: Case workflows, document review, ticket management
+- **Partner**: Sale booking, commission tracking, support tickets
+- **Client**: Case status, document upload/download, support tickets, info sheet
 
-## Implemented Features
+## Core Requirements
+1. Role-based authentication and dashboards
+2. Sales management with multi-currency support (INR base)
+3. Case workflow with step-by-step progression
+4. Document management with upload/download/review
+5. Ticketing system with real-time visibility
+6. Commission tracking (global, per-partner, per-product)
+7. Analytics dashboard and reporting
+8. Activity logging
 
-### Core
-- JWT auth, 4 roles (admin, case_manager, partner, client), admin impersonation
-- Role-based dashboards, Products & Workflow CRUD, User management
-- Sales CRUD, Cases, Documents, Tickets, Notifications, Activity Logs, Analytics, Global Search
+---
 
-### Phase 1 Critical Fixes (COMPLETED)
-1. Commission on Amount Received (not fee_amount)
-2. Mandatory Rejection Reason for sales (min 5 chars)
-3. Ticket Closure Comments required (min 10 chars)
-4. Workflow Duplicate Step Prevention (case-insensitive)
-5. Sales Report: Service Type, Date, Received, Pending, Rejection Reason columns
-6. Record Payment endpoint for partial payments
-7. Dashboard stats: Received/Pending breakdown
+## What's Been Implemented
 
-### Phase 2 Features (COMPLETED)
-1. Commission Effective Date — tracked in commission_rate_history with effective_from
-2. Client Ticket Routing — auto-routes by category, admin can reassign
-3. Refund Module — auto-adjusts commission, full CRUD at /api/refunds
-4. Currency Conversion (USD/INR) — configurable exchange rate, dual display toggle
-5. Payment Collection Tracker Widget — overdue/due_soon/upcoming color-coded
+### Phase 1 — Core Features (DONE)
+- [x] JWT auth with 4 roles (admin, case_manager, partner, client)
+- [x] Admin Dashboard (users, products, cases, sales, tickets, refunds, analytics, settings)
+- [x] Partner Dashboard (sales booking, commissions, support)
+- [x] Case Manager Dashboard (case management, document review, batch operations)
+- [x] Client Dashboard (case status, documents, tickets, info sheet)
+- [x] Global search
+- [x] Activity log UI
+- [x] N+1 query optimizations
 
-### P1: Case Manager Document Privileges (COMPLETED)
-1. View, approve, reject, revision_required with mandatory comment on rejection/revision (min 5 chars)
-2. Batch approve/reject — select multiple docs, bulk action
-3. Request additional docs via auto-ticket creation to client
-4. Search & filter by query, type, status
-5. Uploader name & reviewer comments visible in table + case detail
-6. Review dialog with View File download button
-7. N+1 queries optimized in documents, sales, cases, reports
+### Phase 1 — Bug Fixes (DONE - April 3, 2026)
+- [x] Document download (doc.file_id → doc.id)
+- [x] Date formatting (doc.upload_date → doc.uploaded_at)
+- [x] Ticket visibility (/my-tickets endpoint, broadened query)
+- [x] Ticket field names (created_by_name, created_by_role, user_name, user_role)
+- [x] Resolution note validation UX (focus, scroll, clearer messaging)
+- [x] Client Information Sheet tab visibility
 
-## Remaining Backlog
+### Phase 1 — Advanced Features (DONE - April 3, 2026)
+- [x] Per-partner per-product custom commission rates (CRUD API + Admin UI)
+- [x] INR base currency with multi-currency support (USD, AUD, CAD, GBP, EUR)
+- [x] Exchange rate configuration in settings
+- [x] Currency selector in Partner sale form
+- [x] Auto-conversion to INR at booking time
+- [x] ₹ (INR) currency display across all dashboards
+- [x] Commission calculation on amount_received (not fee_amount)
+- [x] Mandatory ticket closure comments and rejection reasons
+- [x] Dual currency toggle (legacy)
+- [x] Refunds UI and backend logic
+- [x] Payment Collection Tracker widget
+- [x] Case Manager Document Privileges (batch approve/reject, mandatory rejection comments)
 
-### P1 - High Priority
-- CRM & Lead Management (pipeline, source tracking, follow-up reminders)
-- Notification System (Email, SMS, WhatsApp alerts, trigger-based)
+---
 
-### P2 - Medium Priority
-- PDF Report Generation
-- Bulk Document Upload
-- Email Notifications via SMTP
+## Prioritized Backlog
 
-### P3 - Future
-- AI Document Verification, OCR, AI Chatbot
-- Drag-and-drop Workflow Builder
-- Mobile Applications
-- Marketing (referrals, promo codes)
-- SMS (Twilio), Calendar, WhatsApp
-- Stripe Payment Gateway
+### P1 — In Progress / Next
+- [ ] CRM & Lead Management (lead pipeline, source tracking, follow-up reminders)
+- [ ] Notification System (email/SMS/WhatsApp alerts for key events)
+- [ ] Email service integration (currently scaffolded but not triggered)
+
+### P2 — Planned
+- [ ] PDF Report Generation (export sales, cases, commissions)
+- [ ] Bulk Document Upload
+- [ ] AI Document Verification / OCR
+- [ ] Activity log injection into business logic (create sale, update case, approve document)
+- [ ] Stripe Payment Gateway integration
+
+### P3 — Future
+- [ ] Drag-and-drop Workflow Builder
+- [ ] Mobile Applications (client + staff)
+- [ ] Marketing Features (referral system, promo codes)
+- [ ] SMS Notifications via Twilio
+- [ ] Google Calendar integration for deadlines
+- [ ] AI Chatbot for client queries
+
+---
+
+## Key API Endpoints
+- `POST /api/auth/login` — JWT login
+- `GET /api/sales`, `POST /api/sales` — Sales CRUD (supports currency field)
+- `GET /api/cases/my-cases` — Client cases
+- `GET /api/documents/case/{case_id}` — Case documents
+- `GET /api/documents/download/{file_id}` — File download
+- `GET /api/tickets/my-tickets` — User's tickets (created + targeted)
+- `POST /api/partner-commissions` — Set custom commission
+- `GET /api/partner-commissions/resolve/{partner_id}/{product_id}` — Resolve effective rate
+- `GET /api/settings/exchange-rate` — Multi-currency rates
+- `GET /api/analytics/dashboard` — Analytics data
+- `GET /api/search` — Global search
+
+## Database Collections (MongoDB)
+- `users`, `products`, `workflow_steps`, `sales`, `cases`, `case_steps`
+- `documents`, `tickets`, `ticket_messages`, `notifications`
+- `audit_logs`, `refunds`, `settings`, `partner_product_commissions`

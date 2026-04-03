@@ -78,7 +78,8 @@ const PartnerDashboard = () => {
     amount_received: 0,
     payment_method: 'bank_transfer',
     payment_reference: '',
-    agreement_signed: true
+    agreement_signed: true,
+    currency: 'INR'
   });
   const [uploadFiles, setUploadFiles] = useState({
     payment_receipt: null,
@@ -236,6 +237,7 @@ const PartnerDashboard = () => {
       formData.append('payment_method', newSale.payment_method);
       formData.append('payment_reference', newSale.payment_reference);
       formData.append('agreement_signed', newSale.agreement_signed.toString());
+      formData.append('currency', newSale.currency || 'INR');
       if (newSale.collection_deadline) {
         formData.append('collection_deadline', newSale.collection_deadline);
       }
@@ -266,7 +268,8 @@ const PartnerDashboard = () => {
         payment_method: 'bank_transfer',
         payment_reference: '',
         agreement_signed: true,
-        collection_deadline: ''
+        collection_deadline: '',
+        currency: 'INR'
       });
       setUploadFiles({ payment_receipt: null, agreement: null, passport: null });
       loadData();
@@ -433,7 +436,7 @@ const PartnerDashboard = () => {
                         <Label>Product</Label>
                         <Select value={newSale.product_id} onValueChange={(value) => {
                           const product = products.find(p => p.id === value);
-                          setNewSale({ ...newSale, product_id: value, fee_amount: product?.fee || 0 });
+                          setNewSale({ ...newSale, product_id: value, fee_amount: product?.fee || product?.base_fee || 0 });
                         }}>
                           <SelectTrigger data-testid="product-select">
                             <SelectValue placeholder="Select product" />
@@ -441,27 +444,46 @@ const PartnerDashboard = () => {
                           <SelectContent>
                             {products.map((product) => (
                               <SelectItem key={product.id} value={product.id}>
-                                {product.name} - ${product.fee}
+                                {product.name} - {product.base_fee ? `₹${product.base_fee.toLocaleString()}` : `$${product.fee}`}
                               </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       </div>
                       <div>
-                        <Label>Fee Amount</Label>
+                        <Label>Currency</Label>
+                        <Select value={newSale.currency} onValueChange={(value) => setNewSale({ ...newSale, currency: value })}>
+                          <SelectTrigger data-testid="currency-select">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="INR">INR (₹) - Indian Rupee</SelectItem>
+                            <SelectItem value="USD">USD ($) - US Dollar</SelectItem>
+                            <SelectItem value="AUD">AUD (A$) - Australian Dollar</SelectItem>
+                            <SelectItem value="CAD">CAD (C$) - Canadian Dollar</SelectItem>
+                            <SelectItem value="GBP">GBP (£) - British Pound</SelectItem>
+                            <SelectItem value="EUR">EUR (€) - Euro</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {newSale.currency !== 'INR' && (
+                          <p className="text-xs text-amber-600 mt-1">Amount will be converted to INR at current exchange rate</p>
+                        )}
+                      </div>
+                      <div>
+                        <Label>Fee Amount ({newSale.currency || 'INR'})</Label>
                         <Input
                           type="number"
                           value={newSale.fee_amount}
-                          onChange={(e) => setNewSale({ ...newSale, fee_amount: parseFloat(e.target.value) })}
+                          onChange={(e) => setNewSale({ ...newSale, fee_amount: parseFloat(e.target.value) || 0 })}
                           data-testid="fee-amount-input"
                         />
                       </div>
                       <div>
-                        <Label>Amount Received</Label>
+                        <Label>Amount Received ({newSale.currency || 'INR'})</Label>
                         <Input
                           type="number"
                           value={newSale.amount_received}
-                          onChange={(e) => setNewSale({ ...newSale, amount_received: parseFloat(e.target.value) })}
+                          onChange={(e) => setNewSale({ ...newSale, amount_received: parseFloat(e.target.value) || 0 })}
                           data-testid="amount-received-input"
                         />
                       </div>
@@ -566,7 +588,7 @@ const PartnerDashboard = () => {
                 </Card>
                 <Card className="p-6 border-l-4 border-l-[#f7620b]">
                   <p className="text-sm text-slate-600 font-medium">Total Commission</p>
-                  <p className="text-3xl font-bold text-slate-900 mt-2">${stats.total_commission?.toFixed(2) || 0}</p>
+                  <p className="text-3xl font-bold text-slate-900 mt-2">₹{stats.total_commission?.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0}) || 0}</p>
                 </Card>
               </div>
               
@@ -599,10 +621,13 @@ const PartnerDashboard = () => {
                       <p className="text-sm text-slate-600">{sale.client_email} | {sale.client_mobile}</p>
                       <p className="text-sm text-slate-600 mt-2">Product: {sale.product_name} <span className="text-xs text-slate-400 capitalize">({sale.product_category || 'N/A'})</span></p>
                       <div className="flex flex-wrap gap-4 mt-1 text-sm">
-                        <span className="text-slate-600">Fee: <span className="font-semibold">${(sale.fee_amount || 0).toLocaleString()}</span></span>
-                        <span className="text-green-700">Received: <span className="font-semibold">${(sale.amount_received || 0).toLocaleString()}</span></span>
+                        <span className="text-slate-600">Fee: <span className="font-semibold">₹{(sale.fee_amount || 0).toLocaleString()}</span></span>
+                        <span className="text-green-700">Received: <span className="font-semibold">₹{(sale.amount_received || 0).toLocaleString()}</span></span>
                         {(sale.pending_amount || 0) > 0 && (
-                          <span className="text-amber-700">Pending: <span className="font-semibold">${(sale.pending_amount || 0).toLocaleString()}</span></span>
+                          <span className="text-amber-700">Pending: <span className="font-semibold">₹{(sale.pending_amount || 0).toLocaleString()}</span></span>
+                        )}
+                        {sale.original_currency && sale.original_currency !== 'INR' && (
+                          <span className="text-blue-600 text-xs">(Original: {sale.original_currency} {(sale.original_fee_amount || 0).toLocaleString()} @ {sale.exchange_rate_used})</span>
                         )}
                       </div>
                       <p className="text-sm text-slate-600">Payment: {sale.payment_method} {sale.payment_reference ? `- ${sale.payment_reference}` : ''}</p>
@@ -617,7 +642,7 @@ const PartnerDashboard = () => {
                       </span>
                       {sale.status === 'approved' && (
                         <p className="text-sm text-emerald-600 font-semibold mt-2">
-                          Commission ({sale.commission_rate}% of received): ${(sale.commission_amount || 0).toFixed(2)}
+                          Commission ({sale.commission_rate}% of received): ₹{(sale.commission_amount || 0).toLocaleString()}
                         </p>
                       )}
                     </div>
@@ -667,7 +692,7 @@ const PartnerDashboard = () => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Card className="p-6 bg-gradient-to-br from-[#2a777a] to-[#236466] text-white">
                   <p className="text-sm opacity-80">Total Commission</p>
-                  <p className="text-3xl font-bold mt-2">${filteredCommissions.reduce((sum, s) => sum + (s.commission_amount || 0), 0).toFixed(2)}</p>
+                  <p className="text-3xl font-bold mt-2">₹{filteredCommissions.reduce((sum, s) => sum + (s.commission_amount || 0), 0).toLocaleString()}</p>
                 </Card>
                 <Card className="p-6 bg-gradient-to-br from-emerald-500 to-emerald-600 text-white">
                   <p className="text-sm opacity-80">Approved Sales</p>
@@ -675,7 +700,7 @@ const PartnerDashboard = () => {
                 </Card>
                 <Card className="p-6 bg-gradient-to-br from-amber-500 to-amber-600 text-white">
                   <p className="text-sm opacity-80">Total Revenue Generated</p>
-                  <p className="text-3xl font-bold mt-2">${filteredCommissions.reduce((sum, s) => sum + (s.fee_amount || 0), 0).toFixed(2)}</p>
+                  <p className="text-3xl font-bold mt-2">₹{filteredCommissions.reduce((sum, s) => sum + (s.fee_amount || 0), 0).toLocaleString()}</p>
                 </Card>
               </div>
               
@@ -704,17 +729,17 @@ const PartnerDashboard = () => {
                             <td className="p-3">{new Date(sale.created_at).toLocaleDateString()}</td>
                             <td className="p-3 font-medium">{sale.client_name}</td>
                             <td className="p-3">{sale.product_name}</td>
-                            <td className="p-3 text-right">${(sale.fee_amount || 0).toLocaleString()}</td>
-                            <td className="p-3 text-right text-green-700">${(sale.amount_received || 0).toLocaleString()}</td>
+                            <td className="p-3 text-right">₹{(sale.fee_amount || 0).toLocaleString()}</td>
+                            <td className="p-3 text-right text-green-700">₹{(sale.amount_received || 0).toLocaleString()}</td>
                             <td className="p-3 text-right">{sale.commission_rate}%</td>
-                            <td className="p-3 text-right font-bold text-emerald-600">${(sale.commission_amount || 0).toFixed(2)}</td>
+                            <td className="p-3 text-right font-bold text-emerald-600">₹{(sale.commission_amount || 0).toLocaleString()}</td>
                           </tr>
                         ))}
                       </tbody>
                       <tfoot>
                         <tr className="bg-slate-100 font-bold">
                           <td colSpan={6} className="p-3 text-right">Total:</td>
-                          <td className="p-3 text-right text-emerald-600">${filteredCommissions.reduce((sum, s) => sum + (s.commission_amount || 0), 0).toFixed(2)}</td>
+                          <td className="p-3 text-right text-emerald-600">₹{filteredCommissions.reduce((sum, s) => sum + (s.commission_amount || 0), 0).toLocaleString()}</td>
                         </tr>
                       </tfoot>
                     </table>

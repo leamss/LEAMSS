@@ -26,6 +26,7 @@ settings_col = db["settings"]
 information_sheets_col = db["information_sheets"]
 payment_transactions_col = db["payment_transactions"]
 refunds_col = db["refunds"]
+partner_product_commissions_col = db["partner_product_commissions"]
 
 
 async def init_db():
@@ -44,4 +45,7 @@ async def init_db():
     await notifications_col.create_index("user_id")
     await information_sheets_col.create_index("case_id", unique=True)
     await refunds_col.create_index("sale_id")
+    await db["partner_product_commissions"].create_index(
+        [("partner_id", 1), ("product_id", 1)], unique=True
+    )
     print("Database indexes created")

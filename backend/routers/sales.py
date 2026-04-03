@@ -3,7 +3,8 @@ from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form
 from typing import List, Optional
 from core.database import (
     sales_col, sale_documents_col, users_col, products_col,
-    cases_col, case_steps_col, workflow_steps_col, notifications_col, audit_logs_col
+    cases_col, case_steps_col, workflow_steps_col, notifications_col, audit_logs_col,
+    partner_product_commissions_col, settings_col
 )
 from core.auth import get_current_user, get_password_hash
 from pydantic import BaseModel
@@ -48,6 +49,11 @@ def _serialize_sale(sale):
     fee = s.get("fee_amount", 0) or 0
     received = s.get("amount_received", 0) or 0
     s["pending_amount"] = round(fee - received, 2)
+    # Ensure currency fields present
+    s.setdefault("original_currency", "INR")
+    s.setdefault("exchange_rate_used", 1.0)
+    s.setdefault("original_fee_amount", fee)
+    s.setdefault("original_amount_received", received)
     return s
 
 
@@ -170,6 +176,7 @@ async def create_sale(
     commission_rate: Optional[float] = Form(None),
     collection_deadline: Optional[str] = Form(None),
     agreement_signed: bool = Form(True),
+    currency: str = Form("INR"),
     documents: List[UploadFile] = File(None),
     current_user: dict = Depends(get_current_user)
 ):
@@ -177,9 +184,37 @@ async def create_sale(
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
     
-    rate = commission_rate if commission_rate is not None else current_user.get("commission_rate", 0)
-    received = amount_received or 0
-    # Commission calculated on amount_received, NOT fee_amount
+    # --- Resolve commission rate ---
+    # Priority: explicit form value > custom per-partner-product > partner default > global default
+    if commission_rate is not None:
+        rate = commission_rate
+    else:
+        custom = await partner_product_commissions_col.find_one(
+            {"partner_id": current_user["id"], "product_id": product_id}, {"_id": 0}
+        )
+        if custom:
+            rate = custom["commission_rate"]
+        else:
+            rate = current_user.get("commission_rate", 0)
+    
+    # --- Currency conversion to INR ---
+    original_currency = currency.upper() if currency else "INR"
+    original_fee = fee_amount
+    original_received = amount_received or 0
+    exchange_rate_used = 1.0  # default for INR
+    
+    if original_currency != "INR":
+        settings = await settings_col.find_one({"key": "global"}, {"_id": 0})
+        default_rates = {"USD": 83.50, "AUD": 55.00, "CAD": 62.00, "GBP": 106.00, "EUR": 91.00}
+        rates = settings.get("exchange_rates", default_rates) if settings else default_rates
+        exchange_rate_used = rates.get(original_currency, 1.0)
+        fee_amount = round(original_fee * exchange_rate_used, 2)
+        amount_received_inr = round(original_received * exchange_rate_used, 2)
+    else:
+        amount_received_inr = original_received
+    
+    received = amount_received_inr
+    # Commission calculated on amount_received in INR
     commission = round(received * (rate / 100), 2) if rate else 0
     pending = round(fee_amount - received, 2)
     
@@ -205,9 +240,14 @@ async def create_sale(
         "client_mobile": client_mobile, "product_id": product_id,
         "fee_amount": fee_amount, "amount_received": received,
         "pending_amount": pending,
+        "original_currency": original_currency,
+        "original_fee_amount": original_fee,
+        "original_amount_received": original_received,
+        "exchange_rate_used": exchange_rate_used,
         "payment_method": payment_method, "payment_reference": payment_reference,
         "commission_rate": rate,
         "commission_amount": commission,
+        "commission_source": "custom_product" if commission_rate is None and (await partner_product_commissions_col.find_one({"partner_id": current_user["id"], "product_id": product_id})) else "partner_default",
         "collection_deadline": deadline_dt,
         "agreement_signed": agreement_signed, "status": "pending",
         "payment_status": pay_status,

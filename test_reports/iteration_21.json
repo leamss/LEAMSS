@@ -1,0 +1,42 @@
+{
+  "iteration": 21,
+  "timestamp": "2026-04-03T12:50:00Z",
+  "test_type": "self_test_curl_plus_screenshots",
+  "test_summary": "P0 bug fixes + P1 features (custom commissions, INR currency)",
+  "results": {
+    "backend": {
+      "total": 12,
+      "passed": 12,
+      "failed": 0,
+      "tests": [
+        {"name": "Login - all 4 roles", "status": "PASS"},
+        {"name": "GET /api/tickets/my-tickets - returns tickets with created_by_name, created_by_role", "status": "PASS"},
+        {"name": "GET /api/tickets/{id} - detail returns created_by_name, created_by_role, messages", "status": "PASS"},
+        {"name": "POST /api/partner-commissions - sets custom rate 20%", "status": "PASS"},
+        {"name": "GET /api/partner-commissions - returns all mappings with names", "status": "PASS"},
+        {"name": "GET /api/partner-commissions/resolve - returns rate and source", "status": "PASS"},
+        {"name": "DELETE /api/partner-commissions - removes custom, falls back to default", "status": "PASS"},
+        {"name": "POST /api/sales with currency=USD - converts 1000 USD to 83500 INR", "status": "PASS"},
+        {"name": "Sale stores original_currency, original_fee_amount, exchange_rate_used", "status": "PASS"},
+        {"name": "Commission calculated on INR received amount", "status": "PASS"},
+        {"name": "GET /api/settings/exchange-rate - returns INR base with multi-currency rates", "status": "PASS"},
+        {"name": "GET /api/documents/case/{id} - returns uploaded_at field", "status": "PASS"}
+      ]
+    },
+    "frontend": {
+      "total": 6,
+      "passed": 6,
+      "failed": 0,
+      "tests": [
+        {"name": "Admin Dashboard - Commissions tab shows ₹ currency", "status": "PASS", "method": "screenshot"},
+        {"name": "Admin Dashboard - Custom Product Commissions section visible with form", "status": "PASS", "method": "screenshot"},
+        {"name": "Admin Dashboard - Existing custom commission (Partner User -> Canada PR: 15%) displayed", "status": "PASS", "method": "screenshot"},
+        {"name": "Partner Dashboard - Total Commission shows ₹33,590", "status": "PASS", "method": "screenshot"},
+        {"name": "Client Dashboard - My Documents shows valid dates", "status": "PASS", "method": "screenshot"},
+        {"name": "Client Dashboard - Support tab shows tickets with names", "status": "PASS", "method": "screenshot"}
+      ]
+    }
+  },
+  "overall": "PASS",
+  "pass_rate": "100%"
+}
