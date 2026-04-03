@@ -13,7 +13,7 @@ from core.database import get_db
 from core.models import (
     Sale, SaleDocument, SaleStatus, User, Product, Case, CaseStep, 
     CaseStepRequirement, WorkflowStep, DocumentRequirement, UserRole, 
-    UserStatus, Notification, PaymentMethod
+    UserStatus, Notification, PaymentMethod, AuditLog
 )
 from core.auth import get_current_user, require_role, get_password_hash
 from core.schemas import SaleApproval
@@ -22,6 +22,13 @@ router = APIRouter(prefix="/sales", tags=["Sales"])
 
 UPLOAD_DIR = os.getenv("UPLOAD_DIR", "./uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+
+async def _log(db, user_id, action, entity_type, entity_id=None, new_value=None):
+    try:
+        db.add(AuditLog(user_id=user_id, action=action, entity_type=entity_type, entity_id=entity_id, new_value=new_value))
+    except Exception:
+        pass
 
 
 def serialize_sale(sale: Sale) -> dict:
@@ -129,7 +136,7 @@ async def create_sale(
     fee_amount: float = Form(...),
     amount_received: float = Form(...),
     payment_method: str = Form("bank_transfer"),
-    payment_reference: str = Form(...),
+    payment_reference: str = Form(""),
     agreement_signed: bool = Form(True),
     documents: List[UploadFile] = File(default=[]),
     current_user: dict = Depends(require_role([UserRole.partner])),
@@ -196,6 +203,8 @@ async def create_sale(
             related_id=sale.id
         )
         db.add(notification)
+    
+    await _log(db, current_user["id"], "create_sale", "sale", sale.id, {"client_name": client_name, "product_id": product_id, "fee_amount": fee_amount})
     
     await db.commit()
     await db.refresh(sale)
@@ -318,6 +327,8 @@ async def approve_sale(
             related_id=sale.id
         )
         db.add(notification)
+    
+    await _log(db, current_user["id"], f"sale_{request.status}", "sale", request.sale_id, {"status": request.status, "client_name": sale.client_name})
     
     await db.commit()
     

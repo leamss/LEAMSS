@@ -5,12 +5,19 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from core.database import get_db
-from core.models import User, UserRole, UserStatus
+from core.models import User, UserRole, UserStatus, AuditLog
 from core.auth import verify_password, get_password_hash, create_access_token, get_current_user
 from core.schemas import LoginRequest, LoginResponse, UserCreate, UserResponse
 from datetime import datetime
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+
+
+async def _log(db, user_id, action, entity_type, entity_id=None, new_value=None):
+    try:
+        db.add(AuditLog(user_id=user_id, action=action, entity_type=entity_type, entity_id=entity_id, new_value=new_value))
+    except Exception:
+        pass
 
 
 @router.post("/login", response_model=LoginResponse)
@@ -32,6 +39,9 @@ async def login(request: LoginRequest, db: AsyncSession = Depends(get_db)):
         )
     
     token = create_access_token({"sub": user.id, "role": user.role.value})
+    
+    await _log(db, user.id, "login", "user", user.id, {"role": user.role.value, "email": user.email, "name": user.name})
+    await db.commit()
     
     return {
         "token": token,

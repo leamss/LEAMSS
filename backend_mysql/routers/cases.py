@@ -10,12 +10,19 @@ from datetime import datetime, date
 from core.database import get_db
 from core.models import (
     Case, CaseStep, CaseStepRequirement, User, Product, Document,
-    AdditionalDocRequest, UserRole, CaseStatus, StepStatus, DocumentStatus, Notification
+    AdditionalDocRequest, UserRole, CaseStatus, StepStatus, DocumentStatus, Notification, AuditLog
 )
 from core.auth import get_current_user, require_role
 from core.schemas import StepUpdate, AdditionalDocRequest as AdditionalDocRequestSchema
 
 router = APIRouter(prefix="/cases", tags=["Cases"])
+
+
+async def _log(db, user_id, action, entity_type, entity_id=None, new_value=None):
+    try:
+        db.add(AuditLog(user_id=user_id, action=action, entity_type=entity_type, entity_id=entity_id, new_value=new_value))
+    except Exception:
+        pass
 
 
 def serialize_case(case: Case) -> dict:
@@ -218,6 +225,7 @@ async def update_step_status(
     
     await db.commit()
     
+    await _log(db, current_user["id"], "update_step", "case", request.case_id, {"step_name": request.step_name, "status": request.status})
     return {"message": "Step updated successfully"}
 
 
@@ -323,6 +331,7 @@ async def assign_case_manager(
     
     await db.commit()
     
+    await _log(db, current_user["id"], "assign_case_manager", "case", case_id, {"case_manager_id": case_manager_id})
     return {"message": "Case manager reassigned successfully"}
 
 

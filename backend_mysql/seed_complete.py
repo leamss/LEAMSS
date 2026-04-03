@@ -62,6 +62,14 @@ with Session(sync_engine) as session:
     # ============ RE-ENABLE FOREIGN KEY CHECKS ============
     session.execute(text("SET FOREIGN_KEY_CHECKS = 1"))
     print("Foreign key checks re-enabled.")
+    
+    # ============ FIX ENUM COLUMNS ============
+    try:
+        session.execute(text("ALTER TABLE sales MODIFY COLUMN payment_method ENUM('cash','bank_transfer','card','cheque','check','upi','online','other') DEFAULT NULL"))
+        print("Payment method enum updated.")
+    except Exception as e:
+        print(f"Enum update skipped: {e}")
+    session.commit()
     print("")
     
     # ============ CREATE USERS ============

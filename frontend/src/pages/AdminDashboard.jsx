@@ -16,7 +16,7 @@ import {
   LayoutDashboard, FileText, Users, Briefcase, LogOut, Plus, 
   Download, Edit, Trash2, UserPlus, Eye, ArrowRight, Settings,
   Search, DollarSign, TrendingUp, CheckCircle, XCircle, Clock,
-  MessageSquare, Filter, Calendar, RefreshCw, AlertTriangle
+  MessageSquare, Filter, Calendar, RefreshCw, AlertTriangle, Copy, Mail
 } from 'lucide-react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -32,6 +32,7 @@ const AdminDashboard = () => {
   const [allUsers, setAllUsers] = useState([]);
   const [caseManagers, setCaseManagers] = useState([]);
   const [allSales, setAllSales] = useState([]);
+  const [salesStatusFilter, setSalesStatusFilter] = useState('all');
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedCase, setSelectedCase] = useState(null);
   const [selectedSale, setSelectedSale] = useState(null);
@@ -810,7 +811,7 @@ const AdminDashboard = () => {
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           {[
             { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-            { id: 'sales', icon: FileText, label: 'Pending Sales' },
+            { id: 'sales', icon: FileText, label: 'Sales' },
             { id: 'total-sales', icon: TrendingUp, label: 'Sales Report' },
             { id: 'commissions', icon: DollarSign, label: 'Commissions' },
             { id: 'cases', icon: Briefcase, label: 'All Cases' },
@@ -1267,29 +1268,58 @@ const AdminDashboard = () => {
           {/* Pending Sales Tab */}
           {activeTab === 'sales' && (
             <div className="space-y-4" data-testid="sales-content">
-              {pendingSales.length === 0 ? (
+              {/* Sales filter tabs */}
+              <div className="flex gap-2 mb-4">
+                {['all', 'pending', 'approved', 'rejected'].map(filter => (
+                  <Button key={filter} size="sm" variant={salesStatusFilter === filter ? 'default' : 'outline'}
+                    className={salesStatusFilter === filter ? 'bg-[#2a777a] text-white' : ''}
+                    onClick={() => setSalesStatusFilter(filter)} data-testid={`sales-filter-${filter}`}>
+                    {filter.charAt(0).toUpperCase() + filter.slice(1)} ({filter === 'all' ? allSales.length : allSales.filter(s => s.status === filter).length})
+                  </Button>
+                ))}
+              </div>
+              
+              {(salesStatusFilter === 'all' ? allSales : allSales.filter(s => s.status === salesStatusFilter)).length === 0 ? (
                 <Card className="p-12 text-center">
                   <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
-                  <p className="text-slate-600">No pending sales to approve</p>
+                  <p className="text-slate-600">No {salesStatusFilter !== 'all' ? salesStatusFilter : ''} sales found</p>
                 </Card>
               ) : (
-                pendingSales.map((sale) => (
+                (salesStatusFilter === 'all' ? allSales : allSales.filter(s => s.status === salesStatusFilter)).map((sale) => (
                   <Card key={sale.id} className="p-6" data-testid={`sale-card-${sale.id}`}>
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
-                        <h3 className="text-lg font-semibold text-slate-800">{sale.client_name}</h3>
+                        <div className="flex items-center gap-3 mb-1">
+                          <h3 className="text-lg font-semibold text-slate-800">{sale.client_name}</h3>
+                          <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
+                            sale.status === 'approved' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                            sale.status === 'rejected' ? 'bg-red-50 text-red-700 border-red-200' :
+                            'bg-amber-50 text-amber-700 border-amber-200'
+                          }`}>{sale.status}</span>
+                        </div>
                         <p className="text-sm text-slate-600">{sale.client_email} | {sale.client_mobile}</p>
-                        <p className="text-sm text-slate-600 mt-2">Product: <span className="font-medium">{sale.product_name}</span></p>
-                        <p className="text-sm text-slate-600">Fee: ${sale.fee_amount} | Partner: {sale.partner_name}</p>
+                        <p className="text-sm text-slate-600 mt-1">Product: <span className="font-medium">{sale.product_name}</span> | Partner: {sale.partner_name}</p>
+                        <p className="text-sm text-slate-600">Fee: ${sale.fee_amount} | Payment: {sale.payment_method} {sale.payment_reference ? `(${sale.payment_reference})` : ''}</p>
+                        {sale.commission_rate > 0 && <p className="text-sm text-slate-600">Commission: {sale.commission_rate}% = ${(sale.commission_amount || 0).toFixed(2)}</p>}
+                        <p className="text-xs text-slate-400 mt-1">Created: {new Date(sale.created_at).toLocaleString()}</p>
                       </div>
                       <div className="flex flex-col gap-2">
-                        <Button onClick={() => viewSaleDocuments(sale)} size="sm" className="bg-[#2a777a] hover:bg-[#236466] text-white" data-testid={`view-docs-${sale.id}`}>
-                          <Eye className="mr-2 h-4 w-4" />View Documents
-                        </Button>
-                        <Button onClick={() => handleApproveSale(sale.id, 'approved', null)} size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" data-testid={`approve-sale-${sale.id}`}>
-                          <CheckCircle className="mr-2 h-4 w-4" />Approve Sale
-                        </Button>
-                        <Button onClick={() => handleApproveSale(sale.id, 'rejected', null)} variant="destructive" size="sm" data-testid={`reject-sale-${sale.id}`}>Reject</Button>
+                        {sale.status === 'pending' && (
+                          <>
+                            <Button onClick={() => viewSaleDocuments(sale)} size="sm" className="bg-[#2a777a] hover:bg-[#236466] text-white" data-testid={`view-docs-${sale.id}`}>
+                              <Eye className="mr-2 h-4 w-4" />View Docs
+                            </Button>
+                            <Button onClick={() => handleApproveSale(sale.id, 'approved', null)} size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" data-testid={`approve-sale-${sale.id}`}>
+                              <CheckCircle className="mr-2 h-4 w-4" />Approve
+                            </Button>
+                            <Button onClick={() => handleApproveSale(sale.id, 'rejected', null)} variant="destructive" size="sm" data-testid={`reject-sale-${sale.id}`}>Reject</Button>
+                          </>
+                        )}
+                        {sale.status === 'approved' && (
+                          <Button onClick={() => viewSaleDocuments(sale)} size="sm" variant="outline" data-testid={`view-docs-${sale.id}`}>
+                            <Eye className="mr-2 h-4 w-4" />View Docs
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </Card>
@@ -2160,6 +2190,7 @@ const AdminDashboard = () => {
           <DialogHeader><DialogTitle>Client Login Credentials Created</DialogTitle></DialogHeader>
           <div className="space-y-4 py-4">
             {clientCredentialsDialog.credentials && (
+              <>
               <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                 <p className="text-sm font-medium text-green-800 mb-3">{clientCredentialsDialog.credentials.message}</p>
                 <div className="space-y-2">
@@ -2176,8 +2207,33 @@ const AdminDashboard = () => {
                     <code className="bg-white px-2 py-1 rounded text-sm font-mono border">{clientCredentialsDialog.credentials.password}</code>
                   </div>
                 </div>
-                <p className="text-xs text-green-600 mt-3">Please share these credentials with the client. They can change the password after first login.</p>
               </div>
+              <div className="border-t pt-3">
+                <p className="text-sm font-medium text-slate-700 mb-2">Share credentials via:</p>
+                <div className="grid grid-cols-3 gap-2">
+                  <Button variant="outline" size="sm" data-testid="copy-credentials-btn" onClick={() => {
+                    const text = `LEAMSS Portal Credentials\nName: ${clientCredentialsDialog.credentials.name}\nEmail: ${clientCredentialsDialog.credentials.email}\nPassword: ${clientCredentialsDialog.credentials.password}\nLogin: ${window.location.origin}`;
+                    navigator.clipboard.writeText(text);
+                    toast.success('Credentials copied to clipboard!');
+                  }}>
+                    <Copy className="h-4 w-4 mr-1" />Copy
+                  </Button>
+                  <Button variant="outline" size="sm" data-testid="email-credentials-btn" onClick={() => {
+                    const subject = encodeURIComponent('Your LEAMSS Portal Login Credentials');
+                    const body = encodeURIComponent(`Dear ${clientCredentialsDialog.credentials.name},\n\nYour LEAMSS Portal login credentials:\n\nEmail: ${clientCredentialsDialog.credentials.email}\nPassword: ${clientCredentialsDialog.credentials.password}\n\nLogin URL: ${window.location.origin}\n\nPlease change your password after first login.\n\nRegards,\nLEAMSS Team`);
+                    window.open(`mailto:${clientCredentialsDialog.credentials.email}?subject=${subject}&body=${body}`);
+                  }}>
+                    <Mail className="h-4 w-4 mr-1" />Email
+                  </Button>
+                  <Button variant="outline" size="sm" data-testid="whatsapp-credentials-btn" onClick={() => {
+                    const text = encodeURIComponent(`*LEAMSS Portal Credentials*\nName: ${clientCredentialsDialog.credentials.name}\nEmail: ${clientCredentialsDialog.credentials.email}\nPassword: ${clientCredentialsDialog.credentials.password}\nLogin: ${window.location.origin}`);
+                    window.open(`https://wa.me/?text=${text}`, '_blank');
+                  }}>
+                    <MessageSquare className="h-4 w-4 mr-1" />WhatsApp
+                  </Button>
+                </div>
+              </div>
+              </>
             )}
             <Button onClick={() => setClientCredentialsDialog({ open: false, credentials: null })} className="w-full bg-[#2a777a] hover:bg-[#236466] text-white">Done</Button>
           </div>

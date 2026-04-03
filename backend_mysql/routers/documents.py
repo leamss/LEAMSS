@@ -14,7 +14,7 @@ import io
 from core.database import get_db
 from core.models import (
     Document, Case, CaseStep, CaseStepRequirement, AdditionalDocRequest,
-    User, UserRole, DocumentStatus, Notification
+    User, UserRole, DocumentStatus, Notification, AuditLog
 )
 from core.auth import get_current_user, require_role
 from core.schemas import DocumentReview
@@ -23,6 +23,13 @@ router = APIRouter(prefix="/documents", tags=["Documents"])
 
 UPLOAD_DIR = os.getenv("UPLOAD_DIR", "./uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+
+async def _log(db, user_id, action, entity_type, entity_id=None, new_value=None):
+    try:
+        db.add(AuditLog(user_id=user_id, action=action, entity_type=entity_type, entity_id=entity_id, new_value=new_value))
+    except Exception:
+        pass
 
 
 def serialize_document(doc: Document, uploader_name: str = None) -> dict:
@@ -128,6 +135,9 @@ async def upload_document(
     
     db.add(document)
     
+    # Log activity
+    await _log(db, current_user["id"], "upload_document", "document", document.id, {"filename": file.filename, "case_id": case_id, "step_name": step_name})
+    
     # Notify case manager
     if case.case_manager_id:
         notification = Notification(
@@ -168,6 +178,8 @@ async def review_document(
     document.review_comment = request.comment
     document.reviewed_by = current_user["id"]
     document.reviewed_at = datetime.utcnow()
+    
+    await _log(db, current_user["id"], f"review_document_{request.status}", "document", request.document_id, {"filename": document.filename, "status": request.status})
     
     # Notify client
     if document.case and document.case.client:

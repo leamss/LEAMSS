@@ -42,7 +42,9 @@ class PaymentMethod(enum.Enum):
     bank_transfer = "bank_transfer"
     card = "card"
     cheque = "cheque"
+    check = "check"
     upi = "upi"
+    online = "online"
     other = "other"
 
 
