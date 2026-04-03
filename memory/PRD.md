@@ -1,116 +1,57 @@
-# LEAMSS Immigration Portal - Product Requirements Document
+# LEAMSS Immigration Portal - PRD
 
-**Current Version:** 2.3 (All Features Fixed + New Features)
-**Last Updated:** April 2, 2026
-**Status:** Production Ready
+**Version:** 2.4 | **Updated:** April 3, 2026 | **Status:** Production Ready
 
----
+## Problem Statement
+Comprehensive immigration service portal with Admin, Case Manager, Partner, Client roles on FastAPI + MySQL + React.
 
-## 1. Original Problem Statement
-Build a comprehensive immigration service portal (LEAMSS Portal) supporting Admin, Case Manager, Partner, and Client roles. Migrated from MongoDB to MySQL. Features include role-based dashboards, multi-step case workflows, document management, ticketing, analytics, and payment processing.
-
-## 2. Core Architecture
-- **Frontend:** React + TailwindCSS + Shadcn UI
-- **Backend:** FastAPI + SQLAlchemy (async) + MySQL/MariaDB
-- **Database:** MariaDB with full relational schema
-
-## 3. Implemented Features
+## Implemented Features (All Tested - 31/31 Backend, 100% Frontend)
 
 ### Authentication & Roles
-- JWT-based auth with role-based access control
-- 4 roles: Admin, Case Manager, Partner, Client
-- Admin impersonation (switch to any user)
+- JWT auth, 4 roles, admin impersonation (switch users)
 
 ### Admin Dashboard
-- Overview stats (pending sales, active cases, revenue, tickets)
-- Pending Sales with separate **Approve** and **Reject** buttons (2-step process)
-- Client credentials dialog shown on sale approval (for new clients)
-- Case manager assignment from Cases page (separate from approval)
-- User management with Switch (impersonate) capability
-- Products & Workflow management (full CRUD)
-- Settings, Notifications, Sales Reports
+- Stats overview, sales with status filter (All/Pending/Approved/Rejected)
+- 2-step sale approval: Approve → Assign Case Manager separately
+- Client credentials dialog with **Copy/Email/WhatsApp** sharing options
+- Products & Workflow CRUD, User management, Commission reports
+- Activity Log page with real audit data (logins, actions)
+- Partner sales report, global search (Ctrl+K), analytics
 
 ### Case Manager Dashboard
-- My Cases with case detail view
-- Workflow step status updates (in_progress/completed)
-- Document review (approve/reject with comments)
-- **Information Sheet** - comprehensive client profile collection (Personal, Contact, Education, Work, Language, Family, Immigration details)
-- Additional document request system
-- Support tickets
+- My Cases with detail view, workflow step status updates
+- **Information Sheet** - comprehensive client profile (Personal/Contact/Education/Work/Language/Family/Immigration)
+- Document review (approve/reject), additional document requests
 
-### Partner Dashboard
-- Sales tracking with commission visibility
-- Commission reports
-- Support tickets
+### Partner Dashboard  
+- Create sales with all payment methods (cash, bank_transfer, card, online, check, upi)
+- Document upload during sale creation, commission tracking
 
 ### Client Dashboard
-- Case status & workflow progress
-- Document uploads
-- Support tickets
+- Case progress, document uploads, support tickets
 
-### Advanced Features
-- Analytics Dashboard (sales trends, revenue, top products/partners)
-- Global Search (Ctrl+K)
-- Activity Log UI (audit trail)
-- Partner Sales Report
-- Stripe Payment integration (scaffolded)
+### Cross-cutting
+- Activity logging on all core actions (login, sales, cases, documents)
+- Notifications system, ticketing system
+- PDF/CSV export, document upload/download
 
-## 4. Key API Endpoints
-- `POST /api/auth/login` - Login
-- `POST /api/auth/impersonate/{user_id}` - Admin user switching
-- `POST /api/sales/approve` - 2-step approval (no CM required)
-- `GET /api/sales/partner-report` - Partner report
-- `POST /api/cases/update-step` - Update workflow step
-- `PUT /api/cases/{id}/assign-manager` - Assign case manager
-- `GET/POST /api/cases/{id}/information-sheet` - Information sheet CRUD
-- `POST /api/cases/{id}/custom-document-request` - Request documents
-- `GET /api/analytics/*` - Analytics endpoints
-- `GET /api/search/global` - Global search
+## Key Endpoints
+- `POST /api/auth/login`, `/api/auth/impersonate/{id}`
+- `POST /api/sales` (multipart), `POST /api/sales/approve`
+- `POST /api/cases/update-step`, `PUT /api/cases/{id}/assign-manager`
+- `GET/POST /api/cases/{id}/information-sheet`
+- `POST /api/documents/upload`, `GET /api/documents/download/{id}`
+- `GET /api/activity/logs`, `GET /api/activity/stats`
+- `GET /api/sales/partner-report`, `GET /api/reports/partner-commissions`
 
-## 5. Changelog
+## Architecture
+- Backend: FastAPI + SQLAlchemy (async) + MySQL/MariaDB
+- Frontend: React + TailwindCSS + Shadcn UI
+- Uploads: Local filesystem (./uploads)
+- MariaDB auto-starts via supervisor + start.sh
 
-### April 2, 2026 - Version 2.3
-- Fixed: update-step endpoint changed from PUT to POST
-- Added: GET /api/sales/partner-report endpoint
-- Added: POST /api/cases/{id}/custom-document-request endpoint
-- Added: ClientInformationSheet model and CRUD endpoints
-- Refactored: Sale approval is now 2-step (approve first, assign CM separately)
-- Added: Client login credentials returned on sale approval
-- Added: Information Sheet dialog in Case Manager dashboard
-- Added: Client Credentials dialog in Admin dashboard
-- Fixed: Frontend partner-report URL (path param → query param)
-- Testing: 30/30 backend tests passed, all frontend features verified
-
-### April 2, 2026 - Version 2.2
-- Fixed: Sale approval crashing on null commission_rate
-- Fixed: Missing GET /api/sales/{id}/documents endpoint
-- Fixed: Missing PUT /api/cases/{id}/assign-manager endpoint
-- Fixed: Missing POST /api/auth/impersonate/{id} endpoint
-- Fixed: Missing PUT /api/products/{id}/workflow-step/{order} endpoint
-- Fixed: SQLAlchemy reserved 'metadata' column name
-- Testing: 29/29 backend tests passed
-
-### Earlier Versions
-- MongoDB → MySQL backend migration (DONE)
-- Fixed database seed scripts (DONE)
-- Analytics Dashboard implementation (DONE)
-- Global Search functionality (DONE)
-- Activity Log UI and Admin Sidebar integration (DONE)
-
-## 6. Remaining Backlog
-
-### P0
-- Complete & test Stripe payment flow end-to-end
-
-### P1
-- Implement Activity Log backend logging (inject audit events into core routers)
-- Wire email notifications to key events (email_service.py exists but not triggered)
-
-### P2
-- PDF report generation from frontend
-- Bulk document upload
-
-### P3
-- SMS Notifications (Twilio)
-- Google Calendar Integration
-- WhatsApp integration
+## Remaining Backlog
+- P0: Complete Stripe payment flow (scaffolded, untested)
+- P1: Email notifications via SMTP
+- P2: PDF report generation, bulk document upload
+- P3: SMS (Twilio), Google Calendar, WhatsApp integration

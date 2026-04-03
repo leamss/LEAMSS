@@ -9,6 +9,7 @@
 | Client 2 | client2@leamss.com | Client@123 |
 
 ## Notes
-- When a sale is approved for a NEW client, their login credentials are `Client@123` (shown in the credentials dialog after approval)
-- The database uses MySQL/MariaDB — run `apt-get install -y mariadb-server && mysqld_safe &` if DB is down
-- Re-seed with `cd /app/backend_mysql && python seed_complete.py`
+- New clients created during sale approval get password: `Client@123`
+- MariaDB auto-starts via backend start.sh script
+- Re-seed: `cd /app/backend_mysql && python seed_complete.py`
+- Activity logs track: login, create_sale, sale_approved, update_step, assign_case_manager, upload_document, review_document
