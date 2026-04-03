@@ -835,26 +835,28 @@ const ClientDashboard = () => {
                     My Information Sheet
                   </h3>
                   {infoSheet ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {Object.entries(infoSheet).filter(([key]) => 
-                        !['id', 'case_id', 'client_id', 'created_at', 'updated_at', '_id'].includes(key)
-                      ).map(([key, value]) => (
-                        <div key={key} className="p-3 bg-slate-50 rounded-lg">
-                          <p className="text-xs text-slate-500 capitalize">{key.replace(/_/g, ' ')}</p>
-                          <p className="font-medium text-slate-800">{value || 'N/A'}</p>
-                        </div>
-                      ))}
+                    <div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {Object.entries(infoSheet).filter(([key]) => 
+                          !['id', 'case_id', 'client_id', 'created_at', 'updated_at', '_id'].includes(key)
+                        ).map(([key, value]) => (
+                          <div key={key} className="p-4 bg-gradient-to-br from-slate-50 to-white rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                            <p className="text-xs text-[#2a777a] font-semibold uppercase tracking-wide mb-1">{key.replace(/_/g, ' ')}</p>
+                            <p className="font-medium text-slate-800 text-sm">{value || <span className="text-slate-400 italic">Not provided</span>}</p>
+                          </div>
+                        ))}
+                      </div>
                       {infoSheet.updated_at && (
-                        <div className="col-span-full text-xs text-slate-400 text-right">
+                        <p className="text-xs text-slate-400 text-right mt-4">
                           Last updated: {new Date(infoSheet.updated_at).toLocaleString()}
-                        </div>
+                        </p>
                       )}
                     </div>
                   ) : (
-                    <div className="text-center py-12 bg-slate-50 rounded-xl">
-                      <User className="h-12 w-12 text-slate-300 mx-auto mb-3" />
-                      <p className="text-slate-600 font-medium">No information sheet submitted yet</p>
-                      <p className="text-sm text-slate-500">Your case manager will request you to fill this out when needed.</p>
+                    <div className="text-center py-16 bg-gradient-to-br from-slate-50 to-white rounded-xl border border-dashed border-slate-200">
+                      <User className="h-14 w-14 text-slate-300 mx-auto mb-4" />
+                      <p className="text-slate-600 font-semibold text-lg">No information sheet submitted yet</p>
+                      <p className="text-sm text-slate-500 mt-2 max-w-sm mx-auto">Your case manager will request you to fill this out when needed for your case processing.</p>
                     </div>
                   )}
                 </Card>

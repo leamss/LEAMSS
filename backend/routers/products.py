@@ -63,9 +63,12 @@ async def update_product(product_id: str, data: dict, current_user: dict = Depen
         raise HTTPException(status_code=403, detail="Admin only")
     
     update = {}
-    for field in ["name", "description", "category", "base_fee", "status"]:
+    for field in ["name", "description", "category", "base_fee", "status", "commission_type", "commission_rate", "commission_tiers", "commission_effective_from"]:
         if field in data:
             update[field] = data[field]
+    # Accept "fee" as alias for "base_fee"
+    if "fee" in data and "base_fee" not in data:
+        update["base_fee"] = data["fee"]
     
     if update:
         await products_col.update_one({"id": product_id}, {"$set": update})

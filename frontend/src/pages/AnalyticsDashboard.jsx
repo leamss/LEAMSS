@@ -17,6 +17,7 @@ const AnalyticsDashboard = () => {
   const [topPartners, setTopPartners] = useState([]);
   const [monthlyRevenue, setMonthlyRevenue] = useState(null);
   const [caseCompletion, setCaseCompletion] = useState(null);
+  const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState('30');
 
@@ -30,15 +31,17 @@ const AnalyticsDashboard = () => {
   const fetchAnalytics = async () => {
     setLoading(true);
     try {
-      const [trendRes, statusRes, productsRes, partnersRes, monthlyRes, completionRes] = await Promise.all([
-        axios.get(`${API_URL}/api/analytics/sales-trend?days=${period}`, { headers }),
-        axios.get(`${API_URL}/api/analytics/sales-by-status`, { headers }),
-        axios.get(`${API_URL}/api/analytics/top-products`, { headers }),
-        axios.get(`${API_URL}/api/analytics/top-partners`, { headers }),
-        axios.get(`${API_URL}/api/analytics/monthly-revenue`, { headers }),
-        axios.get(`${API_URL}/api/analytics/case-completion-rate`, { headers })
+      const [dashRes, trendRes, statusRes, productsRes, partnersRes, monthlyRes, completionRes] = await Promise.all([
+        axios.get(`${API_URL}/api/analytics/dashboard?days=${period}`, { headers }).catch(() => ({ data: {} })),
+        axios.get(`${API_URL}/api/analytics/sales-trend?days=${period}`, { headers }).catch(() => ({ data: { data: [] } })),
+        axios.get(`${API_URL}/api/analytics/sales-by-status`, { headers }).catch(() => ({ data: { data: [] } })),
+        axios.get(`${API_URL}/api/analytics/top-products`, { headers }).catch(() => ({ data: { data: [] } })),
+        axios.get(`${API_URL}/api/analytics/top-partners`, { headers }).catch(() => ({ data: { data: [] } })),
+        axios.get(`${API_URL}/api/analytics/monthly-revenue`, { headers }).catch(() => ({ data: { data: [] } })),
+        axios.get(`${API_URL}/api/analytics/case-completion-rate`, { headers }).catch(() => ({ data: { rate: 0 } }))
       ]);
 
+      setDashboardData(dashRes.data);
       setSalesTrend(trendRes.data);
       setSalesByStatus(statusRes.data);
       setTopProducts(productsRes.data);
@@ -127,7 +130,7 @@ const AnalyticsDashboard = () => {
               <div>
                 <p className="text-sm text-gray-500">Total Revenue</p>
                 <p className="text-2xl font-bold">
-                  ₹{salesTrend?.revenue?.reduce((a, b) => a + b, 0)?.toLocaleString() || 0}
+                  ₹{(dashboardData?.total_revenue || salesTrend?.data?.reduce((a, b) => a + (b.revenue || 0), 0) || 0).toLocaleString()}
                 </p>
               </div>
               <div className="h-12 w-12 bg-green-100 rounded-full flex items-center justify-center">
@@ -143,7 +146,7 @@ const AnalyticsDashboard = () => {
               <div>
                 <p className="text-sm text-gray-500">Total Commission</p>
                 <p className="text-2xl font-bold">
-                  ₹{salesTrend?.commission?.reduce((a, b) => a + b, 0)?.toLocaleString() || 0}
+                  ₹{(dashboardData?.total_commission || 0).toLocaleString()}
                 </p>
               </div>
               <div className="h-12 w-12 bg-blue-100 rounded-full flex items-center justify-center">
@@ -159,7 +162,7 @@ const AnalyticsDashboard = () => {
               <div>
                 <p className="text-sm text-gray-500">Total Sales</p>
                 <p className="text-2xl font-bold">
-                  {salesTrend?.sales_count?.reduce((a, b) => a + b, 0) || 0}
+                  {dashboardData?.total_sales || salesTrend?.data?.reduce((a, b) => a + (b.count || 0), 0) || 0}
                 </p>
               </div>
               <div className="h-12 w-12 bg-purple-100 rounded-full flex items-center justify-center">
@@ -175,7 +178,7 @@ const AnalyticsDashboard = () => {
               <div>
                 <p className="text-sm text-gray-500">Completion Rate</p>
                 <p className="text-2xl font-bold">
-                  {caseCompletion?.completion_rate || 0}%
+                  {dashboardData?.completion_rate || caseCompletion?.rate || 0}%
                 </p>
               </div>
               <div className="h-12 w-12 bg-orange-100 rounded-full flex items-center justify-center">
@@ -198,23 +201,26 @@ const AnalyticsDashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {salesByStatus?.labels?.map((label, idx) => (
-                <div key={label} className="flex items-center justify-between">
+              {(salesByStatus?.data || []).map((item) => (
+                <div key={item.status} className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <div 
                       className="w-3 h-3 rounded-full" 
-                      style={{ backgroundColor: statusColors[label] || '#6b7280' }}
+                      style={{ backgroundColor: statusColors[item.status] || '#6b7280' }}
                     />
-                    <span className="capitalize">{label}</span>
+                    <span className="capitalize">{item.status}</span>
                   </div>
                   <div className="flex items-center gap-4">
-                    <span className="font-medium">{salesByStatus.counts[idx]}</span>
+                    <span className="font-medium">{item.count}</span>
                     <span className="text-gray-500">
-                      ₹{salesByStatus.amounts[idx]?.toLocaleString()}
+                      ₹{(item.total || 0).toLocaleString()}
                     </span>
                   </div>
                 </div>
               ))}
+              {(!salesByStatus?.data || salesByStatus.data.length === 0) && (
+                <p className="text-sm text-gray-500 text-center">No data available</p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -229,14 +235,14 @@ const AnalyticsDashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {monthlyRevenue?.labels?.map((month, idx) => {
-                const revenue = monthlyRevenue.revenue[idx] || 0;
-                const maxRevenue = Math.max(...(monthlyRevenue.revenue || [1]));
+              {(monthlyRevenue?.data || []).map((item) => {
+                const revenue = item.revenue || 0;
+                const maxRevenue = Math.max(...(monthlyRevenue?.data || []).map(d => d.revenue || 0), 1);
                 const width = maxRevenue > 0 ? (revenue / maxRevenue) * 100 : 0;
                 
                 return (
-                  <div key={month} className="flex items-center gap-2">
-                    <span className="w-8 text-xs text-gray-500">{month}</span>
+                  <div key={item.month} className="flex items-center gap-2">
+                    <span className="w-16 text-xs text-gray-500">{item.month}</span>
                     <div className="flex-1 bg-gray-100 rounded h-4 overflow-hidden">
                       <div 
                         className="bg-indigo-500 h-full rounded transition-all"
@@ -249,6 +255,9 @@ const AnalyticsDashboard = () => {
                   </div>
                 );
               })}
+              {(!monthlyRevenue?.data || monthlyRevenue.data.length === 0) && (
+                <p className="text-sm text-gray-500 text-center">No data available</p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -266,23 +275,23 @@ const AnalyticsDashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {topProducts.map((product, idx) => (
-                <div key={product.id} className="flex items-center justify-between">
+              {(topProducts?.data || []).map((product, idx) => (
+                <div key={idx} className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 font-bold">
                       {idx + 1}
                     </div>
                     <div>
-                      <p className="font-medium">{product.name}</p>
-                      <p className="text-sm text-gray-500">{product.sales_count} sales</p>
+                      <p className="font-medium">{product.product_name}</p>
+                      <p className="text-sm text-gray-500">{product.count} sales</p>
                     </div>
                   </div>
                   <p className="font-medium text-green-600">
-                    ₹{product.total_revenue?.toLocaleString()}
+                    ₹{(product.revenue || 0).toLocaleString()}
                   </p>
                 </div>
               ))}
-              {topProducts.length === 0 && (
+              {(!topProducts?.data || topProducts.data.length === 0) && (
                 <p className="text-gray-500 text-center py-4">No data available</p>
               )}
             </div>
@@ -299,28 +308,28 @@ const AnalyticsDashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {topPartners.map((partner, idx) => (
-                <div key={partner.id} className="flex items-center justify-between">
+              {(topPartners?.data || []).map((partner, idx) => (
+                <div key={idx} className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center text-purple-600 font-bold">
                       {idx + 1}
                     </div>
                     <div>
-                      <p className="font-medium">{partner.name}</p>
-                      <p className="text-sm text-gray-500">{partner.sales_count} sales</p>
+                      <p className="font-medium">{partner.partner_name}</p>
+                      <p className="text-sm text-gray-500">{partner.count} sales</p>
                     </div>
                   </div>
                   <div className="text-right">
                     <p className="font-medium text-green-600">
-                      ₹{partner.total_revenue?.toLocaleString()}
+                      ₹{(partner.revenue || 0).toLocaleString()}
                     </p>
                     <p className="text-xs text-gray-500">
-                      Commission: ₹{partner.total_commission?.toLocaleString()}
+                      Commission: ₹{(partner.commission || 0).toLocaleString()}
                     </p>
                   </div>
                 </div>
               ))}
-              {topPartners.length === 0 && (
+              {(!topPartners?.data || topPartners.data.length === 0) && (
                 <p className="text-gray-500 text-center py-4">No data available</p>
               )}
             </div>

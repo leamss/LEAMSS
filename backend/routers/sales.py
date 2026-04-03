@@ -562,6 +562,9 @@ async def get_payment_deadlines(current_user: dict = Depends(get_current_user)):
                     deadline = None
             
             if deadline:
+                # Ensure both datetimes are timezone-aware
+                if deadline.tzinfo is None:
+                    deadline = deadline.replace(tzinfo=timezone.utc)
                 delta = (deadline - now).days
                 days_until = delta
                 if delta < 0:

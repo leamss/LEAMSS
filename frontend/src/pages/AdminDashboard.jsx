@@ -13,7 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import NotificationBell from '@/components/NotificationBell';
 import QuickActions from '@/components/QuickActions';
 import { 
-  LayoutDashboard, FileText, Users, Briefcase, LogOut, Plus, 
+  LayoutDashboard, FileText, Users, Briefcase, LogOut, Plus, User, 
   Download, Edit, Trash2, UserPlus, Eye, ArrowRight, Settings,
   Search, DollarSign, TrendingUp, CheckCircle, XCircle, Clock,
   MessageSquare, Filter, Calendar, RefreshCw, AlertTriangle, Copy, Mail
@@ -21,6 +21,55 @@ import {
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
+
+const ClientInfoSheetSection = ({ caseId }) => {
+  const [infoSheet, setInfoSheet] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const token = localStorage.getItem('token');
+
+  useEffect(() => {
+    if (!caseId) return;
+    const fetchInfoSheet = async () => {
+      setLoading(true);
+      try {
+        const res = await axios.get(`${API}/cases/${caseId}/information-sheet`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.data?.exists) setInfoSheet(res.data.data);
+      } catch (e) { /* no info sheet */ }
+      setLoading(false);
+    };
+    fetchInfoSheet();
+  }, [caseId, token]);
+
+  if (loading) return <Card className="p-6"><p className="text-slate-500 text-sm">Loading info sheet...</p></Card>;
+
+  return (
+    <Card className="p-6" data-testid="admin-info-sheet-section">
+      <h3 className="text-lg font-semibold mb-4 text-slate-800 flex items-center gap-2">
+        <User className="h-5 w-5 text-[#2a777a]" />
+        Client Information Sheet
+      </h3>
+      {infoSheet ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          {Object.entries(infoSheet).filter(([key]) =>
+            !['id', 'case_id', 'client_id', 'created_at', 'updated_at', '_id'].includes(key)
+          ).map(([key, value]) => (
+            <div key={key} className="p-3 bg-slate-50 rounded-lg border border-slate-100">
+              <p className="text-xs text-slate-500 capitalize font-medium">{key.replace(/_/g, ' ')}</p>
+              <p className="text-sm font-medium text-slate-800 mt-1">{value || 'N/A'}</p>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-6 bg-slate-50 rounded-lg">
+          <User className="h-8 w-8 text-slate-300 mx-auto mb-2" />
+          <p className="text-slate-500 text-sm">No information sheet submitted for this case</p>
+        </div>
+      )}
+    </Card>
+  );
+};
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -167,13 +216,16 @@ const AdminDashboard = () => {
   };
 
   // Currency formatting
-  const formatCurrency = (amount, forceUSD = false) => {
-    const usd = `$${(amount || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
-    if (showINR && !forceUSD) {
-      const inr = `₹${((amount || 0) * exchangeRate).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-      return `${usd} (${inr})`;
+  const formatCurrency = (amount, sale = null) => {
+    const val = amount || 0;
+    const inr = `₹${val.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+    // If sale has original currency different from INR, show original too
+    if (sale && sale.original_currency && sale.original_currency !== 'INR') {
+      const symbols = { USD: '$', AUD: 'A$', CAD: 'C$', GBP: '£', EUR: '€' };
+      const sym = symbols[sale.original_currency] || sale.original_currency;
+      return inr;
     }
-    return usd;
+    return inr;
   };
 
   // Handle refund
@@ -1065,8 +1117,8 @@ const AdminDashboard = () => {
                   <p className="text-sm text-slate-500 font-medium">Total Revenue</p>
                   <p className="text-3xl font-bold text-emerald-600 mt-2">₹{(stats.total_revenue || 0).toLocaleString()}</p>
                   <div className="flex justify-between text-xs mt-2 text-slate-500">
-                    <span className="text-green-600">Received: ${(stats.total_received || 0).toLocaleString()}</span>
-                    <span className="text-amber-600">Pending: ${(stats.total_pending_amount || 0).toLocaleString()}</span>
+                    <span className="text-green-600">Received: ₹{(stats.total_received || 0).toLocaleString()}</span>
+                    <span className="text-amber-600">Pending: ₹{(stats.total_pending_amount || 0).toLocaleString()}</span>
                   </div>
                 </Card>
                 <Card className="p-6 bg-white rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
@@ -1148,27 +1200,14 @@ const AdminDashboard = () => {
                 </Card>
               )}
 
-              {/* Currency Toggle */}
+              {/* Currency Info */}
               <Card className="p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <DollarSign className="h-4 w-4 text-slate-600" />
-                    <span className="text-sm font-medium text-slate-700">Currency Display</span>
+                    <span className="text-sm font-medium text-slate-700">Base Currency: INR (₹)</span>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs text-slate-500">1 USD = ₹{exchangeRate}</span>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={showINR}
-                        onChange={(e) => setShowINR(e.target.checked)}
-                        className="sr-only peer"
-                        data-testid="currency-toggle"
-                      />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#2a777a]"></div>
-                    </label>
-                    <span className="text-xs font-medium text-slate-600">{showINR ? 'USD + INR' : 'USD Only'}</span>
-                  </div>
+                  <span className="text-xs text-slate-500">Exchange rates: USD ₹83.50 | AUD ₹55 | CAD ₹62 | GBP ₹106 | EUR ₹91</span>
                 </div>
               </Card>
 
@@ -1570,7 +1609,7 @@ const AdminDashboard = () => {
                           <th className="text-left p-3">Partner</th>
                           <th className="text-left p-3">Product</th>
                           <th className="text-center p-3">Custom Rate</th>
-                          <th className="text-center p-3">Action</th>
+                          <th className="text-center p-3">Actions</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1579,12 +1618,61 @@ const AdminDashboard = () => {
                             <td className="p-3 font-medium">{cc.partner_name}</td>
                             <td className="p-3">{cc.product_name}</td>
                             <td className="p-3 text-center">
-                              <span className="bg-[#2a777a] text-white px-3 py-1 rounded-full text-xs font-bold">{cc.commission_rate}%</span>
+                              {cc._editing ? (
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  step="0.5"
+                                  className="w-24 mx-auto"
+                                  value={cc._editRate}
+                                  onChange={(e) => {
+                                    const updated = [...customCommissions];
+                                    updated[idx] = { ...cc, _editRate: parseFloat(e.target.value) || 0 };
+                                    setCustomCommissions(updated);
+                                  }}
+                                  data-testid={`edit-rate-input-${idx}`}
+                                />
+                              ) : (
+                                <span className="bg-[#2a777a] text-white px-3 py-1 rounded-full text-xs font-bold">{cc.commission_rate}%</span>
+                              )}
                             </td>
                             <td className="p-3 text-center">
-                              <Button size="sm" variant="destructive" onClick={() => deleteCustomCommission(cc.partner_id, cc.product_id)} data-testid={`delete-custom-comm-${idx}`}>
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
+                              <div className="flex gap-1 justify-center">
+                                {cc._editing ? (
+                                  <>
+                                    <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={async () => {
+                                      try {
+                                        await axios.post(`${API}/partner-commissions`, { partner_id: cc.partner_id, product_id: cc.product_id, commission_rate: cc._editRate }, getAuthHeader());
+                                        toast.success('Rate updated');
+                                        loadCustomCommissions();
+                                      } catch (error) { toast.error('Failed to update'); }
+                                    }} data-testid={`save-edit-${idx}`}>
+                                      <CheckCircle className="h-4 w-4" />
+                                    </Button>
+                                    <Button size="sm" variant="outline" onClick={() => {
+                                      const updated = [...customCommissions];
+                                      updated[idx] = { ...cc, _editing: false };
+                                      setCustomCommissions(updated);
+                                    }} data-testid={`cancel-edit-${idx}`}>
+                                      <XCircle className="h-4 w-4" />
+                                    </Button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Button size="sm" variant="outline" onClick={() => {
+                                      const updated = [...customCommissions];
+                                      updated[idx] = { ...cc, _editing: true, _editRate: cc.commission_rate };
+                                      setCustomCommissions(updated);
+                                    }} data-testid={`edit-custom-comm-${idx}`}>
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                    <Button size="sm" variant="destructive" onClick={() => deleteCustomCommission(cc.partner_id, cc.product_id)} data-testid={`delete-custom-comm-${idx}`}>
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </>
+                                )}
+                              </div>
                             </td>
                           </tr>
                         ))}
@@ -1701,6 +1789,14 @@ const AdminDashboard = () => {
                   <div><p className="text-sm text-slate-500">Pending Amount</p><p className="font-medium text-amber-700">{formatCurrency(selectedSale.pending_amount || (selectedSale.fee_amount - (selectedSale.amount_received || 0)))}</p></div>
                   <div><p className="text-sm text-slate-500">Commission ({selectedSale.commission_rate || 0}%)</p><p className="font-medium text-[#2a777a]">{formatCurrency(selectedSale.commission_amount)}</p></div>
                 </div>
+                {selectedSale.original_currency && selectedSale.original_currency !== 'INR' && (
+                  <div className="p-3 bg-blue-50 rounded-lg border border-blue-200 mb-4">
+                    <p className="text-sm text-blue-700">
+                      Original: {selectedSale.original_currency} {(selectedSale.original_fee_amount || 0).toLocaleString()} 
+                      {' '}(Rate: 1 {selectedSale.original_currency} = ₹{selectedSale.exchange_rate_used})
+                    </p>
+                  </div>
+                )}
                 {selectedSale.total_refunded > 0 && (
                   <div className="p-3 bg-red-50 rounded-lg border border-red-200 mb-4">
                     <p className="text-sm text-red-700">Total Refunded: <span className="font-bold">{formatCurrency(selectedSale.total_refunded)}</span></p>
@@ -1714,7 +1810,7 @@ const AdminDashboard = () => {
                     saleDocuments.map((doc, idx) => (
                       <div key={idx} className="flex justify-between items-center p-3 border rounded-lg">
                         <div><p className="font-medium text-slate-800">{doc.filename}</p><p className="text-sm text-slate-600">Type: {doc.type}</p></div>
-                        <Button onClick={() => downloadDocument(doc.file_id, doc.filename)} size="sm" variant="outline"><Download className="h-4 w-4" /></Button>
+                        <Button onClick={() => downloadDocument(doc.id || doc.file_id, doc.filename)} size="sm" variant="outline"><Download className="h-4 w-4" /></Button>
                       </div>
                     ))
                   )}
@@ -1858,6 +1954,8 @@ const AdminDashboard = () => {
                   )}
                 </div>
               </Card>
+              {/* Client Information Sheet */}
+              <ClientInfoSheetSection caseId={selectedCase?.id} />
             </div>
           )}
 
@@ -2012,7 +2110,11 @@ const AdminDashboard = () => {
                 {allTickets.length === 0 ? (
                   <Card className="p-12 text-center"><MessageSquare className="h-12 w-12 text-slate-400 mx-auto mb-4" /><p className="text-slate-600">No tickets found</p></Card>
                 ) : (
-                  allTickets.map(ticket => (
+                  allTickets
+                    .filter(t => !ticketFilter.status || ticketFilter.status === 'all' || t.status === ticketFilter.status)
+                    .filter(t => !ticketFilter.priority || ticketFilter.priority === 'all' || t.priority === ticketFilter.priority)
+                    .filter(t => !ticketFilter.created_by_role || ticketFilter.created_by_role === 'all' || t.created_by_role === ticketFilter.created_by_role)
+                    .map(ticket => (
                     <Card key={ticket.id} className="p-4 cursor-pointer hover:shadow-md transition-shadow" onClick={() => setSelectedTicket(ticket)}>
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
@@ -2344,7 +2446,7 @@ const AdminDashboard = () => {
             <div><Label>Product Name</Label><Input value={productDialog.data?.name || ''} onChange={(e) => setProductDialog({ ...productDialog, data: { ...productDialog.data, name: e.target.value } })} data-testid="product-name-input" /></div>
             <div><Label>Description</Label><Textarea value={productDialog.data?.description || ''} onChange={(e) => setProductDialog({ ...productDialog, data: { ...productDialog.data, description: e.target.value } })} data-testid="product-description-input" /></div>
             <div className="grid grid-cols-2 gap-4">
-              <div><Label>Fee ($)</Label><Input type="number" value={productDialog.data?.fee || 0} onChange={(e) => setProductDialog({ ...productDialog, data: { ...productDialog.data, fee: parseFloat(e.target.value) || 0 } })} data-testid="product-fee-input" /></div>
+              <div><Label>Fee (₹)</Label><Input type="number" value={productDialog.data?.base_fee || productDialog.data?.fee || 0} onChange={(e) => setProductDialog({ ...productDialog, data: { ...productDialog.data, base_fee: parseFloat(e.target.value) || 0, fee: parseFloat(e.target.value) || 0 } })} data-testid="product-fee-input" /></div>
               <div>
                 <Label>Commission Type</Label>
                 <Select value={productDialog.data?.commission_type || 'fixed'} onValueChange={(value) => setProductDialog({ ...productDialog, data: { ...productDialog.data, commission_type: value } })}>
