@@ -1,0 +1,81 @@
+{
+  "summary": "Client Portal Bug Fixes Testing Complete - All 6 bugs verified fixed. Fixed one remaining issue: doc.file_id→doc.id in My Documents table download button (line 809).",
+
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+
+  "test_results": {
+    "backend_tests": {
+      "login_all_roles": "PASSED - Admin, Case Manager, Partner, Client all login successfully",
+      "tickets_my_tickets_endpoint": "PASSED - GET /api/tickets/my-tickets returns 200 with created_by_name and created_by_role fields",
+      "ticket_detail_endpoint": "PASSED - GET /api/tickets/{id} returns created_by_name, created_by_role, and messages with user_name/user_role",
+      "documents_endpoint": "PASSED - GET /api/documents/case/{id} returns documents with 'id' and 'uploaded_at' fields",
+      "document_download": "PASSED - GET /api/documents/download/{id} returns file successfully"
+    },
+    "frontend_tests": {
+      "client_login": "PASSED - Login works, redirects to /client dashboard",
+      "my_documents_tab": "PASSED - Shows documents table with proper dates (4/3/2026), no 'Invalid Date'",
+      "document_download": "PASSED - Download button works, file downloads successfully",
+      "support_tab_tickets": "PASSED - Tickets load via /api/tickets/my-tickets, shows 6 tickets",
+      "ticket_detail_view": "PASSED - Shows 'Created by: Case Manager (case_manager)' with name and role",
+      "resolution_note_ux": "PASSED - Clicking Resolve without note shows error toast and focuses input",
+      "my_info_tab": "PASSED - Shows information sheet data (Full Name, Nationality, Phone, Email, etc.)",
+      "ticket_creation": "PASSED - New ticket created and appears in list immediately"
+    }
+  },
+
+  "bugs_verified_fixed": [
+    "Bug 1: doc.file_id→doc.id for downloads - FIXED (line 737 uses doc.id, fixed line 809 to also use doc.id)",
+    "Bug 2: doc.upload_date→doc.uploaded_at for dates - FIXED (line 794 uses doc.uploaded_at)",
+    "Bug 3: /api/tickets/my-tickets endpoint 404 - FIXED (endpoint exists and returns tickets)",
+    "Bug 4: created_by_name/created_by_role fields in tickets - FIXED (all ticket endpoints return these fields)",
+    "Bug 5: Resolution note UX - FIXED (shows error toast, focuses input, scrolls to field)",
+    "Bug 6: My Info tab visibility - FIXED (shows information sheet data or empty state message)"
+  ],
+
+  "fix_applied_by_testing_agent": {
+    "file": "/app/frontend/src/pages/ClientDashboard.jsx",
+    "line": 809,
+    "change": "Changed doc.file_id to doc.id in My Documents table download button",
+    "reason": "API returns 'id' field, not 'file_id'. Line 737 was already fixed but line 809 was missed."
+  },
+
+  "test_report_links": [
+    "/app/test_reports/iteration_20.json"
+  ],
+
+  "action_items": [],
+
+  "critical_code_review_comments": [],
+
+  "updated_files": [
+    "/app/frontend/src/pages/ClientDashboard.jsx - Fixed doc.file_id→doc.id on line 809"
+  ],
+
+  "success_rate": {
+    "backend": "100%",
+    "frontend": "100%"
+  },
+
+  "test_credentials": {
+    "admin": "admin@leamss.com / Admin@123",
+    "case_manager": "manager@leamss.com / Manager@123",
+    "partner": "partner@leamss.com / Partner@123",
+    "client": "client@leamss.com / Client@123"
+  },
+
+  "seed_data_creation": "Created test ticket 'TEST Ticket from Playwright' during testing",
+
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+
+  "context_for_next_testing_agent": "All 6 Client Portal bugs from user screenshots have been verified fixed: (1) Document downloads use doc.id, (2) Date formatting uses doc.uploaded_at, (3) /api/tickets/my-tickets endpoint works, (4) Ticket endpoints return created_by_name/created_by_role and messages have user_name/user_role, (5) Resolution note UX shows error and focuses input, (6) My Info tab shows information sheet. Testing agent fixed one remaining issue: line 809 in ClientDashboard.jsx still used doc.file_id instead of doc.id."
+}

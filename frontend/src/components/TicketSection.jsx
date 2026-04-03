@@ -95,14 +95,22 @@ const TicketSection = ({ caseId = null, assignedCaseManagerId = null, clientId =
     if (!selectedTicket) return;
 
     // Require resolution note for resolved/closed
-    if ((status === 'resolved' || status === 'closed') && resolutionNote.length < 10) {
-      toast.error('Resolution note is required (min 10 characters)');
-      return;
+    if ((status === 'resolved' || status === 'closed')) {
+      if (!resolutionNote || resolutionNote.trim().length < 10) {
+        toast.error('Please enter a resolution note (min 10 characters) in the field below before resolving/closing.');
+        // Focus the resolution note input
+        const input = document.querySelector('[data-testid="resolution-note-input"]');
+        if (input) {
+          input.focus();
+          input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        return;
+      }
     }
 
     try {
       await axios.put(`${API}/tickets/${selectedTicket.id}/status`, 
-        { status, closure_comment: resolutionNote || selectedTicket.resolution_note || 'Resolved by admin', resolution_note: resolutionNote || selectedTicket.resolution_note || 'Resolved by admin' }, 
+        { status, closure_comment: resolutionNote || '', resolution_note: resolutionNote || '' }, 
         getAuthHeader()
       );
       toast.success(`Ticket ${status}`);
@@ -271,15 +279,22 @@ const TicketSection = ({ caseId = null, assignedCaseManagerId = null, clientId =
 
             {/* Resolution Note Input - show when not resolved/closed */}
             {selectedTicket.status !== 'resolved' && selectedTicket.status !== 'closed' && (
-              <div className="mb-4">
-                <Label>Resolution Note (required for resolve/close - min 10 chars)</Label>
+              <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                <Label className="text-amber-800 font-semibold flex items-center gap-2 mb-2">
+                  <AlertCircle className="h-4 w-4" />
+                  Resolution Note (required before resolving or closing — min 10 chars)
+                </Label>
                 <Textarea 
                   value={resolutionNote} 
                   onChange={(e) => setResolutionNote(e.target.value)} 
-                  placeholder="Add a resolution note when resolving or closing this ticket..." 
+                  placeholder="Describe how the issue was resolved..." 
                   rows={2} 
-                  data-testid="resolution-note-input" 
+                  data-testid="resolution-note-input"
+                  className={resolutionNote.trim().length > 0 && resolutionNote.trim().length < 10 ? 'border-red-300' : ''}
                 />
+                {resolutionNote.trim().length > 0 && resolutionNote.trim().length < 10 && (
+                  <p className="text-xs text-red-500 mt-1">{10 - resolutionNote.trim().length} more characters needed</p>
+                )}
               </div>
             )}
 

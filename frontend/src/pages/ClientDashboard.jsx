@@ -73,6 +73,7 @@ const ClientDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [initialTicketId, setInitialTicketId] = useState(null);
   const [highlightedDocId, setHighlightedDocId] = useState(null);
+  const [infoSheet, setInfoSheet] = useState(null);
 
   const getAuthHeader = () => ({
     headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
@@ -95,9 +96,16 @@ const ClientDashboard = () => {
       ]);
       
       if (casesRes.data.length > 0) {
-        setCaseData(casesRes.data[0]);
-        const docsResponse = await axios.get(`${API}/documents/case/${casesRes.data[0].id}`, getAuthHeader());
+        const theCase = casesRes.data[0];
+        setCaseData(theCase);
+        const [docsResponse, infoSheetRes] = await Promise.all([
+          axios.get(`${API}/documents/case/${theCase.id}`, getAuthHeader()),
+          axios.get(`${API}/cases/${theCase.id}/information-sheet`, getAuthHeader()).catch(() => ({ data: { exists: false, data: {} } }))
+        ]);
         setDocuments(docsResponse.data);
+        if (infoSheetRes.data?.exists) {
+          setInfoSheet(infoSheetRes.data.data);
+        }
       }
     } catch (error) {
       console.error('Error loading data:', error);
@@ -269,7 +277,7 @@ const ClientDashboard = () => {
             
             <div className="flex items-center gap-4">
               <NotificationBell onNotificationClick={handleNotificationClick} />
-              <CreateTicket caseId={caseData?.id} />
+              <CreateTicket caseId={caseData?.id} onTicketCreated={() => setActiveTab('tickets')} />
               <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-full">
                 <User className="h-4 w-4 text-[#2a777a]" />
                 <span className="text-sm font-medium text-slate-700">{user.name}</span>
@@ -408,6 +416,10 @@ const ClientDashboard = () => {
                 <TabsTrigger value="tickets" className="data-[state=active]:bg-[#2a777a] data-[state=active]:text-white rounded-lg px-6">
                   <MessageSquare className="h-4 w-4 mr-2" />
                   Support
+                </TabsTrigger>
+                <TabsTrigger value="info-sheet" className="data-[state=active]:bg-[#2a777a] data-[state=active]:text-white rounded-lg px-6">
+                  <User className="h-4 w-4 mr-2" />
+                  My Info
                 </TabsTrigger>
               </TabsList>
 
@@ -722,7 +734,8 @@ const ClientDashboard = () => {
                                     <Button
                                       size="sm"
                                       variant="ghost"
-                                      onClick={() => downloadDocument(doc.file_id, doc.filename)}
+                                      onClick={() => downloadDocument(doc.id, doc.filename)}
+                                      data-testid={`download-doc-${doc.id}`}
                                     >
                                       <Download className="h-4 w-4" />
                                     </Button>
@@ -778,7 +791,7 @@ const ClientDashboard = () => {
                               <td className="py-3 px-4 text-sm text-slate-600">{doc.step_name}</td>
                               <td className="py-3 px-4 text-sm text-slate-600 capitalize">{doc.document_type}</td>
                               <td className="py-3 px-4 text-sm text-slate-600">
-                                {new Date(doc.upload_date).toLocaleDateString()}
+                                {doc.uploaded_at ? new Date(doc.uploaded_at).toLocaleDateString() : 'N/A'}
                               </td>
                               <td className="py-3 px-4">
                                 <Badge className={`text-xs ${
@@ -793,7 +806,8 @@ const ClientDashboard = () => {
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  onClick={() => downloadDocument(doc.file_id, doc.filename)}
+                                  onClick={() => downloadDocument(doc.id, doc.filename)}
+                                  data-testid={`download-doc-table-${doc.id}`}
                                 >
                                   <Download className="h-4 w-4 mr-1" />
                                   Download
@@ -811,6 +825,39 @@ const ClientDashboard = () => {
               {/* Support Tickets Tab */}
               <TabsContent value="tickets" className="space-y-6">
                 <TicketSection caseId={caseData?.id} initialTicketId={initialTicketId} />
+              </TabsContent>
+
+              {/* Information Sheet Tab */}
+              <TabsContent value="info-sheet" className="space-y-6">
+                <Card className="p-6 bg-white shadow-md border-0" data-testid="info-sheet-card">
+                  <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
+                    <User className="h-5 w-5 text-[#2a777a]" />
+                    My Information Sheet
+                  </h3>
+                  {infoSheet ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {Object.entries(infoSheet).filter(([key]) => 
+                        !['id', 'case_id', 'client_id', 'created_at', 'updated_at', '_id'].includes(key)
+                      ).map(([key, value]) => (
+                        <div key={key} className="p-3 bg-slate-50 rounded-lg">
+                          <p className="text-xs text-slate-500 capitalize">{key.replace(/_/g, ' ')}</p>
+                          <p className="font-medium text-slate-800">{value || 'N/A'}</p>
+                        </div>
+                      ))}
+                      {infoSheet.updated_at && (
+                        <div className="col-span-full text-xs text-slate-400 text-right">
+                          Last updated: {new Date(infoSheet.updated_at).toLocaleString()}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-center py-12 bg-slate-50 rounded-xl">
+                      <User className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+                      <p className="text-slate-600 font-medium">No information sheet submitted yet</p>
+                      <p className="text-sm text-slate-500">Your case manager will request you to fill this out when needed.</p>
+                    </div>
+                  )}
+                </Card>
               </TabsContent>
             </Tabs>
           </>
