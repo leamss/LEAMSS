@@ -1,0 +1,91 @@
+{
+  "summary": "P1 Case Manager Document Privileges Testing Complete - All 11 features verified working. Backend validation for mandatory rejection comments (min 5 chars) working correctly. Frontend CM Dashboard shows Documents tab with search/filter, batch selection, review dialog with uploader info and View File button, and case detail shows uploader name and review comments.",
+
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/cases/request-additional-document", "issue": "Returns 405 Method Not Allowed - frontend uses /api/cases/{id}/custom-document-request instead", "priority": "LOW"}
+    ]
+  },
+
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+
+  "test_results": {
+    "backend_tests": {
+      "total": 14,
+      "passed": 10,
+      "skipped": 4,
+      "failed": 0,
+      "categories": {
+        "health_check": "1/1 passed",
+        "document_review_validation": "Verified via curl - rejection/revision_required requires comment (min 5 chars), approval works without comment",
+        "reviewer_info": "1/1 passed - GET /api/documents/case/{id} returns uploader_name and reviewer_name",
+        "notification": "1/1 passed - Review creates notification for uploader with rejection reason",
+        "ticket_creation": "1/1 passed - Ticket creation for additional doc request works",
+        "cm_access": "2/2 passed - CM can access documents across all assigned cases with required fields",
+        "batch_review": "2/2 passed - Batch approve/reject works, rejection still requires comment",
+        "download": "1/1 passed - CM can download documents",
+        "reviewer_name_storage": "1/1 passed - Review stores reviewer_name in document record"
+      }
+    },
+    "frontend_tests": {
+      "documents_tab": "PASSED - Shows search input, type filter, status filter, documents table with all columns",
+      "table_columns": "PASSED - Table has: Document, Client, Case, Type, Status, Uploaded By, Uploaded, Review, Actions",
+      "batch_selection": "PASSED - Checkboxes for pending documents, 'X document(s) selected' message, Approve All/Reject All/Clear buttons",
+      "review_dialog": "PASSED - Shows document name, uploader info ('Uploaded by: Jane Smith on 4/3/2026'), Review Status dropdown, Comment textarea with '(required)' indicator for rejection, character counter, View File button, Submit Review button",
+      "comment_validation": "PASSED - Submit button disabled when: no comment for rejection, comment < 5 chars. Enabled when valid comment provided",
+      "case_detail_docs": "PASSED - Shows 'By: Jane Smith' (uploader), 'Review (Case Manager): Document is blurry...' (reviewer + comment)",
+      "pending_review_tab": "PASSED - Shows count badge, 'X Documents Awaiting Review' header, document cards with Review button"
+    }
+  },
+
+  "features_verified": [
+    "POST /api/documents/review requires comment (min 5 chars) when status is 'rejected' - returns 400 without comment - VERIFIED",
+    "POST /api/documents/review requires comment (min 5 chars) when status is 'revision_required' - returns 400 without comment - VERIFIED",
+    "POST /api/documents/review stores reviewer_name in document record - VERIFIED",
+    "POST /api/documents/review notifies the uploader with detailed message including rejection reason - VERIFIED",
+    "GET /api/documents/case/{case_id} returns uploader_name and reviewer_name for each document - VERIFIED",
+    "Case Manager Dashboard Documents tab shows search & filter (by query, type, status) - VERIFIED",
+    "Case Manager Dashboard Documents tab has batch selection (checkboxes) for pending documents with Approve All / Reject All buttons - VERIFIED",
+    "Case Manager Dashboard review dialog requires comment when rejecting or requesting revision - VERIFIED",
+    "Case Manager Dashboard review dialog has 'View File' download button - VERIFIED",
+    "Case Manager Dashboard case detail shows uploader name and review comments for each document - VERIFIED",
+    "Case Manager Dashboard 'Request Additional Document' also creates a ticket for the client - VERIFIED (frontend creates ticket via POST /api/tickets)"
+  ],
+
+  "test_report_links": [
+    "/app/backend/tests/test_cm_document_privileges.py",
+    "/app/test_reports/pytest/pytest_cm_doc_privileges.xml"
+  ],
+
+  "action_items": [],
+
+  "critical_code_review_comments": [],
+
+  "updated_files": [
+    "/app/backend/tests/test_cm_document_privileges.py - Created P1 CM Document Privileges test suite"
+  ],
+
+  "success_rate": {
+    "backend": "100% (10/10 passed, 4 skipped due to no pending docs in fixture)",
+    "frontend": "100% (all P1 features verified working)"
+  },
+
+  "test_credentials": {
+    "admin": "admin@leamss.com / Admin@123",
+    "case_manager": "manager@leamss.com / Manager@123",
+    "client": "client@leamss.com / Client@123",
+    "partner": "partner@leamss.com / Partner@123"
+  },
+
+  "seed_data_creation": "Test documents uploaded during testing: test_review_doc.txt, test_rejection_doc.txt. Test ticket created for additional document request.",
+
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+
+  "context_for_next_testing_agent": "P1 Case Manager Document Privileges fully implemented and tested. Key features: (1) Document review endpoint requires comment (min 5 chars) for rejection/revision_required status - returns 400 without valid comment, (2) reviewer_name stored in document record and returned by GET /api/documents/case/{id}, (3) uploader_name also returned for each document, (4) CM Dashboard Documents tab has search/filter by query/type/status, batch selection with Approve All/Reject All buttons, (5) Review dialog shows uploader info, has View File button, requires comment for rejection with character counter, (6) Case detail shows 'By: [uploader]' and 'Review ([reviewer]): [comment]' for each document, (7) Request Additional Document creates ticket via POST /api/tickets with category 'document'. Test file: /app/backend/tests/test_cm_document_privileges.py"
+}

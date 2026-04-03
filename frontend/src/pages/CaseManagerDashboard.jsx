@@ -85,6 +85,7 @@ const CaseManagerDashboard = () => {
   const [pendingReviewDocs, setPendingReviewDocs] = useState([]);
   const [documentSearch, setDocumentSearch] = useState({ query: '', type: 'all', status: 'all' });
   const [allDocuments, setAllDocuments] = useState([]);
+  const [selectedDocIds, setSelectedDocIds] = useState([]);
   const [initialTicketId, setInitialTicketId] = useState(null);
   const [infoSheetDialog, setInfoSheetDialog] = useState({ open: false, data: {} });
   const [infoSheetLoading, setInfoSheetLoading] = useState(false);
@@ -227,6 +228,14 @@ const CaseManagerDashboard = () => {
   };
 
   const handleReviewDocument = async () => {
+    if (!reviewDialog.status) {
+      toast.error('Please select a review status');
+      return;
+    }
+    if ((reviewDialog.status === 'rejected' || reviewDialog.status === 'revision_required') && (!reviewDialog.comment || reviewDialog.comment.trim().length < 5)) {
+      toast.error('Comment is required when rejecting or requesting revision (min 5 characters)');
+      return;
+    }
     try {
       await axios.post(`${API}/documents/review`, {
         document_id: reviewDialog.document.id,
@@ -236,15 +245,48 @@ const CaseManagerDashboard = () => {
       toast.success('Document reviewed!');
       setReviewDialog({ open: false, document: null, status: '', comment: '' });
       
-      // Reload case details if viewing a case
       if (selectedCase) {
         loadCaseDetails(selectedCase.id);
       }
-      
-      // Reload data to update pending review count and list
       loadData();
     } catch (error) {
-      toast.error('Failed to review document');
+      toast.error(error.response?.data?.detail || 'Failed to review document');
+    }
+  };
+
+  // Batch review multiple documents
+  const handleBatchReview = async (status) => {
+    if (selectedDocIds.length === 0) {
+      toast.error('Please select documents to review');
+      return;
+    }
+    let successCount = 0;
+    for (const docId of selectedDocIds) {
+      try {
+        await axios.post(`${API}/documents/review`, {
+          document_id: docId,
+          status,
+          comment: `Batch ${status} by Case Manager`
+        }, getAuthHeader());
+        successCount++;
+      } catch (e) { /* skip individual failures */ }
+    }
+    toast.success(`${successCount} of ${selectedDocIds.length} documents ${status}`);
+    setSelectedDocIds([]);
+    loadData();
+  };
+
+  const toggleDocSelection = (docId) => {
+    setSelectedDocIds(prev => 
+      prev.includes(docId) ? prev.filter(id => id !== docId) : [...prev, docId]
+    );
+  };
+
+  const toggleAllDocs = (docs) => {
+    if (selectedDocIds.length === docs.length) {
+      setSelectedDocIds([]);
+    } else {
+      setSelectedDocIds(docs.map(d => d.id));
     }
   };
 
@@ -255,7 +297,6 @@ const CaseManagerDashboard = () => {
     }
 
     try {
-      // Use the new custom document request endpoint if step_order is specified
       const endpoint = additionalDocDialog.step_order !== null 
         ? `${API}/cases/${selectedCase.id}/custom-document-request`
         : `${API}/cases/request-additional-document`;
@@ -272,7 +313,24 @@ const CaseManagerDashboard = () => {
       };
 
       await axios.post(endpoint, requestData, getAuthHeader());
-      toast.success('Additional document requested!');
+      
+      // Also create a ticket to notify the client
+      if (additionalDocDialog.createTicket !== false) {
+        try {
+          await axios.post(`${API}/tickets`, {
+            subject: `Document Required: ${additionalDocDialog.document_name}`,
+            description: `Dear ${selectedCase.client_name},\n\nPlease upload the following document for your case (${selectedCase.case_id}):\n\nDocument: ${additionalDocDialog.document_name}\nDescription: ${additionalDocDialog.description}${additionalDocDialog.due_date ? `\nDue Date: ${additionalDocDialog.due_date}` : ''}\n\nPlease upload this at your earliest convenience.`,
+            priority: 'medium',
+            category: 'document',
+            target_user_ids: selectedCase.client_id ? [selectedCase.client_id] : [],
+            case_id: selectedCase.id
+          }, getAuthHeader());
+        } catch (e) {
+          console.error('Failed to create ticket for doc request:', e);
+        }
+      }
+      
+      toast.success('Additional document requested! Client has been notified.');
       setAdditionalDocDialog({ 
         open: false, document_name: '', description: '', due_date: '',
         expiry_date: '', validity_months: '', doc_type: '', step_order: null
@@ -735,12 +793,21 @@ const CaseManagerDashboard = () => {
                 <h3 className="text-lg font-semibold mb-4 text-gray-900">Documents</h3>
                 <div className="space-y-3" data-testid="case-documents">
                   {caseDocuments.map((doc) => (
-                    <div key={doc.id} className="flex justify-between items-center p-3 border rounded-lg">
+                    <div key={doc.id} className="flex justify-between items-center p-3 border rounded-lg hover:bg-slate-50">
                       <div className="flex-1">
                         <p className="font-medium text-gray-900">{doc.filename}</p>
-                        <p className="text-sm text-slate-600">Step: {doc.step_name}</p>
-                        <p className="text-sm text-slate-500">Uploaded: {new Date(doc.upload_date).toLocaleDateString()}</p>
-                        {doc.review_comment && <p className="text-sm text-slate-600 mt-1">Comment: {doc.review_comment}</p>}
+                        <div className="flex flex-wrap gap-3 text-sm text-slate-600">
+                          {doc.step_name && <span>Step: {doc.step_name}</span>}
+                          {doc.document_type && <span className="capitalize">Type: {doc.document_type.replace(/_/g, ' ')}</span>}
+                          <span>By: {doc.uploader_name || 'Unknown'}</span>
+                          <span>{formatDate(doc.uploaded_at)}</span>
+                        </div>
+                        {doc.review_comment && (
+                          <div className="mt-1 text-sm">
+                            <span className="text-slate-500">Review ({doc.reviewer_name || 'CM'}): </span>
+                            <span className={doc.status === 'approved' ? 'text-green-600' : doc.status === 'rejected' ? 'text-red-600' : 'text-amber-600'}>{doc.review_comment}</span>
+                          </div>
+                        )}
                       </div>
                       <div className="flex items-center gap-3">
                         {getStatusBadge(doc.status)}
@@ -748,10 +815,11 @@ const CaseManagerDashboard = () => {
                           size="sm"
                           variant="outline"
                           onClick={() => downloadDocument(doc.id, doc.filename)}
+                          data-testid={`download-case-doc-${doc.id}`}
                         >
                           <Download className="h-4 w-4" />
                         </Button>
-                        {doc.status === 'pending_review' && (
+                        {['pending', 'pending_review', 'uploaded', 'revision_required'].includes(doc.status) && (
                           <Button
                             size="sm"
                             onClick={() => setReviewDialog({ open: true, document: doc, status: '', comment: '' })}
@@ -953,8 +1021,26 @@ const CaseManagerDashboard = () => {
                 </div>
               </Card>
 
-              <div className="text-sm text-slate-500 mb-2">
-                Showing {allDocuments.filter(d => {
+              {/* Batch Actions Bar */}
+              {selectedDocIds.length > 0 && (
+                <Card className="p-3 bg-[#2a777a]/10 border-[#2a777a]/30">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-[#2a777a]">{selectedDocIds.length} document(s) selected</span>
+                    <div className="flex gap-2">
+                      <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => handleBatchReview('approved')} data-testid="batch-approve-btn">
+                        <CheckCircle className="h-4 w-4 mr-1" />Approve All
+                      </Button>
+                      <Button size="sm" variant="destructive" onClick={() => handleBatchReview('rejected')} data-testid="batch-reject-btn">
+                        Reject All
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => setSelectedDocIds([])}>Clear</Button>
+                    </div>
+                  </div>
+                </Card>
+              )}
+
+              {(() => {
+                const filteredDocs = allDocuments.filter(d => {
                   const matchesQuery = !documentSearch.query || 
                     d.filename?.toLowerCase().includes(documentSearch.query.toLowerCase()) ||
                     d.document_type?.toLowerCase().includes(documentSearch.query.toLowerCase()) ||
@@ -963,72 +1049,96 @@ const CaseManagerDashboard = () => {
                   const matchesStatus = documentSearch.status === 'all' || 
                     (documentSearch.status === 'uploaded' ? ['uploaded', 'pending'].includes(d.status) : d.status === documentSearch.status);
                   return matchesQuery && matchesType && matchesStatus;
-                }).length} of {allDocuments.length} documents
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm" data-testid="documents-table">
-                  <thead>
-                    <tr className="bg-slate-100">
-                      <th className="text-left p-3">Document</th>
-                      <th className="text-left p-3">Client</th>
-                      <th className="text-left p-3">Case</th>
-                      <th className="text-left p-3">Type</th>
-                      <th className="text-center p-3">Status</th>
-                      <th className="text-left p-3">Uploaded</th>
-                      <th className="text-center p-3">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {allDocuments
-                      .filter(d => {
-                        const matchesQuery = !documentSearch.query || 
-                          d.filename?.toLowerCase().includes(documentSearch.query.toLowerCase()) ||
-                          d.document_type?.toLowerCase().includes(documentSearch.query.toLowerCase()) ||
-                          d.client_name?.toLowerCase().includes(documentSearch.query.toLowerCase());
-                        const matchesType = documentSearch.type === 'all' || d.document_type === documentSearch.type;
-                        const matchesStatus = documentSearch.status === 'all' || 
-                          (documentSearch.status === 'uploaded' ? ['uploaded', 'pending'].includes(d.status) : d.status === documentSearch.status);
-                        return matchesQuery && matchesType && matchesStatus;
-                      })
-                      .map((doc) => (
-                        <tr key={doc.id} className="border-b hover:bg-slate-50">
-                          <td className="p-3 font-medium">{doc.filename || 'Unknown'}</td>
-                          <td className="p-3 text-[#2a777a]">{doc.client_name}</td>
-                          <td className="p-3">{doc.case_id}</td>
-                          <td className="p-3 capitalize">{doc.document_type?.replace(/_/g, ' ')}</td>
-                          <td className="p-3 text-center">
-                            <Badge className={getStatusBadge(doc.status)}>{doc.status}</Badge>
-                          </td>
-                          <td className="p-3 text-slate-500">{formatDate(doc.uploaded_at || doc.created_at)}</td>
-                          <td className="p-3 text-center">
-                            <div className="flex items-center justify-center gap-1">
-                              <Button size="sm" variant="ghost" onClick={() => window.open(`${API.replace('/api', '')}${doc.file_path}`, '_blank')}>
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                              {['uploaded', 'pending'].includes(doc.status) && (
-                                <Button 
-                                  size="sm" 
-                                  className="bg-[#2a777a] hover:bg-[#236466]"
-                                  onClick={() => {
-                                    const caseInfo = cases.find(c => c.case_id === doc.case_id);
-                                    if (caseInfo) {
-                                      loadCaseDetails(caseInfo.id);
-                                      setActiveTab('cases');
-                                      setReviewDialog({ open: true, document: doc, status: '', comment: '' });
-                                    }
-                                  }}
-                                >
-                                  Review
-                                </Button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                  </tbody>
-                </table>
-              </div>
+                });
+                
+                return (
+                  <>
+                    <div className="text-sm text-slate-500 mb-2">
+                      Showing {filteredDocs.length} of {allDocuments.length} documents
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm" data-testid="documents-table">
+                        <thead>
+                          <tr className="bg-slate-100">
+                            <th className="p-3 w-10">
+                              <input
+                                type="checkbox"
+                                checked={selectedDocIds.length > 0 && selectedDocIds.length === filteredDocs.filter(d => ['uploaded', 'pending'].includes(d.status)).length}
+                                onChange={() => toggleAllDocs(filteredDocs.filter(d => ['uploaded', 'pending'].includes(d.status)))}
+                                className="rounded"
+                                data-testid="select-all-docs"
+                              />
+                            </th>
+                            <th className="text-left p-3">Document</th>
+                            <th className="text-left p-3">Client</th>
+                            <th className="text-left p-3">Case</th>
+                            <th className="text-left p-3">Type</th>
+                            <th className="text-center p-3">Status</th>
+                            <th className="text-left p-3">Uploaded By</th>
+                            <th className="text-left p-3">Uploaded</th>
+                            <th className="text-left p-3">Review</th>
+                            <th className="text-center p-3">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredDocs.map((doc) => (
+                            <tr key={doc.id} className={`border-b hover:bg-slate-50 ${selectedDocIds.includes(doc.id) ? 'bg-teal-50' : ''}`}>
+                              <td className="p-3">
+                                {['uploaded', 'pending'].includes(doc.status) && (
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedDocIds.includes(doc.id)}
+                                    onChange={() => toggleDocSelection(doc.id)}
+                                    className="rounded"
+                                  />
+                                )}
+                              </td>
+                              <td className="p-3 font-medium">{doc.filename || 'Unknown'}</td>
+                              <td className="p-3 text-[#2a777a]">{doc.client_name}</td>
+                              <td className="p-3">{doc.case_id}</td>
+                              <td className="p-3 capitalize">{doc.document_type?.replace(/_/g, ' ')}</td>
+                              <td className="p-3 text-center">{getStatusBadge(doc.status)}</td>
+                              <td className="p-3 text-slate-600 text-xs">{doc.uploader_name || 'Unknown'}</td>
+                              <td className="p-3 text-slate-500">{formatDate(doc.uploaded_at || doc.created_at)}</td>
+                              <td className="p-3 text-xs">
+                                {doc.review_comment && (
+                                  <span className="text-slate-600" title={doc.review_comment}>
+                                    {doc.reviewer_name && <span className="font-medium">{doc.reviewer_name}: </span>}
+                                    {doc.review_comment.length > 30 ? doc.review_comment.substring(0, 30) + '...' : doc.review_comment}
+                                  </span>
+                                )}
+                              </td>
+                              <td className="p-3 text-center">
+                                <div className="flex items-center justify-center gap-1">
+                                  <Button size="sm" variant="ghost" onClick={() => downloadDocument(doc.id || doc.file_id, doc.filename)} data-testid={`dl-doc-${doc.id}`}>
+                                    <Download className="h-4 w-4" />
+                                  </Button>
+                                  {['uploaded', 'pending', 'pending_review'].includes(doc.status) && (
+                                    <Button 
+                                      size="sm" 
+                                      className="bg-[#2a777a] hover:bg-[#236466]"
+                                      onClick={() => {
+                                        const caseInfo = cases.find(c => c.case_id === doc.case_id);
+                                        if (caseInfo) {
+                                          loadCaseDetails(caseInfo.id);
+                                          setActiveTab('cases');
+                                        }
+                                        setReviewDialog({ open: true, document: doc, status: '', comment: '' });
+                                      }}
+                                    >
+                                      Review
+                                    </Button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           )}
           </div>
@@ -1044,6 +1154,9 @@ const CaseManagerDashboard = () => {
           <div className="space-y-4 py-4">
             <div>
               <p className="font-medium mb-2 text-gray-900">{reviewDialog.document?.filename}</p>
+              {reviewDialog.document?.uploader_name && (
+                <p className="text-sm text-slate-500 mb-3">Uploaded by: {reviewDialog.document.uploader_name} on {formatDate(reviewDialog.document.uploaded_at)}</p>
+              )}
               <Label>Review Status</Label>
               <Select value={reviewDialog.status} onValueChange={(value) => setReviewDialog({ ...reviewDialog, status: value })}>
                 <SelectTrigger data-testid="review-status-select">
@@ -1057,18 +1170,45 @@ const CaseManagerDashboard = () => {
               </Select>
             </div>
             <div>
-              <Label>Comment</Label>
+              <Label>
+                Comment
+                {(reviewDialog.status === 'rejected' || reviewDialog.status === 'revision_required') && <span className="text-red-500"> * (required)</span>}
+              </Label>
               <Textarea
                 value={reviewDialog.comment}
                 onChange={(e) => setReviewDialog({ ...reviewDialog, comment: e.target.value })}
-                placeholder="Add review comments..."
+                placeholder={
+                  reviewDialog.status === 'rejected' ? 'Explain why this document is rejected (min 5 chars)...' :
+                  reviewDialog.status === 'revision_required' ? 'Explain what revisions are needed (min 5 chars)...' :
+                  'Add review comments (optional)...'
+                }
                 rows={4}
                 data-testid="review-comment-textarea"
               />
+              {(reviewDialog.status === 'rejected' || reviewDialog.status === 'revision_required') && (
+                <p className="text-xs text-slate-400 mt-1">{reviewDialog.comment.length}/5 characters minimum</p>
+              )}
             </div>
-            <Button onClick={handleReviewDocument} className="w-full bg-emerald-600 hover:bg-emerald-700" data-testid="submit-review-button">
-              Submit Review
-            </Button>
+            <div className="flex gap-3">
+              <Button 
+                onClick={() => {
+                  downloadDocument(reviewDialog.document?.id || reviewDialog.document?.file_id, reviewDialog.document?.filename);
+                }}
+                variant="outline" 
+                className="flex-1"
+                data-testid="review-download-btn"
+              >
+                <Download className="h-4 w-4 mr-1" />View File
+              </Button>
+              <Button 
+                onClick={handleReviewDocument} 
+                className={`flex-1 ${reviewDialog.status === 'approved' ? 'bg-emerald-600 hover:bg-emerald-700' : reviewDialog.status === 'rejected' ? 'bg-red-600 hover:bg-red-700' : 'bg-[#2a777a] hover:bg-[#236466]'}`}
+                disabled={!reviewDialog.status || ((reviewDialog.status === 'rejected' || reviewDialog.status === 'revision_required') && reviewDialog.comment.trim().length < 5)}
+                data-testid="submit-review-button"
+              >
+                Submit Review
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

@@ -31,14 +31,21 @@ async def _log(user_id, action, entity_type, entity_id=None, details=None):
 @router.get("/case/{case_id}")
 async def get_case_documents(case_id: str, current_user: dict = Depends(get_current_user)):
     docs = await documents_col.find({"case_id": case_id}, {"_id": 0}).to_list(500)
-    for d in docs:
-        uploader = await users_col.find_one({"id": d.get("uploaded_by")}, {"_id": 0, "password": 0})
-        d["uploader_name"] = uploader["name"] if uploader else "Unknown"
-        reviewer = await users_col.find_one({"id": d.get("reviewed_by")}, {"_id": 0, "password": 0})
-        d["reviewer_name"] = reviewer["name"] if reviewer else None
-        for f in ["uploaded_at", "reviewed_at"]:
-            if isinstance(d.get(f), datetime):
-                d[f] = d[f].isoformat()
+    if docs:
+        user_ids = set()
+        for d in docs:
+            if d.get("uploaded_by"): user_ids.add(d["uploaded_by"])
+            if d.get("reviewed_by"): user_ids.add(d["reviewed_by"])
+        users_list = await users_col.find({"id": {"$in": list(user_ids)}}, {"_id": 0, "password": 0}).to_list(500) if user_ids else []
+        users_map = {u["id"]: u for u in users_list}
+        for d in docs:
+            uploader = users_map.get(d.get("uploaded_by"))
+            d["uploader_name"] = uploader["name"] if uploader else "Unknown"
+            reviewer = users_map.get(d.get("reviewed_by"))
+            d["reviewer_name"] = reviewer["name"] if reviewer else None
+            for f in ["uploaded_at", "reviewed_at"]:
+                if isinstance(d.get(f), datetime):
+                    d[f] = d[f].isoformat()
     return docs
 
 
@@ -105,23 +112,37 @@ async def download_document(file_id: str, current_user: dict = Depends(get_curre
 
 @router.post("/review")
 async def review_document(request: DocumentReview, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] not in ["admin", "case_manager"]:
+        raise HTTPException(status_code=403, detail="Admin or Case Manager only")
+    
     doc = await documents_col.find_one({"id": request.document_id}, {"_id": 0})
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
     
+    # Require comment for rejection and revision_required
+    if request.status in ["rejected", "revision_required"] and (not request.comment or len(request.comment.strip()) < 5):
+        raise HTTPException(status_code=400, detail="Comment is required when rejecting or requesting revision (min 5 characters)")
+    
     await documents_col.update_one({"id": request.document_id}, {"$set": {
         "status": request.status, "review_comment": request.comment,
-        "reviewed_by": current_user["id"], "reviewed_at": datetime.now(timezone.utc)
+        "reviewed_by": current_user["id"], "reviewer_name": current_user.get("name", ""),
+        "reviewed_at": datetime.now(timezone.utc)
     }})
     
-    await _log(current_user["id"], f"review_document_{request.status}", "document", request.document_id, {"filename": doc["filename"]})
+    await _log(current_user["id"], f"review_document_{request.status}", "document", request.document_id, {"filename": doc["filename"], "comment": request.comment})
     
     # Notify uploader
     if doc.get("uploaded_by"):
+        status_msg = {
+            "approved": "approved",
+            "rejected": f"rejected. Reason: {request.comment}",
+            "revision_required": f"marked for revision. Feedback: {request.comment}"
+        }.get(request.status, request.status)
+        
         await notifications_col.insert_one({
             "id": str(uuid.uuid4()), "user_id": doc["uploaded_by"],
-            "title": f"Document {request.status.title()}",
-            "message": f"Your document '{doc['filename']}' has been {request.status}",
+            "title": f"Document {request.status.replace('_', ' ').title()}",
+            "message": f"Your document '{doc['filename']}' has been {status_msg}",
             "type": "document_review", "related_id": doc.get("case_id"),
             "read": False, "created_at": datetime.now(timezone.utc)
         })
