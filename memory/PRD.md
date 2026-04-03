@@ -1,13 +1,13 @@
 # LEAMSS Immigration Portal - PRD
 
-**Version:** 5.0 (MongoDB) | **Updated:** April 3, 2026 | **Status:** Production Ready
+**Version:** 6.0 (MongoDB) | **Updated:** April 3, 2026 | **Status:** Production Ready
 
 ## Problem Statement
 Comprehensive immigration service portal with Admin, Case Manager, Partner, Client roles. User uploaded a 30-point PRD across 3 phases.
 
 ## Architecture
 - **Backend:** Python FastAPI + MongoDB (motor async driver)
-- **Frontend:** React + TailwindCSS + Shadcn UI  
+- **Frontend:** React + TailwindCSS + Shadcn UI
 - **Database:** MongoDB (auto-seeds on startup)
 
 ## Implemented Features
@@ -17,38 +17,46 @@ Comprehensive immigration service portal with Admin, Case Manager, Partner, Clie
 - Role-based dashboards, Products & Workflow CRUD, User management
 - Sales CRUD, Cases, Documents, Tickets, Notifications, Activity Logs, Analytics, Global Search
 
-### Phase 1 Critical Fixes (COMPLETED - April 3, 2026)
+### Phase 1 Critical Fixes (COMPLETED)
 1. Commission on Amount Received (not fee_amount)
-2. Mandatory Rejection Reason for sales (min 5 chars) with dialog
+2. Mandatory Rejection Reason for sales (min 5 chars)
 3. Ticket Closure Comments required (min 10 chars)
 4. Workflow Duplicate Step Prevention (case-insensitive)
 5. Sales Report: Service Type, Date, Received, Pending, Rejection Reason columns
 6. Record Payment endpoint for partial payments
 7. Dashboard stats: Received/Pending breakdown
 
-### Phase 2 Features (COMPLETED - April 3, 2026)
-1. **Commission Effective Date** - Rate changes tracked in `commission_rate_history` array with `effective_from` date
-2. **Client Ticket Routing** - Auto-routes by category (document/payment → case_manager, general → admin). Admin can reassign tickets.
-3. **Refund Module** - Full CRUD at `/api/refunds`. Auto-adjusts commission when refund processed. Validates reason/amount.
-4. **Currency Conversion (USD ↔ INR)** - Configurable exchange rate in settings. Dual currency display toggle on dashboard.
-5. **Payment Collection Tracker Widget** - Dashboard widget showing overdue (red), due this week (amber), upcoming (green) payment deadlines.
+### Phase 2 Features (COMPLETED)
+1. Commission Effective Date — tracked in commission_rate_history with effective_from
+2. Client Ticket Routing — auto-routes by category, admin can reassign
+3. Refund Module — auto-adjusts commission, full CRUD at /api/refunds
+4. Currency Conversion (USD/INR) — configurable exchange rate, dual display toggle
+5. Payment Collection Tracker Widget — overdue/due_soon/upcoming color-coded
+
+### P1: Case Manager Document Privileges (COMPLETED)
+1. View, approve, reject, revision_required with mandatory comment on rejection/revision (min 5 chars)
+2. Batch approve/reject — select multiple docs, bulk action
+3. Request additional docs via auto-ticket creation to client
+4. Search & filter by query, type, status
+5. Uploader name & reviewer comments visible in table + case detail
+6. Review dialog with View File download button
+7. N+1 queries optimized in documents, sales, cases, reports
 
 ## Remaining Backlog
 
 ### P1 - High Priority
 - CRM & Lead Management (pipeline, source tracking, follow-up reminders)
 - Notification System (Email, SMS, WhatsApp alerts, trigger-based)
-- Case Manager Document Privileges (view, approve, reject, request via ticket/email, filters)
 
 ### P2 - Medium Priority
-- PDF Report Generation (wire export router to frontend)
+- PDF Report Generation
 - Bulk Document Upload
 - Email Notifications via SMTP
 
 ### P3 - Future
-- AI Document Verification, OCR-based extraction, AI Chatbot
+- AI Document Verification, OCR, AI Chatbot
 - Drag-and-drop Workflow Builder
-- Mobile Applications (Client & Staff)
-- Marketing (referral system, promo codes)
+- Mobile Applications
+- Marketing (referrals, promo codes)
 - SMS (Twilio), Calendar, WhatsApp
 - Stripe Payment Gateway
