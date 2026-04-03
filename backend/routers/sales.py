@@ -21,6 +21,15 @@ class SaleApproval(BaseModel):
     status: str
     case_manager_id: Optional[str] = None
     notes: Optional[str] = ""
+    rejection_reason: Optional[str] = ""
+
+
+class RecordPayment(BaseModel):
+    sale_id: str
+    amount: float
+    payment_method: str = "cash"
+    payment_reference: str = ""
+    notes: str = ""
 
 
 async def _log(user_id, action, entity_type, entity_id=None, details=None):
@@ -33,9 +42,12 @@ async def _log(user_id, action, entity_type, entity_id=None, details=None):
 
 def _serialize_sale(sale):
     s = {k: v for k, v in sale.items() if k != "_id"}
-    for f in ["created_at", "approved_at"]:
+    for f in ["created_at", "approved_at", "collection_deadline"]:
         if isinstance(s.get(f), datetime):
             s[f] = s[f].isoformat()
+    fee = s.get("fee_amount", 0) or 0
+    received = s.get("amount_received", 0) or 0
+    s["pending_amount"] = round(fee - received, 2)
     return s
 
 
@@ -57,7 +69,12 @@ async def get_sales(status: str = None, current_user: dict = Depends(get_current
         product = await products_col.find_one({"id": sale.get("product_id")}, {"_id": 0})
         sale["partner_name"] = partner["name"] if partner else "N/A"
         sale["product_name"] = product["name"] if product else "N/A"
-        for f in ["created_at", "approved_at"]:
+        sale["product_category"] = product.get("category", "N/A") if product else "N/A"
+        # Compute pending amount
+        fee = sale.get("fee_amount", 0) or 0
+        received = sale.get("amount_received", 0) or 0
+        sale["pending_amount"] = round(fee - received, 2)
+        for f in ["created_at", "approved_at", "collection_deadline"]:
             if isinstance(sale.get(f), datetime):
                 sale[f] = sale[f].isoformat()
     
@@ -79,7 +96,11 @@ async def get_pending_sales(current_user: dict = Depends(get_current_user)):
         product = await products_col.find_one({"id": sale.get("product_id")}, {"_id": 0})
         sale["partner_name"] = partner["name"] if partner else "N/A"
         sale["product_name"] = product["name"] if product else "N/A"
-        for f in ["created_at", "approved_at"]:
+        sale["product_category"] = product.get("category", "N/A") if product else "N/A"
+        fee = sale.get("fee_amount", 0) or 0
+        received = sale.get("amount_received", 0) or 0
+        sale["pending_amount"] = round(fee - received, 2)
+        for f in ["created_at", "approved_at", "collection_deadline"]:
             if isinstance(sale.get(f), datetime):
                 sale[f] = sale[f].isoformat()
     
@@ -98,7 +119,11 @@ async def get_my_sales(current_user: dict = Depends(get_current_user)):
         product = await products_col.find_one({"id": sale.get("product_id")}, {"_id": 0})
         sale["partner_name"] = partner["name"] if partner else "N/A"
         sale["product_name"] = product["name"] if product else "N/A"
-        for f in ["created_at", "approved_at"]:
+        sale["product_category"] = product.get("category", "N/A") if product else "N/A"
+        fee = sale.get("fee_amount", 0) or 0
+        received = sale.get("amount_received", 0) or 0
+        sale["pending_amount"] = round(fee - received, 2)
+        for f in ["created_at", "approved_at", "collection_deadline"]:
             if isinstance(sale.get(f), datetime):
                 sale[f] = sale[f].isoformat()
     
@@ -116,6 +141,7 @@ async def create_sale(
     payment_method: str = Form("cash"),
     payment_reference: str = Form(""),
     commission_rate: Optional[float] = Form(None),
+    collection_deadline: Optional[str] = Form(None),
     agreement_signed: bool = Form(True),
     documents: List[UploadFile] = File(None),
     current_user: dict = Depends(get_current_user)
@@ -125,17 +151,43 @@ async def create_sale(
         raise HTTPException(status_code=404, detail="Product not found")
     
     rate = commission_rate if commission_rate is not None else current_user.get("commission_rate", 0)
+    received = amount_received or 0
+    # Commission calculated on amount_received, NOT fee_amount
+    commission = round(received * (rate / 100), 2) if rate else 0
+    pending = round(fee_amount - received, 2)
+    
+    # Parse collection deadline
+    deadline_dt = None
+    if collection_deadline:
+        try:
+            deadline_dt = datetime.fromisoformat(collection_deadline)
+        except (ValueError, TypeError):
+            pass
+    
+    # Determine payment status
+    if received >= fee_amount:
+        pay_status = "paid"
+    elif received > 0:
+        pay_status = "partial"
+    else:
+        pay_status = "pending"
     
     sale = {
         "id": str(uuid.uuid4()), "partner_id": current_user["id"],
         "client_name": client_name, "client_email": client_email,
         "client_mobile": client_mobile, "product_id": product_id,
-        "fee_amount": fee_amount, "amount_received": amount_received,
+        "fee_amount": fee_amount, "amount_received": received,
+        "pending_amount": pending,
         "payment_method": payment_method, "payment_reference": payment_reference,
         "commission_rate": rate,
-        "commission_amount": fee_amount * (rate / 100) if rate else 0,
+        "commission_amount": commission,
+        "collection_deadline": deadline_dt,
         "agreement_signed": agreement_signed, "status": "pending",
-        "payment_status": "pending",
+        "payment_status": pay_status,
+        "payment_history": [
+            {"amount": received, "method": payment_method, "reference": payment_reference,
+             "date": datetime.now(timezone.utc).isoformat(), "recorded_by": current_user["id"]}
+        ] if received > 0 else [],
         "created_at": datetime.now(timezone.utc)
     }
     await sales_col.insert_one(sale)
@@ -184,12 +236,15 @@ async def approve_sale(request: SaleApproval, current_user: dict = Depends(get_c
     
     if request.status == "approved":
         rate = sale.get("commission_rate", 0) or 0
-        commission = sale["fee_amount"] * (rate / 100)
+        received = sale.get("amount_received", 0) or 0
+        # Commission calculated on amount_received, NOT fee_amount
+        commission = round(received * (rate / 100), 2)
         
         await sales_col.update_one({"id": request.sale_id}, {"$set": {
             "status": "approved", "approved_by": current_user["id"],
             "approved_at": datetime.now(timezone.utc),
-            "commission_amount": commission
+            "commission_amount": commission,
+            "pending_amount": round(sale["fee_amount"] - received, 2)
         }})
         
         # Create or get client
@@ -257,8 +312,15 @@ async def approve_sale(request: SaleApproval, current_user: dict = Depends(get_c
         return response
     
     elif request.status == "rejected":
-        await sales_col.update_one({"id": request.sale_id}, {"$set": {"status": "rejected", "rejection_notes": request.notes}})
-        await _log(current_user["id"], "sale_rejected", "sale", request.sale_id, {"client_name": sale["client_name"]})
+        reason = request.rejection_reason or request.notes or ""
+        if not reason or len(reason.strip()) < 5:
+            raise HTTPException(status_code=400, detail="Rejection reason is required (minimum 5 characters)")
+        await sales_col.update_one({"id": request.sale_id}, {"$set": {
+            "status": "rejected", "rejection_reason": reason.strip(),
+            "rejection_notes": reason.strip(), "rejected_by": current_user["id"],
+            "rejected_at": datetime.now(timezone.utc)
+        }})
+        await _log(current_user["id"], "sale_rejected", "sale", request.sale_id, {"client_name": sale["client_name"], "reason": reason.strip()})
         return {"message": "Sale rejected"}
     
     raise HTTPException(status_code=400, detail="Invalid status")
@@ -278,6 +340,8 @@ async def get_partner_report(partner_id: str = None, period: str = "lifetime", c
     total = len(sales)
     approved = [s for s in sales if s.get("status") == "approved"]
     revenue = sum(s["fee_amount"] for s in approved)
+    total_received = sum(s.get("amount_received", 0) for s in approved)
+    total_pending = sum(s.get("pending_amount", s["fee_amount"] - s.get("amount_received", 0)) for s in approved)
     commission = sum(s.get("commission_amount", 0) for s in approved)
     
     sales_data = []
@@ -288,16 +352,23 @@ async def get_partner_report(partner_id: str = None, period: str = "lifetime", c
             "id": s["id"], "client_name": s["client_name"], "client_email": s["client_email"],
             "partner_name": partner["name"] if partner else "N/A",
             "product_name": product["name"] if product else "N/A",
-            "fee_amount": s["fee_amount"], "commission_amount": s.get("commission_amount", 0),
+            "product_category": product.get("category", "N/A") if product else "N/A",
+            "fee_amount": s["fee_amount"],
+            "amount_received": s.get("amount_received", 0),
+            "pending_amount": round(s["fee_amount"] - s.get("amount_received", 0), 2),
+            "commission_amount": s.get("commission_amount", 0),
             "commission_rate": s.get("commission_rate", 0), "status": s["status"],
+            "rejection_reason": s.get("rejection_reason", ""),
             "payment_method": s.get("payment_method", ""), "payment_reference": s.get("payment_reference", ""),
+            "payment_status": s.get("payment_status", "pending"),
             "date": s.get("created_at", "").isoformat() if isinstance(s.get("created_at"), datetime) else str(s.get("created_at", ""))
         }
         sales_data.append(sd)
     
     return {
         "total_sales": total, "approved_sales": len(approved),
-        "total_revenue": revenue, "total_commission": commission,
+        "total_revenue": revenue, "total_received": total_received,
+        "total_pending": total_pending, "total_commission": commission,
         "sales": sales_data, "partner_breakdown": []
     }
 
@@ -307,13 +378,100 @@ async def get_sales_stats(current_user: dict = Depends(get_current_user)):
     total = await sales_col.count_documents({})
     pending = await sales_col.count_documents({"status": "pending"})
     approved = await sales_col.count_documents({"status": "approved"})
+    rejected = await sales_col.count_documents({"status": "rejected"})
     
     approved_sales = await sales_col.find({"status": "approved"}, {"_id": 0}).to_list(1000)
     revenue = sum(s["fee_amount"] for s in approved_sales)
+    total_received = sum(s.get("amount_received", 0) for s in approved_sales)
+    total_pending_amount = round(revenue - total_received, 2)
     commission = sum(s.get("commission_amount", 0) for s in approved_sales)
     
     return {
         "total_sales": total, "pending_sales": pending,
-        "approved_sales": approved, "total_revenue": revenue,
+        "approved_sales": approved, "rejected_sales": rejected,
+        "total_revenue": revenue, "total_received": total_received,
+        "total_pending_amount": total_pending_amount,
         "total_commission": commission
     }
+
+
+@router.post("/record-payment")
+async def record_payment(data: RecordPayment, current_user: dict = Depends(get_current_user)):
+    """Record an additional payment against a sale"""
+    if current_user["role"] not in ["admin", "partner"]:
+        raise HTTPException(status_code=403, detail="Admin or Partner only")
+    
+    sale = await sales_col.find_one({"id": data.sale_id}, {"_id": 0})
+    if not sale:
+        raise HTTPException(status_code=404, detail="Sale not found")
+    
+    if data.amount <= 0:
+        raise HTTPException(status_code=400, detail="Amount must be positive")
+    
+    old_received = sale.get("amount_received", 0) or 0
+    new_received = round(old_received + data.amount, 2)
+    fee = sale.get("fee_amount", 0)
+    new_pending = round(fee - new_received, 2)
+    
+    # Recalculate commission on new amount received
+    rate = sale.get("commission_rate", 0) or 0
+    new_commission = round(new_received * (rate / 100), 2) if rate else 0
+    
+    # Determine payment status
+    if new_received >= fee:
+        pay_status = "paid"
+    else:
+        pay_status = "partial"
+    
+    payment_entry = {
+        "amount": data.amount, "method": data.payment_method,
+        "reference": data.payment_reference, "notes": data.notes,
+        "date": datetime.now(timezone.utc).isoformat(),
+        "recorded_by": current_user["id"]
+    }
+    
+    await sales_col.update_one({"id": data.sale_id}, {
+        "$set": {
+            "amount_received": new_received,
+            "pending_amount": new_pending,
+            "commission_amount": new_commission,
+            "payment_status": pay_status
+        },
+        "$push": {"payment_history": payment_entry}
+    })
+    
+    await _log(current_user["id"], "record_payment", "sale", data.sale_id, {
+        "amount": data.amount, "new_total_received": new_received, "new_commission": new_commission
+    })
+    
+    return {
+        "message": "Payment recorded successfully",
+        "amount_received": new_received,
+        "pending_amount": new_pending,
+        "commission_amount": new_commission,
+        "payment_status": pay_status
+    }
+
+
+@router.get("/{sale_id}")
+async def get_sale_detail(sale_id: str, current_user: dict = Depends(get_current_user)):
+    """Get single sale with full details"""
+    sale = await sales_col.find_one({"id": sale_id}, {"_id": 0})
+    if not sale:
+        raise HTTPException(status_code=404, detail="Sale not found")
+    
+    partner = await users_col.find_one({"id": sale.get("partner_id")}, {"_id": 0, "password": 0})
+    product = await products_col.find_one({"id": sale.get("product_id")}, {"_id": 0})
+    sale["partner_name"] = partner["name"] if partner else "N/A"
+    sale["product_name"] = product["name"] if product else "N/A"
+    sale["product_category"] = product.get("category", "N/A") if product else "N/A"
+    
+    fee = sale.get("fee_amount", 0) or 0
+    received = sale.get("amount_received", 0) or 0
+    sale["pending_amount"] = round(fee - received, 2)
+    
+    for f in ["created_at", "approved_at", "rejected_at", "collection_deadline"]:
+        if isinstance(sale.get(f), datetime):
+            sale[f] = sale[f].isoformat()
+    
+    return sale

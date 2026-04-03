@@ -17,12 +17,16 @@ async def dashboard(current_user: dict = Depends(get_current_user)):
     
     approved = await sales_col.find({"status": "approved"}, {"_id": 0}).to_list(1000)
     revenue = sum(s["fee_amount"] for s in approved)
+    total_received = sum(s.get("amount_received", 0) for s in approved)
+    total_pending_amount = round(revenue - total_received, 2)
     commission = sum(s.get("commission_amount", 0) for s in approved)
     
     return {
         "pending_sales": pending_sales, "active_cases": active_cases,
         "open_tickets": open_tickets, "total_users": total_users,
-        "total_revenue": revenue, "total_commission": commission
+        "total_revenue": revenue, "total_received": total_received,
+        "total_pending_amount": total_pending_amount,
+        "total_commission": commission
     }
 
 
@@ -35,12 +39,16 @@ async def admin_dashboard(current_user: dict = Depends(get_current_user)):
     
     approved = await sales_col.find({"status": "approved"}, {"_id": 0}).to_list(1000)
     revenue = sum(s["fee_amount"] for s in approved)
+    total_received = sum(s.get("amount_received", 0) for s in approved)
+    total_pending_amount = round(revenue - total_received, 2)
     commission = sum(s.get("commission_amount", 0) for s in approved)
     
     return {
         "pending_sales": pending_sales, "active_cases": active_cases,
         "open_tickets": open_tickets, "total_users": total_users,
-        "total_revenue": revenue, "total_commission": commission
+        "total_revenue": revenue, "total_received": total_received,
+        "total_pending_amount": total_pending_amount,
+        "total_commission": commission
     }
 
 

@@ -86,9 +86,25 @@ async def create_workflow_step(product_id: str, data: dict, current_user: dict =
     if current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
     
+    # Prevent duplicate step names for same product
+    existing = await workflow_steps_col.find_one({
+        "product_id": product_id,
+        "step_name": {"$regex": f"^{data['step_name'].strip()}$", "$options": "i"}
+    })
+    if existing:
+        raise HTTPException(status_code=400, detail=f"A workflow step named '{data['step_name']}' already exists for this product")
+    
+    # Prevent duplicate step_order
+    order_exists = await workflow_steps_col.find_one({
+        "product_id": product_id,
+        "step_order": data["step_order"]
+    })
+    if order_exists:
+        raise HTTPException(status_code=400, detail=f"Step order {data['step_order']} already exists for this product")
+    
     step = {
         "id": str(uuid.uuid4()), "product_id": product_id,
-        "step_name": data["step_name"], "step_order": data["step_order"],
+        "step_name": data["step_name"].strip(), "step_order": data["step_order"],
         "description": data.get("description", ""),
         "duration_days": data.get("duration_days", 7),
         "required_documents": data.get("required_documents", [])

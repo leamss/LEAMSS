@@ -583,9 +583,18 @@ const PartnerDashboard = () => {
                     <div>
                       <h3 className="text-lg font-semibold">{sale.client_name}</h3>
                       <p className="text-sm text-slate-600">{sale.client_email} | {sale.client_mobile}</p>
-                      <p className="text-sm text-slate-600 mt-2">Product: {sale.product_name}</p>
-                      <p className="text-sm text-slate-600">Fee: ${sale.fee_amount} | Received: ${sale.amount_received}</p>
-                      <p className="text-sm text-slate-600">Payment: {sale.payment_method} - {sale.payment_reference}</p>
+                      <p className="text-sm text-slate-600 mt-2">Product: {sale.product_name} <span className="text-xs text-slate-400 capitalize">({sale.product_category || 'N/A'})</span></p>
+                      <div className="flex flex-wrap gap-4 mt-1 text-sm">
+                        <span className="text-slate-600">Fee: <span className="font-semibold">${(sale.fee_amount || 0).toLocaleString()}</span></span>
+                        <span className="text-green-700">Received: <span className="font-semibold">${(sale.amount_received || 0).toLocaleString()}</span></span>
+                        {(sale.pending_amount || 0) > 0 && (
+                          <span className="text-amber-700">Pending: <span className="font-semibold">${(sale.pending_amount || 0).toLocaleString()}</span></span>
+                        )}
+                      </div>
+                      <p className="text-sm text-slate-600">Payment: {sale.payment_method} {sale.payment_reference ? `- ${sale.payment_reference}` : ''}</p>
+                      {sale.rejection_reason && (
+                        <p className="text-sm text-red-600 mt-1 bg-red-50 p-2 rounded">Rejection Reason: {sale.rejection_reason}</p>
+                      )}
                       <p className="text-sm text-slate-500 mt-1">Created: {new Date(sale.created_at).toLocaleDateString()}</p>
                     </div>
                     <div className="text-right">
@@ -594,7 +603,7 @@ const PartnerDashboard = () => {
                       </span>
                       {sale.status === 'approved' && (
                         <p className="text-sm text-emerald-600 font-semibold mt-2">
-                          Commission: ${sale.commission_amount.toFixed(2)}
+                          Commission ({sale.commission_rate}% of received): ${(sale.commission_amount || 0).toFixed(2)}
                         </p>
                       )}
                     </div>
@@ -670,6 +679,7 @@ const PartnerDashboard = () => {
                           <th className="text-left p-3">Client</th>
                           <th className="text-left p-3">Product</th>
                           <th className="text-right p-3">Fee Amount</th>
+                          <th className="text-right p-3">Amt Received</th>
                           <th className="text-right p-3">Rate</th>
                           <th className="text-right p-3">Commission</th>
                         </tr>
@@ -680,15 +690,16 @@ const PartnerDashboard = () => {
                             <td className="p-3">{new Date(sale.created_at).toLocaleDateString()}</td>
                             <td className="p-3 font-medium">{sale.client_name}</td>
                             <td className="p-3">{sale.product_name}</td>
-                            <td className="p-3 text-right">${sale.fee_amount?.toFixed(2)}</td>
+                            <td className="p-3 text-right">${(sale.fee_amount || 0).toLocaleString()}</td>
+                            <td className="p-3 text-right text-green-700">${(sale.amount_received || 0).toLocaleString()}</td>
                             <td className="p-3 text-right">{sale.commission_rate}%</td>
-                            <td className="p-3 text-right font-bold text-emerald-600">${sale.commission_amount?.toFixed(2)}</td>
+                            <td className="p-3 text-right font-bold text-emerald-600">${(sale.commission_amount || 0).toFixed(2)}</td>
                           </tr>
                         ))}
                       </tbody>
                       <tfoot>
                         <tr className="bg-slate-100 font-bold">
-                          <td colSpan={5} className="p-3 text-right">Total:</td>
+                          <td colSpan={6} className="p-3 text-right">Total:</td>
                           <td className="p-3 text-right text-emerald-600">${filteredCommissions.reduce((sum, s) => sum + (s.commission_amount || 0), 0).toFixed(2)}</td>
                         </tr>
                       </tfoot>

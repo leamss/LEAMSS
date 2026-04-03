@@ -230,18 +230,24 @@ const AdminDashboard = () => {
       return;
     }
     
-    // Create CSV content
-    const headers = ['Client Name', 'Client Email', 'Product', 'Partner', 'Fee Amount', 'Commission', 'Status', 'Created Date', 'Approval Date'];
+    // Create CSV content with enhanced fields
+    const headers = ['Date of Sale', 'Client Name', 'Client Email', 'Service Type', 'Product', 'Partner', 'Fee Amount', 'Amount Received', 'Pending Amount', 'Commission Rate', 'Commission', 'Payment Status', 'Status', 'Rejection Reason', 'Approval Date'];
     const rows = salesReport.map(sale => [
+      new Date(sale.created_at).toLocaleDateString(),
       sale.client_name,
       sale.client_email,
+      sale.product_category || 'N/A',
       sale.product_name || 'N/A',
       sale.partner_name || 'N/A',
       sale.fee_amount,
+      sale.amount_received || 0,
+      sale.pending_amount || 0,
+      (sale.commission_rate || 0) + '%',
       sale.commission_amount || 0,
+      sale.payment_status || 'pending',
       sale.status,
-      new Date(sale.created_at).toLocaleDateString(),
-      sale.approval_date ? new Date(sale.approval_date).toLocaleDateString() : 'N/A'
+      sale.rejection_reason || '',
+      sale.approved_at ? new Date(sale.approved_at).toLocaleDateString() : 'N/A'
     ]);
     
     const csvContent = [
@@ -548,7 +554,15 @@ const AdminDashboard = () => {
     }
   };
 
+  // State for rejection dialog
+  const [rejectionDialog, setRejectionDialog] = useState({ open: false, sale_id: null, reason: '' });
+
   const handleApproveSale = async (saleId, status, caseManagerId) => {
+    // If rejecting, require a reason via dialog
+    if (status === 'rejected') {
+      setRejectionDialog({ open: true, sale_id: saleId, reason: '' });
+      return;
+    }
     try {
       const response = await axios.post(`${API}/sales/approve`, { sale_id: saleId, status, case_manager_id: caseManagerId || null }, getAuthHeader());
       toast.success(`Sale ${status}!`);
@@ -565,7 +579,27 @@ const AdminDashboard = () => {
       loadData();
       setActiveTab('sales');
     } catch (error) {
-      toast.error('Failed to update sale');
+      toast.error(error.response?.data?.detail || 'Failed to update sale');
+    }
+  };
+
+  const handleConfirmRejection = async () => {
+    if (!rejectionDialog.reason || rejectionDialog.reason.trim().length < 5) {
+      toast.error('Rejection reason is required (minimum 5 characters)');
+      return;
+    }
+    try {
+      await axios.post(`${API}/sales/approve`, {
+        sale_id: rejectionDialog.sale_id,
+        status: 'rejected',
+        rejection_reason: rejectionDialog.reason.trim()
+      }, getAuthHeader());
+      toast.success('Sale rejected');
+      setRejectionDialog({ open: false, sale_id: null, reason: '' });
+      loadData();
+      setActiveTab('sales');
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to reject sale');
     }
   };
 
@@ -917,7 +951,11 @@ const AdminDashboard = () => {
                 </Card>
                 <Card className="p-6 bg-white rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
                   <p className="text-sm text-slate-500 font-medium">Total Revenue</p>
-                  <p className="text-3xl font-bold text-emerald-600 mt-2">${(stats.total_revenue || 0).toFixed(2)}</p>
+                  <p className="text-3xl font-bold text-emerald-600 mt-2">${(stats.total_revenue || 0).toLocaleString()}</p>
+                  <div className="flex justify-between text-xs mt-2 text-slate-500">
+                    <span className="text-green-600">Received: ${(stats.total_received || 0).toLocaleString()}</span>
+                    <span className="text-amber-600">Pending: ${(stats.total_pending_amount || 0).toLocaleString()}</span>
+                  </div>
                 </Card>
                 <Card className="p-6 bg-white rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
                   <p className="text-sm text-slate-500 font-medium">Open Tickets</p>
@@ -1079,11 +1117,13 @@ const AdminDashboard = () => {
                         <th className="text-left p-3">Date</th>
                         <th className="text-left p-3">Client</th>
                         <th className="text-left p-3">Partner</th>
-                        <th className="text-left p-3">Product</th>
-                        <th className="text-right p-3">Amount</th>
+                        <th className="text-left p-3">Service Type</th>
+                        <th className="text-right p-3">Fee</th>
+                        <th className="text-right p-3">Received</th>
+                        <th className="text-right p-3">Pending</th>
                         <th className="text-right p-3">Commission</th>
                         <th className="text-center p-3">Status</th>
-                        <th className="text-center p-3">Action</th>
+                        <th className="text-left p-3">Rejection Reason</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1092,15 +1132,15 @@ const AdminDashboard = () => {
                           <td className="p-3">{new Date(sale.created_at).toLocaleDateString()}</td>
                           <td className="p-3">{sale.client_name}</td>
                           <td className="p-3">{sale.partner_name}</td>
-                          <td className="p-3">{sale.product_name}</td>
-                          <td className="p-3 text-right">${sale.fee_amount}</td>
+                          <td className="p-3">
+                            <Badge variant="outline" className="capitalize">{sale.product_category || 'N/A'}</Badge>
+                          </td>
+                          <td className="p-3 text-right">${sale.fee_amount?.toLocaleString()}</td>
+                          <td className="p-3 text-right text-green-700">${(sale.amount_received || 0).toLocaleString()}</td>
+                          <td className="p-3 text-right text-amber-700">${(sale.pending_amount || 0).toLocaleString()}</td>
                           <td className="p-3 text-right">${sale.commission_amount?.toFixed(2)}</td>
                           <td className="p-3 text-center">{getStatusBadge(sale.status)}</td>
-                          <td className="p-3 text-center">
-                            <Button size="sm" variant="outline" onClick={() => loadPartnerReport(sale.partner_id)}>
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          </td>
+                          <td className="p-3 text-sm text-red-600">{sale.rejection_reason || '-'}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -1296,11 +1336,32 @@ const AdminDashboard = () => {
                             sale.status === 'rejected' ? 'bg-red-50 text-red-700 border-red-200' :
                             'bg-amber-50 text-amber-700 border-amber-200'
                           }`}>{sale.status}</span>
+                          {sale.payment_status && sale.payment_status !== 'pending' && (
+                            <Badge className={sale.payment_status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}>{sale.payment_status}</Badge>
+                          )}
                         </div>
                         <p className="text-sm text-slate-600">{sale.client_email} | {sale.client_mobile}</p>
-                        <p className="text-sm text-slate-600 mt-1">Product: <span className="font-medium">{sale.product_name}</span> | Partner: {sale.partner_name}</p>
-                        <p className="text-sm text-slate-600">Fee: ${sale.fee_amount} | Payment: {sale.payment_method} {sale.payment_reference ? `(${sale.payment_reference})` : ''}</p>
-                        {sale.commission_rate > 0 && <p className="text-sm text-slate-600">Commission: {sale.commission_rate}% = ${(sale.commission_amount || 0).toFixed(2)}</p>}
+                        <p className="text-sm text-slate-600 mt-1">
+                          Product: <span className="font-medium">{sale.product_name}</span>
+                          <Badge variant="outline" className="ml-2 capitalize text-xs">{sale.product_category || 'N/A'}</Badge>
+                          {' | '}Partner: {sale.partner_name}
+                        </p>
+                        <div className="flex flex-wrap gap-4 mt-1 text-sm">
+                          <span className="text-slate-600">Fee: <span className="font-semibold">${(sale.fee_amount || 0).toLocaleString()}</span></span>
+                          <span className="text-green-700">Received: <span className="font-semibold">${(sale.amount_received || 0).toLocaleString()}</span></span>
+                          {(sale.pending_amount || 0) > 0 && (
+                            <span className="text-amber-700">Pending: <span className="font-semibold">${(sale.pending_amount || 0).toLocaleString()}</span></span>
+                          )}
+                          <span className="text-slate-600">Payment: {sale.payment_method} {sale.payment_reference ? `(${sale.payment_reference})` : ''}</span>
+                        </div>
+                        {sale.commission_rate > 0 && (
+                          <p className="text-sm text-slate-600 mt-1">
+                            Commission: {sale.commission_rate}% of received = <span className="font-semibold text-[#2a777a]">${(sale.commission_amount || 0).toFixed(2)}</span>
+                          </p>
+                        )}
+                        {sale.rejection_reason && (
+                          <p className="text-sm text-red-600 mt-1 bg-red-50 p-2 rounded">Rejection Reason: {sale.rejection_reason}</p>
+                        )}
                         <p className="text-xs text-slate-400 mt-1">Created: {new Date(sale.created_at).toLocaleString()}</p>
                       </div>
                       <div className="flex flex-col gap-2">
@@ -1334,11 +1395,15 @@ const AdminDashboard = () => {
               <Button onClick={() => setActiveTab('sales')} variant="outline"><ArrowRight className="mr-2 h-4 w-4 rotate-180" />Back to Sales</Button>
               <Card className="p-6">
                 <h3 className="text-lg font-semibold mb-4 text-slate-800">Sale Information</h3>
-                <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                   <div><p className="text-sm text-slate-500">Client</p><p className="font-medium text-slate-800">{selectedSale.client_name}</p></div>
                   <div><p className="text-sm text-slate-500">Email</p><p className="font-medium text-slate-800">{selectedSale.client_email}</p></div>
                   <div><p className="text-sm text-slate-500">Product</p><p className="font-medium text-slate-800">{selectedSale.product_name}</p></div>
-                  <div><p className="text-sm text-slate-500">Fee Amount</p><p className="font-medium text-slate-800">${selectedSale.fee_amount}</p></div>
+                  <div><p className="text-sm text-slate-500">Service Type</p><Badge variant="outline" className="capitalize">{selectedSale.product_category || 'N/A'}</Badge></div>
+                  <div><p className="text-sm text-slate-500">Fee Amount</p><p className="font-medium text-slate-800">${(selectedSale.fee_amount || 0).toLocaleString()}</p></div>
+                  <div><p className="text-sm text-slate-500">Amount Received</p><p className="font-medium text-green-700">${(selectedSale.amount_received || 0).toLocaleString()}</p></div>
+                  <div><p className="text-sm text-slate-500">Pending Amount</p><p className="font-medium text-amber-700">${(selectedSale.pending_amount || (selectedSale.fee_amount - (selectedSale.amount_received || 0))).toLocaleString()}</p></div>
+                  <div><p className="text-sm text-slate-500">Commission ({selectedSale.commission_rate || 0}%)</p><p className="font-medium text-[#2a777a]">${(selectedSale.commission_amount || 0).toFixed(2)}</p></div>
                 </div>
                 <h4 className="font-semibold mb-3 text-slate-800">Uploaded Documents</h4>
                 <div className="space-y-3">
@@ -2236,6 +2301,39 @@ const AdminDashboard = () => {
               </>
             )}
             <Button onClick={() => setClientCredentialsDialog({ open: false, credentials: null })} className="w-full bg-[#2a777a] hover:bg-[#236466] text-white">Done</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Rejection Reason Dialog */}
+      <Dialog open={rejectionDialog.open} onOpenChange={(open) => setRejectionDialog({ ...rejectionDialog, open })}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Reject Sale</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-slate-600">Please provide a reason for rejecting this sale. This will be visible in reports.</p>
+            <div>
+              <Label>Rejection Reason <span className="text-red-500">*</span></Label>
+              <Textarea
+                value={rejectionDialog.reason}
+                onChange={(e) => setRejectionDialog({ ...rejectionDialog, reason: e.target.value })}
+                rows={3}
+                placeholder="Enter the reason for rejection (minimum 5 characters)..."
+                data-testid="rejection-reason-input"
+              />
+              <p className="text-xs text-slate-400 mt-1">{rejectionDialog.reason.length}/5 characters minimum</p>
+            </div>
+            <div className="flex gap-3">
+              <Button onClick={() => setRejectionDialog({ open: false, sale_id: null, reason: '' })} variant="outline" className="flex-1">Cancel</Button>
+              <Button
+                onClick={handleConfirmRejection}
+                variant="destructive"
+                className="flex-1"
+                disabled={rejectionDialog.reason.trim().length < 5}
+                data-testid="confirm-rejection-btn"
+              >
+                <XCircle className="mr-2 h-4 w-4" />Confirm Rejection
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

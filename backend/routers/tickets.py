@@ -33,7 +33,7 @@ async def get_tickets(current_user: dict = Depends(get_current_user)):
         t["creator_name"] = creator["name"] if creator else "Unknown"
         msgs = await ticket_messages_col.count_documents({"ticket_id": t["id"]})
         t["message_count"] = msgs
-        for f in ["created_at", "updated_at"]:
+        for f in ["created_at", "updated_at", "closed_at"]:
             if isinstance(t.get(f), datetime):
                 t[f] = t[f].isoformat()
     return tickets
@@ -52,7 +52,7 @@ async def get_all_tickets(current_user: dict = Depends(get_current_user)):
         t["creator_role"] = creator["role"] if creator else "unknown"
         msgs = await ticket_messages_col.count_documents({"ticket_id": t["id"]})
         t["message_count"] = msgs
-        for f in ["created_at", "updated_at"]:
+        for f in ["created_at", "updated_at", "closed_at"]:
             if isinstance(t.get(f), datetime):
                 t[f] = t[f].isoformat()
     return tickets
@@ -133,5 +133,22 @@ async def reply_ticket(ticket_id: str, data: TicketReply, current_user: dict = D
 
 @router.put("/{ticket_id}/status")
 async def update_ticket_status(ticket_id: str, data: dict, current_user: dict = Depends(get_current_user)):
-    await tickets_col.update_one({"id": ticket_id}, {"$set": {"status": data["status"]}})
+    new_status = data.get("status", "")
+    closure_comment = data.get("closure_comment", data.get("resolution_note", ""))
+    
+    # Require closure comment when resolving or closing
+    if new_status in ["resolved", "closed"]:
+        if not closure_comment or len(closure_comment.strip()) < 10:
+            raise HTTPException(
+                status_code=400,
+                detail="Closure comment is required (minimum 10 characters) when resolving or closing a ticket"
+            )
+    
+    update_fields = {"status": new_status, "updated_at": datetime.now(timezone.utc)}
+    if closure_comment:
+        update_fields["closure_comment"] = closure_comment.strip()
+        update_fields["closed_by"] = current_user["id"]
+        update_fields["closed_at"] = datetime.now(timezone.utc)
+    
+    await tickets_col.update_one({"id": ticket_id}, {"$set": update_fields})
     return {"message": "Ticket status updated"}
