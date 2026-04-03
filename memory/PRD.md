@@ -1,73 +1,54 @@
 # LEAMSS Immigration Portal - PRD
 
-**Version:** 4.0 (MongoDB) | **Updated:** April 3, 2026 | **Status:** Production Ready
+**Version:** 5.0 (MongoDB) | **Updated:** April 3, 2026 | **Status:** Production Ready
 
 ## Problem Statement
-Comprehensive immigration service portal with Admin, Case Manager, Partner, Client roles.
-User uploaded a 30-point PRD across 3 phases. Phase 1 (Critical Fixes) is now complete.
+Comprehensive immigration service portal with Admin, Case Manager, Partner, Client roles. User uploaded a 30-point PRD across 3 phases.
 
 ## Architecture
 - **Backend:** Python FastAPI + MongoDB (motor async driver)
 - **Frontend:** React + TailwindCSS + Shadcn UI  
-- **Database:** MongoDB (native to environment, auto-seeds on startup)
-- **Uploads:** Local filesystem (./uploads)
+- **Database:** MongoDB (auto-seeds on startup)
 
 ## Implemented Features
 
-### Authentication & Roles
-- JWT auth, 4 roles, admin impersonation, password change
+### Core
+- JWT auth, 4 roles (admin, case_manager, partner, client), admin impersonation
+- Role-based dashboards, Products & Workflow CRUD, User management
+- Sales CRUD, Cases, Documents, Tickets, Notifications, Activity Logs, Analytics, Global Search
 
-### Admin Dashboard
-- Stats with Received/Pending breakdown, Sales with filter (All/Pending/Approved/Rejected)
-- 2-step sale approval, Client credentials dialog with Copy/Email/WhatsApp sharing
-- Products & Workflow CRUD (with duplicate prevention), User management
-- Commission reports (calculated on amount received), Activity Log, Analytics, Settings
-- Rejection reason dialog (mandatory when rejecting sales)
-- Sales Report table with Service Type, Date, Received, Pending, Rejection Reason columns
+### Phase 1 Critical Fixes (COMPLETED - April 3, 2026)
+1. Commission on Amount Received (not fee_amount)
+2. Mandatory Rejection Reason for sales (min 5 chars) with dialog
+3. Ticket Closure Comments required (min 10 chars)
+4. Workflow Duplicate Step Prevention (case-insensitive)
+5. Sales Report: Service Type, Date, Received, Pending, Rejection Reason columns
+6. Record Payment endpoint for partial payments
+7. Dashboard stats: Received/Pending breakdown
 
-### Case Manager Dashboard
-- My Cases, workflow step updates, document review
-- Information Sheet, Additional document requests, tickets
-
-### Partner Dashboard
-- Create sales with all payment methods, document upload
-- Commission tracking (% of received amount), Amt Received column in table
-
-### Client Dashboard
-- Case progress, document uploads, tickets
-
-### Cross-cutting
-- Activity logging, notifications, ticketing (with closure comments), global search, analytics
-
-## Phase 1 Critical Fixes (COMPLETED - April 3, 2026)
-1. Commission on Amount Received (not fee_amount) - DONE
-2. Mandatory Rejection Reason for sales (min 5 chars) - DONE
-3. Ticket Closure Comments required (min 10 chars) - DONE
-4. Workflow Duplicate Step Prevention (case-insensitive) - DONE
-5. Sales Report: Service Type, Date, Received, Pending, Rejection Reason - DONE
-6. Record Payment endpoint for partial payments - DONE
-7. Dashboard stats: Received/Pending breakdown - DONE
+### Phase 2 Features (COMPLETED - April 3, 2026)
+1. **Commission Effective Date** - Rate changes tracked in `commission_rate_history` array with `effective_from` date
+2. **Client Ticket Routing** - Auto-routes by category (document/payment → case_manager, general → admin). Admin can reassign tickets.
+3. **Refund Module** - Full CRUD at `/api/refunds`. Auto-adjusts commission when refund processed. Validates reason/amount.
+4. **Currency Conversion (USD ↔ INR)** - Configurable exchange rate in settings. Dual currency display toggle on dashboard.
+5. **Payment Collection Tracker Widget** - Dashboard widget showing overdue (red), due this week (amber), upcoming (green) payment deadlines.
 
 ## Remaining Backlog
 
-### Phase 1 Continued (P1-P2)
-- P2: Currency Conversion (USD to INR) across all modules
-- P2: Refund Module with automatic commission adjustment
-- P1: Commission effective date (apply rate changes forward, not retroactively)
-- P1: Client Portal Ticket Routing (assign to Admin/CM, auto-routing)
-- P1: Case Manager Document Privileges (view, approve, reject, request via ticket/email, filters)
+### P1 - High Priority
+- CRM & Lead Management (pipeline, source tracking, follow-up reminders)
+- Notification System (Email, SMS, WhatsApp alerts, trigger-based)
+- Case Manager Document Privileges (view, approve, reject, request via ticket/email, filters)
 
-### Phase 2 (Core Features)
-- P1: CRM & Lead Management (pipeline, source tracking, follow-up reminders)
-- P1: Notification System (Email, SMS, WhatsApp alerts, trigger-based)
-- P1: Email Notifications via SMTP
-- P2: PDF Report Generation
-- P2: Bulk Document Upload
+### P2 - Medium Priority
+- PDF Report Generation (wire export router to frontend)
+- Bulk Document Upload
+- Email Notifications via SMTP
 
-### Phase 3 (Advanced)
-- P2: AI Document Verification, OCR-based extraction, AI Chatbot
-- P2: Drag-and-drop Workflow Builder
-- P3: Mobile Applications (Client & Staff)
-- P3: Marketing (referral system, promo codes)
-- P3: SMS (Twilio), Calendar, WhatsApp
-- P3: Stripe Payment Gateway
+### P3 - Future
+- AI Document Verification, OCR-based extraction, AI Chatbot
+- Drag-and-drop Workflow Builder
+- Mobile Applications (Client & Staff)
+- Marketing (referral system, promo codes)
+- SMS (Twilio), Calendar, WhatsApp
+- Stripe Payment Gateway
