@@ -80,16 +80,87 @@ async def get_ticket_stats(current_user: dict = Depends(get_current_user)):
 
 
 @router.post("")
-async def create_ticket(data: TicketCreate, current_user: dict = Depends(get_current_user)):
+async def create_ticket(data: dict, current_user: dict = Depends(get_current_user)):
+    target_user_ids = data.get("target_user_ids", [])
+    assigned_to = data.get("assigned_to", None)
+    assigned_role = data.get("assigned_role", None)
+    
+    # Auto-routing: if client creates ticket with no targets, auto-route by category
+    if not target_user_ids and not assigned_to and current_user["role"] == "client":
+        category = data.get("category", "general")
+        if category in ["document", "payment"]:
+            # Route to case managers
+            assigned_role = "case_manager"
+            cms = await users_col.find({"role": "case_manager", "status": "active"}, {"_id": 0}).to_list(10)
+            target_user_ids = [cm["id"] for cm in cms]
+        else:
+            # Route to admin
+            assigned_role = "admin"
+            admins = await users_col.find({"role": "admin", "status": "active"}, {"_id": 0}).to_list(10)
+            target_user_ids = [a["id"] for a in admins]
+    
     ticket = {
-        "id": str(uuid.uuid4()), "subject": data.subject,
-        "description": data.description, "priority": data.priority,
-        "category": data.category, "status": "open",
+        "id": str(uuid.uuid4()), "subject": data.get("subject", ""),
+        "description": data.get("description", ""), "priority": data.get("priority", "medium"),
+        "category": data.get("category", "general"), "status": "open",
         "created_by": current_user["id"],
+        "target_user_ids": target_user_ids,
+        "assigned_to": assigned_to,
+        "assigned_role": assigned_role,
+        "case_id": data.get("case_id"),
         "created_at": datetime.now(timezone.utc)
     }
     await tickets_col.insert_one(ticket)
+    
+    # Create notifications for assigned targets
+    for uid in target_user_ids:
+        await notifications_col.insert_one({
+            "id": str(uuid.uuid4()), "user_id": uid,
+            "title": f"New Ticket: {ticket['subject']}",
+            "message": f"A new {ticket['priority']} priority ticket has been assigned to you.",
+            "type": "ticket", "read": False,
+            "reference_id": ticket["id"], "reference_type": "ticket",
+            "created_at": datetime.now(timezone.utc)
+        })
+    
     return {"id": ticket["id"], "message": "Ticket created"}
+
+
+@router.put("/{ticket_id}/assign")
+async def assign_ticket(ticket_id: str, data: dict, current_user: dict = Depends(get_current_user)):
+    """Reassign a ticket to a different user or role"""
+    if current_user["role"] not in ["admin", "case_manager"]:
+        raise HTTPException(status_code=403, detail="Admin or Case Manager only")
+    
+    ticket = await tickets_col.find_one({"id": ticket_id})
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    
+    update_fields = {"updated_at": datetime.now(timezone.utc)}
+    
+    if "assigned_to" in data:
+        update_fields["assigned_to"] = data["assigned_to"]
+        # Add to target_user_ids if not already there
+        target_ids = ticket.get("target_user_ids", [])
+        if data["assigned_to"] not in target_ids:
+            target_ids.append(data["assigned_to"])
+            update_fields["target_user_ids"] = target_ids
+        
+        # Notify the assigned user
+        await notifications_col.insert_one({
+            "id": str(uuid.uuid4()), "user_id": data["assigned_to"],
+            "title": f"Ticket Assigned: {ticket['subject']}",
+            "message": f"A ticket has been assigned to you by {current_user.get('name', 'Admin')}.",
+            "type": "ticket", "read": False,
+            "reference_id": ticket_id, "reference_type": "ticket",
+            "created_at": datetime.now(timezone.utc)
+        })
+    
+    if "assigned_role" in data:
+        update_fields["assigned_role"] = data["assigned_role"]
+    
+    await tickets_col.update_one({"id": ticket_id}, {"$set": update_fields})
+    return {"message": "Ticket reassigned successfully"}
 
 
 @router.get("/{ticket_id}")

@@ -102,7 +102,7 @@ const TicketSection = ({ caseId = null, assignedCaseManagerId = null, clientId =
 
     try {
       await axios.put(`${API}/tickets/${selectedTicket.id}/status`, 
-        { status, resolution_note: resolutionNote || selectedTicket.resolution_note || 'Resolved' }, 
+        { status, closure_comment: resolutionNote || selectedTicket.resolution_note || 'Resolved by admin', resolution_note: resolutionNote || selectedTicket.resolution_note || 'Resolved by admin' }, 
         getAuthHeader()
       );
       toast.success(`Ticket ${status}`);
@@ -284,10 +284,15 @@ const TicketSection = ({ caseId = null, assignedCaseManagerId = null, clientId =
             )}
 
             {/* Display Resolution Note when resolved */}
-            {selectedTicket.resolution_note && (
+            {(selectedTicket.resolution_note || selectedTicket.closure_comment) && (
               <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-                <p className="text-sm font-medium text-green-800">Resolution Note:</p>
-                <p className="text-green-700">{selectedTicket.resolution_note}</p>
+                <p className="text-sm font-medium text-green-800">Closure Comment:</p>
+                <p className="text-green-700">{selectedTicket.closure_comment || selectedTicket.resolution_note}</p>
+                {selectedTicket.closed_by && (
+                  <p className="text-xs text-green-600 mt-1">
+                    Closed on {selectedTicket.closed_at ? new Date(selectedTicket.closed_at).toLocaleString() : 'N/A'}
+                  </p>
+                )}
                 {selectedTicket.resolved_by_name && (
                   <p className="text-xs text-green-600 mt-1">
                     Resolved by {selectedTicket.resolved_by_name} on {new Date(selectedTicket.resolved_at).toLocaleString()}

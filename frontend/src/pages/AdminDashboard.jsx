@@ -63,6 +63,17 @@ const AdminDashboard = () => {
   // System Settings
   const [systemSettings, setSystemSettings] = useState({ allow_case_manager_workflow_customization: false });
   
+  // Payment Tracker
+  const [paymentTracker, setPaymentTracker] = useState({ summary: {}, items: [] });
+  
+  // Currency settings
+  const [exchangeRate, setExchangeRate] = useState(83.50);
+  const [showINR, setShowINR] = useState(false);
+  
+  // Refunds
+  const [refundDialog, setRefundDialog] = useState({ open: false, sale_id: null, amount: 0, reason: '', refund_method: 'original_payment', notes: '' });
+  const [refunds, setRefunds] = useState([]);
+  
   // Dialogs
   const [productDialog, setProductDialog] = useState({ open: false, mode: 'create', data: null });
   const [workflowDialog, setWorkflowDialog] = useState({ open: false, product: null, editingStepIndex: null });
@@ -115,6 +126,27 @@ const AdminDashboard = () => {
       } catch (e) {
         console.error('Failed to load expiring documents:', e);
       }
+      
+      // Load payment tracker
+      try {
+        const trackerRes = await axios.get(`${API}/sales/tracker/payment-deadlines`, authHeader);
+        setPaymentTracker(trackerRes.data);
+      } catch (e) {
+        console.error('Failed to load payment tracker:', e);
+      }
+      
+      // Load exchange rate
+      try {
+        const rateRes = await axios.get(`${API}/settings/exchange-rate`, authHeader);
+        setExchangeRate(rateRes.data.rate || 83.50);
+        setShowINR(rateRes.data.show_dual_currency || false);
+      } catch (e) { /* use default */ }
+      
+      // Load refunds
+      try {
+        const refundsRes = await axios.get(`${API}/refunds`, authHeader);
+        setRefunds(refundsRes.data || []);
+      } catch (e) { /* no refunds yet */ }
     } catch (error) {
       toast.error('Failed to load data');
     }
@@ -127,6 +159,42 @@ const AdminDashboard = () => {
       toast.success('Settings updated!');
     } catch (error) {
       toast.error('Failed to update settings');
+    }
+  };
+
+  // Currency formatting
+  const formatCurrency = (amount, forceUSD = false) => {
+    const usd = `$${(amount || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+    if (showINR && !forceUSD) {
+      const inr = `₹${((amount || 0) * exchangeRate).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+      return `${usd} (${inr})`;
+    }
+    return usd;
+  };
+
+  // Handle refund
+  const handleRefund = async () => {
+    if (!refundDialog.reason || refundDialog.reason.trim().length < 5) {
+      toast.error('Refund reason is required (minimum 5 characters)');
+      return;
+    }
+    if (!refundDialog.amount || refundDialog.amount <= 0) {
+      toast.error('Refund amount must be positive');
+      return;
+    }
+    try {
+      await axios.post(`${API}/refunds`, {
+        sale_id: refundDialog.sale_id,
+        amount: refundDialog.amount,
+        reason: refundDialog.reason.trim(),
+        refund_method: refundDialog.refund_method,
+        notes: refundDialog.notes
+      }, getAuthHeader());
+      toast.success('Refund processed successfully');
+      setRefundDialog({ open: false, sale_id: null, amount: 0, reason: '', refund_method: 'original_payment', notes: '' });
+      loadData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to process refund');
     }
   };
 
@@ -852,6 +920,7 @@ const AdminDashboard = () => {
             { id: 'products', icon: Settings, label: 'Products' },
             { id: 'users', icon: Users, label: 'Users' },
             { id: 'tickets', icon: MessageSquare, label: 'Tickets' },
+            { id: 'refunds', icon: XCircle, label: 'Refunds' },
             { id: 'analytics', icon: TrendingUp, label: 'Analytics', isLink: '/admin/analytics' },
             { id: 'activity', icon: Clock, label: 'Activity Log', isLink: '/admin/activity' },
             { id: 'settings', icon: Settings, label: 'Settings' }
@@ -915,6 +984,7 @@ const AdminDashboard = () => {
               {activeTab === 'users' && 'Users'}
               {activeTab === 'tickets' && !selectedTicket && 'Tickets'}
               {activeTab === 'settings' && 'Settings'}
+              {activeTab === 'refunds' && 'Refunds'}
               {activeTab === 'sale-docs' && `Sale: ${selectedSale?.client_name}`}
               {activeTab === 'case-detail' && `Case: ${selectedCase?.case_id}`}
               {selectedTicket && `Ticket: ${selectedTicket?.subject}`}
@@ -1035,6 +1105,99 @@ const AdminDashboard = () => {
                   )}
                 </Card>
               )}
+
+              {/* Currency Toggle */}
+              <Card className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <DollarSign className="h-4 w-4 text-slate-600" />
+                    <span className="text-sm font-medium text-slate-700">Currency Display</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-slate-500">1 USD = ₹{exchangeRate}</span>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={showINR}
+                        onChange={(e) => setShowINR(e.target.checked)}
+                        className="sr-only peer"
+                        data-testid="currency-toggle"
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#2a777a]"></div>
+                    </label>
+                    <span className="text-xs font-medium text-slate-600">{showINR ? 'USD + INR' : 'USD Only'}</span>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Payment Collection Tracker Widget */}
+              <Card className="p-6" data-testid="payment-tracker-widget">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
+                    <Calendar className="h-5 w-5 text-[#2a777a]" />
+                    Payment Collection Tracker
+                  </h3>
+                  <Badge className="bg-slate-100 text-slate-700 border-slate-300">{paymentTracker.items?.length || 0} pending</Badge>
+                </div>
+
+                {/* Summary Cards */}
+                <div className="grid grid-cols-3 gap-3 mb-4">
+                  <div className="p-3 rounded-lg bg-red-50 border border-red-200">
+                    <p className="text-xs text-red-600 font-medium">Overdue</p>
+                    <p className="text-lg font-bold text-red-700">{paymentTracker.summary?.overdue_count || 0}</p>
+                    <p className="text-xs text-red-500">{formatCurrency(paymentTracker.summary?.overdue_amount)}</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-amber-50 border border-amber-200">
+                    <p className="text-xs text-amber-600 font-medium">Due This Week</p>
+                    <p className="text-lg font-bold text-amber-700">{paymentTracker.summary?.due_soon_count || 0}</p>
+                    <p className="text-xs text-amber-500">{formatCurrency(paymentTracker.summary?.due_soon_amount)}</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-green-50 border border-green-200">
+                    <p className="text-xs text-green-600 font-medium">Upcoming</p>
+                    <p className="text-lg font-bold text-green-700">{paymentTracker.summary?.upcoming_count || 0}</p>
+                    <p className="text-xs text-green-500">{formatCurrency(paymentTracker.summary?.upcoming_amount)}</p>
+                  </div>
+                </div>
+
+                {/* Payment Items List */}
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {(paymentTracker.items || []).slice(0, 10).map((item, idx) => (
+                    <div key={idx} className={`flex justify-between items-center p-3 rounded-lg border ${
+                      item.urgency === 'overdue' ? 'bg-red-50 border-red-200' :
+                      item.urgency === 'due_soon' ? 'bg-amber-50 border-amber-200' :
+                      'bg-green-50 border-green-200'
+                    }`} data-testid={`tracker-item-${idx}`}>
+                      <div>
+                        <p className="font-medium text-slate-800">{item.client_name}</p>
+                        <p className="text-xs text-slate-600">{item.partner_name} | Created: {new Date(item.created_at).toLocaleDateString()}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className={`font-bold ${
+                          item.urgency === 'overdue' ? 'text-red-700' :
+                          item.urgency === 'due_soon' ? 'text-amber-700' :
+                          'text-green-700'
+                        }`}>{formatCurrency(item.pending_amount)}</p>
+                        {item.collection_deadline && (
+                          <p className="text-xs text-slate-500">
+                            {item.days_until_deadline !== null ? (
+                              item.days_until_deadline < 0 ? `${Math.abs(item.days_until_deadline)} days overdue` :
+                              item.days_until_deadline === 0 ? 'Due today' :
+                              `${item.days_until_deadline} days left`
+                            ) : 'No deadline set'}
+                          </p>
+                        )}
+                        {!item.collection_deadline && <p className="text-xs text-slate-400">No deadline</p>}
+                      </div>
+                    </div>
+                  ))}
+                  {(!paymentTracker.items || paymentTracker.items.length === 0) && (
+                    <div className="text-center py-8 text-slate-500">
+                      <CheckCircle className="h-8 w-8 mx-auto mb-2 text-green-400" />
+                      <p>All payments collected!</p>
+                    </div>
+                  )}
+                </div>
+              </Card>
             </div>
           )}
 
@@ -1400,11 +1563,16 @@ const AdminDashboard = () => {
                   <div><p className="text-sm text-slate-500">Email</p><p className="font-medium text-slate-800">{selectedSale.client_email}</p></div>
                   <div><p className="text-sm text-slate-500">Product</p><p className="font-medium text-slate-800">{selectedSale.product_name}</p></div>
                   <div><p className="text-sm text-slate-500">Service Type</p><Badge variant="outline" className="capitalize">{selectedSale.product_category || 'N/A'}</Badge></div>
-                  <div><p className="text-sm text-slate-500">Fee Amount</p><p className="font-medium text-slate-800">${(selectedSale.fee_amount || 0).toLocaleString()}</p></div>
-                  <div><p className="text-sm text-slate-500">Amount Received</p><p className="font-medium text-green-700">${(selectedSale.amount_received || 0).toLocaleString()}</p></div>
-                  <div><p className="text-sm text-slate-500">Pending Amount</p><p className="font-medium text-amber-700">${(selectedSale.pending_amount || (selectedSale.fee_amount - (selectedSale.amount_received || 0))).toLocaleString()}</p></div>
-                  <div><p className="text-sm text-slate-500">Commission ({selectedSale.commission_rate || 0}%)</p><p className="font-medium text-[#2a777a]">${(selectedSale.commission_amount || 0).toFixed(2)}</p></div>
+                  <div><p className="text-sm text-slate-500">Fee Amount</p><p className="font-medium text-slate-800">{formatCurrency(selectedSale.fee_amount)}</p></div>
+                  <div><p className="text-sm text-slate-500">Amount Received</p><p className="font-medium text-green-700">{formatCurrency(selectedSale.amount_received)}</p></div>
+                  <div><p className="text-sm text-slate-500">Pending Amount</p><p className="font-medium text-amber-700">{formatCurrency(selectedSale.pending_amount || (selectedSale.fee_amount - (selectedSale.amount_received || 0)))}</p></div>
+                  <div><p className="text-sm text-slate-500">Commission ({selectedSale.commission_rate || 0}%)</p><p className="font-medium text-[#2a777a]">{formatCurrency(selectedSale.commission_amount)}</p></div>
                 </div>
+                {selectedSale.total_refunded > 0 && (
+                  <div className="p-3 bg-red-50 rounded-lg border border-red-200 mb-4">
+                    <p className="text-sm text-red-700">Total Refunded: <span className="font-bold">{formatCurrency(selectedSale.total_refunded)}</span></p>
+                  </div>
+                )}
                 <h4 className="font-semibold mb-3 text-slate-800">Uploaded Documents</h4>
                 <div className="space-y-3">
                   {saleDocuments.length === 0 ? (
@@ -1420,10 +1588,24 @@ const AdminDashboard = () => {
                 </div>
               </Card>
               <div className="flex gap-3">
-                <Button onClick={() => handleApproveSale(selectedSale.id, 'approved', null)} className="bg-emerald-600 hover:bg-emerald-700 text-white flex-1" data-testid="approve-sale-btn">
-                  <CheckCircle className="mr-2 h-4 w-4" />Approve Sale
-                </Button>
-                <Button onClick={() => handleApproveSale(selectedSale.id, 'rejected', null)} variant="destructive">Reject Sale</Button>
+                {selectedSale.status === 'pending' && (
+                  <>
+                    <Button onClick={() => handleApproveSale(selectedSale.id, 'approved', null)} className="bg-emerald-600 hover:bg-emerald-700 text-white flex-1" data-testid="approve-sale-btn">
+                      <CheckCircle className="mr-2 h-4 w-4" />Approve Sale
+                    </Button>
+                    <Button onClick={() => handleApproveSale(selectedSale.id, 'rejected', null)} variant="destructive">Reject Sale</Button>
+                  </>
+                )}
+                {selectedSale.status === 'approved' && (selectedSale.amount_received || 0) > 0 && (
+                  <Button
+                    onClick={() => setRefundDialog({ open: true, sale_id: selectedSale.id, amount: 0, reason: '', refund_method: 'original_payment', notes: '', max_refundable: (selectedSale.amount_received || 0) - (selectedSale.total_refunded || 0) })}
+                    variant="outline"
+                    className="text-red-600 border-red-300 hover:bg-red-50"
+                    data-testid="refund-sale-btn"
+                  >
+                    <XCircle className="mr-2 h-4 w-4" />Process Refund
+                  </Button>
+                )}
               </div>
             </div>
           )}
@@ -1862,6 +2044,57 @@ const AdminDashboard = () => {
             </div>
           )}
 
+          {/* Refunds Tab */}
+          {activeTab === 'refunds' && (
+            <div className="space-y-6" data-testid="refunds-content">
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-semibold text-slate-800">Refund History</h3>
+                <Badge className="bg-slate-100 text-slate-700">{refunds.length} total</Badge>
+              </div>
+
+              {refunds.length === 0 ? (
+                <Card className="p-12 text-center">
+                  <CheckCircle className="h-12 w-12 text-slate-400 mx-auto mb-4" />
+                  <p className="text-slate-600">No refunds processed yet</p>
+                  <p className="text-sm text-slate-400 mt-1">Refunds can be processed from the Sale Detail view</p>
+                </Card>
+              ) : (
+                <Card className="p-6">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left p-3">Date</th>
+                          <th className="text-left p-3">Client</th>
+                          <th className="text-right p-3">Original Fee</th>
+                          <th className="text-right p-3">Refund Amount</th>
+                          <th className="text-left p-3">Reason</th>
+                          <th className="text-left p-3">Method</th>
+                          <th className="text-center p-3">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {refunds.map(refund => (
+                          <tr key={refund.id} className="border-b hover:bg-slate-50">
+                            <td className="p-3">{new Date(refund.created_at).toLocaleDateString()}</td>
+                            <td className="p-3 font-medium">{refund.client_name}</td>
+                            <td className="p-3 text-right">{formatCurrency(refund.original_fee)}</td>
+                            <td className="p-3 text-right text-red-600 font-bold">{formatCurrency(refund.amount)}</td>
+                            <td className="p-3 max-w-[200px] truncate">{refund.reason}</td>
+                            <td className="p-3 capitalize">{refund.refund_method?.replace('_', ' ')}</td>
+                            <td className="p-3 text-center">
+                              <Badge className={refund.status === 'processed' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}>{refund.status}</Badge>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
+              )}
+            </div>
+          )}
+
           {/* Settings Tab */}
           {activeTab === 'settings' && (
             <div className="space-y-6" data-testid="settings-content">
@@ -1902,6 +2135,55 @@ const AdminDashboard = () => {
                       </p>
                     </div>
                   )}
+                </div>
+              </Card>
+
+              {/* Currency Settings */}
+              <Card className="p-6">
+                <h3 className="text-lg font-semibold mb-6 text-slate-800 flex items-center gap-2">
+                  <DollarSign className="h-5 w-5" /> Currency & Exchange Rate
+                </h3>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>Base Currency</Label>
+                      <Input value="USD" disabled className="bg-slate-50" />
+                    </div>
+                    <div>
+                      <Label>USD to INR Exchange Rate</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={systemSettings.exchange_rate_usd_to_inr || 83.50}
+                        onChange={(e) => setSystemSettings({ ...systemSettings, exchange_rate_usd_to_inr: parseFloat(e.target.value) || 83.50 })}
+                        data-testid="exchange-rate-input"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
+                    <div>
+                      <p className="font-medium text-slate-800">Show Dual Currency (USD + INR)</p>
+                      <p className="text-sm text-slate-600">Display amounts in both USD and INR across dashboards and reports.</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={systemSettings.show_dual_currency || false}
+                        onChange={(e) => {
+                          const updated = { ...systemSettings, show_dual_currency: e.target.checked };
+                          setSystemSettings(updated);
+                          updateSystemSettings(updated);
+                          setShowINR(e.target.checked);
+                        }}
+                        className="sr-only peer"
+                        data-testid="dual-currency-toggle"
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#2a777a]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#2a777a]"></div>
+                    </label>
+                  </div>
+                  <Button onClick={() => updateSystemSettings(systemSettings)} className="bg-[#2a777a] hover:bg-[#236466] text-white" data-testid="save-exchange-rate-btn">
+                    Save Exchange Rate
+                  </Button>
                 </div>
               </Card>
 
@@ -2332,6 +2614,76 @@ const AdminDashboard = () => {
                 data-testid="confirm-rejection-btn"
               >
                 <XCircle className="mr-2 h-4 w-4" />Confirm Rejection
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Refund Dialog */}
+      <Dialog open={refundDialog.open} onOpenChange={(open) => setRefundDialog({ ...refundDialog, open })}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle className="flex items-center gap-2 text-red-700"><XCircle className="h-5 w-5" />Process Refund</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="p-3 bg-red-50 rounded-lg border border-red-200">
+              <p className="text-sm text-red-700">Refunds will automatically reduce the amount received and recalculate partner commission.</p>
+              {refundDialog.max_refundable > 0 && (
+                <p className="text-xs text-red-600 mt-1">Max refundable: ${refundDialog.max_refundable?.toFixed(2)}</p>
+              )}
+            </div>
+            <div>
+              <Label>Refund Amount ($) <span className="text-red-500">*</span></Label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0.01"
+                max={refundDialog.max_refundable || undefined}
+                value={refundDialog.amount || ''}
+                onChange={(e) => setRefundDialog({ ...refundDialog, amount: parseFloat(e.target.value) || 0 })}
+                placeholder="Enter refund amount"
+                data-testid="refund-amount-input"
+              />
+            </div>
+            <div>
+              <Label>Reason <span className="text-red-500">*</span></Label>
+              <Textarea
+                value={refundDialog.reason}
+                onChange={(e) => setRefundDialog({ ...refundDialog, reason: e.target.value })}
+                rows={3}
+                placeholder="Reason for refund (min 5 characters)..."
+                data-testid="refund-reason-input"
+              />
+            </div>
+            <div>
+              <Label>Refund Method</Label>
+              <Select value={refundDialog.refund_method} onValueChange={(v) => setRefundDialog({ ...refundDialog, refund_method: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="original_payment">Original Payment Method</SelectItem>
+                  <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                  <SelectItem value="cash">Cash</SelectItem>
+                  <SelectItem value="credit">Account Credit</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Notes (optional)</Label>
+              <Input
+                value={refundDialog.notes}
+                onChange={(e) => setRefundDialog({ ...refundDialog, notes: e.target.value })}
+                placeholder="Additional notes..."
+              />
+            </div>
+            <div className="flex gap-3">
+              <Button onClick={() => setRefundDialog({ open: false, sale_id: null, amount: 0, reason: '', refund_method: 'original_payment', notes: '' })} variant="outline" className="flex-1">Cancel</Button>
+              <Button
+                onClick={handleRefund}
+                variant="destructive"
+                className="flex-1"
+                disabled={!refundDialog.amount || refundDialog.amount <= 0 || refundDialog.reason.trim().length < 5}
+                data-testid="confirm-refund-btn"
+              >
+                Confirm Refund
               </Button>
             </div>
           </div>

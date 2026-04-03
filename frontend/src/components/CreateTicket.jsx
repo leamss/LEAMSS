@@ -109,8 +109,8 @@ const CreateTicket = ({ caseId = null, onTicketCreated, assignedCaseManagerId = 
       });
     }
 
-    // If no targets selected and user is not admin, show error
-    if (targetIds.length === 0 && currentUser?.role !== 'admin') {
+    // If no targets selected, auto-routing will handle it on the backend
+    if (targetIds.length === 0 && currentUser?.role !== 'admin' && currentUser?.role !== 'client') {
       toast.error('Please select at least one recipient');
       return;
     }

@@ -25,6 +25,7 @@ audit_logs_col = db["audit_logs"]
 settings_col = db["settings"]
 information_sheets_col = db["information_sheets"]
 payment_transactions_col = db["payment_transactions"]
+refunds_col = db["refunds"]
 
 
 async def init_db():
@@ -32,12 +33,15 @@ async def init_db():
     await users_col.create_index("email", unique=True)
     await sales_col.create_index("partner_id")
     await sales_col.create_index("status")
+    await sales_col.create_index("collection_deadline")
     await cases_col.create_index("client_id")
     await cases_col.create_index("case_manager_id")
     await cases_col.create_index("case_id", unique=True)
     await documents_col.create_index("case_id")
     await tickets_col.create_index("created_by")
+    await tickets_col.create_index("assigned_to")
     await audit_logs_col.create_index("created_at")
     await notifications_col.create_index("user_id")
     await information_sheets_col.create_index("case_id", unique=True)
+    await refunds_col.create_index("sale_id")
     print("Database indexes created")

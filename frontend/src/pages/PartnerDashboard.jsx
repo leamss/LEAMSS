@@ -236,6 +236,9 @@ const PartnerDashboard = () => {
       formData.append('payment_method', newSale.payment_method);
       formData.append('payment_reference', newSale.payment_reference);
       formData.append('agreement_signed', newSale.agreement_signed.toString());
+      if (newSale.collection_deadline) {
+        formData.append('collection_deadline', newSale.collection_deadline);
+      }
       
       // Append document files
       for (const [docType, file] of Object.entries(uploadFiles)) {
@@ -262,7 +265,8 @@ const PartnerDashboard = () => {
         amount_received: 0,
         payment_method: 'bank_transfer',
         payment_reference: '',
-        agreement_signed: true
+        agreement_signed: true,
+        collection_deadline: ''
       });
       setUploadFiles({ payment_receipt: null, agreement: null, passport: null });
       loadData();
@@ -482,6 +486,16 @@ const PartnerDashboard = () => {
                           onChange={(e) => setNewSale({ ...newSale, payment_reference: e.target.value })}
                           data-testid="payment-reference-input"
                         />
+                      </div>
+                      <div>
+                        <Label>Collection Deadline</Label>
+                        <Input
+                          type="date"
+                          value={newSale.collection_deadline || ''}
+                          onChange={(e) => setNewSale({ ...newSale, collection_deadline: e.target.value })}
+                          data-testid="collection-deadline-input"
+                        />
+                        <p className="text-xs text-slate-400 mt-1">When is the remaining balance expected?</p>
                       </div>
                     </div>
                     

@@ -1,6 +1,6 @@
 """Users Router"""
 from fastapi import APIRouter, HTTPException, Depends
-from core.database import users_col
+from core.database import users_col, audit_logs_col
 from core.auth import get_current_user, get_password_hash
 import uuid
 from datetime import datetime, timezone
@@ -45,6 +45,7 @@ async def create_user(data: dict, current_user: dict = Depends(get_current_user)
         "name": data["name"], "role": data.get("role", "client"),
         "mobile": data.get("mobile", ""), "status": "active",
         "commission_rate": data.get("commission_rate", 0.0),
+        "commission_rate_history": [],
         "created_at": datetime.now(timezone.utc)
     }
     await users_col.insert_one(user)
@@ -56,10 +57,46 @@ async def update_user(user_id: str, data: dict, current_user: dict = Depends(get
     if current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
     
+    user = await users_col.find_one({"id": user_id}, {"_id": 0})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
     update = {}
-    for field in ["name", "email", "mobile", "role", "status", "commission_rate"]:
+    for field in ["name", "email", "mobile", "role", "status"]:
         if field in data:
             update[field] = data[field]
+    
+    # Track commission rate changes with effective date
+    if "commission_rate" in data and data["commission_rate"] != user.get("commission_rate"):
+        old_rate = user.get("commission_rate", 0)
+        new_rate = data["commission_rate"]
+        effective_date = data.get("commission_effective_date", datetime.now(timezone.utc).isoformat())
+        
+        history_entry = {
+            "old_rate": old_rate,
+            "new_rate": new_rate,
+            "effective_from": effective_date,
+            "changed_at": datetime.now(timezone.utc).isoformat(),
+            "changed_by": current_user["id"]
+        }
+        
+        update["commission_rate"] = new_rate
+        
+        await users_col.update_one({"id": user_id}, {
+            "$set": update,
+            "$push": {"commission_rate_history": history_entry}
+        })
+        
+        await audit_logs_col.insert_one({
+            "id": str(uuid.uuid4()), "user_id": current_user["id"],
+            "action": "commission_rate_changed", "entity_type": "user",
+            "entity_id": user_id, "new_value": {
+                "old_rate": old_rate, "new_rate": new_rate,
+                "effective_from": effective_date, "user_name": user.get("name")
+            }, "created_at": datetime.now(timezone.utc)
+        })
+        
+        return {"message": f"User updated. Commission rate changed from {old_rate}% to {new_rate}% (effective {effective_date})"}
     
     if update:
         await users_col.update_one({"id": user_id}, {"$set": update})

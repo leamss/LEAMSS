@@ -453,6 +453,81 @@ async def record_payment(data: RecordPayment, current_user: dict = Depends(get_c
     }
 
 
+@router.get("/tracker/payment-deadlines")
+async def get_payment_deadlines(current_user: dict = Depends(get_current_user)):
+    """Get sales with payment deadlines for the collection tracker widget"""
+    if current_user["role"] not in ["admin", "case_manager", "partner"]:
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+    
+    query = {"payment_status": {"$in": ["pending", "partial"]}}
+    if current_user["role"] == "partner":
+        query["partner_id"] = current_user["id"]
+    
+    sales = await sales_col.find(query, {"_id": 0}).sort("collection_deadline", 1).to_list(200)
+    
+    now = datetime.now(timezone.utc)
+    result = []
+    for sale in sales:
+        fee = sale.get("fee_amount", 0) or 0
+        received = sale.get("amount_received", 0) or 0
+        pending = round(fee - received, 2)
+        
+        if pending <= 0:
+            continue
+        
+        deadline = sale.get("collection_deadline")
+        urgency = "upcoming"  # green
+        days_until = None
+        
+        if deadline:
+            if isinstance(deadline, str):
+                try:
+                    deadline = datetime.fromisoformat(deadline.replace("Z", "+00:00"))
+                except (ValueError, TypeError):
+                    deadline = None
+            
+            if deadline:
+                delta = (deadline - now).days
+                days_until = delta
+                if delta < 0:
+                    urgency = "overdue"  # red
+                elif delta <= 7:
+                    urgency = "due_soon"  # amber
+        
+        partner = await users_col.find_one({"id": sale.get("partner_id")}, {"_id": 0, "password": 0})
+        
+        result.append({
+            "sale_id": sale["id"],
+            "client_name": sale.get("client_name", "N/A"),
+            "client_email": sale.get("client_email", ""),
+            "partner_name": partner["name"] if partner else "N/A",
+            "fee_amount": fee,
+            "amount_received": received,
+            "pending_amount": pending,
+            "collection_deadline": deadline.isoformat() if isinstance(deadline, datetime) else sale.get("collection_deadline"),
+            "days_until_deadline": days_until,
+            "urgency": urgency,
+            "payment_status": sale.get("payment_status", "pending"),
+            "created_at": sale.get("created_at").isoformat() if isinstance(sale.get("created_at"), datetime) else str(sale.get("created_at", ""))
+        })
+    
+    # Sort: overdue first, then due_soon, then upcoming
+    urgency_order = {"overdue": 0, "due_soon": 1, "upcoming": 2}
+    result.sort(key=lambda x: urgency_order.get(x["urgency"], 3))
+    
+    summary = {
+        "total_pending": sum(r["pending_amount"] for r in result),
+        "overdue_count": len([r for r in result if r["urgency"] == "overdue"]),
+        "overdue_amount": sum(r["pending_amount"] for r in result if r["urgency"] == "overdue"),
+        "due_soon_count": len([r for r in result if r["urgency"] == "due_soon"]),
+        "due_soon_amount": sum(r["pending_amount"] for r in result if r["urgency"] == "due_soon"),
+        "upcoming_count": len([r for r in result if r["urgency"] == "upcoming"]),
+        "upcoming_amount": sum(r["pending_amount"] for r in result if r["urgency"] == "upcoming")
+    }
+    
+    return {"summary": summary, "items": result}
+
+
 @router.get("/{sale_id}")
 async def get_sale_detail(sale_id: str, current_user: dict = Depends(get_current_user)):
     """Get single sale with full details"""
