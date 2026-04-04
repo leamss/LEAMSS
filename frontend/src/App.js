@@ -11,6 +11,8 @@ import ActivityLog from '@/pages/ActivityLog';
 import { PaymentSuccess, PaymentCancel } from '@/components/PaymentComponents';
 import WorkflowBuilder from '@/pages/WorkflowBuilder';
 import MarketingDashboard from '@/pages/MarketingDashboard';
+import ServiceCalculator from '@/pages/ServiceCalculator';
+import LeadCapture from '@/pages/LeadCapture';
 import '@/App.css';
 
 function App() {
