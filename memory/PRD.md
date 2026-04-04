@@ -11,110 +11,76 @@ Build a comprehensive immigration services portal (LEAMSS) with role-based dashb
 - **PDF**: reportlab for server-side PDF generation
 
 ## User Personas
-- **Admin**: Full system access, user management, commission config, reports, analytics, workflow builder, marketing
-- **Case Manager**: Case workflows, document review, ticket management, info sheets, AI document verification
+- **Admin**: Full system access, user management (with password reset), commission config, reports, analytics, workflow builder, marketing
+- **Case Manager**: Case workflows, document review, ticket management, info sheets (request/edit), AI document verification
 - **Partner**: Sale booking (multi-currency), commission tracking, support tickets, referral codes
-- **Client**: Case status, document upload/download, support tickets, info sheet view
-
-## Core Requirements
-1. Role-based authentication and dashboards
-2. Sales management with multi-currency support (INR base)
-3. Case workflow with step-by-step progression
-4. Document management with upload/download/review
-5. Ticketing system with real-time visibility
-6. Commission tracking (global, per-partner, per-product)
-7. Analytics dashboard with real data
-8. Activity logging injected into business logic
-9. Workflow Builder (drag-and-drop step reordering)
-10. Marketing (referral codes + promo codes)
-11. PDF report generation (sales, commission, partner sales)
-12. AI Document Verification (GPT-5.2)
-13. Notification system (mocked, no external APIs)
-14. Mobile-responsive dashboards with collapsible sidebar
-15. Email service integration (mocked to DB)
-
----
+- **Client**: Case status, document upload/download, support tickets, info sheet view/edit
 
 ## What's Been Implemented
 
 ### Phase 1 — Core Features (DONE)
-- [x] JWT auth with 4 roles (admin, case_manager, partner, client)
-- [x] Admin Dashboard (users, products, cases, sales, tickets, refunds, analytics, settings)
-- [x] Partner Dashboard (sales booking with currency selector, commissions, support)
-- [x] Case Manager Dashboard (case management, document review, batch operations, info sheets)
-- [x] Client Dashboard (case status, documents, tickets, info sheet view)
-- [x] Global search, Activity log UI
+- [x] JWT auth with 4 roles
+- [x] All 4 role-based dashboards
+- [x] Sales, Cases, Documents, Tickets, Commissions, Refunds
+- [x] Global search, Activity log
 
-### Phase 1 — Bug Fixes (DONE — April 3, 2026)
-- [x] Document download, Date formatting, Ticket visibility
-- [x] Client Information Sheet tab visibility
-- [x] Ticket real-time filters, Product update saving
-- [x] Analytics Dashboard data syncing
-- [x] Sale currency display (INR base, no $ prefix on INR amounts)
-- [x] Payment deadline timezone awareness fix
+### Phase 1 — Bug Fixes (DONE — April 3)
+- [x] Document download, Date formatting, Ticket visibility, Client Info Sheet
+- [x] Analytics syncing, Sale currency display (INR base)
+- [x] Per-partner per-product custom commission rates
 
-### Phase 1 — Advanced Features (DONE — April 3, 2026)
-- [x] Per-partner per-product custom commission rates (CRUD API + Admin UI)
-- [x] INR base currency with multi-currency support
-- [x] Exchange rate configuration in settings
-- [x] Commission calculation on `amount_received`
-- [x] Mandatory ticket closure comments and rejection reasons
-- [x] Refunds UI and backend logic
-- [x] Payment Collection Tracker widget
+### Phase A-D — Features (DONE — April 4)
+- [x] Workflow Builder, Marketing Dashboard, PDF Reports, AI Document Verification
+- [x] Activity Log injection, Notification system (mocked)
+- [x] Mobile responsiveness (hamburger sidebar on Admin/Partner/CaseManager)
+- [x] Email Service (MOCKED — logs to DB)
 
-### Phase A-D — New Features (DONE — April 4, 2026)
-- [x] Workflow Builder (Admin page: select product, add/reorder/delete steps, save workflow)
-- [x] Marketing Dashboard (Admin page: referral system + promo codes CRUD)
-- [x] PDF Report Generation (Sales, Commission, Partner Sales — real PDF with reportlab)
-- [x] AI Document Verification (GPT-5.2 via emergentintegrations Universal Key)
-- [x] Activity Log injection into core business routers (sales, cases, documents, tickets)
-- [x] Notification system (mocked — writes to DB, bell icon in UI)
-
-### Mobile Responsiveness & Email Service (DONE — April 4, 2026)
-- [x] Admin Dashboard: Collapsible sidebar with hamburger menu on mobile, responsive padding/grids
-- [x] Partner Dashboard: Collapsible sidebar with hamburger menu on mobile
-- [x] Case Manager Dashboard: Collapsible sidebar with hamburger menu on mobile
-- [x] Client Dashboard: Responsive header (user name/CreateTicket hidden on small screens)
-- [x] Email Service (MOCKED): Created email_service.py with 5 email functions
-- [x] Wired emails into: Sale approval/rejection, Document review, Ticket replies, Case step updates
-- [x] Email logs viewable at GET /api/activity/email-logs (admin only)
-- [x] All 19 backend tests + all frontend tests passing (iteration 24)
+### Bug Fixes & Features (DONE — April 4, Session 2)
+- [x] **BUG FIX**: Sale document download — added `/api/sales/document/download/{file_id}` endpoint
+- [x] **BUG FIX**: "Request Additional Document" 405 error — fixed endpoint URL and made `step_order` optional
+- [x] **BUG FIX**: Commission % not reflecting from products — added product `commission_rate` to resolution chain (explicit > custom > product > partner default)
+- [x] **FEATURE**: Admin can edit user profiles + reset passwords via enhanced User Dialog
+- [x] **FEATURE**: Information Sheet enhanced — dependents section, case manager notes, change history tracking, "Request Info Update" button
+- [x] **UI REDESIGN**: Pending Reviews grouped by client (expandable accordion with badge counts)
+- [x] **UI REDESIGN**: All Documents grouped by client (expandable + search/filter bar + batch actions)
+- [x] **FIX**: Invalid Date display for null dates in document requests
+- [x] All 21 backend tests + all frontend tests passing (iteration 25)
 
 ---
 
 ## Prioritized Backlog
 
 ### P1 — Next
-- [ ] CRM & Lead Management (lead pipeline, source tracking, follow-up reminders)
-- [ ] Real email service integration (SendGrid/Resend — currently mocked)
+- [ ] CRM & Lead Management (lead pipeline, source tracking, follow-ups)
+- [ ] Real email service integration (SendGrid/Resend — replace mock)
 
 ### P2 — Planned
-- [ ] Stripe Payment Gateway integration
+- [ ] Stripe Payment Gateway
 - [ ] Bulk Document Upload UI improvements
-- [ ] Activity Log page layout consistency (add admin sidebar wrapper)
+- [ ] Activity Log page admin sidebar wrapper
 
 ### P3 — Future
 - [ ] AI Chatbot for client queries
-- [ ] SMS Notifications via Twilio
-- [ ] Google Calendar integration for deadlines
-- [ ] Standalone mobile apps (client + staff)
+- [ ] SMS Notifications (Twilio)
+- [ ] Google Calendar integration
+- [ ] Standalone mobile apps
 
 ---
 
 ## Key API Endpoints
 - `POST /api/auth/login` — JWT login
-- `GET /api/sales`, `POST /api/sales` — Sales CRUD
-- `GET /api/analytics/dashboard` — Analytics data
-- `GET /api/workflows/{product_id}` — Get workflow steps
-- `PUT /api/workflows/{product_id}` — Update workflow
-- `GET /api/marketing/referral/stats` — Referral statistics
-- `POST /api/marketing/promo` — Create promo code
-- `GET /api/reports/export/sales-report` — PDF sales report
-- `GET /api/reports/export/commission-report` — PDF commission report
-- `POST /api/ai/verify-document/{doc_id}` — AI document verification
+- `GET/POST /api/sales` — Sales CRUD
+- `GET /api/sales/document/download/{file_id}` — Download sale attachment
+- `PUT /api/users/{id}/reset-password` — Admin password reset
+- `POST /api/cases/request-document` — Request additional document (null step_order OK)
+- `POST /api/cases/{id}/request-info-sheet` — Request client info sheet update
+- `POST /api/cases/{id}/information-sheet` — Save info sheet with change tracking
+- `GET /api/workflows/{product_id}` — Workflow steps
+- `POST /api/marketing/promo` — Promo codes
+- `GET /api/reports/export/sales-report` — PDF report
+- `POST /api/ai/verify-document/{doc_id}` — AI verification
 - `GET /api/activity/logs` — Activity audit logs
-- `GET /api/activity/email-logs` — Email notification logs (admin only)
-- `GET /api/notifications` — User notifications
+- `GET /api/activity/email-logs` — Email logs (admin)
 
-## Database Collections (MongoDB)
-`users`, `products`, `workflow_steps`, `sales`, `cases`, `case_steps`, `documents`, `tickets`, `ticket_messages`, `notifications`, `audit_logs`, `refunds`, `settings`, `partner_product_commissions`, `referrals`, `promo_codes`, `email_logs`
+## Database Collections
+`users`, `products`, `workflow_steps`, `sales`, `sale_documents`, `cases`, `case_steps`, `documents`, `tickets`, `ticket_messages`, `notifications`, `audit_logs`, `refunds`, `settings`, `partner_product_commissions`, `referrals`, `promo_codes`, `email_logs`, `information_sheets`, `additional_doc_requests`

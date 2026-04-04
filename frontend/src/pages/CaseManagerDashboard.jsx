@@ -882,17 +882,17 @@ const CaseManagerDashboard = () => {
                                 <Badge variant="outline" className="text-xs">Type: {req.doc_type}</Badge>
                               )}
                               {req.due_date && (
-                                <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700">Due: {new Date(req.due_date).toLocaleDateString()}</Badge>
+                                {req.due_date && <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700">Due: {new Date(req.due_date).toLocaleDateString()}</Badge>}
                               )}
                               {req.expiry_date && (
-                                <Badge variant="outline" className="text-xs bg-red-50 text-red-700">Expiry: {new Date(req.expiry_date).toLocaleDateString()}</Badge>
+                                {req.expiry_date && <Badge variant="outline" className="text-xs bg-red-50 text-red-700">Expiry: {new Date(req.expiry_date).toLocaleDateString()}</Badge>}
                               )}
                               {req.validity_months && (
                                 <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700">Valid: {req.validity_months} months</Badge>
                               )}
                             </div>
                             <p className="text-xs text-slate-500 mt-1">
-                              Requested by {req.requested_by_name} on {new Date(req.requested_at).toLocaleDateString()}
+                              Requested by {req.requested_by_name || 'Unknown'}{req.requested_at ? ` on ${new Date(req.requested_at).toLocaleDateString()}` : ''}
                             </p>
                           </div>
                           {getStatusBadge(req.status)}
