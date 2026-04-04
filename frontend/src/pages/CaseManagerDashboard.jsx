@@ -301,7 +301,7 @@ const CaseManagerDashboard = () => {
     try {
       const endpoint = additionalDocDialog.step_order !== null 
         ? `${API}/cases/${selectedCase.id}/custom-document-request`
-        : `${API}/cases/request-additional-document`;
+        : `${API}/cases/request-document`;
       
       const requestData = {
         case_id: selectedCase.id,
@@ -719,6 +719,25 @@ const CaseManagerDashboard = () => {
                       Information Sheet
                     </Button>
                     <Button
+                      onClick={async () => {
+                        const msg = window.prompt('Enter a message for the client (e.g., "Please update your marital status and dependents"):',
+                          'Please fill/update your information sheet with the latest details.');
+                        if (msg) {
+                          try {
+                            await axios.post(`${API}/cases/${selectedCase.id}/request-info-sheet`, { message: msg }, getAuthHeader());
+                            toast.success('Information sheet request sent to client!');
+                          } catch (e) { toast.error('Failed to send request'); }
+                        }
+                      }}
+                      size="sm"
+                      variant="outline"
+                      className="text-amber-600 border-amber-300 hover:bg-amber-50"
+                      data-testid="request-info-sheet-btn"
+                    >
+                      <Send className="mr-2 h-4 w-4" />
+                      Request Info Update
+                    </Button>
+                    <Button
                       onClick={() => setAdditionalDocDialog({ ...additionalDocDialog, open: true })}
                       size="sm"
                       className="bg-[#2a777a] hover:bg-[#236466]"
@@ -891,7 +910,7 @@ const CaseManagerDashboard = () => {
             <TicketSection initialTicketId={initialTicketId} />
           )}
 
-          {/* Pending Review Section */}
+          {/* Pending Review Section — Grouped by Client */}
           {activeTab === 'pending-review' && (
             <div className="space-y-6" data-testid="pending-review-section">
               <Card className="p-6 bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200">
@@ -901,7 +920,7 @@ const CaseManagerDashboard = () => {
                   </div>
                   <div>
                     <h3 className="text-xl font-bold text-amber-800">{pendingReviewCount} Documents Awaiting Review</h3>
-                    <p className="text-sm text-amber-600">These documents need your attention</p>
+                    <p className="text-sm text-amber-600">Grouped by client for easier review</p>
                   </div>
                 </div>
               </Card>
@@ -913,75 +932,98 @@ const CaseManagerDashboard = () => {
                   <p className="text-gray-500">No documents pending review</p>
                 </Card>
               ) : (
-                <div className="grid gap-4">
-                  {pendingReviewDocs.map((doc) => (
-                    <Card key={doc.id} className="p-4 hover:shadow-md transition-shadow border-l-4 border-l-amber-500" data-testid={`pending-doc-${doc.id}`}>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className="p-2 bg-amber-100 rounded-lg">
-                            <FileText className="h-5 w-5 text-amber-600" />
-                          </div>
-                          <div>
-                            <p className="font-semibold text-gray-800">{doc.filename || doc.document_type}</p>
-                            <div className="flex items-center gap-2 text-sm text-gray-500">
-                              <span className="font-medium text-[#2a777a]">{doc.client_name}</span>
-                              <span>•</span>
-                              <span>Case: {doc.case_id}</span>
-                              <span>•</span>
-                              <Clock className="h-3 w-3" />
-                              <span>{formatDate(doc.uploaded_at || doc.created_at)}</span>
+                (() => {
+                  // Group pending docs by client
+                  const clientGroups = {};
+                  pendingReviewDocs.forEach(doc => {
+                    const key = doc.client_name || 'Unknown Client';
+                    if (!clientGroups[key]) clientGroups[key] = { docs: [], caseId: doc.case_id };
+                    clientGroups[key].docs.push(doc);
+                  });
+                  
+                  return (
+                    <div className="space-y-4">
+                      {Object.entries(clientGroups).map(([clientName, group]) => (
+                        <Card key={clientName} className="overflow-hidden border border-slate-200 hover:border-amber-300 transition-colors" data-testid={`pending-client-${clientName}`}>
+                          <details className="group" open>
+                            <summary className="flex items-center justify-between p-5 cursor-pointer bg-white hover:bg-slate-50 transition-colors list-none">
+                              <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#2a777a] to-[#236466] flex items-center justify-center text-white font-bold text-lg shadow-sm">
+                                  {clientName[0]?.toUpperCase()}
+                                </div>
+                                <div>
+                                  <h4 className="font-semibold text-slate-800 text-base">{clientName}</h4>
+                                  <p className="text-xs text-slate-500">Case: {group.caseId}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <Badge className="bg-amber-100 text-amber-700 border-amber-200 font-semibold px-3 py-1">
+                                  {group.docs.length} pending
+                                </Badge>
+                                <svg className="h-5 w-5 text-slate-400 group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                              </div>
+                            </summary>
+                            <div className="border-t border-slate-100">
+                              {group.docs.map((doc) => (
+                                <div key={doc.id} className="flex items-center justify-between p-4 border-b border-slate-50 last:border-b-0 hover:bg-slate-50/50 transition-colors" data-testid={`pending-doc-${doc.id}`}>
+                                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                                    <div className="p-2 bg-amber-50 rounded-lg shrink-0">
+                                      <FileText className="h-4 w-4 text-amber-600" />
+                                    </div>
+                                    <div className="min-w-0">
+                                      <p className="font-medium text-slate-800 truncate">{doc.filename || doc.document_type}</p>
+                                      <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
+                                        <span className="capitalize">{doc.document_type?.replace(/_/g, ' ')}</span>
+                                        <span>&middot;</span>
+                                        <Clock className="h-3 w-3" />
+                                        <span>{formatDate(doc.uploaded_at || doc.created_at)}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    {doc.file_id && (
+                                      <>
+                                        <Button size="sm" variant="outline" onClick={() => viewDocument(doc.file_id, doc.filename || `${doc.document_type}.pdf`)} data-testid={`view-doc-${doc.id}`}>
+                                          <Eye className="h-4 w-4 mr-1" />View
+                                        </Button>
+                                        <Button size="sm" variant="outline" onClick={() => downloadDocument(doc.file_id, doc.filename || `${doc.document_type}.pdf`)} data-testid={`download-doc-${doc.id}`}>
+                                          <Download className="h-4 w-4" />
+                                        </Button>
+                                      </>
+                                    )}
+                                    <Button 
+                                      size="sm" 
+                                      className="bg-[#2a777a] hover:bg-[#236466] text-white"
+                                      onClick={() => {
+                                        const caseInfo = cases.find(c => c.case_id === doc.case_id);
+                                        if (caseInfo) {
+                                          loadCaseDetails(caseInfo.id);
+                                          setActiveTab('cases');
+                                          setReviewDialog({ open: true, document: doc, status: '', comment: '' });
+                                        }
+                                      }}
+                                      data-testid={`review-btn-${doc.id}`}
+                                    >
+                                      Review
+                                    </Button>
+                                  </div>
+                                </div>
+                              ))}
                             </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge className="bg-amber-100 text-amber-700">{doc.status}</Badge>
-                          {doc.file_id && (
-                            <>
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
-                                onClick={() => viewDocument(doc.file_id, doc.filename || `${doc.document_type}.pdf`)}
-                                data-testid={`view-doc-${doc.id}`}
-                              >
-                                <Eye className="h-4 w-4 mr-1" />View
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="outline"
-                                onClick={() => downloadDocument(doc.file_id, doc.filename || `${doc.document_type}.pdf`)}
-                                data-testid={`download-doc-${doc.id}`}
-                              >
-                                <Download className="h-4 w-4 mr-1" />Download
-                              </Button>
-                            </>
-                          )}
-                          <Button 
-                            size="sm" 
-                            className="bg-[#2a777a] hover:bg-[#236466]"
-                            onClick={() => {
-                              // Find the case and load its details
-                              const caseInfo = cases.find(c => c.case_id === doc.case_id);
-                              if (caseInfo) {
-                                loadCaseDetails(caseInfo.id);
-                                setActiveTab('cases');
-                                setReviewDialog({ open: true, document: doc, status: '', comment: '' });
-                              }
-                            }}
-                          >
-                            Review
-                          </Button>
-                        </div>
-                      </div>
-                    </Card>
-                  ))}
-                </div>
+                          </details>
+                        </Card>
+                      ))}
+                    </div>
+                  );
+                })()
               )}
             </div>
           )}
 
-          {/* All Documents Section with Search */}
+          {/* All Documents Section — Client-wise with Tabs */}
           {activeTab === 'documents' && (
             <div className="space-y-6" data-testid="documents-section">
+              {/* Search & Filter Bar */}
               <Card className="p-4">
                 <div className="flex items-center gap-2 mb-4">
                   <Filter className="h-4 w-4 text-slate-500" />
@@ -1058,107 +1100,134 @@ const CaseManagerDashboard = () => {
                   return matchesQuery && matchesType && matchesStatus;
                 });
                 
+                // Group by client
+                const clientDocGroups = {};
+                filteredDocs.forEach(doc => {
+                  const key = doc.client_name || 'Unknown Client';
+                  if (!clientDocGroups[key]) clientDocGroups[key] = { docs: [], caseId: doc.case_id };
+                  clientDocGroups[key].docs.push(doc);
+                });
+                const clientNames = Object.keys(clientDocGroups).sort();
+                
                 return (
                   <>
-                    <div className="text-sm text-slate-500 mb-2">
-                      Showing {filteredDocs.length} of {allDocuments.length} documents
+                    <div className="text-sm text-slate-500">
+                      Showing {filteredDocs.length} of {allDocuments.length} documents across {clientNames.length} clients
                     </div>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm" data-testid="documents-table">
-                        <thead>
-                          <tr className="bg-slate-100">
-                            <th className="p-3 w-10">
-                              <input
-                                type="checkbox"
-                                checked={selectedDocIds.length > 0 && selectedDocIds.length === filteredDocs.filter(d => ['uploaded', 'pending'].includes(d.status)).length}
-                                onChange={() => toggleAllDocs(filteredDocs.filter(d => ['uploaded', 'pending'].includes(d.status)))}
-                                className="rounded"
-                                data-testid="select-all-docs"
-                              />
-                            </th>
-                            <th className="text-left p-3">Document</th>
-                            <th className="text-left p-3">Client</th>
-                            <th className="text-left p-3">Case</th>
-                            <th className="text-left p-3">Type</th>
-                            <th className="text-center p-3">Status</th>
-                            <th className="text-left p-3">Uploaded By</th>
-                            <th className="text-left p-3">Uploaded</th>
-                            <th className="text-left p-3">Review</th>
-                            <th className="text-center p-3">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {filteredDocs.map((doc) => (
-                            <tr key={doc.id} className={`border-b hover:bg-slate-50 ${selectedDocIds.includes(doc.id) ? 'bg-teal-50' : ''}`}>
-                              <td className="p-3">
-                                {['uploaded', 'pending'].includes(doc.status) && (
-                                  <input
-                                    type="checkbox"
-                                    checked={selectedDocIds.includes(doc.id)}
-                                    onChange={() => toggleDocSelection(doc.id)}
-                                    className="rounded"
-                                  />
-                                )}
-                              </td>
-                              <td className="p-3 font-medium">{doc.filename || 'Unknown'}</td>
-                              <td className="p-3 text-[#2a777a]">{doc.client_name}</td>
-                              <td className="p-3">{doc.case_id}</td>
-                              <td className="p-3 capitalize">{doc.document_type?.replace(/_/g, ' ')}</td>
-                              <td className="p-3 text-center">{getStatusBadge(doc.status)}</td>
-                              <td className="p-3 text-slate-600 text-xs">{doc.uploader_name || 'Unknown'}</td>
-                              <td className="p-3 text-slate-500">{formatDate(doc.uploaded_at || doc.created_at)}</td>
-                              <td className="p-3 text-xs">
-                                {doc.review_comment && (
-                                  <span className="text-slate-600" title={doc.review_comment}>
-                                    {doc.reviewer_name && <span className="font-medium">{doc.reviewer_name}: </span>}
-                                    {doc.review_comment.length > 30 ? doc.review_comment.substring(0, 30) + '...' : doc.review_comment}
-                                  </span>
-                                )}
-                              </td>
-                              <td className="p-3 text-center">
-                                <div className="flex items-center justify-center gap-1">
-                                  <Button size="sm" variant="ghost" onClick={() => downloadDocument(doc.id || doc.file_id, doc.filename)} data-testid={`dl-doc-${doc.id}`}>
-                                    <Download className="h-4 w-4" />
-                                  </Button>
-                                  {['uploaded', 'pending', 'pending_review'].includes(doc.status) && (
-                                    <Button 
-                                      size="sm" 
-                                      className="bg-[#2a777a] hover:bg-[#236466]"
-                                      onClick={() => {
-                                        const caseInfo = cases.find(c => c.case_id === doc.case_id);
-                                        if (caseInfo) {
-                                          loadCaseDetails(caseInfo.id);
-                                          setActiveTab('cases');
-                                        }
-                                        setReviewDialog({ open: true, document: doc, status: '', comment: '' });
-                                      }}
-                                    >
-                                      Review
-                                    </Button>
-                                  )}
-                                  <Button 
-                                    size="sm" 
-                                    variant="outline"
-                                    className="text-purple-600 border-purple-200"
-                                    onClick={async () => {
-                                      try {
-                                        toast.info('Running AI analysis...');
-                                        const res = await axios.post(`${API}/ai/verify-document/${doc.id}`, {}, getAuthHeader());
-                                        toast.success('AI analysis complete!');
-                                        setAiAnalysis({ open: true, doc: doc, result: res.data });
-                                      } catch (e) { toast.error('AI analysis failed'); }
-                                    }}
-                                    data-testid={`ai-verify-${doc.id}`}
-                                  >
-                                    AI
-                                  </Button>
+                    
+                    {clientNames.length === 0 ? (
+                      <Card className="p-8 text-center">
+                        <p className="text-slate-500">No documents match your filters</p>
+                      </Card>
+                    ) : (
+                      <div className="space-y-4">
+                        {clientNames.map(clientName => {
+                          const group = clientDocGroups[clientName];
+                          const pendingCount = group.docs.filter(d => ['uploaded', 'pending', 'pending_review'].includes(d.status)).length;
+                          const approvedCount = group.docs.filter(d => d.status === 'approved').length;
+                          
+                          return (
+                            <Card key={clientName} className="overflow-hidden border border-slate-200" data-testid={`docs-client-${clientName}`}>
+                              <details className="group">
+                                <summary className="flex items-center justify-between p-5 cursor-pointer bg-white hover:bg-slate-50 transition-colors list-none">
+                                  <div className="flex items-center gap-4">
+                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#2a777a] to-[#236466] flex items-center justify-center text-white font-bold text-lg shadow-sm">
+                                      {clientName[0]?.toUpperCase()}
+                                    </div>
+                                    <div>
+                                      <h4 className="font-semibold text-slate-800">{clientName}</h4>
+                                      <p className="text-xs text-slate-500">Case: {group.caseId} &middot; {group.docs.length} documents</p>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    {pendingCount > 0 && <Badge className="bg-amber-100 text-amber-700 border-amber-200">{pendingCount} pending</Badge>}
+                                    {approvedCount > 0 && <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">{approvedCount} approved</Badge>}
+                                    <svg className="h-5 w-5 text-slate-400 group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                                  </div>
+                                </summary>
+                                <div className="border-t border-slate-100">
+                                  <div className="overflow-x-auto">
+                                    <table className="w-full text-sm">
+                                      <thead>
+                                        <tr className="bg-slate-50 text-slate-600">
+                                          <th className="p-3 w-10">
+                                            <input
+                                              type="checkbox"
+                                              checked={group.docs.filter(d => ['uploaded','pending'].includes(d.status)).every(d => selectedDocIds.includes(d.id))}
+                                              onChange={() => {
+                                                const reviewable = group.docs.filter(d => ['uploaded','pending'].includes(d.status));
+                                                const allSelected = reviewable.every(d => selectedDocIds.includes(d.id));
+                                                if (allSelected) setSelectedDocIds(prev => prev.filter(id => !reviewable.map(d=>d.id).includes(id)));
+                                                else setSelectedDocIds(prev => [...new Set([...prev, ...reviewable.map(d=>d.id)])]);
+                                              }}
+                                              className="rounded"
+                                            />
+                                          </th>
+                                          <th className="text-left p-3">Document</th>
+                                          <th className="text-left p-3">Type</th>
+                                          <th className="text-center p-3">Status</th>
+                                          <th className="text-left p-3">Uploaded</th>
+                                          <th className="text-center p-3">Actions</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {group.docs.map((doc) => (
+                                          <tr key={doc.id} className={`border-b border-slate-50 hover:bg-slate-50/50 ${selectedDocIds.includes(doc.id) ? 'bg-teal-50/50' : ''}`}>
+                                            <td className="p-3">
+                                              {['uploaded', 'pending'].includes(doc.status) && (
+                                                <input type="checkbox" checked={selectedDocIds.includes(doc.id)} onChange={() => toggleDocSelection(doc.id)} className="rounded" />
+                                              )}
+                                            </td>
+                                            <td className="p-3 font-medium text-slate-800">{doc.filename || 'Unknown'}</td>
+                                            <td className="p-3 text-slate-600 capitalize">{doc.document_type?.replace(/_/g, ' ')}</td>
+                                            <td className="p-3 text-center">{getStatusBadge(doc.status)}</td>
+                                            <td className="p-3 text-slate-500 text-xs">{formatDate(doc.uploaded_at || doc.created_at)}</td>
+                                            <td className="p-3">
+                                              <div className="flex items-center justify-center gap-1">
+                                                <Button size="sm" variant="ghost" onClick={() => downloadDocument(doc.id || doc.file_id, doc.filename)} data-testid={`dl-doc-${doc.id}`}>
+                                                  <Download className="h-4 w-4" />
+                                                </Button>
+                                                {['uploaded', 'pending', 'pending_review'].includes(doc.status) && (
+                                                  <Button 
+                                                    size="sm" 
+                                                    className="bg-[#2a777a] hover:bg-[#236466] text-white"
+                                                    onClick={() => {
+                                                      const caseInfo = cases.find(c => c.case_id === doc.case_id);
+                                                      if (caseInfo) { loadCaseDetails(caseInfo.id); setActiveTab('cases'); }
+                                                      setReviewDialog({ open: true, document: doc, status: '', comment: '' });
+                                                    }}
+                                                  >
+                                                    Review
+                                                  </Button>
+                                                )}
+                                                <Button 
+                                                  size="sm" variant="outline" className="text-purple-600 border-purple-200"
+                                                  onClick={async () => {
+                                                    try {
+                                                      toast.info('Running AI analysis...');
+                                                      const res = await axios.post(`${API}/ai/verify-document/${doc.id}`, {}, getAuthHeader());
+                                                      toast.success('AI analysis complete!');
+                                                      setAiAnalysis({ open: true, doc: doc, result: res.data });
+                                                    } catch (e) { toast.error('AI analysis failed'); }
+                                                  }}
+                                                  data-testid={`ai-verify-${doc.id}`}
+                                                >
+                                                  AI
+                                                </Button>
+                                              </div>
+                                            </td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
                                 </div>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                              </details>
+                            </Card>
+                          );
+                        })}
+                      </div>
+                    )}
                   </>
                 );
               })()}
@@ -1424,6 +1493,50 @@ const CaseManagerDashboard = () => {
                 <div><Label>Spouse Name</Label><Input value={infoSheetDialog.data.spouse_name || ''} onChange={(e) => updateInfoField('spouse_name', e.target.value)} /></div>
                 <div><Label>Number of Dependents</Label><Input type="number" value={infoSheetDialog.data.number_of_dependents || ''} onChange={(e) => updateInfoField('number_of_dependents', e.target.value)} /></div>
               </div>
+              {/* Dependent Details */}
+              <div className="mt-3 bg-slate-50 rounded-lg p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <Label className="text-sm font-medium">Dependent Details (Children, Spouse, etc.)</Label>
+                  <Button size="sm" variant="outline" onClick={() => {
+                    const deps = infoSheetDialog.data.dependents || [];
+                    updateInfoField('dependents', [...deps, { name: '', relationship: '', age: '', passport_number: '' }]);
+                  }}>
+                    <Plus className="h-3 w-3 mr-1" />Add Dependent
+                  </Button>
+                </div>
+                {(infoSheetDialog.data.dependents || []).map((dep, idx) => (
+                  <div key={idx} className="grid grid-cols-5 gap-2 mb-2 items-end">
+                    <div><Label className="text-xs">Name</Label><Input className="text-sm h-8" value={dep.name || ''} onChange={(e) => {
+                      const deps = [...(infoSheetDialog.data.dependents || [])];
+                      deps[idx] = { ...deps[idx], name: e.target.value };
+                      updateInfoField('dependents', deps);
+                    }} /></div>
+                    <div><Label className="text-xs">Relationship</Label><Input className="text-sm h-8" placeholder="Child/Spouse" value={dep.relationship || ''} onChange={(e) => {
+                      const deps = [...(infoSheetDialog.data.dependents || [])];
+                      deps[idx] = { ...deps[idx], relationship: e.target.value };
+                      updateInfoField('dependents', deps);
+                    }} /></div>
+                    <div><Label className="text-xs">Age</Label><Input type="number" className="text-sm h-8" value={dep.age || ''} onChange={(e) => {
+                      const deps = [...(infoSheetDialog.data.dependents || [])];
+                      deps[idx] = { ...deps[idx], age: e.target.value };
+                      updateInfoField('dependents', deps);
+                    }} /></div>
+                    <div><Label className="text-xs">Passport #</Label><Input className="text-sm h-8" value={dep.passport_number || ''} onChange={(e) => {
+                      const deps = [...(infoSheetDialog.data.dependents || [])];
+                      deps[idx] = { ...deps[idx], passport_number: e.target.value };
+                      updateInfoField('dependents', deps);
+                    }} /></div>
+                    <Button size="sm" variant="ghost" className="text-red-500 h-8" onClick={() => {
+                      const deps = [...(infoSheetDialog.data.dependents || [])];
+                      deps.splice(idx, 1);
+                      updateInfoField('dependents', deps);
+                    }}>Remove</Button>
+                  </div>
+                ))}
+                {(!infoSheetDialog.data.dependents || infoSheetDialog.data.dependents.length === 0) && (
+                  <p className="text-xs text-slate-400 text-center py-2">No dependents added yet</p>
+                )}
+              </div>
             </div>
 
             {/* Immigration */}
@@ -1442,6 +1555,30 @@ const CaseManagerDashboard = () => {
               <Label>Additional Notes</Label>
               <Textarea rows={3} value={infoSheetDialog.data.additional_notes || ''} onChange={(e) => updateInfoField('additional_notes', e.target.value)} />
             </div>
+
+            {/* Case Manager Notes */}
+            <div className="bg-teal-50 rounded-lg p-4 border border-teal-200">
+              <h4 className="font-semibold text-[#2a777a] mb-2">Case Manager Notes</h4>
+              <p className="text-xs text-slate-500 mb-2">Internal notes visible only to case managers and admins</p>
+              <Textarea rows={3} placeholder="Add internal notes about this client's information (status changes, follow-up items, etc.)" value={infoSheetDialog.data.case_manager_notes || ''} onChange={(e) => updateInfoField('case_manager_notes', e.target.value)} />
+            </div>
+
+            {/* Change History */}
+            {infoSheetDialog.data.change_history && infoSheetDialog.data.change_history.length > 0 && (
+              <div className="bg-slate-50 rounded-lg p-4 border">
+                <h4 className="font-semibold text-slate-700 mb-2 text-sm">Change History</h4>
+                <div className="space-y-1 max-h-32 overflow-y-auto">
+                  {infoSheetDialog.data.change_history.slice().reverse().map((entry, idx) => (
+                    <div key={idx} className="text-xs text-slate-500 flex items-center gap-2">
+                      <span className="font-medium text-slate-700">{entry.changed_by_name || 'Unknown'}</span>
+                      <span>({entry.changed_by_role})</span>
+                      <span>&middot;</span>
+                      <span>{new Date(entry.changed_at).toLocaleDateString()}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <Button onClick={saveInfoSheet} className="w-full bg-[#2a777a] hover:bg-[#236466]" data-testid="save-info-sheet-btn">
               Save Information Sheet

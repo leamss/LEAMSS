@@ -9,6 +9,7 @@ from core.database import (
 from core.auth import get_current_user, get_password_hash
 from core.services import create_notification, notify_role, notify_users, log_activity
 from core.email_service import send_sale_approval_email, send_sale_rejection_email
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 import uuid, os, shutil
 from datetime import datetime, timezone
@@ -187,7 +188,7 @@ async def create_sale(
         raise HTTPException(status_code=404, detail="Product not found")
     
     # --- Resolve commission rate ---
-    # Priority: explicit form value > custom per-partner-product > partner default > global default
+    # Priority: explicit form value > custom per-partner-product > product default > partner default
     if commission_rate is not None:
         rate = commission_rate
     else:
@@ -196,6 +197,8 @@ async def create_sale(
         )
         if custom:
             rate = custom["commission_rate"]
+        elif product.get("commission_rate") is not None and product.get("commission_rate", 0) > 0:
+            rate = product["commission_rate"]
         else:
             rate = current_user.get("commission_rate", 0)
     
@@ -249,7 +252,7 @@ async def create_sale(
         "payment_method": payment_method, "payment_reference": payment_reference,
         "commission_rate": rate,
         "commission_amount": commission,
-        "commission_source": "custom_product" if commission_rate is None and (await partner_product_commissions_col.find_one({"partner_id": current_user["id"], "product_id": product_id})) else "partner_default",
+        "commission_source": "custom_product" if commission_rate is None and (await partner_product_commissions_col.find_one({"partner_id": current_user["id"], "product_id": product_id})) else ("product_default" if commission_rate is None and product.get("commission_rate", 0) > 0 else "partner_default"),
         "collection_deadline": deadline_dt,
         "agreement_signed": agreement_signed, "status": "pending",
         "payment_status": pay_status,
@@ -299,6 +302,23 @@ async def get_sale_documents(sale_id: str, current_user: dict = Depends(get_curr
         if isinstance(d.get("uploaded_at"), datetime):
             d["uploaded_at"] = d["uploaded_at"].isoformat()
     return docs
+
+
+@router.get("/document/download/{file_id}")
+async def download_sale_document(file_id: str, current_user: dict = Depends(get_current_user)):
+    """Download a sale-attached document"""
+    doc = await sale_documents_col.find_one({"id": file_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    
+    if not os.path.exists(doc["file_path"]):
+        raise HTTPException(status_code=404, detail="File not found on server")
+    
+    return FileResponse(
+        doc["file_path"],
+        filename=doc["filename"],
+        media_type=doc.get("content_type", "application/octet-stream")
+    )
 
 
 @router.post("/approve")

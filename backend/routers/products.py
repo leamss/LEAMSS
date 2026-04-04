@@ -39,6 +39,8 @@ async def create_product(data: dict, current_user: dict = Depends(get_current_us
         "description": data.get("description", ""),
         "category": data.get("category", "immigration"),
         "base_fee": data.get("base_fee", 0),
+        "commission_rate": data.get("commission_rate", 0),
+        "commission_type": data.get("commission_type", "percentage"),
         "status": "active", "created_at": datetime.now(timezone.utc)
     }
     await products_col.insert_one(product)

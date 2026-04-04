@@ -27,7 +27,7 @@ class DocRequest(BaseModel):
     case_id: Optional[str] = None
     document_name: str
     description: str = ""
-    step_order: int = 1
+    step_order: Optional[int] = None
     due_date: Optional[str] = None
     expiry_date: Optional[str] = None
     validity_months: Optional[int] = None
@@ -303,16 +303,67 @@ async def save_information_sheet(case_id: str, data: dict, current_user: dict = 
     data["case_id"] = case_id
     data["client_id"] = case.get("client_id")
     data["updated_at"] = datetime.now(timezone.utc)
+    data["updated_by"] = current_user["id"]
+    data["updated_by_role"] = current_user["role"]
     
     existing = await information_sheets_col.find_one({"case_id": case_id})
     if existing:
-        await information_sheets_col.update_one({"case_id": case_id}, {"$set": data})
+        # Track change history
+        history_entry = {
+            "changed_by": current_user["id"],
+            "changed_by_name": current_user.get("name", ""),
+            "changed_by_role": current_user["role"],
+            "changed_at": datetime.now(timezone.utc).isoformat(),
+            "changes_summary": data.get("changes_summary", "Updated information sheet")
+        }
+        await information_sheets_col.update_one({"case_id": case_id}, {
+            "$set": data,
+            "$push": {"change_history": history_entry}
+        })
     else:
         data["id"] = str(uuid.uuid4())
         data["created_at"] = datetime.now(timezone.utc)
+        data["change_history"] = []
         await information_sheets_col.insert_one(data)
     
     return {"message": "Information sheet saved successfully"}
+
+
+@router.post("/{case_id}/request-info-sheet")
+async def request_info_sheet(case_id: str, data: dict, current_user: dict = Depends(get_current_user)):
+    """Case manager requests client to fill/update information sheet"""
+    if current_user["role"] not in ["admin", "case_manager"]:
+        raise HTTPException(status_code=403, detail="Admin or Case Manager only")
+    
+    case = await cases_col.find_one({"id": case_id}, {"_id": 0})
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+    
+    message = data.get("message", "Please fill/update your information sheet.")
+    fields_to_update = data.get("fields_to_update", [])
+    
+    # Create notification for client
+    await notifications_col.insert_one({
+        "id": str(uuid.uuid4()),
+        "user_id": case.get("client_id"),
+        "title": "Information Sheet Update Required",
+        "message": message,
+        "type": "info_sheet_request",
+        "related_id": case_id,
+        "metadata": {"fields_to_update": fields_to_update},
+        "read": False,
+        "created_at": datetime.now(timezone.utc)
+    })
+    
+    # Update case to mark info sheet as requested
+    await cases_col.update_one({"id": case_id}, {"$set": {
+        "info_sheet_requested": True,
+        "info_sheet_request_message": message,
+        "info_sheet_requested_at": datetime.now(timezone.utc),
+        "info_sheet_requested_by": current_user["id"]
+    }})
+    
+    return {"message": "Information sheet request sent to client"}
 
 
 @router.get("/stats/my-stats")

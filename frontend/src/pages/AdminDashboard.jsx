@@ -702,9 +702,12 @@ const AdminDashboard = () => {
     }
   };
 
-  const downloadDocument = async (docId, filename) => {
+  const downloadDocument = async (docId, filename, isSaleDoc = false) => {
     try {
-      const response = await axios.get(`${API}/documents/download/${docId}`, { ...getAuthHeader(), responseType: 'blob' });
+      const endpoint = isSaleDoc 
+        ? `${API}/sales/document/download/${docId}` 
+        : `${API}/documents/download/${docId}`;
+      const response = await axios.get(endpoint, { ...getAuthHeader(), responseType: 'blob' });
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
@@ -886,9 +889,18 @@ const AdminDashboard = () => {
         toast.success('User created!');
       } else {
         const updateData = { ...userData };
-        if (!updateData.password) delete updateData.password;
+        const newPassword = updateData.password;
+        delete updateData.password;
         await axios.put(`${API}/users/${userDialog.data.id}`, updateData, getAuthHeader());
-        toast.success('User updated!');
+        
+        // If password was provided, reset it separately
+        if (newPassword && newPassword.length >= 6) {
+          await axios.put(`${API}/users/${userDialog.data.id}/reset-password`, 
+            { new_password: newPassword }, getAuthHeader());
+          toast.success('User updated & password reset!');
+        } else {
+          toast.success('User updated!');
+        }
       }
       setUserDialog({ open: false, mode: 'create', data: null });
       loadData();
@@ -1830,7 +1842,7 @@ const AdminDashboard = () => {
                     saleDocuments.map((doc, idx) => (
                       <div key={idx} className="flex justify-between items-center p-3 border rounded-lg">
                         <div><p className="font-medium text-slate-800">{doc.filename}</p><p className="text-sm text-slate-600">Type: {doc.type}</p></div>
-                        <Button onClick={() => downloadDocument(doc.id || doc.file_id, doc.filename)} size="sm" variant="outline"><Download className="h-4 w-4" /></Button>
+                        <Button onClick={() => downloadDocument(doc.id || doc.file_id, doc.filename, true)} size="sm" variant="outline"><Download className="h-4 w-4" /></Button>
                       </div>
                     ))
                   )}
@@ -2678,20 +2690,58 @@ const AdminDashboard = () => {
 
       {/* User Dialog */}
       <Dialog open={userDialog.open} onOpenChange={(open) => setUserDialog({ ...userDialog, open })}>
-        <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>{userDialog.mode === 'create' ? 'Create' : 'Edit'} User</DialogTitle></DialogHeader>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{userDialog.mode === 'create' ? 'Create New User' : 'Edit User Profile'}</DialogTitle>
+          </DialogHeader>
           <div className="space-y-4 py-4">
-            <div><Label>Name</Label><Input value={userDialog.data?.name || ''} onChange={(e) => setUserDialog({ ...userDialog, data: { ...userDialog.data, name: e.target.value } })} data-testid="user-name-input" /></div>
-            <div><Label>Email</Label><Input type="email" value={userDialog.data?.email || ''} onChange={(e) => setUserDialog({ ...userDialog, data: { ...userDialog.data, email: e.target.value } })} data-testid="user-email-input" /></div>
-            <div><Label>Mobile</Label><Input value={userDialog.data?.mobile || ''} onChange={(e) => setUserDialog({ ...userDialog, data: { ...userDialog.data, mobile: e.target.value } })} data-testid="user-mobile-input" /></div>
-            <div>
-              <Label>Role</Label>
-              <Select value={userDialog.data?.role || 'partner'} onValueChange={(value) => setUserDialog({ ...userDialog, data: { ...userDialog.data, role: value } })}>
-                <SelectTrigger data-testid="user-role-select"><SelectValue /></SelectTrigger>
-                <SelectContent><SelectItem value="admin">Admin</SelectItem><SelectItem value="case_manager">Case Manager</SelectItem><SelectItem value="partner">Partner</SelectItem><SelectItem value="client">Client</SelectItem></SelectContent>
-              </Select>
+            {userDialog.mode === 'edit' && (
+              <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-[#2a777a] rounded-full flex items-center justify-center text-white font-bold text-lg">
+                    {(userDialog.data?.name || '?')[0].toUpperCase()}
+                  </div>
+                  <div>
+                    <p className="font-semibold text-slate-800">{userDialog.data?.name}</p>
+                    <p className="text-sm text-slate-500">{userDialog.data?.role?.replace('_', ' ')} &middot; {userDialog.data?.status || 'active'}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-4">
+              <div><Label>Name *</Label><Input value={userDialog.data?.name || ''} onChange={(e) => setUserDialog({ ...userDialog, data: { ...userDialog.data, name: e.target.value } })} data-testid="user-name-input" /></div>
+              <div><Label>Mobile</Label><Input value={userDialog.data?.mobile || ''} onChange={(e) => setUserDialog({ ...userDialog, data: { ...userDialog.data, mobile: e.target.value } })} data-testid="user-mobile-input" /></div>
             </div>
-            <div><Label>{userDialog.mode === 'edit' ? 'New Password (leave blank to keep)' : 'Password'}</Label><Input type="password" value={userDialog.data?.password || ''} onChange={(e) => setUserDialog({ ...userDialog, data: { ...userDialog.data, password: e.target.value } })} data-testid="user-password-input" /></div>
+            <div><Label>Email *</Label><Input type="email" value={userDialog.data?.email || ''} onChange={(e) => setUserDialog({ ...userDialog, data: { ...userDialog.data, email: e.target.value } })} data-testid="user-email-input" /></div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Role</Label>
+                <Select value={userDialog.data?.role || 'partner'} onValueChange={(value) => setUserDialog({ ...userDialog, data: { ...userDialog.data, role: value } })}>
+                  <SelectTrigger data-testid="user-role-select"><SelectValue /></SelectTrigger>
+                  <SelectContent><SelectItem value="admin">Admin</SelectItem><SelectItem value="case_manager">Case Manager</SelectItem><SelectItem value="partner">Partner</SelectItem><SelectItem value="client">Client</SelectItem></SelectContent>
+                </Select>
+              </div>
+              {(userDialog.data?.role === 'partner' || userDialog.data?.role === 'case_manager') && (
+                <div>
+                  <Label>Commission Rate (%)</Label>
+                  <Input type="number" step="0.1" min="0" max="100" value={userDialog.data?.commission_rate || 0} onChange={(e) => setUserDialog({ ...userDialog, data: { ...userDialog.data, commission_rate: parseFloat(e.target.value) || 0 } })} data-testid="user-commission-input" />
+                </div>
+              )}
+            </div>
+            {userDialog.mode === 'edit' && (
+              <div>
+                <Label>Status</Label>
+                <Select value={userDialog.data?.status || 'active'} onValueChange={(value) => setUserDialog({ ...userDialog, data: { ...userDialog.data, status: value } })}>
+                  <SelectTrigger data-testid="user-status-select"><SelectValue /></SelectTrigger>
+                  <SelectContent><SelectItem value="active">Active</SelectItem><SelectItem value="inactive">Inactive</SelectItem><SelectItem value="suspended">Suspended</SelectItem></SelectContent>
+                </Select>
+              </div>
+            )}
+            <div className="border-t pt-4">
+              <Label className="text-slate-700 font-medium">{userDialog.mode === 'edit' ? 'Reset Password' : 'Password *'}</Label>
+              <p className="text-xs text-slate-500 mb-2">{userDialog.mode === 'edit' ? 'Leave blank to keep current password. Min 6 characters.' : 'Minimum 6 characters.'}</p>
+              <Input type="password" placeholder={userDialog.mode === 'edit' ? 'Enter new password...' : 'Password'} value={userDialog.data?.password || ''} onChange={(e) => setUserDialog({ ...userDialog, data: { ...userDialog.data, password: e.target.value } })} data-testid="user-password-input" />
+            </div>
             <Button onClick={() => handleSaveUser(userDialog.data)} className="w-full bg-[#2a777a] hover:bg-[#236466] text-white" data-testid="save-user-btn">{userDialog.mode === 'create' ? 'Create User' : 'Update User'}</Button>
           </div>
         </DialogContent>

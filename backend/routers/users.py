@@ -109,3 +109,30 @@ async def delete_user(user_id: str, current_user: dict = Depends(get_current_use
         raise HTTPException(status_code=403, detail="Admin only")
     await users_col.update_one({"id": user_id}, {"$set": {"status": "inactive"}})
     return {"message": "User deactivated"}
+
+
+@router.put("/{user_id}/reset-password")
+async def reset_password(user_id: str, data: dict, current_user: dict = Depends(get_current_user)):
+    """Admin reset user password"""
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    
+    user = await users_col.find_one({"id": user_id}, {"_id": 0})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    new_password = data.get("new_password")
+    if not new_password or len(new_password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+    
+    hashed = get_password_hash(new_password)
+    await users_col.update_one({"id": user_id}, {"$set": {"password": hashed}})
+    
+    await audit_logs_col.insert_one({
+        "id": str(uuid.uuid4()), "user_id": current_user["id"],
+        "action": "password_reset", "entity_type": "user",
+        "entity_id": user_id, "new_value": {"user_name": user.get("name"), "user_email": user.get("email")},
+        "created_at": datetime.now(timezone.utc)
+    })
+    
+    return {"message": f"Password reset for {user['name']} ({user['email']})"}
