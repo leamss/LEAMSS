@@ -24,6 +24,8 @@ function App() {
           <Route path="/admin/activity" element={<ActivityLog />} />
           <Route path="/admin/workflows" element={<WorkflowBuilder />} />
           <Route path="/admin/marketing" element={<MarketingDashboard />} />
+          <Route path="/calculator" element={<ServiceCalculator />} />
+          <Route path="/inquiry" element={<LeadCapture />} />
           <Route path="/partner" element={<PartnerDashboard />} />
           <Route path="/case-manager" element={<CaseManagerDashboard />} />
           <Route path="/client" element={<ClientDashboard />} />
