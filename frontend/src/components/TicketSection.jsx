@@ -20,13 +20,14 @@ import {
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
-const TicketSection = ({ caseId = null, assignedCaseManagerId = null, clientId = null, initialTicketId = null }) => {
+const TicketSection = ({ caseId = null, assignedCaseManagerId = null, clientId = null, initialTicketId = null, initialFilter = null }) => {
   const [tickets, setTickets] = useState([]);
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'detail'
   const [newMessage, setNewMessage] = useState('');
   const [resolutionNote, setResolutionNote] = useState('');
-  const [activeTab, setActiveTab] = useState('open');
+  const [activeTab, setActiveTab] = useState(initialFilter?.status || 'open');
+  const [priorityFilter, setPriorityFilter] = useState(initialFilter?.priority || 'all');
   const [loading, setLoading] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
 
@@ -74,6 +75,14 @@ const TicketSection = ({ caseId = null, assignedCaseManagerId = null, clientId =
   useEffect(() => {
     loadTickets();
   }, [loadTickets]);
+
+  // React to initialFilter changes from QuickActions
+  useEffect(() => {
+    if (initialFilter) {
+      if (initialFilter.status) setActiveTab(initialFilter.status);
+      if (initialFilter.priority) setPriorityFilter(initialFilter.priority);
+    }
+  }, [initialFilter]);
 
   const sendMessage = async () => {
     if (!newMessage.trim() || !selectedTicket) return;
@@ -186,11 +195,17 @@ const TicketSection = ({ caseId = null, assignedCaseManagerId = null, clientId =
   };
 
   const filterTickets = (status) => {
-    if (status === 'open') return tickets.filter(t => t.status === 'open');
-    if (status === 'in_progress') return tickets.filter(t => t.status === 'in_progress');
-    if (status === 'resolved') return tickets.filter(t => t.status === 'resolved');
-    if (status === 'closed') return tickets.filter(t => t.status === 'closed');
-    return tickets;
+    let filtered = tickets;
+    if (status === 'open') filtered = tickets.filter(t => t.status === 'open');
+    else if (status === 'in_progress') filtered = tickets.filter(t => t.status === 'in_progress');
+    else if (status === 'resolved') filtered = tickets.filter(t => t.status === 'resolved');
+    else if (status === 'closed') filtered = tickets.filter(t => t.status === 'closed');
+    
+    // Apply priority filter
+    if (priorityFilter && priorityFilter !== 'all') {
+      filtered = filtered.filter(t => t.priority === priorityFilter);
+    }
+    return filtered;
   };
 
   // Render ticket card inline to avoid nested component issues
@@ -428,12 +443,26 @@ const TicketSection = ({ caseId = null, assignedCaseManagerId = null, clientId =
               <h2 className="text-2xl font-bold text-slate-800">Support Tickets</h2>
               <p className="text-slate-500">Manage your support requests</p>
             </div>
-            <CreateTicket 
-              caseId={caseId} 
-              assignedCaseManagerId={assignedCaseManagerId}
-              clientId={clientId}
-              onTicketCreated={loadTickets} 
-            />
+            <div className="flex items-center gap-3">
+              <select 
+                value={priorityFilter} 
+                onChange={(e) => setPriorityFilter(e.target.value)}
+                className="text-sm border rounded-lg px-3 py-2 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2a777a]"
+                data-testid="ticket-priority-filter"
+              >
+                <option value="all">All Priorities</option>
+                <option value="urgent">Urgent</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+              </select>
+              <CreateTicket 
+                caseId={caseId} 
+                assignedCaseManagerId={assignedCaseManagerId}
+                clientId={clientId}
+                onTicketCreated={loadTickets} 
+              />
+            </div>
           </div>
 
           {/* Stats Cards */}

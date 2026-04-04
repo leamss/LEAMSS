@@ -72,6 +72,7 @@ const ClientDashboard = () => {
   const [uploadingFor, setUploadingFor] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
   const [initialTicketId, setInitialTicketId] = useState(null);
+  const [ticketFilter, setTicketFilter] = useState(null);
   const [highlightedDocId, setHighlightedDocId] = useState(null);
   const [infoSheet, setInfoSheet] = useState(null);
 
@@ -359,7 +360,10 @@ const ClientDashboard = () => {
               <QuickActions 
                 userRole="client" 
                 caseId={caseData?.id}
-                onNavigate={(tab) => setActiveTab(tab)} 
+                onNavigate={(tab, filter) => {
+                  setActiveTab(tab);
+                  if (filter && tab === 'tickets') setTicketFilter(filter);
+                }} 
               />
             </div>
 
@@ -854,7 +858,7 @@ const ClientDashboard = () => {
 
               {/* Support Tickets Tab */}
               <TabsContent value="tickets" className="space-y-6">
-                <TicketSection caseId={caseData?.id} initialTicketId={initialTicketId} />
+                <TicketSection caseId={caseData?.id} initialTicketId={initialTicketId} initialFilter={ticketFilter} />
               </TabsContent>
 
               {/* Information Sheet Tab */}

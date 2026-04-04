@@ -70,6 +70,7 @@ const CaseManagerDashboard = () => {
   const [caseDocuments, setCaseDocuments] = useState([]);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [ticketFilter, setTicketFilter] = useState(null);
   const [reviewDialog, setReviewDialog] = useState({ open: false, document: null, status: '', comment: '' });
   const [aiAnalysis, setAiAnalysis] = useState({ open: false, doc: null, result: null });
   const [additionalDocDialog, setAdditionalDocDialog] = useState({ 
@@ -615,7 +616,10 @@ const CaseManagerDashboard = () => {
               <div className="mb-6">
                 <QuickActions 
                   userRole="case_manager" 
-                  onNavigate={(tab) => setActiveTab(tab)} 
+                  onNavigate={(tab, filter) => {
+                    setActiveTab(tab);
+                    if (filter && tab === 'tickets') setTicketFilter(filter);
+                  }} 
                 />
               </div>
 
@@ -907,7 +911,7 @@ const CaseManagerDashboard = () => {
 
           {/* Tickets Section */}
           {activeTab === 'tickets' && (
-            <TicketSection initialTicketId={initialTicketId} />
+            <TicketSection initialTicketId={initialTicketId} initialFilter={ticketFilter} />
           )}
 
           {/* Pending Review Section — Grouped by Client */}

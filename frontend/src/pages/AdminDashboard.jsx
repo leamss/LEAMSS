@@ -1125,7 +1125,12 @@ const AdminDashboard = () => {
               {/* Quick Actions Widget */}
               <QuickActions 
                 userRole="admin" 
-                onNavigate={(tab) => setActiveTab(tab)} 
+                onNavigate={(tab, filter) => {
+                  setActiveTab(tab);
+                  if (filter && tab === 'tickets') {
+                    setTicketFilter({ ...ticketFilter, status: filter.status || '', priority: filter.priority || '' });
+                  }
+                }} 
               />
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

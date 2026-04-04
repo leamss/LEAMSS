@@ -37,6 +37,7 @@ const QuickActions = ({ userRole, onNavigate, caseId = null }) => {
           bgColor: 'bg-blue-50',
           textColor: 'text-blue-700',
           action: 'tickets',
+          filter: { status: 'open', priority: '' },
           priority: openTickets.some(t => t.priority === 'urgent' || t.priority === 'high') ? 'high' : 'normal'
         });
       }
@@ -94,6 +95,7 @@ const QuickActions = ({ userRole, onNavigate, caseId = null }) => {
               bgColor: 'bg-orange-50',
               textColor: 'text-orange-700',
               action: 'tickets',
+              filter: { status: '', priority: 'high' },
               priority: 'urgent'
             });
           }
@@ -312,7 +314,7 @@ const QuickActions = ({ userRole, onNavigate, caseId = null }) => {
           return (
             <div
               key={action.id}
-              onClick={() => onNavigate(action.action)}
+              onClick={() => onNavigate(action.action, action.filter || null)}
               className={`flex-shrink-0 p-3 rounded-xl cursor-pointer transition-all hover:scale-105 hover:shadow-md ${action.bgColor} border border-transparent hover:border-slate-200`}
               data-testid={`quick-action-${action.id}`}
             >

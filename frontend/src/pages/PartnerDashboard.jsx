@@ -66,6 +66,7 @@ const PartnerDashboard = () => {
   const [products, setProducts] = useState([]);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [ticketFilter, setTicketFilter] = useState(null);
   const [showNewSaleDialog, setShowNewSaleDialog] = useState(false);
   const [commissionFilter, setCommissionFilter] = useState({ period: 'all' });
   const [filteredCommissions, setFilteredCommissions] = useState([]);
@@ -581,7 +582,10 @@ const PartnerDashboard = () => {
               <div className="mb-6">
                 <QuickActions 
                   userRole="partner" 
-                  onNavigate={(tab) => setActiveTab(tab)} 
+                  onNavigate={(tab, filter) => {
+                    setActiveTab(tab);
+                    if (filter && tab === 'tickets') setTicketFilter(filter);
+                  }} 
                 />
               </div>
 
@@ -770,7 +774,7 @@ const PartnerDashboard = () => {
 
           {/* Tickets Section */}
           {activeTab === 'tickets' && (
-            <TicketSection initialTicketId={initialTicketId} />
+            <TicketSection initialTicketId={initialTicketId} initialFilter={ticketFilter} />
           )}
           </div>
         </div>
