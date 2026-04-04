@@ -48,19 +48,30 @@ Build a comprehensive immigration services portal (LEAMSS) with role-based dashb
 
 ---
 
+### Marketing Hub (DONE — Dec 2025)
+- [x] **CRM Lead Management**: Full pipeline (new → contacted → qualified → proposal → negotiation → won/lost), notes, follow-ups, source tracking
+- [x] **Email Campaigns**: Create, send (MOCKED to DB), track recipients, campaign stats
+- [x] **Service Calculator**: Public eligibility assessment tool — scores users against products, "Enquire Now" flow to Lead Capture
+- [x] **Lead Capture**: Public inquiry form with URL prefill from Calculator, thank-you confirmation
+- [x] **Testimonials**: Admin CRUD for client success stories with ratings, featured flag
+- [x] **Partner Leaderboard**: Rankings by revenue, sales count, conversion rate, tier system (gold/silver/bronze)
+- [x] **Promo Codes**: Create/manage discount codes (percentage or flat)
+- [x] All 23 marketing API tests passing (iteration 26)
+
+---
+
 ## Prioritized Backlog
 
 ### P1 — Next
-- [ ] CRM & Lead Management (lead pipeline, source tracking, follow-ups)
 - [ ] Real email service integration (SendGrid/Resend — replace mock)
+- [ ] Stripe Payment Gateway
 
 ### P2 — Planned
-- [ ] Stripe Payment Gateway
+- [ ] AI Chatbot for client queries
 - [ ] Bulk Document Upload UI improvements
-- [ ] Activity Log page admin sidebar wrapper
+- [ ] PDF report download improvements
 
 ### P3 — Future
-- [ ] AI Chatbot for client queries
 - [ ] SMS Notifications (Twilio)
 - [ ] Google Calendar integration
 - [ ] Standalone mobile apps
@@ -83,4 +94,4 @@ Build a comprehensive immigration services portal (LEAMSS) with role-based dashb
 - `GET /api/activity/email-logs` — Email logs (admin)
 
 ## Database Collections
-`users`, `products`, `workflow_steps`, `sales`, `sale_documents`, `cases`, `case_steps`, `documents`, `tickets`, `ticket_messages`, `notifications`, `audit_logs`, `refunds`, `settings`, `partner_product_commissions`, `referrals`, `promo_codes`, `email_logs`, `information_sheets`, `additional_doc_requests`
+`users`, `products`, `workflow_steps`, `sales`, `sale_documents`, `cases`, `case_steps`, `documents`, `tickets`, `ticket_messages`, `notifications`, `audit_logs`, `refunds`, `settings`, `partner_product_commissions`, `referrals`, `promo_codes`, `email_logs`, `information_sheets`, `additional_doc_requests`, `leads`, `follow_ups`, `campaigns`, `campaign_recipients`, `testimonials`, `cross_sell_recommendations`
