@@ -30,6 +30,8 @@ Build a comprehensive immigration services portal (LEAMSS) with role-based dashb
 11. PDF report generation (sales, commission, partner sales)
 12. AI Document Verification (GPT-5.2)
 13. Notification system (mocked, no external APIs)
+14. Mobile-responsive dashboards with collapsible sidebar
+15. Email service integration (mocked to DB)
 
 ---
 
@@ -52,8 +54,8 @@ Build a comprehensive immigration services portal (LEAMSS) with role-based dashb
 - [x] Payment deadline timezone awareness fix
 
 ### Phase 1 — Advanced Features (DONE — April 3, 2026)
-- [x] Per-partner per-product custom commission rates (CRUD API + Admin UI with edit/delete)
-- [x] INR base currency with multi-currency support (USD, AUD, CAD, GBP, EUR)
+- [x] Per-partner per-product custom commission rates (CRUD API + Admin UI)
+- [x] INR base currency with multi-currency support
 - [x] Exchange rate configuration in settings
 - [x] Commission calculation on `amount_received`
 - [x] Mandatory ticket closure comments and rejection reasons
@@ -67,17 +69,24 @@ Build a comprehensive immigration services portal (LEAMSS) with role-based dashb
 - [x] AI Document Verification (GPT-5.2 via emergentintegrations Universal Key)
 - [x] Activity Log injection into core business routers (sales, cases, documents, tickets)
 - [x] Notification system (mocked — writes to DB, bell icon in UI)
-- [x] All Phase A-D backend tests passing (33/33)
-- [x] All Phase A-D frontend UI tests passing
+
+### Mobile Responsiveness & Email Service (DONE — April 4, 2026)
+- [x] Admin Dashboard: Collapsible sidebar with hamburger menu on mobile, responsive padding/grids
+- [x] Partner Dashboard: Collapsible sidebar with hamburger menu on mobile
+- [x] Case Manager Dashboard: Collapsible sidebar with hamburger menu on mobile
+- [x] Client Dashboard: Responsive header (user name/CreateTicket hidden on small screens)
+- [x] Email Service (MOCKED): Created email_service.py with 5 email functions
+- [x] Wired emails into: Sale approval/rejection, Document review, Ticket replies, Case step updates
+- [x] Email logs viewable at GET /api/activity/email-logs (admin only)
+- [x] All 19 backend tests + all frontend tests passing (iteration 24)
 
 ---
 
 ## Prioritized Backlog
 
 ### P1 — Next
-- [ ] Mobile responsiveness optimization across all dashboards
-- [ ] Email service integration (scaffolded but not triggered)
 - [ ] CRM & Lead Management (lead pipeline, source tracking, follow-up reminders)
+- [ ] Real email service integration (SendGrid/Resend — currently mocked)
 
 ### P2 — Planned
 - [ ] Stripe Payment Gateway integration
@@ -104,7 +113,8 @@ Build a comprehensive immigration services portal (LEAMSS) with role-based dashb
 - `GET /api/reports/export/commission-report` — PDF commission report
 - `POST /api/ai/verify-document/{doc_id}` — AI document verification
 - `GET /api/activity/logs` — Activity audit logs
+- `GET /api/activity/email-logs` — Email notification logs (admin only)
 - `GET /api/notifications` — User notifications
 
 ## Database Collections (MongoDB)
-`users`, `products`, `workflow_steps`, `sales`, `cases`, `case_steps`, `documents`, `tickets`, `ticket_messages`, `notifications`, `audit_logs`, `refunds`, `settings`, `partner_product_commissions`, `referrals`, `promo_codes`
+`users`, `products`, `workflow_steps`, `sales`, `cases`, `case_steps`, `documents`, `tickets`, `ticket_messages`, `notifications`, `audit_logs`, `refunds`, `settings`, `partner_product_commissions`, `referrals`, `promo_codes`, `email_logs`
