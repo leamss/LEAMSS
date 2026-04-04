@@ -114,3 +114,23 @@ async def get_stats(days: int = Query(7), current_user: dict = Depends(get_curre
         "most_active_users": active_users,
         "period_days": days
     }
+
+
+
+@router.get("/email-logs")
+async def get_email_logs(
+    limit: int = Query(50),
+    current_user: dict = Depends(get_current_user)
+):
+    """Get email notification logs (admin only)"""
+    if current_user["role"] != "admin":
+        from fastapi import HTTPException
+        raise HTTPException(status_code=403, detail="Admin only")
+    
+    from core.database import db
+    email_logs_col = db["email_logs"]
+    logs = await email_logs_col.find({}, {"_id": 0}).sort("sent_at", -1).to_list(limit)
+    for log in logs:
+        if isinstance(log.get("sent_at"), datetime):
+            log["sent_at"] = log["sent_at"].isoformat()
+    return logs

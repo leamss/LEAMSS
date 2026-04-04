@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Briefcase, FileText, DollarSign, LogOut, Plus, ArrowLeft, MessageSquare, Filter, Download } from 'lucide-react';
+import { Briefcase, FileText, DollarSign, LogOut, Plus, ArrowLeft, MessageSquare, Filter, Download, Menu, X } from 'lucide-react';
 import NotificationBell from '@/components/NotificationBell';
 import TicketSection from '@/components/TicketSection';
 import QuickActions from '@/components/QuickActions';
@@ -65,6 +65,7 @@ const PartnerDashboard = () => {
   const [sales, setSales] = useState([]);
   const [products, setProducts] = useState([]);
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showNewSaleDialog, setShowNewSaleDialog] = useState(false);
   const [commissionFilter, setCommissionFilter] = useState({ period: 'all' });
   const [filteredCommissions, setFilteredCommissions] = useState([]);
@@ -293,8 +294,10 @@ const PartnerDashboard = () => {
       <AdminReturnBanner />
       
       <div className="flex">
-      {/* Modern White Sidebar */}
-      <aside className="w-64 bg-white border-r border-slate-200 flex flex-col fixed h-screen" data-testid="sidebar">
+      {/* Mobile Sidebar Overlay */}
+      {sidebarOpen && <div className="fixed inset-0 bg-black/40 z-30 md:hidden" onClick={() => setSidebarOpen(false)} />}
+      {/* Responsive Sidebar */}
+      <aside className={`w-64 bg-white border-r border-slate-200 flex flex-col fixed h-screen z-40 transition-transform duration-200 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`} data-testid="sidebar">
         <div className="p-6 border-b border-slate-100">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-[#2a777a] flex items-center justify-center">
@@ -309,7 +312,7 @@ const PartnerDashboard = () => {
         
         <nav className="flex-1 p-4 space-y-1">
           <button
-            onClick={() => setActiveTab('dashboard')}
+            onClick={() => { setActiveTab('dashboard'); setSidebarOpen(false); }}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all font-medium ${
               activeTab === 'dashboard' 
                 ? 'bg-teal-50 text-[#2a777a]' 
@@ -321,7 +324,7 @@ const PartnerDashboard = () => {
             <span>Dashboard</span>
           </button>
           <button
-            onClick={() => setActiveTab('sales')}
+            onClick={() => { setActiveTab('sales'); setSidebarOpen(false); }}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all font-medium ${
               activeTab === 'sales' 
                 ? 'bg-teal-50 text-[#2a777a]' 
@@ -333,7 +336,7 @@ const PartnerDashboard = () => {
             <span>My Sales</span>
           </button>
           <button
-            onClick={() => setActiveTab('commission')}
+            onClick={() => { setActiveTab('commission'); setSidebarOpen(false); }}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all font-medium ${
               activeTab === 'commission' 
                 ? 'bg-teal-50 text-[#2a777a]' 
@@ -345,7 +348,7 @@ const PartnerDashboard = () => {
             <span>Commission</span>
           </button>
           <button
-            onClick={() => setActiveTab('tickets')}
+            onClick={() => { setActiveTab('tickets'); setSidebarOpen(false); }}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all font-medium ${
               activeTab === 'tickets' 
                 ? 'bg-teal-50 text-[#2a777a]' 
@@ -380,18 +383,23 @@ const PartnerDashboard = () => {
         </div>
       </aside>
 
-      <main className="flex-1 ml-64">
+      <main className="flex-1 md:ml-64">
         {/* Header */}
-        <header className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-slate-200 px-8 py-4">
+        <header className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-slate-200 px-4 md:px-8 py-4">
           <div className="flex justify-between items-center max-w-7xl mx-auto">
-            <h2 className="text-2xl font-bold text-slate-800">
+            <div className="flex items-center gap-3">
+              <Button variant="ghost" size="sm" className="md:hidden" onClick={() => setSidebarOpen(!sidebarOpen)} data-testid="mobile-menu-btn">
+                <Menu className="h-5 w-5" />
+              </Button>
+              <h2 className="text-lg md:text-2xl font-bold text-slate-800">
               {activeTab === 'dashboard' && 'Dashboard'}
               {activeTab === 'sales' && 'My Sales'}
               {activeTab === 'commission' && 'Commission'}
               {activeTab === 'tickets' && 'Support'}
             </h2>
+            </div>
             
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 md:gap-3">
               <NotificationBell onNotificationClick={handleNotificationClick} />
             {(activeTab === 'sales' || activeTab === 'dashboard') && (
               <Dialog open={showNewSaleDialog} onOpenChange={setShowNewSaleDialog}>
@@ -565,7 +573,7 @@ const PartnerDashboard = () => {
         </header>
 
         {/* Content */}
-        <div className="p-8">
+        <div className="p-4 md:p-8">
           <div className="max-w-7xl mx-auto">
           {activeTab === 'dashboard' && (
             <div>

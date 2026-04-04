@@ -4,6 +4,7 @@ from fastapi.responses import FileResponse
 from core.database import documents_col, cases_col, notifications_col, audit_logs_col, users_col
 from core.auth import get_current_user
 from core.services import create_notification, notify_role, log_activity
+from core.email_service import send_document_review_email
 from pydantic import BaseModel
 from typing import Optional, List
 import uuid, os
@@ -147,6 +148,14 @@ async def review_document(request: DocumentReview, current_user: dict = Depends(
             "type": "document_review", "related_id": doc.get("case_id"),
             "read": False, "created_at": datetime.now(timezone.utc)
         })
+        
+        # Email notification to document uploader
+        uploader = await users_col.find_one({"id": doc["uploaded_by"]}, {"_id": 0})
+        if uploader:
+            await send_document_review_email(
+                uploader.get("email", ""), uploader.get("name", ""),
+                doc.get("filename", "Document"), request.status, request.comment or ""
+            )
     
     return {"message": f"Document {request.status}"}
 

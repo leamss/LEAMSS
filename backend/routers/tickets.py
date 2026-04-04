@@ -5,6 +5,7 @@ from typing import Optional
 from core.database import tickets_col, ticket_messages_col, users_col, notifications_col
 from core.auth import get_current_user
 from core.services import create_notification, notify_role, log_activity
+from core.email_service import send_ticket_update_email
 import uuid
 from datetime import datetime, timezone
 
@@ -288,6 +289,15 @@ async def reply_ticket(ticket_id: str, data: TicketReply, current_user: dict = D
                 "ticket_reply", ticket_id)
     await log_activity(current_user["id"], current_user["name"], "replied", "ticket", ticket_id,
         f"Replied to ticket: {ticket.get('subject', '')}")
+    
+    # Email notification to ticket creator
+    if ticket.get("created_by") != current_user["id"]:
+        creator = await users_col.find_one({"id": ticket["created_by"]}, {"_id": 0})
+        if creator:
+            await send_ticket_update_email(
+                creator.get("email", ""), creator.get("name", ""),
+                ticket.get("subject", "Support Ticket"), data.message, ticket_id
+            )
     
     return {"message": "Reply sent"}
 

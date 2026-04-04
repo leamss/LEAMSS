@@ -282,27 +282,29 @@ const ClientDashboard = () => {
       {/* Header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-[#2a777a] to-[#236466] rounded-xl flex items-center justify-center shadow-lg">
-                <span className="text-white font-bold text-lg">L</span>
+          <div className="flex justify-between items-center h-14 md:h-16">
+            <div className="flex items-center gap-2 md:gap-3">
+              <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-[#2a777a] to-[#236466] rounded-xl flex items-center justify-center shadow-lg">
+                <span className="text-white font-bold text-sm md:text-lg">L</span>
               </div>
               <div>
-                <h1 className="text-xl font-bold bg-gradient-to-r from-[#2a777a] to-[#236466] bg-clip-text text-transparent">
+                <h1 className="text-base md:text-xl font-bold bg-gradient-to-r from-[#2a777a] to-[#236466] bg-clip-text text-transparent">
                   LEAMSS Portal
                 </h1>
-                <p className="text-xs text-slate-500">Client Dashboard</p>
+                <p className="text-xs text-slate-500 hidden sm:block">Client Dashboard</p>
               </div>
             </div>
             
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 md:gap-4">
               <NotificationBell onNotificationClick={handleNotificationClick} />
-              <CreateTicket caseId={caseData?.id} onTicketCreated={() => setActiveTab('tickets')} />
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-full">
+              <div className="hidden sm:block">
+                <CreateTicket caseId={caseData?.id} onTicketCreated={() => setActiveTab('tickets')} />
+              </div>
+              <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-full">
                 <User className="h-4 w-4 text-[#2a777a]" />
                 <span className="text-sm font-medium text-slate-700">{user.name}</span>
               </div>
-              <Button variant="ghost" onClick={handleLogout} className="text-slate-600 hover:text-red-600">
+              <Button variant="ghost" onClick={handleLogout} className="text-slate-600 hover:text-red-600" size="sm">
                 <LogOut className="h-4 w-4" />
               </Button>
             </div>

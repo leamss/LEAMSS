@@ -14,7 +14,7 @@ import NotificationBell from '@/components/NotificationBell';
 import CreateTicket from '@/components/CreateTicket';
 import TicketSection from '@/components/TicketSection';
 import QuickActions from '@/components/QuickActions';
-import { Briefcase, FileText, CheckCircle, AlertCircle, LogOut, Download, Plus, Send, ArrowLeft, MessageSquare, Search, Filter, Clock, Eye } from 'lucide-react';
+import { Briefcase, FileText, CheckCircle, AlertCircle, LogOut, Download, Plus, Send, ArrowLeft, MessageSquare, Search, Filter, Clock, Eye, Menu, X } from 'lucide-react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -69,6 +69,7 @@ const CaseManagerDashboard = () => {
   const [selectedCase, setSelectedCase] = useState(null);
   const [caseDocuments, setCaseDocuments] = useState([]);
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [reviewDialog, setReviewDialog] = useState({ open: false, document: null, status: '', comment: '' });
   const [aiAnalysis, setAiAnalysis] = useState({ open: false, doc: null, result: null });
   const [additionalDocDialog, setAdditionalDocDialog] = useState({ 
@@ -458,8 +459,10 @@ const CaseManagerDashboard = () => {
       <AdminReturnBanner />
       
       <div className="flex">
-        {/* Modern White Sidebar */}
-        <aside className="w-64 bg-white border-r border-slate-200 flex flex-col fixed h-screen top-0 left-0 z-20" data-testid="case-manager-sidebar">
+        {/* Mobile Sidebar Overlay */}
+        {sidebarOpen && <div className="fixed inset-0 bg-black/40 z-30 md:hidden" onClick={() => setSidebarOpen(false)} />}
+        {/* Responsive Sidebar */}
+        <aside className={`w-64 bg-white border-r border-slate-200 flex flex-col fixed h-screen top-0 left-0 z-40 transition-transform duration-200 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`} data-testid="case-manager-sidebar">
           <div className="p-6 border-b border-slate-100">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-lg bg-[#2a777a] flex items-center justify-center">
@@ -474,7 +477,7 @@ const CaseManagerDashboard = () => {
           
           <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
             <button
-              onClick={() => { setActiveTab('dashboard'); setSelectedCase(null); }}
+              onClick={() => { setActiveTab('dashboard'); setSelectedCase(null); setSidebarOpen(false); }}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all font-medium ${
                 activeTab === 'dashboard' 
                   ? 'bg-teal-50 text-[#2a777a]' 
@@ -486,7 +489,7 @@ const CaseManagerDashboard = () => {
               <span>Dashboard</span>
             </button>
             <button
-              onClick={() => { setActiveTab('cases'); setSelectedCase(null); }}
+              onClick={() => { setActiveTab('cases'); setSelectedCase(null); setSidebarOpen(false); }}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all font-medium ${
                 activeTab === 'cases' 
                   ? 'bg-teal-50 text-[#2a777a]' 
@@ -498,7 +501,7 @@ const CaseManagerDashboard = () => {
               <span>My Cases</span>
             </button>
             <button
-              onClick={() => { setActiveTab('pending-review'); setSelectedCase(null); }}
+              onClick={() => { setActiveTab('pending-review'); setSelectedCase(null); setSidebarOpen(false); }}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all font-medium ${
                 activeTab === 'pending-review' 
                   ? 'bg-orange-50 text-[#f7620b]' 
@@ -515,7 +518,7 @@ const CaseManagerDashboard = () => {
             )}
           </button>
           <button
-            onClick={() => { setActiveTab('documents'); setSelectedCase(null); }}
+            onClick={() => { setActiveTab('documents'); setSelectedCase(null); setSidebarOpen(false); }}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all font-medium ${
               activeTab === 'documents' 
                 ? 'bg-teal-50 text-[#2a777a]' 
@@ -527,7 +530,7 @@ const CaseManagerDashboard = () => {
             <span>All Documents</span>
           </button>
           <button
-            onClick={() => { setActiveTab('tickets'); setSelectedCase(null); }}
+            onClick={() => { setActiveTab('tickets'); setSelectedCase(null); setSidebarOpen(false); }}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all font-medium ${
               activeTab === 'tickets' 
                 ? 'bg-teal-50 text-[#2a777a]' 
@@ -562,11 +565,14 @@ const CaseManagerDashboard = () => {
         </div>
       </aside>
 
-      <main className="flex-1 ml-64">
+      <main className="flex-1 md:ml-64">
         {/* Header */}
-        <header className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-slate-200 px-8 py-4">
+        <header className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-slate-200 px-4 md:px-8 py-4">
           <div className="flex justify-between items-center max-w-7xl mx-auto">
             <div className="flex items-center gap-3">
+              <Button variant="ghost" size="sm" className="md:hidden" onClick={() => setSidebarOpen(!sidebarOpen)} data-testid="mobile-menu-btn">
+                <Menu className="h-5 w-5" />
+              </Button>
               {selectedCase && (
                 <Button 
                   variant="ghost" 
@@ -577,7 +583,7 @@ const CaseManagerDashboard = () => {
                   <ArrowLeft className="h-5 w-5" />
                 </Button>
               )}
-              <h2 className="text-2xl font-bold text-slate-800">
+              <h2 className="text-lg md:text-2xl font-bold text-slate-800">
                 {activeTab === 'dashboard' && 'Dashboard'}
                 {activeTab === 'cases' && !selectedCase && 'My Cases'}
                 {activeTab === 'pending-review' && 'Pending Review'}
@@ -601,7 +607,7 @@ const CaseManagerDashboard = () => {
         </header>
 
         {/* Content */}
-        <div className="p-8">
+        <div className="p-4 md:p-8">
           <div className="max-w-7xl mx-auto">
           {activeTab === 'dashboard' && (
             <div>

@@ -9,6 +9,7 @@ from core.database import (
 )
 from core.auth import get_current_user
 from core.services import create_notification, notify_users, log_activity
+from core.email_service import send_case_step_update_email
 import uuid
 from datetime import datetime, timezone, date
 
@@ -198,6 +199,16 @@ async def update_step(request: StepUpdate, current_user: dict = Depends(get_curr
                 await cases_col.update_one({"id": request.case_id}, {"$set": {"status": "completed"}})
     
     await _log(current_user["id"], "update_step", "case", request.case_id, {"step_name": request.step_name, "status": request.status})
+    
+    # Email notification to client about step update
+    if case.get("client_id"):
+        client = await users_col.find_one({"id": case["client_id"]}, {"_id": 0})
+        if client:
+            await send_case_step_update_email(
+                client.get("email", ""), client.get("name", ""),
+                case.get("case_id", request.case_id), request.step_name, request.status
+            )
+    
     return {"message": "Step updated successfully"}
 
 

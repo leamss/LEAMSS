@@ -8,6 +8,7 @@ from core.database import (
 )
 from core.auth import get_current_user, get_password_hash
 from core.services import create_notification, notify_role, notify_users, log_activity
+from core.email_service import send_sale_approval_email, send_sale_rejection_email
 from pydantic import BaseModel
 import uuid, os, shutil
 from datetime import datetime, timezone
@@ -384,6 +385,12 @@ async def approve_sale(request: SaleApproval, current_user: dict = Depends(get_c
         await log_activity(current_user["id"], current_user["name"], "approved", "sale", request.sale_id,
             f"Approved sale for {sale['client_name']}")
         
+        # Email notification to client
+        await send_sale_approval_email(
+            sale["client_email"], sale["client_name"],
+            sale.get("product_name", "Immigration Service"), request.sale_id
+        )
+        
         response = {"message": "Sale approved successfully"}
         if client_is_new:
             response["client_credentials"] = {
@@ -410,6 +417,12 @@ async def approve_sale(request: SaleApproval, current_user: dict = Depends(get_c
             "sale_rejected", request.sale_id)
         await log_activity(current_user["id"], current_user["name"], "rejected", "sale", request.sale_id,
             f"Rejected sale for {sale['client_name']}: {reason.strip()}")
+        
+        # Email notification to client
+        await send_sale_rejection_email(
+            sale["client_email"], sale["client_name"],
+            sale.get("product_name", "Immigration Service"), reason.strip(), request.sale_id
+        )
         
         return {"message": "Sale rejected"}
     
