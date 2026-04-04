@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from typing import Optional
 from core.database import tickets_col, ticket_messages_col, users_col, notifications_col
 from core.auth import get_current_user
+from core.services import create_notification, notify_role, log_activity
 import uuid
 from datetime import datetime, timezone
 
@@ -273,6 +274,21 @@ async def reply_ticket(ticket_id: str, data: TicketReply, current_user: dict = D
     }
     await ticket_messages_col.insert_one(msg)
     await tickets_col.update_one({"id": ticket_id}, {"$set": {"updated_at": datetime.now(timezone.utc)}})
+    
+    # Notify ticket creator if the replier is someone else
+    if ticket.get("created_by") != current_user["id"]:
+        await create_notification(ticket["created_by"], "Ticket Reply",
+            f"New reply on ticket: {ticket.get('subject', 'Unknown')}",
+            "ticket_reply", ticket_id)
+    # Also notify assigned targets
+    for uid in ticket.get("target_user_ids", []):
+        if uid != current_user["id"]:
+            await create_notification(uid, "Ticket Reply",
+                f"New reply on ticket: {ticket.get('subject', 'Unknown')}",
+                "ticket_reply", ticket_id)
+    await log_activity(current_user["id"], current_user["name"], "replied", "ticket", ticket_id,
+        f"Replied to ticket: {ticket.get('subject', '')}")
+    
     return {"message": "Reply sent"}
 
 
@@ -296,4 +312,14 @@ async def update_ticket_status(ticket_id: str, data: dict, current_user: dict = 
         update_fields["closed_at"] = datetime.now(timezone.utc)
     
     await tickets_col.update_one({"id": ticket_id}, {"$set": update_fields})
+    
+    # Notify ticket creator about status change
+    ticket = await tickets_col.find_one({"id": ticket_id}, {"_id": 0})
+    if ticket and ticket.get("created_by") != current_user["id"]:
+        await create_notification(ticket["created_by"], f"Ticket {new_status.title()}",
+            f"Ticket '{ticket.get('subject', '')}' has been {new_status}.",
+            "ticket_status", ticket_id)
+    await log_activity(current_user["id"], current_user["name"], f"set_status_{new_status}", "ticket", ticket_id,
+        f"Changed ticket status to {new_status}")
+    
     return {"message": "Ticket status updated"}

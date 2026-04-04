@@ -16,7 +16,7 @@ import {
   LayoutDashboard, FileText, Users, Briefcase, LogOut, Plus, User, 
   Download, Edit, Trash2, UserPlus, Eye, ArrowRight, Settings,
   Search, DollarSign, TrendingUp, CheckCircle, XCircle, Clock,
-  MessageSquare, Filter, Calendar, RefreshCw, AlertTriangle, Copy, Mail
+  MessageSquare, Filter, Calendar, RefreshCw, AlertTriangle, Copy, Mail, Gift
 } from 'lucide-react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -1017,6 +1017,8 @@ const AdminDashboard = () => {
             { id: 'refunds', icon: XCircle, label: 'Refunds' },
             { id: 'analytics', icon: TrendingUp, label: 'Analytics', isLink: '/admin/analytics' },
             { id: 'activity', icon: Clock, label: 'Activity Log', isLink: '/admin/activity' },
+            { id: 'workflows', icon: FileText, label: 'Workflows', isLink: '/admin/workflows' },
+            { id: 'marketing', icon: Gift, label: 'Marketing', isLink: '/admin/marketing' },
             { id: 'settings', icon: Settings, label: 'Settings' }
           ].map(item => (
             <button
@@ -1328,7 +1330,15 @@ const AdminDashboard = () => {
                   )}
                   <div className="flex items-end gap-2">
                     <Button onClick={loadSalesReport} className="bg-[#2a777a] hover:bg-[#236466]"><Search className="mr-2 h-4 w-4" />Search</Button>
-                    <Button onClick={() => downloadReport(salesReport, 'sales_report')} variant="outline"><Download className="mr-2 h-4 w-4" />Export</Button>
+                    <Button onClick={() => downloadReport(salesReport, 'sales_report')} variant="outline"><Download className="mr-2 h-4 w-4" />CSV</Button>
+                    <Button onClick={async () => {
+                      try {
+                        const res = await axios.get(`${API}/reports/export/sales-report?status=${salesFilter.status || ''}`, { ...getAuthHeader(), responseType: 'blob' });
+                        const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+                        const a = document.createElement('a'); a.href = url; a.download = `LEAMSS_Sales_Report.pdf`; a.click();
+                        window.URL.revokeObjectURL(url);
+                      } catch (e) { toast.error('Failed to export PDF'); }
+                    }} variant="outline" className="text-red-600 border-red-200 hover:bg-red-50" data-testid="export-sales-pdf"><FileText className="mr-2 h-4 w-4" />PDF</Button>
                   </div>
                 </div>
               </Card>

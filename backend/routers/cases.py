@@ -8,6 +8,7 @@ from core.database import (
     information_sheets_col, workflow_steps_col
 )
 from core.auth import get_current_user
+from core.services import create_notification, notify_users, log_activity
 import uuid
 from datetime import datetime, timezone, date
 
@@ -223,6 +224,8 @@ async def assign_manager(case_id: str, case_manager_id: str, current_user: dict 
     })
     
     await _log(current_user["id"], "assign_case_manager", "case", case_id, {"case_manager_id": case_manager_id})
+    await log_activity(current_user["id"], current_user["name"], "assigned_manager", "case", case_id,
+        f"Assigned case manager {manager['name']} to case {case.get('case_number', case_id)}")
     return {"message": "Case manager reassigned successfully"}
 
 

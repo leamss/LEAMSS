@@ -3,8 +3,9 @@ from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form
 from fastapi.responses import FileResponse
 from core.database import documents_col, cases_col, notifications_col, audit_logs_col, users_col
 from core.auth import get_current_user
+from core.services import create_notification, notify_role, log_activity
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 import uuid, os
 from datetime import datetime, timezone
 
@@ -175,4 +176,64 @@ async def upload_additional_document(
         "uploaded_at": datetime.now(timezone.utc)
     }
     await documents_col.insert_one(doc)
+    
+    # Notify case manager about new upload
+    case = await cases_col.find_one({"id": case_id}, {"_id": 0})
+    if case and case.get("case_manager_id"):
+        await create_notification(case["case_manager_id"], "New Document Upload",
+            f"Client uploaded '{file.filename}' for case {case.get('case_number', case_id)}",
+            "document_upload", case_id)
+    await log_activity(current_user["id"], current_user.get("name", ""), "uploaded", "document", file_id,
+        f"Uploaded document: {file.filename}")
+    
     return {"id": doc["id"], "message": "Document uploaded successfully"}
+
+
+@router.post("/bulk-upload")
+async def bulk_upload_documents(
+    files: List[UploadFile] = File(...),
+    case_id: str = Form(...),
+    document_type: str = Form("general"),
+    current_user: dict = Depends(get_current_user)
+):
+    """Upload multiple documents at once"""
+    uploaded = []
+    errors = []
+    
+    for file in files:
+        try:
+            file_id = str(uuid.uuid4())
+            file_ext = os.path.splitext(file.filename)[1]
+            file_path = os.path.join(UPLOAD_DIR, f"{file_id}{file_ext}")
+            
+            content = await file.read()
+            with open(file_path, "wb") as f:
+                f.write(content)
+            
+            doc = {
+                "id": file_id, "case_id": case_id, "document_type": document_type,
+                "filename": file.filename, "file_path": file_path,
+                "file_size": len(content), "content_type": file.content_type,
+                "status": "pending", "uploaded_by": current_user["id"],
+                "uploader_name": current_user.get("name", ""),
+                "uploaded_at": datetime.now(timezone.utc)
+            }
+            await documents_col.insert_one(doc)
+            uploaded.append({"id": file_id, "filename": file.filename})
+        except Exception as e:
+            errors.append({"filename": file.filename, "error": str(e)})
+    
+    if uploaded:
+        case = await cases_col.find_one({"id": case_id}, {"_id": 0})
+        if case and case.get("case_manager_id"):
+            await create_notification(case["case_manager_id"], "Bulk Document Upload",
+                f"{len(uploaded)} documents uploaded for case {case.get('case_number', case_id)}",
+                "document_upload", case_id)
+        await log_activity(current_user["id"], current_user.get("name", ""), "bulk_uploaded", "document", case_id,
+            f"Uploaded {len(uploaded)} documents")
+    
+    return {
+        "message": f"{len(uploaded)} documents uploaded successfully" + (f", {len(errors)} failed" if errors else ""),
+        "uploaded": uploaded,
+        "errors": errors
+    }

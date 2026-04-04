@@ -7,6 +7,7 @@ from core.database import (
     partner_product_commissions_col, settings_col
 )
 from core.auth import get_current_user, get_password_hash
+from core.services import create_notification, notify_role, notify_users, log_activity
 from pydantic import BaseModel
 import uuid, os, shutil
 from datetime import datetime, timezone
@@ -280,6 +281,13 @@ async def create_sale(
     
     await _log(current_user["id"], "create_sale", "sale", sale["id"], {"client_name": client_name, "fee_amount": fee_amount})
     
+    # Notifications: notify admins about new sale
+    await notify_role("admin", "New Sale Submitted",
+        f"Partner {current_user['name']} submitted a new sale for {client_name} (₹{fee_amount:,.0f})",
+        "sale_created", sale["id"])
+    await log_activity(current_user["id"], current_user["name"], "created", "sale", sale["id"],
+        f"New sale for {client_name} — ₹{fee_amount:,.0f}")
+    
     return {"id": sale["id"], "message": "Sale created successfully"}
 
 
@@ -369,6 +377,13 @@ async def approve_sale(request: SaleApproval, current_user: dict = Depends(get_c
         
         await _log(current_user["id"], "sale_approved", "sale", request.sale_id, {"client_name": sale["client_name"]})
         
+        # Notify partner that sale was approved
+        await create_notification(sale["partner_id"], "Sale Approved",
+            f"Your sale for {sale['client_name']} has been approved! Case created.",
+            "sale_approved", request.sale_id)
+        await log_activity(current_user["id"], current_user["name"], "approved", "sale", request.sale_id,
+            f"Approved sale for {sale['client_name']}")
+        
         response = {"message": "Sale approved successfully"}
         if client_is_new:
             response["client_credentials"] = {
@@ -388,6 +403,14 @@ async def approve_sale(request: SaleApproval, current_user: dict = Depends(get_c
             "rejected_at": datetime.now(timezone.utc)
         }})
         await _log(current_user["id"], "sale_rejected", "sale", request.sale_id, {"client_name": sale["client_name"], "reason": reason.strip()})
+        
+        # Notify partner that sale was rejected
+        await create_notification(sale["partner_id"], "Sale Rejected",
+            f"Your sale for {sale['client_name']} was rejected. Reason: {reason.strip()}",
+            "sale_rejected", request.sale_id)
+        await log_activity(current_user["id"], current_user["name"], "rejected", "sale", request.sale_id,
+            f"Rejected sale for {sale['client_name']}: {reason.strip()}")
+        
         return {"message": "Sale rejected"}
     
     raise HTTPException(status_code=400, detail="Invalid status")

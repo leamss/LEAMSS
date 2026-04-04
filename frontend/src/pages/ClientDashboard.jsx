@@ -180,6 +180,26 @@ const ClientDashboard = () => {
     }
   };
 
+  const handleBulkUpload = async (e) => {
+    const files = Array.from(e.target.files);
+    if (!files.length || !caseData) return;
+    
+    const formData = new FormData();
+    files.forEach(f => formData.append('files', f));
+    formData.append('case_id', caseData.id);
+    formData.append('document_type', 'general');
+    
+    try {
+      toast.info(`Uploading ${files.length} files...`);
+      const res = await axios.post(`${API}/documents/bulk-upload`, formData, getAuthHeader());
+      toast.success(res.data.message);
+      loadData();
+    } catch (error) {
+      toast.error('Bulk upload failed');
+    }
+    e.target.value = '';
+  };
+
   const downloadDocument = async (docId, filename) => {
     try {
       const response = await axios.get(`${API}/documents/download/${docId}`, {
@@ -754,11 +774,19 @@ const ClientDashboard = () => {
               {/* My Documents Tab */}
               <TabsContent value="uploaded" className="space-y-6">
                 <Card className="p-6 bg-white shadow-md border-0">
-                  <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
-                    <FolderOpen className="h-5 w-5 text-[#2a777a]" />
-                    All Uploaded Documents
-                    <Badge className="bg-[#2a777a]/10 text-[#2a777a] ml-2">{documents.length}</Badge>
-                  </h3>
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                      <FolderOpen className="h-5 w-5 text-[#2a777a]" />
+                      All Uploaded Documents
+                      <Badge className="bg-[#2a777a]/10 text-[#2a777a] ml-2">{documents.length}</Badge>
+                    </h3>
+                    <label className="cursor-pointer">
+                      <input type="file" multiple className="hidden" onChange={handleBulkUpload} data-testid="bulk-upload-input" />
+                      <span className="inline-flex items-center gap-2 px-4 py-2 bg-[#2a777a] text-white rounded-lg text-sm font-medium hover:bg-[#236466] transition-colors">
+                        <Upload className="h-4 w-4" /> Bulk Upload
+                      </span>
+                    </label>
+                  </div>
 
                   {documents.length === 0 ? (
                     <div className="text-center py-12 bg-slate-50 rounded-xl">

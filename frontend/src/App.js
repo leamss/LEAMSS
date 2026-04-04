@@ -9,6 +9,8 @@ import NotificationHistory from '@/pages/NotificationHistory';
 import AnalyticsDashboard from '@/pages/AnalyticsDashboard';
 import ActivityLog from '@/pages/ActivityLog';
 import { PaymentSuccess, PaymentCancel } from '@/components/PaymentComponents';
+import WorkflowBuilder from '@/pages/WorkflowBuilder';
+import MarketingDashboard from '@/pages/MarketingDashboard';
 import '@/App.css';
 
 function App() {
@@ -20,6 +22,8 @@ function App() {
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/admin/analytics" element={<AnalyticsDashboard />} />
           <Route path="/admin/activity" element={<ActivityLog />} />
+          <Route path="/admin/workflows" element={<WorkflowBuilder />} />
+          <Route path="/admin/marketing" element={<MarketingDashboard />} />
           <Route path="/partner" element={<PartnerDashboard />} />
           <Route path="/case-manager" element={<CaseManagerDashboard />} />
           <Route path="/client" element={<ClientDashboard />} />

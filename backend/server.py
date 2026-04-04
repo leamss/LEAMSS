@@ -23,6 +23,10 @@ from routers.reports import router as reports_router
 from routers.settings import router as settings_router
 from routers.refunds import router as refunds_router
 from routers.partner_commissions import router as partner_commissions_router
+from routers.pdf_reports import router as pdf_reports_router
+from routers.ai_verification import router as ai_router
+from routers.workflows import router as workflows_router
+from routers.marketing import router as marketing_router
 
 app = FastAPI(title="LEAMSS Portal API", version="3.0")
 
@@ -190,7 +194,8 @@ async def seed_database():
 for r in [auth_router, users_router, products_router, sales_router, cases_router,
           documents_router, tickets_router, notifications_router, stats_router,
           activity_router, analytics_router, search_router, reports_router, settings_router,
-          refunds_router, partner_commissions_router]:
+          refunds_router, partner_commissions_router, pdf_reports_router, ai_router,
+          workflows_router, marketing_router]:
     app.include_router(r, prefix="/api")
 
 

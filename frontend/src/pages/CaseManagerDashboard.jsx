@@ -70,6 +70,7 @@ const CaseManagerDashboard = () => {
   const [caseDocuments, setCaseDocuments] = useState([]);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [reviewDialog, setReviewDialog] = useState({ open: false, document: null, status: '', comment: '' });
+  const [aiAnalysis, setAiAnalysis] = useState({ open: false, doc: null, result: null });
   const [additionalDocDialog, setAdditionalDocDialog] = useState({ 
     open: false, 
     document_name: '', 
@@ -1129,6 +1130,22 @@ const CaseManagerDashboard = () => {
                                       Review
                                     </Button>
                                   )}
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    className="text-purple-600 border-purple-200"
+                                    onClick={async () => {
+                                      try {
+                                        toast.info('Running AI analysis...');
+                                        const res = await axios.post(`${API}/ai/verify-document/${doc.id}`, {}, getAuthHeader());
+                                        toast.success('AI analysis complete!');
+                                        setAiAnalysis({ open: true, doc: doc, result: res.data });
+                                      } catch (e) { toast.error('AI analysis failed'); }
+                                    }}
+                                    data-testid={`ai-verify-${doc.id}`}
+                                  >
+                                    AI
+                                  </Button>
                                 </div>
                               </td>
                             </tr>
@@ -1424,6 +1441,33 @@ const CaseManagerDashboard = () => {
               Save Information Sheet
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* AI Analysis Dialog */}
+      <Dialog open={aiAnalysis.open} onOpenChange={(open) => setAiAnalysis({ ...aiAnalysis, open })}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <span className="text-purple-600">AI Document Analysis</span>
+              <span className="text-sm font-normal text-slate-500">— {aiAnalysis.doc?.filename}</span>
+            </DialogTitle>
+          </DialogHeader>
+          {aiAnalysis.result && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 text-xs text-slate-500">
+                <span>Model: {aiAnalysis.result.model}</span>
+                <span>|</span>
+                <span>Analyzed: {new Date(aiAnalysis.result.analyzed_at).toLocaleString()}</span>
+              </div>
+              <div className="bg-slate-50 rounded-lg p-4 prose prose-sm max-w-none whitespace-pre-wrap text-sm">
+                {aiAnalysis.result.analysis}
+              </div>
+              {aiAnalysis.result.status === 'error' && (
+                <div className="bg-red-50 text-red-700 p-3 rounded-lg text-sm">Analysis encountered an error. Try again.</div>
+              )}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 

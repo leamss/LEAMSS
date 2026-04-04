@@ -684,6 +684,17 @@ const PartnerDashboard = () => {
                       <Download className="h-4 w-4" />
                       Download CSV
                     </Button>
+                    <Button onClick={async () => {
+                      try {
+                        const res = await axios.get(`${API}/reports/export/partner-sales`, { ...getAuthHeader(), responseType: 'blob' });
+                        const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+                        const a = document.createElement('a'); a.href = url; a.download = 'My_Sales_Report.pdf'; a.click();
+                        window.URL.revokeObjectURL(url);
+                      } catch (e) { toast.error('Failed to export PDF'); }
+                    }} variant="outline" className="gap-2 text-red-600 border-red-200" data-testid="export-partner-pdf">
+                      <FileText className="h-4 w-4" />
+                      PDF Report
+                    </Button>
                   </div>
                 </div>
               </Card>
