@@ -58,6 +58,17 @@ Build a comprehensive immigration services portal (LEAMSS) with role-based dashb
 - [x] **Promo Codes**: Create/manage discount codes (percentage or flat)
 - [x] All 23 marketing API tests passing (iteration 26)
 
+### Sales Enhancement — Promo Code, Discount & Assignment Flow (DONE — Dec 2025)
+- [x] **Promo Code Integration**: Partners can apply promo codes during sale creation; auto-validates, calculates discount, increments usage
+- [x] **Additional Discount**: Partners can offer extra % discount to clients (needs admin approval as part of sale approval)
+- [x] **Price Breakdown**: Live preview showing Original Fee → Promo Discount → Additional Discount → Final Fee in Partner's New Sale form
+- [x] **Client Proposal**: Automated proposal email sent to client on sale creation with discount details
+- [x] **Modified Approval Flow**: Admin approves sale → Case created WITHOUT case manager → Case status = "pending_assignment"
+- [x] **Pending Assignment Tab**: Dedicated Admin sidebar tab showing unassigned cases with badge count, fee info, payment status, and "Select Manager" dropdown
+- [x] **Manager Assignment**: Admin assigns case manager from Pending Assignment tab → Case status changes to "active", manager gets notified
+- [x] **Discount Badges**: Both Admin & Partner sales views show promo/discount/savings badges
+- [x] All 11 promo/discount/assignment tests passing (iteration 27)
+
 ---
 
 ## Prioritized Backlog
