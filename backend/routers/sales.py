@@ -11,7 +11,9 @@ from core.services import create_notification, notify_role, notify_users, log_ac
 from core.email_service import send_sale_approval_email, send_sale_rejection_email
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-import uuid, os, shutil
+import uuid
+import os
+import shutil
 from datetime import datetime, timezone
 
 router = APIRouter(prefix="/sales", tags=["Sales"])
@@ -180,15 +182,19 @@ async def create_sale(
     collection_deadline: Optional[str] = Form(None),
     agreement_signed: bool = Form(True),
     currency: str = Form("INR"),
+    promo_code: Optional[str] = Form(None),
+    discount_percentage: Optional[float] = Form(None),
     documents: List[UploadFile] = File(None),
     current_user: dict = Depends(get_current_user)
 ):
+    from core.database import db
+    promo_codes_col = db["promo_codes"]
+
     product = await products_col.find_one({"id": product_id}, {"_id": 0})
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
     
     # --- Resolve commission rate ---
-    # Priority: explicit form value > custom per-partner-product > product default > partner default
     if commission_rate is not None:
         rate = commission_rate
     else:
@@ -206,8 +212,8 @@ async def create_sale(
     original_currency = currency.upper() if currency else "INR"
     original_fee = fee_amount
     original_received = amount_received or 0
-    exchange_rate_used = 1.0  # default for INR
-    
+    exchange_rate_used = 1.0
+
     if original_currency != "INR":
         settings = await settings_col.find_one({"key": "global"}, {"_id": 0})
         default_rates = {"USD": 83.50, "AUD": 55.00, "CAD": 62.00, "GBP": 106.00, "EUR": 91.00}
@@ -217,12 +223,46 @@ async def create_sale(
         amount_received_inr = round(original_received * exchange_rate_used, 2)
     else:
         amount_received_inr = original_received
-    
+
+    # --- Promo Code & Discount Calculation ---
+    fee_before_discount = fee_amount
+    promo_discount_amount = 0.0
+    promo_discount_type = None
+    promo_discount_value = 0.0
+    applied_promo_code = None
+    additional_discount_amount = 0.0
+    additional_discount_pct = discount_percentage or 0.0
+
+    # Validate and apply promo code
+    if promo_code and promo_code.strip():
+        code_upper = promo_code.strip().upper()
+        promo = await promo_codes_col.find_one({"code": code_upper, "is_active": True}, {"_id": 0})
+        if promo:
+            if promo.get("current_uses", 0) < promo.get("max_uses", 100):
+                promo_discount_type = promo["discount_type"]
+                promo_discount_value = promo["discount_value"]
+                if promo_discount_type == "percentage":
+                    promo_discount_amount = round(fee_amount * (promo_discount_value / 100), 2)
+                else:
+                    promo_discount_amount = round(min(promo_discount_value, fee_amount), 2)
+                applied_promo_code = code_upper
+                # Increment promo usage
+                await promo_codes_col.update_one({"code": code_upper}, {"$inc": {"current_uses": 1}})
+
+    fee_after_promo = round(fee_amount - promo_discount_amount, 2)
+
+    # Apply additional partner discount
+    if additional_discount_pct > 0:
+        additional_discount_amount = round(fee_after_promo * (additional_discount_pct / 100), 2)
+
+    final_fee = round(fee_after_promo - additional_discount_amount, 2)
+    total_discount = round(promo_discount_amount + additional_discount_amount, 2)
+
     received = amount_received_inr
-    # Commission calculated on amount_received in INR
+    # Commission calculated on amount_received in INR (on final discounted fee basis)
     commission = round(received * (rate / 100), 2) if rate else 0
-    pending = round(fee_amount - received, 2)
-    
+    pending = round(final_fee - received, 2)
+
     # Parse collection deadline
     deadline_dt = None
     if collection_deadline:
@@ -230,25 +270,35 @@ async def create_sale(
             deadline_dt = datetime.fromisoformat(collection_deadline)
         except (ValueError, TypeError):
             pass
-    
+
     # Determine payment status
-    if received >= fee_amount:
+    if received >= final_fee:
         pay_status = "paid"
     elif received > 0:
         pay_status = "partial"
     else:
         pay_status = "pending"
-    
+
     sale = {
         "id": str(uuid.uuid4()), "partner_id": current_user["id"],
         "client_name": client_name, "client_email": client_email,
         "client_mobile": client_mobile, "product_id": product_id,
-        "fee_amount": fee_amount, "amount_received": received,
+        "fee_before_discount": fee_before_discount,
+        "fee_amount": final_fee, "amount_received": received,
         "pending_amount": pending,
         "original_currency": original_currency,
         "original_fee_amount": original_fee,
         "original_amount_received": original_received,
         "exchange_rate_used": exchange_rate_used,
+        # Discount tracking
+        "promo_code": applied_promo_code,
+        "promo_discount_type": promo_discount_type,
+        "promo_discount_value": promo_discount_value,
+        "promo_discount_amount": promo_discount_amount,
+        "additional_discount_percentage": additional_discount_pct,
+        "additional_discount_amount": additional_discount_amount,
+        "total_discount_amount": total_discount,
+        # Payment & commission
         "payment_method": payment_method, "payment_reference": payment_reference,
         "commission_rate": rate,
         "commission_amount": commission,
@@ -283,16 +333,33 @@ async def create_sale(
                 }
                 await sale_documents_col.insert_one(doc_record)
     
-    await _log(current_user["id"], "create_sale", "sale", sale["id"], {"client_name": client_name, "fee_amount": fee_amount})
+    await _log(current_user["id"], "create_sale", "sale", sale["id"], {"client_name": client_name, "fee_amount": final_fee})
     
-    # Notifications: notify admins about new sale
+    # Build notification message with discount info
+    discount_info = ""
+    if total_discount > 0:
+        discount_parts = []
+        if promo_discount_amount > 0:
+            discount_parts.append(f"Promo '{applied_promo_code}': -₹{promo_discount_amount:,.0f}")
+        if additional_discount_amount > 0:
+            discount_parts.append(f"Additional {additional_discount_pct}%: -₹{additional_discount_amount:,.0f}")
+        discount_info = f" [Discounts: {', '.join(discount_parts)}]"
+
     await notify_role("admin", "New Sale Submitted",
-        f"Partner {current_user['name']} submitted a new sale for {client_name} (₹{fee_amount:,.0f})",
+        f"Partner {current_user['name']} submitted a sale for {client_name} (₹{final_fee:,.0f}){discount_info}",
         "sale_created", sale["id"])
     await log_activity(current_user["id"], current_user["name"], "created", "sale", sale["id"],
-        f"New sale for {client_name} — ₹{fee_amount:,.0f}")
-    
-    return {"id": sale["id"], "message": "Sale created successfully"}
+        f"New sale for {client_name} — ₹{final_fee:,.0f}{discount_info}")
+
+    # Notify client as a proposal (email notification)
+    from core.email_service import send_email
+    proposal_msg = f"Dear {client_name}, a service proposal has been created for you"
+    if total_discount > 0:
+        proposal_msg += f" with a special discount of ₹{total_discount:,.0f}"
+    proposal_msg += f". Total fee: ₹{final_fee:,.0f}. Our team will contact you shortly."
+    await send_email(client_email, "Your LEAMSS Service Proposal", proposal_msg, "proposal", sale["id"])
+
+    return {"id": sale["id"], "message": "Sale created successfully", "discount_applied": total_discount > 0, "final_fee": final_fee}
 
 
 @router.get("/{sale_id}/documents")
@@ -359,19 +426,20 @@ async def approve_sale(request: SaleApproval, current_user: dict = Depends(get_c
             }
             await users_col.insert_one(client)
         
-        # Create case
-        product = await products_col.find_one({"id": sale["product_id"]}, {"_id": 0})
+        # Create case — case_manager_id is optional (can be assigned later)
         steps = await workflow_steps_col.find({"product_id": sale["product_id"]}, {"_id": 0}).sort("step_order", 1).to_list(100)
         first_step = steps[0]["step_name"] if steps else "Registration"
         
+        case_manager_id = request.case_manager_id  # Can be None
         case_number = f"CASE-{datetime.now().strftime('%Y%m%d')}-{str(uuid.uuid4())[:4].upper()}"
         case = {
             "id": str(uuid.uuid4()), "case_id": case_number,
             "sale_id": sale["id"], "client_id": client["id"],
             "product_id": sale["product_id"],
-            "case_manager_id": request.case_manager_id,
+            "case_manager_id": case_manager_id,
             "partner_id": sale["partner_id"],
-            "status": "active", "current_step": first_step,
+            "status": "active" if case_manager_id else "pending_assignment",
+            "current_step": first_step,
             "current_step_order": 1,
             "created_at": datetime.now(timezone.utc)
         }
@@ -396,6 +464,15 @@ async def approve_sale(request: SaleApproval, current_user: dict = Depends(get_c
             "read": False, "created_at": datetime.now(timezone.utc)
         })
         
+        # If case manager assigned, notify them too
+        if case_manager_id:
+            await notifications_col.insert_one({
+                "id": str(uuid.uuid4()), "user_id": case_manager_id,
+                "title": "New Case Assigned", "message": f"Case {case_number} for {sale['client_name']} has been assigned to you",
+                "type": "case_assigned", "related_id": case["id"],
+                "read": False, "created_at": datetime.now(timezone.utc)
+            })
+
         await _log(current_user["id"], "sale_approved", "sale", request.sale_id, {"client_name": sale["client_name"]})
         
         # Notify partner that sale was approved
@@ -411,7 +488,10 @@ async def approve_sale(request: SaleApproval, current_user: dict = Depends(get_c
             sale.get("product_name", "Immigration Service"), request.sale_id
         )
         
-        response = {"message": "Sale approved successfully"}
+        response = {"message": "Sale approved successfully", "case_id": case_number}
+        if not case_manager_id:
+            response["assignment_pending"] = True
+            response["message"] = "Sale approved! Case created — please assign a case manager from the Pending Assignment tab."
         if client_is_new:
             response["client_credentials"] = {
                 "email": sale["client_email"], "password": client_password,

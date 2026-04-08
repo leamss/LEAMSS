@@ -81,8 +81,11 @@ const PartnerDashboard = () => {
     payment_method: 'bank_transfer',
     payment_reference: '',
     agreement_signed: true,
-    currency: 'INR'
+    currency: 'INR',
+    promo_code: '',
+    discount_percentage: 0
   });
+  const [promoStatus, setPromoStatus] = useState({ validated: false, message: '', discount: null });
   const [uploadFiles, setUploadFiles] = useState({
     payment_receipt: null,
     agreement: null,
@@ -226,9 +229,35 @@ const PartnerDashboard = () => {
     navigate('/');
   };
 
+  const handleValidatePromo = async () => {
+    if (!newSale.promo_code.trim()) { setPromoStatus({ validated: false, message: '', discount: null }); return; }
+    try {
+      const res = await axios.post(`${API}/marketing/promo/validate`, { code: newSale.promo_code }, getAuthHeader());
+      setPromoStatus({ validated: true, message: `Promo applied: ${res.data.discount_type === 'percentage' ? `${res.data.discount_value}% off` : `₹${res.data.discount_value} off`}`, discount: res.data });
+      toast.success('Promo code applied!');
+    } catch (e) {
+      setPromoStatus({ validated: false, message: e.response?.data?.detail || 'Invalid promo code', discount: null });
+      toast.error(e.response?.data?.detail || 'Invalid promo code');
+    }
+  };
+
+  const getDiscountBreakdown = () => {
+    const baseFee = newSale.fee_amount || 0;
+    let promoDiscount = 0;
+    if (promoStatus.validated && promoStatus.discount) {
+      promoDiscount = promoStatus.discount.discount_type === 'percentage'
+        ? Math.round(baseFee * (promoStatus.discount.discount_value / 100))
+        : Math.min(promoStatus.discount.discount_value, baseFee);
+    }
+    const afterPromo = baseFee - promoDiscount;
+    const additionalDiscount = newSale.discount_percentage > 0 ? Math.round(afterPromo * (newSale.discount_percentage / 100)) : 0;
+    const finalFee = afterPromo - additionalDiscount;
+    const totalDiscount = promoDiscount + additionalDiscount;
+    return { baseFee, promoDiscount, afterPromo, additionalDiscount, finalFee, totalDiscount };
+  };
+
   const handleCreateSale = async () => {
     try {
-      // Create FormData for multipart request
       const formData = new FormData();
       formData.append('client_name', newSale.client_name);
       formData.append('client_email', newSale.client_email);
@@ -243,8 +272,14 @@ const PartnerDashboard = () => {
       if (newSale.collection_deadline) {
         formData.append('collection_deadline', newSale.collection_deadline);
       }
+      // Promo & Discount
+      if (promoStatus.validated && newSale.promo_code.trim()) {
+        formData.append('promo_code', newSale.promo_code.trim());
+      }
+      if (newSale.discount_percentage > 0) {
+        formData.append('discount_percentage', newSale.discount_percentage.toString());
+      }
       
-      // Append document files
       for (const [docType, file] of Object.entries(uploadFiles)) {
         if (file) {
           formData.append('documents', file);
@@ -258,21 +293,16 @@ const PartnerDashboard = () => {
         }
       });
       
-      toast.success('Sale created successfully!');
+      toast.success('Sale created successfully! Proposal sent to client.');
       setShowNewSaleDialog(false);
       setNewSale({
-        client_name: '',
-        client_email: '',
-        client_mobile: '',
-        product_id: '',
-        fee_amount: 0,
-        amount_received: 0,
-        payment_method: 'bank_transfer',
-        payment_reference: '',
-        agreement_signed: true,
-        collection_deadline: '',
-        currency: 'INR'
+        client_name: '', client_email: '', client_mobile: '',
+        product_id: '', fee_amount: 0, amount_received: 0,
+        payment_method: 'bank_transfer', payment_reference: '',
+        agreement_signed: true, collection_deadline: '', currency: 'INR',
+        promo_code: '', discount_percentage: 0
       });
+      setPromoStatus({ validated: false, message: '', discount: null });
       setUploadFiles({ payment_receipt: null, agreement: null, passport: null });
       loadData();
     } catch (error) {
@@ -530,6 +560,58 @@ const PartnerDashboard = () => {
                       </div>
                     </div>
                     
+                    {/* Promo Code & Discount Section */}
+                    <div className="border-t pt-4">
+                      <h4 className="font-semibold mb-3 text-slate-700">Promo Code & Discount</h4>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label>Promo Code</Label>
+                          <div className="flex gap-2">
+                            <Input
+                              value={newSale.promo_code}
+                              onChange={(e) => { setNewSale({ ...newSale, promo_code: e.target.value.toUpperCase() }); setPromoStatus({ validated: false, message: '', discount: null }); }}
+                              placeholder="e.g., SUMMER2026"
+                              data-testid="promo-code-input"
+                            />
+                            <Button type="button" variant="outline" onClick={handleValidatePromo} className="shrink-0" data-testid="apply-promo-btn">Apply</Button>
+                          </div>
+                          {promoStatus.message && (
+                            <p className={`text-xs mt-1 ${promoStatus.validated ? 'text-emerald-600' : 'text-red-500'}`} data-testid="promo-status">
+                              {promoStatus.message}
+                            </p>
+                          )}
+                        </div>
+                        <div>
+                          <Label>Additional Discount (%)</Label>
+                          <Input
+                            type="number" min="0" max="50" step="0.5"
+                            value={newSale.discount_percentage}
+                            onChange={(e) => setNewSale({ ...newSale, discount_percentage: parseFloat(e.target.value) || 0 })}
+                            placeholder="0"
+                            data-testid="discount-percentage-input"
+                          />
+                          <p className="text-xs text-slate-400 mt-1">Extra discount for this client (needs admin approval)</p>
+                        </div>
+                      </div>
+
+                      {/* Price Breakdown */}
+                      {(promoStatus.validated || newSale.discount_percentage > 0) && newSale.fee_amount > 0 && (() => {
+                        const bd = getDiscountBreakdown();
+                        return (
+                          <div className="mt-3 p-3 bg-emerald-50 rounded-lg border border-emerald-200" data-testid="price-breakdown">
+                            <p className="text-sm font-semibold text-slate-700 mb-2">Price Breakdown</p>
+                            <div className="space-y-1 text-sm">
+                              <div className="flex justify-between"><span className="text-slate-600">Original Fee</span><span>₹{bd.baseFee.toLocaleString()}</span></div>
+                              {bd.promoDiscount > 0 && <div className="flex justify-between text-emerald-700"><span>Promo ({promoStatus.discount?.discount_type === 'percentage' ? `${promoStatus.discount.discount_value}%` : 'Flat'})</span><span>-₹{bd.promoDiscount.toLocaleString()}</span></div>}
+                              {bd.additionalDiscount > 0 && <div className="flex justify-between text-emerald-700"><span>Additional Discount ({newSale.discount_percentage}%)</span><span>-₹{bd.additionalDiscount.toLocaleString()}</span></div>}
+                              <div className="flex justify-between font-bold border-t pt-1 mt-1"><span>Final Fee</span><span className="text-[#2a777a]">₹{bd.finalFee.toLocaleString()}</span></div>
+                              <p className="text-xs text-slate-500 mt-1">Client will receive a proposal with this pricing</p>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+
                     <div className="border-t pt-4">
                       <h4 className="font-semibold mb-4">Required Documents</h4>
                       <div className="space-y-3">
@@ -642,6 +724,13 @@ const PartnerDashboard = () => {
                           <span className="text-blue-600 text-xs">(Original: {sale.original_currency} {(sale.original_fee_amount || 0).toLocaleString()} @ {sale.exchange_rate_used})</span>
                         )}
                       </div>
+                      {(sale.total_discount_amount || 0) > 0 && (
+                        <div className="flex flex-wrap gap-3 mt-1 text-xs">
+                          {sale.promo_code && <span className="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full border border-emerald-200">Promo: {sale.promo_code} (-₹{(sale.promo_discount_amount || 0).toLocaleString()})</span>}
+                          {(sale.additional_discount_percentage || 0) > 0 && <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full border border-blue-200">Additional: {sale.additional_discount_percentage}% (-₹{(sale.additional_discount_amount || 0).toLocaleString()})</span>}
+                          <span className="bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full border border-amber-200">Total Savings: ₹{(sale.total_discount_amount || 0).toLocaleString()}</span>
+                        </div>
+                      )}
                       <p className="text-sm text-slate-600">Payment: {sale.payment_method} {sale.payment_reference ? `- ${sale.payment_reference}` : ''}</p>
                       {sale.rejection_reason && (
                         <p className="text-sm text-red-600 mt-1 bg-red-50 p-2 rounded">Rejection Reason: {sale.rejection_reason}</p>

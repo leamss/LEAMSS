@@ -126,6 +126,43 @@ async def get_cases(current_user: dict = Depends(get_current_user)):
     return await _enrich_cases(cases)
 
 
+@router.get("/unassigned")
+async def get_unassigned_cases(current_user: dict = Depends(get_current_user)):
+    """Get cases that are pending case manager assignment (admin only)"""
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    
+    query = {
+        "$or": [
+            {"case_manager_id": None},
+            {"case_manager_id": ""},
+            {"status": "pending_assignment"}
+        ]
+    }
+    cases = await cases_col.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
+    enriched = await _enrich_cases(cases)
+
+    # Also attach sale discount info for context
+    from core.database import db
+    sales_col = db["sales"]
+    for case in enriched:
+        if case.get("sale_id"):
+            sale = await sales_col.find_one({"id": case["sale_id"]}, {
+                "_id": 0, "fee_amount": 1, "fee_before_discount": 1,
+                "total_discount_amount": 1, "promo_code": 1,
+                "additional_discount_percentage": 1, "amount_received": 1,
+                "payment_status": 1
+            })
+            if sale:
+                case["sale_fee"] = sale.get("fee_amount", 0)
+                case["sale_discount"] = sale.get("total_discount_amount", 0)
+                case["sale_promo"] = sale.get("promo_code")
+                case["sale_payment_status"] = sale.get("payment_status", "pending")
+                case["sale_received"] = sale.get("amount_received", 0)
+
+    return enriched
+
+
 @router.get("/my-cases")
 async def get_my_cases(current_user: dict = Depends(get_current_user)):
     query = {}
@@ -225,7 +262,12 @@ async def assign_manager(case_id: str, case_manager_id: str, current_user: dict 
     if not manager:
         raise HTTPException(status_code=404, detail="Case manager not found")
     
-    await cases_col.update_one({"id": case_id}, {"$set": {"case_manager_id": case_manager_id}})
+    # Assign manager and activate case if it was pending assignment
+    update_fields = {"case_manager_id": case_manager_id}
+    if case.get("status") == "pending_assignment":
+        update_fields["status"] = "active"
+    
+    await cases_col.update_one({"id": case_id}, {"$set": update_fields})
     
     await notifications_col.insert_one({
         "id": str(uuid.uuid4()), "user_id": case_manager_id,

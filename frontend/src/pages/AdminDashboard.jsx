@@ -142,6 +142,7 @@ const AdminDashboard = () => {
   const [ticketDialog, setTicketDialog] = useState({ open: false, subject: '', description: '', category: 'general', priority: 'medium', target_user_ids: [], target_role: '' });
   const [reassignDialog, setReassignDialog] = useState({ open: false, case_id: null });
   const [clientCredentialsDialog, setClientCredentialsDialog] = useState({ open: false, credentials: null });
+  const [unassignedCases, setUnassignedCases] = useState([]);
 
   const getAuthHeader = () => ({
     headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
@@ -202,6 +203,12 @@ const AdminDashboard = () => {
         const refundsRes = await axios.get(`${API}/refunds`, authHeader);
         setRefunds(refundsRes.data || []);
       } catch (e) { /* no refunds yet */ }
+
+      // Load unassigned cases
+      try {
+        const unassignedRes = await axios.get(`${API}/cases/unassigned`, authHeader);
+        setUnassignedCases(unassignedRes.data || []);
+      } catch (e) { console.error('Failed to load unassigned cases:', e); }
     } catch (error) {
       toast.error('Failed to load data');
     }
@@ -732,7 +739,7 @@ const AdminDashboard = () => {
     }
     try {
       const response = await axios.post(`${API}/sales/approve`, { sale_id: saleId, status, case_manager_id: caseManagerId || null }, getAuthHeader());
-      toast.success(`Sale ${status}!`);
+      toast.success(response.data.assignment_pending ? 'Sale approved! Assign a case manager from Pending Assignment tab.' : `Sale ${status}!`);
       
       // Show client credentials if new client was created
       if (response.data.client_credentials) {
@@ -1027,6 +1034,7 @@ const AdminDashboard = () => {
             { id: 'total-sales', icon: TrendingUp, label: 'Sales Report' },
             { id: 'commissions', icon: DollarSign, label: 'Commissions' },
             { id: 'cases', icon: Briefcase, label: 'All Cases' },
+            { id: 'pending-assignment', icon: Users, label: 'Pending Assignment' },
             { id: 'products', icon: Settings, label: 'Products' },
             { id: 'users', icon: Users, label: 'Users' },
             { id: 'tickets', icon: MessageSquare, label: 'Tickets' },
@@ -1061,6 +1069,9 @@ const AdminDashboard = () => {
               )}
               {item.id === 'sales' && pendingSales.length > 0 && (
                 <span className="ml-auto bg-[#f7620b] text-white text-xs px-2 py-0.5 rounded-full">{pendingSales.length}</span>
+              )}
+              {item.id === 'pending-assignment' && unassignedCases.length > 0 && (
+                <span className="ml-auto bg-amber-500 text-white text-xs px-2 py-0.5 rounded-full">{unassignedCases.length}</span>
               )}
             </button>
           ))}
@@ -1097,6 +1108,7 @@ const AdminDashboard = () => {
               {activeTab === 'total-sales' && 'Sales Report'}
               {activeTab === 'commissions' && 'Commissions'}
               {activeTab === 'cases' && !selectedCase && 'All Cases'}
+              {activeTab === 'pending-assignment' && 'Pending Case Assignment'}
               {activeTab === 'products' && 'Products'}
               {activeTab === 'users' && 'Users'}
               {activeTab === 'tickets' && !selectedTicket && 'Tickets'}
@@ -1780,6 +1792,13 @@ const AdminDashboard = () => {
                             Commission: {sale.commission_rate}% of received = <span className="font-semibold text-[#2a777a]">₹{(sale.commission_amount || 0).toLocaleString()}</span>
                           </p>
                         )}
+                        {(sale.total_discount_amount || 0) > 0 && (
+                          <div className="flex flex-wrap gap-2 mt-1">
+                            {sale.promo_code && <span className="text-xs bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full border border-emerald-200">Promo: {sale.promo_code} (-₹{(sale.promo_discount_amount || 0).toLocaleString()})</span>}
+                            {(sale.additional_discount_percentage || 0) > 0 && <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full border border-blue-200">Additional: {sale.additional_discount_percentage}% (-₹{(sale.additional_discount_amount || 0).toLocaleString()})</span>}
+                            <span className="text-xs bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full border border-amber-200">Original: ₹{(sale.fee_before_discount || sale.fee_amount).toLocaleString()} | Discount: ₹{(sale.total_discount_amount).toLocaleString()}</span>
+                          </div>
+                        )}
                         {sale.rejection_reason && (
                           <p className="text-sm text-red-600 mt-1 bg-red-50 p-2 rounded">Rejection Reason: {sale.rejection_reason}</p>
                         )}
@@ -1939,6 +1958,74 @@ const AdminDashboard = () => {
                         <Button onClick={(e) => { e.stopPropagation(); setReassignDialog({ open: true, case_id: caseItem.id }); }} size="sm" variant="outline" className="mt-2" data-testid={`reassign-${caseItem.id}`}>
                           <Edit className="h-4 w-4 mr-1" />Change Manager
                         </Button>
+                      </div>
+                    </div>
+                  </Card>
+                ))
+              )}
+            </div>
+          )}
+
+          {/* Pending Assignment Tab */}
+          {activeTab === 'pending-assignment' && (
+            <div className="space-y-6" data-testid="pending-assignment-content">
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <p className="text-sm text-slate-500">{unassignedCases.length} case{unassignedCases.length !== 1 ? 's' : ''} awaiting case manager assignment</p>
+                </div>
+                <Button variant="outline" size="sm" onClick={loadData}>Refresh</Button>
+              </div>
+
+              {unassignedCases.length === 0 ? (
+                <Card className="p-12 text-center">
+                  <CheckCircle className="h-12 w-12 text-emerald-400 mx-auto mb-4" />
+                  <p className="text-lg font-semibold text-slate-700">All Clear!</p>
+                  <p className="text-slate-500 mt-1">All approved cases have been assigned to case managers.</p>
+                </Card>
+              ) : (
+                unassignedCases.map((caseItem) => (
+                  <Card key={caseItem.id} className="p-6 border-l-4 border-l-amber-400" data-testid={`unassigned-case-${caseItem.id}`}>
+                    <div className="flex flex-col md:flex-row justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <h3 className="text-lg font-semibold text-slate-800">{caseItem.case_id}</h3>
+                          <Badge className="bg-amber-100 text-amber-700 border-amber-300">Pending Assignment</Badge>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                          <div><span className="text-slate-500">Client:</span> <span className="font-medium">{caseItem.client_name}</span></div>
+                          <div><span className="text-slate-500">Product:</span> <span className="font-medium">{caseItem.product_name}</span></div>
+                          <div><span className="text-slate-500">Partner:</span> <span className="font-medium">{caseItem.partner_name}</span></div>
+                          <div><span className="text-slate-500">Step:</span> <span className="font-medium">{caseItem.current_step}</span></div>
+                        </div>
+                        {/* Sale info */}
+                        {(caseItem.sale_fee || caseItem.sale_discount > 0) && (
+                          <div className="flex flex-wrap gap-3 mt-2 text-xs">
+                            <span className="bg-slate-50 text-slate-600 px-2 py-1 rounded border">Fee: ₹{(caseItem.sale_fee || 0).toLocaleString()}</span>
+                            {caseItem.sale_discount > 0 && <span className="bg-emerald-50 text-emerald-700 px-2 py-1 rounded border border-emerald-200">Discount: ₹{caseItem.sale_discount.toLocaleString()}</span>}
+                            {caseItem.sale_promo && <span className="bg-purple-50 text-purple-700 px-2 py-1 rounded border border-purple-200">Promo: {caseItem.sale_promo}</span>}
+                            <span className={`px-2 py-1 rounded border ${caseItem.sale_payment_status === 'paid' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : caseItem.sale_payment_status === 'partial' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
+                              Payment: {caseItem.sale_payment_status || 'pending'}
+                            </span>
+                          </div>
+                        )}
+                        <p className="text-xs text-slate-400 mt-2">Created: {caseItem.created_at ? new Date(caseItem.created_at).toLocaleString() : 'N/A'}</p>
+                      </div>
+                      <div className="flex flex-col gap-2 min-w-[220px]">
+                        <Label className="text-sm font-medium text-slate-700">Assign Case Manager</Label>
+                        <Select onValueChange={(managerId) => {
+                          if (managerId) {
+                            handleReassignCase(caseItem.id, managerId);
+                          }
+                        }}>
+                          <SelectTrigger data-testid={`assign-manager-${caseItem.id}`}>
+                            <SelectValue placeholder="Select Manager" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {caseManagers.map(cm => (
+                              <SelectItem key={cm.id} value={cm.id}>{cm.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                     </div>
                   </Card>

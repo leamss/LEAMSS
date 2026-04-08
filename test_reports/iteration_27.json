@@ -1,0 +1,76 @@
+{
+  "summary": "Iteration 27 - Promo Code, Discount, and Pending Assignment Features Testing Complete. All 11 backend tests passed. All new features verified working: (1) Promo code validation (TEST20 = 20% off), (2) Sale creation with promo + additional discount, (3) Price breakdown calculation (50000 - 20% - 5% = 38000), (4) Sale approval without case manager creates 'pending_assignment' case, (5) Pending Assignment tab shows unassigned cases with Select Manager dropdown, (6) Manager assignment changes case status to 'active', (7) Discount badges displayed on Admin and Partner sales cards.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "AdminDashboard",
+        "issues": ["Minor React hydration warning: <div> cannot be descendant of <p> in Badge component - cosmetic only, does not affect functionality"]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration27_promo_discount.py",
+    "/app/test_reports/pytest/pytest_iteration27.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Email service is MOCKED - logs to email_logs collection instead of sending real emails",
+    "Promo code TEST20 (20% percentage discount) is pre-seeded and working",
+    "Discount calculation is correct: promo applied first, then additional discount on remaining amount"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration27_promo_discount.py"
+  ],
+  "success_rate": {
+    "backend": "100% (11/11 tests passed)",
+    "frontend": "100% (all UI features verified working)"
+  },
+  "test_credentials": {
+    "admin": "admin@leamss.com / Admin@123",
+    "partner": "partner@leamss.com / Partner@123",
+    "case_manager": "manager@leamss.com / Manager@123",
+    "client": "client@leamss.com / Client@123"
+  },
+  "seed_data_creation": "TEST_* prefixed sales and cases created during testing for verification",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration 27 verified all new promo/discount/assignment features: (1) POST /api/marketing/promo/validate - validates promo codes, (2) POST /api/sales with promo_code and discount_percentage Form params - calculates discounts correctly, (3) POST /api/sales/approve without case_manager_id creates case with status='pending_assignment', (4) GET /api/cases/unassigned - admin only, returns unassigned cases, (5) PUT /api/cases/{id}/assign-manager - assigns manager and changes status to 'active'. Frontend: Partner New Sale form has Promo Code input with Apply button and Additional Discount (%) input with live Price Breakdown. Admin Pending Assignment tab shows unassigned cases with Select Manager dropdown. Discount badges (Promo, Additional, Total Savings) shown on both Admin and Partner sales cards.",
+  "features_tested": {
+    "backend_endpoints": {
+      "promo_validate_valid": "PASS - POST /api/marketing/promo/validate with TEST20 returns valid=true, discount_type=percentage, discount_value=20",
+      "promo_validate_invalid": "PASS - POST /api/marketing/promo/validate with INVALIDCODE returns 404",
+      "sale_with_promo_discount": "PASS - POST /api/sales with promo_code=TEST20, discount_percentage=5, fee=50000 returns final_fee=38000, discount_applied=true",
+      "sale_without_discount": "PASS - POST /api/sales without promo/discount returns normal fee, discount_applied=false",
+      "approve_without_manager": "PASS - POST /api/sales/approve without case_manager_id returns assignment_pending=true, creates case with status='pending_assignment'",
+      "approve_with_manager": "PASS - POST /api/sales/approve with case_manager_id creates case with status='active'",
+      "unassigned_cases_admin": "PASS - GET /api/cases/unassigned returns list of unassigned cases for admin",
+      "unassigned_cases_non_admin": "PASS - GET /api/cases/unassigned returns 403 for partner/client/case_manager",
+      "assign_manager": "PASS - PUT /api/cases/{id}/assign-manager assigns manager and changes status to 'active'",
+      "sale_discount_fields": "PASS - Sale response includes promo_code, promo_discount_amount, additional_discount_percentage, additional_discount_amount, total_discount_amount, fee_before_discount",
+      "full_flow": "PASS - Complete flow: Partner creates sale with promo → Admin approves without manager → Case in Pending Assignment → Admin assigns manager → Case becomes 'active'"
+    },
+    "frontend_features": {
+      "partner_new_sale_promo_input": "PASS - Promo Code input with Apply button present in New Sale dialog",
+      "partner_new_sale_discount_input": "PASS - Additional Discount (%) input present in New Sale dialog",
+      "partner_new_sale_price_breakdown": "PASS - Price Breakdown section shows Original Fee, Promo discount, Additional discount, Final Fee",
+      "partner_promo_validation": "PASS - Apply button validates promo code and shows success/error message",
+      "partner_sales_discount_badges": "PASS - Sales cards show Promo, Additional, Total Savings badges with amounts",
+      "admin_pending_assignment_tab": "PASS - Sidebar shows 'Pending Assignment' tab with badge count",
+      "admin_pending_assignment_content": "PASS - Tab shows unassigned cases with Select Manager dropdown",
+      "admin_select_manager": "PASS - Selecting manager from dropdown assigns case and shows success toast",
+      "admin_sales_discount_badges": "PASS - Admin sales cards show Promo, Additional, Original/Discount badges"
+    },
+    "authorization": {
+      "unassigned_cases_admin_only": "PASS - Only admin can access /api/cases/unassigned"
+    }
+  },
+  "mocked_services": {
+    "email_service": "MOCKED - send_email logs to email_logs collection instead of sending real emails"
+  }
+}
