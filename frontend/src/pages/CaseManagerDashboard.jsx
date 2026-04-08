@@ -141,6 +141,8 @@ const CaseManagerDashboard = () => {
         const expiryRes = await axios.get(`${API}/documents/expiring/all`, authHeader);
         setExpiringDocs(expiryRes.data || []);
       } catch (e) { /* no expiry data */ }
+      // Auto-trigger expiry reminder check (fire-and-forget)
+      axios.post(`${API}/documents/check-expiry-reminders`, {}, authHeader).catch(() => {});
     } catch (error) {
       toast.error('Failed to load data');
     }

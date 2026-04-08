@@ -482,3 +482,140 @@ async def get_validity_presets(current_user: dict = Depends(get_current_user)):
             period = f"{days} days"
         presets.append({"document_type": doc_type, "label": label, "validity_days": days, "validity_label": period})
     return presets
+
+
+# Expiry reminder thresholds (days before expiry)
+REMINDER_THRESHOLDS = [
+    {"days": 60, "level": "attention", "title": "Document Expiring in 60 Days"},
+    {"days": 30, "level": "warning", "title": "Document Expiring in 30 Days"},
+    {"days": 7, "level": "critical", "title": "Document Expiring in 7 Days!"},
+    {"days": 0, "level": "expired", "title": "Document Has Expired"},
+]
+
+
+@router.post("/check-expiry-reminders")
+async def check_expiry_reminders(current_user: dict = Depends(get_current_user)):
+    """Check all documents with expiry dates and send in-app notifications.
+    Smart: won't send duplicate notifications for the same threshold."""
+
+    now = datetime.now(timezone.utc)
+    docs_with_expiry = await documents_col.find(
+        {"expiry_date": {"$exists": True, "$ne": None}},
+        {"_id": 0, "file_path": 0}
+    ).to_list(2000)
+
+    reminders_sent = 0
+
+    for doc in docs_with_expiry:
+        exp = doc.get("expiry_date")
+        if not isinstance(exp, datetime):
+            continue
+        if exp.tzinfo is None:
+            exp = exp.replace(tzinfo=timezone.utc)
+
+        days_remaining = (exp - now).days
+
+        # Get case info for notifications
+        case = await cases_col.find_one({"id": doc.get("case_id")}, {"_id": 0, "client_id": 1, "case_manager_id": 1, "case_id": 1})
+        if not case:
+            continue
+
+        for threshold in REMINDER_THRESHOLDS:
+            if (threshold["days"] == 0 and days_remaining <= 0) or \
+               (threshold["days"] > 0 and 0 < days_remaining <= threshold["days"]):
+
+                reminder_key = f"expiry_{doc['id']}_{threshold['level']}"
+
+                # Check if this exact reminder was already sent (dedupe)
+                existing = await notifications_col.find_one({
+                    "reminder_key": reminder_key,
+                    "created_at": {"$gte": datetime(now.year, now.month, now.day, tzinfo=timezone.utc)}
+                })
+                if existing:
+                    continue
+
+                doc_label = f"{doc.get('filename', 'Document')} ({doc.get('document_type', 'unknown').replace('_', ' ').title()})"
+
+                if days_remaining <= 0:
+                    message = f"{doc_label} has expired ({abs(days_remaining)} days ago). Please renew/update."
+                else:
+                    message = f"{doc_label} will expire in {days_remaining} days ({exp.strftime('%d %b %Y')}). Please renew before expiry."
+
+                # Notify client
+                if case.get("client_id"):
+                    await notifications_col.insert_one({
+                        "id": str(uuid.uuid4()),
+                        "user_id": case["client_id"],
+                        "title": threshold["title"],
+                        "message": message,
+                        "type": "document_expiry",
+                        "related_id": doc.get("case_id"),
+                        "read": False,
+                        "reminder_key": reminder_key,
+                        "urgency": threshold["level"],
+                        "created_at": datetime.now(timezone.utc)
+                    })
+                    reminders_sent += 1
+
+                # Notify case manager
+                if case.get("case_manager_id"):
+                    client_info = ""
+                    if case.get("client_id"):
+                        client = await users_col.find_one({"id": case["client_id"]}, {"_id": 0, "name": 1})
+                        client_info = f" (Client: {client.get('name', 'Unknown')})" if client else ""
+
+                    await notifications_col.insert_one({
+                        "id": str(uuid.uuid4()),
+                        "user_id": case["case_manager_id"],
+                        "title": threshold["title"],
+                        "message": f"{message}{client_info} - Case {case.get('case_id', '')}",
+                        "type": "document_expiry",
+                        "related_id": doc.get("case_id"),
+                        "read": False,
+                        "reminder_key": f"{reminder_key}_cm",
+                        "urgency": threshold["level"],
+                        "created_at": datetime.now(timezone.utc)
+                    })
+                    reminders_sent += 1
+
+                break  # Only send the most relevant threshold per document
+
+    return {"message": f"{reminders_sent} expiry reminders sent", "reminders_sent": reminders_sent}
+
+
+@router.get("/expiry-summary")
+async def get_expiry_summary(current_user: dict = Depends(get_current_user)):
+    """Get expiry summary counts for Admin/Case Manager dashboard widgets"""
+    if current_user["role"] not in ["admin", "case_manager"]:
+        raise HTTPException(status_code=403, detail="Admin or Case Manager only")
+
+    now = datetime.now(timezone.utc)
+    query = {"expiry_date": {"$exists": True, "$ne": None}}
+
+    if current_user["role"] == "case_manager":
+        cases = await cases_col.find({"case_manager_id": current_user["id"]}, {"_id": 0, "id": 1}).to_list(500)
+        case_ids = [c["id"] for c in cases]
+        query["case_id"] = {"$in": case_ids}
+
+    docs = await documents_col.find(query, {"_id": 0, "expiry_date": 1}).to_list(2000)
+
+    counts = {"expired": 0, "critical": 0, "warning": 0, "attention": 0, "ok": 0, "total": len(docs)}
+    for d in docs:
+        exp = d.get("expiry_date")
+        if not isinstance(exp, datetime):
+            continue
+        if exp.tzinfo is None:
+            exp = exp.replace(tzinfo=timezone.utc)
+        days = (exp - now).days
+        if days < 0:
+            counts["expired"] += 1
+        elif days <= 30:
+            counts["critical"] += 1
+        elif days <= 60:
+            counts["warning"] += 1
+        elif days <= 90:
+            counts["attention"] += 1
+        else:
+            counts["ok"] += 1
+
+    return counts

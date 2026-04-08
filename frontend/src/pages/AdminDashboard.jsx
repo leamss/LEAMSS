@@ -145,6 +145,7 @@ const AdminDashboard = () => {
   const [unassignedCases, setUnassignedCases] = useState([]);
   const [pendingPayments, setPendingPayments] = useState([]);
   const [sendingReminder, setSendingReminder] = useState(null);
+  const [expirySummary, setExpirySummary] = useState({ expired: 0, critical: 0, warning: 0, attention: 0, ok: 0, total: 0 });
 
   const getAuthHeader = () => ({
     headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
@@ -217,6 +218,14 @@ const AdminDashboard = () => {
         const remindersRes = await axios.get(`${API}/reminders/pending-payments`, authHeader);
         setPendingPayments(remindersRes.data || []);
       } catch (e) { /* no reminders */ }
+
+      // Load expiry summary
+      try {
+        const expSummaryRes = await axios.get(`${API}/documents/expiry-summary`, authHeader);
+        setExpirySummary(expSummaryRes.data || { expired: 0, critical: 0, warning: 0, attention: 0, ok: 0, total: 0 });
+      } catch (e) { /* no expiry data */ }
+      // Auto-trigger expiry reminders
+      axios.post(`${API}/documents/check-expiry-reminders`, {}, authHeader).catch(() => {});
     } catch (error) {
       toast.error('Failed to load data');
     }
@@ -1175,6 +1184,43 @@ const AdminDashboard = () => {
                   <p className="text-3xl font-bold text-[#2a777a] mt-2">{ticketStats.open || 0}</p>
                 </Card>
               </div>
+
+              {/* Document Expiry Summary */}
+              {(expirySummary.expired > 0 || expirySummary.critical > 0 || expirySummary.warning > 0 || expirySummary.attention > 0) && (
+                <Card className="p-6 bg-white shadow-sm border-0" data-testid="admin-expiry-summary">
+                  <h3 className="text-lg font-semibold mb-4 text-slate-800 flex items-center gap-2">
+                    <svg className="h-5 w-5 text-[#f7620b]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                    Document Expiry Tracker
+                  </h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {expirySummary.expired > 0 && (
+                      <div className="p-3 rounded-lg bg-red-50 border border-red-200">
+                        <p className="text-2xl font-bold text-red-700">{expirySummary.expired}</p>
+                        <p className="text-xs font-medium text-red-600">Expired</p>
+                      </div>
+                    )}
+                    {expirySummary.critical > 0 && (
+                      <div className="p-3 rounded-lg bg-orange-50 border border-orange-200">
+                        <p className="text-2xl font-bold text-orange-700">{expirySummary.critical}</p>
+                        <p className="text-xs font-medium text-orange-600">Critical (&lt;30d)</p>
+                      </div>
+                    )}
+                    {expirySummary.warning > 0 && (
+                      <div className="p-3 rounded-lg bg-amber-50 border border-amber-200">
+                        <p className="text-2xl font-bold text-amber-700">{expirySummary.warning}</p>
+                        <p className="text-xs font-medium text-amber-600">Warning (&lt;60d)</p>
+                      </div>
+                    )}
+                    {expirySummary.attention > 0 && (
+                      <div className="p-3 rounded-lg bg-yellow-50 border border-yellow-200">
+                        <p className="text-2xl font-bold text-yellow-700">{expirySummary.attention}</p>
+                        <p className="text-xs font-medium text-yellow-600">Attention (&lt;90d)</p>
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-400 mt-3">Total tracked: {expirySummary.total} documents | Auto-reminders active</p>
+                </Card>
+              )}
 
               {pendingSales.length > 0 && (
                 <Card className="p-6">

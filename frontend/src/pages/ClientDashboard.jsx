@@ -131,6 +131,8 @@ const ClientDashboard = () => {
           const expiryRes = await axios.get(`${API}/documents/expiring/case/${theCase.id}`, getAuthHeader());
           setExpiryDocs(expiryRes.data || []);
         } catch (e) { /* no expiry data */ }
+        // Auto-trigger expiry reminder check (fire-and-forget)
+        axios.post(`${API}/documents/check-expiry-reminders`, {}, getAuthHeader()).catch(() => {});
       }
     } catch (error) {
       console.error('Error loading data:', error);
