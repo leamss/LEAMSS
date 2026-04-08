@@ -114,8 +114,9 @@ Build a comprehensive immigration services portal (LEAMSS) with role-based dashb
 - [ ] Auto payment reminder scheduling (cron-like, without manual trigger)
 
 ### P2 — Planned
-- [ ] Bulk Document Upload UI improvements
-- [ ] PDF report download improvements
+- [x] Bulk Document Upload with drag-and-drop, per-file type tagging, staging area (DONE — Dec 2025)
+- [x] LEAMSS official logo integrated across all dashboards and PDFs (DONE — Dec 2025)
+- [ ] PDF report download improvements (more report types)
 
 ### P3 — Future
 - [ ] SMS Notifications (Twilio)
