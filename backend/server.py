@@ -31,6 +31,8 @@ from routers.leads import router as leads_router
 from routers.campaigns import router as campaigns_router
 from routers.marketing_tools import router as marketing_tools_router
 from routers.payments import router as payments_router
+from routers.reminders import router as reminders_router
+from routers.ai_intelligence import router as ai_intel_router
 
 app = FastAPI(title="LEAMSS Portal API", version="3.0")
 
@@ -200,7 +202,7 @@ for r in [auth_router, users_router, products_router, sales_router, cases_router
           activity_router, analytics_router, search_router, reports_router, settings_router,
           refunds_router, partner_commissions_router, pdf_reports_router, ai_router,
           workflows_router, marketing_router, leads_router, campaigns_router, marketing_tools_router,
-          payments_router]:
+          payments_router, reminders_router, ai_intel_router]:
     app.include_router(r, prefix="/api")
 
 

@@ -221,3 +221,40 @@ async def export_partner_sales(partner_id: str = Query(None), current_user: dict
 
     return FileResponse(filename, media_type="application/pdf",
                         filename=f"LEAMSS_{pname}_Sales_{datetime.now().strftime('%Y%m%d')}.pdf")
+
+
+
+@router.get("/sale-receipt/{sale_id}")
+async def admin_download_sale_receipt(sale_id: str, current_user: dict = Depends(get_current_user)):
+    """Admin download receipt PDF for any sale"""
+    if current_user["role"] not in ["admin"]:
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    sale = await sales_col.find_one({"id": sale_id}, {"_id": 0})
+    if not sale:
+        raise HTTPException(status_code=404, detail="Sale not found")
+
+    product = await products_col.find_one({"id": sale.get("product_id")}, {"_id": 0, "name": 1})
+    if product:
+        sale["product_name"] = product.get("name", "N/A")
+
+    # Build receipt using payments router's generator
+    from routers.payments import _generate_receipt_pdf, RECEIPTS_DIR, payment_transactions_col
+
+    txn = await payment_transactions_col.find_one(
+        {"sale_id": sale_id, "payment_status": "paid"}, {"_id": 0}
+    )
+    if not txn:
+        txn = {
+            "id": f"ADMIN-{sale_id[:8]}",
+            "session_id": sale.get("payment_reference", "Manual"),
+            "amount": sale.get("amount_received", 0),
+            "created_at": sale.get("approved_at", sale.get("created_at", datetime.now(timezone.utc))),
+            "payment_status": "paid"
+        }
+
+    filename = os.path.join(RECEIPTS_DIR, f"admin_receipt_{sale_id[:8]}.pdf")
+    _generate_receipt_pdf(sale, txn, filename)
+
+    return FileResponse(filename, media_type="application/pdf",
+                        filename=f"LEAMSS_Receipt_{sale['client_name'].replace(' ','_')}_{datetime.now().strftime('%Y%m%d')}.pdf")

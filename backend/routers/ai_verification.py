@@ -13,7 +13,6 @@ EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
 
 async def _analyze_document_with_gpt(file_path: str, filename: str, doc_type: str):
     """Analyze document content using GPT-5.2"""
-    from emergentintegrations.llm.chat import ChatMessage, chat
 
     # Read file content
     content_preview = ""
@@ -58,11 +57,15 @@ Content:
 {content_preview[:3000]}"""
 
     try:
-        response = await chat(
+        from emergentintegrations.llm.chat import LlmChat, UserMessage
+        import uuid as _uuid
+        chat_instance = LlmChat(
             api_key=EMERGENT_LLM_KEY,
-            model="gpt-5.2",
-            messages=[ChatMessage(role="user", content=prompt)],
+            session_id=f"doc-verify-{_uuid.uuid4().hex[:8]}",
+            system_message="You are an immigration document verification specialist."
         )
+        user_message = UserMessage(text=prompt)
+        response = await chat_instance.send_message(user_message)
         return {
             "analysis": response,
             "status": "completed",

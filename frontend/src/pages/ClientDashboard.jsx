@@ -16,8 +16,9 @@ import {
   User, FileText, Upload, LogOut, CheckCircle, Clock, AlertCircle, 
   Lock, Download, FileCheck, ArrowLeft, Calendar, Shield, 
   FolderOpen, AlertTriangle, FileUp, Eye, ChevronRight, MessageSquare,
-  CreditCard, Loader2, IndianRupee, ExternalLink
+  CreditCard, Loader2, IndianRupee, ExternalLink, TrendingUp, Brain, FileSearch
 } from 'lucide-react';
+import AIChatWidget from '@/components/AIChatWidget';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -78,6 +79,9 @@ const ClientDashboard = () => {
   const [infoSheet, setInfoSheet] = useState(null);
   const [proposals, setProposals] = useState([]);
   const [payingForSale, setPayingForSale] = useState(null);
+  const [predictions, setPredictions] = useState({});
+  const [loadingPrediction, setLoadingPrediction] = useState(null);
+  const [docChecks, setDocChecks] = useState({});
 
   const getAuthHeader = () => ({
     headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
@@ -199,6 +203,27 @@ const ClientDashboard = () => {
       toast.success('Receipt downloaded!');
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Failed to download receipt');
+    }
+  };
+
+  const handleGetPrediction = async (caseId) => {
+    setLoadingPrediction(caseId);
+    try {
+      const res = await axios.get(`${API}/ai-intel/predict-approval/${caseId}`, getAuthHeader());
+      setPredictions(prev => ({ ...prev, [caseId]: res.data }));
+    } catch (e) {
+      toast.error('Could not generate prediction');
+    } finally {
+      setLoadingPrediction(null);
+    }
+  };
+
+  const handleDocCheck = async (caseId) => {
+    try {
+      const res = await axios.get(`${API}/ai-intel/case-document-check/${caseId}`, getAuthHeader());
+      setDocChecks(prev => ({ ...prev, [caseId]: res.data }));
+    } catch (e) {
+      toast.error('Could not check documents');
     }
   };
 
@@ -459,6 +484,110 @@ const ClientDashboard = () => {
                     <p className="text-xs text-slate-500">Steps Completed</p>
                   </div>
                 </div>
+              </Card>
+            </div>
+
+            {/* AI Insights Panel */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+              {/* Approval Prediction */}
+              <Card className="p-5 bg-white border-0 shadow-md" data-testid="approval-prediction-card">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold text-slate-800 flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5 text-[#2a777a]" />
+                    Approval Prediction
+                  </h3>
+                  <Button
+                    onClick={() => handleGetPrediction(caseData.id)}
+                    disabled={loadingPrediction === caseData.id}
+                    variant="outline" size="sm"
+                    className="text-[#2a777a] border-[#2a777a]"
+                    data-testid="get-prediction-btn"
+                  >
+                    {loadingPrediction === caseData.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Brain className="h-4 w-4 mr-1" />}
+                    {loadingPrediction === caseData.id ? 'Analyzing...' : predictions[caseData.id] ? 'Refresh' : 'Analyze'}
+                  </Button>
+                </div>
+                {predictions[caseData.id] ? (
+                  <div>
+                    <div className="flex items-center gap-4 mb-3">
+                      <div className={`text-4xl font-bold ${
+                        predictions[caseData.id].approval_probability >= 70 ? 'text-emerald-600' :
+                        predictions[caseData.id].approval_probability >= 40 ? 'text-amber-600' : 'text-red-500'
+                      }`}>
+                        {predictions[caseData.id].approval_probability}%
+                      </div>
+                      <div>
+                        <p className="text-sm text-slate-500">Approval Probability</p>
+                        <p className={`text-xs font-semibold ${
+                          predictions[caseData.id].risk_level === 'low' ? 'text-emerald-600' :
+                          predictions[caseData.id].risk_level === 'medium' ? 'text-amber-600' : 'text-red-500'
+                        }`}>Risk: {predictions[caseData.id].risk_level?.toUpperCase()}</p>
+                      </div>
+                    </div>
+                    <p className="text-sm text-slate-600 mb-2">{predictions[caseData.id].prediction_summary}</p>
+                    {predictions[caseData.id].missing_actions?.length > 0 && (
+                      <div className="mt-2 p-2 bg-amber-50 rounded-lg border border-amber-200">
+                        <p className="text-xs font-semibold text-amber-700 mb-1">Recommended Actions:</p>
+                        {predictions[caseData.id].missing_actions.slice(0, 3).map((a, i) => (
+                          <p key={i} className="text-xs text-amber-600">- {a}</p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-400">Click "Analyze" to get AI-powered approval probability for your case.</p>
+                )}
+              </Card>
+
+              {/* Document Completeness */}
+              <Card className="p-5 bg-white border-0 shadow-md" data-testid="doc-check-card">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold text-slate-800 flex items-center gap-2">
+                    <FileSearch className="h-5 w-5 text-[#f7620b]" />
+                    Document Check
+                  </h3>
+                  <Button
+                    onClick={() => handleDocCheck(caseData.id)}
+                    variant="outline" size="sm"
+                    className="text-[#f7620b] border-[#f7620b]"
+                    data-testid="check-docs-btn"
+                  >
+                    <FileSearch className="h-4 w-4 mr-1" /> Check
+                  </Button>
+                </div>
+                {docChecks[caseData.id] ? (
+                  <div>
+                    <div className="flex items-center gap-4 mb-3">
+                      <div className={`text-4xl font-bold ${
+                        docChecks[caseData.id].completeness_percentage === 100 ? 'text-emerald-600' :
+                        docChecks[caseData.id].completeness_percentage >= 50 ? 'text-amber-600' : 'text-red-500'
+                      }`}>
+                        {docChecks[caseData.id].completeness_percentage}%
+                      </div>
+                      <div>
+                        <p className="text-sm text-slate-500">Document Completeness</p>
+                        <p className="text-xs text-slate-400">{docChecks[caseData.id].uploaded_count}/{docChecks[caseData.id].total_required} uploaded</p>
+                      </div>
+                    </div>
+                    {docChecks[caseData.id].missing_documents?.length > 0 && (
+                      <div className="p-2 bg-red-50 rounded-lg border border-red-200">
+                        <p className="text-xs font-semibold text-red-700 mb-1">Missing Documents:</p>
+                        {docChecks[caseData.id].missing_documents.map((d, i) => (
+                          <p key={i} className="text-xs text-red-600">- {d}</p>
+                        ))}
+                      </div>
+                    )}
+                    {docChecks[caseData.id].completeness_percentage === 100 && (
+                      <div className="p-2 bg-emerald-50 rounded-lg border border-emerald-200">
+                        <p className="text-sm text-emerald-700 font-semibold flex items-center gap-1">
+                          <CheckCircle className="h-4 w-4" /> All documents uploaded!
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-400">Click "Check" to verify all required documents are uploaded.</p>
+                )}
               </Card>
             </div>
 
@@ -1094,6 +1223,8 @@ const ClientDashboard = () => {
           </>
         )}
       </main>
+      {/* AI Chat Widget - floating */}
+      <AIChatWidget />
     </div>
   );
 };
