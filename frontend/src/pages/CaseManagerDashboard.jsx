@@ -14,7 +14,7 @@ import NotificationBell from '@/components/NotificationBell';
 import CreateTicket from '@/components/CreateTicket';
 import TicketSection from '@/components/TicketSection';
 import QuickActions from '@/components/QuickActions';
-import { Briefcase, FileText, CheckCircle, AlertCircle, LogOut, Download, Plus, Send, ArrowLeft, MessageSquare, Search, Filter, Clock, Eye, Menu, X } from 'lucide-react';
+import { Briefcase, FileText, CheckCircle, AlertCircle, LogOut, Download, Plus, Send, ArrowLeft, MessageSquare, Search, Filter, Clock, Eye, Menu, X, Lock } from 'lucide-react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -226,7 +226,8 @@ const CaseManagerDashboard = () => {
       loadCaseDetails(selectedCase.id);
       loadData();
     } catch (error) {
-      toast.error('Failed to update step');
+      const msg = error.response?.data?.detail || 'Failed to update step';
+      toast.error(msg);
     }
   };
 
@@ -724,12 +725,18 @@ const CaseManagerDashboard = () => {
                     </Button>
                     <Button
                       onClick={async () => {
-                        const msg = window.prompt('Enter a message for the client (e.g., "Please update your marital status and dependents"):',
-                          'Please fill/update your information sheet with the latest details.');
+                        const msg = window.prompt('Enter a message for the client:',
+                          'Please fill your information sheet with complete details. All fields marked as required must be filled before your case can proceed.');
                         if (msg) {
                           try {
-                            await axios.post(`${API}/cases/${selectedCase.id}/request-info-sheet`, { message: msg }, getAuthHeader());
-                            toast.success('Information sheet request sent to client!');
+                            const required_fields = [
+                              "full_name", "date_of_birth", "gender", "nationality",
+                              "passport_number", "passport_expiry", "address", "phone", "email",
+                              "education_level", "occupation", "employer", "marital_status",
+                              "work_experience_years"
+                            ];
+                            await axios.post(`${API}/cases/${selectedCase.id}/request-info-sheet`, { message: msg, required_fields }, getAuthHeader());
+                            toast.success('Information sheet request sent! Client will be notified to fill all required fields.');
                           } catch (e) { toast.error('Failed to send request'); }
                         }
                       }}
@@ -739,7 +746,7 @@ const CaseManagerDashboard = () => {
                       data-testid="request-info-sheet-btn"
                     >
                       <Send className="mr-2 h-4 w-4" />
-                      Request Info Update
+                      Request Info Sheet
                     </Button>
                     <Button
                       onClick={() => setAdditionalDocDialog({ ...additionalDocDialog, open: true })}
@@ -779,20 +786,42 @@ const CaseManagerDashboard = () => {
                   )}
                 </div>
                 <div className="space-y-4" data-testid="workflow-steps">
-                  {selectedCase.steps && selectedCase.steps.map((step, index) => (
-                    <div key={index} className="border rounded-lg p-4">
+                  {selectedCase.steps && selectedCase.steps.map((step, index) => {
+                    const prevCompleted = index === 0 || selectedCase.steps.slice(0, index).every(s => s.status === 'completed');
+                    const isLocked = !prevCompleted && index > 0;
+                    const isCompleted = step.status === 'completed';
+
+                    return (
+                    <div key={index} className={`border rounded-lg p-4 ${isLocked ? 'opacity-50 bg-slate-50' : ''} ${isCompleted ? 'border-emerald-200 bg-emerald-50/30' : ''}`}>
                       <div className="flex justify-between items-start mb-3">
                         <div className="flex-1">
-                          <h4 className="font-semibold text-gray-900">{step.step_order}. {step.step_name}</h4>
+                          <h4 className="font-semibold text-gray-900 flex items-center gap-2">
+                            {isLocked && <Lock className="h-4 w-4 text-slate-400" />}
+                            {isCompleted && <CheckCircle className="h-4 w-4 text-emerald-500" />}
+                            {step.step_order}. {step.step_name}
+                          </h4>
+                          {isLocked && <p className="text-xs text-red-500 mt-1">Complete previous step first</p>}
                           {step.notes && <p className="text-sm text-slate-600 mt-1">{step.notes}</p>}
                           {step.required_documents && step.required_documents.length > 0 && (
-                            <div className="mt-2 text-xs text-slate-600">
-                              <p className="font-medium">Required: {step.required_documents.map(d => d.doc_name).join(', ')}</p>
+                            <div className="mt-2 flex flex-wrap gap-1">
+                              {step.required_documents.map((d, di) => {
+                                const uploaded = (caseDocuments || []).some(cd => 
+                                  cd.document_type?.toLowerCase().includes(d.doc_name?.toLowerCase()) || 
+                                  d.doc_name?.toLowerCase().includes(cd.document_type?.toLowerCase())
+                                );
+                                return (
+                                  <span key={di} className={`text-xs px-2 py-0.5 rounded-full border ${uploaded ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-600 border-red-200'}`}>
+                                    {d.doc_name} {uploaded ? '✓' : '✗'}
+                                    {d.is_mandatory && !uploaded && <span className="text-red-500 ml-0.5">*</span>}
+                                  </span>
+                                );
+                              })}
                             </div>
                           )}
                         </div>
                         {getStatusBadge(step.status)}
                       </div>
+                      {!isLocked && !isCompleted && (
                       <div className="flex gap-2">
                         <Select onValueChange={(value) => handleUpdateStep(step.step_name, value, step.notes)}>
                           <SelectTrigger className="w-40" data-testid={`update-step-${index}`}>
@@ -814,8 +843,10 @@ const CaseManagerDashboard = () => {
                           </Button>
                         )}
                       </div>
+                      )}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </Card>
 

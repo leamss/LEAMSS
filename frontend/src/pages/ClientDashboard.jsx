@@ -77,6 +77,9 @@ const ClientDashboard = () => {
   const [ticketFilter, setTicketFilter] = useState(null);
   const [highlightedDocId, setHighlightedDocId] = useState(null);
   const [infoSheet, setInfoSheet] = useState(null);
+  const [infoSheetCompletion, setInfoSheetCompletion] = useState({});
+  const [infoSheetRequiredFields, setInfoSheetRequiredFields] = useState([]);
+  const [extractingResume, setExtractingResume] = useState(false);
   const [proposals, setProposals] = useState([]);
   const [payingForSale, setPayingForSale] = useState(null);
   const [predictions, setPredictions] = useState({});
@@ -113,6 +116,8 @@ const ClientDashboard = () => {
         setDocuments(docsResponse.data);
         if (infoSheetRes.data?.exists) {
           setInfoSheet(infoSheetRes.data.data);
+          setInfoSheetCompletion(infoSheetRes.data.completion || {});
+          setInfoSheetRequiredFields(infoSheetRes.data.required_fields || []);
         }
       }
     } catch (error) {
@@ -569,11 +574,18 @@ const ClientDashboard = () => {
                         <p className="text-xs text-slate-400">{docChecks[caseData.id].uploaded_count}/{docChecks[caseData.id].total_required} uploaded</p>
                       </div>
                     </div>
+                    {/* Step-wise missing docs */}
                     {docChecks[caseData.id].missing_documents?.length > 0 && (
-                      <div className="p-2 bg-red-50 rounded-lg border border-red-200">
+                      <div className="p-2 bg-red-50 rounded-lg border border-red-200 space-y-1">
                         <p className="text-xs font-semibold text-red-700 mb-1">Missing Documents:</p>
                         {docChecks[caseData.id].missing_documents.map((d, i) => (
-                          <p key={i} className="text-xs text-red-600">- {d}</p>
+                          <div key={i} className="flex justify-between items-center text-xs">
+                            <span className="text-red-600">- {d.doc_name} <span className="text-red-400">(Step: {d.step_name})</span></span>
+                            <Button variant="ghost" size="sm" className="text-[#f7620b] h-6 text-xs px-2"
+                              onClick={() => setActiveTab('documents')} data-testid={`upload-missing-${i}`}>
+                              <Upload className="h-3 w-3 mr-1" /> Upload
+                            </Button>
+                          </div>
                         ))}
                       </div>
                     )}
@@ -586,7 +598,7 @@ const ClientDashboard = () => {
                     )}
                   </div>
                 ) : (
-                  <p className="text-sm text-slate-400">Click "Check" to verify all required documents are uploaded.</p>
+                  <p className="text-sm text-slate-400">Click "Check" to verify all required documents are uploaded per workflow step.</p>
                 )}
               </Card>
             </div>
@@ -1049,21 +1061,101 @@ const ClientDashboard = () => {
               {/* Information Sheet Tab */}
               <TabsContent value="info-sheet" className="space-y-6">
                 <Card className="p-6 bg-white shadow-md border-0" data-testid="info-sheet-card">
-                  <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
-                    <User className="h-5 w-5 text-[#2a777a]" />
-                    My Information Sheet
-                  </h3>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                      <User className="h-5 w-5 text-[#2a777a]" />
+                      My Information Sheet
+                    </h3>
+                    {/* Resume upload & auto-fill */}
+                    {caseData && (
+                      <div className="flex items-center gap-2">
+                        <label className="cursor-pointer">
+                          <input type="file" className="hidden" accept=".pdf,.doc,.docx,.txt" onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            setExtractingResume(true);
+                            try {
+                              // First upload the document
+                              const formData = new FormData();
+                              formData.append('file', file);
+                              formData.append('case_id', caseData.id);
+                              formData.append('document_type', 'resume');
+                              const uploadRes = await axios.post(`${API}/documents/upload`, formData, {
+                                headers: { Authorization: `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'multipart/form-data' }
+                              });
+                              const docId = uploadRes.data?.id || uploadRes.data?.document_id;
+                              if (docId) {
+                                // Then extract and auto-fill
+                                const extractRes = await axios.post(
+                                  `${API}/ai-intel/extract-resume-to-infosheet/${caseData.id}?document_id=${docId}`,
+                                  {}, getAuthHeader()
+                                );
+                                toast.success(extractRes.data.message || `Extracted ${extractRes.data.fields_filled} fields!`);
+                                loadData();
+                              } else {
+                                toast.success('Document uploaded! Use AI extract to auto-fill.');
+                              }
+                            } catch (err) {
+                              toast.error(err.response?.data?.detail || 'Failed to extract. Try a clearer document.');
+                            } finally {
+                              setExtractingResume(false);
+                              e.target.value = '';
+                            }
+                          }} />
+                          <Button variant="outline" size="sm" className="text-[#2a777a] border-[#2a777a]" disabled={extractingResume} asChild>
+                            <span data-testid="upload-resume-btn">
+                              {extractingResume ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Upload className="h-4 w-4 mr-1" />}
+                              {extractingResume ? 'Extracting...' : 'Upload Resume & Auto-Fill'}
+                            </span>
+                          </Button>
+                        </label>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Completion bar */}
+                  {infoSheetCompletion.total_fields > 0 && (
+                    <div className="mb-4 p-3 rounded-lg bg-slate-50 border">
+                      <div className="flex justify-between text-sm mb-1">
+                        <span className="text-slate-600">Information Completion</span>
+                        <span className={`font-semibold ${infoSheetCompletion.percentage === 100 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                          {infoSheetCompletion.percentage}% ({infoSheetCompletion.filled_count}/{infoSheetCompletion.total_fields} fields)
+                        </span>
+                      </div>
+                      <div className="w-full bg-slate-200 rounded-full h-2">
+                        <div className={`h-2 rounded-full transition-all ${infoSheetCompletion.percentage === 100 ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${infoSheetCompletion.percentage}%` }} />
+                      </div>
+                      {infoSheetCompletion.missing_fields?.length > 0 && (
+                        <p className="text-xs text-red-500 mt-1">Missing: {infoSheetCompletion.missing_fields.map(f => f.replace(/_/g, ' ')).join(', ')}</p>
+                      )}
+                    </div>
+                  )}
+
                   {infoSheet ? (
                     <div>
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {Object.entries(infoSheet).filter(([key]) => 
-                          !['id', 'case_id', 'client_id', 'created_at', 'updated_at', '_id'].includes(key)
-                        ).map(([key, value]) => (
-                          <div key={key} className="p-4 bg-gradient-to-br from-slate-50 to-white rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
-                            <p className="text-xs text-[#2a777a] font-semibold uppercase tracking-wide mb-1">{key.replace(/_/g, ' ')}</p>
-                            <p className="font-medium text-slate-800 text-sm">{value || <span className="text-slate-400 italic">Not provided</span>}</p>
-                          </div>
-                        ))}
+                        {(infoSheetRequiredFields.length > 0 ? infoSheetRequiredFields : Object.keys(infoSheet)).filter(key =>
+                          !['id', 'case_id', 'client_id', 'created_at', 'updated_at', '_id', 'required_fields', 'status', 'auto_filled_at', 'auto_filled_by', 'auto_filled_from', 'auto_filled_data'].includes(key)
+                        ).map((key) => {
+                          const value = infoSheet[key];
+                          const isMissing = !value || String(value).trim() === '' || String(value) === 'null';
+                          const isRequired = infoSheetRequiredFields.includes(key);
+                          return (
+                            <div key={key} className={`p-4 rounded-xl border shadow-sm transition-shadow ${
+                              isMissing && isRequired ? 'bg-red-50/50 border-red-200 ring-1 ring-red-100' : 'bg-gradient-to-br from-slate-50 to-white border-slate-100 hover:shadow-md'
+                            }`}>
+                              <p className="text-xs font-semibold uppercase tracking-wide mb-1 flex items-center gap-1">
+                                <span className="text-[#2a777a]">{key.replace(/_/g, ' ')}</span>
+                                {isRequired && <span className="text-red-500">*</span>}
+                              </p>
+                              {isMissing ? (
+                                <p className="text-sm text-red-400 italic font-medium">Required — please fill</p>
+                              ) : (
+                                <p className="font-medium text-slate-800 text-sm">{String(value)}</p>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                       {infoSheet.updated_at && (
                         <p className="text-xs text-slate-400 text-right mt-4">
@@ -1075,7 +1167,7 @@ const ClientDashboard = () => {
                     <div className="text-center py-16 bg-gradient-to-br from-slate-50 to-white rounded-xl border border-dashed border-slate-200">
                       <User className="h-14 w-14 text-slate-300 mx-auto mb-4" />
                       <p className="text-slate-600 font-semibold text-lg">No information sheet submitted yet</p>
-                      <p className="text-sm text-slate-500 mt-2 max-w-sm mx-auto">Your case manager will request you to fill this out when needed for your case processing.</p>
+                      <p className="text-sm text-slate-500 mt-2 max-w-sm mx-auto">Your case manager will request you to fill this out. You can upload a resume to auto-fill.</p>
                     </div>
                   )}
                 </Card>

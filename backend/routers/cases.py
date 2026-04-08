@@ -211,20 +211,58 @@ async def get_case(case_id: str, current_user: dict = Depends(get_current_user))
 
 @router.post("/update-step")
 async def update_step(request: StepUpdate, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] not in ["admin", "case_manager"]:
+        raise HTTPException(status_code=403, detail="Only admin or case manager can update steps")
+
     case = await cases_col.find_one({"id": request.case_id}, {"_id": 0})
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
-    
+
+    # Get all steps for this case
+    steps = await case_steps_col.find({"case_id": request.case_id}, {"_id": 0}).sort("step_order", 1).to_list(100)
+    current_step = next((s for s in steps if s["step_name"] == request.step_name), None)
+    if not current_step:
+        raise HTTPException(status_code=404, detail="Step not found")
+
+    target_order = current_step.get("step_order", 1)
+
+    # ENFORCEMENT: Cannot update a step if previous steps are not completed
+    for s in steps:
+        if s["step_order"] < target_order and s.get("status") != "completed":
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot update step '{request.step_name}' — previous step '{s['step_name']}' (Step {s['step_order']}) is not completed yet."
+            )
+
+    # ENFORCEMENT: If marking as completed, check required documents for this step
+    if request.status == "completed":
+        workflow_steps = await workflow_steps_col.find(
+            {"product_id": case.get("product_id"), "step_name": request.step_name}, {"_id": 0}
+        ).to_list(1)
+        if workflow_steps:
+            required_docs = workflow_steps[0].get("required_documents", [])
+            mandatory_docs = [d for d in required_docs if d.get("is_mandatory", True)]
+            if mandatory_docs:
+                case_docs = await documents_col.find({"case_id": request.case_id}, {"_id": 0}).to_list(200)
+                uploaded_names = [d.get("document_type", "").lower().strip() for d in case_docs]
+                for req in mandatory_docs:
+                    doc_name = req.get("doc_name", "").lower().strip()
+                    found = any(doc_name in ut or ut in doc_name for ut in uploaded_names)
+                    if not found:
+                        raise HTTPException(
+                            status_code=400,
+                            detail=f"Cannot complete step '{request.step_name}' — required document '{req.get('doc_name')}' is missing. Please ensure all required documents are uploaded."
+                        )
+
     await case_steps_col.update_one(
         {"case_id": request.case_id, "step_name": request.step_name},
         {"$set": {"status": request.status, "notes": request.notes, "updated_at": datetime.now(timezone.utc)}}
     )
-    
+
     if request.status == "completed":
-        steps = await case_steps_col.find({"case_id": request.case_id}, {"_id": 0}).sort("step_order", 1).to_list(100)
-        current_order = next((s["step_order"] for s in steps if s["step_name"] == request.step_name), 1)
+        current_order = target_order
         next_step = next((s for s in steps if s["step_order"] > current_order), None)
-        
+
         if next_step:
             await cases_col.update_one({"id": request.case_id}, {"$set": {
                 "current_step": next_step["step_name"],
@@ -234,9 +272,9 @@ async def update_step(request: StepUpdate, current_user: dict = Depends(get_curr
             all_completed = all(s["status"] == "completed" for s in steps if s["step_name"] != request.step_name)
             if all_completed:
                 await cases_col.update_one({"id": request.case_id}, {"$set": {"status": "completed"}})
-    
+
     await _log(current_user["id"], "update_step", "case", request.case_id, {"step_name": request.step_name, "status": request.status})
-    
+
     # Email notification to client about step update
     if case.get("client_id"):
         client = await users_col.find_one({"id": case["client_id"]}, {"_id": 0})
@@ -245,7 +283,7 @@ async def update_step(request: StepUpdate, current_user: dict = Depends(get_curr
                 client.get("email", ""), client.get("name", ""),
                 case.get("case_id", request.case_id), request.step_name, request.status
             )
-    
+
     return {"message": "Step updated successfully"}
 
 
@@ -324,16 +362,40 @@ async def custom_document_request(case_id: str, request: DocRequest, current_use
 async def get_information_sheet(case_id: str, current_user: dict = Depends(get_current_user)):
     sheet = await information_sheets_col.find_one({"case_id": case_id}, {"_id": 0})
     if not sheet:
-        return {"exists": False, "data": {}}
-    
+        return {"exists": False, "data": {}, "required_fields": [], "completion": {}}
+
     for f in ["created_at", "updated_at"]:
         if isinstance(sheet.get(f), datetime):
             sheet[f] = sheet[f].isoformat()
     for f in ["date_of_birth", "passport_expiry"]:
         if isinstance(sheet.get(f), datetime):
             sheet[f] = sheet[f].strftime("%Y-%m-%d")
-    
-    return {"exists": True, "data": sheet}
+
+    # Calculate field completion
+    required_fields = sheet.get("required_fields", [])
+    filled_count = 0
+    missing_fields = []
+    for field in required_fields:
+        val = sheet.get(field)
+        if val and str(val).strip() and str(val).strip() != "null":
+            filled_count += 1
+        else:
+            missing_fields.append(field)
+
+    completion_pct = round((filled_count / len(required_fields)) * 100) if required_fields else 100
+
+    return {
+        "exists": True,
+        "data": sheet,
+        "required_fields": required_fields,
+        "completion": {
+            "total_fields": len(required_fields),
+            "filled_count": filled_count,
+            "missing_fields": missing_fields,
+            "percentage": completion_pct,
+            "is_complete": completion_pct == 100
+        }
+    }
 
 
 @router.post("/{case_id}/information-sheet")
@@ -373,39 +435,61 @@ async def save_information_sheet(case_id: str, data: dict, current_user: dict = 
 
 @router.post("/{case_id}/request-info-sheet")
 async def request_info_sheet(case_id: str, data: dict, current_user: dict = Depends(get_current_user)):
-    """Case manager requests client to fill/update information sheet"""
+    """Case manager requests client to fill information sheet with specific required fields"""
     if current_user["role"] not in ["admin", "case_manager"]:
         raise HTTPException(status_code=403, detail="Admin or Case Manager only")
-    
+
     case = await cases_col.find_one({"id": case_id}, {"_id": 0})
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
-    
+
     message = data.get("message", "Please fill/update your information sheet.")
-    fields_to_update = data.get("fields_to_update", [])
-    
+    required_fields = data.get("required_fields", [
+        "full_name", "date_of_birth", "gender", "nationality", "passport_number",
+        "passport_expiry", "address", "phone", "email", "education_level",
+        "occupation", "employer", "marital_status", "work_experience_years"
+    ])
+
     # Create notification for client
     await notifications_col.insert_one({
         "id": str(uuid.uuid4()),
         "user_id": case.get("client_id"),
-        "title": "Information Sheet Update Required",
+        "title": "Information Sheet Required",
         "message": message,
         "type": "info_sheet_request",
         "related_id": case_id,
-        "metadata": {"fields_to_update": fields_to_update},
+        "metadata": {"required_fields": required_fields},
         "read": False,
         "created_at": datetime.now(timezone.utc)
     })
-    
-    # Update case to mark info sheet as requested
+
+    # Update case and info sheet with required fields
     await cases_col.update_one({"id": case_id}, {"$set": {
         "info_sheet_requested": True,
         "info_sheet_request_message": message,
         "info_sheet_requested_at": datetime.now(timezone.utc),
-        "info_sheet_requested_by": current_user["id"]
+        "info_sheet_requested_by": current_user["id"],
+        "info_sheet_required_fields": required_fields
     }})
-    
-    return {"message": "Information sheet request sent to client"}
+
+    # Ensure info sheet exists with required_fields metadata
+    existing = await information_sheets_col.find_one({"case_id": case_id})
+    if not existing:
+        await information_sheets_col.insert_one({
+            "id": str(uuid.uuid4()),
+            "case_id": case_id,
+            "client_id": case.get("client_id"),
+            "required_fields": required_fields,
+            "status": "pending",
+            "created_at": datetime.now(timezone.utc)
+        })
+    else:
+        await information_sheets_col.update_one({"case_id": case_id}, {"$set": {
+            "required_fields": required_fields,
+            "status": "pending"
+        }})
+
+    return {"message": "Information sheet request sent to client", "required_fields": required_fields}
 
 
 @router.get("/stats/my-stats")

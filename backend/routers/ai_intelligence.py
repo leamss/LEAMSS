@@ -62,58 +62,70 @@ def _read_file_content(file_path: str, filename: str) -> str:
 
 @router.get("/case-document-check/{case_id}")
 async def check_case_documents(case_id: str, current_user: dict = Depends(get_current_user)):
-    """Check if all required documents are uploaded for a case"""
+    """Check required documents per workflow step — based on product workflow, NOT hardcoded"""
     case = await cases_col.find_one({"id": case_id}, {"_id": 0})
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
 
     product = await products_col.find_one({"id": case.get("product_id")}, {"_id": 0})
+    steps = await workflow_steps_col.find(
+        {"product_id": case.get("product_id")}, {"_id": 0}
+    ).sort("step_order", 1).to_list(100)
 
-    # Get uploaded documents for this case
     case_docs = await documents_col.find({"case_id": case_id}, {"_id": 0}).to_list(200)
-    uploaded_types = [d.get("document_type", "").lower() for d in case_docs]
+    uploaded_names = [d.get("document_type", "").lower().strip() for d in case_docs]
+    uploaded_filenames = [d.get("filename", "").lower().strip() for d in case_docs]
 
-    # Standard required documents for immigration
-    standard_required = [
-        {"type": "passport", "label": "Passport Copy", "description": "Valid passport with at least 6 months validity"},
-        {"type": "photo", "label": "Passport Photo", "description": "Recent passport-size photograph"},
-        {"type": "birth_certificate", "label": "Birth Certificate", "description": "Certified birth certificate"},
-        {"type": "education", "label": "Education Documents", "description": "Degree certificates, transcripts"},
-        {"type": "employment", "label": "Employment Letter", "description": "Current employment verification letter"},
-        {"type": "bank_statement", "label": "Bank Statement", "description": "Last 6 months bank statements"},
-        {"type": "medical", "label": "Medical Report", "description": "Medical examination report"},
-        {"type": "police_clearance", "label": "Police Clearance", "description": "Police verification certificate"},
-    ]
+    step_results = []
+    total_required = 0
+    total_uploaded = 0
+    all_missing = []
+    current_step_order = case.get("current_step_order", 1)
 
-    results = []
-    missing = []
-    for req in standard_required:
-        found = any(req["type"] in ut or req["label"].lower() in ut for ut in uploaded_types)
-        status = "uploaded" if found else "missing"
-        entry = {**req, "status": status}
-        if found:
-            matching_doc = next((d for d in case_docs if req["type"] in d.get("document_type", "").lower() or req["label"].lower() in d.get("document_type", "").lower()), None)
-            if matching_doc:
-                entry["document_id"] = matching_doc.get("id")
-                entry["filename"] = matching_doc.get("filename", "")
-                entry["uploaded_at"] = matching_doc.get("uploaded_at", "")
-        else:
-            missing.append(req["label"])
-        results.append(entry)
+    for step in steps:
+        required_docs = step.get("required_documents", [])
+        step_doc_results = []
+        for req in required_docs:
+            doc_name = req.get("doc_name", "Unknown")
+            is_mandatory = req.get("is_mandatory", True)
+            doc_lower = doc_name.lower().strip()
+            found = any(doc_lower in ut or ut in doc_lower for ut in uploaded_names) or \
+                    any(doc_lower in fn for fn in uploaded_filenames)
+            if is_mandatory:
+                total_required += 1
+                if found:
+                    total_uploaded += 1
+            matching = next((d for d in case_docs if doc_lower in d.get("document_type","").lower() or d.get("document_type","").lower() in doc_lower), None)
+            step_doc_results.append({
+                "doc_name": doc_name, "is_mandatory": is_mandatory,
+                "status": "uploaded" if found else "missing",
+                "document_id": matching.get("id") if matching else None,
+                "filename": matching.get("filename","") if matching else None,
+            })
+            if not found and is_mandatory:
+                all_missing.append({"doc_name": doc_name, "step_name": step.get("step_name",""), "step_order": step.get("step_order",0)})
 
-    total = len(standard_required)
-    uploaded_count = sum(1 for r in results if r["status"] == "uploaded")
-    completeness = round((uploaded_count / total) * 100) if total > 0 else 0
+        step_results.append({
+            "step_name": step.get("step_name",""), "step_order": step.get("step_order",0),
+            "required_documents": step_doc_results,
+            "total_required": len([d for d in step_doc_results if d["is_mandatory"]]),
+            "total_uploaded": len([d for d in step_doc_results if d["status"]=="uploaded" and d["is_mandatory"]]),
+            "is_complete": all(d["status"]=="uploaded" for d in step_doc_results if d["is_mandatory"]) if step_doc_results else True,
+            "is_locked": step.get("step_order",0) > current_step_order
+        })
 
+    completeness = round((total_uploaded / total_required) * 100) if total_required > 0 else 100
     return {
         "case_id": case_id,
-        "product_name": product.get("name", "Unknown") if product else "Unknown",
-        "total_required": total,
-        "uploaded_count": uploaded_count,
-        "missing_count": len(missing),
+        "product_name": product.get("name","Unknown") if product else "Unknown",
+        "current_step": case.get("current_step",""),
+        "current_step_order": current_step_order,
+        "total_required": total_required,
+        "uploaded_count": total_uploaded,
+        "missing_count": len(all_missing),
         "completeness_percentage": completeness,
-        "missing_documents": missing,
-        "document_checklist": results,
+        "missing_documents": all_missing,
+        "steps": step_results,
         "status": "complete" if completeness == 100 else "incomplete"
     }
 
@@ -498,3 +510,151 @@ Return ONLY valid JSON:
         "product_name": product.get("name", "Unknown") if product else "Unknown",
         **prediction
     }
+
+
+
+# ========== 7. RESUME EXTRACT & AUTO-FILL INFO SHEET ==========
+
+@router.post("/extract-resume-to-infosheet/{case_id}")
+async def extract_resume_to_infosheet(case_id: str, document_id: str, current_user: dict = Depends(get_current_user)):
+    """Extract data from a resume/document and auto-fill the information sheet"""
+    case = await cases_col.find_one({"id": case_id}, {"_id": 0})
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+
+    doc = await documents_col.find_one({"id": document_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    file_path = doc.get("file_path", "")
+    if not file_path or not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="File not found")
+
+    content = _read_file_content(file_path, doc.get("filename", ""))
+
+    prompt = f"""Extract ALL personal and professional information from this document for an immigration application.
+
+Document: {doc.get('filename', '')}
+Content:
+{content[:6000]}
+
+Return ONLY valid JSON with these fields (use null for unknown):
+{{
+    "full_name": "string",
+    "date_of_birth": "YYYY-MM-DD",
+    "gender": "male/female",
+    "nationality": "string",
+    "passport_number": "string",
+    "passport_expiry": "YYYY-MM-DD",
+    "address": "full address string",
+    "phone": "string",
+    "email": "string",
+    "education_level": "high_school/bachelors/masters/phd",
+    "occupation": "string",
+    "employer": "string",
+    "marital_status": "single/married/divorced/widowed",
+    "work_experience_years": number,
+    "language_test_type": "IELTS/PTE/TOEFL or null",
+    "language_score": "score or null",
+    "skills": "comma separated skills"
+}}"""
+
+    result = await _call_gpt(prompt, "You are an expert data extractor. Extract accurately from documents. Return ONLY valid JSON.")
+
+    import json
+    try:
+        extracted = json.loads(result.strip().strip('```json').strip('```'))
+    except Exception:
+        extracted = {}
+
+    if not extracted:
+        return {"success": False, "message": "Could not extract data from this document. Try a clearer document.", "extracted": {}}
+
+    # Auto-fill info sheet — only fill empty fields
+    info_sheets_col = db["information_sheets"]
+    existing = await info_sheets_col.find_one({"case_id": case_id}, {"_id": 0})
+
+    fields_filled = 0
+    update_data = {}
+    for key, value in extracted.items():
+        if value and str(value).strip() and str(value) != "null":
+            if not existing or not existing.get(key) or str(existing.get(key, "")).strip() in ["", "null", "None"]:
+                update_data[key] = value
+                fields_filled += 1
+
+    if update_data:
+        update_data["auto_filled_at"] = datetime.now(timezone.utc).isoformat()
+        update_data["auto_filled_from"] = document_id
+        await info_sheets_col.update_one(
+            {"case_id": case_id},
+            {"$set": update_data},
+            upsert=True
+        )
+
+    return {
+        "success": True,
+        "fields_extracted": len([v for v in extracted.values() if v and str(v) != "null"]),
+        "fields_filled": fields_filled,
+        "extracted_data": extracted,
+        "message": f"Extracted {fields_filled} fields and auto-filled into information sheet."
+    }
+
+
+# ========== 8. STEP STATUS WITH LOCK INFO ==========
+
+@router.get("/step-status/{case_id}")
+async def get_step_status(case_id: str, current_user: dict = Depends(get_current_user)):
+    """Get all steps with lock/unlock status and document requirements"""
+    from core.database import db
+    case_steps_col = db["case_steps"]
+
+    case = await cases_col.find_one({"id": case_id}, {"_id": 0})
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+
+    steps = await case_steps_col.find({"case_id": case_id}, {"_id": 0}).sort("step_order", 1).to_list(100)
+    workflow_steps = await workflow_steps_col.find(
+        {"product_id": case.get("product_id")}, {"_id": 0}
+    ).sort("step_order", 1).to_list(100)
+
+    case_docs = await documents_col.find({"case_id": case_id}, {"_id": 0}).to_list(200)
+    uploaded_names = [d.get("document_type", "").lower().strip() for d in case_docs]
+
+    current_step_order = case.get("current_step_order", 1)
+    result = []
+
+    for step in steps:
+        order = step.get("step_order", 0)
+        wf = next((w for w in workflow_steps if w.get("step_name") == step.get("step_name")), {})
+        required_docs = wf.get("required_documents", [])
+
+        # Check doc completion for this step
+        docs_status = []
+        all_docs_uploaded = True
+        for req in required_docs:
+            doc_lower = req.get("doc_name", "").lower().strip()
+            found = any(doc_lower in ut or ut in doc_lower for ut in uploaded_names)
+            docs_status.append({"doc_name": req.get("doc_name"), "is_mandatory": req.get("is_mandatory", True), "uploaded": found})
+            if req.get("is_mandatory", True) and not found:
+                all_docs_uploaded = False
+
+        # Check if all previous steps are completed
+        prev_completed = all(s.get("status") == "completed" for s in steps if s.get("step_order", 0) < order)
+
+        is_locked = not prev_completed and order > 1
+        can_complete = prev_completed and all_docs_uploaded
+
+        result.append({
+            "step_name": step.get("step_name"),
+            "step_order": order,
+            "status": step.get("status", "pending"),
+            "notes": step.get("notes", ""),
+            "is_current": order == current_step_order,
+            "is_locked": is_locked,
+            "can_complete": can_complete,
+            "required_documents": docs_status,
+            "all_docs_uploaded": all_docs_uploaded,
+            "previous_completed": prev_completed
+        })
+
+    return {"case_id": case_id, "steps": result, "current_step_order": current_step_order}
