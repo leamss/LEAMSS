@@ -181,6 +181,27 @@ const ClientDashboard = () => {
     }
   };
 
+  const handleDownloadReceipt = async (saleId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.get(`${API}/payments/receipt-by-sale/${saleId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        responseType: 'blob'
+      });
+      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `LEAMSS_Receipt_${saleId.substring(0, 8).toUpperCase()}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success('Receipt downloaded!');
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to download receipt');
+    }
+  };
+
   const handleFileUpload = async (docName, isAdditional = false, requestId = null, stepName = null) => {
     if (!selectedFile) {
       toast.error('Please select a file');
@@ -1022,8 +1043,8 @@ const ClientDashboard = () => {
                                 )}
                               </div>
 
-                              {/* Pay Now Button */}
-                              <div className="flex flex-col items-end justify-center min-w-[180px]">
+                              {/* Pay Now / Receipt Button */}
+                              <div className="flex flex-col items-end justify-center min-w-[180px] gap-2">
                                 {isApproved && hasPendingAmount && !isPaid ? (
                                   <Button
                                     onClick={() => handlePayNow(proposal.id)}
@@ -1048,6 +1069,18 @@ const ClientDashboard = () => {
                                     <p className="text-xs text-slate-500">Awaiting Approval</p>
                                   </div>
                                 ) : null}
+                                {/* Download Receipt — show for any sale with received amount */}
+                                {isApproved && (proposal.amount_received || 0) > 0 && (
+                                  <Button
+                                    onClick={() => handleDownloadReceipt(proposal.id)}
+                                    variant="outline"
+                                    size="sm"
+                                    className="border-[#2a777a] text-[#2a777a] hover:bg-[#2a777a]/10 w-full md:w-auto"
+                                    data-testid={`download-receipt-${proposal.id}`}
+                                  >
+                                    <Download className="h-4 w-4 mr-2" /> Receipt PDF
+                                  </Button>
+                                )}
                               </div>
                             </div>
                           </Card>

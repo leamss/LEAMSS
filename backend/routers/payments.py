@@ -252,3 +252,231 @@ async def get_payment_history(sale_id: str, current_user: dict = Depends(get_cur
             t["updated_at"] = t["updated_at"].isoformat()
 
     return transactions
+
+
+RECEIPTS_DIR = "/app/uploads/receipts"
+os.makedirs(RECEIPTS_DIR, exist_ok=True)
+
+
+def _generate_receipt_pdf(sale: dict, transaction: dict, filename: str):
+    """Generate a professional branded payment receipt PDF"""
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.lib.units import mm
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, HRFlowable
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER, TA_RIGHT
+
+    doc = SimpleDocTemplate(filename, pagesize=A4, topMargin=25, bottomMargin=25, leftMargin=40, rightMargin=40)
+    styles = getSampleStyleSheet()
+
+    brand_color = colors.HexColor('#2a777a')
+    accent_color = colors.HexColor('#f7620b')
+    light_bg = colors.HexColor('#f0f9f9')
+
+    company_style = ParagraphStyle('Company', parent=styles['Heading1'], fontSize=22, textColor=brand_color, alignment=TA_CENTER, spaceAfter=2)
+    tagline_style = ParagraphStyle('Tagline', parent=styles['Normal'], fontSize=9, textColor=colors.grey, alignment=TA_CENTER, spaceAfter=6)
+    receipt_title = ParagraphStyle('ReceiptTitle', parent=styles['Heading2'], fontSize=16, textColor=accent_color, alignment=TA_CENTER, spaceAfter=4)
+    label_style = ParagraphStyle('Label', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor('#666666'))
+    value_style = ParagraphStyle('Value', parent=styles['Normal'], fontSize=10, textColor=colors.HexColor('#222222'), fontName='Helvetica-Bold')
+    small_style = ParagraphStyle('Small', parent=styles['Normal'], fontSize=8, textColor=colors.grey, alignment=TA_CENTER)
+
+    elements = []
+
+    # Header
+    elements.append(Paragraph("LEAMSS Immigration Services", company_style))
+    elements.append(Paragraph("Your Trusted Partner for Global Immigration Solutions", tagline_style))
+    elements.append(HRFlowable(width="100%", thickness=2, color=brand_color, spaceAfter=12))
+    elements.append(Paragraph("PAYMENT RECEIPT", receipt_title))
+    elements.append(Spacer(1, 8))
+
+    # Receipt meta
+    receipt_no = f"REC-{transaction.get('id', 'N/A')[:8].upper()}"
+    txn_date = transaction.get('created_at', '')
+    if hasattr(txn_date, 'strftime'):
+        txn_date_str = txn_date.strftime('%d %b %Y, %I:%M %p')
+    elif isinstance(txn_date, str):
+        try:
+            txn_date_str = datetime.fromisoformat(txn_date.replace('Z', '+00:00')).strftime('%d %b %Y, %I:%M %p')
+        except (ValueError, TypeError):
+            txn_date_str = str(txn_date)
+    else:
+        txn_date_str = datetime.now().strftime('%d %b %Y, %I:%M %p')
+
+    meta_data = [
+        [Paragraph('Receipt No:', label_style), Paragraph(receipt_no, value_style),
+         Paragraph('Date:', label_style), Paragraph(txn_date_str, value_style)],
+        [Paragraph('Payment Method:', label_style), Paragraph('Online (Stripe)', value_style),
+         Paragraph('Transaction ID:', label_style), Paragraph(transaction.get('session_id', 'N/A')[:20] + '...', value_style)],
+    ]
+    meta_table = Table(meta_data, colWidths=[90, 170, 90, 170])
+    meta_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), light_bg),
+        ('PADDING', (0, 0), (-1, -1), 8),
+        ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#cccccc')),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    ]))
+    elements.append(meta_table)
+    elements.append(Spacer(1, 15))
+
+    # Client Info
+    elements.append(Paragraph("Client Information", ParagraphStyle('SectionHead', parent=styles['Heading3'], fontSize=12, textColor=brand_color, spaceAfter=6)))
+    client_data = [
+        [Paragraph('Name:', label_style), Paragraph(sale.get('client_name', 'N/A'), value_style)],
+        [Paragraph('Email:', label_style), Paragraph(sale.get('client_email', 'N/A'), value_style)],
+        [Paragraph('Mobile:', label_style), Paragraph(sale.get('client_mobile', 'N/A'), value_style)],
+        [Paragraph('Service:', label_style), Paragraph(sale.get('product_name', 'N/A'), value_style)],
+    ]
+    client_table = Table(client_data, colWidths=[80, 440])
+    client_table.setStyle(TableStyle([
+        ('PADDING', (0, 0), (-1, -1), 6),
+        ('LINEBELOW', (0, 0), (-1, -1), 0.3, colors.HexColor('#e0e0e0')),
+    ]))
+    elements.append(client_table)
+    elements.append(Spacer(1, 15))
+
+    # Fee Breakdown
+    elements.append(Paragraph("Fee Breakdown", ParagraphStyle('SectionHead', parent=styles['Heading3'], fontSize=12, textColor=brand_color, spaceAfter=6)))
+
+    fee_rows = []
+    has_discount = (sale.get('total_discount_amount', 0) or 0) > 0
+    original_fee = sale.get('fee_before_discount', sale.get('fee_amount', 0)) or sale.get('fee_amount', 0)
+
+    if has_discount:
+        fee_rows.append(['Original Service Fee', f"INR {original_fee:,.2f}"])
+        if (sale.get('promo_discount_amount', 0) or 0) > 0:
+            fee_rows.append([f"Promo Code ({sale.get('promo_code', '')})", f"- INR {sale['promo_discount_amount']:,.2f}"])
+        if (sale.get('additional_discount_percentage', 0) or 0) > 0:
+            fee_rows.append([f"Special Discount ({sale['additional_discount_percentage']}%)", f"- INR {sale.get('additional_discount_amount', 0):,.2f}"])
+        fee_rows.append(['', ''])  # separator
+    fee_rows.append(['Net Service Fee', f"INR {sale.get('fee_amount', 0):,.2f}"])
+
+    fee_table = Table(fee_rows, colWidths=[320, 200])
+    fee_style = [
+        ('PADDING', (0, 0), (-1, -1), 7),
+        ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('LINEBELOW', (0, -1), (-1, -1), 1, brand_color),
+        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+        ('TEXTCOLOR', (0, -1), (-1, -1), brand_color),
+    ]
+    if has_discount:
+        for i, row in enumerate(fee_rows):
+            if row[0].startswith('Promo') or row[0].startswith('Special'):
+                fee_style.append(('TEXTCOLOR', (0, i), (-1, i), colors.HexColor('#16a34a')))
+    fee_table.setStyle(TableStyle(fee_style))
+    elements.append(fee_table)
+    elements.append(Spacer(1, 15))
+
+    # Payment Summary
+    elements.append(Paragraph("Payment Summary", ParagraphStyle('SectionHead', parent=styles['Heading3'], fontSize=12, textColor=brand_color, spaceAfter=6)))
+
+    txn_amount = transaction.get('amount', 0)
+    total_received = sale.get('amount_received', 0) or 0
+    total_fee = sale.get('fee_amount', 0) or 0
+    pending = max(0, round(total_fee - total_received, 2))
+
+    payment_rows = [
+        ['This Payment', f"INR {txn_amount:,.2f}"],
+        ['Total Amount Paid', f"INR {total_received:,.2f}"],
+        ['Remaining Balance', f"INR {pending:,.2f}"],
+    ]
+    pay_table = Table(payment_rows, colWidths=[320, 200])
+    pay_style = [
+        ('PADDING', (0, 0), (-1, -1), 8),
+        ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+        ('FONTSIZE', (0, 0), (-1, -1), 11),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#fff3e0')),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('TEXTCOLOR', (0, 0), (-1, 0), accent_color),
+        ('LINEBELOW', (0, 0), (-1, -1), 0.3, colors.HexColor('#e0e0e0')),
+        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+    ]
+    if pending <= 0:
+        pay_style.append(('TEXTCOLOR', (0, -1), (-1, -1), colors.HexColor('#16a34a')))
+    else:
+        pay_style.append(('TEXTCOLOR', (0, -1), (-1, -1), accent_color))
+    pay_table.setStyle(TableStyle(pay_style))
+    elements.append(pay_table)
+
+    if pending <= 0:
+        elements.append(Spacer(1, 10))
+        elements.append(Paragraph("FULLY PAID", ParagraphStyle('Paid', parent=styles['Heading2'], fontSize=14, textColor=colors.HexColor('#16a34a'), alignment=TA_CENTER)))
+
+    elements.append(Spacer(1, 25))
+    elements.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor('#cccccc'), spaceAfter=8))
+
+    # Footer
+    elements.append(Paragraph("This is a system-generated receipt. No signature required.", small_style))
+    elements.append(Paragraph("For any queries, please contact support@leamss.com", small_style))
+    elements.append(Spacer(1, 4))
+    elements.append(Paragraph(f"Generated on {datetime.now().strftime('%d %b %Y at %I:%M %p')}", small_style))
+
+    doc.build(elements)
+    return filename
+
+
+@router.get("/receipt/{transaction_id}")
+async def download_receipt(transaction_id: str, current_user: dict = Depends(get_current_user)):
+    """Download a PDF receipt for a specific payment transaction"""
+    from fastapi.responses import FileResponse
+
+    transaction = await payment_transactions_col.find_one({"id": transaction_id}, {"_id": 0})
+    if not transaction:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+
+    if transaction.get("payment_status") != "paid":
+        raise HTTPException(status_code=400, detail="Receipt available only for completed payments")
+
+    sale = await sales_col.find_one({"id": transaction["sale_id"]}, {"_id": 0})
+    if not sale:
+        raise HTTPException(status_code=404, detail="Sale not found")
+
+    # Enrich sale with product name
+    products_col = db["products"]
+    product = await products_col.find_one({"id": sale.get("product_id")}, {"_id": 0, "name": 1})
+    if product:
+        sale["product_name"] = product.get("name", "N/A")
+
+    filename = os.path.join(RECEIPTS_DIR, f"receipt_{transaction_id[:8]}.pdf")
+    _generate_receipt_pdf(sale, transaction, filename)
+
+    receipt_name = f"LEAMSS_Receipt_{transaction_id[:8].upper()}.pdf"
+    return FileResponse(filename, media_type="application/pdf", filename=receipt_name)
+
+
+@router.get("/receipt-by-sale/{sale_id}")
+async def download_sale_receipt(sale_id: str, current_user: dict = Depends(get_current_user)):
+    """Download a combined receipt for all paid transactions of a sale"""
+    from fastapi.responses import FileResponse
+
+    sale = await sales_col.find_one({"id": sale_id}, {"_id": 0})
+    if not sale:
+        raise HTTPException(status_code=404, detail="Sale not found")
+
+    # Get the latest paid transaction
+    transaction = await payment_transactions_col.find_one(
+        {"sale_id": sale_id, "payment_status": "paid"},
+        {"_id": 0}
+    )
+
+    if not transaction:
+        # Create a virtual transaction for manual payments
+        transaction = {
+            "id": f"MANUAL-{sale_id[:8]}",
+            "session_id": "Manual Payment",
+            "amount": sale.get("amount_received", 0),
+            "created_at": sale.get("approved_at", sale.get("created_at", datetime.now(timezone.utc))),
+            "payment_status": "paid"
+        }
+
+    products_col = db["products"]
+    product = await products_col.find_one({"id": sale.get("product_id")}, {"_id": 0, "name": 1})
+    if product:
+        sale["product_name"] = product.get("name", "N/A")
+
+    filename = os.path.join(RECEIPTS_DIR, f"receipt_sale_{sale_id[:8]}.pdf")
+    _generate_receipt_pdf(sale, transaction, filename)
+
+    receipt_name = f"LEAMSS_Receipt_{sale_id[:8].upper()}.pdf"
+    return FileResponse(filename, media_type="application/pdf", filename=receipt_name)

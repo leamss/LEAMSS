@@ -79,6 +79,7 @@ Build a comprehensive immigration services portal (LEAMSS) with role-based dashb
 - [x] **Idempotent Processing**: Same payment won't be processed twice
 - [x] **Commission Auto-Update**: Commission recalculated after each payment
 - [x] All 12 Stripe payment tests passing (iteration 28)
+- [x] **Payment Receipt PDF**: Branded PDF receipts with company header, client info, full fee breakdown (promo/discount), payment summary, and transaction details. Downloadable from client dashboard.
 
 ---
 
@@ -105,6 +106,8 @@ Build a comprehensive immigration services portal (LEAMSS) with role-based dashb
 - `POST /api/payments/create-checkout` — Initiate Stripe checkout
 - `GET /api/payments/status/{session_id}` — Poll payment status
 - `GET /api/payments/history/{sale_id}` — Transaction history
+- `GET /api/payments/receipt/{transaction_id}` — Download receipt for specific transaction
+- `GET /api/payments/receipt-by-sale/{sale_id}` — Download receipt for a sale
 - `POST /api/webhook/stripe` — Stripe webhook
 
 ## Key API Endpoints
