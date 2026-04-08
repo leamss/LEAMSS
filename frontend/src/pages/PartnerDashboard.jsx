@@ -331,9 +331,7 @@ const PartnerDashboard = () => {
       <aside className={`w-64 bg-white border-r border-slate-200 flex flex-col fixed h-screen z-40 transition-transform duration-200 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`} data-testid="sidebar">
         <div className="p-6 border-b border-slate-100">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-[#2a777a] flex items-center justify-center">
-              <span className="text-white font-bold text-lg">L</span>
-            </div>
+            <img src="/leamss-logo.png" alt="LEAMSS" className="h-10 w-10 rounded-lg object-contain" />
             <div>
               <h1 className="text-lg font-bold text-slate-800">LEAMSS</h1>
               <p className="text-xs text-slate-500">Partner Portal</p>

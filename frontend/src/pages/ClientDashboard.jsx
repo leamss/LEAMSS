@@ -83,6 +83,9 @@ const ClientDashboard = () => {
   const [proposals, setProposals] = useState([]);
   const [payingForSale, setPayingForSale] = useState(null);
   const [predictions, setPredictions] = useState({});
+  const [bulkFiles, setBulkFiles] = useState([]);
+  const [bulkUploading, setBulkUploading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const [loadingPrediction, setLoadingPrediction] = useState(null);
   const [docChecks, setDocChecks] = useState({});
 
@@ -259,23 +262,51 @@ const ClientDashboard = () => {
   };
 
   const handleBulkUpload = async (e) => {
-    const files = Array.from(e.target.files);
+    const files = Array.from(e?.target?.files || []);
+    if (!files.length) return;
+    // Stage files for type tagging before upload
+    const staged = files.map(f => ({ file: f, document_type: 'general', step_name: '' }));
+    setBulkFiles(prev => [...prev, ...staged]);
+    if (e?.target) e.target.value = '';
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const files = Array.from(e.dataTransfer.files);
     if (!files.length || !caseData) return;
-    
+    const staged = files.map(f => ({ file: f, document_type: 'general', step_name: '' }));
+    setBulkFiles(prev => [...prev, ...staged]);
+  };
+
+  const handleDragOver = (e) => { e.preventDefault(); setIsDragging(true); };
+  const handleDragLeave = (e) => { e.preventDefault(); setIsDragging(false); };
+
+  const updateBulkFileType = (index, field, value) => {
+    setBulkFiles(prev => prev.map((f, i) => i === index ? { ...f, [field]: value } : f));
+  };
+
+  const removeBulkFile = (index) => {
+    setBulkFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const submitBulkUpload = async () => {
+    if (!bulkFiles.length || !caseData) return;
+    setBulkUploading(true);
     const formData = new FormData();
-    files.forEach(f => formData.append('files', f));
+    bulkFiles.forEach(f => formData.append('files', f.file));
     formData.append('case_id', caseData.id);
-    formData.append('document_type', 'general');
-    
+    formData.append('document_types', JSON.stringify(bulkFiles.map(f => f.document_type)));
+    formData.append('step_names', JSON.stringify(bulkFiles.map(f => f.step_name)));
     try {
-      toast.info(`Uploading ${files.length} files...`);
       const res = await axios.post(`${API}/documents/bulk-upload`, formData, getAuthHeader());
       toast.success(res.data.message);
+      setBulkFiles([]);
       loadData();
     } catch (error) {
       toast.error('Bulk upload failed');
     }
-    e.target.value = '';
+    setBulkUploading(false);
   };
 
   const downloadDocument = async (docId, filename) => {
@@ -362,9 +393,7 @@ const ClientDashboard = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-14 md:h-16">
             <div className="flex items-center gap-2 md:gap-3">
-              <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-[#2a777a] to-[#236466] rounded-xl flex items-center justify-center shadow-lg">
-                <span className="text-white font-bold text-sm md:text-lg">L</span>
-              </div>
+              <img src="/leamss-logo.png" alt="LEAMSS" className="w-8 h-8 md:w-10 md:h-10 rounded-xl object-contain shadow-lg" />
               <div>
                 <h1 className="text-base md:text-xl font-bold bg-gradient-to-r from-[#2a777a] to-[#236466] bg-clip-text text-transparent">
                   LEAMSS Portal
@@ -976,26 +1005,121 @@ const ClientDashboard = () => {
 
               {/* My Documents Tab */}
               <TabsContent value="uploaded" className="space-y-6">
+                {/* Drag & Drop Bulk Upload Zone */}
                 <Card className="p-6 bg-white shadow-md border-0">
-                  <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                      <FolderOpen className="h-5 w-5 text-[#2a777a]" />
-                      All Uploaded Documents
-                      <Badge className="bg-[#2a777a]/10 text-[#2a777a] ml-2">{documents.length}</Badge>
+                      <Upload className="h-5 w-5 text-[#2a777a]" />
+                      Upload Documents
                     </h3>
                     <label className="cursor-pointer">
                       <input type="file" multiple className="hidden" onChange={handleBulkUpload} data-testid="bulk-upload-input" />
                       <span className="inline-flex items-center gap-2 px-4 py-2 bg-[#2a777a] text-white rounded-lg text-sm font-medium hover:bg-[#236466] transition-colors">
-                        <Upload className="h-4 w-4" /> Bulk Upload
+                        <Upload className="h-4 w-4" /> Browse Files
                       </span>
                     </label>
                   </div>
+
+                  {/* Drag and Drop Zone */}
+                  <div
+                    onDrop={handleDrop}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    data-testid="drag-drop-zone"
+                    className={`border-2 border-dashed rounded-xl p-8 text-center transition-all ${
+                      isDragging ? 'border-[#2a777a] bg-[#2a777a]/5 scale-[1.01]' : 'border-slate-300 bg-slate-50 hover:border-[#2a777a]/50'
+                    }`}
+                  >
+                    <FileUp className={`h-10 w-10 mx-auto mb-3 ${isDragging ? 'text-[#2a777a]' : 'text-slate-400'}`} />
+                    <p className="text-slate-600 font-medium">
+                      {isDragging ? 'Drop files here...' : 'Drag & drop files here'}
+                    </p>
+                    <p className="text-sm text-slate-400 mt-1">or click "Browse Files" above</p>
+                  </div>
+
+                  {/* Staged Files for Upload */}
+                  {bulkFiles.length > 0 && (
+                    <div className="mt-4 space-y-3" data-testid="bulk-staging-area">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-sm font-semibold text-slate-700">{bulkFiles.length} file(s) ready to upload</h4>
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="outline" onClick={() => setBulkFiles([])} data-testid="clear-bulk-files">
+                            Clear All
+                          </Button>
+                          <Button
+                            size="sm"
+                            className="bg-[#2a777a] hover:bg-[#236466]"
+                            onClick={submitBulkUpload}
+                            disabled={bulkUploading}
+                            data-testid="submit-bulk-upload"
+                          >
+                            {bulkUploading ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Uploading...</> : <><Upload className="h-4 w-4 mr-1" /> Upload All</>}
+                          </Button>
+                        </div>
+                      </div>
+                      {bulkFiles.map((item, idx) => (
+                        <div key={idx} className="flex items-center gap-3 bg-slate-50 rounded-lg p-3 border border-slate-200" data-testid={`staged-file-${idx}`}>
+                          <FileText className="h-5 w-5 text-[#2a777a] flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-slate-800 truncate">{item.file.name}</p>
+                            <p className="text-xs text-slate-400">{(item.file.size / 1024).toFixed(1)} KB</p>
+                          </div>
+                          <select
+                            value={item.document_type}
+                            onChange={e => updateBulkFileType(idx, 'document_type', e.target.value)}
+                            className="text-sm border border-slate-200 rounded-md px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-[#2a777a]"
+                            data-testid={`bulk-doc-type-${idx}`}
+                          >
+                            <option value="general">General</option>
+                            <option value="passport">Passport</option>
+                            <option value="photo">Photo</option>
+                            <option value="education">Education Certificate</option>
+                            <option value="work_experience">Work Experience</option>
+                            <option value="ielts">IELTS/Language Score</option>
+                            <option value="bank_statement">Bank Statement</option>
+                            <option value="medical">Medical Report</option>
+                            <option value="police_clearance">Police Clearance</option>
+                            <option value="birth_certificate">Birth Certificate</option>
+                            <option value="resume">Resume/CV</option>
+                            <option value="offer_letter">Offer Letter</option>
+                            <option value="sop">SOP</option>
+                            <option value="other">Other</option>
+                          </select>
+                          {caseData?.steps && (
+                            <select
+                              value={item.step_name}
+                              onChange={e => updateBulkFileType(idx, 'step_name', e.target.value)}
+                              className="text-sm border border-slate-200 rounded-md px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-[#2a777a]"
+                              data-testid={`bulk-step-${idx}`}
+                            >
+                              <option value="">Select Step</option>
+                              {caseData.steps.map(s => (
+                                <option key={s.step_name} value={s.step_name}>{s.step_name}</option>
+                              ))}
+                            </select>
+                          )}
+                          <Button size="sm" variant="ghost" className="text-red-500 hover:text-red-700 hover:bg-red-50 px-2" onClick={() => removeBulkFile(idx)} data-testid={`remove-file-${idx}`}>
+                            &times;
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </Card>
+
+                {/* Document List */}
+                <Card className="p-6 bg-white shadow-md border-0">
+                  <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2 mb-4">
+                    <FolderOpen className="h-5 w-5 text-[#2a777a]" />
+                    All Uploaded Documents
+                    <Badge className="bg-[#2a777a]/10 text-[#2a777a] ml-2">{documents.length}</Badge>
+                  </h3>
 
                   {documents.length === 0 ? (
                     <div className="text-center py-12 bg-slate-50 rounded-xl">
                       <FolderOpen className="h-12 w-12 text-slate-300 mx-auto mb-3" />
                       <p className="text-slate-600 font-medium">No documents uploaded yet</p>
-                      <p className="text-sm text-slate-500">Upload documents from the Workflow Steps tab</p>
+                      <p className="text-sm text-slate-500">Drag & drop files above or upload from Workflow Steps tab</p>
                     </div>
                   ) : (
                     <div className="overflow-x-auto">
@@ -1019,7 +1143,7 @@ const ClientDashboard = () => {
                                   <span className="font-medium text-slate-800">{doc.filename}</span>
                                 </div>
                               </td>
-                              <td className="py-3 px-4 text-sm text-slate-600">{doc.step_name}</td>
+                              <td className="py-3 px-4 text-sm text-slate-600">{doc.step_name || '-'}</td>
                               <td className="py-3 px-4 text-sm text-slate-600 capitalize">{doc.document_type}</td>
                               <td className="py-3 px-4 text-sm text-slate-600">
                                 {doc.uploaded_at ? new Date(doc.uploaded_at).toLocaleDateString() : 'N/A'}

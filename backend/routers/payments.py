@@ -263,7 +263,7 @@ def _generate_receipt_pdf(sale: dict, transaction: dict, filename: str):
     from reportlab.lib.pagesizes import A4
     from reportlab.lib import colors
     from reportlab.lib.units import mm
-    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, HRFlowable
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, HRFlowable, Image
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.enums import TA_CENTER, TA_RIGHT
 
@@ -283,9 +283,17 @@ def _generate_receipt_pdf(sale: dict, transaction: dict, filename: str):
 
     elements = []
 
-    # Header
-    elements.append(Paragraph("LEAMSS Immigration Services", company_style))
-    elements.append(Paragraph("Your Trusted Partner for Global Immigration Solutions", tagline_style))
+    # Logo Header
+    logo_path = "/app/backend/uploads/leamss-logo.png"
+    if os.path.exists(logo_path):
+        logo = Image(logo_path, width=180, height=80)
+        logo.hAlign = 'CENTER'
+        elements.append(logo)
+        elements.append(Spacer(1, 4))
+    else:
+        elements.append(Paragraph("LEAMSS Immigration Services", company_style))
+
+    elements.append(Paragraph("Ladhani Education & Migration Services Pvt. Ltd", tagline_style))
     elements.append(HRFlowable(width="100%", thickness=2, color=brand_color, spaceAfter=12))
     elements.append(Paragraph("PAYMENT RECEIPT", receipt_title))
     elements.append(Spacer(1, 8))
@@ -408,7 +416,7 @@ def _generate_receipt_pdf(sale: dict, transaction: dict, filename: str):
 
     # Footer
     elements.append(Paragraph("This is a system-generated receipt. No signature required.", small_style))
-    elements.append(Paragraph("For any queries, please contact support@leamss.com", small_style))
+    elements.append(Paragraph("Ladhani Education & Migration Services Pvt. Ltd | support@leamss.com", small_style))
     elements.append(Spacer(1, 4))
     elements.append(Paragraph(f"Generated on {datetime.now().strftime('%d %b %Y at %I:%M %p')}", small_style))
 

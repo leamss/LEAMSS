@@ -52,9 +52,11 @@ const Login = () => {
       >
         <div className="absolute inset-0 bg-slate-900/60" />
         <div className="relative z-10 flex flex-col justify-center p-12 text-white">
-          <Globe className="h-12 w-12 mb-4" />
-          <h1 className="text-4xl font-bold mb-4" style={{ fontFamily: 'Merriweather, serif' }}>
-            LEAMSS Immigration Portal
+          <div className="bg-white/95 rounded-2xl p-4 inline-block mb-6 backdrop-blur-sm shadow-xl">
+            <img src="/leamss-logo.png" alt="LEAMSS Logo" className="h-20 object-contain" />
+          </div>
+          <h1 className="text-3xl font-bold mb-4" style={{ fontFamily: 'Merriweather, serif' }}>
+            Ladhani Education & Migration Services
           </h1>
           <p className="text-lg text-slate-200">
             Streamline your immigration and visa consulting process with our comprehensive management system.

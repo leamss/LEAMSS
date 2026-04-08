@@ -18,7 +18,7 @@ def _generate_sales_pdf(sales_data, title, filename):
     from reportlab.lib.pagesizes import A4
     from reportlab.lib import colors
     from reportlab.lib.units import inch, mm
-    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
     doc = SimpleDocTemplate(filename, pagesize=A4, topMargin=30, bottomMargin=30)
@@ -27,7 +27,16 @@ def _generate_sales_pdf(sales_data, title, filename):
     subtitle_style = ParagraphStyle('SubTitle', parent=styles['Normal'], fontSize=10, textColor=colors.grey)
     elements = []
 
-    elements.append(Paragraph("LEAMSS Immigration Services", title_style))
+    # Logo Header
+    logo_path = "/app/backend/uploads/leamss-logo.png"
+    if os.path.exists(logo_path):
+        logo = Image(logo_path, width=160, height=70)
+        logo.hAlign = 'LEFT'
+        elements.append(logo)
+        elements.append(Spacer(1, 4))
+    else:
+        elements.append(Paragraph("LEAMSS Immigration Services", title_style))
+
     elements.append(Paragraph(title, styles['Heading2']))
     elements.append(Paragraph(f"Generated on: {datetime.now().strftime('%d %b %Y, %I:%M %p')}", subtitle_style))
     elements.append(Spacer(1, 15))

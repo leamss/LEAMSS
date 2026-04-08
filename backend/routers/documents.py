@@ -203,24 +203,41 @@ async def bulk_upload_documents(
     files: List[UploadFile] = File(...),
     case_id: str = Form(...),
     document_type: str = Form("general"),
+    document_types: str = Form(""),
+    step_names: str = Form(""),
     current_user: dict = Depends(get_current_user)
 ):
-    """Upload multiple documents at once"""
+    """Upload multiple documents at once with optional per-file types"""
+    import json as json_mod
     uploaded = []
     errors = []
-    
-    for file in files:
+
+    # Parse per-file metadata if provided
+    try:
+        type_list = json_mod.loads(document_types) if document_types else []
+    except Exception:
+        type_list = []
+    try:
+        step_list = json_mod.loads(step_names) if step_names else []
+    except Exception:
+        step_list = []
+
+    for i, file in enumerate(files):
         try:
             file_id = str(uuid.uuid4())
             file_ext = os.path.splitext(file.filename)[1]
             file_path = os.path.join(UPLOAD_DIR, f"{file_id}{file_ext}")
-            
+
             content = await file.read()
             with open(file_path, "wb") as f:
                 f.write(content)
-            
+
+            doc_type = type_list[i] if i < len(type_list) else document_type
+            step_name = step_list[i] if i < len(step_list) else ""
+
             doc = {
-                "id": file_id, "case_id": case_id, "document_type": document_type,
+                "id": file_id, "case_id": case_id, "document_type": doc_type,
+                "step_name": step_name,
                 "filename": file.filename, "file_path": file_path,
                 "file_size": len(content), "content_type": file.content_type,
                 "status": "pending", "uploaded_by": current_user["id"],
@@ -228,10 +245,10 @@ async def bulk_upload_documents(
                 "uploaded_at": datetime.now(timezone.utc)
             }
             await documents_col.insert_one(doc)
-            uploaded.append({"id": file_id, "filename": file.filename})
+            uploaded.append({"id": file_id, "filename": file.filename, "document_type": doc_type})
         except Exception as e:
             errors.append({"filename": file.filename, "error": str(e)})
-    
+
     if uploaded:
         case = await cases_col.find_one({"id": case_id}, {"_id": 0})
         if case and case.get("case_manager_id"):
@@ -240,7 +257,7 @@ async def bulk_upload_documents(
                 "document_upload", case_id)
         await log_activity(current_user["id"], current_user.get("name", ""), "bulk_uploaded", "document", case_id,
             f"Uploaded {len(uploaded)} documents")
-    
+
     return {
         "message": f"{len(uploaded)} documents uploaded successfully" + (f", {len(errors)} failed" if errors else ""),
         "uploaded": uploaded,
