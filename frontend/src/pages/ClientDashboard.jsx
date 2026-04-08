@@ -19,6 +19,7 @@ import {
   CreditCard, Loader2, IndianRupee, ExternalLink, TrendingUp, Brain, FileSearch
 } from 'lucide-react';
 import AIChatWidget from '@/components/AIChatWidget';
+import InfoSheetEditor from '@/components/InfoSheetEditor';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -1293,117 +1294,14 @@ const ClientDashboard = () => {
 
               {/* Information Sheet Tab */}
               <TabsContent value="info-sheet" className="space-y-6">
-                <Card className="p-6 bg-white shadow-md border-0" data-testid="info-sheet-card">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                      <User className="h-5 w-5 text-[#2a777a]" />
-                      My Information Sheet
-                    </h3>
-                    {/* Resume upload & auto-fill */}
-                    {caseData && (
-                      <div className="flex items-center gap-2">
-                        <label className="cursor-pointer">
-                          <input type="file" className="hidden" accept=".pdf,.doc,.docx,.txt" onChange={async (e) => {
-                            const file = e.target.files?.[0];
-                            if (!file) return;
-                            setExtractingResume(true);
-                            try {
-                              // First upload the document
-                              const formData = new FormData();
-                              formData.append('file', file);
-                              formData.append('case_id', caseData.id);
-                              formData.append('document_type', 'resume');
-                              const uploadRes = await axios.post(`${API}/documents/upload`, formData, {
-                                headers: { Authorization: `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'multipart/form-data' }
-                              });
-                              const docId = uploadRes.data?.id || uploadRes.data?.document_id;
-                              if (docId) {
-                                // Then extract and auto-fill
-                                const extractRes = await axios.post(
-                                  `${API}/ai-intel/extract-resume-to-infosheet/${caseData.id}?document_id=${docId}`,
-                                  {}, getAuthHeader()
-                                );
-                                toast.success(extractRes.data.message || `Extracted ${extractRes.data.fields_filled} fields!`);
-                                loadData();
-                              } else {
-                                toast.success('Document uploaded! Use AI extract to auto-fill.');
-                              }
-                            } catch (err) {
-                              toast.error(err.response?.data?.detail || 'Failed to extract. Try a clearer document.');
-                            } finally {
-                              setExtractingResume(false);
-                              e.target.value = '';
-                            }
-                          }} />
-                          <Button variant="outline" size="sm" className="text-[#2a777a] border-[#2a777a]" disabled={extractingResume} asChild>
-                            <span data-testid="upload-resume-btn">
-                              {extractingResume ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Upload className="h-4 w-4 mr-1" />}
-                              {extractingResume ? 'Extracting...' : 'Upload Resume & Auto-Fill'}
-                            </span>
-                          </Button>
-                        </label>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Completion bar */}
-                  {infoSheetCompletion.total_fields > 0 && (
-                    <div className="mb-4 p-3 rounded-lg bg-slate-50 border">
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className="text-slate-600">Information Completion</span>
-                        <span className={`font-semibold ${infoSheetCompletion.percentage === 100 ? 'text-emerald-600' : 'text-amber-600'}`}>
-                          {infoSheetCompletion.percentage}% ({infoSheetCompletion.filled_count}/{infoSheetCompletion.total_fields} fields)
-                        </span>
-                      </div>
-                      <div className="w-full bg-slate-200 rounded-full h-2">
-                        <div className={`h-2 rounded-full transition-all ${infoSheetCompletion.percentage === 100 ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${infoSheetCompletion.percentage}%` }} />
-                      </div>
-                      {infoSheetCompletion.missing_fields?.length > 0 && (
-                        <p className="text-xs text-red-500 mt-1">Missing: {infoSheetCompletion.missing_fields.map(f => f.replace(/_/g, ' ')).join(', ')}</p>
-                      )}
-                    </div>
-                  )}
-
-                  {infoSheet ? (
-                    <div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {(infoSheetRequiredFields.length > 0 ? infoSheetRequiredFields : Object.keys(infoSheet)).filter(key =>
-                          !['id', 'case_id', 'client_id', 'created_at', 'updated_at', '_id', 'required_fields', 'status', 'auto_filled_at', 'auto_filled_by', 'auto_filled_from', 'auto_filled_data'].includes(key)
-                        ).map((key) => {
-                          const value = infoSheet[key];
-                          const isMissing = !value || String(value).trim() === '' || String(value) === 'null';
-                          const isRequired = infoSheetRequiredFields.includes(key);
-                          return (
-                            <div key={key} className={`p-4 rounded-xl border shadow-sm transition-shadow ${
-                              isMissing && isRequired ? 'bg-red-50/50 border-red-200 ring-1 ring-red-100' : 'bg-gradient-to-br from-slate-50 to-white border-slate-100 hover:shadow-md'
-                            }`}>
-                              <p className="text-xs font-semibold uppercase tracking-wide mb-1 flex items-center gap-1">
-                                <span className="text-[#2a777a]">{key.replace(/_/g, ' ')}</span>
-                                {isRequired && <span className="text-red-500">*</span>}
-                              </p>
-                              {isMissing ? (
-                                <p className="text-sm text-red-400 italic font-medium">Required — please fill</p>
-                              ) : (
-                                <p className="font-medium text-slate-800 text-sm">{String(value)}</p>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                      {infoSheet.updated_at && (
-                        <p className="text-xs text-slate-400 text-right mt-4">
-                          Last updated: {new Date(infoSheet.updated_at).toLocaleString()}
-                        </p>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="text-center py-16 bg-gradient-to-br from-slate-50 to-white rounded-xl border border-dashed border-slate-200">
-                      <User className="h-14 w-14 text-slate-300 mx-auto mb-4" />
-                      <p className="text-slate-600 font-semibold text-lg">No information sheet submitted yet</p>
-                      <p className="text-sm text-slate-500 mt-2 max-w-sm mx-auto">Your case manager will request you to fill this out. You can upload a resume to auto-fill.</p>
-                    </div>
-                  )}
-                </Card>
+                <InfoSheetEditor
+                  caseData={caseData}
+                  API={API}
+                  getAuthHeader={getAuthHeader}
+                  onRefresh={loadData}
+                  extractingResume={extractingResume}
+                  setExtractingResume={setExtractingResume}
+                />
               </TabsContent>
 
               {/* Payments Tab */}

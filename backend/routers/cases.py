@@ -175,6 +175,12 @@ async def get_my_cases(current_user: dict = Depends(get_current_user)):
     return await _enrich_cases(cases)
 
 
+@router.get("/info-sheet-schema")
+async def get_info_sheet_schema(current_user: dict = Depends(get_current_user)):
+    """Return the complete information sheet field schema"""
+    return INFO_SHEET_SCHEMA
+
+
 @router.get("/{case_id}")
 async def get_case(case_id: str, current_user: dict = Depends(get_current_user)):
     case = await cases_col.find_one({"id": case_id}, {"_id": 0})
@@ -364,14 +370,11 @@ async def get_information_sheet(case_id: str, current_user: dict = Depends(get_c
     if not sheet:
         return {"exists": False, "data": {}, "required_fields": [], "completion": {}}
 
-    for f in ["created_at", "updated_at"]:
+    for f in list(sheet.keys()):
         if isinstance(sheet.get(f), datetime):
             sheet[f] = sheet[f].isoformat()
-    for f in ["date_of_birth", "passport_expiry"]:
-        if isinstance(sheet.get(f), datetime):
-            sheet[f] = sheet[f].strftime("%Y-%m-%d")
 
-    # Calculate field completion
+    # Calculate field completion from all section fields
     required_fields = sheet.get("required_fields", [])
     filled_count = 0
     missing_fields = []
@@ -396,6 +399,118 @@ async def get_information_sheet(case_id: str, current_user: dict = Depends(get_c
             "is_complete": completion_pct == 100
         }
     }
+
+
+# Complete field schema matching the Required Information Sheet document
+INFO_SHEET_SCHEMA = {
+    "sections": [
+        {
+            "id": "personal_details",
+            "title": "Personal Details",
+            "fields": [
+                {"key": "given_names", "label": "Given Name(s)", "type": "text", "required": True},
+                {"key": "family_name", "label": "Family Name", "type": "text", "required": True},
+                {"key": "other_names", "label": "Other Names (if any)", "type": "text"},
+                {"key": "gender", "label": "Gender", "type": "select", "options": ["Male", "Female", "Other"], "required": True},
+                {"key": "date_of_birth", "label": "Date of Birth", "type": "date", "required": True},
+                {"key": "country_of_birth", "label": "Country of Birth", "type": "text", "required": True},
+                {"key": "city_of_birth", "label": "City/Town of Birth", "type": "text"},
+                {"key": "address", "label": "Address for Communication", "type": "textarea", "required": True},
+                {"key": "email", "label": "Email ID", "type": "text", "required": True},
+                {"key": "contact_number", "label": "Contact Number", "type": "text", "required": True},
+                {"key": "alternative_number", "label": "Alternative Number", "type": "text"},
+                {"key": "aadhaar_number", "label": "Aadhaar Card Number", "type": "text"},
+                {"key": "nationality", "label": "Nationality", "type": "text", "required": True},
+                {"key": "passport_number", "label": "Passport No.", "type": "text", "required": True},
+                {"key": "passport_issue_date", "label": "Passport Issue Date", "type": "date", "required": True},
+                {"key": "passport_expiry_date", "label": "Passport Expiry Date", "type": "date", "required": True},
+                {"key": "passport_place_of_issue", "label": "Passport Place of Issue", "type": "text"},
+                {"key": "marital_status", "label": "Marital Status", "type": "select", "options": ["Single", "Married", "Divorced", "Widowed", "Separated"], "required": True},
+                {"key": "spouse_name", "label": "Spouse Name (if married)", "type": "text"},
+                {"key": "father_name", "label": "Father's Name", "type": "text", "required": True},
+                {"key": "mother_name", "label": "Mother's Name", "type": "text", "required": True},
+            ]
+        },
+        {
+            "id": "family_chart",
+            "title": "Family Chart",
+            "fields": [
+                {"key": "father_dob", "label": "Father's Date of Birth", "type": "date"},
+                {"key": "father_place_of_birth", "label": "Father's Place of Birth", "type": "text"},
+                {"key": "mother_dob", "label": "Mother's Date of Birth", "type": "date"},
+                {"key": "mother_place_of_birth", "label": "Mother's Place of Birth", "type": "text"},
+                {"key": "siblings_details", "label": "Siblings (Name, DOB, Place of Birth - one per line)", "type": "textarea"},
+                {"key": "date_of_marriage", "label": "Date of Marriage", "type": "date"},
+                {"key": "spouse_dob", "label": "Spouse Date of Birth", "type": "date"},
+                {"key": "spouse_place_of_birth", "label": "Spouse Place of Birth", "type": "text"},
+                {"key": "spouse_passport_number", "label": "Spouse Passport Number", "type": "text"},
+                {"key": "spouse_passport_issue_date", "label": "Spouse Passport Issue Date", "type": "date"},
+                {"key": "spouse_passport_expiry_date", "label": "Spouse Passport Expiry Date", "type": "date"},
+                {"key": "spouse_passport_place", "label": "Spouse Passport Place of Issue", "type": "text"},
+            ]
+        },
+        {
+            "id": "dependent_children",
+            "title": "Dependent Children",
+            "repeatable": True, "max_entries": 4, "entry_prefix": "child",
+            "entry_fields": [
+                {"key": "name", "label": "Child Full Name", "type": "text"},
+                {"key": "dob", "label": "Date of Birth", "type": "date"},
+                {"key": "gender", "label": "Gender", "type": "select", "options": ["Male", "Female"]},
+                {"key": "place_of_birth", "label": "Place of Birth", "type": "text"},
+                {"key": "passport_number", "label": "Passport Number", "type": "text"},
+                {"key": "passport_issue_date", "label": "Passport Issue Date", "type": "date"},
+                {"key": "passport_expiry_date", "label": "Passport Expiry Date", "type": "date"},
+                {"key": "migrating", "label": "Migrating with you?", "type": "select", "options": ["Yes", "No"]},
+            ]
+        },
+        {
+            "id": "migrating_dependents",
+            "title": "Migrating Dependents (Spouse & Children)",
+            "repeatable": True, "max_entries": 5, "entry_prefix": "dependent",
+            "entry_fields": [
+                {"key": "full_name", "label": "Full Name", "type": "text"},
+                {"key": "relation", "label": "Relation with Main Applicant", "type": "text"},
+                {"key": "gender", "label": "Gender", "type": "select", "options": ["Male", "Female"]},
+                {"key": "migrating_with_you", "label": "Migrating with you?", "type": "select", "options": ["Yes", "No"]},
+                {"key": "residing_country", "label": "Presently Residing in Country", "type": "text"},
+                {"key": "resident_or_citizen", "label": "Permanent Resident or Citizen", "type": "text"},
+                {"key": "postal_code", "label": "Postal Code", "type": "text"},
+            ]
+        },
+        {
+            "id": "qualifications",
+            "title": "Qualifications",
+            "repeatable": True, "max_entries": 4, "entry_prefix": "qualification",
+            "entry_fields": [
+                {"key": "name", "label": "Qualification Name", "type": "text"},
+                {"key": "field_of_study", "label": "Major Field of Study", "type": "text"},
+                {"key": "awarding_body", "label": "Awarding Body", "type": "text"},
+                {"key": "institute_name", "label": "Institute Name", "type": "text"},
+                {"key": "institute_address", "label": "Institute Address", "type": "text"},
+                {"key": "course_length", "label": "Course Length", "type": "text"},
+                {"key": "start_date", "label": "Course Start Date", "type": "date"},
+                {"key": "end_date", "label": "Course End Date", "type": "date"},
+                {"key": "award_date", "label": "Course Awarded Date", "type": "date"},
+                {"key": "study_mode", "label": "Full Time / Part Time", "type": "select", "options": ["Full Time", "Part Time"]},
+            ]
+        },
+        {
+            "id": "employment",
+            "title": "Employment History",
+            "repeatable": True, "max_entries": 4, "entry_prefix": "employment",
+            "entry_fields": [
+                {"key": "business_name", "label": "Business/Company Name", "type": "text"},
+                {"key": "address", "label": "Employment Address", "type": "text"},
+                {"key": "website", "label": "Employer Website", "type": "text"},
+                {"key": "job_title", "label": "Job Title", "type": "text"},
+                {"key": "start_date", "label": "Start Date", "type": "date"},
+                {"key": "end_date", "label": "End Date (leave blank if current)", "type": "date"},
+                {"key": "working_hours", "label": "Working Hours (per week)", "type": "text"},
+            ]
+        },
+    ]
+}
 
 
 @router.post("/{case_id}/information-sheet")

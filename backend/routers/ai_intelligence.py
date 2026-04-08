@@ -532,59 +532,134 @@ async def extract_resume_to_infosheet(case_id: str, document_id: str, current_us
 
     content = _read_file_content(file_path, doc.get("filename", ""))
 
-    prompt = f"""Extract ALL personal and professional information from this document for an immigration application.
+    prompt = f"""Extract ALL personal, educational, and professional information from this document for an immigration application.
+IMPORTANT: Extract COMPLETE data — full phone numbers (all digits), full addresses, complete dates.
 
 Document: {doc.get('filename', '')}
 Content:
-{content[:6000]}
+{content[:8000]}
 
-Return ONLY valid JSON with these fields (use null for unknown):
+Return ONLY valid JSON with these fields (use null for fields you cannot find):
 {{
-    "full_name": "string",
+    "given_names": "first and middle names",
+    "family_name": "last/surname",
+    "other_names": "any alternative names or null",
+    "gender": "Male/Female",
     "date_of_birth": "YYYY-MM-DD",
-    "gender": "male/female",
+    "country_of_birth": "string",
+    "city_of_birth": "string",
+    "address": "full communication address with city, state, pin code",
+    "email": "complete email address",
+    "contact_number": "COMPLETE phone number with country code (all digits)",
+    "alternative_number": "COMPLETE alternative number or null",
+    "aadhaar_number": "12 digit aadhaar or null",
     "nationality": "string",
     "passport_number": "string",
-    "passport_expiry": "YYYY-MM-DD",
-    "address": "full address string",
-    "phone": "string",
-    "email": "string",
-    "education_level": "high_school/bachelors/masters/phd",
-    "occupation": "string",
-    "employer": "string",
-    "marital_status": "single/married/divorced/widowed",
-    "work_experience_years": number,
+    "passport_issue_date": "YYYY-MM-DD or null",
+    "passport_expiry_date": "YYYY-MM-DD or null",
+    "passport_place_of_issue": "string or null",
+    "marital_status": "Single/Married/Divorced/Widowed",
+    "spouse_name": "string or null",
+    "father_name": "string",
+    "mother_name": "string or null",
+    "qualifications": [
+        {{
+            "name": "qualification name (e.g., B.Tech, MBA)",
+            "field_of_study": "major/specialization",
+            "institute_name": "college/university name",
+            "start_date": "YYYY-MM-DD or null",
+            "end_date": "YYYY-MM-DD or null"
+        }}
+    ],
+    "employment_history": [
+        {{
+            "business_name": "company name",
+            "job_title": "designation/role",
+            "start_date": "YYYY-MM-DD or null",
+            "end_date": "YYYY-MM-DD or null (null if current job)",
+            "address": "company address or null"
+        }}
+    ],
+    "skills": "comma separated skills",
     "language_test_type": "IELTS/PTE/TOEFL or null",
-    "language_score": "score or null",
-    "skills": "comma separated skills"
-}}"""
+    "language_score": "score or null"
+}}
 
-    result = await _call_gpt(prompt, "You are an expert data extractor. Extract accurately from documents. Return ONLY valid JSON.")
+RULES:
+- Phone numbers MUST include ALL digits (e.g., +91-9876543210 or 9876543210). Never truncate.
+- Dates must be YYYY-MM-DD format.
+- Extract education details from ALL degrees/qualifications mentioned.
+- Extract ALL work experiences mentioned.
+- If the document mentions name as "John Doe", given_names="John", family_name="Doe"."""
+
+    result = await _call_gpt(prompt, "You are an expert data extractor for immigration applications. Extract COMPLETE and ACCURATE data from documents. Return ONLY valid JSON, no markdown.")
 
     import json
     try:
-        extracted = json.loads(result.strip().strip('```json').strip('```'))
+        cleaned = result.strip()
+        if cleaned.startswith('```'):
+            cleaned = cleaned.split('\n', 1)[1] if '\n' in cleaned else cleaned[3:]
+            cleaned = cleaned.rsplit('```', 1)[0]
+        extracted = json.loads(cleaned)
     except Exception:
         extracted = {}
 
     if not extracted:
         return {"success": False, "message": "Could not extract data from this document. Try a clearer document.", "extracted": {}}
 
-    # Auto-fill info sheet — only fill empty fields
+    # Auto-fill info sheet — map extracted data to schema fields
     info_sheets_col = db["information_sheets"]
     existing = await info_sheets_col.find_one({"case_id": case_id}, {"_id": 0})
 
     fields_filled = 0
     update_data = {}
-    for key, value in extracted.items():
-        if value and str(value).strip() and str(value) != "null":
+
+    # Map flat fields
+    flat_keys = ["given_names", "family_name", "other_names", "gender", "date_of_birth",
+                 "country_of_birth", "city_of_birth", "address", "email", "contact_number",
+                 "alternative_number", "aadhaar_number", "nationality", "passport_number",
+                 "passport_issue_date", "passport_expiry_date", "passport_place_of_issue",
+                 "marital_status", "spouse_name", "father_name", "mother_name",
+                 "skills", "language_test_type", "language_score"]
+
+    for key in flat_keys:
+        value = extracted.get(key)
+        if value and str(value).strip() and str(value).strip().lower() != "null":
             if not existing or not existing.get(key) or str(existing.get(key, "")).strip() in ["", "null", "None"]:
-                update_data[key] = value
+                update_data[key] = str(value).strip()
                 fields_filled += 1
+
+    # Map qualifications array to schema format
+    quals = extracted.get("qualifications", [])
+    if isinstance(quals, list):
+        for i, q in enumerate(quals[:4]):
+            if isinstance(q, dict):
+                prefix = f"qualification_{i+1}"
+                for qk, qv in q.items():
+                    if qv and str(qv).strip().lower() != "null":
+                        full_key = f"{prefix}_{qk}"
+                        if not existing or not existing.get(full_key):
+                            update_data[full_key] = str(qv).strip()
+                            fields_filled += 1
+
+    # Map employment array to schema format
+    emps = extracted.get("employment_history", [])
+    if isinstance(emps, list):
+        for i, emp in enumerate(emps[:4]):
+            if isinstance(emp, dict):
+                prefix = f"employment_{i+1}"
+                for ek, ev in emp.items():
+                    if ev and str(ev).strip().lower() != "null":
+                        full_key = f"{prefix}_{ek}"
+                        if not existing or not existing.get(full_key):
+                            update_data[full_key] = str(ev).strip()
+                            fields_filled += 1
 
     if update_data:
         update_data["auto_filled_at"] = datetime.now(timezone.utc).isoformat()
         update_data["auto_filled_from"] = document_id
+        update_data["case_id"] = case_id
+        update_data["client_id"] = case.get("client_id")
         await info_sheets_col.update_one(
             {"case_id": case_id},
             {"$set": update_data},
