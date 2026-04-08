@@ -114,8 +114,10 @@ Build a comprehensive immigration services portal (LEAMSS) with role-based dashb
 - [ ] Auto payment reminder scheduling (cron-like, without manual trigger)
 
 ### Information Sheet Rewrite (DONE — Dec 2025)
-- [x] **Complete schema matching actual Required Information Sheet document**: 6 sections — Personal Details (21 fields), Family Chart (12), Dependent Children (repeatable x4), Migrating Dependents (repeatable x5), Qualifications (repeatable x4), Employment History (repeatable x4)
+- [x] **Complete schema matching actual Required Information Sheet document**: 6 sections — Personal Details (21 fields), Family Chart (12), Dependent Children (repeatable, unlimited), Migrating Dependents (repeatable, unlimited), Qualifications (repeatable, unlimited), Employment History (repeatable, unlimited)
 - [x] **All fields are EDITABLE**: Text inputs, date pickers, dropdown selectors, textareas
+- [x] **Unlimited entries**: Repeatable sections (Qualifications, Employment, Children, Dependents) have no hard limit — users can add as many as needed
+- [x] **OCR extraction enhanced**: Extracts ALL qualifications and employment without limiting to first 4; full phone numbers enforced
 - [x] **Collapsible sections**: Personal Details auto-expanded, rest collapsed for clean UX
 - [x] **Repeatable entries**: Add/remove children, dependents, qualifications, employment entries (up to 4 each)
 - [x] **Save All Changes**: Persists to MongoDB with change history

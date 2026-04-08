@@ -452,7 +452,7 @@ INFO_SHEET_SCHEMA = {
         {
             "id": "dependent_children",
             "title": "Dependent Children",
-            "repeatable": True, "max_entries": 4, "entry_prefix": "child",
+            "repeatable": True, "max_entries": 20, "entry_prefix": "child",
             "entry_fields": [
                 {"key": "name", "label": "Child Full Name", "type": "text"},
                 {"key": "dob", "label": "Date of Birth", "type": "date"},
@@ -467,7 +467,7 @@ INFO_SHEET_SCHEMA = {
         {
             "id": "migrating_dependents",
             "title": "Migrating Dependents (Spouse & Children)",
-            "repeatable": True, "max_entries": 5, "entry_prefix": "dependent",
+            "repeatable": True, "max_entries": 20, "entry_prefix": "dependent",
             "entry_fields": [
                 {"key": "full_name", "label": "Full Name", "type": "text"},
                 {"key": "relation", "label": "Relation with Main Applicant", "type": "text"},
@@ -481,7 +481,7 @@ INFO_SHEET_SCHEMA = {
         {
             "id": "qualifications",
             "title": "Qualifications",
-            "repeatable": True, "max_entries": 4, "entry_prefix": "qualification",
+            "repeatable": True, "max_entries": 20, "entry_prefix": "qualification",
             "entry_fields": [
                 {"key": "name", "label": "Qualification Name", "type": "text"},
                 {"key": "field_of_study", "label": "Major Field of Study", "type": "text"},
@@ -498,7 +498,7 @@ INFO_SHEET_SCHEMA = {
         {
             "id": "employment",
             "title": "Employment History",
-            "repeatable": True, "max_entries": 4, "entry_prefix": "employment",
+            "repeatable": True, "max_entries": 20, "entry_prefix": "employment",
             "entry_fields": [
                 {"key": "business_name", "label": "Business/Company Name", "type": "text"},
                 {"key": "address", "label": "Employment Address", "type": "text"},

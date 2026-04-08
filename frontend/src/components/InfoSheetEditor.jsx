@@ -96,27 +96,27 @@ const InfoSheetEditor = ({ caseData, API, getAuthHeader, onRefresh, extractingRe
     setExpandedSections(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
-  // Get count of repeatable entries
+  // Get count of repeatable entries — scans ALL existing data, no upper limit
   const getEntryCount = (section) => {
-    let count = 0;
-    for (let i = 1; i <= (section.max_entries || 4); i++) {
+    let maxFound = 0;
+    const maxLimit = section.max_entries || 20;
+    // Scan up to a reasonable high number to find all existing entries
+    for (let i = 1; i <= Math.max(maxLimit, 50); i++) {
       const prefix = `${section.entry_prefix}_${i}`;
       const hasData = section.entry_fields.some(f => {
         const val = formData[`${prefix}_${f.key}`];
         return val && String(val).trim();
       });
-      if (hasData) count = i;
+      if (hasData) maxFound = i;
     }
-    return Math.max(count, 1);
+    return Math.max(maxFound, 1);
   };
 
   const addEntry = (section) => {
     const currentCount = getEntryCount(section);
-    if (currentCount < (section.max_entries || 4)) {
-      // Just trigger re-render by touching first field of new entry
-      const prefix = `${section.entry_prefix}_${currentCount + 1}`;
-      updateField(`${prefix}_${section.entry_fields[0].key}`, '');
-    }
+    // Always allow adding — no hard limit
+    const prefix = `${section.entry_prefix}_${currentCount + 1}`;
+    updateField(`${prefix}_${section.entry_fields[0].key}`, '');
   };
 
   const removeEntry = (section, index) => {
@@ -280,11 +280,10 @@ const InfoSheetEditor = ({ caseData, API, getAuthHeader, onRefresh, extractingRe
                       </div>
                     );
                   })}
-                  {getEntryCount(section) < (section.max_entries || 4) && (
-                    <Button variant="outline" size="sm" className="text-[#2a777a] border-[#2a777a]" onClick={() => addEntry(section)} data-testid={`add-${section.entry_prefix}`}>
-                      <Plus className="h-4 w-4 mr-1" /> Add {section.title.replace(/s$/, '')}
-                    </Button>
-                  )}
+                  {/* Always show Add button */}
+                  <Button variant="outline" size="sm" className="text-[#2a777a] border-[#2a777a]" onClick={() => addEntry(section)} data-testid={`add-${section.entry_prefix}`}>
+                    <Plus className="h-4 w-4 mr-1" /> Add {section.title.replace(/s$/, '').replace(' History', '')}
+                  </Button>
                 </div>
               )}
             </div>

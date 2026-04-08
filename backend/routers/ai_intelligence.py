@@ -588,8 +588,8 @@ Return ONLY valid JSON with these fields (use null for fields you cannot find):
 RULES:
 - Phone numbers MUST include ALL digits (e.g., +91-9876543210 or 9876543210). Never truncate.
 - Dates must be YYYY-MM-DD format.
-- Extract education details from ALL degrees/qualifications mentioned.
-- Extract ALL work experiences mentioned.
+- Extract ALL education/qualifications mentioned — do NOT limit to 2 or 3. If someone has 5 degrees, list all 5.
+- Extract ALL work experiences mentioned — do NOT limit. If someone worked at 10 companies, list all 10.
 - If the document mentions name as "John Doe", given_names="John", family_name="Doe"."""
 
     result = await _call_gpt(prompt, "You are an expert data extractor for immigration applications. Extract COMPLETE and ACCURATE data from documents. Return ONLY valid JSON, no markdown.")
@@ -629,10 +629,10 @@ RULES:
                 update_data[key] = str(value).strip()
                 fields_filled += 1
 
-    # Map qualifications array to schema format
+    # Map qualifications array to schema format (no limit)
     quals = extracted.get("qualifications", [])
     if isinstance(quals, list):
-        for i, q in enumerate(quals[:4]):
+        for i, q in enumerate(quals):
             if isinstance(q, dict):
                 prefix = f"qualification_{i+1}"
                 for qk, qv in q.items():
@@ -642,10 +642,10 @@ RULES:
                             update_data[full_key] = str(qv).strip()
                             fields_filled += 1
 
-    # Map employment array to schema format
+    # Map employment array to schema format (no limit)
     emps = extracted.get("employment_history", [])
     if isinstance(emps, list):
-        for i, emp in enumerate(emps[:4]):
+        for i, emp in enumerate(emps):
             if isinstance(emp, dict):
                 prefix = f"employment_{i+1}"
                 for ek, ev in emp.items():
