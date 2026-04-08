@@ -113,6 +113,19 @@ Build a comprehensive immigration services portal (LEAMSS) with role-based dashb
 - [ ] Real email service integration (SendGrid/Resend — replace mock)
 - [ ] Auto payment reminder scheduling (cron-like, without manual trigger)
 
+### AI Chatbot — Full Workflow Context (DONE — Dec 2025)
+- [x] **Enhanced context**: Chat now includes case step details (name + status), document counts (uploaded/approved/pending), expiry alerts, info sheet completion, payment status
+- [x] **Contextual responses**: AI references actual step names, document counts, and expiry dates in answers
+- [x] **Session persistence**: Chat history maintained across messages via session_id
+- [x] All 18 tests passing (iteration 35)
+
+### Info Sheet PDF Export (DONE — Dec 2025)
+- [x] **Branded PDF**: LEAMSS logo, all 6 sections organized with field-value tables
+- [x] **API**: `GET /api/reports/export/info-sheet/{case_id}` returns downloadable PDF (135KB with logo)
+- [x] **Frontend**: "Export PDF" button in My Info tab header
+- [x] **Content**: Personal Details, Family Chart, Children, Dependents, Qualifications (unlimited), Employment (unlimited)
+- [x] All tests passing (iteration 35)
+
 ### Information Sheet Rewrite (DONE — Dec 2025)
 - [x] **Complete schema matching actual Required Information Sheet document**: 6 sections — Personal Details (21 fields), Family Chart (12), Dependent Children (repeatable, unlimited), Migrating Dependents (repeatable, unlimited), Qualifications (repeatable, unlimited), Employment History (repeatable, unlimited)
 - [x] **All fields are EDITABLE**: Text inputs, date pickers, dropdown selectors, textareas
