@@ -92,6 +92,27 @@ const InfoSheetEditor = ({ caseData, API, getAuthHeader, onRefresh, extractingRe
     }
   };
 
+  const handleExportPDF = async () => {
+    if (!caseData) return;
+    try {
+      const res = await axios.get(`${API}/reports/export/info-sheet/${caseData.id}`, {
+        ...getAuthHeader(),
+        responseType: 'blob'
+      });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `LEAMSS_InfoSheet_${caseData.case_id || ''}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success('Info Sheet PDF downloaded!');
+    } catch (e) {
+      toast.error('Failed to export PDF. Save your data first.');
+    }
+  };
+
   const toggleSection = (id) => {
     setExpandedSections(prev => ({ ...prev, [id]: !prev[id] }));
   };
@@ -194,6 +215,9 @@ const InfoSheetEditor = ({ caseData, API, getAuthHeader, onRefresh, extractingRe
             <p className="text-sm text-slate-500 mt-1">Fill all sections below. Upload resume to auto-fill fields.</p>
           </div>
           <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={handleExportPDF} data-testid="export-info-pdf-btn">
+              <FileText className="h-4 w-4 mr-1" /> Export PDF
+            </Button>
             <label className="cursor-pointer">
               <input type="file" className="hidden" accept=".pdf,.doc,.docx,.txt" onChange={handleResumeUpload} />
               <Button variant="outline" size="sm" className="text-[#2a777a] border-[#2a777a]" disabled={extractingResume} asChild>

@@ -1,0 +1,80 @@
+{
+  "summary": "Iteration 35 - AI Chat with Full Workflow Context & Info Sheet PDF Export. All 18 backend tests passed (100%). All frontend features verified working. AI Chat returns step names, document counts, expiry alerts. Info Sheet PDF export returns 135KB branded PDF with logo.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration35_ai_chat_pdf.py",
+    "/app/test_reports/pytest/pytest_iteration35.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "AI Chat endpoint at /api/ai-intel/chat correctly fetches full workflow context: case_steps, documents (counts + expiry), information_sheets, sales (payment status)",
+    "AI response includes actual step names (Profile Creation, IELTS Preparation), document counts (19 uploaded, 5 approved, 13 pending), and expiry alerts",
+    "Chat session persistence works correctly - session_id is preserved across messages",
+    "Info Sheet PDF export at /api/reports/export/info-sheet/{case_id} returns 135KB PDF with LEAMSS logo",
+    "PDF generation uses reportlab with Image for logo, includes all 6 sections: Personal Details, Family Chart, Dependent Children, Migrating Dependents, Qualifications, Employment History",
+    "InfoSheetEditor component shows Export PDF button next to Upload Resume and Save All Changes",
+    "Repeatable sections (Qualifications, Employment) correctly show all 6 entries with no upper limit",
+    "Add Qualification and Add Employment buttons always visible"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration35_ai_chat_pdf.py"
+  ],
+  "success_rate": {
+    "backend": "100% (18/18 tests passed)",
+    "frontend": "100% (all features verified)"
+  },
+  "test_credentials": {
+    "admin": "admin@leamss.com / Admin@123",
+    "case_manager": "manager@leamss.com / Manager@123",
+    "client": "client@leamss.com / Client@123"
+  },
+  "seed_data_creation": "Test data already exists: 6 qualifications and 6 employment entries in client's info sheet",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration 35 tested P1 (AI Chat with workflow context) and P2 (Info Sheet PDF export). ALL PASSED: (1) POST /api/ai-intel/chat - AI responds with specific case step info (Profile Creation, IELTS Preparation), document counts (19 uploaded, 5 approved, 13 pending), and expiry alerts (IELTS expired, Medical expiring in 14 days), (2) Chat session persists with session_id across messages, (3) GET /api/reports/export/info-sheet/{case_id} - Returns 135KB PDF with LEAMSS logo and all 6 sections, (4) Frontend My Info tab shows Export PDF button, Upload Resume button, Save All Changes button, (5) All 6 collapsible sections visible and expandable, (6) Qualifications section shows 6 entries with Add Qualification button always visible, (7) Employment section shows 6 entries with Add Employment button always visible. Client case_id: cb09cf65-9a0c-47c6-8585-bace5da8c221.",
+  "features_tested": {
+    "backend_apis": {
+      "health_endpoint": "PASS - Returns healthy with database connected",
+      "auth_login_admin": "PASS - Admin login works",
+      "auth_login_manager": "PASS - Case Manager login works",
+      "auth_login_client": "PASS - Client login works",
+      "ai_chat_returns_step_info": "PASS - Response mentions step names (IELTS Preparation, Profile Creation)",
+      "ai_chat_returns_document_counts": "PASS - Response mentions 19 uploaded, 5 approved, 13 pending",
+      "ai_chat_returns_expiry_alerts": "PASS - Response mentions IELTS expired, Medical expiring",
+      "ai_chat_session_persistence": "PASS - Session ID preserved across messages",
+      "ai_chat_mentions_actual_step_names": "PASS - Response includes Profile Creation, Document Collection, IELTS Preparation",
+      "info_sheet_pdf_export_returns_pdf": "PASS - Returns application/pdf content-type",
+      "info_sheet_pdf_size_over_100kb": "PASS - PDF is 135889 bytes (>100KB, includes logo)",
+      "info_sheet_pdf_contains_pdf_header": "PASS - Valid PDF header (%PDF-)",
+      "info_sheet_pdf_not_found_for_invalid_case": "PASS - Returns 404 for invalid case",
+      "info_sheet_has_personal_details": "PASS - Has given_names, family_name, gender, date_of_birth, email",
+      "info_sheet_has_qualifications": "PASS - Has 6 qualification entries",
+      "info_sheet_has_employment": "PASS - Has 6 employment entries",
+      "info_sheet_schema_has_6_sections": "PASS - Returns 6 sections with correct IDs",
+      "repeatable_sections_have_entry_fields": "PASS - Repeatable sections have entry_fields and entry_prefix"
+    },
+    "frontend_client_dashboard": {
+      "my_info_tab": "PASS - Tab visible and clickable",
+      "export_pdf_button": "PASS - 'Export PDF' button visible next to Upload Resume and Save All Changes",
+      "upload_resume_button": "PASS - 'Upload Resume & Auto-Fill' button visible",
+      "save_all_changes_button": "PASS - 'Save All Changes' button visible",
+      "6_collapsible_sections": "PASS - All 6 sections visible with data-testid attributes",
+      "qualifications_section_6_entries": "PASS - Shows 6 qualification entries (#1-#6)",
+      "employment_section_6_entries": "PASS - Shows 6 employment entries (#1-#6)",
+      "add_qualification_button": "PASS - Always visible, allows adding more entries",
+      "add_employment_button": "PASS - Always visible, allows adding more entries"
+    }
+  },
+  "mocked_services": {
+    "email_service": "MOCKED - In-app notifications only, no real email sent",
+    "ai_llm": "Uses Emergent LLM Key (GPT-5.2) for AI Chat responses"
+  }
+}

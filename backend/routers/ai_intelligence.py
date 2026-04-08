@@ -18,6 +18,8 @@ users_col = db["users"]
 products_col = db["products"]
 workflow_steps_col = db["workflow_steps"]
 chat_history_col = db["ai_chat_history"]
+case_steps_col = db["case_steps"]
+information_sheets_col = db["information_sheets"]
 
 EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
 
@@ -348,7 +350,7 @@ class ChatRequest(BaseModel):
 
 @router.post("/chat")
 async def ai_chat(request: ChatRequest, current_user: dict = Depends(get_current_user)):
-    """AI Chat Assistant for client queries — visa status, requirements, process"""
+    """AI Chat Assistant — full workflow-aware context"""
     session_id = request.session_id or str(uuid.uuid4())
 
     # Get user context
@@ -356,13 +358,56 @@ async def ai_chat(request: ChatRequest, current_user: dict = Depends(get_current
         {"client_id": current_user["id"]}, {"_id": 0}
     ).to_list(10) if current_user["role"] == "client" else []
 
-    # Enrich case info
+    # Enrich case info with full workflow context
     case_summaries = []
     for c in user_cases:
         product = await products_col.find_one({"id": c.get("product_id")}, {"_id": 0, "name": 1})
-        case_summaries.append(
-            f"Case {c.get('case_id','?')}: {product.get('name','?') if product else '?'} | Status: {c.get('status','?')} | Step: {c.get('current_step','?')}"
-        )
+        product_name = product.get('name', '?') if product else '?'
+
+        # Get step details
+        steps = await case_steps_col.find({"case_id": c["id"]}, {"_id": 0}).sort("step_order", 1).to_list(20)
+        step_summary = ", ".join([f"{s.get('step_name','?')}({s.get('status','?')})" for s in steps[:6]])
+
+        # Get document counts
+        docs = await documents_col.find({"case_id": c["id"]}, {"_id": 0, "document_type": 1, "status": 1, "expiry_date": 1}).to_list(100)
+        doc_total = len(docs)
+        doc_approved = len([d for d in docs if d.get("status") == "approved"])
+        doc_pending = len([d for d in docs if d.get("status") == "pending"])
+
+        # Expiry alerts
+        now = datetime.now(timezone.utc)
+        expiring = []
+        for d in docs:
+            exp = d.get("expiry_date")
+            if isinstance(exp, datetime):
+                if exp.tzinfo is None:
+                    exp = exp.replace(tzinfo=timezone.utc)
+                days = (exp - now).days
+                if days <= 30:
+                    expiring.append(f"{d.get('document_type','doc')}({days}d)")
+
+        # Info sheet completion
+        info_sheet = await information_sheets_col.find_one({"case_id": c["id"]}, {"_id": 0})
+        info_status = "Not started"
+        if info_sheet:
+            req = info_sheet.get("required_fields", [])
+            filled = sum(1 for f in req if info_sheet.get(f) and str(info_sheet.get(f, "")).strip() not in ["", "null"])
+            info_status = f"{filled}/{len(req)} fields filled" if req else "Submitted"
+
+        # Payment status
+        sale = await sales_col.find_one({"case_id": c["id"]}, {"_id": 0, "payment_status": 1, "total_fee": 1})
+        pay_status = "N/A"
+        if sale:
+            pay_status = f"{sale.get('payment_status', 'pending')} (Fee: ${sale.get('total_fee', 0)})"
+
+        summary = f"""Case {c.get('case_id','?')}: {product_name}
+  Status: {c.get('status','?')} | Current Step: {c.get('current_step','?')} (Step {c.get('current_step_order',1)})
+  Steps: {step_summary}
+  Documents: {doc_total} uploaded ({doc_approved} approved, {doc_pending} pending)
+  {'Expiring soon: ' + ', '.join(expiring) if expiring else 'No expiry alerts'}
+  Info Sheet: {info_status}
+  Payment: {pay_status}"""
+        case_summaries.append(summary)
 
     # Get recent chat history for context
     history = await chat_history_col.find(
@@ -376,24 +421,32 @@ async def ai_chat(request: ChatRequest, current_user: dict = Depends(get_current
     case_info = "\n".join(case_summaries) if case_summaries else "No active cases found."
 
     # Build context-aware prompt
-    system_msg = f"""You are the LEAMSS Immigration Services AI Assistant. You help clients with:
-- Visa status inquiries and case updates
-- Document requirements for different immigration programs
-- Immigration process explanations
-- General immigration queries
-- Fee and payment queries
+    system_msg = f"""You are the LEAMSS Immigration Services AI Assistant. You have full access to the client's case data.
 
 Current user: {current_user.get('name', 'Client')} (Role: {current_user['role']})
-Active Cases:
+
+Active Cases with Full Details:
 {case_info}
+
+You can help with:
+- Case status, step progress, what's next to complete
+- Document requirements per step, which docs are pending/approved
+- Document expiry alerts and renewal guidance
+- Info sheet completion status
+- Payment status and fee queries
+- General immigration process queries (Canada PR, Work Permits, Student Visa, etc.)
+- IELTS/PTE/TOEFL score requirements
+- ECA/Skill Assessment timelines
 
 Rules:
 - Be helpful, professional, and concise
-- For specific case status, refer to the case details above
-- For document queries, list specific required documents
+- Reference actual case data when answering (step names, doc status, etc.)
+- For document expiry, mention specific expiry dates and urgency
+- If info sheet is incomplete, remind which fields are needed
 - Never share other clients' data
-- If unsure, suggest contacting the case manager directly
-- Keep responses under 300 words"""
+- If unsure, suggest contacting the case manager
+- Keep responses under 300 words
+- Use bullet points for lists"""
 
     prompt = f"""Chat History:
 {history_text}
