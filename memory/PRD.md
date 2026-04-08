@@ -69,13 +69,24 @@ Build a comprehensive immigration services portal (LEAMSS) with role-based dashb
 - [x] **Discount Badges**: Both Admin & Partner sales views show promo/discount/savings badges
 - [x] All 11 promo/discount/assignment tests passing (iteration 27)
 
+### Client Payment Portal with Stripe (DONE — Dec 2025)
+- [x] **Stripe Integration**: Emergent Stripe checkout with INR payments
+- [x] **Client Proposals View**: Clients see all their sales with full price breakdown (original fee, promo, additional discount, final fee)
+- [x] **Online Payments**: "Pay Now" button initiates Stripe checkout for pending amounts
+- [x] **Payment Status Polling**: Payment success page polls Stripe and updates sale automatically
+- [x] **Payment History**: Transaction history with dates and amounts
+- [x] **Webhook Support**: Stripe webhook endpoint for server-side payment confirmation
+- [x] **Idempotent Processing**: Same payment won't be processed twice
+- [x] **Commission Auto-Update**: Commission recalculated after each payment
+- [x] All 12 Stripe payment tests passing (iteration 28)
+
 ---
 
 ## Prioritized Backlog
 
 ### P1 — Next
 - [ ] Real email service integration (SendGrid/Resend — replace mock)
-- [ ] Stripe Payment Gateway
+- [ ] AI Chatbot for client queries
 
 ### P2 — Planned
 - [ ] AI Chatbot for client queries
@@ -88,6 +99,13 @@ Build a comprehensive immigration services portal (LEAMSS) with role-based dashb
 - [ ] Standalone mobile apps
 
 ---
+
+## Payment API Endpoints
+- `GET /api/payments/my-proposals` — Client's sales with price breakdown
+- `POST /api/payments/create-checkout` — Initiate Stripe checkout
+- `GET /api/payments/status/{session_id}` — Poll payment status
+- `GET /api/payments/history/{sale_id}` — Transaction history
+- `POST /api/webhook/stripe` — Stripe webhook
 
 ## Key API Endpoints
 - `POST /api/auth/login` — JWT login
