@@ -15,7 +15,8 @@ import QuickActions from '@/components/QuickActions';
 import { 
   User, FileText, Upload, LogOut, CheckCircle, Clock, AlertCircle, 
   Lock, Download, FileCheck, ArrowLeft, Calendar, Shield, 
-  FolderOpen, AlertTriangle, FileUp, Eye, ChevronRight, MessageSquare
+  FolderOpen, AlertTriangle, FileUp, Eye, ChevronRight, MessageSquare,
+  CreditCard, Loader2, IndianRupee, ExternalLink
 } from 'lucide-react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -75,6 +76,8 @@ const ClientDashboard = () => {
   const [ticketFilter, setTicketFilter] = useState(null);
   const [highlightedDocId, setHighlightedDocId] = useState(null);
   const [infoSheet, setInfoSheet] = useState(null);
+  const [proposals, setProposals] = useState([]);
+  const [payingForSale, setPayingForSale] = useState(null);
 
   const getAuthHeader = () => ({
     headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
@@ -111,6 +114,12 @@ const ClientDashboard = () => {
     } catch (error) {
       console.error('Error loading data:', error);
     }
+
+    // Load proposals/payments independently
+    try {
+      const proposalsRes = await axios.get(`${API}/payments/my-proposals`, getAuthHeader());
+      setProposals(proposalsRes.data || []);
+    } catch (e) { /* no proposals */ }
   };
 
   useEffect(() => {
@@ -153,6 +162,23 @@ const ClientDashboard = () => {
   const handleLogout = () => {
     localStorage.clear();
     navigate('/');
+  };
+
+  const handlePayNow = async (saleId) => {
+    setPayingForSale(saleId);
+    try {
+      const originUrl = window.location.origin;
+      const res = await axios.post(`${API}/payments/create-checkout`, {
+        sale_id: saleId,
+        origin_url: originUrl
+      }, getAuthHeader());
+      if (res.data.url) {
+        window.location.href = res.data.url;
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to initiate payment');
+      setPayingForSale(null);
+    }
   };
 
   const handleFileUpload = async (docName, isAdditional = false, requestId = null, stepName = null) => {
@@ -446,6 +472,15 @@ const ClientDashboard = () => {
                 <TabsTrigger value="info-sheet" className="data-[state=active]:bg-[#2a777a] data-[state=active]:text-white rounded-lg px-6">
                   <User className="h-4 w-4 mr-2" />
                   My Info
+                </TabsTrigger>
+                <TabsTrigger value="payments" className="data-[state=active]:bg-[#f7620b] data-[state=active]:text-white rounded-lg px-6 relative" data-testid="payments-tab">
+                  <CreditCard className="h-4 w-4 mr-2" />
+                  Payments
+                  {proposals.filter(p => p.status === 'approved' && (p.pending_amount || 0) > 0).length > 0 && (
+                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                      {proposals.filter(p => p.status === 'approved' && (p.pending_amount || 0) > 0).length}
+                    </span>
+                  )}
                 </TabsTrigger>
               </TabsList>
 
@@ -891,6 +926,133 @@ const ClientDashboard = () => {
                       <User className="h-14 w-14 text-slate-300 mx-auto mb-4" />
                       <p className="text-slate-600 font-semibold text-lg">No information sheet submitted yet</p>
                       <p className="text-sm text-slate-500 mt-2 max-w-sm mx-auto">Your case manager will request you to fill this out when needed for your case processing.</p>
+                    </div>
+                  )}
+                </Card>
+              </TabsContent>
+
+              {/* Payments Tab */}
+              <TabsContent value="payments" className="space-y-6">
+                <Card className="p-6 bg-white shadow-md border-0" data-testid="payments-section">
+                  <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
+                    <CreditCard className="h-5 w-5 text-[#f7620b]" />
+                    My Proposals & Payments
+                  </h3>
+
+                  {proposals.length === 0 ? (
+                    <div className="text-center py-16 bg-gradient-to-br from-slate-50 to-white rounded-xl border border-dashed border-slate-200">
+                      <IndianRupee className="h-14 w-14 text-slate-300 mx-auto mb-4" />
+                      <p className="text-slate-600 font-semibold text-lg">No proposals yet</p>
+                      <p className="text-sm text-slate-500 mt-2">Your proposals will appear here once created.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {proposals.map((proposal) => {
+                        const isPending = proposal.status === 'pending';
+                        const isApproved = proposal.status === 'approved';
+                        const hasPendingAmount = (proposal.pending_amount || 0) > 0;
+                        const isPaid = proposal.payment_status === 'paid';
+                        const hasDiscount = (proposal.total_discount_amount || 0) > 0;
+
+                        return (
+                          <Card key={proposal.id} className={`p-5 border-l-4 ${isPaid ? 'border-l-emerald-500 bg-emerald-50/30' : hasPendingAmount && isApproved ? 'border-l-[#f7620b] bg-orange-50/30' : 'border-l-slate-300'}`} data-testid={`proposal-${proposal.id}`}>
+                            <div className="flex flex-col md:flex-row justify-between gap-4">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-3 mb-2">
+                                  <h4 className="font-semibold text-slate-800">{proposal.product_name || 'Service'}</h4>
+                                  <Badge className={`text-xs capitalize ${proposal.status === 'approved' ? 'bg-emerald-100 text-emerald-700' : proposal.status === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+                                    {proposal.status}
+                                  </Badge>
+                                  {isPaid && <Badge className="bg-emerald-100 text-emerald-700 text-xs">Fully Paid</Badge>}
+                                </div>
+
+                                <p className="text-sm text-slate-500 mb-3">
+                                  Partner: {proposal.partner_name || 'N/A'} | Created: {proposal.created_at ? new Date(proposal.created_at).toLocaleDateString() : 'N/A'}
+                                </p>
+
+                                {/* Price Breakdown */}
+                                <div className="bg-white rounded-lg border p-4 space-y-2">
+                                  {hasDiscount && (
+                                    <div className="flex justify-between text-sm text-slate-500">
+                                      <span>Original Fee</span>
+                                      <span className="line-through">₹{(proposal.fee_before_discount || proposal.fee_amount || 0).toLocaleString()}</span>
+                                    </div>
+                                  )}
+                                  {(proposal.promo_discount_amount || 0) > 0 && (
+                                    <div className="flex justify-between text-sm text-emerald-600">
+                                      <span>Promo ({proposal.promo_code})</span>
+                                      <span>-₹{(proposal.promo_discount_amount).toLocaleString()}</span>
+                                    </div>
+                                  )}
+                                  {(proposal.additional_discount_percentage || 0) > 0 && (
+                                    <div className="flex justify-between text-sm text-emerald-600">
+                                      <span>Special Discount ({proposal.additional_discount_percentage}%)</span>
+                                      <span>-₹{(proposal.additional_discount_amount || 0).toLocaleString()}</span>
+                                    </div>
+                                  )}
+                                  <div className="flex justify-between font-semibold text-slate-800 border-t pt-2">
+                                    <span>Total Fee</span>
+                                    <span>₹{(proposal.fee_amount || 0).toLocaleString()}</span>
+                                  </div>
+                                  <div className="flex justify-between text-sm">
+                                    <span className="text-emerald-600">Paid</span>
+                                    <span className="text-emerald-600 font-medium">₹{(proposal.amount_received || 0).toLocaleString()}</span>
+                                  </div>
+                                  {hasPendingAmount && (
+                                    <div className="flex justify-between text-sm font-semibold">
+                                      <span className="text-[#f7620b]">Pending Amount</span>
+                                      <span className="text-[#f7620b]">₹{(proposal.pending_amount || 0).toLocaleString()}</span>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Payment History */}
+                                {(proposal.payment_history || []).length > 0 && (
+                                  <div className="mt-3">
+                                    <p className="text-xs font-semibold text-slate-500 mb-1">Payment History</p>
+                                    <div className="space-y-1">
+                                      {proposal.payment_history.map((ph, idx) => (
+                                        <div key={idx} className="flex justify-between text-xs bg-slate-50 p-2 rounded">
+                                          <span className="text-slate-600">{ph.method === 'stripe_online' ? 'Online Payment' : ph.method} — {new Date(ph.date).toLocaleDateString()}</span>
+                                          <span className="font-medium text-slate-800">₹{(ph.amount || 0).toLocaleString()}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Pay Now Button */}
+                              <div className="flex flex-col items-end justify-center min-w-[180px]">
+                                {isApproved && hasPendingAmount && !isPaid ? (
+                                  <Button
+                                    onClick={() => handlePayNow(proposal.id)}
+                                    disabled={payingForSale === proposal.id}
+                                    className="bg-[#f7620b] hover:bg-[#e0580a] text-white w-full md:w-auto px-6 py-3 text-base font-semibold shadow-lg"
+                                    data-testid={`pay-now-${proposal.id}`}
+                                  >
+                                    {payingForSale === proposal.id ? (
+                                      <><Loader2 className="h-5 w-5 mr-2 animate-spin" /> Processing...</>
+                                    ) : (
+                                      <><CreditCard className="h-5 w-5 mr-2" /> Pay ₹{(proposal.pending_amount || 0).toLocaleString()}</>
+                                    )}
+                                  </Button>
+                                ) : isPaid ? (
+                                  <div className="text-center">
+                                    <CheckCircle className="h-10 w-10 text-emerald-500 mx-auto mb-1" />
+                                    <p className="text-sm font-semibold text-emerald-600">Fully Paid</p>
+                                  </div>
+                                ) : isPending ? (
+                                  <div className="text-center">
+                                    <Clock className="h-8 w-8 text-amber-400 mx-auto mb-1" />
+                                    <p className="text-xs text-slate-500">Awaiting Approval</p>
+                                  </div>
+                                ) : null}
+                              </div>
+                            </div>
+                          </Card>
+                        );
+                      })}
                     </div>
                   )}
                 </Card>

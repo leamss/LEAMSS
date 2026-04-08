@@ -3,7 +3,7 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from core.database import init_db
 
@@ -30,6 +30,7 @@ from routers.marketing import router as marketing_router
 from routers.leads import router as leads_router
 from routers.campaigns import router as campaigns_router
 from routers.marketing_tools import router as marketing_tools_router
+from routers.payments import router as payments_router
 
 app = FastAPI(title="LEAMSS Portal API", version="3.0")
 
@@ -198,7 +199,8 @@ for r in [auth_router, users_router, products_router, sales_router, cases_router
           documents_router, tickets_router, notifications_router, stats_router,
           activity_router, analytics_router, search_router, reports_router, settings_router,
           refunds_router, partner_commissions_router, pdf_reports_router, ai_router,
-          workflows_router, marketing_router, leads_router, campaigns_router, marketing_tools_router]:
+          workflows_router, marketing_router, leads_router, campaigns_router, marketing_tools_router,
+          payments_router]:
     app.include_router(r, prefix="/api")
 
 
@@ -210,6 +212,39 @@ async def health():
         return {"status": "healthy", "database": "connected", "service": "LEAMSS Portal API v3.0 (MongoDB)"}
     except Exception:
         return {"status": "unhealthy", "database": "disconnected"}
+
+
+@app.post("/api/webhook/stripe")
+async def stripe_webhook(request: Request):
+    """Handle Stripe webhook events"""
+    import os
+    from core.database import db
+    payment_transactions_col = db["payment_transactions"]
+    
+    try:
+        body = await request.body()
+        stripe_signature = request.headers.get("Stripe-Signature", "")
+        
+        api_key = os.environ.get("STRIPE_API_KEY")
+        if not api_key:
+            return {"status": "error", "message": "Stripe not configured"}
+        
+        from emergentintegrations.payments.stripe.checkout import StripeCheckout
+        stripe_checkout = StripeCheckout(api_key=api_key, webhook_url="")
+        webhook_response = await stripe_checkout.handle_webhook(body, stripe_signature)
+        
+        if webhook_response and webhook_response.payment_status == "paid":
+            session_id = webhook_response.session_id
+            transaction = await payment_transactions_col.find_one({"session_id": session_id, "processed": {"$ne": True}}, {"_id": 0})
+            if transaction:
+                from routers.payments import _process_successful_payment
+                await payment_transactions_col.update_one({"session_id": session_id}, {"$set": {"status": "complete", "payment_status": "paid"}})
+                await _process_successful_payment(transaction["sale_id"], transaction["amount"], session_id)
+        
+        return {"status": "ok"}
+    except Exception as e:
+        print(f"Webhook error: {e}")
+        return {"status": "error", "message": str(e)}
 
 
 @app.get("/api/quick-actions")

@@ -1,0 +1,72 @@
+{
+  "summary": "Iteration 28 - Stripe Payment Portal Testing Complete. All 12 backend tests passed. All frontend features verified working: (1) Payments tab with badge count for pending payments, (2) Proposal cards with full price breakdown (Original Fee, Promo discount, Additional discount, Total Fee, Paid, Pending Amount), (3) Pay Now button for approved sales with pending amount, (4) Stripe checkout redirect working (redirects to checkout.stripe.com), (5) Payment Success page with status polling, (6) Payment Cancel redirects to login/dashboard. Fixed bug: pending_amount calculation for sales without explicit pending_amount field.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration28_stripe_payments.py",
+    "/app/test_reports/pytest/pytest_iteration28.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Email service is MOCKED - logs to email_logs collection instead of sending real emails",
+    "Stripe uses Emergent test key (sk_test_emergent) via emergentintegrations library",
+    "Fixed: pending_amount calculation added to /api/payments/my-proposals for sales without explicit pending_amount field"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration28_stripe_payments.py",
+    "/app/backend/routers/payments.py"
+  ],
+  "success_rate": {
+    "backend": "100% (12/12 tests passed)",
+    "frontend": "100% (all UI features verified working)"
+  },
+  "test_credentials": {
+    "admin": "admin@leamss.com / Admin@123",
+    "partner": "partner@leamss.com / Partner@123",
+    "case_manager": "manager@leamss.com / Manager@123",
+    "client_with_pending": "promo.client@test.com / Client@123 (₹28,000 pending)",
+    "client_regular": "client@leamss.com / Client@123 (₹75,000 pending)"
+  },
+  "seed_data_creation": "promo.client@test.com with approved sale (Canada PR, ₹38,000 total, ₹10,000 paid, ₹28,000 pending) created in previous iteration",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration 28 verified all Stripe payment portal features: (1) GET /api/payments/my-proposals - returns client's sales with product_name, partner_name, fee breakdown, payment_history, discount fields, (2) POST /api/payments/create-checkout - creates Stripe checkout session for approved sale with pending amount, returns url and session_id, (3) GET /api/payments/status/{session_id} - returns payment status for a session, (4) GET /api/payments/history/{sale_id} - returns payment transactions for a sale, (5) POST /api/webhook/stripe - Stripe webhook endpoint exists. Frontend: Payments tab shows proposal cards with price breakdown, Pay Now button initiates Stripe checkout, Payment Success page polls for status, Payment Cancel redirects to dashboard.",
+  "features_tested": {
+    "backend_endpoints": {
+      "my_proposals": "PASS - GET /api/payments/my-proposals returns sales with price breakdown, discount fields, payment_transactions",
+      "create_checkout_approved": "PASS - POST /api/payments/create-checkout creates Stripe session for approved sale with pending amount",
+      "create_checkout_rejects_invalid": "PASS - POST /api/payments/create-checkout returns 404 for non-existent sale",
+      "create_checkout_auth": "PASS - POST /api/payments/create-checkout requires authentication",
+      "payment_status": "PASS - GET /api/payments/status/{session_id} returns payment status",
+      "payment_status_404": "PASS - GET /api/payments/status/{invalid_id} returns 404",
+      "payment_history": "PASS - GET /api/payments/history/{sale_id} returns transactions",
+      "stripe_webhook": "PASS - POST /api/webhook/stripe endpoint exists and responds",
+      "full_flow": "PASS - Complete flow: proposals → checkout → status → history"
+    },
+    "frontend_features": {
+      "payments_tab_badge": "PASS - Payments tab shows badge count for pending payments",
+      "proposal_card": "PASS - Proposal card shows product name, partner, status, price breakdown",
+      "price_breakdown": "PASS - Shows Original Fee, Promo discount, Additional discount, Total Fee, Paid, Pending Amount",
+      "pay_now_button": "PASS - Pay Now button visible for approved sales with pending amount",
+      "stripe_redirect": "PASS - Pay Now click redirects to checkout.stripe.com with correct amount (₹28,000)",
+      "payment_success_page": "PASS - /payment-success renders and shows 'Verifying Payment...' with polling",
+      "payment_cancel_redirect": "PASS - /payment-cancel redirects to dashboard/login"
+    }
+  },
+  "bug_fixed": {
+    "issue": "pending_amount not displayed for sales without explicit pending_amount field in database",
+    "root_cause": "Seed data for client@leamss.com didn't set pending_amount field, and backend didn't calculate it",
+    "fix": "Added pending_amount calculation in /api/payments/my-proposals: if pending_amount is None, calculate as fee_amount - amount_received",
+    "file_modified": "/app/backend/routers/payments.py"
+  },
+  "mocked_services": {
+    "email_service": "MOCKED - send_email logs to email_logs collection instead of sending real emails"
+  }
+}

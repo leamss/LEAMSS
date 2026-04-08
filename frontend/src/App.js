@@ -8,7 +8,7 @@ import ClientDashboard from '@/pages/ClientDashboard';
 import NotificationHistory from '@/pages/NotificationHistory';
 import AnalyticsDashboard from '@/pages/AnalyticsDashboard';
 import ActivityLog from '@/pages/ActivityLog';
-import { PaymentSuccess, PaymentCancel } from '@/components/PaymentComponents';
+import PaymentSuccess from '@/pages/PaymentSuccess';
 import WorkflowBuilder from '@/pages/WorkflowBuilder';
 import MarketingDashboard from '@/pages/MarketingDashboard';
 import ServiceCalculator from '@/pages/ServiceCalculator';
@@ -32,8 +32,8 @@ function App() {
           <Route path="/case-manager" element={<CaseManagerDashboard />} />
           <Route path="/client" element={<ClientDashboard />} />
           <Route path="/notifications" element={<NotificationHistory />} />
-          <Route path="/payment/success" element={<PaymentSuccess />} />
-          <Route path="/payment/cancel" element={<PaymentCancel />} />
+          <Route path="/payment-success" element={<PaymentSuccess />} />
+          <Route path="/payment-cancel" element={<Navigate to="/client" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
