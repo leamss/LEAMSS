@@ -1,0 +1,73 @@
+{
+  "summary": "Iteration 30 - Workflow Enforcement & OCR Features Testing Complete. All 17 backend tests passed. All frontend features verified working: (1) Step locking enforcement - cannot advance to Step N+1 until Step N is completed, (2) Document requirement enforcement - checks mandatory docs when completing steps, (3) Step-status API returns correct lock/unlock/can_complete per step, (4) Case-document-check API returns completeness based on workflow-defined documents, (5) Request-info-sheet API allows case manager to specify required fields, (6) Information-sheet API returns required_fields and completion percentage, (7) Extract-resume-to-infosheet OCR endpoint working, (8) Client Dashboard shows lock icons, completion badges, required fields highlighting, (9) Case Manager Dashboard shows step management with lock indicators and Request Info Sheet button.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration30_workflow_enforcement.py",
+    "/app/test_reports/pytest/pytest_iteration30.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Step locking logic in /api/cases/update-step correctly enforces sequential completion",
+    "Document requirement check uses workflow_steps collection for required_documents definition",
+    "Step-status API at /api/ai-intel/step-status uses case_steps for lock logic and workflow_steps for document requirements",
+    "Email service is MOCKED - logs to email_logs collection instead of sending real emails",
+    "AI/LLM calls use GPT-5.2 via emergentintegrations with EMERGENT_LLM_KEY"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration30_workflow_enforcement.py"
+  ],
+  "success_rate": {
+    "backend": "100% (17/17 tests passed)",
+    "frontend": "100% (all UI features verified working)"
+  },
+  "test_credentials": {
+    "admin": "admin@leamss.com / Admin@123",
+    "case_manager": "manager@leamss.com / Manager@123",
+    "partner": "partner@leamss.com / Partner@123",
+    "client": "client@leamss.com / Client@123",
+    "client2": "client2@leamss.com / Client@123"
+  },
+  "seed_data_creation": "None - used existing test data from previous iterations",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration 30 verified all new workflow enforcement and OCR features: (1) POST /api/cases/update-step - Step locking enforcement works correctly, returns 400 with 'previous step not completed' message when trying to update locked step, (2) POST /api/cases/update-step - Document requirement enforcement checks mandatory docs from workflow_steps when marking step as completed, (3) GET /api/ai-intel/step-status/{case_id} - Returns steps array with is_locked, can_complete, required_documents, all_docs_uploaded, previous_completed fields, (4) GET /api/ai-intel/case-document-check/{case_id} - Returns completeness_percentage, missing_documents, steps with document status, (5) POST /api/cases/{case_id}/request-info-sheet - Case manager can specify required_fields array, creates notification for client, (6) GET /api/cases/{case_id}/information-sheet - Returns required_fields, completion object with percentage/filled_count/missing_fields, (7) POST /api/ai-intel/extract-resume-to-infosheet/{case_id}?document_id={doc_id} - OCR extracts data from document and auto-fills info sheet. Frontend: Client Dashboard shows Approval Prediction card (45% shown with risk level and recommendations), Document Check card (100% completeness), Workflow Steps tab with completed/in-progress badges and required documents per step, My Info tab with completion bar and required field highlighting. Case Manager Dashboard shows step management with lock icons, 'Complete previous step first' messages, Request Info Sheet button, Information Sheet button.",
+  "features_tested": {
+    "backend_endpoints": {
+      "health_check": "PASS - GET /api/health returns healthy + connected",
+      "admin_login": "PASS - POST /api/auth/login with admin credentials",
+      "case_manager_login": "PASS - POST /api/auth/login with case_manager credentials",
+      "partner_login": "PASS - POST /api/auth/login with partner credentials",
+      "client_login": "PASS - POST /api/auth/login with client credentials",
+      "get_cases": "PASS - GET /api/cases/my-cases returns enriched data with steps",
+      "step_status": "PASS - GET /api/ai-intel/step-status/{case_id} returns lock info per step",
+      "step_locking": "PASS - POST /api/cases/update-step returns 400 for locked steps",
+      "document_check": "PASS - GET /api/ai-intel/case-document-check/{case_id} returns completeness",
+      "request_info_sheet": "PASS - POST /api/cases/{case_id}/request-info-sheet with required_fields",
+      "get_info_sheet": "PASS - GET /api/cases/{case_id}/information-sheet returns completion %",
+      "extract_resume": "PASS - POST /api/ai-intel/extract-resume-to-infosheet/{case_id} extracts data"
+    },
+    "frontend_features": {
+      "client_dashboard": "PASS - Shows case overview, AI insights, workflow steps, info sheet",
+      "approval_prediction": "PASS - Shows 45% probability, MEDIUM risk, recommended actions",
+      "document_check": "PASS - Shows 100% completeness, 'All documents uploaded!' message",
+      "workflow_steps_tab": "PASS - Shows completed/in-progress badges, required documents per step",
+      "info_sheet_tab": "PASS - Shows completion bar (33%), required fields with red asterisks, Upload Resume button",
+      "case_manager_dashboard": "PASS - Shows cases list, case details with workflow steps",
+      "cm_step_management": "PASS - Shows lock icons, 'Complete previous step first' messages",
+      "cm_info_sheet_buttons": "PASS - Information Sheet and Request Info Sheet buttons visible"
+    }
+  },
+  "mocked_services": {
+    "email_service": "MOCKED - send_email logs to email_logs collection instead of sending real emails"
+  },
+  "known_case_id": "cb09cf65-9a0c-47c6-8585-bace5da8c221",
+  "api_base_url": "https://payment-portal-323.preview.emergentagent.com"
+}
