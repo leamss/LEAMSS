@@ -113,6 +113,17 @@ Build a comprehensive immigration services portal (LEAMSS) with role-based dashb
 - [ ] Real email service integration (SendGrid/Resend — replace mock)
 - [ ] Auto payment reminder scheduling (cron-like, without manual trigger)
 
+### Information Sheet Rewrite (DONE — Dec 2025)
+- [x] **Complete schema matching actual Required Information Sheet document**: 6 sections — Personal Details (21 fields), Family Chart (12), Dependent Children (repeatable x4), Migrating Dependents (repeatable x5), Qualifications (repeatable x4), Employment History (repeatable x4)
+- [x] **All fields are EDITABLE**: Text inputs, date pickers, dropdown selectors, textareas
+- [x] **Collapsible sections**: Personal Details auto-expanded, rest collapsed for clean UX
+- [x] **Repeatable entries**: Add/remove children, dependents, qualifications, employment entries (up to 4 each)
+- [x] **Save All Changes**: Persists to MongoDB with change history
+- [x] **Upload Resume & Auto-Fill**: OCR prompt improved to extract COMPLETE data (full phone numbers, all qualifications, all employment)
+- [x] **Required field markers**: Red asterisks on mandatory fields
+- [x] **Sticky save bar**: Appears when form has unsaved changes
+- [x] All 14 tests passing (iteration 34)
+
 ### Auto Expiry Reminder System (DONE — Dec 2025)
 - [x] **In-app notifications**: Auto-reminders at 60d (attention), 30d (warning), 7d (critical), 0d (expired) thresholds
 - [x] **Smart deduplication**: Same reminder won't be sent twice on same day per doc+threshold
