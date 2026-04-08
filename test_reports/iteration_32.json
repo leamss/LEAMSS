@@ -1,0 +1,76 @@
+{
+  "summary": "Iteration 32 - Document Expiry Tracking Feature Testing Complete. All 19 backend tests passed (100%). All frontend features verified working. Backend APIs for set-expiry, expiring/all, expiring/case, validity-presets, upload with expiry, and bulk-upload with expiry all working correctly. Client Dashboard shows Document Expiry Alerts card with color-coded urgency, Expiry column in My Documents table with badges and Set Expiry links, and Set Expiry modal with date input and notes. Case Manager Dashboard shows Expiry Alerts sidebar nav with badge count, summary cards (Expired, Critical, Warning, Attention), full expiring documents table with client/case info, and Edit Expiry modal.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration32_document_expiry.py",
+    "/app/test_reports/pytest/pytest_iteration32.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Document expiry tracking feature is well-implemented with proper urgency level calculations",
+    "Auto-expiry for known document types (passport=10yr, medical=1yr, ielts=2yr, etc.) working correctly",
+    "Both Client and Case Manager can set/edit expiry dates as designed",
+    "Timezone-aware datetime handling implemented correctly for expiry calculations"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration32_document_expiry.py"
+  ],
+  "success_rate": {
+    "backend": "100% (19/19 tests passed)",
+    "frontend": "100% (all expiry tracking features verified)"
+  },
+  "test_credentials": {
+    "admin": "admin@leamss.com / Admin@123",
+    "case_manager": "manager@leamss.com / Manager@123",
+    "partner": "partner@leamss.com / Partner@123",
+    "client": "client@leamss.com / Client@123"
+  },
+  "seed_data_creation": "Test documents created during backend tests with various expiry dates",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration 32 tested Document Expiry Tracking feature. ALL PASSED: (1) POST /api/documents/{doc_id}/set-expiry - Client and Manager can set expiry, (2) GET /api/documents/expiring/all - Returns all expiring docs with urgency levels, client names, case numbers (manager/admin only), (3) GET /api/documents/expiring/case/{case_id} - Returns docs for specific case with expiry info and auto-suggest, (4) GET /api/documents/validity-presets - Returns known doc types with validity periods, (5) POST /api/documents/upload - Accepts optional expiry_date and auto-sets for known types, (6) POST /api/documents/bulk-upload - Accepts optional expiry_dates JSON array, (7) Client Dashboard - Document Expiry Alerts card with color-coded urgency rows, Expiry column in My Documents table with badges and Set Expiry links, Set Expiry modal with date input and notes, (8) Case Manager Dashboard - Expiry Alerts sidebar nav with badge count, summary cards (Expired/Critical/Warning/Attention counts), full expiring documents table with Edit buttons, Edit Expiry modal. Urgency levels: expired (<0 days), critical (0-30), warning (30-60), attention (60-90), ok (>90), no_expiry (not set).",
+  "features_tested": {
+    "backend_apis": {
+      "auth_login_all_roles": "PASS - All 4 roles (admin, case_manager, partner, client) login correctly",
+      "validity_presets": "PASS - Returns 11 known document types with validity periods",
+      "expiring_case": "PASS - Returns docs for specific case with urgency and suggested_validity_days",
+      "expiring_all_manager": "PASS - Manager gets all expiring docs with client/case info",
+      "expiring_all_admin": "PASS - Admin gets all expiring docs",
+      "expiring_all_forbidden_client": "PASS - Client correctly forbidden (403)",
+      "set_expiry_client": "PASS - Client can set expiry on their documents",
+      "set_expiry_manager": "PASS - Manager can set expiry on documents",
+      "set_expiry_invalid_date": "PASS - Invalid date format rejected (400)",
+      "set_expiry_nonexistent_doc": "PASS - Nonexistent document returns 404",
+      "upload_with_explicit_expiry": "PASS - Upload with expiry_date sets the expiry",
+      "upload_known_type_auto_expiry": "PASS - Passport auto-sets ~10 year expiry",
+      "bulk_upload_with_expiry_dates": "PASS - Bulk upload with expiry_dates array works",
+      "bulk_upload_known_types_auto_expiry": "PASS - Medical/IELTS auto-set expiry",
+      "urgency_levels_calculation": "PASS - Urgency levels correctly calculated based on days remaining"
+    },
+    "client_dashboard": {
+      "document_expiry_alerts_card": "PASS - Shows in Overview tab with color-coded urgency rows",
+      "expiry_column_in_table": "PASS - My Documents table has Expiry column",
+      "expiry_badges": "PASS - Documents with expiry show date badges",
+      "set_expiry_links": "PASS - Documents without expiry show 'Set Expiry' links",
+      "set_expiry_modal": "PASS - Modal opens with date input, notes textarea, Cancel/Save buttons"
+    },
+    "case_manager_dashboard": {
+      "expiry_alerts_sidebar_nav": "PASS - Sidebar has 'Expiry Alerts' nav item",
+      "expiry_alerts_badge_count": "PASS - Badge shows count of urgent docs",
+      "summary_cards": "PASS - Shows Expired, Critical, Warning, Attention counts",
+      "expiring_documents_table": "PASS - Full table with Document, Client, Case, Expiry Date, Status, Action columns",
+      "edit_expiry_modal": "PASS - Modal opens with pre-filled date, notes, Cancel/Save buttons"
+    }
+  },
+  "mocked_services": {
+    "email_service": "MOCKED - send_email logs to email_logs collection"
+  }
+}

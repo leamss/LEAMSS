@@ -88,6 +88,10 @@ const ClientDashboard = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [loadingPrediction, setLoadingPrediction] = useState(null);
   const [docChecks, setDocChecks] = useState({});
+  const [expiryDocs, setExpiryDocs] = useState([]);
+  const [expiryModal, setExpiryModal] = useState(null);
+  const [expiryDate, setExpiryDate] = useState('');
+  const [expiryNotes, setExpiryNotes] = useState('');
 
   const getAuthHeader = () => ({
     headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
@@ -122,6 +126,11 @@ const ClientDashboard = () => {
           setInfoSheetCompletion(infoSheetRes.data.completion || {});
           setInfoSheetRequiredFields(infoSheetRes.data.required_fields || []);
         }
+        // Load expiry tracking data
+        try {
+          const expiryRes = await axios.get(`${API}/documents/expiring/case/${theCase.id}`, getAuthHeader());
+          setExpiryDocs(expiryRes.data || []);
+        } catch (e) { /* no expiry data */ }
       }
     } catch (error) {
       console.error('Error loading data:', error);
@@ -307,6 +316,44 @@ const ClientDashboard = () => {
       toast.error('Bulk upload failed');
     }
     setBulkUploading(false);
+  };
+
+  const handleSetExpiry = async () => {
+    if (!expiryModal || !expiryDate) return;
+    try {
+      await axios.post(`${API}/documents/${expiryModal.id}/set-expiry`, {
+        expiry_date: expiryDate,
+        notes: expiryNotes
+      }, getAuthHeader());
+      toast.success('Expiry date set successfully');
+      setExpiryModal(null);
+      setExpiryDate('');
+      setExpiryNotes('');
+      loadData();
+    } catch (error) {
+      toast.error('Failed to set expiry date');
+    }
+  };
+
+  const getUrgencyStyle = (urgency) => {
+    const styles = {
+      expired: 'bg-red-100 text-red-700 border-red-200',
+      critical: 'bg-orange-100 text-orange-700 border-orange-200',
+      warning: 'bg-amber-100 text-amber-700 border-amber-200',
+      attention: 'bg-yellow-100 text-yellow-700 border-yellow-200',
+      ok: 'bg-green-100 text-green-700 border-green-200',
+      no_expiry: 'bg-slate-100 text-slate-500 border-slate-200',
+    };
+    return styles[urgency] || styles.no_expiry;
+  };
+
+  const getUrgencyLabel = (urgency, days) => {
+    if (urgency === 'expired') return `Expired ${Math.abs(days)} days ago`;
+    if (urgency === 'critical') return `Expires in ${days} days!`;
+    if (urgency === 'warning') return `Expires in ${days} days`;
+    if (urgency === 'attention') return `Expires in ${days} days`;
+    if (urgency === 'ok') return `Valid for ${days} days`;
+    return 'No expiry set';
   };
 
   const downloadDocument = async (docId, filename) => {
@@ -697,6 +744,45 @@ const ClientDashboard = () => {
                           View Requests <ChevronRight className="h-4 w-4 ml-1" />
                         </Button>
                       </div>
+                    </div>
+                  </Card>
+                )}
+
+                {/* Document Expiry Tracker */}
+                {expiryDocs.filter(d => d.urgency !== 'no_expiry' && d.urgency !== 'ok').length > 0 && (
+                  <Card className="p-6 bg-white shadow-md border-0" data-testid="expiry-tracker-card">
+                    <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                      <Calendar className="h-5 w-5 text-[#f7620b]" />
+                      Document Expiry Alerts
+                      <Badge className="bg-red-100 text-red-700 ml-2">
+                        {expiryDocs.filter(d => d.urgency === 'expired' || d.urgency === 'critical').length} urgent
+                      </Badge>
+                    </h3>
+                    <div className="space-y-3">
+                      {expiryDocs.filter(d => d.urgency !== 'no_expiry' && d.urgency !== 'ok').map((doc) => (
+                        <div key={doc.id} className={`flex items-center gap-3 p-3 rounded-lg border ${getUrgencyStyle(doc.urgency)}`} data-testid={`expiry-alert-${doc.id}`}>
+                          <div className="flex-shrink-0">
+                            {doc.urgency === 'expired' ? <AlertCircle className="h-5 w-5" /> :
+                             doc.urgency === 'critical' ? <AlertTriangle className="h-5 w-5" /> :
+                             <Clock className="h-5 w-5" />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-sm truncate">{doc.filename}</p>
+                            <p className="text-xs capitalize">{doc.document_type.replace('_', ' ')}</p>
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            <p className="text-sm font-bold">{getUrgencyLabel(doc.urgency, doc.days_remaining)}</p>
+                            <p className="text-xs">{doc.expiry_date ? new Date(doc.expiry_date).toLocaleDateString() : ''}</p>
+                          </div>
+                          <Button size="sm" variant="outline" className="flex-shrink-0" onClick={() => {
+                            setExpiryModal(doc);
+                            setExpiryDate(doc.expiry_date ? doc.expiry_date.split('T')[0] : '');
+                            setExpiryNotes(doc.expiry_notes || '');
+                          }} data-testid={`edit-expiry-${doc.id}`}>
+                            <Calendar className="h-3 w-3 mr-1" /> Update
+                          </Button>
+                        </div>
+                      ))}
                     </div>
                   </Card>
                 )}
@@ -1127,26 +1213,50 @@ const ClientDashboard = () => {
                         <thead>
                           <tr className="border-b border-slate-200">
                             <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600">Document</th>
-                            <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600">Step</th>
                             <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600">Type</th>
-                            <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600">Uploaded</th>
+                            <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600">Expiry</th>
                             <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600">Status</th>
-                            <th className="text-right py-3 px-4 text-sm font-semibold text-slate-600">Action</th>
+                            <th className="text-right py-3 px-4 text-sm font-semibold text-slate-600">Actions</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {documents.map((doc) => (
+                          {documents.map((doc) => {
+                            const expiryInfo = expiryDocs.find(e => e.id === doc.id);
+                            return (
                             <tr key={doc.id} className="border-b border-slate-100 hover:bg-slate-50">
                               <td className="py-3 px-4">
                                 <div className="flex items-center gap-2">
                                   <FileText className="h-4 w-4 text-[#2a777a]" />
-                                  <span className="font-medium text-slate-800">{doc.filename}</span>
+                                  <div>
+                                    <span className="font-medium text-slate-800">{doc.filename}</span>
+                                    <p className="text-xs text-slate-400">{doc.step_name || doc.document_type}</p>
+                                  </div>
                                 </div>
                               </td>
-                              <td className="py-3 px-4 text-sm text-slate-600">{doc.step_name || '-'}</td>
-                              <td className="py-3 px-4 text-sm text-slate-600 capitalize">{doc.document_type}</td>
-                              <td className="py-3 px-4 text-sm text-slate-600">
-                                {doc.uploaded_at ? new Date(doc.uploaded_at).toLocaleDateString() : 'N/A'}
+                              <td className="py-3 px-4 text-sm text-slate-600 capitalize">{doc.document_type.replace('_', ' ')}</td>
+                              <td className="py-3 px-4">
+                                {expiryInfo?.expiry_date ? (
+                                  <Badge className={`text-xs cursor-pointer ${getUrgencyStyle(expiryInfo.urgency)}`}
+                                    onClick={() => {
+                                      setExpiryModal(expiryInfo);
+                                      setExpiryDate(expiryInfo.expiry_date.split('T')[0]);
+                                      setExpiryNotes(expiryInfo.expiry_notes || '');
+                                    }}
+                                    data-testid={`expiry-badge-${doc.id}`}
+                                  >
+                                    {expiryInfo.urgency === 'expired' ? `Expired` :
+                                     expiryInfo.urgency === 'critical' ? `${expiryInfo.days_remaining}d left!` :
+                                     new Date(expiryInfo.expiry_date).toLocaleDateString()}
+                                  </Badge>
+                                ) : (
+                                  <button
+                                    className="text-xs text-[#2a777a] hover:underline flex items-center gap-1"
+                                    onClick={() => { setExpiryModal(doc); setExpiryDate(''); setExpiryNotes(''); }}
+                                    data-testid={`set-expiry-btn-${doc.id}`}
+                                  >
+                                    <Calendar className="h-3 w-3" /> Set Expiry
+                                  </button>
+                                )}
                               </td>
                               <td className="py-3 px-4">
                                 <Badge className={`text-xs ${
@@ -1158,18 +1268,15 @@ const ClientDashboard = () => {
                                 </Badge>
                               </td>
                               <td className="py-3 px-4 text-right">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => downloadDocument(doc.id, doc.filename)}
-                                  data-testid={`download-doc-table-${doc.id}`}
-                                >
-                                  <Download className="h-4 w-4 mr-1" />
-                                  Download
-                                </Button>
+                                <div className="flex items-center justify-end gap-2">
+                                  <Button size="sm" variant="outline" onClick={() => downloadDocument(doc.id, doc.filename)} data-testid={`download-doc-table-${doc.id}`}>
+                                    <Download className="h-4 w-4" />
+                                  </Button>
+                                </div>
                               </td>
                             </tr>
-                          ))}
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
@@ -1441,6 +1548,66 @@ const ClientDashboard = () => {
       </main>
       {/* AI Chat Widget - floating */}
       <AIChatWidget />
+
+      {/* Set Expiry Modal */}
+      {expiryModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" data-testid="expiry-modal">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-[#2a777a]" />
+                Set Expiry Date
+              </h3>
+              <button onClick={() => setExpiryModal(null)} className="text-slate-400 hover:text-slate-600 text-xl">&times;</button>
+            </div>
+            <div className="bg-slate-50 p-3 rounded-lg">
+              <p className="text-sm font-semibold text-slate-700">{expiryModal.filename}</p>
+              <p className="text-xs text-slate-500 capitalize">{expiryModal.document_type?.replace('_', ' ')}</p>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="text-sm font-medium text-slate-700 block mb-1">Expiry Date</label>
+                <Input
+                  type="date"
+                  value={expiryDate}
+                  onChange={e => setExpiryDate(e.target.value)}
+                  data-testid="expiry-date-input"
+                />
+                {expiryModal.suggested_validity_days && !expiryDate && (
+                  <button
+                    className="text-xs text-[#2a777a] hover:underline mt-1"
+                    onClick={() => {
+                      const d = new Date();
+                      d.setDate(d.getDate() + expiryModal.suggested_validity_days);
+                      setExpiryDate(d.toISOString().split('T')[0]);
+                    }}
+                    data-testid="auto-suggest-expiry"
+                  >
+                    Auto-set: {expiryModal.suggested_validity_days >= 365 
+                      ? `${Math.floor(expiryModal.suggested_validity_days/365)} year(s) from today`
+                      : `${expiryModal.suggested_validity_days} days from today`}
+                  </button>
+                )}
+              </div>
+              <div>
+                <label className="text-sm font-medium text-slate-700 block mb-1">Notes (optional)</label>
+                <Input
+                  value={expiryNotes}
+                  onChange={e => setExpiryNotes(e.target.value)}
+                  placeholder="e.g. IELTS score valid till..."
+                  data-testid="expiry-notes-input"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <Button variant="outline" className="flex-1" onClick={() => setExpiryModal(null)}>Cancel</Button>
+              <Button className="flex-1 bg-[#2a777a] hover:bg-[#236466]" onClick={handleSetExpiry} disabled={!expiryDate} data-testid="save-expiry-btn">
+                Save Expiry Date
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

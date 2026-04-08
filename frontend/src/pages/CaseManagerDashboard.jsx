@@ -14,7 +14,7 @@ import NotificationBell from '@/components/NotificationBell';
 import CreateTicket from '@/components/CreateTicket';
 import TicketSection from '@/components/TicketSection';
 import QuickActions from '@/components/QuickActions';
-import { Briefcase, FileText, CheckCircle, AlertCircle, LogOut, Download, Plus, Send, ArrowLeft, MessageSquare, Search, Filter, Clock, Eye, Menu, X, Lock } from 'lucide-react';
+import { Briefcase, FileText, CheckCircle, AlertCircle, LogOut, Download, Plus, Send, ArrowLeft, MessageSquare, Search, Filter, Clock, Eye, Menu, X, Lock, Calendar, AlertTriangle } from 'lucide-react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -92,6 +92,10 @@ const CaseManagerDashboard = () => {
   const [initialTicketId, setInitialTicketId] = useState(null);
   const [infoSheetDialog, setInfoSheetDialog] = useState({ open: false, data: {} });
   const [infoSheetLoading, setInfoSheetLoading] = useState(false);
+  const [expiringDocs, setExpiringDocs] = useState([]);
+  const [expiryEditModal, setExpiryEditModal] = useState(null);
+  const [expiryEditDate, setExpiryEditDate] = useState('');
+  const [expiryEditNotes, setExpiryEditNotes] = useState('');
 
   const getAuthHeader = () => ({
     headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
@@ -131,6 +135,12 @@ const CaseManagerDashboard = () => {
       setAllDocuments(allDocs);
       setPendingReviewDocs(pendingDocs);
       setPendingReviewCount(pendingDocs.length);
+
+      // Load expiring documents
+      try {
+        const expiryRes = await axios.get(`${API}/documents/expiring/all`, authHeader);
+        setExpiringDocs(expiryRes.data || []);
+      } catch (e) { /* no expiry data */ }
     } catch (error) {
       toast.error('Failed to load data');
     }
@@ -381,6 +391,31 @@ const CaseManagerDashboard = () => {
     }
   };
 
+  const handleCMSetExpiry = async () => {
+    if (!expiryEditModal || !expiryEditDate) return;
+    try {
+      await axios.post(`${API}/documents/${expiryEditModal.id}/set-expiry`, {
+        expiry_date: expiryEditDate,
+        notes: expiryEditNotes
+      }, getAuthHeader());
+      toast.success('Expiry date updated');
+      setExpiryEditModal(null);
+      setExpiryEditDate('');
+      setExpiryEditNotes('');
+      loadData();
+    } catch (error) {
+      toast.error('Failed to set expiry');
+    }
+  };
+
+  const getUrgencyStyle = (urgency) => ({
+    expired: 'bg-red-100 text-red-700 border-red-200',
+    critical: 'bg-orange-100 text-orange-700 border-orange-200',
+    warning: 'bg-amber-100 text-amber-700 border-amber-200',
+    attention: 'bg-yellow-100 text-yellow-700 border-yellow-200',
+    ok: 'bg-green-100 text-green-700 border-green-200',
+  }[urgency] || 'bg-slate-100 text-slate-500');
+
   const loadInfoSheet = async (caseId) => {
     setInfoSheetLoading(true);
     try {
@@ -541,6 +576,21 @@ const CaseManagerDashboard = () => {
             <MessageSquare className="h-5 w-5" />
             <span>Support</span>
           </button>
+          <button
+            onClick={() => { setActiveTab('expiry-alerts'); setSelectedCase(null); setSidebarOpen(false); }}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all font-medium ${
+              activeTab === 'expiry-alerts' 
+                ? 'bg-teal-50 text-[#2a777a]' 
+                : 'text-slate-600 hover:bg-slate-50'
+            }`}
+            data-testid="nav-expiry-alerts"
+          >
+            <Calendar className="h-5 w-5" />
+            <span>Expiry Alerts</span>
+            {expiringDocs.filter(d => d.urgency === 'expired' || d.urgency === 'critical').length > 0 && (
+              <Badge className="bg-red-500 text-white text-xs ml-auto">{expiringDocs.filter(d => d.urgency === 'expired' || d.urgency === 'critical').length}</Badge>
+            )}
+          </button>
         </nav>
         
         <div className="p-4 border-t border-slate-100">
@@ -589,6 +639,7 @@ const CaseManagerDashboard = () => {
                 {activeTab === 'pending-review' && 'Pending Review'}
                 {activeTab === 'documents' && 'All Documents'}
                 {activeTab === 'tickets' && 'Support'}
+                {activeTab === 'expiry-alerts' && 'Document Expiry Alerts'}
                 {selectedCase && `Case: ${selectedCase.case_id}`}
               </h2>
             </div>
@@ -941,6 +992,90 @@ const CaseManagerDashboard = () => {
           {/* Tickets Section */}
           {activeTab === 'tickets' && (
             <TicketSection initialTicketId={initialTicketId} initialFilter={ticketFilter} />
+          )}
+
+          {/* Expiry Alerts Tab */}
+          {activeTab === 'expiry-alerts' && (
+            <div className="space-y-6" data-testid="expiry-alerts-section">
+              {/* Summary Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                {[
+                  { label: 'Expired', count: expiringDocs.filter(d => d.urgency === 'expired').length, style: 'bg-red-50 border-red-200 text-red-700' },
+                  { label: 'Critical (<30 days)', count: expiringDocs.filter(d => d.urgency === 'critical').length, style: 'bg-orange-50 border-orange-200 text-orange-700' },
+                  { label: 'Warning (<60 days)', count: expiringDocs.filter(d => d.urgency === 'warning').length, style: 'bg-amber-50 border-amber-200 text-amber-700' },
+                  { label: 'Attention (<90 days)', count: expiringDocs.filter(d => d.urgency === 'attention').length, style: 'bg-yellow-50 border-yellow-200 text-yellow-700' },
+                ].map((s, i) => (
+                  <Card key={i} className={`p-4 border ${s.style}`}>
+                    <p className="text-2xl font-bold">{s.count}</p>
+                    <p className="text-sm font-medium">{s.label}</p>
+                  </Card>
+                ))}
+              </div>
+
+              {expiringDocs.length === 0 ? (
+                <Card className="p-12 text-center bg-white shadow-md border-0">
+                  <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-3" />
+                  <h3 className="text-lg font-bold text-slate-800">No Expiry Alerts</h3>
+                  <p className="text-sm text-slate-500 mt-1">No documents have expiry dates set. Set expiry dates from the case documents view.</p>
+                </Card>
+              ) : (
+                <Card className="p-6 bg-white shadow-md border-0">
+                  <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <Calendar className="h-5 w-5 text-[#f7620b]" />
+                    All Expiring Documents ({expiringDocs.length})
+                  </h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-slate-200">
+                          <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600">Document</th>
+                          <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600">Client</th>
+                          <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600">Case</th>
+                          <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600">Expiry Date</th>
+                          <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600">Status</th>
+                          <th className="text-right py-3 px-4 text-sm font-semibold text-slate-600">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {expiringDocs.map((doc) => (
+                          <tr key={doc.id} className="border-b border-slate-100 hover:bg-slate-50" data-testid={`expiry-row-${doc.id}`}>
+                            <td className="py-3 px-4">
+                              <div className="flex items-center gap-2">
+                                <FileText className="h-4 w-4 text-[#2a777a]" />
+                                <div>
+                                  <p className="font-medium text-slate-800 text-sm">{doc.filename}</p>
+                                  <p className="text-xs text-slate-400 capitalize">{doc.document_type.replace('_', ' ')}</p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 text-sm text-slate-600">{doc.client_name || '-'}</td>
+                            <td className="py-3 px-4 text-sm text-slate-600">{doc.case_number || '-'}</td>
+                            <td className="py-3 px-4 text-sm">
+                              {doc.expiry_date ? new Date(doc.expiry_date).toLocaleDateString() : '-'}
+                            </td>
+                            <td className="py-3 px-4">
+                              <Badge className={`text-xs ${getUrgencyStyle(doc.urgency)}`}>
+                                {doc.urgency === 'expired' ? `Expired ${Math.abs(doc.days_remaining)}d ago` :
+                                 `${doc.days_remaining} days left`}
+                              </Badge>
+                            </td>
+                            <td className="py-3 px-4 text-right">
+                              <Button size="sm" variant="outline" onClick={() => {
+                                setExpiryEditModal(doc);
+                                setExpiryEditDate(doc.expiry_date ? doc.expiry_date.split('T')[0] : '');
+                                setExpiryEditNotes(doc.expiry_notes || '');
+                              }} data-testid={`cm-edit-expiry-${doc.id}`}>
+                                <Calendar className="h-4 w-4 mr-1" /> Edit
+                              </Button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
+              )}
+            </div>
           )}
 
           {/* Pending Review Section — Grouped by Client */}
@@ -1646,6 +1781,41 @@ const CaseManagerDashboard = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Expiry Edit Modal */}
+      {expiryEditModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" data-testid="cm-expiry-modal">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-[#2a777a]" />
+                Edit Expiry Date
+              </h3>
+              <button onClick={() => setExpiryEditModal(null)} className="text-slate-400 hover:text-slate-600 text-xl">&times;</button>
+            </div>
+            <div className="bg-slate-50 p-3 rounded-lg">
+              <p className="text-sm font-semibold text-slate-700">{expiryEditModal.filename}</p>
+              <p className="text-xs text-slate-500">Client: {expiryEditModal.client_name || 'N/A'} | Case: {expiryEditModal.case_number || 'N/A'}</p>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="text-sm font-medium text-slate-700 block mb-1">Expiry Date</label>
+                <input type="date" value={expiryEditDate} onChange={e => setExpiryEditDate(e.target.value)} className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm" data-testid="cm-expiry-date-input" />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-slate-700 block mb-1">Notes</label>
+                <input value={expiryEditNotes} onChange={e => setExpiryEditNotes(e.target.value)} placeholder="e.g. IELTS valid 2 years" className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm" data-testid="cm-expiry-notes-input" />
+              </div>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <Button variant="outline" className="flex-1" onClick={() => setExpiryEditModal(null)}>Cancel</Button>
+              <Button className="flex-1 bg-[#2a777a] hover:bg-[#236466]" onClick={handleCMSetExpiry} disabled={!expiryEditDate} data-testid="cm-save-expiry-btn">
+                Save Expiry
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       </div>
     </div>
