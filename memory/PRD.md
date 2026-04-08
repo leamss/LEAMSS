@@ -81,16 +81,27 @@ Build a comprehensive immigration services portal (LEAMSS) with role-based dashb
 - [x] All 12 Stripe payment tests passing (iteration 28)
 - [x] **Payment Receipt PDF**: Branded PDF receipts with company header, client info, full fee breakdown (promo/discount), payment summary, and transaction details. Downloadable from client dashboard.
 
+### AI Intelligence Suite (DONE — Dec 2025)
+- [x] **Payment Reminders**: Admin can view all pending payments with urgency levels (low/medium/high/critical), send individual or bulk reminders (email + notification). Auto-skips recently reminded clients.
+- [x] **Admin Receipt Download**: Admin can download payment receipt PDF for any approved sale directly from Sales tab.
+- [x] **AI Chat Assistant (GPT-5.2)**: Floating chat widget on Client Dashboard. Context-aware responses about visa status, document requirements, process explanations. Session-based conversation history.
+- [x] **Auto Document Verification**: Checks all required documents (passport, photo, birth certificate, education, employment, bank statement, medical, police clearance) against uploaded documents per case.
+- [x] **Missing Documents Detection**: Shows completeness percentage and lists all missing documents with descriptions.
+- [x] **Document Format Validation**: AI validates document format (passport, visa, etc.) and provides quality score (1-10) + recommendation (APPROVED/NEEDS_REUPLOAD/REJECTED).
+- [x] **OCR Data Extraction**: AI extracts structured data (name, DOB, passport number, education, etc.) from uploaded documents.
+- [x] **Auto-Fill Client Forms**: Merges extracted data from all case documents to auto-fill client information sheets.
+- [x] **Approval Prediction**: AI predicts approval probability (0-100%) with confidence level, risk assessment, strengths, weaknesses, and recommended actions.
+- [x] All 20 AI feature tests passing (iteration 29)
+
 ---
 
 ## Prioritized Backlog
 
 ### P1 — Next
 - [ ] Real email service integration (SendGrid/Resend — replace mock)
-- [ ] AI Chatbot for client queries
+- [ ] Auto payment reminder scheduling (cron-like, without manual trigger)
 
 ### P2 — Planned
-- [ ] AI Chatbot for client queries
 - [ ] Bulk Document Upload UI improvements
 - [ ] PDF report download improvements
 
@@ -100,6 +111,19 @@ Build a comprehensive immigration services portal (LEAMSS) with role-based dashb
 - [ ] Standalone mobile apps
 
 ---
+
+## AI Intelligence API Endpoints
+- `POST /api/ai-intel/chat` — AI chat assistant (GPT-5.2)
+- `GET /api/ai-intel/chat/history` — Chat history
+- `GET /api/ai-intel/case-document-check/{case_id}` — Document completeness check
+- `POST /api/ai-intel/validate-document/{document_id}` — AI format validation
+- `POST /api/ai-intel/extract-data/{document_id}` — OCR data extraction
+- `POST /api/ai-intel/auto-fill/{case_id}` — Auto-fill client info from docs
+- `GET /api/ai-intel/predict-approval/{case_id}` — Approval probability prediction
+- `GET /api/reminders/pending-payments` — Pending payments with urgency
+- `POST /api/reminders/send/{sale_id}` — Send individual reminder
+- `POST /api/reminders/send-bulk` — Bulk reminders for overdue payments
+- `GET /api/pdf-reports/sale-receipt/{sale_id}` — Admin receipt download
 
 ## Payment API Endpoints
 - `GET /api/payments/my-proposals` — Client's sales with price breakdown
