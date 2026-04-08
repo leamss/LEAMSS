@@ -85,13 +85,25 @@ Build a comprehensive immigration services portal (LEAMSS) with role-based dashb
 - [x] **Payment Reminders**: Admin can view all pending payments with urgency levels (low/medium/high/critical), send individual or bulk reminders (email + notification). Auto-skips recently reminded clients.
 - [x] **Admin Receipt Download**: Admin can download payment receipt PDF for any approved sale directly from Sales tab.
 - [x] **AI Chat Assistant (GPT-5.2)**: Floating chat widget on Client Dashboard. Context-aware responses about visa status, document requirements, process explanations. Session-based conversation history.
-- [x] **Auto Document Verification**: Checks all required documents (passport, photo, birth certificate, education, employment, bank statement, medical, police clearance) against uploaded documents per case.
+- [x] **Auto Document Verification**: Checks required documents per workflow step dynamically (NOT hardcoded) against uploaded documents per case.
 - [x] **Missing Documents Detection**: Shows completeness percentage and lists all missing documents with descriptions.
 - [x] **Document Format Validation**: AI validates document format (passport, visa, etc.) and provides quality score (1-10) + recommendation (APPROVED/NEEDS_REUPLOAD/REJECTED).
 - [x] **OCR Data Extraction**: AI extracts structured data (name, DOB, passport number, education, etc.) from uploaded documents.
 - [x] **Auto-Fill Client Forms**: Merges extracted data from all case documents to auto-fill client information sheets.
 - [x] **Approval Prediction**: AI predicts approval probability (0-100%) with confidence level, risk assessment, strengths, weaknesses, and recommended actions.
 - [x] All 20 AI feature tests passing (iteration 29)
+
+### Strict Workflow Enforcement & OCR Enhancements (DONE — Dec 2025)
+- [x] **Strict Step Locking**: Cannot advance to Step N+1 until Step N is completed. Backend returns 400 error with clear message.
+- [x] **Document Requirement Enforcement**: Cannot mark a step as completed if mandatory documents (defined in workflow_steps) are missing.
+- [x] **Dynamic Document Check**: AI document verification now checks against actual workflow-defined required_documents per step (not hardcoded 8 doc list).
+- [x] **Step Status API**: `/api/ai-intel/step-status/{case_id}` returns per-step lock/unlock status, can_complete flag, document requirements.
+- [x] **Info Sheet Request with Required Fields**: Case Manager can request specific fields from client via `/api/cases/{case_id}/request-info-sheet`.
+- [x] **Info Sheet Completion Tracking**: Returns filled_count, missing_fields, completion percentage.
+- [x] **Resume OCR Auto-Fill**: `/api/ai-intel/extract-resume-to-infosheet/{case_id}` extracts data from resume and auto-fills info sheet (only fills empty fields).
+- [x] **Client UI**: Lock icons on locked steps, completion badges, required field highlighting with red asterisks, Upload Resume button.
+- [x] **Case Manager UI**: Step management with lock indicators, "Complete previous step first" messages, Request Info Sheet button.
+- [x] All 17 workflow enforcement tests passing (iteration 30)
 
 ---
 
