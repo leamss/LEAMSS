@@ -113,6 +113,15 @@ Build a comprehensive immigration services portal (LEAMSS) with role-based dashb
 - [ ] Real email service integration (SendGrid/Resend — replace mock)
 - [ ] Auto payment reminder scheduling (cron-like, without manual trigger)
 
+### Auto Expiry Reminder System (DONE — Dec 2025)
+- [x] **In-app notifications**: Auto-reminders at 60d (attention), 30d (warning), 7d (critical), 0d (expired) thresholds
+- [x] **Smart deduplication**: Same reminder won't be sent twice on same day per doc+threshold
+- [x] **Fire-and-forget trigger**: Auto-checks on Client/CaseManager/Admin dashboard load
+- [x] **Admin Dashboard widget**: "Document Expiry Tracker" shows Expired/Critical/Attention counts with color-coded cards
+- [x] **Role-based scoping**: Admin sees all docs, Case Manager sees only their assigned cases' docs
+- [x] **Expiry Summary API**: `GET /api/documents/expiry-summary` returns aggregate counts
+- [x] All 18 tests passing (iteration 33)
+
 ### Document Expiry Tracking (DONE — Dec 2025)
 - [x] **Backend APIs**: `POST /api/documents/{id}/set-expiry`, `GET /api/documents/expiring/all`, `GET /api/documents/expiring/case/{id}`, `GET /api/documents/validity-presets`
 - [x] **Auto-set expiry**: Known doc types auto-get expiry when uploaded (Passport=10yr, Medical=1yr, IELTS/PTE/TOEFL=2yr, Skill Assessment=3yr, ECA=5yr, Police Clearance/Visa/Work Permit=1yr, Offer Letter=180d)
