@@ -27,6 +27,8 @@ information_sheets_col = db["information_sheets"]
 payment_transactions_col = db["payment_transactions"]
 refunds_col = db["refunds"]
 partner_product_commissions_col = db["partner_product_commissions"]
+chat_messages_col = db["chat_messages"]
+chat_conversations_col = db["chat_conversations"]
 
 
 async def init_db():
@@ -45,6 +47,8 @@ async def init_db():
     await notifications_col.create_index("user_id")
     await information_sheets_col.create_index("case_id", unique=True)
     await refunds_col.create_index("sale_id")
+    await chat_messages_col.create_index([("conversation_id", 1), ("created_at", 1)])
+    await chat_conversations_col.create_index("case_id")
     await db["partner_product_commissions"].create_index(
         [("partner_id", 1), ("product_id", 1)], unique=True
     )

@@ -11,6 +11,9 @@ import DashboardShell from '@/components/DashboardShell';
 import CreateTicket from '@/components/CreateTicket';
 import TicketSection from '@/components/TicketSection';
 import QuickActions from '@/components/QuickActions';
+import ChatWidget from '@/components/ChatWidget';
+import OnboardingWizard from '@/components/OnboardingWizard';
+import DocumentChecklist from '@/components/DocumentChecklist';
 import { 
   User, FileText, Upload, LogOut, CheckCircle, Clock, AlertCircle, 
   Lock, Download, FileCheck, ArrowLeft, Calendar, Shield, 
@@ -31,6 +34,7 @@ const ClientDashboard = () => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploadingFor, setUploadingFor] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const [initialTicketId, setInitialTicketId] = useState(null);
   const [ticketFilter, setTicketFilter] = useState(null);
   const [highlightedDocId, setHighlightedDocId] = useState(null);
@@ -106,6 +110,9 @@ const ClientDashboard = () => {
   useEffect(() => {
     if (user) {
       loadData();
+      // Check if onboarding should be shown
+      const onboardingDone = localStorage.getItem(`onboarding_done_${user.id}`);
+      if (!onboardingDone) setShowOnboarding(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
@@ -399,6 +406,7 @@ const ClientDashboard = () => {
       items: [
         { id: 'additional', icon: AlertTriangle, label: 'Action Required', badge: pendingAdditionalDocs.length, badgeColor: 'bg-red-500', onClick: () => setActiveTab('additional') },
         { id: 'workflow', icon: Workflow, label: 'Workflow Steps', onClick: () => setActiveTab('workflow') },
+        { id: 'doc-checklist', icon: FileCheck, label: 'Document Checklist', onClick: () => setActiveTab('doc-checklist') },
         { id: 'uploaded', icon: FileCheck, label: 'My Documents', onClick: () => setActiveTab('uploaded') },
         { id: 'info-sheet', icon: ClipboardList, label: 'My Info Sheet', onClick: () => setActiveTab('info-sheet') },
       ]
@@ -415,7 +423,7 @@ const ClientDashboard = () => {
   const clientPageTitle = {
     overview: 'Overview', additional: 'Action Required', workflow: 'Workflow Steps',
     uploaded: 'My Documents', tickets: 'Support', 'info-sheet': 'My Info Sheet',
-    payments: 'Payments',
+    payments: 'Payments', 'doc-checklist': 'Document Checklist',
   }[activeTab] || 'Overview';
 
   return (
@@ -1217,6 +1225,18 @@ const ClientDashboard = () => {
               </div>
               )}
 
+              {/* Document Checklist Tab */}
+              {activeTab === 'doc-checklist' && (
+              <div className="space-y-6">
+                <DocumentChecklist
+                  caseId={caseData?.id}
+                  caseSteps={caseData?.steps || []}
+                  documents={caseData?.documents || documents}
+                  workflowSteps={caseData?.workflow_steps || []}
+                />
+              </div>
+              )}
+
               {/* Support Tickets Tab */}
               {activeTab === 'tickets' && (
               <div className="space-y-6">
@@ -1444,6 +1464,23 @@ const ClientDashboard = () => {
           </div>
         </div>
       )}
+
+      {/* Onboarding Wizard */}
+      {showOnboarding && caseData && (
+        <OnboardingWizard
+          user={user}
+          caseData={caseData}
+          onComplete={() => setShowOnboarding(false)}
+          onNavigate={(tab) => { setShowOnboarding(false); setActiveTab(tab); }}
+        />
+      )}
+
+      {/* Chat Widget */}
+      <ChatWidget
+        caseId={caseData?.id}
+        caseDisplayId={caseData?.case_id}
+        currentUser={user}
+      />
     </DashboardShell>
   );
 };

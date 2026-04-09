@@ -12,6 +12,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Textarea } from '@/components/ui/textarea';
 import DashboardShell from '@/components/DashboardShell';
 import InfoSheetEditor from '@/components/InfoSheetEditor';
+import ChatWidget from '@/components/ChatWidget';
+import WorkloadDashboard from '@/components/WorkloadDashboard';
+import DocumentChecklist from '@/components/DocumentChecklist';
 import CreateTicket from '@/components/CreateTicket';
 import TicketSection from '@/components/TicketSection';
 import QuickActions from '@/components/QuickActions';
@@ -510,69 +513,11 @@ const CaseManagerDashboard = () => {
     >
           {activeTab === 'dashboard' && (
             <div>
-              {/* Quick Actions Widget */}
-              <div className="mb-6">
-                <QuickActions 
-                  userRole="case_manager" 
-                  onNavigate={(tab, filter) => {
-                    setActiveTab(tab);
-                    if (filter && tab === 'tickets') setTicketFilter(filter);
-                  }} 
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8" data-testid="case-manager-stats">
-                <Card className="p-6 bg-white rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
-                  <p className="text-sm text-slate-500 font-medium">My Cases</p>
-                  <p className="text-3xl font-bold text-slate-800 mt-2">{stats.my_cases || 0}</p>
-                </Card>
-                <Card className="p-6 bg-white rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
-                  <p className="text-sm text-slate-500 font-medium">Pending Review</p>
-                  <p className="text-3xl font-bold text-[#f7620b] mt-2">{pendingReviewCount}</p>
-                </Card>
-                <Card className="p-6 bg-white rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
-                  <p className="text-sm text-slate-500 font-medium">Documents</p>
-                  <p className="text-3xl font-bold text-slate-800 mt-2">{allDocuments.length}</p>
-                </Card>
-                <Card className="p-6 bg-white rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
-                  <p className="text-sm text-slate-500 font-medium">Approved</p>
-                  <p className="text-3xl font-bold text-emerald-600 mt-2">
-                    {allDocuments.filter(d => d.status === 'approved').length}
-                  </p>
-                </Card>
-              </div>
-
-              {/* Quick Actions */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card 
-                  className="p-6 bg-white rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-                  onClick={() => setActiveTab('pending-review')}
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 bg-amber-100 rounded-lg">
-                      <AlertCircle className="h-6 w-6 text-amber-600" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-slate-800">Pending Reviews</h3>
-                      <p className="text-sm text-slate-500">{pendingReviewCount} documents need your attention</p>
-                    </div>
-                  </div>
-                </Card>
-                <Card 
-                  className="p-6 bg-white rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-                  onClick={() => setActiveTab('cases')}
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 bg-teal-100 rounded-lg">
-                      <FileText className="h-6 w-6 text-[#2a777a]" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-slate-800">View All Cases</h3>
-                      <p className="text-sm text-slate-500">Manage your assigned cases</p>
-                    </div>
-                  </div>
-                </Card>
-              </div>
+              {/* Smart Workload Dashboard */}
+              <WorkloadDashboard
+                onNavigateToCase={(caseId) => { loadCaseDetails(caseId); setActiveTab('cases'); }}
+                onNavigateToTab={(tab) => setActiveTab(tab)}
+              />
             </div>
           )}
 
@@ -1523,6 +1468,12 @@ const CaseManagerDashboard = () => {
         </div>
       )}
 
+      {/* Chat Widget */}
+      <ChatWidget
+        caseId={selectedCase?.id}
+        caseDisplayId={selectedCase?.case_id}
+        currentUser={user}
+      />
     </DashboardShell>
   );
 };

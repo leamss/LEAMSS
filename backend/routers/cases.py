@@ -281,10 +281,20 @@ async def update_step(request: StepUpdate, current_user: dict = Depends(get_curr
 
     await _log(current_user["id"], "update_step", "case", request.case_id, {"step_name": request.step_name, "status": request.status})
 
-    # Email notification to client about step update
+    # Milestone notification to client about step update
     if case.get("client_id"):
         client = await users_col.find_one({"id": case["client_id"]}, {"_id": 0})
         if client:
+            milestone_msg = f"Step '{request.step_name}' has been marked as {request.status.replace('_', ' ')}."
+            if request.status == "completed":
+                milestone_msg = f"Milestone achieved! Step '{request.step_name}' is now complete."
+            await create_notification(
+                case["client_id"],
+                f"Case Update: {case.get('case_id', '')}",
+                milestone_msg,
+                "milestone",
+                request.case_id
+            )
             await send_case_step_update_email(
                 client.get("email", ""), client.get("name", ""),
                 case.get("case_id", request.case_id), request.step_name, request.status
@@ -620,3 +630,104 @@ async def get_my_stats(current_user: dict = Depends(get_current_user)):
     completed = await cases_col.count_documents({**query, "status": "completed"})
     
     return {"total_cases": total, "active_cases": active, "completed_cases": completed}
+
+
+@router.get("/workload/summary")
+async def get_workload_summary(current_user: dict = Depends(get_current_user)):
+    """Smart Workload Dashboard data for Case Manager"""
+    if current_user["role"] not in ["admin", "case_manager"]:
+        raise HTTPException(status_code=403, detail="Case Manager or Admin only")
+    
+    cm_id = current_user["id"] if current_user["role"] == "case_manager" else None
+    case_query = {"case_manager_id": cm_id} if cm_id else {}
+    
+    cases = await cases_col.find({**case_query, "status": "active"}, {"_id": 0}).to_list(500)
+    case_ids = [c["id"] for c in cases]
+    
+    # Pending document reviews
+    pending_docs = await documents_col.find({
+        "case_id": {"$in": case_ids},
+        "status": "pending"
+    }, {"_id": 0}).to_list(500)
+    
+    # Expiring documents
+    from datetime import timedelta
+    now = datetime.now(timezone.utc)
+    soon = now + timedelta(days=30)
+    expiring_docs = await documents_col.find({
+        "case_id": {"$in": case_ids},
+        "expiry_date": {"$exists": True, "$ne": None, "$lte": soon.isoformat() if isinstance(soon, datetime) else soon}
+    }, {"_id": 0}).to_list(200)
+    
+    # Additional doc requests pending
+    pending_requests = await additional_doc_requests_col.find({
+        "case_id": {"$in": case_ids},
+        "status": "pending"
+    }, {"_id": 0}).to_list(200)
+    
+    # Steps nearing completion (in_progress)
+    in_progress_steps = await case_steps_col.find({
+        "case_id": {"$in": case_ids},
+        "status": "in_progress"
+    }, {"_id": 0}).to_list(500)
+    
+    # Build urgent tasks list
+    urgent_tasks = []
+    
+    for doc in pending_docs:
+        case = next((c for c in cases if c["id"] == doc.get("case_id")), {})
+        urgent_tasks.append({
+            "type": "doc_review",
+            "priority": "high",
+            "title": f"Review: {doc.get('document_type', 'Document')}",
+            "subtitle": f"{case.get('client_name', '')} - {case.get('case_id', '')}",
+            "case_id": doc.get("case_id"),
+            "entity_id": doc.get("id"),
+            "created_at": doc.get("uploaded_at", "")
+        })
+    
+    for req in pending_requests:
+        case = next((c for c in cases if c["id"] == req.get("case_id")), {})
+        urgent_tasks.append({
+            "type": "additional_doc",
+            "priority": "medium",
+            "title": f"Awaiting: {req.get('document_name', 'Document')}",
+            "subtitle": f"{case.get('client_name', '')} - {case.get('case_id', '')}",
+            "case_id": req.get("case_id"),
+            "entity_id": req.get("id"),
+            "created_at": req.get("requested_at", "")
+        })
+    
+    for doc in expiring_docs:
+        case = next((c for c in cases if c["id"] == doc.get("case_id")), {})
+        urgent_tasks.append({
+            "type": "expiry_alert",
+            "priority": "critical" if doc.get("expiry_date", "") < now.isoformat() else "medium",
+            "title": f"Expiry: {doc.get('document_type', 'Document')}",
+            "subtitle": f"{case.get('client_name', '')} - Expires {doc.get('expiry_date', '')[:10]}",
+            "case_id": doc.get("case_id"),
+            "entity_id": doc.get("id"),
+            "created_at": doc.get("expiry_date", "")
+        })
+    
+    # Sort by priority
+    priority_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
+    urgent_tasks.sort(key=lambda t: priority_order.get(t["priority"], 3))
+    
+    # Case distribution by status
+    status_counts = {}
+    all_cases = await cases_col.find(case_query if cm_id else {}, {"_id": 0, "status": 1}).to_list(1000)
+    for c in all_cases:
+        s = c.get("status", "unknown")
+        status_counts[s] = status_counts.get(s, 0) + 1
+    
+    return {
+        "active_cases": len(cases),
+        "pending_reviews": len(pending_docs),
+        "expiring_documents": len(expiring_docs),
+        "pending_additional_docs": len(pending_requests),
+        "in_progress_steps": len(in_progress_steps),
+        "urgent_tasks": urgent_tasks[:20],
+        "total_urgent": len(urgent_tasks),
+        "case_distribution": status_counts
+    }
