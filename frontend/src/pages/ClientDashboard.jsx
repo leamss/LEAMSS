@@ -7,8 +7,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import NotificationBell from '@/components/NotificationBell';
+import DashboardShell from '@/components/DashboardShell';
 import CreateTicket from '@/components/CreateTicket';
 import TicketSection from '@/components/TicketSection';
 import QuickActions from '@/components/QuickActions';
@@ -16,55 +15,13 @@ import {
   User, FileText, Upload, LogOut, CheckCircle, Clock, AlertCircle, 
   Lock, Download, FileCheck, ArrowLeft, Calendar, Shield, 
   FolderOpen, AlertTriangle, FileUp, Eye, ChevronRight, MessageSquare,
-  CreditCard, Loader2, IndianRupee, ExternalLink, TrendingUp, Brain, FileSearch
+  CreditCard, Loader2, IndianRupee, ExternalLink, TrendingUp, Brain, FileSearch, LayoutDashboard, ClipboardList, Workflow
 } from 'lucide-react';
 import AIChatWidget from '@/components/AIChatWidget';
 import InfoSheetEditor from '@/components/InfoSheetEditor';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
-
-// Return to Admin Banner Component
-const AdminReturnBanner = () => {
-  const adminToken = localStorage.getItem('admin_token');
-  const adminUserData = localStorage.getItem('admin_user');
-  
-  if (!adminToken || !adminUserData) return null;
-  
-  let adminUser = null;
-  try {
-    adminUser = JSON.parse(adminUserData);
-  } catch (e) {
-    console.error('Failed to parse admin user data');
-  }
-
-  const handleReturnToAdmin = () => {
-    localStorage.setItem('token', adminToken);
-    localStorage.setItem('user', adminUserData);
-    localStorage.removeItem('admin_token');
-    localStorage.removeItem('admin_user');
-    toast.success('Returned to Admin account');
-    window.location.assign('/admin');
-  };
-
-  return (
-    <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white px-4 py-2 flex items-center justify-between shadow-lg" data-testid="admin-return-banner">
-      <div className="flex items-center gap-2">
-        <span className="text-sm font-medium">🔒 Viewing as impersonated user</span>
-        {adminUser && <span className="text-xs opacity-80">(Admin: {adminUser.name})</span>}
-      </div>
-      <Button 
-        onClick={handleReturnToAdmin} 
-        size="sm" 
-        className="bg-white text-orange-600 hover:bg-orange-50 font-medium"
-        data-testid="return-to-admin-btn"
-      >
-        <ArrowLeft className="h-4 w-4 mr-1" />
-        Return to Admin
-      </Button>
-    </div>
-  );
-};
 
 const ClientDashboard = () => {
   const navigate = useNavigate();
@@ -434,42 +391,47 @@ const ClientDashboard = () => {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
-      <AdminReturnBanner />
-      
-      {/* Header */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-14 md:h-16">
-            <div className="flex items-center gap-2 md:gap-3">
-              <img src="/leamss-logo.png" alt="LEAMSS" className="w-8 h-8 md:w-10 md:h-10 rounded-xl object-contain shadow-lg" />
-              <div>
-                <h1 className="text-base md:text-xl font-bold bg-gradient-to-r from-[#2a777a] to-[#236466] bg-clip-text text-transparent">
-                  LEAMSS Portal
-                </h1>
-                <p className="text-xs text-slate-500 hidden sm:block">Client Dashboard</p>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-2 md:gap-4">
-              <NotificationBell onNotificationClick={handleNotificationClick} />
-              <div className="hidden sm:block">
-                <CreateTicket caseId={caseData?.id} onTicketCreated={() => setActiveTab('tickets')} />
-              </div>
-              <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-full">
-                <User className="h-4 w-4 text-[#2a777a]" />
-                <span className="text-sm font-medium text-slate-700">{user.name}</span>
-              </div>
-              <Button variant="ghost" onClick={handleLogout} className="text-slate-600 hover:text-red-600" size="sm">
-                <LogOut className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
+  const clientNavGroups = [
+    { id: 'overview', icon: LayoutDashboard, label: 'Overview', onClick: () => setActiveTab('overview') },
+    {
+      groupLabel: 'My Case',
+      defaultOpen: true,
+      items: [
+        { id: 'additional', icon: AlertTriangle, label: 'Action Required', badge: pendingAdditionalDocs.length, badgeColor: 'bg-red-500', onClick: () => setActiveTab('additional') },
+        { id: 'workflow', icon: Workflow, label: 'Workflow Steps', onClick: () => setActiveTab('workflow') },
+        { id: 'uploaded', icon: FileCheck, label: 'My Documents', onClick: () => setActiveTab('uploaded') },
+        { id: 'info-sheet', icon: ClipboardList, label: 'My Info Sheet', onClick: () => setActiveTab('info-sheet') },
+      ]
+    },
+    {
+      groupLabel: 'Finance',
+      items: [
+        { id: 'payments', icon: CreditCard, label: 'Payments', badge: proposals.filter(p => p.status === 'approved' && (p.pending_amount || 0) > 0).length, badgeColor: 'bg-[#f7620b]', onClick: () => setActiveTab('payments') },
+      ]
+    },
+    { id: 'tickets', icon: MessageSquare, label: 'Support', onClick: () => setActiveTab('tickets') },
+  ];
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+  const clientPageTitle = {
+    overview: 'Overview', additional: 'Action Required', workflow: 'Workflow Steps',
+    uploaded: 'My Documents', tickets: 'Support', 'info-sheet': 'My Info Sheet',
+    payments: 'Payments',
+  }[activeTab] || 'Overview';
+
+  return (
+    <DashboardShell
+      user={user}
+      roleLabel="Client"
+      navGroups={clientNavGroups}
+      activeTab={activeTab}
+      pageTitle={clientPageTitle}
+      headerActions={
+        <CreateTicket caseId={caseData?.id} onTicketCreated={() => setActiveTab('tickets')} />
+      }
+      onNotificationClick={handleNotificationClick}
+      onLogout={handleLogout}
+    >
+      <main>
         {!caseData ? (
           <Card className="p-12 text-center bg-white shadow-xl rounded-2xl border-0">
             <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-slate-100 to-slate-200 rounded-full flex items-center justify-center">
@@ -682,51 +644,12 @@ const ClientDashboard = () => {
               </Card>
             </div>
 
-            {/* Main Content Tabs */}
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-              <TabsList className="bg-white shadow-md rounded-xl p-1 border-0">
-                <TabsTrigger value="overview" className="data-[state=active]:bg-[#2a777a] data-[state=active]:text-white rounded-lg px-6">
-                  <Eye className="h-4 w-4 mr-2" />
-                  Overview
-                </TabsTrigger>
-                <TabsTrigger value="additional" className="data-[state=active]:bg-[#f7620b] data-[state=active]:text-white rounded-lg px-6 relative">
-                  <AlertTriangle className="h-4 w-4 mr-2" />
-                  Action Required
-                  {pendingAdditionalDocs.length > 0 && (
-                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-                      {pendingAdditionalDocs.length}
-                    </span>
-                  )}
-                </TabsTrigger>
-                <TabsTrigger value="workflow" className="data-[state=active]:bg-[#2a777a] data-[state=active]:text-white rounded-lg px-6">
-                  <FileText className="h-4 w-4 mr-2" />
-                  Workflow Steps
-                </TabsTrigger>
-                <TabsTrigger value="uploaded" className="data-[state=active]:bg-[#2a777a] data-[state=active]:text-white rounded-lg px-6">
-                  <FileCheck className="h-4 w-4 mr-2" />
-                  My Documents
-                </TabsTrigger>
-                <TabsTrigger value="tickets" className="data-[state=active]:bg-[#2a777a] data-[state=active]:text-white rounded-lg px-6">
-                  <MessageSquare className="h-4 w-4 mr-2" />
-                  Support
-                </TabsTrigger>
-                <TabsTrigger value="info-sheet" className="data-[state=active]:bg-[#2a777a] data-[state=active]:text-white rounded-lg px-6">
-                  <User className="h-4 w-4 mr-2" />
-                  My Info
-                </TabsTrigger>
-                <TabsTrigger value="payments" className="data-[state=active]:bg-[#f7620b] data-[state=active]:text-white rounded-lg px-6 relative" data-testid="payments-tab">
-                  <CreditCard className="h-4 w-4 mr-2" />
-                  Payments
-                  {proposals.filter(p => p.status === 'approved' && (p.pending_amount || 0) > 0).length > 0 && (
-                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-                      {proposals.filter(p => p.status === 'approved' && (p.pending_amount || 0) > 0).length}
-                    </span>
-                  )}
-                </TabsTrigger>
-              </TabsList>
+            {/* Main Content */}
+            <div className="space-y-6">
 
               {/* Overview Tab */}
-              <TabsContent value="overview" className="space-y-6">
+              {activeTab === 'overview' && (
+              <div className="space-y-6">
                 {/* Alert for Pending Actions */}
                 {pendingAdditionalDocs.length > 0 && (
                   <Card className="p-6 bg-gradient-to-r from-[#f7620b]/10 to-[#f7620b]/5 border-l-4 border-[#f7620b] shadow-md">
@@ -832,10 +755,12 @@ const ClientDashboard = () => {
                     ))}
                   </div>
                 </Card>
-              </TabsContent>
+              </div>
+              )}
 
               {/* Additional Documents Tab */}
-              <TabsContent value="additional" className="space-y-6">
+              {activeTab === 'additional' && (
+              <div className="space-y-6">
                 {/* Pending Additional Document Requests */}
                 <Card className="p-6 bg-white shadow-md border-0">
                   <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
@@ -956,10 +881,12 @@ const ClientDashboard = () => {
                     </div>
                   </Card>
                 )}
-              </TabsContent>
+              </div>
+              )}
 
               {/* Workflow Steps Tab */}
-              <TabsContent value="workflow" className="space-y-6">
+              {activeTab === 'workflow' && (
+              <div className="space-y-6">
                 {caseData.steps?.map((step, stepIndex) => (
                   <Card key={stepIndex} className={`p-6 bg-white shadow-md border-0 ${step.is_locked ? 'opacity-60' : ''}`}>
                     <div className="flex items-start justify-between mb-4">
@@ -1090,10 +1017,12 @@ const ClientDashboard = () => {
                     )}
                   </Card>
                 ))}
-              </TabsContent>
+              </div>
+              )}
 
               {/* My Documents Tab */}
-              <TabsContent value="uploaded" className="space-y-6">
+              {activeTab === 'uploaded' && (
+              <div className="space-y-6">
                 {/* Drag & Drop Bulk Upload Zone */}
                 <Card className="p-6 bg-white shadow-md border-0">
                   <div className="flex items-center justify-between mb-4">
@@ -1285,15 +1214,19 @@ const ClientDashboard = () => {
                     </div>
                   )}
                 </Card>
-              </TabsContent>
+              </div>
+              )}
 
               {/* Support Tickets Tab */}
-              <TabsContent value="tickets" className="space-y-6">
+              {activeTab === 'tickets' && (
+              <div className="space-y-6">
                 <TicketSection caseId={caseData?.id} initialTicketId={initialTicketId} initialFilter={ticketFilter} />
-              </TabsContent>
+              </div>
+              )}
 
               {/* Information Sheet Tab */}
-              <TabsContent value="info-sheet" className="space-y-6">
+              {activeTab === 'info-sheet' && (
+              <div className="space-y-6">
                 <InfoSheetEditor
                   caseData={caseData}
                   API={API}
@@ -1302,10 +1235,12 @@ const ClientDashboard = () => {
                   extractingResume={extractingResume}
                   setExtractingResume={setExtractingResume}
                 />
-              </TabsContent>
+              </div>
+              )}
 
               {/* Payments Tab */}
-              <TabsContent value="payments" className="space-y-6">
+              {activeTab === 'payments' && (
+              <div className="space-y-6">
                 <Card className="p-6 bg-white shadow-md border-0" data-testid="payments-section">
                   <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
                     <CreditCard className="h-5 w-5 text-[#f7620b]" />
@@ -1441,8 +1376,9 @@ const ClientDashboard = () => {
                     </div>
                   )}
                 </Card>
-              </TabsContent>
-            </Tabs>
+              </div>
+              )}
+            </div>
           </>
         )}
       </main>
@@ -1508,7 +1444,7 @@ const ClientDashboard = () => {
           </div>
         </div>
       )}
-    </div>
+    </DashboardShell>
   );
 };
 

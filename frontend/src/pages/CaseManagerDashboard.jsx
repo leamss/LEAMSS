@@ -10,56 +10,15 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import NotificationBell from '@/components/NotificationBell';
+import DashboardShell from '@/components/DashboardShell';
+import InfoSheetEditor from '@/components/InfoSheetEditor';
 import CreateTicket from '@/components/CreateTicket';
 import TicketSection from '@/components/TicketSection';
 import QuickActions from '@/components/QuickActions';
-import { Briefcase, FileText, CheckCircle, AlertCircle, LogOut, Download, Plus, Send, ArrowLeft, MessageSquare, Search, Filter, Clock, Eye, Menu, X, Lock, Calendar, AlertTriangle } from 'lucide-react';
+import { Briefcase, FileText, CheckCircle, AlertCircle, LogOut, Download, Plus, Send, ArrowLeft, MessageSquare, Search, Filter, Clock, Eye, Menu, X, Lock, Calendar, AlertTriangle, User, ClipboardList } from 'lucide-react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
-
-// Return to Admin Banner Component
-const AdminReturnBanner = () => {
-  const adminToken = localStorage.getItem('admin_token');
-  const adminUserData = localStorage.getItem('admin_user');
-  
-  if (!adminToken || !adminUserData) return null;
-  
-  let adminUser = null;
-  try {
-    adminUser = JSON.parse(adminUserData);
-  } catch (e) {
-    console.error('Failed to parse admin user data');
-  }
-
-  const handleReturnToAdmin = () => {
-    localStorage.setItem('token', adminToken);
-    localStorage.setItem('user', adminUserData);
-    localStorage.removeItem('admin_token');
-    localStorage.removeItem('admin_user');
-    toast.success('Returned to Admin account');
-    window.location.assign('/admin');
-  };
-
-  return (
-    <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white px-4 py-2 flex items-center justify-between shadow-lg" data-testid="admin-return-banner">
-      <div className="flex items-center gap-2">
-        <span className="text-sm font-medium">🔒 Viewing as impersonated user</span>
-        {adminUser && <span className="text-xs opacity-80">(Admin: {adminUser.name})</span>}
-      </div>
-      <Button 
-        onClick={handleReturnToAdmin} 
-        size="sm" 
-        className="bg-white text-orange-600 hover:bg-orange-50 font-medium"
-        data-testid="return-to-admin-btn"
-      >
-        <ArrowLeft className="h-4 w-4 mr-1" />
-        Return to Admin
-      </Button>
-    </div>
-  );
-};
 
 const CaseManagerDashboard = () => {
   const navigate = useNavigate();
@@ -96,6 +55,8 @@ const CaseManagerDashboard = () => {
   const [expiryEditModal, setExpiryEditModal] = useState(null);
   const [expiryEditDate, setExpiryEditDate] = useState('');
   const [expiryEditNotes, setExpiryEditNotes] = useState('');
+  const [infoSheetCaseId, setInfoSheetCaseId] = useState(null);
+  const [extractingResume, setExtractingResume] = useState(false);
 
   const getAuthHeader = () => ({
     headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
@@ -493,175 +454,60 @@ const CaseManagerDashboard = () => {
     return badges[status] || <Badge>{status}</Badge>;
   };
 
+  const navGroups = [
+    { id: 'dashboard', icon: Briefcase, label: 'Dashboard', onClick: () => { setActiveTab('dashboard'); setSelectedCase(null); setInfoSheetCaseId(null); } },
+    {
+      groupLabel: 'Case Management',
+      defaultOpen: true,
+      items: [
+        { id: 'cases', icon: FileText, label: 'My Cases', onClick: () => { setActiveTab('cases'); setSelectedCase(null); setInfoSheetCaseId(null); } },
+        { id: 'pending-review', icon: AlertCircle, label: 'Pending Review', badge: pendingReviewCount, onClick: () => { setActiveTab('pending-review'); setSelectedCase(null); setInfoSheetCaseId(null); } },
+        { id: 'info-sheets', icon: ClipboardList, label: 'Info Sheets', onClick: () => { setActiveTab('info-sheets'); setSelectedCase(null); setInfoSheetCaseId(null); } },
+      ]
+    },
+    {
+      groupLabel: 'Documents',
+      defaultOpen: true,
+      items: [
+        { id: 'documents', icon: Download, label: 'All Documents', onClick: () => { setActiveTab('documents'); setSelectedCase(null); setInfoSheetCaseId(null); } },
+        { id: 'expiry-alerts', icon: Calendar, label: 'Expiry Alerts', badge: expiringDocs.filter(d => d.urgency === 'expired' || d.urgency === 'critical').length, badgeColor: 'bg-red-500', onClick: () => { setActiveTab('expiry-alerts'); setSelectedCase(null); setInfoSheetCaseId(null); } },
+      ]
+    },
+    { id: 'tickets', icon: MessageSquare, label: 'Support', onClick: () => { setActiveTab('tickets'); setSelectedCase(null); setInfoSheetCaseId(null); } },
+  ];
+
+  const getPageTitle = () => {
+    if (selectedCase) return `Case: ${selectedCase.case_id}`;
+    if (activeTab === 'info-sheets' && infoSheetCaseId) {
+      const c = cases.find(x => x.id === infoSheetCaseId);
+      return `Info Sheet: ${c?.client_name || ''}`;
+    }
+    const titles = {
+      dashboard: 'Dashboard', cases: 'My Cases', 'pending-review': 'Pending Review',
+      documents: 'All Documents', tickets: 'Support', 'expiry-alerts': 'Document Expiry Alerts',
+      'info-sheets': 'Client Info Sheets',
+    };
+    return titles[activeTab] || 'Dashboard';
+  };
+
   return (
-    <div className="min-h-screen bg-[#F5F7FA]" data-testid="case-manager-dashboard">
-      <AdminReturnBanner />
-      
-      <div className="flex">
-        {/* Mobile Sidebar Overlay */}
-        {sidebarOpen && <div className="fixed inset-0 bg-black/40 z-30 md:hidden" onClick={() => setSidebarOpen(false)} />}
-        {/* Responsive Sidebar */}
-        <aside className={`w-64 bg-white border-r border-slate-200 flex flex-col fixed h-screen top-0 left-0 z-40 transition-transform duration-200 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`} data-testid="case-manager-sidebar">
-          <div className="p-6 border-b border-slate-100">
-            <div className="flex items-center gap-3">
-              <img src="/leamss-logo.png" alt="LEAMSS" className="h-10 w-10 rounded-lg object-contain" />
-              <div>
-                <h1 className="text-lg font-bold text-slate-800">LEAMSS</h1>
-                <p className="text-xs text-slate-500">Case Manager</p>
-              </div>
-            </div>
-          </div>
-          
-          <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-            <button
-              onClick={() => { setActiveTab('dashboard'); setSelectedCase(null); setSidebarOpen(false); }}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all font-medium ${
-                activeTab === 'dashboard' 
-                  ? 'bg-teal-50 text-[#2a777a]' 
-                  : 'text-slate-600 hover:bg-slate-50'
-              }`}
-              data-testid="nav-dashboard"
-            >
-              <Briefcase className="h-5 w-5" />
-              <span>Dashboard</span>
-            </button>
-            <button
-              onClick={() => { setActiveTab('cases'); setSelectedCase(null); setSidebarOpen(false); }}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all font-medium ${
-                activeTab === 'cases' 
-                  ? 'bg-teal-50 text-[#2a777a]' 
-                  : 'text-slate-600 hover:bg-slate-50'
-              }`}
-              data-testid="nav-cases"
-            >
-              <FileText className="h-5 w-5" />
-              <span>My Cases</span>
-            </button>
-            <button
-              onClick={() => { setActiveTab('pending-review'); setSelectedCase(null); setSidebarOpen(false); }}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all font-medium ${
-                activeTab === 'pending-review' 
-                  ? 'bg-orange-50 text-[#f7620b]' 
-                  : 'text-slate-600 hover:bg-slate-50'
-              }`}
-              data-testid="nav-pending-review"
-            >
-              <AlertCircle className="h-5 w-5" />
-            <span>Pending Review</span>
-            {pendingReviewCount > 0 && (
-              <span className="ml-auto bg-[#f7620b] text-white text-xs px-2 py-0.5 rounded-full animate-pulse">
-                {pendingReviewCount}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => { setActiveTab('documents'); setSelectedCase(null); setSidebarOpen(false); }}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all font-medium ${
-              activeTab === 'documents' 
-                ? 'bg-teal-50 text-[#2a777a]' 
-                : 'text-slate-600 hover:bg-slate-50'
-            }`}
-            data-testid="nav-documents"
-          >
-            <Download className="h-5 w-5" />
-            <span>All Documents</span>
-          </button>
-          <button
-            onClick={() => { setActiveTab('tickets'); setSelectedCase(null); setSidebarOpen(false); }}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all font-medium ${
-              activeTab === 'tickets' 
-                ? 'bg-teal-50 text-[#2a777a]' 
-                : 'text-slate-600 hover:bg-slate-50'
-            }`}
-            data-testid="nav-tickets"
-          >
-            <MessageSquare className="h-5 w-5" />
-            <span>Support</span>
-          </button>
-          <button
-            onClick={() => { setActiveTab('expiry-alerts'); setSelectedCase(null); setSidebarOpen(false); }}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all font-medium ${
-              activeTab === 'expiry-alerts' 
-                ? 'bg-teal-50 text-[#2a777a]' 
-                : 'text-slate-600 hover:bg-slate-50'
-            }`}
-            data-testid="nav-expiry-alerts"
-          >
-            <Calendar className="h-5 w-5" />
-            <span>Expiry Alerts</span>
-            {expiringDocs.filter(d => d.urgency === 'expired' || d.urgency === 'critical').length > 0 && (
-              <Badge className="bg-red-500 text-white text-xs ml-auto">{expiringDocs.filter(d => d.urgency === 'expired' || d.urgency === 'critical').length}</Badge>
-            )}
-          </button>
-        </nav>
-        
-        <div className="p-4 border-t border-slate-100">
-          <div className="flex items-center gap-3 px-3 py-2 mb-3">
-            <div className="h-9 w-9 rounded-full bg-slate-200 flex items-center justify-center">
-              <span className="text-slate-600 font-medium text-sm">{user?.name?.charAt(0) || 'C'}</span>
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-slate-800 truncate">{user?.name}</p>
-              <p className="text-xs text-slate-500 truncate">{user?.email}</p>
-            </div>
-          </div>
-          <Button
-            onClick={handleLogout}
-            variant="ghost"
-            className="w-full justify-start text-slate-600 hover:text-slate-800 hover:bg-slate-50"
-            data-testid="logout-button"
-          >
-            <LogOut className="mr-2 h-4 w-4" />
-            Logout
-          </Button>
-        </div>
-      </aside>
-
-      <main className="flex-1 md:ml-64">
-        {/* Header */}
-        <header className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-slate-200 px-4 md:px-8 py-4">
-          <div className="flex justify-between items-center max-w-7xl mx-auto">
-            <div className="flex items-center gap-3">
-              <Button variant="ghost" size="sm" className="md:hidden" onClick={() => setSidebarOpen(!sidebarOpen)} data-testid="mobile-menu-btn">
-                <Menu className="h-5 w-5" />
-              </Button>
-              {selectedCase && (
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  onClick={() => { setSelectedCase(null); setActiveTab('cases'); }}
-                  className="mr-2"
-                >
-                  <ArrowLeft className="h-5 w-5" />
-                </Button>
-              )}
-              <h2 className="text-lg md:text-2xl font-bold text-slate-800">
-                {activeTab === 'dashboard' && 'Dashboard'}
-                {activeTab === 'cases' && !selectedCase && 'My Cases'}
-                {activeTab === 'pending-review' && 'Pending Review'}
-                {activeTab === 'documents' && 'All Documents'}
-                {activeTab === 'tickets' && 'Support'}
-                {activeTab === 'expiry-alerts' && 'Document Expiry Alerts'}
-                {selectedCase && `Case: ${selectedCase.case_id}`}
-              </h2>
-            </div>
-            <div className="flex items-center gap-3">
-              {selectedCase && (
-                <CreateTicket 
-                  caseId={selectedCase.id} 
-                  clientId={selectedCase.client_id}
-                  clientName={selectedCase.client_name}
-                  restrictToClient={true}
-                />
-              )}
-              <NotificationBell onNotificationClick={handleNotificationClick} />
-            </div>
-          </div>
-        </header>
-
-        {/* Content */}
-        <div className="p-4 md:p-8">
-          <div className="max-w-7xl mx-auto">
+    <DashboardShell
+      user={user}
+      roleLabel="Case Manager"
+      navGroups={navGroups}
+      activeTab={activeTab}
+      pageTitle={getPageTitle()}
+      showBackButton={!!selectedCase || (activeTab === 'info-sheets' && !!infoSheetCaseId)}
+      onBack={() => {
+        if (selectedCase) { setSelectedCase(null); setActiveTab('cases'); }
+        else if (infoSheetCaseId) { setInfoSheetCaseId(null); }
+      }}
+      headerActions={selectedCase && (
+        <CreateTicket caseId={selectedCase.id} clientId={selectedCase.client_id} clientName={selectedCase.client_name} restrictToClient={true} />
+      )}
+      onNotificationClick={handleNotificationClick}
+      onLogout={handleLogout}
+    >
           {activeTab === 'dashboard' && (
             <div>
               {/* Quick Actions Widget */}
@@ -766,13 +612,13 @@ const CaseManagerDashboard = () => {
                   </div>
                   <div className="flex gap-2">
                     <Button
-                      onClick={() => loadInfoSheet(selectedCase.id)}
+                      onClick={() => { setInfoSheetCaseId(selectedCase.id); setActiveTab('info-sheets'); }}
                       size="sm"
                       variant="outline"
                       data-testid="info-sheet-btn"
                     >
                       <FileText className="mr-2 h-4 w-4" />
-                      Information Sheet
+                      View/Edit Info Sheet
                     </Button>
                     <Button
                       onClick={async () => {
@@ -1190,7 +1036,6 @@ const CaseManagerDashboard = () => {
             </div>
           )}
 
-          {/* All Documents Section — Client-wise with Tabs */}
           {activeTab === 'documents' && (
             <div className="space-y-6" data-testid="documents-section">
               {/* Search & Filter Bar */}
@@ -1403,9 +1248,66 @@ const CaseManagerDashboard = () => {
               })()}
             </div>
           )}
-          </div>
-        </div>
-      </main>
+
+          {/* Info Sheets Tab - Case Manager can view/edit client info sheets */}
+          {activeTab === 'info-sheets' && !infoSheetCaseId && (
+            <div className="space-y-4" data-testid="info-sheets-list">
+              <Card className="p-5 bg-[#2a777a]/5 border border-[#2a777a]/20">
+                <div className="flex items-center gap-3">
+                  <ClipboardList className="h-6 w-6 text-[#2a777a]" />
+                  <div>
+                    <h3 className="font-semibold text-gray-900">Client Information Sheets</h3>
+                    <p className="text-sm text-gray-500">Select a case to view or edit the client's information sheet</p>
+                  </div>
+                </div>
+              </Card>
+              {cases.length === 0 ? (
+                <Card className="p-12 text-center">
+                  <ClipboardList className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                  <p className="text-gray-500">No cases assigned yet</p>
+                </Card>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {cases.map((c) => (
+                    <Card
+                      key={c.id}
+                      className="p-5 cursor-pointer hover:border-[#2a777a]/40 hover:shadow-md transition-all border border-gray-200"
+                      onClick={() => setInfoSheetCaseId(c.id)}
+                      data-testid={`info-sheet-case-${c.id}`}
+                    >
+                      <div className="flex items-start gap-4">
+                        <div className="h-10 w-10 rounded-full bg-[#2a777a]/10 flex items-center justify-center flex-shrink-0">
+                          <User className="h-5 w-5 text-[#2a777a]" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-semibold text-gray-900">{c.client_name}</h4>
+                          <p className="text-xs text-gray-500 mt-0.5">{c.client_email}</p>
+                          <div className="flex items-center gap-2 mt-2">
+                            <Badge variant="outline" className="text-xs">{c.case_id}</Badge>
+                            <Badge variant="outline" className="text-xs text-[#2a777a] border-[#2a777a]/30">{c.product_name}</Badge>
+                          </div>
+                        </div>
+                        <FileText className="h-5 w-5 text-gray-300 flex-shrink-0" />
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'info-sheets' && infoSheetCaseId && (
+            <div data-testid="info-sheet-editor-wrapper">
+              <InfoSheetEditor
+                caseData={{ id: infoSheetCaseId, case_id: cases.find(c => c.id === infoSheetCaseId)?.case_id }}
+                API={API}
+                getAuthHeader={() => getAuthHeader()}
+                onRefresh={() => loadData()}
+                extractingResume={extractingResume}
+                setExtractingResume={setExtractingResume}
+              />
+            </div>
+          )}
 
       {/* Review Document Dialog */}
       <Dialog open={reviewDialog.open} onOpenChange={(open) => setReviewDialog({ ...reviewDialog, open })}>
@@ -1559,204 +1461,6 @@ const CaseManagerDashboard = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Information Sheet Dialog */}
-      <Dialog open={infoSheetDialog.open} onOpenChange={(open) => setInfoSheetDialog({ ...infoSheetDialog, open })}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Client Information Sheet</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-6 py-4">
-            {/* Personal Information */}
-            <div>
-              <h4 className="font-semibold text-slate-800 mb-3 border-b pb-2">Personal Information</h4>
-              <div className="grid grid-cols-3 gap-3">
-                <div><Label>Full Name</Label><Input value={infoSheetDialog.data.full_name || ''} onChange={(e) => updateInfoField('full_name', e.target.value)} data-testid="info-full-name" /></div>
-                <div><Label>Date of Birth</Label><Input type="date" value={infoSheetDialog.data.date_of_birth || ''} onChange={(e) => updateInfoField('date_of_birth', e.target.value)} /></div>
-                <div><Label>Gender</Label>
-                  <Select value={infoSheetDialog.data.gender || ''} onValueChange={(v) => updateInfoField('gender', v)}>
-                    <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="male">Male</SelectItem>
-                      <SelectItem value="female">Female</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div><Label>Nationality</Label><Input value={infoSheetDialog.data.nationality || ''} onChange={(e) => updateInfoField('nationality', e.target.value)} /></div>
-                <div><Label>Passport Number</Label><Input value={infoSheetDialog.data.passport_number || ''} onChange={(e) => updateInfoField('passport_number', e.target.value)} /></div>
-                <div><Label>Passport Expiry</Label><Input type="date" value={infoSheetDialog.data.passport_expiry || ''} onChange={(e) => updateInfoField('passport_expiry', e.target.value)} /></div>
-              </div>
-            </div>
-
-            {/* Contact */}
-            <div>
-              <h4 className="font-semibold text-slate-800 mb-3 border-b pb-2">Contact Information</h4>
-              <div className="grid grid-cols-3 gap-3">
-                <div><Label>Phone</Label><Input value={infoSheetDialog.data.phone || ''} onChange={(e) => updateInfoField('phone', e.target.value)} /></div>
-                <div><Label>Email</Label><Input value={infoSheetDialog.data.email || ''} onChange={(e) => updateInfoField('email', e.target.value)} /></div>
-                <div><Label>Postal Code</Label><Input value={infoSheetDialog.data.postal_code || ''} onChange={(e) => updateInfoField('postal_code', e.target.value)} /></div>
-                <div className="col-span-3"><Label>Address</Label><Input value={infoSheetDialog.data.address || ''} onChange={(e) => updateInfoField('address', e.target.value)} /></div>
-                <div><Label>City</Label><Input value={infoSheetDialog.data.city || ''} onChange={(e) => updateInfoField('city', e.target.value)} /></div>
-                <div><Label>State</Label><Input value={infoSheetDialog.data.state || ''} onChange={(e) => updateInfoField('state', e.target.value)} /></div>
-                <div><Label>Country</Label><Input value={infoSheetDialog.data.country || ''} onChange={(e) => updateInfoField('country', e.target.value)} /></div>
-              </div>
-            </div>
-
-            {/* Education */}
-            <div>
-              <h4 className="font-semibold text-slate-800 mb-3 border-b pb-2">Education</h4>
-              <div className="grid grid-cols-2 gap-3">
-                <div><Label>Highest Education</Label><Input value={infoSheetDialog.data.highest_education || ''} onChange={(e) => updateInfoField('highest_education', e.target.value)} /></div>
-                <div><Label>Field of Study</Label><Input value={infoSheetDialog.data.field_of_study || ''} onChange={(e) => updateInfoField('field_of_study', e.target.value)} /></div>
-                <div><Label>Institution</Label><Input value={infoSheetDialog.data.institution_name || ''} onChange={(e) => updateInfoField('institution_name', e.target.value)} /></div>
-                <div><Label>Graduation Year</Label><Input type="number" value={infoSheetDialog.data.graduation_year || ''} onChange={(e) => updateInfoField('graduation_year', e.target.value)} /></div>
-              </div>
-            </div>
-
-            {/* Work */}
-            <div>
-              <h4 className="font-semibold text-slate-800 mb-3 border-b pb-2">Work Experience</h4>
-              <div className="grid grid-cols-2 gap-3">
-                <div><Label>Current Occupation</Label><Input value={infoSheetDialog.data.current_occupation || ''} onChange={(e) => updateInfoField('current_occupation', e.target.value)} /></div>
-                <div><Label>Employer Name</Label><Input value={infoSheetDialog.data.employer_name || ''} onChange={(e) => updateInfoField('employer_name', e.target.value)} /></div>
-                <div><Label>Job Title</Label><Input value={infoSheetDialog.data.job_title || ''} onChange={(e) => updateInfoField('job_title', e.target.value)} /></div>
-                <div><Label>Years of Experience</Label><Input type="number" value={infoSheetDialog.data.years_of_experience || ''} onChange={(e) => updateInfoField('years_of_experience', e.target.value)} /></div>
-              </div>
-            </div>
-
-            {/* Language */}
-            <div>
-              <h4 className="font-semibold text-slate-800 mb-3 border-b pb-2">Language Proficiency</h4>
-              <div className="grid grid-cols-2 gap-3">
-                <div><Label>Primary Language</Label><Input value={infoSheetDialog.data.primary_language || ''} onChange={(e) => updateInfoField('primary_language', e.target.value)} /></div>
-                <div><Label>English Proficiency</Label>
-                  <Select value={infoSheetDialog.data.english_proficiency || ''} onValueChange={(v) => updateInfoField('english_proficiency', v)}>
-                    <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="native">Native</SelectItem>
-                      <SelectItem value="fluent">Fluent</SelectItem>
-                      <SelectItem value="intermediate">Intermediate</SelectItem>
-                      <SelectItem value="basic">Basic</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div><Label>IELTS Score</Label><Input type="number" step="0.5" value={infoSheetDialog.data.ielts_score || ''} onChange={(e) => updateInfoField('ielts_score', e.target.value)} /></div>
-                <div><Label>Other Languages</Label><Input value={infoSheetDialog.data.other_languages || ''} onChange={(e) => updateInfoField('other_languages', e.target.value)} /></div>
-              </div>
-            </div>
-
-            {/* Family */}
-            <div>
-              <h4 className="font-semibold text-slate-800 mb-3 border-b pb-2">Family Details</h4>
-              <div className="grid grid-cols-3 gap-3">
-                <div><Label>Marital Status</Label>
-                  <Select value={infoSheetDialog.data.marital_status || ''} onValueChange={(v) => updateInfoField('marital_status', v)}>
-                    <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="single">Single</SelectItem>
-                      <SelectItem value="married">Married</SelectItem>
-                      <SelectItem value="divorced">Divorced</SelectItem>
-                      <SelectItem value="widowed">Widowed</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div><Label>Spouse Name</Label><Input value={infoSheetDialog.data.spouse_name || ''} onChange={(e) => updateInfoField('spouse_name', e.target.value)} /></div>
-                <div><Label>Number of Dependents</Label><Input type="number" value={infoSheetDialog.data.number_of_dependents || ''} onChange={(e) => updateInfoField('number_of_dependents', e.target.value)} /></div>
-              </div>
-              {/* Dependent Details */}
-              <div className="mt-3 bg-slate-50 rounded-lg p-3">
-                <div className="flex items-center justify-between mb-2">
-                  <Label className="text-sm font-medium">Dependent Details (Children, Spouse, etc.)</Label>
-                  <Button size="sm" variant="outline" onClick={() => {
-                    const deps = infoSheetDialog.data.dependents || [];
-                    updateInfoField('dependents', [...deps, { name: '', relationship: '', age: '', passport_number: '' }]);
-                  }}>
-                    <Plus className="h-3 w-3 mr-1" />Add Dependent
-                  </Button>
-                </div>
-                {(infoSheetDialog.data.dependents || []).map((dep, idx) => (
-                  <div key={idx} className="grid grid-cols-5 gap-2 mb-2 items-end">
-                    <div><Label className="text-xs">Name</Label><Input className="text-sm h-8" value={dep.name || ''} onChange={(e) => {
-                      const deps = [...(infoSheetDialog.data.dependents || [])];
-                      deps[idx] = { ...deps[idx], name: e.target.value };
-                      updateInfoField('dependents', deps);
-                    }} /></div>
-                    <div><Label className="text-xs">Relationship</Label><Input className="text-sm h-8" placeholder="Child/Spouse" value={dep.relationship || ''} onChange={(e) => {
-                      const deps = [...(infoSheetDialog.data.dependents || [])];
-                      deps[idx] = { ...deps[idx], relationship: e.target.value };
-                      updateInfoField('dependents', deps);
-                    }} /></div>
-                    <div><Label className="text-xs">Age</Label><Input type="number" className="text-sm h-8" value={dep.age || ''} onChange={(e) => {
-                      const deps = [...(infoSheetDialog.data.dependents || [])];
-                      deps[idx] = { ...deps[idx], age: e.target.value };
-                      updateInfoField('dependents', deps);
-                    }} /></div>
-                    <div><Label className="text-xs">Passport #</Label><Input className="text-sm h-8" value={dep.passport_number || ''} onChange={(e) => {
-                      const deps = [...(infoSheetDialog.data.dependents || [])];
-                      deps[idx] = { ...deps[idx], passport_number: e.target.value };
-                      updateInfoField('dependents', deps);
-                    }} /></div>
-                    <Button size="sm" variant="ghost" className="text-red-500 h-8" onClick={() => {
-                      const deps = [...(infoSheetDialog.data.dependents || [])];
-                      deps.splice(idx, 1);
-                      updateInfoField('dependents', deps);
-                    }}>Remove</Button>
-                  </div>
-                ))}
-                {(!infoSheetDialog.data.dependents || infoSheetDialog.data.dependents.length === 0) && (
-                  <p className="text-xs text-slate-400 text-center py-2">No dependents added yet</p>
-                )}
-              </div>
-            </div>
-
-            {/* Immigration */}
-            <div>
-              <h4 className="font-semibold text-slate-800 mb-3 border-b pb-2">Immigration Details</h4>
-              <div className="grid grid-cols-2 gap-3">
-                <div><Label>Intended Destination</Label><Input value={infoSheetDialog.data.intended_destination || ''} onChange={(e) => updateInfoField('intended_destination', e.target.value)} /></div>
-                <div><Label>Purpose of Immigration</Label><Input value={infoSheetDialog.data.purpose_of_immigration || ''} onChange={(e) => updateInfoField('purpose_of_immigration', e.target.value)} /></div>
-                <div className="col-span-2"><Label>Previous Visa Refusals</Label><Textarea rows={2} value={infoSheetDialog.data.previous_visa_refusals || ''} onChange={(e) => updateInfoField('previous_visa_refusals', e.target.value)} /></div>
-                <div className="col-span-2"><Label>Previous Travel History</Label><Textarea rows={2} value={infoSheetDialog.data.previous_travel_history || ''} onChange={(e) => updateInfoField('previous_travel_history', e.target.value)} /></div>
-              </div>
-            </div>
-
-            {/* Notes */}
-            <div>
-              <Label>Additional Notes</Label>
-              <Textarea rows={3} value={infoSheetDialog.data.additional_notes || ''} onChange={(e) => updateInfoField('additional_notes', e.target.value)} />
-            </div>
-
-            {/* Case Manager Notes */}
-            <div className="bg-teal-50 rounded-lg p-4 border border-teal-200">
-              <h4 className="font-semibold text-[#2a777a] mb-2">Case Manager Notes</h4>
-              <p className="text-xs text-slate-500 mb-2">Internal notes visible only to case managers and admins</p>
-              <Textarea rows={3} placeholder="Add internal notes about this client's information (status changes, follow-up items, etc.)" value={infoSheetDialog.data.case_manager_notes || ''} onChange={(e) => updateInfoField('case_manager_notes', e.target.value)} />
-            </div>
-
-            {/* Change History */}
-            {infoSheetDialog.data.change_history && infoSheetDialog.data.change_history.length > 0 && (
-              <div className="bg-slate-50 rounded-lg p-4 border">
-                <h4 className="font-semibold text-slate-700 mb-2 text-sm">Change History</h4>
-                <div className="space-y-1 max-h-32 overflow-y-auto">
-                  {infoSheetDialog.data.change_history.slice().reverse().map((entry, idx) => (
-                    <div key={idx} className="text-xs text-slate-500 flex items-center gap-2">
-                      <span className="font-medium text-slate-700">{entry.changed_by_name || 'Unknown'}</span>
-                      <span>({entry.changed_by_role})</span>
-                      <span>&middot;</span>
-                      <span>{new Date(entry.changed_at).toLocaleDateString()}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <Button onClick={saveInfoSheet} className="w-full bg-[#2a777a] hover:bg-[#236466]" data-testid="save-info-sheet-btn">
-              Save Information Sheet
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
       {/* AI Analysis Dialog */}
       <Dialog open={aiAnalysis.open} onOpenChange={(open) => setAiAnalysis({ ...aiAnalysis, open })}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
@@ -1819,8 +1523,7 @@ const CaseManagerDashboard = () => {
         </div>
       )}
 
-      </div>
-    </div>
+    </DashboardShell>
   );
 };
 

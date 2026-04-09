@@ -9,54 +9,12 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Briefcase, FileText, DollarSign, LogOut, Plus, ArrowLeft, MessageSquare, Filter, Download, Menu, X } from 'lucide-react';
-import NotificationBell from '@/components/NotificationBell';
+import DashboardShell from '@/components/DashboardShell';
 import TicketSection from '@/components/TicketSection';
 import QuickActions from '@/components/QuickActions';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
-
-// Return to Admin Banner Component
-const AdminReturnBanner = () => {
-  const adminToken = localStorage.getItem('admin_token');
-  const adminUserData = localStorage.getItem('admin_user');
-  
-  if (!adminToken || !adminUserData) return null;
-  
-  let adminUser = null;
-  try {
-    adminUser = JSON.parse(adminUserData);
-  } catch (e) {
-    console.error('Failed to parse admin user data');
-  }
-
-  const handleReturnToAdmin = () => {
-    localStorage.setItem('token', adminToken);
-    localStorage.setItem('user', adminUserData);
-    localStorage.removeItem('admin_token');
-    localStorage.removeItem('admin_user');
-    toast.success('Returned to Admin account');
-    window.location.assign('/admin');
-  };
-
-  return (
-    <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white px-4 py-2 flex items-center justify-between shadow-lg" data-testid="admin-return-banner">
-      <div className="flex items-center gap-2">
-        <span className="text-sm font-medium">🔒 Viewing as impersonated user</span>
-        {adminUser && <span className="text-xs opacity-80">(Admin: {adminUser.name})</span>}
-      </div>
-      <Button 
-        onClick={handleReturnToAdmin} 
-        size="sm" 
-        className="bg-white text-orange-600 hover:bg-orange-50 font-medium"
-        data-testid="return-to-admin-btn"
-      >
-        <ArrowLeft className="h-4 w-4 mr-1" />
-        Return to Admin
-      </Button>
-    </div>
-  );
-};
 
 const PartnerDashboard = () => {
   const navigate = useNavigate();
@@ -320,129 +278,39 @@ const PartnerDashboard = () => {
     return classes[status] || 'bg-slate-100 text-slate-700 border-slate-200';
   };
 
-  return (
-    <div className="min-h-screen bg-[#F5F7FA]" data-testid="partner-dashboard">
-      <AdminReturnBanner />
-      
-      <div className="flex">
-      {/* Mobile Sidebar Overlay */}
-      {sidebarOpen && <div className="fixed inset-0 bg-black/40 z-30 md:hidden" onClick={() => setSidebarOpen(false)} />}
-      {/* Responsive Sidebar */}
-      <aside className={`w-64 bg-white border-r border-slate-200 flex flex-col fixed h-screen z-40 transition-transform duration-200 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`} data-testid="sidebar">
-        <div className="p-6 border-b border-slate-100">
-          <div className="flex items-center gap-3">
-            <img src="/leamss-logo.png" alt="LEAMSS" className="h-10 w-10 rounded-lg object-contain" />
-            <div>
-              <h1 className="text-lg font-bold text-slate-800">LEAMSS</h1>
-              <p className="text-xs text-slate-500">Partner Portal</p>
-            </div>
-          </div>
-        </div>
-        
-        <nav className="flex-1 p-4 space-y-1">
-          <button
-            onClick={() => { setActiveTab('dashboard'); setSidebarOpen(false); }}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all font-medium ${
-              activeTab === 'dashboard' 
-                ? 'bg-teal-50 text-[#2a777a]' 
-                : 'text-slate-600 hover:bg-slate-50'
-            }`}
-            data-testid="nav-dashboard"
-          >
-            <Briefcase className="h-5 w-5" />
-            <span>Dashboard</span>
-          </button>
-          <button
-            onClick={() => { setActiveTab('sales'); setSidebarOpen(false); }}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all font-medium ${
-              activeTab === 'sales' 
-                ? 'bg-teal-50 text-[#2a777a]' 
-                : 'text-slate-600 hover:bg-slate-50'
-            }`}
-            data-testid="nav-sales"
-          >
-            <FileText className="h-5 w-5" />
-            <span>My Sales</span>
-          </button>
-          <button
-            onClick={() => { setActiveTab('commission'); setSidebarOpen(false); }}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all font-medium ${
-              activeTab === 'commission' 
-                ? 'bg-teal-50 text-[#2a777a]' 
-                : 'text-slate-600 hover:bg-slate-50'
-            }`}
-            data-testid="nav-commission"
-          >
-            <DollarSign className="h-5 w-5" />
-            <span>Commission</span>
-          </button>
-          <button
-            onClick={() => { setActiveTab('tickets'); setSidebarOpen(false); }}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all font-medium ${
-              activeTab === 'tickets' 
-                ? 'bg-teal-50 text-[#2a777a]' 
-                : 'text-slate-600 hover:bg-slate-50'
-            }`}
-            data-testid="nav-tickets"
-          >
-            <MessageSquare className="h-5 w-5" />
-            <span>Support</span>
-          </button>
-        </nav>
-        
-        <div className="p-4 border-t border-slate-100">
-          <div className="flex items-center gap-3 px-3 py-2 mb-3">
-            <div className="h-9 w-9 rounded-full bg-slate-200 flex items-center justify-center">
-              <span className="text-slate-600 font-medium text-sm">{user?.name?.charAt(0) || 'P'}</span>
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-slate-800 truncate">{user?.name}</p>
-              <p className="text-xs text-slate-500 truncate">{user?.email}</p>
-            </div>
-          </div>
-          <Button
-            onClick={handleLogout}
-            variant="ghost"
-            className="w-full justify-start text-slate-600 hover:text-slate-800 hover:bg-slate-50"
-            data-testid="logout-button"
-          >
-            <LogOut className="mr-2 h-4 w-4" />
-            Logout
-          </Button>
-        </div>
-      </aside>
+  const partnerNavGroups = [
+    { id: 'dashboard', icon: Briefcase, label: 'Dashboard', onClick: () => setActiveTab('dashboard') },
+    { id: 'sales', icon: FileText, label: 'My Sales', onClick: () => setActiveTab('sales') },
+    { id: 'commission', icon: DollarSign, label: 'Commission', onClick: () => setActiveTab('commission') },
+    { id: 'tickets', icon: MessageSquare, label: 'Support', onClick: () => setActiveTab('tickets') },
+  ];
 
-      <main className="flex-1 md:ml-64">
-        {/* Header */}
-        <header className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-slate-200 px-4 md:px-8 py-4">
-          <div className="flex justify-between items-center max-w-7xl mx-auto">
-            <div className="flex items-center gap-3">
-              <Button variant="ghost" size="sm" className="md:hidden" onClick={() => setSidebarOpen(!sidebarOpen)} data-testid="mobile-menu-btn">
-                <Menu className="h-5 w-5" />
-              </Button>
-              <h2 className="text-lg md:text-2xl font-bold text-slate-800">
-              {activeTab === 'dashboard' && 'Dashboard'}
-              {activeTab === 'sales' && 'My Sales'}
-              {activeTab === 'commission' && 'Commission'}
-              {activeTab === 'tickets' && 'Support'}
-            </h2>
-            </div>
-            
-            <div className="flex items-center gap-2 md:gap-3">
-              <NotificationBell onNotificationClick={handleNotificationClick} />
-            {(activeTab === 'sales' || activeTab === 'dashboard') && (
-              <Dialog open={showNewSaleDialog} onOpenChange={setShowNewSaleDialog}>
-                <DialogTrigger asChild>
-                  <Button className="bg-[#f7620b] hover:bg-[#e55a09]" data-testid="new-sale-button">
-                    <Plus className="mr-2 h-4 w-4" />
-                    New Sale
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                  <DialogHeader>
-                    <DialogTitle>Create New Sale</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4 py-4">
+  const partnerPageTitle = { dashboard: 'Dashboard', sales: 'My Sales', commission: 'Commission', tickets: 'Support' }[activeTab] || 'Dashboard';
+
+  return (
+    <DashboardShell
+      user={user}
+      roleLabel="Partner"
+      navGroups={partnerNavGroups}
+      activeTab={activeTab}
+      pageTitle={partnerPageTitle}
+      headerActions={
+        (activeTab === 'sales' || activeTab === 'dashboard') && (
+          <Button className="bg-[#f7620b] hover:bg-[#e55a09]" size="sm" onClick={() => setShowNewSaleDialog(true)} data-testid="new-sale-button">
+            <Plus className="mr-2 h-4 w-4" /> New Sale
+          </Button>
+        )
+      }
+      onNotificationClick={handleNotificationClick}
+      onLogout={handleLogout}
+    >
+      {/* New Sale Dialog */}
+      <Dialog open={showNewSaleDialog} onOpenChange={setShowNewSaleDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Create New Sale</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <Label>Client Name</Label>
@@ -648,14 +516,7 @@ const PartnerDashboard = () => {
                   </Button>
                 </DialogContent>
               </Dialog>
-            )}
-            </div>
-          </div>
-        </header>
 
-        {/* Content */}
-        <div className="p-4 md:p-8">
-          <div className="max-w-7xl mx-auto">
           {activeTab === 'dashboard' && (
             <div>
               {/* Quick Actions Widget */}
@@ -863,11 +724,7 @@ const PartnerDashboard = () => {
           {activeTab === 'tickets' && (
             <TicketSection initialTicketId={initialTicketId} initialFilter={ticketFilter} />
           )}
-          </div>
-        </div>
-      </main>
-      </div>
-    </div>
+    </DashboardShell>
   );
 };
 

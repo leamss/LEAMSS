@@ -10,14 +10,14 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import NotificationBell from '@/components/NotificationBell';
+import DashboardShell from '@/components/DashboardShell';
 import QuickActions from '@/components/QuickActions';
 import { 
   LayoutDashboard, FileText, Users, Briefcase, LogOut, Plus, User, 
   Download, Edit, Trash2, UserPlus, Eye, ArrowRight, Settings,
   Search, DollarSign, TrendingUp, CheckCircle, XCircle, Clock,
   MessageSquare, Filter, Calendar, RefreshCw, AlertTriangle, Copy, Mail, Gift,
-  Menu, X, Bell, Loader2
+  Menu, X, Bell, Loader2, CreditCard, BarChart3, Activity, Megaphone
 } from 'lucide-react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -1026,128 +1026,86 @@ const AdminDashboard = () => {
     return badges[priority] || <Badge>{priority}</Badge>;
   };
 
+  const resetSelections = () => {
+    setSelectedCase(null); setSelectedSale(null); setSelectedPartnerReport(null); setSelectedTicket(null);
+  };
+
+  const adminNavGroups = [
+    { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard', onClick: () => { setActiveTab('dashboard'); resetSelections(); } },
+    {
+      groupLabel: 'Sales & Finance',
+      defaultOpen: true,
+      items: [
+        { id: 'sales', icon: FileText, label: 'Pending Sales', badge: pendingSales.length, onClick: () => { setActiveTab('sales'); resetSelections(); } },
+        { id: 'total-sales', icon: TrendingUp, label: 'Sales Report', onClick: () => { setActiveTab('total-sales'); resetSelections(); } },
+        { id: 'commissions', icon: DollarSign, label: 'Commissions', onClick: () => { setActiveTab('commissions'); resetSelections(); } },
+        { id: 'refunds', icon: XCircle, label: 'Refunds', onClick: () => { setActiveTab('refunds'); resetSelections(); } },
+        { id: 'reminders', icon: Bell, label: 'Payment Reminders', onClick: () => { setActiveTab('reminders'); resetSelections(); } },
+      ]
+    },
+    {
+      groupLabel: 'Cases & Users',
+      defaultOpen: true,
+      items: [
+        { id: 'cases', icon: Briefcase, label: 'All Cases', onClick: () => { setActiveTab('cases'); resetSelections(); } },
+        { id: 'pending-assignment', icon: Users, label: 'Pending Assignment', badge: unassignedCases.length, badgeColor: 'bg-amber-500', onClick: () => { setActiveTab('pending-assignment'); resetSelections(); } },
+        { id: 'users', icon: User, label: 'Users', onClick: () => { setActiveTab('users'); resetSelections(); } },
+      ]
+    },
+    {
+      groupLabel: 'System',
+      items: [
+        { id: 'products', icon: Settings, label: 'Products', onClick: () => { setActiveTab('products'); resetSelections(); } },
+        { id: 'tickets', icon: MessageSquare, label: 'Tickets', badge: ticketStats.open, onClick: () => { setActiveTab('tickets'); resetSelections(); } },
+        { id: 'settings', icon: Settings, label: 'Settings', onClick: () => { setActiveTab('settings'); resetSelections(); } },
+      ]
+    },
+    {
+      groupLabel: 'Tools',
+      defaultOpen: false,
+      items: [
+        { id: 'analytics', icon: BarChart3, label: 'Analytics', onClick: () => navigate('/admin/analytics') },
+        { id: 'activity', icon: Activity, label: 'Activity Log', onClick: () => navigate('/admin/activity') },
+        { id: 'workflows', icon: FileText, label: 'Workflows', onClick: () => navigate('/admin/workflows') },
+        { id: 'marketing', icon: Megaphone, label: 'Marketing', onClick: () => navigate('/admin/marketing') },
+      ]
+    },
+  ];
+
+  const getAdminPageTitle = () => {
+    if (selectedTicket) return `Ticket: ${selectedTicket.subject}`;
+    if (activeTab === 'sale-docs' && selectedSale) return `Sale: ${selectedSale.client_name}`;
+    if (activeTab === 'case-detail' && selectedCase) return `Case: ${selectedCase.case_id}`;
+    const titles = {
+      dashboard: 'Dashboard', sales: 'Pending Sales', 'total-sales': 'Sales Report',
+      commissions: 'Commissions', cases: 'All Cases', 'pending-assignment': 'Pending Assignment',
+      reminders: 'Payment Reminders', products: 'Products', users: 'Users',
+      tickets: 'Tickets', settings: 'Settings', refunds: 'Refunds',
+    };
+    return titles[activeTab] || 'Dashboard';
+  };
+
   return (
-    <div className="flex min-h-screen bg-[#F5F7FA]" data-testid="admin-dashboard">
-      {/* Mobile Sidebar Overlay */}
-      {sidebarOpen && <div className="fixed inset-0 bg-black/40 z-30 md:hidden" onClick={() => setSidebarOpen(false)} />}
-      {/* Responsive Sidebar */}
-      <aside className={`w-64 bg-white border-r border-slate-200 flex flex-col fixed h-screen z-40 transition-transform duration-200 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`} data-testid="admin-sidebar">
-        <div className="p-6 border-b border-slate-100">
-          <div className="flex items-center gap-3">
-            <img src="/leamss-logo.png" alt="LEAMSS" className="h-10 w-10 rounded-lg object-contain" />
-            <div>
-              <h1 className="text-lg font-bold text-slate-800">LEAMSS</h1>
-              <p className="text-xs text-slate-500">Admin Portal</p>
-            </div>
-          </div>
-        </div>
-        
-        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-          {[
-            { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-            { id: 'sales', icon: FileText, label: 'Sales' },
-            { id: 'total-sales', icon: TrendingUp, label: 'Sales Report' },
-            { id: 'commissions', icon: DollarSign, label: 'Commissions' },
-            { id: 'cases', icon: Briefcase, label: 'All Cases' },
-            { id: 'pending-assignment', icon: Users, label: 'Pending Assignment' },
-            { id: 'products', icon: Settings, label: 'Products' },
-            { id: 'users', icon: Users, label: 'Users' },
-            { id: 'tickets', icon: MessageSquare, label: 'Tickets' },
-            { id: 'refunds', icon: XCircle, label: 'Refunds' },
-            { id: 'analytics', icon: TrendingUp, label: 'Analytics', isLink: '/admin/analytics' },
-            { id: 'activity', icon: Clock, label: 'Activity Log', isLink: '/admin/activity' },
-            { id: 'workflows', icon: FileText, label: 'Workflows', isLink: '/admin/workflows' },
-            { id: 'marketing', icon: Gift, label: 'Marketing', isLink: '/admin/marketing' },
-            { id: 'reminders', icon: Clock, label: 'Payment Reminders' },
-            { id: 'settings', icon: Settings, label: 'Settings' }
-          ].map(item => (
-            <button
-              key={item.id}
-              onClick={() => { 
-                if (item.isLink) {
-                  navigate(item.isLink);
-                } else {
-                  setActiveTab(item.id); setSelectedCase(null); setSelectedSale(null); setSelectedPartnerReport(null); setSelectedTicket(null);
-                }
-                setSidebarOpen(false);
-              }}
-              data-testid={`nav-${item.id}`}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all font-medium ${
-                activeTab === item.id 
-                  ? 'bg-teal-50 text-[#2a777a]' 
-                  : 'text-slate-600 hover:bg-slate-50'
-              }`}
-            >
-              <item.icon className="h-5 w-5" />
-              <span>{item.label}</span>
-              {item.id === 'tickets' && ticketStats.open > 0 && (
-                <span className="ml-auto bg-[#f7620b] text-white text-xs px-2 py-0.5 rounded-full">{ticketStats.open}</span>
-              )}
-              {item.id === 'sales' && pendingSales.length > 0 && (
-                <span className="ml-auto bg-[#f7620b] text-white text-xs px-2 py-0.5 rounded-full">{pendingSales.length}</span>
-              )}
-              {item.id === 'pending-assignment' && unassignedCases.length > 0 && (
-                <span className="ml-auto bg-amber-500 text-white text-xs px-2 py-0.5 rounded-full">{unassignedCases.length}</span>
-              )}
-            </button>
-          ))}
-        </nav>
-        
-        <div className="p-4 border-t border-slate-100">
-          <div className="flex items-center gap-3 px-3 py-2 mb-3">
-            <div className="h-9 w-9 rounded-full bg-slate-200 flex items-center justify-center">
-              <span className="text-slate-600 font-medium text-sm">{user?.name?.charAt(0) || 'A'}</span>
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-slate-800 truncate">{user?.name}</p>
-              <p className="text-xs text-slate-500 truncate">{user?.email}</p>
-            </div>
-          </div>
-          <Button onClick={handleLogout} variant="ghost" className="w-full justify-start text-slate-600 hover:text-slate-800 hover:bg-slate-50" data-testid="logout-button">
-            <LogOut className="mr-2 h-4 w-4" />Logout
-          </Button>
-        </div>
-      </aside>
-
-      {/* Main Content */}
-      <main className="flex-1 md:ml-64">
-        {/* Header */}
-        <header className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-slate-200 px-4 md:px-8 py-4">
-          <div className="flex justify-between items-center max-w-7xl mx-auto">
-            <div className="flex items-center gap-3">
-              <Button variant="ghost" size="sm" className="md:hidden" onClick={() => setSidebarOpen(!sidebarOpen)} data-testid="mobile-menu-btn">
-                <Menu className="h-5 w-5" />
-              </Button>
-              <h2 className="text-lg md:text-2xl font-bold text-slate-800" data-testid="page-title">
-              {activeTab === 'dashboard' && 'Dashboard'}
-              {activeTab === 'sales' && 'Pending Sales'}
-              {activeTab === 'total-sales' && 'Sales Report'}
-              {activeTab === 'commissions' && 'Commissions'}
-              {activeTab === 'cases' && !selectedCase && 'All Cases'}
-              {activeTab === 'pending-assignment' && 'Pending Case Assignment'}
-              {activeTab === 'reminders' && 'Payment Reminders'}
-              {activeTab === 'products' && 'Products'}
-              {activeTab === 'users' && 'Users'}
-              {activeTab === 'tickets' && !selectedTicket && 'Tickets'}
-              {activeTab === 'settings' && 'Settings'}
-              {activeTab === 'refunds' && 'Refunds'}
-              {activeTab === 'sale-docs' && `Sale: ${selectedSale?.client_name}`}
-              {activeTab === 'case-detail' && `Case: ${selectedCase?.case_id}`}
-              {selectedTicket && `Ticket: ${selectedTicket?.subject}`}
-            </h2>
-            </div>
-            <div className="flex items-center gap-2 md:gap-3">
-              <Button onClick={() => setTicketDialog({ ...ticketDialog, open: true })} variant="outline" size="sm" data-testid="raise-ticket-btn" className="hidden sm:flex">
-                <Plus className="mr-2 h-4 w-4" />Raise Ticket
-              </Button>
-              <NotificationBell onNotificationClick={handleNotificationClick} />
-            </div>
-          </div>
-        </header>
-
-        {/* Content */}
-        <div className="p-4 md:p-8">
-          <div className="max-w-7xl mx-auto">
+    <DashboardShell
+      user={user}
+      roleLabel="Admin Portal"
+      navGroups={adminNavGroups}
+      activeTab={activeTab}
+      pageTitle={getAdminPageTitle()}
+      showBackButton={!!selectedCase || !!selectedSale || !!selectedTicket}
+      onBack={() => {
+        if (selectedTicket) { setSelectedTicket(null); setActiveTab('tickets'); }
+        else if (selectedSale) { setSelectedSale(null); setActiveTab('sales'); }
+        else if (selectedCase) { setSelectedCase(null); setActiveTab('cases'); }
+      }}
+      headerActions={
+        <Button onClick={() => setTicketDialog({ ...ticketDialog, open: true })} variant="outline" size="sm" data-testid="raise-ticket-btn" className="hidden sm:flex">
+          <Plus className="mr-2 h-4 w-4" />Raise Ticket
+        </Button>
+      }
+      onNotificationClick={handleNotificationClick}
+      onLogout={handleLogout}
+    >
           {/* Dashboard Tab */}
           {activeTab === 'dashboard' && (
             <div className="space-y-6" data-testid="dashboard-content">
@@ -2703,10 +2661,6 @@ const AdminDashboard = () => {
             </div>
           )}
 
-          </div>
-        </div>
-      </main>
-
       {/* Product Dialog */}
       <Dialog open={productDialog.open} onOpenChange={(open) => setProductDialog({ ...productDialog, open })}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
@@ -3231,7 +3185,7 @@ const AdminDashboard = () => {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </DashboardShell>
   );
 };
 
