@@ -26,11 +26,13 @@ const DocumentChecklist = ({ caseId, caseSteps = [], documents = [], workflowSte
     const sortedSteps = [...(caseSteps || [])].sort((a, b) => (a.step_order || 0) - (b.step_order || 0));
 
     for (const step of sortedSteps) {
-      // Find matching workflow step to get required docs
+      // Find matching workflow step to get required docs (check step itself first, then workflow)
       const wfStep = (workflowSteps || []).find(ws =>
         ws.step_name === step.step_name || ws.step_order === step.step_order
       );
-      const requiredDocs = wfStep?.required_documents || [];
+      const requiredDocs = step.required_documents?.length > 0
+        ? step.required_documents
+        : (wfStep?.required_documents || []);
 
       const docItems = requiredDocs.map(rd => {
         const docName = typeof rd === 'string' ? rd : (rd.doc_name || rd.name || rd);

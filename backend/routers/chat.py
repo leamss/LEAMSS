@@ -75,6 +75,9 @@ async def start_conversation(
         {"case_id": request.case_id}, {"_id": 0}
     )
     if existing:
+        for k in ["created_at", "updated_at", "last_message_at"]:
+            if isinstance(existing.get(k), datetime):
+                existing[k] = existing[k].isoformat()
         return existing
 
     # Get participant info
@@ -100,6 +103,7 @@ async def start_conversation(
         "updated_at": datetime.now(timezone.utc),
     }
     await chat_conversations_col.insert_one(convo)
+    convo.pop("_id", None)
 
     convo["created_at"] = convo["created_at"].isoformat()
     convo["updated_at"] = convo["updated_at"].isoformat()
@@ -173,6 +177,7 @@ async def send_message(
         "created_at": datetime.now(timezone.utc),
     }
     await chat_messages_col.insert_one(msg)
+    msg.pop("_id", None)
 
     # Update conversation
     await chat_conversations_col.update_one(
