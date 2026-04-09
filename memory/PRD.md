@@ -1,209 +1,91 @@
-# LEAMSS Immigration Portal — PRD
+# LEAMSS Immigration Portal - Product Requirements Document
 
 ## Original Problem Statement
-Build a comprehensive immigration services portal (LEAMSS) with role-based dashboards for Admin, Case Manager, Partner, and Client. The portal handles sales tracking, case management, document processing, ticketing, commission tracking, and payment collection.
+Build a comprehensive LEAMSS Portal for an immigration service supporting Admin, Case Manager, Partner, and Client roles. Features include multi-role dashboards, workflow automation, CRM tools, document management, AI intelligence, and payment processing.
 
 ## Tech Stack
-- **Frontend**: React, TailwindCSS, Shadcn UI
-- **Backend**: FastAPI (Python), MongoDB (Motor async driver)
-- **Auth**: JWT-based custom authentication
-- **AI**: GPT-5.2 via emergentintegrations (Universal Key)
-- **PDF**: reportlab for server-side PDF generation
+- **Frontend**: React 18, TailwindCSS, Shadcn UI, Lucide React Icons
+- **Backend**: FastAPI, Motor (MongoDB async driver)
+- **Database**: MongoDB
+- **Integrations**: OpenAI GPT-5.2 (via emergentintegrations), Stripe Payments
 
-## User Personas
-- **Admin**: Full system access, user management (with password reset), commission config, reports, analytics, workflow builder, marketing
-- **Case Manager**: Case workflows, document review, ticket management, info sheets (request/edit), AI document verification
-- **Partner**: Sale booking (multi-currency), commission tracking, support tickets, referral codes
-- **Client**: Case status, document upload/download, support tickets, info sheet view/edit
+## Core Architecture
+```
+/app
+├── backend/
+│   ├── core/           # database.py, auth.py, models.py
+│   ├── routers/        # ai_intelligence.py, cases.py, documents.py, pdf_reports.py, etc.
+│   ├── uploads/        # receipts/, reports/, leamss-logo.png
+│   └── server.py
+├── frontend/
+│   ├── src/
+│   │   ├── components/ # DashboardShell.jsx, InfoSheetEditor.jsx, StatCard.jsx, AIChatWidget.jsx, NotificationBell.jsx
+│   │   ├── pages/      # AdminDashboard.jsx, CaseManagerDashboard.jsx, ClientDashboard.jsx, PartnerDashboard.jsx
+│   │   └── App.js
+└── memory/             # PRD.md, test_credentials.md
+```
 
-## What's Been Implemented
+## User Roles & Access
+- **Admin**: Full control - Sales management, user management, case assignment, products, tickets, settings, analytics
+- **Case Manager**: Case workflows, document review, info sheet editing, expiry tracking
+- **Partner**: Sales submission, commission tracking, ticket support
+- **Client**: Case overview, document upload, info sheet, payments, workflow steps, AI chat
 
-### Phase 1 — Core Features (DONE)
-- [x] JWT auth with 4 roles
-- [x] All 4 role-based dashboards
-- [x] Sales, Cases, Documents, Tickets, Commissions, Refunds
-- [x] Global search, Activity log
+## Implemented Features (Completed)
 
-### Phase 1 — Bug Fixes (DONE — April 3)
-- [x] Document download, Date formatting, Ticket visibility, Client Info Sheet
-- [x] Analytics syncing, Sale currency display (INR base)
-- [x] Per-partner per-product custom commission rates
+### Phase 1 - Core Portal (Done)
+- Multi-role authentication (JWT)
+- Role-based dashboards
+- Case workflow enforcement with step locking
+- Document upload, review, and approval
+- Ticketing system
 
-### Phase A-D — Features (DONE — April 4)
-- [x] Workflow Builder, Marketing Dashboard, PDF Reports, AI Document Verification
-- [x] Activity Log injection, Notification system (mocked)
-- [x] Mobile responsiveness (hamburger sidebar on Admin/Partner/CaseManager)
-- [x] Email Service (MOCKED — logs to DB)
+### Phase 2 - Advanced Features (Done)
+- LEAMSS Logo integration across UI and all PDF Reports
+- Bulk Document Upload with Drag-and-Drop
+- Document Expiry Tracking with Dashboard Widgets
+- Auto In-App Reminders for Expiring Documents
+- Information Sheet Editor (dynamic schema, unlimited repeatable entries)
+- OCR Resume parsing to auto-fill Info Sheet
+- AI Chatbot with case/step/document context
+- Info Sheet PDF Export Generation
+- Stripe Payment Portal for clients
 
-### Bug Fixes & Features (DONE — April 4, Session 2)
-- [x] **BUG FIX**: Sale document download — added `/api/sales/document/download/{file_id}` endpoint
-- [x] **BUG FIX**: "Request Additional Document" 405 error — fixed endpoint URL and made `step_order` optional
-- [x] **BUG FIX**: Commission % not reflecting from products — added product `commission_rate` to resolution chain (explicit > custom > product > partner default)
-- [x] **FEATURE**: Admin can edit user profiles + reset passwords via enhanced User Dialog
-- [x] **FEATURE**: Information Sheet enhanced — dependents section, case manager notes, change history tracking, "Request Info Update" button
-- [x] **UI REDESIGN**: Pending Reviews grouped by client (expandable accordion with badge counts)
-- [x] **UI REDESIGN**: All Documents grouped by client (expandable + search/filter bar + batch actions)
-- [x] **FIX**: Invalid Date display for null dates in document requests
-- [x] All 21 backend tests + all frontend tests passing (iteration 25)
-
----
-
-### Marketing Hub (DONE — Dec 2025)
-- [x] **CRM Lead Management**: Full pipeline (new → contacted → qualified → proposal → negotiation → won/lost), notes, follow-ups, source tracking
-- [x] **Email Campaigns**: Create, send (MOCKED to DB), track recipients, campaign stats
-- [x] **Service Calculator**: Public eligibility assessment tool — scores users against products, "Enquire Now" flow to Lead Capture
-- [x] **Lead Capture**: Public inquiry form with URL prefill from Calculator, thank-you confirmation
-- [x] **Testimonials**: Admin CRUD for client success stories with ratings, featured flag
-- [x] **Partner Leaderboard**: Rankings by revenue, sales count, conversion rate, tier system (gold/silver/bronze)
-- [x] **Promo Codes**: Create/manage discount codes (percentage or flat)
-- [x] All 23 marketing API tests passing (iteration 26)
-
-### Sales Enhancement — Promo Code, Discount & Assignment Flow (DONE — Dec 2025)
-- [x] **Promo Code Integration**: Partners can apply promo codes during sale creation; auto-validates, calculates discount, increments usage
-- [x] **Additional Discount**: Partners can offer extra % discount to clients (needs admin approval as part of sale approval)
-- [x] **Price Breakdown**: Live preview showing Original Fee → Promo Discount → Additional Discount → Final Fee in Partner's New Sale form
-- [x] **Client Proposal**: Automated proposal email sent to client on sale creation with discount details
-- [x] **Modified Approval Flow**: Admin approves sale → Case created WITHOUT case manager → Case status = "pending_assignment"
-- [x] **Pending Assignment Tab**: Dedicated Admin sidebar tab showing unassigned cases with badge count, fee info, payment status, and "Select Manager" dropdown
-- [x] **Manager Assignment**: Admin assigns case manager from Pending Assignment tab → Case status changes to "active", manager gets notified
-- [x] **Discount Badges**: Both Admin & Partner sales views show promo/discount/savings badges
-- [x] All 11 promo/discount/assignment tests passing (iteration 27)
-
-### Client Payment Portal with Stripe (DONE — Dec 2025)
-- [x] **Stripe Integration**: Emergent Stripe checkout with INR payments
-- [x] **Client Proposals View**: Clients see all their sales with full price breakdown (original fee, promo, additional discount, final fee)
-- [x] **Online Payments**: "Pay Now" button initiates Stripe checkout for pending amounts
-- [x] **Payment Status Polling**: Payment success page polls Stripe and updates sale automatically
-- [x] **Payment History**: Transaction history with dates and amounts
-- [x] **Webhook Support**: Stripe webhook endpoint for server-side payment confirmation
-- [x] **Idempotent Processing**: Same payment won't be processed twice
-- [x] **Commission Auto-Update**: Commission recalculated after each payment
-- [x] All 12 Stripe payment tests passing (iteration 28)
-- [x] **Payment Receipt PDF**: Branded PDF receipts with company header, client info, full fee breakdown (promo/discount), payment summary, and transaction details. Downloadable from client dashboard.
-
-### AI Intelligence Suite (DONE — Dec 2025)
-- [x] **Payment Reminders**: Admin can view all pending payments with urgency levels (low/medium/high/critical), send individual or bulk reminders (email + notification). Auto-skips recently reminded clients.
-- [x] **Admin Receipt Download**: Admin can download payment receipt PDF for any approved sale directly from Sales tab.
-- [x] **AI Chat Assistant (GPT-5.2)**: Floating chat widget on Client Dashboard. Context-aware responses about visa status, document requirements, process explanations. Session-based conversation history.
-- [x] **Auto Document Verification**: Checks required documents per workflow step dynamically (NOT hardcoded) against uploaded documents per case.
-- [x] **Missing Documents Detection**: Shows completeness percentage and lists all missing documents with descriptions.
-- [x] **Document Format Validation**: AI validates document format (passport, visa, etc.) and provides quality score (1-10) + recommendation (APPROVED/NEEDS_REUPLOAD/REJECTED).
-- [x] **OCR Data Extraction**: AI extracts structured data (name, DOB, passport number, education, etc.) from uploaded documents.
-- [x] **Auto-Fill Client Forms**: Merges extracted data from all case documents to auto-fill client information sheets.
-- [x] **Approval Prediction**: AI predicts approval probability (0-100%) with confidence level, risk assessment, strengths, weaknesses, and recommended actions.
-- [x] All 20 AI feature tests passing (iteration 29)
-
-### Strict Workflow Enforcement & OCR Enhancements (DONE — Dec 2025)
-- [x] **Strict Step Locking**: Cannot advance to Step N+1 until Step N is completed. Backend returns 400 error with clear message.
-- [x] **Document Requirement Enforcement**: Cannot mark a step as completed if mandatory documents (defined in workflow_steps) are missing.
-- [x] **Dynamic Document Check**: AI document verification now checks against actual workflow-defined required_documents per step (not hardcoded 8 doc list).
-- [x] **Step Status API**: `/api/ai-intel/step-status/{case_id}` returns per-step lock/unlock status, can_complete flag, document requirements.
-- [x] **Info Sheet Request with Required Fields**: Case Manager can request specific fields from client via `/api/cases/{case_id}/request-info-sheet`.
-- [x] **Info Sheet Completion Tracking**: Returns filled_count, missing_fields, completion percentage.
-- [x] **Resume OCR Auto-Fill**: `/api/ai-intel/extract-resume-to-infosheet/{case_id}` extracts data from resume and auto-fills info sheet (only fills empty fields).
-- [x] **Client UI**: Lock icons on locked steps, completion badges, required field highlighting with red asterisks, Upload Resume button.
-- [x] **Case Manager UI**: Step management with lock indicators, "Complete previous step first" messages, Request Info Sheet button.
-- [x] All 17 workflow enforcement tests passing (iteration 30)
-
----
-
-## Prioritized Backlog
-
-### P1 — Next
-- [ ] Real email service integration (SendGrid/Resend — replace mock)
-- [ ] Auto payment reminder scheduling (cron-like, without manual trigger)
-
-### AI Chatbot — Full Workflow Context (DONE — Dec 2025)
-- [x] **Enhanced context**: Chat now includes case step details (name + status), document counts (uploaded/approved/pending), expiry alerts, info sheet completion, payment status
-- [x] **Contextual responses**: AI references actual step names, document counts, and expiry dates in answers
-- [x] **Session persistence**: Chat history maintained across messages via session_id
-- [x] All 18 tests passing (iteration 35)
-
-### Info Sheet PDF Export (DONE — Dec 2025)
-- [x] **Branded PDF**: LEAMSS logo, all 6 sections organized with field-value tables
-- [x] **API**: `GET /api/reports/export/info-sheet/{case_id}` returns downloadable PDF (135KB with logo)
-- [x] **Frontend**: "Export PDF" button in My Info tab header
-- [x] **Content**: Personal Details, Family Chart, Children, Dependents, Qualifications (unlimited), Employment (unlimited)
-- [x] All tests passing (iteration 35)
-
-### Information Sheet Rewrite (DONE — Dec 2025)
-- [x] **Complete schema matching actual Required Information Sheet document**: 6 sections — Personal Details (21 fields), Family Chart (12), Dependent Children (repeatable, unlimited), Migrating Dependents (repeatable, unlimited), Qualifications (repeatable, unlimited), Employment History (repeatable, unlimited)
-- [x] **All fields are EDITABLE**: Text inputs, date pickers, dropdown selectors, textareas
-- [x] **Unlimited entries**: Repeatable sections (Qualifications, Employment, Children, Dependents) have no hard limit — users can add as many as needed
-- [x] **OCR extraction enhanced**: Extracts ALL qualifications and employment without limiting to first 4; full phone numbers enforced
-- [x] **Collapsible sections**: Personal Details auto-expanded, rest collapsed for clean UX
-- [x] **Repeatable entries**: Add/remove children, dependents, qualifications, employment entries (up to 4 each)
-- [x] **Save All Changes**: Persists to MongoDB with change history
-- [x] **Upload Resume & Auto-Fill**: OCR prompt improved to extract COMPLETE data (full phone numbers, all qualifications, all employment)
-- [x] **Required field markers**: Red asterisks on mandatory fields
-- [x] **Sticky save bar**: Appears when form has unsaved changes
-- [x] All 14 tests passing (iteration 34)
-
-### Auto Expiry Reminder System (DONE — Dec 2025)
-- [x] **In-app notifications**: Auto-reminders at 60d (attention), 30d (warning), 7d (critical), 0d (expired) thresholds
-- [x] **Smart deduplication**: Same reminder won't be sent twice on same day per doc+threshold
-- [x] **Fire-and-forget trigger**: Auto-checks on Client/CaseManager/Admin dashboard load
-- [x] **Admin Dashboard widget**: "Document Expiry Tracker" shows Expired/Critical/Attention counts with color-coded cards
-- [x] **Role-based scoping**: Admin sees all docs, Case Manager sees only their assigned cases' docs
-- [x] **Expiry Summary API**: `GET /api/documents/expiry-summary` returns aggregate counts
-- [x] All 18 tests passing (iteration 33)
-
-### Document Expiry Tracking (DONE — Dec 2025)
-- [x] **Backend APIs**: `POST /api/documents/{id}/set-expiry`, `GET /api/documents/expiring/all`, `GET /api/documents/expiring/case/{id}`, `GET /api/documents/validity-presets`
-- [x] **Auto-set expiry**: Known doc types auto-get expiry when uploaded (Passport=10yr, Medical=1yr, IELTS/PTE/TOEFL=2yr, Skill Assessment=3yr, ECA=5yr, Police Clearance/Visa/Work Permit=1yr, Offer Letter=180d)
-- [x] **Client Dashboard**: Expiry Alerts card in Overview (color-coded: Red=Expired, Orange=Critical, Yellow=Attention), Expiry column in My Documents table, Set Expiry modal with auto-suggest
-- [x] **Case Manager Dashboard**: "Expiry Alerts" sidebar tab with urgency summary cards (Expired/Critical/Warning/Attention counts), full table of expiring docs across all clients, Edit Expiry modal
-- [x] Both Client and Case Manager can manually set/edit expiry dates with notes
-- [x] All 19 tests passing (iteration 32)
-
-### P2 — Planned
-- [x] Bulk Document Upload with drag-and-drop, per-file type tagging, staging area (DONE — Dec 2025)
-- [x] LEAMSS official logo integrated across all dashboards and PDFs (DONE — Dec 2025)
-- [ ] PDF report download improvements (more report types)
-
-### P3 — Future
-- [ ] SMS Notifications (Twilio)
-- [ ] Google Calendar integration
-- [ ] Standalone mobile apps
-
----
-
-## AI Intelligence API Endpoints
-- `POST /api/ai-intel/chat` — AI chat assistant (GPT-5.2)
-- `GET /api/ai-intel/chat/history` — Chat history
-- `GET /api/ai-intel/case-document-check/{case_id}` — Document completeness check
-- `POST /api/ai-intel/validate-document/{document_id}` — AI format validation
-- `POST /api/ai-intel/extract-data/{document_id}` — OCR data extraction
-- `POST /api/ai-intel/auto-fill/{case_id}` — Auto-fill client info from docs
-- `GET /api/ai-intel/predict-approval/{case_id}` — Approval probability prediction
-- `GET /api/reminders/pending-payments` — Pending payments with urgency
-- `POST /api/reminders/send/{sale_id}` — Send individual reminder
-- `POST /api/reminders/send-bulk` — Bulk reminders for overdue payments
-- `GET /api/pdf-reports/sale-receipt/{sale_id}` — Admin receipt download
-
-## Payment API Endpoints
-- `GET /api/payments/my-proposals` — Client's sales with price breakdown
-- `POST /api/payments/create-checkout` — Initiate Stripe checkout
-- `GET /api/payments/status/{session_id}` — Poll payment status
-- `GET /api/payments/history/{sale_id}` — Transaction history
-- `GET /api/payments/receipt/{transaction_id}` — Download receipt for specific transaction
-- `GET /api/payments/receipt-by-sale/{sale_id}` — Download receipt for a sale
-- `POST /api/webhook/stripe` — Stripe webhook
+### Phase 3 - UI/UX Overhaul (Done - Dec 2025)
+- **Shared DashboardShell component** with grouped collapsible sidebar navigation
+- **Admin sidebar groups**: Sales & Finance, Cases & Users, System, Tools
+- **Case Manager sidebar groups**: Case Management (My Cases, Pending Review, Info Sheets), Documents (All Documents, Expiry Alerts)
+- **Client sidebar groups**: My Case (Action Required, Workflow Steps, My Documents, My Info Sheet), Finance (Payments)
+- **Partner sidebar**: Dashboard, My Sales, Commission, Support
+- **P0: Case Manager Info Sheet View/Edit** - New "Info Sheets" tab showing all client cases, clicking opens InfoSheetEditor
+- Consistent teal #2a777a brand theme across all portals
+- Mobile-responsive sidebar with toggle button
+- AdminReturnBanner moved to shared DashboardShell
+- StatCard shared component for dashboard metrics
 
 ## Key API Endpoints
-- `POST /api/auth/login` — JWT login
-- `GET/POST /api/sales` — Sales CRUD
-- `GET /api/sales/document/download/{file_id}` — Download sale attachment
-- `PUT /api/users/{id}/reset-password` — Admin password reset
-- `POST /api/cases/request-document` — Request additional document (null step_order OK)
-- `POST /api/cases/{id}/request-info-sheet` — Request client info sheet update
-- `POST /api/cases/{id}/information-sheet` — Save info sheet with change tracking
-- `GET /api/workflows/{product_id}` — Workflow steps
-- `POST /api/marketing/promo` — Promo codes
-- `GET /api/reports/export/sales-report` — PDF report
-- `POST /api/ai/verify-document/{doc_id}` — AI verification
-- `GET /api/activity/logs` — Activity audit logs
-- `GET /api/activity/email-logs` — Email logs (admin)
+- `POST /api/auth/login` - Authentication
+- `GET /api/cases/info-sheet-schema` - Info sheet schema
+- `GET /api/cases/{case_id}/info-sheet` - Get info sheet data
+- `POST /api/cases/{case_id}/info-sheet` - Save info sheet data
+- `POST /api/documents/set-expiry` - Set document expiry
+- `GET /api/documents/check-reminders` - Check expiry reminders
+- `GET /api/reports/export/info-sheet/{case_id}` - Export info sheet PDF
 
-## Database Collections
-`users`, `products`, `workflow_steps`, `sales`, `sale_documents`, `cases`, `case_steps`, `documents`, `tickets`, `ticket_messages`, `notifications`, `audit_logs`, `refunds`, `settings`, `partner_product_commissions`, `referrals`, `promo_codes`, `email_logs`, `information_sheets`, `additional_doc_requests`, `leads`, `follow_ups`, `campaigns`, `campaign_recipients`, `testimonials`, `cross_sell_recommendations`
+## Prioritized Backlog
+- P1: Real Email Service Integration (SendGrid/Resend) for Expiry Reminders (currently MOCKED as in-app notifications)
+- P2: PDF Report enhancements
+- P2: Bulk document upload improvements
+- P3: SMS Notifications via Twilio
+- P3: Google Calendar Integration for deadlines
+- P3: Bulk case operations for Admin
+
+## Test Results
+- Iteration 36: 100% pass rate - All 4 dashboards, sidebar navigation, P0 Info Sheets, mobile responsive, logout
+- Previous: Iterations 30-35 all passed
+
+## Credentials
+- Admin: admin@leamss.com / Admin@123
+- Case Manager: manager@leamss.com / Manager@123
+- Partner: partner@leamss.com / Partner@123
+- Client: client@leamss.com / Client@123
