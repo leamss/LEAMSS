@@ -1,145 +1,90 @@
 {
-  "typography": {
-    "font_family": {
-      "headings": "Manrope, sans-serif",
-      "body": "Public Sans, sans-serif",
-      "mono": "JetBrains Mono, monospace"
-    },
-    "weights": {
-      "light": 300,
-      "regular": 400,
-      "medium": 500,
-      "semibold": 600,
-      "bold": 700
-    },
-    "scale": {
-      "h1": "text-4xl font-bold tracking-tight lg:text-5xl",
-      "h2": "text-3xl font-semibold tracking-tight",
-      "h3": "text-2xl font-semibold tracking-tight",
-      "p": "leading-7 [&:not(:first-child)]:mt-6"
-    },
-    "imports": [
-      "@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Public+Sans:wght@300;400;500;600&display=swap');"
-    ]
+  "theme_and_archetype": {
+    "domain": "Immigration Portal SaaS Dashboard",
+    "theme": "LIGHT",
+    "archetype": "4 (Swiss & High-Contrast / Structured Utility)",
+    "rationale": "To fix the overwhelming UI (1500+ lines, 13+ tabs), we must switch to a highly structured, cardless 'Control Room' grid. We will preserve the company's precise colors (#2a777a, #f7620b) but elevate them using strict hierarchy. The goal is to reduce cognitive load by grouping navigation and using generous whitespace."
   },
   "colors": {
-    "palette": {
-      "primary": {
-        "DEFAULT": "#2a777a",
-        "hover": "#236466",
-        "foreground": "#ffffff",
-        "50": "#f0f9fa",
-        "100": "#d6f0f2",
-        "500": "#2a777a",
-        "900": "#134e50"
+    "primary": "#2a777a",
+    "accent_orange": "#f7620b",
+    "error_red": "#d81f26",
+    "background": "#F5F7FA",
+    "surface": "#FFFFFF",
+    "text_primary": "#111827",
+    "text_secondary": "#4B5563",
+    "border": "#E5E7EB",
+    "usage_rules": "Primary teal must be used exclusively for CTAs, active states, and focus rings. Never use it as a massive background fill. Accent Orange is for notification badges, 'Expiry' warnings, and urgent status chips. Error Red is for destructive actions. 95% of the UI should feel structural (monochrome) with these brand colors directing user attention."
+  },
+  "typography": {
+    "heading_font": "Manrope",
+    "body_font": "Public Sans",
+    "font_classes": {
+      "h1": "font-heading text-2xl md:text-3xl font-bold tracking-tight text-gray-900",
+      "h2": "font-heading text-xl font-semibold tracking-tight text-gray-800",
+      "h3": "font-heading text-lg font-medium text-gray-800",
+      "body": "font-sans text-sm text-gray-600 leading-relaxed",
+      "labels": "font-sans text-xs font-semibold uppercase tracking-[0.05em] text-gray-500",
+      "metrics": "font-heading text-3xl md:text-4xl font-bold tracking-tighter text-gray-900"
+    }
+  },
+  "spacing_and_layout": {
+    "strategy": "The 'Control Room' Bento Grid. Dense but highly scannable.",
+    "containers": "Use flat solid white backgrounds (#FFFFFF) with a delicate 1px border (border-gray-200). Avoid generic floating drop shadows. Maximum border-radius is 8px (rounded-lg).",
+    "padding": "Containers must use generous internal padding (p-6) to avoid text collision.",
+    "grid_structure": "Base grid `grid-cols-1 md:grid-cols-3 lg:grid-cols-4` with `gap-6`.",
+    "sidebar": "Fixed 280px left sidebar. MUST use a collapsible accordion structure to group the 13+ items into 4 main categories to fix the user's confusion."
+  },
+  "navigation_strategy": {
+    "solution_for_confusion": "The primary issue is 'too many tabs and factors showing at once'. The fix is logical grouping using collapsibles.",
+    "admin_groups": [
+      {
+        "name": "Workspace",
+        "items": ["Dashboard", "Quick Actions", "Document Expiry Tracker"]
       },
-      "accent": {
-        "DEFAULT": "#f7620b",
-        "hover": "#e55a09",
-        "foreground": "#ffffff",
-        "50": "#fff5eb",
-        "100": "#ffe6cc",
-        "500": "#f7620b"
+      {
+        "name": "Financials & Sales",
+        "items": ["Recent Pending Sales", "Sales Management", "Sales Reports", "Commissions", "Refunds", "Payment Reminders"]
       },
-      "background": {
-        "body": "#F5F7FA",
-        "card": "#ffffff",
-        "sidebar": "#ffffff"
+      {
+        "name": "Cases & Operations",
+        "items": ["All Cases", "Pending Assignment", "Users"]
       },
-      "text": {
-        "main": "#1e293b",
-        "muted": "#64748b",
-        "inverted": "#ffffff"
-      },
-      "status": {
-        "success": "#10b981",
-        "warning": "#f59e0b",
-        "error": "#ef4444",
-        "info": "#3b82f6"
+      {
+        "name": "System",
+        "items": ["Products", "Tickets", "Settings"]
       }
-    },
-    "usage_rules": {
-      "primary_action": "Use Teal (#2a777a) for primary buttons, active navigation states, and key brand elements.",
-      "secondary_action": "Use White with Slate-200 border for secondary actions.",
-      "accent_usage": "Use Orange (#f7620b) SPARINGLY for 'New', 'Pending Action', 'Urgent', or 'Upgrade' CTAs. Do not use for main navigation.",
-      "backgrounds": "Use #F5F7FA for the main app background to create contrast with white cards."
-    }
-  },
-  "layout": {
-    "structure": {
-      "sidebar": "Fixed width (256px), white background, border-r border-slate-200. Navigation items should use 'Ghost' style with Teal text/bg on active state.",
-      "header": "Sticky top, white background/80 backdrop-blur, border-b border-slate-200. Height 64px.",
-      "main_content": "Padding p-8. Max-width 1600px centered for large screens."
-    },
-    "spacing": {
-      "container_padding": "p-6 md:p-8",
-      "card_padding": "p-6",
-      "section_gap": "gap-8"
-    },
-    "grid_system": {
-      "dashboard_overview": "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6",
-      "bento_grid": "Use col-span-2 for main charts, col-span-1 for stats/lists."
-    }
-  },
-  "components": {
-    "cards": {
-      "style": "bg-white rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow duration-200",
-      "header": "flex flex-row items-center justify-between space-y-0 pb-2"
-    },
-    "buttons": {
-      "primary": "bg-[#2a777a] hover:bg-[#236466] text-white shadow-sm rounded-lg px-4 py-2 font-medium transition-all active:scale-95",
-      "secondary": "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm rounded-lg px-4 py-2 font-medium",
-      "accent": "bg-[#f7620b] hover:bg-[#e55a09] text-white shadow-sm rounded-lg px-4 py-2 font-medium"
-    },
-    "tabs": {
-      "style": "border-b border-slate-200 w-full",
-      "list": "flex w-full justify-start gap-6 bg-transparent p-0",
-      "trigger": "relative h-10 rounded-none border-b-2 border-transparent bg-transparent px-4 pb-3 pt-2 font-medium text-slate-500 shadow-none transition-none data-[state=active]:border-[#2a777a] data-[state=active]:text-[#2a777a] data-[state=active]:shadow-none"
-    },
-    "tables": {
-      "wrapper": "rounded-md border border-slate-200 bg-white overflow-hidden",
-      "header": "bg-slate-50/50",
-      "row": "hover:bg-slate-50/50 transition-colors border-b border-slate-100 last:border-0"
-    },
-    "badges": {
-      "default": "border-transparent bg-slate-100 text-slate-900 hover:bg-slate-200/80",
-      "success": "border-transparent bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
-      "warning": "border-transparent bg-amber-50 text-amber-700 hover:bg-amber-100",
-      "teal": "border-transparent bg-teal-50 text-teal-700 hover:bg-teal-100"
-    }
-  },
-  "visual_enhancers": {
-    "shadows": {
-      "card": "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)",
-      "hover": "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)"
-    },
-    "borders": "1px solid #e2e8f0",
-    "radius": "0.75rem (12px)"
-  },
-  "image_urls": {
-    "avatars": [
-      "https://images.unsplash.com/photo-1655249481446-25d575f1c054?crop=entropy&cs=srgb&fm=jpg&q=85",
-      "https://images.unsplash.com/photo-1576558656222-ba66febe3dec?crop=entropy&cs=srgb&fm=jpg&q=85",
-      "https://images.unsplash.com/photo-1562228802-4b1052d0f845?crop=entropy&cs=srgb&fm=jpg&q=85"
-    ],
-    "collaboration": [
-      "https://images.unsplash.com/photo-1758518729685-f88df7890776?crop=entropy&cs=srgb&fm=jpg&q=85",
-      "https://images.unsplash.com/photo-1758873268663-5a362616b5a7?crop=entropy&cs=srgb&fm=jpg&q=85"
     ]
   },
-  "instructions_to_main_agent": [
-    "1. UPDATE TYPOGRAPHY: Replace Inter/Poppins with Manrope (Headings) and Public Sans (Body) in index.css.",
-    "2. REFACTOR SIDEBAR: Create a modern Sidebar component. Use white background, subtle border. Active items should have a Teal tint background and Teal text.",
-    "3. IMPLEMENT DASHBOARDS: Build the Admin, Case Manager, and Partner dashboards using the 'Bento Grid' layout defined above.",
-    "4. USE SHADCN COMPONENTS: Use Cards, Tables, Tabs, and Badges. CUSTOMIZE them via className to match the 'components' section above (e.g., remove default heavy borders, add soft shadows).",
-    "5. COLOR APPLICATION: Ensure the Primary Teal (#2a777a) is used for 'Call to Action' and 'Active States'. Use Orange (#f7620b) only for notifications or 'pending' status badges.",
-    "6. DATA-TESTID: Add data-testid to all interactive elements (buttons, inputs, tabs, table rows)."
-  ],
-  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
-    "Avoid generic 'AI slop' designs. Use generous spacing (p-6, p-8).",
-    "Do not use gradients for backgrounds. Use solid colors or subtle noise textures if needed.",
-    "Ensure all text has sufficient contrast. Use Slate-600/700 for body text, not Slate-400.",
-    "Use 'sonner' for toasts.",
-    "Create responsive layouts (mobile-first)."
-  ]
+  "component_strategy": {
+    "rules": "Never build raw HTML dropdowns or tabs. Use Shadcn components exclusively. Override the Shadcn 'Vercel-look' by forcing the primary brand color (#2a777a) on primary buttons and active indicators.",
+    "icons": "lucide-react. Standard, thin line weight.",
+    "forms": "Inputs must have a 1px border. Focus state MUST ring with the primary teal color (focus:ring-[#2a777a]/20 focus:border-[#2a777a]).",
+    "data_tables": "Data tables are critical here. Keep them cardless. Use subtle hover states on rows. Remove vertical dividers. Status badges must use soft backgrounds with solid text (e.g., bg-[#f7620b]/10 text-[#f7620b]).",
+    "refactoring": "The massive 1500-3200 line dashboards MUST be refactored into modular components. For example, extract the Sidebar, Header, StatCards, and Table views into separate .js files within a components directory. Do not write single files exceeding 500 lines."
+  },
+  "accessibility": {
+    "contrast": "Ensure white text on `#2a777a` meets WCAG AA standards. Ensure hover states change color visibly.",
+    "testing": "All interactive elements, buttons, inputs, and major sections MUST include `data-testid` attributes (e.g., `data-testid='admin-dashboard-sales-card'`)."
+  },
+  "media": {
+    "instructions_to_main_agent": "Use ONLY these media URLs. NEVER use placeholder text. For logos and avatars, render them as responsive images.",
+    "image_urls": [
+      {
+        "url": "https://static.prod-images.emergentagent.com/jobs/96ae8c41-c632-4213-b333-5fb767e62f7a/images/e768235c8bc13f004ff4db4176b291682bc85dda4eb869ba3dd504871862740d.png",
+        "category": "brand_logo",
+        "description": "LEAMSS Official logo for the sidebar header"
+      },
+      {
+        "url": "https://images.pexels.com/photos/29852895/pexels-photo-29852895.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "category": "user_avatar_1",
+        "description": "Professional avatar for case managers / admin profiles"
+      },
+      {
+        "url": "https://images.pexels.com/photos/262391/pexels-photo-262391.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "category": "user_avatar_2",
+        "description": "Professional avatar for client/partner profiles"
+      }
+    ]
+  }
 }
