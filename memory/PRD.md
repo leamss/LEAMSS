@@ -1,105 +1,104 @@
 # LEAMSS Immigration Portal - Product Requirements Document
 
 ## Original Problem Statement
-Build a comprehensive LEAMSS Portal for an immigration service supporting Admin, Case Manager, Partner, and Client roles. Features include multi-role dashboards, workflow automation, CRM tools, document management, AI intelligence, and payment processing. The goal is to become the world's best immigration company built on honesty and transparency.
+Build a comprehensive LEAMSS Portal for an immigration service supporting Admin, Case Manager, Partner, and Client roles. Features include multi-role dashboards, workflow automation, CRM tools, document management, AI intelligence, and payment processing.
 
 ## Tech Stack
 - **Frontend**: React 18, TailwindCSS, Shadcn UI, Lucide React Icons
 - **Backend**: FastAPI, Motor (MongoDB async driver)
 - **Database**: MongoDB
-- **Integrations**: OpenAI GPT-5.2 (via emergentintegrations), Stripe Payments, Resend Email (configured but needs API key)
+- **Integrations**: OpenAI GPT-5.2 (via emergentintegrations), Stripe Payments, Resend Email
 
 ## Core Architecture
 ```
 /app
 ├── backend/
 │   ├── core/           # database.py, auth.py, models.py, services.py, email_service.py
-│   ├── routers/        # chat.py, ai_workflow_builder.py, ai_intelligence.py, cases.py, activity.py, etc.
-│   ├── uploads/        # receipts/, reports/, leamss-logo.png
+│   ├── routers/        # 20+ routers (chat, ai, cases, surveys, knowledge_base, appointments, analytics, etc.)
+│   ├── uploads/        # receipts/, reports/
 │   └── server.py
 ├── frontend/
 │   ├── src/
-│   │   ├── components/ # DashboardShell.jsx, ChatWidget.jsx, OnboardingWizard.jsx, DocumentChecklist.jsx, WorkloadDashboard.jsx, InfoSheetEditor.jsx, AIChatWidget.jsx
-│   │   ├── pages/      # AdminDashboard.jsx, CaseManagerDashboard.jsx, ClientDashboard.jsx, PartnerDashboard.jsx, ActivityLog.jsx, AIWorkflowBuilder.jsx
+│   │   ├── components/ # DashboardShell, ChatWidget, OnboardingWizard, DocumentChecklist, WorkloadDashboard, etc.
+│   │   ├── pages/      # AdminDashboard, CaseManagerDashboard, ClientDashboard, BulkOperations, SLATracker, CaseTransfer, SatisfactionSurvey, KnowledgeBase, RevenueForecasting, CMPerformance, Appointments, etc.
 │   │   └── App.js
 └── memory/             # PRD.md, test_credentials.md
 ```
 
 ## Implemented Features
 
-### Phase 1 - Core Portal (Done)
-- Multi-role JWT authentication
-- Role-based dashboards (Admin, Case Manager, Partner, Client)
+### Phase 1-3 — Core Portal, Advanced Features, UI/UX
+- Multi-role JWT auth, role-based dashboards
 - Case workflow enforcement with step locking
-- Document upload, review, and approval
-- Ticketing system
-
-### Phase 2 - Advanced Features (Done)
-- LEAMSS Logo across UI and PDF Reports
-- Bulk Document Upload with Drag-and-Drop
+- Document upload/review/approval, bulk upload
 - Document Expiry Tracking with Auto In-App Reminders
-- Information Sheet Editor (dynamic schema, unlimited repeatable entries, OCR resume parsing)
-- AI Chatbot with case/step/document context
-- Info Sheet PDF Export
-- Stripe Payment Portal
+- Information Sheet Editor, AI Chatbot, Stripe Payments
+- Shared DashboardShell with grouped collapsible sidebar
 
-### Phase 3 - UI/UX Overhaul (Done - Dec 2025)
-- Shared DashboardShell component with grouped collapsible sidebar
-- Admin: Sales & Finance, Cases & Users, System, Tools groups
-- Case Manager: Case Management (with Info Sheets P0), Documents groups
-- Client: My Case, Finance groups
-- Partner: Clean flat navigation
-- P0: Case Manager Info Sheet View/Edit feature
+### Phase 4 — Intelligence & Monitoring
+- Comprehensive Activity Log System (940+ activities tracked)
+- AI Workflow Builder (10 templates, GPT-5.2 generated workflows)
+- Email Service (Resend with fallback)
 
-### Phase 4 - Intelligence & Monitoring (Done - Dec 2025)
-- **Comprehensive Activity Log System**: Live feed, By User view, By Type view, stats cards, filters (time period, entity type), per-case/per-user drill-down, 940+ activities tracked
-- **AI Workflow Builder**: 10 quick templates (Canada PR, Australia PR, Tourist visas for 7 countries, UAE Golden Visa), custom country/service selection, GPT-5.2 generates complete workflows with steps, documents per step, success tips, rejection reasons. Admin can edit and save as product.
-- **Email Service**: Resend integration with HTML templates for case updates, document reminders, payment confirmations, welcome emails, ticket updates. Graceful fallback to in-app mock when no API key.
+### Phase 5 — Communication & Productivity
+- Real-Time In-App Chat (Client <-> CM)
+- Client Onboarding Wizard (5-step guided)
+- Smart Document Checklist (step-wise progress)
+- Smart Workload Dashboard (CM productivity)
 
-### Phase 5 - Communication & Productivity (Done - Dec 2025)
-- **Real-Time In-App Chat**: Client <-> Case Manager messaging with floating chat widget, conversation management, unread counts, read receipts, notification triggers
-- **Client Onboarding Wizard**: 5-step guided onboarding (Welcome, Profile Check, Info Sheet, Documents, AI Tips), skip & remember, case-aware
-- **Smart Document Checklist**: Step-wise document progress tracking, per-step required docs, approval status, overall completion percentage
-- **Smart Workload Dashboard**: Case Manager productivity view with active cases, pending reviews, expiring docs, priority task list, case distribution
+### Phase 6A — Operations (DONE - Dec 2025)
+- **Bulk Operations**: Multi-case step advance + multi-document batch approve/reject
+- **SLA/Deadline Tracker**: Per-step deadline setting, overdue alerts, approaching deadline warnings
+- **Auto Case Assignment**: Workload-based + language preference matching (admin only)
+- **Case Transfer**: CM-to-CM transfer with reason tracking, full transfer history
+
+### Phase 6B — AI Intelligence (Pre-existing)
+- AI Document Validator (passport expiry, photo specs, quality scoring)
+- AI Case Risk Assessment (approval probability with factors)
+
+### Phase 6C — Client Experience (DONE - Dec 2025)
+- **Client Satisfaction Survey**: 5-star multi-category rating (overall, communication, speed, documentation), feedback text, recommendation toggle
+- **Knowledge Base**: CRUD articles with categories, search, tag filtering, view counts
+- **Document Annotation**: CM can add annotations to documents with page/position info
+
+### Phase 6D — Analytics & Advanced (DONE - Dec 2025)
+- **Revenue Forecasting**: Historical monthly revenue, growth rate, pipeline value, trend detection, 6-month forecast
+- **CM Performance Metrics**: Per-CM stats (active/completed cases, avg completion days, satisfaction score, overdue steps)
+- **Appointments**: Full scheduling system with case linking, attendee assignment, cancel/complete status
 
 ## Key API Endpoints
 - Auth: `POST /api/auth/login`
-- Activity: `GET /api/activity/logs`, `/live-feed`, `/stats`, `/case/{id}`, `/user/{id}`
-- AI Workflow: `GET /api/ai-workflow/countries`, `/templates`, `POST /generate`, `POST /save`
-- Cases: `GET /api/cases/info-sheet-schema`, `GET/POST /api/cases/{id}/info-sheet`, `GET /api/cases/workload/summary`
-- Chat: `GET/POST /api/chat/conversations`, `GET /api/chat/messages/{id}`, `POST /api/chat/messages`, `GET /api/chat/unread-count`
-- Documents: `POST /api/documents/set-expiry`, `GET /api/documents/check-reminders`
-- Reports: `GET /api/reports/export/info-sheet/{case_id}`
+- Cases: `POST /api/cases/bulk-advance`, `POST /api/cases/set-step-deadline`, `GET /api/cases/overdue-steps`, `POST /api/cases/auto-assign`, `POST /api/cases/transfer`, `GET /api/cases/transfer-history/{id}`
+- Documents: `POST /api/documents/bulk-review`, `POST /api/documents/{id}/annotate`
+- Analytics: `GET /api/analytics/revenue-forecast`, `GET /api/analytics/cm-performance`
+- Surveys: `POST /api/surveys/submit`, `GET /api/surveys/stats`
+- KB: `GET/POST/PUT/DELETE /api/knowledge-base/articles`, `GET /api/knowledge-base/categories`
+- Appointments: `POST/GET /api/appointments`, `PUT /api/appointments/{id}/cancel|complete`
+- Chat: `POST/GET /api/chat/conversations`, `POST/GET /api/chat/messages`
+- AI: `POST /api/ai/validate-document/{id}`, `GET /api/ai/predict-approval/{id}`
 
-## Prioritized Backlog (34 Enhancement Items)
-### Implemented:
-- #2 Real-Time In-App Chat (Client <-> Case Manager) - DONE (Phase 5)
-- #1 Client Onboarding Wizard - DONE (Phase 5)
-- #4 Smart Document Checklist - DONE (Phase 5)
-- #9 Smart Workload Dashboard for Case Manager - DONE (Phase 5)
-- #17 AI Workflow Builder - DONE (Phase 4)
-- #18 AI Document Requirement Mapper - DONE (Phase 4)
-- #21-25 Real-Time Activity Log System - DONE (Phase 4)
-- #26 Email Notifications (Resend) - DONE (Phase 4, needs API key for real emails)
-
-### Next Up (Phase 6 - Scale Up):
-- #10 Bulk Operations (Approve multiple docs/advance multiple cases)
-- #12 SLA/Deadline Tracking per Step with Alerts
-- #11 Auto Case Assignment based on workload/language
-- #14 Case Transfer & Document Annotation
-
-### Future Phases:
-- #3 Case Timeline View, #6 Satisfaction Survey, #7 Multi-Language
-- #8 Knowledge Base, #13 Quick Notes & Tags, #15 Document Annotation
-- #16 Canned Responses, #19 AI Case Risk Assessment, #20 AI Document Validator
-- #27 Appointment Scheduling, #28 Referral Program, #29 Client Greetings
-- #30 Revenue Forecasting, #31 CM Performance Metrics, #32 Conversion Funnel
-- #33 Country/Product Analytics, #34 Commission Analytics
+## Prioritized Backlog
+### Remaining from 34-point list:
+- #3 Case Timeline View
+- #6 Client Satisfaction Survey ✅ DONE
+- #7 Multi-Language (partially — needs i18n framework)
+- #8 Knowledge Base ✅ DONE
+- #13 Quick Notes & Tags
+- #15 Document Annotation ✅ DONE
+- #16 Canned Responses for CM
+- #27 Appointment Scheduling ✅ DONE
+- #28 Referral Program
+- #29 Client Greetings
+- #30 Revenue Forecasting ✅ DONE
+- #31 CM Performance Metrics ✅ DONE
+- #32 Conversion Funnel
+- #33 Country/Product Analytics
+- #34 Commission Analytics
 
 ## Test Results
-- Iteration 38: 100% pass (20/20 backend + all frontend) - Phase 5: Chat, Onboarding, Checklist, Workload
-- Iteration 37: 100% pass (17/17 backend + all frontend) - Phase 4: Activity Log, AI Workflow Builder, Email Service
-- Iteration 36: 100% pass - DashboardShell, Sidebar Navigation, P0 Info Sheets
+- Iteration 39: 93% backend (41/44, 3 skipped), 100% frontend — Phase 6A-6D
+- Iteration 38: 100% (20/20 + frontend) — Phase 5: Chat, Onboarding, Checklist, Workload
+- Iteration 37: 100% (17/17 + frontend) — Phase 4: Activity Log, AI Workflow, Email
 
 ## Credentials
 - Admin: admin@leamss.com / Admin@123
