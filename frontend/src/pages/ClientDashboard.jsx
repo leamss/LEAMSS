@@ -18,8 +18,12 @@ import {
   User, FileText, Upload, LogOut, CheckCircle, Clock, AlertCircle, 
   Lock, Download, FileCheck, ArrowLeft, Calendar, Shield, 
   FolderOpen, AlertTriangle, FileUp, Eye, ChevronRight, MessageSquare,
-  CreditCard, Loader2, IndianRupee, ExternalLink, TrendingUp, Brain, FileSearch, LayoutDashboard, ClipboardList, Workflow
+  CreditCard, Loader2, IndianRupee, ExternalLink, TrendingUp, Brain, FileSearch, LayoutDashboard, ClipboardList, Workflow,
+  BookOpen, Star
 } from 'lucide-react';
+import SatisfactionSurvey from '@/pages/SatisfactionSurvey';
+import KnowledgeBase from '@/pages/KnowledgeBase';
+import Appointments from '@/pages/Appointments';
 import AIChatWidget from '@/components/AIChatWidget';
 import InfoSheetEditor from '@/components/InfoSheetEditor';
 
@@ -418,12 +422,21 @@ const ClientDashboard = () => {
       ]
     },
     { id: 'tickets', icon: MessageSquare, label: 'Support', onClick: () => setActiveTab('tickets') },
+    {
+      groupLabel: 'Resources',
+      items: [
+        { id: 'knowledge-base', icon: BookOpen, label: 'Help Center', onClick: () => setActiveTab('knowledge-base') },
+        { id: 'survey', icon: Star, label: 'Rate Experience', onClick: () => setActiveTab('survey') },
+        { id: 'appointments', icon: Calendar, label: 'Appointments', onClick: () => setActiveTab('appointments') },
+      ]
+    },
   ];
 
   const clientPageTitle = {
     overview: 'Overview', additional: 'Action Required', workflow: 'Workflow Steps',
     uploaded: 'My Documents', tickets: 'Support', 'info-sheet': 'My Info Sheet',
     payments: 'Payments', 'doc-checklist': 'Document Checklist',
+    'knowledge-base': 'Help Center', survey: 'Rate Experience', appointments: 'Appointments',
   }[activeTab] || 'Overview';
 
   return (
@@ -1397,6 +1410,18 @@ const ClientDashboard = () => {
                   )}
                 </Card>
               </div>
+              )}
+
+              {activeTab === 'knowledge-base' && (
+                <KnowledgeBase token={localStorage.getItem('token')} role="client" />
+              )}
+
+              {activeTab === 'survey' && (
+                <SatisfactionSurvey token={localStorage.getItem('token')} role="client" caseId={caseData?.id} />
+              )}
+
+              {activeTab === 'appointments' && (
+                <Appointments token={localStorage.getItem('token')} role="client" />
               )}
             </div>
           </>

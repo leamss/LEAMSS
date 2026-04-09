@@ -619,3 +619,74 @@ async def get_expiry_summary(current_user: dict = Depends(get_current_user)):
             counts["ok"] += 1
 
     return counts
+
+
+
+# ============ BULK DOCUMENT REVIEW ============
+
+class BulkReviewRequest(BaseModel):
+    document_ids: List[str]
+    status: str
+    comment: str = ""
+
+
+@router.post("/bulk-review")
+async def bulk_review_documents(request: BulkReviewRequest, current_user: dict = Depends(get_current_user)):
+    """Approve or reject multiple documents at once"""
+    if current_user["role"] not in ["admin", "case_manager"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    if request.status not in ["approved", "rejected", "revision_required"]:
+        raise HTTPException(status_code=400, detail="Invalid status")
+    results = []
+    for doc_id in request.document_ids:
+        doc = await documents_col.find_one({"id": doc_id}, {"_id": 0})
+        if not doc:
+            results.append({"id": doc_id, "result": "not_found"})
+            continue
+        await documents_col.update_one({"id": doc_id}, {"$set": {
+            "status": request.status, "review_comment": request.comment or f"Bulk {request.status}",
+            "reviewed_by": current_user["id"], "reviewer_name": current_user["name"],
+            "reviewed_at": datetime.now(timezone.utc)
+        }})
+        # Notify uploader
+        if doc.get("uploaded_by"):
+            await create_notification(doc["uploaded_by"], f"Document {request.status}", f"{doc.get('filename','')} has been {request.status}", "document_review", doc_id)
+        await log_activity(current_user["id"], current_user["name"], f"bulk_{request.status}_document", "document", doc_id, {"filename": doc.get("filename","")})
+        results.append({"id": doc_id, "result": request.status})
+    return {"results": results, "processed": len([r for r in results if r["result"] != "not_found"])}
+
+
+# ============ DOCUMENT ANNOTATION ============
+
+class AnnotationRequest(BaseModel):
+    text: str
+    page: Optional[int] = None
+    x: Optional[float] = None
+    y: Optional[float] = None
+
+
+@router.post("/{doc_id}/annotate")
+async def annotate_document(doc_id: str, request: AnnotationRequest, current_user: dict = Depends(get_current_user)):
+    """Add annotation to a document"""
+    if current_user["role"] not in ["admin", "case_manager"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    doc = await documents_col.find_one({"id": doc_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    annotation = {
+        "id": str(uuid.uuid4()), "text": request.text, "page": request.page,
+        "x": request.x, "y": request.y, "author_id": current_user["id"],
+        "author_name": current_user["name"], "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await documents_col.update_one({"id": doc_id}, {"$push": {"annotations": annotation}})
+    await log_activity(current_user["id"], current_user["name"], "annotate_document", "document", doc_id, {"text": request.text[:50]})
+    return annotation
+
+
+@router.get("/{doc_id}/annotations")
+async def get_annotations(doc_id: str, current_user: dict = Depends(get_current_user)):
+    """Get all annotations for a document"""
+    doc = await documents_col.find_one({"id": doc_id}, {"_id": 0, "annotations": 1})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return doc.get("annotations", [])

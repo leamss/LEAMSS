@@ -18,7 +18,13 @@ import DocumentChecklist from '@/components/DocumentChecklist';
 import CreateTicket from '@/components/CreateTicket';
 import TicketSection from '@/components/TicketSection';
 import QuickActions from '@/components/QuickActions';
-import { Briefcase, FileText, CheckCircle, AlertCircle, LogOut, Download, Plus, Send, ArrowLeft, MessageSquare, Search, Filter, Clock, Eye, Menu, X, Lock, Calendar, AlertTriangle, User, ClipboardList } from 'lucide-react';
+import { Briefcase, FileText, CheckCircle, AlertCircle, LogOut, Download, Plus, Send, ArrowLeft, MessageSquare, Search, Filter, Clock, Eye, Menu, X, Lock, Calendar, AlertTriangle, User, ClipboardList, Zap, BookOpen, Star, ArrowRightLeft } from 'lucide-react';
+import BulkOperations from '@/pages/BulkOperations';
+import SLATracker from '@/pages/SLATracker';
+import CaseTransfer from '@/pages/CaseTransfer';
+import KnowledgeBase from '@/pages/KnowledgeBase';
+import SatisfactionSurvey from '@/pages/SatisfactionSurvey';
+import Appointments from '@/pages/Appointments';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -466,6 +472,9 @@ const CaseManagerDashboard = () => {
         { id: 'cases', icon: FileText, label: 'My Cases', onClick: () => { setActiveTab('cases'); setSelectedCase(null); setInfoSheetCaseId(null); } },
         { id: 'pending-review', icon: AlertCircle, label: 'Pending Review', badge: pendingReviewCount, onClick: () => { setActiveTab('pending-review'); setSelectedCase(null); setInfoSheetCaseId(null); } },
         { id: 'info-sheets', icon: ClipboardList, label: 'Info Sheets', onClick: () => { setActiveTab('info-sheets'); setSelectedCase(null); setInfoSheetCaseId(null); } },
+        { id: 'bulk-ops', icon: Zap, label: 'Bulk Operations', onClick: () => { setActiveTab('bulk-ops'); setSelectedCase(null); setInfoSheetCaseId(null); } },
+        { id: 'sla-tracker', icon: Clock, label: 'SLA Tracker', onClick: () => { setActiveTab('sla-tracker'); setSelectedCase(null); setInfoSheetCaseId(null); } },
+        { id: 'case-transfer', icon: ArrowRightLeft, label: 'Case Transfer', onClick: () => { setActiveTab('case-transfer'); setSelectedCase(null); setInfoSheetCaseId(null); } },
       ]
     },
     {
@@ -477,6 +486,14 @@ const CaseManagerDashboard = () => {
       ]
     },
     { id: 'tickets', icon: MessageSquare, label: 'Support', onClick: () => { setActiveTab('tickets'); setSelectedCase(null); setInfoSheetCaseId(null); } },
+    {
+      groupLabel: 'Tools',
+      items: [
+        { id: 'knowledge-base', icon: BookOpen, label: 'Knowledge Base', onClick: () => { setActiveTab('knowledge-base'); setSelectedCase(null); setInfoSheetCaseId(null); } },
+        { id: 'surveys', icon: Star, label: 'Survey Stats', onClick: () => { setActiveTab('surveys'); setSelectedCase(null); setInfoSheetCaseId(null); } },
+        { id: 'appointments', icon: Calendar, label: 'Appointments', onClick: () => { setActiveTab('appointments'); setSelectedCase(null); setInfoSheetCaseId(null); } },
+      ]
+    },
   ];
 
   const getPageTitle = () => {
@@ -488,7 +505,9 @@ const CaseManagerDashboard = () => {
     const titles = {
       dashboard: 'Dashboard', cases: 'My Cases', 'pending-review': 'Pending Review',
       documents: 'All Documents', tickets: 'Support', 'expiry-alerts': 'Document Expiry Alerts',
-      'info-sheets': 'Client Info Sheets',
+      'info-sheets': 'Client Info Sheets', 'bulk-ops': 'Bulk Operations',
+      'sla-tracker': 'SLA Tracker', 'case-transfer': 'Case Transfer',
+      'knowledge-base': 'Knowledge Base', surveys: 'Survey Stats', appointments: 'Appointments',
     };
     return titles[activeTab] || 'Dashboard';
   };
@@ -1253,6 +1272,13 @@ const CaseManagerDashboard = () => {
               />
             </div>
           )}
+
+          {activeTab === 'bulk-ops' && <BulkOperations token={localStorage.getItem('token')} role="case_manager" />}
+          {activeTab === 'sla-tracker' && <SLATracker token={localStorage.getItem('token')} role="case_manager" />}
+          {activeTab === 'case-transfer' && <CaseTransfer token={localStorage.getItem('token')} role="case_manager" />}
+          {activeTab === 'knowledge-base' && <KnowledgeBase token={localStorage.getItem('token')} role="case_manager" />}
+          {activeTab === 'surveys' && <SatisfactionSurvey token={localStorage.getItem('token')} role="case_manager" />}
+          {activeTab === 'appointments' && <Appointments token={localStorage.getItem('token')} role="case_manager" />}
 
       {/* Review Document Dialog */}
       <Dialog open={reviewDialog.open} onOpenChange={(open) => setReviewDialog({ ...reviewDialog, open })}>

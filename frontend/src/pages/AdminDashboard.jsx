@@ -17,8 +17,17 @@ import {
   Download, Edit, Trash2, UserPlus, Eye, ArrowRight, Settings,
   Search, DollarSign, TrendingUp, CheckCircle, XCircle, Clock,
   MessageSquare, Filter, Calendar, RefreshCw, AlertTriangle, Copy, Mail, Gift,
-  Menu, X, Bell, Loader2, CreditCard, BarChart3, Activity, Megaphone
+  Menu, X, Bell, Loader2, CreditCard, BarChart3, Activity, Megaphone,
+  ArrowRightLeft, Zap, BookOpen, Star, UserCheck
 } from 'lucide-react';
+import BulkOperations from '@/pages/BulkOperations';
+import SLATracker from '@/pages/SLATracker';
+import CaseTransfer from '@/pages/CaseTransfer';
+import SatisfactionSurvey from '@/pages/SatisfactionSurvey';
+import KnowledgeBase from '@/pages/KnowledgeBase';
+import RevenueForecasting from '@/pages/RevenueForecasting';
+import CMPerformance from '@/pages/CMPerformance';
+import Appointments from '@/pages/Appointments';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -1041,6 +1050,7 @@ const AdminDashboard = () => {
         { id: 'commissions', icon: DollarSign, label: 'Commissions', onClick: () => { setActiveTab('commissions'); resetSelections(); } },
         { id: 'refunds', icon: XCircle, label: 'Refunds', onClick: () => { setActiveTab('refunds'); resetSelections(); } },
         { id: 'reminders', icon: Bell, label: 'Payment Reminders', onClick: () => { setActiveTab('reminders'); resetSelections(); } },
+        { id: 'revenue-forecast', icon: TrendingUp, label: 'Revenue Forecast', onClick: () => { setActiveTab('revenue-forecast'); resetSelections(); } },
       ]
     },
     {
@@ -1050,6 +1060,10 @@ const AdminDashboard = () => {
         { id: 'cases', icon: Briefcase, label: 'All Cases', onClick: () => { setActiveTab('cases'); resetSelections(); } },
         { id: 'pending-assignment', icon: Users, label: 'Pending Assignment', badge: unassignedCases.length, badgeColor: 'bg-amber-500', onClick: () => { setActiveTab('pending-assignment'); resetSelections(); } },
         { id: 'users', icon: User, label: 'Users', onClick: () => { setActiveTab('users'); resetSelections(); } },
+        { id: 'bulk-ops', icon: Zap, label: 'Bulk Operations', onClick: () => { setActiveTab('bulk-ops'); resetSelections(); } },
+        { id: 'sla-tracker', icon: Clock, label: 'SLA Tracker', onClick: () => { setActiveTab('sla-tracker'); resetSelections(); } },
+        { id: 'case-transfer', icon: ArrowRightLeft, label: 'Case Transfer', onClick: () => { setActiveTab('case-transfer'); resetSelections(); } },
+        { id: 'cm-performance', icon: UserCheck, label: 'CM Performance', onClick: () => { setActiveTab('cm-performance'); resetSelections(); } },
       ]
     },
     {
@@ -1058,6 +1072,7 @@ const AdminDashboard = () => {
         { id: 'products', icon: Settings, label: 'Products', onClick: () => { setActiveTab('products'); resetSelections(); } },
         { id: 'tickets', icon: MessageSquare, label: 'Tickets', badge: ticketStats.open, onClick: () => { setActiveTab('tickets'); resetSelections(); } },
         { id: 'settings', icon: Settings, label: 'Settings', onClick: () => { setActiveTab('settings'); resetSelections(); } },
+        { id: 'appointments', icon: Calendar, label: 'Appointments', onClick: () => { setActiveTab('appointments'); resetSelections(); } },
       ]
     },
     {
@@ -1069,6 +1084,8 @@ const AdminDashboard = () => {
         { id: 'ai-workflow', icon: Megaphone, label: 'AI Workflow Builder', onClick: () => navigate('/admin/ai-workflow') },
         { id: 'workflows', icon: FileText, label: 'Workflows', onClick: () => navigate('/admin/workflows') },
         { id: 'marketing', icon: Megaphone, label: 'Marketing', onClick: () => navigate('/admin/marketing') },
+        { id: 'knowledge-base', icon: BookOpen, label: 'Knowledge Base', onClick: () => { setActiveTab('knowledge-base'); resetSelections(); } },
+        { id: 'surveys', icon: Star, label: 'Satisfaction Surveys', onClick: () => { setActiveTab('surveys'); resetSelections(); } },
       ]
     },
   ];
@@ -1082,6 +1099,10 @@ const AdminDashboard = () => {
       commissions: 'Commissions', cases: 'All Cases', 'pending-assignment': 'Pending Assignment',
       reminders: 'Payment Reminders', products: 'Products', users: 'Users',
       tickets: 'Tickets', settings: 'Settings', refunds: 'Refunds',
+      'bulk-ops': 'Bulk Operations', 'sla-tracker': 'SLA Tracker',
+      'case-transfer': 'Case Transfer', 'cm-performance': 'CM Performance',
+      'revenue-forecast': 'Revenue Forecast', 'knowledge-base': 'Knowledge Base',
+      surveys: 'Satisfaction Surveys', appointments: 'Appointments',
     };
     return titles[activeTab] || 'Dashboard';
   };
@@ -2661,6 +2682,15 @@ const AdminDashboard = () => {
               )}
             </div>
           )}
+
+          {activeTab === 'bulk-ops' && <BulkOperations token={localStorage.getItem('token')} role="admin" />}
+          {activeTab === 'sla-tracker' && <SLATracker token={localStorage.getItem('token')} role="admin" />}
+          {activeTab === 'case-transfer' && <CaseTransfer token={localStorage.getItem('token')} role="admin" />}
+          {activeTab === 'cm-performance' && <CMPerformance token={localStorage.getItem('token')} role="admin" />}
+          {activeTab === 'revenue-forecast' && <RevenueForecasting token={localStorage.getItem('token')} />}
+          {activeTab === 'knowledge-base' && <KnowledgeBase token={localStorage.getItem('token')} role="admin" />}
+          {activeTab === 'surveys' && <SatisfactionSurvey token={localStorage.getItem('token')} role="admin" />}
+          {activeTab === 'appointments' && <Appointments token={localStorage.getItem('token')} role="admin" />}
 
       {/* Product Dialog */}
       <Dialog open={productDialog.open} onOpenChange={(open) => setProductDialog({ ...productDialog, open })}>

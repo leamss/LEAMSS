@@ -29,6 +29,10 @@ refunds_col = db["refunds"]
 partner_product_commissions_col = db["partner_product_commissions"]
 chat_messages_col = db["chat_messages"]
 chat_conversations_col = db["chat_conversations"]
+surveys_col = db["surveys"]
+knowledge_base_col = db["knowledge_base"]
+case_transfers_col = db["case_transfers"]
+appointments_col = db["appointments"]
 
 
 async def init_db():
@@ -49,6 +53,10 @@ async def init_db():
     await refunds_col.create_index("sale_id")
     await chat_messages_col.create_index([("conversation_id", 1), ("created_at", 1)])
     await chat_conversations_col.create_index("case_id")
+    await surveys_col.create_index("case_id")
+    await knowledge_base_col.create_index("category")
+    await case_transfers_col.create_index("case_id")
+    await appointments_col.create_index([("user_id", 1), ("date", 1)])
     await db["partner_product_commissions"].create_index(
         [("partner_id", 1), ("product_id", 1)], unique=True
     )

@@ -2,16 +2,17 @@
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional
+from typing import List
 from core.database import (
     cases_col, case_steps_col, users_col, products_col, documents_col,
     additional_doc_requests_col, notifications_col, audit_logs_col,
-    information_sheets_col, workflow_steps_col
+    information_sheets_col, workflow_steps_col, case_transfers_col
 )
 from core.auth import get_current_user
 from core.services import create_notification, notify_users, log_activity
 from core.email_service import send_case_step_update_email
 import uuid
-from datetime import datetime, timezone, date
+from datetime import datetime, timezone, date, timedelta
 
 router = APIRouter(prefix="/cases", tags=["Cases"])
 
@@ -179,6 +180,50 @@ async def get_my_cases(current_user: dict = Depends(get_current_user)):
 async def get_info_sheet_schema(current_user: dict = Depends(get_current_user)):
     """Return the complete information sheet field schema"""
     return INFO_SHEET_SCHEMA
+
+
+@router.get("/overdue-steps")
+async def get_overdue_steps(current_user: dict = Depends(get_current_user)):
+    """Get steps that are past their SLA deadline"""
+    if current_user["role"] not in ["admin", "case_manager"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    now_str = datetime.now(timezone.utc).isoformat()
+    cm_id = current_user["id"] if current_user["role"] == "case_manager" else None
+    case_query = {"status": "active"}
+    if cm_id:
+        case_query["case_manager_id"] = cm_id
+    cases = await cases_col.find(case_query, {"_id": 0, "id": 1, "case_id": 1, "client_id": 1}).to_list(500)
+    case_ids = [c["id"] for c in cases]
+    case_map = {c["id"]: c for c in cases}
+    steps = await case_steps_col.find({
+        "case_id": {"$in": case_ids},
+        "status": {"$in": ["pending", "in_progress"]},
+        "deadline": {"$exists": True, "$ne": None}
+    }, {"_id": 0}).to_list(1000)
+    overdue = []
+    approaching = []
+    for s in steps:
+        dl = s.get("deadline", "")
+        if not dl:
+            continue
+        case_info = case_map.get(s["case_id"], {})
+        entry = {
+            "step_id": s["id"], "case_id": s["case_id"], "case_number": case_info.get("case_id", ""),
+            "step_name": s["step_name"], "step_order": s.get("step_order", 0),
+            "deadline": dl, "status": s["status"], "sla_days": s.get("sla_days", 0)
+        }
+        try:
+            dl_dt = datetime.fromisoformat(dl.replace("Z", "+00:00"))
+            diff = (dl_dt - datetime.now(timezone.utc)).days
+            if diff < 0:
+                entry["overdue_by"] = abs(diff)
+                overdue.append(entry)
+            elif diff <= 3:
+                entry["days_remaining"] = diff
+                approaching.append(entry)
+        except Exception:
+            continue
+    return {"overdue": overdue, "approaching": approaching, "total_overdue": len(overdue), "total_approaching": len(approaching)}
 
 
 @router.get("/{case_id}")
@@ -731,3 +776,152 @@ async def get_workload_summary(current_user: dict = Depends(get_current_user)):
         "total_urgent": len(urgent_tasks),
         "case_distribution": status_counts
     }
+
+
+
+# ============ PHASE 6A: BULK OPERATIONS ============
+
+class BulkAdvanceRequest(BaseModel):
+    case_ids: List[str]
+    notes: str = ""
+
+
+@router.post("/bulk-advance")
+async def bulk_advance_cases(request: BulkAdvanceRequest, current_user: dict = Depends(get_current_user)):
+    """Advance multiple cases to next step"""
+    if current_user["role"] not in ["admin", "case_manager"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    results = []
+    for cid in request.case_ids:
+        try:
+            case = await cases_col.find_one({"id": cid}, {"_id": 0})
+            if not case:
+                results.append({"case_id": cid, "status": "error", "message": "Not found"})
+                continue
+            steps = await case_steps_col.find({"case_id": cid}, {"_id": 0}).sort("step_order", 1).to_list(100)
+            current = next((s for s in steps if s["status"] in ["pending", "in_progress"]), None)
+            if not current:
+                results.append({"case_id": cid, "status": "skipped", "message": "No pending step"})
+                continue
+            await case_steps_col.update_one({"id": current["id"]}, {"$set": {"status": "completed", "completed_at": datetime.now(timezone.utc), "notes": request.notes}})
+            next_step = next((s for s in steps if s["step_order"] > current["step_order"]), None)
+            if next_step:
+                await case_steps_col.update_one({"id": next_step["id"]}, {"$set": {"status": "in_progress", "started_at": datetime.now(timezone.utc)}})
+                await cases_col.update_one({"id": cid}, {"$set": {"current_step": next_step["step_name"], "current_step_order": next_step["step_order"]}})
+            else:
+                await cases_col.update_one({"id": cid}, {"$set": {"status": "completed", "completed_at": datetime.now(timezone.utc)}})
+            await log_activity(current_user["id"], current_user["name"], "bulk_advance_step", "case", cid, {"step": current["step_name"]})
+            results.append({"case_id": cid, "status": "advanced", "step": current["step_name"]})
+        except Exception as e:
+            results.append({"case_id": cid, "status": "error", "message": str(e)})
+    return {"results": results, "advanced": sum(1 for r in results if r["status"] == "advanced")}
+
+
+# ============ SLA/DEADLINE TRACKING ============
+
+class SetStepDeadline(BaseModel):
+    case_id: str
+    step_name: str
+    deadline: str
+    sla_days: Optional[int] = None
+
+
+@router.post("/set-step-deadline")
+async def set_step_deadline(request: SetStepDeadline, current_user: dict = Depends(get_current_user)):
+    """Set SLA deadline for a case step"""
+    if current_user["role"] not in ["admin", "case_manager"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    step = await case_steps_col.find_one({"case_id": request.case_id, "step_name": request.step_name}, {"_id": 0})
+    if not step:
+        raise HTTPException(status_code=404, detail="Step not found")
+    await case_steps_col.update_one({"id": step["id"]}, {"$set": {"deadline": request.deadline, "sla_days": request.sla_days or 0}})
+    await log_activity(current_user["id"], current_user["name"], "set_step_deadline", "case_step", step["id"], {"deadline": request.deadline})
+    return {"message": "Deadline set", "step": request.step_name, "deadline": request.deadline}
+
+
+# ============ AUTO CASE ASSIGNMENT ============
+
+class AutoAssignRequest(BaseModel):
+    case_id: str
+    preferred_language: Optional[str] = None
+
+
+@router.post("/auto-assign")
+async def auto_assign_case(request: AutoAssignRequest, current_user: dict = Depends(get_current_user)):
+    """Auto-assign case to least-loaded case manager, optionally matching language"""
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    case = await cases_col.find_one({"id": request.case_id}, {"_id": 0})
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+    cms = await users_col.find({"role": "case_manager", "status": "active"}, {"_id": 0}).to_list(100)
+    if not cms:
+        raise HTTPException(status_code=400, detail="No active case managers")
+    # Count active cases per CM
+    workloads = {}
+    for cm in cms:
+        count = await cases_col.count_documents({"case_manager_id": cm["id"], "status": "active"})
+        workloads[cm["id"]] = {"count": count, "cm": cm}
+    # Prefer language match if specified
+    lang = request.preferred_language
+    if lang:
+        lang_cms = [cid for cid, w in workloads.items() if lang.lower() in [l.lower() for l in w["cm"].get("languages", [])]]
+        if lang_cms:
+            best = min(lang_cms, key=lambda cid: workloads[cid]["count"])
+        else:
+            best = min(workloads, key=lambda cid: workloads[cid]["count"])
+    else:
+        best = min(workloads, key=lambda cid: workloads[cid]["count"])
+    chosen = workloads[best]["cm"]
+    await cases_col.update_one({"id": request.case_id}, {"$set": {"case_manager_id": chosen["id"], "status": "active"}})
+    await create_notification(chosen["id"], "New Case Assigned", f"Case {case.get('case_id','')} auto-assigned to you", "case_assigned", request.case_id)
+    await log_activity(current_user["id"], current_user["name"], "auto_assign_case", "case", request.case_id, {"assigned_to": chosen["name"], "workload": workloads[best]["count"]})
+    return {"message": f"Case assigned to {chosen['name']}", "case_manager_id": chosen["id"], "case_manager_name": chosen["name"], "active_cases": workloads[best]["count"]}
+
+
+# ============ CASE TRANSFER ============
+
+class CaseTransferRequest(BaseModel):
+    case_id: str
+    to_case_manager_id: str
+    reason: str = ""
+
+
+@router.post("/transfer")
+async def transfer_case(request: CaseTransferRequest, current_user: dict = Depends(get_current_user)):
+    """Transfer case from one CM to another with history tracking"""
+    if current_user["role"] not in ["admin", "case_manager"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    case = await cases_col.find_one({"id": request.case_id}, {"_id": 0})
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+    to_cm = await users_col.find_one({"id": request.to_case_manager_id, "role": "case_manager"}, {"_id": 0})
+    if not to_cm:
+        raise HTTPException(status_code=404, detail="Target case manager not found")
+    from_cm_id = case.get("case_manager_id", "")
+    from_cm = await users_col.find_one({"id": from_cm_id}, {"_id": 0, "name": 1}) if from_cm_id else None
+    transfer = {
+        "id": str(uuid.uuid4()), "case_id": request.case_id,
+        "from_cm_id": from_cm_id, "from_cm_name": from_cm["name"] if from_cm else "Unassigned",
+        "to_cm_id": request.to_case_manager_id, "to_cm_name": to_cm["name"],
+        "reason": request.reason, "transferred_by": current_user["id"],
+        "transferred_by_name": current_user["name"], "created_at": datetime.now(timezone.utc)
+    }
+    await case_transfers_col.insert_one(transfer)
+    transfer.pop("_id", None)
+    await cases_col.update_one({"id": request.case_id}, {"$set": {"case_manager_id": request.to_case_manager_id}})
+    await create_notification(request.to_case_manager_id, "Case Transferred", f"Case {case.get('case_id','')} transferred to you. Reason: {request.reason}", "case_transfer", request.case_id)
+    if from_cm_id:
+        await create_notification(from_cm_id, "Case Transferred", f"Case {case.get('case_id','')} transferred to {to_cm['name']}", "case_transfer", request.case_id)
+    await log_activity(current_user["id"], current_user["name"], "transfer_case", "case", request.case_id, {"from": from_cm["name"] if from_cm else "None", "to": to_cm["name"]})
+    return {"message": f"Case transferred to {to_cm['name']}", "transfer_id": transfer["id"]}
+
+
+@router.get("/transfer-history/{case_id}")
+async def get_transfer_history(case_id: str, current_user: dict = Depends(get_current_user)):
+    """Get transfer history for a case"""
+    transfers = await case_transfers_col.find({"case_id": case_id}, {"_id": 0}).sort("created_at", -1).to_list(50)
+    for t in transfers:
+        if isinstance(t.get("created_at"), datetime):
+            t["created_at"] = t["created_at"].isoformat()
+    return transfers
