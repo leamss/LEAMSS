@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import NotificationBell from '@/components/NotificationBell';
+import { LanguageToggle } from '@/components/LanguageProvider';
 import { LogOut, Menu, ArrowLeft, ChevronDown, ChevronRight } from 'lucide-react';
 
 const AdminReturnBanner = () => {
@@ -185,6 +186,7 @@ const DashboardShell = ({
               </div>
               <div className="flex items-center gap-2">
                 {headerActions}
+                <LanguageToggle />
                 <NotificationBell onNotificationClick={onNotificationClick} />
               </div>
             </div>

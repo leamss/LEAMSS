@@ -25,6 +25,9 @@ import CaseTransfer from '@/pages/CaseTransfer';
 import KnowledgeBase from '@/pages/KnowledgeBase';
 import SatisfactionSurvey from '@/pages/SatisfactionSurvey';
 import Appointments from '@/pages/Appointments';
+import CannedResponses from '@/pages/CannedResponses';
+import CaseTimeline from '@/pages/CaseTimeline';
+import CaseNotesAndTags from '@/pages/CaseNotesAndTags';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -492,6 +495,7 @@ const CaseManagerDashboard = () => {
         { id: 'knowledge-base', icon: BookOpen, label: 'Knowledge Base', onClick: () => { setActiveTab('knowledge-base'); setSelectedCase(null); setInfoSheetCaseId(null); } },
         { id: 'surveys', icon: Star, label: 'Survey Stats', onClick: () => { setActiveTab('surveys'); setSelectedCase(null); setInfoSheetCaseId(null); } },
         { id: 'appointments', icon: Calendar, label: 'Appointments', onClick: () => { setActiveTab('appointments'); setSelectedCase(null); setInfoSheetCaseId(null); } },
+        { id: 'canned-responses', icon: Zap, label: 'Canned Responses', onClick: () => { setActiveTab('canned-responses'); setSelectedCase(null); setInfoSheetCaseId(null); } },
       ]
     },
   ];
@@ -508,6 +512,7 @@ const CaseManagerDashboard = () => {
       'info-sheets': 'Client Info Sheets', 'bulk-ops': 'Bulk Operations',
       'sla-tracker': 'SLA Tracker', 'case-transfer': 'Case Transfer',
       'knowledge-base': 'Knowledge Base', surveys: 'Survey Stats', appointments: 'Appointments',
+      'canned-responses': 'Canned Responses',
     };
     return titles[activeTab] || 'Dashboard';
   };
@@ -798,6 +803,14 @@ const CaseManagerDashboard = () => {
                   </div>
                 </Card>
               )}
+              {/* Case Notes & Tags */}
+              <CaseNotesAndTags caseId={selectedCase.id} token={localStorage.getItem('token')} />
+
+              {/* Case Timeline */}
+              <Card className="p-6">
+                <h3 className="text-lg font-semibold mb-4 text-gray-900">Case Timeline</h3>
+                <CaseTimeline caseId={selectedCase.id} token={localStorage.getItem('token')} />
+              </Card>
             </div>
           )}
 
@@ -1279,6 +1292,7 @@ const CaseManagerDashboard = () => {
           {activeTab === 'knowledge-base' && <KnowledgeBase token={localStorage.getItem('token')} role="case_manager" />}
           {activeTab === 'surveys' && <SatisfactionSurvey token={localStorage.getItem('token')} role="case_manager" />}
           {activeTab === 'appointments' && <Appointments token={localStorage.getItem('token')} role="case_manager" />}
+          {activeTab === 'canned-responses' && <CannedResponses token={localStorage.getItem('token')} />}
 
       {/* Review Document Dialog */}
       <Dialog open={reviewDialog.open} onOpenChange={(open) => setReviewDialog({ ...reviewDialog, open })}>

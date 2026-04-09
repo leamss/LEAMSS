@@ -289,3 +289,130 @@ async def cm_performance(current_user: dict = Depends(get_current_user)):
             "surveys_received": len(cm_surveys), "overdue_steps": overdue_count
         })
     return {"metrics": metrics}
+
+
+
+# ============ CONVERSION FUNNEL ============
+
+@router.get("/conversion-funnel")
+async def conversion_funnel(current_user: dict = Depends(get_current_user)):
+    """Track conversion from leads → sales → cases → completion"""
+    if current_user["role"] not in ["admin", "partner"]:
+        return {"stages": []}
+    from core.database import referrals_col
+    # Leads (referrals)
+    total_referrals = await referrals_col.count_documents({})
+    contacted_referrals = await referrals_col.count_documents({"status": {"$in": ["contacted", "converted"]}})
+    converted_referrals = await referrals_col.count_documents({"status": "converted"})
+    # Sales
+    total_sales = await sales_col.count_documents({})
+    approved_sales = await sales_col.count_documents({"status": "approved"})
+    # Cases
+    total_cases = await cases_col.count_documents({})
+    active_cases = await cases_col.count_documents({"status": "active"})
+    completed_cases = await cases_col.count_documents({"status": "completed"})
+    stages = [
+        {"stage": "Referrals/Leads", "total": total_referrals, "converted": contacted_referrals, "rate": round(contacted_referrals/total_referrals*100) if total_referrals else 0},
+        {"stage": "Sales Created", "total": total_sales, "converted": approved_sales, "rate": round(approved_sales/total_sales*100) if total_sales else 0},
+        {"stage": "Cases Started", "total": total_cases, "converted": active_cases + completed_cases, "rate": round((active_cases+completed_cases)/total_cases*100) if total_cases else 0},
+        {"stage": "Cases Completed", "total": active_cases + completed_cases, "converted": completed_cases, "rate": round(completed_cases/(active_cases+completed_cases)*100) if (active_cases+completed_cases) else 0},
+    ]
+    return {"stages": stages, "summary": {"total_leads": total_referrals, "total_completions": completed_cases, "overall_rate": round(completed_cases/total_referrals*100) if total_referrals else 0}}
+
+
+# ============ COUNTRY/PRODUCT ANALYTICS ============
+
+@router.get("/country-product")
+async def country_product_analytics(current_user: dict = Depends(get_current_user)):
+    """Per-country and per-product performance analytics"""
+    if current_user["role"] not in ["admin", "partner"]:
+        return {"by_product": [], "by_country": []}
+    products = await products_col.find({}, {"_id": 0}).to_list(100)
+    product_map = {p["id"]: p for p in products}
+    all_cases = await cases_col.find({}, {"_id": 0}).to_list(5000)
+    all_sales = await sales_col.find({}, {"_id": 0}).to_list(5000)
+    # By product
+    by_product = {}
+    for c in all_cases:
+        pid = c.get("product_id", "")
+        pname = product_map.get(pid, {}).get("name", "Unknown")
+        if pname not in by_product:
+            by_product[pname] = {"name": pname, "total_cases": 0, "active": 0, "completed": 0, "revenue": 0}
+        by_product[pname]["total_cases"] += 1
+        if c.get("status") == "active":
+            by_product[pname]["active"] += 1
+        elif c.get("status") == "completed":
+            by_product[pname]["completed"] += 1
+    for s in all_sales:
+        pid = s.get("product_id", "")
+        pname = product_map.get(pid, {}).get("name", "Unknown")
+        if pname in by_product:
+            by_product[pname]["revenue"] += float(s.get("total_fee", 0))
+    # By country (extract from product name or category)
+    by_country = {}
+    countries = ["Canada", "Australia", "UK", "USA", "UAE", "Germany", "New Zealand", "India"]
+    for pname, data in by_product.items():
+        country = "Other"
+        for c in countries:
+            if c.lower() in pname.lower():
+                country = c
+                break
+        if country not in by_country:
+            by_country[country] = {"country": country, "total_cases": 0, "active": 0, "completed": 0, "revenue": 0, "products": []}
+        by_country[country]["total_cases"] += data["total_cases"]
+        by_country[country]["active"] += data["active"]
+        by_country[country]["completed"] += data["completed"]
+        by_country[country]["revenue"] += data["revenue"]
+        by_country[country]["products"].append(pname)
+    return {
+        "by_product": sorted(by_product.values(), key=lambda x: x["total_cases"], reverse=True),
+        "by_country": sorted(by_country.values(), key=lambda x: x["total_cases"], reverse=True)
+    }
+
+
+# ============ COMMISSION ANALYTICS ============
+
+@router.get("/commission-analytics")
+async def commission_analytics(current_user: dict = Depends(get_current_user)):
+    """Partner commission breakdown and trends"""
+    if current_user["role"] not in ["admin", "partner"]:
+        return {"partners": [], "total_commission": 0}
+    from core.database import partner_product_commissions_col
+    query = {} if current_user["role"] == "admin" else {"partner_id": current_user["id"]}
+    all_sales = await sales_col.find(query if current_user["role"] == "partner" else {}, {"_id": 0}).to_list(5000)
+    partners = await users_col.find({"role": "partner"}, {"_id": 0}).to_list(100)
+    partner_map = {p["id"]: p for p in partners}
+    # Group by partner
+    by_partner = {}
+    for s in all_sales:
+        pid = s.get("partner_id", "")
+        if not pid:
+            continue
+        pname = partner_map.get(pid, {}).get("name", "Unknown")
+        if pid not in by_partner:
+            by_partner[pid] = {"partner_id": pid, "partner_name": pname, "total_sales": 0, "total_revenue": 0, "total_commission": 0, "pending_commission": 0, "approved_sales": 0}
+        by_partner[pid]["total_sales"] += 1
+        by_partner[pid]["total_revenue"] += float(s.get("total_fee", 0))
+        comm = float(s.get("partner_commission", 0))
+        by_partner[pid]["total_commission"] += comm
+        if s.get("status") == "approved":
+            by_partner[pid]["approved_sales"] += 1
+        if s.get("commission_status") != "paid":
+            by_partner[pid]["pending_commission"] += comm
+    # Monthly commission trend
+    monthly = {}
+    for s in all_sales:
+        ca = s.get("created_at")
+        if isinstance(ca, datetime):
+            key = ca.strftime("%Y-%m")
+        elif isinstance(ca, str):
+            key = ca[:7]
+        else:
+            continue
+        monthly[key] = monthly.get(key, 0) + float(s.get("partner_commission", 0))
+    total_comm = sum(p["total_commission"] for p in by_partner.values())
+    return {
+        "partners": sorted(by_partner.values(), key=lambda x: x["total_commission"], reverse=True),
+        "total_commission": round(total_comm, 2),
+        "monthly_trend": [{"month": k, "commission": round(v, 2)} for k, v in sorted(monthly.items())],
+    }

@@ -28,6 +28,15 @@ import KnowledgeBase from '@/pages/KnowledgeBase';
 import RevenueForecasting from '@/pages/RevenueForecasting';
 import CMPerformance from '@/pages/CMPerformance';
 import Appointments from '@/pages/Appointments';
+import CaseTimeline from '@/pages/CaseTimeline';
+import CaseNotesAndTags from '@/pages/CaseNotesAndTags';
+import CannedResponses from '@/pages/CannedResponses';
+import ReferralProgram from '@/pages/ReferralProgram';
+import ClientGreetings from '@/pages/ClientGreetings';
+import ConversionFunnel from '@/pages/ConversionFunnel';
+import CountryProductAnalytics from '@/pages/CountryProductAnalytics';
+import CommissionAnalytics from '@/pages/CommissionAnalytics';
+import HappinessScoreWidget from '@/components/HappinessScoreWidget';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -1051,6 +1060,9 @@ const AdminDashboard = () => {
         { id: 'refunds', icon: XCircle, label: 'Refunds', onClick: () => { setActiveTab('refunds'); resetSelections(); } },
         { id: 'reminders', icon: Bell, label: 'Payment Reminders', onClick: () => { setActiveTab('reminders'); resetSelections(); } },
         { id: 'revenue-forecast', icon: TrendingUp, label: 'Revenue Forecast', onClick: () => { setActiveTab('revenue-forecast'); resetSelections(); } },
+        { id: 'conversion-funnel', icon: TrendingUp, label: 'Conversion Funnel', onClick: () => { setActiveTab('conversion-funnel'); resetSelections(); } },
+        { id: 'commission-analytics', icon: DollarSign, label: 'Commission Analytics', onClick: () => { setActiveTab('commission-analytics'); resetSelections(); } },
+        { id: 'country-product', icon: BarChart3, label: 'Country & Product', onClick: () => { setActiveTab('country-product'); resetSelections(); } },
       ]
     },
     {
@@ -1086,6 +1098,9 @@ const AdminDashboard = () => {
         { id: 'marketing', icon: Megaphone, label: 'Marketing', onClick: () => navigate('/admin/marketing') },
         { id: 'knowledge-base', icon: BookOpen, label: 'Knowledge Base', onClick: () => { setActiveTab('knowledge-base'); resetSelections(); } },
         { id: 'surveys', icon: Star, label: 'Satisfaction Surveys', onClick: () => { setActiveTab('surveys'); resetSelections(); } },
+        { id: 'canned-responses', icon: MessageSquare, label: 'Canned Responses', onClick: () => { setActiveTab('canned-responses'); resetSelections(); } },
+        { id: 'referrals', icon: Users, label: 'Referral Program', onClick: () => { setActiveTab('referrals'); resetSelections(); } },
+        { id: 'greetings', icon: Bell, label: 'Client Greetings', onClick: () => { setActiveTab('greetings'); resetSelections(); } },
       ]
     },
   ];
@@ -1103,6 +1118,9 @@ const AdminDashboard = () => {
       'case-transfer': 'Case Transfer', 'cm-performance': 'CM Performance',
       'revenue-forecast': 'Revenue Forecast', 'knowledge-base': 'Knowledge Base',
       surveys: 'Satisfaction Surveys', appointments: 'Appointments',
+      'conversion-funnel': 'Conversion Funnel', 'commission-analytics': 'Commission Analytics',
+      'country-product': 'Country & Product Analytics', 'canned-responses': 'Canned Responses',
+      referrals: 'Referral Program', greetings: 'Client Greetings',
     };
     return titles[activeTab] || 'Dashboard';
   };
@@ -1141,6 +1159,8 @@ const AdminDashboard = () => {
                   }
                 }} 
               />
+
+              <HappinessScoreWidget token={localStorage.getItem('token')} />
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <Card className="p-6 bg-white rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
@@ -2691,6 +2711,12 @@ const AdminDashboard = () => {
           {activeTab === 'knowledge-base' && <KnowledgeBase token={localStorage.getItem('token')} role="admin" />}
           {activeTab === 'surveys' && <SatisfactionSurvey token={localStorage.getItem('token')} role="admin" />}
           {activeTab === 'appointments' && <Appointments token={localStorage.getItem('token')} role="admin" />}
+          {activeTab === 'canned-responses' && <CannedResponses token={localStorage.getItem('token')} />}
+          {activeTab === 'referrals' && <ReferralProgram token={localStorage.getItem('token')} role="admin" />}
+          {activeTab === 'greetings' && <ClientGreetings token={localStorage.getItem('token')} />}
+          {activeTab === 'conversion-funnel' && <ConversionFunnel token={localStorage.getItem('token')} />}
+          {activeTab === 'country-product' && <CountryProductAnalytics token={localStorage.getItem('token')} />}
+          {activeTab === 'commission-analytics' && <CommissionAnalytics token={localStorage.getItem('token')} role="admin" />}
 
       {/* Product Dialog */}
       <Dialog open={productDialog.open} onOpenChange={(open) => setProductDialog({ ...productDialog, open })}>

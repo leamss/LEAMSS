@@ -33,6 +33,10 @@ surveys_col = db["surveys"]
 knowledge_base_col = db["knowledge_base"]
 case_transfers_col = db["case_transfers"]
 appointments_col = db["appointments"]
+case_notes_col = db["case_notes"]
+canned_responses_col = db["canned_responses"]
+referrals_col = db["referrals"]
+greetings_col = db["greetings"]
 
 
 async def init_db():
@@ -57,6 +61,10 @@ async def init_db():
     await knowledge_base_col.create_index("category")
     await case_transfers_col.create_index("case_id")
     await appointments_col.create_index([("user_id", 1), ("date", 1)])
+    await case_notes_col.create_index("case_id")
+    await canned_responses_col.create_index("user_id")
+    await referrals_col.create_index("referrer_id")
+    await greetings_col.create_index("user_id")
     await db["partner_product_commissions"].create_index(
         [("partner_id", 1), ("product_id", 1)], unique=True
     )
