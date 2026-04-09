@@ -1,88 +1,97 @@
 # LEAMSS Immigration Portal - Product Requirements Document
 
 ## Original Problem Statement
-Build a comprehensive LEAMSS Portal for an immigration service supporting Admin, Case Manager, Partner, and Client roles. Features include multi-role dashboards, workflow automation, CRM tools, document management, AI intelligence, and payment processing.
+Build a comprehensive LEAMSS Portal for an immigration service supporting Admin, Case Manager, Partner, and Client roles. Features include multi-role dashboards, workflow automation, CRM tools, document management, AI intelligence, and payment processing. The goal is to become the world's best immigration company built on honesty and transparency.
 
 ## Tech Stack
 - **Frontend**: React 18, TailwindCSS, Shadcn UI, Lucide React Icons
 - **Backend**: FastAPI, Motor (MongoDB async driver)
 - **Database**: MongoDB
-- **Integrations**: OpenAI GPT-5.2 (via emergentintegrations), Stripe Payments
+- **Integrations**: OpenAI GPT-5.2 (via emergentintegrations), Stripe Payments, Resend Email (configured but needs API key)
 
 ## Core Architecture
 ```
 /app
 ├── backend/
-│   ├── core/           # database.py, auth.py, models.py
-│   ├── routers/        # ai_intelligence.py, cases.py, documents.py, pdf_reports.py, etc.
+│   ├── core/           # database.py, auth.py, models.py, services.py, email_service.py
+│   ├── routers/        # activity.py, ai_workflow_builder.py, ai_intelligence.py, cases.py, documents.py, etc.
 │   ├── uploads/        # receipts/, reports/, leamss-logo.png
 │   └── server.py
 ├── frontend/
 │   ├── src/
-│   │   ├── components/ # DashboardShell.jsx, InfoSheetEditor.jsx, StatCard.jsx, AIChatWidget.jsx, NotificationBell.jsx
-│   │   ├── pages/      # AdminDashboard.jsx, CaseManagerDashboard.jsx, ClientDashboard.jsx, PartnerDashboard.jsx
+│   │   ├── components/ # DashboardShell.jsx, InfoSheetEditor.jsx, StatCard.jsx, AIChatWidget.jsx
+│   │   ├── pages/      # AdminDashboard.jsx, CaseManagerDashboard.jsx, ClientDashboard.jsx, PartnerDashboard.jsx, ActivityLog.jsx, AIWorkflowBuilder.jsx
 │   │   └── App.js
 └── memory/             # PRD.md, test_credentials.md
 ```
 
-## User Roles & Access
-- **Admin**: Full control - Sales management, user management, case assignment, products, tickets, settings, analytics
-- **Case Manager**: Case workflows, document review, info sheet editing, expiry tracking
-- **Partner**: Sales submission, commission tracking, ticket support
-- **Client**: Case overview, document upload, info sheet, payments, workflow steps, AI chat
-
-## Implemented Features (Completed)
+## Implemented Features
 
 ### Phase 1 - Core Portal (Done)
-- Multi-role authentication (JWT)
-- Role-based dashboards
+- Multi-role JWT authentication
+- Role-based dashboards (Admin, Case Manager, Partner, Client)
 - Case workflow enforcement with step locking
 - Document upload, review, and approval
 - Ticketing system
 
 ### Phase 2 - Advanced Features (Done)
-- LEAMSS Logo integration across UI and all PDF Reports
+- LEAMSS Logo across UI and PDF Reports
 - Bulk Document Upload with Drag-and-Drop
-- Document Expiry Tracking with Dashboard Widgets
-- Auto In-App Reminders for Expiring Documents
-- Information Sheet Editor (dynamic schema, unlimited repeatable entries)
-- OCR Resume parsing to auto-fill Info Sheet
+- Document Expiry Tracking with Auto In-App Reminders
+- Information Sheet Editor (dynamic schema, unlimited repeatable entries, OCR resume parsing)
 - AI Chatbot with case/step/document context
-- Info Sheet PDF Export Generation
-- Stripe Payment Portal for clients
+- Info Sheet PDF Export
+- Stripe Payment Portal
 
 ### Phase 3 - UI/UX Overhaul (Done - Dec 2025)
-- **Shared DashboardShell component** with grouped collapsible sidebar navigation
-- **Admin sidebar groups**: Sales & Finance, Cases & Users, System, Tools
-- **Case Manager sidebar groups**: Case Management (My Cases, Pending Review, Info Sheets), Documents (All Documents, Expiry Alerts)
-- **Client sidebar groups**: My Case (Action Required, Workflow Steps, My Documents, My Info Sheet), Finance (Payments)
-- **Partner sidebar**: Dashboard, My Sales, Commission, Support
-- **P0: Case Manager Info Sheet View/Edit** - New "Info Sheets" tab showing all client cases, clicking opens InfoSheetEditor
-- Consistent teal #2a777a brand theme across all portals
-- Mobile-responsive sidebar with toggle button
-- AdminReturnBanner moved to shared DashboardShell
-- StatCard shared component for dashboard metrics
+- Shared DashboardShell component with grouped collapsible sidebar
+- Admin: Sales & Finance, Cases & Users, System, Tools groups
+- Case Manager: Case Management (with Info Sheets P0), Documents groups
+- Client: My Case, Finance groups
+- Partner: Clean flat navigation
+- P0: Case Manager Info Sheet View/Edit feature
+
+### Phase 4 - Intelligence & Monitoring (Done - Dec 2025)
+- **Comprehensive Activity Log System**: Live feed, By User view, By Type view, stats cards, filters (time period, entity type), per-case/per-user drill-down, 940+ activities tracked
+- **AI Workflow Builder**: 10 quick templates (Canada PR, Australia PR, Tourist visas for 7 countries, UAE Golden Visa), custom country/service selection, GPT-5.2 generates complete workflows with steps, documents per step, success tips, rejection reasons. Admin can edit and save as product.
+- **Email Service**: Resend integration with HTML templates for case updates, document reminders, payment confirmations, welcome emails, ticket updates. Graceful fallback to in-app mock when no API key.
 
 ## Key API Endpoints
-- `POST /api/auth/login` - Authentication
-- `GET /api/cases/info-sheet-schema` - Info sheet schema
-- `GET /api/cases/{case_id}/info-sheet` - Get info sheet data
-- `POST /api/cases/{case_id}/info-sheet` - Save info sheet data
-- `POST /api/documents/set-expiry` - Set document expiry
-- `GET /api/documents/check-reminders` - Check expiry reminders
-- `GET /api/reports/export/info-sheet/{case_id}` - Export info sheet PDF
+- Auth: `POST /api/auth/login`
+- Activity: `GET /api/activity/logs`, `/live-feed`, `/stats`, `/case/{id}`, `/user/{id}`
+- AI Workflow: `GET /api/ai-workflow/countries`, `/templates`, `POST /generate`, `POST /save`
+- Cases: `GET /api/cases/info-sheet-schema`, `GET/POST /api/cases/{id}/info-sheet`
+- Documents: `POST /api/documents/set-expiry`, `GET /api/documents/check-reminders`
+- Reports: `GET /api/reports/export/info-sheet/{case_id}`
 
-## Prioritized Backlog
-- P1: Real Email Service Integration (SendGrid/Resend) for Expiry Reminders (currently MOCKED as in-app notifications)
-- P2: PDF Report enhancements
-- P2: Bulk document upload improvements
-- P3: SMS Notifications via Twilio
-- P3: Google Calendar Integration for deadlines
-- P3: Bulk case operations for Admin
+## Prioritized Backlog (34 Enhancement Items)
+### Implemented (Phase 4):
+- #17 AI Workflow Builder - DONE
+- #18 AI Document Requirement Mapper - DONE (integrated in workflow builder)
+- #21-25 Real-Time Activity Log System - DONE
+- #26 Email Notifications (Resend) - DONE (needs API key for real emails)
+
+### Next Up (Phase 5):
+- #2 Real-Time In-App Chat (Client <-> Case Manager)
+- #1 Client Onboarding Wizard
+- #4 Smart Document Checklist
+- #5 Automated Milestone Notifications
+- #9 Smart Workload Dashboard for Case Manager
+- #11 Auto Case Assignment
+
+### Future Phases:
+- #3 Case Timeline View, #6 Satisfaction Survey, #7 Multi-Language
+- #8 Knowledge Base, #10 Bulk Operations, #12 SLA/Deadline Tracking
+- #13 Quick Notes & Tags, #14 Case Transfer, #15 Document Annotation
+- #16 Canned Responses, #19 AI Case Risk Assessment, #20 AI Document Validator
+- #27 Appointment Scheduling, #28 Referral Program, #29 Client Greetings
+- #30 Revenue Forecasting, #31 CM Performance Metrics, #32 Conversion Funnel
+- #33 Country/Product Analytics, #34 Commission Analytics
 
 ## Test Results
-- Iteration 36: 100% pass rate - All 4 dashboards, sidebar navigation, P0 Info Sheets, mobile responsive, logout
-- Previous: Iterations 30-35 all passed
+- Iteration 37: 100% pass (17/17 backend + all frontend verified) - Activity Log, AI Workflow Builder, Email Service
+- Iteration 36: 100% pass - DashboardShell, Sidebar Navigation, P0 Info Sheets
+- Iterations 30-35: All passed
 
 ## Credentials
 - Admin: admin@leamss.com / Admin@123
