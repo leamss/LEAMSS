@@ -1,268 +1,330 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { 
-  Activity, Search, Filter, User, Calendar, 
-  ChevronLeft, ChevronRight, RefreshCw
-} from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import DashboardShell from '@/components/DashboardShell';
+import {
+  Activity, ArrowLeft, Search, Filter, Clock, User, FileText, Briefcase,
+  CreditCard, MessageSquare, Settings, RefreshCw, Calendar, ChevronDown, ChevronRight,
+  Download, Shield
+} from 'lucide-react';
 
-const API_URL = process.env.REACT_APP_BACKEND_URL;
+const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
-const ActivityLog = () => {
+const ACTION_ICONS = {
+  login: Shield, created: FileText, approved: Briefcase, rejected: Briefcase,
+  uploaded: Download, review_document_approved: FileText, review_document_rejected: FileText,
+  update_step: Clock, assigned_manager: User, initiated_payment: CreditCard,
+  replied: MessageSquare, set_status_resolved: MessageSquare, saved_ai_workflow: Settings,
+  generated_workflow: Settings, updated: Settings, deleted: Settings, record_payment: CreditCard,
+  create_sale: FileText, sale_approved: Briefcase, sale_rejected: Briefcase,
+  upload_document: Download, set_expiry: Calendar, bulk_uploaded: Download,
+};
+
+const ACTION_COLORS = {
+  login: 'bg-blue-100 text-blue-700',
+  created: 'bg-green-100 text-green-700', approved: 'bg-green-100 text-green-700',
+  rejected: 'bg-red-100 text-red-700', uploaded: 'bg-purple-100 text-purple-700',
+  updated: 'bg-amber-100 text-amber-700', deleted: 'bg-red-100 text-red-700',
+  replied: 'bg-teal-100 text-teal-700', initiated_payment: 'bg-orange-100 text-orange-700',
+};
+
+const formatDateTime = (iso) => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return d.toLocaleString('en-IN', {
+    day: '2-digit', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true
+  });
+};
+
+const getActionColor = (action) => {
+  for (const [key, cls] of Object.entries(ACTION_COLORS)) {
+    if (action?.includes(key)) return cls;
+  }
+  return 'bg-gray-100 text-gray-700';
+};
+
+const ActivityLogPage = () => {
+  const navigate = useNavigate();
+  const [user, setUser] = useState(null);
   const [logs, setLogs] = useState([]);
   const [stats, setStats] = useState(null);
+  const [liveFeed, setLiveFeed] = useState([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
-    entityType: '',
-    action: '',
-    startDate: '',
-    endDate: ''
+    entity_type: '', action: '', user_id: '', days: 30, limit: 50
   });
-  const [page, setPage] = useState(1);
+  const [activeView, setActiveView] = useState('feed');
+  const [selectedUserId, setSelectedUserId] = useState(null);
+  const [userLogs, setUserLogs] = useState([]);
+  const [selectedUserInfo, setSelectedUserInfo] = useState(null);
 
-  const token = localStorage.getItem('token');
-  const headers = { Authorization: `Bearer ${token}` };
+  const getAuthHeader = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
 
   useEffect(() => {
-    fetchLogs();
-    fetchStats();
-  }, [page, filters]);
+    const userData = JSON.parse(localStorage.getItem('user') || '{}');
+    if (userData.role !== 'admin') { navigate('/'); return; }
+    setUser(userData);
+    fetchAll();
+  }, []);
 
-  const fetchLogs = async () => {
+  const fetchAll = async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ page, limit: 20 });
-      if (filters.entityType) params.append('entity_type', filters.entityType);
-      if (filters.action) params.append('action', filters.action);
-      if (filters.startDate) params.append('start_date', filters.startDate);
-      if (filters.endDate) params.append('end_date', filters.endDate);
-
-      const response = await axios.get(`${API_URL}/api/activity/logs?${params}`, { headers });
-      setLogs(response.data);
-    } catch (error) {
-      console.error('Error fetching logs:', error);
+      const [logsRes, statsRes, feedRes] = await Promise.all([
+        axios.get(`${API}/activity/logs?days=${filters.days}&limit=${filters.limit}${filters.entity_type ? `&entity_type=${filters.entity_type}` : ''}${filters.action ? `&action=${filters.action}` : ''}${filters.user_id ? `&user_id=${filters.user_id}` : ''}`, getAuthHeader()),
+        axios.get(`${API}/activity/stats?days=${filters.days}`, getAuthHeader()),
+        axios.get(`${API}/activity/live-feed?limit=15`, getAuthHeader()),
+      ]);
+      setLogs(logsRes.data.logs || logsRes.data || []);
+      setTotal(logsRes.data.total || 0);
+      setStats(statsRes.data);
+      setLiveFeed(feedRes.data);
+    } catch (err) {
+      toast.error('Failed to load activity data');
     }
     setLoading(false);
   };
 
-  const fetchStats = async () => {
+  const fetchUserActivity = async (userId) => {
     try {
-      const response = await axios.get(`${API_URL}/api/activity/stats?days=7`, { headers });
-      setStats(response.data);
-    } catch (error) {
-      console.error('Error fetching stats:', error);
+      const res = await axios.get(`${API}/activity/user/${userId}?days=90&limit=100`, getAuthHeader());
+      setUserLogs(res.data.logs || []);
+      setSelectedUserInfo(res.data.user || {});
+      setSelectedUserId(userId);
+      setActiveView('user-detail');
+    } catch (err) {
+      toast.error('Failed to load user activity');
     }
   };
 
-  const formatDate = (dateString) => {
-    if (!dateString) return '-';
-    const date = new Date(dateString);
-    const now = new Date();
-    const diff = now - date;
-    
-    if (diff < 60000) return 'Just now';
-    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
-    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
-    
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
+  useEffect(() => { if (user) fetchAll(); }, [filters.days, filters.entity_type, filters.action]);
 
-  const getActionColor = (action) => {
-    if (action?.includes('create') || action?.includes('add')) return 'bg-green-100 text-green-700';
-    if (action?.includes('update') || action?.includes('edit')) return 'bg-blue-100 text-blue-700';
-    if (action?.includes('delete') || action?.includes('remove')) return 'bg-red-100 text-red-700';
-    if (action?.includes('approve')) return 'bg-emerald-100 text-emerald-700';
-    if (action?.includes('reject')) return 'bg-orange-100 text-orange-700';
-    return 'bg-gray-100 text-gray-700';
-  };
+  const navGroups = [
+    { id: 'back', icon: ArrowLeft, label: 'Back to Dashboard', onClick: () => navigate('/admin') },
+  ];
 
-  const entityTypes = ['user', 'sale', 'case', 'ticket', 'document', 'product'];
+  if (!user) return null;
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Activity Log</h1>
-          <p className="text-gray-500">Track all system activities and changes</p>
-        </div>
-        <Button variant="outline" onClick={fetchLogs}>
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Refresh
-        </Button>
-      </div>
-
+    <DashboardShell
+      user={user}
+      roleLabel="Admin"
+      navGroups={navGroups}
+      activeTab="activity"
+      pageTitle={activeView === 'user-detail' ? `User Activity: ${selectedUserInfo?.name || ''}` : 'Activity Log'}
+      showBackButton={activeView === 'user-detail'}
+      onBack={() => setActiveView('feed')}
+      onLogout={() => { localStorage.clear(); navigate('/'); }}
+    >
       {/* Stats Cards */}
-      {stats && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-500">Total Activities (7d)</p>
-                  <p className="text-2xl font-bold">{stats.total_activities}</p>
-                </div>
-                <Activity className="h-8 w-8 text-indigo-600" />
-              </div>
-            </CardContent>
+      {activeView !== 'user-detail' && stats && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6" data-testid="activity-stats">
+          <Card className="p-4 border border-gray-200">
+            <p className="text-xs font-semibold uppercase text-gray-500">Total Activities</p>
+            <p className="text-2xl font-bold text-gray-900 mt-1">{stats.total_activities}</p>
+            <p className="text-xs text-gray-400">Last {stats.period_days} days</p>
           </Card>
+          <Card className="p-4 border border-gray-200">
+            <p className="text-xs font-semibold uppercase text-gray-500">Entity Types</p>
+            <p className="text-2xl font-bold text-[#2a777a] mt-1">{Object.keys(stats.activities_by_type || {}).length}</p>
+            <p className="text-xs text-gray-400">Categories tracked</p>
+          </Card>
+          <Card className="p-4 border border-gray-200">
+            <p className="text-xs font-semibold uppercase text-gray-500">Actions</p>
+            <p className="text-2xl font-bold text-[#f7620b] mt-1">{Object.keys(stats.activities_by_action || {}).length}</p>
+            <p className="text-xs text-gray-400">Distinct actions</p>
+          </Card>
+          <Card className="p-4 border border-gray-200">
+            <p className="text-xs font-semibold uppercase text-gray-500">Active Users</p>
+            <p className="text-2xl font-bold text-purple-600 mt-1">{(stats.most_active_users || []).length}</p>
+            <p className="text-xs text-gray-400">Contributing users</p>
+          </Card>
+        </div>
+      )}
 
-          {stats.most_active_users?.slice(0, 3).map((user, idx) => (
-            <Card key={user.user_id}>
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-500">#{idx + 1} Active User</p>
-                    <p className="font-medium truncate">{user.user_name}</p>
-                    <p className="text-sm text-indigo-600">{user.count} actions</p>
+      {/* Filters */}
+      {activeView !== 'user-detail' && (
+        <Card className="p-4 mb-6 border border-gray-200" data-testid="activity-filters">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-gray-400" />
+              <span className="text-sm font-medium text-gray-600">Filters:</span>
+            </div>
+            <Select value={filters.days.toString()} onValueChange={(v) => setFilters({ ...filters, days: parseInt(v) })}>
+              <SelectTrigger className="w-[130px] h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">Last 24 hours</SelectItem>
+                <SelectItem value="7">Last 7 days</SelectItem>
+                <SelectItem value="30">Last 30 days</SelectItem>
+                <SelectItem value="90">Last 90 days</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={filters.entity_type} onValueChange={(v) => setFilters({ ...filters, entity_type: v === 'all' ? '' : v })}>
+              <SelectTrigger className="w-[130px] h-8 text-xs"><SelectValue placeholder="All Types" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="sale">Sales</SelectItem>
+                <SelectItem value="case">Cases</SelectItem>
+                <SelectItem value="document">Documents</SelectItem>
+                <SelectItem value="payment">Payments</SelectItem>
+                <SelectItem value="ticket">Tickets</SelectItem>
+                <SelectItem value="product">Products</SelectItem>
+                <SelectItem value="user">Users</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button variant="outline" size="sm" onClick={fetchAll} className="h-8" data-testid="refresh-activity">
+              <RefreshCw className="h-3.5 w-3.5 mr-1" /> Refresh
+            </Button>
+            <Badge className="ml-auto bg-gray-100 text-gray-600">{total} records</Badge>
+          </div>
+        </Card>
+      )}
+
+      {/* View Tabs */}
+      {activeView !== 'user-detail' && (
+        <div className="flex gap-2 mb-4">
+          <Button variant={activeView === 'feed' ? 'default' : 'outline'} size="sm"
+                  className={activeView === 'feed' ? 'bg-[#2a777a]' : ''} onClick={() => setActiveView('feed')}>
+            <Activity className="h-4 w-4 mr-1" /> Live Feed
+          </Button>
+          <Button variant={activeView === 'by-user' ? 'default' : 'outline'} size="sm"
+                  className={activeView === 'by-user' ? 'bg-[#2a777a]' : ''} onClick={() => setActiveView('by-user')}>
+            <User className="h-4 w-4 mr-1" /> By User
+          </Button>
+          <Button variant={activeView === 'by-type' ? 'default' : 'outline'} size="sm"
+                  className={activeView === 'by-type' ? 'bg-[#2a777a]' : ''} onClick={() => setActiveView('by-type')}>
+            <FileText className="h-4 w-4 mr-1" /> By Type
+          </Button>
+        </div>
+      )}
+
+      {/* Live Feed View */}
+      {activeView === 'feed' && (
+        <div className="space-y-2" data-testid="activity-feed">
+          {(logs.length === 0 && !loading) && (
+            <Card className="p-12 text-center">
+              <Activity className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+              <p className="text-gray-500">No activity logs found</p>
+            </Card>
+          )}
+          {logs.map((log, idx) => {
+            const IconComp = ACTION_ICONS[log.action] || Activity;
+            return (
+              <Card key={log.id || idx} className="p-3 border border-gray-200 hover:border-gray-300 transition-all" data-testid={`activity-log-${idx}`}>
+                <div className="flex items-start gap-3">
+                  <div className={`h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0 ${getActionColor(log.action)}`}>
+                    <IconComp className="h-4 w-4" />
                   </div>
-                  <User className="h-8 w-8 text-purple-600" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold text-sm text-gray-900">{log.user_name || 'System'}</span>
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0">{log.user_role}</Badge>
+                      <span className="text-sm text-gray-600">{log.action?.replace(/_/g, ' ')}</span>
+                      {log.entity_type && (
+                        <Badge className={`text-[10px] px-1.5 py-0 ${getActionColor(log.action)}`}>
+                          {log.entity_type}
+                        </Badge>
+                      )}
+                    </div>
+                    {log.details && <p className="text-xs text-gray-500 mt-0.5 truncate">{log.details}</p>}
+                    {log.client_name && <p className="text-xs text-gray-400 mt-0.5">Client: {log.client_name}</p>}
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-[11px] text-gray-400 whitespace-nowrap">{formatDateTime(log.created_at)}</p>
+                  </div>
                 </div>
-              </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {/* By User View */}
+      {activeView === 'by-user' && stats && (
+        <div className="space-y-3" data-testid="activity-by-user">
+          {(stats.most_active_users || []).map((u, idx) => (
+            <Card key={u.user_id || idx} className="p-4 border border-gray-200 cursor-pointer hover:border-[#2a777a]/40 hover:shadow-md transition-all"
+                  onClick={() => fetchUserActivity(u.user_id)} data-testid={`user-activity-${idx}`}>
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-[#2a777a]/10 flex items-center justify-center">
+                  <span className="text-[#2a777a] font-bold text-sm">{u.user_name?.charAt(0) || '?'}</span>
+                </div>
+                <div className="flex-1">
+                  <p className="font-semibold text-gray-900">{u.user_name}</p>
+                  <p className="text-xs text-gray-500 capitalize">{u.user_role}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-2xl font-bold text-[#2a777a]">{u.count}</p>
+                  <p className="text-xs text-gray-400">activities</p>
+                </div>
+                <ChevronRight className="h-5 w-5 text-gray-300" />
+              </div>
             </Card>
           ))}
         </div>
       )}
 
-      {/* Filters */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex flex-wrap gap-4">
-            <Select 
-              value={filters.entityType || "all"} 
-              onValueChange={(v) => setFilters({ ...filters, entityType: v === "all" ? "" : v })}
-            >
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="Entity Type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                {entityTypes.map(type => (
-                  <SelectItem key={type} value={type} className="capitalize">{type}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+      {/* By Type View */}
+      {activeView === 'by-type' && stats && (
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4" data-testid="activity-by-type">
+          {Object.entries(stats.activities_by_type || {}).map(([type, count]) => (
+            <Card key={type} className="p-4 border border-gray-200 cursor-pointer hover:border-[#2a777a]/40 transition-all"
+                  onClick={() => setFilters({ ...filters, entity_type: type })}>
+              <p className="text-xs font-semibold uppercase text-gray-500">{type}</p>
+              <p className="text-3xl font-bold text-gray-900 mt-1">{count}</p>
+            </Card>
+          ))}
+        </div>
+      )}
 
-            <Input
-              type="text"
-              placeholder="Filter by action..."
-              value={filters.action}
-              onChange={(e) => setFilters({ ...filters, action: e.target.value })}
-              className="w-48"
-            />
-
-            <Input
-              type="date"
-              value={filters.startDate}
-              onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
-              className="w-40"
-            />
-
-            <Input
-              type="date"
-              value={filters.endDate}
-              onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
-              className="w-40"
-            />
-
-            <Button 
-              variant="ghost" 
-              onClick={() => setFilters({ entityType: '', action: '', startDate: '', endDate: '' })}
-            >
-              Clear Filters
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Activity List */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Activity</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+      {/* User Detail View */}
+      {activeView === 'user-detail' && (
+        <div className="space-y-3" data-testid="user-activity-detail">
+          <Card className="p-4 bg-[#2a777a]/5 border border-[#2a777a]/20 mb-4">
+            <div className="flex items-center gap-3">
+              <div className="h-12 w-12 rounded-full bg-[#2a777a]/10 flex items-center justify-center">
+                <span className="text-[#2a777a] font-bold text-lg">{selectedUserInfo?.name?.charAt(0) || '?'}</span>
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900">{selectedUserInfo?.name}</h3>
+                <p className="text-sm text-gray-500">{selectedUserInfo?.email} | <span className="capitalize">{selectedUserInfo?.role}</span></p>
+              </div>
+              <Badge className="ml-auto bg-[#2a777a] text-white">{userLogs.length} activities</Badge>
             </div>
-          ) : logs.length > 0 ? (
-            <div className="space-y-4">
-              {logs.map((log) => (
-                <div 
-                  key={log.id} 
-                  className="flex items-start gap-4 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                >
-                  <div className="h-10 w-10 bg-indigo-100 rounded-full flex items-center justify-center flex-shrink-0">
-                    <User className="h-5 w-5 text-indigo-600" />
+          </Card>
+          {userLogs.map((log, idx) => {
+            const IconComp = ACTION_ICONS[log.action] || Activity;
+            return (
+              <div key={log.id || idx} className="flex items-start gap-3 pl-2">
+                <div className="flex flex-col items-center">
+                  <div className={`h-7 w-7 rounded-full flex items-center justify-center ${getActionColor(log.action)}`}>
+                    <IconComp className="h-3.5 w-3.5" />
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-medium">{log.user_name || 'System'}</span>
-                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${getActionColor(log.action)}`}>
-                        {log.action}
-                      </span>
-                      <span className="text-gray-500 capitalize">{log.entity_type}</span>
-                    </div>
-                    {log.entity_id && (
-                      <p className="text-sm text-gray-500 mt-1">
-                        Entity ID: {log.entity_id.substring(0, 8)}...
-                      </p>
-                    )}
-                    {log.new_value && (
-                      <details className="mt-2">
-                        <summary className="text-sm text-indigo-600 cursor-pointer">View changes</summary>
-                        <pre className="mt-2 p-2 bg-gray-100 rounded text-xs overflow-x-auto">
-                          {JSON.stringify(log.new_value, null, 2)}
-                        </pre>
-                      </details>
-                    )}
-                  </div>
-                  <div className="text-sm text-gray-500 flex items-center gap-1 flex-shrink-0">
-                    <Calendar className="h-4 w-4" />
-                    {formatDate(log.created_at)}
-                  </div>
+                  {idx < userLogs.length - 1 && <div className="w-0.5 h-8 bg-gray-200 mt-1" />}
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8 text-gray-500">
-              <Activity className="h-12 w-12 mx-auto mb-2 opacity-50" />
-              <p>No activity logs found</p>
-            </div>
-          )}
-
-          {/* Pagination */}
-          <div className="flex items-center justify-between mt-6 pt-4 border-t">
-            <Button
-              variant="outline"
-              onClick={() => setPage(p => Math.max(1, p - 1))}
-              disabled={page === 1}
-            >
-              <ChevronLeft className="h-4 w-4 mr-1" />
-              Previous
-            </Button>
-            <span className="text-sm text-gray-500">Page {page}</span>
-            <Button
-              variant="outline"
-              onClick={() => setPage(p => p + 1)}
-              disabled={logs.length < 20}
-            >
-              Next
-              <ChevronRight className="h-4 w-4 ml-1" />
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+                <div className="flex-1 pb-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-gray-700">{log.action?.replace(/_/g, ' ')}</span>
+                    {log.entity_type && <Badge variant="outline" className="text-[10px]">{log.entity_type}</Badge>}
+                  </div>
+                  {log.details && <p className="text-xs text-gray-500 mt-0.5">{log.details}</p>}
+                  <p className="text-[11px] text-gray-400 mt-0.5">{formatDateTime(log.created_at)}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </DashboardShell>
   );
 };
 
-export default ActivityLog;
+export default ActivityLogPage;

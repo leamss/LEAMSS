@@ -2,6 +2,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 from core.database import products_col, workflow_steps_col
 from core.auth import get_current_user
+from core.services import log_activity
 import uuid
 from datetime import datetime, timezone
 
@@ -56,6 +57,8 @@ async def create_product(data: dict, current_user: dict = Depends(get_current_us
         }
         await workflow_steps_col.insert_one(step)
     
+    await log_activity(current_user["id"], current_user["name"], "created", "product", product["id"],
+                       f"Created product: {data['name']}")
     return {"id": product["id"], "message": "Product created"}
 
 
@@ -74,6 +77,8 @@ async def update_product(product_id: str, data: dict, current_user: dict = Depen
     
     if update:
         await products_col.update_one({"id": product_id}, {"$set": update})
+    await log_activity(current_user["id"], current_user["name"], "updated", "product", product_id,
+                       f"Updated product fields: {', '.join(update.keys())}")
     return {"message": "Product updated"}
 
 
@@ -83,6 +88,8 @@ async def delete_product(product_id: str, current_user: dict = Depends(get_curre
         raise HTTPException(status_code=403, detail="Admin only")
     await products_col.delete_one({"id": product_id})
     await workflow_steps_col.delete_many({"product_id": product_id})
+    await log_activity(current_user["id"], current_user["name"], "deleted", "product", product_id,
+                       "Deleted product and workflow steps")
     return {"message": "Product deleted"}
 
 

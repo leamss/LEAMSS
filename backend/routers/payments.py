@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from typing import Optional
 from core.database import db
 from routers.auth import get_current_user
+from core.services import log_activity
 
 router = APIRouter(prefix="/payments", tags=["payments"])
 
@@ -131,6 +132,10 @@ async def create_checkout(request: PaymentRequest, http_request: Request, curren
         "created_at": datetime.now(timezone.utc)
     }
     await payment_transactions_col.insert_one(transaction)
+
+    await log_activity(current_user["id"], current_user.get("name", ""), "initiated_payment", "payment",
+                       transaction["id"], f"Payment of ₹{amount_float} initiated for {sale.get('client_name', '')}",
+                       case_id=sale.get("case_id"), client_name=sale.get("client_name"))
 
     return {"url": session.url, "session_id": session.session_id}
 

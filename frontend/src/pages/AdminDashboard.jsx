@@ -1066,6 +1066,7 @@ const AdminDashboard = () => {
       items: [
         { id: 'analytics', icon: BarChart3, label: 'Analytics', onClick: () => navigate('/admin/analytics') },
         { id: 'activity', icon: Activity, label: 'Activity Log', onClick: () => navigate('/admin/activity') },
+        { id: 'ai-workflow', icon: Megaphone, label: 'AI Workflow Builder', onClick: () => navigate('/admin/ai-workflow') },
         { id: 'workflows', icon: FileText, label: 'Workflows', onClick: () => navigate('/admin/workflows') },
         { id: 'marketing', icon: Megaphone, label: 'Marketing', onClick: () => navigate('/admin/marketing') },
       ]

@@ -41,8 +41,10 @@ async def notify_users(user_ids: list, title: str, message: str,
 
 
 async def log_activity(user_id: str, user_name: str, action: str,
-                       entity_type: str, entity_id: str = None, details: str = None):
-    """Log an activity/audit event"""
+                       entity_type: str, entity_id: str = None, details: str = None,
+                       old_value: str = None, new_value: str = None,
+                       case_id: str = None, client_name: str = None):
+    """Log an activity/audit event with comprehensive detail"""
     log = {
         "id": str(uuid.uuid4()),
         "user_id": user_id,
@@ -51,6 +53,10 @@ async def log_activity(user_id: str, user_name: str, action: str,
         "entity_type": entity_type,
         "entity_id": entity_id,
         "details": details,
+        "old_value": old_value,
+        "new_value": new_value,
+        "case_id": case_id,
+        "client_name": client_name,
         "created_at": datetime.now(timezone.utc)
     }
     await audit_logs_col.insert_one(log)

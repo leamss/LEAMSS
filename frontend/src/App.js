@@ -10,6 +10,7 @@ import AnalyticsDashboard from '@/pages/AnalyticsDashboard';
 import ActivityLog from '@/pages/ActivityLog';
 import PaymentSuccess from '@/pages/PaymentSuccess';
 import WorkflowBuilder from '@/pages/WorkflowBuilder';
+import AIWorkflowBuilder from '@/pages/AIWorkflowBuilder';
 import MarketingDashboard from '@/pages/MarketingDashboard';
 import ServiceCalculator from '@/pages/ServiceCalculator';
 import LeadCapture from '@/pages/LeadCapture';
@@ -25,6 +26,7 @@ function App() {
           <Route path="/admin/analytics" element={<AnalyticsDashboard />} />
           <Route path="/admin/activity" element={<ActivityLog />} />
           <Route path="/admin/workflows" element={<WorkflowBuilder />} />
+          <Route path="/admin/ai-workflow" element={<AIWorkflowBuilder />} />
           <Route path="/admin/marketing" element={<MarketingDashboard />} />
           <Route path="/calculator" element={<ServiceCalculator />} />
           <Route path="/inquiry" element={<LeadCapture />} />
