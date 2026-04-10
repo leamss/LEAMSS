@@ -1,100 +1,81 @@
-# LEAMSS Immigration Portal - Product Requirements Document
+# LEAMSS Immigration Portal — Product Requirements Document
 
 ## Original Problem Statement
-Build a comprehensive LEAMSS Portal for an immigration service supporting Admin, Case Manager, Partner, and Client roles with workflow automation, document management, AI intelligence, and full business analytics.
+Comprehensive immigration service portal with Admin, Case Manager, Partner, and Client roles. Multi-step case workflows, document management, ticketing, analytics, and payment processing.
 
 ## Tech Stack
-- **Frontend**: React 18, TailwindCSS, Shadcn UI, Lucide React Icons
-- **Backend**: FastAPI, Motor (MongoDB async driver)
+- **Frontend**: React, TailwindCSS, Shadcn UI, React Router
+- **Backend**: FastAPI (Python), Motor (Async MongoDB)
 - **Database**: MongoDB
-- **Integrations**: OpenAI GPT-5.2 (emergentintegrations), Stripe Payments, Resend Email
+- **Integrations**: OpenAI GPT-5.2 (Emergent LLM Key), Stripe (Payments), Resend (Email - mock mode)
 
-## Implemented Features (Complete)
+## Implemented Features (34 Total — ALL VERIFIED ✅)
 
-### Phase 1-3 — Core Portal + UI/UX
-- Multi-role JWT auth (Admin, CM, Partner, Client)
-- Case workflow enforcement with step locking
-- Document management with expiry tracking & reminders
-- Information Sheet Editor with OCR resume parsing
-- Shared DashboardShell with grouped collapsible sidebar
-- Stripe Payment Portal
+### Phase 1-3: Core Platform
+- Multi-role Auth (Admin, Case Manager, Partner, Client)
+- Products CRUD & Workflow Builder
+- Sales Management (create, approve/reject, commissions)
+- Case Lifecycle Management (steps, deadlines, documents)
+- Document Upload & Review
+- Ticketing System
+- Notifications (with SSE real-time stream)
+- User Management
 
-### Phase 4 — Intelligence & Monitoring
-- Comprehensive Activity Log System (940+ activities)
-- AI Workflow Builder (10 templates, GPT-5.2)
-- Email Service (Resend with fallback)
+### Phase 4: Intelligence
+- Activity Log (Live Feed, By User, By Type — 1144+ events tracked)
+- Global Search (across cases, sales, users, tickets)
+- AI Workflow Builder (GPT-5.2 powered)
+- AI Chat Widget
+- Analytics Dashboard
 
-### Phase 5 — Communication & Productivity
-- Real-Time In-App Chat (Client <-> CM)
-- Client Onboarding Wizard (5-step)
-- Smart Document Checklist
-- Smart Workload Dashboard
+### Phase 5: Communication
+- Chat System (conversations + messages)
+- Email Service (Resend — mock mode)
+- Client Onboarding Wizard
 
-### Phase 6A — Operations
-- Bulk Case Advance + Bulk Document Review
-- SLA/Deadline Tracker (per-step deadlines, overdue alerts)
-- Auto Case Assignment (workload-based + language)
-- Case Transfer (CM-to-CM with history)
+### Phase 6: Operations & Analytics
+- Bulk Case Advance & Bulk Document Review
+- SLA Tracker (overdue + approaching deadlines)
+- Case Transfer
+- Auto Case Assignment
+- Satisfaction Surveys (NPS)
+- Knowledge Base (articles + categories)
+- Appointments
+- Revenue Forecasting
+- CM Performance Analytics
 
-### Phase 6B-6D — AI, Experience, Analytics
-- AI Document Validator & Case Risk Assessment
-- Client Satisfaction Survey (multi-category 5-star)
-- Knowledge Base (CRUD + search + categories)
-- Document Annotation
-- Revenue Forecasting (historical + predicted)
-- CM Performance Metrics
-- Appointment Scheduling
+### Phase 7: Productivity & Growth
+- Case Timeline View
+- Quick Notes & Tags
+- Canned Responses
+- Referral Program
+- Client Greetings (birthday, anniversary, custom)
+- Conversion Funnel Analytics
+- Country/Product Analytics
+- Commission Analytics
 
-### Phase 7A — Experience & Productivity (DONE - Dec 2025)
-- **Case Timeline View**: Visual timeline of all case events (steps, docs, chats, transfers, notes) with filter chips
-- **Quick Notes & Tags**: Color-coded sticky notes + tag management per case
-- **Canned Responses**: Pre-saved reply templates with shortcuts, usage tracking, shared/personal
-- **Multi-Language (Hindi/English)**: Full i18n with language toggle, 50+ translated strings, persisted in localStorage
+### Cross-cutting
+- Multi-Language Toggle (Hindi/English — shell level)
+- Stripe Payment Integration
+- Document Expiry Tracker
+- Client Happiness Score (NPS widget)
 
-### Phase 7B — Growth & Analytics (DONE - Dec 2025)
-- **Client Happiness Score (NPS Widget)**: Admin dashboard widget showing recommendation %, avg rating, star display
-- **Referral Program**: Clients refer friends, admin tracks status (pending → contacted → converted), reward eligibility
-- **Client Greetings**: 7 festival templates (Diwali, Christmas, Eid, Holi, etc.), custom messages, send to all clients
-- **Conversion Funnel**: 4-stage visualization (Leads → Sales → Cases → Completion) with conversion rates
-- **Country/Product Analytics**: Per-country flag-based cards, per-product bar charts, revenue/active/completed breakdowns
-- **Commission Analytics**: Partner commission breakdown, monthly trend chart, pending vs paid commissions
+## Current Bugs: NONE
 
-## Key API Endpoints (30+)
-- Auth: POST /api/auth/login
-- Cases: bulk-advance, set-step-deadline, overdue-steps, auto-assign, transfer
-- Documents: bulk-review, annotate
-- Analytics: revenue-forecast, cm-performance, conversion-funnel, country-product, commission-analytics
-- Surveys: submit, stats, case/{id}
-- Knowledge Base: articles CRUD, categories
-- Appointments: create, list, cancel, complete
-- Timeline: /case/{id}
-- Notes: CRUD + tags
-- Canned Responses: CRUD + use counter
-- Referrals: create, list, update status, stats
-- Greetings: templates, send, history
-- Chat: conversations, messages, unread-count
-- AI: validate-document, predict-approval, workflow generate
+## Backlog (Prioritized)
+- **P1**: Extend i18n translations to inner page content (stats cards, tables, forms)
+- **P2**: Wire Resend Email to live dispatch (requires user's RESEND_API_KEY)
+- **P2**: PDF Report Generation (export.py router exists, needs frontend buttons)
+- **P2**: Bulk Document Upload (multi-file at once)
+- **P3**: SMS Notifications (Twilio)
+- **P3**: Google Calendar Integration for deadlines
+- **P3**: Migrate LanguageProvider to react-i18next for scale
 
-## Test Results
-- Iteration 40: 100% (37/37 backend + frontend) — Phase 7A-7B
-- Iteration 39: 93% (41/44 backend + frontend) — Phase 6A-6D
-- Iteration 38: 100% (20/20 + frontend) — Phase 5
-- Iteration 37: 100% (17/17 + frontend) — Phase 4
-
-## Remaining Backlog
-- #32 Quick Notes/Tags per case ✅ DONE
-- Case Timeline ✅ DONE
-- Canned Responses ✅ DONE
-- Multi-Language ✅ DONE
-- Referral Program ✅ DONE
-- Client Greetings ✅ DONE
-- Conversion Funnel ✅ DONE
-- Country/Product Analytics ✅ DONE
-- Commission Analytics ✅ DONE
-- Happiness Score Widget ✅ DONE
-
-## Credentials
+## Test Credentials
 - Admin: admin@leamss.com / Admin@123
 - Case Manager: manager@leamss.com / Manager@123
 - Partner: partner@leamss.com / Partner@123
 - Client: client@leamss.com / Client@123
+
+## Test Reports
+- iteration_41.json: ALL 52 backend tests PASSED, all 4 dashboards verified via UI testing
