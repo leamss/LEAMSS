@@ -94,9 +94,8 @@ async def send_reminder(sale_id: str, current_user: dict = Depends(get_current_u
     await send_email(
         sale.get("client_email", ""),
         "Payment Reminder — LEAMSS Immigration Services",
-        f"Dear {sale.get('client_name', 'Client')},\n\nThis is a friendly reminder that you have a pending payment of ₹{pending:,.0f}.\n\nTotal Fee: ₹{sale.get('fee_amount', 0):,.0f}\nAmount Paid: ₹{sale.get('amount_received', 0):,.0f}\nPending: ₹{pending:,.0f}\n\nPlease log in to your LEAMSS portal to complete the payment.\n\nThank you,\nLEAMSS Immigration Services",
-        "payment_reminder",
-        sale_id
+        "Payment Reminder",
+        f"Dear {sale.get('client_name', 'Client')},<br><br>This is a friendly reminder that you have a pending payment of ₹{pending:,.0f}.<br><br>Total Fee: ₹{sale.get('fee_amount', 0):,.0f}<br>Amount Paid: ₹{sale.get('amount_received', 0):,.0f}<br>Pending: ₹{pending:,.0f}<br><br>Please log in to your LEAMSS portal to complete the payment.<br><br>Thank you,<br>LEAMSS Immigration Services"
     )
 
     # Log the reminder

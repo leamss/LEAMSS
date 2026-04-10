@@ -1,8 +1,13 @@
 """Notifications Router"""
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query, Request
+from fastapi.responses import StreamingResponse
 from core.database import notifications_col
 from core.auth import get_current_user
 from datetime import datetime
+import asyncio
+import json
+import jwt
+import os
 
 router = APIRouter(prefix="/notifications", tags=["Notifications"])
 
@@ -31,3 +36,43 @@ async def mark_all_read(current_user: dict = Depends(get_current_user)):
         {"$set": {"read": True}}
     )
     return {"message": "All marked as read"}
+
+
+@router.get("/stream")
+async def notification_stream(token: str = Query(...)):
+    """SSE endpoint for real-time notifications"""
+    try:
+        payload = jwt.decode(token, os.environ.get("JWT_SECRET", "leamss-portal-secret-key-2024-secure"), algorithms=["HS256"])
+        user_id = payload.get("sub")
+        if not user_id:
+            return StreamingResponse(iter([]), status_code=401)
+    except Exception:
+        return StreamingResponse(iter([]), status_code=401)
+
+    async def event_generator():
+        yield f"data: {json.dumps({'type': 'connected', 'user_id': user_id})}\n\n"
+        last_check = datetime.utcnow()
+        while True:
+            await asyncio.sleep(15)
+            try:
+                new_notifs = await notifications_col.find(
+                    {"user_id": user_id, "read": False, "created_at": {"$gt": last_check}},
+                    {"_id": 0}
+                ).to_list(10)
+                last_check = datetime.utcnow()
+                for n in new_notifs:
+                    if isinstance(n.get("created_at"), datetime):
+                        n["created_at"] = n["created_at"].isoformat()
+                    yield f"data: {json.dumps({'type': 'notification', **n})}\n\n"
+                if not new_notifs:
+                    yield f"data: {json.dumps({'type': 'ping'})}\n\n"
+            except asyncio.CancelledError:
+                break
+            except Exception:
+                yield f"data: {json.dumps({'type': 'ping'})}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"}
+    )

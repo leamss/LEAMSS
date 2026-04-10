@@ -357,7 +357,7 @@ async def create_sale(
     if total_discount > 0:
         proposal_msg += f" with a special discount of ₹{total_discount:,.0f}"
     proposal_msg += f". Total fee: ₹{final_fee:,.0f}. Our team will contact you shortly."
-    await send_email(client_email, "Your LEAMSS Service Proposal", proposal_msg, "proposal", sale["id"])
+    await send_email(client_email, "Your LEAMSS Service Proposal", "Service Proposal", proposal_msg)
 
     return {"id": sale["id"], "message": "Sale created successfully", "discount_applied": total_discount > 0, "final_fee": final_fee}
 
