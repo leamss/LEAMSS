@@ -4,8 +4,35 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import NotificationBell from '@/components/NotificationBell';
-import { LanguageToggle } from '@/components/LanguageProvider';
+import { LanguageToggle, useLanguage } from '@/components/LanguageProvider';
 import { LogOut, Menu, ArrowLeft, ChevronDown, ChevronRight } from 'lucide-react';
+
+// Hindi translations for nav labels
+const hiLabels = {
+  'Dashboard': 'डैशबोर्ड', 'Pending Sales': 'लंबित बिक्री', 'Sales Report': 'बिक्री रिपोर्ट',
+  'Commissions': 'कमीशन', 'Refunds': 'रिफंड', 'Payment Reminders': 'भुगतान अनुस्मारक',
+  'Revenue Forecast': 'राजस्व पूर्वानुमान', 'Conversion Funnel': 'रूपांतरण फ़नल',
+  'Commission Analytics': 'कमीशन विश्लेषण', 'Country & Product': 'देश और उत्पाद',
+  'All Cases': 'सभी केस', 'Pending Assignment': 'लंबित असाइनमेंट', 'Users': 'उपयोगकर्ता',
+  'Bulk Operations': 'बल्क ऑपरेशन', 'SLA Tracker': 'SLA ट्रैकर', 'Case Transfer': 'केस ट्रांसफर',
+  'CM Performance': 'CM प्रदर्शन', 'Products': 'उत्पाद', 'Tickets': 'टिकट', 'Settings': 'सेटिंग्स',
+  'Appointments': 'अपॉइंटमेंट', 'AI Workflow Builder': 'AI वर्कफ़्लो बिल्डर', 'Workflows': 'वर्कफ़्लो',
+  'Marketing': 'मार्केटिंग', 'Knowledge Base': 'ज्ञान केंद्र', 'Satisfaction Surveys': 'संतुष्टि सर्वेक्षण',
+  'Canned Responses': 'तैयार उत्तर', 'Referral Program': 'रेफरल कार्यक्रम', 'Client Greetings': 'ग्राहक शुभकामनाएं',
+  'My Cases': 'मेरे केस', 'Pending Review': 'समीक्षा लंबित', 'All Documents': 'सभी दस्तावेज़',
+  'Support': 'सहायता', 'Document Expiry Alerts': 'दस्तावेज़ समाप्ति अलर्ट', 'Client Info Sheets': 'ग्राहक जानकारी',
+  'Survey Stats': 'सर्वेक्षण आंकड़े', 'Overview': 'अवलोकन', 'Action Required': 'कार्रवाई आवश्यक',
+  'Workflow Steps': 'वर्कफ़्लो चरण', 'My Documents': 'मेरे दस्तावेज़', 'My Info Sheet': 'मेरी जानकारी',
+  'Payments': 'भुगतान', 'Document Checklist': 'दस्तावेज़ चेकलिस्ट', 'Help Center': 'सहायता केंद्र',
+  'Rate Experience': 'अनुभव रेट करें', 'Refer a Friend': 'दोस्त को रेफर करें', 'Case Timeline': 'केस टाइमलाइन',
+  // Groups
+  'Sales & Finance': 'बिक्री और वित्त', 'Cases & Users': 'केस और उपयोगकर्ता', 'System': 'सिस्टम',
+  'Tools': 'उपकरण', 'Case Management': 'केस प्रबंधन', 'Documents': 'दस्तावेज़',
+  'My Case': 'मेरा केस', 'Finance': 'वित्त', 'Resources': 'संसाधन',
+  // Roles
+  'Admin Portal': 'एडमिन पोर्टल', 'Case Manager': 'केस मैनेजर', 'Partner Portal': 'पार्टनर पोर्टल',
+  'Client Portal': 'क्लाइंट पोर्टल',
+};
 
 const AdminReturnBanner = () => {
   const adminToken = localStorage.getItem('admin_token');
@@ -87,6 +114,8 @@ const DashboardShell = ({
 }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const navigate = useNavigate();
+  const { lang } = useLanguage();
+  const tl = (text) => lang === 'hi' ? (hiLabels[text] || text) : text;
 
   return (
     <div className="min-h-screen bg-[#F5F7FA]" data-testid={`${roleLabel?.toLowerCase().replace(/\s/g, '-')}-dashboard`}>
@@ -103,7 +132,7 @@ const DashboardShell = ({
               <img src="/leamss-logo.png" alt="LEAMSS" className="h-9 w-9 rounded-lg object-contain" />
               <div>
                 <h1 className="text-base font-bold text-gray-900 tracking-tight">LEAMSS</h1>
-                <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">{roleLabel}</p>
+                <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">{tl(roleLabel)}</p>
               </div>
             </div>
           </div>
@@ -113,12 +142,12 @@ const DashboardShell = ({
             {navGroups.map((group, gi) => {
               if (group.groupLabel) {
                 return (
-                  <NavGroup key={gi} label={group.groupLabel} defaultOpen={group.defaultOpen !== false}>
+                  <NavGroup key={gi} label={tl(group.groupLabel)} defaultOpen={group.defaultOpen !== false}>
                     {group.items.map((item) => (
                       <NavItem
                         key={item.id}
                         icon={item.icon}
-                        label={item.label}
+                        label={tl(item.label)}
                         active={activeTab === item.id}
                         badge={item.badge}
                         badgeColor={item.badgeColor}
@@ -134,7 +163,7 @@ const DashboardShell = ({
                 <NavItem
                   key={group.id}
                   icon={group.icon}
-                  label={group.label}
+                  label={tl(group.label)}
                   active={activeTab === group.id}
                   badge={group.badge}
                   badgeColor={group.badgeColor}
@@ -182,7 +211,7 @@ const DashboardShell = ({
                     <ArrowLeft className="h-4 w-4" />
                   </Button>
                 )}
-                <h2 className="text-lg font-bold text-gray-900 tracking-tight" data-testid="page-title">{pageTitle}</h2>
+                <h2 className="text-lg font-bold text-gray-900 tracking-tight" data-testid="page-title">{tl(pageTitle)}</h2>
               </div>
               <div className="flex items-center gap-2">
                 {headerActions}

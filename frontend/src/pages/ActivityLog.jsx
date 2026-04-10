@@ -234,7 +234,8 @@ const ActivityLogPage = () => {
                         </Badge>
                       )}
                     </div>
-                    {log.details && <p className="text-xs text-gray-500 mt-0.5 truncate">{log.details}</p>}
+                    {log.details && <p className="text-xs text-gray-500 mt-0.5 truncate">{typeof log.details === 'object' ? Object.entries(log.details).map(([k,v]) => `${k}: ${v}`).join(', ') : log.details}</p>}
+                    {log.new_value && <p className="text-xs text-gray-400 mt-0.5 truncate">{typeof log.new_value === 'object' ? Object.entries(log.new_value).map(([k,v]) => `${k}: ${v}`).join(', ') : log.new_value}</p>}
                     {log.client_name && <p className="text-xs text-gray-400 mt-0.5">Client: {log.client_name}</p>}
                   </div>
                   <div className="text-right flex-shrink-0">
@@ -315,7 +316,7 @@ const ActivityLogPage = () => {
                     <span className="text-sm font-medium text-gray-700">{log.action?.replace(/_/g, ' ')}</span>
                     {log.entity_type && <Badge variant="outline" className="text-[10px]">{log.entity_type}</Badge>}
                   </div>
-                  {log.details && <p className="text-xs text-gray-500 mt-0.5">{log.details}</p>}
+                  {log.details && <p className="text-xs text-gray-500 mt-0.5">{typeof log.details === 'object' ? Object.entries(log.details).map(([k,v]) => `${k}: ${v}`).join(', ') : log.details}</p>}
                   <p className="text-[11px] text-gray-400 mt-0.5">{formatDateTime(log.created_at)}</p>
                 </div>
               </div>

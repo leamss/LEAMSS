@@ -2468,7 +2468,7 @@ const AdminDashboard = () => {
                     [...(selectedTicket.activity_log || [])].reverse().map((activity, idx) => (
                       <div key={idx} className="flex items-start gap-3 p-2 border-l-2 border-slate-300 pl-4">
                         <div className="flex-1">
-                          <p className="text-sm text-slate-800">{activity.details}</p>
+                          <p className="text-sm text-slate-800">{typeof activity.details === 'object' ? Object.entries(activity.details).map(([k,v]) => `${k}: ${v}`).join(', ') : activity.details}</p>
                           <p className="text-xs text-slate-500">{new Date(activity.timestamp).toLocaleString()}</p>
                         </div>
                       </div>
