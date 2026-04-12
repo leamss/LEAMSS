@@ -28,6 +28,9 @@ import Appointments from '@/pages/Appointments';
 import CannedResponses from '@/pages/CannedResponses';
 import CaseTimeline from '@/pages/CaseTimeline';
 import CaseNotesAndTags from '@/pages/CaseNotesAndTags';
+import SmartWorkload from '@/components/SmartWorkload';
+import CommunicationHub from '@/components/CommunicationHub';
+import BatchCaseOps from '@/components/BatchCaseOps';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -473,11 +476,20 @@ const CaseManagerDashboard = () => {
       defaultOpen: true,
       items: [
         { id: 'cases', icon: FileText, label: 'My Cases', onClick: () => { setActiveTab('cases'); setSelectedCase(null); setInfoSheetCaseId(null); } },
+        { id: 'smart-workload', icon: AlertCircle, label: 'Smart Workload', onClick: () => { setActiveTab('smart-workload'); setSelectedCase(null); setInfoSheetCaseId(null); } },
         { id: 'pending-review', icon: AlertCircle, label: 'Pending Review', badge: pendingReviewCount, onClick: () => { setActiveTab('pending-review'); setSelectedCase(null); setInfoSheetCaseId(null); } },
+        { id: 'batch-ops', icon: Zap, label: 'Batch Operations', onClick: () => { setActiveTab('batch-ops'); setSelectedCase(null); setInfoSheetCaseId(null); } },
         { id: 'info-sheets', icon: ClipboardList, label: 'Info Sheets', onClick: () => { setActiveTab('info-sheets'); setSelectedCase(null); setInfoSheetCaseId(null); } },
-        { id: 'bulk-ops', icon: Zap, label: 'Bulk Operations', onClick: () => { setActiveTab('bulk-ops'); setSelectedCase(null); setInfoSheetCaseId(null); } },
         { id: 'sla-tracker', icon: Clock, label: 'SLA Tracker', onClick: () => { setActiveTab('sla-tracker'); setSelectedCase(null); setInfoSheetCaseId(null); } },
         { id: 'case-transfer', icon: ArrowRightLeft, label: 'Case Transfer', onClick: () => { setActiveTab('case-transfer'); setSelectedCase(null); setInfoSheetCaseId(null); } },
+      ]
+    },
+    {
+      groupLabel: 'Communication',
+      defaultOpen: true,
+      items: [
+        { id: 'communication-hub', icon: Send, label: 'Client Messages', onClick: () => { setActiveTab('communication-hub'); setSelectedCase(null); setInfoSheetCaseId(null); } },
+        { id: 'tickets', icon: MessageSquare, label: 'Support Tickets', onClick: () => { setActiveTab('tickets'); setSelectedCase(null); setInfoSheetCaseId(null); } },
       ]
     },
     {
@@ -488,7 +500,6 @@ const CaseManagerDashboard = () => {
         { id: 'expiry-alerts', icon: Calendar, label: 'Expiry Alerts', badge: expiringDocs.filter(d => d.urgency === 'expired' || d.urgency === 'critical').length, badgeColor: 'bg-red-500', onClick: () => { setActiveTab('expiry-alerts'); setSelectedCase(null); setInfoSheetCaseId(null); } },
       ]
     },
-    { id: 'tickets', icon: MessageSquare, label: 'Support', onClick: () => { setActiveTab('tickets'); setSelectedCase(null); setInfoSheetCaseId(null); } },
     {
       groupLabel: 'Tools',
       items: [
@@ -513,6 +524,9 @@ const CaseManagerDashboard = () => {
       'sla-tracker': 'SLA Tracker', 'case-transfer': 'Case Transfer',
       'knowledge-base': 'Knowledge Base', surveys: 'Survey Stats', appointments: 'Appointments',
       'canned-responses': 'Canned Responses',
+      'smart-workload': 'Smart Workload',
+      'communication-hub': 'Client Communication Hub',
+      'batch-ops': 'Batch Case Operations',
     };
     return titles[activeTab] || 'Dashboard';
   };
@@ -1293,6 +1307,9 @@ const CaseManagerDashboard = () => {
           {activeTab === 'surveys' && <SatisfactionSurvey token={localStorage.getItem('token')} role="case_manager" />}
           {activeTab === 'appointments' && <Appointments token={localStorage.getItem('token')} role="case_manager" />}
           {activeTab === 'canned-responses' && <CannedResponses token={localStorage.getItem('token')} />}
+          {activeTab === 'smart-workload' && <SmartWorkload token={localStorage.getItem('token')} onSelectCase={(caseId) => { loadCaseDetails(caseId); setActiveTab('cases'); }} />}
+          {activeTab === 'communication-hub' && <CommunicationHub token={localStorage.getItem('token')} cases={cases} />}
+          {activeTab === 'batch-ops' && <BatchCaseOps token={localStorage.getItem('token')} />}
 
       {/* Review Document Dialog */}
       <Dialog open={reviewDialog.open} onOpenChange={(open) => setReviewDialog({ ...reviewDialog, open })}>

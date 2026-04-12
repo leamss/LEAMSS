@@ -42,6 +42,7 @@ import ApprovalCenter from '@/components/ApprovalCenter';
 import RefundManager from '@/components/RefundManager';
 import RevenueDashboard from '@/components/RevenueDashboard';
 import ReportBuilder from '@/components/ReportBuilder';
+import EmailDigest from '@/components/EmailDigest';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -1090,6 +1091,7 @@ const AdminDashboard = () => {
       groupLabel: 'Reports & Analytics',
       items: [
         { id: 'report-builder', icon: FileText, label: 'Report Builder', onClick: () => { setActiveTab('report-builder'); resetSelections(); } },
+        { id: 'email-digest', icon: Mail, label: 'Email Digest', onClick: () => { setActiveTab('email-digest'); resetSelections(); } },
         { id: 'analytics', icon: BarChart3, label: 'Analytics', onClick: () => navigate('/admin/analytics') },
         { id: 'activity', icon: Activity, label: 'Activity Log', onClick: () => navigate('/admin/activity') },
       ]
@@ -1139,6 +1141,7 @@ const AdminDashboard = () => {
       'refund-manager': 'Refund Manager',
       'revenue-dashboard': 'Revenue Dashboard',
       'report-builder': 'Custom Report Builder',
+      'email-digest': 'Email Digest',
     };
     return titles[activeTab] || 'Dashboard';
   };
@@ -2740,6 +2743,7 @@ const AdminDashboard = () => {
           {activeTab === 'refund-manager' && <RefundManager token={localStorage.getItem('token')} />}
           {activeTab === 'revenue-dashboard' && <RevenueDashboard token={localStorage.getItem('token')} />}
           {activeTab === 'report-builder' && <ReportBuilder token={localStorage.getItem('token')} />}
+          {activeTab === 'email-digest' && <EmailDigest token={localStorage.getItem('token')} />}
 
       {/* Product Dialog */}
       <Dialog open={productDialog.open} onOpenChange={(open) => setProductDialog({ ...productDialog, open })}>
