@@ -43,6 +43,7 @@ import RefundManager from '@/components/RefundManager';
 import RevenueDashboard from '@/components/RevenueDashboard';
 import ReportBuilder from '@/components/ReportBuilder';
 import EmailDigest from '@/components/EmailDigest';
+import PaymentReminders from '@/components/PaymentReminders';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -2653,72 +2654,7 @@ const AdminDashboard = () => {
           )}
 
           {/* Payment Reminders Tab */}
-          {activeTab === 'reminders' && (
-            <div className="space-y-6" data-testid="reminders-content">
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-slate-500">{pendingPayments.filter(p => (p.pending_amount || 0) > 0).length} clients with pending payments</p>
-                <Button onClick={async () => {
-                  try {
-                    const res = await axios.post(`${API}/reminders/send-bulk`, {}, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
-                    toast.success(res.data.message);
-                    loadData();
-                  } catch (e) { toast.error('Failed to send bulk reminders'); }
-                }} className="bg-[#f7620b] hover:bg-[#e0580a] text-white" data-testid="send-bulk-reminders-btn">
-                  Send Bulk Reminders (Overdue 3+ Days)
-                </Button>
-              </div>
-
-              {pendingPayments.filter(p => (p.pending_amount || 0) > 0).length === 0 ? (
-                <Card className="p-12 text-center">
-                  <CheckCircle className="h-12 w-12 text-emerald-400 mx-auto mb-4" />
-                  <p className="text-lg font-semibold text-slate-700">No Pending Payments</p>
-                  <p className="text-slate-500 mt-1">All clients are up to date with their payments.</p>
-                </Card>
-              ) : (
-                pendingPayments.filter(p => (p.pending_amount || 0) > 0).map((item) => (
-                  <Card key={item.sale_id} className={`p-5 border-l-4 ${item.urgency === 'critical' ? 'border-l-red-500' : item.urgency === 'high' ? 'border-l-orange-500' : item.urgency === 'medium' ? 'border-l-amber-400' : 'border-l-slate-300'}`}>
-                    <div className="flex flex-col md:flex-row justify-between gap-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-1">
-                          <h4 className="font-semibold text-slate-800">{item.client_name}</h4>
-                          <Badge className={`text-xs ${item.urgency === 'critical' ? 'bg-red-100 text-red-700' : item.urgency === 'high' ? 'bg-orange-100 text-orange-700' : item.urgency === 'medium' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>
-                            {item.urgency.toUpperCase()} — {item.days_since_creation} days
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-slate-500">{item.client_email} | {item.product_name}</p>
-                        <div className="flex gap-4 mt-2 text-sm">
-                          <span>Fee: <span className="font-semibold">₹{(item.fee_amount || 0).toLocaleString()}</span></span>
-                          <span className="text-emerald-600">Paid: ₹{(item.amount_received || 0).toLocaleString()}</span>
-                          <span className="text-[#f7620b] font-semibold">Pending: ₹{(item.pending_amount || 0).toLocaleString()}</span>
-                        </div>
-                        {item.last_reminder_sent && <p className="text-xs text-slate-400 mt-1">Last reminder: {new Date(item.last_reminder_sent).toLocaleDateString()}</p>}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          onClick={async () => {
-                            setSendingReminder(item.sale_id);
-                            try {
-                              const res = await axios.post(`${API}/reminders/send/${item.sale_id}`, {}, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
-                              toast.success(res.data.message);
-                              loadData();
-                            } catch (e) { toast.error('Failed to send reminder'); }
-                            finally { setSendingReminder(null); }
-                          }}
-                          disabled={sendingReminder === item.sale_id}
-                          variant="outline"
-                          className="border-[#f7620b] text-[#f7620b]"
-                          data-testid={`send-reminder-${item.sale_id}`}
-                        >
-                          {sendingReminder === item.sale_id ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Bell className="h-4 w-4 mr-1" />}
-                          Send Reminder
-                        </Button>
-                      </div>
-                    </div>
-                  </Card>
-                ))
-              )}
-            </div>
-          )}
+          {activeTab === 'reminders' && <PaymentReminders token={localStorage.getItem('token')} />}
 
           {activeTab === 'bulk-ops' && <BulkOperations token={localStorage.getItem('token')} role="admin" />}
           {activeTab === 'sla-tracker' && <SLATracker token={localStorage.getItem('token')} role="admin" />}
