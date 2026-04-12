@@ -38,6 +38,10 @@ import CountryProductAnalytics from '@/pages/CountryProductAnalytics';
 import CommissionAnalytics from '@/pages/CommissionAnalytics';
 import PreAssessmentQueue from '@/components/PreAssessmentQueue';
 import HappinessScoreWidget from '@/components/HappinessScoreWidget';
+import ApprovalCenter from '@/components/ApprovalCenter';
+import RefundManager from '@/components/RefundManager';
+import RevenueDashboard from '@/components/RevenueDashboard';
+import ReportBuilder from '@/components/ReportBuilder';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -1051,6 +1055,7 @@ const AdminDashboard = () => {
 
   const adminNavGroups = [
     { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard', onClick: () => { setActiveTab('dashboard'); resetSelections(); } },
+    { id: 'approval-center', icon: CheckCircle, label: 'Approval Center', badge: (stats.pending_sales || 0) + (unassignedCases?.length || 0), badgeColor: 'bg-red-500', onClick: () => { setActiveTab('approval-center'); resetSelections(); } },
     { id: 'pre-assessments', icon: ClipboardList, label: 'Pre-Assessments', onClick: () => { setActiveTab('pre-assessments'); resetSelections(); } },
     {
       groupLabel: 'Sales & Finance',
@@ -1059,7 +1064,8 @@ const AdminDashboard = () => {
         { id: 'sales', icon: FileText, label: 'Pending Sales', badge: pendingSales.length, onClick: () => { setActiveTab('sales'); resetSelections(); } },
         { id: 'total-sales', icon: TrendingUp, label: 'Sales Report', onClick: () => { setActiveTab('total-sales'); resetSelections(); } },
         { id: 'commissions', icon: DollarSign, label: 'Commissions', onClick: () => { setActiveTab('commissions'); resetSelections(); } },
-        { id: 'refunds', icon: XCircle, label: 'Refunds', onClick: () => { setActiveTab('refunds'); resetSelections(); } },
+        { id: 'refund-manager', icon: XCircle, label: 'Refund Manager', onClick: () => { setActiveTab('refund-manager'); resetSelections(); } },
+        { id: 'revenue-dashboard', icon: BarChart3, label: 'Revenue Dashboard', onClick: () => { setActiveTab('revenue-dashboard'); resetSelections(); } },
         { id: 'reminders', icon: Bell, label: 'Payment Reminders', onClick: () => { setActiveTab('reminders'); resetSelections(); } },
         { id: 'revenue-forecast', icon: TrendingUp, label: 'Revenue Forecast', onClick: () => { setActiveTab('revenue-forecast'); resetSelections(); } },
         { id: 'conversion-funnel', icon: TrendingUp, label: 'Conversion Funnel', onClick: () => { setActiveTab('conversion-funnel'); resetSelections(); } },
@@ -1081,6 +1087,14 @@ const AdminDashboard = () => {
       ]
     },
     {
+      groupLabel: 'Reports & Analytics',
+      items: [
+        { id: 'report-builder', icon: FileText, label: 'Report Builder', onClick: () => { setActiveTab('report-builder'); resetSelections(); } },
+        { id: 'analytics', icon: BarChart3, label: 'Analytics', onClick: () => navigate('/admin/analytics') },
+        { id: 'activity', icon: Activity, label: 'Activity Log', onClick: () => navigate('/admin/activity') },
+      ]
+    },
+    {
       groupLabel: 'System',
       items: [
         { id: 'products', icon: Settings, label: 'Products', onClick: () => { setActiveTab('products'); resetSelections(); } },
@@ -1093,8 +1107,6 @@ const AdminDashboard = () => {
       groupLabel: 'Tools',
       defaultOpen: false,
       items: [
-        { id: 'analytics', icon: BarChart3, label: 'Analytics', onClick: () => navigate('/admin/analytics') },
-        { id: 'activity', icon: Activity, label: 'Activity Log', onClick: () => navigate('/admin/activity') },
         { id: 'ai-workflow', icon: Megaphone, label: 'AI Workflow Builder', onClick: () => navigate('/admin/ai-workflow') },
         { id: 'workflows', icon: FileText, label: 'Workflows', onClick: () => navigate('/admin/workflows') },
         { id: 'marketing', icon: Megaphone, label: 'Marketing', onClick: () => navigate('/admin/marketing') },
@@ -1123,6 +1135,10 @@ const AdminDashboard = () => {
       'conversion-funnel': 'Conversion Funnel', 'commission-analytics': 'Commission Analytics',
       'country-product': 'Country & Product Analytics', 'canned-responses': 'Canned Responses',
       referrals: 'Referral Program', greetings: 'Client Greetings',
+      'approval-center': 'Unified Approval Center',
+      'refund-manager': 'Refund Manager',
+      'revenue-dashboard': 'Revenue Dashboard',
+      'report-builder': 'Custom Report Builder',
     };
     return titles[activeTab] || 'Dashboard';
   };
@@ -2720,6 +2736,10 @@ const AdminDashboard = () => {
           {activeTab === 'country-product' && <CountryProductAnalytics token={localStorage.getItem('token')} />}
           {activeTab === 'commission-analytics' && <CommissionAnalytics token={localStorage.getItem('token')} role="admin" />}
           {activeTab === 'pre-assessments' && <PreAssessmentQueue />}
+          {activeTab === 'approval-center' && <ApprovalCenter token={localStorage.getItem('token')} onNavigate={(tab) => setActiveTab(tab)} />}
+          {activeTab === 'refund-manager' && <RefundManager token={localStorage.getItem('token')} />}
+          {activeTab === 'revenue-dashboard' && <RevenueDashboard token={localStorage.getItem('token')} />}
+          {activeTab === 'report-builder' && <ReportBuilder token={localStorage.getItem('token')} />}
 
       {/* Product Dialog */}
       <Dialog open={productDialog.open} onOpenChange={(open) => setProductDialog({ ...productDialog, open })}>
