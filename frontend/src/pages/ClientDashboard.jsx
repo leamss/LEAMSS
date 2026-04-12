@@ -31,6 +31,10 @@ import InfoSheetEditor from '@/components/InfoSheetEditor';
 import ClientProfile from '@/components/ClientProfile';
 import CaseJourney from '@/components/CaseJourney';
 import MessageCenter from '@/components/MessageCenter';
+import EligibilityChecker from '@/components/EligibilityChecker';
+import EMITracker from '@/components/EMITracker';
+import FamilyManager from '@/components/FamilyManager';
+import DocumentTracker from '@/components/DocumentTracker';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -417,6 +421,7 @@ const ClientDashboard = () => {
         { id: 'additional', icon: AlertTriangle, label: 'Action Required', badge: pendingAdditionalDocs.length, badgeColor: 'bg-red-500', onClick: () => setActiveTab('additional') },
         { id: 'workflow', icon: Workflow, label: 'Workflow Steps', onClick: () => setActiveTab('workflow') },
         { id: 'doc-checklist', icon: FileCheck, label: 'Document Checklist', onClick: () => setActiveTab('doc-checklist') },
+        { id: 'doc-tracker', icon: FileSearch, label: 'Doc Completion', onClick: () => setActiveTab('doc-tracker') },
         { id: 'uploaded', icon: FileCheck, label: 'My Documents', onClick: () => setActiveTab('uploaded') },
         { id: 'info-sheet', icon: ClipboardList, label: 'My Info Sheet', onClick: () => setActiveTab('info-sheet') },
       ]
@@ -425,6 +430,7 @@ const ClientDashboard = () => {
       groupLabel: 'Finance',
       items: [
         { id: 'payments', icon: CreditCard, label: 'Payments', badge: proposals.filter(p => p.status === 'approved' && (p.pending_amount || 0) > 0).length, badgeColor: 'bg-[#f7620b]', onClick: () => setActiveTab('payments') },
+        { id: 'emi-plans', icon: CreditCard, label: 'EMI Plans', onClick: () => setActiveTab('emi-plans') },
       ]
     },
     {
@@ -432,6 +438,13 @@ const ClientDashboard = () => {
       items: [
         { id: 'messages', icon: MessageSquare, label: 'Messages', onClick: () => setActiveTab('messages') },
         { id: 'tickets', icon: MessageSquare, label: 'Support Tickets', onClick: () => setActiveTab('tickets') },
+      ]
+    },
+    {
+      groupLabel: 'Tools',
+      items: [
+        { id: 'eligibility', icon: Brain, label: 'Eligibility Check', onClick: () => setActiveTab('eligibility') },
+        { id: 'family', icon: Users, label: 'Family Members', onClick: () => setActiveTab('family') },
       ]
     },
     {
@@ -454,6 +467,8 @@ const ClientDashboard = () => {
     'knowledge-base': 'Help Center', survey: 'Rate Experience', appointments: 'Appointments',
     referrals: 'Refer a Friend', timeline: 'Case Timeline',
     journey: 'My Case Journey', messages: 'Messages', profile: 'My Profile',
+    eligibility: 'Eligibility Check', 'emi-plans': 'EMI Payment Plans',
+    family: 'Family Members', 'doc-tracker': 'Document Completion',
   }[activeTab] || 'Overview';
 
   return (
@@ -483,7 +498,7 @@ const ClientDashboard = () => {
         ) : (
           <>
             {/* Case Overview Header - Only show on dashboard-like tabs */}
-            {!['messages', 'profile', 'journey', 'timeline'].includes(activeTab) && (
+            {!['messages', 'profile', 'journey', 'timeline', 'eligibility', 'emi-plans', 'family', 'doc-tracker'].includes(activeTab) && (
             <>
             <div className="mb-8">
               <div className="bg-gradient-to-r from-[#2a777a] via-[#2a777a] to-[#236466] rounded-2xl p-6 text-white shadow-xl">
@@ -1470,6 +1485,12 @@ const ClientDashboard = () => {
                   localStorage.setItem('user', JSON.stringify(updatedUser));
                 }} />
               )}
+
+              {/* Phase 12 Tabs */}
+              {activeTab === 'eligibility' && <EligibilityChecker token={localStorage.getItem('token')} />}
+              {activeTab === 'emi-plans' && <EMITracker token={localStorage.getItem('token')} />}
+              {activeTab === 'family' && <FamilyManager token={localStorage.getItem('token')} />}
+              {activeTab === 'doc-tracker' && <DocumentTracker token={localStorage.getItem('token')} />}
             </div>
           </>
         )}
