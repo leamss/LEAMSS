@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import {
   CheckCircle, XCircle, Clock, FileText, Users, Briefcase,
   AlertTriangle, Search, Filter, Loader2, MessageSquare
@@ -199,6 +199,7 @@ const ApprovalCenter = ({ token, onNavigate }) => {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{actionDialog.action === 'approve' ? 'Approve' : 'Reject'} Item</DialogTitle>
+            <DialogDescription>Review and confirm your action on this item</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             {actionDialog.item && (

@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import {
   RotateCcw, DollarSign, TrendingDown, CheckCircle, Loader2, AlertTriangle, Search
 } from 'lucide-react';
@@ -262,7 +262,7 @@ const RefundManager = ({ token }) => {
       {/* Refund Dialog */}
       <Dialog open={refundDialog.open} onOpenChange={(o) => setRefundDialog({ ...refundDialog, open: o })}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Process Refund</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Process Refund</DialogTitle><DialogDescription>Enter refund details below</DialogDescription></DialogHeader>
           <div className="space-y-4 py-4">
             {refundDialog.sale && (
               <div className="p-3 bg-slate-50 rounded-lg">
