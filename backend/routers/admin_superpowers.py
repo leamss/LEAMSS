@@ -166,36 +166,118 @@ async def quick_approval_action(data: QuickApproveRequest, current_user: dict = 
         raise HTTPException(status_code=403, detail="Admin only")
 
     if data.item_type == "sale":
-        import httpx
-        import os
-        backend_url = "http://localhost:8001"
-        # Use the sales/approve endpoint internally
-        token = None
-        from core.auth import create_access_token
-        token = create_access_token({"sub": current_user["email"], "role": current_user["role"]})
+        from routers.sales import sales_col as s_col
+        from core.database import workflow_steps_col, case_steps_col
+        from core.auth import get_password_hash
+        from core.services import log_activity, create_notification
+        from core.email_service import send_sale_approval_email, send_sale_rejection_email
 
-        payload = {
-            "sale_id": data.item_id,
-            "status": "approved" if data.action == "approve" else "rejected",
-        }
-        if data.action == "approve" and data.case_manager_id:
-            payload["case_manager_id"] = data.case_manager_id
-        if data.action == "reject":
+        sale = await sales_col.find_one({"id": data.item_id}, {"_id": 0})
+        if not sale:
+            raise HTTPException(status_code=404, detail="Sale not found")
+
+        if data.action == "approve":
+            rate = sale.get("commission_rate", 0) or 0
+            received = sale.get("amount_received", 0) or 0
+            commission = round(received * (rate / 100), 2)
+
+            await sales_col.update_one({"id": data.item_id}, {"$set": {
+                "status": "approved", "approved_by": current_user["id"],
+                "approved_at": datetime.now(timezone.utc),
+                "commission_amount": commission,
+                "pending_amount": round(sale["fee_amount"] - received, 2)
+            }})
+
+            # Create or get client
+            client = await users_col.find_one({"email": sale["client_email"]}, {"_id": 0})
+            client_password = "Client@123"
+            client_is_new = False
+            if not client:
+                client_is_new = True
+                client = {
+                    "id": str(uuid.uuid4()), "email": sale["client_email"],
+                    "password": get_password_hash(client_password),
+                    "name": sale["client_name"], "role": "client",
+                    "mobile": sale.get("client_mobile", ""), "status": "active",
+                    "commission_rate": 0.0, "created_at": datetime.now(timezone.utc)
+                }
+                await users_col.insert_one(client)
+
+            # Create case
+            steps = await workflow_steps_col.find({"product_id": sale["product_id"]}, {"_id": 0}).sort("step_order", 1).to_list(100)
+            first_step = steps[0]["step_name"] if steps else "Registration"
+            case_manager_id = data.case_manager_id or None
+            case_number = f"CASE-{datetime.now().strftime('%Y%m%d')}-{str(uuid.uuid4())[:4].upper()}"
+            case = {
+                "id": str(uuid.uuid4()), "case_id": case_number,
+                "sale_id": sale["id"], "client_id": client["id"],
+                "product_id": sale["product_id"],
+                "case_manager_id": case_manager_id,
+                "partner_id": sale.get("partner_id"),
+                "status": "active" if case_manager_id else "pending_assignment",
+                "current_step": first_step, "current_step_order": 1,
+                "created_at": datetime.now(timezone.utc)
+            }
+            await cases_col.insert_one(case)
+            for step in steps:
+                await case_steps_col.insert_one({
+                    "id": str(uuid.uuid4()), "case_id": case["id"],
+                    "step_name": step["step_name"], "step_order": step["step_order"],
+                    "status": "pending", "description": step.get("description", ""),
+                    "required_documents": step.get("required_documents", []),
+                    "created_at": datetime.now(timezone.utc)
+                })
+
+            await notifications_col.insert_one({
+                "id": str(uuid.uuid4()), "user_id": client["id"],
+                "title": "Case Created", "message": f"Your case {case_number} has been created",
+                "type": "case_created", "related_id": case["id"],
+                "read": False, "created_at": datetime.now(timezone.utc)
+            })
+            if case_manager_id:
+                await notifications_col.insert_one({
+                    "id": str(uuid.uuid4()), "user_id": case_manager_id,
+                    "title": "New Case Assigned", "message": f"Case {case_number} for {sale['client_name']}",
+                    "type": "case_assigned", "read": False, "created_at": datetime.now(timezone.utc)
+                })
+
+            await audit_logs_col.insert_one({
+                "id": str(uuid.uuid4()), "user_id": current_user["id"],
+                "action": "sale_approved_via_approval_center", "entity_type": "sale",
+                "entity_id": data.item_id, "new_value": {"client": sale["client_name"], "case": case_number, "notes": data.notes},
+                "created_at": datetime.now(timezone.utc)
+            })
+
+            try:
+                await send_sale_approval_email(sale["client_email"], sale["client_name"], sale.get("product_name", ""), data.item_id)
+            except Exception:
+                pass
+
+            result = {"message": "Sale approved", "case_id": case_number}
+            if not case_manager_id:
+                result["assignment_pending"] = True
+            if client_is_new:
+                result["client_credentials"] = {"email": sale["client_email"], "password": client_password, "name": sale["client_name"]}
+            return result
+
+        else:
             if not data.notes or len(data.notes.strip()) < 5:
                 raise HTTPException(status_code=400, detail="Rejection reason required (min 5 chars)")
-            payload["rejection_reason"] = data.notes
-
-        async with httpx.AsyncClient() as client_http:
-            resp = await client_http.post(
-                f"{backend_url}/api/sales/approve",
-                json=payload,
-                headers={"Authorization": f"Bearer {token}"},
-                timeout=15.0
-            )
-        if resp.status_code == 200:
-            return {"message": f"Sale {data.action}d successfully", "details": resp.json()}
-        else:
-            raise HTTPException(status_code=resp.status_code, detail=resp.json().get("detail", "Failed"))
+            await sales_col.update_one({"id": data.item_id}, {"$set": {
+                "status": "rejected", "rejection_reason": data.notes.strip(),
+                "approved_by": current_user["id"], "approved_at": datetime.now(timezone.utc)
+            }})
+            await audit_logs_col.insert_one({
+                "id": str(uuid.uuid4()), "user_id": current_user["id"],
+                "action": "sale_rejected", "entity_type": "sale",
+                "entity_id": data.item_id, "new_value": {"reason": data.notes},
+                "created_at": datetime.now(timezone.utc)
+            })
+            try:
+                await send_sale_rejection_email(sale["client_email"], sale["client_name"], sale.get("product_name", ""), data.notes)
+            except Exception:
+                pass
+            return {"message": "Sale rejected"}
 
     elif data.item_type == "pre_assessment":
         pa = await pre_assessments_col.find_one({"id": data.item_id}, {"_id": 0})
@@ -240,6 +322,196 @@ async def quick_approval_action(data: QuickApproveRequest, current_user: dict = 
 
     else:
         raise HTTPException(status_code=400, detail="Invalid item type")
+
+
+
+# --- Client-wise Progressive View ---
+@router.get("/approval-center/client-pipeline")
+async def get_client_pipeline(current_user: dict = Depends(get_current_user)):
+    """Get client-wise progressive pipeline: PA → Sale → Case → CM Assignment"""
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    # Get all case managers for assignment dropdown
+    cms = await users_col.find({"role": "case_manager", "status": "active"}, {"_id": 0, "id": 1, "name": 1, "email": 1}).to_list(50)
+
+    # Build client pipeline by email
+    pipeline = {}
+
+    # 1. Pre-assessments
+    all_pa = await pre_assessments_col.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    for pa in all_pa:
+        email = pa.get("client_email", "")
+        if not email:
+            continue
+        if email not in pipeline:
+            pipeline[email] = {
+                "client_name": pa.get("client_name", ""),
+                "client_email": email,
+                "client_mobile": pa.get("client_mobile", ""),
+                "partner_name": pa.get("partner_name", ""),
+                "partner_id": pa.get("partner_id", ""),
+                "pre_assessments": [],
+                "sales": [],
+                "cases": [],
+                "documents": [],
+            }
+        pipeline[email]["pre_assessments"].append({
+            "id": pa["id"],
+            "pa_number": pa.get("pa_number", ""),
+            "stage": pa.get("stage", ""),
+            "country": pa.get("country", ""),
+            "service_type": pa.get("service_type", ""),
+            "fee_payment_status": pa.get("fee_payment_status", ""),
+            "admin_decision": pa.get("admin_decision", ""),
+            "admin_reason": pa.get("admin_reason", ""),
+            "created_at": serialize_datetime(pa.get("created_at")),
+            "submitted_at": serialize_datetime(pa.get("submitted_at")),
+            "uploaded_documents": pa.get("uploaded_documents", []),
+        })
+
+    # 2. Sales
+    all_sales_data = await sales_col.find({}, {"_id": 0}).sort("created_at", -1).to_list(2000)
+    for s in all_sales_data:
+        email = s.get("client_email", "")
+        if not email:
+            continue
+        if email not in pipeline:
+            partner = await users_col.find_one({"id": s.get("partner_id")}, {"_id": 0, "name": 1})
+            pipeline[email] = {
+                "client_name": s.get("client_name", ""),
+                "client_email": email,
+                "client_mobile": s.get("client_mobile", ""),
+                "partner_name": partner["name"] if partner else s.get("partner_name", ""),
+                "partner_id": s.get("partner_id", ""),
+                "pre_assessments": [],
+                "sales": [],
+                "cases": [],
+                "documents": [],
+            }
+        product = await products_col.find_one({"id": s.get("product_id")}, {"_id": 0, "name": 1})
+        pipeline[email]["sales"].append({
+            "id": s["id"],
+            "status": s.get("status", ""),
+            "product_name": product["name"] if product else s.get("product_name", ""),
+            "product_id": s.get("product_id", ""),
+            "fee_amount": s.get("fee_amount", 0),
+            "amount_received": s.get("amount_received", 0),
+            "payment_method": s.get("payment_method", ""),
+            "rejection_reason": s.get("rejection_reason", ""),
+            "created_at": serialize_datetime(s.get("created_at")),
+        })
+
+    # 3. Cases
+    all_cases_data = await cases_col.find({}, {"_id": 0}).sort("created_at", -1).to_list(2000)
+    for c in all_cases_data:
+        client = await users_col.find_one({"id": c.get("client_id")}, {"_id": 0, "email": 1})
+        if not client:
+            continue
+        email = client.get("email", "")
+        if email in pipeline:
+            cm = await users_col.find_one({"id": c.get("case_manager_id")}, {"_id": 0, "name": 1})
+            pipeline[email]["cases"].append({
+                "id": c["id"],
+                "case_id": c.get("case_id", ""),
+                "status": c.get("status", ""),
+                "case_manager_id": c.get("case_manager_id"),
+                "case_manager_name": cm["name"] if cm else None,
+                "current_step": c.get("current_step", ""),
+                "product_name": c.get("product_name", ""),
+                "created_at": serialize_datetime(c.get("created_at")),
+            })
+
+    # 4. Add pending docs per client
+    for email, data_item in pipeline.items():
+        for s in data_item["sales"]:
+            docs = await documents_col.find(
+                {"case_id": {"$in": [c["id"] for c in data_item["cases"]]}}, {"_id": 0}
+            ).to_list(200)
+            for d in docs:
+                data_item["documents"].append({
+                    "id": d.get("id", ""),
+                    "filename": d.get("filename", ""),
+                    "document_type": d.get("document_type", d.get("step_name", "")),
+                    "status": d.get("status", ""),
+                    "file_url": d.get("file_url", d.get("file_path", "")),
+                    "case_id": d.get("case_id", ""),
+                    "created_at": serialize_datetime(d.get("created_at")),
+                })
+            break  # Only fetch docs once per client
+
+    # Determine current step for each client
+    result = []
+    for email, p in pipeline.items():
+        # Determine pipeline stage
+        has_pending_pa = any(pa["stage"] in ["new", "payment_pending", "under_review", "documents_submitted"] for pa in p["pre_assessments"])
+        has_pending_sale = any(s["status"] == "pending" for s in p["sales"])
+        has_unassigned_case = any(c["case_manager_id"] is None or c["status"] == "pending_assignment" for c in p["cases"])
+        has_pending_docs = any(d["status"] in ["pending", "uploaded"] for d in p["documents"])
+
+        needs_action = has_pending_pa or has_pending_sale or has_unassigned_case or has_pending_docs
+        if not needs_action and not p["pre_assessments"] and not p["sales"]:
+            continue
+
+        current_stage = "completed"
+        if has_pending_pa:
+            current_stage = "pre_assessment"
+        elif has_pending_sale:
+            current_stage = "sale_review"
+        elif has_unassigned_case:
+            current_stage = "assign_cm"
+        elif has_pending_docs:
+            current_stage = "document_review"
+        elif p["cases"]:
+            current_stage = "in_progress"
+
+        result.append({
+            **p,
+            "current_stage": current_stage,
+            "needs_action": needs_action,
+        })
+
+    # Sort: needs_action first, then by stage priority
+    stage_priority = {"pre_assessment": 0, "sale_review": 1, "assign_cm": 2, "document_review": 3, "in_progress": 4, "completed": 5}
+    result.sort(key=lambda x: (0 if x["needs_action"] else 1, stage_priority.get(x["current_stage"], 9)))
+
+    return {"clients": result, "case_managers": [{"id": cm["id"], "name": cm["name"]} for cm in cms]}
+
+
+@router.post("/approval-center/assign-cm")
+async def assign_case_manager(case_id: str = "", case_manager_id: str = "", current_user: dict = Depends(get_current_user)):
+    """Assign case manager to a case"""
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    case = await cases_col.find_one({"id": case_id}, {"_id": 0})
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+
+    cm = await users_col.find_one({"id": case_manager_id}, {"_id": 0, "name": 1})
+    if not cm:
+        raise HTTPException(status_code=404, detail="Case Manager not found")
+
+    await cases_col.update_one({"id": case_id}, {"$set": {
+        "case_manager_id": case_manager_id,
+        "status": "active",
+    }})
+
+    await notifications_col.insert_one({
+        "id": str(uuid.uuid4()), "user_id": case_manager_id,
+        "title": "New Case Assigned", "message": f"Case {case.get('case_id', '')} assigned to you",
+        "type": "case_assigned", "read": False, "created_at": datetime.now(timezone.utc)
+    })
+
+    await audit_logs_col.insert_one({
+        "id": str(uuid.uuid4()), "user_id": current_user["id"],
+        "action": "cm_assigned", "entity_type": "case", "entity_id": case_id,
+        "new_value": {"case_manager": cm["name"]},
+        "created_at": datetime.now(timezone.utc)
+    })
+
+    return {"message": f"Case Manager '{cm['name']}' assigned to {case.get('case_id', '')}"}
+
 
 
 # ===================== 10B: REFUND MANAGER ENHANCED =====================

@@ -1057,21 +1057,15 @@ const AdminDashboard = () => {
   const adminNavGroups = [
     { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard', onClick: () => { setActiveTab('dashboard'); resetSelections(); } },
     { id: 'approval-center', icon: CheckCircle, label: 'Approval Center', badge: (stats.pending_sales || 0) + (unassignedCases?.length || 0), badgeColor: 'bg-red-500', onClick: () => { setActiveTab('approval-center'); resetSelections(); } },
-    { id: 'pre-assessments', icon: ClipboardList, label: 'Pre-Assessments', onClick: () => { setActiveTab('pre-assessments'); resetSelections(); } },
     {
       groupLabel: 'Sales & Finance',
       defaultOpen: true,
       items: [
-        { id: 'sales', icon: FileText, label: 'Pending Sales', badge: pendingSales.length, onClick: () => { setActiveTab('sales'); resetSelections(); } },
+        { id: 'revenue-dashboard', icon: BarChart3, label: 'Revenue Dashboard', onClick: () => { setActiveTab('revenue-dashboard'); resetSelections(); } },
+        { id: 'refund-manager', icon: XCircle, label: 'Refund Manager', onClick: () => { setActiveTab('refund-manager'); resetSelections(); } },
+        { id: 'reminders', icon: Bell, label: 'Payment Reminders', onClick: () => { setActiveTab('reminders'); resetSelections(); } },
         { id: 'total-sales', icon: TrendingUp, label: 'Sales Report', onClick: () => { setActiveTab('total-sales'); resetSelections(); } },
         { id: 'commissions', icon: DollarSign, label: 'Commissions', onClick: () => { setActiveTab('commissions'); resetSelections(); } },
-        { id: 'refund-manager', icon: XCircle, label: 'Refund Manager', onClick: () => { setActiveTab('refund-manager'); resetSelections(); } },
-        { id: 'revenue-dashboard', icon: BarChart3, label: 'Revenue Dashboard', onClick: () => { setActiveTab('revenue-dashboard'); resetSelections(); } },
-        { id: 'reminders', icon: Bell, label: 'Payment Reminders', onClick: () => { setActiveTab('reminders'); resetSelections(); } },
-        { id: 'revenue-forecast', icon: TrendingUp, label: 'Revenue Forecast', onClick: () => { setActiveTab('revenue-forecast'); resetSelections(); } },
-        { id: 'conversion-funnel', icon: TrendingUp, label: 'Conversion Funnel', onClick: () => { setActiveTab('conversion-funnel'); resetSelections(); } },
-        { id: 'commission-analytics', icon: DollarSign, label: 'Commission Analytics', onClick: () => { setActiveTab('commission-analytics'); resetSelections(); } },
-        { id: 'country-product', icon: BarChart3, label: 'Country & Product', onClick: () => { setActiveTab('country-product'); resetSelections(); } },
       ]
     },
     {
@@ -1079,7 +1073,6 @@ const AdminDashboard = () => {
       defaultOpen: true,
       items: [
         { id: 'cases', icon: Briefcase, label: 'All Cases', onClick: () => { setActiveTab('cases'); resetSelections(); } },
-        { id: 'pending-assignment', icon: Users, label: 'Pending Assignment', badge: unassignedCases.length, badgeColor: 'bg-amber-500', onClick: () => { setActiveTab('pending-assignment'); resetSelections(); } },
         { id: 'users', icon: User, label: 'Users', onClick: () => { setActiveTab('users'); resetSelections(); } },
         { id: 'bulk-ops', icon: Zap, label: 'Bulk Operations', onClick: () => { setActiveTab('bulk-ops'); resetSelections(); } },
         { id: 'sla-tracker', icon: Clock, label: 'SLA Tracker', onClick: () => { setActiveTab('sla-tracker'); resetSelections(); } },
