@@ -3,29 +3,26 @@
 ## Tech Stack
 React + TailwindCSS + Shadcn UI | FastAPI + Motor (MongoDB) | OpenAI GPT-5.2 | Stripe | Resend (mock)
 
-## All Phases Complete (1-13 + P2 + Admin Overhaul)
+## All Phases Complete (1-13 + P2 + Admin Overhaul + Refund Manager Overhaul)
 
-### Phase 1-7: Core 34 Features
-### Phase 8: Pre-Assessment Workflow (₹5,100 Stripe)
-### Phase 9: Partner Power Tools (Kanban, Performance, Leaderboard)
-### Phase 10: Admin Superpowers (Approval Center, Refund Manager, Revenue Dashboard, Report Builder)
-### Phase 11: CM Efficiency (Smart Workload, Communication Hub, Batch Ops)
-### Phase 12: Client Experience (Eligibility Checker, EMI Plans, Family Members, Doc Tracker)
-### Phase 13: Cross-Platform (Dark Mode, PWA, WhatsApp Button)
-### P2: i18n Hindi (80+ labels), PDF Reports, Email Digest
-
-### Admin Overhaul (Latest — ALL VERIFIED)
-- **Unified Approval Center v2**: Client-wise progressive pipeline (PA → Sale → CM → Docs). Expandable cards, document preview, approve/reject with reasons, CM assignment — all in ONE place
-- **Bug Fix**: Sale approval "User not found" error fixed (direct DB operations)
-- **Sidebar Cleanup**: Removed 8 duplicate tabs (Pre-Assessments, Pending Sales, Revenue Forecast, Conversion Funnel, Commission Analytics, Country & Product, Pending Assignment)
+### Phases 1-13 + P2: All verified (see CHANGELOG)
+### Admin Overhaul: Unified Approval Center v2, Sidebar cleanup (8 tabs removed)
+### Refund Manager Overhaul (Latest — ALL VERIFIED)
+- **2-Step Flow**: Initiate → Pending Review → Approve/Reject (proper review gate)
+- **Detail View**: Full page with Client/Payment, Refund Info, Partner, Processing sections
+- **Print/PDF**: Individual refund confirmation download
+- **Bulk CSV Export**: All refunds report for quality & training
+- **Categories**: service_issue, client_request, overcharge, duplicate_payment, other
+- **Rejection**: Mandatory reason with min 5 chars
 
 ## Current Bugs: NONE
 
-## In Progress
-- Priority 2: Refund Manager enhanced flow (review step, reason, doc upload, detail view)
-- Priority 3: Multi-currency support
+## Remaining Tasks (from user feedback):
+- Priority 3: Multi-currency support (INR default + international)
 - Priority 4: Payment Reminders advanced UI
 - Priority 5: Revenue Forecast + Commission Analytics data sync
+- Priority 6: Country & Product drill-down + reports
+- Analytics Dashboard back button fix
 
 ## Test Credentials
 - Admin: admin@leamss.com / Admin@123
