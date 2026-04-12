@@ -18,7 +18,7 @@ import {
   Search, DollarSign, TrendingUp, CheckCircle, XCircle, Clock,
   MessageSquare, Filter, Calendar, RefreshCw, AlertTriangle, Copy, Mail, Gift,
   Menu, X, Bell, Loader2, CreditCard, BarChart3, Activity, Megaphone,
-  ArrowRightLeft, Zap, BookOpen, Star, UserCheck
+  ArrowRightLeft, Zap, BookOpen, Star, UserCheck, ClipboardList
 } from 'lucide-react';
 import BulkOperations from '@/pages/BulkOperations';
 import SLATracker from '@/pages/SLATracker';
@@ -36,6 +36,7 @@ import ClientGreetings from '@/pages/ClientGreetings';
 import ConversionFunnel from '@/pages/ConversionFunnel';
 import CountryProductAnalytics from '@/pages/CountryProductAnalytics';
 import CommissionAnalytics from '@/pages/CommissionAnalytics';
+import PreAssessmentQueue from '@/components/PreAssessmentQueue';
 import HappinessScoreWidget from '@/components/HappinessScoreWidget';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -1050,6 +1051,7 @@ const AdminDashboard = () => {
 
   const adminNavGroups = [
     { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard', onClick: () => { setActiveTab('dashboard'); resetSelections(); } },
+    { id: 'pre-assessments', icon: ClipboardList, label: 'Pre-Assessments', onClick: () => { setActiveTab('pre-assessments'); resetSelections(); } },
     {
       groupLabel: 'Sales & Finance',
       defaultOpen: true,
@@ -2717,6 +2719,7 @@ const AdminDashboard = () => {
           {activeTab === 'conversion-funnel' && <ConversionFunnel token={localStorage.getItem('token')} />}
           {activeTab === 'country-product' && <CountryProductAnalytics token={localStorage.getItem('token')} />}
           {activeTab === 'commission-analytics' && <CommissionAnalytics token={localStorage.getItem('token')} role="admin" />}
+          {activeTab === 'pre-assessments' && <PreAssessmentQueue />}
 
       {/* Product Dialog */}
       <Dialog open={productDialog.open} onOpenChange={(open) => setProductDialog({ ...productDialog, open })}>

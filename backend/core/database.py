@@ -37,6 +37,8 @@ case_notes_col = db["case_notes"]
 canned_responses_col = db["canned_responses"]
 referrals_col = db["referrals"]
 greetings_col = db["greetings"]
+pre_assessments_col = db["pre_assessments"]
+pre_assessment_docs_col = db["pre_assessment_documents"]
 
 
 async def init_db():
@@ -65,6 +67,8 @@ async def init_db():
     await canned_responses_col.create_index("user_id")
     await referrals_col.create_index("referrer_id")
     await greetings_col.create_index("user_id")
+    await pre_assessments_col.create_index("partner_id")
+    await pre_assessments_col.create_index("stage")
     await db["partner_product_commissions"].create_index(
         [("partner_id", 1), ("product_id", 1)], unique=True
     )

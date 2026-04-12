@@ -8,10 +8,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Briefcase, FileText, DollarSign, LogOut, Plus, ArrowLeft, MessageSquare, Filter, Download, Menu, X } from 'lucide-react';
+import { Briefcase, FileText, DollarSign, LogOut, Plus, ArrowLeft, MessageSquare, Filter, Download, Menu, X, ClipboardCheck } from 'lucide-react';
 import DashboardShell from '@/components/DashboardShell';
 import TicketSection from '@/components/TicketSection';
 import QuickActions from '@/components/QuickActions';
+import PreAssessmentPipeline from '@/components/PreAssessmentPipeline';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -280,6 +281,7 @@ const PartnerDashboard = () => {
 
   const partnerNavGroups = [
     { id: 'dashboard', icon: Briefcase, label: 'Dashboard', onClick: () => setActiveTab('dashboard') },
+    { id: 'pre-assessment', icon: ClipboardCheck, label: 'Pre-Assessment', onClick: () => setActiveTab('pre-assessment') },
     { id: 'sales', icon: FileText, label: 'My Sales', onClick: () => setActiveTab('sales') },
     { id: 'commission', icon: DollarSign, label: 'Commission', onClick: () => setActiveTab('commission') },
     { id: 'tickets', icon: MessageSquare, label: 'Support', onClick: () => setActiveTab('tickets') },
@@ -723,6 +725,10 @@ const PartnerDashboard = () => {
           {/* Tickets Section */}
           {activeTab === 'tickets' && (
             <TicketSection initialTicketId={initialTicketId} initialFilter={ticketFilter} />
+          )}
+
+          {activeTab === 'pre-assessment' && (
+            <PreAssessmentPipeline />
           )}
     </DashboardShell>
   );

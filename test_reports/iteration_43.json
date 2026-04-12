@@ -1,0 +1,155 @@
+{
+  "iteration": 43,
+  "date": "2026-04-12",
+  "test_type": "pre_assessment_workflow_phase8",
+  "summary": "Tested Pre-Assessment Workflow (Phase 8) - Complete workflow from Partner creates lead → Sends ₹5,100 payment link → Client pays → Partner submits docs to Admin → Admin approves/rejects → Partner sends sales proposal. All 32 backend tests PASSED. Frontend UI for both Partner and Admin dashboards working correctly.",
+  "backend_tests": {
+    "total": 32,
+    "passed": 32,
+    "failed": 0,
+    "test_file": "/app/backend/tests/test_pre_assessment.py",
+    "junit_report": "/app/test_reports/pytest/pytest_pre_assessment.xml"
+  },
+  "features_tested": {
+    "pre_assessment_create": {
+      "status": "PASS",
+      "endpoint": "POST /api/pre-assessment/create",
+      "details": "Partner creates new pre-assessment with client_name, client_email, country, service_type (required), plus optional fields"
+    },
+    "send_payment_link": {
+      "status": "PASS",
+      "endpoint": "POST /api/pre-assessment/{id}/send-payment-link",
+      "details": "Sends ₹5,100 Stripe payment link (mock mode active), changes stage to payment_pending"
+    },
+    "confirm_payment": {
+      "status": "PASS",
+      "endpoint": "POST /api/pre-assessment/{id}/confirm-payment",
+      "details": "Confirms payment received, changes stage to payment_received"
+    },
+    "mock_payment": {
+      "status": "PASS",
+      "endpoint": "POST /api/pre-assessment/{id}/mock-payment",
+      "details": "Mock payment endpoint for testing without Stripe"
+    },
+    "upload_document": {
+      "status": "PASS",
+      "endpoint": "POST /api/pre-assessment/{id}/upload-document",
+      "details": "Multipart upload with document_type and file"
+    },
+    "submit_documents": {
+      "status": "PASS",
+      "endpoint": "POST /api/pre-assessment/{id}/submit-documents",
+      "details": "Submits to admin for review, changes stage to under_review"
+    },
+    "admin_queue": {
+      "status": "PASS",
+      "endpoint": "GET /api/pre-assessment/admin/queue",
+      "details": "Admin gets pending reviews (under_review, documents_submitted stages)"
+    },
+    "admin_review": {
+      "status": "PASS",
+      "endpoint": "PUT /api/pre-assessment/{id}/review",
+      "details": "Admin approves/rejects with decision, reason, notes. Rejection triggers refund_initiated stage"
+    },
+    "send_proposal": {
+      "status": "PASS",
+      "endpoint": "POST /api/pre-assessment/{id}/send-proposal",
+      "details": "Partner sends proposal after approval with fee_amount, currency. Auto-creates sale record"
+    },
+    "my_assessments": {
+      "status": "PASS",
+      "endpoint": "GET /api/pre-assessment/my-assessments",
+      "details": "Partner gets all their pre-assessments"
+    },
+    "get_single_pa": {
+      "status": "PASS",
+      "endpoint": "GET /api/pre-assessment/{id}",
+      "details": "Get single PA details with documents"
+    },
+    "stats_overview": {
+      "status": "PASS",
+      "endpoint": "GET /api/pre-assessment/stats/overview",
+      "details": "Stats: total, new, under_review, approved, rejected, proposal_sent, conversion_rate"
+    },
+    "get_documents": {
+      "status": "PASS",
+      "endpoint": "GET /api/pre-assessment/{id}/documents",
+      "details": "Get all documents for a pre-assessment"
+    }
+  },
+  "frontend_tests": {
+    "partner_pre_assessment_tab": {
+      "status": "PASS",
+      "details": [
+        "Pre-Assessment tab visible in Partner sidebar",
+        "Stats cards: Total, Under Review, Approved, Proposals Sent, Conversion",
+        "New Pre-Assessment button works",
+        "Create form with all fields (Client Name, Email, Mobile, Country, Service Type, Product, Age, Education, Work Experience, Notes)",
+        "PA cards with stage badges (New Lead, Under Review, Payment Received, Refund Initiated, Proposal Sent)",
+        "Expanded card shows client details, payment status, documents count",
+        "Action buttons: Send Payment Link (₹5,100), Confirm Payment, Submit to Admin, Send Proposal",
+        "Stage progress indicator (7 steps)",
+        "Search and filter functionality"
+      ]
+    },
+    "admin_pre_assessments_tab": {
+      "status": "PASS",
+      "details": [
+        "Pre-Assessments tab visible in Admin sidebar",
+        "Stats cards: Total, Pending Review, Approved, Rejected, Conversion",
+        "View toggle: Pending Review / All Pre-Assessments",
+        "Queue items with client details, partner name, stage badges",
+        "Expanded card shows Email, Mobile, Education, Experience, Age, Country, Pre-Assessment Fee, Documents",
+        "Approve and Reject buttons for items under review",
+        "Review form with reason and notes fields"
+      ]
+    },
+    "existing_features": {
+      "status": "PASS",
+      "details": [
+        "Partner dashboard: Quick Actions, Stats (36 Total Sales, 21 Approved, ₹95,038 Commission), Recent Sales",
+        "Partner New Sale button and dialog working",
+        "Admin dashboard: Quick Actions, Happiness Score, Stats (13 Pending Sales, 20 Active Cases, ₹1,777,100 Revenue, 18 Open Tickets)",
+        "Admin Document Expiry Tracker working",
+        "All sidebar navigation items accessible"
+      ]
+    }
+  },
+  "workflow_stages_verified": [
+    "new → Partner creates lead",
+    "payment_pending → Payment link sent to client",
+    "payment_received → Client paid ₹5,100",
+    "documents_submitted → Partner submitted docs",
+    "under_review → Admin is reviewing",
+    "approved → Admin approved, Partner can send proposal",
+    "rejected → Admin rejected, refund_initiated",
+    "proposal_sent → Partner sent sales proposal, sale auto-created"
+  ],
+  "test_report_links": [
+    "/app/backend/tests/test_pre_assessment.py",
+    "/app/test_reports/pytest/pytest_pre_assessment.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_pre_assessment.py"
+  ],
+  "success_rate": {
+    "backend": "100%",
+    "frontend": "100%"
+  },
+  "test_credentials": {
+    "admin": "admin@leamss.com / Admin@123",
+    "partner": "partner@leamss.com / Partner@123",
+    "client": "client@leamss.com / Client@123"
+  },
+  "seed_data_creation": "Created multiple test pre-assessments during backend testing (prefixed with TEST_PA_)",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Pre-Assessment Workflow (Phase 8) fully functional. All 32 backend tests pass. Frontend components PreAssessmentPipeline.jsx (Partner) and PreAssessmentQueue.jsx (Admin) working correctly. Stages flow: new → payment_pending → payment_received → documents_submitted → under_review → approved/rejected → proposal_sent → case_created. Email service is MOCKED. Stripe uses test key (sk_test_emergent) with mock payment endpoint available.",
+  "mocked_apis": {
+    "email_service": "Email (Resend) - mock mode",
+    "stripe": "Stripe test key (sk_test_emergent) - mock payment endpoint available at POST /api/pre-assessment/{id}/mock-payment"
+  },
+  "overall_status": "ALL PASS"
+}
