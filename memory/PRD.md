@@ -1,7 +1,7 @@
 # LEAMSS Immigration Portal — Product Requirements Document
 
 ## Original Problem Statement
-Comprehensive immigration service portal with Admin, Case Manager, Partner, and Client roles. Multi-step case workflows, document management, ticketing, analytics, and payment processing. 34 advanced features across Phases 1-7.
+Comprehensive immigration service portal with Admin, Case Manager, Partner, and Client roles. Multi-step case workflows, document management, ticketing, analytics, and payment processing. 34+ advanced features across Phases 1-8.
 
 ## Tech Stack
 - **Frontend**: React, TailwindCSS, Shadcn UI, React Router
@@ -16,63 +16,41 @@ Comprehensive immigration service portal with Admin, Case Manager, Partner, and 
 - Products CRUD & Workflow Builder
 - Sales Management (create, approve/reject, commissions)
 - Case Lifecycle Management (steps, deadlines, documents)
-- Document Upload & Review
-- Ticketing System
-- Notifications (with SSE real-time stream)
-- User Management
+- Document Upload & Review, Ticketing, Notifications (SSE), User Management
 
 ### Phase 4: Intelligence (ALL VERIFIED)
-- Activity Log (Live Feed, By User, By Type)
-- Global Search
-- AI Workflow Builder (GPT-5.2)
-- AI Chat Widget
-- Analytics Dashboard
+- Activity Log, Global Search, AI Workflow Builder (GPT-5.2), AI Chat Widget, Analytics
 
 ### Phase 5: Communication (ALL VERIFIED)
-- Chat System (conversations + messages)
-- Email Service (Resend — mock mode)
-- Client Onboarding Wizard
+- Chat System, Email Service (mock), Client Onboarding Wizard
 
 ### Phase 6: Operations & Analytics (ALL VERIFIED)
-- Bulk Case Advance & Bulk Document Review
-- SLA Tracker
-- Case Transfer & Auto Assignment
-- Satisfaction Surveys (NPS)
-- Knowledge Base
-- Appointments
-- Revenue Forecasting & CM Performance Analytics
+- Bulk Ops, SLA Tracker, Case Transfer, Auto Assignment, Surveys, KB, Appointments, Revenue/CM Analytics
 
 ### Phase 7: Productivity & Growth (ALL VERIFIED)
-- Case Timeline View
-- Quick Notes & Tags
-- Canned Responses
-- Referral Program
-- Client Greetings
-- Conversion Funnel, Country/Product, Commission Analytics
+- Timeline, Notes/Tags, Canned Responses, Referrals, Greetings, Funnel/Country/Commission Analytics
 
-### Client Self-Service Portal (NEW — ALL VERIFIED)
-- **My Case Journey** — Flight-tracker style visual case progress with airplane icon, stats (% complete, steps done, docs, days active), current step highlight, expandable step-by-step timeline
-- **Message Center** — Dedicated WhatsApp-style chat interface with conversation list, search, new conversation, send messages
-- **My Profile** — Profile editing (name, mobile, language), change password, notification preferences toggles (6 options)
-- Clean layout: Dedicated pages hide overview widgets for full-screen experience
+### Client Self-Service Portal (ALL VERIFIED)
+- My Case Journey (flight-tracker), Message Center (WhatsApp-style), My Profile (edit + password + prefs)
+
+### Phase 8: Pre-Assessment Workflow (NEW — ALL VERIFIED) 
+Full business process: Partner → ₹5,100 Payment Link → Client Pays → Partner Submits Docs → Admin Reviews → Approve/Reject → Proposal with Payment → Auto Sale Creation
+
+**Stages**: new → payment_pending → payment_received → documents_submitted → under_review → approved/rejected → proposal_sent → case_created
+
+**Partner Features**: Pre-Assessment Pipeline with create form, payment link generation, document upload, submit to admin, send proposal. Stats bar, search, filter, stage progress indicator.
+
+**Admin Features**: Pre-Assessment Queue with pending review list, approve/reject with reason, client details view, all pre-assessments view with stats.
 
 ### Cross-cutting (ALL VERIFIED)
-- Multi-Language Toggle (Hindi/English — shell level)
-- Stripe Payment Integration
-- Document Expiry Tracker
-- Client Happiness Score (NPS widget)
-- SSE Real-time Notification Stream
+- Multi-Language Toggle (Hindi/English), Stripe Payments, Doc Expiry Tracker, NPS Score, SSE Notifications
 
 ## Current Bugs: NONE
 
 ## Backlog (Prioritized)
-- **P1**: Extend i18n translations to inner page content (stats cards, tables, forms)
-- **P2**: Wire Resend Email to live dispatch (requires user's RESEND_API_KEY)
-- **P2**: PDF Report Generation
-- **P2**: Bulk Document Upload (multi-file at once)
-- **P3**: SMS Notifications (Twilio)
-- **P3**: Google Calendar Integration for deadlines
-- **P3**: Migrate LanguageProvider to react-i18next for scale
+- **P1**: Hindi/English translations for inner page content
+- **P2**: Email live dispatch (needs RESEND_API_KEY), PDF Reports, Bulk Upload
+- **P3**: SMS (Twilio), Google Calendar, react-i18next, Dark Mode
 
 ## Test Credentials
 - Admin: admin@leamss.com / Admin@123
@@ -81,5 +59,6 @@ Comprehensive immigration service portal with Admin, Case Manager, Partner, and 
 - Client: client@leamss.com / Client@123
 
 ## Test Reports
-- iteration_41.json: 52/52 backend tests PASSED (all 34 features)
-- iteration_42.json: 19/19 backend + frontend ALL PASS (Client Self-Service Portal)
+- iteration_41: 52/52 backend (all 34 features)
+- iteration_42: 19/19 (Client Self-Service Portal)
+- iteration_43: 32/32 backend + frontend ALL PASS (Pre-Assessment Workflow Phase 8)
