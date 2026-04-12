@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from '@/components/ui/sonner';
 import { LanguageProvider } from '@/components/LanguageProvider';
+import { ThemeProvider } from '@/components/ThemeProvider';
 import Login from '@/pages/Login';
 import AdminDashboard from '@/pages/AdminDashboard';
 import PartnerDashboard from '@/pages/PartnerDashboard';
@@ -19,6 +20,7 @@ import '@/App.css';
 
 function App() {
   return (
+    <ThemeProvider>
     <LanguageProvider>
     <div className="App">
       <BrowserRouter>
@@ -44,6 +46,7 @@ function App() {
       <Toaster position="top-right" richColors />
     </div>
     </LanguageProvider>
+    </ThemeProvider>
   );
 }
 

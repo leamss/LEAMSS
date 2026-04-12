@@ -35,6 +35,7 @@ import EligibilityChecker from '@/components/EligibilityChecker';
 import EMITracker from '@/components/EMITracker';
 import FamilyManager from '@/components/FamilyManager';
 import DocumentTracker from '@/components/DocumentTracker';
+import WhatsAppButton from '@/components/WhatsAppButton';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -1497,6 +1498,8 @@ const ClientDashboard = () => {
       </main>
       {/* AI Chat Widget - floating */}
       <AIChatWidget />
+      {/* WhatsApp Button */}
+      <WhatsAppButton clientName={user?.name} />
 
       {/* Set Expiry Modal */}
       {expiryModal && (

@@ -43,6 +43,28 @@ body {
     --warning: 22 93% 51%;
     --info: 178 49% 32%;
   }
+
+  .dark {
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
+    --card: 222 47% 14%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222 47% 14%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 178 49% 42%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 22 93% 55%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 22 93% 55%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 63% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 217 33% 22%;
+    --input: 217 33% 22%;
+    --ring: 178 49% 42%;
+  }
 }
 
 @layer base {
@@ -50,7 +72,10 @@ body {
     @apply border-border;
   }
   body {
-    @apply bg-[#F5F7FA] text-slate-700;
+    @apply bg-background text-foreground;
+  }
+  .dark body, body.dark-mode {
+    @apply bg-[#0f172a];
   }
   h1, h2, h3, h4 {
     font-family: 'Manrope', sans-serif;
