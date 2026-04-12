@@ -44,6 +44,7 @@ from routers.canned_responses import router as canned_responses_router
 from routers.referrals import router as referrals_router
 from routers.greetings import router as greetings_router
 from routers.pre_assessment import router as pre_assessment_router
+from routers.partner_analytics import router as partner_analytics_router
 
 app = FastAPI(title="LEAMSS Portal API", version="3.0")
 
@@ -216,7 +217,8 @@ for r in [auth_router, users_router, products_router, sales_router, cases_router
           payments_router, reminders_router, ai_intel_router, ai_workflow_router, chat_router,
           surveys_router, kb_router, appointments_router,
           timeline_router, case_notes_router, canned_responses_router,
-          referrals_router, greetings_router, pre_assessment_router]:
+          referrals_router, greetings_router, pre_assessment_router,
+          partner_analytics_router]:
     app.include_router(r, prefix="/api")
 
 
