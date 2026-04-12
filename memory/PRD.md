@@ -1,7 +1,7 @@
 # LEAMSS Immigration Portal — Product Requirements Document
 
 ## Original Problem Statement
-Comprehensive immigration service portal with Admin, Case Manager, Partner, and Client roles. Multi-step case workflows, document management, ticketing, analytics, and payment processing.
+Comprehensive immigration service portal with Admin, Case Manager, Partner, and Client roles. Multi-step case workflows, document management, ticketing, analytics, and payment processing. 34 advanced features across Phases 1-7.
 
 ## Tech Stack
 - **Frontend**: React, TailwindCSS, Shadcn UI, React Router
@@ -9,9 +9,9 @@ Comprehensive immigration service portal with Admin, Case Manager, Partner, and 
 - **Database**: MongoDB
 - **Integrations**: OpenAI GPT-5.2 (Emergent LLM Key), Stripe (Payments), Resend (Email - mock mode)
 
-## Implemented Features (34 Total — ALL VERIFIED ✅)
+## Implemented Features
 
-### Phase 1-3: Core Platform
+### Phase 1-3: Core Platform (ALL VERIFIED)
 - Multi-role Auth (Admin, Case Manager, Partner, Client)
 - Products CRUD & Workflow Builder
 - Sales Management (create, approve/reject, commissions)
@@ -21,51 +21,54 @@ Comprehensive immigration service portal with Admin, Case Manager, Partner, and 
 - Notifications (with SSE real-time stream)
 - User Management
 
-### Phase 4: Intelligence
-- Activity Log (Live Feed, By User, By Type — 1144+ events tracked)
-- Global Search (across cases, sales, users, tickets)
-- AI Workflow Builder (GPT-5.2 powered)
+### Phase 4: Intelligence (ALL VERIFIED)
+- Activity Log (Live Feed, By User, By Type)
+- Global Search
+- AI Workflow Builder (GPT-5.2)
 - AI Chat Widget
 - Analytics Dashboard
 
-### Phase 5: Communication
+### Phase 5: Communication (ALL VERIFIED)
 - Chat System (conversations + messages)
 - Email Service (Resend — mock mode)
 - Client Onboarding Wizard
 
-### Phase 6: Operations & Analytics
+### Phase 6: Operations & Analytics (ALL VERIFIED)
 - Bulk Case Advance & Bulk Document Review
-- SLA Tracker (overdue + approaching deadlines)
-- Case Transfer
-- Auto Case Assignment
+- SLA Tracker
+- Case Transfer & Auto Assignment
 - Satisfaction Surveys (NPS)
-- Knowledge Base (articles + categories)
+- Knowledge Base
 - Appointments
-- Revenue Forecasting
-- CM Performance Analytics
+- Revenue Forecasting & CM Performance Analytics
 
-### Phase 7: Productivity & Growth
+### Phase 7: Productivity & Growth (ALL VERIFIED)
 - Case Timeline View
 - Quick Notes & Tags
 - Canned Responses
 - Referral Program
-- Client Greetings (birthday, anniversary, custom)
-- Conversion Funnel Analytics
-- Country/Product Analytics
-- Commission Analytics
+- Client Greetings
+- Conversion Funnel, Country/Product, Commission Analytics
 
-### Cross-cutting
+### Client Self-Service Portal (NEW — ALL VERIFIED)
+- **My Case Journey** — Flight-tracker style visual case progress with airplane icon, stats (% complete, steps done, docs, days active), current step highlight, expandable step-by-step timeline
+- **Message Center** — Dedicated WhatsApp-style chat interface with conversation list, search, new conversation, send messages
+- **My Profile** — Profile editing (name, mobile, language), change password, notification preferences toggles (6 options)
+- Clean layout: Dedicated pages hide overview widgets for full-screen experience
+
+### Cross-cutting (ALL VERIFIED)
 - Multi-Language Toggle (Hindi/English — shell level)
 - Stripe Payment Integration
 - Document Expiry Tracker
 - Client Happiness Score (NPS widget)
+- SSE Real-time Notification Stream
 
 ## Current Bugs: NONE
 
 ## Backlog (Prioritized)
 - **P1**: Extend i18n translations to inner page content (stats cards, tables, forms)
 - **P2**: Wire Resend Email to live dispatch (requires user's RESEND_API_KEY)
-- **P2**: PDF Report Generation (export.py router exists, needs frontend buttons)
+- **P2**: PDF Report Generation
 - **P2**: Bulk Document Upload (multi-file at once)
 - **P3**: SMS Notifications (Twilio)
 - **P3**: Google Calendar Integration for deadlines
@@ -78,4 +81,5 @@ Comprehensive immigration service portal with Admin, Case Manager, Partner, and 
 - Client: client@leamss.com / Client@123
 
 ## Test Reports
-- iteration_41.json: ALL 52 backend tests PASSED, all 4 dashboards verified via UI testing
+- iteration_41.json: 52/52 backend tests PASSED (all 34 features)
+- iteration_42.json: 19/19 backend + frontend ALL PASS (Client Self-Service Portal)
