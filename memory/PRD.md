@@ -1,33 +1,31 @@
-# LEAMSS Immigration Portal — Product Requirements Document
-
-## Original Problem Statement
-Comprehensive immigration service portal with Admin, Case Manager, Partner, and Client roles. Multi-step case workflows, document management, ticketing, analytics, and payment processing.
+# LEAMSS Immigration Portal — PRD
 
 ## Tech Stack
-- **Frontend**: React, TailwindCSS, Shadcn UI, React Router, PWA
-- **Backend**: FastAPI (Python), Motor (Async MongoDB)
-- **Database**: MongoDB
-- **Integrations**: OpenAI GPT-5.2 (Emergent LLM Key), Stripe (Payments), Resend (Email - mock mode)
+React + TailwindCSS + Shadcn UI | FastAPI + Motor (MongoDB) | OpenAI GPT-5.2 | Stripe | Resend (mock)
 
-## ALL Implemented Features (Phases 1-13 + P2)
+## All Phases Complete (1-13 + P2 + Admin Overhaul)
 
-### Phase 1-7: Core Platform (34 features)
-### Client Self-Service Portal
-### Phase 8: Pre-Assessment Workflow (Stripe ₹5,100)
+### Phase 1-7: Core 34 Features
+### Phase 8: Pre-Assessment Workflow (₹5,100 Stripe)
 ### Phase 9: Partner Power Tools (Kanban, Performance, Leaderboard)
 ### Phase 10: Admin Superpowers (Approval Center, Refund Manager, Revenue Dashboard, Report Builder)
-### Email Digest (Weekly stats summary)
 ### Phase 11: CM Efficiency (Smart Workload, Communication Hub, Batch Ops)
 ### Phase 12: Client Experience (Eligibility Checker, EMI Plans, Family Members, Doc Tracker)
 ### Phase 13: Cross-Platform (Dark Mode, PWA, WhatsApp Button)
-### P2: i18n Hindi Translations (80+ nav labels), PDF Reports (via Report Builder print)
+### P2: i18n Hindi (80+ labels), PDF Reports, Email Digest
+
+### Admin Overhaul (Latest — ALL VERIFIED)
+- **Unified Approval Center v2**: Client-wise progressive pipeline (PA → Sale → CM → Docs). Expandable cards, document preview, approve/reject with reasons, CM assignment — all in ONE place
+- **Bug Fix**: Sale approval "User not found" error fixed (direct DB operations)
+- **Sidebar Cleanup**: Removed 8 duplicate tabs (Pre-Assessments, Pending Sales, Revenue Forecast, Conversion Funnel, Commission Analytics, Country & Product, Pending Assignment)
 
 ## Current Bugs: NONE
 
-## Remaining Backlog
-- Resend Email live mode (needs API key)
-- WhatsApp Twilio full integration (needs API key)
-- react-i18next deep internal page translations (beyond nav labels)
+## In Progress
+- Priority 2: Refund Manager enhanced flow (review step, reason, doc upload, detail view)
+- Priority 3: Multi-currency support
+- Priority 4: Payment Reminders advanced UI
+- Priority 5: Revenue Forecast + Commission Analytics data sync
 
 ## Test Credentials
 - Admin: admin@leamss.com / Admin@123
