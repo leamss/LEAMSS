@@ -1572,11 +1572,7 @@ const ClientDashboard = () => {
       )}
 
       {/* Chat Widget */}
-      <ChatWidget
-        caseId={caseData?.id}
-        caseDisplayId={caseData?.case_id}
-        currentUser={user}
-      />
+      <ChatWidget currentUser={user} />
     </DashboardShell>
   );
 };

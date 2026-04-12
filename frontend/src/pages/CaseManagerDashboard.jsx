@@ -1526,11 +1526,7 @@ const CaseManagerDashboard = () => {
       )}
 
       {/* Chat Widget */}
-      <ChatWidget
-        caseId={selectedCase?.id}
-        caseDisplayId={selectedCase?.case_id}
-        currentUser={user}
-      />
+      <ChatWidget currentUser={user} />
     </DashboardShell>
   );
 };
