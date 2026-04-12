@@ -518,12 +518,22 @@ async def get_my_cases_summary(current_user: dict = Depends(get_current_user)):
 
     result = []
     for c in my_cases:
+        # Lookup client name from users
+        client = await users_col.find_one({"id": c.get("client_id")}, {"_id": 0, "name": 1, "email": 1})
+        # Lookup product name
+        product_name = c.get("product_name", "")
+        if not product_name:
+            from core.database import products_col
+            product = await products_col.find_one({"id": c.get("product_id")}, {"_id": 0, "name": 1})
+            product_name = product["name"] if product else ""
+
         result.append({
             "id": c["id"],
             "case_id": c.get("case_id", ""),
-            "client_name": c.get("client_name", ""),
+            "client_name": client["name"] if client else "",
+            "client_email": client["email"] if client else "",
             "client_id": c.get("client_id", ""),
-            "product_name": c.get("product_name", ""),
+            "product_name": product_name,
             "status": c.get("status", ""),
             "current_step": c.get("current_step", ""),
         })
