@@ -774,6 +774,20 @@ async def get_revenue_dashboard(
     all_refunds = await refunds_col.find({}, {"_id": 0, "amount": 1}).to_list(5000)
     total_refunded_amount = sum(r.get("amount", 0) for r in all_refunds)
 
+    # Currency breakdown (Domestic INR vs International)
+    by_currency = {"INR": {"currency": "INR", "label": "Domestic", "count": 0, "revenue": 0, "received": 0}}
+    for s in all_sales:
+        curr = s.get("currency", "INR") or "INR"
+        if curr not in by_currency:
+            by_currency[curr] = {"currency": curr, "label": "International", "count": 0, "revenue": 0, "received": 0}
+        by_currency[curr]["count"] += 1
+        by_currency[curr]["revenue"] += s.get("fee_amount", 0) or 0
+        by_currency[curr]["received"] += s.get("amount_received", 0) or 0
+
+    for c in by_currency:
+        by_currency[c]["revenue"] = round(by_currency[c]["revenue"], 2)
+        by_currency[c]["received"] = round(by_currency[c]["received"], 2)
+
     return {
         "summary": {
             "total_revenue": round(total_revenue, 2),
@@ -800,6 +814,7 @@ async def get_revenue_dashboard(
             [{**v, "amount": round(v["amount"], 2)} for v in payment_methods.values()],
             key=lambda x: x["amount"], reverse=True
         ),
+        "by_currency": sorted(by_currency.values(), key=lambda x: x["revenue"], reverse=True),
     }
 
 

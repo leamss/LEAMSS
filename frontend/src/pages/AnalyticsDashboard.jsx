@@ -96,12 +96,18 @@ const AnalyticsDashboard = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4 md:p-6 max-w-[1400px] mx-auto">
       {/* Header */}
       <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Analytics Dashboard</h1>
-          <p className="text-gray-500">Insights and performance metrics</p>
+        <div className="flex items-center gap-3">
+          <Button variant="outline" size="sm" onClick={() => window.history.back()} data-testid="analytics-back-btn">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+            Back
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Analytics Dashboard</h1>
+            <p className="text-gray-500">Insights and performance metrics</p>
+          </div>
         </div>
         <div className="flex gap-3">
           <Select value={period} onValueChange={setPeriod}>

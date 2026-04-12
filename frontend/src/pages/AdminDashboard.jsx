@@ -1066,6 +1066,8 @@ const AdminDashboard = () => {
         { id: 'reminders', icon: Bell, label: 'Payment Reminders', onClick: () => { setActiveTab('reminders'); resetSelections(); } },
         { id: 'total-sales', icon: TrendingUp, label: 'Sales Report', onClick: () => { setActiveTab('total-sales'); resetSelections(); } },
         { id: 'commissions', icon: DollarSign, label: 'Commissions', onClick: () => { setActiveTab('commissions'); resetSelections(); } },
+        { id: 'revenue-forecast', icon: TrendingUp, label: 'Revenue Forecast', onClick: () => { setActiveTab('revenue-forecast'); resetSelections(); } },
+        { id: 'commission-analytics', icon: DollarSign, label: 'Commission Analytics', onClick: () => { setActiveTab('commission-analytics'); resetSelections(); } },
       ]
     },
     {
@@ -1084,8 +1086,9 @@ const AdminDashboard = () => {
       groupLabel: 'Reports & Analytics',
       items: [
         { id: 'report-builder', icon: FileText, label: 'Report Builder', onClick: () => { setActiveTab('report-builder'); resetSelections(); } },
+        { id: 'country-product', icon: BarChart3, label: 'Country & Product', onClick: () => { setActiveTab('country-product'); resetSelections(); } },
+        { id: 'conversion-funnel', icon: TrendingUp, label: 'Conversion Funnel', onClick: () => { setActiveTab('conversion-funnel'); resetSelections(); } },
         { id: 'email-digest', icon: Mail, label: 'Email Digest', onClick: () => { setActiveTab('email-digest'); resetSelections(); } },
-        { id: 'analytics', icon: BarChart3, label: 'Analytics', onClick: () => navigate('/admin/analytics') },
         { id: 'activity', icon: Activity, label: 'Activity Log', onClick: () => navigate('/admin/activity') },
       ]
     },

@@ -34,7 +34,7 @@ export default function RevenueForecasting({ token }) {
             <div className="flex items-center gap-3">
               <DollarSign className="w-8 h-8 text-green-500" />
               <div>
-                <p className="text-2xl font-bold">${(s.avg_monthly || 0).toLocaleString()}</p>
+                <p className="text-2xl font-bold">₹{(s.avg_monthly || 0).toLocaleString()}</p>
                 <p className="text-xs text-gray-500">Avg Monthly Revenue</p>
               </div>
             </div>
@@ -56,7 +56,7 @@ export default function RevenueForecasting({ token }) {
             <div className="flex items-center gap-3">
               <BarChart3 className="w-8 h-8 text-blue-500" />
               <div>
-                <p className="text-2xl font-bold">${(s.pipeline_value || 0).toLocaleString()}</p>
+                <p className="text-2xl font-bold">₹{(s.pipeline_value || 0).toLocaleString()}</p>
                 <p className="text-xs text-gray-500">Pipeline Value</p>
               </div>
             </div>
@@ -81,14 +81,14 @@ export default function RevenueForecasting({ token }) {
           <div className="flex items-end gap-1 h-48">
             {(data.historical || []).map((h, i) => (
               <div key={`h-${i}`} className="flex-1 flex flex-col items-center gap-1">
-                <div className="w-full bg-blue-500 rounded-t transition-all" style={{ height: `${(h.revenue / maxRevenue) * 100}%`, minHeight: '4px' }} title={`$${h.revenue}`} />
+                <div className="w-full bg-blue-500 rounded-t transition-all" style={{ height: `${(h.revenue / maxRevenue) * 100}%`, minHeight: '4px' }} title={`₹${h.revenue}`} />
                 <span className="text-[9px] text-gray-500 -rotate-45 origin-left">{h.month}</span>
               </div>
             ))}
             <div className="w-px h-full bg-gray-300 mx-1" />
             {(data.forecast || []).map((f, i) => (
               <div key={`f-${i}`} className="flex-1 flex flex-col items-center gap-1">
-                <div className="w-full bg-green-400 rounded-t border-2 border-dashed border-green-600 transition-all" style={{ height: `${(f.predicted_revenue / maxRevenue) * 100}%`, minHeight: '4px' }} title={`$${f.predicted_revenue} (predicted)`} />
+                <div className="w-full bg-green-400 rounded-t border-2 border-dashed border-green-600 transition-all" style={{ height: `${(f.predicted_revenue / maxRevenue) * 100}%`, minHeight: '4px' }} title={`₹${f.predicted_revenue} (predicted)`} />
                 <span className="text-[9px] text-green-600 -rotate-45 origin-left">{f.month}</span>
               </div>
             ))}

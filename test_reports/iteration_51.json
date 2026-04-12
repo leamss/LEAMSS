@@ -1,0 +1,105 @@
+{
+  "summary": "Iteration 51: Priority 3-6 Analytics Features - All tests passed. Currency fix (₹ not $) verified across all pages. Revenue Forecast, Commission Analytics, Country/Product Analytics with partner drill-down, Revenue Dashboard with By Currency tab all working correctly.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration51_analytics.py",
+    "/app/test_reports/pytest/pytest_iteration51.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_iteration51_analytics.py"
+  ],
+  "success_rate": {
+    "backend": "100% (19 passed)",
+    "frontend": "100% (all features verified)"
+  },
+  "test_credentials": {
+    "admin": "admin@leamss.com / Admin@123"
+  },
+  "seed_data_creation": "None - used existing approved sales data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration 51 tested Priority 3-6 analytics features. All working: (1) Currency Fix - ₹ symbol used across RevenueForecasting, CommissionAnalytics, CountryProductAnalytics, RevenueDashboard, AnalyticsDashboard, (2) Revenue Forecast - shows ₹21L avg monthly, 0% growth, ₹5.2L pipeline, STABLE trend, historical + forecast chart, (3) Commission Analytics - shows ₹1.14L total commission, 2 partners (Partner User ₹99,927.5, muskhan ₹15,000), monthly trend chart, (4) Country/Product Analytics - By Country/By Product toggle, partner drill-down table with per-partner sales/revenue/received/commission, Export CSV button, (5) Revenue Dashboard - By Currency tab shows INR/Domestic breakdown (31 sales, ₹21L revenue, ₹8.4L received), (6) Analytics Dashboard - Back button present at /admin/analytics.",
+  "features_tested": {
+    "currency_fix": {
+      "status": "PASS",
+      "details": "All pages show ₹ symbol instead of $. Verified in RevenueForecasting.jsx, CommissionAnalytics.jsx, CountryProductAnalytics.jsx, RevenueDashboard.jsx, AnalyticsDashboard.jsx"
+    },
+    "revenue_forecast": {
+      "status": "PASS",
+      "details": "API returns historical + forecast data with real approved sales. Shows Avg Monthly Revenue (₹2,102,100), Growth Rate (0%), Pipeline Value (₹522,500), Trend badge (STABLE), Historical + Forecast chart",
+      "api_verified": true,
+      "ui_verified": true
+    },
+    "commission_analytics": {
+      "status": "PASS",
+      "details": "API returns partner breakdown with commission_amount field. Shows Total Commission (₹114,927.5), 2 Active Partners, Monthly Commission Trend chart, Partner breakdown with per-partner commission amounts",
+      "api_verified": true,
+      "ui_verified": true
+    },
+    "country_product_analytics": {
+      "status": "PASS",
+      "details": "API returns by_country and by_product with partners array. UI shows By Country/By Product toggle, click to expand shows Partner Breakdown table with per-partner sales/revenue/received/commission, Export CSV button works",
+      "api_verified": true,
+      "ui_verified": true
+    },
+    "revenue_dashboard_by_currency": {
+      "status": "PASS",
+      "details": "API returns by_currency array with INR/Domestic breakdown. UI shows By Currency tab with Sales (31), Revenue (₹2,102,100), Received (₹843,290)",
+      "api_verified": true,
+      "ui_verified": true
+    },
+    "analytics_dashboard_back_button": {
+      "status": "PASS",
+      "details": "Back button present at /admin/analytics with data-testid='analytics-back-btn'",
+      "ui_verified": true
+    }
+  },
+  "backend_tests_summary": {
+    "total": 19,
+    "passed": 19,
+    "skipped": 0,
+    "failed": 0,
+    "tests": [
+      "test_revenue_forecast_returns_data - PASS",
+      "test_revenue_forecast_has_real_data - PASS",
+      "test_revenue_forecast_trend_values - PASS",
+      "test_commission_analytics_returns_data - PASS",
+      "test_commission_analytics_partner_breakdown - PASS",
+      "test_commission_analytics_total_matches_sum - PASS",
+      "test_commission_analytics_monthly_trend - PASS",
+      "test_country_product_returns_data - PASS",
+      "test_country_product_has_partner_drilldown - PASS",
+      "test_country_product_partner_fields - PASS",
+      "test_country_product_revenue_received_commission - PASS",
+      "test_revenue_dashboard_returns_data - PASS",
+      "test_revenue_dashboard_has_by_currency - PASS",
+      "test_revenue_dashboard_summary_fields - PASS",
+      "test_revenue_forecast_requires_auth - PASS",
+      "test_commission_analytics_requires_auth - PASS",
+      "test_country_product_requires_auth - PASS",
+      "test_revenue_dashboard_admin_only - PASS",
+      "test_analytics_dashboard_endpoint - PASS"
+    ]
+  },
+  "frontend_tests_summary": {
+    "admin_login": "PASS",
+    "revenue_forecast_page": "PASS - ₹ symbol, Avg Monthly Revenue, Growth Rate, Pipeline Value, Trend badge, Historical + Forecast chart",
+    "commission_analytics_page": "PASS - ₹ symbol, Total Commission, Partner breakdown, Monthly trend chart",
+    "country_product_page": "PASS - ₹ symbol, By Country/By Product toggle, Partner drill-down table, Export CSV button",
+    "revenue_dashboard_page": "PASS - ₹ symbol, By Currency tab with INR/Domestic breakdown",
+    "analytics_dashboard_page": "PASS - Back button visible at /admin/analytics"
+  },
+  "mocked_apis": {
+    "resend_email": "MOCK mode - logs to console instead of sending actual emails"
+  }
+}

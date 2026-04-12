@@ -123,6 +123,7 @@ const RevenueDashboard = ({ token }) => {
           { key: 'partner', label: 'By Partner', icon: Users },
           { key: 'product', label: 'By Service', icon: Briefcase },
           { key: 'payment', label: 'By Payment Method', icon: CreditCard },
+          { key: 'currency', label: 'By Currency', icon: DollarSign },
         ].map(tab => (
           <Button
             key={tab.key}
@@ -220,6 +221,40 @@ const RevenueDashboard = ({ token }) => {
               </div>
             </Card>
           ))}
+        </div>
+      )}
+
+      {/* By Currency (Domestic vs International) */}
+      {activeBreakdown === 'currency' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {(data.by_currency || []).map((c, idx) => (
+            <Card key={c.currency} className="p-5" data-testid={`currency-${idx}`}>
+              <div className="flex items-center gap-3 mb-3">
+                <DollarSign className="h-5 w-5 text-[#2a777a]" />
+                <div>
+                  <h4 className="font-semibold text-slate-800">{c.currency}</h4>
+                  <p className="text-xs text-slate-500">{c.label}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="p-2 bg-slate-50 rounded-lg text-center">
+                  <p className="text-xs text-slate-500">Sales</p>
+                  <p className="text-lg font-bold text-slate-800">{c.count}</p>
+                </div>
+                <div className="p-2 bg-emerald-50 rounded-lg text-center">
+                  <p className="text-xs text-emerald-500">Revenue</p>
+                  <p className="text-lg font-bold text-emerald-800">₹{c.revenue.toLocaleString()}</p>
+                </div>
+                <div className="p-2 bg-blue-50 rounded-lg text-center">
+                  <p className="text-xs text-blue-500">Received</p>
+                  <p className="text-lg font-bold text-blue-800">₹{c.received.toLocaleString()}</p>
+                </div>
+              </div>
+            </Card>
+          ))}
+          {(data.by_currency || []).length === 0 && (
+            <Card className="p-8 text-center col-span-3"><p className="text-slate-500">All transactions are in INR (Domestic)</p></Card>
+          )}
         </div>
       )}
     </div>

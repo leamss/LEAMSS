@@ -34,7 +34,7 @@ export default function CommissionAnalytics({ token, role }) {
         <Card>
           <CardContent className="pt-4 text-center">
             <DollarSign className="w-8 h-8 text-green-500 mx-auto mb-1" />
-            <p className="text-2xl font-bold">${data.total_commission?.toLocaleString()}</p>
+            <p className="text-2xl font-bold">₹{data.total_commission?.toLocaleString()}</p>
             <p className="text-xs text-gray-500">Total Commission</p>
           </CardContent>
         </Card>
@@ -62,7 +62,7 @@ export default function CommissionAnalytics({ token, role }) {
             <div className="flex items-end gap-1 h-32">
               {trend.map((t, i) => (
                 <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                  <div className="w-full bg-[#2a777a] rounded-t transition-all" style={{ height: `${(t.commission / maxTrend) * 100}%`, minHeight: '4px' }} title={`$${t.commission}`} />
+                  <div className="w-full bg-[#2a777a] rounded-t transition-all" style={{ height: `${(t.commission / maxTrend) * 100}%`, minHeight: '4px' }} title={`₹${t.commission}`} />
                   <span className="text-[8px] text-gray-500 -rotate-45 origin-left">{t.month}</span>
                 </div>
               ))}
@@ -85,8 +85,8 @@ export default function CommissionAnalytics({ token, role }) {
                       <p className="text-xs text-gray-500">{p.total_sales} sales | {p.approved_sales} approved</p>
                     </div>
                     <div className="text-right">
-                      <p className="font-bold text-sm">${p.total_commission?.toLocaleString()}</p>
-                      {p.pending_commission > 0 && <p className="text-xs text-amber-600">${p.pending_commission?.toLocaleString()} pending</p>}
+                      <p className="font-bold text-sm">₹{p.total_commission?.toLocaleString()}</p>
+                      {p.pending_commission > 0 && <p className="text-xs text-amber-600">₹{p.pending_commission?.toLocaleString()} pending</p>}
                     </div>
                   </div>
                   <div className="w-full bg-gray-100 rounded-full h-2">
