@@ -117,3 +117,28 @@ async def change_password(data: dict, current_user: dict = Depends(get_current_u
         {"$set": {"password": get_password_hash(data["new_password"])}}
     )
     return {"message": "Password changed successfully"}
+
+
+
+@router.put("/update-profile")
+async def update_profile(data: dict, current_user: dict = Depends(get_current_user)):
+    """Update current user profile info"""
+    allowed = {"name", "mobile", "preferred_language", "notification_preferences"}
+    updates = {k: v for k, v in data.items() if k in allowed and v is not None}
+    if not updates:
+        raise HTTPException(status_code=400, detail="No valid fields to update")
+    updates["updated_at"] = datetime.now(timezone.utc)
+    await users_col.update_one({"id": current_user["id"]}, {"$set": updates})
+    await _log(current_user["id"], "update_profile", "user", current_user["id"], updates)
+    updated = await users_col.find_one({"id": current_user["id"]}, {"_id": 0, "password": 0})
+    return {"message": "Profile updated", "user": updated}
+
+
+@router.get("/notifications-preferences")
+async def get_notification_prefs(current_user: dict = Depends(get_current_user)):
+    user = await users_col.find_one({"id": current_user["id"]}, {"_id": 0})
+    return user.get("notification_preferences", {
+        "email": True, "sms": False, "in_app": True,
+        "case_updates": True, "payment_reminders": True,
+        "document_requests": True, "marketing": False
+    })

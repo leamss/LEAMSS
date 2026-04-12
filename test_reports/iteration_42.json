@@ -1,0 +1,137 @@
+{
+  "iteration": 42,
+  "date": "2026-04-12",
+  "test_type": "client_self_service_portal_features",
+  "summary": "Tested Client Self-Service Portal with 3 new features: My Profile, My Journey, Messages. All backend APIs and frontend components working correctly.",
+  "backend_tests": {
+    "total": 19,
+    "passed": 19,
+    "failed": 0,
+    "test_file": "/app/backend/tests/test_client_self_service.py",
+    "junit_report": "/app/test_reports/pytest/pytest_iteration42.xml"
+  },
+  "features_tested": {
+    "all_role_logins": {
+      "status": "PASS",
+      "details": "Admin, Case Manager, Partner, Client - all 4 roles login successfully"
+    },
+    "client_profile_apis": {
+      "status": "PASS",
+      "details": [
+        "GET /api/auth/notifications-preferences - returns default preferences",
+        "PUT /api/auth/update-profile with name - updates successfully",
+        "PUT /api/auth/update-profile with mobile - updates successfully",
+        "PUT /api/auth/update-profile with preferred_language - updates successfully",
+        "PUT /api/auth/update-profile with notification_preferences - updates successfully",
+        "POST /api/auth/change-password - rejects wrong current password (400)",
+        "POST /api/auth/change-password - changes password successfully"
+      ]
+    },
+    "chat_messages_apis": {
+      "status": "PASS",
+      "details": [
+        "GET /api/chat/conversations - returns conversation list",
+        "POST /api/chat/conversations - starts new conversation",
+        "POST /api/chat/messages - sends message successfully",
+        "GET /api/chat/messages/{conv_id} - returns messages",
+        "GET /api/chat/unread-count - returns unread count"
+      ]
+    },
+    "timeline_api": {
+      "status": "PASS",
+      "details": "GET /api/timeline/case/{case_id} - returns timeline events"
+    },
+    "client_case_apis": {
+      "status": "PASS",
+      "details": [
+        "GET /api/cases/my-cases - returns client's cases",
+        "GET /api/documents/case/{case_id} - returns case documents"
+      ]
+    }
+  },
+  "frontend_tests": {
+    "client_dashboard_overview": {
+      "status": "PASS",
+      "details": "Case header, Quick Actions, Stats cards, AI Insights (Approval Prediction, Document Check) all visible"
+    },
+    "my_journey_tab": {
+      "status": "PASS",
+      "details": [
+        "Flight tracker style header with airplane icon and progress bar",
+        "Stats: 25% Complete, 2/8 Steps Done, 20 Documents, 8 Days Active",
+        "Current Step highlight (IELTS Preparation)",
+        "Step-by-step timeline with expandable details",
+        "Overview header/stats/AI widgets correctly hidden"
+      ]
+    },
+    "messages_tab": {
+      "status": "PASS",
+      "details": [
+        "Conversation list on left side",
+        "Message area on right side",
+        "Search conversations input",
+        "New conversation button",
+        "Message input field and send button",
+        "Overview header/stats correctly hidden"
+      ]
+    },
+    "my_profile_tab": {
+      "status": "PASS",
+      "details": [
+        "Profile form: name, mobile, language inputs",
+        "Email (read-only) field",
+        "Save Profile button",
+        "Change Password section with current/new/confirm fields",
+        "Show/Hide passwords toggle",
+        "Notification Preferences toggles (6 options)",
+        "Save Preferences button",
+        "Overview header/stats correctly hidden"
+      ]
+    },
+    "admin_dashboard": {
+      "status": "PASS",
+      "details": "Quick Actions, Happiness Score (100%), Stats (13 Pending Sales, 20 Active Cases, ₹1,477,100 Revenue, 18 Open Tickets), Document Expiry Tracker, Recent Pending Sales all visible"
+    },
+    "partner_dashboard": {
+      "status": "PASS",
+      "details": "34 Total Sales, 19 Approved Sales, ₹95,038 Commission visible"
+    },
+    "partner_sale_creation": {
+      "status": "PASS",
+      "details": "Create New Sale form opens with all fields (Client Name, Email, Mobile, Product, Currency, Fee Amount, Payment Method, etc.)"
+    }
+  },
+  "header_hiding_verification": {
+    "overview_tab": "Shows case header, Quick Actions, Stats, AI Insights - CORRECT",
+    "journey_tab": "Hides Quick Actions, Stats, AI Insights (has own journey header) - CORRECT",
+    "messages_tab": "Hides Quick Actions, Stats - CORRECT",
+    "profile_tab": "Hides Quick Actions, Stats - CORRECT"
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_client_self_service.py",
+    "/app/test_reports/pytest/pytest_iteration42.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_client_self_service.py"
+  ],
+  "success_rate": {
+    "backend": "100%",
+    "frontend": "100%"
+  },
+  "test_credentials": {
+    "admin": "admin@leamss.com / Admin@123",
+    "case_manager": "manager@leamss.com / Manager@123",
+    "partner": "partner@leamss.com / Partner@123",
+    "client": "client@leamss.com / Client@123"
+  },
+  "seed_data_creation": "None - used existing test data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Client Self-Service Portal features (My Profile, My Journey, Messages) are fully functional. All 4 role logins work. Previous 52 tests from iteration_41 still valid. Email service is MOCKED.",
+  "mocked_apis": {
+    "email_service": "Email (Resend) - mock mode"
+  },
+  "overall_status": "ALL PASS"
+}

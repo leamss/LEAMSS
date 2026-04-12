@@ -28,6 +28,9 @@ import ReferralProgram from '@/pages/ReferralProgram';
 import CaseTimeline from '@/pages/CaseTimeline';
 import AIChatWidget from '@/components/AIChatWidget';
 import InfoSheetEditor from '@/components/InfoSheetEditor';
+import ClientProfile from '@/components/ClientProfile';
+import CaseJourney from '@/components/CaseJourney';
+import MessageCenter from '@/components/MessageCenter';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -410,6 +413,7 @@ const ClientDashboard = () => {
       groupLabel: 'My Case',
       defaultOpen: true,
       items: [
+        { id: 'journey', icon: Workflow, label: 'My Journey', onClick: () => setActiveTab('journey') },
         { id: 'additional', icon: AlertTriangle, label: 'Action Required', badge: pendingAdditionalDocs.length, badgeColor: 'bg-red-500', onClick: () => setActiveTab('additional') },
         { id: 'workflow', icon: Workflow, label: 'Workflow Steps', onClick: () => setActiveTab('workflow') },
         { id: 'doc-checklist', icon: FileCheck, label: 'Document Checklist', onClick: () => setActiveTab('doc-checklist') },
@@ -423,7 +427,13 @@ const ClientDashboard = () => {
         { id: 'payments', icon: CreditCard, label: 'Payments', badge: proposals.filter(p => p.status === 'approved' && (p.pending_amount || 0) > 0).length, badgeColor: 'bg-[#f7620b]', onClick: () => setActiveTab('payments') },
       ]
     },
-    { id: 'tickets', icon: MessageSquare, label: 'Support', onClick: () => setActiveTab('tickets') },
+    {
+      groupLabel: 'Communication',
+      items: [
+        { id: 'messages', icon: MessageSquare, label: 'Messages', onClick: () => setActiveTab('messages') },
+        { id: 'tickets', icon: MessageSquare, label: 'Support Tickets', onClick: () => setActiveTab('tickets') },
+      ]
+    },
     {
       groupLabel: 'Resources',
       items: [
@@ -434,14 +444,16 @@ const ClientDashboard = () => {
         { id: 'timeline', icon: Clock, label: 'Case Timeline', onClick: () => setActiveTab('timeline') },
       ]
     },
+    { id: 'profile', icon: User, label: 'My Profile', onClick: () => setActiveTab('profile') },
   ];
 
   const clientPageTitle = {
     overview: 'Overview', additional: 'Action Required', workflow: 'Workflow Steps',
-    uploaded: 'My Documents', tickets: 'Support', 'info-sheet': 'My Info Sheet',
+    uploaded: 'My Documents', tickets: 'Support Tickets', 'info-sheet': 'My Info Sheet',
     payments: 'Payments', 'doc-checklist': 'Document Checklist',
     'knowledge-base': 'Help Center', survey: 'Rate Experience', appointments: 'Appointments',
     referrals: 'Refer a Friend', timeline: 'Case Timeline',
+    journey: 'My Case Journey', messages: 'Messages', profile: 'My Profile',
   }[activeTab] || 'Overview';
 
   return (
@@ -470,7 +482,9 @@ const ClientDashboard = () => {
           </Card>
         ) : (
           <>
-            {/* Case Overview Header */}
+            {/* Case Overview Header - Only show on dashboard-like tabs */}
+            {!['messages', 'profile', 'journey', 'timeline'].includes(activeTab) && (
+            <>
             <div className="mb-8">
               <div className="bg-gradient-to-r from-[#2a777a] via-[#2a777a] to-[#236466] rounded-2xl p-6 text-white shadow-xl">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -669,6 +683,8 @@ const ClientDashboard = () => {
                 )}
               </Card>
             </div>
+            </>
+            )}
 
             {/* Main Content */}
             <div className="space-y-6">
@@ -1435,6 +1451,24 @@ const ClientDashboard = () => {
 
               {activeTab === 'timeline' && caseData?.id && (
                 <CaseTimeline caseId={caseData.id} token={localStorage.getItem('token')} />
+              )}
+
+              {/* My Journey Tab */}
+              {activeTab === 'journey' && (
+                <CaseJourney caseData={caseData} documents={documents} />
+              )}
+
+              {/* Messages Tab */}
+              {activeTab === 'messages' && (
+                <MessageCenter caseId={caseData?.id} currentUser={user} />
+              )}
+
+              {/* Profile Tab */}
+              {activeTab === 'profile' && (
+                <ClientProfile user={user} onProfileUpdate={(updatedUser) => {
+                  setUser(updatedUser);
+                  localStorage.setItem('user', JSON.stringify(updatedUser));
+                }} />
               )}
             </div>
           </>
