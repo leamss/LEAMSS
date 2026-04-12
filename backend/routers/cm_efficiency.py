@@ -172,13 +172,15 @@ async def get_unread_count(current_user: dict = Depends(get_current_user)):
 
 @router.get("/communications/{case_id}")
 async def get_communications(case_id: str, current_user: dict = Depends(get_current_user)):
-    """Get all communications for a case"""
-    if current_user["role"] not in ["case_manager", "admin"]:
-        raise HTTPException(status_code=403, detail="Case Manager or Admin only")
-
+    """Get all communications for a case (CM, Admin, or Client who owns the case)"""
     case = await cases_col.find_one({"id": case_id}, {"_id": 0})
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
+
+    # Access check: CM/Admin or the client who owns the case
+    if current_user["role"] not in ["case_manager", "admin"]:
+        if current_user["id"] != case.get("client_id"):
+            raise HTTPException(status_code=403, detail="Access denied")
 
     messages = await cm_messages_col.find(
         {"case_id": case_id}, {"_id": 0}
@@ -280,6 +282,92 @@ async def mark_messages_read(case_id: str, current_user: dict = Depends(get_curr
         {"case_id": case_id, "read": False, "sender_id": {"$ne": current_user["id"]}},
         {"$set": {"read": True}}
     )
+
+
+@router.get("/client-messages")
+async def get_client_messages(current_user: dict = Depends(get_current_user)):
+    """Get all case-based conversations for a client"""
+    # Get client's cases
+    my_cases = await cases_col.find(
+        {"client_id": current_user["id"]}, {"_id": 0}
+    ).to_list(50)
+
+    conversations = []
+    for case in my_cases:
+        case_id = case["id"]
+        # Get last message
+        last_msg = await cm_messages_col.find(
+            {"case_id": case_id}, {"_id": 0}
+        ).sort("created_at", -1).to_list(1)
+
+        unread = await cm_messages_col.count_documents({
+            "case_id": case_id,
+            "sender_id": {"$ne": current_user["id"]},
+            "read": False
+        })
+
+        cm = await users_col.find_one({"id": case.get("case_manager_id")}, {"_id": 0, "name": 1})
+
+        conversations.append({
+            "case_id": case_id,
+            "case_display_id": case.get("case_id", ""),
+            "product_name": case.get("product_name", ""),
+            "case_manager_name": cm["name"] if cm else "Unassigned",
+            "last_message": last_msg[0]["message"][:80] if last_msg else "",
+            "last_message_at": last_msg[0]["created_at"].isoformat() if last_msg and isinstance(last_msg[0].get("created_at"), datetime) else "",
+            "unread_count": unread,
+            "has_messages": len(last_msg) > 0,
+        })
+
+    return sorted(conversations, key=lambda x: x.get("last_message_at", ""), reverse=True)
+
+
+class ClientSendMessage(BaseModel):
+    case_id: str
+    message: str
+
+
+@router.post("/client-messages/send")
+async def client_send_message(data: ClientSendMessage, current_user: dict = Depends(get_current_user)):
+    """Client sends a message to their case manager"""
+    case = await cases_col.find_one({"id": data.case_id, "client_id": current_user["id"]}, {"_id": 0})
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found or not yours")
+
+    if not data.message.strip():
+        raise HTTPException(status_code=400, detail="Message cannot be empty")
+
+    msg = {
+        "id": str(uuid.uuid4()),
+        "case_id": data.case_id,
+        "client_id": current_user["id"],
+        "sender_id": current_user["id"],
+        "sender_name": current_user.get("name", ""),
+        "sender_role": "client",
+        "message": data.message.strip(),
+        "message_type": "text",
+        "read": False,
+        "created_at": datetime.now(timezone.utc),
+    }
+    await cm_messages_col.insert_one(msg)
+    msg.pop("_id", None)
+    msg["created_at"] = msg["created_at"].isoformat()
+
+    # Notify case manager
+    if case.get("case_manager_id"):
+        await notifications_col.insert_one({
+            "id": str(uuid.uuid4()),
+            "user_id": case["case_manager_id"],
+            "title": f"Message from {current_user.get('name', 'Client')}",
+            "message": data.message[:100],
+            "type": "client_message",
+            "read": False,
+            "created_at": datetime.now(timezone.utc),
+        })
+
+    return {"message": "Message sent", "data": msg}
+
+
     return {"message": "Messages marked as read"}
 
 
