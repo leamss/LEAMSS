@@ -220,11 +220,20 @@ async def quick_approval_action(data: QuickApproveRequest, current_user: dict = 
             }
             await cases_col.insert_one(case)
             for step in steps:
+                # Tag admin default documents
+                req_docs = step.get("required_documents", [])
+                tagged_docs = []
+                for rd in req_docs:
+                    tagged_docs.append({
+                        **rd,
+                        "source": rd.get("source", "admin_default"),
+                        "tag": rd.get("tag", "mandatory"),
+                    })
                 await case_steps_col.insert_one({
                     "id": str(uuid.uuid4()), "case_id": case["id"],
                     "step_name": step["step_name"], "step_order": step["step_order"],
                     "status": "pending", "description": step.get("description", ""),
-                    "required_documents": step.get("required_documents", []),
+                    "required_documents": tagged_docs,
                     "created_at": datetime.now(timezone.utc)
                 })
 

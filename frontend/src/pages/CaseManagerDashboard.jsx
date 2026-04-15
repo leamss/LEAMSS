@@ -31,6 +31,7 @@ import CaseNotesAndTags from '@/pages/CaseNotesAndTags';
 import SmartWorkload from '@/components/SmartWorkload';
 import CommunicationHub from '@/components/CommunicationHub';
 import BatchCaseOps from '@/components/BatchCaseOps';
+import CMDocManager from '@/components/CMDocManager';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -497,6 +498,7 @@ const CaseManagerDashboard = () => {
       defaultOpen: true,
       items: [
         { id: 'documents', icon: Download, label: 'All Documents', onClick: () => { setActiveTab('documents'); setSelectedCase(null); setInfoSheetCaseId(null); } },
+        { id: 'step-docs', icon: FileText, label: 'Step Documents', onClick: () => { setActiveTab('step-docs'); setInfoSheetCaseId(null); } },
         { id: 'expiry-alerts', icon: Calendar, label: 'Expiry Alerts', badge: expiringDocs.filter(d => d.urgency === 'expired' || d.urgency === 'critical').length, badgeColor: 'bg-red-500', onClick: () => { setActiveTab('expiry-alerts'); setSelectedCase(null); setInfoSheetCaseId(null); } },
       ]
     },
@@ -527,6 +529,7 @@ const CaseManagerDashboard = () => {
       'smart-workload': 'Smart Workload',
       'communication-hub': 'Client Communication Hub',
       'batch-ops': 'Batch Case Operations',
+      'step-docs': 'Step Documents',
     };
     return titles[activeTab] || 'Dashboard';
   };
@@ -1310,6 +1313,7 @@ const CaseManagerDashboard = () => {
           {activeTab === 'smart-workload' && <SmartWorkload token={localStorage.getItem('token')} onSelectCase={(caseId) => { loadCaseDetails(caseId); setActiveTab('cases'); }} />}
           {activeTab === 'communication-hub' && <CommunicationHub token={localStorage.getItem('token')} cases={cases} />}
           {activeTab === 'batch-ops' && <BatchCaseOps token={localStorage.getItem('token')} />}
+          {activeTab === 'step-docs' && <CMDocManager token={localStorage.getItem('token')} caseId={selectedCase?.id} caseName={selectedCase?.case_id} />}
 
       {/* Review Document Dialog */}
       <Dialog open={reviewDialog.open} onOpenChange={(open) => setReviewDialog({ ...reviewDialog, open })}>

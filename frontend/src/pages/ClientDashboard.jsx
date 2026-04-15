@@ -35,6 +35,7 @@ import EligibilityChecker from '@/components/EligibilityChecker';
 import EMITracker from '@/components/EMITracker';
 import FamilyManager from '@/components/FamilyManager';
 import DocumentTracker from '@/components/DocumentTracker';
+import StepDocuments from '@/components/StepDocuments';
 import WhatsAppButton from '@/components/WhatsAppButton';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -1491,7 +1492,7 @@ const ClientDashboard = () => {
               {activeTab === 'eligibility' && <EligibilityChecker token={localStorage.getItem('token')} />}
               {activeTab === 'emi-plans' && <EMITracker token={localStorage.getItem('token')} />}
               {activeTab === 'family' && <FamilyManager token={localStorage.getItem('token')} />}
-              {activeTab === 'doc-tracker' && <DocumentTracker token={localStorage.getItem('token')} />}
+              {activeTab === 'doc-tracker' && <StepDocuments token={localStorage.getItem('token')} caseId={caseData?.id} />}
             </div>
           </>
         )}
