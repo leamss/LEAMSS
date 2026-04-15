@@ -1,8 +1,17 @@
-# LEAMSS Portal - Test Credentials
+# LEAMSS Test Credentials
 
-## User Accounts
-- **Admin**: admin@leamss.com / Admin@123
-- **Case Manager**: manager@leamss.com / Manager@123
-- **Partner**: partner@leamss.com / Partner@123
-- **Client**: client@leamss.com / Client@123
-- **Client 2**: client2@leamss.com / Client@123
+## Admin
+- Email: admin@leamss.com
+- Password: Admin@123
+
+## Case Manager
+- Email: manager@leamss.com
+- Password: Manager@123
+
+## Partner
+- Email: partner@leamss.com
+- Password: Partner@123
+
+## Client
+- Email: client@leamss.com
+- Password: Client@123
