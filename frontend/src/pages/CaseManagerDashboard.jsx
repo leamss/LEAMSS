@@ -393,7 +393,8 @@ const CaseManagerDashboard = () => {
           // Duplicate doc - skip silently
         }
       }
-      toast.success(`AI added ${added} documents to "${stepName}"!`);
+      const sourceLabel = res.data.source === 'template' ? 'Official Template' : 'AI + Web Search';
+      toast.success(`${sourceLabel}: ${added} documents added to "${stepName}"!`, { duration: 5000 });
       loadCaseDetails(selectedCase.id);
     } catch (e) {
       toast.error(e.response?.data?.detail || 'AI suggestion failed');

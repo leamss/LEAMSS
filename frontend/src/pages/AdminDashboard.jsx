@@ -905,7 +905,9 @@ const AdminDashboard = () => {
         ...stepEditorDialog,
         stepData: { ...stepData, required_documents: [...stepData.required_documents, ...newDocs] }
       });
-      toast.success(`AI suggested ${suggestions.length} documents!`);
+      const sourceLabel = res.data.source === 'template' ? 'Official Template' : 'AI + Web Search';
+      const feesMsg = res.data.fees_info ? `\nFees: ${res.data.fees_info.substring(0, 100)}...` : '';
+      toast.success(`${sourceLabel}: ${suggestions.length} documents added!${feesMsg}`, { duration: 5000 });
     } catch (e) {
       toast.error(e.response?.data?.detail || 'AI suggestion failed');
     }
@@ -948,7 +950,7 @@ const AdminDashboard = () => {
       setProducts(productsRes.data);
       const updatedProduct = productsRes.data.find(p => p.id === workflowDialog.product.id);
       setWorkflowDialog({ ...workflowDialog, product: updatedProduct });
-      toast.success(`AI added ${totalAdded} documents across all steps!`);
+      toast.success(`${res.data.source === 'template' ? 'Official Template' : 'AI'}: ${totalAdded} documents added across all steps!`, { duration: 5000 });
     } catch (e) {
       toast.error(e.response?.data?.detail || 'AI bulk suggestion failed');
     }

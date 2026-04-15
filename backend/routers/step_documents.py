@@ -366,10 +366,205 @@ async def remove_step_document(data: RemoveDocRequest, current_user: dict = Depe
 
 
 
-# ============ AI DOCUMENT SUGGESTIONS ============
+# ============ AI DOCUMENT SUGGESTIONS (Smart Template + Web Search) ============
 
 import os
+import httpx
 EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
+
+# --- COMPREHENSIVE IMMIGRATION TEMPLATES ---
+# Real government requirements per country/visa type with assessment bodies, fees, and official sources
+
+IMMIGRATION_TEMPLATES = {
+    "canada_pr": {
+        "label": "Canada Permanent Residency (Express Entry)",
+        "keywords": ["canada", "pr", "permanent resid", "express entry", "ircc"],
+        "government_url": "https://www.canada.ca/en/immigration-refugees-citizenship/services/immigrate-canada/express-entry.html",
+        "assessment_bodies": ["WES (World Education Services)", "IQAS", "CES", "ICAS", "PEBC"],
+        "language_tests": ["IELTS General", "CELPIP General", "TEF Canada", "TCF Canada"],
+        "steps": {
+            "Profile Creation": [
+                {"doc_name": "Valid Passport", "description": "All pages of current valid passport", "is_mandatory": True, "doc_type": "passport"},
+                {"doc_name": "Digital Photograph", "description": "IRCC specification photos (35x45mm)", "is_mandatory": True, "doc_type": "photo"},
+                {"doc_name": "National Identity Card", "description": "Government-issued national ID (both sides)", "is_mandatory": False, "doc_type": "id_card"},
+            ],
+            "Education Credential Assessment": [
+                {"doc_name": "ECA Report", "description": "Education Credential Assessment from designated body (WES/IQAS/CES/ICAS)", "is_mandatory": True, "doc_type": "certificate"},
+                {"doc_name": "Degree Certificate", "description": "Original degree/diploma certificate", "is_mandatory": True, "doc_type": "certificate"},
+                {"doc_name": "Academic Transcripts", "description": "Official sealed transcripts from university/college", "is_mandatory": True, "doc_type": "certificate"},
+                {"doc_name": "Course Completion Letter", "description": "Letter confirming course completion from institution", "is_mandatory": False, "doc_type": "certificate"},
+            ],
+            "Language Testing": [
+                {"doc_name": "IELTS/CELPIP Score Report", "description": "Official language test results (IELTS General or CELPIP General)", "is_mandatory": True, "doc_type": "certificate"},
+                {"doc_name": "French Language Results", "description": "TEF Canada or TCF Canada results (if claiming French points)", "is_mandatory": False, "doc_type": "certificate"},
+            ],
+            "Express Entry Profile": [
+                {"doc_name": "Work Experience Letters", "description": "Reference letters from employers on company letterhead with duties, hours, salary", "is_mandatory": True, "doc_type": "legal"},
+                {"doc_name": "NOC Code Documentation", "description": "Evidence that work experience matches claimed NOC code", "is_mandatory": True, "doc_type": "other"},
+                {"doc_name": "Proof of Funds", "description": "Bank statements/investment proof showing minimum settlement funds (CAD $13,757 single, $25,564 family of 4)", "is_mandatory": True, "doc_type": "financial"},
+            ],
+            "ITA & PR Application": [
+                {"doc_name": "Police Clearance Certificate", "description": "PCC from each country lived in 6+ months since age 18", "is_mandatory": True, "doc_type": "legal"},
+                {"doc_name": "Medical Examination Report", "description": "IME from IRCC panel physician (valid 12 months)", "is_mandatory": True, "doc_type": "medical"},
+                {"doc_name": "Biometrics Confirmation", "description": "Biometrics collection receipt from VAC", "is_mandatory": True, "doc_type": "other"},
+                {"doc_name": "Marriage Certificate", "description": "Official marriage certificate (if applicable)", "is_mandatory": False, "doc_type": "legal"},
+                {"doc_name": "Birth Certificates", "description": "Birth certificates for dependent children", "is_mandatory": False, "doc_type": "legal"},
+                {"doc_name": "Proof of Relationship", "description": "Photos, communications, joint accounts for spouse/partner", "is_mandatory": False, "doc_type": "other"},
+            ],
+            "Final Review": [
+                {"doc_name": "Confirmation of PR (COPR)", "description": "Signed COPR document", "is_mandatory": True, "doc_type": "visa"},
+                {"doc_name": "PR Card Photo", "description": "Photos meeting PR card specifications", "is_mandatory": True, "doc_type": "photo"},
+            ],
+        },
+        "fees_info": "Application fee: CAD $1,365 per adult (processing $850 + RPRF $515). Biometrics: CAD $85/person. ECA (WES): CAD $220. IELTS: approx CAD $320."
+    },
+    "australia_pr": {
+        "label": "Australia Permanent Residency (Skilled Migration 189/190/491)",
+        "keywords": ["australia", "pr", "permanent resid", "skilled", "189", "190", "491", "dha", "home affairs"],
+        "government_url": "https://immi.homeaffairs.gov.au/visas/getting-a-visa/visa-listing/skilled-independent-189",
+        "assessment_bodies": ["VETASSESS", "ACS (Australian Computer Society)", "Engineers Australia", "TRA (Trades Recognition Australia)", "ANMAC", "CPAA", "CAANZ"],
+        "language_tests": ["IELTS Academic", "PTE Academic", "TOEFL iBT", "OET", "Cambridge C1 Advanced"],
+        "steps": {
+            "Skills Assessment": [
+                {"doc_name": "Skills Assessment Outcome Letter", "description": "Positive skills assessment from relevant assessing authority (ACS/VETASSESS/EA)", "is_mandatory": True, "doc_type": "certificate"},
+                {"doc_name": "Qualification Certificates", "description": "All degree/diploma certificates relevant to nominated occupation", "is_mandatory": True, "doc_type": "certificate"},
+                {"doc_name": "Academic Transcripts", "description": "Official transcripts for all qualifications", "is_mandatory": True, "doc_type": "certificate"},
+                {"doc_name": "Employment Reference Letters", "description": "Detailed reference letters on company letterhead with duties, dates, hours, salary", "is_mandatory": True, "doc_type": "legal"},
+                {"doc_name": "Payslips/Tax Returns", "description": "Payslips, tax returns, or bank statements as evidence of employment", "is_mandatory": True, "doc_type": "financial"},
+                {"doc_name": "CV/Resume", "description": "Detailed resume matching employment claims", "is_mandatory": True, "doc_type": "other"},
+            ],
+            "Language Testing": [
+                {"doc_name": "English Test Score Report", "description": "PTE Academic/IELTS/TOEFL/OET score report (valid 3 years)", "is_mandatory": True, "doc_type": "certificate"},
+            ],
+            "EOI Submission": [
+                {"doc_name": "Passport", "description": "Valid passport (all bio pages + any travel stamps)", "is_mandatory": True, "doc_type": "passport"},
+                {"doc_name": "Points Calculation Evidence", "description": "Evidence for each points claim (age, English, qualifications, experience)", "is_mandatory": True, "doc_type": "other"},
+                {"doc_name": "State Nomination Letter", "description": "State/territory nomination approval (for Subclass 190/491)", "is_mandatory": False, "doc_type": "legal"},
+            ],
+            "Visa Application": [
+                {"doc_name": "Police Clearance Certificate", "description": "National PCC from each country lived 12+ months since age 16", "is_mandatory": True, "doc_type": "legal"},
+                {"doc_name": "Health Examination Report", "description": "Medical examination by Bupa Medical Visa Services panel doctor", "is_mandatory": True, "doc_type": "medical"},
+                {"doc_name": "Chest X-Ray Report", "description": "Chest X-ray if required based on country of origin", "is_mandatory": False, "doc_type": "medical"},
+                {"doc_name": "Health Insurance (OVHC)", "description": "Overseas Visitor Health Cover evidence", "is_mandatory": True, "doc_type": "other"},
+                {"doc_name": "Birth Certificate", "description": "Full birth certificate for applicant and dependents", "is_mandatory": True, "doc_type": "legal"},
+                {"doc_name": "Marriage Certificate", "description": "Official marriage certificate (if applicable)", "is_mandatory": False, "doc_type": "legal"},
+                {"doc_name": "Relationship Evidence", "description": "Statutory declarations, photos, financial evidence for partner", "is_mandatory": False, "doc_type": "other"},
+                {"doc_name": "Form 80 - Personal Particulars", "description": "Completed Form 80 with full travel and address history", "is_mandatory": True, "doc_type": "other"},
+                {"doc_name": "Form 1221 - Additional Info", "description": "Completed Form 1221 additional personal particulars", "is_mandatory": False, "doc_type": "other"},
+            ],
+            "Decision & Grant": [
+                {"doc_name": "Visa Grant Letter", "description": "Official visa grant notification from DHA", "is_mandatory": True, "doc_type": "visa"},
+                {"doc_name": "Travel Document", "description": "Valid passport for initial entry before first entry deadline", "is_mandatory": True, "doc_type": "passport"},
+            ],
+        },
+        "fees_info": "Visa application (Subclass 189): AUD $4,640 primary applicant. Skills assessment: AUD $500-$1,200 depending on body. PTE Academic: AUD $410. Health exam: AUD $350-$500. Police clearance varies by country."
+    },
+    "uk_skilled_worker": {
+        "label": "UK Skilled Worker Visa",
+        "keywords": ["uk", "united kingdom", "britain", "skilled worker", "work visa", "tier 2"],
+        "government_url": "https://www.gov.uk/skilled-worker-visa",
+        "steps": {
+            "Certificate of Sponsorship": [
+                {"doc_name": "Certificate of Sponsorship (CoS)", "description": "Valid CoS reference number from licensed UK employer", "is_mandatory": True, "doc_type": "legal"},
+                {"doc_name": "Job Description", "description": "Detailed job description matching SOC code requirements", "is_mandatory": True, "doc_type": "other"},
+                {"doc_name": "Salary Confirmation", "description": "Evidence of salary meeting minimum threshold for occupation", "is_mandatory": True, "doc_type": "financial"},
+            ],
+            "English Language": [
+                {"doc_name": "IELTS for UKVI Score", "description": "IELTS for UKVI or approved SELT provider results", "is_mandatory": True, "doc_type": "certificate"},
+            ],
+            "Visa Application": [
+                {"doc_name": "Valid Passport", "description": "Current passport with at least 1 blank page", "is_mandatory": True, "doc_type": "passport"},
+                {"doc_name": "TB Test Certificate", "description": "TB test results from approved clinic (if from listed country)", "is_mandatory": False, "doc_type": "medical"},
+                {"doc_name": "Criminal Record Certificate", "description": "Police certificate from countries lived 12+ months", "is_mandatory": True, "doc_type": "legal"},
+                {"doc_name": "Bank Statements", "description": "Evidence of £1,270 maintenance funds held for 28 consecutive days", "is_mandatory": True, "doc_type": "financial"},
+                {"doc_name": "Qualification Certificates", "description": "Degree/diploma certificates relevant to job", "is_mandatory": True, "doc_type": "certificate"},
+                {"doc_name": "ATAS Certificate", "description": "Academic Technology Approval Scheme certificate (if applicable)", "is_mandatory": False, "doc_type": "certificate"},
+            ],
+        },
+        "fees_info": "Visa fee: GBP £719 (up to 3 years) or £1,420 (more than 3 years). IHS surcharge: GBP £1,035/year. Priority: GBP £500. Super priority: GBP £1,000."
+    },
+    "student_visa_generic": {
+        "label": "Student Visa (Generic)",
+        "keywords": ["student", "study", "university", "college", "education visa"],
+        "steps": {
+            "Admission": [
+                {"doc_name": "University Offer Letter", "description": "Unconditional offer letter from recognized institution", "is_mandatory": True, "doc_type": "certificate"},
+                {"doc_name": "Academic Transcripts", "description": "Official transcripts from previous education", "is_mandatory": True, "doc_type": "certificate"},
+                {"doc_name": "Statement of Purpose (SOP)", "description": "Personal statement explaining study plans and career goals", "is_mandatory": True, "doc_type": "other"},
+                {"doc_name": "Letters of Recommendation", "description": "Academic/professional recommendation letters", "is_mandatory": False, "doc_type": "other"},
+            ],
+            "Financial Documentation": [
+                {"doc_name": "Bank Statements", "description": "6-12 months bank statements showing sufficient funds", "is_mandatory": True, "doc_type": "financial"},
+                {"doc_name": "Scholarship Letter", "description": "Scholarship award letter if applicable", "is_mandatory": False, "doc_type": "financial"},
+                {"doc_name": "Financial Sponsor Letter", "description": "Sponsorship letter with sponsor's financial proof", "is_mandatory": False, "doc_type": "financial"},
+                {"doc_name": "Education Loan Approval", "description": "Loan sanction letter from bank if applicable", "is_mandatory": False, "doc_type": "financial"},
+            ],
+            "Visa Filing": [
+                {"doc_name": "Valid Passport", "description": "Passport valid for duration of study plus 6 months", "is_mandatory": True, "doc_type": "passport"},
+                {"doc_name": "Visa Application Form", "description": "Completed visa application form", "is_mandatory": True, "doc_type": "other"},
+                {"doc_name": "Passport Photos", "description": "Photos meeting destination country specifications", "is_mandatory": True, "doc_type": "photo"},
+                {"doc_name": "Medical Certificate", "description": "Medical fitness certificate from approved doctor", "is_mandatory": True, "doc_type": "medical"},
+                {"doc_name": "Police Clearance", "description": "Police clearance certificate from home country", "is_mandatory": True, "doc_type": "legal"},
+                {"doc_name": "English Proficiency", "description": "IELTS/TOEFL/PTE score report", "is_mandatory": True, "doc_type": "certificate"},
+                {"doc_name": "Health Insurance", "description": "Health insurance coverage for study period", "is_mandatory": True, "doc_type": "other"},
+            ],
+        },
+        "fees_info": "Varies by country. Typical: Application fee $100-$500, health exam $200-$500, biometrics $80-$100."
+    },
+}
+
+
+def _find_best_template(product_name: str) -> dict:
+    """Find the best matching template for a product name using keyword matching."""
+    product_lower = product_name.lower()
+    best_match = None
+    best_score = 0
+    for key, tmpl in IMMIGRATION_TEMPLATES.items():
+        score = sum(1 for kw in tmpl["keywords"] if kw in product_lower)
+        if score > best_score:
+            best_score = score
+            best_match = tmpl
+    return best_match
+
+
+def _find_step_docs_from_template(template: dict, step_name: str) -> list:
+    """Find matching step documents from template using fuzzy matching."""
+    if not template:
+        return []
+    step_lower = step_name.lower()
+    for tmpl_step_name, docs in template.get("steps", {}).items():
+        # Check if step names are similar
+        tmpl_lower = tmpl_step_name.lower()
+        if (tmpl_lower in step_lower or step_lower in tmpl_lower or
+            any(w in step_lower for w in tmpl_lower.split() if len(w) > 3)):
+            return docs
+    return []
+
+
+async def _web_search_context(product_name: str, step_name: str) -> str:
+    """Fetch current immigration info via web search for AI context enrichment."""
+    search_query = f"{product_name} {step_name} required documents official government"
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(
+                "https://www.google.com/search",
+                params={"q": search_query, "num": 3},
+                headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"},
+                follow_redirects=True
+            )
+            if resp.status_code == 200:
+                from bs4 import BeautifulSoup
+                soup = BeautifulSoup(resp.text, "html.parser")
+                snippets = []
+                for g in soup.select(".BNeawe, .VwiC3b, .IsZvec"):
+                    text = g.get_text(strip=True)
+                    if len(text) > 30:
+                        snippets.append(text)
+                if snippets:
+                    return "Current web search results:\n" + "\n".join(snippets[:5])
+    except Exception:
+        pass
+    return ""
 
 
 async def _call_ai(prompt: str, system_msg: str) -> str:
@@ -400,37 +595,77 @@ class AIBulkSuggestRequest(BaseModel):
 
 @router.post("/ai-suggest-step-docs")
 async def ai_suggest_step_documents(data: AISuggestRequest, current_user: dict = Depends(get_current_user)):
-    """AI suggests documents for a specific workflow step"""
+    """AI suggests documents for a specific workflow step using templates + web search + GPT."""
     if current_user["role"] not in ["admin", "case_manager"]:
         raise HTTPException(status_code=403, detail="Admin or CM only")
+
+    # 1. Check templates first
+    template = _find_best_template(data.product_name)
+    template_docs = _find_step_docs_from_template(template, data.step_name) if template else []
+
+    # If we have strong template match, return template docs directly (filtered)
+    if template_docs:
+        existing_lower = {d.lower() for d in data.existing_docs}
+        filtered = [d for d in template_docs if d["doc_name"].lower() not in existing_lower]
+        if filtered:
+            await audit_logs_col.insert_one({
+                "id": str(uuid.uuid4()), "user_id": current_user["id"],
+                "action": "ai_doc_suggestion_template", "entity_type": "workflow_step",
+                "entity_id": f"{data.product_name}/{data.step_name}",
+                "new_value": {"source": "template", "count": len(filtered), "template": template.get("label", "")},
+                "created_at": datetime.now(timezone.utc)
+            })
+            return {
+                "suggestions": filtered,
+                "source": "template",
+                "template_name": template.get("label", ""),
+                "fees_info": template.get("fees_info", ""),
+                "government_url": template.get("government_url", ""),
+            }
+
+    # 2. No template match - use web search + AI
+    web_context = await _web_search_context(data.product_name, data.step_name)
 
     existing_str = ""
     if data.existing_docs:
         existing_str = "\nAlready added documents (do NOT repeat these): " + ", ".join(data.existing_docs)
 
-    desc_str = ""
-    if data.step_description:
-        desc_str = "Step description: " + data.step_description
+    template_context = ""
+    if template:
+        template_context = (
+            f"\nReference info: {template.get('label', '')}. "
+            f"Assessment bodies: {', '.join(template.get('assessment_bodies', []))}. "
+            f"Language tests: {', '.join(template.get('language_tests', []))}. "
+            f"Fees: {template.get('fees_info', 'N/A')}. "
+            f"Official source: {template.get('government_url', '')}."
+        )
 
     example = '[{"doc_name":"Passport Copy","description":"Clear copy of all passport pages","is_mandatory":true,"doc_type":"passport"}]'
 
     prompt = (
-        f'For an immigration product called "{data.product_name}", suggest the required documents for the workflow step "{data.step_name}".\n'
-        f'{desc_str}\n{existing_str}\n\n'
-        'Return a JSON array of document objects. Each object should have:\n'
-        '- "doc_name": clear, professional document name\n'
-        '- "description": one-line description of what this document is\n'
-        '- "is_mandatory": true or false\n'
+        f'For the immigration product "{data.product_name}", suggest ACCURATE required documents for step "{data.step_name}".\n'
+        f'{("Step description: " + data.step_description) if data.step_description else ""}\n'
+        f'{template_context}\n{web_context}\n{existing_str}\n\n'
+        'IMPORTANT: Only suggest documents that are ACTUALLY required by the relevant government authority. '
+        'Do NOT suggest generic/random documents. Base suggestions on real immigration requirements.\n\n'
+        'Return a JSON array of document objects with:\n'
+        '- "doc_name": exact professional document name as used by the government\n'
+        '- "description": specific description including issuing authority where applicable\n'
+        '- "is_mandatory": true if legally required, false if supporting\n'
         '- "doc_type": one of passport, visa, certificate, id_card, photo, financial, medical, legal, other\n\n'
-        f'Suggest 3-6 relevant documents. Return ONLY the JSON array, no markdown or explanation.\nExample: {example}'
+        f'Suggest 3-6 documents. Return ONLY the JSON array.\nExample: {example}'
     )
 
-    system_msg = "You are an immigration documentation expert. Suggest accurate, relevant documents for immigration workflows. Return ONLY valid JSON arrays."
+    system_msg = (
+        "You are an immigration documentation expert with up-to-date knowledge of global visa requirements. "
+        "Only suggest documents that are genuinely required by government authorities. "
+        "Include specific details like issuing bodies, validity periods, and official form numbers where applicable. "
+        "Return ONLY valid JSON arrays."
+    )
 
     result = await _call_ai(prompt, system_msg)
 
     try:
-        # Clean up AI response
         cleaned = result.strip()
         if cleaned.startswith("```"):
             cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else cleaned[3:]
@@ -443,63 +678,143 @@ async def ai_suggest_step_documents(data: AISuggestRequest, current_user: dict =
 
     await audit_logs_col.insert_one({
         "id": str(uuid.uuid4()), "user_id": current_user["id"],
-        "action": "ai_doc_suggestion", "entity_type": "workflow_step",
+        "action": "ai_doc_suggestion_ai", "entity_type": "workflow_step",
         "entity_id": f"{data.product_name}/{data.step_name}",
-        "new_value": {"suggestions_count": len(suggestions)},
+        "new_value": {"source": "ai+web", "count": len(suggestions)},
         "created_at": datetime.now(timezone.utc)
     })
 
-    return {"suggestions": suggestions}
+    return {
+        "suggestions": suggestions,
+        "source": "ai",
+        "fees_info": template.get("fees_info", "") if template else "",
+        "government_url": template.get("government_url", "") if template else "",
+    }
 
 
 @router.post("/ai-suggest-bulk")
 async def ai_suggest_bulk_documents(data: AIBulkSuggestRequest, current_user: dict = Depends(get_current_user)):
-    """AI suggests documents for ALL steps of a product at once"""
+    """AI suggests documents for ALL steps of a product at once using templates + AI."""
     if current_user["role"] not in ["admin", "case_manager"]:
         raise HTTPException(status_code=403, detail="Admin or CM only")
 
-    steps_str = ""
-    for i, step in enumerate(data.steps, 1):
-        steps_str += f"\n{i}. {step.get('step_name', 'Step ' + str(i))}"
-        if step.get("description"):
-            steps_str += f" - {step['description']}"
+    template = _find_best_template(data.product_name)
+    suggestions = {}
+    source = "ai"
 
-    desc_part = f" ({data.product_description})" if data.product_description else ""
-    example_bulk = '{"Step 1 Name": [{"doc_name":"Passport","description":"Valid passport copy","is_mandatory":true,"doc_type":"passport"}]}'
+    # Try template-first approach
+    if template:
+        for step in data.steps:
+            step_name = step.get("step_name", "")
+            tmpl_docs = _find_step_docs_from_template(template, step_name)
+            if tmpl_docs:
+                suggestions[step_name] = tmpl_docs
+                source = "template"
 
-    prompt = (
-        f'For an immigration product called "{data.product_name}"{desc_part}, suggest required documents for EACH workflow step.\n\n'
-        f'Workflow steps:{steps_str}\n\n'
-        'For EACH step, suggest 2-5 relevant documents. Return a JSON object where keys are EXACT step names and values are arrays of document objects.\n\n'
-        'Each document object should have:\n'
-        '- "doc_name": clear professional name\n'
-        '- "description": one-line description\n'
-        '- "is_mandatory": true or false\n'
-        '- "doc_type": one of passport, visa, certificate, id_card, photo, financial, medical, legal, other\n\n'
-        f'Return ONLY the JSON object, no markdown.\nExample: {example_bulk}'
-    )
+    # If template covered all steps, return immediately
+    if len(suggestions) == len(data.steps) and all(suggestions.values()):
+        await audit_logs_col.insert_one({
+            "id": str(uuid.uuid4()), "user_id": current_user["id"],
+            "action": "ai_bulk_doc_suggestion_template", "entity_type": "product",
+            "entity_id": data.product_name,
+            "new_value": {"source": "template", "steps": len(data.steps), "template": template.get("label", "")},
+            "created_at": datetime.now(timezone.utc)
+        })
+        return {
+            "suggestions": suggestions,
+            "source": "template",
+            "template_name": template.get("label", ""),
+            "fees_info": template.get("fees_info", ""),
+            "government_url": template.get("government_url", ""),
+        }
 
-    system_msg = "You are an immigration documentation expert. Suggest accurate documents for each step. Return ONLY valid JSON."
+    # Steps not covered by template - use AI for those
+    uncovered_steps = [s for s in data.steps if s.get("step_name", "") not in suggestions]
+    if uncovered_steps:
+        steps_str = ""
+        for i, step in enumerate(uncovered_steps, 1):
+            steps_str += f"\n{i}. {step.get('step_name', 'Step ' + str(i))}"
+            if step.get("description"):
+                steps_str += f" - {step['description']}"
 
-    result = await _call_ai(prompt, system_msg)
+        template_context = ""
+        if template:
+            template_context = (
+                f"\nReference: {template.get('label', '')}. "
+                f"Assessment bodies: {', '.join(template.get('assessment_bodies', []))}. "
+                f"Fees: {template.get('fees_info', 'N/A')}."
+            )
 
-    try:
-        cleaned = result.strip()
-        if cleaned.startswith("```"):
-            cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else cleaned[3:]
-            cleaned = cleaned.rsplit("```", 1)[0]
-        suggestions = json.loads(cleaned)
-        if not isinstance(suggestions, dict):
-            suggestions = {}
-    except (json.JSONDecodeError, Exception):
-        suggestions = {}
+        desc_part = f" ({data.product_description})" if data.product_description else ""
+        example_bulk = '{"Step Name": [{"doc_name":"Passport","description":"Valid passport","is_mandatory":true,"doc_type":"passport"}]}'
+
+        prompt = (
+            f'For "{data.product_name}"{desc_part}, suggest ACCURATE required documents for these steps:\n'
+            f'{steps_str}\n{template_context}\n\n'
+            'IMPORTANT: Only suggest documents ACTUALLY required by the government authority. No generic documents.\n\n'
+            'Return a JSON object where keys are EXACT step names. Each doc must have:\n'
+            '- "doc_name": official document name\n- "description": specific description with issuing authority\n'
+            '- "is_mandatory": true/false\n- "doc_type": passport/visa/certificate/id_card/photo/financial/medical/legal/other\n\n'
+            f'Return ONLY JSON.\nExample: {example_bulk}'
+        )
+
+        system_msg = (
+            "You are an immigration documentation expert. Only suggest documents genuinely required by government authorities. "
+            "Include specific details like form numbers, issuing bodies, and validity periods. Return ONLY valid JSON."
+        )
+
+        result = await _call_ai(prompt, system_msg)
+        try:
+            cleaned = result.strip()
+            if cleaned.startswith("```"):
+                cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else cleaned[3:]
+                cleaned = cleaned.rsplit("```", 1)[0]
+            ai_suggestions = json.loads(cleaned)
+            if isinstance(ai_suggestions, dict):
+                # Match step names flexibly
+                for step in uncovered_steps:
+                    sn = step.get("step_name", "")
+                    matched = ai_suggestions.get(sn) or next(
+                        (v for k, v in ai_suggestions.items() if k.startswith(sn) or sn.startswith(k)), []
+                    )
+                    if matched:
+                        suggestions[sn] = matched
+                source = "template+ai" if any(s.get("step_name", "") in suggestions for s in data.steps) else "ai"
+        except (json.JSONDecodeError, Exception):
+            pass
 
     await audit_logs_col.insert_one({
         "id": str(uuid.uuid4()), "user_id": current_user["id"],
         "action": "ai_bulk_doc_suggestion", "entity_type": "product",
         "entity_id": data.product_name,
-        "new_value": {"steps_count": len(data.steps), "suggestions": {k: len(v) for k, v in suggestions.items()}},
+        "new_value": {"source": source, "steps": {k: len(v) for k, v in suggestions.items()}},
         "created_at": datetime.now(timezone.utc)
     })
 
-    return {"suggestions": suggestions}
+    return {
+        "suggestions": suggestions,
+        "source": source,
+        "fees_info": template.get("fees_info", "") if template else "",
+        "government_url": template.get("government_url", "") if template else "",
+    }
+
+
+@router.get("/templates")
+async def get_available_templates(current_user: dict = Depends(get_current_user)):
+    """Get list of available immigration document templates."""
+    if current_user["role"] not in ["admin", "case_manager"]:
+        raise HTTPException(status_code=403, detail="Admin or CM only")
+    templates = []
+    for key, tmpl in IMMIGRATION_TEMPLATES.items():
+        step_names = list(tmpl.get("steps", {}).keys())
+        total_docs = sum(len(docs) for docs in tmpl.get("steps", {}).values())
+        templates.append({
+            "id": key,
+            "label": tmpl["label"],
+            "steps": step_names,
+            "total_documents": total_docs,
+            "government_url": tmpl.get("government_url", ""),
+            "fees_info": tmpl.get("fees_info", ""),
+            "assessment_bodies": tmpl.get("assessment_bodies", []),
+        })
+    return {"templates": templates}
