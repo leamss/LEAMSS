@@ -48,8 +48,8 @@ async def request_step_document(data: StepDocRequest, current_user: dict = Depen
         raise HTTPException(status_code=404, detail="Step not found in case")
 
     existing_docs = step.get("required_documents", [])
-    # Check if doc already exists
-    if any(d.get("doc_name", "").lower() == data.doc_name.lower() for d in existing_docs):
+    # Check if doc already exists (handle both 'doc_name' and 'name' fields)
+    if any(_get_doc_name(d).lower() == data.doc_name.lower() for d in existing_docs):
         raise HTTPException(status_code=400, detail="Document already exists in this step")
 
     new_doc = {
@@ -140,11 +140,20 @@ async def request_additional_document(data: AdditionalDocRequest, current_user: 
     return {"message": f"Additional document '{data.doc_name}' requested", "id": request_doc["id"]}
 
 
+# ============ HELPER: normalize doc_name from both "doc_name" and "name" ============
+
+def _get_doc_name(rd: dict) -> str:
+    """Get document name from either 'doc_name' or 'name' field"""
+    return rd.get("doc_name") or rd.get("name") or ""
+
+
 # ============ GET STEP-WISE DOCUMENT VIEW (CLIENT + CM) ============
 
 @router.get("/case/{case_id}")
 async def get_stepwise_documents(case_id: str, current_user: dict = Depends(get_current_user)):
-    """Get complete step-wise document structure for a case"""
+    """Get complete step-wise document structure for a case.
+    Merges admin-default docs from workflow_steps with case-specific docs from case_steps.
+    """
     case = await cases_col.find_one({"id": case_id}, {"_id": 0})
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
@@ -153,10 +162,24 @@ async def get_stepwise_documents(case_id: str, current_user: dict = Depends(get_
     if current_user["role"] == "client" and current_user["id"] != case.get("client_id"):
         raise HTTPException(status_code=403, detail="Access denied")
 
-    # Get case steps with required_documents
-    steps = await case_steps_col.find(
+    # Get case steps
+    case_steps = await case_steps_col.find(
         {"case_id": case_id}, {"_id": 0}
     ).sort("step_order", 1).to_list(50)
+
+    # Get latest admin-defined workflow steps for this product
+    product_id = case.get("product_id", "")
+    admin_wf_steps = []
+    if product_id:
+        admin_wf_steps = await workflow_steps_col.find(
+            {"product_id": product_id}, {"_id": 0}
+        ).sort("step_order", 1).to_list(50)
+
+    # Build lookup: step_name -> admin default required_documents
+    admin_docs_by_step = {}
+    for aws in admin_wf_steps:
+        step_name = aws.get("step_name", "")
+        admin_docs_by_step[step_name] = aws.get("required_documents", [])
 
     # Get all uploaded documents for this case
     uploaded_docs = await documents_col.find(
@@ -176,32 +199,68 @@ async def get_stepwise_documents(case_id: str, current_user: dict = Depends(get_
     for r in additional_requests:
         if isinstance(r.get("created_at"), datetime):
             r["created_at"] = r["created_at"].isoformat()
-        # Check if uploaded
         matching_doc = next(
             (d for d in uploaded_docs if d.get("additional_request_id") == r.get("id")),
             None
         )
         r["uploaded_doc"] = matching_doc
 
-    # Build step-wise structure
+    # Build step-wise structure by merging admin defaults + case-specific docs
     step_docs = []
-    for step in steps:
-        req_docs = step.get("required_documents", [])
-        step_uploaded = [d for d in uploaded_docs if d.get("step_name") == step.get("step_name")]
+    for cs in case_steps:
+        step_name = cs.get("step_name", "")
+        case_req_docs = cs.get("required_documents", [])
+        step_uploaded = [d for d in uploaded_docs if d.get("step_name") == step_name]
 
+        # Get latest admin default docs for this step
+        admin_defaults = admin_docs_by_step.get(step_name, [])
+
+        # Build a set of doc names already in case_steps (CM-added or previously synced)
+        existing_names = set()
+        for rd in case_req_docs:
+            existing_names.add(_get_doc_name(rd).lower())
+
+        # Merge: start with case_step docs, then add any NEW admin defaults not yet in case_steps
+        merged_docs = list(case_req_docs)
+        new_admin_docs = []
+        for ad in admin_defaults:
+            ad_name = _get_doc_name(ad)
+            if ad_name and ad_name.lower() not in existing_names:
+                merged_docs.append({
+                    "doc_name": ad_name,
+                    "description": ad.get("description", ""),
+                    "is_mandatory": ad.get("is_mandatory", ad.get("mandatory", True)),
+                    "tag": ad.get("tag", "mandatory"),
+                    "notes": ad.get("notes", ""),
+                    "source": "admin_default",
+                    "added_by_name": "Admin",
+                })
+                new_admin_docs.append(ad_name)
+
+        # Sync new admin docs to case_steps in DB (so they persist)
+        if new_admin_docs:
+            await case_steps_col.update_one(
+                {"case_id": case_id, "step_name": step_name},
+                {"$set": {"required_documents": merged_docs}}
+            )
+
+        # Build doc items for response
         doc_items = []
-        for rd in req_docs:
-            doc_name = rd.get("doc_name", "")
-            # Find matching uploaded doc
+        for rd in merged_docs:
+            doc_name = _get_doc_name(rd)
+            if not doc_name:
+                continue
             matching = next(
-                (d for d in step_uploaded if d.get("document_type", "").lower() == doc_name.lower() or d.get("filename", "").lower().startswith(doc_name.lower()[:5])),
+                (d for d in step_uploaded
+                 if d.get("document_type", "").lower() == doc_name.lower()
+                 or d.get("filename", "").lower().startswith(doc_name.lower()[:5])),
                 None
             )
             doc_items.append({
                 "doc_name": doc_name,
-                "is_mandatory": rd.get("is_mandatory", True),
+                "is_mandatory": rd.get("is_mandatory", rd.get("mandatory", True)),
                 "tag": rd.get("tag", "mandatory"),
-                "notes": rd.get("notes", ""),
+                "notes": rd.get("notes", rd.get("description", "")),
                 "source": rd.get("source", "admin_default"),
                 "added_by_name": rd.get("added_by_name", "Admin"),
                 "uploaded": matching is not None,
@@ -210,17 +269,17 @@ async def get_stepwise_documents(case_id: str, current_user: dict = Depends(get_
             })
 
         step_docs.append({
-            "step_name": step.get("step_name", ""),
-            "step_order": step.get("step_order", 0),
-            "description": step.get("description", ""),
-            "status": step.get("status", "pending"),
-            "required_count": len(req_docs),
+            "step_name": step_name,
+            "step_order": cs.get("step_order", 0),
+            "description": cs.get("description", ""),
+            "status": cs.get("status", "pending"),
+            "required_count": len(doc_items),
             "uploaded_count": sum(1 for d in doc_items if d["uploaded"]),
             "verified_count": sum(1 for d in doc_items if d["status"] == "approved"),
             "documents": doc_items,
         })
 
-    # Count unmatched uploads (docs uploaded without specific step)
+    # Count unmatched uploads
     matched_doc_ids = set()
     for sd in step_docs:
         for d in sd["documents"]:
@@ -269,7 +328,7 @@ async def remove_step_document(data: RemoveDocRequest, current_user: dict = Depe
         raise HTTPException(status_code=404, detail="Step not found")
 
     docs = step.get("required_documents", [])
-    target = next((d for d in docs if d.get("doc_name", "").lower() == data.doc_name.lower()), None)
+    target = next((d for d in docs if _get_doc_name(d).lower() == data.doc_name.lower()), None)
 
     if not target:
         raise HTTPException(status_code=404, detail="Document not found in step")
@@ -278,7 +337,7 @@ async def remove_step_document(data: RemoveDocRequest, current_user: dict = Depe
     if current_user["role"] == "case_manager" and target.get("source") == "admin_default":
         raise HTTPException(status_code=403, detail="Cannot remove admin-defined documents. Request admin approval.")
 
-    updated = [d for d in docs if d.get("doc_name", "").lower() != data.doc_name.lower()]
+    updated = [d for d in docs if _get_doc_name(d).lower() != data.doc_name.lower()]
     await case_steps_col.update_one(
         {"case_id": data.case_id, "step_name": data.step_name},
         {"$set": {"required_documents": updated}}

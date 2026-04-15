@@ -1,0 +1,127 @@
+{
+  "summary": "Iteration 56: Step-wise Document Management - All features verified working. Backend: 12/12 tests passed. Frontend: All 10 features verified via Playwright.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration56_step_documents.py",
+    "/app/test_reports/pytest/pytest_iteration56.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_iteration56_step_documents.py"
+  ],
+  "success_rate": {
+    "backend": "100% (12/12 passed)",
+    "frontend": "100% (all 10 features verified)"
+  },
+  "test_credentials": {
+    "admin": "admin@leamss.com / Admin@123",
+    "case_manager": "manager@leamss.com / Manager@123",
+    "client": "client@leamss.com / Client@123"
+  },
+  "seed_data_creation": "None - used existing data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration 56 verified all recently fixed bugs are working correctly: (1) Admin workflow step docs persist - ECA step shows 'ECA Report' and 'Degree Certificate' in Edit Workflow dialog, (2) CM '+Add Doc' inside a step opens dialog titled 'Add Document to Step: [Step Name]' and uses correct API endpoint /api/step-documents/request-step-doc, (3) CM 'Request Additional Document' header button opens separate dialog and uses /api/step-documents/request-additional, (4) Admin default docs sync to case_steps - client sees admin-defined docs in their step view, (5) doc_name vs name field handling works correctly in all views.",
+  "features_tested": {
+    "admin_workflow_step_docs": {
+      "status": "PASS",
+      "details": "Products page shows workflow steps with document counts. Edit Workflow dialog for Canada PR shows 3 steps. ECA step displays 'Required Documents: ECA Report *, Degree Certificate *' confirming admin docs persist."
+    },
+    "admin_add_doc_to_step": {
+      "status": "PASS",
+      "details": "Backend test verified: Admin can add document to workflow step via PUT /api/products/{id}/workflow-step/{order} with required_documents array. Document persists after save."
+    },
+    "cm_add_doc_inside_step": {
+      "status": "PASS",
+      "details": "CM case detail shows '+Add Doc' button inside each unlocked step. Clicking opens dialog titled 'Add Document to Step: Integration Test Step'. Uses POST /api/step-documents/request-step-doc endpoint. Document appears IN the step, NOT in Additional Documents."
+    },
+    "cm_request_additional_document": {
+      "status": "PASS",
+      "details": "CM case detail shows 'Request Additional Document' button in header. Clicking opens 'Request Additional Document' dialog. Uses POST /api/step-documents/request-additional endpoint. Document appears in separate Additional section."
+    },
+    "cm_customization_enabled": {
+      "status": "PASS",
+      "details": "Case detail view shows 'Customization Enabled' badge when workflow customization is allowed. +Add Doc buttons visible per step."
+    },
+    "client_step_documents_view": {
+      "status": "PASS",
+      "details": "Client Doc Completion tab shows StepDocuments component with 8 step cards. Progress bar shows 12% (1/8 uploaded). Each step shows document count and status."
+    },
+    "client_step_expansion": {
+      "status": "PASS",
+      "details": "Clicking step card expands to show documents. Step 1 (Profile Creation) shows Passport (mandatory, Upload button) and Photo (mandatory, approved status)."
+    },
+    "admin_default_docs_sync": {
+      "status": "PASS",
+      "details": "Backend GET /api/step-documents/case/{id} merges admin default docs from workflow_steps into case_steps. Client sees admin-defined docs with source='admin_default'."
+    },
+    "doc_name_field_handling": {
+      "status": "PASS",
+      "details": "API handles both 'doc_name' and 'name' fields. Response always includes 'doc_name' field. Frontend renders correctly regardless of field name used."
+    },
+    "step_documents_api": {
+      "status": "PASS",
+      "details": "All 4 endpoints working: GET /case/{id} returns steps with documents, POST request-step-doc adds to step, POST request-additional adds to separate section, POST remove-step-doc removes CM-added doc."
+    }
+  },
+  "backend_tests_summary": {
+    "total": 12,
+    "passed": 12,
+    "failed": 0,
+    "tests": [
+      "test_admin_login - PASS",
+      "test_get_products_with_workflow_steps - PASS",
+      "test_admin_add_document_to_workflow_step - PASS",
+      "test_cm_login - PASS",
+      "test_cm_get_cases - PASS",
+      "test_cm_request_step_document_api - PASS",
+      "test_cm_request_additional_document_api - PASS",
+      "test_client_login - PASS",
+      "test_client_get_step_documents - PASS",
+      "test_client_step_documents_show_admin_defaults - PASS",
+      "test_step_documents_handle_both_fields - PASS",
+      "test_summary_calculations - PASS"
+    ]
+  },
+  "ui_verification": {
+    "admin_products": {
+      "workflow_steps_visible": "3 steps for Canada PR: Integration Test Step, ECA, IELTS/CELPIP/PTE CORE",
+      "required_documents_visible": "ECA step shows 'ECA Report *' and 'Degree Certificate *'",
+      "edit_workflow_dialog": "Opens correctly with step list and edit buttons"
+    },
+    "cm_case_detail": {
+      "case_tested": "CASE-20260412-EE36 (Canada PR)",
+      "customization_badge": "Visible - 'Customization Enabled'",
+      "add_doc_buttons": "1 +Add Doc button visible in unlocked step",
+      "request_additional_btn": "Visible in header",
+      "add_doc_dialog_title": "Add Document to Step: Integration Test Step",
+      "additional_doc_dialog_title": "Request Additional Document"
+    },
+    "client_doc_completion": {
+      "step_cards": "8 step cards visible",
+      "progress": "12% (1/8 uploaded)",
+      "step1_expanded": "Profile Creation - Passport (Upload), Photo (approved)",
+      "mandatory_tags": "Visible on documents",
+      "upload_buttons": "Working for pending documents"
+    }
+  },
+  "mocked_apis": {
+    "resend_email": "MOCK mode - logs to console instead of sending actual emails",
+    "whatsapp": "wa.me redirect"
+  },
+  "bugs_verified_fixed": [
+    "Admin workflow step docs not persisting - FIXED: Docs now show in Edit Workflow dialog",
+    "CM '+Add Doc' inside step going to Additional Documents - FIXED: Now uses correct API endpoint /api/step-documents/request-step-doc",
+    "Admin default docs not syncing to existing case_steps - FIXED: Backend merges workflow_steps docs into case_steps on read",
+    "doc_name vs name field mismatch - FIXED: API handles both fields, response always includes doc_name"
+  ]
+}

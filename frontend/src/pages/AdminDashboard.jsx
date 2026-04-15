@@ -2791,7 +2791,7 @@ const AdminDashboard = () => {
                           {step.description && <p className="text-sm text-slate-600 mt-1">{step.description}</p>}
                           {step.duration_days && <p className="text-xs text-slate-500 mt-1">Duration: {step.duration_days} days</p>}
                           {step.required_documents && step.required_documents.length > 0 && (
-                            <div className="mt-2"><p className="text-xs font-medium text-slate-700">Required Documents:</p><div className="flex flex-wrap gap-1 mt-1">{step.required_documents.map((doc, docIdx) => <Badge key={docIdx} variant="outline" className="text-xs">{doc.doc_name} {doc.is_mandatory && '*'}</Badge>)}</div></div>
+                            <div className="mt-2"><p className="text-xs font-medium text-slate-700">Required Documents:</p><div className="flex flex-wrap gap-1 mt-1">{step.required_documents.map((doc, docIdx) => <Badge key={docIdx} variant="outline" className="text-xs">{doc.doc_name || doc.name || 'Unnamed'} {doc.is_mandatory && '*'}</Badge>)}</div></div>
                           )}
                         </div>
                       </div>

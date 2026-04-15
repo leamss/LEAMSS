@@ -56,7 +56,8 @@ const CaseManagerDashboard = () => {
     expiry_date: '',
     validity_months: '',
     doc_type: '',
-    step_order: null
+    step_order: null,
+    step_name: ''
   });
   const [canCustomizeWorkflow, setCanCustomizeWorkflow] = useState(false);
   const [pendingReviewCount, setPendingReviewCount] = useState(0);
@@ -187,6 +188,8 @@ const CaseManagerDashboard = () => {
 
   const loadCaseDetails = async (caseId) => {
     try {
+      // Trigger step-documents sync first (merges admin defaults into case_steps)
+      await axios.get(`${API}/step-documents/case/${caseId}`, getAuthHeader()).catch(() => {});
       const [caseRes, docsRes] = await Promise.all([
         axios.get(`${API}/cases/${caseId}`, getAuthHeader()),
         axios.get(`${API}/documents/case/${caseId}`, getAuthHeader())
@@ -284,29 +287,35 @@ const CaseManagerDashboard = () => {
   };
 
   const handleRequestAdditionalDoc = async () => {
-    if (!additionalDocDialog.document_name || !additionalDocDialog.description) {
-      toast.error('Please fill all required fields');
+    if (!additionalDocDialog.document_name) {
+      toast.error('Please enter document name');
       return;
     }
 
     try {
-      const endpoint = additionalDocDialog.step_order !== null 
-        ? `${API}/cases/${selectedCase.id}/custom-document-request`
-        : `${API}/cases/request-document`;
-      
-      const requestData = {
-        case_id: selectedCase.id,
-        document_name: additionalDocDialog.document_name,
-        description: additionalDocDialog.description,
-        due_date: additionalDocDialog.due_date || null,
-        expiry_date: additionalDocDialog.expiry_date || null,
-        validity_months: additionalDocDialog.validity_months ? parseInt(additionalDocDialog.validity_months) : null,
-        doc_type: additionalDocDialog.doc_type || null,
-        step_order: additionalDocDialog.step_order
-      };
+      const isStepDoc = additionalDocDialog.step_order !== null && additionalDocDialog.step_name;
 
-      await axios.post(endpoint, requestData, getAuthHeader());
-      
+      if (isStepDoc) {
+        // Route to step-documents API (adds to case_steps.required_documents)
+        await axios.post(`${API}/step-documents/request-step-doc`, {
+          case_id: selectedCase.id,
+          step_name: additionalDocDialog.step_name,
+          doc_name: additionalDocDialog.document_name,
+          is_mandatory: true,
+          tag: 'mandatory',
+          notes: additionalDocDialog.description || '',
+        }, getAuthHeader());
+      } else {
+        // Route to step-documents additional API (separate section)
+        await axios.post(`${API}/step-documents/request-additional`, {
+          case_id: selectedCase.id,
+          doc_name: additionalDocDialog.document_name,
+          is_mandatory: true,
+          tag: 'mandatory',
+          notes: additionalDocDialog.description || '',
+        }, getAuthHeader());
+      }
+
       // Also create a ticket to notify the client
       if (additionalDocDialog.createTicket !== false) {
         try {
@@ -322,11 +331,11 @@ const CaseManagerDashboard = () => {
           console.error('Failed to create ticket for doc request:', e);
         }
       }
-      
-      toast.success('Additional document requested! Client has been notified.');
+
+      toast.success(isStepDoc ? `Document added to step "${additionalDocDialog.step_name}"!` : 'Additional document requested!');
       setAdditionalDocDialog({ 
         open: false, document_name: '', description: '', due_date: '',
-        expiry_date: '', validity_months: '', doc_type: '', step_order: null
+        expiry_date: '', validity_months: '', doc_type: '', step_order: null, step_name: ''
       });
       loadCaseDetails(selectedCase.id);
     } catch (error) {
@@ -334,7 +343,7 @@ const CaseManagerDashboard = () => {
     }
   };
 
-  const openCustomDocDialog = (stepOrder) => {
+  const openCustomDocDialog = (stepOrder, stepName) => {
     if (!canCustomizeWorkflow) {
       toast.error('Workflow customization is not enabled. Please contact Admin.');
       return;
@@ -347,7 +356,8 @@ const CaseManagerDashboard = () => {
       expiry_date: '',
       validity_months: '',
       doc_type: '',
-      step_order: stepOrder
+      step_order: stepOrder,
+      step_name: stepName
     });
   };
 
@@ -632,7 +642,7 @@ const CaseManagerDashboard = () => {
                       Request Info Sheet
                     </Button>
                     <Button
-                      onClick={() => setAdditionalDocDialog({ ...additionalDocDialog, open: true })}
+                      onClick={() => setAdditionalDocDialog({ ...additionalDocDialog, open: true, step_order: null, step_name: '' })}
                       size="sm"
                       className="bg-[#2a777a] hover:bg-[#236466]"
                     >
@@ -688,13 +698,15 @@ const CaseManagerDashboard = () => {
                           {step.required_documents && step.required_documents.length > 0 && (
                             <div className="mt-2 flex flex-wrap gap-1">
                               {step.required_documents.map((d, di) => {
+                                const docName = d.doc_name || d.name || '';
+                                if (!docName) return null;
                                 const uploaded = (caseDocuments || []).some(cd => 
-                                  cd.document_type?.toLowerCase().includes(d.doc_name?.toLowerCase()) || 
-                                  d.doc_name?.toLowerCase().includes(cd.document_type?.toLowerCase())
+                                  cd.document_type?.toLowerCase().includes(docName.toLowerCase()) || 
+                                  docName.toLowerCase().includes(cd.document_type?.toLowerCase())
                                 );
                                 return (
                                   <span key={di} className={`text-xs px-2 py-0.5 rounded-full border ${uploaded ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-600 border-red-200'}`}>
-                                    {d.doc_name} {uploaded ? '✓' : '✗'}
+                                    {docName} {uploaded ? '\u2713' : '\u2717'}
                                     {d.is_mandatory && !uploaded && <span className="text-red-500 ml-0.5">*</span>}
                                   </span>
                                 );
@@ -719,7 +731,7 @@ const CaseManagerDashboard = () => {
                           <Button 
                             size="sm" 
                             variant="outline"
-                            onClick={() => openCustomDocDialog(step.step_order)}
+                            onClick={() => openCustomDocDialog(step.step_order, step.step_name)}
                             data-testid={`add-doc-step-${index}`}
                           >
                             <Plus className="h-4 w-4 mr-1" />Add Doc
@@ -1388,8 +1400,8 @@ const CaseManagerDashboard = () => {
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {additionalDocDialog.step_order !== null 
-                ? `Request Document for Step ${additionalDocDialog.step_order}` 
+              {additionalDocDialog.step_name 
+                ? `Add Document to Step: ${additionalDocDialog.step_name}` 
                 : 'Request Additional Document'}
             </DialogTitle>
           </DialogHeader>
