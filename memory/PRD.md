@@ -5,13 +5,13 @@ React + TailwindCSS + Shadcn UI | FastAPI + Motor (MongoDB) | OpenAI GPT-5.2 | S
 
 ## ALL Features Complete & Verified
 
-### Phases 1-13, P2, All Overhauls, All Bug Fixes — VERIFIED
-
-### Latest Fix (Messaging Unified):
-- CM Communication Hub: WhatsApp-style layout, self-loads 8 clients with names, full chat history
-- Client Messages: Same unified chat (cm_client_messages collection)
-- Two-way sync: CM ↔ Client verified
-- Payment Reminders: Enhanced with 7 stats, progress bars, custom messages, history, CSV
+### Core: Phases 1-13, P2, All Overhauls
+### Step-wise Document Management (Latest — ALL VERIFIED):
+- Admin: Define default documents per workflow step (source: admin_default)
+- CM: Request step-level docs (only for that client) + Additional docs (separate section)
+- Client: Step-wise view with per-doc upload, progress bars, mandatory/optional tags
+- Delete control: CM removes only CM-added; Admin removes any
+- Document types: admin_default, cm_request | Tags: mandatory, optional, conditional
 
 ## Current Bugs: NONE
 
