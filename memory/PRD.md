@@ -16,42 +16,28 @@ Multi-role immigration portal (LEAMSS) with React + FastAPI + MongoDB. Roles: Ad
 - Phase 13: Dark Mode, PWA, WhatsApp floating button, i18n
 - Chat Unification: Unified cm_client_messages collection
 - Payment Reminders UI enhancements
-- Step-wise Document Management System (2026-04-15): Admin workflow docs, CM step-specific + additional doc requests, backend merge logic
-- **Unified Document View (2026-04-15)**: Replaced 4+ client document tabs with single "Documents & Steps" view
+- Step-wise Document Management System (2026-04-15): Backend merge logic, CM routing fix
+- Unified Document View (2026-04-15): Single "Documents & Steps" client tab replacing 4 tabs
+- **AI Document Suggestions (2026-04-15)**: GPT-powered document checklist generation
 
-## Unified Document View (Latest - 2026-04-15)
-### What was done:
-1. **Created UnifiedDocumentView.jsx**: Single component replacing Workflow Steps, Document Checklist, Doc Completion, Action Required tabs
-2. **Client sidebar cleanup**: Removed 4 redundant tabs, now: My Journey, Documents & Steps, My Uploads, My Info Sheet
-3. **Progress card**: Shows completion %, stats (Required/Uploaded/Pending/Requested)
-4. **Step accordion cards**: Each step expands to show required documents with Upload buttons, mandatory tags, CM notes, expiry warnings
-5. **Additional docs section**: Shows CM-requested additional documents with upload
-6. **Legacy data merge**: Backend reads from both `document_requests` and `additional_doc_requests` collections
-7. **Admin default sync**: Auto-merges admin workflow docs into existing case_steps on API call
-
-### Key Components:
-- `/app/frontend/src/components/UnifiedDocumentView.jsx` - Unified client document view
-- `/app/backend/routers/step_documents.py` - Step-wise document API with merge logic
+## AI Document Suggestions (Latest - 2026-04-15)
+### What was built:
+1. **Backend AI endpoints**:
+   - `POST /api/step-documents/ai-suggest-step-docs` - AI suggests 3-6 docs for a specific step
+   - `POST /api/step-documents/ai-suggest-bulk` - AI suggests docs for ALL steps at once
+2. **Admin UI**: 
+   - "AI Auto-Fill Docs" button in workflow editor (bulk suggests for all steps)
+   - "AI Suggest" button per step in step editor
+3. **CM UI**: "AI Suggest" button per step in case detail (auto-adds suggested docs to client's step)
+4. **Audit Trail**: All AI suggestions logged to audit_logs collection
 
 ### Key Endpoints:
-- `PUT /api/products/{id}/workflow-step/{order}` - Admin save workflow step with required_documents
-- `POST /api/step-documents/request-step-doc` - CM add doc to specific step
-- `POST /api/step-documents/request-additional` - CM add additional doc (separate section)
-- `GET /api/step-documents/case/{case_id}` - Get merged step-wise document structure
-- `POST /api/step-documents/remove-step-doc` - Remove CM-added doc from step
+- `POST /api/step-documents/ai-suggest-step-docs` - Per-step AI suggestions
+- `POST /api/step-documents/ai-suggest-bulk` - Bulk AI suggestions for product
 
 ## Backlog / Future Tasks
-- P1: AI Document Suggestions per product/step (CM assistance)
 - P2: Resend Email from mock to live (requires RESEND_API_KEY)
 - P3: Twilio WhatsApp full integration (requires API keys)
-
-## Key DB Collections
-- `cases`, `case_steps` (client step progression + required_documents)
-- `workflow_steps` (admin-defined default docs per product step)
-- `documents` (uploaded files)
-- `document_requests` (new additional doc requests from step-documents API)
-- `additional_doc_requests` (legacy additional doc requests from cases API)
-- `cm_client_messages` (unified chat)
 
 ## Test Credentials
 - Admin: admin@leamss.com / Admin@123
