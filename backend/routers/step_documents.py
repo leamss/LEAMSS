@@ -4,6 +4,7 @@
 - Client: View step-wise document requirements + upload
 """
 import uuid
+import json
 from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
@@ -362,3 +363,143 @@ async def remove_step_document(data: RemoveDocRequest, current_user: dict = Depe
     )
 
     return {"message": f"Document '{data.doc_name}' removed from step '{data.step_name}'"}
+
+
+
+# ============ AI DOCUMENT SUGGESTIONS ============
+
+import os
+EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
+
+
+async def _call_ai(prompt: str, system_msg: str) -> str:
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
+    try:
+        chat = LlmChat(
+            api_key=EMERGENT_LLM_KEY,
+            session_id=f"doc-suggest-{uuid.uuid4().hex[:8]}",
+            system_message=system_msg
+        )
+        return await chat.send_message(UserMessage(text=prompt))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"AI service error: {str(e)}")
+
+
+class AISuggestRequest(BaseModel):
+    product_name: str
+    step_name: str
+    step_description: str = ""
+    existing_docs: List[str] = []
+
+
+class AIBulkSuggestRequest(BaseModel):
+    product_name: str
+    product_description: str = ""
+    steps: List[dict] = []  # [{"step_name": "...", "description": "..."}]
+
+
+@router.post("/ai-suggest-step-docs")
+async def ai_suggest_step_documents(data: AISuggestRequest, current_user: dict = Depends(get_current_user)):
+    """AI suggests documents for a specific workflow step"""
+    if current_user["role"] not in ["admin", "case_manager"]:
+        raise HTTPException(status_code=403, detail="Admin or CM only")
+
+    existing_str = ""
+    if data.existing_docs:
+        existing_str = "\nAlready added documents (do NOT repeat these): " + ", ".join(data.existing_docs)
+
+    desc_str = ""
+    if data.step_description:
+        desc_str = "Step description: " + data.step_description
+
+    example = '[{"doc_name":"Passport Copy","description":"Clear copy of all passport pages","is_mandatory":true,"doc_type":"passport"}]'
+
+    prompt = (
+        f'For an immigration product called "{data.product_name}", suggest the required documents for the workflow step "{data.step_name}".\n'
+        f'{desc_str}\n{existing_str}\n\n'
+        'Return a JSON array of document objects. Each object should have:\n'
+        '- "doc_name": clear, professional document name\n'
+        '- "description": one-line description of what this document is\n'
+        '- "is_mandatory": true or false\n'
+        '- "doc_type": one of passport, visa, certificate, id_card, photo, financial, medical, legal, other\n\n'
+        f'Suggest 3-6 relevant documents. Return ONLY the JSON array, no markdown or explanation.\nExample: {example}'
+    )
+
+    system_msg = "You are an immigration documentation expert. Suggest accurate, relevant documents for immigration workflows. Return ONLY valid JSON arrays."
+
+    result = await _call_ai(prompt, system_msg)
+
+    try:
+        # Clean up AI response
+        cleaned = result.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else cleaned[3:]
+            cleaned = cleaned.rsplit("```", 1)[0]
+        suggestions = json.loads(cleaned)
+        if not isinstance(suggestions, list):
+            suggestions = []
+    except (json.JSONDecodeError, Exception):
+        suggestions = []
+
+    await audit_logs_col.insert_one({
+        "id": str(uuid.uuid4()), "user_id": current_user["id"],
+        "action": "ai_doc_suggestion", "entity_type": "workflow_step",
+        "entity_id": f"{data.product_name}/{data.step_name}",
+        "new_value": {"suggestions_count": len(suggestions)},
+        "created_at": datetime.now(timezone.utc)
+    })
+
+    return {"suggestions": suggestions}
+
+
+@router.post("/ai-suggest-bulk")
+async def ai_suggest_bulk_documents(data: AIBulkSuggestRequest, current_user: dict = Depends(get_current_user)):
+    """AI suggests documents for ALL steps of a product at once"""
+    if current_user["role"] not in ["admin", "case_manager"]:
+        raise HTTPException(status_code=403, detail="Admin or CM only")
+
+    steps_str = ""
+    for i, step in enumerate(data.steps, 1):
+        steps_str += f"\n{i}. {step.get('step_name', 'Step ' + str(i))}"
+        if step.get("description"):
+            steps_str += f" - {step['description']}"
+
+    desc_part = f" ({data.product_description})" if data.product_description else ""
+    example_bulk = '{"Step 1 Name": [{"doc_name":"Passport","description":"Valid passport copy","is_mandatory":true,"doc_type":"passport"}]}'
+
+    prompt = (
+        f'For an immigration product called "{data.product_name}"{desc_part}, suggest required documents for EACH workflow step.\n\n'
+        f'Workflow steps:{steps_str}\n\n'
+        'For EACH step, suggest 2-5 relevant documents. Return a JSON object where keys are EXACT step names and values are arrays of document objects.\n\n'
+        'Each document object should have:\n'
+        '- "doc_name": clear professional name\n'
+        '- "description": one-line description\n'
+        '- "is_mandatory": true or false\n'
+        '- "doc_type": one of passport, visa, certificate, id_card, photo, financial, medical, legal, other\n\n'
+        f'Return ONLY the JSON object, no markdown.\nExample: {example_bulk}'
+    )
+
+    system_msg = "You are an immigration documentation expert. Suggest accurate documents for each step. Return ONLY valid JSON."
+
+    result = await _call_ai(prompt, system_msg)
+
+    try:
+        cleaned = result.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else cleaned[3:]
+            cleaned = cleaned.rsplit("```", 1)[0]
+        suggestions = json.loads(cleaned)
+        if not isinstance(suggestions, dict):
+            suggestions = {}
+    except (json.JSONDecodeError, Exception):
+        suggestions = {}
+
+    await audit_logs_col.insert_one({
+        "id": str(uuid.uuid4()), "user_id": current_user["id"],
+        "action": "ai_bulk_doc_suggestion", "entity_type": "product",
+        "entity_id": data.product_name,
+        "new_value": {"steps_count": len(data.steps), "suggestions": {k: len(v) for k, v in suggestions.items()}},
+        "created_at": datetime.now(timezone.utc)
+    })
+
+    return {"suggestions": suggestions}

@@ -18,7 +18,7 @@ import DocumentChecklist from '@/components/DocumentChecklist';
 import CreateTicket from '@/components/CreateTicket';
 import TicketSection from '@/components/TicketSection';
 import QuickActions from '@/components/QuickActions';
-import { Briefcase, FileText, CheckCircle, AlertCircle, LogOut, Download, Plus, Send, ArrowLeft, MessageSquare, Search, Filter, Clock, Eye, Menu, X, Lock, Calendar, AlertTriangle, User, ClipboardList, Zap, BookOpen, Star, ArrowRightLeft } from 'lucide-react';
+import { Briefcase, FileText, CheckCircle, AlertCircle, LogOut, Download, Plus, Send, ArrowLeft, MessageSquare, Search, Filter, Clock, Eye, Menu, X, Lock, Calendar, AlertTriangle, User, ClipboardList, Zap, BookOpen, Star, ArrowRightLeft, Sparkles, Loader2 } from 'lucide-react';
 import BulkOperations from '@/pages/BulkOperations';
 import SLATracker from '@/pages/SLATracker';
 import CaseTransfer from '@/pages/CaseTransfer';
@@ -359,6 +359,46 @@ const CaseManagerDashboard = () => {
       step_order: stepOrder,
       step_name: stepName
     });
+  };
+
+  const [aiSuggesting, setAiSuggesting] = useState(null); // step_name or null
+
+  const cmAiSuggestDocs = async (stepName, stepDescription = '') => {
+    if (!selectedCase) return;
+    setAiSuggesting(stepName);
+    try {
+      const existingDocs = (selectedCase.steps?.find(s => s.step_name === stepName)?.required_documents || []).map(d => d.doc_name || d.name || '').filter(Boolean);
+      const res = await axios.post(`${API}/step-documents/ai-suggest-step-docs`, {
+        product_name: selectedCase.product_name || '',
+        step_name: stepName,
+        step_description: stepDescription,
+        existing_docs: existingDocs,
+      }, getAuthHeader());
+      const suggestions = res.data.suggestions || [];
+      if (suggestions.length === 0) { toast.info('No new suggestions'); setAiSuggesting(null); return; }
+      // Add each suggestion as a step doc
+      let added = 0;
+      for (const s of suggestions) {
+        try {
+          await axios.post(`${API}/step-documents/request-step-doc`, {
+            case_id: selectedCase.id,
+            step_name: stepName,
+            doc_name: s.doc_name,
+            is_mandatory: s.is_mandatory !== false,
+            tag: s.is_mandatory !== false ? 'mandatory' : 'optional',
+            notes: s.description || '',
+          }, getAuthHeader());
+          added++;
+        } catch (e) {
+          // Duplicate doc - skip silently
+        }
+      }
+      toast.success(`AI added ${added} documents to "${stepName}"!`);
+      loadCaseDetails(selectedCase.id);
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'AI suggestion failed');
+    }
+    setAiSuggesting(null);
   };
 
   const downloadDocument = async (docId, filename) => {
@@ -728,6 +768,7 @@ const CaseManagerDashboard = () => {
                           </SelectContent>
                         </Select>
                         {canCustomizeWorkflow && (
+                          <>
                           <Button 
                             size="sm" 
                             variant="outline"
@@ -736,6 +777,17 @@ const CaseManagerDashboard = () => {
                           >
                             <Plus className="h-4 w-4 mr-1" />Add Doc
                           </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="border-purple-300 text-purple-700 hover:bg-purple-50"
+                            disabled={aiSuggesting === step.step_name}
+                            onClick={() => cmAiSuggestDocs(step.step_name, step.description)}
+                            data-testid={`ai-suggest-step-${index}`}
+                          >
+                            {aiSuggesting === step.step_name ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Sparkles className="h-4 w-4 mr-1" />}AI Suggest
+                          </Button>
+                          </>
                         )}
                       </div>
                       )}

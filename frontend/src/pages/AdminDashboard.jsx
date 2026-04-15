@@ -18,7 +18,7 @@ import {
   Search, DollarSign, TrendingUp, CheckCircle, XCircle, Clock,
   MessageSquare, Filter, Calendar, RefreshCw, AlertTriangle, Copy, Mail, Gift,
   Menu, X, Bell, Loader2, CreditCard, BarChart3, Activity, Megaphone,
-  ArrowRightLeft, Zap, BookOpen, Star, UserCheck, ClipboardList
+  ArrowRightLeft, Zap, BookOpen, Star, UserCheck, ClipboardList, Sparkles
 } from 'lucide-react';
 import BulkOperations from '@/pages/BulkOperations';
 import SLATracker from '@/pages/SLATracker';
@@ -878,6 +878,81 @@ const AdminDashboard = () => {
       stepData: { ...stepData, required_documents: [...stepData.required_documents, { ...newDoc }] },
       newDoc: { doc_name: '', description: '', is_mandatory: true, has_expiry: false, expiry_date: '', validity_months: '', doc_type: '' }
     });
+  };
+
+  const [aiSuggesting, setAiSuggesting] = useState(false);
+
+  const aiSuggestDocs = async () => {
+    const { stepData } = stepEditorDialog;
+    if (!stepData.step_name.trim()) { toast.error('Enter step name first'); return; }
+    setAiSuggesting(true);
+    try {
+      const existingNames = stepData.required_documents.map(d => d.doc_name || d.name || '');
+      const res = await axios.post(`${API}/step-documents/ai-suggest-step-docs`, {
+        product_name: workflowDialog.product?.name || '',
+        step_name: stepData.step_name,
+        step_description: stepData.description || '',
+        existing_docs: existingNames.filter(Boolean),
+      }, getAuthHeader());
+      const suggestions = res.data.suggestions || [];
+      if (suggestions.length === 0) { toast.info('No suggestions available'); setAiSuggesting(false); return; }
+      const newDocs = suggestions.map(s => ({
+        doc_name: s.doc_name, description: s.description || '',
+        is_mandatory: s.is_mandatory !== false, doc_type: s.doc_type || '',
+        has_expiry: false, expiry_date: '', validity_months: ''
+      }));
+      setStepEditorDialog({
+        ...stepEditorDialog,
+        stepData: { ...stepData, required_documents: [...stepData.required_documents, ...newDocs] }
+      });
+      toast.success(`AI suggested ${suggestions.length} documents!`);
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'AI suggestion failed');
+    }
+    setAiSuggesting(false);
+  };
+
+  const aiBulkSuggest = async () => {
+    if (!workflowDialog.product?.workflow_steps?.length) { toast.error('Add steps first'); return; }
+    setAiSuggesting(true);
+    try {
+      const res = await axios.post(`${API}/step-documents/ai-suggest-bulk`, {
+        product_name: workflowDialog.product.name,
+        product_description: workflowDialog.product.description || '',
+        steps: workflowDialog.product.workflow_steps.map(s => ({
+          step_name: s.step_name, description: s.description || ''
+        })),
+      }, getAuthHeader());
+      const suggestions = res.data.suggestions || {};
+      let totalAdded = 0;
+      for (const step of workflowDialog.product.workflow_steps) {
+        // Match step name flexibly - AI may return "Step Name - Description"
+        const stepSuggs = suggestions[step.step_name] || 
+          Object.entries(suggestions).find(([k]) => k.startsWith(step.step_name) || step.step_name.startsWith(k))?.[1] || [];
+        if (stepSuggs.length > 0) {
+          const existingNames = (step.required_documents || []).map(d => (d.doc_name || d.name || '').toLowerCase());
+          const newDocs = stepSuggs.filter(s => !existingNames.includes((s.doc_name || '').toLowerCase()));
+          if (newDocs.length > 0) {
+            await axios.put(`${API}/products/${workflowDialog.product.id}/workflow-step/${step.step_order}`, {
+              ...step, required_documents: [...(step.required_documents || []), ...newDocs.map(s => ({
+                doc_name: s.doc_name, description: s.description || '',
+                is_mandatory: s.is_mandatory !== false, doc_type: s.doc_type || ''
+              }))]
+            }, getAuthHeader());
+            totalAdded += newDocs.length;
+          }
+        }
+      }
+      // Refresh product data
+      const productsRes = await axios.get(`${API}/products`, getAuthHeader());
+      setProducts(productsRes.data);
+      const updatedProduct = productsRes.data.find(p => p.id === workflowDialog.product.id);
+      setWorkflowDialog({ ...workflowDialog, product: updatedProduct });
+      toast.success(`AI added ${totalAdded} documents across all steps!`);
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'AI bulk suggestion failed');
+    }
+    setAiSuggesting(false);
   };
 
   const removeDocFromStep = (docIndex) => {
@@ -2773,9 +2848,16 @@ const AdminDashboard = () => {
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Edit Workflow - {workflowDialog.product?.name}</DialogTitle></DialogHeader>
           <div className="space-y-6 py-4">
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center gap-2">
               <p className="text-sm text-slate-600">Define the steps for this product workflow.</p>
-              <Button onClick={() => openStepEditor('create')} className="bg-[#f7620b] hover:bg-[#e55a09] text-white" data-testid="add-step-btn"><Plus className="mr-2 h-4 w-4" />Add Step</Button>
+              <div className="flex gap-2">
+                {workflowDialog.product?.workflow_steps?.length > 0 && (
+                  <Button onClick={aiBulkSuggest} disabled={aiSuggesting} variant="outline" className="border-purple-300 text-purple-700 hover:bg-purple-50" data-testid="ai-bulk-suggest-btn">
+                    {aiSuggesting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}AI Auto-Fill Docs
+                  </Button>
+                )}
+                <Button onClick={() => openStepEditor('create')} className="bg-[#f7620b] hover:bg-[#e55a09] text-white" data-testid="add-step-btn"><Plus className="mr-2 h-4 w-4" />Add Step</Button>
+              </div>
             </div>
             {workflowDialog.product?.workflow_steps?.length === 0 ? (
               <div className="text-center py-8 border-2 border-dashed rounded-lg"><Settings className="h-12 w-12 text-slate-400 mx-auto mb-4" /><p className="text-slate-600">No workflow steps defined</p></div>
@@ -2886,7 +2968,12 @@ const AdminDashboard = () => {
 
                 <div className="flex items-center justify-between pt-2">
                   <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={stepEditorDialog.newDoc.is_mandatory} onChange={(e) => setStepEditorDialog({ ...stepEditorDialog, newDoc: { ...stepEditorDialog.newDoc, is_mandatory: e.target.checked } })} className="rounded" data-testid="doc-mandatory-checkbox" />Mandatory Document</label>
-                  <Button size="sm" onClick={addDocToStep} variant="outline" data-testid="add-doc-btn"><Plus className="h-4 w-4 mr-1" />Add Document</Button>
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={aiSuggestDocs} disabled={aiSuggesting} variant="outline" className="border-purple-300 text-purple-700 hover:bg-purple-50" data-testid="ai-suggest-docs-btn">
+                      {aiSuggesting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Sparkles className="h-4 w-4 mr-1" />}AI Suggest
+                    </Button>
+                    <Button size="sm" onClick={addDocToStep} variant="outline" data-testid="add-doc-btn"><Plus className="h-4 w-4 mr-1" />Add Document</Button>
+                  </div>
                 </div>
               </div>
             </div>
