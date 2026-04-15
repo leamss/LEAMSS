@@ -13,7 +13,7 @@ import TicketSection from '@/components/TicketSection';
 import QuickActions from '@/components/QuickActions';
 import ChatWidget from '@/components/ChatWidget';
 import OnboardingWizard from '@/components/OnboardingWizard';
-import DocumentChecklist from '@/components/DocumentChecklist';
+import UnifiedDocumentView from '@/components/UnifiedDocumentView';
 import { 
   User, FileText, Upload, LogOut, CheckCircle, Clock, AlertCircle, 
   Lock, Download, FileCheck, ArrowLeft, Calendar, Shield, 
@@ -34,8 +34,6 @@ import MessageCenter from '@/components/MessageCenter';
 import EligibilityChecker from '@/components/EligibilityChecker';
 import EMITracker from '@/components/EMITracker';
 import FamilyManager from '@/components/FamilyManager';
-import DocumentTracker from '@/components/DocumentTracker';
-import StepDocuments from '@/components/StepDocuments';
 import WhatsAppButton from '@/components/WhatsAppButton';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -420,11 +418,8 @@ const ClientDashboard = () => {
       defaultOpen: true,
       items: [
         { id: 'journey', icon: Workflow, label: 'My Journey', onClick: () => setActiveTab('journey') },
-        { id: 'additional', icon: AlertTriangle, label: 'Action Required', badge: pendingAdditionalDocs.length, badgeColor: 'bg-red-500', onClick: () => setActiveTab('additional') },
-        { id: 'workflow', icon: Workflow, label: 'Workflow Steps', onClick: () => setActiveTab('workflow') },
-        { id: 'doc-checklist', icon: FileCheck, label: 'Document Checklist', onClick: () => setActiveTab('doc-checklist') },
-        { id: 'doc-tracker', icon: FileSearch, label: 'Doc Completion', onClick: () => setActiveTab('doc-tracker') },
-        { id: 'uploaded', icon: FileCheck, label: 'My Documents', onClick: () => setActiveTab('uploaded') },
+        { id: 'documents', icon: FileCheck, label: 'Documents & Steps', badge: pendingAdditionalDocs.length, badgeColor: 'bg-red-500', onClick: () => setActiveTab('documents') },
+        { id: 'uploaded', icon: Upload, label: 'My Uploads', onClick: () => setActiveTab('uploaded') },
         { id: 'info-sheet', icon: ClipboardList, label: 'My Info Sheet', onClick: () => setActiveTab('info-sheet') },
       ]
     },
@@ -463,14 +458,14 @@ const ClientDashboard = () => {
   ];
 
   const clientPageTitle = {
-    overview: 'Overview', additional: 'Action Required', workflow: 'Workflow Steps',
-    uploaded: 'My Documents', tickets: 'Support Tickets', 'info-sheet': 'My Info Sheet',
-    payments: 'Payments', 'doc-checklist': 'Document Checklist',
+    overview: 'Overview', documents: 'Documents & Workflow', 
+    uploaded: 'My Uploads', tickets: 'Support Tickets', 'info-sheet': 'My Info Sheet',
+    payments: 'Payments',
     'knowledge-base': 'Help Center', survey: 'Rate Experience', appointments: 'Appointments',
     referrals: 'Refer a Friend', timeline: 'Case Timeline',
     journey: 'My Case Journey', messages: 'Messages', profile: 'My Profile',
     eligibility: 'Eligibility Check', 'emi-plans': 'EMI Payment Plans',
-    family: 'Family Members', 'doc-tracker': 'Document Completion',
+    family: 'Family Members',
   }[activeTab] || 'Overview';
 
   return (
@@ -500,7 +495,7 @@ const ClientDashboard = () => {
         ) : (
           <>
             {/* Case Overview Header - Only show on dashboard-like tabs */}
-            {!['messages', 'profile', 'journey', 'timeline', 'eligibility', 'emi-plans', 'family', 'doc-tracker'].includes(activeTab) && (
+            {!['messages', 'profile', 'journey', 'timeline', 'eligibility', 'emi-plans', 'family', 'documents'].includes(activeTab) && (
             <>
             <div className="mb-8">
               <div className="bg-gradient-to-r from-[#2a777a] via-[#2a777a] to-[#236466] rounded-2xl p-6 text-white shadow-xl">
@@ -723,7 +718,7 @@ const ClientDashboard = () => {
                           Please upload them as soon as possible.
                         </p>
                         <Button 
-                          onClick={() => setActiveTab('additional')} 
+                          onClick={() => setActiveTab('documents')} 
                           className="bg-[#f7620b] hover:bg-[#e55a09]"
                         >
                           View Requests <ChevronRight className="h-4 w-4 ml-1" />
@@ -817,266 +812,17 @@ const ClientDashboard = () => {
               </div>
               )}
 
-              {/* Additional Documents Tab */}
-              {activeTab === 'additional' && (
-              <div className="space-y-6">
-                {/* Pending Additional Document Requests */}
-                <Card className="p-6 bg-white shadow-md border-0">
-                  <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
-                    <AlertTriangle className="h-5 w-5 text-[#f7620b]" />
-                    Pending Document Requests
-                    {pendingAdditionalDocs.length > 0 && (
-                      <Badge className="bg-[#f7620b] text-white ml-2">{pendingAdditionalDocs.length}</Badge>
-                    )}
-                  </h3>
-                  
-                  {pendingAdditionalDocs.length === 0 ? (
-                    <div className="text-center py-12 bg-slate-50 rounded-xl">
-                      <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-3" />
-                      <p className="text-slate-600 font-medium">No pending document requests!</p>
-                      <p className="text-sm text-slate-500">All requested documents have been uploaded.</p>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {pendingAdditionalDocs.map((request, index) => (
-                        <div key={request.id} className="bg-gradient-to-br from-[#f7620b]/5 to-white rounded-xl border border-[#f7620b]/20 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                          <div className="bg-gradient-to-r from-[#f7620b] to-[#e55a09] px-4 py-3">
-                            <div className="flex items-center justify-between">
-                              <h4 className="font-semibold text-white">{request.doc_name || request.document_name}</h4>
-                              <Badge className="bg-white/20 text-white border-0 text-xs">Required</Badge>
-                            </div>
-                          </div>
-                          <div className="p-4">
-                            <p className="text-sm text-slate-600 mb-4">{request.description}</p>
-                            
-                            <div className="flex flex-wrap gap-2 mb-4">
-                              {request.step_name && (
-                                <Badge variant="outline" className="bg-slate-50 text-slate-600 text-xs">
-                                  <FileText className="h-3 w-3 mr-1" />
-                                  {request.step_name}
-                                </Badge>
-                              )}
-                              {request.doc_type && (
-                                <Badge variant="outline" className="bg-blue-50 text-blue-600 text-xs capitalize">
-                                  {request.doc_type}
-                                </Badge>
-                              )}
-                              {request.due_date && (
-                                <Badge variant="outline" className="bg-amber-50 text-amber-600 text-xs">
-                                  <Calendar className="h-3 w-3 mr-1" />
-                                  Due: {new Date(request.due_date).toLocaleDateString()}
-                                </Badge>
-                              )}
-                              {request.expiry_date && (
-                                <Badge variant="outline" className="bg-red-50 text-red-600 text-xs">
-                                  Expires: {new Date(request.expiry_date).toLocaleDateString()}
-                                </Badge>
-                              )}
-                              {request.validity_months && (
-                                <Badge variant="outline" className="bg-purple-50 text-purple-600 text-xs">
-                                  Valid: {request.validity_months} months
-                                </Badge>
-                              )}
-                            </div>
-
-                            <p className="text-xs text-slate-500 mb-3">
-                              Requested by {request.requested_by_name} on {new Date(request.requested_at).toLocaleDateString()}
-                            </p>
-
-                            <div className="flex gap-2">
-                              <Input
-                                type="file"
-                                accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-                                onChange={(e) => {
-                                  setSelectedFile(e.target.files[0]);
-                                  setUploadingFor(request.id);
-                                }}
-                                className="flex-1 text-sm"
-                                data-testid={`additional-file-input-${index}`}
-                              />
-                              <Button
-                                onClick={() => handleFileUpload(
-                                  request.doc_name || request.document_name, 
-                                  true, 
-                                  request.id, 
-                                  request.step_name
-                                )}
-                                disabled={!selectedFile || uploadingFor !== request.id}
-                                className="bg-[#f7620b] hover:bg-[#e55a09] whitespace-nowrap"
-                                data-testid={`additional-upload-btn-${index}`}
-                              >
-                                <Upload className="h-4 w-4 mr-1" />
-                                Upload
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </Card>
-
-                {/* Uploaded Additional Documents */}
-                {uploadedAdditionalDocs.length > 0 && (
-                  <Card className="p-6 bg-white shadow-md border-0">
-                    <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
-                      <FileCheck className="h-5 w-5 text-green-500" />
-                      Submitted Additional Documents
-                      <Badge className="bg-green-100 text-green-700 ml-2">{uploadedAdditionalDocs.length}</Badge>
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {uploadedAdditionalDocs.map((request) => (
-                        <div key={request.id} className="flex items-center gap-3 p-4 bg-green-50 rounded-xl border border-green-200">
-                          <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
-                            <FileCheck className="h-5 w-5 text-white" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-slate-800 truncate">{request.doc_name || request.document_name}</p>
-                            <p className="text-xs text-slate-500">Uploaded {new Date(request.uploaded_at || request.requested_at).toLocaleDateString()}</p>
-                          </div>
-                          <Badge className="bg-green-100 text-green-700 flex-shrink-0">Submitted</Badge>
-                        </div>
-                      ))}
-                    </div>
-                  </Card>
-                )}
-              </div>
-              )}
-
-              {/* Workflow Steps Tab */}
-              {activeTab === 'workflow' && (
-              <div className="space-y-6">
-                {caseData.steps?.map((step, stepIndex) => (
-                  <Card key={stepIndex} className={`p-6 bg-white shadow-md border-0 ${step.is_locked ? 'opacity-60' : ''}`}>
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                          step.status === 'completed' ? 'bg-gradient-to-br from-green-500 to-green-600' :
-                          step.is_locked ? 'bg-gradient-to-br from-slate-300 to-slate-400' :
-                          'bg-gradient-to-br from-[#2a777a] to-[#236466]'
-                        }`}>
-                          {step.status === 'completed' ? <CheckCircle className="h-6 w-6 text-white" /> :
-                           step.is_locked ? <Lock className="h-6 w-6 text-white" /> :
-                           <span className="text-white font-bold">{step.step_order}</span>}
-                        </div>
-                        <div>
-                          <h3 className="text-lg font-bold text-slate-800">{step.step_name}</h3>
-                          {step.description && <p className="text-sm text-slate-500">{step.description}</p>}
-                        </div>
-                      </div>
-                      <Badge className={`${
-                        step.status === 'completed' ? 'bg-green-100 text-green-700' :
-                        step.is_locked ? 'bg-slate-100 text-slate-600' :
-                        'bg-[#2a777a]/10 text-[#2a777a]'
-                      }`}>
-                        {step.status === 'completed' ? 'Completed' : step.is_locked ? 'Locked' : 'In Progress'}
-                      </Badge>
-                    </div>
-
-                    {step.is_locked ? (
-                      <div className="text-center py-8 bg-slate-50 rounded-xl">
-                        <Lock className="h-8 w-8 text-slate-400 mx-auto mb-2" />
-                        <p className="text-slate-500">Complete previous steps to unlock</p>
-                      </div>
-                    ) : (
-                      <>
-                        {/* Required Documents for this step */}
-                        {step.required_documents?.length > 0 && (
-                          <div className="mb-4">
-                            <h4 className="font-medium text-slate-700 mb-3">Required Documents</h4>
-                            <div className="space-y-3">
-                              {step.required_documents.map((doc, docIndex) => {
-                                const uploadedDoc = documents.find(d => 
-                                  d.step_name === step.step_name && 
-                                  (d.document_type === doc.doc_name || d.document_type === 'workflow')
-                                );
-                                return (
-                                  <div key={docIndex} className={`p-4 rounded-xl border ${
-                                    uploadedDoc ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'
-                                  }`}>
-                                    <div className="flex items-center justify-between">
-                                      <div className="flex items-center gap-3">
-                                        {uploadedDoc ? 
-                                          <FileCheck className="h-5 w-5 text-green-600" /> :
-                                          <FileUp className="h-5 w-5 text-amber-600" />
-                                        }
-                                        <div>
-                                          <p className="font-medium text-slate-800">{doc.doc_name}</p>
-                                          {doc.description && <p className="text-xs text-slate-500">{doc.description}</p>}
-                                        </div>
-                                      </div>
-                                      {uploadedDoc ? (
-                                        <Badge className="bg-green-100 text-green-700">Uploaded</Badge>
-                                      ) : (
-                                        <Badge className="bg-amber-100 text-amber-700">Pending</Badge>
-                                      )}
-                                    </div>
-                                    {!uploadedDoc && (
-                                      <div className="flex gap-2 mt-3">
-                                        <Input
-                                          type="file"
-                                          accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-                                          onChange={(e) => {
-                                            setSelectedFile(e.target.files[0]);
-                                            setUploadingFor(`${step.step_name}-${doc.doc_name}`);
-                                          }}
-                                          className="flex-1 text-sm"
-                                        />
-                                        <Button
-                                          onClick={() => handleFileUpload(step.step_name, false, null, step.step_name)}
-                                          disabled={!selectedFile || uploadingFor !== `${step.step_name}-${doc.doc_name}`}
-                                          className="bg-[#2a777a] hover:bg-[#236466]"
-                                        >
-                                          <Upload className="h-4 w-4 mr-1" />
-                                          Upload
-                                        </Button>
-                                      </div>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Documents uploaded for this step */}
-                        {getDocumentsByStep(step.step_name).length > 0 && (
-                          <div>
-                            <h4 className="font-medium text-slate-700 mb-3">Uploaded Documents</h4>
-                            <div className="space-y-2">
-                              {getDocumentsByStep(step.step_name).map((doc) => (
-                                <div key={doc.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                                  <div className="flex items-center gap-3">
-                                    <FileText className="h-4 w-4 text-slate-500" />
-                                    <span className="text-sm font-medium text-slate-700">{doc.filename}</span>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <Badge className={`text-xs ${
-                                      doc.status === 'approved' ? 'bg-green-100 text-green-700' :
-                                      doc.status === 'rejected' ? 'bg-red-100 text-red-700' :
-                                      'bg-amber-100 text-amber-700'
-                                    }`}>
-                                      {doc.status === 'pending_review' ? 'Under Review' : doc.status}
-                                    </Badge>
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      onClick={() => downloadDocument(doc.id, doc.filename)}
-                                      data-testid={`download-doc-${doc.id}`}
-                                    >
-                                      <Download className="h-4 w-4" />
-                                    </Button>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </Card>
-                ))}
-              </div>
+              {/* Unified Documents & Steps View */}
+              {activeTab === 'documents' && (
+                <UnifiedDocumentView 
+                  token={localStorage.getItem('token')} 
+                  caseId={caseData?.id}
+                  caseData={caseData}
+                  onDocumentUploaded={() => {
+                    // Refresh documents
+                    axios.get(`${API}/documents/case/${caseData.id}`, getAuthHeader()).then(r => setDocuments(r.data)).catch(() => {});
+                  }}
+                />
               )}
 
               {/* My Documents Tab */}
@@ -1273,18 +1019,6 @@ const ClientDashboard = () => {
                     </div>
                   )}
                 </Card>
-              </div>
-              )}
-
-              {/* Document Checklist Tab */}
-              {activeTab === 'doc-checklist' && (
-              <div className="space-y-6">
-                <DocumentChecklist
-                  caseId={caseData?.id}
-                  caseSteps={caseData?.steps || []}
-                  documents={caseData?.documents || documents}
-                  workflowSteps={caseData?.workflow_steps || []}
-                />
               </div>
               )}
 
@@ -1492,7 +1226,6 @@ const ClientDashboard = () => {
               {activeTab === 'eligibility' && <EligibilityChecker token={localStorage.getItem('token')} />}
               {activeTab === 'emi-plans' && <EMITracker token={localStorage.getItem('token')} />}
               {activeTab === 'family' && <FamilyManager token={localStorage.getItem('token')} />}
-              {activeTab === 'doc-tracker' && <StepDocuments token={localStorage.getItem('token')} caseId={caseData?.id} />}
             </div>
           </>
         )}

@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 from core.database import (
     db, cases_col, users_col, documents_col, notifications_col,
-    audit_logs_col, workflow_steps_col, case_steps_col
+    audit_logs_col, workflow_steps_col, case_steps_col, additional_doc_requests_col
 )
 from core.auth import get_current_user
 
@@ -195,6 +195,24 @@ async def get_stepwise_documents(case_id: str, current_user: dict = Depends(get_
     additional_requests = await doc_requests_col.find(
         {"case_id": case_id}, {"_id": 0}
     ).sort("created_at", 1).to_list(100)
+
+    # Also fetch from the legacy additional_doc_requests collection
+    legacy_requests = await additional_doc_requests_col.find(
+        {"case_id": case_id}, {"_id": 0}
+    ).sort("created_at", 1).to_list(100)
+
+    # Merge legacy requests (avoid duplicates by id)
+    existing_ids = {r.get("id") for r in additional_requests}
+    for lr in legacy_requests:
+        if lr.get("id") not in existing_ids:
+            # Normalize field names
+            lr["doc_name"] = lr.get("doc_name") or lr.get("document_name") or ""
+            lr["notes"] = lr.get("notes") or lr.get("description") or ""
+            lr["requested_by_name"] = lr.get("requested_by_name") or lr.get("requested_by") or ""
+            lr["is_mandatory"] = lr.get("is_mandatory", True)
+            lr["tag"] = lr.get("tag", "mandatory")
+            lr["section"] = "additional"
+            additional_requests.append(lr)
 
     for r in additional_requests:
         if isinstance(r.get("created_at"), datetime):

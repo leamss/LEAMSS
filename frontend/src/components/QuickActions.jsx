@@ -234,7 +234,7 @@ const QuickActions = ({ userRole, onNavigate, caseId = null }) => {
               color: 'bg-teal-500',
               bgColor: 'bg-teal-50',
               textColor: 'text-teal-700',
-              action: 'workflow',
+              action: 'documents',
               priority: 'normal'
             });
           }

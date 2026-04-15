@@ -1,0 +1,124 @@
+{
+  "summary": "Iteration 57: Unified Document View - All features verified working. Backend: 13/13 tests passed. Frontend: All 10 features verified via Playwright.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration57_unified_doc_view.py",
+    "/app/test_reports/pytest/pytest_iteration57.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_iteration57_unified_doc_view.py"
+  ],
+  "success_rate": {
+    "backend": "100% (13/13 passed)",
+    "frontend": "100% (all 10 features verified)"
+  },
+  "test_credentials": {
+    "admin": "admin@leamss.com / Admin@123",
+    "case_manager": "manager@leamss.com / Manager@123",
+    "client": "client@leamss.com / Client@123",
+    "test_sale_client": "test_sale_client@example.com / Client@123"
+  },
+  "seed_data_creation": "None - used existing data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration 57 verified the new unified document view for clients. Key findings: (1) Client sidebar now shows 'Documents & Steps' tab instead of 4 separate tabs (Workflow Steps, Document Checklist, Doc Completion, Action Required are removed), (2) UnifiedDocumentView.jsx shows progress card with completion %, stats (Required/Uploaded/Pending/Requested), step cards with expandable documents, (3) CM '+Add Doc' inside step opens dialog titled 'Add Document to Step: [Step Name]', (4) CM 'Request Additional Document' opens separate dialog, (5) Admin workflow step documents persist and sync to client cases, (6) test_sale_client can see step documents with admin defaults synced.",
+  "features_tested": {
+    "client_sidebar_cleanup": {
+      "status": "PASS",
+      "details": "Old tabs removed: 'Workflow Steps', 'Document Checklist', 'Doc Completion', 'Action Required'. New tabs present: 'My Journey', 'Documents & Steps', 'My Uploads', 'My Info Sheet'."
+    },
+    "unified_document_view": {
+      "status": "PASS",
+      "details": "UnifiedDocumentView component shows: Document Progress card (20% completion), stats (10 Required, 2 Uploaded, 8 Pending, 1 Requested), 8 step cards with expandable documents."
+    },
+    "step_card_expansion": {
+      "status": "PASS",
+      "details": "Clicking step card expands to show documents with doc names, mandatory tags, source badges (CM Requested), Upload buttons, and status badges."
+    },
+    "action_required_banner": {
+      "status": "PASS",
+      "details": "Banner shows '1 additional document(s) requested by your Case Manager' with View button that scrolls to additional docs section."
+    },
+    "step_documents_api": {
+      "status": "PASS",
+      "details": "GET /api/step-documents/case/{case_id} returns merged admin docs + CM docs + additional requests from both collections. Response includes steps, additional_requests, other_uploads, and summary."
+    },
+    "cm_add_doc_to_step": {
+      "status": "PASS",
+      "details": "CM case detail shows '+Add Doc' button inside unlocked steps. Dialog titled 'Add Document to Step: Integration Test Step'. Uses POST /api/step-documents/request-step-doc endpoint."
+    },
+    "cm_request_additional_document": {
+      "status": "PASS",
+      "details": "CM case detail shows 'Request Additional Document' button in header. Dialog titled 'Request Additional Document'. Uses POST /api/step-documents/request-additional endpoint."
+    },
+    "admin_workflow_step_documents": {
+      "status": "PASS",
+      "details": "Admin Products page shows workflow steps with document counts. Edit Workflow dialog shows steps with Required Documents (e.g., ECA step: 'ECA Report *', 'Degree Certificate *')."
+    },
+    "admin_default_docs_sync": {
+      "status": "PASS",
+      "details": "test_sale_client sees admin-defined docs in their step view. Step 1 shows 'Passport' (mandatory) with Upload button. Step 2 (ECA) shows 0/2 documents."
+    },
+    "test_sale_client_step_documents": {
+      "status": "PASS",
+      "details": "test_sale_client@example.com can login and see Documents & Steps tab with 3 step cards, 0% completion (0/3 docs), and admin default documents synced."
+    }
+  },
+  "backend_tests_summary": {
+    "total": 13,
+    "passed": 13,
+    "failed": 0,
+    "tests": [
+      "test_admin_login - PASS",
+      "test_cm_login - PASS",
+      "test_client_login - PASS",
+      "test_test_sale_client_login - PASS",
+      "test_client_get_cases - PASS",
+      "test_step_documents_api_returns_merged_data - PASS",
+      "test_step_documents_include_admin_defaults - PASS",
+      "test_step_documents_include_legacy_additional_requests - PASS",
+      "test_test_sale_client_step_documents - PASS",
+      "test_cm_can_request_step_document - PASS",
+      "test_cm_can_request_additional_document - PASS",
+      "test_admin_products_have_workflow_steps - PASS",
+      "test_admin_workflow_step_documents_persist - PASS"
+    ]
+  },
+  "ui_verification": {
+    "client_sidebar": {
+      "old_tabs_removed": ["Workflow Steps", "Document Checklist", "Doc Completion", "Action Required"],
+      "new_tabs_present": ["Overview", "My Journey", "Documents & Steps", "My Uploads", "My Info Sheet"]
+    },
+    "unified_document_view": {
+      "progress_card": "Shows 20% completion (2/10 docs) with gradient color based on progress",
+      "stats_row": "Required (10), Uploaded (2), Pending (8), Requested (1)",
+      "action_required_banner": "Shows when additional docs requested by CM",
+      "step_cards": "8 expandable step cards with status badges and document counts"
+    },
+    "cm_case_detail": {
+      "customization_badge": "Visible - 'Customization Enabled'",
+      "add_doc_buttons": "1 +Add Doc button visible in unlocked step",
+      "request_additional_btn": "Visible in header",
+      "add_doc_dialog_title": "Add Document to Step: Integration Test Step",
+      "additional_doc_dialog_title": "Request Additional Document"
+    },
+    "admin_products": {
+      "workflow_steps_visible": "4 steps for Canada PR with document counts",
+      "edit_workflow_dialog": "Shows steps with Required Documents section"
+    }
+  },
+  "mocked_apis": {
+    "resend_email": "MOCK mode - logs to console instead of sending actual emails",
+    "whatsapp": "wa.me redirect"
+  }
+}
