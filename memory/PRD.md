@@ -16,14 +16,22 @@ Multi-role immigration portal (LEAMSS) with React + FastAPI + MongoDB. Roles: Ad
 - Phase 13: Dark Mode, PWA, WhatsApp floating button, i18n
 - Chat Unification: Unified cm_client_messages collection
 - Payment Reminders UI enhancements
-- **Step-wise Document Management System (2026-04-15)**: Admin workflow docs, CM step-specific + additional doc requests, Client step-organized view with admin doc sync
+- Step-wise Document Management System (2026-04-15): Admin workflow docs, CM step-specific + additional doc requests, backend merge logic
+- **Unified Document View (2026-04-15)**: Replaced 4+ client document tabs with single "Documents & Steps" view
 
-## Step-wise Document System (Latest - 2026-04-15)
-### What was fixed:
-1. **Backend merge logic**: `GET /api/step-documents/case/{id}` now merges admin-default docs from `workflow_steps_col` into `case_steps_col` and syncs them to DB
-2. **CM routing fix**: "+Add Doc" in step now uses `POST /api/step-documents/request-step-doc` (was using wrong endpoint `custom-document-request`)
-3. **Additional doc routing**: "Request Additional Document" now uses `POST /api/step-documents/request-additional`
-4. **Field normalization**: Handles both `doc_name` and `name` fields throughout
+## Unified Document View (Latest - 2026-04-15)
+### What was done:
+1. **Created UnifiedDocumentView.jsx**: Single component replacing Workflow Steps, Document Checklist, Doc Completion, Action Required tabs
+2. **Client sidebar cleanup**: Removed 4 redundant tabs, now: My Journey, Documents & Steps, My Uploads, My Info Sheet
+3. **Progress card**: Shows completion %, stats (Required/Uploaded/Pending/Requested)
+4. **Step accordion cards**: Each step expands to show required documents with Upload buttons, mandatory tags, CM notes, expiry warnings
+5. **Additional docs section**: Shows CM-requested additional documents with upload
+6. **Legacy data merge**: Backend reads from both `document_requests` and `additional_doc_requests` collections
+7. **Admin default sync**: Auto-merges admin workflow docs into existing case_steps on API call
+
+### Key Components:
+- `/app/frontend/src/components/UnifiedDocumentView.jsx` - Unified client document view
+- `/app/backend/routers/step_documents.py` - Step-wise document API with merge logic
 
 ### Key Endpoints:
 - `PUT /api/products/{id}/workflow-step/{order}` - Admin save workflow step with required_documents
@@ -33,6 +41,7 @@ Multi-role immigration portal (LEAMSS) with React + FastAPI + MongoDB. Roles: Ad
 - `POST /api/step-documents/remove-step-doc` - Remove CM-added doc from step
 
 ## Backlog / Future Tasks
+- P1: AI Document Suggestions per product/step (CM assistance)
 - P2: Resend Email from mock to live (requires RESEND_API_KEY)
 - P3: Twilio WhatsApp full integration (requires API keys)
 
@@ -40,7 +49,8 @@ Multi-role immigration portal (LEAMSS) with React + FastAPI + MongoDB. Roles: Ad
 - `cases`, `case_steps` (client step progression + required_documents)
 - `workflow_steps` (admin-defined default docs per product step)
 - `documents` (uploaded files)
-- `document_requests` (additional doc requests)
+- `document_requests` (new additional doc requests from step-documents API)
+- `additional_doc_requests` (legacy additional doc requests from cases API)
 - `cm_client_messages` (unified chat)
 
 ## Test Credentials
@@ -48,3 +58,4 @@ Multi-role immigration portal (LEAMSS) with React + FastAPI + MongoDB. Roles: Ad
 - CM: manager@leamss.com / Manager@123
 - Partner: partner@leamss.com / Partner@123
 - Client: client@leamss.com / Client@123
+- Test Client: test_sale_client@example.com / Client@123

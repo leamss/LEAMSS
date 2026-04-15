@@ -12,6 +12,10 @@
 - Email: partner@leamss.com
 - Password: Partner@123
 
-## Client
+## Client (Seeded)
 - Email: client@leamss.com
+- Password: Client@123
+
+## Client (Test Sale)
+- Email: test_sale_client@example.com
 - Password: Client@123
