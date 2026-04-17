@@ -3,23 +3,27 @@
 ## Original Problem Statement
 Multi-role immigration portal (LEAMSS) with React + FastAPI + MongoDB. Roles: Admin, Case Manager, Partner, Client.
 
-## Latest Features (2026-04-17)
+## Latest Changes (2026-04-17)
 
-### Official Government Forms (NEW)
-- **48 forms across 7 countries**: Australia (12), Canada (10), USA (10), UK (5), NZ (5), UAE (3), Singapore (3)
-- Each form has: official name, description, download URL, mandatory/optional, category, visa applicability
-- Shows in: Admin AI Workflow Builder review + Client Documents & Steps view
-- Direct links to official government PDF/pages
-- Filtered by visa subclass (e.g., Australia/189 shows only relevant forms)
+### AI Verification System (Option B)
+- AI-generated workflows show amber "Verification Required" banner
+- "Verify on Official Website" button links to government source
+- Admin must check "I have verified" checkbox before saving
+- Save button disabled until verification checkbox checked
+- Template workflows show blue "Verified Template" notice
+- Green "Verified by Admin" banner after verification
 
-### AI Workflow Builder
-- 51 countries worldwide, AI visa categories, comprehensive workflow generation
-- Fully editable review with template + AI data
-- Government forms section integrated
+### Government Forms (Admin/CM only)
+- 48 forms across 7 countries (Australia, Canada, USA, UK, NZ, UAE, Singapore)
+- Visible in Admin AI Workflow Builder review view
+- Removed from Client portal (CM shares links directly)
 
-### Document Management
-- Step-wise documents, unified client view, 8 verified templates
-- CM doc management, AI suggestions per step
+### Complete Feature Set
+- 51 countries, AI visa categories, comprehensive workflow generation
+- 8 verified templates with real government data
+- Fully editable review (name, fees, steps, docs)
+- Step-wise document management, unified client view
+- CM doc management with AI suggestions
 
 ## Test Credentials
 - Admin: admin@leamss.com / Admin@123
