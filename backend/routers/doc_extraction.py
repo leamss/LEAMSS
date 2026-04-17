@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi.responses import FileResponse
 from dotenv import load_dotenv
 
 from core.auth import get_current_user
@@ -31,6 +32,14 @@ extractions_col = db["doc_extractions"]
 EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
 ALLOWED_MIME = {"image/jpeg", "image/png", "image/webp", "image/jpg"}
 MAX_IMAGE_BYTES = 8 * 1024 * 1024  # 8 MB
+
+UPLOAD_DIR = os.environ.get("UPLOAD_DIR", "./uploads")
+EXTRACTION_DIR = os.path.join(UPLOAD_DIR, "extractions")
+os.makedirs(EXTRACTION_DIR, exist_ok=True)
+
+
+def _mime_to_ext(mime: str) -> str:
+    return {"image/jpeg": ".jpg", "image/jpg": ".jpg", "image/png": ".png", "image/webp": ".webp"}.get(mime, ".bin")
 
 
 # =========================================================================
@@ -339,6 +348,8 @@ class SaveExtractionRequest(BaseModel):
     case_id: Optional[str] = None
     document_id: Optional[str] = None
     filename: Optional[str] = None
+    image_base64: Optional[str] = None  # image to persist alongside extraction
+    mime_type: Optional[str] = None
 
 
 # =========================================================================
@@ -541,13 +552,38 @@ async def extract_from_upload(
 
 @router.post("/save")
 async def save_extraction(data: SaveExtractionRequest, current_user: dict = Depends(get_current_user)):
-    """Persist an extraction for later retrieval (attach to case/document)."""
+    """Persist an extraction for later retrieval (attach to case/document). Optionally stores the image."""
+    extraction_id = str(uuid.uuid4())
+    image_path = None
+    image_mime = None
+
+    if data.image_base64:
+        b64 = _strip_data_uri(data.image_base64)
+        mime = (data.mime_type or _guess_mime_from_header(b64)).lower()
+        if mime not in ALLOWED_MIME:
+            raise HTTPException(status_code=415, detail=f"Unsupported mime: {mime}")
+        try:
+            raw = base64.b64decode(b64)
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid base64 image data")
+        if len(raw) > MAX_IMAGE_BYTES:
+            raise HTTPException(status_code=413, detail="Image too large (max 8 MB)")
+        ext = _mime_to_ext(mime)
+        fname = f"{extraction_id}{ext}"
+        image_path = os.path.join(EXTRACTION_DIR, fname)
+        with open(image_path, "wb") as f:
+            f.write(raw)
+        image_mime = mime
+
     doc = {
-        "id": str(uuid.uuid4()),
+        "id": extraction_id,
         "extraction": data.extraction,
         "case_id": data.case_id,
         "document_id": data.document_id,
         "filename": data.filename,
+        "image_path": image_path,
+        "image_mime": image_mime,
+        "has_image": bool(image_path),
         "created_by": current_user["id"],
         "created_by_name": current_user.get("name", ""),
         "created_by_role": current_user.get("role", ""),
@@ -572,8 +608,42 @@ async def list_history(
         q["created_by"] = current_user["id"]
     elif current_user.get("role") == "partner":
         q["created_by"] = current_user["id"]
-    items = await extractions_col.find(q, {"_id": 0}).sort("created_at", -1).to_list(100)
+    items = await extractions_col.find(q, {"_id": 0, "image_path": 0}).sort("created_at", -1).to_list(100)
     for it in items:
         if isinstance(it.get("created_at"), datetime):
             it["created_at"] = it["created_at"].isoformat()
     return {"extractions": items, "total": len(items)}
+
+
+@router.get("/image/{extraction_id}")
+async def get_extraction_image(extraction_id: str, current_user: dict = Depends(get_current_user)):
+    """Serve the saved image for an extraction (auth + ownership check)."""
+    doc = await extractions_col.find_one({"id": extraction_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Extraction not found")
+    # Access control
+    role = current_user.get("role")
+    if role not in ("admin", "case_manager") and doc.get("created_by") != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Not allowed")
+    path = doc.get("image_path")
+    if not path or not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="Image not available")
+    return FileResponse(path, media_type=doc.get("image_mime", "image/jpeg"), filename=doc.get("filename") or os.path.basename(path))
+
+
+@router.delete("/history/{extraction_id}")
+async def delete_extraction(extraction_id: str, current_user: dict = Depends(get_current_user)):
+    """Delete a saved extraction + its image file."""
+    doc = await extractions_col.find_one({"id": extraction_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Extraction not found")
+    if current_user.get("role") != "admin" and doc.get("created_by") != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Not allowed to delete this extraction")
+    path = doc.get("image_path")
+    if path and os.path.exists(path):
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+    await extractions_col.delete_one({"id": extraction_id})
+    return {"deleted": True}

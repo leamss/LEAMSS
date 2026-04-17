@@ -62,12 +62,15 @@ export default function DocumentExtractor({ token, role = 'client', caseId = nul
   const [hintDocType, setHintDocType] = useState('');
   const [previewUrl, setPreviewUrl] = useState(null);
   const [fileMeta, setFileMeta] = useState(null);
+  const [fileBase64, setFileBase64] = useState(null); // cache for save
   const [extracting, setExtracting] = useState(false);
   const [progress, setProgress] = useState(0); // animated progress 0-100
   const [stageText, setStageText] = useState('');
   const [result, setResult] = useState(null);
   const [editMode, setEditMode] = useState(false);
   const [editedFields, setEditedFields] = useState({});
+  const [history, setHistory] = useState([]);
+  const [viewingExtraction, setViewingExtraction] = useState(null);
   const fileInputRef = useRef(null);
   const progressTimerRef = useRef(null);
 
@@ -124,8 +127,25 @@ export default function DocumentExtractor({ token, role = 'client', caseId = nul
     if (previewUrl && previewUrl.startsWith('blob:')) URL.revokeObjectURL(previewUrl);
     setPreviewUrl(URL.createObjectURL(file));
     setFileMeta({ name: file.name, type: file.type, size: file.size, rawFile: file });
+    // Cache base64 for later save
+    const reader = new FileReader();
+    reader.onloadend = () => setFileBase64(reader.result);
+    reader.readAsDataURL(file);
     setResult(null);
   };
+
+  const loadHistory = useCallback(async () => {
+    if (!token) return;
+    try {
+      const params = caseId ? { case_id: caseId } : {};
+      const r = await axios.get(`${API}/doc-extraction/history`, {
+        headers: { Authorization: `Bearer ${token}` }, params,
+      });
+      setHistory(r.data.extractions || []);
+    } catch { /* ignore */ }
+  }, [token, caseId]);
+
+  useEffect(() => { if (activeTab === 'history') loadHistory(); }, [activeTab, loadHistory]);
 
   const runExtraction = async () => {
     if (!fileMeta?.rawFile) { toast.error('Upload an image first'); return; }
@@ -198,11 +218,26 @@ export default function DocumentExtractor({ token, role = 'client', caseId = nul
         extraction: payload,
         case_id: caseId,
         filename: fileMeta?.name,
+        image_base64: fileBase64 || null,
+        mime_type: fileMeta?.type,
       }, { headers: { Authorization: `Bearer ${token}` } });
-      toast.success('Saved to records');
+      toast.success('Saved to records — view in "Saved Extractions" tab');
       setEditMode(false);
+      loadHistory();
     } catch (e) {
       toast.error(e?.response?.data?.detail || 'Save failed');
+    }
+  };
+
+  const deleteHistoryItem = async (id) => {
+    if (!window.confirm('Delete this saved extraction?')) return;
+    try {
+      await axios.delete(`${API}/doc-extraction/history/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+      toast.success('Deleted');
+      loadHistory();
+      if (viewingExtraction?.id === id) setViewingExtraction(null);
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || 'Delete failed');
     }
   };
 
@@ -222,6 +257,7 @@ export default function DocumentExtractor({ token, role = 'client', caseId = nul
     if (previewUrl && previewUrl.startsWith('blob:')) URL.revokeObjectURL(previewUrl);
     setPreviewUrl(null);
     setFileMeta(null);
+    setFileBase64(null);
     setResult(null);
     setEditedFields({});
     setEditMode(false);
@@ -256,6 +292,10 @@ export default function DocumentExtractor({ token, role = 'client', caseId = nul
           </TabsTrigger>
           <TabsTrigger value="demo" data-testid="dx-tab-demo">
             <Zap className="h-4 w-4 mr-1.5" /> Try Demo
+          </TabsTrigger>
+          <TabsTrigger value="history" data-testid="dx-tab-history">
+            <FileText className="h-4 w-4 mr-1.5" /> Saved Extractions
+            {history.length > 0 && <Badge className="ml-1.5 bg-[#2a777a] text-white text-xs h-5 px-1.5">{history.length}</Badge>}
           </TabsTrigger>
         </TabsList>
 
@@ -385,7 +425,157 @@ export default function DocumentExtractor({ token, role = 'client', caseId = nul
             />
           )}
         </TabsContent>
+
+        {/* HISTORY TAB */}
+        <TabsContent value="history" className="mt-0 space-y-4">
+          {history.length === 0 ? (
+            <Card className="p-12 text-center bg-white border-slate-200 border-dashed">
+              <FileText className="h-12 w-12 text-slate-200 mx-auto mb-3" />
+              <p className="font-semibold text-slate-600">No saved extractions yet</p>
+              <p className="text-sm text-slate-400 mt-1">Upload a document, extract, and click "Save to Records" to see it here.</p>
+            </Card>
+          ) : (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {history.map(h => {
+                const ex = h.extraction || {};
+                const conf = ex.overall_confidence || 0;
+                const color = CONFIDENCE_COLOR(conf);
+                const imgUrl = h.has_image ? `${API}/doc-extraction/image/${h.id}` : null;
+                return (
+                  <Card key={h.id} className="p-3 bg-white border-slate-200 hover:border-[#2a777a] hover:shadow-md transition-all cursor-pointer"
+                    onClick={() => setViewingExtraction(h)} data-testid={`dx-hist-${h.id}`}>
+                    {imgUrl ? (
+                      <div className="w-full aspect-[4/3] bg-slate-100 rounded overflow-hidden mb-2">
+                        <img src={imgUrl} alt={h.filename} className="w-full h-full object-cover"
+                          onError={(e) => { e.target.style.display = 'none'; }}
+                          crossOrigin="anonymous" />
+                      </div>
+                    ) : (
+                      <div className="w-full aspect-[4/3] bg-slate-50 rounded mb-2 flex items-center justify-center">
+                        <FileText className="h-10 w-10 text-slate-300" />
+                      </div>
+                    )}
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <Badge variant="outline" className="text-xs">{ex.doc_type_name || ex.doc_type || 'Document'}</Badge>
+                        <span className={`text-xs font-bold ${color.text}`}>{Math.round(conf * 100)}%</span>
+                      </div>
+                      <p className="text-sm font-semibold text-slate-800 truncate">{h.filename || 'Untitled'}</p>
+                      <p className="text-xs text-slate-500 line-clamp-2">{ex.summary || '—'}</p>
+                      <p className="text-[11px] text-slate-400">{new Date(h.created_at).toLocaleString()}</p>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </TabsContent>
       </Tabs>
+
+      {/* History detail dialog */}
+      {viewingExtraction && (
+        <HistoryDetailDialog
+          item={viewingExtraction}
+          token={token}
+          onClose={() => setViewingExtraction(null)}
+          onDelete={() => deleteHistoryItem(viewingExtraction.id)}
+        />
+      )}
+    </div>
+  );
+}
+
+function HistoryDetailDialog({ item, token, onClose, onDelete }) {
+  const ex = item.extraction || {};
+  const fields = ex.fields || {};
+  const confidences = ex.confidences || {};
+  const overall = ex.overall_confidence || 0;
+  const overallPct = Math.round(overall * 100);
+  const overallColor = CONFIDENCE_COLOR(overall);
+  const [authedImgUrl, setAuthedImgUrl] = useState(null);
+
+  useEffect(() => {
+    if (!item.has_image || !token) return;
+    let revoked = false;
+    (async () => {
+      try {
+        const resp = await axios.get(`${API}/doc-extraction/image/${item.id}`, {
+          headers: { Authorization: `Bearer ${token}` }, responseType: 'blob',
+        });
+        if (!revoked) setAuthedImgUrl(URL.createObjectURL(resp.data));
+      } catch { /* ignore */ }
+    })();
+    return () => { revoked = true; if (authedImgUrl) URL.revokeObjectURL(authedImgUrl); };
+    // eslint-disable-next-line
+  }, [item.id, item.has_image, token]);
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={onClose} data-testid="dx-history-dialog">
+      <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="p-5 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white z-10">
+          <div>
+            <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-[#2a777a]" />
+              {item.filename || 'Saved Extraction'}
+            </h3>
+            <p className="text-xs text-slate-500">Saved {new Date(item.created_at).toLocaleString()} by {item.created_by_name}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" className="border-red-200 text-red-600 hover:bg-red-50" onClick={onDelete} data-testid="dx-hist-delete">
+              <X className="h-3.5 w-3.5 mr-1" /> Delete
+            </Button>
+            <Button variant="ghost" size="sm" onClick={onClose}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        <div className="p-5 grid md:grid-cols-2 gap-5">
+          {/* Image */}
+          <div>
+            {authedImgUrl ? (
+              <img src={authedImgUrl} alt={item.filename} className="w-full rounded-lg border border-slate-200" />
+            ) : item.has_image ? (
+              <div className="aspect-[4/3] bg-slate-100 rounded-lg animate-pulse" />
+            ) : (
+              <div className="aspect-[4/3] bg-slate-50 rounded-lg flex items-center justify-center border border-dashed border-slate-200">
+                <div className="text-center text-slate-400">
+                  <FileText className="h-10 w-10 mx-auto mb-2" />
+                  <p className="text-xs">Image not stored</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Extraction */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Badge className="bg-[#2a777a] text-white">
+                <FileText className="h-3 w-3 mr-1" /> {ex.doc_type_name || ex.doc_type}
+              </Badge>
+              <div className={`px-3 py-1 rounded-lg ring-1 ${overallColor.bg} ${overallColor.ring}`}>
+                <span className={`text-sm font-bold ${overallColor.text}`}>{overallPct}% confidence</span>
+              </div>
+            </div>
+            {ex.summary && <p className="text-sm text-slate-600">{ex.summary}</p>}
+            <div className="space-y-1.5">
+              {Object.entries(fields).map(([k, v]) => {
+                const c = confidences[k] || 0;
+                const cc = CONFIDENCE_COLOR(c);
+                return (
+                  <div key={k} className="flex items-center justify-between gap-2 py-1.5 border-b border-slate-100">
+                    <span className="text-xs uppercase text-slate-500 font-semibold">{humanKey(k)}</span>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-sm text-slate-800 font-medium truncate max-w-[200px]">{pretty(v)}</span>
+                      <span className={`text-[10px] font-semibold ${cc.text} shrink-0`}>{Math.round(c * 100)}%</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
