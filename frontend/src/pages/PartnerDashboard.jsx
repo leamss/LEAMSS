@@ -8,13 +8,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Briefcase, FileText, DollarSign, LogOut, Plus, ArrowLeft, MessageSquare, Filter, Download, Menu, X, ClipboardCheck, BarChart3, Kanban, Award } from 'lucide-react';
+import { Briefcase, FileText, DollarSign, LogOut, Plus, ArrowLeft, MessageSquare, Filter, Download, Menu, X, ClipboardCheck, BarChart3, Kanban, Award, Calculator } from 'lucide-react';
 import DashboardShell from '@/components/DashboardShell';
 import TicketSection from '@/components/TicketSection';
 import QuickActions from '@/components/QuickActions';
 import PreAssessmentPipeline from '@/components/PreAssessmentPipeline';
 import PartnerPerformance from '@/components/PartnerPerformance';
 import LeadPipeline from '@/components/LeadPipeline';
+import FeeCalculator from '@/components/FeeCalculator';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -288,6 +289,7 @@ const PartnerDashboard = () => {
     { id: 'sales', icon: FileText, label: 'My Sales', onClick: () => setActiveTab('sales') },
     { id: 'commission', icon: DollarSign, label: 'Commission', onClick: () => setActiveTab('commission') },
     { id: 'performance', icon: BarChart3, label: 'My Performance', onClick: () => setActiveTab('performance') },
+    { id: 'fee-calculator', icon: Calculator, label: 'Fee Calculator', onClick: () => setActiveTab('fee-calculator') },
     { id: 'tickets', icon: MessageSquare, label: 'Support', onClick: () => setActiveTab('tickets') },
   ];
 
@@ -741,6 +743,10 @@ const PartnerDashboard = () => {
 
           {activeTab === 'performance' && (
             <PartnerPerformance />
+          )}
+
+          {activeTab === 'fee-calculator' && (
+            <FeeCalculator token={localStorage.getItem('token')} role="partner" />
           )}
     </DashboardShell>
   );

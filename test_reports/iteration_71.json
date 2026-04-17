@@ -1,0 +1,99 @@
+{
+  "summary": "Iteration 71: Automated Government Fee Calculator - All 28 backend API tests passed. Comprehensive testing of fee calculation endpoints with math validation, auth checks, CRUD operations, and role-based access control.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration71_fee_calculator.py",
+    "/app/test_reports/pytest/pytest_iteration71.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_iteration71_fee_calculator.py"
+  ],
+  "success_rate": {
+    "backend": "100% (28/28 tests passed)",
+    "frontend": "N/A (backend only testing)"
+  },
+  "test_credentials": {
+    "admin": "admin@leamss.com / Admin@123",
+    "manager": "manager@leamss.com / Manager@123",
+    "partner": "partner@leamss.com / Partner@123",
+    "client": "client@leamss.com / Client@123"
+  },
+  "seed_data_creation": "Test estimates created and cleaned up during tests",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration 71 verified Automated Government Fee Calculator feature. All endpoints working correctly. Key findings: 1) GET /api/fee-calculator/countries returns 20 countries with flag, currency, categories. 2) GET /api/fee-calculator/country/{id} returns full fee detail (tested canada, australia, uk, usa). 3) GET /api/fee-calculator/exchange-rates returns live rates from frankfurter.dev with static fallback (16 currencies). 4) POST /api/fee-calculator/calculate computes fee breakdown with correct math: Canada Express Entry 2+1 = C$7,590 govt + ₹177,000 service+GST = ₹692,289 grand total. 5) Line item multiplier: per_applicant=true multiplies by (adults+children), per_applicant=false stays at 1. 6) Math validation: mandatory_native + optional_selected_native = govt_fees_native, govt_fees_inr = govt_fees_native * fx_rate, service_total_inr = service_fee_inr + gst_amount_inr, grand_total_inr = govt_fees_inr + service_total_inr. 7) POST /api/fee-calculator/save-estimate persists estimates. 8) GET /api/fee-calculator/estimates lists with case_id filter, partner sees only own, admin sees all. 9) DELETE /api/fee-calculator/estimates/{id} - only creator or admin can delete (403 for others). 10) All endpoints require auth (403 without token).",
+  "features_tested": {
+    "auth_required_all_endpoints": {
+      "status": "PASS",
+      "details": "All 7 endpoints return 403 without auth token"
+    },
+    "list_countries": {
+      "status": "PASS",
+      "endpoint": "GET /api/fee-calculator/countries",
+      "details": "Returns 20 countries with flag, currency, categories. All roles can access."
+    },
+    "country_detail": {
+      "status": "PASS",
+      "endpoint": "GET /api/fee-calculator/country/{id}",
+      "details": "Tested canada, australia, uk, usa. Returns full fee detail per visa category. Invalid country returns 404."
+    },
+    "exchange_rates": {
+      "status": "PASS",
+      "endpoint": "GET /api/fee-calculator/exchange-rates",
+      "details": "Returns 16 currencies (USD, CAD, AUD, GBP, EUR, NZD, SGD, JPY, SEK, DKK, CHF, HKD, MYR, KRW, AED, INR). INR=1.0. Source: frankfurter.dev with static fallback."
+    },
+    "calculate_fees_math": {
+      "status": "PASS",
+      "endpoint": "POST /api/fee-calculator/calculate",
+      "details": "Canada Express Entry 2 adults + 1 child + service_fee=150000 + gst=18%: govt_fees_native=7590 CAD, govt_fees_inr=515289.49, service_total_inr=177000, grand_total_inr=692289.49"
+    },
+    "mandatory_only_flow": {
+      "status": "PASS",
+      "details": "With no optionals selected, optional_selected_native=0, govt_fees_native=mandatory_native"
+    },
+    "optional_selection": {
+      "status": "PASS",
+      "details": "include_optional_ids selects optional fees by label or ID"
+    },
+    "per_applicant_multiplier": {
+      "status": "PASS",
+      "details": "per_applicant=true multiplies by (adults+children), per_applicant=false stays at 1"
+    },
+    "bad_country_category_404": {
+      "status": "PASS",
+      "details": "Invalid country or category returns 404"
+    },
+    "save_estimate": {
+      "status": "PASS",
+      "endpoint": "POST /api/fee-calculator/save-estimate",
+      "details": "Persists estimate with label, country, category, payload, case_id, sale_id"
+    },
+    "list_estimates_filter": {
+      "status": "PASS",
+      "endpoint": "GET /api/fee-calculator/estimates",
+      "details": "Filters by case_id. Partner sees only own estimates. Admin sees all."
+    },
+    "delete_estimate_auth": {
+      "status": "PASS",
+      "endpoint": "DELETE /api/fee-calculator/estimates/{id}",
+      "details": "Creator can delete own. Admin can delete any. Non-creator non-admin gets 403. Non-existent returns 404."
+    },
+    "partner_visibility": {
+      "status": "PASS",
+      "details": "Partner sees only their own estimates. Admin sees all estimates."
+    }
+  },
+  "mocked_apis": {
+    "frankfurter_dev": "Live API used with static fallback if API fails"
+  }
+}

@@ -18,7 +18,7 @@ import {
   Search, DollarSign, TrendingUp, CheckCircle, XCircle, Clock,
   MessageSquare, Filter, Calendar, RefreshCw, AlertTriangle, Copy, Mail, Gift,
   Menu, X, Bell, Loader2, CreditCard, BarChart3, Activity, Megaphone,
-  ArrowRightLeft, Zap, BookOpen, Star, UserCheck, ClipboardList, Sparkles
+  ArrowRightLeft, Zap, BookOpen, Star, UserCheck, ClipboardList, Sparkles, Calculator
 } from 'lucide-react';
 import BulkOperations from '@/pages/BulkOperations';
 import SLATracker from '@/pages/SLATracker';
@@ -39,6 +39,7 @@ import CommissionAnalytics from '@/pages/CommissionAnalytics';
 import PreAssessmentQueue from '@/components/PreAssessmentQueue';
 import HappinessScoreWidget from '@/components/HappinessScoreWidget';
 import ApprovalCenter from '@/components/ApprovalCenter';
+import FeeCalculator from '@/components/FeeCalculator';
 import RefundManager from '@/components/RefundManager';
 import RevenueDashboard from '@/components/RevenueDashboard';
 import { DeadlineOverviewWidget } from '@/components/DeadlineTracker';
@@ -1200,6 +1201,7 @@ const AdminDashboard = () => {
       defaultOpen: false,
       items: [
         { id: 'ai-workflow', icon: Megaphone, label: 'AI Workflow Builder', onClick: () => navigate('/admin/ai-workflow') },
+        { id: 'fee-calculator', icon: Calculator, label: 'Fee Calculator', onClick: () => { setActiveTab('fee-calculator'); resetSelections(); } },
         { id: 'workflows', icon: FileText, label: 'Workflows', onClick: () => navigate('/admin/workflows') },
         { id: 'marketing', icon: Megaphone, label: 'Marketing', onClick: () => navigate('/admin/marketing') },
         { id: 'knowledge-base', icon: BookOpen, label: 'Knowledge Base', onClick: () => { setActiveTab('knowledge-base'); resetSelections(); } },
@@ -2775,6 +2777,7 @@ const AdminDashboard = () => {
           {activeTab === 'revenue-dashboard' && <RevenueDashboard token={localStorage.getItem('token')} />}
           {activeTab === 'report-builder' && <ReportBuilder token={localStorage.getItem('token')} />}
           {activeTab === 'email-digest' && <EmailDigest token={localStorage.getItem('token')} />}
+          {activeTab === 'fee-calculator' && <FeeCalculator token={localStorage.getItem('token')} role="admin" />}
 
       {/* Product Dialog */}
       <Dialog open={productDialog.open} onOpenChange={(open) => setProductDialog({ ...productDialog, open })}>

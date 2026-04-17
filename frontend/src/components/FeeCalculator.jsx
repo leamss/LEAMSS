@@ -1,0 +1,491 @@
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import axios from 'axios';
+import { toast } from 'sonner';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { Separator } from '@/components/ui/separator';
+import {
+  Calculator, Plane, Globe, Users, FileText, CheckCircle2, Info,
+  Copy, Download, ExternalLink, Loader2, TrendingUp, Wallet,
+  IndianRupee, Sparkles, RefreshCw, Receipt, Shield
+} from 'lucide-react';
+
+const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+const CURRENCY_SYMBOL = {
+  INR: '₹', USD: '$', CAD: 'C$', AUD: 'A$', GBP: '£', EUR: '€',
+  NZD: 'NZ$', SGD: 'S$', JPY: '¥', SEK: 'kr', DKK: 'kr', CHF: 'Fr',
+  HKD: 'HK$', MYR: 'RM', KRW: '₩', AED: 'د.إ',
+};
+
+const fmt = (num, cur = 'INR') => {
+  if (num == null) return '--';
+  const sym = CURRENCY_SYMBOL[cur] || '';
+  const n = Number(num);
+  try {
+    if (cur === 'INR') return `${sym}${n.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+    return `${sym}${n.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+  } catch {
+    return `${sym}${Math.round(n)}`;
+  }
+};
+
+/**
+ * FeeCalculator — Premium government fee calculator widget.
+ *
+ * Props:
+ *   token        — auth token
+ *   role         — 'partner' | 'case_manager' | 'admin' | 'client'
+ *   defaultCountry, defaultCategory — optional pre-selection
+ *   caseId, saleId — optional, enables 'Save to Case/Proposal'
+ *   compact      — boolean; tighter layout for side panels
+ */
+export default function FeeCalculator({
+  token,
+  role = 'partner',
+  defaultCountry = '',
+  defaultCategory = '',
+  caseId = null,
+  saleId = null,
+  compact = false,
+}) {
+  const [countries, setCountries] = useState([]);
+  const [country, setCountry] = useState(defaultCountry);
+  const [countryDetail, setCountryDetail] = useState(null);
+  const [category, setCategory] = useState(defaultCategory);
+  const [adults, setAdults] = useState(1);
+  const [children, setChildren] = useState(0);
+  const [serviceFee, setServiceFee] = useState(0);
+  const [gstPct, setGstPct] = useState(18);
+  const [selectedOptionals, setSelectedOptionals] = useState(new Set());
+  const [result, setResult] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [showCurrency, setShowCurrency] = useState('both'); // native | inr | both
+  const [rates, setRates] = useState(null);
+  const [savedEstimates, setSavedEstimates] = useState([]);
+
+  // Load countries
+  useEffect(() => {
+    if (!token) return;
+    axios.get(`${API}/fee-calculator/countries`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => setCountries(r.data.countries || []))
+      .catch(() => toast.error('Failed to load countries'));
+    axios.get(`${API}/fee-calculator/exchange-rates`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => setRates(r.data))
+      .catch(() => {});
+  }, [token]);
+
+  // Load country detail on country change
+  useEffect(() => {
+    if (!country || !token) { setCountryDetail(null); return; }
+    axios.get(`${API}/fee-calculator/country/${country}`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => {
+        setCountryDetail(r.data);
+        // Pick first category if none chosen or category not in this country
+        if (!category || !r.data.categories?.[category]) {
+          const firstCat = Object.keys(r.data.categories || {})[0] || '';
+          setCategory(firstCat);
+        }
+      })
+      .catch(() => toast.error('Failed to load country detail'));
+  }, [country, token]); // eslint-disable-line
+
+  // Load saved estimates tied to this case/sale
+  const loadEstimates = useCallback(async () => {
+    if (!token || (!caseId && !saleId)) return;
+    try {
+      const params = {};
+      if (caseId) params.case_id = caseId;
+      if (saleId) params.sale_id = saleId;
+      const r = await axios.get(`${API}/fee-calculator/estimates`, {
+        headers: { Authorization: `Bearer ${token}` }, params,
+      });
+      setSavedEstimates(r.data.estimates || []);
+    } catch { /* ignore */ }
+  }, [token, caseId, saleId]);
+  useEffect(() => { loadEstimates(); }, [loadEstimates]);
+
+  const activeCategory = countryDetail?.categories?.[category];
+  const optionalFees = useMemo(() => {
+    if (!activeCategory) return [];
+    return activeCategory.fees
+      .map((f, idx) => ({ ...f, id: `${category}_${idx}` }))
+      .filter(f => !f.mandatory);
+  }, [activeCategory, category]);
+
+  // Auto-calculate debounce
+  useEffect(() => {
+    if (!country || !category || !token) return;
+    const h = setTimeout(() => doCalculate(), 200);
+    return () => clearTimeout(h);
+    // eslint-disable-next-line
+  }, [country, category, adults, children, serviceFee, gstPct, selectedOptionals, token]);
+
+  const doCalculate = async () => {
+    if (!country || !category) return;
+    setLoading(true);
+    try {
+      const r = await axios.post(`${API}/fee-calculator/calculate`, {
+        country,
+        category,
+        adults,
+        children,
+        include_optional_ids: Array.from(selectedOptionals),
+        service_fee_inr: Number(serviceFee) || 0,
+        gst_pct: Number(gstPct) || 0,
+      }, { headers: { Authorization: `Bearer ${token}` } });
+      setResult(r.data);
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || 'Calculation failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleOptional = (id) => {
+    const next = new Set(selectedOptionals);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    setSelectedOptionals(next);
+  };
+
+  const handleCopyBreakdown = () => {
+    if (!result) return;
+    const lines = [
+      `Fee Estimate — ${result.country.name} ${result.country.flag}`,
+      `Category: ${result.category.name}`,
+      `Processing: ${result.category.processing_days} days`,
+      `Applicants: ${result.applicants.adults} adult(s), ${result.applicants.children} child(ren)`,
+      '',
+      'Government Fees:',
+      ...result.line_items.filter(li => li.selected).map(li =>
+        `  • ${li.label}${li.multiplier > 1 ? ` (x${li.multiplier})` : ''} — ${fmt(li.total_native, result.country.currency)} / ${fmt(li.total_inr, 'INR')}`
+      ),
+      '',
+      `Govt Total: ${fmt(result.totals.govt_fees_native, result.country.currency)} / ${fmt(result.totals.govt_fees_inr, 'INR')}`,
+      `Service Fee: ${fmt(result.totals.service_fee_inr, 'INR')}`,
+      `GST (${result.totals.gst_pct}%): ${fmt(result.totals.gst_amount_inr, 'INR')}`,
+      '━━━━━━━━━━━━━━━━━━━━━━',
+      `GRAND TOTAL: ${fmt(result.totals.grand_total_inr, 'INR')}`,
+    ];
+    navigator.clipboard.writeText(lines.join('\n')).then(() => toast.success('Breakdown copied to clipboard'));
+  };
+
+  const handleSave = async () => {
+    if (!result) return;
+    const label = `${result.country.name} — ${result.category.name}`;
+    try {
+      await axios.post(`${API}/fee-calculator/save-estimate`, {
+        label, country, category, payload: result, case_id: caseId, sale_id: saleId,
+      }, { headers: { Authorization: `Bearer ${token}` } });
+      toast.success('Estimate saved');
+      loadEstimates();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || 'Save failed');
+    }
+  };
+
+  const handlePrint = () => window.print();
+
+  // ---- UI helpers
+  const AmountCell = ({ native, inr, cur }) => {
+    if (showCurrency === 'native') return <span className="font-medium">{fmt(native, cur)}</span>;
+    if (showCurrency === 'inr') return <span className="font-medium">{fmt(inr, 'INR')}</span>;
+    return (
+      <span className="font-medium whitespace-nowrap">
+        {fmt(native, cur)} <span className="text-slate-400">/</span> <span className="text-[#2a777a]">{fmt(inr, 'INR')}</span>
+      </span>
+    );
+  };
+
+  return (
+    <div className="space-y-5" data-testid="fee-calculator">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+            <div className="p-2 bg-gradient-to-br from-[#2a777a] to-[#1f5c5f] rounded-lg text-white">
+              <Calculator className="h-5 w-5" />
+            </div>
+            Government Fee Calculator
+          </h2>
+          <p className="text-sm text-slate-500 mt-1">
+            Live breakdown · {countries.length} countries · Official 2025-26 fees · Auto ₹INR conversion
+          </p>
+        </div>
+        {rates?.fetched_at && (
+          <div className="text-xs text-slate-500 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200 flex items-center gap-2">
+            <RefreshCw className="h-3 w-3 text-emerald-600" />
+            <span>Rates synced <span className="font-medium">{new Date(rates.fetched_at).toLocaleTimeString()}</span></span>
+          </div>
+        )}
+      </div>
+
+      <div className={`grid ${compact ? 'grid-cols-1' : 'lg:grid-cols-5'} gap-5`}>
+        {/* Left — Inputs */}
+        <Card className={`${compact ? '' : 'lg:col-span-2'} p-5 bg-white border-slate-200 space-y-4`}>
+          <div>
+            <Label className="text-sm font-semibold text-slate-700 flex items-center gap-1.5"><Globe className="h-3.5 w-3.5" /> Destination Country</Label>
+            <Select value={country} onValueChange={(v) => { setCountry(v); setCategory(''); setSelectedOptionals(new Set()); }}>
+              <SelectTrigger className="mt-1.5" data-testid="fc-country-select">
+                <SelectValue placeholder="Choose country" />
+              </SelectTrigger>
+              <SelectContent className="max-h-80">
+                {countries.map(c => (
+                  <SelectItem key={c.id} value={c.id}>
+                    <span className="flex items-center gap-2">
+                      <span className="text-lg leading-none">{c.flag}</span>
+                      <span>{c.name}</span>
+                      <span className="text-xs text-slate-400">({c.currency})</span>
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label className="text-sm font-semibold text-slate-700 flex items-center gap-1.5"><Plane className="h-3.5 w-3.5" /> Visa Category</Label>
+            <Select value={category} onValueChange={(v) => { setCategory(v); setSelectedOptionals(new Set()); }} disabled={!countryDetail}>
+              <SelectTrigger className="mt-1.5" data-testid="fc-category-select">
+                <SelectValue placeholder={countryDetail ? 'Choose category' : 'Select country first'} />
+              </SelectTrigger>
+              <SelectContent className="max-h-80">
+                {countryDetail && Object.entries(countryDetail.categories).map(([id, cat]) => (
+                  <SelectItem key={id} value={id}>{cat.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {activeCategory?.official_url && (
+              <a href={activeCategory.official_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 mt-1.5 text-xs text-[#2a777a] hover:underline">
+                <ExternalLink className="h-3 w-3" /> Official source
+              </a>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-sm font-semibold text-slate-700 flex items-center gap-1.5"><Users className="h-3.5 w-3.5" /> Adults</Label>
+              <Input type="number" min={1} max={10} value={adults}
+                onChange={(e) => setAdults(Math.max(1, Number(e.target.value) || 1))}
+                className="mt-1.5" data-testid="fc-adults-input" />
+            </div>
+            <div>
+              <Label className="text-sm font-semibold text-slate-700">Children</Label>
+              <Input type="number" min={0} max={10} value={children}
+                onChange={(e) => setChildren(Math.max(0, Number(e.target.value) || 0))}
+                className="mt-1.5" data-testid="fc-children-input" />
+            </div>
+          </div>
+
+          {optionalFees.length > 0 && (
+            <div>
+              <Label className="text-sm font-semibold text-slate-700">Optional Add-ons</Label>
+              <div className="mt-1.5 space-y-2">
+                {optionalFees.map(f => (
+                  <label key={f.id} className="flex items-start gap-2 p-2 rounded-md border border-slate-200 hover:border-[#2a777a] cursor-pointer transition-colors">
+                    <Checkbox
+                      checked={selectedOptionals.has(f.id)}
+                      onCheckedChange={() => toggleOptional(f.id)}
+                      className="mt-0.5"
+                      data-testid={`fc-optional-${f.id}`}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-slate-700 leading-tight">{f.label}</p>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        {fmt(f.amount, countryDetail?.currency || 'USD')}{f.per_applicant ? ' / applicant' : ''}
+                        {f.notes && <span className="ml-1 text-slate-400">— {f.notes}</span>}
+                      </p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {(role === 'partner' || role === 'admin' || role === 'case_manager') && (
+            <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-3">
+              <div className="flex items-center gap-1.5 text-sm font-semibold text-slate-700">
+                <Wallet className="h-4 w-4 text-[#f7620b]" /> Consultancy Service Fee
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs text-slate-600">Service Fee (₹)</Label>
+                  <Input type="number" min={0} value={serviceFee}
+                    onChange={(e) => setServiceFee(Number(e.target.value) || 0)}
+                    placeholder="e.g. 150000" className="mt-1" data-testid="fc-service-fee" />
+                </div>
+                <div>
+                  <Label className="text-xs text-slate-600">GST (%)</Label>
+                  <Input type="number" min={0} max={50} step={0.5} value={gstPct}
+                    onChange={(e) => setGstPct(Number(e.target.value) || 0)}
+                    className="mt-1" data-testid="fc-gst" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+            <Label className="text-xs text-slate-600">Display Currency</Label>
+            <Select value={showCurrency} onValueChange={setShowCurrency}>
+              <SelectTrigger className="w-36 h-8 text-xs" data-testid="fc-display-cur">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="both">Native + ₹INR</SelectItem>
+                <SelectItem value="native">Native Only</SelectItem>
+                <SelectItem value="inr">₹INR Only</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </Card>
+
+        {/* Right — Breakdown */}
+        <Card className={`${compact ? '' : 'lg:col-span-3'} p-5 bg-white border-slate-200 relative overflow-hidden`}>
+          {loading && <div className="absolute top-3 right-3"><Loader2 className="h-4 w-4 animate-spin text-[#2a777a]" /></div>}
+
+          {!result ? (
+            <div className="text-center py-12 text-slate-400" data-testid="fc-empty-state">
+              <Calculator className="h-12 w-12 mx-auto mb-3 text-slate-200" />
+              <p className="text-sm">Choose a country & visa category<br />to see live fee breakdown</p>
+            </div>
+          ) : (
+            <div className="space-y-4" data-testid="fc-result">
+              {/* Top summary */}
+              <div className="bg-gradient-to-br from-[#2a777a] to-[#1f5c5f] text-white p-5 rounded-xl shadow-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs uppercase tracking-wider opacity-80">Total Estimated Cost</p>
+                    <p className="text-3xl font-bold mt-1 flex items-center gap-1" data-testid="fc-grand-total">
+                      <IndianRupee className="h-6 w-6" />
+                      {result.totals.grand_total_inr.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                    </p>
+                    <p className="text-xs opacity-80 mt-1">
+                      {fmt(result.totals.govt_fees_native, result.country.currency)} govt fees + service charges
+                    </p>
+                  </div>
+                  <div className="text-right space-y-1">
+                    <div className="text-5xl leading-none">{result.country.flag}</div>
+                    <Badge className="bg-white/20 text-white border-white/30 hover:bg-white/20">
+                      {result.category.processing_days} days
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+
+              {/* Line items */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-1.5">
+                    <Receipt className="h-4 w-4 text-[#2a777a]" /> Government Fees Breakdown
+                  </h3>
+                  <span className="text-xs text-slate-400">
+                    1 {result.country.currency} = ₹{result.exchange_rate.native_to_inr.toFixed(2)}
+                  </span>
+                </div>
+                <div className="border border-slate-200 rounded-lg overflow-hidden divide-y divide-slate-100">
+                  {result.line_items.filter(li => li.selected).map((li, idx) => (
+                    <div key={li.id} className="flex items-start justify-between gap-3 px-3 py-2.5 hover:bg-slate-50 text-sm" data-testid={`fc-line-${idx}`}>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-slate-800">{li.label}</span>
+                          {li.multiplier > 1 && (
+                            <Badge variant="outline" className="text-xs py-0 h-5">×{li.multiplier}</Badge>
+                          )}
+                          {li.mandatory ? (
+                            <Badge className="bg-red-50 text-red-700 border-red-200 text-xs py-0 h-5">Required</Badge>
+                          ) : (
+                            <Badge className="bg-blue-50 text-blue-700 border-blue-200 text-xs py-0 h-5">Optional</Badge>
+                          )}
+                        </div>
+                        {li.notes && <p className="text-xs text-slate-400 mt-0.5">{li.notes}</p>}
+                      </div>
+                      <div className="text-right">
+                        <AmountCell native={li.total_native} inr={li.total_inr} cur={result.country.currency} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Totals */}
+              <div className="bg-slate-50 rounded-lg p-4 space-y-2 text-sm border border-slate-200">
+                <Row label="Mandatory Govt Fees" value={<AmountCell native={result.totals.mandatory_native} inr={result.totals.mandatory_inr} cur={result.country.currency} />} />
+                {result.totals.optional_selected_inr > 0 && (
+                  <Row label="Optional Add-ons Selected" value={<AmountCell native={result.totals.optional_selected_native} inr={result.totals.optional_selected_inr} cur={result.country.currency} />} />
+                )}
+                <Separator className="my-1" />
+                <Row label="Total Government Fees" value={<AmountCell native={result.totals.govt_fees_native} inr={result.totals.govt_fees_inr} cur={result.country.currency} />} bold />
+                {result.totals.service_fee_inr > 0 && (
+                  <>
+                    <Row label="Consultancy Service Fee" value={<span className="font-medium">{fmt(result.totals.service_fee_inr, 'INR')}</span>} />
+                    <Row label={`GST @ ${result.totals.gst_pct}%`} value={<span className="font-medium">{fmt(result.totals.gst_amount_inr, 'INR')}</span>} />
+                  </>
+                )}
+                <Separator className="my-1" />
+                <Row
+                  label={<span className="text-base font-bold text-slate-800">Grand Total</span>}
+                  value={<span className="text-base font-bold text-[#2a777a]">{fmt(result.totals.grand_total_inr, 'INR')}</span>}
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button variant="outline" size="sm" onClick={handleCopyBreakdown} data-testid="fc-copy-btn">
+                  <Copy className="h-3.5 w-3.5 mr-1.5" /> Copy Breakdown
+                </Button>
+                <Button variant="outline" size="sm" onClick={handlePrint} data-testid="fc-print-btn">
+                  <Download className="h-3.5 w-3.5 mr-1.5" /> Print / PDF
+                </Button>
+                {(caseId || saleId) && role !== 'client' && (
+                  <Button size="sm" className="bg-[#f7620b] hover:bg-[#e55a09]" onClick={handleSave} data-testid="fc-save-btn">
+                    <Sparkles className="h-3.5 w-3.5 mr-1.5" /> Attach to {caseId ? 'Case' : 'Proposal'}
+                  </Button>
+                )}
+              </div>
+
+              <div className="text-xs text-slate-400 flex items-start gap-1.5 p-2 bg-blue-50 border border-blue-100 rounded">
+                <Info className="h-3.5 w-3.5 mt-0.5 text-blue-500 shrink-0" />
+                <span>Government fees are indicative (2025-26 official rates). Exchange rates refreshed hourly from ECB (frankfurter.dev). Third-party costs (tuition, travel, insurance) not included.</span>
+              </div>
+            </div>
+          )}
+        </Card>
+      </div>
+
+      {/* Saved estimates */}
+      {savedEstimates.length > 0 && (
+        <Card className="p-4 bg-white border-slate-200">
+          <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-1.5 mb-3">
+            <Shield className="h-4 w-4 text-emerald-600" /> Attached Estimates ({savedEstimates.length})
+          </h3>
+          <div className="space-y-2">
+            {savedEstimates.map(est => (
+              <div key={est.id} className="flex items-center justify-between text-sm p-2 bg-slate-50 rounded border border-slate-200">
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-slate-800 truncate">{est.label}</p>
+                  <p className="text-xs text-slate-500">By {est.created_by_name} · {new Date(est.created_at).toLocaleDateString()}</p>
+                </div>
+                <Badge className="bg-[#2a777a] text-white">
+                  {fmt(est.payload?.totals?.grand_total_inr || 0, 'INR')}
+                </Badge>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+const Row = ({ label, value, bold }) => (
+  <div className="flex items-center justify-between">
+    <span className={`text-slate-600 ${bold ? 'font-semibold text-slate-800' : ''}`}>{label}</span>
+    <span>{value}</span>
+  </div>
+);

@@ -18,7 +18,7 @@ import DocumentChecklist from '@/components/DocumentChecklist';
 import CreateTicket from '@/components/CreateTicket';
 import TicketSection from '@/components/TicketSection';
 import QuickActions from '@/components/QuickActions';
-import { Briefcase, FileText, CheckCircle, AlertCircle, LogOut, Download, Plus, Send, ArrowLeft, MessageSquare, Search, Filter, Clock, Eye, Menu, X, Lock, Calendar, AlertTriangle, User, ClipboardList, Zap, BookOpen, Star, ArrowRightLeft, Sparkles, Loader2, XCircle, CalendarClock } from 'lucide-react';
+import { Briefcase, FileText, CheckCircle, AlertCircle, LogOut, Download, Plus, Send, ArrowLeft, MessageSquare, Search, Filter, Clock, Eye, Menu, X, Lock, Calendar, AlertTriangle, User, ClipboardList, Zap, BookOpen, Star, ArrowRightLeft, Sparkles, Loader2, XCircle, CalendarClock, Calculator } from 'lucide-react';
 import BulkOperations from '@/pages/BulkOperations';
 import SLATracker from '@/pages/SLATracker';
 import CaseTransfer from '@/pages/CaseTransfer';
@@ -34,6 +34,7 @@ import BatchCaseOps from '@/components/BatchCaseOps';
 import CMDocManager from '@/components/CMDocManager';
 import DeadlineTracker, { DeadlineOverviewWidget } from '@/components/DeadlineTracker';
 import IntakeFormFiller from '@/components/IntakeFormFiller';
+import FeeCalculator from '@/components/FeeCalculator';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -560,6 +561,7 @@ const CaseManagerDashboard = () => {
     {
       groupLabel: 'Tools',
       items: [
+        { id: 'fee-calculator', icon: Calculator, label: 'Fee Calculator', onClick: () => { setActiveTab('fee-calculator'); setSelectedCase(null); setInfoSheetCaseId(null); } },
         { id: 'knowledge-base', icon: BookOpen, label: 'Knowledge Base', onClick: () => { setActiveTab('knowledge-base'); setSelectedCase(null); setInfoSheetCaseId(null); } },
         { id: 'surveys', icon: Star, label: 'Survey Stats', onClick: () => { setActiveTab('surveys'); setSelectedCase(null); setInfoSheetCaseId(null); } },
         { id: 'appointments', icon: Calendar, label: 'Appointments', onClick: () => { setActiveTab('appointments'); setSelectedCase(null); setInfoSheetCaseId(null); } },
@@ -1408,6 +1410,7 @@ const CaseManagerDashboard = () => {
           {activeTab === 'step-docs' && <CMDocManager token={localStorage.getItem('token')} caseId={selectedCase?.id} caseName={selectedCase?.case_id} />}
           {activeTab === 'deadlines' && <DeadlineTracker token={localStorage.getItem('token')} caseId={selectedCase?.id} role="case_manager" caseName={selectedCase?.case_id} />}
           {activeTab === 'case-intake' && <IntakeFormFiller token={localStorage.getItem('token')} caseId={selectedCase?.id} role="case_manager" caseName={selectedCase?.case_id} />}
+          {activeTab === 'fee-calculator' && <FeeCalculator token={localStorage.getItem('token')} role="case_manager" caseId={selectedCase?.id} /> }
 
       {/* Review Document Dialog */}
       <Dialog open={reviewDialog.open} onOpenChange={(open) => setReviewDialog({ ...reviewDialog, open })}>

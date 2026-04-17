@@ -16,12 +16,13 @@ import OnboardingWizard from '@/components/OnboardingWizard';
 import UnifiedDocumentView from '@/components/UnifiedDocumentView';
 import DeadlineTracker from '@/components/DeadlineTracker';
 import IntakeFormFiller from '@/components/IntakeFormFiller';
+import FeeCalculator from '@/components/FeeCalculator';
 import { 
   User, FileText, Upload, LogOut, CheckCircle, Clock, AlertCircle, 
   Lock, Download, FileCheck, ArrowLeft, Calendar, Shield, 
   FolderOpen, AlertTriangle, FileUp, Eye, ChevronRight, MessageSquare,
   CreditCard, Loader2, IndianRupee, ExternalLink, TrendingUp, Brain, FileSearch, LayoutDashboard, ClipboardList, Workflow,
-  BookOpen, Star, Users, Gift, CalendarClock
+  BookOpen, Star, Users, Gift, CalendarClock, Calculator
 } from 'lucide-react';
 import SatisfactionSurvey from '@/pages/SatisfactionSurvey';
 import KnowledgeBase from '@/pages/KnowledgeBase';
@@ -443,6 +444,7 @@ const ClientDashboard = () => {
     {
       groupLabel: 'Tools',
       items: [
+        { id: 'cost-estimate', icon: Calculator, label: 'Cost Estimator', onClick: () => setActiveTab('cost-estimate') },
         { id: 'eligibility', icon: Brain, label: 'Eligibility Check', onClick: () => setActiveTab('eligibility') },
         { id: 'family', icon: Users, label: 'Family Members', onClick: () => setActiveTab('family') },
       ]
@@ -498,7 +500,7 @@ const ClientDashboard = () => {
         ) : (
           <>
             {/* Case Overview Header - Only show on dashboard-like tabs */}
-            {!['messages', 'profile', 'journey', 'timeline', 'eligibility', 'emi-plans', 'family', 'documents', 'deadlines'].includes(activeTab) && (
+            {!['messages', 'profile', 'journey', 'timeline', 'eligibility', 'emi-plans', 'family', 'documents', 'deadlines', 'cost-estimate'].includes(activeTab) && (
             <>
             <div className="mb-8">
               <div className="bg-gradient-to-r from-[#2a777a] via-[#2a777a] to-[#236466] rounded-2xl p-6 text-white shadow-xl">
@@ -831,6 +833,11 @@ const ClientDashboard = () => {
               {/* Deadline Tracker Tab */}
               {activeTab === 'deadlines' && (
                 <DeadlineTracker token={localStorage.getItem('token')} caseId={caseData?.id} role="client" caseName={caseData?.case_id} />
+              )}
+
+              {/* Cost Estimator Tab */}
+              {activeTab === 'cost-estimate' && (
+                <FeeCalculator token={localStorage.getItem('token')} role="client" caseId={caseData?.id} />
               )}
 
               {/* My Documents Tab */}
