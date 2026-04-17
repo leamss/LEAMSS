@@ -9,11 +9,12 @@ Real-time visa cost breakdown for immigration destinations.
 import os
 import uuid
 import time
+import secrets
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 import httpx
 
 from core.auth import get_current_user
@@ -999,3 +1000,204 @@ async def delete_estimate(estimate_id: str, current_user: dict = Depends(get_cur
         raise HTTPException(status_code=403, detail="Not allowed to delete this estimate")
     await fee_estimates_col.delete_one({"id": estimate_id})
     return {"deleted": True}
+
+
+# =========================================================================
+#  SHARE LINK FEATURE
+# =========================================================================
+from core.database import notifications_col  # noqa: E402
+leads_col = db["leads"]
+
+
+class ShareRequest(BaseModel):
+    expiry_days: int = Field(30, ge=1, le=365)
+    allow_lead_capture: bool = True
+    message: str = ""  # optional note from sender
+
+
+class LeadCaptureRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=120)
+    email: str = Field(..., min_length=3, max_length=200)
+    phone: str = Field("", max_length=30)
+    message: str = Field("", max_length=1000)
+
+
+@router.post("/share/{estimate_id}")
+async def create_share_link(estimate_id: str, data: ShareRequest, current_user: dict = Depends(get_current_user)):
+    """Generate a public share token for a saved estimate."""
+    est = await fee_estimates_col.find_one({"id": estimate_id}, {"_id": 0})
+    if not est:
+        raise HTTPException(status_code=404, detail="Estimate not found")
+    if current_user.get("role") != "admin" and est.get("created_by") != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Not allowed to share this estimate")
+
+    # Reuse existing token if still active
+    existing = est.get("share_token")
+    expires_at = datetime.now(timezone.utc) + timedelta(days=data.expiry_days)
+
+    update = {
+        "share_token": existing or secrets.token_urlsafe(16),
+        "share_active": True,
+        "share_allow_lead_capture": data.allow_lead_capture,
+        "share_message": data.message,
+        "share_expires_at": expires_at,
+        "share_created_at": datetime.now(timezone.utc),
+        "share_view_count": est.get("share_view_count", 0),
+        "share_lead_count": est.get("share_lead_count", 0),
+    }
+    await fee_estimates_col.update_one({"id": estimate_id}, {"$set": update})
+
+    return {
+        "estimate_id": estimate_id,
+        "share_token": update["share_token"],
+        "expires_at": expires_at.isoformat(),
+        "view_count": update["share_view_count"],
+        "lead_count": update["share_lead_count"],
+        "allow_lead_capture": data.allow_lead_capture,
+    }
+
+
+@router.put("/share/{estimate_id}/deactivate")
+async def deactivate_share(estimate_id: str, current_user: dict = Depends(get_current_user)):
+    """Deactivate a share link so the public URL stops working."""
+    est = await fee_estimates_col.find_one({"id": estimate_id}, {"_id": 0})
+    if not est:
+        raise HTTPException(status_code=404, detail="Estimate not found")
+    if current_user.get("role") != "admin" and est.get("created_by") != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Not allowed")
+    await fee_estimates_col.update_one({"id": estimate_id}, {"$set": {"share_active": False}})
+    return {"deactivated": True}
+
+
+@router.get("/share/{estimate_id}/stats")
+async def share_stats(estimate_id: str, current_user: dict = Depends(get_current_user)):
+    """Get view / lead counts for a shared estimate (owner or admin only)."""
+    est = await fee_estimates_col.find_one({"id": estimate_id}, {"_id": 0})
+    if not est:
+        raise HTTPException(status_code=404, detail="Estimate not found")
+    if current_user.get("role") != "admin" and est.get("created_by") != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Not allowed")
+    return {
+        "estimate_id": estimate_id,
+        "share_token": est.get("share_token"),
+        "active": est.get("share_active", False),
+        "view_count": est.get("share_view_count", 0),
+        "lead_count": est.get("share_lead_count", 0),
+        "expires_at": est.get("share_expires_at").isoformat() if isinstance(est.get("share_expires_at"), datetime) else est.get("share_expires_at"),
+        "created_at": est.get("share_created_at").isoformat() if isinstance(est.get("share_created_at"), datetime) else est.get("share_created_at"),
+        "allow_lead_capture": est.get("share_allow_lead_capture", True),
+        "message": est.get("share_message", ""),
+    }
+
+
+@router.get("/public/{share_token}")
+async def public_view(share_token: str, request: Request):
+    """Public read-only endpoint — no auth. Tracks view count."""
+    est = await fee_estimates_col.find_one({"share_token": share_token}, {"_id": 0})
+    if not est or not est.get("share_active"):
+        raise HTTPException(status_code=404, detail="Link not found or deactivated")
+
+    expires_at = est.get("share_expires_at")
+    if isinstance(expires_at, datetime):
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        if expires_at < datetime.now(timezone.utc):
+            raise HTTPException(status_code=410, detail="Link expired")
+
+    # Increment view count (fire-and-forget; no cookies / unique tracking for privacy)
+    await fee_estimates_col.update_one(
+        {"share_token": share_token},
+        {"$inc": {"share_view_count": 1}, "$set": {"share_last_viewed_at": datetime.now(timezone.utc)}},
+    )
+
+    payload = est.get("payload") or {}
+    return {
+        "estimate_id": est.get("id"),
+        "label": est.get("label", ""),
+        "created_by_name": est.get("created_by_name", ""),
+        "share_message": est.get("share_message", ""),
+        "expires_at": expires_at.isoformat() if isinstance(expires_at, datetime) else expires_at,
+        "allow_lead_capture": est.get("share_allow_lead_capture", True),
+        "payload": payload,
+        "country": est.get("country"),
+        "category": est.get("category"),
+        "branding": {
+            "agency_name": "LEAMSS Immigration",
+            "primary_color": "#2a777a",
+            "accent_color": "#f7620b",
+        },
+    }
+
+
+@router.post("/public/{share_token}/lead")
+async def public_lead_capture(share_token: str, data: LeadCaptureRequest, request: Request):
+    """Public endpoint — capture lead interest from a shared estimate page."""
+    est = await fee_estimates_col.find_one({"share_token": share_token}, {"_id": 0})
+    if not est or not est.get("share_active"):
+        raise HTTPException(status_code=404, detail="Link not found or deactivated")
+    if not est.get("share_allow_lead_capture", True):
+        raise HTTPException(status_code=403, detail="Lead capture disabled for this estimate")
+
+    expires_at = est.get("share_expires_at")
+    if isinstance(expires_at, datetime):
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        if expires_at < datetime.now(timezone.utc):
+            raise HTTPException(status_code=410, detail="Link expired")
+
+    country_name = FEE_DATABASE.get(est.get("country", ""), {}).get("name", "")
+    category_name = FEE_DATABASE.get(est.get("country", ""), {}).get("categories", {}).get(est.get("category", ""), {}).get("name", "")
+
+    lead = {
+        "id": str(uuid.uuid4()),
+        "name": data.name.strip(),
+        "email": data.email.strip().lower(),
+        "phone": data.phone.strip(),
+        "service_interested": category_name,
+        "country_of_interest": country_name,
+        "message": data.message.strip(),
+        "source": "shared_fee_estimate",
+        "utm_source": "fee_calculator_share",
+        "utm_medium": "share_link",
+        "utm_campaign": est.get("id", ""),
+        "stage": "new",
+        "assigned_to": est.get("created_by"),
+        "priority": "high",  # coming from a pricing page → hot lead
+        "tags": ["fee-estimate-viewer"],
+        "notes": [
+            {
+                "text": f"Auto-captured from shared estimate '{est.get('label', '')}' (grand total ₹{(est.get('payload', {}).get('totals', {}).get('grand_total_inr', 0)):,.0f}).",
+                "created_at": datetime.now(timezone.utc),
+                "created_by": "system",
+            }
+        ],
+        "estimate_id": est.get("id"),
+        "share_token": share_token,
+        "created_at": datetime.now(timezone.utc),
+        "updated_at": datetime.now(timezone.utc),
+        "last_contacted_at": None,
+        "converted": False,
+        "converted_sale_id": None,
+    }
+    await leads_col.insert_one(lead)
+
+    # Stats + notify owner
+    await fee_estimates_col.update_one(
+        {"share_token": share_token},
+        {"$inc": {"share_lead_count": 1}, "$set": {"share_last_lead_at": datetime.now(timezone.utc)}},
+    )
+    owner_id = est.get("created_by")
+    if owner_id:
+        await notifications_col.insert_one({
+            "id": str(uuid.uuid4()),
+            "user_id": owner_id,
+            "title": f"New lead from shared estimate: {data.name}",
+            "message": f"{data.name} ({data.email}) is interested in {category_name or 'immigration'}.",
+            "type": "lead",
+            "read": False,
+            "link": "/partner?tab=lead-pipeline",
+            "created_at": datetime.now(timezone.utc),
+        })
+
+    return {"ok": True, "message": "Thank you! Our team will reach out within 24 hours."}
+

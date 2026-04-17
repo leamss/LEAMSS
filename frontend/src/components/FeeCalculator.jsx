@@ -8,12 +8,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import {
-  Calculator, Plane, Globe, Users, FileText, CheckCircle2, Info,
-  Copy, Download, ExternalLink, Loader2, TrendingUp, Wallet,
-  IndianRupee, Sparkles, RefreshCw, Receipt, Shield
+  Calculator, Plane, Globe, Users, CheckCircle2, Info,
+  Copy, Download, ExternalLink, Loader2, Wallet,
+  IndianRupee, Sparkles, RefreshCw, Receipt, Shield,
+  Share2, Link2, Eye, UserPlus, Power, Clock
 } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -69,6 +70,7 @@ export default function FeeCalculator({
   const [showCurrency, setShowCurrency] = useState('both'); // native | inr | both
   const [rates, setRates] = useState(null);
   const [savedEstimates, setSavedEstimates] = useState([]);
+  const [shareDialog, setShareDialog] = useState({ open: false, estimate: null, stats: null, link: '', loading: false });
 
   // Load countries
   useEffect(() => {
@@ -96,9 +98,9 @@ export default function FeeCalculator({
       .catch(() => toast.error('Failed to load country detail'));
   }, [country, token]); // eslint-disable-line
 
-  // Load saved estimates tied to this case/sale
+  // Load saved estimates (per-case/sale if provided, else user's own)
   const loadEstimates = useCallback(async () => {
-    if (!token || (!caseId && !saleId)) return;
+    if (!token) return;
     try {
       const params = {};
       if (caseId) params.case_id = caseId;
@@ -180,14 +182,84 @@ export default function FeeCalculator({
     if (!result) return;
     const label = `${result.country.name} — ${result.category.name}`;
     try {
-      await axios.post(`${API}/fee-calculator/save-estimate`, {
+      const r = await axios.post(`${API}/fee-calculator/save-estimate`, {
         label, country, category, payload: result, case_id: caseId, sale_id: saleId,
       }, { headers: { Authorization: `Bearer ${token}` } });
       toast.success('Estimate saved');
       loadEstimates();
+      return r.data;
     } catch (e) {
       toast.error(e?.response?.data?.detail || 'Save failed');
     }
+  };
+
+  const handleShareNew = async () => {
+    if (!result) return;
+    setShareDialog(s => ({ ...s, loading: true, open: true }));
+    try {
+      // Save first if new
+      const label = `${result.country.name} — ${result.category.name}`;
+      const saved = await axios.post(`${API}/fee-calculator/save-estimate`, {
+        label, country, category, payload: result, case_id: caseId, sale_id: saleId,
+      }, { headers: { Authorization: `Bearer ${token}` } });
+      const est = saved.data;
+      await openShareForEstimate(est);
+      loadEstimates();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || 'Share failed');
+      setShareDialog({ open: false, estimate: null, stats: null, link: '', loading: false });
+    }
+  };
+
+  const openShareForEstimate = async (estimate, opts = { expiry_days: 30, allow_lead_capture: true, message: '' }) => {
+    setShareDialog({ open: true, estimate, stats: null, link: '', loading: true });
+    try {
+      const r = await axios.post(`${API}/fee-calculator/share/${estimate.id}`,
+        opts, { headers: { Authorization: `Bearer ${token}` } });
+      const base = window.location.origin;
+      const link = `${base}/shared-estimate/${r.data.share_token}`;
+      const statsRes = await axios.get(`${API}/fee-calculator/share/${estimate.id}/stats`,
+        { headers: { Authorization: `Bearer ${token}` } }).catch(() => ({ data: null }));
+      setShareDialog({ open: true, estimate, stats: statsRes.data, link, loading: false });
+      try {
+        await navigator.clipboard.writeText(link);
+        toast.success('Share link copied to clipboard');
+      } catch { /* ignore */ }
+      loadEstimates();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || 'Could not create share link');
+      setShareDialog({ open: false, estimate: null, stats: null, link: '', loading: false });
+    }
+  };
+
+  const refreshShareStats = async () => {
+    if (!shareDialog.estimate) return;
+    try {
+      const r = await axios.get(`${API}/fee-calculator/share/${shareDialog.estimate.id}/stats`,
+        { headers: { Authorization: `Bearer ${token}` } });
+      setShareDialog(s => ({ ...s, stats: r.data }));
+      toast.success('Stats refreshed');
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || 'Failed to refresh stats');
+    }
+  };
+
+  const deactivateShare = async () => {
+    if (!shareDialog.estimate) return;
+    try {
+      await axios.put(`${API}/fee-calculator/share/${shareDialog.estimate.id}/deactivate`,
+        {}, { headers: { Authorization: `Bearer ${token}` } });
+      toast.success('Share link deactivated');
+      setShareDialog({ open: false, estimate: null, stats: null, link: '', loading: false });
+      loadEstimates();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || 'Failed to deactivate');
+    }
+  };
+
+  const copyShareLink = () => {
+    if (!shareDialog.link) return;
+    navigator.clipboard.writeText(shareDialog.link).then(() => toast.success('Link copied'));
   };
 
   const handlePrint = () => window.print();
@@ -442,6 +514,11 @@ export default function FeeCalculator({
                 <Button variant="outline" size="sm" onClick={handlePrint} data-testid="fc-print-btn">
                   <Download className="h-3.5 w-3.5 mr-1.5" /> Print / PDF
                 </Button>
+                {role !== 'client' && (
+                  <Button variant="outline" size="sm" onClick={handleShareNew} className="border-[#2a777a] text-[#2a777a] hover:bg-[#2a777a]/5" data-testid="fc-share-btn">
+                    <Share2 className="h-3.5 w-3.5 mr-1.5" /> Share Link
+                  </Button>
+                )}
                 {(caseId || saleId) && role !== 'client' && (
                   <Button size="sm" className="bg-[#f7620b] hover:bg-[#e55a09]" onClick={handleSave} data-testid="fc-save-btn">
                     <Sparkles className="h-3.5 w-3.5 mr-1.5" /> Attach to {caseId ? 'Case' : 'Proposal'}
@@ -466,19 +543,114 @@ export default function FeeCalculator({
           </h3>
           <div className="space-y-2">
             {savedEstimates.map(est => (
-              <div key={est.id} className="flex items-center justify-between text-sm p-2 bg-slate-50 rounded border border-slate-200">
+              <div key={est.id} className="flex items-center justify-between text-sm p-2 bg-slate-50 rounded border border-slate-200 gap-2">
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-slate-800 truncate">{est.label}</p>
-                  <p className="text-xs text-slate-500">By {est.created_by_name} · {new Date(est.created_at).toLocaleDateString()}</p>
+                  <p className="text-xs text-slate-500 flex items-center gap-2 flex-wrap">
+                    <span>By {est.created_by_name} · {new Date(est.created_at).toLocaleDateString()}</span>
+                    {est.share_active && (
+                      <span className="inline-flex items-center gap-1 text-emerald-600"><Link2 className="h-3 w-3" /> Shared</span>
+                    )}
+                    {est.share_view_count > 0 && (
+                      <span className="inline-flex items-center gap-1 text-slate-500"><Eye className="h-3 w-3" /> {est.share_view_count}</span>
+                    )}
+                    {est.share_lead_count > 0 && (
+                      <span className="inline-flex items-center gap-1 text-[#f7620b]"><UserPlus className="h-3 w-3" /> {est.share_lead_count} lead{est.share_lead_count > 1 ? 's' : ''}</span>
+                    )}
+                  </p>
                 </div>
-                <Badge className="bg-[#2a777a] text-white">
-                  {fmt(est.payload?.totals?.grand_total_inr || 0, 'INR')}
-                </Badge>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Badge className="bg-[#2a777a] text-white">
+                    {fmt(est.payload?.totals?.grand_total_inr || 0, 'INR')}
+                  </Badge>
+                  {role !== 'client' && (
+                    <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => openShareForEstimate(est)} data-testid={`fc-est-share-${est.id}`}>
+                      <Share2 className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
         </Card>
       )}
+
+      {/* Share Dialog */}
+      <Dialog open={shareDialog.open} onOpenChange={(open) => !open && setShareDialog({ open: false, estimate: null, stats: null, link: '', loading: false })}>
+        <DialogContent className="max-w-lg" data-testid="fc-share-dialog">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <div className="w-9 h-9 bg-gradient-to-br from-[#2a777a] to-[#1f5c5f] rounded-lg flex items-center justify-center text-white">
+                <Share2 className="h-4 w-4" />
+              </div>
+              Share Estimate Link
+            </DialogTitle>
+            <DialogDescription>
+              Anyone with this link can view the estimate (no login). Lead capture is enabled.
+            </DialogDescription>
+          </DialogHeader>
+
+          {shareDialog.loading ? (
+            <div className="py-8 text-center">
+              <Loader2 className="h-6 w-6 animate-spin text-[#2a777a] mx-auto mb-2" />
+              <p className="text-sm text-slate-500">Generating link…</p>
+            </div>
+          ) : shareDialog.link ? (
+            <div className="space-y-4">
+              <div>
+                <Label className="text-xs font-semibold text-slate-600">Public Link</Label>
+                <div className="flex gap-2 mt-1.5">
+                  <Input readOnly value={shareDialog.link} className="font-mono text-xs bg-slate-50" data-testid="fc-share-link-input" />
+                  <Button size="sm" onClick={copyShareLink} className="bg-[#2a777a] hover:bg-[#236466] shrink-0" data-testid="fc-share-copy">
+                    <Copy className="h-3.5 w-3.5 mr-1" /> Copy
+                  </Button>
+                </div>
+                <p className="text-[11px] text-slate-400 mt-1.5">Share via WhatsApp, email, or SMS</p>
+              </div>
+
+              {shareDialog.stats && (
+                <>
+                  <Separator />
+                  <div className="grid grid-cols-3 gap-3 text-center">
+                    <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
+                      <Eye className="h-4 w-4 text-blue-500 mx-auto mb-1" />
+                      <p className="text-2xl font-bold text-blue-700" data-testid="fc-share-views">{shareDialog.stats.view_count || 0}</p>
+                      <p className="text-[10px] text-blue-600/80 uppercase tracking-wider">Views</p>
+                    </div>
+                    <div className="p-3 bg-orange-50 rounded-lg border border-orange-100">
+                      <UserPlus className="h-4 w-4 text-[#f7620b] mx-auto mb-1" />
+                      <p className="text-2xl font-bold text-[#f7620b]" data-testid="fc-share-leads">{shareDialog.stats.lead_count || 0}</p>
+                      <p className="text-[10px] text-[#f7620b]/80 uppercase tracking-wider">Leads</p>
+                    </div>
+                    <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-100">
+                      <Clock className="h-4 w-4 text-emerald-600 mx-auto mb-1" />
+                      <p className="text-xs font-bold text-emerald-700 mt-1">
+                        {shareDialog.stats.expires_at ? new Date(shareDialog.stats.expires_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) : '—'}
+                      </p>
+                      <p className="text-[10px] text-emerald-600/80 uppercase tracking-wider">Expires</p>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              <div className="flex items-center gap-2 pt-2">
+                <Button variant="outline" size="sm" onClick={refreshShareStats} className="flex-1" data-testid="fc-share-refresh">
+                  <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Refresh Stats
+                </Button>
+                <Button variant="outline" size="sm" onClick={deactivateShare}
+                  className="flex-1 border-red-200 text-red-600 hover:bg-red-50" data-testid="fc-share-deactivate">
+                  <Power className="h-3.5 w-3.5 mr-1.5" /> Deactivate
+                </Button>
+              </div>
+
+              <a href={shareDialog.link} target="_blank" rel="noreferrer"
+                className="block text-center text-sm text-[#2a777a] hover:underline">
+                <ExternalLink className="h-3 w-3 inline mr-1" /> Preview in new tab
+              </a>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

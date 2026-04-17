@@ -16,6 +16,7 @@ import AIWorkflowBuilder from '@/pages/AIWorkflowBuilder';
 import MarketingDashboard from '@/pages/MarketingDashboard';
 import ServiceCalculator from '@/pages/ServiceCalculator';
 import LeadCapture from '@/pages/LeadCapture';
+import SharedEstimate from '@/pages/SharedEstimate';
 import '@/App.css';
 
 function App() {
@@ -34,6 +35,7 @@ function App() {
           <Route path="/admin/marketing" element={<MarketingDashboard />} />
           <Route path="/calculator" element={<ServiceCalculator />} />
           <Route path="/inquiry" element={<LeadCapture />} />
+          <Route path="/shared-estimate/:token" element={<SharedEstimate />} />
           <Route path="/partner" element={<PartnerDashboard />} />
           <Route path="/case-manager" element={<CaseManagerDashboard />} />
           <Route path="/client" element={<ClientDashboard />} />
