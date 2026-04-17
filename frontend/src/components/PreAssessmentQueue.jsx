@@ -7,7 +7,8 @@ import { Badge } from '@/components/ui/badge';
 import { 
   CheckCircle, XCircle, Eye, FileText, User, Globe, 
   GraduationCap, Briefcase, Clock, CreditCard, Download,
-  ChevronDown, ChevronUp, AlertTriangle, RefreshCw, IndianRupee
+  ChevronDown, ChevronUp, AlertTriangle, RefreshCw, IndianRupee,
+  Sparkles, UserCog
 } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -21,19 +22,24 @@ const PreAssessmentQueue = () => {
   const [reviewingId, setReviewingId] = useState(null);
   const [activeView, setActiveView] = useState('queue'); // queue | all
   const [loading, setLoading] = useState(true);
+  const [caseManagers, setCaseManagers] = useState([]);
+  const [finalizingId, setFinalizingId] = useState(null);
+  const [selectedCmId, setSelectedCmId] = useState('');
 
   const getAuthHeader = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
 
   const loadData = useCallback(async () => {
     try {
-      const [qRes, aRes, sRes] = await Promise.all([
+      const [qRes, aRes, sRes, cmRes] = await Promise.all([
         axios.get(`${API}/pre-assessment/admin/queue`, getAuthHeader()),
         axios.get(`${API}/pre-assessment/my-assessments`, getAuthHeader()),
         axios.get(`${API}/pre-assessment/stats/overview`, getAuthHeader()),
+        axios.get(`${API}/pre-assess-portal/admin/case-managers`, getAuthHeader()).catch(() => ({ data: { case_managers: [] } })),
       ]);
       setQueue(qRes.data || []);
       setAllAssessments(aRes.data || []);
       setStats(sRes.data || {});
+      setCaseManagers(cmRes.data?.case_managers || []);
     } catch (e) { console.error(e); }
     setLoading(false);
   }, []);
@@ -52,6 +58,17 @@ const PreAssessmentQueue = () => {
     } catch (e) { toast.error(e.response?.data?.detail || 'Failed'); }
   };
 
+  const handleApproveFinal = async (paId) => {
+    try {
+      const payload = selectedCmId ? { case_manager_id: selectedCmId } : {};
+      const res = await axios.post(`${API}/pre-assess-portal/admin/approve-final/${paId}`, payload, getAuthHeader());
+      toast.success(`Case ${res.data.case_code} created${res.data.case_manager_id ? ` & assigned to ${res.data.case_manager_name}` : ''}!`);
+      setFinalizingId(null);
+      setSelectedCmId('');
+      loadData();
+    } catch (e) { toast.error(e.response?.data?.detail || 'Failed'); }
+  };
+
   const items = activeView === 'queue' ? queue : allAssessments;
 
   if (loading) return <div className="flex items-center justify-center h-64"><RefreshCw className="h-8 w-8 text-[#2a777a] animate-spin" /></div>;
@@ -59,12 +76,13 @@ const PreAssessmentQueue = () => {
   return (
     <div className="space-y-6" data-testid="pre-assessment-queue">
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
         {[
           { label: 'Total', value: stats.total || 0, color: 'from-slate-500 to-slate-600' },
-          { label: 'Pending Review', value: stats.under_review || 0, color: 'from-purple-500 to-purple-600' },
+          { label: '1st Review', value: stats.under_review || 0, color: 'from-purple-500 to-purple-600' },
           { label: 'Approved', value: stats.approved || 0, color: 'from-emerald-500 to-emerald-600' },
           { label: 'Rejected', value: stats.rejected || 0, color: 'from-red-500 to-red-600' },
+          { label: 'Awaiting Case', value: queue.filter(p => p.stage === 'proposal_paid').length || 0, color: 'from-[#f7620b] to-[#e55a09]' },
           { label: 'Conversion', value: `${stats.conversion_rate || 0}%`, color: 'from-[#2a777a] to-[#236466]' },
         ].map((s, i) => (
           <Card key={i} className={`bg-gradient-to-br ${s.color} text-white p-4 border-0 shadow-lg`}>
@@ -103,6 +121,7 @@ const PreAssessmentQueue = () => {
               approved: 'border-l-emerald-500 bg-emerald-50/30',
               rejected: 'border-l-red-500 bg-red-50/30',
               proposal_sent: 'border-l-teal-500 bg-teal-50/30',
+              proposal_paid: 'border-l-[#f7620b] bg-orange-50/30',
             };
 
             return (
@@ -127,6 +146,7 @@ const PreAssessmentQueue = () => {
                       pa.stage === 'approved' ? 'bg-emerald-100 text-emerald-700' :
                       pa.stage === 'rejected' ? 'bg-red-100 text-red-700' :
                       pa.stage === 'proposal_sent' ? 'bg-teal-100 text-teal-700' :
+                      pa.stage === 'proposal_paid' ? 'bg-orange-100 text-orange-700' :
                       'bg-slate-100 text-slate-700'
                     }>{pa.stage?.replace(/_/g, ' ').toUpperCase()}</Badge>
                     {pa.documents?.length > 0 && (
@@ -229,6 +249,56 @@ const PreAssessmentQueue = () => {
                           </div>
                         )}
                       </>
+                    )}
+
+                    {/* 2ND APPROVAL: Create Case & Assign CM (for proposal_paid stage) */}
+                    {pa.stage === 'proposal_paid' && (
+                      <div className="rounded-lg p-4 border bg-gradient-to-br from-[#f7620b]/10 to-[#2a777a]/5 border-[#f7620b]/30">
+                        <div className="flex items-start gap-3 mb-3">
+                          <div className="w-10 h-10 bg-[#f7620b] rounded-lg flex items-center justify-center flex-shrink-0">
+                            <Sparkles className="h-5 w-5 text-white" />
+                          </div>
+                          <div className="flex-1">
+                            <h4 className="font-bold text-slate-800">Main Fee Received — Create Case</h4>
+                            <p className="text-sm text-slate-600 mt-0.5">
+                              Client paid ₹{(pa.proposal_fee || 0).toLocaleString('en-IN')}. Activate case and optionally assign a Case Manager.
+                            </p>
+                          </div>
+                        </div>
+                        {finalizingId !== pa.id ? (
+                          <div className="flex justify-end">
+                            <Button onClick={() => { setFinalizingId(pa.id); setSelectedCmId(''); }}
+                              className="bg-[#f7620b] hover:bg-[#e55a09] text-white" data-testid="finalize-btn">
+                              <Sparkles className="h-4 w-4 mr-2" /> Activate Case & Assign CM
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            <div>
+                              <label className="text-sm font-medium text-slate-700 flex items-center gap-1.5 mb-1">
+                                <UserCog className="h-4 w-4" /> Assign Case Manager (optional)
+                              </label>
+                              <select value={selectedCmId} onChange={e => setSelectedCmId(e.target.value)}
+                                className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm bg-white" data-testid="cm-select">
+                                <option value="">— Leave unassigned (assign later) —</option>
+                                {caseManagers.map(cm => (
+                                  <option key={cm.id} value={cm.id}>{cm.name} ({cm.email})</option>
+                                ))}
+                              </select>
+                              {caseManagers.length === 0 && (
+                                <p className="text-xs text-amber-600 mt-1">No case managers found — add one from Users admin first.</p>
+                              )}
+                            </div>
+                            <div className="flex justify-end gap-2">
+                              <Button variant="outline" size="sm" onClick={() => { setFinalizingId(null); setSelectedCmId(''); }}>Cancel</Button>
+                              <Button size="sm" onClick={() => handleApproveFinal(pa.id)}
+                                className="bg-[#f7620b] hover:bg-[#e55a09] text-white" data-testid="confirm-finalize">
+                                <CheckCircle className="h-4 w-4 mr-1.5" /> Confirm — Create Case
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     )}
 
                     {/* Already reviewed info */}

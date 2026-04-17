@@ -86,7 +86,7 @@ const PreAssessmentPipeline = () => {
     try {
       // Generate public share-token link (new client-facing flow)
       const res = await axios.post(`${API}/pre-assess-portal/generate-public-link`, { pa_id: paId }, getAuthHeader());
-      const publicUrl = res.data.public_url;
+      const publicUrl = res.data.public_url?.startsWith('http') ? res.data.public_url : `${window.location.origin}${res.data.public_url}`;
       try { await navigator.clipboard.writeText(publicUrl); } catch (_) { /* ignore */ }
       toast.success('Public payment link generated & copied to clipboard');
       window.open(publicUrl, '_blank');
@@ -99,7 +99,8 @@ const PreAssessmentPipeline = () => {
   const handleCopyPublicLink = async (paId) => {
     try {
       const res = await axios.post(`${API}/pre-assess-portal/generate-public-link`, { pa_id: paId }, getAuthHeader());
-      await navigator.clipboard.writeText(res.data.public_url);
+      const publicUrl = res.data.public_url?.startsWith('http') ? res.data.public_url : `${window.location.origin}${res.data.public_url}`;
+      await navigator.clipboard.writeText(publicUrl);
       toast.success('Public payment link copied — share via WhatsApp/Email');
     } catch (e) {
       toast.error(e.response?.data?.detail || 'Failed');
@@ -113,14 +114,16 @@ const PreAssessmentPipeline = () => {
       // If client hasn't paid yet → open public payment page
       if (['new', 'payment_pending'].includes(pa.stage) || pa.fee_payment_status !== 'paid') {
         const res = await axios.post(`${API}/pre-assess-portal/generate-public-link`, { pa_id: paId }, getAuthHeader());
-        window.open(res.data.public_url, '_blank');
+        const url = res.data.public_url?.startsWith('http') ? res.data.public_url : `${window.location.origin}${res.data.public_url}`;
+        window.open(url, '_blank');
         toast.success('Opening public payment page (what client sees before paying)');
         return;
       }
       // Else generate a fresh magic link for the client & open the MiniPortal
       const res = await axios.post(`${API}/pre-assess-portal/partner/preview-magic/${paId}`, {}, getAuthHeader());
       if (res.data.portal_url) {
-        window.open(res.data.portal_url, '_blank');
+        const url = res.data.portal_url.startsWith('http') ? res.data.portal_url : `${window.location.origin}${res.data.portal_url}`;
+        window.open(url, '_blank');
         toast.success('Opening client portal preview in new tab');
       }
     } catch (e) {

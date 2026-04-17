@@ -533,8 +533,24 @@ async def client_mock_pay_proposal(pa_id: str, current_user: dict = Depends(get_
 
 
 # ======================== ADMIN: 2ND APPROVAL → CREATE CASE ========================
+class AdminApproveFinalRequest(BaseModel):
+    case_manager_id: Optional[str] = None
+
+
+@router.get("/admin/case-managers")
+async def admin_list_case_managers(current_user: dict = Depends(get_current_user)):
+    """List active case managers for the Assign CM dropdown on 2nd admin approval."""
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    cms = await users_col.find(
+        {"role": "case_manager", "status": "active"},
+        {"_id": 0, "id": 1, "name": 1, "email": 1},
+    ).sort("name", 1).to_list(100)
+    return {"case_managers": cms}
+
+
 @router.post("/admin/approve-final/{pa_id}")
-async def admin_approve_final(pa_id: str, current_user: dict = Depends(get_current_user)):
+async def admin_approve_final(pa_id: str, data: Optional[AdminApproveFinalRequest] = None, current_user: dict = Depends(get_current_user)):
     """Admin's 2nd approval after main fee is paid. Creates the actual Case and links the client."""
     if current_user.get("role") != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
@@ -560,6 +576,15 @@ async def admin_approve_final(pa_id: str, current_user: dict = Depends(get_curre
     )
     client_id = client_user["id"] if client_user else pa.get("client_user_id")
 
+    # Resolve case manager (optional)
+    cm_id = (data.case_manager_id if data else None)
+    cm_name = "Pending assignment"
+    if cm_id:
+        cm = await users_col.find_one({"id": cm_id, "role": "case_manager"}, {"_id": 0, "name": 1})
+        if not cm:
+            raise HTTPException(status_code=400, detail="Invalid case_manager_id")
+        cm_name = cm.get("name", "Case Manager")
+
     case_id = str(uuid.uuid4())
     case = {
         "id": case_id,
@@ -571,8 +596,8 @@ async def admin_approve_final(pa_id: str, current_user: dict = Depends(get_curre
         "product_id": pa.get("product_id", ""),
         "product_name": pa.get("product_name") or f"{pa.get('country')} - {pa.get('service_type')}",
         "partner_id": pa.get("partner_id"),
-        "case_manager_id": None,  # Will be assigned by admin later
-        "case_manager_name": "Pending assignment",
+        "case_manager_id": cm_id,
+        "case_manager_name": cm_name,
         "status": "active",
         "current_step": "Profile Creation",
         "current_step_order": 1,
@@ -626,10 +651,20 @@ async def admin_approve_final(pa_id: str, current_user: dict = Depends(get_curre
             "type": "case_created", "read": False,
             "created_at": _now(),
         })
+    # Notify case manager if assigned
+    if cm_id:
+        await notifications_col.insert_one({
+            "id": str(uuid.uuid4()),
+            "user_id": cm_id,
+            "title": f"New case assigned: {case_code}",
+            "message": f"{pa.get('client_name')} - {pa.get('country')} {pa.get('service_type')}",
+            "type": "case_assigned", "read": False,
+            "link": f"/cm?case={case_id}", "created_at": _now(),
+        })
 
-    await _log(current_user["id"], pa_id, "case_created", {"case_id": case_code})
+    await _log(current_user["id"], pa_id, "case_created", {"case_id": case_code, "case_manager_id": cm_id})
 
-    return {"ok": True, "case_id": case_id, "case_code": case_code, "stage": "case_created"}
+    return {"ok": True, "case_id": case_id, "case_code": case_code, "case_manager_id": cm_id, "case_manager_name": cm_name, "stage": "case_created"}
 
 
 # ======================== ACTIVITY (for partner visibility) ========================

@@ -345,7 +345,7 @@ async def admin_queue(current_user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=403, detail="Admin only")
 
     items = await pre_assessments_col.find(
-        {"stage": {"$in": ["under_review", "documents_submitted"]}}, {"_id": 0}
+        {"stage": {"$in": ["under_review", "documents_submitted", "proposal_paid"]}}, {"_id": 0}
     ).sort("submitted_at", -1).to_list(200)
 
     for item in items:

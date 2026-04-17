@@ -1,0 +1,72 @@
+{
+  "iteration": 76,
+  "summary": "Phase A Part 3 - Admin 2nd Approval with CM Assignment: Backend 100% (10/10 tests passed), Frontend has navigation issue - PreAssessmentQueue not accessible from Admin sidebar",
+  "feature": "Admin 2nd approval UI with Case Manager assignment dropdown, full E2E path from Partner creates PA to Case created with CM assigned",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "PreAssessmentPipeline",
+        "issue": "Copy Public Link button only appears when nextAction is available, not for ALL PA cards as required. Button missing for stages: case_created, proposal_paid, proposal_sent, under_review, documents_submitted, rejected",
+        "selector": "[data-testid^='copy-link-']",
+        "priority": "MEDIUM"
+      }
+    ],
+    "integration_issues": [
+      {
+        "flow": "Admin Pre-Assessment Queue access",
+        "issue": "PreAssessmentQueue component (with 6 stats cards and 2nd approval UI) exists but is NOT accessible from Admin Dashboard sidebar. No menu item navigates to activeTab='pre-assessments'",
+        "affected_selectors": ["[data-testid='pre-assessment-queue']", "[data-testid='finalize-btn']", "[data-testid='cm-select']"]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_coverage": {
+    "backend_endpoints_tested": [
+      "GET /api/pre-assess-portal/admin/case-managers - admin-only, returns active CMs (3 tests)",
+      "POST /api/pre-assess-portal/admin/approve-final/{pa_id} - with/without case_manager_id, invalid CM returns 400 (3 tests)",
+      "GET /api/pre-assessment/admin/queue - includes proposal_paid stage (1 test)",
+      "POST /api/pre-assess-portal/partner/preview-magic/{pa_id} - works for paid PA, fails 400 for unpaid (2 tests)",
+      "Full E2E flow: Partner create → public-link → mock-pay → magic-login → upload → client-submit → partner-submit → admin-approve → send-proposal → accept-proposal → mock-pay-proposal → approve-final with CM → case created (1 test)"
+    ],
+    "frontend_components_verified": [
+      "PreAssessmentPipeline - Partner view with PA cards, Preview as Client buttons visible (33 buttons found)",
+      "PreAssessmentQueue code review - 6 stats cards present (Total, 1st Review, Approved, Rejected, Awaiting Case, Conversion)",
+      "PreAssessmentQueue code review - 2nd approval UI for proposal_paid stage with finalize-btn, cm-select, confirm-finalize data-testids"
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration76_phase_a_part3.py",
+    "/app/test_reports/pytest/pytest_iteration76.xml"
+  ],
+  "action_items": [
+    "Add sidebar menu item in AdminDashboard.jsx to navigate to 'pre-assessments' tab (PreAssessmentQueue component)",
+    "Fix PreAssessmentPipeline.jsx: Move 'Copy Public Link' button outside the nextAction conditional so it appears for ALL PA cards regardless of stage"
+  ],
+  "critical_code_review_comments": [
+    "PreAssessmentPipeline.jsx lines 432-444: Copy Public Link button is inside {nextAction && ...} block, should be always visible",
+    "AdminDashboard.jsx: No sidebar item sets activeTab to 'pre-assessments', making PreAssessmentQueue inaccessible"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration76_phase_a_part3.py"
+  ],
+  "success_rate": {
+    "backend": "100% (10/10 tests passed)",
+    "frontend": "70% - Components exist but navigation/visibility issues"
+  },
+  "test_credentials": {
+    "admin": "admin@leamss.com / Admin@123",
+    "partner": "partner@leamss.com / Partner@123",
+    "case_manager": "manager@leamss.com / Manager@123 (id: 67cd3b9e-add6-4056-9107-d26dce979d37)"
+  },
+  "mocked_apis": [
+    "Razorpay/Stripe payments (via mock-pay endpoints)",
+    "Resend email (logged only)"
+  ],
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend Phase A Part 3 fully working - all 10 tests pass including full E2E flow with CM assignment. Frontend issues: 1) PreAssessmentQueue not accessible from Admin sidebar (need to add menu item), 2) Copy Public Link button in PreAssessmentPipeline only shows when nextAction exists (need to move outside conditional). The PreAssessmentQueue component code is correct with 6 stats cards and 2nd approval UI - just needs navigation fix."
+}
