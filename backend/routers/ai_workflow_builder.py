@@ -406,25 +406,45 @@ async def generate_workflow(
             for k, v in COUNTRY_REFERENCES[country_key].items():
                 ref_info += f"\n{k}: {v}"
     
-    system_msg = """You are an expert immigration consultant AI with deep knowledge of global immigration processes. 
-You generate accurate, step-by-step immigration workflows based on official government requirements.
-You must return ONLY valid JSON, no markdown, no extra text.
-Your workflows must be practical, actionable, and based on real immigration processes."""
+    # Get template context if available for richer prompts
+    from routers.step_documents import _find_best_template
+    template = _find_best_template(f"{request.country} {request.service_type}")
+    template_context = ""
+    if template:
+        template_context = f"\nVerified template reference ({template.get('label','')}):\n"
+        template_context += f"Fees: {template.get('fees_info','')}\n"
+        template_context += f"Assessment bodies: {', '.join(template.get('assessment_bodies', []))}\n"
+        for step_name, docs in template.get("steps", {}).items():
+            doc_names = [d["doc_name"] for d in docs]
+            template_context += f"Step '{step_name}': {', '.join(doc_names)}\n"
 
-    prompt = f"""Generate a detailed immigration workflow for: {request.country} - {request.service_type}
+    system_msg = """You are an expert immigration consultant AI with deep knowledge of global immigration processes. 
+You generate accurate, step-by-step immigration workflows based on OFFICIAL government requirements.
+You must return ONLY valid JSON, no markdown, no extra text.
+Your workflows must be practical, actionable, and based on real immigration processes.
+IMPORTANT: Every step MUST have at least 2-5 required documents. Include ALL documents that an applicant would need."""
+
+    prompt = f"""Generate a COMPREHENSIVE immigration workflow for: {request.country} - {request.service_type}
 
 Official Reference Information:
 {ref_info}
-
+{template_context}
 {f"Additional Instructions: {request.custom_instructions}" if request.custom_instructions else ""}
+
+CRITICAL RULES:
+1. Every step MUST have 2-6 required_documents. Do NOT leave any step with 0 documents.
+2. Include specific document names as used by the government (e.g., "Form 80 - Personal Particulars" not just "Form")
+3. Include ALL fees in local currency based on current official government fee schedules
+4. Reference only official government websites
+5. Be thorough - include passport, photos, police clearances, medical exams, financial evidence, etc.
 
 Return a JSON object with this EXACT structure:
 {{
-  "product_name": "Country - Service Type (e.g., Canada PR - Express Entry)",
+  "product_name": "Country - Visa Type with Subclass Number",
   "description": "Brief description of this immigration pathway",
   "category": "immigration",
   "estimated_total_duration_days": 180,
-  "estimated_government_fees": "approximate fees in local currency",
+  "estimated_government_fees": "Complete fee breakdown in local currency (application fee + biometrics + medical + skills assessment + language test)",
   "success_tips": ["tip1", "tip2", "tip3"],
   "common_rejection_reasons": ["reason1", "reason2"],
   "steps": [
@@ -435,21 +455,20 @@ Return a JSON object with this EXACT structure:
       "duration_days": 30,
       "required_documents": [
         {{
-          "name": "Document Name",
-          "description": "What this document is and how to get it",
+          "name": "Official Document Name",
+          "description": "What this document is, where to get it, and any specific requirements",
           "mandatory": true,
           "typical_validity_days": 365
         }}
       ],
-      "important_notes": "Any critical information for this step",
-      "government_fees": "Fees specific to this step if any"
+      "important_notes": "Critical information for this step",
+      "government_fees": "Specific fees for this step in local currency"
     }}
   ]
 }}
 
-Include ALL steps from initial preparation to final visa/PR approval. Be thorough and accurate.
-Each step should have specific required documents with descriptions.
-Include realistic duration estimates and government fees where applicable."""
+Include 5-8 steps covering: preparation, assessment/testing, application submission, documentation, biometrics/medical, processing, and grant.
+EVERY step must have 2-6 required_documents with detailed descriptions."""
 
     try:
         response = await _call_gpt(prompt, system_msg)
