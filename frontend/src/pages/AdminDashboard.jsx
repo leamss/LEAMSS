@@ -1169,6 +1169,7 @@ const AdminDashboard = () => {
       groupLabel: 'Cases & Users',
       defaultOpen: true,
       items: [
+        { id: 'pre-assessments', icon: ClipboardList, label: 'Pre-Assessments', onClick: () => { setActiveTab('pre-assessments'); resetSelections(); } },
         { id: 'cases', icon: Briefcase, label: 'All Cases', onClick: () => { setActiveTab('cases'); resetSelections(); } },
         { id: 'users', icon: User, label: 'Users', onClick: () => { setActiveTab('users'); resetSelections(); } },
         { id: 'bulk-ops', icon: Zap, label: 'Bulk Operations', onClick: () => { setActiveTab('bulk-ops'); resetSelections(); } },
@@ -1242,6 +1243,7 @@ const AdminDashboard = () => {
       'revenue-dashboard': 'Revenue Dashboard',
       'report-builder': 'Custom Report Builder',
       'email-digest': 'Email Digest',
+      'pre-assessments': 'Pre-Assessment Queue',
     };
     return titles[activeTab] || 'Dashboard';
   };
