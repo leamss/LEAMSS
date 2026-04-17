@@ -18,7 +18,7 @@ import DocumentChecklist from '@/components/DocumentChecklist';
 import CreateTicket from '@/components/CreateTicket';
 import TicketSection from '@/components/TicketSection';
 import QuickActions from '@/components/QuickActions';
-import { Briefcase, FileText, CheckCircle, AlertCircle, LogOut, Download, Plus, Send, ArrowLeft, MessageSquare, Search, Filter, Clock, Eye, Menu, X, Lock, Calendar, AlertTriangle, User, ClipboardList, Zap, BookOpen, Star, ArrowRightLeft, Sparkles, Loader2 } from 'lucide-react';
+import { Briefcase, FileText, CheckCircle, AlertCircle, LogOut, Download, Plus, Send, ArrowLeft, MessageSquare, Search, Filter, Clock, Eye, Menu, X, Lock, Calendar, AlertTriangle, User, ClipboardList, Zap, BookOpen, Star, ArrowRightLeft, Sparkles, Loader2, XCircle } from 'lucide-react';
 import BulkOperations from '@/pages/BulkOperations';
 import SLATracker from '@/pages/SLATracker';
 import CaseTransfer from '@/pages/CaseTransfer';
@@ -745,10 +745,33 @@ const CaseManagerDashboard = () => {
                                   cd.document_type?.toLowerCase().includes(docName.toLowerCase()) || 
                                   docName.toLowerCase().includes(cd.document_type?.toLowerCase())
                                 );
+                                const canRemove = canCustomizeWorkflow && d.source === 'cm_request' && !uploaded;
                                 return (
-                                  <span key={di} className={`text-xs px-2 py-0.5 rounded-full border ${uploaded ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-600 border-red-200'}`}>
+                                  <span key={di} className={`text-xs px-2 py-0.5 rounded-full border inline-flex items-center gap-1 ${uploaded ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-600 border-red-200'}`}>
                                     {docName} {uploaded ? '\u2713' : '\u2717'}
                                     {d.is_mandatory && !uploaded && <span className="text-red-500 ml-0.5">*</span>}
+                                    {canRemove && (
+                                      <button
+                                        className="ml-1 text-red-400 hover:text-red-600"
+                                        title={`Remove "${docName}"`}
+                                        onClick={async (e) => {
+                                          e.stopPropagation();
+                                          if (!window.confirm(`Remove "${docName}" from "${step.step_name}"?`)) return;
+                                          try {
+                                            await axios.post(`${API}/step-documents/remove-step-doc`, {
+                                              case_id: selectedCase.id, step_name: step.step_name, doc_name: docName
+                                            }, getAuthHeader());
+                                            toast.success(`Removed "${docName}"`);
+                                            loadCaseDetails(selectedCase.id);
+                                          } catch (err) {
+                                            toast.error(err.response?.data?.detail || 'Cannot remove');
+                                          }
+                                        }}
+                                        data-testid={`remove-doc-${index}-${di}`}
+                                      >
+                                        <XCircle className="h-3 w-3" />
+                                      </button>
+                                    )}
                                   </span>
                                 );
                               })}

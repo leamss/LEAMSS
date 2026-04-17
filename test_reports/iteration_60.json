@@ -1,0 +1,139 @@
+{
+  "summary": "Iteration 60: Bug Fixes and 4 New Country Templates - All features verified. Backend: 13/13 tests passed. Frontend: Both bugfixes verified via Playwright.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration60_bugfixes.py",
+    "/app/test_reports/pytest/pytest_iteration60.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Template keyword matching for 'New Zealand PR' falls back to AI because 'pr' alone doesn't match 'skilled migrant' keywords. Use 'New Zealand Skilled Migrant' for template match.",
+    "XCircle delete button only appears for docs with source='cm_request' - admin-default docs cannot be removed by CM (by design)"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration60_bugfixes.py"
+  ],
+  "success_rate": {
+    "backend": "100% (13/13 passed)",
+    "frontend": "100% (both bugfixes verified)"
+  },
+  "test_credentials": {
+    "admin": "admin@leamss.com / Admin@123",
+    "case_manager": "manager@leamss.com / Manager@123",
+    "client": "client@leamss.com / Client@123"
+  },
+  "seed_data_creation": "None - used existing data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration 60 verified: (1) BUGFIX: Admin save workflow step now works after AI suggest - NaN duration_days sanitized, regex escaping fixed in products.py, (2) BUGFIX: CM can delete CM-added docs via XCircle button - 3 delete buttons found in test case, (3) ENHANCEMENT: 8 templates now available (4 new: nz_skilled_migrant with NZD fees, usa_h1b with USD fees, uae_golden_visa with AED fees, singapore_ep with SGD fees). All AI suggest endpoints return source='template' for matching products.",
+  "features_tested": {
+    "templates_api_8_templates": {
+      "status": "PASS",
+      "details": "GET /api/step-documents/templates returns 8 templates (4 original + 4 new)"
+    },
+    "nz_skilled_migrant_template": {
+      "status": "PASS",
+      "details": "NZ template exists with NZD $3,310 fees, immigration.govt.nz URL"
+    },
+    "usa_h1b_template": {
+      "status": "PASS",
+      "details": "USA H-1B template exists with USD $460+ fees, uscis.gov URL"
+    },
+    "uae_golden_visa_template": {
+      "status": "PASS",
+      "details": "UAE Golden Visa template exists with AED 2,800 fees, u.ae URL"
+    },
+    "singapore_ep_template": {
+      "status": "PASS",
+      "details": "Singapore EP template exists with SGD $105 fees, mom.gov.sg URL"
+    },
+    "ai_suggest_usa_h1b": {
+      "status": "PASS",
+      "details": "AI suggest for USA H-1B returns source='template' with LCA docs"
+    },
+    "ai_suggest_uae_golden_visa": {
+      "status": "PASS",
+      "details": "AI suggest for UAE Golden Visa returns source='template' with passport docs"
+    },
+    "ai_suggest_singapore_ep": {
+      "status": "PASS",
+      "details": "AI suggest for Singapore EP returns source='template'"
+    },
+    "ai_suggest_nz_skilled_migrant": {
+      "status": "PASS",
+      "details": "AI suggest for 'New Zealand Skilled Migrant' returns source='template' with NZD fees"
+    },
+    "admin_save_step_null_duration": {
+      "status": "PASS",
+      "details": "Saving workflow step with null duration_days works (NaN fix verified)"
+    },
+    "admin_save_step_empty_docs_filtered": {
+      "status": "PASS",
+      "details": "Empty doc_names are filtered when saving workflow step"
+    },
+    "cm_remove_step_doc_endpoint": {
+      "status": "PASS",
+      "details": "POST /api/step-documents/remove-step-doc endpoint exists and works"
+    },
+    "regex_escaping_special_chars": {
+      "status": "PASS",
+      "details": "Step names with special regex chars (brackets, plus, asterisk) work correctly"
+    },
+    "admin_workflow_step_save_ui": {
+      "status": "PASS",
+      "details": "Admin can edit step, click AI Suggest, and save - toast shows 'Workflow step updated!'"
+    },
+    "cm_xcircle_delete_button_ui": {
+      "status": "PASS",
+      "details": "CM case detail shows 3 XCircle delete buttons for CM-added docs, AI Suggest button, Add Doc button, Customization Enabled badge"
+    }
+  },
+  "backend_tests_summary": {
+    "total": 13,
+    "passed": 13,
+    "failed": 0,
+    "tests": [
+      "test_templates_returns_8_templates - PASS",
+      "test_new_zealand_template_exists - PASS",
+      "test_usa_h1b_template_exists - PASS",
+      "test_uae_golden_visa_template_exists - PASS",
+      "test_singapore_ep_template_exists - PASS",
+      "test_usa_h1b_ai_suggest - PASS",
+      "test_uae_golden_visa_ai_suggest - PASS",
+      "test_singapore_ep_ai_suggest - PASS",
+      "test_new_zealand_pr_ai_suggest - PASS",
+      "test_save_step_with_null_duration - PASS",
+      "test_save_step_with_empty_doc_names_filtered - PASS",
+      "test_remove_step_doc_endpoint_exists - PASS",
+      "test_step_name_with_special_chars - PASS"
+    ]
+  },
+  "ui_verification": {
+    "admin_workflow_step_save": {
+      "edit_workflow_dialog": "Opens with AI Auto-Fill Docs button, Add Step button, 4 workflow steps",
+      "step_editor_dialog": "Opens with Step Name, Step Order, Description, Duration, Document Requirements",
+      "ai_suggest_button": "Visible in step editor with sparkles icon",
+      "save_button": "Update Step button at bottom of dialog",
+      "save_result": "Toast shows 'Workflow step updated!' - BUGFIX VERIFIED"
+    },
+    "cm_case_detail": {
+      "customization_badge": "Visible - 'Customization Enabled'",
+      "xcircle_delete_buttons": "3 XCircle buttons found for CM-added docs (e.g., TEST_CM_Doc_e66e9f)",
+      "ai_suggest_button": "1 AI Suggest button visible in unlocked step",
+      "add_doc_button": "1 +Add Doc button visible in unlocked step",
+      "workflow_steps": "Shows Integration Test Step (In Progress), ECA (Pending), IELTS/CELPIP/PTE CORE (Pending)"
+    }
+  },
+  "mocked_apis": {
+    "resend_email": "MOCK mode - logs to console instead of sending actual emails",
+    "whatsapp": "wa.me redirect"
+  }
+}

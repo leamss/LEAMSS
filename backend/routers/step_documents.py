@@ -511,6 +511,124 @@ IMMIGRATION_TEMPLATES = {
         },
         "fees_info": "Varies by country. Typical: Application fee $100-$500, health exam $200-$500, biometrics $80-$100."
     },
+    "nz_skilled_migrant": {
+        "label": "New Zealand Skilled Migrant Category Resident Visa",
+        "keywords": ["new zealand", "nz", "skilled migrant", "permanent resid", "smcr"],
+        "government_url": "https://www.immigration.govt.nz/new-zealand-visas/visas/visa/skilled-migrant-category-resident-visa",
+        "assessment_bodies": ["NZQA (NZ Qualifications Authority)", "Registration bodies for regulated professions"],
+        "language_tests": ["IELTS General/Academic", "TOEFL iBT", "PTE Academic", "OET", "Cambridge English"],
+        "steps": {
+            "Eligibility & Preparation": [
+                {"doc_name": "Valid Passport", "description": "Current valid passport with 6+ months validity", "is_mandatory": True, "doc_type": "passport"},
+                {"doc_name": "NZQA Qualification Assessment", "description": "NZ Qualifications Authority assessment of overseas qualifications", "is_mandatory": True, "doc_type": "certificate"},
+                {"doc_name": "English Language Test Results", "description": "IELTS 6.5+ overall or equivalent (PTE 58+)", "is_mandatory": True, "doc_type": "certificate"},
+            ],
+            "Skills Assessment": [
+                {"doc_name": "Qualification Certificates", "description": "All degree/diploma certificates", "is_mandatory": True, "doc_type": "certificate"},
+                {"doc_name": "Employment References", "description": "Reference letters with detailed duties, dates, hours from employers", "is_mandatory": True, "doc_type": "legal"},
+                {"doc_name": "Professional Registration", "description": "NZ registration for regulated occupations (if applicable)", "is_mandatory": False, "doc_type": "certificate"},
+            ],
+            "EOI Submission": [
+                {"doc_name": "Points Calculation Evidence", "description": "Evidence for all claimed points (age, qualification, experience, job offer)", "is_mandatory": True, "doc_type": "other"},
+                {"doc_name": "Job Offer/Employment Agreement", "description": "Offer from accredited NZ employer (if claiming points)", "is_mandatory": False, "doc_type": "legal"},
+            ],
+            "ITA & Residence Application": [
+                {"doc_name": "Police Certificates", "description": "Police clearance from every country lived 5+ years since age 17", "is_mandatory": True, "doc_type": "legal"},
+                {"doc_name": "Medical Certificate (INZ 1007)", "description": "Medical examination by Immigration NZ panel physician", "is_mandatory": True, "doc_type": "medical"},
+                {"doc_name": "Chest X-Ray (INZ 1096)", "description": "Chest X-ray certificate", "is_mandatory": True, "doc_type": "medical"},
+                {"doc_name": "Birth Certificate", "description": "Full birth certificate for applicant and dependents", "is_mandatory": True, "doc_type": "legal"},
+                {"doc_name": "Marriage/Partnership Certificate", "description": "Evidence of relationship (if applicable)", "is_mandatory": False, "doc_type": "legal"},
+                {"doc_name": "Settlement Funds Evidence", "description": "Proof of NZD $4,000+ settlement funds", "is_mandatory": True, "doc_type": "financial"},
+            ],
+        },
+        "fees_info": "EOI fee: NZD $680. Residence application: NZD $3,310 principal applicant. Medical exam: NZD $400-$600. IELTS: NZD $385."
+    },
+    "usa_h1b": {
+        "label": "USA H-1B Specialty Occupation Visa",
+        "keywords": ["usa", "us", "america", "h1b", "h-1b", "work visa", "specialty"],
+        "government_url": "https://www.uscis.gov/working-in-the-united-states/h-1b-specialty-occupations",
+        "assessment_bodies": ["USCIS", "Department of Labor (DOL)", "SEVP"],
+        "language_tests": [],
+        "steps": {
+            "Employer Petition & LCA": [
+                {"doc_name": "Labor Condition Application (LCA)", "description": "Certified LCA from DOL (Form ETA-9035/9035E)", "is_mandatory": True, "doc_type": "legal"},
+                {"doc_name": "Job Offer Letter", "description": "Detailed offer letter with job title, duties, salary, work location", "is_mandatory": True, "doc_type": "legal"},
+                {"doc_name": "Form I-129 Petition", "description": "Petition for Nonimmigrant Worker filed by employer", "is_mandatory": True, "doc_type": "other"},
+                {"doc_name": "Company Support Letter", "description": "Employer support letter explaining specialty occupation need", "is_mandatory": True, "doc_type": "legal"},
+            ],
+            "Beneficiary Documentation": [
+                {"doc_name": "Valid Passport", "description": "Current passport valid for travel", "is_mandatory": True, "doc_type": "passport"},
+                {"doc_name": "Bachelor's Degree or Higher", "description": "US bachelor's degree or foreign equivalent in specialty field", "is_mandatory": True, "doc_type": "certificate"},
+                {"doc_name": "Academic Transcripts", "description": "Official transcripts from all universities attended", "is_mandatory": True, "doc_type": "certificate"},
+                {"doc_name": "Credential Evaluation", "description": "Foreign degree evaluation by NACES/AICE member (if foreign degree)", "is_mandatory": False, "doc_type": "certificate"},
+                {"doc_name": "Resume/CV", "description": "Detailed resume showing relevant work experience", "is_mandatory": True, "doc_type": "other"},
+                {"doc_name": "Previous H-1B Approvals", "description": "Prior I-797 approval notices (if transfer/extension)", "is_mandatory": False, "doc_type": "visa"},
+            ],
+            "Visa Stamping (Consular Processing)": [
+                {"doc_name": "DS-160 Confirmation Page", "description": "Online Nonimmigrant Visa Application confirmation", "is_mandatory": True, "doc_type": "other"},
+                {"doc_name": "I-797 Approval Notice", "description": "USCIS approval notice for H-1B petition", "is_mandatory": True, "doc_type": "visa"},
+                {"doc_name": "Passport Photos", "description": "2x2 inch photos per US visa specifications", "is_mandatory": True, "doc_type": "photo"},
+                {"doc_name": "Interview Appointment Letter", "description": "US Embassy/Consulate interview confirmation", "is_mandatory": True, "doc_type": "other"},
+                {"doc_name": "Pay Stubs/Tax Returns", "description": "Recent pay stubs or W-2 forms (if extension/transfer)", "is_mandatory": False, "doc_type": "financial"},
+            ],
+        },
+        "fees_info": "H-1B filing fee: USD $460. ACWIA fee: $750/$1,500 (based on company size). Fraud prevention: $500. Lottery registration: $215. Premium processing (optional): $2,805. Visa stamping MRV fee: $205."
+    },
+    "uae_golden_visa": {
+        "label": "UAE Golden Visa (10-Year Long-Term Residence)",
+        "keywords": ["uae", "dubai", "golden visa", "emirates", "abu dhabi", "10 year"],
+        "government_url": "https://u.ae/en/information-and-services/visa-and-emirates-id/residence-visas/golden-visa",
+        "assessment_bodies": ["ICP (Federal Authority for Identity, Citizenship, Customs and Port Security)", "GDRFA"],
+        "steps": {
+            "Eligibility & Category Selection": [
+                {"doc_name": "Valid Passport", "description": "Passport with minimum 6 months validity", "is_mandatory": True, "doc_type": "passport"},
+                {"doc_name": "Passport-size Photographs", "description": "Recent photos with white background", "is_mandatory": True, "doc_type": "photo"},
+                {"doc_name": "Category Evidence", "description": "Proof for selected category: property deed (AED 2M+), business license, investor certificates, or talent recognition", "is_mandatory": True, "doc_type": "other"},
+            ],
+            "Document Preparation": [
+                {"doc_name": "Emirates ID Application", "description": "Emirates ID application or existing EID copy", "is_mandatory": True, "doc_type": "id_card"},
+                {"doc_name": "Medical Fitness Certificate", "description": "Medical fitness test from DHA-approved center", "is_mandatory": True, "doc_type": "medical"},
+                {"doc_name": "Health Insurance Policy", "description": "UAE health insurance coverage", "is_mandatory": True, "doc_type": "other"},
+                {"doc_name": "Qualification Certificates (Attested)", "description": "UAE-attested educational certificates", "is_mandatory": True, "doc_type": "certificate"},
+                {"doc_name": "Salary Certificate/Income Proof", "description": "Monthly income proof (AED 30,000+ for specialized talent)", "is_mandatory": False, "doc_type": "financial"},
+                {"doc_name": "Property Title Deed", "description": "DLD title deed for property worth AED 2M+ (investor route)", "is_mandatory": False, "doc_type": "legal"},
+            ],
+            "Application & Visa Issuance": [
+                {"doc_name": "Golden Visa Application Form", "description": "Completed online application via ICP smart services", "is_mandatory": True, "doc_type": "other"},
+                {"doc_name": "Sponsor Approval/NOC", "description": "No Objection Certificate from current sponsor (if changing)", "is_mandatory": False, "doc_type": "legal"},
+                {"doc_name": "Entry Permit/Change Status", "description": "Entry permit or status change approval", "is_mandatory": True, "doc_type": "visa"},
+            ],
+        },
+        "fees_info": "Golden Visa application: AED 2,800. Emirates ID: AED 370 (10 years). Medical fitness: AED 320. Health insurance: varies. Entry permit: AED 1,150. Visa stamping: AED 650."
+    },
+    "singapore_ep": {
+        "label": "Singapore Employment Pass (EP)",
+        "keywords": ["singapore", "ep", "employment pass", "mom", "work"],
+        "government_url": "https://www.mom.gov.sg/passes-and-permits/employment-pass",
+        "assessment_bodies": ["Ministry of Manpower (MOM)", "COMPASS Framework"],
+        "steps": {
+            "COMPASS Assessment": [
+                {"doc_name": "Educational Certificates", "description": "Degree certificates from recognized universities", "is_mandatory": True, "doc_type": "certificate"},
+                {"doc_name": "Academic Transcripts", "description": "Official transcripts showing subjects and grades", "is_mandatory": True, "doc_type": "certificate"},
+                {"doc_name": "Resume/CV", "description": "Detailed CV showing career history and skills", "is_mandatory": True, "doc_type": "other"},
+                {"doc_name": "COMPASS Self-Assessment", "description": "COMPASS framework self-assessment score calculation", "is_mandatory": True, "doc_type": "other"},
+            ],
+            "EP Application": [
+                {"doc_name": "Valid Passport", "description": "Passport with minimum 6 months validity", "is_mandatory": True, "doc_type": "passport"},
+                {"doc_name": "Passport-size Photo", "description": "Recent photo meeting MOM specifications", "is_mandatory": True, "doc_type": "photo"},
+                {"doc_name": "Employment Contract", "description": "Signed employment contract with Singapore company", "is_mandatory": True, "doc_type": "legal"},
+                {"doc_name": "Company ACRA Profile", "description": "Employer's ACRA business profile", "is_mandatory": True, "doc_type": "other"},
+                {"doc_name": "Salary Details", "description": "Fixed monthly salary meeting minimum threshold (SGD $5,600+)", "is_mandatory": True, "doc_type": "financial"},
+                {"doc_name": "Professional Certifications", "description": "Relevant professional licenses or certifications", "is_mandatory": False, "doc_type": "certificate"},
+            ],
+            "Pass Issuance": [
+                {"doc_name": "In-Principle Approval (IPA) Letter", "description": "MOM IPA letter for entry into Singapore", "is_mandatory": True, "doc_type": "visa"},
+                {"doc_name": "Medical Examination Report", "description": "Medical checkup at registered Singapore clinic (if required)", "is_mandatory": False, "doc_type": "medical"},
+                {"doc_name": "EP Card Collection", "description": "Visit MOM for photo and fingerprint for EP card", "is_mandatory": True, "doc_type": "other"},
+            ],
+        },
+        "fees_info": "EP application: SGD $105. EP issuance: SGD $225. Multiple journey visa: SGD $30. COMPASS does not have a separate fee."
+    },
 }
 
 

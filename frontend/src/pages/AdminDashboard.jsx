@@ -967,20 +967,31 @@ const AdminDashboard = () => {
     if (!stepData.step_name.trim()) { toast.error('Please enter step name'); return; }
     try {
       const productId = workflowDialog.product.id;
+      const durationDays = stepData.duration_days ? parseInt(stepData.duration_days) : null;
+      const stepOrder = stepData.step_order ? parseInt(stepData.step_order) : 1;
+      const payload = {
+        product_id: productId,
+        step_name: stepData.step_name.trim(),
+        step_order: isNaN(stepOrder) ? 1 : stepOrder,
+        description: stepData.description || '',
+        duration_days: isNaN(durationDays) ? null : durationDays,
+        required_documents: (stepData.required_documents || []).map(d => ({
+          doc_name: d.doc_name || d.name || '',
+          description: d.description || '',
+          is_mandatory: d.is_mandatory !== false,
+          doc_type: d.doc_type || '',
+          has_expiry: d.has_expiry || false,
+          expiry_date: d.expiry_date || '',
+          validity_months: d.validity_months || '',
+        })).filter(d => d.doc_name)
+      };
+
       if (mode === 'create') {
-        await axios.post(`${API}/products/${productId}/workflow-step`, {
-          product_id: productId, step_name: stepData.step_name, step_order: stepData.step_order,
-          description: stepData.description, duration_days: stepData.duration_days ? parseInt(stepData.duration_days) : null,
-          required_documents: stepData.required_documents
-        }, getAuthHeader());
+        await axios.post(`${API}/products/${productId}/workflow-step`, payload, getAuthHeader());
         toast.success('Workflow step added!');
       } else {
-        const stepOrder = workflowDialog.product.workflow_steps[workflowDialog.editingStepIndex].step_order;
-        await axios.put(`${API}/products/${productId}/workflow-step/${stepOrder}`, {
-          product_id: productId, step_name: stepData.step_name, step_order: stepData.step_order,
-          description: stepData.description, duration_days: stepData.duration_days ? parseInt(stepData.duration_days) : null,
-          required_documents: stepData.required_documents
-        }, getAuthHeader());
+        const origStepOrder = workflowDialog.product.workflow_steps[workflowDialog.editingStepIndex].step_order;
+        await axios.put(`${API}/products/${productId}/workflow-step/${origStepOrder}`, payload, getAuthHeader());
         toast.success('Workflow step updated!');
       }
       setStepEditorDialog({ ...stepEditorDialog, open: false });
@@ -989,7 +1000,9 @@ const AdminDashboard = () => {
       const updatedProduct = productsRes.data.find(p => p.id === productId);
       setWorkflowDialog({ ...workflowDialog, product: updatedProduct, editingStepIndex: null });
     } catch (error) {
-      toast.error('Failed to save workflow step');
+      const detail = error.response?.data?.detail || error.message || 'Failed to save workflow step';
+      toast.error(detail);
+      console.error('Save workflow step error:', error.response?.data || error);
     }
   };
 
