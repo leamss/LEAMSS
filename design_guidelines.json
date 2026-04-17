@@ -1,90 +1,87 @@
 {
-  "theme_and_archetype": {
-    "domain": "Immigration Portal SaaS Dashboard",
-    "theme": "LIGHT",
-    "archetype": "4 (Swiss & High-Contrast / Structured Utility)",
-    "rationale": "To fix the overwhelming UI (1500+ lines, 13+ tabs), we must switch to a highly structured, cardless 'Control Room' grid. We will preserve the company's precise colors (#2a777a, #f7620b) but elevate them using strict hierarchy. The goal is to reduce cognitive load by grouping navigation and using generous whitespace."
-  },
+  "theme": "Light",
+  "archetype": "Archetype 1 (Organic & Earthy / Trust) with Dashboard Clarity",
+  "rationale": "Immigration workflows require trust, clarity, and authority. We use the user's requested Teal (#2a777a) as the primary action color and Orange (#f7620b) for accents. To fix the rendering issue and elevate the UI, we abandon emoji flags in favor of high-quality SVG flags (react-world-flags). The layout shifts to a structured Bento 'Control Room' grid to manage the complexity of visas, forms, and workflows.",
   "colors": {
-    "primary": "#2a777a",
-    "accent_orange": "#f7620b",
-    "error_red": "#d81f26",
-    "background": "#F5F7FA",
+    "background": "#F8F9FA",
     "surface": "#FFFFFF",
-    "text_primary": "#111827",
-    "text_secondary": "#4B5563",
-    "border": "#E5E7EB",
-    "usage_rules": "Primary teal must be used exclusively for CTAs, active states, and focus rings. Never use it as a massive background fill. Accent Orange is for notification badges, 'Expiry' warnings, and urgent status chips. Error Red is for destructive actions. 95% of the UI should feel structural (monochrome) with these brand colors directing user attention."
+    "primary": "#2a777a",
+    "primary_hover": "#215f62",
+    "accent": "#f7620b",
+    "accent_hover": "#d95509",
+    "text_main": "#0F172A",
+    "text_muted": "#475569",
+    "border": "#E2E8F0"
   },
   "typography": {
-    "heading_font": "Manrope",
-    "body_font": "Public Sans",
-    "font_classes": {
-      "h1": "font-heading text-2xl md:text-3xl font-bold tracking-tight text-gray-900",
-      "h2": "font-heading text-xl font-semibold tracking-tight text-gray-800",
-      "h3": "font-heading text-lg font-medium text-gray-800",
-      "body": "font-sans text-sm text-gray-600 leading-relaxed",
-      "labels": "font-sans text-xs font-semibold uppercase tracking-[0.05em] text-gray-500",
-      "metrics": "font-heading text-3xl md:text-4xl font-bold tracking-tighter text-gray-900"
+    "fonts_to_import": "https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Manrope:wght@400;600;700;800&display=swap",
+    "heading_font": "Manrope, sans-serif",
+    "body_font": "'IBM Plex Sans', sans-serif",
+    "strategy": "Manrope for clear, approachable headings with tight tracking. IBM Plex Sans for body text to give a 'document/official' feel that suits immigration.",
+    "h1": "text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900 font-['Manrope']",
+    "h2": "text-2xl font-bold tracking-tight text-slate-800 font-['Manrope']",
+    "h3": "text-lg font-semibold text-slate-800 font-['Manrope']",
+    "body": "text-base text-slate-600 leading-relaxed font-['IBM_Plex_Sans']",
+    "label": "text-xs font-bold uppercase tracking-[0.15em] text-slate-500 font-['Manrope']"
+  },
+  "layout_and_spacing": {
+    "strategy": "Control Room Grid. Utilize generous padding (p-6, p-8) inside cards to prevent clutter. Use a subtle off-white background for the main canvas to make white surfaces pop.",
+    "container": "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8",
+    "card": "bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden",
+    "grid_countries": "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6"
+  },
+  "components": {
+    "navigation": {
+      "strategy": "Use a clear tabbed interface or pill-navigation at the top of the workflow builder to switch between views (Gallery, Pick-visa, Review, Saved).",
+      "tab_active": "bg-[#2a777a] text-white shadow-sm",
+      "tab_inactive": "bg-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100"
+    },
+    "flags": {
+      "library": "react-world-flags",
+      "instruction": "REPLACE all emoji flags with SVG components using 'react-world-flags'. Emojis render inconsistently. Provide the 2-letter ISO code to the Flag component.",
+      "style": "w-8 h-6 rounded-sm shadow-sm object-cover border border-slate-100"
+    },
+    "country_card": {
+      "style": "Flex row layout. Left: SVG Flag (w-10 h-10 rounded-full border border-slate-100 object-cover), Right: Country Name (font-semibold text-slate-800). Add a subtle background hover effect (hover:bg-teal-50/50 hover:border-[#2a777a]/30 transition-all cursor-pointer p-4 rounded-xl border border-slate-200).",
+      "testid": "country-card-{country_code}"
+    },
+    "template_card": {
+      "style": "Bento style card. Add an 'Orange' badge (bg-[#f7620b]/10 text-[#f7620b] font-bold text-xs px-2 py-1 rounded) for 'Verified'. Highlight template name and country.",
+      "testid": "template-card-{id}"
+    },
+    "review_view": {
+      "layout": "Two-column layout (lg:grid-cols-3 gap-8). Left column (span 2): Workflow steps in a vertical timeline/stepper. Right column: Sticky summary card with Product Name input, Fees, and Save/Download actions.",
+      "verification_banner": "bg-teal-50 border border-teal-200 text-teal-900 p-4 rounded-lg flex items-start gap-3 mb-6. Use a ShieldCheck icon to denote verified status."
+    },
+    "buttons": {
+      "primary": "bg-[#2a777a] text-white hover:bg-[#215f62] rounded-lg px-6 py-2.5 font-semibold transition-colors shadow-sm shadow-teal-900/10 focus:ring-2 focus:ring-[#2a777a] focus:ring-offset-2",
+      "secondary": "bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 rounded-lg px-6 py-2.5 font-semibold transition-colors focus:ring-2 focus:ring-slate-200",
+      "accent": "bg-[#f7620b] text-white hover:bg-[#d95509] rounded-lg px-6 py-2.5 font-semibold transition-colors shadow-sm shadow-orange-900/10"
     }
   },
-  "spacing_and_layout": {
-    "strategy": "The 'Control Room' Bento Grid. Dense but highly scannable.",
-    "containers": "Use flat solid white backgrounds (#FFFFFF) with a delicate 1px border (border-gray-200). Avoid generic floating drop shadows. Maximum border-radius is 8px (rounded-lg).",
-    "padding": "Containers must use generous internal padding (p-6) to avoid text collision.",
-    "grid_structure": "Base grid `grid-cols-1 md:grid-cols-3 lg:grid-cols-4` with `gap-6`.",
-    "sidebar": "Fixed 280px left sidebar. MUST use a collapsible accordion structure to group the 13+ items into 4 main categories to fix the user's confusion."
+  "icons": {
+    "library": "@phosphor-icons/react",
+    "installation": "yarn add @phosphor-icons/react",
+    "mapping": {
+      "search": "MagnifyingGlass",
+      "verified": "SealCheck",
+      "download": "DownloadSimple",
+      "save": "FloppyDisk",
+      "steps": "ListNumbers",
+      "forms": "FileText"
+    }
   },
-  "navigation_strategy": {
-    "solution_for_confusion": "The primary issue is 'too many tabs and factors showing at once'. The fix is logical grouping using collapsibles.",
-    "admin_groups": [
-      {
-        "name": "Workspace",
-        "items": ["Dashboard", "Quick Actions", "Document Expiry Tracker"]
-      },
-      {
-        "name": "Financials & Sales",
-        "items": ["Recent Pending Sales", "Sales Management", "Sales Reports", "Commissions", "Refunds", "Payment Reminders"]
-      },
-      {
-        "name": "Cases & Operations",
-        "items": ["All Cases", "Pending Assignment", "Users"]
-      },
-      {
-        "name": "System",
-        "items": ["Products", "Tickets", "Settings"]
-      }
-    ]
+  "motion": {
+    "hover": "Subtle transform (-translate-y-0.5) and shadow increase on cards.",
+    "transitions": "transition-all duration-200 ease-in-out for buttons, cards, and inputs."
   },
-  "component_strategy": {
-    "rules": "Never build raw HTML dropdowns or tabs. Use Shadcn components exclusively. Override the Shadcn 'Vercel-look' by forcing the primary brand color (#2a777a) on primary buttons and active indicators.",
-    "icons": "lucide-react. Standard, thin line weight.",
-    "forms": "Inputs must have a 1px border. Focus state MUST ring with the primary teal color (focus:ring-[#2a777a]/20 focus:border-[#2a777a]).",
-    "data_tables": "Data tables are critical here. Keep them cardless. Use subtle hover states on rows. Remove vertical dividers. Status badges must use soft backgrounds with solid text (e.g., bg-[#f7620b]/10 text-[#f7620b]).",
-    "refactoring": "The massive 1500-3200 line dashboards MUST be refactored into modular components. For example, extract the Sidebar, Header, StatCards, and Table views into separate .js files within a components directory. Do not write single files exceeding 500 lines."
-  },
-  "accessibility": {
-    "contrast": "Ensure white text on `#2a777a` meets WCAG AA standards. Ensure hover states change color visibly.",
-    "testing": "All interactive elements, buttons, inputs, and major sections MUST include `data-testid` attributes (e.g., `data-testid='admin-dashboard-sales-card'`)."
-  },
-  "media": {
-    "instructions_to_main_agent": "Use ONLY these media URLs. NEVER use placeholder text. For logos and avatars, render them as responsive images.",
-    "image_urls": [
-      {
-        "url": "https://static.prod-images.emergentagent.com/jobs/96ae8c41-c632-4213-b333-5fb767e62f7a/images/e768235c8bc13f004ff4db4176b291682bc85dda4eb869ba3dd504871862740d.png",
-        "category": "brand_logo",
-        "description": "LEAMSS Official logo for the sidebar header"
-      },
-      {
-        "url": "https://images.pexels.com/photos/29852895/pexels-photo-29852895.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
-        "category": "user_avatar_1",
-        "description": "Professional avatar for case managers / admin profiles"
-      },
-      {
-        "url": "https://images.pexels.com/photos/262391/pexels-photo-262391.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
-        "category": "user_avatar_2",
-        "description": "Professional avatar for client/partner profiles"
-      }
-    ]
-  }
+  "instructions_to_main_agent": [
+    "1. INSTALL DEPENDENCIES: Run 'yarn add react-world-flags @phosphor-icons/react' in the frontend directory.",
+    "2. REPLACE EMOJI FLAGS: Map all 51 countries to their ISO alpha-2 codes and use the <Flag /> component from react-world-flags instead of emojis.",
+    "3. IMPLEMENT FONTS: Add Google Fonts link for 'Manrope' and 'IBM Plex Sans' to index.html or index.css, and configure them in tailwind.config.js.",
+    "4. UPDATE COLORS: Add the custom primary (#2a777a) and accent (#f7620b) colors to tailwind.config.js.",
+    "5. REDESIGN GALLERY VIEW: Build a clean grid of country cards using the 'country_card' style guidelines.",
+    "6. REDESIGN REVIEW VIEW: Structure the review step with a clear left-side timeline (steps/docs) and a right-side sticky summary card.",
+    "7. TESTING ATTRIBUTES: Add 'data-testid' to all interactive elements as per guidelines (e.g. data-testid='country-card-US')."
+  ]
 }
