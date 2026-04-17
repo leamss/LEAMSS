@@ -20,7 +20,6 @@ const UnifiedDocumentView = ({ token, caseId, caseData, onDocumentUploaded }) =>
   const [expandedSteps, setExpandedSteps] = useState({});
   const [uploading, setUploading] = useState(null);
   const [uploadFiles, setUploadFiles] = useState({});
-  const [govForms, setGovForms] = useState([]);
 
   const headers = { Authorization: `Bearer ${token}` };
 
@@ -32,16 +31,6 @@ const UnifiedDocumentView = ({ token, caseId, caseData, onDocumentUploaded }) =>
       const firstIncomplete = res.data.steps?.find(s => s.uploaded_count < s.required_count && s.status !== 'completed');
       if (firstIncomplete && Object.keys(expandedSteps).length === 0) {
         setExpandedSteps({ [firstIncomplete.step_name]: true });
-      }
-      // Load government forms for this case's country
-      if (caseData?.product_name) {
-        const countryGuess = caseData.product_name.split(' ')[0].split('-')[0].trim();
-        if (countryGuess) {
-          try {
-            const fRes = await axios.get(`${API}/step-documents/government-forms/${encodeURIComponent(countryGuess)}`, { headers });
-            setGovForms(fRes.data.forms || []);
-          } catch { /* no forms for this country */ }
-        }
       }
     } catch (e) {
       console.error('Failed to load documents', e);
@@ -451,32 +440,6 @@ const UnifiedDocumentView = ({ token, caseId, caseData, onDocumentUploaded }) =>
             </Card>
           ))}
         </div>
-      )}
-
-      {/* Government Forms Section */}
-      {govForms.length > 0 && (
-        <Card className="p-4 border-l-4 border-l-blue-400 bg-blue-50/30 shadow-sm" data-testid="client-gov-forms">
-          <h3 className="font-semibold text-sm text-blue-800 mb-3 flex items-center gap-2">
-            <Download className="h-4 w-4" /> Official Government Forms
-            <Badge className="bg-blue-100 text-blue-700 text-xs">{govForms.length}</Badge>
-          </h3>
-          <p className="text-xs text-blue-600 mb-3">Download official forms from the government website</p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {govForms.map((form, fi) => (
-              <a key={fi} href={form.url} target="_blank" rel="noopener noreferrer"
-                 className="flex items-start gap-2 p-3 bg-white rounded-lg border border-blue-100 hover:border-blue-300 hover:shadow-sm transition-all group">
-                <FileText className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-xs text-slate-800 group-hover:text-blue-700">{form.name}</p>
-                  <p className="text-[10px] text-slate-500 mt-0.5">{form.description}</p>
-                  <Badge className={`text-[8px] mt-1 ${form.mandatory ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-500'}`}>
-                    {form.mandatory ? 'Required' : 'Optional'}
-                  </Badge>
-                </div>
-              </a>
-            ))}
-          </div>
-        </Card>
       )}
 
       {/* Other/Unmatched Uploads */}
