@@ -18,24 +18,26 @@ Multi-role immigration portal (LEAMSS) with React + FastAPI + MongoDB. Roles: Ad
 - Payment Reminders UI enhancements
 - Step-wise Document Management System (2026-04-15): Backend merge logic, CM routing fix
 - Unified Document View (2026-04-15): Single "Documents & Steps" client tab replacing 4 tabs
-- **AI Document Suggestions (2026-04-15)**: GPT-powered document checklist generation
+- AI Document Suggestions v1 (2026-04-15): Basic GPT-powered suggestions
+- **Smart Template + Web Search AI (2026-04-15)**: Accurate government-verified document templates
 
-## AI Document Suggestions (Latest - 2026-04-15)
+## Smart Template AI System (Latest - 2026-04-15)
 ### What was built:
-1. **Backend AI endpoints**:
-   - `POST /api/step-documents/ai-suggest-step-docs` - AI suggests 3-6 docs for a specific step
-   - `POST /api/step-documents/ai-suggest-bulk` - AI suggests docs for ALL steps at once
-2. **Admin UI**: 
-   - "AI Auto-Fill Docs" button in workflow editor (bulk suggests for all steps)
-   - "AI Suggest" button per step in step editor
-3. **CM UI**: "AI Suggest" button per step in case detail (auto-adds suggested docs to client's step)
-4. **Audit Trail**: All AI suggestions logged to audit_logs collection
+1. **Immigration Templates**: Real document requirements for Canada PR, Australia PR (189/190/491), UK Skilled Worker, Student Visa
+2. **Template-first approach**: If product matches template, return verified docs instantly (no AI needed)
+3. **Real data included**: Assessment bodies (WES/ACS/VETASSESS), government fees (CAD $1,365, AUD $4,640, GBP £719), official URLs
+4. **AI fallback**: Web search + GPT for products without templates
+5. **Templates API**: GET /api/step-documents/templates lists all available templates
+6. **Audit trail**: Different log actions for template vs AI suggestions
 
-### Key Endpoints:
-- `POST /api/step-documents/ai-suggest-step-docs` - Per-step AI suggestions
-- `POST /api/step-documents/ai-suggest-bulk` - Bulk AI suggestions for product
+### Templates Available:
+- Canada PR (Express Entry): 20 docs, 6 steps, CAD $1,365
+- Australia PR (189/190/491): 21 docs, 5 steps, AUD $4,640
+- UK Skilled Worker: 10 docs, 3 steps, GBP £719
+- Student Visa (Generic): 15 docs, 3 steps
 
 ## Backlog / Future Tasks
+- Tool enhancements (user to confirm priorities)
 - P2: Resend Email from mock to live (requires RESEND_API_KEY)
 - P3: Twilio WhatsApp full integration (requires API keys)
 
