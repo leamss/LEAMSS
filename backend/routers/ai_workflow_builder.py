@@ -330,40 +330,47 @@ async def get_supported_countries(current_user: dict = Depends(get_current_user)
 
 @router.post("/visa-categories")
 async def get_visa_categories(data: VisaCategoriesRequest, current_user: dict = Depends(get_current_user)):
-    """AI suggests all visa subclasses/categories for a country with official references"""
+    """Get all visa subclasses/categories for a country - uses hardcoded data first, AI as optional enrichment"""
     if current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
 
     country_key = data.country.lower().replace(" ", "_")
-    ref_info = ""
+    
+    # Build categories from COUNTRY_REFERENCES (no AI needed)
+    categories = []
     if country_key in COUNTRY_REFERENCES:
-        for k, v in COUNTRY_REFERENCES[country_key].items():
-            ref_info += f"\n- {k}: {v}"
+        for svc_key, ref_info in COUNTRY_REFERENCES[country_key].items():
+            # Extract URL from reference info
+            url = ""
+            for part in ref_info.split(". "):
+                if "Reference:" in part:
+                    url_part = part.replace("Reference:", "").strip().rstrip(".")
+                    if url_part and not url_part.startswith("http"):
+                        url = f"https://{url_part}"
+                    elif url_part.startswith("http"):
+                        url = url_part
+                    break
+            
+            categories.append({
+                "id": f"{country_key}_{svc_key}",
+                "name": svc_key.replace("_", " ").title(),
+                "description": ref_info.split(". ")[0] if ". " in ref_info else ref_info,
+                "category": svc_key,
+                "official_url": url,
+                "estimated_fees": "",
+                "reference": ref_info,
+            })
 
-    example = '[{"id":"subclass_189","name":"Subclass 189 - Skilled Independent","description":"Points-based visa for skilled workers not sponsored by employer or state","category":"skilled_migration","official_url":"https://homeaffairs.gov.au/...","estimated_fees":"AUD $4,910"}]'
-
-    prompt = (
-        f'List ALL visa categories and subclasses available for {data.country}. '
-        f'Include every visa type from the official government immigration website.\n\n'
-        f'Known categories:\n{ref_info}\n\n'
-        'Return a JSON array where each object has:\n'
-        '- "id": unique slug\n'
-        '- "name": full official visa name with subclass number if applicable\n'
-        '- "description": 1-2 line description of who this visa is for\n'
-        '- "category": one of skilled_migration, family, student, visitor, work, investor, business, humanitarian, other\n'
-        '- "official_url": official government page URL for this visa\n'
-        '- "estimated_fees": approximate application fee in local currency\n\n'
-        'Be comprehensive - include ALL visa subclasses. Only use OFFICIAL government source references.\n'
-        f'Return ONLY the JSON array.\nExample: {example}'
-    )
-
-    system_msg = (
-        "You are an immigration visa expert. List ALL visa categories accurately with official government URLs. "
-        "Include subclass numbers where applicable. Return ONLY valid JSON arrays."
-    )
-
-    response = await _call_gpt(prompt, system_msg)
+    # Try AI enrichment (optional - won't fail if budget exceeded)
     try:
+        example = '[{"id":"subclass_189","name":"Subclass 189 - Skilled Independent","description":"Points-based visa for skilled workers","category":"skilled_migration","official_url":"https://homeaffairs.gov.au/...","estimated_fees":"AUD $4,910"}]'
+        prompt = (
+            f'List ALL visa categories and subclasses for {data.country} with subclass numbers where applicable. '
+            f'Include official government page URLs and current application fees. '
+            f'Return ONLY a JSON array. Example: {example}'
+        )
+        system_msg = "Immigration visa expert. List ALL visa subclasses with official URLs and fees. Return ONLY valid JSON."
+        response = await _call_gpt(prompt, system_msg)
         cleaned = response.strip()
         if cleaned.startswith("```"):
             cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else cleaned[3:]
@@ -371,11 +378,11 @@ async def get_visa_categories(data: VisaCategoriesRequest, current_user: dict = 
         start = cleaned.find("[")
         end = cleaned.rfind("]") + 1
         if start >= 0 and end > start:
-            categories = json.loads(cleaned[start:end])
-        else:
-            categories = json.loads(cleaned)
-    except (json.JSONDecodeError, Exception):
-        categories = []
+            ai_cats = json.loads(cleaned[start:end])
+            if isinstance(ai_cats, list) and len(ai_cats) > 0:
+                categories = ai_cats  # AI gave better data, use it
+    except Exception:
+        pass  # AI failed (budget, timeout etc) - use hardcoded data
 
     return {"country": data.country, "categories": categories}
 
@@ -444,7 +451,37 @@ Include ALL steps from initial preparation to final visa/PR approval. Be thoroug
 Each step should have specific required documents with descriptions.
 Include realistic duration estimates and government fees where applicable."""
 
-    response = await _call_gpt(prompt, system_msg)
+    try:
+        response = await _call_gpt(prompt, system_msg)
+    except HTTPException:
+        # AI failed (budget exceeded etc) - try template fallback
+        from routers.step_documents import _find_best_template
+        template = _find_best_template(f"{request.country} {request.service_type}")
+        if template:
+            steps = []
+            for i, (step_name, docs) in enumerate(template.get("steps", {}).items(), 1):
+                steps.append({
+                    "step_name": step_name,
+                    "step_order": i,
+                    "description": "",
+                    "duration_days": 14,
+                    "required_documents": [{"name": d["doc_name"], "description": d.get("description",""), "mandatory": d.get("is_mandatory", True)} for d in docs],
+                    "important_notes": "",
+                    "government_fees": ""
+                })
+            workflow_data = {
+                "product_name": f"{request.country} - {request.service_type}",
+                "description": template.get("label", ""),
+                "category": "immigration",
+                "estimated_government_fees": template.get("fees_info", ""),
+                "steps": steps,
+                "success_tips": [],
+                "common_rejection_reasons": [],
+            }
+            await log_activity(current_user["id"], current_user["name"], "generated_workflow_template", "ai_workflow",
+                               details=f"Template fallback for {request.country} - {request.service_type}")
+            return workflow_data
+        raise HTTPException(status_code=500, detail="AI service unavailable. Please try a verified template or top up your AI balance (Profile -> Universal Key -> Add Balance).")
     
     # Parse JSON from response
     try:

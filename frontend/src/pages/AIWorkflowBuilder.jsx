@@ -93,15 +93,7 @@ const AIWorkflowBuilder = () => {
     setView('pick-visa');
     try {
       const res = await axios.post(`${API}/ai-workflow/visa-categories`, { country: country.name }, auth());
-      // Merge AI results with known service types
       const aiCats = res.data.categories || [];
-      // Also include known categories from country.services
-      const knownIds = new Set(aiCats.map(c => c.id));
-      for (const svc of country.services) {
-        if (!knownIds.has(svc.id)) {
-          aiCats.push({ id: svc.id, name: svc.name, description: '', category: 'other', official_url: '', estimated_fees: '' });
-        }
-      }
       setVisaCategories(aiCats);
     } catch { toast.error('Failed to load visa categories'); }
     setLoadingVisa(false);
