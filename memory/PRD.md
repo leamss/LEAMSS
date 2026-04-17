@@ -15,7 +15,18 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 8. **Client Intake Form Builder** - Product-specific, role-based (Client/CM/Both), Admin-managed
 9. **Automated Government Fee Calculator** (2026-04-17) - 20 countries, live INR conversion
 
-### Latest: Automated Government Fee Calculator (v1)
+### Latest: Share Estimate Link (v2 add-on to Fee Calculator, 2026-04-17)
+- **5 new endpoints**: `share/{id}`, `share/{id}/deactivate`, `share/{id}/stats`, public `public/{token}`, public `public/{token}/lead`
+- **Public URL**: `/shared-estimate/:token` — no login, branded view with breakdown + lead capture CTA
+- **View count tracking** (per-view increment on public access)
+- **Lead capture** auto-assigns lead to estimate owner with source='shared_fee_estimate', priority='high', tag='fee-estimate-viewer' + sends notification
+- **Auto-expiry** (default 30 days, max 365) with 410 Gone response when expired
+- **Deactivate** kill-switch for owner/admin
+- **Tested**: 100% (25/25 backend) — iteration_72.json
+- **UI in FeeCalculator**: Share button → dialog shows link + copy + view/lead/expiry stats + deactivate
+- **New page**: `/app/frontend/src/pages/SharedEstimate.jsx` with premium branded layout, lead form, success state
+
+### Previous Feature: Automated Government Fee Calculator (v1)
 - **Backend**: `/api/fee-calculator/*` (7 endpoints) in `routers/fee_calculator.py`
 - **Countries**: 20 (Canada, Australia, UK, USA, NZ, Germany, Singapore, UAE, Ireland, France, Netherlands, Portugal, Spain, Japan, South Korea, Sweden, Denmark, Switzerland, Hong Kong, Malaysia)
 - **Currencies**: USD/CAD/AUD/GBP/EUR/NZD/SGD/JPY/SEK/DKK/CHF/HKD/MYR/KRW/AED + INR
