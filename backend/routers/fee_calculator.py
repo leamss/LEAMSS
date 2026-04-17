@@ -1275,12 +1275,15 @@ async def admin_update_category(country_id: str, category_id: str, data: Categor
 async def admin_delete_category(country_id: str, category_id: str, current_user: dict = Depends(get_current_user)):
     """Remove a visa category."""
     _require_admin(current_user)
-    r = await fee_catalog_col.update_one(
+    country = await fee_catalog_col.find_one({"id": country_id}, {"_id": 0})
+    if not country:
+        raise HTTPException(status_code=404, detail="Country not found")
+    if not _category_from_country(country, category_id):
+        raise HTTPException(status_code=404, detail="Category not found")
+    await fee_catalog_col.update_one(
         {"id": country_id},
         {"$pull": {"categories": {"id": category_id}}, "$set": {"updated_at": datetime.now(timezone.utc)}},
     )
-    if r.modified_count == 0:
-        raise HTTPException(status_code=404, detail="Category not found")
     return {"deleted": True}
 
 

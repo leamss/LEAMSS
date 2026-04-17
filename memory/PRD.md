@@ -15,7 +15,21 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 8. **Client Intake Form Builder** - Product-specific, role-based (Client/CM/Both), Admin-managed
 9. **Automated Government Fee Calculator** (2026-04-17) - 20 countries, live INR conversion
 
-### Latest: Share Estimate Link (v2 add-on to Fee Calculator, 2026-04-17)
+### Latest: Fee Database CRUD + Per-Estimate Edits (v3, 2026-04-17)
+- **Option B — Master Fee Database Editor** (Admin-only):
+  - Migrated hardcoded `FEE_DATABASE` dict → MongoDB collection `fee_country_catalog` (auto-seeded on first run)
+  - 7 new CRUD endpoints: `admin/catalog`, `admin/countries` (POST/PUT/DELETE), `admin/countries/{id}/categories` (POST/PUT/DELETE), `admin/reseed`
+  - Full UI `FeeDatabaseManager.jsx` — Admin Sidebar → Planning Tools → Fee Database
+  - Add unlimited new countries (slug auto from name) + categories + fee line items (label, amount, mandatory, per_applicant, notes)
+  - Reseed utility to revert to built-in defaults
+- **Option A — Per-Estimate Inline Edit**:
+  - `CalculateRequest` supports `overrides` (correct fees per estimate) + `extra_lines` (ad-hoc custom charges)
+  - UI: pencil icon on each fee line → inline editor for label/amount/notes → "Edited" / "Custom" badges
+  - "Add Custom Line" button + "Reset all edits" revert button
+  - Overrides are per-estimate (don't touch master catalog)
+- **Tested**: 100% (25/25 backend) — iteration_73.json; minor 404 issue fixed post-test
+
+### Previous: Share Estimate Link (v2)
 - **5 new endpoints**: `share/{id}`, `share/{id}/deactivate`, `share/{id}/stats`, public `public/{token}`, public `public/{token}/lead`
 - **Public URL**: `/shared-estimate/:token` — no login, branded view with breakdown + lead capture CTA
 - **View count tracking** (per-view increment on public access)
