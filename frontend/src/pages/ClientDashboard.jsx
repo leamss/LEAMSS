@@ -39,6 +39,7 @@ import EligibilityChecker from '@/components/EligibilityChecker';
 import EMITracker from '@/components/EMITracker';
 import FamilyManager from '@/components/FamilyManager';
 import WhatsAppButton from '@/components/WhatsAppButton';
+import PreAssessmentMiniPortal from '@/components/PreAssessmentMiniPortal';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -71,6 +72,7 @@ const ClientDashboard = () => {
   const [expiryModal, setExpiryModal] = useState(null);
   const [expiryDate, setExpiryDate] = useState('');
   const [expiryNotes, setExpiryNotes] = useState('');
+  const [preAssessments, setPreAssessments] = useState([]);
 
   const getAuthHeader = () => ({
     headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
@@ -122,6 +124,12 @@ const ClientDashboard = () => {
       const proposalsRes = await axios.get(`${API}/payments/my-proposals`, getAuthHeader());
       setProposals(proposalsRes.data || []);
     } catch (e) { /* no proposals */ }
+
+    // Load pre-assessments (for mini-portal view when no active case)
+    try {
+      const paRes = await axios.get(`${API}/pre-assess-portal/client/my-assessments`, getAuthHeader());
+      setPreAssessments(paRes.data?.assessments || []);
+    } catch (e) { /* no pre-assessments */ }
   };
 
   useEffect(() => {
@@ -415,7 +423,33 @@ const ClientDashboard = () => {
     }
   };
 
-  const clientNavGroups = [
+  // Determine active pre-assessment (most-recent not-expired)
+  const activePA = preAssessments.find(p => ['payment_received', 'documents_submitted', 'under_review', 'approved', 'proposal_sent', 'proposal_paid', 'rejected', 'refund_initiated', 'refunded'].includes(p.stage));
+  const isMiniMode = !caseData && !!activePA;
+  const isExpandedMode = isMiniMode && ['approved', 'proposal_sent', 'proposal_paid'].includes(activePA?.stage);
+
+  const clientNavGroups = isMiniMode ? [
+    { id: 'overview', icon: LayoutDashboard, label: 'My Pre-Assessment', onClick: () => setActiveTab('overview') },
+    {
+      groupLabel: 'Tools',
+      defaultOpen: true,
+      items: [
+        { id: 'doc-scanner', icon: Scan, label: 'AI Document Scanner', onClick: () => setActiveTab('doc-scanner') },
+        ...(isExpandedMode ? [
+          { id: 'cost-estimate', icon: Calculator, label: 'Cost Estimator', onClick: () => setActiveTab('cost-estimate') },
+          { id: 'eligibility', icon: Brain, label: 'Eligibility Check', onClick: () => setActiveTab('eligibility') },
+        ] : []),
+      ]
+    },
+    {
+      groupLabel: 'Communication',
+      items: [
+        { id: 'messages', icon: MessageSquare, label: 'Messages', onClick: () => setActiveTab('messages') },
+        { id: 'tickets', icon: MessageSquare, label: 'Support Tickets', onClick: () => setActiveTab('tickets') },
+      ]
+    },
+    { id: 'profile', icon: User, label: 'My Profile', onClick: () => setActiveTab('profile') },
+  ] : [
     { id: 'overview', icon: LayoutDashboard, label: 'Overview', onClick: () => setActiveTab('overview') },
     {
       groupLabel: 'My Case',
@@ -490,15 +524,45 @@ const ClientDashboard = () => {
     >
       <main>
         {!caseData ? (
-          <Card className="p-12 text-center bg-white shadow-xl rounded-2xl border-0">
-            <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-slate-100 to-slate-200 rounded-full flex items-center justify-center">
-              <FileText className="h-10 w-10 text-slate-400" />
-            </div>
-            <h2 className="text-2xl font-bold text-slate-800 mb-2">No Active Case</h2>
-            <p className="text-slate-500 max-w-md mx-auto">
-              You don&apos;t have any active cases yet. Please contact your case manager or partner for assistance.
-            </p>
-          </Card>
+          isMiniMode ? (
+            <>
+              {activeTab === 'overview' && (
+                <PreAssessmentMiniPortal
+                  pa={activePA}
+                  onRefresh={loadData}
+                  onOpenScanner={() => setActiveTab('doc-scanner')}
+                />
+              )}
+              {activeTab === 'doc-scanner' && (
+                <DocumentExtractor />
+              )}
+              {activeTab === 'cost-estimate' && isExpandedMode && (
+                <FeeCalculator />
+              )}
+              {activeTab === 'eligibility' && isExpandedMode && (
+                <EligibilityChecker token={localStorage.getItem('token')} />
+              )}
+              {activeTab === 'messages' && (
+                <MessageCenter />
+              )}
+              {activeTab === 'tickets' && (
+                <TicketSection caseId={null} initialTicketId={initialTicketId} filter={ticketFilter} onClearFilter={() => setTicketFilter(null)} />
+              )}
+              {activeTab === 'profile' && (
+                <ClientProfile user={user} onUpdate={setUser} />
+              )}
+            </>
+          ) : (
+            <Card className="p-12 text-center bg-white shadow-xl rounded-2xl border-0">
+              <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-slate-100 to-slate-200 rounded-full flex items-center justify-center">
+                <FileText className="h-10 w-10 text-slate-400" />
+              </div>
+              <h2 className="text-2xl font-bold text-slate-800 mb-2">No Active Case</h2>
+              <p className="text-slate-500 max-w-md mx-auto">
+                You don&apos;t have any active cases yet. Please contact your case manager or partner for assistance.
+              </p>
+            </Card>
+          )
         ) : (
           <>
             {/* Case Overview Header - Only show on dashboard-like tabs */}

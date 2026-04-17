@@ -347,6 +347,51 @@ async def client_my_assessments(current_user: dict = Depends(get_current_user)):
     return {"assessments": items, "total": len(items)}
 
 
+@router.post("/client/submit/{pa_id}")
+async def client_submit_for_review(pa_id: str, current_user: dict = Depends(get_current_user)):
+    """Client marks their uploaded documents as ready for partner review.
+    Transitions stage: payment_received -> documents_submitted.
+    """
+    if current_user.get("role") != "client":
+        raise HTTPException(status_code=403, detail="Client only")
+
+    pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
+    if not pa or (pa.get("client_email", "").lower() != current_user.get("email", "").lower()
+                  and pa.get("client_user_id") != current_user["id"]):
+        raise HTTPException(status_code=404, detail="Pre-assessment not found")
+
+    if pa.get("stage") not in ("payment_received",):
+        raise HTTPException(status_code=400, detail=f"Cannot submit at stage: {pa.get('stage')}")
+
+    # Verify at least 1 doc uploaded
+    docs_count = await db["pre_assessment_documents"].count_documents({"pre_assessment_id": pa_id})
+    if docs_count == 0:
+        raise HTTPException(status_code=400, detail="Please upload at least one document before submitting")
+
+    await pre_assessments_col.update_one({"id": pa_id}, {"$set": {
+        "stage": "documents_submitted",
+        "client_submitted_at": _now(),
+        "updated_at": _now(),
+    }})
+
+    # Notify partner
+    if pa.get("partner_id"):
+        await notifications_col.insert_one({
+            "id": str(uuid.uuid4()),
+            "user_id": pa["partner_id"],
+            "title": "Client ready for review",
+            "message": f"{pa.get('client_name')} has uploaded {docs_count} document(s) and is ready for your review.",
+            "type": "pre_assess_ready",
+            "read": False,
+            "link": "/partner?tab=pre-assessment",
+            "created_at": _now(),
+        })
+
+    await _log(current_user["id"], pa_id, "client_submitted_for_review", {"documents_count": docs_count})
+
+    return {"ok": True, "stage": "documents_submitted", "documents_count": docs_count}
+
+
 @router.get("/client/portal-access/{pa_id}")
 async def client_portal_access(pa_id: str, current_user: dict = Depends(get_current_user)):
     """Returns current portal access level for a pre-assessment (mini/expanded/full)."""
@@ -359,8 +404,8 @@ async def client_portal_access(pa_id: str, current_user: dict = Depends(get_curr
 
     stage = pa.get("stage", "new")
     access_level = "none"
-    if stage in ("payment_received", "documents_submitted", "under_review", "rejected"):
-        access_level = "mini"  # can upload docs only
+    if stage in ("payment_received", "documents_submitted", "under_review", "rejected", "refund_initiated", "refunded"):
+        access_level = "mini"  # can upload docs only (view-only after submission)
     elif stage in ("approved", "proposal_sent"):
         access_level = "expanded"  # can explore tools, proposal, pay service fee
     elif stage in ("proposal_paid", "case_created"):
@@ -371,9 +416,179 @@ async def client_portal_access(pa_id: str, current_user: dict = Depends(get_curr
         "stage": stage,
         "access_level": access_level,
         "can_upload_docs": stage == "payment_received",
+        "can_submit_for_review": stage == "payment_received",
         "can_view_proposal": stage in ("proposal_sent", "proposal_paid", "case_created"),
         "can_pay_service_fee": stage == "proposal_sent",
     }
+
+
+# ======================== CLIENT: PROPOSAL ACCEPT + MAIN FEE MOCK PAY ========================
+@router.post("/client/accept-proposal/{pa_id}")
+async def client_accept_proposal(pa_id: str, current_user: dict = Depends(get_current_user)):
+    """Client accepts the sales proposal. Marks proposal as accepted (ready for main payment)."""
+    if current_user.get("role") != "client":
+        raise HTTPException(status_code=403, detail="Client only")
+    pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
+    if not pa or (pa.get("client_email", "").lower() != current_user.get("email", "").lower()
+                  and pa.get("client_user_id") != current_user["id"]):
+        raise HTTPException(status_code=404, detail="Not found")
+    if pa.get("stage") != "proposal_sent":
+        raise HTTPException(status_code=400, detail=f"Cannot accept at stage: {pa.get('stage')}")
+
+    await pre_assessments_col.update_one({"id": pa_id}, {"$set": {
+        "proposal_status": "accepted",
+        "proposal_accepted_at": _now(),
+        "updated_at": _now(),
+    }})
+    await _log(current_user["id"], pa_id, "proposal_accepted", {})
+    return {"ok": True, "proposal_status": "accepted"}
+
+
+@router.post("/client/mock-pay-proposal/{pa_id}")
+async def client_mock_pay_proposal(pa_id: str, current_user: dict = Depends(get_current_user)):
+    """MOCK main-fee payment. On success, marks proposal_paid (awaits admin 2nd approval for case creation)."""
+    if current_user.get("role") != "client":
+        raise HTTPException(status_code=403, detail="Client only")
+    pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
+    if not pa or (pa.get("client_email", "").lower() != current_user.get("email", "").lower()
+                  and pa.get("client_user_id") != current_user["id"]):
+        raise HTTPException(status_code=404, detail="Not found")
+    if pa.get("stage") != "proposal_sent":
+        raise HTTPException(status_code=400, detail=f"Cannot pay at stage: {pa.get('stage')}")
+
+    await pre_assessments_col.update_one({"id": pa_id}, {"$set": {
+        "stage": "proposal_paid",
+        "proposal_status": "paid",
+        "proposal_paid_at": _now(),
+        "proposal_payment_ref": f"MOCK-{secrets.token_hex(8)}",
+        "updated_at": _now(),
+    }})
+
+    # Notify admins for 2nd approval (case creation)
+    admins = await users_col.find({"role": "admin", "status": "active"}, {"_id": 0, "id": 1}).to_list(50)
+    for admin in admins:
+        await notifications_col.insert_one({
+            "id": str(uuid.uuid4()),
+            "user_id": admin["id"],
+            "title": "Main fee received — needs case creation",
+            "message": f"{pa.get('client_name')} paid ₹{pa.get('proposal_fee', 0):,} main fee. Approve to create case.",
+            "type": "main_fee_paid", "read": False,
+            "link": "/admin?tab=pre-assessments",
+            "created_at": _now(),
+        })
+    # Notify partner
+    if pa.get("partner_id"):
+        await notifications_col.insert_one({
+            "id": str(uuid.uuid4()),
+            "user_id": pa["partner_id"],
+            "title": "Client paid main fee",
+            "message": f"{pa.get('client_name')} paid ₹{pa.get('proposal_fee', 0):,}. Awaiting admin approval to create case.",
+            "type": "main_fee_paid", "read": False,
+            "created_at": _now(),
+        })
+
+    await _log(current_user["id"], pa_id, "main_fee_paid", {"amount": pa.get("proposal_fee", 0)})
+    return {"ok": True, "stage": "proposal_paid"}
+
+
+# ======================== ADMIN: 2ND APPROVAL → CREATE CASE ========================
+@router.post("/admin/approve-final/{pa_id}")
+async def admin_approve_final(pa_id: str, current_user: dict = Depends(get_current_user)):
+    """Admin's 2nd approval after main fee is paid. Creates the actual Case and links the client."""
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
+    if not pa:
+        raise HTTPException(status_code=404, detail="Pre-assessment not found")
+    if pa.get("stage") != "proposal_paid":
+        raise HTTPException(status_code=400, detail=f"Cannot finalize at stage: {pa.get('stage')}")
+
+    cases_col = db["cases"]
+    case_steps_col = db["case_steps"]
+    workflow_steps_col = db["workflow_steps"]
+
+    # Generate case_id
+    count = await cases_col.count_documents({})
+    case_code = f"LEAMSS-{datetime.now(timezone.utc).year}-{(count + 1):04d}"
+
+    # Find client user
+    client_user = await users_col.find_one(
+        {"$or": [{"id": pa.get("client_user_id")}, {"email": pa.get("client_email", "").lower()}]},
+        {"_id": 0}
+    )
+    client_id = client_user["id"] if client_user else pa.get("client_user_id")
+
+    case_id = str(uuid.uuid4())
+    case = {
+        "id": case_id,
+        "case_id": case_code,
+        "sale_id": pa.get("sale_id"),
+        "client_id": client_id,
+        "client_name": pa.get("client_name"),
+        "client_email": pa.get("client_email"),
+        "product_id": pa.get("product_id", ""),
+        "product_name": pa.get("product_name") or f"{pa.get('country')} - {pa.get('service_type')}",
+        "partner_id": pa.get("partner_id"),
+        "case_manager_id": None,  # Will be assigned by admin later
+        "case_manager_name": "Pending assignment",
+        "status": "active",
+        "current_step": "Profile Creation",
+        "current_step_order": 1,
+        "pre_assessment_id": pa_id,
+        "created_at": _now(),
+        "updated_at": _now(),
+    }
+    await cases_col.insert_one(case)
+
+    # Copy workflow steps if product exists
+    if pa.get("product_id"):
+        steps = await workflow_steps_col.find({"product_id": pa["product_id"]}, {"_id": 0}).sort("step_order", 1).to_list(100)
+        for step in steps:
+            cs = {
+                "id": str(uuid.uuid4()),
+                "case_id": case_id,
+                "step_name": step.get("step_name"),
+                "step_order": step.get("step_order"),
+                "status": "pending",
+                "description": step.get("description", ""),
+                "required_documents": step.get("required_documents", []),
+                "created_at": _now(),
+            }
+            await case_steps_col.insert_one(cs)
+
+    await pre_assessments_col.update_one({"id": pa_id}, {"$set": {
+        "stage": "case_created",
+        "case_id": case_id,
+        "final_approved_by": current_user["id"],
+        "final_approved_at": _now(),
+        "updated_at": _now(),
+    }})
+
+    # Notify client
+    if client_id:
+        await notifications_col.insert_one({
+            "id": str(uuid.uuid4()),
+            "user_id": client_id,
+            "title": f"Case activated: {case_code}",
+            "message": "Your case is now live! A case manager will be assigned shortly.",
+            "type": "case_created", "read": False,
+            "link": "/client", "created_at": _now(),
+        })
+    # Notify partner
+    if pa.get("partner_id"):
+        await notifications_col.insert_one({
+            "id": str(uuid.uuid4()),
+            "user_id": pa["partner_id"],
+            "title": f"Case created: {case_code}",
+            "message": f"Case for {pa.get('client_name')} is now active.",
+            "type": "case_created", "read": False,
+            "created_at": _now(),
+        })
+
+    await _log(current_user["id"], pa_id, "case_created", {"case_id": case_code})
+
+    return {"ok": True, "case_id": case_id, "case_code": case_code, "stage": "case_created"}
 
 
 # ======================== ACTIVITY (for partner visibility) ========================

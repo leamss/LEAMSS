@@ -1,0 +1,59 @@
+{
+  "iteration": 75,
+  "summary": "Phase A Part 2 - Client MiniPortal & 2nd Admin Approval: All 11 backend tests passed, frontend UI verified for MiniPortal at payment_received and documents_submitted stages",
+  "feature": "Client MiniPortal for pre-assessment clients, client self-submit-for-review, admin 2nd approval (case creation)",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_coverage": {
+    "backend_endpoints_tested": [
+      "POST /api/pre-assess-portal/client/submit/{pa_id} - client self-submit for review (requires client role, at least 1 doc, stage=payment_received)",
+      "POST /api/pre-assess-portal/client/accept-proposal/{pa_id} - client accepts proposal at stage=proposal_sent",
+      "POST /api/pre-assess-portal/client/mock-pay-proposal/{pa_id} - client mock-pays main fee, stage → proposal_paid",
+      "POST /api/pre-assess-portal/admin/approve-final/{pa_id} - admin-only, creates case record, stage → case_created",
+      "GET /api/pre-assess-portal/client/portal-access/{pa_id} - returns access_level (mini/expanded/full) and can_submit_for_review",
+      "POST /api/pre-assess-portal/generate-public-link - partner generates public link for PA"
+    ],
+    "frontend_components_tested": [
+      "PreAssessmentMiniPortal component (data-testid='pa-mini-portal')",
+      "6-step pipeline progress (Payment Done → Upload Documents → Under Review → Approved → Proposal & Signing → Case Active)",
+      "Upload Your Documents card with document-type selector (data-testid='mini-doc-type') and upload input (data-testid='mini-upload-input')",
+      "Submit for Review button (data-testid='mini-submit-review') - disabled until docs uploaded",
+      "Under Review amber card at documents_submitted/under_review stages",
+      "Mini sidebar navigation (My Pre-Assessment, Tools > AI Document Scanner, Messages, Support Tickets, My Profile)",
+      "Copy Public Link button (data-testid='copy-link-{pa_id}') in Partner Pipeline for new/payment_pending stages"
+    ],
+    "e2e_flow_tested": "Partner create PA → generate-public-link → client mock-pay → magic-login → upload document → client self-submit → partner submit-documents → admin review approve → partner send-proposal → client accept-proposal → client mock-pay-proposal → admin approve-final → case_created + cases row verified"
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration75_phase_a_part2.py",
+    "/app/test_reports/pytest/pytest_iteration75.xml"
+  ],
+  "action_items": [],
+  "updated_files": [
+    "/app/backend/tests/test_iteration75_phase_a_part2.py"
+  ],
+  "success_rate": {
+    "backend": "100% (11/11 tests passed)",
+    "frontend": "100% (all UI elements verified)"
+  },
+  "test_credentials": {
+    "admin": "admin@leamss.com / Admin@123",
+    "partner": "partner@leamss.com / Partner@123",
+    "client": "client@leamss.com / Client@123",
+    "magic_link_client": "Created dynamically via mock-pay endpoint"
+  },
+  "mocked_apis": [
+    "Razorpay/Stripe payments (via /api/pre-assess-portal/public/mock-pay and /api/pre-assess-portal/client/mock-pay-proposal/{pa_id})",
+    "Resend email (logged only)"
+  ],
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Phase A Part 2 fully tested. MiniPortal shows correct UI for each stage: payment_received shows upload UI + Submit button, documents_submitted/under_review shows Under Review amber card. E2E flow from PA creation to case creation works. Copy Public Link button visible for new/payment_pending stage PAs in Partner Pipeline."
+}
