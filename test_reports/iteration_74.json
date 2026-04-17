@@ -1,0 +1,13 @@
+{
+  "iteration": 74,
+  "summary": "Iteration 74: Document Info Extraction (Vision AI) - All 25 tests passed after fixing mime-validation edge case",
+  "feature": "AI Document Scanner with GPT-4o Vision + Pre-loaded Demo Samples",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "success_rate": {"backend": "100% (25/25)", "frontend": "Manual E2E verified (real passport extraction returned 95% confidence)"},
+  "fixes_applied_post_test": [
+    "Upload endpoint: strict mime validation — reject non-image content-types early with 415 instead of delegating to LLM (which returned 502)."
+  ],
+  "retest_needed": false,
+  "test_files": ["/app/backend/tests/test_iteration74_doc_extraction.py"]
+}
