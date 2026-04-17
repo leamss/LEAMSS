@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/fee-calculator", tags=["Fee Calculator"])
 
 fee_estimates_col = db["fee_estimates"]
+fee_catalog_col = db["fee_country_catalog"]
 
 
 # =========================================================================
@@ -771,8 +772,100 @@ async def _fetch_rates_to_inr() -> Dict[str, float]:
 
 
 # =========================================================================
+#  CATALOG STORAGE (MongoDB-backed, migrates from FEE_DATABASE)
+# =========================================================================
+async def _seed_catalog_if_empty():
+    """One-time seed of FEE_DATABASE dict into MongoDB on first run."""
+    existing = await fee_catalog_col.count_documents({})
+    if existing > 0:
+        return
+    logger.info("Seeding fee_country_catalog from FEE_DATABASE…")
+    now = datetime.now(timezone.utc)
+    docs = []
+    for country_id, country in FEE_DATABASE.items():
+        categories = []
+        for cat_id, cat in country.get("categories", {}).items():
+            fees = []
+            for idx, fee in enumerate(cat.get("fees", [])):
+                fees.append({
+                    "id": f"{cat_id}_{idx}",
+                    "label": fee.get("label", ""),
+                    "amount": float(fee.get("amount", 0)),
+                    "mandatory": bool(fee.get("mandatory", True)),
+                    "per_applicant": bool(fee.get("per_applicant", True)),
+                    "notes": fee.get("notes", ""),
+                    "order": idx,
+                })
+            categories.append({
+                "id": cat_id,
+                "name": cat.get("name", ""),
+                "official_url": cat.get("official_url", ""),
+                "processing_days": cat.get("processing_days", ""),
+                "fees": fees,
+            })
+        docs.append({
+            "id": country_id,
+            "name": country.get("name", ""),
+            "flag": country.get("flag", ""),
+            "currency": country.get("currency", "USD"),
+            "categories": categories,
+            "seeded": True,
+            "created_at": now,
+            "updated_at": now,
+        })
+    if docs:
+        await fee_catalog_col.insert_many(docs)
+        logger.info(f"Seeded {len(docs)} countries into fee_country_catalog")
+
+
+async def _catalog_list_summary() -> List[Dict[str, Any]]:
+    """Return lightweight list of countries + category summary (for dropdowns)."""
+    await _seed_catalog_if_empty()
+    out = []
+    cursor = fee_catalog_col.find({}, {"_id": 0}).sort("name", 1)
+    async for c in cursor:
+        out.append({
+            "id": c["id"],
+            "name": c["name"],
+            "flag": c.get("flag", ""),
+            "currency": c["currency"],
+            "categories": [
+                {
+                    "id": cat["id"],
+                    "name": cat["name"],
+                    "processing_days": cat.get("processing_days", ""),
+                    "official_url": cat.get("official_url", ""),
+                }
+                for cat in c.get("categories", [])
+            ],
+        })
+    return out
+
+
+async def _catalog_get_country(country_id: str) -> Optional[Dict[str, Any]]:
+    await _seed_catalog_if_empty()
+    c = await fee_catalog_col.find_one({"id": country_id}, {"_id": 0})
+    return c
+
+
+def _category_from_country(country_doc: Dict[str, Any], category_id: str) -> Optional[Dict[str, Any]]:
+    for cat in country_doc.get("categories", []):
+        if cat.get("id") == category_id:
+            return cat
+    return None
+
+
+# =========================================================================
 #  PYDANTIC MODELS
 # =========================================================================
+class FeeOverride(BaseModel):
+    """Per-estimate override — doesn't affect master database"""
+    id: str  # fee line id
+    label: Optional[str] = None
+    amount: Optional[float] = None
+    notes: Optional[str] = None
+
+
 class CalculateRequest(BaseModel):
     country: str
     category: str
@@ -782,6 +875,8 @@ class CalculateRequest(BaseModel):
     service_fee_inr: float = Field(0, ge=0)  # consultancy fee in INR
     gst_pct: float = Field(18.0, ge=0, le=50)  # GST on service fee
     show_currency: str = "INR"  # INR | native | both
+    overrides: List[FeeOverride] = []  # per-estimate fee amount/label corrections
+    extra_lines: List[Dict[str, Any]] = []  # ad-hoc extra line items for this estimate
 
 
 class SaveEstimateRequest(BaseModel):
@@ -799,38 +894,24 @@ class SaveEstimateRequest(BaseModel):
 @router.get("/countries")
 async def list_countries(current_user: dict = Depends(get_current_user)):
     """List all supported countries with their visa categories (lightweight)."""
-    out = []
-    for key, c in FEE_DATABASE.items():
-        out.append({
-            "id": key,
-            "name": c["name"],
-            "flag": c.get("flag", ""),
-            "currency": c["currency"],
-            "categories": [
-                {
-                    "id": cat_id,
-                    "name": cat["name"],
-                    "processing_days": cat.get("processing_days", ""),
-                    "official_url": cat.get("official_url", ""),
-                }
-                for cat_id, cat in c["categories"].items()
-            ],
-        })
+    out = await _catalog_list_summary()
     return {"countries": out, "total": len(out)}
 
 
 @router.get("/country/{country_id}")
 async def country_detail(country_id: str, current_user: dict = Depends(get_current_user)):
     """Full category + fee detail for a single country (for UI dropdown)."""
-    c = FEE_DATABASE.get(country_id)
+    c = await _catalog_get_country(country_id)
     if not c:
         raise HTTPException(status_code=404, detail="Country not supported")
+    # Keep legacy shape: categories as dict keyed by id
+    categories_dict = {cat["id"]: cat for cat in c.get("categories", [])}
     return {
-        "id": country_id,
+        "id": c["id"],
         "name": c["name"],
         "flag": c.get("flag", ""),
         "currency": c["currency"],
-        "categories": c["categories"],
+        "categories": categories_dict,
     }
 
 
@@ -848,12 +929,13 @@ async def get_exchange_rates(current_user: dict = Depends(get_current_user)):
 
 @router.post("/calculate")
 async def calculate_fees(data: CalculateRequest, current_user: dict = Depends(get_current_user)):
-    """Produce a detailed fee breakdown with native & INR amounts."""
-    country = FEE_DATABASE.get(data.country)
+    """Produce a detailed fee breakdown with native & INR amounts.
+    Supports per-estimate `overrides` (correct wrong fees) and `extra_lines` (ad-hoc add-ons)."""
+    country = await _catalog_get_country(data.country)
     if not country:
         raise HTTPException(status_code=404, detail="Country not supported")
 
-    category = country["categories"].get(data.category)
+    category = _category_from_country(country, data.category)
     if not category:
         raise HTTPException(status_code=404, detail="Visa category not found")
 
@@ -861,25 +943,33 @@ async def calculate_fees(data: CalculateRequest, current_user: dict = Depends(ge
     native_cur = country["currency"]
     fx_to_inr = rates.get(native_cur, 1.0)
 
+    override_map = {o.id: o for o in data.overrides}
     line_items = []
     mandatory_native = 0.0
     optional_native = 0.0
     optional_selected_native = 0.0
 
-    for idx, fee in enumerate(category["fees"]):
+    for idx, fee in enumerate(category.get("fees", [])):
+        fee_id = fee.get("id") or f"{data.category}_{idx}"
         is_mandatory = fee.get("mandatory", True)
         is_per_applicant = fee.get("per_applicant", True)
-        amount = float(fee["amount"])
+
+        # Apply per-estimate override if present
+        ov = override_map.get(fee_id)
+        label = (ov.label if ov and ov.label is not None else fee.get("label", ""))
+        amount = float(ov.amount if ov and ov.amount is not None else fee.get("amount", 0))
+        notes = (ov.notes if ov and ov.notes is not None else fee.get("notes", ""))
+        is_overridden = ov is not None
+
         multiplier = (data.adults + data.children) if is_per_applicant else 1
         line_total_native = amount * multiplier
         line_total_inr = round(line_total_native * fx_to_inr, 2)
 
-        fee_id = f"{data.category}_{idx}"
-        selected = True if is_mandatory else (fee_id in data.include_optional_ids or fee["label"] in data.include_optional_ids)
+        selected = True if is_mandatory else (fee_id in data.include_optional_ids or label in data.include_optional_ids)
 
         line_items.append({
             "id": fee_id,
-            "label": fee["label"],
+            "label": label,
             "amount_native": amount,
             "multiplier": multiplier,
             "total_native": round(line_total_native, 2),
@@ -887,15 +977,47 @@ async def calculate_fees(data: CalculateRequest, current_user: dict = Depends(ge
             "mandatory": is_mandatory,
             "per_applicant": is_per_applicant,
             "selected": selected,
-            "notes": fee.get("notes", ""),
+            "notes": notes,
+            "overridden": is_overridden,
+            "source": "catalog",
         })
 
-        if is_mandatory:
+        if is_mandatory and selected:
             mandatory_native += line_total_native
-        else:
+        elif not is_mandatory:
             optional_native += line_total_native
             if selected:
                 optional_selected_native += line_total_native
+
+    # Append extra (ad-hoc) lines for this estimate
+    for j, extra in enumerate(data.extra_lines):
+        try:
+            amount = float(extra.get("amount", 0))
+        except (TypeError, ValueError):
+            amount = 0.0
+        is_per_applicant = bool(extra.get("per_applicant", False))
+        is_mandatory = bool(extra.get("mandatory", True))
+        multiplier = (data.adults + data.children) if is_per_applicant else 1
+        line_total_native = amount * multiplier
+        line_total_inr = round(line_total_native * fx_to_inr, 2)
+        line_items.append({
+            "id": extra.get("id") or f"extra_{j}",
+            "label": extra.get("label", f"Extra item {j + 1}"),
+            "amount_native": amount,
+            "multiplier": multiplier,
+            "total_native": round(line_total_native, 2),
+            "total_inr": line_total_inr,
+            "mandatory": is_mandatory,
+            "per_applicant": is_per_applicant,
+            "selected": True,
+            "notes": extra.get("notes", ""),
+            "overridden": False,
+            "source": "extra",
+        })
+        if is_mandatory:
+            mandatory_native += line_total_native
+        else:
+            optional_selected_native += line_total_native
 
     govt_total_native = mandatory_native + optional_selected_native
     govt_total_inr = round(govt_total_native * fx_to_inr, 2)
@@ -938,6 +1060,238 @@ async def calculate_fees(data: CalculateRequest, current_user: dict = Depends(ge
         },
         "generated_at": datetime.now(timezone.utc).isoformat(),
     }
+
+
+# =========================================================================
+#  ADMIN CRUD ENDPOINTS (Fee Database Editor)
+# =========================================================================
+class FeeLineInput(BaseModel):
+    id: Optional[str] = None
+    label: str = Field(..., min_length=1, max_length=200)
+    amount: float = Field(..., ge=0)
+    mandatory: bool = True
+    per_applicant: bool = True
+    notes: str = ""
+    order: int = 0
+
+
+class CategoryInput(BaseModel):
+    id: Optional[str] = None
+    name: str = Field(..., min_length=1, max_length=200)
+    processing_days: str = ""
+    official_url: str = ""
+    fees: List[FeeLineInput] = []
+
+
+class CountryInput(BaseModel):
+    id: Optional[str] = None
+    name: str = Field(..., min_length=1, max_length=120)
+    flag: str = ""
+    currency: str = Field(..., min_length=3, max_length=3)
+    categories: List[CategoryInput] = []
+
+
+def _slugify(name: str) -> str:
+    s = (name or "").strip().lower()
+    out = []
+    for ch in s:
+        if ch.isalnum():
+            out.append(ch)
+        elif ch in (" ", "-", "_", "/"):
+            out.append("_")
+    slug = "".join(out).strip("_")
+    while "__" in slug:
+        slug = slug.replace("__", "_")
+    return slug or "item"
+
+
+def _require_admin(user: dict):
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+
+
+@router.get("/admin/catalog")
+async def admin_list_catalog(current_user: dict = Depends(get_current_user)):
+    """Return FULL catalog (all countries with all categories + fees). Admin only."""
+    _require_admin(current_user)
+    await _seed_catalog_if_empty()
+    items = await fee_catalog_col.find({}, {"_id": 0}).sort("name", 1).to_list(500)
+    return {"countries": items, "total": len(items)}
+
+
+@router.post("/admin/countries")
+async def admin_add_country(data: CountryInput, current_user: dict = Depends(get_current_user)):
+    """Add a brand new country."""
+    _require_admin(current_user)
+    country_id = data.id or _slugify(data.name)
+    existing = await fee_catalog_col.find_one({"id": country_id}, {"_id": 0, "id": 1})
+    if existing:
+        raise HTTPException(status_code=409, detail=f"Country '{country_id}' already exists")
+
+    # Build categories with slugged ids + stable fee ids
+    categories = []
+    for cat in data.categories:
+        cat_id = cat.id or _slugify(cat.name)
+        fees = []
+        for fi, fee in enumerate(cat.fees):
+            fees.append({
+                "id": fee.id or f"{cat_id}_{fi}",
+                "label": fee.label,
+                "amount": float(fee.amount),
+                "mandatory": fee.mandatory,
+                "per_applicant": fee.per_applicant,
+                "notes": fee.notes,
+                "order": fee.order or fi,
+            })
+        categories.append({
+            "id": cat_id,
+            "name": cat.name,
+            "processing_days": cat.processing_days,
+            "official_url": cat.official_url,
+            "fees": fees,
+        })
+
+    now = datetime.now(timezone.utc)
+    doc = {
+        "id": country_id,
+        "name": data.name,
+        "flag": data.flag,
+        "currency": data.currency.upper(),
+        "categories": categories,
+        "seeded": False,
+        "created_at": now,
+        "updated_at": now,
+        "created_by": current_user.get("id"),
+    }
+    await fee_catalog_col.insert_one(doc)
+    doc.pop("_id", None)
+    doc["created_at"] = now.isoformat()
+    doc["updated_at"] = now.isoformat()
+    return doc
+
+
+@router.put("/admin/countries/{country_id}")
+async def admin_update_country(country_id: str, data: CountryInput, current_user: dict = Depends(get_current_user)):
+    """Update country metadata (name/flag/currency). Does NOT replace categories."""
+    _require_admin(current_user)
+    existing = await fee_catalog_col.find_one({"id": country_id}, {"_id": 0})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Country not found")
+
+    update = {
+        "name": data.name,
+        "flag": data.flag,
+        "currency": data.currency.upper(),
+        "updated_at": datetime.now(timezone.utc),
+    }
+    await fee_catalog_col.update_one({"id": country_id}, {"$set": update})
+    return {"ok": True, **update, "updated_at": update["updated_at"].isoformat()}
+
+
+@router.delete("/admin/countries/{country_id}")
+async def admin_delete_country(country_id: str, current_user: dict = Depends(get_current_user)):
+    """Delete a country (and all its categories)."""
+    _require_admin(current_user)
+    r = await fee_catalog_col.delete_one({"id": country_id})
+    if r.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Country not found")
+    return {"deleted": True}
+
+
+@router.post("/admin/countries/{country_id}/categories")
+async def admin_add_category(country_id: str, data: CategoryInput, current_user: dict = Depends(get_current_user)):
+    """Add a new visa category to a country."""
+    _require_admin(current_user)
+    country = await fee_catalog_col.find_one({"id": country_id}, {"_id": 0})
+    if not country:
+        raise HTTPException(status_code=404, detail="Country not found")
+
+    cat_id = data.id or _slugify(data.name)
+    if _category_from_country(country, cat_id):
+        raise HTTPException(status_code=409, detail=f"Category '{cat_id}' already exists in {country_id}")
+
+    fees = []
+    for fi, fee in enumerate(data.fees):
+        fees.append({
+            "id": fee.id or f"{cat_id}_{fi}",
+            "label": fee.label,
+            "amount": float(fee.amount),
+            "mandatory": fee.mandatory,
+            "per_applicant": fee.per_applicant,
+            "notes": fee.notes,
+            "order": fee.order or fi,
+        })
+
+    category = {
+        "id": cat_id,
+        "name": data.name,
+        "processing_days": data.processing_days,
+        "official_url": data.official_url,
+        "fees": fees,
+    }
+    await fee_catalog_col.update_one(
+        {"id": country_id},
+        {"$push": {"categories": category}, "$set": {"updated_at": datetime.now(timezone.utc)}},
+    )
+    return category
+
+
+@router.put("/admin/countries/{country_id}/categories/{category_id}")
+async def admin_update_category(country_id: str, category_id: str, data: CategoryInput, current_user: dict = Depends(get_current_user)):
+    """Replace a visa category (name, meta, AND fees)."""
+    _require_admin(current_user)
+    country = await fee_catalog_col.find_one({"id": country_id}, {"_id": 0})
+    if not country:
+        raise HTTPException(status_code=404, detail="Country not found")
+    if not _category_from_country(country, category_id):
+        raise HTTPException(status_code=404, detail="Category not found")
+
+    fees = []
+    for fi, fee in enumerate(data.fees):
+        fees.append({
+            "id": fee.id or f"{category_id}_{fi}",
+            "label": fee.label,
+            "amount": float(fee.amount),
+            "mandatory": fee.mandatory,
+            "per_applicant": fee.per_applicant,
+            "notes": fee.notes,
+            "order": fee.order or fi,
+        })
+    new_category = {
+        "id": category_id,
+        "name": data.name,
+        "processing_days": data.processing_days,
+        "official_url": data.official_url,
+        "fees": fees,
+    }
+    await fee_catalog_col.update_one(
+        {"id": country_id, "categories.id": category_id},
+        {"$set": {"categories.$": new_category, "updated_at": datetime.now(timezone.utc)}},
+    )
+    return new_category
+
+
+@router.delete("/admin/countries/{country_id}/categories/{category_id}")
+async def admin_delete_category(country_id: str, category_id: str, current_user: dict = Depends(get_current_user)):
+    """Remove a visa category."""
+    _require_admin(current_user)
+    r = await fee_catalog_col.update_one(
+        {"id": country_id},
+        {"$pull": {"categories": {"id": category_id}}, "$set": {"updated_at": datetime.now(timezone.utc)}},
+    )
+    if r.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Category not found")
+    return {"deleted": True}
+
+
+@router.post("/admin/reseed")
+async def admin_reseed(current_user: dict = Depends(get_current_user)):
+    """[Dev utility] Wipe catalog and reseed from FEE_DATABASE dict."""
+    _require_admin(current_user)
+    await fee_catalog_col.delete_many({})
+    await _seed_catalog_if_empty()
+    count = await fee_catalog_col.count_documents({})
+    return {"reseeded": True, "countries": count}
 
 
 @router.post("/save-estimate")

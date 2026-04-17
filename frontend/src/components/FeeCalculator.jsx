@@ -16,7 +16,8 @@ import {
   Calculator, Plane, Globe, Users, CheckCircle2, Info,
   Copy, Download, ExternalLink, Loader2, Wallet,
   IndianRupee, Sparkles, RefreshCw, Receipt, Shield,
-  Share2, Link2, Eye, UserPlus, Power, Clock
+  Share2, Link2, Eye, UserPlus, Power, Clock,
+  Edit2, Plus, Trash2, Check, X as XIcon, Pencil
 } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -74,6 +75,9 @@ export default function FeeCalculator({
   const [activeView, setActiveView] = useState('calculator');
   const [savedEstimates, setSavedEstimates] = useState([]);
   const [shareDialog, setShareDialog] = useState({ open: false, estimate: null, stats: null, link: '', loading: false });
+  const [overrides, setOverrides] = useState({}); // { feeId: { label?, amount?, notes? } }
+  const [extraLines, setExtraLines] = useState([]); // [{ id, label, amount, mandatory, per_applicant, notes }]
+  const [editingLineId, setEditingLineId] = useState(null);
 
   // Load countries
   useEffect(() => {
@@ -119,23 +123,31 @@ export default function FeeCalculator({
   const activeCategory = countryDetail?.categories?.[category];
   const optionalFees = useMemo(() => {
     if (!activeCategory) return [];
-    return activeCategory.fees
-      .map((f, idx) => ({ ...f, id: `${category}_${idx}` }))
+    return (activeCategory.fees || [])
+      .map((f, idx) => ({ ...f, id: f.id || `${category}_${idx}` }))
       .filter(f => !f.mandatory);
   }, [activeCategory, category]);
+
+  // Reset overrides/extras when country or category changes
+  useEffect(() => {
+    setOverrides({});
+    setExtraLines([]);
+    setEditingLineId(null);
+  }, [country, category]);
 
   // Auto-calculate debounce
   useEffect(() => {
     if (!country || !category || !token) return;
-    const h = setTimeout(() => doCalculate(), 200);
+    const h = setTimeout(() => doCalculate(), 250);
     return () => clearTimeout(h);
     // eslint-disable-next-line
-  }, [country, category, adults, children, serviceFee, gstPct, selectedOptionals, token]);
+  }, [country, category, adults, children, serviceFee, gstPct, selectedOptionals, token, overrides, extraLines]);
 
   const doCalculate = async () => {
     if (!country || !category) return;
     setLoading(true);
     try {
+      const overridesArr = Object.entries(overrides).map(([id, o]) => ({ id, ...o }));
       const r = await axios.post(`${API}/fee-calculator/calculate`, {
         country,
         category,
@@ -144,6 +156,8 @@ export default function FeeCalculator({
         include_optional_ids: Array.from(selectedOptionals),
         service_fee_inr: Number(serviceFee) || 0,
         gst_pct: Number(gstPct) || 0,
+        overrides: overridesArr,
+        extra_lines: extraLines,
       }, { headers: { Authorization: `Bearer ${token}` } });
       setResult(r.data);
     } catch (e) {
@@ -475,34 +489,109 @@ export default function FeeCalculator({
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-1.5">
                     <Receipt className="h-4 w-4 text-[#2a777a]" /> Government Fees Breakdown
+                    {Object.keys(overrides).length > 0 && (
+                      <Badge className="bg-amber-100 text-amber-800 border-amber-200 text-xs">
+                        <Pencil className="h-2.5 w-2.5 mr-1" /> {Object.keys(overrides).length} edited
+                      </Badge>
+                    )}
                   </h3>
                   <span className="text-xs text-slate-400">
                     1 {result.country.currency} = ₹{result.exchange_rate.native_to_inr.toFixed(2)}
                   </span>
                 </div>
                 <div className="border border-slate-200 rounded-lg overflow-hidden divide-y divide-slate-100">
-                  {result.line_items.filter(li => li.selected).map((li, idx) => (
-                    <div key={li.id} className="flex items-start justify-between gap-3 px-3 py-2.5 hover:bg-slate-50 text-sm" data-testid={`fc-line-${idx}`}>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-slate-800">{li.label}</span>
-                          {li.multiplier > 1 && (
-                            <Badge variant="outline" className="text-xs py-0 h-5">×{li.multiplier}</Badge>
-                          )}
-                          {li.mandatory ? (
-                            <Badge className="bg-red-50 text-red-700 border-red-200 text-xs py-0 h-5">Required</Badge>
-                          ) : (
-                            <Badge className="bg-blue-50 text-blue-700 border-blue-200 text-xs py-0 h-5">Optional</Badge>
-                          )}
+                  {result.line_items.filter(li => li.selected).map((li, idx) => {
+                    const isEditing = editingLineId === li.id;
+                    const isExtra = li.source === 'extra';
+                    return (
+                    <div key={li.id} className={`px-3 py-2.5 text-sm ${isEditing ? 'bg-amber-50' : 'hover:bg-slate-50'}`} data-testid={`fc-line-${idx}`}>
+                      {isEditing ? (
+                        <LineEditor
+                          line={li}
+                          isExtra={isExtra}
+                          cur={result.country.currency}
+                          onCancel={() => setEditingLineId(null)}
+                          onSave={(patch) => {
+                            if (isExtra) {
+                              setExtraLines(arr => arr.map(x => x.id === li.id ? { ...x, ...patch } : x));
+                            } else {
+                              setOverrides(o => ({ ...o, [li.id]: { ...(o[li.id] || {}), ...patch } }));
+                            }
+                            setEditingLineId(null);
+                          }}
+                          onReset={() => {
+                            if (isExtra) {
+                              setExtraLines(arr => arr.filter(x => x.id !== li.id));
+                            } else {
+                              const next = { ...overrides };
+                              delete next[li.id];
+                              setOverrides(next);
+                            }
+                            setEditingLineId(null);
+                          }}
+                        />
+                      ) : (
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-slate-800">{li.label}</span>
+                              {li.multiplier > 1 && (
+                                <Badge variant="outline" className="text-xs py-0 h-5">×{li.multiplier}</Badge>
+                              )}
+                              {li.mandatory ? (
+                                <Badge className="bg-red-50 text-red-700 border-red-200 text-xs py-0 h-5">Required</Badge>
+                              ) : (
+                                <Badge className="bg-blue-50 text-blue-700 border-blue-200 text-xs py-0 h-5">Optional</Badge>
+                              )}
+                              {li.overridden && (
+                                <Badge className="bg-amber-100 text-amber-800 border-amber-200 text-xs py-0 h-5">
+                                  <Pencil className="h-2.5 w-2.5 mr-0.5" /> Edited
+                                </Badge>
+                              )}
+                              {isExtra && (
+                                <Badge className="bg-purple-100 text-purple-800 border-purple-200 text-xs py-0 h-5">
+                                  Custom
+                                </Badge>
+                              )}
+                            </div>
+                            {li.notes && <p className="text-xs text-slate-400 mt-0.5">{li.notes}</p>}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="text-right">
+                              <AmountCell native={li.total_native} inr={li.total_inr} cur={result.country.currency} />
+                            </div>
+                            {role !== 'client' && (
+                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0"
+                                onClick={() => setEditingLineId(li.id)} data-testid={`fc-line-edit-${idx}`}>
+                                <Edit2 className="h-3.5 w-3.5 text-slate-500" />
+                              </Button>
+                            )}
+                          </div>
                         </div>
-                        {li.notes && <p className="text-xs text-slate-400 mt-0.5">{li.notes}</p>}
-                      </div>
-                      <div className="text-right">
-                        <AmountCell native={li.total_native} inr={li.total_inr} cur={result.country.currency} />
-                      </div>
+                      )}
                     </div>
-                  ))}
+                  );
+                  })}
                 </div>
+
+                {role !== 'client' && (
+                  <div className="flex items-center justify-between mt-2">
+                    <Button variant="outline" size="sm" onClick={() => {
+                      const newId = `extra_${Date.now()}`;
+                      setExtraLines(arr => [...arr, { id: newId, label: 'Custom charge', amount: 0, mandatory: true, per_applicant: false, notes: '' }]);
+                      setEditingLineId(newId);
+                    }} data-testid="fc-add-line">
+                      <Plus className="h-3.5 w-3.5 mr-1" /> Add Custom Line
+                    </Button>
+                    {(Object.keys(overrides).length > 0 || extraLines.length > 0) && (
+                      <Button variant="ghost" size="sm" className="text-slate-500 hover:text-red-600"
+                        onClick={() => { setOverrides({}); setExtraLines([]); toast.success('Reverted to catalog values'); }}
+                        data-testid="fc-reset-overrides">
+                        <RefreshCw className="h-3.5 w-3.5 mr-1" /> Reset all edits
+                      </Button>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Totals */}
@@ -683,3 +772,44 @@ const Row = ({ label, value, bold }) => (
     <span>{value}</span>
   </div>
 );
+
+/** Inline editor for a fee line (per-estimate override, does NOT touch master DB) */
+function LineEditor({ line, isExtra, cur, onCancel, onSave, onReset }) {
+  const [label, setLabel] = useState(line.label || '');
+  const [amount, setAmount] = useState(line.amount_native ?? 0);
+  const [notes, setNotes] = useState(line.notes || '');
+
+  return (
+    <div className="space-y-2" data-testid="fc-line-editor">
+      <div className="grid grid-cols-12 gap-2">
+        <div className="col-span-7">
+          <Label className="text-[10px] text-slate-500">Label</Label>
+          <Input value={label} onChange={(e) => setLabel(e.target.value)} className="h-8 text-sm" data-testid="fc-edit-label" />
+        </div>
+        <div className="col-span-3">
+          <Label className="text-[10px] text-slate-500">Amount ({cur})</Label>
+          <Input type="number" min={0} step="0.01" value={amount}
+            onChange={(e) => setAmount(e.target.value)} className="h-8 text-sm" data-testid="fc-edit-amount" />
+        </div>
+        <div className="col-span-2 flex items-end gap-1">
+          <Button size="sm" className="h-8 bg-emerald-600 hover:bg-emerald-700 p-0 w-8"
+            onClick={() => onSave({ label, amount: Number(amount) || 0, notes })} data-testid="fc-edit-save">
+            <Check className="h-3.5 w-3.5" />
+          </Button>
+          <Button size="sm" variant="outline" className="h-8 p-0 w-8"
+            onClick={onCancel} data-testid="fc-edit-cancel">
+            <XIcon className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      </div>
+      <Input value={notes} onChange={(e) => setNotes(e.target.value)}
+        placeholder="Optional notes for this quote" className="h-7 text-xs" data-testid="fc-edit-notes" />
+      <div className="flex items-center justify-between text-[11px] text-slate-500">
+        <span>This edit applies only to the current estimate. The master catalog is unchanged.</span>
+        <Button variant="ghost" size="sm" onClick={onReset} className="h-6 text-red-600 hover:bg-red-50 text-[11px]" data-testid="fc-edit-reset">
+          {isExtra ? <><Trash2 className="h-3 w-3 mr-1" /> Remove line</> : <><RefreshCw className="h-3 w-3 mr-1" /> Revert to catalog</>}
+        </Button>
+      </div>
+    </div>
+  );
+}
