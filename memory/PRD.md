@@ -15,7 +15,16 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 8. **Client Intake Form Builder** - Product-specific, role-based (Client/CM/Both), Admin-managed
 9. **Automated Government Fee Calculator** (2026-04-17) - 20 countries, live INR conversion
 
-### Latest: AI Document Scanner (P1 Feature, 2026-04-17)
+### Latest: Pre-Assessment Client Portal Layer — Phase A Part 1 (2026-04-17)
+- **New router**: `/app/backend/routers/pre_assess_portal.py` extends existing `pre_assessments` collection
+- **Public endpoints (no auth)**: `GET /public/{token}`, `POST /public/mock-pay` — creates client user + magic link
+- **Magic login** (72h token) + **OTP fallback** (email/phone, 10-min code)
+- **Client endpoints**: `my-assessments`, `portal-access/{pa_id}` (returns mini/expanded/full access level)
+- **Activity log**: `activity/log`, `activity/pa/{pa_id}` — partner visibility
+- **Public pages** (`/pre-assess/:token`, `/magic/:token`): premium branded payment + login UI
+- **Verified E2E**: Partner creates PA → generates public link → unauthenticated client pays (MOCK) → user auto-created → magic link issued → client logs in → fetches own assessments → `access_level: mini` + `can_upload_docs: true`
+
+### Previous: AI Document Scanner (P1 Feature)
 - **Backend**: `/app/backend/routers/doc_extraction.py` — GPT-4o Vision via Emergent LLM Key
 - **Supported docs**: passport, visa, educational cert, academic transcript, IELTS, bank statement, PCC, marriage/birth cert, driver license, offer letter + auto-detect
 - **Endpoints**: `/doc-types`, `/sample-docs` (public), `/sample-docs/{id}/extraction` (public demo), `/extract` (base64), `/extract-upload` (multipart), `/save`, `/history`

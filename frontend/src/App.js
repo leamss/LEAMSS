@@ -17,6 +17,8 @@ import MarketingDashboard from '@/pages/MarketingDashboard';
 import ServiceCalculator from '@/pages/ServiceCalculator';
 import LeadCapture from '@/pages/LeadCapture';
 import SharedEstimate from '@/pages/SharedEstimate';
+import PreAssessmentPayment from '@/pages/PreAssessmentPayment';
+import MagicLinkLogin from '@/pages/MagicLinkLogin';
 import '@/App.css';
 
 function App() {
@@ -36,6 +38,8 @@ function App() {
           <Route path="/calculator" element={<ServiceCalculator />} />
           <Route path="/inquiry" element={<LeadCapture />} />
           <Route path="/shared-estimate/:token" element={<SharedEstimate />} />
+          <Route path="/pre-assess/:token" element={<PreAssessmentPayment />} />
+          <Route path="/magic/:token" element={<MagicLinkLogin />} />
           <Route path="/partner" element={<PartnerDashboard />} />
           <Route path="/case-manager" element={<CaseManagerDashboard />} />
           <Route path="/client" element={<ClientDashboard />} />
