@@ -33,6 +33,7 @@ import CommunicationHub from '@/components/CommunicationHub';
 import BatchCaseOps from '@/components/BatchCaseOps';
 import CMDocManager from '@/components/CMDocManager';
 import DeadlineTracker, { DeadlineOverviewWidget } from '@/components/DeadlineTracker';
+import IntakeFormFiller from '@/components/IntakeFormFiller';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -552,6 +553,7 @@ const CaseManagerDashboard = () => {
         { id: 'documents', icon: Download, label: 'All Documents', onClick: () => { setActiveTab('documents'); setSelectedCase(null); setInfoSheetCaseId(null); } },
         { id: 'step-docs', icon: FileText, label: 'Step Documents', onClick: () => { setActiveTab('step-docs'); setInfoSheetCaseId(null); } },
         { id: 'deadlines', icon: CalendarClock, label: 'Deadlines & SLA', onClick: () => { setActiveTab('deadlines'); setInfoSheetCaseId(null); } },
+        { id: 'case-intake', icon: ClipboardList, label: 'Case Intake', onClick: () => { setActiveTab('case-intake'); setInfoSheetCaseId(null); } },
         { id: 'expiry-alerts', icon: Calendar, label: 'Expiry Alerts', badge: expiringDocs.filter(d => d.urgency === 'expired' || d.urgency === 'critical').length, badgeColor: 'bg-red-500', onClick: () => { setActiveTab('expiry-alerts'); setSelectedCase(null); setInfoSheetCaseId(null); } },
       ]
     },
@@ -1405,6 +1407,7 @@ const CaseManagerDashboard = () => {
           {activeTab === 'batch-ops' && <BatchCaseOps token={localStorage.getItem('token')} />}
           {activeTab === 'step-docs' && <CMDocManager token={localStorage.getItem('token')} caseId={selectedCase?.id} caseName={selectedCase?.case_id} />}
           {activeTab === 'deadlines' && <DeadlineTracker token={localStorage.getItem('token')} caseId={selectedCase?.id} role="case_manager" caseName={selectedCase?.case_id} />}
+          {activeTab === 'case-intake' && <IntakeFormFiller token={localStorage.getItem('token')} caseId={selectedCase?.id} role="case_manager" caseName={selectedCase?.case_id} />}
 
       {/* Review Document Dialog */}
       <Dialog open={reviewDialog.open} onOpenChange={(open) => setReviewDialog({ ...reviewDialog, open })}>

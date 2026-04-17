@@ -42,6 +42,7 @@ import ApprovalCenter from '@/components/ApprovalCenter';
 import RefundManager from '@/components/RefundManager';
 import RevenueDashboard from '@/components/RevenueDashboard';
 import { DeadlineOverviewWidget } from '@/components/DeadlineTracker';
+import IntakeFormBuilder from '@/components/IntakeFormBuilder';
 import ReportBuilder from '@/components/ReportBuilder';
 import EmailDigest from '@/components/EmailDigest';
 import PaymentReminders from '@/components/PaymentReminders';
@@ -1188,6 +1189,7 @@ const AdminDashboard = () => {
       groupLabel: 'System',
       items: [
         { id: 'products', icon: Settings, label: 'Products', onClick: () => { setActiveTab('products'); resetSelections(); } },
+        { id: 'intake-builder', icon: ClipboardList, label: 'Intake Form Builder', onClick: () => { setActiveTab('intake-builder'); resetSelections(); } },
         { id: 'tickets', icon: MessageSquare, label: 'Tickets', badge: ticketStats.open, onClick: () => { setActiveTab('tickets'); resetSelections(); } },
         { id: 'settings', icon: Settings, label: 'Settings', onClick: () => { setActiveTab('settings'); resetSelections(); } },
         { id: 'appointments', icon: Calendar, label: 'Appointments', onClick: () => { setActiveTab('appointments'); resetSelections(); } },
@@ -2271,6 +2273,10 @@ const AdminDashboard = () => {
           )}
 
           {/* Products Tab */}
+          {activeTab === 'intake-builder' && (
+            <IntakeFormBuilder token={localStorage.getItem('token')} products={products} />
+          )}
+
           {activeTab === 'products' && (
             <div className="space-y-6" data-testid="products-content">
               <div className="flex justify-end">

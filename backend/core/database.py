@@ -40,6 +40,7 @@ greetings_col = db["greetings"]
 pre_assessments_col = db["pre_assessments"]
 pre_assessment_docs_col = db["pre_assessment_documents"]
 case_deadlines_col = db["case_deadlines"]
+intake_forms_col = db["intake_forms"]
 
 
 async def init_db():

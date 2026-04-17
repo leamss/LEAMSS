@@ -15,6 +15,7 @@ import ChatWidget from '@/components/ChatWidget';
 import OnboardingWizard from '@/components/OnboardingWizard';
 import UnifiedDocumentView from '@/components/UnifiedDocumentView';
 import DeadlineTracker from '@/components/DeadlineTracker';
+import IntakeFormFiller from '@/components/IntakeFormFiller';
 import { 
   User, FileText, Upload, LogOut, CheckCircle, Clock, AlertCircle, 
   Lock, Download, FileCheck, ArrowLeft, Calendar, Shield, 
@@ -422,7 +423,7 @@ const ClientDashboard = () => {
         { id: 'documents', icon: FileCheck, label: 'Documents & Steps', badge: pendingAdditionalDocs.length, badgeColor: 'bg-red-500', onClick: () => setActiveTab('documents') },
         { id: 'deadlines', icon: CalendarClock, label: 'Deadlines', onClick: () => setActiveTab('deadlines') },
         { id: 'uploaded', icon: Upload, label: 'My Uploads', onClick: () => setActiveTab('uploaded') },
-        { id: 'info-sheet', icon: ClipboardList, label: 'My Info Sheet', onClick: () => setActiveTab('info-sheet') },
+        { id: 'info-sheet', icon: ClipboardList, label: 'Case Intake Form', onClick: () => setActiveTab('info-sheet') },
       ]
     },
     {
@@ -461,7 +462,7 @@ const ClientDashboard = () => {
 
   const clientPageTitle = {
     overview: 'Overview', documents: 'Documents & Workflow', 
-    uploaded: 'My Uploads', tickets: 'Support Tickets', 'info-sheet': 'My Info Sheet',
+    uploaded: 'My Uploads', tickets: 'Support Tickets', 'info-sheet': 'Case Intake Form',
     payments: 'Payments',
     'knowledge-base': 'Help Center', survey: 'Rate Experience', appointments: 'Appointments',
     referrals: 'Refer a Friend', timeline: 'Case Timeline',
@@ -1039,6 +1040,7 @@ const ClientDashboard = () => {
               {/* Information Sheet Tab */}
               {activeTab === 'info-sheet' && (
               <div className="space-y-6">
+                <IntakeFormFiller token={localStorage.getItem('token')} caseId={caseData?.id} role="client" caseName={caseData?.case_id} />
                 <InfoSheetEditor
                   caseData={caseData}
                   API={API}
