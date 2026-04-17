@@ -84,11 +84,26 @@ const PreAssessmentPipeline = () => {
 
   const handleSendPayment = async (paId) => {
     try {
-      const res = await axios.post(`${API}/pre-assessment/${paId}/send-payment-link`, {}, getAuthHeader());
-      toast.success(res.data.message);
-      if (res.data.payment_url) window.open(res.data.payment_url, '_blank');
+      // Generate public share-token link (new client-facing flow)
+      const res = await axios.post(`${API}/pre-assess-portal/generate-public-link`, { pa_id: paId }, getAuthHeader());
+      const publicUrl = res.data.public_url;
+      try { await navigator.clipboard.writeText(publicUrl); } catch (_) { /* ignore */ }
+      toast.success('Public payment link generated & copied to clipboard');
+      window.open(publicUrl, '_blank');
       loadData();
-    } catch (e) { toast.error(e.response?.data?.detail || 'Failed'); }
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Failed to generate link');
+    }
+  };
+
+  const handleCopyPublicLink = async (paId) => {
+    try {
+      const res = await axios.post(`${API}/pre-assess-portal/generate-public-link`, { pa_id: paId }, getAuthHeader());
+      await navigator.clipboard.writeText(res.data.public_url);
+      toast.success('Public payment link copied — share via WhatsApp/Email');
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Failed');
+    }
   };
 
   const handleConfirmPayment = async (paId) => {
@@ -385,7 +400,12 @@ const PreAssessmentPipeline = () => {
 
                     {/* Next Action Button */}
                     {nextAction && showProposal !== pa.id && (
-                      <div className="flex justify-end">
+                      <div className="flex justify-end gap-2">
+                        {['new', 'payment_pending'].includes(pa.stage) && (
+                          <Button variant="outline" size="sm" onClick={() => handleCopyPublicLink(pa.id)} data-testid={`copy-link-${pa.id}`}>
+                            <Send className="h-4 w-4 mr-1" /> Copy Public Link
+                          </Button>
+                        )}
                         <Button onClick={nextAction.action} className={`${nextAction.color} text-white`} data-testid={`action-${pa.stage}`}>
                           <ArrowRight className="h-4 w-4 mr-2" /> {nextAction.label}
                         </Button>
