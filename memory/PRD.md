@@ -15,7 +15,25 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 8. **Client Intake Form Builder** - Product-specific, role-based (Client/CM/Both), Admin-managed
 9. **Automated Government Fee Calculator** (2026-04-17) - 20 countries, live INR conversion
 
-### Latest: Pre-Assessment Client Portal Layer — Phase A Part 2 (2026-04-17)
+### Latest: Pre-Assessment Client Portal Layer — Phase A Part 3 (2026-04-17)
+- **Full E2E CRM sales funnel LIVE (MOCK payments)**: Partner creates PA → Client pays via public link → Magic-login → Upload docs → Submit for review → Partner validates & forwards → Admin 1st approval → Partner sends proposal → Client accepts + pays main fee → Admin 2nd approval assigns CM → Real Case created & active
+- **NEW Admin endpoints**:
+  - `GET /api/pre-assess-portal/admin/case-managers` — lists active case managers for the Assign-CM dropdown
+  - `POST /api/pre-assess-portal/admin/approve-final/{pa_id}` — now accepts `{case_manager_id}` body, validates CM, attaches to new case, notifies CM
+- **NEW Partner endpoint**: `POST /api/pre-assess-portal/partner/preview-magic/{pa_id}` — short-lived (30min) magic link so partner can preview exactly what client sees in MiniPortal
+- **Admin UI enhancements** (`PreAssessmentQueue.jsx`):
+  - 6-card stats grid (Total, 1st Review, Approved, Rejected, Awaiting Case, Conversion)
+  - `proposal_paid` items now appear in admin queue with orange "Create Case" CTA
+  - 2nd-approval UI with **Case Manager dropdown** (optional assign-or-later)
+  - Admin sidebar: new "Pre-Assessments" menu item under Cases & Users
+- **Partner UI enhancements** (`PreAssessmentPipeline.jsx`):
+  - "Copy Public Link" + "Preview as Client" buttons now visible on **every** PA card (all stages)
+  - Preview as Client button also in card header for 1-click access
+  - Copy Link now returns **full URL** (`window.location.origin` + path) — shareable via WhatsApp/email
+- **Admin queue backend updated** to include `proposal_paid` stage in `/api/pre-assessment/admin/queue`
+- **Tested**: 100% (10/10 backend + frontend all green) — iteration_76.json + iteration_77.json
+
+### Pre-Assessment Client Portal Layer — Phase A Part 2 (2026-04-17)
 - **Client MiniPortal** (`/app/frontend/src/components/PreAssessmentMiniPortal.jsx`): Beautiful stage-aware dashboard shown to clients who have a pre-assessment but no active case
   - 6-step progress pipeline (Paid → Upload → Review → Approved → Proposal → Case Active)
   - Stage-specific UI: `payment_received` shows upload UI + Submit button; `documents_submitted/under_review` shows "Under Review"; `approved` shows "Congratulations"; `proposal_sent` shows Accept + Pay buttons; `proposal_paid` shows "Activating your case"; `rejected` shows refund notice
