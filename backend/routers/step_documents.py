@@ -936,3 +936,178 @@ async def get_available_templates(current_user: dict = Depends(get_current_user)
             "assessment_bodies": tmpl.get("assessment_bodies", []),
         })
     return {"templates": templates}
+
+
+# ============ OFFICIAL GOVERNMENT FORMS DATABASE ============
+
+GOVERNMENT_FORMS = {
+    "australia": {
+        "country": "Australia",
+        "authority": "Department of Home Affairs",
+        "base_url": "https://immi.homeaffairs.gov.au",
+        "forms": [
+            {"form_id": "form_80", "name": "Form 80 - Personal Particulars for Assessment", "description": "Detailed personal history including travel, employment, education, and military service", "url": "https://immi.homeaffairs.gov.au/form-listing/forms/80.pdf", "applies_to": ["189", "190", "491", "482", "500"], "category": "application", "mandatory": True},
+            {"form_id": "form_1221", "name": "Form 1221 - Additional Personal Particulars", "description": "Supplementary personal details form required for some visa applications", "url": "https://immi.homeaffairs.gov.au/form-listing/forms/1221.pdf", "applies_to": ["189", "190", "491"], "category": "application", "mandatory": False},
+            {"form_id": "form_1393", "name": "Form 1393 - Application for Migration to Australia by a Skilled Worker", "description": "Main application form for skilled migration visa subclasses", "url": "https://immi.homeaffairs.gov.au/form-listing/forms/1393.pdf", "applies_to": ["189", "190", "491"], "category": "application", "mandatory": True},
+            {"form_id": "form_1276", "name": "Form 1276 - Application for a Student Visa", "description": "Application form for Student Visa Subclass 500", "url": "https://immi.homeaffairs.gov.au/form-listing/forms/1276.pdf", "applies_to": ["500"], "category": "application", "mandatory": True},
+            {"form_id": "form_1419", "name": "Form 1419 - Application for a Visitor Visa", "description": "Application form for Visitor Visa Subclass 600", "url": "https://immi.homeaffairs.gov.au/form-listing/forms/1419.pdf", "applies_to": ["600"], "category": "application", "mandatory": True},
+            {"form_id": "form_26", "name": "Form 26 - Medical Examination for Visa Applicant", "description": "Health examination form to be completed by a Bupa Medical Visa Services panel doctor", "url": "https://immi.homeaffairs.gov.au/form-listing/forms/26.pdf", "applies_to": ["189", "190", "491", "482", "500", "600", "820"], "category": "medical", "mandatory": True},
+            {"form_id": "form_160", "name": "Form 160 - Chest X-Ray Referral", "description": "Chest X-ray referral form for health assessment", "url": "https://immi.homeaffairs.gov.au/form-listing/forms/160.pdf", "applies_to": ["189", "190", "491", "500"], "category": "medical", "mandatory": False},
+            {"form_id": "form_956", "name": "Form 956 - Appointment of a Migration Agent", "description": "Authorise a registered migration agent to act on your behalf", "url": "https://immi.homeaffairs.gov.au/form-listing/forms/956.pdf", "applies_to": ["189", "190", "491", "482", "500", "600", "820"], "category": "agent", "mandatory": False},
+            {"form_id": "form_1023", "name": "Form 1023 - Notification of Changes in Circumstances", "description": "Notify DHA of changes to your application details", "url": "https://immi.homeaffairs.gov.au/form-listing/forms/1023.pdf", "applies_to": ["189", "190", "491", "482", "500"], "category": "update", "mandatory": False},
+            {"form_id": "form_40sp", "name": "Form 40SP - Sponsorship for Partner Visa", "description": "Sponsorship application form for partner visa", "url": "https://immi.homeaffairs.gov.au/form-listing/forms/40sp.pdf", "applies_to": ["820", "801"], "category": "application", "mandatory": True},
+            {"form_id": "form_47sp", "name": "Form 47SP - Application for Partner Visa", "description": "Main application form for Partner visa", "url": "https://immi.homeaffairs.gov.au/form-listing/forms/47sp.pdf", "applies_to": ["820", "801"], "category": "application", "mandatory": True},
+            {"form_id": "form_1424", "name": "Form 1424 - Application for Employer Nomination", "description": "Employer nomination form for TSS visa", "url": "https://immi.homeaffairs.gov.au/form-listing/forms/1424.pdf", "applies_to": ["482"], "category": "employer", "mandatory": True},
+        ]
+    },
+    "canada": {
+        "country": "Canada",
+        "authority": "Immigration, Refugees and Citizenship Canada (IRCC)",
+        "base_url": "https://www.canada.ca/en/immigration-refugees-citizenship",
+        "forms": [
+            {"form_id": "imm_0008", "name": "IMM 0008 - Generic Application Form for Canada", "description": "Main application form for permanent residence applications", "url": "https://www.canada.ca/content/dam/ircc/migration/ircc/english/pdf/kits/forms/imm0008enu_2d.pdf", "applies_to": ["express_entry", "pr", "family"], "category": "application", "mandatory": True},
+            {"form_id": "imm_5645", "name": "IMM 5645 - Family Information", "description": "Detailed family member information for all immigration applications", "url": "https://www.canada.ca/content/dam/ircc/migration/ircc/english/pdf/kits/forms/imm5645e.pdf", "applies_to": ["express_entry", "pr", "family", "student", "work"], "category": "application", "mandatory": True},
+            {"form_id": "imm_5669", "name": "IMM 5669 - Schedule A - Background/Declaration", "description": "Personal history including addresses, education, employment, and military service", "url": "https://www.canada.ca/content/dam/ircc/migration/ircc/english/pdf/kits/forms/imm5669e.pdf", "applies_to": ["express_entry", "pr"], "category": "application", "mandatory": True},
+            {"form_id": "imm_5562", "name": "IMM 5562 - Supplementary Information Form", "description": "Additional personal information and travel history", "url": "https://www.canada.ca/content/dam/ircc/migration/ircc/english/pdf/kits/forms/imm5562e.pdf", "applies_to": ["express_entry", "pr"], "category": "application", "mandatory": True},
+            {"form_id": "imm_5406", "name": "IMM 5406 - Additional Family Information", "description": "Additional details about family members for PR applications", "url": "https://www.canada.ca/content/dam/ircc/migration/ircc/english/pdf/kits/forms/imm5406e.pdf", "applies_to": ["express_entry", "pr", "family"], "category": "application", "mandatory": True},
+            {"form_id": "imm_5707", "name": "IMM 5707 - Use of a Representative", "description": "Authorise a representative (lawyer, consultant, or other) to act on your behalf", "url": "https://www.canada.ca/content/dam/ircc/migration/ircc/english/pdf/kits/forms/imm5707e.pdf", "applies_to": ["express_entry", "pr", "student", "work", "visitor"], "category": "agent", "mandatory": False},
+            {"form_id": "imm_1294", "name": "IMM 1294 - Application for Study Permit", "description": "Main application form for study permits", "url": "https://www.canada.ca/content/dam/ircc/migration/ircc/english/pdf/kits/forms/imm1294e.pdf", "applies_to": ["student"], "category": "application", "mandatory": True},
+            {"form_id": "imm_1295", "name": "IMM 1295 - Application for Work Permit", "description": "Main application form for work permits (LMIA-based and open)", "url": "https://www.canada.ca/content/dam/ircc/migration/ircc/english/pdf/kits/forms/imm1295e.pdf", "applies_to": ["work"], "category": "application", "mandatory": True},
+            {"form_id": "imm_5257", "name": "IMM 5257 - Application for Temporary Resident Visa", "description": "Visitor visa application form", "url": "https://www.canada.ca/content/dam/ircc/migration/ircc/english/pdf/kits/forms/imm5257e.pdf", "applies_to": ["visitor"], "category": "application", "mandatory": True},
+            {"form_id": "imm_5476", "name": "IMM 5476 - Authority to Release Personal Information", "description": "Consent form for IRCC to release your info to a designated person", "url": "https://www.canada.ca/content/dam/ircc/migration/ircc/english/pdf/kits/forms/imm5476e.pdf", "applies_to": ["express_entry", "pr", "student", "work", "visitor"], "category": "consent", "mandatory": False},
+        ]
+    },
+    "uk": {
+        "country": "United Kingdom",
+        "authority": "UK Visas and Immigration (UKVI)",
+        "base_url": "https://www.gov.uk/government/organisations/uk-visas-and-immigration",
+        "forms": [
+            {"form_id": "vaf1a", "name": "VAF1A - Skilled Worker Application", "description": "Main application form for Skilled Worker visa (online via gov.uk)", "url": "https://www.gov.uk/skilled-worker-visa/apply", "applies_to": ["skilled_worker", "work"], "category": "application", "mandatory": True},
+            {"form_id": "appendix_2", "name": "Appendix 2 - Household Income", "description": "Financial requirement evidence form for family route applications", "url": "https://www.gov.uk/government/publications/form-appendix-2-household-income", "applies_to": ["family", "spouse"], "category": "financial", "mandatory": True},
+            {"form_id": "cas_form", "name": "CAS - Confirmation of Acceptance for Studies", "description": "Electronic document issued by licensed sponsor (university/college)", "url": "https://www.gov.uk/student-visa/your-course", "applies_to": ["student"], "category": "application", "mandatory": True},
+            {"form_id": "tb_test", "name": "TB Test Certificate", "description": "Tuberculosis test from approved clinic (required for certain nationalities)", "url": "https://www.gov.uk/tb-test-visa/countries-where-you-need-a-tb-test", "applies_to": ["skilled_worker", "student", "family", "work"], "category": "medical", "mandatory": False},
+            {"form_id": "atas", "name": "ATAS Certificate", "description": "Academic Technology Approval Scheme certificate for sensitive research subjects", "url": "https://www.gov.uk/guidance/academic-technology-approval-scheme", "applies_to": ["student"], "category": "academic", "mandatory": False},
+        ]
+    },
+    "usa": {
+        "country": "United States",
+        "authority": "U.S. Citizenship and Immigration Services (USCIS)",
+        "base_url": "https://www.uscis.gov",
+        "forms": [
+            {"form_id": "ds_160", "name": "DS-160 - Online Nonimmigrant Visa Application", "description": "Electronic visa application form for all nonimmigrant visa categories", "url": "https://ceac.state.gov/genniv/", "applies_to": ["h1b", "visitor", "student", "work", "b1b2", "f1", "j1"], "category": "application", "mandatory": True},
+            {"form_id": "i_129", "name": "Form I-129 - Petition for Nonimmigrant Worker", "description": "Employer petition form for H-1B and other work visa categories", "url": "https://www.uscis.gov/i-129", "applies_to": ["h1b", "work", "l1"], "category": "employer", "mandatory": True},
+            {"form_id": "i_20", "name": "Form I-20 - Certificate of Eligibility", "description": "Issued by SEVP-certified school for F-1 student visa applicants", "url": "https://studyinthestates.dhs.gov/students/prepare/students-and-the-form-i-20", "applies_to": ["f1", "student"], "category": "academic", "mandatory": True},
+            {"form_id": "i_140", "name": "Form I-140 - Immigrant Petition for Alien Workers", "description": "Employer-filed petition for employment-based green card (EB-1/EB-2/EB-3)", "url": "https://www.uscis.gov/i-140", "applies_to": ["eb1", "eb2", "eb3", "green_card", "immigrant"], "category": "application", "mandatory": True},
+            {"form_id": "i_485", "name": "Form I-485 - Application to Register Permanent Residence", "description": "Adjustment of status application for green card (filed within the US)", "url": "https://www.uscis.gov/i-485", "applies_to": ["green_card", "immigrant", "eb1", "eb2", "eb3"], "category": "application", "mandatory": True},
+            {"form_id": "i_130", "name": "Form I-130 - Petition for Alien Relative", "description": "Family-based immigration petition filed by US citizen or permanent resident", "url": "https://www.uscis.gov/i-130", "applies_to": ["family", "spouse", "parent"], "category": "application", "mandatory": True},
+            {"form_id": "i_864", "name": "Form I-864 - Affidavit of Support", "description": "Financial sponsorship form showing ability to support immigrant at 125% of poverty line", "url": "https://www.uscis.gov/i-864", "applies_to": ["family", "spouse", "green_card"], "category": "financial", "mandatory": True},
+            {"form_id": "eta_9035", "name": "Form ETA-9035 - Labor Condition Application (LCA)", "description": "Department of Labor form certifying wage and working conditions for H-1B", "url": "https://flag.dol.gov/", "applies_to": ["h1b"], "category": "employer", "mandatory": True},
+            {"form_id": "i_765", "name": "Form I-765 - Application for Employment Authorization", "description": "EAD (work permit) application for eligible immigrants", "url": "https://www.uscis.gov/i-765", "applies_to": ["green_card", "student", "asylum"], "category": "application", "mandatory": False},
+            {"form_id": "i_131", "name": "Form I-131 - Application for Travel Document", "description": "Advance Parole for travel while adjustment of status is pending", "url": "https://www.uscis.gov/i-131", "applies_to": ["green_card", "asylum"], "category": "application", "mandatory": False},
+        ]
+    },
+    "new_zealand": {
+        "country": "New Zealand",
+        "authority": "Immigration New Zealand (INZ)",
+        "base_url": "https://www.immigration.govt.nz",
+        "forms": [
+            {"form_id": "inz_1015", "name": "INZ 1015 - Skilled Migrant Category Expression of Interest", "description": "EOI form for Skilled Migrant Category", "url": "https://www.immigration.govt.nz/documents/forms-and-guides/inz1015.pdf", "applies_to": ["skilled_migrant", "pr"], "category": "application", "mandatory": True},
+            {"form_id": "inz_1007", "name": "INZ 1007 - Medical Certificate", "description": "Medical examination form completed by panel physician", "url": "https://www.immigration.govt.nz/documents/forms-and-guides/inz1007.pdf", "applies_to": ["skilled_migrant", "pr", "work", "student"], "category": "medical", "mandatory": True},
+            {"form_id": "inz_1096", "name": "INZ 1096 - Chest X-Ray Certificate", "description": "Chest X-ray certificate for health screening", "url": "https://www.immigration.govt.nz/documents/forms-and-guides/inz1096.pdf", "applies_to": ["skilled_migrant", "pr", "work", "student"], "category": "medical", "mandatory": True},
+            {"form_id": "inz_1025", "name": "INZ 1025 - Application for Work Visa", "description": "Main application form for work visa", "url": "https://www.immigration.govt.nz/documents/forms-and-guides/inz1025.pdf", "applies_to": ["work"], "category": "application", "mandatory": True},
+            {"form_id": "inz_1012", "name": "INZ 1012 - Application for Student Visa", "description": "Application form for student visa", "url": "https://www.immigration.govt.nz/documents/forms-and-guides/inz1012.pdf", "applies_to": ["student"], "category": "application", "mandatory": True},
+        ]
+    },
+    "uae": {
+        "country": "United Arab Emirates",
+        "authority": "Federal Authority for Identity, Citizenship, Customs and Port Security (ICP)",
+        "base_url": "https://u.ae",
+        "forms": [
+            {"form_id": "uae_entry_permit", "name": "Entry Permit Application", "description": "Online entry permit application via ICP Smart Services or GDRFA", "url": "https://smartservices.icp.gov.ae/echannels/web/client/default.html", "applies_to": ["work", "golden", "visit", "student"], "category": "application", "mandatory": True},
+            {"form_id": "uae_medical", "name": "Medical Fitness Test", "description": "Medical fitness certificate from DHA-approved center", "url": "https://www.dha.gov.ae/en/ServiceCatalogue/Service.aspx?ServiceId=186", "applies_to": ["work", "golden", "student"], "category": "medical", "mandatory": True},
+            {"form_id": "uae_eid", "name": "Emirates ID Application", "description": "Emirates ID registration/renewal application", "url": "https://smartservices.icp.gov.ae/echannels/web/client/default.html", "applies_to": ["work", "golden", "student"], "category": "identity", "mandatory": True},
+        ]
+    },
+    "singapore": {
+        "country": "Singapore",
+        "authority": "Ministry of Manpower (MOM) / Immigration & Checkpoints Authority (ICA)",
+        "base_url": "https://www.mom.gov.sg",
+        "forms": [
+            {"form_id": "sg_ep_online", "name": "EP Online Application", "description": "Employment Pass online application via MOM EP Online portal", "url": "https://www.mom.gov.sg/passes-and-permits/employment-pass/apply-for-a-pass", "applies_to": ["ep", "work"], "category": "application", "mandatory": True},
+            {"form_id": "sg_form_8", "name": "Form 8 - Application for Entry Permit / PR", "description": "Application for Singapore Permanent Residence", "url": "https://www.ica.gov.sg/reside/PR/apply", "applies_to": ["pr"], "category": "application", "mandatory": True},
+            {"form_id": "sg_stpass", "name": "Student Pass Application (SOLAR)", "description": "Student Pass application via Student's Pass Online Application & Registration (SOLAR)", "url": "https://www.ica.gov.sg/enter/stpass/apply", "applies_to": ["student"], "category": "application", "mandatory": True},
+        ]
+    },
+}
+
+
+@router.get("/government-forms/{country}")
+async def get_government_forms(country: str, current_user: dict = Depends(get_current_user)):
+    """Get all official government forms for a country"""
+    country_key = country.lower().replace(" ", "_")
+    
+    # Try direct match
+    forms_data = GOVERNMENT_FORMS.get(country_key)
+    
+    # Try partial match
+    if not forms_data:
+        for key, data in GOVERNMENT_FORMS.items():
+            if key in country_key or country_key in key or data["country"].lower() == country_key:
+                forms_data = data
+                break
+    
+    if not forms_data:
+        return {"country": country, "authority": "", "forms": [], "message": "No forms available for this country yet"}
+    
+    return {
+        "country": forms_data["country"],
+        "authority": forms_data["authority"],
+        "base_url": forms_data["base_url"],
+        "forms": forms_data["forms"],
+    }
+
+
+@router.get("/government-forms/{country}/{visa_type}")
+async def get_government_forms_by_visa(country: str, visa_type: str, current_user: dict = Depends(get_current_user)):
+    """Get official government forms filtered by visa type"""
+    country_key = country.lower().replace(" ", "_")
+    visa_lower = visa_type.lower().replace(" ", "_").replace("-", "_")
+    
+    forms_data = GOVERNMENT_FORMS.get(country_key)
+    if not forms_data:
+        for key, data in GOVERNMENT_FORMS.items():
+            if key in country_key or country_key in key or data["country"].lower() == country_key:
+                forms_data = data
+                break
+    
+    if not forms_data:
+        return {"country": country, "visa_type": visa_type, "forms": []}
+    
+    # Filter forms that apply to this visa type
+    filtered = [f for f in forms_data["forms"] if any(visa_lower in a or a in visa_lower for a in f["applies_to"])]
+    
+    # If no specific match, return all mandatory forms
+    if not filtered:
+        filtered = [f for f in forms_data["forms"] if f.get("mandatory")]
+    
+    return {
+        "country": forms_data["country"],
+        "authority": forms_data["authority"],
+        "visa_type": visa_type,
+        "forms": filtered,
+    }
+
+
+@router.get("/government-forms")
+async def get_all_government_forms_countries(current_user: dict = Depends(get_current_user)):
+    """Get list of countries that have government forms available"""
+    countries = []
+    for key, data in GOVERNMENT_FORMS.items():
+        countries.append({
+            "id": key,
+            "country": data["country"],
+            "authority": data["authority"],
+            "total_forms": len(data["forms"]),
+            "base_url": data["base_url"],
+        })
+    return {"countries": countries}

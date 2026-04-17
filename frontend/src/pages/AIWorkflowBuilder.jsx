@@ -14,7 +14,7 @@ import {
   ArrowLeft, Wand2, Save, FileText, Clock, AlertTriangle, CheckCircle,
   ChevronDown, ChevronRight, Globe, Loader2, Plus, Trash2,
   Lightbulb, ShieldAlert, Sparkles, ExternalLink, DollarSign,
-  Search, FileCheck, Edit3, X
+  Search, FileCheck, Edit3, X, Download
 } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -63,8 +63,16 @@ const AIWorkflowBuilder = () => {
   // Inline editing
   const [editingDoc, setEditingDoc] = useState(null); // {stepIdx, docIdx}
   const [newDocForm, setNewDocForm] = useState({ stepIdx: null, name: '', description: '', mandatory: true });
+  const [govForms, setGovForms] = useState([]);
 
   const auth = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
+
+  const loadGovForms = async (countryName) => {
+    try {
+      const res = await axios.get(`${API}/step-documents/government-forms/${encodeURIComponent(countryName)}`, auth());
+      setGovForms(res.data.forms || []);
+    } catch { setGovForms([]); }
+  };
 
   useEffect(() => {
     const u = JSON.parse(localStorage.getItem('user') || '{}');
@@ -114,6 +122,7 @@ const AIWorkflowBuilder = () => {
       (res.data.steps || []).forEach((_, i) => { exp[i] = true; });
       setExpandedSteps(exp);
       toast.success('Workflow generated!');
+      if (selectedCountry?.name) loadGovForms(selectedCountry.name);
     } catch (e) { toast.error(e.response?.data?.detail || 'Generation failed'); setView('pick-visa'); }
     setGenerating(false);
   };
@@ -144,6 +153,9 @@ const AIWorkflowBuilder = () => {
       const exp = {}; steps.forEach((_, i) => { exp[i] = true; }); setExpandedSteps(exp);
       setView('review');
       toast.success(`Template loaded with ${steps.reduce((a, s) => a + s.required_documents.length, 0)} documents!`);
+      // Load government forms for this country
+      const countryName = tmpl.label.split(' ')[0]; // "Canada", "Australia", etc.
+      loadGovForms(countryName);
     } catch { toast.error('Failed to apply template'); }
     setApplyingTemplate(false);
   };
@@ -370,6 +382,35 @@ const AIWorkflowBuilder = () => {
                 <Card className="p-3 border-red-200 bg-red-50/50">
                   <h4 className="font-semibold text-xs text-red-800 mb-1 flex items-center gap-1"><ShieldAlert className="h-3 w-3" />Rejection Reasons</h4>
                   <ul className="space-y-0.5">{workflow.common_rejection_reasons.map((r, i) => <li key={i} className="text-[11px] text-red-700 flex items-start gap-1"><AlertTriangle className="h-3 w-3 mt-0.5 flex-shrink-0" />{r}</li>)}</ul>
+                </Card>
+              )}
+
+              {/* Government Forms */}
+              {govForms.length > 0 && (
+                <Card className="p-4 border-l-4 border-l-blue-400 bg-blue-50/30" data-testid="gov-forms-section">
+                  <h4 className="font-semibold text-sm text-blue-800 mb-3 flex items-center gap-1.5">
+                    <Download className="h-4 w-4" /> Official Government Forms ({govForms.length})
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {govForms.map((form, fi) => (
+                      <a key={fi} href={form.url} target="_blank" rel="noopener noreferrer"
+                         className="flex items-start gap-2 p-2.5 bg-white rounded-lg border border-blue-100 hover:border-blue-300 hover:shadow-sm transition-all group text-xs"
+                         data-testid={`gov-form-${fi}`}>
+                        <FileText className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-slate-800 group-hover:text-blue-700 transition-colors">{form.name}</p>
+                          <p className="text-[10px] text-slate-500 mt-0.5 line-clamp-2">{form.description}</p>
+                          <div className="flex items-center gap-1 mt-1">
+                            <Badge className={`text-[8px] ${form.mandatory ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-500'}`}>
+                              {form.mandatory ? 'Required' : 'Optional'}
+                            </Badge>
+                            <Badge variant="outline" className="text-[8px]">{form.category}</Badge>
+                          </div>
+                        </div>
+                        <ExternalLink className="h-3.5 w-3.5 text-blue-400 group-hover:text-blue-600 flex-shrink-0 mt-0.5" />
+                      </a>
+                    ))}
+                  </div>
                 </Card>
               )}
 
