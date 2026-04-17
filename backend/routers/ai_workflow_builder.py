@@ -502,27 +502,51 @@ EVERY step must have 2-6 required_documents with detailed descriptions."""
             return workflow_data
         raise HTTPException(status_code=500, detail="AI service unavailable. Please try a verified template or top up your AI balance (Profile -> Universal Key -> Add Balance).")
     
-    # Parse JSON from response
+    # Parse JSON from response - robust extraction
+    workflow_data = None
     try:
-        # Try to extract JSON from response
-        json_str = response
-        if "```json" in response:
-            json_str = response.split("```json")[1].split("```")[0]
-        elif "```" in response:
-            json_str = response.split("```")[1].split("```")[0]
+        json_str = response.strip()
+        # Remove markdown code blocks
+        if "```json" in json_str:
+            json_str = json_str.split("```json")[1].split("```")[0]
+        elif "```" in json_str:
+            parts = json_str.split("```")
+            for part in parts:
+                stripped = part.strip()
+                if stripped.startswith("{"):
+                    json_str = stripped
+                    break
         
-        workflow_data = json.loads(json_str.strip())
-    except json.JSONDecodeError:
-        # Try to find JSON object in the response
-        start = response.find("{")
-        end = response.rfind("}") + 1
-        if start >= 0 and end > start:
-            try:
-                workflow_data = json.loads(response[start:end])
-            except json.JSONDecodeError:
-                raise HTTPException(status_code=500, detail="AI returned invalid workflow format. Please try again.")
+        # Try direct parse
+        try:
+            workflow_data = json.loads(json_str.strip())
+        except json.JSONDecodeError:
+            # Find JSON object boundaries
+            start = json_str.find("{")
+            end = json_str.rfind("}") + 1
+            if start >= 0 and end > start:
+                workflow_data = json.loads(json_str[start:end])
+    except (json.JSONDecodeError, Exception):
+        pass
+    
+    if not workflow_data or not isinstance(workflow_data, dict):
+        # Last resort: template fallback
+        if template:
+            steps = []
+            for i, (step_name, docs) in enumerate(template.get("steps", {}).items(), 1):
+                steps.append({
+                    "step_name": step_name, "step_order": i, "description": "", "duration_days": 14,
+                    "required_documents": [{"name": d["doc_name"], "description": d.get("description",""), "mandatory": d.get("is_mandatory", True)} for d in docs],
+                    "important_notes": "", "government_fees": ""
+                })
+            workflow_data = {
+                "product_name": f"{request.country} - {request.service_type}",
+                "description": template.get("label", ""), "category": "immigration",
+                "estimated_government_fees": template.get("fees_info", ""),
+                "steps": steps, "success_tips": [], "common_rejection_reasons": [],
+            }
         else:
-            raise HTTPException(status_code=500, detail="AI returned invalid workflow format. Please try again.")
+            raise HTTPException(status_code=500, detail="AI returned invalid format. Please try again.")
     
     await log_activity(current_user["id"], current_user["name"], "generated_workflow", "ai_workflow",
                        details=f"Generated workflow for {request.country} - {request.service_type}")
