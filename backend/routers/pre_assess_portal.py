@@ -132,6 +132,47 @@ async def generate_public_link(data: GenerateLinkRequest, current_user: dict = D
     }
 
 
+# ======================== PARTNER: PREVIEW AS CLIENT ========================
+@router.post("/partner/preview-magic/{pa_id}")
+async def partner_preview_magic(pa_id: str, current_user: dict = Depends(get_current_user)):
+    """Partner-only: generate a short-lived magic link to preview the client portal/MiniPortal.
+    Useful for demos / support. Works only on PAs where client has paid.
+    """
+    if current_user.get("role") not in ("partner", "admin"):
+        raise HTTPException(status_code=403, detail="Partners or admins only")
+
+    pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
+    if not pa:
+        raise HTTPException(status_code=404, detail="Pre-assessment not found")
+    if current_user.get("role") == "partner" and pa.get("partner_id") != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Not your assessment")
+
+    # Must have a client user linked
+    client_user = None
+    if pa.get("client_user_id"):
+        client_user = await users_col.find_one({"id": pa["client_user_id"]}, {"_id": 0})
+    if not client_user and pa.get("client_email"):
+        client_user = await users_col.find_one({"email": pa["client_email"].lower()}, {"_id": 0})
+    if not client_user:
+        raise HTTPException(status_code=400, detail="Client has not paid yet — share public payment link first")
+
+    magic_token = secrets.token_urlsafe(22)
+    await magic_col.insert_one({
+        "id": str(uuid.uuid4()),
+        "token": magic_token,
+        "user_id": client_user["id"],
+        "expires_at": _now() + timedelta(minutes=30),  # short-lived for preview
+        "used": False,
+        "is_preview": True,
+        "issued_by": current_user["id"],
+        "created_at": _now(),
+    })
+    base = _frontend_url()
+    portal_url = f"{base}/magic/{magic_token}" if base else f"/magic/{magic_token}"
+    await _log(current_user["id"], pa_id, "partner_preview_as_client", {})
+    return {"portal_url": portal_url, "expires_in_minutes": 30}
+
+
 # ======================== PUBLIC: VIEW LINK ========================
 @router.get("/public/{token}")
 async def public_view(token: str):

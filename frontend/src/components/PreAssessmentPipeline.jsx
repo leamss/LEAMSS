@@ -106,6 +106,28 @@ const PreAssessmentPipeline = () => {
     }
   };
 
+  const handlePreviewAsClient = async (paId) => {
+    try {
+      const pa = assessments.find(a => a.id === paId);
+      if (!pa) return;
+      // If client hasn't paid yet → open public payment page
+      if (['new', 'payment_pending'].includes(pa.stage) || pa.fee_payment_status !== 'paid') {
+        const res = await axios.post(`${API}/pre-assess-portal/generate-public-link`, { pa_id: paId }, getAuthHeader());
+        window.open(res.data.public_url, '_blank');
+        toast.success('Opening public payment page (what client sees before paying)');
+        return;
+      }
+      // Else generate a fresh magic link for the client & open the MiniPortal
+      const res = await axios.post(`${API}/pre-assess-portal/partner/preview-magic/${paId}`, {}, getAuthHeader());
+      if (res.data.portal_url) {
+        window.open(res.data.portal_url, '_blank');
+        toast.success('Opening client portal preview in new tab');
+      }
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Preview failed');
+    }
+  };
+
   const handleConfirmPayment = async (paId) => {
     try {
       await axios.post(`${API}/pre-assessment/${paId}/confirm-payment`, {}, getAuthHeader());
@@ -314,7 +336,12 @@ const PreAssessmentPipeline = () => {
                     <p className="text-sm text-slate-500">{pa.country} — {pa.service_type} {pa.product_name ? `(${pa.product_name})` : ''}</p>
                   </div>
                   <Badge className={`${stageInfo.bgColor} ${stageInfo.textColor} border-0`}>{stageInfo.label}</Badge>
-                  <p className="text-xs text-slate-400 hidden md:block">{pa.created_at ? new Date(pa.created_at).toLocaleDateString() : ''}</p>
+                  <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); handlePreviewAsClient(pa.id); }}
+                    className="hidden md:inline-flex border-[#f7620b]/40 text-[#f7620b] hover:bg-[#f7620b]/5"
+                    data-testid={`preview-client-header-${pa.id}`} title="Open client's portal view in a new tab">
+                    <Eye className="h-4 w-4 mr-1" /> Preview as Client
+                  </Button>
+                  <p className="text-xs text-slate-400 hidden lg:block">{pa.created_at ? new Date(pa.created_at).toLocaleDateString() : ''}</p>
                   {isExpanded ? <ChevronUp className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
                 </div>
 
@@ -400,12 +427,13 @@ const PreAssessmentPipeline = () => {
 
                     {/* Next Action Button */}
                     {nextAction && showProposal !== pa.id && (
-                      <div className="flex justify-end gap-2">
-                        {['new', 'payment_pending'].includes(pa.stage) && (
-                          <Button variant="outline" size="sm" onClick={() => handleCopyPublicLink(pa.id)} data-testid={`copy-link-${pa.id}`}>
-                            <Send className="h-4 w-4 mr-1" /> Copy Public Link
-                          </Button>
-                        )}
+                      <div className="flex justify-end gap-2 flex-wrap">
+                        <Button variant="outline" size="sm" onClick={() => handleCopyPublicLink(pa.id)} data-testid={`copy-link-${pa.id}`} title="Copy public payment link — share via WhatsApp/Email">
+                          <Send className="h-4 w-4 mr-1" /> Copy Public Link
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => handlePreviewAsClient(pa.id)} data-testid={`preview-client-${pa.id}`} title="Preview what your client sees (opens client MiniPortal in new tab)" className="border-[#f7620b]/40 text-[#f7620b] hover:bg-[#f7620b]/5">
+                          <Eye className="h-4 w-4 mr-1" /> Preview as Client
+                        </Button>
                         <Button onClick={nextAction.action} className={`${nextAction.color} text-white`} data-testid={`action-${pa.stage}`}>
                           <ArrowRight className="h-4 w-4 mr-2" /> {nextAction.label}
                         </Button>
