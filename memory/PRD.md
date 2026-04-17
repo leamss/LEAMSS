@@ -9,39 +9,34 @@ Multi-role immigration portal (LEAMSS) with React + FastAPI + MongoDB. Roles: Ad
 - Auth: JWT-based, bcrypt hashing
 - Integrations: OpenAI GPT-5.2 (Emergent LLM Key), Stripe (Emergent Key), Resend (mock)
 
-## Latest Session Features (2026-04-15 to 2026-04-17)
+## Latest Features (2026-04-17)
 
-### Step-wise Document Management
-- Admin adds docs to workflow steps (persists across clients)
-- CM adds docs to specific steps OR additional section, can delete unwanted docs
-- Client unified "Documents & Steps" tab (replaced 4 old tabs)
-- Backend auto-merges admin defaults into case_steps
+### AI Workflow Builder - 51 Countries + Fully Editable
+- **51 countries worldwide** with flags: Argentina to Vietnam
+- **Country -> Visa Subclass flow**: Click country -> AI lists all visa categories with subclass numbers, fees, official URLs
+- **Fully editable review**: Product name, description, fees, step names, duration, documents - all editable inline
+- **Document CRUD**: Add/edit/delete documents per step with mandatory/optional toggle
+- **Step CRUD**: Add/reorder/delete workflow steps
+- **8 Verified Templates**: Instant apply without AI (Canada PR, Australia PR, UK, NZ, USA H-1B, UAE Golden, Singapore EP, Student)
+- **Save as Product**: One-click save with all steps and docs
 
-### Smart Template AI System (8 Templates)
-- Canada PR (Express Entry): 20 docs, 6 steps, CAD $1,365, WES/IQAS
-- Australia PR (189/190/491): 21 docs, 5 steps, AUD $4,640, ACS/VETASSESS
-- UK Skilled Worker: 10 docs, 3 steps, GBP £719
-- Student Visa (Generic): 15 docs, 3 steps
-- New Zealand Skilled Migrant: 14 docs, 4 steps, NZD $3,310, NZQA
-- USA H-1B: 15 docs, 3 steps, USD $460+, USCIS/DOL
-- UAE Golden Visa: 12 docs, 3 steps, AED 2,800, ICP/GDRFA
-- Singapore EP: 13 docs, 3 steps, SGD $105, MOM/COMPASS
+### Previous Features (Same Session)
+- Step-wise Document Management System
+- Unified Client Document View
+- Smart Template AI System (8 templates with real government data)
+- CM doc delete, Admin save fix
 
-### Template Gallery + AI Workflow Builder (Latest)
-- Template Gallery page at /admin/ai-workflow with all 8 country templates
-- Each card shows: country flag, fees, steps, docs, assessment bodies, government URLs
-- "Use This Template" one-click applies template with all docs
-- Review view with fee calculator, editable steps, save as product
-- Custom AI Workflow builder for any country/visa type
-- Search/filter templates
+## Backlog
+- P1: Official government form templates downloadable
+- P1: Deadline & SLA Tracker
+- P1: Client Intake Form Builder
+- P2: Fee Calculator widget for clients
+- P2: Resend Email live mode
+- P3: WhatsApp full integration
 
-## Backlog / Future Tasks
-- P1: Official government form templates/drafts downloadable
-- P1: Deadline & SLA Tracker (auto-calculate expiry, reminders)
-- P1: Client Intake Form Builder (auto-generate from product)
-- P2: Fee Calculator standalone widget for clients
-- P2: Resend Email live mode (requires RESEND_API_KEY)
-- P3: Twilio WhatsApp full integration
+## Known Limitation
+- LLM Budget exceeded - AI-based generation/visa-categories will fail until budget is topped up
+- Template-based flows work without AI
 
 ## Test Credentials
 - Admin: admin@leamss.com / Admin@123
