@@ -39,6 +39,7 @@ referrals_col = db["referrals"]
 greetings_col = db["greetings"]
 pre_assessments_col = db["pre_assessments"]
 pre_assessment_docs_col = db["pre_assessment_documents"]
+case_deadlines_col = db["case_deadlines"]
 
 
 async def init_db():
@@ -69,6 +70,8 @@ async def init_db():
     await greetings_col.create_index("user_id")
     await pre_assessments_col.create_index("partner_id")
     await pre_assessments_col.create_index("stage")
+    await case_deadlines_col.create_index("case_id")
+    await case_deadlines_col.create_index("due_date")
     await db["partner_product_commissions"].create_index(
         [("partner_id", 1), ("product_id", 1)], unique=True
     )

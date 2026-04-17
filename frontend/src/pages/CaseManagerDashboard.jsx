@@ -18,7 +18,7 @@ import DocumentChecklist from '@/components/DocumentChecklist';
 import CreateTicket from '@/components/CreateTicket';
 import TicketSection from '@/components/TicketSection';
 import QuickActions from '@/components/QuickActions';
-import { Briefcase, FileText, CheckCircle, AlertCircle, LogOut, Download, Plus, Send, ArrowLeft, MessageSquare, Search, Filter, Clock, Eye, Menu, X, Lock, Calendar, AlertTriangle, User, ClipboardList, Zap, BookOpen, Star, ArrowRightLeft, Sparkles, Loader2, XCircle } from 'lucide-react';
+import { Briefcase, FileText, CheckCircle, AlertCircle, LogOut, Download, Plus, Send, ArrowLeft, MessageSquare, Search, Filter, Clock, Eye, Menu, X, Lock, Calendar, AlertTriangle, User, ClipboardList, Zap, BookOpen, Star, ArrowRightLeft, Sparkles, Loader2, XCircle, CalendarClock } from 'lucide-react';
 import BulkOperations from '@/pages/BulkOperations';
 import SLATracker from '@/pages/SLATracker';
 import CaseTransfer from '@/pages/CaseTransfer';
@@ -32,6 +32,7 @@ import SmartWorkload from '@/components/SmartWorkload';
 import CommunicationHub from '@/components/CommunicationHub';
 import BatchCaseOps from '@/components/BatchCaseOps';
 import CMDocManager from '@/components/CMDocManager';
+import DeadlineTracker, { DeadlineOverviewWidget } from '@/components/DeadlineTracker';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -550,6 +551,7 @@ const CaseManagerDashboard = () => {
       items: [
         { id: 'documents', icon: Download, label: 'All Documents', onClick: () => { setActiveTab('documents'); setSelectedCase(null); setInfoSheetCaseId(null); } },
         { id: 'step-docs', icon: FileText, label: 'Step Documents', onClick: () => { setActiveTab('step-docs'); setInfoSheetCaseId(null); } },
+        { id: 'deadlines', icon: CalendarClock, label: 'Deadlines & SLA', onClick: () => { setActiveTab('deadlines'); setInfoSheetCaseId(null); } },
         { id: 'expiry-alerts', icon: Calendar, label: 'Expiry Alerts', badge: expiringDocs.filter(d => d.urgency === 'expired' || d.urgency === 'critical').length, badgeColor: 'bg-red-500', onClick: () => { setActiveTab('expiry-alerts'); setSelectedCase(null); setInfoSheetCaseId(null); } },
       ]
     },
@@ -1402,6 +1404,7 @@ const CaseManagerDashboard = () => {
           {activeTab === 'communication-hub' && <CommunicationHub token={localStorage.getItem('token')} cases={cases} />}
           {activeTab === 'batch-ops' && <BatchCaseOps token={localStorage.getItem('token')} />}
           {activeTab === 'step-docs' && <CMDocManager token={localStorage.getItem('token')} caseId={selectedCase?.id} caseName={selectedCase?.case_id} />}
+          {activeTab === 'deadlines' && <DeadlineTracker token={localStorage.getItem('token')} caseId={selectedCase?.id} role="case_manager" caseName={selectedCase?.case_id} />}
 
       {/* Review Document Dialog */}
       <Dialog open={reviewDialog.open} onOpenChange={(open) => setReviewDialog({ ...reviewDialog, open })}>

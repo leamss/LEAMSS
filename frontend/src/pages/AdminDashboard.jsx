@@ -41,6 +41,7 @@ import HappinessScoreWidget from '@/components/HappinessScoreWidget';
 import ApprovalCenter from '@/components/ApprovalCenter';
 import RefundManager from '@/components/RefundManager';
 import RevenueDashboard from '@/components/RevenueDashboard';
+import { DeadlineOverviewWidget } from '@/components/DeadlineTracker';
 import ReportBuilder from '@/components/ReportBuilder';
 import EmailDigest from '@/components/EmailDigest';
 import PaymentReminders from '@/components/PaymentReminders';
@@ -1269,6 +1270,8 @@ const AdminDashboard = () => {
               />
 
               <HappinessScoreWidget token={localStorage.getItem('token')} />
+
+              <DeadlineOverviewWidget token={localStorage.getItem('token')} role="admin" />
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <Card className="p-6 bg-white rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">

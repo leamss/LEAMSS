@@ -14,12 +14,13 @@ import QuickActions from '@/components/QuickActions';
 import ChatWidget from '@/components/ChatWidget';
 import OnboardingWizard from '@/components/OnboardingWizard';
 import UnifiedDocumentView from '@/components/UnifiedDocumentView';
+import DeadlineTracker from '@/components/DeadlineTracker';
 import { 
   User, FileText, Upload, LogOut, CheckCircle, Clock, AlertCircle, 
   Lock, Download, FileCheck, ArrowLeft, Calendar, Shield, 
   FolderOpen, AlertTriangle, FileUp, Eye, ChevronRight, MessageSquare,
   CreditCard, Loader2, IndianRupee, ExternalLink, TrendingUp, Brain, FileSearch, LayoutDashboard, ClipboardList, Workflow,
-  BookOpen, Star, Users, Gift
+  BookOpen, Star, Users, Gift, CalendarClock
 } from 'lucide-react';
 import SatisfactionSurvey from '@/pages/SatisfactionSurvey';
 import KnowledgeBase from '@/pages/KnowledgeBase';
@@ -419,6 +420,7 @@ const ClientDashboard = () => {
       items: [
         { id: 'journey', icon: Workflow, label: 'My Journey', onClick: () => setActiveTab('journey') },
         { id: 'documents', icon: FileCheck, label: 'Documents & Steps', badge: pendingAdditionalDocs.length, badgeColor: 'bg-red-500', onClick: () => setActiveTab('documents') },
+        { id: 'deadlines', icon: CalendarClock, label: 'Deadlines', onClick: () => setActiveTab('deadlines') },
         { id: 'uploaded', icon: Upload, label: 'My Uploads', onClick: () => setActiveTab('uploaded') },
         { id: 'info-sheet', icon: ClipboardList, label: 'My Info Sheet', onClick: () => setActiveTab('info-sheet') },
       ]
@@ -495,7 +497,7 @@ const ClientDashboard = () => {
         ) : (
           <>
             {/* Case Overview Header - Only show on dashboard-like tabs */}
-            {!['messages', 'profile', 'journey', 'timeline', 'eligibility', 'emi-plans', 'family', 'documents'].includes(activeTab) && (
+            {!['messages', 'profile', 'journey', 'timeline', 'eligibility', 'emi-plans', 'family', 'documents', 'deadlines'].includes(activeTab) && (
             <>
             <div className="mb-8">
               <div className="bg-gradient-to-r from-[#2a777a] via-[#2a777a] to-[#236466] rounded-2xl p-6 text-white shadow-xl">
@@ -823,6 +825,11 @@ const ClientDashboard = () => {
                     axios.get(`${API}/documents/case/${caseData.id}`, getAuthHeader()).then(r => setDocuments(r.data)).catch(() => {});
                   }}
                 />
+              )}
+
+              {/* Deadline Tracker Tab */}
+              {activeTab === 'deadlines' && (
+                <DeadlineTracker token={localStorage.getItem('token')} caseId={caseData?.id} role="client" caseName={caseData?.case_id} />
               )}
 
               {/* My Documents Tab */}
