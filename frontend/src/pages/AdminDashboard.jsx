@@ -1160,6 +1160,7 @@ const AdminDashboard = () => {
         { id: 'reminders', icon: Bell, label: 'Payment Reminders', onClick: () => { setActiveTab('reminders'); resetSelections(); } },
         { id: 'total-sales', icon: TrendingUp, label: 'Sales Report', onClick: () => { setActiveTab('total-sales'); resetSelections(); } },
         { id: 'commissions', icon: DollarSign, label: 'Commissions', onClick: () => { setActiveTab('commissions'); resetSelections(); } },
+        { id: 'fee-calculator', icon: Calculator, label: 'Fee Calculator', onClick: () => { setActiveTab('fee-calculator'); resetSelections(); } },
         { id: 'revenue-forecast', icon: TrendingUp, label: 'Revenue Forecast', onClick: () => { setActiveTab('revenue-forecast'); resetSelections(); } },
         { id: 'commission-analytics', icon: DollarSign, label: 'Commission Analytics', onClick: () => { setActiveTab('commission-analytics'); resetSelections(); } },
       ]
@@ -1201,7 +1202,6 @@ const AdminDashboard = () => {
       defaultOpen: false,
       items: [
         { id: 'ai-workflow', icon: Megaphone, label: 'AI Workflow Builder', onClick: () => navigate('/admin/ai-workflow') },
-        { id: 'fee-calculator', icon: Calculator, label: 'Fee Calculator', onClick: () => { setActiveTab('fee-calculator'); resetSelections(); } },
         { id: 'workflows', icon: FileText, label: 'Workflows', onClick: () => navigate('/admin/workflows') },
         { id: 'marketing', icon: Megaphone, label: 'Marketing', onClick: () => navigate('/admin/marketing') },
         { id: 'knowledge-base', icon: BookOpen, label: 'Knowledge Base', onClick: () => { setActiveTab('knowledge-base'); resetSelections(); } },
