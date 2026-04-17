@@ -1,27 +1,19 @@
 # LEAMSS - Immigration Portal PRD
 
 ## Original Problem Statement
-Multi-role immigration portal (LEAMSS) with React + FastAPI + MongoDB. Roles: Admin, Case Manager, Partner, Client.
-
-## Latest Feature: Deadline & SLA Tracker (2026-04-17)
-- Auto-detects document expiry from uploads (passport 10yr, IELTS 2yr, medical 1yr, PCC 1yr, etc.)
-- Manual deadlines: visa deadlines, processing SLAs, milestones, custom
-- Color-coded urgency: Red (expired/critical), Amber (urgent), Yellow (warning), Green (safe)
-- Filter pills: All/Expired/Critical/Urgent/Warning/Safe
-- Client portal: "Deadlines" tab - view all deadlines
-- CM Dashboard: "Deadlines & SLA" tab - view + create + delete deadlines
-- Admin Dashboard: DeadlineOverviewWidget on overview - shows top urgent alerts across all cases
-- Auto-notifications to client when CM creates deadline
+Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case Manager, Partner, Client.
 
 ## Session Summary (2026-04-15 to 2026-04-17)
-- Step-wise Document Management System
-- Unified Client Document View
-- Smart Template AI (8 templates, 51 countries)
-- AI Workflow Builder (country->visa->generate->edit->save)
-- Government Forms (48 forms, 7 countries)
-- AI Verification System (Option B)
-- SVG Flags + UI Redesign
-- Deadline & SLA Tracker
+All features implemented and tested:
+
+1. **Step-wise Document Management** - Admin/CM/Client document flow with step mapping
+2. **Unified Client Document View** - Single "Documents & Steps" tab
+3. **Smart Template AI** - 8 verified templates, 51 countries
+4. **AI Workflow Builder** - Country->Visa->Generate->Edit->Save with SVG flags
+5. **Government Forms** - 48 official forms (7 countries) with download links
+6. **AI Verification System** - Admin must verify AI data before saving
+7. **Deadline & SLA Tracker** - Auto document expiry, manual deadlines, color-coded urgency
+8. **Client Intake Form Builder** - Product-specific fields (5 products: Canada PR, Australia PR, UK Work, Student, USA H-1B)
 
 ## Test Credentials
 - Admin: admin@leamss.com / Admin@123
