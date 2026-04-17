@@ -182,6 +182,197 @@ async def get_info_sheet_schema(current_user: dict = Depends(get_current_user)):
     return INFO_SHEET_SCHEMA
 
 
+# Product-specific intake fields
+PRODUCT_INTAKE_FIELDS = {
+    "canada_pr": {
+        "label": "Canada PR (Express Entry) - Additional Fields",
+        "keywords": ["canada", "pr", "express entry", "ircc"],
+        "sections": [
+            {
+                "id": "language_scores",
+                "title": "Language Test Scores",
+                "fields": [
+                    {"key": "primary_language_test", "label": "Primary Language Test", "type": "select", "options": ["IELTS General", "CELPIP General", "PTE Core", "TEF Canada", "TCF Canada"], "required": True},
+                    {"key": "language_test_date", "label": "Test Date", "type": "date", "required": True},
+                    {"key": "listening_score", "label": "Listening Score", "type": "text", "required": True},
+                    {"key": "reading_score", "label": "Reading Score", "type": "text", "required": True},
+                    {"key": "writing_score", "label": "Writing Score", "type": "text", "required": True},
+                    {"key": "speaking_score", "label": "Speaking Score", "type": "text", "required": True},
+                    {"key": "overall_score", "label": "Overall/CLB Score", "type": "text", "required": True},
+                    {"key": "second_language_test", "label": "Second Language Test (French)", "type": "select", "options": ["None", "TEF Canada", "TCF Canada"]},
+                    {"key": "second_lang_scores", "label": "Second Language Scores (L/R/W/S)", "type": "text"},
+                ]
+            },
+            {
+                "id": "eca_details",
+                "title": "Education Credential Assessment (ECA)",
+                "fields": [
+                    {"key": "eca_body", "label": "ECA Assessing Body", "type": "select", "options": ["WES", "IQAS", "CES", "ICAS", "PEBC", "MCC", "NCDEA"], "required": True},
+                    {"key": "eca_reference_number", "label": "ECA Reference Number", "type": "text", "required": True},
+                    {"key": "eca_result_date", "label": "ECA Result Date", "type": "date"},
+                    {"key": "eca_canadian_equivalent", "label": "Canadian Equivalent", "type": "select", "options": ["Doctoral", "Master's", "Two or more degrees (one 3+ years)", "Bachelor's (3+ years)", "Bachelor's (2 years)", "Diploma (3+ years)", "Diploma (1 year)", "Secondary School"]},
+                ]
+            },
+            {
+                "id": "express_entry_details",
+                "title": "Express Entry Profile Details",
+                "fields": [
+                    {"key": "noc_code", "label": "Primary NOC Code (TEER 0/1/2/3)", "type": "text", "required": True},
+                    {"key": "noc_job_title", "label": "NOC Job Title", "type": "text", "required": True},
+                    {"key": "total_work_experience_years", "label": "Total Skilled Work Experience (years)", "type": "text", "required": True},
+                    {"key": "canadian_work_experience_years", "label": "Canadian Work Experience (years)", "type": "text"},
+                    {"key": "settlement_funds_cad", "label": "Settlement Funds (CAD)", "type": "text", "required": True},
+                    {"key": "provincial_nomination", "label": "Provincial Nomination?", "type": "select", "options": ["No", "Ontario", "British Columbia", "Alberta", "Saskatchewan", "Manitoba", "Nova Scotia", "New Brunswick", "PEI", "NLPD"]},
+                    {"key": "lmia_job_offer", "label": "Valid Job Offer/LMIA?", "type": "select", "options": ["No", "Yes - LMIA Exempt", "Yes - With LMIA"]},
+                ]
+            },
+        ]
+    },
+    "australia_pr": {
+        "label": "Australia PR (Skilled Migration) - Additional Fields",
+        "keywords": ["australia", "pr", "189", "190", "491", "skilled"],
+        "sections": [
+            {
+                "id": "skills_assessment",
+                "title": "Skills Assessment Details",
+                "fields": [
+                    {"key": "assessing_authority", "label": "Skills Assessment Authority", "type": "select", "options": ["ACS", "VETASSESS", "Engineers Australia", "TRA", "ANMAC", "CPAA", "CAANZ", "AIQS", "Other"], "required": True},
+                    {"key": "anzsco_code", "label": "ANZSCO Occupation Code", "type": "text", "required": True},
+                    {"key": "anzsco_title", "label": "Nominated Occupation Title", "type": "text", "required": True},
+                    {"key": "assessment_outcome", "label": "Assessment Outcome", "type": "select", "options": ["Positive", "Negative", "Pending", "Not Yet Applied"], "required": True},
+                    {"key": "assessment_reference", "label": "Assessment Reference Number", "type": "text"},
+                    {"key": "assessment_date", "label": "Assessment Date", "type": "date"},
+                ]
+            },
+            {
+                "id": "english_test_au",
+                "title": "English Language Test",
+                "fields": [
+                    {"key": "english_test_type", "label": "Test Type", "type": "select", "options": ["PTE Academic", "IELTS (Academic/General)", "TOEFL iBT", "OET", "Cambridge C1 Advanced"], "required": True},
+                    {"key": "english_test_date_au", "label": "Test Date", "type": "date", "required": True},
+                    {"key": "english_listening", "label": "Listening", "type": "text", "required": True},
+                    {"key": "english_reading", "label": "Reading", "type": "text", "required": True},
+                    {"key": "english_writing", "label": "Writing", "type": "text", "required": True},
+                    {"key": "english_speaking", "label": "Speaking", "type": "text", "required": True},
+                    {"key": "english_overall", "label": "Overall Score", "type": "text", "required": True},
+                ]
+            },
+            {
+                "id": "points_claim",
+                "title": "Points Test Claim",
+                "fields": [
+                    {"key": "age_points", "label": "Age Points (max 30)", "type": "text"},
+                    {"key": "english_points", "label": "English Points (max 20)", "type": "text"},
+                    {"key": "experience_points_overseas", "label": "Overseas Experience Points (max 15)", "type": "text"},
+                    {"key": "experience_points_australia", "label": "Australian Experience Points (max 20)", "type": "text"},
+                    {"key": "qualification_points", "label": "Qualification Points (max 20)", "type": "text"},
+                    {"key": "specialist_education_points", "label": "Specialist Education Points (max 10)", "type": "text"},
+                    {"key": "state_nomination", "label": "State Nomination (190/491)?", "type": "select", "options": ["No", "NSW", "VIC", "QLD", "SA", "WA", "TAS", "NT", "ACT"]},
+                    {"key": "total_points_claimed", "label": "Total Points Claimed", "type": "text", "required": True},
+                ]
+            },
+        ]
+    },
+    "uk_work": {
+        "label": "UK Skilled Worker - Additional Fields",
+        "keywords": ["uk", "united kingdom", "skilled worker", "tier 2"],
+        "sections": [
+            {
+                "id": "cos_details",
+                "title": "Certificate of Sponsorship (CoS)",
+                "fields": [
+                    {"key": "cos_reference", "label": "CoS Reference Number", "type": "text", "required": True},
+                    {"key": "sponsor_name", "label": "Sponsor/Employer Name", "type": "text", "required": True},
+                    {"key": "sponsor_license_number", "label": "Sponsor License Number", "type": "text"},
+                    {"key": "soc_code", "label": "SOC Occupation Code", "type": "text", "required": True},
+                    {"key": "job_title_uk", "label": "Job Title", "type": "text", "required": True},
+                    {"key": "annual_salary_gbp", "label": "Annual Salary (GBP)", "type": "text", "required": True},
+                    {"key": "job_start_date", "label": "Job Start Date", "type": "date"},
+                ]
+            },
+        ]
+    },
+    "student_visa": {
+        "label": "Student Visa - Additional Fields",
+        "keywords": ["student", "study", "university", "college"],
+        "sections": [
+            {
+                "id": "admission_details",
+                "title": "Admission Details",
+                "fields": [
+                    {"key": "university_name", "label": "University/College Name", "type": "text", "required": True},
+                    {"key": "course_name", "label": "Course/Program Name", "type": "text", "required": True},
+                    {"key": "course_level", "label": "Course Level", "type": "select", "options": ["Diploma", "Bachelor's", "Postgraduate Diploma", "Master's", "PhD/Doctorate", "Certificate", "Other"]},
+                    {"key": "course_start_date", "label": "Course Start Date", "type": "date", "required": True},
+                    {"key": "course_end_date", "label": "Course End Date", "type": "date"},
+                    {"key": "offer_letter_ref", "label": "Offer Letter/CAS/CoE Reference", "type": "text", "required": True},
+                    {"key": "tuition_fees", "label": "Annual Tuition Fees", "type": "text"},
+                    {"key": "scholarship_details", "label": "Scholarship (if any)", "type": "text"},
+                    {"key": "funding_source", "label": "Funding Source", "type": "select", "options": ["Self-funded", "Family Sponsor", "Education Loan", "Scholarship", "Government Sponsor", "Employer Sponsor"]},
+                    {"key": "loan_amount", "label": "Loan Amount (if applicable)", "type": "text"},
+                ]
+            },
+        ]
+    },
+    "usa_h1b": {
+        "label": "USA H-1B - Additional Fields",
+        "keywords": ["usa", "h1b", "h-1b", "america"],
+        "sections": [
+            {
+                "id": "h1b_employer",
+                "title": "H-1B Employer & Petition Details",
+                "fields": [
+                    {"key": "petitioner_company", "label": "Petitioning Company Name", "type": "text", "required": True},
+                    {"key": "petitioner_ein", "label": "Company EIN", "type": "text"},
+                    {"key": "lca_case_number", "label": "LCA Case Number", "type": "text"},
+                    {"key": "job_title_h1b", "label": "Job Title (as per LCA)", "type": "text", "required": True},
+                    {"key": "soc_code_h1b", "label": "SOC Code", "type": "text"},
+                    {"key": "annual_wage_usd", "label": "Annual Wage (USD)", "type": "text", "required": True},
+                    {"key": "work_location", "label": "Work Location (City, State)", "type": "text", "required": True},
+                    {"key": "beneficiary_education", "label": "Highest Degree", "type": "select", "options": ["Bachelor's", "Master's", "PhD", "Professional Degree"]},
+                    {"key": "us_degree", "label": "Is degree from US institution?", "type": "select", "options": ["Yes", "No"]},
+                    {"key": "previous_h1b", "label": "Previous H-1B approval?", "type": "select", "options": ["No", "Yes - Same Employer", "Yes - Different Employer"]},
+                ]
+            },
+        ]
+    },
+}
+
+
+def _match_product_intake(product_name: str) -> list:
+    """Find matching product-specific intake sections"""
+    product_lower = (product_name or "").lower()
+    matched = []
+    for key, config in PRODUCT_INTAKE_FIELDS.items():
+        score = sum(1 for kw in config["keywords"] if kw in product_lower)
+        if score > 0:
+            matched.append((score, config))
+    matched.sort(key=lambda x: -x[0])
+    return [m[1] for m in matched[:1]]  # Return best match only
+
+
+@router.get("/info-sheet-schema/{product_name}")
+async def get_product_info_sheet_schema(product_name: str, current_user: dict = Depends(get_current_user)):
+    """Return info sheet schema enhanced with product-specific sections"""
+    base_schema = dict(INFO_SHEET_SCHEMA)
+    base_sections = list(base_schema["sections"])
+
+    # Find product-specific sections
+    matches = _match_product_intake(product_name)
+    product_sections = []
+    product_label = ""
+    for match in matches:
+        product_label = match["label"]
+        product_sections.extend(match["sections"])
+
+    return {
+        "sections": base_sections,
+        "product_sections": product_sections,
+        "product_label": product_label,
+        "total_fields": sum(len(s.get("fields", [])) + len(s.get("entry_fields", [])) for s in base_sections) + sum(len(s.get("fields", [])) for s in product_sections),
+    }
+
+
 @router.get("/overdue-steps")
 async def get_overdue_steps(current_user: dict = Depends(get_current_user)):
     """Get steps that are past their SLA deadline"""

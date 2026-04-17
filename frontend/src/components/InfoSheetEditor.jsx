@@ -15,6 +15,8 @@ const HIDDEN_KEYS = ['id', 'case_id', 'client_id', 'created_at', 'updated_at', '
 
 const InfoSheetEditor = ({ caseData, API, getAuthHeader, onRefresh, extractingResume, setExtractingResume }) => {
   const [schema, setSchema] = useState(null);
+  const [productSections, setProductSections] = useState([]);
+  const [productLabel, setProductLabel] = useState('');
   const [formData, setFormData] = useState({});
   const [saving, setSaving] = useState(false);
   const [expandedSections, setExpandedSections] = useState({});
@@ -22,11 +24,18 @@ const InfoSheetEditor = ({ caseData, API, getAuthHeader, onRefresh, extractingRe
 
   const loadSchema = useCallback(async () => {
     try {
+      const productName = caseData?.product_name || '';
+      const schemaUrl = productName 
+        ? `${API}/cases/info-sheet-schema/${encodeURIComponent(productName)}`
+        : `${API}/cases/info-sheet-schema`;
+      
       const [schemaRes, sheetRes] = await Promise.all([
-        axios.get(`${API}/cases/info-sheet-schema`, getAuthHeader()),
+        axios.get(schemaUrl, getAuthHeader()),
         caseData ? axios.get(`${API}/cases/${caseData.id}/information-sheet`, getAuthHeader()) : null,
       ]);
       setSchema(schemaRes.data);
+      setProductSections(schemaRes.data.product_sections || []);
+      setProductLabel(schemaRes.data.product_label || '');
       if (sheetRes?.data?.exists) {
         setFormData(sheetRes.data.data || {});
       }
@@ -314,6 +323,50 @@ const InfoSheetEditor = ({ caseData, API, getAuthHeader, onRefresh, extractingRe
           )}
         </Card>
       ))}
+
+      {/* Product-Specific Sections */}
+      {productSections.length > 0 && (
+        <>
+          <div className="flex items-center gap-2 pt-2">
+            <div className="h-0.5 flex-1 bg-gradient-to-r from-[#f7620b]/30 to-transparent" />
+            <Badge className="bg-[#f7620b]/10 text-[#f7620b] text-xs font-bold border-0 px-3 whitespace-nowrap" data-testid="product-sections-badge">
+              {productLabel || 'Product-Specific'}
+            </Badge>
+            <div className="h-0.5 flex-1 bg-gradient-to-l from-[#f7620b]/30 to-transparent" />
+          </div>
+
+          {productSections.map((section) => (
+            <Card key={section.id} className="bg-white shadow-md border-0 overflow-hidden border-l-4 border-l-[#f7620b]" data-testid={`product-section-${section.id}`}>
+              <button
+                onClick={() => toggleSection(section.id)}
+                className="w-full flex items-center justify-between px-6 py-4 hover:bg-slate-50 transition-colors"
+                data-testid={`toggle-section-${section.id}`}
+              >
+                <div className="flex items-center gap-3">
+                  {expandedSections[section.id] ? <ChevronDown className="h-5 w-5 text-[#f7620b]" /> : <ChevronRight className="h-5 w-5 text-slate-400" />}
+                  <h4 className="text-base font-bold text-slate-800">{section.title}</h4>
+                  <Badge className="bg-[#f7620b]/10 text-[#f7620b] text-xs">{section.fields?.length || 0} fields</Badge>
+                </div>
+              </button>
+              {expandedSections[section.id] && (
+                <div className="px-6 pb-6 border-t border-slate-100">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-4">
+                    {(section.fields || []).map((field) => (
+                      <div key={field.key} className="space-y-1">
+                        <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide flex items-center gap-1">
+                          {field.label}
+                          {field.required && <span className="text-red-500">*</span>}
+                        </label>
+                        {renderField(field)}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </Card>
+          ))}
+        </>
+      )}
 
       {/* Sticky save bar */}
       {dirty && (
