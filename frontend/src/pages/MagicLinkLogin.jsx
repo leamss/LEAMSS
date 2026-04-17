@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Card } from '@/components/ui/card';
@@ -19,8 +19,11 @@ export default function MagicLinkLogin() {
   const [code, setCode] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [busy, setBusy] = useState(false);
+  const attempted = useRef(false);
 
   useEffect(() => {
+    if (attempted.current) return; // guard against StrictMode double-run
+    attempted.current = true;
     axios.post(`${API}/pre-assess-portal/magic-login`, { token })
       .then(r => {
         localStorage.setItem('token', r.data.token);

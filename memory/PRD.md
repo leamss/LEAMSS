@@ -15,7 +15,20 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 8. **Client Intake Form Builder** - Product-specific, role-based (Client/CM/Both), Admin-managed
 9. **Automated Government Fee Calculator** (2026-04-17) - 20 countries, live INR conversion
 
-### Latest: Pre-Assessment Client Portal Layer — Phase A Part 1 (2026-04-17)
+### Latest: Pre-Assessment Client Portal Layer — Phase A Part 2 (2026-04-17)
+- **Client MiniPortal** (`/app/frontend/src/components/PreAssessmentMiniPortal.jsx`): Beautiful stage-aware dashboard shown to clients who have a pre-assessment but no active case
+  - 6-step progress pipeline (Paid → Upload → Review → Approved → Proposal → Case Active)
+  - Stage-specific UI: `payment_received` shows upload UI + Submit button; `documents_submitted/under_review` shows "Under Review"; `approved` shows "Congratulations"; `proposal_sent` shows Accept + Pay buttons; `proposal_paid` shows "Activating your case"; `rejected` shows refund notice
+- **Dynamic Sidebar** (`ClientDashboard.jsx`): When `isMiniMode=true` shrinks sidebar to Overview + Tools (AI Scanner only, +Cost Estimator & Eligibility in `isExpandedMode`) + Communication + Profile
+- **New Backend Endpoints**:
+  - `POST /api/pre-assess-portal/client/submit/{pa_id}` — client marks docs as ready, stage → documents_submitted, notifies partner
+  - `POST /api/pre-assess-portal/client/accept-proposal/{pa_id}` — client accepts partner's proposal
+  - `POST /api/pre-assess-portal/client/mock-pay-proposal/{pa_id}` — MOCK main-fee payment, stage → proposal_paid
+  - `POST /api/pre-assess-portal/admin/approve-final/{pa_id}` — admin's 2nd approval: creates real Case record + copies workflow steps, stage → case_created
+- **Updated**: `GET /client/portal-access/{pa_id}` now returns `can_submit_for_review` flag; mini access_level now covers rejected/refund stages
+- **Tested**: 100% (11/11 backend tests) — iteration_75.json; Frontend UI verified for multiple stages
+
+### Pre-Assessment Client Portal Layer — Phase A Part 1 (2026-04-17)
 - **New router**: `/app/backend/routers/pre_assess_portal.py` extends existing `pre_assessments` collection
 - **Public endpoints (no auth)**: `GET /public/{token}`, `POST /public/mock-pay` — creates client user + magic link
 - **Magic login** (72h token) + **OTP fallback** (email/phone, 10-min code)

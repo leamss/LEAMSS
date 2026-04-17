@@ -119,17 +119,17 @@ const ClientDashboard = () => {
       console.error('Error loading data:', error);
     }
 
+    // Load pre-assessments early (for mini-portal view when no active case)
+    try {
+      const paRes = await axios.get(`${API}/pre-assess-portal/client/my-assessments`, getAuthHeader());
+      setPreAssessments(paRes.data?.assessments || []);
+    } catch (e) { /* no pre-assessments */ }
+
     // Load proposals/payments independently
     try {
       const proposalsRes = await axios.get(`${API}/payments/my-proposals`, getAuthHeader());
       setProposals(proposalsRes.data || []);
     } catch (e) { /* no proposals */ }
-
-    // Load pre-assessments (for mini-portal view when no active case)
-    try {
-      const paRes = await axios.get(`${API}/pre-assess-portal/client/my-assessments`, getAuthHeader());
-      setPreAssessments(paRes.data?.assessments || []);
-    } catch (e) { /* no pre-assessments */ }
   };
 
   useEffect(() => {
