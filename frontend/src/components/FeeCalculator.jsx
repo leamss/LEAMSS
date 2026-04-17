@@ -10,6 +10,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import EstimateLeadsPanel from '@/components/EstimateLeadsPanel';
 import {
   Calculator, Plane, Globe, Users, CheckCircle2, Info,
   Copy, Download, ExternalLink, Loader2, Wallet,
@@ -69,6 +71,7 @@ export default function FeeCalculator({
   const [loading, setLoading] = useState(false);
   const [showCurrency, setShowCurrency] = useState('both'); // native | inr | both
   const [rates, setRates] = useState(null);
+  const [activeView, setActiveView] = useState('calculator');
   const [savedEstimates, setSavedEstimates] = useState([]);
   const [shareDialog, setShareDialog] = useState({ open: false, estimate: null, stats: null, link: '', loading: false });
 
@@ -298,6 +301,23 @@ export default function FeeCalculator({
         )}
       </div>
 
+      {role !== 'client' && (
+        <Tabs value={activeView} onValueChange={setActiveView} className="space-y-0">
+          <TabsList className="bg-slate-100">
+            <TabsTrigger value="calculator" data-testid="fc-tab-calculator">
+              <Calculator className="h-4 w-4 mr-1.5" /> Calculator
+            </TabsTrigger>
+            <TabsTrigger value="leads" data-testid="fc-tab-leads">
+              <Sparkles className="h-4 w-4 mr-1.5" /> Captured Leads
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      )}
+
+      {activeView === 'leads' && role !== 'client' ? (
+        <EstimateLeadsPanel token={token} role={role} />
+      ) : (
+      <>
       <div className={`grid ${compact ? 'grid-cols-1' : 'lg:grid-cols-5'} gap-5`}>
         {/* Left — Inputs */}
         <Card className={`${compact ? '' : 'lg:col-span-2'} p-5 bg-white border-slate-200 space-y-4`}>
@@ -573,6 +593,8 @@ export default function FeeCalculator({
             ))}
           </div>
         </Card>
+      )}
+      </>
       )}
 
       {/* Share Dialog */}

@@ -58,6 +58,8 @@ async def get_leads(
         query["stage"] = stage
     if assigned_to:
         query["assigned_to"] = assigned_to
+    if source:
+        query["source"] = source
     if current_user["role"] == "partner":
         query["assigned_to"] = current_user["id"]
     
