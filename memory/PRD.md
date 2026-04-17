@@ -3,12 +3,25 @@
 ## Original Problem Statement
 Multi-role immigration portal (LEAMSS) with React + FastAPI + MongoDB. Roles: Admin, Case Manager, Partner, Client.
 
-## Latest Changes (2026-04-17)
-- SVG flags via react-world-flags (replaced broken emoji flags)
-- Manrope + IBM Plex Sans typography for professional look
-- Better UI with hover effects, rounded corners, gradient hero
-- AI Verification system (Option B): Admin must verify before saving
-- Government forms removed from Client portal (CM shares directly)
+## Latest Feature: Deadline & SLA Tracker (2026-04-17)
+- Auto-detects document expiry from uploads (passport 10yr, IELTS 2yr, medical 1yr, PCC 1yr, etc.)
+- Manual deadlines: visa deadlines, processing SLAs, milestones, custom
+- Color-coded urgency: Red (expired/critical), Amber (urgent), Yellow (warning), Green (safe)
+- Filter pills: All/Expired/Critical/Urgent/Warning/Safe
+- Client portal: "Deadlines" tab - view all deadlines
+- CM Dashboard: "Deadlines & SLA" tab - view + create + delete deadlines
+- Admin Dashboard: DeadlineOverviewWidget on overview - shows top urgent alerts across all cases
+- Auto-notifications to client when CM creates deadline
+
+## Session Summary (2026-04-15 to 2026-04-17)
+- Step-wise Document Management System
+- Unified Client Document View
+- Smart Template AI (8 templates, 51 countries)
+- AI Workflow Builder (country->visa->generate->edit->save)
+- Government Forms (48 forms, 7 countries)
+- AI Verification System (Option B)
+- SVG Flags + UI Redesign
+- Deadline & SLA Tracker
 
 ## Test Credentials
 - Admin: admin@leamss.com / Admin@123
