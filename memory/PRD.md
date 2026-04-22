@@ -15,7 +15,26 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 8. **Client Intake Form Builder** - Product-specific, role-based (Client/CM/Both), Admin-managed
 9. **Automated Government Fee Calculator** (2026-04-17) - 20 countries, live INR conversion
 
-### Latest: Phase A Retouch + 3 Major Features (2026-04-22)
+### Latest: Dashboard UX Simplification + AI → Claude (2026-04-22 PM)
+**Problem solved**: User was overwhelmed with 20+ tabs in Admin, 8+ in Partner — "itna complicated kyu bana hai?"
+
+**Solution**: Action-first redesign WITHOUT deleting any feature
+- **NEW `PartnerHome.jsx`**: Home tab showing greeting + 4 pulsing action cards (partner_review / approved / new_leads / proposal_paid) + Quick access tiles + Recent PAs list
+- **NEW `AdminHome.jsx`**: Home tab showing greeting + 3 approval cards (1st approval, 2nd approval, unassigned cases) + Org snapshot + Quick access grid
+- **NEW `FunnelProgress.jsx`**: Reusable 5-step pipeline indicator (Created → Admin Approved → Proposal Sent → Main Fee Paid → Case Active) — inserted at top of every expanded PA card
+
+**Sidebar regroup (no deletions)**:
+- Partner: `Home` → `Daily Work` (PA, Leads, Tickets) / `Sales & Earnings` (Sales, Commission, Performance) / `Tools` (Fee Calc, Classic Dashboard)
+- Admin: `Home` + `Classic Dashboard` as first 2 items, all other 20+ tabs retained in existing groups
+- All previously-accessible tabs still navigable
+
+**AI switch**: GPT-5.2 → **Claude Sonnet 4.5** (`claude-sonnet-4-5-20250929` via Emergent LLM key)
+- Better warmth + immigration-domain empathy in proposal writing
+- Model changes in `/app/backend/routers/ai_proposal.py` lines 109 + 130
+
+**Tested**: iteration_79.json — 17/17 backend + frontend 100%, **0 regressions on any existing tab**. All user feature guarantees honoured.
+
+### Phase A Retouch + 3 Major Features (2026-04-22)
 **🔧 Critical Flow Fixes:**
 - **NEW stage `partner_review`** — Between client-submit and admin-queue. Client submit → Partner gets "Action needed" notification + pink pulsing badge → Partner reviews in expanded card → Partner forwards with remarks → Admin queue
 - **Partner card visibility** — Expanded card now shows 2 panels: "Client Documents" (file list + type badge) + "Client Activity" (timeline). Auto-loads on expand.
