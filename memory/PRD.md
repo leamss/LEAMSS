@@ -15,7 +15,29 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 8. **Client Intake Form Builder** - Product-specific, role-based (Client/CM/Both), Admin-managed
 9. **Automated Government Fee Calculator** (2026-04-17) - 20 countries, live INR conversion
 
-### Latest: Deep-Link Filtering + Fresh DB (2026-04-22 night)
+### Latest: 5 Critical UX Fixes (2026-04-22 late night)
+**User-reported issues:**
+1. Partner + Admin couldn't View/Download client-uploaded documents
+2. Admin 1st Approval tab didn't show approved/rejected history (only pending)
+3. Partner cards at `proposal_sent` stage had no "Waiting for Client Payment" visual cue
+4. Client saw blind "Pay" button without full proposal details + breakdown + consent
+5. After client pays, case went straight to admin — partner couldn't upload receipt/agreement/docs first
+
+**All 5 fixed:**
+- **Doc View/Download**: NEW `GET /api/pre-assessment/{pa_id}/document/{doc_id}/download` endpoint. Partner + Admin cards show "View" (opens new tab) + "Save" (download) buttons per doc.
+- **1st Approval history**: Admin's 1st Approval filter now includes approved/rejected/proposal_sent/etc items (visible history)
+- **Waiting banner**: `proposal_sent` cards now show pulsing amber "Waiting for Client Payment" banner with client name + fee amount. Stage label renamed "Waiting for Client Payment".
+- **Rich proposal + consent**: Client MiniPortal at `proposal_sent` now shows (a) AI proposal text, (b) Pricing breakdown (base, promo, discount, upsells), (c) Partner note, (d) mandatory consent checkbox with SLA + no-misleading-info language, (e) "I Agree — Unlock Payment" gate button, (f) only after consent → Pay button unlocked. Backend enforces: `mock-pay-proposal` returns 400 if `proposal_consent_given` false.
+- **NEW stage `awaiting_final_approval`**: Inserted between `proposal_paid` and `case_created`. Flow: Client pays → partner notified → partner uploads payment receipt + signed agreement + basic docs → Partner "Submit to Admin for Final Approval" → stage becomes `awaiting_final_approval` → admin queue shows it → admin activates case + assigns CM.
+
+**NEW endpoints:**
+- `GET /api/pre-assessment/{pa_id}/document/{doc_id}/download` (all roles)
+- `POST /api/pre-assess-portal/client/proposal-consent/{pa_id}` (client-only)
+- `POST /api/pre-assess-portal/partner/submit-final/{pa_id}` (partner/admin)
+
+**Tested**: iteration_81.json — 28/28 backend + frontend 90%+ verified. 0 issues.
+
+### Deep-Link Filtering + Fresh DB (2026-04-22 night)
 **User feedback**: "Admin Home mein '1st Approval' click kiya tho pura Pre-Assessments tab open ho raha — sirf wohi cases dikhne chahiye. Plus saare test data delete karo, fresh se test karunga."
 
 **Solution 1 — DB Cleanup**:
