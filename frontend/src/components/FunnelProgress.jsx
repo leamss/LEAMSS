@@ -2,10 +2,10 @@ import { Check } from 'lucide-react';
 
 // 5-step funnel visible everywhere
 export const FUNNEL_STEPS = [
-  { key: 'created', label: 'PA Created', match: ['new', 'payment_pending', 'payment_received', 'partner_review', 'documents_submitted', 'under_review', 'approved', 'proposal_sent', 'proposal_paid', 'case_created'] },
-  { key: 'approved', label: 'Admin Approved', match: ['approved', 'proposal_sent', 'proposal_paid', 'case_created'] },
-  { key: 'proposal', label: 'Proposal Sent', match: ['proposal_sent', 'proposal_paid', 'case_created'] },
-  { key: 'paid', label: 'Main Fee Paid', match: ['proposal_paid', 'case_created'] },
+  { key: 'created', label: 'PA Created', match: ['new', 'payment_pending', 'payment_received', 'partner_review', 'documents_submitted', 'under_review', 'approved', 'proposal_sent', 'proposal_paid', 'awaiting_final_approval', 'case_created'] },
+  { key: 'approved', label: 'Admin Approved', match: ['approved', 'proposal_sent', 'proposal_paid', 'awaiting_final_approval', 'case_created'] },
+  { key: 'proposal', label: 'Proposal Sent', match: ['proposal_sent', 'proposal_paid', 'awaiting_final_approval', 'case_created'] },
+  { key: 'paid', label: 'Main Fee Paid', match: ['proposal_paid', 'awaiting_final_approval', 'case_created'] },
   { key: 'case', label: 'Case Active', match: ['case_created'] },
 ];
 

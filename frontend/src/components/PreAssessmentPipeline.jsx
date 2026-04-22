@@ -9,7 +9,7 @@ import {
   Plus, Send, CheckCircle, Clock, XCircle, FileText, Upload, 
   CreditCard, ArrowRight, Eye, ChevronDown, ChevronUp, Search,
   User, Globe, Briefcase, GraduationCap, Phone, Mail, IndianRupee,
-  AlertTriangle, RefreshCw, Filter
+  AlertTriangle, RefreshCw, Filter, Download, Bell
 } from 'lucide-react';
 import FunnelProgress from '@/components/FunnelProgress';
 
@@ -24,8 +24,9 @@ const STAGE_CONFIG = {
   under_review: { label: 'Under Review', color: 'bg-purple-500', textColor: 'text-purple-700', bgColor: 'bg-purple-50', icon: Eye },
   approved: { label: 'Approved', color: 'bg-emerald-500', textColor: 'text-emerald-700', bgColor: 'bg-emerald-50', icon: CheckCircle },
   rejected: { label: 'Rejected', color: 'bg-red-500', textColor: 'text-red-700', bgColor: 'bg-red-50', icon: XCircle },
-  proposal_sent: { label: 'Proposal Sent', color: 'bg-teal-500', textColor: 'text-teal-700', bgColor: 'bg-teal-50', icon: Send },
-  proposal_paid: { label: 'Proposal Paid', color: 'bg-green-500', textColor: 'text-green-700', bgColor: 'bg-green-50', icon: CheckCircle },
+  proposal_sent: { label: 'Waiting for Client Payment', color: 'bg-amber-500', textColor: 'text-amber-700', bgColor: 'bg-amber-50', icon: Clock },
+  proposal_paid: { label: 'Action: Upload Receipt + Agreement', color: 'bg-[#f7620b]', textColor: 'text-orange-700', bgColor: 'bg-orange-50', icon: Upload },
+  awaiting_final_approval: { label: 'Awaiting Admin Final Approval', color: 'bg-indigo-600', textColor: 'text-indigo-700', bgColor: 'bg-indigo-50', icon: Clock },
   case_created: { label: 'Case Created', color: 'bg-green-600', textColor: 'text-green-800', bgColor: 'bg-green-50', icon: CheckCircle },
   refund_initiated: { label: 'Refund Initiated', color: 'bg-orange-500', textColor: 'text-orange-700', bgColor: 'bg-orange-50', icon: RefreshCw },
   refunded: { label: 'Refunded', color: 'bg-gray-500', textColor: 'text-gray-700', bgColor: 'bg-gray-50', icon: RefreshCw },
@@ -62,6 +63,8 @@ const PreAssessmentPipeline = ({ initialFilter = null }) => {
   const [forwardRemarks, setForwardRemarks] = useState('');
   const [aiGenerating, setAiGenerating] = useState(false);
   const [validatingPromo, setValidatingPromo] = useState(false);
+  const [finalSubmittingId, setFinalSubmittingId] = useState(null);
+  const [finalNotes, setFinalNotes] = useState('');
 
   const getAuthHeader = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
 
@@ -215,6 +218,23 @@ const PreAssessmentPipeline = ({ initialFilter = null }) => {
     loadDocsAndActivity(paId);
   };
 
+  const openFinalForm = (paId) => {
+    setFinalSubmittingId(paId);
+    setFinalNotes('');
+    loadDocsAndActivity(paId);
+  };
+
+  const handleSubmitFinal = async (paId) => {
+    try {
+      await axios.post(`${API}/pre-assess-portal/partner/submit-final/${paId}`,
+        { notes: finalNotes }, getAuthHeader());
+      toast.success('Submitted to Admin for Final Approval');
+      setFinalSubmittingId(null);
+      setFinalNotes('');
+      loadData();
+    } catch (e) { toast.error(e.response?.data?.detail || 'Failed'); }
+  };
+
   const handleForwardToAdmin = async (paId) => {
     try {
       await axios.post(`${API}/pre-assess-portal/partner/forward-to-admin/${paId}`,
@@ -293,7 +313,9 @@ const PreAssessmentPipeline = ({ initialFilter = null }) => {
       case 'payment_pending': return { label: 'Confirm Payment Received', action: () => handleConfirmPayment(pa.id), color: 'bg-blue-500 hover:bg-blue-600' };
       case 'payment_received': return { label: 'Waiting for client to upload', action: null, color: 'bg-slate-400 cursor-not-allowed' };
       case 'partner_review': return { label: 'Review Docs & Forward to Admin', action: () => openForwardForm(pa.id), color: 'bg-pink-500 hover:bg-pink-600' };
+      case 'proposal_sent': return { label: 'Waiting for client payment…', action: null, color: 'bg-slate-400 cursor-not-allowed' };
       case 'approved': return { label: 'Send Proposal to Client', action: () => openProposalForm(pa), color: 'bg-emerald-500 hover:bg-emerald-600' };
+      case 'proposal_paid': return { label: 'Upload Receipt + Submit Final', action: () => openFinalForm(pa.id), color: 'bg-[#f7620b] hover:bg-[#e55a09]' };
       default: return null;
     }
   };
@@ -540,13 +562,46 @@ const PreAssessmentPipeline = ({ initialFilter = null }) => {
                             <p className="text-xs text-slate-400 italic">No documents yet</p>
                           ) : (
                             <div className="space-y-1.5">
-                              {paDocs[pa.id].map(d => (
-                                <div key={d.id} className="flex items-center gap-2 text-xs bg-white rounded px-2 py-1.5 border border-slate-100">
-                                  <FileText className="h-3.5 w-3.5 text-blue-500 shrink-0" />
-                                  <span className="font-medium text-slate-700 truncate flex-1">{d.file_name}</span>
-                                  <Badge variant="outline" className="text-[10px] capitalize">{d.document_type}</Badge>
-                                </div>
-                              ))}
+                              {paDocs[pa.id].map(d => {
+                                const dlUrl = `${API}/pre-assessment/${pa.id}/document/${d.id}/download`;
+                                const tok = localStorage.getItem('token');
+                                const handleView = async () => {
+                                  try {
+                                    const r = await fetch(dlUrl, { headers: { Authorization: `Bearer ${tok}` } });
+                                    if (!r.ok) throw new Error('Fetch failed');
+                                    const blob = await r.blob();
+                                    const url = URL.createObjectURL(blob);
+                                    window.open(url, '_blank');
+                                  } catch (err) { toast.error('View failed'); }
+                                };
+                                const handleDownload = async () => {
+                                  try {
+                                    const r = await fetch(dlUrl, { headers: { Authorization: `Bearer ${tok}` } });
+                                    if (!r.ok) throw new Error('Fetch failed');
+                                    const blob = await r.blob();
+                                    const url = URL.createObjectURL(blob);
+                                    const a = document.createElement('a');
+                                    a.href = url; a.download = d.file_name;
+                                    document.body.appendChild(a); a.click(); a.remove();
+                                    URL.revokeObjectURL(url);
+                                  } catch (err) { toast.error('Download failed'); }
+                                };
+                                return (
+                                  <div key={d.id} className="flex items-center gap-2 text-xs bg-white rounded px-2 py-1.5 border border-slate-100">
+                                    <FileText className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                                    <div className="flex-1 min-w-0">
+                                      <p className="font-medium text-slate-700 truncate">{d.file_name}</p>
+                                      <p className="text-[10px] text-slate-400 capitalize">{d.document_type}</p>
+                                    </div>
+                                    <Button size="sm" variant="outline" onClick={handleView} className="h-6 text-[11px] px-2" data-testid={`view-doc-${d.id}`}>
+                                      <Eye className="h-3 w-3 mr-0.5" /> View
+                                    </Button>
+                                    <Button size="sm" variant="outline" onClick={handleDownload} className="h-6 text-[11px] px-2" data-testid={`download-doc-${d.id}`}>
+                                      <Download className="h-3 w-3 mr-0.5" /> Save
+                                    </Button>
+                                  </div>
+                                );
+                              })}
                             </div>
                           )}
                         </div>
@@ -566,6 +621,57 @@ const PreAssessmentPipeline = ({ initialFilter = null }) => {
                               ))}
                             </div>
                           )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Waiting banner for proposal_sent stage */}
+                    {pa.stage === 'proposal_sent' && (
+                      <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-lg p-4 flex items-center gap-3 animate-pulse">
+                        <div className="h-10 w-10 bg-amber-500 rounded-full flex items-center justify-center shrink-0">
+                          <Bell className="h-5 w-5 text-white" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-semibold text-amber-900">Waiting for Client Payment</p>
+                          <p className="text-xs text-amber-700 mt-0.5">Proposal of ₹{(pa.proposal_fee || 0).toLocaleString('en-IN')} sent to {pa.client_name}. Notify them via WhatsApp/Email to speed things up.</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Final-Submit UI (proposal_paid → awaiting_final_approval) */}
+                    {finalSubmittingId === pa.id && (
+                      <div className="bg-orange-50 rounded-lg p-4 border border-orange-200">
+                        <p className="text-sm font-semibold text-orange-900 mb-2 flex items-center gap-2">
+                          <Upload className="h-4 w-4" /> Upload Receipt / Agreement / Basic Docs
+                        </p>
+                        <p className="text-xs text-orange-700 mb-3">Client paid ₹{(pa.proposal_fee || 0).toLocaleString('en-IN')}. Upload payment receipt + signed agreement + any basic docs, then submit to Admin for final approval.</p>
+                        <div className="flex items-center gap-3 mb-3">
+                          <select id={`finalDocType-${pa.id}`} className="border border-orange-200 rounded-md px-3 py-2 text-sm bg-white">
+                            <option value="receipt">Payment Receipt</option>
+                            <option value="agreement">Signed Agreement</option>
+                            <option value="passport">Passport</option>
+                            <option value="other">Other Basic Doc</option>
+                          </select>
+                          <Input type="file" className="flex-1"
+                            onChange={async (e) => {
+                              const file = e.target.files[0];
+                              if (file) {
+                                const docType = document.getElementById(`finalDocType-${pa.id}`).value;
+                                await handleUploadDoc(pa.id, file, docType);
+                                await loadDocsAndActivity(pa.id);
+                              }
+                            }} data-testid="final-doc-upload" />
+                        </div>
+                        <label className="text-xs font-medium text-slate-600 block mb-1">Notes for admin (optional)</label>
+                        <textarea value={finalNotes} onChange={e => setFinalNotes(e.target.value)}
+                          className="w-full border rounded-md px-3 py-2 text-sm h-16"
+                          placeholder="e.g. All docs verified. Client ready for case activation." />
+                        <div className="flex justify-end gap-2 mt-3">
+                          <Button variant="outline" size="sm" onClick={() => setFinalSubmittingId(null)}>Cancel</Button>
+                          <Button size="sm" onClick={() => handleSubmitFinal(pa.id)}
+                            className="bg-[#f7620b] hover:bg-[#e55a09] text-white" data-testid="confirm-submit-final">
+                            <Send className="h-4 w-4 mr-1" /> Submit to Admin for Final Approval
+                          </Button>
                         </div>
                       </div>
                     )}
@@ -706,7 +812,7 @@ const PreAssessmentPipeline = ({ initialFilter = null }) => {
                     })()}
 
                     {/* Action Buttons — always show Copy Link + Preview as Client, show nextAction if exists */}
-                    {showProposal !== pa.id && forwardingId !== pa.id && (
+                    {showProposal !== pa.id && forwardingId !== pa.id && finalSubmittingId !== pa.id && (
                       <div className="flex justify-end gap-2 flex-wrap">
                         <Button variant="outline" size="sm" onClick={() => handleCopyPublicLink(pa.id)} data-testid={`copy-link-${pa.id}`} title="Copy public payment link — share via WhatsApp/Email">
                           <Send className="h-4 w-4 mr-1" /> Copy Public Link

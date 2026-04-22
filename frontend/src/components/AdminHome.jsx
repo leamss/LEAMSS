@@ -56,7 +56,7 @@ export default function AdminHome({ user, onNavigate }) {
         const cases = casesRes.data || [];
         const users = usersRes.data || [];
         const first_approval_pending = queue.filter(p => ['documents_submitted', 'under_review'].includes(p.stage)).length;
-        const second_approval_pending = queue.filter(p => p.stage === 'proposal_paid').length;
+        const second_approval_pending = queue.filter(p => p.stage === 'awaiting_final_approval').length;
         const unassigned_cases = cases.filter(c => !c.case_manager_id).length;
         const active_cases = cases.filter(c => c.status === 'active').length;
         const total_partners = users.filter(u => u.role === 'partner').length;

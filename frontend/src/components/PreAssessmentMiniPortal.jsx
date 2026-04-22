@@ -25,11 +25,11 @@ const DOC_TYPES = [
 
 // 6 pipeline stages the client sees (maps to backend stages)
 const STAGE_STEPS = [
-  { key: 'paid', label: 'Payment Done', stages: ['payment_received', 'partner_review', 'documents_submitted', 'under_review', 'approved', 'proposal_sent', 'proposal_paid', 'case_created'] },
-  { key: 'uploading', label: 'Upload Documents', stages: ['partner_review', 'documents_submitted', 'under_review', 'approved', 'proposal_sent', 'proposal_paid', 'case_created'] },
-  { key: 'reviewing', label: 'Under Review', stages: ['documents_submitted', 'under_review', 'approved', 'proposal_sent', 'proposal_paid', 'case_created'] },
-  { key: 'approved', label: 'Approved', stages: ['approved', 'proposal_sent', 'proposal_paid', 'case_created'] },
-  { key: 'proposal', label: 'Proposal & Signing', stages: ['proposal_sent', 'proposal_paid', 'case_created'] },
+  { key: 'paid', label: 'Payment Done', stages: ['payment_received', 'partner_review', 'documents_submitted', 'under_review', 'approved', 'proposal_sent', 'proposal_paid', 'awaiting_final_approval', 'case_created'] },
+  { key: 'uploading', label: 'Upload Documents', stages: ['partner_review', 'documents_submitted', 'under_review', 'approved', 'proposal_sent', 'proposal_paid', 'awaiting_final_approval', 'case_created'] },
+  { key: 'reviewing', label: 'Under Review', stages: ['documents_submitted', 'under_review', 'approved', 'proposal_sent', 'proposal_paid', 'awaiting_final_approval', 'case_created'] },
+  { key: 'approved', label: 'Approved', stages: ['approved', 'proposal_sent', 'proposal_paid', 'awaiting_final_approval', 'case_created'] },
+  { key: 'proposal', label: 'Proposal & Signing', stages: ['proposal_sent', 'proposal_paid', 'awaiting_final_approval', 'case_created'] },
   { key: 'case', label: 'Case Active', stages: ['case_created'] },
 ];
 
@@ -43,6 +43,8 @@ export default function PreAssessmentMiniPortal({ pa, onRefresh, onOpenScanner }
   const [submitting, setSubmitting] = useState(false);
   const [paying, setPaying] = useState(false);
   const [accepting, setAccepting] = useState(false);
+  const [consentChecked, setConsentChecked] = useState(false);
+  const [givingConsent, setGivingConsent] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -105,6 +107,17 @@ export default function PreAssessmentMiniPortal({ pa, onRefresh, onOpenScanner }
     } finally {
       setAccepting(false);
     }
+  };
+
+  const handleGiveConsent = async () => {
+    setGivingConsent(true);
+    try {
+      await axios.post(`${API}/pre-assess-portal/client/proposal-consent/${pa.id}`, {}, getAuth());
+      toast.success('Consent recorded — you can now proceed to pay.');
+      await load();
+      onRefresh?.();
+    } catch (e) { toast.error(e?.response?.data?.detail || 'Failed'); }
+    setGivingConsent(false);
   };
 
   const handlePayProposal = async () => {
@@ -310,45 +323,116 @@ export default function PreAssessmentMiniPortal({ pa, onRefresh, onOpenScanner }
         </Card>
       )}
 
-      {/* STAGE: Proposal received — accept + pay */}
+      {/* STAGE: Proposal received — full details + consent + pay */}
       {stage === 'proposal_sent' && (
-        <Card className="p-6 bg-gradient-to-br from-[#f7620b]/5 to-[#2a777a]/5 border-[#2a777a]/20">
+        <Card className="p-6 bg-gradient-to-br from-[#f7620b]/5 to-[#2a777a]/5 border-[#2a777a]/20 space-y-5">
           <div className="flex items-start gap-4">
             <div className="w-12 h-12 bg-[#f7620b] rounded-full flex items-center justify-center shrink-0">
               <FileText className="h-6 w-6 text-white" />
             </div>
             <div className="flex-1">
-              <Badge className="bg-[#f7620b] text-white mb-2">Proposal Ready</Badge>
-              <h3 className="font-bold text-slate-800 text-lg">Your Service Proposal</h3>
-              <div className="mt-3 bg-white rounded-lg p-4 border border-slate-200">
-                <div className="flex justify-between text-sm py-1.5">
-                  <span className="text-slate-500">Service fee</span>
-                  <span className="font-bold text-2xl text-slate-800">₹{(pa.proposal_fee || 0).toLocaleString('en-IN')}</span>
-                </div>
-                {pa.notes && <p className="text-xs text-slate-600 mt-2 italic">"{pa.notes}"</p>}
-              </div>
-              <div className="mt-4 flex gap-2 flex-wrap">
-                {pa.proposal_status !== 'accepted' ? (
-                  <Button onClick={handleAccept} disabled={accepting}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white" data-testid="mini-accept-proposal">
-                    {accepting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
-                    Accept Proposal
-                  </Button>
-                ) : (
-                  <Button onClick={handlePayProposal} disabled={paying}
-                    className="bg-[#f7620b] hover:bg-[#e55a09] text-white" data-testid="mini-pay-proposal">
-                    {paying ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CreditCard className="h-4 w-4 mr-2" />}
-                    Pay ₹{(pa.proposal_fee || 0).toLocaleString('en-IN')} (MOCK)
-                  </Button>
-                )}
-              </div>
-              <p className="text-[10px] text-slate-400 mt-2">🔒 MOCK payment mode. Real Razorpay/Stripe coming soon.</p>
+              <Badge className="bg-[#f7620b] text-white mb-2">Service Proposal — Please Review Carefully</Badge>
+              <h3 className="font-bold text-slate-800 text-xl">Your Personalised Proposal</h3>
+              <p className="text-xs text-slate-500 mt-1">Please review the proposal, pricing breakdown and terms before giving consent to pay.</p>
             </div>
           </div>
+
+          {/* AI / partner-written proposal text */}
+          {pa.proposal_ai_text && (
+            <div className="bg-white rounded-lg border border-slate-200 p-4">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Proposal Details</p>
+              <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{pa.proposal_ai_text}</p>
+            </div>
+          )}
+
+          {/* Pricing breakdown */}
+          <div className="bg-white rounded-lg border border-slate-200 p-4">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Pricing Breakdown</p>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-slate-600">Base Service Fee</span>
+                <span className="font-semibold text-slate-800">₹{(pa.proposal_base_fee ?? pa.proposal_fee ?? 0).toLocaleString('en-IN')}</span>
+              </div>
+              {(pa.proposal_promo_discount || 0) > 0 && (
+                <div className="flex justify-between text-emerald-700">
+                  <span>Promo applied{pa.proposal_promo_code ? ` (${pa.proposal_promo_code})` : ''}</span>
+                  <span>-₹{(pa.proposal_promo_discount || 0).toLocaleString('en-IN')}</span>
+                </div>
+              )}
+              {(pa.proposal_additional_discount || 0) > 0 && (
+                <div className="flex justify-between text-emerald-700">
+                  <span>Additional Discount</span>
+                  <span>-₹{(pa.proposal_additional_discount || 0).toLocaleString('en-IN')}</span>
+                </div>
+              )}
+              {(pa.proposal_upsells || []).length > 0 && (
+                <div className="border-t border-slate-100 pt-2 mt-2">
+                  <p className="text-xs text-slate-500 mb-1.5">Add-on Services:</p>
+                  {(pa.proposal_upsells || []).map(u => (
+                    <div key={u.id} className="flex justify-between text-[#f7620b]">
+                      <span>+ {u.name}</span>
+                      <span>+₹{(u.amount || 0).toLocaleString('en-IN')}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="border-t-2 border-slate-200 pt-2 mt-2 flex justify-between items-center">
+                <span className="font-bold text-slate-800">Total Payable</span>
+                <span className="text-2xl font-bold text-[#2a777a]" data-testid="client-total">₹{(pa.proposal_fee || 0).toLocaleString('en-IN')}</span>
+              </div>
+            </div>
+            {pa.proposal_notes && (
+              <div className="mt-3 pt-3 border-t border-slate-100">
+                <p className="text-xs font-semibold text-slate-500 mb-1">Partner Note:</p>
+                <p className="text-xs text-slate-600 italic">"{pa.proposal_notes}"</p>
+              </div>
+            )}
+          </div>
+
+          {/* Consent box — only after consent given → show Pay button */}
+          {!pa.proposal_consent_given ? (
+            <div className="bg-amber-50 border-2 border-amber-200 rounded-lg p-4">
+              <div className="flex items-start gap-3 mb-3">
+                <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+                <div>
+                  <h4 className="font-bold text-amber-900">Before You Pay — Confirmation Required</h4>
+                  <p className="text-xs text-amber-800 mt-1">Please read and confirm the following before proceeding with payment:</p>
+                </div>
+              </div>
+              <label className="flex items-start gap-2 cursor-pointer select-none">
+                <input type="checkbox" checked={consentChecked} onChange={e => setConsentChecked(e.target.checked)}
+                  className="mt-1 h-4 w-4 text-[#2a777a]" data-testid="consent-checkbox" />
+                <span className="text-xs text-slate-700 leading-relaxed">
+                  I confirm that I have <strong>read and understood</strong> the proposal details, pricing breakdown, and add-ons listed above.
+                  I have had a <strong>final discussion with my partner</strong> and clarified my doubts.
+                  I agree to the <strong>Service Level Agreement</strong> and acknowledge that the partner has NOT provided any misleading or incorrect information.
+                  I voluntarily proceed with the payment of <strong>₹{(pa.proposal_fee || 0).toLocaleString('en-IN')}</strong> for the services described.
+                </span>
+              </label>
+              <Button onClick={handleGiveConsent} disabled={!consentChecked || givingConsent}
+                className="w-full mt-4 bg-amber-600 hover:bg-amber-700 text-white" data-testid="submit-consent">
+                {givingConsent ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
+                I Agree — Unlock Payment
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                <p className="text-xs text-emerald-800">Consent recorded at {new Date(pa.proposal_consent_at).toLocaleString()}. You can now proceed to pay.</p>
+              </div>
+              <Button onClick={handlePayProposal} disabled={paying}
+                className="w-full bg-[#f7620b] hover:bg-[#e55a09] text-white text-base py-6" data-testid="mini-pay-proposal">
+                {paying ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <CreditCard className="h-5 w-5 mr-2" />}
+                Pay ₹{(pa.proposal_fee || 0).toLocaleString('en-IN')} (MOCK Payment)
+              </Button>
+              <p className="text-[10px] text-slate-400 text-center">🔒 MOCK payment mode. Real Razorpay/Stripe coming soon.</p>
+            </div>
+          )}
         </Card>
       )}
 
-      {/* STAGE: proposal_paid — awaiting admin final approval */}
+      {/* STAGE: proposal_paid — awaiting partner to upload receipt */}
       {stage === 'proposal_paid' && (
         <Card className="p-6 bg-gradient-to-br from-blue-50 to-white border-blue-200">
           <div className="flex items-start gap-4">
@@ -356,9 +440,26 @@ export default function PreAssessmentMiniPortal({ pa, onRefresh, onOpenScanner }
               <Clock className="h-6 w-6 text-blue-600" />
             </div>
             <div>
-              <h3 className="font-bold text-slate-800 text-lg">Payment Received — Activating Your Case</h3>
+              <h3 className="font-bold text-slate-800 text-lg">Payment Received 🎉</h3>
               <p className="text-sm text-slate-600 mt-1">
-                Thank you! Your main fee payment has been received. Our admin team is creating your case now and will assign a dedicated case manager shortly.
+                Thank you! Your partner is preparing the payment receipt, signed agreement, and basic onboarding documents. Once submitted, our admin team will activate your case.
+              </p>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* STAGE: awaiting_final_approval — admin working on it */}
+      {stage === 'awaiting_final_approval' && (
+        <Card className="p-6 bg-gradient-to-br from-indigo-50 to-white border-indigo-200">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center shrink-0">
+              <Clock className="h-6 w-6 text-indigo-600" />
+            </div>
+            <div>
+              <h3 className="font-bold text-slate-800 text-lg">Activating Your Case</h3>
+              <p className="text-sm text-slate-600 mt-1">
+                All documents received! Our admin team is creating your case file and will assign a dedicated case manager within 24 hours.
               </p>
             </div>
           </div>

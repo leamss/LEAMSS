@@ -494,7 +494,7 @@ async def client_portal_access(pa_id: str, current_user: dict = Depends(get_curr
         access_level = "mini"  # can upload docs only (view-only after submission)
     elif stage in ("approved", "proposal_sent"):
         access_level = "expanded"  # can explore tools, proposal, pay service fee
-    elif stage in ("proposal_paid", "case_created"):
+    elif stage in ("proposal_paid", "awaiting_final_approval", "case_created"):
         access_level = "full"  # full portal
 
     return {
@@ -530,9 +530,30 @@ async def client_accept_proposal(pa_id: str, current_user: dict = Depends(get_cu
     return {"ok": True, "proposal_status": "accepted"}
 
 
+@router.post("/client/proposal-consent/{pa_id}")
+async def client_proposal_consent(pa_id: str, current_user: dict = Depends(get_current_user)):
+    """Client confirms they've reviewed the proposal + T&C before payment. Records timestamp."""
+    if current_user.get("role") != "client":
+        raise HTTPException(status_code=403, detail="Client only")
+    pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
+    if not pa or (pa.get("client_email", "").lower() != current_user.get("email", "").lower()
+                  and pa.get("client_user_id") != current_user["id"]):
+        raise HTTPException(status_code=404, detail="Not found")
+    if pa.get("stage") != "proposal_sent":
+        raise HTTPException(status_code=400, detail=f"Cannot give consent at stage: {pa.get('stage')}")
+
+    await pre_assessments_col.update_one({"id": pa_id}, {"$set": {
+        "proposal_consent_given": True,
+        "proposal_consent_at": _now(),
+        "updated_at": _now(),
+    }})
+    await _log(current_user["id"], pa_id, "proposal_consent_given", {})
+    return {"ok": True, "consent_given": True}
+
+
 @router.post("/client/mock-pay-proposal/{pa_id}")
 async def client_mock_pay_proposal(pa_id: str, current_user: dict = Depends(get_current_user)):
-    """MOCK main-fee payment. On success, marks proposal_paid (awaits admin 2nd approval for case creation)."""
+    """MOCK main-fee payment. On success, marks proposal_paid (awaits partner to upload receipt + submit final)."""
     if current_user.get("role") != "client":
         raise HTTPException(status_code=403, detail="Client only")
     pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
@@ -541,6 +562,8 @@ async def client_mock_pay_proposal(pa_id: str, current_user: dict = Depends(get_
         raise HTTPException(status_code=404, detail="Not found")
     if pa.get("stage") != "proposal_sent":
         raise HTTPException(status_code=400, detail=f"Cannot pay at stage: {pa.get('stage')}")
+    if not pa.get("proposal_consent_given"):
+        raise HTTPException(status_code=400, detail="Please confirm the proposal consent before paying")
 
     await pre_assessments_col.update_one({"id": pa_id}, {"$set": {
         "stage": "proposal_paid",
@@ -550,31 +573,70 @@ async def client_mock_pay_proposal(pa_id: str, current_user: dict = Depends(get_
         "updated_at": _now(),
     }})
 
-    # Notify admins for 2nd approval (case creation)
-    admins = await users_col.find({"role": "admin", "status": "active"}, {"_id": 0, "id": 1}).to_list(50)
-    for admin in admins:
-        await notifications_col.insert_one({
-            "id": str(uuid.uuid4()),
-            "user_id": admin["id"],
-            "title": "Main fee received — needs case creation",
-            "message": f"{pa.get('client_name')} paid ₹{pa.get('proposal_fee', 0):,} main fee. Approve to create case.",
-            "type": "main_fee_paid", "read": False,
-            "link": "/admin?tab=pre-assessments",
-            "created_at": _now(),
-        })
-    # Notify partner
+    # Notify partner — PARTNER ACTION NEEDED (upload receipt + agreement)
     if pa.get("partner_id"):
         await notifications_col.insert_one({
             "id": str(uuid.uuid4()),
             "user_id": pa["partner_id"],
-            "title": "Client paid main fee",
-            "message": f"{pa.get('client_name')} paid ₹{pa.get('proposal_fee', 0):,}. Awaiting admin approval to create case.",
-            "type": "main_fee_paid", "read": False,
+            "title": "Main fee received — upload receipt & agreement",
+            "message": f"{pa.get('client_name')} paid ₹{pa.get('proposal_fee', 0):,}. Upload payment receipt + agreement + any basic docs, then submit to Admin for final approval.",
+            "type": "main_fee_paid_to_partner", "read": False,
+            "link": "/partner?tab=pre-assessment",
             "created_at": _now(),
         })
 
     await _log(current_user["id"], pa_id, "main_fee_paid", {"amount": pa.get("proposal_fee", 0)})
     return {"ok": True, "stage": "proposal_paid"}
+
+
+# ============== PARTNER: SUBMIT FINAL DOCS → ADMIN 2ND APPROVAL ==============
+class PartnerSubmitFinalRequest(BaseModel):
+    notes: Optional[str] = ""
+
+
+@router.post("/partner/submit-final/{pa_id}")
+async def partner_submit_final(pa_id: str, data: PartnerSubmitFinalRequest, current_user: dict = Depends(get_current_user)):
+    """Partner uploads payment receipt/agreement (via regular document upload endpoint), then
+    submits the PA to Admin for final 2nd approval. Transitions proposal_paid → awaiting_final_approval."""
+    if current_user.get("role") not in ("partner", "admin"):
+        raise HTTPException(status_code=403, detail="Partners or admins only")
+
+    pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
+    if not pa:
+        raise HTTPException(status_code=404, detail="Pre-assessment not found")
+    if current_user.get("role") == "partner" and pa.get("partner_id") != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Not your pre-assessment")
+    if pa.get("stage") != "proposal_paid":
+        raise HTTPException(status_code=400, detail=f"Cannot submit-final at stage: {pa.get('stage')}")
+
+    # Require at least 1 doc (receipt / agreement)
+    final_docs_count = await db["pre_assessment_documents"].count_documents({"pre_assessment_id": pa_id})
+    # Count includes earlier client docs — that's OK. We just ensure something exists.
+    if final_docs_count == 0:
+        raise HTTPException(status_code=400, detail="Upload receipt/agreement before submitting")
+
+    await pre_assessments_col.update_one({"id": pa_id}, {"$set": {
+        "stage": "awaiting_final_approval",
+        "partner_final_notes": data.notes or "",
+        "partner_final_submitted_at": _now(),
+        "updated_at": _now(),
+    }})
+
+    # Notify admins
+    admins = await users_col.find({"role": "admin", "status": "active"}, {"_id": 0, "id": 1}).to_list(50)
+    for admin in admins:
+        await notifications_col.insert_one({
+            "id": str(uuid.uuid4()),
+            "user_id": admin["id"],
+            "title": "Ready for final approval — create case",
+            "message": f"{pa.get('client_name')} main fee paid + partner uploaded final docs. Activate case and assign CM.",
+            "type": "awaiting_final_approval", "read": False,
+            "link": "/admin?tab=pre-assessments",
+            "created_at": _now(),
+        })
+
+    await _log(current_user["id"], pa_id, "partner_submitted_final", {"notes": data.notes or ""})
+    return {"ok": True, "stage": "awaiting_final_approval"}
 
 
 # ======================== ADMIN: 2ND APPROVAL → CREATE CASE ========================
@@ -603,7 +665,7 @@ async def admin_approve_final(pa_id: str, data: Optional[AdminApproveFinalReques
     pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
     if not pa:
         raise HTTPException(status_code=404, detail="Pre-assessment not found")
-    if pa.get("stage") != "proposal_paid":
+    if pa.get("stage") not in ("proposal_paid", "awaiting_final_approval"):
         raise HTTPException(status_code=400, detail=f"Cannot finalize at stage: {pa.get('stage')}")
 
     cases_col = db["cases"]

@@ -76,8 +76,12 @@ const PreAssessmentQueue = ({ initialFilter = null }) => {
     } catch (e) { toast.error(e.response?.data?.detail || 'Failed'); }
   };
 
-  const underReviewItems = queue.filter(p => ['under_review', 'documents_submitted'].includes(p.stage));
-  const proposalPaidItems = queue.filter(p => p.stage === 'proposal_paid');
+  const underReviewItems = [
+    ...queue.filter(p => ['under_review', 'documents_submitted'].includes(p.stage)),
+    // include history (admin's past decisions) so approved items remain visible in this tab
+    ...allAssessments.filter(p => ['approved', 'rejected', 'proposal_sent', 'proposal_paid', 'awaiting_final_approval', 'case_created'].includes(p.stage)),
+  ];
+  const proposalPaidItems = queue.filter(p => ['proposal_paid', 'awaiting_final_approval'].includes(p.stage));
   const items = (
     activeView === 'queue' ? queue :
     activeView === 'under_review' ? underReviewItems :
@@ -157,6 +161,8 @@ const PreAssessmentQueue = ({ initialFilter = null }) => {
               rejected: 'border-l-red-500 bg-red-50/30',
               proposal_sent: 'border-l-teal-500 bg-teal-50/30',
               proposal_paid: 'border-l-[#f7620b] bg-orange-50/30',
+              awaiting_final_approval: 'border-l-indigo-600 bg-indigo-50/30',
+              case_created: 'border-l-green-600 bg-green-50/30',
             };
 
             return (
@@ -182,6 +188,8 @@ const PreAssessmentQueue = ({ initialFilter = null }) => {
                       pa.stage === 'rejected' ? 'bg-red-100 text-red-700' :
                       pa.stage === 'proposal_sent' ? 'bg-teal-100 text-teal-700' :
                       pa.stage === 'proposal_paid' ? 'bg-orange-100 text-orange-700' :
+                      pa.stage === 'awaiting_final_approval' ? 'bg-indigo-100 text-indigo-700' :
+                      pa.stage === 'case_created' ? 'bg-green-100 text-green-700' :
                       'bg-slate-100 text-slate-700'
                     }>{pa.stage?.replace(/_/g, ' ').toUpperCase()}</Badge>
                     {pa.documents?.length > 0 && (
@@ -222,20 +230,51 @@ const PreAssessmentQueue = ({ initialFilter = null }) => {
                       </div>
                     )}
 
-                    {/* Documents List */}
+                    {/* Documents List with View/Download */}
                     {pa.documents?.length > 0 && (
                       <div>
-                        <p className="text-sm font-semibold text-slate-700 mb-2">Submitted Documents:</p>
+                        <p className="text-sm font-semibold text-slate-700 mb-2">Submitted Documents ({pa.documents.length}):</p>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                          {pa.documents.map((doc, di) => (
-                            <div key={di} className="flex items-center gap-2 bg-slate-50 rounded-lg p-3">
-                              <FileText className="h-4 w-4 text-blue-500 flex-shrink-0" />
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-slate-700 truncate">{doc.file_name}</p>
-                                <p className="text-xs text-slate-500 capitalize">{doc.document_type}</p>
+                          {pa.documents.map((doc, di) => {
+                            const dlUrl = `${API}/pre-assessment/${pa.id}/document/${doc.id}/download`;
+                            const tok = localStorage.getItem('token');
+                            const handleView = async () => {
+                              try {
+                                const r = await fetch(dlUrl, { headers: { Authorization: `Bearer ${tok}` } });
+                                if (!r.ok) throw new Error();
+                                const blob = await r.blob();
+                                const url = URL.createObjectURL(blob);
+                                window.open(url, '_blank');
+                              } catch { toast.error('View failed'); }
+                            };
+                            const handleDownload = async () => {
+                              try {
+                                const r = await fetch(dlUrl, { headers: { Authorization: `Bearer ${tok}` } });
+                                if (!r.ok) throw new Error();
+                                const blob = await r.blob();
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url; a.download = doc.file_name;
+                                document.body.appendChild(a); a.click(); a.remove();
+                                URL.revokeObjectURL(url);
+                              } catch { toast.error('Download failed'); }
+                            };
+                            return (
+                              <div key={di} className="flex items-center gap-2 bg-slate-50 rounded-lg p-3 border border-slate-200">
+                                <FileText className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium text-slate-700 truncate">{doc.file_name}</p>
+                                  <p className="text-xs text-slate-500 capitalize">{doc.document_type}</p>
+                                </div>
+                                <Button size="sm" variant="outline" onClick={handleView} className="h-7 text-xs" data-testid={`admin-view-doc-${doc.id}`}>
+                                  <Eye className="h-3.5 w-3.5 mr-1" /> View
+                                </Button>
+                                <Button size="sm" variant="outline" onClick={handleDownload} className="h-7 text-xs" data-testid={`admin-download-doc-${doc.id}`}>
+                                  <Download className="h-3.5 w-3.5 mr-1" /> Save
+                                </Button>
                               </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
                     )}
@@ -286,8 +325,8 @@ const PreAssessmentQueue = ({ initialFilter = null }) => {
                       </>
                     )}
 
-                    {/* 2ND APPROVAL: Create Case & Assign CM (for proposal_paid stage) */}
-                    {pa.stage === 'proposal_paid' && (
+                    {/* 2ND APPROVAL: Create Case & Assign CM (for awaiting_final_approval / proposal_paid stage) */}
+                    {['awaiting_final_approval', 'proposal_paid'].includes(pa.stage) && (
                       <div className="rounded-lg p-4 border bg-gradient-to-br from-[#f7620b]/10 to-[#2a777a]/5 border-[#f7620b]/30">
                         <div className="flex items-start gap-3 mb-3">
                           <div className="w-10 h-10 bg-[#f7620b] rounded-lg flex items-center justify-center flex-shrink-0">

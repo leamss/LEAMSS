@@ -1,0 +1,106 @@
+{
+  "iteration": 81,
+  "summary": "Iteration 81 - 5 Critical UX Fixes for LEAMSS Immigration Portal. Backend: 28/28 tests PASSED. All new endpoints working: document download (Partner+Admin), proposal-consent, partner/submit-final, updated mock-pay-proposal (requires consent), updated admin/approve-final (accepts both stages), updated admin/queue (includes awaiting_final_approval). Full E2E flow verified with new stage. Frontend: Partner Pipeline shows View/Save buttons on documents, 'Waiting for Client Payment' banner on proposal_sent, 'Action: Upload Receipt + Agreement' badge on proposal_paid. Admin Queue has view toggles (1st/2nd Approval), filter banners, and 1st Approval view shows history.",
+  "feature": "5 Critical UX Fixes: (1) Partner+Admin can View/Download documents, (2) Admin 1st Approval shows history, (3) Partner card shows 'Waiting for Client Payment' badge, (4) Client must consent before paying, (5) NEW STAGE 'awaiting_final_approval' between proposal_paid and case_created",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_coverage": {
+    "backend_tests": {
+      "test_01_admin_login": "PASS",
+      "test_02_partner_login": "PASS",
+      "test_03_client_login": "PASS",
+      "test_04_partner_create_pa": "PASS",
+      "test_05_partner_send_payment_link": "PASS",
+      "test_06_mock_payment_received": "PASS",
+      "test_07_upload_document": "PASS",
+      "test_08_partner_can_download_document": "PASS - NEW endpoint working",
+      "test_09_admin_can_download_document": "PASS - NEW endpoint working",
+      "test_10_download_nonexistent_doc_returns_404": "PASS",
+      "test_11_client_submit_for_review": "PASS",
+      "test_12_partner_forward_to_admin": "PASS",
+      "test_13_admin_queue_shows_documents_submitted": "PASS",
+      "test_14_admin_1st_approval": "PASS",
+      "test_15_partner_send_proposal": "PASS",
+      "test_16_client_cannot_pay_without_consent": "PASS - CRITICAL: Consent enforcement working",
+      "test_17_client_gives_consent": "PASS - NEW endpoint working",
+      "test_18_client_can_pay_after_consent": "PASS",
+      "test_19_verify_notification_to_partner_not_admin": "PASS",
+      "test_20_partner_upload_receipt": "PASS",
+      "test_21_partner_submit_final_requires_proposal_paid_stage": "PASS",
+      "test_22_partner_submit_final": "PASS - NEW endpoint working, stage=awaiting_final_approval",
+      "test_23_admin_queue_shows_awaiting_final_approval": "PASS - UPDATED queue filter working",
+      "test_24_admin_approve_final_accepts_awaiting_final_approval": "PASS - UPDATED endpoint working",
+      "test_25_verify_final_stage": "PASS - case_created",
+      "test_26_consent_only_at_proposal_sent_stage": "PASS",
+      "test_27_submit_final_requires_docs": "PASS",
+      "test_28_admin_approve_final_backward_compat": "PASS - accepts proposal_paid stage"
+    },
+    "frontend_tests": {
+      "partner_pipeline_view_download_buttons": "PASS - View/Save buttons visible on documents",
+      "partner_pipeline_waiting_for_payment_banner": "PASS - 'Waiting for Client Payment' banner visible",
+      "partner_pipeline_upload_receipt_badge": "PASS - 'Action: Upload Receipt + Agreement' badge visible",
+      "admin_queue_view_toggles": "PASS - 1st Approval, 2nd Approval, Pending Review, All buttons visible",
+      "admin_queue_filter_banner": "PASS - Filter active banner with Clear filter button",
+      "admin_queue_1st_approval_history": "PASS - Shows CASE CREATED, PROPOSAL PAID items (history)",
+      "admin_queue_2nd_approval_view": "PASS - Filter banner shows 'create case & assign CM'",
+      "admin_home_action_cards": "PASS - Cases unassigned action card visible",
+      "client_miniportal": "NOT TESTED - Client has active case, shows onboarding wizard instead"
+    }
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration81_ux_fixes.py",
+    "/app/test_reports/pytest/pytest_iteration81.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "FunnelProgress.jsx correctly includes 'awaiting_final_approval' in step matching",
+    "AdminHome.jsx correctly counts awaiting_final_approval for second_approval_pending",
+    "PreAssessmentQueue.jsx correctly shows both proposal_paid and awaiting_final_approval in 2nd Approval view",
+    "PreAssessmentMiniPortal.jsx correctly handles proposal_paid and awaiting_final_approval stage cards"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration81_ux_fixes.py"
+  ],
+  "success_rate": {
+    "backend": "100% (28/28 tests passed)",
+    "frontend": "90% - All critical UI elements verified except Client MiniPortal (client has active case)"
+  },
+  "test_credentials": {
+    "admin": "admin@leamss.com / Admin@123",
+    "partner": "partner@leamss.com / Partner@123",
+    "manager": "manager@leamss.com / Manager@123",
+    "client": "client@leamss.com / Client@123"
+  },
+  "seed_data_creation": "Created 3 test PAs during testing: TEST_Iteration81_Client (case_created), TEST_NoDocs_Client (new), TEST_BackwardCompat_Client (case_created)",
+  "mocked_apis": ["Razorpay payments (MOCK)", "Resend email (MOCK)"],
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iteration 81 verified 5 critical UX fixes. Key features: (1) GET /api/pre-assessment/{pa_id}/document/{doc_id}/download - Partner+Admin can download docs; (2) POST /api/pre-assess-portal/client/proposal-consent/{pa_id} - Client must consent before paying; (3) POST /api/pre-assess-portal/partner/submit-final/{pa_id} - Partner submits receipt+agreement after client pays; (4) NEW STAGE 'awaiting_final_approval' between proposal_paid and case_created; (5) Admin queue includes awaiting_final_approval items. Frontend: Partner Pipeline has View/Save buttons on docs, 'Waiting for Client Payment' banner, 'Upload Receipt + Agreement' action. Admin Queue has 1st/2nd Approval view toggles with filter banners. Client MiniPortal has consent checkbox flow and stage cards for proposal_paid/awaiting_final_approval.",
+  "new_stage_flow": {
+    "description": "New 2-step flow after client pays main fee",
+    "steps": [
+      "1. Client pays main fee → stage=proposal_paid",
+      "2. Partner uploads receipt + agreement + basic docs",
+      "3. Partner calls POST /partner/submit-final → stage=awaiting_final_approval",
+      "4. Admin sees PA in queue (awaiting_final_approval)",
+      "5. Admin calls POST /admin/approve-final → stage=case_created"
+    ]
+  },
+  "consent_flow": {
+    "description": "Client must consent before paying",
+    "steps": [
+      "1. Client views proposal at proposal_sent stage",
+      "2. Client checks consent checkbox and clicks 'I Agree — Unlock Payment'",
+      "3. POST /client/proposal-consent sets proposal_consent_given=true",
+      "4. Pay button becomes active",
+      "5. POST /client/mock-pay-proposal checks consent before processing"
+    ]
+  }
+}
