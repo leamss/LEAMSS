@@ -15,6 +15,42 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 8. **Client Intake Form Builder** - Product-specific, role-based (Client/CM/Both), Admin-managed
 9. **Automated Government Fee Calculator** (2026-04-17) - 20 countries, live INR conversion
 
+### Latest: Phase A Retouch + 3 Major Features (2026-04-22)
+**🔧 Critical Flow Fixes:**
+- **NEW stage `partner_review`** — Between client-submit and admin-queue. Client submit → Partner gets "Action needed" notification + pink pulsing badge → Partner reviews in expanded card → Partner forwards with remarks → Admin queue
+- **Partner card visibility** — Expanded card now shows 2 panels: "Client Documents" (file list + type badge) + "Client Activity" (timeline). Auto-loads on expand.
+- **Strict Sales Rule** — `POST /sales` now rejects partner-created sales that lack `pre_assessment_id` UNLESS `bypass_pre_assessment=true` with `bypass_reason` (min 10 chars). Admin/CM unaffected.
+- **Partner role extended** — Partner remains active through stages: new → partner_review → approved → proposal_sent → proposal_paid → **case_created (role ends here after CM assigned)**
+
+**✨ Smart Discount Engine (wired):**
+- Existing `/api/marketing/promo` CRUD + validate already backed
+- Now integrated into Send Proposal form: promo code input + Apply btn + live discount preview
+- `send-proposal` backend validates promo, increments `current_uses`, stores `promo_code`, `promo_discount_amount`, `total_discount_amount` in sale + PA
+
+**📦 Upsell Bundles (new):**
+- New `/api/upsell-bundles` CRUD + `/resolve` endpoint
+- Auto-seeds 6 default bundles: Priority Processing ₹5k, Family Member +₹15k, Doc Courier ₹3.5k, Extended Consultation ₹8k, Mock Interview ₹4.5k, Landing Package ₹12k
+- Admin UI: `UpsellBundlesManager.jsx` under Planning Tools (create/edit/delete)
+- Partner UI: Checkbox grid in Proposal form; selected bundles auto-add to `upsell_total`
+
+**✨ AI Proposal Generator (new):**
+- New `/api/ai-proposal/generate` — uses **GPT-5.2** via Emergent LLM key
+- Reads client profile (name, country, visa, age, education, experience, partner notes) + generates 250-380 word professional proposal body
+- Tone options: professional | friendly | assertive
+- Partner UI: "✨ Generate with AI" button in proposal form → auto-fills editable textarea
+
+**📊 Enhanced Proposal Form breakdown:**
+```
+Base Fee:            ₹1,50,000
+Promo (SAVE10 10%):  -₹15,000
+Custom Discount:      -₹5,000
+Upsells (2):         +₹8,000
+─────────────────────────
+Final Amount:        ₹1,38,000
+```
+
+**Tested**: 100% (15/15 backend + frontend all green) — iteration_78.json, 0 issues
+
 ### Latest: Pre-Assessment Client Portal Layer — Phase A Part 3 (2026-04-17)
 - **Full E2E CRM sales funnel LIVE (MOCK payments)**: Partner creates PA → Client pays via public link → Magic-login → Upload docs → Submit for review → Partner validates & forwards → Admin 1st approval → Partner sends proposal → Client accepts + pays main fee → Admin 2nd approval assigns CM → Real Case created & active
 - **NEW Admin endpoints**:
