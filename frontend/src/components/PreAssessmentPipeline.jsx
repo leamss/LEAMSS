@@ -18,7 +18,8 @@ const STAGE_CONFIG = {
   new: { label: 'New Lead', color: 'bg-slate-500', textColor: 'text-slate-700', bgColor: 'bg-slate-50', icon: Plus },
   payment_pending: { label: 'Payment Pending', color: 'bg-amber-500', textColor: 'text-amber-700', bgColor: 'bg-amber-50', icon: Clock },
   payment_received: { label: 'Payment Received', color: 'bg-blue-500', textColor: 'text-blue-700', bgColor: 'bg-blue-50', icon: CreditCard },
-  documents_submitted: { label: 'Docs Submitted', color: 'bg-indigo-500', textColor: 'text-indigo-700', bgColor: 'bg-indigo-50', icon: FileText },
+  partner_review: { label: 'Awaiting Your Review', color: 'bg-pink-500', textColor: 'text-pink-700', bgColor: 'bg-pink-50', icon: Eye },
+  documents_submitted: { label: 'Sent to Admin', color: 'bg-indigo-500', textColor: 'text-indigo-700', bgColor: 'bg-indigo-50', icon: FileText },
   under_review: { label: 'Under Review', color: 'bg-purple-500', textColor: 'text-purple-700', bgColor: 'bg-purple-50', icon: Eye },
   approved: { label: 'Approved', color: 'bg-emerald-500', textColor: 'text-emerald-700', bgColor: 'bg-emerald-50', icon: CheckCircle },
   rejected: { label: 'Rejected', color: 'bg-red-500', textColor: 'text-red-700', bgColor: 'bg-red-50', icon: XCircle },
@@ -45,9 +46,16 @@ const PreAssessmentPipeline = () => {
     service_type: '', product_id: '', notes: '', client_age: 0,
     education: '', work_experience: ''
   });
-  const [proposalForm, setProposalForm] = useState({ fee_amount: '', notes: '' });
+  const [proposalForm, setProposalForm] = useState({ fee_amount: '', notes: '', promo_code: '', promo_applied: null, additional_discount: '', upsell_ids: [], ai_text: '' });
   const [showProposal, setShowProposal] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [upsellCatalog, setUpsellCatalog] = useState([]);
+  const [paDocs, setPaDocs] = useState({}); // { pa_id: [docs] }
+  const [paActivity, setPaActivity] = useState({}); // { pa_id: [activity] }
+  const [forwardingId, setForwardingId] = useState(null);
+  const [forwardRemarks, setForwardRemarks] = useState('');
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [validatingPromo, setValidatingPromo] = useState(false);
 
   const getAuthHeader = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
 
@@ -169,13 +177,101 @@ const PreAssessmentPipeline = () => {
     try {
       const res = await axios.post(`${API}/pre-assessment/${paId}/send-proposal`, {
         fee_amount: parseFloat(proposalForm.fee_amount),
-        payment_method: 'online', notes: proposalForm.notes, currency: 'INR'
+        payment_method: 'online',
+        notes: proposalForm.notes,
+        currency: 'INR',
+        promo_code: proposalForm.promo_code || null,
+        additional_discount: parseFloat(proposalForm.additional_discount) || 0,
+        upsell_bundle_ids: proposalForm.upsell_ids || [],
+        ai_proposal_text: proposalForm.ai_text || null,
       }, getAuthHeader());
-      toast.success(res.data.message);
+      toast.success(`${res.data.message} — Final ₹${res.data.breakdown?.final_amount?.toLocaleString('en-IN')}`);
       setShowProposal(null);
-      setProposalForm({ fee_amount: '', notes: '' });
+      setProposalForm({ fee_amount: '', notes: '', promo_code: '', promo_applied: null, additional_discount: '', upsell_ids: [], ai_text: '' });
       loadData();
     } catch (e) { toast.error(e.response?.data?.detail || 'Failed'); }
+  };
+
+  const openProposalForm = async (pa) => {
+    setShowProposal(pa.id);
+    setProposalForm({ fee_amount: '', notes: '', promo_code: '', promo_applied: null, additional_discount: '', upsell_ids: [], ai_text: '' });
+    if (upsellCatalog.length === 0) {
+      try {
+        const r = await axios.get(`${API}/upsell-bundles`, getAuthHeader());
+        setUpsellCatalog(r.data || []);
+      } catch (e) { /* ignore */ }
+    }
+  };
+
+  const openForwardForm = (paId) => {
+    setForwardingId(paId);
+    setForwardRemarks('');
+    loadDocsAndActivity(paId);
+  };
+
+  const handleForwardToAdmin = async (paId) => {
+    try {
+      await axios.post(`${API}/pre-assess-portal/partner/forward-to-admin/${paId}`,
+        { remarks: forwardRemarks }, getAuthHeader());
+      toast.success('Forwarded to Admin for 1st approval');
+      setForwardingId(null);
+      setForwardRemarks('');
+      loadData();
+    } catch (e) { toast.error(e.response?.data?.detail || 'Failed'); }
+  };
+
+  const loadDocsAndActivity = async (paId) => {
+    try {
+      const [d, a] = await Promise.all([
+        axios.get(`${API}/pre-assessment/${paId}/documents`, getAuthHeader()),
+        axios.get(`${API}/pre-assess-portal/activity/pa/${paId}`, getAuthHeader()).catch(() => ({ data: { activity: [] } })),
+      ]);
+      setPaDocs(p => ({ ...p, [paId]: d.data || [] }));
+      setPaActivity(p => ({ ...p, [paId]: a.data?.activity || [] }));
+    } catch (e) { /* ignore */ }
+  };
+
+  const handleValidatePromo = async () => {
+    const code = proposalForm.promo_code?.trim();
+    if (!code) return;
+    setValidatingPromo(true);
+    try {
+      const r = await axios.post(`${API}/marketing/promo/validate`, { code }, getAuthHeader());
+      setProposalForm(p => ({ ...p, promo_applied: r.data }));
+      toast.success(`Promo ${r.data.code} valid — ${r.data.discount_type === 'percentage' ? r.data.discount_value + '% off' : '₹' + r.data.discount_value + ' off'}`);
+    } catch (e) {
+      setProposalForm(p => ({ ...p, promo_applied: null }));
+      toast.error(e.response?.data?.detail || 'Invalid promo code');
+    } finally {
+      setValidatingPromo(false);
+    }
+  };
+
+  const handleGenerateAI = async (paId) => {
+    setAiGenerating(true);
+    try {
+      const r = await axios.post(`${API}/ai-proposal/generate`,
+        { pa_id: paId, tone: 'professional' }, getAuthHeader());
+      setProposalForm(p => ({ ...p, ai_text: r.data.proposal_text }));
+      toast.success(`AI draft ready (${r.data.word_count} words)`);
+    } catch (e) { toast.error(e.response?.data?.detail || 'AI generation failed'); }
+    setAiGenerating(false);
+  };
+
+  const computeBreakdown = () => {
+    const base = parseFloat(proposalForm.fee_amount) || 0;
+    let promoDiscount = 0;
+    if (proposalForm.promo_applied && base > 0) {
+      promoDiscount = proposalForm.promo_applied.discount_type === 'percentage'
+        ? (base * proposalForm.promo_applied.discount_value) / 100
+        : proposalForm.promo_applied.discount_value;
+    }
+    const addDisc = parseFloat(proposalForm.additional_discount) || 0;
+    const upsellTotal = upsellCatalog
+      .filter(b => proposalForm.upsell_ids.includes(b.id))
+      .reduce((s, b) => s + (b.amount || 0), 0);
+    const final = Math.max(0, base - promoDiscount - addDisc + upsellTotal);
+    return { base, promoDiscount, addDisc, upsellTotal, final };
   };
 
   const filtered = assessments.filter(a =>
@@ -189,8 +285,9 @@ const PreAssessmentPipeline = () => {
     switch (pa.stage) {
       case 'new': return { label: 'Send Payment Link (₹5,100)', action: () => handleSendPayment(pa.id), color: 'bg-amber-500 hover:bg-amber-600' };
       case 'payment_pending': return { label: 'Confirm Payment Received', action: () => handleConfirmPayment(pa.id), color: 'bg-blue-500 hover:bg-blue-600' };
-      case 'payment_received': return { label: 'Submit to Admin for Review', action: () => handleSubmitDocs(pa.id), color: 'bg-purple-500 hover:bg-purple-600' };
-      case 'approved': return { label: 'Send Proposal to Client', action: () => setShowProposal(pa.id), color: 'bg-emerald-500 hover:bg-emerald-600' };
+      case 'payment_received': return { label: 'Waiting for client to upload', action: null, color: 'bg-slate-400 cursor-not-allowed' };
+      case 'partner_review': return { label: 'Review Docs & Forward to Admin', action: () => openForwardForm(pa.id), color: 'bg-pink-500 hover:bg-pink-600' };
+      case 'approved': return { label: 'Send Proposal to Client', action: () => openProposalForm(pa), color: 'bg-emerald-500 hover:bg-emerald-600' };
       default: return null;
     }
   };
@@ -200,15 +297,16 @@ const PreAssessmentPipeline = () => {
   return (
     <div className="space-y-6" data-testid="pre-assessment-pipeline">
       {/* Stats Bar */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
         {[
           { label: 'Total', value: stats.total || 0, color: 'from-slate-500 to-slate-600' },
-          { label: 'Under Review', value: stats.under_review || 0, color: 'from-purple-500 to-purple-600' },
+          { label: 'Needs Your Review', value: assessments.filter(a => a.stage === 'partner_review').length, color: 'from-pink-500 to-pink-600', highlight: true },
+          { label: 'Admin Review', value: stats.under_review || 0, color: 'from-purple-500 to-purple-600' },
           { label: 'Approved', value: stats.approved || 0, color: 'from-emerald-500 to-emerald-600' },
           { label: 'Proposals Sent', value: stats.proposal_sent || 0, color: 'from-teal-500 to-teal-600' },
           { label: 'Conversion', value: `${stats.conversion_rate || 0}%`, color: 'from-[#2a777a] to-[#236466]' },
         ].map((s, i) => (
-          <Card key={i} className={`bg-gradient-to-br ${s.color} text-white p-4 border-0 shadow-lg`}>
+          <Card key={i} className={`bg-gradient-to-br ${s.color} text-white p-4 border-0 shadow-lg ${s.highlight && s.value > 0 ? 'ring-2 ring-pink-300 ring-offset-2 animate-pulse' : ''}`}>
             <p className="text-2xl font-bold">{s.value}</p>
             <p className="text-xs text-white/80">{s.label}</p>
           </Card>
@@ -327,7 +425,11 @@ const PreAssessmentPipeline = () => {
 
             return (
               <Card key={pa.id} className="bg-white border-0 shadow-md overflow-hidden hover:shadow-lg transition-shadow" data-testid={`pa-card-${pa.id}`}>
-                <div className="flex items-center gap-4 p-4 cursor-pointer" onClick={() => setExpandedId(isExpanded ? null : pa.id)}>
+                <div className="flex items-center gap-4 p-4 cursor-pointer" onClick={() => {
+                  const newExpanded = isExpanded ? null : pa.id;
+                  setExpandedId(newExpanded);
+                  if (newExpanded && paDocs[pa.id] === undefined) loadDocsAndActivity(pa.id);
+                }}>
                   <div className={`w-10 h-10 ${stageInfo.color} rounded-full flex items-center justify-center flex-shrink-0`}>
                     <StageIcon className="h-5 w-5 text-white" />
                   </div>
@@ -371,12 +473,13 @@ const PreAssessmentPipeline = () => {
                       </div>
                     )}
 
-                    {/* Document Upload (when payment_received) */}
+                    {/* Document Upload (when payment_received) — Optional: Partner can upload on behalf of client */}
                     {pa.stage === 'payment_received' && (
                       <div className="bg-blue-50 rounded-lg p-4">
                         <p className="text-sm font-semibold text-blue-800 mb-2 flex items-center gap-2">
-                          <Upload className="h-4 w-4" /> Upload Documents for Review
+                          <Upload className="h-4 w-4" /> Client is uploading documents
                         </p>
+                        <p className="text-xs text-blue-600 mb-2">Client will review and submit from their portal. You can also upload on their behalf:</p>
                         <div className="flex items-center gap-3">
                           <select id={`docType-${pa.id}`} className="border border-blue-200 rounded-md px-3 py-2 text-sm bg-white">
                             <option value="passport">Passport</option>
@@ -398,38 +501,189 @@ const PreAssessmentPipeline = () => {
                       </div>
                     )}
 
-                    {/* Proposal Form (when approved) */}
-                    {showProposal === pa.id && (
-                      <div className="bg-emerald-50 rounded-lg p-4 border border-emerald-200">
-                        <p className="text-sm font-semibold text-emerald-800 mb-3 flex items-center gap-2">
-                          <IndianRupee className="h-4 w-4" /> Send Service Proposal
-                        </p>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          <div>
-                            <label className="text-xs font-medium text-slate-600 block mb-1">Service Fee (INR) *</label>
-                            <Input type="number" value={proposalForm.fee_amount}
-                              onChange={e => setProposalForm({...proposalForm, fee_amount: e.target.value})}
-                              placeholder="150000" data-testid="proposal-fee" />
+                    {/* Uploaded Docs + Activity (always visible when expanded) */}
+                    {['payment_received', 'partner_review', 'documents_submitted', 'under_review', 'approved', 'proposal_sent', 'proposal_paid', 'case_created'].includes(pa.stage) && (
+                      <div className="grid md:grid-cols-2 gap-3">
+                        <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="text-xs font-semibold text-slate-700 flex items-center gap-1"><FileText className="h-3.5 w-3.5" /> Client Documents</p>
+                            <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => loadDocsAndActivity(pa.id)} data-testid={`refresh-docs-${pa.id}`}>
+                              <RefreshCw className="h-3 w-3 mr-1" /> Refresh
+                            </Button>
                           </div>
-                          <div>
-                            <label className="text-xs font-medium text-slate-600 block mb-1">Notes</label>
-                            <Input value={proposalForm.notes}
-                              onChange={e => setProposalForm({...proposalForm, notes: e.target.value})}
-                              placeholder="Canada PR Express Entry..." />
-                          </div>
+                          {(paDocs[pa.id] === undefined) ? (
+                            <Button variant="link" size="sm" onClick={() => loadDocsAndActivity(pa.id)} className="text-xs h-auto p-0">Click to load documents</Button>
+                          ) : paDocs[pa.id].length === 0 ? (
+                            <p className="text-xs text-slate-400 italic">No documents yet</p>
+                          ) : (
+                            <div className="space-y-1.5">
+                              {paDocs[pa.id].map(d => (
+                                <div key={d.id} className="flex items-center gap-2 text-xs bg-white rounded px-2 py-1.5 border border-slate-100">
+                                  <FileText className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                                  <span className="font-medium text-slate-700 truncate flex-1">{d.file_name}</span>
+                                  <Badge variant="outline" className="text-[10px] capitalize">{d.document_type}</Badge>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
+                        <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
+                          <p className="text-xs font-semibold text-slate-700 mb-2 flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> Client Activity</p>
+                          {(paActivity[pa.id] === undefined) ? (
+                            <Button variant="link" size="sm" onClick={() => loadDocsAndActivity(pa.id)} className="text-xs h-auto p-0">Click to load activity</Button>
+                          ) : paActivity[pa.id].length === 0 ? (
+                            <p className="text-xs text-slate-400 italic">No activity logged</p>
+                          ) : (
+                            <div className="space-y-1.5 max-h-36 overflow-y-auto">
+                              {paActivity[pa.id].map((a, i) => (
+                                <div key={i} className="text-xs">
+                                  <span className="font-medium text-slate-700 capitalize">{a.action.replace(/_/g, ' ')}</span>
+                                  <span className="text-slate-400 ml-2">{a.created_at ? new Date(a.created_at).toLocaleString() : ''}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Forward-to-Admin Form (partner_review stage) */}
+                    {forwardingId === pa.id && (
+                      <div className="bg-pink-50 rounded-lg p-4 border border-pink-200">
+                        <p className="text-sm font-semibold text-pink-800 mb-2 flex items-center gap-2">
+                          <Send className="h-4 w-4" /> Forward to Admin for 1st Approval
+                        </p>
+                        <label className="text-xs font-medium text-slate-600 block mb-1">Your remarks (optional — admin will see these)</label>
+                        <textarea value={forwardRemarks} onChange={e => setForwardRemarks(e.target.value)}
+                          className="w-full border rounded-md px-3 py-2 text-sm h-20"
+                          placeholder="e.g. All docs verified. Client seems eligible for Express Entry."
+                          data-testid="forward-remarks" />
                         <div className="flex justify-end gap-2 mt-3">
-                          <Button variant="outline" size="sm" onClick={() => setShowProposal(null)}>Cancel</Button>
-                          <Button size="sm" onClick={() => handleSendProposal(pa.id)}
-                            className="bg-emerald-600 hover:bg-emerald-700" data-testid="submit-proposal">
-                            <Send className="h-4 w-4 mr-1" /> Send Proposal with Payment Link
+                          <Button variant="outline" size="sm" onClick={() => setForwardingId(null)}>Cancel</Button>
+                          <Button size="sm" onClick={() => handleForwardToAdmin(pa.id)}
+                            className="bg-pink-600 hover:bg-pink-700" data-testid="confirm-forward">
+                            <Send className="h-4 w-4 mr-1" /> Forward to Admin
                           </Button>
                         </div>
                       </div>
                     )}
 
+                    {/* Proposal Form (when approved) — Enhanced with promo + discount + upsells + AI */}
+                    {showProposal === pa.id && (() => {
+                      const bd = computeBreakdown();
+                      return (
+                        <div className="bg-emerald-50 rounded-lg p-4 border border-emerald-200 space-y-4">
+                          <p className="text-sm font-semibold text-emerald-800 mb-1 flex items-center gap-2">
+                            <IndianRupee className="h-4 w-4" /> Send Service Proposal to {pa.client_name}
+                          </p>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                              <label className="text-xs font-medium text-slate-600 block mb-1">Base Service Fee (₹) *</label>
+                              <Input type="number" value={proposalForm.fee_amount}
+                                onChange={e => setProposalForm({...proposalForm, fee_amount: e.target.value})}
+                                placeholder="150000" data-testid="proposal-fee" />
+                            </div>
+                            <div>
+                              <label className="text-xs font-medium text-slate-600 block mb-1">Promo Code (optional)</label>
+                              <div className="flex gap-1">
+                                <Input value={proposalForm.promo_code}
+                                  onChange={e => setProposalForm({...proposalForm, promo_code: e.target.value.toUpperCase(), promo_applied: null})}
+                                  placeholder="SAVE10" className="uppercase" data-testid="proposal-promo" />
+                                <Button size="sm" variant="outline" onClick={handleValidatePromo}
+                                  disabled={validatingPromo || !proposalForm.promo_code}
+                                  data-testid="apply-promo">
+                                  {validatingPromo ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : 'Apply'}
+                                </Button>
+                              </div>
+                              {proposalForm.promo_applied && (
+                                <p className="text-[11px] text-emerald-600 mt-1">✓ {proposalForm.promo_applied.code} applied</p>
+                              )}
+                            </div>
+                            <div>
+                              <label className="text-xs font-medium text-slate-600 block mb-1">Additional Discount (₹ flat)</label>
+                              <Input type="number" value={proposalForm.additional_discount}
+                                onChange={e => setProposalForm({...proposalForm, additional_discount: e.target.value})}
+                                placeholder="0" data-testid="proposal-add-discount" />
+                            </div>
+                            <div>
+                              <label className="text-xs font-medium text-slate-600 block mb-1">Proposal Notes</label>
+                              <Input value={proposalForm.notes}
+                                onChange={e => setProposalForm({...proposalForm, notes: e.target.value})}
+                                placeholder="e.g. Canada PR Express Entry..." />
+                            </div>
+                          </div>
+
+                          {/* Upsell Bundles */}
+                          {upsellCatalog.length > 0 && (
+                            <div>
+                              <label className="text-xs font-medium text-slate-600 block mb-1.5">Upsell Bundles (optional — increase deal size)</label>
+                              <div className="grid md:grid-cols-2 gap-2">
+                                {upsellCatalog.map(b => {
+                                  const checked = proposalForm.upsell_ids.includes(b.id);
+                                  return (
+                                    <label key={b.id} className={`flex items-start gap-2 p-2 rounded border cursor-pointer text-xs ${checked ? 'bg-white border-emerald-300' : 'bg-white border-slate-200 hover:border-slate-300'}`}>
+                                      <input type="checkbox" checked={checked}
+                                        onChange={() => setProposalForm(p => ({
+                                          ...p,
+                                          upsell_ids: checked ? p.upsell_ids.filter(x => x !== b.id) : [...p.upsell_ids, b.id]
+                                        }))}
+                                        className="mt-0.5" data-testid={`upsell-${b.id}`} />
+                                      <div className="flex-1">
+                                        <div className="flex justify-between">
+                                          <span className="font-semibold text-slate-700">{b.name}</span>
+                                          <span className="font-bold text-emerald-700">₹{b.amount.toLocaleString('en-IN')}</span>
+                                        </div>
+                                        <p className="text-slate-500 text-[11px] mt-0.5">{b.description}</p>
+                                      </div>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* AI Proposal Text */}
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <label className="text-xs font-medium text-slate-600">Proposal Body (personalised)</label>
+                              <Button size="sm" variant="outline" onClick={() => handleGenerateAI(pa.id)}
+                                disabled={aiGenerating}
+                                className="h-7 text-xs border-purple-300 text-purple-700 hover:bg-purple-50"
+                                data-testid="ai-generate-btn">
+                                {aiGenerating ? <><RefreshCw className="h-3 w-3 animate-spin mr-1" /> Generating…</> : <>✨ Generate with AI</>}
+                              </Button>
+                            </div>
+                            <textarea value={proposalForm.ai_text}
+                              onChange={e => setProposalForm({...proposalForm, ai_text: e.target.value})}
+                              className="w-full border rounded-md px-3 py-2 text-sm h-28"
+                              placeholder="Click 'Generate with AI' for a personalised proposal, or write your own…"
+                              data-testid="proposal-ai-text" />
+                          </div>
+
+                          {/* Breakdown */}
+                          <div className="bg-white rounded p-3 border border-emerald-200 text-sm font-mono">
+                            <div className="flex justify-between"><span className="text-slate-500">Base fee</span><span>₹{bd.base.toLocaleString('en-IN')}</span></div>
+                            {bd.promoDiscount > 0 && <div className="flex justify-between text-emerald-600"><span>Promo ({proposalForm.promo_applied?.code})</span><span>-₹{bd.promoDiscount.toLocaleString('en-IN')}</span></div>}
+                            {bd.addDisc > 0 && <div className="flex justify-between text-emerald-600"><span>Additional discount</span><span>-₹{bd.addDisc.toLocaleString('en-IN')}</span></div>}
+                            {bd.upsellTotal > 0 && <div className="flex justify-between text-[#f7620b]"><span>Upsells ({proposalForm.upsell_ids.length})</span><span>+₹{bd.upsellTotal.toLocaleString('en-IN')}</span></div>}
+                            <div className="border-t border-slate-200 mt-1.5 pt-1.5 flex justify-between font-bold text-emerald-800 text-base">
+                              <span>Final Amount</span><span data-testid="proposal-final">₹{bd.final.toLocaleString('en-IN')}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex justify-end gap-2">
+                            <Button variant="outline" size="sm" onClick={() => setShowProposal(null)}>Cancel</Button>
+                            <Button size="sm" onClick={() => handleSendProposal(pa.id)}
+                              className="bg-emerald-600 hover:bg-emerald-700" data-testid="submit-proposal">
+                              <Send className="h-4 w-4 mr-1" /> Send Proposal to Client
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
                     {/* Action Buttons — always show Copy Link + Preview as Client, show nextAction if exists */}
-                    {showProposal !== pa.id && (
+                    {showProposal !== pa.id && forwardingId !== pa.id && (
                       <div className="flex justify-end gap-2 flex-wrap">
                         <Button variant="outline" size="sm" onClick={() => handleCopyPublicLink(pa.id)} data-testid={`copy-link-${pa.id}`} title="Copy public payment link — share via WhatsApp/Email">
                           <Send className="h-4 w-4 mr-1" /> Copy Public Link

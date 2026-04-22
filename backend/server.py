@@ -55,6 +55,8 @@ from routers.intake_forms import router as intake_forms_router
 from routers.fee_calculator import router as fee_calculator_router
 from routers.doc_extraction import router as doc_extraction_router
 from routers.pre_assess_portal import router as pre_assess_portal_router
+from routers.upsell_bundles import router as upsell_bundles_router
+from routers.ai_proposal import router as ai_proposal_router
 
 app = FastAPI(title="LEAMSS Portal API", version="3.0")
 
@@ -231,7 +233,8 @@ for r in [auth_router, users_router, products_router, sales_router, cases_router
           partner_analytics_router, admin_superpowers_router,
           email_digest_router, cm_efficiency_router,
           client_experience_router, step_documents_router, deadlines_router, intake_forms_router,
-          fee_calculator_router, doc_extraction_router, pre_assess_portal_router]:
+          fee_calculator_router, doc_extraction_router, pre_assess_portal_router,
+          upsell_bundles_router, ai_proposal_router]:
     app.include_router(r, prefix="/api")
 
 

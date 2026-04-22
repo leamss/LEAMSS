@@ -63,10 +63,15 @@ class AdminReview(BaseModel):
 
 
 class ProposalData(BaseModel):
-    fee_amount: float
+    fee_amount: float  # base fee (before discounts/upsells)
     payment_method: str = "online"
     notes: str = ""
     currency: str = "INR"
+    # New v2 fields (backward compatible)
+    promo_code: Optional[str] = None
+    additional_discount: Optional[float] = 0.0  # flat ₹ off
+    upsell_bundle_ids: Optional[List[str]] = []
+    ai_proposal_text: Optional[str] = None
 
 
 # ===================== PARTNER ENDPOINTS =====================
@@ -418,7 +423,9 @@ async def admin_review(pa_id: str, review: AdminReview, current_user: dict = Dep
 
 @router.post("/{pa_id}/send-proposal")
 async def send_proposal(pa_id: str, proposal: ProposalData, http_request: Request, current_user: dict = Depends(get_current_user)):
-    """After approval, partner sends sales proposal with payment link to client"""
+    """After approval, partner sends sales proposal with payment link to client.
+    Supports promo_code, additional_discount (flat ₹), and upsell_bundle_ids.
+    """
     pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
     if not pa:
         raise HTTPException(status_code=404, detail="Pre-assessment not found")
@@ -428,6 +435,47 @@ async def send_proposal(pa_id: str, proposal: ProposalData, http_request: Reques
 
     if pa["partner_id"] != current_user["id"] and current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Not authorized")
+
+    base_fee = float(proposal.fee_amount or 0)
+    if base_fee <= 0:
+        raise HTTPException(status_code=400, detail="Base fee must be greater than 0")
+
+    # Resolve upsells
+    upsell_items: List[dict] = []
+    upsell_total = 0.0
+    if proposal.upsell_bundle_ids:
+        bundles_col = db["upsell_bundles"]
+        items = await bundles_col.find(
+            {"id": {"$in": proposal.upsell_bundle_ids}, "is_active": True}, {"_id": 0}
+        ).to_list(100)
+        for b in items:
+            upsell_items.append({"id": b["id"], "name": b["name"], "amount": float(b.get("amount", 0))})
+            upsell_total += float(b.get("amount", 0))
+
+    # Resolve promo code
+    promo_discount = 0.0
+    promo_code_applied = None
+    if proposal.promo_code:
+        promo_codes_col = db["promo_codes"]
+        code_upper = proposal.promo_code.strip().upper()
+        promo = await promo_codes_col.find_one({"code": code_upper, "is_active": True}, {"_id": 0})
+        if promo:
+            if promo.get("current_uses", 0) >= promo.get("max_uses", 100):
+                raise HTTPException(status_code=400, detail=f"Promo code {code_upper} has reached max uses")
+            pre_upsell_total = base_fee  # promo applies on base fee only
+            if promo["discount_type"] == "percentage":
+                promo_discount = round(pre_upsell_total * (float(promo["discount_value"]) / 100), 2)
+            else:
+                promo_discount = float(promo["discount_value"])
+            promo_code_applied = code_upper
+            # Increment usage
+            await promo_codes_col.update_one({"code": code_upper}, {"$inc": {"current_uses": 1}})
+        else:
+            raise HTTPException(status_code=400, detail=f"Invalid or inactive promo code: {code_upper}")
+
+    additional_discount = max(0.0, float(proposal.additional_discount or 0))
+    total_discount = round(promo_discount + additional_discount, 2)
+    final_amount = round(max(0.0, base_fee - total_discount + upsell_total), 2)
 
     # Create a sale record
     sale_id = str(uuid.uuid4())
@@ -442,23 +490,32 @@ async def send_proposal(pa_id: str, proposal: ProposalData, http_request: Reques
         "product_name": pa.get("product_name", ""),
         "country": pa["country"],
         "service_type": pa["service_type"],
-        "fee_amount": proposal.fee_amount,
+        "fee_amount": final_amount,
+        "fee_before_discount": base_fee,
+        "base_fee": base_fee,
+        "upsell_items": upsell_items,
+        "upsell_total": round(upsell_total, 2),
+        "promo_code": promo_code_applied,
+        "promo_discount_amount": round(promo_discount, 2),
+        "additional_discount_amount": round(additional_discount, 2),
+        "total_discount_amount": total_discount,
         "amount_received": 0,
-        "pending_amount": proposal.fee_amount,
+        "pending_amount": final_amount,
         "payment_method": proposal.payment_method,
         "currency": proposal.currency,
-        "status": "approved",  # Auto-approved since admin already approved pre-assessment
+        "status": "approved",
         "pre_assessment_id": pa_id,
         "notes": proposal.notes,
+        "ai_proposal_text": proposal.ai_proposal_text or "",
         "created_at": datetime.now(timezone.utc),
         "approved_at": datetime.now(timezone.utc),
     }
     await sales_col.insert_one(sale)
     sale.pop("_id", None)
 
-    # Generate payment link if Stripe available
+    # Generate payment link if Stripe available (uses final_amount)
     payment_url = None
-    if STRIPE_API_KEY and proposal.fee_amount > 0:
+    if STRIPE_API_KEY and final_amount > 0:
         try:
             from emergentintegrations.payments.stripe.checkout import StripeCheckout, CheckoutSessionRequest
             origin = str(http_request.headers.get("origin", http_request.base_url)).rstrip("/")
@@ -467,7 +524,7 @@ async def send_proposal(pa_id: str, proposal: ProposalData, http_request: Reques
             host_url = str(http_request.base_url)
             stripe_checkout = StripeCheckout(api_key=STRIPE_API_KEY, webhook_url=f"{host_url}api/webhook/stripe")
             session = await stripe_checkout.create_checkout_session(CheckoutSessionRequest(
-                amount=float(proposal.fee_amount), currency="inr",
+                amount=float(final_amount), currency="inr",
                 success_url=success_url, cancel_url=cancel_url,
                 metadata={"type": "proposal", "pa_id": pa_id, "sale_id": sale_id,
                            "client_email": pa["client_email"], "client_name": pa["client_name"]}
@@ -478,13 +535,23 @@ async def send_proposal(pa_id: str, proposal: ProposalData, http_request: Reques
             print(f"Stripe error: {e}")
 
     await pre_assessments_col.update_one({"id": pa_id}, {"$set": {
-        "stage": "proposal_sent", "proposal_fee": proposal.fee_amount,
+        "stage": "proposal_sent",
+        "proposal_fee": final_amount,
+        "proposal_base_fee": base_fee,
+        "proposal_upsells": upsell_items,
+        "proposal_upsell_total": round(upsell_total, 2),
+        "proposal_promo_code": promo_code_applied,
+        "proposal_promo_discount": round(promo_discount, 2),
+        "proposal_additional_discount": round(additional_discount, 2),
+        "proposal_total_discount": total_discount,
+        "proposal_notes": proposal.notes,
+        "proposal_ai_text": proposal.ai_proposal_text or "",
         "proposal_status": "sent", "sale_id": sale_id,
         "updated_at": datetime.now(timezone.utc)
     }})
 
     await log_activity(current_user["id"], current_user.get("name", ""), "send_proposal",
-                       "pre_assessment", pa_id, f"Proposal sent to {pa['client_name']} - ₹{proposal.fee_amount}")
+                       "pre_assessment", pa_id, f"Proposal sent to {pa['client_name']} - ₹{final_amount}")
 
     # Notify admins
     admins = await users_col.find({"role": "admin", "status": "active"}, {"_id": 0, "id": 1}).to_list(50)
@@ -492,7 +559,7 @@ async def send_proposal(pa_id: str, proposal: ProposalData, http_request: Reques
         await notifications_col.insert_one({
             "id": str(uuid.uuid4()), "user_id": admin["id"],
             "title": "Proposal Sent",
-            "message": f"{current_user.get('name', '')} sent ₹{proposal.fee_amount} proposal to {pa['client_name']}",
+            "message": f"{current_user.get('name', '')} sent ₹{final_amount:,.0f} proposal to {pa['client_name']}",
             "type": "proposal", "read": False,
             "created_at": datetime.now(timezone.utc)
         })
@@ -500,7 +567,16 @@ async def send_proposal(pa_id: str, proposal: ProposalData, http_request: Reques
     return {
         "message": f"Proposal sent to {pa['client_name']}",
         "sale_id": sale_id,
-        "payment_url": payment_url
+        "payment_url": payment_url,
+        "breakdown": {
+            "base_fee": base_fee,
+            "promo_code": promo_code_applied,
+            "promo_discount": round(promo_discount, 2),
+            "additional_discount": round(additional_discount, 2),
+            "upsell_total": round(upsell_total, 2),
+            "total_discount": total_discount,
+            "final_amount": final_amount,
+        }
     }
 
 

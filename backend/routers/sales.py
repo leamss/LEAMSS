@@ -184,11 +184,38 @@ async def create_sale(
     currency: str = Form("INR"),
     promo_code: Optional[str] = Form(None),
     discount_percentage: Optional[float] = Form(None),
+    pre_assessment_id: Optional[str] = Form(None),
+    bypass_pre_assessment: Optional[bool] = Form(False),
+    bypass_reason: Optional[str] = Form(None),
     documents: List[UploadFile] = File(None),
     current_user: dict = Depends(get_current_user)
 ):
     from core.database import db
     promo_codes_col = db["promo_codes"]
+    pre_assessments_col = db["pre_assessments"]
+
+    # STRICT RULE: Partners must either link a pre-assessment OR request admin bypass
+    if current_user.get("role") == "partner":
+        if pre_assessment_id:
+            pa = await pre_assessments_col.find_one({"id": pre_assessment_id}, {"_id": 0})
+            if not pa:
+                raise HTTPException(status_code=404, detail="Linked pre-assessment not found")
+            if pa.get("partner_id") != current_user["id"]:
+                raise HTTPException(status_code=403, detail="Pre-assessment belongs to another partner")
+            if pa.get("stage") not in ("approved", "proposal_sent", "proposal_paid", "case_created"):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Pre-assessment must be Admin-approved first (current: {pa.get('stage')})",
+                )
+        elif bypass_pre_assessment:
+            if not bypass_reason or len(bypass_reason.strip()) < 10:
+                raise HTTPException(status_code=400, detail="Bypass requires a reason (min 10 chars)")
+            # Mark sale for admin bypass approval — admin must approve separately
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot create Sale without a Pre-Assessment. Create a Pre-Assessment first, or request Admin bypass approval.",
+            )
 
     product = await products_col.find_one({"id": product_id}, {"_id": 0})
     if not product:
@@ -306,6 +333,9 @@ async def create_sale(
         "collection_deadline": deadline_dt,
         "agreement_signed": agreement_signed, "status": "pending",
         "payment_status": pay_status,
+        "pre_assessment_id": pre_assessment_id,
+        "bypass_pre_assessment": bool(bypass_pre_assessment),
+        "bypass_reason": bypass_reason or "",
         "payment_history": [
             {"amount": received, "method": payment_method, "reference": payment_reference,
              "date": datetime.now(timezone.utc).isoformat(), "recorded_by": current_user["id"]}

@@ -409,20 +409,21 @@ async def client_submit_for_review(pa_id: str, current_user: dict = Depends(get_
     if docs_count == 0:
         raise HTTPException(status_code=400, detail="Please upload at least one document before submitting")
 
+    # NEW FLOW: Client submits → Partner reviews → Partner forwards → Admin reviews
     await pre_assessments_col.update_one({"id": pa_id}, {"$set": {
-        "stage": "documents_submitted",
+        "stage": "partner_review",
         "client_submitted_at": _now(),
         "updated_at": _now(),
     }})
 
-    # Notify partner
+    # Notify partner — ACTION REQUIRED
     if pa.get("partner_id"):
         await notifications_col.insert_one({
             "id": str(uuid.uuid4()),
             "user_id": pa["partner_id"],
-            "title": "Client ready for review",
-            "message": f"{pa.get('client_name')} has uploaded {docs_count} document(s) and is ready for your review.",
-            "type": "pre_assess_ready",
+            "title": "Action needed: Review client documents",
+            "message": f"{pa.get('client_name')} has uploaded {docs_count} document(s). Review & forward to Admin.",
+            "type": "pre_assess_partner_review",
             "read": False,
             "link": "/partner?tab=pre-assessment",
             "created_at": _now(),
@@ -430,7 +431,51 @@ async def client_submit_for_review(pa_id: str, current_user: dict = Depends(get_
 
     await _log(current_user["id"], pa_id, "client_submitted_for_review", {"documents_count": docs_count})
 
-    return {"ok": True, "stage": "documents_submitted", "documents_count": docs_count}
+    return {"ok": True, "stage": "partner_review", "documents_count": docs_count}
+
+
+# ============== PARTNER: FORWARD TO ADMIN ==============
+class PartnerForwardRequest(BaseModel):
+    remarks: Optional[str] = ""
+
+
+@router.post("/partner/forward-to-admin/{pa_id}")
+async def partner_forward_to_admin(pa_id: str, data: PartnerForwardRequest, current_user: dict = Depends(get_current_user)):
+    """Partner reviews client's uploaded documents and forwards to Admin for 1st approval."""
+    if current_user.get("role") not in ("partner", "admin"):
+        raise HTTPException(status_code=403, detail="Partners or admins only")
+
+    pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
+    if not pa:
+        raise HTTPException(status_code=404, detail="Pre-assessment not found")
+    if current_user.get("role") == "partner" and pa.get("partner_id") != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Not your pre-assessment")
+    if pa.get("stage") != "partner_review":
+        raise HTTPException(status_code=400, detail=f"Cannot forward at stage: {pa.get('stage')}")
+
+    await pre_assessments_col.update_one({"id": pa_id}, {"$set": {
+        "stage": "documents_submitted",
+        "partner_remarks": data.remarks or "",
+        "partner_forwarded_at": _now(),
+        "submitted_at": _now(),
+        "updated_at": _now(),
+    }})
+
+    # Notify admins
+    admins = await users_col.find({"role": "admin", "status": "active"}, {"_id": 0, "id": 1}).to_list(50)
+    for admin in admins:
+        await notifications_col.insert_one({
+            "id": str(uuid.uuid4()),
+            "user_id": admin["id"],
+            "title": "Pre-Assessment ready for review",
+            "message": f"{pa.get('client_name')} ({pa.get('country')} - {pa.get('service_type')}) forwarded by {current_user.get('name', 'Partner')}",
+            "type": "pre_assessment_review", "read": False,
+            "link": "/admin?tab=pre-assessments",
+            "created_at": _now(),
+        })
+
+    await _log(current_user["id"], pa_id, "partner_forwarded_to_admin", {"remarks": data.remarks or ""})
+    return {"ok": True, "stage": "documents_submitted"}
 
 
 @router.get("/client/portal-access/{pa_id}")
@@ -445,7 +490,7 @@ async def client_portal_access(pa_id: str, current_user: dict = Depends(get_curr
 
     stage = pa.get("stage", "new")
     access_level = "none"
-    if stage in ("payment_received", "documents_submitted", "under_review", "rejected", "refund_initiated", "refunded"):
+    if stage in ("payment_received", "partner_review", "documents_submitted", "under_review", "rejected", "refund_initiated", "refunded"):
         access_level = "mini"  # can upload docs only (view-only after submission)
     elif stage in ("approved", "proposal_sent"):
         access_level = "expanded"  # can explore tools, proposal, pay service fee

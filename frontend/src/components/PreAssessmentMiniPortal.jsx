@@ -25,9 +25,9 @@ const DOC_TYPES = [
 
 // 6 pipeline stages the client sees (maps to backend stages)
 const STAGE_STEPS = [
-  { key: 'paid', label: 'Payment Done', stages: ['payment_received', 'documents_submitted', 'under_review', 'approved', 'proposal_sent', 'proposal_paid', 'case_created'] },
-  { key: 'uploading', label: 'Upload Documents', stages: ['documents_submitted', 'under_review', 'approved', 'proposal_sent', 'proposal_paid', 'case_created'] },
-  { key: 'reviewing', label: 'Under Review', stages: ['under_review', 'approved', 'proposal_sent', 'proposal_paid', 'case_created'] },
+  { key: 'paid', label: 'Payment Done', stages: ['payment_received', 'partner_review', 'documents_submitted', 'under_review', 'approved', 'proposal_sent', 'proposal_paid', 'case_created'] },
+  { key: 'uploading', label: 'Upload Documents', stages: ['partner_review', 'documents_submitted', 'under_review', 'approved', 'proposal_sent', 'proposal_paid', 'case_created'] },
+  { key: 'reviewing', label: 'Under Review', stages: ['documents_submitted', 'under_review', 'approved', 'proposal_sent', 'proposal_paid', 'case_created'] },
   { key: 'approved', label: 'Approved', stages: ['approved', 'proposal_sent', 'proposal_paid', 'case_created'] },
   { key: 'proposal', label: 'Proposal & Signing', stages: ['proposal_sent', 'proposal_paid', 'case_created'] },
   { key: 'case', label: 'Case Active', stages: ['case_created'] },
@@ -244,6 +244,27 @@ export default function PreAssessmentMiniPortal({ pa, onRefresh, onOpenScanner }
             </div>
           </Card>
         </>
+      )}
+
+      {/* STAGE: Partner reviewing client's submission */}
+      {stage === 'partner_review' && (
+        <Card className="p-6 bg-gradient-to-br from-pink-50 to-white border-pink-200">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 bg-pink-100 rounded-full flex items-center justify-center shrink-0">
+              <Clock className="h-6 w-6 text-pink-600" />
+            </div>
+            <div>
+              <h3 className="font-bold text-slate-800 text-lg">Documents with your Partner</h3>
+              <p className="text-sm text-slate-600 mt-1">
+                Thank you for submitting! Your partner is reviewing your documents before forwarding to our eligibility team. You'll hear back within 1 business day.
+              </p>
+              <div className="mt-3 flex items-center gap-2 text-xs text-slate-500">
+                <FileCheck className="h-3.5 w-3.5" />
+                <span>{docs.length} document(s) submitted</span>
+              </div>
+            </div>
+          </div>
+        </Card>
       )}
 
       {/* STAGE: In review */}

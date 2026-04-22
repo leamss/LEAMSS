@@ -18,7 +18,7 @@ import {
   Search, DollarSign, TrendingUp, CheckCircle, XCircle, Clock,
   MessageSquare, Filter, Calendar, RefreshCw, AlertTriangle, Copy, Mail, Gift,
   Menu, X, Bell, Loader2, CreditCard, BarChart3, Activity, Megaphone,
-  ArrowRightLeft, Zap, BookOpen, Star, UserCheck, ClipboardList, Sparkles, Calculator, Database
+  ArrowRightLeft, Zap, BookOpen, Star, UserCheck, ClipboardList, Sparkles, Calculator, Database, Package
 } from 'lucide-react';
 import BulkOperations from '@/pages/BulkOperations';
 import SLATracker from '@/pages/SLATracker';
@@ -37,6 +37,7 @@ import ConversionFunnel from '@/pages/ConversionFunnel';
 import CountryProductAnalytics from '@/pages/CountryProductAnalytics';
 import CommissionAnalytics from '@/pages/CommissionAnalytics';
 import PreAssessmentQueue from '@/components/PreAssessmentQueue';
+import UpsellBundlesManager from '@/components/UpsellBundlesManager';
 import HappinessScoreWidget from '@/components/HappinessScoreWidget';
 import ApprovalCenter from '@/components/ApprovalCenter';
 import FeeCalculator from '@/components/FeeCalculator';
@@ -1203,6 +1204,7 @@ const AdminDashboard = () => {
       defaultOpen: true,
       items: [
         { id: 'fee-calculator', icon: Calculator, label: 'Fee Calculator', onClick: () => { setActiveTab('fee-calculator'); resetSelections(); } },
+        { id: 'upsell-bundles', icon: Package, label: 'Upsell Bundles', onClick: () => { setActiveTab('upsell-bundles'); resetSelections(); } },
         { id: 'fee-database', icon: Database, label: 'Fee Database', onClick: () => { setActiveTab('fee-database'); resetSelections(); } },
         { id: 'ai-workflow', icon: Sparkles, label: 'AI Workflow Builder', onClick: () => navigate('/admin/ai-workflow') },
         { id: 'workflows', icon: FileText, label: 'Workflows', onClick: () => navigate('/admin/workflows') },
@@ -1244,6 +1246,7 @@ const AdminDashboard = () => {
       'report-builder': 'Custom Report Builder',
       'email-digest': 'Email Digest',
       'pre-assessments': 'Pre-Assessment Queue',
+      'upsell-bundles': 'Upsell Bundles',
     };
     return titles[activeTab] || 'Dashboard';
   };
@@ -2788,6 +2791,7 @@ const AdminDashboard = () => {
           {activeTab === 'report-builder' && <ReportBuilder token={localStorage.getItem('token')} />}
           {activeTab === 'email-digest' && <EmailDigest token={localStorage.getItem('token')} />}
           {activeTab === 'fee-calculator' && <FeeCalculator token={localStorage.getItem('token')} role="admin" />}
+          {activeTab === 'upsell-bundles' && <UpsellBundlesManager />}
           {activeTab === 'fee-database' && <FeeDatabaseManager token={localStorage.getItem('token')} />}
 
       {/* Product Dialog */}
