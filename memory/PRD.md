@@ -15,7 +15,23 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 8. **Client Intake Form Builder** - Product-specific, role-based (Client/CM/Both), Admin-managed
 9. **Automated Government Fee Calculator** (2026-04-17) - 20 countries, live INR conversion
 
-### Latest: Dashboard UX Simplification + AI → Claude (2026-04-22 PM)
+### Latest: Deep-Link Filtering + Fresh DB (2026-04-22 night)
+**User feedback**: "Admin Home mein '1st Approval' click kiya tho pura Pre-Assessments tab open ho raha — sirf wohi cases dikhne chahiye. Plus saare test data delete karo, fresh se test karunga."
+
+**Solution 1 — DB Cleanup**:
+- Created `/app/backend/cleanup_test_data.py` — deleted 1,315 records across 13 collections
+- Preserved: 6 seeded users, products, workflows, fee_database, promo_codes, upsell_bundles
+
+**Solution 2 — Deep-link filtering**:
+- `PreAssessmentQueue` + `PreAssessmentPipeline` now accept `initialFilter` prop
+- Admin/Partner action cards pass filter → opens filtered view only
+- Amber context banner + Clear-filter button when filter active
+- Stats cards clickable for instant filtering
+- Filter auto-clears on sidebar click
+
+**Tested**: iteration_80.json — 14/14 backend + frontend 100%, 0 issues.
+
+### Dashboard UX Simplification + AI → Claude (2026-04-22 PM)
 **Problem solved**: User was overwhelmed with 20+ tabs in Admin, 8+ in Partner — "itna complicated kyu bana hai?"
 
 **Solution**: Action-first redesign WITHOUT deleting any feature
