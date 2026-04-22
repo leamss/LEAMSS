@@ -115,7 +115,7 @@ export default function AdminHome({ user, onNavigate }) {
               description="Pre-Assessments awaiting eligibility review."
               cta="Review queue"
               color="from-purple-500 to-purple-600"
-              onClick={() => onNavigate?.('pre-assessments')}
+              onClick={() => onNavigate?.('pre-assessments', 'first_approval')}
               testId="action-first-approval"
               highlight
             />
@@ -128,7 +128,7 @@ export default function AdminHome({ user, onNavigate }) {
               description="Main fee received — activate case & assign CM."
               cta="Activate cases"
               color="from-[#f7620b] to-orange-600"
-              onClick={() => onNavigate?.('pre-assessments')}
+              onClick={() => onNavigate?.('pre-assessments', 'second_approval')}
               testId="action-second-approval"
               highlight
             />

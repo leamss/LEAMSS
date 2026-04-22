@@ -31,7 +31,7 @@ const STAGE_CONFIG = {
   refunded: { label: 'Refunded', color: 'bg-gray-500', textColor: 'text-gray-700', bgColor: 'bg-gray-50', icon: RefreshCw },
 };
 
-const PreAssessmentPipeline = () => {
+const PreAssessmentPipeline = ({ initialFilter = null }) => {
   const [assessments, setAssessments] = useState([]);
   const [stats, setStats] = useState({});
   const [showCreate, setShowCreate] = useState(false);
@@ -40,6 +40,11 @@ const PreAssessmentPipeline = () => {
   const [search, setSearch] = useState('');
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Apply initial filter when provided
+  useEffect(() => {
+    if (initialFilter) setFilterStage(initialFilter);
+  }, [initialFilter]);
 
   // Create form state
   const [form, setForm] = useState({
@@ -297,17 +302,29 @@ const PreAssessmentPipeline = () => {
 
   return (
     <div className="space-y-6" data-testid="pre-assessment-pipeline">
-      {/* Stats Bar */}
+      {/* Filter context banner */}
+      {filterStage !== 'all' && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 flex items-center justify-between">
+          <p className="text-sm text-amber-800">
+            <span className="font-semibold">Filter active:</span> Showing only <span className="font-semibold capitalize">{filterStage.replace(/_/g, ' ')}</span> items
+          </p>
+          <Button variant="ghost" size="sm" onClick={() => setFilterStage('all')} data-testid="clear-filter-partner">
+            <XCircle className="h-4 w-4 mr-1" /> Clear filter
+          </Button>
+        </div>
+      )}
+
+      {/* Stats Bar — clickable */}
       <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
         {[
-          { label: 'Total', value: stats.total || 0, color: 'from-slate-500 to-slate-600' },
-          { label: 'Needs Your Review', value: assessments.filter(a => a.stage === 'partner_review').length, color: 'from-pink-500 to-pink-600', highlight: true },
-          { label: 'Admin Review', value: stats.under_review || 0, color: 'from-purple-500 to-purple-600' },
-          { label: 'Approved', value: stats.approved || 0, color: 'from-emerald-500 to-emerald-600' },
-          { label: 'Proposals Sent', value: stats.proposal_sent || 0, color: 'from-teal-500 to-teal-600' },
+          { label: 'Total', value: stats.total || 0, color: 'from-slate-500 to-slate-600', click: () => setFilterStage('all') },
+          { label: 'Needs Your Review', value: assessments.filter(a => a.stage === 'partner_review').length, color: 'from-pink-500 to-pink-600', highlight: true, click: () => setFilterStage('partner_review') },
+          { label: 'Admin Review', value: stats.under_review || 0, color: 'from-purple-500 to-purple-600', click: () => setFilterStage('under_review') },
+          { label: 'Approved', value: stats.approved || 0, color: 'from-emerald-500 to-emerald-600', click: () => setFilterStage('approved') },
+          { label: 'Proposals Sent', value: stats.proposal_sent || 0, color: 'from-teal-500 to-teal-600', click: () => setFilterStage('proposal_sent') },
           { label: 'Conversion', value: `${stats.conversion_rate || 0}%`, color: 'from-[#2a777a] to-[#236466]' },
         ].map((s, i) => (
-          <Card key={i} className={`bg-gradient-to-br ${s.color} text-white p-4 border-0 shadow-lg ${s.highlight && s.value > 0 ? 'ring-2 ring-pink-300 ring-offset-2 animate-pulse' : ''}`}>
+          <Card key={i} onClick={s.click} className={`bg-gradient-to-br ${s.color} text-white p-4 border-0 shadow-lg ${s.highlight && s.value > 0 ? 'ring-2 ring-pink-300 ring-offset-2 animate-pulse' : ''} ${s.click ? 'cursor-pointer hover:shadow-xl hover:-translate-y-0.5 transition-all' : ''}`}>
             <p className="text-2xl font-bold">{s.value}</p>
             <p className="text-xs text-white/80">{s.label}</p>
           </Card>

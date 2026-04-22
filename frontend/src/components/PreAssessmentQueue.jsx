@@ -13,18 +13,25 @@ import {
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
-const PreAssessmentQueue = () => {
+const PreAssessmentQueue = ({ initialFilter = null }) => {
   const [queue, setQueue] = useState([]);
   const [allAssessments, setAllAssessments] = useState([]);
   const [stats, setStats] = useState({});
   const [expandedId, setExpandedId] = useState(null);
   const [reviewForm, setReviewForm] = useState({ decision: '', reason: '', notes: '' });
   const [reviewingId, setReviewingId] = useState(null);
-  const [activeView, setActiveView] = useState('queue'); // queue | all
+  const [activeView, setActiveView] = useState('queue'); // queue | all | proposal_paid | under_review
   const [loading, setLoading] = useState(true);
   const [caseManagers, setCaseManagers] = useState([]);
   const [finalizingId, setFinalizingId] = useState(null);
   const [selectedCmId, setSelectedCmId] = useState('');
+
+  // Apply initialFilter on mount or when it changes
+  useEffect(() => {
+    if (initialFilter === 'first_approval') setActiveView('under_review');
+    else if (initialFilter === 'second_approval') setActiveView('proposal_paid');
+    else if (initialFilter === 'all') setActiveView('all');
+  }, [initialFilter]);
 
   const getAuthHeader = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
 
@@ -69,23 +76,43 @@ const PreAssessmentQueue = () => {
     } catch (e) { toast.error(e.response?.data?.detail || 'Failed'); }
   };
 
-  const items = activeView === 'queue' ? queue : allAssessments;
+  const underReviewItems = queue.filter(p => ['under_review', 'documents_submitted'].includes(p.stage));
+  const proposalPaidItems = queue.filter(p => p.stage === 'proposal_paid');
+  const items = (
+    activeView === 'queue' ? queue :
+    activeView === 'under_review' ? underReviewItems :
+    activeView === 'proposal_paid' ? proposalPaidItems :
+    allAssessments
+  );
 
   if (loading) return <div className="flex items-center justify-center h-64"><RefreshCw className="h-8 w-8 text-[#2a777a] animate-spin" /></div>;
 
   return (
     <div className="space-y-6" data-testid="pre-assessment-queue">
-      {/* Stats */}
+      {/* Filter context banner */}
+      {(activeView === 'under_review' || activeView === 'proposal_paid') && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 flex items-center justify-between">
+          <p className="text-sm text-amber-800">
+            <span className="font-semibold">Filter active:</span>{' '}
+            {activeView === 'under_review' ? 'Showing items needing 1st Approval (eligibility review)' : 'Showing items needing 2nd Approval (create case & assign CM)'}
+          </p>
+          <Button variant="ghost" size="sm" onClick={() => setActiveView('queue')} data-testid="clear-filter">
+            <XCircle className="h-4 w-4 mr-1" /> Clear filter
+          </Button>
+        </div>
+      )}
+
+      {/* Stats — clickable for filter */}
       <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
         {[
-          { label: 'Total', value: stats.total || 0, color: 'from-slate-500 to-slate-600' },
-          { label: '1st Review', value: stats.under_review || 0, color: 'from-purple-500 to-purple-600' },
-          { label: 'Approved', value: stats.approved || 0, color: 'from-emerald-500 to-emerald-600' },
-          { label: 'Rejected', value: stats.rejected || 0, color: 'from-red-500 to-red-600' },
-          { label: 'Awaiting Case', value: queue.filter(p => p.stage === 'proposal_paid').length || 0, color: 'from-[#f7620b] to-[#e55a09]' },
+          { label: 'Total', value: stats.total || 0, color: 'from-slate-500 to-slate-600', click: () => setActiveView('all') },
+          { label: '1st Review', value: stats.under_review || 0, color: 'from-purple-500 to-purple-600', click: () => setActiveView('under_review') },
+          { label: 'Approved', value: stats.approved || 0, color: 'from-emerald-500 to-emerald-600', click: () => setActiveView('all') },
+          { label: 'Rejected', value: stats.rejected || 0, color: 'from-red-500 to-red-600', click: () => setActiveView('all') },
+          { label: 'Awaiting Case', value: proposalPaidItems.length || 0, color: 'from-[#f7620b] to-[#e55a09]', click: () => setActiveView('proposal_paid') },
           { label: 'Conversion', value: `${stats.conversion_rate || 0}%`, color: 'from-[#2a777a] to-[#236466]' },
         ].map((s, i) => (
-          <Card key={i} className={`bg-gradient-to-br ${s.color} text-white p-4 border-0 shadow-lg`}>
+          <Card key={i} onClick={s.click} className={`bg-gradient-to-br ${s.color} text-white p-4 border-0 shadow-lg ${s.click ? 'cursor-pointer hover:shadow-xl hover:-translate-y-0.5 transition-all' : ''}`}>
             <p className="text-2xl font-bold">{s.value}</p>
             <p className="text-xs text-white/80">{s.label}</p>
           </Card>
@@ -93,10 +120,18 @@ const PreAssessmentQueue = () => {
       </div>
 
       {/* View Toggle */}
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-wrap">
         <Button variant={activeView === 'queue' ? 'default' : 'outline'} onClick={() => setActiveView('queue')}
           className={activeView === 'queue' ? 'bg-[#2a777a]' : ''} data-testid="view-queue">
           <Eye className="h-4 w-4 mr-2" /> Pending Review ({queue.length})
+        </Button>
+        <Button variant={activeView === 'under_review' ? 'default' : 'outline'} onClick={() => setActiveView('under_review')}
+          className={activeView === 'under_review' ? 'bg-purple-600' : ''} data-testid="view-first-approval">
+          1st Approval ({underReviewItems.length})
+        </Button>
+        <Button variant={activeView === 'proposal_paid' ? 'default' : 'outline'} onClick={() => setActiveView('proposal_paid')}
+          className={activeView === 'proposal_paid' ? 'bg-[#f7620b]' : ''} data-testid="view-second-approval">
+          2nd Approval ({proposalPaidItems.length})
         </Button>
         <Button variant={activeView === 'all' ? 'default' : 'outline'} onClick={() => setActiveView('all')}
           className={activeView === 'all' ? 'bg-[#2a777a]' : ''} data-testid="view-all">

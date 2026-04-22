@@ -28,6 +28,7 @@ const PartnerDashboard = () => {
   const [sales, setSales] = useState([]);
   const [products, setProducts] = useState([]);
   const [activeTab, setActiveTab] = useState('home');
+  const [preAssessFilter, setPreAssessFilter] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [ticketFilter, setTicketFilter] = useState(null);
   const [showNewSaleDialog, setShowNewSaleDialog] = useState(false);
@@ -289,7 +290,7 @@ const PartnerDashboard = () => {
       groupLabel: 'Daily Work',
       defaultOpen: true,
       items: [
-        { id: 'pre-assessment', icon: ClipboardCheck, label: 'Pre-Assessments', onClick: () => setActiveTab('pre-assessment') },
+        { id: 'pre-assessment', icon: ClipboardCheck, label: 'Pre-Assessments', onClick: () => { setActiveTab('pre-assessment'); setPreAssessFilter(null); } },
         { id: 'lead-pipeline', icon: Kanban, label: 'Lead Pipeline', onClick: () => setActiveTab('lead-pipeline') },
         { id: 'tickets', icon: MessageSquare, label: 'Support Tickets', onClick: () => setActiveTab('tickets') },
       ]
@@ -544,7 +545,7 @@ const PartnerDashboard = () => {
               </Dialog>
 
           {activeTab === 'home' && (
-            <PartnerHome user={user} onNavigate={(tab) => setActiveTab(tab)} />
+            <PartnerHome user={user} onNavigate={(tab, filter) => { setActiveTab(tab); setPreAssessFilter(filter || null); }} />
           )}
 
           {activeTab === 'dashboard' && (
@@ -756,7 +757,7 @@ const PartnerDashboard = () => {
           )}
 
           {activeTab === 'pre-assessment' && (
-            <PreAssessmentPipeline />
+            <PreAssessmentPipeline initialFilter={preAssessFilter} />
           )}
 
           {activeTab === 'lead-pipeline' && (

@@ -115,6 +115,7 @@ const AdminDashboard = () => {
   const [allSales, setAllSales] = useState([]);
   const [salesStatusFilter, setSalesStatusFilter] = useState('all');
   const [activeTab, setActiveTab] = useState('home');
+  const [preAssessFilter, setPreAssessFilter] = useState(null);
   const [selectedCase, setSelectedCase] = useState(null);
   const [selectedSale, setSelectedSale] = useState(null);
   const [saleDocuments, setSaleDocuments] = useState([]);
@@ -1172,7 +1173,7 @@ const AdminDashboard = () => {
       groupLabel: 'Cases & Users',
       defaultOpen: true,
       items: [
-        { id: 'pre-assessments', icon: ClipboardList, label: 'Pre-Assessments', onClick: () => { setActiveTab('pre-assessments'); resetSelections(); } },
+        { id: 'pre-assessments', icon: ClipboardList, label: 'Pre-Assessments', onClick: () => { setActiveTab('pre-assessments'); resetSelections(); setPreAssessFilter(null); } },
         { id: 'cases', icon: Briefcase, label: 'All Cases', onClick: () => { setActiveTab('cases'); resetSelections(); } },
         { id: 'users', icon: User, label: 'Users', onClick: () => { setActiveTab('users'); resetSelections(); } },
         { id: 'bulk-ops', icon: Zap, label: 'Bulk Operations', onClick: () => { setActiveTab('bulk-ops'); resetSelections(); } },
@@ -1278,7 +1279,7 @@ const AdminDashboard = () => {
     >
           {/* Home Tab (action-first) */}
           {activeTab === 'home' && (
-            <AdminHome user={user} onNavigate={(tab) => { setActiveTab(tab); resetSelections(); }} />
+            <AdminHome user={user} onNavigate={(tab, filter) => { setActiveTab(tab); resetSelections(); setPreAssessFilter(filter || null); }} />
           )}
 
           {/* Dashboard Tab */}
@@ -2793,7 +2794,7 @@ const AdminDashboard = () => {
           {activeTab === 'conversion-funnel' && <ConversionFunnel token={localStorage.getItem('token')} />}
           {activeTab === 'country-product' && <CountryProductAnalytics token={localStorage.getItem('token')} />}
           {activeTab === 'commission-analytics' && <CommissionAnalytics token={localStorage.getItem('token')} role="admin" />}
-          {activeTab === 'pre-assessments' && <PreAssessmentQueue />}
+          {activeTab === 'pre-assessments' && <PreAssessmentQueue initialFilter={preAssessFilter} />}
           {activeTab === 'approval-center' && <ApprovalCenter token={localStorage.getItem('token')} onNavigate={(tab) => setActiveTab(tab)} />}
           {activeTab === 'refund-manager' && <RefundManager token={localStorage.getItem('token')} />}
           {activeTab === 'revenue-dashboard' && <RevenueDashboard token={localStorage.getItem('token')} />}
