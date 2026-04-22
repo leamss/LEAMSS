@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Briefcase, FileText, DollarSign, LogOut, Plus, ArrowLeft, MessageSquare, Filter, Download, Menu, X, ClipboardCheck, BarChart3, Kanban, Award, Calculator } from 'lucide-react';
+import { Briefcase, FileText, DollarSign, LogOut, Plus, ArrowLeft, MessageSquare, Filter, Download, Menu, X, ClipboardCheck, BarChart3, Kanban, Award, Calculator, Home } from 'lucide-react';
 import DashboardShell from '@/components/DashboardShell';
 import TicketSection from '@/components/TicketSection';
 import QuickActions from '@/components/QuickActions';
@@ -16,6 +16,7 @@ import PreAssessmentPipeline from '@/components/PreAssessmentPipeline';
 import PartnerPerformance from '@/components/PartnerPerformance';
 import LeadPipeline from '@/components/LeadPipeline';
 import FeeCalculator from '@/components/FeeCalculator';
+import PartnerHome from '@/components/PartnerHome';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -26,7 +27,7 @@ const PartnerDashboard = () => {
   const [stats, setStats] = useState({});
   const [sales, setSales] = useState([]);
   const [products, setProducts] = useState([]);
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState('home');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [ticketFilter, setTicketFilter] = useState(null);
   const [showNewSaleDialog, setShowNewSaleDialog] = useState(false);
@@ -283,17 +284,34 @@ const PartnerDashboard = () => {
   };
 
   const partnerNavGroups = [
-    { id: 'dashboard', icon: Briefcase, label: 'Dashboard', onClick: () => setActiveTab('dashboard') },
-    { id: 'pre-assessment', icon: ClipboardCheck, label: 'Pre-Assessment', onClick: () => setActiveTab('pre-assessment') },
-    { id: 'lead-pipeline', icon: Kanban, label: 'Lead Pipeline', onClick: () => setActiveTab('lead-pipeline') },
-    { id: 'sales', icon: FileText, label: 'My Sales', onClick: () => setActiveTab('sales') },
-    { id: 'commission', icon: DollarSign, label: 'Commission', onClick: () => setActiveTab('commission') },
-    { id: 'performance', icon: BarChart3, label: 'My Performance', onClick: () => setActiveTab('performance') },
-    { id: 'fee-calculator', icon: Calculator, label: 'Fee Calculator', onClick: () => setActiveTab('fee-calculator') },
-    { id: 'tickets', icon: MessageSquare, label: 'Support', onClick: () => setActiveTab('tickets') },
+    { id: 'home', icon: Home, label: 'Home', onClick: () => setActiveTab('home') },
+    {
+      groupLabel: 'Daily Work',
+      defaultOpen: true,
+      items: [
+        { id: 'pre-assessment', icon: ClipboardCheck, label: 'Pre-Assessments', onClick: () => setActiveTab('pre-assessment') },
+        { id: 'lead-pipeline', icon: Kanban, label: 'Lead Pipeline', onClick: () => setActiveTab('lead-pipeline') },
+        { id: 'tickets', icon: MessageSquare, label: 'Support Tickets', onClick: () => setActiveTab('tickets') },
+      ]
+    },
+    {
+      groupLabel: 'Sales & Earnings',
+      items: [
+        { id: 'sales', icon: FileText, label: 'My Sales', onClick: () => setActiveTab('sales') },
+        { id: 'commission', icon: DollarSign, label: 'Commission', onClick: () => setActiveTab('commission') },
+        { id: 'performance', icon: BarChart3, label: 'My Performance', onClick: () => setActiveTab('performance') },
+      ]
+    },
+    {
+      groupLabel: 'Tools',
+      items: [
+        { id: 'fee-calculator', icon: Calculator, label: 'Fee Calculator', onClick: () => setActiveTab('fee-calculator') },
+        { id: 'dashboard', icon: Briefcase, label: 'Classic Dashboard', onClick: () => setActiveTab('dashboard') },
+      ]
+    },
   ];
 
-  const partnerPageTitle = { dashboard: 'Dashboard', sales: 'My Sales', commission: 'Commission', tickets: 'Support' }[activeTab] || 'Dashboard';
+  const partnerPageTitle = { home: 'Home', dashboard: 'Classic Dashboard', 'pre-assessment': 'Pre-Assessments', 'lead-pipeline': 'Lead Pipeline', sales: 'My Sales', commission: 'Commission', performance: 'My Performance', 'fee-calculator': 'Fee Calculator', tickets: 'Support Tickets' }[activeTab] || 'Home';
 
   return (
     <DashboardShell
@@ -524,6 +542,10 @@ const PartnerDashboard = () => {
                   </Button>
                 </DialogContent>
               </Dialog>
+
+          {activeTab === 'home' && (
+            <PartnerHome user={user} onNavigate={(tab) => setActiveTab(tab)} />
+          )}
 
           {activeTab === 'dashboard' && (
             <div>

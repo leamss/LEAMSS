@@ -104,7 +104,7 @@ async def generate_proposal(data: AIGenerateRequest, current_user: dict = Depend
         api_key=EMERGENT_LLM_KEY,
         session_id=f"propose-{uuid.uuid4()}",
         system_message=SYSTEM_PROMPT,
-    ).with_model("openai", "gpt-5.2")
+    ).with_model("anthropic", "claude-sonnet-4-5-20250929")
 
     try:
         response = await chat.send_message(UserMessage(text=user_prompt))
@@ -126,5 +126,5 @@ async def generate_proposal(data: AIGenerateRequest, current_user: dict = Depend
         "proposal_text": text,
         "tone": data.tone,
         "word_count": len(text.split()),
-        "model": "openai/gpt-5.2",
+        "model": "anthropic/claude-sonnet-4-5",
     }

@@ -18,7 +18,7 @@ import {
   Search, DollarSign, TrendingUp, CheckCircle, XCircle, Clock,
   MessageSquare, Filter, Calendar, RefreshCw, AlertTriangle, Copy, Mail, Gift,
   Menu, X, Bell, Loader2, CreditCard, BarChart3, Activity, Megaphone,
-  ArrowRightLeft, Zap, BookOpen, Star, UserCheck, ClipboardList, Sparkles, Calculator, Database, Package
+  ArrowRightLeft, Zap, BookOpen, Star, UserCheck, ClipboardList, Sparkles, Calculator, Database, Package, Home
 } from 'lucide-react';
 import BulkOperations from '@/pages/BulkOperations';
 import SLATracker from '@/pages/SLATracker';
@@ -38,6 +38,7 @@ import CountryProductAnalytics from '@/pages/CountryProductAnalytics';
 import CommissionAnalytics from '@/pages/CommissionAnalytics';
 import PreAssessmentQueue from '@/components/PreAssessmentQueue';
 import UpsellBundlesManager from '@/components/UpsellBundlesManager';
+import AdminHome from '@/components/AdminHome';
 import HappinessScoreWidget from '@/components/HappinessScoreWidget';
 import ApprovalCenter from '@/components/ApprovalCenter';
 import FeeCalculator from '@/components/FeeCalculator';
@@ -113,7 +114,7 @@ const AdminDashboard = () => {
   const [caseManagers, setCaseManagers] = useState([]);
   const [allSales, setAllSales] = useState([]);
   const [salesStatusFilter, setSalesStatusFilter] = useState('all');
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState('home');
   const [selectedCase, setSelectedCase] = useState(null);
   const [selectedSale, setSelectedSale] = useState(null);
   const [saleDocuments, setSaleDocuments] = useState([]);
@@ -1151,7 +1152,8 @@ const AdminDashboard = () => {
   };
 
   const adminNavGroups = [
-    { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard', onClick: () => { setActiveTab('dashboard'); resetSelections(); } },
+    { id: 'home', icon: Home, label: 'Home', onClick: () => { setActiveTab('home'); resetSelections(); } },
+    { id: 'dashboard', icon: LayoutDashboard, label: 'Classic Dashboard', onClick: () => { setActiveTab('dashboard'); resetSelections(); } },
     { id: 'approval-center', icon: CheckCircle, label: 'Approval Center', badge: (stats.pending_sales || 0) + (unassignedCases?.length || 0), badgeColor: 'bg-red-500', onClick: () => { setActiveTab('approval-center'); resetSelections(); } },
     {
       groupLabel: 'Sales & Finance',
@@ -1247,6 +1249,8 @@ const AdminDashboard = () => {
       'email-digest': 'Email Digest',
       'pre-assessments': 'Pre-Assessment Queue',
       'upsell-bundles': 'Upsell Bundles',
+      'home': 'Home',
+      'dashboard': 'Classic Dashboard',
     };
     return titles[activeTab] || 'Dashboard';
   };
@@ -1272,6 +1276,11 @@ const AdminDashboard = () => {
       onNotificationClick={handleNotificationClick}
       onLogout={handleLogout}
     >
+          {/* Home Tab (action-first) */}
+          {activeTab === 'home' && (
+            <AdminHome user={user} onNavigate={(tab) => { setActiveTab(tab); resetSelections(); }} />
+          )}
+
           {/* Dashboard Tab */}
           {activeTab === 'dashboard' && (
             <div className="space-y-6" data-testid="dashboard-content">

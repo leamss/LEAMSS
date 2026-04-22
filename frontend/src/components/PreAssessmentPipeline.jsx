@@ -11,6 +11,7 @@ import {
   User, Globe, Briefcase, GraduationCap, Phone, Mail, IndianRupee,
   AlertTriangle, RefreshCw, Filter
 } from 'lucide-react';
+import FunnelProgress from '@/components/FunnelProgress';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -452,6 +453,11 @@ const PreAssessmentPipeline = () => {
 
                 {isExpanded && (
                   <div className="px-4 pb-4 border-t border-slate-100 pt-4 space-y-4">
+                    {/* Funnel Progress */}
+                    <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
+                      <FunnelProgress stage={pa.stage} />
+                    </div>
+
                     {/* Client Info */}
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                       <div><span className="text-slate-500">Email:</span> <span className="font-medium">{pa.client_email}</span></div>
