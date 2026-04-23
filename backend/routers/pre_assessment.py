@@ -342,16 +342,51 @@ async def get_pa_documents(pa_id: str, current_user: dict = Depends(get_current_
 
 
 @router.get("/{pa_id}/document/{doc_id}/download")
-async def download_pa_document(pa_id: str, doc_id: str, current_user: dict = Depends(get_current_user)):
-    """Serve a specific PA document file inline (for viewing or downloading in browser)."""
+async def download_pa_document(pa_id: str, doc_id: str, inline: bool = False, current_user: dict = Depends(get_current_user)):
+    """Serve a specific PA document file. Use ?inline=true to view in browser, else download."""
     from fastapi.responses import FileResponse
+    import mimetypes
     doc = await pre_assessment_docs_col.find_one({"id": doc_id, "pre_assessment_id": pa_id}, {"_id": 0})
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
     path = doc.get("file_path")
     if not path or not os.path.exists(path):
         raise HTTPException(status_code=404, detail="File missing on server")
-    return FileResponse(path, filename=doc.get("file_name", "document"), media_type="application/octet-stream")
+    fname = doc.get("file_name", "document")
+    mime, _ = mimetypes.guess_type(fname)
+    if not mime:
+        mime = "application/pdf" if fname.lower().endswith(".pdf") else "application/octet-stream"
+    disp = "inline" if inline else "attachment"
+    return FileResponse(path, filename=fname, media_type=mime, content_disposition_type=disp)
+
+
+@router.delete("/{pa_id}/document/{doc_id}")
+async def delete_pa_document(pa_id: str, doc_id: str, current_user: dict = Depends(get_current_user)):
+    """Delete an uploaded document. Allowed for: the owner client, the partner of this PA, or admin."""
+    doc = await pre_assessment_docs_col.find_one({"id": doc_id, "pre_assessment_id": pa_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
+    if not pa:
+        raise HTTPException(status_code=404, detail="Pre-assessment not found")
+    role = current_user.get("role")
+    if role == "partner" and pa.get("partner_id") != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Not your pre-assessment")
+    if role == "client":
+        email_match = pa.get("client_email", "").lower() == current_user.get("email", "").lower()
+        id_match = pa.get("client_user_id") == current_user["id"]
+        if not (email_match or id_match):
+            raise HTTPException(status_code=403, detail="Not your document")
+
+    # Delete file from disk (best-effort)
+    path = doc.get("file_path")
+    try:
+        if path and os.path.exists(path):
+            os.remove(path)
+    except Exception:
+        pass
+    await pre_assessment_docs_col.delete_one({"id": doc_id, "pre_assessment_id": pa_id})
+    return {"ok": True}
 
 
 # ===================== ADMIN ENDPOINTS =====================

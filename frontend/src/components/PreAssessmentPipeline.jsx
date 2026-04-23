@@ -567,11 +567,12 @@ const PreAssessmentPipeline = ({ initialFilter = null }) => {
                                 const tok = localStorage.getItem('token');
                                 const handleView = async () => {
                                   try {
-                                    const r = await fetch(dlUrl, { headers: { Authorization: `Bearer ${tok}` } });
+                                    const r = await fetch(`${dlUrl}?inline=true`, { headers: { Authorization: `Bearer ${tok}` } });
                                     if (!r.ok) throw new Error('Fetch failed');
                                     const blob = await r.blob();
                                     const url = URL.createObjectURL(blob);
-                                    window.open(url, '_blank');
+                                    const w = window.open(url, '_blank');
+                                    if (!w) toast.info('Popup blocked — allow popups to view');
                                   } catch (err) { toast.error('View failed'); }
                                 };
                                 const handleDownload = async () => {
@@ -586,8 +587,16 @@ const PreAssessmentPipeline = ({ initialFilter = null }) => {
                                     URL.revokeObjectURL(url);
                                   } catch (err) { toast.error('Download failed'); }
                                 };
+                                const handleDelete = async () => {
+                                  if (!window.confirm(`Delete "${d.file_name}"? This cannot be undone.`)) return;
+                                  try {
+                                    await axios.delete(`${API}/pre-assessment/${pa.id}/document/${d.id}`, getAuthHeader());
+                                    toast.success('Document deleted');
+                                    await loadDocsAndActivity(pa.id);
+                                  } catch (err) { toast.error(err.response?.data?.detail || 'Delete failed'); }
+                                };
                                 return (
-                                  <div key={d.id} className="flex items-center gap-2 text-xs bg-white rounded px-2 py-1.5 border border-slate-100">
+                                  <div key={d.id} className="flex items-center gap-1.5 text-xs bg-white rounded px-2 py-1.5 border border-slate-100">
                                     <FileText className="h-3.5 w-3.5 text-blue-500 shrink-0" />
                                     <div className="flex-1 min-w-0">
                                       <p className="font-medium text-slate-700 truncate">{d.file_name}</p>
@@ -598,6 +607,9 @@ const PreAssessmentPipeline = ({ initialFilter = null }) => {
                                     </Button>
                                     <Button size="sm" variant="outline" onClick={handleDownload} className="h-6 text-[11px] px-2" data-testid={`download-doc-${d.id}`}>
                                       <Download className="h-3 w-3 mr-0.5" /> Save
+                                    </Button>
+                                    <Button size="sm" variant="outline" onClick={handleDelete} className="h-6 text-[11px] px-1.5 text-red-500 hover:bg-red-50 border-red-200" data-testid={`delete-doc-${d.id}`}>
+                                      <XCircle className="h-3 w-3" />
                                     </Button>
                                   </div>
                                 );
