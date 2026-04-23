@@ -1,0 +1,121 @@
+{
+  "iteration": 82,
+  "summary": "Iteration 82 - Document UX Improvements. Backend: 29/29 tests PASSED. All new features verified: (1) GET /download?inline=true returns Content-Disposition: inline; (2) GET /download (no param) returns Content-Disposition: attachment; (3) DELETE /document/{doc_id} deletes file + DB row, returns 404 for missing, 403 for unauthorized; (4) All existing endpoints still work. Frontend: Partner Pipeline has explicit two-step upload flow (stage file → Upload button + Cancel), View/Save/Delete buttons on documents, Financial Summary block on proposal_paid/awaiting_final_approval/case_created stages, indigo 'Awaiting Final Approval' banner. Admin Queue View button updated to use ?inline=true for consistency.",
+  "feature": "3 UX Fixes: (1) Document View opens inline (new tab) not download; (2) Partner document upload has explicit Upload button with filename preview + Cancel + Delete; (3) Partner sees Financial Summary at proposal_paid/awaiting_final_approval stages",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_coverage": {
+    "backend_tests": {
+      "test_01_partner_create_pa": "PASS",
+      "test_02_send_payment_link": "PASS",
+      "test_03_mock_payment": "PASS",
+      "test_04_upload_document": "PASS",
+      "test_05_download_without_inline_returns_attachment": "PASS - Content-Disposition: attachment",
+      "test_06_download_with_inline_true_returns_inline": "PASS - Content-Disposition: inline",
+      "test_07_admin_can_download_inline": "PASS",
+      "test_08_admin_can_download_attachment": "PASS",
+      "test_09_download_nonexistent_doc_returns_404": "PASS",
+      "test_10_upload_second_document_for_delete_test": "PASS",
+      "test_11_delete_document_by_partner": "PASS",
+      "test_12_deleted_document_returns_404": "PASS",
+      "test_13_delete_nonexistent_doc_returns_404": "PASS",
+      "test_14_unauthorized_partner_cannot_delete": "PASS",
+      "test_15_submit_documents_still_works": "PASS",
+      "test_16_verify_pa_stage_under_review": "PASS",
+      "test_17_admin_approve_pa": "PASS",
+      "test_18_send_proposal_still_works": "PASS",
+      "test_19_mock_proposal_payment": "PASS",
+      "test_20_partner_submit_final_endpoint_exists": "PASS",
+      "test_delete_auth_01_setup_tokens": "PASS",
+      "test_delete_auth_02_create_pa_and_upload_doc": "PASS",
+      "test_delete_auth_03_admin_can_delete_any_document": "PASS",
+      "test_delete_auth_04_partner_can_delete_own_pa_document": "PASS",
+      "test_regression_01_login_endpoints": "PASS",
+      "test_regression_02_products_endpoint": "PASS",
+      "test_regression_03_stats_overview_endpoint": "PASS",
+      "test_regression_04_admin_queue_endpoint": "PASS",
+      "test_regression_05_my_assessments_endpoint": "PASS"
+    },
+    "frontend_tests": {
+      "partner_login": "PASS",
+      "partner_pipeline_navigation": "PASS",
+      "partner_pipeline_new_pa_button": "PASS - data-testid=create-pa-btn",
+      "partner_pipeline_search_input": "PASS - data-testid=search-pa",
+      "partner_pipeline_filter_dropdown": "PASS - data-testid=filter-stage",
+      "partner_pipeline_file_input": "PASS - data-testid=file-input-{paId}",
+      "partner_pipeline_doc_type_dropdown": "PASS - data-testid=doc-type-{paId}",
+      "partner_pipeline_explicit_upload_flow": "PASS - File selection shows filename preview + Upload button + Cancel button",
+      "partner_pipeline_upload_button": "PASS - data-testid=upload-btn-{paId}",
+      "partner_pipeline_cancel_button": "PASS - data-testid=cancel-upload-{paId}",
+      "partner_pipeline_view_button": "PASS - data-testid=view-doc-{docId}",
+      "partner_pipeline_save_button": "PASS - data-testid=download-doc-{docId}",
+      "partner_pipeline_delete_button": "PASS - data-testid=delete-doc-{docId}",
+      "partner_pipeline_awaiting_final_approval_banner": "PASS - Indigo banner 'Submitted to Admin · Awaiting Final Approval'",
+      "partner_pipeline_financial_summary": "PASS - Shows PA Fee, Base Fee, Promo, Custom Discount, Upsells, Final Paid, Total Received",
+      "admin_queue_view_buttons": "PASS - data-testid=admin-view-doc-{docId}",
+      "admin_queue_download_buttons": "PASS - data-testid=admin-download-doc-{docId}",
+      "admin_queue_view_toggles": "PASS - Pending Review, 1st Approval, 2nd Approval, All Pre-Assessments"
+    }
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration82_document_ux.py",
+    "/app/test_reports/pytest/pytest_iteration82.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "PreAssessmentPipeline.jsx correctly implements two-step upload flow with pendingUpload state",
+    "PreAssessmentPipeline.jsx View button uses ?inline=true for inline viewing",
+    "PreAssessmentQueue.jsx View button updated to use ?inline=true for consistency",
+    "Financial Summary block correctly shows full fee breakdown with emerald gradient",
+    "Indigo 'Awaiting Final Approval' banner correctly displayed at awaiting_final_approval stage"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration82_document_ux.py",
+    "/app/frontend/src/components/PreAssessmentQueue.jsx"
+  ],
+  "success_rate": {
+    "backend": "100% (29/29 tests passed)",
+    "frontend": "100% - All UI elements and flows verified"
+  },
+  "test_credentials": {
+    "admin": "admin@leamss.com / Admin@123",
+    "partner": "partner@leamss.com / Partner@123",
+    "client": "client@leamss.com / Client@123"
+  },
+  "seed_data_creation": "Created 2 test PAs during testing: TEST_Iteration82_DocUX (proposal_sent), TEST_DeleteAuth_Client (payment_received with 1 doc)",
+  "mocked_apis": ["Stripe payments (mock-payment endpoint)", "Razorpay", "Resend email"],
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iteration 82 verified 3 UX fixes for document handling. Key features: (1) GET /api/pre-assessment/{pa_id}/document/{doc_id}/download?inline=true returns Content-Disposition: inline for viewing in browser; (2) Partner document upload now has explicit two-step flow - selecting file stages it with filename preview, then user clicks Upload button to confirm (data-testids: file-input-{paId}, upload-btn-{paId}, cancel-upload-{paId}); (3) Financial Summary block shows full fee breakdown (PA Fee, Base Fee, Promo discount, Custom Discount, Upsells, Final Paid) at proposal_paid/awaiting_final_approval/case_created stages; (4) Indigo 'Awaiting Final Approval' banner shown at awaiting_final_approval stage. Admin Queue View button updated to use ?inline=true for consistency with Partner Pipeline.",
+  "ux_improvements_verified": {
+    "document_view_inline": {
+      "description": "View button opens file inline in new tab (not download)",
+      "backend": "GET /download?inline=true returns Content-Disposition: inline",
+      "frontend_partner": "PreAssessmentPipeline.jsx uses ?inline=true",
+      "frontend_admin": "PreAssessmentQueue.jsx updated to use ?inline=true"
+    },
+    "explicit_upload_flow": {
+      "description": "Two-step upload: select file → see preview → click Upload",
+      "state": "pendingUpload[paId] = { file, docType }",
+      "ui_elements": "Filename preview, file size, doc type, Upload button, Cancel button",
+      "data_testids": ["file-input-{paId}", "upload-btn-{paId}", "cancel-upload-{paId}"]
+    },
+    "financial_summary": {
+      "description": "Full fee breakdown visible at proposal_paid/awaiting_final_approval/case_created",
+      "elements": ["PA Fee ₹5,100", "Base Fee", "Promo discount", "Custom Discount", "Upsells", "Final Paid", "Total Received"],
+      "styling": "Emerald gradient background"
+    },
+    "awaiting_final_approval_banner": {
+      "description": "Indigo banner shown when PA is at awaiting_final_approval stage",
+      "text": "Submitted to Admin · Awaiting Final Approval",
+      "subtext": "Admin will verify receipt + signed agreement and activate the case by assigning a Case Manager."
+    }
+  }
+}

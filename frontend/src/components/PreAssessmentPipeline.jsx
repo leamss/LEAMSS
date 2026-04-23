@@ -65,6 +65,8 @@ const PreAssessmentPipeline = ({ initialFilter = null }) => {
   const [validatingPromo, setValidatingPromo] = useState(false);
   const [finalSubmittingId, setFinalSubmittingId] = useState(null);
   const [finalNotes, setFinalNotes] = useState('');
+  // Explicit upload staging: { [paId]: { file, docType } }
+  const [pendingUpload, setPendingUpload] = useState({});
 
   const getAuthHeader = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
 
@@ -177,6 +179,28 @@ const PreAssessmentPipeline = ({ initialFilter = null }) => {
       loadData();
     } catch (e) { toast.error('Upload failed'); }
     setUploading(false);
+  };
+
+  // Stage a file for upload (explicit two-step flow)
+  const stageFile = (paId, file, docType) => {
+    if (!file) return;
+    setPendingUpload(prev => ({ ...prev, [paId]: { file, docType } }));
+  };
+
+  const clearPendingFile = (paId) => {
+    setPendingUpload(prev => {
+      const n = { ...prev };
+      delete n[paId];
+      return n;
+    });
+  };
+
+  const confirmUpload = async (paId) => {
+    const entry = pendingUpload[paId];
+    if (!entry || !entry.file) { toast.error('Select a file first'); return; }
+    await handleUploadDoc(paId, entry.file, entry.docType);
+    clearPendingFile(paId);
+    await loadDocsAndActivity(paId);
   };
 
   const handleSendProposal = async (paId) => {
@@ -525,8 +549,8 @@ const PreAssessmentPipeline = ({ initialFilter = null }) => {
                           <Upload className="h-4 w-4" /> Client is uploading documents
                         </p>
                         <p className="text-xs text-blue-600 mb-2">Client will review and submit from their portal. You can also upload on their behalf:</p>
-                        <div className="flex items-center gap-3">
-                          <select id={`docType-${pa.id}`} className="border border-blue-200 rounded-md px-3 py-2 text-sm bg-white">
+                        <div className="flex items-center gap-3 flex-wrap">
+                          <select id={`docType-${pa.id}`} className="border border-blue-200 rounded-md px-3 py-2 text-sm bg-white" data-testid={`doc-type-${pa.id}`}>
                             <option value="passport">Passport</option>
                             <option value="ielts">IELTS/Language Test</option>
                             <option value="education">Education Certificate</option>
@@ -534,15 +558,32 @@ const PreAssessmentPipeline = ({ initialFilter = null }) => {
                             <option value="financial">Financial Documents</option>
                             <option value="other">Other</option>
                           </select>
-                          <Input type="file" className="flex-1" id={`fileInput-${pa.id}`}
-                            onChange={async (e) => {
+                          <Input type="file" className="flex-1 min-w-[200px]" id={`fileInput-${pa.id}`}
+                            onChange={(e) => {
                               const file = e.target.files[0];
                               if (file) {
                                 const docType = document.getElementById(`docType-${pa.id}`).value;
-                                await handleUploadDoc(pa.id, file, docType);
+                                stageFile(pa.id, file, docType);
                               }
-                            }} />
+                            }} data-testid={`file-input-${pa.id}`} />
                         </div>
+                        {pendingUpload[pa.id] && (
+                          <div className="mt-3 flex items-center gap-2 bg-white rounded-md p-2 border border-blue-200">
+                            <FileText className="h-4 w-4 text-blue-500 shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium text-slate-700 truncate">{pendingUpload[pa.id].file.name}</p>
+                              <p className="text-[10px] text-slate-500 capitalize">{pendingUpload[pa.id].docType} · {(pendingUpload[pa.id].file.size / 1024).toFixed(1)} KB</p>
+                            </div>
+                            <Button size="sm" onClick={() => confirmUpload(pa.id)} disabled={uploading}
+                              className="h-7 text-xs bg-blue-600 hover:bg-blue-700 text-white" data-testid={`upload-btn-${pa.id}`}>
+                              <Upload className="h-3 w-3 mr-1" /> {uploading ? 'Uploading...' : 'Upload'}
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => { clearPendingFile(pa.id); const el = document.getElementById(`fileInput-${pa.id}`); if (el) el.value = ''; }}
+                              className="h-7 text-xs" data-testid={`cancel-upload-${pa.id}`}>
+                              Cancel
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     )}
 
@@ -650,6 +691,78 @@ const PreAssessmentPipeline = ({ initialFilter = null }) => {
                       </div>
                     )}
 
+                    {/* Waiting banner for awaiting_final_approval stage */}
+                    {pa.stage === 'awaiting_final_approval' && (
+                      <div className="bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-200 rounded-lg p-4 flex items-center gap-3">
+                        <div className="h-10 w-10 bg-indigo-500 rounded-full flex items-center justify-center shrink-0">
+                          <Clock className="h-5 w-5 text-white" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-semibold text-indigo-900">Submitted to Admin · Awaiting Final Approval</p>
+                          <p className="text-xs text-indigo-700 mt-0.5">Admin will verify receipt + signed agreement and activate the case by assigning a Case Manager. Aapka role iske baad complete ho jayega.</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Financial Summary — visible for proposal_paid / awaiting_final_approval / case_created */}
+                    {['proposal_paid', 'awaiting_final_approval', 'case_created'].includes(pa.stage) && (
+                      <div className="bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 rounded-xl p-4 border border-emerald-200">
+                        <div className="flex items-center justify-between mb-3">
+                          <p className="text-sm font-bold text-emerald-900 flex items-center gap-2">
+                            <IndianRupee className="h-4 w-4" /> Financial Summary
+                          </p>
+                          <Badge className="bg-emerald-600 text-white">
+                            Total Received: ₹{((pa.pre_assessment_fee || 0) + (pa.proposal_fee || 0)).toLocaleString('en-IN')}
+                          </Badge>
+                        </div>
+                        <div className="grid md:grid-cols-2 gap-3 text-xs">
+                          {/* Pre-Assessment Fee */}
+                          <div className="bg-white/70 rounded-lg p-3 border border-emerald-100">
+                            <p className="font-semibold text-slate-700 mb-1.5">Step 1 · Pre-Assessment Fee</p>
+                            <div className="flex justify-between"><span className="text-slate-500">Amount:</span> <span className="font-semibold">₹{(pa.pre_assessment_fee || 5100).toLocaleString('en-IN')}</span></div>
+                            <div className="flex justify-between"><span className="text-slate-500">Status:</span> <Badge className="h-4 text-[10px] bg-emerald-100 text-emerald-700 px-1.5">PAID</Badge></div>
+                          </div>
+                          {/* Main Fee Breakdown */}
+                          <div className="bg-white/70 rounded-lg p-3 border border-emerald-100">
+                            <p className="font-semibold text-slate-700 mb-1.5">Step 2 · Main Service Fee</p>
+                            {pa.proposal_base_fee != null && (
+                              <div className="flex justify-between"><span className="text-slate-500">Base Fee:</span> <span>₹{(pa.proposal_base_fee || 0).toLocaleString('en-IN')}</span></div>
+                            )}
+                            {pa.proposal_promo_code && (
+                              <div className="flex justify-between text-red-600"><span>Promo ({pa.proposal_promo_code}):</span> <span>- ₹{(pa.proposal_promo_discount || 0).toLocaleString('en-IN')}</span></div>
+                            )}
+                            {(pa.proposal_additional_discount || 0) > 0 && (
+                              <div className="flex justify-between text-red-600"><span>Custom Discount:</span> <span>- ₹{(pa.proposal_additional_discount || 0).toLocaleString('en-IN')}</span></div>
+                            )}
+                            {(pa.proposal_upsell_total || 0) > 0 && (
+                              <div className="flex justify-between text-indigo-600"><span>Upsells ({(pa.proposal_upsells || []).length}):</span> <span>+ ₹{(pa.proposal_upsell_total || 0).toLocaleString('en-IN')}</span></div>
+                            )}
+                            <div className="border-t border-dashed border-emerald-300 mt-1.5 pt-1.5 flex justify-between font-bold text-emerald-800">
+                              <span>Final Paid:</span><span>₹{(pa.proposal_fee || 0).toLocaleString('en-IN')}</span>
+                            </div>
+                          </div>
+                        </div>
+                        {/* Upsells list */}
+                        {(pa.proposal_upsells || []).length > 0 && (
+                          <div className="mt-3 bg-white/70 rounded-lg p-3 border border-emerald-100">
+                            <p className="text-[11px] font-semibold text-slate-700 mb-1">Upsell Add-ons:</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {(pa.proposal_upsells || []).map((u, i) => (
+                                <Badge key={i} className="bg-indigo-100 text-indigo-700 text-[10px]">{u.name} · ₹{(u.amount || 0).toLocaleString('en-IN')}</Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {/* Proposal Notes */}
+                        {pa.proposal_notes && (
+                          <div className="mt-3 bg-white/70 rounded-lg p-3 border border-emerald-100">
+                            <p className="text-[11px] font-semibold text-slate-700 mb-1">Proposal Notes:</p>
+                            <p className="text-xs text-slate-600 whitespace-pre-line">{pa.proposal_notes}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     {/* Final-Submit UI (proposal_paid → awaiting_final_approval) */}
                     {finalSubmittingId === pa.id && (
                       <div className="bg-orange-50 rounded-lg p-4 border border-orange-200">
@@ -657,23 +770,39 @@ const PreAssessmentPipeline = ({ initialFilter = null }) => {
                           <Upload className="h-4 w-4" /> Upload Receipt / Agreement / Basic Docs
                         </p>
                         <p className="text-xs text-orange-700 mb-3">Client paid ₹{(pa.proposal_fee || 0).toLocaleString('en-IN')}. Upload payment receipt + signed agreement + any basic docs, then submit to Admin for final approval.</p>
-                        <div className="flex items-center gap-3 mb-3">
-                          <select id={`finalDocType-${pa.id}`} className="border border-orange-200 rounded-md px-3 py-2 text-sm bg-white">
+                        <div className="flex items-center gap-3 mb-3 flex-wrap">
+                          <select id={`finalDocType-${pa.id}`} className="border border-orange-200 rounded-md px-3 py-2 text-sm bg-white" data-testid={`final-doc-type-${pa.id}`}>
                             <option value="receipt">Payment Receipt</option>
                             <option value="agreement">Signed Agreement</option>
                             <option value="passport">Passport</option>
                             <option value="other">Other Basic Doc</option>
                           </select>
-                          <Input type="file" className="flex-1"
-                            onChange={async (e) => {
+                          <Input type="file" className="flex-1 min-w-[200px]" id={`finalFileInput-${pa.id}`}
+                            onChange={(e) => {
                               const file = e.target.files[0];
                               if (file) {
                                 const docType = document.getElementById(`finalDocType-${pa.id}`).value;
-                                await handleUploadDoc(pa.id, file, docType);
-                                await loadDocsAndActivity(pa.id);
+                                stageFile(pa.id, file, docType);
                               }
                             }} data-testid="final-doc-upload" />
                         </div>
+                        {pendingUpload[pa.id] && (
+                          <div className="mb-3 flex items-center gap-2 bg-white rounded-md p-2 border border-orange-200">
+                            <FileText className="h-4 w-4 text-orange-500 shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium text-slate-700 truncate">{pendingUpload[pa.id].file.name}</p>
+                              <p className="text-[10px] text-slate-500 capitalize">{pendingUpload[pa.id].docType} · {(pendingUpload[pa.id].file.size / 1024).toFixed(1)} KB</p>
+                            </div>
+                            <Button size="sm" onClick={() => confirmUpload(pa.id)} disabled={uploading}
+                              className="h-7 text-xs bg-orange-600 hover:bg-orange-700 text-white" data-testid={`final-upload-btn-${pa.id}`}>
+                              <Upload className="h-3 w-3 mr-1" /> {uploading ? 'Uploading...' : 'Upload'}
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => { clearPendingFile(pa.id); const el = document.getElementById(`finalFileInput-${pa.id}`); if (el) el.value = ''; }}
+                              className="h-7 text-xs" data-testid={`final-cancel-upload-${pa.id}`}>
+                              Cancel
+                            </Button>
+                          </div>
+                        )}
                         <label className="text-xs font-medium text-slate-600 block mb-1">Notes for admin (optional)</label>
                         <textarea value={finalNotes} onChange={e => setFinalNotes(e.target.value)}
                           className="w-full border rounded-md px-3 py-2 text-sm h-16"

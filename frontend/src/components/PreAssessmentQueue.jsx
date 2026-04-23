@@ -240,7 +240,7 @@ const PreAssessmentQueue = ({ initialFilter = null }) => {
                             const tok = localStorage.getItem('token');
                             const handleView = async () => {
                               try {
-                                const r = await fetch(dlUrl, { headers: { Authorization: `Bearer ${tok}` } });
+                                const r = await fetch(`${dlUrl}?inline=true`, { headers: { Authorization: `Bearer ${tok}` } });
                                 if (!r.ok) throw new Error();
                                 const blob = await r.blob();
                                 const url = URL.createObjectURL(blob);
