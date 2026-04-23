@@ -673,25 +673,159 @@ async def get_pre_assessment(pa_id: str, current_user: dict = Depends(get_curren
 
 @router.get("/stats/overview")
 async def get_stats(current_user: dict = Depends(get_current_user)):
-    """Get pre-assessment statistics"""
+    """Get pre-assessment statistics (runs all counts in parallel for speed)."""
+    import asyncio
     query = {}
     if current_user["role"] == "partner":
         query = {"partner_id": current_user["id"]}
 
-    total = await pre_assessments_col.count_documents(query)
-    new = await pre_assessments_col.count_documents({**query, "stage": "new"})
-    payment_pending = await pre_assessments_col.count_documents({**query, "stage": "payment_pending"})
-    payment_received = await pre_assessments_col.count_documents({**query, "stage": "payment_received"})
-    under_review = await pre_assessments_col.count_documents({**query, "stage": {"$in": ["under_review", "documents_submitted"]}})
-    approved = await pre_assessments_col.count_documents({**query, "stage": "approved"})
-    rejected = await pre_assessments_col.count_documents({**query, "stage": {"$in": ["rejected", "refund_initiated", "refunded"]}})
-    proposal_sent = await pre_assessments_col.count_documents({**query, "stage": "proposal_sent"})
-    case_created = await pre_assessments_col.count_documents({**query, "stage": "case_created"})
+    stages = [
+        ("total", {}),
+        ("new", {"stage": "new"}),
+        ("payment_pending", {"stage": "payment_pending"}),
+        ("payment_received", {"stage": "payment_received"}),
+        ("under_review", {"stage": {"$in": ["under_review", "documents_submitted"]}}),
+        ("approved", {"stage": "approved"}),
+        ("rejected", {"stage": {"$in": ["rejected", "refund_initiated", "refunded"]}}),
+        ("proposal_sent", {"stage": "proposal_sent"}),
+        ("case_created", {"stage": "case_created"}),
+    ]
+    results = await asyncio.gather(*[
+        pre_assessments_col.count_documents({**query, **q}) for _, q in stages
+    ])
+    out = {k: v for (k, _), v in zip(stages, results)}
+    total = out["total"]
+    out["conversion_rate"] = round((out["case_created"] / total * 100) if total > 0 else 0, 1)
+    return out
+
+
+@router.get("/{pa_id}/bundle")
+async def get_pa_bundle(pa_id: str, current_user: dict = Depends(get_current_user)):
+    """Single round-trip endpoint returning pa + docs + activity + payment_history +
+    smart_checklist + risk. Used by expanded PA cards to avoid N+1 requests."""
+    import asyncio
+    from routers.intelligence import _CHECKLIST_TEMPLATES, _pick_template, _days_since, STAGE_SLA_DAYS
+
+    pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
+    if not pa:
+        raise HTTPException(status_code=404, detail="Pre-assessment not found")
+    role = current_user.get("role")
+    if role == "partner" and pa.get("partner_id") != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Not your pre-assessment")
+    if role == "client":
+        if (pa.get("client_email") or "").lower() != (current_user.get("email") or "").lower() and pa.get("client_user_id") != current_user["id"]:
+            raise HTTPException(status_code=403, detail="Not your pre-assessment")
+
+    # Run all independent queries in parallel
+    docs_task = pre_assessment_docs_col.find({"pre_assessment_id": pa_id}, {"_id": 0}).to_list(100)
+    activity_task = db["activity_log"].find({"entity_id": pa_id}, {"_id": 0}).sort("created_at", -1).to_list(30)
+    invoices_task = db["pa_invoices"].find({"pre_assessment_id": pa_id}, {"_id": 0}).to_list(50)
+
+    docs, activity, invoices = await asyncio.gather(docs_task, activity_task, invoices_task)
+
+    # ISO-serialize dates
+    def _iso(obj, fields=("created_at", "updated_at", "submitted_at", "admin_reviewed_at", "sent_at")):
+        for f in fields:
+            if f in obj and hasattr(obj.get(f), "isoformat"):
+                obj[f] = obj[f].isoformat()
+        return obj
+
+    _iso(pa)
+    for d in docs: _iso(d)
+    for a in activity: _iso(a)
+    for i in invoices: _iso(i)
+
+    # ============= Payment history events =============
+    events = []
+    if pa.get("fee_payment_status") == "paid":
+        events.append({"ts": pa.get("updated_at"), "kind": "pre_assessment_fee",
+                       "label": "Pre-Assessment Fee Paid", "amount": float(pa.get("pre_assessment_fee") or 5100),
+                       "direction": "in", "meta": {"reference": pa.get("pa_number")}})
+    if pa.get("proposal_status") == "sent":
+        events.append({"ts": pa.get("updated_at"), "kind": "proposal_sent",
+                       "label": "Proposal Sent to Client", "amount": float(pa.get("proposal_fee") or 0),
+                       "direction": "pending", "meta": {"promo_code": pa.get("proposal_promo_code")}})
+    if pa.get("stage") in ("proposal_paid", "awaiting_final_approval", "case_created"):
+        events.append({"ts": pa.get("updated_at"), "kind": "main_fee_paid",
+                       "label": "Main Service Fee Paid", "amount": float(pa.get("proposal_fee") or 0),
+                       "direction": "in", "meta": {}})
+    for i in invoices:
+        events.append({"ts": i.get("sent_at"), "kind": "invoice",
+                       "label": f"Invoice {i.get('reference_id')} sent",
+                       "amount": float(i.get("amount_received_total") or 0),
+                       "direction": "info", "meta": {"reference": i.get("reference_id")}})
+    events.sort(key=lambda e: (e.get("ts") or ""), reverse=True)
+    totals = {
+        "received": sum(e["amount"] for e in events if e["direction"] == "in"),
+        "pending": sum(e["amount"] for e in events if e["direction"] == "pending"),
+    }
+
+    # ============= Smart checklist =============
+    tpl_key = _pick_template(pa)
+    items = [dict(it) for it in _CHECKLIST_TEMPLATES[tpl_key]]
+    uploaded_types = [(d.get("document_type") or "").lower() for d in docs]
+    for it in items:
+        cat = it["category"].lower()
+        nm = it["name"].split()[0].lower()
+        it["uploaded"] = any(cat in u or nm in u for u in uploaded_types)
+    done = sum(1 for it in items if it["uploaded"])
+    req_done = sum(1 for it in items if it["required"] and it["uploaded"])
+    checklist = {
+        "template": tpl_key,
+        "items": items,
+        "stats": {
+            "total": len(items), "done": done,
+            "required_total": sum(1 for it in items if it["required"]),
+            "required_done": req_done,
+            "completion_pct": round((done / len(items) * 100) if items else 0, 1),
+        },
+    }
+
+    # ============= Risk score =============
+    score = 50.0
+    factors = []
+    age = int(pa.get("client_age") or 0)
+    if 25 <= age <= 35:
+        score += 15; factors.append({"+": "Prime age band (25-35)", "delta": 15})
+    elif 35 < age <= 45:
+        score += 5; factors.append({"+": "Moderate age band (36-45)", "delta": 5})
+    elif age > 45:
+        score -= 10; factors.append({"-": "Age above 45 reduces eligibility", "delta": -10})
+    edu = (pa.get("education") or "").lower()
+    if "masters" in edu or "phd" in edu:
+        score += 15; factors.append({"+": "Advanced degree (Masters/PhD)", "delta": 15})
+    elif "bachelor" in edu or "degree" in edu:
+        score += 8; factors.append({"+": "Bachelor's degree", "delta": 8})
+    exp = (pa.get("work_experience") or "").lower()
+    if any(t in exp for t in ["5+", "6 ", "7 ", "8 ", "9 ", "10 ", "senior", "lead"]):
+        score += 12; factors.append({"+": "5+ years of work experience", "delta": 12})
+    if pa.get("fee_payment_status") == "paid":
+        score += 8; factors.append({"+": "Pre-assessment fee paid", "delta": 8})
+    if len(docs) >= 5:
+        score += 8; factors.append({"+": f"{len(docs)} documents uploaded", "delta": 8})
+    elif len(docs) == 0 and pa.get("stage") not in ("new", "payment_pending"):
+        score -= 15; factors.append({"-": "No documents uploaded yet", "delta": -15})
+    idle = _days_since(pa.get("updated_at"))
+    sla = STAGE_SLA_DAYS.get(pa.get("stage"), 5)
+    if idle > sla * 2:
+        score -= 15; factors.append({"-": f"Stuck {idle} days at '{pa.get('stage')}'", "delta": -15})
+    elif idle > sla:
+        score -= 7; factors.append({"-": f"Idle {idle} days", "delta": -7})
+    if pa.get("admin_decision") == "rejected":
+        score -= 25; factors.append({"-": "Previously rejected", "delta": -25})
+    score = max(0, min(100, round(score, 1)))
+    if score >= 75:
+        risk = {"score": score, "label": "High Conversion Likelihood", "color": "green", "factors": factors}
+    elif score >= 50:
+        risk = {"score": score, "label": "Moderate", "color": "amber", "factors": factors}
+    else:
+        risk = {"score": score, "label": "At Risk", "color": "red", "factors": factors}
 
     return {
-        "total": total, "new": new, "payment_pending": payment_pending,
-        "payment_received": payment_received, "under_review": under_review,
-        "approved": approved, "rejected": rejected,
-        "proposal_sent": proposal_sent, "case_created": case_created,
-        "conversion_rate": round((case_created / total * 100) if total > 0 else 0, 1)
+        "pa": pa,
+        "documents": docs,
+        "activity": activity,
+        "payment_history": {"events": events, "totals": totals},
+        "checklist": checklist,
+        "risk": risk,
     }

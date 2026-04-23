@@ -5,9 +5,9 @@ import { Brain, TrendingUp, TrendingDown } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
-export default function RiskScoreBadge({ paId, showFactors = false }) {
-  const [risk, setRisk] = useState(null);
-  const [loading, setLoading] = useState(true);
+export default function RiskScoreBadge({ paId, showFactors = false, initialData = null }) {
+  const [risk, setRisk] = useState(initialData);
+  const [loading, setLoading] = useState(!initialData);
 
   const getAuth = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
 
@@ -21,7 +21,10 @@ export default function RiskScoreBadge({ paId, showFactors = false }) {
     setLoading(false);
   }, [paId]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (initialData) { setRisk(initialData); setLoading(false); }
+    else { load(); }
+  }, [initialData, load]);
 
   if (loading || !risk) return null;
 

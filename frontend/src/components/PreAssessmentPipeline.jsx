@@ -62,6 +62,7 @@ const PreAssessmentPipeline = ({ initialFilter = null }) => {
   const [upsellCatalog, setUpsellCatalog] = useState([]);
   const [paDocs, setPaDocs] = useState({}); // { pa_id: [docs] }
   const [paActivity, setPaActivity] = useState({}); // { pa_id: [activity] }
+  const [paBundle, setPaBundle] = useState({}); // { pa_id: { payment_history, checklist, risk } }
   const [forwardingId, setForwardingId] = useState(null);
   const [forwardRemarks, setForwardRemarks] = useState('');
   const [aiGenerating, setAiGenerating] = useState(false);
@@ -305,13 +306,14 @@ const PreAssessmentPipeline = ({ initialFilter = null }) => {
   };
 
   const loadDocsAndActivity = async (paId) => {
+    // Single bundled call — replaces 2+ parallel calls (docs + activity)
+    // AND pre-fills payment_history / checklist / risk so sub-components skip their own fetches.
     try {
-      const [d, a] = await Promise.all([
-        axios.get(`${API}/pre-assessment/${paId}/documents`, getAuthHeader()),
-        axios.get(`${API}/pre-assess-portal/activity/pa/${paId}`, getAuthHeader()).catch(() => ({ data: { activity: [] } })),
-      ]);
-      setPaDocs(p => ({ ...p, [paId]: d.data || [] }));
-      setPaActivity(p => ({ ...p, [paId]: a.data?.activity || [] }));
+      const r = await axios.get(`${API}/pre-assessment/${paId}/bundle`, getAuthHeader());
+      const b = r.data || {};
+      setPaDocs(p => ({ ...p, [paId]: b.documents || [] }));
+      setPaActivity(p => ({ ...p, [paId]: b.activity || [] }));
+      setPaBundle(p => ({ ...p, [paId]: { payment_history: b.payment_history, checklist: b.checklist, risk: b.risk } }));
     } catch (e) { /* ignore */ }
   };
 
@@ -822,15 +824,15 @@ const PreAssessmentPipeline = ({ initialFilter = null }) => {
                     )}
 
                     {/* Payment History Timeline + Risk + Checklist (visible once fee_payment_status is paid) */}
-                    {pa.fee_payment_status === 'paid' && (
+                    {pa.fee_payment_status === 'paid' && paBundle[pa.id] && (
                       <div className="grid md:grid-cols-2 gap-3">
                         <div className="bg-white rounded-lg p-3 border border-slate-200">
                           <p className="text-xs font-semibold text-slate-700 mb-2 flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> Payment Timeline</p>
-                          <PaymentHistoryTimeline scope="pa" id={pa.id} compact />
+                          <PaymentHistoryTimeline scope="pa" id={pa.id} compact initialData={paBundle[pa.id].payment_history} />
                         </div>
                         <div className="bg-white rounded-lg p-3 border border-slate-200 space-y-3">
-                          <RiskScoreBadge paId={pa.id} showFactors />
-                          <SmartDocChecklist paId={pa.id} />
+                          <RiskScoreBadge paId={pa.id} showFactors initialData={paBundle[pa.id].risk} />
+                          <SmartDocChecklist paId={pa.id} initialData={{...paBundle[pa.id].checklist, country: pa.country, service_type: pa.service_type}} />
                         </div>
                       </div>
                     )}

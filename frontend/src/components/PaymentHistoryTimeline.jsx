@@ -25,9 +25,9 @@ const KIND_COLOR = {
  *  - scope: 'pa' | 'case'
  *  - id: pre_assessment_id or case_id
  */
-export default function PaymentHistoryTimeline({ scope = 'pa', id, compact = false }) {
-  const [data, setData] = useState({ events: [], totals: { received: 0, pending: 0 } });
-  const [loading, setLoading] = useState(true);
+export default function PaymentHistoryTimeline({ scope = 'pa', id, compact = false, initialData = null }) {
+  const [data, setData] = useState(initialData || { events: [], totals: { received: 0, pending: 0 } });
+  const [loading, setLoading] = useState(!initialData);
 
   const getAuth = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
 
@@ -41,7 +41,14 @@ export default function PaymentHistoryTimeline({ scope = 'pa', id, compact = fal
     setLoading(false);
   }, [scope, id]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (initialData) {
+      setData(initialData);
+      setLoading(false);
+    } else {
+      load();
+    }
+  }, [initialData, load]);
 
   if (loading) {
     return <div className="text-xs text-slate-400 flex items-center gap-2"><RefreshCw className="h-3 w-3 animate-spin" /> Loading timeline…</div>;

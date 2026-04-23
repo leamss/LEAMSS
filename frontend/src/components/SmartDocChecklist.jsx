@@ -9,9 +9,9 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
  * SmartDocChecklist — based on /api/intelligence/checklist/{pa_id}
  * Country-aware recommended-docs list with completion %.
  */
-export default function SmartDocChecklist({ paId }) {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
+export default function SmartDocChecklist({ paId, initialData = null }) {
+  const [data, setData] = useState(initialData);
+  const [loading, setLoading] = useState(!initialData);
 
   const getAuth = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
 
@@ -25,7 +25,10 @@ export default function SmartDocChecklist({ paId }) {
     setLoading(false);
   }, [paId]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (initialData) { setData(initialData); setLoading(false); }
+    else { load(); }
+  }, [initialData, load]);
 
   if (loading || !data) return null;
 

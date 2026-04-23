@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import StreamingResponse
 from core.database import notifications_col
 from core.auth import get_current_user
-from datetime import datetime
+from datetime import datetime, timezone
 import asyncio
 import json
 import jwt
@@ -51,15 +51,15 @@ async def notification_stream(token: str = Query(...)):
 
     async def event_generator():
         yield f"data: {json.dumps({'type': 'connected', 'user_id': user_id})}\n\n"
-        last_check = datetime.utcnow()
+        last_check = datetime.now(timezone.utc)
         while True:
-            await asyncio.sleep(15)
+            await asyncio.sleep(5)  # Poll every 5s for near-real-time delivery
             try:
                 new_notifs = await notifications_col.find(
                     {"user_id": user_id, "read": False, "created_at": {"$gt": last_check}},
                     {"_id": 0}
-                ).to_list(10)
-                last_check = datetime.utcnow()
+                ).to_list(20)
+                last_check = datetime.now(timezone.utc)
                 for n in new_notifs:
                     if isinstance(n.get("created_at"), datetime):
                         n["created_at"] = n["created_at"].isoformat()
