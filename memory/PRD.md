@@ -3,6 +3,18 @@
 ## Original Problem Statement
 Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case Manager, Partner, Client.
 
+### Latest: 3 Document UX Fixes (2026-04-23)
+**User feedback**: "Document View download ho raha hai instead of inline open. Partner upload ke liye explicit Upload button chahiye aur Delete option bhi. Awaiting Final Approval stage pe Financial Summary dikhao."
+
+**All 3 fixed:**
+1. **Inline View** — Backend `GET /api/pre-assessment/{pa_id}/document/{doc_id}/download?inline=true` sets `Content-Disposition: inline` (via FileResponse `content_disposition_type`). Both Partner Pipeline + Admin Queue View buttons fetch with `?inline=true`, create blob URL, open in new tab. Save/Download buttons omit param (defaults to `attachment`).
+2. **Explicit Upload flow** — Replaced auto-upload-on-select with 2-step staging: `pendingUpload[paId] = { file, docType }`. Selecting a file now shows filename + size + doc-type preview with explicit **Upload** + **Cancel** buttons. Applied to both `payment_received` zone + final-submit zone. data-testids: `file-input-{paId}`, `upload-btn-{paId}`, `cancel-upload-{paId}`, `final-upload-btn-{paId}`, `final-cancel-upload-{paId}`.
+3. **Delete docs** — `DELETE /api/pre-assessment/{pa_id}/document/{doc_id}` (allowed for doc-owner client, PA's partner, admin). Frontend XCircle button with window.confirm. data-testid: `delete-doc-{docId}`.
+4. **Financial Summary block** — NEW emerald gradient card visible at `proposal_paid`, `awaiting_final_approval`, `case_created` stages. Shows PA Fee ₹5,100 + Main Service breakdown (Base Fee, Promo discount with code, Custom Discount, Upsells list+total, Final Paid) + Total Received badge + Proposal notes.
+5. **Awaiting Final Approval banner** — NEW indigo waiting banner at `awaiting_final_approval` stage with Hinglish subtext "Aapka role iske baad complete ho jayega".
+
+**Tested**: iteration_82.json — Backend 29/29 PASSED, Frontend 100% verified. 0 issues. `retest_needed: false`.
+
 ## Complete Feature List (2026-04-15 to 2026-04-17)
 
 1. **Step-wise Document Management** - Admin/CM/Client document flow
