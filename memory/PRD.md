@@ -3,6 +3,51 @@
 ## Original Problem Statement
 Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case Manager, Partner, Client.
 
+### Phase B + C + D Complete (2026-04-23 PM) — MASSIVE RELEASE
+
+**User ask**: Build Phase B (Proposal PDF + Digital E-Sign + Send Invoice button), Phase C (Payment History + Auto Invoice + Milestone Payments), Phase D (Drop-off Recovery + Smart Doc Checklist + Risk Prediction), plus consent-summary email auto-trigger with Reference ID for legal records. "Sab achese interlink ho — koi link break nah hojayega."
+
+**New Backend routers (all wired in server.py):**
+1. `/app/backend/routers/proposal_docs.py` — ReportLab A4 branded PDFs + e-sign
+   - `GET /api/proposal-docs/{pa_id}/proposal.pdf` / `invoice.pdf`
+   - `POST /api/proposal-docs/{pa_id}/send-invoice` (MOCK email + records Reference ID)
+   - `GET /api/proposal-docs/{pa_id}/invoices`
+   - `POST /api/proposal-docs/{pa_id}/esign` (client-only, saves PNG + IP + UA)
+   - `GET /api/proposal-docs/{pa_id}/esign`
+2. `/app/backend/routers/payment_history.py` — two routers
+   - `GET /api/payment-history/pa/{pa_id}` + `/case/{case_id}` (unified timeline)
+   - `POST /api/milestones/case/{case_id}/create`, `GET /api/milestones/case/{case_id}`
+   - `POST /api/milestones/{mid}/mock-pay`, `mark-paid`, `DELETE /api/milestones/{mid}`
+3. `/app/backend/routers/intelligence.py` — Phase D
+   - `GET /api/intelligence/dropoff-leads` (stage-SLA detection, severity, suggested_action)
+   - `POST /api/intelligence/nudge/{pa_id}` (MOCK email + in-app notification)
+   - `GET /api/intelligence/checklist/{pa_id}` (4 templates: canada_express_entry, australia_skilled, uk_work_visa, usa_h1b, default)
+   - `GET /api/intelligence/risk/{pa_id}` (rule-based 0-100 score using age, education, experience, stage, docs, idle time, rejection history)
+
+**Consent Summary Email (legal paper-trail):**
+- Modified `POST /api/pre-assess-portal/client/proposal-consent/{pa_id}` to emit `reference_id` (format: `CON-<PA#>-<YYMMDDHHMM>`), persist full body_snapshot (base_fee + promo + upsells + final_amount + consent_at) in `proposal_consent_emails` collection, notify both client + partner
+- New `GET /api/pre-assess-portal/client/consent-summary/{pa_id}` for archived view
+
+**New Frontend components (6):**
+- `SignatureCanvas.jsx` — HTML5 canvas drawing + typed-name verification
+- `PaymentHistoryTimeline.jsx` — vertical timeline w/ received/pending totals
+- `MilestonesManager.jsx` — create/pay/mark-paid/delete milestones (role-aware)
+- `RiskScoreBadge.jsx` — risk pill + factor breakdown
+- `SmartDocChecklist.jsx` — progress bar + checklist items
+- `DropoffRecoveryWidget.jsx` — stuck-leads list with Nudge buttons
+
+**Enhancements to existing:**
+- **PartnerHome + AdminHome**: DropoffRecoveryWidget mounted at bottom
+- **PreAssessmentPipeline (Partner)**: Financial Summary now has 3 action buttons (Download Proposal PDF · Download Invoice PDF · Send Invoice to Client) + below it a 2-col block with Payment Timeline + Risk Badge + Smart Checklist (when fee_payment_status=paid)
+- **PreAssessmentMiniPortal (Client)**: Consent flow shows Reference ID inline + archived summary; new "E-Sign Your Service Agreement" card with SignatureCanvas (proposal_paid stage); "Your Payment Records" card with Proposal/Invoice download + PaymentHistoryTimeline
+- **ClientDashboard → My Journey tab**: PaymentHistoryTimeline (case scope) + MilestonesManager for active cases
+
+**Tech additions:**
+- ReportLab (already installed v4.4.10) — A4 branded PDFs with logo, parties, fee breakdown table, consent clause, footer
+- New collections: `pa_signatures`, `pa_invoices`, `proposal_consent_emails`, `case_milestones`, `pa_nudges`
+
+**Tested**: iteration_83.json — Backend **49/49 PASS** · Frontend 100% · 0 regressions on Phase A · 0 issues. `retest_needed:false`.
+
 ### Latest: 3 Document UX Fixes (2026-04-23)
 **User feedback**: "Document View download ho raha hai instead of inline open. Partner upload ke liye explicit Upload button chahiye aur Delete option bhi. Awaiting Final Approval stage pe Financial Summary dikhao."
 
