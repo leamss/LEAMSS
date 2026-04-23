@@ -34,6 +34,8 @@ import AIChatWidget from '@/components/AIChatWidget';
 import InfoSheetEditor from '@/components/InfoSheetEditor';
 import ClientProfile from '@/components/ClientProfile';
 import CaseJourney from '@/components/CaseJourney';
+import PaymentHistoryTimeline from '@/components/PaymentHistoryTimeline';
+import MilestonesManager from '@/components/MilestonesManager';
 import MessageCenter from '@/components/MessageCenter';
 import EligibilityChecker from '@/components/EligibilityChecker';
 import EMITracker from '@/components/EMITracker';
@@ -1293,7 +1295,20 @@ const ClientDashboard = () => {
 
               {/* My Journey Tab */}
               {activeTab === 'journey' && (
-                <CaseJourney caseData={caseData} documents={documents} />
+                <>
+                  <CaseJourney caseData={caseData} documents={documents} />
+                  {caseData?.id && (
+                    <div className="mt-6 grid md:grid-cols-2 gap-4">
+                      <div className="bg-white rounded-xl border border-slate-200 p-5">
+                        <h3 className="text-sm font-semibold text-slate-800 mb-3">Payment Timeline</h3>
+                        <PaymentHistoryTimeline scope="case" id={caseData.id} />
+                      </div>
+                      <div className="bg-white rounded-xl border border-slate-200 p-5">
+                        <MilestonesManager caseId={caseData.id} role="client" />
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
 
               {/* Messages Tab */}

@@ -7,6 +7,7 @@ import {
   ClipboardList, Briefcase, Users, TrendingUp, ArrowRight,
   Sparkles, AlertCircle, CheckCircle, UserCheck, Package, DollarSign, Shield
 } from 'lucide-react';
+import DropoffRecoveryWidget from '@/components/DropoffRecoveryWidget';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const getAuth = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
@@ -200,6 +201,9 @@ export default function AdminHome({ user, onNavigate }) {
           ))}
         </div>
       </div>
+
+      {/* Drop-off Recovery */}
+      <DropoffRecoveryWidget />
     </div>
   );
 }

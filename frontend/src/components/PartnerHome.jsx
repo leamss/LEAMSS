@@ -7,6 +7,7 @@ import {
   ClipboardCheck, Send, Users, TrendingUp, ArrowRight,
   Sparkles, Clock, CheckCircle, AlertCircle, Plus, IndianRupee
 } from 'lucide-react';
+import DropoffRecoveryWidget from '@/components/DropoffRecoveryWidget';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -218,6 +219,9 @@ export default function PartnerHome({ user, onNavigate }) {
           </Card>
         </div>
       )}
+
+      {/* Drop-off Recovery */}
+      <DropoffRecoveryWidget />
     </div>
   );
 }

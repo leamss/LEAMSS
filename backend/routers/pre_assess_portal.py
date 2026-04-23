@@ -532,7 +532,8 @@ async def client_accept_proposal(pa_id: str, current_user: dict = Depends(get_cu
 
 @router.post("/client/proposal-consent/{pa_id}")
 async def client_proposal_consent(pa_id: str, current_user: dict = Depends(get_current_user)):
-    """Client confirms they've reviewed the proposal + T&C before payment. Records timestamp."""
+    """Client confirms they've reviewed the proposal + T&C before payment. Records timestamp
+    AND triggers a (MOCK) consent-summary email with a legal Reference ID for paper-trail."""
     if current_user.get("role") != "client":
         raise HTTPException(status_code=403, detail="Client only")
     pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
@@ -542,13 +543,90 @@ async def client_proposal_consent(pa_id: str, current_user: dict = Depends(get_c
     if pa.get("stage") != "proposal_sent":
         raise HTTPException(status_code=400, detail=f"Cannot give consent at stage: {pa.get('stage')}")
 
+    now = _now()
+    reference_id = f"CON-{(pa.get('pa_number') or pa_id[:8]).upper()}-{now.strftime('%y%m%d%H%M')}"
+
     await pre_assessments_col.update_one({"id": pa_id}, {"$set": {
         "proposal_consent_given": True,
-        "proposal_consent_at": _now(),
-        "updated_at": _now(),
+        "proposal_consent_at": now,
+        "proposal_consent_reference_id": reference_id,
+        "updated_at": now,
     }})
-    await _log(current_user["id"], pa_id, "proposal_consent_given", {})
-    return {"ok": True, "consent_given": True}
+    await _log(current_user["id"], pa_id, "proposal_consent_given", {"reference_id": reference_id})
+
+    # Build consent summary payload (MOCK email persisted for records)
+    upsells = pa.get("proposal_upsells") or []
+    summary = {
+        "id": str(uuid.uuid4()),
+        "reference_id": reference_id,
+        "pre_assessment_id": pa_id,
+        "pa_number": pa.get("pa_number"),
+        "channel": "email",
+        "to_email": pa.get("client_email"),
+        "to_name": pa.get("client_name"),
+        "partner_name": pa.get("partner_name"),
+        "subject": f"Your proposal consent summary — {reference_id}",
+        "body_snapshot": {
+            "base_fee": float(pa.get("proposal_base_fee") or 0),
+            "promo_code": pa.get("proposal_promo_code"),
+            "promo_discount": float(pa.get("proposal_promo_discount") or 0),
+            "custom_discount": float(pa.get("proposal_additional_discount") or 0),
+            "upsells": [{"name": u.get("name"), "amount": float(u.get("amount") or 0)} for u in upsells],
+            "upsell_total": float(pa.get("proposal_upsell_total") or 0),
+            "final_amount": float(pa.get("proposal_fee") or 0),
+            "consent_at": now.isoformat(),
+            "country": pa.get("country"),
+            "service_type": pa.get("service_type"),
+        },
+        "mode": "mock",
+        "created_at": now,
+    }
+    await db["proposal_consent_emails"].insert_one(summary)
+    summary.pop("_id", None)
+    summary["created_at"] = summary["created_at"].isoformat()
+
+    # In-app notification to client for confirmation
+    await notifications_col.insert_one({
+        "id": str(uuid.uuid4()), "user_id": current_user["id"],
+        "title": "Consent Summary Emailed",
+        "message": f"Consent summary sent to {pa.get('client_email')}. Reference: {reference_id}",
+        "type": "consent_summary", "read": False,
+        "created_at": now,
+    })
+    # Partner notification
+    if pa.get("partner_id"):
+        await notifications_col.insert_one({
+            "id": str(uuid.uuid4()), "user_id": pa["partner_id"],
+            "title": "Client Signed Consent",
+            "message": f"{pa.get('client_name')} accepted the proposal. Reference: {reference_id}",
+            "type": "consent_summary", "read": False,
+            "created_at": now,
+        })
+
+    return {"ok": True, "consent_given": True, "reference_id": reference_id, "summary": summary}
+
+
+@router.get("/client/consent-summary/{pa_id}")
+async def get_consent_summary(pa_id: str, current_user: dict = Depends(get_current_user)):
+    """Fetch the archived consent summary (for both client + partner + admin)."""
+    pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
+    if not pa:
+        raise HTTPException(status_code=404, detail="Not found")
+    role = current_user.get("role")
+    if role == "client":
+        if (pa.get("client_email") or "").lower() != (current_user.get("email") or "").lower() and pa.get("client_user_id") != current_user["id"]:
+            raise HTTPException(status_code=403, detail="Not authorized")
+    elif role == "partner":
+        if pa.get("partner_id") != current_user["id"]:
+            raise HTTPException(status_code=403, detail="Not authorized")
+    elif role not in ("admin", "case_manager"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+    rec = await db["proposal_consent_emails"].find_one({"pre_assessment_id": pa_id}, {"_id": 0}, sort=[("created_at", -1)])
+    if not rec:
+        return {"exists": False}
+    if hasattr(rec.get("created_at"), "isoformat"):
+        rec["created_at"] = rec["created_at"].isoformat()
+    return {"exists": True, "record": rec}
 
 
 @router.post("/client/mock-pay-proposal/{pa_id}")

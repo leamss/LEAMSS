@@ -7,8 +7,10 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import {
   CheckCircle2, Upload, FileText, Clock, Loader2, Sparkles, Scan,
-  AlertTriangle, XCircle, CreditCard, ShieldCheck, FileCheck, Send, RefreshCw
+  AlertTriangle, XCircle, CreditCard, ShieldCheck, FileCheck, Send, RefreshCw, Download
 } from 'lucide-react';
+import SignatureCanvas from '@/components/SignatureCanvas';
+import PaymentHistoryTimeline from '@/components/PaymentHistoryTimeline';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -45,6 +47,9 @@ export default function PreAssessmentMiniPortal({ pa, onRefresh, onOpenScanner }
   const [accepting, setAccepting] = useState(false);
   const [consentChecked, setConsentChecked] = useState(false);
   const [givingConsent, setGivingConsent] = useState(false);
+  const [consentSummary, setConsentSummary] = useState(null);
+  const [esignRec, setEsignRec] = useState(null);
+  const [savingSig, setSavingSig] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -112,12 +117,59 @@ export default function PreAssessmentMiniPortal({ pa, onRefresh, onOpenScanner }
   const handleGiveConsent = async () => {
     setGivingConsent(true);
     try {
-      await axios.post(`${API}/pre-assess-portal/client/proposal-consent/${pa.id}`, {}, getAuth());
-      toast.success('Consent recorded — you can now proceed to pay.');
+      const r = await axios.post(`${API}/pre-assess-portal/client/proposal-consent/${pa.id}`, {}, getAuth());
+      toast.success(`Consent recorded · Ref ${r.data.reference_id}`);
+      setConsentSummary(r.data.summary || null);
       await load();
       onRefresh?.();
     } catch (e) { toast.error(e?.response?.data?.detail || 'Failed'); }
     setGivingConsent(false);
+  };
+
+  const loadConsentSummary = useCallback(async () => {
+    try {
+      const r = await axios.get(`${API}/pre-assess-portal/client/consent-summary/${pa.id}`, getAuth());
+      if (r.data.exists) setConsentSummary(r.data.record);
+    } catch (e) { /* silent */ }
+  }, [pa.id]);
+
+  const loadEsign = useCallback(async () => {
+    try {
+      const r = await axios.get(`${API}/proposal-docs/${pa.id}/esign`, getAuth());
+      if (r.data.signed) setEsignRec(r.data.record);
+    } catch (e) { /* silent */ }
+  }, [pa.id]);
+
+  useEffect(() => {
+    if (pa.proposal_consent_given) loadConsentSummary();
+    if (['proposal_paid', 'awaiting_final_approval', 'case_created'].includes(pa.stage)) loadEsign();
+  }, [pa.proposal_consent_given, pa.stage, loadConsentSummary, loadEsign]);
+
+  const handleSaveSignature = async (dataUrl, meta) => {
+    setSavingSig(true);
+    try {
+      const r = await axios.post(`${API}/proposal-docs/${pa.id}/esign`, {
+        signature_data_url: dataUrl,
+        typed_name: meta.typed_name,
+        consent_text: 'I electronically sign this service agreement',
+      }, getAuth());
+      toast.success('Agreement e-signed · ' + new Date(r.data.signed_at).toLocaleString());
+      await loadEsign();
+    } catch (e) { toast.error(e?.response?.data?.detail || 'Sign failed'); }
+    setSavingSig(false);
+  };
+
+  const downloadDoc = async (kind) => {
+    try {
+      const r = await fetch(`${API}/proposal-docs/${pa.id}/${kind}.pdf`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      if (!r.ok) throw new Error();
+      const blob = await r.blob();
+      const u = URL.createObjectURL(blob);
+      window.open(u, '_blank');
+      setTimeout(() => URL.revokeObjectURL(u), 60000);
+    } catch { toast.error(`${kind} PDF failed`); }
   };
 
   const handlePayProposal = async () => {
@@ -417,9 +469,14 @@ export default function PreAssessmentMiniPortal({ pa, onRefresh, onOpenScanner }
             </div>
           ) : (
             <div className="space-y-3">
-              <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-                <p className="text-xs text-emerald-800">Consent recorded at {new Date(pa.proposal_consent_at).toLocaleString()}. You can now proceed to pay.</p>
+              <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                  <p className="text-xs font-semibold text-emerald-800">Consent recorded at {new Date(pa.proposal_consent_at).toLocaleString()}</p>
+                </div>
+                {(consentSummary?.reference_id || pa.proposal_consent_reference_id) && (
+                  <p className="text-[11px] text-emerald-700">Reference ID: <span className="font-mono font-bold">{consentSummary?.reference_id || pa.proposal_consent_reference_id}</span> · A summary has been emailed to you (mock).</p>
+                )}
               </div>
               <Button onClick={handlePayProposal} disabled={paying}
                 className="w-full bg-[#f7620b] hover:bg-[#e55a09] text-white text-base py-6" data-testid="mini-pay-proposal">
@@ -446,6 +503,56 @@ export default function PreAssessmentMiniPortal({ pa, onRefresh, onOpenScanner }
               </p>
             </div>
           </div>
+        </Card>
+      )}
+
+      {/* E-SIGN Agreement (shown once main fee paid, until signed) — client's digital signature */}
+      {['proposal_paid', 'awaiting_final_approval', 'case_created'].includes(stage) && !esignRec && (
+        <Card className="p-6 border-amber-200 bg-gradient-to-br from-amber-50 to-white" data-testid="esign-card">
+          <div className="flex items-start gap-3 mb-3">
+            <div className="h-10 w-10 bg-amber-100 rounded-full flex items-center justify-center shrink-0">
+              <FileCheck className="h-5 w-5 text-amber-700" />
+            </div>
+            <div>
+              <h3 className="font-bold text-slate-800">E-Sign Your Service Agreement</h3>
+              <p className="text-xs text-slate-600">For legal records, please sign the service agreement with your full name. This creates a timestamped, IP-logged digital signature.</p>
+            </div>
+          </div>
+          <SignatureCanvas onSigned={handleSaveSignature} disabled={savingSig} />
+        </Card>
+      )}
+
+      {/* Signed confirmation */}
+      {esignRec && (
+        <Card className="p-4 border-emerald-200 bg-emerald-50" data-testid="esign-done">
+          <div className="flex items-center gap-3">
+            <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-emerald-900">Agreement e-signed by {esignRec.typed_name}</p>
+              <p className="text-[11px] text-emerald-700">Signed on {new Date(esignRec.signed_at).toLocaleString()} · IP {esignRec.ip_address || 'n/a'}</p>
+            </div>
+            {esignRec.signature_data_url && (
+              <img src={esignRec.signature_data_url} alt="Signature" className="h-10 bg-white border border-emerald-200 rounded" />
+            )}
+          </div>
+        </Card>
+      )}
+
+      {/* Payment history + Doc downloads (post-payment) */}
+      {['proposal_paid', 'awaiting_final_approval', 'case_created'].includes(stage) && (
+        <Card className="p-5 border-slate-200" data-testid="client-payment-history">
+          <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+            <h3 className="text-sm font-semibold text-slate-800">Your Payment Records</h3>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => downloadDoc('proposal')} className="h-7 text-xs" data-testid="client-dl-proposal">
+                <Download className="h-3 w-3 mr-1" /> Proposal
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => downloadDoc('invoice')} className="h-7 text-xs" data-testid="client-dl-invoice">
+                <Download className="h-3 w-3 mr-1" /> Invoice
+              </Button>
+            </div>
+          </div>
+          <PaymentHistoryTimeline scope="pa" id={pa.id} />
         </Card>
       )}
 

@@ -1,0 +1,147 @@
+{
+  "iteration": 83,
+  "summary": "Phase B + C + D Testing Complete. Backend: 49/49 tests PASSED. All new features verified: (B) Proposal PDF, Invoice PDF, E-Sign, Send Invoice; (C) Payment History Timeline, Milestones CRUD; (D) Drop-off Recovery, Smart Doc Checklist, Risk Prediction; Enhanced consent flow with reference_id. Frontend: All components rendering correctly - Partner Pipeline shows Financial Summary with PDF buttons, Payment Timeline, Risk Badge, Smart Checklist; Admin Home shows Drop-off Recovery Widget; Client Journey shows Payment Timeline and Milestones Manager.",
+  "feature": "Phase B+C+D: Proposal/Invoice PDFs, E-Sign, Payment History, Milestones, Drop-off Recovery, Smart Checklist, Risk Prediction",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_coverage": {
+    "backend_tests": {
+      "test_01_admin_login": "PASS",
+      "test_02_partner_login": "PASS",
+      "test_03_manager_login": "PASS",
+      "test_04_client_login": "PASS",
+      "test_05_partner_create_pa": "PASS",
+      "test_06_send_payment_link": "PASS",
+      "test_07_mock_payment": "PASS",
+      "test_08_upload_document": "PASS",
+      "test_09_client_submit_for_review": "PASS",
+      "test_10_partner_forward_to_admin": "PASS",
+      "test_11_admin_approve": "PASS",
+      "test_12_partner_send_proposal": "PASS",
+      "test_13_proposal_pdf_partner": "PASS - PDF >5KB returned",
+      "test_14_proposal_pdf_admin": "PASS",
+      "test_15_proposal_pdf_case_manager": "PASS",
+      "test_16_proposal_pdf_invalid_pa": "PASS - 404",
+      "test_17_invoice_pdf_partner": "PASS",
+      "test_18_send_invoice_partner": "PASS - reference_id returned, mode=mock",
+      "test_19_send_invoice_admin": "PASS",
+      "test_20_list_invoices": "PASS",
+      "test_21_esign_requires_client": "PASS - 403 for non-client",
+      "test_22_esign_invalid_data_url": "PASS - 400 for invalid data",
+      "test_23_get_esign_not_signed": "PASS",
+      "test_24_consent_requires_proposal_sent_stage": "PASS",
+      "test_25_get_consent_summary": "PASS",
+      "test_26_payment_history_pa": "PASS - events + totals returned",
+      "test_27_payment_history_pa_admin": "PASS",
+      "test_28_payment_history_invalid_pa": "PASS - 404",
+      "test_29_find_or_create_case": "PASS",
+      "test_30_create_milestone": "PASS - milestone created with pending status",
+      "test_31_create_milestone_invalid_amount": "PASS - 400 for amount <= 0",
+      "test_32_list_milestones": "PASS",
+      "test_33_mark_milestone_paid": "PASS",
+      "test_34_delete_milestone": "PASS",
+      "test_35_payment_history_case": "PASS",
+      "test_36_dropoff_leads_partner": "PASS - count + items returned",
+      "test_37_dropoff_leads_admin": "PASS",
+      "test_38_dropoff_leads_client_forbidden": "PASS - 403",
+      "test_39_nudge_lead": "PASS - mode=mock",
+      "test_40_nudge_invalid_pa": "PASS - 404",
+      "test_41_smart_checklist": "PASS - canada_express_entry template, completion_pct",
+      "test_42_risk_score": "PASS - score 0-100, label, color, factors",
+      "test_43_risk_score_invalid_pa": "PASS - 404",
+      "test_44_pre_assessment_create": "PASS - Regression",
+      "test_45_my_assessments": "PASS - Regression",
+      "test_46_stats_overview": "PASS - Regression",
+      "test_47_admin_queue": "PASS - Regression",
+      "test_48_products_endpoint": "PASS - Regression",
+      "test_49_health_check": "PASS - Regression"
+    },
+    "frontend_tests": {
+      "partner_login": "PASS",
+      "partner_home_dropoff_widget": "PASS - data-testid=dropoff-widget visible",
+      "partner_pipeline_navigation": "PASS",
+      "partner_pa_card_expand": "PASS",
+      "partner_financial_summary": "PASS - Shows PA Fee, Base Fee, Final Paid, Total Received",
+      "partner_proposal_pdf_button": "PASS - data-testid=dl-proposal-{paId}",
+      "partner_invoice_pdf_button": "PASS - data-testid=dl-invoice-{paId}",
+      "partner_send_invoice_button": "PASS - data-testid=send-invoice-{paId}",
+      "partner_payment_history_timeline": "PASS - data-testid=payment-history-timeline",
+      "partner_risk_score_badge": "PASS - data-testid=risk-badge-{paId}",
+      "partner_smart_doc_checklist": "PASS - data-testid=smart-checklist-{paId}",
+      "admin_login": "PASS",
+      "admin_home_dropoff_widget": "PASS - data-testid=dropoff-widget visible",
+      "client_login": "PASS",
+      "client_journey_tab": "PASS",
+      "client_payment_timeline": "PASS - Shows RECEIVED/PENDING totals + events",
+      "client_milestones_manager": "PASS - data-testid=milestones-manager"
+    }
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration83_phase_bcd.py",
+    "/app/test_reports/pytest/pytest_iteration83.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "proposal_docs.py correctly generates PDFs using ReportLab with branded styling",
+    "payment_history.py correctly aggregates events from PA, milestones, and invoices",
+    "intelligence.py correctly implements stage-based SLA detection for drop-off leads",
+    "PreAssessmentPipeline.jsx correctly shows Financial Summary + PDF buttons at proposal_paid/awaiting_final_approval/case_created stages",
+    "PreAssessmentMiniPortal.jsx correctly shows E-Sign card and Payment Records for clients",
+    "ClientDashboard.jsx correctly shows Milestones Manager and Payment Timeline in My Journey tab",
+    "DropoffRecoveryWidget.jsx correctly renders on both Partner and Admin home pages"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration83_phase_bcd.py"
+  ],
+  "success_rate": {
+    "backend": "100% (49/49 tests passed)",
+    "frontend": "100% - All UI elements and flows verified"
+  },
+  "test_credentials": {
+    "admin": "admin@leamss.com / Admin@123",
+    "partner": "partner@leamss.com / Partner@123",
+    "manager": "manager@leamss.com / Manager@123",
+    "client": "client@leamss.com / Client@123"
+  },
+  "seed_data_creation": "Created 2 test PAs during testing: TEST_Iteration83_Client (documents_submitted), TEST_Regression_Client (new). Created 1 test milestone: TEST_Iteration83_Milestone (paid)",
+  "mocked_apis": {
+    "payments": "Stripe/Razorpay payments are MOCKED (mock-payment endpoints)",
+    "email": "Resend email is MOCKED (send-invoice, consent-summary, nudge emails stored in DB with mode:'mock')",
+    "signatures": "E-signatures are REAL canvas-captured PNG files stored in /app/uploads/signatures/"
+  },
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iteration 83 verified Phase B+C+D features. Key endpoints: (B) GET /api/proposal-docs/{pa_id}/proposal.pdf, GET /api/proposal-docs/{pa_id}/invoice.pdf, POST /api/proposal-docs/{pa_id}/send-invoice, POST /api/proposal-docs/{pa_id}/esign, GET /api/proposal-docs/{pa_id}/esign; (C) GET /api/payment-history/pa/{pa_id}, GET /api/payment-history/case/{case_id}, POST /api/milestones/case/{case_id}/create, GET /api/milestones/case/{case_id}, POST /api/milestones/{mid}/mock-pay, POST /api/milestones/{mid}/mark-paid, DELETE /api/milestones/{mid}; (D) GET /api/intelligence/dropoff-leads, POST /api/intelligence/nudge/{pa_id}, GET /api/intelligence/checklist/{pa_id}, GET /api/intelligence/risk/{pa_id}. Frontend: Partner Pipeline shows Financial Summary with Proposal PDF, Invoice PDF, Send Invoice buttons at proposal_paid/awaiting_final_approval/case_created stages. Payment Timeline + Risk Badge + Smart Checklist visible when fee_payment_status=paid. Drop-off Recovery Widget on Partner and Admin home pages. Client Journey tab shows Payment Timeline and Milestones Manager.",
+  "new_features_verified": {
+    "phase_b_proposal_docs": {
+      "proposal_pdf": "GET /api/proposal-docs/{pa_id}/proposal.pdf - ReportLab generated, >5KB, branded A4",
+      "invoice_pdf": "GET /api/proposal-docs/{pa_id}/invoice.pdf - Same auth rules as proposal",
+      "send_invoice": "POST /api/proposal-docs/{pa_id}/send-invoice - Creates pa_invoices record, returns reference_id, mode=mock",
+      "list_invoices": "GET /api/proposal-docs/{pa_id}/invoices - Lists sent invoices",
+      "esign": "POST /api/proposal-docs/{pa_id}/esign - Client-only, saves PNG to disk + DB, sets agreement_signed",
+      "get_esign": "GET /api/proposal-docs/{pa_id}/esign - Returns signed status + signature_data_url"
+    },
+    "phase_c_payment_history": {
+      "pa_history": "GET /api/payment-history/pa/{pa_id} - Events: pre_assessment_fee, proposal_sent, main_fee_paid, milestones, invoices",
+      "case_history": "GET /api/payment-history/case/{case_id} - Same structure for case-level",
+      "milestones_crud": "Full CRUD: create, list, mock-pay, mark-paid, delete"
+    },
+    "phase_d_intelligence": {
+      "dropoff_leads": "GET /api/intelligence/dropoff-leads - Stage-based SLA detection, severity, suggested_action",
+      "nudge": "POST /api/intelligence/nudge/{pa_id} - Creates pa_nudges record, sends notification",
+      "checklist": "GET /api/intelligence/checklist/{pa_id} - Country/visa-aware template, completion_pct",
+      "risk": "GET /api/intelligence/risk/{pa_id} - Rule-based score 0-100, factors array"
+    },
+    "consent_flow_enhanced": {
+      "consent_endpoint": "POST /api/pre-assess-portal/client/proposal-consent/{pa_id} - Returns reference_id, creates proposal_consent_emails record",
+      "consent_summary": "GET /api/pre-assess-portal/client/consent-summary/{pa_id} - Returns body_snapshot with fee breakdown"
+    }
+  }
+}

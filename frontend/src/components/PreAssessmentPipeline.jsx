@@ -12,6 +12,9 @@ import {
   AlertTriangle, RefreshCw, Filter, Download, Bell
 } from 'lucide-react';
 import FunnelProgress from '@/components/FunnelProgress';
+import PaymentHistoryTimeline from '@/components/PaymentHistoryTimeline';
+import SmartDocChecklist from '@/components/SmartDocChecklist';
+import RiskScoreBadge from '@/components/RiskScoreBadge';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -67,6 +70,28 @@ const PreAssessmentPipeline = ({ initialFilter = null }) => {
   const [finalNotes, setFinalNotes] = useState('');
   // Explicit upload staging: { [paId]: { file, docType } }
   const [pendingUpload, setPendingUpload] = useState({});
+  const [sendingInvoice, setSendingInvoice] = useState(null);
+
+  const downloadPdf = async (paId, kind) => {
+    try {
+      const url = `${API}/proposal-docs/${paId}/${kind}.pdf`;
+      const r = await fetch(url, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
+      if (!r.ok) throw new Error('Fetch failed');
+      const blob = await r.blob();
+      const objUrl = URL.createObjectURL(blob);
+      window.open(objUrl, '_blank');
+      setTimeout(() => URL.revokeObjectURL(objUrl), 60000);
+    } catch (e) { toast.error(`${kind} PDF failed`); }
+  };
+
+  const sendInvoiceNow = async (paId) => {
+    setSendingInvoice(paId);
+    try {
+      const r = await axios.post(`${API}/proposal-docs/${paId}/send-invoice`, { channel: 'email' }, getAuthHeader());
+      toast.success(`Invoice sent · Ref ${r.data.reference_id}`);
+    } catch (e) { toast.error(e.response?.data?.detail || 'Send failed'); }
+    setSendingInvoice(null);
+  };
 
   const getAuthHeader = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
 
@@ -707,7 +732,7 @@ const PreAssessmentPipeline = ({ initialFilter = null }) => {
                     {/* Financial Summary — visible for proposal_paid / awaiting_final_approval / case_created */}
                     {['proposal_paid', 'awaiting_final_approval', 'case_created'].includes(pa.stage) && (
                       <div className="bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 rounded-xl p-4 border border-emerald-200">
-                        <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
                           <p className="text-sm font-bold text-emerald-900 flex items-center gap-2">
                             <IndianRupee className="h-4 w-4" /> Financial Summary
                           </p>
@@ -760,6 +785,35 @@ const PreAssessmentPipeline = ({ initialFilter = null }) => {
                             <p className="text-xs text-slate-600 whitespace-pre-line">{pa.proposal_notes}</p>
                           </div>
                         )}
+                        {/* Doc action buttons */}
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <Button size="sm" variant="outline" onClick={() => downloadPdf(pa.id, 'proposal')}
+                            className="h-8 text-xs border-emerald-300 text-emerald-700 hover:bg-emerald-50" data-testid={`dl-proposal-${pa.id}`}>
+                            <Download className="h-3.5 w-3.5 mr-1" /> Proposal PDF
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => downloadPdf(pa.id, 'invoice')}
+                            className="h-8 text-xs border-emerald-300 text-emerald-700 hover:bg-emerald-50" data-testid={`dl-invoice-${pa.id}`}>
+                            <Download className="h-3.5 w-3.5 mr-1" /> Invoice PDF
+                          </Button>
+                          <Button size="sm" onClick={() => sendInvoiceNow(pa.id)} disabled={sendingInvoice === pa.id}
+                            className="h-8 text-xs bg-[#f7620b] hover:bg-[#e55a09] text-white" data-testid={`send-invoice-${pa.id}`}>
+                            <Send className="h-3.5 w-3.5 mr-1" /> {sendingInvoice === pa.id ? 'Sending…' : 'Send Invoice to Client'}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Payment History Timeline + Risk + Checklist (visible once fee_payment_status is paid) */}
+                    {pa.fee_payment_status === 'paid' && (
+                      <div className="grid md:grid-cols-2 gap-3">
+                        <div className="bg-white rounded-lg p-3 border border-slate-200">
+                          <p className="text-xs font-semibold text-slate-700 mb-2 flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> Payment Timeline</p>
+                          <PaymentHistoryTimeline scope="pa" id={pa.id} compact />
+                        </div>
+                        <div className="bg-white rounded-lg p-3 border border-slate-200 space-y-3">
+                          <RiskScoreBadge paId={pa.id} showFactors />
+                          <SmartDocChecklist paId={pa.id} />
+                        </div>
                       </div>
                     )}
 
