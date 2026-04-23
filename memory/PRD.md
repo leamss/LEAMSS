@@ -3,6 +3,21 @@
 ## Original Problem Statement
 Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case Manager, Partner, Client.
 
+### Latest: AI Proposal + Send Proposal 403 Fix (2026-04-23 evening)
+**User issue (screenshot)**: Partner clicked "Generate with AI" → red toast "Partners or admins only"; then "Send Proposal to Client" → "Not Authorized". Reproduced via curl: backend worked correctly with fresh partner token, so issue was stale/confusing error message with no status hint.
+
+**Root cause**: Error messages were too generic ("Not authorized", "Partners or admins only") giving no debugging hint about role vs ownership vs stage.
+
+**Fixes applied:**
+- `ai_proposal.py`: Now also accepts `case_manager` role. Error explicitly states user's actual role and required roles. Partner-ownership error now says "This pre-assessment belongs to another partner…".
+- `pre_assessment.py` send-proposal: Role check and partner-ownership check split with distinct messages. Stage mismatch now says "Pre-assessment is at stage 'X'. Must be at 'approved' stage (after 1st Admin approval)".
+- Frontend handleGenerateAI + handleSendProposal: Display HTTP status code + detailed detail. 401 specifically surfaces "Session expired — log in again". console.error for devtools.
+
+**Verified via curl**:
+- Partner owner → AI generate 200 (303 words) + send-proposal 200
+- Client role → AI generate 403 with crystal-clear message
+- Already-sent PA → send-proposal 400 with stage hint
+
 ### Phase B + C + D Complete (2026-04-23 PM) — MASSIVE RELEASE
 
 **User ask**: Build Phase B (Proposal PDF + Digital E-Sign + Send Invoice button), Phase C (Payment History + Auto Invoice + Milestone Payments), Phase D (Drop-off Recovery + Smart Doc Checklist + Risk Prediction), plus consent-summary email auto-trigger with Reference ID for legal records. "Sab achese interlink ho — koi link break nah hojayega."

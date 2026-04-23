@@ -46,16 +46,18 @@ class AIGenerateRequest(BaseModel):
 async def generate_proposal(data: AIGenerateRequest, current_user: dict = Depends(get_current_user)):
     """Generate a personalised proposal draft for a pre-assessment.
 
-    Only the owning partner (or admin) can invoke. Uses Emergent LLM key with GPT-5.
+    Allowed roles: partner (owner of PA), admin, case_manager. Uses Emergent LLM key with Claude Sonnet.
     """
-    if current_user.get("role") not in ("partner", "admin"):
-        raise HTTPException(status_code=403, detail="Partners or admins only")
+    role = current_user.get("role")
+    if role not in ("partner", "admin", "case_manager"):
+        logger.warning(f"ai-proposal blocked for user {current_user.get('email')} role={role}")
+        raise HTTPException(status_code=403, detail=f"Your role '{role}' cannot generate proposals. Please log in as Partner, Admin, or Case Manager.")
 
     pa = await pre_assessments_col.find_one({"id": data.pa_id}, {"_id": 0})
     if not pa:
         raise HTTPException(status_code=404, detail="Pre-assessment not found")
-    if current_user.get("role") == "partner" and pa.get("partner_id") != current_user["id"]:
-        raise HTTPException(status_code=403, detail="Not your pre-assessment")
+    if role == "partner" and pa.get("partner_id") != current_user["id"]:
+        raise HTTPException(status_code=403, detail="This pre-assessment belongs to another partner. You can only generate proposals for your own leads.")
 
     if not EMERGENT_LLM_KEY:
         raise HTTPException(status_code=500, detail="Emergent LLM key not configured")

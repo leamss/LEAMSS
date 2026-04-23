@@ -479,10 +479,13 @@ async def send_proposal(pa_id: str, proposal: ProposalData, http_request: Reques
         raise HTTPException(status_code=404, detail="Pre-assessment not found")
 
     if pa["stage"] != "approved":
-        raise HTTPException(status_code=400, detail="Pre-assessment must be approved before sending proposal")
+        raise HTTPException(status_code=400, detail=f"Pre-assessment is at stage '{pa['stage']}'. It must be at 'approved' stage (after 1st Admin approval) to send a proposal.")
 
-    if pa["partner_id"] != current_user["id"] and current_user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Not authorized")
+    role = current_user.get("role")
+    if role not in ("partner", "admin"):
+        raise HTTPException(status_code=403, detail=f"Your role '{role}' cannot send proposals. Please log in as Partner or Admin.")
+    if role == "partner" and pa["partner_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="This pre-assessment belongs to another partner. You can only send proposals for your own leads.")
 
     base_fee = float(proposal.fee_amount or 0)
     if base_fee <= 0:

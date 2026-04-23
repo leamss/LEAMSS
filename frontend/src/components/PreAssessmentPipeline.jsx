@@ -247,7 +247,16 @@ const PreAssessmentPipeline = ({ initialFilter = null }) => {
       setShowProposal(null);
       setProposalForm({ fee_amount: '', notes: '', promo_code: '', promo_applied: null, additional_discount: '', upsell_ids: [], ai_text: '' });
       loadData();
-    } catch (e) { toast.error(e.response?.data?.detail || 'Failed'); }
+    } catch (e) {
+      const status = e.response?.status;
+      const detail = e.response?.data?.detail || 'Failed to send proposal';
+      if (status === 401) {
+        toast.error('Session expired. Please log in again.');
+      } else {
+        toast.error(`${detail}${status ? ` (HTTP ${status})` : ''}`);
+      }
+      console.error('Send proposal failed:', status, detail);
+    }
   };
 
   const openProposalForm = async (pa) => {
@@ -329,7 +338,16 @@ const PreAssessmentPipeline = ({ initialFilter = null }) => {
         { pa_id: paId, tone: 'professional' }, getAuthHeader());
       setProposalForm(p => ({ ...p, ai_text: r.data.proposal_text }));
       toast.success(`AI draft ready (${r.data.word_count} words)`);
-    } catch (e) { toast.error(e.response?.data?.detail || 'AI generation failed'); }
+    } catch (e) {
+      const status = e.response?.status;
+      const detail = e.response?.data?.detail || 'AI generation failed';
+      if (status === 401) {
+        toast.error('Session expired. Please log in again.');
+      } else {
+        toast.error(`${detail}${status ? ` (${status})` : ''}`);
+      }
+      console.error('AI generate failed:', status, detail);
+    }
     setAiGenerating(false);
   };
 
