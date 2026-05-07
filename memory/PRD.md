@@ -3,6 +3,46 @@
 ## Original Problem Statement
 Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case Manager, Partner, Client.
 
+### SHA-256 Tamper Detection + Legal Doc Polish + PA Refactor (2026-05-07 night)
+
+**User asked**: 1️⃣ Re-seed agreement templates so generated UI/PDF matches uploaded DOCX verbatim with proper typography. 2️⃣ Add SHA-256 tamper detection (Task C). 3️⃣ Refactor PreAssessmentPipeline.jsx (Task D).
+
+**Templates re-seeded** (v2): `seed_agreement_templates.py` re-run — Australia Standard, Australia Protection, Canada Express Entry now have verbatim DOCX text with structured `<h1 class=title>`, `<h2>` annexure heads, `<ul>`/`<table class="client-details">`/`<table class="fee-table">`/`<table class="signature-table">`.
+
+**New shared CSS** `/app/frontend/src/components/agreement-doc.css` — legal-document grade typography:
+- Serif font stack (Georgia, Times New Roman, Cambria), 13.5px / 1.7 line-height, justified paragraphs
+- Centered title with double-rule underline, italic meta line
+- H2 sections with teal left-rule and uppercase tracking; H3 with underline
+- Client-details + fee-table with bordered cells, teal header on fee-table, zebra striping
+- Signature-table at bottom with 28px sign-line + uppercase muted labels
+- A4-feel wrapper `.agreement-doc-wrap` with subtle shadow + light grey backdrop
+- Print-friendly media query
+
+Applied via `agreement-doc-wrap` to:
+- `AgreementViewerModal.jsx` (admin/partner read-only view)
+- `ClientAgreementSigning.jsx` (client scroll-to-sign view)
+- `AgreementGenerator.jsx` (partner step-3 preview)
+- `AgreementTemplatesManager.jsx` (admin preview)
+
+**SHA-256 Tamper Detection (Task C):**
+- New module `/app/backend/core/integrity.py` with `compute_hash`, `verify_hash`, canonical PROJECTIONS per record_type (consent / signature / invoice). Hash = sha256(canonical-JSON of immutable fields).
+- All 3 insert sites now persist `integrity_hash` at write-time:
+  - `routers/proposal_docs.py` — invoice send + e-sign save
+  - `routers/pre_assess_portal.py` — proposal-consent submit
+- New endpoints in `routers/legal_archive.py`:
+  - `POST /api/legal-archive/integrity/backfill` — adds hash to legacy records (admin-only)
+  - `GET /api/legal-archive/integrity/verify-all` — recomputes + diffs all records, returns `{verified, tampered, unverified, tampered_records[]}` 
+- `/api/legal-archive/search` now returns `integrity_status` + `integrity_hash` (12-char prefix) per item
+- LegalArchive UI: "Verify Integrity" button in header, auto-fires on mount, banner shows verify/tamper counts with red-pulse alert + tampered records list. Each row gets a colored Integrity badge (green ShieldCheck for verified, red ShieldAlert pulse for tampered, slate Shield for legacy/unverified). Backfill button appears only when legacy records present.
+- Tamper sanity verified: mutating `body_snapshot.final_amount` directly in Mongo → verify-all flagged 1 tampered record with expected vs actual hash diff. Restored + rehashed.
+
+**Refactor (Task D):**
+- Extracted `PaCreateForm` from `PreAssessmentPipeline.jsx` (~75 lines) → `/app/frontend/src/components/pa/PaCreateForm.jsx`
+- Trimmed unused lucide imports (User, Mail, Phone, Globe, GraduationCap, Briefcase)
+- Pipeline file: 1066 → 1002 lines. All data-testids preserved.
+
+**Tested**: iteration_87.json — Backend **16/16 PASS** · Frontend 100% PASS. 0 issues. `retest_needed:false`.
+
 ### Agreement Template Library + Auto-Generator (2026-05-07 PM)
 
 **User uploaded 3 official LEAMSS agreements** (Australia Standard, Australia Protection, Canada Express Entry). Built end-to-end Agreement Template + E-Sign system.
