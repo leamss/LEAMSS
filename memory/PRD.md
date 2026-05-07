@@ -3,6 +3,36 @@
 ## Original Problem Statement
 Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case Manager, Partner, Client.
 
+### Agreement Template Library + Auto-Generator (2026-05-07 PM)
+
+**User uploaded 3 official LEAMSS agreements** (Australia Standard, Australia Protection, Canada Express Entry). Built end-to-end Agreement Template + E-Sign system.
+
+**Backend (`/app/backend/routers/agreement_templates.py`):**
+- 2 routers: `agreement_templates_router` + `pa_agreements_router`
+- 14 endpoints: list/create/edit/clone/delete/upload-docx/request templates + auto-vars/generate/list/get/sign/pdf for per-PA agreements
+- 3-level taxonomy: Country × Visa Category × Policy Variant
+- Jinja2 rendering with `{{var}}` placeholders (auto-detected via regex)
+- python-docx integration for DOCX upload + HTML extraction
+- ReportLab PDF rendering with HTMLParser (preserves headings + bold + paragraphs) + embedded canvas signature image
+
+**Seeded 3 default templates** via `seed_agreement_templates.py`:
+- Australia · PR · Standard (5 annexures, INR fees, milestones)
+- Australia · PR · Protection (premium variant with 100% refund + free re-application)
+- Canada · PR · Express Entry (CICC-registered retainer)
+
+**Frontend components (3 new + 1 enhanced):**
+- `AgreementTemplatesManager.jsx` (admin) — CRUD with rich-text editor, placeholder badges, DOCX upload, clone/preview/edit
+- `AgreementGenerator.jsx` (partner) — 3-step modal: Select Template → Fill Variables (auto-filled, editable) → Preview & Generate
+- `ClientAgreementSigning.jsx` (client) — Full agreement body preview + scroll-to-end gate + canvas signature → green signed card with download
+- `AgreementViewerModal.jsx` — read-only view for already-generated agreements with regenerate option
+- Enhanced `PaFinancialSummary` — added "Generate Agreement" / "View Agreement" / "Agreement Signed ✓" smart button
+
+**Security:** Admin-only writes for templates. Partner can only generate for own PAs. Client can only sign own agreements (403 enforced at backend).
+
+**Auto-fill placeholders** (29 vars from PA): client_name, client_email, client_phone, client_dob, client_address, client_passport, country, service_type, agreement_date, partner_name, agent_name, pa_number, pre_assessment_fee, proposal_base_fee, proposal_final_amount, promo_code, milestone_1/2/3 amount/date, payment_mode, leamss_agent_email.
+
+**Tested**: iteration_86.json — Backend **24/24 PASS** · Frontend **95% PASS** (1 LOW priority — fixed: View Agreement button now opens dedicated viewer modal instead of generator). `retest_needed:false`.
+
 ### Legal Archive (P1) — Admin Compliance Dashboard (2026-05-07 PM)
 
 **User ask**: P1 — Legal Archive tab with searchable consents + signatures + invoices.

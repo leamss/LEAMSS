@@ -17,6 +17,7 @@ import SmartDocChecklist from '@/components/SmartDocChecklist';
 import RiskScoreBadge from '@/components/RiskScoreBadge';
 import PaFinancialSummary from '@/components/pa/PaFinancialSummary';
 import AgreementGenerator from '@/components/AgreementGenerator';
+import AgreementViewerModal from '@/components/AgreementViewerModal';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -75,6 +76,7 @@ const PreAssessmentPipeline = ({ initialFilter = null }) => {
   const [pendingUpload, setPendingUpload] = useState({});
   const [sendingInvoice, setSendingInvoice] = useState(null);
   const [generatingAgreementFor, setGeneratingAgreementFor] = useState(null);
+  const [viewingAgreementFor, setViewingAgreementFor] = useState(null);
 
   const downloadPdf = async (paId, kind) => {
     try {
@@ -777,7 +779,13 @@ const PreAssessmentPipeline = ({ initialFilter = null }) => {
                       pa={pa}
                       onDownload={downloadPdf}
                       onSendInvoice={sendInvoiceNow}
-                      onGenerateAgreement={(p) => setGeneratingAgreementFor(p)}
+                      onGenerateAgreement={(p) => {
+                        if (p.active_agreement_id) {
+                          setViewingAgreementFor(p);
+                        } else {
+                          setGeneratingAgreementFor(p);
+                        }
+                      }}
                       sendingInvoice={sendingInvoice}
                     />
 
@@ -1040,6 +1048,15 @@ const PreAssessmentPipeline = ({ initialFilter = null }) => {
           pa={generatingAgreementFor}
           onClose={() => setGeneratingAgreementFor(null)}
           onGenerated={() => { loadData(); setGeneratingAgreementFor(null); }}
+        />
+      )}
+
+      {/* Agreement Viewer Modal (existing agreement) */}
+      {viewingAgreementFor && (
+        <AgreementViewerModal
+          pa={viewingAgreementFor}
+          onClose={() => setViewingAgreementFor(null)}
+          onRegenerate={() => { setViewingAgreementFor(null); setGeneratingAgreementFor(viewingAgreementFor); }}
         />
       )}
     </div>
