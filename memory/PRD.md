@@ -3,6 +3,33 @@
 ## Original Problem Statement
 Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case Manager, Partner, Client.
 
+### P0 Batch + AI Upgrade (2026-05-07) — Sonnet 4.6 + Opus 4.6 + Optimistic UI
+
+**User asks**: P0 batch (Optimistic UI + Refactor + Lazy-load) + Hybrid AI (Sonnet 4.6 default + Opus 4.6 Premium button).
+
+**AI Model Upgrade ✨**
+- Default: `claude-sonnet-4-6` (released Feb 17, 2026 — 30-50% faster than 4.5, same price)
+- Premium: `claude-opus-4-6` (deepest reasoning, for ₹5L+ proposals)
+- New `premium: bool` field in `AIGenerateRequest`. Response now returns `{model, premium}`.
+- Frontend shows TWO buttons in proposal form: ✨ Generate with AI (Sonnet) + 👑 Premium AI (Opus, gradient bg).
+
+**Optimistic UI**
+- All stage-changing actions now flip card stage **INSTANTLY** before server confirms:
+  - Admin approve/reject (`PreAssessmentQueue.handleReview`)
+  - Admin approve-final + create case (`handleApproveFinal`)
+  - Partner send-proposal (`handleSendProposal`)
+  - Partner forward-to-admin (`handleForwardToAdmin`)
+  - Partner submit-final (`handleSubmitFinal`)
+- Rollback on failure restores snapshot + toast shows ` — reverted`.
+
+**Refactor**
+- Extracted `PaFinancialSummary` (90 lines) into `/app/frontend/src/components/pa/PaFinancialSummary.jsx`. Pipeline file: 1103 → 1037 lines. Same UI / data-testids preserved.
+
+**Lazy-load**
+- `DropoffRecoveryWidget` now uses `useRef` + `IntersectionObserver` (rootMargin 100px). Shows "Scroll to load…" placeholder until visible. `/api/intelligence/dropoff-leads` no longer fires on every Home render.
+
+**Tested**: iteration_84.json — Backend **20/20 PASS** · Frontend 100% verified. Zero issues. `retest_needed:false`.
+
 ### Performance Fix — Portal Speed + Real-time Notifications (2026-04-23 night)
 **User complaint**: "Bahot slow chal raha hai pura portal. Notifications, reviews immediately update nahi ho rahe."
 
