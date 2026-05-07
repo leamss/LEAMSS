@@ -18,7 +18,7 @@ import {
   Search, DollarSign, TrendingUp, CheckCircle, XCircle, Clock,
   MessageSquare, Filter, Calendar, RefreshCw, AlertTriangle, Copy, Mail, Gift,
   Menu, X, Bell, Loader2, CreditCard, BarChart3, Activity, Megaphone,
-  ArrowRightLeft, Zap, BookOpen, Star, UserCheck, ClipboardList, Sparkles, Calculator, Database, Package, Home
+  ArrowRightLeft, Zap, BookOpen, Star, UserCheck, ClipboardList, Sparkles, Calculator, Database, Package, Home, Shield
 } from 'lucide-react';
 import BulkOperations from '@/pages/BulkOperations';
 import SLATracker from '@/pages/SLATracker';
@@ -37,6 +37,7 @@ import ConversionFunnel from '@/pages/ConversionFunnel';
 import CountryProductAnalytics from '@/pages/CountryProductAnalytics';
 import CommissionAnalytics from '@/pages/CommissionAnalytics';
 import PreAssessmentQueue from '@/components/PreAssessmentQueue';
+import LegalArchive from '@/components/LegalArchive';
 import UpsellBundlesManager from '@/components/UpsellBundlesManager';
 import AdminHome from '@/components/AdminHome';
 import HappinessScoreWidget from '@/components/HappinessScoreWidget';
@@ -1197,6 +1198,7 @@ const AdminDashboard = () => {
       items: [
         { id: 'products', icon: Settings, label: 'Products', onClick: () => { setActiveTab('products'); resetSelections(); } },
         { id: 'intake-builder', icon: ClipboardList, label: 'Intake Form Builder', onClick: () => { setActiveTab('intake-builder'); resetSelections(); } },
+        { id: 'legal-archive', icon: Shield, label: 'Legal Archive', onClick: () => { setActiveTab('legal-archive'); resetSelections(); } },
         { id: 'tickets', icon: MessageSquare, label: 'Tickets', badge: ticketStats.open, onClick: () => { setActiveTab('tickets'); resetSelections(); } },
         { id: 'settings', icon: Settings, label: 'Settings', onClick: () => { setActiveTab('settings'); resetSelections(); } },
         { id: 'appointments', icon: Calendar, label: 'Appointments', onClick: () => { setActiveTab('appointments'); resetSelections(); } },
@@ -1250,6 +1252,7 @@ const AdminDashboard = () => {
       'email-digest': 'Email Digest',
       'pre-assessments': 'Pre-Assessment Queue',
       'upsell-bundles': 'Upsell Bundles',
+      'legal-archive': 'Legal Archive',
       'home': 'Home',
       'dashboard': 'Classic Dashboard',
     };
@@ -2795,6 +2798,7 @@ const AdminDashboard = () => {
           {activeTab === 'country-product' && <CountryProductAnalytics token={localStorage.getItem('token')} />}
           {activeTab === 'commission-analytics' && <CommissionAnalytics token={localStorage.getItem('token')} role="admin" />}
           {activeTab === 'pre-assessments' && <PreAssessmentQueue initialFilter={preAssessFilter} />}
+          {activeTab === 'legal-archive' && <LegalArchive />}
           {activeTab === 'approval-center' && <ApprovalCenter token={localStorage.getItem('token')} onNavigate={(tab) => setActiveTab(tab)} />}
           {activeTab === 'refund-manager' && <RefundManager token={localStorage.getItem('token')} />}
           {activeTab === 'revenue-dashboard' && <RevenueDashboard token={localStorage.getItem('token')} />}
