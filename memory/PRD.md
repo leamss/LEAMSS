@@ -3,6 +3,30 @@
 ## Original Problem Statement
 Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case Manager, Partner, Client.
 
+### Compliance Report PDF (2026-05-07 night)
+
+**User-approved enhancement** following SHA-256 tamper detection: a stamped PDF audit report for legal/audit officers.
+
+**Backend** — `GET /api/legal-archive/compliance-report.pdf?start_date=&end_date=` (admin-only):
+- ReportLab-rendered A4 PDF (~3-5 KB typical, scales linearly with records)
+- Sections: Cover (window, generator, totals) → Integrity scan summary (verified/tampered/unverified counts + flagged records list) → Consents table → E-Signatures table → Invoices table → Report-level SHA-256 chain hash binding all record hashes + timestamp + officer ID
+- Default window = last 90 days; configurable via query params
+- Returns `X-Report-Hash` header with the binding SHA-256 for client display
+- Each table includes the per-record SHA-256 hash prefix
+- Footer: page numbers + "LEAMSS · Compliance Report · timestamp" on every page
+- 403 enforced for non-admin
+
+**Frontend** — `/app/frontend/src/components/LegalArchive.jsx`:
+- New "Compliance Report" gradient button in header (data-testid=`compliance-report-btn`) next to Verify Integrity
+- Dialog (data-testid=`compliance-report-dialog`) with From/To date pickers (default last 90d), feature description list, Generate button
+- On click: streams PDF, opens in new tab, toast shows first 16 chars of report hash for instant verification
+
+**Verified via curl**:
+- Admin default → HTTP 200 + valid `%PDF-1.4` magic + 4.3 KB + correct headers
+- Admin custom range → HTTP 200 + 3.2 KB
+- Partner → HTTP 403 ("Admin only — Legal Archive is restricted to compliance officers")
+- Anonymous → HTTP 403
+
 ### SHA-256 Tamper Detection + Legal Doc Polish + PA Refactor (2026-05-07 night)
 
 **User asked**: 1️⃣ Re-seed agreement templates so generated UI/PDF matches uploaded DOCX verbatim with proper typography. 2️⃣ Add SHA-256 tamper detection (Task C). 3️⃣ Refactor PreAssessmentPipeline.jsx (Task D).

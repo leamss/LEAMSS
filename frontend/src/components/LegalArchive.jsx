@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import {
   Search, FileText, Pen, Receipt, Shield, Download, Eye,
-  Calendar, X, RefreshCw, IndianRupee, ShieldCheck, ShieldAlert
+  Calendar, X, RefreshCw, IndianRupee, ShieldCheck, ShieldAlert, FileCheck2
 } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -26,6 +26,11 @@ export default function LegalArchive() {
   const [selected, setSelected] = useState(null);
   const [integrity, setIntegrity] = useState(null);
   const [verifying, setVerifying] = useState(false);
+  const [showReportDialog, setShowReportDialog] = useState(false);
+  const today = new Date().toISOString().slice(0, 10);
+  const ninetyAgo = new Date(Date.now() - 90 * 86400000).toISOString().slice(0, 10);
+  const [reportRange, setReportRange] = useState({ start_date: ninetyAgo, end_date: today });
+  const [reportLoading, setReportLoading] = useState(false);
 
   const getAuth = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
 
@@ -52,6 +57,29 @@ export default function LegalArchive() {
       verifyAll();
     } catch (e) { toast.error(e.response?.data?.detail || 'Backfill failed'); }
   }, [verifyAll]);
+
+  const downloadComplianceReport = async () => {
+    setReportLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (reportRange.start_date) params.set('start_date', reportRange.start_date);
+      if (reportRange.end_date) params.set('end_date', reportRange.end_date);
+      const r = await fetch(`${API}/legal-archive/compliance-report.pdf?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      if (!r.ok) throw new Error('Report generation failed');
+      const reportHash = r.headers.get('x-report-hash');
+      const blob = await r.blob();
+      const u = URL.createObjectURL(blob);
+      window.open(u, '_blank');
+      setTimeout(() => URL.revokeObjectURL(u), 60000);
+      toast.success(`Compliance report generated · SHA-256: ${(reportHash || '').slice(0, 16)}…`);
+      setShowReportDialog(false);
+    } catch (e) {
+      toast.error(e.message || 'Report generation failed');
+    }
+    setReportLoading(false);
+  };
 
   const loadStats = useCallback(async () => {
     try {
@@ -118,9 +146,12 @@ export default function LegalArchive() {
           </h1>
           <p className="text-sm text-slate-500 mt-1">Searchable compliance dashboard — every consent, signature & invoice with reference IDs.</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Button variant="outline" onClick={verifyAll} disabled={verifying} className="border-indigo-300 text-indigo-700 hover:bg-indigo-50" data-testid="verify-all-btn">
             <ShieldCheck className={`h-4 w-4 mr-2 ${verifying ? 'animate-pulse' : ''}`} /> {verifying ? 'Verifying…' : 'Verify Integrity'}
+          </Button>
+          <Button onClick={() => setShowReportDialog(true)} className="bg-gradient-to-r from-[#2a777a] to-[#1d5658] hover:from-[#1d5658] hover:to-[#143f41] text-white" data-testid="compliance-report-btn">
+            <FileCheck2 className="h-4 w-4 mr-2" /> Compliance Report
           </Button>
           <Button variant="outline" onClick={exportCsv} className="border-slate-300" data-testid="export-csv-btn">
             <Download className="h-4 w-4 mr-2" /> Export CSV
@@ -316,6 +347,46 @@ export default function LegalArchive() {
           </div>
         )}
       </Card>
+
+      {/* Compliance Report Dialog */}
+      {showReportDialog && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setShowReportDialog(false)} data-testid="compliance-report-dialog">
+          <div className="bg-white rounded-xl max-w-md w-full overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="p-5 border-b bg-gradient-to-r from-[#2a777a] to-[#1d5658] text-white">
+              <h3 className="font-bold flex items-center gap-2"><FileCheck2 className="h-5 w-5" /> Generate Compliance Report</h3>
+              <p className="text-xs opacity-80 mt-0.5">Stamped A4 PDF with SHA-256 chain over selected window</p>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-slate-500 block mb-1">From</label>
+                  <Input type="date" value={reportRange.start_date} onChange={e => setReportRange({ ...reportRange, start_date: e.target.value })} data-testid="report-start-date" />
+                </div>
+                <div>
+                  <label className="text-xs text-slate-500 block mb-1">To</label>
+                  <Input type="date" value={reportRange.end_date} onChange={e => setReportRange({ ...reportRange, end_date: e.target.value })} data-testid="report-end-date" />
+                </div>
+              </div>
+              <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs text-slate-600 space-y-1">
+                <p>The report includes:</p>
+                <ul className="list-disc ml-4 space-y-0.5">
+                  <li>Cover page (window, generator, totals)</li>
+                  <li>Integrity scan summary + flagged tampered records</li>
+                  <li>Consents, E-Signatures, Invoices tables with SHA-256 prefixes</li>
+                  <li>Report-level SHA-256 chain hash binding everything</li>
+                </ul>
+              </div>
+              <div className="flex justify-end gap-2 pt-1">
+                <Button variant="outline" onClick={() => setShowReportDialog(false)}>Cancel</Button>
+                <Button onClick={downloadComplianceReport} disabled={reportLoading} className="bg-[#2a777a] hover:bg-[#1d5658] text-white" data-testid="download-compliance-report">
+                  {reportLoading ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
+                  {reportLoading ? 'Generating…' : 'Generate & Download PDF'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Detail Modal */}
       {selected && (
