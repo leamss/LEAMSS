@@ -16,6 +16,7 @@ import PaymentHistoryTimeline from '@/components/PaymentHistoryTimeline';
 import SmartDocChecklist from '@/components/SmartDocChecklist';
 import RiskScoreBadge from '@/components/RiskScoreBadge';
 import PaFinancialSummary from '@/components/pa/PaFinancialSummary';
+import AgreementGenerator from '@/components/AgreementGenerator';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -73,6 +74,7 @@ const PreAssessmentPipeline = ({ initialFilter = null }) => {
   // Explicit upload staging: { [paId]: { file, docType } }
   const [pendingUpload, setPendingUpload] = useState({});
   const [sendingInvoice, setSendingInvoice] = useState(null);
+  const [generatingAgreementFor, setGeneratingAgreementFor] = useState(null);
 
   const downloadPdf = async (paId, kind) => {
     try {
@@ -775,6 +777,7 @@ const PreAssessmentPipeline = ({ initialFilter = null }) => {
                       pa={pa}
                       onDownload={downloadPdf}
                       onSendInvoice={sendInvoiceNow}
+                      onGenerateAgreement={(p) => setGeneratingAgreementFor(p)}
                       sendingInvoice={sendingInvoice}
                     />
 
@@ -1029,6 +1032,15 @@ const PreAssessmentPipeline = ({ initialFilter = null }) => {
             );
           })}
         </div>
+      )}
+
+      {/* Agreement Generator Modal */}
+      {generatingAgreementFor && (
+        <AgreementGenerator
+          pa={generatingAgreementFor}
+          onClose={() => setGeneratingAgreementFor(null)}
+          onGenerated={() => { loadData(); setGeneratingAgreementFor(null); }}
+        />
       )}
     </div>
   );

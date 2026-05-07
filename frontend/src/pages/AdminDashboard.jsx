@@ -38,6 +38,7 @@ import CountryProductAnalytics from '@/pages/CountryProductAnalytics';
 import CommissionAnalytics from '@/pages/CommissionAnalytics';
 import PreAssessmentQueue from '@/components/PreAssessmentQueue';
 import LegalArchive from '@/components/LegalArchive';
+import AgreementTemplatesManager from '@/components/AgreementTemplatesManager';
 import UpsellBundlesManager from '@/components/UpsellBundlesManager';
 import AdminHome from '@/components/AdminHome';
 import HappinessScoreWidget from '@/components/HappinessScoreWidget';
@@ -1199,6 +1200,7 @@ const AdminDashboard = () => {
         { id: 'products', icon: Settings, label: 'Products', onClick: () => { setActiveTab('products'); resetSelections(); } },
         { id: 'intake-builder', icon: ClipboardList, label: 'Intake Form Builder', onClick: () => { setActiveTab('intake-builder'); resetSelections(); } },
         { id: 'legal-archive', icon: Shield, label: 'Legal Archive', onClick: () => { setActiveTab('legal-archive'); resetSelections(); } },
+        { id: 'agreement-templates', icon: FileText, label: 'Agreement Templates', onClick: () => { setActiveTab('agreement-templates'); resetSelections(); } },
         { id: 'tickets', icon: MessageSquare, label: 'Tickets', badge: ticketStats.open, onClick: () => { setActiveTab('tickets'); resetSelections(); } },
         { id: 'settings', icon: Settings, label: 'Settings', onClick: () => { setActiveTab('settings'); resetSelections(); } },
         { id: 'appointments', icon: Calendar, label: 'Appointments', onClick: () => { setActiveTab('appointments'); resetSelections(); } },
@@ -1253,6 +1255,7 @@ const AdminDashboard = () => {
       'pre-assessments': 'Pre-Assessment Queue',
       'upsell-bundles': 'Upsell Bundles',
       'legal-archive': 'Legal Archive',
+      'agreement-templates': 'Agreement Templates',
       'home': 'Home',
       'dashboard': 'Classic Dashboard',
     };
@@ -2799,6 +2802,7 @@ const AdminDashboard = () => {
           {activeTab === 'commission-analytics' && <CommissionAnalytics token={localStorage.getItem('token')} role="admin" />}
           {activeTab === 'pre-assessments' && <PreAssessmentQueue initialFilter={preAssessFilter} />}
           {activeTab === 'legal-archive' && <LegalArchive />}
+          {activeTab === 'agreement-templates' && <AgreementTemplatesManager />}
           {activeTab === 'approval-center' && <ApprovalCenter token={localStorage.getItem('token')} onNavigate={(tab) => setActiveTab(tab)} />}
           {activeTab === 'refund-manager' && <RefundManager token={localStorage.getItem('token')} />}
           {activeTab === 'revenue-dashboard' && <RevenueDashboard token={localStorage.getItem('token')} />}

@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import SignatureCanvas from '@/components/SignatureCanvas';
 import PaymentHistoryTimeline from '@/components/PaymentHistoryTimeline';
+import ClientAgreementSigning from '@/components/ClientAgreementSigning';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -506,8 +507,13 @@ export default function PreAssessmentMiniPortal({ pa, onRefresh, onOpenScanner }
         </Card>
       )}
 
-      {/* E-SIGN Agreement (shown once main fee paid, until signed) — client's digital signature */}
-      {['proposal_paid', 'awaiting_final_approval', 'case_created'].includes(stage) && !esignRec && (
+      {/* E-SIGN Agreement (shown once main fee paid) — uses partner-generated agreement if available, else falls back to generic canvas */}
+      {['proposal_paid', 'awaiting_final_approval', 'case_created'].includes(stage) && pa.active_agreement_id && (
+        <ClientAgreementSigning paId={pa.id} onSigned={() => load()} />
+      )}
+
+      {/* Generic E-Sign fallback (only when no template-based agreement exists yet) */}
+      {['proposal_paid', 'awaiting_final_approval', 'case_created'].includes(stage) && !pa.active_agreement_id && !esignRec && (
         <Card className="p-6 border-amber-200 bg-gradient-to-br from-amber-50 to-white" data-testid="esign-card">
           <div className="flex items-start gap-3 mb-3">
             <div className="h-10 w-10 bg-amber-100 rounded-full flex items-center justify-center shrink-0">
@@ -515,7 +521,7 @@ export default function PreAssessmentMiniPortal({ pa, onRefresh, onOpenScanner }
             </div>
             <div>
               <h3 className="font-bold text-slate-800">E-Sign Your Service Agreement</h3>
-              <p className="text-xs text-slate-600">For legal records, please sign the service agreement with your full name. This creates a timestamped, IP-logged digital signature.</p>
+              <p className="text-xs text-slate-600">Your partner is preparing a country-specific service agreement. In the meantime you can pre-sign a generic placeholder.</p>
             </div>
           </div>
           <SignatureCanvas onSigned={handleSaveSignature} disabled={savingSig} />

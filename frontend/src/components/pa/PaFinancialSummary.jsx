@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { IndianRupee, Download, Send } from 'lucide-react';
+import { IndianRupee, Download, Send, FilePlus } from 'lucide-react';
 
 /**
  * Financial Summary block for Partner pipeline view.
@@ -10,9 +10,10 @@ import { IndianRupee, Download, Send } from 'lucide-react';
  *  - pa            current pre-assessment object
  *  - onDownload    (paId, kind: 'proposal'|'invoice') -> void
  *  - onSendInvoice (paId) -> void
+ *  - onGenerateAgreement (pa) -> void  (opens AgreementGenerator modal)
  *  - sendingInvoice  paId currently sending, or null
  */
-export default function PaFinancialSummary({ pa, onDownload, onSendInvoice, sendingInvoice }) {
+export default function PaFinancialSummary({ pa, onDownload, onSendInvoice, onGenerateAgreement, sendingInvoice }) {
   if (!['proposal_paid', 'awaiting_final_approval', 'case_created'].includes(pa.stage)) return null;
 
   const totalReceived = (pa.pre_assessment_fee || 0) + (pa.proposal_fee || 0);
@@ -84,6 +85,13 @@ export default function PaFinancialSummary({ pa, onDownload, onSendInvoice, send
           className="h-8 text-xs bg-[#f7620b] hover:bg-[#e55a09] text-white" data-testid={`send-invoice-${pa.id}`}>
           <Send className="h-3.5 w-3.5 mr-1" /> {sendingInvoice === pa.id ? 'Sending…' : 'Send Invoice to Client'}
         </Button>
+        {onGenerateAgreement && (
+          <Button size="sm" onClick={() => onGenerateAgreement(pa)}
+            className="h-8 text-xs bg-gradient-to-r from-indigo-500 to-purple-600 hover:opacity-90 text-white" data-testid={`gen-agreement-${pa.id}`}>
+            <FilePlus className="h-3.5 w-3.5 mr-1" />
+            {pa.active_agreement_status === 'signed' ? 'Agreement Signed ✓' : pa.active_agreement_id ? 'View Agreement' : 'Generate Agreement'}
+          </Button>
+        )}
       </div>
     </div>
   );
