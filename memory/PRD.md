@@ -3,6 +3,34 @@
 ## Original Problem Statement
 Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case Manager, Partner, Client.
 
+### Legal Archive (P1) — Admin Compliance Dashboard (2026-05-07 PM)
+
+**User ask**: P1 — Legal Archive tab with searchable consents + signatures + invoices.
+
+**New Backend router** `/app/backend/routers/legal_archive.py` (admin-only):
+- `GET /api/legal-archive/stats` — returns `{consents, signatures, invoices, total}`
+- `GET /api/legal-archive/search?q=&record_type=&start_date=&end_date=` — unified timeline aggregating from 3 collections (proposal_consent_emails, pa_signatures, pa_invoices). Sorted desc by timestamp, hydrated with PA metadata (client/partner/country).
+- `GET /api/legal-archive/{ref_id}` — fetch full record by reference_id
+- 403 enforcement helper `_admin_only()` blocks partner/CM/client
+
+**New Frontend component** `/app/frontend/src/components/LegalArchive.jsx`:
+- 4 stat cards (Total / Consents / E-Signatures / Invoices) with colored borders
+- Free-text search bar (Enter or click Search)
+- Filter pills: All / Consents / Signatures / Invoices
+- Date range pickers (start/end)
+- Results table: Type badge + Reference ID (mono) + Client info + Country/Service + Amount (₹) + Timestamp + Actions
+- View Detail modal with type-specific previews:
+  - Consent: full fee snapshot (base, promo, custom discount, upsells, final)
+  - Signature: IP + file size + UA
+  - Invoice: download button
+- Inline invoice download icon
+- Export CSV button (downloads filtered results)
+- Refresh button
+
+**Wired into Admin sidebar** — System group, Shield icon. Partner sidebar excludes it.
+
+**Tested**: iteration_85.json — Backend **17/18 PASS** (1 minor 401-vs-403 ignorable) · Frontend 100% verified · 0 issues. `retest_needed:false`.
+
 ### P0 Batch + AI Upgrade (2026-05-07) — Sonnet 4.6 + Opus 4.6 + Optimistic UI
 
 **User asks**: P0 batch (Optimistic UI + Refactor + Lazy-load) + Hybrid AI (Sonnet 4.6 default + Opus 4.6 Premium button).
