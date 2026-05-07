@@ -3,6 +3,26 @@
 ## Original Problem Statement
 Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case Manager, Partner, Client.
 
+### PreAssessmentPipeline Refactor — Round 2 (2026-05-07 night)
+
+**User-approved P2 task**: Further break down `PreAssessmentPipeline.jsx` (was 1066 → 1002 after Round 1).
+
+**6 new sub-components extracted** to `/app/frontend/src/components/pa/`:
+- `PaProposalForm.jsx` (131 lines) — Send Service Proposal form with promo, discount, upsell bundles, AI generation buttons (Sonnet 4.6 + Opus 4.6 Premium), live breakdown panel
+- `PaDocumentsList.jsx` (92 lines) — Client Documents panel with view (inline)/download/delete handlers per file
+- `PaFinalSubmitForm.jsx` (64 lines) — Receipt + Agreement upload + Submit-to-Admin form (proposal_paid → awaiting_final_approval transition)
+- `PaForwardForm.jsx` (27 lines) — Partner-review remarks form
+- `PaStageProgress.jsx` (23 lines) — Bottom horizontal stage indicator with 7 dots
+- `PaActionBar.jsx` (23 lines) — Copy Public Link + Preview as Client + dynamic next-action button
+
+**Result**:
+- `PreAssessmentPipeline.jsx`: 1066 → **770 lines** (-296, ~28% reduction)
+- All data-testids preserved across extracted components
+- Cleaned unused lucide imports (IndianRupee, ArrowRight, Download)
+- New `/pa/` directory now houses 8 focused sub-components (Pipeline parent + 8 children)
+
+**Tested**: iteration_88.json — Frontend **100% PASS** · Zero regressions across all PA flows (create/expand/proposal/forward/final-submit/agreement). `retest_needed:false`.
+
 ### Compliance Report PDF (2026-05-07 night)
 
 **User-approved enhancement** following SHA-256 tamper detection: a stamped PDF audit report for legal/audit officers.
