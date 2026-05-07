@@ -56,24 +56,46 @@ const PreAssessmentQueue = ({ initialFilter = null }) => {
   const handleReview = async (paId) => {
     if (!reviewForm.decision) { toast.error('Select a decision'); return; }
     if (!reviewForm.reason) { toast.error('Please provide a reason'); return; }
+    // Optimistic UI: immediately update the card stage so user sees zero-lag feedback.
+    const decisionStage = reviewForm.decision === 'approved' ? 'approved' : 'rejected';
+    const snapshot = { queue: [...queue], allAssessments: [...allAssessments] };
+    const updateLocally = (list) => list.map(p => p.id === paId ? { ...p, stage: decisionStage, admin_decision: reviewForm.decision, admin_reason: reviewForm.reason } : p);
+    setQueue(updateLocally);
+    setAllAssessments(updateLocally);
+    setReviewingId(null);
+    const formCopy = { ...reviewForm };
+    setReviewForm({ decision: '', reason: '', notes: '' });
     try {
-      await axios.put(`${API}/pre-assessment/${paId}/review`, reviewForm, getAuthHeader());
-      toast.success(`Pre-assessment ${reviewForm.decision}!`);
-      setReviewingId(null);
-      setReviewForm({ decision: '', reason: '', notes: '' });
+      await axios.put(`${API}/pre-assessment/${paId}/review`, formCopy, getAuthHeader());
+      toast.success(`Pre-assessment ${formCopy.decision}!`);
       loadData();
-    } catch (e) { toast.error(e.response?.data?.detail || 'Failed'); }
+    } catch (e) {
+      // Rollback on failure
+      setQueue(snapshot.queue);
+      setAllAssessments(snapshot.allAssessments);
+      toast.error(e.response?.data?.detail || 'Failed — reverted');
+    }
   };
 
   const handleApproveFinal = async (paId) => {
+    // Optimistic: stage → case_created
+    const snapshot = { queue: [...queue], allAssessments: [...allAssessments] };
+    const updateLocally = (list) => list.map(p => p.id === paId ? { ...p, stage: 'case_created' } : p);
+    setQueue(updateLocally);
+    setAllAssessments(updateLocally);
+    setFinalizingId(null);
+    const cmId = selectedCmId;
+    setSelectedCmId('');
     try {
-      const payload = selectedCmId ? { case_manager_id: selectedCmId } : {};
+      const payload = cmId ? { case_manager_id: cmId } : {};
       const res = await axios.post(`${API}/pre-assess-portal/admin/approve-final/${paId}`, payload, getAuthHeader());
       toast.success(`Case ${res.data.case_code} created${res.data.case_manager_id ? ` & assigned to ${res.data.case_manager_name}` : ''}!`);
-      setFinalizingId(null);
-      setSelectedCmId('');
       loadData();
-    } catch (e) { toast.error(e.response?.data?.detail || 'Failed'); }
+    } catch (e) {
+      setQueue(snapshot.queue);
+      setAllAssessments(snapshot.allAssessments);
+      toast.error(e.response?.data?.detail || 'Failed — reverted');
+    }
   };
 
   const underReviewItems = [

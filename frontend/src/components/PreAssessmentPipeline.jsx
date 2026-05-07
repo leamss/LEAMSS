@@ -15,6 +15,7 @@ import FunnelProgress from '@/components/FunnelProgress';
 import PaymentHistoryTimeline from '@/components/PaymentHistoryTimeline';
 import SmartDocChecklist from '@/components/SmartDocChecklist';
 import RiskScoreBadge from '@/components/RiskScoreBadge';
+import PaFinancialSummary from '@/components/pa/PaFinancialSummary';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -233,28 +234,34 @@ const PreAssessmentPipeline = ({ initialFilter = null }) => {
     if (!proposalForm.fee_amount || parseFloat(proposalForm.fee_amount) <= 0) {
       toast.error('Enter valid fee amount'); return;
     }
+    // Optimistic UI: immediately move stage to proposal_sent + close form
+    const snapshot = [...pas];
+    setPas(p => p.map(x => x.id === paId ? { ...x, stage: 'proposal_sent', proposal_status: 'sent', proposal_fee: parseFloat(proposalForm.fee_amount) } : x));
+    setShowProposal(null);
+    const formCopy = { ...proposalForm };
+    setProposalForm({ fee_amount: '', notes: '', promo_code: '', promo_applied: null, additional_discount: '', upsell_ids: [], ai_text: '' });
     try {
       const res = await axios.post(`${API}/pre-assessment/${paId}/send-proposal`, {
-        fee_amount: parseFloat(proposalForm.fee_amount),
+        fee_amount: parseFloat(formCopy.fee_amount),
         payment_method: 'online',
-        notes: proposalForm.notes,
+        notes: formCopy.notes,
         currency: 'INR',
-        promo_code: proposalForm.promo_code || null,
-        additional_discount: parseFloat(proposalForm.additional_discount) || 0,
-        upsell_bundle_ids: proposalForm.upsell_ids || [],
-        ai_proposal_text: proposalForm.ai_text || null,
+        promo_code: formCopy.promo_code || null,
+        additional_discount: parseFloat(formCopy.additional_discount) || 0,
+        upsell_bundle_ids: formCopy.upsell_ids || [],
+        ai_proposal_text: formCopy.ai_text || null,
       }, getAuthHeader());
       toast.success(`${res.data.message} — Final ₹${res.data.breakdown?.final_amount?.toLocaleString('en-IN')}`);
-      setShowProposal(null);
-      setProposalForm({ fee_amount: '', notes: '', promo_code: '', promo_applied: null, additional_discount: '', upsell_ids: [], ai_text: '' });
       loadData();
     } catch (e) {
+      // Rollback on failure
+      setPas(snapshot);
       const status = e.response?.status;
       const detail = e.response?.data?.detail || 'Failed to send proposal';
       if (status === 401) {
         toast.error('Session expired. Please log in again.');
       } else {
-        toast.error(`${detail}${status ? ` (HTTP ${status})` : ''}`);
+        toast.error(`${detail}${status ? ` (HTTP ${status})` : ''} — reverted`);
       }
       console.error('Send proposal failed:', status, detail);
     }
@@ -284,25 +291,39 @@ const PreAssessmentPipeline = ({ initialFilter = null }) => {
   };
 
   const handleSubmitFinal = async (paId) => {
+    // Optimistic: stage → awaiting_final_approval
+    const snapshot = [...pas];
+    setPas(p => p.map(x => x.id === paId ? { ...x, stage: 'awaiting_final_approval' } : x));
+    setFinalSubmittingId(null);
+    const notes = finalNotes;
+    setFinalNotes('');
     try {
       await axios.post(`${API}/pre-assess-portal/partner/submit-final/${paId}`,
-        { notes: finalNotes }, getAuthHeader());
+        { notes }, getAuthHeader());
       toast.success('Submitted to Admin for Final Approval');
-      setFinalSubmittingId(null);
-      setFinalNotes('');
       loadData();
-    } catch (e) { toast.error(e.response?.data?.detail || 'Failed'); }
+    } catch (e) {
+      setPas(snapshot);
+      toast.error((e.response?.data?.detail || 'Failed') + ' — reverted');
+    }
   };
 
   const handleForwardToAdmin = async (paId) => {
+    // Optimistic: stage → under_review
+    const snapshot = [...pas];
+    setPas(p => p.map(x => x.id === paId ? { ...x, stage: 'under_review' } : x));
+    setForwardingId(null);
+    const remarks = forwardRemarks;
+    setForwardRemarks('');
     try {
       await axios.post(`${API}/pre-assess-portal/partner/forward-to-admin/${paId}`,
-        { remarks: forwardRemarks }, getAuthHeader());
+        { remarks }, getAuthHeader());
       toast.success('Forwarded to Admin for 1st approval');
-      setForwardingId(null);
-      setForwardRemarks('');
       loadData();
-    } catch (e) { toast.error(e.response?.data?.detail || 'Failed'); }
+    } catch (e) {
+      setPas(snapshot);
+      toast.error((e.response?.data?.detail || 'Failed') + ' — reverted');
+    }
   };
 
   const loadDocsAndActivity = async (paId) => {
@@ -333,13 +354,13 @@ const PreAssessmentPipeline = ({ initialFilter = null }) => {
     }
   };
 
-  const handleGenerateAI = async (paId) => {
-    setAiGenerating(true);
+  const handleGenerateAI = async (paId, premium = false) => {
+    setAiGenerating(premium ? 'premium' : 'std');
     try {
       const r = await axios.post(`${API}/ai-proposal/generate`,
-        { pa_id: paId, tone: 'professional' }, getAuthHeader());
+        { pa_id: paId, tone: 'professional', premium }, getAuthHeader());
       setProposalForm(p => ({ ...p, ai_text: r.data.proposal_text }));
-      toast.success(`AI draft ready (${r.data.word_count} words)`);
+      toast.success(`${premium ? '✨ Premium' : 'AI'} draft ready · ${r.data.word_count} words · ${r.data.model.replace('anthropic/', '')}`);
     } catch (e) {
       const status = e.response?.status;
       const detail = e.response?.data?.detail || 'AI generation failed';
@@ -750,78 +771,12 @@ const PreAssessmentPipeline = ({ initialFilter = null }) => {
                     )}
 
                     {/* Financial Summary — visible for proposal_paid / awaiting_final_approval / case_created */}
-                    {['proposal_paid', 'awaiting_final_approval', 'case_created'].includes(pa.stage) && (
-                      <div className="bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 rounded-xl p-4 border border-emerald-200">
-                        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-                          <p className="text-sm font-bold text-emerald-900 flex items-center gap-2">
-                            <IndianRupee className="h-4 w-4" /> Financial Summary
-                          </p>
-                          <Badge className="bg-emerald-600 text-white">
-                            Total Received: ₹{((pa.pre_assessment_fee || 0) + (pa.proposal_fee || 0)).toLocaleString('en-IN')}
-                          </Badge>
-                        </div>
-                        <div className="grid md:grid-cols-2 gap-3 text-xs">
-                          {/* Pre-Assessment Fee */}
-                          <div className="bg-white/70 rounded-lg p-3 border border-emerald-100">
-                            <p className="font-semibold text-slate-700 mb-1.5">Step 1 · Pre-Assessment Fee</p>
-                            <div className="flex justify-between"><span className="text-slate-500">Amount:</span> <span className="font-semibold">₹{(pa.pre_assessment_fee || 5100).toLocaleString('en-IN')}</span></div>
-                            <div className="flex justify-between"><span className="text-slate-500">Status:</span> <Badge className="h-4 text-[10px] bg-emerald-100 text-emerald-700 px-1.5">PAID</Badge></div>
-                          </div>
-                          {/* Main Fee Breakdown */}
-                          <div className="bg-white/70 rounded-lg p-3 border border-emerald-100">
-                            <p className="font-semibold text-slate-700 mb-1.5">Step 2 · Main Service Fee</p>
-                            {pa.proposal_base_fee != null && (
-                              <div className="flex justify-between"><span className="text-slate-500">Base Fee:</span> <span>₹{(pa.proposal_base_fee || 0).toLocaleString('en-IN')}</span></div>
-                            )}
-                            {pa.proposal_promo_code && (
-                              <div className="flex justify-between text-red-600"><span>Promo ({pa.proposal_promo_code}):</span> <span>- ₹{(pa.proposal_promo_discount || 0).toLocaleString('en-IN')}</span></div>
-                            )}
-                            {(pa.proposal_additional_discount || 0) > 0 && (
-                              <div className="flex justify-between text-red-600"><span>Custom Discount:</span> <span>- ₹{(pa.proposal_additional_discount || 0).toLocaleString('en-IN')}</span></div>
-                            )}
-                            {(pa.proposal_upsell_total || 0) > 0 && (
-                              <div className="flex justify-between text-indigo-600"><span>Upsells ({(pa.proposal_upsells || []).length}):</span> <span>+ ₹{(pa.proposal_upsell_total || 0).toLocaleString('en-IN')}</span></div>
-                            )}
-                            <div className="border-t border-dashed border-emerald-300 mt-1.5 pt-1.5 flex justify-between font-bold text-emerald-800">
-                              <span>Final Paid:</span><span>₹{(pa.proposal_fee || 0).toLocaleString('en-IN')}</span>
-                            </div>
-                          </div>
-                        </div>
-                        {/* Upsells list */}
-                        {(pa.proposal_upsells || []).length > 0 && (
-                          <div className="mt-3 bg-white/70 rounded-lg p-3 border border-emerald-100">
-                            <p className="text-[11px] font-semibold text-slate-700 mb-1">Upsell Add-ons:</p>
-                            <div className="flex flex-wrap gap-1.5">
-                              {(pa.proposal_upsells || []).map((u, i) => (
-                                <Badge key={i} className="bg-indigo-100 text-indigo-700 text-[10px]">{u.name} · ₹{(u.amount || 0).toLocaleString('en-IN')}</Badge>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        {/* Proposal Notes */}
-                        {pa.proposal_notes && (
-                          <div className="mt-3 bg-white/70 rounded-lg p-3 border border-emerald-100">
-                            <p className="text-[11px] font-semibold text-slate-700 mb-1">Proposal Notes:</p>
-                            <p className="text-xs text-slate-600 whitespace-pre-line">{pa.proposal_notes}</p>
-                          </div>
-                        )}
-                        {/* Doc action buttons */}
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          <Button size="sm" variant="outline" onClick={() => downloadPdf(pa.id, 'proposal')}
-                            className="h-8 text-xs border-emerald-300 text-emerald-700 hover:bg-emerald-50" data-testid={`dl-proposal-${pa.id}`}>
-                            <Download className="h-3.5 w-3.5 mr-1" /> Proposal PDF
-                          </Button>
-                          <Button size="sm" variant="outline" onClick={() => downloadPdf(pa.id, 'invoice')}
-                            className="h-8 text-xs border-emerald-300 text-emerald-700 hover:bg-emerald-50" data-testid={`dl-invoice-${pa.id}`}>
-                            <Download className="h-3.5 w-3.5 mr-1" /> Invoice PDF
-                          </Button>
-                          <Button size="sm" onClick={() => sendInvoiceNow(pa.id)} disabled={sendingInvoice === pa.id}
-                            className="h-8 text-xs bg-[#f7620b] hover:bg-[#e55a09] text-white" data-testid={`send-invoice-${pa.id}`}>
-                            <Send className="h-3.5 w-3.5 mr-1" /> {sendingInvoice === pa.id ? 'Sending…' : 'Send Invoice to Client'}
-                          </Button>
-                        </div>
-                      </div>
-                    )}
+                    <PaFinancialSummary
+                      pa={pa}
+                      onDownload={downloadPdf}
+                      onSendInvoice={sendInvoiceNow}
+                      sendingInvoice={sendingInvoice}
+                    />
 
                     {/* Payment History Timeline + Risk + Checklist (visible once fee_payment_status is paid) */}
                     {pa.fee_payment_status === 'paid' && paBundle[pa.id] && (
@@ -988,19 +943,28 @@ const PreAssessmentPipeline = ({ initialFilter = null }) => {
 
                           {/* AI Proposal Text */}
                           <div>
-                            <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center justify-between mb-1 gap-2 flex-wrap">
                               <label className="text-xs font-medium text-slate-600">Proposal Body (personalised)</label>
-                              <Button size="sm" variant="outline" onClick={() => handleGenerateAI(pa.id)}
-                                disabled={aiGenerating}
-                                className="h-7 text-xs border-purple-300 text-purple-700 hover:bg-purple-50"
-                                data-testid="ai-generate-btn">
-                                {aiGenerating ? <><RefreshCw className="h-3 w-3 animate-spin mr-1" /> Generating…</> : <>✨ Generate with AI</>}
-                              </Button>
+                              <div className="flex gap-1.5">
+                                <Button size="sm" variant="outline" onClick={() => handleGenerateAI(pa.id, false)}
+                                  disabled={!!aiGenerating}
+                                  className="h-7 text-xs border-purple-300 text-purple-700 hover:bg-purple-50"
+                                  data-testid="ai-generate-btn">
+                                  {aiGenerating === 'std' ? <><RefreshCw className="h-3 w-3 animate-spin mr-1" /> Generating…</> : <>✨ Generate with AI</>}
+                                </Button>
+                                <Button size="sm" onClick={() => handleGenerateAI(pa.id, true)}
+                                  disabled={!!aiGenerating}
+                                  className="h-7 text-xs bg-gradient-to-r from-amber-500 via-orange-500 to-pink-500 hover:opacity-90 text-white"
+                                  data-testid="ai-premium-btn"
+                                  title="Uses Claude Opus 4.6 — deepest reasoning, best for high-value proposals">
+                                  {aiGenerating === 'premium' ? <><RefreshCw className="h-3 w-3 animate-spin mr-1" /> Crafting…</> : <>👑 Premium AI</>}
+                                </Button>
+                              </div>
                             </div>
                             <textarea value={proposalForm.ai_text}
                               onChange={e => setProposalForm({...proposalForm, ai_text: e.target.value})}
                               className="w-full border rounded-md px-3 py-2 text-sm h-28"
-                              placeholder="Click 'Generate with AI' for a personalised proposal, or write your own…"
+                              placeholder="Click 'Generate with AI' (Sonnet 4.6) for a quick draft, or 'Premium AI' (Opus 4.6) for high-value clients…"
                               data-testid="proposal-ai-text" />
                           </div>
 

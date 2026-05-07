@@ -1,20 +1,23 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { AlertTriangle, Bell, RefreshCw, Send } from 'lucide-react';
+import { AlertTriangle, Bell, RefreshCw } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 /**
  * DropoffRecoveryWidget — shows leads stuck beyond SLA.
  * Partners see their own; Admins see all.
+ * Lazy-loads via IntersectionObserver — fetches only when scrolled into view.
  */
 export default function DropoffRecoveryWidget() {
   const [data, setData] = useState({ count: 0, items: [] });
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [hasFetched, setHasFetched] = useState(false);
   const [nudging, setNudging] = useState(null);
+  const containerRef = useRef(null);
 
   const getAuth = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
 
@@ -23,11 +26,26 @@ export default function DropoffRecoveryWidget() {
       setLoading(true);
       const r = await axios.get(`${API}/intelligence/dropoff-leads`, getAuth());
       setData(r.data);
+      setHasFetched(true);
     } catch (e) { /* silent */ }
     setLoading(false);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  // IntersectionObserver — fire load only once when widget enters viewport
+  useEffect(() => {
+    if (hasFetched || !containerRef.current) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          load();
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '100px' }
+    );
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, [hasFetched, load]);
 
   const nudge = async (paId) => {
     setNudging(paId);
@@ -40,7 +58,7 @@ export default function DropoffRecoveryWidget() {
   };
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 p-5" data-testid="dropoff-widget">
+    <div ref={containerRef} className="bg-white rounded-xl border border-slate-200 p-5" data-testid="dropoff-widget">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <AlertTriangle className="h-5 w-5 text-orange-500" />
@@ -52,7 +70,9 @@ export default function DropoffRecoveryWidget() {
         </Button>
       </div>
 
-      {loading ? (
+      {!hasFetched && !loading ? (
+        <div className="text-center py-6 text-xs text-slate-400">Scroll to load drop-off insights…</div>
+      ) : loading ? (
         <p className="text-xs text-slate-400">Scanning stuck leads…</p>
       ) : data.count === 0 ? (
         <div className="text-center py-6 text-sm text-slate-500">

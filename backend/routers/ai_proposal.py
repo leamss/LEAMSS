@@ -40,6 +40,7 @@ class AIGenerateRequest(BaseModel):
     pa_id: str
     tone: Optional[str] = "professional"  # professional | friendly | assertive
     custom_instructions: Optional[str] = ""
+    premium: Optional[bool] = False  # True = use Claude Opus 4.6 (deeper, premium quality)
 
 
 @router.post("/generate")
@@ -102,11 +103,16 @@ async def generate_proposal(data: AIGenerateRequest, current_user: dict = Depend
         logger.error(f"emergentintegrations not installed: {e}")
         raise HTTPException(status_code=500, detail="LLM library not installed")
 
+    # Premium toggle uses Claude Opus 4.6 (deeper reasoning, best for ₹5L+ proposals).
+    # Default uses Claude Sonnet 4.6 (30-50% faster than 4.5, same price, excellent quality).
+    model_id = "claude-opus-4-6" if data.premium else "claude-sonnet-4-6"
+    model_label = f"anthropic/{model_id}"
+
     chat = LlmChat(
         api_key=EMERGENT_LLM_KEY,
         session_id=f"propose-{uuid.uuid4()}",
         system_message=SYSTEM_PROMPT,
-    ).with_model("anthropic", "claude-sonnet-4-5-20250929")
+    ).with_model("anthropic", model_id)
 
     try:
         response = await chat.send_message(UserMessage(text=user_prompt))
@@ -128,5 +134,6 @@ async def generate_proposal(data: AIGenerateRequest, current_user: dict = Depend
         "proposal_text": text,
         "tone": data.tone,
         "word_count": len(text.split()),
-        "model": "anthropic/claude-sonnet-4-5",
+        "model": model_label,
+        "premium": bool(data.premium),
     }

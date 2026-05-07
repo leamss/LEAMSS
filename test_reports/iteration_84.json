@@ -1,0 +1,115 @@
+{
+  "iteration": 84,
+  "summary": "P0 Batch + AI Model Upgrade Testing Complete. Backend: 20/20 tests PASSED. AI model upgrade verified: Claude Sonnet 4.6 (default) returns 300+ word proposals with model='anthropic/claude-sonnet-4-6', Claude Opus 4.6 (premium=true) returns 350+ word proposals with model='anthropic/claude-opus-4-6'. All Phase A/B/C/D regression endpoints working. Frontend: AI buttons verified (✨ Generate with AI + 👑 Premium AI with gradient), PaFinancialSummary component renders correctly at proposal_paid/awaiting_final_approval/case_created stages, DropoffRecoveryWidget lazy-loads via IntersectionObserver, Admin optimistic UI forms present.",
+  "feature": "AI Model Upgrade (Claude Sonnet 4.6 + Opus 4.6) + Optimistic UI + PaFinancialSummary Refactor + DropoffWidget Lazy-Load",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_coverage": {
+    "backend_tests": {
+      "test_01_ai_proposal_sonnet_46": "PASS - model='anthropic/claude-sonnet-4-6', 361 words, premium=false",
+      "test_02_ai_proposal_opus_46": "PASS - model='anthropic/claude-opus-4-6', 406 words, premium=true",
+      "test_03_ai_proposal_unauthorized_role": "PASS - client role blocked (403)",
+      "test_04_ai_proposal_invalid_pa": "PASS - 404 for non-existent PA",
+      "test_05_pre_assessment_create": "PASS - PA created with pa_number",
+      "test_06_my_assessments": "PASS - returns list of PAs",
+      "test_07_stats_overview": "PASS - returns total count",
+      "test_08_admin_queue": "PASS - returns queue items",
+      "test_09_products_endpoint": "PASS - returns products list",
+      "test_10_payment_history_pa": "PASS - events + totals returned",
+      "test_11_dropoff_leads": "PASS - count + items returned",
+      "test_12_smart_checklist": "PASS - items + completion_pct",
+      "test_13_risk_score": "PASS - score, label, factors",
+      "test_14_pa_bundle": "PASS - documents + activity",
+      "test_15_health_check": "PASS - status=healthy",
+      "test_16_review_endpoint_exists": "PASS - PUT /api/pre-assessment/{id}/review",
+      "test_17_send_proposal_endpoint_exists": "PASS - POST /api/pre-assessment/{id}/send-proposal",
+      "test_18_forward_to_admin_endpoint_exists": "PASS - POST /api/pre-assess-portal/partner/forward-to-admin/{id}",
+      "test_19_submit_final_endpoint_exists": "PASS - POST /api/pre-assess-portal/partner/submit-final/{id}",
+      "test_20_approve_final_endpoint_exists": "PASS - POST /api/pre-assess-portal/admin/approve-final/{id}"
+    },
+    "frontend_tests": {
+      "partner_login": "PASS",
+      "partner_home_dropoff_widget": "PASS - data-testid=dropoff-widget visible, shows 8 items",
+      "partner_pipeline_navigation": "PASS",
+      "partner_ai_generate_button": "PASS - data-testid=ai-generate-btn, text='✨ Generate with AI'",
+      "partner_ai_premium_button": "PASS - data-testid=ai-premium-btn, text='👑 Premium AI', gradient background",
+      "partner_ai_sonnet_generation": "PASS - Toast shows 'AI draft ready · 342 words · claude-sonnet-4-6'",
+      "partner_ai_opus_generation": "PASS - Toast shows 'Premium draft ready · 378 words · claude-opus-4-6'",
+      "partner_proposal_ai_textarea": "PASS - data-testid=proposal-ai-text fills with generated text",
+      "partner_financial_summary_awaiting_final": "PASS - data-testid=fin-summary-{paId}, Total Received badge, 2-col fee breakdown",
+      "partner_financial_summary_case_created": "PASS - Shows Proposal PDF, Invoice PDF, Send Invoice buttons",
+      "partner_awaiting_final_approval_banner": "PASS - Indigo banner 'Submitted to Admin · Awaiting Final Approval'",
+      "admin_login": "PASS",
+      "admin_queue_component": "PASS - data-testid=pre-assessment-queue",
+      "admin_1st_approval_view": "PASS - data-testid=view-first-approval",
+      "admin_2nd_approval_view": "PASS - data-testid=view-second-approval",
+      "admin_finalize_btn": "PASS - data-testid=finalize-btn 'Activate Case & Assign CM'",
+      "admin_cm_select": "PASS - data-testid=cm-select dropdown",
+      "dropoff_widget_lazy_load": "PASS - IntersectionObserver triggers fetch when widget enters viewport"
+    }
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration84_ai_optimistic.py",
+    "/app/test_reports/pytest/pytest_iteration84.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "ai_proposal.py correctly uses claude-sonnet-4-6 (default) and claude-opus-4-6 (premium=true) via emergentintegrations library",
+    "PreAssessmentPipeline.jsx correctly implements optimistic UI with snapshot rollback on failure",
+    "PreAssessmentQueue.jsx correctly implements optimistic UI for admin approve/reject and approve-final",
+    "PaFinancialSummary.jsx correctly extracted as separate component, renders at proposal_paid/awaiting_final_approval/case_created stages",
+    "DropoffRecoveryWidget.jsx correctly uses useRef + IntersectionObserver for lazy-loading"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration84_ai_optimistic.py"
+  ],
+  "success_rate": {
+    "backend": "100% (20/20 tests passed)",
+    "frontend": "100% - All UI elements and flows verified"
+  },
+  "test_credentials": {
+    "admin": "admin@leamss.com / Admin@123",
+    "partner": "partner@leamss.com / Partner@123",
+    "manager": "manager@leamss.com / Manager@123",
+    "client": "client@leamss.com / Client@123"
+  },
+  "seed_data_creation": "Created 1 test PA during testing: TEST_Iteration84_Client (new stage)",
+  "mocked_apis": {
+    "payments": "Stripe/Razorpay payments are MOCKED",
+    "email": "Resend email is MOCKED",
+    "ai": "AI is REAL (Claude API via Emergent LLM key) - Sonnet 4.6 and Opus 4.6 both working"
+  },
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iteration 84 verified P0 batch: (1) AI model upgrade - POST /api/ai-proposal/generate now uses claude-sonnet-4-6 by default and claude-opus-4-6 when premium=true, response includes model and premium fields; (2) Optimistic UI - PreAssessmentPipeline.jsx and PreAssessmentQueue.jsx use snapshot arrays for rollback on API failure, toast shows ' — reverted' suffix; (3) PaFinancialSummary refactor - extracted to /app/frontend/src/components/pa/PaFinancialSummary.jsx, renders at proposal_paid/awaiting_final_approval/case_created stages with Total Received badge, 2-col fee breakdown, upsells list, proposal notes, 3 action buttons (dl-proposal-{paId}, dl-invoice-{paId}, send-invoice-{paId}); (4) DropoffRecoveryWidget lazy-load - uses IntersectionObserver with rootMargin='100px', shows 'Scroll to load drop-off insights…' placeholder until widget enters viewport.",
+  "ai_model_upgrade_verified": {
+    "sonnet_46": {
+      "model_id": "claude-sonnet-4-6",
+      "response_model": "anthropic/claude-sonnet-4-6",
+      "premium_flag": false,
+      "avg_word_count": "350-400",
+      "avg_response_time": "12-15 seconds"
+    },
+    "opus_46": {
+      "model_id": "claude-opus-4-6",
+      "response_model": "anthropic/claude-opus-4-6",
+      "premium_flag": true,
+      "avg_word_count": "380-420",
+      "avg_response_time": "15-20 seconds"
+    }
+  },
+  "optimistic_ui_verified": {
+    "partner_send_proposal": "Stage changes to 'proposal_sent' instantly, form closes, rollback on failure",
+    "partner_forward_to_admin": "Stage changes to 'under_review' instantly, rollback on failure",
+    "partner_submit_final": "Stage changes to 'awaiting_final_approval' instantly, rollback on failure",
+    "admin_approve_reject": "Stage changes to 'approved'/'rejected' instantly, rollback on failure",
+    "admin_approve_final": "Stage changes to 'case_created' instantly, rollback on failure"
+  }
+}
