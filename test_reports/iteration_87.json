@@ -1,0 +1,86 @@
+{
+  "summary": "Iteration 87: SHA-256 Tamper Detection for Legal Archive - All features tested and working correctly. Backend: 16/16 tests passed. Frontend: All UI elements verified.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration87_integrity.py",
+    "/app/test_reports/pytest/pytest_iteration87.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_iteration87_integrity.py"
+  ],
+  "success_rate": {
+    "backend": "100%",
+    "frontend": "100%"
+  },
+  "test_credentials": {
+    "admin": "admin@leamss.com / Admin@123",
+    "partner": "partner@leamss.com / Partner@123",
+    "client": "client@leamss.com / Client@123"
+  },
+  "seed_data_creation": "None - used existing seeded data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration 87 tested SHA-256 tamper detection for Legal Archive. All integrity endpoints working: /integrity/backfill, /integrity/verify-all, search returns integrity_status + integrity_hash. Tamper detection verified by manually corrupting a consent record and confirming detection. Agreement templates have verbatim DOCX content with version>=2. PA Create Form refactor working with all data-testids preserved. Legal Archive UI shows Verify button, integrity banner, and hash badges per row.",
+  "features_tested": {
+    "backend_integrity_endpoints": {
+      "POST /api/legal-archive/integrity/backfill": "PASS - Admin can backfill, returns counts {consent, signature, invoice, total}",
+      "GET /api/legal-archive/integrity/verify-all": "PASS - Returns {verified, tampered, unverified, total, tampered_records[], scanned_at}",
+      "Tamper detection sanity": "PASS - Manually corrupted consent record detected as tampered, then restored and rehashed",
+      "GET /api/legal-archive/search": "PASS - Returns integrity_status (verified|tampered|unverified) and integrity_hash (12-char prefix)",
+      "Authorization 403 for non-admin": "PASS - Partner and Client get 403 on /integrity/* endpoints"
+    },
+    "backend_regression": {
+      "GET /api/legal-archive/stats": "PASS",
+      "GET /api/legal-archive/search": "PASS"
+    },
+    "agreement_templates": {
+      "3 templates exist with version>=2": "PASS - Australia Standard, Australia Protection, Canada Express Entry",
+      "body_html contains class='agreement-doc'": "PASS",
+      "body_html contains Annexure content": "PASS",
+      "body_html contains client-details table": "PASS",
+      "body_html contains signature-table": "PASS"
+    },
+    "frontend_legal_archive": {
+      "Verify Integrity button (data-testid=verify-all-btn)": "PASS",
+      "Integrity banner (data-testid=integrity-banner)": "PASS - Shows 'SHA-256 Integrity: 7 verified'",
+      "Integrity column in table": "PASS",
+      "Hash badges per row (data-testid=integrity-{id})": "PASS - 7 badges with green ShieldCheck icons",
+      "Auto-verify on mount": "PASS"
+    },
+    "frontend_agreement_typography": {
+      ".agreement-doc-wrap class": "PASS",
+      ".agreement-doc class with serif font": "PASS - Georgia, Times New Roman, Cambria, serif",
+      "h1.title heading": "PASS",
+      "h2 headings": "PASS - 10 found",
+      "client-details table": "PASS",
+      "signature-table": "PASS"
+    },
+    "frontend_pa_create_form_refactor": {
+      "data-testid=pa-create-form": "PASS",
+      "data-testid=pa-client-name": "PASS",
+      "data-testid=pa-client-email": "PASS",
+      "data-testid=pa-client-mobile": "PASS",
+      "data-testid=pa-country": "PASS",
+      "data-testid=pa-service-type": "PASS",
+      "data-testid=pa-product": "PASS",
+      "data-testid=submit-create-pa": "PASS"
+    },
+    "frontend_authorization": {
+      "Legal Archive hidden from partner sidebar": "PASS"
+    }
+  },
+  "mocked_apis": {
+    "Resend (emails)": "MOCKED - invoice send remains mock",
+    "Stripe (payments)": "MOCKED - payments remain mock"
+  }
+}

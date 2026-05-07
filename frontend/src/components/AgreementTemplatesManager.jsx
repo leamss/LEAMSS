@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { FileText, Plus, Edit, Copy, Trash2, Save, Upload, X, Check, Eye } from 'lucide-react';
+import './agreement-doc.css';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -269,7 +270,7 @@ function PreviewModal({ tid, onClose }) {
           </div>
           <Button variant="ghost" size="sm" onClick={onClose} className="h-7 w-7 p-0"><X className="h-4 w-4" /></Button>
         </div>
-        <div className="p-5 prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: t.body_html }} />
+        <div className="agreement-doc-wrap" dangerouslySetInnerHTML={{ __html: t.body_html }} />
       </div>
     </div>
   );

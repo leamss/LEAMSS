@@ -1,0 +1,166 @@
+/* ==========================================================
+   Legal Service Agreement — Document-grade typography
+   Used by AgreementViewerModal + ClientAgreementSigning
+   ========================================================== */
+
+.agreement-doc {
+  font-family: 'Georgia', 'Times New Roman', 'Cambria', serif;
+  color: #1f2937;
+  font-size: 13.5px;
+  line-height: 1.7;
+  background: #ffffff;
+  padding: 32px 36px;
+  max-width: 780px;
+  margin: 0 auto;
+  box-shadow: 0 0 0 1px #e5e7eb, 0 4px 18px -8px rgba(0,0,0,0.08);
+  border-radius: 4px;
+}
+
+/* Title */
+.agreement-doc h1.title {
+  text-align: center;
+  font-size: 20px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 4px;
+  letter-spacing: 0.2px;
+  border-bottom: 2px double #334155;
+  padding-bottom: 12px;
+}
+
+.agreement-doc p.meta {
+  text-align: center;
+  font-size: 12px;
+  color: #475569;
+  margin: 0 0 22px;
+  font-style: italic;
+}
+
+/* Section headings */
+.agreement-doc h2 {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 26px 0 10px;
+  padding: 6px 10px;
+  background: linear-gradient(90deg, #f1f5f9, transparent);
+  border-left: 3px solid #2a777a;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.agreement-doc h3 {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 18px 0 8px;
+  text-decoration: underline;
+  text-decoration-color: #94a3b8;
+  text-underline-offset: 4px;
+}
+
+/* Paragraphs */
+.agreement-doc p {
+  margin: 0 0 11px;
+  text-align: justify;
+  text-justify: inter-word;
+  hyphens: auto;
+}
+
+.agreement-doc p em {
+  color: #475569;
+  font-size: 12.5px;
+}
+
+.agreement-doc strong { color: #0f172a; font-weight: 700; }
+
+/* Lists */
+.agreement-doc ul, .agreement-doc ol {
+  margin: 0 0 14px 24px;
+  padding: 0;
+}
+.agreement-doc ul li, .agreement-doc ol li {
+  margin-bottom: 6px;
+  padding-left: 4px;
+  text-align: justify;
+}
+.agreement-doc ul { list-style: disc; }
+.agreement-doc ol { list-style: decimal; }
+
+/* Annexure pre-list block */
+.agreement-doc p.annex-list {
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  padding: 12px 16px;
+  border-radius: 4px;
+  font-size: 12.5px;
+  line-height: 1.9;
+  text-align: left;
+  margin: 16px 0 22px;
+}
+
+/* Tables — Client / Fee */
+.agreement-doc table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0 18px;
+  font-size: 12.5px;
+}
+.agreement-doc table.client-details td,
+.agreement-doc table.fee-table td,
+.agreement-doc table.fee-table th {
+  border: 1px solid #cbd5e1;
+  padding: 8px 12px;
+  vertical-align: top;
+}
+.agreement-doc table.client-details td:first-child {
+  background: #f8fafc;
+  width: 38%;
+  font-weight: 600;
+  color: #334155;
+}
+.agreement-doc table.fee-table th {
+  background: #2a777a;
+  color: #fff;
+  text-align: left;
+  font-weight: 600;
+}
+.agreement-doc table.fee-table tr:nth-child(even) td { background: #f8fafc; }
+
+/* Signature block */
+.agreement-doc table.signature-table {
+  margin-top: 36px;
+  border-top: 2px solid #0f172a;
+}
+.agreement-doc table.signature-table td {
+  width: 50%;
+  padding: 24px 16px 8px;
+  border: none;
+  border-right: 1px dashed #cbd5e1;
+  vertical-align: top;
+  font-size: 12.5px;
+  line-height: 1.9;
+}
+.agreement-doc table.signature-table td:last-child { border-right: none; }
+.agreement-doc table.signature-table td strong {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #2a777a;
+  margin-bottom: 18px;
+  border-bottom: 1px solid #94a3b8;
+  padding-bottom: 28px;
+}
+
+/* Wrap container — A4 feel */
+.agreement-doc-wrap {
+  background: #f1f5f9;
+  padding: 18px 12px;
+}
+
+/* Print-friendly */
+@media print {
+  .agreement-doc { box-shadow: none; padding: 0; }
+  .agreement-doc-wrap { background: #fff; padding: 0; }
+}

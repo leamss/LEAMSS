@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import {
   Search, FileText, Pen, Receipt, Shield, Download, Eye,
-  Calendar, X, RefreshCw, IndianRupee
+  Calendar, X, RefreshCw, IndianRupee, ShieldCheck, ShieldAlert
 } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -24,8 +24,34 @@ export default function LegalArchive() {
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState({ q: '', record_type: 'all', start_date: '', end_date: '' });
   const [selected, setSelected] = useState(null);
+  const [integrity, setIntegrity] = useState(null);
+  const [verifying, setVerifying] = useState(false);
 
   const getAuth = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
+
+  const verifyAll = useCallback(async () => {
+    setVerifying(true);
+    try {
+      const r = await axios.get(`${API}/legal-archive/integrity/verify-all`, getAuth());
+      setIntegrity(r.data);
+      if (r.data.tampered > 0) {
+        toast.error(`⚠️ ${r.data.tampered} tampered record(s) detected!`);
+      } else if (r.data.unverified > 0) {
+        toast.warning(`${r.data.unverified} legacy record(s) without hash. Run Backfill.`);
+      } else {
+        toast.success(`All ${r.data.verified} records verified — chain intact ✓`);
+      }
+    } catch (e) { toast.error(e.response?.data?.detail || 'Verification failed'); }
+    setVerifying(false);
+  }, []);
+
+  const backfillHashes = useCallback(async () => {
+    try {
+      const r = await axios.post(`${API}/legal-archive/integrity/backfill`, {}, getAuth());
+      toast.success(`Backfilled ${r.data.total} record(s) — ${r.data.consent} consent, ${r.data.signature} sig, ${r.data.invoice} invoice`);
+      verifyAll();
+    } catch (e) { toast.error(e.response?.data?.detail || 'Backfill failed'); }
+  }, [verifyAll]);
 
   const loadStats = useCallback(async () => {
     try {
@@ -49,7 +75,7 @@ export default function LegalArchive() {
     setLoading(false);
   }, [filter]);
 
-  useEffect(() => { loadStats(); search(); }, [loadStats, search]);
+  useEffect(() => { loadStats(); search(); verifyAll(); }, [loadStats, search, verifyAll]);
 
   const downloadDoc = async (paId, kind, refId) => {
     try {
@@ -92,9 +118,14 @@ export default function LegalArchive() {
           </h1>
           <p className="text-sm text-slate-500 mt-1">Searchable compliance dashboard — every consent, signature & invoice with reference IDs.</p>
         </div>
-        <Button variant="outline" onClick={exportCsv} className="border-slate-300" data-testid="export-csv-btn">
-          <Download className="h-4 w-4 mr-2" /> Export CSV
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={verifyAll} disabled={verifying} className="border-indigo-300 text-indigo-700 hover:bg-indigo-50" data-testid="verify-all-btn">
+            <ShieldCheck className={`h-4 w-4 mr-2 ${verifying ? 'animate-pulse' : ''}`} /> {verifying ? 'Verifying…' : 'Verify Integrity'}
+          </Button>
+          <Button variant="outline" onClick={exportCsv} className="border-slate-300" data-testid="export-csv-btn">
+            <Download className="h-4 w-4 mr-2" /> Export CSV
+          </Button>
+        </div>
       </div>
 
       {/* Stats Strip */}
@@ -117,7 +148,42 @@ export default function LegalArchive() {
         </Card>
       </div>
 
-      {/* Search Bar */}
+      {/* Integrity Banner */}
+      {integrity && (
+        <Card className={`p-3 border-l-4 ${integrity.tampered > 0 ? 'border-l-red-500 bg-red-50' : integrity.unverified > 0 ? 'border-l-amber-500 bg-amber-50' : 'border-l-emerald-500 bg-emerald-50'}`} data-testid="integrity-banner">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2.5">
+              {integrity.tampered > 0
+                ? <ShieldAlert className="h-5 w-5 text-red-600" />
+                : <ShieldCheck className={`h-5 w-5 ${integrity.unverified > 0 ? 'text-amber-600' : 'text-emerald-600'}`} />}
+              <div>
+                <p className="text-sm font-semibold text-slate-800">
+                  SHA-256 Integrity:&nbsp;
+                  <span className="text-emerald-700">{integrity.verified} verified</span>
+                  {integrity.tampered > 0 && <> · <span className="text-red-700">{integrity.tampered} tampered</span></>}
+                  {integrity.unverified > 0 && <> · <span className="text-amber-700">{integrity.unverified} unverified</span></>}
+                </p>
+                <p className="text-[11px] text-slate-500">Scanned at {new Date(integrity.scanned_at).toLocaleString()}</p>
+              </div>
+            </div>
+            {integrity.unverified > 0 && (
+              <Button size="sm" variant="outline" onClick={backfillHashes} className="border-amber-300 text-amber-700 hover:bg-amber-100" data-testid="backfill-btn">
+                Backfill Legacy Hashes
+              </Button>
+            )}
+          </div>
+          {integrity.tampered > 0 && (
+            <div className="mt-2 pt-2 border-t border-red-200 text-[11px] text-red-700">
+              <p className="font-semibold mb-1">Tampered records:</p>
+              <ul className="space-y-0.5 font-mono">
+                {integrity.tampered_records.map((t, idx) => (
+                  <li key={idx}>· [{t.type}] <strong>{t.reference_id || t.id}</strong> — expected {t.expected} · actual {t.actual}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </Card>
+      )}
       <Card className="p-4 border-slate-200">
         <div className="flex gap-2 mb-3 flex-wrap">
           <div className="flex-1 min-w-[220px] relative">
@@ -185,6 +251,7 @@ export default function LegalArchive() {
                 <tr>
                   <th className="px-3 py-2 text-left">Type</th>
                   <th className="px-3 py-2 text-left">Reference ID</th>
+                  <th className="px-3 py-2 text-left">Integrity</th>
                   <th className="px-3 py-2 text-left">Client</th>
                   <th className="px-3 py-2 text-left">Country / Service</th>
                   <th className="px-3 py-2 text-right">Amount</th>
@@ -204,6 +271,21 @@ export default function LegalArchive() {
                         </Badge>
                       </td>
                       <td className="px-3 py-2.5 font-mono text-xs text-slate-700">{i.reference_id || '—'}</td>
+                      <td className="px-3 py-2.5">
+                        {i.integrity_status === 'verified' ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-mono text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded" title={`Hash: ${i.integrity_hash}…`} data-testid={`integrity-${i.id}`}>
+                            <ShieldCheck className="h-3 w-3" /> {i.integrity_hash}…
+                          </span>
+                        ) : i.integrity_status === 'tampered' ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-red-700 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded animate-pulse" data-testid={`integrity-${i.id}`}>
+                            <ShieldAlert className="h-3 w-3" /> Tampered
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[10px] text-slate-500 bg-slate-50 border border-slate-200 px-1.5 py-0.5 rounded" data-testid={`integrity-${i.id}`}>
+                            <Shield className="h-3 w-3" /> Legacy
+                          </span>
+                        )}
+                      </td>
                       <td className="px-3 py-2.5">
                         <p className="font-medium text-slate-800">{i.client_name || '—'}</p>
                         <p className="text-[11px] text-slate-500">{i.client_email || ''}</p>

@@ -23,6 +23,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from core.auth import get_current_user, get_password_hash, create_access_token
 from core.database import db, users_col, notifications_col
+from core.integrity import compute_hash
 from passlib.context import CryptContext
 
 logger = logging.getLogger(__name__)
@@ -581,6 +582,7 @@ async def client_proposal_consent(pa_id: str, current_user: dict = Depends(get_c
         "mode": "mock",
         "created_at": now,
     }
+    summary["integrity_hash"] = compute_hash("consent", summary)
     await db["proposal_consent_emails"].insert_one(summary)
     summary.pop("_id", None)
     summary["created_at"] = summary["created_at"].isoformat()

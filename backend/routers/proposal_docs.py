@@ -17,6 +17,7 @@ from pydantic import BaseModel
 from core.database import db
 from routers.auth import get_current_user
 from core.services import log_activity
+from core.integrity import compute_hash
 
 router = APIRouter(prefix="/proposal-docs", tags=["Proposal Docs"])
 
@@ -244,6 +245,7 @@ async def send_invoice(pa_id: str, body: SendInvoiceBody, current_user: dict = D
         "mode": "mock",  # Resend not wired
         "sent_at": datetime.now(timezone.utc),
     }
+    record["integrity_hash"] = compute_hash("invoice", record)
     await invoices_col.insert_one(record)
     record.pop("_id", None)
     record["sent_at"] = record["sent_at"].isoformat()
@@ -309,6 +311,7 @@ async def save_esign(pa_id: str, body: EsignBody, request: Request, current_user
         "file_size": len(raw),
         "signed_at": datetime.now(timezone.utc),
     }
+    rec["integrity_hash"] = compute_hash("signature", rec)
     await signatures_col.insert_one(rec)
     rec.pop("_id", None)
     rec["signed_at"] = rec["signed_at"].isoformat()

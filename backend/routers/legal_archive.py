@@ -10,6 +10,7 @@ from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import Optional
 from core.database import db
 from routers.auth import get_current_user
+from core.integrity import compute_hash, verify_hash
 
 router = APIRouter(prefix="/legal-archive", tags=["Legal Archive"])
 
@@ -100,6 +101,7 @@ async def legal_search(
             if not _matches(haystack):
                 continue
             body = c.get("body_snapshot") or {}
+            integrity = verify_hash("consent", c)
             results.append({
                 "type": "consent",
                 "id": c.get("id"),
@@ -115,6 +117,8 @@ async def legal_search(
                 "timestamp": _iso(c.get("created_at")),
                 "channel": c.get("channel"),
                 "mode": c.get("mode"),
+                "integrity_status": integrity["status"],
+                "integrity_hash": (c.get("integrity_hash") or "")[:12],
                 "preview": {
                     "base_fee": body.get("base_fee"),
                     "promo_code": body.get("promo_code"),
@@ -139,6 +143,7 @@ async def legal_search(
             ])
             if not _matches(haystack):
                 continue
+            integrity = verify_hash("signature", s)
             results.append({
                 "type": "signature",
                 "id": s.get("id"),
@@ -154,6 +159,8 @@ async def legal_search(
                 "ip_address": s.get("ip_address"),
                 "user_agent": (s.get("user_agent") or "")[:80],
                 "file_size": s.get("file_size"),
+                "integrity_status": integrity["status"],
+                "integrity_hash": (s.get("integrity_hash") or "")[:12],
             })
 
     # ===== INVOICES =====
@@ -169,6 +176,7 @@ async def legal_search(
             ])
             if not _matches(haystack):
                 continue
+            integrity = verify_hash("invoice", inv)
             results.append({
                 "type": "invoice",
                 "id": inv.get("id"),
@@ -184,6 +192,8 @@ async def legal_search(
                 "timestamp": _iso(inv.get("sent_at")),
                 "channel": inv.get("channel"),
                 "mode": inv.get("mode"),
+                "integrity_status": integrity["status"],
+                "integrity_hash": (inv.get("integrity_hash") or "")[:12],
             })
 
     # Sort all-typed combined by timestamp desc
@@ -195,6 +205,43 @@ async def legal_search(
         "filters": {"q": q, "record_type": record_type, "start_date": start_date, "end_date": end_date},
         "items": results,
     }
+
+
+@router.get("/integrity/verify-all")
+async def integrity_verify_all(current_user: dict = Depends(get_current_user)):
+    """Recompute SHA-256 hash for every record. Returns counts + tampered records."""
+    _admin_only(current_user)
+    summary = {"verified": 0, "tampered": 0, "unverified": 0}
+    tampered = []
+    for col, rtype in [(consent_col, "consent"), (signatures_col, "signature"), (invoices_col, "invoice")]:
+        async for d in col.find({}, {"_id": 0}):
+            r = verify_hash(rtype, d)
+            summary[r["status"]] = summary.get(r["status"], 0) + 1
+            if r["status"] == "tampered":
+                tampered.append({
+                    "type": rtype, "id": d.get("id"), "reference_id": d.get("reference_id"),
+                    "expected": r["expected"][:16] + "…", "actual": (r["actual"] or "")[:16] + "…",
+                })
+    summary["total"] = summary["verified"] + summary["tampered"] + summary["unverified"]
+    summary["tampered_records"] = tampered
+    summary["scanned_at"] = datetime.now(timezone.utc).isoformat()
+    return summary
+
+
+@router.post("/integrity/backfill")
+async def integrity_backfill(current_user: dict = Depends(get_current_user)):
+    """Compute and persist integrity_hash on legacy records that lack one.
+    Only writes when hash is missing — never overwrites an existing hash.
+    """
+    _admin_only(current_user)
+    written = {"consent": 0, "signature": 0, "invoice": 0}
+    for col, rtype in [(consent_col, "consent"), (signatures_col, "signature"), (invoices_col, "invoice")]:
+        async for d in col.find({"integrity_hash": {"$exists": False}}, {"_id": 0}):
+            h = compute_hash(rtype, d)
+            await col.update_one({"id": d.get("id")}, {"$set": {"integrity_hash": h}})
+            written[rtype] += 1
+    written["total"] = written["consent"] + written["signature"] + written["invoice"]
+    return written
 
 
 @router.get("/{ref_id}")

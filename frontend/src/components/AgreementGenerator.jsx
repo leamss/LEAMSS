@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { X, FileText, Send, ChevronRight, ChevronLeft, Eye, Sparkles } from 'lucide-react';
+import './agreement-doc.css';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -178,7 +179,9 @@ export default function AgreementGenerator({ pa, onClose, onGenerated }) {
           {/* Step 3: Preview */}
           {step === 3 && (
             <div data-testid="step-preview">
-              <div className="border rounded-lg p-4 prose prose-sm max-w-none bg-white" dangerouslySetInnerHTML={{ __html: previewHtml }} />
+              <div className="agreement-doc-wrap rounded-lg max-h-[480px] overflow-y-auto border">
+                <div dangerouslySetInnerHTML={{ __html: previewHtml }} />
+              </div>
             </div>
           )}
         </div>

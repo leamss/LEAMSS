@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { FileCheck, CheckCircle2, Download } from 'lucide-react';
 import SignatureCanvas from '@/components/SignatureCanvas';
+import './agreement-doc.css';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -117,11 +118,12 @@ export default function ClientAgreementSigning({ paId, onSigned }) {
         <Badge className="bg-amber-200 text-amber-900 h-6">Pending Signature</Badge>
       </div>
       <div
-        className="prose prose-sm max-w-none p-5 bg-white max-h-96 overflow-y-auto border-b border-amber-200"
+        className="agreement-doc-wrap max-h-[480px] overflow-y-auto border-b border-amber-200"
         onScroll={handleScroll}
-        dangerouslySetInnerHTML={{ __html: agreement.rendered_html }}
         data-testid="agreement-body"
-      />
+      >
+        <div dangerouslySetInnerHTML={{ __html: agreement.rendered_html }} />
+      </div>
       {!scrolledToEnd ? (
         <div className="p-4 text-center bg-amber-50">
           <p className="text-xs text-amber-700">📜 Please scroll through the entire agreement before signing.</p>

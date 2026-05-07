@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { X, Download, RefreshCw, FileText } from 'lucide-react';
+import './agreement-doc.css';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -44,7 +45,7 @@ export default function AgreementViewerModal({ pa, onClose, onRegenerate }) {
 
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()} data-testid="agreement-viewer-modal">
+      <div className="bg-white rounded-xl max-w-4xl w-full max-h-[92vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()} data-testid="agreement-viewer-modal">
         <div className="p-4 border-b flex items-center justify-between bg-gradient-to-r from-indigo-500 to-purple-600 text-white">
           <div>
             <h3 className="font-bold flex items-center gap-2"><FileText className="h-5 w-5" /> Service Agreement</h3>
@@ -80,7 +81,9 @@ export default function AgreementViewerModal({ pa, onClose, onRegenerate }) {
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-5 prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: agreement.rendered_html }} />
+            <div className="flex-1 overflow-y-auto agreement-doc-wrap" data-testid="agreement-body-viewer">
+              <div dangerouslySetInnerHTML={{ __html: agreement.rendered_html }} />
+            </div>
 
             <div className="p-3 border-t bg-slate-50 flex items-center justify-between">
               <Button variant="outline" size="sm" onClick={onRegenerate} data-testid="regenerate-agreement">
