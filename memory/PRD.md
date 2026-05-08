@@ -3,6 +3,34 @@
 ## Original Problem Statement
 Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case Manager, Partner, Client.
 
+### Smart Share Link + Expiry Control (2026-05-08)
+
+**User-reported issue + enhancement combined**:
+
+**Issue**: WhatsApp / Copy Public Link button always generated ₹5,100 PA-fee link, even on PAs that were already past `proposal_sent` (where client should pay the proposal fee, e.g., ₹1,50,000). User specifically complained that for an `approved + proposal_sent` PA with proposal fee ₹1,50,000, the share link was still showing ₹5,100.
+
+**Enhancement**: Configurable link expiry (1/7/30/90 days or never).
+
+**Backend** — `/app/backend/routers/pre_assess_portal.py`:
+- `GenerateLinkRequest` model gains `expires_in_days: Optional[int]` (allowed values: 0, 1, 7, 30, 90)
+- `POST /api/pre-assess-portal/generate-public-link` now branches by stage:
+  - **BRANCH A** — fee NOT paid → public share-token URL (`/pre-assess/{token}`), `link_type: 'public_pa_fee'`, `amount: 5100`, `amount_label: '₹5,100'`, `purpose: 'pre_assessment_fee'`
+  - **BRANCH B1** — fee paid + `proposal_sent` + linked user → magic-link URL (`/magic/{token}`), `link_type: 'magic_portal'`, `amount: pa.proposal_fee`, `purpose: 'proposal_fee_payment'`
+  - **BRANCH B2** — `case_created` + linked → `purpose: 'view_portal'`, `amount: 0`
+  - **BRANCH B3** — fee paid but no client_user_id → 400 'Client account not linked yet'
+- Expiry honored: `expires_in_days=0` → null `expires_at` for public links, 5-year-out for magic links
+- Activity log captures `action='share_link_generated'` with `type` + `expires_in_days` metadata
+
+**Frontend** — `/app/frontend/src/components/pa/PaActionBar.jsx` (full rewrite):
+- Both **Copy Public Link** and **WhatsApp** buttons now open a unified dialog (`data-testid=share-dialog-{paId}`)
+- 5 expiry option pills (`data-testid=expiry-1, expiry-7, expiry-30, expiry-90, expiry-0`)
+- Default = 30 days
+- Amber warning banner when "Never expire" selected ("Use only for trusted recipients")
+- WhatsApp message text adapts by `purpose`: shows ₹1,50,000 for proposal flows, ₹5,100 for new PAs, "View case status" for case_created
+- Dialog also shows generated link with copy+open icons after submission
+
+**Verified**: iteration_91.json — Backend **14/14 PASS** · Frontend **100% PASS** · 0 regressions across previous flows.
+
 ### Bug Fix + Edit PA Details (2026-05-08)
 
 **User-reported issues**:
