@@ -41,6 +41,7 @@ _pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # ======================== MODELS ========================
 class GenerateLinkRequest(BaseModel):
     pa_id: str
+    expires_in_days: Optional[int] = 30  # 1, 7, 30, 90, or 0 = never
 
 
 class PublicMockPayRequest(BaseModel):
@@ -99,7 +100,14 @@ async def _mock_send(channel: str, to: str, subject: str, body: str):
 # ======================== PARTNER: GENERATE PUBLIC LINK ========================
 @router.post("/generate-public-link")
 async def generate_public_link(data: GenerateLinkRequest, current_user: dict = Depends(get_current_user)):
-    """Attach a share-token to an existing pre-assessment so client can pay without login."""
+    """Smart link generator. Returns the right link for the PA's current stage:
+
+      • Fee NOT paid (new / payment_pending)         → public ₹5,100 payment link (share-token)
+      • Fee paid + Proposal sent + not yet accepted  → magic link to client MiniPortal (pay proposal fee)
+      • Already in case_created / refund states      → magic link to portal (read-only view)
+
+    `expires_in_days`: 1, 7, 30, 90, or 0 = never expires.
+    """
     pa = await pre_assessments_col.find_one({"id": data.pa_id}, {"_id": 0})
     if not pa:
         raise HTTPException(status_code=404, detail="Pre-assessment not found")
@@ -107,29 +115,89 @@ async def generate_public_link(data: GenerateLinkRequest, current_user: dict = D
         current_user.get("role") == "partner" and pa.get("partner_id") != current_user["id"]):
         raise HTTPException(status_code=403, detail="Not allowed")
 
-    token = pa.get("share_token") or secrets.token_urlsafe(22)
-    expires_at = _now() + timedelta(days=30)
-    await pre_assessments_col.update_one({"id": data.pa_id}, {"$set": {
-        "share_token": token,
-        "share_expires_at": expires_at,
-        "share_active": True,
-        "updated_at": _now(),
-    }})
+    # Validate expiry
+    days = data.expires_in_days if data.expires_in_days is not None else 30
+    if days not in (0, 1, 7, 30, 90):
+        raise HTTPException(status_code=400, detail="expires_in_days must be 0 (never), 1, 7, 30, or 90")
+
+    fee_paid = pa.get("fee_payment_status") == "paid" or pa.get("stage") in (
+        "payment_received", "documents_submitted", "partner_review", "under_review",
+        "approved", "proposal_sent", "proposal_paid", "awaiting_final_approval", "case_created",
+    )
+    has_user = bool(pa.get("client_user_id"))
 
     base = _frontend_url()
-    public_url = f"{base}/pre-assess/{token}" if base else f"/pre-assess/{token}"
 
-    msg = (f"Hi {pa.get('client_name', '')}, your pre-assessment for "
-           f"{pa.get('service_type', 'immigration')} is ready. "
-           f"Pay ₹5,100 to begin: {public_url}")
-    await _mock_send("email", pa.get("client_email", ""), "Start your immigration pre-assessment", msg)
-    if pa.get("client_mobile"):
-        await _mock_send("whatsapp", pa["client_mobile"], "Pre-assessment", msg)
+    # ----------- BRANCH A: Fee not yet paid → public share-token link -----------
+    if not fee_paid:
+        token = pa.get("share_token") or secrets.token_urlsafe(22)
+        expires_at = None if days == 0 else _now() + timedelta(days=days)
+        await pre_assessments_col.update_one({"id": data.pa_id}, {"$set": {
+            "share_token": token,
+            "share_expires_at": expires_at,
+            "share_active": True,
+            "updated_at": _now(),
+        }})
+        public_url = f"{base}/pre-assess/{token}" if base else f"/pre-assess/{token}"
+        await _log(current_user["id"], data.pa_id, "share_link_generated", {
+            "type": "public_pa_fee", "expires_in_days": days,
+        })
+        return {
+            "token": token,
+            "public_url": public_url,
+            "link_type": "public_pa_fee",
+            "amount": 5100,
+            "amount_label": "₹5,100",
+            "purpose": "pre_assessment_fee",
+            "expires_at": expires_at.isoformat() if expires_at else None,
+            "expires_in_days": days,
+            "client_name": pa.get("client_name"),
+            "client_email": pa.get("client_email"),
+            "client_mobile": pa.get("client_mobile"),
+        }
 
+    # ----------- BRANCH B: Fee paid → magic link to MiniPortal -----------
+    if not has_user:
+        raise HTTPException(status_code=400, detail="Client account not linked yet — wait for client to complete payment")
+
+    minutes = 60 * 24 * days if days > 0 else 60 * 24 * 365 * 5  # "never" = 5 years
+    magic_token = secrets.token_urlsafe(22)
+    await magic_col.insert_one({
+        "id": str(uuid.uuid4()),
+        "token": magic_token,
+        "user_id": pa["client_user_id"],
+        "expires_at": _now() + timedelta(minutes=minutes),
+        "used": False,
+        "is_preview": False,  # real client login, not preview
+        "issued_by": current_user["id"],
+        "issued_for_pa": data.pa_id,
+        "created_at": _now(),
+    })
+    portal_url = f"{base}/magic/{magic_token}" if base else f"/magic/{magic_token}"
+
+    proposal_pending = pa.get("stage") == "proposal_sent" and pa.get("proposal_status") in (None, "sent", "accepted")
+    purpose = "proposal_fee_payment" if proposal_pending else "view_portal"
+    amount = int(pa.get("proposal_fee") or 0) if proposal_pending else 0
+    amount_label = (
+        f"₹{amount:,.0f}" if proposal_pending and amount > 0 else "—"
+    )
+
+    await _log(current_user["id"], data.pa_id, "share_link_generated", {
+        "type": "magic_portal", "purpose": purpose, "expires_in_days": days,
+    })
     return {
-        "token": token,
-        "public_url": public_url,
-        "expires_at": expires_at.isoformat(),
+        "token": magic_token,
+        "public_url": portal_url,
+        "link_type": "magic_portal",
+        "amount": amount,
+        "amount_label": amount_label,
+        "purpose": purpose,
+        "expires_at": (_now() + timedelta(minutes=minutes)).isoformat(),
+        "expires_in_days": days,
+        "client_name": pa.get("client_name"),
+        "client_email": pa.get("client_email"),
+        "client_mobile": pa.get("client_mobile"),
+        "proposal_fee": pa.get("proposal_fee"),
     }
 
 

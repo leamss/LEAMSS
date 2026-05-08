@@ -1,0 +1,113 @@
+{
+  "summary": "Iteration 91: Smart Link Generation + Expiry Control - All tests PASS. Backend: 14/14 tests passed covering all 3 branches (A: fee not paid → ₹5,100, B1: proposal_sent → proposal_fee, B2: case_created → view_portal), expiry validation (1/7/30/90/0 days), authorization (partner own, admin any, CM forbidden), and activity logging. Frontend: Share dialog with 5 expiry options works, amber warning for 'Never expire' displays correctly, link preview shows correct amounts.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration91_smart_link_expiry.py",
+    "/app/test_reports/pytest/pytest_iteration91.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_iteration91_smart_link_expiry.py"
+  ],
+  "success_rate": {
+    "backend": "100% (14/14 passed)",
+    "frontend": "100%"
+  },
+  "test_credentials": {
+    "admin": "admin@leamss.com / Admin@123",
+    "partner": "partner@leamss.com / Partner@123",
+    "case_manager": "manager@leamss.com / Manager@123"
+  },
+  "seed_data_creation": "Used existing PAs for testing",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration 91 verified smart link generation with expiry control. Key findings: (1) BRANCH A (fee not paid) returns public_pa_fee link with ₹5,100 and /pre-assess/{token} URL. (2) BRANCH B1 (proposal_sent + client_user_id) returns magic_portal with proposal_fee amount (e.g., ₹150,000) and /magic/{token} URL. (3) BRANCH B2 (case_created + client_user_id) returns magic_portal with purpose=view_portal and amount=0. (4) BRANCH B3 (fee paid but no client_user_id) returns 400 'Client account not linked yet'. (5) Expiry validation: only 0, 1, 7, 30, 90 days allowed. (6) Authorization: partner can only access own PAs, admin can access any, case_manager gets 403. (7) Activity log records share_link_generated with type and expires_in_days metadata. (8) Frontend share dialog has 5 expiry options with amber warning for 'Never expire'. (9) Public payment page shows correct ₹5,100 amount. (10) Invalid token shows friendly 'Link Unavailable' error page with Check Eligibility and Login buttons.",
+  "features_tested": {
+    "BRANCH_A_Fee_Not_Paid": {
+      "endpoint": "POST /api/pre-assess-portal/generate-public-link",
+      "condition": "stage=new or payment_pending, fee_payment_status!=paid",
+      "expected_response": {
+        "link_type": "public_pa_fee",
+        "amount": 5100,
+        "amount_label": "₹5,100",
+        "purpose": "pre_assessment_fee",
+        "url_pattern": "/pre-assess/{token}"
+      },
+      "test_result": "PASS"
+    },
+    "BRANCH_B1_Proposal_Sent_With_Client": {
+      "endpoint": "POST /api/pre-assess-portal/generate-public-link",
+      "condition": "stage=proposal_sent, client_user_id exists",
+      "expected_response": {
+        "link_type": "magic_portal",
+        "amount": "proposal_fee (e.g., 150000)",
+        "amount_label": "₹1,50,000",
+        "purpose": "proposal_fee_payment",
+        "url_pattern": "/magic/{token}"
+      },
+      "test_result": "PASS"
+    },
+    "BRANCH_B2_Case_Created_With_Client": {
+      "endpoint": "POST /api/pre-assess-portal/generate-public-link",
+      "condition": "stage=case_created, client_user_id exists",
+      "expected_response": {
+        "link_type": "magic_portal",
+        "amount": 0,
+        "amount_label": "—",
+        "purpose": "view_portal",
+        "url_pattern": "/magic/{token}"
+      },
+      "test_result": "PASS"
+    },
+    "BRANCH_B3_Fee_Paid_No_Client": {
+      "endpoint": "POST /api/pre-assess-portal/generate-public-link",
+      "condition": "fee paid but no client_user_id",
+      "expected_response": "400 'Client account not linked yet'",
+      "test_result": "PASS"
+    },
+    "Expiry_Validation": {
+      "valid_values": [0, 1, 7, 30, 90],
+      "invalid_value_test": "expires_in_days=15 returns 400",
+      "expires_at_1_day": "~24h from now",
+      "expires_at_0_never": "null for public links, 5-year for magic links",
+      "test_result": "PASS"
+    },
+    "Authorization": {
+      "partner_own_pa": "200 OK",
+      "partner_other_pa": "403 Forbidden",
+      "admin_any_pa": "200 OK or 400 (if no client)",
+      "case_manager": "403 Forbidden",
+      "test_result": "PASS"
+    },
+    "Activity_Log": {
+      "action": "share_link_generated",
+      "metadata": {"type": "public_pa_fee|magic_portal", "expires_in_days": "number"},
+      "test_result": "PASS"
+    },
+    "Frontend_Share_Dialog": {
+      "expiry_options": ["1 day", "7 days", "30 days", "90 days", "Never expire"],
+      "default_selection": "30 days",
+      "never_expire_warning": "Amber banner 'Use only for trusted recipients'",
+      "link_preview": "Shows amount and purpose after generation",
+      "test_result": "PASS"
+    },
+    "Public_Payment_Page": {
+      "valid_token": "Shows ₹5,100 payment page with Pay button",
+      "invalid_token": "Shows 'Link Unavailable' with Check Eligibility and Login buttons",
+      "test_result": "PASS"
+    }
+  },
+  "mocked_apis": {
+    "Resend (emails)": "MOCKED",
+    "Stripe (payments)": "MOCKED"
+  }
+}
