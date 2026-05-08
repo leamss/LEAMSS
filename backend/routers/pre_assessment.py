@@ -416,6 +416,76 @@ async def admin_queue(current_user: dict = Depends(get_current_user)):
     return items
 
 
+class PADetailsUpdate(BaseModel):
+    """Editable PA fields. Only non-financial / non-stage fields allowed here.
+    Stage transitions go through their dedicated endpoints (review, send-proposal, etc.)
+    """
+    client_name: Optional[str] = None
+    client_email: Optional[str] = None
+    client_mobile: Optional[str] = None
+    client_age: Optional[int] = None
+    education: Optional[str] = None
+    work_experience: Optional[str] = None
+    country: Optional[str] = None
+    service_type: Optional[str] = None
+    notes: Optional[str] = None
+
+
+@router.put("/{pa_id}/details")
+async def update_pa_details(pa_id: str, body: PADetailsUpdate, current_user: dict = Depends(get_current_user)):
+    """Edit basic PA contact / profile details after creation.
+    Allowed: admin (any), partner (only own PA), case_manager (any).
+    Locked once stage = case_created (case is active).
+    """
+    pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
+    if not pa:
+        raise HTTPException(status_code=404, detail="Pre-assessment not found")
+
+    role = current_user.get("role")
+    if role == "partner" and pa.get("partner_id") != current_user.get("id"):
+        raise HTTPException(status_code=403, detail="Not your pre-assessment")
+    if role not in ("admin", "case_manager", "partner"):
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+    if pa.get("stage") == "case_created":
+        raise HTTPException(status_code=400, detail="Case is active — edit details from the Case page")
+
+    upd = {k: v for k, v in body.dict().items() if v is not None and v != ""}
+    if not upd:
+        raise HTTPException(status_code=400, detail="No fields provided to update")
+
+    # Track what changed for audit
+    changes = []
+    for k, v in upd.items():
+        old_v = pa.get(k)
+        if str(old_v or "") != str(v):
+            changes.append({"field": k, "old": old_v, "new": v})
+    if not changes:
+        return {"ok": True, "no_change": True}
+
+    upd["updated_at"] = datetime.now(timezone.utc)
+    await pre_assessments_col.update_one({"id": pa_id}, {"$set": upd})
+
+    # Sync the linked client user (so login email / name stay in step) — skip for safety on email
+    if pa.get("client_user_id"):
+        user_upd = {}
+        if "client_name" in upd:
+            user_upd["name"] = upd["client_name"]
+        if "client_mobile" in upd:
+            user_upd["mobile"] = upd["client_mobile"]
+        if user_upd:
+            await users_col.update_one({"id": pa["client_user_id"]}, {"$set": user_upd})
+
+    await log_activity(
+        user_id=current_user.get("id"),
+        user_name=current_user.get("name") or current_user.get("email") or "unknown",
+        action="pa_details_edited",
+        entity_type="pre_assessment",
+        entity_id=pa_id,
+        details={"changes": changes, "role": role},
+    )
+    return {"ok": True, "updated_fields": list(upd.keys()), "changes": changes}
+
+
 @router.put("/{pa_id}/review")
 async def admin_review(pa_id: str, review: AdminReview, current_user: dict = Depends(get_current_user)):
     """Admin approves or rejects pre-assessment"""

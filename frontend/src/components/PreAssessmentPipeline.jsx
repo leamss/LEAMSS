@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { 
   Plus, Send, CheckCircle, Clock, XCircle, FileText, Upload, 
   CreditCard, Eye, ChevronDown, ChevronUp, Search,
+  Edit3,
   AlertTriangle, RefreshCw, Filter, Bell
 } from 'lucide-react';
 import FunnelProgress from '@/components/FunnelProgress';
@@ -22,6 +23,7 @@ import PaFinalSubmitForm from '@/components/pa/PaFinalSubmitForm';
 import PaForwardForm from '@/components/pa/PaForwardForm';
 import PaStageProgress from '@/components/pa/PaStageProgress';
 import PaActionBar from '@/components/pa/PaActionBar';
+import PaEditDetailsModal from '@/components/pa/PaEditDetailsModal';
 import AgreementGenerator from '@/components/AgreementGenerator';
 import AgreementViewerModal from '@/components/AgreementViewerModal';
 
@@ -49,6 +51,7 @@ const PreAssessmentPipeline = ({ initialFilter = null }) => {
   const [stats, setStats] = useState({});
   const [showCreate, setShowCreate] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
+  const [editingPa, setEditingPa] = useState(null);
   const [filterStage, setFilterStage] = useState('all');
   const [search, setSearch] = useState('');
   const [products, setProducts] = useState([]);
@@ -245,8 +248,8 @@ const PreAssessmentPipeline = ({ initialFilter = null }) => {
       toast.error('Enter valid fee amount'); return;
     }
     // Optimistic UI: immediately move stage to proposal_sent + close form
-    const snapshot = [...pas];
-    setPas(p => p.map(x => x.id === paId ? { ...x, stage: 'proposal_sent', proposal_status: 'sent', proposal_fee: parseFloat(proposalForm.fee_amount) } : x));
+    const snapshot = [...assessments];
+    setAssessments(p => p.map(x => x.id === paId ? { ...x, stage: 'proposal_sent', proposal_status: 'sent', proposal_fee: parseFloat(proposalForm.fee_amount) } : x));
     setShowProposal(null);
     const formCopy = { ...proposalForm };
     setProposalForm({ fee_amount: '', notes: '', promo_code: '', promo_applied: null, additional_discount: '', upsell_ids: [], ai_text: '' });
@@ -265,7 +268,7 @@ const PreAssessmentPipeline = ({ initialFilter = null }) => {
       loadData();
     } catch (e) {
       // Rollback on failure
-      setPas(snapshot);
+      setAssessments(snapshot);
       const status = e.response?.status;
       const detail = e.response?.data?.detail || 'Failed to send proposal';
       if (status === 401) {
@@ -302,8 +305,8 @@ const PreAssessmentPipeline = ({ initialFilter = null }) => {
 
   const handleSubmitFinal = async (paId) => {
     // Optimistic: stage → awaiting_final_approval
-    const snapshot = [...pas];
-    setPas(p => p.map(x => x.id === paId ? { ...x, stage: 'awaiting_final_approval' } : x));
+    const snapshot = [...assessments];
+    setAssessments(p => p.map(x => x.id === paId ? { ...x, stage: 'awaiting_final_approval' } : x));
     setFinalSubmittingId(null);
     const notes = finalNotes;
     setFinalNotes('');
@@ -313,15 +316,15 @@ const PreAssessmentPipeline = ({ initialFilter = null }) => {
       toast.success('Submitted to Admin for Final Approval');
       loadData();
     } catch (e) {
-      setPas(snapshot);
+      setAssessments(snapshot);
       toast.error((e.response?.data?.detail || 'Failed') + ' — reverted');
     }
   };
 
   const handleForwardToAdmin = async (paId) => {
     // Optimistic: stage → under_review
-    const snapshot = [...pas];
-    setPas(p => p.map(x => x.id === paId ? { ...x, stage: 'under_review' } : x));
+    const snapshot = [...assessments];
+    setAssessments(p => p.map(x => x.id === paId ? { ...x, stage: 'under_review' } : x));
     setForwardingId(null);
     const remarks = forwardRemarks;
     setForwardRemarks('');
@@ -331,7 +334,7 @@ const PreAssessmentPipeline = ({ initialFilter = null }) => {
       toast.success('Forwarded to Admin for 1st approval');
       loadData();
     } catch (e) {
-      setPas(snapshot);
+      setAssessments(snapshot);
       toast.error((e.response?.data?.detail || 'Failed') + ' — reverted');
     }
   };
@@ -520,6 +523,11 @@ const PreAssessmentPipeline = ({ initialFilter = null }) => {
                     className="hidden md:inline-flex border-[#f7620b]/40 text-[#f7620b] hover:bg-[#f7620b]/5"
                     data-testid={`preview-client-header-${pa.id}`} title="Open client's portal view in a new tab">
                     <Eye className="h-4 w-4 mr-1" /> Preview as Client
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setEditingPa(pa); }}
+                    className="text-indigo-600 hover:bg-indigo-50"
+                    data-testid={`edit-pa-${pa.id}`} title="Edit client details (name, email, mobile, etc.)">
+                    <Edit3 className="h-4 w-4" />
                   </Button>
                   <p className="text-xs text-slate-400 hidden lg:block">{pa.created_at ? new Date(pa.created_at).toLocaleDateString() : ''}</p>
                   {isExpanded ? <ChevronUp className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
@@ -763,6 +771,17 @@ const PreAssessmentPipeline = ({ initialFilter = null }) => {
           onRegenerate={() => { setViewingAgreementFor(null); setGeneratingAgreementFor(viewingAgreementFor); }}
         />
       )}
+
+      {/* Edit PA Details Modal */}
+      <PaEditDetailsModal
+        pa={editingPa}
+        open={!!editingPa}
+        onClose={() => setEditingPa(null)}
+        onSaved={(payload) => {
+          setAssessments(prev => prev.map(x => x.id === editingPa.id ? { ...x, ...payload } : x));
+          loadData();
+        }}
+      />
     </div>
   );
 };

@@ -1,0 +1,69 @@
+{
+  "summary": "Iteration 90: Tested PA Edit Details feature + Forward to Admin bug fix. Backend: 11/12 tests passed (1 skipped - no proposal_paid PA). Frontend: All features working - Edit modal opens, saves changes, shows locked warning for case_created. No JavaScript errors during any interactions.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration90_pa_edit_bugfix.py",
+    "/app/test_reports/pytest/pytest_iteration90.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_iteration90_pa_edit_bugfix.py"
+  ],
+  "success_rate": {
+    "backend": "100% (11 passed, 1 skipped)",
+    "frontend": "100%"
+  },
+  "test_credentials": {
+    "admin": "admin@leamss.com / Admin@123",
+    "partner": "partner@leamss.com / Partner@123",
+    "client": "client@leamss.com / Client@123"
+  },
+  "seed_data_creation": "Created TEST_ForwardBugFix PA for testing",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration 90 verified: (1) BUG FIX - Forward to Admin button no longer throws 'pas is not defined' error - the fix renamed pas/setPas to assessments/setAssessments in 9 places in PreAssessmentPipeline.jsx. (2) NEW Edit PA Details - PUT /api/pre-assessment/{pa_id}/details endpoint works correctly with authorization (admin any, partner own, client 403), locked state for case_created (400), no-change detection, and user sync to users collection. (3) Edit PA Modal - Opens with 9 fields (name, email, mobile, age, education, work_experience, country, service_type, notes), shows amber locked warning for case_created stage, Save button works and shows toast. (4) WhatsApp button present in PaActionBar. (5) Send Proposal and Submit Final flows work without errors (regression test for setPas fix).",
+  "features_tested": {
+    "BUG_FIX_Forward_to_Admin": {
+      "description": "Forward to Admin button was throwing 'pas is not defined' ReferenceError",
+      "fix_applied": "Renamed pas/setPas to assessments/setAssessments in 9 places",
+      "test_result": "PASS - No JavaScript errors when interacting with PA cards",
+      "regression_tested": ["Send Proposal flow", "Submit Final flow", "All stage transitions"]
+    },
+    "NEW_Edit_PA_Details_Endpoint": {
+      "PUT /api/pre-assessment/{pa_id}/details - partner own PA": "PASS",
+      "PUT /api/pre-assessment/{pa_id}/details - no change detection": "PASS",
+      "PUT /api/pre-assessment/{pa_id}/details - admin any PA": "PASS",
+      "PUT /api/pre-assessment/{pa_id}/details - client forbidden (403)": "PASS",
+      "PUT /api/pre-assessment/{pa_id}/details - locked case_created (400)": "PASS",
+      "PUT /api/pre-assessment/{pa_id}/details - partner not owner (403)": "PASS",
+      "PUT /api/pre-assessment/{pa_id}/details - multiple fields": "PASS",
+      "PUT /api/pre-assessment/{pa_id}/details - empty payload (400)": "PASS",
+      "PUT /api/pre-assessment/{pa_id}/details - nonexistent PA (404)": "PASS"
+    },
+    "NEW_Edit_PA_Modal_Frontend": {
+      "Modal opens with data-testid=pa-edit-modal": "PASS",
+      "9 fields present (name, email, mobile, age, education, work_experience, country, service_type, notes)": "PASS",
+      "Pencil icon button (data-testid=edit-pa-{paId})": "PASS",
+      "Save button (data-testid=edit-save-btn)": "PASS",
+      "Save shows toast 'Saved X change(s)'": "PASS",
+      "Locked warning banner for case_created": "PASS - Shows 'This case is active — details are locked'"
+    },
+    "WhatsApp_Button_Regression": {
+      "WhatsApp button present (data-testid=whatsapp-share-{paId})": "PASS",
+      "Button position between Copy Public Link and Preview as Client": "PASS"
+    }
+  },
+  "mocked_apis": {
+    "Resend (emails)": "MOCKED",
+    "Stripe (payments)": "MOCKED"
+  }
+}
