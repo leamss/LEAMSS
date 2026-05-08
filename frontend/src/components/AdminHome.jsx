@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
   ClipboardList, Briefcase, Users, TrendingUp, ArrowRight,
-  Sparkles, AlertCircle, CheckCircle, UserCheck, Package, DollarSign, Shield
+  Sparkles, AlertCircle, CheckCircle, UserCheck, Package, DollarSign, Shield,
+  CalendarClock
 } from 'lucide-react';
 import DropoffRecoveryWidget from '@/components/DropoffRecoveryWidget';
 import DocExpiryWidget from '@/components/DocExpiryWidget';
@@ -189,14 +190,22 @@ export default function AdminHome({ user, onNavigate }) {
             { icon: Package, label: 'Upsell Bundles', tab: 'upsell-bundles' },
             { icon: DollarSign, label: 'Marketing', tab: 'marketing' },
             { icon: TrendingUp, label: 'Reports', tab: 'report-builder' },
+            {
+              icon: CalendarClock, label: 'Doc Expiry', tab: 'doc-expiry-anchor',
+              custom: () => {
+                const el = document.getElementById('doc-expiry-anchor');
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              },
+              accent: 'amber',
+            },
           ].map(x => (
             <Card
               key={x.tab}
-              onClick={() => onNavigate?.(x.tab)}
-              className="p-4 cursor-pointer hover:shadow-md hover:border-[#2a777a]/30 transition-all border-slate-200"
+              onClick={() => x.custom ? x.custom() : onNavigate?.(x.tab)}
+              className={`p-4 cursor-pointer hover:shadow-md transition-all border-slate-200 ${x.accent === 'amber' ? 'hover:border-amber-400 bg-gradient-to-br from-amber-50/40 to-transparent' : 'hover:border-[#2a777a]/30'}`}
               data-testid={`quick-${x.tab}`}
             >
-              <x.icon className="h-5 w-5 text-[#2a777a] mb-2" />
+              <x.icon className={`h-5 w-5 mb-2 ${x.accent === 'amber' ? 'text-amber-600' : 'text-[#2a777a]'}`} />
               <p className="text-sm font-semibold text-slate-800">{x.label}</p>
             </Card>
           ))}
@@ -207,7 +216,9 @@ export default function AdminHome({ user, onNavigate }) {
       <DropoffRecoveryWidget />
 
       {/* Document Expiry Tracker */}
-      <DocExpiryWidget />
+      <div id="doc-expiry-anchor" className="scroll-mt-24">
+        <DocExpiryWidget />
+      </div>
     </div>
   );
 }
