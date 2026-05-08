@@ -3,6 +3,32 @@
 ## Original Problem Statement
 Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case Manager, Partner, Client.
 
+### Bug Fix + Edit PA Details (2026-05-08)
+
+**User-reported issues**:
+1. **🚨 BUG**: "Forward to Admin" throwing `ReferenceError: pas is not defined` — broke 3 critical handlers (forward / send-proposal / submit-final)
+2. **📝 GAP**: No way to edit PA contact details (mobile/email/name) after creation — blocked WhatsApp share for PAs created without mobile
+
+**Bug fix**:
+- `/app/frontend/src/components/PreAssessmentPipeline.jsx` — state was named `assessments`/`setAssessments`, but 9 lines across 3 handlers (`handleForwardToAdmin`, `handleSendProposal`, `handleSubmitFinal`) used the wrong identifiers `pas`/`setPas`
+- All 9 occurrences renamed correctly
+- Forward / Proposal / Final flows now work end-to-end without errors
+
+**New: Edit PA Details**:
+- `POST → PUT /api/pre-assessment/{pa_id}/details` — `PADetailsUpdate` Pydantic model accepts: client_name, client_email, client_mobile, client_age, education, work_experience, country, service_type, notes
+- Authorization: admin (any), partner (own only), case_manager (any), client (forbidden 403)
+- Locked when stage = `case_created` (returns 400 — case must be edited from Case page)
+- Diff-detection: only changed fields are persisted, returns `{ok: true, no_change: true}` when nothing different
+- Auto-syncs `client_name` + `client_mobile` to linked `users` collection (so client login still works)
+- Audit trail via `log_activity` with full before/after diff
+
+**Frontend**:
+- New `/app/frontend/src/components/pa/PaEditDetailsModal.jsx` — 8 grid fields + notes textarea + amber "case is locked" warning banner
+- Pencil icon button (`data-testid=edit-pa-{paId}`) in every PA card row header — sits next to "Preview as Client"
+- Modal applies optimistic UI update (assessment list refreshes immediately on save)
+
+**Tested**: iteration_90.json — Backend **11/11 PASS** (1 skipped: no proposal_paid PA available) · Frontend **100% PASS** · 0 regressions across send-proposal / submit-final / forward / WhatsApp flows. `retest_needed:false`.
+
 ### Public Lead-Gen + Doc Expiry + WhatsApp Share (2026-05-08)
 
 **4 user-approved features built and tested**:
