@@ -3,6 +3,49 @@
 ## Original Problem Statement
 Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case Manager, Partner, Client.
 
+### Public Lead-Gen + Doc Expiry + WhatsApp Share (2026-05-08)
+
+**4 user-approved features built and tested**:
+
+#### #1 — AI Eligibility Pre-Score (PUBLIC lead magnet)
+- New router `/app/backend/routers/eligibility.py`
+- `GET /api/eligibility/pathways` — list 8 pathways
+- `POST /api/eligibility/score` — public scoring via Claude Sonnet 4.6 across 8 pathways with tier/timeline/strengths/gaps/notes per pathway + top_recommendation + overall_summary
+- `GET /api/eligibility/share/{score_id}` — public shareable result
+- Lead capture: when `consent_to_contact=true` + email/mobile provided → auto-creates entry in `leads` collection with priority based on top score (>=70 = high)
+- New page `/app/frontend/src/pages/EligibilityCheck.jsx` mounted at `/eligibility` route — public, no login required
+- 90-second form → loading state → 8 pathway cards with score bars + tier badges + strengths/gaps + share/re-score/compare CTAs
+
+#### #2 — Document Expiry Tracker (admin/partner/client)
+- New router `/app/backend/routers/doc_expiry.py`
+- `GET /api/doc-expiry/upcoming?horizon_days=120&severity=critical` — list expiring docs across PA + Case docs with role scoping
+- `POST /api/doc-expiry/check-now` — idempotent scan that creates notifications for new bucket-crossings (90/60/30/15/7 days)
+- `PUT /api/doc-expiry/pa-doc/{doc_id}/expiry` — set/update expiry on PA doc
+- Idempotency: `doc_expiry_alerts` collection logs (doc_id, bucket) so same alert never fires twice
+- Severity buckets: expired / critical (≤15d) / warning (≤60d) / info (≤90d) / ok
+- New `DocExpiryWidget.jsx` mounted on AdminHome with 4 stat cells + Refresh + Send Alerts buttons
+- Role scoping: admin/CM see all, partner sees own PAs, client sees own
+
+#### #3 — WhatsApp Smart Share (zero-cost velocity)
+- Updated `/app/frontend/src/components/pa/PaActionBar.jsx` — added green-bordered `MessageCircle` button
+- `data-testid=whatsapp-share-{paId}` between "Copy Public Link" and "Preview as Client"
+- Opens `https://wa.me/{cleanMobile}?text={prefilled}` with auto-built message: client name, partner name, country/service, PA reference, fee amount, secure link, signature
+- No Twilio API needed (pure deep link). Toast error if mobile not on file.
+
+#### #8 — Visa Pathway Comparison (PUBLIC + admin-editable)
+- New router `/app/backend/routers/visa_compare.py`
+- 8 seeded pathways with realistic 2026 fees/timelines (Canada EE/PNP, Australia 189/190, UK SW, Germany Blue Card, USA EB2-NIW, NZ SMC)
+- `GET /api/visa-compare/pathways[?country=]` — public list (auto-seeds if empty)
+- `GET /api/visa-compare/compare?slugs=` — 2-4 pathways side-by-side
+- `PUT /api/visa-compare/pathways/{slug}` — admin edits (yearly fee refresh)
+- `POST /api/visa-compare/reseed` — admin reset to defaults
+- New page `/app/frontend/src/pages/VisaCompare.jsx` at `/visa-compare` — public, 8 pickable pills (max 4) → side-by-side cards with timeline / total cost / settlement funds / education / work-exp / age / language / benefits / drawbacks / post-arrival jobs
+
+#### Login page — public access tiles
+- `/app/frontend/src/pages/Login.jsx` — added 2 gradient tiles below demo creds: `public-eligibility-link` → /eligibility, `public-compare-link` → /visa-compare
+
+**Tested**: iteration_89.json — Backend **18/18 PASS** · Frontend 100% PASS · 0 issues · 0 regressions. `retest_needed:false`.
+
 ### PreAssessmentPipeline Refactor — Round 2 (2026-05-07 night)
 
 **User-approved P2 task**: Further break down `PreAssessmentPipeline.jsx` (was 1066 → 1002 after Round 1).
