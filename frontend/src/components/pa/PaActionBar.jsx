@@ -1,13 +1,15 @@
+import axios from 'axios';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Send, Eye, ArrowRight, MessageCircle } from 'lucide-react';
+
+const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 /**
  * PaActionBar — Copy Public Link + Preview as Client + WhatsApp Share + dynamic next-action button.
  */
 
-function buildWhatsAppMessage(pa) {
-  const link = `${window.location.origin}/pre-assess/${pa.public_token || pa.id}`;
+function buildWhatsAppMessage(pa, link) {
   const fee = pa.fee_payment_status === 'paid' && pa.proposal_fee
     ? `₹${(pa.proposal_fee || 0).toLocaleString('en-IN')}`
     : '₹5,100';
@@ -16,7 +18,7 @@ function buildWhatsAppMessage(pa) {
     ``,
     `This is ${pa.partner_name || 'LEAMSS'} regarding your *${pa.country || ''} ${pa.service_type || 'immigration'}* enquiry.`,
     ``,
-    `Reference: *${pa.pa_number || pa.id?.slice(0, 8)}*`,
+    `Reference: *${pa.pa_number || (pa.id || '').slice(0, 8)}*`,
     `Pre-assessment fee: *${fee}*`,
     ``,
     `Please use this secure link to view your case + complete payment:`,
@@ -28,16 +30,34 @@ function buildWhatsAppMessage(pa) {
 }
 
 export default function PaActionBar({ pa, nextAction, handleCopyPublicLink, handlePreviewAsClient }) {
-  const sendWhatsApp = () => {
+  const sendWhatsApp = async () => {
     const num = (pa.client_mobile || '').replace(/[^\d+]/g, '');
     if (!num || num.length < 8) {
-      toast.error('Client mobile not on file. Add it to share via WhatsApp.');
+      toast.error('Client mobile not on file. Edit details (✏️) to add it.');
       return;
     }
     const cleanNum = num.startsWith('+') ? num.slice(1) : num;
-    const text = buildWhatsAppMessage(pa);
-    const url = `https://wa.me/${cleanNum}?text=${text}`;
-    window.open(url, '_blank', 'noopener');
+
+    // Open a placeholder tab synchronously to avoid popup blocker —
+    // we update its URL once the share link is ready.
+    const popup = window.open('about:blank', '_blank');
+    try {
+      const res = await axios.post(
+        `${API}/pre-assess-portal/generate-public-link`,
+        { pa_id: pa.id },
+        { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
+      );
+      const link = res.data.public_url?.startsWith('http')
+        ? res.data.public_url
+        : `${window.location.origin}${res.data.public_url}`;
+      const text = buildWhatsAppMessage(pa, link);
+      const url = `https://wa.me/${cleanNum}?text=${text}`;
+      if (popup) popup.location.href = url;
+      else window.open(url, '_blank', 'noopener');
+    } catch (e) {
+      if (popup) popup.close();
+      toast.error(e.response?.data?.detail || 'Could not generate share link');
+    }
   };
 
   return (

@@ -52,7 +52,15 @@ export default function PreAssessmentPayment() {
           <AlertTriangle className="h-8 w-8 text-red-500" />
         </div>
         <h1 className="text-xl font-bold text-slate-800 mb-2">Link Unavailable</h1>
-        <p className="text-sm text-slate-500">{error}</p>
+        <p className="text-sm text-slate-500 mb-4">{error}</p>
+        <p className="text-xs text-slate-400 mb-5">
+          This link may have expired, been deactivated, or never existed.
+          Please ask your LEAMSS consultant to share a fresh secure link.
+        </p>
+        <div className="flex gap-2 justify-center flex-wrap">
+          <Button variant="outline" onClick={() => navigate('/eligibility')}>Check Eligibility</Button>
+          <Button onClick={() => navigate('/')} className="bg-[#2a777a] hover:bg-[#1d5658] text-white">Login</Button>
+        </div>
       </Card>
     </div>
   );
