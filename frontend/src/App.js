@@ -19,6 +19,8 @@ import LeadCapture from '@/pages/LeadCapture';
 import SharedEstimate from '@/pages/SharedEstimate';
 import PreAssessmentPayment from '@/pages/PreAssessmentPayment';
 import MagicLinkLogin from '@/pages/MagicLinkLogin';
+import EligibilityCheck from '@/pages/EligibilityCheck';
+import VisaCompare from '@/pages/VisaCompare';
 import '@/App.css';
 
 function App() {
@@ -40,6 +42,8 @@ function App() {
           <Route path="/shared-estimate/:token" element={<SharedEstimate />} />
           <Route path="/pre-assess/:token" element={<PreAssessmentPayment />} />
           <Route path="/magic/:token" element={<MagicLinkLogin />} />
+          <Route path="/eligibility" element={<EligibilityCheck />} />
+          <Route path="/visa-compare" element={<VisaCompare />} />
           <Route path="/partner" element={<PartnerDashboard />} />
           <Route path="/case-manager" element={<CaseManagerDashboard />} />
           <Route path="/client" element={<ClientDashboard />} />

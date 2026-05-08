@@ -1,0 +1,74 @@
+{
+  "summary": "Iteration 89: Tested 4 new features - AI Eligibility Pre-Score (#1), Document Expiry Tracker (#2), WhatsApp Smart Share (#3), Visa Pathway Comparison (#8). All backend APIs pass (18/18 tests). All frontend features verified working correctly.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration89_new_features.py",
+    "/app/test_reports/pytest/pytest_iteration89.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_iteration89_new_features.py"
+  ],
+  "success_rate": {
+    "backend": "100% (18 passed, 1 skipped)",
+    "frontend": "100%"
+  },
+  "test_credentials": {
+    "admin": "admin@leamss.com / Admin@123",
+    "partner": "partner@leamss.com / Partner@123",
+    "client": "client@leamss.com / Client@123"
+  },
+  "seed_data_creation": "None - used existing seeded data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration 89 verified 4 new features: (1) AI Eligibility Pre-Score at /eligibility - public page with form, AI scoring via Claude Sonnet 4.6, 8 pathway cards with scores/tiers/strengths/gaps, share button, lead capture with consent. (2) Document Expiry Tracker - DocExpiryWidget on AdminHome with 4 stat cells (Expired/Critical/Warning/Heads-up), Refresh and Send Alerts buttons, idempotent alert firing. (3) WhatsApp Smart Share - green-bordered WhatsApp button in PaActionBar between Copy Public Link and Preview as Client, opens wa.me deep link. (4) Visa Pathway Comparison at /visa-compare - 8 pickable pathway pills, side-by-side comparison cards with timeline/cost/education/work-exp/benefits/drawbacks/post-arrival-jobs. Login page has 2 new public access tiles linking to /eligibility and /visa-compare.",
+  "features_tested": {
+    "AI_Eligibility_PreScore": {
+      "GET /api/eligibility/pathways": "PASS - Returns 8 pathways",
+      "POST /api/eligibility/score": "PASS - Returns scored pathways with score/tier/timeline/strengths/gaps/notes + top_recommendation + overall_summary",
+      "POST /api/eligibility/score with consent": "PASS - Lead captured when consent_to_contact=true",
+      "GET /api/eligibility/share/{score_id}": "PASS - Public access to shared scores",
+      "Frontend /eligibility form": "PASS - All data-testids present (elig-name, elig-email, elig-mobile, elig-age, elig-education, elig-experience, elig-occupation, elig-english, elig-savings, elig-country-canada, elig-job-offer, elig-consent, elig-submit)",
+      "Frontend /eligibility results": "PASS - 8 pathway cards, top recommendation banner, share button, compare button"
+    },
+    "Visa_Pathway_Comparison": {
+      "GET /api/visa-compare/pathways": "PASS - Returns 8 seeded pathways with all fields",
+      "GET /api/visa-compare/compare": "PASS - Returns pathways in correct order",
+      "PUT /api/visa-compare/pathways/{slug} as admin": "PASS - Admin can update",
+      "PUT /api/visa-compare/pathways/{slug} as non-admin": "PASS - Returns 403",
+      "POST /api/visa-compare/reseed as admin": "PASS - Reseeds 8 pathways",
+      "POST /api/visa-compare/reseed as non-admin": "PASS - Returns 403",
+      "Frontend /visa-compare": "PASS - 8 pickable pathway pills, side-by-side comparison cards with all required fields"
+    },
+    "Document_Expiry_Tracker": {
+      "GET /api/doc-expiry/upcoming as admin": "PASS - Returns count + stats + items",
+      "POST /api/doc-expiry/check-now idempotent": "PASS - Second call fires 0 alerts",
+      "PUT /api/doc-expiry/pa-doc/{doc_id}/expiry": "SKIPPED - No PA documents with expiry to test",
+      "Role scoping (partner)": "PASS - Partner can access /upcoming",
+      "Role scoping (client)": "PASS - Client can access /upcoming",
+      "Frontend DocExpiryWidget on AdminHome": "PASS - Widget visible with 4 stat cells, Refresh and Send Alerts buttons"
+    },
+    "WhatsApp_Smart_Share": {
+      "WhatsApp button in PaActionBar": "PASS - Green-bordered button with data-testid=whatsapp-share-{paId}",
+      "Button position": "PASS - Between Copy Public Link and Preview as Client",
+      "Existing buttons preserved": "PASS - copy-link, preview-client, action-{stage} all present"
+    },
+    "Login_Page_Public_Links": {
+      "data-testid=public-eligibility-link": "PASS - Links to /eligibility",
+      "data-testid=public-compare-link": "PASS - Links to /visa-compare"
+    }
+  },
+  "mocked_apis": {
+    "Resend (emails)": "MOCKED",
+    "Stripe (payments)": "MOCKED"
+  }
+}
