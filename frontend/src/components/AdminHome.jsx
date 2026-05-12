@@ -11,6 +11,7 @@ import {
 import DropoffRecoveryWidget from '@/components/DropoffRecoveryWidget';
 import DocExpiryWidget from '@/components/DocExpiryWidget';
 import ShareLinksDashboard from '@/components/ShareLinksDashboard';
+import DiscountApprovalInbox from '@/components/sales/DiscountApprovalInbox';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const getAuth = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
@@ -232,6 +233,11 @@ export default function AdminHome({ user, onNavigate }) {
       {/* Active Share Links Dashboard */}
       <div id="share-links-anchor" className="scroll-mt-24">
         <ShareLinksDashboard />
+      </div>
+
+      {/* Discount Approval Inbox */}
+      <div id="discount-approval-anchor" className="scroll-mt-24">
+        <DiscountApprovalInbox />
       </div>
     </div>
   );

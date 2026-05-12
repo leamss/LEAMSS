@@ -8,6 +8,7 @@ import {
   Sparkles, Clock, CheckCircle, AlertCircle, Plus, IndianRupee
 } from 'lucide-react';
 import DropoffRecoveryWidget from '@/components/DropoffRecoveryWidget';
+import IncentiveTierWidget from '@/components/sales/IncentiveTierWidget';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -221,6 +222,9 @@ export default function PartnerHome({ user, onNavigate }) {
       )}
 
       {/* Drop-off Recovery */}
+      {/* In-house Incentive Tier (employee-only, auto-hides for externals) */}
+      <IncentiveTierWidget />
+
       <DropoffRecoveryWidget />
     </div>
   );

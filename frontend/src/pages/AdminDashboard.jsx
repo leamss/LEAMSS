@@ -2391,7 +2391,17 @@ const AdminDashboard = () => {
                     <div className="space-y-3">
                       {roleUsers.map((usr) => (
                         <div key={usr.id} className="flex justify-between items-center p-3 border rounded-lg hover:bg-slate-50">
-                          <div><p className="font-medium text-slate-800">{usr.name}</p><p className="text-sm text-slate-600">{usr.email}</p></div>
+                          <div>
+                            <p className="font-medium text-slate-800">
+                              {usr.name}
+                              {usr.role === 'partner' && (
+                                <span className={`ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border ${usr.employment_type === 'employee' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-slate-50 text-slate-600 border-slate-200'}`} data-testid={`emp-type-${usr.id}`}>
+                                  {usr.employment_type === 'employee' ? '🏢 In-House' : '🌍 External'}
+                                </span>
+                              )}
+                            </p>
+                            <p className="text-sm text-slate-600">{usr.email}</p>
+                          </div>
                           <div className="flex gap-2">
                             {usr.role !== 'admin' && <Button onClick={() => openTicketForUser(usr)} size="sm" variant="outline" className="text-[#f7620b] border-[#f7620b] hover:bg-[#f7620b]/10" data-testid={`ticket-for-${usr.id}`}><MessageSquare className="h-4 w-4 mr-1" />Ticket</Button>}
                             {usr.role !== 'admin' && <Button onClick={() => handleImpersonate(usr)} size="sm" className="bg-[#2a777a] hover:bg-[#236466] text-white" data-testid={`impersonate-${usr.id}`}><Eye className="h-4 w-4 mr-1" />Switch</Button>}
@@ -3082,6 +3092,19 @@ const AdminDashboard = () => {
                 </div>
               )}
             </div>
+            {userDialog.data?.role === 'partner' && (
+              <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3">
+                <Label className="text-indigo-900 font-semibold flex items-center gap-1.5">🏢 Employment Type</Label>
+                <p className="text-[11px] text-indigo-700 mb-2">In-house employees get tiered incentives + stricter discount cap (5% vs 10%) and visibility to managers.</p>
+                <Select value={userDialog.data?.employment_type || 'external'} onValueChange={(value) => setUserDialog({ ...userDialog, data: { ...userDialog.data, employment_type: value } })}>
+                  <SelectTrigger data-testid="user-employment-type"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="external">🌍 External Partner (freelancer / agency)</SelectItem>
+                    <SelectItem value="employee">🏢 In-House Employee (salaried + incentive)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             {userDialog.mode === 'edit' && (
               <div>
                 <Label>Status</Label>

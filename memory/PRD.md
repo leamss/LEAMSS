@@ -3,6 +3,45 @@
 ## Original Problem Statement
 Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case Manager, Partner, Client.
 
+### In-House Sales Team CRM — Phase 1 + 2 (2026-05-12)
+
+**User-approved P1**: Build foundation + Discount Approval + Tiered Incentive for in-house sales reps. Phase 3 (full Manager Dashboard) next round.
+
+**Phase 1 — Foundation**:
+- `users` collection: new `employment_type` field (values: `external` (default) | `employee`) + `manager_id` field
+- `PUT /api/users/{id}` accepts both fields with validation
+- `POST /api/users` defaults `employment_type=external`
+- Admin Users page (AdminDashboard.jsx):
+  - New badge column showing 🏢 In-House / 🌍 External next to partner names (data-testid=emp-type-{userId})
+  - Edit/Create dialog: new indigo-bordered "Employment Type" dropdown (data-testid=user-employment-type) — appears only when role=partner
+  - Explanatory text: "In-house employees get tiered incentives + stricter discount cap (5% vs 10%) and visibility to managers"
+
+**Phase 2 — Discount Approval + Incentive**:
+- New router `/app/backend/routers/sales_team.py` mounted at `/api/sales-team` (renamed from `/sales` to avoid existing route conflict)
+- Auto-seeded tier config in `incentive_configs` collection:
+  - Tiers: Bronze (0-5L @ 5%), Silver (5-15L @ 7%), Gold (15L+ @ 10%)
+  - Discount caps: employee 5% auto / 15% manager / 100% admin; external 10% auto / 100% admin
+- `POST /api/sales-team/discount-requests` — auto-routes based on % + employment_type. Returns `auto_approved=true` if within cap, else `status=pending` with `level_required`
+- `GET /api/sales-team/discount-requests?status=` — admin/manager see all, partner/rep see own
+- `POST /api/sales-team/discount-requests/{id}/decide` — approve/reject with optional note; managers blocked from admin-level requests
+- `GET /api/sales-team/my-incentive?month=YYYY-MM` — employee-only; aggregates current rep's revenue from closed deals (`proposal_paid` / `awaiting_final_approval` / `case_created` stages), returns current tier + base_payout + next_tier + delta_needed
+- `GET /api/sales-team/team-rollup` — admin sees all employees, sales_manager sees own team (by manager_id)
+- `GET /api/sales-team/incentive-config` & `PUT /api/sales-team/incentive-config` — admin can adjust tiers/caps; versioning auto-bumps
+
+**Frontend**:
+- `/app/frontend/src/components/sales/IncentiveTierWidget.jsx` — mounted on PartnerHome. Gold-gradient tier banner + revenue/deals/commission stats + progress bar to next tier. **Auto-hides for externals** (403 response).
+- `/app/frontend/src/components/sales/DiscountApprovalInbox.jsx` — mounted on AdminHome. Pending requests with level badge (auto/manager/admin), employment_type tag, base→discount→final breakdown, optional decision note, Approve/Reject buttons.
+
+**Verified via curl + screenshots**:
+- 3% discount → auto_approved instantly (within 5% cap)
+- 10% discount → pending, level_required='manager'
+- 25% discount → pending, level_required='admin'
+- Approve flow works, status updates correctly
+- Incentive: ₹2.98L revenue → Bronze tier → ₹14,948 payout, ₹2.01L to Silver visible
+- External 403 on incentive endpoint (correct gate)
+- Team rollup returns 1 employee rep with revenue + tier
+- Frontend: badges render, incentive widget shows on PartnerHome, discount inbox shows on AdminHome
+
 ### Active Share Links Dashboard (2026-05-12)
 
 **User-approved potential improvement** following smart-link + expiry control. Compliance + security gold-tier feature.
