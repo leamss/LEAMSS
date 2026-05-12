@@ -52,7 +52,6 @@ import IntakeFormBuilder from '@/components/IntakeFormBuilder';
 import ReportBuilder from '@/components/ReportBuilder';
 import EmailDigest from '@/components/EmailDigest';
 import PaymentReminders from '@/components/PaymentReminders';
-import ManagerDashboard from '@/components/sales/ManagerDashboard';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -1163,7 +1162,6 @@ const AdminDashboard = () => {
       groupLabel: 'Sales & Finance',
       defaultOpen: true,
       items: [
-        { id: 'sales-team', icon: Users, label: 'Sales Team', onClick: () => { setActiveTab('sales-team'); resetSelections(); } },
         { id: 'revenue-dashboard', icon: BarChart3, label: 'Revenue Dashboard', onClick: () => { setActiveTab('revenue-dashboard'); resetSelections(); } },
         { id: 'refund-manager', icon: XCircle, label: 'Refund Manager', onClick: () => { setActiveTab('refund-manager'); resetSelections(); } },
         { id: 'reminders', icon: Bell, label: 'Payment Reminders', onClick: () => { setActiveTab('reminders'); resetSelections(); } },
@@ -2396,11 +2394,6 @@ const AdminDashboard = () => {
                           <div>
                             <p className="font-medium text-slate-800">
                               {usr.name}
-                              {usr.role === 'partner' && (
-                                <span className={`ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border ${usr.employment_type === 'employee' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-slate-50 text-slate-600 border-slate-200'}`} data-testid={`emp-type-${usr.id}`}>
-                                  {usr.employment_type === 'employee' ? '🏢 In-House' : '🌍 External'}
-                                </span>
-                              )}
                             </p>
                             <p className="text-sm text-slate-600">{usr.email}</p>
                           </div>
@@ -2814,7 +2807,6 @@ const AdminDashboard = () => {
           {activeTab === 'commission-analytics' && <CommissionAnalytics token={localStorage.getItem('token')} role="admin" />}
           {activeTab === 'pre-assessments' && <PreAssessmentQueue initialFilter={preAssessFilter} />}
           {activeTab === 'legal-archive' && <LegalArchive />}
-          {activeTab === 'sales-team' && <ManagerDashboard />}
           {activeTab === 'agreement-templates' && <AgreementTemplatesManager />}
           {activeTab === 'approval-center' && <ApprovalCenter token={localStorage.getItem('token')} onNavigate={(tab) => setActiveTab(tab)} />}
           {activeTab === 'refund-manager' && <RefundManager token={localStorage.getItem('token')} />}
@@ -3085,7 +3077,7 @@ const AdminDashboard = () => {
                 <Label>Role</Label>
                 <Select value={userDialog.data?.role || 'partner'} onValueChange={(value) => setUserDialog({ ...userDialog, data: { ...userDialog.data, role: value } })}>
                   <SelectTrigger data-testid="user-role-select"><SelectValue /></SelectTrigger>
-                  <SelectContent><SelectItem value="admin">Admin</SelectItem><SelectItem value="case_manager">Case Manager</SelectItem><SelectItem value="partner">Partner</SelectItem><SelectItem value="sales_manager">Sales Manager</SelectItem><SelectItem value="client">Client</SelectItem></SelectContent>
+                  <SelectContent><SelectItem value="admin">Admin</SelectItem><SelectItem value="case_manager">Case Manager</SelectItem><SelectItem value="partner">Partner</SelectItem><SelectItem value="client">Client</SelectItem></SelectContent>
                 </Select>
               </div>
               {(userDialog.data?.role === 'partner' || userDialog.data?.role === 'case_manager') && (
@@ -3095,19 +3087,6 @@ const AdminDashboard = () => {
                 </div>
               )}
             </div>
-            {userDialog.data?.role === 'partner' && (
-              <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3">
-                <Label className="text-indigo-900 font-semibold flex items-center gap-1.5">🏢 Employment Type</Label>
-                <p className="text-[11px] text-indigo-700 mb-2">In-house employees get tiered incentives + stricter discount cap (5% vs 10%) and visibility to managers.</p>
-                <Select value={userDialog.data?.employment_type || 'external'} onValueChange={(value) => setUserDialog({ ...userDialog, data: { ...userDialog.data, employment_type: value } })}>
-                  <SelectTrigger data-testid="user-employment-type"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="external">🌍 External Partner (freelancer / agency)</SelectItem>
-                    <SelectItem value="employee">🏢 In-House Employee (salaried + incentive)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
             {userDialog.mode === 'edit' && (
               <div>
                 <Label>Status</Label>

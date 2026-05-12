@@ -1,45 +1,25 @@
 # LEAMSS - Immigration Portal PRD
 
 ## Original Problem Statement
-Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case Manager, Partner, Client, Sales Manager.
+Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case Manager, Partner, Client.
 
-### In-House Sales Team CRM — Phase 3 Manager Dashboard (2026-05-12)
+### Rollback — In-House Sales Team CRM Removed (2026-05-12 evening)
 
-**User-approved order**: Build Phase 3 end-to-end first, then full regression on Phase 1+2+3.
+**User feedback**: In-House Partner concept + Sales Team Manager Dashboard didn't align with the bigger vision. User wants a proper **Employee Portal** instead (with departments, attendance, payroll, etc.) — planned as next major build.
 
-**Backend — 5 new endpoints in `/app/backend/routers/sales_team.py`**:
-- `GET /api/sales-team/manager-dashboard?month=YYYY-MM` — comprehensive view. Admin sees `scope=admin_all`; sales_manager sees `scope=manager_team` (filtered by `manager_id`). Returns:
-  - `stats`: rep_count, team_revenue, team_deals, team_target, team_attainment_pct, pending_approvals, pending_discount_value
-  - `reps[]`: per-rep revenue, deals, tier, projected_payout, target_revenue, target_deals, attainment_pct
-  - `pipeline_by_stage[]`: 7 stages (new → case_created) with count + value
-  - `top_performer`, `laggard`
-- `POST /api/sales-team/targets` — upsert monthly target for a rep. Admin: any employee; sales_manager: only direct reports. Validates: employee role, non-negative, YYYY-MM format. Idempotent (returns `action: created|updated`).
-- `GET /api/sales-team/targets?month=YYYY-MM` — list scoped targets
-- `POST /api/sales-team/reps/{rep_id}/assign-manager` — admin-only. Validates manager role ∈ (sales_manager,admin), rep employment_type=employee. Accepts null to detach.
-- `GET /api/sales-team/managers` — list sales_managers. Admin sees all; sales_manager sees only self.
+**Removed cleanly** (no git revert; manual removal so existing features stayed intact):
+- `/app/backend/routers/sales_team.py` — deleted
+- `/app/frontend/src/components/sales/` (3 components) — deleted
+- `users.py`: removed `employment_type` + `manager_id` fields from create/update
+- `server.py`: removed sales_team_router import + mount
+- `AdminDashboard.jsx`: removed Sales Team sidebar item + render + sales_manager role option + employment_type badge in Users list + employment_type dropdown in user dialog
+- `PartnerDashboard.jsx`: removed Team Dashboard conditional sidebar item + sales_manager auth + sales-team render + auto-land
+- `AdminHome.jsx`: removed DiscountApprovalInbox
+- `PartnerHome.jsx`: removed IncentiveTierWidget
+- `Login.jsx`: removed sales_manager route mapping
+- DB cleanup: dropped `discount_requests`, `incentive_configs`, `sales_targets` collections; stripped `employment_type`/`manager_id` from users; deleted `salesmgr@leamss.com` user
 
-**New collection**: `sales_targets` — `{id, rep_id, rep_name, month, target_revenue, target_deals, set_by, created_at, updated_at}`
-
-**Frontend — `/app/frontend/src/components/sales/ManagerDashboard.jsx`** (~400 lines):
-- Header with scope badge ("Org-wide" / "My Team"), month picker, refresh
-- 4 stat cards: Team Revenue, Active Reps, Team Target attainment, Pending Approvals
-- Top performer banner with crown + projected payout
-- Rep performance table: name, revenue, deals, tier badge, target, attainment % (color-coded), payout, Target/Manager action buttons
-- Pipeline by Stage column with horizontal bars + arrow connectors between stages
-- Set Target dialog with revenue + deals inputs + projected attainment preview
-- Assign Manager dialog (admin-only) with select + detach option
-- All elements have data-testids: `manager-dashboard`, `md-stats-strip`, `stat-team-revenue`, `stat-rep-count`, `stat-target-attainment`, `stat-pending-approvals`, `md-reps-table`, `md-rep-row-{id}`, `md-edit-target-{id}`, `md-assign-mgr-{id}` (admin-only), `md-target-dialog`, `md-target-revenue-input`, `md-target-deals-input`, `md-save-target-btn`, `md-assign-dialog`, `md-mgr-select`, `md-save-assign-btn`, `md-pipeline-stages`, `md-stage-{stage}`, `md-month-picker`, `md-refresh`, `md-top-performer`
-
-**Wiring**:
-- `AdminDashboard.jsx`: new "Sales Team" sidebar item (Users icon) at top of "Sales & Finance" group → renders `<ManagerDashboard />`. `sales_manager` role added to Users role select dropdown.
-- `PartnerDashboard.jsx`: new "Team Dashboard" sidebar item under "Sales & Earnings", visible only when `user.role === 'sales_manager'`. Auth check relaxed to allow both `partner` and `sales_manager` roles. sales_manager auto-lands on Team Dashboard on login.
-- `Login.jsx`: `sales_manager` role routes to `/partner`.
-
-**Seeded for testing**: `salesmgr@leamss.com / Manager@123` (role=sales_manager) with `partner@leamss.com` configured as `employment_type=employee` + `manager_id=salesmgr`.
-
-**Verified via curl + screenshots**:
-- ✅ Backend 25/25 PASS across Phase 1+2+3 (employment_type validation, discount thresholds 3%/10%/25%, my-incentive role gating, manager-dashboard scope filtering, targets CRUD with validation, assign-manager auth chain, managers list scoping)
-- ✅ Frontend 9/9 smoke PASS: sales_manager → /partner redirect, ManagerDashboard auto-render, "My Team" scope badge, scope-filtered rep rows, target button visible, Manager assign button hidden for sales_manager (admin-only), IncentiveTierWidget on PartnerHome, DiscountApprovalInbox on AdminHome, emp-type badges in Users list.
+**Verified**: 404 on `/api/sales-team/*`, clean Users page, existing Admin/Partner/Case Manager/Client flows untouched. Lint clean across modified files.
 
 ### In-House Sales Team CRM — Phase 1 + 2 (2026-05-12)
 

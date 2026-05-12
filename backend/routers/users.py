@@ -46,8 +46,6 @@ async def create_user(data: dict, current_user: dict = Depends(get_current_user)
         "mobile": data.get("mobile", ""), "status": "active",
         "commission_rate": data.get("commission_rate", 0.0),
         "commission_rate_history": [],
-        "employment_type": data.get("employment_type", "external"),
-        "manager_id": data.get("manager_id"),
         "created_at": datetime.now(timezone.utc)
     }
     await users_col.insert_one(user)
@@ -64,13 +62,9 @@ async def update_user(user_id: str, data: dict, current_user: dict = Depends(get
         raise HTTPException(status_code=404, detail="User not found")
     
     update = {}
-    for field in ["name", "email", "mobile", "role", "status", "employment_type", "manager_id"]:
+    for field in ["name", "email", "mobile", "role", "status"]:
         if field in data:
             update[field] = data[field]
-    
-    # Validate employment_type
-    if "employment_type" in update and update["employment_type"] not in ("employee", "external"):
-        raise HTTPException(status_code=400, detail="employment_type must be 'employee' or 'external'")
     
     # Track commission rate changes with effective date
     if "commission_rate" in data and data["commission_rate"] != user.get("commission_rate"):
