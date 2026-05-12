@@ -401,11 +401,20 @@ const AdminDashboard = () => {
       const response = await axios.post(`${API}/auth/impersonate/${targetUser.id}`, {}, getAuthHeader());
       localStorage.setItem('token', response.data.token);
       localStorage.setItem('user', JSON.stringify(response.data.user));
-      const routes = { admin: '/admin', partner: '/partner', case_manager: '/case-manager', client: '/client' };
+      // Use legacy 'role' field for routing (preserved for backward compatibility)
+      const userRole = response.data.user.role || response.data.user.rbac_role;
+      const routes = { admin: '/admin', admin_owner: '/admin', partner: '/partner', case_manager: '/case-manager', client: '/client' };
+      const target = routes[userRole];
+      if (!target) {
+        toast.error(`No dashboard route for role: ${userRole}`);
+        return;
+      }
       toast.success(`Switched to ${targetUser.name}'s account`);
-      setTimeout(() => { window.location.assign(routes[response.data.user.role]); }, 100);
+      setTimeout(() => { window.location.assign(target); }, 100);
     } catch (error) {
-      toast.error('Failed to impersonate user');
+      const msg = error?.response?.data?.detail || error?.message || 'Unknown error';
+      console.error('Impersonate failed:', error);
+      toast.error(`Failed to impersonate: ${typeof msg === 'string' ? msg : JSON.stringify(msg)}`);
     }
   };
 
