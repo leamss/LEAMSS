@@ -6,10 +6,11 @@ import { Badge } from '@/components/ui/badge';
 import {
   ClipboardList, Briefcase, Users, TrendingUp, ArrowRight,
   Sparkles, AlertCircle, CheckCircle, UserCheck, Package, DollarSign, Shield,
-  CalendarClock
+  CalendarClock, Link2
 } from 'lucide-react';
 import DropoffRecoveryWidget from '@/components/DropoffRecoveryWidget';
 import DocExpiryWidget from '@/components/DocExpiryWidget';
+import ShareLinksDashboard from '@/components/ShareLinksDashboard';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const getAuth = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
@@ -198,14 +199,22 @@ export default function AdminHome({ user, onNavigate }) {
               },
               accent: 'amber',
             },
+            {
+              icon: Link2, label: 'Share Links', tab: 'share-links-anchor',
+              custom: () => {
+                const el = document.getElementById('share-links-anchor');
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              },
+              accent: 'indigo',
+            },
           ].map(x => (
             <Card
               key={x.tab}
               onClick={() => x.custom ? x.custom() : onNavigate?.(x.tab)}
-              className={`p-4 cursor-pointer hover:shadow-md transition-all border-slate-200 ${x.accent === 'amber' ? 'hover:border-amber-400 bg-gradient-to-br from-amber-50/40 to-transparent' : 'hover:border-[#2a777a]/30'}`}
+              className={`p-4 cursor-pointer hover:shadow-md transition-all border-slate-200 ${x.accent === 'amber' ? 'hover:border-amber-400 bg-gradient-to-br from-amber-50/40 to-transparent' : x.accent === 'indigo' ? 'hover:border-indigo-400 bg-gradient-to-br from-indigo-50/40 to-transparent' : 'hover:border-[#2a777a]/30'}`}
               data-testid={`quick-${x.tab}`}
             >
-              <x.icon className={`h-5 w-5 mb-2 ${x.accent === 'amber' ? 'text-amber-600' : 'text-[#2a777a]'}`} />
+              <x.icon className={`h-5 w-5 mb-2 ${x.accent === 'amber' ? 'text-amber-600' : x.accent === 'indigo' ? 'text-indigo-600' : 'text-[#2a777a]'}`} />
               <p className="text-sm font-semibold text-slate-800">{x.label}</p>
             </Card>
           ))}
@@ -218,6 +227,11 @@ export default function AdminHome({ user, onNavigate }) {
       {/* Document Expiry Tracker */}
       <div id="doc-expiry-anchor" className="scroll-mt-24">
         <DocExpiryWidget />
+      </div>
+
+      {/* Active Share Links Dashboard */}
+      <div id="share-links-anchor" className="scroll-mt-24">
+        <ShareLinksDashboard />
       </div>
     </div>
   );

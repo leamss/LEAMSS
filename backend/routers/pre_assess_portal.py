@@ -19,7 +19,7 @@ import logging
 from datetime import datetime, timezone, timedelta
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field, EmailStr
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from core.auth import get_current_user, get_password_hash, create_access_token
 from core.database import db, users_col, notifications_col
@@ -244,7 +244,7 @@ async def partner_preview_magic(pa_id: str, current_user: dict = Depends(get_cur
 
 # ======================== PUBLIC: VIEW LINK ========================
 @router.get("/public/{token}")
-async def public_view(token: str):
+async def public_view(token: str, request: Request):
     pa = await pre_assessments_col.find_one(
         {"share_token": token},
         {"_id": 0, "partner_id": 0, "admin_notes": 0},
@@ -258,6 +258,19 @@ async def public_view(token: str):
             exp = exp.replace(tzinfo=timezone.utc)
         if exp < _now():
             raise HTTPException(status_code=410, detail="Link expired")
+
+    # Track click + last access
+    await pre_assessments_col.update_one(
+        {"share_token": token},
+        {
+            "$inc": {"share_click_count": 1},
+            "$set": {
+                "share_last_accessed_at": _now(),
+                "share_last_accessed_ip": (request.client.host if request and request.client else None),
+                "share_last_accessed_ua": (request.headers.get("user-agent", "")[:120] if request else ""),
+            },
+        },
+    )
 
     for k in ("created_at", "updated_at", "share_expires_at"):
         if isinstance(pa.get(k), datetime):
@@ -354,10 +367,12 @@ async def public_mock_pay(data: PublicMockPayRequest):
 
 # ======================== MAGIC + OTP LOGIN ========================
 @router.post("/magic-login")
-async def magic_login(data: MagicLoginRequest):
+async def magic_login(data: MagicLoginRequest, request: Request):
     doc = await magic_col.find_one({"token": data.token}, {"_id": 0})
     if not doc:
         raise HTTPException(status_code=404, detail="Invalid login link")
+    if doc.get("revoked"):
+        raise HTTPException(status_code=410, detail="Link revoked by admin")
     if doc.get("used"):
         raise HTTPException(status_code=410, detail="Link already used — request a fresh one")
     exp = doc.get("expires_at")
@@ -370,7 +385,12 @@ async def magic_login(data: MagicLoginRequest):
     user = await users_col.find_one({"id": doc["user_id"]}, {"_id": 0, "password_hash": 0})
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    await magic_col.update_one({"token": data.token}, {"$set": {"used": True, "used_at": _now()}})
+    await magic_col.update_one({"token": data.token}, {"$set": {
+        "used": True,
+        "used_at": _now(),
+        "used_ip": (request.client.host if request and request.client else None),
+        "used_ua": (request.headers.get("user-agent", "")[:120] if request else ""),
+    }})
     jwt_token = create_access_token({"sub": user["id"], "email": user["email"], "role": user["role"]})
     await _log(user["id"], None, "magic_login")
     return {"token": jwt_token, "user": user}

@@ -3,6 +3,24 @@
 ## Original Problem Statement
 Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case Manager, Partner, Client.
 
+### Active Share Links Dashboard (2026-05-12)
+
+**User-approved potential improvement** following smart-link + expiry control. Compliance + security gold-tier feature.
+
+**Backend**:
+- New router `/app/backend/routers/share_links_dashboard.py` mounted at `/api/share-links`
+- `GET /api/share-links/?status=&link_type=&search=` (admin only) — unified list of all share-tokens + magic-tokens across all PAs with metadata: issuer, purpose, amount_label, issued_at, expires_at, status (active/expired/revoked/consumed/deactivated), access_count, last_accessed_at/ip/ua, and a `suspicious` flag (heuristic: clicks≥5 while still active)
+- `POST /api/share-links/revoke` — admin sets `share_active=false` (for public) or `revoked=true` (for magic) with audit fields: revoked_at/by/reason
+- Click tracking added to `GET /pre-assess-portal/public/{token}` — auto-increments `share_click_count` and records `share_last_accessed_at/ip/ua` per visit
+- Magic links capture `used_ip/used_ua` on consume + check `revoked` flag (returns 410 'Link revoked by admin')
+
+**Frontend**:
+- New component `/app/frontend/src/components/ShareLinksDashboard.jsx` — full audit table with stats strip, search, type filter, click-to-revoke flow with reason capture, suspicious badges, color-coded status pills
+- Mounted on AdminHome as third bottom widget (`id=share-links-anchor`)
+- New Quick Access tile `quick-share-links-anchor` with indigo accent + smooth-scroll to widget
+
+**Verified visually**: 30 links rendered, filter to "active" shows 15, revoke dialog opens cleanly with reason input. Stats update live after revoke (1 → revoked column).
+
 ### Smart Share Link + Expiry Control (2026-05-08)
 
 **User-reported issue + enhancement combined**:
