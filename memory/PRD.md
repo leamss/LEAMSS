@@ -1,7 +1,99 @@
 # LEAMSS - Immigration Portal PRD
 
 ## Original Problem Statement
-Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case Manager, Partner, Client.
+Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case Manager, Partner, Client. Expanding to a full multi-department Employee Portal with production-grade RBAC.
+
+### RBAC Phase 1 — Foundation Complete (2026-05-12 night)
+
+**User-approved Phase 1 RBAC foundation built end-to-end** — backward-compatible, zero regressions.
+
+**8 new MongoDB collections seeded:**
+- `departments` (8): admin, sales, marketing, operations, hr, accounts, it, compliance
+- `roles` (18 system roles): admin_owner, compliance_officer, sales_head, sales_manager, sr_sales_executive, sales_executive, partner, marketing_head, marketing_executive, ops_head, case_manager, doc_verifier, hr_head, hr_executive, accounts_head, accounts_executive, it_admin, client
+- `permissions` (219 entries) — naming: `{resource}.{action}.{scope}` + wildcard `*` for owner
+- `teams` (empty, ready for use)
+- `user_role_history` (audit trail)
+- `migrations` (auto-logs every migration run)
+
+**Users collection extended (backward-compatible):**
+- Legacy `role` field **PRESERVED** (admin/partner/case_manager/client) — no existing route breaks
+- NEW `rbac_role` (admin_owner/partner/case_manager/client + 14 more keys for future)
+- NEW: `user_type`, `department`, `designation`, `reports_to`, `team_id`, `permissions[]`, `ui_modules[]`, `custom_permissions_granted[]`, `custom_permissions_revoked[]`
+- Internal employees: `employee_id` (LMS-2026-NNNN), `date_of_joining`, `employment_status`, `employment_type`, `work_mode`
+- External partners: `partner_code` (PRT-NNNN), `commission_tier`, `partner_agreement_signed`
+- Security: `two_fa_enabled`, `two_fa_secret`, `failed_login_count`, `account_locked_until`
+- Profile: `avatar_url`, `emergency_contact`
+
+**Permission Service** (`/app/backend/core/rbac/permission_service.py`):
+- `has_permission` / `has_any_permission` / `has_all_permissions`
+- Wildcard `*` for admin_owner — passes ANY check
+- Resource wildcards: `pa.*`, `pa.view.*`
+- Hierarchical scope: `all > dept > team > own` (team scope passes own checks)
+- Custom overrides: `effective = (role.permissions + custom_granted) − custom_revoked`
+- Resource-level scope check (own/team/dept) against actual document fields
+- `refresh_user_permissions(user_id)` — recompute cached perms on role change
+
+**FastAPI Dependencies** (`/app/backend/core/rbac/dependencies.py`):
+- `require_permission("pa.approve.l2")` — single check
+- `require_any_permission(*keys)` / `require_all_permissions(*keys)`
+- `require_role(*role_keys)` (honors both legacy + rbac_role)
+- `require_department(*dept_keys)`
+- `get_resource_with_permission(collection, id, perm_key, user)` — fetch + scope check in one call
+- 403 errors return structured body: `{error, message, required, your_role}`
+
+**Migration** (`/app/backend/migrations/rbac_phase1_migration.py`):
+- Idempotent — safe on every boot (auto-runs in `server.py` startup)
+- Seeds depts/perms/roles via upsert by `key`
+- Backfills existing users:
+  - admin → rbac_role=admin_owner, user_type=internal, dept=admin
+  - partner → rbac_role=partner, user_type=external, dept=sales
+  - case_manager → rbac_role=case_manager, user_type=internal, dept=operations
+  - client → rbac_role=client, user_type=client, dept=null
+- Auto-generates LMS-2026-NNNN / PRT-NNNN with no collisions
+- Logs each run in `migrations` collection
+
+**Auth Updates:**
+- `build_token_payload(user)` — JWT now includes `rbac_role`, `user_type`, `department`, `permissions[]`
+- `/api/auth/me` returns: legacy `role` + new `rbac_role`, `user_type`, `department`, `permissions`, `ui_modules`, `employee_id`/`partner_code`, `two_fa_enabled`, `emergency_contact`, etc.
+- `/api/auth/login` response enriched with same fields
+- Existing `current_user["role"] == "admin"` checks across 100+ routes still work — ZERO migration needed in Phase 1
+
+**Indexes added** (idempotent):
+- users: `(user_type, department, rbac_role)` compound, `reports_to`, `team_id`, `employment_status`, `employee_id` unique sparse, `partner_code` unique sparse
+- roles: `key` unique, `(department, hierarchy_level)`
+- permissions: `key` unique, `(resource, action)`
+- departments: `key` unique
+- teams: `department`, `manager_id`
+- user_role_history: `(user_id, effective_date desc)`
+
+**Acceptance Tests — ALL PASS:**
+1. ✅ admin@leamss.com: /auth/me → role=admin, rbac_role=admin_owner, user_type=internal, dept=admin, employee_id=LMS-2026-0001, permissions=["*"]
+2. ✅ partner@leamss.com: rbac_role=partner, user_type=external, dept=sales, partner_code=PRT-0001, 18 perms
+3. ✅ manager@leamss.com: rbac_role=case_manager, user_type=internal, dept=operations, employee_id=LMS-2026-0002, 11 perms
+4. ✅ client@leamss.com: rbac_role=client, user_type=client, dept=null, 8 perms (incl. pa.view.own, agreement.sign.own)
+5. ✅ Regression: /api/users, /api/products, /api/cases, /api/legal-archive/stats (admin only — 403 for partner) all working
+6. ✅ Permission service: admin "*" passes any check; partner has pa.create.own but NOT pa.approve.l1; scope hierarchy (team>=own) works; client denied legal_archive; has_any/has_all logic; custom grant/revoke overrides
+7. ✅ Idempotency: 2nd run of migration → 0 duplicate inserts, 0 re-backfills
+
+**Files created (7):**
+- `/app/backend/core/rbac/__init__.py`
+- `/app/backend/core/rbac/models.py` — Pydantic models for new collections
+- `/app/backend/core/rbac/seed_data.py` — 8 depts + 219 perms + 18 roles definitions
+- `/app/backend/core/rbac/permission_service.py` — Core check logic
+- `/app/backend/core/rbac/dependencies.py` — FastAPI deps
+- `/app/backend/migrations/__init__.py`
+- `/app/backend/migrations/rbac_phase1_migration.py` — Idempotent seed + backfill + indexes
+
+**Files modified (4):**
+- `/app/backend/core/database.py` — added 6 new collection handles
+- `/app/backend/core/auth.py` — `build_token_payload()` helper for RBAC-aware JWT
+- `/app/backend/routers/auth.py` — `/login`, `/auth/me`, `/impersonate` return RBAC fields
+- `/app/backend/server.py` — auto-runs migration on startup
+
+**What's NOT touched (preserved):**
+- All existing routes still use legacy `role` field — no regression
+- Frontend code unchanged — login UI still renders correctly
+- All existing PA workflow, AI proposals, agreements, legal archive intact
 
 ### Rollback — In-House Sales Team CRM Removed (2026-05-12 evening)
 

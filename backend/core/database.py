@@ -42,6 +42,14 @@ pre_assessment_docs_col = db["pre_assessment_documents"]
 case_deadlines_col = db["case_deadlines"]
 intake_forms_col = db["intake_forms"]
 
+# RBAC Phase 1 — new collections
+departments_col = db["departments"]
+roles_col = db["roles"]
+permissions_col = db["permissions"]
+teams_col = db["teams"]
+user_role_history_col = db["user_role_history"]
+migrations_col = db["migrations"]
+
 
 async def init_db():
     """Create indexes"""

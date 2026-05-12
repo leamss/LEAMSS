@@ -89,6 +89,21 @@ async def startup():
         print("Database empty, seeding...")
         await seed_database()
         print("Database seeded successfully!")
+    
+    # Run RBAC Phase 1 migration (idempotent — safe on every boot)
+    try:
+        from migrations.rbac_phase1_migration import run_migration as run_rbac_migration
+        report = await run_rbac_migration()
+        print(f"[RBAC] Migration {report['status']}: "
+              f"depts={report['departments']['seeded']}+{report['departments']['updated']}, "
+              f"perms={report['permissions']['seeded']}+{report['permissions']['updated']}, "
+              f"roles={report['roles']['seeded']}+{report['roles']['updated']}, "
+              f"users_backfilled={report['users_backfill']['backfilled']}")
+        if report.get("warnings"):
+            for w in report["warnings"]:
+                print(f"[RBAC WARN] {w}")
+    except Exception as e:
+        print(f"[RBAC ERROR] {e}")
 
 
 async def seed_database():

@@ -1,21 +1,28 @@
 # LEAMSS Test Credentials
 
-## Admin
-- Email: admin@leamss.com
-- Password: Admin@123
+These accounts are seeded automatically on first boot and backfilled with RBAC fields by the Phase 1 migration.
 
-## Case Manager
-- Email: manager@leamss.com
-- Password: Manager@123
+## Active Login Credentials
 
-## Partner
-- Email: partner@leamss.com
-- Password: Partner@123
+| Role        | Email                  | Password     | rbac_role      | user_type | department | employee_id / partner_code |
+|-------------|------------------------|--------------|----------------|-----------|------------|----------------------------|
+| Admin       | admin@leamss.com       | Admin@123    | admin_owner    | internal  | admin      | LMS-2026-0001              |
+| Case Mgr    | manager@leamss.com     | Manager@123  | case_manager   | internal  | operations | LMS-2026-0002              |
+| Partner     | partner@leamss.com     | Partner@123  | partner        | external  | sales      | PRT-0001                   |
+| Client      | client@leamss.com      | Client@123   | client         | client    | —          | —                          |
+| Client 2    | client2@leamss.com     | Client@123   | client         | client    | —          | —                          |
 
-## Client (Seeded)
-- Email: client@leamss.com
-- Password: Client@123
+## Additional Test Users (Pre-existing)
 
-## Client (Test Sale)
-- Email: test_sale_client@example.com
-- Password: Client@123
+| Email                  | Legacy Role   | rbac_role      |
+|------------------------|---------------|----------------|
+| sales@leamss.com       | sales_manager | sales_manager  |
+| tanvi@leamss.com       | case_manager  | case_manager   |
+| jyoti@leamss.com       | admin         | admin_owner    |
+| minal@leamss.com       | client        | client         |
+| pgmodel29@gmail.com    | partner       | partner        |
+
+## Notes
+- Both legacy `role` and new `rbac_role` are populated. Existing routes that use `current_user["role"]` keep working.
+- `/api/auth/me` returns BOTH fields plus `user_type`, `department`, `permissions`, `ui_modules`, etc.
+- Migration runs idempotently on every backend startup — no manual setup needed.

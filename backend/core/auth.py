@@ -26,6 +26,18 @@ def create_access_token(data: dict, expires_hours: int = 24) -> str:
     return jwt.encode(to_encode, JWT_SECRET, algorithm="HS256")
 
 
+def build_token_payload(user: dict) -> dict:
+    """Compact JWT payload including RBAC fields for fast permission checks."""
+    return {
+        "sub": user["id"],
+        "role": user.get("role"),                              # legacy — preserved
+        "rbac_role": user.get("rbac_role") or user.get("role"), # new RBAC key
+        "user_type": user.get("user_type"),
+        "department": user.get("department"),
+        "permissions": user.get("permissions") or [],
+    }
+
+
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
     try:
         payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=["HS256"])

@@ -3,7 +3,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from datetime import datetime, timezone
 from core.database import users_col, audit_logs_col
-from core.auth import verify_password, get_password_hash, create_access_token, get_current_user
+from core.auth import verify_password, get_password_hash, create_access_token, get_current_user, build_token_payload
 import uuid
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -82,7 +82,46 @@ async def register(request: RegisterRequest):
 
 @router.get("/me")
 async def get_me(current_user: dict = Depends(get_current_user)):
-    return current_user
+    # Build RBAC-aware response while preserving legacy fields for backward compat
+    return {
+        "id": current_user["id"],
+        "email": current_user["email"],
+        "name": current_user["name"],
+        "mobile": current_user.get("mobile", ""),
+        "status": current_user.get("status"),
+        "avatar_url": current_user.get("avatar_url"),
+
+        # Legacy + RBAC role fields
+        "role": current_user.get("role"),                          # legacy preserved
+        "rbac_role": current_user.get("rbac_role"),                # new RBAC key
+        "user_type": current_user.get("user_type"),
+        "department": current_user.get("department"),
+        "designation": current_user.get("designation"),
+        "permissions": current_user.get("permissions", []),
+        "ui_modules": current_user.get("ui_modules", []),
+
+        # Internal employee fields (if applicable)
+        "employee_id": current_user.get("employee_id"),
+        "date_of_joining": current_user.get("date_of_joining").isoformat() if isinstance(current_user.get("date_of_joining"), datetime) else current_user.get("date_of_joining"),
+        "employment_status": current_user.get("employment_status"),
+        "employment_type": current_user.get("employment_type"),
+        "work_mode": current_user.get("work_mode"),
+
+        # External partner fields (if applicable)
+        "partner_code": current_user.get("partner_code"),
+        "commission_tier": current_user.get("commission_tier"),
+        "commission_rate": current_user.get("commission_rate"),
+
+        # Security
+        "two_fa_enabled": current_user.get("two_fa_enabled", False),
+
+        # Profile
+        "emergency_contact": current_user.get("emergency_contact"),
+        "reports_to": current_user.get("reports_to"),
+        "team_id": current_user.get("team_id"),
+
+        "created_at": current_user.get("created_at").isoformat() if isinstance(current_user.get("created_at"), datetime) else current_user.get("created_at"),
+    }
 
 
 @router.post("/impersonate/{user_id}")
@@ -94,7 +133,7 @@ async def impersonate_user(user_id: str, current_user: dict = Depends(get_curren
     if not target:
         raise HTTPException(status_code=404, detail="User not found")
     
-    token = create_access_token({"sub": target["id"], "role": target["role"]})
+    token = create_access_token(build_token_payload(target))
     
     return {
         "token": token,
@@ -102,6 +141,11 @@ async def impersonate_user(user_id: str, current_user: dict = Depends(get_curren
             "id": target["id"], "email": target["email"], "name": target["name"],
             "role": target["role"], "mobile": target.get("mobile", ""),
             "status": target["status"],
+            "rbac_role": target.get("rbac_role"),
+            "user_type": target.get("user_type"),
+            "department": target.get("department"),
+            "permissions": target.get("permissions", []),
+            "ui_modules": target.get("ui_modules", []),
             "created_at": target.get("created_at", "").isoformat() if isinstance(target.get("created_at"), datetime) else str(target.get("created_at", ""))
         }
     }
