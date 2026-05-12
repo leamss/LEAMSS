@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Briefcase, FileText, DollarSign, LogOut, Plus, ArrowLeft, MessageSquare, Filter, Download, Menu, X, ClipboardCheck, BarChart3, Kanban, Award, Calculator, Home } from 'lucide-react';
+import { Briefcase, FileText, DollarSign, LogOut, Plus, ArrowLeft, MessageSquare, Filter, Download, Menu, X, ClipboardCheck, BarChart3, Kanban, Award, Calculator, Home, Users } from 'lucide-react';
 import DashboardShell from '@/components/DashboardShell';
 import TicketSection from '@/components/TicketSection';
 import QuickActions from '@/components/QuickActions';
@@ -17,6 +17,7 @@ import PartnerPerformance from '@/components/PartnerPerformance';
 import LeadPipeline from '@/components/LeadPipeline';
 import FeeCalculator from '@/components/FeeCalculator';
 import PartnerHome from '@/components/PartnerHome';
+import ManagerDashboard from '@/components/sales/ManagerDashboard';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -144,11 +145,15 @@ const PartnerDashboard = () => {
 
   useEffect(() => {
     const userData = JSON.parse(localStorage.getItem('user'));
-    if (!userData || userData.role !== 'partner') {
+    if (!userData || !['partner', 'sales_manager'].includes(userData.role)) {
       navigate('/');
       return;
     }
     setUser(userData);
+    // sales_manager lands directly on Team Dashboard for instant context
+    if (userData.role === 'sales_manager') {
+      setActiveTab('sales-team');
+    }
     
     // Check if there's a ticket to open from notification click
     const storedTicketId = sessionStorage.getItem('openTicketId');
@@ -298,6 +303,7 @@ const PartnerDashboard = () => {
     {
       groupLabel: 'Sales & Earnings',
       items: [
+        ...(user?.role === 'sales_manager' ? [{ id: 'sales-team', icon: Users, label: 'Team Dashboard', onClick: () => setActiveTab('sales-team') }] : []),
         { id: 'sales', icon: FileText, label: 'My Sales', onClick: () => setActiveTab('sales') },
         { id: 'commission', icon: DollarSign, label: 'Commission', onClick: () => setActiveTab('commission') },
         { id: 'performance', icon: BarChart3, label: 'My Performance', onClick: () => setActiveTab('performance') },
@@ -312,7 +318,7 @@ const PartnerDashboard = () => {
     },
   ];
 
-  const partnerPageTitle = { home: 'Home', dashboard: 'Classic Dashboard', 'pre-assessment': 'Pre-Assessments', 'lead-pipeline': 'Lead Pipeline', sales: 'My Sales', commission: 'Commission', performance: 'My Performance', 'fee-calculator': 'Fee Calculator', tickets: 'Support Tickets' }[activeTab] || 'Home';
+  const partnerPageTitle = { home: 'Home', dashboard: 'Classic Dashboard', 'pre-assessment': 'Pre-Assessments', 'lead-pipeline': 'Lead Pipeline', sales: 'My Sales', commission: 'Commission', performance: 'My Performance', 'fee-calculator': 'Fee Calculator', tickets: 'Support Tickets', 'sales-team': 'Team Dashboard' }[activeTab] || 'Home';
 
   return (
     <DashboardShell
@@ -770,6 +776,10 @@ const PartnerDashboard = () => {
 
           {activeTab === 'fee-calculator' && (
             <FeeCalculator token={localStorage.getItem('token')} role="partner" />
+          )}
+
+          {activeTab === 'sales-team' && (
+            <ManagerDashboard />
           )}
     </DashboardShell>
   );

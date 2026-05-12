@@ -32,6 +32,7 @@ const Login = () => {
       const roleRoutes = {
         admin: '/admin',
         partner: '/partner',
+        sales_manager: '/partner',
         case_manager: '/case-manager',
         client: '/client'
       };

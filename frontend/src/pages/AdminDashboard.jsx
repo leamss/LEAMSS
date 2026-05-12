@@ -52,6 +52,7 @@ import IntakeFormBuilder from '@/components/IntakeFormBuilder';
 import ReportBuilder from '@/components/ReportBuilder';
 import EmailDigest from '@/components/EmailDigest';
 import PaymentReminders from '@/components/PaymentReminders';
+import ManagerDashboard from '@/components/sales/ManagerDashboard';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -1162,6 +1163,7 @@ const AdminDashboard = () => {
       groupLabel: 'Sales & Finance',
       defaultOpen: true,
       items: [
+        { id: 'sales-team', icon: Users, label: 'Sales Team', onClick: () => { setActiveTab('sales-team'); resetSelections(); } },
         { id: 'revenue-dashboard', icon: BarChart3, label: 'Revenue Dashboard', onClick: () => { setActiveTab('revenue-dashboard'); resetSelections(); } },
         { id: 'refund-manager', icon: XCircle, label: 'Refund Manager', onClick: () => { setActiveTab('refund-manager'); resetSelections(); } },
         { id: 'reminders', icon: Bell, label: 'Payment Reminders', onClick: () => { setActiveTab('reminders'); resetSelections(); } },
@@ -2812,6 +2814,7 @@ const AdminDashboard = () => {
           {activeTab === 'commission-analytics' && <CommissionAnalytics token={localStorage.getItem('token')} role="admin" />}
           {activeTab === 'pre-assessments' && <PreAssessmentQueue initialFilter={preAssessFilter} />}
           {activeTab === 'legal-archive' && <LegalArchive />}
+          {activeTab === 'sales-team' && <ManagerDashboard />}
           {activeTab === 'agreement-templates' && <AgreementTemplatesManager />}
           {activeTab === 'approval-center' && <ApprovalCenter token={localStorage.getItem('token')} onNavigate={(tab) => setActiveTab(tab)} />}
           {activeTab === 'refund-manager' && <RefundManager token={localStorage.getItem('token')} />}
@@ -3082,7 +3085,7 @@ const AdminDashboard = () => {
                 <Label>Role</Label>
                 <Select value={userDialog.data?.role || 'partner'} onValueChange={(value) => setUserDialog({ ...userDialog, data: { ...userDialog.data, role: value } })}>
                   <SelectTrigger data-testid="user-role-select"><SelectValue /></SelectTrigger>
-                  <SelectContent><SelectItem value="admin">Admin</SelectItem><SelectItem value="case_manager">Case Manager</SelectItem><SelectItem value="partner">Partner</SelectItem><SelectItem value="client">Client</SelectItem></SelectContent>
+                  <SelectContent><SelectItem value="admin">Admin</SelectItem><SelectItem value="case_manager">Case Manager</SelectItem><SelectItem value="partner">Partner</SelectItem><SelectItem value="sales_manager">Sales Manager</SelectItem><SelectItem value="client">Client</SelectItem></SelectContent>
                 </Select>
               </div>
               {(userDialog.data?.role === 'partner' || userDialog.data?.role === 'case_manager') && (
