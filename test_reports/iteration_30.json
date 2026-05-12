@@ -69,5 +69,5 @@
     "email_service": "MOCKED - send_email logs to email_logs collection instead of sending real emails"
   },
   "known_case_id": "cb09cf65-9a0c-47c6-8585-bace5da8c221",
-  "api_base_url": "https://payment-portal-323.preview.emergentagent.com"
+  "api_base_url": "https://staff-dashboard-66.preview.emergentagent.com"
 }

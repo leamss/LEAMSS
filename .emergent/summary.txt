@@ -1,134 +1,121 @@
-<analysis>**original_problem_statement:**
-The user wants to build a comprehensive LEAMSS Portal for an immigration service, supporting four user roles: Admin, Case Manager, Partner, and Client. The project involved implementing a wide range of features, including a ticketing system, reporting, document management, and a multi-step case workflow.
+<analysis>### handover_summary
 
-Throughout the session, the user provided extensive feedback, leading to the implementation of a Quick Actions widget and numerous bug fixes for UI layout, data synchronization, document handling, and form submissions.
+**original_problem_statement**: 
+The user is building a comprehensive Immigration CRM + Client Sales Funnel. The strict 5-step journey includes Pre-Assessment, 1st Admin Approval, Proposal Generation (AI), Consent & Main Fee Payment (with E-sign/Agreement), and final Case Manager assignment. 
+PRODUCT REQUIREMENTS: The application must be fast, highly transparent financially, legally compliant (Audit trails/Legal Archive), and support automated PDF/Invoice generation along with editable agreement templates per country/visa type. Recently, the user shifted focus toward building a dedicated **Employee Portal** (for internal HR, Sales, IT, Marketing, etc.) after rejecting a previous attempt to merge employees with external partners.
 
-The most recent and significant request is to migrate the entire backend from MongoDB to MySQL. The user also requested a downloadable zip file of the project and a deployment guide.
+**User's preferred language**: **HINGLISH** (You MUST automatically detect the user's primary language and INSTRUCT the next agent to respond in **respectful Hinglish ONLY** - e.g., Aap, Sir, Maine update kar diya hai). 
+*CRITICAL NOTE*: The user got highly offended when the previous agent used tu/tera instead of aap. **ALWAYS use respectful pronouns (Aap/Aapka/Sir).**
 
-**User's preferred language**: English
-
-**what currently exists?**
-The application is a full-stack portal with a React frontend. The backend is currently in a transitional state. The live service is running on a FastAPI backend connected to a MongoDB database. However, a parallel backend has been scaffolded in a new  directory to support a migration to MySQL using SQLAlchemy. This new backend structure includes SQLAlchemy models, Pydantic schemas, and routers for all features, but it is not yet complete or operational. All bug fixes and feature enhancements requested by the user prior to the migration request have been completed on the MongoDB version.
+**what currently exists?** 
+A highly-polished React + FastAPI + MongoDB CRM portal. Phases A, B, C, and D are fully complete. It includes an AI Proposal generator, Client MiniPortal, Legal Archive (with SHA-256 tamper detection), Agreement Template Engine, AI Eligibility Pre-Score, Visa Pathway Comparison, Document Expiry Tracker, WhatsApp Smart Share, and an Active Share Links admin dashboard.
+*Note: The previously built In-House Sales Team CRM features (Phase 1, 2, and 3) were completely REMOVED in this session as the user did not like the UX/Architecture. The codebase is currently clean of those changes.*
 
 **Last working item**:
--   **Last item agent was working:** The agent was actively rewriting the backend to migrate from MongoDB to MySQL with SQLAlchemy. It successfully created a new directory structure under  and generated all the necessary foundational files, including database configuration, SQLAlchemy models (), Pydantic schemas (), and FastAPI routers for every feature (auth, users, cases, tickets, etc.). The work stopped just before creating the main  file that would tie all the new components together.
--   **Status:** IN PROGRESS
--   **Agent Testing Done:** N
--   **Which testing method agent to use?** both. The new MySQL backend will require extensive testing using the backend testing agent to validate every API endpoint. Afterward, the frontend will need full regression testing to ensure no functionality broke during the migration.
--   **User Testing Done:** N
+    - Last item agent was working: Complete manual removal/cleanup of the rejected In-House Sales Team CRM features from the backend (, DB collections, users schema) and frontend (, , Admin/Partner routing). The agent proposed a new **Employee Portal** architecture (P0 Foundation: Departments, Org Chart) and is waiting for the user to confirm the next steps.
+    - Status: WAITING FOR USER INPUT
+    - Agent Testing Done: Y (Verified cleanup via backend curl and frontend screenshots).
+    - Which testing method agent to use? manual testing by curl / screenshot tool
+    - User Testing Done: N
 
 **All Pending/In progress Issue list**:
-There are no pending bug fixes. The current focus is entirely on the new feature request for database migration.
+  None currently. The codebase is clean and stable following the manual rollback of the rejected features.
 
 **In progress Task List**:
--   **Task 1: Complete the Backend Migration to MySQL (P0)**
-    -   **Where to resume:** The immediate next step is to create the main application file, . This file needs to initialize the FastAPI app, set up database connections using the new SQLAlchemy engine, configure CORS, and mount all the newly created routers.
-    -   **What will be achieved with this?** This will complete the scaffolding of the new MySQL-based backend, making it ready for dependency installation and initial testing.
-    -   **Status:** IN PROGRESS
-    -   **Should Test frontend/backend/both after fix?** Both.
-    -   **Blocked on something:** None.
+  None active. Waiting for user's confirmation on the Employee Portal scope.
 
 **Upcoming and Future Tasks**
-
-**Upcoming Tasks:**
--   **P0: Install Dependencies and Run New Backend:** Install all Python packages listed in  and configure the environment to run the new  service instead of the old one.
--   **P1: Full Backend Testing:** Use the backend testing agent to conduct a thorough test of all API endpoints to ensure the MySQL migration was successful.
--   **P2: Frontend Regression Testing:** Verify that the frontend application remains fully functional after being pointed to the new backend.
--   **P3: Finalize Project Package:** Once the migration is complete and fully tested, update the  and create a new  containing the final MySQL version of the project.
-
-**Future Tasks:**
--   **P2:** Integrate a payment gateway (e.g., Stripe, Razorpay).
+    Upcoming Tasks:
+    - P0: Dedicated Employee Portal - Foundation (Employee Master, 7 Departments: Sales, IT, Marketing, Operations, Admin, HR, Accounts, Org Chart) *[Pending user confirmation on scope]*
+    - P1: Employee Portal - Attendance & Leave Management *[Pending user confirmation on scope]*
+    - P1: Resend live emails dispatch (Currently mocked. Need to ask user for ).
+    - P1: Real Stripe payments integration (Test key is already available in the pod environment folder).
+    - P2: Edit History tab per PA (UI for audit trail of edited PA fields).
+    - P2: Biometric E-sign packet (Capture device fingerprint, GPS, etc., for legal disputes).
+    
+    Future Tasks:
+    - P3: Twilio WhatsApp full integration.
+    - P3: Progressive Web App (PWA) setup and Push Notifications.
+    - P3: White-Label SaaS Architecture (Multi-tenancy isolation).
 
 **Completed work in this session**
--   **Final User Feedback Implementation:**
-    -   Enhanced Ticket View: Implemented a detailed, full-page ticket view for all roles.
-    -   Notification Click Navigation: Enabled direct navigation from notifications to items without page reloads.
--   **Quick Actions Widget:** Added a new widget to all dashboards for at-a-glance summaries and quick navigation.
--   **Comprehensive Bug Fixes:**
-    -   **Partner Dashboard Layout:** Fixed a UI overlap issue with a banner.
-    -   **Pending Review Sync:** Resolved count inconsistencies for documents needing review.
-    -   **Document View/Download:** Implemented a secure, authenticated document preview in a new tab (like Gmail) and fixed broken View buttons.
-    -   **New Sale Creation:** Fixed a  submission error in the Partner portal.
-    -   **Add Doc Button:** Unlocked the button in the workflow, allowing documents to be added at any step.
-    -   **Real-time Review Updates:** Ensured the pending review section refreshes instantly after a document is approved or rejected.
--   **Project Packaging and Schema Generation:**
-    -   Created a  and a  archive of the project.
-    -   Generated a complete MySQL schema () based on the existing data models.
--   **Initiated MySQL Backend Rewrite:**
-    -   Scaffolded a new backend structure in  with SQLAlchemy models, schemas, and routers.
+- Built Phase 3 (Manager Dashboard) of the In-House Sales CRM end-to-end and successfully regression-tested it.
+- **[CRITICAL PIVOT]**: User reviewed the In-House Sales CRM and strongly disliked the approach of merging internal employees with external partners. 
+- Conducted a full manual cleanup/rollback of Phase 1, Phase 2, and Phase 3 of the In-House Sales CRM across the entire stack (DONE)
+- Removed  router, stripped  and  from the DB, dropped unused collections (DONE)
+- Removed all related UI components (, , ) and cleaned up routing (DONE)
+- Clarified credit usage constraints to the user and pitched a 4-phase plan for a proper, dedicated Employee Portal.
+
+**Earlier issues found/mentioned but not fixed**
+None.
 
 **Known issue recurrence from previous fork**
--   None.
+  - Issue recurrence in previous fork: None
+  - Recurrence count: 0
+  - Status: RESOLVED
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
--   **Database Migration:** The core ongoing task is a major technology shift from a **MongoDB/Motor** stack to a relational **MySQL/SQLAlchemy** stack.
--   **Backend:** FastAPI, Pydantic, **SQLAlchemy (New)**,  (New).
--   **Frontend:** React, React Router, TailwindCSS, Shadcn UI.
--   **Architecture:** The goal is to completely replace the contents and service of the  directory with the new  implementation.
+React, FastAPI, Motor (Async MongoDB), SSE (Server-Sent Events),  for PDF Generation, Anthropic Claude Sonnet 4.6 (via Emergent LLM Key), Shadcn UI, SHA-256 Integrity chains.
 
 **key DB schema**
--   A complete MySQL schema has been generated and is available in . It defines 23 tables with foreign key constraints, indexes, views, and stored procedures to replicate the application's logic in a relational model.
+  - : Standard roles (admin, partner, case_manager, client). *(Note:  and  were stripped).*
+  - , : Includes .
+  - : Tracks , , and .
 
 **changes in tech stack**
--   **IN PROGRESS:** Complete backend database migration from **MongoDB** to **MySQL**.
+  - None.
 
-**All files of reference**
--   : The entire directory containing the new, in-progress MySQL backend.
--   : The generated SQL script that defines the new database structure.
--   : Was heavily modified to fix document viewing, review counts, and real-time updates.
--   : Was modified to fix layout and sale creation bugs.
--   : A new component created for the dashboard widgets.
--   : A new document providing setup instructions.
+**All files of reference** 
+  - 
+  - 
+  - 
+  - 
+
+**Areas that need refactoring**:
+  - None currently.
+
+**key api endpoints**
+  - 
+  - 
 
 **Critical Info for New Agent**
--   Your primary and immediate goal is to **complete the backend migration to MySQL**. The project is currently in a half-migrated state.
--   You must start by creating the main application file: . This file needs to instantiate the FastAPI application, establish the database connection, and include all the routers from the  directory.
--   After creating , install the new dependencies from .
--   You will then need to stop the old  service and start the new  service. This may require modifying supervisor configuration files.
--   Once the new backend is running, it must be **thoroughly tested** from end to end. The user has been very diligent in finding bugs, so a high standard of quality is expected.
+  - **Tone & Respect**: The user was highly offended by the use of Tu. **YOU MUST ONLY USE Aap, Aapka, Sir** when speaking in Hinglish. Be extremely polite and professional.
+  - **Context Pivot**: Do **NOT** attempt to rebuild the In-House Sales CRM or add  back to the partner flow. The user explicitly wants a brand new, dedicated **Employee Portal** (for Sales, IT, Admin, HR, etc.) that handles attendance, hierarchy, and payroll.
+  - **Pending State**: The agent just finished completely cleaning up the old codebase and gave the user options (A, B, C, D) on how to start the Employee Portal (e.g., Option A: Just build the P0 Foundation first). 
+  - **First Step**: Read the user's response to your last message, acknowledge their choice for the Employee Portal scope, and begin planning/building exactly what they requested in a highly step-by-step, credit-efficient manner. 
 
 **documents and test reports created in this job**
--   
--   
--   
--   
+  -  (Updated to reflect rollback and new Employee Portal roadmap)
+  - 
 
-**Last 10 User Messages and any pending HUMAN messages**
--   **10. User:** Requested the project zip file and deployment guide. (Completed for MongoDB version, needs update post-migration)
--   **9. User:** Reported New Sale creation was failing. (Completed)
--   **8. User:** Reported being unable to add a document to a workflow step. (Completed)
--   **7. User:** Clarified that the Add Doc button was not clickable. (Completed)
--   **6. User:** Reported that the Pending Review section was not updating in real-time. (Completed)
--   **5. User:** Acknowledged the fixes and paused development for a bit. (Completed)
--   **4. User:** Asked about Java coding capabilities. (Responded)
--   **3. User:** Requested to convert the project's database to MySQL. (In Progress)
--   **2. Agent:** Provided the generated MySQL schema.
--   **1. User:** Yes rewrite for MYSQL - Confirmed the request to proceed with the backend rewrite. (In Progress)
+**Last 10 User Messages and any pending HUMAN messages** 
+ - 3. **User**: Bhai Kya banaya hai... kuch samaj he nhi raha hai??? ... I am saying instead of inhouse partner... Employeee portal banathe hai... jaha pe As a organisation.. as company inhouse employees ko kaise manage kregey uspe focus krthe hai... Please rollback krlo (Complained about the confusing UX, asked to redesign as a dedicated Employee portal, asked about high credit usage, demanded respectful language).
+ - 2. **User**: Muje rollback ka samaj nhi raha hai kaise kru?? (Asked for help with the rollback tool).
+ - 1. **User**: arey usse acha... Rollback krne se better.. AAP he yeh features hata do na (User asked the agent to manually remove the offending features from the code instead of using the platform rollback tool).
+ *Agent responded by manually deleting all related files/code, verifying the cleanup, and asking the user how they want to proceed with the new Employee Portal (Option A, B, C).*
 
 **Project Health Check:**
--   **Broken:** The application is in a delicate transitional state. The live frontend is connected to the stable MongoDB backend, but the codebase is being actively migrated. The new  directory is incomplete and non-functional until the  is created and the service is running.
--   **Mocked:** None.
+  - Broken: None.
+  - Mocked: Payments (Stripe mocked), Emails (Resend mocked).
 
-**3rd Party Integrations**
--   **Gmail SMTP:** via  for email services.
--   **Server-Sent Events (SSE):** For real-time frontend updates.
--   **Web Push Notifications:** via ERROR: Subscription Info argument missing. for browser alerts.
--   **PDF Export:**  and .
--   **New for MySQL Backend:** , .
+**3rd Party Integrations** 
+  - Anthropic Claude Sonnet 4.6 & Opus 4.6 — uses Emergent LLM Key
+  - Stripe (Payments) — Mocked (Test key available in pod)
+  - Resend (Emails) — Mocked
 
 **Testing status**
--   **Testing agent used after significant changes:** YES. The agent ran comprehensive tests (resulting in ) for all features on the MongoDB version before the migration request.
--   **Test files created:** 
--   **Known regressions:** None on the stable MongoDB version. The new MySQL backend is completely untested.
+  - Testing agent used after significant changes: NO (Manual screenshots/curl used for the cleanup phase to save credits).
+  - Troubleshoot agent used after agent stuck in loop: NO
+  - Test files created: None this session.
+  - Known regressions: None. Code is stable.
 
 **Credentials to test flow:**
--   **Admin:**  / 
--   **Case Manager:**  / 
--   **Partner:**  / 
--   **Client:**  / 
+  - Admin:  / 
+  - Partner:  / 
+  - Client:  / 
 
 **What agent forgot to execute**
-The agent was systematically creating the files for the new MySQL backend but stopped before the final step of creating the main  file. This file is essential to assemble and run the new backend service. The agent also did not yet install the new Python dependencies. These are the critical next steps to continue the migration.</analysis>
+The agent did not forget anything. The manual rollback of features was executed flawlessly. The agent is waiting on the user's explicit approval to begin building the new Employee Portal.</analysis>
