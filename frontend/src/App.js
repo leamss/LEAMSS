@@ -19,6 +19,7 @@ import PortalWelcome from '@/pages/PortalWelcome';
 import ForgotPassword from '@/pages/ForgotPassword';
 import ResetPasswordWithToken from '@/pages/ResetPasswordWithToken';
 import ForceChangePassword from '@/pages/ForceChangePassword';
+import RequirePermission from '@/components/RequirePermission';
 import ServiceCalculator from '@/pages/ServiceCalculator';
 import LeadCapture from '@/pages/LeadCapture';
 import SharedEstimate from '@/pages/SharedEstimate';
@@ -42,7 +43,11 @@ function App() {
           <Route path="/admin/workflows" element={<WorkflowBuilder />} />
           <Route path="/admin/ai-workflow" element={<AIWorkflowBuilder />} />
           <Route path="/admin/marketing" element={<MarketingDashboard />} />
-          <Route path="/admin/employees" element={<EmployeesPortal />} />
+          <Route path="/admin/employees" element={
+            <RequirePermission anyOf={['employee.view.all', 'user.view.all']} allowRoles={['admin_owner', 'admin']}>
+              <EmployeesPortal />
+            </RequirePermission>
+          } />
           <Route path="/portal/welcome" element={<PortalWelcome />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPasswordWithToken />} />

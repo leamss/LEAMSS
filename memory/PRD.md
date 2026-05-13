@@ -3,6 +3,28 @@
 ## Original Problem Statement
 Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case Manager, Partner, Client. Expanding to a full multi-department Employee Portal with production-grade RBAC.
 
+### RBAC Phase 2.2 — Route Guard Bug Fix (2026-05-13)
+
+**Reported by user via screenshots:** A sr_sales_executive user was accessing `/admin/employees` and getting 403 errors from backend when trying admin actions (Reset Password, Change Role). UI was confusing — actions were visible but failed.
+
+**Root cause:** No frontend route guard. `EmployeesPortal.jsx` only checked `if (!token)`. Any valid token allowed access, then backend correctly returned 403 when user lacked permissions.
+
+**Fix:**
+1. **Created** `/app/frontend/src/components/RequirePermission.jsx` — declarative route guard
+   - Matches backend `PermissionService` logic (wildcard, resource wildcard, scope hierarchy all > dept > team > own)
+   - Props: `anyOf=[]` (permissions), `allowRoles=[]` (role keys), `fallback`
+   - On deny: toast "Access denied" + redirect to user's natural dashboard
+2. **Applied to** `/admin/employees` route in `App.js`:
+   ```jsx
+   <RequirePermission anyOf={['employee.view.all', 'user.view.all']} allowRoles={['admin_owner', 'admin']}>
+   ```
+3. **Defense in depth** — Inside `EmployeeDetailModal`, admin-only buttons (Reset Pwd, Deactivate, Change Role, Edit Profile) are now conditionally hidden/disabled based on logged-in user's `permissions[]`
+
+**Verified:**
+- ✅ sr_sales_executive → `/admin/employees` → blocked + redirected to `/portal/welcome` with toast
+- ✅ admin → `/admin/employees` → full Employees Dashboard renders normally
+- ✅ Even if a non-admin somehow reaches modal, all admin-only buttons hidden
+
 ### RBAC Phase 2.1 — Critical Fixes Complete (2026-05-13)
 
 All 4 critical issues resolved & tested. Phase 2 is now **production-ready**.

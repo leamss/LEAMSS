@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -35,6 +35,17 @@ export default function EmployeeDetailModal({ employeeId, onClose, onUpdated }) 
   const [resetPwdResult, setResetPwdResult] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
   const token = localStorage.getItem('token');
+
+  // Permission check helpers — same logic as backend
+  const myPerms = useMemo(() => {
+    try { return JSON.parse(localStorage.getItem('user') || '{}').permissions || []; }
+    catch { return []; }
+  }, []);
+  const canManage = myPerms.includes('*') ||
+    myPerms.includes('user.update.any') ||
+    myPerms.includes('employee.update.all') ||
+    myPerms.includes('employee.terminate.any') ||
+    myPerms.includes('system.update.any');
 
   const load = async () => {
     try {
@@ -162,10 +173,14 @@ export default function EmployeeDetailModal({ employeeId, onClose, onUpdated }) 
               <Button variant="outline" size="sm" onClick={() => setShowPreview(true)} className="text-amber-600 border-amber-200" data-testid="view-dashboard-btn">
                 <Eye className="h-3.5 w-3.5 mr-1" /> View Dashboard
               </Button>
-              <Button variant="outline" size="sm" onClick={() => setResetPwdDialog({ open: true, delivery: 'show_once', reason: '' })} data-testid="reset-pwd-btn"><KeyRound className="h-3.5 w-3.5 mr-1" /> Reset Pwd</Button>
-              <Button variant="outline" size="sm" onClick={toggleActive} className={user.employment_status === 'active' ? 'text-rose-600 border-rose-200' : 'text-emerald-600 border-emerald-200'} data-testid="toggle-active-btn">
-                {user.employment_status === 'active' ? <><UserX className="h-3.5 w-3.5 mr-1" /> Deactivate</> : <><UserCheck className="h-3.5 w-3.5 mr-1" /> Reactivate</>}
-              </Button>
+              {canManage && (
+                <>
+                  <Button variant="outline" size="sm" onClick={() => setResetPwdDialog({ open: true, delivery: 'show_once', reason: '' })} data-testid="reset-pwd-btn"><KeyRound className="h-3.5 w-3.5 mr-1" /> Reset Pwd</Button>
+                  <Button variant="outline" size="sm" onClick={toggleActive} className={user.employment_status === 'active' ? 'text-rose-600 border-rose-200' : 'text-emerald-600 border-emerald-200'} data-testid="toggle-active-btn">
+                    {user.employment_status === 'active' ? <><UserX className="h-3.5 w-3.5 mr-1" /> Deactivate</> : <><UserCheck className="h-3.5 w-3.5 mr-1" /> Reactivate</>}
+                  </Button>
+                </>
+              )}
               <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-md"><X className="h-4 w-4" /></button>
             </div>
           </div>
@@ -190,7 +205,7 @@ export default function EmployeeDetailModal({ employeeId, onClose, onUpdated }) 
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold">Profile Details</h3>
                 {!editing ? (
-                  <Button size="sm" variant="outline" onClick={() => setEditing(true)} data-testid="edit-profile-btn"><Edit className="h-3.5 w-3.5 mr-1" /> Edit</Button>
+                  <Button size="sm" variant="outline" onClick={() => setEditing(true)} disabled={!canManage} title={!canManage ? "Admin only" : ""} data-testid="edit-profile-btn"><Edit className="h-3.5 w-3.5 mr-1" /> Edit</Button>
                 ) : (
                   <div className="flex gap-2">
                     <Button size="sm" variant="outline" onClick={() => setEditing(false)} data-testid="cancel-edit">Cancel</Button>
