@@ -62,6 +62,10 @@ leave_balance_history_col = db["leave_balance_history"]
 lwp_records_col = db["lwp_records"]
 attendance_regularizations_col = db["attendance_regularizations"]
 
+# Phase 4B — Sales Targets Management
+sales_targets_col = db["sales_targets"]
+target_templates_col = db["target_templates"]
+
 
 async def init_db():
     """Create indexes"""

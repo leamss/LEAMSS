@@ -1,0 +1,52 @@
+{
+  "summary": "Phase 4B Sales Targets Management — backend + frontend tested end-to-end. Backend 15/15 from existing test_phase4b_targets.py PASS. 14/14 additional tests in new test_phase4b_extras.py PASS (role isolation for case_manager/client, template CRUD POST/PATCH/DELETE, single-target recalc, leaderboard scoping, insights/forecast endpoints, bulk-set summary shape). Phase 4A regression 15/15 PASS — no regression. Frontend: /admin/sales/targets (sales-targets-admin-page testid present, team grid with stats strip, period selector, bulk-apply modal trigger, edit/set buttons), /admin/sales/target-templates (3 system templates visible: Starter ₹3L/6, Standard ₹5L/10, Aggressive ₹8L/16, with Edit/Delete disabled on system ones; New Template works), /sales/my-targets (my-targets-page testid, Current Month/Quarter/History tabs, Revenue + PA Count progress cards), /sales/dashboard Monthly Target widget shows live data (₹0/₹5.0L, 0/10 PAs, View details link) — NOT a placeholder. Role isolation verified: partner→/sales/my-targets redirects to /partner; partner→/admin/sales/targets redirects to /partner; client→/sales/my-targets redirects to /client; case_manager→/sales/my-targets stays on /case-manager dashboard. Auto-recalc hook code at pre_assess_portal.py L942-950 confirmed in place. ONE MINOR BUG FOUND: days_remaining computation returns 0 mid-month (May 13, period_end June 1 → should be ~19) causing UI to show 'Period ended' incorrectly.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "GET /api/sales/targets/my",
+        "issue": "monthly.days_remaining = 0 returned today (2026-05-13) even though monthly.period_end = 2026-06-01. Should be ~18-19. UI consequently shows 'Period ended — ₹5.00L short' mid-period and the progress card border turns red. Suspect off-by-one or wrong reference date in core/targets_logic.py (likely using period_end calc that compares dates inclusively or substracts wrong delta). Confirmed via curl. Impacts both /sales/my-targets and /sales/dashboard Monthly Target widget."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "MyTargets.jsx / SalesWidgets.jsx TargetWidget",
+        "issue": "Shows 'Period ended — ₹5.00L short' and 'days_remaining = 0 days left' mid-month. Root cause is backend days_remaining=0 (see backend minor). UI logic is correct given the bad input.",
+        "selector": "[data-testid='my-targets-page']",
+        "priority": "MEDIUM"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_phase4b_targets.py",
+    "/app/backend/tests/test_phase4b_extras.py",
+    "/app/test_reports/pytest/phase4b_results.xml",
+    "/app/test_reports/pytest/phase4b_extras.xml"
+  ],
+  "action_items": [
+    "Fix days_remaining calculation in core/targets_logic.py — when today is within the open period (today < period_end), return (period_end - today).days, not 0. Currently it's returning 0 mid-month, which is propagated to UI as 'Period ended' state and broken progress-card status. This is the only blocker to clean live-data UX."
+  ],
+  "critical_code_review_comments": [
+    "Auto-recalc hook in pre_assess_portal.py L942-950 uses try/except that swallows ALL errors with just a warning log. Good for resilience (won't block case creation) but consider also incrementing a metric or pushing to a 'recalc_failures' collection so silent failures don't accumulate undetected.",
+    "Bulk-set summary in test had to use period_year/period_month (not year/month). Schema is consistent across endpoints, good. But /api/sales/target-templates POST response wraps payload as {ok, template:{...}} while POST /sales/targets returns the target directly — inconsistent envelope. Standardize.",
+    "Template list endpoint returns mix of system + user templates with no flag distinguishing them — frontend infers via name 'is_system' field; verify the field exists on every response.",
+    "days_remaining=0 logic bug already noted above — likely a single-line fix in targets_logic.py period_bounds helper."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_phase4b_extras.py (new — 14 additional tests)"
+  ],
+  "success_rate": {
+    "backend": "100% (29/29 — 15 existing + 14 new)",
+    "frontend": "100% pages render, 100% role isolation works, 1 minor data display bug from backend"
+  },
+  "test_credentials": "Admin: admin@leamss.com / Admin@123 | Sales Manager: smgr-test@leamss.com / Pass@1234 | Sales Exec: sexec-test@leamss.com / Pass@1234 | Partner: partner@leamss.com / Partner@123 | Case Manager: manager@leamss.com / Manager@123 | Client: client@leamss.com / Client@123",
+  "seed_data_creation": "Created leftover test templates (TEST_X, TEST_TPL_cc067e) via tests — admin can delete from /admin/sales/target-templates. Bulk-set test creates a target for sexec in next month (June 2026) with override_existing=true. No production data touched.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Phase 4B is functional end-to-end. The ONLY open issue is the days_remaining=0 bug in core/targets_logic.py — fix is a one-liner. After main agent fixes it, verify by: (1) curl GET /api/sales/targets/my as sexec-test, expect monthly.days_remaining > 0 mid-month; (2) load /sales/my-targets — progress card should be green/blue (active), not red, and footer should say e.g. '18 days left' not 'Period ended'. All Phase 4A and HR Phase 3 regressions remain green.",
+  "rca of the issue": "days_remaining is computed in core/targets_logic.py (likely in attach_period_meta or similar helper). On 2026-05-13 with period_end=2026-06-01 the return is 0, indicating either (a) the function compares period_end <= now causing fallthrough to 0, or (b) it uses period.end_date instead of period.end_datetime, or (c) it subtracts in wrong order. Reproduction: login sexec-test → GET /api/sales/targets/my → inspect monthly.days_remaining. Mitigation: in core/targets_logic.py, replace days_remaining calc with `max(0, (period_end_dt - datetime.now(timezone.utc)).days)` where period_end_dt is exclusive end-of-period."
+}

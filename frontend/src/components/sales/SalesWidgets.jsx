@@ -1,12 +1,15 @@
+import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
-import { Target, IndianRupee, Trophy, PhoneCall, ArrowRight } from 'lucide-react';
+import axios from 'axios';
+import { Target, IndianRupee, Trophy, PhoneCall, ArrowRight, Sparkles, Flame, Clock } from 'lucide-react';
 
 /**
  * Internal-only widgets shown ABOVE the PA pipeline on /sales/dashboard.
- * Each widget is a "Coming in Phase 4X" placeholder — wired up later.
+ * TargetWidget is LIVE (Phase 4B). Others are still placeholders.
  */
+const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const PHASE_BADGE = (phase) => (
   <Badge className="bg-amber-100 text-amber-800 text-[10px] font-bold uppercase tracking-wide">
@@ -14,11 +17,99 @@ const PHASE_BADGE = (phase) => (
   </Badge>
 );
 
+const formatINR = (n) => {
+  if (n == null) return '₹0';
+  const num = Math.round(Number(n) || 0);
+  if (num >= 10000000) return `₹${(num / 10000000).toFixed(1)}Cr`;
+  if (num >= 100000) return `₹${(num / 100000).toFixed(1)}L`;
+  if (num >= 1000) return `₹${(num / 1000).toFixed(0)}K`;
+  return `₹${num.toLocaleString('en-IN')}`;
+};
+
+const pctBarColor = (p) => {
+  if (p >= 150) return 'bg-gradient-to-r from-amber-400 to-amber-600';
+  if (p >= 100) return 'bg-gradient-to-r from-emerald-500 to-green-600';
+  if (p >= 75) return 'bg-gradient-to-r from-blue-500 to-indigo-600';
+  if (p >= 50) return 'bg-gradient-to-r from-yellow-400 to-orange-500';
+  return 'bg-gradient-to-r from-rose-500 to-red-600';
+};
+
 
 export function TargetWidget() {
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [monthly, setMonthly] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const r = await axios.get(`${API}/sales/targets/my`, { headers: { Authorization: `Bearer ${token}` } });
+        if (!cancelled) setMonthly(r.data.monthly);
+      } catch (e) {
+        // Silently fail — user may not have access
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Loading state
+  if (loading) {
+    return (
+      <Card className="p-4 border-t-4 border-t-indigo-500" data-testid="widget-target-loading">
+        <div className="flex items-center gap-2 mb-2">
+          <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center"><Target className="h-4 w-4 text-indigo-600 animate-pulse" /></div>
+          <p className="text-sm font-bold text-slate-800">Monthly Target</p>
+        </div>
+        <p className="text-xs text-slate-400">Loading…</p>
+      </Card>
+    );
+  }
+
+  // No target set — keep placeholder behavior
+  if (!monthly) {
+    return (
+      <Card className="p-4 border-t-4 border-t-indigo-500 hover:shadow-md transition" data-testid="widget-target">
+        <div className="flex items-start justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center">
+              <Target className="h-4 w-4 text-indigo-600" />
+            </div>
+            <p className="text-sm font-bold text-slate-800">Monthly Target</p>
+          </div>
+          <Badge className="bg-slate-100 text-slate-600 text-[10px] font-bold uppercase">Not set</Badge>
+        </div>
+        <p className="text-xs text-slate-500 mt-1">No target assigned yet</p>
+        <p className="text-xs text-slate-400">Your manager will set it soon</p>
+        <button
+          onClick={() => navigate('/sales/my-targets')}
+          className="mt-2 text-xs text-indigo-600 hover:underline flex items-center gap-1"
+          data-testid="link-targets"
+        >
+          View targets page <ArrowRight className="h-3 w-3" />
+        </button>
+      </Card>
+    );
+  }
+
+  // Live target data
+  const ach = monthly.achievement || {};
+  const revPct = ach.revenue_percentage || 0;
+  const overallPct = ach.overall_percentage || 0;
+  const targetRev = monthly.targets?.revenue || 0;
+  const currentRev = ach.revenue || 0;
+  const targetPa = monthly.targets?.pa_count || 0;
+  const currentPa = ach.pa_count || 0;
+  const daysLeft = monthly.days_remaining || 0;
+  const gap = Math.max(0, targetRev - currentRev);
+  const dailyReq = daysLeft > 0 && gap > 0 ? gap / daysLeft : 0;
+
   return (
-    <Card className="p-4 border-t-4 border-t-indigo-500 hover:shadow-md transition" data-testid="widget-target">
+    <Card className="p-4 border-t-4 border-t-indigo-500 hover:shadow-md transition cursor-pointer" data-testid="widget-target" onClick={() => navigate('/sales/my-targets')}>
       <div className="flex items-start justify-between mb-2">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center">
@@ -26,16 +117,31 @@ export function TargetWidget() {
           </div>
           <p className="text-sm font-bold text-slate-800">Monthly Target</p>
         </div>
-        {PHASE_BADGE('4B')}
+        <Badge className="bg-indigo-600 text-white text-[10px] font-bold uppercase">{overallPct.toFixed(0)}%</Badge>
       </div>
-      <p className="text-xs text-slate-500 mt-1">Setup pending</p>
-      <p className="text-xs text-slate-400">Your targets will appear here</p>
+      <p className="text-lg font-extrabold text-indigo-700 mt-1" data-testid="widget-target-amounts">
+        {formatINR(currentRev)} <span className="text-slate-400 text-sm font-normal">/ {formatINR(targetRev)}</span>
+      </p>
+      <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden mt-1.5" data-testid="widget-target-progress">
+        <div className={`h-full ${pctBarColor(revPct)} transition-all`} style={{ width: `${Math.min(100, revPct)}%` }} />
+      </div>
+      <div className="mt-2 flex items-center justify-between text-[11px]">
+        <span className="text-slate-600 flex items-center gap-1">
+          <span>{currentPa}/{targetPa} PAs</span>
+        </span>
+        <span className="text-slate-500 flex items-center gap-1"><Clock className="h-3 w-3" />{daysLeft}d left</span>
+      </div>
+      {dailyReq > 0 && (
+        <p className="mt-1.5 text-[11px] text-orange-700 font-medium flex items-center gap-1" data-testid="widget-target-pace">
+          <Flame className="h-3 w-3" /> Need {formatINR(Math.ceil(dailyReq))}/day
+        </p>
+      )}
       <button
-        onClick={() => navigate('/sales/coming-soon?feature=targets')}
+        onClick={(e) => { e.stopPropagation(); navigate('/sales/my-targets'); }}
         className="mt-2 text-xs text-indigo-600 hover:underline flex items-center gap-1"
         data-testid="link-targets"
       >
-        View target structure <ArrowRight className="h-3 w-3" />
+        View details <ArrowRight className="h-3 w-3" />
       </button>
     </Card>
   );

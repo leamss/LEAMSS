@@ -237,6 +237,15 @@ PERMISSIONS = [
     _p("target", "create", "any", "Set Targets", "target", "medium"),
     _p("target", "update", "team", "Update Team Targets", "target", "medium"),
     _p("target", "update", "all", "Update Any Target", "target", "high"),
+    _p("target", "delete", "any", "Delete Target", "target", "high", audit=True),
+    _p("target", "history", "team", "View Team Target History", "target"),
+    _p("target", "history", "all", "View All Target History", "target", "medium"),
+
+    # ───── Target Templates ─────
+    _p("target_template", "view", "all", "View Target Templates", "target"),
+    _p("target_template", "use", "any", "Apply Target Template", "target", "medium"),
+    _p("target_template", "create", "any", "Create Target Template", "target", "medium", audit=True),
+    _p("target_template", "manage", "any", "Manage Target Templates", "target", "high", audit=True),
 
     # ───── Incentive ─────
     _p("incentive", "view", "own", "View Own Incentive", "incentive"),
@@ -414,7 +423,8 @@ ROLES = [
             "proposal.view.all", "proposal.generate.any", "proposal.send.any",
             "commission.view.all", "commission.update.any",
             "team.view.all", "team.create.any", "team.update.dept", "team.update.all",
-            "target.view.all", "target.create.any", "target.update.team", "target.update.all",
+            "target.view.all", "target.create.any", "target.update.team", "target.update.all", "target.delete.any", "target.history.all",
+            "target_template.view.all", "target_template.use.any", "target_template.create.any", "target_template.manage.any",
             "incentive.view.all", "incentive.update.any",
             "discount.view.all", "discount.approve.low", "discount.approve.medium", "discount.approve.high",
             "call_log.view.all",
@@ -445,7 +455,8 @@ ROLES = [
             "proposal.view.own", "proposal.generate.own", "proposal.send.own",
             "commission.view.team", "commission.view.own",
             "team.view.own", "team.update.own",
-            "target.view.team", "target.update.team",
+            "target.view.team", "target.update.team", "target.create.any", "target.history.team",
+            "target_template.view.all", "target_template.use.any",
             "incentive.view.team", "incentive.view.own",
             "discount.apply.own", "discount.approve.low", "discount.approve.medium",
             "call_log.view.team", "call_log.create.own",
@@ -503,6 +514,7 @@ ROLES = [
             "commission.view.own", "target.view.own", "incentive.view.own",
             "discount.apply.own",
             "call_log.view.own", "call_log.create.own",
+            "target_template.view.all",
         ],
         "ui_modules": [
             "sales_dashboard", "pa_pipeline_own", "lead_pool", "my_targets",

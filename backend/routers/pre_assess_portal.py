@@ -939,6 +939,16 @@ async def admin_approve_final(pa_id: str, data: Optional[AdminApproveFinalReques
 
     await _log(current_user["id"], pa_id, "case_created", {"case_id": case_code, "case_manager_id": cm_id})
 
+    # Phase 4B — Auto-recalc target achievement for the PA creator (case_created = revenue confirmed)
+    try:
+        from core.targets_logic import recalc_targets_for_user
+        creator_id = pa.get("created_by_user_id") or pa.get("partner_id")
+        if creator_id:
+            await recalc_targets_for_user(creator_id, notify=True)
+    except Exception as _e:
+        # Never block case creation if target recalc fails
+        logger.warning(f"Phase 4B recalc failed for PA {pa_id}: {_e}")
+
     return {"ok": True, "case_id": case_id, "case_code": case_code, "case_manager_id": cm_id, "case_manager_name": cm_name, "stage": "case_created"}
 
 

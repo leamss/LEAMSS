@@ -73,6 +73,7 @@ from routers.admin_users import router as admin_users_router
 from routers.attendance import router as attendance_router
 from routers.leaves import router as leaves_router
 from routers.hr_admin import router as hr_admin_router
+from routers.targets import router as targets_router
 
 app = FastAPI(title="LEAMSS Portal API", version="3.0")
 
@@ -132,6 +133,15 @@ async def startup():
               f"backfilled={pr['backfilled']}, skipped={pr['skipped']}")
     except Exception as e:
         print(f"[Phase4A ERROR] {e}")
+
+    # Run Phase 4B Targets init (idempotent — seeds 3 default templates + indexes)
+    try:
+        from migrations.phase4b_targets_init import run_migration as run_phase4b
+        tr = await run_phase4b()
+        print(f"[Phase4B] Targets init {tr['status']}: "
+              f"templates_seeded={tr.get('templates_seeded', 0)}, skipped={tr.get('templates_skipped', 0)}")
+    except Exception as e:
+        print(f"[Phase4B ERROR] {e}")
 
 
 async def seed_database():
@@ -273,7 +283,9 @@ async def seed_database():
 
 
 # Include all routers
-for r in [auth_router, users_router, products_router, sales_router, cases_router,
+# Note: targets_router is registered BEFORE sales_router because sales has a `/sales/{sale_id}` catch-all
+# that would otherwise intercept `/sales/target-templates` and similar single-segment GET routes.
+for r in [targets_router, auth_router, users_router, products_router, sales_router, cases_router,
           documents_router, tickets_router, notifications_router, stats_router,
           activity_router, analytics_router, search_router, reports_router, settings_router,
           refunds_router, partner_commissions_router, pdf_reports_router, ai_router,

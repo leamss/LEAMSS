@@ -29,6 +29,9 @@ import LeaveTypesManager from '@/pages/admin/LeaveTypesManager';
 import ApproverConfig from '@/pages/admin/ApproverConfig';
 import HRAuditLog from '@/pages/admin/HRAuditLog';
 import SalesDashboard from '@/pages/SalesDashboard';
+import MyTargets from '@/pages/MyTargets';
+import SalesTargetsAdmin from '@/pages/admin/SalesTargetsAdmin';
+import TargetTemplatesManager from '@/pages/admin/TargetTemplatesManager';
 import ComingSoon from '@/pages/ComingSoon';
 import ServiceCalculator from '@/pages/ServiceCalculator';
 import LeadCapture from '@/pages/LeadCapture';
@@ -90,6 +93,21 @@ function App() {
           <Route path="/sales/dashboard" element={
             <RequirePermission anyOf={['pa.create.own', 'pa.view.own']}>
               <SalesDashboard />
+            </RequirePermission>
+          } />
+          <Route path="/sales/my-targets" element={
+            <RequirePermission anyOf={['target.view.own']}>
+              <MyTargets />
+            </RequirePermission>
+          } />
+          <Route path="/admin/sales/targets" element={
+            <RequirePermission anyOf={['target.view.all', 'target.view.team', 'target.view.dept', 'target.create.any']}>
+              <SalesTargetsAdmin />
+            </RequirePermission>
+          } />
+          <Route path="/admin/sales/target-templates" element={
+            <RequirePermission anyOf={['target_template.view.all', 'target_template.manage.any']}>
+              <TargetTemplatesManager />
             </RequirePermission>
           } />
           <Route path="/sales/coming-soon" element={<ComingSoon />} />
