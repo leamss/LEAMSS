@@ -247,6 +247,12 @@ PERMISSIONS = [
     _p("target_template", "create", "any", "Create Target Template", "target", "medium", audit=True),
     _p("target_template", "manage", "any", "Manage Target Templates", "target", "high", audit=True),
 
+    # ───── Express Sales (Phase 4B Part 2) ─────
+    _p("pa", "create", "express.own", "Create Express PA (own)", "sales", "medium"),
+    _p("pa", "approve", "express", "Approve Express Sales", "sales", "high", audit=True),
+    _p("sales_settings", "view", "all", "View Sales Settings", "sales"),
+    _p("sales_settings", "manage", "any", "Manage Sales Settings", "sales", "high", audit=True),
+
     # ───── Incentive ─────
     _p("incentive", "view", "own", "View Own Incentive", "incentive"),
     _p("incentive", "view", "team", "View Team Incentive", "incentive"),
@@ -425,6 +431,7 @@ ROLES = [
             "team.view.all", "team.create.any", "team.update.dept", "team.update.all",
             "target.view.all", "target.create.any", "target.update.team", "target.update.all", "target.delete.any", "target.history.all",
             "target_template.view.all", "target_template.use.any", "target_template.create.any", "target_template.manage.any",
+            "pa.approve.express", "sales_settings.view.all", "sales_settings.manage.any",
             "incentive.view.all", "incentive.update.any",
             "discount.view.all", "discount.approve.low", "discount.approve.medium", "discount.approve.high",
             "call_log.view.all",
@@ -457,6 +464,7 @@ ROLES = [
             "team.view.own", "team.update.own",
             "target.view.team", "target.update.team", "target.create.any", "target.history.team",
             "target_template.view.all", "target_template.use.any",
+            "pa.create.express.own", "pa.approve.express", "sales_settings.view.all",
             "incentive.view.team", "incentive.view.own",
             "discount.apply.own", "discount.approve.low", "discount.approve.medium",
             "call_log.view.team", "call_log.create.own",
@@ -481,6 +489,7 @@ ROLES = [
         "description": "Senior IC — same permissions as sales_executive plus mentorship visibility",
         "permissions": [
             "pa.view.own", "pa.create.own", "pa.update.own", "pa.share.own", "pa.delete.own",
+            "pa.create.express.own",
             "lead.view.own", "lead.view.pool", "lead.claim.pool", "lead.create.any", "lead.update.own",
             "client.view.own",
             "proposal.view.own", "proposal.generate.own", "proposal.send.own",
@@ -489,6 +498,7 @@ ROLES = [
             "commission.view.own", "target.view.own", "incentive.view.own",
             "discount.apply.own",
             "call_log.view.own", "call_log.create.own",
+            "sales_settings.view.all",
         ],
         "ui_modules": [
             "sales_dashboard", "pa_pipeline_own", "lead_pool", "my_targets",
@@ -515,6 +525,7 @@ ROLES = [
             "discount.apply.own",
             "call_log.view.own", "call_log.create.own",
             "target_template.view.all",
+            "pa.create.express.own", "sales_settings.view.all",
         ],
         "ui_modules": [
             "sales_dashboard", "pa_pipeline_own", "lead_pool", "my_targets",

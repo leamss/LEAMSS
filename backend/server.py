@@ -74,6 +74,7 @@ from routers.attendance import router as attendance_router
 from routers.leaves import router as leaves_router
 from routers.hr_admin import router as hr_admin_router
 from routers.targets import router as targets_router
+from routers.express_sales import router as express_sales_router
 
 app = FastAPI(title="LEAMSS Portal API", version="3.0")
 
@@ -142,6 +143,14 @@ async def startup():
               f"templates_seeded={tr.get('templates_seeded', 0)}, skipped={tr.get('templates_skipped', 0)}")
     except Exception as e:
         print(f"[Phase4B ERROR] {e}")
+
+    # Run Phase 4B Part 2 — Express Sales init (idempotent — seeds sales_settings + indexes)
+    try:
+        from migrations.phase4b_express_init import run_migration as run_express_init
+        er = await run_express_init()
+        print(f"[Phase4B-Express] Init {er['status']}: settings_seeded={er.get('settings_seeded', 0)}")
+    except Exception as e:
+        print(f"[Phase4B-Express ERROR] {e}")
 
 
 async def seed_database():
@@ -303,7 +312,7 @@ for r in [targets_router, auth_router, users_router, products_router, sales_rout
           legal_archive_router, agreement_templates_router, pa_agreements_router,
           eligibility_router, doc_expiry_router, visa_compare_router, share_links_router,
           employees_router, departments_router, rbac_admin_router, admin_users_router,
-          attendance_router, leaves_router, hr_admin_router]:
+          attendance_router, leaves_router, hr_admin_router, express_sales_router]:
     app.include_router(r, prefix="/api")
 
 

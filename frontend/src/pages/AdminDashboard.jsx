@@ -1239,6 +1239,7 @@ const AdminDashboard = () => {
       items: [
         { id: 'sales-targets', icon: Target, label: 'Targets Management', onClick: () => navigate('/admin/sales/targets') },
         { id: 'sales-templates', icon: Layers, label: 'Target Templates', onClick: () => navigate('/admin/sales/target-templates') },
+        { id: 'express-approvals', icon: Zap, label: 'Express Approvals', onClick: () => navigate('/admin/sales/express-approvals') },
       ]
     },
     {

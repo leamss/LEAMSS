@@ -3,7 +3,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Target, IndianRupee, Trophy, PhoneCall, ArrowRight, Sparkles, Flame, Clock } from 'lucide-react';
+import { Target, IndianRupee, Trophy, PhoneCall, ArrowRight, Sparkles, Flame, Clock, Zap } from 'lucide-react';
 
 /**
  * Internal-only widgets shown ABOVE the PA pipeline on /sales/dashboard.
@@ -231,11 +231,93 @@ export function FollowupsWidget() {
 
 export default function SalesWidgetsRow() {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3" data-testid="sales-widgets-row">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3" data-testid="sales-widgets-row">
       <TargetWidget />
+      <ExpressUsageWidget />
       <CommissionWidget />
       <TeamRankWidget />
       <FollowupsWidget />
     </div>
+  );
+}
+
+
+/**
+ * Phase 4B Part 2 — Express Usage Widget
+ * Shows sales person's monthly Express Sale usage + remaining quota.
+ */
+export function ExpressUsageWidget() {
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const r = await axios.get(`${API}/express/my-usage`, { headers: { Authorization: `Bearer ${token}` } });
+        if (!cancelled) setData(r.data);
+      } catch (_) {} finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  if (loading) {
+    return (
+      <Card className="p-4 border-t-4 border-t-amber-500" data-testid="widget-express-loading">
+        <div className="flex items-center gap-2 mb-2">
+          <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center"><Zap className="h-4 w-4 text-amber-600 animate-pulse" /></div>
+          <p className="text-sm font-bold text-slate-800">Express Sales</p>
+        </div>
+        <p className="text-xs text-slate-400">Loading…</p>
+      </Card>
+    );
+  }
+  if (!data) {
+    return (
+      <Card className="p-4 border-t-4 border-t-amber-500" data-testid="widget-express-error">
+        <div className="flex items-center gap-2 mb-2"><Zap className="h-4 w-4 text-amber-600" /><p className="text-sm font-bold text-slate-800">Express Sales</p></div>
+        <p className="text-xs text-slate-500">Unavailable</p>
+      </Card>
+    );
+  }
+
+  const used = data.used_this_month;
+  const limit = data.limit_per_month;
+  const isUnlimited = limit == null;
+  const pct = isUnlimited ? 0 : (used / Math.max(1, limit)) * 100;
+  const barColor = pct >= 100 ? 'bg-rose-500' : pct >= 80 ? 'bg-orange-500' : 'bg-amber-500';
+
+  return (
+    <Card className="p-4 border-t-4 border-t-amber-500 hover:shadow-md transition cursor-pointer" data-testid="widget-express" onClick={() => navigate('/partner?tab=pipeline')}>
+      <div className="flex items-start justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center">
+            <Zap className="h-4 w-4 text-amber-600" />
+          </div>
+          <p className="text-sm font-bold text-slate-800">Express Sales</p>
+        </div>
+        {data.allowed
+          ? <span className="text-[10px] font-bold uppercase text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.5">OK</span>
+          : <span className="text-[10px] font-bold uppercase text-rose-700 bg-rose-50 border border-rose-200 rounded px-1.5 py-0.5">Limit</span>
+        }
+      </div>
+      <p className="text-lg font-extrabold text-amber-700 mt-1" data-testid="widget-express-count">
+        {used}
+        <span className="text-slate-400 text-sm font-normal"> / {isUnlimited ? '∞' : limit}</span>
+      </p>
+      {!isUnlimited && (
+        <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden mt-1.5">
+          <div className={`h-full ${barColor} transition-all`} style={{ width: `${Math.min(100, pct)}%` }} />
+        </div>
+      )}
+      <p className="mt-2 text-[11px] text-slate-600">
+        {isUnlimited ? 'Unlimited Express quota' : `${data.remaining} remaining this month`}
+      </p>
+      <p className="text-[11px] text-slate-500 mt-0.5">{data.month_label}</p>
+    </Card>
   );
 }

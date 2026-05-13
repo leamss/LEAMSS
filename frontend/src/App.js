@@ -32,6 +32,7 @@ import SalesDashboard from '@/pages/SalesDashboard';
 import MyTargets from '@/pages/MyTargets';
 import SalesTargetsAdmin from '@/pages/admin/SalesTargetsAdmin';
 import TargetTemplatesManager from '@/pages/admin/TargetTemplatesManager';
+import ExpressApprovalsAdmin from '@/pages/admin/ExpressApprovalsAdmin';
 import ComingSoon from '@/pages/ComingSoon';
 import ServiceCalculator from '@/pages/ServiceCalculator';
 import LeadCapture from '@/pages/LeadCapture';
@@ -108,6 +109,11 @@ function App() {
           <Route path="/admin/sales/target-templates" element={
             <RequirePermission anyOf={['target_template.view.all', 'target_template.manage.any']}>
               <TargetTemplatesManager />
+            </RequirePermission>
+          } />
+          <Route path="/admin/sales/express-approvals" element={
+            <RequirePermission anyOf={['pa.approve.express', 'system.user_manage.any']}>
+              <ExpressApprovalsAdmin />
             </RequirePermission>
           } />
           <Route path="/sales/coming-soon" element={<ComingSoon />} />

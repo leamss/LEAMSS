@@ -59,18 +59,21 @@ PRE_ASSESSMENT_FEE = 5100  # INR
 STRIPE_API_KEY = os.environ.get("STRIPE_API_KEY")
 
 STAGES = [
-    "new",                    # Partner just created lead
-    "payment_pending",        # Payment link sent to client
-    "payment_received",       # Client paid ₹5,100
-    "documents_submitted",    # Partner submitted docs to admin
-    "under_review",           # Admin is reviewing
-    "approved",               # Admin approved → Partner can send proposal
-    "rejected",               # Admin rejected → Refund initiated
-    "proposal_sent",          # Partner sent sales proposal to client
-    "proposal_paid",          # Client paid service fee
-    "case_created",           # Case auto-created, process started
-    "refund_initiated",       # Refund in progress
-    "refunded",               # Refund completed
+    "new",                          # Partner just created lead
+    "payment_pending",              # Payment link sent to client
+    "payment_received",             # Client paid ₹5,100
+    "documents_submitted",          # Partner submitted docs to admin
+    "under_review",                 # Admin is reviewing
+    "approved",                     # Admin approved → Partner can send proposal (also reused by Express after admin approve)
+    "rejected",                     # Admin rejected → Refund initiated
+    "proposal_sent",                # Partner sent sales proposal to client
+    "proposal_paid",                # Client paid service fee
+    "case_created",                 # Case auto-created, process started
+    "refund_initiated",             # Refund in progress
+    "refunded",                     # Refund completed
+    # Phase 4B (Part 2) — Express Sale stages
+    "express_pending_approval",     # Express PA awaiting admin approval (no fees needed)
+    "express_rejected",             # Admin rejected express request (no payment was made, no refund needed)
 ]
 
 
@@ -88,6 +91,10 @@ class CreatePreAssessment(BaseModel):
     # Phase 4A — Lead Source Tracking (optional)
     lead_source: Optional[str] = None  # maple_crm | walkin | referral | cold_call | linkedin | whatsapp | email | event | direct | other
     lead_source_detail: Optional[str] = None  # location (walkin) / referrer name / other text
+    # Phase 4B (Part 2) — Express Sale support
+    sale_type: Optional[str] = "standard"  # "standard" | "express"
+    express_sale_reason: Optional[str] = None  # required if sale_type=="express"
+    express_sale_justification: Optional[str] = None  # min 30 chars if express
 
 
 class AdminReview(BaseModel):
@@ -117,9 +124,61 @@ async def create_pre_assessment(data: CreatePreAssessment, current_user: dict = 
     Phase 4A: Sales executives are treated as 'internal partners' — their user_id
     becomes the partner_id for backward compatibility. The new created_by_role and
     created_by_user_id fields capture the distinction.
+
+    Phase 4B Part 2: Supports sale_type="express" — skips PA fees collection,
+    requires admin approval before proposal generation. Standard path is unchanged.
     """
     if current_user["role"] not in PA_CREATOR_ROLES:
         raise HTTPException(status_code=403, detail="You don't have permission to create pre-assessments")
+
+    sale_type = (data.sale_type or "standard").lower()
+    if sale_type not in ("standard", "express"):
+        raise HTTPException(status_code=400, detail="sale_type must be 'standard' or 'express'")
+
+    # ─── Express-specific validation ───────────────────────
+    express_meta = {}
+    if sale_type == "express":
+        from core.express_logic import (
+            get_express_settings,
+            validate_express_request,
+            check_limit,
+            should_auto_approve,
+        )
+        settings = await get_express_settings()
+        if not settings.get("express_sale_enabled", True):
+            raise HTTPException(status_code=403, detail="Express Sales are currently disabled by Admin")
+
+        # Reason + justification validation
+        err = validate_express_request(
+            data.express_sale_reason or "",
+            data.express_sale_justification or "",
+            min_chars=int(settings.get("express_min_justification_chars", 30)),
+        )
+        if err:
+            raise HTTPException(status_code=400, detail=err)
+
+        # Monthly limit check
+        allowed, used, limit, msg = await check_limit(current_user)
+        if not allowed:
+            raise HTTPException(status_code=429, detail=msg)
+
+        # Auto-approve for senior roles
+        auto = should_auto_approve(current_user, settings)
+        now = datetime.now(timezone.utc)
+        express_meta = {
+            "sale_type": "express",
+            "express_sale_reason": data.express_sale_reason,
+            "express_sale_justification": data.express_sale_justification,
+            "express_sale_requested_at": now,
+            "express_sale_approval_status": "approved" if auto else "pending",
+            "express_sale_approved_by": current_user["id"] if auto else None,
+            "express_sale_approved_at": now if auto else None,
+            "express_sale_approval_remarks": "Auto-approved (senior role)" if auto else None,
+            "pa_fees_skipped": True,
+            "pa_fees_amount": PRE_ASSESSMENT_FEE,
+        }
+    else:
+        express_meta = {"sale_type": "standard", "pa_fees_skipped": False}
 
     pa_id = str(uuid.uuid4())
     pa_number = f"PA-{datetime.now().strftime('%Y%m%d')}-{pa_id[:6].upper()}"
@@ -129,6 +188,18 @@ async def create_pre_assessment(data: CreatePreAssessment, current_user: dict = 
         product = await products_col.find_one({"id": data.product_id}, {"_id": 0, "name": 1})
         if product:
             product_name = product.get("name", "")
+
+    # Determine starting stage:
+    #  - Standard → "new"
+    #  - Express auto-approved → "approved" (ready for proposal)
+    #  - Express needs approval → "express_pending_approval"
+    if sale_type == "express":
+        if express_meta["express_sale_approval_status"] == "approved":
+            starting_stage = "approved"
+        else:
+            starting_stage = "express_pending_approval"
+    else:
+        starting_stage = "new"
 
     pre_assessment = {
         "id": pa_id,
@@ -152,9 +223,9 @@ async def create_pre_assessment(data: CreatePreAssessment, current_user: dict = 
         "client_age": data.client_age,
         "education": data.education,
         "work_experience": data.work_experience,
-        "stage": "new",
+        "stage": starting_stage,
         "pre_assessment_fee": PRE_ASSESSMENT_FEE,
-        "fee_payment_status": "unpaid",
+        "fee_payment_status": "skipped" if sale_type == "express" else "unpaid",
         "fee_session_id": None,
         "admin_decision": None,
         "admin_reason": "",
@@ -168,26 +239,54 @@ async def create_pre_assessment(data: CreatePreAssessment, current_user: dict = 
         "case_id": None,
         "created_at": datetime.now(timezone.utc),
         "updated_at": datetime.now(timezone.utc),
+        **express_meta,
     }
     await pre_assessments_col.insert_one(pre_assessment)
     pre_assessment.pop("_id", None)
 
-    await log_activity(current_user["id"], current_user.get("name", ""), "create_pre_assessment",
-                       "pre_assessment", pa_id, f"Pre-assessment created for {data.client_name} - {data.country} {data.service_type}")
+    action_label = "create_express_pre_assessment" if sale_type == "express" else "create_pre_assessment"
+    detail_label = (
+        f"Express PA created for {data.client_name} - {data.country} {data.service_type} (reason: {data.express_sale_reason})"
+        if sale_type == "express"
+        else f"Pre-assessment created for {data.client_name} - {data.country} {data.service_type}"
+    )
+    await log_activity(current_user["id"], current_user.get("name", ""), action_label,
+                       "pre_assessment", pa_id, detail_label)
 
     # Notify admins
+    title = "🚀 New Express Sale — Approval Needed" if sale_type == "express" and starting_stage == "express_pending_approval" else "New Pre-Assessment Created"
+    link = "/admin/sales/express-approvals" if sale_type == "express" and starting_stage == "express_pending_approval" else "/admin/pre-assessments"
+    msg = (f"{current_user.get('name', '')} created Express Sale for {data.client_name} — please review"
+           if sale_type == "express" and starting_stage == "express_pending_approval"
+           else f"{current_user.get('name', '')} created pre-assessment for {data.client_name}")
     admins = await users_col.find({"role": "admin", "status": "active"}, {"_id": 0, "id": 1}).to_list(50)
     for admin in admins:
         await notifications_col.insert_one({
             "id": str(uuid.uuid4()), "user_id": admin["id"],
-            "title": "New Pre-Assessment Created",
-            "message": f"{current_user.get('name', '')} created pre-assessment for {data.client_name}",
-            "type": "pre_assessment", "read": False,
-            "link": f"/admin/pre-assessments",
+            "title": title,
+            "message": msg,
+            "type": "express_pending" if sale_type == "express" else "pre_assessment",
+            "read": False,
+            "link": link,
             "created_at": datetime.now(timezone.utc)
         })
 
-    return {"id": pa_id, "pa_number": pa_number, "message": "Pre-assessment created successfully"}
+    return {
+        "id": pa_id,
+        "pa_number": pa_number,
+        "sale_type": sale_type,
+        "stage": starting_stage,
+        "express_sale_approval_status": pre_assessment.get("express_sale_approval_status"),
+        "message": (
+            "Express Sale submitted — awaiting admin approval"
+            if starting_stage == "express_pending_approval"
+            else (
+                "Express Sale auto-approved — proceed to proposal generation"
+                if sale_type == "express"
+                else "Pre-assessment created successfully"
+            )
+        ),
+    }
 
 
 @router.post("/{pa_id}/send-payment-link")

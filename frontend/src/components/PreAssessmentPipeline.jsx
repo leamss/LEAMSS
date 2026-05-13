@@ -67,8 +67,22 @@ const PreAssessmentPipeline = ({ initialFilter = null }) => {
     client_name: '', client_email: '', client_mobile: '', country: '',
     service_type: '', product_id: '', notes: '', client_age: 0,
     education: '', work_experience: '',
-    lead_source: null, lead_source_detail: ''
+    lead_source: null, lead_source_detail: '',
+    // Phase 4B Part 2 — Express Sale fields
+    sale_type: 'standard',
+    express_sale_reason: null,
+    express_sale_justification: '',
   });
+  // Phase 4B Part 2 — Express usage (loaded from /api/express/my-usage)
+  const [expressUsage, setExpressUsage] = useState(null);
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    fetch(`${API}/express/my-usage`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d) setExpressUsage(d); })
+      .catch(() => {});
+  }, []);
   const [proposalForm, setProposalForm] = useState({ fee_amount: '', notes: '', promo_code: '', promo_applied: null, additional_discount: '', upsell_ids: [], ai_text: '' });
   const [showProposal, setShowProposal] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -131,13 +145,24 @@ const PreAssessmentPipeline = ({ initialFilter = null }) => {
     if (!form.client_name || !form.client_email || !form.country || !form.service_type) {
       toast.error('Please fill required fields'); return;
     }
+    if (form.sale_type === 'express') {
+      if (!form.express_sale_reason) { toast.error('Please select a reason for Express Sale'); return; }
+      if ((form.express_sale_justification || '').length < 30) { toast.error('Express justification must be at least 30 characters'); return; }
+    }
     try {
-      await axios.post(`${API}/pre-assessment/create`, {
+      const res = await axios.post(`${API}/pre-assessment/create`, {
         ...form, client_age: parseInt(form.client_age) || 0
       }, getAuthHeader());
-      toast.success('Pre-assessment created!');
+      toast.success(res.data.message || 'Pre-assessment created!');
       setShowCreate(false);
-      setForm({ client_name: '', client_email: '', client_mobile: '', country: '', service_type: '', product_id: '', notes: '', client_age: 0, education: '', work_experience: '', lead_source: null, lead_source_detail: '' });
+      setForm({ client_name: '', client_email: '', client_mobile: '', country: '', service_type: '', product_id: '', notes: '', client_age: 0, education: '', work_experience: '', lead_source: null, lead_source_detail: '', sale_type: 'standard', express_sale_reason: null, express_sale_justification: '' });
+      // Refresh express usage after creating an express PA
+      if (form.sale_type === 'express') {
+        try {
+          const u = await axios.get(`${API}/express/my-usage`, getAuthHeader());
+          setExpressUsage(u.data);
+        } catch (_) {}
+      }
       loadData();
     } catch (e) { toast.error(e.response?.data?.detail || 'Failed to create'); }
   };
@@ -482,6 +507,7 @@ const PreAssessmentPipeline = ({ initialFilter = null }) => {
           form={form}
           setForm={setForm}
           products={products}
+          expressUsage={expressUsage}
           onCancel={() => setShowCreate(false)}
           onSubmit={handleCreate}
         />
@@ -513,9 +539,19 @@ const PreAssessmentPipeline = ({ initialFilter = null }) => {
                     <StageIcon className="h-5 w-5 text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-bold text-slate-800">{pa.client_name}</p>
                       <Badge className="bg-slate-100 text-slate-600 text-xs">{pa.pa_number}</Badge>
+                      {pa.sale_type === 'express' && (
+                        <Badge className="bg-amber-100 text-amber-700 border border-amber-300 text-[10px] font-bold uppercase" data-testid={`express-badge-${pa.id}`}>
+                          ⚡ Express
+                        </Badge>
+                      )}
+                      {pa.sale_type === 'express' && pa.express_sale_approval_status === 'pending' && (
+                        <Badge className="bg-orange-100 text-orange-700 border border-orange-300 text-[10px] font-bold uppercase">
+                          Awaiting Approval
+                        </Badge>
+                      )}
                     </div>
                     <p className="text-sm text-slate-500">{pa.country} — {pa.service_type} {pa.product_name ? `(${pa.product_name})` : ''}</p>
                   </div>
