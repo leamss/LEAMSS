@@ -275,39 +275,70 @@ function ApplyLeaveModal({ balances, onClose, onSuccess }) {
 
           {/* Live validation preview */}
           {validation && (
-            <div className="rounded p-3 bg-slate-50 border" data-testid="validation-preview">
-              <div className="flex items-center justify-between mb-1">
-                <p className="text-xs font-bold text-slate-700">Days Breakdown</p>
-                <span className={`text-xs font-semibold ${validation.ok ? 'text-emerald-700' : 'text-rose-700'}`}>
-                  {validation.ok ? '✅ Eligible' : '❌ Blocked'}
-                </span>
+            <div className="space-y-2" data-testid="validation-preview">
+              <div className="rounded p-3 bg-slate-50 border">
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-xs font-bold text-slate-700">Days Breakdown</p>
+                  <span className={`text-xs font-semibold ${validation.ok ? 'text-emerald-700' : 'text-rose-700'}`}>
+                    {validation.ok ? '✅ Eligible' : `❌ Blocked (${validation.errors?.length || 0} issue${validation.errors?.length > 1 ? 's' : ''})`}
+                  </span>
+                </div>
+                <div className="text-xs text-slate-700 grid grid-cols-3 gap-2">
+                  <div>
+                    <p className="text-[10px] uppercase text-slate-400">Total</p>
+                    <p className="font-bold">{validation.total_days} days</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase text-slate-400">Working</p>
+                    <p className="font-bold">{validation.working_days}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase text-slate-400">Weekend</p>
+                    <p className="font-bold">{validation.days_breakdown?.weekend_included || 0}</p>
+                  </div>
+                </div>
+                {validation.days_breakdown?.is_sandwich && (
+                  <div className="mt-2 p-2 bg-amber-100 border border-amber-300 rounded text-xs text-amber-900" data-testid="sandwich-warning">
+                    <p className="font-bold">🥪 Sandwich Leave Detected</p>
+                    <p className="text-[11px]">Total {validation.total_days} days will be deducted including weekend per company policy.</p>
+                  </div>
+                )}
               </div>
-              <div className="text-xs text-slate-700 grid grid-cols-3 gap-2">
-                <div>
-                  <p className="text-[10px] uppercase text-slate-400">Total</p>
-                  <p className="font-bold">{validation.total_days} days</p>
-                </div>
-                <div>
-                  <p className="text-[10px] uppercase text-slate-400">Working</p>
-                  <p className="font-bold">{validation.working_days}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] uppercase text-slate-400">Weekend</p>
-                  <p className="font-bold">{validation.days_breakdown?.weekend_included || 0}</p>
-                </div>
-              </div>
-              {validation.days_breakdown?.is_sandwich && (
-                <div className="mt-2 p-2 bg-amber-100 border border-amber-300 rounded text-xs text-amber-900" data-testid="sandwich-warning">
-                  <p className="font-bold">🥪 Sandwich Leave Detected</p>
-                  <p className="text-[11px]">Total {validation.total_days} days will be deducted including weekend per company policy.</p>
+
+              {/* BLOCKING ERRORS — must fix before submit */}
+              {validation.errors?.length > 0 && (
+                <div className="rounded p-3 bg-rose-50 border-2 border-rose-300" data-testid="errors-section">
+                  <p className="text-xs font-bold text-rose-900 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+                    🚫 Cannot Submit — {validation.errors.length} blocking issue{validation.errors.length > 1 ? 's' : ''}
+                  </p>
+                  <ul className="space-y-1">
+                    {validation.errors.map((err, i) => (
+                      <li key={i} className="text-xs text-rose-800 leading-snug" data-testid={`error-${i}`}>
+                        {err}
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="text-[10px] text-rose-700 mt-2 italic">
+                    These are company policy violations and cannot be bypassed. Adjust dates or leave type.
+                  </p>
                 </div>
               )}
-              {validation.errors?.map((err, i) => (
-                <p key={i} className="text-xs text-rose-700 mt-1 font-semibold" data-testid={`error-${i}`}>{err}</p>
-              ))}
-              {validation.warnings?.map((w, i) => (
-                <p key={i} className="text-xs text-amber-700 mt-1" data-testid={`warning-${i}`}>{w}</p>
-              ))}
+
+              {/* WARNINGS — informational, acknowledgement may apply */}
+              {validation.warnings?.length > 0 && (
+                <div className="rounded p-3 bg-amber-50 border border-amber-300" data-testid="warnings-section">
+                  <p className="text-xs font-bold text-amber-900 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+                    ⚠️ Please Note — {validation.warnings.length} warning{validation.warnings.length > 1 ? 's' : ''}
+                  </p>
+                  <ul className="space-y-1">
+                    {validation.warnings.map((w, i) => (
+                      <li key={i} className="text-xs text-amber-800 leading-snug" data-testid={`warning-${i}`}>
+                        {w}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           )}
 
@@ -330,7 +361,17 @@ function ApplyLeaveModal({ balances, onClose, onSuccess }) {
             <p className="text-[10px] text-slate-400 mt-0.5">{reason.length}/10 chars</p>
           </div>
 
-          <div className="flex gap-2 justify-end pt-2">
+          <div className="flex gap-2 justify-end pt-2 items-center">
+            {validation && !validation.ok && (
+              <p className="text-[11px] text-rose-700 mr-auto font-medium" data-testid="submit-disabled-hint">
+                Fix {validation.errors?.length || 0} error{(validation.errors?.length || 0) > 1 ? 's' : ''} above to enable submit
+              </p>
+            )}
+            {validation?.ok && validation?.days_breakdown?.is_sandwich && !acceptSandwich && (
+              <p className="text-[11px] text-amber-700 mr-auto font-medium" data-testid="ack-sandwich-hint">
+                ✓ Tick acknowledgement above to enable submit
+              </p>
+            )}
             <Button variant="outline" onClick={onClose} data-testid="apply-cancel">Cancel</Button>
             <Button
               onClick={submit}
