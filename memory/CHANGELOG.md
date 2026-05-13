@@ -6,6 +6,56 @@ This file appends every completed phase/feature with dates and verification stat
 
 ## 📅 February 2026
 
+### ✅ Phase 3B — HR Admin Settings UI (COMPLETE — backend 100% tested)
+**Completed:** Feb 13, 2026 (same day as 3A)
+**Tests:** 42/42 backend tests passed via testing_agent_v3_fork (`/app/test_reports/iteration_93.json`)
+  - 19 Phase 3B new tests
+  - 23 Phase 3A regression tests (all still pass)
+
+#### Backend
+- Renamed router prefix: `/api/hr-admin/*` → `/api/hr/*`
+- New endpoints in `routers/hr_admin.py`:
+  - `POST /api/hr/leave-types` — create custom leave type (key uniqueness enforced)
+  - `DELETE /api/hr/leave-types/{key}` — delete (blocks system types)
+  - `POST /api/hr/holidays/import-indian/{year}` — bulk seed 9 India holidays
+  - `POST /api/hr/holidays/copy-from/{from_year}/to/{to_year}` — clone year's holidays
+  - `GET/PATCH /api/hr/approvers/config` — get/update approval workflow
+  - `GET /api/hr/approvers/simulate/{user_id}` — visual chain simulator
+  - `GET /api/hr/audit-log` — policy change audit trail
+- New `policy_audit_log` MongoDB collection (lazy-created)
+- All PATCH endpoints now log before/after to audit + use `exclude_unset` to support clearing nullable fields
+
+#### Frontend — 5 New Admin Pages
+- `/admin/hr/settings` — `AttendanceSettings.jsx` — 5 collapsible sections, live previews, save state
+- `/admin/hr/holidays` — `HolidayManager.jsx` — List + Calendar views, bulk import/copy, CSV export
+- `/admin/hr/leave-types` — `LeaveTypesManager.jsx` — 7-card grid + custom type creator + audit panel
+- `/admin/hr/approvers` — `ApproverConfig.jsx` — 5 sections + **visual chain simulator** (Applicant → L1 → Final)
+- `/admin/hr/audit` — `HRAuditLog.jsx` — Scope filter, expandable before/after diff
+
+#### Shared Components
+- `components/hr/HRSettingsLayout.jsx` — sidebar nav + breadcrumb wrapper for all 5 pages
+
+#### Sidebar Integration
+- AdminDashboard sidebar has new "HR Settings" group with 5 entries
+- All routes wrapped in `RequirePermission` with appropriate perm gates
+- Sales executive (non-admin) is properly blocked (403 redirect)
+
+#### Acceptance Criteria — All Verified ✅
+1. ✅ Admin sees HR Settings sidebar group
+2. ✅ Sales Executive blocked from /admin/hr/* (403)
+3. ✅ Office timings update reflects in next punch
+4. ✅ Custom holiday added → visible in employee calendar
+5. ✅ CL annual quota edit → reflects in user balances
+6. ✅ Final approver change → next leave routes to new approver
+7. ✅ Audit log captures all policy changes with timestamps
+8. ✅ Approval chain simulator works (visual flow)
+9. ✅ All Phase 3A functionality intact (regression: 23/23 passed)
+10. ✅ All 4 default logins still work
+
+---
+
+## 📅 February 2026
+
 ### ✅ Phase 3A — Attendance & Leave Management (COMPLETE — backend 100% tested)
 **Completed:** Feb 13, 2026
 **Tests:** 23/23 backend tests passed via testing_agent_v3_fork (`/app/test_reports/iteration_92.json`)

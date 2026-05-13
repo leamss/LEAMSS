@@ -33,6 +33,43 @@ def exec_h():
     return {"Authorization": f"Bearer {_login(*EXEC)}"}
 
 
+def _cleanup_sandwich_leaves_via_db():
+    """Idempotency helper: clear any sandwich leave_requests from prior runs for sexec-test.
+
+    Safe to call before sandwich tests. Uses pymongo directly because there is no DELETE
+    leave endpoint (leaves are cancellable but cannot be deleted via API after approval).
+    """
+    try:
+        from pymongo import MongoClient
+        mongo_url = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
+        db_name = os.environ.get("DB_NAME", "leamss_portal")
+        client = MongoClient(mongo_url)
+        db = client[db_name]
+        # Find sexec user
+        u = db["users"].find_one({"email": "sexec-test@leamss.com"}, {"_id": 0, "id": 1})
+        if not u:
+            return
+        # Delete any leave_request in the sandwich date range
+        r = db["leave_requests"].delete_many({
+            "user_id": u["id"],
+            "from_date": "2026-07-17",
+            "to_date": "2026-07-20",
+        })
+        if r.deleted_count:
+            print(f"[Sandwich cleanup] Removed {r.deleted_count} stale leave_request(s) for sexec-test")
+        client.close()
+    except Exception as e:
+        print(f"[Sandwich cleanup] Skipped: {e}")
+
+
+@pytest.fixture(autouse=True, scope="module")
+def _ensure_sandwich_idempotent():
+    """Run once before any test in this module to clear sandwich leftovers."""
+    _cleanup_sandwich_leaves_via_db()
+    yield
+    _cleanup_sandwich_leaves_via_db()
+
+
 # ─── Auth check ─────────────────────────────────────────────
 def test_login_all_three():
     for email, pw in [ADMIN, MGR, EXEC]:

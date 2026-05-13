@@ -5,6 +5,24 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 
 > **📌 Update (Feb 13, 2026):** `CHANGELOG.md` now tracks all completed phases (incl. **Phase 3A — Attendance & Leave** with full company policies). `ROADMAP.md` lists prioritized backlog. This PRD remains the static reference for original requirements.
 
+### Phase 3B — HR Admin Settings UI (Feb 13, 2026)
+
+**Status:** ✅ COMPLETE — 42/42 backend tests passed (19 new + 23 Phase 3A regression — `/app/test_reports/iteration_93.json`)
+
+**4 Admin Pages Built (+ 1 audit log viewer):**
+- `/admin/hr/settings` — Attendance Settings (5 collapsible sections with live previews)
+- `/admin/hr/holidays` — Holiday Calendar Manager (list + calendar views + bulk import/copy/export)
+- `/admin/hr/leave-types` — Leave Types & Policies (7-card grid + custom type creator)
+- `/admin/hr/approvers` — Approval Configuration with **visual chain simulator**
+- `/admin/hr/audit` — Policy Change Audit Log (scope filter + before/after diff)
+
+**Backend Additions (`routers/hr_admin.py` — prefix renamed `/hr-admin` → `/hr`):**
+- POST /api/hr/leave-types (create custom), DELETE /api/hr/leave-types/{key}
+- POST /api/hr/holidays/import-indian/{year}, POST /api/hr/holidays/copy-from/{from}/to/{to}
+- GET/PATCH /api/hr/approvers/config (advanced rules: skip-L1, self-approve, auto-approve, escalation)
+- GET /api/hr/approvers/simulate/{user_id} — visual chain preview
+- GET /api/hr/audit-log — `policy_audit_log` collection
+
 ### Phase 3A — Attendance & Leave Management (Feb 13, 2026)
 
 **Status:** ✅ COMPLETE — 23/23 backend tests passed (`/app/test_reports/iteration_92.json`)

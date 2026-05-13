@@ -1,11 +1,13 @@
-"""HR Admin Router — Phase 3A
+"""HR Admin Router — Phase 3A + 3B
 
-Endpoints for HR/Admin only:
-- GET/PATCH /hr-admin/settings        — attendance_settings (singleton)
-- GET/POST/PATCH/DELETE /hr-admin/holidays
-- GET/POST/PATCH /hr-admin/leave-types
-- GET /hr-admin/approver-config
-- POST /hr-admin/approver-config      — set final approver / dept heads
+Endpoints for HR/Admin only (prefix /hr):
+- GET/PATCH /hr/settings        — attendance_settings (singleton)
+- GET/POST/PATCH/DELETE /hr/holidays + import-indian + copy-from
+- GET/POST/PATCH/DELETE /hr/leave-types
+- GET/PATCH /hr/approvers/config — approval workflow config
+- GET /hr/approvers/simulate/{user_id} — chain simulator
+- GET /hr/eligible-approvers
+- GET /hr/audit-log — policy change audit trail
 """
 import uuid
 from datetime import datetime, timezone
@@ -40,8 +42,9 @@ async def _log_audit(actor_id: str, actor_name: str, scope: str, action: str, be
             "note": note,
             "created_at": datetime.now(timezone.utc),
         })
-    except Exception:
-        pass
+    except Exception as e:
+        # Audit failures should not fail the request, but must be visible in logs
+        print(f"[AUDIT ERROR] scope={scope} action={action} actor={actor_name}: {e}")
 
 
 class SettingsUpdate(BaseModel):
@@ -120,12 +123,13 @@ async def update_settings(
         "system.update.any", "attendance.update.all"
     )),
 ):
-    updates = {k: v for k, v in payload.model_dump(exclude_unset=True).items() if v is not None}
+    # Use exclude_unset to distinguish "field not provided" from "field set to null/false"
+    updates = payload.model_dump(exclude_unset=True)
     if not updates:
         return {"message": "No changes"}
 
-    # Validate final_approver_user_id if specified
-    if "final_approver_user_id" in updates and updates["final_approver_user_id"]:
+    # Validate final_approver_user_id if specified and not null
+    if updates.get("final_approver_user_id"):
         existing_u = await users_col.find_one(
             {"id": updates["final_approver_user_id"], "status": "active"},
             {"_id": 0, "id": 1, "name": 1},
@@ -150,7 +154,7 @@ async def update_settings(
         before=before_snap,
         after={k: v for k, v in updates.items() if k not in ("updated_at", "updated_by", "updated_by_name")},
     )
-    return {"message": "Settings updated", "fields": list(updates.keys())}
+    return {"message": "Settings updated", "fields": list(k for k in updates.keys() if k not in ("updated_at", "updated_by", "updated_by_name"))}
 
 
 # ──────────────────────────────────────────────────────────────
@@ -257,7 +261,7 @@ async def import_indian_holidays(
         "system.update.any", "attendance.update.all"
     )),
 ):
-    """One-click import of standard 11 India national holidays for the given year."""
+    """One-click import of standard India national holidays for the given year (9 entries)."""
     from migrations.attendance_leave_migration import DEFAULT_HOLIDAYS_2026
     if year < 2024 or year > 2030:
         raise HTTPException(status_code=400, detail="Year out of supported range")
@@ -319,6 +323,11 @@ async def copy_holidays_from_year(
             "created_by": current_user["id"],
         })
         inserted += 1
+    await _log_audit(
+        actor_id=current_user["id"], actor_name=current_user.get("name"),
+        scope="holidays", action="copy_year",
+        before={"from_year": from_year}, after={"to_year": to_year, "inserted": inserted, "skipped": skipped},
+    )
     return {"message": "Holidays copied", "inserted": inserted, "skipped": skipped}
 
 
@@ -505,19 +514,20 @@ async def update_approver_config(
         "system.update.any", "attendance.update.all"
     )),
 ):
-    updates = {k: v for k, v in payload.model_dump(exclude_unset=True).items() if v is not None}
+    # Preserve null values — allow admins to clear approvers explicitly
+    updates = payload.model_dump(exclude_unset=True)
     if not updates:
         return {"message": "No changes"}
 
-    # Validate user IDs
+    # Validate user IDs (only when explicitly set to a non-null value)
     for field in ("final_approver_user_id", "backup_approver_user_id"):
         if updates.get(field):
             u = await users_col.find_one({"id": updates[field], "status": "active"}, {"_id": 0, "id": 1})
             if not u:
                 raise HTTPException(status_code=400, detail=f"{field} is not an active user")
 
-    if "final_approvers_by_department" in updates:
-        for dept, uid in (updates["final_approvers_by_department"] or {}).items():
+    if "final_approvers_by_department" in updates and updates["final_approvers_by_department"]:
+        for dept, uid in updates["final_approvers_by_department"].items():
             if uid:
                 u = await users_col.find_one({"id": uid, "status": "active"}, {"_id": 0, "id": 1})
                 if not u:
@@ -535,7 +545,7 @@ async def update_approver_config(
         scope="approver_config", action="update", before=before_snap,
         after={k: v for k, v in updates.items() if k not in ("updated_at", "updated_by")},
     )
-    return {"message": "Approver config updated", "fields": list(updates.keys())}
+    return {"message": "Approver config updated", "fields": list(k for k in updates.keys() if k not in ("updated_at", "updated_by"))}
 
 
 @router.get("/approvers/simulate/{user_id}")
