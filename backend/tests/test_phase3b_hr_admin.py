@@ -168,16 +168,19 @@ def test_patch_study_leave_quota(admin_h):
 
 def test_delete_custom_leave_type(admin_h):
     r = requests.delete(f"{API}/hr/leave-types/study_leave",
+                        json={"reason": "Cleanup of test custom leave type for regression suite"},
                         headers=admin_h, timeout=20)
     assert r.status_code == 200, r.text
-    items = requests.get(f"{API}/hr/leave-types", headers=admin_h, timeout=20).json()
+    items = requests.get(f"{API}/hr/leave-types?include_inactive=false",
+                         headers=admin_h, timeout=20).json()
     assert "study_leave" not in [lt["key"] for lt in items]
 
 
 def test_delete_system_leave_type_forbidden(admin_h):
     r = requests.delete(f"{API}/hr/leave-types/casual_leave",
+                        json={"reason": "Attempting system type delete which should fail with 403"},
                         headers=admin_h, timeout=20)
-    assert r.status_code == 400, f"Expected 400, got {r.status_code}: {r.text}"
+    assert r.status_code == 403, f"Expected 403, got {r.status_code}: {r.text}"
     # Verify still exists
     items = requests.get(f"{API}/hr/leave-types", headers=admin_h, timeout=20).json()
     assert "casual_leave" in [lt["key"] for lt in items]

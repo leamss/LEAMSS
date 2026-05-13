@@ -19,7 +19,7 @@ from core.auth import get_current_user
 from core.rbac.dependencies import require_any_permission
 from core.database import (
     attendance_settings_col, holidays_col, leave_types_col,
-    users_col, db,
+    users_col, db, leave_requests_col, notifications_col,
 )
 
 router = APIRouter(prefix="/hr", tags=["HR Admin"])
@@ -93,8 +93,18 @@ class LeaveTypeUpdate(BaseModel):
     carry_forward: Optional[bool] = None
     carry_forward_cap: Optional[int] = None
     min_notice_days: Optional[int] = None
+    requires_proof_after_days: Optional[int] = None
+    description: Optional[str] = None
     color: Optional[str] = None
     is_active: Optional[bool] = None
+
+
+class LeaveTypeDelete(BaseModel):
+    reason: str = Field(min_length=20, max_length=500)
+
+
+class LeaveTypeToggle(BaseModel):
+    reason: Optional[str] = None
 
 
 # ──────────────────────────────────────────────────────────────
@@ -332,7 +342,7 @@ async def copy_holidays_from_year(
 
 
 # ──────────────────────────────────────────────────────────────
-# Leave types
+# Leave types — Phase 3B enhanced CRUD
 # ──────────────────────────────────────────────────────────────
 class LeaveTypeCreate(BaseModel):
     key: str = Field(min_length=3, max_length=40, pattern=r"^[a-z][a-z0-9_]+$")
@@ -346,17 +356,64 @@ class LeaveTypeCreate(BaseModel):
     requires_proof_after_days: int = Field(default=0, ge=0)
     min_notice_days: int = Field(default=0, ge=0)
     color: str = "#6b7280"
+    description: Optional[str] = None
     applicable_to: List[str] = ["all"]
 
 
+# Fields that system leave types cannot have edited
+SYSTEM_LOCKED_FIELDS = {"name"}
+
+
+async def _leave_type_usage_stats(key: str) -> dict:
+    """Compute usage stats for a leave type."""
+    active_apps = await leave_requests_col.count_documents({
+        "leave_type_key": key,
+        "status": {"$in": ["pending_l1", "pending_final"]},
+    })
+    approved_future = await leave_requests_col.count_documents({
+        "leave_type_key": key,
+        "status": "approved",
+        "from_date": {"$gte": datetime.now(timezone.utc).strftime("%Y-%m-%d")},
+    })
+    employees_used = await leave_requests_col.distinct("user_id", {"leave_type_key": key})
+    historical = await leave_requests_col.count_documents({"leave_type_key": key})
+    return {
+        "active_applications": active_apps,
+        "approved_future": approved_future,
+        "employees_used": len(employees_used),
+        "historical_total": historical,
+    }
+
+
 @router.get("/leave-types")
-async def list_leave_types(current_user: dict = Depends(get_current_user)):
+async def list_leave_types(
+    include_inactive: bool = True,
+    current_user: dict = Depends(get_current_user),
+):
     items = []
-    async for lt in leave_types_col.find({}, {"_id": 0}).sort("sort_order", 1):
-        if isinstance(lt.get("created_at"), datetime):
-            lt["created_at"] = lt["created_at"].isoformat()
+    q = {} if include_inactive else {"is_active": True, "soft_deleted": {"$ne": True}}
+    async for lt in leave_types_col.find(q, {"_id": 0}).sort("sort_order", 1):
+        # Serialize datetimes
+        for f in ("created_at", "updated_at", "deleted_at"):
+            if isinstance(lt.get(f), datetime):
+                lt[f] = lt[f].isoformat()
+        lt["stats"] = await _leave_type_usage_stats(lt["key"])
         items.append(lt)
     return items
+
+
+@router.get("/leave-types/{key}/usage")
+async def get_leave_type_usage(
+    key: str,
+    current_user: dict = Depends(require_any_permission(
+        "system.view.all", "leave.view.all"
+    )),
+):
+    lt = await leave_types_col.find_one({"key": key}, {"_id": 0, "key": 1, "name": 1, "is_system": 1})
+    if not lt:
+        raise HTTPException(status_code=404, detail="Leave type not found")
+    stats = await _leave_type_usage_stats(key)
+    return {**lt, "stats": stats}
 
 
 @router.post("/leave-types")
@@ -378,14 +435,16 @@ async def create_leave_type(
         **payload.model_dump(),
         "is_active": True,
         "is_system": False,
+        "soft_deleted": False,
         "sort_order": sort_order,
         "created_at": datetime.now(timezone.utc),
         "created_by": current_user["id"],
+        "created_by_name": current_user.get("name"),
     }
     await leave_types_col.insert_one(doc)
     await _log_audit(
         actor_id=current_user["id"], actor_name=current_user.get("name"),
-        scope="leave_type", action="create", before={}, after=payload.model_dump(),
+        scope=f"leave_type:{payload.key}", action="create", before={}, after=payload.model_dump(),
     )
     return {"message": "Leave type created", "id": doc["id"], "key": doc["key"]}
 
@@ -398,25 +457,71 @@ async def update_leave_type(
         "system.update.any", "leave.approve.final"
     )),
 ):
-    updates = {k: v for k, v in payload.model_dump(exclude_unset=True).items() if v is not None}
+    updates = payload.model_dump(exclude_unset=True)
     if not updates:
         return {"message": "No changes"}
     before_doc = await leave_types_col.find_one({"key": key}, {"_id": 0})
     if not before_doc:
         raise HTTPException(status_code=404, detail="Leave type not found")
+
+    # Block locked fields on system types
+    if before_doc.get("is_system"):
+        locked_attempts = [f for f in updates if f in SYSTEM_LOCKED_FIELDS]
+        if locked_attempts:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Cannot modify field(s) {locked_attempts} on system leave type. Allowed: quota, cap, consecutive, color, description, is_active.",
+            )
+
     before_snap = {k: before_doc.get(k) for k in updates.keys()}
     updates["updated_at"] = datetime.now(timezone.utc)
+    updates["updated_by"] = current_user["id"]
+    updates["updated_by_name"] = current_user.get("name")
     await leave_types_col.update_one({"key": key}, {"$set": updates})
+
     await _log_audit(
         actor_id=current_user["id"], actor_name=current_user.get("name"),
         scope=f"leave_type:{key}", action="update", before=before_snap,
-        after={k: v for k, v in updates.items() if k != "updated_at"},
+        after={k: v for k, v in updates.items() if k not in ("updated_at", "updated_by", "updated_by_name")},
     )
-    return {"message": "Leave type updated"}
+    return {"message": "Leave type updated", "fields": list(k for k in updates.keys() if k not in ("updated_at", "updated_by", "updated_by_name"))}
 
 
-@router.delete("/leave-types/{key}")
-async def delete_leave_type(
+@router.post("/leave-types/{key}/deactivate")
+async def deactivate_leave_type(
+    key: str,
+    payload: LeaveTypeToggle,
+    current_user: dict = Depends(require_any_permission(
+        "system.update.any", "leave.approve.final"
+    )),
+):
+    lt = await leave_types_col.find_one({"key": key}, {"_id": 0})
+    if not lt:
+        raise HTTPException(status_code=404, detail="Leave type not found")
+    if not lt.get("is_active", True):
+        return {"message": "Already inactive"}
+
+    await leave_types_col.update_one(
+        {"key": key},
+        {"$set": {
+            "is_active": False,
+            "deactivated_at": datetime.now(timezone.utc),
+            "deactivated_by": current_user["id"],
+            "deactivation_reason": payload.reason,
+            "updated_at": datetime.now(timezone.utc),
+        }},
+    )
+    await _log_audit(
+        actor_id=current_user["id"], actor_name=current_user.get("name"),
+        scope=f"leave_type:{key}", action="deactivate",
+        before={"is_active": True}, after={"is_active": False},
+        note=payload.reason or "",
+    )
+    return {"message": f"{lt.get('name')} deactivated. Existing applications remain valid."}
+
+
+@router.post("/leave-types/{key}/activate")
+async def activate_leave_type(
     key: str,
     current_user: dict = Depends(require_any_permission(
         "system.update.any", "leave.approve.final"
@@ -425,14 +530,98 @@ async def delete_leave_type(
     lt = await leave_types_col.find_one({"key": key}, {"_id": 0})
     if not lt:
         raise HTTPException(status_code=404, detail="Leave type not found")
-    if lt.get("is_system"):
-        raise HTTPException(status_code=400, detail="System leave types cannot be deleted; mark inactive instead")
-    await leave_types_col.delete_one({"key": key})
+    if lt.get("soft_deleted"):
+        raise HTTPException(status_code=400, detail="Soft-deleted types cannot be reactivated. Create a new type instead.")
+    if lt.get("is_active"):
+        return {"message": "Already active"}
+
+    await leave_types_col.update_one(
+        {"key": key},
+        {"$set": {
+            "is_active": True,
+            "reactivated_at": datetime.now(timezone.utc),
+            "reactivated_by": current_user["id"],
+            "updated_at": datetime.now(timezone.utc),
+        }},
+    )
     await _log_audit(
         actor_id=current_user["id"], actor_name=current_user.get("name"),
-        scope=f"leave_type:{key}", action="delete", before={"name": lt.get("name")}, after={},
+        scope=f"leave_type:{key}", action="activate",
+        before={"is_active": False}, after={"is_active": True},
     )
-    return {"message": "Leave type deleted"}
+    return {"message": f"{lt.get('name')} activated"}
+
+
+@router.delete("/leave-types/{key}")
+async def delete_leave_type(
+    key: str,
+    payload: LeaveTypeDelete,
+    current_user: dict = Depends(require_any_permission(
+        "system.update.any", "leave.approve.final"
+    )),
+):
+    """Soft-delete a CUSTOM leave type. System types cannot be deleted."""
+    lt = await leave_types_col.find_one({"key": key}, {"_id": 0})
+    if not lt:
+        raise HTTPException(status_code=404, detail="Leave type not found")
+    if lt.get("is_system"):
+        raise HTTPException(
+            status_code=403,
+            detail=f"System leave type '{key}' cannot be deleted. Use deactivate instead.",
+        )
+
+    now = datetime.now(timezone.utc)
+    # Cancel pending applications
+    pending = await leave_requests_col.update_many(
+        {"leave_type_key": key, "status": {"$in": ["pending_l1", "pending_final"]}},
+        {"$set": {
+            "status": "cancelled",
+            "cancelled_at": now,
+            "cancelled_by": "system",
+            "cancellation_reason": f"Leave type '{lt.get('name')}' was deleted by admin",
+        }},
+    )
+
+    # Notify affected applicants
+    async for r in leave_requests_col.find(
+        {"leave_type_key": key, "status": "cancelled", "cancelled_at": now},
+        {"_id": 0, "user_id": 1, "from_date": 1, "to_date": 1},
+    ):
+        await notifications_col.insert_one({
+            "id": str(uuid.uuid4()),
+            "user_id": r["user_id"],
+            "title": "Leave application cancelled",
+            "message": f"Your '{lt.get('name')}' application ({r['from_date']} → {r['to_date']}) was cancelled because the leave type was removed.",
+            "type": "leave_type_deleted",
+            "read": False,
+            "created_at": now,
+        })
+
+    # Soft delete the type
+    await leave_types_col.update_one(
+        {"key": key},
+        {"$set": {
+            "is_active": False,
+            "soft_deleted": True,
+            "deleted_at": now,
+            "deleted_by": current_user["id"],
+            "deleted_by_name": current_user.get("name"),
+            "delete_reason": payload.reason,
+            "updated_at": now,
+        }},
+    )
+
+    await _log_audit(
+        actor_id=current_user["id"], actor_name=current_user.get("name"),
+        scope=f"leave_type:{key}", action="soft_delete",
+        before={"is_active": True, "soft_deleted": False},
+        after={"is_active": False, "soft_deleted": True, "cancelled_applications": pending.modified_count},
+        note=payload.reason,
+    )
+    return {
+        "message": "Leave type soft-deleted",
+        "cancelled_applications": pending.modified_count,
+    }
 
 
 # ──────────────────────────────────────────────────────────────
