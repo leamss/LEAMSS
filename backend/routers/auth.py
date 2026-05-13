@@ -1,7 +1,7 @@
 """Auth Router"""
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from core.database import users_col, audit_logs_col
 from core.auth import verify_password, get_password_hash, create_access_token, get_current_user, build_token_payload
 import uuid
@@ -60,6 +60,7 @@ async def login(request: LoginRequest):
             "employee_id": user.get("employee_id"),
             "partner_code": user.get("partner_code"),
             "two_fa_enabled": user.get("two_fa_enabled", False),
+            "must_change_password_on_next_login": user.get("must_change_password_on_next_login", False),
             "created_at": user.get("created_at", "").isoformat() if isinstance(user.get("created_at"), datetime) else str(user.get("created_at", ""))
         }
     }
@@ -132,43 +133,144 @@ async def get_me(current_user: dict = Depends(get_current_user)):
     }
 
 
-@router.post("/impersonate/{user_id}")
+@router.post("/impersonate/{user_id}", deprecated=True)
 async def impersonate_user(user_id: str, current_user: dict = Depends(get_current_user)):
-    if current_user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
-    
-    target = await users_col.find_one({"id": user_id}, {"_id": 0})
-    if not target:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    token = create_access_token(build_token_payload(target))
-    
-    return {
-        "token": token,
-        "user": {
-            "id": target["id"], "email": target["email"], "name": target["name"],
-            "role": target["role"], "mobile": target.get("mobile", ""),
-            "status": target["status"],
-            "rbac_role": target.get("rbac_role"),
-            "user_type": target.get("user_type"),
-            "department": target.get("department"),
-            "permissions": target.get("permissions", []),
-            "ui_modules": target.get("ui_modules", []),
-            "created_at": target.get("created_at", "").isoformat() if isinstance(target.get("created_at"), datetime) else str(target.get("created_at", ""))
-        }
-    }
+    """DEPRECATED — replaced by GET /api/admin/users/{id}/dashboard-preview (read-only)."""
+    raise HTTPException(
+        status_code=410,
+        detail={
+            "error": "endpoint_removed",
+            "message": "Impersonation has been replaced with read-only Dashboard Preview.",
+            "use_instead": "GET /api/admin/users/{user_id}/dashboard-preview",
+        },
+    )
 
 
 @router.post("/change-password")
 async def change_password(data: dict, current_user: dict = Depends(get_current_user)):
+    """User-initiated password change. Validates strength, enforces force-logout on other sessions."""
     if not verify_password(data.get("current_password", ""), current_user.get("password", "")):
         raise HTTPException(status_code=400, detail="Current password incorrect")
-    
+
+    new_pwd = data.get("new_password", "")
+    confirm = data.get("confirm_password", "")
+    if new_pwd != confirm:
+        raise HTTPException(status_code=400, detail="Passwords do not match")
+
+    # Strength validation
+    from core.auth import validate_password_strength
+    ok, msg = validate_password_strength(new_pwd)
+    if not ok:
+        raise HTTPException(status_code=400, detail=msg)
+
+    # Reject if same as current
+    if verify_password(new_pwd, current_user.get("password", "")):
+        raise HTTPException(status_code=400, detail="New password must differ from current")
+
+    # Reject if matches last 3 (password history)
+    history = current_user.get("password_history", [])
+    for old_hash in history[-3:]:
+        if verify_password(new_pwd, old_hash):
+            raise HTTPException(status_code=400, detail="Cannot reuse any of your last 3 passwords")
+
+    new_hash = get_password_hash(new_pwd)
+    new_history = (history + [current_user.get("password")])[-3:]
+
     await users_col.update_one(
         {"id": current_user["id"]},
-        {"$set": {"password": get_password_hash(data["new_password"])}}
+        {"$set": {
+            "password": new_hash,
+            "password_changed_at": datetime.now(timezone.utc),
+            "must_change_password_on_next_login": False,
+            "password_history": new_history,
+            "last_password_change": datetime.now(timezone.utc),
+        }}
     )
-    return {"message": "Password changed successfully"}
+    await _log(current_user["id"], "password_changed_self", "user", current_user["id"], {})
+    return {"message": "Password changed successfully. Other sessions have been logged out."}
+
+
+@router.post("/forgot-password")
+async def forgot_password(data: dict):
+    """Public — request a reset link. Always returns success (no email enumeration)."""
+    import uuid
+    from core.database import db
+    magic_col = db["magic_links"]
+
+    email = (data.get("email") or "").strip().lower()
+    if not email:
+        return {"message": "If an account exists, reset instructions sent."}
+
+    user = await users_col.find_one({"email": email}, {"_id": 0, "id": 1, "name": 1, "email": 1})
+    if user:
+        token = str(uuid.uuid4())
+        await magic_col.insert_one({
+            "id": str(uuid.uuid4()),
+            "token": token,
+            "user_id": user["id"],
+            "purpose": "password_reset",
+            "used": False,
+            "expires_at": datetime.now(timezone.utc) + timedelta(hours=72),
+            "created_at": datetime.now(timezone.utc),
+        })
+        # ACTIVATE EMAIL WHEN RESEND LIVE
+        reset_url = f"/reset-password?token={token}"
+        print(f"[PASSWORD RESET LINK for {email}] → {reset_url} (Resend MOCKED — share manually for now)")
+        await _log(user["id"], "password_reset_requested", "user", user["id"], {"email": email})
+
+    return {"message": "If an account exists, reset instructions sent."}
+
+
+@router.post("/reset-password-with-token")
+async def reset_password_with_token(data: dict):
+    """Public — set new password using a valid reset token."""
+    from core.database import db
+    magic_col = db["magic_links"]
+
+    token = data.get("token", "")
+    new_pwd = data.get("new_password", "")
+    confirm = data.get("confirm_password", "")
+    if not token:
+        raise HTTPException(status_code=400, detail="Token required")
+    if new_pwd != confirm:
+        raise HTTPException(status_code=400, detail="Passwords do not match")
+
+    from core.auth import validate_password_strength
+    ok, msg = validate_password_strength(new_pwd)
+    if not ok:
+        raise HTTPException(status_code=400, detail=msg)
+
+    link = await magic_col.find_one({"token": token, "purpose": "password_reset"}, {"_id": 0})
+    if not link:
+        raise HTTPException(status_code=400, detail="Invalid or expired token")
+    if link.get("used"):
+        raise HTTPException(status_code=400, detail="This reset link has already been used")
+    expires_at = link.get("expires_at")
+    if expires_at and isinstance(expires_at, datetime):
+        if datetime.now(timezone.utc) > expires_at.replace(tzinfo=timezone.utc) if expires_at.tzinfo is None else expires_at:
+            raise HTTPException(status_code=400, detail="This reset link has expired")
+
+    user = await users_col.find_one({"id": link["user_id"]}, {"_id": 0})
+    if not user:
+        raise HTTPException(status_code=400, detail="User not found")
+
+    new_hash = get_password_hash(new_pwd)
+    history = user.get("password_history", [])
+    new_history = (history + [user.get("password")])[-3:]
+
+    await users_col.update_one(
+        {"id": user["id"]},
+        {"$set": {
+            "password": new_hash,
+            "password_changed_at": datetime.now(timezone.utc),
+            "must_change_password_on_next_login": False,
+            "password_history": new_history,
+            "last_password_change": datetime.now(timezone.utc),
+        }}
+    )
+    await magic_col.update_one({"token": token}, {"$set": {"used": True, "used_at": datetime.now(timezone.utc)}})
+    await _log(user["id"], "password_reset_via_token", "user", user["id"], {})
+    return {"message": "Password reset successful. Please login with your new password."}
 
 
 

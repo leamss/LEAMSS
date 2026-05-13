@@ -16,6 +16,9 @@ import AIWorkflowBuilder from '@/pages/AIWorkflowBuilder';
 import MarketingDashboard from '@/pages/MarketingDashboard';
 import EmployeesPortal from '@/pages/EmployeesPortal';
 import PortalWelcome from '@/pages/PortalWelcome';
+import ForgotPassword from '@/pages/ForgotPassword';
+import ResetPasswordWithToken from '@/pages/ResetPasswordWithToken';
+import ForceChangePassword from '@/pages/ForceChangePassword';
 import ServiceCalculator from '@/pages/ServiceCalculator';
 import LeadCapture from '@/pages/LeadCapture';
 import SharedEstimate from '@/pages/SharedEstimate';
@@ -41,6 +44,9 @@ function App() {
           <Route path="/admin/marketing" element={<MarketingDashboard />} />
           <Route path="/admin/employees" element={<EmployeesPortal />} />
           <Route path="/portal/welcome" element={<PortalWelcome />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPasswordWithToken />} />
+          <Route path="/force-change-password" element={<ForceChangePassword />} />
           <Route path="/calculator" element={<ServiceCalculator />} />
           <Route path="/inquiry" element={<LeadCapture />} />
           <Route path="/shared-estimate/:token" element={<SharedEstimate />} />

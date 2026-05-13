@@ -109,7 +109,10 @@ class EmployeeUpdate(BaseModel):
 
 class RoleChange(BaseModel):
     new_role: str
+    new_department: Optional[str] = None
+    new_designation: Optional[str] = None
     reason: Optional[str] = None
+    effective_date: Optional[str] = None  # ISO date string
 
 
 # ────────────────────────────────────────────────────────────
@@ -482,27 +485,72 @@ async def change_role(
     if not role_doc:
         raise HTTPException(status_code=400, detail=f"Role '{payload.new_role}' not found")
 
+    # Validate reason min 20 chars (sensitive action)
+    reason = (payload.reason or "").strip()
+    if len(reason) < 20:
+        raise HTTPException(status_code=400, detail="Reason is required (minimum 20 characters)")
+
     old_role = user.get("rbac_role")
     if old_role == payload.new_role:
         return {"message": "No change — role is already set"}
 
-    # Update user with new role + refresh cached permissions
+    # Parse effective_date if provided
+    effective_date = datetime.now(timezone.utc)
+    if payload.effective_date:
+        try:
+            effective_date = datetime.fromisoformat(payload.effective_date.replace("Z", "+00:00"))
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid effective_date format (use ISO 8601)")
+
     legacy_role_map = {"admin_owner": "admin", "case_manager": "case_manager"}
     legacy_role = legacy_role_map.get(payload.new_role, payload.new_role)
+    new_department = payload.new_department or role_doc.get("department") or user.get("department")
+    new_designation = payload.new_designation or role_doc.get("name") or user.get("designation")
+
+    # Clear reports_to if old manager not valid for new role
+    parent_roles = role_doc.get("reports_to_roles", [])
+    new_reports_to = user.get("reports_to")
+    if new_reports_to and parent_roles:
+        manager = await users_col.find_one({"id": new_reports_to}, {"_id": 0, "rbac_role": 1})
+        if not manager or manager.get("rbac_role") not in parent_roles:
+            new_reports_to = None
 
     await users_col.update_one(
         {"id": employee_id},
         {"$set": {
             "rbac_role": payload.new_role,
             "role": legacy_role,
-            "department": role_doc.get("department") or user.get("department"),
+            "department": new_department,
+            "designation": new_designation,
+            "reports_to": new_reports_to,
             "permissions": role_doc.get("permissions", []),
             "ui_modules": role_doc.get("ui_modules", []),
             "updated_at": datetime.now(timezone.utc),
         }}
     )
 
-    await _log_role_change(employee_id, old_role, payload.new_role, current_user["id"], payload.reason)
+    # Log to user_role_history with structured before/after
+    await user_role_history_col.insert_one({
+        "id": str(uuid.uuid4()),
+        "user_id": employee_id,
+        "changed_from": old_role,
+        "changed_from_detail": {
+            "role": old_role,
+            "department": user.get("department"),
+            "designation": user.get("designation"),
+        },
+        "changed_to": payload.new_role,
+        "changed_to_detail": {
+            "role": payload.new_role,
+            "department": new_department,
+            "designation": new_designation,
+        },
+        "changed_by": current_user["id"],
+        "changed_by_name": current_user.get("name"),
+        "reason": reason,
+        "effective_date": effective_date,
+        "created_at": datetime.now(timezone.utc),
+    })
 
     # Invalidate RBAC cache (user counts in /roles/{key} would be stale)
     try:
@@ -516,13 +564,20 @@ async def change_role(
         "id": str(uuid.uuid4()),
         "user_id": employee_id,
         "title": "Your role was updated",
-        "message": f"Your role has been changed to {role_doc.get('name')}. Please log out and log in again to refresh your access.",
+        "message": f"Your role has been changed to {role_doc.get('name')}. Reason: {reason}. Please log out and log in again to refresh your access.",
         "type": "role_change",
         "read": False,
         "created_at": datetime.now(timezone.utc),
     })
 
-    return {"message": "Role changed", "from": old_role, "to": payload.new_role}
+    return {
+        "message": "Role changed",
+        "from": old_role,
+        "to": payload.new_role,
+        "new_department": new_department,
+        "new_designation": new_designation,
+        "effective_date": effective_date.isoformat(),
+    }
 
 
 @router.post("/{employee_id}/deactivate")

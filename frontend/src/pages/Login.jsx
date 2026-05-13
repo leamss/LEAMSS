@@ -29,6 +29,12 @@ const Login = () => {
       
       toast.success('Login successful!');
 
+      // Forced password change AFTER admin reset → block all routes
+      if (user.must_change_password_on_next_login) {
+        navigate('/force-change-password');
+        return;
+      }
+
       // Smart redirect — uses rbac_role primarily, falls back to legacy role
       const role = user.rbac_role || user.role;
       const fixedRoutes = {
@@ -111,6 +117,12 @@ const Login = () => {
               {loading ? 'Logging in...' : 'Login'}
             </Button>
           </form>
+
+          <div className="mt-3 text-center">
+            <a href="/forgot-password" className="text-xs text-slate-500 hover:text-[#2a777a] underline" data-testid="forgot-password-link">
+              Forgot Password?
+            </a>
+          </div>
 
           <div className="mt-8 p-4 bg-[#2a777a]/10 border border-[#2a777a]/30 rounded-lg">
             <p className="text-sm text-slate-600 font-medium mb-2">Demo Credentials:</p>

@@ -1,5 +1,6 @@
 """Authentication utilities"""
 import os
+import re
 import jwt
 from datetime import datetime, timedelta, timezone
 from passlib.context import CryptContext
@@ -20,9 +21,26 @@ def verify_password(plain: str, hashed: str) -> bool:
     return pwd_context.verify(plain, hashed)
 
 
+def validate_password_strength(pwd: str) -> tuple:
+    """Returns (is_valid, message). Enforces 8+ chars, upper, lower, digit, special."""
+    if not pwd or len(pwd) < 8:
+        return False, "Password must be at least 8 characters"
+    if not re.search(r"[a-z]", pwd):
+        return False, "Password must include a lowercase letter"
+    if not re.search(r"[A-Z]", pwd):
+        return False, "Password must include an uppercase letter"
+    if not re.search(r"\d", pwd):
+        return False, "Password must include a number"
+    if not re.search(r"[!@#$%^&*()_+\-=\[\]{};':\"\\|,.<>\/?]", pwd):
+        return False, "Password must include a special character"
+    return True, "Strong password"
+
+
 def create_access_token(data: dict, expires_hours: int = 24) -> str:
     to_encode = data.copy()
-    to_encode["exp"] = datetime.now(timezone.utc) + timedelta(hours=expires_hours)
+    now = datetime.now(timezone.utc)
+    to_encode["iat"] = int(now.timestamp())  # issued-at, used for force-logout
+    to_encode["exp"] = now + timedelta(hours=expires_hours)
     return jwt.encode(to_encode, JWT_SECRET, algorithm="HS256")
 
 
@@ -48,7 +66,16 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         user = await users_col.find_one({"id": user_id}, {"_id": 0})
         if not user:
             raise HTTPException(status_code=401, detail="User not found")
-        
+
+        # Force-logout if password was changed AFTER this token was issued
+        pwd_changed_at = user.get("password_changed_at")
+        token_iat = payload.get("iat", 0)
+        if pwd_changed_at and token_iat:
+            if isinstance(pwd_changed_at, datetime):
+                pwd_ts = int(pwd_changed_at.timestamp())
+                if token_iat < pwd_ts:
+                    raise HTTPException(status_code=401, detail="Session invalidated. Please login again.")
+
         return user
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")

@@ -3,6 +3,113 @@
 ## Original Problem Statement
 Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case Manager, Partner, Client. Expanding to a full multi-department Employee Portal with production-grade RBAC.
 
+### RBAC Phase 2.1 — Critical Fixes Complete (2026-05-13)
+
+All 4 critical issues resolved & tested. Phase 2 is now **production-ready**.
+
+#### Issue #1: Login Redirect (P0 — Blocking)
+- **Root cause**: `Login.jsx` had hardcoded `roleRoutes` map with only 4 keys. New role types (sales_executive, hr_executive etc.) hit fallback → infinite login loop.
+- **Fix**: Smart redirect via `rbac_role || role`. New role types → `/portal/welcome` (shared placeholder).
+- **New page**: `PortalWelcome.jsx` — adaptive dashboard rendering user's ui_modules as cards, dept-themed banner, live clock, real notification count.
+
+#### Issue #2: View Dashboard As User (P1)
+- **Removed**: `/api/auth/impersonate` returns 410 GONE (with use_instead pointer).
+- **New endpoint**: `GET /api/admin/users/{id}/dashboard-preview` — read-only, no session switch.
+- **New UI**: `DashboardPreviewModal` — warning banner ("Read-only · Action logged"), shows target's modules as preview cards, toast on click.
+- **Audit**: Every preview logged to `activity_log` with action `viewed_dashboard_as_user`.
+
+#### Issue #3: Role Change Enhancements (P3)
+- **Backend** `PATCH /api/employees/{id}/role` enhanced:
+  - Accepts optional `new_designation`, `effective_date`, `new_department`
+  - Validates reason ≥ 20 chars
+  - Auto-clears `reports_to` if old manager invalid for new role
+  - History entry includes `changed_from_detail` + `changed_to_detail` structured snapshots
+- **UI**: Enhanced "Change Role" dialog with summary card showing permission count delta + reports_to reset warning + auto-fill designation
+- **New tab**: "Role History" in EmployeeDetailModal — timeline view with arrows, structured detail, audit info
+
+#### Issue #4: Password Reset Structure (P2)
+**A) `must_change_password_on_next_login` Flag**
+- Auto-set when admin resets password
+- Login response includes the flag
+- `Login.jsx` redirects to `/force-change-password` if true
+- New page: `ForceChangePassword.jsx` — blocks all access until new password set
+
+**B) Password Strength Validation**
+- Backend `validate_password_strength()` — 8+ chars, upper, lower, digit, special
+- Frontend: `PasswordStrengthMeter.jsx` — real-time 5-bar meter with rule checklist
+- Used in: change-password, reset-with-token, force-change-password
+
+**C) Force-Logout Other Sessions**
+- JWT now includes `iat` (issued-at)
+- User has `password_changed_at` field
+- `get_current_user` rejects tokens where `iat < password_changed_at`
+- Triggered automatically on every password change
+
+**D) Forgot Password Flow (Public)**
+- `POST /api/auth/forgot-password` — always returns success (no email enumeration); generates 72h magic link; logs URL to console (Resend MOCKED)
+- `POST /api/auth/reset-password-with-token` — validates token + expiry + reuse check; sets new password with strength validation
+- New pages: `/forgot-password` and `/reset-password?token=XYZ`
+- Login page: "Forgot Password?" link added
+
+**E) Enhanced Admin Reset Password Modal**
+- 3 delivery modes: `show_once` / `email` (MOCKED) / `magic_link` (72h)
+- Reason field (required, min 10 chars)
+- Sets `must_change_password_on_next_login = true`
+- Audit logged to `activity_log`
+
+**F) Password History**
+- `password_history` field stores last 3 hashes
+- Cannot reuse current OR any of last 3 passwords
+
+**Files Created (5):**
+- `/app/backend/routers/admin_users.py` — dashboard-preview + enhanced reset-password
+- `/app/frontend/src/pages/ForgotPassword.jsx`
+- `/app/frontend/src/pages/ResetPasswordWithToken.jsx`
+- `/app/frontend/src/pages/ForceChangePassword.jsx`
+- `/app/frontend/src/components/PasswordStrengthMeter.jsx`
+- `/app/frontend/src/components/employees/DashboardPreviewModal.jsx`
+
+**Files Modified (7):**
+- `/app/backend/core/auth.py` — JWT iat, password strength validator, force-logout check
+- `/app/backend/routers/auth.py` — login returns must_change flag, /change-password strength+history+force-logout, /forgot-password, /reset-password-with-token, /impersonate→410
+- `/app/backend/routers/employees.py` — /role accepts effective_date+designation+validation
+- `/app/backend/server.py` — registered admin_users router
+- `/app/frontend/src/pages/Login.jsx` — must_change redirect, forgot link
+- `/app/frontend/src/App.js` — 3 new routes (forgot, reset, force-change)
+- `/app/frontend/src/components/employees/EmployeeDetailModal.jsx` — View Dashboard button, Role History tab, enhanced reset/role dialogs
+- `/app/frontend/src/pages/AdminDashboard.jsx` — removed Impersonate button
+
+**Backend Test Results — ALL PASS ✅:**
+```
+═══ ISSUE #2 — Dashboard Preview ═══
+  ✓ Preview returns user data WITHOUT token (modules=13)
+  ✓ Old /impersonate returns 410 GONE
+  ✓ Activity log entry created
+
+═══ ISSUE #3 — Role Change ═══
+  ✓ Reason < 20 chars rejected
+  ✓ Role change accepts effective_date + new_designation
+  ✓ History has structured changed_to_detail
+
+═══ ISSUE #4 — Password Reset ═══
+  ✓ show_once: returns temp password + must_change flag
+  ✓ Login returns must_change_password_on_next_login=true
+  ✓ Weak password rejected (8+ chars, upper, lower, digit, special)
+  ✓ Strong password accepted, must_change cleared
+  ✓ Force-logout: old token invalidated after password change
+  ✓ magic_link: 72h token issued
+  ✓ reset-password-with-token works
+  ✓ Reused token rejected
+  ✓ /forgot-password always returns success (no enumeration)
+  ✓ Cannot reuse same password
+```
+
+**Frontend Smoke Tests — ALL PASS ✅:**
+- ✓ Login page has "Forgot Password?" link
+- ✓ `/forgot-password` page renders
+- ✓ `/reset-password?token=XYZ` page renders with strength meter
+- ✓ All 4 existing logins still work
+
 ### RBAC Phase 2 — Employee Portal UI Complete (2026-05-13)
 
 **Dedicated Employee Portal at `/admin/employees`** — separate page using DashboardShell layout. Entry-point: green "Employee Portal" button on Admin Home greeting card.
