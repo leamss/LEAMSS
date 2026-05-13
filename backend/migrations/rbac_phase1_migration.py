@@ -149,7 +149,16 @@ async def _seed_permissions():
 async def _seed_roles():
     now = datetime.now(timezone.utc)
     seeded, updated = 0, 0
+    from core.rbac.seed_data import SELF_SERVICE_PERMISSIONS
     for r in ROLES:
+        # Auto-merge self-service permissions for internal employees
+        r = {**r}
+        if r.get("user_type") == "internal" and r["key"] != "admin_owner":
+            perms = list(r.get("permissions", []))
+            for p in SELF_SERVICE_PERMISSIONS:
+                if p not in perms:
+                    perms.append(p)
+            r["permissions"] = perms
         existing = await roles_col.find_one({"key": r["key"]}, {"_id": 0})
         if existing:
             await roles_col.update_one(
@@ -207,8 +216,18 @@ async def _backfill_users():
             # Cached permissions & ui_modules from role
             role_doc = role_docs.get(mapping["rbac_role"])
             if role_doc:
-                if not user.get("permissions") or user.get("permissions") == []:
-                    updates["permissions"] = role_doc.get("permissions", [])
+                # Always refresh permissions to pick up new self-service perms (Phase 3A)
+                # This is safe because role.permissions already includes custom-merged self-service perms.
+                role_perms = role_doc.get("permissions", [])
+                # Merge with any custom-granted perms preserved on user
+                custom_granted = user.get("custom_permissions_granted") or []
+                custom_revoked = user.get("custom_permissions_revoked") or []
+                effective = [p for p in role_perms if p not in custom_revoked]
+                for p in custom_granted:
+                    if p not in effective:
+                        effective.append(p)
+                if set(user.get("permissions") or []) != set(effective):
+                    updates["permissions"] = effective
                 if not user.get("ui_modules") or user.get("ui_modules") == []:
                     updates["ui_modules"] = role_doc.get("ui_modules", [])
 

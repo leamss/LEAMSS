@@ -408,6 +408,31 @@ async def create_employee(
     await users_col.insert_one(user)
     await _log_role_change(user["id"], None, payload.role, current_user["id"], "Initial role assignment")
 
+    # Phase 3A: Create leave balance docs for the new internal employee
+    try:
+        from core.database import leave_balances_col, leave_types_col
+        year = now.year
+        async for lt in leave_types_col.find(
+            {"is_active": True, "applicable_to": {"$in": ["all"]}}, {"_id": 0}
+        ):
+            opening = lt["annual_quota"] if lt["key"] not in ("lwp", "comp_off") else 0
+            await leave_balances_col.insert_one({
+                "id": str(uuid.uuid4()),
+                "user_id": user["id"],
+                "year": year,
+                "leave_type_key": lt["key"],
+                "opening_balance": opening,
+                "earned": 0,
+                "used": 0,
+                "carried_forward": 0,
+                "available": opening,
+                "monthly_used": {},
+                "created_at": now,
+                "updated_at": now,
+            })
+    except Exception as e:
+        print(f"[Employee Create] Leave balance seed failed: {e}")
+
     # Activity log
     await activity_log_col.insert_one({
         "id": str(uuid.uuid4()),

@@ -20,6 +20,9 @@ import ForgotPassword from '@/pages/ForgotPassword';
 import ResetPasswordWithToken from '@/pages/ResetPasswordWithToken';
 import ForceChangePassword from '@/pages/ForceChangePassword';
 import RequirePermission from '@/components/RequirePermission';
+import MyAttendance from '@/pages/MyAttendance';
+import MyLeaves from '@/pages/MyLeaves';
+import LeaveApprovals from '@/pages/LeaveApprovals';
 import ServiceCalculator from '@/pages/ServiceCalculator';
 import LeadCapture from '@/pages/LeadCapture';
 import SharedEstimate from '@/pages/SharedEstimate';
@@ -49,6 +52,9 @@ function App() {
             </RequirePermission>
           } />
           <Route path="/portal/welcome" element={<PortalWelcome />} />
+          <Route path="/portal/attendance" element={<MyAttendance />} />
+          <Route path="/portal/leaves" element={<MyLeaves />} />
+          <Route path="/portal/leave-approvals" element={<LeaveApprovals />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPasswordWithToken />} />
           <Route path="/force-change-password" element={<ForceChangePassword />} />

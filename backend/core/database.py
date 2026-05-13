@@ -50,6 +50,18 @@ teams_col = db["teams"]
 user_role_history_col = db["user_role_history"]
 migrations_col = db["migrations"]
 
+# RBAC Phase 3 — Attendance & Leave Management
+attendance_settings_col = db["attendance_settings"]
+attendance_logs_col = db["attendance_logs"]
+leave_types_col = db["leave_types"]
+leave_balances_col = db["leave_balances"]
+leave_requests_col = db["leave_requests"]
+holidays_col = db["holidays"]
+late_marks_tracker_col = db["late_marks_tracker"]
+leave_balance_history_col = db["leave_balance_history"]
+lwp_records_col = db["lwp_records"]
+attendance_regularizations_col = db["attendance_regularizations"]
+
 
 async def init_db():
     """Create indexes"""

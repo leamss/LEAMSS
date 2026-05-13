@@ -10,6 +10,7 @@ import {
   Building2, Briefcase, Shield, TrendingUp, Megaphone, Users, Receipt,
   Server, ScrollText, ChevronRight, Clock,
 } from 'lucide-react';
+import PunchWidget from '@/components/attendance/PunchWidget';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -146,6 +147,19 @@ export default function PortalWelcome() {
   };
 
   const handleModuleClick = (moduleKey) => {
+    const routes = {
+      attendance_self: '/portal/attendance',
+      attendance_view: '/portal/attendance',
+      attendance_admin: '/portal/attendance',
+      leave_self: '/portal/leaves',
+      leave_approvals: '/portal/leave-approvals',
+      leave_admin: '/portal/leave-approvals',
+    };
+    const target = routes[moduleKey];
+    if (target) {
+      navigate(target);
+      return;
+    }
     toast.info(`🚧 "${MODULE_META[moduleKey]?.label || moduleKey}" coming soon in a future phase.`);
   };
 
@@ -207,6 +221,9 @@ export default function PortalWelcome() {
             </div>
           </div>
         </Card>
+
+        {/* Punch widget */}
+        {user.user_type === 'internal' && <PunchWidget />}
 
         {/* Stats cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

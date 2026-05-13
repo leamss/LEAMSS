@@ -70,6 +70,9 @@ from routers.employees import router as employees_router
 from routers.departments import router as departments_router
 from routers.rbac_admin import router as rbac_admin_router
 from routers.admin_users import router as admin_users_router
+from routers.attendance import router as attendance_router
+from routers.leaves import router as leaves_router
+from routers.hr_admin import router as hr_admin_router
 
 app = FastAPI(title="LEAMSS Portal API", version="3.0")
 
@@ -108,6 +111,18 @@ async def startup():
                 print(f"[RBAC WARN] {w}")
     except Exception as e:
         print(f"[RBAC ERROR] {e}")
+
+    # Run Phase 3A Attendance & Leave migration (idempotent)
+    try:
+        from migrations.attendance_leave_migration import run_migration as run_attendance_migration
+        ar = await run_attendance_migration()
+        print(f"[Attendance] Migration {ar['status']}: "
+              f"settings={ar.get('settings', {}).get('action', '?')}, "
+              f"leave_types={ar.get('leave_types', {})}, "
+              f"holidays={ar.get('holidays', {})}, "
+              f"balances_backfilled={ar.get('balances_backfill', {}).get('backfilled', 0)}")
+    except Exception as e:
+        print(f"[Attendance ERROR] {e}")
 
 
 async def seed_database():
@@ -266,7 +281,8 @@ for r in [auth_router, users_router, products_router, sales_router, cases_router
           proposal_docs_router, payment_history_router, milestones_router, intelligence_router,
           legal_archive_router, agreement_templates_router, pa_agreements_router,
           eligibility_router, doc_expiry_router, visa_compare_router, share_links_router,
-          employees_router, departments_router, rbac_admin_router, admin_users_router]:
+          employees_router, departments_router, rbac_admin_router, admin_users_router,
+          attendance_router, leaves_router, hr_admin_router]:
     app.include_router(r, prefix="/api")
 
 

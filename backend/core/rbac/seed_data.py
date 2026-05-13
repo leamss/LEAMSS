@@ -350,6 +350,16 @@ PERMISSIONS = [
 # ────────────────────────────────────────────────────────────
 SELF_SERVICE_MODULES = ["attendance_self", "leave_self", "profile_self", "notifications", "my_tasks"]
 
+# Self-service permissions auto-granted to every internal role (Phase 3A)
+SELF_SERVICE_PERMISSIONS = [
+    "attendance.clock.own",
+    "attendance.view.own",
+    "leave.apply.own",
+    "leave.view.own",
+    "profile.view.own",
+    "profile.update.own",
+]
+
 
 # ────────────────────────────────────────────────────────────
 # 16 SYSTEM ROLES

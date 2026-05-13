@@ -1,521 +1,539 @@
-"""Leaves Router — Phase 3
+"""Leaves Router — Phase 3A
 
-Implements:
-- Leave types catalog (5 pre-seeded)
-- Per-user leave balances (auto-init for current year)
-- Apply leave with validation (overlap, balance, notice)
-- L1 (manager) + Final (HR) approval workflow
-- Holiday calendar
+Endpoints:
+- GET  /leaves/types
+- GET  /leaves/my-balance
+- GET  /leaves/balance/{user_id}
+- POST /leaves/validate           — dry-run validation (for live preview)
+- POST /leaves/apply              — submit leave request
+- GET  /leaves/my-history
+- POST /leaves/{id}/cancel
+- GET  /leaves/inbox              — manager L1
+- GET  /leaves/inbox-final        — final approver
+- POST /leaves/{id}/decide        — approve/reject
+- GET  /leaves/all                — HR/admin
+- GET  /leaves/balance-history    — audit log
 """
 import uuid
-from datetime import datetime, timezone, timedelta, date as date_type
-from typing import Optional, List
+from datetime import datetime, timezone
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from core.database import db, users_col
 from core.auth import get_current_user
 from core.rbac.dependencies import require_any_permission
+from core.database import (
+    leave_types_col, leave_balances_col, leave_requests_col,
+    leave_balance_history_col, notifications_col,
+)
+from core.attendance_logic import (
+    validate_leave_request, deduct_leave_balance, parse_date,
+    resolve_approvers, now_ist,
+)
 
 router = APIRouter(prefix="/leaves", tags=["Leaves"])
 
-leave_types_col = db["leave_types"]
-leave_balances_col = db["leave_balances"]
-leave_applications_col = db["leave_applications"]
-holidays_col = db["holidays"]
-attendance_col = db["attendance_records"]
-notifications_col = db["notifications"]
+
+class LeaveApply(BaseModel):
+    leave_type_key: str
+    from_date: str
+    to_date: str
+    reason: str = Field(min_length=10)
+    handover_to_user_id: Optional[str] = None
+    contact_during_leave: Optional[str] = None
+    proof_url: Optional[str] = None
+    accept_sandwich: bool = False
 
 
-# ────────────────────────────────────────────────────────────
-# Helpers
-# ────────────────────────────────────────────────────────────
-def _today() -> date_type:
-    return datetime.now(timezone.utc).date()
+class LeaveValidate(BaseModel):
+    leave_type_key: str
+    from_date: str
+    to_date: str
 
 
-def _parse_date(s: str) -> date_type:
-    return datetime.strptime(s, "%Y-%m-%d").date()
+class LeaveDecide(BaseModel):
+    decision: str
+    note: Optional[str] = None
 
 
-def _serialize(d: dict) -> dict:
-    out = {k: v for k, v in d.items() if k != "_id"}
-    for f in ("from_date", "to_date", "applied_at", "l1_approved_at", "hr_approved_at",
-              "cancelled_at", "modified_at", "created_at", "updated_at", "effective_date"):
+def _serialize_balance(b: dict) -> dict:
+    out = {k: v for k, v in b.items() if k != "_id"}
+    for f in ("created_at", "updated_at"):
         if isinstance(out.get(f), datetime):
             out[f] = out[f].isoformat()
     return out
 
 
-async def _calc_working_days(from_d: date_type, to_d: date_type, half_day: bool = False) -> float:
-    """Count days excluding weekends + holidays."""
-    if half_day and from_d == to_d:
-        return 0.5
-    # Get holidays in range
-    holiday_dates = set()
-    cursor = holidays_col.find(
-        {"date": {"$gte": from_d.isoformat(), "$lte": to_d.isoformat()}},
-        {"_id": 0, "date": 1},
-    )
-    async for h in cursor:
-        holiday_dates.add(h["date"])
-
-    count = 0
-    d = from_d
-    while d <= to_d:
-        if d.weekday() < 6 and d.isoformat() not in holiday_dates:  # Mon-Sat work
-            count += 1
-        d = d + timedelta(days=1)
-    return float(count)
+def _serialize_request(r: dict) -> dict:
+    out = {k: v for k, v in r.items() if k != "_id"}
+    for f in ("created_at", "decided_at_l1", "decided_at_final", "cancelled_at", "applied_at"):
+        if isinstance(out.get(f), datetime):
+            out[f] = out[f].isoformat()
+    return out
 
 
-async def _ensure_balance(user_id: str, year: int):
-    """Create balance entries for all leave types if missing."""
-    async for lt in leave_types_col.find({}, {"_id": 0}):
-        existing = await leave_balances_col.find_one(
-            {"user_id": user_id, "year": year, "leave_type_key": lt["key"]},
-            {"_id": 0},
-        )
-        if not existing:
-            await leave_balances_col.insert_one({
-                "id": str(uuid.uuid4()),
-                "user_id": user_id,
-                "year": year,
-                "leave_type_key": lt["key"],
-                "total_quota": lt.get("annual_quota") or 0,
-                "used": 0.0,
-                "pending": 0.0,
-                "carried_forward": 0.0,
-                "accrued": 0.0,
-                "last_updated": datetime.now(timezone.utc),
-            })
-
-
-async def _check_overlap(user_id: str, from_d: date_type, to_d: date_type, exclude_id: str = None) -> bool:
-    """Check if user has overlapping leave."""
-    query = {
-        "user_id": user_id,
-        "status": {"$in": ["pending_l1", "pending_hr", "approved"]},
-        "from_date": {"$lte": to_d.isoformat()},
-        "to_date": {"$gte": from_d.isoformat()},
-    }
-    if exclude_id:
-        query["id"] = {"$ne": exclude_id}
-    overlap = await leave_applications_col.find_one(query, {"_id": 0})
-    return overlap is not None
-
-
-# ────────────────────────────────────────────────────────────
-# Models
-# ────────────────────────────────────────────────────────────
-class ApplyLeaveBody(BaseModel):
-    leave_type_key: str
-    from_date: str  # YYYY-MM-DD
-    to_date: str
-    is_half_day: bool = False
-    half_day_session: Optional[str] = None  # first_half | second_half
-    reason: str = Field(min_length=10)
-    proof_document_url: Optional[str] = None
-    contact_phone: Optional[str] = None
-    contact_email: Optional[str] = None
-    task_handover_to: Optional[str] = None
-    task_handover_notes: Optional[str] = None
-
-
-class ApprovalBody(BaseModel):
-    remarks: Optional[str] = None
-
-
-class RejectBody(BaseModel):
-    reason: str = Field(min_length=5)
-
-
-# ────────────────────────────────────────────────────────────
-# Leave Types
-# ────────────────────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────
+# Leave types
+# ──────────────────────────────────────────────────────────────
 @router.get("/types")
 async def list_leave_types(current_user: dict = Depends(get_current_user)):
     items = []
-    async for lt in leave_types_col.find({}, {"_id": 0}).sort("name", 1):
+    async for lt in leave_types_col.find({"is_active": True}, {"_id": 0}).sort("sort_order", 1):
         items.append(lt)
     return items
 
 
-# ────────────────────────────────────────────────────────────
-# Balances
-# ────────────────────────────────────────────────────────────
-@router.get("/balance")
-async def my_balance(current_user: dict = Depends(get_current_user)):
-    year = _today().year
-    await _ensure_balance(current_user["id"], year)
-    balances = []
-    types_by_key = {}
-    async for lt in leave_types_col.find({}, {"_id": 0}):
-        types_by_key[lt["key"]] = lt
-    async for b in leave_balances_col.find({"user_id": current_user["id"], "year": year}, {"_id": 0}):
-        lt = types_by_key.get(b["leave_type_key"], {})
-        total = b.get("total_quota", 0) + b.get("carried_forward", 0) + b.get("accrued", 0)
-        used = b.get("used", 0)
-        pending = b.get("pending", 0)
-        available = max(0, total - used - pending)
-        balances.append({
-            **b,
-            "available": available,
-            "total": total,
-            "leave_type_name": lt.get("name"),
-            "short_code": lt.get("short_code"),
-            "color": lt.get("color"),
-            "last_updated": b["last_updated"].isoformat() if isinstance(b.get("last_updated"), datetime) else b.get("last_updated"),
-        })
-    return balances
-
-
-# ────────────────────────────────────────────────────────────
-# Apply / Cancel
-# ────────────────────────────────────────────────────────────
-@router.post("/apply")
-async def apply_leave(body: ApplyLeaveBody, current_user: dict = Depends(get_current_user)):
-    if current_user.get("user_type") != "internal":
-        raise HTTPException(status_code=403, detail="Only internal employees can apply for leave")
-
-    # Validate leave type
-    lt = await leave_types_col.find_one({"key": body.leave_type_key}, {"_id": 0})
-    if not lt:
-        raise HTTPException(status_code=400, detail="Invalid leave type")
-
-    from_d = _parse_date(body.from_date)
-    to_d = _parse_date(body.to_date)
-    if to_d < from_d:
-        raise HTTPException(status_code=400, detail="to_date must be >= from_date")
-
-    # Min notice check
-    notice_days = lt.get("min_notice_days", 0)
-    today = _today()
-    if notice_days > 0 and (from_d - today).days < notice_days and body.leave_type_key != "sick_leave":
-        raise HTTPException(status_code=400, detail=f"Requires {notice_days} day(s) advance notice")
-
-    # Past date check (allow sick leave for past)
-    if from_d < today and body.leave_type_key not in ("sick_leave", "loss_of_pay"):
-        raise HTTPException(status_code=400, detail="Cannot apply for past dates")
-
-    # Working days
-    days = await _calc_working_days(from_d, to_d, body.is_half_day)
-    if days == 0:
-        raise HTTPException(status_code=400, detail="No working days in selected range (all weekends/holidays)")
-
-    # Max consecutive check
-    max_consec = lt.get("max_consecutive_days")
-    if max_consec and days > max_consec:
-        raise HTTPException(status_code=400, detail=f"Max {max_consec} consecutive days allowed")
-
-    # Overlap check
-    if await _check_overlap(current_user["id"], from_d, to_d):
-        raise HTTPException(status_code=400, detail="Overlapping leave application exists")
-
-    # Balance check
-    year = from_d.year
-    await _ensure_balance(current_user["id"], year)
-    balance = await leave_balances_col.find_one(
-        {"user_id": current_user["id"], "year": year, "leave_type_key": body.leave_type_key},
-        {"_id": 0},
-    )
-    if body.leave_type_key != "loss_of_pay":
-        total = balance.get("total_quota", 0) + balance.get("carried_forward", 0) + balance.get("accrued", 0)
-        available = total - balance.get("used", 0) - balance.get("pending", 0)
-        if days > available:
-            raise HTTPException(status_code=400, detail=f"Insufficient balance. Available: {available} days")
-
-    now = datetime.now(timezone.utc)
-    app_doc = {
-        "id": str(uuid.uuid4()),
-        "user_id": current_user["id"],
-        "user_name": current_user.get("name"),
-        "user_department": current_user.get("department"),
-        "leave_type_key": body.leave_type_key,
-        "leave_type_name": lt.get("name"),
-        "leave_type_color": lt.get("color"),
-        "from_date": body.from_date,
-        "to_date": body.to_date,
-        "days_count": days,
-        "is_half_day": body.is_half_day,
-        "half_day_session": body.half_day_session,
-        "reason": body.reason,
-        "proof_document_url": body.proof_document_url,
-        "contact_phone": body.contact_phone or current_user.get("mobile"),
-        "contact_email": body.contact_email or current_user.get("email"),
-        "task_handover_to": body.task_handover_to,
-        "task_handover_notes": body.task_handover_notes,
-        "status": "pending_l1",
-        "l1_approver_id": current_user.get("reports_to"),
-        "hr_approver_id": None,
-        "applied_at": now,
-        "created_at": now,
-    }
-    # If no reports_to, skip L1 and go directly to HR
-    if not current_user.get("reports_to"):
-        app_doc["status"] = "pending_hr"
-
-    await leave_applications_col.insert_one(app_doc)
-
-    # Lock balance (move from available → pending)
-    await leave_balances_col.update_one(
-        {"user_id": current_user["id"], "year": year, "leave_type_key": body.leave_type_key},
-        {"$inc": {"pending": days}},
-    )
-
-    # Notify
-    notify_target = current_user.get("reports_to")
-    if not notify_target:
-        # Notify HR head/exec
-        hr_user = await users_col.find_one({"rbac_role": {"$in": ["hr_head", "hr_executive", "admin_owner"]}, "status": "active"}, {"_id": 0, "id": 1})
-        if hr_user:
-            notify_target = hr_user["id"]
-    if notify_target:
-        await notifications_col.insert_one({
-            "id": str(uuid.uuid4()),
-            "user_id": notify_target,
-            "title": "Leave Application Pending",
-            "message": f"{current_user.get('name')} applied for {days} day(s) of {lt.get('name')}",
-            "type": "leave_pending",
-            "read": False,
-            "link": "/leaves/approvals",
-            "created_at": now,
-        })
-
-    return {"id": app_doc["id"], "status": app_doc["status"], "days_count": days, "message": "Leave applied successfully"}
-
-
-@router.patch("/{leave_id}/cancel")
-async def cancel_leave(leave_id: str, current_user: dict = Depends(get_current_user)):
-    app = await leave_applications_col.find_one({"id": leave_id}, {"_id": 0})
-    if not app:
-        raise HTTPException(status_code=404, detail="Leave not found")
-    if app["user_id"] != current_user["id"]:
-        raise HTTPException(status_code=403, detail="Can only cancel own leaves")
-    if app["status"] not in ("pending_l1", "pending_hr"):
-        raise HTTPException(status_code=400, detail="Only pending leaves can be cancelled")
-
-    now = datetime.now(timezone.utc)
-    await leave_applications_col.update_one(
-        {"id": leave_id},
-        {"$set": {"status": "cancelled", "cancelled_at": now}}
-    )
-    # Release balance
-    await leave_balances_col.update_one(
-        {"user_id": app["user_id"], "year": _parse_date(app["from_date"]).year, "leave_type_key": app["leave_type_key"]},
-        {"$inc": {"pending": -app["days_count"]}},
-    )
-    return {"message": "Leave cancelled"}
-
-
-# ────────────────────────────────────────────────────────────
-# My / List
-# ────────────────────────────────────────────────────────────
-@router.get("/my")
-async def my_leaves(
-    status: Optional[str] = None,
+# ──────────────────────────────────────────────────────────────
+# My balance
+# ──────────────────────────────────────────────────────────────
+@router.get("/my-balance")
+async def my_balance(
     year: Optional[int] = None,
     current_user: dict = Depends(get_current_user),
 ):
-    query = {"user_id": current_user["id"]}
-    if status:
-        query["status"] = status
-    if year:
-        query["from_date"] = {"$regex": f"^{year}-"}
-    items = []
-    async for a in leave_applications_col.find(query, {"_id": 0}).sort("applied_at", -1):
-        items.append(_serialize(a))
-    return items
+    year = year or now_ist().year
+    user_id = current_user["id"]
+
+    types = []
+    async for lt in leave_types_col.find({"is_active": True}, {"_id": 0}).sort("sort_order", 1):
+        types.append(lt)
+
+    balances = {}
+    async for b in leave_balances_col.find({"user_id": user_id, "year": year}, {"_id": 0}):
+        balances[b["leave_type_key"]] = b
+
+    out = []
+    for lt in types:
+        b = balances.get(lt["key"])
+        ym = now_ist().strftime("%Y-%m")
+        used_this_month = (b.get("monthly_used", {}) if b else {}).get(ym, 0)
+        out.append({
+            "leave_type_key": lt["key"],
+            "leave_type_name": lt["name"],
+            "short_code": lt["short_code"],
+            "color": lt["color"],
+            "annual_quota": lt["annual_quota"],
+            "monthly_cap": lt.get("monthly_cap", 0),
+            "max_consecutive": lt.get("max_consecutive", 0),
+            "opening_balance": (b or {}).get("opening_balance", 0),
+            "used": (b or {}).get("used", 0),
+            "available": (b or {}).get("available", lt["annual_quota"] if lt["key"] not in ("lwp", "comp_off") else 0),
+            "carried_forward": (b or {}).get("carried_forward", 0),
+            "used_this_month": used_this_month,
+            "sort_order": lt.get("sort_order", 99),
+        })
+    return {"year": year, "balances": out}
 
 
-@router.get("/all")
-async def all_leaves(
-    status: Optional[str] = None,
-    department: Optional[str] = None,
-    leave_type_key: Optional[str] = None,
-    current_user: dict = Depends(require_any_permission("leave.view.all", "leave.approve.final")),
+@router.get("/balance/{user_id}")
+async def get_user_balance(
+    user_id: str,
+    year: Optional[int] = None,
+    current_user: dict = Depends(require_any_permission(
+        "leave.view.team", "leave.view.dept", "leave.view.all"
+    )),
 ):
-    query = {}
-    if status:
-        query["status"] = status
-    if department:
-        query["user_department"] = department
-    if leave_type_key:
-        query["leave_type_key"] = leave_type_key
+    year = year or now_ist().year
     items = []
-    async for a in leave_applications_col.find(query, {"_id": 0}).sort("applied_at", -1).limit(200):
-        items.append(_serialize(a))
+    async for b in leave_balances_col.find({"user_id": user_id, "year": year}, {"_id": 0}):
+        items.append(_serialize_balance(b))
     return items
 
 
-@router.get("/pending/l1")
-async def pending_l1(current_user: dict = Depends(get_current_user)):
-    """Leaves where current user is the L1 approver (reports_to)."""
-    items = []
-    async for a in leave_applications_col.find(
-        {"l1_approver_id": current_user["id"], "status": "pending_l1"},
-        {"_id": 0},
-    ).sort("applied_at", -1):
-        items.append(_serialize(a))
-    return items
-
-
-@router.get("/pending/hr")
-async def pending_hr(current_user: dict = Depends(require_any_permission("leave.approve.final", "leave.approve.l2"))):
-    items = []
-    async for a in leave_applications_col.find(
-        {"status": "pending_hr"},
-        {"_id": 0},
-    ).sort("applied_at", -1):
-        items.append(_serialize(a))
-    return items
-
-
-# ────────────────────────────────────────────────────────────
-# Approve / Reject
-# ────────────────────────────────────────────────────────────
-@router.post("/{leave_id}/approve-l1")
-async def approve_l1(leave_id: str, body: ApprovalBody, current_user: dict = Depends(require_any_permission("leave.approve.l1"))):
-    app = await leave_applications_col.find_one({"id": leave_id}, {"_id": 0})
-    if not app:
-        raise HTTPException(status_code=404, detail="Leave not found")
-    if app["status"] != "pending_l1":
-        raise HTTPException(status_code=400, detail=f"Cannot approve — current status: {app['status']}")
-    if app["l1_approver_id"] != current_user["id"]:
-        raise HTTPException(status_code=403, detail="You are not the L1 approver for this leave")
-
-    now = datetime.now(timezone.utc)
-    await leave_applications_col.update_one(
-        {"id": leave_id},
-        {"$set": {
-            "status": "pending_hr",
-            "l1_approved_at": now,
-            "l1_remarks": body.remarks,
-            "l1_approver_name": current_user.get("name"),
-        }}
+# ──────────────────────────────────────────────────────────────
+# Validate (dry-run)
+# ──────────────────────────────────────────────────────────────
+@router.post("/validate")
+async def validate_leave(
+    payload: LeaveValidate,
+    current_user: dict = Depends(get_current_user),
+):
+    result = await validate_leave_request(
+        user_id=current_user["id"],
+        leave_type_key=payload.leave_type_key,
+        from_date_str=payload.from_date,
+        to_date_str=payload.to_date,
     )
+    return result
 
-    # Notify HR
-    hr_user = await users_col.find_one({"rbac_role": {"$in": ["hr_head", "hr_executive", "admin_owner"]}, "status": "active"}, {"_id": 0, "id": 1})
-    if hr_user:
+
+# ──────────────────────────────────────────────────────────────
+# Apply
+# ──────────────────────────────────────────────────────────────
+@router.post("/apply")
+async def apply_leave(
+    payload: LeaveApply,
+    current_user: dict = Depends(require_any_permission("leave.apply.own")),
+):
+    result = await validate_leave_request(
+        user_id=current_user["id"],
+        leave_type_key=payload.leave_type_key,
+        from_date_str=payload.from_date,
+        to_date_str=payload.to_date,
+    )
+    if not result["ok"]:
+        raise HTTPException(status_code=400, detail={
+            "errors": result["errors"],
+            "warnings": result["warnings"],
+            "days_breakdown": result.get("days_breakdown"),
+        })
+
+    if result["days_breakdown"]["is_sandwich"] and not payload.accept_sandwich:
+        raise HTTPException(status_code=400, detail={
+            "requires_acknowledgement": True,
+            "warnings": result["warnings"],
+            "days_breakdown": result["days_breakdown"],
+            "message": "Sandwich leave detected. Re-submit with accept_sandwich=true to confirm.",
+        })
+
+    approvers = await resolve_approvers(current_user)
+    if not approvers["l1_manager_id"]:
+        raise HTTPException(status_code=400, detail="No manager assigned. Contact HR to set up reports_to.")
+
+    skip_l1 = (current_user["id"] == approvers["l1_manager_id"])
+    initial_status = "pending_final" if skip_l1 else "pending_l1"
+
+    request_id = str(uuid.uuid4())
+    req = {
+        "id": request_id,
+        "user_id": current_user["id"],
+        "user_name": current_user.get("name"),
+        "user_email": current_user.get("email"),
+        "user_employee_id": current_user.get("employee_id"),
+        "department": current_user.get("department"),
+        "designation": current_user.get("designation"),
+        "leave_type_key": payload.leave_type_key,
+        "leave_type_name": result.get("leave_type_name"),
+        "from_date": payload.from_date,
+        "to_date": payload.to_date,
+        "total_days": result["total_days"],
+        "working_days": result["working_days"],
+        "is_sandwich": result["days_breakdown"]["is_sandwich"],
+        "weekend_included": result["days_breakdown"]["weekend_included"],
+        "counted_dates": result["days_breakdown"]["counted_dates"],
+        "reason": payload.reason,
+        "handover_to_user_id": payload.handover_to_user_id,
+        "contact_during_leave": payload.contact_during_leave,
+        "proof_url": payload.proof_url,
+        "manager_id": approvers["l1_manager_id"],
+        "manager_name": approvers["l1_manager_name"],
+        "final_approver_id": approvers["final_approver_id"],
+        "final_approver_name": approvers["final_approver_name"],
+        "status": initial_status,
+        "warnings": result.get("warnings", []),
+        "applied_at": datetime.now(timezone.utc),
+        "created_at": datetime.now(timezone.utc),
+    }
+    await leave_requests_col.insert_one(req)
+
+    await leave_balance_history_col.insert_one({
+        "id": str(uuid.uuid4()),
+        "user_id": current_user["id"],
+        "date": datetime.now(timezone.utc),
+        "leave_type_key": payload.leave_type_key,
+        "change_type": "applied",
+        "delta": 0,
+        "balance_before": None,
+        "balance_after": None,
+        "reason": f"Leave applied: {payload.from_date} to {payload.to_date}",
+        "request_id": request_id,
+        "triggered_by": current_user["id"],
+        "created_at": datetime.now(timezone.utc),
+    })
+
+    target_id = approvers["final_approver_id"] if skip_l1 else approvers["l1_manager_id"]
+    if target_id:
         await notifications_col.insert_one({
             "id": str(uuid.uuid4()),
-            "user_id": hr_user["id"],
-            "title": "Leave Pending HR Approval",
-            "message": f"{app.get('user_name')}'s leave approved by manager, needs HR review",
-            "type": "leave_pending_hr",
+            "user_id": target_id,
+            "title": f"Leave request from {current_user.get('name')}",
+            "message": f"{result.get('leave_type_name')} • {payload.from_date} to {payload.to_date} • {result['total_days']} day(s)",
+            "type": "leave_request",
+            "entity_id": request_id,
             "read": False,
-            "link": "/leaves/approvals",
-            "created_at": now,
+            "created_at": datetime.now(timezone.utc),
         })
-    # Notify applicant
-    await notifications_col.insert_one({
-        "id": str(uuid.uuid4()),
-        "user_id": app["user_id"],
-        "title": "Leave Approved by Manager",
-        "message": f"Awaiting final HR approval for your {app.get('leave_type_name')} from {app['from_date']}",
-        "type": "leave_l1_approved",
-        "read": False,
-        "created_at": now,
-    })
-    return {"message": "Approved at L1, forwarded to HR"}
+
+    return {
+        "message": "Leave applied successfully",
+        "request_id": request_id,
+        "status": initial_status,
+        "total_days": result["total_days"],
+        "warnings": result.get("warnings", []),
+    }
 
 
-@router.post("/{leave_id}/approve-final")
-async def approve_final(leave_id: str, body: ApprovalBody, current_user: dict = Depends(require_any_permission("leave.approve.final"))):
-    app = await leave_applications_col.find_one({"id": leave_id}, {"_id": 0})
-    if not app:
-        raise HTTPException(status_code=404, detail="Leave not found")
-    if app["status"] not in ("pending_hr", "pending_l1"):
-        raise HTTPException(status_code=400, detail=f"Cannot approve — current status: {app['status']}")
-
-    now = datetime.now(timezone.utc)
-    await leave_applications_col.update_one(
-        {"id": leave_id},
-        {"$set": {
-            "status": "approved",
-            "hr_approved_at": now,
-            "hr_approver_id": current_user["id"],
-            "hr_approver_name": current_user.get("name"),
-            "hr_remarks": body.remarks,
-        }}
-    )
-
-    # Move balance: pending → used
-    await leave_balances_col.update_one(
-        {"user_id": app["user_id"], "year": _parse_date(app["from_date"]).year, "leave_type_key": app["leave_type_key"]},
-        {"$inc": {"pending": -app["days_count"], "used": app["days_count"]}},
-    )
-
-    # Mark dates in attendance as "leave"
-    from_d = _parse_date(app["from_date"])
-    to_d = _parse_date(app["to_date"])
-    d = from_d
-    while d <= to_d:
-        await attendance_col.update_one(
-            {"user_id": app["user_id"], "date": d.isoformat()},
-            {"$set": {"status": "leave", "leave_type": app["leave_type_key"]}},
-            upsert=True,
-        )
-        d = d + timedelta(days=1)
-
-    # Notify applicant
-    await notifications_col.insert_one({
-        "id": str(uuid.uuid4()),
-        "user_id": app["user_id"],
-        "title": "Leave Approved ✓",
-        "message": f"Your {app.get('leave_type_name')} from {app['from_date']} to {app['to_date']} is approved",
-        "type": "leave_approved",
-        "read": False,
-        "created_at": now,
-    })
-    return {"message": "Leave fully approved"}
-
-
-@router.post("/{leave_id}/reject")
-async def reject_leave(leave_id: str, body: RejectBody, current_user: dict = Depends(require_any_permission("leave.approve.l1", "leave.approve.final"))):
-    app = await leave_applications_col.find_one({"id": leave_id}, {"_id": 0})
-    if not app:
-        raise HTTPException(status_code=404, detail="Leave not found")
-    if app["status"] not in ("pending_l1", "pending_hr"):
-        raise HTTPException(status_code=400, detail=f"Cannot reject — current status: {app['status']}")
-
-    now = datetime.now(timezone.utc)
-    await leave_applications_col.update_one(
-        {"id": leave_id},
-        {"$set": {
-            "status": "rejected",
-            "rejection_reason": body.reason,
-            "rejected_by": current_user["id"],
-            "rejected_at": now,
-        }}
-    )
-
-    # Release balance
-    await leave_balances_col.update_one(
-        {"user_id": app["user_id"], "year": _parse_date(app["from_date"]).year, "leave_type_key": app["leave_type_key"]},
-        {"$inc": {"pending": -app["days_count"]}},
-    )
-
-    await notifications_col.insert_one({
-        "id": str(uuid.uuid4()),
-        "user_id": app["user_id"],
-        "title": "Leave Rejected",
-        "message": f"Your leave request from {app['from_date']} was rejected. Reason: {body.reason}",
-        "type": "leave_rejected",
-        "read": False,
-        "created_at": now,
-    })
-    return {"message": "Leave rejected"}
-
-
-# ────────────────────────────────────────────────────────────
-# Holidays
-# ────────────────────────────────────────────────────────────
-@router.get("/holidays")
-async def list_holidays(year: Optional[int] = None, current_user: dict = Depends(get_current_user)):
-    year = year or _today().year
+# ──────────────────────────────────────────────────────────────
+# My history
+# ──────────────────────────────────────────────────────────────
+@router.get("/my-history")
+async def my_history(
+    status: Optional[str] = None,
+    limit: int = 50,
+    current_user: dict = Depends(get_current_user),
+):
+    q = {"user_id": current_user["id"]}
+    if status:
+        q["status"] = status
     items = []
-    async for h in holidays_col.find({"date": {"$regex": f"^{year}-"}}, {"_id": 0}).sort("date", 1):
+    async for r in leave_requests_col.find(q, {"_id": 0}).sort("created_at", -1).limit(limit):
+        items.append(_serialize_request(r))
+    return items
+
+
+# ──────────────────────────────────────────────────────────────
+# Cancel
+# ──────────────────────────────────────────────────────────────
+@router.post("/{request_id}/cancel")
+async def cancel_leave(
+    request_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    req = await leave_requests_col.find_one({"id": request_id}, {"_id": 0})
+    if not req:
+        raise HTTPException(status_code=404, detail="Leave request not found")
+    if req["user_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="You can only cancel your own leave")
+    if req["status"] not in ("pending_l1", "pending_final"):
+        raise HTTPException(status_code=400, detail=f"Cannot cancel — status is '{req['status']}'")
+
+    await leave_requests_col.update_one(
+        {"id": request_id},
+        {"$set": {
+            "status": "cancelled",
+            "cancelled_at": datetime.now(timezone.utc),
+            "cancelled_by": current_user["id"],
+        }}
+    )
+
+    target_id = req.get("manager_id") if req["status"] == "pending_l1" else req.get("final_approver_id")
+    if target_id:
+        await notifications_col.insert_one({
+            "id": str(uuid.uuid4()),
+            "user_id": target_id,
+            "title": "Leave request cancelled",
+            "message": f"{current_user.get('name')} cancelled their leave request for {req['from_date']} to {req['to_date']}",
+            "type": "leave_cancelled",
+            "entity_id": request_id,
+            "read": False,
+            "created_at": datetime.now(timezone.utc),
+        })
+
+    return {"message": "Leave request cancelled"}
+
+
+# ──────────────────────────────────────────────────────────────
+# L1 manager inbox
+# ──────────────────────────────────────────────────────────────
+@router.get("/inbox")
+async def manager_inbox(
+    status: str = "pending_l1",
+    current_user: dict = Depends(require_any_permission(
+        "leave.approve.l1", "leave.approve.l2", "leave.view.dept", "leave.view.team"
+    )),
+):
+    items = []
+    async for r in leave_requests_col.find(
+        {"manager_id": current_user["id"], "status": status}, {"_id": 0}
+    ).sort("created_at", -1).limit(100):
+        items.append(_serialize_request(r))
+    return items
+
+
+@router.get("/inbox-final")
+async def final_inbox(
+    status: str = "pending_final",
+    current_user: dict = Depends(require_any_permission(
+        "leave.approve.l2", "leave.approve.final", "leave.view.all"
+    )),
+):
+    items = []
+    async for r in leave_requests_col.find(
+        {"final_approver_id": current_user["id"], "status": status}, {"_id": 0}
+    ).sort("created_at", -1).limit(100):
+        items.append(_serialize_request(r))
+    return items
+
+
+# ──────────────────────────────────────────────────────────────
+# Decide
+# ──────────────────────────────────────────────────────────────
+@router.post("/{request_id}/decide")
+async def decide_leave(
+    request_id: str,
+    payload: LeaveDecide,
+    current_user: dict = Depends(require_any_permission(
+        "leave.approve.l1", "leave.approve.l2", "leave.approve.final"
+    )),
+):
+    if payload.decision not in ("approved", "rejected"):
+        raise HTTPException(status_code=400, detail="decision must be approved or rejected")
+
+    req = await leave_requests_col.find_one({"id": request_id}, {"_id": 0})
+    if not req:
+        raise HTTPException(status_code=404, detail="Leave request not found")
+
+    user_id = current_user["id"]
+    is_admin_override = current_user.get("rbac_role") in ("admin_owner", "hr_head")
+
+    if req["status"] == "pending_l1":
+        if req["manager_id"] != user_id and not is_admin_override:
+            raise HTTPException(status_code=403, detail="Only the assigned L1 manager can decide")
+        stage = "l1"
+    elif req["status"] == "pending_final":
+        if req["final_approver_id"] != user_id and not is_admin_override:
+            raise HTTPException(status_code=403, detail="Only the final approver can decide")
+        stage = "final"
+    else:
+        raise HTTPException(status_code=400, detail=f"Cannot decide — status is '{req['status']}'")
+
+    now = datetime.now(timezone.utc)
+    updates = {}
+
+    if stage == "l1":
+        updates["decided_at_l1"] = now
+        updates["decided_by_l1"] = user_id
+        updates["decided_by_l1_name"] = current_user.get("name")
+        updates["decision_note_l1"] = payload.note
+
+        if payload.decision == "rejected":
+            updates["status"] = "rejected"
+            updates["rejection_reason"] = payload.note or "Rejected by L1 manager"
+        else:
+            if req["manager_id"] == req["final_approver_id"]:
+                updates["status"] = "approved"
+                updates["decided_at_final"] = now
+                updates["decided_by_final"] = user_id
+                updates["decided_by_final_name"] = current_user.get("name")
+            else:
+                updates["status"] = "pending_final"
+
+    else:  # final
+        updates["decided_at_final"] = now
+        updates["decided_by_final"] = user_id
+        updates["decided_by_final_name"] = current_user.get("name")
+        updates["decision_note_final"] = payload.note
+
+        if payload.decision == "rejected":
+            updates["status"] = "rejected"
+            updates["rejection_reason"] = payload.note or "Rejected by final approver"
+        else:
+            updates["status"] = "approved"
+
+    await leave_requests_col.update_one({"id": request_id}, {"$set": updates})
+
+    if updates.get("status") == "approved":
+        from_d = parse_date(req["from_date"])
+        await deduct_leave_balance(
+            user_id=req["user_id"],
+            leave_type_key=req["leave_type_key"],
+            year=from_d.year,
+            days=req["total_days"],
+            request_id=request_id,
+            reason=f"Leave approved: {req['from_date']} to {req['to_date']}",
+            triggered_by=user_id,
+            month_key=req["from_date"][:7] if req["leave_type_key"] == "casual_leave" else None,
+        )
+
+    final_status = updates.get("status")
+    if final_status == "pending_final":
+        if req.get("final_approver_id"):
+            await notifications_col.insert_one({
+                "id": str(uuid.uuid4()),
+                "user_id": req["final_approver_id"],
+                "title": "Leave request awaits your final approval",
+                "message": f"{req.get('user_name')} • {req.get('leave_type_name')} • {req['from_date']} to {req['to_date']}",
+                "type": "leave_request",
+                "entity_id": request_id,
+                "read": False,
+                "created_at": now,
+            })
+
+    await notifications_col.insert_one({
+        "id": str(uuid.uuid4()),
+        "user_id": req["user_id"],
+        "title": f"Leave request {final_status or payload.decision}",
+        "message": f"Your {req.get('leave_type_name')} leave ({req['from_date']} to {req['to_date']}) is now '{final_status or payload.decision}'." +
+                   (f" Note: {payload.note}" if payload.note else ""),
+        "type": "leave_decision",
+        "entity_id": request_id,
+        "read": False,
+        "created_at": now,
+    })
+
+    return {
+        "message": f"Leave {payload.decision} at stage {stage}",
+        "new_status": final_status,
+    }
+
+
+# ──────────────────────────────────────────────────────────────
+# All leaves (HR/admin)
+# ──────────────────────────────────────────────────────────────
+@router.get("/all")
+async def list_all_leaves(
+    status: Optional[str] = None,
+    user_id: Optional[str] = None,
+    department: Optional[str] = None,
+    leave_type_key: Optional[str] = None,
+    limit: int = 100,
+    skip: int = 0,
+    current_user: dict = Depends(require_any_permission(
+        "leave.view.all", "leave.view.dept"
+    )),
+):
+    q = {}
+    if status:
+        q["status"] = status
+    if user_id:
+        q["user_id"] = user_id
+    if department:
+        q["department"] = department
+    if leave_type_key:
+        q["leave_type_key"] = leave_type_key
+
+    items = []
+    async for r in leave_requests_col.find(q, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit):
+        items.append(_serialize_request(r))
+    total = await leave_requests_col.count_documents(q)
+    return {"items": items, "total": total, "skip": skip, "limit": limit}
+
+
+# ──────────────────────────────────────────────────────────────
+# Balance history
+# ──────────────────────────────────────────────────────────────
+@router.get("/balance-history/my")
+async def my_balance_history(
+    limit: int = 50,
+    current_user: dict = Depends(get_current_user),
+):
+    items = []
+    async for h in leave_balance_history_col.find(
+        {"user_id": current_user["id"]}, {"_id": 0}
+    ).sort("date", -1).limit(limit):
+        if isinstance(h.get("date"), datetime):
+            h["date"] = h["date"].isoformat()
+        if isinstance(h.get("created_at"), datetime):
+            h["created_at"] = h["created_at"].isoformat()
+        items.append(h)
+    return items
+
+
+@router.get("/balance-history/user/{user_id}")
+async def user_balance_history(
+    user_id: str,
+    limit: int = 50,
+    current_user: dict = Depends(require_any_permission(
+        "leave.view.team", "leave.view.dept", "leave.view.all"
+    )),
+):
+    items = []
+    async for h in leave_balance_history_col.find(
+        {"user_id": user_id}, {"_id": 0}
+    ).sort("date", -1).limit(limit):
+        if isinstance(h.get("date"), datetime):
+            h["date"] = h["date"].isoformat()
+        if isinstance(h.get("created_at"), datetime):
+            h["created_at"] = h["created_at"].isoformat()
         items.append(h)
     return items
