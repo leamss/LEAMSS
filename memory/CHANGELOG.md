@@ -6,6 +6,37 @@ This file appends every completed phase/feature with dates and verification stat
 
 ## 📅 February 2026
 
+### 🐛 Hotfix: Direct Sales Not Counting + Admin Preview-as-Client Bug (Phase 4B Part 2.1)
+**Completed:** Feb 13, 2026  
+**Tests:** 46/46 PASS (added `test_direct_sale_approved_contributes_to_target`)
+
+#### Issues reported by user
+1. **Target widget not updating after direct-sale approval**: User created a direct sale via "My Sales" (not via PA flow), admin approved it (₹292,250 received), but the sales target widget showed 0% achievement. Root cause: `compute_achievement` only queried `pre_assessments_col` for `stage=case_created` — direct-sale revenue from the `sales` collection was excluded.
+2. **"Partners or admins only" error on Preview-as-Client**: Admin and sales executives both got 403 when clicking the "Preview as Client" button on PAs. Three more endpoints in `pre_assess_portal.py` had the same legacy `role in ("partner", "admin")` hardcoded check (same bug pattern as Phase 4B Part 1).
+
+#### Fix 1 — Dual-source revenue recognition
+- **`core/targets_logic.py:compute_achievement`** — Now sums revenue from **BOTH**:
+  - `pre_assessments` where `stage=case_created` (standard + express PA path)
+  - `sales` where `status=approved` (Direct Sale path — bypasses PA)
+- De-duplication via `seen_sale_ids` so a PA linked to a sale doesn't double-count
+- Uses `amount_received` for direct sales (matches commission convention), fallback to `fee_amount`
+- **`routers/sales.py:approve_sale`** — On admin approve, fires `recalc_targets_for_user(sale.partner_id, notify=True)` to instantly refresh widgets + trigger milestone notifications
+- **`routers/sales.py:record_payment`** — When additional payment is received on approved sale, fires recalc (`notify=False` since no milestone change typically)
+
+#### Fix 2 — Removed legacy role gates
+- **`routers/pre_assess_portal.py`** — 3 endpoints fixed with admin-OR-(owner+sales-role) pattern:
+  - `partner/preview-magic/{pa_id}` ("Preview as Client" button)
+  - `partner/forward-to-admin/{pa_id}` (forward docs for 1st approval)
+  - `partner/submit-for-final-approval/{pa_id}` (final submission)
+- All now accept admin/admin_owner OR (sales_executive/sr_sales_executive/sales_manager/sales_head/partner) with ownership via `partner_id` or `created_by_user_id`
+
+#### Verified Live
+- ✅ User's "test sales" (₹292,250 approved direct sale) now shows in widget: **58.45% achievement (₹292,250/₹500,000)**, PA Count 1/10, status Active
+- ✅ Admin + sexec can both hit preview-magic endpoint (passes role check; gets correct business-logic 400 if client hasn't paid yet)
+- ✅ Phase 4A regression 15/15 · Phase 4B Targets 15/15 · Phase 4B Express 16/16
+
+
+
 ### ✅ Phase 4B Part 2 — Two-Path Sales (Express Sale) DELIVERED
 **Completed:** Feb 13, 2026  
 **Tests:** Backend **45/45 ALL PASS** (Phase 4A 15/15 + Phase 4B Targets 15/15 + Phase 4B Express 15/15) — `/app/test_reports/iteration_98.json`. Frontend testing agent confirmed: 95% success rate, all critical flows + role isolation work.

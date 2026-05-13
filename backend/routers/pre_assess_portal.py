@@ -218,14 +218,20 @@ async def partner_preview_magic(pa_id: str, current_user: dict = Depends(get_cur
     """Partner-only: generate a short-lived magic link to preview the client portal/MiniPortal.
     Useful for demos / support. Works only on PAs where client has paid.
     """
-    if current_user.get("role") not in ("partner", "admin"):
-        raise HTTPException(status_code=403, detail="Partners or admins only")
+    # Phase 4A-aligned: admin OR ownership (partner_id/created_by_user_id)
+    is_admin = (current_user.get("role") in ("admin", "admin_owner") or current_user.get("rbac_role") in ("admin", "admin_owner"))
+    is_owner = (pa_id is not None)  # ownership check happens below after PA fetch
+    if not is_admin and current_user.get("role") not in ("partner", "sales_executive", "sr_sales_executive", "sales_manager", "sales_head"):
+        raise HTTPException(status_code=403, detail="Sales / partners / admins only")
 
     pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
     if not pa:
         raise HTTPException(status_code=404, detail="Pre-assessment not found")
-    if current_user.get("role") == "partner" and pa.get("partner_id") != current_user["id"]:
-        raise HTTPException(status_code=403, detail="Not your assessment")
+    # Ownership: admin can preview any PA; everyone else must own it via partner_id or created_by_user_id
+    if not is_admin:
+        owns = pa.get("partner_id") == current_user["id"] or pa.get("created_by_user_id") == current_user["id"]
+        if not owns:
+            raise HTTPException(status_code=403, detail="Not your pre-assessment")
 
     # Must have a client user linked
     client_user = None
@@ -542,14 +548,17 @@ class PartnerForwardRequest(BaseModel):
 @router.post("/partner/forward-to-admin/{pa_id}")
 async def partner_forward_to_admin(pa_id: str, data: PartnerForwardRequest, current_user: dict = Depends(get_current_user)):
     """Partner reviews client's uploaded documents and forwards to Admin for 1st approval."""
-    if current_user.get("role") not in ("partner", "admin"):
-        raise HTTPException(status_code=403, detail="Partners or admins only")
+    is_admin = (current_user.get("role") in ("admin", "admin_owner") or current_user.get("rbac_role") in ("admin", "admin_owner"))
+    if not is_admin and current_user.get("role") not in ("partner", "sales_executive", "sr_sales_executive", "sales_manager", "sales_head"):
+        raise HTTPException(status_code=403, detail="Sales / partners / admins only")
 
     pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
     if not pa:
         raise HTTPException(status_code=404, detail="Pre-assessment not found")
-    if current_user.get("role") == "partner" and pa.get("partner_id") != current_user["id"]:
-        raise HTTPException(status_code=403, detail="Not your pre-assessment")
+    if not is_admin:
+        owns = pa.get("partner_id") == current_user["id"] or pa.get("created_by_user_id") == current_user["id"]
+        if not owns:
+            raise HTTPException(status_code=403, detail="Not your pre-assessment")
     if pa.get("stage") != "partner_review":
         raise HTTPException(status_code=400, detail=f"Cannot forward at stage: {pa.get('stage')}")
 
@@ -777,14 +786,17 @@ class PartnerSubmitFinalRequest(BaseModel):
 async def partner_submit_final(pa_id: str, data: PartnerSubmitFinalRequest, current_user: dict = Depends(get_current_user)):
     """Partner uploads payment receipt/agreement (via regular document upload endpoint), then
     submits the PA to Admin for final 2nd approval. Transitions proposal_paid → awaiting_final_approval."""
-    if current_user.get("role") not in ("partner", "admin"):
-        raise HTTPException(status_code=403, detail="Partners or admins only")
+    is_admin = (current_user.get("role") in ("admin", "admin_owner") or current_user.get("rbac_role") in ("admin", "admin_owner"))
+    if not is_admin and current_user.get("role") not in ("partner", "sales_executive", "sr_sales_executive", "sales_manager", "sales_head"):
+        raise HTTPException(status_code=403, detail="Sales / partners / admins only")
 
     pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
     if not pa:
         raise HTTPException(status_code=404, detail="Pre-assessment not found")
-    if current_user.get("role") == "partner" and pa.get("partner_id") != current_user["id"]:
-        raise HTTPException(status_code=403, detail="Not your pre-assessment")
+    if not is_admin:
+        owns = pa.get("partner_id") == current_user["id"] or pa.get("created_by_user_id") == current_user["id"]
+        if not owns:
+            raise HTTPException(status_code=403, detail="Not your pre-assessment")
     if pa.get("stage") != "proposal_paid":
         raise HTTPException(status_code=400, detail=f"Cannot submit-final at stage: {pa.get('stage')}")
 

@@ -439,6 +439,15 @@ async def approve_sale(request: SaleApproval, current_user: dict = Depends(get_c
             "commission_amount": commission,
             "pending_amount": round(sale["fee_amount"] - received, 2)
         }})
+
+        # Phase 4B — Auto-recalc target achievement for the sale's owner.
+        # Approved direct-sale revenue counts equally with PA case_created revenue.
+        try:
+            from core.targets_logic import recalc_targets_for_user
+            if sale.get("partner_id"):
+                await recalc_targets_for_user(sale["partner_id"], notify=True)
+        except Exception as _e:
+            print(f"[Phase4B] sale-approve recalc failed: {_e}")
         
         # Create or get client
         client = await users_col.find_one({"email": sale["client_email"]}, {"_id": 0})
@@ -684,7 +693,15 @@ async def record_payment(data: RecordPayment, current_user: dict = Depends(get_c
     await _log(current_user["id"], "record_payment", "sale", data.sale_id, {
         "amount": data.amount, "new_total_received": new_received, "new_commission": new_commission
     })
-    
+
+    # Phase 4B — When more payment is received on an approved sale, refresh target achievement
+    try:
+        if sale.get("status") == "approved" and sale.get("partner_id"):
+            from core.targets_logic import recalc_targets_for_user
+            await recalc_targets_for_user(sale["partner_id"], notify=False)
+    except Exception as _e:
+        print(f"[Phase4B] record-payment recalc failed: {_e}")
+
     return {
         "message": "Payment recorded successfully",
         "amount_received": new_received,

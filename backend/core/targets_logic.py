@@ -88,16 +88,23 @@ def days_remaining_in_period(period_end: datetime, ref: Optional[datetime] = Non
 # Achievement calculation
 # ────────────────────────────────────────────────────────────
 async def compute_achievement(target: Dict[str, Any]) -> Dict[str, Any]:
-    """Re-queries closed PAs in the target period for target.user_id.
+    """Re-queries closed deals in the target period for target.user_id.
+    Sums revenue from BOTH:
+      - pre_assessments where stage='case_created' (PA path — standard + express converge here)
+      - sales records where status='approved'  (Direct Sale path — bypasses PA entirely)
+
     Returns achievement dict (does NOT persist — caller persists).
     """
     user_id = target["user_id"]
     period_start = _aware(target["period_start"])
     period_end = _aware(target["period_end"])
 
-    # Closed PAs: stage = case_created (final approved). Match by created_by_user_id (Phase 4A).
-    # Fall back to partner_id for legacy PAs without the new field.
-    query = {
+    revenue_total = 0.0
+    pa_count = 0
+    seen_sale_ids = set()
+
+    # ─── (1) PA-driven revenue: stage=case_created ──────────────────
+    pa_query = {
         "$or": [
             {"created_by_user_id": user_id},
             {"$and": [
@@ -108,12 +115,28 @@ async def compute_achievement(target: Dict[str, Any]) -> Dict[str, Any]:
         "stage": "case_created",
         "final_approved_at": {"$gte": period_start, "$lt": period_end},
     }
-
-    revenue_total = 0.0
-    pa_count = 0
-    async for pa in pre_assessments_col.find(query, {"_id": 0, "proposal_fee": 1, "final_amount": 1}):
-        # proposal_fee is the main service amount paid by client (Phase B+C)
+    async for pa in pre_assessments_col.find(pa_query, {"_id": 0, "proposal_fee": 1, "final_amount": 1, "sale_id": 1}):
         amount = float(pa.get("proposal_fee") or pa.get("final_amount") or 0)
+        revenue_total += amount
+        pa_count += 1
+        # Track linked sale_id so we don't double-count if same deal appears in sales_col
+        if pa.get("sale_id"):
+            seen_sale_ids.add(pa["sale_id"])
+
+    # ─── (2) Direct Sale revenue: status=approved ───────────────────
+    # Match by partner_id (Phase 4A: sales execs use their user_id as partner_id on sales too)
+    sales_col = db["sales"]
+    sale_query = {
+        "partner_id": user_id,
+        "status": "approved",
+        "approved_at": {"$gte": period_start, "$lt": period_end},
+    }
+    async for s in sales_col.find(sale_query, {"_id": 0, "id": 1, "fee_amount": 1, "amount_received": 1}):
+        if s.get("id") in seen_sale_ids:
+            # Already counted via the PA path
+            continue
+        # Use amount_received if available (matches commission-calc convention), else fee_amount
+        amount = float(s.get("amount_received") or s.get("fee_amount") or 0)
         revenue_total += amount
         pa_count += 1
 

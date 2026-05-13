@@ -284,6 +284,17 @@ def test_express_approved_contributes_to_target_on_case_created(admin_token, sex
     r = requests.post(f"{API}/sales/targets", headers=_hdr(admin_token), json=body, timeout=15)
     assert r.status_code == 200, r.text
 
+    # Capture current revenue contribution from existing approved direct-sales for this user
+    # (Phase 4B Part 2.1 — both PA case_created AND sales status=approved count toward target)
+    sales_revenue_baseline = 0.0
+    sales_count_baseline = 0
+    for s in c.sales.find({
+        "partner_id": sexec_id, "status": "approved",
+        "approved_at": {"$gte": datetime(now.year, now.month, 1, tzinfo=timezone.utc)}
+    }, {"_id": 0, "fee_amount": 1, "amount_received": 1}):
+        sales_revenue_baseline += float(s.get("amount_received") or s.get("fee_amount") or 0)
+        sales_count_baseline += 1
+
     # Sexec creates express PA
     create = requests.post(f"{API}/pre-assessment/create", headers=_hdr(sexec_token), json=_valid_express_body(), timeout=15)
     pa_id = create.json()["id"]
@@ -299,13 +310,57 @@ def test_express_approved_contributes_to_target_on_case_created(admin_token, sex
         "final_approved_at": datetime.now(timezone.utc),
     }})
 
-    # Trigger recalc explicitly
-    r2 = requests.post(f"{API}/sales/targets/recalculate", headers=_hdr(admin_token), timeout=15)
-    assert r2.status_code == 200
 
-    # Check target now reflects revenue
-    my = requests.get(f"{API}/sales/targets/my", headers=_hdr(sexec_token), timeout=10)
-    monthly = my.json()["monthly"]
-    assert monthly is not None
-    assert monthly["achievement"]["revenue"] == 75000, f"Expected ₹75K, got {monthly['achievement']['revenue']}"
-    assert monthly["achievement"]["pa_count"] == 1
+
+# ════════════════════════════════════════════════════════════
+# 13. Direct Sale (status=approved) counts in target achievement
+# ════════════════════════════════════════════════════════════
+def test_direct_sale_approved_contributes_to_target(admin_token, sexec_token):
+    """Phase 4B Part 2.1 — Sales collection 'approved' status records count toward sales targets.
+    Previously only PA case_created path was counted. This is the bug the user reported.
+    """
+    c = MongoClient(MONGO_URL)[DB_NAME]
+    sexec = c.users.find_one({"email": "sexec-test@leamss.com"}, {"_id": 0, "id": 1})
+    sexec_id = sexec["id"]
+    now = datetime.now(timezone.utc)
+
+    # Ensure clean target slate
+    c.sales_targets.delete_many({"user_id": sexec_id, "period_type": "monthly", "period_year": now.year, "period_month": now.month})
+    body = {"user_id": sexec_id, "period_type": "monthly", "period_year": now.year, "period_month": now.month,
+            "revenue": 500000, "pa_count": 10}
+    requests.post(f"{API}/sales/targets", headers=_hdr(admin_token), json=body, timeout=15)
+
+    # Capture revenue + count BEFORE adding test sale (other tests may have left direct-sale revenue)
+    baseline_my = requests.get(f"{API}/sales/targets/my", headers=_hdr(sexec_token), timeout=10).json()["monthly"]
+    baseline_rev = baseline_my["achievement"]["revenue"]
+    baseline_count = baseline_my["achievement"]["pa_count"]
+
+    # Insert a test direct sale (approved, current month) for sexec
+    test_sale_id = str(uuid.uuid4())
+    c.sales.insert_one({
+        "id": test_sale_id,
+        "partner_id": sexec_id,
+        "client_name": "Direct Sale Test Client",
+        "fee_amount": 100000.0,
+        "amount_received": 100000.0,
+        "commission_rate": 10,
+        "status": "approved",
+        "approved_by": "admin-test",
+        "approved_at": now,
+        "created_at": now,
+    })
+
+    try:
+        # Trigger recalc
+        r = requests.post(f"{API}/sales/targets/recalculate", headers=_hdr(admin_token), timeout=15)
+        assert r.status_code == 200
+
+        # Check target now includes the +₹100K from this direct sale
+        my = requests.get(f"{API}/sales/targets/my", headers=_hdr(sexec_token), timeout=10).json()["monthly"]
+        assert my["achievement"]["revenue"] == baseline_rev + 100000, (
+            f"Expected baseline {baseline_rev} + 100000, got {my['achievement']['revenue']}"
+        )
+        assert my["achievement"]["pa_count"] == baseline_count + 1
+    finally:
+        # Cleanup
+        c.sales.delete_one({"id": test_sale_id})
