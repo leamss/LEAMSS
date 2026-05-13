@@ -17,11 +17,12 @@ import PartnerPerformance from '@/components/PartnerPerformance';
 import LeadPipeline from '@/components/LeadPipeline';
 import FeeCalculator from '@/components/FeeCalculator';
 import PartnerHome from '@/components/PartnerHome';
+import SalesWidgetsRow from '@/components/sales/SalesWidgets';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
-const PartnerDashboard = () => {
+const PartnerDashboard = ({ mode = "partner" }) => {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [stats, setStats] = useState({});
@@ -144,7 +145,11 @@ const PartnerDashboard = () => {
 
   useEffect(() => {
     const userData = JSON.parse(localStorage.getItem('user'));
-    if (!userData || userData.role !== 'partner') {
+    const SALES_ROLES = ['sales_executive', 'sr_sales_executive', 'sales_manager', 'sales_head'];
+    const allowedRoles = mode === 'sales'
+      ? SALES_ROLES
+      : ['partner'];
+    if (!userData || !allowedRoles.includes(userData.rbac_role || userData.role)) {
       navigate('/');
       return;
     }
@@ -545,7 +550,14 @@ const PartnerDashboard = () => {
               </Dialog>
 
           {activeTab === 'home' && (
-            <PartnerHome user={user} onNavigate={(tab, filter) => { setActiveTab(tab); setPreAssessFilter(filter || null); }} />
+            <>
+              {mode === "sales" && (
+                <div className="mb-6" data-testid="sales-widgets-banner">
+                  <SalesWidgetsRow />
+                </div>
+              )}
+              <PartnerHome user={user} onNavigate={(tab, filter) => { setActiveTab(tab); setPreAssessFilter(filter || null); }} />
+            </>
           )}
 
           {activeTab === 'dashboard' && (

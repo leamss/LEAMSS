@@ -57,7 +57,7 @@ async def generate_proposal(data: AIGenerateRequest, current_user: dict = Depend
     pa = await pre_assessments_col.find_one({"id": data.pa_id}, {"_id": 0})
     if not pa:
         raise HTTPException(status_code=404, detail="Pre-assessment not found")
-    if role == "partner" and pa.get("partner_id") != current_user["id"]:
+    if role in ("partner", "sales_executive", "sr_sales_executive") and pa.get("partner_id") != current_user["id"]:
         raise HTTPException(status_code=403, detail="This pre-assessment belongs to another partner. You can only generate proposals for your own leads.")
 
     if not EMERGENT_LLM_KEY:

@@ -1,0 +1,50 @@
+{
+  "summary": "Phase 4A — Sales Workflow Inheritance backend testing. 14/15 tests passed. One CRITICAL access control bug found: GET /api/pre-assessment/{pa_id} has NO ownership check — a sales_executive can read a partner's PA (and vice versa). All other Phase 4A acceptance criteria verified: PA creation persists partner_id=sexec_id, created_by_user_id, created_by_role='sales_executive', created_by_user_type='internal', lead_source/lead_source_detail. my-assessments correctly scoped (sexec sees only own PAs). stats/overview scoped via OWN_SCOPED_ROLES tuple. AI proposal not 403 for sexec on own PA. Document upload works for sexec. Partner regression intact (PAs unchanged, create still works with created_by_role='partner'). Migration backfill verified — all PAs have created_by_user_id (idempotent, 16 PAs total in DB). sexec has 30 permissions including all 4 required partner perms (pa.create.own, agreement.view.own, agreement.generate.own, invoice.view.own). Admin-only endpoint (/api/admin-super/approval-center) returns 403 for sexec. Phase 3 regression passed (leaves/my-balance returns 7 types, attendance/current-status, hr/leave-types).",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "GET /api/pre-assessment/{pa_id}",
+        "issue": "Missing ownership check — sales_executive (and partner) can fetch any other user's PA. Endpoint at /app/backend/routers/pre_assessment.py:738-756 does NOT enforce partner_id == current_user.id. Sibling endpoints (send-payment-link L170, submit-documents L281, bundle L799, regenerate-link L388, payment endpoints L460,L572) all have the correct check. This is the public detail endpoint — most impactful one. CRITICAL for Phase 4A scope isolation guarantee. Fix: add `role = current_user.get('role'); if role in ('partner','sales_executive','sr_sales_executive') and pa.get('partner_id') != current_user['id']: raise HTTPException(403, 'Not your pre-assessment')`. Also handle client role (only own client_email/client_user_id) — see bundle endpoint at L801-803 for reference pattern.",
+        "priority": "CRITICAL"
+      }
+    ],
+    "minor": [
+      {
+        "endpoint": "POST /api/pre-assessment/create response shape",
+        "issue": "Create response returns only {id, pa_number, message}. The review_request Test 1 expected `response.partner_id == sexec_user_id` directly in the create response. Currently verified via a follow-up GET. Consider echoing partner_id, created_by_role, lead_source in the create response so clients can confirm persistence without a round-trip."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_phase4a_sales_workflow.py",
+    "/app/test_reports/pytest/phase4a_results.xml"
+  ],
+  "action_items": [
+    "CRITICAL: Add ownership check in GET /api/pre-assessment/{pa_id} (pre_assessment.py L738-756). Copy the role/partner_id check pattern from the bundle endpoint at L798-803. Without this, sexec roles can read partner PAs and vice versa — defeats Phase 4A scope isolation."
+  ],
+  "critical_code_review_comments": [
+    "pre_assessment.py is now 918 lines — past the 700-line threshold. Recommend splitting into pa_create.py / pa_payment.py / pa_documents.py / pa_proposal.py / pa_admin_review.py / pa_query.py. The ownership-check pattern is duplicated 6+ times across the file (lines 170, 281, 388, 460, 572, 799) — extract into a single helper `_assert_pa_owner(pa, user)` to prevent future omissions (this is exactly what caused the L738 bug).",
+    "OWN_SCOPED_ROLES tuple is defined inline only inside stats/overview (L764). Define once as module-level constant alongside PA_CREATOR_ROLES (L90) and reuse everywhere — keeps the partner|sales_executive|sr_sales_executive list in sync.",
+    "my-assessments (L721-735) does not scope sales_manager/sales_head — only partner+sexec via partner_id match. Managers see admin scope when role=='admin' branch falls through. If sales_manager should see their team's PAs (vs only their own), this needs explicit team-scoping logic; otherwise document the current behaviour.",
+    "create_pre_assessment (L83) — the docstring claims 'sales executives are treated as internal partners'. Consider renaming partner_id → owner_user_id in a future migration since it now legitimately holds internal user ids too; current naming will mislead future readers.",
+    "Migration phase4a_pa_backfill.py: at L42 falls back to 'partner' when user lookup fails. This is safe for known data but logs nothing. Add a logger.warning when fallback triggers so anomalies surface."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_phase4a_sales_workflow.py (NEW — 15 tests)"
+  ],
+  "success_rate": {
+    "backend": "93% (14/15)",
+    "frontend": "n/a (backend-only request)"
+  },
+  "test_credentials": "Admin: admin@leamss.com / Admin@123 | Partner: partner@leamss.com / Partner@123 | Sales Exec: sexec-test@leamss.com / Pass@1234 | Sales Mgr: smgr-test@leamss.com / Pass@1234",
+  "seed_data_creation": "2 PAs created and left in DB (per instructions to not delete): (1) sexec PA — client 'Phase4A Test Client', email phase4a-test@x.com, country Canada, lead_source=linkedin, owned by sexec-test. (2) partner PA — client 'Phase4A Regression Partner Client', email phase4a-partner-reg@x.com, owned by partner. 1 doc uploaded on sexec PA (Phase4A Test Doc).",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Phase 4A test file at /app/backend/tests/test_phase4a_sales_workflow.py runs in order 01-15. Test 5 (sexec_forbidden_on_partner_pa) is the only failing test — confirms missing ownership check at pre_assessment.py L738. After fix, re-run only Test 5; all others independent and self-contained. Seed PAs accumulate across runs (each invocation creates 2 new PAs); cumulative count drives Test 10's `>=15` assertion which remains satisfied. AI-proposal Test 6 currently returns 200 (not 403) — works end-to-end; if AI key issues arise in future, the test still passes as long as it's not a 403.",
+  "rca of the issue": "Bug: GET /api/pre-assessment/{pa_id} (pre_assessment.py L738-756) is missing the role/partner_id ownership check. Root cause: when Phase 4A bulk-replaced `role=='partner'` with the tuple match across 14 sites in 7 routers, this particular handler had NO existing check at all (not even the old `partner` one) — so the sed-style replacement missed it. The detail endpoint was likely overlooked since most authz logic in the file is on mutation endpoints. Reproduction: login as sexec-test, GET /pre-assessment/my-assessments as partner to grab a partner_pa_id, then GET /pre-assessment/{partner_pa_id} as sexec — returns 200 + full PA data including financial fields. Fix (~5 lines): after the 404 check at L743, add: `role = current_user.get('role'); if role in ('partner','sales_executive','sr_sales_executive') and pa.get('partner_id') != current_user.get('id'): raise HTTPException(403, 'Not your pre-assessment'); if role == 'client' and (pa.get('client_email') or '').lower() != (current_user.get('email') or '').lower() and pa.get('client_user_id') != current_user.get('id'): raise HTTPException(403, 'Not your pre-assessment')`. Better long-term fix: extract `_assert_pa_owner(pa, user)` helper used by all 7 endpoints that currently duplicate this logic."
+}

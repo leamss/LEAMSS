@@ -28,6 +28,8 @@ import HolidayManager from '@/pages/admin/HolidayManager';
 import LeaveTypesManager from '@/pages/admin/LeaveTypesManager';
 import ApproverConfig from '@/pages/admin/ApproverConfig';
 import HRAuditLog from '@/pages/admin/HRAuditLog';
+import SalesDashboard from '@/pages/SalesDashboard';
+import ComingSoon from '@/pages/ComingSoon';
 import ServiceCalculator from '@/pages/ServiceCalculator';
 import LeadCapture from '@/pages/LeadCapture';
 import SharedEstimate from '@/pages/SharedEstimate';
@@ -85,6 +87,12 @@ function App() {
               <HRAuditLog />
             </RequirePermission>
           } />
+          <Route path="/sales/dashboard" element={
+            <RequirePermission anyOf={['pa.create.own', 'pa.view.own']}>
+              <SalesDashboard />
+            </RequirePermission>
+          } />
+          <Route path="/sales/coming-soon" element={<ComingSoon />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPasswordWithToken />} />
           <Route path="/force-change-password" element={<ForceChangePassword />} />

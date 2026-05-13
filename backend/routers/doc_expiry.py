@@ -128,7 +128,7 @@ async def upcoming(
     async for d in pa_docs_col.find(pa_filter, {"_id": 0}):
         ctx = await _hydrate_pa(d.get("pre_assessment_id"))
         # Role scoping
-        if role == "partner" and ctx.get("partner_id") != current_user.get("id"):
+        if role in ("partner", "sales_executive", "sr_sales_executive") and ctx.get("partner_id") != current_user.get("id"):
             continue
         if role == "client" and ctx.get("client_user_id") != current_user.get("id"):
             continue
@@ -143,7 +143,7 @@ async def upcoming(
         if role == "client" and ctx.get("client_user_id") != current_user.get("id"):
             continue
         # partner has no direct case ownership; admin/cm see all
-        if role == "partner":
+        if role in ("partner", "sales_executive", "sr_sales_executive"):
             continue
         item = _build_item(d, "case", ctx)
         if item["days_left"] is None or item["days_left"] > horizon_days:
@@ -247,7 +247,7 @@ async def set_pa_doc_expiry(doc_id: str, body: SetExpiryBody, current_user: dict
         raise HTTPException(status_code=404, detail="Document not found")
     role = current_user.get("role")
     pa = await _hydrate_pa(d.get("pre_assessment_id"))
-    if role == "partner" and pa.get("partner_id") != current_user.get("id"):
+    if role in ("partner", "sales_executive", "sr_sales_executive") and pa.get("partner_id") != current_user.get("id"):
         raise HTTPException(status_code=403, detail="Not your PA")
     if role == "client" and pa.get("client_user_id") != current_user.get("id"):
         raise HTTPException(status_code=403, detail="Not your document")

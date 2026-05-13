@@ -706,7 +706,7 @@ async def get_consent_summary(pa_id: str, current_user: dict = Depends(get_curre
     if role == "client":
         if (pa.get("client_email") or "").lower() != (current_user.get("email") or "").lower() and pa.get("client_user_id") != current_user["id"]:
             raise HTTPException(status_code=403, detail="Not authorized")
-    elif role == "partner":
+    elif role in ("partner", "sales_executive", "sr_sales_executive"):
         if pa.get("partner_id") != current_user["id"]:
             raise HTTPException(status_code=403, detail="Not authorized")
     elif role not in ("admin", "case_manager"):

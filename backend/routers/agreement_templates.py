@@ -498,7 +498,7 @@ async def list_pa_agreements(pa_id: str, current_user: dict = Depends(get_curren
     if not pa:
         raise HTTPException(status_code=404, detail="PA not found")
     role = current_user.get("role")
-    if role == "partner" and pa.get("partner_id") != current_user["id"]:
+    if role in ("partner", "sales_executive", "sr_sales_executive") and pa.get("partner_id") != current_user["id"]:
         raise HTTPException(status_code=403, detail="Not your PA")
     if role == "client":
         is_client = (pa.get("client_user_id") == current_user["id"]) or \
@@ -520,7 +520,7 @@ async def get_agreement(aid: str, current_user: dict = Depends(get_current_user)
     if not a:
         raise HTTPException(status_code=404, detail="Agreement not found")
     role = current_user.get("role")
-    if role == "partner" and a.get("partner_id") != current_user["id"]:
+    if role in ("partner", "sales_executive", "sr_sales_executive") and a.get("partner_id") != current_user["id"]:
         raise HTTPException(status_code=403, detail="Not authorized")
     if role == "client":
         if a.get("client_user_id") != current_user["id"] and (a.get("client_email") or "").lower() != (current_user.get("email") or "").lower():
@@ -622,7 +622,7 @@ async def agreement_pdf(aid: str, current_user: dict = Depends(get_current_user)
     if not a:
         raise HTTPException(status_code=404, detail="Agreement not found")
     role = current_user.get("role")
-    if role == "partner" and a.get("partner_id") != current_user["id"]:
+    if role in ("partner", "sales_executive", "sr_sales_executive") and a.get("partner_id") != current_user["id"]:
         raise HTTPException(status_code=403, detail="Not authorized")
     if role == "client":
         if a.get("client_user_id") != current_user["id"] and (a.get("client_email") or "").lower() != (current_user.get("email") or "").lower():

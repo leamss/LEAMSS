@@ -124,6 +124,15 @@ async def startup():
     except Exception as e:
         print(f"[Attendance ERROR] {e}")
 
+    # Run Phase 4A PA created_by backfill (idempotent)
+    try:
+        from migrations.phase4a_pa_backfill import run_migration as run_pa_backfill
+        pr = await run_pa_backfill()
+        print(f"[Phase4A] PA backfill {pr['status']}: "
+              f"backfilled={pr['backfilled']}, skipped={pr['skipped']}")
+    except Exception as e:
+        print(f"[Phase4A ERROR] {e}")
+
 
 async def seed_database():
     """Seed the database with initial data"""

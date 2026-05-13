@@ -54,6 +54,9 @@ class CreatePreAssessment(BaseModel):
     client_age: int = 0
     education: str = ""
     work_experience: str = ""
+    # Phase 4A — Lead Source Tracking (optional)
+    lead_source: Optional[str] = None  # maple_crm | walkin | referral | cold_call | linkedin | whatsapp | email | event | direct | other
+    lead_source_detail: Optional[str] = None  # location (walkin) / referrer name / other text
 
 
 class AdminReview(BaseModel):
@@ -78,9 +81,15 @@ class ProposalData(BaseModel):
 
 @router.post("/create")
 async def create_pre_assessment(data: CreatePreAssessment, current_user: dict = Depends(get_current_user)):
-    """Partner creates a new pre-assessment for a potential client"""
-    if current_user["role"] not in ["partner", "admin"]:
-        raise HTTPException(status_code=403, detail="Only partners can create pre-assessments")
+    """Create a new pre-assessment. Supports partners AND internal sales executives.
+
+    Phase 4A: Sales executives are treated as 'internal partners' — their user_id
+    becomes the partner_id for backward compatibility. The new created_by_role and
+    created_by_user_id fields capture the distinction.
+    """
+    PA_CREATOR_ROLES = ("partner", "admin", "sales_executive", "sr_sales_executive", "sales_manager", "sales_head")
+    if current_user["role"] not in PA_CREATOR_ROLES:
+        raise HTTPException(status_code=403, detail="You don't have permission to create pre-assessments")
 
     pa_id = str(uuid.uuid4())
     pa_number = f"PA-{datetime.now().strftime('%Y%m%d')}-{pa_id[:6].upper()}"
@@ -96,6 +105,12 @@ async def create_pre_assessment(data: CreatePreAssessment, current_user: dict = 
         "pa_number": pa_number,
         "partner_id": current_user["id"],
         "partner_name": current_user.get("name", ""),
+        # Phase 4A — Internal sales tracking
+        "created_by_user_id": current_user["id"],
+        "created_by_role": current_user["role"],
+        "created_by_user_type": current_user.get("user_type", "external"),
+        "lead_source": data.lead_source,
+        "lead_source_detail": data.lead_source_detail,
         "client_name": data.client_name,
         "client_email": data.client_email,
         "client_mobile": data.client_mobile,
@@ -370,7 +385,7 @@ async def delete_pa_document(pa_id: str, doc_id: str, current_user: dict = Depen
     if not pa:
         raise HTTPException(status_code=404, detail="Pre-assessment not found")
     role = current_user.get("role")
-    if role == "partner" and pa.get("partner_id") != current_user["id"]:
+    if role in ("partner", "sales_executive", "sr_sales_executive") and pa.get("partner_id") != current_user["id"]:
         raise HTTPException(status_code=403, detail="Not your pre-assessment")
     if role == "client":
         email_match = pa.get("client_email", "").lower() == current_user.get("email", "").lower()
@@ -442,7 +457,7 @@ async def update_pa_details(pa_id: str, body: PADetailsUpdate, current_user: dic
         raise HTTPException(status_code=404, detail="Pre-assessment not found")
 
     role = current_user.get("role")
-    if role == "partner" and pa.get("partner_id") != current_user.get("id"):
+    if role in ("partner", "sales_executive", "sr_sales_executive") and pa.get("partner_id") != current_user.get("id"):
         raise HTTPException(status_code=403, detail="Not your pre-assessment")
     if role not in ("admin", "case_manager", "partner"):
         raise HTTPException(status_code=403, detail="Insufficient permissions")
@@ -554,7 +569,7 @@ async def send_proposal(pa_id: str, proposal: ProposalData, http_request: Reques
     role = current_user.get("role")
     if role not in ("partner", "admin"):
         raise HTTPException(status_code=403, detail=f"Your role '{role}' cannot send proposals. Please log in as Partner or Admin.")
-    if role == "partner" and pa["partner_id"] != current_user["id"]:
+    if role in ("partner", "sales_executive", "sr_sales_executive") and pa["partner_id"] != current_user["id"]:
         raise HTTPException(status_code=403, detail="This pre-assessment belongs to another partner. You can only send proposals for your own leads.")
 
     base_fee = float(proposal.fee_amount or 0)
@@ -746,7 +761,8 @@ async def get_stats(current_user: dict = Depends(get_current_user)):
     """Get pre-assessment statistics (runs all counts in parallel for speed)."""
     import asyncio
     query = {}
-    if current_user["role"] == "partner":
+    OWN_SCOPED_ROLES = ("partner", "sales_executive", "sr_sales_executive")
+    if current_user["role"] in OWN_SCOPED_ROLES:
         query = {"partner_id": current_user["id"]}
 
     stages = [
@@ -780,7 +796,7 @@ async def get_pa_bundle(pa_id: str, current_user: dict = Depends(get_current_use
     if not pa:
         raise HTTPException(status_code=404, detail="Pre-assessment not found")
     role = current_user.get("role")
-    if role == "partner" and pa.get("partner_id") != current_user["id"]:
+    if role in ("partner", "sales_executive", "sr_sales_executive") and pa.get("partner_id") != current_user["id"]:
         raise HTTPException(status_code=403, detail="Not your pre-assessment")
     if role == "client":
         if (pa.get("client_email") or "").lower() != (current_user.get("email") or "").lower() and pa.get("client_user_id") != current_user["id"]:

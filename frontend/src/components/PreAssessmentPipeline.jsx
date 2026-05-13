@@ -66,7 +66,8 @@ const PreAssessmentPipeline = ({ initialFilter = null }) => {
   const [form, setForm] = useState({
     client_name: '', client_email: '', client_mobile: '', country: '',
     service_type: '', product_id: '', notes: '', client_age: 0,
-    education: '', work_experience: ''
+    education: '', work_experience: '',
+    lead_source: null, lead_source_detail: ''
   });
   const [proposalForm, setProposalForm] = useState({ fee_amount: '', notes: '', promo_code: '', promo_applied: null, additional_discount: '', upsell_ids: [], ai_text: '' });
   const [showProposal, setShowProposal] = useState(null);
@@ -136,7 +137,7 @@ const PreAssessmentPipeline = ({ initialFilter = null }) => {
       }, getAuthHeader());
       toast.success('Pre-assessment created!');
       setShowCreate(false);
-      setForm({ client_name: '', client_email: '', client_mobile: '', country: '', service_type: '', product_id: '', notes: '', client_age: 0, education: '', work_experience: '' });
+      setForm({ client_name: '', client_email: '', client_mobile: '', country: '', service_type: '', product_id: '', notes: '', client_age: 0, education: '', work_experience: '', lead_source: null, lead_source_detail: '' });
       loadData();
     } catch (e) { toast.error(e.response?.data?.detail || 'Failed to create'); }
   };

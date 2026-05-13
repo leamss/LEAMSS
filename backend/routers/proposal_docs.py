@@ -51,7 +51,7 @@ def _authz(pa: dict, current_user: dict):
     role = current_user.get("role")
     if role == "admin":
         return
-    if role == "partner" and pa.get("partner_id") == current_user["id"]:
+    if role in ("partner", "sales_executive", "sr_sales_executive") and pa.get("partner_id") == current_user["id"]:
         return
     if role == "case_manager":
         return

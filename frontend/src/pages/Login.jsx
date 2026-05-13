@@ -43,6 +43,11 @@ const Login = () => {
         partner: '/partner',
         case_manager: '/case-manager',
         client: '/client',
+        // Phase 4A — Internal sales roles
+        sales_executive: '/sales/dashboard',
+        sr_sales_executive: '/sales/dashboard',
+        sales_manager: '/sales/dashboard',
+        sales_head: '/sales/dashboard',
       };
       navigate(fixedRoutes[role] || '/portal/welcome');
     } catch (error) {
