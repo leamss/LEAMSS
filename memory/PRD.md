@@ -9,6 +9,30 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 
 **Status:** ✅ COMPLETE — 15/15 backend tests passed (`/app/test_reports/iteration_96.json`)
 
+### Impersonation Restored — "Switch / View Dashboard As User" (Feb 13, 2026)
+
+**Status:** ✅ COMPLETE — restored original full JWT-swap impersonation (Option A)
+
+**Why:** Prior agent had downgraded `POST /api/auth/impersonate/{user_id}` to 410 GONE in favor of a read-only modal preview. User explicitly requested original behavior back ("jaise pehle tha").
+
+**Backend** (`routers/auth.py`):
+- Endpoint un-deprecated, full JWT swap restored
+- Guard-rails: admin-only (legacy + rbac_role), 400 self-impersonate, 400 inactive target, 404 missing user
+- Audit log: `action='impersonate_user'` with admin_email + target_email + target_role
+- Returns target's full user object + `impersonated_by` metadata
+
+**Frontend**:
+- `AdminDashboard.jsx` line 2424 Switch button → `handleImpersonate(usr)` (was `setPreviewUserId`)
+- `handleImpersonate` — full route map (admin, partner, case_manager, client, sales_executive, sr_sales_executive, sales_manager, sales_head) + `/portal/welcome` fallback + error recovery
+- `DashboardShell.jsx > AdminReturnBanner` — shows `🔄 Impersonating [name]` + role badge + `(Logged in as Admin: [admin])` + `Exit Impersonation` button
+
+**Verified:**
+- ✅ 5 backend guard-rails pass via curl
+- ✅ Audit log entry written
+- ✅ Frontend E2E: Admin → Users tab → 11 Switch buttons rendered → Click Case Manager Switch → land on /case-manager → yellow banner visible → Exit → back to /admin clean
+
+### Phase 4A — Sales Workflow Inheritance (Feb 13, 2026) (continued)
+
 **Design Principle:** DRY — Sales executives are treated as "internal partners" with the EXACT SAME PA workflow. No component duplication.
 
 **Backend Foundation:**

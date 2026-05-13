@@ -403,17 +403,33 @@ const AdminDashboard = () => {
       const response = await axios.post(`${API}/auth/impersonate/${targetUser.id}`, {}, getAuthHeader());
       localStorage.setItem('token', response.data.token);
       localStorage.setItem('user', JSON.stringify(response.data.user));
-      // Use legacy 'role' field for routing (preserved for backward compatibility)
-      const userRole = response.data.user.role || response.data.user.rbac_role;
-      const routes = { admin: '/admin', admin_owner: '/admin', partner: '/partner', case_manager: '/case-manager', client: '/client' };
-      const target = routes[userRole];
-      if (!target) {
-        toast.error(`No dashboard route for role: ${userRole}`);
-        return;
-      }
+      // Route by legacy 'role' first (preserves all existing dashboards), then rbac_role for new internal roles
+      const u = response.data.user;
+      const legacyRole = u.role;
+      const rbacRole = u.rbac_role;
+      const routes = {
+        admin: '/admin', admin_owner: '/admin',
+        partner: '/partner',
+        case_manager: '/case-manager',
+        client: '/client',
+        sales_executive: '/sales/dashboard',
+        sr_sales_executive: '/sales/dashboard',
+        sales_manager: '/sales/dashboard',
+        sales_head: '/sales/dashboard',
+      };
+      const target = routes[legacyRole] || routes[rbacRole] || '/portal/welcome';
       toast.success(`Switched to ${targetUser.name}'s account`);
       setTimeout(() => { window.location.assign(target); }, 100);
     } catch (error) {
+      // Restore admin token if switch failed mid-way
+      const adminTok = localStorage.getItem('admin_token');
+      const adminUsr = localStorage.getItem('admin_user');
+      if (adminTok && adminUsr) {
+        localStorage.setItem('token', adminTok);
+        localStorage.setItem('user', adminUsr);
+        localStorage.removeItem('admin_token');
+        localStorage.removeItem('admin_user');
+      }
       const msg = error?.response?.data?.detail || error?.message || 'Unknown error';
       console.error('Impersonate failed:', error);
       toast.error(`Failed to impersonate: ${typeof msg === 'string' ? msg : JSON.stringify(msg)}`);
@@ -2421,7 +2437,7 @@ const AdminDashboard = () => {
                           </div>
                           <div className="flex gap-2">
                             {usr.role !== 'admin' && <Button onClick={() => openTicketForUser(usr)} size="sm" variant="outline" className="text-[#f7620b] border-[#f7620b] hover:bg-[#f7620b]/10" data-testid={`ticket-for-${usr.id}`}><MessageSquare className="h-4 w-4 mr-1" />Ticket</Button>}
-                            {usr.role !== 'admin' && <Button onClick={() => setPreviewUserId(usr.id)} size="sm" className="bg-[#2a777a] hover:bg-[#236466] text-white" data-testid={`switch-user-${usr.id}`} title="View dashboard as this user (read-only preview)"><Eye className="h-4 w-4 mr-1" />Switch</Button>}
+                            {usr.role !== 'admin' && <Button onClick={() => handleImpersonate(usr)} size="sm" className="bg-[#2a777a] hover:bg-[#236466] text-white" data-testid={`switch-user-${usr.id}`} title="Switch to this user's account (full impersonation)"><Eye className="h-4 w-4 mr-1" />Switch</Button>}
                             <Button onClick={() => setUserDialog({ open: true, mode: 'edit', data: usr })} size="sm" variant="outline" data-testid={`edit-user-${usr.id}`}><Edit className="h-4 w-4" /></Button>
                             {usr.role !== 'admin' && <Button onClick={() => handleDeleteUser(usr.id)} size="sm" variant="destructive" data-testid={`delete-user-${usr.id}`}><Trash2 className="h-4 w-4" /></Button>}
                           </div>

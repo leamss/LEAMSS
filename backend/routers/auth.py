@@ -133,17 +133,67 @@ async def get_me(current_user: dict = Depends(get_current_user)):
     }
 
 
-@router.post("/impersonate/{user_id}", deprecated=True)
+@router.post("/impersonate/{user_id}")
 async def impersonate_user(user_id: str, current_user: dict = Depends(get_current_user)):
-    """DEPRECATED — replaced by GET /api/admin/users/{id}/dashboard-preview (read-only)."""
-    raise HTTPException(
-        status_code=410,
-        detail={
-            "error": "endpoint_removed",
-            "message": "Impersonation has been replaced with read-only Dashboard Preview.",
-            "use_instead": "GET /api/admin/users/{user_id}/dashboard-preview",
+    """Admin-only — issues a JWT for the target user so the admin can view their dashboard.
+    The frontend stashes the admin's original token in localStorage as `admin_token` and
+    shows a yellow banner with a 'Return to Admin' button (handled by AdminReturnBanner).
+    Every switch is logged to audit_logs for compliance.
+    """
+    # Admin-only gate (legacy role check + rbac_role fallback)
+    is_admin = current_user.get("role") == "admin" or current_user.get("rbac_role") in ("admin_owner", "admin")
+    if not is_admin:
+        raise HTTPException(status_code=403, detail="Only admin can impersonate other users")
+
+    # Block self-impersonation (no-op)
+    if user_id == current_user.get("id"):
+        raise HTTPException(status_code=400, detail="Cannot impersonate yourself")
+
+    target = await users_col.find_one({"id": user_id}, {"_id": 0})
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if target.get("status") != "active":
+        raise HTTPException(status_code=400, detail="Cannot impersonate an inactive user")
+
+    # Issue JWT for target user (same flow as /login)
+    token = create_access_token(build_token_payload(target))
+
+    # Audit log — captures admin id + target id for compliance
+    await _log(
+        current_user["id"],
+        "impersonate_user",
+        "user",
+        target["id"],
+        {
+            "admin_email": current_user.get("email"),
+            "target_email": target.get("email"),
+            "target_role": target.get("role"),
+            "target_rbac_role": target.get("rbac_role"),
         },
     )
+
+    return {
+        "token": token,
+        "user": {
+            "id": target["id"], "email": target["email"], "name": target["name"],
+            "role": target["role"], "mobile": target.get("mobile", ""),
+            "status": target.get("status"),
+            "rbac_role": target.get("rbac_role"),
+            "user_type": target.get("user_type"),
+            "department": target.get("department"),
+            "permissions": target.get("permissions", []),
+            "ui_modules": target.get("ui_modules", []),
+            "employee_id": target.get("employee_id"),
+            "partner_code": target.get("partner_code"),
+            "two_fa_enabled": target.get("two_fa_enabled", False),
+        },
+        "impersonated_by": {
+            "id": current_user["id"],
+            "email": current_user.get("email"),
+            "name": current_user.get("name"),
+        },
+    }
 
 
 @router.post("/change-password")

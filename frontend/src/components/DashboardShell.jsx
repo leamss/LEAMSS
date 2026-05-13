@@ -61,6 +61,10 @@ const AdminReturnBanner = () => {
   let adminUser = null;
   try { adminUser = JSON.parse(adminUserData); } catch (e) {}
 
+  // Current (impersonated) user — to show their name in the banner
+  let currentUser = null;
+  try { currentUser = JSON.parse(localStorage.getItem('user') || 'null'); } catch (e) {}
+
   const handleReturn = () => {
     localStorage.setItem('token', adminToken);
     localStorage.setItem('user', adminUserData);
@@ -73,11 +77,15 @@ const AdminReturnBanner = () => {
   return (
     <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white px-4 py-2 flex items-center justify-between" data-testid="admin-return-banner">
       <div className="flex items-center gap-2">
-        <span className="text-sm font-medium">Viewing as impersonated user</span>
-        {adminUser && <span className="text-xs opacity-80">(Admin: {adminUser.name})</span>}
+        <span className="text-lg">🔄</span>
+        <span className="text-sm font-semibold" data-testid="impersonating-label">
+          Impersonating {currentUser?.name || 'user'}
+          {currentUser?.role && <span className="ml-1.5 px-1.5 py-0.5 rounded bg-white/20 text-[10px] font-medium uppercase tracking-wide">{currentUser.role.replace('_', ' ')}</span>}
+        </span>
+        {adminUser && <span className="text-xs opacity-80 ml-2">(Logged in as Admin: {adminUser.name})</span>}
       </div>
       <Button onClick={handleReturn} size="sm" className="bg-white text-orange-600 hover:bg-orange-50 font-medium" data-testid="return-to-admin-btn">
-        <ArrowLeft className="h-4 w-4 mr-1" /> Return to Admin
+        <ArrowLeft className="h-4 w-4 mr-1" /> Exit Impersonation
       </Button>
     </div>
   );

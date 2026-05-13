@@ -6,6 +6,43 @@ This file appends every completed phase/feature with dates and verification stat
 
 ## 📅 February 2026
 
+### ✅ Full Impersonation Restored — "View Dashboard As User" (Switch Button)
+**Completed:** Feb 13, 2026
+**Tests:** Backend curl (5 guard-rails) + Frontend E2E screenshot flow — ALL PASS
+
+#### Why
+User requested original full impersonation back (Option A) — the prior agent had downgraded `/api/auth/impersonate` to 410 GONE in favor of a read-only `dashboard-preview` modal. User found the preview modal too restrictive and wanted to actually navigate the impersonated user's portal.
+
+#### Backend Changes
+- **`POST /api/auth/impersonate/{user_id}`** — restored to fully working endpoint (was returning 410 GONE)
+  - Admin-only gate (legacy `role == 'admin'` + `rbac_role in (admin_owner, admin)`)
+  - 400 if admin tries to impersonate self
+  - 400 if target is inactive
+  - 404 if user not found
+  - Issues a JWT for target using `build_token_payload(target)` (same flow as `/login`)
+  - Returns target's full user payload + `impersonated_by` metadata
+  - Every switch logged to `audit_logs` with `action='impersonate_user'`, `admin_email`, `target_email`, `target_role`
+
+#### Frontend Changes
+- **`AdminDashboard.jsx`** — `Switch` button (`[data-testid^="switch-user-"]`) at line 2424 now wired to `handleImpersonate(usr)` (was `setPreviewUserId(usr.id)`)
+- **`handleImpersonate`** — expanded route map to support all sales roles (`/sales/dashboard`) + fallback to `/portal/welcome`. Added error-recovery to restore admin token if switch fails mid-way.
+- **`DashboardShell.jsx > AdminReturnBanner`** — yellow banner enhanced:
+  - Shows `🔄 Impersonating [target name]` with role badge
+  - Shows `(Logged in as Admin: [admin name])` for clarity
+  - Button text: `Exit Impersonation` (was `Return to Admin`)
+  - `data-testid="impersonating-label"` for the target-name span
+- Existing read-only `DashboardPreviewModal` still mounted (kept for `EmployeeDetailModal` usage)
+
+#### Verified
+- ✅ Partner → impersonate → 403
+- ✅ Self-impersonate → 400 "Cannot impersonate yourself"
+- ✅ Anonymous → 403
+- ✅ Bad user id → 404
+- ✅ Audit log entry written
+- ✅ Frontend E2E: Admin → Users tab → Switch on Case Manager → land on `/case-manager` → yellow banner shows "Impersonating Case Manager" → Exit → back to `/admin`, banner gone
+
+
+
 ### ✅ Phase 4A — Sales Workflow Inheritance (COMPLETE — 15/15 backend tests passed)
 **Completed:** Feb 13, 2026
 **Tests:** 15/15 backend tests passed via testing_agent_v3_fork (`/app/test_reports/iteration_96.json`)
