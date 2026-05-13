@@ -42,7 +42,7 @@ async def login(request: LoginRequest):
     if user.get("status") != "active":
         raise HTTPException(status_code=401, detail="Account is inactive")
     
-    token = create_access_token({"sub": user["id"], "role": user["role"]})
+    token = create_access_token(build_token_payload(user))
     
     await _log(user["id"], "login", "user", user["id"], {"role": user["role"], "email": user["email"]})
     
@@ -52,6 +52,14 @@ async def login(request: LoginRequest):
             "id": user["id"], "email": user["email"], "name": user["name"],
             "role": user["role"], "mobile": user.get("mobile", ""),
             "status": user["status"],
+            "rbac_role": user.get("rbac_role"),
+            "user_type": user.get("user_type"),
+            "department": user.get("department"),
+            "permissions": user.get("permissions", []),
+            "ui_modules": user.get("ui_modules", []),
+            "employee_id": user.get("employee_id"),
+            "partner_code": user.get("partner_code"),
+            "two_fa_enabled": user.get("two_fa_enabled", False),
             "created_at": user.get("created_at", "").isoformat() if isinstance(user.get("created_at"), datetime) else str(user.get("created_at", ""))
         }
     }

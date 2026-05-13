@@ -3,6 +3,81 @@
 ## Original Problem Statement
 Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case Manager, Partner, Client. Expanding to a full multi-department Employee Portal with production-grade RBAC.
 
+### RBAC Phase 2 — Employee Portal UI Complete (2026-05-13)
+
+**Dedicated Employee Portal at `/admin/employees`** — separate page using DashboardShell layout. Entry-point: green "Employee Portal" button on Admin Home greeting card.
+
+**New Pages (5):**
+1. **Employees Dashboard** (`emp-dashboard`) — top stat cards (Total/Active/On Leave/New This Month), department breakdown bars, recently joined list, quick actions
+2. **Departments** (`emp-departments`) — 8 department cards with icon/color/employee count/head, edit dialog for name/description/head
+3. **All Employees** (`emp-list`) — searchable filterable table (Department, Role, Status), CSV export, row → opens detail modal
+4. **Add Employee** (`emp-add`) — 3-step stepper (Basic Info → Employment → Access & Security), auto-2FA for hierarchy_level >= 3, shows temp password once
+5. **Org Chart** (`emp-org-chart`) — hierarchical tree from `reports_to` with expand/collapse, department-color borders
+
+**Employee Detail Modal** with 3 tabs:
+- **Profile** — inline edit (name, mobile, designation, location, work mode), direct reports widget
+- **Role & Permissions** — current role with permissions/UI modules display, change role dialog (logs to `user_role_history`), full role-change history
+- **Activity** — recent 30 activity log entries
+- Header actions: Reset Password, Deactivate/Reactivate
+
+**Backend Endpoints (15):**
+- `GET /api/employees` — list with filters (department, role, status, search) + pagination
+- `GET /api/employees/stats` — dashboard counts + dept/role breakdowns
+- `GET /api/employees/recent` — recent joiners
+- `GET /api/employees/org-chart` — hierarchical tree
+- `GET /api/employees/{id}` — detail with manager + direct_reports
+- `GET /api/employees/{id}/history` — role change audit
+- `GET /api/employees/{id}/activity` — activity log
+- `POST /api/employees` — create with all RBAC fields populated, auto-gen LMS-2026-NNNN
+- `PATCH /api/employees/{id}` — update profile
+- `PATCH /api/employees/{id}/role` — change role + refresh perms + log history + notify user
+- `POST /api/employees/{id}/deactivate` — terminate
+- `POST /api/employees/{id}/reactivate` — restore
+- `POST /api/employees/{id}/reset-password` — generate new temp password
+- `GET /api/departments` — list with employee counts + head
+- `GET /api/departments/{key}` — detail
+- `GET /api/departments/{key}/employees` — employees in dept
+- `GET /api/departments/{key}/roles` — roles available for dept
+- `PATCH /api/departments/{key}` — update name/desc/head
+- `GET /api/departments/_meta/roles` — all internal roles cross-dept
+
+**All endpoints gated by RBAC Phase 1 permissions:**
+- View: `employee.view.all` OR `user.view.all` OR `employee.view.dept`
+- Create: `employee.create.any` OR `user.create.any`
+- Update: `employee.update.all` OR `user.update.any`
+- Terminate: `employee.terminate.any`
+
+**Files Created (8):**
+- `/app/backend/routers/employees.py` — 13 endpoints, ~400 lines
+- `/app/backend/routers/departments.py` — 5 endpoints, ~130 lines
+- `/app/frontend/src/pages/EmployeesPortal.jsx` — DashboardShell wrapper with lazy-loaded children
+- `/app/frontend/src/components/employees/EmployeesDashboard.jsx`
+- `/app/frontend/src/components/employees/DepartmentsPage.jsx`
+- `/app/frontend/src/components/employees/EmployeesList.jsx`
+- `/app/frontend/src/components/employees/AddEmployeeForm.jsx`
+- `/app/frontend/src/components/employees/OrgChart.jsx`
+- `/app/frontend/src/components/employees/EmployeeDetailModal.jsx`
+
+**Files Modified (3):**
+- `/app/backend/server.py` — registered employees + departments routers
+- `/app/frontend/src/App.js` — new route `/admin/employees`
+- `/app/frontend/src/components/AdminHome.jsx` — "Employee Portal" button on greeting card
+
+**Backend Fixes During Implementation:**
+- `routers/auth.py` `/login` endpoint now returns ALL RBAC fields (rbac_role, user_type, department, permissions, ui_modules, employee_id, partner_code, two_fa_enabled) — previously only login response missed the upgrade
+
+**Critical Technical Note — Babel Stack Overflow Workaround:**
+- AdminDashboard.jsx is already 3370+ lines. Adding new imports for shadcn-heavy components (Dialog, Select) triggered `Maximum call stack size exceeded` in the platform's visual-edits babel plugin (`subtreeHasPortals` recursive AST analysis).
+- **Resolution**: Built Employee Portal as a STANDALONE page route (`/admin/employees`) instead of merging into AdminDashboard sidebar. Used `React.lazy` for sub-components so dynamic imports skip the recursive AST scanner.
+- **Result**: AdminDashboard untouched (0 regressions). Employee Portal works seamlessly via dedicated route.
+
+**Test Validation:**
+- ✅ All 4 existing logins work unchanged
+- ✅ Created test employees → got LMS-2026-NNNN, permissions[], ui_modules[] populated
+- ✅ New employee login returns full RBAC fields
+- ✅ All 5 portal pages render
+- ✅ Lint clean on backend (3 files) + frontend (6 components + 1 page)
+
 ### RBAC Phase 1 — Foundation Complete (2026-05-12 night)
 
 **User-approved Phase 1 RBAC foundation built end-to-end** — backward-compatible, zero regressions.

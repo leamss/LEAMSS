@@ -66,6 +66,8 @@ from routers.eligibility import router as eligibility_router
 from routers.doc_expiry import router as doc_expiry_router
 from routers.visa_compare import router as visa_compare_router
 from routers.share_links_dashboard import router as share_links_router
+from routers.employees import router as employees_router
+from routers.departments import router as departments_router
 
 app = FastAPI(title="LEAMSS Portal API", version="3.0")
 
@@ -261,7 +263,8 @@ for r in [auth_router, users_router, products_router, sales_router, cases_router
           upsell_bundles_router, ai_proposal_router,
           proposal_docs_router, payment_history_router, milestones_router, intelligence_router,
           legal_archive_router, agreement_templates_router, pa_agreements_router,
-          eligibility_router, doc_expiry_router, visa_compare_router, share_links_router]:
+          eligibility_router, doc_expiry_router, visa_compare_router, share_links_router,
+          employees_router, departments_router]:
     app.include_router(r, prefix="/api")
 
 
@@ -351,4 +354,5 @@ async def get_expiring_documents():
 
 if __name__ == "__main__":
     import uvicorn
+    uvicorn.run("server:app", host="0.0.0.0", port=8001, reload=True)
     uvicorn.run("server:app", host="0.0.0.0", port=8001, reload=True)

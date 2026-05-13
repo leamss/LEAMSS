@@ -14,6 +14,7 @@ import PaymentSuccess from '@/pages/PaymentSuccess';
 import WorkflowBuilder from '@/pages/WorkflowBuilder';
 import AIWorkflowBuilder from '@/pages/AIWorkflowBuilder';
 import MarketingDashboard from '@/pages/MarketingDashboard';
+import EmployeesPortal from '@/pages/EmployeesPortal';
 import ServiceCalculator from '@/pages/ServiceCalculator';
 import LeadCapture from '@/pages/LeadCapture';
 import SharedEstimate from '@/pages/SharedEstimate';
@@ -37,6 +38,7 @@ function App() {
           <Route path="/admin/workflows" element={<WorkflowBuilder />} />
           <Route path="/admin/ai-workflow" element={<AIWorkflowBuilder />} />
           <Route path="/admin/marketing" element={<MarketingDashboard />} />
+          <Route path="/admin/employees" element={<EmployeesPortal />} />
           <Route path="/calculator" element={<ServiceCalculator />} />
           <Route path="/inquiry" element={<LeadCapture />} />
           <Route path="/shared-estimate/:token" element={<SharedEstimate />} />

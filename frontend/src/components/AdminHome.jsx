@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Card } from '@/components/ui/card';
@@ -6,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   ClipboardList, Briefcase, Users, TrendingUp, ArrowRight,
   Sparkles, AlertCircle, CheckCircle, UserCheck, Package, DollarSign, Shield,
-  CalendarClock, Link2
+  CalendarClock, Link2, UsersRound
 } from 'lucide-react';
 import DropoffRecoveryWidget from '@/components/DropoffRecoveryWidget';
 import DocExpiryWidget from '@/components/DocExpiryWidget';
@@ -37,6 +38,7 @@ const ActionCard = ({ icon: Icon, title, count, description, cta, color, onClick
 );
 
 export default function AdminHome({ user, onNavigate }) {
+  const navigate = useNavigate();
   const [data, setData] = useState({
     first_approval_pending: 0,
     second_approval_pending: 0,
@@ -95,6 +97,9 @@ export default function AdminHome({ user, onNavigate }) {
             </p>
           </div>
           <div className="flex gap-2">
+            <Button onClick={() => navigate('/admin/employees')} variant="outline" className="border-white/30 text-white hover:bg-white/10" data-testid="goto-employees-portal-btn">
+              <UsersRound className="h-4 w-4 mr-1.5" /> Employee Portal
+            </Button>
             <Button onClick={() => onNavigate?.('users')} variant="outline" className="border-white/30 text-white hover:bg-white/10">
               <Users className="h-4 w-4 mr-1.5" /> Users
             </Button>
