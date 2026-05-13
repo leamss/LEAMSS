@@ -16,6 +16,37 @@ from core.services import log_activity
 
 router = APIRouter(prefix="/pre-assessment", tags=["Pre-Assessment"])
 
+# Phase 4A — Centralized scope constants & ownership helper
+PA_CREATOR_ROLES = ("partner", "admin", "sales_executive", "sr_sales_executive", "sales_manager", "sales_head")
+OWN_SCOPED_ROLES = ("partner", "sales_executive", "sr_sales_executive")  # see their own PAs only
+
+
+def _assert_pa_owner(pa: dict, current_user: dict):
+    """Raise 403 if current_user is not allowed to access the given PA.
+
+    Allowed roles:
+    - admin / case_manager → full access
+    - partner / sales_executive / sr_sales_executive → only if partner_id matches user.id
+    - client → only if client_email or client_user_id matches
+    - anyone else → 403
+    """
+    role = (current_user.get("role") or "").lower()
+    if role in ("admin", "case_manager"):
+        return
+    user_id = current_user.get("id")
+    if role in OWN_SCOPED_ROLES:
+        if pa.get("partner_id") != user_id:
+            raise HTTPException(status_code=403, detail="Not your pre-assessment")
+        return
+    if role == "client":
+        same_email = (pa.get("client_email") or "").lower() == (current_user.get("email") or "").lower()
+        same_user = pa.get("client_user_id") == user_id
+        if not (same_email or same_user):
+            raise HTTPException(status_code=403, detail="Not your pre-assessment")
+        return
+    raise HTTPException(status_code=403, detail="You don't have permission to access this pre-assessment")
+
+
 pre_assessments_col = db["pre_assessments"]
 pre_assessment_docs_col = db["pre_assessment_documents"]
 payment_transactions_col = db["payment_transactions"]
@@ -87,7 +118,6 @@ async def create_pre_assessment(data: CreatePreAssessment, current_user: dict = 
     becomes the partner_id for backward compatibility. The new created_by_role and
     created_by_user_id fields capture the distinction.
     """
-    PA_CREATOR_ROLES = ("partner", "admin", "sales_executive", "sr_sales_executive", "sales_manager", "sales_head")
     if current_user["role"] not in PA_CREATOR_ROLES:
         raise HTTPException(status_code=403, detail="You don't have permission to create pre-assessments")
 
@@ -737,10 +767,13 @@ async def get_my_assessments(current_user: dict = Depends(get_current_user)):
 
 @router.get("/{pa_id}")
 async def get_pre_assessment(pa_id: str, current_user: dict = Depends(get_current_user)):
-    """Get single pre-assessment details"""
+    """Get single pre-assessment details (with ownership enforcement)."""
     pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
     if not pa:
         raise HTTPException(status_code=404, detail="Pre-assessment not found")
+
+    # Phase 4A — fix critical scope leak: was previously unrestricted
+    _assert_pa_owner(pa, current_user)
 
     docs = await pre_assessment_docs_col.find(
         {"pre_assessment_id": pa_id}, {"_id": 0}
@@ -761,7 +794,6 @@ async def get_stats(current_user: dict = Depends(get_current_user)):
     """Get pre-assessment statistics (runs all counts in parallel for speed)."""
     import asyncio
     query = {}
-    OWN_SCOPED_ROLES = ("partner", "sales_executive", "sr_sales_executive")
     if current_user["role"] in OWN_SCOPED_ROLES:
         query = {"partner_id": current_user["id"]}
 

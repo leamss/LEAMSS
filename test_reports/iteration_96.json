@@ -1,0 +1,41 @@
+{
+  "summary": "Phase 4A retest after critical security fix. ALL 15/15 Phase 4A tests now PASS (was 14/15). The previously-failing Test 5 (sexec_forbidden_on_partner_pa) is now passing — GET /api/pre-assessment/{pa_id} correctly returns 403 with detail 'Not your pre-assessment' when a sales_executive attempts to read a partner-owned PA. Additionally verified the full ownership matrix via direct curls: sexec→partner_pa=403, partner→own_pa=200, admin→any_pa=200 (both partner+sexec PAs), sexec→own_pa=200, partner→sexec_pa=403 (bidirectional isolation also intact). The _assert_pa_owner helper at /app/backend/routers/pre_assessment.py L24-47 is correctly applied. Module-level PA_CREATOR_ROLES and OWN_SCOPED_ROLES constants are in place (L20-21). Security fix is complete and verified.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "POST /api/pre-assessment/create response shape",
+        "issue": "Carry-over from iter_95: create response returns only {id, pa_number, message}. Consider echoing partner_id, created_by_role, lead_source so clients can confirm persistence without a round-trip. Not blocking."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_phase4a_sales_workflow.py",
+    "/app/test_reports/pytest/phase4a_retest_results.xml"
+  ],
+  "action_items": [
+    "No action items — critical security bug resolved. Optional follow-up: apply _assert_pa_owner to the other 6 endpoints that still inline the role+partner_id check (send-payment-link L170, submit-documents L281, regenerate-link L388, payments L460/L572, bundle L799) to fully DRY the ownership logic now that the helper exists."
+  ],
+  "critical_code_review_comments": [
+    "_assert_pa_owner helper is well-defined (admin/case_manager bypass, OWN_SCOPED_ROLES exact match on partner_id, client email/user_id match, default-deny for unknown roles). Good defensive default-deny.",
+    "Helper currently only used on GET /{pa_id}. Six other endpoints still duplicate the role+partner_id pattern — refactor opportunity to eliminate the entire class of 'missed an endpoint' bugs that caused this incident.",
+    "pre_assessment.py is now 950 lines (was 918). Split-up into pa_create/pa_payment/pa_documents/pa_proposal/pa_admin_review/pa_query recommended.",
+    "Consider adding a pytest test that uses FastAPI route introspection to enforce 'every PA-scoped endpoint must call _assert_pa_owner' (decorator pattern or AST check) to prevent regression."
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "100% (15/15)",
+    "frontend": "n/a (backend-only retest)"
+  },
+  "test_credentials": "Admin: admin@leamss.com / Admin@123 | Partner: partner@leamss.com / Partner@123 | Sales Exec: sexec-test@leamss.com / Pass@1234",
+  "seed_data_creation": "Re-ran existing test file; 2 additional PAs created cumulatively in DB per pytest run (same as iter_95 pattern). No new seed scripts.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Phase 4A is now fully green (15/15). Critical ownership bug on GET /pre-assessment/{pa_id} is fixed via _assert_pa_owner helper at routers/pre_assessment.py L24-47. The helper currently only protects GET /{pa_id} — the other 6 mutation endpoints still have inline checks (not buggy, but duplicated). If future iterations touch those endpoints, replace inline checks with _assert_pa_owner calls to fully DRY. Seed PAs continue to accumulate; Test 10's `>=15` assertion remains comfortably satisfied (18+ PAs now).",
+  "rca of the issue": "Verified fix: _assert_pa_owner(pa, current_user) now called in GET /pre-assessment/{pa_id} (~L770). Helper enforces: admin/case_manager pass-through; partner/sales_executive/sr_sales_executive require pa.partner_id == user.id else 403 'Not your pre-assessment'; client requires matching client_email or client_user_id else 403; default-deny for any other role. Test 5 reproduction (sexec GET partner's PA) now returns 403 + correct detail message. Bidirectional check (partner GET sexec's PA) also returns 403, confirming scope isolation is symmetric. Admin bypass confirmed on both partner-owned and sexec-owned PAs. Owner self-access confirmed for both partner and sexec on their respective PAs."
+}
