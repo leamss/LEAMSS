@@ -235,6 +235,38 @@ async def org_chart(
     return {"roots": roots, "total": len(users)}
 
 
+@router.get("/managers-for-role/{role_key}")
+async def managers_for_role(
+    role_key: str,
+    current_user: dict = Depends(require_any_permission("employee.view.all", "user.view.all")),
+):
+    """Return active users whose role can be reports_to for the given role.
+
+    Logic: Look up role.reports_to_roles array, find active users whose
+    rbac_role is in that list. Used in cascading Add Employee form.
+    """
+    role = await roles_col.find_one({"key": role_key}, {"_id": 0})
+    if not role:
+        raise HTTPException(status_code=404, detail=f"Role '{role_key}' not found")
+
+    parent_roles = role.get("reports_to_roles", [])
+    if not parent_roles:
+        # Top-level role — no manager needed
+        return []
+
+    items = []
+    async for u in users_col.find(
+        {
+            "rbac_role": {"$in": parent_roles},
+            "status": "active",
+            "user_type": "internal",
+        },
+        {"_id": 0, "id": 1, "name": 1, "designation": 1, "email": 1, "rbac_role": 1, "department": 1, "avatar_url": 1},
+    ).sort("name", 1):
+        items.append(u)
+    return items
+
+
 @router.get("/{employee_id}")
 async def get_employee(
     employee_id: str,
@@ -471,6 +503,13 @@ async def change_role(
     )
 
     await _log_role_change(employee_id, old_role, payload.new_role, current_user["id"], payload.reason)
+
+    # Invalidate RBAC cache (user counts in /roles/{key} would be stale)
+    try:
+        from routers.rbac_admin import invalidate_cache
+        invalidate_cache()
+    except Exception:
+        pass
 
     # Notify the employee
     await notifications_col.insert_one({

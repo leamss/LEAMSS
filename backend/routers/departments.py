@@ -129,6 +129,14 @@ async def update_department(
 
     updates["updated_at"] = datetime.now(timezone.utc)
     await departments_col.update_one({"key": dept_key}, {"$set": updates})
+
+    # Invalidate RBAC cache so admin UI sees fresh data
+    try:
+        from routers.rbac_admin import invalidate_cache
+        invalidate_cache()
+    except Exception:
+        pass
+
     return {"message": "Department updated", "updated_fields": list(updates.keys())}
 
 

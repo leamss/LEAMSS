@@ -27,7 +27,7 @@ export default function AddEmployeeForm({ onNavigate }) {
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   const [departments, setDepartments] = useState([]);
-  const [allRoles, setAllRoles] = useState([]);
+  const [availableRoles, setAvailableRoles] = useState([]);
   const [managers, setManagers] = useState([]);
   const [result, setResult] = useState(null);
 
@@ -44,25 +44,43 @@ export default function AddEmployeeForm({ onNavigate }) {
   useEffect(() => {
     const load = async () => {
       try {
-        const [d, r, e] = await Promise.all([
-          axios.get(`${API}/departments`, { headers: { Authorization: `Bearer ${token}` } }),
-          axios.get(`${API}/departments/_meta/roles`, { headers: { Authorization: `Bearer ${token}` } }),
-          axios.get(`${API}/employees?status=active&limit=200`, { headers: { Authorization: `Bearer ${token}` } }),
-        ]);
+        const d = await axios.get(`${API}/departments`, { headers: { Authorization: `Bearer ${token}` } });
         setDepartments(d.data);
-        setAllRoles(r.data);
-        setManagers(e.data.items || []);
       } catch (err) { console.error(err); }
     };
     load();
   }, [token]);
 
-  const availableRoles = useMemo(() => {
-    if (!form.department) return [];
-    return allRoles.filter(r => r.department === form.department);
-  }, [form.department, allRoles]);
+  // When department changes — fetch roles for that dept (cascading)
+  useEffect(() => {
+    if (!form.department) { setAvailableRoles([]); return; }
+    (async () => {
+      try {
+        const r = await axios.get(`${API}/roles/by-department/${form.department}`, { headers: { Authorization: `Bearer ${token}` } });
+        setAvailableRoles(r.data);
+      } catch (err) { console.error(err); setAvailableRoles([]); }
+    })();
+  }, [form.department, token]);
 
-  const selectedRoleObj = useMemo(() => allRoles.find(r => r.key === form.role), [form.role, allRoles]);
+  // When role changes — fetch valid managers for "reports_to"
+  useEffect(() => {
+    if (!form.role) { setManagers([]); return; }
+    (async () => {
+      try {
+        const m = await axios.get(`${API}/employees/managers-for-role/${form.role}`, { headers: { Authorization: `Bearer ${token}` } });
+        setManagers(m.data);
+      } catch (err) { console.error(err); setManagers([]); }
+    })();
+  }, [form.role, token]);
+
+  const selectedRoleObj = useMemo(() => availableRoles.find(r => r.key === form.role), [form.role, availableRoles]);
+
+  // Auto-fill designation when role is selected (only if user hasn't typed one)
+  useEffect(() => {
+    if (selectedRoleObj && !form.designation) {
+      setForm(f => ({ ...f, designation: selectedRoleObj.name }));
+    }
+  }, [selectedRoleObj]);  // eslint-disable-line
 
   // Auto-suggest 2FA based on role hierarchy
   useEffect(() => {
@@ -258,9 +276,15 @@ export default function AddEmployeeForm({ onNavigate }) {
             </div>
 
             {selectedRoleObj && (
-              <Card className="p-3 bg-teal-50 border-teal-200 text-xs">
-                <p className="font-semibold text-teal-900">{selectedRoleObj.name} — {selectedRoleObj.permissions?.length || 0} permissions, {selectedRoleObj.ui_modules?.length || 0} UI modules</p>
-                <p className="text-teal-700 mt-1">{selectedRoleObj.description}</p>
+              <Card className="p-3 bg-teal-50 border-teal-200 text-xs space-y-1.5">
+                <p className="font-semibold text-teal-900">{selectedRoleObj.name} — Level {selectedRoleObj.hierarchy_level}</p>
+                <p className="text-teal-700">{selectedRoleObj.description}</p>
+                <p className="text-teal-700"><strong>{selectedRoleObj.permissions?.length || 0}</strong> permissions across <strong>{selectedRoleObj.ui_modules?.length || 0}</strong> UI modules</p>
+                {selectedRoleObj.reports_to_roles && selectedRoleObj.reports_to_roles.length > 0 ? (
+                  <p className="text-teal-700">Reports to: <strong>{selectedRoleObj.reports_to_roles.join(', ')}</strong></p>
+                ) : (
+                  <p className="text-teal-700 italic">Top-level role (no manager needed)</p>
+                )}
               </Card>
             )}
           </div>
