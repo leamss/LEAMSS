@@ -6,6 +6,59 @@ This file appends every completed phase/feature with dates and verification stat
 
 ## 📅 February 2026
 
+### ✅ Phase 4B Part 2 — Two-Path Sales (Express Sale) DELIVERED
+**Completed:** Feb 13, 2026  
+**Tests:** Backend **45/45 ALL PASS** (Phase 4A 15/15 + Phase 4B Targets 15/15 + Phase 4B Express 15/15) — `/app/test_reports/iteration_98.json`. Frontend testing agent confirmed: 95% success rate, all critical flows + role isolation work.
+
+#### What's New
+Real-world sales flexibility: not all sales need PA fees + first-approval. Express Sale adds a fast lane for **repeat clients, VIP customers, pre-qualified referrals** etc. — skips ₹5,100 PA fees collection but requires Admin approval before proposal generation. Both paths converge at `case_created` → same revenue recognition, same target/commission counting.
+
+#### Acceptance Criteria — 30/30 met
+- **Creation**: Standard (default, unchanged) and Express paths work for sales_executive, sr_sales_executive, sales_manager, partner; justification ≥30 chars enforced; 6 valid reasons + "other"
+- **Limits**: Per-role monthly caps — sexec=5, sr_sexec=8, smgr=15, sales_head/admin=unlimited, partner=3; 429 with clear message on exceed
+- **Auto-approval**: `sales_head`, `admin_owner`, `admin` skip the pending state (configurable via settings)
+- **Admin workflow**: `/admin/sales/express-approvals` page with pending queue, approve/reject dialogs (reject requires ≥5 char remarks), history tab with status badges
+- **Revenue counting**: Express PA → admin approve → push to `case_created` → recalc fires → target.achievement.revenue includes Express revenue ✅ (verified by `test_express_approved_contributes_to_target_on_case_created`)
+- **Role isolation**: Partner/Case Manager/Client cannot view pending queue (403); Sexec cannot approve (403); only roles with `pa.approve.express` can approve
+- **Audit**: Every approval/rejection logged with `admin_decision`, `admin_reviewed_by/at`, full remarks trail
+- **UX**: PA cards show `⚡ Express` badge + `Awaiting Approval` if pending; dashboard widget shows live usage X/Y this month
+
+#### Files (Backend)
+**New**:
+- `backend/core/express_logic.py` — settings defaults, monthly count, limit check, validation, auto-approve detector
+- `backend/routers/express_sales.py` — 7 endpoints: GET/PATCH settings, my-usage, pending, approve, reject, history
+- `backend/migrations/phase4b_express_init.py` — idempotent: seeds `sales_settings` doc + 2 indexes on pre_assessments
+- `backend/tests/test_phase4b_express.py` — 15 pytest cases (incl. critical revenue counting E2E)
+
+**Modified**:
+- `backend/routers/pre_assessment.py` — STAGES list expanded (added `express_pending_approval`, `express_rejected`); `CreatePreAssessment` model accepts `sale_type`, `express_sale_reason`, `express_sale_justification`; create endpoint branches on `sale_type` with full validation + limit check + auto-approve
+- `backend/server.py` — registered `express_sales_router` + boot-time migration
+- `backend/core/rbac/seed_data.py` — added 4 perms: `pa.create.express.own`, `pa.approve.express`, `sales_settings.view.all`, `sales_settings.manage.any`; granted to admin_owner / sales_head / sales_manager / sales_executive / sr_sales_executive appropriately
+
+#### Files (Frontend)
+**New**:
+- `frontend/src/pages/admin/ExpressApprovalsAdmin.jsx` — Admin approval queue with reason badges + dialogs
+
+**Modified**:
+- `frontend/src/components/pa/PaCreateForm.jsx` — Sale Type radio cards at top + Express conditional panel (reason dropdown, justification with live char counter, warning banner)
+- `frontend/src/components/PreAssessmentPipeline.jsx` — fetches express usage, passes to form, shows `⚡ Express` + `Awaiting Approval` badges on PA cards
+- `frontend/src/components/sales/SalesWidgets.jsx` — new `ExpressUsageWidget` showing X/Y monthly count with color-coded progress (widget row grid bumped to 5 cols)
+- `frontend/src/pages/AdminDashboard.jsx` — sidebar group "Sales Management" → added "Express Approvals" nav
+- `frontend/src/App.js` — route `/admin/sales/express-approvals` guarded by `pa.approve.express`
+
+#### Critical Revenue-Counting Test (passing)
+```
+test_express_approved_contributes_to_target_on_case_created
+  1. Admin sets target ₹5L/10PAs for sexec for current month
+  2. Sexec creates Express PA (vip_customer reason)
+  3. Admin approves Express → stage=approved
+  4. Push to case_created with proposal_fee=₹75K
+  5. Trigger /sales/targets/recalculate
+  6. Verify /sales/targets/my returns achievement.revenue=75000, pa_count=1 ✅
+```
+
+
+
 ### 🐛 Hotfix: Payment Link Error for Sales Executives
 **Completed:** Feb 13, 2026
 **Tests:** Backend regression 30/30 PASS (Phase 4A + 4B both green)
