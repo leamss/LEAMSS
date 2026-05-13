@@ -1216,6 +1216,17 @@ const AdminDashboard = () => {
       ]
     },
     {
+      groupLabel: 'HR Settings',
+      defaultOpen: false,
+      items: [
+        { id: 'hr-attendance-settings', icon: Settings, label: 'Attendance Settings', onClick: () => navigate('/admin/hr/settings') },
+        { id: 'hr-holidays', icon: Calendar, label: 'Holiday Calendar', onClick: () => navigate('/admin/hr/holidays') },
+        { id: 'hr-leave-types', icon: FileText, label: 'Leave Types & Policies', onClick: () => navigate('/admin/hr/leave-types') },
+        { id: 'hr-approvers', icon: Users, label: 'Approval Configuration', onClick: () => navigate('/admin/hr/approvers') },
+        { id: 'hr-audit', icon: Activity, label: 'HR Audit Log', onClick: () => navigate('/admin/hr/audit') },
+      ]
+    },
+    {
       groupLabel: 'Planning Tools',
       defaultOpen: true,
       items: [

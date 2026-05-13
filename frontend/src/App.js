@@ -23,6 +23,11 @@ import RequirePermission from '@/components/RequirePermission';
 import MyAttendance from '@/pages/MyAttendance';
 import MyLeaves from '@/pages/MyLeaves';
 import LeaveApprovals from '@/pages/LeaveApprovals';
+import AttendanceSettings from '@/pages/admin/AttendanceSettings';
+import HolidayManager from '@/pages/admin/HolidayManager';
+import LeaveTypesManager from '@/pages/admin/LeaveTypesManager';
+import ApproverConfig from '@/pages/admin/ApproverConfig';
+import HRAuditLog from '@/pages/admin/HRAuditLog';
 import ServiceCalculator from '@/pages/ServiceCalculator';
 import LeadCapture from '@/pages/LeadCapture';
 import SharedEstimate from '@/pages/SharedEstimate';
@@ -55,6 +60,31 @@ function App() {
           <Route path="/portal/attendance" element={<MyAttendance />} />
           <Route path="/portal/leaves" element={<MyLeaves />} />
           <Route path="/portal/leave-approvals" element={<LeaveApprovals />} />
+          <Route path="/admin/hr/settings" element={
+            <RequirePermission anyOf={['system.update.any', 'attendance.update.all']}>
+              <AttendanceSettings />
+            </RequirePermission>
+          } />
+          <Route path="/admin/hr/holidays" element={
+            <RequirePermission anyOf={['system.update.any', 'attendance.update.all']}>
+              <HolidayManager />
+            </RequirePermission>
+          } />
+          <Route path="/admin/hr/leave-types" element={
+            <RequirePermission anyOf={['system.update.any', 'leave.approve.final']}>
+              <LeaveTypesManager />
+            </RequirePermission>
+          } />
+          <Route path="/admin/hr/approvers" element={
+            <RequirePermission anyOf={['system.update.any', 'attendance.update.all']}>
+              <ApproverConfig />
+            </RequirePermission>
+          } />
+          <Route path="/admin/hr/audit" element={
+            <RequirePermission anyOf={['system.view.all', 'leave.view.all', 'attendance.view.all']}>
+              <HRAuditLog />
+            </RequirePermission>
+          } />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPasswordWithToken />} />
           <Route path="/force-change-password" element={<ForceChangePassword />} />

@@ -42,7 +42,7 @@ def test_login_all_three():
 
 # ─── HR Admin: Settings ─────────────────────────────────────
 def test_settings_admin(admin_h):
-    r = requests.get(f"{API}/hr-admin/settings", headers=admin_h, timeout=20)
+    r = requests.get(f"{API}/hr/settings", headers=admin_h, timeout=20)
     assert r.status_code == 200, r.text
     s = r.json()
     assert s.get("office_start_time") == "10:00"
@@ -55,13 +55,13 @@ def test_settings_admin(admin_h):
 
 
 def test_settings_forbidden_for_exec(exec_h):
-    r = requests.get(f"{API}/hr-admin/settings", headers=exec_h, timeout=20)
+    r = requests.get(f"{API}/hr/settings", headers=exec_h, timeout=20)
     assert r.status_code == 403, f"Expected 403, got {r.status_code}"
 
 
 # ─── HR Admin: Holidays ─────────────────────────────────────
 def test_holidays_2026(admin_h):
-    r = requests.get(f"{API}/hr-admin/holidays?year=2026", headers=admin_h, timeout=20)
+    r = requests.get(f"{API}/hr/holidays?year=2026", headers=admin_h, timeout=20)
     assert r.status_code == 200
     holidays = r.json()
     assert len(holidays) >= 9, f"Expected at least 9 holidays for 2026, got {len(holidays)}"
@@ -69,18 +69,18 @@ def test_holidays_2026(admin_h):
 
 def test_create_custom_holiday(admin_h):
     payload = {"date": "2026-12-30", "name": "TEST_Custom Holiday", "type": "company"}
-    r = requests.post(f"{API}/hr-admin/holidays", json=payload, headers=admin_h, timeout=20)
+    r = requests.post(f"{API}/hr/holidays", json=payload, headers=admin_h, timeout=20)
     if r.status_code == 400 and "already exists" in r.text:
         # cleanup-and-retry
-        gh = requests.get(f"{API}/hr-admin/holidays?year=2026", headers=admin_h, timeout=20).json()
+        gh = requests.get(f"{API}/hr/holidays?year=2026", headers=admin_h, timeout=20).json()
         hid = next((h["id"] for h in gh if h["date"] == "2026-12-30"), None)
         if hid:
-            requests.delete(f"{API}/hr-admin/holidays/{hid}", headers=admin_h, timeout=20)
-        r = requests.post(f"{API}/hr-admin/holidays", json=payload, headers=admin_h, timeout=20)
+            requests.delete(f"{API}/hr/holidays/{hid}", headers=admin_h, timeout=20)
+        r = requests.post(f"{API}/hr/holidays", json=payload, headers=admin_h, timeout=20)
     assert r.status_code == 200, r.text
     hid = r.json()["id"]
     # cleanup
-    requests.delete(f"{API}/hr-admin/holidays/{hid}", headers=admin_h, timeout=20)
+    requests.delete(f"{API}/hr/holidays/{hid}", headers=admin_h, timeout=20)
 
 
 # ─── Leave types ────────────────────────────────────────────
