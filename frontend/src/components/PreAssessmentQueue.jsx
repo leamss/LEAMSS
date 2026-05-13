@@ -53,6 +53,34 @@ const PreAssessmentQueue = ({ initialFilter = null }) => {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  // Admin "Preview as Client" — opens public payment page for unpaid PAs OR MiniPortal preview for paid ones
+  const handlePreviewAsClient = async (pa) => {
+    try {
+      const headers = { Authorization: `Bearer ${localStorage.getItem('token')}` };
+      // Unpaid → open public payment page (what client sees BEFORE paying)
+      if (['new', 'payment_pending'].includes(pa.stage) || pa.fee_payment_status !== 'paid') {
+        const r = await axios.post(`${API}/pre-assess-portal/generate-public-link`, { pa_id: pa.id }, { headers });
+        const url = r.data.public_url?.startsWith('http')
+          ? r.data.public_url
+          : `${window.location.origin}${r.data.public_url}`;
+        window.open(url, '_blank');
+        toast.success('Opening public payment page (what client sees before paying)');
+        return;
+      }
+      // Paid → open MiniPortal magic link (what client sees after paying)
+      const r = await axios.post(`${API}/pre-assess-portal/partner/preview-magic/${pa.id}`, {}, { headers });
+      if (r.data.portal_url) {
+        const url = r.data.portal_url.startsWith('http')
+          ? r.data.portal_url
+          : `${window.location.origin}${r.data.portal_url}`;
+        window.open(url, '_blank');
+        toast.success('Opening client portal preview in new tab');
+      }
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || 'Preview failed');
+    }
+  };
+
   const handleReview = async (paId) => {
     if (!reviewForm.decision) { toast.error('Select a decision'); return; }
     if (!reviewForm.reason) { toast.error('Please provide a reason'); return; }
@@ -300,6 +328,19 @@ const PreAssessmentQueue = ({ initialFilter = null }) => {
                         </div>
                       </div>
                     )}
+
+                    {/* Admin can preview the PA as the client will see it (public payment page for unpaid, MiniPortal for paid) */}
+                    <div className="flex justify-end gap-3 -mt-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-indigo-300 text-indigo-700 hover:bg-indigo-50"
+                        onClick={() => handlePreviewAsClient(pa)}
+                        data-testid={`preview-as-client-${pa.id}`}
+                      >
+                        <Eye className="h-4 w-4 mr-1.5" /> Preview as Client
+                      </Button>
+                    </div>
 
                     {/* Review Form - Only show for pending items */}
                     {(pa.stage === 'under_review' || pa.stage === 'documents_submitted') && (
