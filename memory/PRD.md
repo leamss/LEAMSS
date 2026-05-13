@@ -3,6 +3,27 @@
 ## Original Problem Statement
 Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case Manager, Partner, Client. Expanding to a full multi-department Employee Portal with production-grade RBAC.
 
+> **📌 Update (Feb 13, 2026):** `CHANGELOG.md` now tracks all completed phases (incl. **Phase 3A — Attendance & Leave** with full company policies). `ROADMAP.md` lists prioritized backlog. This PRD remains the static reference for original requirements.
+
+### Phase 3A — Attendance & Leave Management (Feb 13, 2026)
+
+**Status:** ✅ COMPLETE — 23/23 backend tests passed (`/app/test_reports/iteration_92.json`)
+
+**Company Policies (configurable via /api/hr-admin/settings):**
+- Office hours: 10:00 — 19:00 IST (9 hours), 10-min grace
+- 3 late marks/month → 1 CL auto-deducted
+- Monthly CL cap: 1/month (counts pending + approved)
+- Sandwich leave (Fri-Mon = 4 days incl. weekend)
+- Max 7 consecutive days, long leave (>5d) once/year
+- No approval = LWP (regularization grace: 3 days)
+- 7 leave types: CL/SL/EL/Comp-off/LWP/Maternity/Paternity
+- 2-stage approval workflow: L1 Manager → Final Approver (configurable)
+
+**Implementation:**
+- Backend: 3 new routers + 1 logic module + 1 migration (`attendance_leave_migration.py`)
+- Frontend: PunchWidget + MyAttendance calendar + MyLeaves balance/apply + LeaveApprovals inbox
+- 10 new DB collections + 6 new RBAC permissions auto-granted to internal roles
+
 ### RBAC Phase 2.2 — Route Guard Bug Fix (2026-05-13)
 
 **Reported by user via screenshots:** A sr_sales_executive user was accessing `/admin/employees` and getting 403 errors from backend when trying admin actions (Reset Password, Change Role). UI was confusing — actions were visible but failed.

@@ -634,23 +634,28 @@ async def decide_regularization(
 
             await attendance_logs_col.update_one(
                 {"user_id": reg["user_id"], "date": date_str},
-                {"$set": {
-                    "id": str(uuid.uuid4()),
-                    "user_id": reg["user_id"],
-                    "user_name": reg.get("user_name"),
-                    "department": reg.get("department"),
-                    "date": date_str,
-                    "year_month": date_str[:7],
-                    "punch_in_at": punch_in.isoformat(),
-                    "punch_out_at": punch_out.isoformat(),
-                    "total_minutes": total_min,
-                    "is_late": False,
-                    "late_by_minutes": 0,
-                    "status": "regularized",
-                    "regularized_by": current_user["id"],
-                    "regularization_id": reg_id,
-                    "created_at": datetime.now(timezone.utc),
-                }},
+                {
+                    "$set": {
+                        "user_id": reg["user_id"],
+                        "user_name": reg.get("user_name"),
+                        "department": reg.get("department"),
+                        "date": date_str,
+                        "year_month": date_str[:7],
+                        "punch_in_at": punch_in.isoformat(),
+                        "punch_out_at": punch_out.isoformat(),
+                        "total_minutes": total_min,
+                        "is_late": False,
+                        "late_by_minutes": 0,
+                        "status": "regularized",
+                        "regularized_by": current_user["id"],
+                        "regularization_id": reg_id,
+                        "updated_at": datetime.now(timezone.utc),
+                    },
+                    "$setOnInsert": {
+                        "id": str(uuid.uuid4()),
+                        "created_at": datetime.now(timezone.utc),
+                    },
+                },
                 upsert=True,
             )
 
