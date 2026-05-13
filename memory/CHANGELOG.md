@@ -6,6 +6,44 @@ This file appends every completed phase/feature with dates and verification stat
 
 ## 📅 February 2026
 
+### ✅ Phase 4B — Sales Targets Management (DELIVERED)
+**Completed:** Feb 13, 2026
+**Tests:** Backend 29/29 + Phase 4A regression 15/15 = **44/44 ALL PASS** (`/app/test_reports/iteration_97.json`)
+
+#### Acceptance Criteria — 33/33 met
+- **Admin/Manager workflows**: Create + edit (with required reason ≥5 chars) + soft-delete (admin, future-only) + bulk-apply template (override flag) + template CRUD with system-template lock
+- **Sales Executive view**: `/sales/my-targets` with Monthly/Quarterly/History tabs, live progress cards (Revenue + PA Count), daily run-rate calculation, days remaining, color-coded by % (rose → yellow → blue → emerald → amber for exceeded)
+- **Live dashboard widget**: `Monthly Target` on `/sales/dashboard` shows real-time ₹achievement / ₹target, %, days left, daily required pace (was placeholder)
+- **Auto-recalc**: PA `case_created` triggers `recalc_targets_for_user(created_by_user_id)` with milestone notifications at 50/75/100/150%
+- **Role isolation verified**: Partner/Case Manager/Client get null/redirect on `/sales/*` routes (RequirePermission guards). Sales Exec cannot set own target (403).
+- **Past-period block**: Cannot create or edit targets whose period has ended (400)
+- **Period uniqueness**: One target per user per period (409 on duplicate, can use override_existing in bulk)
+- **3 seed templates**: Starter ₹3L/6 · Standard ₹5L/10 · Aggressive ₹8L/16 (all system-locked from edit/delete)
+
+#### Files
+**New (4):**
+- `backend/core/targets_logic.py` — period bounds, achievement compute, status, milestone detection, tz-safe helpers
+- `backend/routers/targets.py` — 18 endpoints (CRUD + bulk + view + recalc + analytics + templates)
+- `backend/migrations/phase4b_targets_init.py` — idempotent: 5 indexes + 3 system templates seed
+- `backend/tests/test_phase4b_targets.py` — 15 pytest cases
+- `frontend/src/pages/MyTargets.jsx` — Sales exec progress UI
+- `frontend/src/pages/admin/SalesTargetsAdmin.jsx` — Admin team grid + bulk-apply modal + edit modal
+- `frontend/src/pages/admin/TargetTemplatesManager.jsx` — Template CRUD
+
+**Modified:**
+- `backend/core/database.py` — registered `sales_targets_col`, `target_templates_col`
+- `backend/core/rbac/seed_data.py` — added 8 perms: `target.delete.any`, `target.history.{team,all}`, `target_template.{view,use,create,manage}.{all,any}`; updated 4 role permission lists
+- `backend/server.py` — registered `targets_router` BEFORE `sales_router` (avoids `/sales/{id}` catch-all collision), boot-time migration hook
+- `backend/routers/pre_assess_portal.py` — `admin_approve_final` now triggers `recalc_targets_for_user` after stage→case_created
+- `frontend/src/components/sales/SalesWidgets.jsx` — `TargetWidget` now LIVE (calls `/api/sales/targets/my`)
+- `frontend/src/pages/AdminDashboard.jsx` — new sidebar group "Sales Management" with Targets + Templates
+- `frontend/src/App.js` — 3 new routes guarded by RequirePermission
+
+#### Bug Fixed Post-Test-Agent Review
+- **`days_remaining = 0` mid-period bug**: `_strip_id` converted MongoDB datetimes to ISO strings; `datetime.fromisoformat` returned naive datetimes which raised TypeError on comparison with tz-aware `now()`. The `except Exception` branch then defaulted to 0. **Fix**: coerce parsed datetimes to UTC-aware in `get_my_targets.enrich()` AND in `days_remaining_in_period()` itself. Verified: sexec sees `18 days left · Need ₹27.8K/day` correctly mid-May.
+
+
+
 ### ✅ Full Impersonation Restored — "View Dashboard As User" (Switch Button)
 **Completed:** Feb 13, 2026
 **Tests:** Backend curl (5 guard-rails) + Frontend E2E screenshot flow — ALL PASS

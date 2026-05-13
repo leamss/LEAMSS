@@ -78,6 +78,7 @@ def current_period(period_type: str, ref: Optional[datetime] = None) -> Dict[str
 def days_remaining_in_period(period_end: datetime, ref: Optional[datetime] = None) -> int:
     """Calendar days left until period ends (exclusive end)."""
     now = ref or datetime.now(timezone.utc)
+    period_end = _aware(period_end)
     if now >= period_end:
         return 0
     return max(0, (period_end - now).days)

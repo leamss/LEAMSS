@@ -491,11 +491,17 @@ async def get_my_targets(current_user: dict = Depends(get_current_user)):
         if not t:
             return None
         t = _strip_id(t)
-        # days_remaining calc needs ISO -> datetime; fall back if needed
+        # days_remaining calc needs ISO -> datetime; parsed datetime is naive when stored from Mongo,
+        # so coerce to UTC-aware before comparing against now() which is aware.
         try:
             end_dt = datetime.fromisoformat(t["period_end"])
+            if end_dt.tzinfo is None:
+                end_dt = end_dt.replace(tzinfo=timezone.utc)
+            start_dt = datetime.fromisoformat(t["period_start"])
+            if start_dt.tzinfo is None:
+                start_dt = start_dt.replace(tzinfo=timezone.utc)
             t["days_remaining"] = days_remaining_in_period(end_dt)
-            total_days = (end_dt - datetime.fromisoformat(t["period_start"])).days
+            total_days = (end_dt - start_dt).days
             t["total_days"] = total_days
             t["days_elapsed"] = max(0, total_days - t["days_remaining"])
         except Exception:

@@ -132,6 +132,12 @@ def _cleanup_targets(admin_token, sexec_id, request):
 # ════════════════════════════════════════════════════════════
 def test_admin_can_create_target(admin_token, sexec_id):
     y, m = _next_period()
+    # Ensure clean slate (prior test runs may have left targets in this period)
+    from pymongo import MongoClient
+    sc = MongoClient(os.environ.get("MONGO_URL", "mongodb://localhost:27017"))
+    sc[os.environ.get("DB_NAME", "leamss_portal")].sales_targets.delete_many({
+        "user_id": sexec_id, "period_type": "monthly", "period_year": y, "period_month": m
+    })
     body = {
         "user_id": sexec_id,
         "period_type": "monthly",
