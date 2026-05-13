@@ -6,6 +6,51 @@ This file appends every completed phase/feature with dates and verification stat
 
 ## 📅 February 2026
 
+### ✅ Phase 4A — Sales Workflow Inheritance (COMPLETE — 15/15 backend tests passed)
+**Completed:** Feb 13, 2026
+**Tests:** 15/15 backend tests passed via testing_agent_v3_fork (`/app/test_reports/iteration_96.json`)
+**Test file:** `/app/backend/tests/test_phase4a_sales_workflow.py`
+
+#### 🎯 Design Principle — DRY
+Sales executives are treated as "internal partners" — they use the EXACT SAME PA workflow components as external partners. NO duplication.
+
+#### Backend Changes
+- **NEW**: `core/attendance_logic`-style helper module: `_assert_pa_owner()` at top of `pre_assessment.py` for centralized ownership enforcement
+- **NEW**: Module-level constants `PA_CREATOR_ROLES`, `OWN_SCOPED_ROLES`
+- **CRITICAL FIX**: Applied ownership check to `GET /api/pre-assessment/{pa_id}` (was previously unrestricted — pre-existing bug exposed by Phase 4A)
+- `POST /api/pre-assessment/create` now accepts `lead_source` + `lead_source_detail` (10 options) and stores `created_by_role`, `created_by_user_id`, `created_by_user_type`
+- 14 ownership checks across 7 routers updated from `role == "partner"` to `role in (partner|sales_executive|sr_sales_executive)`
+- Sales executive `partner_id = user.id` strategy → all existing scope queries work transparently
+
+#### Migration (Phase 4A)
+- `migrations/phase4a_pa_backfill.py` — Idempotent. Backfills `created_by_user_id`, `created_by_role`, `created_by_user_type` on existing PAs.
+- 15 existing PAs backfilled on first boot.
+
+#### Frontend Changes
+- **NEW**: `/sales/dashboard` route (RequirePermission: pa.create.own || pa.view.own)
+- **NEW**: `pages/SalesDashboard.jsx` — thin wrapper rendering `<PartnerDashboard mode="sales" />`
+- **NEW**: `components/sales/SalesWidgets.jsx` — 4 placeholder widgets (Target/Commission/Rank/Followups) with "Coming in Phase 4X" badges
+- **NEW**: `pages/ComingSoon.jsx` — friendly placeholder for unbuilt features
+- **MODIFIED**: `pages/PartnerDashboard.jsx` — accepts `mode` prop (default "partner"); allows sales roles when mode="sales"; injects `<SalesWidgetsRow>` above PartnerHome
+- **MODIFIED**: `pages/Login.jsx` — smart redirect for 4 sales roles → `/sales/dashboard`
+- **MODIFIED**: `components/pa/PaCreateForm.jsx` — Lead Source dropdown (10 options) at TOP of form, optional but recommended
+- **MODIFIED**: `components/PreAssessmentPipeline.jsx` — form state includes `lead_source` + `lead_source_detail`
+
+#### RBAC Permission Updates
+- `sales_executive` role now has 28 permissions (all 18 partner perms + 10 sales/self-service)
+- Added missing: `agreement.view.own`, `agreement.generate.own`, `invoice.view.own`
+
+#### Verified
+- ✅ Partner workflow EXACTLY unchanged (regression: 4/4 manual tests + screenshot)
+- ✅ Sales exec can do everything partner can (parity: 11/11 verified)
+- ✅ Cross-role scope isolation (sexec → partner PA = 403; partner → sexec PA = 403)
+- ✅ Admin bypass preserved
+- ✅ Phase 3A/3B + RBAC regression all passing
+
+---
+
+## 📅 February 2026
+
 ### ✅ Phase 3B — HR Admin Settings UI (COMPLETE — backend 100% tested)
 **Completed:** Feb 13, 2026 (same day as 3A)
 **Tests:** 42/42 backend tests passed via testing_agent_v3_fork (`/app/test_reports/iteration_93.json`)

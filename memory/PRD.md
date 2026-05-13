@@ -5,6 +5,32 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 
 > **📌 Update (Feb 13, 2026):** `CHANGELOG.md` now tracks all completed phases (incl. **Phase 3A — Attendance & Leave** with full company policies). `ROADMAP.md` lists prioritized backlog. This PRD remains the static reference for original requirements.
 
+### Phase 4A — Sales Workflow Inheritance (Feb 13, 2026)
+
+**Status:** ✅ COMPLETE — 15/15 backend tests passed (`/app/test_reports/iteration_96.json`)
+
+**Design Principle:** DRY — Sales executives are treated as "internal partners" with the EXACT SAME PA workflow. No component duplication.
+
+**Backend Foundation:**
+- `_assert_pa_owner()` helper at top of `pre_assessment.py` for centralized ownership
+- Module-level constants `PA_CREATOR_ROLES`, `OWN_SCOPED_ROLES`
+- 14 ownership checks across 7 routers updated to allow sales roles
+- New fields on PA: `created_by_user_id`, `created_by_role`, `created_by_user_type`, `lead_source`, `lead_source_detail`
+- Migration `phase4a_pa_backfill.py` — 15 existing PAs backfilled idempotently
+- **CRITICAL FIX**: GET /api/pre-assessment/{pa_id} now enforces ownership (was previously unrestricted)
+
+**Frontend:**
+- `/sales/dashboard` route → `<PartnerDashboard mode="sales" />` (thin wrapper, full workflow reuse)
+- 4 placeholder widgets (`SalesWidgetsRow`) above PartnerHome: Target/Commission/Rank/Followups with "Coming in Phase 4X" badges
+- `/sales/coming-soon?feature={key}` placeholder page
+- Login redirect: 4 internal sales roles → `/sales/dashboard`
+- Lead Source dropdown (10 options) at TOP of PA creation form
+- Partner workflow EXACTLY unchanged
+
+**Permissions:**
+- `sales_executive` role now has 28 permissions (18 partner perms + 10 sales/self-service)
+- Added: `agreement.view.own`, `agreement.generate.own`, `invoice.view.own`
+
 ### Phase 3B — HR Admin Settings UI (Feb 13, 2026)
 
 **Status:** ✅ COMPLETE — 42/42 backend tests passed (19 new + 23 Phase 3A regression — `/app/test_reports/iteration_93.json`)
