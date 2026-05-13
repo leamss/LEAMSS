@@ -423,9 +423,24 @@ async def create_leave_type(
         "system.update.any", "leave.approve.final"
     )),
 ):
-    existing = await leave_types_col.find_one({"key": payload.key}, {"_id": 0, "id": 1})
+    # Only block active (non-soft-deleted) duplicates — allow re-using a key after soft-delete
+    existing = await leave_types_col.find_one(
+        {"key": payload.key, "soft_deleted": {"$ne": True}},
+        {"_id": 0, "id": 1},
+    )
     if existing:
         raise HTTPException(status_code=400, detail=f"Leave type '{payload.key}' already exists")
+
+    # If a soft-deleted record exists for this key, archive it under a versioned key
+    soft_deleted_old = await leave_types_col.find_one(
+        {"key": payload.key, "soft_deleted": True}, {"_id": 0, "id": 1}
+    )
+    if soft_deleted_old:
+        archived_key = f"{payload.key}__archived_{int(datetime.now(timezone.utc).timestamp())}"
+        await leave_types_col.update_one(
+            {"id": soft_deleted_old["id"]},
+            {"$set": {"key": archived_key, "archived_at": datetime.now(timezone.utc)}},
+        )
 
     last = await leave_types_col.find_one({}, {"_id": 0, "sort_order": 1}, sort=[("sort_order", -1)])
     sort_order = (last.get("sort_order", 0) + 1) if last else 1
