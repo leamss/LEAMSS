@@ -28,15 +28,17 @@ const Login = () => {
       localStorage.setItem('user', JSON.stringify(user));
       
       toast.success('Login successful!');
-      
-      const roleRoutes = {
+
+      // Smart redirect — uses rbac_role primarily, falls back to legacy role
+      const role = user.rbac_role || user.role;
+      const fixedRoutes = {
         admin: '/admin',
+        admin_owner: '/admin',
         partner: '/partner',
         case_manager: '/case-manager',
-        client: '/client'
+        client: '/client',
       };
-      
-      navigate(roleRoutes[user.role] || '/');
+      navigate(fixedRoutes[role] || '/portal/welcome');
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Login failed');
     } finally {
