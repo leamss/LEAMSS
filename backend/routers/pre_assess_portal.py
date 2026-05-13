@@ -111,9 +111,20 @@ async def generate_public_link(data: GenerateLinkRequest, current_user: dict = D
     pa = await pre_assessments_col.find_one({"id": data.pa_id}, {"_id": 0})
     if not pa:
         raise HTTPException(status_code=404, detail="Pre-assessment not found")
-    if current_user.get("role") not in ("partner", "admin") or (
-        current_user.get("role") == "partner" and pa.get("partner_id") != current_user["id"]):
-        raise HTTPException(status_code=403, detail="Not allowed")
+
+    # Phase 4A-aligned auth: admin OR (owner with pa.share.own permission).
+    # Ownership = partner_id (legacy / sales-exec PAs use this) OR created_by_user_id (Phase 4A field).
+    is_admin = (
+        current_user.get("role") in ("admin", "admin_owner")
+        or current_user.get("rbac_role") in ("admin", "admin_owner")
+    )
+    is_owner = (
+        pa.get("partner_id") == current_user["id"]
+        or pa.get("created_by_user_id") == current_user["id"]
+    )
+    has_share_perm = "pa.share.own" in (current_user.get("permissions") or [])
+    if not is_admin and not (is_owner and has_share_perm):
+        raise HTTPException(status_code=403, detail="Not allowed to share this pre-assessment")
 
     # Validate expiry
     days = data.expires_in_days if data.expires_in_days is not None else 30

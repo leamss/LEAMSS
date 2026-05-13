@@ -308,7 +308,10 @@ async def submit_to_admin(pa_id: str, remarks: str = Form(""), current_user: dic
     if not pa:
         raise HTTPException(status_code=404, detail="Pre-assessment not found")
 
-    if pa["partner_id"] != current_user["id"] and current_user["role"] != "admin":
+    # Phase 4A-aligned: admin OR ownership via partner_id/created_by_user_id
+    is_admin = (current_user.get("role") in ("admin", "admin_owner") or current_user.get("rbac_role") in ("admin", "admin_owner"))
+    is_owner = (pa.get("partner_id") == current_user["id"] or pa.get("created_by_user_id") == current_user["id"])
+    if not is_admin and not is_owner:
         raise HTTPException(status_code=403, detail="Not authorized")
 
     if pa["stage"] not in ["payment_received", "documents_submitted"]:

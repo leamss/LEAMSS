@@ -6,6 +6,26 @@ This file appends every completed phase/feature with dates and verification stat
 
 ## 📅 February 2026
 
+### 🐛 Hotfix: Payment Link Error for Sales Executives
+**Completed:** Feb 13, 2026
+**Tests:** Backend regression 30/30 PASS (Phase 4A + 4B both green)
+
+#### Root Cause
+After Phase 4A introduced sales_executive as a legacy role, the endpoint `POST /api/pre-assess-portal/generate-public-link` (called by PaActionBar's "Share" button) was still hard-checking `role in ("partner", "admin")` — returning **403 "Not allowed"** for sales execs trying to send the ₹5,100 PA payment link.
+
+#### Fix
+- **`routers/pre_assess_portal.py:generate_public_link`** — replaced legacy role-list check with permission + ownership scoping:
+  - `is_admin` (legacy/rbac admin/admin_owner) **OR**
+  - `is_owner` via `partner_id == user.id` OR `created_by_user_id == user.id` (Phase 4A field) **AND** `pa.share.own` permission
+- **`routers/pre_assessment.py:send_payment_link`** — same hardening applied for consistency
+
+#### Verified
+- ✅ Sexec → generates link successfully (200, returns share-token URL)
+- ✅ Partner → regression check works (200)
+- ✅ Sexec → trying to share another user's PA still gets 403 (security maintained)
+
+
+
 ### ✅ Phase 4B — Sales Targets Management (DELIVERED)
 **Completed:** Feb 13, 2026
 **Tests:** Backend 29/29 + Phase 4A regression 15/15 = **44/44 ALL PASS** (`/app/test_reports/iteration_97.json`)
