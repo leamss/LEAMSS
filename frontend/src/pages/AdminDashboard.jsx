@@ -28,6 +28,7 @@ import KnowledgeBase from '@/pages/KnowledgeBase';
 import RevenueForecasting from '@/pages/RevenueForecasting';
 import CMPerformance from '@/pages/CMPerformance';
 import Appointments from '@/pages/Appointments';
+import DashboardPreviewModal from '@/components/employees/DashboardPreviewModal';
 import CaseTimeline from '@/pages/CaseTimeline';
 import CaseNotesAndTags from '@/pages/CaseNotesAndTags';
 import CannedResponses from '@/pages/CannedResponses';
@@ -115,6 +116,7 @@ const AdminDashboard = () => {
   const [allUsers, setAllUsers] = useState([]);
   const [caseManagers, setCaseManagers] = useState([]);
   const [allSales, setAllSales] = useState([]);
+  const [previewUserId, setPreviewUserId] = useState(null);
   const [salesStatusFilter, setSalesStatusFilter] = useState('all');
   const [activeTab, setActiveTab] = useState('home');
   const [preAssessFilter, setPreAssessFilter] = useState(null);
@@ -2419,6 +2421,7 @@ const AdminDashboard = () => {
                           </div>
                           <div className="flex gap-2">
                             {usr.role !== 'admin' && <Button onClick={() => openTicketForUser(usr)} size="sm" variant="outline" className="text-[#f7620b] border-[#f7620b] hover:bg-[#f7620b]/10" data-testid={`ticket-for-${usr.id}`}><MessageSquare className="h-4 w-4 mr-1" />Ticket</Button>}
+                            {usr.role !== 'admin' && <Button onClick={() => setPreviewUserId(usr.id)} size="sm" className="bg-[#2a777a] hover:bg-[#236466] text-white" data-testid={`switch-user-${usr.id}`} title="View dashboard as this user (read-only preview)"><Eye className="h-4 w-4 mr-1" />Switch</Button>}
                             <Button onClick={() => setUserDialog({ open: true, mode: 'edit', data: usr })} size="sm" variant="outline" data-testid={`edit-user-${usr.id}`}><Edit className="h-4 w-4" /></Button>
                             {usr.role !== 'admin' && <Button onClick={() => handleDeleteUser(usr.id)} size="sm" variant="destructive" data-testid={`delete-user-${usr.id}`}><Trash2 className="h-4 w-4" /></Button>}
                           </div>
@@ -3372,6 +3375,14 @@ const AdminDashboard = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Phase 4: View Dashboard As User (read-only preview) */}
+      {previewUserId && (
+        <DashboardPreviewModal
+          userId={previewUserId}
+          onClose={() => setPreviewUserId(null)}
+        />
+      )}
     </DashboardShell>
   );
 };
