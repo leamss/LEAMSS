@@ -57,6 +57,7 @@ async def my_earnings(period: Optional[str] = None, current_user: dict = Depends
                 "pa_number": doc.get("pa_number"),
                 "client_name": doc.get("client_name"),
                 "label": a.get("label"),
+                "vendor_category": a.get("vendor_category"),
                 "amount": amount,
                 "status": status,
                 "paid_at": _iso(a.get("paid_at")),

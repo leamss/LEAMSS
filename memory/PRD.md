@@ -5,6 +5,22 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 
 > **📌 Update (Feb 13, 2026):** `CHANGELOG.md` now tracks all completed phases (incl. **Phase 3A — Attendance & Leave** with full company policies). `ROADMAP.md` lists prioritized backlog. This PRD remains the static reference for original requirements.
 
+### 🏆 PHASE 4C COMPLETE — Sales Commission + Vendor Payout Engine (May 14, 2026)
+All 7 sub-phases delivered & tested:
+- **4C.1** Vendor Master + Categories
+- **4C.2** Product Cost Structures (5 seeded: Canada PR, Australia PR, Student Visa, UK Skilled, USA H1B)
+- **4C.3** Auto-Allocation Engine (auto-triggers on `case_created`)
+- **4C.4** Sales Commission Slabs (Bronze 5% · Silver 7% · Gold 10% — cumulative monthly revenue based)
+- **4C.5** CM Earnings Widget (read-only, no CM workflow changes)
+- **4C.6** External Vendor Portal (magic-link onboarding + self-service)
+- **4C.7** Approval + Payout Workflow (bulk operations + NEFT CSV)
+
+**Test Coverage:** iteration_99.json (27/28 — 4C.3/4C.4), iteration_100.json (36/36 — 4C.5/4C.6/4C.7 after critical filter fix).
+**Test Files:** `/app/backend/tests/test_phase4c5_4c6_4c7.py` (36 cases — regression-ready).
+**See CHANGELOG.md for full implementation details.**
+
+
+
 ### Phase 4A — Sales Workflow Inheritance (Feb 13, 2026)
 
 **Status:** ✅ COMPLETE — 15/15 backend tests passed (`/app/test_reports/iteration_96.json`)

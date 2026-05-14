@@ -4,6 +4,56 @@ This file appends every completed phase/feature with dates and verification stat
 
 ---
 
+
+### ✅ Phase 4C.5 + 4C.6 + 4C.7 — CM Earnings Widget + Vendor Portal + Payout Workflow
+**Completed:** May 14, 2026  
+**Tests:** 36/36 PASS (`/app/backend/tests/test_phase4c5_4c6_4c7.py`, also `iteration_100.json`)
+
+#### Phase 4C.5 — Case Manager Earnings Widget (Read-Only)
+- New router `/api/cm-earnings/my` — filters allocations where `vendor_category="case_manager"` AND `vendor_id=current_user.id`
+- Returns `{totals: {pending/approved/paid/disputed}, lifetime_total, deal_count, line_items[]}`
+- Optional `?period=YYYY-MM` filter with recomputed totals
+- Frontend: `CmEarningsWidget.jsx` embedded at top of CM dashboard (`activeTab === 'dashboard'`)
+- **Strict constraint honored**: Auto-hides when CM has no earnings. NO workflow changes to CM portal.
+
+#### Phase 4C.6 — External Vendor Portal
+- New router `routers/vendor_portal.py`:
+  - `POST /vendor-portal/accept-invite` (public) — consumes magic link, creates user with `role=vendor`, sets password, links to vendor
+  - `GET /vendor-portal/me` — full profile with UNMASKED bank details (since self-view)
+  - `PATCH /vendor-portal/me` — vendor updates phone, bank, PAN, GST
+  - `GET /vendor-portal/my-assignments` — all allocations across PAs (matches vendor_id OR vendor_master_id)
+  - `GET /vendor-portal/my-payments` — paid-status history
+- Login auto-routes `role=vendor` → `/vendor/dashboard`
+- Frontend: `/vendor/accept-invite/{token}` (set password with strength meter), `/vendor/dashboard` (assignments + totals + bank details)
+- Password validation: min 8 chars, mixed case, digit, special — enforced via `validate_password_strength`
+
+#### Phase 4C.7 — Approval + Payout Workflow
+- New router `routers/payouts.py`:
+  - `GET /payouts/queue?status=&vendor_id=&from_date=&to_date=` — flat list across all PAs
+  - `GET /payouts/stats` — overall summary {totals, counts, ready_to_pay, outstanding}
+  - `POST /payouts/bulk-approve {items: [{pa_id, allocation_id}, ...]}` — moves pending → approved
+  - `POST /payouts/bulk-mark-paid {items, payment_reference}` — moves to paid with batch reference (auto `BATCH-YYYYMMDD-HHMMSS` if blank)
+  - `GET /payouts/neft-csv?status=approved&from_date=&to_date=` — CSV download with vendor + bank + amount + reference
+- Frontend: `/admin/payouts` — checkbox-select rows, bulk action bar, CSV download, status/date filters, search by vendor/client/PA#
+- **CRITICAL BUG FIXED in this iteration**: Bulk filters used `{vendor_id: $ne: null}` which excluded external vendors (linked via `vendor_master_id`). Now uses `$or: [{vendor_id: $ne null}, {vendor_master_id: $ne null}]`. All 36 tests pass after fix.
+
+#### Frontend Additions
+- 3 new admin sidebar entries: "Cost Allocations" · "Commissions" · "Commission Slabs" · "Payout Queue"
+- Vendor portal routes: `/vendor/accept-invite/:token` and `/vendor/dashboard`
+- `CmEarningsWidget` embedded in CaseManagerDashboard
+- `Login.jsx` adds vendor role-route mapping
+
+#### Verified
+- RBAC: client gets 403 on cm-earnings, vendor-portal, payouts. Non-admin gets 403 on payouts. Vendor without record gets 404.
+- Idempotency: bulk operations skip non-eligible rows and report failures. Magic link can only be used once (410 on reuse).
+- NEFT CSV column order matches spec exactly. Hydrates bank details from both vendor master + users collection.
+- Regression: All Phase 4C.3 + 4C.4 + 4C.2 + 4C.1 endpoints still pass.
+
+### 🏆 PHASE 4C COMPLETE — Sales Commission + Vendor Payout Engine
+All 7 sub-phases (4C.1 Vendors, 4C.2 Cost Structures, 4C.3 Auto-Allocations, 4C.4 Sales Commissions, 4C.5 CM Earnings, 4C.6 Vendor Portal, 4C.7 Payouts) — fully built & tested.
+
+---
+
 ## 📅 May 2026
 
 ### ✅ Phase 4C.3 + 4C.4 — Auto-Allocation Engine + Sales Commission Slabs

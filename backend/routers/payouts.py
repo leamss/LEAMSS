@@ -140,7 +140,7 @@ async def bulk_approve(req: BulkActionRequest, current_user: dict = Depends(get_
             errors.append("missing pa_id/allocation_id")
             continue
         res = await allocations_col.update_one(
-            {"pa_id": pa_id, "allocations": {"$elemMatch": {"allocation_id": alloc_id, "status": "pending", "vendor_id": {"$ne": None}}}},
+            {"pa_id": pa_id, "allocations": {"$elemMatch": {"allocation_id": alloc_id, "status": "pending", "$or": [{"vendor_id": {"$ne": None}}, {"vendor_master_id": {"$ne": None}}]}}},
             {"$set": {
                 "allocations.$.status": "approved",
                 "allocations.$.approved_at": now,
@@ -172,7 +172,7 @@ async def bulk_mark_paid(req: BulkActionRequest, current_user: dict = Depends(ge
             errors.append("missing pa_id/allocation_id")
             continue
         res = await allocations_col.update_one(
-            {"pa_id": pa_id, "allocations": {"$elemMatch": {"allocation_id": alloc_id, "status": {"$in": ["pending", "approved"]}, "vendor_id": {"$ne": None}}}},
+            {"pa_id": pa_id, "allocations": {"$elemMatch": {"allocation_id": alloc_id, "status": {"$in": ["pending", "approved"]}, "$or": [{"vendor_id": {"$ne": None}}, {"vendor_master_id": {"$ne": None}}]}}},
             {"$set": {
                 "allocations.$.status": "paid",
                 "allocations.$.paid_at": now,

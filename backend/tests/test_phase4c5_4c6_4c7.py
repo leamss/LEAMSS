@@ -680,7 +680,8 @@ class TestIntegrationFullFlow:
             # 1. Get CM earnings baseline
             r0 = requests.get(f"{API}/cm-earnings/my", headers=_hdr(tokens["cm"]), timeout=30)
             assert r0.status_code == 200
-            cm_before = r0.json()["lifetime_total"]
+            paid_before = r0.json()["totals"]["paid"]
+            pending_before = r0.json()["totals"]["pending"]
 
             # 2. Admin bulk-approves both allocations
             r1 = requests.post(f"{API}/payouts/bulk-approve",
@@ -708,12 +709,15 @@ class TestIntegrationFullFlow:
             assert r3.status_code == 200
             assert "attachment" in r3.headers.get("content-disposition", "").lower()
 
-            # 5. CM dashboard reflects new paid entry
+            # 5. CM dashboard reflects the status transition (pending → paid)
             r4 = requests.get(f"{API}/cm-earnings/my", headers=_hdr(tokens["cm"]), timeout=30)
             assert r4.status_code == 200
             cm_after = r4.json()
-            assert cm_after["lifetime_total"] >= cm_before + 7000.0, \
-                f"CM lifetime_total should increase by 7000 — before={cm_before}, after={cm_after['lifetime_total']}"
+            # Paid bucket should have grown by 7000 and pending bucket should have shrunk by 7000
+            assert cm_after["totals"]["paid"] >= paid_before + 7000.0, \
+                f"CM paid bucket should grow by 7000 — before={paid_before}, after={cm_after['totals']['paid']}"
+            assert cm_after["totals"]["pending"] <= pending_before, \
+                f"CM pending bucket should shrink — before={pending_before}, after={cm_after['totals']['pending']}"
             # Verify the paid entry appears
             our_entry = next((li for li in cm_after["line_items"]
                               if li["pa_id"] == info["pa_id"]), None)
