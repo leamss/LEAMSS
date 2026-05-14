@@ -288,6 +288,8 @@ async def add_person(req: AddPersonRequest, current_user: dict = Depends(get_cur
     if req.person_type == "employee_internal":
         if not req.role:
             raise HTTPException(status_code=400, detail="role is required for employee_internal")
+        if req.role not in INTERNAL_ROLES:
+            raise HTTPException(status_code=400, detail=f"Invalid internal role '{req.role}'. Allowed: {sorted(INTERNAL_ROLES)}")
         user_doc = {
             "id": str(uuid.uuid4()),
             "name": req.name.strip(),

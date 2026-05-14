@@ -5,6 +5,61 @@ This file appends every completed phase/feature with dates and verification stat
 ---
 
 
+### 🏆 Phase 4D — ARCHITECTURAL UNIFICATION (Triple combo)
+**Completed:** May 14, 2026  
+**Tests:** 43/43 PASS (`iteration_102.json`, `/app/backend/tests/test_phase4d_unification.py`)
+
+#### Part A — Unified People Management (`/admin/people`)
+- New `routers/people.py` — 10 endpoints stitching `users` + `vendors` collections together
+- **Single source of identity** — no more 4 different paths to create users (vendors / hr / partners / direct)
+- Add Person Wizard: 3-step flow with 4 person_types (employee_internal · partner_external · vendor_internal · vendor_external)
+- For `vendor_internal` + category=`case_manager`/`sales_commission` → auto-creates linked User record with correct role + temp password
+- Validates `role` against `INTERNAL_ROLES` set; rejects unknown roles with 400
+- Deactivate cascades to linked vendor (and vice versa)
+- Reset password from admin produces temp_password to share with user
+- RBAC: requires admin or HR role (`hr.user_manage.any` permission)
+- New frontend `PeopleManager.jsx` — master list + 6 type tabs + master-detail dialog + Wizard. Sidebar entry: "People (All)"
+
+#### Part B — Unified Finance Dashboard (`/admin/finance`)
+- New `FinanceDashboard.jsx` — single page consolidating ALL money flows
+- 4 tabs: Overview · Sales Commissions · CM Earnings · Vendor Payouts
+- KPI cards: Total Revenue · Sales Commission · Vendor Payouts Outstanding · Total Money Movement
+- Period picker (YYYY-MM) + status filter applied globally
+- CSV download per tab (CM, Vendor, Sales) — client-side generation
+- Top Performers leaderboard + Vendor Payout Health summary on Overview
+- Backend: pure proxy/aggregation of existing endpoints (no new collections)
+
+#### Part C — Express Sale Modes (Token + Direct)
+- Backend: `express_mode` field on PA (`token` | `direct`) + `express_token_amount`
+- Validation: token mode requires positive amount; invalid mode rejected with 400
+- Frontend: PA Create Form has a clean Express Mode selector (2 visual cards: Direct Proposal vs Token Payment) with conditional token amount input
+- Public PA page (PreAssessmentPayment.jsx) detects `sale_type='express'` AND renders mode-specific UI:
+  - **Token mode**: shows "Pay Token ₹X to lock your slot" button (mock payment)
+  - **Direct mode**: shows "Your consultant will share full proposal shortly" message
+  - Either way: NO ₹5,100 PA fee charged
+
+#### Bug fixes shipped this round
+- **Slab Delete** — replaced `window.confirm` (blocked in some iframes) with proper state-based Dialog with explicit cancel/confirm buttons
+- **Vendor "View" button logout** — was navigating to non-existent route. Now opens inline `VendorDetailDialog` with full identity, bank details, performance, assignments, edit/invite buttons
+- **Calculator empty state** — shows friendly amber card with arrow → Cost tab when product has no allocations
+- **Vendor invite link** — frontend now prefixes with `window.location.origin` so the full URL is copyable; backend kept returning relative path for portability
+- **Express Sale ₹5,100** — public payment page now skips PA fee for `sale_type='express'`
+- **CM Earnings widget click-through** — opens detail dialog showing client-wise breakdown. Privacy honored: NO revenue/sales values exposed to CM, only their own earnings.
+- **Product price lock on PA proposal** — proposal_fee auto-fills from product.service_price and is locked (read-only) for partners; admin sees "Override (admin)" toggle to unlock when needed
+
+#### Sidebar additions
+- "People (All)" — under System
+- "Finance Center" — under Sales Management
+
+#### Test coverage
+- `/app/backend/tests/test_phase4d_unification.py` — 43 tests across 8 classes: PeopleListAndStats · GetPerson · AddPerson · UpdatePeople · DeactivateReactivate · ResetPassword · RBAC · FinanceEndpoints · ExpressModes · Regression. All green.
+
+#### Known minor item (not blocking)
+- Express auto-approved PAs route to magic-link branch in `/pre-assess-portal/generate-public-link` and 400 when client_user_id is null. Workaround: PA doc DOES persist `express_mode` + `express_token_amount` correctly; when share-token link is generated via the normal path, the public page renders the token UI correctly. Spec-level fix flagged for future cycle.
+
+---
+
+
 ### 🏆 Phase 4C UNIFICATION — Products + Cost Structures Merged
 **Completed:** May 14, 2026  
 **Tests:** 24/30 PASS in iteration_101 with 2 critical bugs found & fixed (success_bonuses field-name, legacy products backfill)

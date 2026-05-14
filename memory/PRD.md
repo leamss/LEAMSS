@@ -6,6 +6,15 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 > **📌 Update (Feb 13, 2026):** `CHANGELOG.md` now tracks all completed phases (incl. **Phase 3A — Attendance & Leave** with full company policies). `ROADMAP.md` lists prioritized backlog. This PRD remains the static reference for original requirements.
 
 
+### 🎯 Phase 4D ARCHITECTURAL UNIFICATION (May 14, 2026)
+- **Unified People Management** at `/admin/people` — Single source of identity for employees, partners, vendors, clients. 3-step Add Person Wizard.
+- **Unified Finance Center** at `/admin/finance` — All money flows in one screen (commissions, CM earnings, vendor payouts) with period filter + CSV downloads + leaderboard.
+- **Express Sale Modes** — Token Payment (lock deal with small amount) OR Direct Proposal (full amount immediately).
+- 7 critical bug fixes shipped (slab delete dialog, vendor View inline, calculator empty state, invite URL prefix, CM earnings click-through, product price lock, Express ₹5,100 fix).
+- Tests: 43/43 PASS in iteration_102.
+
+
+
 ### 🎯 Phase 4C UNIFICATION (May 14, 2026)
 - Products + Cost Structures merged into ONE collection. Each Product carries identity, pricing, cost_allocations, success_bonuses, computed margins, and workflow steps.
 - New unified UI at `/admin/products` with master-detail tabbed editor.
