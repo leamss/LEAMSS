@@ -4,6 +4,49 @@ This file appends every completed phase/feature with dates and verification stat
 
 ---
 
+## 📅 May 2026
+
+### ✅ Phase 4C.3 + 4C.4 — Auto-Allocation Engine + Sales Commission Slabs
+**Completed:** May 14, 2026  
+**Tests:** 27/28 PASS (`/app/test_reports/iteration_99.json`)
+
+#### Phase 4C.3 — Auto-Allocation Engine
+- New router `/api/pa/{pa_id}/allocations/*` mounted (was orphaned previously)
+- `core/allocations_logic.py` — find_matching_structure, build_allocations_for_pa, assign_vendor, set_allocation_status, apply_visa_approved_bonuses, apply_refund_clawback
+- **Auto-trigger**: `admin_approve_final` (PA → case_created) now invokes `build_allocations_for_pa` AND `apply_commission_for_pa` — both wrapped in try/except so failure never blocks case creation
+- Per-allocation status flow: `unassigned → pending → approved → paid` (or `disputed`)
+- Visa-approved milestone applies success_bonuses; idempotent
+- 50% clawback on refund; idempotent via `milestones.refunded` flag
+- Vendor auto-assignment: `sales_commission` → PA creator; `case_manager` → assigned CM; others stay unassigned for admin to manually assign
+- New permissions: `allocation.view.all/team/own`, `allocation.assign.vendor`, `allocation.approve.any`, `allocation.mark-paid.any`
+
+#### Phase 4C.4 — Sales Commission Slabs
+- New `core/commission_logic.py` + `routers/sales_commission.py`
+- 3 default slabs auto-seeded on first read: Bronze (0–5L @ 5%), Silver (5L–15L @ 7%), Gold (15L+ @ 10%)
+- DB collections: `sales_commission_slabs`, `sales_commission_entries`, `sales_commission_config`
+- **Cumulative slab matching**: `achieved_after = cumulative_period_revenue + this_deal` → matches highest slab whose range covers `achieved_after`. Verified: sexec with prior ₹0 → 1st deal ₹3L → Bronze @ 5% → ₹15k. 2nd deal ₹4L (cumulative ₹7L) → upgraded to Silver @ 7% → ₹28k.
+- Entry workflow: `pending → approved → paid` (or `reversed` on refund)
+- `/my` self-service: returns current_slab, next_slab, gap_to_next_slab, total_commission, deal_count, entries
+- `/all` + `/leaderboard` admin views
+- Idempotent: same `pa_id` cannot create duplicate entry
+
+#### Frontend
+- `/admin/allocations` — Per-PA allocation breakdown with assign/approve/pay buttons, recalc, visa-approved trigger
+- `/admin/sales/commission-slabs` — Slab CRUD with visual preview, color tags, system-slab protection
+- `/admin/sales/commissions` — Admin dashboard with stats + leaderboard + entries table + approve/pay actions
+- `/sales/my-commission` — Sales rep self-service with current tier banner, progress bar to next slab, deals history
+- `CommissionWidget` on SalesWidgets row now LIVE (no longer placeholder) — shows tier + commission + gap to next
+- Sidebar entries added under "Sales Management" group: Cost Allocations · Commissions · Commission Slabs
+
+#### Verified
+- Slab auto-seed, CRUD validation (max>min, duplicate key), system-slab protection
+- RBAC: client 403 on `/my`, `/all`, `/slabs` management; partner can view own commission
+- Regression: existing routes (`/auth/login`, `/products/cost-structures`, `/vendors`, `/vendors/categories`, `/pre-assessment/admin/queue`) all 200 OK
+- Test file at `/app/backend/tests/test_phase4c_commission_allocations.py` (28 cases, reusable for regression)
+
+---
+
+
 ## 📅 February 2026
 
 ### 🐛 Hotfix: Direct Sales Not Counting + Admin Preview-as-Client Bug (Phase 4B Part 2.1)
