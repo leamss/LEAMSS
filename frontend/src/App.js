@@ -35,6 +35,7 @@ import TargetTemplatesManager from '@/pages/admin/TargetTemplatesManager';
 import ExpressApprovalsAdmin from '@/pages/admin/ExpressApprovalsAdmin';
 import AdminVendors from '@/pages/admin/AdminVendors';
 import VendorCategoriesManager from '@/pages/admin/VendorCategoriesManager';
+import CostStructuresManager from '@/pages/admin/CostStructuresManager';
 import ComingSoon from '@/pages/ComingSoon';
 import ServiceCalculator from '@/pages/ServiceCalculator';
 import LeadCapture from '@/pages/LeadCapture';
@@ -126,6 +127,11 @@ function App() {
           <Route path="/admin/vendors/categories" element={
             <RequirePermission anyOf={['vendor_category.manage.any', 'system.user_manage.any']}>
               <VendorCategoriesManager />
+            </RequirePermission>
+          } />
+          <Route path="/admin/products/cost-structures" element={
+            <RequirePermission anyOf={['product_cost.view.all', 'product_cost.manage.any', 'system.user_manage.any']}>
+              <CostStructuresManager />
             </RequirePermission>
           } />
           <Route path="/sales/coming-soon" element={<ComingSoon />} />

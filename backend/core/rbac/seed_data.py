@@ -286,6 +286,9 @@ PERMISSIONS = [
     _p("vendor", "deactivate", "any", "Deactivate Vendor", "finance", "high", audit=True),
     _p("vendor", "invite", "any", "Send Vendor Portal Invite", "finance", "medium", audit=True),
     _p("vendor_category", "manage", "any", "Manage Vendor Categories", "finance", "high", audit=True),
+    # Phase 4C.2 — Product Cost Structures
+    _p("product_cost", "view", "all", "View Product Cost Structures", "finance"),
+    _p("product_cost", "manage", "any", "Manage Product Cost Structures", "finance", "high", audit=True),
 
     _p("expense", "view", "own", "View Own Expenses", "finance"),
     _p("expense", "view", "team", "View Team Expenses", "finance"),
@@ -437,6 +440,7 @@ ROLES = [
             "target_template.view.all", "target_template.use.any", "target_template.create.any", "target_template.manage.any",
             "pa.approve.express", "sales_settings.view.all", "sales_settings.manage.any",
             "vendor.view.all", "vendor.create.any", "vendor.update.any", "vendor.deactivate.any", "vendor.invite.any", "vendor_category.manage.any",
+            "product_cost.view.all", "product_cost.manage.any",
             "incentive.view.all", "incentive.update.any",
             "discount.view.all", "discount.approve.low", "discount.approve.medium", "discount.approve.high",
             "call_log.view.all",

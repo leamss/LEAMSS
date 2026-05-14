@@ -1242,6 +1242,7 @@ const AdminDashboard = () => {
         { id: 'express-approvals', icon: Zap, label: 'Express Approvals', onClick: () => navigate('/admin/sales/express-approvals') },
         { id: 'vendors', icon: Briefcase, label: 'Vendors', onClick: () => navigate('/admin/vendors') },
         { id: 'vendor-categories', icon: Layers, label: 'Vendor Categories', onClick: () => navigate('/admin/vendors/categories') },
+        { id: 'cost-structures', icon: Calculator, label: 'Cost Structures', onClick: () => navigate('/admin/products/cost-structures') },
       ]
     },
     {

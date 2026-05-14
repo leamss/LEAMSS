@@ -69,6 +69,7 @@ target_templates_col = db["target_templates"]
 # Phase 4C — Vendor Master & Commission
 vendor_categories_col = db["vendor_categories"]
 vendors_col = db["vendors"]
+cost_structures_col = db["product_cost_structures"]
 
 
 async def init_db():

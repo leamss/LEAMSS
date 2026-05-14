@@ -76,6 +76,7 @@ from routers.hr_admin import router as hr_admin_router
 from routers.targets import router as targets_router
 from routers.express_sales import router as express_sales_router
 from routers.vendors import router as vendors_router
+from routers.product_cost_structures import router as cost_structures_router
 
 app = FastAPI(title="LEAMSS Portal API", version="3.0")
 
@@ -161,6 +162,15 @@ async def startup():
               f"categories_seeded={vr.get('categories_seeded', 0)}, skipped={vr.get('categories_skipped', 0)}")
     except Exception as e:
         print(f"[Phase4C.1 ERROR] {e}")
+
+    # Run Phase 4C.2 — Product Cost Structures init (idempotent — seeds 5 defaults)
+    try:
+        from migrations.phase4c2_cost_structures_init import run_migration as run_cs_init
+        cs = await run_cs_init()
+        print(f"[Phase4C.2] Cost structures init {cs['status']}: "
+              f"structures_seeded={cs.get('structures_seeded', 0)}, skipped={cs.get('structures_skipped', 0)}")
+    except Exception as e:
+        print(f"[Phase4C.2 ERROR] {e}")
 
 
 async def seed_database():
@@ -302,9 +312,10 @@ async def seed_database():
 
 
 # Include all routers
-# Note: targets_router is registered BEFORE sales_router because sales has a `/sales/{sale_id}` catch-all
-# that would otherwise intercept `/sales/target-templates` and similar single-segment GET routes.
-for r in [targets_router, auth_router, users_router, products_router, sales_router, cases_router,
+# Note: targets_router + cost_structures_router are registered BEFORE sales_router/products_router because each has
+# a `/{id}` catch-all that would otherwise intercept single-segment GET routes like /sales/target-templates
+# and /products/cost-structures.
+for r in [targets_router, cost_structures_router, auth_router, users_router, products_router, sales_router, cases_router,
           documents_router, tickets_router, notifications_router, stats_router,
           activity_router, analytics_router, search_router, reports_router, settings_router,
           refunds_router, partner_commissions_router, pdf_reports_router, ai_router,
