@@ -178,20 +178,30 @@ async def create_pre_assessment(data: CreatePreAssessment, current_user: dict = 
                 raise HTTPException(status_code=400, detail="express_token_amount is required (> 0) when express_mode='token'")
             token_amount = float(ta)
 
-        # Auto-approve for senior roles
+        # Phase 4D — Auto-approve for senior roles
+        # Phase 4D-fix — TOKEN mode also auto-approves so partner can immediately share token-payment
+        # link with client. Admin approval moves to AFTER token is paid (post-payment admin review).
+        # DIRECT mode keeps requiring admin approval first (since no token guard).
         auto = should_auto_approve(current_user, settings)
+        auto_for_token = mode == "token"
+        auto_final = auto or auto_for_token
         now = datetime.now(timezone.utc)
+        approval_remarks = (
+            "Auto-approved (senior role)" if auto else
+            ("Auto-approved (Token mode — admin review after token payment)" if auto_for_token else None)
+        )
         express_meta = {
             "sale_type": "express",
             "express_mode": mode,
             "express_token_amount": token_amount,
+            "express_token_paid": False,  # Will flip to True when client pays the token
             "express_sale_reason": data.express_sale_reason,
             "express_sale_justification": data.express_sale_justification,
             "express_sale_requested_at": now,
-            "express_sale_approval_status": "approved" if auto else "pending",
-            "express_sale_approved_by": current_user["id"] if auto else None,
-            "express_sale_approved_at": now if auto else None,
-            "express_sale_approval_remarks": "Auto-approved (senior role)" if auto else None,
+            "express_sale_approval_status": "approved" if auto_final else "pending",
+            "express_sale_approved_by": current_user["id"] if auto_final else None,
+            "express_sale_approved_at": now if auto_final else None,
+            "express_sale_approval_remarks": approval_remarks,
             "pa_fees_skipped": True,
             "pa_fees_amount": PRE_ASSESSMENT_FEE,
         }

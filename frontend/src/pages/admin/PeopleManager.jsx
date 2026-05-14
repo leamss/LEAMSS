@@ -25,6 +25,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import {
   ArrowLeft, Plus, Search, Users, UserCog, Briefcase, Shield, Mail, Phone,
   Sparkles, IndianRupee, Globe, Lock, RefreshCw, Power, KeyRound, AlertCircle,
+  Eye, EyeOff,
 } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -66,6 +67,103 @@ const STATUS_BADGE = {
 // ═══════════════════════════════════════════════════════════════════════
 // Add Person Wizard
 // ═══════════════════════════════════════════════════════════════════════
+function CredentialsDialog({ open, onClose, credentials }) {
+  const [showPw, setShowPw] = useState(false);
+  if (!credentials) return null;
+  const { email, temp_password, role, vendor_code, linked_user_role } = credentials;
+  const displayRole = linked_user_role || role || '—';
+
+  const copy = async (text, label) => {
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select();
+        document.execCommand('copy'); document.body.removeChild(ta);
+      }
+      toast.success(`${label} copied`);
+    } catch { toast.error(`${label} copy failed — please select manually`); }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent data-testid="creds-dialog" className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2"><KeyRound className="h-5 w-5 text-emerald-600" />Person Created Successfully</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="bg-emerald-50 border border-emerald-200 rounded p-3 text-xs text-emerald-800">
+            ✅ <strong>Login credentials generated.</strong> Share these securely with the user.
+            <br />They will be asked to change the password on first login.
+          </div>
+
+          <div>
+            <Label className="text-[10px] uppercase font-bold text-slate-500">Email</Label>
+            <div className="flex gap-2 mt-1">
+              <Input readOnly value={email} onFocus={(e) => e.target.select()} className="font-mono text-sm bg-slate-50" data-testid="creds-email" />
+              <Button size="sm" variant="outline" onClick={() => copy(email, 'Email')} data-testid="copy-email">Copy</Button>
+            </div>
+          </div>
+
+          <div>
+            <Label className="text-[10px] uppercase font-bold text-slate-500">Temporary Password</Label>
+            <div className="flex gap-2 mt-1">
+              <div className="relative flex-1">
+                <Input
+                  readOnly
+                  type={showPw ? 'text' : 'password'}
+                  value={temp_password}
+                  onFocus={(e) => e.target.select()}
+                  className="font-mono text-sm bg-slate-50 pr-10"
+                  data-testid="creds-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPw(!showPw)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-800"
+                  data-testid="toggle-pw"
+                  title={showPw ? 'Hide' : 'Show'}
+                >
+                  {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              <Button size="sm" variant="outline" onClick={() => copy(temp_password, 'Password')} data-testid="copy-pw">Copy</Button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label className="text-[10px] uppercase font-bold text-slate-500">Role</Label>
+              <p className="text-sm font-medium mt-1">{displayRole}</p>
+            </div>
+            {vendor_code && (
+              <div>
+                <Label className="text-[10px] uppercase font-bold text-slate-500">Vendor Code</Label>
+                <p className="text-sm font-mono mt-1">{vendor_code}</p>
+              </div>
+            )}
+          </div>
+
+          <Button
+            variant="outline"
+            className="w-full text-xs"
+            onClick={() => copy(`Email: ${email}\nPassword: ${temp_password}\nRole: ${displayRole}\nLogin: ${window.location.origin}`, 'All credentials')}
+            data-testid="copy-all"
+          >
+            📋 Copy All (Email + Password + Login URL)
+          </Button>
+        </div>
+        <DialogFooter>
+          <Button onClick={onClose} className="bg-emerald-600 hover:bg-emerald-700" data-testid="close-creds">Done</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+
 function AddPersonWizard({ open, onClose, onCreated }) {
   const [step, setStep] = useState(1);
   const [form, setForm] = useState({
@@ -77,6 +175,7 @@ function AddPersonWizard({ open, onClose, onCreated }) {
   });
   const [submitting, setSubmitting] = useState(false);
   const [vendorCats, setVendorCats] = useState([]);
+  const [credsResult, setCredsResult] = useState(null);  // Phase 4D — proper copy-able credentials dialog
 
   useEffect(() => {
     if (!open) { setStep(1); setForm({ person_type: '', name: '', email: '', mobile: '', role: '', department: '', vendor_category: '', specialization: '', send_invite: true }); return; }
@@ -113,20 +212,20 @@ function AddPersonWizard({ open, onClose, onCreated }) {
       };
       const r = await axios.post(`${API}/people`, payload, { headers: { Authorization: `Bearer ${token}` } });
       const temp = r.data.temp_password;
-      const role = r.data.linked_user_role || form.role || form.vendor_category;
       if (temp) {
-        window.alert(
-          `✅ Person created successfully!\n\n` +
-          `📧 Email: ${form.email}\n` +
-          `🔑 Temp Password: ${temp}\n` +
-          `🎭 Role: ${role}\n\n` +
-          `Share these credentials with the user — they will be asked to change the password on first login.`
-        );
+        // Phase 4D — Show proper Dialog with copy buttons instead of window.alert
+        setCredsResult({
+          email: form.email,
+          temp_password: temp,
+          role: form.role,
+          linked_user_role: r.data.linked_user_role,
+          vendor_code: r.data.vendor_code,
+        });
       } else {
         toast.success(`${TYPE_META[form.person_type].label} created`);
+        onCreated(r.data.person_id);
+        onClose();
       }
-      onCreated(r.data.person_id);
-      onClose();
     } catch (e) {
       toast.error(e?.response?.data?.detail || 'Create failed');
     } finally { setSubmitting(false); }
@@ -253,6 +352,17 @@ function AddPersonWizard({ open, onClose, onCreated }) {
           {step === 3 && <Button onClick={submit} disabled={!canSubmit || submitting} className="bg-emerald-600 hover:bg-emerald-700" data-testid="wizard-submit">{submitting ? 'Creating…' : 'Create Person'}</Button>}
         </DialogFooter>
       </DialogContent>
+      <CredentialsDialog
+        open={!!credsResult}
+        credentials={credsResult}
+        onClose={() => {
+          if (credsResult) {
+            onCreated(credsResult.person_id);
+            onClose();
+            setCredsResult(null);
+          }
+        }}
+      />
     </Dialog>
   );
 }
@@ -264,6 +374,7 @@ function AddPersonWizard({ open, onClose, onCreated }) {
 function PersonDetail({ personId, onClose, onChanged }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [resetCreds, setResetCreds] = useState(null);  // Phase 4D — show copy-able dialog on reset
 
   const load = async () => {
     setLoading(true);
@@ -283,7 +394,12 @@ function PersonDetail({ personId, onClose, onChanged }) {
       const token = localStorage.getItem('token');
       const r = await axios.post(`${API}/people/${personId}/${path}`, {}, { headers: { Authorization: `Bearer ${token}` } });
       if (r.data.temp_password) {
-        window.alert(`✅ Password reset!\n\nEmail: ${r.data.email}\nNew Temp Password: ${r.data.temp_password}\n\nShare with the user.`);
+        // Phase 4D — Show proper Dialog with copy buttons
+        setResetCreds({
+          email: r.data.email,
+          temp_password: r.data.temp_password,
+          role: data?.user?.rbac_role || data?.user?.role,
+        });
       } else {
         toast.success(`Action ${path} done`);
       }
@@ -338,14 +454,42 @@ function PersonDetail({ personId, onClose, onChanged }) {
 
             {/* User-side details */}
             {data.user && (
-              <Card className="p-3">
-                <p className="text-[10px] font-bold uppercase text-slate-500 mb-2 flex items-center gap-1"><Lock className="h-3 w-3" />User Account</p>
-                <div className="text-xs space-y-0.5">
-                  <p>Login ID: <strong>{data.user.id.substring(0, 8)}…</strong></p>
-                  <p>Last login: <strong>{data.user.last_login_at ? new Date(data.user.last_login_at).toLocaleString() : '— never —'}</strong></p>
+              <Card className="p-3 border-l-4 border-l-indigo-400">
+                <p className="text-[10px] font-bold uppercase text-slate-500 mb-2 flex items-center gap-1"><Lock className="h-3 w-3" />Login Credentials & Security</p>
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <p className="text-slate-500">Login Email</p>
+                    <p className="font-mono text-sm">{data.user.email}</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-500">Login ID (internal)</p>
+                    <p className="font-mono text-[10px] text-slate-400">{data.user.id}</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-500">Password Status</p>
+                    <p className="text-sm">
+                      {data.user.must_change_password_on_next_login ? (
+                        <Badge className="bg-amber-100 text-amber-700 text-[10px]">⚠️ Must change on next login</Badge>
+                      ) : (
+                        <Badge className="bg-emerald-100 text-emerald-700 text-[10px]">✓ Active (user-managed)</Badge>
+                      )}
+                    </p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">
+                      {data.user.password_changed_at ? `Last changed: ${new Date(data.user.password_changed_at).toLocaleDateString()}` : 'Never changed'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-slate-500">Last Login</p>
+                    <p className="text-sm">{data.user.last_login_at ? new Date(data.user.last_login_at).toLocaleString() : <span className="italic text-slate-400">— never —</span>}</p>
+                  </div>
+                </div>
+                <div className="mt-3 p-2 bg-amber-50 border border-amber-200 rounded text-[11px] text-amber-800">
+                  🔐 <strong>Password Security:</strong> For security, the stored password is hashed (bcrypt) and cannot be retrieved or viewed. Use the <strong>Reset Password</strong> button below to generate a new temporary password that you can share with the user.
+                </div>
+                <div className="mt-2 text-xs space-y-0.5">
                   <p>Permissions assigned: <strong>{(data.user.permissions || []).length}</strong></p>
-                  {data.user.must_change_password_on_next_login && <p className="text-amber-700">⚠️ Must change password on next login</p>}
                   {data.user.auto_created_from_vendor && <p className="text-indigo-700">🔗 Auto-created from vendor record</p>}
+                  {data.user.created_by && <p className="text-slate-400">Onboarded by admin: <code className="text-[10px]">{data.user.created_by.substring(0, 8)}…</code></p>}
                 </div>
               </Card>
             )}
@@ -377,6 +521,7 @@ function PersonDetail({ personId, onClose, onChanged }) {
           )}
         </DialogFooter>
       </DialogContent>
+      <CredentialsDialog open={!!resetCreds} credentials={resetCreds} onClose={() => setResetCreds(null)} />
     </Dialog>
   );
 }

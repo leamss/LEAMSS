@@ -291,22 +291,22 @@ async def add_person(req: AddPersonRequest, current_user: dict = Depends(get_cur
         if req.role not in INTERNAL_ROLES:
             raise HTTPException(status_code=400, detail=f"Invalid internal role '{req.role}'. Allowed: {sorted(INTERNAL_ROLES)}")
         user_doc = {
-            "id": str(uuid.uuid4()),
-            "name": req.name.strip(),
-            "email": req.email.lower(),
-            "mobile": req.mobile or "",
-            "password": get_password_hash(temp_password),
-            "role": req.role,
-            "rbac_role": req.role,
-            "user_type": "internal",
-            "department": req.department,
-            "permissions": [],
-            "ui_modules": [],
-            "status": "active",
-            "must_change_password_on_next_login": True,
-            "created_at": now,
-            "created_by": current_user["id"],
-        }
+                "id": str(uuid.uuid4()),
+                "name": req.name.strip(),
+                "email": req.email.lower(),
+                "mobile": req.mobile or "",
+                "password": get_password_hash(temp_password),
+                "role": req.role,
+                "rbac_role": req.role,
+                "user_type": "internal",
+                "department": req.department,
+                "permissions": [],
+                "ui_modules": [],
+                "status": "active",
+                "must_change_password_on_next_login": True,
+                "created_at": now,
+                "created_by": current_user["id"],
+            }
         await users_col.insert_one(user_doc)
         result["person_id"] = user_doc["id"]
         result["kind"] = "user"

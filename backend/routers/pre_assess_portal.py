@@ -124,7 +124,10 @@ async def generate_public_link(data: GenerateLinkRequest, current_user: dict = D
     )
     has_share_perm = "pa.share.own" in (current_user.get("permissions") or [])
     if not is_admin and not (is_owner and has_share_perm):
-        raise HTTPException(status_code=403, detail="Not allowed to share this pre-assessment")
+        creator_msg = ""
+        if not is_owner:
+            creator_msg = " This PA was created by another user — only the creator or an admin can share it."
+        raise HTTPException(status_code=403, detail=f"Not allowed to share this pre-assessment.{creator_msg}")
 
     # Validate expiry
     days = data.expires_in_days if data.expires_in_days is not None else 30
@@ -150,16 +153,34 @@ async def generate_public_link(data: GenerateLinkRequest, current_user: dict = D
             "updated_at": _now(),
         }})
         public_url = f"{base}/pre-assess/{token}" if base else f"/pre-assess/{token}"
+        # Phase 4D — Express + Token mode link semantics
+        is_express = pa.get("sale_type") == "express"
+        mode = pa.get("express_mode") or "direct"
+        if is_express and mode == "token":
+            link_type = "express_token_payment"
+            amount = float(pa.get("express_token_amount") or 0)
+            amount_label = f"₹{int(amount):,}"
+            purpose = "express_token_payment"
+        elif is_express and mode == "direct":
+            link_type = "express_direct_preview"
+            amount = 0
+            amount_label = "Free (Express)"
+            purpose = "express_direct_preview"
+        else:
+            link_type = "public_pa_fee"
+            amount = 5100
+            amount_label = "₹5,100"
+            purpose = "pre_assessment_fee"
         await _log(current_user["id"], data.pa_id, "share_link_generated", {
-            "type": "public_pa_fee", "expires_in_days": days,
+            "type": link_type, "expires_in_days": days,
         })
         return {
             "token": token,
             "public_url": public_url,
-            "link_type": "public_pa_fee",
-            "amount": 5100,
-            "amount_label": "₹5,100",
-            "purpose": "pre_assessment_fee",
+            "link_type": link_type,
+            "amount": amount,
+            "amount_label": amount_label,
+            "purpose": purpose,
             "expires_at": expires_at.isoformat() if expires_at else None,
             "expires_in_days": days,
             "client_name": pa.get("client_name"),
@@ -332,24 +353,42 @@ async def public_mock_pay(data: PublicMockPayRequest):
             f"Welcome {user['name']}! Your account is ready.")
 
     if not already_paid:
-        await pre_assessments_col.update_one(
-            {"share_token": data.token},
-            {"$set": {
+        # Phase 4D — Express + Token mode payment flow
+        is_express_token = pa.get("sale_type") == "express" and pa.get("express_mode") == "token"
+        if is_express_token:
+            update = {
+                "express_token_paid": True,
+                "express_token_paid_at": _now(),
+                "express_token_payment_ref": f"TOKEN-{secrets.token_hex(8)}",
+                "client_user_id": user["id"],
+                "stage": "express_token_paid",  # Awaiting admin review of token payment + docs
+                "updated_at": _now(),
+            }
+        else:
+            update = {
                 "stage": "payment_received",
                 "fee_payment_status": "paid",
                 "fee_paid_at": _now(),
                 "fee_payment_ref": f"MOCK-{secrets.token_hex(8)}",
                 "client_user_id": user["id"],
                 "updated_at": _now(),
-            }},
+            }
+        await pre_assessments_col.update_one(
+            {"share_token": data.token},
+            {"$set": update},
         )
-        # Notify partner
+        # Notify partner + admin (admin gets a fresh review queue entry for Express token PAs)
+        notif_msg = (
+            f"Token of ₹{int(pa.get('express_token_amount') or 0):,} received for {pa.get('client_name')}. Review payment & documents."
+            if is_express_token else
+            f"Pre-assessment fee paid by {pa.get('client_name')}. Review and approve."
+        )
         if pa.get("partner_id"):
             await notifications_col.insert_one({
                 "id": str(uuid.uuid4()),
                 "user_id": pa["partner_id"],
-                "title": "Pre-assessment payment received",
-                "message": f"{user['name']} has paid ₹5,100. Client will upload docs next.",
+                "title": "Express token received — review pending" if is_express_token else "Pre-assessment payment received",
+                "message": notif_msg,
                 "type": "payment", "read": False,
                 "link": "/partner?tab=pre-assessment",
                 "created_at": _now(),
