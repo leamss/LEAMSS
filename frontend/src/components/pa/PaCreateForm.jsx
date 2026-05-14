@@ -169,6 +169,40 @@ export default function PaCreateForm({ form, setForm, products, onCancel, onSubm
             <Input value={form.client_mobile} onChange={e => upd({ client_mobile: e.target.value })} className="pl-9" placeholder="+91-XXXXXXXXXX" data-testid="pa-client-mobile" />
           </div>
         </div>
+        <div className="md:col-span-2">
+          <label className="text-sm font-medium text-slate-700 block mb-1 flex items-center gap-2">
+            <Sparkles className="h-3.5 w-3.5 text-indigo-500" />
+            Product * <span className="text-xs text-slate-400 font-normal">— pick a product first; country &amp; visa type auto-fill</span>
+          </label>
+          <select
+            value={form.product_id}
+            onChange={e => {
+              const pid = e.target.value;
+              const p = products.find(x => x.id === pid);
+              if (p) {
+                upd({
+                  product_id: pid,
+                  country: p.country || form.country,
+                  service_type: p.visa_type || form.service_type,
+                });
+              } else {
+                upd({ product_id: pid });
+              }
+            }}
+            className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm bg-white"
+            data-testid="pa-product"
+          >
+            <option value="">— Select product —</option>
+            {products.map(p => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+                {p.country ? ` · ${p.country}` : ''}
+                {p.visa_type ? ` · ${p.visa_type}` : ''}
+                {p.service_price || p.base_fee ? ` · ₹${(p.service_price || p.base_fee).toLocaleString('en-IN')}` : ''}
+              </option>
+            ))}
+          </select>
+        </div>
         <div>
           <label className="text-sm font-medium text-slate-700 block mb-1">Country *</label>
           <div className="relative">
@@ -179,14 +213,6 @@ export default function PaCreateForm({ form, setForm, products, onCancel, onSubm
         <div>
           <label className="text-sm font-medium text-slate-700 block mb-1">Service Type *</label>
           <Input value={form.service_type} onChange={e => upd({ service_type: e.target.value })} placeholder="PR, Work Visa, Study..." data-testid="pa-service-type" />
-        </div>
-        <div>
-          <label className="text-sm font-medium text-slate-700 block mb-1">Product</label>
-          <select value={form.product_id} onChange={e => upd({ product_id: e.target.value })}
-            className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm" data-testid="pa-product">
-            <option value="">Select product</option>
-            {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
         </div>
         <div>
           <label className="text-sm font-medium text-slate-700 block mb-1">Age</label>

@@ -177,6 +177,14 @@ async def startup():
     except Exception as e:
         print(f"[Phase4C.2 ERROR] {e}")
 
+    # Run Phase 4C UNIFICATION — merge product_cost_structures into products (idempotent)
+    try:
+        from migrations.phase4c_products_unification import run as run_unification
+        ur = await run_unification()
+        print(f"[Phase4C-Unify] Products unification done: matched={ur['matched']}, created={ur['created']}, skipped={ur['skipped']}")
+    except Exception as e:
+        print(f"[Phase4C-Unify ERROR] {e}")
+
 
 async def seed_database():
     """Seed the database with initial data"""

@@ -32,14 +32,50 @@ vendors_col = db["vendors"]
 # Matching
 # ──────────────────────────────────────────────────────────────
 async def find_matching_structure(pa: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    """Look up the best matching active cost structure for a PA.
-    Strategy:
-      1. By product_id (if PA links to product)
-      2. By exact product_name match
-      3. By country + visa_type loose match
-      4. Return None → caller skips allocations
+    """Look up the best matching active cost-config (Phase 4C unified products).
+
+    Priority:
+      1. Unified product (products collection) where cost_allocations exists — by:
+         a) product_id → product
+         b) product_name (case-insensitive)
+         c) country + visa_type (case-insensitive)
+      2. Legacy product_cost_structures collection (back-compat).
+      3. None — caller skips allocations.
+
+    The returned dict is normalized to the shape the rest of allocations_logic
+    expects: {product_name, country, visa_type, service_price, cost_allocations, success_bonuses}.
     """
+    # ── 1. Unified products lookup ──
     pid = pa.get("product_id")
+    if pid:
+        prod = await db["products"].find_one({"id": pid, "cost_allocations": {"$exists": True, "$ne": []}}, {"_id": 0})
+        if prod:
+            return _product_to_structure(prod)
+
+    pname = pa.get("product_name") or pa.get("service_type")
+    if pname:
+        import re
+        prod = await db["products"].find_one(
+            {"name": {"$regex": f"^{re.escape(str(pname))}$", "$options": "i"},
+             "cost_allocations": {"$exists": True, "$ne": []}},
+            {"_id": 0},
+        )
+        if prod:
+            return _product_to_structure(prod)
+
+    country = pa.get("country")
+    visa = pa.get("service_type")
+    if country and visa:
+        import re
+        prod = await db["products"].find_one(
+            {"country": country, "visa_type": {"$regex": f"^{re.escape(str(visa))}$", "$options": "i"},
+             "cost_allocations": {"$exists": True, "$ne": []}},
+            {"_id": 0},
+        )
+        if prod:
+            return _product_to_structure(prod)
+
+    # ── 2. Legacy product_cost_structures fallback ──
     if pid:
         prod = await db["products"].find_one({"id": pid}, {"_id": 0, "name": 1})
         if prod and prod.get("name"):
@@ -50,7 +86,6 @@ async def find_matching_structure(pa: Dict[str, Any]) -> Optional[Dict[str, Any]
             if s:
                 return s
 
-    pname = pa.get("product_name") or pa.get("service_type")
     if pname:
         s = await cost_structures_col.find_one(
             {"product_name": {"$regex": f"^{pname}$", "$options": "i"}, "is_active": True, "deleted_at": None},
@@ -59,8 +94,6 @@ async def find_matching_structure(pa: Dict[str, Any]) -> Optional[Dict[str, Any]
         if s:
             return s
 
-    country = pa.get("country")
-    visa = pa.get("service_type")
     if country and visa:
         s = await cost_structures_col.find_one(
             {"country": country, "visa_type": {"$regex": f"^{visa}$", "$options": "i"}, "is_active": True, "deleted_at": None},
@@ -69,6 +102,23 @@ async def find_matching_structure(pa: Dict[str, Any]) -> Optional[Dict[str, Any]
         if s:
             return s
     return None
+
+
+def _product_to_structure(prod: Dict[str, Any]) -> Dict[str, Any]:
+    """Normalize a unified product doc to the cost-structure shape used downstream."""
+    return {
+        "id": prod.get("id"),
+        "product_id": prod.get("id"),
+        "product_name": prod.get("name"),
+        "country": prod.get("country") or "",
+        "visa_type": prod.get("visa_type") or "",
+        "service_price": float(prod.get("service_price") or prod.get("base_fee") or 0),
+        "cost_allocations": prod.get("cost_allocations") or [],
+        "success_bonuses": prod.get("success_bonuses") or [],
+        "default_currency": (prod.get("cost_structure_meta") or {}).get("default_currency", "INR"),
+        "is_active": prod.get("status", "active") == "active",
+        "source": "unified_product",
+    }
 
 
 # ──────────────────────────────────────────────────────────────

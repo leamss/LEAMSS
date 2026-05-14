@@ -1224,7 +1224,7 @@ const AdminDashboard = () => {
     {
       groupLabel: 'System',
       items: [
-        { id: 'products', icon: Settings, label: 'Products', onClick: () => { setActiveTab('products'); resetSelections(); } },
+        { id: 'products', icon: Package, label: 'Products', onClick: () => navigate('/admin/products') },
         { id: 'intake-builder', icon: ClipboardList, label: 'Intake Form Builder', onClick: () => { setActiveTab('intake-builder'); resetSelections(); } },
         { id: 'legal-archive', icon: Shield, label: 'Legal Archive', onClick: () => { setActiveTab('legal-archive'); resetSelections(); } },
         { id: 'agreement-templates', icon: FileText, label: 'Agreement Templates', onClick: () => { setActiveTab('agreement-templates'); resetSelections(); } },
@@ -1242,11 +1242,11 @@ const AdminDashboard = () => {
         { id: 'express-approvals', icon: Zap, label: 'Express Approvals', onClick: () => navigate('/admin/sales/express-approvals') },
         { id: 'vendors', icon: Briefcase, label: 'Vendors', onClick: () => navigate('/admin/vendors') },
         { id: 'vendor-categories', icon: Layers, label: 'Vendor Categories', onClick: () => navigate('/admin/vendors/categories') },
-        { id: 'cost-structures', icon: Calculator, label: 'Cost Structures', onClick: () => navigate('/admin/products/cost-structures') },
         { id: 'allocations', icon: IndianRupee, label: 'Cost Allocations', onClick: () => navigate('/admin/allocations') },
         { id: 'commissions', icon: TrendingUp, label: 'Commissions', onClick: () => navigate('/admin/sales/commissions') },
         { id: 'commission-slabs', icon: Trophy, label: 'Commission Slabs', onClick: () => navigate('/admin/sales/commission-slabs') },
         { id: 'payouts', icon: Briefcase, label: 'Payout Queue', onClick: () => navigate('/admin/payouts') },
+        // Phase 4C Unification — Cost Structures has been merged into Products (System → Products).
       ]
     },
     {

@@ -36,6 +36,7 @@ import ExpressApprovalsAdmin from '@/pages/admin/ExpressApprovalsAdmin';
 import AdminVendors from '@/pages/admin/AdminVendors';
 import VendorCategoriesManager from '@/pages/admin/VendorCategoriesManager';
 import CostStructuresManager from '@/pages/admin/CostStructuresManager';
+import ProductsManager from '@/pages/admin/ProductsManager';
 import AdminAllocations from '@/pages/admin/AdminAllocations';
 import CommissionSlabsManager from '@/pages/admin/CommissionSlabsManager';
 import CommissionDashboard from '@/pages/admin/CommissionDashboard';
@@ -134,6 +135,11 @@ function App() {
           <Route path="/admin/vendors/categories" element={
             <RequirePermission anyOf={['vendor_category.manage.any', 'system.user_manage.any']}>
               <VendorCategoriesManager />
+            </RequirePermission>
+          } />
+          <Route path="/admin/products" element={
+            <RequirePermission anyOf={['product_cost.view.all', 'product_cost.manage.any', 'system.user_manage.any']}>
+              <ProductsManager />
             </RequirePermission>
           } />
           <Route path="/admin/products/cost-structures" element={

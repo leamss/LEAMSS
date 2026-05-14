@@ -1,0 +1,60 @@
+{
+  "summary": "Phase 4C Unification backend tested. 24/30 PASS, 2 FAIL, 4 SKIP. Core unification works: POST/PUT /api/products auto-compute margin correctly (verified _compute_margin uses `amount` for cost_allocations as spec'd). Dispute + resolve-dispute endpoints all green (403 for non-admin, 400 for unknown/already-disputed/paid). Internal vendor auto-user creation works for case_manager and sales_commission categories, returns temp_password, new user can login. Existing user link works (no temp_password). Non-internal categories correctly skip auto-creation. /api/pre-assessment/my-assessments?stage=case_created returns 200. All regression endpoints green (auth for 5 roles, /vendors, /vendors/categories, /sales-commission/slabs|my, /cm-earnings/my, /payouts/queue, /payouts/stats). TWO BUGS FOUND: (1) /api/products/{id}/preview reads success_bonuses via b.get('amount') but seeded data uses field name `bonus_amount` — bonuses are NEVER applied on visa_approved=True. Same bug in _compute_margin → max_bonus_payout always returns 0.0 for seeded products. (2) Migration didn't backfill country/visa_type/service_price/cost_allocations/success_bonuses on the 12 legacy products — they only carry {base_fee, commission_rate, name}. Per spec each item must have these unified fields. 4 tests SKIPPED because (a) PA admin_approve_final endpoint path returned non-2xx for all three tried URLs (likely needs more PA setup before approval), and (b) payouts queue has no pending allocations currently — only `paid` and `unassigned`, so bulk-approve-external-vendor and dispute_flow_on_real_allocation could not be exercised end-to-end (dispute endpoint logic was validated via unit-level 400/403 paths).",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "POST /api/products/{id}/preview (and POST/PUT /api/products _compute_margin)",
+        "issue": "success_bonuses field-name mismatch. /preview line 184 of products.py reads `b.get('amount', 0)` but the seeded success_bonuses use `bonus_amount` (also matches allocations_logic.apply_visa_approved_bonuses which reads `bonus_amount`). Result: bonus_amount in /preview rows is always 0.0 even when visa_approved=True. SAME bug in _compute_margin (line 35): `sum(float(b.get('amount', 0) or 0) for b in success_bonuses)` returns 0.0 → computed.max_bonus_payout is always 0 for ALL seeded products (verified on Canada PR Express Entry: expected ₹7000 (5k CM + 2k Sales), actual 0.0).",
+        "priority": "HIGH"
+      },
+      {
+        "endpoint": "GET /api/products",
+        "issue": "Migration phase4c_products_unification.py is NOT idempotently backfilling required fields on the 12 legacy products. Inspecting a legacy product ('Canada PR') shows it has only {base_fee, commission_rate, name, id, description, category, status, created_at, workflow_steps} — NO country / visa_type / service_price / cost_allocations / success_bonuses / computed / cost_structure_meta. Per the spec each item must carry these unified fields (even if empty). Frontends / consumers reading `p.country` will get KeyError/undefined. Either migration must $set defaults ({country: '', visa_type: '', service_price: base_fee, cost_allocations: [], success_bonuses: [], computed: {...zeros...}}) or the GET handler must project defaults.",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": [
+      {
+        "endpoint": "POST /api/pre-assessment/{id}/admin-approve-final",
+        "issue": "Could not drive a newly-created PA through to case_created via the canonical /api/pre-assessment/{id}/admin-approve-final URL (and 2 alternates tried) — all returned non-2xx. As a result the end-to-end auto-allocation regression (product_id match + country/visa fallback) could not be verified by the test suite. Allocations-logic code paths LOOK correct (allocations_logic.find_matching_structure prioritises unified products → product_id → name → country+visa) but a live trigger could not confirm. Recommend main agent verify with manual curl or share canonical PA-approval payload."
+      },
+      {
+        "endpoint": "GET /api/payouts/queue",
+        "issue": "Current queue holds only `paid` (1) + `unassigned` (3) rows; no `pending` rows with vendor_master_id set, so the bulk-approve external-vendor regression test (verifying iter100's reported filter fix actually shipped) was skipped. The code in /app/backend/routers/payouts.py lines 144 and 176 DOES contain the corrected `$or: [{vendor_id: {$ne: None}}, {vendor_master_id: {$ne: None}}]` filter, so static inspection confirms the fix landed."
+      }
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_phase4c_unification.py",
+    "/app/test_reports/pytest/pytest_iteration101.xml"
+  ],
+  "action_items": [
+    "FIX BUG #1 (success_bonuses field): In /app/backend/routers/products.py change line 35 from `b.get('amount', 0)` to `(b.get('bonus_amount') if b.get('bonus_amount') is not None else b.get('amount', 0))` for max_bonus_payout. Same change at line 184 inside /preview's `next((b for b in success_bonuses ...))` match block — use `float(match.get('bonus_amount') if match.get('bonus_amount') is not None else match.get('amount', 0) or 0)`. After fix, /preview will surface ₹7000 on Canada PR Express Entry with visa_approved=True.",
+    "FIX BUG #2 (migration backfill): Update /app/backend/migrations/phase4c_products_unification.py to also $set defaults on legacy products that lack the unified shape. Run an idempotent update_many({country: {$exists: false}}, {$set: {country: '', visa_type: '', service_price: '$base_fee' or 0, cost_allocations: [], success_bonuses: [], computed: {expected_base_cost:0, expected_margin:0, expected_margin_pct:0, max_bonus_payout:0}, cost_structure_meta: {}}}). Or guard in GET /api/products to project defaults.",
+    "(re-test after fixes) Re-run /api/products/{Canada PR Express Entry id}/preview with visa_approved=true and verify rows[].bonus_amount > 0. Also re-verify computed.max_bonus_payout on the 5 fully-configured products.",
+    "(low priority) Share the exact PA-approval endpoint/payload contract so e2e auto-allocation regression can be wired into pytest."
+  ],
+  "critical_code_review_comments": [
+    "BUG: products.py uses `b.get('amount')` for success_bonuses while allocations_logic.apply_visa_approved_bonuses reads `b.get('bonus_amount')` — field name mismatch causes /preview and computed.max_bonus_payout to silently zero out. Either standardise on one field name across both modules or accept both via a fallback.",
+    "BUG: phase4c_products_unification migration is not making the products collection truly homogeneous. Legacy products miss country/visa_type/service_price/cost_allocations/success_bonuses/computed/cost_structure_meta. This will trip up any frontend table render or filter on `country`.",
+    "GOOD: _compute_margin correctly handles cost_allocations with `amount` for both flat AND percentage (verified: 10% on 100k + 5k flat = 15k base, 85k margin, 85%). The percentage→amount aliasing is consistent.",
+    "GOOD: /preview correctly uses `amount` for cost_allocations percentage (5% of 100k = 5000 verified). The bug is isolated to success_bonuses only.",
+    "GOOD: products PUT recomputes `computed` whenever service_price OR cost_allocations OR success_bonuses change (line 128 conditional). Verified end-to-end: 100k→200k flipped expected_margin from 85k→175k.",
+    "GOOD: Dispute endpoint enforces RBAC (403 non-admin) and state transitions correctly (400 on already-paid, 400 on already-disputed on second call). Resolve-dispute returns the right new_status based on vendor assignment presence.",
+    "GOOD: Internal vendor auto-user creation cleanly maps category→role (case_manager→case_manager, sales_commission→sales_executive). Generated temp_password lets the user immediately /api/auth/login. Existing-user-link path correctly omits temp_password.",
+    "GOOD: Non-internal categories (verified with first non-internal category found) do NOT trigger auto-user-creation even when vendor_type='internal'. The guard `cat.get('is_internal')` works.",
+    "OBSERVATION: vendor email is stored .lower() but the duplicate-vendor-email check (line 291) is done on req.email.lower() against `email` field — consistent. Good.",
+    "OBSERVATION: Bulk-approve/mark-paid filter fix from iter100 (lines 144 & 176) has shipped — static code inspection confirms `$or: [{vendor_id: {$ne: None}}, {vendor_master_id: {$ne: None}}]` is in place. Could not exercise live because queue lacks pending+external rows currently."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_phase4c_unification.py (new — 30 test cases)"
+  ],
+  "success_rate": {"backend": "80% (24 pass / 2 fail / 4 skip out of 30)", "frontend": "N/A (skipped per request)"},
+  "test_credentials": "Admin admin@leamss.com/Admin@123 ; CM manager@leamss.com/Manager@123 ; Partner partner@leamss.com/Partner@123 ; Sales Exec sexec-test@leamss.com/Pass@1234 ; Client client@leamss.com/Client@123. Auto-created during this run: test_cm_<hex>@leamss.com, test_sales_<hex>@leamss.com (temp passwords from response).",
+  "seed_data_creation": "1 transient product (TEST_Unif_<hex>) created+deleted via fixture. 3 transient vendors created (test_cm_<hex>, test_sales_<hex>, test_ext_<hex> @leamss.com) — NOT cleaned up (no DELETE /api/vendors); main agent may want to prune these by email pattern. PA-creation fixture skipped without leaving artefacts.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Use /app/backend/tests/test_phase4c_unification.py as regression. Login response key is `token` (NOT `access_token`). The 4 SKIPPED tests (test_pa_allocations_via_product_id, test_pa_allocations_fallback_country_visa, test_dispute_flow_on_real_allocation, test_bulk_approve_external_vendor_works) need either a working PA admin-approve-final entry-point OR a freshly-seeded pa_cost_allocations doc with pending external-vendor rows. Once Bug #1 (success_bonuses field name) and Bug #2 (legacy product backfill) are patched, re-run and expect 26/30 pass + 4 unchanged skip. If main agent shares the PA approval contract, the 2 PA-related skips can be converted to PASS easily.",
+  "rca of the issue": "BUG #1 RCA: /app/backend/routers/products.py line 35 (_compute_margin) and line 184 (/preview) read success_bonuses via `b.get('amount', 0)`. But seeded data and allocations_logic.apply_visa_approved_bonuses use `bonus_amount` (verified by fetching Canada PR Express Entry: success_bonuses=[{milestone:'visa_approved',vendor_category:'case_manager',bonus_amount:5000,...},{...bonus_amount:2000}] → computed.max_bonus_payout=0.0 instead of 7000). FIX: accept either field name via fallback in both products.py locations. BUG #2 RCA: phase4c_products_unification.py migration only enriches products that already had cost_structure references; the 12 legacy products (verified: 'Canada PR' has just {base_fee, commission_rate, name, id, description, category, status, created_at, workflow_steps}) were not $set with default country/visa_type/service_price/cost_allocations/success_bonuses/computed. FIX: add `await products_col.update_many({'country': {'$exists': False}}, {'$set': {'country': '', 'visa_type': '', 'service_price': 0, 'cost_allocations': [], 'success_bonuses': [], 'computed': {'expected_base_cost':0,'expected_margin':0,'expected_margin_pct':0,'max_bonus_payout':0}, 'cost_structure_meta': {}}})` to migration, and a follow-up `update_many({'$expr': {'$eq': ['$service_price', 0]}, 'base_fee': {'$gt': 0}}, [{'$set': {'service_price': '$base_fee'}}])`."
+}
