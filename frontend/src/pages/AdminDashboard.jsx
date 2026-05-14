@@ -18,7 +18,7 @@ import {
   Search, DollarSign, TrendingUp, CheckCircle, XCircle, Clock,
   MessageSquare, Filter, Calendar, RefreshCw, AlertTriangle, Copy, Mail, Gift,
   Menu, X, Bell, Loader2, CreditCard, BarChart3, Activity, Megaphone,
-  ArrowRightLeft, Zap, BookOpen, Star, UserCheck, ClipboardList, Sparkles, Calculator, Database, Package, Home, Shield, Target, Layers
+  ArrowRightLeft, Zap, BookOpen, Star, UserCheck, ClipboardList, Sparkles, Calculator, Database, Package, Home, Shield, Target, Layers, IndianRupee, Trophy
 } from 'lucide-react';
 import BulkOperations from '@/pages/BulkOperations';
 import SLATracker from '@/pages/SLATracker';
@@ -1243,6 +1243,9 @@ const AdminDashboard = () => {
         { id: 'vendors', icon: Briefcase, label: 'Vendors', onClick: () => navigate('/admin/vendors') },
         { id: 'vendor-categories', icon: Layers, label: 'Vendor Categories', onClick: () => navigate('/admin/vendors/categories') },
         { id: 'cost-structures', icon: Calculator, label: 'Cost Structures', onClick: () => navigate('/admin/products/cost-structures') },
+        { id: 'allocations', icon: IndianRupee, label: 'Cost Allocations', onClick: () => navigate('/admin/allocations') },
+        { id: 'commissions', icon: TrendingUp, label: 'Commissions', onClick: () => navigate('/admin/sales/commissions') },
+        { id: 'commission-slabs', icon: Trophy, label: 'Commission Slabs', onClick: () => navigate('/admin/sales/commission-slabs') },
       ]
     },
     {

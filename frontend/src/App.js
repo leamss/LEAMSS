@@ -36,6 +36,10 @@ import ExpressApprovalsAdmin from '@/pages/admin/ExpressApprovalsAdmin';
 import AdminVendors from '@/pages/admin/AdminVendors';
 import VendorCategoriesManager from '@/pages/admin/VendorCategoriesManager';
 import CostStructuresManager from '@/pages/admin/CostStructuresManager';
+import AdminAllocations from '@/pages/admin/AdminAllocations';
+import CommissionSlabsManager from '@/pages/admin/CommissionSlabsManager';
+import CommissionDashboard from '@/pages/admin/CommissionDashboard';
+import MyCommission from '@/pages/MyCommission';
 import ComingSoon from '@/pages/ComingSoon';
 import ServiceCalculator from '@/pages/ServiceCalculator';
 import LeadCapture from '@/pages/LeadCapture';
@@ -132,6 +136,26 @@ function App() {
           <Route path="/admin/products/cost-structures" element={
             <RequirePermission anyOf={['product_cost.view.all', 'product_cost.manage.any', 'system.user_manage.any']}>
               <CostStructuresManager />
+            </RequirePermission>
+          } />
+          <Route path="/admin/allocations" element={
+            <RequirePermission anyOf={['allocation.view.all', 'vendor.view.all', 'system.user_manage.any']}>
+              <AdminAllocations />
+            </RequirePermission>
+          } />
+          <Route path="/admin/sales/commission-slabs" element={
+            <RequirePermission anyOf={['commission.view.all', 'commission.update.any', 'system.user_manage.any']}>
+              <CommissionSlabsManager />
+            </RequirePermission>
+          } />
+          <Route path="/admin/sales/commissions" element={
+            <RequirePermission anyOf={['commission.view.all', 'commission.view.team', 'system.user_manage.any']}>
+              <CommissionDashboard />
+            </RequirePermission>
+          } />
+          <Route path="/sales/my-commission" element={
+            <RequirePermission anyOf={['commission.view.own', 'pa.create.own', 'pa.view.own']}>
+              <MyCommission />
             </RequirePermission>
           } />
           <Route path="/sales/coming-soon" element={<ComingSoon />} />

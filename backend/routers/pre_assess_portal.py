@@ -972,6 +972,28 @@ async def admin_approve_final(pa_id: str, data: Optional[AdminApproveFinalReques
         # Never block case creation if target recalc fails
         logger.warning(f"Phase 4B recalc failed for PA {pa_id}: {_e}")
 
+    # Phase 4C.3 — Auto-build vendor cost allocations
+    try:
+        from core.allocations_logic import build_allocations_for_pa
+        fresh_pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
+        if fresh_pa:
+            alloc_doc = await build_allocations_for_pa(fresh_pa)
+            if alloc_doc:
+                logger.info(f"Phase 4C.3 allocations built for PA {pa_id}: {len(alloc_doc.get('allocations', []))} entries")
+    except Exception as _e:
+        logger.warning(f"Phase 4C.3 allocation build failed for PA {pa_id}: {_e}")
+
+    # Phase 4C.4 — Auto-apply sales commission entry
+    try:
+        from core.commission_logic import apply_commission_for_pa
+        fresh_pa2 = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
+        if fresh_pa2:
+            entry = await apply_commission_for_pa(fresh_pa2)
+            if entry:
+                logger.info(f"Phase 4C.4 commission entry created for PA {pa_id}: ₹{entry.get('commission_amount')}")
+    except Exception as _e:
+        logger.warning(f"Phase 4C.4 commission apply failed for PA {pa_id}: {_e}")
+
     return {"ok": True, "case_id": case_id, "case_code": case_code, "case_manager_id": cm_id, "case_manager_name": cm_name, "stage": "case_created"}
 
 

@@ -150,26 +150,63 @@ export function TargetWidget() {
 
 export function CommissionWidget() {
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const r = await axios.get(`${API}/sales-commission/my`, { headers: { Authorization: `Bearer ${token}` } });
+        if (!cancelled) setData(r.data);
+      } catch (_) {} finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  if (loading) {
+    return (
+      <Card className="p-4 border-t-4 border-t-emerald-500" data-testid="widget-commission-loading">
+        <div className="flex items-center gap-2 mb-2">
+          <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center"><IndianRupee className="h-4 w-4 text-emerald-600 animate-pulse" /></div>
+          <p className="text-sm font-bold text-slate-800">Commission</p>
+        </div>
+        <p className="text-xs text-slate-400">Loading…</p>
+      </Card>
+    );
+  }
+  if (!data) {
+    return (
+      <Card className="p-4 border-t-4 border-t-emerald-500" data-testid="widget-commission-none">
+        <div className="flex items-center gap-2"><IndianRupee className="h-4 w-4 text-emerald-600" /><p className="text-sm font-bold text-slate-800">Commission</p></div>
+        <p className="text-xs text-slate-500 mt-1">Unavailable</p>
+      </Card>
+    );
+  }
+
+  const tier = data.current_slab?.name || '—';
+  const rate = data.current_slab?.rate_pct;
   return (
-    <Card className="p-4 border-t-4 border-t-emerald-500 hover:shadow-md transition" data-testid="widget-commission">
+    <Card className="p-4 border-t-4 border-t-emerald-500 hover:shadow-md transition cursor-pointer" data-testid="widget-commission" onClick={() => navigate('/sales/my-commission')}>
       <div className="flex items-start justify-between mb-2">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center">
             <IndianRupee className="h-4 w-4 text-emerald-600" />
           </div>
-          <p className="text-sm font-bold text-slate-800">Commission Estimate</p>
+          <p className="text-sm font-bold text-slate-800">My Commission</p>
         </div>
-        {PHASE_BADGE('4C')}
+        <Badge className="bg-amber-100 text-amber-800 text-[10px]">{tier}</Badge>
       </div>
-      <p className="text-xs text-slate-500 mt-1">Auto-calculate disabled</p>
-      <p className="text-xs text-slate-400">Earnings update as PAs close</p>
-      <button
-        onClick={() => navigate('/sales/coming-soon?feature=commission')}
-        className="mt-2 text-xs text-emerald-600 hover:underline flex items-center gap-1"
-        data-testid="link-commission"
-      >
-        View commission structure <ArrowRight className="h-3 w-3" />
-      </button>
+      <p className="text-xl font-extrabold text-emerald-700 mt-1" data-testid="commission-amount">{formatINR(data.total_commission)}</p>
+      <p className="text-[11px] text-slate-500">{data.deal_count} deal{data.deal_count !== 1 ? 's' : ''} · @ {rate}% rate</p>
+      {data.next_slab && (
+        <p className="text-[11px] text-amber-700 mt-1">
+          <Sparkles className="h-3 w-3 inline" /> {formatINR(data.gap_to_next_slab)} to <strong>{data.next_slab.name}</strong>
+        </p>
+      )}
     </Card>
   );
 }

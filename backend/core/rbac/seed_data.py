@@ -289,6 +289,13 @@ PERMISSIONS = [
     # Phase 4C.2 — Product Cost Structures
     _p("product_cost", "view", "all", "View Product Cost Structures", "finance"),
     _p("product_cost", "manage", "any", "Manage Product Cost Structures", "finance", "high", audit=True),
+    # Phase 4C.3 — Cost Allocations (per-PA)
+    _p("allocation", "view", "all", "View All Cost Allocations", "finance"),
+    _p("allocation", "view", "team", "View Team Cost Allocations", "finance"),
+    _p("allocation", "view", "own", "View Own Cost Allocations", "finance"),
+    _p("allocation", "assign", "vendor", "Assign Vendor to Allocation", "finance", "medium", audit=True),
+    _p("allocation", "approve", "any", "Approve Allocation Payout", "finance", "high", audit=True),
+    _p("allocation", "mark-paid", "any", "Mark Allocation as Paid", "finance", "high", audit=True),
 
     _p("expense", "view", "own", "View Own Expenses", "finance"),
     _p("expense", "view", "team", "View Team Expenses", "finance"),
