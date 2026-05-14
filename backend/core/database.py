@@ -66,6 +66,10 @@ attendance_regularizations_col = db["attendance_regularizations"]
 sales_targets_col = db["sales_targets"]
 target_templates_col = db["target_templates"]
 
+# Phase 4C — Vendor Master & Commission
+vendor_categories_col = db["vendor_categories"]
+vendors_col = db["vendors"]
+
 
 async def init_db():
     """Create indexes"""

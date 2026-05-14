@@ -33,6 +33,8 @@ import MyTargets from '@/pages/MyTargets';
 import SalesTargetsAdmin from '@/pages/admin/SalesTargetsAdmin';
 import TargetTemplatesManager from '@/pages/admin/TargetTemplatesManager';
 import ExpressApprovalsAdmin from '@/pages/admin/ExpressApprovalsAdmin';
+import AdminVendors from '@/pages/admin/AdminVendors';
+import VendorCategoriesManager from '@/pages/admin/VendorCategoriesManager';
 import ComingSoon from '@/pages/ComingSoon';
 import ServiceCalculator from '@/pages/ServiceCalculator';
 import LeadCapture from '@/pages/LeadCapture';
@@ -114,6 +116,16 @@ function App() {
           <Route path="/admin/sales/express-approvals" element={
             <RequirePermission anyOf={['pa.approve.express', 'system.user_manage.any']}>
               <ExpressApprovalsAdmin />
+            </RequirePermission>
+          } />
+          <Route path="/admin/vendors" element={
+            <RequirePermission anyOf={['vendor.view.all', 'vendor.create.any', 'system.user_manage.any']}>
+              <AdminVendors />
+            </RequirePermission>
+          } />
+          <Route path="/admin/vendors/categories" element={
+            <RequirePermission anyOf={['vendor_category.manage.any', 'system.user_manage.any']}>
+              <VendorCategoriesManager />
             </RequirePermission>
           } />
           <Route path="/sales/coming-soon" element={<ComingSoon />} />

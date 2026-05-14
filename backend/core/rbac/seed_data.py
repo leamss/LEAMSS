@@ -282,6 +282,10 @@ PERMISSIONS = [
     _p("vendor", "create", "any", "Add Vendor", "finance", "medium", audit=True),
     _p("vendor", "update", "any", "Edit Vendor", "finance", "medium"),
     _p("vendor", "delete", "any", "Remove Vendor", "finance", "high", audit=True),
+    # Phase 4C.1 additions
+    _p("vendor", "deactivate", "any", "Deactivate Vendor", "finance", "high", audit=True),
+    _p("vendor", "invite", "any", "Send Vendor Portal Invite", "finance", "medium", audit=True),
+    _p("vendor_category", "manage", "any", "Manage Vendor Categories", "finance", "high", audit=True),
 
     _p("expense", "view", "own", "View Own Expenses", "finance"),
     _p("expense", "view", "team", "View Team Expenses", "finance"),
@@ -432,6 +436,7 @@ ROLES = [
             "target.view.all", "target.create.any", "target.update.team", "target.update.all", "target.delete.any", "target.history.all",
             "target_template.view.all", "target_template.use.any", "target_template.create.any", "target_template.manage.any",
             "pa.approve.express", "sales_settings.view.all", "sales_settings.manage.any",
+            "vendor.view.all", "vendor.create.any", "vendor.update.any", "vendor.deactivate.any", "vendor.invite.any", "vendor_category.manage.any",
             "incentive.view.all", "incentive.update.any",
             "discount.view.all", "discount.approve.low", "discount.approve.medium", "discount.approve.high",
             "call_log.view.all",
