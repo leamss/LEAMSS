@@ -70,6 +70,8 @@ export default function PreAssessmentPayment() {
 
   // Phase 4C — For Express Sales, skip PA fee entirely
   if (isExpress) {
+    const isTokenMode = data.express_mode === 'token';
+    const tokenAmount = data.express_token_amount || 0;
     return (
       <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-amber-50/40">
         <div className="bg-gradient-to-r from-[#2a777a] to-[#1f5c5f] text-white">
@@ -90,19 +92,46 @@ export default function PreAssessmentPayment() {
             </div>
             <Badge className="bg-amber-100 text-amber-700 mb-3">⚡ Express Sale</Badge>
             <h1 className="text-2xl font-bold text-slate-800 mb-3">Welcome, {data.client_name}!</h1>
-            <p className="text-sm text-slate-600 leading-relaxed">
-              Your <strong>{data.service_type}</strong> case has been fast-tracked under our Express Sales process — <strong>no pre-assessment fee is required</strong>.
-            </p>
-            <p className="text-sm text-slate-600 mt-2">
-              Your consultant <strong>{data.partner_name}</strong> will share the full service proposal with you shortly.
-              For any questions, please reply directly to their email or WhatsApp.
-            </p>
+            {isTokenMode ? (
+              <>
+                <p className="text-sm text-slate-600 leading-relaxed">
+                  Your <strong>{data.service_type}</strong> case has been fast-tracked. To confirm your slot and lock-in the timeline, please pay a small token amount of <strong>₹{Math.round(tokenAmount).toLocaleString('en-IN')}</strong>.
+                </p>
+                <p className="text-xs text-slate-500 mt-2">This token will be adjusted in your final invoice.</p>
+                <Button
+                  className="w-full mt-5 bg-emerald-600 hover:bg-emerald-700 h-12"
+                  data-testid="pay-token-btn"
+                  onClick={async () => {
+                    try {
+                      const r = await axios.post(`${API}/pre-assess-portal/public/${token}/mock-pay`, {});
+                      if (r.data?.ok) {
+                        toast.success(`Token of ₹${Math.round(tokenAmount).toLocaleString('en-IN')} received! Your consultant will share the full proposal shortly.`);
+                        load();
+                      }
+                    } catch (e) { toast.error(e?.response?.data?.detail || 'Payment failed'); }
+                  }}
+                >
+                  Pay Token ₹{Math.round(tokenAmount).toLocaleString('en-IN')} (Mock)
+                </Button>
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-slate-600 leading-relaxed">
+                  Your <strong>{data.service_type}</strong> case has been fast-tracked under our Express Sales process — <strong>no pre-assessment fee is required</strong>.
+                </p>
+                <p className="text-sm text-slate-600 mt-2">
+                  Your consultant <strong>{data.partner_name}</strong> will share the full service proposal with you shortly.
+                  For any questions, please reply directly to their email or WhatsApp.
+                </p>
+              </>
+            )}
             <div className="mt-6 p-4 bg-emerald-50 border border-emerald-200 rounded-lg text-left">
               <p className="text-xs font-bold text-emerald-800 mb-2">📋 Your Case Summary</p>
               <div className="space-y-1 text-xs text-slate-700">
                 <Row label="Destination" value={data.country} />
                 <Row label="Service" value={data.service_type} />
-                <Row label="Stage" value="Express Sale — Awaiting proposal" />
+                <Row label="Mode" value={isTokenMode ? `Token ₹${Math.round(tokenAmount).toLocaleString('en-IN')}` : 'Direct Proposal'} />
+                <Row label="Stage" value={isTokenMode ? 'Awaiting token payment' : 'Awaiting proposal'} />
                 <Row label="Pre-assessment Fee" value="✓ Waived (Express)" />
               </div>
             </div>

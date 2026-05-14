@@ -1225,6 +1225,7 @@ const AdminDashboard = () => {
       groupLabel: 'System',
       items: [
         { id: 'products', icon: Package, label: 'Products', onClick: () => navigate('/admin/products') },
+        { id: 'people', icon: Users, label: 'People (All)', onClick: () => navigate('/admin/people') },
         { id: 'intake-builder', icon: ClipboardList, label: 'Intake Form Builder', onClick: () => { setActiveTab('intake-builder'); resetSelections(); } },
         { id: 'legal-archive', icon: Shield, label: 'Legal Archive', onClick: () => { setActiveTab('legal-archive'); resetSelections(); } },
         { id: 'agreement-templates', icon: FileText, label: 'Agreement Templates', onClick: () => { setActiveTab('agreement-templates'); resetSelections(); } },
@@ -1243,6 +1244,7 @@ const AdminDashboard = () => {
         { id: 'vendors', icon: Briefcase, label: 'Vendors', onClick: () => navigate('/admin/vendors') },
         { id: 'vendor-categories', icon: Layers, label: 'Vendor Categories', onClick: () => navigate('/admin/vendors/categories') },
         { id: 'allocations', icon: IndianRupee, label: 'Cost Allocations', onClick: () => navigate('/admin/allocations') },
+        { id: 'finance', icon: TrendingUp, label: 'Finance Center', onClick: () => navigate('/admin/finance') },
         { id: 'commissions', icon: TrendingUp, label: 'Commissions', onClick: () => navigate('/admin/sales/commissions') },
         { id: 'commission-slabs', icon: Trophy, label: 'Commission Slabs', onClick: () => navigate('/admin/sales/commission-slabs') },
         { id: 'payouts', icon: Briefcase, label: 'Payout Queue', onClick: () => navigate('/admin/payouts') },

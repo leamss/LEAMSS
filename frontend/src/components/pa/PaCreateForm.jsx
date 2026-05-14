@@ -117,6 +117,45 @@ export default function PaCreateForm({ form, setForm, products, onCancel, onSubm
               data-testid="express-justification"
             />
           </div>
+
+          {/* Phase 4D — Express Mode (Token vs Direct) */}
+          <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-md">
+            <p className="text-sm font-semibold text-amber-900 mb-2">⚡ Express Mode</p>
+            <div className="grid grid-cols-2 gap-2 mb-2">
+              <button
+                type="button"
+                onClick={() => upd({ express_mode: 'direct', express_token_amount: null })}
+                className={`text-left p-2.5 rounded border-2 ${form.express_mode !== 'token' ? 'border-amber-500 bg-white' : 'border-slate-200 bg-white/50'}`}
+                data-testid="express-mode-direct"
+              >
+                <p className="font-bold text-xs">📨 Direct Proposal</p>
+                <p className="text-[11px] text-slate-600 mt-0.5">Send full service proposal directly. Client pays full amount.</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => upd({ express_mode: 'token', express_token_amount: form.express_token_amount || 5000 })}
+                className={`text-left p-2.5 rounded border-2 ${form.express_mode === 'token' ? 'border-amber-500 bg-white' : 'border-slate-200 bg-white/50'}`}
+                data-testid="express-mode-token"
+              >
+                <p className="font-bold text-xs">🔒 Token Payment</p>
+                <p className="text-[11px] text-slate-600 mt-0.5">Client pays small token to lock deal, then proposal.</p>
+              </button>
+            </div>
+            {form.express_mode === 'token' && (
+              <div>
+                <label className="text-xs font-medium text-slate-700 block mb-1">Token Amount (₹) *</label>
+                <Input
+                  type="number"
+                  value={form.express_token_amount || ''}
+                  onChange={e => upd({ express_token_amount: parseFloat(e.target.value) || 0 })}
+                  placeholder="5000"
+                  className="bg-white"
+                  data-testid="express-token-amount"
+                />
+                <p className="text-[10px] text-amber-700 mt-1">💡 Token amount will be adjusted in the final invoice.</p>
+              </div>
+            )}
+          </div>
         </div>
       )}
 

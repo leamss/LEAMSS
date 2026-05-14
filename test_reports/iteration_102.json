@@ -1,0 +1,40 @@
+{
+  "summary": "Phase 4D Architectural Unification backend tested. ALL 43/43 tests PASS. PART A (Unified People Management): /api/people list+filters (person_type, status, search), /api/people/stats (by_type sum == total verified), GET /people/{id} (404 for missing), POST /people for all 4 person_types (employee_internal with role validation, partner_external, vendor_internal case_manager → linked user with role=case_manager created+loginable, vendor_internal sales_commission → linked user with role=sales_executive created, vendor_external no user), 409 on duplicate email, 400 on missing role / missing vendor_category, PATCH (name+role update), deactivate+reactivate, deactivate CASCADES to linked vendor (verified), reset-password returns temp_password+email and new password works for login, vendor-only profiles return 404 on reset-password, RBAC enforced (partner 403 on all 3 /people endpoints tested). PART B (Finance Dashboard endpoints): /api/sales-commission/all, /leaderboard, /api/payouts/queue, /api/payouts/stats all return 200 for admin. PART C (Express Sale Modes): express+mode=token+amount=5000 persists all 3 fields (sale_type, express_mode, express_token_amount verified via my-assessments), express+mode=direct OK, missing express_token_amount when mode=token → 400, invalid express_mode → 400, zero token_amount → 400, express_mode persisted on PA doc so public_view (which returns full doc minus _id/partner_id/admin_notes) can surface it to frontend. Regression: 5-role login all green, slab create+delete (non-system) green, /products/{id}/preview POST returns total_cost+rows correctly (Iter 101 bug fixed — bonus_amount fallback now in place), /cm-earnings/my returns 200, dispute endpoint RBAC 403/404 for non-admin.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/products/{id}/preview", "issue": "Spec says GET but actual endpoint is POST. Frontend must POST {visa_approved, service_price?}. Either update spec doc or add GET alias. Functional behaviour correct."},
+      {"endpoint": "POST /api/pre-assess-portal/generate-public-link (for express PAs)", "issue": "When sale_type=express auto-approves (e.g., admin/senior role), the PA stage advances such that fee_paid heuristic = True and the smart-link logic takes the magic-link branch which requires client_user_id, returning 400 'Client account not linked yet'. For express+token PAs the partner should still be able to generate the share-token PUBLIC link (so the client can pay the token amount). Consider treating express_pending_approval OR express_mode='token' stages as needing the public share-token branch even after auto-approval. Workaround for now: PA doc IS storing express_mode + express_token_amount + sale_type, so public_view will surface them whenever the share-token link IS generated."}
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_phase4d_unification.py",
+    "/app/test_reports/pytest/pytest_iteration102.xml"
+  ],
+  "action_items": [
+    "(LOW) Align spec: /api/products/{id}/preview is POST, not GET — update PRD/spec text.",
+    "(LOW) Smart-link generator routes express auto-approved PAs to magic-link branch which 400s when client_user_id is null. Consider: for sale_type='express' AND express_mode='token' AND client_user_id is None, still serve the public share-token branch with amount=express_token_amount instead of 5100."
+  ],
+  "critical_code_review_comments": [
+    "GOOD: routers/people.py is well-scoped (512 lines, single concern). _clean() strips _id correctly. RBAC gate (_is_hr) applied uniformly on all 10 endpoints.",
+    "GOOD: vendor_internal+case_manager and vendor_internal+sales_commission BOTH correctly auto-create linked user with right role; linkage via user_id; temp_password returned in response and new user logs in successfully.",
+    "GOOD: deactivate cascades correctly — when called with user_id, finds vendor with user_id={user_id} and marks vendor inactive too (verified end-to-end).",
+    "GOOD: by_type counts in /people/stats add up to total (assertion enforced in test).",
+    "GOOD: Iter 101 bug #1 (success_bonuses field-name mismatch) is FIXED — routers/products.py line 189 now reads `match.get('bonus_amount') if match.get('bonus_amount') is not None else match.get('amount', 0)`.",
+    "GOOD: Express mode validation in pre_assessment.py (lines 170-179) correctly rejects invalid mode, missing token_amount, and zero/negative token_amount with 400s. Order is: reason+justification → limit → mode → token_amount.",
+    "OBSERVATION: SlabCreate.key regex `^[a-z_]+$` rejects digits — fine but undocumented; frontend Add Slab form should constrain input to lowercase letters/underscore only or backend should accept `[a-z0-9_]+`.",
+    "OBSERVATION: /api/people POST accepts arbitrary `role` string for employee_internal without validating against INTERNAL_ROLES set defined in same file — typo'd roles will save successfully. Recommend: validate `role in INTERNAL_ROLES` when person_type=employee_internal.",
+    "OBSERVATION: GenerateLinkRequest treats express auto-approved PAs as 'fee_paid' → routes to magic-link branch and 400s when client not yet linked. The Express-token flow needs the share-token branch to remain reachable (see action_items)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_phase4d_unification.py (NEW — 43 test cases across 8 test classes + 1 parametrized login)"
+  ],
+  "success_rate": {"backend": "100% (43/43 pass)", "frontend": "N/A (skipped per request)"},
+  "test_credentials": "Admin admin@leamss.com/Admin@123 ; Partner partner@leamss.com/Partner@123 ; CM manager@leamss.com/Manager@123 ; Sales Exec sexec-test@leamss.com/Pass@1234 ; Client client@leamss.com/Client@123. Auto-created during this run: test_emp_*@leamss.com, test_partner_*@leamss.com, test_vcm_*@leamss.com, test_vsc_*@leamss.com, test_vext_*@leamss.com, test_life_*@leamss.com, test_cascade_*@leamss.com, test_resetv_*@leamss.com (each with temp_password from POST response). NOTE: partner@leamss.com hit 3/3 monthly express limit during this run.",
+  "seed_data_creation": "≈11 transient TEST_* users + ≈4 TEST_* vendors created via POST /api/people (no DELETE endpoint on /people — main agent may want to add or run a TEST_-prefix cleanup script). 3 express-mode TEST_* PAs created via partner+admin. 1 test slab (test_slab_<6 letters>) created and deleted cleanly. Partner partner@leamss.com burned 3 of monthly express quota — will reset next month.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Use /app/backend/tests/test_phase4d_unification.py as Phase-4D regression. Login response key is `token`. Express monthly limit on partner role is 3/month — happy-path express tests use admin_token (no limit, auto-approve). /api/products/{id}/preview is POST not GET. SlabCreate.key must match `^[a-z_]+$` (no digits). Main agent should consider the express-token public-link routing tweak documented in action_items if Phase 4D rolls out a token-payment client flow.",
+  "rca of the issue": "N/A — no failing tests after fixture corrections. The 2 minor observations (preview verb mismatch in spec; express-token public-link routing) are spec/UX-level, not bugs."
+}

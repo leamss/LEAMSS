@@ -44,6 +44,8 @@ import MyCommission from '@/pages/MyCommission';
 import VendorAcceptInvite from '@/pages/vendor/VendorAcceptInvite';
 import VendorDashboard from '@/pages/vendor/VendorDashboard';
 import PayoutQueue from '@/pages/admin/PayoutQueue';
+import PeopleManager from '@/pages/admin/PeopleManager';
+import FinanceDashboard from '@/pages/admin/FinanceDashboard';
 import ComingSoon from '@/pages/ComingSoon';
 import ServiceCalculator from '@/pages/ServiceCalculator';
 import LeadCapture from '@/pages/LeadCapture';
@@ -170,6 +172,16 @@ function App() {
           <Route path="/admin/payouts" element={
             <RequirePermission anyOf={['commission.payout.any', 'allocation.mark-paid.any', 'system.user_manage.any']}>
               <PayoutQueue />
+            </RequirePermission>
+          } />
+          <Route path="/admin/people" element={
+            <RequirePermission anyOf={['system.user_manage.any', 'hr.user_manage.any']}>
+              <PeopleManager />
+            </RequirePermission>
+          } />
+          <Route path="/admin/finance" element={
+            <RequirePermission anyOf={['commission.view.all', 'commission.payout.any', 'system.user_manage.any']}>
+              <FinanceDashboard />
             </RequirePermission>
           } />
           <Route path="/vendor/accept-invite/:token" element={<VendorAcceptInvite />} />

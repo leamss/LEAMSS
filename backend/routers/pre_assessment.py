@@ -95,6 +95,11 @@ class CreatePreAssessment(BaseModel):
     sale_type: Optional[str] = "standard"  # "standard" | "express"
     express_sale_reason: Optional[str] = None  # required if sale_type=="express"
     express_sale_justification: Optional[str] = None  # min 30 chars if express
+    # Phase 4D — Express Sale modes
+    # express_mode = "token" → client pays a nominal token to lock the deal, then proposal
+    # express_mode = "direct" → no token, partner sends full proposal payment link directly
+    express_mode: Optional[str] = "direct"  # "token" | "direct"
+    express_token_amount: Optional[float] = None  # required if express_mode=="token"
 
 
 class AdminReview(BaseModel):
@@ -162,11 +167,24 @@ async def create_pre_assessment(data: CreatePreAssessment, current_user: dict = 
         if not allowed:
             raise HTTPException(status_code=429, detail=msg)
 
+        # Phase 4D — Validate mode
+        mode = (data.express_mode or "direct").lower()
+        if mode not in ("token", "direct"):
+            raise HTTPException(status_code=400, detail="express_mode must be 'token' or 'direct'")
+        token_amount = None
+        if mode == "token":
+            ta = data.express_token_amount
+            if ta is None or float(ta) <= 0:
+                raise HTTPException(status_code=400, detail="express_token_amount is required (> 0) when express_mode='token'")
+            token_amount = float(ta)
+
         # Auto-approve for senior roles
         auto = should_auto_approve(current_user, settings)
         now = datetime.now(timezone.utc)
         express_meta = {
             "sale_type": "express",
+            "express_mode": mode,
+            "express_token_amount": token_amount,
             "express_sale_reason": data.express_sale_reason,
             "express_sale_justification": data.express_sale_justification,
             "express_sale_requested_at": now,

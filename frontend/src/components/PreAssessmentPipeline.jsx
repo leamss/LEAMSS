@@ -72,6 +72,9 @@ const PreAssessmentPipeline = ({ initialFilter = null }) => {
     sale_type: 'standard',
     express_sale_reason: null,
     express_sale_justification: '',
+    // Phase 4D — Express modes
+    express_mode: 'direct',
+    express_token_amount: null,
   });
   // Phase 4B Part 2 — Express usage (loaded from /api/express/my-usage)
   const [expressUsage, setExpressUsage] = useState(null);
@@ -155,7 +158,7 @@ const PreAssessmentPipeline = ({ initialFilter = null }) => {
       }, getAuthHeader());
       toast.success(res.data.message || 'Pre-assessment created!');
       setShowCreate(false);
-      setForm({ client_name: '', client_email: '', client_mobile: '', country: '', service_type: '', product_id: '', notes: '', client_age: 0, education: '', work_experience: '', lead_source: null, lead_source_detail: '', sale_type: 'standard', express_sale_reason: null, express_sale_justification: '' });
+      setForm({ client_name: '', client_email: '', client_mobile: '', country: '', service_type: '', product_id: '', notes: '', client_age: 0, education: '', work_experience: '', lead_source: null, lead_source_detail: '', sale_type: 'standard', express_sale_reason: null, express_sale_justification: '', express_mode: 'direct', express_token_amount: null });
       // Refresh express usage after creating an express PA
       if (form.sale_type === 'express') {
         try {
