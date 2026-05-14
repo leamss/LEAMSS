@@ -851,11 +851,16 @@ async def send_proposal(pa_id: str, proposal: ProposalData, http_request: Reques
 # ===================== SHARED ENDPOINTS =====================
 
 @router.get("/my-assessments")
-async def get_my_assessments(current_user: dict = Depends(get_current_user)):
-    """Partner gets all their pre-assessments"""
+async def get_my_assessments(
+    stage: Optional[str] = None,
+    current_user: dict = Depends(get_current_user),
+):
+    """Partner gets all their pre-assessments. Admin sees all. Optional ?stage= filter."""
     query = {"partner_id": current_user["id"]}
     if current_user["role"] == "admin":
         query = {}  # Admin sees all
+    if stage:
+        query["stage"] = stage
 
     items = await pre_assessments_col.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
     for item in items:

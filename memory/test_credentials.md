@@ -12,6 +12,7 @@ These accounts are seeded automatically on first boot and backfilled with RBAC f
 | Client      | client@leamss.com      | Client@123   | client         | client    | —          | —                          |
 | Client 2    | client2@leamss.com     | Client@123   | client         | client    | —          | —                          |
 
+| Khushii Singh (auto from vendor) | khushiii@leamss.com | Welcome@aYnfWufa | case_manager | internal | — | (must change on first login) |
 ## Phase 3A — Attendance & Leave Test Accounts (May 2026)
 
 | Role            | Email                  | Password   | rbac_role        | reports_to        | employee_id    |

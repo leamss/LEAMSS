@@ -179,7 +179,11 @@ export default function CommissionSlabsManager() {
                 <div className="flex gap-1.5 mt-3">
                   <Button size="sm" variant="outline" onClick={() => setEditing(s)} className="flex-1 bg-white/50" data-testid={`edit-slab-${s.id}`}><Edit className="h-3.5 w-3.5 mr-1" />Edit</Button>
                   <Button size="sm" variant="ghost" onClick={() => toggleActive(s)} className="bg-white/50" data-testid={`toggle-slab-${s.id}`}>{s.is_active ? 'Disable' : 'Enable'}</Button>
-                  {!s.is_system && <Button size="sm" variant="ghost" className="text-rose-600 bg-white/50" onClick={() => remove(s)} data-testid={`del-slab-${s.id}`}><Trash2 className="h-3.5 w-3.5" /></Button>}
+                  {s.is_system ? (
+                    <Button size="sm" variant="ghost" className="text-slate-400 bg-white/30 cursor-not-allowed" disabled title="System slabs are protected — deactivate instead"><Lock className="h-3.5 w-3.5" /></Button>
+                  ) : (
+                    <Button size="sm" variant="outline" className="text-rose-600 border-rose-300 hover:bg-rose-50 bg-white" onClick={() => remove(s)} data-testid={`del-slab-${s.id}`} title="Delete this slab"><Trash2 className="h-3.5 w-3.5" /></Button>
+                  )}
                 </div>
               </Card>
             ))}

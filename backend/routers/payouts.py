@@ -123,6 +123,7 @@ async def stats(current_user: dict = Depends(get_current_user)):
 class BulkActionRequest(BaseModel):
     items: List[dict]  # [{"pa_id": "...", "allocation_id": "..."}]
     payment_reference: Optional[str] = None
+    reason: Optional[str] = None  # used for disputes / reversals
 
 
 @router.post("/bulk-approve")
@@ -187,6 +188,64 @@ async def bulk_mark_paid(req: BulkActionRequest, current_user: dict = Depends(ge
             fail += 1
             errors.append(f"{pa_id}/{alloc_id}: not approvable")
     return {"ok": True, "paid": ok, "failed": fail, "payment_reference": ref, "errors": errors[:20]}
+
+
+# ──────────────────────────────────────────────────────────────
+# Mark as Disputed / Reverse — single allocation
+#
+# "Disputed" = vendor refuses, wrong amount, payment failure, or any
+# scenario where the payout is on hold pending resolution. UI should show
+# it in red. Disputed rows are excluded from "ready_to_pay" totals.
+# ──────────────────────────────────────────────────────────────
+class DisputeRequest(BaseModel):
+    reason: Optional[str] = None
+
+
+@router.post("/{pa_id}/allocations/{allocation_id}/dispute")
+async def dispute_allocation(pa_id: str, allocation_id: str, req: DisputeRequest, current_user: dict = Depends(get_current_user)):
+    """Mark a single allocation as disputed (cannot already be paid/reversed)."""
+    if not _is_admin(current_user):
+        raise HTTPException(status_code=403, detail="Admin only")
+    now = datetime.now(timezone.utc)
+    res = await allocations_col.update_one(
+        {"pa_id": pa_id, "allocations": {"$elemMatch": {"allocation_id": allocation_id, "status": {"$in": ["pending", "approved", "unassigned"]}}}},
+        {"$set": {
+            "allocations.$.status": "disputed",
+            "allocations.$.disputed_at": now,
+            "allocations.$.disputed_by": current_user["id"],
+            "allocations.$.dispute_reason": req.reason or "",
+            "updated_at": now,
+        }}
+    )
+    if res.modified_count == 0:
+        raise HTTPException(status_code=400, detail="Allocation not found, or it has already been paid/reversed")
+    return {"ok": True}
+
+
+@router.post("/{pa_id}/allocations/{allocation_id}/resolve-dispute")
+async def resolve_dispute(pa_id: str, allocation_id: str, current_user: dict = Depends(get_current_user)):
+    """Reset a disputed allocation back to 'approved' if the vendor was assigned, else 'pending'."""
+    if not _is_admin(current_user):
+        raise HTTPException(status_code=403, detail="Admin only")
+    # Look up the current vendor assignment state
+    doc = await allocations_col.find_one({"pa_id": pa_id, "allocations.allocation_id": allocation_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Allocation not found")
+    target_alloc = next((a for a in doc.get("allocations", []) if a.get("allocation_id") == allocation_id), None)
+    if not target_alloc or target_alloc.get("status") != "disputed":
+        raise HTTPException(status_code=400, detail="Allocation is not in disputed state")
+    new_status = "approved" if (target_alloc.get("vendor_id") or target_alloc.get("vendor_master_id")) else "pending"
+    now = datetime.now(timezone.utc)
+    await allocations_col.update_one(
+        {"pa_id": pa_id, "allocations.allocation_id": allocation_id},
+        {"$set": {
+            "allocations.$.status": new_status,
+            "allocations.$.dispute_resolved_at": now,
+            "allocations.$.dispute_resolved_by": current_user["id"],
+            "updated_at": now,
+        }}
+    )
+    return {"ok": True, "new_status": new_status}
 
 
 # ──────────────────────────────────────────────────────────────

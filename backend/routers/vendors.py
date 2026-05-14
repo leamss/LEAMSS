@@ -284,7 +284,7 @@ async def create_vendor(req: VendorCreate, current_user: dict = Depends(get_curr
     if not _can_manage_vendors(current_user):
         raise HTTPException(status_code=403, detail="Admin only")
 
-    cat = await vendor_categories_col.find_one({"key": req.category, "is_active": True}, {"_id": 0, "key": 1, "default_payment_type": 1})
+    cat = await vendor_categories_col.find_one({"key": req.category, "is_active": True}, {"_id": 0, "key": 1, "default_payment_type": 1, "is_internal": 1, "name": 1})
     if not cat:
         raise HTTPException(status_code=400, detail=f"Unknown or inactive category '{req.category}'")
 
@@ -299,6 +299,52 @@ async def create_vendor(req: VendorCreate, current_user: dict = Depends(get_curr
 
     code = await _next_vendor_code()
     now = datetime.now(timezone.utc)
+
+    # ─────────────────────────────────────────────────────────
+    # Phase 4C — Auto-create user account for INTERNAL vendors
+    # If vendor_type='internal' AND no user_id provided AND user with this
+    # email does not already exist, we create a User record with the right
+    # role so they automatically appear in their respective portal.
+    # ─────────────────────────────────────────────────────────
+    auto_created_user_id: Optional[str] = None
+    auto_created_user_temp_password: Optional[str] = None
+    if req.vendor_type == "internal" and not req.user_id and cat.get("is_internal"):
+        existing_user = await users_col.find_one({"email": req.email.lower()}, {"_id": 0, "id": 1})
+        if existing_user:
+            auto_created_user_id = existing_user["id"]
+        else:
+            # Map vendor category → user role
+            CATEGORY_TO_ROLE = {
+                "case_manager": "case_manager",
+                "sales_commission": "sales_executive",
+            }
+            target_role = CATEGORY_TO_ROLE.get(req.category)
+            if target_role:
+                import secrets as _secrets
+                from core.auth import get_password_hash
+                # Auto-generate a temp password — admin will see it on screen
+                auto_created_user_temp_password = f"Welcome@{_secrets.token_urlsafe(6)}"
+                user_doc = {
+                    "id": str(uuid.uuid4()),
+                    "name": req.name.strip(),
+                    "email": req.email.lower(),
+                    "mobile": req.phone or "",
+                    "password": get_password_hash(auto_created_user_temp_password),
+                    "role": target_role,
+                    "rbac_role": target_role,
+                    "user_type": "internal",
+                    "department": None,
+                    "permissions": [],
+                    "ui_modules": [],
+                    "status": "active",
+                    "must_change_password_on_next_login": True,
+                    "auto_created_from_vendor": True,
+                    "password_changed_at": now,
+                    "created_at": now,
+                    "created_by": current_user["id"],
+                }
+                await users_col.insert_one(user_doc)
+                auto_created_user_id = user_doc["id"]
 
     payment_terms = req.default_payment_terms.model_dump() if req.default_payment_terms else {
         "payment_type": cat.get("default_payment_type") or "flat",
@@ -315,7 +361,7 @@ async def create_vendor(req: VendorCreate, current_user: dict = Depends(get_curr
         "category": req.category,
         "specialization": req.specialization or [],
         "vendor_type": req.vendor_type,
-        "user_id": req.user_id,
+        "user_id": auto_created_user_id or req.user_id,
         "default_payment_terms": payment_terms,
         "bank_details": (req.bank_details.model_dump() if req.bank_details else {}),
         "pan_number": req.pan_number or "",
@@ -326,7 +372,7 @@ async def create_vendor(req: VendorCreate, current_user: dict = Depends(get_curr
         "status": "active",
         "joined_at": now,
         "last_payment_at": None,
-        "can_login": bool(req.can_login),
+        "can_login": bool(req.can_login) or bool(auto_created_user_id),
         "portal_credentials_sent": False,
         "notes": req.notes or "",
         "created_at": now,
@@ -334,7 +380,22 @@ async def create_vendor(req: VendorCreate, current_user: dict = Depends(get_curr
         "created_by": current_user["id"],
     }
     await vendors_col.insert_one(doc)
-    return {"ok": True, "vendor": _clean(doc)}
+    response: Dict[str, Any] = {"ok": True, "vendor": _clean(doc)}
+    if auto_created_user_temp_password:
+        response["auto_created_user"] = {
+            "user_id": auto_created_user_id,
+            "email": req.email.lower(),
+            "temp_password": auto_created_user_temp_password,
+            "role": doc["vendor_type"],
+            "message": f"User account auto-created for {cat.get('name')}. Share these temp credentials with the user — they will be asked to change the password on first login.",
+        }
+    elif auto_created_user_id:
+        response["auto_created_user"] = {
+            "user_id": auto_created_user_id,
+            "email": req.email.lower(),
+            "message": "Existing user with this email was linked to the vendor.",
+        }
+    return response
 
 
 @router.patch("/{vendor_id}")

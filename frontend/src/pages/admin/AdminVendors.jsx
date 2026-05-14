@@ -85,8 +85,21 @@ const VendorCreateModal = ({ open, onClose, categories, onCreated, editing }) =>
         await axios.patch(`${API}/vendors/${editing.id}`, payload, { headers: { Authorization: `Bearer ${token}` } });
         toast.success('Vendor updated');
       } else {
-        await axios.post(`${API}/vendors`, payload, { headers: { Authorization: `Bearer ${token}` } });
+        const resp = await axios.post(`${API}/vendors`, payload, { headers: { Authorization: `Bearer ${token}` } });
         toast.success('Vendor created');
+        // Phase 4C — Show auto-created user credentials prominently
+        if (resp.data?.auto_created_user?.temp_password) {
+          const u = resp.data.auto_created_user;
+          // Persistent alert + clipboard helper
+          window.alert(
+            `✅ Internal user auto-created!\n\n` +
+            `📧 Email: ${u.email}\n` +
+            `🔑 Temp Password: ${u.temp_password}\n\n` +
+            `Please share these credentials with the user. They will be asked to change the password on first login.`
+          );
+        } else if (resp.data?.auto_created_user) {
+          toast.info(resp.data.auto_created_user.message || 'Linked to existing user account');
+        }
       }
       onCreated();
       onClose();
@@ -204,8 +217,42 @@ const InviteDialog = ({ open, onClose, vendor }) => {
         {link && (
           <div className="bg-emerald-50 border border-emerald-200 rounded p-3">
             <p className="text-xs font-bold text-emerald-800 mb-1">Invite link (valid 72h):</p>
-            <code className="text-xs break-all">{link}</code>
-            <Button size="sm" variant="outline" className="mt-2" onClick={() => { navigator.clipboard.writeText(link); toast.success('Copied'); }}>Copy</Button>
+            <input
+              readOnly
+              value={link}
+              data-testid="invite-link-input"
+              onFocus={(e) => e.target.select()}
+              className="w-full bg-white border border-emerald-300 rounded px-2 py-1 text-xs font-mono text-slate-700 break-all"
+            />
+            <p className="text-[11px] text-emerald-700 mt-2">👆 Click on the link above and press <kbd className="bg-white px-1 rounded text-[10px] border">Ctrl+C</kbd> to copy. Then send it to the vendor.</p>
+            <Button
+              size="sm"
+              variant="outline"
+              className="mt-2"
+              data-testid="copy-invite-btn"
+              onClick={async () => {
+                try {
+                  if (navigator.clipboard && window.isSecureContext) {
+                    await navigator.clipboard.writeText(link);
+                    toast.success('Copied to clipboard');
+                  } else {
+                    // Fallback for sandboxed iframes / older browsers
+                    const ta = document.createElement('textarea');
+                    ta.value = link;
+                    ta.style.position = 'fixed';
+                    ta.style.opacity = '0';
+                    document.body.appendChild(ta);
+                    ta.select();
+                    const ok = document.execCommand('copy');
+                    document.body.removeChild(ta);
+                    if (ok) toast.success('Copied to clipboard');
+                    else toast.error('Clipboard blocked — please select the link above and press Ctrl+C');
+                  }
+                } catch {
+                  toast.error('Clipboard blocked — please select the link above and press Ctrl+C');
+                }
+              }}
+            >Copy</Button>
           </div>
         )}
         <DialogFooter>

@@ -259,8 +259,8 @@ export default function AdminAllocations() {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      // Fetch case_created PAs (revenue confirmed) + proposal_paid (in case allocations exist before case)
-      const r = await axios.get(`${API}/pre-assessment?stage=case_created`, { headers: { Authorization: `Bearer ${token}` } });
+      // Phase 4C.3 — Fetch PAs at case_created stage (admin)
+      const r = await axios.get(`${API}/pre-assessment/my-assessments?stage=case_created`, { headers: { Authorization: `Bearer ${token}` } });
       const list = Array.isArray(r.data) ? r.data : (r.data.pre_assessments || r.data.items || []);
       setPas(list);
     } catch (e) { toast.error('Failed to load PAs'); }
