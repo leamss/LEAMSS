@@ -5,6 +5,52 @@ This file appends every completed phase/feature with dates and verification stat
 ---
 
 
+### 🏆 Phase 4C UNIFICATION — Products + Cost Structures Merged
+**Completed:** May 14, 2026  
+**Tests:** 24/30 PASS in iteration_101 with 2 critical bugs found & fixed (success_bonuses field-name, legacy products backfill)
+
+#### What changed
+- **Single source of truth:** `products` collection now carries ALL product identity + cost configuration:
+  - Identity: `name`, `country`, `visa_type`, `category`, `description`, `status`
+  - Pricing: `service_price` (mirrored to `base_fee`)
+  - Cost Structure: `cost_allocations[]`, `success_bonuses[]`
+  - Computed: `{expected_base_cost, expected_margin, expected_margin_pct, max_bonus_payout}` — auto-recomputed on any update
+  - Legacy: `cost_structure_meta` retains migration audit trail
+  - Workflow: `workflow_steps[]` (unchanged — used by AI Workflow Builder)
+
+#### Backend
+- `routers/products.py` — Full rewrite with new fields, `/preview` calculator endpoint, auto-recompute on PUT
+- `core/allocations_logic.py` — `find_matching_structure` now looks at unified `products` FIRST, with `_product_to_structure` normalizer; legacy `product_cost_structures` retained as back-compat fallback
+- `migrations/phase4c_products_unification.py` — Idempotent migration: merges existing 5 cost-structure docs into products + backfills 12 legacy products with default unified shape. Auto-runs at server boot.
+- `routers/pre_assessment.py` — `/my-assessments` now accepts `?stage=` filter
+- `routers/vendors.py` — Internal vendor creation (`vendor_type=internal` + category=`case_manager`/`sales_commission`) auto-creates a User record with the matching role + temp password; existing email gets linked
+- `routers/payouts.py` — Added `POST /payouts/{pa_id}/allocations/{allocation_id}/dispute` and `/resolve-dispute` endpoints; status flow now includes `disputed` state
+
+#### Frontend
+- New unified `/admin/products` (`ProductsManager.jsx`) — split-screen master list + tabbed detail (Overview · Cost Structure · Success Bonuses · Preview Calculator). Cards show margin badge, country/visa chips, "Costed/Need Setup" status pills.
+- `PaCreateForm.jsx` — Product now PRIMARY field at top; selecting a product auto-fills country + service_type
+- `PayoutQueue.jsx` — Terminal rows (paid/reversed) locked from selection; bulk buttons disable on wrong-status mix; per-row Dispute / Resolve actions; status-flow info card
+- `CommissionSlabsManager.jsx` — Delete button visually prominent (red border) for user-created slabs; system slabs show lock icon
+- `AdminVendors.jsx` — Vendor invite link uses input field + Ctrl+C instructions + clipboard fallback (works in sandboxed iframes); when internal user auto-created, admin sees temp password in alert popup
+- Admin sidebar: "Products" entry moved to top, "Cost Structures" removed (deprecated)
+
+#### Bug fixes this round
+- **#1 success_bonuses field-name mismatch** — `_compute_margin` and `/preview` were reading `b.get("amount")` but stored field is `bonus_amount`. Now uses fallback. Canada PR Express Entry now correctly shows ₹7,000 max bonus (was ₹0).
+- **#2 legacy products missing unified fields** — Migration only enriched the 5 cost-structure-linked products. Now backfills all 12 legacy products with empty cost_allocations/success_bonuses/computed defaults + mirrors base_fee → service_price.
+- **#3 "Failed to load PAs" on Allocations** — Fixed by adding `?stage=` filter to PA endpoint.
+- **#4 Clipboard error in invite dialog** — Fallback to execCommand + manual selection prompt.
+- **#5 Payout queue showed Approve/Pay for paid rows** — Terminal-state rows now locked; explicit Dispute action with reason.
+
+#### Verified end-to-end
+- 17 total products in DB; 5 fully costed (Canada PR ₹100k @ 85% margin · Australia PR ₹80k @ 85% · USA H1B ₹150k @ 75% · UK Skilled ₹90k @ 84% · Canada Student ₹50k @ 81%) + 12 legacy with empty cost structures (ready for admin to configure)
+- `/preview` with visa_approved=true correctly applies success bonuses (verified ₹7000 bonus on Canada PR)
+- All Phase 4C.3-4C.7 regression endpoints still 200 OK
+- Internal vendor auto-creation works for case_manager + sales_commission roles; existing users get linked silently
+- Dispute → Resolve workflow validated (admin only, correct status transitions)
+
+---
+
+
 ### ✅ Phase 4C.5 + 4C.6 + 4C.7 — CM Earnings Widget + Vendor Portal + Payout Workflow
 **Completed:** May 14, 2026  
 **Tests:** 36/36 PASS (`/app/backend/tests/test_phase4c5_4c6_4c7.py`, also `iteration_100.json`)

@@ -28,11 +28,16 @@ def _compute_margin(service_price: float, cost_allocations: list, success_bonuse
         else:
             base += val
     margin = sp - base
+    # Phase 4C — Success bonus field is `bonus_amount` (matches allocations_logic), fall back to `amount`
+    max_bonus = sum(
+        float((b.get("bonus_amount") if b.get("bonus_amount") is not None else b.get("amount", 0)) or 0)
+        for b in (success_bonuses or [])
+    )
     return {
         "expected_base_cost": round(base, 2),
         "expected_margin": round(margin, 2),
         "expected_margin_pct": round((margin / sp * 100), 2) if sp > 0 else 0,
-        "max_bonus_payout": round(sum(float(b.get("amount", 0) or 0) for b in (success_bonuses or [])), 2),
+        "max_bonus_payout": round(max_bonus, 2),
     }
 
 
@@ -181,7 +186,7 @@ async def preview_cost(product_id: str, req: PreviewRequest, current_user: dict 
         if req.visa_approved:
             match = next((b for b in success_bonuses if b.get("vendor_category") == a.get("vendor_category")), None)
             if match:
-                bonus = float(match.get("amount", 0) or 0)
+                bonus = float((match.get("bonus_amount") if match.get("bonus_amount") is not None else match.get("amount", 0)) or 0)
         rows.append({
             "label": a.get("label"),
             "vendor_category": a.get("vendor_category"),

@@ -5,6 +5,16 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 
 > **📌 Update (Feb 13, 2026):** `CHANGELOG.md` now tracks all completed phases (incl. **Phase 3A — Attendance & Leave** with full company policies). `ROADMAP.md` lists prioritized backlog. This PRD remains the static reference for original requirements.
 
+
+### 🎯 Phase 4C UNIFICATION (May 14, 2026)
+- Products + Cost Structures merged into ONE collection. Each Product carries identity, pricing, cost_allocations, success_bonuses, computed margins, and workflow steps.
+- New unified UI at `/admin/products` with master-detail tabbed editor.
+- PA creation form: Product is now the primary anchor field (auto-fills country/visa_type).
+- Migration auto-runs on every server boot — idempotent.
+- Internal vendor auto-user-creation: case_manager / sales_commission vendors auto-get user accounts on creation.
+- Tests: iteration_101.json — 24/30 → critical bugs fixed.
+
+
 ### 🏆 PHASE 4C COMPLETE — Sales Commission + Vendor Payout Engine (May 14, 2026)
 All 7 sub-phases delivered & tested:
 - **4C.1** Vendor Master + Categories

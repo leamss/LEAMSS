@@ -77,8 +77,31 @@ def _compute_margin(service_price: float, cost_allocations: list, success_bonuse
 
 
 async def run() -> dict:
-    """Returns counts: {migrated, matched, created, skipped}."""
-    stats = {"matched": 0, "created": 0, "skipped": 0, "total": 0}
+    """Returns counts: {migrated, matched, created, skipped, legacy_backfilled}."""
+    stats = {"matched": 0, "created": 0, "skipped": 0, "total": 0, "legacy_backfilled": 0}
+
+    # ── Backfill legacy products that lack the unified shape ──
+    default_fields = {
+        "country": "",
+        "visa_type": "",
+        "service_price": 0,
+        "cost_allocations": [],
+        "success_bonuses": [],
+        "computed": {"expected_base_cost": 0, "expected_margin": 0, "expected_margin_pct": 0, "max_bonus_payout": 0},
+        "cost_structure_meta": {},
+    }
+    # First $set defaults only on docs missing `country` field
+    legacy_filter = {"country": {"$exists": False}}
+    res = await products_col.update_many(legacy_filter, {"$set": default_fields})
+    stats["legacy_backfilled"] = res.modified_count
+    # Mirror base_fee into service_price for products where service_price stayed 0 but base_fee>0
+    res2 = await products_col.update_many(
+        {"$or": [{"service_price": 0}, {"service_price": {"$exists": False}}], "base_fee": {"$gt": 0}},
+        [{"$set": {"service_price": "$base_fee"}}],
+    )
+    stats["legacy_backfilled"] += res2.modified_count
+
+    # ── Merge cost-structure docs into matching/new products ──
     cursor = cs_col.find({}, {"_id": 0})
     async for cs in cursor:
         stats["total"] += 1
