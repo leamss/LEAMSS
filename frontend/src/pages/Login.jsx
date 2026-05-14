@@ -48,6 +48,8 @@ const Login = () => {
         sr_sales_executive: '/sales/dashboard',
         sales_manager: '/sales/dashboard',
         sales_head: '/sales/dashboard',
+        // Phase 4C.6 — External vendor portal
+        vendor: '/vendor/dashboard',
       };
       navigate(fixedRoutes[role] || '/portal/welcome');
     } catch (error) {

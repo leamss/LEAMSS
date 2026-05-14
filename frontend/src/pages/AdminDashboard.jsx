@@ -1246,6 +1246,7 @@ const AdminDashboard = () => {
         { id: 'allocations', icon: IndianRupee, label: 'Cost Allocations', onClick: () => navigate('/admin/allocations') },
         { id: 'commissions', icon: TrendingUp, label: 'Commissions', onClick: () => navigate('/admin/sales/commissions') },
         { id: 'commission-slabs', icon: Trophy, label: 'Commission Slabs', onClick: () => navigate('/admin/sales/commission-slabs') },
+        { id: 'payouts', icon: Briefcase, label: 'Payout Queue', onClick: () => navigate('/admin/payouts') },
       ]
     },
     {

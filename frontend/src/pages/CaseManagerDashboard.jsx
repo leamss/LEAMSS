@@ -36,6 +36,7 @@ import DeadlineTracker, { DeadlineOverviewWidget } from '@/components/DeadlineTr
 import IntakeFormFiller from '@/components/IntakeFormFiller';
 import FeeCalculator from '@/components/FeeCalculator';
 import DocumentExtractor from '@/components/DocumentExtractor';
+import CmEarningsWidget from '@/components/CmEarningsWidget';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -613,6 +614,8 @@ const CaseManagerDashboard = () => {
     >
           {activeTab === 'dashboard' && (
             <div>
+              {/* Phase 4C.5 — CM Earnings Widget (read-only, auto-hides when no earnings) */}
+              <CmEarningsWidget />
               {/* Smart Workload Dashboard */}
               <WorkloadDashboard
                 onNavigateToCase={(caseId) => { loadCaseDetails(caseId); setActiveTab('cases'); }}

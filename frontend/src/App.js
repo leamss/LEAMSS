@@ -40,6 +40,9 @@ import AdminAllocations from '@/pages/admin/AdminAllocations';
 import CommissionSlabsManager from '@/pages/admin/CommissionSlabsManager';
 import CommissionDashboard from '@/pages/admin/CommissionDashboard';
 import MyCommission from '@/pages/MyCommission';
+import VendorAcceptInvite from '@/pages/vendor/VendorAcceptInvite';
+import VendorDashboard from '@/pages/vendor/VendorDashboard';
+import PayoutQueue from '@/pages/admin/PayoutQueue';
 import ComingSoon from '@/pages/ComingSoon';
 import ServiceCalculator from '@/pages/ServiceCalculator';
 import LeadCapture from '@/pages/LeadCapture';
@@ -158,6 +161,13 @@ function App() {
               <MyCommission />
             </RequirePermission>
           } />
+          <Route path="/admin/payouts" element={
+            <RequirePermission anyOf={['commission.payout.any', 'allocation.mark-paid.any', 'system.user_manage.any']}>
+              <PayoutQueue />
+            </RequirePermission>
+          } />
+          <Route path="/vendor/accept-invite/:token" element={<VendorAcceptInvite />} />
+          <Route path="/vendor/dashboard" element={<VendorDashboard />} />
           <Route path="/sales/coming-soon" element={<ComingSoon />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPasswordWithToken />} />
