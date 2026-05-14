@@ -308,7 +308,26 @@ const PreAssessmentPipeline = ({ initialFilter = null }) => {
 
   const openProposalForm = async (pa) => {
     setShowProposal(pa.id);
-    setProposalForm({ fee_amount: '', notes: '', promo_code: '', promo_applied: null, additional_discount: '', upsell_ids: [], ai_text: '' });
+    // Phase 4C — Lock proposal fee to product's service_price if PA is linked to a product
+    let lockedPrice = '';
+    let productName = '';
+    if (pa.product_id) {
+      try {
+        const pr = await axios.get(`${API}/products/${pa.product_id}`, getAuthHeader());
+        const sp = pr.data?.service_price || pr.data?.base_fee || 0;
+        if (sp > 0) {
+          lockedPrice = String(sp);
+          productName = pr.data?.name || '';
+        }
+      } catch (e) { /* fallback to free input */ }
+    }
+    setProposalForm({
+      fee_amount: lockedPrice,
+      product_locked_price: lockedPrice,
+      product_name: productName,
+      price_overridden: false,
+      notes: '', promo_code: '', promo_applied: null, additional_discount: '', upsell_ids: [], ai_text: '',
+    });
     if (upsellCatalog.length === 0) {
       try {
         const r = await axios.get(`${API}/upsell-bundles`, getAuthHeader());
@@ -768,6 +787,7 @@ const PreAssessmentPipeline = ({ initialFilter = null }) => {
                         handleSendProposal={handleSendProposal}
                         breakdown={computeBreakdown()}
                         onCancel={() => setShowProposal(null)}
+                        currentUserRole={(JSON.parse(localStorage.getItem('user') || '{}')).role}
                       />
                     )}
 

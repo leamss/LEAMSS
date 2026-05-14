@@ -109,6 +109,7 @@ export default function CommissionSlabsManager() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
   const [creating, setCreating] = useState(false);
+  const [deletingSlab, setDeletingSlab] = useState(null);  // Phase 4C — state-based confirm
 
   const load = async () => {
     setLoading(true);
@@ -121,13 +122,18 @@ export default function CommissionSlabsManager() {
   };
   useEffect(() => { load(); }, []);
 
-  const remove = async (s) => {
+  const remove = (s) => {
     if (s.is_system) { toast.error('System slabs cannot be deleted. Deactivate instead.'); return; }
-    if (!window.confirm(`Delete slab "${s.name}"?`)) return;
+    setDeletingSlab(s);  // Open state-based dialog (window.confirm doesn't always work in iframes)
+  };
+
+  const confirmDelete = async () => {
+    if (!deletingSlab) return;
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`${API}/sales-commission/slabs/${s.id}`, { headers: { Authorization: `Bearer ${token}` } });
-      toast.success('Slab deleted');
+      await axios.delete(`${API}/sales-commission/slabs/${deletingSlab.id}`, { headers: { Authorization: `Bearer ${token}` } });
+      toast.success(`Slab "${deletingSlab.name}" deleted`);
+      setDeletingSlab(null);
       load();
     } catch (e) { toast.error(e?.response?.data?.detail || 'Delete failed'); }
   };
@@ -196,6 +202,19 @@ export default function CommissionSlabsManager() {
         </Card>
       </div>
       <SlabEditor open={creating || !!editing} slab={editing} onClose={() => { setCreating(false); setEditing(null); }} onSaved={load} />
+      <Dialog open={!!deletingSlab} onOpenChange={(open) => { if (!open) setDeletingSlab(null); }}>
+        <DialogContent data-testid="delete-slab-dialog">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Trash2 className="h-5 w-5 text-rose-500" />Delete Slab?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-slate-700">Are you sure you want to delete the <strong>&quot;{deletingSlab?.name}&quot;</strong> slab?</p>
+          <p className="text-xs text-slate-500">Commission entries already created with this slab will be preserved, but new deals will fall back to other matching slabs.</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeletingSlab(null)} data-testid="cancel-delete-slab">Cancel</Button>
+            <Button onClick={confirmDelete} className="bg-rose-600 hover:bg-rose-700 text-white" data-testid="confirm-delete-slab"><Trash2 className="h-4 w-4 mr-1.5" />Delete</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

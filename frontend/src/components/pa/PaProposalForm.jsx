@@ -1,29 +1,67 @@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { IndianRupee, Send, RefreshCw } from 'lucide-react';
+import { IndianRupee, Send, RefreshCw, Lock, Unlock, Package } from 'lucide-react';
 
 /**
  * PaProposalForm — Send Service Proposal form (extracted from PreAssessmentPipeline.jsx).
  * Pure presentation; all callbacks supplied by parent.
+ *
+ * Phase 4C Unification — fee_amount is locked to product.service_price when PA is
+ * linked to a product. Admin can override by toggling unlock. Partners cannot change.
  */
 export default function PaProposalForm({
   pa, proposalForm, setProposalForm, upsellCatalog,
   validatingPromo, handleValidatePromo,
   aiGenerating, handleGenerateAI, handleSendProposal,
-  breakdown, onCancel,
+  breakdown, onCancel, currentUserRole,
 }) {
   const bd = breakdown;
+  const hasLockedPrice = !!proposalForm.product_locked_price;
+  const isAdmin = currentUserRole === 'admin';
+  const isLocked = hasLockedPrice && !proposalForm.price_overridden;
+
   return (
     <div className="bg-emerald-50 rounded-lg p-4 border border-emerald-200 space-y-4">
       <p className="text-sm font-semibold text-emerald-800 mb-1 flex items-center gap-2">
         <IndianRupee className="h-4 w-4" /> Send Service Proposal to {pa.client_name}
       </p>
+      {/* Phase 4C — Product price lock indicator */}
+      {hasLockedPrice && (
+        <div className={`text-xs rounded p-2 flex items-center justify-between ${isLocked ? 'bg-indigo-50 border border-indigo-200 text-indigo-800' : 'bg-amber-50 border border-amber-200 text-amber-800'}`}>
+          <span className="flex items-center gap-1.5">
+            <Package className="h-3.5 w-3.5" />
+            <span>Linked to product: <strong>{proposalForm.product_name}</strong> · Base price <strong>₹{parseFloat(proposalForm.product_locked_price).toLocaleString('en-IN')}</strong></span>
+          </span>
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={() => setProposalForm({ ...proposalForm, price_overridden: !proposalForm.price_overridden })}
+              className="flex items-center gap-1 text-[11px] font-bold underline hover:no-underline"
+              data-testid="toggle-price-lock"
+            >
+              {isLocked ? <><Unlock className="h-3 w-3" />Override (admin)</> : <><Lock className="h-3 w-3" />Re-lock to product price</>}
+            </button>
+          )}
+        </div>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div>
-          <label className="text-xs font-medium text-slate-600 block mb-1">Base Service Fee (₹) *</label>
-          <Input type="number" value={proposalForm.fee_amount}
-            onChange={e => setProposalForm({ ...proposalForm, fee_amount: e.target.value })}
-            placeholder="150000" data-testid="proposal-fee" />
+          <label className="text-xs font-medium text-slate-600 block mb-1">
+            Base Service Fee (₹) *
+            {isLocked && <span className="ml-2 text-[10px] text-indigo-600 font-bold inline-flex items-center gap-1"><Lock className="h-2.5 w-2.5" />Locked to product</span>}
+          </label>
+          <Input
+            type="number"
+            value={proposalForm.fee_amount}
+            onChange={e => !isLocked && setProposalForm({ ...proposalForm, fee_amount: e.target.value })}
+            placeholder="150000"
+            readOnly={isLocked}
+            className={isLocked ? 'bg-slate-100 cursor-not-allowed' : ''}
+            data-testid="proposal-fee"
+          />
+          {hasLockedPrice && !isAdmin && (
+            <p className="text-[10px] text-slate-500 mt-1">💡 Price is locked to product. Only admins can override. Use discount/coupon below to reduce final amount.</p>
+          )}
         </div>
         <div>
           <label className="text-xs font-medium text-slate-600 block mb-1">Promo Code (optional)</label>

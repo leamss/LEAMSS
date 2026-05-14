@@ -66,6 +66,54 @@ export default function PreAssessmentPayment() {
   );
 
   const amount = data.pre_assessment_fee || 5100;
+  const isExpress = data.sale_type === 'express';
+
+  // Phase 4C — For Express Sales, skip PA fee entirely
+  if (isExpress) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-amber-50/40">
+        <div className="bg-gradient-to-r from-[#2a777a] to-[#1f5c5f] text-white">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 flex items-center gap-2.5">
+            <div className="w-10 h-10 bg-white/15 rounded-lg flex items-center justify-center backdrop-blur-sm">
+              <ShieldCheck className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="font-bold text-lg leading-tight">LEAMSS Immigration</p>
+              <p className="text-xs opacity-80">Express Sale — fast-tracked</p>
+            </div>
+          </div>
+        </div>
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10 space-y-5">
+          <Card className="p-8 text-center">
+            <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Sparkles className="h-10 w-10 text-amber-600" />
+            </div>
+            <Badge className="bg-amber-100 text-amber-700 mb-3">⚡ Express Sale</Badge>
+            <h1 className="text-2xl font-bold text-slate-800 mb-3">Welcome, {data.client_name}!</h1>
+            <p className="text-sm text-slate-600 leading-relaxed">
+              Your <strong>{data.service_type}</strong> case has been fast-tracked under our Express Sales process — <strong>no pre-assessment fee is required</strong>.
+            </p>
+            <p className="text-sm text-slate-600 mt-2">
+              Your consultant <strong>{data.partner_name}</strong> will share the full service proposal with you shortly.
+              For any questions, please reply directly to their email or WhatsApp.
+            </p>
+            <div className="mt-6 p-4 bg-emerald-50 border border-emerald-200 rounded-lg text-left">
+              <p className="text-xs font-bold text-emerald-800 mb-2">📋 Your Case Summary</p>
+              <div className="space-y-1 text-xs text-slate-700">
+                <Row label="Destination" value={data.country} />
+                <Row label="Service" value={data.service_type} />
+                <Row label="Stage" value="Express Sale — Awaiting proposal" />
+                <Row label="Pre-assessment Fee" value="✓ Waived (Express)" />
+              </div>
+            </div>
+            <p className="text-[11px] text-slate-400 mt-5">
+              🔒 This is a secure preview link. Your consultant will contact you soon.
+            </p>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50/40">

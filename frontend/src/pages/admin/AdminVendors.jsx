@@ -201,7 +201,12 @@ const InviteDialog = ({ open, onClose, vendor }) => {
     try {
       const token = localStorage.getItem('token');
       const r = await axios.post(`${API}/vendors/${vendor.id}/send-portal-invite`, {}, { headers: { Authorization: `Bearer ${token}` } });
-      setLink(r.data.invite_url);
+      // Phase 4C — Prefix with window origin if backend returned a relative path
+      let url = r.data.invite_url || '';
+      if (url.startsWith('/')) {
+        url = `${window.location.origin}${url}`;
+      }
+      setLink(url);
       toast.success('Invite generated (email is MOCKED — copy link manually)');
     } catch (e) { toast.error(e?.response?.data?.detail || 'Invite failed'); } finally { setSending(false); }
   };
@@ -274,6 +279,7 @@ export default function AdminVendors() {
   const [editVendor, setEditVendor] = useState(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [inviteVendor, setInviteVendor] = useState(null);
+  const [viewVendor, setViewVendor] = useState(null);  // Phase 4C — inline view dialog
 
   const load = async () => {
     setLoading(true);
@@ -414,7 +420,7 @@ export default function AdminVendors() {
                     <div><p className="text-slate-500 font-bold">Cases</p><p className="text-slate-800 font-bold">{(v.performance || {}).total_cases_handled || 0}</p></div>
                   </div>
                   <div className="flex gap-2">
-                    <Button size="sm" variant="outline" onClick={() => navigate(`/admin/vendors/${v.id}`)} data-testid={`view-${v.id}`}><Eye className="h-3.5 w-3.5 mr-1" /> View</Button>
+                    <Button size="sm" variant="outline" onClick={() => setViewVendor(v)} data-testid={`view-${v.id}`}><Eye className="h-3.5 w-3.5 mr-1" /> View</Button>
                     <Button size="sm" variant="outline" onClick={() => setEditVendor(v)} data-testid={`edit-${v.id}`}>Edit</Button>
                     {v.can_login && <Button size="sm" variant="outline" onClick={() => setInviteVendor(v)} data-testid={`invite-${v.id}`}><Send className="h-3.5 w-3.5" /></Button>}
                     <Button size="sm" variant={v.status === 'active' ? 'destructive' : 'outline'} onClick={() => toggleStatus(v)} data-testid={`toggle-${v.id}`}>
@@ -436,6 +442,118 @@ export default function AdminVendors() {
         onCreated={load}
       />
       {inviteVendor && <InviteDialog open={!!inviteVendor} onClose={() => setInviteVendor(null)} vendor={inviteVendor} />}
+      {viewVendor && <VendorDetailDialog vendor={viewVendor} onClose={() => setViewVendor(null)} onEdit={() => { setEditVendor(viewVendor); setViewVendor(null); }} onInvite={() => { setInviteVendor(viewVendor); setViewVendor(null); }} categoryMap={categoryMap} />}
     </div>
+  );
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════
+// Vendor Detail (inline dialog — no separate route, no admin logout)
+// ═══════════════════════════════════════════════════════════════════════
+function VendorDetailDialog({ vendor, onClose, onEdit, onInvite, categoryMap }) {
+  const [assignments, setAssignments] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const token = localStorage.getItem('token');
+        // Admin endpoint to inspect a vendor's assignments (uses payouts queue with vendor filter)
+        const r = await axios.get(`${API}/payouts/queue?vendor_id=${vendor.id}`, { headers: { Authorization: `Bearer ${token}` } });
+        if (!cancelled) setAssignments(r.data);
+      } catch (_) {
+        // Silently fail — show basic info only
+      } finally { if (!cancelled) setLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [vendor.id]);
+
+  const cat = categoryMap[vendor.category];
+  const bank = vendor.bank_details || {};
+  const perf = vendor.performance || {};
+
+  return (
+    <Dialog open={true} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="max-w-3xl" data-testid="vendor-detail-dialog">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-3">
+            <Briefcase className="h-5 w-5 text-indigo-600" />
+            {vendor.name}
+            <Badge className="bg-slate-100 text-slate-700 font-mono text-[10px]">{vendor.vendor_code}</Badge>
+            <Badge className={vendor.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}>{vendor.status}</Badge>
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
+          {/* Identity */}
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div><p className="text-[10px] font-bold uppercase text-slate-500">Email</p><p className="text-slate-800 flex items-center gap-1"><Mail className="h-3.5 w-3.5 text-slate-400" />{vendor.email}</p></div>
+            <div><p className="text-[10px] font-bold uppercase text-slate-500">Phone</p><p className="text-slate-800 flex items-center gap-1"><Phone className="h-3.5 w-3.5 text-slate-400" />{vendor.phone || '—'}</p></div>
+            <div><p className="text-[10px] font-bold uppercase text-slate-500">Category</p><p>{cat?.name || vendor.category} {cat?.is_internal && <Badge className="bg-violet-100 text-violet-700 text-[10px] ml-1">internal</Badge>}</p></div>
+            <div><p className="text-[10px] font-bold uppercase text-slate-500">Type</p><p className="capitalize">{vendor.vendor_type || '—'}</p></div>
+            <div><p className="text-[10px] font-bold uppercase text-slate-500">PAN</p><p className="font-mono">{vendor.pan_number || '—'}</p></div>
+            <div><p className="text-[10px] font-bold uppercase text-slate-500">GST</p><p className="font-mono">{vendor.gst_number || '—'}</p></div>
+            <div><p className="text-[10px] font-bold uppercase text-slate-500">TDS Applicable</p><p>{vendor.tds_applicable ? `Yes (${vendor.tds_rate}%)` : 'No'}</p></div>
+            <div><p className="text-[10px] font-bold uppercase text-slate-500">Linked User ID</p><p className="font-mono text-xs">{vendor.user_id || <span className="italic text-slate-400">— not linked —</span>}</p></div>
+          </div>
+
+          {/* Bank */}
+          {(bank.account_number || bank.ifsc) && (
+            <Card className="p-3 bg-slate-50">
+              <p className="text-[10px] font-bold uppercase text-slate-500 mb-2 flex items-center gap-1"><IndianRupee className="h-3 w-3" />Bank Details</p>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div><span className="text-slate-500">Account Holder: </span><strong>{bank.account_holder || '—'}</strong></div>
+                <div><span className="text-slate-500">Account #: </span><strong className="font-mono">{bank.account_number || '—'}</strong></div>
+                <div><span className="text-slate-500">IFSC: </span><strong className="font-mono">{bank.ifsc || '—'}</strong></div>
+                <div><span className="text-slate-500">Bank: </span><strong>{bank.bank_name || '—'}</strong></div>
+              </div>
+            </Card>
+          )}
+
+          {/* Performance */}
+          <Card className="p-3 bg-gradient-to-br from-indigo-50 to-emerald-50">
+            <p className="text-[10px] font-bold uppercase text-slate-500 mb-2">Lifetime Performance</p>
+            <div className="grid grid-cols-3 gap-3 text-xs">
+              <div><p className="text-slate-500">Cases Handled</p><p className="text-lg font-extrabold text-indigo-800">{perf.total_cases_handled || 0}</p></div>
+              <div><p className="text-slate-500">Total Paid</p><p className="text-lg font-extrabold text-emerald-800">₹{(perf.total_paid_lifetime || 0).toLocaleString('en-IN')}</p></div>
+              <div><p className="text-slate-500">Rating</p><p className="text-lg font-extrabold text-amber-700">{(perf.rating || 0).toFixed(1)} ★</p></div>
+            </div>
+          </Card>
+
+          {/* Assignments */}
+          <Card className="p-3">
+            <p className="text-[10px] font-bold uppercase text-slate-500 mb-2 flex items-center gap-1"><Layers className="h-3 w-3" />Current Assignments</p>
+            {loading ? <p className="text-xs text-slate-400">Loading…</p> :
+              !assignments || assignments.count === 0 ? <p className="text-xs italic text-slate-400">No allocations assigned to this vendor yet.</p> :
+              <div className="space-y-1">
+                {assignments.rows.slice(0, 10).map((r, i) => (
+                  <div key={i} className="flex justify-between items-center text-xs p-1.5 bg-slate-50 rounded">
+                    <span><strong>{r.client_name}</strong> · {r.pa_number} · {r.label}</span>
+                    <span className="flex items-center gap-1">
+                      <Badge className={`text-[9px] ${r.status === 'paid' ? 'bg-emerald-100 text-emerald-700' : r.status === 'approved' ? 'bg-indigo-100 text-indigo-700' : 'bg-amber-100 text-amber-700'}`}>{r.status}</Badge>
+                      <strong>₹{r.amount.toLocaleString('en-IN')}</strong>
+                    </span>
+                  </div>
+                ))}
+                {assignments.count > 10 && <p className="text-[11px] text-slate-400 mt-1">… and {assignments.count - 10} more</p>}
+              </div>
+            }
+          </Card>
+
+          {vendor.notes && (
+            <Card className="p-3 bg-amber-50/50">
+              <p className="text-[10px] font-bold uppercase text-amber-700 mb-1">Internal Notes</p>
+              <p className="text-xs text-slate-700 whitespace-pre-wrap">{vendor.notes}</p>
+            </Card>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Close</Button>
+          {vendor.can_login && <Button variant="outline" onClick={onInvite} data-testid="vd-invite"><Send className="h-3.5 w-3.5 mr-1" />Send Invite</Button>}
+          <Button onClick={onEdit} className="bg-indigo-600 hover:bg-indigo-700" data-testid="vd-edit">Edit Vendor</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

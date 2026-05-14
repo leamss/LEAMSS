@@ -302,19 +302,27 @@ function PreviewCalculator({ product }) {
       {result && (
         <Card className="p-4" data-testid="calc-result">
           <h4 className="text-sm font-bold mb-3">Allocation Breakdown</h4>
-          <div className="space-y-1.5">
-            {result.rows.map((r, i) => (
-              <div key={i} className={`flex items-center justify-between p-2 rounded ${r.is_optional ? 'bg-slate-50' : 'bg-emerald-50'} text-sm`}>
-                <span className="flex items-center gap-2">
-                  <Badge className={`bg-${catColor(r.vendor_category)}-100 text-${catColor(r.vendor_category)}-700 text-[10px]`}>{r.vendor_category}</Badge>
-                  <strong>{r.label}</strong>
-                  {r.is_optional && <span className="text-[10px] text-slate-400">(optional)</span>}
-                  {r.bonus_amount > 0 && <span className="text-[10px] text-amber-700">+ {formatINR(r.bonus_amount)} bonus</span>}
-                </span>
-                <strong className="text-slate-800">{formatINR(r.total_amount)}</strong>
-              </div>
-            ))}
-          </div>
+          {result.rows.length === 0 ? (
+            <div className="text-center py-6 bg-amber-50 border border-amber-200 rounded">
+              <AlertCircle className="h-8 w-8 text-amber-500 mx-auto mb-2" />
+              <p className="text-sm font-bold text-amber-800">No cost allocations configured</p>
+              <p className="text-xs text-amber-700 mt-1">This product has no cost structure yet. Go to the <strong>Cost</strong> tab to add allocations (sales commission, case manager fee, vendor splits, etc.).</p>
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              {result.rows.map((r, i) => (
+                <div key={i} className={`flex items-center justify-between p-2 rounded ${r.is_optional ? 'bg-slate-50' : 'bg-emerald-50'} text-sm`}>
+                  <span className="flex items-center gap-2">
+                    <Badge className={`bg-${catColor(r.vendor_category)}-100 text-${catColor(r.vendor_category)}-700 text-[10px]`}>{r.vendor_category}</Badge>
+                    <strong>{r.label}</strong>
+                    {r.is_optional && <span className="text-[10px] text-slate-400">(optional)</span>}
+                    {r.bonus_amount > 0 && <span className="text-[10px] text-amber-700">+ {formatINR(r.bonus_amount)} bonus</span>}
+                  </span>
+                  <strong className="text-slate-800">{formatINR(r.total_amount)}</strong>
+                </div>
+              ))}
+            </div>
+          )}
           <div className="grid grid-cols-3 gap-3 mt-4 pt-4 border-t text-sm">
             <div className="bg-slate-100 rounded p-2 text-center"><p className="text-[10px] uppercase text-slate-500">Revenue</p><p className="font-extrabold text-slate-800">{formatINR(result.service_price)}</p></div>
             <div className="bg-rose-50 rounded p-2 text-center"><p className="text-[10px] uppercase text-rose-700">Total Cost</p><p className="font-extrabold text-rose-700">{formatINR(result.total_cost)}</p></div>
