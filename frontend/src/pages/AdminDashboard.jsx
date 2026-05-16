@@ -1239,6 +1239,8 @@ const AdminDashboard = () => {
       defaultOpen: false,
       items: [
         { id: 'eligibility-kb', icon: Globe, label: 'Knowledge Base', onClick: () => navigate('/admin/eligibility/knowledge-base') },
+        { id: 'eligibility-profiles', icon: Sparkles, label: 'Profiles & Assessments', onClick: () => navigate('/eligibility/profiles') },
+        { id: 'eligibility-new', icon: Plus, label: 'New Assessment', onClick: () => navigate('/eligibility/new-assessment') },
       ]
     },
     {

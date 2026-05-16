@@ -35,6 +35,8 @@ import TargetTemplatesManager from '@/pages/admin/TargetTemplatesManager';
 import ExpressApprovalsAdmin from '@/pages/admin/ExpressApprovalsAdmin';
 import ExpressSalesSettings from '@/pages/admin/ExpressSalesSettings';
 import EligibilityKnowledgeBase from '@/pages/admin/EligibilityKnowledgeBase';
+import EligibilityProfileWizard from '@/pages/eligibility/EligibilityProfileWizard';
+import { EligibilityProfilesList, EligibilityProfileDetail } from '@/pages/eligibility/EligibilityProfiles';
 import AdminVendors from '@/pages/admin/AdminVendors';
 import VendorCategoriesManager from '@/pages/admin/VendorCategoriesManager';
 import CostStructuresManager from '@/pages/admin/CostStructuresManager';
@@ -139,6 +141,26 @@ function App() {
           <Route path="/admin/eligibility/knowledge-base" element={
             <RequirePermission allowRoles={['admin_owner', 'admin']}>
               <EligibilityKnowledgeBase />
+            </RequirePermission>
+          } />
+          <Route path="/eligibility/profiles" element={
+            <RequirePermission allowRoles={['admin_owner', 'admin', 'sales_executive', 'sr_sales_executive', 'sales_manager', 'sales_head', 'partner', 'case_manager']}>
+              <EligibilityProfilesList />
+            </RequirePermission>
+          } />
+          <Route path="/eligibility/new-assessment" element={
+            <RequirePermission allowRoles={['admin_owner', 'admin', 'sales_executive', 'sr_sales_executive', 'sales_manager', 'sales_head', 'partner', 'case_manager']}>
+              <EligibilityProfileWizard />
+            </RequirePermission>
+          } />
+          <Route path="/eligibility/edit/:profileId" element={
+            <RequirePermission allowRoles={['admin_owner', 'admin', 'sales_executive', 'sr_sales_executive', 'sales_manager', 'sales_head', 'partner', 'case_manager']}>
+              <EligibilityProfileWizard />
+            </RequirePermission>
+          } />
+          <Route path="/eligibility/profile/:profileId" element={
+            <RequirePermission allowRoles={['admin_owner', 'admin', 'sales_executive', 'sr_sales_executive', 'sales_manager', 'sales_head', 'partner', 'case_manager']}>
+              <EligibilityProfileDetail />
             </RequirePermission>
           } />
           <Route path="/admin/vendors" element={
