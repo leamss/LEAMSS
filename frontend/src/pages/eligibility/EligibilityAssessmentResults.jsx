@@ -26,6 +26,8 @@ import {
   ChevronRight, Star, Loader2, AlertTriangle, ThumbsUp, ThumbsDown, Zap,
 } from 'lucide-react';
 
+import { formatApiError } from '@/lib/apiErrors';
+
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 
@@ -79,7 +81,7 @@ export function EligibilityAssessmentRunner() {
         navigate(`/eligibility/results/${r.data.id}`, { replace: true });
       } catch (e) {
         if (cancelled) return;
-        setError(e?.response?.data?.detail || 'Assessment failed');
+        setError(formatApiError(e, 'Assessment failed'));
       }
     })();
 
@@ -153,7 +155,7 @@ export function EligibilityAssessmentResults() {
       const first = (r.data.ranked || [])[0];
       if (first) setActiveCountry(first.country_code);
     } catch (e) {
-      toast.error(e?.response?.data?.detail || 'Failed to load assessment');
+      toast.error(formatApiError(e, 'Failed to load assessment'));
     } finally { setLoading(false); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assessmentId]);
@@ -167,7 +169,7 @@ export function EligibilityAssessmentResults() {
       toast.success('Re-analysis complete');
       navigate(`/eligibility/results/${r.data.id}`, { replace: true });
     } catch (e) {
-      toast.error(e?.response?.data?.detail || 'Re-run failed');
+      toast.error(formatApiError(e, 'Re-run failed'));
     } finally { setReRunning(false); }
   };
 

@@ -50,7 +50,7 @@ export function EligibilityProfilesList() {
       setItems(list.data.items || []);
       setStats(st.data);
     } catch (e) {
-      toast.error(e?.response?.data?.detail || 'Failed to load profiles');
+      toast.error(formatApiError(e, 'Failed to load profiles'));
     } finally { setLoading(false); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, statusFilter]);
@@ -71,7 +71,7 @@ export function EligibilityProfilesList() {
       await axios.delete(`${API}/eligibility/profiles/${id}`, { headers });
       toast.success('Deleted');
       load();
-    } catch (e) { toast.error(e?.response?.data?.detail || 'Delete failed'); }
+    } catch (e) { toast.error(formatApiError(e, 'Delete failed')); }
   };
 
   return (
@@ -215,7 +215,7 @@ export function EligibilityProfileDetail() {
         const r = await axios.get(`${API}/eligibility/profiles/${profileId}`, { headers });
         setProfile(r.data);
       } catch (e) {
-        toast.error(e?.response?.data?.detail || 'Failed to load');
+        toast.error(formatApiError(e, 'Failed to load'));
       } finally { setLoading(false); }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps

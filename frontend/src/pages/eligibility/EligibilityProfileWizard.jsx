@@ -32,6 +32,8 @@ import {
   Plus, Trash2, Loader2, Layers, Compass, Star, Search as SearchIcon,
 } from 'lucide-react';
 
+import { formatApiError, pruneEmpty } from '@/lib/apiErrors';
+
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const SEARCH_MODES = [
@@ -136,7 +138,7 @@ export default function EligibilityProfileWizard() {
           setData({ ...emptyProfile(), ...r.data });
         }
       } catch (e) {
-        toast.error(e?.response?.data?.detail || 'Failed to load profile');
+        toast.error(formatApiError(e, 'Failed to load profile'));
       } finally { setLoading(false); }
     })();
   }, [profileId, prefillPaId, headers]);
@@ -168,10 +170,11 @@ export default function EligibilityProfileWizard() {
     if (!data.name) return;  // need a name minimum
     setSaving(true);
     try {
+      const cleaned = pruneEmpty(data);
       if (currentProfileId) {
-        await axios.patch(`${API}/eligibility/profiles/${currentProfileId}`, data, { headers });
+        await axios.patch(`${API}/eligibility/profiles/${currentProfileId}`, cleaned, { headers });
       } else {
-        const r = await axios.post(`${API}/eligibility/profiles`, { ...data, status: 'draft' }, { headers });
+        const r = await axios.post(`${API}/eligibility/profiles`, { ...cleaned, status: 'draft' }, { headers });
         setCurrentProfileId(r.data.id);
         toast.success('Draft saved', { duration: 1500 });
       }
@@ -184,17 +187,18 @@ export default function EligibilityProfileWizard() {
     if (!data.name) { toast.error('Name is required'); return false; }
     setSaving(true);
     try {
+      const cleaned = pruneEmpty(data);
       if (currentProfileId) {
-        await axios.patch(`${API}/eligibility/profiles/${currentProfileId}`, data, { headers });
+        await axios.patch(`${API}/eligibility/profiles/${currentProfileId}`, cleaned, { headers });
       } else {
-        const r = await axios.post(`${API}/eligibility/profiles`, { ...data, status: 'draft' }, { headers });
+        const r = await axios.post(`${API}/eligibility/profiles`, { ...cleaned, status: 'draft' }, { headers });
         setCurrentProfileId(r.data.id);
       }
       toast.success('Saved');
       lastAutoSavedSnapshot.current = JSON.stringify(data);
       return true;
     } catch (e) {
-      toast.error(e?.response?.data?.detail || 'Save failed');
+      toast.error(formatApiError(e, 'Save failed'));
       return false;
     } finally { setSaving(false); }
   }, [data, currentProfileId, headers]);
@@ -208,7 +212,7 @@ export default function EligibilityProfileWizard() {
     if (!data.name) { toast.error('Name is required'); return; }
     setSaving(true);
     try {
-      const payload = { ...data, status: 'complete' };
+      const payload = { ...pruneEmpty(data), status: 'complete' };
       let pid = currentProfileId;
       if (pid) {
         await axios.patch(`${API}/eligibility/profiles/${pid}`, payload, { headers });
@@ -217,10 +221,10 @@ export default function EligibilityProfileWizard() {
         pid = r.data.id;
         setCurrentProfileId(pid);
       }
-      toast.success('Profile saved. Analysis engine coming in Phase 6.3 — for now, profile is marked complete.');
-      navigate(`/eligibility/profile/${pid}`);
+      toast.success('Profile saved — starting AI analysis…');
+      navigate(`/eligibility/profile/${pid}/assess`);
     } catch (e) {
-      toast.error(e?.response?.data?.detail || 'Save failed');
+      toast.error(formatApiError(e, 'Save failed'));
     } finally { setSaving(false); }
   };
 
