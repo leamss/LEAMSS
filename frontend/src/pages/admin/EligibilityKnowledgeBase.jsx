@@ -25,7 +25,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from '@/components/ui/dialog';
 import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
@@ -296,7 +296,7 @@ function CountriesTab({ countries, onRefresh }) {
 
       <Dialog open={adding} onOpenChange={setAdding}>
         <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>Add New Country</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Add New Country</DialogTitle><DialogDescription>Define the country, ISO code, flag and display priority. Visas, skill bodies and occupations are added later in their own tabs.</DialogDescription></DialogHeader>
           <div className="space-y-3">
             <div><Label className="text-xs">Country Name *</Label><Input value={form.country} onChange={e => setForm({ ...form, country: e.target.value })} placeholder="e.g., United Kingdom" data-testid="new-country-name" /></div>
             <div><Label className="text-xs">Country Code (2-3 letters) *</Label><Input value={form.country_code} onChange={e => setForm({ ...form, country_code: e.target.value.toUpperCase() })} maxLength={3} placeholder="UK" data-testid="new-country-code" /></div>
@@ -438,7 +438,7 @@ function VisaEditor({ countryCode, visa, onClose, onSaved }) {
   return (
     <Dialog open onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader><DialogTitle>{visa.visa_id ? 'Edit Visa' : 'Add New Visa'}</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>{visa.visa_id ? 'Edit Visa' : 'Add New Visa'}</DialogTitle><DialogDescription>Configure visa category, eligibility thresholds, processing time, cost and active status.</DialogDescription></DialogHeader>
         <div className="grid grid-cols-2 gap-3">
           <div><Label className="text-xs">Visa Code *</Label><Input value={form.code} onChange={e => setForm({ ...form, code: e.target.value })} placeholder="189" data-testid="visa-code-input" /></div>
           <div><Label className="text-xs">Pathway Type</Label>
@@ -590,7 +590,7 @@ function SkillBodyEditor({ countryCode, body, onClose, onSaved }) {
   return (
     <Dialog open onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader><DialogTitle>{body.body_id ? 'Edit Skill Body' : 'Add Skill Body'}</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>{body.body_id ? 'Edit Skill Body' : 'Add Skill Body'}</DialogTitle><DialogDescription>Assessment body details, fee, processing time, occupations covered and required documents.</DialogDescription></DialogHeader>
         <div className="grid grid-cols-2 gap-3">
           <div><Label className="text-xs">Name (abbreviation) *</Label><Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="ACS" data-testid="body-name-input" /></div>
           <div><Label className="text-xs">Full Name</Label><Input value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })} placeholder="Australian Computer Society" data-testid="body-full-name" /></div>
@@ -781,7 +781,7 @@ function OccupationEditor({ countryCode, occ, onClose, onSaved }) {
   return (
     <Dialog open onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader><DialogTitle>{occ.code ? 'Edit Occupation' : 'Add Occupation'}</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>{occ.code ? 'Edit Occupation' : 'Add Occupation'}</DialogTitle><DialogDescription>Occupation code mapping with skill body, pathway, eligible visas and alternative titles.</DialogDescription></DialogHeader>
         <div className="grid grid-cols-2 gap-3">
           <div><Label className="text-xs">Code *</Label><Input value={form.code} onChange={e => setForm({ ...form, code: e.target.value })} placeholder="261313" data-testid="occ-code-input" /></div>
           <div><Label className="text-xs">Title *</Label><Input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="Software Engineer" data-testid="occ-title-input" /></div>

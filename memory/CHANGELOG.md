@@ -4,6 +4,40 @@ This file appends every completed phase/feature with dates and verification stat
 
 ---
 
+### 🚀 Phase 6.1 — AI Eligibility Engine · Knowledge Base + Admin UI
+**Completed:** May 16, 2026 (Day 1 of Phase 6)
+**Tests:** `iteration_104.json` → Backend 32/32 PASS · Frontend 100% smoke pass · Phase 4D regression intact
+
+#### Backend (NEW)
+- `routers/eligibility_kb.py` — 10 admin endpoints under `/api/eligibility/kb/`:
+  - `GET /countries`, `GET /countries/{code}`, `POST /countries`, `PATCH /countries/{code}`, `DELETE /countries/{code}` (soft-delete)
+  - `POST/DELETE /countries/{code}/visas/{visa_id}` — visa category CRUD
+  - `POST/DELETE /countries/{code}/skill-bodies/{body_id}` — skill body CRUD
+  - `POST/DELETE /countries/{code}/occupations/{occ_code}` — occupation CRUD
+  - `POST /countries/{code}/bulk-import-occupations` — CSV upload (2MB, pipe-separated arrays)
+  - `GET /occupations/search?q=` + `GET /skill-bodies/search?q=` — cross-country search
+  - `GET /stats` — aggregated KB metrics
+  - `POST /seed/run` — admin utility to re-trigger seed
+- `core/eligibility_kb_seed.py` — Comprehensive seed data:
+  - 🇦🇺 **Australia**: 6 visas (189/190/491/482/186/187), 8 skill bodies (ACS/EA/VETASSESS/CPA Au/AIM/AHPRA/TRA/ANMAC), 32 ANZSCO codes, full points system, document templates
+  - 🇨🇦 **Canada**: 4 programs (EE-FSWP/CEC/FSTP/PNP), 5 ECA bodies (WES/IQAS/ICAS/ICES/MCC), 31 NOC 2021 codes, CRS scoring
+  - 🇳🇿 **New Zealand**: 4 visas (SMC/Green-T1/Green-T2/AEWV), 4 bodies (NZQA/Engineering NZ/Nursing Council/Teaching Council), 20 codes, post-Oct-2023 6-point system
+- Idempotent seed on first API call (preserves manual admin edits)
+- Coexists with Phase 4D `/api/eligibility/score` (lead-magnet) — separate router, no conflict
+
+#### Frontend (NEW)
+- `/admin/eligibility/knowledge-base` — 6-tab admin UI:
+  - **Countries** — Card grid with flag/stats/activate toggle + Add Country dialog
+  - **Visas** — Table with edit/delete + comprehensive VisaEditor dialog (code, name, pathway, age/points/experience, processing time, cost, active flag)
+  - **Skill Bodies** — Card grid with edit/delete + SkillBodyEditor dialog (name, website, fee, processing weeks, doc list)
+  - **Occupations** — Searchable table + Bulk CSV Import + Add Code + OccupationEditor (code, title, group, skill level, body, pathway, eligible visas)
+  - **Points** — Visual category cards + JSON editor mode for advanced configuration
+  - **Docs** — Read-only summary of common+visa-specific document templates
+- RBAC: admin-only mutations; viewer-role read access (partner/CM/sales/HR can view)
+- Sidebar entry under new "AI Eligibility Engine" group
+
+
+
 ### 🔧 Phase 4D+ — P1 Enhancements: Finance Unification + People Onboarding
 **Completed:** May 16, 2026
 **Tests:** `iteration_103.json` → Backend 24/24 new + 42/43 regression PASS · Frontend smoke OK
