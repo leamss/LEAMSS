@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="9" skipped="0" tests="19" time="142.302" timestamp="2026-05-16T21:41:44.407789+00:00" hostname="agent-env-f3914c7c-9917-4323-8543-c47577c5680e"><testcase classname="backend.tests.test_iteration106_eligibility_assessments.TestSetup" name="test_create_profile" time="0.492" /><testcase classname="backend.tests.test_iteration106_eligibility_assessments.TestRunAssessment" name="test_run_top_3_full_payload" time="60.118"><failure message="AssertionError: The preview environment is not responding. It may be starting up.&#10;  &#10;assert 502 == 200&#10; +  where 502 = &lt;Response [502]&gt;.status_code">backend/tests/test_iteration106_eligibility_assessments.py:82: in test_run_top_3_full_payload
+    assert r.status_code == 200, r.text
+E   AssertionError: The preview environment is not responding. It may be starting up.
+E     
+E   assert 502 == 200
+E    +  where 502 = &lt;Response [502]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_iteration106_eligibility_assessments.TestRunAssessment" name="test_points_calculation_au" time="0.000"><failure message="IndexError: list index out of range">backend/tests/test_iteration106_eligibility_assessments.py:130: in test_points_calculation_au
+    aid = ASSESSMENT_IDS[0]
+          ^^^^^^^^^^^^^^^^^
+E   IndexError: list index out of range</failure></testcase><testcase classname="backend.tests.test_iteration106_eligibility_assessments.TestRunAssessment" name="test_occupation_match_software_engineer" time="0.000"><failure message="IndexError: list index out of range">backend/tests/test_iteration106_eligibility_assessments.py:141: in test_occupation_match_software_engineer
+    aid = ASSESSMENT_IDS[0]
+          ^^^^^^^^^^^^^^^^^
+E   IndexError: list index out of range</failure></testcase><testcase classname="backend.tests.test_iteration106_eligibility_assessments.TestCaching" name="test_second_run_returns_from_cache" time="30.127"><failure message="requests.exceptions.ReadTimeout: HTTPSConnectionPool(host='staff-dashboard-66.preview.emergentagent.com', port=443): Read timed out. (read timeout=30)">/root/.venv/lib/python3.11/site-packages/urllib3/connectionpool.py:534: in _make_request
+    response = conn.getresponse()
+               ^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/urllib3/connection.py:571: in getresponse
+    httplib_response = super().getresponse()
+                       ^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/http/client.py:1415: in getresponse
+    response.begin()
+/usr/local/lib/python3.11/http/client.py:330: in begin
+    version, status, reason = self._read_status()
+                              ^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/http/client.py:291: in _read_status
+    line = str(self.fp.readline(_MAXLINE + 1), "iso-8859-1")
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/socket.py:718: in readinto
+    return self._sock.recv_into(b)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/ssl.py:1314: in recv_into
+    return self.read(nbytes, buffer)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/ssl.py:1166: in read
+    return self._sslobj.read(len, buffer)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TimeoutError: The read operation timed out
+
+The above exception was the direct cause of the following exception:
+/root/.venv/lib/python3.11/site-packages/requests/adapters.py:644: in send
+    resp = conn.urlopen(
+/root/.venv/lib/python3.11/site-packages/urllib3/connectionpool.py:841: in urlopen
+    retries = retries.increment(
+/root/.venv/lib/python3.11/site-packages/urllib3/util/retry.py:474: in increment
+    raise reraise(type(error), error, _stacktrace)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/urllib3/util/util.py:39: in reraise
+    raise value
+/root/.venv/lib/python3.11/site-packages/urllib3/connectionpool.py:787: in urlopen
+    response = self._make_request(
+/root/.venv/lib/python3.11/site-packages/urllib3/connectionpool.py:536: in _make_request
+    self._raise_timeout(err=e, url=url, timeout_value=read_timeout)
+/root/.venv/lib/python3.11/site-packages/urllib3/connectionpool.py:367: in _raise_timeout
+    raise ReadTimeoutError(
+E   urllib3.exceptions.ReadTimeoutError: HTTPSConnectionPool(host='staff-dashboard-66.preview.emergentagent.com', port=443): Read timed out. (read timeout=30)
+
+During handling of the above exception, another exception occurred:
+backend/tests/test_iteration106_eligibility_assessments.py:155: in test_second_run_returns_from_cache
+    r = requests.post(f"{API}/eligibility/assessments/run",
+/root/.venv/lib/python3.11/site-packages/requests/api.py:115: in post
+    return request("post", url, data=data, json=json, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/requests/api.py:59: in request
+    return session.request(method=method, url=url, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/requests/sessions.py:589: in request
+    resp = self.send(prep, **send_kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/requests/sessions.py:703: in send
+    r = adapter.send(request, **kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/requests/adapters.py:690: in send
+    raise ReadTimeout(e, request=request)
+E   requests.exceptions.ReadTimeout: HTTPSConnectionPool(host='staff-dashboard-66.preview.emergentagent.com', port=443): Read timed out. (read timeout=30)</failure></testcase><testcase classname="backend.tests.test_iteration106_eligibility_assessments.TestReRun" name="test_rerun_bypasses_cache" time="0.000"><failure message="IndexError: list index out of range">backend/tests/test_iteration106_eligibility_assessments.py:168: in test_rerun_bypasses_cache
+    aid = ASSESSMENT_IDS[0]
+          ^^^^^^^^^^^^^^^^^
+E   IndexError: list index out of range</failure></testcase><testcase classname="backend.tests.test_iteration106_eligibility_assessments.TestRetrieval" name="test_get_assessment_by_id" time="0.000"><failure message="IndexError: list index out of range">backend/tests/test_iteration106_eligibility_assessments.py:181: in test_get_assessment_by_id
+    aid = ASSESSMENT_IDS[0]
+          ^^^^^^^^^^^^^^^^^
+E   IndexError: list index out of range</failure></testcase><testcase classname="backend.tests.test_iteration106_eligibility_assessments.TestRetrieval" name="test_insights_compact" time="0.000"><failure message="IndexError: list index out of range">backend/tests/test_iteration106_eligibility_assessments.py:189: in test_insights_compact
+    aid = ASSESSMENT_IDS[0]
+          ^^^^^^^^^^^^^^^^^
+E   IndexError: list index out of range</failure></testcase><testcase classname="backend.tests.test_iteration106_eligibility_assessments.TestRetrieval" name="test_latest_for_profile" time="9.277"><failure message="IndexError: list index out of range">backend/tests/test_iteration106_eligibility_assessments.py:203: in test_latest_for_profile
+    assert d["id"] == ASSESSMENT_IDS[-1]
+                      ^^^^^^^^^^^^^^^^^^
+E   IndexError: list index out of range</failure></testcase><testcase classname="backend.tests.test_iteration106_eligibility_assessments.TestRetrieval" name="test_list_filtered_by_created_by" time="0.145" /><testcase classname="backend.tests.test_iteration106_eligibility_assessments.TestProfileStatusUpdate" name="test_profile_status_changed_to_assessed" time="0.102"><failure message="IndexError: list index out of range">backend/tests/test_iteration106_eligibility_assessments.py:223: in test_profile_status_changed_to_assessed
+    assert d.get("assessment_id") == ASSESSMENT_IDS[-1]
+                                     ^^^^^^^^^^^^^^^^^^
+E   IndexError: list index out of range</failure></testcase><testcase classname="backend.tests.test_iteration106_eligibility_assessments.TestModes" name="test_specific_mode_au_only" time="40.379" /><testcase classname="backend.tests.test_iteration106_eligibility_assessments.TestModes" name="test_custom_mode_two_countries" time="0.384" /><testcase classname="backend.tests.test_iteration106_eligibility_assessments.TestModes" name="test_custom_mode_only_one_country_rejected" time="0.112" /><testcase classname="backend.tests.test_iteration106_eligibility_assessments.TestPermissions" name="test_partner_cannot_assess_admin_profile" time="0.429" /><testcase classname="backend.tests.test_iteration106_eligibility_assessments.TestRegression" name="test_kb_countries_still_work" time="0.133" /><testcase classname="backend.tests.test_iteration106_eligibility_assessments.TestRegression" name="test_profiles_list_still_works" time="0.106" /><testcase classname="backend.tests.test_iteration106_eligibility_assessments.TestRegression" name="test_phase4d_score_endpoint_reachable" time="0.141" /><testcase classname="backend.tests.test_iteration106_eligibility_assessments.TestZCleanup" name="test_delete_profiles" time="0.143" /></testsuite></testsuites>

@@ -246,8 +246,13 @@ export function EligibilityProfileDetail() {
               <Edit className="h-4 w-4 mr-1" />Edit
             </Button>
             {profile.status === 'complete' && !profile.assessment_id && (
-              <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700" disabled title="Coming in Phase 6.3">
-                <Sparkles className="h-4 w-4 mr-1" />Run AI Analysis (6.3)
+              <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700" onClick={() => navigate(`/eligibility/profile/${profile.id}/assess`)} data-testid="run-ai-btn">
+                <Sparkles className="h-4 w-4 mr-1" />Run AI Analysis
+              </Button>
+            )}
+            {profile.assessment_id && (
+              <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => navigate(`/eligibility/results/${profile.assessment_id}`)} data-testid="view-results-btn">
+                <Sparkles className="h-4 w-4 mr-1" />View Results
               </Button>
             )}
           </div>

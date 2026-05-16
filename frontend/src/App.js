@@ -37,6 +37,7 @@ import ExpressSalesSettings from '@/pages/admin/ExpressSalesSettings';
 import EligibilityKnowledgeBase from '@/pages/admin/EligibilityKnowledgeBase';
 import EligibilityProfileWizard from '@/pages/eligibility/EligibilityProfileWizard';
 import { EligibilityProfilesList, EligibilityProfileDetail } from '@/pages/eligibility/EligibilityProfiles';
+import { EligibilityAssessmentRunner, EligibilityAssessmentResults } from '@/pages/eligibility/EligibilityAssessmentResults';
 import AdminVendors from '@/pages/admin/AdminVendors';
 import VendorCategoriesManager from '@/pages/admin/VendorCategoriesManager';
 import CostStructuresManager from '@/pages/admin/CostStructuresManager';
@@ -161,6 +162,16 @@ function App() {
           <Route path="/eligibility/profile/:profileId" element={
             <RequirePermission allowRoles={['admin_owner', 'admin', 'sales_executive', 'sr_sales_executive', 'sales_manager', 'sales_head', 'partner', 'case_manager']}>
               <EligibilityProfileDetail />
+            </RequirePermission>
+          } />
+          <Route path="/eligibility/profile/:profileId/assess" element={
+            <RequirePermission allowRoles={['admin_owner', 'admin', 'sales_executive', 'sr_sales_executive', 'sales_manager', 'sales_head', 'partner', 'case_manager']}>
+              <EligibilityAssessmentRunner />
+            </RequirePermission>
+          } />
+          <Route path="/eligibility/results/:assessmentId" element={
+            <RequirePermission allowRoles={['admin_owner', 'admin', 'sales_executive', 'sr_sales_executive', 'sales_manager', 'sales_head', 'partner', 'case_manager']}>
+              <EligibilityAssessmentResults />
             </RequirePermission>
           } />
           <Route path="/admin/vendors" element={
