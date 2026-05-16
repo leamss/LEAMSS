@@ -4,6 +4,31 @@ This file appends every completed phase/feature with dates and verification stat
 
 ---
 
+### 🔧 Phase 4D — Express Sale Limits Admin Control + Token Link Bug Fix
+**Completed:** May 16, 2026
+**Tests:** End-to-end curl PASS · Frontend smoke screenshot PASS
+
+#### Bug Fix — Express Token Mode "Generate Public Link" 403 / wrong link
+- **Root cause:** Express+Token PA auto-approves to `stage="approved"`, but `generate_public_link` treated any stage in `("approved", ...)` as fee_paid → routed to magic-link BRANCH-B → 400 "Client account not linked yet".
+- **Fix:** In `pre_assess_portal.py`, added `is_express_token_unpaid` guard so PAs whose token is still pending are routed to BRANCH-A and return a public payment link with `link_type="express_token_payment"` and the configured token amount (e.g. `₹11,000`).
+
+#### Admin Express Sale Control (per-user overrides)
+- **Why:** Hard-coded role limits (`partner=3/mo`, `sales_executive=5/mo`) were rigid. Admins now have full control.
+- New settings field `express_user_limit_overrides: {user_id: int}` — `-1` unlimited · `0` blocked · `N>0` custom limit.
+- `core/express_logic.check_limit()` now checks per-user override FIRST, then falls back to role default.
+- 3 new endpoints in `routers/express_sales.py`:
+  - `PUT  /api/express/settings/user-limit` — set / update / remove override
+  - `GET  /api/express/settings/user-overrides` — list with hydrated user data + current month usage
+  - `GET  /api/express/settings/searchable-users?q=` — typeahead for sales/partner/admin users
+- `/api/express/my-usage` now surfaces `limit_source` ("admin_override" vs "role_default").
+- New admin page `/admin/sales/express-settings` (sidebar: Sales Management → "Express Sale Limits"):
+  - Global ON/OFF switch
+  - Per-User Overrides tab — Add/Edit/Remove with 3 preset modes (Unlimited / Custom / Blocked)
+  - Role Defaults tab — editable per-role table with blank = unlimited
+  - Search-by-name/email user picker in Add Override dialog
+
+
+
 
 ### 🏆 Phase 4D — ARCHITECTURAL UNIFICATION (Triple combo)
 **Completed:** May 14, 2026  

@@ -40,9 +40,16 @@ class ExpressRejectRequest(BaseModel):
 class ExpressSettingsUpdate(BaseModel):
     express_sale_enabled: Optional[bool] = None
     express_monthly_limits: Optional[Dict[str, Optional[int]]] = None
+    express_user_limit_overrides: Optional[Dict[str, Optional[int]]] = None
     express_auto_approve_for_roles: Optional[list] = None
     express_max_value: Optional[float] = None
     express_min_justification_chars: Optional[int] = None
+
+
+class UserLimitOverrideRequest(BaseModel):
+    user_id: str
+    # -1 = unlimited, 0 = blocked, >0 = custom monthly limit, None = remove override (use role default)
+    limit: Optional[int] = None
 
 
 def _is_admin(u: dict) -> bool:
@@ -102,11 +109,137 @@ async def patch_settings(req: ExpressSettingsUpdate, current_user: dict = Depend
 
 
 # ──────────────────────────────────────────────────────────────
+# Per-user limit override management (Admin)
+# ──────────────────────────────────────────────────────────────
+@router.put("/settings/user-limit")
+async def set_user_limit(req: UserLimitOverrideRequest, current_user: dict = Depends(get_current_user)):
+    """Set / update / remove a per-user express sale monthly limit override.
+
+    `limit` semantics:
+      -  None  → remove override (user falls back to role-based limit)
+      -  -1    → unlimited (no cap)
+      -   0    → blocked (cannot create any express sale)
+      -  N>0   → custom monthly cap
+    """
+    if not _is_admin(current_user):
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    target = await users_col.find_one({"id": req.user_id}, {"_id": 0, "id": 1, "name": 1, "email": 1, "role": 1})
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    settings = await get_express_settings()
+    overrides = dict(settings.get("express_user_limit_overrides") or {})
+
+    if req.limit is None:
+        overrides.pop(req.user_id, None)
+        action = "removed"
+    else:
+        try:
+            lim = int(req.limit)
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=400, detail="limit must be an integer (-1, 0, or > 0)")
+        if lim < -1:
+            raise HTTPException(status_code=400, detail="limit must be -1 (unlimited), 0 (block), or > 0")
+        overrides[req.user_id] = lim
+        action = "set"
+
+    await update_express_settings(
+        {"express_user_limit_overrides": overrides},
+        updated_by=current_user["id"],
+    )
+    return {
+        "ok": True,
+        "action": action,
+        "user": target,
+        "limit": req.limit,
+        "overrides": overrides,
+    }
+
+
+@router.get("/settings/user-overrides")
+async def list_user_overrides(current_user: dict = Depends(get_current_user)):
+    """List every user that currently has a per-user override, hydrated with name+email+role."""
+    if not _is_admin(current_user):
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    settings = await get_express_settings()
+    overrides = settings.get("express_user_limit_overrides") or {}
+    if not overrides:
+        return {"items": [], "count": 0}
+
+    user_ids = list(overrides.keys())
+    cursor = users_col.find({"id": {"$in": user_ids}}, {"_id": 0, "id": 1, "name": 1, "email": 1, "role": 1, "rbac_role": 1})
+    users_map = {u["id"]: u async for u in cursor}
+
+    items = []
+    for uid, lim in overrides.items():
+        u = users_map.get(uid, {"id": uid, "name": "(deleted user)", "email": "—"})
+        # Compute current month usage for context
+        used = await count_express_this_month(uid)
+        items.append({
+            **u,
+            "user_id": uid,
+            "limit": lim,
+            "limit_label": (
+                "Unlimited" if lim in (-1, None) else
+                "Blocked" if lim == 0 else f"{lim}/month"
+            ),
+            "used_this_month": used,
+        })
+    items.sort(key=lambda x: (x.get("name") or "").lower())
+    return {"items": items, "count": len(items)}
+
+
+@router.get("/settings/searchable-users")
+async def searchable_users(
+    q: Optional[str] = None,
+    limit: int = 25,
+    current_user: dict = Depends(get_current_user),
+):
+    """List users eligible for express-sale overrides (sales roles + partners + admins).
+    Used by the admin Express Settings page when adding a new override.
+    """
+    if not _is_admin(current_user):
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    eligible_roles = [
+        "partner", "sales_executive", "sr_sales_executive",
+        "sales_manager", "sales_head", "admin", "admin_owner",
+    ]
+    query: Dict[str, Any] = {
+        "$or": [
+            {"role": {"$in": eligible_roles}},
+            {"rbac_role": {"$in": eligible_roles}},
+        ]
+    }
+    if q:
+        q_str = q.strip()
+        if q_str:
+            query = {
+                "$and": [
+                    query,
+                    {"$or": [
+                        {"name": {"$regex": q_str, "$options": "i"}},
+                        {"email": {"$regex": q_str, "$options": "i"}},
+                    ]},
+                ]
+            }
+    cursor = users_col.find(query, {"_id": 0, "id": 1, "name": 1, "email": 1, "role": 1, "rbac_role": 1}).limit(min(limit, 100))
+    items = await cursor.to_list(length=limit)
+    return {"items": items, "count": len(items)}
+
+
+# ──────────────────────────────────────────────────────────────
 # Sales person — own usage
 # ──────────────────────────────────────────────────────────────
 @router.get("/my-usage")
 async def my_usage(current_user: dict = Depends(get_current_user)):
     allowed, used, limit, msg = await check_limit(current_user)
+    # Surface whether the limit comes from a per-user override
+    settings = await get_express_settings()
+    overrides = settings.get("express_user_limit_overrides") or {}
+    has_override = current_user["id"] in overrides
     return {
         "allowed": allowed,
         "used_this_month": used,
@@ -114,6 +247,7 @@ async def my_usage(current_user: dict = Depends(get_current_user)):
         "remaining": (limit - used) if limit is not None else None,
         "message": msg,
         "month_label": datetime.now(timezone.utc).strftime("%b %Y"),
+        "limit_source": "admin_override" if has_override else "role_default",
     }
 
 

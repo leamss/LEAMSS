@@ -33,6 +33,7 @@ import MyTargets from '@/pages/MyTargets';
 import SalesTargetsAdmin from '@/pages/admin/SalesTargetsAdmin';
 import TargetTemplatesManager from '@/pages/admin/TargetTemplatesManager';
 import ExpressApprovalsAdmin from '@/pages/admin/ExpressApprovalsAdmin';
+import ExpressSalesSettings from '@/pages/admin/ExpressSalesSettings';
 import AdminVendors from '@/pages/admin/AdminVendors';
 import VendorCategoriesManager from '@/pages/admin/VendorCategoriesManager';
 import CostStructuresManager from '@/pages/admin/CostStructuresManager';
@@ -127,6 +128,11 @@ function App() {
           <Route path="/admin/sales/express-approvals" element={
             <RequirePermission anyOf={['pa.approve.express', 'system.user_manage.any']}>
               <ExpressApprovalsAdmin />
+            </RequirePermission>
+          } />
+          <Route path="/admin/sales/express-settings" element={
+            <RequirePermission anyOf={['system.user_manage.any']} allowRoles={['admin_owner', 'admin']}>
+              <ExpressSalesSettings />
             </RequirePermission>
           } />
           <Route path="/admin/vendors" element={

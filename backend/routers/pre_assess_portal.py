@@ -134,9 +134,20 @@ async def generate_public_link(data: GenerateLinkRequest, current_user: dict = D
     if days not in (0, 1, 7, 30, 90):
         raise HTTPException(status_code=400, detail="expires_in_days must be 0 (never), 1, 7, 30, or 90")
 
-    fee_paid = pa.get("fee_payment_status") == "paid" or pa.get("stage") in (
-        "payment_received", "documents_submitted", "partner_review", "under_review",
-        "approved", "proposal_sent", "proposal_paid", "awaiting_final_approval", "case_created",
+    # Phase 4D — Express + Token mode special case:
+    # PA starts at stage="approved" (auto-approved for Token mode) but client hasn't paid the
+    # token yet. We must NOT treat this as "fee_paid" — the partner needs the public BRANCH-A
+    # link so the client can pay the small token amount via the public payment portal.
+    is_express_token_unpaid = (
+        pa.get("sale_type") == "express"
+        and (pa.get("express_mode") or "direct") == "token"
+        and not pa.get("express_token_paid", False)
+    )
+    fee_paid = (not is_express_token_unpaid) and (
+        pa.get("fee_payment_status") == "paid" or pa.get("stage") in (
+            "payment_received", "documents_submitted", "partner_review", "under_review",
+            "approved", "proposal_sent", "proposal_paid", "awaiting_final_approval", "case_created",
+        )
     )
     has_user = bool(pa.get("client_user_id"))
 
