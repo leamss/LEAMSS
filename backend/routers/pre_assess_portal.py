@@ -334,10 +334,16 @@ async def public_mock_pay(data: PublicMockPayRequest):
     if not pa:
         raise HTTPException(status_code=404, detail="Link not found")
 
-    already_paid = pa.get("fee_payment_status") == "paid" or pa.get("stage") in (
-        "payment_received", "documents_submitted", "under_review",
-        "approved", "rejected", "proposal_sent", "proposal_paid", "case_created",
-    )
+    # Phase 4D — Express+Token PAs auto-start at stage="approved" (admin auto-approval).
+    # Don't let that fool us into thinking the token has already been paid.
+    is_express_token = pa.get("sale_type") == "express" and (pa.get("express_mode") or "direct") == "token"
+    if is_express_token:
+        already_paid = bool(pa.get("express_token_paid"))
+    else:
+        already_paid = pa.get("fee_payment_status") == "paid" or pa.get("stage") in (
+            "payment_received", "documents_submitted", "under_review",
+            "approved", "rejected", "proposal_sent", "proposal_paid", "case_created",
+        )
 
     # Ensure user exists
     existing = await users_col.find_one({"email": pa["client_email"]}, {"_id": 0})
@@ -365,7 +371,6 @@ async def public_mock_pay(data: PublicMockPayRequest):
 
     if not already_paid:
         # Phase 4D — Express + Token mode payment flow
-        is_express_token = pa.get("sale_type") == "express" and pa.get("express_mode") == "token"
         if is_express_token:
             update = {
                 "express_token_paid": True,

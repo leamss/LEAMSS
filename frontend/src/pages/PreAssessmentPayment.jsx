@@ -103,7 +103,7 @@ export default function PreAssessmentPayment() {
                   data-testid="pay-token-btn"
                   onClick={async () => {
                     try {
-                      const r = await axios.post(`${API}/pre-assess-portal/public/${token}/mock-pay`, {});
+                      const r = await axios.post(`${API}/pre-assess-portal/public/mock-pay`, { token });
                       if (r.data?.ok) {
                         toast.success(`Token of ₹${Math.round(tokenAmount).toLocaleString('en-IN')} received! Your consultant will share the full proposal shortly.`);
                         load();
