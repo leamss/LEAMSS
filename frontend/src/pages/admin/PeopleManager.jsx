@@ -11,7 +11,7 @@
  * Replaces fragmented user-creation paths. Single "Add Person" wizard intelligently
  * routes based on chosen person_type.
  */
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -25,7 +25,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import {
   ArrowLeft, Plus, Search, Users, UserCog, Briefcase, Shield, Mail, Phone,
   Sparkles, IndianRupee, Globe, Lock, RefreshCw, Power, KeyRound, AlertCircle,
-  Eye, EyeOff,
+  Eye, EyeOff, FileText, Upload, Trash2, CheckCircle2, Building2, CreditCard,
+  Calendar as CalendarIcon, Download,
 } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -172,13 +173,38 @@ function AddPersonWizard({ open, onClose, onCreated }) {
     role: '', department: '',
     vendor_category: '', specialization: '',
     send_invite: true,
+    // Onboarding (Step 4)
+    onboarding: {
+      designation: '', date_of_joining: '', dob: '', gender: '', blood_group: '',
+      current_address: '', permanent_address: '', city: '', state: '', pincode: '',
+      emergency_contact_name: '', emergency_contact_phone: '', emergency_contact_relation: '',
+      pan_number: '', aadhaar_number: '', gst_number: '',
+      bank_account_number: '', bank_ifsc: '', bank_name: '', bank_account_holder_name: '',
+      notes: '',
+    },
   });
   const [submitting, setSubmitting] = useState(false);
   const [vendorCats, setVendorCats] = useState([]);
+  const [docChecklist, setDocChecklist] = useState([]);
   const [credsResult, setCredsResult] = useState(null);  // Phase 4D — proper copy-able credentials dialog
 
   useEffect(() => {
-    if (!open) { setStep(1); setForm({ person_type: '', name: '', email: '', mobile: '', role: '', department: '', vendor_category: '', specialization: '', send_invite: true }); return; }
+    if (!open) {
+      setStep(1);
+      setForm({
+        person_type: '', name: '', email: '', mobile: '',
+        role: '', department: '', vendor_category: '', specialization: '', send_invite: true,
+        onboarding: {
+          designation: '', date_of_joining: '', dob: '', gender: '', blood_group: '',
+          current_address: '', permanent_address: '', city: '', state: '', pincode: '',
+          emergency_contact_name: '', emergency_contact_phone: '', emergency_contact_relation: '',
+          pan_number: '', aadhaar_number: '', gst_number: '',
+          bank_account_number: '', bank_ifsc: '', bank_name: '', bank_account_holder_name: '',
+          notes: '',
+        },
+      });
+      return;
+    }
     (async () => {
       try {
         const token = localStorage.getItem('token');
@@ -188,17 +214,36 @@ function AddPersonWizard({ open, onClose, onCreated }) {
     })();
   }, [open]);
 
+  // Load doc checklist when type changes
+  useEffect(() => {
+    if (!form.person_type) { setDocChecklist([]); return; }
+    (async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const r = await axios.get(`${API}/people/document-checklist/${form.person_type}`, { headers: { Authorization: `Bearer ${token}` } });
+        setDocChecklist(r.data.items || []);
+      } catch (_) { setDocChecklist([]); }
+    })();
+  }, [form.person_type]);
+
+  const setOnb = (k, v) => setForm(f => ({ ...f, onboarding: { ...f.onboarding, [k]: v } }));
+
   const canNext1 = !!form.person_type;
   const canNext2 = form.name && form.email;
-  const canSubmit = canNext1 && canNext2 && (
+  const canNext3 = canNext1 && canNext2 && (
     form.person_type === 'employee_internal' ? !!form.role :
     form.person_type.startsWith('vendor_') ? !!form.vendor_category : true
   );
+  const canSubmit = canNext3;  // Step 4 is optional
 
   const submit = async () => {
     setSubmitting(true);
     try {
       const token = localStorage.getItem('token');
+      // Filter onboarding empty strings → undefined so backend gets clean data
+      const onboarding = Object.fromEntries(
+        Object.entries(form.onboarding).filter(([_, v]) => v && String(v).trim() !== '')
+      );
       const payload = {
         person_type: form.person_type,
         name: form.name,
@@ -209,17 +254,18 @@ function AddPersonWizard({ open, onClose, onCreated }) {
         vendor_category: form.vendor_category || null,
         specialization: form.specialization ? form.specialization.split(',').map(s => s.trim()) : [],
         send_invite: form.send_invite,
+        onboarding: Object.keys(onboarding).length > 0 ? onboarding : null,
       };
       const r = await axios.post(`${API}/people`, payload, { headers: { Authorization: `Bearer ${token}` } });
       const temp = r.data.temp_password;
       if (temp) {
-        // Phase 4D — Show proper Dialog with copy buttons instead of window.alert
         setCredsResult({
           email: form.email,
           temp_password: temp,
           role: form.role,
           linked_user_role: r.data.linked_user_role,
           vendor_code: r.data.vendor_code,
+          person_id: r.data.person_id,
         });
       } else {
         toast.success(`${TYPE_META[form.person_type].label} created`);
@@ -236,17 +282,17 @@ function AddPersonWizard({ open, onClose, onCreated }) {
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl" data-testid="add-person-wizard">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto" data-testid="add-person-wizard">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-indigo-600" />
-            Add Person — Step {step} of 3
+            Add Person — Step {step} of 4
           </DialogTitle>
         </DialogHeader>
 
         {/* Progress bar */}
         <div className="flex items-center gap-2 mb-4">
-          {[1, 2, 3].map(s => (
+          {[1, 2, 3, 4].map(s => (
             <div key={s} className={`h-1.5 flex-1 rounded ${step >= s ? 'bg-indigo-500' : 'bg-slate-200'}`} />
           ))}
         </div>
@@ -333,6 +379,101 @@ function AddPersonWizard({ open, onClose, onCreated }) {
                 </div>
               </>
             )}
+            <p className="text-[11px] text-slate-500 italic">Step 4 will capture employment details, KYC, and bank info. You can skip those fields if not available yet — they can be added later from the person&apos;s detail view.</p>
+          </div>
+        )}
+
+        {step === 4 && (
+          <div className="space-y-4">
+            <div className="p-3 bg-indigo-50 border border-indigo-200 rounded text-xs">
+              <p className="font-bold text-indigo-900 flex items-center gap-1.5"><FileText className="h-4 w-4" />Onboarding Details (optional but recommended)</p>
+              <p className="text-indigo-700 mt-1">Fill what you have now. KYC documents can be uploaded after creation from the person&apos;s detail view.</p>
+            </div>
+
+            {/* Employment */}
+            <div>
+              <p className="text-xs font-bold text-slate-700 mb-2 flex items-center gap-1"><Building2 className="h-3.5 w-3.5" />Employment Details</p>
+              <div className="grid grid-cols-2 gap-2">
+                <div><Label className="text-[11px]">Designation</Label><Input value={form.onboarding.designation} onChange={e => setOnb('designation', e.target.value)} placeholder="e.g., Sr. Sales Executive" data-testid="onb-designation" /></div>
+                <div><Label className="text-[11px]">Date of Joining</Label><Input type="date" value={form.onboarding.date_of_joining} onChange={e => setOnb('date_of_joining', e.target.value)} data-testid="onb-doj" /></div>
+                <div><Label className="text-[11px]">Date of Birth</Label><Input type="date" value={form.onboarding.dob} onChange={e => setOnb('dob', e.target.value)} data-testid="onb-dob" /></div>
+                <div>
+                  <Label className="text-[11px]">Gender</Label>
+                  <Select value={form.onboarding.gender || ''} onValueChange={v => setOnb('gender', v)}>
+                    <SelectTrigger data-testid="onb-gender"><SelectValue placeholder="—" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="male">Male</SelectItem>
+                      <SelectItem value="female">Female</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+
+            {/* Address */}
+            <div>
+              <p className="text-xs font-bold text-slate-700 mb-2 flex items-center gap-1"><Globe className="h-3.5 w-3.5" />Address</p>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="col-span-2"><Label className="text-[11px]">Current Address</Label><Input value={form.onboarding.current_address} onChange={e => setOnb('current_address', e.target.value)} placeholder="Flat/Building, Street" data-testid="onb-addr-current" /></div>
+                <div><Label className="text-[11px]">City</Label><Input value={form.onboarding.city} onChange={e => setOnb('city', e.target.value)} data-testid="onb-city" /></div>
+                <div><Label className="text-[11px]">State</Label><Input value={form.onboarding.state} onChange={e => setOnb('state', e.target.value)} data-testid="onb-state" /></div>
+                <div><Label className="text-[11px]">Pincode</Label><Input value={form.onboarding.pincode} onChange={e => setOnb('pincode', e.target.value)} data-testid="onb-pincode" /></div>
+              </div>
+            </div>
+
+            {/* Emergency */}
+            <div>
+              <p className="text-xs font-bold text-slate-700 mb-2 flex items-center gap-1"><Phone className="h-3.5 w-3.5" />Emergency Contact</p>
+              <div className="grid grid-cols-3 gap-2">
+                <div><Label className="text-[11px]">Name</Label><Input value={form.onboarding.emergency_contact_name} onChange={e => setOnb('emergency_contact_name', e.target.value)} data-testid="onb-ec-name" /></div>
+                <div><Label className="text-[11px]">Phone</Label><Input value={form.onboarding.emergency_contact_phone} onChange={e => setOnb('emergency_contact_phone', e.target.value)} data-testid="onb-ec-phone" /></div>
+                <div><Label className="text-[11px]">Relation</Label><Input value={form.onboarding.emergency_contact_relation} onChange={e => setOnb('emergency_contact_relation', e.target.value)} placeholder="Parent / Spouse…" data-testid="onb-ec-rel" /></div>
+              </div>
+            </div>
+
+            {/* KYC */}
+            <div>
+              <p className="text-xs font-bold text-slate-700 mb-2 flex items-center gap-1"><Shield className="h-3.5 w-3.5" />KYC / Identity</p>
+              <div className="grid grid-cols-3 gap-2">
+                <div><Label className="text-[11px]">PAN Number</Label><Input value={form.onboarding.pan_number} onChange={e => setOnb('pan_number', e.target.value.toUpperCase())} placeholder="ABCDE1234F" maxLength={10} data-testid="onb-pan" /></div>
+                <div><Label className="text-[11px]">Aadhaar (last 4)</Label><Input value={form.onboarding.aadhaar_number} onChange={e => setOnb('aadhaar_number', e.target.value)} placeholder="XXXX XXXX 1234" maxLength={20} data-testid="onb-aadhaar" /></div>
+                <div><Label className="text-[11px]">GST Number {(form.person_type === 'vendor_external' || form.person_type === 'partner_external') ? '' : '(if any)'}</Label><Input value={form.onboarding.gst_number} onChange={e => setOnb('gst_number', e.target.value.toUpperCase())} placeholder="29ABCDE1234F1Z5" maxLength={15} data-testid="onb-gst" /></div>
+              </div>
+            </div>
+
+            {/* Bank */}
+            <div>
+              <p className="text-xs font-bold text-slate-700 mb-2 flex items-center gap-1"><CreditCard className="h-3.5 w-3.5" />Bank Details (for payouts)</p>
+              <div className="grid grid-cols-2 gap-2">
+                <div><Label className="text-[11px]">Account Holder Name</Label><Input value={form.onboarding.bank_account_holder_name} onChange={e => setOnb('bank_account_holder_name', e.target.value)} data-testid="onb-bank-holder" /></div>
+                <div><Label className="text-[11px]">Account Number</Label><Input value={form.onboarding.bank_account_number} onChange={e => setOnb('bank_account_number', e.target.value)} data-testid="onb-bank-acc" /></div>
+                <div><Label className="text-[11px]">IFSC Code</Label><Input value={form.onboarding.bank_ifsc} onChange={e => setOnb('bank_ifsc', e.target.value.toUpperCase())} placeholder="HDFC0001234" maxLength={11} data-testid="onb-ifsc" /></div>
+                <div><Label className="text-[11px]">Bank Name</Label><Input value={form.onboarding.bank_name} onChange={e => setOnb('bank_name', e.target.value)} placeholder="HDFC Bank" data-testid="onb-bank-name" /></div>
+              </div>
+            </div>
+
+            {/* Document checklist preview */}
+            {docChecklist.length > 0 && (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded">
+                <p className="text-xs font-bold text-amber-900 mb-2 flex items-center gap-1.5">
+                  <FileText className="h-3.5 w-3.5" />
+                  Documents to upload after creation
+                </p>
+                <ul className="text-[11px] space-y-1">
+                  {docChecklist.map(d => (
+                    <li key={d.key} className="flex items-center gap-1.5 text-amber-800">
+                      {d.required
+                        ? <span className="text-rose-600 font-bold">●</span>
+                        : <span className="text-slate-400">○</span>}
+                      {d.label}{d.required && <span className="text-rose-600 text-[10px]"> (required)</span>}
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-[10px] text-amber-700 mt-2 italic">After creating the person, open their detail view and use the Documents tab to upload files (PDF/JPG/PNG, max 10 MB each).</p>
+              </div>
+            )}
+
             <Card className="p-3 bg-slate-50 text-xs space-y-1">
               <p className="font-bold text-slate-700">Summary</p>
               <p>Type: <strong>{meta.label}</strong></p>
@@ -340,6 +481,8 @@ function AddPersonWizard({ open, onClose, onCreated }) {
               <p>Email: <strong>{form.email}</strong></p>
               {form.role && <p>Role: <strong>{form.role}</strong></p>}
               {form.vendor_category && <p>Category: <strong>{form.vendor_category}</strong></p>}
+              {form.onboarding.designation && <p>Designation: <strong>{form.onboarding.designation}</strong></p>}
+              {form.onboarding.pan_number && <p>PAN: <strong>{form.onboarding.pan_number}</strong></p>}
               <p className="text-[10px] text-slate-500 mt-2 italic">A temporary password will be generated and shown to you — share with the user. They must change it on first login.</p>
             </Card>
           </div>
@@ -348,8 +491,21 @@ function AddPersonWizard({ open, onClose, onCreated }) {
         <DialogFooter>
           {step > 1 && <Button variant="outline" onClick={() => setStep(step - 1)} data-testid="wizard-back">Back</Button>}
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
-          {step < 3 && <Button onClick={() => setStep(step + 1)} disabled={step === 1 ? !canNext1 : !canNext2} className="bg-indigo-600 hover:bg-indigo-700" data-testid="wizard-next">Next</Button>}
-          {step === 3 && <Button onClick={submit} disabled={!canSubmit || submitting} className="bg-emerald-600 hover:bg-emerald-700" data-testid="wizard-submit">{submitting ? 'Creating…' : 'Create Person'}</Button>}
+          {step < 4 && (
+            <Button
+              onClick={() => setStep(step + 1)}
+              disabled={step === 1 ? !canNext1 : step === 2 ? !canNext2 : !canNext3}
+              className="bg-indigo-600 hover:bg-indigo-700"
+              data-testid="wizard-next"
+            >
+              Next
+            </Button>
+          )}
+          {step === 4 && (
+            <Button onClick={submit} disabled={!canSubmit || submitting} className="bg-emerald-600 hover:bg-emerald-700" data-testid="wizard-submit">
+              {submitting ? 'Creating…' : 'Create Person'}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
       <CredentialsDialog
@@ -364,6 +520,276 @@ function AddPersonWizard({ open, onClose, onCreated }) {
         }}
       />
     </Dialog>
+  );
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════
+// Onboarding & Documents Panels (Phase 4D+)
+// ═══════════════════════════════════════════════════════════════════════
+function OnboardingPanel({ onboarding }) {
+  if (!onboarding || Object.keys(onboarding).length === 0) return null;
+  const groups = [
+    {
+      title: 'Employment', icon: Building2, color: 'indigo',
+      fields: [
+        ['designation', 'Designation'], ['date_of_joining', 'Joined'],
+        ['dob', 'DOB'], ['gender', 'Gender'], ['blood_group', 'Blood Group'],
+      ],
+    },
+    {
+      title: 'Address', icon: Globe, color: 'sky',
+      fields: [
+        ['current_address', 'Current Address'], ['permanent_address', 'Permanent Address'],
+        ['city', 'City'], ['state', 'State'], ['pincode', 'Pincode'],
+      ],
+    },
+    {
+      title: 'Emergency Contact', icon: Phone, color: 'rose',
+      fields: [
+        ['emergency_contact_name', 'Name'],
+        ['emergency_contact_phone', 'Phone'],
+        ['emergency_contact_relation', 'Relation'],
+      ],
+    },
+    {
+      title: 'KYC / Identity', icon: Shield, color: 'amber',
+      fields: [
+        ['pan_number', 'PAN'], ['aadhaar_number', 'Aadhaar'], ['gst_number', 'GST'],
+      ],
+    },
+    {
+      title: 'Bank Details', icon: CreditCard, color: 'emerald',
+      fields: [
+        ['bank_account_holder_name', 'Holder'],
+        ['bank_account_number', 'Account'],
+        ['bank_ifsc', 'IFSC'],
+        ['bank_name', 'Bank'],
+      ],
+    },
+  ];
+
+  return (
+    <Card className="p-3 border-l-4 border-l-indigo-400" data-testid="onboarding-panel">
+      <p className="text-[10px] font-bold uppercase text-slate-500 mb-2 flex items-center gap-1">
+        <FileText className="h-3 w-3" />Onboarding Details
+      </p>
+      <div className="space-y-2">
+        {groups.map(g => {
+          const visible = g.fields.filter(([k]) => onboarding[k]);
+          if (visible.length === 0) return null;
+          const Icon = g.icon;
+          return (
+            <div key={g.title} className="border rounded p-2 bg-slate-50">
+              <p className={`text-[10px] font-bold uppercase text-${g.color}-700 mb-1 flex items-center gap-1`}>
+                <Icon className="h-3 w-3" />{g.title}
+              </p>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
+                {visible.map(([k, label]) => (
+                  <div key={k}>
+                    <p className="text-[10px] text-slate-500">{label}</p>
+                    <p className="font-medium text-slate-800 break-all">{onboarding[k]}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </Card>
+  );
+}
+
+
+function DocumentsPanel({ personId, personType, onChanged }) {
+  const [docs, setDocs] = useState([]);
+  const [checklist, setChecklist] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [pickDocType, setPickDocType] = useState('');
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const headers = { Authorization: `Bearer ${token}` };
+      const [dRes, cRes] = await Promise.all([
+        axios.get(`${API}/people/${personId}/documents`, { headers }),
+        personType ? axios.get(`${API}/people/document-checklist/${personType}`, { headers }).catch(() => ({ data: { items: [] } })) : Promise.resolve({ data: { items: [] } }),
+      ]);
+      setDocs(dRes.data.items || []);
+      setChecklist(cRes.data.items || []);
+    } catch (e) { toast.error('Failed to load documents'); }
+    finally { setLoading(false); }
+  }, [personId, personType]);
+
+  useEffect(() => { if (personId) load(); }, [personId, load]);
+
+  const handleUpload = async (file) => {
+    if (!file) return;
+    if (!pickDocType) { toast.error('Pick a document type first'); return; }
+    setUploading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('doc_type', pickDocType);
+      const lbl = checklist.find(c => c.key === pickDocType)?.label || pickDocType;
+      fd.append('doc_label', lbl);
+      await axios.post(`${API}/people/${personId}/documents`, fd, {
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' },
+      });
+      toast.success(`${lbl} uploaded`);
+      setPickDocType('');
+      load();
+      onChanged?.();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || 'Upload failed');
+    } finally { setUploading(false); }
+  };
+
+  const removeDoc = async (doc) => {
+    if (!window.confirm(`Delete ${doc.doc_label || doc.file_name}?`)) return;
+    try {
+      const token = localStorage.getItem('token');
+      await axios.delete(`${API}/people/${personId}/documents/${doc.id}`, { headers: { Authorization: `Bearer ${token}` } });
+      toast.success('Deleted');
+      load();
+    } catch (e) { toast.error('Delete failed'); }
+  };
+
+  const verifyDoc = async (doc) => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(`${API}/people/${personId}/documents/${doc.id}/verify`, {}, { headers: { Authorization: `Bearer ${token}` } });
+      toast.success('Marked verified');
+      load();
+    } catch (e) { toast.error('Verify failed'); }
+  };
+
+  const downloadDoc = async (doc) => {
+    try {
+      const token = localStorage.getItem('token');
+      const r = await axios.get(`${API}/people/${personId}/documents/${doc.id}/download`, {
+        headers: { Authorization: `Bearer ${token}` }, responseType: 'blob',
+      });
+      const url = URL.createObjectURL(r.data);
+      const a = document.createElement('a');
+      a.href = url; a.download = doc.file_name; a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) { toast.error('Download failed'); }
+  };
+
+  // Build status map: docs that exist by type
+  const existingByType = useMemo(() => {
+    const m = {};
+    docs.forEach(d => { m[d.doc_type] = d; });
+    return m;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [docs]);
+
+  return (
+    <Card className="p-3 border-l-4 border-l-amber-400" data-testid="documents-panel">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-[10px] font-bold uppercase text-slate-500 flex items-center gap-1">
+          <FileText className="h-3 w-3" />KYC & Onboarding Documents ({docs.length})
+        </p>
+      </div>
+
+      {/* Required checklist */}
+      {checklist.length > 0 && (
+        <div className="bg-slate-50 rounded p-2 mb-3" data-testid="doc-checklist">
+          <p className="text-[10px] font-semibold text-slate-600 mb-1">Required Checklist:</p>
+          <div className="grid grid-cols-2 gap-1 text-[11px]">
+            {checklist.map(c => {
+              const have = !!existingByType[c.key];
+              return (
+                <div key={c.key} className="flex items-center gap-1.5">
+                  {have ? (
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
+                  ) : c.required ? (
+                    <AlertCircle className="h-3.5 w-3.5 text-rose-500 flex-shrink-0" />
+                  ) : (
+                    <span className="h-3.5 w-3.5 rounded-full border border-slate-300 flex-shrink-0" />
+                  )}
+                  <span className={have ? 'text-emerald-700 line-through' : c.required ? 'text-rose-700 font-medium' : 'text-slate-600'}>
+                    {c.label}{c.required && !have ? ' *' : ''}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Upload */}
+      <div className="grid grid-cols-3 gap-2 mb-3 p-2 border border-dashed border-slate-300 rounded">
+        <div className="col-span-2">
+          <Select value={pickDocType} onValueChange={setPickDocType}>
+            <SelectTrigger className="h-8 text-xs" data-testid="doc-type-select"><SelectValue placeholder="Pick document type" /></SelectTrigger>
+            <SelectContent>
+              {checklist.length === 0 ? (
+                <SelectItem value="other">Other / Custom Document</SelectItem>
+              ) : (
+                <>
+                  {checklist.map(c => (
+                    <SelectItem key={c.key} value={c.key}>{c.label}{c.required ? ' *' : ''}</SelectItem>
+                  ))}
+                  <SelectItem value="other">Other / Custom Document</SelectItem>
+                </>
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <label className="block">
+            <Input
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx"
+              disabled={uploading || !pickDocType}
+              onChange={e => handleUpload(e.target.files?.[0])}
+              className="h-8 text-xs file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-amber-500 file:text-white"
+              data-testid="doc-file-input"
+            />
+          </label>
+        </div>
+      </div>
+      <p className="text-[10px] text-slate-500 mb-3">PDF / JPG / PNG / WEBP / DOC / DOCX · Max 10 MB per file.</p>
+
+      {/* List */}
+      {loading ? (
+        <p className="text-xs text-slate-400 text-center py-4">Loading…</p>
+      ) : docs.length === 0 ? (
+        <p className="text-xs text-slate-400 italic text-center py-3">No documents uploaded yet.</p>
+      ) : (
+        <div className="space-y-1">
+          {docs.map((d, i) => (
+            <div key={d.id} className="flex items-center gap-2 p-2 bg-white border rounded text-xs" data-testid={`doc-row-${i}`}>
+              <FileText className="h-4 w-4 text-amber-500 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="font-medium truncate">{d.doc_label || d.doc_type}</p>
+                <p className="text-[10px] text-slate-500 truncate">
+                  {d.file_name} · {(d.size_bytes / 1024).toFixed(0)} KB
+                  {d.uploaded_at && ` · ${new Date(d.uploaded_at).toLocaleDateString('en-IN')}`}
+                </p>
+              </div>
+              {d.verified && <Badge className="bg-emerald-100 text-emerald-700 text-[9px]">VERIFIED</Badge>}
+              <Button size="sm" variant="outline" className="h-6 w-6 p-0" onClick={() => downloadDoc(d)} title="Download" data-testid={`doc-dl-${i}`}>
+                <Download className="h-3 w-3" />
+              </Button>
+              {!d.verified && (
+                <Button size="sm" variant="outline" className="h-6 w-6 p-0 text-emerald-600 border-emerald-200" onClick={() => verifyDoc(d)} title="Mark verified" data-testid={`doc-verify-${i}`}>
+                  <CheckCircle2 className="h-3 w-3" />
+                </Button>
+              )}
+              <Button size="sm" variant="outline" className="h-6 w-6 p-0 text-rose-600 border-rose-200" onClick={() => removeDoc(d)} title="Delete" data-testid={`doc-del-${i}`}>
+                <Trash2 className="h-3 w-3" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
   );
 }
 
@@ -507,6 +933,14 @@ function PersonDetail({ personId, onClose, onChanged }) {
                 <p className="text-xs text-amber-700">This person doesn&apos;t have a login account yet. Send a portal invite from the Vendors tab.</p>
               </Card>
             )}
+
+            {/* Onboarding details */}
+            {(data.user?.onboarding || data.vendor?.onboarding) && (
+              <OnboardingPanel onboarding={data.user?.onboarding || data.vendor?.onboarding} />
+            )}
+
+            {/* Documents */}
+            <DocumentsPanel personId={personId} personType={data.person_type} onChanged={load} />
           </div>
         )}
         <DialogFooter className="flex flex-wrap gap-2">

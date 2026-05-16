@@ -18,10 +18,14 @@ Endpoints:
 """
 import uuid
 import secrets
+import os
+import mimetypes
+from pathlib import Path
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field, EmailStr
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form
+from fastapi.responses import FileResponse
 
 from core.auth import get_current_user, get_password_hash, validate_password_strength
 from core.database import db, users_col
@@ -29,6 +33,51 @@ from core.database import db, users_col
 router = APIRouter(prefix="/people", tags=["Phase 4D - Unified People Management"])
 
 vendors_col = db["vendors"]
+
+# Phase 4D+ — Onboarding document storage
+ONBOARDING_DIR = Path("/app/uploads/people_documents")
+ONBOARDING_DIR.mkdir(parents=True, exist_ok=True)
+MAX_DOC_SIZE = 10 * 1024 * 1024  # 10 MB per document
+ALLOWED_DOC_MIME = {
+    "application/pdf", "image/jpeg", "image/jpg", "image/png", "image/webp",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+}
+# Recommended document checklist per person type — used by frontend to show required items
+RECOMMENDED_DOCS = {
+    "employee_internal": [
+        {"key": "pan_card", "label": "PAN Card", "required": True},
+        {"key": "aadhaar_card", "label": "Aadhaar Card", "required": True},
+        {"key": "resume", "label": "Resume / CV", "required": True},
+        {"key": "education_cert", "label": "Education Certificate", "required": False},
+        {"key": "previous_offer_letter", "label": "Previous Offer Letter", "required": False},
+        {"key": "experience_letter", "label": "Experience Letter", "required": False},
+        {"key": "bank_passbook", "label": "Bank Passbook / Cancelled Cheque", "required": True},
+        {"key": "photo", "label": "Passport Photo", "required": False},
+    ],
+    "partner_external": [
+        {"key": "pan_card", "label": "PAN Card", "required": True},
+        {"key": "aadhaar_card", "label": "Aadhaar Card", "required": True},
+        {"key": "gst_cert", "label": "GST Certificate", "required": False},
+        {"key": "bank_passbook", "label": "Bank Passbook / Cancelled Cheque", "required": True},
+        {"key": "partnership_agreement", "label": "Partnership Agreement", "required": True},
+        {"key": "business_card", "label": "Business Card / Letterhead", "required": False},
+    ],
+    "vendor_internal": [
+        {"key": "pan_card", "label": "PAN Card", "required": True},
+        {"key": "aadhaar_card", "label": "Aadhaar Card", "required": True},
+        {"key": "resume", "label": "Resume / CV", "required": False},
+        {"key": "bank_passbook", "label": "Bank Passbook / Cancelled Cheque", "required": True},
+        {"key": "service_agreement", "label": "Service Agreement", "required": True},
+    ],
+    "vendor_external": [
+        {"key": "pan_card", "label": "PAN Card", "required": True},
+        {"key": "gst_cert", "label": "GST Certificate", "required": True},
+        {"key": "bank_passbook", "label": "Bank Passbook / Cancelled Cheque", "required": True},
+        {"key": "service_agreement", "label": "Service Agreement", "required": True},
+        {"key": "company_registration", "label": "Company Registration / Incorporation", "required": False},
+    ],
+}
 
 
 def _is_admin(u: dict) -> bool:
@@ -249,6 +298,35 @@ async def get_person(person_id: str, current_user: dict = Depends(get_current_us
 # ──────────────────────────────────────────────────────────────
 # POST /people — Add Person wizard
 # ──────────────────────────────────────────────────────────────
+class OnboardingDetails(BaseModel):
+    designation: Optional[str] = None
+    date_of_joining: Optional[str] = None  # ISO date
+    dob: Optional[str] = None  # ISO date
+    gender: Optional[str] = None  # male / female / other
+    blood_group: Optional[str] = None
+    # Address
+    current_address: Optional[str] = None
+    permanent_address: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    pincode: Optional[str] = None
+    # Emergency Contact
+    emergency_contact_name: Optional[str] = None
+    emergency_contact_phone: Optional[str] = None
+    emergency_contact_relation: Optional[str] = None
+    # KYC / Identity
+    pan_number: Optional[str] = None
+    aadhaar_number: Optional[str] = None
+    gst_number: Optional[str] = None
+    # Bank
+    bank_account_number: Optional[str] = None
+    bank_ifsc: Optional[str] = None
+    bank_name: Optional[str] = None
+    bank_account_holder_name: Optional[str] = None
+    # Misc
+    notes: Optional[str] = None
+
+
 class AddPersonRequest(BaseModel):
     person_type: str = Field(..., description="employee_internal | partner_external | vendor_internal | vendor_external")
     name: str
@@ -263,6 +341,8 @@ class AddPersonRequest(BaseModel):
     # Auto-generate password OR use provided
     custom_password: Optional[str] = None
     send_invite: bool = True
+    # Phase 4D+ — Onboarding / KYC details
+    onboarding: Optional[OnboardingDetails] = None
 
 
 @router.post("")
@@ -285,6 +365,12 @@ async def add_person(req: AddPersonRequest, current_user: dict = Depends(get_cur
 
     result: Dict[str, Any] = {"ok": True, "temp_password": temp_password}
 
+    # Build the onboarding payload once, attach to whichever entity we create
+    onboarding_payload = req.onboarding.model_dump(exclude_none=True) if req.onboarding else {}
+    if onboarding_payload:
+        onboarding_payload["captured_at"] = now
+        onboarding_payload["captured_by"] = current_user["id"]
+
     if req.person_type == "employee_internal":
         if not req.role:
             raise HTTPException(status_code=400, detail="role is required for employee_internal")
@@ -304,6 +390,8 @@ async def add_person(req: AddPersonRequest, current_user: dict = Depends(get_cur
                 "ui_modules": [],
                 "status": "active",
                 "must_change_password_on_next_login": True,
+                "onboarding": onboarding_payload,
+                "documents": [],
                 "created_at": now,
                 "created_by": current_user["id"],
             }
@@ -326,6 +414,8 @@ async def add_person(req: AddPersonRequest, current_user: dict = Depends(get_cur
             "ui_modules": [],
             "status": "active",
             "must_change_password_on_next_login": True,
+            "onboarding": onboarding_payload,
+            "documents": [],
             "created_at": now,
             "created_by": current_user["id"],
         }
@@ -358,9 +448,14 @@ async def add_person(req: AddPersonRequest, current_user: dict = Depends(get_cur
             "specialization": req.specialization or [],
             "vendor_type": "internal" if req.person_type == "vendor_internal" else "external",
             "default_payment_terms": {"payment_type": cat.get("default_payment_type") or "flat", "default_amount": 0, "currency": "INR"},
-            "bank_details": {},
-            "pan_number": "",
-            "gst_number": "",
+            "bank_details": {
+                "account_holder": (onboarding_payload.get("bank_account_holder_name") or req.name.strip()),
+                "account_number": onboarding_payload.get("bank_account_number", ""),
+                "ifsc": onboarding_payload.get("bank_ifsc", ""),
+                "bank_name": onboarding_payload.get("bank_name", ""),
+            } if onboarding_payload else {},
+            "pan_number": onboarding_payload.get("pan_number", "") if onboarding_payload else "",
+            "gst_number": onboarding_payload.get("gst_number", "") if onboarding_payload else "",
             "tds_applicable": False,
             "tds_rate": 0,
             "performance": {"total_cases_handled": 0, "total_paid_lifetime": 0.0, "rating": 0.0},
@@ -369,7 +464,9 @@ async def add_person(req: AddPersonRequest, current_user: dict = Depends(get_cur
             "last_payment_at": None,
             "can_login": True,
             "portal_credentials_sent": False,
-            "notes": "",
+            "notes": onboarding_payload.get("notes", "") if onboarding_payload else "",
+            "onboarding": onboarding_payload,
+            "documents": [],
             "created_at": now,
             "updated_at": now,
             "created_by": current_user["id"],
@@ -393,6 +490,8 @@ async def add_person(req: AddPersonRequest, current_user: dict = Depends(get_cur
                 "status": "active",
                 "must_change_password_on_next_login": True,
                 "auto_created_from_vendor": True,
+                "onboarding": onboarding_payload,
+                "documents": [],
                 "created_at": now,
                 "created_by": current_user["id"],
             }
@@ -511,3 +610,186 @@ async def reset_password(person_id: str, current_user: dict = Depends(get_curren
         }}
     )
     return {"ok": True, "temp_password": temp_password, "email": user["email"]}
+
+
+
+# ──────────────────────────────────────────────────────────────
+# Phase 4D+ — Onboarding Documents (KYC, bank, agreements)
+# ──────────────────────────────────────────────────────────────
+async def _fetch_person_entity(person_id: str):
+    """Returns (collection_name, document) for whichever entity owns this person_id."""
+    user = await users_col.find_one({"id": person_id}, {"_id": 0})
+    if user:
+        return "users", user
+    vendor = await vendors_col.find_one({"id": person_id}, {"_id": 0})
+    if vendor:
+        return "vendors", vendor
+    return None, None
+
+
+def _collection_for(name: str):
+    return users_col if name == "users" else vendors_col
+
+
+@router.get("/document-checklist/{person_type}")
+async def document_checklist(person_type: str, current_user: dict = Depends(get_current_user)):
+    """Return the recommended document checklist for a given person_type.
+    Frontend uses this to render the required-doc summary in the wizard / detail drawer.
+    """
+    if not _is_hr(current_user):
+        raise HTTPException(status_code=403, detail="Admin or HR role required")
+    return {"items": RECOMMENDED_DOCS.get(person_type, [])}
+
+
+@router.get("/{person_id}/documents")
+async def list_documents(person_id: str, current_user: dict = Depends(get_current_user)):
+    if not _is_hr(current_user):
+        raise HTTPException(status_code=403, detail="Admin or HR role required")
+    col_name, entity = await _fetch_person_entity(person_id)
+    if not entity:
+        raise HTTPException(status_code=404, detail="Person not found")
+    docs = entity.get("documents") or []
+    # Strip file system paths from response
+    items = []
+    for d in docs:
+        items.append({
+            "id": d.get("id"),
+            "doc_type": d.get("doc_type"),
+            "doc_label": d.get("doc_label"),
+            "file_name": d.get("file_name"),
+            "mime_type": d.get("mime_type"),
+            "size_bytes": d.get("size_bytes"),
+            "uploaded_at": _iso(d.get("uploaded_at")),
+            "uploaded_by": d.get("uploaded_by"),
+            "verified": d.get("verified", False),
+            "notes": d.get("notes", ""),
+        })
+    return {"items": items, "count": len(items)}
+
+
+@router.post("/{person_id}/documents")
+async def upload_document(
+    person_id: str,
+    doc_type: str = Form(...),
+    doc_label: Optional[str] = Form(None),
+    notes: Optional[str] = Form(None),
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user),
+):
+    if not _is_hr(current_user):
+        raise HTTPException(status_code=403, detail="Admin or HR role required")
+    col_name, entity = await _fetch_person_entity(person_id)
+    if not entity:
+        raise HTTPException(status_code=404, detail="Person not found")
+
+    content = await file.read()
+    if len(content) > MAX_DOC_SIZE:
+        raise HTTPException(status_code=413, detail=f"File too large (max {MAX_DOC_SIZE // (1024*1024)} MB)")
+    mime = (file.content_type or "").lower()
+    if mime not in ALLOWED_DOC_MIME:
+        # Try to guess from extension as fallback
+        guessed, _ = mimetypes.guess_type(file.filename or "")
+        if guessed not in ALLOWED_DOC_MIME:
+            raise HTTPException(status_code=415, detail=f"Unsupported file type: {file.content_type}. Allowed: PDF, JPG, PNG, WEBP, DOC/DOCX")
+        mime = guessed
+
+    person_dir = ONBOARDING_DIR / person_id
+    person_dir.mkdir(parents=True, exist_ok=True)
+    doc_id = str(uuid.uuid4())
+    safe_name = "".join(c if c.isalnum() or c in ('.', '-', '_') else '_' for c in (file.filename or "doc"))
+    stored_name = f"{doc_id}__{safe_name}"
+    file_path = person_dir / stored_name
+    file_path.write_bytes(content)
+
+    now = datetime.now(timezone.utc)
+    doc_entry = {
+        "id": doc_id,
+        "doc_type": doc_type,
+        "doc_label": doc_label or doc_type,
+        "file_name": file.filename or stored_name,
+        "stored_path": str(file_path),
+        "mime_type": mime,
+        "size_bytes": len(content),
+        "notes": notes or "",
+        "verified": False,
+        "uploaded_at": now,
+        "uploaded_by": current_user["id"],
+    }
+    col = _collection_for(col_name)
+    await col.update_one({"id": person_id}, {"$push": {"documents": doc_entry}, "$set": {"updated_at": now}})
+
+    return {
+        "ok": True,
+        "id": doc_id,
+        "doc_type": doc_type,
+        "doc_label": doc_label or doc_type,
+        "file_name": file.filename,
+        "mime_type": mime,
+        "size_bytes": len(content),
+        "uploaded_at": now.isoformat(),
+    }
+
+
+@router.get("/{person_id}/documents/{doc_id}/download")
+async def download_document(person_id: str, doc_id: str, current_user: dict = Depends(get_current_user)):
+    if not _is_hr(current_user):
+        raise HTTPException(status_code=403, detail="Admin or HR role required")
+    col_name, entity = await _fetch_person_entity(person_id)
+    if not entity:
+        raise HTTPException(status_code=404, detail="Person not found")
+    doc = next((d for d in (entity.get("documents") or []) if d.get("id") == doc_id), None)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    path = doc.get("stored_path")
+    if not path or not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="File missing on disk")
+    return FileResponse(
+        path,
+        media_type=doc.get("mime_type") or "application/octet-stream",
+        filename=doc.get("file_name") or "document",
+    )
+
+
+@router.delete("/{person_id}/documents/{doc_id}")
+async def delete_document(person_id: str, doc_id: str, current_user: dict = Depends(get_current_user)):
+    if not _is_hr(current_user):
+        raise HTTPException(status_code=403, detail="Admin or HR role required")
+    col_name, entity = await _fetch_person_entity(person_id)
+    if not entity:
+        raise HTTPException(status_code=404, detail="Person not found")
+    doc = next((d for d in (entity.get("documents") or []) if d.get("id") == doc_id), None)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    # Best-effort file delete
+    path = doc.get("stored_path")
+    if path and os.path.exists(path):
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+    col = _collection_for(col_name)
+    await col.update_one({"id": person_id}, {"$pull": {"documents": {"id": doc_id}}, "$set": {"updated_at": datetime.now(timezone.utc)}})
+    return {"ok": True}
+
+
+@router.post("/{person_id}/documents/{doc_id}/verify")
+async def verify_document(person_id: str, doc_id: str, current_user: dict = Depends(get_current_user)):
+    if not _is_hr(current_user):
+        raise HTTPException(status_code=403, detail="Admin or HR role required")
+    col_name, entity = await _fetch_person_entity(person_id)
+    if not entity:
+        raise HTTPException(status_code=404, detail="Person not found")
+    docs = entity.get("documents") or []
+    found = False
+    for d in docs:
+        if d.get("id") == doc_id:
+            d["verified"] = True
+            d["verified_by"] = current_user["id"]
+            d["verified_at"] = datetime.now(timezone.utc)
+            found = True
+            break
+    if not found:
+        raise HTTPException(status_code=404, detail="Document not found")
+    col = _collection_for(col_name)
+    await col.update_one({"id": person_id}, {"$set": {"documents": docs, "updated_at": datetime.now(timezone.utc)}})
+    return {"ok": True}

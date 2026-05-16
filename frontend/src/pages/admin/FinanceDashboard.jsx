@@ -20,8 +20,10 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
   ArrowLeft, IndianRupee, TrendingUp, Trophy, Banknote, Download,
-  Calendar, Crown, AlertCircle, Sparkles,
+  Calendar, Crown, AlertCircle, Sparkles, Settings, CheckCircle, Trash2,
 } from 'lucide-react';
+
+import CustomCommissionsPanel from '@/components/finance/CustomCommissionsPanel';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -113,6 +115,15 @@ export default function FinanceDashboard() {
     salesCommissions.total_commission + (vendorPayouts.totals.paid || 0) + (vendorPayouts.totals.approved || 0),
   [salesCommissions, vendorPayouts]);
 
+  const commissionAction = async (entryId, type, payload = {}) => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(`${API}/sales-commission/entries/${entryId}/${type}`, payload, { headers: { Authorization: `Bearer ${token}` } });
+      toast.success(`${type} done`);
+      load();
+    } catch (e) { toast.error(e?.response?.data?.detail || `${type} failed`); }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 p-6" data-testid="finance-dashboard">
       <div className="max-w-7xl mx-auto">
@@ -169,11 +180,12 @@ export default function FinanceDashboard() {
 
         {/* Tabs */}
         <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="grid grid-cols-4 mb-4">
+          <TabsList className="grid grid-cols-5 mb-4">
             <TabsTrigger value="overview" data-testid="tab-overview"><Sparkles className="h-3.5 w-3.5 mr-1" />Overview</TabsTrigger>
             <TabsTrigger value="commissions" data-testid="tab-commissions"><TrendingUp className="h-3.5 w-3.5 mr-1" />Sales ({salesCommissions.entries.length})</TabsTrigger>
             <TabsTrigger value="cm" data-testid="tab-cm"><IndianRupee className="h-3.5 w-3.5 mr-1" />CM ({cmEarningsAll.rows.length})</TabsTrigger>
             <TabsTrigger value="vendors" data-testid="tab-vendors"><Banknote className="h-3.5 w-3.5 mr-1" />Vendors ({vendorPayouts.rows.length})</TabsTrigger>
+            <TabsTrigger value="custom-rates" data-testid="tab-custom-rates"><Settings className="h-3.5 w-3.5 mr-1" />Custom Rates</TabsTrigger>
           </TabsList>
 
           {/* Overview Tab */}
@@ -229,16 +241,35 @@ export default function FinanceDashboard() {
               {loading ? <p className="text-sm text-slate-500 text-center py-6">Loading…</p> :
                 salesCommissions.entries.length === 0 ? <p className="text-sm italic text-slate-400 text-center py-8">No commissions for {period}</p> :
                 <table className="w-full text-sm">
-                  <thead><tr className="border-b text-[10px] uppercase text-slate-500"><th className="text-left py-2">Rep</th><th className="text-left py-2">Client / PA</th><th className="text-right py-2">Revenue</th><th className="text-center py-2">Slab</th><th className="text-right py-2">Commission</th><th className="text-center py-2">Status</th></tr></thead>
+                  <thead><tr className="border-b text-[10px] uppercase text-slate-500"><th className="text-left py-2">Rep</th><th className="text-left py-2">Client / PA</th><th className="text-right py-2">Revenue</th><th className="text-center py-2">Slab</th><th className="text-right py-2">Commission</th><th className="text-center py-2">Status</th><th className="text-right py-2">Action</th></tr></thead>
                   <tbody>
                     {salesCommissions.entries.map(e => (
-                      <tr key={e.id} className="border-b hover:bg-slate-50">
+                      <tr key={e.id} className="border-b hover:bg-slate-50" data-testid={`commission-row-${e.id}`}>
                         <td className="py-2">{e.user_name}<br /><span className="text-[10px] text-slate-500">{e.user_email}</span></td>
                         <td className="py-2 text-xs">{e.client_name}<br /><span className="text-[10px] text-slate-500">{e.pa_number}</span></td>
                         <td className="py-2 text-right font-medium">{formatINR(e.revenue)}</td>
                         <td className="py-2 text-center"><Badge className="bg-amber-100 text-amber-700 text-[10px]">{e.slab_name} ({e.rate_pct}%)</Badge></td>
                         <td className="py-2 text-right font-bold text-emerald-700">{formatINR(e.commission_amount)}</td>
                         <td className="py-2 text-center"><Badge className={`${STATUS_BADGE[e.status] || ''} text-[10px]`}>{e.status}</Badge></td>
+                        <td className="py-2 text-right">
+                          <div className="flex gap-1 justify-end">
+                            {e.status === 'pending' && (
+                              <Button size="sm" variant="outline" className="h-6 text-[10px] px-2" onClick={() => commissionAction(e.id, 'approve')} data-testid={`approve-${e.id}`}>
+                                Approve
+                              </Button>
+                            )}
+                            {(e.status === 'pending' || e.status === 'approved') && (
+                              <Button size="sm" className="h-6 text-[10px] px-2 bg-emerald-600 hover:bg-emerald-700" onClick={() => commissionAction(e.id, 'mark-paid', { payment_reference: window.prompt('Payment reference (NEFT/UPI):') || '' })} data-testid={`pay-${e.id}`}>
+                                <CheckCircle className="h-3 w-3 mr-0.5" />Pay
+                              </Button>
+                            )}
+                            {e.status !== 'reversed' && (
+                              <Button size="sm" variant="ghost" className="h-6 px-2 text-rose-600" title="Reverse" onClick={() => { if (window.confirm('Reverse this commission entry?')) commissionAction(e.id, 'reverse'); }} data-testid={`reverse-${e.id}`}>
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            )}
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -326,6 +357,11 @@ export default function FinanceDashboard() {
                 </table>
               }
             </Card>
+          </TabsContent>
+
+          {/* Custom Rates Tab */}
+          <TabsContent value="custom-rates">
+            <CustomCommissionsPanel />
           </TabsContent>
         </Tabs>
       </div>

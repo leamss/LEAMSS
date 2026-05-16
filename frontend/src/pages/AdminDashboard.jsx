@@ -1193,9 +1193,9 @@ const AdminDashboard = () => {
         { id: 'refund-manager', icon: XCircle, label: 'Refund Manager', onClick: () => { setActiveTab('refund-manager'); resetSelections(); } },
         { id: 'reminders', icon: Bell, label: 'Payment Reminders', onClick: () => { setActiveTab('reminders'); resetSelections(); } },
         { id: 'total-sales', icon: TrendingUp, label: 'Sales Report', onClick: () => { setActiveTab('total-sales'); resetSelections(); } },
-        { id: 'commissions', icon: DollarSign, label: 'Commissions', onClick: () => { setActiveTab('commissions'); resetSelections(); } },
+        { id: 'finance-center-link', icon: DollarSign, label: 'Commissions (→ Finance)', onClick: () => navigate('/admin/finance') },
         { id: 'revenue-forecast', icon: TrendingUp, label: 'Revenue Forecast', onClick: () => { setActiveTab('revenue-forecast'); resetSelections(); } },
-        { id: 'commission-analytics', icon: DollarSign, label: 'Commission Analytics', onClick: () => { setActiveTab('commission-analytics'); resetSelections(); } },
+        { id: 'commission-analytics-link', icon: DollarSign, label: 'Analytics (→ Finance)', onClick: () => navigate('/admin/finance') },
       ]
     },
     {
@@ -1246,7 +1246,6 @@ const AdminDashboard = () => {
         { id: 'vendor-categories', icon: Layers, label: 'Vendor Categories', onClick: () => navigate('/admin/vendors/categories') },
         { id: 'allocations', icon: IndianRupee, label: 'Cost Allocations', onClick: () => navigate('/admin/allocations') },
         { id: 'finance', icon: TrendingUp, label: 'Finance Center', onClick: () => navigate('/admin/finance') },
-        { id: 'commissions', icon: TrendingUp, label: 'Commissions', onClick: () => navigate('/admin/sales/commissions') },
         { id: 'commission-slabs', icon: Trophy, label: 'Commission Slabs', onClick: () => navigate('/admin/sales/commission-slabs') },
         { id: 'payouts', icon: Briefcase, label: 'Payout Queue', onClick: () => navigate('/admin/payouts') },
         // Phase 4C Unification — Cost Structures has been merged into Products (System → Products).

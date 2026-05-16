@@ -1,0 +1,42 @@
+{
+  "summary": "Iteration 103 — People Onboarding Form + Document KYC + Custom Commissions merge tested end-to-end. Backend: 24/24 new tests PASS. Frontend smoke (admin@leamss): Finance Center renders 5 tabs (Overview/Sales/CM/Vendors/Custom Rates), Custom Rates panel loads (Partner+Product+Rate+Save inputs render, 3 existing custom-rate rows listed), Sales tab shows inline Approve+Pay buttons per row + delete (reverse) icon. Add Person wizard opens with header 'Add Person — Step 1 of 4' and 4-segment progress bar = 4-step structure confirmed. Regression: phase4d_unification = 42/43 pass (1 transient network ConnectTimeout in test_express_invalid_mode_400 — flaky network, not a code regression; identical test passes when re-run).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "FinanceDashboard > Custom Rates rows", "issue": "2 of 3 existing custom-commission rows show 'Unknown' for both Partner and Product names. Backend GET /api/partner-commissions returns partner_name/product_name='Unknown' when the referenced partner/product no longer exists (deleted). Cosmetic; main agent may want to either hide orphan rows or label them 'Deleted partner/product'.", "selector": ".custom-rates-table", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration103_onboarding_docs.py",
+    "/app/test_reports/pytest/pytest_iteration103.xml",
+    "/app/test_reports/pytest/pytest_iteration103_regression.xml"
+  ],
+  "action_items": [
+    "(LOW/cosmetic) Custom Rates table shows 'Unknown' for partner/product names when the referenced entity has been deleted. Either hide orphan rows or label them explicitly.",
+    "(LOW) Consider adding a /api/people DELETE or hard-delete endpoint — TEST_* users created across iterations now number 11+ and only soft-deactivate is available."
+  ],
+  "critical_code_review_comments": [
+    "GOOD: people.py document upload validates mime AND size (10MB cap, mime whitelist with mimetypes.guess_type fallback). 413/415 codes correct.",
+    "GOOD: list_documents strips stored_path from response (no FS path leakage).",
+    "GOOD: delete_document does best-effort file unlink with try/except (won't fail API on FS errors).",
+    "GOOD: ONBOARDING_DIR is namespaced per person_id (uploads/people_documents/{person_id}/). doc filenames are sanitized (alnum/. - _ only) and prefixed with doc_id to prevent collisions.",
+    "GOOD: onboarding_payload is built once and attached to BOTH user_doc and vendor_doc (including the linked auto-created user for vendor_internal+case_manager/sales_commission), so onboarding is persisted on all entities created in a single POST /people call.",
+    "GOOD: vendor_doc lifts KYC fields (pan_number, gst_number, bank_details) to top-level so /vendors/* APIs that read them keep working — no schema drift.",
+    "OBSERVATION (carried from iter 102): /api/people POST still does NOT validate role string against INTERNAL_ROLES set; typo'd roles save. Recommend adding `if req.role not in INTERNAL_ROLES: raise 400` for employee_internal.",
+    "OBSERVATION: ALLOWED_DOC_MIME includes 'image/jpg' (non-standard) and 'image/jpeg' (standard). Harmless but redundant.",
+    "OBSERVATION: people.py is now 796 lines — approaching the 700-line guideline. Consider splitting onboarding-documents into a separate sub-router (e.g., people_documents.py).",
+    "GOOD: /api/partner-commissions GET/POST/DELETE all working; rate range validation (0-100) enforced; required-field validation works."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration103_onboarding_docs.py (NEW — 24 tests across checklist, onboarding persistence, document CRUD/verify, partner-commissions regression, express settings, mock-pay route)"
+  ],
+  "success_rate": {"backend": "100% (24/24 new + 42/43 regression — 1 transient network timeout)", "frontend": "smoke OK (Finance 5 tabs + Custom Rates panel + Sales action buttons + 4-step wizard header all confirmed)"},
+  "test_credentials": "admin@leamss.com/Admin@123; partner@leamss.com/Partner@123",
+  "seed_data_creation": "Created ~5 TEST_* users (test_emp_*, test_partner_*, test_noonb_*) + 1 TEST_* external vendor (test_vext_*) via POST /api/people. All soft-deactivated by test_zz_cleanup_test_people at end of run. Created 1 partner-commission row (cleaned up via DELETE).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Backend test for this iteration is at /app/backend/tests/test_iteration103_onboarding_docs.py — 24 tests covering Phase 4D+ onboarding forms + KYC document upload/verify/download/delete + partner-commissions + express settings + public mock-pay route reachability. /api/vendors/categories returns {categories: [...]} with key=case_manager (internal), consultant (external), etc. /api/express/settings/searchable-users returns {items: [...], count: N}. /api/users?role=partner returns flat list. Use _login() helper with 3-retry pattern — preview SSL connection occasionally times out at 30s but succeeds within 90s. Frontend Add Person wizard requires a person-type radio selection before Next becomes enabled — playwright must click Internal Employee/External Partner/etc card first.",
+  "rca of the issue": "N/A — no code bugs found. 1 minor UX issue: Custom Rates table shows 'Unknown' label for orphaned partner/product references; cosmetic. 1 transient network-level flake on Phase 4D regression express_invalid_mode_400 — not reproducible on retry."
+}
