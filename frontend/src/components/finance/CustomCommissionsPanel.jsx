@@ -183,9 +183,19 @@ export default function CustomCommissionsPanel() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((r, i) => (
-                <CustomRateRow key={`${r.partner_id}-${r.product_id}`} row={r} index={i} onSave={updateRate} onRemove={remove} />
-              ))}
+              {rows.map((r, i) => {
+                const orphan = (r.partner_name === 'Unknown' || r.product_name === 'Unknown');
+                return (
+                  <CustomRateRow
+                    key={`${r.partner_id}-${r.product_id}`}
+                    row={r}
+                    index={i}
+                    orphan={orphan}
+                    onSave={updateRate}
+                    onRemove={remove}
+                  />
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -203,14 +213,22 @@ export default function CustomCommissionsPanel() {
 }
 
 
-function CustomRateRow({ row, index, onSave, onRemove }) {
+function CustomRateRow({ row, index, orphan, onSave, onRemove }) {
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState(row.commission_rate);
 
   return (
-    <tr className="border-t hover:bg-slate-50" data-testid={`cc-row-${index}`}>
-      <td className="px-3 py-2 font-medium">{row.partner_name}</td>
-      <td className="px-3 py-2">{row.product_name}</td>
+    <tr className={`border-t hover:bg-slate-50 ${orphan ? 'opacity-60' : ''}`} data-testid={`cc-row-${index}`}>
+      <td className="px-3 py-2 font-medium">
+        {row.partner_name === 'Unknown' ? (
+          <span className="text-rose-600 italic text-xs">⚠ Deleted partner</span>
+        ) : row.partner_name}
+      </td>
+      <td className="px-3 py-2">
+        {row.product_name === 'Unknown' ? (
+          <span className="text-rose-600 italic text-xs">⚠ Deleted product</span>
+        ) : row.product_name}
+      </td>
       <td className="px-3 py-2 text-center">
         {editing ? (
           <Input

@@ -4,6 +4,36 @@ This file appends every completed phase/feature with dates and verification stat
 
 ---
 
+### 🔧 Phase 4D+ — P1 Enhancements: Finance Unification + People Onboarding
+**Completed:** May 16, 2026
+**Tests:** `iteration_103.json` → Backend 24/24 new + 42/43 regression PASS · Frontend smoke OK
+
+#### P1.1 — Custom Per-Partner Product Commission UI merged into Finance Center
+- New tab "**Custom Rates**" in `/admin/finance` — full CRUD UI for per-partner-per-product commission overrides.
+- Inline **Approve / Pay / Reverse** actions added to the Sales (commissions) tab — no need to navigate to old `/admin/sales/commissions` page anymore.
+- Sidebar entries "Commissions" + "Commission Analytics" now redirect to Finance Center for unified UX.
+- Orphan rows (deleted partner/product) labelled "⚠ Deleted partner / Deleted product" with reduced opacity for clarity.
+- Component: `frontend/src/components/finance/CustomCommissionsPanel.jsx`.
+
+#### P1.2 — People Onboarding Form (KYC docs + onboarding fields in Add Person Wizard)
+- **Wizard expanded from 3 → 4 steps**: Type → Basic Info → Role → **Onboarding** (new).
+- Step 4 captures: Employment (designation, DOJ, DOB, gender), Address (current/permanent/city/state/pincode), Emergency contact (name/phone/relation), KYC (PAN/Aadhaar/GST), Bank (holder/account/IFSC/bank), Notes.
+- All onboarding fields persisted to `users.onboarding` AND `vendors.onboarding` collection (including the auto-linked user account for internal vendors).
+- Vendor docs get KYC/bank lifted to top-level fields too — keeps existing `/vendors/*` API contracts working.
+- New **Documents** section in Person Detail drawer:
+  - Required checklist (per person_type): PAN, Aadhaar, Resume, Bank Passbook, etc.
+  - Upload (PDF/JPG/PNG/WEBP/DOC/DOCX, max 10 MB), Download, Verify (admin attestation), Delete.
+  - Files stored at `/app/uploads/people_documents/{person_id}/{doc_id}__filename` with sanitized names.
+- 5 new backend endpoints in `routers/people.py`:
+  - `GET /api/people/document-checklist/{person_type}` — recommended docs
+  - `GET /api/people/{id}/documents` — list
+  - `POST /api/people/{id}/documents` (multipart) — upload
+  - `GET /api/people/{id}/documents/{doc_id}/download` — download
+  - `POST /api/people/{id}/documents/{doc_id}/verify` — verify
+  - `DELETE /api/people/{id}/documents/{doc_id}` — delete
+
+
+
 ### 🔧 Phase 4D — Express Sale Limits Admin Control + Token Link Bug Fix
 **Completed:** May 16, 2026
 **Tests:** End-to-end curl PASS · Frontend smoke screenshot PASS
