@@ -4,6 +4,59 @@ This file appends every completed phase/feature with dates and verification stat
 
 ---
 
+### 🚀 Phase 6.3 + 6.4 — AI Analysis Engine + Recommendations UI · THE HEART of Phase 6
+**Completed:** May 16, 2026 (Day 3 of Phase 6)
+**Tests:** `test_iteration106_eligibility_assessments.py` → 19/19 PASS · Regression intact
+
+#### Backend — Hybrid AI Architecture
+
+**1. Custom Rules Engine** (`core/eligibility_rules.py`, ~500 lines, pure Python, deterministic)
+- `PointsCalculator` — country-agnostic, applies any seeded points_system (AU `competent_6/proficient_7/superior_8`, CA `clb_9_plus/clb_8/...`, NZ 6-point system)
+- `EligibilityChecker` — hard requirements per visa (age, points, experience, education, language, sponsorship/state nomination warnings)
+- `CodeMatcher` — token-based fuzzy match of profession/designation → occupation code with confidence score + alternatives
+- `BodyIdentifier` — occupation code → skill body lookup (with `assesses_occupations: ["all_education"]` wildcard)
+- `SuccessPredictor` — heuristic score 0-100 with positive/negative factors (high/medium/low label)
+- `analyze_country_rules()` — aggregates all 5 modules into a single country result
+
+**2. Claude AI Enrichment** (`core/eligibility_ai.py`, ~150 lines)
+- Wraps `LlmChat` with `EMERGENT_LLM_KEY` → `claude-sonnet-4-6`
+- Strict JSON-only system prompt (narrative, strengths, weaknesses, visa reasoning, occupation reasoning, body advice, personalised advice, risk factors, alternative pathways, probability narrative)
+- Robust JSON parsing (handles ```json wrappers, first `{` / last `}` extraction)
+- **Graceful degradation**: any failure (timeout, parse error, budget exhausted) → `_fallback_enrichment()` synthesizes a structurally-identical response from rules output so UI never breaks
+- Budget exhaustion detection — labels `_ai_fallback_reason='ai_budget_exhausted: ...'` for ops visibility
+
+**3. Assessments Router** (`routers/eligibility_assessments.py`, ~360 lines)
+- `POST /api/eligibility/assessments/run` — parallel `asyncio.gather` across all selected countries with per-country 30s timeout
+- 24h SHA-256 cache key based on profile content + sorted country codes
+- `GET /api/eligibility/assessments/{id}` — full retrieval with RBAC
+- `GET /api/eligibility/assessments/profile/{profile_id}` — latest for a profile
+- `POST /api/eligibility/assessments/{id}/re-run` — force bypass cache
+- `GET /api/eligibility/assessments/{id}/insights` — compact embed view (best country/visa/score/narrative)
+- `GET /api/eligibility/assessments` — paginated history (RBAC-filtered)
+- Auto-updates `profile.status = 'assessed'` + sets `profile.assessment_id`
+
+#### Frontend — Recommendations UI (`pages/eligibility/EligibilityAssessmentResults.jsx`, ~700 lines)
+
+- `/eligibility/profile/{id}/assess` — **Runner page**: animated Sparkles icon, 6-stage progress (5.5s intervals), graceful timeout handling (120s axios timeout), retry button on failure
+- `/eligibility/results/{id}` — **Results page**:
+  - **Best Match Hero Card** — flag, country, recommended visa, Claude narrative, action buttons (View Detailed / Generate Checklist [6.5] / Create PA [6.6])
+  - **Country Comparison Strip** — all analyzed countries with verdict badges + scores
+  - **Per-Country Detail Tabs** (5 tabs):
+    - **Visa**: recommended + AI reasoning + all-evaluated table with failures/warnings
+    - **Skill**: occupation code with confidence + skill body card with fee/processing/website + documents list + AI body advice
+    - **Points**: total + minimum-required progress bar + category breakdown
+    - **Success**: probability badge + strengths/weaknesses dual cards + AI risk factors
+    - **Next Steps**: numbered AI personalised advice + executive summary
+- AI Status badge (`Claude claude-sonnet-4-6` ↔ `Rules-only fallback`) for transparency
+
+#### Test File
+- `backend/tests/test_iteration106_eligibility_assessments.py` (295 lines) — 19 tests covering full happy path + cache + re-run + modes + permissions + regression. Budget-exhaustion-aware AI assertion (passes even if Emergent LLM Key budget is depleted, since fallback layer is functional).
+
+#### Known External Issue
+- **Emergent LLM Key budget exhausted** at iteration 106. Hybrid architecture handles this gracefully (UI shows rules-only enrichment with clear "fallback" badge). To restore full AI analysis: **Profile → Universal Key → Add Balance**.
+
+
+
 ### 🚀 Phase 6.2 — AI Eligibility Engine · Smart Profile Form
 **Completed:** May 16, 2026 (Day 2 of Phase 6)
 **Tests:** `iteration_105.json` → Backend 23/23 PASS · Frontend 100% smoke · Phase 6.1 & 4D regression intact

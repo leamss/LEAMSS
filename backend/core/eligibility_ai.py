@@ -128,8 +128,13 @@ async def claude_enrich(
         logger.error(f"Claude JSON parse failed: {e}")
         return _fallback_enrichment(rules_output, reason=f"ai_parse_error:{e}")
     except Exception as e:
+        err_text = str(e)
+        if "budget" in err_text.lower() or "Budget has been exceeded" in err_text:
+            reason = f"ai_budget_exhausted: {err_text[:100]}"
+        else:
+            reason = f"ai_call_error:{type(e).__name__}: {err_text[:80]}"
         logger.error(f"Claude call failed: {e}")
-        return _fallback_enrichment(rules_output, reason=f"ai_call_error:{type(e).__name__}")
+        return _fallback_enrichment(rules_output, reason=reason)
 
 
 def _fallback_enrichment(rules: Dict[str, Any], reason: str = "ai_unavailable") -> Dict[str, Any]:
