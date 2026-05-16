@@ -4,6 +4,43 @@ This file appends every completed phase/feature with dates and verification stat
 
 ---
 
+### 🚀 Phase 6.2 — AI Eligibility Engine · Smart Profile Form
+**Completed:** May 16, 2026 (Day 2 of Phase 6)
+**Tests:** `iteration_105.json` → Backend 23/23 PASS · Frontend 100% smoke · Phase 6.1 & 4D regression intact
+
+#### Backend (NEW)
+- `routers/eligibility_profiles.py` (475 lines) — 11 endpoints under `/api/eligibility/profiles/`:
+  - `POST /` — create with full profile sections; auto-computes age from DOB
+  - `GET /` — paginated list with `search` + `status` filters; RBAC-filtered for non-admin (only own / linked-PA profiles)
+  - `GET /{id}` — full profile detail
+  - `PATCH /{id}` — section-level merge (preserves untouched sections)
+  - `DELETE /{id}` — soft permission: only creator or admin
+  - `POST /{id}/duplicate` — clone with `(Copy)` suffix, fresh id, status=draft
+  - `POST /{id}/link-to-pa` / `POST /{id}/unlink-pa` — bidirectional PA association with denormalized fields
+  - `POST /prefill-from-pa/{pa_id}` — returns pre-populated draft payload (frontend reviews before persisting)
+  - `GET /stats/me` — current-user dashboard counts (total / draft / complete / assessed)
+- New collection: `client_eligibility_profiles` with profile_id format `ELG-YYYYMMDD-XXXXXX`
+- 9 Pydantic models for sections (BasicInfo, Professional, Education, LanguageProficiency, Family, Finances, Preferences, WorkHistoryEntry, AdditionalFactors)
+- RBAC: admin/sales/partner/CM/HR can view; client role explicitly excluded (403)
+
+#### Frontend (NEW)
+- `pages/eligibility/EligibilityProfileWizard.jsx` (~800 lines) — 7-step multi-step wizard:
+  - **Step 1**: Search Mode picker (Specific / Top 3 [recommended] / Custom / Top 5) with country selector for specific & multi-select chips for custom (2–5 cap)
+  - **Step 2**: Basic Info with live age calculation from DOB
+  - **Step 3**: Profession + Education (required-field gating)
+  - **Step 4**: Language Proficiency (IELTS/PTE/TOEFL/CELPIP with per-band scores)
+  - **Step 5**: Family + Finances + Preferences
+  - **Step 6**: Work History (dynamic add/remove entries) + Additional Factors
+  - **Step 7**: Review with section cards + Edit-jumps + final "Save & Run Analysis" CTA
+- Auto-save every 30s after Step 0 (uses `lastAutoSavedSnapshot` ref to avoid no-op writes)
+- Manual "Save Draft" button always available
+- Progress dots clickable to jump back to completed steps
+- `pages/eligibility/EligibilityProfiles.jsx` — List page (search + status filter + 4 stat cards) + Detail page (read-only KV summary)
+- Routes wired: `/eligibility/profiles`, `/eligibility/new-assessment`, `/eligibility/edit/:id`, `/eligibility/profile/:id`
+- Sidebar entries added under "AI Eligibility Engine" group (Admin Dashboard)
+
+
+
 ### 🚀 Phase 6.1 — AI Eligibility Engine · Knowledge Base + Admin UI
 **Completed:** May 16, 2026 (Day 1 of Phase 6)
 **Tests:** `iteration_104.json` → Backend 32/32 PASS · Frontend 100% smoke pass · Phase 4D regression intact
