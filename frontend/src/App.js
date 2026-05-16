@@ -34,6 +34,7 @@ import SalesTargetsAdmin from '@/pages/admin/SalesTargetsAdmin';
 import TargetTemplatesManager from '@/pages/admin/TargetTemplatesManager';
 import ExpressApprovalsAdmin from '@/pages/admin/ExpressApprovalsAdmin';
 import ExpressSalesSettings from '@/pages/admin/ExpressSalesSettings';
+import EligibilityKnowledgeBase from '@/pages/admin/EligibilityKnowledgeBase';
 import AdminVendors from '@/pages/admin/AdminVendors';
 import VendorCategoriesManager from '@/pages/admin/VendorCategoriesManager';
 import CostStructuresManager from '@/pages/admin/CostStructuresManager';
@@ -133,6 +134,11 @@ function App() {
           <Route path="/admin/sales/express-settings" element={
             <RequirePermission anyOf={['system.user_manage.any']} allowRoles={['admin_owner', 'admin']}>
               <ExpressSalesSettings />
+            </RequirePermission>
+          } />
+          <Route path="/admin/eligibility/knowledge-base" element={
+            <RequirePermission allowRoles={['admin_owner', 'admin']}>
+              <EligibilityKnowledgeBase />
             </RequirePermission>
           } />
           <Route path="/admin/vendors" element={

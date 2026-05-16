@@ -1,0 +1,44 @@
+{
+  "summary": "Phase 6.1 Eligibility Knowledge Base (AU/CA/NZ) — backend + frontend tested end-to-end. Backend: 32/32 PASS in pytest (list/get countries, seed-shape verification AU=6V/8B/32O, CA=4V/5B/31O, NZ=4V/4B/20O, country CRUD with patch toggle, visa/skill-body/occupation CRUD, CSV bulk import w/ pipe-separated parsing, cross-country search occupations + skill-bodies, stats, partner-403 RBAC on every admin endpoint, Phase 4D /api/eligibility/score + /api/eligibility/pathways regression untouched). Frontend smoke (admin@leamss): /admin/eligibility/knowledge-base loads (eligibility-kb-page), 5 stat cards visible (Countries 3/4, Visa Categories 14, Skill Bodies 17, Occupation Codes 86, Avg/Country 29), all 6 tabs render (Countries/Visas/Skill Bodies/Occupations/Points/Docs), country selector shows AU+CA+NZ, Add-Country dialog opens with all 4 fields, Visas tab shows 6 rows for AU with edit+delete buttons, VisaEditor dialog opens with code/name/age/points/cost inputs, Skill Bodies tab shows 8 cards, Occupations tab has search+bulk-import+add buttons, search 'software' filters to 1 row, Points edit button present, Docs tab renders document templates. Zero page errors. Two non-critical a11y warnings (DialogContent missing aria-describedby).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "EligibilityKnowledgeBase dialogs (Add-Country, VisaEditor)", "issues": ["Console warning: 'Missing Description or aria-describedby for DialogContent' — add <DialogDescription> or aria-describedby to all 4 Radix DialogContent components for screen-reader compliance"]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration104_eligibility_kb.py",
+    "/app/test_reports/pytest/pytest_iteration104.xml"
+  ],
+  "action_items": [
+    "(LOW) Add DialogDescription/aria-describedby to Add-Country, VisaEditor, SkillBodyEditor, OccupationEditor dialogs to silence Radix a11y warnings.",
+    "(OBSERVATION) /app/frontend/src/pages/admin/EligibilityKnowledgeBase.jsx is 947 lines — exceeds the 700-line guideline. Recommend splitting into sub-components (VisaEditor.jsx, SkillBodyEditor.jsx, OccupationEditor.jsx, PointsEditor.jsx) for maintainability before Phase 6.2 builds on top.",
+    "(OBSERVATION) /app/backend/core/eligibility_kb_seed.py is 698 lines (just under). Will grow when more countries are added — consider one-file-per-country split."
+  ],
+  "critical_code_review_comments": [
+    "GOOD: eligibility_kb.py router is clean (~555 lines), strips MongoDB _id via _strip() helper, serialises datetimes, uses async/await consistently across all endpoints.",
+    "GOOD: RBAC enforcement is consistent — every mutating endpoint calls _is_admin() and returns 403; every read endpoint calls _is_viewer() (partner included). Verified via 6 partner-403 tests.",
+    "GOOD: Seed runs idempotently on first request (_ensure_seeded with global flag) AND can be re-triggered via POST /seed/run (admin-only). Existing data preserved (only inserts missing country_codes).",
+    "GOOD: Bulk CSV importer validates headers (400 if 'code'/'title' missing), enforces 2MB limit (413), tolerates UTF-8 BOM via utf-8-sig fallback, splits pipe-separated arrays correctly, batches inserts via $push $each + per-row $set for updates.",
+    "GOOD: Visa/skill-body upsert uses both visa_id AND code for dedup match — prevents duplicate codes within a country even if visa_id differs.",
+    "GOOD: Soft-delete on country (sets is_active=False) preserves history; non-admin list view filters out inactive automatically.",
+    "GOOD: Phase 4D /api/eligibility/score + /api/eligibility/pathways unaffected — separate router, no path collision. Regression tests pass.",
+    "GOOD: Seed data quality verified — AU has 6 visa subclasses (189/190/491/186-DE/186-TRT/494), 8 skill bodies (ACS/Engineers Aus/VETASSESS/CPAA/etc), 32 ANZSCO codes; CA has 4 programs (FSWP/CEC/FSTP/PNP), 5 ECA (WES/IQAS/ICAS/ICES/MCC), 31 NOC codes; NZ has 4 visas (SMC/Green-T1/Green-T2/AEWV), 4 bodies, 20 codes. All match user-stated expectations exactly.",
+    "GOOD: Search endpoint min_length=2 validation via FastAPI Query returns 422 correctly.",
+    "OBSERVATION: countries_col = db['country_rules'] is a module-level singleton — fine for current pattern but tight coupling to global db object.",
+    "OBSERVATION: bulk-import loop calls update_one() once-per-row for existing occupations (N+1) — fine for small CSVs but consider $bulkWrite for 1000+ row imports.",
+    "OBSERVATION: delete_country is soft-delete only — list_countries still shows it (with is_active=False badge). No hard-delete endpoint. Acceptable per design, but admins can't fully remove a country without DB access."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration104_eligibility_kb.py (NEW — 32 tests covering all 10 KB endpoints + RBAC + Phase 4D regression)"
+  ],
+  "success_rate": {"backend": "100% (32/32)", "frontend": "100% smoke (all 6 tabs render, country selector + stat cards + dialogs all functional, zero page errors)"},
+  "test_credentials": "admin@leamss.com / Admin@123 (admin operations); partner@leamss.com / Partner@123 (403 negative tests)",
+  "seed_data_creation": "Created throwaway country 'ZZ' (TEST_Zedland) + visa TEST-189 + skill body TEST_BODY + occupations TEST-261313/TEST-9001/TEST-9002/TEST-9003. All cleaned up: soft-delete via API + hard-delete via direct mongo to remove ZZ document (kept countries_col clean for Phase 6.2 development). AU/CA/NZ untouched and verified unchanged after each round of test-country mutation.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Backend test for Phase 6.1 KB is at /app/backend/tests/test_iteration104_eligibility_kb.py — reuse as regression for sub-modules 6.2-6.6. ALL admin operations require rbac_role in {admin, admin_owner}. VIEWER_ROLES is broad (partner/case_manager/sales_*/hr_manager + permissions wildcard) — partner CAN view but CANNOT mutate. Seed-data shape (AU=6V/8B/32O, CA=4V/5B/31O, NZ=4V/4B/20O) is a contract — Phase 6.2 Smart Profile Form will read these. CSV bulk import expects pipe-separated arrays for eligible_visas + alternative_titles and 'state_demand_XX' prefixed columns. Phase 4D endpoints (/api/eligibility/score, /api/eligibility/pathways) are a DIFFERENT router and must keep working — verified. Frontend page at /admin/eligibility/knowledge-base — 947 lines, may need refactor before 6.2 work. data-testids are exhaustive (country-tab-{CODE}, tab-{name}, edit-visa-{visa_id}, occ-row-{code}, etc.) — Playwright-friendly.",
+  "rca of the issue": "N/A — no bugs found. Only minor improvements: (1) DialogContent a11y aria-describedby missing (cosmetic console warning, not blocking), (2) EligibilityKnowledgeBase.jsx is 947 lines (above 700-line guideline) — refactor recommended before stacking Phase 6.2/6.3/6.4 logic. All endpoint contracts, seed data, RBAC, and Phase 4D regression confirmed green."
+}

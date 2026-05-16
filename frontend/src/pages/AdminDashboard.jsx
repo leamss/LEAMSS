@@ -18,7 +18,7 @@ import {
   Search, DollarSign, TrendingUp, CheckCircle, XCircle, Clock,
   MessageSquare, Filter, Calendar, RefreshCw, AlertTriangle, Copy, Mail, Gift,
   Menu, X, Bell, Loader2, CreditCard, BarChart3, Activity, Megaphone,
-  ArrowRightLeft, Zap, BookOpen, Star, UserCheck, ClipboardList, Sparkles, Calculator, Database, Package, Home, Shield, Target, Layers, IndianRupee, Trophy
+  ArrowRightLeft, Zap, BookOpen, Star, UserCheck, ClipboardList, Sparkles, Calculator, Database, Package, Home, Shield, Target, Layers, IndianRupee, Trophy, Globe
 } from 'lucide-react';
 import BulkOperations from '@/pages/BulkOperations';
 import SLATracker from '@/pages/SLATracker';
@@ -1232,6 +1232,13 @@ const AdminDashboard = () => {
         { id: 'tickets', icon: MessageSquare, label: 'Tickets', badge: ticketStats.open, onClick: () => { setActiveTab('tickets'); resetSelections(); } },
         { id: 'settings', icon: Settings, label: 'Settings', onClick: () => { setActiveTab('settings'); resetSelections(); } },
         { id: 'appointments', icon: Calendar, label: 'Appointments', onClick: () => { setActiveTab('appointments'); resetSelections(); } },
+      ]
+    },
+    {
+      groupLabel: 'AI Eligibility Engine',
+      defaultOpen: false,
+      items: [
+        { id: 'eligibility-kb', icon: Globe, label: 'Knowledge Base', onClick: () => navigate('/admin/eligibility/knowledge-base') },
       ]
     },
     {
