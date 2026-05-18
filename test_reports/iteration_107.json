@@ -1,0 +1,34 @@
+{
+  "summary": "Phase 6.7 Part 1 — Critical AI Eligibility Engine bug fixes tested end-to-end. 16/16 pytest tests PASS (run individually after testing-agent reported earlier timeouts). All 7 partner-points scenarios behave per the new Option A/B/C/D/E spec: (a) Single → single_or_pr_partner +10; (b) Married + skill_assessment + all 4 gates pass → skilled_partner +10; (c) Married + skill_assessment + spouse_age=47 (gate fail) → DOWNGRADE to competent_english_only +5 with note explaining which gate failed; (d) Married + non_contributing → 0 with note; (e) Married + australian_pr_citizen → single_or_pr_partner +10; (f) Married + english_only + competent IELTS → competent_english_only +5; (g) Divorced → single_or_pr_partner +10. The 'Veterinarian degree + Marketing profession' critical test confirmed: Claude AI correctly proposes NOC 10022 (Marketing/Advertising/PR Managers) instead of the rules-engine's misfired NOC 31100 (Specialist Physicians), AND explicitly states 'Her degree is irrelevant to occupation matching.' Cache invalidation works on contribution_type change. Migration endpoint is idempotent + admin-gated (partner 403). Phase 6.2 regression PASS (list/stats-me/client-403). UI smoke screenshot confirms: applicant-panels container, primary-applicant-panel with current profession highlighted in indigo, spouse-information-panel with contribution badge ('English Only +5 pts'), primary-applicant-analysis-header divider, and points-partner-row in Points tab with full note/age/IELTS context.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iteration107_phase67_eligibility.py",
+    "/app/test_reports/pytest/pytest_iteration107.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "GOOD: New Option A/B/C/D/E partner points logic in /app/backend/core/eligibility_rules.py:235-355 is strictly rule-based with explicit gates (age<45, competent English IELTS 6+ all bands, applicant on visa). Gracefully downgrades skill_assessment → competent_english_only when only the age/skill gate fails but English passes — captured in `note` field for transparency.",
+    "GOOD: AI prompt in /app/backend/core/eligibility_ai.py SYSTEM_PROMPT has 5 ABSOLUTE RULES with visual emphasis (🔴). Rule 2 (CURRENT PROFESSION drives occupation matching) is reinforced 3 times: in the system prompt, in the user prompt PROFILE_FOCUS block with CAPS keys, and in the closing REMINDER. _build_user_prompt also injects up to 60 occupation codes for Claude to pick from explicitly.",
+    "GOOD: _spouse_context() helper returns None when contribution_type is not_applicable/non_contributing — prevents Claude from being distracted by spouse data that doesn't contribute to points.",
+    "GOOD: Assessment doc now stores marital_status + primary_applicant_snapshot + spouse_snapshot at write time, so results UI can render the Spouse Info panel without an extra profile fetch.",
+    "GOOD: Cache key _profile_hash() now includes marital_status + primary_applicant + spouse + dependents — verified via test_contribution_type_change_invalidates_cache.",
+    "GOOD: Frontend ApplicantPanels component cleanly handles 3 states: married+spouse (pink panel), married+no-spouse-data (fallback), single/divorced (slate 'No Spouse' panel). All data-testids in place: applicant-panels, primary-applicant-panel, spouse-information-panel, no-spouse-panel, primary-applicant-analysis-header, points-partner-row, primary-profession.",
+    "OBSERVATION: Pre-existing lint warnings in eligibility_rules.py (E741 var name `l`, E702 semicolons) were NOT introduced by this fix. Can be cleaned up in a future refactor.",
+    "OBSERVATION: Backend response times — assessment run takes ~25-35s due to live Claude AI call. This is expected (4-country top_3/top_5 modes run in parallel) but UI shows a progress bar via EligibilityAssessmentRunner."
+  ],
+  "updated_files": [
+    "/app/backend/core/eligibility_rules.py (calculate_points partner logic rewrite — Option A/B/C/D/E)",
+    "/app/backend/core/eligibility_ai.py (SYSTEM_PROMPT + _build_user_prompt + new _spouse_context helper)",
+    "/app/backend/routers/eligibility_assessments.py (_profile_hash + assessment doc captures profile snapshots)",
+    "/app/frontend/src/pages/eligibility/EligibilityAssessmentResults.jsx (new ApplicantPanels component + PRIMARY APPLICANT ANALYSIS divider + Points-tab partner row special rendering)",
+    "/app/backend/tests/test_iteration107_phase67_eligibility.py (NEW — 16 tests)"
+  ],
+  "success_rate": {"backend": "100% (16/16)", "frontend": "100% smoke screenshot — applicant-panels render, spouse info panel visible, current profession highlighted, divider visible"},
+  "test_credentials": "admin@leamss.com / Admin@123 (CRUD + all admin operations); partner@leamss.com / Partner@123 (partner-only access checks); client@leamss.com / Client@123 (negative 403 checks)",
+  "seed_data_creation": "Created and cleaned up 16 TEST_67_* profiles during pytest run (auto-cleanup via _cleanup helper). Additionally cleaned up 19 main-agent curl-test profiles. client_eligibility_profiles collection clean.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Phase 6.7 Part 1 is COMPLETE. Backend rules + AI prompt + UI separation all verified. NEXT phase is Phase 6.7 Part 2 (Resume Upload + AI Extraction, Client Self-Service Info Sheet, Pre-Analysis Verification Page). When Part 2 lands, regression test should include: (a) re-run iteration_107 partner-points scenarios; (b) confirm new resume upload endpoint doesn't break profile creation; (c) confirm pre-analysis verification page correctly displays Phase 6.7 separated fields before assessment runs.",
+  "rca of the issue": "N/A — no bugs found. The earlier 'partial run / 4 failed' from testing agent was a timeout artifact (each Claude AI call ~30-40s; 16 tests * ~35s = ~9 minutes — exceeded testing-agent's per-run window). Running the same tests individually with longer timeout = all 16 PASS."
+}

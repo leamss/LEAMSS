@@ -3,6 +3,61 @@
 This file appends every completed phase/feature with dates and verification status.
 
 ---
+### 🐛 Phase 6.7 Part 1 — Critical AI Eligibility Engine Bug Fixes (May 18, 2026)
+**Completed:** May 18, 2026
+**Tests:** `test_iteration107_phase67_eligibility.py` → 16/16 PASS
+
+**Bugs reported by user from manual testing:**
+1. AI was MIXING primary applicant and spouse profiles together in recommendations
+2. Partner points were being awarded just because spouse had a Master's degree (no strict gate check)
+3. ANZSCO/NOC codes were matched on past EDUCATION (e.g., Veterinary degree) instead of CURRENT PROFESSION (e.g., Marketing Specialist)
+4. Results UI did not visually separate "Primary Applicant Analysis" from "Spouse Information"
+
+**Fix #1 + #2 — Profile structure separation + conditional UI** *(implemented earlier this session)*:
+- `ProfileCreate` / `ProfilePatch` Pydantic models in `/app/backend/routers/eligibility_profiles.py` now support nested `primary_applicant`, `spouse`, `marital_status`, `dependents`, `schema_version=2`
+- `project_new_to_legacy()` denormalizes the new structure into the legacy flat fields (basic_info, professional, education, family) so existing rules code keeps working during transition
+- `POST /api/eligibility/profiles/admin/migrate-v67` — idempotent migration of legacy profiles to new structure (admin-only)
+- Wizard reorganized: Step 1 is now **Marital Status** (FIRST). Step 6 (Spouse) is **CONDITIONAL** — only shown when marital_status in {married, de_facto}. Spouse Contribution Type dropdown: skill_assessment / english_only / non_contributing / australian_pr_citizen / not_applicable
+
+**Fix #3 — Partner Skill Points Engine Rewrite** (`/app/backend/core/eligibility_rules.py`):
+- Replaced education-guessing logic with strict Option A/B/C/D/E rules per Australian government spec:
+  - **Option A** (`skill_assessment`) → +10 (`skilled_partner`) — gates: spouse age <45 + IELTS 6+ all bands + on visa. Falls below any gate → DOWNGRADE to Option B if English passes, else 0
+  - **Option B** (`english_only`) → +5 (`competent_english_only`) — gate: spouse IELTS 6+ all bands + on visa
+  - **Option C** (`non_contributing`) → 0
+  - **Option D** (`australian_pr_citizen`) → +10 (`single_or_pr_partner`)
+  - **Option E** (single / divorced / widowed / separated OR spouse not on visa) → +10 (`single_or_pr_partner`)
+- Each result now carries a `note` field explaining WHY (e.g., "Downgraded to English-only (gate failed: spouse age 47 ≥ 45)")
+- Captures spouse_age, spouse_english_overall, spouse_on_visa for UI transparency
+
+**Fix #4 — AI Prompt rewrite** (`/app/backend/core/eligibility_ai.py`):
+- New SYSTEM_PROMPT with 5 ABSOLUTE RULES (🔴):
+  - RULE 1: ALWAYS analyse the PRIMARY APPLICANT only — never spouse
+  - RULE 2: Match occupation codes using CURRENT PROFESSION (current_profession + designation), NOT past education
+  - RULE 3: Education earns points but does NOT determine the visa occupation
+  - RULE 4: Spouse points are a BONUS only; never the headline
+  - RULE 5: Respect the deterministic rules-engine (correct wrong codes, don't flip verdicts)
+- `_build_user_prompt` now serializes a `PROFILE_FOCUS` block with CAPS keys (PRIMARY_APPLICANT.CURRENT_PROFESSION, CURRENT_DESIGNATION) so Claude cannot miss them
+- Injects up to 60 occupation codes from country_rules for Claude to pick the right one from
+- New `_spouse_context()` helper returns None when spouse contribution is not_applicable/non_contributing — prevents AI distraction
+- **Verified critical scenario**: Profile with `field_of_study='Veterinary Science'` + `current_profession='Marketing Specialist'` for Canada → AI correctly proposes NOC 10022 (Advertising/Marketing/PR Managers) and explicitly states "Her degree is irrelevant to occupation matching"
+
+**Fix #5 + #6 — Results UI separation** (`/app/frontend/src/pages/eligibility/EligibilityAssessmentResults.jsx`):
+- New `ApplicantPanels` component renders side-by-side:
+  - **Primary Applicant panel** (indigo, left): full_name, age, current_country, CURRENT PROFESSION highlighted in indigo, experience, education, IELTS, with note "All visa recommendations + occupation codes below are for the PRIMARY APPLICANT only"
+  - **Spouse Information panel** (pink, right) — shown when married/de_facto with spouse data: contribution badge (e.g., "English Only +5 pts"), age, on-visa status, profession, IELTS, with note "Spouse data is used ONLY for partner-points calculation, not for visa selection"
+  - **No-Spouse panel** (slate) — shown when single/divorced/etc, explains partner-points implications
+- New "**PRIMARY APPLICANT ANALYSIS**" divider badge clearly separates the applicant panels from the country comparison/analysis section
+- Points tab now has special rendering for the partner row (`points-partner-row`) showing contribution_type, matched_key, note, spouse age + IELTS
+- Backend: Assessment doc now stores `marital_status` + `primary_applicant_snapshot` + `spouse_snapshot` at write time → UI renders without extra profile fetch
+- Cache key `_profile_hash()` now includes the new structure fields → contribution_type changes invalidate cache correctly
+
+**Test coverage (`test_iteration107_phase67_eligibility.py`):**
+- 16/16 PASS (74s individual, ~9 min full run due to live Claude calls)
+- TestNewProfileStructure (1), TestPartnerSkillPoints (7 — Options A/B/C/D/E + downgrade + divorced), TestAssessmentSnapshots (1), TestAIOccupationCodeChoice (1 — Vet vs Marketing), TestCacheInvalidation (1), TestMigrationEndpoint (2 — idempotency + partner 403), TestPhase62Regression (3 — list/stats/client-403)
+
+---
+
+
 
 ### 🚀 Phase 6.3 + 6.4 — AI Analysis Engine + Recommendations UI · THE HEART of Phase 6
 **Completed:** May 16, 2026 (Day 3 of Phase 6)

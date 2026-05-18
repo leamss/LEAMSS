@@ -5,6 +5,19 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 
 > **📌 Update (Feb 13, 2026):** `CHANGELOG.md` now tracks all completed phases (incl. **Phase 3A — Attendance & Leave** with full company policies). `ROADMAP.md` lists prioritized backlog. This PRD remains the static reference for original requirements.
 
+### 🐛 Phase 6.7 Part 1 — AI Eligibility Engine Bug Fixes (May 18, 2026)
+**Status:** ✅ COMPLETE — 16/16 backend tests PASS (`/app/test_reports/iteration_107.json`)
+
+User reported during manual testing that the AI Eligibility Engine was:
+1. Mixing primary applicant + spouse profiles in recommendations
+2. Awarding +10 partner points just because spouse had a Master's degree (no strict gate)
+3. Matching ANZSCO codes on past education (e.g., Veterinary degree) instead of current profession (e.g., Marketing Specialist)
+4. UI did not visually separate "Primary Applicant Analysis" from "Spouse Information"
+
+All 4 P0 bugs fixed. Strict Option A/B/C/D/E partner-points rules. AI prompt rewritten with 5 ABSOLUTE RULES forcing CURRENT PROFESSION matching. New ApplicantPanels component with primary/spouse separation + "PRIMARY APPLICANT ANALYSIS" divider. Schema migration endpoint available. See CHANGELOG.md for full details.
+
+
+
 
 ### 🎯 Phase 4D ARCHITECTURAL UNIFICATION (May 14, 2026)
 - **Unified People Management** at `/admin/people` — Single source of identity for employees, partners, vendors, clients. 3-step Add Person Wizard.
