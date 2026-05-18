@@ -208,6 +208,18 @@ export function EligibilityAssessmentResults() {
           </div>
         </div>
 
+        {/* Phase 6.7 — Primary Applicant + Spouse Information panels */}
+        <ApplicantPanels data={data} />
+
+        {/* Section divider — "Country Analysis" header */}
+        <div className="flex items-center gap-3 pt-2">
+          <div className="h-px bg-gradient-to-r from-indigo-200 via-indigo-400 to-indigo-200 flex-1" />
+          <Badge className="bg-indigo-600 text-white text-[10px] tracking-wider" data-testid="primary-applicant-analysis-header">
+            <Sparkles className="h-3 w-3 mr-1" />PRIMARY APPLICANT ANALYSIS
+          </Badge>
+          <div className="h-px bg-gradient-to-r from-indigo-200 via-indigo-400 to-indigo-200 flex-1" />
+        </div>
+
         {/* Best Match Hero Card */}
         {best ? (
           <Card className="p-6 bg-gradient-to-br from-indigo-50 via-white to-emerald-50 border-l-4 border-l-emerald-500" data-testid="best-match-card">
@@ -339,6 +351,133 @@ export function EligibilityAssessmentResults() {
 // ─────────────────────────────────────────────────────────────────
 // Sub-components
 // ─────────────────────────────────────────────────────────────────
+
+// Phase 6.7 — Primary Applicant + Spouse panels (sit above the analysis)
+function ApplicantPanels({ data }) {
+  const marital = data.marital_status || 'single';
+  const primary = data.primary_applicant_snapshot || {};
+  const spouse = data.spouse_snapshot;
+  const hasSpouse = !!spouse && ['married', 'de_facto'].includes(marital);
+  const contribution = spouse?.contribution_type || 'not_applicable';
+  const onVisa = spouse?.is_applicant_on_visa;
+
+  const contributionLabel = {
+    skill_assessment: { label: 'Skill Assessment +10 pts', color: 'bg-emerald-100 text-emerald-700' },
+    english_only: { label: 'English Only +5 pts', color: 'bg-sky-100 text-sky-700' },
+    non_contributing: { label: 'Non-Contributing 0 pts', color: 'bg-slate-100 text-slate-600' },
+    australian_pr_citizen: { label: 'AU PR/Citizen +10 pts', color: 'bg-violet-100 text-violet-700' },
+    not_applicable: { label: 'N/A', color: 'bg-slate-100 text-slate-600' },
+  }[contribution] || { label: contribution, color: 'bg-slate-100 text-slate-600' };
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-3" data-testid="applicant-panels">
+      {/* Primary Applicant Card */}
+      <Card className="p-4 border-l-4 border-l-indigo-500 bg-indigo-50/40" data-testid="primary-applicant-panel">
+        <div className="flex items-center gap-2 mb-2">
+          <Badge className="bg-indigo-600 text-white text-[9px]">PRIMARY APPLICANT</Badge>
+          <Badge className="bg-white text-slate-700 border text-[9px] capitalize">{marital.replace('_', ' ')}</Badge>
+        </div>
+        <h3 className="text-base font-bold text-slate-900">
+          {primary?.personal?.full_name || data.profile_name || '—'}
+        </h3>
+        <div className="grid grid-cols-2 gap-x-3 gap-y-1 mt-2 text-[11px] text-slate-600">
+          <div><span className="text-slate-400">Age:</span> <strong>{primary?.personal?.age || '—'}</strong></div>
+          <div><span className="text-slate-400">Country:</span> <strong>{primary?.personal?.current_country || 'India'}</strong></div>
+          <div className="col-span-2">
+            <span className="text-slate-400">Current Profession:</span>{' '}
+            <strong className="text-indigo-700" data-testid="primary-profession">
+              {primary?.professional?.current_profession || '—'}
+            </strong>
+            {primary?.professional?.designation && (
+              <span className="text-slate-500"> · {primary.professional.designation}</span>
+            )}
+          </div>
+          <div><span className="text-slate-400">Experience:</span> <strong>{primary?.professional?.years_experience_total ?? '—'} yrs</strong></div>
+          <div>
+            <span className="text-slate-400">Education:</span>{' '}
+            <strong className="capitalize">{(primary?.education?.highest_qualification || '—').replace('_', ' ')}</strong>
+          </div>
+          {primary?.education?.field_of_study && (
+            <div className="col-span-2 text-[10px] italic text-slate-500">
+              Field: {primary.education.field_of_study}
+            </div>
+          )}
+          {primary?.language?.scores?.overall && (
+            <div className="col-span-2">
+              <span className="text-slate-400">IELTS Overall:</span> <strong>{primary.language.scores.overall}</strong>
+              {primary.language.test_completed === false && <Badge className="ml-1 bg-amber-100 text-amber-700 text-[8px]">PLANNED</Badge>}
+            </div>
+          )}
+        </div>
+        <p className="text-[10px] text-indigo-600 mt-3 italic flex items-start gap-1">
+          <Star className="h-2.5 w-2.5 mt-0.5 flex-shrink-0" />
+          All visa recommendations + occupation codes below are for the PRIMARY APPLICANT only.
+        </p>
+      </Card>
+
+      {/* Spouse Info Card — visible only when married/de_facto and spouse data present */}
+      {hasSpouse ? (
+        <Card className="p-4 border-l-4 border-l-pink-400 bg-pink-50/40" data-testid="spouse-information-panel">
+          <div className="flex items-center gap-2 mb-2">
+            <Badge className="bg-pink-500 text-white text-[9px]">SPOUSE INFORMATION</Badge>
+            <Badge className={`${contributionLabel.color} text-[9px]`}>{contributionLabel.label}</Badge>
+          </div>
+          <h3 className="text-base font-bold text-slate-900">
+            {spouse?.personal?.full_name || 'Spouse'}
+          </h3>
+          <div className="grid grid-cols-2 gap-x-3 gap-y-1 mt-2 text-[11px] text-slate-600">
+            <div><span className="text-slate-400">Age:</span> <strong>{spouse?.personal?.age || '—'}</strong></div>
+            <div>
+              <span className="text-slate-400">On Visa:</span>{' '}
+              <strong className={onVisa ? 'text-emerald-700' : 'text-slate-500'}>{onVisa ? 'Yes' : 'No'}</strong>
+            </div>
+            {spouse?.professional?.current_profession && (
+              <div className="col-span-2">
+                <span className="text-slate-400">Profession:</span>{' '}
+                <strong>{spouse.professional.current_profession}</strong>
+              </div>
+            )}
+            {spouse?.education?.highest_qualification && (
+              <div>
+                <span className="text-slate-400">Education:</span>{' '}
+                <strong className="capitalize">{spouse.education.highest_qualification.replace('_', ' ')}</strong>
+              </div>
+            )}
+            {spouse?.language?.scores?.overall && (
+              <div>
+                <span className="text-slate-400">IELTS Overall:</span>{' '}
+                <strong>{spouse.language.scores.overall}</strong>
+              </div>
+            )}
+            {spouse?.is_australian_pr_or_citizen && (
+              <div className="col-span-2">
+                <Badge className="bg-violet-100 text-violet-700 text-[9px]">🇦🇺 AU PR/Citizen</Badge>
+              </div>
+            )}
+          </div>
+          <p className="text-[10px] text-pink-700 mt-3 italic flex items-start gap-1">
+            <AlertCircle className="h-2.5 w-2.5 mt-0.5 flex-shrink-0" />
+            Spouse data is used ONLY for partner-points calculation, not for visa selection.
+          </p>
+        </Card>
+      ) : (
+        <Card className="p-4 border-l-4 border-l-slate-300 bg-slate-50" data-testid="no-spouse-panel">
+          <Badge className="bg-slate-500 text-white text-[9px]">NO SPOUSE ON VISA</Badge>
+          <h3 className="text-base font-bold text-slate-900 mt-2 capitalize">{marital.replace('_', ' ')} Applicant</h3>
+          <p className="text-[11px] text-slate-600 mt-2">
+            {marital === 'single'
+              ? 'Single applicant — eligible for the "single_or_pr_partner" +10 partner-points bonus in Australia.'
+              : marital === 'married' || marital === 'de_facto'
+              ? 'Marital status indicates partner present but no spouse data recorded — applicant treated as single for points.'
+              : 'Applicant is being analysed individually. No partner-points adjustments apply.'}
+          </p>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+
 function ProbabilityBadge({ label, score }) {
   const map = {
     high: { color: 'bg-emerald-100 text-emerald-700 border-emerald-300', icon: ThumbsUp, label: 'HIGH' },
@@ -538,15 +677,50 @@ function PointsTab({ country }) {
         <div className="space-y-1">
           {entries.length === 0 ? (
             <p className="text-xs italic text-slate-400">No points categories matched the profile.</p>
-          ) : entries.map(([cat, val]) => (
-            <Card key={cat} className="p-3 flex items-center justify-between">
-              <div>
-                <p className="text-xs font-medium capitalize">{cat.replace(/_/g, ' ')}</p>
-                <p className="text-[10px] text-slate-500">{val.value || val.bucket || val.matched_key} · {val.bucket || val.matched_key || ''}</p>
-              </div>
-              <Badge className="bg-emerald-100 text-emerald-700">+{val.points}</Badge>
-            </Card>
-          ))}
+          ) : entries.map(([cat, val]) => {
+            // Phase 6.7 — pretty render for partner row
+            if (cat === 'partner') {
+              return (
+                <Card key={cat} className="p-3 border-l-4 border-l-pink-400 bg-pink-50/40" data-testid="points-partner-row">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <p className="text-xs font-bold flex items-center gap-1.5">
+                        <span>Partner / Spouse</span>
+                        <Badge className="bg-white text-slate-700 border text-[9px] capitalize">
+                          {(val.contribution_type || '').replace('_', ' ')}
+                        </Badge>
+                      </p>
+                      <p className="text-[10px] text-slate-500 mt-0.5">
+                        Matched key: <code className="bg-slate-100 px-1 rounded text-[9px]">{val.matched_key || '—'}</code>
+                      </p>
+                      {val.note && (
+                        <p className="text-[10px] text-slate-600 mt-1 italic">{val.note}</p>
+                      )}
+                      {(val.spouse_age || val.spouse_english_overall) && (
+                        <p className="text-[9px] text-slate-400 mt-0.5">
+                          {val.spouse_age && <span>Spouse age: {val.spouse_age}</span>}
+                          {val.spouse_age && val.spouse_english_overall && <span> · </span>}
+                          {val.spouse_english_overall && <span>IELTS: {val.spouse_english_overall}</span>}
+                        </p>
+                      )}
+                    </div>
+                    <Badge className={val.points > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}>
+                      +{val.points || 0}
+                    </Badge>
+                  </div>
+                </Card>
+              );
+            }
+            return (
+              <Card key={cat} className="p-3 flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium capitalize">{cat.replace(/_/g, ' ')}</p>
+                  <p className="text-[10px] text-slate-500">{val.value || val.bucket || val.matched_key} · {val.bucket || val.matched_key || ''}</p>
+                </div>
+                <Badge className="bg-emerald-100 text-emerald-700">+{val.points}</Badge>
+              </Card>
+            );
+          })}
         </div>
       </div>
     </div>

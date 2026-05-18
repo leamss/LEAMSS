@@ -232,26 +232,131 @@ def calculate_points(profile: Dict[str, Any], country: Dict[str, Any]) -> Dict[s
         breakdown["experience"] = {"value": yrs, "bucket": label, "points": pts}
         total += pts
 
-    # 5. Partner skills (bonus)
-    fam = profile.get("family") or {}
-    if fam.get("spouse_present"):
-        partner_pool = (pts_sys.get("partner_skills") or pts_sys.get("spouse_education") or {})
-        if partner_pool:
-            # Best-case: assume "skilled_partner" if spouse has bachelor+
-            spouse_edu = _safe_lower(fam.get("spouse_education"))
+    # 5. Partner / Spouse skills (Phase 6.7 — strict rule-based per AU/CA/NZ spec)
+    #
+    # Australia (Subclass 189/190/491) — partner_skills options:
+    #   • single_or_pr_partner: +10 (single applicant OR spouse is AU PR/citizen)
+    #   • skilled_partner:     +10 (spouse <45 + competent English + positive skill assessment + applicant on visa)
+    #   • competent_english_only: +5 (spouse has IELTS 6+ overall but no skill assessment)
+    #   • non_contributing:     0
+    #
+    # Reads from the NEW Phase 6.7 structure (profile.spouse) when available,
+    # falls back to the legacy projection (profile.family.spouse_*) otherwise.
+    partner_pool = pts_sys.get("partner_skills") or {}
+    if partner_pool:
+        spouse_block = profile.get("spouse") or None
+        fam = profile.get("family") or {}
+        bi = profile.get("basic_info") or {}
+        marital = _safe_lower(bi.get("marital_status") or profile.get("marital_status"))
+        contribution_type = (
+            (spouse_block.get("contribution_type") if spouse_block else None)
+            or fam.get("spouse_contribution_type")
+            or "not_applicable"
+        )
+        spouse_is_pr = bool(
+            (spouse_block.get("is_australian_pr_or_citizen") if spouse_block else False)
+            or fam.get("spouse_is_australian_pr_or_citizen")
+        )
+        spouse_is_on_visa = bool(
+            (spouse_block.get("is_applicant_on_visa") if spouse_block else None)
+            if spouse_block else fam.get("spouse_is_applicant_on_visa")
+        )
+        if spouse_block is None and not fam.get("spouse_present"):
+            spouse_is_on_visa = False  # No spouse → effectively single
+
+        # Spouse english + age — needed for skill_assessment / english_only validation
+        spouse_lang = (spouse_block.get("language") if spouse_block else {}) or {}
+        spouse_scores = spouse_lang.get("scores") or {}
+        spouse_overall = _to_float(spouse_scores.get("overall"))
+        spouse_per_band = min(
+            [_to_float(spouse_scores.get(b)) for b in ("listening", "reading", "writing", "speaking") if _to_float(spouse_scores.get(b)) > 0]
+            or [spouse_overall]
+        )
+        spouse_age = _to_int((spouse_block.get("personal") or {}).get("age") if spouse_block else 0)
+        spouse_competent_english = spouse_overall >= 6.0 and (spouse_per_band == 0 or spouse_per_band >= 6.0)
+
+        spouse_pts = 0
+        spouse_key = ""
+        spouse_note = None
+
+        # OPTION E: Single / divorced / widowed / separated → applicant is treated as single
+        is_single_status = marital in ("single", "divorced", "widowed", "separated", "") or not marital
+        # OPTION D: Spouse already AU PR/citizen (counts as no migrating partner)
+        spouse_not_migrating = (not spouse_is_on_visa) and (spouse_block is not None or fam.get("spouse_present"))
+
+        if (is_single_status and not spouse_block) or spouse_is_pr or contribution_type == "australian_pr_citizen" or spouse_not_migrating:
+            if "single_or_pr_partner" in partner_pool:
+                spouse_key = "single_or_pr_partner"
+                spouse_pts = partner_pool["single_or_pr_partner"]
+                if spouse_is_pr or contribution_type == "australian_pr_citizen":
+                    spouse_note = "Spouse is AU PR / Citizen — counted as no migrating partner"
+                elif spouse_not_migrating:
+                    spouse_note = "Spouse not migrating on this visa — applicant treated as single"
+                else:
+                    spouse_note = "Single applicant — full points awarded"
+
+        # OPTION A: skill_assessment — strict gate: age<45 + competent English + applicant on visa
+        elif contribution_type == "skill_assessment":
+            gates = []
+            if spouse_age and spouse_age >= 45:
+                gates.append(f"spouse age {spouse_age} ≥ 45")
+            if not spouse_competent_english:
+                gates.append("spouse English below competent (IELTS 6+ all bands)")
+            if not spouse_is_on_visa:
+                gates.append("spouse not on visa")
+            if not gates and "skilled_partner" in partner_pool:
+                spouse_key = "skilled_partner"
+                spouse_pts = partner_pool["skilled_partner"]
+                spouse_note = "Spouse meets all 4 gates: age<45, competent English, skill assessment, on visa"
+            elif "competent_english_only" in partner_pool and spouse_competent_english and spouse_is_on_visa:
+                # Downgrade to English-only if skill_assessment gates fail but English passes
+                spouse_key = "competent_english_only"
+                spouse_pts = partner_pool["competent_english_only"]
+                spouse_note = f"Downgraded to English-only (gate failed: {', '.join(gates)})"
+            else:
+                spouse_key = "skill_assessment_blocked"
+                spouse_pts = 0
+                spouse_note = f"Skill-assessment partner points blocked: {', '.join(gates) or 'no partner pool key'}"
+
+        # OPTION B: english_only — needs competent English + applicant on visa
+        elif contribution_type == "english_only":
+            if spouse_competent_english and spouse_is_on_visa and "competent_english_only" in partner_pool:
+                spouse_key = "competent_english_only"
+                spouse_pts = partner_pool["competent_english_only"]
+                spouse_note = "Spouse has competent English (IELTS 6+ all bands)"
+            else:
+                spouse_key = "english_only_blocked"
+                spouse_pts = 0
+                if not spouse_competent_english:
+                    spouse_note = "English-only points blocked: spouse English below IELTS 6 (per-band)"
+                elif not spouse_is_on_visa:
+                    spouse_note = "English-only points blocked: spouse not on visa"
+
+        # OPTION C: non_contributing — explicitly 0
+        elif contribution_type == "non_contributing":
+            spouse_key = "non_contributing"
             spouse_pts = 0
-            spouse_key = ""
-            if spouse_edu in ("doctorate", "master", "bachelor"):
-                # AU-style
-                if "skilled_partner" in partner_pool:
-                    spouse_key, spouse_pts = "skilled_partner", partner_pool["skilled_partner"]
-                elif "bachelor_3yr" in partner_pool:
-                    spouse_key, spouse_pts = "bachelor_3yr", partner_pool["bachelor_3yr"]
-            elif spouse_edu in ("diploma", "trade") and "competent_english_only" in partner_pool:
-                spouse_key, spouse_pts = "competent_english_only", partner_pool["competent_english_only"]
-            if spouse_pts:
-                breakdown["partner"] = {"value": spouse_edu, "matched_key": spouse_key, "points": spouse_pts}
-                total += spouse_pts
+            spouse_note = "Spouse will be on visa but is not contributing to points"
+
+        # OPTION E variant: not_applicable / unknown
+        else:
+            spouse_key = "not_applicable"
+            spouse_pts = 0
+            spouse_note = "No spouse contribution declared"
+
+        if spouse_pts or spouse_note:
+            breakdown["partner"] = {
+                "contribution_type": contribution_type,
+                "marital_status": marital or "single",
+                "matched_key": spouse_key,
+                "points": spouse_pts,
+                "spouse_age": spouse_age or None,
+                "spouse_english_overall": spouse_overall or None,
+                "spouse_competent_english": spouse_competent_english,
+                "spouse_on_visa": spouse_is_on_visa,
+                "note": spouse_note,
+            }
+            total += spouse_pts
 
     # 6. Job offer / relative in country (additional CRS-style)
     af = profile.get("additional_factors") or {}

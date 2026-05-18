@@ -62,8 +62,17 @@ def _strip(doc: dict) -> dict:
 
 
 def _profile_hash(profile: Dict[str, Any], countries: List[str]) -> str:
-    """Cache key: hash of the relevant profile fields + country set."""
+    """Cache key: hash of the relevant profile fields + country set.
+    Phase 6.7 — also include new structure fields (primary_applicant, spouse, marital_status)
+    so edits to the spouse panel correctly invalidate the cache.
+    """
     keep = {
+        # Phase 6.7 canonical fields
+        "marital_status": profile.get("marital_status"),
+        "primary_applicant": profile.get("primary_applicant"),
+        "spouse": profile.get("spouse"),
+        "dependents": profile.get("dependents"),
+        # Legacy projection (kept for legacy profiles still at schema_version 1)
         "basic_info": profile.get("basic_info"),
         "professional": profile.get("professional"),
         "education": profile.get("education"),
@@ -228,10 +237,30 @@ async def run_assessment(req: RunRequest, current_user: dict = Depends(get_curre
     duration_seconds = (finished - started).total_seconds()
 
     assessment_id = f"AST-{datetime.now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
+    # Phase 6.7 — capture profile snapshots so the results UI can clearly separate
+    # the PRIMARY APPLICANT analysis from SPOUSE INFORMATION without re-fetching.
+    primary_applicant_snapshot = profile.get("primary_applicant") or {
+        # Legacy fallback — synthesize from flat fields
+        "personal": {
+            "full_name": (profile.get("basic_info") or {}).get("full_name") or profile.get("name"),
+            "age": (profile.get("basic_info") or {}).get("age"),
+            "current_country": (profile.get("basic_info") or {}).get("current_country"),
+        },
+        "professional": profile.get("professional") or {},
+        "education": profile.get("education") or {},
+        "language": profile.get("language_proficiency") or {},
+    }
+    spouse_snapshot = profile.get("spouse")
+    marital_status = profile.get("marital_status") or (profile.get("basic_info") or {}).get("marital_status") or "single"
+
     doc = {
         "id": assessment_id,
         "profile_id": req.profile_id,
         "profile_name": profile.get("name"),
+        # Phase 6.7 snapshots (used by results UI to render the Spouse Info panel)
+        "marital_status": marital_status,
+        "primary_applicant_snapshot": primary_applicant_snapshot,
+        "spouse_snapshot": spouse_snapshot,
         "cache_key": cache_key,
         "mode_used": req.mode or (profile.get("preferences") or {}).get("search_mode") or "top_3",
         "countries_analyzed": countries_to_analyze,
