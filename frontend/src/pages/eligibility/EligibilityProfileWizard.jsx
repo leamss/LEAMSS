@@ -1,17 +1,15 @@
 /**
- * Phase 6.2 — Smart Profile Form (multi-step wizard).
- *
- * URL: /eligibility/new-assessment
- * URL: /eligibility/edit/:profileId  (resume draft)
+ * Phase 6.7 — Smart Profile Wizard with Conditional Spouse Logic
  *
  * Steps:
- *   1. Search Mode (Specific / Top 3 / Custom / Top 5)
- *   2. Basic Info  (DOB, gender, location)
- *   3. Professional + Education
- *   4. Language Proficiency
- *   5. Family + Finances + Preferences
- *   6. Work History + Additional Factors
- *   7. Review & Submit
+ *   1. Marital Status (FIRST per Phase 6.7 spec)
+ *   2. Search Mode
+ *   3. Primary Applicant — Personal
+ *   4. Primary Applicant — Profession & Education
+ *   5. Primary Applicant — Language
+ *   6. Spouse Section  (CONDITIONAL — only shown when married/de_facto)
+ *   7. Dependents + Preferences + Extras
+ *   8. Review & Submit
  */
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -28,13 +26,22 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import {
   ArrowLeft, ArrowRight, Save, Sparkles, Target, Globe, Briefcase, GraduationCap,
-  MessageSquare, Users as UsersIcon, DollarSign, ClipboardList, CheckCircle2,
-  Plus, Trash2, Loader2, Layers, Compass, Star, Search as SearchIcon,
+  MessageSquare, Heart, Users as UsersIcon, ClipboardList, CheckCircle2,
+  Plus, Trash2, Loader2, Layers, Compass, Star, User, Info,
 } from 'lucide-react';
 
 import { formatApiError, pruneEmpty } from '@/lib/apiErrors';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+const MARITAL_OPTIONS = [
+  { v: 'single', l: 'Single', sub: 'Never married' },
+  { v: 'married', l: 'Married', sub: 'Living with spouse' },
+  { v: 'de_facto', l: 'De facto / Partnership', sub: 'Living together >12 months' },
+  { v: 'separated', l: 'Separated', sub: 'Legally separated' },
+  { v: 'divorced', l: 'Divorced', sub: 'Legally divorced' },
+  { v: 'widowed', l: 'Widowed', sub: 'Spouse passed away' },
+];
 
 const SEARCH_MODES = [
   { value: 'specific', label: 'Specific Country', desc: 'Deep analysis for one country', icon: Target, color: 'indigo' },
@@ -52,14 +59,42 @@ const QUALIFICATIONS = [
   { v: 'high_school', l: 'High School' },
 ];
 
+const SPOUSE_CONTRIBUTION_OPTIONS = [
+  {
+    v: 'skill_assessment',
+    l: 'Skill Assessment + Work Experience',
+    pts: '+10',
+    desc: 'Spouse has positive skill assessment, work exp, under 45, competent English',
+  },
+  {
+    v: 'english_only',
+    l: 'English Exam Only',
+    pts: '+5',
+    desc: 'Spouse has Competent English (IELTS 6+) — no skill assessment needed',
+  },
+  {
+    v: 'non_contributing',
+    l: 'Spouse Will Not Contribute',
+    pts: '0',
+    desc: 'Spouse will be on visa but not contributing to points',
+  },
+  {
+    v: 'australian_pr_citizen',
+    l: 'Spouse is Australian PR / Citizen',
+    pts: '+10',
+    desc: 'Spouse already has Australian permanent residency or citizenship',
+  },
+];
+
 const STEPS = [
+  { key: 'marital', label: 'Relationship', icon: Heart },
   { key: 'mode', label: 'Search Mode', icon: Target },
-  { key: 'basic', label: 'Basic Info', icon: Globe },
-  { key: 'prof_edu', label: 'Profession & Education', icon: Briefcase },
-  { key: 'language', label: 'Language', icon: MessageSquare },
-  { key: 'family_fin', label: 'Family & Finances', icon: UsersIcon },
-  { key: 'work_more', label: 'Work History & Extras', icon: ClipboardList },
-  { key: 'review', label: 'Review & Submit', icon: CheckCircle2 },
+  { key: 'primary_personal', label: 'Primary · Personal', icon: User },
+  { key: 'primary_prof_edu', label: 'Primary · Career', icon: Briefcase },
+  { key: 'primary_language', label: 'Primary · Language', icon: MessageSquare },
+  { key: 'spouse', label: 'Spouse', icon: UsersIcon, conditionalMarital: true },
+  { key: 'dependents_extras', label: 'Dependents & Extras', icon: ClipboardList },
+  { key: 'review', label: 'Review', icon: CheckCircle2 },
 ];
 
 
@@ -67,43 +102,53 @@ function emptyProfile() {
   return {
     name: '', email: '', phone: '',
     pa_id: null,
-    basic_info: {
-      date_of_birth: '', gender: '', marital_status: '', dependents_count: 0,
-      current_country: 'India', current_city: '', nationality: 'Indian',
+    marital_status: '',
+    schema_version: 2,
+    primary_applicant: {
+      personal: {
+        full_name: '', date_of_birth: '', gender: '', nationality: 'Indian',
+        current_country: 'India', current_city: '',
+      },
+      professional: {
+        current_profession: '', designation: '', years_experience_total: 0, years_in_current_role: 0,
+        industry: '', employer_name: '', salary_inr_per_annum: '', has_managerial_experience: false,
+      },
+      education: {
+        highest_qualification: '', field_of_study: '', institution: '', country: 'India', year_completed: '',
+      },
+      language: {
+        primary_test: 'IELTS', test_completed: false, test_date: '',
+        scores: { overall: '', listening: '', reading: '', writing: '', speaking: '' },
+        target_score: '',
+      },
+      work_history: [],
     },
-    professional: {
-      current_profession: '', designation: '', years_experience_total: 0, years_in_current_role: 0,
-      industry: '', employer_name: '', salary_inr_per_annum: '', has_managerial_experience: false,
-    },
-    education: {
-      highest_qualification: '', field_of_study: '', institution: '', country: 'India',
-      year_completed: '',
-    },
-    language_proficiency: {
-      primary_test: 'IELTS', test_completed: false, test_date: '',
-      scores: { overall: '', listening: '', reading: '', writing: '', speaking: '' },
-      target_score: '',
-    },
-    family: {
-      spouse_present: false, spouse_education: '', spouse_profession: '', spouse_language: '',
-      children_count: 0, children_ages: [],
-    },
-    finances: {
-      annual_household_income: '', savings_inr: '', budget_for_immigration_inr: '',
-      able_to_show_funds: false,
-    },
+    spouse: null,
+    dependents: [],
     preferences: {
       timeline_months: 12, preferred_countries: [], avoiding_countries: [],
-      family_relocation: true, priority: 'quality_of_life',
+      priority: 'quality_of_life',
       search_mode: 'top_3', specific_country: '', custom_countries: [],
     },
-    work_history: [],
     additional_factors: {
       has_relative_in_target_country: false, relative_relationship: '',
       has_job_offer: false, state_preference: '',
       medical_concerns: '', criminal_record: false,
     },
     status: 'draft',
+  };
+}
+
+
+function emptySpouse() {
+  return {
+    is_applicant_on_visa: true,
+    contribution_type: 'skill_assessment',
+    is_australian_pr_or_citizen: false,
+    personal: { full_name: '', date_of_birth: '', age: null, nationality: '' },
+    professional: { current_profession: '', years_experience_total: 0 },
+    education: { highest_qualification: '', field_of_study: '' },
+    language: { primary_test: 'IELTS', test_completed: false, scores: { overall: '', listening: '', reading: '', writing: '', speaking: '' } },
   };
 }
 
@@ -125,17 +170,17 @@ export default function EligibilityProfileWizard() {
   const [countries, setCountries] = useState([]);
   const lastAutoSavedSnapshot = useRef(null);
 
-  // Initial load: from existing profile or pre-fill from PA
   useEffect(() => {
     (async () => {
       try {
         if (profileId) {
           const r = await axios.get(`${API}/eligibility/profiles/${profileId}`, { headers });
-          setData({ ...emptyProfile(), ...r.data });
+          // Merge loaded data with empty defaults so all sections exist
+          setData(d => deepMerge(emptyProfile(), r.data));
           setCurrentProfileId(profileId);
         } else if (prefillPaId) {
           const r = await axios.post(`${API}/eligibility/profiles/prefill-from-pa/${prefillPaId}`, {}, { headers });
-          setData({ ...emptyProfile(), ...r.data });
+          setData(d => deepMerge(emptyProfile(), r.data));
         }
       } catch (e) {
         toast.error(formatApiError(e, 'Failed to load profile'));
@@ -143,7 +188,6 @@ export default function EligibilityProfileWizard() {
     })();
   }, [profileId, prefillPaId, headers]);
 
-  // Load active countries (for mode selection)
   useEffect(() => {
     (async () => {
       try {
@@ -153,7 +197,12 @@ export default function EligibilityProfileWizard() {
     })();
   }, [headers]);
 
-  // Auto-save (every 30s) — only after step 1 + when something has changed
+  // Filter out conditional spouse step when applicable
+  const activeSteps = useMemo(() => {
+    return STEPS.filter(s => !s.conditionalMarital || isSpouseRequired(data.marital_status));
+  }, [data.marital_status]);
+
+  // Auto-save every 30s
   useEffect(() => {
     const interval = setInterval(() => {
       if (step === 0 || saving) return;
@@ -167,7 +216,7 @@ export default function EligibilityProfileWizard() {
 
   const autoSave = useCallback(async (snapshotJson) => {
     if (saving) return;
-    if (!data.name) return;  // need a name minimum
+    if (!data.name) return;
     setSaving(true);
     try {
       const cleaned = pruneEmpty(data);
@@ -179,12 +228,12 @@ export default function EligibilityProfileWizard() {
         toast.success('Draft saved', { duration: 1500 });
       }
       lastAutoSavedSnapshot.current = snapshotJson || JSON.stringify(data);
-    } catch (e) { /* silent — user can manually save */ }
+    } catch (_) { /* silent */ }
     finally { setSaving(false); }
   }, [data, currentProfileId, saving, headers]);
 
   const saveManual = useCallback(async () => {
-    if (!data.name) { toast.error('Name is required'); return false; }
+    if (!data.name) { toast.error('Name is required'); return; }
     setSaving(true);
     try {
       const cleaned = pruneEmpty(data);
@@ -196,28 +245,22 @@ export default function EligibilityProfileWizard() {
       }
       toast.success('Saved');
       lastAutoSavedSnapshot.current = JSON.stringify(data);
-      return true;
     } catch (e) {
       toast.error(formatApiError(e, 'Save failed'));
-      return false;
     } finally { setSaving(false); }
   }, [data, currentProfileId, headers]);
 
-  const setField = (section, field, val) => {
-    setData(d => ({ ...d, [section]: { ...(d[section] || {}), [field]: val } }));
-  };
-  const setRoot = (field, val) => setData(d => ({ ...d, [field]: val }));
-
   const submitAndAnalyse = async () => {
-    if (!data.name) { toast.error('Name is required'); return; }
+    if (!data.name) { toast.error('Primary applicant name is required'); return; }
+    if (!data.marital_status) { toast.error('Please select marital status (Step 1)'); return; }
     setSaving(true);
     try {
-      const payload = { ...pruneEmpty(data), status: 'complete' };
+      const cleaned = { ...pruneEmpty(data), status: 'complete' };
       let pid = currentProfileId;
       if (pid) {
-        await axios.patch(`${API}/eligibility/profiles/${pid}`, payload, { headers });
+        await axios.patch(`${API}/eligibility/profiles/${pid}`, cleaned, { headers });
       } else {
-        const r = await axios.post(`${API}/eligibility/profiles`, payload, { headers });
+        const r = await axios.post(`${API}/eligibility/profiles`, cleaned, { headers });
         pid = r.data.id;
         setCurrentProfileId(pid);
       }
@@ -228,30 +271,74 @@ export default function EligibilityProfileWizard() {
     } finally { setSaving(false); }
   };
 
+  // Helpers
+  const setRoot = (field, val) => setData(d => ({ ...d, [field]: val }));
+  const setPrimaryField = (section, field, val) =>
+    setData(d => ({
+      ...d,
+      primary_applicant: {
+        ...d.primary_applicant,
+        [section]: { ...(d.primary_applicant[section] || {}), [field]: val },
+      },
+    }));
+  const setSpouseField = (section, field, val) =>
+    setData(d => ({
+      ...d,
+      spouse: {
+        ...(d.spouse || emptySpouse()),
+        [section]: { ...((d.spouse || emptySpouse())[section] || {}), [field]: val },
+      },
+    }));
+  const setSpouseRoot = (field, val) =>
+    setData(d => ({ ...d, spouse: { ...(d.spouse || emptySpouse()), [field]: val } }));
+  const setPrefField = (field, val) =>
+    setData(d => ({ ...d, preferences: { ...d.preferences, [field]: val } }));
+
+  // Mutual exclusion: changing marital_status to single/divorced/widowed/separated clears spouse
+  const setMaritalStatus = (val) => {
+    setData(d => {
+      const next = { ...d, marital_status: val };
+      if (!isSpouseRequired(val)) next.spouse = null;
+      else if (!next.spouse) next.spouse = emptySpouse();
+      return next;
+    });
+  };
+
   // Step validation
   const canProceed = useMemo(() => {
-    switch (step) {
-      case 0: {
+    const sKey = activeSteps[step]?.key;
+    switch (sKey) {
+      case 'marital': return !!data.marital_status;
+      case 'mode': {
         const m = data.preferences?.search_mode;
         if (!m) return false;
         if (m === 'specific') return !!data.preferences?.specific_country;
         if (m === 'custom') return (data.preferences?.custom_countries?.length || 0) >= 2;
         return true;
       }
-      case 1: return !!data.name && !!data.basic_info?.date_of_birth;
-      case 2: return !!data.professional?.current_profession && !!data.education?.highest_qualification;
-      case 3: return true;  // language is optional
-      case 4: return true;
-      case 5: return true;
+      case 'primary_personal':
+        return !!data.name && !!data.primary_applicant?.personal?.date_of_birth;
+      case 'primary_prof_edu':
+        return !!data.primary_applicant?.professional?.current_profession
+            && !!data.primary_applicant?.education?.highest_qualification;
+      case 'primary_language': return true;
+      case 'spouse': {
+        if (!isSpouseRequired(data.marital_status)) return true;
+        if (!data.spouse) return false;
+        // Need contribution type and a name
+        return !!data.spouse.contribution_type;
+      }
+      case 'dependents_extras': return true;
       default: return true;
     }
-  }, [step, data]);
+  }, [step, data, activeSteps]);
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center text-slate-400 text-sm">Loading profile…</div>;
   }
 
-  const StepIcon = STEPS[step].icon;
+  const currentStep = activeSteps[step];
+  const StepIcon = currentStep?.icon || Sparkles;
 
   return (
     <div className="min-h-screen bg-slate-50" data-testid="eligibility-wizard">
@@ -263,10 +350,10 @@ export default function EligibilityProfileWizard() {
               <ArrowLeft className="h-4 w-4 mr-1" />Exit
             </Button>
             <div>
-              <p className="text-xs uppercase text-slate-400 tracking-wide">AI Eligibility · New Assessment</p>
+              <p className="text-xs uppercase text-slate-400 tracking-wide">AI Eligibility · v6.7</p>
               <h1 className="text-base font-bold">
                 <StepIcon className="inline h-4 w-4 mr-1 text-indigo-600" />
-                Step {step + 1} of {STEPS.length}: {STEPS[step].label}
+                Step {step + 1} of {activeSteps.length}: {currentStep?.label}
               </h1>
             </div>
           </div>
@@ -278,10 +365,8 @@ export default function EligibilityProfileWizard() {
             </Button>
           </div>
         </div>
-
-        {/* Progress dots */}
         <div className="max-w-5xl mx-auto px-6 pb-3 flex items-center gap-1.5">
-          {STEPS.map((s, i) => (
+          {activeSteps.map((s, i) => (
             <button
               key={s.key}
               onClick={() => i < step && setStep(i)}
@@ -297,23 +382,23 @@ export default function EligibilityProfileWizard() {
       </div>
 
       <div className="max-w-3xl mx-auto p-6 space-y-4">
-        {step === 0 && <StepMode data={data} setField={setField} countries={countries} />}
-        {step === 1 && <StepBasic data={data} setRoot={setRoot} setField={setField} />}
-        {step === 2 && <StepProfessionEducation data={data} setField={setField} />}
-        {step === 3 && <StepLanguage data={data} setField={setField} />}
-        {step === 4 && <StepFamilyFinances data={data} setField={setField} />}
-        {step === 5 && <StepWorkExtras data={data} setRoot={setRoot} setField={setField} />}
-        {step === 6 && <StepReview data={data} countries={countries} onJump={setStep} />}
+        {currentStep?.key === 'marital' && <StepMarital data={data} setMarital={setMaritalStatus} setRoot={setRoot} />}
+        {currentStep?.key === 'mode' && <StepMode data={data} setPref={setPrefField} countries={countries} />}
+        {currentStep?.key === 'primary_personal' && <StepPrimaryPersonal data={data} setRoot={setRoot} setField={setPrimaryField} />}
+        {currentStep?.key === 'primary_prof_edu' && <StepPrimaryProfEdu data={data} setField={setPrimaryField} />}
+        {currentStep?.key === 'primary_language' && <StepPrimaryLanguage data={data} setField={setPrimaryField} />}
+        {currentStep?.key === 'spouse' && <StepSpouse data={data} setSpouseField={setSpouseField} setSpouseRoot={setSpouseRoot} />}
+        {currentStep?.key === 'dependents_extras' && <StepDependentsExtras data={data} setRoot={setRoot} setPref={setPrefField} setField={setPrimaryField} />}
+        {currentStep?.key === 'review' && <StepReview data={data} countries={countries} onJump={setStep} activeSteps={activeSteps} />}
 
-        {/* Footer Nav */}
         <Card className="p-3 flex items-center justify-between sticky bottom-2 shadow-lg">
           <Button variant="outline" onClick={() => setStep(s => Math.max(0, s - 1))} disabled={step === 0} data-testid="step-prev">
             <ArrowLeft className="h-4 w-4 mr-1" />Previous
           </Button>
-          <div className="text-xs text-slate-500">{step + 1} / {STEPS.length}</div>
-          {step < STEPS.length - 1 ? (
+          <div className="text-xs text-slate-500">{step + 1} / {activeSteps.length}</div>
+          {step < activeSteps.length - 1 ? (
             <Button
-              onClick={() => setStep(s => Math.min(STEPS.length - 1, s + 1))}
+              onClick={() => setStep(s => Math.min(activeSteps.length - 1, s + 1))}
               disabled={!canProceed}
               className="bg-indigo-600 hover:bg-indigo-700"
               data-testid="step-next"
@@ -333,27 +418,94 @@ export default function EligibilityProfileWizard() {
 }
 
 
-// ════════════════════════════════════════════════════════════════
-// Step 0: Search Mode
-// ════════════════════════════════════════════════════════════════
-function StepMode({ data, setField, countries }) {
-  const mode = data.preferences?.search_mode || 'top_3';
-  const specific = data.preferences?.specific_country || '';
-  const custom = data.preferences?.custom_countries || [];
+// ──────────────────────────────────────────────────────────────
+// Helpers
+// ──────────────────────────────────────────────────────────────
+function isSpouseRequired(marital_status) {
+  return marital_status === 'married' || marital_status === 'de_facto';
+}
 
-  const toggleCustom = (code) => {
-    let next = custom.includes(code) ? custom.filter(c => c !== code) : [...custom, code];
-    if (next.length > 5) next = next.slice(0, 5);  // cap at 5
-    setField('preferences', 'custom_countries', next);
-  };
+function deepMerge(target, source) {
+  if (!source) return target;
+  const out = { ...target };
+  for (const k of Object.keys(source)) {
+    const sv = source[k];
+    if (sv === null || sv === undefined) continue;
+    if (typeof sv === 'object' && !Array.isArray(sv) && typeof target[k] === 'object' && target[k] !== null) {
+      out[k] = deepMerge(target[k], sv);
+    } else {
+      out[k] = sv;
+    }
+  }
+  return out;
+}
 
+
+// ──────────────────────────────────────────────────────────────
+// Step Components
+// ──────────────────────────────────────────────────────────────
+function StepMarital({ data, setMarital, setRoot }) {
   return (
     <Card className="p-6 space-y-4">
       <div>
-        <h2 className="text-lg font-bold">How would you like to search?</h2>
-        <p className="text-xs text-slate-500">Pick a strategy. You can always re-run with different settings later.</p>
+        <h2 className="text-lg font-bold flex items-center gap-2"><Heart className="h-5 w-5 text-rose-500" />Relationship Status</h2>
+        <p className="text-xs text-slate-500">This drives the entire form — spouse fields are conditionally shown.</p>
       </div>
+      <div>
+        <Label className="text-xs font-bold">Primary Applicant Name *</Label>
+        <Input value={data.name} onChange={e => setRoot('name', e.target.value)} placeholder="e.g., Rohit Sharma" data-testid="primary-name" />
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+        {MARITAL_OPTIONS.map(opt => {
+          const active = data.marital_status === opt.v;
+          return (
+            <button
+              key={opt.v}
+              type="button"
+              onClick={() => setMarital(opt.v)}
+              className={`text-left p-3 rounded-lg border-2 transition ${
+                active ? 'border-rose-500 bg-rose-50' : 'border-slate-200 hover:border-slate-300 bg-white'
+              }`}
+              data-testid={`marital-${opt.v}`}
+            >
+              <p className="font-bold text-sm">{opt.l}</p>
+              <p className="text-[11px] text-slate-500 mt-0.5">{opt.sub}</p>
+            </button>
+          );
+        })}
+      </div>
+      {isSpouseRequired(data.marital_status) && (
+        <div className="p-3 bg-rose-50 border border-rose-200 rounded text-xs text-rose-800 flex items-start gap-2">
+          <Info className="h-4 w-4 flex-shrink-0 mt-0.5" />
+          <span>You&apos;ll capture spouse details in a dedicated step later. The system tracks spouse separately from the primary applicant.</span>
+        </div>
+      )}
+      {data.marital_status && !isSpouseRequired(data.marital_status) && (
+        <div className="p-3 bg-emerald-50 border border-emerald-200 rounded text-xs text-emerald-800 flex items-start gap-2">
+          <Info className="h-4 w-4 flex-shrink-0 mt-0.5" />
+          <span>Single applicant — spouse fields will be skipped. Single applicants automatically receive <strong>+10 partner skill points</strong> in Australia.</span>
+        </div>
+      )}
+    </Card>
+  );
+}
 
+
+function StepMode({ data, setPref, countries }) {
+  const mode = data.preferences?.search_mode || 'top_3';
+  const specific = data.preferences?.specific_country || '';
+  const custom = data.preferences?.custom_countries || [];
+  const toggleCustom = (code) => {
+    let next = custom.includes(code) ? custom.filter(c => c !== code) : [...custom, code];
+    if (next.length > 5) next = next.slice(0, 5);
+    setPref('custom_countries', next);
+  };
+  return (
+    <Card className="p-6 space-y-4">
+      <div>
+        <h2 className="text-lg font-bold">Search Strategy</h2>
+        <p className="text-xs text-slate-500">Choose how the AI will analyse eligibility.</p>
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {SEARCH_MODES.map(m => {
           const Icon = m.icon;
@@ -361,15 +513,13 @@ function StepMode({ data, setField, countries }) {
           return (
             <button
               key={m.value}
-              onClick={() => setField('preferences', 'search_mode', m.value)}
+              onClick={() => setPref('search_mode', m.value)}
               className={`text-left p-4 rounded-lg border-2 transition relative ${
                 active ? `border-${m.color}-500 bg-${m.color}-50` : 'border-slate-200 hover:border-slate-300 bg-white'
               }`}
               data-testid={`mode-${m.value}`}
             >
-              {m.recommended && (
-                <Badge className={`absolute -top-2 right-3 bg-${m.color}-600 text-white text-[9px]`}>RECOMMENDED</Badge>
-              )}
+              {m.recommended && <Badge className={`absolute -top-2 right-3 bg-${m.color}-600 text-white text-[9px]`}>RECOMMENDED</Badge>}
               <Icon className={`h-5 w-5 mb-2 text-${m.color}-600`} />
               <p className="font-bold text-sm">{m.label}</p>
               <p className="text-[11px] text-slate-500 mt-0.5">{m.desc}</p>
@@ -377,25 +527,20 @@ function StepMode({ data, setField, countries }) {
           );
         })}
       </div>
-
       {mode === 'specific' && (
         <div className="border-t pt-3" data-testid="specific-mode-picker">
           <Label className="text-xs font-bold mb-1 block">Which country?</Label>
-          <Select value={specific} onValueChange={v => setField('preferences', 'specific_country', v)}>
+          <Select value={specific} onValueChange={v => setPref('specific_country', v)}>
             <SelectTrigger data-testid="specific-country-select"><SelectValue placeholder="Pick a country" /></SelectTrigger>
             <SelectContent>
-              {countries.map(c => (
-                <SelectItem key={c.country_code} value={c.country_code}>{c.country_flag_emoji} {c.country}</SelectItem>
-              ))}
+              {countries.map(c => <SelectItem key={c.country_code} value={c.country_code}>{c.country_flag_emoji} {c.country}</SelectItem>)}
             </SelectContent>
           </Select>
-          <p className="text-[11px] text-slate-500 mt-1">Tip: if you&apos;re ineligible for this country, our engine will suggest 2–3 alternatives.</p>
         </div>
       )}
-
       {mode === 'custom' && (
         <div className="border-t pt-3" data-testid="custom-mode-picker">
-          <Label className="text-xs font-bold mb-2 block">Pick 2–5 countries to compare</Label>
+          <Label className="text-xs font-bold mb-2 block">Pick 2–5 countries</Label>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
             {countries.map(c => {
               const selected = custom.includes(c.country_code);
@@ -421,42 +566,38 @@ function StepMode({ data, setField, countries }) {
 }
 
 
-// ════════════════════════════════════════════════════════════════
-// Step 1: Basic Info
-// ════════════════════════════════════════════════════════════════
-function StepBasic({ data, setRoot, setField }) {
-  const dob = data.basic_info?.date_of_birth;
+function StepPrimaryPersonal({ data, setRoot, setField }) {
+  const personal = data.primary_applicant?.personal || {};
+  const dob = personal.date_of_birth;
   const age = useMemo(() => {
     if (!dob) return null;
     try {
-      const d = new Date(dob);
-      const t = new Date();
+      const d = new Date(dob); const t = new Date();
       let a = t.getFullYear() - d.getFullYear();
-      if ((t.getMonth(), t.getDate()) < (d.getMonth(), d.getDate())) a--;
+      if (t.getMonth() < d.getMonth() || (t.getMonth() === d.getMonth() && t.getDate() < d.getDate())) a--;
       return a;
     } catch { return null; }
   }, [dob]);
 
   return (
     <Card className="p-6 space-y-4">
-      <div>
-        <h2 className="text-lg font-bold">Basic Information</h2>
-        <p className="text-xs text-slate-500">Personal details — needed for age/family eligibility calculations.</p>
+      <div className="bg-indigo-50 border border-indigo-200 rounded p-3">
+        <p className="text-[11px] uppercase font-bold text-indigo-700 flex items-center gap-1"><User className="h-3.5 w-3.5" />Primary Applicant</p>
+        <p className="text-xs text-indigo-800 mt-1">All fields below describe the <strong>primary applicant</strong> — the person whose ANZSCO code will be matched and whose eligibility is calculated.</p>
       </div>
-
       <div className="grid grid-cols-2 gap-3">
-        <div className="col-span-2"><Label className="text-xs font-bold">Full Name *</Label><Input value={data.name} onChange={e => setRoot('name', e.target.value)} placeholder="e.g., Rohit Sharma" data-testid="basic-name" /></div>
-        <div><Label className="text-xs font-bold">Email</Label><Input type="email" value={data.email || ''} onChange={e => setRoot('email', e.target.value)} placeholder="rohit@example.com" data-testid="basic-email" /></div>
-        <div><Label className="text-xs font-bold">Phone</Label><Input value={data.phone || ''} onChange={e => setRoot('phone', e.target.value)} placeholder="+91 9..." data-testid="basic-phone" /></div>
+        <div className="col-span-2"><Label className="text-xs font-bold">Full Name *</Label><Input value={data.name} onChange={e => setRoot('name', e.target.value)} data-testid="primary-fullname" /></div>
+        <div><Label className="text-xs font-bold">Email</Label><Input type="email" value={data.email || ''} onChange={e => setRoot('email', e.target.value)} data-testid="primary-email" /></div>
+        <div><Label className="text-xs font-bold">Phone</Label><Input value={data.phone || ''} onChange={e => setRoot('phone', e.target.value)} data-testid="primary-phone" /></div>
         <div>
           <Label className="text-xs font-bold">Date of Birth *</Label>
-          <Input type="date" value={dob || ''} onChange={e => setField('basic_info', 'date_of_birth', e.target.value)} data-testid="basic-dob" />
+          <Input type="date" value={dob || ''} onChange={e => setField('personal', 'date_of_birth', e.target.value)} data-testid="primary-dob" />
           {age !== null && <p className="text-[10px] text-emerald-600 mt-0.5">Age: <strong>{age}</strong></p>}
         </div>
         <div>
           <Label className="text-xs font-bold">Gender</Label>
-          <Select value={data.basic_info?.gender || ''} onValueChange={v => setField('basic_info', 'gender', v)}>
-            <SelectTrigger data-testid="basic-gender"><SelectValue placeholder="—" /></SelectTrigger>
+          <Select value={personal.gender || ''} onValueChange={v => setField('personal', 'gender', v)}>
+            <SelectTrigger data-testid="primary-gender"><SelectValue placeholder="—" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="male">Male</SelectItem>
               <SelectItem value="female">Female</SelectItem>
@@ -464,73 +605,59 @@ function StepBasic({ data, setRoot, setField }) {
             </SelectContent>
           </Select>
         </div>
-        <div>
-          <Label className="text-xs font-bold">Marital Status</Label>
-          <Select value={data.basic_info?.marital_status || ''} onValueChange={v => setField('basic_info', 'marital_status', v)}>
-            <SelectTrigger data-testid="basic-marital"><SelectValue placeholder="—" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="single">Single</SelectItem>
-              <SelectItem value="married">Married</SelectItem>
-              <SelectItem value="divorced">Divorced</SelectItem>
-              <SelectItem value="widowed">Widowed</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div><Label className="text-xs font-bold">Dependents</Label><Input type="number" min={0} value={data.basic_info?.dependents_count ?? 0} onChange={e => setField('basic_info', 'dependents_count', Number(e.target.value))} data-testid="basic-dependents" /></div>
-        <div><Label className="text-xs font-bold">Current Country</Label><Input value={data.basic_info?.current_country || ''} onChange={e => setField('basic_info', 'current_country', e.target.value)} placeholder="India" data-testid="basic-country" /></div>
-        <div><Label className="text-xs font-bold">Current City</Label><Input value={data.basic_info?.current_city || ''} onChange={e => setField('basic_info', 'current_city', e.target.value)} placeholder="Mumbai" data-testid="basic-city" /></div>
-        <div><Label className="text-xs font-bold">Nationality</Label><Input value={data.basic_info?.nationality || ''} onChange={e => setField('basic_info', 'nationality', e.target.value)} placeholder="Indian" data-testid="basic-nationality" /></div>
+        <div><Label className="text-xs font-bold">Current Country</Label><Input value={personal.current_country || ''} onChange={e => setField('personal', 'current_country', e.target.value)} data-testid="primary-country" /></div>
+        <div><Label className="text-xs font-bold">Current City</Label><Input value={personal.current_city || ''} onChange={e => setField('personal', 'current_city', e.target.value)} data-testid="primary-city" /></div>
+        <div><Label className="text-xs font-bold">Nationality</Label><Input value={personal.nationality || ''} onChange={e => setField('personal', 'nationality', e.target.value)} data-testid="primary-nationality" /></div>
       </div>
     </Card>
   );
 }
 
 
-// ════════════════════════════════════════════════════════════════
-// Step 2: Profession + Education
-// ════════════════════════════════════════════════════════════════
-function StepProfessionEducation({ data, setField }) {
+function StepPrimaryProfEdu({ data, setField }) {
+  const prof = data.primary_applicant?.professional || {};
+  const edu = data.primary_applicant?.education || {};
   return (
     <div className="space-y-4">
       <Card className="p-6 space-y-3">
-        <div>
-          <h2 className="text-lg font-bold flex items-center gap-2"><Briefcase className="h-5 w-5 text-emerald-600" />Professional Details</h2>
-          <p className="text-xs text-slate-500">Used to identify your ANZSCO/NOC code and eligible visa pathways.</p>
+        <div className="bg-indigo-50 border border-indigo-200 rounded p-3">
+          <p className="text-[11px] uppercase font-bold text-indigo-700 flex items-center gap-1"><Briefcase className="h-3.5 w-3.5" />Primary · Profession</p>
+          <p className="text-xs text-indigo-800 mt-1">Use the <strong>current</strong> profession — what you DO now, not what you studied. AI will match ANZSCO code from your current role + recent work history.</p>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <div className="col-span-2"><Label className="text-xs font-bold">Current Profession *</Label><Input value={data.professional?.current_profession || ''} onChange={e => setField('professional', 'current_profession', e.target.value)} placeholder="e.g., Software Engineer" data-testid="prof-profession" /></div>
-          <div><Label className="text-xs font-bold">Designation</Label><Input value={data.professional?.designation || ''} onChange={e => setField('professional', 'designation', e.target.value)} placeholder="Sr. Engineer" data-testid="prof-designation" /></div>
-          <div><Label className="text-xs font-bold">Industry</Label><Input value={data.professional?.industry || ''} onChange={e => setField('professional', 'industry', e.target.value)} placeholder="IT / Software" data-testid="prof-industry" /></div>
-          <div><Label className="text-xs font-bold">Total Years of Experience</Label><Input type="number" min={0} step={0.5} value={data.professional?.years_experience_total ?? 0} onChange={e => setField('professional', 'years_experience_total', Number(e.target.value))} data-testid="prof-yoe-total" /></div>
-          <div><Label className="text-xs font-bold">Years in Current Role</Label><Input type="number" min={0} step={0.5} value={data.professional?.years_in_current_role ?? 0} onChange={e => setField('professional', 'years_in_current_role', Number(e.target.value))} data-testid="prof-yoe-current" /></div>
-          <div><Label className="text-xs font-bold">Current Employer</Label><Input value={data.professional?.employer_name || ''} onChange={e => setField('professional', 'employer_name', e.target.value)} data-testid="prof-employer" /></div>
-          <div><Label className="text-xs font-bold">Annual Salary (₹)</Label><Input type="number" min={0} value={data.professional?.salary_inr_per_annum || ''} onChange={e => setField('professional', 'salary_inr_per_annum', e.target.value === '' ? null : Number(e.target.value))} placeholder="2500000" data-testid="prof-salary" /></div>
+          <div className="col-span-2"><Label className="text-xs font-bold">Current Profession *</Label><Input value={prof.current_profession || ''} onChange={e => setField('professional', 'current_profession', e.target.value)} placeholder="e.g., Marketing Specialist (current role, not past degree)" data-testid="prof-current-profession" /></div>
+          <div><Label className="text-xs font-bold">Designation</Label><Input value={prof.designation || ''} onChange={e => setField('professional', 'designation', e.target.value)} data-testid="prof-designation" /></div>
+          <div><Label className="text-xs font-bold">Industry</Label><Input value={prof.industry || ''} onChange={e => setField('professional', 'industry', e.target.value)} data-testid="prof-industry" /></div>
+          <div><Label className="text-xs font-bold">Total Years Experience</Label><Input type="number" min={0} step={0.5} value={prof.years_experience_total ?? 0} onChange={e => setField('professional', 'years_experience_total', Number(e.target.value))} data-testid="prof-yoe-total" /></div>
+          <div><Label className="text-xs font-bold">Years in Current Role</Label><Input type="number" min={0} step={0.5} value={prof.years_in_current_role ?? 0} onChange={e => setField('professional', 'years_in_current_role', Number(e.target.value))} data-testid="prof-yoe-current" /></div>
+          <div><Label className="text-xs font-bold">Current Employer</Label><Input value={prof.employer_name || ''} onChange={e => setField('professional', 'employer_name', e.target.value)} data-testid="prof-employer" /></div>
+          <div><Label className="text-xs font-bold">Annual Salary (₹)</Label><Input type="number" min={0} value={prof.salary_inr_per_annum || ''} onChange={e => setField('professional', 'salary_inr_per_annum', e.target.value === '' ? null : Number(e.target.value))} data-testid="prof-salary" /></div>
           <div className="col-span-2 flex items-center gap-2 pt-1">
-            <Switch checked={!!data.professional?.has_managerial_experience} onCheckedChange={v => setField('professional', 'has_managerial_experience', v)} data-testid="prof-managerial" />
+            <Switch checked={!!prof.has_managerial_experience} onCheckedChange={v => setField('professional', 'has_managerial_experience', v)} data-testid="prof-managerial" />
             <Label className="text-xs">Have managerial / team-lead experience</Label>
           </div>
         </div>
       </Card>
 
       <Card className="p-6 space-y-3">
-        <div>
-          <h2 className="text-lg font-bold flex items-center gap-2"><GraduationCap className="h-5 w-5 text-sky-600" />Education</h2>
-          <p className="text-xs text-slate-500">Highest qualification drives skill-assessment + points scoring.</p>
+        <div className="bg-sky-50 border border-sky-200 rounded p-3">
+          <p className="text-[11px] uppercase font-bold text-sky-700 flex items-center gap-1"><GraduationCap className="h-3.5 w-3.5" />Primary · Education</p>
+          <p className="text-xs text-sky-800 mt-1">Highest qualification drives education points and skill body matching (NOT occupation code — that uses current profession).</p>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
             <Label className="text-xs font-bold">Highest Qualification *</Label>
-            <Select value={data.education?.highest_qualification || ''} onValueChange={v => setField('education', 'highest_qualification', v)}>
+            <Select value={edu.highest_qualification || ''} onValueChange={v => setField('education', 'highest_qualification', v)}>
               <SelectTrigger data-testid="edu-qualification"><SelectValue placeholder="Pick highest" /></SelectTrigger>
               <SelectContent>
                 {QUALIFICATIONS.map(q => <SelectItem key={q.v} value={q.v}>{q.l}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
-          <div><Label className="text-xs font-bold">Field of Study</Label><Input value={data.education?.field_of_study || ''} onChange={e => setField('education', 'field_of_study', e.target.value)} placeholder="Computer Science" data-testid="edu-field" /></div>
-          <div><Label className="text-xs font-bold">Institution</Label><Input value={data.education?.institution || ''} onChange={e => setField('education', 'institution', e.target.value)} placeholder="IIT Delhi" data-testid="edu-institution" /></div>
-          <div><Label className="text-xs font-bold">Country</Label><Input value={data.education?.country || ''} onChange={e => setField('education', 'country', e.target.value)} placeholder="India" data-testid="edu-country" /></div>
-          <div><Label className="text-xs font-bold">Year Completed</Label><Input type="number" min={1950} max={new Date().getFullYear()} value={data.education?.year_completed || ''} onChange={e => setField('education', 'year_completed', e.target.value === '' ? null : Number(e.target.value))} data-testid="edu-year" /></div>
+          <div><Label className="text-xs font-bold">Field of Study</Label><Input value={edu.field_of_study || ''} onChange={e => setField('education', 'field_of_study', e.target.value)} placeholder="e.g., Veterinary Science (past degree)" data-testid="edu-field" /></div>
+          <div><Label className="text-xs font-bold">Institution</Label><Input value={edu.institution || ''} onChange={e => setField('education', 'institution', e.target.value)} data-testid="edu-institution" /></div>
+          <div><Label className="text-xs font-bold">Country</Label><Input value={edu.country || ''} onChange={e => setField('education', 'country', e.target.value)} data-testid="edu-country" /></div>
+          <div><Label className="text-xs font-bold">Year Completed</Label><Input type="number" min={1950} max={new Date().getFullYear()} value={edu.year_completed || ''} onChange={e => setField('education', 'year_completed', e.target.value === '' ? null : Number(e.target.value))} data-testid="edu-year" /></div>
         </div>
       </Card>
     </div>
@@ -538,27 +665,20 @@ function StepProfessionEducation({ data, setField }) {
 }
 
 
-// ════════════════════════════════════════════════════════════════
-// Step 3: Language
-// ════════════════════════════════════════════════════════════════
-function StepLanguage({ data, setField }) {
-  const lp = data.language_proficiency || {};
-  const setScore = (band, val) => setField('language_proficiency', 'scores', {
-    ...(lp.scores || {}), [band]: val === '' ? '' : Number(val),
-  });
-
+function StepPrimaryLanguage({ data, setField }) {
+  const lp = data.primary_applicant?.language || {};
+  const setScore = (band, val) => setField('language', 'scores', { ...(lp.scores || {}), [band]: val === '' ? '' : Number(val) });
   return (
     <Card className="p-6 space-y-4">
-      <div>
-        <h2 className="text-lg font-bold flex items-center gap-2"><MessageSquare className="h-5 w-5 text-amber-600" />Language Proficiency</h2>
-        <p className="text-xs text-slate-500">Skip this if you haven&apos;t taken a test yet — we&apos;ll factor in your target score.</p>
+      <div className="bg-amber-50 border border-amber-200 rounded p-3">
+        <p className="text-[11px] uppercase font-bold text-amber-700 flex items-center gap-1"><MessageSquare className="h-3.5 w-3.5" />Primary · Language</p>
+        <p className="text-xs text-amber-800 mt-1">English proficiency — applied per-band. Required for visa eligibility AND points scoring.</p>
       </div>
-
       <div className="grid grid-cols-2 gap-3">
         <div>
           <Label className="text-xs font-bold">Primary Test</Label>
-          <Select value={lp.primary_test || ''} onValueChange={v => setField('language_proficiency', 'primary_test', v)}>
-            <SelectTrigger data-testid="lang-test"><SelectValue placeholder="—" /></SelectTrigger>
+          <Select value={lp.primary_test || 'IELTS'} onValueChange={v => setField('language', 'primary_test', v)}>
+            <SelectTrigger data-testid="lang-test"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="IELTS">IELTS (General / Academic)</SelectItem>
               <SelectItem value="PTE">PTE Academic</SelectItem>
@@ -569,21 +689,17 @@ function StepLanguage({ data, setField }) {
           </Select>
         </div>
         <div className="flex items-center gap-2 pt-5">
-          <Switch checked={!!lp.test_completed} onCheckedChange={v => setField('language_proficiency', 'test_completed', v)} data-testid="lang-completed" />
+          <Switch checked={!!lp.test_completed} onCheckedChange={v => setField('language', 'test_completed', v)} data-testid="lang-completed" />
           <Label className="text-xs">Test already completed</Label>
         </div>
         {lp.test_completed && (
           <>
-            <div><Label className="text-xs font-bold">Test Date</Label><Input type="date" value={lp.test_date || ''} onChange={e => setField('language_proficiency', 'test_date', e.target.value)} data-testid="lang-date" /></div>
+            <div><Label className="text-xs font-bold">Test Date</Label><Input type="date" value={lp.test_date || ''} onChange={e => setField('language', 'test_date', e.target.value)} data-testid="lang-date" /></div>
             <div className="col-span-2 grid grid-cols-5 gap-2 mt-2">
               {['overall', 'listening', 'reading', 'writing', 'speaking'].map(b => (
                 <div key={b}>
                   <Label className="text-[10px] uppercase">{b}</Label>
-                  <Input
-                    type="number"
-                    step={0.5}
-                    min={0}
-                    max={9}
+                  <Input type="number" step={0.5} min={0} max={9}
                     value={lp.scores?.[b] ?? ''}
                     onChange={e => setScore(b, e.target.value)}
                     placeholder="0–9"
@@ -597,7 +713,7 @@ function StepLanguage({ data, setField }) {
         {!lp.test_completed && (
           <div className="col-span-2">
             <Label className="text-xs font-bold">Target Score (optional)</Label>
-            <Input value={lp.target_score || ''} onChange={e => setField('language_proficiency', 'target_score', e.target.value)} placeholder="e.g., IELTS 7.0 each band" data-testid="lang-target" />
+            <Input value={lp.target_score || ''} onChange={e => setField('language', 'target_score', e.target.value)} placeholder="e.g., IELTS 7.0 each band" data-testid="lang-target" />
           </div>
         )}
       </div>
@@ -606,68 +722,182 @@ function StepLanguage({ data, setField }) {
 }
 
 
-// ════════════════════════════════════════════════════════════════
-// Step 4: Family + Finances + Preferences
-// ════════════════════════════════════════════════════════════════
-function StepFamilyFinances({ data, setField }) {
-  const fam = data.family || {};
+function StepSpouse({ data, setSpouseField, setSpouseRoot }) {
+  const spouse = data.spouse || emptySpouse();
+  const contribution = spouse.contribution_type || 'skill_assessment';
+  const isOnVisa = spouse.is_applicant_on_visa;
+
+  const setContrib = (v) => setSpouseRoot('contribution_type', v);
+
   return (
     <div className="space-y-4">
       <Card className="p-6 space-y-3">
-        <h2 className="text-lg font-bold flex items-center gap-2"><UsersIcon className="h-5 w-5 text-rose-600" />Family</h2>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="col-span-2 flex items-center gap-2">
-            <Switch checked={!!fam.spouse_present} onCheckedChange={v => setField('family', 'spouse_present', v)} data-testid="fam-spouse-switch" />
-            <Label className="text-xs">Spouse / Partner</Label>
+        <div className="bg-purple-50 border border-purple-200 rounded p-3">
+          <p className="text-[11px] uppercase font-bold text-purple-700 flex items-center gap-1"><UsersIcon className="h-3.5 w-3.5" />Spouse Information</p>
+          <p className="text-xs text-purple-800 mt-1">Spouse data is tracked <strong>separately</strong> from primary applicant. Spouse contribution determines partner skill points — only relevant fields will be shown below.</p>
+        </div>
+
+        {/* Q1: Will spouse be on visa application? */}
+        <div>
+          <Label className="text-xs font-bold mb-2 block">Will your spouse be on the visa application?</Label>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setSpouseRoot('is_applicant_on_visa', true)}
+              className={`p-3 rounded border-2 text-sm transition ${isOnVisa ? 'border-purple-500 bg-purple-50 font-bold' : 'border-slate-200 bg-white'}`}
+              data-testid="spouse-on-visa-yes"
+            >
+              ✅ Yes — Spouse will be included
+            </button>
+            <button
+              type="button"
+              onClick={() => { setSpouseRoot('is_applicant_on_visa', false); setSpouseRoot('contribution_type', 'not_applicable'); }}
+              className={`p-3 rounded border-2 text-sm transition ${!isOnVisa ? 'border-purple-500 bg-purple-50 font-bold' : 'border-slate-200 bg-white'}`}
+              data-testid="spouse-on-visa-no"
+            >
+              ❌ No — Spouse will not migrate
+            </button>
           </div>
-          {fam.spouse_present && (
-            <>
-              <div><Label className="text-xs font-bold">Spouse Education</Label>
-                <Select value={fam.spouse_education || ''} onValueChange={v => setField('family', 'spouse_education', v)}>
-                  <SelectTrigger data-testid="fam-spouse-edu"><SelectValue placeholder="—" /></SelectTrigger>
+        </div>
+
+        {/* Q2: Contribution type */}
+        {isOnVisa && (
+          <div>
+            <Label className="text-xs font-bold mb-2 block">What will spouse contribute to your application?</Label>
+            <div className="space-y-2">
+              {SPOUSE_CONTRIBUTION_OPTIONS.map(opt => (
+                <button
+                  key={opt.v}
+                  type="button"
+                  onClick={() => setContrib(opt.v)}
+                  className={`w-full text-left p-3 rounded border-2 transition ${
+                    contribution === opt.v ? 'border-purple-500 bg-purple-50' : 'border-slate-200 bg-white hover:border-slate-300'
+                  }`}
+                  data-testid={`spouse-contrib-${opt.v}`}
+                >
+                  <div className="flex items-center justify-between">
+                    <p className="font-bold text-sm">{opt.l}</p>
+                    <Badge className={opt.pts === '0' ? 'bg-slate-100 text-slate-600' : 'bg-emerald-100 text-emerald-700'}>{opt.pts} pts</Badge>
+                  </div>
+                  <p className="text-[11px] text-slate-600 mt-0.5">{opt.desc}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Basic spouse identity (always shown if on visa OR migrating) */}
+        <div className="border-t pt-3 grid grid-cols-2 gap-3">
+          <div className="col-span-2"><Label className="text-xs font-bold">Spouse Full Name</Label><Input value={spouse.personal?.full_name || ''} onChange={e => setSpouseField('personal', 'full_name', e.target.value)} data-testid="spouse-name" /></div>
+          <div><Label className="text-xs font-bold">Spouse Date of Birth</Label><Input type="date" value={spouse.personal?.date_of_birth || ''} onChange={e => setSpouseField('personal', 'date_of_birth', e.target.value)} data-testid="spouse-dob" /></div>
+          <div><Label className="text-xs font-bold">Spouse Nationality</Label><Input value={spouse.personal?.nationality || ''} onChange={e => setSpouseField('personal', 'nationality', e.target.value)} data-testid="spouse-nationality" /></div>
+        </div>
+
+        {/* Conditional spouse fields based on contribution_type */}
+        {isOnVisa && contribution === 'skill_assessment' && (
+          <div className="border-t pt-3 space-y-3" data-testid="spouse-skill-fields">
+            <p className="text-xs font-bold text-purple-700">Spouse Skill Details (for +10 partner skill points)</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2"><Label className="text-xs">Spouse Current Profession</Label><Input value={spouse.professional?.current_profession || ''} onChange={e => setSpouseField('professional', 'current_profession', e.target.value)} placeholder="e.g., Registered Nurse" data-testid="spouse-profession" /></div>
+              <div><Label className="text-xs">Spouse Years Experience</Label><Input type="number" min={0} value={spouse.professional?.years_experience_total ?? 0} onChange={e => setSpouseField('professional', 'years_experience_total', Number(e.target.value))} data-testid="spouse-yoe" /></div>
+              <div>
+                <Label className="text-xs">Spouse Qualification</Label>
+                <Select value={spouse.education?.highest_qualification || ''} onValueChange={v => setSpouseField('education', 'highest_qualification', v)}>
+                  <SelectTrigger data-testid="spouse-qualification"><SelectValue placeholder="—" /></SelectTrigger>
                   <SelectContent>
                     {QUALIFICATIONS.map(q => <SelectItem key={q.v} value={q.v}>{q.l}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
-              <div><Label className="text-xs font-bold">Spouse Profession</Label><Input value={fam.spouse_profession || ''} onChange={e => setField('family', 'spouse_profession', e.target.value)} data-testid="fam-spouse-prof" /></div>
-              <div><Label className="text-xs font-bold">Spouse English Level</Label>
-                <Select value={fam.spouse_language || ''} onValueChange={v => setField('family', 'spouse_language', v)}>
-                  <SelectTrigger data-testid="fam-spouse-lang"><SelectValue placeholder="—" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="competent">Competent (IELTS 6 / PTE 50)</SelectItem>
-                    <SelectItem value="proficient">Proficient (IELTS 7 / PTE 65)</SelectItem>
-                    <SelectItem value="superior">Superior (IELTS 8 / PTE 79)</SelectItem>
-                    <SelectItem value="none">Below competent</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </>
-          )}
-          <div><Label className="text-xs font-bold">Children Count</Label><Input type="number" min={0} value={fam.children_count ?? 0} onChange={e => setField('family', 'children_count', Number(e.target.value))} data-testid="fam-children" /></div>
-        </div>
-      </Card>
-
-      <Card className="p-6 space-y-3">
-        <h2 className="text-lg font-bold flex items-center gap-2"><DollarSign className="h-5 w-5 text-emerald-600" />Finances</h2>
-        <p className="text-xs text-slate-500">Used to gauge proof-of-funds requirements. Optional.</p>
-        <div className="grid grid-cols-2 gap-3">
-          <div><Label className="text-xs font-bold">Annual Household Income (₹)</Label><Input type="number" min={0} value={data.finances?.annual_household_income || ''} onChange={e => setField('finances', 'annual_household_income', e.target.value === '' ? null : Number(e.target.value))} data-testid="fin-income" /></div>
-          <div><Label className="text-xs font-bold">Savings (₹)</Label><Input type="number" min={0} value={data.finances?.savings_inr || ''} onChange={e => setField('finances', 'savings_inr', e.target.value === '' ? null : Number(e.target.value))} data-testid="fin-savings" /></div>
-          <div><Label className="text-xs font-bold">Immigration Budget (₹)</Label><Input type="number" min={0} value={data.finances?.budget_for_immigration_inr || ''} onChange={e => setField('finances', 'budget_for_immigration_inr', e.target.value === '' ? null : Number(e.target.value))} data-testid="fin-budget" /></div>
-          <div className="flex items-center gap-2 pt-5">
-            <Switch checked={!!data.finances?.able_to_show_funds} onCheckedChange={v => setField('finances', 'able_to_show_funds', v)} data-testid="fin-show-funds" />
-            <Label className="text-xs">Can show proof-of-funds</Label>
+              <div><Label className="text-xs">Spouse IELTS Overall</Label><Input type="number" step={0.5} min={0} max={9} value={spouse.language?.scores?.overall ?? ''} onChange={e => setSpouseField('language', 'scores', { ...(spouse.language?.scores || {}), overall: e.target.value === '' ? '' : Number(e.target.value) })} placeholder="6.0+" data-testid="spouse-ielts" /></div>
+            </div>
           </div>
+        )}
+
+        {isOnVisa && contribution === 'english_only' && (
+          <div className="border-t pt-3 space-y-3" data-testid="spouse-english-fields">
+            <p className="text-xs font-bold text-purple-700">Spouse English Details (for +5 partner skill points)</p>
+            <p className="text-[11px] text-slate-500">Only English proficiency is required — no skill assessment needed.</p>
+            <div className="grid grid-cols-5 gap-2">
+              {['overall', 'listening', 'reading', 'writing', 'speaking'].map(b => (
+                <div key={b}>
+                  <Label className="text-[10px] uppercase">{b}</Label>
+                  <Input type="number" step={0.5} min={0} max={9} value={spouse.language?.scores?.[b] ?? ''} onChange={e => setSpouseField('language', 'scores', { ...(spouse.language?.scores || {}), [b]: e.target.value === '' ? '' : Number(e.target.value) })} data-testid={`spouse-eng-${b}`} />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {isOnVisa && contribution === 'australian_pr_citizen' && (
+          <div className="border-t pt-3 space-y-2 bg-emerald-50 p-3 rounded" data-testid="spouse-pr-fields">
+            <p className="text-xs font-bold text-emerald-800">Spouse PR / Citizenship Details (for +10 partner skill points)</p>
+            <div className="grid grid-cols-1 gap-2">
+              <div className="flex items-center gap-2">
+                <Switch checked={!!spouse.is_australian_pr_or_citizen} onCheckedChange={v => setSpouseRoot('is_australian_pr_or_citizen', v)} data-testid="spouse-is-pr" />
+                <Label className="text-xs">I confirm spouse holds Australian PR or Citizenship</Label>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {isOnVisa && contribution === 'non_contributing' && (
+          <div className="border-t pt-3 bg-slate-50 p-3 rounded text-xs text-slate-600" data-testid="spouse-noncontrib-info">
+            Spouse will be on visa but no skill/English assessment is being done — <strong>0 partner skill points</strong>. Only basic identity captured above.
+          </div>
+        )}
+
+        {!isOnVisa && (
+          <div className="border-t pt-3 bg-amber-50 p-3 rounded text-xs text-amber-800" data-testid="spouse-not-migrating-info">
+            Spouse is <strong>not migrating</strong>. Marital status remains <strong>{data.marital_status}</strong>. Partner skill points: <strong>0</strong>.
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+
+function StepDependentsExtras({ data, setRoot, setPref, setField }) {
+  const dependents = data.dependents || [];
+  const addDep = () => setRoot('dependents', [...dependents, { role: 'child', age: '' }]);
+  const removeDep = (i) => setRoot('dependents', dependents.filter((_, idx) => idx !== i));
+  const updDep = (i, k, v) => setRoot('dependents', dependents.map((d, idx) => idx === i ? { ...d, [k]: v } : d));
+
+  return (
+    <div className="space-y-4">
+      <Card className="p-6 space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold flex items-center gap-2"><UsersIcon className="h-5 w-5 text-rose-500" />Dependents</h2>
+          <Button size="sm" variant="outline" onClick={addDep} data-testid="dep-add"><Plus className="h-4 w-4 mr-1" />Add</Button>
         </div>
+        {dependents.length === 0 ? (
+          <p className="text-xs italic text-slate-400 text-center py-3">No dependents added.</p>
+        ) : dependents.map((d, i) => (
+          <Card key={i} className="p-3 bg-slate-50 grid grid-cols-3 gap-2" data-testid={`dep-${i}`}>
+            <div>
+              <Label className="text-[10px]">Role</Label>
+              <Select value={d.role || 'child'} onValueChange={v => updDep(i, 'role', v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="child">Child</SelectItem>
+                  <SelectItem value="parent">Parent</SelectItem>
+                  <SelectItem value="sibling">Sibling</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div><Label className="text-[10px]">Age</Label><Input type="number" min={0} value={d.age ?? ''} onChange={e => updDep(i, 'age', e.target.value === '' ? '' : Number(e.target.value))} /></div>
+            <div className="flex items-end"><Button variant="outline" size="sm" className="h-9 w-9 p-0 text-rose-600" onClick={() => removeDep(i)}><Trash2 className="h-3 w-3" /></Button></div>
+          </Card>
+        ))}
       </Card>
 
       <Card className="p-6 space-y-3">
-        <h2 className="text-lg font-bold flex items-center gap-2"><Sparkles className="h-5 w-5 text-purple-600" />Preferences</h2>
+        <h2 className="text-lg font-bold flex items-center gap-2"><Sparkles className="h-5 w-5 text-purple-600" />Preferences & Extras</h2>
         <div className="grid grid-cols-2 gap-3">
           <div>
             <Label className="text-xs font-bold">Timeline (months)</Label>
-            <Select value={String(data.preferences?.timeline_months || 12)} onValueChange={v => setField('preferences', 'timeline_months', Number(v))}>
+            <Select value={String(data.preferences?.timeline_months || 12)} onValueChange={v => setPref('timeline_months', Number(v))}>
               <SelectTrigger data-testid="pref-timeline"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="6">6 months</SelectItem>
@@ -678,8 +908,8 @@ function StepFamilyFinances({ data, setField }) {
             </Select>
           </div>
           <div>
-            <Label className="text-xs font-bold">Primary Priority</Label>
-            <Select value={data.preferences?.priority || ''} onValueChange={v => setField('preferences', 'priority', v)}>
+            <Label className="text-xs font-bold">Priority</Label>
+            <Select value={data.preferences?.priority || ''} onValueChange={v => setPref('priority', v)}>
               <SelectTrigger data-testid="pref-priority"><SelectValue placeholder="—" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="speed">Fastest pathway</SelectItem>
@@ -689,85 +919,14 @@ function StepFamilyFinances({ data, setField }) {
             </Select>
           </div>
           <div className="col-span-2 flex items-center gap-2">
-            <Switch checked={!!data.preferences?.family_relocation} onCheckedChange={v => setField('preferences', 'family_relocation', v)} data-testid="pref-family-reloc" />
-            <Label className="text-xs">Family relocating together</Label>
-          </div>
-        </div>
-      </Card>
-    </div>
-  );
-}
-
-
-// ════════════════════════════════════════════════════════════════
-// Step 5: Work History + Additional Factors
-// ════════════════════════════════════════════════════════════════
-function StepWorkExtras({ data, setRoot, setField }) {
-  const history = data.work_history || [];
-  const addEntry = () => setRoot('work_history', [...history, { employer: '', designation: '', start_date: '', end_date: '', country: '', duties: '', can_provide_reference: true }]);
-  const removeEntry = (i) => setRoot('work_history', history.filter((_, idx) => idx !== i));
-  const updateEntry = (i, k, v) => setRoot('work_history', history.map((h, idx) => idx === i ? { ...h, [k]: v } : h));
-
-  return (
-    <div className="space-y-4">
-      <Card className="p-6 space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold flex items-center gap-2"><ClipboardList className="h-5 w-5 text-indigo-600" />Work History</h2>
-          <Button size="sm" variant="outline" onClick={addEntry} data-testid="wh-add">
-            <Plus className="h-4 w-4 mr-1" />Add Entry
-          </Button>
-        </div>
-        <p className="text-xs text-slate-500">Add past employers (most recent first). Skill assessments require ≥3 years detailed history typically.</p>
-        {history.length === 0 ? (
-          <p className="text-xs italic text-slate-400 text-center py-4">No work history added yet.</p>
-        ) : history.map((h, i) => (
-          <Card key={i} className="p-3 bg-slate-50 space-y-2" data-testid={`wh-entry-${i}`}>
-            <div className="flex items-center justify-between mb-1">
-              <p className="text-[11px] font-bold text-slate-600">Entry {i + 1}</p>
-              <Button size="sm" variant="outline" className="h-6 w-6 p-0 text-rose-600" onClick={() => removeEntry(i)}>
-                <Trash2 className="h-3 w-3" />
-              </Button>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div><Label className="text-[10px]">Employer</Label><Input value={h.employer || ''} onChange={e => updateEntry(i, 'employer', e.target.value)} /></div>
-              <div><Label className="text-[10px]">Designation</Label><Input value={h.designation || ''} onChange={e => updateEntry(i, 'designation', e.target.value)} /></div>
-              <div><Label className="text-[10px]">Start Date</Label><Input type="date" value={h.start_date || ''} onChange={e => updateEntry(i, 'start_date', e.target.value)} /></div>
-              <div><Label className="text-[10px]">End Date (blank = present)</Label><Input type="date" value={h.end_date || ''} onChange={e => updateEntry(i, 'end_date', e.target.value)} /></div>
-              <div><Label className="text-[10px]">Country</Label><Input value={h.country || ''} onChange={e => updateEntry(i, 'country', e.target.value)} /></div>
-              <div className="flex items-center gap-2 pt-4">
-                <Switch checked={!!h.can_provide_reference} onCheckedChange={v => updateEntry(i, 'can_provide_reference', v)} />
-                <Label className="text-[10px]">Can provide reference letter</Label>
-              </div>
-              <div className="col-span-2"><Label className="text-[10px]">Roles & Responsibilities</Label><Textarea value={h.duties || ''} onChange={e => updateEntry(i, 'duties', e.target.value)} rows={2} placeholder="• Designed REST APIs..." /></div>
-            </div>
-          </Card>
-        ))}
-      </Card>
-
-      <Card className="p-6 space-y-3">
-        <h2 className="text-lg font-bold flex items-center gap-2"><Sparkles className="h-5 w-5 text-purple-600" />Additional Factors</h2>
-        <p className="text-xs text-slate-500">These can dramatically affect eligibility — disclose openly.</p>
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
             <Switch checked={!!data.additional_factors?.has_relative_in_target_country} onCheckedChange={v => setField('additional_factors', 'has_relative_in_target_country', v)} data-testid="extra-relative" />
-            <Label className="text-xs">Relative in target country (citizen / PR)</Label>
+            <Label className="text-xs">Relative in target country (PR/Citizen)</Label>
           </div>
-          {data.additional_factors?.has_relative_in_target_country && (
-            <Input value={data.additional_factors?.relative_relationship || ''} onChange={e => setField('additional_factors', 'relative_relationship', e.target.value)} placeholder="Brother / Sister / Parent / Spouse..." data-testid="extra-relative-rel" />
-          )}
-          <div className="flex items-center gap-2">
+          <div className="col-span-2 flex items-center gap-2">
             <Switch checked={!!data.additional_factors?.has_job_offer} onCheckedChange={v => setField('additional_factors', 'has_job_offer', v)} data-testid="extra-job-offer" />
             <Label className="text-xs">Have a job offer from target country</Label>
           </div>
-          <div>
-            <Label className="text-xs font-bold">State Preference (optional)</Label>
-            <Input value={data.additional_factors?.state_preference || ''} onChange={e => setField('additional_factors', 'state_preference', e.target.value)} placeholder="NSW / VIC / Ontario / BC..." data-testid="extra-state" />
-          </div>
-          <div>
-            <Label className="text-xs font-bold">Medical Concerns</Label>
-            <Textarea value={data.additional_factors?.medical_concerns || ''} onChange={e => setField('additional_factors', 'medical_concerns', e.target.value)} rows={2} placeholder="Any condition requiring ongoing treatment?" data-testid="extra-medical" />
-          </div>
-          <div className="flex items-center gap-2">
+          <div className="col-span-2 flex items-center gap-2">
             <Switch checked={!!data.additional_factors?.criminal_record} onCheckedChange={v => setField('additional_factors', 'criminal_record', v)} data-testid="extra-criminal" />
             <Label className="text-xs">Any criminal record / pending case?</Label>
           </div>
@@ -778,101 +937,74 @@ function StepWorkExtras({ data, setRoot, setField }) {
 }
 
 
-// ════════════════════════════════════════════════════════════════
-// Step 6: Review & Submit
-// ════════════════════════════════════════════════════════════════
-function StepReview({ data, countries, onJump }) {
-  const SECTIONS = [
-    { key: 'mode', label: 'Search Mode', step: 0 },
-    { key: 'basic', label: 'Basic Info', step: 1 },
-    { key: 'prof', label: 'Profession & Education', step: 2 },
-    { key: 'lang', label: 'Language', step: 3 },
-    { key: 'family', label: 'Family & Finances', step: 4 },
-    { key: 'work', label: 'Work & Extras', step: 5 },
-  ];
-
+function StepReview({ data, countries, onJump, activeSteps }) {
   const modeLabel = SEARCH_MODES.find(m => m.value === data.preferences?.search_mode)?.label || '—';
+  const maritalLabel = MARITAL_OPTIONS.find(m => m.v === data.marital_status)?.l || '—';
+  const spouseContrib = SPOUSE_CONTRIBUTION_OPTIONS.find(o => o.v === data.spouse?.contribution_type);
   const specificName = countries.find(c => c.country_code === data.preferences?.specific_country)?.country;
+  const stepKeyToIndex = (k) => activeSteps.findIndex(s => s.key === k);
 
   return (
     <Card className="p-6 space-y-4">
       <div className="text-center">
         <CheckCircle2 className="h-12 w-12 text-emerald-500 mx-auto mb-2" />
         <h2 className="text-xl font-bold">Ready to analyse</h2>
-        <p className="text-xs text-slate-500">Verify everything is correct. You can jump back to any section.</p>
+        <p className="text-xs text-slate-500">Verify primary + spouse separation is correct before running AI.</p>
       </div>
 
       <Card className="p-4 bg-indigo-50 border-indigo-200">
-        <p className="text-[10px] uppercase font-bold text-indigo-700 mb-1">Search Strategy</p>
-        <p className="text-sm">
-          {modeLabel}
-          {data.preferences?.search_mode === 'specific' && specificName && <span className="text-indigo-700"> · {specificName}</span>}
-          {data.preferences?.search_mode === 'custom' && data.preferences?.custom_countries?.length > 0 && (
-            <span className="text-indigo-700"> · {data.preferences.custom_countries.join(', ')}</span>
-          )}
-        </p>
+        <p className="text-[10px] uppercase font-bold text-indigo-700 mb-1">Relationship & Strategy</p>
+        <p className="text-sm"><strong>{maritalLabel}</strong> · {modeLabel}{data.preferences?.search_mode === 'specific' && specificName && ` · ${specificName}`}</p>
       </Card>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {SECTIONS.map(s => (
-          <ReviewCard key={s.key} label={s.label} onEdit={() => onJump(s.step)}>
-            {s.key === 'basic' && (
-              <>
-                <Field label="Name" value={data.name} />
-                <Field label="Email" value={data.email} />
-                <Field label="Phone" value={data.phone} />
-                <Field label="DOB" value={data.basic_info?.date_of_birth} />
-                <Field label="Country" value={data.basic_info?.current_country} />
-                <Field label="Marital" value={data.basic_info?.marital_status} />
-              </>
-            )}
-            {s.key === 'prof' && (
-              <>
-                <Field label="Profession" value={data.professional?.current_profession} />
-                <Field label="Designation" value={data.professional?.designation} />
-                <Field label="Years XP" value={data.professional?.years_experience_total} />
-                <Field label="Education" value={QUALIFICATIONS.find(q => q.v === data.education?.highest_qualification)?.l} />
-                <Field label="Field" value={data.education?.field_of_study} />
-                <Field label="Year" value={data.education?.year_completed} />
-              </>
-            )}
-            {s.key === 'lang' && (
-              <>
-                <Field label="Test" value={data.language_proficiency?.primary_test} />
-                <Field label="Completed?" value={data.language_proficiency?.test_completed ? 'Yes' : 'No'} />
-                {data.language_proficiency?.test_completed && (
-                  <Field label="Overall" value={data.language_proficiency?.scores?.overall} />
-                )}
-              </>
-            )}
-            {s.key === 'family' && (
-              <>
-                <Field label="Spouse" value={data.family?.spouse_present ? 'Yes' : 'No'} />
-                <Field label="Children" value={data.family?.children_count} />
-                <Field label="Income" value={data.finances?.annual_household_income ? `₹${data.finances.annual_household_income.toLocaleString('en-IN')}` : '—'} />
-                <Field label="Savings" value={data.finances?.savings_inr ? `₹${data.finances.savings_inr.toLocaleString('en-IN')}` : '—'} />
-              </>
-            )}
-            {s.key === 'work' && (
-              <>
-                <Field label="Work Entries" value={(data.work_history || []).length} />
-                <Field label="Relative Abroad" value={data.additional_factors?.has_relative_in_target_country ? 'Yes' : 'No'} />
-                <Field label="Job Offer" value={data.additional_factors?.has_job_offer ? 'Yes' : 'No'} />
-              </>
-            )}
-            {s.key === 'mode' && (
-              <Field label="Mode" value={modeLabel} />
-            )}
-          </ReviewCard>
-        ))}
-      </div>
+      <ReviewCard label="Primary Applicant" color="indigo" onEdit={() => onJump(stepKeyToIndex('primary_personal'))}>
+        <Field label="Name" value={data.name} />
+        <Field label="DOB / Age" value={`${data.primary_applicant?.personal?.date_of_birth || '—'}${data.primary_applicant?.personal?.age ? ` (${data.primary_applicant.personal.age})` : ''}`} />
+        <Field label="Current Profession" value={data.primary_applicant?.professional?.current_profession} />
+        <Field label="Years Experience" value={data.primary_applicant?.professional?.years_experience_total} />
+        <Field label="Highest Education" value={QUALIFICATIONS.find(q => q.v === data.primary_applicant?.education?.highest_qualification)?.l} />
+        <Field label="Field of Study" value={data.primary_applicant?.education?.field_of_study} />
+        <Field label="IELTS Overall" value={data.primary_applicant?.language?.scores?.overall || '—'} />
+        <Field label="English Tested" value={data.primary_applicant?.language?.test_completed ? 'Yes' : 'No'} />
+      </ReviewCard>
+
+      {isSpouseRequired(data.marital_status) && data.spouse && (
+        <ReviewCard label="Spouse" color="purple" onEdit={() => onJump(stepKeyToIndex('spouse'))}>
+          <Field label="On Visa?" value={data.spouse.is_applicant_on_visa ? 'Yes' : 'No'} />
+          <Field label="Contribution" value={spouseContrib?.l || data.spouse.contribution_type} />
+          <Field label="Points Impact" value={spouseContrib?.pts || '0'} />
+          <Field label="Spouse Name" value={data.spouse.personal?.full_name} />
+          {data.spouse.contribution_type === 'skill_assessment' && (
+            <>
+              <Field label="Spouse Profession" value={data.spouse.professional?.current_profession} />
+              <Field label="Spouse Qualification" value={QUALIFICATIONS.find(q => q.v === data.spouse?.education?.highest_qualification)?.l} />
+              <Field label="Spouse IELTS" value={data.spouse.language?.scores?.overall || '—'} />
+            </>
+          )}
+        </ReviewCard>
+      )}
+
+      {!isSpouseRequired(data.marital_status) && (
+        <Card className="p-3 bg-emerald-50 border border-emerald-200">
+          <p className="text-[10px] uppercase font-bold text-emerald-700">Spouse Section</p>
+          <p className="text-xs text-emerald-800">Skipped — primary applicant is <strong>{maritalLabel.toLowerCase()}</strong>. Automatic <strong>+10 partner skill points</strong> applied.</p>
+        </Card>
+      )}
+
+      {(data.dependents || []).length > 0 && (
+        <ReviewCard label={`Dependents (${data.dependents.length})`} color="rose" onEdit={() => onJump(stepKeyToIndex('dependents_extras'))}>
+          {data.dependents.map((d, i) => (
+            <Field key={i} label={d.role} value={`${d.age || '?'} yrs`} />
+          ))}
+        </ReviewCard>
+      )}
 
       <div className="p-3 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800">
         <p className="font-bold mb-1">What happens next?</p>
         <ul className="text-[11px] space-y-0.5 ml-4 list-disc">
-          <li>Profile saved as <strong>Complete</strong></li>
-          <li>(Phase 6.3) AI engine analyses against selected countries</li>
-          <li>(Phase 6.4) You see best-match country, visa, skill body, points breakdown, success probability</li>
+          <li>Profile saved with new <strong>Phase 6.7 structure</strong> — primary and spouse tracked separately</li>
+          <li>AI analyses <strong>primary applicant</strong> for ANZSCO matching (based on current profession, not past qualification)</li>
+          <li>Partner skill points calculated correctly: <strong>{spouseContrib?.pts || (isSpouseRequired(data.marital_status) ? '0' : '+10 (single applicant)')}</strong></li>
         </ul>
       </div>
     </Card>
@@ -880,16 +1012,15 @@ function StepReview({ data, countries, onJump }) {
 }
 
 
-function ReviewCard({ label, onEdit, children }) {
+function ReviewCard({ label, color = 'indigo', onEdit, children }) {
+  const colorMap = { indigo: 'border-l-indigo-500', purple: 'border-l-purple-500', rose: 'border-l-rose-500' };
   return (
-    <Card className="p-3 bg-white">
+    <Card className={`p-3 border-l-4 ${colorMap[color] || colorMap.indigo}`}>
       <div className="flex items-center justify-between mb-1">
-        <p className="text-[10px] uppercase font-bold text-slate-500">{label}</p>
-        <Button size="sm" variant="ghost" className="h-6 text-[10px] px-2 text-indigo-600" onClick={onEdit}>Edit</Button>
+        <p className={`text-[10px] uppercase font-bold text-${color}-700`}>{label}</p>
+        <Button size="sm" variant="ghost" className={`h-6 text-[10px] px-2 text-${color}-600`} onClick={onEdit}>Edit</Button>
       </div>
-      <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
-        {children}
-      </div>
+      <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">{children}</div>
     </Card>
   );
 }

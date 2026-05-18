@@ -61,7 +61,7 @@ def _strip(doc: dict) -> dict:
 
 
 # ══════════════════════════════════════════════════════════════
-# Profile Section Models
+# Profile Section Models (Legacy — kept for backwards compat)
 # ══════════════════════════════════════════════════════════════
 class BasicInfo(BaseModel):
     full_name: Optional[str] = None
@@ -150,11 +150,65 @@ class AdditionalFactors(BaseModel):
     criminal_record: Optional[bool] = False
 
 
+# ══════════════════════════════════════════════════════════════
+# Phase 6.7 — NEW STRUCTURE: Clear Primary/Spouse Separation
+# ══════════════════════════════════════════════════════════════
+MARITAL_STATUSES = {"single", "married", "de_facto", "separated", "divorced", "widowed"}
+SPOUSE_CONTRIBUTION_TYPES = {
+    "skill_assessment",       # +10 partner skill points (skill body assessed + work exp)
+    "english_only",            # +5 partner skill points (competent English only)
+    "non_contributing",        # 0 partner skill points (spouse adds nothing)
+    "australian_pr_citizen",   # +10 partner skill points (AU PR/citizen spouse)
+    "not_applicable",          # 0 (single applicant or spouse not migrating)
+}
+
+
+class PersonalInfo(BaseModel):
+    full_name: Optional[str] = None
+    date_of_birth: Optional[str] = None
+    age: Optional[int] = None
+    gender: Optional[str] = None
+    nationality: Optional[str] = None
+    current_country: Optional[str] = None
+    current_city: Optional[str] = None
+    pan_or_id: Optional[str] = None
+
+
+class ApplicantBlock(BaseModel):
+    """Common shape for primary applicant AND spouse-as-applicant."""
+    personal: Optional[PersonalInfo] = None
+    professional: Optional[Professional] = None
+    education: Optional[Education] = None
+    language: Optional[LanguageProficiency] = None
+    work_history: List[WorkHistoryEntry] = Field(default_factory=list)
+
+
+class SpouseBlock(ApplicantBlock):
+    is_applicant_on_visa: bool = False
+    contribution_type: str = "not_applicable"  # one of SPOUSE_CONTRIBUTION_TYPES
+    is_australian_pr_or_citizen: bool = False
+
+
+class Dependent(BaseModel):
+    role: str = "child"
+    name: Optional[str] = None
+    age: Optional[int] = None
+    date_of_birth: Optional[str] = None
+    relationship: Optional[str] = None  # child / parent / sibling
+
+
 class ProfileCreate(BaseModel):
     name: str
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
     pa_id: Optional[str] = None  # Pre-link to a PA at creation
+    # Phase 6.7 — new canonical structure
+    marital_status: Optional[str] = None  # one of MARITAL_STATUSES
+    primary_applicant: Optional[ApplicantBlock] = None
+    spouse: Optional[SpouseBlock] = None
+    dependents: List[Dependent] = Field(default_factory=list)
+    schema_version: int = 2  # 1=legacy (pre 6.7), 2=Phase 6.7 structure
+    # Legacy sections (kept for backwards compat / denormalized projection)
     basic_info: Optional[BasicInfo] = None
     professional: Optional[Professional] = None
     education: Optional[Education] = None
@@ -171,6 +225,13 @@ class ProfilePatch(BaseModel):
     name: Optional[str] = None
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
+    # Phase 6.7 — new structure (also patchable)
+    marital_status: Optional[str] = None
+    primary_applicant: Optional[ApplicantBlock] = None
+    spouse: Optional[SpouseBlock] = None
+    dependents: Optional[List[Dependent]] = None
+    schema_version: Optional[int] = None
+    # Legacy
     basic_info: Optional[BasicInfo] = None
     professional: Optional[Professional] = None
     education: Optional[Education] = None
@@ -195,6 +256,156 @@ def _compute_age(dob: Optional[str]) -> Optional[int]:
 
 
 # ══════════════════════════════════════════════════════════════
+# Phase 6.7 — Legacy ↔ New Structure projections
+# ══════════════════════════════════════════════════════════════
+def project_new_to_legacy(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Given a Phase 6.7 payload, ALSO write the legacy fields (basic_info,
+    professional, education, language_proficiency, family, work_history)
+    so the existing rules engine continues to work during transition.
+
+    This is a one-way denormalization — the new structure is canonical.
+    """
+    primary = payload.get("primary_applicant") or {}
+    spouse = payload.get("spouse") or {}
+    marital = payload.get("marital_status") or "single"
+    dependents = payload.get("dependents") or []
+
+    personal = primary.get("personal") or {}
+    professional = primary.get("professional") or {}
+    education = primary.get("education") or {}
+    language = primary.get("language") or {}
+    work_history = primary.get("work_history") or []
+
+    # Legacy basic_info — merge primary.personal + marital_status
+    legacy_basic = {
+        "full_name": personal.get("full_name") or payload.get("name"),
+        "date_of_birth": personal.get("date_of_birth"),
+        "age": personal.get("age"),
+        "gender": personal.get("gender"),
+        "marital_status": marital,
+        "dependents_count": len(dependents),
+        "current_country": personal.get("current_country"),
+        "current_city": personal.get("current_city"),
+        "nationality": personal.get("nationality"),
+    }
+    # Legacy family — derive from spouse + dependents
+    legacy_family = {
+        "spouse_present": marital in ("married", "de_facto"),
+        "spouse_education": (spouse.get("education") or {}).get("highest_qualification"),
+        "spouse_profession": (spouse.get("professional") or {}).get("current_profession"),
+        "spouse_language": _spouse_lang_label((spouse.get("language") or {}).get("scores")),
+        "children_count": sum(1 for d in dependents if (d.get("role") or "child") == "child"),
+        "children_ages": [d.get("age") for d in dependents if (d.get("role") or "child") == "child" and d.get("age")],
+        # Phase 6.7 — extra fields for nuanced points engine (Batch B will use these)
+        "spouse_contribution_type": spouse.get("contribution_type") or "not_applicable",
+        "spouse_is_applicant_on_visa": spouse.get("is_applicant_on_visa") or False,
+        "spouse_is_australian_pr_or_citizen": spouse.get("is_australian_pr_or_citizen") or False,
+    }
+    return {
+        "basic_info": _strip_nones(legacy_basic),
+        "professional": professional,
+        "education": education,
+        "language_proficiency": language,
+        "family": _strip_nones(legacy_family),
+        "work_history": work_history,
+    }
+
+
+def _spouse_lang_label(scores: Optional[Dict[str, Any]]) -> Optional[str]:
+    """Map spouse's IELTS scores to legacy spouse_language field
+    (competent/proficient/superior/none)."""
+    if not scores:
+        return None
+    overall = scores.get("overall")
+    try:
+        overall = float(overall) if overall not in (None, "") else 0.0
+    except (ValueError, TypeError):
+        return None
+    if overall >= 8.0:
+        return "superior"
+    if overall >= 7.0:
+        return "proficient"
+    if overall >= 6.0:
+        return "competent"
+    return "none"
+
+
+def _strip_nones(d: Dict[str, Any]) -> Dict[str, Any]:
+    return {k: v for k, v in d.items() if v is not None}
+
+
+def migrate_legacy_to_new(doc: Dict[str, Any]) -> Dict[str, Any]:
+    """Given an OLD-shape profile document, produce the NEW (Phase 6.7) structure.
+    Idempotent: if already migrated (schema_version >= 2), return as-is."""
+    if (doc.get("schema_version") or 1) >= 2 and doc.get("primary_applicant"):
+        return {}  # already migrated, no changes
+
+    bi = doc.get("basic_info") or {}
+    family = doc.get("family") or {}
+
+    primary_personal = {
+        "full_name": bi.get("full_name") or doc.get("name"),
+        "date_of_birth": bi.get("date_of_birth"),
+        "age": bi.get("age"),
+        "gender": bi.get("gender"),
+        "current_country": bi.get("current_country"),
+        "current_city": bi.get("current_city"),
+        "nationality": bi.get("nationality"),
+    }
+
+    primary_block = {
+        "personal": _strip_nones(primary_personal),
+        "professional": doc.get("professional") or {},
+        "education": doc.get("education") or {},
+        "language": doc.get("language_proficiency") or {},
+        "work_history": doc.get("work_history") or [],
+    }
+
+    marital = (bi.get("marital_status") or "single").lower()
+    if marital not in MARITAL_STATUSES:
+        marital = "single"
+
+    spouse_block = None
+    if family.get("spouse_present") or marital in ("married", "de_facto"):
+        spouse_lang = family.get("spouse_language")
+        contribution = "not_applicable"
+        if spouse_lang in ("competent", "proficient", "superior") and family.get("spouse_profession"):
+            contribution = "skill_assessment"  # best-guess for legacy records
+        elif spouse_lang in ("competent", "proficient", "superior"):
+            contribution = "english_only"
+        spouse_block = {
+            "is_applicant_on_visa": bool(family.get("spouse_present")),
+            "contribution_type": contribution,
+            "is_australian_pr_or_citizen": False,
+            "personal": {"full_name": None},
+            "professional": {"current_profession": family.get("spouse_profession")} if family.get("spouse_profession") else None,
+            "education": {"highest_qualification": family.get("spouse_education")} if family.get("spouse_education") else None,
+            "language": {"primary_test": "IELTS", "scores": {"overall": _label_to_overall(spouse_lang)}} if spouse_lang else None,
+        }
+        spouse_block = {k: v for k, v in spouse_block.items() if v is not None}
+
+    dependents = []
+    for age in (family.get("children_ages") or []):
+        dependents.append({"role": "child", "age": age})
+    # If we have count but not ages, materialize blank-age entries
+    remaining = (family.get("children_count") or 0) - len(dependents)
+    for _ in range(max(0, remaining)):
+        dependents.append({"role": "child"})
+
+    return {
+        "marital_status": marital,
+        "primary_applicant": primary_block,
+        "spouse": spouse_block,
+        "dependents": dependents,
+        "schema_version": 2,
+    }
+
+
+def _label_to_overall(label: Optional[str]) -> Optional[float]:
+    return {"superior": 8.0, "proficient": 7.0, "competent": 6.0, "none": 0.0}.get(label or "")
+
+
+# ══════════════════════════════════════════════════════════════
 # Endpoints
 # ══════════════════════════════════════════════════════════════
 @router.post("")
@@ -205,11 +416,27 @@ async def create_profile(req: ProfileCreate, current_user: dict = Depends(get_cu
     profile_id = f"ELG-{datetime.now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
 
     payload = req.model_dump()
-    # Compute age from DOB if missing
-    if payload.get("basic_info") and not payload["basic_info"].get("age"):
-        computed_age = _compute_age(payload["basic_info"].get("date_of_birth"))
-        if computed_age is not None:
-            payload["basic_info"]["age"] = computed_age
+    # Phase 6.7 — if new structure provided, denormalize to legacy fields so the
+    # current rules engine continues to work during transition. Auto-bump schema_version.
+    if payload.get("primary_applicant") or payload.get("marital_status") or payload.get("spouse"):
+        payload["schema_version"] = 2
+        legacy = project_new_to_legacy(payload)
+        for k, v in legacy.items():
+            if v is not None:
+                payload[k] = v
+    # Compute age from DOB if missing (now from primary_applicant.personal first, then legacy)
+    primary_personal = (payload.get("primary_applicant") or {}).get("personal") or {}
+    if primary_personal and not primary_personal.get("age"):
+        ca = _compute_age(primary_personal.get("date_of_birth"))
+        if ca is not None:
+            payload["primary_applicant"]["personal"]["age"] = ca
+            # mirror to legacy basic_info
+            if payload.get("basic_info") and not payload["basic_info"].get("age"):
+                payload["basic_info"]["age"] = ca
+    elif payload.get("basic_info") and not payload["basic_info"].get("age"):
+        ca = _compute_age(payload["basic_info"].get("date_of_birth"))
+        if ca is not None:
+            payload["basic_info"]["age"] = ca
 
     # PA linkage — capture metadata for permission checks
     pa_meta = {}
@@ -312,7 +539,10 @@ async def patch_profile(profile_id: str, req: ProfilePatch, current_user: dict =
 
     updates = {k: v for k, v in req.model_dump(exclude_unset=True).items() if v is not None}
     # Section-level merge (preserve untouched fields within a section)
-    SECTIONS = {"basic_info", "professional", "education", "language_proficiency", "family", "finances", "preferences", "additional_factors"}
+    SECTIONS = {"basic_info", "professional", "education", "language_proficiency", "family",
+                "finances", "preferences", "additional_factors",
+                # Phase 6.7 — new sections
+                "primary_applicant", "spouse"}
     merged_updates: Dict[str, Any] = {}
     for k, v in updates.items():
         if k in SECTIONS and isinstance(v, dict):
@@ -321,6 +551,17 @@ async def patch_profile(profile_id: str, req: ProfilePatch, current_user: dict =
         else:
             merged_updates[k] = v
 
+    # Phase 6.7 — if any new-structure section was patched, re-project to legacy
+    new_struct_keys = {"primary_applicant", "spouse", "marital_status", "dependents"}
+    if any(k in merged_updates for k in new_struct_keys):
+        # Build full merged doc to project from
+        projection_source = {**existing, **merged_updates}
+        legacy_projection = project_new_to_legacy(projection_source)
+        for k, v in legacy_projection.items():
+            if v is not None:
+                merged_updates[k] = v
+        merged_updates["schema_version"] = 2
+
     # Recompute age if DOB changed
     if "basic_info" in merged_updates and isinstance(merged_updates["basic_info"], dict):
         dob = merged_updates["basic_info"].get("date_of_birth")
@@ -328,6 +569,14 @@ async def patch_profile(profile_id: str, req: ProfilePatch, current_user: dict =
             ca = _compute_age(dob)
             if ca:
                 merged_updates["basic_info"]["age"] = ca
+    if "primary_applicant" in merged_updates and isinstance(merged_updates["primary_applicant"], dict):
+        pa = merged_updates["primary_applicant"]
+        pers = pa.get("personal") or {}
+        if pers.get("date_of_birth") and not pers.get("age"):
+            ca = _compute_age(pers.get("date_of_birth"))
+            if ca:
+                pa["personal"]["age"] = ca
+                merged_updates["primary_applicant"] = pa
 
     merged_updates["updated_at"] = datetime.now(timezone.utc)
     await profiles_col.update_one({"id": profile_id}, {"$set": merged_updates})
@@ -471,4 +720,39 @@ async def my_stats(current_user: dict = Depends(get_current_user)):
         "draft": drafts,
         "complete": complete,
         "assessed": assessed,
+    }
+
+
+
+# ══════════════════════════════════════════════════════════════
+# Phase 6.7 — Schema Migration (idempotent)
+# ══════════════════════════════════════════════════════════════
+@router.post("/admin/migrate-v67")
+async def migrate_all_to_v67(current_user: dict = Depends(get_current_user)):
+    """Admin-only: convert all legacy profiles to the new Phase 6.7 structure.
+    Idempotent — profiles already at schema_version >= 2 are skipped.
+    """
+    role = _user_role(current_user)
+    if role not in ("admin", "admin_owner") and "*" not in (current_user.get("permissions") or []):
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    migrated = 0
+    skipped = 0
+    errors: List[str] = []
+    async for doc in profiles_col.find({}):
+        try:
+            update = migrate_legacy_to_new(doc)
+            if not update:
+                skipped += 1
+                continue
+            await profiles_col.update_one({"id": doc["id"]}, {"$set": update})
+            migrated += 1
+        except Exception as e:
+            errors.append(f"{doc.get('id', '?')}: {e}")
+    return {
+        "ok": True,
+        "migrated": migrated,
+        "skipped_already_at_v2": skipped,
+        "errors": errors[:20],
+        "total_errors": len(errors),
     }
