@@ -181,12 +181,26 @@ export default function EligibilityProfileWizard() {
         } else if (prefillPaId) {
           const r = await axios.post(`${API}/eligibility/profiles/prefill-from-pa/${prefillPaId}`, {}, { headers });
           setData(d => deepMerge(emptyProfile(), r.data));
+        } else {
+          // Phase 6.7 Part 2 — resume-upload prefill via sessionStorage
+          const sourceParam = searchParams.get('source');
+          if (sourceParam === 'resume') {
+            const raw = sessionStorage.getItem('eligibility_resume_prefill');
+            if (raw) {
+              try {
+                const parsed = JSON.parse(raw);
+                setData(d => deepMerge(emptyProfile(), parsed));
+                toast.success('Resume data loaded — please review and complete');
+              } catch (_) { /* ignore */ }
+              sessionStorage.removeItem('eligibility_resume_prefill');
+            }
+          }
         }
       } catch (e) {
         toast.error(formatApiError(e, 'Failed to load profile'));
       } finally { setLoading(false); }
     })();
-  }, [profileId, prefillPaId, headers]);
+  }, [profileId, prefillPaId, headers, searchParams]);
 
   useEffect(() => {
     (async () => {
@@ -264,8 +278,8 @@ export default function EligibilityProfileWizard() {
         pid = r.data.id;
         setCurrentProfileId(pid);
       }
-      toast.success('Profile saved — starting AI analysis…');
-      navigate(`/eligibility/profile/${pid}/assess`);
+      toast.success('Profile saved — review before AI analysis');
+      navigate(`/eligibility/profile/${pid}/verify`);
     } catch (e) {
       toast.error(formatApiError(e, 'Save failed'));
     } finally { setSaving(false); }

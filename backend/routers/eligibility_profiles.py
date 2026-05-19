@@ -12,11 +12,13 @@ import uuid
 from datetime import datetime, timezone, date
 from typing import Optional, List, Dict, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from pydantic import BaseModel, EmailStr, Field
 
 from core.auth import get_current_user
 from core.database import db
+from core.resume_extractor import extract_text, parse_resume_with_ai
+from core.profile_completeness import compute_completeness
 
 router = APIRouter(prefix="/eligibility/profiles", tags=["Phase 6.2 - Eligibility Profiles"])
 
@@ -721,6 +723,73 @@ async def my_stats(current_user: dict = Depends(get_current_user)):
         "complete": complete,
         "assessed": assessed,
     }
+
+
+# ══════════════════════════════════════════════════════════════
+# Phase 6.7 Part 2 — Pre-Analysis Verification (Completeness)
+# ══════════════════════════════════════════════════════════════
+@router.get("/{profile_id}/completeness")
+async def get_completeness(profile_id: str, current_user: dict = Depends(get_current_user)):
+    """Returns a per-section completeness score + warnings/blockers so the user
+    can review the profile BEFORE running the AI analysis.
+    """
+    doc = await profiles_col.find_one({"id": profile_id})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    if not _can_see_profile(current_user, doc):
+        raise HTTPException(status_code=403, detail="Not authorised to view this profile")
+    doc.pop("_id", None)
+    return compute_completeness(doc)
+
+
+# ══════════════════════════════════════════════════════════════
+# Phase 6.7 Part 2 — Resume Upload + AI Extraction
+# ══════════════════════════════════════════════════════════════
+@router.post("/resume-extract")
+async def resume_extract(
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user),
+):
+    """Accepts a PDF, DOCX, or TXT resume → extracts structured profile fields
+    via Claude AI. Returns a Phase 6.7 ProfileCreate-shaped payload that the
+    frontend wizard can use to pre-fill.
+
+    The profile is NOT saved here — the user must review and submit via the
+    wizard. This keeps the AI extraction reversible.
+    """
+    if not _can_access(current_user):
+        raise HTTPException(status_code=403, detail="Not authorised")
+
+    # Size guard — 10 MB hard cap
+    raw = await file.read()
+    if len(raw) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="File too large — max 10 MB")
+    if len(raw) < 100:
+        raise HTTPException(status_code=400, detail="File too small or empty")
+
+    try:
+        text, meta = extract_text(file.filename or "", raw)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to read file: {type(e).__name__}: {e}")
+
+    if not text or len(text.strip()) < 50:
+        raise HTTPException(status_code=400, detail="Could not extract meaningful text from the file. Please ensure the resume is not a scanned image.")
+
+    parsed = await parse_resume_with_ai(text)
+    if parsed.get("_error"):
+        raise HTTPException(status_code=502, detail=parsed["_error"])
+
+    # Clean up: ensure schema_version=2 + status=draft for downstream wizard
+    parsed.setdefault("schema_version", 2)
+    parsed.setdefault("status", "draft")
+    parsed["_source_meta"] = {
+        "filename": file.filename,
+        "size_bytes": len(raw),
+        "extracted_chars": meta.get("char_count", 0),
+    }
+    return parsed
 
 
 

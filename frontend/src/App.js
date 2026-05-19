@@ -38,6 +38,8 @@ import EligibilityKnowledgeBase from '@/pages/admin/EligibilityKnowledgeBase';
 import EligibilityProfileWizard from '@/pages/eligibility/EligibilityProfileWizard';
 import { EligibilityProfilesList, EligibilityProfileDetail } from '@/pages/eligibility/EligibilityProfiles';
 import { EligibilityAssessmentRunner, EligibilityAssessmentResults } from '@/pages/eligibility/EligibilityAssessmentResults';
+import EligibilityProfileVerify from '@/pages/eligibility/EligibilityProfileVerify';
+import PublicInfoSheet from '@/pages/eligibility/PublicInfoSheet';
 import AdminVendors from '@/pages/admin/AdminVendors';
 import VendorCategoriesManager from '@/pages/admin/VendorCategoriesManager';
 import CostStructuresManager from '@/pages/admin/CostStructuresManager';
@@ -164,6 +166,11 @@ function App() {
               <EligibilityProfileDetail />
             </RequirePermission>
           } />
+          <Route path="/eligibility/profile/:profileId/verify" element={
+            <RequirePermission allowRoles={['admin_owner', 'admin', 'sales_executive', 'sr_sales_executive', 'sales_manager', 'sales_head', 'partner', 'case_manager']}>
+              <EligibilityProfileVerify />
+            </RequirePermission>
+          } />
           <Route path="/eligibility/profile/:profileId/assess" element={
             <RequirePermission allowRoles={['admin_owner', 'admin', 'sales_executive', 'sr_sales_executive', 'sales_manager', 'sales_head', 'partner', 'case_manager']}>
               <EligibilityAssessmentRunner />
@@ -241,6 +248,7 @@ function App() {
           <Route path="/pre-assess/:token" element={<PreAssessmentPayment />} />
           <Route path="/magic/:token" element={<MagicLinkLogin />} />
           <Route path="/eligibility" element={<EligibilityCheck />} />
+          <Route path="/info-sheet/:token" element={<PublicInfoSheet />} />
           <Route path="/visa-compare" element={<VisaCompare />} />
           <Route path="/partner" element={<PartnerDashboard />} />
           <Route path="/case-manager" element={<CaseManagerDashboard />} />
