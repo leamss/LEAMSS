@@ -139,6 +139,7 @@ AUSTRALIA = {
             "criteria_general": {"minimum_education": "Bachelor in IT or related", "relevant_work_experience": "varies by qualification match", "english_required": False},
             "documents_required": ["Bachelor's degree certificate", "Academic transcripts", "Employment reference letters (statutory declaration accepted)", "Roles & responsibilities document", "Pay slips (most recent 3 months)", "Bank statements showing salary credit", "Passport bio page"],
             "assessment_fee_inr": 50000, "processing_time_weeks": 8,
+            "fee_native": {"currency": "AUD", "standard": 500, "rpl": 1450, "label": "AUD 500 (post-Australian degree) / AUD 1,000-1,450 (RPL pathway for non-ICT major)"},
             "contact_info": {"email": "info@acs.org.au", "phone": "+61 2 9929 2900"},
         },
         {
@@ -148,15 +149,17 @@ AUSTRALIA = {
             "criteria_general": {"minimum_education": "Washington Accord accredited Bachelor", "relevant_work_experience": "0 (for accredited) to 3+ years (for CDR)", "english_required": True},
             "documents_required": ["Engineering degree (Bachelor/Masters)", "Academic transcripts", "CDR (3 career episodes + summary) for non-WA degrees", "Employment evidence", "CV", "Passport"],
             "assessment_fee_inr": 80000, "processing_time_weeks": 12,
+            "fee_native": {"currency": "AUD", "standard": 1150, "cdr": 1800, "label": "AUD 1,150 (Washington/Sydney/Dublin Accord direct) / AUD 1,800 (CDR pathway for non-Accord engineers)"},
             "contact_info": {"email": "memberservices@engineersaustralia.org.au"},
         },
         {
             "body_id": "vetassess", "name": "VETASSESS", "full_name": "Vocational Education and Training Assessment Services",
             "website": "https://vetassess.com.au",
-            "assesses_occupations": ["221111", "222311", "224711", "234212", "234411", "139999"],
+            "assesses_occupations": ["221111", "222311", "224711", "234212", "234411", "139999", "141311", "132111"],
             "criteria_general": {"minimum_education": "Bachelor or equivalent in field", "relevant_work_experience": "1-3 years post-qualification (full-time)", "english_required": False},
             "documents_required": ["Degree certificate + transcripts", "Employment reference letters", "Job descriptions", "Pay slips", "Tax documents"],
             "assessment_fee_inr": 70000, "processing_time_weeks": 10,
+            "fee_native": {"currency": "AUD", "standard": 1225, "priority": 2710, "label": "AUD 1,225 (standard, 10-12 wk) / AUD 2,710 (priority, 10 business days)"},
             "contact_info": {"email": "info@vetassess.com.au"},
         },
         {
@@ -166,6 +169,7 @@ AUSTRALIA = {
             "criteria_general": {"minimum_education": "Bachelor in Accounting", "relevant_work_experience": "varies", "english_required": True, "english_minimum": "IELTS 7 each band / PTE 65 each band"},
             "documents_required": ["Bachelor of Accounting degree", "Transcripts", "Membership cert if applicable", "Employment letters"],
             "assessment_fee_inr": 60000, "processing_time_weeks": 8,
+            "fee_native": {"currency": "AUD", "standard": 535, "expedited": 1000, "label": "AUD 535 (standard 4-6 wk) / AUD 1,000 (expedited)"},
             "contact_info": {"email": "skills@cpaaustralia.com.au"},
         },
         {
@@ -175,6 +179,7 @@ AUSTRALIA = {
             "criteria_general": {"minimum_education": "Bachelor + Postgraduate or 8+ years experience", "relevant_work_experience": "varies", "english_required": False},
             "documents_required": ["Qualifications", "Detailed CV", "Employment evidence including team-size letters"],
             "assessment_fee_inr": 65000, "processing_time_weeks": 10,
+            "fee_native": {"currency": "AUD", "standard": 715, "label": "AUD 715 (standard 8-10 wk). Note: for Hotel/Motel Manager (141311), Restaurant Manager (141111) and most hospitality codes, VETASSESS is the correct body, NOT AIM."},
             "contact_info": {"email": "skills@aim.com.au"},
         },
         {
@@ -184,6 +189,7 @@ AUSTRALIA = {
             "criteria_general": {"minimum_education": "Recognized health qualification", "relevant_work_experience": "Registration-based", "english_required": True, "english_minimum": "OET B / IELTS 7"},
             "documents_required": ["Healthcare degree + transcripts", "Registration in home country", "OET / IELTS certificate", "Police clearance"],
             "assessment_fee_inr": 100000, "processing_time_weeks": 16,
+            "fee_native": {"currency": "AUD", "standard": 0, "label": "Varies by profession — Medical AUD 800-3,500, Pharmacy AUD 1,170, Dental AUD 1,500. Registration fees apply on top."},
             "contact_info": {"email": "info@ahpra.gov.au"},
         },
         {
@@ -193,6 +199,7 @@ AUSTRALIA = {
             "criteria_general": {"minimum_education": "Trade qualification + apprenticeship", "relevant_work_experience": "3+ years post-qualification", "english_required": False},
             "documents_required": ["Trade certificate", "Apprenticeship records", "Employment letters", "Practical evidence (job tools photos)"],
             "assessment_fee_inr": 55000, "processing_time_weeks": 12,
+            "fee_native": {"currency": "AUD", "standard": 1070, "label": "AUD 1,070 OSAP / AUD 2,800 MSA (Migration Skills Assessment for offshore trades)"},
             "contact_info": {"email": "tra@dewr.gov.au"},
         },
         {
@@ -202,6 +209,7 @@ AUSTRALIA = {
             "criteria_general": {"minimum_education": "Bachelor of Nursing", "relevant_work_experience": "Registration + 1+ year practice", "english_required": True, "english_minimum": "IELTS 7 / OET B"},
             "documents_required": ["Nursing degree + transcripts", "Registration certificate", "Practice evidence", "English score"],
             "assessment_fee_inr": 70000, "processing_time_weeks": 10,
+            "fee_native": {"currency": "AUD", "standard": 525, "modified": 770, "label": "AUD 525 (standard) / AUD 770 (modified). AHPRA registration fee separate (~AUD 175/year)."},
             "contact_info": {"email": "info@anmac.org.au"},
         },
     ],
@@ -232,10 +240,17 @@ AUSTRALIA = {
         _occ("253111", "General Practitioner", "Medical Practitioners", "253", 1, "AHPRA", "MLTSSL", ["189","190","491","482","186"], [], {"NSW":"very_high","VIC":"very_high","QLD":"very_high"}),
         _occ("254111", "Midwife", "Midwives", "254", 1, "AHPRA", "MLTSSL", ["189","190","491","482","186"], [], {"NSW":"high","VIC":"high"}),
         _occ("252411", "Occupational Therapist", "Occupational Therapists", "252", 1, "AHPRA", "MLTSSL", ["189","190","491","482","186"], [], {"NSW":"high"}),
-        # Management (AIM)
+        # Management (AIM / VETASSESS)
         _occ("133111", "Construction Project Manager", "Construction Managers", "133", 1, "AIM", "MLTSSL", ["189","190","491","482","186"], [], {"NSW":"high","VIC":"high"}),
         _occ("133211", "Engineering Manager", "Engineering Managers", "133", 1, "AIM", "MLTSSL", ["189","190","491","482","186"], [], {"VIC":"high","WA":"high"}),
         _occ("133511", "Production Manager (Manufacturing)", "Production Managers", "133", 1, "AIM", "STSOL", ["190","491","482"], [], {"VIC":"medium"}),
+        _occ("132111", "Corporate General Manager", "Chief Executives and Managing Directors", "132", 1, "VETASSESS", "STSOL", ["190","491","482"], ["Operations Head","Hotel Operations Manager","Hospitality Operations Director"], {"NSW":"medium","VIC":"medium"}),
+        _occ("141311", "Hotel or Motel Manager", "Accommodation and Hospitality Managers", "141", 2, "VETASSESS", "MLTSSL", ["189","190","491","482","186"], ["Operations Head (Hotel)","Hotel Manager","Hospitality Manager"], {"VIC":"high","NSW":"high","QLD":"very_high"}),
+        _occ("141111", "Cafe or Restaurant Manager", "Hospitality Managers", "141", 2, "VETASSESS", "STSOL", ["190","491","482"], ["Restaurant Manager"], {"NSW":"medium"}),
+        # Marketing / Sales (VETASSESS)
+        _occ("225113", "Marketing Specialist", "Advertising and Marketing Professionals", "225", 1, "VETASSESS", "STSOL", ["190","491","482"], ["Digital Marketing Manager","Brand Manager","Growth Marketer"], {"NSW":"medium","VIC":"medium"}),
+        _occ("225111", "Advertising Specialist", "Advertising and Marketing Professionals", "225", 1, "VETASSESS", "STSOL", ["190","491","482"], [], {"NSW":"medium"}),
+        _occ("225311", "Public Relations Professional", "Public Relations Professionals", "225", 1, "VETASSESS", "STSOL", ["190","491","482"], [], {"VIC":"medium"}),
         # Trades (TRA)
         _occ("321111", "Automotive Electrician", "Automotive Electricians", "321", 3, "TRA", "MLTSSL", ["189","190","491","482","186"], [], {"NSW":"high","VIC":"high"}),
         _occ("322311", "Metal Fabricator", "Structural Steel and Welding Trades", "322", 3, "TRA", "MLTSSL", ["189","190","491","482","186"], [], {"WA":"high","QLD":"high"}),

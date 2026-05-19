@@ -1,0 +1,34 @@
+{
+  "summary": "Phase 6.7 CRITICAL BUG FIXES (Iteration 109) — Resolved 4 critical issues reported by user with screenshots: (1) 'Single' applicant getting +5 partner points instead of +10 due to stale spouse data in DB, (2) Hotel Operations Manager matched to wrong code (Construction Project Manager) due to missing hospitality codes in seed, (3) Skill assessment body fees displayed in INR (₹65K, ₹70K) instead of native currency (AUD 1,225 standard / AUD 2,710 priority), (4) Upload Resume button only visible on Profiles list, not on New Assessment / wizard page. 10/10 regression pytest tests PASS — verified Single + leftover spouse_block now correctly gives +10, Hotel Ops Manager matches 132111/141311 at 100% confidence, VETASSESS returns fee_native with AUD breakdown, married scenarios untouched (no regression).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iteration109_critical_bug_fixes.py (10/10 PASS)"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "FIX 1 — Marital status is now AUTHORITATIVE. In /app/backend/core/eligibility_rules.py:235-360, the partner-skills branch starts with `has_partner = marital in ('married', 'de_facto')`. If has_partner is False, spouse_block is forcibly set to None — stale DB spouse data CANNOT leak into single/divorced/widowed/separated applicants' partner points. This is a defense-in-depth fix that works even if old profiles in DB still have spouse data.",
+    "FIX 2 — Also enforced at SAVE time. /app/backend/routers/eligibility_profiles.py:_strip_spouse_if_single() is called from both create_profile() (line ~415) and update_profile() (line ~535). When marital_status is not married/de_facto, the new endpoint forces spouse=None + clears family.spouse_* fields BEFORE projecting to legacy. Migration was also run on existing DB: 2 stale profiles cleaned + 72 stale assessment cache entries dropped.",
+    "FIX 3 — Occupation seed enriched. /app/backend/core/eligibility_kb_seed.py added 6 new AU occupation codes: 141311 (Hotel/Motel Manager), 132111 (Corporate General Manager — with alternative_titles=['Hotel Operations Manager','Hospitality Operations Director']), 141111 (Cafe/Restaurant Manager), 225113 (Marketing Specialist — with Digital Marketing aliases), 225111 (Advertising Specialist), 225311 (Public Relations Professional). Also added 141311 + 132111 to VETASSESS body's assesses_occupations.",
+    "FIX 4 — Native currency fees in seed. All 8 AU skill assessment bodies now have fee_native: {currency, standard, [rpl|cdr|priority|modified|expedited], label}. Examples: ACS 'AUD 500 (post-Australian degree) / AUD 1,000-1,450 (RPL pathway for non-ICT major)', EA 'AUD 1,150 (Washington/Sydney/Dublin Accord direct) / AUD 1,800 (CDR pathway for non-Accord engineers)', VETASSESS 'AUD 1,225 (standard) / AUD 2,710 (priority)', AIM 'AUD 715 (standard). Note: for Hotel/Motel Manager (141311), Restaurant Manager (141111) and most hospitality codes, VETASSESS is the correct body, NOT AIM.'",
+    "FIX 5 — Skill tab UI updated. /app/frontend/src/pages/eligibility/EligibilityAssessmentResults.jsx SkillTab now shows fee_native.label as a 'Fee Breakdown' line under the Official Fee row, falling back to INR estimate only when fee_native is missing. data-testid='body-fee-native' + 'body-fee-label'.",
+    "FIX 6 — Upload Resume button added to wizard. /app/frontend/src/pages/eligibility/EligibilityProfileWizard.jsx header now has the Upload Resume button alongside Save Draft. Drops into the same /api/eligibility/profiles/resume-extract endpoint, deep-merges AI response into the form (preserves user-entered fields). data-testid='wizard-upload-resume'.",
+    "FIX 7 — AI prompt enhanced for depth + skill body fees in NATIVE currency. /app/backend/core/eligibility_ai.py SYSTEM_PROMPT now has RULE 4 (marital_status is authoritative for partner points — never apply partner points to single applicants) + RULE 5 (skill body fees must reference OFFICIAL bodies in native currency with RPL/CDR alternates). Added DEPTH EXPECTATION section specifying 4-6 sentence narrative, 3-5 sentence reasoning for each field — fixing user's complaint that 'this time its not giving more detail information like earlier it was giving'."
+  ],
+  "updated_files": [
+    "/app/backend/core/eligibility_rules.py (partner-skills rewrite, marital authoritative)",
+    "/app/backend/core/eligibility_ai.py (richer SYSTEM_PROMPT + native currency rule)",
+    "/app/backend/core/eligibility_kb_seed.py (6 new AU codes + fee_native on all bodies)",
+    "/app/backend/routers/eligibility_profiles.py (_strip_spouse_if_single defense)",
+    "/app/frontend/src/pages/eligibility/EligibilityAssessmentResults.jsx (native fee display in SkillTab)",
+    "/app/frontend/src/pages/eligibility/EligibilityProfileWizard.jsx (Upload Resume button)",
+    "/app/backend/tests/test_iteration109_critical_bug_fixes.py (NEW — 10 tests)"
+  ],
+  "success_rate": {"backend": "100% (10/10 regression tests)", "frontend": "Wizard screenshot confirms Upload Resume button visible"},
+  "test_credentials": "admin@leamss.com / Admin@123",
+  "seed_data_creation": "Re-seeded AU country_rules (1 doc updated with new codes + fee_native). Cleaned up 2 stale single-with-spouse profiles + 72 stale assessment cache entries.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Phase 6.7 critical fixes COMPLETE. Sir's reported bugs are all resolved. AI Eligibility budget may be near zero — endpoints handle this gracefully (502 with detail). When AI budget is restored, full end-to-end Claude AI verification can be done. Iteration 107 (Part 1) + 108 (Part 2) + 109 (critical bugs) form the complete Phase 6.7 test surface.",
+  "rca of the issue": "Root cause: The Phase 6.7 partner-skills rewrite in iteration 107 correctly handled fresh single applicants (no spouse_block in DB), but had a latent bug — when a profile was edited from married → single, the spouse field stayed in the DB. The check `if (is_single_status and not spouse_block)` failed because spouse_block was truthy. The fix makes marital_status the SINGLE SOURCE OF TRUTH: spouse_block is forcibly None when marital is not married/de_facto, at BOTH the save layer AND the rules-engine layer (defense-in-depth)."
+}

@@ -610,20 +610,34 @@ function SkillTab({ country }) {
       )}
 
       {body && (
-        <Card className="p-4 bg-amber-50 border-l-4 border-l-amber-500">
+        <Card className="p-4 bg-amber-50 border-l-4 border-l-amber-500" data-testid="skill-body-card">
           <p className="text-[10px] uppercase font-bold text-amber-700">Skill Assessment Body</p>
           <h3 className="text-lg font-bold">{body.name}{body.full_name && <span className="text-sm text-slate-500 ml-2">({body.full_name})</span>}</h3>
           <div className="grid grid-cols-2 gap-2 mt-2 text-xs">
-            <div><span className="text-slate-500">Fee:</span> <strong>₹{((body.assessment_fee_inr || 0) / 1000).toFixed(0)}K</strong></div>
+            <div>
+              <span className="text-slate-500">Official Fee:</span>{' '}
+              {body.fee_native?.label ? (
+                <strong className="text-amber-800" data-testid="body-fee-native">
+                  {body.fee_native.currency} {body.fee_native.standard || body.fee_native.label.split(' ')[1] || ''}
+                </strong>
+              ) : (
+                <strong>₹{((body.assessment_fee_inr || 0) / 1000).toFixed(0)}K <span className="text-[9px] text-slate-400">(est.)</span></strong>
+              )}
+            </div>
             <div><span className="text-slate-500">Processing:</span> <strong>{body.processing_time_weeks || '?'} weeks</strong></div>
           </div>
+          {body.fee_native?.label && (
+            <p className="text-[11px] text-amber-700 mt-1 leading-snug" data-testid="body-fee-label">
+              <strong>Fee Breakdown:</strong> {body.fee_native.label}
+            </p>
+          )}
           {body.website && (
             <a href={body.website} target="_blank" rel="noreferrer" className="text-[11px] text-indigo-600 hover:underline mt-2 inline-flex items-center gap-1">
               {body.website.replace(/^https?:\/\//, '')} <ExternalLink className="h-3 w-3" />
             </a>
           )}
           {ai.skill_body_advice && (
-            <p className="text-sm text-amber-900 mt-3 italic">{ai.skill_body_advice}</p>
+            <p className="text-sm text-amber-900 mt-3 italic" data-testid="ai-skill-advice">{ai.skill_body_advice}</p>
           )}
           {body.documents_required?.length > 0 && (
             <div className="mt-3">

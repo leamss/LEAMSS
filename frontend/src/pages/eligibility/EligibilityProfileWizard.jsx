@@ -27,7 +27,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 import {
   ArrowLeft, ArrowRight, Save, Sparkles, Target, Globe, Briefcase, GraduationCap,
   MessageSquare, Heart, Users as UsersIcon, ClipboardList, CheckCircle2,
-  Plus, Trash2, Loader2, Layers, Compass, Star, User, Info,
+  Plus, Trash2, Loader2, Layers, Compass, Star, User, Info, Upload,
 } from 'lucide-react';
 
 import { formatApiError, pruneEmpty } from '@/lib/apiErrors';
@@ -168,7 +168,34 @@ export default function EligibilityProfileWizard() {
   const [saving, setSaving] = useState(false);
   const [currentProfileId, setCurrentProfileId] = useState(profileId || null);
   const [countries, setCountries] = useState([]);
+  const [resumeBusy, setResumeBusy] = useState(false);
+  const resumeInputRef = useRef(null);
   const lastAutoSavedSnapshot = useRef(null);
+
+  // Phase 6.7 Part 2 — handle in-wizard resume upload (replaces or pre-fills the current form)
+  const handleResumeUpload = async (file) => {
+    if (!file) return;
+    const ok = ['.pdf', '.docx', '.txt'].some(ext => file.name.toLowerCase().endsWith(ext));
+    if (!ok) { toast.error('Only PDF, DOCX, or TXT files allowed'); return; }
+    if (file.size > 10 * 1024 * 1024) { toast.error('File too large — max 10 MB'); return; }
+    setResumeBusy(true);
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const r = await axios.post(`${API}/eligibility/profiles/resume-extract`, form, {
+        headers: { ...headers, 'Content-Type': 'multipart/form-data' },
+        timeout: 90000,
+      });
+      // Deep-merge AI-extracted data into the existing form (preserves user-entered fields)
+      setData(d => deepMerge(d, r.data));
+      toast.success('Resume extracted — please review the auto-filled fields below');
+    } catch (e) {
+      toast.error(formatApiError(e, 'Resume extraction failed'));
+    } finally {
+      setResumeBusy(false);
+      if (resumeInputRef.current) resumeInputRef.current.value = '';
+    }
+  };
 
   useEffect(() => {
     (async () => {
@@ -374,6 +401,25 @@ export default function EligibilityProfileWizard() {
           <div className="flex items-center gap-2">
             {saving && <span className="text-[11px] text-slate-400 flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" />Saving…</span>}
             {currentProfileId && <Badge className="bg-slate-100 text-slate-600 text-[10px]">{currentProfileId}</Badge>}
+            <input
+              ref={resumeInputRef}
+              type="file"
+              accept=".pdf,.docx,.txt"
+              className="hidden"
+              onChange={(e) => handleResumeUpload(e.target.files?.[0])}
+              data-testid="wizard-resume-input"
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => resumeInputRef.current?.click()}
+              disabled={resumeBusy}
+              data-testid="wizard-upload-resume"
+              title="Upload a resume → AI auto-fills the form"
+            >
+              {resumeBusy ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Upload className="h-3.5 w-3.5 mr-1" />}
+              {resumeBusy ? 'Extracting…' : 'Upload Resume'}
+            </Button>
             <Button variant="outline" size="sm" onClick={saveManual} disabled={saving} data-testid="wizard-save-now">
               <Save className="h-3.5 w-3.5 mr-1" />Save Draft
             </Button>

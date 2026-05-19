@@ -5,6 +5,18 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 
 > **📌 Update (Feb 13, 2026):** `CHANGELOG.md` now tracks all completed phases (incl. **Phase 3A — Attendance & Leave** with full company policies). `ROADMAP.md` lists prioritized backlog. This PRD remains the static reference for original requirements.
 
+### 🔥 Phase 6.7 Critical Bug Fixes (May 19, 2026) — User Feedback Iteration
+**Status:** ✅ COMPLETE — 10/10 regression tests PASS (`/app/test_reports/iteration_109.json`)
+
+Sir reported 4 critical issues with screenshots from his manual testing. All fixed:
+1. **Single+leftover spouse data showing +5 instead of +10**: Defense-in-depth — marital_status is now AUTHORITATIVE both at the SAVE layer (`_strip_spouse_if_single` strips stale data) AND at the rules engine layer (ignores spouse_block when not married/de_facto). DB cleanup migration ran for existing profiles.
+2. **Hotel Operations Manager → Construction Project Manager (wrong)**: Added 6 missing AU occupation codes — 141311 Hotel/Motel Manager, 132111 Corporate GM (with "Operations Head" alternative_titles), 141111 Restaurant Mgr, 225113 Marketing Specialist, 225111 Advertising Specialist, 225311 PR Professional. Verified: Hotel Ops Manager now matches 132111+141311 at 100% confidence.
+3. **INR fees instead of native currency**: All 8 AU skill body fees now have `fee_native: {currency, standard, [rpl|cdr|priority|...], label}`. Examples: ACS "AUD 500 / AUD 1,000-1,450 RPL", EA "AUD 1,150 standard / AUD 1,800 CDR", VETASSESS "AUD 1,225 / AUD 2,710 priority". SkillTab now shows native breakdown.
+4. **Upload Resume missing from wizard**: Added Upload Resume button to EligibilityProfileWizard.jsx header. Same endpoint, deep-merges into form.
+5. **AI output less detailed**: SYSTEM_PROMPT now has DEPTH EXPECTATION (4-6 sentence narrative, 3-5 sentence reasoning, 4-6 bullets each) + new RULE 4 (marital authoritative) + RULE 5 (native currency fees with RPL/CDR alternates).
+
+
+
 ### 🚀 Phase 6.7 Part 2 — Pre-Analysis Verification + Resume Upload + Client Info Sheet (May 19, 2026)
 **Status:** ✅ COMPLETE — 24/24 backend tests PASS (`/app/test_reports/iteration_108.json`)
 

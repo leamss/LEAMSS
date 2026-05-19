@@ -336,6 +336,25 @@ def _strip_nones(d: Dict[str, Any]) -> Dict[str, Any]:
     return {k: v for k, v in d.items() if v is not None}
 
 
+# ─────────────────────────────────────────────────────────────────
+# Phase 6.7 — Marital status is the SINGLE SOURCE OF TRUTH
+# ─────────────────────────────────────────────────────────────────
+def _strip_spouse_if_single(payload: Dict[str, Any]) -> None:
+    """In-place: if marital_status is not (married|de_facto), force spouse=None.
+    This prevents stale spouse data (from earlier edits) leaking into the rules
+    engine and incorrectly applying partner-points logic to single applicants.
+    """
+    marital = (payload.get("marital_status") or "").strip().lower()
+    if marital not in ("married", "de_facto"):
+        payload["spouse"] = None
+        fam = payload.get("family")
+        if isinstance(fam, dict):
+            for k in list(fam.keys()):
+                if k.startswith("spouse_"):
+                    fam[k] = False if k == "spouse_present" else None
+
+
+
 def migrate_legacy_to_new(doc: Dict[str, Any]) -> Dict[str, Any]:
     """Given an OLD-shape profile document, produce the NEW (Phase 6.7) structure.
     Idempotent: if already migrated (schema_version >= 2), return as-is."""
@@ -422,6 +441,8 @@ async def create_profile(req: ProfileCreate, current_user: dict = Depends(get_cu
     # current rules engine continues to work during transition. Auto-bump schema_version.
     if payload.get("primary_applicant") or payload.get("marital_status") or payload.get("spouse"):
         payload["schema_version"] = 2
+        # CRITICAL: marital_status authoritative — strip stale spouse when not married/de_facto
+        _strip_spouse_if_single(payload)
         legacy = project_new_to_legacy(payload)
         for k, v in legacy.items():
             if v is not None:
@@ -558,6 +579,11 @@ async def patch_profile(profile_id: str, req: ProfilePatch, current_user: dict =
     if any(k in merged_updates for k in new_struct_keys):
         # Build full merged doc to project from
         projection_source = {**existing, **merged_updates}
+        # CRITICAL: enforce marital_status as authoritative — strip stale spouse
+        _strip_spouse_if_single(projection_source)
+        # Reflect the strip into merged_updates so DB write also clears spouse
+        if projection_source.get("spouse") is None and existing.get("spouse"):
+            merged_updates["spouse"] = None
         legacy_projection = project_new_to_legacy(projection_source)
         for k, v in legacy_projection.items():
             if v is not None:

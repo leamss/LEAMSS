@@ -3,6 +3,59 @@
 This file appends every completed phase/feature with dates and verification status.
 
 ---
+### 🔥 Phase 6.7 Critical Bug Fixes (May 19, 2026) — User Feedback Iteration
+**Tests:** `test_iteration109_critical_bug_fixes.py` → 10/10 PASS
+
+User reported via screenshots and Hinglish chat ("Bhai.. Full confusion.. of this AI eligibility engine.. i am not satisfied"):
+
+**BUG 1 — Single applicant getting +5 partner points instead of +10 (CRITICAL)**
+- Screenshot showed marital_status='Single', child added, but partner points showed "+5 competent_english_only" with "Spouse age 30 IELTS 6.5" — system was reading STALE spouse data left over from a previous edit.
+- **Root cause**: Phase 6.7 Part 1 rules engine treated spouse_block presence as authoritative; if marital was changed to single but spouse data remained in DB, the wrong branch was hit.
+- **Fix (defense-in-depth)**:
+  1. `/app/backend/core/eligibility_rules.py:235-360` — Partner-skills branch now starts with `has_partner = marital in ('married', 'de_facto')`. If False, spouse_block is forcibly None — stale DB data CANNOT leak through.
+  2. `/app/backend/routers/eligibility_profiles.py` — New `_strip_spouse_if_single()` helper called from both create_profile + update_profile. Forces spouse=None + clears family.spouse_* fields before saving when marital is not married/de_facto.
+  3. **DB migration ran**: 2 stale profiles cleaned + 72 stale assessment cache entries dropped so next assessment picks the fixed logic.
+- **Verified**: 5 regression tests cover single/divorced/widowed/separated all giving +10 even with stale spouse data.
+
+**BUG 2 — Hotel Operations Manager matched to Construction Project Manager (CRITICAL)**
+- Screenshot: AU 65/100 with 133111 Construction Project Manager (25% confidence on "manager" token) for someone whose actual job was Hotel Operations Head.
+- **Root cause**: AU seed did NOT have 141311 (Hotel/Motel Manager), 132111 (Corporate General Manager), 141111 (Restaurant Manager), 225113 (Marketing Specialist), 225111 (Advertising Specialist), 225311 (PR Professional).
+- **Fix**: `/app/backend/core/eligibility_kb_seed.py` — Added 6 new occupation codes with `alternative_titles` (e.g., 132111 with "Operations Head", "Hospitality Operations Director"; 141311 with "Hotel Manager", "Hospitality Manager"). Re-seeded AU.
+- **Verified**: Same Hotel Operations Manager profile now matches 132111 + 141311 at **100% confidence**, with 133111 dropped to last alternative at 20%.
+
+**BUG 3 — Skill body fees in INR instead of native currency (CRITICAL)**
+- Screenshot: AIM body showing "₹65K" fee. Sir: "ACS has 1450 fees with RPL and 705 AUD with RPL, But if someone fall under RPL case which is as per acs rules then it should also appear in that way. Same for EA — with or without CDR."
+- **Fix**: `/app/backend/core/eligibility_kb_seed.py` — Added `fee_native: {currency, standard, [rpl|cdr|priority|modified|expedited], label}` to all 8 AU bodies:
+  - **ACS**: AUD 500 (post-Australian degree) / AUD 1,000-1,450 (RPL pathway for non-ICT major)
+  - **EA**: AUD 1,150 (Washington/Sydney/Dublin Accord direct) / AUD 1,800 (CDR pathway for non-Accord engineers)
+  - **VETASSESS**: AUD 1,225 (standard, 10-12 wk) / AUD 2,710 (priority, 10 business days)
+  - **CPA Australia**: AUD 535 (standard) / AUD 1,000 (expedited)
+  - **AIM**: AUD 715. Note: For Hotel/Motel Manager (141311), Restaurant Manager (141111) and most hospitality codes, VETASSESS is the correct body, NOT AIM.
+  - **AHPRA**: Varies — Medical AUD 800-3,500, Pharmacy AUD 1,170, Dental AUD 1,500
+  - **TRA**: AUD 1,070 OSAP / AUD 2,800 MSA
+  - **ANMAC**: AUD 525 (standard) / AUD 770 (modified)
+- `eligibility_rules.identify_skill_body()` now returns `fee_native` in the response.
+- SkillTab in `EligibilityAssessmentResults.jsx` displays the native currency fee + label as a "Fee Breakdown" line, falling back to INR estimate only when missing.
+
+**BUG 4 — Upload Resume button missing on New Assessment / wizard page**
+- Sir: "Upload resume show ho raha hai under Profiles and Assessment tab, which is good, it should also show under New-Assessment tab."
+- **Fix**: `EligibilityProfileWizard.jsx` header now has Upload Resume button alongside Save Draft. Same `/api/eligibility/profiles/resume-extract` endpoint, deep-merges AI response into form to preserve user-entered fields. data-testid='wizard-upload-resume'.
+
+**BUG 5 — AI giving less detailed output than before**
+- Sir: "this time its not giving more detail information like earlier it was giving."
+- **Fix**: `/app/backend/core/eligibility_ai.py` SYSTEM_PROMPT now has a new DEPTH EXPECTATION section specifying minimums:
+  - narrative: 4-6 sentences (was 2-3)
+  - strengths: 4-6 specific bullets backed by data
+  - recommended_visa_reasoning: 3-5 sentences
+  - occupation_code_reasoning: 3-5 sentences
+  - skill_body_advice: 4-6 sentences with NATIVE currency fees + RPL/CDR alternate paths
+  - personalised_advice: 4-6 bullets with timelines and document checklists
+  - estimated_success_probability_text: high/med/low + 2-3 sentence rationale
+- Added RULE 4 (marital_status is authoritative — never apply partner points to single) and RULE 5 (skill body fees must be in NATIVE currency).
+
+---
+
+
 ### 🚀 Phase 6.7 Part 2 — Pre-Analysis Verification + Resume Upload + Client Info-Sheet (May 19, 2026)
 **Completed:** May 19, 2026
 **Tests:** `test_iteration108_phase67_part2.py` → 24/24 PASS (1 expected skip for AI live call)

@@ -240,31 +240,40 @@ def calculate_points(profile: Dict[str, Any], country: Dict[str, Any]) -> Dict[s
     #   • competent_english_only: +5 (spouse has IELTS 6+ overall but no skill assessment)
     #   • non_contributing:     0
     #
-    # Reads from the NEW Phase 6.7 structure (profile.spouse) when available,
-    # falls back to the legacy projection (profile.family.spouse_*) otherwise.
+    # CRITICAL: marital_status is the SINGLE SOURCE OF TRUTH. If user picks single/
+    # divorced/widowed/separated, we IGNORE any leftover spouse_block from the DB.
     partner_pool = pts_sys.get("partner_skills") or {}
     if partner_pool:
-        spouse_block = profile.get("spouse") or None
         fam = profile.get("family") or {}
         bi = profile.get("basic_info") or {}
-        marital = _safe_lower(bi.get("marital_status") or profile.get("marital_status"))
+        marital = _safe_lower(bi.get("marital_status") or profile.get("marital_status")) or "single"
+
+        # ────────────────────────────────────────────────────────────
+        # GATE: marital_status drives the entire partner-skill branch
+        # ────────────────────────────────────────────────────────────
+        partner_present_statuses = ("married", "de_facto")
+        has_partner = marital in partner_present_statuses
+
+        # When marital is NOT married/de_facto → applicant is SINGLE for points purposes.
+        # We deliberately do NOT read spouse_block here to avoid stale data bugs.
+        spouse_block = profile.get("spouse") if has_partner else None
         contribution_type = (
             (spouse_block.get("contribution_type") if spouse_block else None)
-            or fam.get("spouse_contribution_type")
+            or (fam.get("spouse_contribution_type") if has_partner else None)
             or "not_applicable"
         )
-        spouse_is_pr = bool(
+        spouse_is_pr = has_partner and bool(
             (spouse_block.get("is_australian_pr_or_citizen") if spouse_block else False)
             or fam.get("spouse_is_australian_pr_or_citizen")
         )
-        spouse_is_on_visa = bool(
-            (spouse_block.get("is_applicant_on_visa") if spouse_block else None)
-            if spouse_block else fam.get("spouse_is_applicant_on_visa")
-        )
-        if spouse_block is None and not fam.get("spouse_present"):
-            spouse_is_on_visa = False  # No spouse → effectively single
+        spouse_is_on_visa = False
+        if has_partner:
+            if spouse_block is not None:
+                spouse_is_on_visa = bool(spouse_block.get("is_applicant_on_visa"))
+            else:
+                spouse_is_on_visa = bool(fam.get("spouse_is_applicant_on_visa"))
 
-        # Spouse english + age — needed for skill_assessment / english_only validation
+        # Spouse english + age — only meaningful when has_partner
         spouse_lang = (spouse_block.get("language") if spouse_block else {}) or {}
         spouse_scores = spouse_lang.get("scores") or {}
         spouse_overall = _to_float(spouse_scores.get("overall"))
@@ -279,37 +288,48 @@ def calculate_points(profile: Dict[str, Any], country: Dict[str, Any]) -> Dict[s
         spouse_key = ""
         spouse_note = None
 
-        # OPTION E: Single / divorced / widowed / separated → applicant is treated as single
-        is_single_status = marital in ("single", "divorced", "widowed", "separated", "") or not marital
-        # OPTION D: Spouse already AU PR/citizen (counts as no migrating partner)
-        spouse_not_migrating = (not spouse_is_on_visa) and (spouse_block is not None or fam.get("spouse_present"))
-
-        if (is_single_status and not spouse_block) or spouse_is_pr or contribution_type == "australian_pr_citizen" or spouse_not_migrating:
+        # ════════════════════════════════════════════════════════════════
+        # BRANCH 1 — SINGLE APPLICANT (single / divorced / widowed / separated)
+        # Always +10 single_or_pr_partner. Ignore any stale spouse data.
+        # ════════════════════════════════════════════════════════════════
+        if not has_partner:
             if "single_or_pr_partner" in partner_pool:
                 spouse_key = "single_or_pr_partner"
                 spouse_pts = partner_pool["single_or_pr_partner"]
-                if spouse_is_pr or contribution_type == "australian_pr_citizen":
-                    spouse_note = "Spouse is AU PR / Citizen — counted as no migrating partner"
-                elif spouse_not_migrating:
-                    spouse_note = "Spouse not migrating on this visa — applicant treated as single"
-                else:
-                    spouse_note = "Single applicant — full points awarded"
+                spouse_note = f"{marital.title()} applicant — full +{spouse_pts} partner-skills bonus awarded"
+            else:
+                spouse_key = "single_no_pool_key"
+                spouse_note = f"{marital.title()} applicant"
 
-        # OPTION A: skill_assessment — strict gate: age<45 + competent English + applicant on visa
+        # ════════════════════════════════════════════════════════════════
+        # BRANCH 2 — MARRIED / DE_FACTO with spouse who is AU PR or NOT migrating
+        # ════════════════════════════════════════════════════════════════
+        elif spouse_is_pr or contribution_type == "australian_pr_citizen":
+            if "single_or_pr_partner" in partner_pool:
+                spouse_key = "single_or_pr_partner"
+                spouse_pts = partner_pool["single_or_pr_partner"]
+                spouse_note = "Spouse is AU PR / Citizen — applicant counted as no migrating partner"
+        elif not spouse_is_on_visa:
+            # Spouse not migrating on this visa → treat applicant as effectively single
+            if "single_or_pr_partner" in partner_pool:
+                spouse_key = "single_or_pr_partner"
+                spouse_pts = partner_pool["single_or_pr_partner"]
+                spouse_note = "Spouse will NOT migrate on this visa — applicant treated as single for points"
+
+        # ════════════════════════════════════════════════════════════════
+        # BRANCH 3 — MARRIED with spouse migrating: apply contribution_type Options A/B/C
+        # ════════════════════════════════════════════════════════════════
         elif contribution_type == "skill_assessment":
             gates = []
             if spouse_age and spouse_age >= 45:
                 gates.append(f"spouse age {spouse_age} ≥ 45")
             if not spouse_competent_english:
                 gates.append("spouse English below competent (IELTS 6+ all bands)")
-            if not spouse_is_on_visa:
-                gates.append("spouse not on visa")
             if not gates and "skilled_partner" in partner_pool:
                 spouse_key = "skilled_partner"
                 spouse_pts = partner_pool["skilled_partner"]
-                spouse_note = "Spouse meets all 4 gates: age<45, competent English, skill assessment, on visa"
-            elif "competent_english_only" in partner_pool and spouse_competent_english and spouse_is_on_visa:
-                # Downgrade to English-only if skill_assessment gates fail but English passes
+                spouse_note = "Spouse meets all gates: age<45, competent English, positive skill assessment, on visa"
+            elif "competent_english_only" in partner_pool and spouse_competent_english:
                 spouse_key = "competent_english_only"
                 spouse_pts = partner_pool["competent_english_only"]
                 spouse_note = f"Downgraded to English-only (gate failed: {', '.join(gates)})"
@@ -317,37 +337,28 @@ def calculate_points(profile: Dict[str, Any], country: Dict[str, Any]) -> Dict[s
                 spouse_key = "skill_assessment_blocked"
                 spouse_pts = 0
                 spouse_note = f"Skill-assessment partner points blocked: {', '.join(gates) or 'no partner pool key'}"
-
-        # OPTION B: english_only — needs competent English + applicant on visa
         elif contribution_type == "english_only":
-            if spouse_competent_english and spouse_is_on_visa and "competent_english_only" in partner_pool:
+            if spouse_competent_english and "competent_english_only" in partner_pool:
                 spouse_key = "competent_english_only"
                 spouse_pts = partner_pool["competent_english_only"]
                 spouse_note = "Spouse has competent English (IELTS 6+ all bands)"
             else:
                 spouse_key = "english_only_blocked"
                 spouse_pts = 0
-                if not spouse_competent_english:
-                    spouse_note = "English-only points blocked: spouse English below IELTS 6 (per-band)"
-                elif not spouse_is_on_visa:
-                    spouse_note = "English-only points blocked: spouse not on visa"
-
-        # OPTION C: non_contributing — explicitly 0
+                spouse_note = "English-only points blocked: spouse English below IELTS 6 (per-band)"
         elif contribution_type == "non_contributing":
             spouse_key = "non_contributing"
             spouse_pts = 0
             spouse_note = "Spouse will be on visa but is not contributing to points"
-
-        # OPTION E variant: not_applicable / unknown
         else:
             spouse_key = "not_applicable"
             spouse_pts = 0
-            spouse_note = "No spouse contribution declared"
+            spouse_note = "Spouse contribution type not declared — please pick Option A/B/C/D in the wizard"
 
         if spouse_pts or spouse_note:
             breakdown["partner"] = {
                 "contribution_type": contribution_type,
-                "marital_status": marital or "single",
+                "marital_status": marital,
                 "matched_key": spouse_key,
                 "points": spouse_pts,
                 "spouse_age": spouse_age or None,
@@ -527,6 +538,7 @@ def identify_skill_body(occ_code: Optional[str], country: Dict[str, Any]) -> Opt
                 "full_name": body.get("full_name"),
                 "website": body.get("website"),
                 "assessment_fee_inr": body.get("assessment_fee_inr"),
+                "fee_native": body.get("fee_native"),  # Phase 6.7 — official fee in native currency with RPL/CDR alternates
                 "processing_time_weeks": body.get("processing_time_weeks"),
                 "documents_required": body.get("documents_required") or [],
                 "criteria_general": body.get("criteria_general") or {},
