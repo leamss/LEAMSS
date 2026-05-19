@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Briefcase, FileText, DollarSign, LogOut, Plus, ArrowLeft, MessageSquare, Filter, Download, Menu, X, ClipboardCheck, BarChart3, Kanban, Award, Calculator, Home } from 'lucide-react';
+import { Briefcase, FileText, DollarSign, LogOut, Plus, ArrowLeft, MessageSquare, Filter, Download, Menu, X, ClipboardCheck, BarChart3, Kanban, Award, Calculator, Home, Sparkles } from 'lucide-react';
 import DashboardShell from '@/components/DashboardShell';
 import TicketSection from '@/components/TicketSection';
 import QuickActions from '@/components/QuickActions';
@@ -311,6 +311,7 @@ const PartnerDashboard = ({ mode = "partner" }) => {
     {
       groupLabel: 'Tools',
       items: [
+        { id: 'sales-occupations', icon: Sparkles, label: 'Smart Sales Helper', onClick: () => navigate('/sales/occupations') },
         { id: 'fee-calculator', icon: Calculator, label: 'Fee Calculator', onClick: () => setActiveTab('fee-calculator') },
         { id: 'dashboard', icon: Briefcase, label: 'Classic Dashboard', onClick: () => setActiveTab('dashboard') },
       ]

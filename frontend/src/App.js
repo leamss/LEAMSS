@@ -37,8 +37,8 @@ import ExpressSalesSettings from '@/pages/admin/ExpressSalesSettings';
 import EligibilityKnowledgeBase from '@/pages/admin/EligibilityKnowledgeBase';
 import EligibilityProfileWizard from '@/pages/eligibility/EligibilityProfileWizard';
 import { EligibilityProfilesList, EligibilityProfileDetail } from '@/pages/eligibility/EligibilityProfiles';
-import { EligibilityAssessmentRunner, EligibilityAssessmentResults } from '@/pages/eligibility/EligibilityAssessmentResults';
-import EligibilityProfileVerify from '@/pages/eligibility/EligibilityProfileVerify';
+import OccupationSearch from '@/pages/sales/OccupationSearch';
+import OccupationDetail from '@/pages/sales/OccupationDetail';
 import PublicInfoSheet from '@/pages/eligibility/PublicInfoSheet';
 import AdminVendors from '@/pages/admin/AdminVendors';
 import VendorCategoriesManager from '@/pages/admin/VendorCategoriesManager';
@@ -166,19 +166,15 @@ function App() {
               <EligibilityProfileDetail />
             </RequirePermission>
           } />
-          <Route path="/eligibility/profile/:profileId/verify" element={
+          {/* Smart Sales Helper — Phase 6 v2 */}
+          <Route path="/sales/occupations" element={
             <RequirePermission allowRoles={['admin_owner', 'admin', 'sales_executive', 'sr_sales_executive', 'sales_manager', 'sales_head', 'partner', 'case_manager']}>
-              <EligibilityProfileVerify />
+              <OccupationSearch />
             </RequirePermission>
           } />
-          <Route path="/eligibility/profile/:profileId/assess" element={
+          <Route path="/sales/occupations/:countryCode/:code" element={
             <RequirePermission allowRoles={['admin_owner', 'admin', 'sales_executive', 'sr_sales_executive', 'sales_manager', 'sales_head', 'partner', 'case_manager']}>
-              <EligibilityAssessmentRunner />
-            </RequirePermission>
-          } />
-          <Route path="/eligibility/results/:assessmentId" element={
-            <RequirePermission allowRoles={['admin_owner', 'admin', 'sales_executive', 'sr_sales_executive', 'sales_manager', 'sales_head', 'partner', 'case_manager']}>
-              <EligibilityAssessmentResults />
+              <OccupationDetail />
             </RequirePermission>
           } />
           <Route path="/admin/vendors" element={

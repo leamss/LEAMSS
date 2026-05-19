@@ -290,11 +290,11 @@ export function EligibilityProfilesList() {
                             <Button
                               size="sm"
                               className="h-7 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px]"
-                              onClick={() => navigate(`/eligibility/profile/${p.id}/verify`)}
-                              title="Verify + Run AI"
+                              onClick={() => navigate(`/sales/occupations`)}
+                              title="Use Smart Sales Helper to find right code + calculator"
                               data-testid={`verify-${p.id}`}
                             >
-                              <Sparkles className="h-3 w-3 mr-1" />Run AI
+                              <Sparkles className="h-3 w-3 mr-1" />Sales Helper
                             </Button>
                           )}
                           <Button size="sm" variant="outline" className="h-7 w-7 p-0" onClick={() => navigate(`/eligibility/profile/${p.id}`)} title="View" data-testid={`view-${p.id}`}>
@@ -386,13 +386,13 @@ export function EligibilityProfileDetail() {
               <Edit className="h-4 w-4 mr-1" />Edit
             </Button>
             {profile.status === 'complete' && !profile.assessment_id && (
-              <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700" onClick={() => navigate(`/eligibility/profile/${profile.id}/verify`)} data-testid="run-ai-btn">
-                <Sparkles className="h-4 w-4 mr-1" />Verify & Run AI
+              <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700" onClick={() => navigate(`/sales/occupations`)} data-testid="run-ai-btn">
+                <Sparkles className="h-4 w-4 mr-1" />Open Sales Helper
               </Button>
             )}
             {profile.assessment_id && (
-              <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => navigate(`/eligibility/results/${profile.assessment_id}`)} data-testid="view-results-btn">
-                <Sparkles className="h-4 w-4 mr-1" />View Results
+              <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => navigate(`/sales/occupations`)} data-testid="view-results-btn">
+                <Sparkles className="h-4 w-4 mr-1" />Open Sales Helper
               </Button>
             )}
           </div>

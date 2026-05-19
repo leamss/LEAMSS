@@ -305,8 +305,8 @@ export default function EligibilityProfileWizard() {
         pid = r.data.id;
         setCurrentProfileId(pid);
       }
-      toast.success('Profile saved — review before AI analysis');
-      navigate(`/eligibility/profile/${pid}/verify`);
+      toast.success('Profile saved — opening Smart Sales Helper');
+      navigate(`/sales/occupations`);
     } catch (e) {
       toast.error(formatApiError(e, 'Save failed'));
     } finally { setSaving(false); }

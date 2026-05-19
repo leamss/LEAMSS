@@ -155,7 +155,7 @@ AUSTRALIA = {
         {
             "body_id": "vetassess", "name": "VETASSESS", "full_name": "Vocational Education and Training Assessment Services",
             "website": "https://vetassess.com.au",
-            "assesses_occupations": ["221111", "222311", "224711", "234212", "234411", "139999", "141311", "132111"],
+            "assesses_occupations": ["221111", "222311", "224711", "234212", "234411", "139999", "141311", "132111", "141111", "225113", "225111", "225311"],
             "criteria_general": {"minimum_education": "Bachelor or equivalent in field", "relevant_work_experience": "1-3 years post-qualification (full-time)", "english_required": False},
             "documents_required": ["Degree certificate + transcripts", "Employment reference letters", "Job descriptions", "Pay slips", "Tax documents"],
             "assessment_fee_inr": 70000, "processing_time_weeks": 10,

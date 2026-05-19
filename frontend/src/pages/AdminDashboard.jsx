@@ -1235,12 +1235,13 @@ const AdminDashboard = () => {
       ]
     },
     {
-      groupLabel: 'AI Eligibility Engine',
-      defaultOpen: false,
+      groupLabel: 'Smart Sales Helper',
+      defaultOpen: true,
       items: [
-        { id: 'eligibility-kb', icon: Globe, label: 'Knowledge Base', onClick: () => navigate('/admin/eligibility/knowledge-base') },
-        { id: 'eligibility-profiles', icon: Sparkles, label: 'Profiles & Assessments', onClick: () => navigate('/eligibility/profiles') },
-        { id: 'eligibility-new', icon: Plus, label: 'New Assessment', onClick: () => navigate('/eligibility/new-assessment') },
+        { id: 'sales-occupation-search', icon: Sparkles, label: 'Occupation Search', onClick: () => navigate('/sales/occupations') },
+        { id: 'eligibility-kb', icon: Globe, label: 'Knowledge Base (Admin)', onClick: () => navigate('/admin/eligibility/knowledge-base') },
+        { id: 'eligibility-profiles', icon: User, label: 'Client Profiles', onClick: () => navigate('/eligibility/profiles') },
+        { id: 'eligibility-new', icon: Plus, label: 'New Profile', onClick: () => navigate('/eligibility/new-assessment') },
       ]
     },
     {
