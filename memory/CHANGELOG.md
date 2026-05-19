@@ -3,6 +3,49 @@
 This file appends every completed phase/feature with dates and verification status.
 
 ---
+### 🚀 Phase 6.7 Part 2 — Pre-Analysis Verification + Resume Upload + Client Info-Sheet (May 19, 2026)
+**Completed:** May 19, 2026
+**Tests:** `test_iteration108_phase67_part2.py` → 24/24 PASS (1 expected skip for AI live call)
+
+Three sub-features built on top of the AI Eligibility Engine:
+
+**1. Pre-Analysis Verification Page** (`/eligibility/profile/:id/verify`):
+- New backend endpoint `GET /api/eligibility/profiles/{id}/completeness` — returns a 0-100 completeness score across 8 weighted sections (Personal 12% / Profession 22% / Education 14% / Language 14% / Marital 8% / Spouse 10% / Preferences 10% / Additional 10%)
+- N/A rule: spouse section gets full credit (100/100) when marital_status='single'/divorced/etc — no penalty for solo applicants
+- Each section returns its score + warnings (e.g., "Missing: Current Profession", "Tip: Add work history")
+- Blockers vs warnings split — `ready_for_assessment=false` when there are CRITICAL/REQUIRED blockers
+- New `/app/backend/core/profile_completeness.py` houses the scoring logic
+- New `EligibilityProfileVerify.jsx` route — renders a hero score card, blockers banner (rose), 8 section grid with progress bars, and an action footer with "Edit Profile" + "Confirm and Run AI Analysis" buttons
+- Wizard's "Submit" + Profile list's "Run AI" buttons now route via /verify first (avoids running the AI on incomplete profiles)
+
+**2. Resume Upload + AI Extraction**:
+- New `POST /api/eligibility/profiles/resume-extract` accepts multipart PDF/DOCX/TXT (max 10MB)
+- New `/app/backend/core/resume_extractor.py` — `extract_text()` dispatches by extension (pdfplumber for PDF, python-docx for DOCX, UTF-8 decode for TXT), `parse_resume_with_ai()` sends text to Claude Sonnet 4.6 with a strict prompt that forces CURRENT PROFESSION matching (e.g., "B.V.Sc graduate now working as Marketing Specialist → `current_profession='Marketing Specialist'`, `field_of_study='Veterinary Science'`")
+- Returns Phase 6.7-shaped JSON (primary_applicant nested with personal/professional/education/language/work_history) so the wizard can prefill directly — profile is NOT saved (reversible)
+- Frontend: "Upload Resume" button on Profiles list page → file picker → uploads → stores result in `sessionStorage('eligibility_resume_prefill')` → navigates to wizard with `?source=resume` query → wizard picks it up and deep-merges into the form
+- Validations: 10MB cap (413), 100-byte minimum (400), extension whitelist .pdf/.docx/.txt (400), AI failure → 502 with detail
+- Dependencies added: `pdfplumber==0.11.9` (pinned in requirements.txt)
+
+**3. Client Self-Service Info Sheet**:
+- New router `/app/backend/routers/eligibility_info_sheet.py` with 6 endpoints:
+  - `POST /api/eligibility/info-sheet/generate-link` — admin/partner creates a public link (expires 1-90 days, default 14)
+  - `GET /api/eligibility/info-sheet/public/{token}` — NO AUTH, client opens link, sees prefill (name/email/phone + inviter name)
+  - `POST /api/eligibility/info-sheet/public/{token}/submit` — NO AUTH, client submits flat InfoSheetSubmission payload → backend maps to nested Phase 6.7 structure, sets status='pending_review', notifies inviter, captures used_ip/used_ua
+  - `GET /api/eligibility/info-sheet/pending` — admin/partner sees pending queue (admin sees all, partner sees own only)
+  - `POST /api/eligibility/info-sheet/{profile_id}/approve` — partner/admin approves, status→complete, optional spouse_contribution_type merge
+  - `POST /api/eligibility/info-sheet/revoke/{token}` — issuer or admin revokes
+- Frontend public route `/info-sheet/:token` → new `PublicInfoSheet.jsx` — clean 7-section form (Personal/Marital/Profession/Education/Language/Spouse[conditional]/Preferences), Switch for language test, country toggle pills, gradient submit card
+- Frontend admin: Profiles list now has "Send Info Sheet" button → modal with name/email → generates link → shows Copy + WhatsApp share buttons; "Pending Reviews" violet banner shows count + click-to-filter; inline "Approve" button on pending_review rows
+- `FRONTEND_URL` env added to `/app/backend/.env` so public URLs use the correct external domain
+- New status enums: `awaiting_info_sheet` (sky) and `pending_review` (violet) added to STATUS_META with icons
+
+**Test coverage (`test_iteration108_phase67_part2.py`):**
+- 24/24 PASS — completeness scorer (single vs married N/A spouse rule), resume-extract validations (size/extension/auth/RBAC), info-sheet full lifecycle (generate → public-get → public-submit → pending → approve → revoke), spouse mapping only when married/de_facto, double-submit 410, double-approve 400, partner-not-inviter 403
+- 1 expected SKIP — live AI call to /resume-extract is skipped when EMERGENT_LLM_KEY budget is low (502 already verified)
+
+---
+
+
 ### 🐛 Phase 6.7 Part 1 — Critical AI Eligibility Engine Bug Fixes (May 18, 2026)
 **Completed:** May 18, 2026
 **Tests:** `test_iteration107_phase67_eligibility.py` → 16/16 PASS

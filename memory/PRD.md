@@ -5,6 +5,21 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 
 > **📌 Update (Feb 13, 2026):** `CHANGELOG.md` now tracks all completed phases (incl. **Phase 3A — Attendance & Leave** with full company policies). `ROADMAP.md` lists prioritized backlog. This PRD remains the static reference for original requirements.
 
+### 🚀 Phase 6.7 Part 2 — Pre-Analysis Verification + Resume Upload + Client Info Sheet (May 19, 2026)
+**Status:** ✅ COMPLETE — 24/24 backend tests PASS (`/app/test_reports/iteration_108.json`)
+
+3 new sub-features layered onto the Phase 6.7 eligibility engine:
+
+1. **Pre-Analysis Verification Page** (`/eligibility/profile/:id/verify`) — Shows a 0-100 completeness score across 8 weighted sections (Personal 12%, Profession 22%, Education 14%, Language 14%, Marital 8%, Spouse 10%, Preferences 10%, Additional 10%) with per-section warnings + blockers. Wizard's "Submit" and Profile list's "Run AI" buttons now route through this page first. Spouse section gets full credit (N/A) for single applicants — no false penalties.
+
+2. **Resume Upload + AI Extraction** — Admin/Partner can drop a PDF/DOCX/TXT resume (up to 10MB). `pdfplumber` + `python-docx` extract text → Claude Sonnet 4.6 returns Phase 6.7-shaped JSON → wizard prefills via sessionStorage. The AI prompt explicitly forces CURRENT PROFESSION matching (e.g., "B.V.Sc graduate working as Marketing Specialist → current_profession=Marketing Specialist, field_of_study=Veterinary Science"). Resume is NOT auto-saved — fully reversible review.
+
+3. **Client Self-Service Info Sheet** — Admin generates a public no-login link via "Send Info Sheet" modal (with WhatsApp share). Client opens `/info-sheet/:token` → fills 7-section form → submission lands in `pending_review` queue with violet banner on Profiles list. Inline "Approve" button flips status to complete. Audit trail: used_ip, used_ua, used_at, reviewed_by captured. Notifications sent to inviter.
+
+New files: `core/profile_completeness.py`, `core/resume_extractor.py`, `routers/eligibility_info_sheet.py`, `pages/eligibility/EligibilityProfileVerify.jsx`, `pages/eligibility/PublicInfoSheet.jsx`. Routes added: `/eligibility/profile/:id/verify` (RBAC) and `/info-sheet/:token` (public).
+
+
+
 ### 🐛 Phase 6.7 Part 1 — AI Eligibility Engine Bug Fixes (May 18, 2026)
 **Status:** ✅ COMPLETE — 16/16 backend tests PASS (`/app/test_reports/iteration_107.json`)
 
