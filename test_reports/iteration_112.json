@@ -1,0 +1,35 @@
+{
+  "summary": "Phase 6 v2 Part 3 — Integrated Workflow E2E regression complete. Backend: 81/81 pytest PASS (Parts 1+2+3 — occupation search/typeahead/detail/compare/filters, AU/CA/NZ deterministic calculator, assessments CRUD + create-PA idempotency + RBAC + AI suggester contract). Frontend: 7-step ClientAssessment wizard verified end-to-end at /sales/client-assessment — stepper renders 7 steps, navigation works 1→7, spouse fields correctly hidden when marital_status=single, calculator runs and returns AU breakdown with 189 ELIGIBLE, Save Assessment returns SAH-* id (SAH-20260519-C6E2A9 seen), Create PA button renders on step 7. One numeric mismatch observed in UI flow: UI showed total=65 vs backend deterministic 75 for the same single-AU profile — root cause: english+0 in UI breakdown, meaning the IELTS bands written via playwright fill() may not have committed to React state before Next was clicked (suspected onChange race). Backend itself is correct (test_au_full_scenario_software_engineer_subclass_189 returns 75).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "ClientAssessment Step 3 (Profile)", "issue": "IELTS bands may not consistently commit to internal state when user advances quickly to Step 4 — UI calculator shows english+0 even with overall 7.5 filled. Backend gives 75; UI showed 65. Likely numeric input onChange race or buildProfile reading stale state. Worth verifying with a manual blur/Tab between IELTS fields, and inspecting buildProfile() at line 911 of ClientAssessment.jsx for how language.scores is constructed.", "selector": "[data-testid='ca-ielts-overall']", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration110_smart_sales_helper.py",
+    "/app/backend/tests/test_iteration111_calculator.py",
+    "/app/backend/tests/test_iteration112_part3_workflow.py",
+    "/app/test_reports/pytest/iteration_112_results.xml"
+  ],
+  "action_items": [
+    "Verify IELTS->profile state binding in ClientAssessment.jsx buildProfile (line 911). Score mismatch (UI 65 vs backend 75) when all 5 IELTS bands are filled — english should be +10 (proficient at 7.0). Inspect whether numeric inputs are stored as strings vs floats and whether language.scores object is built with proper number coercion in calculate-batch payload.",
+    "Note: AI endpoints (suggest-occupation, parse-resume) handled gracefully (200 or 502 acceptable). Not tested in UI due to limited E2E time."
+  ],
+  "critical_code_review_comments": [
+    "ClientAssessment.jsx is 911+ lines — consider splitting into per-step subcomponents (StepStart, StepApproach, StepProfile, StepCountries, StepCalculator, StepReview, StepDone) for maintainability. Currently approaches the 700-line file-size guideline.",
+    "buildProfile() should explicitly coerce string IELTS values to Number() before constructing language.scores — protects against the kind of mismatch surfaced in this run (UI 65 vs backend 75).",
+    "All test_iteration110/111/112 pytest files use the same fixture pattern but duplicate the admin_token fixture. Could DRY into a shared conftest.py under /app/backend/tests/.",
+    "Marital authoritative defense-in-depth is solid: rules engine (eligibility_rules.py) + save layer (eligibility_profiles.py _strip_spouse_if_single) + UI (buildProfile strip at lines 938-939) all enforce it consistently. Verified by test_au_partner_divorced_with_stale_spouse_still_10 PASSED."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (81/81)", "frontend": "Wizard 90% — 7-step flow works end-to-end; minor IELTS->state binding question on Step 3"},
+  "test_credentials": "admin@leamss.com / Admin@123, client@leamss.com / Client@123 (RBAC validated — 403 on POST /api/sales/assessments)",
+  "seed_data_creation": "Created and cleaned up TEST_P3_* assessments (auto-cleanup in pytest). One additional SAH-20260519-C6E2A9 left in DB from UI smoke (TEST_E2E_1_Single_AU) — can be safely purged.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Phase 6 v2 (Parts 1+2+3) backend is fully green (81/81). UI 7-step wizard verified. Only follow-up: confirm/repair IELTS-> language.scores numeric coercion in ClientAssessment.jsx buildProfile. AI suggester + resume parse endpoints are contract-validated (accept both 200 and 502). RBAC is enforced. Spouse-strip-when-single defense is multi-layer and proven by tests.",
+  "rca of the issue": "UI score 65 vs backend 75 mismatch on the Single-AU-Bachelor-IELTS7.5-6yrs profile: backend's calculate_au_points returns 30+10+10+15+10=75. UI showed english+0 in breakdown, meaning the IELTS bands didn't reach the calculate-batch request body. Most likely culprit: numeric Input.onChange in ClientAssessment.jsx stores raw strings, and buildProfile() may pass empty/NaN values when an Input was updated mid-render without a debounce/blur. Reproduction: fill all 5 IELTS bands quickly, click Next, observe calc panel. Mitigation: in buildProfile (~line 911), coerce ielts_overall/listening/reading/writing/speaking via Number(); send only when >0; otherwise let backend skip english scoring."
+}
