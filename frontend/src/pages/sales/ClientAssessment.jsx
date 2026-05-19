@@ -81,7 +81,7 @@ const COUNTRIES = [
 export default function ClientAssessment() {
   const navigate = useNavigate();
   const token = localStorage.getItem('token');
-  const headers = { Authorization: `Bearer ${token}` };
+  const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token]);
 
   const [step, setStep] = useState(1);
   const [data, setData] = useState({
@@ -138,6 +138,8 @@ export default function ClientAssessment() {
   const goBack = () => setStep(s => Math.max(1, s - 1));
 
   // Run calculation on step 5
+  // Note: deps intentionally exclude individual profile fields (age/IELTS/etc.) — the calculator
+  // runs on step transition + country selection change. `data` is captured fresh via closure.
   useEffect(() => {
     if (step !== 5) return;
     const targets = data.country_mode === 'top_3'
@@ -152,7 +154,7 @@ export default function ClientAssessment() {
       .catch(e => toast.error(formatApiError(e, 'Calculation failed')))
       .finally(() => setCalculating(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, data.country_mode, data.specific_country, data.visa_subclass, data.custom_countries.join(',')]);
+  }, [step, data.country_mode, data.specific_country, data.visa_subclass, data.custom_countries.join(','), headers]);
 
   const saveAssessment = async () => {
     try {
@@ -612,8 +614,8 @@ function Step5Calculator({ results, calculating, data }) {
         <p className="text-sm text-slate-500 italic">Calculating…</p>
       ) : (
         <div className={`grid gap-3 ${results.length === 1 ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'}`} data-testid="calc-results">
-          {results.map((r, i) => (
-            <Card key={i} className="p-4 border-2 border-indigo-200 bg-gradient-to-br from-white to-indigo-50" data-testid={`result-${r.country_code}`}>
+          {results.map(r => (
+            <Card key={`${r.country_code}-${r.visa_subclass || 'na'}`} className="p-4 border-2 border-indigo-200 bg-gradient-to-br from-white to-indigo-50" data-testid={`result-${r.country_code}`}>
               <div className="flex items-center justify-between mb-2">
                 <Badge className="bg-indigo-600 text-white">{r.country_code}</Badge>
                 {r.visa_subclass && <Badge variant="outline" className="text-[10px]">Subclass {r.visa_subclass}</Badge>}
@@ -708,8 +710,7 @@ function Step7Done({ saved, createPA, navigate, headers }) {
       .then(r => setChecklist(r.data))
       .catch(e => toast.error(formatApiError(e, 'Failed to load checklist')))
       .finally(() => setLoadingChecklist(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [saved?.id]);
+  }, [saved?.id, headers]);
 
   const generateShareLink = async () => {
     setShareLoading(true);
@@ -813,8 +814,8 @@ function Step7Done({ saved, createPA, navigate, headers }) {
               <div key={cat} data-testid={`checklist-cat-${cat.replace(/\s+/g, '-')}`}>
                 <p className="text-[10px] uppercase tracking-wide font-bold text-slate-500 mb-1">{cat}</p>
                 <ul className="space-y-1">
-                  {items.map((it, i) => (
-                    <li key={i} className="flex items-start gap-2 text-xs">
+                  {items.map(it => (
+                    <li key={`${cat}-${it.name}`} className="flex items-start gap-2 text-xs">
                       <div className={`mt-0.5 h-3.5 w-3.5 rounded-full border-2 flex-shrink-0 ${it.required ? 'border-rose-400' : 'border-slate-300'}`}></div>
                       <div className="flex-1">
                         <span className={`${it.required ? 'font-medium text-slate-700' : 'text-slate-500'}`}>{it.name}</span>
@@ -970,7 +971,7 @@ function SuggesterModal({ onClose, onSelect, headers }) {
             </p>
             <div className="space-y-2">
               {(suggestions.suggestions || []).map((s, i) => (
-                <Card key={i} className={`p-3 ${s.confidence === 'high' ? 'border-l-4 border-l-emerald-500 bg-emerald-50' : s.confidence === 'medium' ? 'border-l-4 border-l-amber-500 bg-amber-50' : 'border-l-4 border-l-slate-400'}`} data-testid={`suggestion-${i}`}>
+                <Card key={`${s.code}-${s.country_code || 'X'}`} className={`p-3 ${s.confidence === 'high' ? 'border-l-4 border-l-emerald-500 bg-emerald-50' : s.confidence === 'medium' ? 'border-l-4 border-l-amber-500 bg-amber-50' : 'border-l-4 border-l-slate-400'}`} data-testid={`suggestion-${i}`}>
                   <div className="flex items-center justify-between mb-1">
                     <p className="text-xs font-bold">{i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '•'} {s.code} · {s.title}</p>
                     <Badge className={s.confidence === 'high' ? 'bg-emerald-100 text-emerald-700' : s.confidence === 'medium' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'}>

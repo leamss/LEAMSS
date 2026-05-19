@@ -8,7 +8,7 @@
  *   • LEFT: Profile form (7 steps, conditional spouse, conditional state nomination)
  *   • RIGHT: Live points breakdown + visa eligibility + recommendation
  */
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -68,7 +68,7 @@ export default function EligibilityCalculator() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const token = localStorage.getItem('token');
-  const headers = { Authorization: `Bearer ${token}` };
+  const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token]);
 
   const [data, setData] = useState({
     client_name: '',
@@ -138,26 +138,7 @@ export default function EligibilityCalculator() {
   // Build the profile shape that the backend expects
   const profile = useMemo(() => buildProfile(data), [data]);
 
-  // Live calculation — debounced
-  useEffect(() => {
-    if (!data.age && !data.qualification) return;
-    const t = setTimeout(() => runCalculation(), 300);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data.country, data.visa_subclass, data.age, data.qualification,
-      data.ielts_overall, data.ielts_listening, data.ielts_reading, data.ielts_writing, data.ielts_speaking,
-      data.years_experience_total, data.years_experience_australia, data.years_experience_canada,
-      data.marital_status, data.spouse_will_migrate, data.spouse_contribution,
-      data.spouse_age, data.spouse_ielts_overall, data.spouse_qualification,
-      data.australian_study_2_years, data.specialist_education_stem_au, data.professional_year_completed,
-      data.naati_accredited, data.regional_study_au, data.state_nominated,
-      data.provincial_nomination, data.job_offer_noc_00, data.job_offer_noc_0_a_b,
-      data.canadian_education_3plus_years, data.canadian_education_1_2_years, data.sibling_in_canada,
-      data.french_proficiency_clb_7,
-      data.nz_skilled_employment_current, data.nz_job_offer, data.regional_employment_nz,
-  ]);
-
-  const runCalculation = async () => {
+  const runCalculation = useCallback(async () => {
     setCalculating(true);
     try {
       const r = await axios.post(`${API}/sales/calculator/calculate`, {
@@ -169,7 +150,15 @@ export default function EligibilityCalculator() {
     } catch (e) {
       console.warn('Calc error', e);
     } finally { setCalculating(false); }
-  };
+  }, [profile, data.country, data.visa_subclass, headers]);
+
+  // Live calculation — debounced. Re-runs whenever runCalculation ref changes
+  // (i.e., whenever profile, country, visa_subclass, or headers change).
+  useEffect(() => {
+    if (!data.age && !data.qualification) return;
+    const t = setTimeout(() => runCalculation(), 300);
+    return () => clearTimeout(t);
+  }, [runCalculation, data.age, data.qualification]);
 
   const isMarried = data.marital_status === 'married' || data.marital_status === 'de_facto';
   const spouseSection = isMarried && data.spouse_will_migrate === 'yes' && data.spouse_contribution !== 'non_contributing';
@@ -553,7 +542,7 @@ function OccupationSearchModal({ country, onSelect, onClose }) {
   const [q, setQ] = useState('');
   const [results, setResults] = useState([]);
   const token = localStorage.getItem('token');
-  const headers = { Authorization: `Bearer ${token}` };
+  const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token]);
 
   useEffect(() => {
     if (!q || q.length < 2) { setResults([]); return; }
@@ -565,8 +554,7 @@ function OccupationSearchModal({ country, onSelect, onClose }) {
         .catch(() => setResults([]));
     }, 250);
     return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, country]);
+  }, [q, country, headers]);
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose} data-testid="occupation-search-modal">

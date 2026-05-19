@@ -130,8 +130,8 @@ export default function PublicAssessmentReport() {
               <Globe className="h-4 w-4 text-indigo-600" />Country-Wise Comparison
             </h2>
             <div className="space-y-2">
-              {data.results.map((r, i) => (
-                <Card key={i} className={`p-3 ${r.country_code === data.best_country_code ? 'bg-emerald-50 border-l-4 border-l-emerald-500' : 'border'}`} data-testid={`report-result-${r.country_code}`}>
+              {data.results.map(r => (
+                <Card key={`${r.country_code}-${r.visa_subclass || 'na'}`} className={`p-3 ${r.country_code === data.best_country_code ? 'bg-emerald-50 border-l-4 border-l-emerald-500' : 'border'}`} data-testid={`report-result-${r.country_code}`}>
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <Badge className="bg-slate-700 text-white">{r.country_code}</Badge>
@@ -176,8 +176,8 @@ export default function PublicAssessmentReport() {
                 <div key={cat}>
                   <p className="text-[10px] uppercase font-bold text-slate-500 mb-1">{cat}</p>
                   <ul className="space-y-1">
-                    {items.map((it, i) => (
-                      <li key={i} className="flex items-start gap-2 text-xs">
+                    {items.map(it => (
+                      <li key={`${cat}-${it.name}`} className="flex items-start gap-2 text-xs">
                         <div className={`mt-0.5 h-3 w-3 rounded-full border-2 flex-shrink-0 ${it.required ? 'border-rose-400' : 'border-slate-300'}`}></div>
                         <div className="flex-1">
                           <span className={it.required ? 'font-medium text-slate-700' : 'text-slate-500'}>{it.name}</span>

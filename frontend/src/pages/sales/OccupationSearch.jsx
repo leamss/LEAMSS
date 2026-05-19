@@ -6,7 +6,7 @@
  * Searchable, filterable occupation database across AU/CA/NZ.
  * Type-ahead autocomplete + fuzzy matching + grid view.
  */
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -35,7 +35,7 @@ const COUNTRY_META = {
 export default function OccupationSearch() {
   const navigate = useNavigate();
   const token = localStorage.getItem('token');
-  const headers = { Authorization: `Bearer ${token}` };
+  const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token]);
 
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
@@ -61,8 +61,7 @@ export default function OccupationSearch() {
     axios.get(`${API}/sales/occupations/filters/meta`, { headers })
       .then(r => setFilterMeta(r.data))
       .catch(e => console.warn('Filter meta load failed', e));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [headers]);
 
   // Debounce search
   useEffect(() => {
@@ -88,8 +87,7 @@ export default function OccupationSearch() {
     } catch (e) {
       toast.error(formatApiError(e, 'Search failed'));
     } finally { setLoading(false); }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedQuery, filters]);
+  }, [debouncedQuery, filters, headers]);
 
   useEffect(() => { runSearch(); }, [runSearch]);
 
@@ -102,8 +100,7 @@ export default function OccupationSearch() {
     axios.get(`${API}/sales/occupations/typeahead?${params}`, { headers })
       .then(r => setSuggestions(r.data.items || []))
       .catch(() => setSuggestions([]));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, filters.country, showSuggestions]);
+  }, [query, filters.country, showSuggestions, headers]);
 
   const toggleCountry = (code) => {
     setFilters(f => ({
