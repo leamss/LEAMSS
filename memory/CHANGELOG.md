@@ -3,6 +3,21 @@
 This file appends every completed phase/feature with dates and verification status.
 
 ---
+### ✅ Phase 6 v2 Part 4 — E2E Regression + Polish (May 19, 2026)
+**Tests:** Backend **81/81 PASS** across Parts 1+2+3 (`test_iteration112.json`). Frontend wizard verified end-to-end via Playwright (Single AU scenario reaches Step 7 with SAH-* id and AU/75 score).
+
+**Closed test-report items:**
+1. **IELTS L/R/W/S inputs missing data-testid** (MEDIUM priority from iteration_112.json) — fixed. Added `data-testid="ca-ielts-listening|reading|writing|speaking"` so testing agents (and DOM-automation users) can fill all 4 bands. Re-verified manually: score now lands at **75/189 ELIGIBLE** with English +10 (Proficient 7.0) instead of the 65 that the agent originally saw when only `overall` was reachable.
+2. **DB cleanup** — purged `TEST_E2E_*` and `TEST_P3_*` rows from `sales_assessments`.
+
+**Code review follow-ups (P2 backlog, deferred):**
+- Split ClientAssessment.jsx (~957 lines) into per-step subcomponents.
+- DRY admin_token fixture across `test_iteration110/111/112.py` into a shared `tests/conftest.py`.
+- buildProfile() already uses parseFloat for IELTS — no coercion gap.
+
+**Verified E2E:** Login → /sales/client-assessment → fill 7-step wizard → Save (returns `SAH-20260519-xxxxxx`, toast "Assessment saved") → Step 7 shows trophy + "Best country: AU · Score: 75" + Create Pre-Assessment button visible.
+
+---
 ### 🤖 Phase 6 v2 Part 3 — Integrated Workflow + AI Helpers (May 19, 2026)
 **Tests:** `test_iteration112_part3_workflow.py` → 10/10 PASS (incl. live AI Suggester contract test)
 

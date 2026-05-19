@@ -5,6 +5,15 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 
 > **📌 Update (Feb 13, 2026):** `CHANGELOG.md` now tracks all completed phases (incl. **Phase 3A — Attendance & Leave** with full company policies). `ROADMAP.md` lists prioritized backlog. This PRD remains the static reference for original requirements.
 
+### 🎯 Phase 6 v2 Part 3 + Part 4 (May 19, 2026)
+**Status:** ✅ COMPLETE — Backend **81/81 PASS** · Frontend wizard **E2E verified** (`/app/test_reports/iteration_112.json`, `/app/memory/CHANGELOG.md`).
+
+**SMART SALES HELPER mantra:** "AI SUGGESTS, HUMAN DECIDES". 85% deterministic rules engine + 15% optional AI helpers (resume parser, occupation suggester).
+
+- Part 3 (Integrated Workflow): `/sales/client-assessment` 7-step wizard combining occupation search, deterministic calculator (AU/CA/NZ), AI suggester, resume upload, save assessment, create-PA bridge.
+- Part 4 (Polish + Regression): Fixed missing IELTS L/R/W/S data-testids (Single-AU scenario now correctly lands on **75 pts / 189 ELIGIBLE**). All 5 user-defined E2E scenarios verified.
+- Backlog (P2): Split ClientAssessment.jsx into per-step subcomponents; conftest.py DRY-up; Document Checklist integration (Phase 6.5).
+
 ### 🔥 Phase 6.7 Critical Bug Fixes (May 19, 2026) — User Feedback Iteration
 **Status:** ✅ COMPLETE — 10/10 regression tests PASS (`/app/test_reports/iteration_109.json`)
 
