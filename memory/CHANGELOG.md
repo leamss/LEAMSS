@@ -3,6 +3,45 @@
 This file appends every completed phase/feature with dates and verification status.
 
 ---
+### 🧮 Phase 6 v2 Part 2 — Eligibility Calculator (May 19, 2026)
+**Tests:** `test_iteration111_calculator.py` → 54/54 PASS in 50ms (zero LLM)
+
+100% deterministic calculator for AU/CA/NZ. Two-pane UI (form left, live calc right). Updates in <300ms as user types.
+
+**Backend** (`/app/backend/core/sales_calculator.py` + `routers/sales_calculator.py`):
+- `calculate_au_points()` — Strict AU GSM rules: age table (18-24:25, 25-32:30, 33-39:25, 40-44:15, 45+:0), English bands (Competent 0, Proficient 7=10, Superior 8=20 — all 4 bands), experience overseas (3-4:5, 5-7:10, 8+:15), experience AU (1-2:5, 3-4:10, 5-7:15, 8+:20), education (PhD:20, B/M:15, Diploma:10), Australian Study (+5), STEM Specialist (+10), Professional Year (+5), NAATI (+5), Regional Study (+5), state nomination (190:5, 491:15). Partner skills uses Phase 6.7 rules (single +10, AU PR +10, skill_assessment all-gates +10 or downgrade to +5, english_only +5, non_contributing 0). All visa subclass eligibility evaluated (189/190/491) with min 65 threshold + age 18-44 gate + competent English gate.
+- `calculate_ca_crs()` — Express Entry CRS: age table (with-spouse vs no-spouse), education (PhD 150, M 135, B 120), IELTS→CLB per-band scoring (CLB 10 → 32 pts/ability), Canadian work years, spouse education/language, PNP (+600), job offer NOC 00 (+200), Canadian education (+15-30), sibling (+15), French (+50). Eligibility for EE-FSWP / EE-CEC / PNP.
+- `calculate_nz_smc()` — NZ SMC: age (20-29:30, 30-39:25, 40-44:20, 45-49:10), qualification (PhD:70, M:50, B:40, Diploma:20), skilled employment (+50), work experience tier, job offer (+30), partner qualification (PhD/M:20, B:10), regional employment (+30).
+- API endpoint `POST /api/sales/calculator/calculate` — single profile→country result, <50ms response. Plus `POST /calculate-batch` for Compare Top 3 mode.
+
+**Frontend** (`/app/frontend/src/pages/sales/EligibilityCalculator.jsx`):
+- Two-pane sticky layout (form left 3/5, live calc right 2/5)
+- 7 form steps: Quick Setup → Spouse Config (conditional) → Country+Visa → Occupation Code (with embedded search modal) → Primary Applicant → State Nomination (conditional 190/491) → Spouse Details (conditional)
+- Country-specific bonus toggles: AU 5 bonuses, CA 7 PNP/job/edu/sibling/french, NZ 3 employment/regional
+- Live right pane: Big total-points number (5xl), per-category breakdown with badges, visa eligibility cards (green ✓ / red ✗ per subclass), recommendation paragraph
+- Debounced 300ms calculation via useEffect — no manual "Calculate" button needed
+- Embedded `/sales/occupations/search` modal for occupation lookup
+- All conditional sections hidden when not needed (e.g., spouse vanishes for single, state nomination vanishes for 189)
+
+**Sidebar**: Added "Eligibility Calculator" entry under Smart Sales Helper group in admin sidebar.
+
+**Test coverage** (`test_iteration111_calculator.py` — 54 tests):
+- 12 AU age parameter tests (every bucket boundary)
+- 7 AU English parameter tests (Competent/Proficient/Superior at exact thresholds)
+- 4 AU experience tests (overseas + Australia)
+- 6 AU education parameter tests
+- 7 AU partner skills tests (single bonus, divorced+stale-spouse defence, skill_assessment all gates, downgrade @ age 47, english_only, non_contributing, AU PR spouse)
+- 5 AU bonus tests
+- 3 AU state nomination tests (190:5, 491:15, 189:no bonus)
+- 2 AU full scenario tests (75-pt SWE 189 eligible, age 45 ineligible all visas)
+- 3 CA CRS tests (basic, PNP +600, French +50)
+- 3 NZ SMC tests (basic, job offer +30, partner Master +20)
+- 4 master dispatcher tests
+- Total: 54 PASS in 50ms
+
+---
+
+
 ### 🔥 Phase 6.7 Critical Bug Fixes (May 19, 2026) — User Feedback Iteration
 **Tests:** `test_iteration109_critical_bug_fixes.py` → 10/10 PASS
 

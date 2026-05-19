@@ -1239,6 +1239,7 @@ const AdminDashboard = () => {
       defaultOpen: true,
       items: [
         { id: 'sales-occupation-search', icon: Sparkles, label: 'Occupation Search', onClick: () => navigate('/sales/occupations') },
+        { id: 'sales-calculator', icon: Calculator, label: 'Eligibility Calculator', onClick: () => navigate('/sales/calculator') },
         { id: 'eligibility-kb', icon: Globe, label: 'Knowledge Base (Admin)', onClick: () => navigate('/admin/eligibility/knowledge-base') },
         { id: 'eligibility-profiles', icon: User, label: 'Client Profiles', onClick: () => navigate('/eligibility/profiles') },
         { id: 'eligibility-new', icon: Plus, label: 'New Profile', onClick: () => navigate('/eligibility/new-assessment') },

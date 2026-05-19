@@ -39,6 +39,7 @@ import EligibilityProfileWizard from '@/pages/eligibility/EligibilityProfileWiza
 import { EligibilityProfilesList, EligibilityProfileDetail } from '@/pages/eligibility/EligibilityProfiles';
 import OccupationSearch from '@/pages/sales/OccupationSearch';
 import OccupationDetail from '@/pages/sales/OccupationDetail';
+import EligibilityCalculator from '@/pages/sales/EligibilityCalculator';
 import PublicInfoSheet from '@/pages/eligibility/PublicInfoSheet';
 import AdminVendors from '@/pages/admin/AdminVendors';
 import VendorCategoriesManager from '@/pages/admin/VendorCategoriesManager';
@@ -175,6 +176,11 @@ function App() {
           <Route path="/sales/occupations/:countryCode/:code" element={
             <RequirePermission allowRoles={['admin_owner', 'admin', 'sales_executive', 'sr_sales_executive', 'sales_manager', 'sales_head', 'partner', 'case_manager']}>
               <OccupationDetail />
+            </RequirePermission>
+          } />
+          <Route path="/sales/calculator" element={
+            <RequirePermission allowRoles={['admin_owner', 'admin', 'sales_executive', 'sr_sales_executive', 'sales_manager', 'sales_head', 'partner', 'case_manager']}>
+              <EligibilityCalculator />
             </RequirePermission>
           } />
           <Route path="/admin/vendors" element={
