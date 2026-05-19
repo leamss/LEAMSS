@@ -5,6 +5,13 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 
 > **📌 Update (Feb 13, 2026):** `CHANGELOG.md` now tracks all completed phases (incl. **Phase 3A — Attendance & Leave** with full company policies). `ROADMAP.md` lists prioritized backlog. This PRD remains the static reference for original requirements.
 
+### 📋 Phase 6.5 — Document Checklist + Save & Share Report (May 19, 2026)
+**Status:** ✅ COMPLETE — Backend **13/13 PASS** + Combined regression **23/23 PASS**. UI E2E verified.
+
+- Rule-based document checklist (zero AI): AU/CA/NZ/UK/USA country templates × Skill-body docs (ACS/EA/VETASSESS/WES/ICAS/IQAS/NZQA) × Pathway docs (AU 189/190/491, CA EE) × Spouse docs (when married).
+- Public read-only Save & Share link (`/sales/report/:token`) with 1/7/30/90-day or never expiry, revoke endpoint, click tracking, sanitised public payload.
+- Step 7 of Client Assessment wizard now shows the checklist auto-grouped by category + 4-button grid (Create PA / Save & Share / Back to Search / Print).
+
 ### 🎯 Phase 6 v2 Part 3 + Part 4 (May 19, 2026)
 **Status:** ✅ COMPLETE — Backend **81/81 PASS** · Frontend wizard **E2E verified** (`/app/test_reports/iteration_112.json`, `/app/memory/CHANGELOG.md`).
 

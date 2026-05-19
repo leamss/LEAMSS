@@ -3,6 +3,56 @@
 This file appends every completed phase/feature with dates and verification status.
 
 ---
+### 📋 Phase 6.5 — Document Checklist + Save & Share Report (May 19, 2026)
+**Tests:** `test_iteration113_phase65_checklist_share.py` → **13/13 PASS**. Combined Part 3 + 6.5 regression → **23/23 PASS**.
+
+Two user-approved features layered onto Smart Sales Helper Step 7:
+
+**1. Rule-Based Document Checklist** (`GET /api/sales/assessments/{id}/checklist`):
+- New module `/app/backend/core/sales_checklist.py` with 4 lookup tables (no AI):
+  - Country-base templates: AU (12 docs) / CA (12) / NZ (10) / UK (8) / USA (7) / DEFAULT (6)
+  - Assessing-body specific: ACS, EA, VETASSESS, WES, ICAS, IQAS, NZQA (with `fee_native` like "AUD 500 / AUD 1,000-1,450 RPL")
+  - Pathway-specific: AU_189 (SkillSelect EOI + ITA), AU_190 (state nomination + 2-yr commitment), AU_491 (regional), CA_EE (EE profile + CRS breakdown)
+  - Spouse docs (7 items) appended when `marital_status in (married, de_facto)`
+- Items grouped by category in UI (Identity / English / Education / Work Experience / Skill Assessment / Spouse / Funds / Character / Medical / Forms / Application)
+- Rendered on Step 7 of Client Assessment wizard with required/optional badges + native-currency fee chips + per-item notes
+
+**2. Save & Share Report — Public Read-Only Link** (potential improvement Sir approved):
+- `POST /api/sales/assessments/{id}/share` — Generates URL-safe 24-byte token + sets `expires_at` based on 1/7/30/90/0 (never) day pills
+- `POST /api/sales/assessments/{id}/share/revoke` — Sets `share_revoked=true` (existing token returns 410)
+- `GET /api/sales/assessments/public/{token}` — **NO LOGIN required.** Returns sanitised payload (no internal IDs, no profile_snapshot raw, no created_by). Tracks `share_click_count`, `share_last_accessed_at/ip/ua` per visit. Returns 404 if not found, 410 if revoked/expired.
+- New public page `/sales/report/:token` — `PublicAssessmentReport.jsx`:
+  - Indigo→violet gradient header "Eligibility Report · Powered by LEAMSS"
+  - Best country trophy card (emerald) + recommendation banner
+  - 6 profile highlights (Profession / Education / IELTS / Experience / Marital Status / Occupation Code)
+  - Country-Wise Comparison with thresholds per visa subclass
+  - Document Checklist grouped by category (mirrors logged-in view)
+  - CTA card: "Schedule consultation via WhatsApp" deep-link
+  - Footer disclaimer
+
+**Step 7 Enhancements (`ClientAssessment.jsx`):**
+- Header trimmed; added 4-button grid (Create PA / Save & Share / Back to Search / Print)
+- Share Dialog: 5 expiry pills (1d/7d/30d/90d/Never) with amber warning on Never, Generate Link button → reveals URL + Copy Link + WhatsApp Share buttons
+- WhatsApp message auto-built with client name + best country + score + link + signature
+- Document Checklist auto-loads on Step 7 mount via `useEffect`
+
+**Files:**
+- New: `core/sales_checklist.py`, `pages/sales/PublicAssessmentReport.jsx`, `tests/test_iteration113_phase65_checklist_share.py`
+- Modified: `routers/sales_assessments.py` (+4 endpoints), `pages/sales/ClientAssessment.jsx` (Step 7 rewrite), `App.js` (+ public route)
+
+**Test coverage:**
+- ✓ Checklist AU/CA/NZ template selection
+- ✓ ACS/EA/VETASSESS/WES specific docs injection
+- ✓ Spouse docs only when married/de_facto
+- ✓ AU 189/190 pathway docs (SkillSelect EOI, state nomination)
+- ✓ Share 1/7/30/90/0-day expiry + 422 on invalid value
+- ✓ Public access without auth + sanitisation
+- ✓ Click tracking (3 visits = count=3)
+- ✓ Revoke → public returns 410
+- ✓ 404 on unknown token
+- ✓ Non-owner partner cannot share admin assessment (403)
+
+---
 ### ✅ Phase 6 v2 Part 4 — E2E Regression + Polish (May 19, 2026)
 **Tests:** Backend **81/81 PASS** across Parts 1+2+3 (`test_iteration112.json`). Frontend wizard verified end-to-end via Playwright (Single AU scenario reaches Step 7 with SAH-* id and AU/75 score).
 
