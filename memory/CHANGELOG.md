@@ -3,6 +3,54 @@
 This file appends every completed phase/feature with dates and verification status.
 
 ---
+### 🤖 Phase 6 v2 Part 3 — Integrated Workflow + AI Helpers (May 19, 2026)
+**Tests:** `test_iteration112_part3_workflow.py` → 10/10 PASS (incl. live AI Suggester contract test)
+
+Three deliverables (all per Sir's PRD):
+
+**1. AI Helper #2 — Occupation Suggester** (`POST /api/sales/ai/suggest-occupation`):
+- Free-text description (min 20 chars) + country filter → Claude Sonnet 4.6 returns top 3-5 occupation codes with reasoning + confidence (HIGH/MEDIUM/LOW) + considerations
+- Strict prompt: AI suggests, NEVER decides; only suggests codes that exist in the knowledge base; matches based on CURRENT job duties not education
+- Backend cross-checks every suggested code against `country_rules.occupation_codes` → returns `_verified: true/false`. AI cannot invent codes.
+- ₹2-3 per call estimated (one short prompt with slim occupation list)
+- AI Helper #1 (Resume Parser) already exists from Phase 6.7 Part 2 — reused via the same endpoint `/api/eligibility/profiles/resume-extract`
+
+**2. Save Assessment + List/Get/Delete** (`POST /api/sales/assessments`):
+- New `sales_assessments` collection — captures profile snapshot, occupation, calculator results for each target country, best country auto-picked by highest points
+- Admin sees all, partners scoped to own. RBAC: client → 403
+- `GET /list`, `GET /{id}`, `DELETE /{id}` standard CRUD
+
+**3. Create PA from Assessment 1-click Bridge** (`POST /api/sales/assessments/{id}/create-pa`):
+- Takes a saved assessment → creates a new Pre-Assessment with pre-filled: client name/email/phone, occupation code/title/skill_body, destination country, lead_source='smart_sales_helper', `source_smart_sales_assessment_id` link
+- **Idempotent**: re-calling returns the same `linked_pa_id` with `already_linked=True`
+
+**4. Integrated Workflow Page** (`/sales/client-assessment` — `ClientAssessment.jsx`):
+- 7-step visual stepper (Start → Approach → Profile → Countries → Calculator → Review → Done) with done/active/pending state colours
+- **Step 2 Approach picker** — 3 cards: "I know the profession" / "Find best code (AI)" / "Upload Resume" — pre-selects which helper modal opens in Step 3
+- **Step 3 Profile** — embedded AI Occupation Helper Modal (suggester) + Resume Upload Modal (with file picker → AI extract → form auto-fill) — both data-testid'd
+- **Step 4 Countries** — 3 modes: Specific country + visa subclass / Top 3 (AU+CA+NZ) / Custom multi-select
+- **Step 5 Live Calculator** — calls `/calculate-batch` → renders grid of country score cards (single column for 1, 3-col for multi) with breakdown + visa eligibility ticks + recommendation
+- **Step 6 Review** — confirmation summary with "Best Match" highlight + confirm checkbox
+- **Step 7 Done** — 3 action buttons: Create Pre-Assessment (1-click bridge) / Back to Search / Print PDF
+
+**5. Calculator batch endpoint** (`POST /api/sales/calculator/calculate-batch`) — same profile vs multiple country/visa combos in one call (used by workflow Step 5)
+
+**Backend routing fix**: `sales_*` routers must include BEFORE `sales_router` (legacy `/sales/{sale_id}` was catching `/sales/assessments`). Reordered in `server.py:339`.
+
+**Sidebar**: Added "Client Assessment (Workflow)" entry under Smart Sales Helper group with Wand2 icon.
+
+**Test coverage (10/10 PASS in 18s)**:
+- Save assessment (single + multi-country)
+- List / Get assessments
+- Create PA (1-click + idempotent re-call)
+- Calculator batch 3 countries
+- AI Suggester contract test — verified `_verified=true` cross-check works, all suggestions had valid codes, confidence in {high, medium, low}
+- AI Suggester min description length 422
+- RBAC: anonymous 403, client role 403
+
+---
+
+
 ### 🧮 Phase 6 v2 Part 2 — Eligibility Calculator (May 19, 2026)
 **Tests:** `test_iteration111_calculator.py` → 54/54 PASS in 50ms (zero LLM)
 

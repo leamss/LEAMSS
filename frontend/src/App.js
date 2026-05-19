@@ -40,6 +40,7 @@ import { EligibilityProfilesList, EligibilityProfileDetail } from '@/pages/eligi
 import OccupationSearch from '@/pages/sales/OccupationSearch';
 import OccupationDetail from '@/pages/sales/OccupationDetail';
 import EligibilityCalculator from '@/pages/sales/EligibilityCalculator';
+import ClientAssessment from '@/pages/sales/ClientAssessment';
 import PublicInfoSheet from '@/pages/eligibility/PublicInfoSheet';
 import AdminVendors from '@/pages/admin/AdminVendors';
 import VendorCategoriesManager from '@/pages/admin/VendorCategoriesManager';
@@ -181,6 +182,11 @@ function App() {
           <Route path="/sales/calculator" element={
             <RequirePermission allowRoles={['admin_owner', 'admin', 'sales_executive', 'sr_sales_executive', 'sales_manager', 'sales_head', 'partner', 'case_manager']}>
               <EligibilityCalculator />
+            </RequirePermission>
+          } />
+          <Route path="/sales/client-assessment" element={
+            <RequirePermission allowRoles={['admin_owner', 'admin', 'sales_executive', 'sr_sales_executive', 'sales_manager', 'sales_head', 'partner', 'case_manager']}>
+              <ClientAssessment />
             </RequirePermission>
           } />
           <Route path="/admin/vendors" element={

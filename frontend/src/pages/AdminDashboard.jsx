@@ -18,7 +18,7 @@ import {
   Search, DollarSign, TrendingUp, CheckCircle, XCircle, Clock,
   MessageSquare, Filter, Calendar, RefreshCw, AlertTriangle, Copy, Mail, Gift,
   Menu, X, Bell, Loader2, CreditCard, BarChart3, Activity, Megaphone,
-  ArrowRightLeft, Zap, BookOpen, Star, UserCheck, ClipboardList, Sparkles, Calculator, Database, Package, Home, Shield, Target, Layers, IndianRupee, Trophy, Globe
+  ArrowRightLeft, Zap, BookOpen, Star, UserCheck, ClipboardList, Sparkles, Calculator, Database, Package, Home, Shield, Target, Layers, IndianRupee, Trophy, Globe, Wand2
 } from 'lucide-react';
 import BulkOperations from '@/pages/BulkOperations';
 import SLATracker from '@/pages/SLATracker';
@@ -1240,6 +1240,7 @@ const AdminDashboard = () => {
       items: [
         { id: 'sales-occupation-search', icon: Sparkles, label: 'Occupation Search', onClick: () => navigate('/sales/occupations') },
         { id: 'sales-calculator', icon: Calculator, label: 'Eligibility Calculator', onClick: () => navigate('/sales/calculator') },
+        { id: 'sales-client-assessment', icon: Wand2, label: 'Client Assessment (Workflow)', onClick: () => navigate('/sales/client-assessment') },
         { id: 'eligibility-kb', icon: Globe, label: 'Knowledge Base (Admin)', onClick: () => navigate('/admin/eligibility/knowledge-base') },
         { id: 'eligibility-profiles', icon: User, label: 'Client Profiles', onClick: () => navigate('/eligibility/profiles') },
         { id: 'eligibility-new', icon: Plus, label: 'New Profile', onClick: () => navigate('/eligibility/new-assessment') },
