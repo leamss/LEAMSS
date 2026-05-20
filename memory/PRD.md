@@ -5,6 +5,13 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 
 > **📌 Update (Feb 13, 2026):** `CHANGELOG.md` now tracks all completed phases (incl. **Phase 3A — Attendance & Leave** with full company policies). `ROADMAP.md` lists prioritized backlog. This PRD remains the static reference for original requirements.
 
+### 🔒 Phase 6.7 — Audit Log + File Split (May 20, 2026)
+**Status:** ✅ COMPLETE — Backend **100/100 PASS** (combined regression). UI E2E verified.
+
+- Share-link audit log (`share_audit_events`) — tamper-evident SHA-256 trail of generate/access/revoke events, surfaced in Legal Archive (new `record_type=share_event` filter + stats + integrity scan).
+- ClientAssessment.jsx **1167→263 lines** orchestrator + 12 focused subcomponents under `steps/` + `lib/` (Step1Start, Step2Approach, Step3Profile, Step4Countries, Step5Calculator, Step6Review, Step7Done, SuggesterModal, ResumeUploadModal, FieldWithLabel, constants, buildProfile).
+- Resend email integration **deferred** per user direction.
+
 ### 🎛️ Phase 6.5b + 6.6 — Share Links Dashboard + Create PA Polish (May 20, 2026)
 **Status:** ✅ COMPLETE — Backend **29/29 PASS** (combined regression). UI verified.
 

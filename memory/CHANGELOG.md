@@ -3,6 +3,57 @@
 This file appends every completed phase/feature with dates and verification status.
 
 ---
+### 🔒 Phase 6.7 — Share Audit Log + ClientAssessment File Split (May 20, 2026)
+**Tests:** Backend **100/100 PASS** (full Phase 6 + 6.5 + 6.5b regression). UI E2E verified end-to-end.
+
+**1. Share Link Audit Log** (P2 task — tamper-evident timeline of every share lifecycle event)
+- New collection `share_audit_events` capturing `share_generated` / `share_accessed` / `share_revoked` events.
+- New module `/app/backend/core/share_audit.py` with `record_share_event()` helper — naive-UTC + millisecond-precision datetime normalisation so SHA-256 hashes are reproducible after MongoDB BSON round-trip (root cause: BSON drops tzinfo + truncates microseconds).
+- Extended `/app/backend/core/integrity.py` PROJECTIONS with `share_event` field list — supports `compute_hash` + `verify_hash` for share events.
+- Audit hooks wired into 4 endpoints:
+  - `POST /api/sales/assessments/{id}/share` → logs `share_generated` with actor + expiry details
+  - `GET  /api/sales/assessments/public/{token}` → logs `share_accessed` with IP/UA + cumulative click_count (best-effort, never blocks public access)
+  - `POST /api/sales/assessments/{id}/share/revoke` → logs `share_revoked` from assessment page
+  - `POST /api/share-links/revoke` (sales_report) → logs `share_revoked` from admin dashboard
+- Surfaced in Legal Archive timeline:
+  - `GET /api/legal-archive/search?record_type=share_event` — new filter type
+  - `GET /api/legal-archive/stats` — now includes `share_events` count
+  - `GET /api/legal-archive/integrity/verify-all` — share events included in tamper scan
+- Each event row carries `event_type`, `share_type`, `share_token_prefix`, `actor_email/role`, `ip_address`, `user_agent`, `details`, `integrity_status`, truncated `integrity_hash` (12-char preview).
+
+**2. ClientAssessment.jsx File Split** (P2 task — modularity)
+- Monolithic 1167-line file → 263-line orchestrator + 12 focused subcomponents.
+- New directory structure:
+  - `/app/frontend/src/pages/sales/steps/Step1Start.jsx` (29 lines)
+  - `/app/frontend/src/pages/sales/steps/Step2Approach.jsx` (41 lines)
+  - `/app/frontend/src/pages/sales/steps/Step3Profile.jsx` (174 lines) — form + spouse fields + AI helper triggers
+  - `/app/frontend/src/pages/sales/steps/Step4Countries.jsx` (71 lines)
+  - `/app/frontend/src/pages/sales/steps/Step5Calculator.jsx` (48 lines)
+  - `/app/frontend/src/pages/sales/steps/Step6Review.jsx` (46 lines)
+  - `/app/frontend/src/pages/sales/steps/Step7Done.jsx` (214 lines) — actions + checklist + Save & Share dialog
+  - `/app/frontend/src/pages/sales/lib/buildProfile.js` (78 lines) — `buildProfile` + new `buildTargets` helper
+  - `/app/frontend/src/pages/sales/lib/constants.js` (46 lines) — STEPS, QUALIFICATIONS, MARITAL_OPTIONS, CONTRIBUTION_OPTIONS, COUNTRIES, API
+  - `/app/frontend/src/pages/sales/lib/FieldWithLabel.jsx` (10 lines)
+  - `/app/frontend/src/pages/sales/lib/SuggesterModal.jsx` (106 lines) — AI Occupation Helper
+  - `/app/frontend/src/pages/sales/lib/ResumeUploadModal.jsx` (83 lines)
+- Total stayed proportional (~1209 lines spread across 13 files vs 1167 in one file) but each file now has a single clear responsibility.
+- Zero regression — UI full flow (Single AU → 75 pts / 189 ELIGIBLE → Save → SAH-* → Checklist + Share dialog) verified.
+
+**Files Modified:**
+- `backend/routers/sales_assessments.py` (+ 3 audit hooks)
+- `backend/routers/share_links_dashboard.py` (+ audit hook on sales_report revoke)
+- `backend/routers/legal_archive.py` (+ share_event surfacing in search/stats/verify-all)
+- `backend/core/integrity.py` (+ share_event PROJECTION)
+- `frontend/src/pages/sales/ClientAssessment.jsx` (rewritten — 1167→263 lines)
+
+**Files Created:**
+- `backend/core/share_audit.py`
+- 12 frontend files under `pages/sales/{steps,lib}/`
+
+**Deferred per user direction:**
+- **Resend live email integration** (Task 1) — user chose option (c) "skip Resend for now, finalize current work". Backlog item.
+
+---
 ### 🎛️ Phase 6.5b + 6.6 — Share Links Dashboard Extension + Create PA Polish (May 20, 2026)
 **Tests:** `test_iteration114_share_links_dashboard_sales.py` → **6/6 PASS**. Combined regression (Part 3 + 6.5 + 6.5b) → **29/29 PASS**. Zero regression.
 
