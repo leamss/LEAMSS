@@ -22,6 +22,7 @@ consent_col = db["proposal_consent_emails"]
 signatures_col = db["pa_signatures"]
 invoices_col = db["pa_invoices"]
 pa_col = db["pre_assessments"]
+share_audit_col = db["share_audit_events"]
 
 
 def _admin_only(current_user: dict):
@@ -41,18 +42,20 @@ async def legal_stats(current_user: dict = Depends(get_current_user)):
     consents = await consent_col.count_documents({})
     sigs = await signatures_col.count_documents({})
     invs = await invoices_col.count_documents({})
+    shares = await share_audit_col.count_documents({})
     return {
         "consents": consents,
         "signatures": sigs,
         "invoices": invs,
-        "total": consents + sigs + invs,
+        "share_events": shares,
+        "total": consents + sigs + invs + shares,
     }
 
 
 @router.get("/search")
 async def legal_search(
     q: str = Query("", description="Free text — searches client name/email, ref_id, pa_number"),
-    record_type: Optional[str] = Query("all", description="all | consent | signature | invoice"),
+    record_type: Optional[str] = Query("all", description="all | consent | signature | invoice | share_event"),
     start_date: Optional[str] = Query(None, description="ISO date YYYY-MM-DD"),
     end_date: Optional[str] = Query(None, description="ISO date YYYY-MM-DD"),
     limit: int = Query(100, ge=1, le=500),
@@ -200,6 +203,41 @@ async def legal_search(
                 "integrity_hash": (inv.get("integrity_hash") or "")[:12],
             })
 
+    # ===== SHARE EVENTS (Phase 6.7 audit log) =====
+    if record_type in ("all", "share_event"):
+        seq = {"created_at": date_q} if date_q else {}
+        events = await share_audit_col.find(seq, {"_id": 0}).sort("created_at", -1).to_list(limit)
+        for e in events:
+            haystack = " ".join([
+                e.get("reference_id") or "", e.get("entity_id") or "",
+                e.get("client_name") or "", e.get("client_email") or "",
+                e.get("actor_email") or "", e.get("share_token_prefix") or "",
+                e.get("event_type") or "",
+            ])
+            if not _matches(haystack):
+                continue
+            integrity = verify_hash("share_event", e)
+            results.append({
+                "type": "share_event",
+                "id": e.get("id"),
+                "reference_id": e.get("reference_id"),
+                "entity_id": e.get("entity_id"),
+                "pa_id": e.get("entity_id") if e.get("entity_kind") == "pa" else None,
+                "client_name": e.get("client_name"),
+                "client_email": e.get("client_email"),
+                "event_type": e.get("event_type"),
+                "share_type": e.get("share_type"),
+                "share_token_prefix": e.get("share_token_prefix"),
+                "actor_email": e.get("actor_email"),
+                "actor_role": e.get("actor_role"),
+                "ip_address": e.get("ip_address"),
+                "user_agent": (e.get("user_agent") or "")[:80],
+                "timestamp": _iso(e.get("created_at")),
+                "details": e.get("details") or {},
+                "integrity_status": integrity["status"],
+                "integrity_hash": (e.get("integrity_hash") or "")[:12],
+            })
+
     # Sort all-typed combined by timestamp desc
     results.sort(key=lambda r: (r.get("timestamp") or ""), reverse=True)
     results = results[:limit]
@@ -217,7 +255,7 @@ async def integrity_verify_all(current_user: dict = Depends(get_current_user)):
     _admin_only(current_user)
     summary = {"verified": 0, "tampered": 0, "unverified": 0}
     tampered = []
-    for col, rtype in [(consent_col, "consent"), (signatures_col, "signature"), (invoices_col, "invoice")]:
+    for col, rtype in [(consent_col, "consent"), (signatures_col, "signature"), (invoices_col, "invoice"), (share_audit_col, "share_event")]:
         async for d in col.find({}, {"_id": 0}):
             r = verify_hash(rtype, d)
             summary[r["status"]] = summary.get(r["status"], 0) + 1

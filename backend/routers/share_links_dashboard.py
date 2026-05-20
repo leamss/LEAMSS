@@ -13,6 +13,7 @@ from pydantic import BaseModel
 
 from core.database import db
 from routers.auth import get_current_user
+from core.share_audit import record_share_event
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/share-links", tags=["Share Links Dashboard"])
@@ -288,6 +289,7 @@ async def revoke_link(body: RevokeRequest, current_user: dict = Depends(get_curr
         return {"ok": True, "revoked_type": "magic_portal", "token_prefix": body.token[:10] + "…"}
 
     if body.type == "sales_report":
+        sa = await sales_assessments_col.find_one({"share_token": body.token}, {"_id": 0, "id": 1, "client_name": 1, "client_email": 1})
         res = await sales_assessments_col.update_one(
             {"share_token": body.token},
             {"$set": {
@@ -301,6 +303,20 @@ async def revoke_link(body: RevokeRequest, current_user: dict = Depends(get_curr
         )
         if res.matched_count == 0:
             raise HTTPException(status_code=404, detail="Sales report token not found")
+        # Audit log
+        await record_share_event(
+            event_type="share_revoked",
+            share_type="sales_report",
+            share_token=body.token,
+            reference_id=(sa or {}).get("id"),
+            reference_kind="sales_assessment",
+            client_name=(sa or {}).get("client_name"),
+            client_email=(sa or {}).get("client_email"),
+            actor_id=current_user.get("id"),
+            actor_email=current_user.get("email"),
+            actor_role=current_user.get("role"),
+            details={"source": "share_links_dashboard", "reason": body.reason},
+        )
         return {"ok": True, "revoked_type": "sales_report", "token_prefix": body.token[:10] + "…"}
 
     raise HTTPException(status_code=400, detail="Invalid type — must be 'public_pa_fee', 'magic_portal', or 'sales_report'")

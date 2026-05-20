@@ -24,6 +24,7 @@ from core.auth import get_current_user
 from core.database import db
 from core.sales_calculator import calculate
 from core.sales_checklist import build_checklist
+from core.share_audit import record_share_event
 
 router = APIRouter(prefix="/sales/assessments", tags=["Smart Sales Helper - Assessments"])
 
@@ -282,6 +283,21 @@ async def create_share_link(assessment_id: str, req: ShareRequest, current_user:
     }
     await assessments_col.update_one({"id": assessment_id}, {"$set": share_doc})
 
+    # Audit log
+    await record_share_event(
+        event_type="share_generated",
+        share_type="sales_report",
+        share_token=token,
+        reference_id=assessment_id,
+        reference_kind="sales_assessment",
+        client_name=a.get("client_name"),
+        client_email=a.get("client_email"),
+        actor_id=current_user.get("id"),
+        actor_email=current_user.get("email"),
+        actor_role=role,
+        details={"expires_in_days": req.expires_in_days, "expires_at": expires_at.isoformat() if expires_at else None},
+    )
+
     frontend_base = (os.environ.get("FRONTEND_URL") or os.environ.get("REACT_APP_BACKEND_URL") or "").rstrip("/")
     return {
         "ok": True,
@@ -309,6 +325,20 @@ async def revoke_share_link(assessment_id: str, current_user: dict = Depends(get
     await assessments_col.update_one(
         {"id": assessment_id},
         {"$set": {"share_active": False, "share_revoked": True, "share_revoked_at": now, "updated_at": now}},
+    )
+    # Audit log
+    await record_share_event(
+        event_type="share_revoked",
+        share_type="sales_report",
+        share_token=a.get("share_token"),
+        reference_id=assessment_id,
+        reference_kind="sales_assessment",
+        client_name=a.get("client_name"),
+        client_email=a.get("client_email"),
+        actor_id=current_user.get("id"),
+        actor_email=current_user.get("email"),
+        actor_role=role,
+        details={"source": "assessment_page"},
     )
     return {"ok": True}
 
@@ -373,6 +403,23 @@ async def public_share_view(token: str, request: Request):
             "$set": {"share_last_accessed_at": now, "share_last_accessed_ip": ip, "share_last_accessed_ua": ua},
         },
     )
+    # Audit log (best-effort — public access)
+    try:
+        await record_share_event(
+            event_type="share_accessed",
+            share_type="sales_report",
+            share_token=token,
+            reference_id=a.get("id"),
+            reference_kind="sales_assessment",
+            client_name=a.get("client_name"),
+            client_email=a.get("client_email"),
+            actor_role="anonymous",
+            ip_address=ip,
+            user_agent=ua,
+            details={"click_count": (a.get("share_click_count") or 0) + 1},
+        )
+    except Exception:
+        pass  # Never block public access if audit insert fails
     # Include checklist summary
     profile = a.get("profile_snapshot") or {}
     checklist = build_checklist(

@@ -39,6 +39,12 @@ PROJECTIONS = {
         "client_email", "client_name", "amount_received_total",
         "channel", "message", "sent_by", "sent_at",
     ],
+    "share_event": [
+        "id", "reference_id", "event_type", "share_type", "share_token",
+        "entity_id", "entity_kind", "client_name", "client_email",
+        "actor_id", "actor_email", "actor_role",
+        "ip_address", "user_agent", "details", "created_at",
+    ],
 }
 
 
