@@ -192,6 +192,43 @@ def detect_anomalies(events: list[dict], window_hours: int = 24) -> dict:
             })
 
         # ────────────────────────────────────────────────────────────
+        # Rule 6: IMPOSSIBLE_GEOGRAPHY — two accesses from countries that are
+        # physically too far apart in too short a window (e.g. India ↔ USA
+        # within 60 seconds = a human cannot teleport).
+        # ────────────────────────────────────────────────────────────
+        geo_events = [
+            e for e in access_events
+            if (e.get("details") or {}).get("geo")
+        ]
+        impossible_pairs = []
+        for i in range(len(geo_events)):
+            for j in range(i + 1, len(geo_events)):
+                a_geo = (geo_events[i].get("details") or {}).get("geo") or {}
+                b_geo = (geo_events[j].get("details") or {}).get("geo") or {}
+                a_cc = a_geo.get("country_code")
+                b_cc = b_geo.get("country_code")
+                if not a_cc or not b_cc or a_cc == b_cc:
+                    continue
+                t1 = _ensure_naive_utc(geo_events[i].get("created_at"))
+                t2 = _ensure_naive_utc(geo_events[j].get("created_at"))
+                if not t1 or not t2:
+                    continue
+                gap_sec = abs((t2 - t1).total_seconds())
+                if gap_sec <= 300:  # 5-minute window
+                    impossible_pairs.append({
+                        "from_country": a_cc, "to_country": b_cc,
+                        "gap_seconds": int(gap_sec),
+                        "first_at": min(t1, t2).isoformat(),
+                    })
+        if impossible_pairs:
+            flags.append({
+                "type": "impossible_geo",
+                "severity": "high",
+                "count": len(impossible_pairs),
+                "pairs": impossible_pairs[:5],
+            })
+
+        # ────────────────────────────────────────────────────────────
         # Roll up severity
         # ────────────────────────────────────────────────────────────
         if flags:

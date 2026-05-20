@@ -4,6 +4,7 @@ import { LanguageProvider } from '@/components/LanguageProvider';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import Login from '@/pages/Login';
 import AdminDashboard from '@/pages/AdminDashboard';
+import AuditInsights from '@/pages/admin/AuditInsights';
 import PartnerDashboard from '@/pages/PartnerDashboard';
 import CaseManagerDashboard from '@/pages/CaseManagerDashboard';
 import ClientDashboard from '@/pages/ClientDashboard';
@@ -77,6 +78,11 @@ function App() {
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/admin/analytics" element={<AnalyticsDashboard />} />
           <Route path="/admin/activity" element={<ActivityLog />} />
+          <Route path="/admin/audit-insights" element={
+            <RequirePermission allowRoles={['admin_owner', 'admin']}>
+              <AuditInsights />
+            </RequirePermission>
+          } />
           <Route path="/admin/workflows" element={<WorkflowBuilder />} />
           <Route path="/admin/ai-workflow" element={<AIWorkflowBuilder />} />
           <Route path="/admin/marketing" element={<MarketingDashboard />} />

@@ -16,6 +16,7 @@ from routers.auth import get_current_user
 from core.share_audit import record_share_event
 from core.integrity import verify_hash
 from core.anomaly_detector import detect_anomalies
+from core.anomaly_alerter import dispatch_all_high_severity, alerts_col
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/share-links", tags=["Share Links Dashboard"])
@@ -328,6 +329,7 @@ async def revoke_link(body: RevokeRequest, current_user: dict = Depends(get_curr
 @router.get("/anomalies")
 async def share_link_anomalies(
     since_hours: int = Query(24, ge=1, le=720, description="Lookback window in hours (1 = last hour, 720 = last 30 days)"),
+    auto_alert: bool = Query(True, description="If true, auto-dispatch alerts for new HIGH-severity anomalies (de-duplicated per token per hour)"),
     current_user: dict = Depends(get_current_user),
 ):
     """Scan all share_audit_events within the lookback window and flag suspicious patterns.
@@ -340,6 +342,7 @@ async def share_link_anomalies(
       - post_revoke_scrape: denied accesses recorded after a revoke event
       - expired_hammering: >= 5 expired-link denials within 1 hour
       - bot_pattern      : same UA hitting >= 3 distinct tokens
+      - impossible_geo   : >= 2 accesses from different countries < 5 min apart
     """
     _admin_only(current_user)
     since = datetime.utcnow() - timedelta(hours=since_hours)
@@ -347,7 +350,49 @@ async def share_link_anomalies(
         {"created_at": {"$gte": since}},
         {"_id": 0},
     ).to_list(20000)
-    return detect_anomalies(events, window_hours=since_hours)
+    scan = detect_anomalies(events, window_hours=since_hours)
+    # Auto-dispatch alerts for new HIGH severities
+    if auto_alert:
+        scan["alert_dispatch"] = await dispatch_all_high_severity(scan)
+    return scan
+
+
+@router.get("/anomaly-alerts")
+async def list_anomaly_alerts(
+    limit: int = Query(50, ge=1, le=200),
+    acknowledged: Optional[bool] = Query(None, description="Filter by acknowledged status"),
+    current_user: dict = Depends(get_current_user),
+):
+    """Return the internal anomaly-alert feed (Slack-independent)."""
+    _admin_only(current_user)
+    q = {}
+    if acknowledged is not None:
+        q["acknowledged"] = acknowledged
+    items = await alerts_col.find(q, {"_id": 0}).sort("created_at", -1).to_list(limit)
+    # Sanitise datetime
+    for item in items:
+        if isinstance(item.get("created_at"), datetime):
+            item["created_at"] = item["created_at"].isoformat()
+        if isinstance(item.get("acknowledged_at"), datetime):
+            item["acknowledged_at"] = item["acknowledged_at"].isoformat()
+    return {"items": items, "count": len(items)}
+
+
+@router.post("/anomaly-alerts/{alert_id}/acknowledge")
+async def acknowledge_alert(alert_id: str, current_user: dict = Depends(get_current_user)):
+    """Mark an alert as reviewed/acknowledged by an admin."""
+    _admin_only(current_user)
+    res = await alerts_col.update_one(
+        {"id": alert_id},
+        {"$set": {
+            "acknowledged": True,
+            "acknowledged_at": datetime.utcnow(),
+            "acknowledged_by": current_user.get("email"),
+        }},
+    )
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Alert not found")
+    return {"ok": True}
 
 
 @router.get("/{token}/audit-trail")

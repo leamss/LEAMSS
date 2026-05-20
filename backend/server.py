@@ -73,6 +73,7 @@ from routers.sales_assessments import router as sales_assessments_router
 from routers.doc_expiry import router as doc_expiry_router
 from routers.visa_compare import router as visa_compare_router
 from routers.share_links_dashboard import router as share_links_router
+from routers.audit_insights import router as audit_insights_router
 from routers.employees import router as employees_router
 from routers.departments import router as departments_router
 from routers.rbac_admin import router as rbac_admin_router
@@ -355,7 +356,7 @@ for r in [targets_router, cost_structures_router, auth_router, users_router, pro
           upsell_bundles_router, ai_proposal_router,
           proposal_docs_router, payment_history_router, milestones_router, intelligence_router,
           legal_archive_router, agreement_templates_router, pa_agreements_router,
-          eligibility_router, eligibility_kb_router, eligibility_profiles_router, eligibility_info_sheet_router, doc_expiry_router, visa_compare_router, share_links_router,
+          eligibility_router, eligibility_kb_router, eligibility_profiles_router, eligibility_info_sheet_router, doc_expiry_router, visa_compare_router, share_links_router, audit_insights_router,
           employees_router, departments_router, rbac_admin_router, admin_users_router,
           attendance_router, leaves_router, hr_admin_router, express_sales_router, vendors_router,
           pa_allocations_router, sales_commission_router,

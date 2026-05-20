@@ -430,6 +430,13 @@ async def public_share_view(token: str, request: Request):
             "$set": {"share_last_accessed_at": now, "share_last_accessed_ip": ip, "share_last_accessed_ua": ua},
         },
     )
+    # Resolve IP geo (best-effort, cached). None for private/local IPs.
+    geo = None
+    try:
+        from core.ip_geo import lookup_ip
+        geo = await lookup_ip(ip)
+    except Exception:
+        pass
     # Audit log (best-effort — public access)
     try:
         await record_share_event(
@@ -443,7 +450,7 @@ async def public_share_view(token: str, request: Request):
             actor_role="anonymous",
             ip_address=ip,
             user_agent=ua,
-            details={"click_count": (a.get("share_click_count") or 0) + 1},
+            details={"click_count": (a.get("share_click_count") or 0) + 1, "geo": geo},
         )
     except Exception:
         pass  # Never block public access if audit insert fails

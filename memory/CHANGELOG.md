@@ -3,6 +3,47 @@
 This file appends every completed phase/feature with dates and verification status.
 
 ---
+### 🏆 Phase 6.9b — IP Geolocation + Alert Notifications + Audit Insights Dashboard (May 20, 2026)
+**Tests:** `test_iteration117_insights_alerts.py` → **10/10 PASS**. Full Phase 6 regression → **54/55 PASS** (1 skip for missing partner login).
+
+**1. IP Geolocation (P3)** — `core/ip_geo.py`
+- Three-tier resolution: env-configurable MaxMind GeoLite2 (`GEOIP_DB_PATH`) → public `ip-api.com` free tier → graceful None for private/loopback IPs.
+- Mongo cache (`ip_geo_cache`) — 24h TTL, dedupes lookups so we never burn through the 45-req/min free tier limit.
+- Public access endpoint (`GET /api/sales/assessments/public/{token}`) now enriches each `share_accessed` audit event with `details.geo = {country_code, country, region, city, lat, lon, source}`.
+- New `haversine_km(lat1, lon1, lat2, lon2)` helper for great-circle distance math.
+- New anomaly rule **`impossible_geo`** in `core/anomaly_detector.py`: flags ≥ 2 accesses from different countries within 5 minutes of each other → severity HIGH.
+
+**2. Anomaly Alert Notifications (P2)** — `core/anomaly_alerter.py`
+- New module `dispatch_alert(anomaly)` — sends formatted Slack message via `SLACK_WEBHOOK_URL` (env), records to internal `anomaly_alerts` collection, gracefully stubs email until `RESEND_API_KEY` is added.
+- De-duplication: same token never alerts more than once per 1-hour window (`DEDUP_WINDOW`).
+- Auto-dispatch hook on `/api/share-links/anomalies?auto_alert=true` — every scan call now fires alerts for new HIGH severities inline.
+- New endpoints:
+  - `GET /api/share-links/anomaly-alerts?acknowledged=...&limit=N` — Slack-independent alert feed
+  - `POST /api/share-links/anomaly-alerts/{id}/acknowledge` — mark reviewed by admin
+
+**3. Audit Insights Dashboard (Standalone page)** — `pages/admin/AuditInsights.jsx` + `routers/audit_insights.py`
+- New admin-only route `/admin/audit-insights` (gated via `RequirePermission allowRoles=['admin_owner','admin']`).
+- Backend endpoint `GET /api/audit-insights/overview?days=30` returns: aggregate stats, daily trend buckets (event types per day, N+1 points), event-type counts, share-type counts, top-10 anomaly tokens, top-10 IPs (ranked by `denied_count → distinct_tokens → total_events`), unacknowledged alerts feed.
+- Frontend UI sections (recharts-based):
+  - **Top stats**: Total Events / Unique Tokens / Unique IPs / Anomalies (H/M/L) / Unack Alerts (5 colored cards with border-l-4 accents)
+  - **Recent Anomaly Alerts** card with per-alert acknowledge button + delivery status (Slack/Email/Internal)
+  - **Daily Event Trend** stacked bar chart (4 series: Generated, Accessed, Denied, Revoked)
+  - **Top Anomaly Tokens** list with severity badges + flag breakdown
+  - **Events by Share Type** pie chart (sales_report / magic_portal / public_pa_fee)
+  - **Top Active IPs** table with risk badges (rose/amber/emerald based on denials + token reach)
+  - Window selector: 7 / 30 / 60 / 90 days
+- Compliance PDF endpoint `GET /api/audit-insights/compliance-report.pdf?days=90` — full ReportLab A4 with:
+  - Executive summary table + SHA-256 **Chain Proof** (hash of all event hashes concatenated)
+  - Event-type breakdown table
+  - Share-type breakdown table
+  - Top-25 anomalies table (rose header)
+  - Footer disclaimer on chain integrity
+
+**Files:**
+- New: `backend/core/ip_geo.py`, `backend/core/anomaly_alerter.py`, `backend/routers/audit_insights.py`, `frontend/src/pages/admin/AuditInsights.jsx`, `backend/tests/test_iteration117_insights_alerts.py`
+- Modified: `backend/core/anomaly_detector.py` (+ impossible_geo rule), `backend/routers/share_links_dashboard.py` (+ auto_alert hook, + anomaly-alerts CRUD), `backend/routers/sales_assessments.py` (+ geo enrichment on public access), `backend/server.py` (+ audit_insights_router), `frontend/src/App.js` (+ /admin/audit-insights route).
+
+---
 ### 🛡️ Phase 6.9 — Force-Rehash + Anomaly Detection + PDF Audit Export (May 20, 2026)
 **Tests:** `test_iteration116_anomaly_pdf.py` → **9/9 PASS**. Combined Phase 6 regression → **45/45 PASS** (5 iteration files).
 

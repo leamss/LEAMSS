@@ -5,6 +5,13 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 
 > **📌 Update (Feb 13, 2026):** `CHANGELOG.md` now tracks all completed phases (incl. **Phase 3A — Attendance & Leave** with full company policies). `ROADMAP.md` lists prioritized backlog. This PRD remains the static reference for original requirements.
 
+### 🏆 Phase 6.9b — IP Geo + Alert Notifications + Audit Insights Dashboard (May 20, 2026)
+**Status:** ✅ COMPLETE — Backend **54/55 PASS** (full Phase 6 regression). UI E2E verified.
+
+- IP Geolocation enrichment on every public access (`ip-api.com` free tier, MaxMind upgrade ready via `GEOIP_DB_PATH` env). New `impossible_geo` HIGH-severity anomaly rule.
+- Anomaly alert dispatcher with Slack webhook (`SLACK_WEBHOOK_URL` optional), email stub (awaits Resend key), de-duplicated internal feed (`anomaly_alerts` collection), CRUD + acknowledge endpoints.
+- Standalone `/admin/audit-insights` page — top stats, daily trend stacked bar chart, recent anomaly alerts with acknowledge, top anomaly tokens, top active IPs with risk tiers, share-type pie chart, 90-day Compliance PDF export with SHA-256 chain proof. SOC-2 audit-ready.
+
 ### 🛡️ Phase 6.9 — Force-Rehash + Anomaly Detection + PDF Audit Export (May 20, 2026)
 **Status:** ✅ COMPLETE — Backend **45/45 PASS** (Phase 6 full regression). UI E2E verified.
 
