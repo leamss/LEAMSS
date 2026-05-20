@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import {
   Link2, RefreshCw, Search, Shield, ShieldAlert, ShieldCheck,
-  Eye, X, Clock, CheckCircle2, AlertTriangle, Copy, ExternalLink, Ban
+  Eye, X, Clock, CheckCircle2, AlertTriangle, Copy, ExternalLink, Ban,
+  History, Send, Bot, Loader2,
 } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -20,6 +21,14 @@ const STATUS_STYLES = {
   deactivated: { c: 'bg-slate-50 border-slate-200 text-slate-600', label: 'Inactive', icon: X },
 };
 
+const EVENT_STYLES = {
+  share_generated: { label: 'Link Generated', icon: Send, dot: 'bg-emerald-100 border-emerald-500 text-emerald-700', card: 'bg-emerald-50 border-emerald-200', text: 'text-emerald-800' },
+  share_accessed: { label: 'Public Access', icon: Eye, dot: 'bg-indigo-100 border-indigo-500 text-indigo-700', card: 'bg-indigo-50 border-indigo-200', text: 'text-indigo-800' },
+  share_revoked: { label: 'Link Revoked', icon: Ban, dot: 'bg-rose-100 border-rose-500 text-rose-700', card: 'bg-rose-50 border-rose-200', text: 'text-rose-800' },
+  share_emailed: { label: 'Emailed to Client', icon: Bot, dot: 'bg-amber-100 border-amber-500 text-amber-700', card: 'bg-amber-50 border-amber-200', text: 'text-amber-800' },
+  default: { label: 'Event', icon: AlertTriangle, dot: 'bg-slate-100 border-slate-500 text-slate-700', card: 'bg-slate-50 border-slate-200', text: 'text-slate-700' },
+};
+
 export default function ShareLinksDashboard() {
   const [data, setData] = useState({ items: [], stats: {}, count: 0 });
   const [loading, setLoading] = useState(false);
@@ -28,8 +37,25 @@ export default function ShareLinksDashboard() {
   const [typeFilter, setTypeFilter] = useState('');
   const [confirmRevoke, setConfirmRevoke] = useState(null);
   const [revokeReason, setRevokeReason] = useState('');
+  // Audit trail modal state
+  const [auditModalItem, setAuditModalItem] = useState(null);
+  const [auditEvents, setAuditEvents] = useState(null);
+  const [auditLoading, setAuditLoading] = useState(false);
 
   const auth = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
+
+  const openAuditTrail = async (item) => {
+    setAuditModalItem(item);
+    setAuditEvents(null);
+    setAuditLoading(true);
+    try {
+      const r = await axios.get(`${API}/share-links/${item.token}/audit-trail`, auth());
+      setAuditEvents(r.data);
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Failed to load audit trail');
+      setAuditModalItem(null);
+    } finally { setAuditLoading(false); }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -199,6 +225,9 @@ export default function ShareLinksDashboard() {
                         <Button size="sm" variant="ghost" onClick={() => window.open(fullUrl(item), '_blank')} title="Open" className="h-7 w-7 p-0">
                           <ExternalLink className="h-3 w-3" />
                         </Button>
+                        <Button size="sm" variant="ghost" onClick={() => openAuditTrail(item)} title="Audit Trail" className="h-7 w-7 p-0 text-indigo-600 hover:bg-indigo-50" data-testid={`sl-audit-${item.token.slice(0,10)}`}>
+                          <History className="h-3 w-3" />
+                        </Button>
                         {item.status === 'active' && (
                           <Button size="sm" variant="ghost" onClick={() => setConfirmRevoke(item)} title="Revoke" className="h-7 w-7 p-0 text-rose-600 hover:bg-rose-50" data-testid={`sl-revoke-${item.token.slice(0,10)}`}>
                             <Ban className="h-3 w-3" />
@@ -242,6 +271,102 @@ export default function ShareLinksDashboard() {
               <Button onClick={doRevoke} className="bg-rose-600 hover:bg-rose-700 text-white" data-testid="sl-confirm-revoke">
                 <Ban className="h-4 w-4 mr-1" /> Revoke Permanently
               </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Audit Trail Modal */}
+      {auditModalItem && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setAuditModalItem(null)} data-testid="sl-audit-modal">
+          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="p-4 border-b bg-indigo-50 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <History className="h-5 w-5 text-indigo-600" />
+                <div>
+                  <p className="font-bold text-indigo-900">Audit Trail</p>
+                  <p className="text-[10px] text-slate-600 font-mono">{auditModalItem.token_prefix}</p>
+                </div>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => setAuditModalItem(null)} className="h-7 w-7 p-0">
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <div className="p-4 overflow-y-auto flex-1">
+              <div className="bg-slate-50 border rounded p-3 mb-3 text-xs">
+                <p className="font-semibold text-slate-700 mb-0.5">{auditModalItem.client_name}</p>
+                <p className="text-slate-500">{auditModalItem.pa_number || auditModalItem.sales_assessment_id} · {auditModalItem.amount_label}</p>
+              </div>
+
+              {auditLoading ? (
+                <div className="flex items-center justify-center py-12 text-slate-400">
+                  <Loader2 className="h-6 w-6 animate-spin mr-2" />Loading audit trail…
+                </div>
+              ) : auditEvents && auditEvents.events.length === 0 ? (
+                <div className="text-center py-8 text-slate-400 text-xs italic">
+                  No audit events recorded for this token yet.
+                </div>
+              ) : auditEvents ? (
+                <>
+                  <div className="grid grid-cols-3 gap-2 mb-4 text-center">
+                    <div className="bg-emerald-50 border border-emerald-200 rounded p-2">
+                      <p className="text-[9px] uppercase font-bold text-emerald-700">Total Events</p>
+                      <p className="text-lg font-bold text-emerald-900">{auditEvents.count}</p>
+                    </div>
+                    <div className="bg-indigo-50 border border-indigo-200 rounded p-2">
+                      <p className="text-[9px] uppercase font-bold text-indigo-700">Public Accesses</p>
+                      <p className="text-lg font-bold text-indigo-900">{auditEvents.access_count}</p>
+                    </div>
+                    <div className={`${auditEvents.revoked ? 'bg-rose-50 border-rose-200' : 'bg-slate-50 border-slate-200'} border rounded p-2`}>
+                      <p className={`text-[9px] uppercase font-bold ${auditEvents.revoked ? 'text-rose-700' : 'text-slate-500'}`}>Status</p>
+                      <p className={`text-lg font-bold ${auditEvents.revoked ? 'text-rose-900' : 'text-slate-700'}`}>{auditEvents.revoked ? 'Revoked' : 'Active'}</p>
+                    </div>
+                  </div>
+
+                  <p className="text-[10px] uppercase font-bold text-slate-500 mb-2">Timeline</p>
+                  <div className="relative pl-5 border-l-2 border-slate-200 space-y-3" data-testid="audit-timeline">
+                    {auditEvents.events.map(ev => {
+                      const styles = EVENT_STYLES[ev.event_type] || EVENT_STYLES.default;
+                      const Icon = styles.icon;
+                      return (
+                        <div key={ev.id} className="relative" data-testid={`audit-event-${ev.event_type}`}>
+                          <div className={`absolute -left-7 top-0 h-5 w-5 rounded-full border-2 flex items-center justify-center ${styles.dot}`}>
+                            <Icon className="h-3 w-3" />
+                          </div>
+                          <div className={`rounded border p-2 text-xs ${styles.card}`}>
+                            <div className="flex items-center justify-between mb-1">
+                              <p className={`font-bold ${styles.text}`}>{styles.label}</p>
+                              <div className="flex items-center gap-1">
+                                <Badge className={ev.integrity_status === 'verified' ? 'bg-emerald-100 text-emerald-700 text-[9px]' : 'bg-rose-100 text-rose-700 text-[9px]'}>
+                                  {ev.integrity_status === 'verified' ? <ShieldCheck className="h-2.5 w-2.5 inline mr-0.5" /> : <ShieldAlert className="h-2.5 w-2.5 inline mr-0.5" />}
+                                  {ev.integrity_status}
+                                </Badge>
+                                <code className="text-[9px] text-slate-400 font-mono">{ev.integrity_hash}</code>
+                              </div>
+                            </div>
+                            <p className="text-[10px] text-slate-500">{new Date(ev.created_at).toLocaleString()}</p>
+                            <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 mt-1.5 text-[10px]">
+                              {ev.actor_email && <p><span className="text-slate-400">Actor:</span> {ev.actor_email} ({ev.actor_role})</p>}
+                              {!ev.actor_email && ev.actor_role === 'anonymous' && <p><span className="text-slate-400">Actor:</span> <span className="italic">anonymous</span></p>}
+                              {ev.ip_address && <p><span className="text-slate-400">IP:</span> {ev.ip_address}</p>}
+                              {ev.user_agent && <p className="col-span-2"><span className="text-slate-400">UA:</span> <span className="font-mono text-[9px]">{ev.user_agent}</span></p>}
+                              {ev.details?.click_count !== undefined && <p><span className="text-slate-400">Click #:</span> {ev.details.click_count}</p>}
+                              {ev.details?.expires_in_days !== undefined && <p><span className="text-slate-400">Expiry:</span> {ev.details.expires_in_days === 0 ? 'Never' : `${ev.details.expires_in_days} days`}</p>}
+                              {ev.details?.reason && <p className="col-span-2"><span className="text-slate-400">Reason:</span> {ev.details.reason}</p>}
+                              {ev.details?.source && <p><span className="text-slate-400">Source:</span> {ev.details.source.replace(/_/g, ' ')}</p>}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              ) : null}
+            </div>
+
+            <div className="p-3 border-t bg-slate-50 text-[10px] text-slate-500 text-center">
+              All events SHA-256 chained · Stored in Legal Archive (record_type=share_event)
             </div>
           </div>
         </div>

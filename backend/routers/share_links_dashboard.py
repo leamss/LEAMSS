@@ -14,6 +14,7 @@ from pydantic import BaseModel
 from core.database import db
 from routers.auth import get_current_user
 from core.share_audit import record_share_event
+from core.integrity import verify_hash
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/share-links", tags=["Share Links Dashboard"])
@@ -22,6 +23,7 @@ pa_col = db["pre_assessments"]
 magic_col = db["magic_links"]
 users_col = db["users"]
 sales_assessments_col = db["sales_assessments"]
+share_audit_col = db["share_audit_events"]
 
 
 def _admin_only(u):
@@ -320,3 +322,51 @@ async def revoke_link(body: RevokeRequest, current_user: dict = Depends(get_curr
         return {"ok": True, "revoked_type": "sales_report", "token_prefix": body.token[:10] + "…"}
 
     raise HTTPException(status_code=400, detail="Invalid type — must be 'public_pa_fee', 'magic_portal', or 'sales_report'")
+
+
+@router.get("/{token}/audit-trail")
+async def share_link_audit_trail(token: str, current_user: dict = Depends(get_current_user)):
+    """Return the full audit timeline (generate → access → revoke) for one share token.
+
+    Used by the Active Share Links Dashboard "Audit Trail" modal.
+    Admin only. Events are sorted chronologically (oldest first).
+    Each event includes its integrity_status so admins can spot tampering.
+    """
+    _admin_only(current_user)
+    events = await share_audit_col.find({"share_token": token}, {"_id": 0}).sort("created_at", 1).to_list(200)
+    if not events:
+        # 404 only if no events AND no matching token in any source table
+        sa = await sales_assessments_col.find_one({"share_token": token}, {"_id": 0, "id": 1})
+        ml = await magic_col.find_one({"token": token}, {"_id": 0, "id": 1})
+        if not sa and not ml:
+            raise HTTPException(status_code=404, detail="Token not found")
+        return {"token_prefix": token[:10] + "…", "events": [], "count": 0}
+
+    out = []
+    for e in events:
+        integrity = verify_hash("share_event", e)
+        out.append({
+            "id": e.get("id"),
+            "event_type": e.get("event_type"),
+            "share_type": e.get("share_type"),
+            "entity_id": e.get("entity_id"),
+            "client_name": e.get("client_name"),
+            "actor_email": e.get("actor_email"),
+            "actor_role": e.get("actor_role"),
+            "ip_address": e.get("ip_address"),
+            "user_agent": (e.get("user_agent") or "")[:120],
+            "details": e.get("details") or {},
+            "integrity_status": integrity["status"],
+            "integrity_hash": (e.get("integrity_hash") or "")[:12],
+            "created_at": e["created_at"].isoformat() if isinstance(e.get("created_at"), datetime) else e.get("created_at"),
+        })
+
+    return {
+        "token_prefix": token[:10] + "…",
+        "events": out,
+        "count": len(out),
+        "first_event_at": out[0]["created_at"] if out else None,
+        "last_event_at": out[-1]["created_at"] if out else None,
+        "access_count": sum(1 for e in out if e["event_type"] == "share_accessed"),
+        "revoked": any(e["event_type"] == "share_revoked" for e in out),
+    }

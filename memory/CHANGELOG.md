@@ -3,6 +3,49 @@
 This file appends every completed phase/feature with dates and verification status.
 
 ---
+### 🔍 Phase 6.8 — Audit Trail UI + Legacy Rehash Backfill (May 20, 2026)
+**Tests:** `test_iteration115_audit_trail_and_rehash.py` → **7/7 PASS**. Combined Phase 6 regression → **36/36 PASS** (latest 4 iterations). Zero regression.
+
+**1. Audit Trail Modal in Active Share Links Dashboard** (P2 task — visualisation)
+- New backend endpoint: `GET /api/share-links/{token}/audit-trail` (admin only)
+  - Returns chronologically-ordered events for a single share token
+  - Computes `integrity_status` per event (verified / tampered)
+  - Aggregates `count`, `access_count`, `revoked`, `first_event_at`, `last_event_at`
+  - Returns 404 for completely unknown tokens, empty events array for known-but-no-history tokens
+- New per-row 🕓 "Audit Trail" button on every share link row.
+- New modal (`ShareLinksDashboard.jsx`):
+  - Header with token prefix + close button
+  - Client info card (name + reference + amount label)
+  - 3-stat header: Total Events / Public Accesses / Status (Active or Revoked)
+  - **Vertical timeline** with colored dots per event type:
+    - 🟢 `share_generated` (emerald, Send icon)
+    - 🔵 `share_accessed` (indigo, Eye icon) — shows IP, UA (monospace truncated), click #
+    - 🔴 `share_revoked` (rose, Ban icon) — shows source + reason
+    - 🟠 `share_emailed` (amber, reserved for future Resend integration)
+  - Each event card shows: integrity badge (shield icon green/red), 12-char hash preview, full timestamp, actor email + role, details grid
+  - Footer: "All events SHA-256 chained · Stored in Legal Archive (record_type=share_event)"
+
+**2. Legacy Tampered Records Backfill** (P2 task — data cleanup)
+- Refactored `core/integrity.py`:
+  - `_norm()` now canonically strips tzinfo before isoformat — same input pre-insert and post-fetch produces identical hash → ALL future writes are reproducible.
+  - Added `_norm_legacy()` + `compute_hash_legacy()` to detect records hashed under the old tz-aware convention.
+- New endpoint: `POST /api/legal-archive/integrity/rehash-legacy` (admin only) with two safety flags:
+  - `?dry_run=true` — preview without writing
+  - `?force=true` — overwrite genuinely-tampered records (for legacy test data only; logs `_rehash_reason: force_legacy` + preserves `_old_hash`)
+- Three-way classification per record:
+  1. **verified** — current hash matches stored
+  2. **rehashed** — old tz-aware hash matched stored → safe precision-bug fix (sets `_rehashed_at` + `_rehash_reason: precision_bug`)
+  3. **still_tampered** — neither matches → genuinely altered, left untouched
+- **Result on existing data:** verified count jumped from 9 → 27 (3x). 8 remaining records have older string-embedded-datetime mismatches (different root cause); flagged for manual review or force-rehash.
+
+**Files:**
+- Modified: `backend/core/integrity.py` (canonical _norm + legacy hash compat)
+- Modified: `backend/routers/legal_archive.py` (+ /integrity/rehash-legacy endpoint)
+- Modified: `backend/routers/share_links_dashboard.py` (+ /{token}/audit-trail endpoint)
+- Modified: `frontend/src/components/ShareLinksDashboard.jsx` (+ Audit Trail button + modal + EVENT_STYLES)
+- New: `backend/tests/test_iteration115_audit_trail_and_rehash.py` (7 tests)
+
+---
 ### 🔒 Phase 6.7 — Share Audit Log + ClientAssessment File Split (May 20, 2026)
 **Tests:** Backend **100/100 PASS** (full Phase 6 + 6.5 + 6.5b regression). UI E2E verified end-to-end.
 

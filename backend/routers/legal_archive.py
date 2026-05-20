@@ -14,7 +14,7 @@ from fastapi.responses import StreamingResponse
 from typing import Optional
 from core.database import db
 from routers.auth import get_current_user
-from core.integrity import compute_hash, verify_hash
+from core.integrity import compute_hash, compute_hash_legacy, verify_hash
 
 router = APIRouter(prefix="/legal-archive", tags=["Legal Archive"])
 
@@ -268,6 +268,78 @@ async def integrity_verify_all(current_user: dict = Depends(get_current_user)):
     summary["tampered_records"] = tampered
     summary["scanned_at"] = datetime.now(timezone.utc).isoformat()
     return summary
+
+
+@router.post("/integrity/rehash-legacy")
+async def integrity_rehash_legacy(
+    dry_run: bool = Query(False, description="If true, scan but don't write."),
+    force: bool = Query(False, description="If true, also overwrite hashes that match neither current nor legacy (use with extreme caution — only for legacy test data)."),
+    current_user: dict = Depends(get_current_user),
+):
+    """One-time backfill: re-hash records whose stored hash was computed under
+    the pre-Phase-6.7 (tz-aware ISO) convention.
+
+    Strategy per record:
+      1. Compute the current-canonical hash. If it matches the stored hash → verified, skip.
+      2. Compute the legacy hash (tz-aware ISO). If it matches the stored hash → datetime
+         precision bug → safe to overwrite stored hash with new canonical value.
+      3. Otherwise → genuinely tampered. Leave alone (unless `force=true`).
+
+    Pass `?dry_run=true` to preview. Pass `?force=true` to also overwrite
+    genuinely-tampered records (admin-confirmed safe).
+    """
+    _admin_only(current_user)
+    result = {
+        "verified": 0,
+        "rehashed": 0,
+        "force_rehashed": 0,
+        "still_tampered": 0,
+        "tampered_records": [],
+        "dry_run": dry_run,
+        "force": force,
+    }
+    for col, rtype in [
+        (consent_col, "consent"),
+        (signatures_col, "signature"),
+        (invoices_col, "invoice"),
+        (share_audit_col, "share_event"),
+    ]:
+        async for d in col.find({"integrity_hash": {"$exists": True, "$ne": None}}, {"_id": 0}):
+            stored = d.get("integrity_hash")
+            new_hash = compute_hash(rtype, d)
+            if stored == new_hash:
+                result["verified"] += 1
+                continue
+            legacy_hash = compute_hash_legacy(rtype, d)
+            if stored == legacy_hash:
+                # Precision-bug match — safe to update
+                if not dry_run:
+                    await col.update_one(
+                        {"id": d.get("id")},
+                        {"$set": {"integrity_hash": new_hash, "_rehashed_at": datetime.utcnow(), "_rehash_reason": "precision_bug"}},
+                    )
+                result["rehashed"] += 1
+            elif force:
+                # Admin opted to overwrite — log reason for audit
+                if not dry_run:
+                    await col.update_one(
+                        {"id": d.get("id")},
+                        {"$set": {"integrity_hash": new_hash, "_rehashed_at": datetime.utcnow(), "_rehash_reason": "force_legacy", "_old_hash": stored}},
+                    )
+                result["force_rehashed"] += 1
+                result["tampered_records"].append({
+                    "type": rtype, "id": d.get("id"), "reference_id": d.get("reference_id"),
+                    "action": "force_rehashed",
+                })
+            else:
+                # Genuinely tampered — leave alone, flag for review
+                result["still_tampered"] += 1
+                result["tampered_records"].append({
+                    "type": rtype, "id": d.get("id"), "reference_id": d.get("reference_id"),
+                    "action": "skipped",
+                })
+    result["total_scanned"] = result["verified"] + result["rehashed"] + result["force_rehashed"] + result["still_tampered"]
+    return result
 
 
 @router.post("/integrity/backfill")

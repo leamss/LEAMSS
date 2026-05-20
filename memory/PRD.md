@@ -5,6 +5,13 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 
 > **📌 Update (Feb 13, 2026):** `CHANGELOG.md` now tracks all completed phases (incl. **Phase 3A — Attendance & Leave** with full company policies). `ROADMAP.md` lists prioritized backlog. This PRD remains the static reference for original requirements.
 
+### 🔍 Phase 6.8 — Audit Trail UI + Legacy Rehash Backfill (May 20, 2026)
+**Status:** ✅ COMPLETE — Backend **36/36 PASS** (full Phase 6 regression). UI E2E verified.
+
+- New per-token Audit Trail modal in Share Links Dashboard — visual timeline of generate→access(IP+UA+click#)→revoke chain with integrity badges per event.
+- New `POST /api/legal-archive/integrity/rehash-legacy` (with dry_run + force flags) — fixed precision-bug records lifted verified count from 9 → 27. 8 legacy records flagged for force-rehash.
+- Canonical `_norm()` in `core/integrity.py` — strips tzinfo to make hashes reproducible regardless of pre/post BSON round-trip state.
+
 ### 🔒 Phase 6.7 — Audit Log + File Split (May 20, 2026)
 **Status:** ✅ COMPLETE — Backend **100/100 PASS** (combined regression). UI E2E verified.
 
