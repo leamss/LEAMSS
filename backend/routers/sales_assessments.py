@@ -375,11 +375,37 @@ def _sanitise_public(a: dict) -> dict:
 async def public_share_view(token: str, request: Request):
     """No-auth public read-only view of the assessment by share token."""
     a = await assessments_col.find_one({"share_token": token})
+    # Capture request context up-front so we can log denied attempts too
+    req_ip = request.client.host if request.client else None
+    req_ua = request.headers.get("user-agent", "")[:240]
+
+    async def _log_denied(reason: str, doc: dict | None):
+        """Audit-log a denied access attempt (scraping signal). Best-effort."""
+        try:
+            await record_share_event(
+                event_type="share_access_denied",
+                share_type="sales_report",
+                share_token=token,
+                reference_id=(doc or {}).get("id"),
+                reference_kind="sales_assessment",
+                client_name=(doc or {}).get("client_name"),
+                client_email=(doc or {}).get("client_email"),
+                actor_role="anonymous",
+                ip_address=req_ip,
+                user_agent=req_ua,
+                details={"reason": reason},
+            )
+        except Exception:
+            pass
+
     if not a:
+        # Don't log for completely-unknown tokens (random-scanner noise)
         raise HTTPException(status_code=404, detail="Link not found")
     if a.get("share_revoked"):
+        await _log_denied("revoked", a)
         raise HTTPException(status_code=410, detail="Link revoked by issuer")
     if not a.get("share_active"):
+        await _log_denied("inactive", a)
         raise HTTPException(status_code=410, detail="Link no longer active")
     expires_at = a.get("share_expires_at")
     if expires_at:
@@ -391,11 +417,12 @@ async def public_share_view(token: str, request: Request):
             except Exception:
                 exp_dt = None
         if exp_dt and datetime.now(timezone.utc) > exp_dt:
+            await _log_denied("expired", a)
             raise HTTPException(status_code=410, detail="Link expired")
     # Track access
     now = datetime.now(timezone.utc)
-    ip = request.client.host if request.client else None
-    ua = request.headers.get("user-agent", "")[:240]
+    ip = req_ip
+    ua = req_ua
     await assessments_col.update_one(
         {"share_token": token},
         {

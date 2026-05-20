@@ -5,7 +5,7 @@ with metadata: issuer, expiry, click/use count, last access info, status.
 Admin can revoke any link with one click.
 """
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Optional, List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -15,6 +15,7 @@ from core.database import db
 from routers.auth import get_current_user
 from core.share_audit import record_share_event
 from core.integrity import verify_hash
+from core.anomaly_detector import detect_anomalies
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/share-links", tags=["Share Links Dashboard"])
@@ -324,6 +325,31 @@ async def revoke_link(body: RevokeRequest, current_user: dict = Depends(get_curr
     raise HTTPException(status_code=400, detail="Invalid type — must be 'public_pa_fee', 'magic_portal', or 'sales_report'")
 
 
+@router.get("/anomalies")
+async def share_link_anomalies(
+    since_hours: int = Query(24, ge=1, le=720, description="Lookback window in hours (1 = last hour, 720 = last 30 days)"),
+    current_user: dict = Depends(get_current_user),
+):
+    """Scan all share_audit_events within the lookback window and flag suspicious patterns.
+
+    Admin only. Rule-based, no AI.
+
+    Patterns detected:
+      - rapid_burst      : >= 10 accesses in any 1-hour window
+      - multiple_ips     : >= 5 distinct IPs in any 30-min window
+      - post_revoke_scrape: denied accesses recorded after a revoke event
+      - expired_hammering: >= 5 expired-link denials within 1 hour
+      - bot_pattern      : same UA hitting >= 3 distinct tokens
+    """
+    _admin_only(current_user)
+    since = datetime.utcnow() - timedelta(hours=since_hours)
+    events = await share_audit_col.find(
+        {"created_at": {"$gte": since}},
+        {"_id": 0},
+    ).to_list(20000)
+    return detect_anomalies(events, window_hours=since_hours)
+
+
 @router.get("/{token}/audit-trail")
 async def share_link_audit_trail(token: str, current_user: dict = Depends(get_current_user)):
     """Return the full audit timeline (generate → access → revoke) for one share token.
@@ -361,6 +387,14 @@ async def share_link_audit_trail(token: str, current_user: dict = Depends(get_cu
             "created_at": e["created_at"].isoformat() if isinstance(e.get("created_at"), datetime) else e.get("created_at"),
         })
 
+    # Check anomalies for this single token (use a 30-day lookback so we always have context)
+    raw_30d = await share_audit_col.find(
+        {"share_token": token, "created_at": {"$gte": datetime.utcnow() - timedelta(days=30)}},
+        {"_id": 0},
+    ).to_list(2000)
+    anomaly_scan = detect_anomalies(raw_30d, window_hours=24 * 30)
+    token_anomalies = next((a for a in anomaly_scan["anomalies"] if a.get("share_token") == token), None)
+
     return {
         "token_prefix": token[:10] + "…",
         "events": out,
@@ -368,5 +402,149 @@ async def share_link_audit_trail(token: str, current_user: dict = Depends(get_cu
         "first_event_at": out[0]["created_at"] if out else None,
         "last_event_at": out[-1]["created_at"] if out else None,
         "access_count": sum(1 for e in out if e["event_type"] == "share_accessed"),
+        "denied_count": sum(1 for e in out if e["event_type"] == "share_access_denied"),
         "revoked": any(e["event_type"] == "share_revoked" for e in out),
+        "anomalies": token_anomalies["flags"] if token_anomalies else [],
+        "anomaly_severity": token_anomalies["severity"] if token_anomalies else None,
     }
+
+
+@router.get("/{token}/audit-trail.pdf")
+async def share_link_audit_trail_pdf(token: str, current_user: dict = Depends(get_current_user)):
+    """Generate a PDF audit report for compliance / legal disputes. Admin only."""
+    from io import BytesIO
+    from fastapi.responses import StreamingResponse
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import mm
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
+    import hashlib
+    import json
+
+    _admin_only(current_user)
+    events = await share_audit_col.find({"share_token": token}, {"_id": 0}).sort("created_at", 1).to_list(500)
+    if not events:
+        raise HTTPException(status_code=404, detail="No audit events found for this token")
+
+    # Build chain proof: SHA-256 of all integrity_hashes concatenated
+    chain_hashes = [e.get("integrity_hash") or "" for e in events]
+    chain_proof = hashlib.sha256("".join(chain_hashes).encode()).hexdigest()
+
+    buf = BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=18 * mm, rightMargin=18 * mm, topMargin=18 * mm, bottomMargin=18 * mm)
+    styles = getSampleStyleSheet()
+    h1 = ParagraphStyle('H1', parent=styles['Heading1'], fontSize=18, textColor=colors.HexColor('#4f46e5'), spaceAfter=4)
+    h2 = ParagraphStyle('H2', parent=styles['Heading2'], fontSize=11, textColor=colors.HexColor('#374151'), spaceAfter=6, spaceBefore=10)
+    small = ParagraphStyle('small', parent=styles['Normal'], fontSize=8, textColor=colors.HexColor('#6b7280'))
+    body = ParagraphStyle('body', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor('#1f2937'))
+
+    story = [
+        Paragraph("LEAMSS — Share Link Audit Report", h1),
+        Paragraph("Compliance &amp; Legal Archive · Phase 6.8", small),
+        Spacer(1, 8),
+    ]
+
+    first = events[0]
+    last = events[-1]
+    meta_rows = [
+        ["Token Prefix", token[:16] + "…"],
+        ["Share Type", first.get("share_type", "—")],
+        ["Reference Entity", first.get("entity_id", "—")],
+        ["Client", first.get("client_name", "—")],
+        ["Total Events", str(len(events))],
+        ["Window", f"{first.get('created_at')} → {last.get('created_at')}"],
+        ["Chain Proof (SHA-256)", chain_proof],
+        ["Report Generated", datetime.utcnow().isoformat() + " UTC"],
+        ["Generated By", current_user.get("email", "—")],
+    ]
+    meta_table = Table(meta_rows, colWidths=[55 * mm, 115 * mm])
+    meta_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#f3f4f6')),
+        ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#6b7280')),
+        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 0), (-1, -1), 8),
+        ('GRID', (0, 0), (-1, -1), 0.3, colors.HexColor('#e5e7eb')),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 4),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+        ('FONTNAME', (1, 6), (1, 6), 'Courier'),  # chain proof monospace
+        ('FONTSIZE', (1, 6), (1, 6), 6),
+    ]))
+    story.append(meta_table)
+    story.append(Spacer(1, 12))
+
+    story.append(Paragraph("Event Timeline (chronological)", h2))
+    event_rows = [["Seq", "Timestamp (UTC)", "Event", "Actor", "IP", "Integrity", "Hash"]]
+    for i, e in enumerate(events, 1):
+        ts = str(e.get("created_at", ""))[:19].replace("T", " ")
+        actor = e.get("actor_email") or e.get("actor_role") or "—"
+        if len(actor) > 24:
+            actor = actor[:21] + "…"
+        ip = e.get("ip_address") or "—"
+        # Recompute integrity
+        integrity = verify_hash("share_event", e)
+        integrity_label = "✓" if integrity["status"] == "verified" else "✗"
+        event_rows.append([
+            str(i),
+            ts,
+            e.get("event_type", "—").replace("share_", ""),
+            actor,
+            ip,
+            integrity_label,
+            (e.get("integrity_hash") or "")[:10],
+        ])
+    timeline_table = Table(event_rows, colWidths=[10 * mm, 36 * mm, 28 * mm, 38 * mm, 28 * mm, 14 * mm, 22 * mm], repeatRows=1)
+    timeline_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4f46e5')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTSIZE', (0, 0), (-1, -1), 7),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTNAME', (6, 1), (6, -1), 'Courier'),
+        ('GRID', (0, 0), (-1, -1), 0.3, colors.HexColor('#e5e7eb')),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 3),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 3),
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+    ]))
+    # Alternating row colors
+    for row_i in range(1, len(event_rows)):
+        bg = colors.HexColor('#f9fafb') if row_i % 2 == 0 else colors.white
+        timeline_table.setStyle(TableStyle([('BACKGROUND', (0, row_i), (-1, row_i), bg)]))
+    story.append(timeline_table)
+    story.append(Spacer(1, 12))
+
+    story.append(Paragraph("Anomaly Scan", h2))
+    raw_30d = await share_audit_col.find(
+        {"share_token": token, "created_at": {"$gte": datetime.utcnow() - timedelta(days=30)}},
+        {"_id": 0},
+    ).to_list(2000)
+    scan = detect_anomalies(raw_30d, window_hours=24 * 30)
+    flagged = next((a for a in scan["anomalies"] if a.get("share_token") == token), None)
+    if not flagged:
+        story.append(Paragraph("No anomalies detected within the 30-day window.", body))
+    else:
+        story.append(Paragraph(f"Severity: <b>{flagged['severity'].upper()}</b>", body))
+        story.append(Spacer(1, 4))
+        for f in flagged["flags"]:
+            story.append(Paragraph(f"• <b>{f['type']}</b> ({f['severity']}) — {json.dumps({k: v for k, v in f.items() if k not in ('type', 'severity')}, default=str)[:300]}", body))
+
+    story.append(Spacer(1, 12))
+    story.append(Paragraph(
+        "<i>Each event row carries an immutable SHA-256 hash computed over its canonical projection. "
+        "The Chain Proof above is the SHA-256 of all event hashes concatenated — any single-record "
+        "tampering invalidates both the row's individual hash and this chain proof.</i>",
+        small,
+    ))
+    story.append(Spacer(1, 4))
+    story.append(Paragraph("End of report · Generated by LEAMSS Legal Archive Engine", small))
+
+    doc.build(story)
+    buf.seek(0)
+    filename = f"audit_{token[:10]}_{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}.pdf"
+    return StreamingResponse(
+        buf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

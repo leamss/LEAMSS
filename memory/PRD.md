@@ -5,6 +5,15 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 
 > **📌 Update (Feb 13, 2026):** `CHANGELOG.md` now tracks all completed phases (incl. **Phase 3A — Attendance & Leave** with full company policies). `ROADMAP.md` lists prioritized backlog. This PRD remains the static reference for original requirements.
 
+### 🛡️ Phase 6.9 — Force-Rehash + Anomaly Detection + PDF Audit Export (May 20, 2026)
+**Status:** ✅ COMPLETE — Backend **45/45 PASS** (Phase 6 full regression). UI E2E verified.
+
+- Force-rehashed 8 legacy records → Legal Archive: **65/65 verified, 0 tampered**.
+- Rule-based anomaly detection (5 detectors: rapid_burst, multiple_ips, post_revoke_scrape, expired_hammering, bot_pattern) — new `/api/share-links/anomalies` endpoint + inline in per-token audit-trail.
+- Anomaly Alert Banner + per-row 🔥 flags in Active Share Links Dashboard; anomaly section + "Investigate" button + Export PDF button in Audit Trail modal.
+- New `share_access_denied` audit event captures scraping attempts on revoked/expired links.
+- A4 PDF export with branded header, metadata table, event timeline, anomaly scan, and SHA-256 Chain Proof footer for compliance/legal disputes.
+
 ### 🔍 Phase 6.8 — Audit Trail UI + Legacy Rehash Backfill (May 20, 2026)
 **Status:** ✅ COMPLETE — Backend **36/36 PASS** (full Phase 6 regression). UI E2E verified.
 

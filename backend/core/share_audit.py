@@ -46,7 +46,7 @@ async def record_share_event(
 
     Returns the inserted document (without `_id`).
     """
-    if event_type not in {"share_generated", "share_accessed", "share_revoked"}:
+    if event_type not in {"share_generated", "share_accessed", "share_access_denied", "share_revoked", "share_emailed"}:
         raise ValueError(f"Invalid event_type: {event_type}")
 
     now = datetime.now(timezone.utc)

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { Card } from '@/components/ui/card';
@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   Link2, RefreshCw, Search, Shield, ShieldAlert, ShieldCheck,
   Eye, X, Clock, CheckCircle2, AlertTriangle, Copy, ExternalLink, Ban,
-  History, Send, Bot, Loader2,
+  History, Send, Bot, Loader2, Download, Flame,
 } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -41,6 +41,9 @@ export default function ShareLinksDashboard() {
   const [auditModalItem, setAuditModalItem] = useState(null);
   const [auditEvents, setAuditEvents] = useState(null);
   const [auditLoading, setAuditLoading] = useState(false);
+  // Anomaly summary (auto-loads with main dashboard)
+  const [anomalyData, setAnomalyData] = useState(null);
+  const [showAnomalyPanel, setShowAnomalyPanel] = useState(false);
 
   const auth = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
 
@@ -57,6 +60,26 @@ export default function ShareLinksDashboard() {
     } finally { setAuditLoading(false); }
   };
 
+  const downloadAuditPdf = async (token) => {
+    try {
+      const r = await axios.get(`${API}/share-links/${token}/audit-trail.pdf`, {
+        ...auth(),
+        responseType: 'blob',
+      });
+      const url = window.URL.createObjectURL(new Blob([r.data], { type: 'application/pdf' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `audit_${token.slice(0, 10)}_${Date.now()}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success('Audit report downloaded');
+    } catch {
+      toast.error('PDF generation failed');
+    }
+  };
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -71,6 +94,23 @@ export default function ShareLinksDashboard() {
   }, [statusFilter, typeFilter, search]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Load anomaly summary in parallel — admin-level health indicator
+  useEffect(() => {
+    axios.get(`${API}/share-links/anomalies?since_hours=24`, auth())
+      .then(r => setAnomalyData(r.data))
+      .catch(() => setAnomalyData(null));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Map share_token → top anomaly severity for per-row indicator
+  const anomalyByToken = useMemo(() => {
+    if (!anomalyData?.anomalies) return {};
+    return anomalyData.anomalies.reduce((acc, a) => {
+      acc[a.share_token] = a;
+      return acc;
+    }, {});
+  }, [anomalyData]);
 
   const doRevoke = async () => {
     if (!confirmRevoke) return;
@@ -120,6 +160,54 @@ export default function ShareLinksDashboard() {
           <RefreshCw className={`h-3.5 w-3.5 mr-1 ${loading ? 'animate-spin' : ''}`} /> Refresh
         </Button>
       </div>
+
+      {/* Anomaly Alert Banner */}
+      {anomalyData && (anomalyData.summary.high + anomalyData.summary.medium) > 0 && (
+        <div className={`mb-4 p-3 rounded border-l-4 ${
+          anomalyData.summary.high > 0 ? 'bg-rose-50 border-l-rose-500' : 'bg-amber-50 border-l-amber-500'
+        }`} data-testid="anomaly-banner">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <Flame className={`h-4 w-4 ${anomalyData.summary.high > 0 ? 'text-rose-600' : 'text-amber-600'}`} />
+              <p className="text-xs font-bold">
+                {anomalyData.summary.high > 0 && `🔥 ${anomalyData.summary.high} HIGH severity · `}
+                {anomalyData.summary.medium > 0 && `${anomalyData.summary.medium} medium · `}
+                {anomalyData.summary.low > 0 && `${anomalyData.summary.low} low · `}
+                anomalies detected in the last 24 hours
+              </p>
+            </div>
+            <Button size="sm" variant="outline" onClick={() => setShowAnomalyPanel(v => !v)} className="text-[11px] h-7" data-testid="toggle-anomaly-panel">
+              {showAnomalyPanel ? 'Hide Details' : 'View Details'}
+            </Button>
+          </div>
+          {showAnomalyPanel && (
+            <div className="mt-3 space-y-1.5">
+              {anomalyData.anomalies.slice(0, 10).map(a => (
+                <div key={a.share_token} className="bg-white/70 rounded p-2 text-[11px] flex items-center justify-between gap-2" data-testid={`anomaly-row-${a.share_token.slice(0,10)}`}>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-slate-700 truncate">
+                      <span className={a.severity === 'high' ? 'text-rose-700' : 'text-amber-700'}>[{a.severity.toUpperCase()}]</span>
+                      {' '}{a.client_name || '—'} · <code className="font-mono">{a.token_prefix}</code>
+                    </p>
+                    <p className="text-[10px] text-slate-500">
+                      {a.flags.map(f => f.type.replace(/_/g, ' ')).join(' · ')}
+                    </p>
+                  </div>
+                  <Button size="sm" variant="ghost" onClick={() => {
+                    const item = data.items.find(it => it.token === a.share_token);
+                    if (item) openAuditTrail(item);
+                  }} className="h-6 text-[10px] px-2" data-testid={`investigate-${a.share_token.slice(0,10)}`}>
+                    Investigate
+                  </Button>
+                </div>
+              ))}
+              {anomalyData.anomalies.length > 10 && (
+                <p className="text-[10px] text-slate-500 italic text-center">+ {anomalyData.anomalies.length - 10} more</p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-4">
@@ -192,7 +280,16 @@ export default function ShareLinksDashboard() {
                       {item.suspicious && <Badge className="ml-1 bg-amber-100 text-amber-800 border-amber-300 text-[10px]"><AlertTriangle className="h-3 w-3 mr-0.5" />Suspect</Badge>}
                     </td>
                     <td className="px-2 py-2">
-                      <p className="font-mono text-[10px] text-slate-500">{item.pa_number || '—'}</p>
+                      <div className="flex items-center gap-1">
+                        <p className="font-mono text-[10px] text-slate-500">{item.pa_number || '—'}</p>
+                        {anomalyByToken[item.token] && (
+                          <Badge className={`text-[9px] py-0 px-1 ${
+                            anomalyByToken[item.token].severity === 'high' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'
+                          }`} title={`${anomalyByToken[item.token].flags.length} anomaly flag(s)`} data-testid={`anomaly-flag-${item.token.slice(0,10)}`}>
+                            <Flame className="h-2.5 w-2.5 mr-0.5" />{anomalyByToken[item.token].severity}
+                          </Badge>
+                        )}
+                      </div>
                       <p className="font-semibold text-slate-800">{item.client_name || '—'}</p>
                       <p className="text-[10px] text-slate-500">{item.client_email || ''}</p>
                     </td>
@@ -288,9 +385,14 @@ export default function ShareLinksDashboard() {
                   <p className="text-[10px] text-slate-600 font-mono">{auditModalItem.token_prefix}</p>
                 </div>
               </div>
-              <Button variant="ghost" size="sm" onClick={() => setAuditModalItem(null)} className="h-7 w-7 p-0">
-                <X className="h-4 w-4" />
-              </Button>
+              <div className="flex items-center gap-1">
+                <Button variant="outline" size="sm" onClick={() => downloadAuditPdf(auditModalItem.token)} className="h-7 text-[11px]" data-testid="audit-pdf-btn">
+                  <Download className="h-3 w-3 mr-1" />Export PDF
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setAuditModalItem(null)} className="h-7 w-7 p-0">
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
 
             <div className="p-4 overflow-y-auto flex-1">
@@ -323,6 +425,41 @@ export default function ShareLinksDashboard() {
                       <p className={`text-lg font-bold ${auditEvents.revoked ? 'text-rose-900' : 'text-slate-700'}`}>{auditEvents.revoked ? 'Revoked' : 'Active'}</p>
                     </div>
                   </div>
+
+                  {/* Anomaly section — only if flagged */}
+                  {auditEvents.anomalies && auditEvents.anomalies.length > 0 && (
+                    <div className={`mb-4 p-3 rounded border-l-4 ${
+                      auditEvents.anomaly_severity === 'high' ? 'bg-rose-50 border-l-rose-500'
+                      : auditEvents.anomaly_severity === 'medium' ? 'bg-amber-50 border-l-amber-500'
+                      : 'bg-yellow-50 border-l-yellow-400'
+                    }`} data-testid="audit-anomalies">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Flame className={`h-4 w-4 ${auditEvents.anomaly_severity === 'high' ? 'text-rose-600' : 'text-amber-600'}`} />
+                        <p className="text-xs font-bold uppercase">
+                          Anomalies Detected · Severity: <span className={auditEvents.anomaly_severity === 'high' ? 'text-rose-700' : 'text-amber-700'}>{auditEvents.anomaly_severity}</span>
+                        </p>
+                      </div>
+                      <div className="space-y-1.5">
+                        {auditEvents.anomalies.map((flag, i) => (
+                          <div key={`${flag.type}-${i}`} className="text-[11px] bg-white/60 rounded p-2" data-testid={`anomaly-${flag.type}`}>
+                            <p className="font-semibold text-slate-700">
+                              {flag.type === 'rapid_burst' && `🔥 Rapid Burst: ${flag.count} accesses in ${flag.window_hours} hour(s)`}
+                              {flag.type === 'multiple_ips' && `🌐 Multiple IPs: ${flag.count} distinct IPs in ${flag.window_minutes} min`}
+                              {flag.type === 'post_revoke_scrape' && `🚫 Post-Revoke Scraping: ${flag.count} denied attempts after revoke`}
+                              {flag.type === 'expired_hammering' && `⏰ Expired Hammering: ${flag.count} hits on expired link`}
+                              {flag.type === 'bot_pattern' && `🤖 Bot Pattern: same UA across ${flag.distinct_tokens} tokens`}
+                            </p>
+                            {flag.ips_sample && flag.ips_sample.length > 0 && (
+                              <p className="text-[10px] text-slate-500 mt-0.5 font-mono">IPs: {flag.ips_sample.slice(0, 4).join(', ')}</p>
+                            )}
+                            {flag.user_agent && (
+                              <p className="text-[10px] text-slate-500 mt-0.5 font-mono break-all">{flag.user_agent}</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   <p className="text-[10px] uppercase font-bold text-slate-500 mb-2">Timeline</p>
                   <div className="relative pl-5 border-l-2 border-slate-200 space-y-3" data-testid="audit-timeline">
