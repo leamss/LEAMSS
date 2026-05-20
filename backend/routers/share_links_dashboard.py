@@ -20,6 +20,7 @@ router = APIRouter(prefix="/share-links", tags=["Share Links Dashboard"])
 pa_col = db["pre_assessments"]
 magic_col = db["magic_links"]
 users_col = db["users"]
+sales_assessments_col = db["sales_assessments"]
 
 
 def _admin_only(u):
@@ -184,6 +185,54 @@ async def list_share_links(
                 "revoked_at": _iso(m.get("revoked_at")),
             })
 
+    # 3. Sales Assessment public report links (Phase 6.5)
+    if link_type in (None, "sales_report"):
+        async for sa in sales_assessments_col.find(
+            {"share_token": {"$exists": True, "$ne": None}},
+            {
+                "_id": 0, "id": 1, "client_name": 1, "client_email": 1,
+                "best_country_code": 1, "best_total": 1, "created_by_name": 1,
+                "share_token": 1, "share_expires_at": 1, "share_active": 1,
+                "share_revoked": 1, "share_issued_at": 1, "share_click_count": 1,
+                "share_last_accessed_at": 1, "share_last_accessed_ip": 1,
+                "share_last_accessed_ua": 1, "share_revoked_at": 1, "linked_pa_id": 1,
+            },
+        ):
+            hay = f"{sa.get('id','')} {sa.get('client_name','')} {sa.get('client_email','')}".lower()
+            if needle and needle not in hay:
+                continue
+            st = _link_status(
+                sa.get("share_expires_at"),
+                revoked=sa.get("share_revoked", False),
+                share_active=sa.get("share_active", True),
+            )
+            if status and st != status:
+                continue
+            best_country = sa.get("best_country_code") or "—"
+            best_total = sa.get("best_total")
+            amt_label = f"{best_country} · {best_total} pts" if best_total is not None else best_country
+            rows.append({
+                "type": "sales_report",
+                "token": sa.get("share_token"),
+                "token_prefix": (sa.get("share_token") or "")[:10] + "…",
+                "sales_assessment_id": sa.get("id"),
+                "pa_id": sa.get("linked_pa_id"),
+                "pa_number": sa.get("id"),  # SAH-* serves as the reference id
+                "client_name": sa.get("client_name"),
+                "client_email": sa.get("client_email"),
+                "partner_name": sa.get("created_by_name"),
+                "purpose": "sales_eligibility_report",
+                "amount_label": amt_label,
+                "issued_at": _iso(sa.get("share_issued_at")),
+                "expires_at": _iso(sa.get("share_expires_at")),
+                "status": st,
+                "access_count": sa.get("share_click_count", 0),
+                "last_accessed_at": _iso(sa.get("share_last_accessed_at")),
+                "last_accessed_ip": sa.get("share_last_accessed_ip"),
+                "last_accessed_ua": sa.get("share_last_accessed_ua"),
+                "revoked_at": _iso(sa.get("share_revoked_at")),
+            })
+
     # Sort newest first
     rows.sort(key=lambda r: r.get("issued_at") or "", reverse=True)
 
@@ -238,4 +287,20 @@ async def revoke_link(body: RevokeRequest, current_user: dict = Depends(get_curr
             raise HTTPException(status_code=404, detail="Magic token not found")
         return {"ok": True, "revoked_type": "magic_portal", "token_prefix": body.token[:10] + "…"}
 
-    raise HTTPException(status_code=400, detail="Invalid type — must be 'public_pa_fee' or 'magic_portal'")
+    if body.type == "sales_report":
+        res = await sales_assessments_col.update_one(
+            {"share_token": body.token},
+            {"$set": {
+                "share_active": False,
+                "share_revoked": True,
+                "share_revoked_at": now,
+                "share_revoked_by": current_user.get("id"),
+                "share_revoke_reason": body.reason,
+                "updated_at": now,
+            }},
+        )
+        if res.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Sales report token not found")
+        return {"ok": True, "revoked_type": "sales_report", "token_prefix": body.token[:10] + "…"}
+
+    raise HTTPException(status_code=400, detail="Invalid type — must be 'public_pa_fee', 'magic_portal', or 'sales_report'")

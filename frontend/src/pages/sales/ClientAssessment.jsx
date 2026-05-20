@@ -131,6 +131,7 @@ export default function ClientAssessment() {
   const [calcResults, setCalcResults] = useState([]);
   const [calculating, setCalculating] = useState(false);
   const [saved, setSaved] = useState(null);
+  const [creatingPA, setCreatingPA] = useState(false);
 
   const update = (field, val) => setData(d => ({ ...d, [field]: val }));
 
@@ -186,17 +187,41 @@ export default function ClientAssessment() {
   };
 
   const createPA = async () => {
-    if (!saved) return;
+    if (!saved || creatingPA) return;
+    setCreatingPA(true);
     try {
       const r = await axios.post(`${API}/sales/assessments/${saved.id}/create-pa`, {
         target_country_code: saved.best_country_code,
         target_visa_subclass: data.visa_subclass,
         lead_source: 'smart_sales_helper',
       }, { headers });
-      toast.success(`PA created: ${r.data.pa_id}`);
-      navigate(`/pa/${r.data.pa_id}`);
+      const paId = r.data.pa_id;
+      const alreadyLinked = r.data.already_linked;
+      // Detect user role to choose the right dashboard for the "Open PA" action
+      let dashRoute = '/admin';
+      try {
+        const me = JSON.parse(localStorage.getItem('user') || '{}');
+        const role = me.rbac_role || me.role;
+        if (role === 'partner') dashRoute = '/partner';
+        else if (role === 'case_manager') dashRoute = '/case-manager';
+        else if (['sales_executive', 'sr_sales_executive', 'sales_manager', 'sales_head'].includes(role)) dashRoute = '/sales/dashboard';
+      } catch { /* ignore */ }
+      toast.success(
+        alreadyLinked ? `Already linked to ${paId}` : `Pre-Assessment created: ${paId}`,
+        {
+          duration: 8000,
+          description: 'View it in your Pre-Assessments Pipeline.',
+          action: {
+            label: 'Open Dashboard',
+            onClick: () => navigate(dashRoute),
+          },
+        },
+      );
+      // Stay on the current page so user can also Save & Share Report or Print
+      setCreatingPA(false);
     } catch (e) {
       toast.error(formatApiError(e, 'PA creation failed'));
+      setCreatingPA(false);
     }
   };
 
@@ -256,7 +281,7 @@ export default function ClientAssessment() {
           {step === 4 && <Step4Countries data={data} update={update} />}
           {step === 5 && <Step5Calculator results={calcResults} calculating={calculating} data={data} />}
           {step === 6 && <Step6Review data={data} results={calcResults} />}
-          {step === 7 && <Step7Done saved={saved} createPA={createPA} navigate={navigate} headers={headers} />}
+          {step === 7 && <Step7Done saved={saved} createPA={createPA} navigate={navigate} headers={headers} creatingPA={creatingPA} />}
         </Card>
 
         {/* Navigation */}
@@ -694,7 +719,7 @@ function Step6Review({ data, results }) {
 // ════════════════════════════════════════════════════════════════
 // Step 7: Done — Actions + Checklist + Save & Share
 // ════════════════════════════════════════════════════════════════
-function Step7Done({ saved, createPA, navigate, headers }) {
+function Step7Done({ saved, createPA, navigate, headers, creatingPA }) {
   const [checklist, setChecklist] = useState(null);
   const [loadingChecklist, setLoadingChecklist] = useState(false);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
@@ -771,8 +796,9 @@ function Step7Done({ saved, createPA, navigate, headers }) {
 
       {/* Primary action buttons */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
-        <Button size="default" className="bg-indigo-600 hover:bg-indigo-700" onClick={createPA} data-testid="create-pa-btn">
-          <ArrowRight className="h-4 w-4 mr-1" />Create Pre-Assessment
+        <Button size="default" className="bg-indigo-600 hover:bg-indigo-700" onClick={createPA} disabled={creatingPA} data-testid="create-pa-btn">
+          {creatingPA ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <ArrowRight className="h-4 w-4 mr-1" />}
+          {creatingPA ? 'Creating…' : 'Create Pre-Assessment'}
         </Button>
         <Button size="default" variant="outline" onClick={() => setShareDialogOpen(true)} data-testid="save-share-btn" className="border-emerald-300 text-emerald-700 hover:bg-emerald-50">
           <Send className="h-4 w-4 mr-1" />Save &amp; Share Report

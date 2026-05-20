@@ -63,9 +63,9 @@ export default function ShareLinksDashboard() {
 
   const fullUrl = (item) => {
     const base = window.location.origin;
-    return item.type === 'public_pa_fee'
-      ? `${base}/pre-assess/${item.token}`
-      : `${base}/magic/${item.token}`;
+    if (item.type === 'public_pa_fee') return `${base}/pre-assess/${item.token}`;
+    if (item.type === 'sales_report') return `${base}/sales/report/${item.token}`;
+    return `${base}/magic/${item.token}`;
   };
 
   const copyLink = (item) => {
@@ -127,6 +127,7 @@ export default function ShareLinksDashboard() {
           <option value="">All Types</option>
           <option value="public_pa_fee">Public · PA Fee</option>
           <option value="magic_portal">Magic · Portal</option>
+          <option value="sales_report">Sales · Report</option>
         </select>
         {(statusFilter || typeFilter || search) && (
           <Button size="sm" variant="ghost" onClick={() => { setStatusFilter(''); setTypeFilter(''); setSearch(''); }} className="h-8 text-xs">
@@ -170,7 +171,11 @@ export default function ShareLinksDashboard() {
                       <p className="text-[10px] text-slate-500">{item.client_email || ''}</p>
                     </td>
                     <td className="px-2 py-2">
-                      <p className="font-semibold text-slate-700">{item.type === 'public_pa_fee' ? '📨 Public' : '🔑 Magic'}</p>
+                      <p className="font-semibold text-slate-700">
+                        {item.type === 'public_pa_fee' && '📨 Public'}
+                        {item.type === 'magic_portal' && '🔑 Magic'}
+                        {item.type === 'sales_report' && '📊 Sales Report'}
+                      </p>
                       <p className="text-[10px] text-slate-500 capitalize">{item.purpose.replace(/_/g, ' ')}</p>
                       <p className="text-[10px] font-semibold text-emerald-700">{item.amount_label}</p>
                     </td>

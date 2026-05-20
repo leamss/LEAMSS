@@ -3,6 +3,39 @@
 This file appends every completed phase/feature with dates and verification status.
 
 ---
+### 🎛️ Phase 6.5b + 6.6 — Share Links Dashboard Extension + Create PA Polish (May 20, 2026)
+**Tests:** `test_iteration114_share_links_dashboard_sales.py` → **6/6 PASS**. Combined regression (Part 3 + 6.5 + 6.5b) → **29/29 PASS**. Zero regression.
+
+**1. Active Share Links Admin Dashboard — Sales Reports Tab** (P1)
+- Extended `/api/share-links/` to surface sales_assessments share tokens as a 3rd source alongside `public_pa_fee` and `magic_portal`.
+- New `link_type=sales_report` filter on both API and UI (`<option value="sales_report">Sales · Report</option>` added to type filter dropdown).
+- New display in row: `📊 Sales Report` icon + `Sales Eligibility Report` purpose + `AU · 75 pts` amount label (country + score).
+- New revoke type: `POST /api/share-links/revoke` now accepts `type: "sales_report"` → sets `share_active=false`, `share_revoked=true`, `share_revoked_at/by/reason` on `sales_assessments`. Verified public 410 after revoke.
+- `fullUrl()` helper in dashboard component now handles sales_report → `/sales/report/{token}`.
+
+**2. Phase 6.6 — Create PA UI Polish** (P1)
+- Added `creatingPA` loading state in `ClientAssessment.jsx`.
+- Create PA button now shows `<Loader2 spinner />` + "Creating…" label while in-flight, disabled to prevent double-submit.
+- Toast on success: `Pre-Assessment created: PA-20260520-XXXXXX` with description "View it in your Pre-Assessments Pipeline" + persistent 8-second duration + "Open Dashboard" action button.
+- Action button intelligently routes user to the right dashboard based on role (`/admin`, `/partner`, `/case-manager`, `/sales/dashboard`).
+- Idempotency message: "Already linked to PA-…" if called twice for same assessment.
+- Removed auto-navigate (kept user on results page so they can also Save & Share Report or Print without losing context).
+
+**Files:**
+- Modified: `backend/routers/share_links_dashboard.py` (+ sales_assessments source + revoke branch)
+- Modified: `frontend/src/components/ShareLinksDashboard.jsx` (+ sales_report filter + 📊 badge + URL builder)
+- Modified: `frontend/src/pages/sales/ClientAssessment.jsx` (createPA polish)
+- New: `backend/tests/test_iteration114_share_links_dashboard_sales.py` (6 tests)
+
+**Coverage:**
+- ✓ Sales reports surface in dashboard list (default + filtered)
+- ✓ Revoke via dashboard returns 200 + sets share_revoked
+- ✓ Public access returns 410 after revoke
+- ✓ Status filtering (active/revoked) works for sales_report rows
+- ✓ Unknown token returns 404, invalid type returns 400
+- ✓ Partner role blocked (403) — admin-only dashboard
+
+---
 ### 📋 Phase 6.5 — Document Checklist + Save & Share Report (May 19, 2026)
 **Tests:** `test_iteration113_phase65_checklist_share.py` → **13/13 PASS**. Combined Part 3 + 6.5 regression → **23/23 PASS**.
 

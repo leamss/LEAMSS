@@ -5,6 +5,12 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 
 > **📌 Update (Feb 13, 2026):** `CHANGELOG.md` now tracks all completed phases (incl. **Phase 3A — Attendance & Leave** with full company policies). `ROADMAP.md` lists prioritized backlog. This PRD remains the static reference for original requirements.
 
+### 🎛️ Phase 6.5b + 6.6 — Share Links Dashboard + Create PA Polish (May 20, 2026)
+**Status:** ✅ COMPLETE — Backend **29/29 PASS** (combined regression). UI verified.
+
+- Active Share Links admin dashboard now lists sales eligibility report tokens with 📊 badge, AU·75pts amount label, and per-token revoke. Admin-only (partner 403).
+- Create PA from assessment now shows loading spinner, persistent 8s toast with PA-* id, role-aware "Open Dashboard" action button (admin/partner/case-manager/sales).
+
 ### 📋 Phase 6.5 — Document Checklist + Save & Share Report (May 19, 2026)
 **Status:** ✅ COMPLETE — Backend **13/13 PASS** + Combined regression **23/23 PASS**. UI E2E verified.
 
