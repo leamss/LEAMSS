@@ -1241,6 +1241,7 @@ const AdminDashboard = () => {
         { id: 'sales-occupation-search', icon: Sparkles, label: 'Occupation Search', onClick: () => navigate('/sales/occupations') },
         { id: 'sales-calculator', icon: Calculator, label: 'Eligibility Calculator', onClick: () => navigate('/sales/calculator') },
         { id: 'sales-client-assessment', icon: Wand2, label: 'Client Assessment (Workflow)', onClick: () => navigate('/sales/client-assessment') },
+        { id: 'sales-my-assessments', icon: FileText, label: 'Saved Assessments', onClick: () => navigate('/sales/my-assessments') },
         { id: 'eligibility-kb', icon: Globe, label: 'Knowledge Base (Admin)', onClick: () => navigate('/admin/eligibility/knowledge-base') },
         { id: 'eligibility-profiles', icon: User, label: 'Client Profiles', onClick: () => navigate('/eligibility/profiles') },
         { id: 'eligibility-new', icon: Plus, label: 'New Profile', onClick: () => navigate('/eligibility/new-assessment') },

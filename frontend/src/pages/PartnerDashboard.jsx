@@ -312,6 +312,8 @@ const PartnerDashboard = ({ mode = "partner" }) => {
       groupLabel: 'Tools',
       items: [
         { id: 'sales-occupations', icon: Sparkles, label: 'Smart Sales Helper', onClick: () => navigate('/sales/occupations') },
+        { id: 'sales-client-assessment', icon: Sparkles, label: 'Client Assessment', onClick: () => navigate('/sales/client-assessment') },
+        { id: 'sales-my-assessments', icon: Briefcase, label: 'Saved Assessments', onClick: () => navigate('/sales/my-assessments') },
         { id: 'fee-calculator', icon: Calculator, label: 'Fee Calculator', onClick: () => setActiveTab('fee-calculator') },
         { id: 'dashboard', icon: Briefcase, label: 'Classic Dashboard', onClick: () => setActiveTab('dashboard') },
       ]

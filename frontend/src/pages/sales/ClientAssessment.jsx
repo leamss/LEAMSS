@@ -70,13 +70,45 @@ const INITIAL_DATA = {
   spouse_age: '',
   spouse_qualification: '',
   spouse_ielts_overall: '',
+  spouse_ielts_listening: '',
+  spouse_ielts_reading: '',
+  spouse_ielts_writing: '',
+  spouse_ielts_speaking: '',
   spouse_profession: '',
-  // AU bonuses
+  spouse_years_experience: '',
+  // AU bonuses — Phase 6.8.4
   australian_study_2_years: false,
-  naati_accredited: false,
+  specialist_education_stem_au: false,
   professional_year_completed: false,
+  naati_accredited: false,
+  regional_study_au: false,
   state_nominated: false,
+  state_code: '',
+  // CA extras — Phase 6.8.4
+  canadian_work_years: '',
+  provincial_nomination: false,
+  job_offer_noc_00: false,
+  job_offer_noc_0_a_b: false,
+  canadian_education_3plus_years: false,
+  canadian_education_1_2_years: false,
+  sibling_in_canada: false,
+  french_proficiency_clb_7: false,
+  // NZ extras — Phase 6.8.4
+  nz_skilled_employment_current: false,
+  nz_job_offer: false,
+  regional_employment_nz: false,
 };
+
+// Phase 6.8.4 — fields that, when changed on Step 5, must trigger live recalc.
+const FACTOR_FIELDS = [
+  'years_experience_australia', 'canadian_work_years',
+  'australian_study_2_years', 'specialist_education_stem_au', 'professional_year_completed',
+  'naati_accredited', 'regional_study_au', 'state_nominated', 'state_code',
+  'provincial_nomination', 'job_offer_noc_00', 'job_offer_noc_0_a_b',
+  'canadian_education_3plus_years', 'canadian_education_1_2_years',
+  'sibling_in_canada', 'french_proficiency_clb_7',
+  'nz_skilled_employment_current', 'nz_job_offer', 'regional_employment_nz',
+];
 
 
 export default function ClientAssessment() {
@@ -95,23 +127,30 @@ export default function ClientAssessment() {
   const goNext = () => setStep(s => Math.min(7, s + 1));
   const goBack = () => setStep(s => Math.max(1, s - 1));
 
-  // Run calculation on step 5.
-  // Note: deps intentionally exclude individual profile fields (age/IELTS/etc.) —
-  // the calculator re-runs on step transition + country selection changes. `data`
-  // is captured fresh via the closure.
+  // Phase 6.8.4 — Build a stable hash of all factor inputs so the recalc effect
+  // also re-runs when Step 5's Additional Factors are toggled.
+  const factorHash = useMemo(
+    () => FACTOR_FIELDS.map(k => `${k}:${data[k] ?? ''}`).join('|'),
+    [data],
+  );
+
+  // Run calculation on step 5. Debounced so rapid toggles don't spam the API.
   useEffect(() => {
     if (step !== 5) return;
     setCalculating(true);
-    axios.post(
-      `${API}/sales/calculator/calculate-batch`,
-      { profile: buildProfile(data), targets: buildTargets(data) },
-      { headers },
-    )
-      .then(r => setCalcResults(r.data.results || []))
-      .catch(e => toast.error(formatApiError(e, 'Calculation failed')))
-      .finally(() => setCalculating(false));
+    const t = setTimeout(() => {
+      axios.post(
+        `${API}/sales/calculator/calculate-batch`,
+        { profile: buildProfile(data), targets: buildTargets(data) },
+        { headers },
+      )
+        .then(r => setCalcResults(r.data.results || []))
+        .catch(e => toast.error(formatApiError(e, 'Calculation failed')))
+        .finally(() => setCalculating(false));
+    }, 300);
+    return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, data.country_mode, data.specific_country, data.visa_subclass, data.custom_countries.join(','), headers]);
+  }, [step, data.country_mode, data.specific_country, data.visa_subclass, data.custom_countries.join(','), factorHash, headers]);
 
   const saveAssessment = async () => {
     try {
@@ -187,6 +226,7 @@ export default function ClientAssessment() {
             <p className="text-sm text-slate-500">Step-by-step workflow · Finder → Profile → Calculator → Action</p>
           </div>
           <div className="flex gap-2">
+            <Button variant="ghost" size="sm" onClick={() => navigate('/sales/my-assessments')} data-testid="open-my-assessments">My Assessments</Button>
             <Button variant="ghost" size="sm" onClick={() => navigate('/sales/occupations')}>Back to Search</Button>
           </div>
         </div>
@@ -229,7 +269,7 @@ export default function ClientAssessment() {
           {step === 2 && <Step2Approach data={data} update={update} />}
           {step === 3 && <Step3Profile data={data} update={update} setData={setData} headers={headers} />}
           {step === 4 && <Step4Countries data={data} update={update} />}
-          {step === 5 && <Step5Calculator results={calcResults} calculating={calculating} />}
+          {step === 5 && <Step5Calculator results={calcResults} calculating={calculating} data={data} update={update} />}
           {step === 6 && <Step6Review data={data} results={calcResults} />}
           {step === 7 && <Step7Done saved={saved} createPA={createPA} navigate={navigate} headers={headers} creatingPA={creatingPA} />}
         </Card>

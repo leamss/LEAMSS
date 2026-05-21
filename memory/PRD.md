@@ -5,6 +5,14 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 
 > **📌 Update (Feb 13, 2026):** `CHANGELOG.md` now tracks all completed phases (incl. **Phase 3A — Attendance & Leave** with full company policies). `ROADMAP.md` lists prioritized backlog. This PRD remains the static reference for original requirements.
 
+### 🛠️ Phase 6.8.2 / 6.8.3 / 6.8.4 — Stabilization Trio (May 21, 2026)
+**Status:** ✅ COMPLETE — Backend **16/16 PASS** · UI E2E verified (My Assessments, Compare, Step 5 factors).
+
+- **6.8.2 — Saved Assessments List**: New `/sales/my-assessments` page. Admin sees all assessments (with `created_by_name`); Sales/Partner sees only own. Search by client name, filter by status (All / Saved / Linked-PA / Shared). Status pills + Create-PA inline (with Partner picker for admin) + Delete + Open Public Link. Linked sidebar entry in Admin & Partner dashboards.
+- **6.8.3 — Occupation Compare**: New `/sales/occupations/compare` route. Reads `compare_ids` from sessionStorage, calls `POST /sales/occupations/compare`, renders 2-4 card grid + 12-row diff table (Title, Country, Group, Skill Level, Pathway, Body, Min Pts, Age Limit, Eligible Visas, In Demand, Body Fee Native, Processing Weeks, State Demand). Graceful empty-state when < 2 codes selected.
+- **6.8.4 — Step 5 Calculator Factors**: Step 5 now renders an "Additional Factors · Live recalc" panel below results with country-scoped toggles (AU 5 bonuses + state nomination, CA 7 PNP/CLB/sibling/job-offer factors, NZ 3 employment factors). `buildProfile.js` emits full `au_extras` / `ca_extras` / `nz_extras` shapes; ClientAssessment orchestrator includes a `factorHash` in the recalc effect so every toggle triggers a 300 ms debounced re-calculation.
+
+
 ### 🏆 Phase 6.9b — IP Geo + Alert Notifications + Audit Insights Dashboard (May 20, 2026)
 **Status:** ✅ COMPLETE — Backend **54/55 PASS** (full Phase 6 regression). UI E2E verified.
 

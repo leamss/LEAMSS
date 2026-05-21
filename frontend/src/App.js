@@ -41,8 +41,10 @@ import EligibilityProfileWizard from '@/pages/eligibility/EligibilityProfileWiza
 import { EligibilityProfilesList, EligibilityProfileDetail } from '@/pages/eligibility/EligibilityProfiles';
 import OccupationSearch from '@/pages/sales/OccupationSearch';
 import OccupationDetail from '@/pages/sales/OccupationDetail';
+import OccupationCompare from '@/pages/sales/OccupationCompare';
 import EligibilityCalculator from '@/pages/sales/EligibilityCalculator';
 import ClientAssessment from '@/pages/sales/ClientAssessment';
+import MyAssessments from '@/pages/sales/MyAssessments';
 import PublicAssessmentReport from '@/pages/sales/PublicAssessmentReport';
 import PublicInfoSheet from '@/pages/eligibility/PublicInfoSheet';
 import AdminVendors from '@/pages/admin/AdminVendors';
@@ -189,6 +191,11 @@ function App() {
               <OccupationSearch />
             </RequirePermission>
           } />
+          <Route path="/sales/occupations/compare" element={
+            <RequirePermission allowRoles={['admin_owner', 'admin', 'sales_executive', 'sr_sales_executive', 'sales_manager', 'sales_head', 'partner', 'case_manager']}>
+              <OccupationCompare />
+            </RequirePermission>
+          } />
           <Route path="/sales/occupations/:countryCode/:code" element={
             <RequirePermission allowRoles={['admin_owner', 'admin', 'sales_executive', 'sr_sales_executive', 'sales_manager', 'sales_head', 'partner', 'case_manager']}>
               <OccupationDetail />
@@ -202,6 +209,11 @@ function App() {
           <Route path="/sales/client-assessment" element={
             <RequirePermission allowRoles={['admin_owner', 'admin', 'sales_executive', 'sr_sales_executive', 'sales_manager', 'sales_head', 'partner', 'case_manager']}>
               <ClientAssessment />
+            </RequirePermission>
+          } />
+          <Route path="/sales/my-assessments" element={
+            <RequirePermission allowRoles={['admin_owner', 'admin', 'sales_executive', 'sr_sales_executive', 'sales_manager', 'sales_head', 'partner', 'case_manager']}>
+              <MyAssessments />
             </RequirePermission>
           } />
           {/* Public Sales Report — Phase 6.5 Save & Share (NO LOGIN) */}
