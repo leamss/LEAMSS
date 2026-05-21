@@ -6,10 +6,19 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
-  ArrowRight, FileText, Loader2, MessageSquare, Search, Send, Trophy,
+  ArrowRight, FileText, Loader2, MessageSquare, Search, Send, Trophy, UserCheck,
 } from 'lucide-react';
 import { formatApiError } from '@/lib/apiErrors';
 import { API } from '../lib/constants';
+
+const ADMIN_ROLES = new Set(['admin', 'admin_owner', 'case_manager']);
+
+function getCurrentRole() {
+  try {
+    const me = JSON.parse(localStorage.getItem('user') || '{}');
+    return me.rbac_role || me.role || '';
+  } catch { return ''; }
+}
 
 export default function Step7Done({ saved, createPA, navigate, headers, creatingPA }) {
   const [checklist, setChecklist] = useState(null);
@@ -19,6 +28,14 @@ export default function Step7Done({ saved, createPA, navigate, headers, creating
   const [shareLoading, setShareLoading] = useState(false);
   const [expiryDays, setExpiryDays] = useState(30);
 
+  // Phase 6.8.1 — Admin/Case Manager must pick a partner before creating PA
+  const role = getCurrentRole();
+  const needsPartnerPicker = ADMIN_ROLES.has(role);
+  const [partnerPickerOpen, setPartnerPickerOpen] = useState(false);
+  const [partnerOptions, setPartnerOptions] = useState([]);
+  const [selectedPartner, setSelectedPartner] = useState('');
+  const [loadingPartners, setLoadingPartners] = useState(false);
+
   useEffect(() => {
     if (!saved?.id) return;
     setLoadingChecklist(true);
@@ -27,6 +44,35 @@ export default function Step7Done({ saved, createPA, navigate, headers, creating
       .catch(e => toast.error(formatApiError(e, 'Failed to load checklist')))
       .finally(() => setLoadingChecklist(false));
   }, [saved?.id, headers]);
+
+  const openCreatePAFlow = async () => {
+    if (!needsPartnerPicker) {
+      // Partner/sales → direct call (self-assign on backend)
+      createPA();
+      return;
+    }
+    // Admin/Case Manager → fetch partner options + open dropdown modal
+    setLoadingPartners(true);
+    try {
+      const r = await axios.get(`${API}/sales/assessments/partner-options`, { headers });
+      setPartnerOptions(r.data.items || []);
+      setSelectedPartner('');
+      setPartnerPickerOpen(true);
+    } catch (e) {
+      toast.error(formatApiError(e, 'Failed to load partner list'));
+    } finally {
+      setLoadingPartners(false);
+    }
+  };
+
+  const confirmCreatePA = () => {
+    if (!selectedPartner) {
+      toast.error('Please pick a partner before creating PA');
+      return;
+    }
+    setPartnerPickerOpen(false);
+    createPA(selectedPartner);
+  };
 
   const generateShareLink = async () => {
     setShareLoading(true);
@@ -82,9 +128,9 @@ export default function Step7Done({ saved, createPA, navigate, headers, creating
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
-        <Button size="default" className="bg-indigo-600 hover:bg-indigo-700" onClick={createPA} disabled={creatingPA} data-testid="create-pa-btn">
-          {creatingPA ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <ArrowRight className="h-4 w-4 mr-1" />}
-          {creatingPA ? 'Creating…' : 'Create Pre-Assessment'}
+        <Button size="default" className="bg-indigo-600 hover:bg-indigo-700" onClick={openCreatePAFlow} disabled={creatingPA || loadingPartners} data-testid="create-pa-btn">
+          {(creatingPA || loadingPartners) ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <ArrowRight className="h-4 w-4 mr-1" />}
+          {creatingPA ? 'Creating…' : loadingPartners ? 'Loading…' : 'Create Pre-Assessment'}
         </Button>
         <Button size="default" variant="outline" onClick={() => setShareDialogOpen(true)} data-testid="save-share-btn" className="border-emerald-300 text-emerald-700 hover:bg-emerald-50">
           <Send className="h-4 w-4 mr-1" />Save &amp; Share Report
@@ -206,6 +252,43 @@ export default function Step7Done({ saved, createPA, navigate, headers, creating
                 </Button>
               </>
             )}
+          </Card>
+        </div>
+      )}
+
+      {/* Partner Picker Modal — Phase 6.8.1 (admin/case-manager only) */}
+      {partnerPickerOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setPartnerPickerOpen(false)} data-testid="partner-picker-modal">
+          <Card className="max-w-md w-full bg-white p-5" onClick={e => e.stopPropagation()}>
+            <h3 className="text-base font-bold flex items-center gap-2 mb-1">
+              <UserCheck className="h-5 w-5 text-indigo-600" />Assign to Partner / Sales
+            </h3>
+            <p className="text-[11px] text-slate-500 mb-3">
+              Admin-initiated PAs must be assigned to a partner or sales person so they enter the correct pipeline.
+            </p>
+            <p className="text-[10px] uppercase font-bold text-slate-500 mb-1">Choose Owner *</p>
+            <select
+              value={selectedPartner}
+              onChange={e => setSelectedPartner(e.target.value)}
+              className="w-full border border-slate-200 rounded px-2 py-2 text-sm bg-white"
+              data-testid="partner-picker-select"
+            >
+              <option value="">— Select a Partner / Sales person —</option>
+              {partnerOptions.map(p => (
+                <option key={p.id} value={p.id}>
+                  {p.name || p.email} · {p.role.replace(/_/g, ' ')}
+                </option>
+              ))}
+            </select>
+            {partnerOptions.length === 0 && (
+              <p className="text-[11px] text-amber-700 bg-amber-50 p-2 rounded mt-2">No active partners or sales people found. Please add them in User Management first.</p>
+            )}
+            <div className="flex gap-2 justify-end mt-4">
+              <Button variant="outline" size="sm" onClick={() => setPartnerPickerOpen(false)}>Cancel</Button>
+              <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700" onClick={confirmCreatePA} disabled={!selectedPartner} data-testid="partner-picker-confirm">
+                <ArrowRight className="h-3 w-3 mr-1" />Create PA
+              </Button>
+            </div>
           </Card>
         </div>
       )}

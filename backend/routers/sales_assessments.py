@@ -128,6 +128,114 @@ async def list_assessments(
     return {"items": items, "count": len(items)}
 
 
+# ════════════════════════════════════════════════════════════════
+# Phase 6.8.1 — Static routes — MUST be declared before /{assessment_id}
+# (FastAPI route matching is greedy first-match).
+# ════════════════════════════════════════════════════════════════
+users_col = db["users"]
+
+
+@router.get("/partner-options")
+async def list_partner_options(current_user: dict = Depends(get_current_user)):
+    """List active partner + sales-executive users for admin's PA assignment dropdown."""
+    if not _can_access(current_user):
+        raise HTTPException(status_code=403, detail="Not authorised")
+    cursor = users_col.find(
+        {
+            "status": "active",
+            "role": {"$in": ["partner", "sales_executive", "sr_sales_executive", "sales_manager", "sales_head"]},
+        },
+        {"_id": 0, "id": 1, "name": 1, "email": 1, "role": 1},
+    ).sort("name", 1)
+    items = await cursor.to_list(500)
+    return {"items": items, "count": len(items)}
+
+
+@router.get("/orphaned-pas/list")
+async def list_orphaned_pas(current_user: dict = Depends(get_current_user)):
+    """List Smart-Helper-created PAs that are missing partner_id or pa_number."""
+    role = _user_role(current_user)
+    is_admin = role in ("admin", "admin_owner") or "*" in (current_user.get("permissions") or [])
+    if not is_admin:
+        raise HTTPException(status_code=403, detail="Admin only")
+    cursor = pre_assessments_col.find(
+        {
+            "source_smart_sales_assessment_id": {"$exists": True, "$ne": None},
+            "$or": [
+                {"partner_id": {"$exists": False}},
+                {"partner_id": None},
+                {"pa_number": {"$exists": False}},
+                {"pa_number": None},
+            ],
+        },
+        {"_id": 0, "id": 1, "client_name": 1, "client_email": 1, "pa_number": 1, "partner_id": 1,
+         "status": 1, "stage": 1, "created_at": 1, "created_by_name": 1,
+         "source_smart_sales_assessment_id": 1, "country": 1, "occupation_title": 1},
+    ).sort("created_at", -1)
+    items = await cursor.to_list(200)
+    for it in items:
+        if isinstance(it.get("created_at"), datetime):
+            it["created_at"] = it["created_at"].isoformat()
+    return {"items": items, "count": len(items)}
+
+
+class AssignPARequest(BaseModel):
+    partner_id: str
+
+
+@router.post("/orphaned-pas/{pa_id}/assign")
+async def assign_orphaned_pa(pa_id: str, req: AssignPARequest, current_user: dict = Depends(get_current_user)):
+    """Backfill partner_id + missing fields on an orphaned PA so it joins the partner's pipeline."""
+    role = _user_role(current_user)
+    is_admin = role in ("admin", "admin_owner") or "*" in (current_user.get("permissions") or [])
+    if not is_admin:
+        raise HTTPException(status_code=403, detail="Admin only")
+    pa = await pre_assessments_col.find_one({"id": pa_id})
+    if not pa:
+        raise HTTPException(status_code=404, detail="PA not found")
+    partner_doc = await users_col.find_one({"id": req.partner_id, "status": "active"}, {"_id": 0})
+    if not partner_doc:
+        raise HTTPException(status_code=404, detail="Partner not found or inactive")
+    self_assignable_roles = {"partner", "sales_executive", "sr_sales_executive", "sales_manager", "sales_head"}
+    if partner_doc.get("role") not in self_assignable_roles:
+        raise HTTPException(status_code=400, detail="Selected user is not a Partner or Sales person")
+    now = datetime.now(timezone.utc)
+    update = {
+        "partner_id": partner_doc["id"],
+        "partner_name": partner_doc.get("name") or partner_doc.get("email"),
+        "updated_at": now,
+    }
+    if not pa.get("pa_number"):
+        update["pa_number"] = f"PA-{datetime.now().strftime('%Y%m%d')}-{pa_id[:6].upper()}"
+    if not pa.get("stage"):
+        update["stage"] = "new"
+    if not pa.get("country"):
+        update["country"] = pa.get("destination_country") or "AU"
+    if not pa.get("service_type"):
+        update["service_type"] = "PR"
+    if not pa.get("fee_payment_status"):
+        update["fee_payment_status"] = "skipped"
+    if not pa.get("client_mobile"):
+        update["client_mobile"] = pa.get("client_phone")
+    await pre_assessments_col.update_one({"id": pa_id}, {"$set": update})
+    return {"ok": True, "pa_id": pa_id, "assigned_to": partner_doc["id"]}
+
+
+@router.delete("/orphaned-pas/{pa_id}")
+async def delete_orphaned_pa(pa_id: str, current_user: dict = Depends(get_current_user)):
+    """Delete an orphaned PA (admin cleanup)."""
+    role = _user_role(current_user)
+    is_admin = role in ("admin", "admin_owner") or "*" in (current_user.get("permissions") or [])
+    if not is_admin:
+        raise HTTPException(status_code=403, detail="Admin only")
+    res = await pre_assessments_col.delete_one({"id": pa_id})
+    if res.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="PA not found")
+    # Detach the link on the source assessment if any
+    await assessments_col.update_many({"linked_pa_id": pa_id}, {"$unset": {"linked_pa_id": "", "linked_pa_partner_id": ""}})
+    return {"ok": True}
+
+
 @router.get("/{assessment_id}")
 async def get_assessment(assessment_id: str, current_user: dict = Depends(get_current_user)):
     if not _can_access(current_user):
@@ -165,12 +273,20 @@ class CreatePARequest(BaseModel):
     target_visa_subclass: Optional[str] = None
     pa_title: Optional[str] = None
     lead_source: str = "smart_sales_helper"
+    # NEW (Phase 6.8.1) — Admin/Case Manager MUST specify which partner owns the PA
+    partner_id: Optional[str] = None
+    service_type: Optional[str] = None  # 'Work Visa' / 'PR' / etc; defaults to PR
 
 
 @router.post("/{assessment_id}/create-pa")
 async def create_pa_from_assessment(assessment_id: str, req: CreatePARequest, current_user: dict = Depends(get_current_user)):
     """Create a Pre-Assessment from a saved Smart Sales Helper assessment.
-    Pre-fills client name + email + phone + occupation + country + visa from the assessment.
+
+    Phase 6.8.1 fix — Admin/Case Manager MUST select a partner.
+    Partner/Sales callers auto-self-assign.
+
+    Generates a fully-formed PA that drops directly into the partner's pipeline
+    (pa_number, partner_id, stage='new', country, service_type, fee fields, etc.)
     """
     if not _can_access(current_user):
         raise HTTPException(status_code=403, detail="Not authorised")
@@ -180,33 +296,96 @@ async def create_pa_from_assessment(assessment_id: str, req: CreatePARequest, cu
     if a.get("linked_pa_id"):
         return {"ok": True, "pa_id": a["linked_pa_id"], "already_linked": True}
 
+    role = _user_role(current_user)
+    self_assignable_roles = {"partner", "sales_executive", "sr_sales_executive", "sales_manager", "sales_head"}
+
+    # Decide the owning partner
+    if role in self_assignable_roles:
+        partner_id = current_user["id"]
+        partner_name = current_user.get("name", current_user.get("email", "Partner"))
+    else:
+        # admin / admin_owner / case_manager → must supply partner_id
+        if not req.partner_id:
+            raise HTTPException(
+                status_code=400,
+                detail="Please assign this assessment to a Partner or Sales person before creating PA",
+            )
+        partner_doc = await users_col.find_one(
+            {"id": req.partner_id, "status": "active"},
+            {"_id": 0, "id": 1, "name": 1, "email": 1, "role": 1},
+        )
+        if not partner_doc:
+            raise HTTPException(status_code=404, detail="Partner not found or inactive")
+        if partner_doc.get("role") not in self_assignable_roles:
+            raise HTTPException(status_code=400, detail="Selected user is not a Partner or Sales person")
+        partner_id = partner_doc["id"]
+        partner_name = partner_doc.get("name") or partner_doc.get("email") or "Partner"
+
     country = req.target_country_code or a.get("best_country_code") or "AU"
     occupation = a.get("occupation") or {}
-    pa_id = f"PA-{datetime.now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
+    pa_id = str(uuid.uuid4())
+    pa_number = f"PA-{datetime.now().strftime('%Y%m%d')}-{pa_id[:6].upper()}"
     now = datetime.now(timezone.utc)
+
     pa_doc = {
         "id": pa_id,
-        "title": req.pa_title or f"Assessment for {a.get('client_name')}",
+        "pa_number": pa_number,
+        # Partner ownership
+        "partner_id": partner_id,
+        "partner_name": partner_name,
+        # Phase 4A audit
+        "created_by_user_id": current_user["id"],
+        "created_by_role": role,
+        "created_by_user_type": current_user.get("user_type", "internal" if role in ("admin", "admin_owner", "case_manager") else "external"),
+        "lead_source": req.lead_source,
+        "lead_source_detail": f"From assessment {assessment_id}",
+        # Client snapshot
         "client_name": a.get("client_name"),
         "client_email": a.get("client_email"),
-        "client_phone": a.get("client_phone"),
-        "destination_country": country,
-        "visa_subclass": req.target_visa_subclass,
+        "client_mobile": a.get("client_phone"),  # ← schema uses client_mobile
+        # Workflow fields
+        "country": country,
+        "service_type": req.service_type or "PR",
+        "product_id": None,
+        "product_name": "",
+        "notes": f"Best country: {a.get('best_country_code')} · Score: {a.get('best_total')}",
+        # Profile snapshot (from assessment)
+        "client_age": (a.get("profile_snapshot") or {}).get("primary_applicant", {}).get("personal", {}).get("age"),
+        "education": (a.get("profile_snapshot") or {}).get("primary_applicant", {}).get("education", {}).get("highest_qualification"),
+        "work_experience": (a.get("profile_snapshot") or {}).get("primary_applicant", {}).get("professional", {}).get("years_experience_total"),
+        # Occupation
         "occupation_code": occupation.get("code"),
         "occupation_title": occupation.get("title"),
         "skill_assessment_body": occupation.get("assessing_body"),
         "pathway": occupation.get("pathway"),
+        "visa_subclass": req.target_visa_subclass,
+        # Stage + fee + approvals
+        "stage": "new",
+        "pre_assessment_fee": 0,  # Smart helper flow → fee waived (assessment already paid)
+        "fee_payment_status": "skipped",
+        "fee_session_id": None,
+        "admin_decision": None,
+        "admin_reason": "",
+        "admin_notes": "",
+        "admin_reviewed_by": None,
+        "admin_reviewed_at": None,
+        "proposal_fee": 0,
+        "proposal_status": None,
+        "proposal_session_id": None,
+        "sale_id": None,
+        "case_id": None,
+        # Backlink for traceability
         "source_smart_sales_assessment_id": assessment_id,
-        "lead_source": req.lead_source,
-        "status": "draft",
-        "created_by": current_user["id"],
-        "created_by_name": current_user.get("name"),
+        "title": req.pa_title or f"Assessment for {a.get('client_name')}",
         "created_at": now,
         "updated_at": now,
     }
     await pre_assessments_col.insert_one(pa_doc)
-    await assessments_col.update_one({"id": assessment_id}, {"$set": {"linked_pa_id": pa_id, "updated_at": now}})
-    return {"ok": True, "pa_id": pa_id, "already_linked": False}
+    await assessments_col.update_one(
+        {"id": assessment_id},
+        {"$set": {"linked_pa_id": pa_id, "linked_pa_partner_id": partner_id, "updated_at": now}},
+    )
+    return {"ok": True, "pa_id": pa_id, "pa_number": pa_number, "partner_id": partner_id, "partner_name": partner_name, "already_linked": False}
 
 
 # ════════════════════════════════════════════════════════════════

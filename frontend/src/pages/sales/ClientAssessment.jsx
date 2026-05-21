@@ -137,16 +137,19 @@ export default function ClientAssessment() {
     }
   };
 
-  const createPA = async () => {
+  const createPA = async (partnerId = null) => {
     if (!saved || creatingPA) return;
     setCreatingPA(true);
     try {
-      const r = await axios.post(`${API}/sales/assessments/${saved.id}/create-pa`, {
+      const body = {
         target_country_code: saved.best_country_code,
         target_visa_subclass: data.visa_subclass,
         lead_source: 'smart_sales_helper',
-      }, { headers });
+      };
+      if (partnerId) body.partner_id = partnerId;
+      const r = await axios.post(`${API}/sales/assessments/${saved.id}/create-pa`, body, { headers });
       const paId = r.data.pa_id;
+      const paNumber = r.data.pa_number;
       const alreadyLinked = r.data.already_linked;
       // Detect user role to choose the right dashboard for the "Open Dashboard" action
       let dashRoute = '/admin';
@@ -158,10 +161,10 @@ export default function ClientAssessment() {
         else if (['sales_executive', 'sr_sales_executive', 'sales_manager', 'sales_head'].includes(role)) dashRoute = '/sales/dashboard';
       } catch { /* ignore */ }
       toast.success(
-        alreadyLinked ? `Already linked to ${paId}` : `Pre-Assessment created: ${paId}`,
+        alreadyLinked ? `Already linked to ${paNumber || paId}` : `Pre-Assessment created: ${paNumber || paId}`,
         {
           duration: 8000,
-          description: 'View it in your Pre-Assessments Pipeline.',
+          description: r.data.partner_name ? `Assigned to ${r.data.partner_name}. View it in the Pipeline.` : 'View it in your Pre-Assessments Pipeline.',
           action: { label: 'Open Dashboard', onClick: () => navigate(dashRoute) },
         },
       );

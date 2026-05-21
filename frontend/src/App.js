@@ -5,6 +5,7 @@ import { ThemeProvider } from '@/components/ThemeProvider';
 import Login from '@/pages/Login';
 import AdminDashboard from '@/pages/AdminDashboard';
 import AuditInsights from '@/pages/admin/AuditInsights';
+import OrphanedPAsCleanup from '@/pages/admin/OrphanedPAsCleanup';
 import PartnerDashboard from '@/pages/PartnerDashboard';
 import CaseManagerDashboard from '@/pages/CaseManagerDashboard';
 import ClientDashboard from '@/pages/ClientDashboard';
@@ -81,6 +82,13 @@ function App() {
           <Route path="/admin/audit-insights" element={
             <RequirePermission allowRoles={['admin_owner', 'admin']}>
               <AuditInsights />
+            </RequirePermission>
+          } />
+          <Route path="/admin/orphaned-pas" element={
+            <RequirePermission allowRoles={['admin_owner', 'admin']}>
+              <div className="min-h-screen bg-slate-50 p-5">
+                <div className="max-w-6xl mx-auto"><OrphanedPAsCleanup /></div>
+              </div>
             </RequirePermission>
           } />
           <Route path="/admin/workflows" element={<WorkflowBuilder />} />
