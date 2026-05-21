@@ -26,7 +26,7 @@ import {
 
 import { formatApiError } from '@/lib/apiErrors';
 import { STEPS, API } from './lib/constants';
-import { buildProfile, buildTargets } from './lib/buildProfile';
+import { buildProfile, buildTargets, dataFromAssessment } from './lib/buildProfile';
 
 import Step1Start from './steps/Step1Start';
 import Step2Approach from './steps/Step2Approach';
@@ -122,6 +122,29 @@ export default function ClientAssessment() {
   const [calculating, setCalculating] = useState(false);
   const [saved, setSaved] = useState(null);
   const [creatingPA, setCreatingPA] = useState(false);
+  // Phase 6.8.5 — Resume / Continue flow: when set, Save will PUT instead of POST
+  const [editingId, setEditingId] = useState(null);
+
+  // Phase 6.8.5 — Hydrate from sessionStorage on first mount.
+  // MyAssessments sets `resume_assessment` with the full assessment doc, we
+  // inverse-map it and jump straight to Step 5 (Calculator).
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem('resume_assessment');
+      if (!raw) return;
+      const a = JSON.parse(raw);
+      sessionStorage.removeItem('resume_assessment');
+      if (!a || !a.id) return;
+      setData(dataFromAssessment(a, INITIAL_DATA));
+      setEditingId(a.id);
+      setSaved(a);
+      setStep(5);
+      toast.success(`Resumed: ${a.client_name || a.id}`);
+    } catch (e) {
+      console.warn('Resume hydrate failed', e);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const update = (field, val) => setData(d => ({ ...d, [field]: val }));
   const goNext = () => setStep(s => Math.min(7, s + 1));
@@ -154,7 +177,7 @@ export default function ClientAssessment() {
 
   const saveAssessment = async () => {
     try {
-      const r = await axios.post(`${API}/sales/assessments`, {
+      const payload = {
         client_name: data.client_name || 'Unnamed client',
         client_email: data.client_email,
         client_phone: data.client_phone,
@@ -167,9 +190,16 @@ export default function ClientAssessment() {
           pathway: data.occupation_pathway,
         } : null,
         targets: buildTargets(data),
-      }, { headers });
+      };
+      let r;
+      if (editingId) {
+        r = await axios.put(`${API}/sales/assessments/${editingId}`, payload, { headers });
+        toast.success('Assessment updated');
+      } else {
+        r = await axios.post(`${API}/sales/assessments`, payload, { headers });
+        toast.success('Assessment saved');
+      }
       setSaved(r.data);
-      toast.success('Assessment saved');
       setStep(7);
     } catch (e) {
       toast.error(formatApiError(e, 'Save failed'));
@@ -222,6 +252,11 @@ export default function ClientAssessment() {
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <Sparkles className="h-7 w-7 text-indigo-600" />Smart Client Assessment
+              {editingId && (
+                <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-semibold" data-testid="editing-badge">
+                  Editing · {editingId}
+                </span>
+              )}
             </h1>
             <p className="text-sm text-slate-500">Step-by-step workflow · Finder → Profile → Calculator → Action</p>
           </div>
@@ -286,7 +321,7 @@ export default function ClientAssessment() {
               </Button>
             ) : (
               <Button onClick={saveAssessment} className="bg-emerald-600 hover:bg-emerald-700" data-testid="save-assessment-btn">
-                <Save className="h-4 w-4 mr-1" />Save Assessment & Continue
+                <Save className="h-4 w-4 mr-1" />{editingId ? 'Update Assessment' : 'Save Assessment & Continue'}
               </Button>
             )}
           </div>

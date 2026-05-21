@@ -112,3 +112,104 @@ export function buildTargets(data) {
     visa_subclass: data.specific_country === 'AU' ? data.visa_subclass : null,
   }];
 }
+
+
+// Phase 6.8.5 — Inverse of buildProfile: hydrate the wizard `data` state from a
+// saved assessment document so the Resume / Continue flow can pre-fill all
+// inputs. Falls back to safe defaults for missing keys.
+export function dataFromAssessment(a, baseDefaults = {}) {
+  const profile = a?.profile_snapshot || {};
+  const primary = profile.primary_applicant || {};
+  const lang = (primary.language && primary.language.scores) || {};
+  const auEx = primary.au_extras || {};
+  const caEx = primary.ca_extras || {};
+  const nzEx = primary.nz_extras || {};
+  const sp = profile.spouse || {};
+  const spLang = (sp.language && sp.language.scores) || {};
+  const occ = a?.occupation || {};
+  const targets = a?.targets || [];
+
+  // Reconstruct country_mode
+  let country_mode = 'specific';
+  let specific_country = (targets[0] && targets[0].country) || 'AU';
+  let visa_subclass = '189';
+  let custom_countries = [specific_country];
+  const auTarget = targets.find((t) => t.country === 'AU');
+  if (auTarget && auTarget.visa_subclass) visa_subclass = String(auTarget.visa_subclass);
+
+  if (targets.length === 1) {
+    country_mode = 'specific';
+    custom_countries = [specific_country];
+  } else if (targets.length === 3
+    && targets.every((t) => ['AU', 'CA', 'NZ'].includes(t.country))) {
+    country_mode = 'top_3';
+    specific_country = 'AU';
+    custom_countries = ['AU', 'CA', 'NZ'];
+  } else if (targets.length > 1) {
+    country_mode = 'custom';
+    specific_country = 'AU';
+    custom_countries = targets.map((t) => t.country).filter(Boolean);
+  }
+
+  const num = (v) => (v == null ? '' : String(v));
+
+  return {
+    ...baseDefaults,
+    client_name: a?.client_name || '',
+    client_email: a?.client_email || '',
+    client_phone: a?.client_phone || '',
+    approach: 'direct',
+    marital_status: profile.marital_status || '',
+    age: num(primary.personal && primary.personal.age),
+    qualification: (primary.education && primary.education.highest_qualification) || '',
+    ielts_overall: num(lang.overall),
+    ielts_listening: num(lang.listening),
+    ielts_reading: num(lang.reading),
+    ielts_writing: num(lang.writing),
+    ielts_speaking: num(lang.speaking),
+    years_experience_total: num(primary.professional && primary.professional.years_experience_total),
+    years_experience_australia: num(primary.professional && primary.professional.years_experience_australia),
+    occupation_country: occ.country_code || 'AU',
+    occupation_code: occ.code || '',
+    occupation_title: occ.title || '',
+    occupation_body: occ.assessing_body || '',
+    occupation_pathway: occ.pathway || '',
+    country_mode,
+    specific_country,
+    visa_subclass,
+    custom_countries,
+    // Spouse
+    spouse_will_migrate: sp.is_applicant_on_visa === false ? 'no' : 'yes',
+    spouse_contribution: sp.contribution_type || '',
+    spouse_age: num(sp.personal && sp.personal.age),
+    spouse_qualification: (sp.education && sp.education.highest_qualification) || '',
+    spouse_ielts_overall: num(spLang.overall),
+    spouse_ielts_listening: num(spLang.listening),
+    spouse_ielts_reading: num(spLang.reading),
+    spouse_ielts_writing: num(spLang.writing),
+    spouse_ielts_speaking: num(spLang.speaking),
+    spouse_profession: (sp.professional && sp.professional.current_profession) || '',
+    spouse_years_experience: num(sp.professional && sp.professional.years_experience_total),
+    // AU extras
+    australian_study_2_years: !!auEx.australian_study_2_years,
+    specialist_education_stem_au: !!auEx.specialist_education_stem_au,
+    professional_year_completed: !!auEx.professional_year_completed,
+    naati_accredited: !!auEx.naati_accredited,
+    regional_study_au: !!auEx.regional_study_au,
+    state_nominated: !!auEx.state_nominated,
+    state_code: auEx.state_code || '',
+    // CA extras
+    canadian_work_years: num(caEx.canadian_work_years),
+    provincial_nomination: !!caEx.provincial_nomination,
+    job_offer_noc_00: !!caEx.job_offer_noc_00,
+    job_offer_noc_0_a_b: !!caEx.job_offer_noc_0_a_b,
+    canadian_education_3plus_years: !!caEx.canadian_education_3plus_years,
+    canadian_education_1_2_years: !!caEx.canadian_education_1_2_years,
+    sibling_in_canada: !!caEx.sibling_in_canada,
+    french_proficiency_clb_7: !!caEx.french_proficiency_clb_7,
+    // NZ extras
+    nz_skilled_employment_current: !!nzEx.nz_skilled_employment_current,
+    nz_job_offer: !!nzEx.nz_job_offer,
+    regional_employment_nz: !!nzEx.regional_employment_nz,
+  };
+}

@@ -24,7 +24,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import {
   ArrowLeft, Search, FileText, Sparkles, Trash2, Briefcase, Share2,
-  CheckCircle2, Loader2, AlertTriangle, ExternalLink, RefreshCw,
+  CheckCircle2, Loader2, AlertTriangle, ExternalLink, RefreshCw, Play,
 } from 'lucide-react';
 
 import { formatApiError } from '@/lib/apiErrors';
@@ -112,6 +112,19 @@ export default function MyAssessments() {
       setPaPickerFor(assessmentId);
     } else {
       doCreatePA(assessmentId, null);
+    }
+  };
+
+  const onContinue = async (assessmentId) => {
+    setBusyId(assessmentId);
+    try {
+      const r = await axios.get(`${API}/sales/assessments/${assessmentId}`, { headers });
+      sessionStorage.setItem('resume_assessment', JSON.stringify(r.data));
+      navigate('/sales/client-assessment');
+    } catch (e) {
+      toast.error(formatApiError(e, 'Could not load assessment'));
+    } finally {
+      setBusyId(null);
     }
   };
 
@@ -213,6 +226,7 @@ export default function MyAssessments() {
               busy={busyId === a.id}
               onDelete={onDelete}
               onCreatePA={onCreatePA}
+              onContinue={onContinue}
             />)}
           </div>
         )}
@@ -236,7 +250,7 @@ export default function MyAssessments() {
 }
 
 
-function AssessmentRow({ item, isAdmin, busy, onDelete, onCreatePA }) {
+function AssessmentRow({ item, isAdmin, busy, onDelete, onCreatePA, onContinue }) {
   const navigate = useNavigate();
   const linked = !!item.linked_pa_id;
   const shared = !!(item.share_active && item.share_token);
@@ -288,6 +302,17 @@ function AssessmentRow({ item, isAdmin, busy, onDelete, onCreatePA }) {
 
         {/* Actions */}
         <div className="flex flex-col gap-1">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-[10px] border-indigo-300 text-indigo-700 hover:bg-indigo-50"
+            disabled={busy}
+            onClick={() => onContinue(item.id)}
+            data-testid={`continue-${item.id}`}
+          >
+            {busy ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Play className="h-3 w-3 mr-1" />}
+            Continue
+          </Button>
           {shared && (
             <Button variant="outline" size="sm" className="h-7 text-[10px]" onClick={() => window.open(`/sales/report/${item.share_token}`, '_blank')} data-testid={`view-shared-${item.id}`}>
               <ExternalLink className="h-3 w-3 mr-1" />Public link

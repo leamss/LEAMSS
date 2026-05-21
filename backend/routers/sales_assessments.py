@@ -265,6 +265,50 @@ async def delete_assessment(assessment_id: str, current_user: dict = Depends(get
     return {"ok": True}
 
 
+@router.put("/{assessment_id}")
+async def update_assessment(assessment_id: str, req: SaveAssessmentRequest, current_user: dict = Depends(get_current_user)):
+    """Phase 6.8.5 — update existing assessment in-place (used by Resume/Continue flow).
+
+    Permissions: owner OR admin. Re-runs the calculator and refreshes results +
+    best_country snapshot. Preserves linked_pa_id / share_* fields.
+    """
+    if not _can_access(current_user):
+        raise HTTPException(status_code=403, detail="Not authorised")
+    existing = await assessments_col.find_one({"id": assessment_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Assessment not found")
+    role = _user_role(current_user)
+    is_admin = role in ("admin", "admin_owner") or "*" in (current_user.get("permissions") or [])
+    if not is_admin and existing.get("created_by") != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Not the owner")
+
+    # Re-run calculator
+    results = []
+    for t in req.targets:
+        r = calculate(req.profile, t.country, t.visa_subclass)
+        results.append(r)
+    best = max(results, key=lambda r: r.get("total", 0)) if results else None
+
+    now = datetime.now(timezone.utc)
+    update_doc = {
+        "client_name": req.client_name,
+        "client_email": req.client_email,
+        "client_phone": req.client_phone,
+        "profile_snapshot": req.profile,
+        "occupation": req.occupation,
+        "targets": [t.model_dump() for t in req.targets],
+        "results": results,
+        "best_country_code": best.get("country_code") if best else None,
+        "best_total": best.get("total") if best else None,
+        "best_recommendation": best.get("recommendation") if best else None,
+        "final_notes": req.final_notes,
+        "updated_at": now,
+    }
+    await assessments_col.update_one({"id": assessment_id}, {"$set": update_doc})
+    refreshed = await assessments_col.find_one({"id": assessment_id}, {"_id": 0})
+    return _strip(refreshed)
+
+
 # ════════════════════════════════════════════════════════════════
 # 1-click bridge → Pre-Assessment workflow
 # ════════════════════════════════════════════════════════════════
