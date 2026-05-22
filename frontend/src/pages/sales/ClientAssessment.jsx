@@ -193,10 +193,22 @@ export default function ClientAssessment() {
       };
       let r;
       if (editingId) {
+        // Phase 6.8.5/6.8.6 — already-saved doc → PUT (no duplicate ever).
         r = await axios.put(`${API}/sales/assessments/${editingId}`, payload, { headers });
-        toast.success('Assessment updated');
+        const sync = r.data && r.data.pa_sync;
+        if (sync && sync.updated) {
+          toast.success(
+            `Assessment updated · PA ${sync.pa_number || sync.pa_id?.slice(0, 8)} synced (${sync.old_score} → ${sync.new_score})`,
+            { duration: 7000 },
+          );
+        } else {
+          toast.success('Assessment updated');
+        }
       } else {
         r = await axios.post(`${API}/sales/assessments`, payload, { headers });
+        // ─── Phase 6.8.6 Bug Fix #1 ─── lock the id so subsequent Saves in the
+        // same wizard session become PUTs (no duplicate SAH-... ids).
+        if (r.data?.id) setEditingId(r.data.id);
         toast.success('Assessment saved');
       }
       setSaved(r.data);
@@ -220,6 +232,9 @@ export default function ClientAssessment() {
       const paId = r.data.pa_id;
       const paNumber = r.data.pa_number;
       const alreadyLinked = r.data.already_linked;
+      // Phase 6.8.6 — immediately reflect the link so the Step 7 UI swaps to
+      // the "Linked PA" indicator (prevents accidental double-click duplicate).
+      setSaved(s => ({ ...s, linked_pa_id: paId, linked_pa_partner_id: r.data.partner_id }));
       // Detect user role to choose the right dashboard for the "Open Dashboard" action
       let dashRoute = '/admin';
       try {

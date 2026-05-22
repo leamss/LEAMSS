@@ -5,7 +5,27 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 
 > **📌 Update (Feb 13, 2026):** `CHANGELOG.md` now tracks all completed phases (incl. **Phase 3A — Attendance & Leave** with full company policies). `ROADMAP.md` lists prioritized backlog. This PRD remains the static reference for original requirements.
 
-### 🛠️ Phase 6.8.2 / 6.8.3 / 6.8.4 / 6.8.5 — Stabilization Quartet (May 21, 2026)
+### 🐛 Phase 6.8.6 — Critical Bug Fix: Duplicate PA + Score-Sync (May 22, 2026)
+**Status:** ✅ COMPLETE — Backend **4/4 NEW + 34/34 FULL 6.8.x REGRESSION PASS** · UI E2E verified end-to-end.
+
+**Bugs reported by Sir during 6.8.5 verification:**
+1. Same wizard session created duplicate `SAH-...` ids when user saved a 2nd time (because `editingId` was only set on Continue/Resume, not after the very first POST).
+2. Updating a linked assessment didn't propagate the new score / occupation / client info to the linked PA — partner dashboard kept showing stale data.
+3. Step 7 still showed the "Create Pre-Assessment" button + Partner Picker even after the PA was already linked → click created a duplicate PA against a new orphaned assessment id.
+
+**Fixes shipped:**
+- **Backend (`PUT /api/sales/assessments/{id}`)** — now syncs the linked PA in the same transaction. Updates `client_name`, `client_email`, `client_mobile`, `country`, `occupation_*`, `pathway`, `client_age`, `education`, `work_experience`, `notes` (with "updated from X" trail), `score_snapshot`, `last_sync_from_assessment_*`. Returns a `pa_sync` block in the response payload with `{updated, pa_id, pa_number, old_score, new_score, partner_id, partner_name}`.
+- **Frontend (`ClientAssessment.jsx`)** — after the first successful POST, `editingId` is set to the returned id so every subsequent Save in the same session is a PUT. After Create PA succeeds, the local `saved.linked_pa_id` is updated so Step 7 immediately swaps UI.
+- **Frontend (`Step7Done.jsx`)** — when `saved.linked_pa_id` exists, the "Create Pre-Assessment" button is replaced by an emerald "Linked PA: {id}…" button that navigates to the role-appropriate pipeline + a green banner: *"This assessment is already linked to a Pre-Assessment. Any future updates will automatically sync to the linked PA. No duplicate PA will be created."*
+- **PUT toast** — now reads `Assessment updated · PA PA-2026-XXX synced (75 → 80)` so the user sees the propagation result in real time.
+
+**Tests added** (`test_iteration121_phase686_bug_fixes.py`):
+- `test_put_syncs_linked_pa_score_and_occupation` — verifies PA notes carry the new score + client_name updates flow through.
+- `test_put_without_linked_pa_returns_no_sync` — confirms `pa_sync.updated=false` when no PA linked.
+- `test_create_pa_on_linked_assessment_returns_already_linked` — confirms backend guard prevents duplicates.
+- `test_full_round_trip_no_duplicates` — E2E: create → link → update → score syncs → 2nd create-pa returns same PA id.
+
+
 **Status:** ✅ COMPLETE — Backend **30/30 PASS** (full 6.8.x suite) · UI E2E verified (My Assessments → Continue → Step 5 → Update flow).
 
 - **6.8.2 — Saved Assessments List**: New `/sales/my-assessments` page. Admin sees all assessments (with `created_by_name`); Sales/Partner sees only own. Search by client name, filter by status (All / Saved / Linked-PA / Shared). Status pills + Create-PA inline (with Partner picker for admin) + Delete + Open Public Link. Linked sidebar entry in Admin & Partner dashboards.

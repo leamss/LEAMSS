@@ -271,6 +271,11 @@ async def update_assessment(assessment_id: str, req: SaveAssessmentRequest, curr
 
     Permissions: owner OR admin. Re-runs the calculator and refreshes results +
     best_country snapshot. Preserves linked_pa_id / share_* fields.
+
+    Phase 6.8.6 Bug Fix — when the assessment already has a `linked_pa_id`, the
+    relevant PA fields (client, occupation, country, score-note, profile snapshot)
+    are SYNCED to that PA doc so the partner/sales dashboard reflects the latest
+    state instead of stale data. Returns `pa_sync` info in the response.
     """
     if not _can_access(current_user):
         raise HTTPException(status_code=403, detail="Not authorised")
@@ -288,6 +293,9 @@ async def update_assessment(assessment_id: str, req: SaveAssessmentRequest, curr
         r = calculate(req.profile, t.country, t.visa_subclass)
         results.append(r)
     best = max(results, key=lambda r: r.get("total", 0)) if results else None
+    new_best_country = best.get("country_code") if best else None
+    new_best_total = best.get("total") if best else None
+    new_best_reco = best.get("recommendation") if best else None
 
     now = datetime.now(timezone.utc)
     update_doc = {
@@ -298,15 +306,64 @@ async def update_assessment(assessment_id: str, req: SaveAssessmentRequest, curr
         "occupation": req.occupation,
         "targets": [t.model_dump() for t in req.targets],
         "results": results,
-        "best_country_code": best.get("country_code") if best else None,
-        "best_total": best.get("total") if best else None,
-        "best_recommendation": best.get("recommendation") if best else None,
+        "best_country_code": new_best_country,
+        "best_total": new_best_total,
+        "best_recommendation": new_best_reco,
         "final_notes": req.final_notes,
         "updated_at": now,
     }
     await assessments_col.update_one({"id": assessment_id}, {"$set": update_doc})
+
+    # ─── Phase 6.8.6: Sync the linked PA so partner dashboard reflects the new
+    # score / occupation / client info — same-source-of-truth principle.
+    pa_sync = {"updated": False}
+    linked_pa_id = existing.get("linked_pa_id")
+    if linked_pa_id:
+        pa_doc = await pre_assessments_col.find_one({"id": linked_pa_id})
+        if pa_doc:
+            old_total = existing.get("best_total")
+            occ = req.occupation or {}
+            primary = (req.profile or {}).get("primary_applicant") or {}
+            pa_update = {
+                # Client snapshot
+                "client_name": req.client_name,
+                "client_email": req.client_email,
+                "client_mobile": req.client_phone,
+                # Geography + visa
+                "country": new_best_country or pa_doc.get("country") or "AU",
+                # Occupation
+                "occupation_code": occ.get("code"),
+                "occupation_title": occ.get("title"),
+                "skill_assessment_body": occ.get("assessing_body"),
+                "pathway": occ.get("pathway"),
+                # Profile snapshot
+                "client_age": (primary.get("personal") or {}).get("age"),
+                "education": (primary.get("education") or {}).get("highest_qualification"),
+                "work_experience": (primary.get("professional") or {}).get("years_experience_total"),
+                # Score note (visible in partner pipeline)
+                "notes": f"Best country: {new_best_country} · Score: {new_best_total} (updated from {old_total})",
+                "score_snapshot": new_best_total,
+                "best_country_snapshot": new_best_country,
+                "updated_at": now,
+                # Audit trail
+                "last_sync_from_assessment_at": now,
+                "last_sync_from_assessment_by": current_user.get("id"),
+            }
+            await pre_assessments_col.update_one({"id": linked_pa_id}, {"$set": pa_update})
+            pa_sync = {
+                "updated": True,
+                "pa_id": linked_pa_id,
+                "pa_number": pa_doc.get("pa_number"),
+                "old_score": old_total,
+                "new_score": new_best_total,
+                "partner_id": pa_doc.get("partner_id"),
+                "partner_name": pa_doc.get("partner_name"),
+            }
+
     refreshed = await assessments_col.find_one({"id": assessment_id}, {"_id": 0})
-    return _strip(refreshed)
+    out = _strip(refreshed)
+    out["pa_sync"] = pa_sync
+    return out
 
 
 # ════════════════════════════════════════════════════════════════

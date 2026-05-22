@@ -128,10 +128,33 @@ export default function Step7Done({ saved, createPA, navigate, headers, creating
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
-        <Button size="default" className="bg-indigo-600 hover:bg-indigo-700" onClick={openCreatePAFlow} disabled={creatingPA || loadingPartners} data-testid="create-pa-btn">
-          {(creatingPA || loadingPartners) ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <ArrowRight className="h-4 w-4 mr-1" />}
-          {creatingPA ? 'Creating…' : loadingPartners ? 'Loading…' : 'Create Pre-Assessment'}
-        </Button>
+        {saved?.linked_pa_id ? (
+          <Button
+            size="default"
+            variant="outline"
+            className="border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+            onClick={() => {
+              // Route to role-appropriate pipeline
+              try {
+                const me = JSON.parse(localStorage.getItem('user') || '{}');
+                const r = me.rbac_role || me.role;
+                if (r === 'partner') navigate('/partner');
+                else if (r === 'case_manager') navigate('/case-manager');
+                else if (['sales_executive', 'sr_sales_executive', 'sales_manager', 'sales_head'].includes(r)) navigate('/sales/dashboard');
+                else navigate('/admin');
+              } catch { navigate('/admin'); }
+            }}
+            data-testid="linked-pa-btn"
+          >
+            <UserCheck className="h-4 w-4 mr-1" />
+            Linked PA: {saved.linked_pa_id?.slice(0, 8)}…
+          </Button>
+        ) : (
+          <Button size="default" className="bg-indigo-600 hover:bg-indigo-700" onClick={openCreatePAFlow} disabled={creatingPA || loadingPartners} data-testid="create-pa-btn">
+            {(creatingPA || loadingPartners) ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <ArrowRight className="h-4 w-4 mr-1" />}
+            {creatingPA ? 'Creating…' : loadingPartners ? 'Loading…' : 'Create Pre-Assessment'}
+          </Button>
+        )}
         <Button size="default" variant="outline" onClick={() => setShareDialogOpen(true)} data-testid="save-share-btn" className="border-emerald-300 text-emerald-700 hover:bg-emerald-50">
           <Send className="h-4 w-4 mr-1" />Save &amp; Share Report
         </Button>
@@ -142,6 +165,17 @@ export default function Step7Done({ saved, createPA, navigate, headers, creating
           <FileText className="h-4 w-4 mr-1" />Print / Export PDF
         </Button>
       </div>
+
+      {saved?.linked_pa_id && (
+        <div className="bg-emerald-50 border-l-4 border-l-emerald-500 p-3 rounded text-xs" data-testid="linked-pa-banner">
+          <p className="font-semibold text-emerald-900">
+            ✓ This assessment is already linked to a Pre-Assessment.
+          </p>
+          <p className="text-emerald-700 mt-0.5">
+            Any future updates to this assessment will automatically sync to the linked PA. No duplicate PA will be created.
+          </p>
+        </div>
+      )}
 
       <Card className="p-4" data-testid="checklist-card">
         <div className="flex items-center justify-between mb-3">
