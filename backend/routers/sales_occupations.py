@@ -20,7 +20,13 @@ from core.database import db
 
 router = APIRouter(prefix="/sales/occupations", tags=["Smart Sales Helper"])
 
+# Phase 6.9.1 — Single Source of Truth migration.
+# Reads now come from `occupation_master` instead of `country_rules.occupation_codes`.
+# `country_rules` is still used for: country-level display name + visa_categories list
+# (those move into the new schema in Phase 6.9.5 Country Template, not now).
 country_rules_col = db["country_rules"]
+occupation_master_col = db["occupation_master"]
+skill_body_master_col = db["skill_body_master"]
 
 ROLE_SALES = {
     "admin", "admin_owner", "sales_executive", "sr_sales_executive",
@@ -39,44 +45,137 @@ def _can_access(user: dict) -> bool:
 # ════════════════════════════════════════════════════════════════
 # Helpers — flatten all occupations across countries into a search index
 # ════════════════════════════════════════════════════════════════
-async def _load_all_occupations(country_filter: Optional[List[str]] = None) -> List[Dict[str, Any]]:
-    """Returns a flat list of {country_code, ...occupation_fields, _search_blob}.
-    Cached per-request; cheap enough for ~90 codes.
+_COUNTRY_NAME_CACHE: Dict[str, str] = {}
+
+
+async def _country_names() -> Dict[str, str]:
+    """Cache map of country_code → human-readable country name (for UI labels)."""
+    if _COUNTRY_NAME_CACHE:
+        return _COUNTRY_NAME_CACHE
+    async for c in country_rules_col.find({}, {"_id": 0, "country_code": 1, "country": 1}):
+        if c.get("country_code"):
+            _COUNTRY_NAME_CACHE[c["country_code"]] = c.get("country") or c["country_code"]
+    return _COUNTRY_NAME_CACHE
+
+
+def _from_master(occ: Dict[str, Any], country_name: str) -> Dict[str, Any]:
+    """Phase 6.9.1 — adapter: map occupation_master document → legacy search-row shape.
+
+    Output shape is intentionally identical to the pre-migration `country_rules.occupation_codes[i]`
+    rows so every downstream endpoint (search/typeahead/detail/compare/filters) continues to work
+    unchanged. The only producer that needed touching was `_load_all_occupations` itself.
     """
-    query: Dict[str, Any] = {}
+    aa = occ.get("assessing_authority") or {}
+    hierarchy = occ.get("hierarchy") or {}
+    visa_pathways = occ.get("visa_pathways") or {}
+    pathway_lists = visa_pathways.get("pathway_lists") or []
+    # eligible_visas[] ← visa_pathways.visa_eligibility[] where eligible=true
+    eligible_visas = [
+        v.get("visa_subclass")
+        for v in (visa_pathways.get("visa_eligibility") or [])
+        if v.get("eligible") and v.get("visa_subclass")
+    ]
+    # state_demand{} ← state_territory_eligibility[]
+    state_demand = {
+        s.get("state"): s.get("demand")
+        for s in (occ.get("state_territory_eligibility") or [])
+        if s.get("state")
+    }
+    blob_parts = [
+        occ.get("code", ""),
+        occ.get("title", ""),
+        hierarchy.get("unit_group_name", ""),
+        hierarchy.get("unit_group", ""),
+        " ".join(occ.get("alternative_titles") or []),
+        aa.get("name", ""),
+        pathway_lists[0] if pathway_lists else "",
+    ]
+    return {
+        "country_code": occ.get("country_code"),
+        "country": country_name,
+        "code": occ.get("code"),
+        "title": occ.get("title"),
+        "group": hierarchy.get("unit_group_name"),
+        "group_code": hierarchy.get("unit_group"),
+        "skill_level": occ.get("skill_level"),
+        "assessing_body": aa.get("name"),
+        "pathway": pathway_lists[0] if pathway_lists else None,
+        "eligible_visas": eligible_visas,
+        "alternative_titles": occ.get("alternative_titles") or [],
+        "state_demand": state_demand,
+        "in_demand": _is_in_demand(state_demand),
+        # New 6.9.1 fields surfaced (UI may use them later)
+        "status": occ.get("status"),
+        "classification_type": occ.get("classification_type"),
+        "_search_blob": " ".join(p for p in blob_parts if p).lower(),
+    }
+
+
+async def _load_all_occupations(country_filter: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+    """Returns a flat list of search-row dicts. Reads from occupation_master (Phase 6.9.1).
+
+    Transition policy: no status filter is applied here. Sales sees all rows
+    (draft + verified + outdated) so the search never empties during the
+    migration period. Phase 6.9.4 will gate this once admin verification
+    reaches the configurable threshold (default 90%).
+    """
+    name_map = await _country_names()
+    query: Dict[str, Any] = {"status": {"$ne": "superseded"}}  # always hide soft-deleted
     if country_filter:
         query["country_code"] = {"$in": [c.upper() for c in country_filter]}
     items: List[Dict[str, Any]] = []
-    async for c in country_rules_col.find(query, {"_id": 0, "country_code": 1, "country": 1, "occupation_codes": 1}):
-        country_code = c.get("country_code")
-        country_name = c.get("country")
-        for occ in (c.get("occupation_codes") or []):
-            blob_parts = [
-                occ.get("code", ""),
-                occ.get("title", ""),
-                occ.get("group", ""),
-                occ.get("group_code", ""),
-                " ".join(occ.get("alternative_titles") or []),
-                occ.get("assessing_body", ""),
-                occ.get("pathway", ""),
-            ]
-            items.append({
-                "country_code": country_code,
-                "country": country_name,
-                "code": occ.get("code"),
-                "title": occ.get("title"),
-                "group": occ.get("group"),
-                "group_code": occ.get("group_code"),
-                "skill_level": occ.get("skill_level"),
-                "assessing_body": occ.get("assessing_body"),
-                "pathway": occ.get("pathway"),
-                "eligible_visas": occ.get("eligible_visas") or [],
-                "alternative_titles": occ.get("alternative_titles") or [],
-                "state_demand": occ.get("state_demand") or {},
-                "in_demand": _is_in_demand(occ.get("state_demand") or {}),
-                "_search_blob": " ".join(p for p in blob_parts if p).lower(),
-            })
+    async for occ in occupation_master_col.find(query, {"_id": 0}):
+        country_name = name_map.get(occ.get("country_code")) or occ.get("country_code") or ""
+        items.append(_from_master(occ, country_name))
     return items
+
+
+async def _fetch_legacy_shaped_occupation(country_code: str, code: str) -> Optional[Dict[str, Any]]:
+    """Phase 6.9.1 — adapter for the detail / compare endpoints.
+
+    Returns a dict shaped like the OLD `country_rules.occupation_codes[i]` entry
+    so the existing detail-builder logic stays unchanged. Read source is now
+    `occupation_master`. Returns None if the code isn't found.
+    """
+    occ = await occupation_master_col.find_one(
+        {"country_code": country_code.upper(), "code": str(code), "status": {"$ne": "superseded"}},
+        {"_id": 0},
+    )
+    if not occ:
+        return None
+    aa = occ.get("assessing_authority") or {}
+    hierarchy = occ.get("hierarchy") or {}
+    visa_pathways = occ.get("visa_pathways") or {}
+    pathway_lists = visa_pathways.get("pathway_lists") or []
+    eligible_visas = [
+        v.get("visa_subclass")
+        for v in (visa_pathways.get("visa_eligibility") or [])
+        if v.get("eligible") and v.get("visa_subclass")
+    ]
+    state_demand = {
+        s.get("state"): s.get("demand")
+        for s in (occ.get("state_territory_eligibility") or [])
+        if s.get("state")
+    }
+    return {
+        "code": occ.get("code"),
+        "title": occ.get("title"),
+        "group": hierarchy.get("unit_group_name"),
+        "group_code": hierarchy.get("unit_group"),
+        "skill_level": occ.get("skill_level"),
+        "assessing_body": aa.get("name"),
+        "pathway": pathway_lists[0] if pathway_lists else None,
+        "alternative_titles": occ.get("alternative_titles") or [],
+        "eligible_visas": eligible_visas,
+        "state_demand": state_demand,
+        "typical_tasks": occ.get("typical_tasks") or [],
+        "salary_range": (occ.get("skill_assessment_details") or {}).get("salary_range"),
+        # Surface new 6.9.1 fields for UI that wants them
+        "status": occ.get("status"),
+        "classification_type": occ.get("classification_type"),
+        "classification_version": occ.get("classification_version"),
+        "description": occ.get("description"),
+    }
 
 
 def _is_in_demand(state_demand: Dict[str, str]) -> bool:
@@ -280,7 +379,8 @@ async def compare_occupations(req: CompareRequest, current_user: dict = Depends(
         country = await country_rules_col.find_one({"country_code": item.country_code.upper()}, {"_id": 0})
         if not country:
             continue
-        occ = next((o for o in (country.get("occupation_codes") or []) if str(o.get("code")) == str(item.code)), None)
+        # Phase 6.9.1 — read occupation from occupation_master via adapter
+        occ = await _fetch_legacy_shaped_occupation(item.country_code, item.code)
         if not occ:
             continue
         body = None
@@ -336,8 +436,8 @@ async def get_occupation_detail(
     if not country:
         raise HTTPException(status_code=404, detail=f"Country '{country_code}' not in knowledge base")
 
-    occupations = country.get("occupation_codes") or []
-    occ = next((o for o in occupations if str(o.get("code")) == str(code)), None)
+    # Phase 6.9.1 — occupation read from occupation_master via adapter
+    occ = await _fetch_legacy_shaped_occupation(country_code, code)
     if not occ:
         raise HTTPException(status_code=404, detail=f"Occupation code '{code}' not found in {country_code}")
 
@@ -417,25 +517,31 @@ async def get_occupation_detail(
     # Tab 4: Document Checklist (rule-based, no AI)
     docs_checklist = _build_doc_checklist(occ, country, skill_body)
 
-    # Tab 5: Similar Codes (same group + skill_body)
+    # Tab 5: Similar Codes (same group + skill_body) — Phase 6.9.1: query master directly
     similar = []
-    for o in occupations:
-        if o.get("code") == occ.get("code"):
-            continue
+    similar_query = {
+        "country_code": country_code.upper(),
+        "code": {"$ne": occ.get("code")},
+        "status": {"$ne": "superseded"},
+    }
+    async for o in occupation_master_col.find(similar_query, {"_id": 0}):
+        o_aa = o.get("assessing_authority") or {}
+        o_hier = o.get("hierarchy") or {}
+        o_pathway = ((o.get("visa_pathways") or {}).get("pathway_lists") or [None])[0]
         score = 0
-        if o.get("group_code") == occ.get("group_code"):
+        if o_hier.get("unit_group") == occ.get("group_code"):
             score += 50
-        if o.get("assessing_body") == occ.get("assessing_body"):
+        if o_aa.get("name") == occ.get("assessing_body"):
             score += 30
-        if o.get("pathway") == occ.get("pathway"):
+        if o_pathway == occ.get("pathway"):
             score += 20
         if score > 0:
             similar.append({
                 "code": o.get("code"),
                 "title": o.get("title"),
-                "group": o.get("group"),
-                "pathway": o.get("pathway"),
-                "assessing_body": o.get("assessing_body"),
+                "group": o_hier.get("unit_group_name"),
+                "pathway": o_pathway,
+                "assessing_body": o_aa.get("name"),
                 "skill_level": o.get("skill_level"),
                 "similarity_score": score,
             })

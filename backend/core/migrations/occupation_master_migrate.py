@@ -253,12 +253,23 @@ async def collect_plan() -> Tuple[List[Dict], List[Dict], Dict[str, Any]]:
             bodies.append(_build_skill_body_doc(body, cc))
             summary["bodies_new"] += 1
 
-        # Occupations
+        # Occupations — dedupe within country by code (keep FIRST occurrence,
+        # log duplicate so admin can fix source data later)
+        seen_codes_this_country: Dict[str, str] = {}  # code → first title seen
         for occ in (country.get("occupation_codes") or []):
             code = str(occ.get("code") or "")
             if not code:
                 summary["warnings"].append(f"{cc}: occupation with no code, skipped")
                 continue
+            if code in seen_codes_this_country:
+                summary["warnings"].append(
+                    f"{cc}: duplicate code '{code}' in source — kept first "
+                    f"('{seen_codes_this_country[code]}'), dropped duplicate "
+                    f"('{occ.get('title')}'). Admin should re-add with correct code."
+                )
+                summary["occupations_dropped_dup"] = summary.get("occupations_dropped_dup", 0) + 1
+                continue
+            seen_codes_this_country[code] = occ.get("title") or "?"
             existing = await OCCUPATION_MASTER.find_one({"country_code": cc, "code": code}, {"_id": 0})
             if existing:
                 summary["occupations_skip"] += 1

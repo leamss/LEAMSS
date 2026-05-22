@@ -72,6 +72,15 @@ export default function EligibilityKnowledgeBase() {
   const [activeCountryDoc, setActiveCountryDoc] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('countries');
+  // Phase 6.9.1 — Occupation Master verification status badge
+  const [masterStats, setMasterStats] = useState(null);
+
+  // Pull occupation_master stats for the "Pending Verification" banner
+  useEffect(() => {
+    axios.get(`${API}/occupation-master/stats`, cfg)
+      .then(r => setMasterStats(r.data))
+      .catch(() => setMasterStats(null));
+  }, [cfg]);
 
   const loadList = useCallback(async () => {
     setLoading(true);
@@ -125,6 +134,66 @@ export default function EligibilityKnowledgeBase() {
             <RefreshCw className="h-3.5 w-3.5 mr-1" />Refresh
           </Button>
         </div>
+
+        {/* Phase 6.9.1 — Verified Knowledge Base banner */}
+        {masterStats && (
+          <Card
+            className={`p-4 border-l-4 ${masterStats.pending_verification > 0
+              ? 'border-l-amber-500 bg-amber-50/50'
+              : 'border-l-emerald-500 bg-emerald-50/50'}`}
+            data-testid="occupation-master-banner"
+          >
+            <div className="flex items-start justify-between flex-wrap gap-3">
+              <div className="flex items-start gap-3">
+                {masterStats.pending_verification > 0
+                  ? <AlertCircle className="h-6 w-6 text-amber-600 mt-0.5" />
+                  : <CheckCircle2 className="h-6 w-6 text-emerald-600 mt-0.5" />}
+                <div>
+                  <h3 className="text-sm font-bold flex items-center gap-2">
+                    Occupation Master · Verification Status
+                    <Badge className="bg-indigo-600 text-white text-[9px]">Phase 6.9 · Single Source of Truth</Badge>
+                  </h3>
+                  <p className="text-xs text-slate-600 mt-1">
+                    {masterStats.pending_verification > 0 ? (
+                      <>
+                        <strong className="text-amber-800">{masterStats.pending_verification}</strong> of{' '}
+                        <strong>{masterStats.total}</strong> codes pending verification
+                        (<strong>{masterStats.pending_percent}%</strong>).
+                        Phase 6.9.3 will let you complete drafts with AI assistance and verify against official sources.
+                      </>
+                    ) : (
+                      <>All <strong>{masterStats.total}</strong> codes verified ✓</>
+                    )}
+                  </p>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {Object.entries(masterStats.by_country || {}).map(([cc, s]) => (
+                      <div key={cc} className="text-[10px] bg-white px-2 py-1 rounded border" data-testid={`country-status-${cc}`}>
+                        <strong>{cc}:</strong>{' '}
+                        <span className="text-emerald-700">{s.verified}✓</span>{' '}
+                        <span className="text-amber-700">{s.draft}⏳</span>{' '}
+                        <span className="text-slate-500">{s.outdated || 0}⚠</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="flex flex-col items-end gap-1">
+                <div className="text-[10px] uppercase font-bold text-slate-500">Status counts</div>
+                <div className="flex gap-1">
+                  <Badge className="bg-emerald-100 text-emerald-700 text-[10px]" data-testid="badge-verified-count">
+                    {masterStats.by_status?.verified || 0} Verified
+                  </Badge>
+                  <Badge className="bg-amber-100 text-amber-700 text-[10px]" data-testid="badge-draft-count">
+                    {masterStats.by_status?.draft || 0} Draft
+                  </Badge>
+                  <Badge className="bg-slate-100 text-slate-600 text-[10px]" data-testid="badge-outdated-count">
+                    {masterStats.by_status?.outdated || 0} Outdated
+                  </Badge>
+                </div>
+              </div>
+            </div>
+          </Card>
+        )}
 
         {/* Stats */}
         {stats && (

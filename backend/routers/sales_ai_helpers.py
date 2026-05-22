@@ -95,22 +95,24 @@ async def suggest_occupation(req: SuggestRequest, current_user: dict = Depends(g
     if not EMERGENT_LLM_KEY:
         raise HTTPException(status_code=500, detail="EMERGENT_LLM_KEY not configured")
 
-    # Build the available_codes list from country_rules
-    query: Dict[str, Any] = {}
+    # Build the available_codes list from occupation_master (Phase 6.9.1 — Single Source of Truth)
+    query: Dict[str, Any] = {"status": {"$ne": "superseded"}}
     if req.country_codes:
         query["country_code"] = {"$in": [c.upper() for c in req.country_codes]}
     available_codes: List[Dict[str, Any]] = []
-    async for c in db["country_rules"].find(query, {"_id": 0, "country_code": 1, "occupation_codes": 1}):
-        for occ in (c.get("occupation_codes") or []):
-            available_codes.append({
-                "country_code": c.get("country_code"),
-                "code": occ.get("code"),
-                "title": occ.get("title"),
-                "group": occ.get("group"),
-                "assessing_body": occ.get("assessing_body"),
-                "pathway": occ.get("pathway"),
-                "alternative_titles": occ.get("alternative_titles") or [],
-            })
+    async for occ in db["occupation_master"].find(query, {"_id": 0}):
+        aa = occ.get("assessing_authority") or {}
+        hierarchy = occ.get("hierarchy") or {}
+        pathway_lists = (occ.get("visa_pathways") or {}).get("pathway_lists") or []
+        available_codes.append({
+            "country_code": occ.get("country_code"),
+            "code": occ.get("code"),
+            "title": occ.get("title"),
+            "group": hierarchy.get("unit_group_name"),
+            "assessing_body": aa.get("name"),
+            "pathway": pathway_lists[0] if pathway_lists else None,
+            "alternative_titles": occ.get("alternative_titles") or [],
+        })
 
     if not available_codes:
         raise HTTPException(status_code=400, detail="No occupation codes loaded in the knowledge base")

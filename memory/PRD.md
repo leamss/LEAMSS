@@ -5,7 +5,48 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 
 > **📌 Update (Feb 13, 2026):** `CHANGELOG.md` now tracks all completed phases (incl. **Phase 3A — Attendance & Leave** with full company policies). `ROADMAP.md` lists prioritized backlog. This PRD remains the static reference for original requirements.
 
-### 🐛 Phase 6.8.6 — Critical Bug Fix: Duplicate PA + Score-Sync (May 22, 2026)
+### 🗂️ Phase 6.9.1 — Occupation Master · Single Source of Truth (May 22, 2026)
+**Status:** ✅ COMPLETE — Backend **22/22 NEW + 56/56 FULL 6.8+6.9 regression PASS** · UI E2E verified (admin banner + sales search both work).
+
+**Foundation for the Verified Knowledge Base philosophy: "AI DRAFTS, ADMIN VERIFIES, SALES USES VERIFIED DATA"**
+
+**Migration outcome (idempotent, dry-run reviewed by Sir before commit):**
+- 88 occupations migrated to `occupation_master` (AU: 38, CA: 30, NZ: 20)
+- 18 skill bodies migrated to `skill_body_master` (AU: 9, CA: 5, NZ: 4)
+- All records → `status: "draft"` per Sir's directive (incomplete data ≠ verified)
+- `classification_type: "ANZSCO"` set on every record (OSCA-ready field)
+- `linked_product_id: null` (6.9.5 will wire to AI Workflow Builder products)
+- 1 source duplicate caught + filtered: CA-21300 (Civil Engineers kept, Construction Managers dropped — incorrect NOC code in source data, admin to re-add)
+- `country_rules` collection preserved untouched (rollback safety, only stamped `meta.migrated_to_occupation_master_at`)
+
+**New backend endpoints (`/api/occupation-master`):**
+- `GET /` — list with filters (country/status/search/body_id)
+- `GET /stats` — admin dashboard counts (by_status, by_country, pending_verification, pending_percent)
+- `GET /{id}` — single + populated assessing-body details
+- `POST /` — admin creates new code (always `draft`)
+- `PUT /{id}` — admin updates
+- `POST /{id}/verify` — admin marks `verified` with `source_reference`
+- `DELETE /{id}` — soft-delete (status=`superseded`)
+- Plus `/api/skill-body-master` GET endpoints
+
+**6 consumer refactor (transition strategy — sales never empty):**
+- `sales_occupations.py` search/typeahead/detail/compare → reads `occupation_master` via adapter (legacy shape preserved, downstream UI unchanged). No status filter applied yet (sales sees all 88 records). Phase 6.9.4 will gate this once verification ≥ threshold.
+- `sales_ai_helpers.py` suggester → reads `occupation_master`
+- Admin KB UI (`EligibilityKnowledgeBase.jsx`) → new banner: "X of 88 codes pending verification" + per-country breakdown pills + status counts
+
+**Schema design (both collections complete, no rework needed in 6.9.3):**
+- `occupation_master`: occupation_id, code, classification_type/version, country_code, title, alternative_titles, specialisations, hierarchy{}, description, typical_tasks, skill_level, assessing_authority{}, skill_assessment_details{}, visa_pathways{}, state_territory_eligibility[], similar_codes, status, verification{}, ai_draft{}, linked_product_id, audit fields
+- `skill_body_master`: body_id, slug, name, full_name, country_code, website, description, role, contact_info{}, assesses_occupations[], assessment_criteria{}, fees{standard/rpl/priority/additional}, processing{}, documents_required[], status, verification{}, ai_draft{}, linked_product_id
+
+**Indexes:** UNIQUE `(country_code, code)`, `(country_code, status)`, text on title+alternative_titles; UNIQUE `(country_code, slug)` for bodies.
+
+**Tests added** (`test_iteration122_phase691_occupation_master.py`, 22 tests):
+- Migration outcome (counts per country/status, dedupe verification)
+- CRUD endpoints (create/update/verify/delete + 409 duplicate guard)
+- Legacy endpoint compatibility (search/typeahead/detail/compare/filters)
+- RBAC (partner can list-only, admin can modify)
+
+
 **Status:** ✅ COMPLETE — Backend **4/4 NEW + 34/34 FULL 6.8.x REGRESSION PASS** · UI E2E verified end-to-end.
 
 **Bugs reported by Sir during 6.8.5 verification:**
