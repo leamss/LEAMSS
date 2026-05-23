@@ -49,6 +49,16 @@ export default function Step5Calculator({ results, calculating, data, update }) 
                 <Badge className="bg-indigo-600 text-white">{r.country_code}</Badge>
                 {r.visa_subclass && <Badge variant="outline" className="text-[10px]">Subclass {r.visa_subclass}</Badge>}
               </div>
+              {r.template_status && r.template_status !== 'verified' && (
+                <div className="text-[9px] mb-2 px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 inline-block" data-testid={`template-status-${r.country_code}`}>
+                  ⚠️ Template {r.template_status} · admin verification pending
+                </div>
+              )}
+              {r.template_in_use && (
+                <div className="text-[9px] mb-2 px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 inline-block" data-testid={`template-status-${r.country_code}`}>
+                  ✓ Verified template applied
+                </div>
+              )}
               <p className="text-4xl font-bold text-indigo-700 text-center my-3">{r.total}</p>
               <p className="text-[10px] uppercase font-bold text-slate-500 mb-2">Top Categories</p>
               <div className="space-y-0.5">

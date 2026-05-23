@@ -690,6 +690,13 @@ def _nz_recommendation(total: int, ve: Dict[str, Any], age: int) -> str:
 # Master dispatcher
 # ════════════════════════════════════════════════════════════════
 def calculate(profile: Dict[str, Any], country: str, visa_subclass: Optional[str] = None) -> Dict[str, Any]:
+    """Run the calculator for a country.
+
+    Phase 6.10.1 note: the result is a pure synchronous rule-engine output.
+    Callers that want to surface `template_status` / `template_in_use` should
+    look up `core.template_calculator.template_status(country)` themselves
+    (async) and merge the result. This keeps `calculate()` testable without DB.
+    """
     c = (country or "AU").upper()
     if c == "AU":
         return calculate_au_points(profile, visa_subclass or "189")

@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 
 from core.auth import get_current_user
 from core.sales_calculator import calculate
+from core.template_calculator import template_status as _template_status
 
 router = APIRouter(prefix="/sales/calculator", tags=["Smart Sales Helper - Calculator"])
 
@@ -42,6 +43,10 @@ async def calculate_points(req: CalculateRequest, current_user: dict = Depends(g
     result = calculate(req.profile, req.country, req.visa_subclass)
     if "error" in result:
         raise HTTPException(status_code=400, detail=result["error"])
+    # Phase 6.10.1 — expose template verification status
+    status = await _template_status(req.country)
+    result["template_status"] = status
+    result["template_in_use"] = status == "verified"
     return result
 
 
@@ -63,5 +68,10 @@ async def calculate_batch(req: BatchCalculateRequest, current_user: dict = Depen
         if not country:
             continue
         r = calculate(req.profile, country, t.get("visa_subclass"))
+        # Phase 6.10.1 — surface template status per result
+        if "error" not in r:
+            status = await _template_status(country)
+            r["template_status"] = status
+            r["template_in_use"] = status == "verified"
         out.append(r)
     return {"results": out, "count": len(out)}
