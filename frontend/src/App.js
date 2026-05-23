@@ -37,6 +37,7 @@ import TargetTemplatesManager from '@/pages/admin/TargetTemplatesManager';
 import ExpressApprovalsAdmin from '@/pages/admin/ExpressApprovalsAdmin';
 import ExpressSalesSettings from '@/pages/admin/ExpressSalesSettings';
 import EligibilityKnowledgeBase from '@/pages/admin/EligibilityKnowledgeBase';
+import OccupationMasterAdmin from '@/pages/admin/OccupationMasterAdmin';
 import EligibilityProfileWizard from '@/pages/eligibility/EligibilityProfileWizard';
 import { EligibilityProfilesList, EligibilityProfileDetail } from '@/pages/eligibility/EligibilityProfiles';
 import OccupationSearch from '@/pages/sales/OccupationSearch';
@@ -163,6 +164,11 @@ function App() {
           <Route path="/admin/eligibility/knowledge-base" element={
             <RequirePermission allowRoles={['admin_owner', 'admin']}>
               <EligibilityKnowledgeBase />
+            </RequirePermission>
+          } />
+          <Route path="/admin/kb/occupation-master" element={
+            <RequirePermission allowRoles={['admin_owner', 'admin']}>
+              <OccupationMasterAdmin />
             </RequirePermission>
           } />
           <Route path="/eligibility/profiles" element={

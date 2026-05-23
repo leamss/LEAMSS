@@ -5,8 +5,59 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 
 > **📌 Update (Feb 13, 2026):** `CHANGELOG.md` now tracks all completed phases (incl. **Phase 3A — Attendance & Leave** with full company policies). `ROADMAP.md` lists prioritized backlog. This PRD remains the static reference for original requirements.
 
-### 🗂️ Phase 6.9.1 — Occupation Master · Single Source of Truth (May 22, 2026)
+### 🗂️ Phase 6.9.2 / 6.9.3 / 6.9.4 / 6.9.5 — Verified Knowledge Base Stack (May 22-23, 2026)
+**Status:** ✅ COMPLETE — Backend **41/41 new PASS · 75/76 full regression (1 network blip)** · UI E2E verified for all 4 tabs + 3-panel editor.
+
+Sir requested all 4 sub-modules together (no sequential STOP). Built in parallel:
+
+**6.9.2 — ANZSCO / NOC Bulk Import**
+- Two-step preview→commit flow at `POST /api/occupation-master/import/preview` and `/commit`
+- Auto-detects column mappings (code/title/skill_level/unit_group/tasks/alt_titles) with fuzzy keyword matching
+- Detects duplicates in-file + in-DB before commit, shows admin warning
+- `on_duplicate=skip|update` strategies; update preserves verification + linked_product_id + assessing_authority + visa_pathways + state_territory_eligibility
+- All imported rows land as `draft`; admin verifies later
+
+**6.9.3 — AI Draft + Admin Verify (3-panel editor)**
+- New helper `core/kb_ai.py` — single integration point for Claude Sonnet 4.6 via Emergent LLM Key
+- `POST /api/occupation-master/{id}/ai-draft` — generates `{description, typical_tasks, qualification_rules, ai_confidence_note}`, caches on the doc's `ai_draft` block; strict prompt forbids inventing fees/deadlines
+- `POST /api/skill-body-master/{id}/ai-draft` — same workflow for assessing bodies
+- `POST /api/kb/polish-text` — "✨ Polish with AI" preserves facts/numbers/names, improves grammar+tone
+- `POST /api/occupation-master/{id}/verify` — admin marks `verified` with mandatory `source_reference`
+- Frontend: 3-panel editor (`AI Draft / Admin Edit / Official Source`) with Polish button on description + typical_tasks, mandatory source URL before Verify
+
+**6.9.4 — Status System + Settings**
+- New `kb_settings` collection with `outdated_threshold_months` (default 6), `verification_gate_percent` (default 90), `enforce_verified_only` (default false)
+- `GET/PUT /api/kb/settings` — admin configures
+- `POST /api/kb/auto-flag-outdated` — sweep verified records older than threshold → flips to `outdated`
+- Admin UI: stats dashboard + threshold settings + manual "Sweep & Flag Outdated" button
+
+**6.9.5 — Country Templates (Editable Points Engine)**
+- New `country_templates` collection with factors[], pass_mark, visa_subclasses[], partner_rules{}
+- Migration script seeded AU/CA/NZ templates from legacy points_system → all status=`draft`
+- CA + NZ flagged in `notes` for full admin rebuild against current IRCC CRS / NZ SMC 6-points-system
+- AU template-mirrored from legacy Schedule 6 points for admin verification
+- Full CRUD: `GET/POST/PUT/DELETE /api/country-templates/{country_code}` + `/verify`
+- Any edit to factors/pass_mark/visa_subclasses auto-reverts status to `draft` (admin re-verifies)
+- Calculator continues using rule-engine for now (zero regression); future work wires verified templates back to calculator
+
+**Admin Console UI** (`/admin/kb/occupation-master`) — single page, 4 tabs:
+- Browse & Verify (3-panel editor on click)
+- Bulk Import (file upload + preview + commit)
+- Country Templates (3 cards with factor counts + admin warnings)
+- Status & Settings (stats + threshold settings + sweep button)
+
+**Files Added**
+- Backend: `routers/occupation_master_import.py`, `routers/kb_settings.py`, `routers/country_templates.py`, `core/kb_ai.py`, `core/migrations/country_template_migrate.py`, `tests/test_iteration123_phase692_695.py` (19 tests)
+- Frontend: `pages/admin/OccupationMasterAdmin.jsx`
+
+**Files Modified**
+- `routers/occupation_master.py` (AI draft endpoint), `server.py` (router registration), `App.js` (new route), `EligibilityKnowledgeBase.jsx` (Open Admin Console button)
+- `requirements.txt` (+ openpyxl)
+
+
 **Status:** ✅ COMPLETE — Backend **22/22 NEW + 56/56 FULL 6.8+6.9 regression PASS** · UI E2E verified (admin banner + sales search both work).
+
+> _Section title for the rest of this entry:_ **Phase 6.9.1 — Occupation Master · Single Source of Truth (May 22, 2026)**
 
 **Foundation for the Verified Knowledge Base philosophy: "AI DRAFTS, ADMIN VERIFIES, SALES USES VERIFIED DATA"**
 

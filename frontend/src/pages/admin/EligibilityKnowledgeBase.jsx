@@ -178,6 +178,15 @@ export default function EligibilityKnowledgeBase() {
                 </div>
               </div>
               <div className="flex flex-col items-end gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-indigo-300 text-indigo-700 hover:bg-indigo-50"
+                  onClick={() => window.location.assign('/admin/kb/occupation-master')}
+                  data-testid="open-occupation-master-admin"
+                >
+                  <Sparkles className="h-3.5 w-3.5 mr-1" />Open Admin Console
+                </Button>
                 <div className="text-[10px] uppercase font-bold text-slate-500">Status counts</div>
                 <div className="flex gap-1">
                   <Badge className="bg-emerald-100 text-emerald-700 text-[10px]" data-testid="badge-verified-count">

@@ -71,6 +71,9 @@ from routers.sales_calculator import router as sales_calculator_router
 from routers.sales_ai_helpers import router as sales_ai_helpers_router
 from routers.sales_assessments import router as sales_assessments_router
 from routers.occupation_master import router as occupation_master_router, bodies_router as skill_body_master_router
+from routers.occupation_master_import import router as occupation_master_import_router
+from routers.kb_settings import router as kb_settings_router
+from routers.country_templates import router as country_templates_router
 from routers.doc_expiry import router as doc_expiry_router
 from routers.visa_compare import router as visa_compare_router
 from routers.share_links_dashboard import router as share_links_router
@@ -341,7 +344,8 @@ async def seed_database():
 for r in [targets_router, cost_structures_router, auth_router, users_router, products_router,
           # Smart Sales Helper (Phase 6 v2) — MUST be before legacy sales_router so /sales/* paths resolve correctly
           sales_occupations_router, sales_calculator_router, sales_ai_helpers_router, sales_assessments_router,
-          occupation_master_router, skill_body_master_router,
+          occupation_master_router, skill_body_master_router, occupation_master_import_router,
+          kb_settings_router, country_templates_router,
           sales_router, cases_router,
           documents_router, tickets_router, notifications_router, stats_router,
           activity_router, analytics_router, search_router, reports_router, settings_router,

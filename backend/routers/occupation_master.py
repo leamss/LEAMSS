@@ -20,6 +20,7 @@ from pydantic import BaseModel, Field
 
 from core.auth import get_current_user
 from core.database import db
+from core.kb_ai import draft_occupation, draft_skill_body, now_utc
 
 router = APIRouter(prefix="/occupation-master", tags=["occupation-master"])
 
@@ -366,3 +367,86 @@ async def get_body(body_id: str, current_user: dict = Depends(get_current_user))
     if not doc:
         raise HTTPException(status_code=404, detail="Skill body not found")
     return _strip(doc)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 6.9.3 — AI Draft endpoints
+# ─────────────────────────────────────────────────────────────────────────────
+@router.post("/{occupation_id}/ai-draft")
+async def generate_occupation_ai_draft(occupation_id: str, current_user: dict = Depends(get_current_user)):
+    """Admin clicks "🤖 Generate AI Draft" → calls Claude for baseline content
+    (description / typical_tasks / qualification_rules). Result cached on the
+    occupation's `ai_draft` block. Status remains 'draft' until admin verifies.
+    """
+    await _require_admin(current_user)
+    occ = await OCCUPATION_MASTER.find_one({"occupation_id": occupation_id})
+    if not occ:
+        raise HTTPException(status_code=404, detail="Occupation not found")
+    aa = occ.get("assessing_authority") or {}
+    pathway_lists = (occ.get("visa_pathways") or {}).get("pathway_lists") or []
+    hierarchy = occ.get("hierarchy") or {}
+    try:
+        draft = await draft_occupation(
+            code=occ.get("code", ""),
+            title=occ.get("title", ""),
+            country_code=occ.get("country_code", ""),
+            assessing_body=aa.get("name"),
+            pathway=pathway_lists[0] if pathway_lists else None,
+            hierarchy_group=hierarchy.get("unit_group_name"),
+        )
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=f"AI draft failed: {e}") from e
+
+    now = now_utc()
+    ai_draft_block = {
+        "description": draft.get("description", ""),
+        "typical_tasks": draft.get("typical_tasks", []),
+        "qualification_rules": draft.get("qualification_rules", ""),
+        "ai_confidence_note": draft.get("ai_confidence_note", ""),
+        "generated_at": now,
+        "generated_by_model": "claude-sonnet-4-6",
+        "generated_by": current_user["id"],
+        "is_stale": False,
+    }
+    await OCCUPATION_MASTER.update_one(
+        {"occupation_id": occupation_id},
+        {"$set": {"ai_draft": ai_draft_block, "updated_at": now}},
+    )
+    return {"ok": True, "ai_draft": ai_draft_block}
+
+
+@bodies_router.post("/{body_id_or_slug}/ai-draft")
+async def generate_body_ai_draft(body_id_or_slug: str, current_user: dict = Depends(get_current_user)):
+    await _require_admin(current_user)
+    body = await SKILL_BODY_MASTER.find_one({"body_id": body_id_or_slug})
+    if not body:
+        body = await SKILL_BODY_MASTER.find_one({"slug": body_id_or_slug})
+    if not body:
+        raise HTTPException(status_code=404, detail="Skill body not found")
+    try:
+        draft = await draft_skill_body(
+            slug=body.get("slug", ""),
+            name=body.get("name", ""),
+            full_name=body.get("full_name", ""),
+            country_code=body.get("country_code", ""),
+            website=body.get("website"),
+        )
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=f"AI draft failed: {e}") from e
+
+    now = now_utc()
+    ai_draft_block = {
+        "description": draft.get("description", ""),
+        "role": draft.get("role", ""),
+        "criteria": draft.get("general_criteria", {}),
+        "ai_confidence_note": draft.get("ai_confidence_note", ""),
+        "generated_at": now,
+        "generated_by_model": "claude-sonnet-4-6",
+        "generated_by": current_user["id"],
+        "is_stale": False,
+    }
+    await SKILL_BODY_MASTER.update_one(
+        {"body_id": body["body_id"]},
+        {"$set": {"ai_draft": ai_draft_block, "updated_at": now}},
+    )
+    return {"ok": True, "ai_draft": ai_draft_block}
