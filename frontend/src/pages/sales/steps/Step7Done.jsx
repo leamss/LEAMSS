@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   ArrowRight, FileText, Loader2, MessageSquare, Search, Send, Trophy, UserCheck,
+  FileBadge, Link2, Mail, Copy,
 } from 'lucide-react';
 import { formatApiError } from '@/lib/apiErrors';
 import { API } from '../lib/constants';
@@ -155,11 +156,9 @@ export default function Step7Done({ saved, createPA, navigate, headers, creating
             {creatingPA ? 'Creating…' : loadingPartners ? 'Loading…' : 'Create Pre-Assessment'}
           </Button>
         )}
+        <ReportActions saved={saved} data-testid="report-actions" />
         <Button size="default" variant="outline" onClick={() => setShareDialogOpen(true)} data-testid="save-share-btn" className="border-emerald-300 text-emerald-700 hover:bg-emerald-50">
           <Send className="h-4 w-4 mr-1" />Save &amp; Share Report
-        </Button>
-        <Button size="default" variant="outline" onClick={() => navigate('/sales/occupations')} data-testid="back-to-search">
-          <Search className="h-4 w-4 mr-1" />Back to Search
         </Button>
         <Button size="default" variant="outline" onClick={() => window.print()} data-testid="export-pdf">
           <FileText className="h-4 w-4 mr-1" />Print / Export PDF
@@ -327,5 +326,124 @@ export default function Step7Done({ saved, createPA, navigate, headers, creating
         </div>
       )}
     </div>
+  );
+}
+
+
+// ════════════════════════════════════════════════════════════════
+// Phase 6.10 Part 2 — Professional Report Engine actions
+// ════════════════════════════════════════════════════════════════
+function ReportActions({ saved }) {
+  const [generating, setGenerating] = useState(false);
+  const [snap, setSnap] = useState(null);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareUrl, setShareUrl] = useState('');
+  const token = localStorage.getItem('token');
+  const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token]);
+
+  const generate = async () => {
+    if (!saved?.id) {
+      toast.error('Save the assessment first');
+      return;
+    }
+    setGenerating(true);
+    try {
+      const r = await axios.post(`${API}/assessment-reports/generate`,
+        { assessment_id: saved.id, persona: 'client', mode: 'combined', include_unverified: true },
+        { headers });
+      setSnap(r.data);
+      // Auto-open PDF in new tab
+      const pdfUrl = `${API}/assessment-reports/${r.data.snapshot_id}/pdf`;
+      const a = document.createElement('a');
+      a.href = pdfUrl;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      // Need to use fetch+blob so the auth header is sent
+      const resp = await fetch(pdfUrl, { headers });
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank', 'noopener');
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      toast.success('Report generated', {
+        description: r.data.warnings?.length
+          ? `${r.data.warnings.length} verification warning(s) — admin should verify KB`
+          : 'Snapshot is immutable · Branded PDF opened in new tab',
+      });
+    } catch (e) {
+      toast.error(formatApiError(e, 'Report generation failed'));
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const createShare = async () => {
+    if (!snap) {
+      toast.error('Generate the report first');
+      return;
+    }
+    try {
+      const r = await axios.post(`${API}/assessment-reports/${snap.snapshot_id}/share`,
+        { expires_in_days: 30 }, { headers });
+      const url = `${window.location.origin}/reports/view/${r.data.share_token}`;
+      setShareUrl(url);
+      setShareOpen(true);
+      navigator.clipboard?.writeText(url).then(() => {
+        toast.success('Public link copied to clipboard', { description: 'Expires in 30 days' });
+      }).catch(() => toast.success('Public link ready'));
+    } catch (e) {
+      toast.error(formatApiError(e, 'Share link failed'));
+    }
+  };
+
+  return (
+    <>
+      {!snap ? (
+        <Button size="default" className="bg-amber-600 hover:bg-amber-700"
+          onClick={generate} disabled={generating} data-testid="generate-report-btn">
+          {generating ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <FileBadge className="h-4 w-4 mr-1" />}
+          {generating ? 'Generating…' : 'Generate Report'}
+        </Button>
+      ) : (
+        <Button size="default" variant="outline" className="border-amber-400 bg-amber-50 text-amber-900 hover:bg-amber-100"
+          onClick={createShare} data-testid="share-report-btn">
+          <Link2 className="h-4 w-4 mr-1" />Public Link
+        </Button>
+      )}
+      {shareOpen && shareUrl && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" data-testid="share-modal">
+          <Card className="bg-white p-5 max-w-md w-full">
+            <h3 className="text-base font-bold flex items-center gap-2 mb-2">
+              <Link2 className="h-4 w-4 text-amber-600" />Public Share Link
+            </h3>
+            <p className="text-xs text-slate-600 mb-3">
+              Read-only branded report. No login required. Expires in 30 days.
+            </p>
+            <div className="bg-slate-50 p-2 rounded font-mono text-[10px] break-all border" data-testid="share-url">
+              {shareUrl}
+            </div>
+            <div className="flex gap-2 mt-3">
+              <Button size="sm" variant="outline" className="flex-1"
+                onClick={() => { navigator.clipboard?.writeText(shareUrl); toast.success('Copied!'); }}
+                data-testid="copy-share-url">
+                <Copy className="h-3 w-3 mr-1" />Copy
+              </Button>
+              <Button size="sm" variant="outline" className="flex-1"
+                onClick={() => window.open(shareUrl, '_blank', 'noopener')}>
+                Open
+              </Button>
+              <Button size="sm" className="flex-1 bg-emerald-600" onClick={() => {
+                const msg = `Hello! Please find your LEAMSS Assessment Report: ${shareUrl}`;
+                window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank', 'noopener');
+              }} data-testid="whatsapp-share">
+                <MessageSquare className="h-3 w-3 mr-1" />WhatsApp
+              </Button>
+            </div>
+            <Button size="sm" variant="ghost" className="w-full mt-2" onClick={() => setShareOpen(false)}>
+              Close
+            </Button>
+          </Card>
+        </div>
+      )}
+    </>
   );
 }

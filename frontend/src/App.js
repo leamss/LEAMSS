@@ -47,6 +47,7 @@ import EligibilityCalculator from '@/pages/sales/EligibilityCalculator';
 import ClientAssessment from '@/pages/sales/ClientAssessment';
 import MyAssessments from '@/pages/sales/MyAssessments';
 import PublicAssessmentReport from '@/pages/sales/PublicAssessmentReport';
+import PublicReportView from '@/pages/PublicReportView';
 import PublicInfoSheet from '@/pages/eligibility/PublicInfoSheet';
 import AdminVendors from '@/pages/admin/AdminVendors';
 import VendorCategoriesManager from '@/pages/admin/VendorCategoriesManager';
@@ -224,6 +225,7 @@ function App() {
           } />
           {/* Public Sales Report — Phase 6.5 Save & Share (NO LOGIN) */}
           <Route path="/sales/report/:token" element={<PublicAssessmentReport />} />
+          <Route path="/reports/view/:token" element={<PublicReportView />} />
           <Route path="/admin/vendors" element={
             <RequirePermission anyOf={['vendor.view.all', 'vendor.create.any', 'system.user_manage.any']}>
               <AdminVendors />
