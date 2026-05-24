@@ -1,87 +1,115 @@
 {
   "theme": "Light",
-  "archetype": "Archetype 1 (Organic & Earthy / Trust) with Dashboard Clarity",
-  "rationale": "Immigration workflows require trust, clarity, and authority. We use the user's requested Teal (#2a777a) as the primary action color and Orange (#f7620b) for accents. To fix the rendering issue and elevate the UI, we abandon emoji flags in favor of high-quality SVG flags (react-world-flags). The layout shifts to a structured Bento 'Control Room' grid to manage the complexity of visas, forms, and workflows.",
+  "archetype": "Archetype 4 (Swiss & High-Contrast) + Archetype 5 (Luxury)",
+  "global_rules": {
+    "forbidden_colors": ["purple", "teal", "cyan", "magenta"],
+    "forbidden_fonts": ["Inter", "Roboto", "Open Sans"],
+    "design_tone": "High-end, authoritative, professional, $50K+ immigration consultancy grade. No generic SaaS slop."
+  },
   "colors": {
-    "background": "#F8F9FA",
-    "surface": "#FFFFFF",
-    "primary": "#2a777a",
-    "primary_hover": "#215f62",
-    "accent": "#f7620b",
-    "accent_hover": "#d95509",
-    "text_main": "#0F172A",
-    "text_muted": "#475569",
-    "border": "#E2E8F0"
+    "brand": {
+      "electric_blue": "#1E40FF",
+      "electric_blue_light": "#2563EB",
+      "deep_indigo": "#312E81",
+      "deep_indigo_dark": "#1E1B4B",
+      "gold_accent": "#F59E0B",
+      "gold_accent_light": "#FBBF24"
+    },
+    "surface": {
+      "background": "#F8FAFC",
+      "card_bg": "#FFFFFF",
+      "sidebar_bg": "#FFFFFF",
+      "ai_panel_bg": "#F8FAFC"
+    },
+    "text": {
+      "primary": "#1E1B4B",
+      "secondary": "#475569",
+      "muted": "#94A3B8",
+      "on_brand": "#FFFFFF"
+    }
   },
   "typography": {
-    "fonts_to_import": "https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Manrope:wght@400;600;700;800&display=swap",
-    "heading_font": "Manrope, sans-serif",
-    "body_font": "'IBM Plex Sans', sans-serif",
-    "strategy": "Manrope for clear, approachable headings with tight tracking. IBM Plex Sans for body text to give a 'document/official' feel that suits immigration.",
-    "h1": "text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900 font-['Manrope']",
-    "h2": "text-2xl font-bold tracking-tight text-slate-800 font-['Manrope']",
-    "h3": "text-lg font-semibold text-slate-800 font-['Manrope']",
-    "body": "text-base text-slate-600 leading-relaxed font-['IBM_Plex_Sans']",
-    "label": "text-xs font-bold uppercase tracking-[0.15em] text-slate-500 font-['Manrope']"
+    "headings": {
+      "family": "Manrope, sans-serif",
+      "weight": "700",
+      "tracking": "tracking-tight"
+    },
+    "body": {
+      "family": "Public Sans, sans-serif",
+      "weight": "400",
+      "tracking": "tracking-normal"
+    },
+    "scale": {
+      "h1": "text-2xl sm:text-3xl font-bold text-[#1E1B4B]",
+      "h2": "text-xl font-bold text-[#1E1B4B]",
+      "card_title": "text-base font-bold text-[#1E1B4B] leading-tight",
+      "body": "text-sm text-[#475569]",
+      "label": "text-xs font-bold uppercase tracking-[0.05em] text-[#94A3B8]"
+    }
   },
-  "layout_and_spacing": {
-    "strategy": "Control Room Grid. Utilize generous padding (p-6, p-8) inside cards to prevent clutter. Use a subtle off-white background for the main canvas to make white surfaces pop.",
-    "container": "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8",
-    "card": "bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden",
-    "grid_countries": "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6"
+  "layout": {
+    "structure": "Grid-based Unified Cockpit with Sticky Panels",
+    "sidebar_left": "w-16 md:w-64 border-r border-[#E2E8F0] bg-white flex flex-col justify-between shrink-0 transition-all",
+    "main_content": "flex-1 flex flex-col min-w-0 bg-[#F8FAFC] overflow-hidden",
+    "sidebar_right": "w-80 border-l border-[#E2E8F0] bg-[#F8FAFC] shrink-0 hidden lg:flex flex-col sticky top-0 h-screen overflow-y-auto"
   },
   "components": {
-    "navigation": {
-      "strategy": "Use a clear tabbed interface or pill-navigation at the top of the workflow builder to switch between views (Gallery, Pick-visa, Review, Saved).",
-      "tab_active": "bg-[#2a777a] text-white shadow-sm",
-      "tab_inactive": "bg-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100"
+    "top_bar": {
+      "container": "h-16 border-b border-[#E2E8F0] bg-white flex items-center justify-between px-6 shrink-0",
+      "new_client_btn": "bg-[#2563EB] text-white px-4 py-2 rounded-md font-semibold text-sm hover:bg-[#1E40FF] shadow-sm transition-colors flex items-center gap-2"
     },
-    "flags": {
-      "library": "react-world-flags",
-      "instruction": "REPLACE all emoji flags with SVG components using 'react-world-flags'. Emojis render inconsistently. Provide the 2-letter ISO code to the Flag component.",
-      "style": "w-8 h-6 rounded-sm shadow-sm object-cover border border-slate-100"
+    "funnel_bar": {
+      "container": "flex gap-2 overflow-x-auto pb-2 scrollbar-hide w-full",
+      "item": "px-4 py-2 rounded-lg border border-[#E2E8F0] bg-white text-sm font-semibold text-[#475569] flex items-center gap-3 cursor-pointer hover:border-[#2563EB] hover:text-[#2563EB] transition-colors whitespace-nowrap",
+      "active_item": "bg-[#EFF6FF] border-[#2563EB] text-[#1E40FF] shadow-sm ring-1 ring-[#2563EB]/20",
+      "badge": "px-2 py-0.5 rounded-full bg-[#F1F5F9] text-xs font-bold text-[#64748B]",
+      "active_badge": "bg-[#DBEAFE] text-[#1E40FF]"
     },
-    "country_card": {
-      "style": "Flex row layout. Left: SVG Flag (w-10 h-10 rounded-full border border-slate-100 object-cover), Right: Country Name (font-semibold text-slate-800). Add a subtle background hover effect (hover:bg-teal-50/50 hover:border-[#2a777a]/30 transition-all cursor-pointer p-4 rounded-xl border border-slate-200).",
-      "testid": "country-card-{country_code}"
+    "pipeline_card": {
+      "container": "bg-white p-4 rounded-xl border border-[#E2E8F0] shadow-[0_1px_3px_rgba(0,0,0,0.05)] hover:shadow-md hover:border-[#2563EB] transition-all cursor-grab group flex flex-col gap-3",
+      "header": "flex justify-between items-start",
+      "title": "text-base font-bold text-[#1E1B4B] leading-tight",
+      "score_badge": "flex items-center gap-1 text-xs font-bold text-[#D97706] bg-[#FEF3C7] px-2 py-1 rounded-md border border-[#FDE68A]",
+      "lifecycle_tracker": {
+        "container": "flex justify-between items-center w-full gap-1 pt-2",
+        "dot": "h-1.5 flex-1 rounded-full bg-[#F1F5F9]",
+        "dot_completed": "bg-[#2563EB]",
+        "dot_current": "bg-[#F59E0B] animate-pulse"
+      },
+      "footer": "flex justify-between items-center pt-3 border-t border-[#F1F5F9] mt-1",
+      "cta": "text-xs font-bold text-[#2563EB] hover:text-[#1E40FF] flex items-center gap-1",
+      "avatar": "w-6 h-6 rounded-full border border-[#E2E8F0] object-cover shadow-sm"
     },
-    "template_card": {
-      "style": "Bento style card. Add an 'Orange' badge (bg-[#f7620b]/10 text-[#f7620b] font-bold text-xs px-2 py-1 rounded) for 'Verified'. Highlight template name and country.",
-      "testid": "template-card-{id}"
-    },
-    "review_view": {
-      "layout": "Two-column layout (lg:grid-cols-3 gap-8). Left column (span 2): Workflow steps in a vertical timeline/stepper. Right column: Sticky summary card with Product Name input, Fees, and Save/Download actions.",
-      "verification_banner": "bg-teal-50 border border-teal-200 text-teal-900 p-4 rounded-lg flex items-start gap-3 mb-6. Use a ShieldCheck icon to denote verified status."
-    },
-    "buttons": {
-      "primary": "bg-[#2a777a] text-white hover:bg-[#215f62] rounded-lg px-6 py-2.5 font-semibold transition-colors shadow-sm shadow-teal-900/10 focus:ring-2 focus:ring-[#2a777a] focus:ring-offset-2",
-      "secondary": "bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 rounded-lg px-6 py-2.5 font-semibold transition-colors focus:ring-2 focus:ring-slate-200",
-      "accent": "bg-[#f7620b] text-white hover:bg-[#d95509] rounded-lg px-6 py-2.5 font-semibold transition-colors shadow-sm shadow-orange-900/10"
+    "ai_sidebar": {
+      "container": "p-5 flex flex-col gap-6",
+      "header": "flex items-center gap-2 text-[#312E81] font-bold text-lg",
+      "command_palette_hint": "flex items-center justify-between p-3 rounded-lg border border-[#E2E8F0] bg-white shadow-sm text-sm font-medium text-[#64748B]",
+      "quick_action_btn": "w-full text-left px-4 py-3 rounded-lg border border-[#E2E8F0] bg-white hover:border-[#2563EB] hover:shadow-sm transition-all text-sm font-semibold text-[#475569] flex items-center gap-3 group"
     }
   },
-  "icons": {
-    "library": "@phosphor-icons/react",
-    "installation": "yarn add @phosphor-icons/react",
-    "mapping": {
-      "search": "MagnifyingGlass",
-      "verified": "SealCheck",
-      "download": "DownloadSimple",
-      "save": "FloppyDisk",
-      "steps": "ListNumbers",
-      "forms": "FileText"
-    }
-  },
-  "motion": {
-    "hover": "Subtle transform (-translate-y-0.5) and shadow increase on cards.",
-    "transitions": "transition-all duration-200 ease-in-out for buttons, cards, and inputs."
+  "media": {
+    "avatars": [
+      {
+        "url": "https://images.unsplash.com/photo-1560250097-0b93528c311a?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA4Mzl8MHwxfHNlYXJjaHwxfHxwcm9mZXNzaW9uYWwlMjBidXNpbmVzcyUyMHBvcnRyYWl0JTIwaGVhZHNob3R8ZW58MHx8fHwxNzc5NDY4MjA5fDA&ixlib=rb-4.1.0&q=85",
+        "category": "agent_avatar",
+        "description": "Male agent professional headshot"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA4Mzl8MHwxfHNlYXJjaHwyfHxwcm9mZXNzaW9uYWwlMjBidXNpbmVzcyUyMHBvcnRyYWl0JTIwaGVhZHNob3R8ZW58MHx8fHwxNzc5NDY4MjA5fDA&ixlib=rb-4.1.0&q=85",
+        "category": "agent_avatar",
+        "description": "Female agent professional headshot"
+      }
+    ]
   },
   "instructions_to_main_agent": [
-    "1. INSTALL DEPENDENCIES: Run 'yarn add react-world-flags @phosphor-icons/react' in the frontend directory.",
-    "2. REPLACE EMOJI FLAGS: Map all 51 countries to their ISO alpha-2 codes and use the <Flag /> component from react-world-flags instead of emojis.",
-    "3. IMPLEMENT FONTS: Add Google Fonts link for 'Manrope' and 'IBM Plex Sans' to index.html or index.css, and configure them in tailwind.config.js.",
-    "4. UPDATE COLORS: Add the custom primary (#2a777a) and accent (#f7620b) colors to tailwind.config.js.",
-    "5. REDESIGN GALLERY VIEW: Build a clean grid of country cards using the 'country_card' style guidelines.",
-    "6. REDESIGN REVIEW VIEW: Structure the review step with a clear left-side timeline (steps/docs) and a right-side sticky summary card.",
-    "7. TESTING ATTRIBUTES: Add 'data-testid' to all interactive elements as per guidelines (e.g. data-testid='country-card-US')."
+    "Build a unified Dashboard view utilizing the provided colors. Map the primary background to #F8FAFC, and cards to pure #FFFFFF.",
+    "Do not use generic SaaS fonts (Inter/Roboto). Use 'Manrope' for headings and 'Public Sans' for body text (already imported in index.css).",
+    "Implement the Funnel Bar at the top of the main view (Leads, Assessments, PAs, Proposals, Cases, Closed) making sure they are clickable.",
+    "Each Card must display a 7-step tracker (7 small horizontal pill-shaped divs). Fill them according to a mock progress state.",
+    "On Card hover, slightly lift the card and tint the border to Electric Blue (#2563EB).",
+    "The Right panel is fixed and sticky, acting as an AI command center. Add a mock input for Cmd+K command palette.",
+    "Ensure all interactive elements have data-testid attributes.",
+    "Build a mock quick drill-in Drawer (using Shadcn Sheet component) that triggers on card click to show details.",
+    "No purple gradients. Maintain high-contrast, crisp UI suitable for $50k+ transactions."
   ]
 }
