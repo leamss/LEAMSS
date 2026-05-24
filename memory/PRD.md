@@ -6,9 +6,17 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 > **📌 Update (Feb 13, 2026):** `CHANGELOG.md` now tracks all completed phases (incl. **Phase 3A — Attendance & Leave** with full company policies). `ROADMAP.md` lists prioritized backlog. This PRD remains the static reference for original requirements.
 
 ### 🚀 Phase 6.10 Part 3 — Unified Workflow + Checklist Gating + Country Guides (May 24, 2026)
-**Status:** ✅ COMPLETE — Backend **11/11 new PASS · 37/37 full Phase 6.9+6.10 regression PASS** (`tests/test_iteration126_phase_6103.py`). UI E2E verified via screenshots (Step 7 tracker + locked checklist + public country page).
+**Status:** ✅ COMPLETE — Backend **21/21 PASS** (`tests/test_iteration125_phase_6102.py` + `tests/test_iteration126_phase_6103.py`). UI E2E verified via screenshots (Step 7 tracker + locked checklist + public country page).
 
-Sir asked for the full 3-section delivery in a single shot.
+**🐛 Bug Fix (May 24, 2026 evening):** Sir reported "verified Country Guide AU but content not in Assessment Report PDF". Root cause: `_build_snapshot()` in `assessment_reports.py` never queried the `country_guides` collection, so the renderer's `snap.get("country_guides")` was always empty and Section 5 fell back to a stub.
+
+Fix shipped:
+- `_build_snapshot()` now fetches each target country's verified `country_guides` doc + visa_subclasses meta from `country_templates`.
+- `_section_country_guide()` rewritten to render Hero subtitle + all non-empty sections (markdown body) + FAQ pairs.
+- `_section_country()` visa table now falls back to `country_templates.visa_subclasses[]` meta for the Notes column when occupation-level notes are blank.
+- Verified via AI vision scan of generated page 7: full content (Country Overview, PR Pathways, Eligibility, Fees, Timeline, Pros/Cons, Settlement, 4 FAQs) now appears in PDF.
+
+Sir requested the full 3-section delivery in a single shot.
 
 **A) Unified Workflow Status Tracker (P0)**
 - New endpoint `GET /api/sales/assessments/{id}/lifecycle` returning 7-step journey:

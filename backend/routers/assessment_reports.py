@@ -39,6 +39,7 @@ REPORT_EMAILS = db["report_emails"]
 ASSESSMENTS = db["sales_assessments"]
 OCCUPATION_MASTER = db["occupation_master"]
 COUNTRY_TEMPLATES = db["country_templates"]
+COUNTRY_GUIDES = db["country_guides"]
 ADMIN_ROLES = {"admin", "admin_owner"}
 
 
@@ -65,6 +66,7 @@ async def _build_snapshot(
 ) -> Dict[str, Any]:
     warnings: List[str] = []
     countries_data: List[Dict[str, Any]] = []
+    country_guides_data: List[Dict[str, Any]] = []
     results = assessment.get("results") or []
     targets = assessment.get("targets") or []
 
@@ -82,6 +84,13 @@ async def _build_snapshot(
         country_name = (template or {}).get("country_name") or cc
         flag = (template or {}).get("flag") or ""
         pass_mark = (template or {}).get("pass_mark") or result.get("pass_mark")
+
+        # Phase 6.10.3 fix — pull verified visa_subclasses[] so PDF Notes column populates
+        visa_subclasses_meta: Dict[str, Dict[str, Any]] = {}
+        for vs in (template or {}).get("visa_subclasses") or []:
+            code = vs.get("code") or vs.get("subclass")
+            if code:
+                visa_subclasses_meta[str(code)] = vs
 
         occ_doc: Optional[Dict[str, Any]] = None
         occ_block = assessment.get("occupation") or {}
@@ -108,10 +117,31 @@ async def _build_snapshot(
             "total": result.get("total"),
             "breakdown": result.get("breakdown") or {},
             "visa_eligibility": result.get("visa_eligibility") or {},
+            "visa_subclasses_meta": visa_subclasses_meta,
             "recommendation": result.get("recommendation"),
             "template_status": (template or {}).get("status") or "none",
+            "template_fees": (template or {}).get("fees") or {},
             "occupation": occ_doc,
         })
+
+        # Phase 6.10.3 fix — pull verified Country Guide for Section 5
+        guide = await COUNTRY_GUIDES.find_one({"country_code": cc}, {"_id": 0})
+        if guide:
+            if guide.get("status") == "verified" or include_unverified:
+                country_guides_data.append({
+                    "country_code": cc,
+                    "country_name": country_name or guide.get("name"),
+                    "flag": flag or guide.get("flag"),
+                    "status": guide.get("status"),
+                    "hero": guide.get("hero") or {},
+                    "sections": guide.get("sections") or [],
+                    "faq": guide.get("faq") or [],
+                })
+            elif guide.get("status") != "verified":
+                warnings.append(
+                    f"Country guide for {cc} is '{guide.get('status')}' — verify it under "
+                    f"/admin/country-guides to publish in this report."
+                )
 
     best = max(countries_data, key=lambda c: (c.get("total") or 0)) if countries_data else None
 
@@ -126,6 +156,7 @@ async def _build_snapshot(
         },
         "profile_snapshot": assessment.get("profile_snapshot") or {},
         "countries": countries_data,
+        "country_guides": country_guides_data,
         "best_country": best,
         "warnings": warnings,
         "generated_at_iso": datetime.now(timezone.utc).isoformat(),

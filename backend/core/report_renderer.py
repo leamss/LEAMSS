@@ -263,18 +263,29 @@ def _section_country(country: Dict[str, Any], snap, styles, idx: int):
             for task in (occ.get("typical_tasks") or [])[:12]:
                 flow.append(Paragraph(f"• {_safe(task)}", styles["body_small"]))
 
-    # Visa eligibility table
+    # Visa eligibility table — Phase 6.10.3 fix: enrich Notes from Country Template
     vp = occ.get("visa_pathways") or {}
     visas = vp.get("visa_eligibility") or []
+    vs_meta = country.get("visa_subclasses_meta") or {}
     if visas:
         flow.append(Paragraph("Visa Pathway Eligibility", styles["h2"]))
         rows = [["Subclass", "Eligible", "List", "Notes"]]
         for v in visas:
+            sub = str(v.get("visa_subclass") or "")
+            # Prefer occupation-level notes; fall back to country_template visa subclass meta
+            note_text = v.get("notes") or ""
+            if not note_text and sub in vs_meta:
+                meta = vs_meta[sub]
+                note_text = (
+                    meta.get("description")
+                    or meta.get("name")
+                    or (f"Fees: {meta.get('fees')}" if meta.get("fees") else "")
+                )
             rows.append([
-                _safe(v.get("visa_subclass")),
+                _safe(sub),
                 "✓ Yes" if v.get("eligible") else "✗ No",
                 _safe(v.get("list")),
-                _safe(v.get("notes"))[:60],
+                _safe(note_text)[:80],
             ])
         t = Table(rows, colWidths=[2.8 * cm, 2.2 * cm, 2.5 * cm, 7.5 * cm])
         t.setStyle(_table_style())
@@ -354,34 +365,57 @@ def _section_process_and_cost(snap, styles):
 
 
 def _section_country_guide(snap, styles):
-    """Phase 6.10 Part 3 stub — Country Guide content is filled in via the
-    admin-managed Country Guide collection later. For now, render the structure
-    so the report layout is final.
+    """Phase 6.10 Part 3 — Renders VERIFIED country guides from /admin/country-guides.
+
+    Each guide contributes its sections + FAQ to the PDF. Falls back to the
+    stub message when no verified guides exist yet.
     """
     flow = [Paragraph("SECTION 5 — COUNTRY GUIDE", styles["h1"])]
     guides = snap.get("country_guides") or []
     if not guides:
         flow.append(Paragraph(
             "Country guide content is currently being verified by our admin team. "
-            "The next version of this report will include job market overview, average salary, "
-            "best locations, citizenship pathway, and key benefits.",
+            "Once published under /admin/country-guides, the next generated report "
+            "will include the full country guide (PR pathways, eligibility, fees, "
+            "timeline, settlement, and FAQs).",
             styles["disclaimer"]))
         flow.append(PageBreak())
         return flow
     for g in guides:
-        flow.append(Paragraph(f"{_flag(g.get('country_code'))} {_safe(g.get('country_name'))}", styles["h2"]))
-        if g.get("job_market"):
-            flow.append(Paragraph("Job Market", styles["h3"]))
-            flow.append(Paragraph(_safe(g.get("job_market")), styles["body"]))
-        if g.get("salary"):
-            flow.append(Paragraph("Average Salary", styles["h3"]))
-            flow.append(Paragraph(_safe(g.get("salary")), styles["body"]))
-        if g.get("best_locations"):
-            flow.append(Paragraph("Best Locations", styles["h3"]))
-            flow.append(Paragraph(_safe(g.get("best_locations")), styles["body"]))
-        if g.get("citizenship_pathway"):
-            flow.append(Paragraph("Citizenship Pathway", styles["h3"]))
-            flow.append(Paragraph(_safe(g.get("citizenship_pathway")), styles["body"]))
+        # Country sub-header
+        flow.append(Paragraph(
+            f"{_safe(g.get('flag') or '')} {_safe(g.get('country_name') or g.get('country_code'))}",
+            styles["h2"]))
+        hero = g.get("hero") or {}
+        if hero.get("subtitle"):
+            flow.append(Paragraph(f"<i>{_safe(hero.get('subtitle'))}</i>", styles["body"]))
+            flow.append(Spacer(1, 4))
+        # Sections — only render the ones with content
+        for s in g.get("sections") or []:
+            body = (s.get("body_markdown") or "").strip()
+            if not body:
+                continue
+            flow.append(Paragraph(_safe(s.get("title") or s.get("key", "").title()), styles["h3"]))
+            # Render markdown-ish body — split paragraphs by blank line
+            for para in body.split("\n\n"):
+                para = para.strip()
+                if not para:
+                    continue
+                # Convert simple markdown
+                rendered = para.replace("**", "")  # bold markers stripped (reportlab plain)
+                flow.append(Paragraph(_safe(rendered), styles["body_small"]))
+        # FAQ
+        faq = g.get("faq") or []
+        if faq:
+            flow.append(Spacer(1, 6))
+            flow.append(Paragraph("Frequently Asked Questions", styles["h3"]))
+            for f in faq[:10]:
+                if f.get("question"):
+                    flow.append(Paragraph(f"<b>Q. {_safe(f.get('question'))}</b>", styles["body_small"]))
+                if f.get("answer"):
+                    flow.append(Paragraph(_safe(f.get("answer")), styles["body_small"]))
+                    flow.append(Spacer(1, 4))
+        flow.append(Spacer(1, 8))
     flow.append(PageBreak())
     return flow
 
