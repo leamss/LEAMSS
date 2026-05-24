@@ -25,7 +25,7 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   ArrowLeft, Search, Upload, Sparkles, Globe2, Settings2, FileText,
   CheckCircle2, AlertCircle, Loader2, Wand2, Save, RefreshCw, Trash2,
-  ExternalLink, Plus,
+  ExternalLink, Plus, ShieldCheck,
 } from 'lucide-react';
 
 import { formatApiError } from '@/lib/apiErrors';
@@ -641,11 +641,36 @@ function CountryTemplates({ headers }) {
 
 function TemplateCard({ t, headers, onReload }) {
   const [expanded, setExpanded] = useState(false);
+  const [verifyOpen, setVerifyOpen] = useState(false);
+  const [sourceRef, setSourceRef] = useState('');
+  const [reviewNotes, setReviewNotes] = useState('');
+  const [verifying, setVerifying] = useState(false);
   const statusColor = {
     verified: 'bg-emerald-100 text-emerald-700',
     draft: 'bg-amber-100 text-amber-700',
     outdated: 'bg-rose-100 text-rose-700',
   }[t.status] || 'bg-slate-100';
+
+  const submitVerify = async () => {
+    if (!sourceRef.trim() || sourceRef.trim().length < 5) {
+      toast.error('Source URL required (min 5 chars) — paste the official link you verified against');
+      return;
+    }
+    setVerifying(true);
+    try {
+      await axios.post(`${API}/country-templates/${t.country_code}/verify`, {
+        source_reference: sourceRef.trim(),
+        review_notes: reviewNotes.trim() || null,
+      }, { headers });
+      toast.success(`${t.country_code} template verified · Calculator + Reports will use these factors now`);
+      setVerifyOpen(false);
+      setSourceRef('');
+      setReviewNotes('');
+      onReload();
+    } catch (e) {
+      toast.error(formatApiError(e, 'Verify failed'));
+    } finally { setVerifying(false); }
+  };
 
   return (
     <Card className="p-3" data-testid={`template-card-${t.country_code}`}>
@@ -660,9 +685,68 @@ function TemplateCard({ t, headers, onReload }) {
         <p className="text-[10px]"><strong>{t.factors.length}</strong> factors · <strong>{t.visa_subclasses.length}</strong> visa subclasses</p>
         {t.notes && <p className="text-[10px] italic text-amber-700 bg-amber-50 p-1.5 rounded">{t.notes}</p>}
       </div>
-      <Button size="sm" variant="outline" className="w-full mt-2 h-7 text-[10px]" onClick={() => setExpanded(!expanded)} data-testid={`template-expand-${t.country_code}`}>
-        {expanded ? 'Collapse' : 'View factors'}
-      </Button>
+      {t.status === 'verified' && t.verification?.verified_at && (
+        <div className="mt-2 p-1.5 rounded bg-emerald-50 border border-emerald-200">
+          <p className="text-[10px] text-emerald-800 flex items-center gap-1">
+            <CheckCircle2 className="h-3 w-3" />
+            Verified {new Date(t.verification.verified_at).toLocaleDateString()}
+          </p>
+          {t.verification.source_reference && (
+            <a href={t.verification.source_reference} target="_blank" rel="noopener noreferrer"
+               className="text-[9px] text-emerald-700 hover:underline break-all"
+               data-testid={`template-source-${t.country_code}`}>
+              ↗ {t.verification.source_reference.slice(0, 60)}…
+            </a>
+          )}
+        </div>
+      )}
+      <div className="flex gap-2 mt-2">
+        <Button size="sm" variant="outline" className="flex-1 h-7 text-[10px]"
+                onClick={() => setExpanded(!expanded)}
+                data-testid={`template-expand-${t.country_code}`}>
+          {expanded ? 'Collapse' : 'View factors'}
+        </Button>
+        {t.status !== 'verified' && (
+          <Button size="sm" className="flex-1 h-7 text-[10px] bg-emerald-600 hover:bg-emerald-700"
+                  onClick={() => setVerifyOpen(true)}
+                  data-testid={`template-verify-${t.country_code}`}>
+            <ShieldCheck className="h-3 w-3 mr-1" />Verify
+          </Button>
+        )}
+      </div>
+      {verifyOpen && (
+        <div className="mt-2 p-2 bg-blue-50 border border-blue-300 rounded space-y-2"
+             data-testid={`template-verify-form-${t.country_code}`}>
+          <p className="text-[10px] font-semibold text-blue-900">Verify Template — paste official URL</p>
+          <Input
+            placeholder="https://immi.gov.au/visas/..."
+            value={sourceRef}
+            onChange={(e) => setSourceRef(e.target.value)}
+            className="h-7 text-[10px]"
+            data-testid={`template-source-input-${t.country_code}`}
+          />
+          <Textarea
+            placeholder="Review notes (optional) — what did you cross-check?"
+            value={reviewNotes}
+            onChange={(e) => setReviewNotes(e.target.value)}
+            className="text-[10px] min-h-[40px]"
+            rows={2}
+            data-testid={`template-notes-input-${t.country_code}`}
+          />
+          <div className="flex gap-2">
+            <Button size="sm" className="flex-1 h-7 text-[10px] bg-emerald-600"
+                    onClick={submitVerify} disabled={verifying || !sourceRef.trim()}
+                    data-testid={`template-confirm-verify-${t.country_code}`}>
+              {verifying ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <CheckCircle2 className="h-3 w-3 mr-1" />}
+              Confirm Verify
+            </Button>
+            <Button size="sm" variant="outline" className="flex-1 h-7 text-[10px]"
+                    onClick={() => { setVerifyOpen(false); setSourceRef(''); setReviewNotes(''); }}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
       {expanded && (
         <div className="mt-2 space-y-1 text-[10px] max-h-64 overflow-y-auto">
           {t.factors.map((f) => (
