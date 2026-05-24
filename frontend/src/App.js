@@ -38,6 +38,9 @@ import ExpressApprovalsAdmin from '@/pages/admin/ExpressApprovalsAdmin';
 import ExpressSalesSettings from '@/pages/admin/ExpressSalesSettings';
 import EligibilityKnowledgeBase from '@/pages/admin/EligibilityKnowledgeBase';
 import OccupationMasterAdmin from '@/pages/admin/OccupationMasterAdmin';
+import CountryGuidesAdmin from '@/pages/admin/CountryGuidesAdmin';
+import PublicCountryGuide from '@/pages/PublicCountryGuide';
+import PublicCountryIndex from '@/pages/PublicCountryIndex';
 import EligibilityProfileWizard from '@/pages/eligibility/EligibilityProfileWizard';
 import { EligibilityProfilesList, EligibilityProfileDetail } from '@/pages/eligibility/EligibilityProfiles';
 import OccupationSearch from '@/pages/sales/OccupationSearch';
@@ -172,6 +175,13 @@ function App() {
               <OccupationMasterAdmin />
             </RequirePermission>
           } />
+          <Route path="/admin/country-guides" element={
+            <RequirePermission allowRoles={['admin_owner', 'admin']}>
+              <CountryGuidesAdmin />
+            </RequirePermission>
+          } />
+          <Route path="/countries" element={<PublicCountryIndex />} />
+          <Route path="/countries/:code" element={<PublicCountryGuide />} />
           <Route path="/eligibility/profiles" element={
             <RequirePermission allowRoles={['admin_owner', 'admin', 'sales_executive', 'sr_sales_executive', 'sales_manager', 'sales_head', 'partner', 'case_manager']}>
               <EligibilityProfilesList />

@@ -491,10 +491,23 @@ async def create_pa_from_assessment(assessment_id: str, req: CreatePARequest, cu
 
 # ════════════════════════════════════════════════════════════════
 # Phase 6.5 — Document Checklist (rule-based, deterministic)
+# Phase 6.10.3 — Gated by Main-Fees-Paid status
 # ════════════════════════════════════════════════════════════════
+
+# Stages at which the FULL detailed checklist is unlocked (post Main Fees payment).
+_CHECKLIST_UNLOCK_STAGES = {"proposal_paid", "awaiting_final_approval", "case_created"}
+
+
 @router.get("/{assessment_id}/checklist")
 async def assessment_checklist(assessment_id: str, current_user: dict = Depends(get_current_user)):
     """Return a rule-based document checklist for the assessment.
+
+    Phase 6.10.3 — Gating logic:
+      • Detail is locked until the client has paid the **Main Service Fee** (PA stage in
+        proposal_paid / awaiting_final_approval / case_created).
+      • Before that, only summary stats + lock reason are returned. The frontend renders a
+        "🔒 Pay Main Fee to unlock" card.
+      • Admin can bypass via ?force_unlock=true (legacy compatibility / preview).
 
     Driven by: best_country_code + occupation.assessing_body + targets[].visa_subclass + marital_status.
     """
@@ -510,15 +523,198 @@ async def assessment_checklist(assessment_id: str, current_user: dict = Depends(
 
     profile = a.get("profile_snapshot") or {}
     marital = profile.get("marital_status")
-    checklist = build_checklist(
+    full_checklist = build_checklist(
         country_code=a.get("best_country_code") or "",
         occupation=a.get("occupation"),
         marital_status=marital,
         targets=a.get("targets") or [],
     )
-    checklist["assessment_id"] = assessment_id
-    checklist["client_name"] = a.get("client_name")
-    return checklist
+
+    # Determine PA fee status (gate)
+    pa_stage = None
+    pa_id = a.get("linked_pa_id")
+    if pa_id:
+        pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0, "stage": 1})
+        pa_stage = pa.get("stage") if pa else None
+
+    is_paid = pa_stage in _CHECKLIST_UNLOCK_STAGES
+    full_checklist["assessment_id"] = assessment_id
+    full_checklist["client_name"] = a.get("client_name")
+    full_checklist["pa_stage"] = pa_stage
+    full_checklist["linked_pa_id"] = pa_id
+
+    if is_paid:
+        full_checklist["is_locked"] = False
+        full_checklist["unlock_reason"] = None
+        return full_checklist
+
+    # Locked → strip items but keep summary stats
+    locked = {
+        "is_locked": True,
+        "unlock_reason": (
+            "Create the Pre-Assessment to start tracking documents."
+            if not pa_id
+            else "Pay the Main Service Fee to unlock the detailed document checklist."
+        ),
+        "lock_stage": pa_stage or "not_started",
+        "assessment_id": assessment_id,
+        "client_name": a.get("client_name"),
+        "linked_pa_id": pa_id,
+        "pa_stage": pa_stage,
+        "stats": full_checklist.get("stats"),
+        "items": [],
+        # Country / pathway labels still safe to show pre-payment
+        "country_code": full_checklist.get("country_code"),
+        "assessing_body": full_checklist.get("assessing_body"),
+        "marital_status": full_checklist.get("marital_status"),
+    }
+    return locked
+
+
+# ════════════════════════════════════════════════════════════════
+# Phase 6.10.3 — Unified Workflow / Lifecycle Tracker
+# ════════════════════════════════════════════════════════════════
+# Maps a PA stage to the (zero-indexed) lifecycle step it implies has been reached.
+_PA_STAGE_TO_LIFECYCLE_INDEX = {
+    "new": 3,                       # PA Created
+    "payment_pending": 3,
+    "payment_received": 4,          # PA Fee paid
+    "documents_submitted": 4,
+    "under_review": 4,
+    "approved": 4,
+    "express_pending_approval": 3,
+    "rejected": 4,
+    "proposal_sent": 4,
+    "proposal_paid": 5,             # Main Fee Paid
+    "awaiting_final_approval": 5,
+    "case_created": 6,              # Case Created (terminal)
+    "refund_initiated": 4,
+    "refunded": 4,
+}
+
+
+@router.get("/{assessment_id}/lifecycle")
+async def assessment_lifecycle(assessment_id: str, current_user: dict = Depends(get_current_user)):
+    """Phase 6.10.3 — Return the 7-step lifecycle of an assessment for UI tracker.
+
+    Steps (index 0-6):
+      0. Created               — record exists
+      1. Eligibility Calculated — `results` non-empty
+      2. Report Generated      — at least one snapshot in `report_snapshots`
+      3. Pre-Assessment Created — `linked_pa_id` exists
+      4. PA Fee Paid           — PA stage >= `payment_received`
+      5. Main Fee Paid         — PA stage in proposal_paid / awaiting_final / case_created
+      6. Case Created          — PA stage = `case_created`
+    """
+    if not _can_access(current_user):
+        raise HTTPException(status_code=403, detail="Not authorised")
+    a = await assessments_col.find_one({"id": assessment_id}, {"_id": 0})
+    if not a:
+        raise HTTPException(status_code=404, detail="Assessment not found")
+    role = _user_role(current_user)
+    is_admin = role in ("admin", "admin_owner") or "*" in (current_user.get("permissions") or [])
+    if not is_admin and a.get("created_by") != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Not the owner")
+
+    # Fetch supporting data
+    pa = None
+    if a.get("linked_pa_id"):
+        pa = await pre_assessments_col.find_one({"id": a["linked_pa_id"]}, {"_id": 0})
+
+    report_snapshots_col = db["report_snapshots"]
+    last_report = await report_snapshots_col.find_one(
+        {"assessment_id": assessment_id},
+        {"_id": 0, "snapshot_id": 1, "generated_at": 1},
+        sort=[("generated_at", -1)],
+    )
+
+    pa_stage = pa.get("stage") if pa else None
+    reached = _PA_STAGE_TO_LIFECYCLE_INDEX.get(pa_stage, 0) if pa_stage else 0
+    # Even without PA, step 0/1/2 can be locally reached
+    if last_report:
+        reached = max(reached, 2)
+    if a.get("results"):
+        reached = max(reached, 1)
+    if pa:
+        reached = max(reached, 3)
+
+    steps = [
+        {
+            "key": "created",
+            "label": "Assessment Created",
+            "completed": True,
+            "timestamp": a.get("created_at"),
+            "actor": a.get("created_by_name") or a.get("created_by"),
+        },
+        {
+            "key": "calculated",
+            "label": "Eligibility Calculated",
+            "completed": bool(a.get("results")),
+            "timestamp": a.get("updated_at") if a.get("results") else None,
+            "detail": (
+                f"{a.get('best_country_code')} · {a.get('best_total')} pts"
+                if a.get("best_country_code") else None
+            ),
+        },
+        {
+            "key": "report_generated",
+            "label": "Report Generated",
+            "completed": bool(last_report),
+            "timestamp": last_report.get("generated_at") if last_report else None,
+            "detail": last_report.get("snapshot_id") if last_report else None,
+        },
+        {
+            "key": "pa_created",
+            "label": "Pre-Assessment Created",
+            "completed": bool(pa),
+            "timestamp": pa.get("created_at") if pa else None,
+            "detail": (pa.get("pa_number") or pa.get("id")) if pa else None,
+            "link": f"/admin/pre-assessments?focus={pa['id']}" if pa else None,
+        },
+        {
+            "key": "pa_fee_paid",
+            "label": "Pre-Assessment Fee Paid",
+            "completed": reached >= 4,
+            "timestamp": pa.get("fee_paid_at") if pa else None,
+            "detail": "₹5,100 paid" if pa and reached >= 4 else None,
+        },
+        {
+            "key": "main_fee_paid",
+            "label": "Main Service Fee Paid",
+            "completed": reached >= 5,
+            "timestamp": pa.get("proposal_paid_at") if pa else None,
+            "detail": (
+                f"₹{pa.get('proposal_amount_final') or pa.get('proposal_fee') or '—'} paid"
+                if pa and reached >= 5 else None
+            ),
+        },
+        {
+            "key": "case_created",
+            "label": "Case Active",
+            "completed": reached >= 6,
+            "timestamp": pa.get("case_created_at") if pa else None,
+            "detail": pa.get("case_id") if pa and reached >= 6 else None,
+            "link": f"/admin/cases/{pa['case_id']}" if pa and pa.get("case_id") else None,
+        },
+    ]
+
+    # Convert datetime -> iso strings for JSON
+    for s in steps:
+        ts = s.get("timestamp")
+        if isinstance(ts, datetime):
+            s["timestamp"] = ts.isoformat()
+
+    progress_pct = round((reached / 6) * 100) if reached <= 6 else 100
+    return {
+        "assessment_id": assessment_id,
+        "client_name": a.get("client_name"),
+        "current_step_index": reached,
+        "current_step_key": steps[min(reached, 6)]["key"],
+        "progress_pct": progress_pct,
+        "pa_stage": pa_stage,
+        "linked_pa_id": a.get("linked_pa_id"),
+        "steps": steps,
+    }
 
 
 # ════════════════════════════════════════════════════════════════

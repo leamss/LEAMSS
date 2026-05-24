@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   ArrowRight, FileText, Loader2, MessageSquare, Search, Send, Trophy, UserCheck,
-  FileBadge, Link2, Mail, Copy,
+  FileBadge, Link2, Mail, Copy, Lock, CheckCircle2, Circle, Clock,
 } from 'lucide-react';
 import { formatApiError } from '@/lib/apiErrors';
 import { API } from '../lib/constants';
@@ -24,6 +24,8 @@ function getCurrentRole() {
 export default function Step7Done({ saved, createPA, navigate, headers, creatingPA }) {
   const [checklist, setChecklist] = useState(null);
   const [loadingChecklist, setLoadingChecklist] = useState(false);
+  const [lifecycle, setLifecycle] = useState(null);
+  const [loadingLifecycle, setLoadingLifecycle] = useState(false);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [shareInfo, setShareInfo] = useState(null);
   const [shareLoading, setShareLoading] = useState(false);
@@ -44,6 +46,12 @@ export default function Step7Done({ saved, createPA, navigate, headers, creating
       .then(r => setChecklist(r.data))
       .catch(e => toast.error(formatApiError(e, 'Failed to load checklist')))
       .finally(() => setLoadingChecklist(false));
+    // Phase 6.10.3 — Unified Workflow tracker
+    setLoadingLifecycle(true);
+    axios.get(`${API}/sales/assessments/${saved.id}/lifecycle`, { headers })
+      .then(r => setLifecycle(r.data))
+      .catch(() => {})
+      .finally(() => setLoadingLifecycle(false));
   }, [saved?.id, headers]);
 
   const openCreatePAFlow = async () => {
@@ -108,7 +116,7 @@ export default function Step7Done({ saved, createPA, navigate, headers, creating
   };
 
   const grouped = useMemo(() => {
-    if (!checklist?.items) return {};
+    if (!checklist?.items || checklist?.is_locked) return {};
     return checklist.items.reduce((acc, it) => {
       (acc[it.category] = acc[it.category] || []).push(it);
       return acc;
@@ -176,12 +184,81 @@ export default function Step7Done({ saved, createPA, navigate, headers, creating
         </div>
       )}
 
+      {/* Phase 6.10.3 — Unified Workflow Status Tracker */}
+      <Card className="p-4" data-testid="lifecycle-tracker">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-base font-bold flex items-center gap-2">
+            <Clock className="h-5 w-5 text-indigo-600" />Client Journey
+          </h3>
+          {lifecycle && (
+            <Badge className="bg-indigo-100 text-indigo-700" data-testid="lifecycle-progress">
+              {lifecycle.progress_pct}% complete · Step {Math.min(lifecycle.current_step_index + 1, 7)}/7
+            </Badge>
+          )}
+        </div>
+        {loadingLifecycle && !lifecycle ? (
+          <div className="flex items-center justify-center py-4 text-slate-400">
+            <Loader2 className="h-4 w-4 animate-spin mr-2" />Loading journey…
+          </div>
+        ) : lifecycle ? (
+          <ol className="relative space-y-3">
+            {/* Vertical connector line */}
+            <div className="absolute left-[11px] top-2 bottom-2 w-0.5 bg-slate-200" aria-hidden="true" />
+            {lifecycle.steps.map((s, i) => {
+              const isCurrent = i === lifecycle.current_step_index;
+              const Icon = s.completed ? CheckCircle2 : isCurrent ? Circle : Circle;
+              const iconColor = s.completed
+                ? 'text-emerald-500'
+                : isCurrent
+                  ? 'text-indigo-500 animate-pulse'
+                  : 'text-slate-300';
+              return (
+                <li key={s.key} className="relative pl-8" data-testid={`lifecycle-step-${s.key}`}>
+                  <div className="absolute left-0 top-0 bg-white">
+                    <Icon className={`h-5 w-5 ${iconColor}`} />
+                  </div>
+                  <div className="flex items-baseline justify-between gap-2 flex-wrap">
+                    <span className={`text-xs font-semibold ${s.completed ? 'text-slate-800' : isCurrent ? 'text-indigo-700' : 'text-slate-400'}`}>
+                      {s.label}
+                    </span>
+                    {s.timestamp && (
+                      <span className="text-[10px] text-slate-400 font-mono">
+                        {new Date(s.timestamp).toLocaleString()}
+                      </span>
+                    )}
+                  </div>
+                  {s.detail && (
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      {s.detail}
+                      {s.link && (
+                        <button
+                          onClick={() => navigate(s.link)}
+                          className="ml-2 text-indigo-600 hover:underline"
+                          data-testid={`lifecycle-link-${s.key}`}
+                        >
+                          Open →
+                        </button>
+                      )}
+                    </p>
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+        ) : (
+          <p className="text-xs text-slate-400 italic">Journey not available.</p>
+        )}
+      </Card>
+
       <Card className="p-4" data-testid="checklist-card">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-base font-bold flex items-center gap-2">
             <FileText className="h-5 w-5 text-indigo-600" />Document Checklist
+            {checklist?.is_locked && (
+              <Lock className="h-4 w-4 text-amber-500" data-testid="checklist-lock-icon" />
+            )}
           </h3>
-          {checklist && (
+          {checklist?.stats && (
             <div className="flex items-center gap-2 text-[11px]">
               <Badge className="bg-indigo-100 text-indigo-700" data-testid="checklist-total">{checklist.stats.total} items</Badge>
               <Badge className="bg-rose-100 text-rose-700">{checklist.stats.required} required</Badge>
@@ -189,36 +266,61 @@ export default function Step7Done({ saved, createPA, navigate, headers, creating
             </div>
           )}
         </div>
-        <p className="text-[11px] text-slate-500 mb-3">
-          Rule-based, no AI. Generated from country ({saved?.best_country_code}), occupation, marital status, and pathway.
-        </p>
-        {loadingChecklist ? (
-          <div className="flex items-center justify-center py-8 text-slate-400">
-            <Loader2 className="h-5 w-5 animate-spin mr-2" />Loading checklist…
+        {checklist?.is_locked ? (
+          <div className="bg-amber-50 border-l-4 border-l-amber-500 p-4 rounded text-xs space-y-2" data-testid="checklist-locked-banner">
+            <div className="flex items-center gap-2">
+              <Lock className="h-5 w-5 text-amber-600" />
+              <p className="text-sm font-bold text-amber-900">Detailed Checklist Locked</p>
+            </div>
+            <p className="text-amber-800">{checklist.unlock_reason}</p>
+            <div className="bg-white/60 p-2 rounded border border-amber-200 mt-2">
+              <p className="text-[10px] uppercase tracking-wide font-bold text-amber-700 mb-1">What you see now</p>
+              <ul className="text-[11px] text-amber-900 space-y-0.5 list-disc list-inside">
+                <li>Indicative document categories &amp; counts above</li>
+                <li>Country &amp; pathway summary preserved on this page</li>
+                <li>Full per-document checklist with body fees unlocks after Main Service Fee is paid</li>
+              </ul>
+            </div>
+            {!checklist.linked_pa_id && (
+              <p className="text-[11px] text-amber-700">
+                <ArrowRight className="inline h-3 w-3" /> Click <strong>Create Pre-Assessment</strong> above to begin the workflow.
+              </p>
+            )}
           </div>
-        ) : !checklist ? (
-          <p className="text-xs text-slate-400 italic">No checklist available.</p>
         ) : (
-          <div className="space-y-3">
-            {Object.entries(grouped).map(([cat, items]) => (
-              <div key={cat} data-testid={`checklist-cat-${cat.replace(/\s+/g, '-')}`}>
-                <p className="text-[10px] uppercase tracking-wide font-bold text-slate-500 mb-1">{cat}</p>
-                <ul className="space-y-1">
-                  {items.map(it => (
-                    <li key={`${cat}-${it.name}`} className="flex items-start gap-2 text-xs">
-                      <div className={`mt-0.5 h-3.5 w-3.5 rounded-full border-2 flex-shrink-0 ${it.required ? 'border-rose-400' : 'border-slate-300'}`} />
-                      <div className="flex-1">
-                        <span className={it.required ? 'font-medium text-slate-700' : 'text-slate-500'}>{it.name}</span>
-                        {it.required && <Badge className="ml-2 bg-rose-50 text-rose-600 text-[9px] py-0">Required</Badge>}
-                        {it.fee_native && <span className="ml-2 text-[10px] text-emerald-700 font-mono">{it.fee_native}</span>}
-                        {it.note && <p className="text-[10px] text-slate-400 italic mt-0.5">{it.note}</p>}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
+          <>
+            <p className="text-[11px] text-slate-500 mb-3">
+              Rule-based, no AI. Generated from country ({saved?.best_country_code}), occupation, marital status, and pathway.
+            </p>
+            {loadingChecklist ? (
+              <div className="flex items-center justify-center py-8 text-slate-400">
+                <Loader2 className="h-5 w-5 animate-spin mr-2" />Loading checklist…
               </div>
-            ))}
-          </div>
+            ) : !checklist ? (
+              <p className="text-xs text-slate-400 italic">No checklist available.</p>
+            ) : (
+              <div className="space-y-3">
+                {Object.entries(grouped).map(([cat, items]) => (
+                  <div key={cat} data-testid={`checklist-cat-${cat.replace(/\s+/g, '-')}`}>
+                    <p className="text-[10px] uppercase tracking-wide font-bold text-slate-500 mb-1">{cat}</p>
+                    <ul className="space-y-1">
+                      {items.map(it => (
+                        <li key={`${cat}-${it.name}`} className="flex items-start gap-2 text-xs">
+                          <div className={`mt-0.5 h-3.5 w-3.5 rounded-full border-2 flex-shrink-0 ${it.required ? 'border-rose-400' : 'border-slate-300'}`} />
+                          <div className="flex-1">
+                            <span className={it.required ? 'font-medium text-slate-700' : 'text-slate-500'}>{it.name}</span>
+                            {it.required && <Badge className="ml-2 bg-rose-50 text-rose-600 text-[9px] py-0">Required</Badge>}
+                            {it.fee_native && <span className="ml-2 text-[10px] text-emerald-700 font-mono">{it.fee_native}</span>}
+                            {it.note && <p className="text-[10px] text-slate-400 italic mt-0.5">{it.note}</p>}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </Card>
 

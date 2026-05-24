@@ -187,6 +187,15 @@ export default function EligibilityKnowledgeBase() {
                 >
                   <Sparkles className="h-3.5 w-3.5 mr-1" />Open Admin Console
                 </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-violet-300 text-violet-700 hover:bg-violet-50"
+                  onClick={() => window.location.assign('/admin/country-guides')}
+                  data-testid="open-country-guides-admin"
+                >
+                  <Globe className="h-3.5 w-3.5 mr-1" />Country Guides
+                </Button>
                 <div className="text-[10px] uppercase font-bold text-slate-500">Status counts</div>
                 <div className="flex gap-1">
                   <Badge className="bg-emerald-100 text-emerald-700 text-[10px]" data-testid="badge-verified-count">

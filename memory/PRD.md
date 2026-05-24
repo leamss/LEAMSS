@@ -5,6 +5,42 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 
 > **📌 Update (Feb 13, 2026):** `CHANGELOG.md` now tracks all completed phases (incl. **Phase 3A — Attendance & Leave** with full company policies). `ROADMAP.md` lists prioritized backlog. This PRD remains the static reference for original requirements.
 
+### 🚀 Phase 6.10 Part 3 — Unified Workflow + Checklist Gating + Country Guides (May 24, 2026)
+**Status:** ✅ COMPLETE — Backend **11/11 new PASS · 37/37 full Phase 6.9+6.10 regression PASS** (`tests/test_iteration126_phase_6103.py`). UI E2E verified via screenshots (Step 7 tracker + locked checklist + public country page).
+
+Sir asked for the full 3-section delivery in a single shot.
+
+**A) Unified Workflow Status Tracker (P0)**
+- New endpoint `GET /api/sales/assessments/{id}/lifecycle` returning 7-step journey:
+  `created → calculated → report_generated → pa_created → pa_fee_paid → main_fee_paid → case_created`
+- Each step carries `{completed, timestamp, actor, detail, link}` for one-click navigation.
+- PA stage → lifecycle index mapping (`_PA_STAGE_TO_LIFECYCLE_INDEX`) keeps the rule deterministic.
+- Step 7 of the wizard renders a vertical timeline card with progress pill (`Client Journey · 17% complete · Step 2/7`).
+
+**B) Detailed Checklist Gating (P0)**
+- `GET /api/sales/assessments/{id}/checklist` now gates detail behind **Main Service Fee Paid** state.
+- Unlock stages: `proposal_paid / awaiting_final_approval / case_created`.
+- Pre-payment response carries `is_locked=true`, `unlock_reason`, plus full `stats` (so the indicative count is still visible).
+- Frontend renders an amber "🔒 Detailed Checklist Locked" card with reason + what's visible / what unlocks.
+
+**C) Admin Country Guides + Public Pages (P1)**
+- New collection `country_guides` (one document per country: AU/CA/NZ/UK/USA pre-seeded as drafts).
+- New router `/api/country-guides/...` (11 endpoints): list / detail / CRUD / verify / AI-draft / public-list / public-detail.
+- `POST /{code}/ai-draft` calls Claude Sonnet 4.6 (`core/kb_ai.py` pattern) — generates `{hero_subtitle, sections{}, faq[], admin_verify_note}` cached on the doc's `ai_draft` block. Admin reviews + copy-to-editor.
+- Every edit auto-reverts status to `draft` — admin must `POST /{code}/verify` with a mandatory `source_reference` URL to publish.
+- Public endpoints `/public` and `/public/{code}` only return `verified` guides (404 on drafts/archived).
+- New admin page `/admin/country-guides` — 2-column layout: left rail (5 country list with status pills) + right editor (Hero / Sections (7) / FAQ / AI Draft tabs).
+- New public pages `/countries` (verified-only grid) and `/countries/:code` (branded read-only with Hero CTA + sections + collapsible FAQ + contact block).
+- Entry-point: violet "Country Guides" button on Eligibility Knowledge Base admin home.
+
+**Files Added (4):**
+- Backend: `routers/country_guides.py`, `tests/test_iteration126_phase_6103.py`
+- Frontend: `pages/admin/CountryGuidesAdmin.jsx`, `pages/PublicCountryGuide.jsx`, `pages/PublicCountryIndex.jsx`
+
+**Files Modified (4):**
+- Backend: `routers/sales_assessments.py` (gated checklist + new lifecycle endpoint), `server.py` (router registration)
+- Frontend: `pages/sales/steps/Step7Done.jsx` (Client Journey tracker + locked-checklist UI), `App.js` (3 new routes), `pages/admin/EligibilityKnowledgeBase.jsx` (Country Guides entry button)
+
 ### 📄 Phase 6.10 Part 2 — Professional Report Engine (May 24, 2026)
 **Status:** ✅ COMPLETE — Backend **10/10 PASS** (`tests/test_iteration125_phase_6102.py`) · UI E2E verified (public share view + branded PDF inspected).
 
