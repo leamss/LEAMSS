@@ -5,6 +5,32 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 
 > **📌 Update (Feb 13, 2026):** `CHANGELOG.md` now tracks all completed phases (incl. **Phase 3A — Attendance & Leave** with full company policies). `ROADMAP.md` lists prioritized backlog. This PRD remains the static reference for original requirements.
 
+### 📄 Phase 6.10 Part 2 — Professional Report Engine (May 24, 2026)
+**Status:** ✅ COMPLETE — Backend **10/10 PASS** (`tests/test_iteration125_phase_6102.py`) · UI E2E verified (public share view + branded PDF inspected).
+
+Sir uploaded LEAMSS branding artifacts (counseling sheet + sample assessment report). Built end-to-end immutable, branded report pipeline matching electric blue + deep indigo + gold accent palette.
+
+**Backend** (`/api/assessment-reports/...`):
+- `POST /generate` — Builds frozen snapshot from assessment + Knowledge Base. Records `data_integrity_hash` (SHA-256). Surfaces warnings when KB template/occupation is still `draft`.
+- `GET /` — Lists user's reports (admin sees all, owner sees own). Sorted recent-first.
+- `GET /{snapshot_id}` & `GET /{snapshot_id}/pdf` — RBAC-gated metadata + branded PDF stream.
+- `POST /{snapshot_id}/share` (1/7/30/90 days), `DELETE /{snapshot_id}/share` (revoke). 410 returned on revoked tokens.
+- `GET /public/{share_token}` + `/public/{share_token}/pdf` — no-auth viewer for client.
+- `POST /{snapshot_id}/email` — **MOCKED** (needs `RESEND_API_KEY` for live dispatch).
+- Snapshot is immutable: PUT/PATCH return 404/405.
+
+**PDF Renderer (`core/report_renderer.py`)** — ReportLab A4, branded sections: Cover · Executive Summary · Client Profile · Per-Country Details (AU/CA/NZ) · Points Breakdown · Visa Pathways · State/Territory Demand · Disclaimer · Footer with snapshot ID + integrity hash.
+
+**Frontend:**
+- `Step7Done.jsx` — Added `ReportActions` widget (amber "Generate Report" → "Public Link" toggle + modal with Copy/Open/WhatsApp).
+- New `PublicReportView.jsx` route `/reports/view/:token` — branded preview with Download PDF button, tamper-evident hash badge, contact details.
+
+**Verification Results (May 24, 2026):**
+- 10/10 backend pytest PASS
+- Live curl: PDF = 19 KB, 11 pages, `%PDF-1.4` magic confirmed
+- AI vision scan of generated PDF confirms: electric blue + deep indigo + gold branding, professional immigration-consultancy layout, all sections rendered correctly
+- Public Share View renders with LEAMSS header, snapshot ID, Top Recommendation (🇨🇦 Canada 372), integrity hash, contact card
+
 ### 🗂️ Phase 6.9.2 / 6.9.3 / 6.9.4 / 6.9.5 — Verified Knowledge Base Stack (May 22-23, 2026)
 **Status:** ✅ COMPLETE — Backend **41/41 new PASS · 75/76 full regression (1 network blip)** · UI E2E verified for all 4 tabs + 3-panel editor.
 
