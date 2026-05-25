@@ -1,0 +1,56 @@
+{# PROCESS FLOW — 12-step journey, visual cards grid #}
+<div class="page">
+
+  <div class="section-header">
+    <span class="eyebrow">Section 05</span>
+    <h1>Process Flow</h1>
+    <span class="rule"></span>
+    <p class="lead">Twelve transparent stages — every milestone owned by a specific LEAMSS team member, no black boxes.</p>
+  </div>
+
+  {% set steps = [
+    ('Pre-Assessment',        'Submit profile + supporting documents.',           'You'),
+    ('Admin Approval',        'Internal verification + first approval.',          'LEAMSS Admin'),
+    ('AI Proposal',           'Personalised proposal with detailed pricing.',     'LEAMSS Sales'),
+    ('Agreement + Main Fee',  'Sign agreement + secure payment.',                 'You + Accounts'),
+    ('Case Manager',          'Dedicated CM assigned, detailed checklist.',       'LEAMSS Operations'),
+    ('Skill Assessment',      'Lodgement with assessing authority.',              'Case Manager'),
+    ('EOI / Express Entry',   'Lodge profile with immigration authorities.',      'Case Manager'),
+    ('Nomination',            '(Where applicable) state/provincial nomination.',  'Case Manager'),
+    ('Invitation to Apply',   'Receive ITA from immigration department.',         'Government'),
+    ('Visa Application',      'Medicals · PCC · final lodgement.',                'Case Manager + You'),
+    ('Decision + Grant',      'Visa outcome — grant or further requests.',        'Government'),
+    ('Post-Landing',          'Settlement, employment, banking, accommodation.',  'CM + Partners'),
+  ] %}
+
+  <div class="row">
+    {% for title, desc, owner in steps %}
+    <div class="col-2">
+      <div class="card" style="margin-bottom:6pt;padding:10pt 12pt;border-left:3pt solid {% if loop.index <= 3 %}var(--orange-500){% elif loop.index <= 6 %}var(--teal-700){% else %}var(--slate-400){% endif %};">
+        <div style="display:flex;align-items:center;gap:8pt;margin-bottom:4pt;">
+          <div style="width:22pt;height:22pt;border-radius:50%;
+                      background:{% if loop.index <= 3 %}var(--orange-500){% elif loop.index <= 6 %}var(--teal-700){% else %}var(--slate-200){% endif %};
+                      color:{% if loop.index > 6 %}var(--slate-700){% else %}var(--white){% endif %};
+                      font-weight:800;font-size:9pt;
+                      display:flex;align-items:center;justify-content:center;">
+            {{ '%02d' % loop.index }}
+          </div>
+          <h4 style="margin:0;color:var(--teal-800);font-size:10pt;">{{ title }}</h4>
+        </div>
+        <div style="font-size:9pt;color:var(--slate-700);">{{ desc }}</div>
+        <div style="margin-top:4pt;font-size:7.5pt;font-weight:800;
+                    text-transform:uppercase;letter-spacing:0.06em;color:var(--orange-500);">
+          Owner · {{ owner }}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="spacer-sm"></div>
+  <div class="note teal">
+    <b>Transparency promise:</b> At every step you receive a dated update from your Case Manager —
+    along with the integrity hash you see on the cover page, so you can verify nothing has been altered.
+  </div>
+
+</div>

@@ -1,0 +1,112 @@
+{# ANZSCO DEEP-DIVE — premium occupation profile from ABS Feb 2026 #}
+{% set p = snap.anzsco_profile %}
+{% set ap = (p.anzsco_profile or {}) if p else {} %}
+
+<div class="page">
+
+  <div class="section-header">
+    <span class="eyebrow">Section 03 · ANZSCO Verified</span>
+    <h1>Occupation Deep-Dive</h1>
+    <span class="rule"></span>
+    <p class="lead">
+      Live labour-market signals for <b>{{ p.code }} · {{ p.title }}</b>, sourced from
+      ABS &amp; ANZSCO Feb 2026. Use this to anchor every conversation about state demand, salary,
+      and pathway choice.
+    </p>
+  </div>
+
+  {# Stat tiles row #}
+  <div class="row">
+    {% if ap.median_weekly_earnings_aud %}
+    <div class="col-3">
+      <div class="card tinted center" style="padding:12pt 10pt;">
+        <div class="eyebrow" style="color:var(--teal-700);">Median Weekly</div>
+        <div style="font-family:'Playfair Display',serif;font-size:22pt;font-weight:800;color:var(--teal-800);margin-top:4pt;">
+          AUD {{ '{:,.0f}'.format(ap.median_weekly_earnings_aud) }}
+        </div>
+        <div class="tiny">Full population earnings</div>
+      </div>
+    </div>
+    {% endif %}
+    {% if ap.employed_count %}
+    <div class="col-3">
+      <div class="card warm center" style="padding:12pt 10pt;">
+        <div class="eyebrow" style="color:var(--orange-500);">Workforce</div>
+        <div style="font-family:'Playfair Display',serif;font-size:22pt;font-weight:800;color:var(--orange-700);margin-top:4pt;">
+          {{ '{:,}'.format(ap.employed_count) }}
+        </div>
+        <div class="tiny">People currently employed</div>
+      </div>
+    </div>
+    {% endif %}
+    {% if ap.median_age %}
+    <div class="col-3">
+      <div class="card center" style="padding:12pt 10pt;background:var(--gold-100);border-color:var(--gold-100);">
+        <div class="eyebrow" style="color:var(--orange-700);">Median Age</div>
+        <div style="font-family:'Playfair Display',serif;font-size:22pt;font-weight:800;color:var(--orange-700);margin-top:4pt;">
+          {{ ap.median_age }}
+        </div>
+        <div class="tiny">{% if ap.female_share_pct is not none %}{{ ap.female_share_pct }}% female workforce{% else %}years{% endif %}</div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  {# Compact tile rows — single industries/states grid will fit alongside #}
+  {% set states = p.state_distribution or {} %}
+  {% set state_items = states.items()|list|sort(attribute=1, reverse=True) %}
+  {% if state_items %}
+    <h3>Top States by Employment Share</h3>
+    {% for st, pct in state_items[:5] %}
+      {% set bar_w = (pct|float * 2.5) if pct else 4 %}
+      <div style="display:flex;align-items:center;gap:8pt;margin-bottom:4pt;">
+        <div style="width:80pt;font-size:9.5pt;font-weight:700;color:var(--slate-700);">{{ st }}</div>
+        <div style="flex:1;height:12pt;background:var(--slate-100);border-radius:6pt;overflow:hidden;">
+          <div style="height:100%;width:{{ bar_w }}%;
+                      background:linear-gradient(90deg,var(--teal-700),var(--teal-600));
+                      border-radius:6pt;"></div>
+        </div>
+        <div style="width:36pt;font-weight:800;color:var(--teal-700);text-align:right;font-size:10pt;">{{ pct }}%</div>
+      </div>
+    {% endfor %}
+  {% endif %}
+
+  {# Industries — compact 2-col #}
+  {% set inds = p.industries_ranked or [] %}
+  {% if inds %}
+    <h3 style="margin-top:8pt;">Top Industries (Ranked)</h3>
+    <div class="row" style="margin-top:2pt;">
+      {% for ind in inds[:4] %}
+      <div class="col-2">
+        <div style="display:flex;gap:6pt;align-items:center;padding:3pt 0;border-bottom:0.5pt solid var(--border);">
+          <div style="width:16pt;height:16pt;border-radius:50%;background:var(--orange-100);
+                      color:var(--orange-700);font-weight:800;font-size:8pt;
+                      display:flex;align-items:center;justify-content:center;">
+            {{ loop.index }}
+          </div>
+          <div style="flex:1;font-size:9pt;">{{ ind }}</div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  {# Tasks #}
+  {% set tasks = p.tasks or [] %}
+  {% if tasks %}
+    <h3>Key Job Tasks</h3>
+    <div style="column-count:2;column-gap:14pt;margin-top:4pt;">
+      {% for t in tasks[:8] %}
+        <div style="break-inside:avoid;padding:3pt 0;font-size:9pt;color:var(--slate-700);">
+          <span style="color:var(--teal-700);font-weight:800;margin-right:4pt;">→</span>{{ t }}
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <div class="disclaimer" style="margin-top:8pt;">
+    <b>Source:</b> {{ (p.data_source or {}).label or 'ABS ANZSCO' }} ·
+    <b>Reference Period:</b> {{ (p.data_source or {}).reference_period or 'Feb 2026' }} · Code <b>{{ p.code }}</b>
+  </div>
+
+</div>

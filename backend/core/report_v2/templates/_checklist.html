@@ -1,0 +1,49 @@
+{# INDICATIVE DOCUMENT CHECKLIST — premium card grid #}
+<div class="page">
+
+  <div class="section-header">
+    <span class="eyebrow">Section 08</span>
+    <h1>Indicative Document Checklist</h1>
+    <span class="rule"></span>
+    <p class="lead">High-level only. Your Case Manager will issue a country- and occupation-specific
+       master checklist <b>after main fees are paid and your case is assigned.</b></p>
+  </div>
+
+  {% set categories = [
+    ('Identity',          ['Passport (all pages)', 'National ID', 'Birth certificate'],                                  '🪪'),
+    ('Education',         ['Degree certificates', 'Mark sheets / transcripts', 'Equivalency assessment (if applicable)'], '🎓'),
+    ('Experience',        ['Reference letters from employers', 'Pay slips', 'Tax records / Form 16'],                    '💼'),
+    ('Language',          ['IELTS / PTE / CELPIP / TEF result'],                                                          '🗣'),
+    ('Skill Assessment',  ['Self-declaration', 'Reference letters on company letterhead', 'Updated resume'],              '📋'),
+    ('Health & Character',['Police Clearance Certificate (PCC)', 'Medical examination (post-invitation)'],                '⚕'),
+    ('Family',            ['Marriage certificate', 'Children birth certificates', 'Spouse documents (same)'],             '👨‍👩‍👧'),
+  ] %}
+
+  <div class="row">
+    {% for cat, items, icon in categories %}
+    <div class="col-2">
+      <div class="card elevated" style="margin-bottom:6pt;padding:10pt 12pt;">
+        <div style="display:flex;align-items:center;gap:8pt;margin-bottom:4pt;">
+          <div style="width:24pt;height:24pt;border-radius:6pt;background:var(--orange-100);color:var(--orange-700);font-weight:800;font-size:13pt;display:flex;align-items:center;justify-content:center;">
+            {{ icon }}
+          </div>
+          <h4 style="margin:0;font-size:10pt;color:var(--teal-800);text-transform:none;letter-spacing:0;">{{ cat }}</h4>
+        </div>
+        {% for it in items %}
+          <div style="font-size:9pt;color:var(--slate-700);padding:2pt 0 2pt 18pt;position:relative;">
+            <span style="position:absolute;left:0;top:2pt;color:var(--teal-700);font-weight:800;">✓</span>
+            {{ it }}
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="spacer-md"></div>
+  <div class="note">
+    <b>Premium support:</b> Once your case is active, you receive a digitised checklist via the LEAMSS
+    Client Portal — upload, track approval, and chat directly with your Case Manager.
+  </div>
+
+</div>

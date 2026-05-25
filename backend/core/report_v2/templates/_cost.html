@@ -1,0 +1,98 @@
+{# COST & INVESTMENT BREAKDOWN — magazine-style with category cards + grand total #}
+{% set ce = snap.cost_estimator or {} %}
+{% set items = ce.get('items') or [] %}
+{% set totals = ce.get('total_by_currency') or {} %}
+
+{% set by_cat = {} %}
+{% for it in items %}
+  {% set cat = it.category or 'Other' %}
+  {% if cat not in by_cat %}{% set _ = by_cat.update({cat: []}) %}{% endif %}
+  {% set _ = by_cat[cat].append(it) %}
+{% endfor %}
+
+{% set cat_icons = {
+  'Government Fees': '🏛',
+  'Skill Assessment': '📋',
+  'English Test': '📖',
+  'LEAMSS Professional Fees': '⚖',
+  'Protection Policy Coverage': '🛡',
+  'Other': '◉',
+} %}
+
+<div class="page">
+
+  <div class="section-header">
+    <span class="eyebrow">Section 06</span>
+    <h1>Cost &amp; Investment Breakdown</h1>
+    <span class="rule"></span>
+    <p class="lead">Itemised, currency-grouped, audit-ready. Every line is sourced — no hidden fees,
+       no surprises. Pay only the protection-covered portion if your case is unsuccessful.</p>
+  </div>
+
+  {% for cat, cat_items in by_cat.items() %}
+    <div class="card elevated" style="margin-bottom:10pt;">
+      <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1pt solid var(--border);padding-bottom:6pt;margin-bottom:6pt;">
+        <div style="display:flex;align-items:center;gap:8pt;">
+          <div style="width:26pt;height:26pt;border-radius:6pt;background:var(--teal-100);color:var(--teal-700);font-weight:800;font-size:14pt;display:flex;align-items:center;justify-content:center;">
+            {{ cat_icons.get(cat, '◉') }}
+          </div>
+          <div>
+            <h4 style="margin:0;font-size:11pt;color:var(--teal-800);text-transform:none;letter-spacing:0;">{{ cat }}</h4>
+            <div class="tiny">{{ cat_items|length }} line item(s)</div>
+          </div>
+        </div>
+        {% set cat_total_ns = namespace(val=0, ccy='') %}
+        {% for it in cat_items %}
+          {% set cat_total_ns.val = cat_total_ns.val + (it.amount or 0) %}
+          {% set cat_total_ns.ccy = (it.currency or 'INR') %}
+        {% endfor %}
+        <div style="text-align:right;">
+          <div class="tiny">Category subtotal</div>
+          <div style="font-family:'Playfair Display',serif;font-size:14pt;font-weight:800;color:var(--teal-700);">
+            {{ cat_total_ns.ccy }} {{ '{:,.0f}'.format(cat_total_ns.val) }}
+          </div>
+        </div>
+      </div>
+
+      <table class="kv" style="margin-bottom:0;">
+        <tbody>
+          {% for it in cat_items %}
+          <tr>
+            <td style="width:48%;">{{ it.label or '—' }}{% if it.notes %}<br/><span class="tiny">{{ it.notes|truncate(80) }}</span>{% endif %}</td>
+            <td style="text-align:right;width:24%;font-weight:700;">{{ '{:,.0f}'.format(it.amount or 0) }}</td>
+            <td style="width:14%;color:var(--slate-500);">{{ it.currency or 'INR' }}</td>
+            <td style="width:14%;text-align:right;"><span class="pill slate">{{ (it.source or 'manual')|title }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endfor %}
+
+  {# Grand total card #}
+  {% if totals %}
+  <div class="card" style="background:linear-gradient(135deg,var(--teal-700),var(--teal-800));color:var(--white);border:none;padding:16pt 18pt;">
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;">
+      <div>
+        <div class="eyebrow" style="color:var(--gold-500);">Total Investment</div>
+        <h2 style="color:var(--white);margin:0;">Your end-to-end migration cost</h2>
+        <div style="opacity:0.85;font-size:9.5pt;margin-top:2pt;">Itemised above · grouped by currency · GST extra if applicable</div>
+      </div>
+      <div style="text-align:right;">
+        {% for ccy, amt in totals.items() %}
+          <div style="font-family:'Playfair Display',serif;font-size:24pt;font-weight:800;color:var(--gold-500);line-height:1.1;">
+            {{ ccy }} {{ '{:,.0f}'.format(amt) }}
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="spacer-sm"></div>
+  <div class="note">
+    <b>🛡 Protected by LEAMSS Protection Policy</b> — see the next section. Government and authority
+    fees are subject to change without notice and are confirmed in your personalised proposal.
+  </div>
+
+</div>

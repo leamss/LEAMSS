@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>LEAMSS Assessment Report — {{ snap.snapshot_id }}</title>
+  <style>{{ css|safe }}</style>
+</head>
+<body>
+
+{# ──────────────────────────────────────────────────────────────────────── #}
+{# COVER PAGE — always shown for every tier                                #}
+{# ──────────────────────────────────────────────────────────────────────── #}
+{% include "_cover.html" %}
+
+{# ──────────────────────────────────────────────────────────────────────── #}
+{# EXECUTIVE SUMMARY DASHBOARD                                             #}
+{# ──────────────────────────────────────────────────────────────────────── #}
+{% include "_executive.html" %}
+
+{# ──────────────────────────────────────────────────────────────────────── #}
+{# CLIENT PROFILE                                                          #}
+{# ──────────────────────────────────────────────────────────────────────── #}
+{% include "_client_profile.html" %}
+
+{% if snap.render_tier in ['full', 'proposal'] %}
+
+  {# ─── ANZSCO Occupation Deep-Dive ────────────────────────────────── #}
+  {% if snap.anzsco_profile %}
+    {% include "_anzsco.html" %}
+  {% endif %}
+
+  {# ─── Per-country sections ──────────────────────────────────────── #}
+  {% for country in snap.countries %}
+    {% set ctx_country = country %}
+    {% set ctx_index   = loop.index %}
+    {% include "_country.html" %}
+  {% endfor %}
+
+  {# ─── Process + Cost Breakdown ──────────────────────────────────── #}
+  {% include "_process.html" %}
+
+  {% if snap.cost_estimator and snap.cost_estimator.items %}
+    {% include "_cost.html" %}
+  {% endif %}
+
+  {# ─── Country Guide ─────────────────────────────────────────────── #}
+  {% if snap.country_guides %}
+    {% include "_country_guide.html" %}
+  {% endif %}
+
+  {# ─── Document Checklist ───────────────────────────────────────── #}
+  {% include "_checklist.html" %}
+
+{% else %}
+
+  {# Teaser tier — keep things tight                                  #}
+  {% include "_process.html" %}
+
+{% endif %}
+
+{# ──────────────────────────────────────────────────────────────────────── #}
+{# PROTECTION POLICY — every tier (this is the USP, always visible)       #}
+{# ──────────────────────────────────────────────────────────────────────── #}
+{% if snap.protection_policy %}
+  {% include "_protection.html" %}
+{% endif %}
+
+{# ──────────────────────────────────────────────────────────────────────── #}
+{# DISCLAIMER + CONTACT                                                    #}
+{# ──────────────────────────────────────────────────────────────────────── #}
+{% include "_disclaimer.html" %}
+{% include "_contact.html" %}
+
+</body>
+</html>

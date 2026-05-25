@@ -1,0 +1,168 @@
+{# COUNTRY SECTION — per-country eligibility + occupation + visa + breakdown #}
+{# Expects: ctx_country, ctx_index #}
+{% set c = ctx_country %}
+{% set cc = (c.country_code or '')|upper %}
+{# direct hex pairs (color, darker_for_gradient) — WeasyPrint doesn't support color-mix in gradients #}
+{% set country_palette = {
+  'AU': ('#0F766E', '#0A4F4A'),
+  'CA': ('#D32F2F', '#8C1A1A'),
+  'NZ': ('#65A30D', '#3F6B07'),
+  'UK': ('#EA580C', '#9C3905'),
+  'US': ('#134E4A', '#0A2D2A'),
+} %}
+{% set country_pair = country_palette.get(cc, ('#0F766E', '#0A4F4A')) %}
+{% set country_color = country_pair[0] %}
+{% set country_color_dark = country_pair[1] %}
+{% set occ = c.occupation or {} %}
+{% set ok  = (c.total or 0) >= (c.pass_mark or 999) %}
+
+<div class="page">
+
+  {# Hero banner per country #}
+  <div style="background:linear-gradient(135deg, {{ country_color }} 0%, {{ country_color }} 60%, {{ country_color_dark }} 100%);
+              color:#FFFFFF;
+              border-radius:10pt;
+              padding:18pt 20pt;
+              margin-bottom:14pt;">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;">
+      <div>
+        <div class="eyebrow" style="color:rgba(255,255,255,0.7);">Section 04.{{ ctx_index }}</div>
+        <h1 style="color:#FFFFFF;font-size:30pt;margin-bottom:4pt;">
+          {{ c.country_name or c.country_code }}
+        </h1>
+        <div style="opacity:0.85;font-size:11pt;color:#FFFFFF;">
+          Pathway: <b>Visa {{ c.visa_subclass or 'Skilled' }}</b>
+        </div>
+      </div>
+      <div style="text-align:right;color:#FFFFFF;">
+        <div style="font-family:'Playfair Display',serif;font-size:48pt;font-weight:800;line-height:1;color:#FFFFFF;">
+          {{ c.total or 0 }}
+        </div>
+        <div style="opacity:0.85;font-size:9pt;color:#FFFFFF;">
+          pass mark <b>{{ c.pass_mark or '—' }}</b>
+        </div>
+        <div style="margin-top:8pt;">
+          {% if ok %}
+            <span class="pill" style="background:#FFFFFF;color:{{ country_color }};">✓ Eligible</span>
+          {% else %}
+            <span class="pill" style="background:#D4A017;color:#1F2937;">Below threshold</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# Occupation block #}
+  {% if occ %}
+    <h3>Occupation Details</h3>
+    <table class="kv">
+      <tbody>
+        <tr><td style="width:36%;color:var(--slate-500);">Code</td><td><b>{{ occ.code or '—' }}</b></td></tr>
+        <tr><td style="color:var(--slate-500);">Title</td><td><b>{{ occ.title or '—' }}</b></td></tr>
+        {% if occ.classification_type %}
+        <tr><td style="color:var(--slate-500);">Classification</td><td>{{ occ.classification_type }} {{ occ.classification_version or '' }}</td></tr>
+        {% endif %}
+        {% if occ.skill_level %}
+        <tr><td style="color:var(--slate-500);">Skill Level</td><td>{{ occ.skill_level }}</td></tr>
+        {% endif %}
+        {% if (occ.assessing_authority or {}).name %}
+        <tr><td style="color:var(--slate-500);">Assessing Authority</td><td>{{ occ.assessing_authority.name }}</td></tr>
+        {% endif %}
+        {% set lists = (occ.visa_pathways or {}).pathway_lists or [] %}
+        {% if lists %}
+        <tr><td style="color:var(--slate-500);">Pathway Lists</td><td>{{ lists|join(', ') }}</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+
+    {% if occ.description %}
+      <div class="note teal"><b>Description:</b> {{ occ.description|truncate(420) }}</div>
+    {% endif %}
+  {% endif %}
+
+  {# Visa eligibility table #}
+  {% set vp = (occ.visa_pathways or {}) %}
+  {% set visas = vp.visa_eligibility or [] %}
+  {% if visas %}
+    <div class="spacer-sm"></div>
+    <h3>Visa Pathway Eligibility</h3>
+    <table class="kv">
+      <thead>
+        <tr><th>Subclass</th><th>Eligible</th><th>List</th><th>Notes</th></tr>
+      </thead>
+      <tbody>
+        {% for v in visas %}
+          {% set sub = v.visa_subclass|string %}
+          {% set vmeta = (c.visa_subclasses_meta or {}).get(sub) or {} %}
+          {% set note_text = v.notes or vmeta.description or vmeta.name or '' %}
+          <tr>
+            <td><b>{{ sub }}</b></td>
+            <td>{% if v.eligible %}<span class="pill teal">✓ Yes</span>{% else %}<span class="pill slate">✗ No</span>{% endif %}</td>
+            <td>{{ v.list or '—' }}</td>
+            <td class="muted" style="font-size:9pt;">{{ (note_text or '')|truncate(90) }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+
+  {# State / Territory demand (AU) #}
+  {% set state_elig = occ.state_territory_eligibility or [] %}
+  {% if state_elig %}
+    <div class="spacer-sm"></div>
+    <h3>State / Territory Demand</h3>
+    <table class="kv">
+      <thead>
+        <tr><th>State</th><th>Demand</th><th style="text-align:center;">190</th><th style="text-align:center;">491</th></tr>
+      </thead>
+      <tbody>
+        {% for s in state_elig %}
+          <tr>
+            <td><b>{{ s.state }}</b></td>
+            <td>{{ (s.demand or '—').replace('_', ' ')|title }}</td>
+            <td style="text-align:center;">{% if s.sc190 %}<span style="color:var(--teal-700);font-weight:800;">✓</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+            <td style="text-align:center;">{% if s.sc491 %}<span style="color:var(--teal-700);font-weight:800;">✓</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+
+  {# Points breakdown — horizontal bars instead of plain table #}
+  {% set breakdown = c.breakdown or {} %}
+  {% if breakdown %}
+    <div class="spacer-sm"></div>
+    <h3>Points Breakdown</h3>
+    {% set max_pts = 30 %}
+    {% for k, v in breakdown.items() %}
+      {% set pts = v.points if v is mapping else v %}
+      {% set pct = ((pts|int * 100) / max_pts) if pts else 4 %}
+      {% if pct > 100 %}{% set pct = 100 %}{% endif %}
+      <div style="display:flex;align-items:center;gap:8pt;margin-bottom:4pt;">
+        <div style="width:140pt;font-size:9pt;color:var(--slate-700);">{{ k.replace('_',' ')|title }}</div>
+        <div style="flex:1;height:12pt;background:var(--slate-100);border-radius:6pt;overflow:hidden;">
+          <div style="height:100%;width:{{ pct }}%;
+                      background:{{ country_color }};
+                      border-radius:6pt;"></div>
+        </div>
+        <div style="width:36pt;font-weight:800;color:{{ country_color }};text-align:right;font-size:10pt;">{{ pts or 0 }}</div>
+      </div>
+    {% endfor %}
+    <div style="display:flex;justify-content:flex-end;margin-top:8pt;">
+      <div style="background:{{ country_color }};color:var(--white);padding:6pt 14pt;border-radius:6pt;font-weight:800;">
+        TOTAL · {{ c.total or 0 }} points
+      </div>
+    </div>
+  {% endif %}
+
+  {# How to gain points callout #}
+  {% if not ok %}
+    <div class="spacer-md"></div>
+    <div class="note">
+      <b>How to gain points:</b> Consider improving your IELTS / PTE score, gaining additional years
+      of skilled experience, or completing an Australian/Canadian study credential. Your LEAMSS
+      counsellor will map a 6-12 month uplift plan as part of the proposal.
+    </div>
+  {% endif %}
+
+</div>

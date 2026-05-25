@@ -1,0 +1,134 @@
+{# EXECUTIVE SUMMARY — Dashboard-style page with best country + comparison #}
+{% set best = snap.best_country or {} %}
+{% set countries = snap.countries or [] %}
+
+<div class="page">
+
+  <div class="section-header">
+    <span class="eyebrow">Section 01</span>
+    <h1>Executive Summary</h1>
+    <span class="rule"></span>
+    <p class="lead">
+      A quick, high-signal overview of where you stand across your chosen pathways —
+      the right tile to start every migration conversation with.
+    </p>
+  </div>
+
+  {# Best country hero card #}
+  <div class="card elevated" style="border-left:6pt solid var(--teal-700); padding: 16pt 18pt;">
+    <span class="eyebrow" style="color:var(--orange-500);">Top Recommendation</span>
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-top:6pt;">
+      <div>
+        <h2 style="margin-bottom:2pt;">
+          {{ best.country_name or best.country_code or 'Pending' }}
+        </h2>
+        <div class="muted" style="font-size:9.5pt;">
+          {{ best.visa_subclass and ('Visa ' ~ best.visa_subclass) or 'Skilled Migration Stream' }}
+          {% if best.template_status %}
+            &nbsp;·&nbsp;
+            <span class="pill {% if best.template_status == 'verified' %}teal{% else %}orange{% endif %}">
+              {{ best.template_status }}
+            </span>
+          {% endif %}
+        </div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-family:'Playfair Display',serif;font-size:38pt;font-weight:800;color:var(--teal-700);line-height:1;">
+          {{ best.total or 0 }}
+        </div>
+        <div class="tiny" style="margin-top:2pt;">
+          pass mark <b style="color:var(--charcoal);">{{ best.pass_mark or '—' }}</b>
+        </div>
+      </div>
+    </div>
+
+    {% set verdict_eligible = (best.total or 0) >= (best.pass_mark or 999) %}
+    <div style="margin-top:10pt;">
+      {% if verdict_eligible %}
+        <span class="pill solid-teal">✓ Eligible — threshold met</span>
+      {% else %}
+        <span class="pill orange">Below threshold — see "How to gain points"</span>
+      {% endif %}
+    </div>
+  </div>
+
+  {# Country comparison grid #}
+  {% if countries|length > 1 %}
+    <div class="spacer-md"></div>
+    <h3 style="color:var(--orange-500);text-transform:uppercase;letter-spacing:0.08em;font-size:10pt;font-family:'Manrope',sans-serif;font-weight:800;">
+      All Pathways Compared
+    </h3>
+    <div class="spacer-sm"></div>
+    <table class="kv">
+      <thead>
+        <tr>
+          <th style="width:38%;">Country / Pathway</th>
+          <th style="width:18%;text-align:right;">Score</th>
+          <th style="width:18%;text-align:right;">Pass Mark</th>
+          <th style="width:26%;">Verdict</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in countries %}
+          {% set ok = (c.total or 0) >= (c.pass_mark or 999) %}
+          <tr>
+            <td><b>{{ c.country_name or c.country_code }}</b>
+              {% if c.visa_subclass %}<br/><span class="tiny">Visa {{ c.visa_subclass }}</span>{% endif %}
+            </td>
+            <td style="text-align:right;font-weight:700;color:{{ ok and 'var(--teal-700)' or 'var(--red-600)' }};">
+              {{ c.total or 0 }}
+            </td>
+            <td style="text-align:right;" class="muted">{{ c.pass_mark or '—' }}</td>
+            <td>
+              {% if ok %}
+                <span class="pill teal">✓ Eligible</span>
+              {% else %}
+                <span class="pill red">Below threshold</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+
+  {# Journey timeline strip #}
+  <div class="spacer-md"></div>
+  <h3 style="color:var(--orange-500);text-transform:uppercase;letter-spacing:0.08em;font-size:10pt;font-family:'Manrope',sans-serif;font-weight:800;">
+    Your Migration Journey · 12 Steps
+  </h3>
+  <div class="spacer-sm"></div>
+  <div style="display:flex;gap:4pt;align-items:stretch;">
+    {% set journey = [
+      ('Assessment', 'You are here'),
+      ('Pre-Approval', 'Internal review'),
+      ('Proposal', 'AI-drafted'),
+      ('Agreement', 'E-signed'),
+      ('Case Manager', 'Assigned'),
+      ('Skill Assess.', 'Lodged'),
+      ('EOI / EE', 'Profile created'),
+      ('Nomination', 'Where needed'),
+      ('Invite', 'ITA received'),
+      ('Visa Lodge', 'Medicals · PCC'),
+      ('Decision', 'Grant'),
+      ('Settlement', 'Post-landing'),
+    ] %}
+    {% for step, sub in journey %}
+      <div style="flex:1;background:{% if loop.index == 1 %}var(--orange-500){% else %}var(--slate-100){% endif %};
+                  color:{% if loop.index == 1 %}var(--white){% else %}var(--slate-500){% endif %};
+                  padding:7pt 4pt;border-radius:5pt;text-align:center;font-size:7pt;line-height:1.2;">
+        <div style="font-weight:800;font-size:7.5pt;">{{ '%02d' % loop.index }}</div>
+        <div style="font-weight:700;margin-top:1pt;">{{ step }}</div>
+        <div style="opacity:0.85;font-size:6.5pt;margin-top:1pt;">{{ sub }}</div>
+      </div>
+    {% endfor %}
+  </div>
+
+  <div class="spacer-md"></div>
+  <div class="note teal">
+    <b>How to read this report:</b> Eligibility is based on the information you provided and our verified
+    Knowledge Base. Final outcomes depend on the skill assessment authority, official policy at the time of
+    application, and supporting documentation. Every number on this report is sourced — see footer hash.
+  </div>
+
+</div>

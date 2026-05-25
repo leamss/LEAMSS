@@ -1,0 +1,74 @@
+{# COVER PAGE — Hero with client name + score donut + LEAMSS branding #}
+{% set best = snap.best_country or {} %}
+{% set client = snap.client or {} %}
+{% set total = best.total or 0 %}
+{% set pass_mark = best.pass_mark or 65 %}
+{% set pct = ((total / (pass_mark|float)) * 100) if pass_mark else 75 %}
+{% if pct > 100 %}{% set pct = 100 %}{% endif %}
+
+<div class="cover">
+
+  {# Logo mark #}
+  <div class="logo-mark">
+    {% if logo_data_uri %}
+      <img src="{{ logo_data_uri }}" alt="LEAMSS" />
+    {% else %}
+      <div style="font-family:'Playfair Display',serif;font-size:18pt;color:var(--teal-700);font-weight:800;">L</div>
+    {% endif %}
+  </div>
+
+  {# Title block #}
+  <span class="eyebrow">Confidential · Personalised Assessment</span>
+  <h1 class="cover-title">Assessment<br/>Report</h1>
+  <div class="cover-subtitle">— Your migration journey, mapped.</div>
+
+  {# Client identity card #}
+  <div class="client-card">
+    <div class="label">Prepared for</div>
+    <div class="client-name">{{ client.name or 'Valued Client' }}</div>
+
+    <div class="row">
+      <div class="item">
+        <div class="k">Best Pathway</div>
+        <div class="v">{{ best.country_name or best.country_code or '—' }}</div>
+      </div>
+      <div class="item">
+        <div class="k">Indicative Score</div>
+        <div class="v">{{ total }} <span style="font-weight:400;opacity:0.7;">/ {{ pass_mark }}</span></div>
+      </div>
+      <div class="item">
+        <div class="k">Generated</div>
+        <div class="v">{{ snap.generated_on_human }}</div>
+      </div>
+      <div class="item">
+        <div class="k">Tier</div>
+        <div class="v" style="text-transform:uppercase;letter-spacing:0.1em;">{{ snap.render_tier or 'full' }}</div>
+      </div>
+    </div>
+  </div>
+
+  {# Score donut #}
+  <div class="score-wrap">
+    <div class="score-circle" style="--pct: {{ pct|round(0,'floor')|int }};">
+      <div class="score-inner">
+        <div class="num">{{ total }}</div>
+        <div class="lbl">Points</div>
+      </div>
+    </div>
+  </div>
+
+  {# Bottom band #}
+  <div class="cover-footer">
+    <div class="company-bits">
+      <b>LEAMSS</b><br/>
+      Ladhani Education &amp; Migration Services Pvt. Ltd.<br/>
+      www.leamss.com  ·  rohit@leamss.com  ·  1800-210-2427
+    </div>
+    <div class="ref-bits">
+      <b>Ref:</b> {{ snap.snapshot_id }}<br/>
+      Hash: {{ (snap.data_integrity_hash or '')[:14] }}…<br/>
+      <i>“We Value Emotions”</i>
+    </div>
+  </div>
+
+</div>

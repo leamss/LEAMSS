@@ -1,0 +1,46 @@
+{# COUNTRY GUIDE — verified content from /admin/country-guides #}
+{% for g in (snap.country_guides or []) %}
+<div class="page">
+
+  <div class="section-header">
+    <span class="eyebrow">Section 07{% if loop.index > 1 %}.{{ loop.index }}{% endif %} · Country Guide</span>
+    <h1>{{ g.country_name or g.country_code }}</h1>
+    <span class="rule"></span>
+    {% if (g.hero or {}).subtitle %}
+      <p class="lead">{{ g.hero.subtitle }}</p>
+    {% endif %}
+  </div>
+
+  {% for s in g.sections or [] %}
+    {% set body = (s.body_markdown or '')|trim %}
+    {% if body %}
+      <h3>{{ s.title or (s.key or '')|replace('_',' ')|title }}</h3>
+      {# Render only the first 2 paragraphs to control overflow #}
+      {% set paras = body.split('\n\n') %}
+      {% for para in paras[:2] %}
+        {% set p = para|trim|replace('**','') %}
+        {% if p %}
+          <p>{{ p|truncate(600) }}</p>
+        {% endif %}
+      {% endfor %}
+    {% endif %}
+  {% endfor %}
+
+  {% if g.faq %}
+  <h3 style="margin-top:8pt;">Frequently Asked Questions</h3>
+  {% for f in g.faq[:5] %}
+    {% if f.question %}
+      <div class="card tinted" style="margin-bottom:5pt;padding:7pt 11pt;">
+        <div style="font-weight:800;color:var(--teal-800);font-size:9.5pt;margin-bottom:2pt;">
+          <span style="color:var(--orange-500);">Q.</span> {{ f.question }}
+        </div>
+        {% if f.answer %}
+          <div style="font-size:9pt;color:var(--slate-700);">{{ f.answer|truncate(360) }}</div>
+        {% endif %}
+      </div>
+    {% endif %}
+  {% endfor %}
+  {% endif %}
+
+</div>
+{% endfor %}

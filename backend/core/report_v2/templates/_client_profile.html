@@ -1,0 +1,79 @@
+{# CLIENT PROFILE — editorial Field/Value layout #}
+{% set client = snap.client or {} %}
+{% set profile = snap.profile_snapshot or {} %}
+{% set primary = (profile.primary_applicant or {}) %}
+{% set spouse  = profile.spouse %}
+
+<div class="page">
+
+  <div class="section-header">
+    <span class="eyebrow">Section 02</span>
+    <h1>Client Profile Snapshot</h1>
+    <span class="rule"></span>
+    <p class="lead">Locked at the time this report was generated. Any change requires a fresh assessment.</p>
+  </div>
+
+  <div class="row">
+    <div class="col-2">
+      <div class="card tinted">
+        <h4>Primary Applicant</h4>
+        <table class="kv" style="margin-top:6pt;">
+          <tbody>
+            <tr><td style="width:42%;color:var(--slate-500);">Full Name</td><td><b>{{ client.name or '—' }}</b></td></tr>
+            <tr><td style="color:var(--slate-500);">Email</td><td>{{ client.email or '—' }}</td></tr>
+            <tr><td style="color:var(--slate-500);">Phone</td><td>{{ client.phone or '—' }}</td></tr>
+            <tr><td style="color:var(--slate-500);">Marital Status</td><td>{{ (profile.marital_status or '—')|title }}</td></tr>
+            <tr><td style="color:var(--slate-500);">Age</td><td>{{ (primary.personal or {}).age or '—' }}</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="col-2">
+      <div class="card warm">
+        <h4>Education &amp; Profession</h4>
+        <table class="kv" style="margin-top:6pt;">
+          <tbody>
+            <tr><td style="width:42%;color:var(--slate-500);">Highest Qualification</td><td>{{ (primary.education or {}).highest_qualification or '—' }}</td></tr>
+            <tr><td style="color:var(--slate-500);">Field of Study</td><td>{{ (primary.education or {}).field_of_study or '—' }}</td></tr>
+            <tr><td style="color:var(--slate-500);">Current Profession</td><td><b>{{ (primary.professional or {}).current_profession or '—' }}</b></td></tr>
+            <tr><td style="color:var(--slate-500);">Years of Experience</td><td>{{ (primary.professional or {}).years_experience_total or '—' }}</td></tr>
+            <tr><td style="color:var(--slate-500);">IELTS Overall</td><td>{{ (((primary.language or {}).scores or {}).overall) or '—' }}</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  {% if spouse %}
+  <div class="spacer-sm"></div>
+  <div class="card elevated" style="border-left:4pt solid var(--orange-500);">
+    <h4 style="color:var(--orange-500);">Spouse · Migrating</h4>
+    <div class="row" style="margin-top:6pt;">
+      <div class="col">
+        <span class="tiny" style="text-transform:uppercase;letter-spacing:0.1em;">Age</span><br/>
+        <b>{{ (spouse.personal or {}).age or '—' }}</b>
+      </div>
+      <div class="col">
+        <span class="tiny" style="text-transform:uppercase;letter-spacing:0.1em;">Qualification</span><br/>
+        <b>{{ (spouse.education or {}).highest_qualification or '—' }}</b>
+      </div>
+      <div class="col">
+        <span class="tiny" style="text-transform:uppercase;letter-spacing:0.1em;">IELTS Overall</span><br/>
+        <b>{{ (((spouse.language or {}).scores or {}).overall) or '—' }}</b>
+      </div>
+      <div class="col">
+        <span class="tiny" style="text-transform:uppercase;letter-spacing:0.1em;">Profession</span><br/>
+        <b>{{ (spouse.professional or {}).current_profession or '—' }}</b>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="spacer-md"></div>
+  <div class="disclaimer">
+    Profile data captured at <b>{{ snap.generated_on_human }}</b>. Any factual change (age, IELTS, marital
+    status, experience) will affect points and may flip pathway eligibility — please raise it with your
+    LEAMSS counsellor before main fees are paid.
+  </div>
+
+</div>

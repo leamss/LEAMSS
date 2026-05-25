@@ -29,7 +29,14 @@ from pydantic import BaseModel, Field
 
 from core.auth import get_current_user
 from core.database import db
-from core.report_renderer import now_human, render_pdf
+from core.report_renderer import now_human, render_pdf as render_pdf_v1
+from core.report_v2 import render_pdf_v2
+
+# Phase 8 — premium HTML→PDF renderer is the default.
+# Set USE_REPORT_V2=false in env to fall back to the legacy ReportLab engine.
+import os as _os
+_USE_V2 = _os.environ.get("USE_REPORT_V2", "true").lower() != "false"
+render_pdf = render_pdf_v2 if _USE_V2 else render_pdf_v1
 
 router = APIRouter(prefix="/assessment-reports", tags=["assessment-reports"])
 

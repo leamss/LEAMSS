@@ -1,0 +1,46 @@
+{# DISCLAIMER #}
+<div class="page">
+
+  <div class="section-header">
+    <span class="eyebrow">Section 10</span>
+    <h1>Important Disclaimer</h1>
+    <span class="rule"></span>
+  </div>
+
+  <p>
+    This report is generated on <b>{{ snap.generated_on_human }}</b> based on the profile information
+    and supporting details provided by the client. Migration law, occupation lists, points-test rules,
+    fees, and processing times <b>change frequently and without notice.</b> Accuracy cannot be guaranteed.
+    Clients are strongly advised to confirm current rules with official sources or via professional
+    migration counselling before lodging any application.
+  </p>
+
+  <div class="spacer-sm"></div>
+
+  <p>
+    This report does not constitute legal or migration advice. It is an indicative assessment based on the
+    data captured at the time of generation. LEAMSS / Ladhani Education &amp; Migration Services Pvt. Ltd.
+    is not responsible for outcomes arising from external policy changes, document discrepancies, or
+    factors beyond the information provided.
+  </p>
+
+  {% if snap.warnings %}
+    <div class="spacer-sm"></div>
+    <div class="note">
+      <b>Knowledge Base Verification Notes:</b>
+      <ul style="margin-top:4pt;padding-left:18pt;">
+        {% for w in snap.warnings %}
+          <li style="font-size:9pt;">{{ w }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+
+  <div class="spacer-md"></div>
+  <div class="disclaimer">
+    <b>Snapshot ID:</b> {{ snap.snapshot_id }} ·
+    <b>Integrity Hash:</b> <code style="font-size:8pt;">{{ snap.data_integrity_hash or '—' }}</code><br/>
+    Generated {{ snap.generated_on_human }} · Frozen, immutable, audit-ready.
+  </div>
+
+</div>

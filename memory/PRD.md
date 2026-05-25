@@ -5,6 +5,72 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 
 > **📌 Update (Feb 13, 2026):** `CHANGELOG.md` now tracks all completed phases (incl. **Phase 3A — Attendance & Leave** with full company policies). `ROADMAP.md` lists prioritized backlog. This PRD remains the static reference for original requirements.
 
+### 🎨 Phase 8 — Premium PDF Renderer v2 (HTML→PDF · WeasyPrint) (May 25, 2026)
+**Status:** ✅ COMPLETE — Backend **7/7 new + 51/51 full regression PASS** (`tests/test_iteration131_phase_8_pdf_v2.py`). All 3 tiers (teaser/full/proposal) render successfully via API.
+
+Sir's ask: "Premium PDF design upgrade — naya unique LEAMSS-branded design, koi blue/indigo nahi chahiye."
+
+**Brand palette (extracted from LEAMSS logo via AI analysis):**
+- Teal `#0F766E` (primary, from "LEA" + "MS" in logo)
+- Warm Orange `#EA7C2E` (accent, from "M" letter)
+- Brand Red `#D32F2F` (highlight, from "S" letter)
+- Gold `#D4A017` (premium seal / certificate accent)
+- Charcoal `#1F2937`, Cream `#FAFAF9`, Slate `#64748B`
+- **Zero blue/indigo** anywhere.
+
+**Tech stack additions:**
+- `weasyprint==68.1` + `pydyf==0.12.1` + `tinycss2`, `cssselect2`, `pyphen`, `fonttools` — pure-Python HTML→PDF
+- `Playfair Display` (variable font) downloaded to `/app/backend/fonts/` for premium serif headings
+- Existing `Manrope` retained for body / sans-serif
+
+**Architecture:**
+- New package: `/app/backend/core/report_v2/`
+  - `renderer.py` — public `render_pdf_v2(snapshot) -> bytes`
+  - `css/theme.css` — single LEAMSS-branded stylesheet (page setup, brand variables, typography, cards, pills, charts)
+  - `templates/` (Jinja2):
+    - `base.html` — master skeleton with tier-aware `{% include %}` switching
+    - `_cover.html`, `_executive.html`, `_client_profile.html`
+    - `_anzsco.html` (compact stat tiles + state bars + industries + tasks columns)
+    - `_country.html` (per-country hero with teal/red/lime gradient + occupation + visa + state demand + points bars)
+    - `_process.html` (12-step ownership cards)
+    - `_cost.html` (category-grouped magazine-style cost cards + teal-gold "Total Investment" hero)
+    - `_country_guide.html` (verified KB content with FAQ cards)
+    - `_checklist.html` (premium 7-category grid)
+    - `_protection.html` (gold-bordered certificate card with covered/excluded two-column)
+    - `_disclaimer.html`, `_contact.html` (final thank-you with "We Value Emotions" hero)
+
+**Router wiring (`routers/assessment_reports.py`):**
+- `USE_REPORT_V2=true` env flag (default true) — set `false` to fall back to legacy ReportLab engine
+- `from core.report_v2 import render_pdf_v2` aliased to `render_pdf`, drop-in replacement
+- Zero changes to API contract — `/api/assessment-reports/{id}/pdf?tier=` works identically
+
+**Tier-based gating (preserved from Phase 7.3):**
+- **Teaser** (7 pages, ~225 KB) — Cover · Exec Summary · Profile · Process · Protection · Disclaimer · Contact
+- **Full** (15 pages, ~298 KB) — Teaser + ANZSCO Deep-Dive + Per-Country + Cost + Country Guide + Checklist
+- **Proposal** (15 pages, ~298 KB) — Full + future proposal-letter cover
+
+**Visual proof (real generated PDF · client "Phase 7.3 Demo Sir" · AU 80 pts):**
+- Page 1 Cover: dark-teal gradient with orbital ring, white logo card, Playfair "Assessment Report" title, gold italic subtitle "— Your migration journey, mapped.", glass-effect client card with name/pathway/score/generated/tier, gold "80 POINTS" donut, branded footer (95% AI-vision premium rating)
+- Page 2 Executive: "Top Recommendation" card with teal-left-rule + score 80 + green ELIGIBLE pill, full comparison table, 12-step horizontal journey strip with active orange "01 Assessment · You are here" (98% rating)
+- Page 4 ANZSCO Deep-Dive: 3 stat tiles (AUD 2,537 / 203,200 / 38), state bars (NSW 36.2%, VIC 35.6%…), industries 2-col grid, tasks 2-col (95% rating)
+- Page 5 Country AU: full teal gradient hero with "Section 04.1 · Australia · Pathway: Visa 189 · 80 / pass mark 65 · ✓ ELIGIBLE" white pill
+- Page 9 Cost: teal-gold "Total Investment · INR 697,000" hero card with "Protected by LEAMSS Protection Policy" note
+- Page 13 Protection: gold-bordered "100% Refund Guarantee" certificate, "VERIFIED POLICY · V1.0" badge, teal-checks Covered / red-X Not Covered two-column, 3 stat tiles
+- Page 15 Contact: centered logo, "We Value Emotions" in italic Playfair, teal contact card
+
+**Page-break safeguards:**
+- `orphans: 4; widows: 4;` on body
+- `break-inside: avoid` on cards, tables, headers, notes
+- `break-after: avoid` on headings and last-child of `.page`
+- Content trimming: tasks 8, industries 4, FAQs 5 (eliminated all single-line orphan pages — 17 → 15 pages)
+
+**Acceptance results:**
+- ✅ AI vision: 95-98% premium quality rating across all 6 key pages
+- ✅ 7/7 new pytest suite (full/teaser/proposal tiers + no-optional-blocks + immutability)
+- ✅ 51/51 full Phase 6-7 regression — zero impact on assessment-reports endpoints
+- ✅ Generation time: ~1.2s per report (acceptable)
+- ✅ End-to-end through API: `POST /generate → GET {id}/pdf?tier=full` works for all 3 tiers
+
 ### 🔄 Phase 7.3.5 — Tier Auto-Advance Hook + Client Notification (May 25, 2026)
 **Status:** ✅ COMPLETE — **3/3 helper tests PASS · 51/51 full regression PASS**.
 
