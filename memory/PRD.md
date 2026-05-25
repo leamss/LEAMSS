@@ -5,6 +5,45 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 
 > **📌 Update (Feb 13, 2026):** `CHANGELOG.md` now tracks all completed phases (incl. **Phase 3A — Attendance & Leave** with full company policies). `ROADMAP.md` lists prioritized backlog. This PRD remains the static reference for original requirements.
 
+### ⚡ Phase 7.5 — Pipeline Cockpit Full Wiring (May 25, 2026)
+**Status:** ✅ COMPLETE · **Testing**: 10/10 backend pytest + frontend E2E 100% (testing agent iteration_113) · **Zero blue/indigo violations** verified by testing agent.
+
+Sir's ask: "Static cockpit mockup ko production me convert karo — live data, AI brief, drill-in, Cmd-K. NO blue/indigo."
+
+**Backend (`routers/cockpit.py`)** — 4 new endpoints under `/api/cockpit`:
+- `GET /funnel` — live counts across 6 stages aggregated from `leads` + `sales_assessments` + `pre_assessments` (returns leads/assessments/pa/proposals/cases/closed + total_active)
+- `GET /cards?stage&owner&search&sort&limit` — unified normalized card list. Maps PA stage groups: PA = new/payment_pending/payment_received/documents_submitted/under_review/approved/express_pending_approval, Proposals = proposal_sent, Cases = proposal_paid/awaiting_final_approval/case_created, Closed = rejected/refunded/express_rejected
+- `GET /brief` — AI insights for sidebar (stale leads 48h cutoff, payment-pending PAs, proposals awaiting decision, KB items pending verification)
+- `GET /card/{lead|assessment|pa}/{id}` — drill-in detail with deep-link to source page
+
+**RBAC scoping:**
+- Admin/case_manager/admin_owner → all records
+- Sales/partner roles → records they created/own (uses `created_by` for assessments, `partner_id` for PAs, `assigned_to` for leads)
+
+**Stage → Lifecycle index mapping** (`LIFECYCLE_FROM_PA_STAGE`) → renders 7-step progress bar in card UI (0=Created → 6=Case Created)
+
+**Frontend (`pages/admin/Cockpit.jsx`)** — Production cockpit replacing the deprecated mockup:
+- Route: `/admin/cockpit` (RBAC: admin_owner/admin/sales_*/case_manager/partner)
+- Deprecated mockup retained at `/admin/cockpit-mockup` per "hide-not-delete" rule
+- Auto-refresh: silent 30s polling (funnel + cards). Manual refresh button with spin animation.
+- Layout: Left sidebar (LEAMSS branded with nav menu) · Main (topbar + 6 funnel chips + filter row + 3-col card grid) · Right AI Co-Pilot sidebar (Quick Commands, 5 Quick Action buttons, Today's AI Brief live from `/brief`)
+- Cmd-K modal (Ctrl/Cmd+K shortcut) — functional with Quick Actions list + inline card name search
+- Pipeline cards: name + countries + score badge (gold for scored, slate "New" for leads) + ID + 7-step lifecycle bar (teal=done, orange=current, gray=pending, pulse animation on current) + owner avatar/timestamp + urgency pill (high=red/medium=orange/low=teal) + next-action CTA
+- Drill-in Sheet drawer: 7-step lifecycle timeline (teal checks/gold-bordered current/gray pending) + Next Action banner (teal-wash background) + Open Full View (teal) + WhatsApp buttons
+
+**LEAMSS Brand Compliance — ZERO BLUE/INDIGO:**
+- Teal `#0F766E` primary (was #2563EB blue) — sidebar nav active, CTA buttons, "+ New Client", drill-in "Open Full View"
+- Warm Orange `#EA7C2E` (was indigo) — current-step pulse, medium urgency pill, lifecycle bar current segment
+- Brand Red `#D32F2F` — high urgency pill ring
+- Gold `#D4A017` — score badge, sidebar AI Brief icons
+- Charcoal/Cream/Slate neutrals only
+
+**Live Data Snapshot (verified):**
+- Funnel: Leads 21 · Assessments 3 · Pre-Assessments 83 · Proposals 5 · Active Cases 9 · Closed 0 · Total 121 active records
+- AI Brief: 21 stale leads, 5 proposals awaiting decision, 3 KB items pending verification
+
+**Tests:** `tests/test_iteration132_phase_75_cockpit.py` (10 cases: funnel/cards default/filter/search/sort/brief/RBAC/drill-in not-found/drill-in bad-kind/unauthenticated 401)
+
 ### 🎨 Phase 8 — Premium PDF Renderer v2 (HTML→PDF · WeasyPrint) (May 25, 2026)
 **Status:** ✅ COMPLETE — Backend **7/7 new + 51/51 full regression PASS** (`tests/test_iteration131_phase_8_pdf_v2.py`). All 3 tiers (teaser/full/proposal) render successfully via API.
 
