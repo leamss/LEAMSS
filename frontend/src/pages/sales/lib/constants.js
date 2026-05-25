@@ -1,6 +1,6 @@
 // Smart Sales Helper — Shared constants used across the 7 wizard steps.
 
-import { Briefcase, Calculator, CheckCircle2, Globe, Trophy, User, Wand2 } from 'lucide-react';
+import { Briefcase, Calculator, CheckCircle2, Globe, Trophy, User, Wand2, Coins } from 'lucide-react';
 
 export const STEPS = [
   { id: 1, label: 'Start', icon: User },
@@ -8,8 +8,9 @@ export const STEPS = [
   { id: 3, label: 'Profile', icon: Briefcase },
   { id: 4, label: 'Countries', icon: Globe },
   { id: 5, label: 'Calculator', icon: Calculator },
-  { id: 6, label: 'Review', icon: CheckCircle2 },
-  { id: 7, label: 'Done', icon: Trophy },
+  { id: 6, label: 'Cost Estimator', icon: Coins },
+  { id: 7, label: 'Review', icon: CheckCircle2 },
+  { id: 8, label: 'Done', icon: Trophy },
 ];
 
 export const QUALIFICATIONS = [

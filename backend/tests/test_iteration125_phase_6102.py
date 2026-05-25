@@ -19,6 +19,20 @@ def admin_headers(admin_token):
     return {"Authorization": f"Bearer {admin_token}"}
 
 
+@pytest.fixture
+def sample_profile_data():
+    return {
+        "marital_status": "single",
+        "primary_applicant": {
+            "personal": {"age": 30},
+            "education": {"highest_qualification": "master"},
+            "language": {"scores": {"overall": 7.5, "listening": 7.5, "reading": 7, "writing": 7, "speaking": 7.5}},
+            "professional": {"current_profession": "Software Engineer", "years_experience_total": 6},
+            "au_extras": {}, "ca_extras": {}, "nz_extras": {},
+        },
+    }
+
+
 @pytest.fixture(scope="module")
 def seeded_assessment(admin_token):
     """Create a fresh assessment we can use across tests."""
@@ -86,14 +100,28 @@ def test_snapshot_is_immutable(admin_headers, seeded_assessment):
     assert r.status_code in (404, 405)
 
 
-def test_warnings_surfaced_when_kb_is_draft(admin_headers, seeded_assessment):
-    """AU template is draft → warnings list non-empty when include_unverified=False."""
-    g = requests.post(f"{BASE}/assessment-reports/generate",
-                       json={"assessment_id": seeded_assessment, "persona": "client",
-                              "mode": "combined", "include_unverified": False},
-                       headers=admin_headers, timeout=30).json()
-    # Should have warning about AU template being draft
-    assert any("template" in w.lower() or "occupation" in w.lower() for w in g["warnings"])
+def test_warnings_surfaced_when_kb_is_draft(admin_headers, sample_profile_data):
+    """Use a fresh assessment with a CA target — CA template/guide are draft in fixtures,
+    so warnings list is guaranteed to surface even after AU is verified."""
+    r = requests.post(f"{BASE}/sales/assessments", json={
+        "client_name": "Draft KB Test", "client_email": "draftkb@t.com", "client_phone": "+91-9000000200",
+        "profile": sample_profile_data,
+        "occupation": {"country_code": "CA", "code": "21231", "title": "Software Engineer", "assessing_body": "WES"},
+        "targets": [{"country": "CA", "visa_subclass": "EE"}],
+    }, headers=admin_headers, timeout=15)
+    aid = r.json()["id"]
+    try:
+        g = requests.post(f"{BASE}/assessment-reports/generate",
+                           json={"assessment_id": aid, "persona": "client",
+                                  "mode": "combined", "include_unverified": False},
+                           headers=admin_headers, timeout=30).json()
+        # CA template + guide are draft → warning expected
+        assert any(
+            "template" in w.lower() or "occupation" in w.lower() or "guide" in w.lower()
+            for w in g["warnings"]
+        ), f"Expected at least one KB warning but got: {g['warnings']}"
+    finally:
+        requests.delete(f"{BASE}/sales/assessments/{aid}", headers=admin_headers)
 
 
 def test_share_link_returns_public_meta_no_auth(admin_headers, seeded_assessment):

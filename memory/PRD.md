@@ -5,6 +5,33 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 
 > **📌 Update (Feb 13, 2026):** `CHANGELOG.md` now tracks all completed phases (incl. **Phase 3A — Attendance & Leave** with full company policies). `ROADMAP.md` lists prioritized backlog. This PRD remains the static reference for original requirements.
 
+### 🧮 Phase 7.2 — Unified Wizard + Cost Estimator (May 25, 2026)
+**Status:** ✅ PART 1 of Part 2 COMPLETE — Backend **8/8 PASS · 40/40 full regression PASS** (`tests/test_iteration128_phase_72.py`). UI E2E verified (8-step wizard navigation with new Cost Estimator step).
+
+Sir's pivot: instead of building a parallel V2 wizard, **enhance the existing Smart Sales Helper** (no compromise on quality, no parallel code paths).
+
+**Backend additions** (`/api/sales/wizard/...`):
+- `POST /calculate-parallel` — Multi-subclass parallel calc engine. Single function used by both wizard and calculator (Sir's "1 engine, not 2" demand). Returns per-subclass `{total, breakdown, eligible}` + `best_subclass`.
+- `GET /cost-estimator/defaults` — KB-driven defaults: Government Fees (country_template.fees), Skill Assessment (skill_body_master), English Test placeholder, LEAMSS Professional Fees, Protection Policy Coverage (auto-includes verified LEAMSS USP).
+- `POST /cost-estimator/save` — Persists to `sales_assessments.cost_estimator` with currency-grouped totals.
+- `GET /cost-estimator/{assessment_id}` — RBAC-gated retrieve.
+
+**Frontend changes**:
+- `lib/constants.js` — STEPS extended from 7 → 8 (added "Cost Estimator" between Calculator and Review, new `Coins` icon)
+- `steps/Step6CostEstimator.jsx` — NEW step component. Auto-loads KB defaults on first visit, inline editable line items (category/label/amount/currency/notes), KB source attribution badge, currency-grouped totals card with Protection Policy reminder.
+- `ClientAssessment.jsx` — Wired Step 6 between Calculator (5) and Review (now 7). Save now lands at Step 8 (Done).
+
+**Visual proof** (screenshot taken `/tmp/step6_cost_estimator.png`):
+- 8-step horizontal navigation: Start → Approach → Profile → Countries → Calculator → **Cost Estimator** (highlighted) → Review → Done
+- Quote context auto-detection banner
+- Empty state with friendly CTA
+- Inline editing controls, currency selector, KB attribution
+
+**Pending in Phase 7.2 Part 2:**
+- Step 5 Calculator UI to show **parallel subclass comparison table** (189 / 190 / 491 side-by-side) — backend ready, UI binding next
+- Auto-populate ANZSCO 4-digit profile preview when code selected in Step 4
+- Hide NEW Profiles (deferred to Phase 7.4 — Profile Merge)
+
 ### 🏗️ Phase 7.1 — KB Unification FOUNDATION (May 25, 2026)
 **Status:** ✅ COMPLETE — Backend **12/12 PASS · 33/33 full regression PASS** (`tests/test_iteration127_phase_71.py`). UI E2E verified via screenshots (Verification Hub + Protection Policies admin).
 

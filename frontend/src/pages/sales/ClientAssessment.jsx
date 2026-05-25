@@ -33,6 +33,7 @@ import Step2Approach from './steps/Step2Approach';
 import Step3Profile from './steps/Step3Profile';
 import Step4Countries from './steps/Step4Countries';
 import Step5Calculator from './steps/Step5Calculator';
+import Step6CostEstimator from './steps/Step6CostEstimator';
 import Step6Review from './steps/Step6Review';
 import Step7Done from './steps/Step7Done';
 
@@ -147,7 +148,7 @@ export default function ClientAssessment() {
   }, []);
 
   const update = (field, val) => setData(d => ({ ...d, [field]: val }));
-  const goNext = () => setStep(s => Math.min(7, s + 1));
+  const goNext = () => setStep(s => Math.min(8, s + 1));
   const goBack = () => setStep(s => Math.max(1, s - 1));
 
   // Phase 6.8.4 — Build a stable hash of all factor inputs so the recalc effect
@@ -212,7 +213,7 @@ export default function ClientAssessment() {
         toast.success('Assessment saved');
       }
       setSaved(r.data);
-      setStep(7);
+      setStep(8);
     } catch (e) {
       toast.error(formatApiError(e, 'Save failed'));
     }
@@ -320,17 +321,18 @@ export default function ClientAssessment() {
           {step === 3 && <Step3Profile data={data} update={update} setData={setData} headers={headers} />}
           {step === 4 && <Step4Countries data={data} update={update} />}
           {step === 5 && <Step5Calculator results={calcResults} calculating={calculating} data={data} update={update} />}
-          {step === 6 && <Step6Review data={data} results={calcResults} />}
-          {step === 7 && <Step7Done saved={saved} createPA={createPA} navigate={navigate} headers={headers} creatingPA={creatingPA} />}
+          {step === 6 && <Step6CostEstimator data={data} setData={setData} saved={saved} headers={headers} />}
+          {step === 7 && <Step6Review data={data} results={calcResults} />}
+          {step === 8 && <Step7Done saved={saved} createPA={createPA} navigate={navigate} headers={headers} creatingPA={creatingPA} />}
         </Card>
 
         {/* Navigation */}
-        {step < 7 && (
+        {step < 8 && (
           <div className="flex justify-between" data-testid="step-nav">
             <Button variant="outline" onClick={goBack} disabled={step === 1} data-testid="back-btn">
               <ChevronLeft className="h-4 w-4 mr-1" />Back
             </Button>
-            {step < 6 ? (
+            {step < 7 ? (
               <Button onClick={goNext} className="bg-indigo-600 hover:bg-indigo-700" disabled={!canAdvance(step, data)} data-testid="next-btn">
                 Next<ChevronRight className="h-4 w-4 ml-1" />
               </Button>
