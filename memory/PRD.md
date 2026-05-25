@@ -5,6 +5,28 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 
 > **📌 Update (Feb 13, 2026):** `CHANGELOG.md` now tracks all completed phases (incl. **Phase 3A — Attendance & Leave** with full company policies). `ROADMAP.md` lists prioritized backlog. This PRD remains the static reference for original requirements.
 
+### 🔄 Phase 7.3.5 — Tier Auto-Advance Hook (May 25, 2026)
+**Status:** ✅ COMPLETE — **3/3 helper tests PASS · 51/51 full regression PASS**.
+
+Sir's pre-approved enhancement: "Jab PA fee paid ho jaaye → automatically PDF tier `teaser → full` ho jaaye, no manual `/upgrade-tier` call needed."
+
+**Implementation:**
+- New file `core/report_tier_hook.py` with idempotent helper `auto_upgrade_report_tiers_for_pa(pa_id, new_stage, payment_ref)`
+- Stage → Tier mapping: `proposal_paid` / `awaiting_final_approval` → `full` · `case_created` → `proposal`
+- **Tier never downgrades** — once at proposal, stays proposal even if PA reverses
+- Each upgrade audit-logged with `tier_upgraded_by="auto:pa_stage_hook"`, payment ref, trigger stage, and old tier
+
+**Hooks installed in `pre_assess_portal.py`:**
+- Line ~825 (proposal_paid path): auto-upgrade all linked snapshots to `full`
+- Line ~1029 (case_created path): auto-upgrade all linked snapshots to `proposal`
+- Audit logged via existing `_log()` helper as `report_tier_auto_upgrade` event
+
+**Validation:**
+- Idempotent: re-running same stage hook = 0 upgrades, all skipped
+- Non-mapped stages (e.g., `under_review`): no-op with `reason: stage_not_mapped`
+- Missing PA: no-op with `reason: pa_not_found`
+- Visual flow confirmed: snapshot tier flips automatically when payment marked paid
+
 ### 📄 Phase 7.3 — Report KB Data Injection + 3-Tier Gating (May 25, 2026)
 **Status:** ✅ COMPLETE — Backend **8/8 PASS · 48/48 full regression PASS** (`tests/test_iteration129_phase_73.py`). PDF visual verified via AI vision on 3 grids.
 

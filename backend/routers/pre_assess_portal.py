@@ -816,6 +816,16 @@ async def client_mock_pay_proposal(pa_id: str, current_user: dict = Depends(get_
         "updated_at": _now(),
     }})
 
+    # Phase 7.3.5 — Auto-upgrade attached report snapshots from teaser → full
+    try:
+        from core.report_tier_hook import auto_upgrade_report_tiers_for_pa
+        upgrade_result = await auto_upgrade_report_tiers_for_pa(
+            pa_id, "proposal_paid", payment_ref=f"MAIN_FEE_{pa_id}",
+        )
+        await _log(current_user["id"], pa_id, "report_tier_auto_upgrade", upgrade_result)
+    except Exception as e:
+        logger.exception("Tier auto-upgrade failed for PA %s: %s", pa_id, e)
+
     # Notify partner — PARTNER ACTION NEEDED (upload receipt + agreement)
     if pa.get("partner_id"):
         await notifications_col.insert_one({
@@ -1016,6 +1026,16 @@ async def admin_approve_final(pa_id: str, data: Optional[AdminApproveFinalReques
         })
 
     await _log(current_user["id"], pa_id, "case_created", {"case_id": case_code, "case_manager_id": cm_id})
+
+    # Phase 7.3.5 — Auto-upgrade attached report snapshots to "proposal" tier
+    try:
+        from core.report_tier_hook import auto_upgrade_report_tiers_for_pa
+        upgrade_result = await auto_upgrade_report_tiers_for_pa(
+            pa_id, "case_created", payment_ref=f"CASE_{case_code}",
+        )
+        await _log(current_user["id"], pa_id, "report_tier_auto_upgrade", upgrade_result)
+    except Exception as e:
+        logger.exception("Tier auto-upgrade to proposal failed for PA %s: %s", pa_id, e)
 
     # Phase 4B — Auto-recalc target achievement for the PA creator (case_created = revenue confirmed)
     try:
