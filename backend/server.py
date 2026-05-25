@@ -75,6 +75,8 @@ from routers.occupation_master_import import router as occupation_master_import_
 from routers.kb_settings import router as kb_settings_router
 from routers.country_templates import router as country_templates_router
 from routers.country_guides import router as country_guides_router
+from routers.protection_policies import router as protection_policies_router
+from routers.kb_unified import router as kb_unified_router
 from routers.assessment_reports import router as assessment_reports_router
 from routers.doc_expiry import router as doc_expiry_router
 from routers.visa_compare import router as visa_compare_router
@@ -347,7 +349,8 @@ for r in [targets_router, cost_structures_router, auth_router, users_router, pro
           # Smart Sales Helper (Phase 6 v2) — MUST be before legacy sales_router so /sales/* paths resolve correctly
           sales_occupations_router, sales_calculator_router, sales_ai_helpers_router, sales_assessments_router,
           occupation_master_router, skill_body_master_router, occupation_master_import_router,
-          kb_settings_router, country_templates_router, country_guides_router, assessment_reports_router,
+          kb_settings_router, country_templates_router, country_guides_router,
+          protection_policies_router, kb_unified_router, assessment_reports_router,
           sales_router, cases_router,
           documents_router, tickets_router, notifications_router, stats_router,
           activity_router, analytics_router, search_router, reports_router, settings_router,

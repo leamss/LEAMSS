@@ -5,6 +5,33 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 
 > **📌 Update (Feb 13, 2026):** `CHANGELOG.md` now tracks all completed phases (incl. **Phase 3A — Attendance & Leave** with full company policies). `ROADMAP.md` lists prioritized backlog. This PRD remains the static reference for original requirements.
 
+### 🏗️ Phase 7.1 — KB Unification FOUNDATION (May 25, 2026)
+**Status:** ✅ COMPLETE — Backend **12/12 PASS · 33/33 full regression PASS** (`tests/test_iteration127_phase_71.py`). UI E2E verified via screenshots (Verification Hub + Protection Policies admin).
+
+Sir requested 3-part Phase 7: JODNA (connect) → WIZARD → REPORT. Part 1 (JODNA) shipped with strict constraints:
+- "Delete" → "Hide" (status field added everywhere — zero data loss)
+- No Stripe integration (internal logic only)
+- No Cockpit work (deferred)
+- No heavy design overhaul (current PDF layout retained)
+- Admin-controlled points (no runtime override)
+- Phase-level verification checkpoint before Part 2
+
+**Backend additions:**
+- `core/anzsco_excel_importer.py` — Parses Sir's Feb 2026 ABS Excel (9 sheets) into `anzsco_4digit_master`. Idempotent upserts. Imported **1,236 occupations** in 1.17s with full profiles (tasks, weekly earnings, industries, state distribution, age, education).
+- `routers/protection_policies.py` — LEAMSS USP managed entity. Full CRUD + verify (mandatory source URL) + hide/unhide (Sir's directive: no delete). Default LEAMSS policy seeded.
+- `routers/kb_unified.py` — `/import-anzsco-excel` upload endpoint + `/import-anzsco-default` one-click + `/verification-hub` 4-entity aggregator + `/anzsco/{code}` + `/occupation-full/{code}` (joined view).
+- `migrations/phase71_kb_unification.py` — Idempotent: UK + USA templates seeded (Sir's gap fix), default LEAMSS Protection Policy seeded, 129 existing occupations backfilled with `custom_qa=[]` and `status=active`.
+
+**Frontend additions:**
+- `pages/admin/VerificationHub.jsx` — Single dashboard. ANZSCO master card (1,236 codes loaded · ABS Feb 2026), 4 stat tiles (Occupations · Country Templates · Country Guides · Protection Policies), 4 tabs with pending lists, one-click Re-import Excel button.
+- `pages/admin/ProtectionPoliciesAdmin.jsx` — 3-panel editor (mirrors Country Guides UX): left rail, full editor with Covers/Excludes/Claim Days, Verify with source URL, Hide/Unhide.
+- KB Admin home: 4 quick-launch buttons (Verification Hub, Occupation Master, Country Guides, Protection Policies).
+
+**Verified outcomes:**
+- Sample 4-digit profile: 2613 (Software Programmers) → AUD 2,537/week median, 38 median age, NSW 36% + VIC 36%, 56% bachelor + 27% post-grad, top industry Professional Services. **All from ABS official source.**
+- Verification Hub aggregate: Occupations 1.6% verified, Country Templates 16.7%, Country Guides 40%, Protection Policies 0% (default policy needs Sir's verification).
+- 5 country_templates now present (AU verified, CA/NZ/UK/USA draft).
+
 ### 🚀 Phase 6.10 Part 3 — Unified Workflow + Checklist Gating + Country Guides (May 24, 2026)
 **Status:** ✅ COMPLETE — Backend **21/21 PASS** (`tests/test_iteration125_phase_6102.py` + `tests/test_iteration126_phase_6103.py`). UI E2E verified via screenshots (Step 7 tracker + locked checklist + public country page).
 

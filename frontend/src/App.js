@@ -39,6 +39,8 @@ import ExpressSalesSettings from '@/pages/admin/ExpressSalesSettings';
 import EligibilityKnowledgeBase from '@/pages/admin/EligibilityKnowledgeBase';
 import OccupationMasterAdmin from '@/pages/admin/OccupationMasterAdmin';
 import CountryGuidesAdmin from '@/pages/admin/CountryGuidesAdmin';
+import VerificationHub from '@/pages/admin/VerificationHub';
+import ProtectionPoliciesAdmin from '@/pages/admin/ProtectionPoliciesAdmin';
 import CockpitMockup from '@/pages/admin/CockpitMockup';
 import PublicCountryGuide from '@/pages/PublicCountryGuide';
 import PublicCountryIndex from '@/pages/PublicCountryIndex';
@@ -179,6 +181,16 @@ function App() {
           <Route path="/admin/country-guides" element={
             <RequirePermission allowRoles={['admin_owner', 'admin']}>
               <CountryGuidesAdmin />
+            </RequirePermission>
+          } />
+          <Route path="/admin/verify-hub" element={
+            <RequirePermission allowRoles={['admin_owner', 'admin']}>
+              <VerificationHub />
+            </RequirePermission>
+          } />
+          <Route path="/admin/protection-policies" element={
+            <RequirePermission allowRoles={['admin_owner', 'admin']}>
+              <ProtectionPoliciesAdmin />
             </RequirePermission>
           } />
           <Route path="/admin/cockpit-mockup" element={

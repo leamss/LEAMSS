@@ -33,7 +33,7 @@ import {
 import {
   ArrowLeft, Globe, Briefcase, Award, ListChecks, Sparkles, FileText,
   Plus, Trash2, Edit, Search, Upload, Download, RefreshCw, AlertCircle,
-  CheckCircle2,
+  CheckCircle2, ShieldCheck,
 } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -181,6 +181,15 @@ export default function EligibilityKnowledgeBase() {
                 <Button
                   variant="outline"
                   size="sm"
+                  className="border-emerald-300 text-emerald-700 hover:bg-emerald-50 font-bold"
+                  onClick={() => window.location.assign('/admin/verify-hub')}
+                  data-testid="open-verify-hub"
+                >
+                  <ShieldCheck className="h-3.5 w-3.5 mr-1" />Verification Hub
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
                   className="border-indigo-300 text-indigo-700 hover:bg-indigo-50"
                   onClick={() => window.location.assign('/admin/kb/occupation-master')}
                   data-testid="open-occupation-master-admin"
@@ -195,6 +204,15 @@ export default function EligibilityKnowledgeBase() {
                   data-testid="open-country-guides-admin"
                 >
                   <Globe className="h-3.5 w-3.5 mr-1" />Country Guides
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-amber-400 text-amber-700 hover:bg-amber-50"
+                  onClick={() => window.location.assign('/admin/protection-policies')}
+                  data-testid="open-protection-policies"
+                >
+                  <ShieldCheck className="h-3.5 w-3.5 mr-1" />Protection Policies
                 </Button>
                 <div className="text-[10px] uppercase font-bold text-slate-500">Status counts</div>
                 <div className="flex gap-1">
