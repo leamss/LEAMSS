@@ -42,6 +42,7 @@ import CountryGuidesAdmin from '@/pages/admin/CountryGuidesAdmin';
 import VerificationHub from '@/pages/admin/VerificationHub';
 import ProtectionPoliciesAdmin from '@/pages/admin/ProtectionPoliciesAdmin';
 import CockpitMockup from '@/pages/admin/CockpitMockup';
+import Cockpit from '@/pages/admin/Cockpit';
 import PublicCountryGuide from '@/pages/PublicCountryGuide';
 import PublicCountryIndex from '@/pages/PublicCountryIndex';
 import EligibilityProfileWizard from '@/pages/eligibility/EligibilityProfileWizard';
@@ -196,6 +197,11 @@ function App() {
           <Route path="/admin/cockpit-mockup" element={
             <RequirePermission allowRoles={['admin_owner', 'admin']}>
               <CockpitMockup />
+            </RequirePermission>
+          } />
+          <Route path="/admin/cockpit" element={
+            <RequirePermission allowRoles={['admin_owner', 'admin', 'sales_executive', 'sr_sales_executive', 'sales_manager', 'sales_head', 'case_manager', 'partner']}>
+              <Cockpit />
             </RequirePermission>
           } />
           <Route path="/countries" element={<PublicCountryIndex />} />

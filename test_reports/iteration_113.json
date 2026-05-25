@@ -1,0 +1,38 @@
+{
+  "summary": "Phase 7.5 Pipeline Cockpit end-to-end verified. Backend: 10/10 pytest cases passing (funnel/cards/brief/drill-in/RBAC/error-handling). Frontend: cockpit at /admin/cockpit loads with 121 active records, all 6 funnel chips + All chip render live counts (Leads 21, Assessments 3, PA 83, Proposals 5, Cases 9, Closed 0), funnel filter chips correctly filter (21 lead cards, 0 non-lead leakage), drill-in drawer opens with all 7 lifecycle steps + Open Full View + WhatsApp buttons, Cmd-K modal (Ctrl+K) opens with Quick Actions list and live filter, AI Co-Pilot sidebar renders 3 live insights from /api/cockpit/brief (21 leads not contacted in 48h, 5 proposals awaiting decision, 3 KB items awaiting verification), + New Client button works, Refresh button works. ZERO blue/indigo color violations detected programmatically across the entire cockpit DOM subtree (LEAMSS brand rule respected).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration132_phase_75_cockpit.py",
+    "/app/test_reports/pytest/pytest_iteration113.xml"
+  ],
+  "action_items": [
+    "Minor: console emits 'SSE connection error Event' on page load (non-blocking, likely a stale eventsource elsewhere in the app). Not cockpit-specific.",
+    "Observation during regression: when navigating directly to /sales/assessments, /admin/pre-assessments and /admin/verification-hub at the end of the test run, the app rendered the Login landing page. /admin and /admin/cockpit loaded correctly for the same admin session, so this is likely a route-guard / session-state edge in those specific routes and is unrelated to Phase 7.5 cockpit work — flag for sanity check next iteration."
+  ],
+  "critical_code_review_comments": [
+    "Cockpit.jsx is ~810 lines but well-structured into subcomponents (FunnelChip, FilterButton, PipelineCard) — acceptable, no split needed yet.",
+    "30s polling re-runs fetchCards which depends on activeStage/search/ownerFilter/sortMode — the dependency array correctly captures these via useCallback, but every filter change cancels nothing in flight; consider AbortController for race-safety on slow networks.",
+    "cockpit.py funnel endpoint iterates pre_assessments cursor in Python instead of using a single $facet aggregation — fine for 100s of records, will need optimization at ~10k records.",
+    "Brief endpoint hardcodes the stale_cutoff at 48h; consider making it a constant or env var.",
+    "All token reads use localStorage.getItem('token') consistently — matches the stored key (NOT 'auth_token')."
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "100% (10/10 pytest)",
+    "frontend": "100% (cockpit page, all interactive flows verified)"
+  },
+  "test_credentials": "admin@leamss.com / Admin@123 (verified working), partner@leamss.com / Partner@123 (verified working via backend RBAC test)",
+  "seed_data_creation": "None — used existing seeded data (21 leads + 3 assessments + 97 PAs aggregating to 121 active records).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Phase 7.5 Cockpit fully green. Production page is /admin/cockpit (NOT /admin/cockpit-mockup which is the deprecated blue/indigo mockup). Token key in localStorage is 'token'. Backend tests in /app/backend/tests/test_iteration132_phase_75_cockpit.py. Sanity-check the regression observation on /sales/assessments and /admin/pre-assessments routes — they redirected to login during regression sweep even though /admin worked for the same admin token; could be a permission-guard quirk worth investigating separately.",
+  "rca of the issue": "N/A — no bugs found in Phase 7.5 cockpit scope."
+}

@@ -100,6 +100,7 @@ from routers.cm_earnings import router as cm_earnings_router
 from routers.vendor_portal import router as vendor_portal_router
 from routers.payouts import router as payouts_router
 from routers.people import router as people_router
+from routers.cockpit import router as cockpit_router
 
 app = FastAPI(title="LEAMSS Portal API", version="3.0")
 
@@ -373,7 +374,8 @@ for r in [targets_router, cost_structures_router, auth_router, users_router, pro
           employees_router, departments_router, rbac_admin_router, admin_users_router,
           attendance_router, leaves_router, hr_admin_router, express_sales_router, vendors_router,
           pa_allocations_router, sales_commission_router,
-          cm_earnings_router, vendor_portal_router, payouts_router, people_router]:
+          cm_earnings_router, vendor_portal_router, payouts_router, people_router,
+          cockpit_router]:
     app.include_router(r, prefix="/api")
 
 
