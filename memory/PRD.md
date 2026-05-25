@@ -5,6 +5,43 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 
 > **📌 Update (Feb 13, 2026):** `CHANGELOG.md` now tracks all completed phases (incl. **Phase 3A — Attendance & Leave** with full company policies). `ROADMAP.md` lists prioritized backlog. This PRD remains the static reference for original requirements.
 
+### 📄 Phase 7.3 — Report KB Data Injection + 3-Tier Gating (May 25, 2026)
+**Status:** ✅ COMPLETE — Backend **8/8 PASS · 48/48 full regression PASS** (`tests/test_iteration129_phase_73.py`). PDF visual verified via AI vision on 3 grids.
+
+Sir's complaints addressed in this phase:
+- ❌ "Tasks blank in PDF" → ✅ ANZSCO Deep-Dive section with tasks from Feb 2026 Excel
+- ❌ "Fees mein amounts nahi hain" → ✅ Cost & Investment Breakdown with itemized amounts + total
+- ❌ "Protection Policy nahi dikh raha" → ✅ Dedicated Section 7 with covered/excluded refund terms
+- ❌ "Heavy redesign baad mein" → ✅ Existing PDF layout retained, ONLY KB data injected
+
+**Backend additions** (`/app/backend/core/report_renderer.py`):
+- `_section_anzsco_profile()` — Renders ANZSCO 4-digit deep-dive (median earnings AUD, employed count, demographics, state distribution top 6, top 5 industries, tasks list, education profile). Sourced from `anzsco_4digit_master` (1,236 codes from Feb 2026 ABS).
+- `_section_cost_estimator()` — Renders Cost & Investment table grouped by category (Government Fees, Skill Assessment, English Test, LEAMSS Professional Fees, Protection Policy Coverage), with itemized amounts and currency-grouped totals. Includes validity notes.
+- `_section_protection_policy()` — Renders LEAMSS USP page with title, description (markdown stripped), "What is Covered" list, "What is NOT Covered" list, claim window days, applicable countries.
+
+**Snapshot builder** (`_build_snapshot` in `routers/assessment_reports.py`):
+- Now fetches `anzsco_4digit_master` using 4-digit parent of occupation.code
+- Now fetches `cost_estimator` from the assessment doc
+- Now fetches default LEAMSS `protection_policies` (verified) — or any verified policy as fallback
+- All injected into snapshot data (immutable, integrity-hashed)
+
+**3-Tier PDF Gating** (Sir's directive: internal logic, no Stripe):
+- `GET /api/assessment-reports/{snapshot_id}/pdf?tier={teaser|full|proposal}` — RBAC-aware
+- `POST /api/assessment-reports/{snapshot_id}/upgrade-tier` — admin or owner flips tier (internal payment marker, no Stripe)
+- Public PDF endpoint (`/public/{share_token}/pdf`) reads stored `render_tier` (defaults to teaser)
+- Teaser tier: Cover + Executive Summary + Client Profile + Process/Cost + **Protection Policy** + Disclaimer (~7 pages)
+- Full tier: + ANZSCO Deep-Dive + Per-Country Details + Cost & Investment Breakdown + Country Guide + Document Checklist (~15 pages)
+- Proposal tier: identical to full + (future) proposal letter cover
+
+**Visual proof** (3 AI-vision checks done on real generated PDFs):
+- Page 4: ANZSCO 2613 Software & Apps Programmers · AUD 2,537 weekly · NSW 36% · top industry Professional Services · tasks list rendered
+- Page 9: Cost & Investment Breakdown · INR 430,000 visa + INR 50,000 ACS + INR 22,000 IELTS + INR 195,000 LEAMSS = **INR 697,000 total** · "Protected by LEAMSS Protection Policy" note
+- Page 13: SECTION 7 — LEAMSS PROTECTION POLICY · "100% Refund Guarantee" · Covers Professional/Government/Body Fees · Excludes English/Medical/PCC · 90-day claim window · AU/CA/NZ/UK/USA applicable
+
+**File counts:**
+- Full tier PDF: 15 pages (~31 KB)
+- Teaser tier PDF: 7 pages (~13 KB)
+
 ### 🧮 Phase 7.2 — Unified Wizard + Cost Estimator (May 25, 2026)
 **Status:** ✅ COMPLETE — Backend **8/8 PASS · 40/40 full regression PASS**. UI verified (8-step wizard with Cost Estimator + Parallel Subclass Comparison + ANZSCO Auto-populate).
 

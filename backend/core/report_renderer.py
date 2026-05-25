@@ -420,6 +420,216 @@ def _section_country_guide(snap, styles):
     return flow
 
 
+def _section_anzsco_profile(snap, styles):
+    """Phase 7.3 — Occupation Deep-Dive from ABS Feb 2026 KB.
+    Sir's complaint: "Code select kiya, task description blank in PDF" — fixed.
+    """
+    profile = snap.get("anzsco_profile")
+    if not profile:
+        return []
+    ap = profile.get("anzsco_profile") or {}
+    flow = [Paragraph("SECTION 4 — OCCUPATION DEEP-DIVE (ANZSCO Verified)", styles["h1"])]
+    flow.append(Paragraph(
+        f"<b>{_safe(profile.get('code'))} · {_safe(profile.get('title'))}</b>",
+        styles["h2"]))
+    if profile.get("description"):
+        flow.append(Paragraph(_safe(profile.get("description"))[:600], styles["body_small"]))
+        flow.append(Spacer(1, 6))
+
+    # Stats table
+    stats_rows = [["Metric", "Value", "Source"]]
+    if ap.get("median_weekly_earnings_aud"):
+        stats_rows.append(["Median Weekly Earnings", f"AUD {ap['median_weekly_earnings_aud']:,}", "ABS"])
+    if ap.get("median_full_time_weekly_aud"):
+        stats_rows.append(["Median Full-Time Weekly", f"AUD {ap['median_full_time_weekly_aud']:,}", "ABS"])
+    if ap.get("median_full_time_hourly_aud"):
+        stats_rows.append(["Median Hourly Rate", f"AUD {ap['median_full_time_hourly_aud']:,}", "ABS"])
+    if ap.get("employed_count"):
+        stats_rows.append(["People Employed", f"{ap['employed_count']:,}", "ABS"])
+    if ap.get("median_age"):
+        stats_rows.append(["Median Age", str(ap["median_age"]), "ABS"])
+    if ap.get("female_share_pct") is not None:
+        stats_rows.append(["Female Share", f"{ap['female_share_pct']}%", "ABS"])
+    if ap.get("part_time_share_pct") is not None:
+        stats_rows.append(["Part-Time Share", f"{ap['part_time_share_pct']}%", "ABS"])
+    if ap.get("annual_employment_growth") is not None:
+        stats_rows.append(["Annual Employment Growth", f"{ap['annual_employment_growth']}%", "ABS"])
+    if len(stats_rows) > 1:
+        flow.append(Paragraph("Job Market Snapshot", styles["h3"]))
+        t = Table(stats_rows, colWidths=[6 * cm, 5.5 * cm, 3 * cm])
+        t.setStyle(_table_style())
+        flow.append(t)
+        flow.append(Spacer(1, 6))
+
+    # State distribution
+    states = profile.get("state_distribution") or {}
+    state_items = sorted([(k, v) for k, v in states.items() if v], key=lambda x: -x[1])
+    if state_items:
+        flow.append(Paragraph("Top States by Employment Share", styles["h3"]))
+        rows = [["State / Territory", "Share %"]]
+        for st, pct in state_items[:6]:
+            rows.append([st, f"{pct}%"])
+        t = Table(rows, colWidths=[6 * cm, 4 * cm])
+        t.setStyle(_table_style())
+        flow.append(t)
+        flow.append(Spacer(1, 6))
+
+    # Industries
+    industries = profile.get("industries_ranked") or []
+    if industries:
+        flow.append(Paragraph("Top Industries (Ranked)", styles["h3"]))
+        for i, ind in enumerate(industries[:5], 1):
+            flow.append(Paragraph(f"{i}. {_safe(ind)}", styles["body_small"]))
+        flow.append(Spacer(1, 6))
+
+    # Tasks (Sir's key complaint)
+    tasks = profile.get("tasks") or []
+    if tasks:
+        flow.append(Paragraph("Key Job Tasks", styles["h3"]))
+        for t in tasks[:10]:
+            flow.append(Paragraph(f"• {_safe(t)}", styles["body_small"]))
+        if len(tasks) > 10:
+            flow.append(Paragraph(f"<i>…and {len(tasks) - 10} more tasks</i>", styles["body_small"]))
+        flow.append(Spacer(1, 6))
+
+    # Education profile
+    edu = profile.get("education_distribution") or {}
+    edu_items = sorted([(k, v) for k, v in edu.items() if v], key=lambda x: -x[1])
+    if edu_items:
+        flow.append(Paragraph("Education Profile of Current Workforce", styles["h3"]))
+        rows = [["Qualification Level", "Share %"]]
+        for k, v in edu_items[:5]:
+            rows.append([k.replace("_", " ").title(), f"{v}%"])
+        t = Table(rows, colWidths=[6 * cm, 4 * cm])
+        t.setStyle(_table_style())
+        flow.append(t)
+
+    src = profile.get("data_source") or {}
+    flow.append(Spacer(1, 6))
+    flow.append(Paragraph(
+        f"<i>Source: {_safe(src.get('label') or 'ABS ANZSCO')} · "
+        f"Reference Period: {_safe(src.get('reference_period') or 'Feb 2026')}</i>",
+        styles["disclaimer"]))
+    flow.append(PageBreak())
+    return flow
+
+
+def _section_cost_estimator(snap, styles):
+    """Phase 7.3 — Cost & Investment Breakdown.
+    Sir's complaint: "Fees mein amounts nahi hain" — fixed.
+    """
+    ce = snap.get("cost_estimator") or {}
+    items = ce.get("items") or []
+    if not items:
+        return []
+    flow = [Paragraph("SECTION 6 — COST & INVESTMENT BREAKDOWN", styles["h1"])]
+    flow.append(Paragraph(
+        "An indicative end-to-end cost breakdown for your migration journey. "
+        "Government and authority fees are subject to change without notice.",
+        styles["body"]))
+    flow.append(Spacer(1, 6))
+
+    # Group by category
+    by_cat: Dict[str, List[Dict[str, Any]]] = {}
+    for it in items:
+        cat = it.get("category") or "Other"
+        by_cat.setdefault(cat, []).append(it)
+
+    for cat, cat_items in by_cat.items():
+        flow.append(Paragraph(cat, styles["h3"]))
+        rows = [["Item", "Amount", "Currency", "Notes"]]
+        for it in cat_items:
+            amt = it.get("amount") or 0
+            try:
+                amt_fmt = f"{amt:,.0f}" if amt else "—"
+            except Exception:
+                amt_fmt = str(amt)
+            notes = (it.get("notes") or "")[:60]
+            rows.append([
+                _safe(it.get("label"))[:50],
+                amt_fmt,
+                _safe(it.get("currency") or "INR"),
+                notes,
+            ])
+        t = Table(rows, colWidths=[6.5 * cm, 3 * cm, 2 * cm, 4 * cm])
+        t.setStyle(_table_style())
+        flow.append(t)
+        flow.append(Spacer(1, 6))
+
+    # Totals
+    totals = ce.get("total_by_currency") or {}
+    if totals:
+        flow.append(Paragraph("Total Investment", styles["h2"]))
+        rows = [["Currency", "Amount"]]
+        for cur, amt in totals.items():
+            try:
+                rows.append([cur, f"{cur} {amt:,.0f}"])
+            except Exception:
+                rows.append([cur, str(amt)])
+        t = Table(rows, colWidths=[3 * cm, 5 * cm])
+        t.setStyle(_table_style(highlight_last=True))
+        flow.append(t)
+
+    if ce.get("notes"):
+        flow.append(Spacer(1, 6))
+        flow.append(Paragraph(f"<i>Note: {_safe(ce.get('notes'))}</i>", styles["disclaimer"]))
+
+    flow.append(Spacer(1, 4))
+    flow.append(Paragraph(
+        "✓ Protected by LEAMSS Protection Policy — see next section.",
+        styles["highlight"]))
+    flow.append(PageBreak())
+    return flow
+
+
+def _section_protection_policy(snap, styles):
+    """Phase 7.3 — LEAMSS Protection Policy (Sir's USP).
+
+    Dedicated full-page section showing 100% refund commitment on negative outcomes.
+    """
+    policy = snap.get("protection_policy")
+    if not policy:
+        return []
+    flow = [Paragraph("SECTION 7 — 🛡️ LEAMSS PROTECTION POLICY", styles["h1"])]
+    flow.append(Paragraph(_safe(policy.get("title")), styles["h2"]))
+    desc = policy.get("description_markdown") or ""
+    # Convert markdown # / ## into plain headers for ReportLab
+    for line in desc.split("\n\n"):
+        line = line.strip()
+        if not line:
+            continue
+        line_clean = line.replace("**", "").replace("##", "").replace("#", "").strip()
+        flow.append(Paragraph(_safe(line_clean), styles["body"]))
+
+    terms = policy.get("refund_terms") or {}
+    flow.append(Spacer(1, 8))
+    flow.append(Paragraph("What is Covered (Refund)", styles["h3"]))
+    for c in terms.get("covers") or []:
+        flow.append(Paragraph(f"✓ {c.replace('_', ' ').title()}", styles["body_small"]))
+    flow.append(Spacer(1, 4))
+    flow.append(Paragraph("What is NOT Covered", styles["h3"]))
+    for c in terms.get("excludes") or []:
+        flow.append(Paragraph(f"✗ {c.replace('_', ' ').title()}", styles["body_small"]))
+    if terms.get("claim_within_days"):
+        flow.append(Spacer(1, 4))
+        flow.append(Paragraph(
+            f"<b>Claim Window:</b> {terms['claim_within_days']} days from the date of decision.",
+            styles["body"]))
+
+    applicable_countries = policy.get("applicable_countries") or ["*"]
+    applicable_visas = policy.get("applicable_visa_types") or ["*"]
+    flow.append(Spacer(1, 6))
+    flow.append(Paragraph(
+        f"<b>Applicable Countries:</b> {', '.join(applicable_countries)} · "
+        f"<b>Applicable Visa Types:</b> {', '.join(applicable_visas)}",
+        styles["body_small"]))
+    flow.append(Paragraph(
+        f"<i>Policy ID: {_safe(policy.get('policy_id'))} · Version {_safe(policy.get('version'))}</i>",
+        styles["disclaimer"]))
+    flow.append(PageBreak())
+    return flow
+
+
 def _section_indicative_checklist(snap, styles):
     flow = [Paragraph("SECTION 6 — INDICATIVE DOCUMENT CHECKLIST", styles["h1"])]
     flow.append(Paragraph(
@@ -552,15 +762,34 @@ def render_pdf(snapshot: Dict[str, Any]) -> bytes:
         PageTemplate(id="branded", frames=[main_frame], onPage=_draw_page_frame),
     ])
 
+    # Phase 7.3 — Tier-based section selection
+    tier = snapshot.get("render_tier") or "full"
+
     story: List = []
     story.extend(_section_cover(snapshot, styles))
     story.extend(_section_executive_summary(snapshot, styles))
     story.extend(_section_client_profile(snapshot, styles))
-    for idx, country in enumerate(snapshot.get("countries") or [], start=1):
-        story.extend(_section_country(country, snapshot, styles, idx))
-    story.extend(_section_process_and_cost(snapshot, styles))
-    story.extend(_section_country_guide(snapshot, styles))
-    story.extend(_section_indicative_checklist(snapshot, styles))
+
+    if tier in ("full", "proposal"):
+        # ANZSCO occupation deep-dive (Phase 7.3)
+        story.extend(_section_anzsco_profile(snapshot, styles))
+        # Per-country eligibility detail
+        for idx, country in enumerate(snapshot.get("countries") or [], start=1):
+            story.extend(_section_country(country, snapshot, styles, idx))
+        story.extend(_section_process_and_cost(snapshot, styles))
+        # Cost Estimator (Phase 7.3) — only when admin populated
+        story.extend(_section_cost_estimator(snapshot, styles))
+        # Country guide
+        story.extend(_section_country_guide(snapshot, styles))
+        # Detailed checklist
+        story.extend(_section_indicative_checklist(snapshot, styles))
+    else:
+        # Teaser tier — keep summary tight, no deep-dive / cost / checklist
+        story.extend(_section_process_and_cost(snapshot, styles))
+
+    # Protection Policy (Sir's USP) — visible in EVERY tier including teaser
+    story.extend(_section_protection_policy(snapshot, styles))
+
     story.extend(_section_disclaimer(snapshot, styles))
     story.extend(_section_contact(snapshot, styles))
 

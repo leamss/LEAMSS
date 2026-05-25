@@ -40,6 +40,8 @@ ASSESSMENTS = db["sales_assessments"]
 OCCUPATION_MASTER = db["occupation_master"]
 COUNTRY_TEMPLATES = db["country_templates"]
 COUNTRY_GUIDES = db["country_guides"]
+ANZSCO_4DIGIT_MASTER = db["anzsco_4digit_master"]
+PROTECTION_POLICIES = db["protection_policies"]
 ADMIN_ROLES = {"admin", "admin_owner"}
 
 
@@ -145,6 +147,32 @@ async def _build_snapshot(
 
     best = max(countries_data, key=lambda c: (c.get("total") or 0)) if countries_data else None
 
+    # ────────────────────────────────────────────────────────────────────
+    # Phase 7.3 — Inject KB-driven data into the snapshot
+    # ────────────────────────────────────────────────────────────────────
+    # 1) ANZSCO 4-digit profile (from Feb 2026 ABS Excel)
+    anzsco_profile = None
+    occ_block = assessment.get("occupation") or {}
+    occ_code = occ_block.get("code") or ""
+    if occ_code and len(occ_code) >= 4:
+        parent_code = occ_code[:4]
+        anzsco_profile = await ANZSCO_4DIGIT_MASTER.find_one(
+            {"code": parent_code}, {"_id": 0},
+        )
+
+    # 2) Cost Estimator (from sales_assessments.cost_estimator)
+    cost_estimator = assessment.get("cost_estimator") or None
+
+    # 3) Protection Policy (default verified LEAMSS policy)
+    protection_policy = await PROTECTION_POLICIES.find_one(
+        {"is_default_leamss": True, "status": "verified"}, {"_id": 0},
+    )
+    if not protection_policy:
+        # Fallback: any verified policy (so PDF still shows USP)
+        protection_policy = await PROTECTION_POLICIES.find_one(
+            {"status": "verified"}, {"_id": 0},
+        )
+
     snap_data = {
         "assessment_id": assessment.get("id"),
         "persona": persona,
@@ -158,6 +186,10 @@ async def _build_snapshot(
         "countries": countries_data,
         "country_guides": country_guides_data,
         "best_country": best,
+        # Phase 7.3 — new snapshot fields
+        "anzsco_profile": anzsco_profile,
+        "cost_estimator": cost_estimator,
+        "protection_policy": protection_policy,
         "warnings": warnings,
         "generated_at_iso": datetime.now(timezone.utc).isoformat(),
         "generated_on_human": now_human(),
@@ -256,7 +288,20 @@ async def get_report(snapshot_id: str, current_user: dict = Depends(get_current_
 
 
 @router.get("/{snapshot_id}/pdf")
-async def stream_pdf(snapshot_id: str, current_user: dict = Depends(get_current_user)):
+async def stream_pdf(
+    snapshot_id: str,
+    tier: str = "full",
+    current_user: dict = Depends(get_current_user),
+):
+    """Phase 7.3 — tier-aware PDF stream.
+
+    tier values:
+      - teaser   — public read before PA payment (5-6 pages, cover + summary + protection + CTA)
+      - full     — after PA paid (everything: code deep-dive, costs, guide)
+      - proposal — after main fees paid (full + proposal-letter cover)
+    Admins and the snapshot owner can request any tier. Tier is recorded on the snapshot
+    via /upgrade-tier (internal logic, no Stripe).
+    """
     d = await REPORT_SNAPSHOTS.find_one({"snapshot_id": snapshot_id})
     if not d:
         raise HTTPException(status_code=404, detail="Report not found")
@@ -264,12 +309,48 @@ async def stream_pdf(snapshot_id: str, current_user: dict = Depends(get_current_
         raise HTTPException(status_code=403, detail="Not the owner")
     snap_data = d.get("data") or {}
     snap_data["snapshot_id"] = d.get("snapshot_id")
+    snap_data["render_tier"] = tier if tier in ("teaser", "full", "proposal") else "full"
     pdf_bytes = render_pdf(snap_data)
     filename = f"LEAMSS_Report_{(d.get('client_name') or 'client').replace(' ', '_')}_{snapshot_id}.pdf"
     return Response(
         content=pdf_bytes, media_type="application/pdf",
         headers={"Content-Disposition": f'inline; filename="{filename}"'},
     )
+
+
+class UpgradeTierRequest(BaseModel):
+    tier: str = Field(..., description="full | proposal")
+    payment_ref: Optional[str] = Field(None, description="Internal payment reference / PA id / receipt no.")
+
+
+@router.post("/{snapshot_id}/upgrade-tier")
+async def upgrade_tier(
+    snapshot_id: str,
+    req: UpgradeTierRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """Phase 7.3 — Internal-logic tier upgrade. No Stripe (Sir's directive).
+
+    Admin or owner can flip a snapshot's gating tier. Typically called when the
+    Pre-Assessment fee or main fee is marked paid in the admin console.
+    """
+    if req.tier not in ("teaser", "full", "proposal"):
+        raise HTTPException(400, "tier must be one of: teaser, full, proposal")
+    d = await REPORT_SNAPSHOTS.find_one({"snapshot_id": snapshot_id})
+    if not d:
+        raise HTTPException(status_code=404, detail="Report not found")
+    if not _is_admin(current_user) and d.get("generated_by") != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Not the owner")
+    await REPORT_SNAPSHOTS.update_one(
+        {"snapshot_id": snapshot_id},
+        {"$set": {
+            "render_tier": req.tier,
+            "tier_upgraded_at": datetime.now(timezone.utc),
+            "tier_upgraded_by": current_user.get("id"),
+            "tier_payment_ref": req.payment_ref,
+        }},
+    )
+    return {"ok": True, "snapshot_id": snapshot_id, "tier": req.tier}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -372,6 +453,8 @@ async def public_pdf(share_token: str):
         raise HTTPException(status_code=404, detail="Report not found")
     snap_data = d.get("data") or {}
     snap_data["snapshot_id"] = d.get("snapshot_id")
+    # Phase 7.3 — public link respects the snapshot's stored tier (or teaser default)
+    snap_data["render_tier"] = d.get("render_tier") or "teaser"
     pdf_bytes = render_pdf(snap_data)
     filename = f"LEAMSS_Report_{(d.get('client_name') or 'client').replace(' ', '_')}.pdf"
     return Response(
