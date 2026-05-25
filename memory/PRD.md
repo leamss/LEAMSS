@@ -5,27 +5,44 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 
 > **📌 Update (Feb 13, 2026):** `CHANGELOG.md` now tracks all completed phases (incl. **Phase 3A — Attendance & Leave** with full company policies). `ROADMAP.md` lists prioritized backlog. This PRD remains the static reference for original requirements.
 
-### 🔄 Phase 7.3.5 — Tier Auto-Advance Hook (May 25, 2026)
+### 🔄 Phase 7.3.5 — Tier Auto-Advance Hook + Client Notification (May 25, 2026)
 **Status:** ✅ COMPLETE — **3/3 helper tests PASS · 51/51 full regression PASS**.
 
-Sir's pre-approved enhancement: "Jab PA fee paid ho jaaye → automatically PDF tier `teaser → full` ho jaaye, no manual `/upgrade-tier` call needed."
+Sir-approved smart enhancement: tier auto-flips + client gets a "🎉 Full report unlocked" notification.
 
-**Implementation:**
-- New file `core/report_tier_hook.py` with idempotent helper `auto_upgrade_report_tiers_for_pa(pa_id, new_stage, payment_ref)`
+**Implementation (`core/report_tier_hook.py`):**
+- Idempotent helper `auto_upgrade_report_tiers_for_pa(pa_id, new_stage, payment_ref)`
 - Stage → Tier mapping: `proposal_paid` / `awaiting_final_approval` → `full` · `case_created` → `proposal`
 - **Tier never downgrades** — once at proposal, stays proposal even if PA reverses
 - Each upgrade audit-logged with `tier_upgraded_by="auto:pa_stage_hook"`, payment ref, trigger stage, and old tier
+- **NEW:** After every successful tier upgrade, automatically creates a `notifications` collection entry:
+  - In-app notification with friendly Hinglish title/message
+  - WhatsApp template ready-to-send (in `meta.wa_template`) — pre-filled with client name + share link
+  - Distinct templates for `full` ("🎉 Full Assessment Report Unlocked") and `proposal` ("🛡️ Case Active") tiers
 
-**Hooks installed in `pre_assess_portal.py`:**
-- Line ~825 (proposal_paid path): auto-upgrade all linked snapshots to `full`
-- Line ~1029 (case_created path): auto-upgrade all linked snapshots to `proposal`
-- Audit logged via existing `_log()` helper as `report_tier_auto_upgrade` event
+**Hooks installed:**
+- `pre_assess_portal.py` proposal_paid path: upgrade to full + notify
+- `pre_assess_portal.py` case_created path: upgrade to proposal + notify
 
-**Validation:**
-- Idempotent: re-running same stage hook = 0 upgrades, all skipped
-- Non-mapped stages (e.g., `under_review`): no-op with `reason: stage_not_mapped`
-- Missing PA: no-op with `reason: pa_not_found`
-- Visual flow confirmed: snapshot tier flips automatically when payment marked paid
+### 🧹 Phase 7.4 — Profile Merge (May 25, 2026)
+**Status:** ✅ PART 1 COMPLETE — Hide-not-delete enforced.
+
+Sir's directive: "Delete → Hide". Pure UX consolidation, zero data loss, routes stay live for direct URL access.
+
+**Frontend changes:**
+- `pages/AdminDashboard.jsx` — Sales menu cleaned. Commented out (not deleted) two menu items:
+  - `Client Profiles` → /eligibility/profiles
+  - `New Profile` → /eligibility/new-assessment
+  → Comments preserved for easy re-enable; backend routes + pages untouched (Sir's "hide" rule)
+- `steps/Step1Start.jsx` — NEW "Save time — let the client self-fill" emerald CTA card:
+  - Generates secure Info Sheet link via existing `/api/eligibility/info-sheet/generate-link`
+  - Copy / Open / WhatsApp (deep-link prefilled with client name + LEAMSS branded message)
+  - Validity badge (30 days default) — once client submits, Step 3 auto-populates
+
+**Outcome for Sir's complaint:**
+- "3 wizards confusing" → Admin/Partner menus no longer show parallel "New Profile" flows
+- "Send Infosheet alag hai" → Info Sheet send is now ONE-CLICK inside the unified Client Assessment Wizard
+- Zero deletions, fully reversible via uncommenting menu lines
 
 ### 📄 Phase 7.3 — Report KB Data Injection + 3-Tier Gating (May 25, 2026)
 **Status:** ✅ COMPLETE — Backend **8/8 PASS · 48/48 full regression PASS** (`tests/test_iteration129_phase_73.py`). PDF visual verified via AI vision on 3 grids.

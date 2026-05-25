@@ -28,6 +28,8 @@ Section structure (per Sir's spec):
 All data comes from the snapshot — never live KB.
 """
 import io
+import logging
+import os
 from datetime import datetime
 from typing import Any, Dict, List
 
@@ -35,10 +37,35 @@ from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import cm, mm
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import (
     BaseDocTemplate, Frame, PageTemplate, Paragraph, Spacer, Table, TableStyle,
     PageBreak, KeepTogether,
 )
+from reportlab.graphics.charts.barcharts import HorizontalBarChart
+from reportlab.graphics.shapes import Drawing, String, Rect
+
+logger = logging.getLogger(__name__)
+
+# ─── Phase 8.3 — Register premium fonts (Manrope + Public Sans) ─────────────
+_FONTS_DIR = os.path.join(os.path.dirname(__file__), "..", "fonts")
+HEAD_FONT = "Helvetica-Bold"
+HEAD_BOLD = "Helvetica-Bold"
+BODY_FONT = "Helvetica"
+BODY_BOLD = "Helvetica-Bold"
+try:
+    pdfmetrics.registerFont(TTFont("Manrope", os.path.join(_FONTS_DIR, "Manrope-Regular.ttf")))
+    pdfmetrics.registerFont(TTFont("Manrope-Bold", os.path.join(_FONTS_DIR, "Manrope-Bold.ttf")))
+    pdfmetrics.registerFont(TTFont("PublicSans", os.path.join(_FONTS_DIR, "PublicSans-Regular.ttf")))
+    pdfmetrics.registerFont(TTFont("PublicSans-Bold", os.path.join(_FONTS_DIR, "PublicSans-Bold.ttf")))
+    HEAD_FONT = "Manrope"
+    HEAD_BOLD = "Manrope-Bold"
+    BODY_FONT = "PublicSans"
+    BODY_BOLD = "PublicSans-Bold"
+    logger.info("Phase 8.3 premium fonts registered: Manrope + PublicSans")
+except Exception as e:
+    logger.warning("Premium fonts unavailable — falling back to Helvetica: %s", e)
 
 # ─── Brand constants ─────────────────────────────────────────────────────────
 BRAND_PRIMARY = colors.HexColor("#1E3A8A")
@@ -66,33 +93,45 @@ def _build_styles():
     base = getSampleStyleSheet()
     return {
         "cover_title": ParagraphStyle("cover_title", parent=base["Title"],
-                                       fontName="Helvetica-Bold", fontSize=48,
-                                       leading=54, textColor=BRAND_PRIMARY, alignment=0, spaceAfter=8),
+                                       fontName=HEAD_BOLD, fontSize=44,
+                                       leading=50, textColor=colors.white, alignment=0, spaceAfter=8),
         "cover_subtitle": ParagraphStyle("cover_subtitle", parent=base["Title"],
-                                          fontName="Helvetica-Bold", fontSize=20,
-                                          leading=26, textColor=BRAND_ACCENT, alignment=0, spaceAfter=24),
-        "tagline": ParagraphStyle("tagline", fontName="Helvetica-Oblique",
+                                          fontName=HEAD_BOLD, fontSize=18,
+                                          leading=24, textColor=BRAND_GOLD, alignment=0, spaceAfter=20),
+        "cover_white": ParagraphStyle("cover_white", fontName=BODY_FONT,
+                                       fontSize=11, leading=14, textColor=colors.white,
+                                       alignment=0, spaceAfter=4),
+        "cover_score": ParagraphStyle("cover_score", fontName=HEAD_BOLD,
+                                       fontSize=72, leading=78, textColor=BRAND_GOLD,
+                                       alignment=1),
+        "tagline": ParagraphStyle("tagline", fontName=BODY_FONT,
                                    fontSize=13, leading=16, textColor=BRAND_GOLD,
                                    alignment=0, spaceAfter=6),
-        "company": ParagraphStyle("company", fontName="Helvetica-Bold",
+        "company": ParagraphStyle("company", fontName=BODY_BOLD,
                                    fontSize=11, textColor=BRAND_CHARCOAL, spaceAfter=2),
-        "h1": ParagraphStyle("h1", fontName="Helvetica-Bold", fontSize=18,
-                              leading=22, textColor=BRAND_PRIMARY, spaceBefore=12, spaceAfter=8),
-        "h2": ParagraphStyle("h2", fontName="Helvetica-Bold", fontSize=13,
+        "h1": ParagraphStyle("h1", fontName=HEAD_BOLD, fontSize=20,
+                              leading=24, textColor=BRAND_PRIMARY, spaceBefore=12, spaceAfter=10),
+        "h2": ParagraphStyle("h2", fontName=HEAD_BOLD, fontSize=14,
                               leading=18, textColor=BRAND_ACCENT, spaceBefore=8, spaceAfter=6),
-        "h3": ParagraphStyle("h3", fontName="Helvetica-Bold", fontSize=11,
+        "h3": ParagraphStyle("h3", fontName=HEAD_BOLD, fontSize=11,
                               leading=14, textColor=BRAND_INDIGO, spaceBefore=6, spaceAfter=4),
-        "body": ParagraphStyle("body", fontName="Helvetica", fontSize=10,
+        "body": ParagraphStyle("body", fontName=BODY_FONT, fontSize=10,
                                 leading=14, textColor=BRAND_CHARCOAL, spaceAfter=4),
-        "body_small": ParagraphStyle("body_small", fontName="Helvetica", fontSize=8.5,
+        "body_small": ParagraphStyle("body_small", fontName=BODY_FONT, fontSize=8.5,
                                       leading=11.5, textColor=BRAND_CHARCOAL),
-        "highlight": ParagraphStyle("highlight", fontName="Helvetica-Bold",
+        "highlight": ParagraphStyle("highlight", fontName=BODY_BOLD,
                                      fontSize=10, leading=14, textColor=BRAND_PRIMARY,
                                      backColor=BRAND_LIGHT_GREY, borderPadding=6,
                                      spaceBefore=4, spaceAfter=4),
-        "disclaimer": ParagraphStyle("disclaimer", fontName="Helvetica-Oblique",
+        "disclaimer": ParagraphStyle("disclaimer", fontName=BODY_FONT,
                                       fontSize=8, leading=11, textColor=colors.HexColor("#6B7280"),
                                       backColor=BRAND_LIGHT_GREY, borderPadding=6),
+        "section_banner_title": ParagraphStyle("section_banner_title", fontName=HEAD_BOLD,
+                                                fontSize=24, leading=28, textColor=colors.white,
+                                                alignment=0),
+        "section_banner_subtitle": ParagraphStyle("section_banner_subtitle", fontName=BODY_FONT,
+                                                   fontSize=10, leading=14, textColor=BRAND_GOLD,
+                                                   alignment=0, spaceBefore=2),
     }
 
 

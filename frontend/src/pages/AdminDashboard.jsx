@@ -1243,8 +1243,9 @@ const AdminDashboard = () => {
         { id: 'sales-client-assessment', icon: Wand2, label: 'Client Assessment (Workflow)', onClick: () => navigate('/sales/client-assessment') },
         { id: 'sales-my-assessments', icon: FileText, label: 'Saved Assessments', onClick: () => navigate('/sales/my-assessments') },
         { id: 'eligibility-kb', icon: Globe, label: 'Knowledge Base (Admin)', onClick: () => navigate('/admin/eligibility/knowledge-base') },
-        { id: 'eligibility-profiles', icon: User, label: 'Client Profiles', onClick: () => navigate('/eligibility/profiles') },
-        { id: 'eligibility-new', icon: Plus, label: 'New Profile', onClick: () => navigate('/eligibility/new-assessment') },
+        // Phase 7.4 — hidden per Sir's directive (consolidated into Client Assessment wizard)
+        // { id: 'eligibility-profiles', icon: User, label: 'Client Profiles', onClick: () => navigate('/eligibility/profiles') },
+        // { id: 'eligibility-new', icon: Plus, label: 'New Profile', onClick: () => navigate('/eligibility/new-assessment') },
       ]
     },
     {
