@@ -6,7 +6,7 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 > **📌 Update (Feb 13, 2026):** `CHANGELOG.md` now tracks all completed phases (incl. **Phase 3A — Attendance & Leave** with full company policies). `ROADMAP.md` lists prioritized backlog. This PRD remains the static reference for original requirements.
 
 ### ⚡ Phase 7.5 — Pipeline Cockpit Full Wiring (May 25, 2026)
-**Status:** ✅ COMPLETE · **Testing**: 10/10 backend pytest + frontend E2E 100% (testing agent iteration_113) · **Zero blue/indigo violations** verified by testing agent.
+**Status:** ✅ COMPLETE · **Testing**: 13/13 backend pytest + frontend E2E 100% (testing agent iterations 113, 114) · **Zero blue/indigo violations** · **Sanity route-mismatch issue FIXED**.
 
 Sir's ask: "Static cockpit mockup ko production me convert karo — live data, AI brief, drill-in, Cmd-K. NO blue/indigo."
 
@@ -42,7 +42,16 @@ Sir's ask: "Static cockpit mockup ko production me convert karo — live data, A
 - Funnel: Leads 21 · Assessments 3 · Pre-Assessments 83 · Proposals 5 · Active Cases 9 · Closed 0 · Total 121 active records
 - AI Brief: 21 stale leads, 5 proposals awaiting decision, 3 KB items pending verification
 
-**Tests:** `tests/test_iteration132_phase_75_cockpit.py` (10 cases: funnel/cards default/filter/search/sort/brief/RBAC/drill-in not-found/drill-in bad-kind/unauthenticated 401)
+**Tests:** `tests/test_iteration132_phase_75_cockpit.py` (10 cases: funnel/cards default/filter/search/sort/brief/RBAC/drill-in not-found/drill-in bad-kind/unauthenticated 401) + `tests/test_iteration114_cockpit_routes.py` (3 cases: brief cta_links validation + PA/assessment deep_link values)
+
+**Sanity Fix (iteration_114) — Route Mismatch Eliminated:**
+- **Root cause:** Iteration_113 testing flagged that `/admin/pre-assessments`, `/admin/verification-hub`, `/admin/leads`, `/admin/cases`, `/sales/assessments` redirected to Login during regression. These URLs do NOT exist in `App.js` — they were internal AdminDashboard tab names OR had different paths (e.g., `/admin/verify-hub`, `/sales/my-assessments`).
+- **Fix:**
+  1. `AdminDashboard.jsx` now reads `?tab=…` from URL via `useSearchParams` + syncs `activeTab` on mount and URL change → enables deep-linking to internal tabs
+  2. `Cockpit.jsx` left-sidebar nav, AI Quick Actions, Cmd-K Quick Actions all updated to real routes: `/admin?tab=pre-assessments`, `/admin?tab=cases`, `/admin/verify-hub`, `/sales/my-assessments`, `/sales/client-assessment`, `/admin/kb/occupation-master`
+  3. Removed "Leads" sidebar item (no standalone Leads page yet — folded into PA management), added "Smart Sales Helper" entry
+  4. `routers/cockpit.py` brief endpoint `cta_link` + card detail `deep_link` updated to same pattern
+- **Verification:** 13/13 backend pytest + 16/16 frontend nav-target E2E (testing agent iteration_114) — every cockpit click lands on a real rendered page.
 
 ### 🎨 Phase 8 — Premium PDF Renderer v2 (HTML→PDF · WeasyPrint) (May 25, 2026)
 **Status:** ✅ COMPLETE — Backend **7/7 new + 51/51 full regression PASS** (`tests/test_iteration131_phase_8_pdf_v2.py`). All 3 tiers (teaser/full/proposal) render successfully via API.
