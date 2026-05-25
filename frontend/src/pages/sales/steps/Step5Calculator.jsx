@@ -14,10 +14,11 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { AlertCircle, Calculator, CheckCircle2, Loader2, SlidersHorizontal } from 'lucide-react';
+import ParallelSubclassPanel from '../components/ParallelSubclassPanel';
 
 const AU_STATES = ['NSW', 'VIC', 'QLD', 'SA', 'WA', 'TAS', 'NT', 'ACT'];
 
-export default function Step5Calculator({ results, calculating, data, update }) {
+export default function Step5Calculator({ results, calculating, data, update, headers }) {
   // Determine which destination countries the user picked so we can scope the
   // additional-factor toggles. Falls back to AU if nothing matches.
   const activeCountries = useMemo(() => {
@@ -82,6 +83,9 @@ export default function Step5Calculator({ results, calculating, data, update }) 
           ))}
         </div>
       )}
+
+      {/* Phase 7.2 — Parallel Subclass Comparison (Sir's request) */}
+      {headers && data.marital_status && <ParallelSubclassPanel data={data} headers={headers} />}
 
       {/* ADDITIONAL FACTORS — Phase 6.8.4 */}
       {update && (

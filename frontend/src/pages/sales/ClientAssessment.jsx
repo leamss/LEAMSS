@@ -320,7 +320,7 @@ export default function ClientAssessment() {
           {step === 2 && <Step2Approach data={data} update={update} />}
           {step === 3 && <Step3Profile data={data} update={update} setData={setData} headers={headers} />}
           {step === 4 && <Step4Countries data={data} update={update} />}
-          {step === 5 && <Step5Calculator results={calcResults} calculating={calculating} data={data} update={update} />}
+          {step === 5 && <Step5Calculator results={calcResults} calculating={calculating} data={data} update={update} headers={headers} />}
           {step === 6 && <Step6CostEstimator data={data} setData={setData} saved={saved} headers={headers} />}
           {step === 7 && <Step6Review data={data} results={calcResults} />}
           {step === 8 && <Step7Done saved={saved} createPA={createPA} navigate={navigate} headers={headers} creatingPA={creatingPA} />}

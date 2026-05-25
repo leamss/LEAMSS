@@ -9,6 +9,7 @@ import { Bot, Briefcase, Heart, Upload } from 'lucide-react';
 import FieldWithLabel from '../lib/FieldWithLabel';
 import SuggesterModal from '../lib/SuggesterModal';
 import ResumeUploadModal from '../lib/ResumeUploadModal';
+import ANZSCOPreviewCard from '../components/ANZSCOPreviewCard';
 import { QUALIFICATIONS, MARITAL_OPTIONS, CONTRIBUTION_OPTIONS } from '../lib/constants';
 
 export default function Step3Profile({ data, update, setData, headers }) {
@@ -40,21 +41,30 @@ export default function Step3Profile({ data, update, setData, headers }) {
       </div>
 
       {data.occupation_code && (
-        <Card className="p-3 bg-emerald-50 border-l-4 border-l-emerald-500" data-testid="selected-occ-card">
-          <p className="text-[10px] uppercase font-bold text-emerald-700">Selected Occupation</p>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-bold">{data.occupation_code} · {data.occupation_title}</p>
-              <p className="text-[10px] text-slate-500">{data.occupation_body} · {data.occupation_pathway}</p>
+        <>
+          <Card className="p-3 bg-emerald-50 border-l-4 border-l-emerald-500" data-testid="selected-occ-card">
+            <p className="text-[10px] uppercase font-bold text-emerald-700">Selected Occupation</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-bold">{data.occupation_code} · {data.occupation_title}</p>
+                <p className="text-[10px] text-slate-500">{data.occupation_body} · {data.occupation_pathway}</p>
+              </div>
+              <Button size="sm" variant="ghost" onClick={() => {
+                update('occupation_code', '');
+                update('occupation_title', '');
+                update('occupation_body', '');
+                update('occupation_pathway', '');
+              }}>Change</Button>
             </div>
-            <Button size="sm" variant="ghost" onClick={() => {
-              update('occupation_code', '');
-              update('occupation_title', '');
-              update('occupation_body', '');
-              update('occupation_pathway', '');
-            }}>Change</Button>
-          </div>
-        </Card>
+          </Card>
+
+          {/* Phase 7.2 — Auto-populate ANZSCO 4-digit KB preview */}
+          <ANZSCOPreviewCard
+            code={data.occupation_code}
+            occupationTitle={data.occupation_title}
+            headers={headers}
+          />
+        </>
       )}
 
       {/* Profile fields */}
