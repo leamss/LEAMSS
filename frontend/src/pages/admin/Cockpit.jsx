@@ -210,11 +210,11 @@ export default function Cockpit() {
             {[
               { icon: Home,       label: 'Dashboard',         to: '/admin' },
               { icon: Zap,        label: 'Pipeline Cockpit',  to: '/admin/cockpit', active: true },
-              { icon: Users,      label: 'Leads',             to: '/admin/leads' },
-              { icon: FileText,   label: 'Assessments',       to: '/sales/assessments' },
-              { icon: FileBadge,  label: 'Pre-Assessments',   to: '/admin/pre-assessments' },
-              { icon: Briefcase,  label: 'Active Cases',      to: '/admin/cases' },
-              { icon: Shield,     label: 'Verification Hub',  to: '/admin/verification-hub' },
+              { icon: FileText,   label: 'Assessments',       to: '/sales/my-assessments' },
+              { icon: FileBadge,  label: 'Pre-Assessments',   to: '/admin?tab=pre-assessments' },
+              { icon: Briefcase,  label: 'Active Cases',      to: '/admin?tab=cases' },
+              { icon: Shield,     label: 'Verification Hub',  to: '/admin/verify-hub' },
+              { icon: Users,      label: 'Smart Sales Helper', to: '/sales/client-assessment' },
             ].map(item => (
               <button
                 key={item.label}
@@ -443,10 +443,10 @@ export default function Cockpit() {
             <div className="space-y-2">
               {[
                 { icon: Wand2,         label: 'AI Suggester',     desc: 'Suggest best country + visa',  to: '/sales/client-assessment' },
-                { icon: Sparkles,      label: 'Draft Proposal',   desc: 'Auto-write fee proposal',      to: '/admin/pre-assessments' },
-                { icon: FileText,      label: 'Generate Report',  desc: 'Branded PDF in 30 sec',        to: '/sales/assessments' },
-                { icon: MessageSquare, label: 'WhatsApp Share',   desc: 'Send proposal link',           to: '/admin/share-links' },
-                { icon: Shield,        label: 'Verification Hub', desc: `${brief?.counts?.pending_verify ?? 0} items pending`, to: '/admin/verification-hub' },
+                { icon: Sparkles,      label: 'Draft Proposal',   desc: 'Auto-write fee proposal',      to: '/admin?tab=pre-assessments' },
+                { icon: FileText,      label: 'Generate Report',  desc: 'Branded PDF in 30 sec',        to: '/sales/my-assessments' },
+                { icon: MessageSquare, label: 'WhatsApp Share',   desc: 'Send proposal link',           to: '/admin?tab=pre-assessments' },
+                { icon: Shield,        label: 'Verification Hub', desc: `${brief?.counts?.pending_verify ?? 0} items pending`, to: '/admin/verify-hub' },
               ].map(item => (
                 <button
                   key={item.label}
@@ -623,11 +623,11 @@ export default function Cockpit() {
               </p>
               {[
                 { label: 'Create new client',                   to: '/sales/client-assessment' },
-                { label: 'Open Verification Hub',               to: '/admin/verification-hub' },
-                { label: 'Open Country Templates',              to: '/admin/country-templates' },
-                { label: 'Open Pre-Assessments',                to: '/admin/pre-assessments' },
-                { label: 'Open Leads',                          to: '/admin/leads' },
-                { label: 'Open Active Cases',                   to: '/admin/cases' },
+                { label: 'Open Verification Hub',               to: '/admin/verify-hub' },
+                { label: 'Open Country Templates',              to: '/admin/kb/occupation-master' },
+                { label: 'Open Pre-Assessments',                to: '/admin?tab=pre-assessments' },
+                { label: 'Open Active Cases',                   to: '/admin?tab=cases' },
+                { label: 'Open My Assessments',                 to: '/sales/my-assessments' },
               ].filter(c => !cmdQuery || c.label.toLowerCase().includes(cmdQuery.toLowerCase()))
                 .map(c => (
                   <button

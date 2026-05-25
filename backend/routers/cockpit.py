@@ -351,8 +351,8 @@ async def get_ai_brief(current_user: dict = Depends(get_current_user)):
         insights.append({
             "icon": "alert",
             "title": f"{stale_leads_n} leads not contacted in 48 hours",
-            "cta_label": "Open Leads",
-            "cta_link": "/admin/leads?filter=stale",
+            "cta_label": "Open Pre-Assessments",
+            "cta_link": "/admin?tab=pre-assessments",
             "urgency": "high",
         })
     if payment_pending_n:
@@ -360,7 +360,7 @@ async def get_ai_brief(current_user: dict = Depends(get_current_user)):
             "icon": "clock",
             "title": f"{payment_pending_n} PA fee window closing soon",
             "cta_label": "Send Reminder",
-            "cta_link": "/admin/pre-assessments?stage=payment_pending",
+            "cta_link": "/admin?tab=pre-assessments",
             "urgency": "medium",
         })
     if proposals_pending_n:
@@ -368,7 +368,7 @@ async def get_ai_brief(current_user: dict = Depends(get_current_user)):
             "icon": "mail",
             "title": f"{proposals_pending_n} proposals awaiting client decision",
             "cta_label": "Follow Up",
-            "cta_link": "/admin/pre-assessments?stage=proposal_sent",
+            "cta_link": "/admin?tab=pre-assessments",
             "urgency": "medium",
         })
     if pending_verify_n:
@@ -376,7 +376,7 @@ async def get_ai_brief(current_user: dict = Depends(get_current_user)):
             "icon": "shield",
             "title": f"{pending_verify_n} KB items awaiting verification",
             "cta_label": "Verify Hub",
-            "cta_link": "/admin/verification-hub",
+            "cta_link": "/admin/verify-hub",
             "urgency": "low",
         })
 
@@ -435,6 +435,6 @@ async def get_card_detail(
                 "pa_number": d.get("pa_number"),
                 "name": d.get("client_name"),
                 "stage": d.get("stage"),
-                "deep_link": f"/admin/pre-assessments?focus={d.get('id')}"}
+                "deep_link": "/admin?tab=pre-assessments"}
 
     raise HTTPException(status_code=400, detail=f"Unknown kind: {kind}")

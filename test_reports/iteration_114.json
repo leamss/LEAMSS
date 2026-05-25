@@ -1,0 +1,37 @@
+{
+  "summary": "Targeted regression for Phase 7.5 cockpit route fix (iteration_113 sanity flag) — ALL GREEN. Backend: 13/13 pytest pass (10 existing cockpit + 3 new route-validation assertions). Frontend: Login + Cockpit load + 5/5 sidebar nav items + topbar +New Client + 2/2 AI Brief CTAs + 6/6 Cmd-K Quick Actions + drill-in 'Open Full View' all navigate to REAL existing routes (NOT login page). No broken routes detected (/admin/leads, /admin/cases, /admin/pre-assessments, /admin/verification-hub, /admin/share-links, /admin/country-templates, /sales/assessments are no longer referenced anywhere in cockpit code path). AdminDashboard correctly reads ?tab=... via useSearchParams and switches activeTab on deep-link.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration132_phase_75_cockpit.py",
+    "/app/backend/tests/test_iteration114_cockpit_routes.py",
+    "/app/test_reports/pytest/pytest_iteration114.xml",
+    "/app/test_reports/pytest/pytest_iteration114_routes.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Cockpit.jsx Cmd-K modal correctly closes via setShowCmdK(false) BEFORE navigate(c.to) — but a text-only selector match (page.get_by_text) is occasionally flaky because the same string can match adjacent DOM nodes when modal animation overlaps. data-testid='cockpit-cmdk-item-*' on every action is already in place — recommend tests always use those.",
+    "AdminDashboard.jsx useEffect that syncs ?tab= -> activeTab uses dependency on [searchParams] correctly; verified URL change updates the rendered tab.",
+    "cockpit.py brief cta_links + card detail deep_link now consistently use /admin?tab=... pattern for AdminDashboard tabs and /admin/verify-hub direct route — clean and aligned with App.js routes."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration114_cockpit_routes.py (new — 3 assertions on brief cta_links + PA/assessment deep_link values)"
+  ],
+  "success_rate": {
+    "backend": "100% (13/13 pytest)",
+    "frontend": "100% (16/16 nav targets verified — 5 sidebar + 1 topbar + 2 AI Brief + 6 Cmd-K + 1 drill-in + 1 cockpit load)"
+  },
+  "test_credentials": "admin@leamss.com / Admin@123 (verified working)",
+  "seed_data_creation": "None — existing 121 active records (21 leads + 3 assessments + 83 PAs + others) used.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Phase 7.5 cockpit route-mismatch issue fully resolved. NO cockpit links redirect to login anymore. Valid routes confirmed: /admin?tab=pre-assessments, /admin?tab=cases, /admin/verify-hub, /sales/my-assessments, /sales/client-assessment, /admin/kb/occupation-master. AdminDashboard reads ?tab= via useSearchParams. When writing Playwright tests for Cmd-K modal, ALWAYS use data-testid='cockpit-cmdk-item-{slug}' selectors — text-based selectors are flaky due to DOM overlap during modal transitions.",
+  "rca of the issue": "Iteration_113 saw /sales/assessments, /admin/pre-assessments, /admin/verification-hub render login because those paths did NOT exist in App.js — they were internal AdminDashboard tab names. Fix in iteration 114 cockpit.py brief endpoint + Cockpit.jsx left-sidebar/AIQuickActions/Cmd-K maps + AdminDashboard.jsx useSearchParams enables tab-deep-linking. Verified end-to-end: every cockpit click lands on a real, rendered page. No regression."
+}

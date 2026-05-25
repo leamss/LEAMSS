@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -118,7 +118,15 @@ const AdminDashboard = () => {
   const [allSales, setAllSales] = useState([]);
   const [previewUserId, setPreviewUserId] = useState(null);
   const [salesStatusFilter, setSalesStatusFilter] = useState('all');
-  const [activeTab, setActiveTab] = useState('home');
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(() => searchParams.get('tab') || 'home');
+
+  // Sync tab when URL ?tab=… changes (e.g. from cockpit deep-links)
+  useEffect(() => {
+    const t = searchParams.get('tab');
+    if (t && t !== activeTab) setActiveTab(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
   const [preAssessFilter, setPreAssessFilter] = useState(null);
   const [selectedCase, setSelectedCase] = useState(null);
   const [selectedSale, setSelectedSale] = useState(null);
