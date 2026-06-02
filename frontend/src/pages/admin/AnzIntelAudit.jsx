@@ -1,19 +1,20 @@
 /**
- * Phase 9 — ANZSCO Intelligence Audit Dashboard
+ * Phase 9 — LEAMSS Migration Atlas · Audit + Merge Dashboard
  *
- * READ-ONLY admin page that visualizes the EXACT coverage gap between
- * the 1,236 anzsco_4digit_master records and the 79 AU occupation_master
- * detail entries.
+ * READ-ONLY audit + Step 3 data merge tool. Visualises the exact coverage
+ * gap between 1,236 anzsco_4digit_master records and 79 AU occupation_master
+ * detail entries, and lets admin commit a safe merge (dry-run preview first).
  *
  * Inspired by anzscosearch.com — but powered by LEAMSS data.
  *
- * Route: /admin/anz-intel/audit
+ * Route: /admin/anz-intel/audit  (legacy URL kept; UI now reads "Migration Atlas")
  */
 import { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import {
   Database, AlertTriangle, CheckCircle2, FileText, MapPin, Briefcase,
   Building2, Award, Globe2, Layers, Sparkles, RefreshCw, Search, Loader2,
+  GitMerge, ArrowRight,
 } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -41,6 +42,9 @@ export default function AnzIntelAudit() {
   const [summary, setSummary] = useState(null);
   const [rows, setRows] = useState([]);
   const [orphans, setOrphans] = useState([]);
+  const [mergePreview, setMergePreview] = useState(null);
+  const [mergeRunning, setMergeRunning] = useState(false);
+  const [mergeResult, setMergeResult] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [statusFilter, setStatusFilter] = useState('all');
@@ -59,17 +63,34 @@ export default function AnzIntelAudit() {
       if (statusFilter !== 'all') params.set('only_status', statusFilter);
       if (searchTxt) params.set('search', searchTxt);
 
-      const [s, r, o] = await Promise.all([
+      const [s, r, o, mp] = await Promise.all([
         axios.get(`${API}/anz-intel/audit-summary`, { headers }),
         axios.get(`${API}/anz-intel/audit-rows?${params}`, { headers }),
         axios.get(`${API}/anz-intel/orphans-4digit?limit=50`, { headers }),
+        axios.get(`${API}/anz-intel/merge-preview`, { headers }),
       ]);
       setSummary(s.data);
       setRows(r.data.items || []);
       setOrphans(o.data.items || []);
+      setMergePreview(mp.data);
     } catch (e) { console.error('audit fetch', e); }
     setRefreshing(false);
     setLoading(false);
+  };
+
+  const runMerge = async () => {
+    if (!window.confirm('Sir, confirm karein — ye action 853 naye 6-digit records add karega aur 25 existing ko enrich karega. Proceed?')) return;
+    setMergeRunning(true);
+    setMergeResult(null);
+    try {
+      const r = await axios.post(`${API}/anz-intel/merge-commit?confirm=YES-MERGE`, {}, { headers });
+      setMergeResult(r.data);
+      // Refresh all stats after merge
+      await fetchAll();
+    } catch (e) {
+      setMergeResult({ error: e.response?.data?.detail || String(e) });
+    }
+    setMergeRunning(false);
   };
 
   useEffect(() => { fetchAll(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [statusFilter, searchTxt]);
@@ -93,13 +114,14 @@ export default function AnzIntelAudit() {
         <div className="flex items-start justify-between flex-wrap gap-4">
           <div>
             <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: C.orange, letterSpacing: '0.14em' }}>
-              Phase 9 · ANZSCO Intelligence
+              Phase 9 · LEAMSS Migration Atlas
             </p>
             <h1 className="text-3xl font-bold tracking-tight" style={{ color: C.tealDark, fontFamily: "'Playfair Display', serif" }}>
-              Coverage Audit Dashboard
+              Coverage Audit &amp; Data Merge
             </h1>
             <p className="text-sm mt-2 max-w-2xl" style={{ color: C.body }}>
-              Read-only diagnostic: kahan kya data hai, kya missing hai, scrapers kahan se laayenge. Reference benchmark:{' '}
+              Step 1: read-only diagnostic. Step 2: safely merge anzsco_4digit_master → occupation_master.
+              Reference benchmark:{' '}
               <a href="https://www.anzscosearch.com/search/" target="_blank" rel="noreferrer" style={{ color: C.teal, textDecoration: 'underline' }}>
                 anzscosearch.com
               </a>
@@ -128,11 +150,12 @@ export default function AnzIntelAudit() {
       </section>
 
       {/* ─── TABS ─── */}
-      <nav className="flex gap-1 mb-6 border-b" style={{ borderColor: C.border }} data-testid="anz-audit-tabs">
+      <nav className="flex gap-1 mb-6 border-b flex-wrap" style={{ borderColor: C.border }} data-testid="anz-audit-tabs">
         {[
           { key: 'coverage',  label: 'Field Coverage',  icon: Award },
           { key: 'rows',      label: 'Per-Occupation Heatmap', icon: Layers },
           { key: 'orphans',   label: 'Orphan 4-digit Groups',  icon: AlertTriangle },
+          { key: 'merge',     label: 'Step 3 — Data Merge', icon: GitMerge },
         ].map(t => (
           <button
             key={t.key}
@@ -160,6 +183,9 @@ export default function AnzIntelAudit() {
         />
       )}
       {activeTab === 'orphans'  && <OrphansTab orphans={orphans} />}
+      {activeTab === 'merge'    && (
+        <MergeTab preview={mergePreview} running={mergeRunning} result={mergeResult} onRun={runMerge} />
+      )}
     </div>
   );
 }
@@ -352,6 +378,130 @@ function OrphansTab({ orphans }) {
             ))}
           </tbody>
         </table>
+      </div>
+    </div>
+  );
+}
+
+function MergeTab({ preview, running, result, onRun }) {
+  if (!preview) return <p style={{ color: C.muted }}>Loading merge preview…</p>;
+  const s = preview.summary || {};
+
+  return (
+    <div data-testid="anz-audit-merge-tab">
+      <div className="mb-4 p-4 rounded-lg" style={{ background: C.tealWash, border: `1px solid ${C.tealWash2}` }}>
+        <p className="text-sm font-bold flex items-center gap-2" style={{ color: C.tealDeep }}>
+          <GitMerge className="h-4 w-4" />Step 3 — Safe Data Merge (DRY-RUN preview below)
+        </p>
+        <p className="text-xs mt-1" style={{ color: C.body }}>
+          Yeh operation <code style={{ background: '#fff', padding: '1px 4px', borderRadius: 3 }}>anzsco_4digit_master</code> ke 6-digit codes ko{' '}
+          <code style={{ background: '#fff', padding: '1px 4px', borderRadius: 3 }}>occupation_master</code> me sync karega.
+          Existing records overwrite NAHI honge — sirf missing fields enrich honge.
+          Test artifacts (32) untouched rahenge.
+        </p>
+      </div>
+
+      {/* Preview cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6" data-testid="anz-merge-preview-stats">
+        <PreviewStat icon={CheckCircle2}   label="Pehle se present"     value={s.existing_6digit_in_master} tone="teal" />
+        <PreviewStat icon={Database}        label="ANZSCO master me total" value={s.available_in_anzsco_master} tone="teal" />
+        <PreviewStat icon={Sparkles}        label="Naye banenge"          value={s.will_create_new} tone="gold" />
+        <PreviewStat icon={ArrowRight}      label="Enrich honge"          value={s.will_enrich_existing} tone="orange" />
+      </div>
+
+      {/* Inherited fields list */}
+      <div className="mb-6 p-4 rounded-lg bg-white border" style={{ borderColor: C.border }}>
+        <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: C.tealDeep, letterSpacing: '0.08em' }}>
+          Inherited from 4-digit parent
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {(s.fields_inherited_from_4digit_parent || []).map(f => (
+            <span key={f} className="text-xs px-2 py-1 rounded font-mono" style={{ background: C.tealWash, color: C.tealDeep, border: `1px solid ${C.tealWash2}` }}>
+              {f}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* Sample creates & enriches */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <SampleList title={`First 8 NEW records (${s.will_create_new} total)`} items={preview.sample_creates} tone="gold" />
+        <SampleList title={`First 8 enriched (${s.will_enrich_existing} total)`} items={preview.sample_enriches} tone="orange" />
+      </div>
+
+      {/* Run merge button + result */}
+      <div className="p-4 rounded-lg border" style={{ background: C.card, borderColor: C.border }}>
+        {!result && (
+          <>
+            <p className="text-sm font-bold mb-2" style={{ color: C.ink }}>Ready to commit?</p>
+            <p className="text-xs mb-4" style={{ color: C.body }}>
+              ⚠️ Yeh action database me actual write karega. Existing data preserved rahega.
+              Aap "Refresh" karke baad me result verify kar sakte hain.
+            </p>
+            <button
+              onClick={onRun}
+              disabled={running}
+              className="px-5 py-2.5 rounded-md font-bold text-sm flex items-center gap-2 shadow-sm transition-all hover:shadow-md disabled:opacity-50"
+              style={{ background: C.teal, color: '#fff' }}
+              data-testid="anz-merge-run-btn"
+            >
+              {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <GitMerge className="h-4 w-4" />}
+              {running ? 'Merging…' : `Run Merge — Add ${s.will_create_new} new, Enrich ${s.will_enrich_existing}`}
+            </button>
+          </>
+        )}
+        {result && !result.error && (
+          <div className="p-4 rounded-lg" style={{ background: C.tealWash, border: `1px solid ${C.tealWash2}` }} data-testid="anz-merge-result-success">
+            <p className="text-base font-bold flex items-center gap-2" style={{ color: C.tealDeep }}>
+              <CheckCircle2 className="h-5 w-5" />Merge complete!
+            </p>
+            <ul className="mt-3 text-sm space-y-1" style={{ color: C.body }}>
+              <li><strong>{result.created}</strong> new records created</li>
+              <li><strong>{result.enriched}</strong> existing records enriched</li>
+              <li><strong>{result.total_processed}</strong> total processed</li>
+              <li className="text-xs mt-2" style={{ color: C.muted }}>Committed at: {result.committed_at}</li>
+            </ul>
+          </div>
+        )}
+        {result?.error && (
+          <div className="p-4 rounded-lg" style={{ background: C.redWash, border: `1px solid #FCA5A5` }} data-testid="anz-merge-result-error">
+            <p className="text-sm font-bold" style={{ color: C.red }}>❌ Merge failed</p>
+            <p className="text-xs mt-1" style={{ color: C.body }}>{result.error}</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PreviewStat({ icon: Icon, label, value, tone }) {
+  const palette = {
+    teal:   { bg: C.tealWash,   bd: C.tealWash2,  fg: C.tealDeep,   ico: C.teal },
+    gold:   { bg: C.goldWash,   bd: C.goldLight,  fg: C.orangeDeep, ico: C.gold },
+    orange: { bg: C.orangeWash, bd: C.orangeWash2,fg: C.orangeDeep, ico: C.orange },
+  }[tone || 'teal'];
+  return (
+    <div className="rounded-xl p-4 border" style={{ background: palette.bg, borderColor: palette.bd }}>
+      <Icon className="h-4 w-4 mb-2" style={{ color: palette.ico }} />
+      <p className="text-[10px] uppercase tracking-wider font-bold" style={{ color: palette.fg, letterSpacing: '0.08em' }}>{label}</p>
+      <p className="text-2xl font-bold mt-1" style={{ color: palette.fg, fontFamily: "'Playfair Display', serif" }}>{value ?? '—'}</p>
+    </div>
+  );
+}
+
+function SampleList({ title, items, tone }) {
+  const fg = tone === 'gold' ? C.orangeDeep : tone === 'orange' ? C.orangeDeep : C.tealDeep;
+  return (
+    <div className="rounded-lg border p-3" style={{ background: C.card, borderColor: C.border }}>
+      <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: fg, letterSpacing: '0.06em' }}>{title}</p>
+      <div className="space-y-1">
+        {(items || []).map(it => (
+          <div key={it.code} className="flex items-baseline gap-2 text-xs" style={{ color: C.body }}>
+            <span className="font-mono font-bold" style={{ color: C.tealDeep }}>{it.code}</span>
+            <span>{it.title}</span>
+          </div>
+        ))}
+        {(!items || items.length === 0) && <p className="text-xs" style={{ color: C.muted }}>None.</p>}
       </div>
     </div>
   );

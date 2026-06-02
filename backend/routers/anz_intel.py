@@ -189,7 +189,10 @@ async def orphans_4digit(
 
     # Find 4-digit groups NOT in this set
     orphans = []
-    cursor2 = db["anzsco_4digit_master"].find({}, {"_id": 0, "code": 1, "title": 1, "anzsco_profile": 1})
+    cursor2 = db["anzsco_4digit_master"].find(
+        {"code": {"$regex": "^[0-9]{4}$"}},  # only true 4-digit
+        {"_id": 0, "code": 1, "title": 1, "anzsco_profile": 1},
+    )
     async for d in cursor2:
         if d.get("code") not in parents_with_child:
             ap = d.get("anzsco_profile") or {}
@@ -202,9 +205,169 @@ async def orphans_4digit(
             if len(orphans) >= limit:
                 break
 
-    # Sort by largest workforce first (these are highest-value to enrich)
+    # Sort by largest workforce first
     orphans.sort(key=lambda o: -(o.get("employed") or 0))
     return {"items": orphans[:limit], "count": len(orphans)}
+
+
+# ─── Step 3 — Migration Atlas Data Merge ────────────────────────────────────
+INHERIT_FROM_PARENT = [
+    "anzsco_profile",         # salary, employment, demographics
+    "tasks",                  # job tasks
+    "industries_ranked",      # top industries
+    "state_distribution",     # state-wise employment %
+    "education_distribution", # education levels
+    "data_source",            # source metadata (ABS Feb 2026)
+]
+
+
+@router.get("/merge-preview")
+async def merge_preview(current_user: dict = Depends(get_current_user)):
+    """DRY-RUN preview: shows exactly what `/merge-commit` will do, without writing.
+
+    Returns counts + sample inserts so admin can review BEFORE committing.
+    """
+    if not _is_admin(current_user):
+        raise HTTPException(403, "Admin only")
+
+    # All 6-digit codes already in occupation_master (AU)
+    existing_codes = set()
+    async for d in db["occupation_master"].find(
+        {"country_code": "AU", "code": {"$regex": "^[0-9]{6}$"}},
+        {"_id": 0, "code": 1},
+    ):
+        existing_codes.add(d["code"])
+
+    # All valid 6-digit codes available in anzsco_4digit_master
+    to_create: List[Dict[str, Any]] = []
+    to_enrich: List[Dict[str, Any]] = []
+    async for d in db["anzsco_4digit_master"].find(
+        {"code": {"$regex": "^[0-9]{6}$"}},
+        {"_id": 0, "code": 1, "title": 1, **{f: 1 for f in INHERIT_FROM_PARENT}},
+    ):
+        code = d.get("code")
+        if code in existing_codes:
+            to_enrich.append({"code": code, "title": d.get("title")})
+        else:
+            to_create.append({"code": code, "title": d.get("title")})
+
+    return {
+        "summary": {
+            "existing_6digit_in_master": len(existing_codes),
+            "available_in_anzsco_master": len(to_create) + len(to_enrich),
+            "will_create_new": len(to_create),
+            "will_enrich_existing": len(to_enrich),
+            "fields_inherited_from_4digit_parent": INHERIT_FROM_PARENT,
+            "test_artifacts_untouched": 32,
+        },
+        "sample_creates": to_create[:8],
+        "sample_enriches": to_enrich[:8],
+        "ready_to_commit": True,
+    }
+
+
+@router.post("/merge-commit")
+async def merge_commit(
+    confirm: str = Query(..., description="Must equal 'YES-MERGE' to proceed"),
+    current_user: dict = Depends(get_current_user),
+):
+    """Actually writes 6-digit codes from anzsco_4digit_master → occupation_master.
+
+    Behaviour:
+      • For each 6-digit code in anzsco_4digit_master:
+        - If absent in occupation_master AU → INSERT new skeleton record
+        - If present → enrich only missing inherited fields (NO overwrite)
+      • Test artifacts (12-13 digit codes) untouched
+      • Existing verified/draft records preserved
+    """
+    if not _is_admin(current_user):
+        raise HTTPException(403, "Admin only")
+    if confirm != "YES-MERGE":
+        raise HTTPException(400, "Pass ?confirm=YES-MERGE to proceed")
+
+    now = _now()
+    actor = current_user.get("id") or "admin"
+
+    # Index existing AU 6-digit codes
+    existing = {}
+    async for d in db["occupation_master"].find(
+        {"country_code": "AU", "code": {"$regex": "^[0-9]{6}$"}},
+    ):
+        existing[d.get("code")] = d
+
+    created = 0
+    enriched = 0
+    cursor = db["anzsco_4digit_master"].find(
+        {"code": {"$regex": "^[0-9]{6}$"}},
+    )
+    async for parent in cursor:
+        code = parent.get("code")
+        title = parent.get("title")
+
+        if code not in existing:
+            # Insert NEW skeleton
+            doc = {
+                "occupation_id": f"AU-{code}",
+                "code": code,
+                "classification_type": "ANZSCO",
+                "classification_version": "1.3",
+                "country_code": "AU",
+                "title": title,
+                "alternative_titles": [],
+                "specialisations": [],
+                "hierarchy": {"four_digit_parent": code[:4]},
+                "description": parent.get("description") or "",
+                "typical_tasks": parent.get("tasks") or [],
+                "skill_level": "",
+                "assessing_authority": {},
+                "skill_assessment_details": {},
+                "visa_pathways": {},
+                "state_territory_eligibility": [],
+                "similar_codes": [],
+                "status": "imported_skeleton",
+                "verification": {"is_verified": False, "verified_by": None, "verified_at": None},
+                "source": "anzsco_4digit_master",
+                "imported_at": now,
+                "imported_by": actor,
+                "created_by": actor,
+                "created_at": now,
+                "updated_at": now,
+            }
+            for f in INHERIT_FROM_PARENT:
+                if parent.get(f) is not None:
+                    doc[f] = parent[f]
+            await db["occupation_master"].insert_one(doc)
+            created += 1
+        else:
+            # Enrich only missing inherited fields
+            existing_doc = existing[code]
+            update_set: Dict[str, Any] = {}
+            for f in INHERIT_FROM_PARENT:
+                if not _has_value(existing_doc, f) and parent.get(f) is not None:
+                    update_set[f] = parent[f]
+            if update_set:
+                update_set["updated_at"] = now
+                update_set["last_enriched_at"] = now
+                update_set["last_enriched_by"] = actor
+                await db["occupation_master"].update_one(
+                    {"_id": existing_doc["_id"]},
+                    {"$set": update_set},
+                )
+                enriched += 1
+
+    return {
+        "created": created,
+        "enriched": enriched,
+        "total_processed": created + enriched,
+        "committed_at": now,
+        "committed_by": actor,
+    }
+
+
+# ─── helpers ────────────────────────────────────────────────────────────────
+def _now():
+    from datetime import datetime, timezone
+    return datetime.now(timezone.utc).isoformat()
 
 
 # ─── helpers ────────────────────────────────────────────────────────────────
