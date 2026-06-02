@@ -271,15 +271,7 @@ async def merge_commit(
     confirm: str = Query(..., description="Must equal 'YES-MERGE' to proceed"),
     current_user: dict = Depends(get_current_user),
 ):
-    """Actually writes 6-digit codes from anzsco_4digit_master → occupation_master.
-
-    Behaviour:
-      • For each 6-digit code in anzsco_4digit_master:
-        - If absent in occupation_master AU → INSERT new skeleton record
-        - If present → enrich only missing inherited fields (NO overwrite)
-      • Test artifacts (12-13 digit codes) untouched
-      • Existing verified/draft records preserved
-    """
+    """Actually writes 6-digit codes from anzsco_4digit_master → occupation_master."""
     if not _is_admin(current_user):
         raise HTTPException(403, "Admin only")
     if confirm != "YES-MERGE":
@@ -590,3 +582,73 @@ def _source_hint(field: str) -> str:
 def _now():
     from datetime import datetime, timezone
     return datetime.now(timezone.utc).isoformat()
+
+
+# ─── Step 4 — Scrapers (Home Affairs first) ─────────────────────────────────
+@router.post("/scrapers/home-affairs/run")
+async def run_home_affairs_scraper(
+    dry_run: bool = Query(True, description="If true, returns preview without writing"),
+    current_user: dict = Depends(get_current_user),
+):
+    """Fetch Home Affairs Skilled Occupation List and enrich occupation_master.
+
+    Set ?dry_run=false to actually write changes.
+    """
+    if not _is_admin(current_user):
+        raise HTTPException(403, "Admin only")
+    try:
+        from core.scrapers import home_affairs
+        result = await home_affairs.apply_to_db(
+            db, dry_run=dry_run, actor=current_user.get("id") or "admin"
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(500, f"Scraper failed: {e}")
+
+
+@router.get("/scrapers/list")
+async def list_scrapers(current_user: dict = Depends(get_current_user)):
+    """List of available scrapers + their source URLs + last-run summary."""
+    if not _is_admin(current_user):
+        raise HTTPException(403, "Admin only")
+    return {
+        "scrapers": [
+            {
+                "id": "home_affairs",
+                "name": "Home Affairs — Skilled Occupation List",
+                "source_url": "https://immi.homeaffairs.gov.au/visas/working-in-australia/skill-occupation-list",
+                "what_it_provides": [
+                    "Assessing authority (ACS / VETASSESS / EA / IML etc) per occupation",
+                    "Visa subclass eligibility (189, 190, 491, 482, 186, 187, 494, 485)",
+                    "MLTSSL / STSOL / ROL list membership",
+                    "ANZSCO classification version (2013 vs 2022)",
+                ],
+                "estimated_records": 714,
+                "status": "ready",
+                "run_endpoint": "/api/anz-intel/scrapers/home-affairs/run",
+            },
+            {
+                "id": "vetassess_groups",
+                "name": "VETASSESS — Group A-F Criteria",
+                "source_url": "https://www.vetassess.com.au/nominate-an-occupation",
+                "what_it_provides": [
+                    "Group classification (A/B/C/D/E/F) per occupation",
+                    "Required qualification level + field of study",
+                    "Pre vs post qualification employment",
+                ],
+                "status": "planned",
+                "note": "Site uses JS-driven search — needs admin AI-extract or bulk Excel import",
+            },
+            {
+                "id": "state_nominations",
+                "name": "State / Territory Nomination Lists (8 states)",
+                "source_url": "Various state government sites",
+                "what_it_provides": [
+                    "State-wise demand (high / medium / low)",
+                    "Subclass 190 + 491 nomination eligibility",
+                    "State-specific caveats",
+                ],
+                "status": "planned",
+            },
+        ]
+    }

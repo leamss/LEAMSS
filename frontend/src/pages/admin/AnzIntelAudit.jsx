@@ -156,6 +156,7 @@ export default function AnzIntelAudit() {
           { key: 'rows',      label: 'Per-Occupation Heatmap', icon: Layers },
           { key: 'orphans',   label: 'Orphan 4-digit Groups',  icon: AlertTriangle },
           { key: 'merge',     label: 'Step 3 — Data Merge', icon: GitMerge },
+          { key: 'scrapers',  label: 'Step 4 — Scrapers',  icon: Sparkles },
         ].map(t => (
           <button
             key={t.key}
@@ -186,6 +187,7 @@ export default function AnzIntelAudit() {
       {activeTab === 'merge'    && (
         <MergeTab preview={mergePreview} running={mergeRunning} result={mergeResult} onRun={runMerge} />
       )}
+      {activeTab === 'scrapers' && <ScrapersTab headers={headers} />}
     </div>
   );
 }
@@ -503,6 +505,173 @@ function SampleList({ title, items, tone }) {
         ))}
         {(!items || items.length === 0) && <p className="text-xs" style={{ color: C.muted }}>None.</p>}
       </div>
+    </div>
+  );
+}
+
+// ─── Step 4 — Scrapers Tab ──────────────────────────────────────────────────
+function ScrapersTab({ headers }) {
+  const [scrapers, setScrapers] = useState([]);
+  const [dryRun, setDryRun] = useState(null);
+  const [running, setRunning] = useState(false);
+  const [commitResult, setCommitResult] = useState(null);
+
+  useEffect(() => {
+    axios.get(`${API}/anz-intel/scrapers/list`, { headers })
+      .then(r => setScrapers(r.data.scrapers || []))
+      .catch(e => console.error('scrapers/list', e));
+  }, [headers]);
+
+  const runDry = async () => {
+    setRunning(true); setDryRun(null); setCommitResult(null);
+    try {
+      const r = await axios.post(`${API}/anz-intel/scrapers/home-affairs/run?dry_run=true`, {}, { headers });
+      setDryRun(r.data);
+    } catch (e) {
+      setDryRun({ error: e.response?.data?.detail || String(e) });
+    }
+    setRunning(false);
+  };
+
+  const runCommit = async () => {
+    if (!window.confirm(`Sir, confirm — Home Affairs scraper se ${dryRun?.ha_codes_with_changes} records enrich honge (assessing authority + visa eligibility + MLTSSL/STSOL/ROL). Existing verified records preserved. Proceed?`)) return;
+    setRunning(true); setCommitResult(null);
+    try {
+      const r = await axios.post(`${API}/anz-intel/scrapers/home-affairs/run?dry_run=false`, {}, { headers });
+      setCommitResult(r.data);
+    } catch (e) {
+      setCommitResult({ error: e.response?.data?.detail || String(e) });
+    }
+    setRunning(false);
+  };
+
+  return (
+    <div data-testid="anz-audit-scrapers-tab">
+      <div className="mb-4 p-4 rounded-lg" style={{ background: C.tealWash, border: `1px solid ${C.tealWash2}` }}>
+        <p className="text-sm font-bold flex items-center gap-2" style={{ color: C.tealDeep }}>
+          <Sparkles className="h-4 w-4" />Step 4 — Live Scrapers (Slow &amp; Careful)
+        </p>
+        <p className="text-xs mt-1" style={{ color: C.body }}>
+          Har scraper run karne se pehle <b>DRY-RUN preview</b> dikhega. Aap dekhke confirm kar sakte hain,
+          fir actual commit hoga. Verified records kabhi auto-overwrite nahi honge.
+        </p>
+      </div>
+
+      {/* Scrapers list */}
+      <div className="space-y-4 mb-6">
+        {scrapers.map(s => (
+          <div key={s.id} className="rounded-xl border p-4" style={{ background: C.card, borderColor: C.border }} data-testid={`scraper-${s.id}`}>
+            <div className="flex items-start justify-between gap-3 flex-wrap">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <h3 className="font-bold text-base" style={{ color: C.ink }}>{s.name}</h3>
+                  <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded"
+                        style={{
+                          background: s.status === 'ready' ? C.tealWash2 : C.orangeWash2,
+                          color:      s.status === 'ready' ? C.tealDeep : C.orangeDeep,
+                        }}>
+                    {s.status}
+                  </span>
+                </div>
+                <a href={s.source_url} target="_blank" rel="noreferrer" className="text-xs underline" style={{ color: C.teal }}>
+                  {s.source_url}
+                </a>
+                <ul className="mt-2 space-y-0.5 text-xs" style={{ color: C.body }}>
+                  {s.what_it_provides.map((w, i) => (
+                    <li key={i}>→ {w}</li>
+                  ))}
+                </ul>
+                {s.note && <p className="mt-2 text-xs italic" style={{ color: C.orangeDeep }}>{s.note}</p>}
+              </div>
+              {s.status === 'ready' && s.id === 'home_affairs' && (
+                <div className="flex flex-col gap-2 shrink-0">
+                  <button
+                    onClick={runDry}
+                    disabled={running}
+                    className="px-3 py-1.5 rounded-md text-xs font-bold border flex items-center gap-1.5 transition-colors"
+                    style={{ background: C.card, color: C.teal, borderColor: C.teal }}
+                    data-testid={`scraper-${s.id}-dry-run-btn`}
+                  >
+                    {running && !dryRun ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                    Dry-Run Preview
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Dry-run preview */}
+      {dryRun && !dryRun.error && (
+        <div className="rounded-xl border p-5 mb-4" style={{ background: C.card, borderColor: C.tealWash2 }} data-testid="ha-dry-run-result">
+          <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: C.orangeDeep, letterSpacing: '0.08em' }}>Dry-Run Preview · Home Affairs</p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+            <PreviewStat icon={Database}     label="Fetched"               value={dryRun.fetched_records} tone="teal" />
+            <PreviewStat icon={ArrowRight}   label="Will Update"           value={dryRun.ha_codes_with_changes} tone="gold" />
+            <PreviewStat icon={CheckCircle2} label="Verified preserved"    value={dryRun.skipped_verified} tone="teal" />
+            <PreviewStat icon={AlertTriangle} label="HA codes not in DB"    value={dryRun.ha_codes_not_in_db} tone="orange" />
+          </div>
+          {dryRun.sample_updates?.length > 0 && (
+            <div>
+              <p className="text-xs font-bold mb-2" style={{ color: C.tealDeep }}>Sample updates (first 8):</p>
+              <div className="space-y-1">
+                {dryRun.sample_updates.map(u => (
+                  <div key={u.code} className="text-xs flex flex-wrap gap-2 items-baseline">
+                    <span className="font-mono font-bold" style={{ color: C.tealDeep }}>{u.code}</span>
+                    <span style={{ color: C.ink }}>{u.title}</span>
+                    <span style={{ color: C.muted }}>· fields:</span>
+                    {u.updated_fields.map(f => (
+                      <span key={f} className="text-[10px] px-1.5 py-0.5 rounded font-mono"
+                            style={{ background: C.goldWash, color: C.orangeDeep }}>{f}</span>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          <div className="mt-4 pt-4 border-t" style={{ borderColor: C.border }}>
+            <button
+              onClick={runCommit}
+              disabled={running || dryRun.ha_codes_with_changes === 0}
+              className="px-5 py-2.5 rounded-md font-bold text-sm flex items-center gap-2 shadow-sm disabled:opacity-50"
+              style={{ background: C.teal, color: '#fff' }}
+              data-testid="ha-commit-btn"
+            >
+              {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              {running ? 'Committing…' : `Commit — Update ${dryRun.ha_codes_with_changes} records`}
+            </button>
+          </div>
+        </div>
+      )}
+      {dryRun?.error && (
+        <div className="p-4 rounded-lg mb-4" style={{ background: C.redWash, border: '1px solid #FCA5A5' }}>
+          <p className="text-sm font-bold" style={{ color: C.red }}>❌ Dry-run failed</p>
+          <p className="text-xs mt-1" style={{ color: C.body }}>{dryRun.error}</p>
+        </div>
+      )}
+
+      {/* Commit result */}
+      {commitResult && !commitResult.error && (
+        <div className="p-4 rounded-lg" style={{ background: C.tealWash, border: `1px solid ${C.tealWash2}` }} data-testid="ha-commit-result">
+          <p className="text-base font-bold flex items-center gap-2" style={{ color: C.tealDeep }}>
+            <CheckCircle2 className="h-5 w-5" />Scrape complete!
+          </p>
+          <ul className="mt-3 text-sm space-y-1" style={{ color: C.body }}>
+            <li><strong>{commitResult.ha_codes_with_changes}</strong> records updated with Home Affairs data</li>
+            <li><strong>{commitResult.skipped_verified}</strong> verified records preserved (no overwrite)</li>
+            <li><strong>{commitResult.ha_codes_not_in_db}</strong> Home Affairs codes not yet in LEAMSS DB</li>
+            <li className="text-xs mt-2" style={{ color: C.muted }}>Source: {commitResult.source_url}</li>
+            <li className="text-xs" style={{ color: C.muted }}>Ran at: {commitResult.ran_at}</li>
+          </ul>
+        </div>
+      )}
+      {commitResult?.error && (
+        <div className="p-4 rounded-lg" style={{ background: C.redWash, border: '1px solid #FCA5A5' }}>
+          <p className="text-sm font-bold" style={{ color: C.red }}>❌ Commit failed</p>
+          <p className="text-xs mt-1" style={{ color: C.body }}>{commitResult.error}</p>
+        </div>
+      )}
     </div>
   );
 }
