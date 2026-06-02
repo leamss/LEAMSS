@@ -210,6 +210,7 @@ export default function Cockpit() {
             {[
               { icon: Home,       label: 'Dashboard',         to: '/admin' },
               { icon: Zap,        label: 'Pipeline Cockpit',  to: '/admin/cockpit', active: true },
+              { icon: Globe2,     label: 'Migration Atlas',   to: '/admin/atlas/search' },
               { icon: FileText,   label: 'Assessments',       to: '/sales/my-assessments' },
               { icon: FileBadge,  label: 'Pre-Assessments',   to: '/admin?tab=pre-assessments' },
               { icon: Briefcase,  label: 'Active Cases',      to: '/admin?tab=cases' },

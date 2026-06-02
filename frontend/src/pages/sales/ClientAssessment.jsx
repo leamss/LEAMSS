@@ -147,6 +147,35 @@ export default function ClientAssessment() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Phase 9 · Option 6 — Pre-populate occupation from Migration Atlas deep-link.
+  // URL pattern: /sales/client-assessment?occupation_code=261313
+  // Skip to Step 3 (Profile + occupation), pre-set occupation_code + occupation_country.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('occupation_code');
+    if (!code) return;
+    (async () => {
+      try {
+        const r = await axios.get(`${API}/anz-intel/occupation/${code}`, { headers });
+        const o = r.data?.occupation || {};
+        const aa = o.assessing_authority || {};
+        setData(d => ({
+          ...d,
+          occupation_country: 'AU',
+          occupation_code: code,
+          occupation_title: o.title || '',
+          occupation_body: aa.name || '',
+          occupation_pathway: '',
+        }));
+        setStep(3);
+        toast.success(`Pre-loaded from Migration Atlas: ${code} ${o.title || ''}`);
+      } catch (e) {
+        console.warn('Atlas deep-link failed', e);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const update = (field, val) => setData(d => ({ ...d, [field]: val }));
   const goNext = () => setStep(s => Math.min(8, s + 1));
   const goBack = () => setStep(s => Math.max(1, s - 1));

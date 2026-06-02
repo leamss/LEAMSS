@@ -364,10 +364,186 @@ async def merge_commit(
     }
 
 
-# ─── helpers ────────────────────────────────────────────────────────────────
-def _now():
-    from datetime import datetime, timezone
-    return datetime.now(timezone.utc).isoformat()
+# ─── Step 4 — Search APIs (Option 1 — Migration Atlas Search) ───────────────
+@router.get("/search")
+async def search_occupations(
+    q: Optional[str] = Query(None, description="Free text query"),
+    mode: str = Query("code_title", description="code_title | task | state | multi"),
+    state: Optional[str] = Query(None, description="NSW | VIC | QLD | SA | WA | TAS | NT | ACT"),
+    codes: Optional[str] = Query(None, description="Comma-separated codes for multi-compare"),
+    limit: int = Query(40, ge=1, le=200),
+    current_user: dict = Depends(get_current_user),
+):
+    """Unified search across LEAMSS Migration Atlas occupation data."""
+    base_match: Dict[str, Any] = {
+        "country_code": "AU",
+        "code": {"$regex": "^[0-9]{6}$"},  # only proper 6-digit ANZSCO
+        "status": {"$ne": "superseded"},   # exclude test artifacts
+    }
+
+    proj = {
+        "_id": 0, "code": 1, "title": 1, "status": 1,
+        "anzsco_profile.employed_count": 1,
+        "anzsco_profile.median_weekly_earnings_aud": 1,
+        "anzsco_profile.median_full_time_weekly_aud": 1,
+        "state_distribution": 1,
+        "industries_ranked": 1,
+        "assessing_authority": 1,
+        "visa_pathways": 1,
+        "state_territory_eligibility": 1,
+        "tasks": 1,
+    }
+
+    items: List[Dict[str, Any]] = []
+
+    if mode == "multi" and codes:
+        code_list = [c.strip() for c in codes.split(",") if c.strip()][:8]
+        match = {**base_match, "code": {"$in": code_list}}
+        async for d in db["occupation_master"].find(match, proj):
+            items.append(_search_card(d))
+
+    elif mode == "state" and state:
+        # Match occupation_master that has the state listed in distribution OR nomination
+        st = state.upper()
+        match = {**base_match, "$or": [
+            {f"state_distribution.{st}": {"$exists": True, "$ne": None}},
+            {"state_territory_eligibility.state": st},
+        ]}
+        cursor = db["occupation_master"].find(match, proj).limit(limit)
+        async for d in cursor:
+            items.append(_search_card(d))
+
+    elif mode == "task" and q:
+        # Full-text-ish search on tasks
+        match = {**base_match, "tasks": {"$regex": q, "$options": "i"}}
+        cursor = db["occupation_master"].find(match, proj).limit(limit)
+        async for d in cursor:
+            items.append(_search_card(d))
+
+    else:  # code_title (default)
+        if q:
+            match = {**base_match, "$or": [
+                {"code": {"$regex": q, "$options": "i"}},
+                {"title": {"$regex": q, "$options": "i"}},
+            ]}
+        else:
+            match = base_match
+        cursor = db["occupation_master"].find(match, proj).sort("code", 1).limit(limit)
+        async for d in cursor:
+            items.append(_search_card(d))
+
+    return {"items": items, "count": len(items), "mode": mode, "query": q}
+
+
+@router.get("/occupation/{code}")
+async def occupation_detail(
+    code: str, current_user: dict = Depends(get_current_user),
+):
+    """Full occupation profile — used by detail drawer + PDF infosheet."""
+    d = await db["occupation_master"].find_one(
+        {"country_code": "AU", "code": code}, {"_id": 0}
+    )
+    if not d:
+        raise HTTPException(404, f"Occupation {code} not found")
+
+    # Also fetch the 4-digit parent for related codes
+    parent_code = code[:4]
+    siblings = []
+    async for s in db["occupation_master"].find(
+        {"country_code": "AU", "code": {"$regex": f"^{parent_code}[0-9]{{2}}$", "$ne": code}},
+        {"_id": 0, "code": 1, "title": 1, "anzsco_profile.employed_count": 1},
+    ).limit(10):
+        siblings.append({"code": s["code"], "title": s["title"],
+                         "employed": (s.get("anzsco_profile") or {}).get("employed_count")})
+
+    return {"occupation": d, "siblings": siblings, "parent_4digit": parent_code}
+
+
+@router.get("/occupation/{code}/infosheet.pdf")
+async def occupation_infosheet_pdf(
+    code: str, current_user: dict = Depends(get_current_user),
+):
+    """Phase 9 · Option 5 — One-click LEAMSS-branded ANZSCO Infosheet PDF.
+
+    Renders a 4-page magazine-quality infosheet using the Phase 8 WeasyPrint
+    template engine.
+    """
+    from datetime import datetime
+    from fastapi.responses import StreamingResponse
+    import io, base64, mimetypes
+    from pathlib import Path
+    from jinja2 import Environment, FileSystemLoader, select_autoescape
+    from weasyprint import HTML
+
+    d = await db["occupation_master"].find_one(
+        {"country_code": "AU", "code": code}, {"_id": 0}
+    )
+    if not d:
+        raise HTTPException(404, f"Occupation {code} not found")
+
+    # Sort state distribution
+    state_dist = d.get("state_distribution") or {}
+    state_dist_sorted = sorted(
+        [(k, v) for k, v in state_dist.items() if isinstance(v, (int, float))],
+        key=lambda x: -x[1],
+    )
+
+    # Render via WeasyPrint
+    HERE = Path("/app/backend/core/report_v2")
+    css_text = (HERE / "css" / "theme.css").read_text(encoding="utf-8")
+    logo_path = Path("/app/backend/assets/leamss-logo.png")
+    logo_uri = None
+    if logo_path.exists():
+        mime = mimetypes.guess_type(str(logo_path))[0] or "image/png"
+        b64 = base64.b64encode(logo_path.read_bytes()).decode("ascii")
+        logo_uri = f"data:{mime};base64,{b64}"
+
+    env = Environment(
+        loader=FileSystemLoader(str(HERE / "templates")),
+        autoescape=select_autoescape(["html"]),
+        trim_blocks=True, lstrip_blocks=True,
+    )
+    tmpl = env.get_template("infosheet.html")
+    inner = tmpl.render(
+        occupation=d,
+        state_dist_sorted=state_dist_sorted,
+        logo_data_uri=logo_uri,
+        generated_on_human=datetime.now().strftime("%d %B %Y · %I:%M %p"),
+    )
+    full_html = f"<!DOCTYPE html><html><head><meta charset='utf-8'><style>{css_text}</style></head><body>{inner}</body></html>"
+
+    pdf_bytes = HTML(string=full_html, base_url=str(HERE)).write_pdf()
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="LEAMSS_ANZSCO_{code}.pdf"'},
+    )
+
+
+def _search_card(d: Dict[str, Any]) -> Dict[str, Any]:
+    """Compact card shape used by search results grid."""
+    ap = d.get("anzsco_profile") or {}
+    aa = d.get("assessing_authority") or {}
+    state_dist = d.get("state_distribution") or {}
+    top_states = sorted(
+        [(k, v) for k, v in state_dist.items() if isinstance(v, (int, float))],
+        key=lambda x: -x[1],
+    )[:3]
+    visas = (d.get("visa_pathways") or {}).get("visa_eligibility") or []
+    eligible_visas = [str(v.get("visa_subclass")) for v in visas if v.get("eligible")]
+
+    return {
+        "code": d.get("code"),
+        "title": d.get("title"),
+        "status": d.get("status"),
+        "employed": ap.get("employed_count"),
+        "median_weekly_aud": ap.get("median_weekly_earnings_aud") or ap.get("median_full_time_weekly_aud"),
+        "top_states": [{"state": s, "pct": p} for s, p in top_states],
+        "assessing_authority": aa.get("name"),
+        "eligible_visas": eligible_visas,
+        "tasks_count": len(d.get("tasks") or []),
+        "first_task": (d.get("tasks") or [None])[0],
+    }
 
 
 # ─── helpers ────────────────────────────────────────────────────────────────
@@ -409,3 +585,8 @@ def _source_hint(field: str) -> str:
         "classification_dual_code":   "legislation.gov.au — ANZSCO v1.3 & v2022",
     }
     return hints.get(field, "manual entry")
+
+
+def _now():
+    from datetime import datetime, timezone
+    return datetime.now(timezone.utc).isoformat()

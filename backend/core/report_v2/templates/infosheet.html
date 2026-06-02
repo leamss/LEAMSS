@@ -1,0 +1,185 @@
+{# LEAMSS Migration Atlas — ANZSCO Infosheet (Phase 9 · Option 5) #}
+{% set o = occupation %}
+{% set ap = o.anzsco_profile or {} %}
+{% set aa = o.assessing_authority or {} %}
+{% set vp = o.visa_pathways or {} %}
+{% set visas = vp.visa_eligibility or [] %}
+{% set states = state_dist_sorted or [] %}
+{% set tasks = o.tasks or [] %}
+{% set inds = o.industries_ranked or [] %}
+
+{# ─── COVER ────────────────────────────────────────────────────────────── #}
+<div class="cover">
+  <div class="logo-mark">
+    {% if logo_data_uri %}<img src="{{ logo_data_uri }}" alt="LEAMSS" />{% endif %}
+  </div>
+  <span class="eyebrow">Phase 9 · Migration Atlas</span>
+  <h1 class="cover-title">ANZSCO<br/>Infosheet</h1>
+  <div class="cover-subtitle">— {{ o.code }} {{ o.title }}</div>
+
+  <div class="client-card">
+    <div class="label">Australia · ANZSCO Profile</div>
+    <div class="client-name">{{ o.title }}</div>
+    <div class="row">
+      <div class="item"><div class="k">ANZSCO Code</div><div class="v">{{ o.code }}</div></div>
+      <div class="item"><div class="k">Skill Level</div><div class="v">{{ o.skill_level or '—' }}</div></div>
+      <div class="item"><div class="k">Workforce</div><div class="v">{{ ap.employed_count|default('—') }}</div></div>
+      <div class="item"><div class="k">Median Weekly</div><div class="v">{{ ap.median_weekly_earnings_aud and ('AUD ' ~ ap.median_weekly_earnings_aud) or '—' }}</div></div>
+    </div>
+  </div>
+
+  <div class="cover-footer">
+    <div class="company-bits">
+      <b>LEAMSS</b><br/>Ladhani Education &amp; Migration Services Pvt. Ltd.<br/>
+      www.leamss.com · rohit@leamss.com · 1800-210-2427
+    </div>
+    <div class="ref-bits">
+      <b>Generated:</b> {{ generated_on_human }}<br/>
+      <i>"We Value Emotions"</i>
+    </div>
+  </div>
+</div>
+
+{# ─── PAGE 2 — STATS + TASKS + INDUSTRIES ──────────────────────────────── #}
+<div class="page">
+  <div class="section-header">
+    <span class="eyebrow">Section 01</span>
+    <h1>Workforce &amp; Earnings Snapshot</h1>
+    <span class="rule"></span>
+    <p class="lead">Live labour-market signals sourced from {{ ap.data_source.label if ap.data_source else 'ABS ANZSCO Feb 2026' }}.</p>
+  </div>
+
+  <div class="row">
+    {% if ap.median_weekly_earnings_aud %}
+    <div class="col-3"><div class="card tinted center" style="padding:12pt 10pt;">
+      <div class="eyebrow" style="color:var(--teal-700);">Median Weekly</div>
+      <div style="font-family:'Playfair Display',serif;font-size:22pt;font-weight:800;color:var(--teal-800);margin-top:4pt;">
+        AUD {{ '{:,.0f}'.format(ap.median_weekly_earnings_aud) }}
+      </div>
+      <div class="tiny">All employees</div>
+    </div></div>
+    {% endif %}
+    {% if ap.employed_count %}
+    <div class="col-3"><div class="card warm center" style="padding:12pt 10pt;">
+      <div class="eyebrow" style="color:var(--orange-500);">Workforce</div>
+      <div style="font-family:'Playfair Display',serif;font-size:22pt;font-weight:800;color:var(--orange-700);margin-top:4pt;">
+        {{ '{:,}'.format(ap.employed_count) }}
+      </div>
+      <div class="tiny">Currently employed</div>
+    </div></div>
+    {% endif %}
+    {% if ap.median_age %}
+    <div class="col-3"><div class="card center" style="padding:12pt 10pt;background:var(--gold-100);border-color:var(--gold-100);">
+      <div class="eyebrow" style="color:var(--orange-700);">Median Age</div>
+      <div style="font-family:'Playfair Display',serif;font-size:22pt;font-weight:800;color:var(--orange-700);margin-top:4pt;">{{ ap.median_age }}</div>
+      <div class="tiny">{% if ap.female_share_pct is not none %}{{ ap.female_share_pct }}% female{% else %}years{% endif %}</div>
+    </div></div>
+    {% endif %}
+  </div>
+
+  {% if states %}
+  <div class="spacer-md"></div>
+  <h3>State Distribution (employment %)</h3>
+  {% for s, pct in states[:6] %}
+  <div style="display:flex;align-items:center;gap:8pt;margin-bottom:4pt;">
+    <div style="width:60pt;font-size:9.5pt;font-weight:700;color:var(--slate-700);">{{ s }}</div>
+    <div style="flex:1;height:12pt;background:var(--slate-100);border-radius:6pt;overflow:hidden;">
+      <div style="height:100%;width:{{ pct * 2.5 }}%;background:var(--teal-700);border-radius:6pt;"></div>
+    </div>
+    <div style="width:40pt;font-weight:800;color:var(--teal-700);text-align:right;font-size:10pt;">{{ pct }}%</div>
+  </div>
+  {% endfor %}
+  {% endif %}
+
+  {% if inds %}
+  <div class="spacer-md"></div>
+  <h3>Top Industries</h3>
+  <div class="row">
+    {% for ind in inds[:6] %}
+    <div class="col-2"><div style="display:flex;gap:6pt;align-items:center;padding:4pt 0;border-bottom:0.5pt solid var(--border);">
+      <div style="width:18pt;height:18pt;border-radius:50%;background:var(--orange-100);color:var(--orange-700);font-weight:800;font-size:9pt;display:flex;align-items:center;justify-content:center;">{{ loop.index }}</div>
+      <div style="flex:1;font-size:9pt;">{{ ind }}</div>
+    </div></div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+
+{# ─── PAGE 3 — TASKS + VISA + ASSESSING BODY ───────────────────────────── #}
+<div class="page">
+  <div class="section-header">
+    <span class="eyebrow">Section 02</span>
+    <h1>Tasks &amp; Migration Pathways</h1>
+    <span class="rule"></span>
+  </div>
+
+  {% if tasks %}
+  <h3>Key Job Tasks</h3>
+  <div style="column-count:2;column-gap:14pt;margin-top:4pt;">
+    {% for t in tasks[:10] %}
+    <div style="break-inside:avoid;padding:3pt 0;font-size:9pt;color:var(--slate-700);">
+      <span style="color:var(--teal-700);font-weight:800;margin-right:4pt;">→</span>{{ t }}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if aa.name %}
+  <div class="spacer-md"></div>
+  <h3>Assessing Authority</h3>
+  <div class="card tinted">
+    <p><b>{{ aa.name }}</b>
+    {% if aa.url %}<br/><span class="tiny">{{ aa.url }}</span>{% endif %}</p>
+    {% if aa.notes %}<p class="muted">{{ aa.notes }}</p>{% endif %}
+  </div>
+  {% endif %}
+
+  {% if visas %}
+  <div class="spacer-md"></div>
+  <h3>Visa Pathway Eligibility</h3>
+  <table class="kv">
+    <thead><tr><th>Subclass</th><th>Eligible</th><th>List</th><th>Notes</th></tr></thead>
+    <tbody>
+      {% for v in visas %}
+      <tr>
+        <td><b>{{ v.visa_subclass }}</b></td>
+        <td>{% if v.eligible %}<span class="pill teal">✓ Yes</span>{% else %}<span class="pill slate">✗ No</span>{% endif %}</td>
+        <td>{{ v.list or '—' }}</td>
+        <td class="muted" style="font-size:9pt;">{{ (v.notes or '')|truncate(80) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  <div class="spacer-md"></div>
+  <div class="disclaimer">
+    <b>Source:</b> ABS ANZSCO Feb 2026 · jobsandskills.gov.au ·
+    <b>Code:</b> {{ o.code }} · <b>Generated:</b> {{ generated_on_human }}
+  </div>
+</div>
+
+{# ─── CONTACT ──────────────────────────────────────────────────────────── #}
+<div class="page">
+  <div style="text-align:center;padding-top:24pt;">
+    {% if logo_data_uri %}<img src="{{ logo_data_uri }}" style="width:90pt;height:auto;margin-bottom:14pt;" alt="LEAMSS"/>{% endif %}
+    <div class="eyebrow" style="color:var(--orange-500);">— Thank you —</div>
+    <h1 style="font-size:32pt;color:var(--teal-800);margin-top:6pt;">We Value Emotions.</h1>
+    <p class="lead" style="max-width:380pt;margin:8pt auto 0;text-align:center;">
+      Curious about your migration options for <b>{{ o.title }}</b>?
+      Speak to a LEAMSS counsellor — we'll build your personalised pathway map in 15 minutes.
+    </p>
+  </div>
+  <div class="spacer-lg"></div>
+  <div class="card elevated" style="background:linear-gradient(135deg, var(--teal-700) 0%, var(--teal-800) 100%);color:#fff;border:none;padding:18pt 22pt;">
+    <div class="eyebrow" style="color:var(--gold-500);">Contact LEAMSS</div>
+    <div class="row" style="margin-top:8pt;">
+      <div class="col-2"><div class="tiny" style="color:rgba(255,255,255,0.7);">Website</div><div style="font-weight:700;font-size:11pt;">www.leamss.com</div></div>
+      <div class="col-2"><div class="tiny" style="color:rgba(255,255,255,0.7);">Email</div><div style="font-weight:700;font-size:11pt;">rohit@leamss.com</div></div>
+    </div>
+    <div class="row" style="margin-top:10pt;">
+      <div class="col-2"><div class="tiny" style="color:rgba(255,255,255,0.7);">Phone</div><div style="font-weight:700;font-size:11pt;">1800-210-2427</div></div>
+      <div class="col-2"><div class="tiny" style="color:rgba(255,255,255,0.7);">Office</div><div style="font-weight:700;font-size:10pt;">Office no 10, Londhe Compound,<br/>Mumbai (Thane) — 400602</div></div>
+    </div>
+  </div>
+</div>
