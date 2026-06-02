@@ -1193,6 +1193,9 @@ const AdminDashboard = () => {
     { id: 'home', icon: Home, label: 'Home', onClick: () => { setActiveTab('home'); resetSelections(); } },
     { id: 'dashboard', icon: LayoutDashboard, label: 'Classic Dashboard', onClick: () => { setActiveTab('dashboard'); resetSelections(); } },
     { id: 'approval-center', icon: CheckCircle, label: 'Approval Center', badge: (stats.pending_sales || 0) + (unassignedCases?.length || 0), badgeColor: 'bg-red-500', onClick: () => { setActiveTab('approval-center'); resetSelections(); } },
+    { id: 'pipeline-cockpit', icon: Zap, label: '⚡ Pipeline Cockpit', onClick: () => navigate('/admin/cockpit') },
+    { id: 'atlas-search-top', icon: Globe, label: '🇦🇺 Migration Atlas', onClick: () => navigate('/admin/atlas/search') },
+    { id: 'atlas-audit-top', icon: BarChart3, label: '📊 Atlas — Coverage Audit', onClick: () => navigate('/admin/anz-intel/audit') },
     {
       groupLabel: 'Sales & Finance',
       defaultOpen: true,
@@ -1246,7 +1249,7 @@ const AdminDashboard = () => {
       groupLabel: 'Smart Sales Helper',
       defaultOpen: true,
       items: [
-        { id: 'sales-occupation-search', icon: Sparkles, label: 'Occupation Search', onClick: () => navigate('/sales/occupations') },
+        { id: 'sales-occupation-search', icon: Sparkles, label: 'Occupation Search (legacy)', onClick: () => navigate('/sales/occupations') },
         { id: 'sales-calculator', icon: Calculator, label: 'Eligibility Calculator', onClick: () => navigate('/sales/calculator') },
         { id: 'sales-client-assessment', icon: Wand2, label: 'Client Assessment (Workflow)', onClick: () => navigate('/sales/client-assessment') },
         { id: 'sales-my-assessments', icon: FileText, label: 'Saved Assessments', onClick: () => navigate('/sales/my-assessments') },
