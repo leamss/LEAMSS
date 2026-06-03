@@ -114,3 +114,56 @@ def test_partner_blocked_from_scrapers(partner_headers):
         headers=partner_headers, timeout=15,
     )
     assert r.status_code == 403
+
+
+# ─── Phase 9.2 — Atlas Verify endpoint (sales-accessible) ───────────────────
+def test_atlas_verify_partner_can_read(partner_headers):
+    """Partner role should be able to call /verify/{code} (sales-facing)."""
+    r = requests.get(
+        f"{BASE_URL}/api/anz-intel/verify/261313",
+        headers=partner_headers, timeout=15,
+    )
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data["code"] == "261313"
+    assert "skillselect_tier" in data
+    assert "vetassess" in data
+    assert "visa_eligibility" in data
+    assert "state_nomination_matrix" in data
+    assert "assessing_authority" in data
+    # tier sub-object
+    assert "label" in data["skillselect_tier"]
+    assert "tag" in data["skillselect_tier"]
+
+
+def test_atlas_verify_bad_code_400(partner_headers):
+    r = requests.get(
+        f"{BASE_URL}/api/anz-intel/verify/abc",
+        headers=partner_headers, timeout=15,
+    )
+    assert r.status_code == 400
+
+
+def test_atlas_verify_unknown_code_404(partner_headers):
+    r = requests.get(
+        f"{BASE_URL}/api/anz-intel/verify/999999",
+        headers=partner_headers, timeout=15,
+    )
+    assert r.status_code == 404
+
+
+def test_atlas_verify_unauthenticated_blocked():
+    r = requests.get(f"{BASE_URL}/api/anz-intel/verify/261313", timeout=15)
+    assert r.status_code in (401, 403)
+
+
+def test_atlas_verify_tier_1_classification(partner_headers):
+    """Early Childhood Teacher should be Tier 1 (Health/Education priority)."""
+    r = requests.get(
+        f"{BASE_URL}/api/anz-intel/verify/241111",
+        headers=partner_headers, timeout=15,
+    )
+    assert r.status_code == 200
+    data = r.json()
+    assert data["skillselect_tier"]["label"] == "Tier 1"
+    assert "Health" in data["skillselect_tier"]["tag"] or "Education" in data["skillselect_tier"]["tag"]

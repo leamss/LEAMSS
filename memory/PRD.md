@@ -5,6 +5,60 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 
 > **📌 Update (Feb 13, 2026):** `CHANGELOG.md` now tracks all completed phases (incl. **Phase 3A — Attendance & Leave** with full company policies). `ROADMAP.md` lists prioritized backlog. This PRD remains the static reference for original requirements.
 
+### 🧭 Phase 9.2 — Atlas Verify Card + Manual Tools UI (Jun 3, 2026)
+**Status:** ✅ COMPLETE — Backend **12/12 PASS** (`tests/test_phase9_scrapers.py` extended). UI E2E verified via screenshots.
+
+Sir's ask: "VETASSESS + State Nomination CSV upload UI banao + Sales wizard mein 'Verify in Atlas' button daalo".
+
+**Two features shipped together:**
+
+#### 1. Atlas Verify Card (Smart Sales Helper integration)
+New sales-facing endpoint + UI component that surfaces Migration Atlas enrichment data inline during occupation selection.
+
+**Backend** (`routers/anz_intel.py`):
+- `GET /api/anz-intel/verify/{code}` — accessible to admin + case_manager + partner + all 4 sales roles
+- Returns a compact, ready-to-render payload:
+  - Title, ANZSCO code, classification dual-code, verification status
+  - SkillSelect Tier 1-4 with friendly label + classification reason
+  - Assessing authority (skill body) — name + URL
+  - VETASSESS Group A-F + qualification/experience criteria
+  - Full visa subclass eligibility array (189/190/491/482/186/187/485 etc)
+  - State nomination matrix (NSW/VIC/QLD/SA/WA/TAS/NT/ACT) with 190 + 491 + demand level
+- 400 on bad code · 404 on unknown · 403 on insufficient role · 200 on success
+
+**Frontend** (`pages/sales/components/AtlasVerifyCard.jsx`):
+- New compact teal-gradient card matching LEAMSS brand (no blue/indigo)
+- SkillSelect Priority hero with tier-tone color coding (Tier 1/2 teal, Tier 3 gold, Tier 4 orange)
+- Side-by-side Assessing Body + VETASSESS Group cards
+- Visa eligibility pill grid with green ✓ / red ✗ markers per subclass
+- State nomination table with 190/491 columns + demand badges (high/medium/low) + unit-group caveats
+- Footer with "Download 4-Page Infosheet PDF" + "Open Atlas Dashboard" deep-links
+
+**Frontend** (`pages/sales/steps/Step3Profile.jsx`):
+- New "🗺️ Verify in Atlas" button placed inline on the Selected Occupation card
+- Click toggles the AtlasVerifyCard drawer below
+- Auto-collapses on "Change" so sales can swap occupations cleanly
+
+**Verified live for code 261313 (Software Engineer)**:
+- Tier 4 · Other Eligible (STSOL/ROL) — correct (legacy migrated record, not in CSOL)
+- ACS · Australian Computer Society
+- Visas eligible: 189, 190, 491, 482, 186 (greens) · 187, 485 (reds)
+- States: NSW (190+491, high), VIC (190+491, high), QLD (190+491, high), WA (190+491, medium)
+
+#### 2. Manual Tools UI (Admin Audit Dashboard)
+New "Step 5 — Manual Tools (CSV + AI Extract)" tab on the Migration Atlas Audit Dashboard to extend Atlas data for states/sources that don't scrape (VIC, SA, ACT, NT, TAS, WA).
+
+**Frontend** (`pages/admin/AnzIntelAudit.jsx`):
+- New `ManualToolsTab` rendering two cards side-by-side:
+  - **Bulk CSV Upload Card**: Download template → upload CSV → preview (rows / valid / matched / unmatched) → optional "overwrite verified" toggle → commit
+  - **AI Paste-Extract Card**: 6-digit code input + intent selector (vetassess_group | acs_rules | state_nomination) + raw-text textarea (paste from official site) → AI preview shows extracted JSON → commit
+- Powered by pre-existing backend endpoints `/api/anz-intel/bulk-upload-csv/{preview,commit,template}` and `/ai-extract/{preview,commit}` (Claude Sonnet 4.6 via Emergent LLM Key)
+
+**Tests added (`tests/test_phase9_scrapers.py`):**
+- 5 new tests covering verify endpoint: partner-can-read, bad-code-400, unknown-code-404, unauthenticated-blocked, Tier 1 classification correctness
+- Combined with 7 existing → 12/12 PASS in 4.67s
+
+
 ### 🗺️ Phase 9.1 — Migration Atlas Scrapers Expansion (Jun 3, 2026)
 **Status:** ✅ COMPLETE — Backend **7/7 PASS** (`tests/test_phase9_scrapers.py`). UI verified via screenshots.
 

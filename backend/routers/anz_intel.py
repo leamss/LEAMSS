@@ -43,11 +43,20 @@ TRACKED_FIELDS = [
 ]
 
 ADMIN_ROLES = {"admin", "admin_owner"}
+ATLAS_READ_ROLES = {
+    "admin", "admin_owner", "case_manager",
+    "partner", "sales_executive", "sr_sales_executive", "sales_manager", "sales_head",
+}
 
 
 def _is_admin(user: dict) -> bool:
     role = user.get("rbac_role") or user.get("role")
     return role in ADMIN_ROLES or "*" in (user.get("permissions") or [])
+
+
+def _can_read_atlas(user: dict) -> bool:
+    role = user.get("rbac_role") or user.get("role")
+    return role in ATLAS_READ_ROLES or "*" in (user.get("permissions") or [])
 
 
 def _has_value(doc: dict, field: str) -> bool:
@@ -1059,3 +1068,95 @@ async def ai_extract_commit(
     )
 
     return {"ok": True, "code": code, "intent": intent, "updated_fields": list(update_set.keys()), "saved_at": now}
+
+
+
+# ─── Phase 9.2 — Sales-accessible Atlas Verify endpoint ─────────────────────
+TIER_LABELS = {
+    "tier_1": {"label": "Tier 1", "tag": "Health & Education Priority", "tone": "teal"},
+    "tier_2": {"label": "Tier 2", "tag": "Core Skills Occupation List (CSOL)", "tone": "teal"},
+    "tier_3": {"label": "Tier 3", "tag": "MLTSSL / Regional Critical", "tone": "gold"},
+    "tier_4": {"label": "Tier 4", "tag": "Other Eligible (STSOL/ROL)", "tone": "orange"},
+}
+
+
+@router.get("/verify/{code}")
+async def verify_in_atlas(
+    code: str,
+    country: str = Query("AU"),
+    current_user: dict = Depends(get_current_user),
+):
+    """Sales-facing Atlas Verify Card endpoint.
+
+    Returns a compact, ready-to-render payload showing:
+      - Occupation title + ANZSCO code + classification dual-code
+      - Assessing authority (skill body) - name + URL
+      - SkillSelect Tier 1-4 with friendly label
+      - VETASSESS Group A-F + qualification criteria
+      - Visa pathways (subclass eligibility)
+      - State / territory nomination matrix (190 + 491)
+      - Verification status from admin
+
+    Accessible to sales, partner, case manager, and admin roles.
+    """
+    if not _can_read_atlas(current_user):
+        raise HTTPException(403, "Atlas read access required")
+    if not (code.isdigit() and len(code) == 6):
+        raise HTTPException(400, "Code must be 6-digit ANZSCO")
+
+    d = await db["occupation_master"].find_one(
+        {"country_code": country, "code": code},
+        {"_id": 0},
+    )
+    if not d:
+        raise HTTPException(404, f"Occupation {code} not found in {country} Atlas")
+
+    tier_key = d.get("skillselect_tier") or "tier_4"
+    tier_meta = {**TIER_LABELS.get(tier_key, TIER_LABELS["tier_4"]),
+                 "reason": d.get("skillselect_tier_reason")}
+
+    sad = d.get("skill_assessment_details") or {}
+    vetassess = {
+        "group": sad.get("vetassess_group"),
+        "qualification_required": sad.get("qualification_required"),
+        "experience_required":    sad.get("experience_required"),
+        "pre_qual_experience_allowed": sad.get("pre_qual_experience_allowed"),
+        "source": sad.get("vetassess_source"),
+    }
+
+    vp = d.get("visa_pathways") or {}
+    visas = vp.get("visa_eligibility") or []
+
+    state_arr = d.get("state_territory_eligibility") or []
+    state_matrix = {}
+    for entry in state_arr:
+        st = (entry.get("state") or "").upper()
+        if not st:
+            continue
+        state_matrix[st] = {
+            "state":  st,
+            "sc190":  bool(entry.get("sc190")),
+            "sc491":  bool(entry.get("sc491")),
+            "demand": entry.get("demand"),
+            "caveats": entry.get("caveats"),
+            "unit_group_match": entry.get("unit_group_match"),
+            "source": entry.get("source"),
+        }
+
+    return {
+        "code": d.get("code"),
+        "title": d.get("title"),
+        "country_code": d.get("country_code"),
+        "classification_version": d.get("classification_version"),
+        "classification_dual_code": d.get("classification_dual_code") or {},
+        "verification_status": d.get("status") or "draft",
+        "skillselect_tier": tier_meta,
+        "assessing_authority": d.get("assessing_authority") or {},
+        "vetassess": vetassess,
+        "visa_eligibility": visas,
+        "pathway_lists": (d.get("pathway_list") or "").split(";") if d.get("pathway_list") else [],
+        "state_nomination_matrix": state_matrix,
+        "tasks_count": len(d.get("tasks") or []),
+        "atlas_url": "/admin/anz-intel/audit",
+        "infosheet_pdf": f"/api/anz-intel/occupation/{code}/infosheet.pdf",
+    }

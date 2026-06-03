@@ -157,6 +157,7 @@ export default function AnzIntelAudit() {
           { key: 'orphans',   label: 'Orphan 4-digit Groups',  icon: AlertTriangle },
           { key: 'merge',     label: 'Step 3 — Data Merge', icon: GitMerge },
           { key: 'scrapers',  label: 'Step 4 — Scrapers',  icon: Sparkles },
+          { key: 'tools',     label: 'Step 5 — Manual Tools (CSV + AI Extract)', icon: FileText },
         ].map(t => (
           <button
             key={t.key}
@@ -188,6 +189,7 @@ export default function AnzIntelAudit() {
         <MergeTab preview={mergePreview} running={mergeRunning} result={mergeResult} onRun={runMerge} />
       )}
       {activeTab === 'scrapers' && <ScrapersTab headers={headers} onAfterCommit={fetchAll} />}
+      {activeTab === 'tools'    && <ManualToolsTab headers={headers} onAfterCommit={fetchAll} />}
     </div>
   );
 }
@@ -768,6 +770,353 @@ function ScraperDryRunPreview({ id, dry, running, onCommit }) {
           {running ? 'Committing…' : commitLabel}
         </button>
       </div>
+    </div>
+  );
+}
+
+
+// ─── Step 5 — Manual Tools Tab (CSV Upload + AI Paste-Extract) ───────────────
+function ManualToolsTab({ headers, onAfterCommit }) {
+  return (
+    <div className="space-y-6" data-testid="anz-audit-tools-tab">
+      <div className="p-4 rounded-lg" style={{ background: C.tealWash, border: `1px solid ${C.tealWash2}` }}>
+        <p className="text-sm font-bold flex items-center gap-2" style={{ color: C.tealDeep }}>
+          <FileText className="h-4 w-4" />Step 5 — Manual Tools for VIC · SA · ACT · NT · TAS · WA (sites that don't scrape)
+        </p>
+        <p className="text-xs mt-1" style={{ color: C.body }}>
+          In states ki nomination lists JS-driven hain ya scraping block karti hain. Aap official site se data copy karke
+          neeche AI Paste-Extract me daal sakte hain, ya CSV file upload kar sakte hain.
+          AI Claude Sonnet 4.6 ka use karke structured JSON nikalega — preview dekhke aap commit kar sakte hain.
+        </p>
+      </div>
+
+      <CsvUploadCard headers={headers} onAfterCommit={onAfterCommit} />
+      <AiExtractCard headers={headers} onAfterCommit={onAfterCommit} />
+    </div>
+  );
+}
+
+function CsvUploadCard({ headers, onAfterCommit }) {
+  const [file, setFile] = useState(null);
+  const [preview, setPreview] = useState(null);
+  const [committing, setCommitting] = useState(false);
+  const [commitResult, setCommitResult] = useState(null);
+  const [overwrite, setOverwrite] = useState(false);
+  const [loadingPreview, setLoadingPreview] = useState(false);
+
+  const downloadTemplate = async () => {
+    try {
+      const r = await axios.get(`${API}/anz-intel/bulk-upload-csv/template`, {
+        headers, responseType: 'blob',
+      });
+      const url = URL.createObjectURL(r.data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'leamss_atlas_vetassess_template.csv';
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      alert('Failed to download template: ' + (e.response?.data?.detail || e.message));
+    }
+  };
+
+  const onFileChange = (e) => {
+    setFile(e.target.files?.[0] || null);
+    setPreview(null);
+    setCommitResult(null);
+  };
+
+  const runPreview = async () => {
+    if (!file) return;
+    setLoadingPreview(true);
+    setPreview(null);
+    setCommitResult(null);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const r = await axios.post(`${API}/anz-intel/bulk-upload-csv/preview`, fd, {
+        headers: { ...headers, 'Content-Type': 'multipart/form-data' },
+      });
+      setPreview(r.data);
+    } catch (e) {
+      setPreview({ error: e.response?.data?.detail || String(e) });
+    }
+    setLoadingPreview(false);
+  };
+
+  const runCommit = async () => {
+    if (!file) return;
+    if (!window.confirm(`Sir, confirm — ${preview?.matched_in_db || 0} records me data inject hoga. Proceed?`)) return;
+    setCommitting(true);
+    setCommitResult(null);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const r = await axios.post(`${API}/anz-intel/bulk-upload-csv/commit?overwrite=${overwrite}`, fd, {
+        headers: { ...headers, 'Content-Type': 'multipart/form-data' },
+      });
+      setCommitResult(r.data);
+      if (onAfterCommit) await onAfterCommit();
+    } catch (e) {
+      setCommitResult({ error: e.response?.data?.detail || String(e) });
+    }
+    setCommitting(false);
+  };
+
+  return (
+    <div className="rounded-xl border bg-white p-4" style={{ borderColor: C.border }} data-testid="csv-upload-card">
+      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+        <div>
+          <h3 className="text-base font-bold flex items-center gap-2" style={{ color: C.ink }}>
+            <FileText className="h-4 w-4" style={{ color: C.teal }} />Bulk CSV Upload
+          </h3>
+          <p className="text-xs mt-1" style={{ color: C.body }}>
+            VETASSESS Group A-F, assessing body, criteria — sab ek baar me 1000+ records add kar sakte hain.
+          </p>
+        </div>
+        <button
+          onClick={downloadTemplate}
+          className="px-3 py-1.5 rounded-md text-xs font-bold border"
+          style={{ background: C.card, color: C.teal, borderColor: C.teal }}
+          data-testid="csv-download-template"
+        >
+          Download Template CSV
+        </button>
+      </div>
+
+      <div className="flex items-center gap-3 flex-wrap">
+        <input
+          type="file"
+          accept=".csv,text/csv"
+          onChange={onFileChange}
+          className="text-xs"
+          data-testid="csv-file-input"
+        />
+        <button
+          onClick={runPreview}
+          disabled={!file || loadingPreview}
+          className="px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 disabled:opacity-50"
+          style={{ background: C.teal, color: '#fff' }}
+          data-testid="csv-preview-btn"
+        >
+          {loadingPreview ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+          Preview
+        </button>
+        <label className="text-xs flex items-center gap-1.5" style={{ color: C.body }}>
+          <input type="checkbox" checked={overwrite} onChange={(e) => setOverwrite(e.target.checked)} data-testid="csv-overwrite" />
+          Overwrite existing values (default: only fill empty)
+        </label>
+      </div>
+
+      {preview && !preview.error && (
+        <div className="mt-4 p-3 rounded-md" style={{ background: C.bg, border: `1px solid ${C.tealWash2}` }} data-testid="csv-preview-result">
+          <p className="text-xs font-bold uppercase mb-2" style={{ color: C.tealDeep }}>Preview Summary</p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+            <PreviewStat icon={Database}     label="Total rows"      value={preview.total_rows} tone="teal" />
+            <PreviewStat icon={CheckCircle2} label="Valid"            value={preview.valid_rows} tone="teal" />
+            <PreviewStat icon={ArrowRight}   label="Matched in DB"   value={preview.matched_in_db} tone="gold" />
+            <PreviewStat icon={AlertTriangle} label="Unmatched codes" value={(preview.unmatched_codes || []).length} tone="orange" />
+          </div>
+          {preview.invalid_rows?.length > 0 && (
+            <details className="mt-2">
+              <summary className="text-xs font-bold cursor-pointer" style={{ color: C.red }}>
+                {preview.invalid_rows.length} invalid rows
+              </summary>
+              <ul className="text-[10px] mt-1 ml-4 list-disc" style={{ color: C.body }}>
+                {preview.invalid_rows.slice(0, 8).map((r, i) => (
+                  <li key={i}>Row {r.row}: {r.reason} (code: <code>{r.code || '—'}</code>)</li>
+                ))}
+              </ul>
+            </details>
+          )}
+          <button
+            onClick={runCommit}
+            disabled={committing || preview.matched_in_db === 0}
+            className="mt-3 px-4 py-2 rounded-md text-xs font-bold flex items-center gap-2 disabled:opacity-50"
+            style={{ background: C.teal, color: '#fff' }}
+            data-testid="csv-commit-btn"
+          >
+            {committing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+            Commit — Update {preview.matched_in_db} records
+          </button>
+        </div>
+      )}
+      {preview?.error && (
+        <div className="mt-3 p-3 rounded-md" style={{ background: C.redWash, border: '1px solid #FCA5A5' }}>
+          <p className="text-sm font-bold" style={{ color: C.red }}>Preview failed</p>
+          <p className="text-xs mt-1" style={{ color: C.body }}>{preview.error}</p>
+        </div>
+      )}
+      {commitResult && !commitResult.error && (
+        <div className="mt-3 p-3 rounded-md" style={{ background: C.tealWash, border: `1px solid ${C.tealWash2}` }} data-testid="csv-commit-result">
+          <p className="text-sm font-bold" style={{ color: C.tealDeep }}>
+            <CheckCircle2 className="h-4 w-4 inline mr-1" />Commit complete · {commitResult.updated} updated · {commitResult.skipped_verified} verified preserved · {commitResult.skipped_unknown_code} unknown codes skipped
+          </p>
+        </div>
+      )}
+      {commitResult?.error && (
+        <div className="mt-3 p-3 rounded-md" style={{ background: C.redWash, border: '1px solid #FCA5A5' }}>
+          <p className="text-sm font-bold" style={{ color: C.red }}>Commit failed</p>
+          <p className="text-xs mt-1" style={{ color: C.body }}>{commitResult.error}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AiExtractCard({ headers, onAfterCommit }) {
+  const [code, setCode] = useState('');
+  const [rawText, setRawText] = useState('');
+  const [intent, setIntent] = useState('vetassess_group');
+  const [previewing, setPreviewing] = useState(false);
+  const [extracted, setExtracted] = useState(null);
+  const [committing, setCommitting] = useState(false);
+  const [commitResult, setCommitResult] = useState(null);
+  const [overwrite, setOverwrite] = useState(false);
+
+  const runPreview = async () => {
+    if (!code || !rawText) return;
+    setPreviewing(true);
+    setExtracted(null);
+    setCommitResult(null);
+    try {
+      const r = await axios.post(`${API}/anz-intel/ai-extract/preview`, {
+        code: code.trim(), raw_text: rawText.trim(), intent,
+      }, { headers });
+      setExtracted(r.data);
+    } catch (e) {
+      setExtracted({ error: e.response?.data?.detail || String(e) });
+    }
+    setPreviewing(false);
+  };
+
+  const runCommit = async () => {
+    if (!extracted?.extracted) return;
+    if (!window.confirm(`Sir, confirm — code ${code} me ${intent} data inject hoga. Proceed?`)) return;
+    setCommitting(true);
+    setCommitResult(null);
+    try {
+      const r = await axios.post(`${API}/anz-intel/ai-extract/commit`, {
+        code: code.trim(), intent, extracted: extracted.extracted, overwrite,
+      }, { headers });
+      setCommitResult(r.data);
+      if (onAfterCommit) await onAfterCommit();
+    } catch (e) {
+      setCommitResult({ error: e.response?.data?.detail || String(e) });
+    }
+    setCommitting(false);
+  };
+
+  return (
+    <div className="rounded-xl border bg-white p-4" style={{ borderColor: C.border }} data-testid="ai-extract-card">
+      <div className="mb-3">
+        <h3 className="text-base font-bold flex items-center gap-2" style={{ color: C.ink }}>
+          <Sparkles className="h-4 w-4" style={{ color: C.gold }} />AI Paste-Extract (Claude Sonnet 4.6)
+        </h3>
+        <p className="text-xs mt-1" style={{ color: C.body }}>
+          Official migration site se text copy karke yahaan paste karein. AI structured JSON nikalega — Group A-F, ACS rules, ya state nomination eligibility.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+        <div>
+          <label className="text-[10px] uppercase font-bold" style={{ color: C.muted }}>6-digit ANZSCO Code</label>
+          <input
+            type="text"
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            placeholder="e.g., 261313"
+            className="w-full px-3 py-2 rounded border text-sm font-mono"
+            style={{ borderColor: C.border }}
+            data-testid="ai-extract-code"
+          />
+        </div>
+        <div className="md:col-span-2">
+          <label className="text-[10px] uppercase font-bold" style={{ color: C.muted }}>Extraction Intent</label>
+          <select
+            value={intent}
+            onChange={(e) => setIntent(e.target.value)}
+            className="w-full px-3 py-2 rounded border text-sm"
+            style={{ borderColor: C.border }}
+            data-testid="ai-extract-intent"
+          >
+            <option value="vetassess_group">VETASSESS Group A-F (qualification + experience)</option>
+            <option value="acs_rules">ACS classification rules (ICT Major/Minor/Non-ICT)</option>
+            <option value="state_nomination">State nomination (190/491 eligibility + demand)</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="mb-3">
+        <label className="text-[10px] uppercase font-bold" style={{ color: C.muted }}>Raw Text (paste from official site)</label>
+        <textarea
+          value={rawText}
+          onChange={(e) => setRawText(e.target.value)}
+          placeholder="Paste content here — e.g. VETASSESS occupation criteria, NSW skills list entry, ACS skill assessment guide…"
+          className="w-full px-3 py-2 rounded border text-xs font-mono"
+          style={{ borderColor: C.border, minHeight: 140 }}
+          data-testid="ai-extract-raw-text"
+        />
+        <p className="text-[10px] mt-1" style={{ color: C.muted }}>{rawText.length} chars · max 8000 sent to AI</p>
+      </div>
+
+      <div className="flex items-center gap-3 flex-wrap">
+        <button
+          onClick={runPreview}
+          disabled={!code || !rawText || previewing}
+          className="px-4 py-2 rounded-md text-xs font-bold flex items-center gap-2 disabled:opacity-50"
+          style={{ background: C.teal, color: '#fff' }}
+          data-testid="ai-extract-preview-btn"
+        >
+          {previewing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+          {previewing ? 'AI working…' : 'AI Extract Preview'}
+        </button>
+        <label className="text-xs flex items-center gap-1.5" style={{ color: C.body }}>
+          <input type="checkbox" checked={overwrite} onChange={(e) => setOverwrite(e.target.checked)} data-testid="ai-overwrite" />
+          Overwrite verified records
+        </label>
+      </div>
+
+      {extracted && !extracted.error && (
+        <div className="mt-4 p-3 rounded-md" style={{ background: C.bg, border: `1px solid ${C.tealWash2}` }} data-testid="ai-extract-result">
+          <p className="text-xs font-bold uppercase mb-2" style={{ color: C.tealDeep }}>
+            AI Extracted Data · {extracted.intent}
+          </p>
+          <pre className="text-[11px] p-3 rounded overflow-x-auto" style={{ background: '#fff', color: C.ink, border: `1px solid ${C.border}` }}>
+{JSON.stringify(extracted.extracted, null, 2)}
+          </pre>
+          <button
+            onClick={runCommit}
+            disabled={committing}
+            className="mt-3 px-4 py-2 rounded-md text-xs font-bold flex items-center gap-2 disabled:opacity-50"
+            style={{ background: C.teal, color: '#fff' }}
+            data-testid="ai-extract-commit-btn"
+          >
+            {committing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+            Commit to {code}
+          </button>
+        </div>
+      )}
+      {extracted?.error && (
+        <div className="mt-3 p-3 rounded-md" style={{ background: C.redWash, border: '1px solid #FCA5A5' }}>
+          <p className="text-sm font-bold" style={{ color: C.red }}>AI extraction failed</p>
+          <p className="text-xs mt-1" style={{ color: C.body }}>{extracted.error}</p>
+        </div>
+      )}
+      {commitResult && !commitResult.error && (
+        <div className="mt-3 p-3 rounded-md" style={{ background: C.tealWash, border: `1px solid ${C.tealWash2}` }} data-testid="ai-extract-commit-result">
+          <p className="text-sm font-bold" style={{ color: C.tealDeep }}>
+            <CheckCircle2 className="h-4 w-4 inline mr-1" />
+            Saved to {commitResult.code} · fields: {(commitResult.updated_fields || []).join(', ')}
+          </p>
+        </div>
+      )}
+      {commitResult?.error && (
+        <div className="mt-3 p-3 rounded-md" style={{ background: C.redWash, border: '1px solid #FCA5A5' }}>
+          <p className="text-sm font-bold" style={{ color: C.red }}>Commit failed</p>
+          <p className="text-xs mt-1" style={{ color: C.body }}>{commitResult.error}</p>
+        </div>
+      )}
     </div>
   );
 }

@@ -5,16 +5,18 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
-import { Bot, Briefcase, Heart, Upload } from 'lucide-react';
+import { Bot, Briefcase, Heart, Upload, Map } from 'lucide-react';
 import FieldWithLabel from '../lib/FieldWithLabel';
 import SuggesterModal from '../lib/SuggesterModal';
 import ResumeUploadModal from '../lib/ResumeUploadModal';
 import ANZSCOPreviewCard from '../components/ANZSCOPreviewCard';
+import AtlasVerifyCard from '../components/AtlasVerifyCard';
 import { QUALIFICATIONS, MARITAL_OPTIONS, CONTRIBUTION_OPTIONS } from '../lib/constants';
 
 export default function Step3Profile({ data, update, setData, headers }) {
   const [showSuggester, setShowSuggester] = useState(false);
   const [showResumeUpload, setShowResumeUpload] = useState(false);
+  const [showAtlas, setShowAtlas] = useState(false);
 
   // Auto-open the chosen helper on first visit
   useEffect(() => {
@@ -44,19 +46,41 @@ export default function Step3Profile({ data, update, setData, headers }) {
         <>
           <Card className="p-3 bg-emerald-50 border-l-4 border-l-emerald-500" data-testid="selected-occ-card">
             <p className="text-[10px] uppercase font-bold text-emerald-700">Selected Occupation</p>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <div>
                 <p className="text-sm font-bold">{data.occupation_code} · {data.occupation_title}</p>
                 <p className="text-[10px] text-slate-500">{data.occupation_body} · {data.occupation_pathway}</p>
               </div>
-              <Button size="sm" variant="ghost" onClick={() => {
-                update('occupation_code', '');
-                update('occupation_title', '');
-                update('occupation_body', '');
-                update('occupation_pathway', '');
-              }}>Change</Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setShowAtlas(s => !s)}
+                  data-testid="verify-in-atlas-btn"
+                  style={{ background: '#0F766E', color: '#fff', borderColor: '#0F766E' }}
+                >
+                  <Map className="h-3.5 w-3.5 mr-1" />
+                  {showAtlas ? 'Hide Atlas' : 'Verify in Atlas'}
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => {
+                  update('occupation_code', '');
+                  update('occupation_title', '');
+                  update('occupation_body', '');
+                  update('occupation_pathway', '');
+                  setShowAtlas(false);
+                }}>Change</Button>
+              </div>
             </div>
           </Card>
+
+          {/* Phase 9.2 — Migration Atlas verified data drawer */}
+          {showAtlas && (
+            <AtlasVerifyCard
+              code={data.occupation_code}
+              headers={headers}
+              onClose={() => setShowAtlas(false)}
+            />
+          )}
 
           {/* Phase 7.2 — Auto-populate ANZSCO 4-digit KB preview */}
           <ANZSCOPreviewCard
