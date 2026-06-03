@@ -5,6 +5,59 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 
 > **📌 Update (Feb 13, 2026):** `CHANGELOG.md` now tracks all completed phases (incl. **Phase 3A — Attendance & Leave** with full company policies). `ROADMAP.md` lists prioritized backlog. This PRD remains the static reference for original requirements.
 
+### ⚡ Phase 9.3 — Hybrid LLM Model Router (Sonnet 4.6 + Haiku 4.5) (Jun 3, 2026)
+**Status:** ✅ COMPLETE — 12/12 regression PASS · Live AI smoke-test passed on 3 occupations.
+
+Sir's ask: "Hybrid: Sonnet for important + Haiku 4.5 for simple suggestions (cost saving ka best balance)".
+
+**Root cause investigation (bonus fix):**
+- User's Emergent Universal Key budget exceeded ($6.40 max hit).
+- After top-up, error persisted because `/app/backend/.env` still had the OLD key.
+- Updated `EMERGENT_LLM_KEY` to fresh key from `emergent_integrations_manager` → Sonnet calls instantly resumed.
+
+**Hybrid Architecture (`/app/backend/core/ai_models.py` — NEW central registry):**
+
+| Logical task | Model | Why |
+|--------------|-------|-----|
+| `occupation_suggester`  | **Haiku 4.5** | High-volume, simple JSON match · 4x cheaper · 2x faster |
+| `step_document_helper`  | Haiku 4.5     | Simple hints (mapped in registry, not yet wired) |
+| `ai_intelligence_quick` | Haiku 4.5     | Short helpers (mapped, not yet wired) |
+| `resume_extractor`      | Sonnet 4.6    | Multi-section structured extraction · quality-critical |
+| `proposal_standard`     | Sonnet 4.6    | Client-facing content · quality-critical |
+| `country_guide`         | Sonnet 4.6    | Long-form authored content |
+| `kb_ai_polish`          | Sonnet 4.6    | KB content polishing |
+| `ai_verification`       | Sonnet 4.6    | Verification reasoning |
+| `eligibility_reasoning` | Sonnet 4.6    | Mission-critical scoring AI |
+| `ai_extract_admin`      | Sonnet 4.6    | High-stakes admin VETASSESS/state extraction |
+| `proposal_premium`      | **Opus 4.6**  | Existing premium path (untouched) |
+
+Centralized helper:
+```python
+from core.ai_models import model_for
+CLAUDE_MODEL = model_for("occupation_suggester")  # → claude-haiku-4-5-20251001
+```
+
+**Files changed:**
+- NEW: `/app/backend/core/ai_models.py` — central task → model registry
+- MOD: `/app/backend/routers/sales_ai_helpers.py` — occupation suggester now uses `model_for("occupation_suggester")` → Haiku 4.5
+- MOD: `/app/backend/.env` — `EMERGENT_LLM_KEY` refreshed to top-up'ed key
+
+**Live AI smoke test (post-fix):**
+| Input profile | Top-3 codes returned | Confidence |
+|---------------|----------------------|------------|
+| "CRM Manager, 15yr real estate" | 131112 Sales/Marketing Mgr · 132111 Corp GM · 225113 Marketing Specialist | HIGH/medium/medium |
+| "Software Engineer at TCS, Java 5yr" | 261313 SW Engineer · 261312 Dev · 261311 Analyst Prog | HIGH/HIGH/medium |
+| "Registered Nurse ICU, 8yr" | 254423 RN Critical Care · 254418 RN | HIGH/HIGH |
+
+**Cost-savings estimate (Sonnet → Haiku for occupation suggester):**
+- Input cost: $3 → $0.80 per 1M tokens (~73% cheaper)
+- Output cost: $15 → $4 per 1M tokens (~73% cheaper)
+- Avg prompt = ~8K tokens (large because we ship 892 AU codes) → ~$0.024 → $0.0064 per call (~73% saving)
+- 1,000 sales sessions/month with 5 suggester calls each = $120/mo → **$32/mo** (saves $88/mo just on this one feature)
+
+**Future tasks easily upgradable** — to switch any task between Sonnet/Haiku/Opus, just edit the `MODEL_FOR` dict in `core/ai_models.py`. No router code changes needed.
+
+
 ### 🧭 Phase 9.2 — Atlas Verify Card + Manual Tools UI (Jun 3, 2026)
 **Status:** ✅ COMPLETE — Backend **12/12 PASS** (`tests/test_phase9_scrapers.py` extended). UI E2E verified via screenshots.
 

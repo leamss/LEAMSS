@@ -16,12 +16,14 @@ from pydantic import BaseModel, Field
 
 from core.auth import get_current_user
 from core.database import db
+from core.ai_models import model_for
 
 router = APIRouter(prefix="/sales/ai", tags=["Smart Sales Helper - AI Helpers"])
 logger = logging.getLogger(__name__)
 
 EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
-CLAUDE_MODEL = "claude-sonnet-4-6"
+# Phase 9.3 — Haiku 4.5 for high-frequency, low-stakes typeahead suggestions
+CLAUDE_MODEL = model_for("occupation_suggester")
 
 ROLE_SALES = {
     "admin", "admin_owner", "sales_executive", "sr_sales_executive",
