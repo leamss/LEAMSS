@@ -636,8 +636,8 @@ async def list_scrapers(current_user: dict = Depends(get_current_user)):
                     "Required qualification level + field of study",
                     "Pre vs post qualification employment",
                 ],
-                "status": "planned",
-                "note": "Site uses JS-driven search — needs admin AI-extract or bulk Excel import",
+                "status": "manual_only",
+                "note": "Site is JS-driven — VETASSESS does not publish bulk A-F list. Use Step 5 — Bulk CSV Upload or AI Paste-Extract tool instead.",
             },
             {
                 "id": "state_nominations",
@@ -652,3 +652,333 @@ async def list_scrapers(current_user: dict = Depends(get_current_user)):
             },
         ]
     }
+
+
+# ─── Step 5 — Manual Tools (Bulk CSV Upload + AI Paste-Extract) ─────────────
+from fastapi import UploadFile, File, Body
+
+@router.post("/bulk-upload-csv/preview")
+async def bulk_upload_csv_preview(
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user),
+):
+    """Parse uploaded CSV and return a dry-run preview.
+
+    Expected columns (case-insensitive, in any order):
+      • code (required, 6-digit ANZSCO)
+      • vetassess_group  (A | B | C | D | E | F)
+      • vetassess_criteria_text
+      • assessing_body
+      • assessing_body_url
+      • skill_assessment_notes
+    """
+    import csv, io
+    if not _is_admin(current_user):
+        raise HTTPException(403, "Admin only")
+
+    content = await file.read()
+    try:
+        text = content.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        text = content.decode("latin-1")
+    reader = csv.DictReader(io.StringIO(text))
+
+    rows: List[Dict[str, Any]] = []
+    invalid: List[Dict[str, Any]] = []
+    for i, raw in enumerate(reader, start=2):  # row 1 is header
+        row = {k.strip().lower(): (v.strip() if isinstance(v, str) else v) for k, v in raw.items() if k}
+        code = row.get("code") or ""
+        if not code or not code.isdigit() or len(code) != 6:
+            invalid.append({"row": i, "code": code, "reason": "code must be 6-digit numeric"})
+            continue
+        rows.append({"row_num": i, **row})
+
+    # Check which codes exist in DB
+    codes = [r["code"] for r in rows]
+    existing = set()
+    async for d in db["occupation_master"].find(
+        {"country_code": "AU", "code": {"$in": codes}}, {"_id": 0, "code": 1}
+    ):
+        existing.add(d["code"])
+
+    matched = [r for r in rows if r["code"] in existing]
+    unmatched = [r["code"] for r in rows if r["code"] not in existing]
+
+    return {
+        "total_rows": len(rows) + len(invalid),
+        "valid_rows": len(rows),
+        "invalid_rows": invalid[:20],
+        "matched_in_db": len(matched),
+        "unmatched_codes": unmatched[:20],
+        "sample_matched": matched[:8],
+        "columns_seen": list(rows[0].keys()) if rows else [],
+    }
+
+
+@router.post("/bulk-upload-csv/commit")
+async def bulk_upload_csv_commit(
+    file: UploadFile = File(...),
+    overwrite: bool = Query(False, description="If true, overwrite existing values"),
+    current_user: dict = Depends(get_current_user),
+):
+    """Commit a CSV — same as preview but actually writes."""
+    import csv, io
+    if not _is_admin(current_user):
+        raise HTTPException(403, "Admin only")
+
+    content = await file.read()
+    try:
+        text = content.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        text = content.decode("latin-1")
+    reader = csv.DictReader(io.StringIO(text))
+
+    now = _now()
+    actor = current_user.get("id") or "admin"
+    updated = 0
+    skipped_unknown = 0
+    skipped_verified = 0
+    errors: List[Dict[str, Any]] = []
+
+    for i, raw in enumerate(reader, start=2):
+        row = {k.strip().lower(): (v.strip() if isinstance(v, str) else v) for k, v in raw.items() if k}
+        code = row.get("code")
+        if not code or not code.isdigit() or len(code) != 6:
+            continue
+
+        ex = await db["occupation_master"].find_one({"country_code": "AU", "code": code})
+        if not ex:
+            skipped_unknown += 1
+            continue
+        if not overwrite and ex.get("status") == "verified":
+            skipped_verified += 1
+            continue
+
+        update_set: Dict[str, Any] = {}
+
+        if row.get("vetassess_group"):
+            details = ex.get("skill_assessment_details") or {}
+            details["vetassess_group"] = row["vetassess_group"].upper()
+            if row.get("vetassess_criteria_text"):
+                details["vetassess_criteria"] = row["vetassess_criteria_text"]
+            update_set["skill_assessment_details"] = details
+
+        if row.get("assessing_body"):
+            aa = ex.get("assessing_authority") or {}
+            if overwrite or not aa.get("name"):
+                aa["name"] = row["assessing_body"]
+                aa["short_name"] = aa.get("short_name") or row["assessing_body"]
+            if row.get("assessing_body_url") and (overwrite or not aa.get("url")):
+                aa["url"] = row["assessing_body_url"]
+            update_set["assessing_authority"] = aa
+
+        if row.get("skill_assessment_notes"):
+            update_set["skill_assessment_notes"] = row["skill_assessment_notes"]
+
+        if update_set:
+            update_set["last_csv_imported_at"] = now
+            update_set["last_csv_imported_by"] = actor
+            try:
+                await db["occupation_master"].update_one(
+                    {"_id": ex["_id"]}, {"$set": update_set}
+                )
+                updated += 1
+            except Exception as e:
+                errors.append({"row": i, "code": code, "error": str(e)[:200]})
+
+    return {
+        "updated": updated,
+        "skipped_unknown_code": skipped_unknown,
+        "skipped_verified": skipped_verified,
+        "errors": errors[:20],
+        "ran_at": now,
+        "ran_by": actor,
+    }
+
+
+@router.get("/bulk-upload-csv/template")
+async def bulk_upload_csv_template(current_user: dict = Depends(get_current_user)):
+    """Returns a CSV template for the admin team to fill in."""
+    if not _is_admin(current_user):
+        raise HTTPException(403, "Admin only")
+    from fastapi.responses import StreamingResponse
+    import io
+    sample = (
+        "code,vetassess_group,vetassess_criteria_text,assessing_body,assessing_body_url,skill_assessment_notes\n"
+        "261313,A,AQF Bachelor degree or higher in a highly relevant field; 1 year post-qualification employment in Australia OR 3 years globally,ACS — Australian Computer Society,https://www.acs.org.au/skills-assessment.html,Recognised pathway for skilled migration\n"
+        "221111,B,AQF Bachelor degree or higher in accounting; 1 year post-qualification employment,CPA Australia,https://www.cpaaustralia.com.au/become-a-cpa/migration-assessment,Provisional and full membership pathways available\n"
+        "313211,C,AQF Diploma or higher; 3 years post-qualification employment,VETASSESS,https://www.vetassess.com.au,\n"
+        "312911,D,AQF Certificate IV; 5 years employment with 3 years post-qualification,VETASSESS,https://www.vetassess.com.au,\n"
+    )
+    return StreamingResponse(
+        io.BytesIO(sample.encode("utf-8")),
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="leamss_atlas_vetassess_template.csv"'},
+    )
+
+
+# ─── AI-Extract tool (Claude via Emergent LLM Key) ──────────────────────────
+@router.post("/ai-extract/preview")
+async def ai_extract_preview(
+    payload: Dict[str, Any] = Body(...),
+    current_user: dict = Depends(get_current_user),
+):
+    """AI-Extract: paste raw text (eg from VETASSESS checker result) → Claude extracts structured fields.
+
+    Body:
+      • code:       6-digit ANZSCO code (required for matching to DB)
+      • raw_text:   text content to extract from (required)
+      • intent:     "vetassess_group" | "acs_rules" | "state_nomination"
+    """
+    if not _is_admin(current_user):
+        raise HTTPException(403, "Admin only")
+
+    code = (payload.get("code") or "").strip()
+    raw_text = (payload.get("raw_text") or "").strip()
+    intent = (payload.get("intent") or "vetassess_group").strip()
+
+    if not code or not raw_text:
+        raise HTTPException(400, "code and raw_text are required")
+    if not (code.isdigit() and len(code) == 6):
+        raise HTTPException(400, "code must be 6-digit ANZSCO")
+
+    EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
+    if not EMERGENT_LLM_KEY:
+        raise HTTPException(500, "EMERGENT_LLM_KEY not configured")
+
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
+    import uuid, json as _json
+
+    extraction_schema = {
+        "vetassess_group": (
+            "Extract VETASSESS skill assessment Group classification (A/B/C/D/E/F) "
+            "and criteria. Return JSON: { \"vetassess_group\": \"A\" | \"B\" | \"C\" | \"D\" | \"E\" | \"F\" | null, "
+            "\"qualification_required\": string, \"experience_required\": string, "
+            "\"pre_qual_experience_allowed\": true | false | null, \"criteria_summary\": string }"
+        ),
+        "acs_rules": (
+            "Extract ACS skill assessment rules. Return JSON: { \"acs_classification\": \"ICT Major\" | \"ICT Minor\" | \"Non-ICT\" | null, "
+            "\"qualification_required\": string, \"experience_required\": string, \"criteria_summary\": string }"
+        ),
+        "state_nomination": (
+            "Extract state nomination eligibility. Return JSON: { \"state\": \"NSW\" | \"VIC\" | ..., "
+            "\"demand_level\": \"high\" | \"medium\" | \"low\" | null, "
+            "\"sc190_eligible\": true | false, \"sc491_eligible\": true | false, "
+            "\"caveats\": string }"
+        ),
+    }
+    instruction = extraction_schema.get(intent, extraction_schema["vetassess_group"])
+
+    system = (
+        "You are LEAMSS Migration Atlas extraction assistant. Read the user's raw text "
+        "(copied from an official migration site) and return STRICTLY VALID JSON matching the schema. "
+        "No markdown fences. No commentary. If a field cannot be determined, use null."
+    )
+    prompt = (
+        f"Schema instruction:\n{instruction}\n\n"
+        f"ANZSCO code: {code}\n\n"
+        f"Raw text to extract from:\n---\n{raw_text[:8000]}\n---\n\n"
+        "Return JSON only."
+    )
+
+    chat = LlmChat(
+        api_key=EMERGENT_LLM_KEY,
+        session_id=f"atlas-extract-{uuid.uuid4().hex[:8]}",
+        system_message=system,
+    ).with_model("anthropic", "claude-sonnet-4-6")
+
+    try:
+        response = await chat.send_message(UserMessage(text=prompt))
+    except Exception as e:
+        raise HTTPException(502, f"AI extraction failed: {str(e)[:200]}")
+
+    text = str(response).strip()
+    # Strip code fences if present
+    if text.startswith("```"):
+        text = text.strip("`")
+        # remove possible "json\n" prefix
+        if text.lower().startswith("json"):
+            text = text.split("\n", 1)[1] if "\n" in text else text[4:]
+    try:
+        extracted = _json.loads(text)
+    except _json.JSONDecodeError:
+        raise HTTPException(502, f"AI returned non-JSON: {text[:400]}")
+
+    return {
+        "code": code,
+        "intent": intent,
+        "extracted": extracted,
+        "raw_ai_response": text[:1500],
+    }
+
+
+@router.post("/ai-extract/commit")
+async def ai_extract_commit(
+    payload: Dict[str, Any] = Body(...),
+    current_user: dict = Depends(get_current_user),
+):
+    """Commit AI-extracted data to occupation_master.
+
+    Body:
+      • code:      6-digit ANZSCO
+      • intent:    vetassess_group | acs_rules | state_nomination
+      • extracted: object returned by /ai-extract/preview
+      • overwrite: bool (default false)
+    """
+    if not _is_admin(current_user):
+        raise HTTPException(403, "Admin only")
+
+    code = (payload.get("code") or "").strip()
+    intent = (payload.get("intent") or "").strip()
+    extracted = payload.get("extracted") or {}
+    overwrite = bool(payload.get("overwrite"))
+
+    if not code or not intent or not extracted:
+        raise HTTPException(400, "code, intent, extracted are all required")
+
+    ex = await db["occupation_master"].find_one({"country_code": "AU", "code": code})
+    if not ex:
+        raise HTTPException(404, f"Occupation {code} not found")
+    if ex.get("status") == "verified" and not overwrite:
+        raise HTTPException(409, "Record is verified — pass overwrite=true to update")
+
+    now = _now()
+    actor = current_user.get("id") or "admin"
+    update_set: Dict[str, Any] = {}
+
+    if intent == "vetassess_group":
+        details = ex.get("skill_assessment_details") or {}
+        if extracted.get("vetassess_group"):
+            details["vetassess_group"] = extracted["vetassess_group"]
+        for k in ("qualification_required", "experience_required", "criteria_summary", "pre_qual_experience_allowed"):
+            if extracted.get(k) is not None:
+                details[k] = extracted[k]
+        update_set["skill_assessment_details"] = details
+    elif intent == "acs_rules":
+        details = ex.get("skill_assessment_details") or {}
+        details["acs"] = extracted
+        update_set["skill_assessment_details"] = details
+    elif intent == "state_nomination":
+        st = (extracted.get("state") or "").upper()
+        if st:
+            existing = list(ex.get("state_territory_eligibility") or [])
+            existing = [e for e in existing if e.get("state") != st]
+            existing.append({
+                "state": st,
+                "demand": extracted.get("demand_level"),
+                "sc190": bool(extracted.get("sc190_eligible")),
+                "sc491": bool(extracted.get("sc491_eligible")),
+                "caveats": extracted.get("caveats"),
+            })
+            update_set["state_territory_eligibility"] = existing
+
+    if not update_set:
+        raise HTTPException(400, "No actionable fields in extracted payload")
+
+    update_set["last_ai_extracted_at"] = now
+    update_set["last_ai_extracted_by"] = actor
+    await db["occupation_master"].update_one(
+        {"_id": ex["_id"]}, {"$set": update_set}
+    )
+
+    return {"ok": True, "code": code, "intent": intent, "updated_fields": list(update_set.keys()), "saved_at": now}
