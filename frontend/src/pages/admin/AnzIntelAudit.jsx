@@ -512,9 +512,10 @@ function SampleList({ title, items, tone }) {
 // ─── Step 4 — Scrapers Tab ──────────────────────────────────────────────────
 function ScrapersTab({ headers, onAfterCommit }) {
   const [scrapers, setScrapers] = useState([]);
-  const [dryRun, setDryRun] = useState(null);
+  const [activeId, setActiveId] = useState(null);
+  const [dryRunByScraper, setDryRunByScraper] = useState({});
   const [running, setRunning] = useState(false);
-  const [commitResult, setCommitResult] = useState(null);
+  const [commitResultByScraper, setCommitResultByScraper] = useState({});
 
   useEffect(() => {
     axios.get(`${API}/anz-intel/scrapers/list`, { headers })
@@ -522,27 +523,52 @@ function ScrapersTab({ headers, onAfterCommit }) {
       .catch(e => console.error('scrapers/list', e));
   }, [headers]);
 
-  const runDry = async () => {
-    setRunning(true); setDryRun(null); setCommitResult(null);
+  const runEndpointForId = (id) => {
+    const mapping = {
+      home_affairs:       '/anz-intel/scrapers/home-affairs/run',
+      state_nominations:  '/anz-intel/scrapers/state-nominations/run',
+      skillselect_tiers:  '/anz-intel/scrapers/skillselect-tiers/run',
+      vetassess_groups:   '/anz-intel/scrapers/vetassess-groups/run',
+    };
+    return mapping[id];
+  };
+
+  const runDry = async (id) => {
+    setActiveId(id);
+    setRunning(true);
+    setDryRunByScraper(prev => ({ ...prev, [id]: null }));
+    setCommitResultByScraper(prev => ({ ...prev, [id]: null }));
     try {
-      const r = await axios.post(`${API}/anz-intel/scrapers/home-affairs/run?dry_run=true`, {}, { headers });
-      setDryRun(r.data);
+      const ep = runEndpointForId(id);
+      const r = await axios.post(`${API}${ep}?dry_run=true`, {}, { headers });
+      setDryRunByScraper(prev => ({ ...prev, [id]: r.data }));
     } catch (e) {
-      setDryRun({ error: e.response?.data?.detail || String(e) });
+      setDryRunByScraper(prev => ({ ...prev, [id]: { error: e.response?.data?.detail || String(e) } }));
     }
     setRunning(false);
   };
 
-  const runCommit = async () => {
-    if (!window.confirm(`Sir, confirm — Home Affairs scraper se ${dryRun?.ha_codes_with_changes} records enrich honge (assessing authority + visa eligibility + MLTSSL/STSOL/ROL). Existing verified records preserved. Proceed?`)) return;
-    setRunning(true); setCommitResult(null);
+  const runCommit = async (id) => {
+    const dry = dryRunByScraper[id];
+    if (!dry) return;
+    const commitMsgMap = {
+      home_affairs:      `${dry.ha_codes_with_changes} records enrich honge`,
+      state_nominations: `${dry.counts?.total_unique_docs_touched} records me state nomination data add hoga (NSW + QLD)`,
+      skillselect_tiers: `${dry.to_update} records me SkillSelect Tier (1-4) assign hoga`,
+      vetassess_groups:  `${dry.to_update} records me VETASSESS Group (A-F) seed hoga`,
+    };
+    if (!window.confirm(`Sir, confirm — ${commitMsgMap[id]}. Existing verified records preserved rahenge. Proceed?`)) return;
+
+    setActiveId(id);
+    setRunning(true);
+    setCommitResultByScraper(prev => ({ ...prev, [id]: null }));
     try {
-      const r = await axios.post(`${API}/anz-intel/scrapers/home-affairs/run?dry_run=false`, {}, { headers });
-      setCommitResult(r.data);
-      // Phase 9 fix — refresh parent audit data so progress bars update immediately
+      const ep = runEndpointForId(id);
+      const r = await axios.post(`${API}${ep}?dry_run=false`, {}, { headers });
+      setCommitResultByScraper(prev => ({ ...prev, [id]: r.data }));
       if (onAfterCommit) await onAfterCommit();
     } catch (e) {
-      setCommitResult({ error: e.response?.data?.detail || String(e) });
+      setCommitResultByScraper(prev => ({ ...prev, [id]: { error: e.response?.data?.detail || String(e) } }));
     }
     setRunning(false);
   };
@@ -551,7 +577,7 @@ function ScrapersTab({ headers, onAfterCommit }) {
     <div data-testid="anz-audit-scrapers-tab">
       <div className="mb-4 p-4 rounded-lg" style={{ background: C.tealWash, border: `1px solid ${C.tealWash2}` }}>
         <p className="text-sm font-bold flex items-center gap-2" style={{ color: C.tealDeep }}>
-          <Sparkles className="h-4 w-4" />Step 4 — Live Scrapers (Slow &amp; Careful)
+          <Sparkles className="h-4 w-4" />Step 4 — Live Scrapers &amp; Classifiers
         </p>
         <p className="text-xs mt-1" style={{ color: C.body }}>
           Har scraper run karne se pehle <b>DRY-RUN preview</b> dikhega. Aap dekhke confirm kar sakte hain,
@@ -561,119 +587,187 @@ function ScrapersTab({ headers, onAfterCommit }) {
 
       {/* Scrapers list */}
       <div className="space-y-4 mb-6">
-        {scrapers.map(s => (
-          <div key={s.id} className="rounded-xl border p-4" style={{ background: C.card, borderColor: C.border }} data-testid={`scraper-${s.id}`}>
-            <div className="flex items-start justify-between gap-3 flex-wrap">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <h3 className="font-bold text-base" style={{ color: C.ink }}>{s.name}</h3>
-                  <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded"
-                        style={{
-                          background: s.status === 'ready' ? C.tealWash2 : C.orangeWash2,
-                          color:      s.status === 'ready' ? C.tealDeep : C.orangeDeep,
-                        }}>
-                    {s.status}
-                  </span>
+        {scrapers.map(s => {
+          const dry = dryRunByScraper[s.id];
+          const commit = commitResultByScraper[s.id];
+          const isActive = activeId === s.id;
+          return (
+            <div key={s.id} className="rounded-xl border p-4" style={{ background: C.card, borderColor: C.border }} data-testid={`scraper-${s.id}`}>
+              <div className="flex items-start justify-between gap-3 flex-wrap">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <h3 className="font-bold text-base" style={{ color: C.ink }}>{s.name}</h3>
+                    <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded"
+                          style={{
+                            background: s.status === 'ready' ? C.tealWash2 : C.orangeWash2,
+                            color:      s.status === 'ready' ? C.tealDeep : C.orangeDeep,
+                          }}>
+                      {s.status}
+                    </span>
+                  </div>
+                  {s.source_url?.startsWith('http') ? (
+                    <a href={s.source_url} target="_blank" rel="noreferrer" className="text-xs underline" style={{ color: C.teal }}>
+                      {s.source_url}
+                    </a>
+                  ) : (
+                    <span className="text-xs italic" style={{ color: C.muted }}>{s.source_url}</span>
+                  )}
+                  <ul className="mt-2 space-y-0.5 text-xs" style={{ color: C.body }}>
+                    {s.what_it_provides.map((w, i) => (
+                      <li key={i}>→ {w}</li>
+                    ))}
+                  </ul>
+                  {s.note && <p className="mt-2 text-xs italic" style={{ color: C.orangeDeep }}>{s.note}</p>}
                 </div>
-                <a href={s.source_url} target="_blank" rel="noreferrer" className="text-xs underline" style={{ color: C.teal }}>
-                  {s.source_url}
-                </a>
-                <ul className="mt-2 space-y-0.5 text-xs" style={{ color: C.body }}>
-                  {s.what_it_provides.map((w, i) => (
-                    <li key={i}>→ {w}</li>
-                  ))}
-                </ul>
-                {s.note && <p className="mt-2 text-xs italic" style={{ color: C.orangeDeep }}>{s.note}</p>}
+                {s.status === 'ready' && (
+                  <div className="flex flex-col gap-2 shrink-0">
+                    <button
+                      onClick={() => runDry(s.id)}
+                      disabled={running}
+                      className="px-3 py-1.5 rounded-md text-xs font-bold border flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                      style={{ background: C.card, color: C.teal, borderColor: C.teal }}
+                      data-testid={`scraper-${s.id}-dry-run-btn`}
+                    >
+                      {running && isActive && !dry ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                      Dry-Run Preview
+                    </button>
+                  </div>
+                )}
               </div>
-              {s.status === 'ready' && s.id === 'home_affairs' && (
-                <div className="flex flex-col gap-2 shrink-0">
-                  <button
-                    onClick={runDry}
-                    disabled={running}
-                    className="px-3 py-1.5 rounded-md text-xs font-bold border flex items-center gap-1.5 transition-colors"
-                    style={{ background: C.card, color: C.teal, borderColor: C.teal }}
-                    data-testid={`scraper-${s.id}-dry-run-btn`}
-                  >
-                    {running && !dryRun ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-                    Dry-Run Preview
-                  </button>
+
+              {/* Per-scraper dry-run + commit result */}
+              {dry && !dry.error && (
+                <ScraperDryRunPreview
+                  id={s.id}
+                  dry={dry}
+                  running={running && isActive}
+                  onCommit={() => runCommit(s.id)}
+                />
+              )}
+              {dry?.error && (
+                <div className="mt-4 p-3 rounded-md" style={{ background: C.redWash, border: '1px solid #FCA5A5' }}>
+                  <p className="text-sm font-bold" style={{ color: C.red }}>Dry-run failed</p>
+                  <p className="text-xs mt-1" style={{ color: C.body }}>{dry.error}</p>
+                </div>
+              )}
+              {commit && !commit.error && (
+                <div className="mt-4 p-3 rounded-md" style={{ background: C.tealWash, border: `1px solid ${C.tealWash2}` }} data-testid={`scraper-${s.id}-commit-result`}>
+                  <p className="text-sm font-bold flex items-center gap-2" style={{ color: C.tealDeep }}>
+                    <CheckCircle2 className="h-4 w-4" />Commit complete — data persisted to database
+                  </p>
+                  <p className="text-xs mt-1" style={{ color: C.muted }}>Run "Refresh" up top OR click any tab to see updated coverage bars.</p>
+                </div>
+              )}
+              {commit?.error && (
+                <div className="mt-4 p-3 rounded-md" style={{ background: C.redWash, border: '1px solid #FCA5A5' }}>
+                  <p className="text-sm font-bold" style={{ color: C.red }}>Commit failed</p>
+                  <p className="text-xs mt-1" style={{ color: C.body }}>{commit.error}</p>
                 </div>
               )}
             </div>
-          </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// Per-scraper dry-run preview that renders different stats based on scraper id
+function ScraperDryRunPreview({ id, dry, running, onCommit }) {
+  let stats;
+  let samples = null;
+  let commitLabel = 'Commit';
+
+  if (id === 'home_affairs') {
+    stats = [
+      { icon: Database,      label: 'Fetched',            value: dry.fetched_records, tone: 'teal' },
+      { icon: ArrowRight,    label: 'Will Update',        value: dry.ha_codes_with_changes, tone: 'gold' },
+      { icon: CheckCircle2,  label: 'Verified preserved', value: dry.skipped_verified, tone: 'teal' },
+      { icon: AlertTriangle, label: 'HA codes not in DB', value: dry.ha_codes_not_in_db, tone: 'orange' },
+    ];
+    commitLabel = `Commit — Update ${dry.ha_codes_with_changes} records`;
+    samples = dry.sample_updates;
+  } else if (id === 'state_nominations') {
+    const c = dry.counts || {};
+    stats = [
+      { icon: Database,    label: 'NSW unit groups',     value: c.nsw_4digit_unit_groups_scraped, tone: 'teal' },
+      { icon: Database,    label: 'QLD codes scraped',   value: c.qld_6digit_codes_scraped, tone: 'teal' },
+      { icon: ArrowRight,  label: 'NSW updates',         value: c.nsw_records_updated, tone: 'gold' },
+      { icon: ArrowRight,  label: 'QLD updates',         value: c.qld_records_updated, tone: 'gold' },
+    ];
+    commitLabel = `Commit — Update ${c.total_unique_docs_touched} records`;
+    samples = (dry.sample_updates || []).map(u => ({
+      code: u.code,
+      title: u.title,
+      updated_fields: u.states_added,
+    }));
+  } else if (id === 'skillselect_tiers') {
+    const t = dry.tier_distribution || {};
+    stats = [
+      { icon: Award,       label: 'Tier 1 (Health/Edu)', value: t.tier_1, tone: 'teal' },
+      { icon: Award,       label: 'Tier 2 (CSOL)',        value: t.tier_2, tone: 'teal' },
+      { icon: Award,       label: 'Tier 3 (MLTSSL/Reg)', value: t.tier_3, tone: 'gold' },
+      { icon: Award,       label: 'Tier 4 (Other)',      value: t.tier_4, tone: 'orange' },
+    ];
+    commitLabel = `Commit — Assign tier to ${dry.to_update} records`;
+    // Combine samples from all tiers
+    const bag = dry.sample_by_tier || {};
+    samples = [...(bag.tier_1 || []).map(x => ({ ...x, updated_fields: ['tier_1'] })),
+               ...(bag.tier_2 || []).slice(0, 2).map(x => ({ ...x, updated_fields: ['tier_2'] })),
+               ...(bag.tier_3 || []).slice(0, 2).map(x => ({ ...x, updated_fields: ['tier_3'] })),
+               ...(bag.tier_4 || []).slice(0, 2).map(x => ({ ...x, updated_fields: ['tier_4'] }))].slice(0, 8);
+  } else if (id === 'vetassess_groups') {
+    const g = dry.by_group || {};
+    stats = [
+      { icon: Award,       label: 'Group A',  value: g.A, tone: 'teal' },
+      { icon: Award,       label: 'Group B',  value: g.B, tone: 'teal' },
+      { icon: Award,       label: 'Group C+D',value: (g.C || 0) + (g.D || 0), tone: 'gold' },
+      { icon: Award,       label: 'Group E+F',value: (g.E || 0) + (g.F || 0), tone: 'orange' },
+    ];
+    commitLabel = `Commit — Seed ${dry.to_update} records`;
+    samples = (dry.sample_updates || []).map(u => ({
+      code: u.code, title: u.title, updated_fields: [u.group],
+    }));
+  }
+
+  return (
+    <div className="mt-4 rounded-md border p-3" style={{ background: C.bg, borderColor: C.tealWash2 }} data-testid={`scraper-${id}-dry-run-result`}>
+      <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: C.orangeDeep, letterSpacing: '0.08em' }}>Dry-Run Preview</p>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+        {stats?.map((s, i) => (
+          <PreviewStat key={i} icon={s.icon} label={s.label} value={s.value} tone={s.tone} />
         ))}
       </div>
-
-      {/* Dry-run preview */}
-      {dryRun && !dryRun.error && (
-        <div className="rounded-xl border p-5 mb-4" style={{ background: C.card, borderColor: C.tealWash2 }} data-testid="ha-dry-run-result">
-          <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: C.orangeDeep, letterSpacing: '0.08em' }}>Dry-Run Preview · Home Affairs</p>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-            <PreviewStat icon={Database}     label="Fetched"               value={dryRun.fetched_records} tone="teal" />
-            <PreviewStat icon={ArrowRight}   label="Will Update"           value={dryRun.ha_codes_with_changes} tone="gold" />
-            <PreviewStat icon={CheckCircle2} label="Verified preserved"    value={dryRun.skipped_verified} tone="teal" />
-            <PreviewStat icon={AlertTriangle} label="HA codes not in DB"    value={dryRun.ha_codes_not_in_db} tone="orange" />
-          </div>
-          {dryRun.sample_updates?.length > 0 && (
-            <div>
-              <p className="text-xs font-bold mb-2" style={{ color: C.tealDeep }}>Sample updates (first 8):</p>
-              <div className="space-y-1">
-                {dryRun.sample_updates.map(u => (
-                  <div key={u.code} className="text-xs flex flex-wrap gap-2 items-baseline">
-                    <span className="font-mono font-bold" style={{ color: C.tealDeep }}>{u.code}</span>
-                    <span style={{ color: C.ink }}>{u.title}</span>
-                    <span style={{ color: C.muted }}>· fields:</span>
-                    {u.updated_fields.map(f => (
-                      <span key={f} className="text-[10px] px-1.5 py-0.5 rounded font-mono"
-                            style={{ background: C.goldWash, color: C.orangeDeep }}>{f}</span>
-                    ))}
-                  </div>
+      {samples?.length > 0 && (
+        <div>
+          <p className="text-xs font-bold mb-2" style={{ color: C.tealDeep }}>Sample updates (first 8):</p>
+          <div className="space-y-1">
+            {samples.slice(0, 8).map((u, i) => (
+              <div key={u.code + '-' + i} className="text-xs flex flex-wrap gap-2 items-baseline">
+                <span className="font-mono font-bold" style={{ color: C.tealDeep }}>{u.code}</span>
+                <span style={{ color: C.ink }}>{u.title}</span>
+                <span style={{ color: C.muted }}>·</span>
+                {(u.updated_fields || []).map(f => (
+                  <span key={f} className="text-[10px] px-1.5 py-0.5 rounded font-mono"
+                        style={{ background: C.goldWash, color: C.orangeDeep }}>{f}</span>
                 ))}
               </div>
-            </div>
-          )}
-          <div className="mt-4 pt-4 border-t" style={{ borderColor: C.border }}>
-            <button
-              onClick={runCommit}
-              disabled={running || dryRun.ha_codes_with_changes === 0}
-              className="px-5 py-2.5 rounded-md font-bold text-sm flex items-center gap-2 shadow-sm disabled:opacity-50"
-              style={{ background: C.teal, color: '#fff' }}
-              data-testid="ha-commit-btn"
-            >
-              {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              {running ? 'Committing…' : `Commit — Update ${dryRun.ha_codes_with_changes} records`}
-            </button>
+            ))}
           </div>
         </div>
       )}
-      {dryRun?.error && (
-        <div className="p-4 rounded-lg mb-4" style={{ background: C.redWash, border: '1px solid #FCA5A5' }}>
-          <p className="text-sm font-bold" style={{ color: C.red }}>❌ Dry-run failed</p>
-          <p className="text-xs mt-1" style={{ color: C.body }}>{dryRun.error}</p>
-        </div>
-      )}
-
-      {/* Commit result */}
-      {commitResult && !commitResult.error && (
-        <div className="p-4 rounded-lg" style={{ background: C.tealWash, border: `1px solid ${C.tealWash2}` }} data-testid="ha-commit-result">
-          <p className="text-base font-bold flex items-center gap-2" style={{ color: C.tealDeep }}>
-            <CheckCircle2 className="h-5 w-5" />Scrape complete!
-          </p>
-          <ul className="mt-3 text-sm space-y-1" style={{ color: C.body }}>
-            <li><strong>{commitResult.ha_codes_with_changes}</strong> records updated with Home Affairs data</li>
-            <li><strong>{commitResult.skipped_verified}</strong> verified records preserved (no overwrite)</li>
-            <li><strong>{commitResult.ha_codes_not_in_db}</strong> Home Affairs codes not yet in LEAMSS DB</li>
-            <li className="text-xs mt-2" style={{ color: C.muted }}>Source: {commitResult.source_url}</li>
-            <li className="text-xs" style={{ color: C.muted }}>Ran at: {commitResult.ran_at}</li>
-          </ul>
-        </div>
-      )}
-      {commitResult?.error && (
-        <div className="p-4 rounded-lg" style={{ background: C.redWash, border: '1px solid #FCA5A5' }}>
-          <p className="text-sm font-bold" style={{ color: C.red }}>❌ Commit failed</p>
-          <p className="text-xs mt-1" style={{ color: C.body }}>{commitResult.error}</p>
-        </div>
-      )}
+      <div className="mt-3 pt-3 border-t" style={{ borderColor: C.border }}>
+        <button
+          onClick={onCommit}
+          disabled={running}
+          className="px-4 py-2 rounded-md font-bold text-xs flex items-center gap-2 shadow-sm disabled:opacity-50"
+          style={{ background: C.teal, color: '#fff' }}
+          data-testid={`scraper-${id}-commit-btn`}
+        >
+          {running ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+          {running ? 'Committing…' : commitLabel}
+        </button>
+      </div>
     </div>
   );
 }

@@ -5,6 +5,66 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 
 > **📌 Update (Feb 13, 2026):** `CHANGELOG.md` now tracks all completed phases (incl. **Phase 3A — Attendance & Leave** with full company policies). `ROADMAP.md` lists prioritized backlog. This PRD remains the static reference for original requirements.
 
+### 🗺️ Phase 9.1 — Migration Atlas Scrapers Expansion (Jun 3, 2026)
+**Status:** ✅ COMPLETE — Backend **7/7 PASS** (`tests/test_phase9_scrapers.py`). UI verified via screenshots.
+
+Sir's ask: "Migration Atlas ko complete karo — VETASSESS, State Nomination, SkillSelect scrapers banao, official sources only."
+
+**3 new scrapers shipped (`/app/backend/core/scrapers/`):**
+
+1. **State Nominations Scraper** (`state_nominations.py`)
+   - **NSW** (https://www.nsw.gov.au/visas-and-migration/skilled-visas/nsw-skills-lists): scrapes 2 HTML tables → 87 4-digit ANZSCO unit groups for 190 + 491 nomination eligibility, then expands to all 6-digit children in occupation_master (238 records updated)
+   - **QLD** (https://migration.qld.gov.au/.../offshore-queensland-skilled-occupation-lists-(qsol)): direct 6-digit ANZSCO match with 190/491 columns + caveats (97 records updated)
+   - **WA** (https://migration.wa.gov.au/.../state-nominated-migration-program): page is JS-driven → 0 records on initial scrape (graceful failure). Documented as "use CSV upload" for now.
+   - VIC, ACT, NT, SA, TAS publicly not scrapable (JS-driven or rule-based) — admins should use CSV Upload / AI-Extract tools
+
+2. **SkillSelect 4-Tier Classifier** (`skillselect_tiers.py`)
+   - **DETERMINISTIC** — uses existing `pathway_list` data from Home Affairs scrape (CSOL/MLTSSL/STSOL/ROL) + ANZSCO Major Group rules
+   - **No network calls** — fully offline classifier
+   - Tier mapping (per Home Affairs 2025-26 SkillSelect framework):
+     - Tier 1: Health + Education priority occupations (ANZSCO 25xx, 24xx with CSOL/MLTSSL)
+     - Tier 2: CSOL members (Core Skills Occupation List)
+     - Tier 3: MLTSSL-only / critical regional trades (33xx, 34xx with 491 eligibility)
+     - Tier 4: STSOL/ROL only / fallback
+   - Distribution across 892 AU codes: **Tier 1 = 94, Tier 2 = 276, Tier 3 = 15, Tier 4 = 507**
+   - Idempotent (`skipped_already_set` on re-run)
+
+3. **VETASSESS Group A-F Static Seed** (`vetassess_groups.py`)
+   - vetassess.com.au is JS-driven — bulk download not available
+   - Curated, audited static seed of 142 top-occupation → Group A/B/C/D/E/F mappings (per VETASSESS published criteria)
+   - Distribution: A=23, B=31, C=31, D=3, E=24, F=3
+   - Includes auto-populated `qualification_required`, `experience_required`, `pre_qual_experience_allowed` per group
+   - Extensible via existing CSV Upload + AI-Extract tools
+
+**API endpoints added (`routers/anz_intel.py`):**
+- `POST /api/anz-intel/scrapers/state-nominations/run?dry_run=`
+- `POST /api/anz-intel/scrapers/skillselect-tiers/run?dry_run=`
+- `POST /api/anz-intel/scrapers/vetassess-groups/run?dry_run=`
+- `GET /api/anz-intel/scrapers/list` updated to return all 4 ready scrapers (was only home_affairs ready before)
+
+**Frontend (`pages/admin/AnzIntelAudit.jsx`):**
+- ScrapersTab fully rewritten to support multiple scrapers
+- Each scraper card has its own Dry-Run button + per-scraper preview cards + Commit button
+- New `ScraperDryRunPreview` component renders scraper-specific stats (HA: fetched/updated counts; State: NSW/QLD counts; SkillSelect: 4 tier counts; VETASSESS: 6 group counts)
+- After commit, parent `fetchAll()` auto-refreshes hero stats + field coverage bars
+
+**Field Coverage Audit Dashboard (after all 4 scrapers committed):**
+| Field                        | Before (Phase 9) | After (Phase 9.1) |
+|------------------------------|------------------|---------------------|
+| Salary & Workforce           | 93.5%            | 93.5%               |
+| Job Tasks                    | 94.1%            | 94.1%               |
+| Top Industries               | 93.5%            | 93.5%               |
+| State % Distribution         | 93.5%            | 93.5%               |
+| Skill Body                   | 62.0%            | 62.0%               |
+| **Skill Body Criteria (VETASSESS Group)** | 0%   | **14.7%** ⬆        |
+| Visa Eligibility             | 63.7%            | 63.7%               |
+| **State Nomination**         | 4.1%             | **27.3%** ⬆⬆       |
+| **SkillSelect Tier**         | 0%               | **95.3%** ⬆⬆⬆     |
+| ANZSCO v1.3 ↔ v2022          | 63.3%            | 63.3%               |
+
+**Tests:** `tests/test_phase9_scrapers.py` (7 cases): scrapers list, SkillSelect dry-run + idempotency, VETASSESS dry-run, State nominations live scrape (skippable via `SKIP_NETWORK_TESTS=1`), audit-summary includes new fields, RBAC blocks partner.
+
+
 ### ⚡ Phase 7.5 — Pipeline Cockpit Full Wiring (May 25, 2026)
 **Status:** ✅ COMPLETE · **Testing**: 13/13 backend pytest + frontend E2E 100% (testing agent iterations 113, 114) · **Zero blue/indigo violations** · **Sanity route-mismatch issue FIXED**.
 

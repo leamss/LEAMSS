@@ -15,6 +15,7 @@ ZERO mutations — purely diagnostic.
 """
 from __future__ import annotations
 
+import os
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -628,30 +629,106 @@ async def list_scrapers(current_user: dict = Depends(get_current_user)):
                 "run_endpoint": "/api/anz-intel/scrapers/home-affairs/run",
             },
             {
-                "id": "vetassess_groups",
-                "name": "VETASSESS — Group A-F Criteria",
-                "source_url": "https://www.vetassess.com.au/nominate-an-occupation",
+                "id": "state_nominations",
+                "name": "State / Territory Nomination Lists (NSW + QLD + WA)",
+                "source_url": "Multiple official state government sites",
                 "what_it_provides": [
-                    "Group classification (A/B/C/D/E/F) per occupation",
+                    "Subclass 190 + 491 nomination eligibility per state",
+                    "NSW Skills List (4-digit unit groups, 190 + 491)",
+                    "QLD Offshore QSOL (6-digit codes)",
+                    "WA WASMOL Schedule 1/2/GOL",
+                    "State-specific caveats and notes",
+                ],
+                "status": "ready",
+                "run_endpoint": "/api/anz-intel/scrapers/state-nominations/run",
+                "note": "VIC, ACT, NT, SA, TAS are not publicly scrapable (JS-driven or rule-based). Use CSV Upload or AI-Extract for those.",
+            },
+            {
+                "id": "skillselect_tiers",
+                "name": "SkillSelect 4-Tier Classifier (CSOL/MLTSSL based)",
+                "source_url": "https://immi.homeaffairs.gov.au/visas/working-in-australia/skill-occupation-list",
+                "what_it_provides": [
+                    "Tier 1 — Health & Education priority occupations",
+                    "Tier 2 — CSOL (Core Skills Occupation List)",
+                    "Tier 3 — MLTSSL-only / regional & critical trades",
+                    "Tier 4 — Other STSOL/ROL eligible occupations",
+                ],
+                "status": "ready",
+                "run_endpoint": "/api/anz-intel/scrapers/skillselect-tiers/run",
+                "note": "Deterministic classification using existing pathway_list data — no network calls.",
+            },
+            {
+                "id": "vetassess_groups",
+                "name": "VETASSESS — Group A-F Static Seed",
+                "source_url": "https://www.vetassess.com.au/skills-assessment/general-occupations",
+                "what_it_provides": [
+                    "Group classification (A/B/C/D/E/F) for ~120 most-common occupations",
                     "Required qualification level + field of study",
                     "Pre vs post qualification employment",
                 ],
-                "status": "manual_only",
-                "note": "Site is JS-driven — VETASSESS does not publish bulk A-F list. Use Step 5 — Bulk CSV Upload or AI Paste-Extract tool instead.",
-            },
-            {
-                "id": "state_nominations",
-                "name": "State / Territory Nomination Lists (8 states)",
-                "source_url": "Various state government sites",
-                "what_it_provides": [
-                    "State-wise demand (high / medium / low)",
-                    "Subclass 190 + 491 nomination eligibility",
-                    "State-specific caveats",
-                ],
-                "status": "planned",
+                "status": "ready",
+                "run_endpoint": "/api/anz-intel/scrapers/vetassess-groups/run",
+                "note": "Site is JS-driven — this seed covers top occupations. Extend via CSV Upload or AI-Extract.",
             },
         ]
     }
+
+
+# ─── Step 4b — State Nominations Scraper ────────────────────────────────────
+@router.post("/scrapers/state-nominations/run")
+async def run_state_nominations_scraper(
+    dry_run: bool = Query(True, description="If true, returns preview without writing"),
+    current_user: dict = Depends(get_current_user),
+):
+    """Scrape NSW + QLD + WA state nomination lists and enrich state_territory_eligibility."""
+    if not _is_admin(current_user):
+        raise HTTPException(403, "Admin only")
+    try:
+        from core.scrapers import state_nominations
+        result = await state_nominations.apply_to_db(
+            db, dry_run=dry_run, actor=current_user.get("id") or "admin"
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(500, f"State nominations scraper failed: {e}")
+
+
+# ─── Step 4c — SkillSelect Tier Classifier ──────────────────────────────────
+@router.post("/scrapers/skillselect-tiers/run")
+async def run_skillselect_tiers(
+    dry_run: bool = Query(True, description="If true, returns preview without writing"),
+    current_user: dict = Depends(get_current_user),
+):
+    """Deterministically classify AU occupations into SkillSelect Tier 1-4."""
+    if not _is_admin(current_user):
+        raise HTTPException(403, "Admin only")
+    try:
+        from core.scrapers import skillselect_tiers
+        result = await skillselect_tiers.apply_to_db(
+            db, dry_run=dry_run, actor=current_user.get("id") or "admin"
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(500, f"SkillSelect tier classifier failed: {e}")
+
+
+# ─── Step 4d — VETASSESS Group A-F Static Seed ──────────────────────────────
+@router.post("/scrapers/vetassess-groups/run")
+async def run_vetassess_groups(
+    dry_run: bool = Query(True, description="If true, returns preview without writing"),
+    current_user: dict = Depends(get_current_user),
+):
+    """Seed VETASSESS Group A-F classification onto top occupations."""
+    if not _is_admin(current_user):
+        raise HTTPException(403, "Admin only")
+    try:
+        from core.scrapers import vetassess_groups
+        result = await vetassess_groups.apply_to_db(
+            db, dry_run=dry_run, actor=current_user.get("id") or "admin"
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(500, f"VETASSESS seed failed: {e}")
 
 
 # ─── Step 5 — Manual Tools (Bulk CSV Upload + AI Paste-Extract) ─────────────
