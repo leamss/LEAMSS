@@ -187,7 +187,7 @@ export default function AnzIntelAudit() {
       {activeTab === 'merge'    && (
         <MergeTab preview={mergePreview} running={mergeRunning} result={mergeResult} onRun={runMerge} />
       )}
-      {activeTab === 'scrapers' && <ScrapersTab headers={headers} />}
+      {activeTab === 'scrapers' && <ScrapersTab headers={headers} onAfterCommit={fetchAll} />}
     </div>
   );
 }
@@ -510,7 +510,7 @@ function SampleList({ title, items, tone }) {
 }
 
 // ─── Step 4 — Scrapers Tab ──────────────────────────────────────────────────
-function ScrapersTab({ headers }) {
+function ScrapersTab({ headers, onAfterCommit }) {
   const [scrapers, setScrapers] = useState([]);
   const [dryRun, setDryRun] = useState(null);
   const [running, setRunning] = useState(false);
@@ -539,6 +539,8 @@ function ScrapersTab({ headers }) {
     try {
       const r = await axios.post(`${API}/anz-intel/scrapers/home-affairs/run?dry_run=false`, {}, { headers });
       setCommitResult(r.data);
+      // Phase 9 fix — refresh parent audit data so progress bars update immediately
+      if (onAfterCommit) await onAfterCommit();
     } catch (e) {
       setCommitResult({ error: e.response?.data?.detail || String(e) });
     }
