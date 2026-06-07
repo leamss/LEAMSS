@@ -56,6 +56,7 @@ export default function ClientAgreementSigning({ paId, onSigned }) {
         signature_data_url: dataUrl,
         typed_name: meta.typed_name,
         consent_text: `I electronically sign agreement ${agreement.reference_id}`,
+        biometric_packet: meta.biometric_packet || null,
       }, auth());
       toast.success(`Agreement signed · ${new Date(r.data.signed_at).toLocaleString()}`);
       onSigned && onSigned(r.data);

@@ -661,6 +661,67 @@ async def update_pa_details(pa_id: str, body: PADetailsUpdate, current_user: dic
     return {"ok": True, "updated_fields": list(upd.keys()), "changes": changes}
 
 
+# ─── Phase 9.9 — Edit History tab (audit trail per PA) ──────────────────────
+@router.get("/{pa_id}/edit-history")
+async def get_pa_edit_history(pa_id: str, current_user: dict = Depends(get_current_user)):
+    """Returns full audit timeline for a PA — all field edits, stage changes,
+    document uploads, approvals, signatures, etc. Latest first.
+    """
+    pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
+    if not pa:
+        raise HTTPException(status_code=404, detail="Pre-assessment not found")
+    _assert_pa_owner(pa, current_user)
+
+    cur = db["audit_logs"].find(
+        {"entity_type": "pre_assessment", "entity_id": pa_id},
+        {"_id": 0},
+    ).sort("created_at", -1).limit(500)
+    entries = []
+    async for log in cur:
+        if isinstance(log.get("created_at"), datetime):
+            log["created_at"] = log["created_at"].isoformat()
+        entries.append(log)
+
+    # Also surface signature events from pa_signatures collection
+    sig_cur = db["pa_signatures"].find(
+        {"pre_assessment_id": pa_id},
+        {"_id": 0, "signed_at": 1, "user_email": 1, "typed_name": 1, "ip_address": 1,
+         "agreement_id": 1, "id": 1, "biometric_packet": 1},
+    ).sort("signed_at", -1)
+    async for sig in sig_cur:
+        signed = sig.get("signed_at")
+        if isinstance(signed, datetime):
+            signed = signed.isoformat()
+        entries.append({
+            "action": "agreement_signed",
+            "entity_type": "pre_assessment",
+            "entity_id": pa_id,
+            "user_id": None,
+            "user_name": sig.get("typed_name") or sig.get("user_email"),
+            "created_at": signed,
+            "details": {
+                "agreement_id": sig.get("agreement_id"),
+                "signature_id": sig.get("id"),
+                "ip_address": sig.get("ip_address"),
+                "biometric_captured": bool(sig.get("biometric_packet")),
+            },
+        })
+
+    # Sort by created_at desc
+    def _ts(e):
+        return e.get("created_at") or ""
+    entries.sort(key=_ts, reverse=True)
+
+    return {
+        "pa_id": pa_id,
+        "pa_number": pa.get("pa_number"),
+        "client_name": pa.get("client_name"),
+        "current_stage": pa.get("stage"),
+        "total_entries": len(entries),
+        "entries": entries,
+    }
+
+
 @router.put("/{pa_id}/review")
 async def admin_review(pa_id: str, review: AdminReview, current_user: dict = Depends(get_current_user)):
     """Admin approves or rejects pre-assessment"""

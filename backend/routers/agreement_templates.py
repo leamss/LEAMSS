@@ -535,6 +535,8 @@ class SignBody(BaseModel):
     signature_data_url: str
     typed_name: str
     consent_text: str = ""
+    # Phase 9.9 — Biometric e-sign packet for legal dispute defence
+    biometric_packet: Optional[dict] = None
 
 
 @router_pa_agree.post("/{aid}/sign")
@@ -578,6 +580,8 @@ async def sign_agreement(aid: str, body: SignBody, request: Request, current_use
         "file_path": path,
         "file_size": len(raw),
         "signed_at": datetime.now(timezone.utc),
+        # Phase 9.9 — Biometric forensics packet (device fingerprint, GPS, drawing path)
+        "biometric_packet": body.biometric_packet or None,
     }
     await signatures_col.insert_one(sig_rec)
 
@@ -614,6 +618,48 @@ async def sign_agreement(aid: str, body: SignBody, request: Request, current_use
                        "pa_agreement", aid, f"Client signed {a.get('reference_id')}")
 
     return {"ok": True, "signature_id": sig_id, "signed_at": sig_rec["signed_at"].isoformat()}
+
+
+# ─── Phase 9.9 — Signature Forensics (biometric packet for legal disputes) ──
+@router_pa_agree.get("/{aid}/signature-forensics")
+async def signature_forensics(aid: str, current_user: dict = Depends(get_current_user)):
+    """Admin-only: returns the full biometric packet captured at signing time —
+    device fingerprint, GPS coordinates, browser metadata, drawing path, and
+    timing data. Used for legal-dispute defence + tamper detection."""
+    role = (current_user.get("role") or "").lower()
+    if role not in ("admin", "admin_owner", "case_manager"):
+        raise HTTPException(status_code=403, detail="Admin / case manager only")
+    a = await pa_agreements_col.find_one({"id": aid}, {"_id": 0})
+    if not a:
+        raise HTTPException(status_code=404, detail="Agreement not found")
+    if a.get("status") != "signed":
+        raise HTTPException(status_code=400, detail="Agreement not yet signed")
+    sig = await signatures_col.find_one({"agreement_id": aid}, {"_id": 0})
+    if not sig:
+        raise HTTPException(status_code=404, detail="Signature record not found")
+    if isinstance(sig.get("signed_at"), datetime):
+        sig["signed_at"] = sig["signed_at"].isoformat()
+    return {
+        "agreement_id": aid,
+        "reference_id": a.get("reference_id"),
+        "pa_id": a.get("pa_id"),
+        "signer": {
+            "user_id": sig.get("user_id"),
+            "email": sig.get("user_email"),
+            "typed_name": sig.get("typed_name"),
+        },
+        "audit": {
+            "ip_address": sig.get("ip_address"),
+            "user_agent": sig.get("user_agent"),
+            "signed_at": sig.get("signed_at"),
+            "consent_text": sig.get("consent_text"),
+            "signature_file_path": sig.get("file_path"),
+            "signature_file_size_bytes": sig.get("file_size"),
+        },
+        "biometric_packet": sig.get("biometric_packet") or {},
+        "biometric_captured": bool(sig.get("biometric_packet")),
+    }
+
 
 
 @router_pa_agree.get("/{aid}/pdf")

@@ -153,6 +153,7 @@ export default function PreAssessmentMiniPortal({ pa, onRefresh, onOpenScanner }
         signature_data_url: dataUrl,
         typed_name: meta.typed_name,
         consent_text: 'I electronically sign this service agreement',
+        biometric_packet: meta.biometric_packet || null,
       }, getAuth());
       toast.success('Agreement e-signed · ' + new Date(r.data.signed_at).toLocaleString());
       await loadEsign();

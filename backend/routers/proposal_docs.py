@@ -11,6 +11,7 @@ import os
 import uuid
 import base64
 from datetime import datetime, timezone
+from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -273,6 +274,8 @@ class EsignBody(BaseModel):
     typed_name: str = ""
     consent_text: str = ""
     ip_hint: str = ""
+    # Phase 9.9 — Biometric e-sign packet for legal-dispute defence
+    biometric_packet: Optional[dict] = None
 
 
 @router.post("/{pa_id}/esign")
@@ -310,6 +313,8 @@ async def save_esign(pa_id: str, body: EsignBody, request: Request, current_user
         "file_path": path,
         "file_size": len(raw),
         "signed_at": datetime.now(timezone.utc),
+        # Phase 9.9 — Biometric forensics packet
+        "biometric_packet": body.biometric_packet or None,
     }
     rec["integrity_hash"] = compute_hash("signature", rec)
     await signatures_col.insert_one(rec)
