@@ -30,48 +30,78 @@ const COUNTRY_FLAGS = { AU: '🇦🇺', CA: '🇨🇦', NZ: '🇳🇿', UK: '�
 
 export default function ParallelSubclassPanel({ data, headers }) {
   // Build profile from wizard data (matches Step5Calculator's calc shape)
+  // P0 FIX (Phase 9.4) — Read from the CANONICAL field names used by the wizard's
+  // INITIAL_DATA + buildProfile. Earlier this component read `data.highest_qualification`
+  // and `data.lang_overall` which don't exist → scored Education=0, English=0,
+  // causing the "parallel mismatch" Sir reported.
   const profile = useMemo(() => ({
     marital_status: data.marital_status,
     primary_applicant: {
       personal: { age: parseInt(data.age, 10) || 0 },
-      education: { highest_qualification: data.highest_qualification },
+      education: { highest_qualification: data.qualification },
       language: {
         scores: {
-          overall: parseFloat(data.lang_overall) || 0,
-          listening: parseFloat(data.lang_listening) || 0,
-          reading: parseFloat(data.lang_reading) || 0,
-          writing: parseFloat(data.lang_writing) || 0,
-          speaking: parseFloat(data.lang_speaking) || 0,
+          overall:   parseFloat(data.ielts_overall)   || 0,
+          listening: parseFloat(data.ielts_listening) || 0,
+          reading:   parseFloat(data.ielts_reading)   || 0,
+          writing:   parseFloat(data.ielts_writing)   || 0,
+          speaking:  parseFloat(data.ielts_speaking)  || 0,
         },
       },
       professional: {
         current_profession: data.occupation_title,
-        years_experience_total: parseFloat(data.years_experience_total) || 0,
-        years_experience_overseas: parseFloat(data.years_experience_overseas) || 0,
-        years_experience_in_country: parseFloat(data.years_experience_australia) || 0,
+        years_experience_total:     parseFloat(data.years_experience_total)     || 0,
+        years_experience_australia: parseFloat(data.years_experience_australia) || 0,
       },
       au_extras: {
-        naati_accredited: !!data.naati_accredited,
-        professional_year_completed: !!data.professional_year_completed,
-        australian_study_2_years: !!data.australian_study_2_years,
+        naati_accredited:             !!data.naati_accredited,
+        professional_year_completed:  !!data.professional_year_completed,
+        australian_study_2_years:     !!data.australian_study_2_years,
         specialist_education_stem_au: !!data.specialist_education_stem_au,
-        regional_study_au: !!data.regional_study_au,
-        state_nominated: !!data.state_nominated,
-        regional_visa: !!data.regional_visa,
+        regional_study_au:            !!data.regional_study_au,
+        state_nominated:              !!data.state_nominated,
+        state_code:                   data.state_code || null,
       },
       ca_extras: {
-        provincial_nomination: !!data.provincial_nomination,
+        canadian_work_years:           parseFloat(data.canadian_work_years) || 0,
+        provincial_nomination:         !!data.provincial_nomination,
+        job_offer_noc_00:              !!data.job_offer_noc_00,
+        job_offer_noc_0_a_b:           !!data.job_offer_noc_0_a_b,
         canadian_education_3plus_years: !!data.canadian_education_3plus_years,
-        canadian_education_1_2_years: !!data.canadian_education_1_2_years,
-        sibling_in_canada: !!data.sibling_in_canada,
-        french_proficiency_clb_7: !!data.french_proficiency_clb_7,
+        canadian_education_1_2_years:   !!data.canadian_education_1_2_years,
+        sibling_in_canada:             !!data.sibling_in_canada,
+        french_proficiency_clb_7:      !!data.french_proficiency_clb_7,
       },
       nz_extras: {
         nz_skilled_employment_current: !!data.nz_skilled_employment_current,
-        nz_job_offer: !!data.nz_job_offer,
-        regional_employment_nz: !!data.regional_employment_nz,
+        nz_job_offer:                  !!data.nz_job_offer,
+        regional_employment_nz:        !!data.regional_employment_nz,
       },
     },
+    // Phase 9.4 — also emit a spouse block when marital_status warrants it.
+    // Without this, married applicants saw their parallel scores deviate from
+    // the main calculator by ±5-10 points (partner skills delta).
+    spouse: (data.marital_status === 'married' || data.marital_status === 'de_facto')
+            && data.spouse_will_migrate === 'yes' ? {
+      contribution_type: data.spouse_contribution || 'not_applicable',
+      is_applicant_on_visa: true,
+      is_australian_pr_or_citizen: data.spouse_contribution === 'australian_pr_citizen',
+      personal: { age: parseInt(data.spouse_age, 10) || 0 },
+      professional: {
+        current_profession:       data.spouse_profession || '',
+        years_experience_total:   parseFloat(data.spouse_years_experience) || 0,
+      },
+      education: { highest_qualification: data.spouse_qualification },
+      language: {
+        scores: {
+          overall:   parseFloat(data.spouse_ielts_overall)   || 0,
+          listening: parseFloat(data.spouse_ielts_listening) || 0,
+          reading:   parseFloat(data.spouse_ielts_reading)   || 0,
+          writing:   parseFloat(data.spouse_ielts_writing)   || 0,
+          speaking:  parseFloat(data.spouse_ielts_speaking)  || 0,
+        },
+      },
+    } : null,
   }), [data]);
 
   const activeCountries = useMemo(() => {

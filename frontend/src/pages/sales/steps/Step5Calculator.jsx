@@ -18,6 +18,24 @@ import ParallelSubclassPanel from '../components/ParallelSubclassPanel';
 
 const AU_STATES = ['NSW', 'VIC', 'QLD', 'SA', 'WA', 'TAS', 'NT', 'ACT'];
 
+// Phase 9.4 — Context-aware label for breakdown categories.
+// Sir's UX complaint: "Partner: 10 points" jab applicant SINGLE hai — semantically
+// galat lagta hai. Official Home Affairs rules me Single ko 10 pts milte hain (no
+// migrating partner bonus). Yahan se hum matched_key dekhke human-readable label
+// banate hain — calculation pe koi impact nahi, sirf label.
+function labelForBreakdown(cat, val) {
+  if (cat === 'partner') {
+    const key = (val && val.matched_key) || '';
+    if (key === 'single_or_pr_partner') return 'No migrating partner bonus';
+    if (key === 'skilled_partner')      return 'Skilled partner bonus';
+    if (key === 'competent_english_only') return 'Partner — competent English';
+    if (key === 'non_contributing')     return 'Non-contributing partner';
+    if (key === 'skill_assessment_blocked' || key === 'english_only_blocked') return 'Partner — gate failed';
+    return 'Partner skills';
+  }
+  return cat.replace(/^ca_|^nz_/, '').replace(/_/g, ' ');
+}
+
 export default function Step5Calculator({ results, calculating, data, update, headers }) {
   // Determine which destination countries the user picked so we can scope the
   // additional-factor toggles. Falls back to AU if nothing matches.
@@ -64,8 +82,10 @@ export default function Step5Calculator({ results, calculating, data, update, he
               <p className="text-[10px] uppercase font-bold text-slate-500 mb-2">Top Categories</p>
               <div className="space-y-0.5">
                 {Object.entries(r.breakdown || {}).slice(0, 8).map(([cat, val]) => (
-                  <div key={cat} className="flex items-center justify-between text-[11px]">
-                    <span className="capitalize">{cat.replace(/^ca_|^nz_/, '').replace(/_/g, ' ')}</span>
+                  <div key={cat} className="flex items-center justify-between text-[11px]" data-testid={`breakdown-${cat}`}>
+                    <span className="capitalize" title={val.note || ''}>
+                      {labelForBreakdown(cat, val)}
+                    </span>
                     <Badge className={(val.points || 0) > 0 ? 'bg-emerald-100 text-emerald-700 text-[9px]' : 'bg-slate-100 text-slate-500 text-[9px]'}>+{val.points || 0}</Badge>
                   </div>
                 ))}
@@ -84,8 +104,10 @@ export default function Step5Calculator({ results, calculating, data, update, he
         </div>
       )}
 
-      {/* Phase 7.2 — Parallel Subclass Comparison (Sir's request) */}
-      {headers && data.marital_status && <ParallelSubclassPanel data={data} headers={headers} />}
+      {/* Phase 7.2 — Parallel Subclass Comparison (Sir's request)
+          Phase 9.4 — show panel even before marital_status is picked
+          (calculator treats empty marital as single per official rules). */}
+      {headers && <ParallelSubclassPanel data={data} headers={headers} />}
 
       {/* ADDITIONAL FACTORS — Phase 6.8.4 */}
       {update && (

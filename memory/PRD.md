@@ -5,6 +5,37 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 
 > **📌 Update (Feb 13, 2026):** `CHANGELOG.md` now tracks all completed phases (incl. **Phase 3A — Attendance & Leave** with full company policies). `ROADMAP.md` lists prioritized backlog. This PRD remains the static reference for original requirements.
 
+### 🎯 Phase 9.4 — Smart Sales Helper Calculator P0 Bug Fixes (Jun 7, 2026)
+**Status:** ✅ COMPLETE — 5/5 P0 regression PASS + 54/54 calculator unit tests PASS. UI verified via live screenshot.
+
+Sir's P0 complaints investigated thoroughly. Real-vs-perceived bug breakdown:
+
+| Sir's complaint | Real status after investigation | Fix shipped |
+|-----------------|----------------------------------|-------------|
+| "Partner 10 pts wrongly shows when SINGLE" | **NOT A BUG** — Single applicants are awarded 10 points per official Home Affairs rules (no-migrating-partner bonus). UX label was misleading. | **Context-aware label** — single now shows "No Migrating Partner Bonus", PR spouse shows "Australian PR Partner Bonus", skilled partner shows "Skilled Partner", etc. |
+| "Parallel subclass mismatch" | 🔴 **REAL CRITICAL BUG** — `ParallelSubclassPanel.jsx` read `data.highest_qualification` + `data.lang_overall` but wizard's actual fields are `data.qualification` + `data.ielts_overall` → Parallel scores always had Education=0 + English=0 → mismatch with main calculator | Fixed field-name mapping to read canonical wizard fields. Also added spouse block when applicable. |
+| "189/190/491 saath nahi dikh rahe" | Panel was gated by `data.marital_status` truthy + Bug #2 made scores wrong | Removed gate (calculator handles empty marital as single per official rules). Fixed via #2. |
+| "Re-save points drift" | Drift was downstream of Bug #2 field-name issue | Auto-fixed via #2. Regression test `test_save_assessment_no_point_drift` confirms identical totals on round-trip. |
+| "Cost Estimator missing from PDF" | ✅ Already fixed in Phase 7.3 — `_build_snapshot()` line 198 + `_cost.html` template render correctly | No-op |
+| "Unified calculator engine" | ✅ Already done in Phase 7.2 — both `/sales/calculator/calculate` and `/sales/wizard/calculate-parallel` use the same `core.sales_calculator.calculate()` function | No-op |
+
+**Files modified:**
+- `frontend/src/pages/sales/components/ParallelSubclassPanel.jsx` — fixed field-name mapping (data.qualification, data.ielts_*, etc.) + added spouse block emission
+- `frontend/src/pages/sales/steps/Step5Calculator.jsx` — removed marital_status gate; added `labelForBreakdown()` helper that maps `matched_key` to friendly labels
+
+**New regression test (`tests/test_phase94_calculator_bugs.py`):**
+1. `test_single_applicant_gets_10_partner_points` — confirms official AU rules
+2. `test_batch_vs_parallel_same_total` — explicitly verifies the two endpoints return identical totals for same profile
+3. `test_save_assessment_no_point_drift` — round-trip POST → fetch → POST yields same `best_total`
+4. `test_parallel_returns_all_three_subclasses` — 189/190/491 all returned with best pick
+5. `test_married_with_au_pr_spouse_gets_10` — AU PR spouse correctly maps to single_or_pr_partner
+
+**Live UI screenshot confirmation:**
+- Main calculator result: 90 pts (single, IELTS 7.5, bachelor, 6yrs OS exp)
+- Parallel panel: 189 = 90 · 190 = 95 · 491 = 105 (all Eligible badges, 491 highlighted as best)
+- Breakdown row: "No Migrating Partner Bonus +10" instead of confusing "Partner: 10"
+
+
 ### ⚡ Phase 9.3 — Hybrid LLM Model Router (Sonnet 4.6 + Haiku 4.5) (Jun 3, 2026)
 **Status:** ✅ COMPLETE — 12/12 regression PASS · Live AI smoke-test passed on 3 occupations.
 
