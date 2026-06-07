@@ -154,25 +154,37 @@ DEFAULTS_NZ: Dict[str, Any] = {
     "country": "NZ",
     "version": "Skilled Migrant Category 2025-26",
     "tables": {
+        "age": {
+            "type": "bands",
+            "rule": "20-29 = 30 pts · 30-39 = 25 · 40-44 = 20 · 45-49 = 10 · 50+ = 0",
+            "bands": [
+                {"min": 20, "max": 29, "points": 30},
+                {"min": 30, "max": 39, "points": 25},
+                {"min": 40, "max": 44, "points": 20},
+                {"min": 45, "max": 49, "points": 10},
+                {"min": 50, "max": 99, "points": 0},
+            ],
+        },
         "qualification": {
             "type": "categorical",
-            "rule": "PhD/Doctorate = 70 · Master = 70 · Bachelor + Hons = 50 · Bachelor = 40",
-            "categories": {"phd": 70, "doctorate": 70, "master": 70, "bachelor_hons": 50, "bachelor": 40, "diploma": 30, "other": 0},
+            "rule": "PhD/Doctorate = 70 · Master = 50 · Bachelor + Hons = 40 · Diploma/Trade = 20",
+            "categories": {"phd": 70, "doctorate": 70, "master": 50, "bachelor_hons": 40, "bachelor": 40, "diploma": 20, "trade": 20, "other": 0},
         },
         "skilled_employment_years": {
             "type": "bands",
-            "rule": "10+ yrs = 50 pts · 3 yrs = 30 · 1 yr = 10",
+            "rule": "10+ yrs = 30 pts · 8-9 = 20 · 6-7 = 15 · 4-5 = 10 · 2-3 = 5 · <2 = 0",
             "bands": [
-                {"min": 0, "max": 0, "points": 0},
-                {"min": 1, "max": 2, "points": 10},
-                {"min": 3, "max": 5, "points": 30},
-                {"min": 6, "max": 9, "points": 40},
-                {"min": 10, "max": 99, "points": 50},
+                {"min": 0, "max": 1, "points": 0},
+                {"min": 2, "max": 3, "points": 5},
+                {"min": 4, "max": 5, "points": 10},
+                {"min": 6, "max": 7, "points": 15},
+                {"min": 8, "max": 9, "points": 20},
+                {"min": 10, "max": 99, "points": 30},
             ],
         },
         "extras": {
             "type": "named",
-            "rule": "Job offer +30 · Partner skilled = +20",
+            "rule": "Skilled employment current = 50 · Job offer = 30 · Regional = 30 · Partner Master = 20",
             "items": {
                 "nz_job_offer": 30,
                 "nz_skilled_employment_current": 50,

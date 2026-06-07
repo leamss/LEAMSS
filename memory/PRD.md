@@ -5,6 +5,67 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 
 > **📌 Update (Feb 13, 2026):** `CHANGELOG.md` now tracks all completed phases (incl. **Phase 3A — Attendance & Leave** with full company policies). `ROADMAP.md` lists prioritized backlog. This PRD remains the static reference for original requirements.
 
+### 🌐 Phase 9.8 — CA + NZ Calculators Wired to Rules Engine (Jun 7, 2026)
+**Status:** ✅ COMPLETE — 10/10 new wiring tests PASS · 107/107 total regression PASS · UI verified for all 3 countries.
+
+Sir's ask: "CA + NZ calculators ko bhi rules-engine se wire kar do".
+
+**Backend changes (`core/sales_calculator.py`):**
+
+*Canada (`calculate_ca_crs`):*
+- Signature now accepts `rules: Optional[Dict] = None`
+- 7 hardcoded "Additional Points" values now route through `_lookup_named_item(rules, "additional", ...)`:
+  - `provincial_nomination` (default 600)
+  - `job_offer_noc_00` (200) · `job_offer_noc_0_a_b` (50)
+  - `canadian_education_3plus_years` (30) · `canadian_education_1_2_years` (15)
+  - `sibling_in_canada` (15) · `french_clb_7` (50)
+- Core IRCC tables (age 17-99, education, language CLB, work experience, transferability) remain hardcoded — these have with/without-spouse variants and are rarely overridden
+
+*New Zealand (`calculate_nz_smc`):*
+- Signature now accepts `rules: Optional[Dict] = None`
+- All hardcoded values now route through rules engine lookups:
+  - Age bands (4 ranges) → `_lookup_band_points("age", ...)`
+  - Qualification (PhD/Master/Bachelor/Diploma) → `_lookup_category_points("qualification", ...)`
+  - Skilled employment years (6 bands) → `_lookup_band_points("skilled_employment_years", ...)`
+  - Extras (job_offer, skilled_employment_current, regional, partner_skilled_master) → `_lookup_named_item("extras", ...)`
+
+**Rules engine defaults updated (`core/rules_engine.py`):**
+- NZ defaults now include `age` table (was missing) so admins see + can edit it in Rules Editor
+- NZ `qualification` defaults clarified (Master=50, was Master=70 — corrected to match the calculator code)
+- NZ `skilled_employment_years` bands updated to match calculator (2-3:5, 4-5:10, 6-7:15, 8-9:20, 10+:30)
+
+**Master dispatcher updated:**
+```python
+if c == "CA": return calculate_ca_crs(profile, with_spouse, rules=rules)
+if c == "NZ": return calculate_nz_smc(profile, rules=rules)
+```
+Both now receive admin overrides via `calculate_with_rules()` wrapper that already exists.
+
+**Tests added (`tests/test_phase98_ca_nz_rules.py`):**
+1. `test_ca_baseline_with_pnp` — PNP +600 confirmed in defaults
+2. `test_ca_pnp_override_to_999` — admin override flows through
+3. `test_ca_job_offer_override` — NOC 00 200→50 + NOC 0/A/B 50→25 both verified
+4. `test_ca_french_and_sibling_overrides` — French 50→100 + Sibling 15→30
+5. `test_nz_baseline_no_extras` — 25yo Master 5yr = 90 baseline confirmed
+6. `test_nz_age_override_changes_score` — age 20-29 30→99 flows through
+7. `test_nz_qualification_override` — Master 50→80 verified
+8. `test_nz_work_experience_band_override` — 4-5yr band 10→25 verified
+9. `test_nz_job_offer_extra_override` — job offer 30→80 verified
+10. `test_nz_partner_master_override` — partner master 20→50 verified
+
+**UI verification:**
+- Calculator Rules Editor → Switch to CA → CRS tables (age/language/education/additional) all rendered with proper IRCC values
+- Switch to NZ → New age bands table now visible (was missing before), qualification + skilled_employment_years + extras all editable
+- All overrides save to `kb_settings.calculator_rules_{country}` and immediately affect live calculator output
+
+**Coverage summary post-9.8:**
+| Country | Override-able tables | Hardcoded (rare overrides) |
+|---------|---------------------|----------------------------|
+| AU      | age, english, education, overseas_experience, australia_experience, partner_skills, bonuses (5 named), state_nomination | — (all wired) |
+| CA      | additional (7 named: PNP, French, Sibling, Job offers, CA education) | age, education, language CLB, work experience, transferability |
+| NZ      | age, qualification, skilled_employment_years, extras (4 named: job_offer, skilled_employment, regional, partner_master) | — (all wired) |
+
+
 ### ⚡ Phase 9.7 — Calculator Wired to Rules Engine + Haiku Cost Optimization (Jun 7, 2026)
 **Status:** ✅ COMPLETE — 6/6 new wiring tests PASS · 43/43 total regression PASS · UI verified live end-to-end.
 

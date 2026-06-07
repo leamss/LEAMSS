@@ -476,12 +476,16 @@ def _au_visa_recommendation(total: int, visa_eligibility: Dict[str, Any], age: i
 # ════════════════════════════════════════════════════════════════
 # CANADA — Express Entry CRS (simplified to core + skill transferability)
 # ════════════════════════════════════════════════════════════════
-def calculate_ca_crs(profile: Dict[str, Any], with_spouse: bool = False) -> Dict[str, Any]:
+def calculate_ca_crs(profile: Dict[str, Any], with_spouse: bool = False, rules: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Canada CRS — covers the 4 high-level groups:
        A. Core (age, edu, language, CA work)
        B. Spouse (edu, language, CA work) — if applicable
        C. Skill transferability (education + language, edu + CA work, foreign work + language, etc.)
        D. Additional points (provincial nomination, job offer, French, sibling, CA edu)
+
+    Phase 9.8: optional `rules` dict (loaded from `kb_settings.calculator_rules_ca`) allows
+    admins to override the additional-bonus point values. Core/spouse/transferability tables
+    remain hardcoded per IRCC publication (admins should rarely change these).
     """
     primary = profile.get("primary_applicant") or {}
     personal = primary.get("personal") or {}
@@ -542,27 +546,35 @@ def calculate_ca_crs(profile: Dict[str, Any], with_spouse: bool = False) -> Dict
         total += sp_lang_pts
 
     # ── D. Additional Points (most impactful first) ──────────
+    # Phase 9.8 — read overridable point values from rules engine
     if bool(extras.get("provincial_nomination")):
-        breakdown["ca_provincial_nomination"] = {"value": True, "points": 600}
-        total += 600
+        pts = _lookup_named_item(rules, "additional", "provincial_nomination", 600)
+        breakdown["ca_provincial_nomination"] = {"value": True, "points": pts}
+        total += pts
     if bool(extras.get("job_offer_noc_00")):
-        breakdown["ca_job_offer"] = {"value": "NOC 00 senior management", "points": 200}
-        total += 200
+        pts = _lookup_named_item(rules, "additional", "job_offer_noc_00", 200)
+        breakdown["ca_job_offer"] = {"value": "NOC 00 senior management", "points": pts}
+        total += pts
     elif bool(extras.get("job_offer_noc_0_a_b")):
-        breakdown["ca_job_offer"] = {"value": "NOC 0/A/B job offer", "points": 50}
-        total += 50
+        pts = _lookup_named_item(rules, "additional", "job_offer_noc_0_a_b", 50)
+        breakdown["ca_job_offer"] = {"value": "NOC 0/A/B job offer", "points": pts}
+        total += pts
     if bool(extras.get("canadian_education_3plus_years")):
-        breakdown["ca_canadian_education"] = {"value": "3+ years", "points": 30}
-        total += 30
+        pts = _lookup_named_item(rules, "additional", "canadian_education_3plus_years", 30)
+        breakdown["ca_canadian_education"] = {"value": "3+ years", "points": pts}
+        total += pts
     elif bool(extras.get("canadian_education_1_2_years")):
-        breakdown["ca_canadian_education"] = {"value": "1-2 years", "points": 15}
-        total += 15
+        pts = _lookup_named_item(rules, "additional", "canadian_education_1_2_years", 15)
+        breakdown["ca_canadian_education"] = {"value": "1-2 years", "points": pts}
+        total += pts
     if bool(extras.get("sibling_in_canada")):
-        breakdown["ca_sibling"] = {"value": True, "points": 15}
-        total += 15
+        pts = _lookup_named_item(rules, "additional", "sibling_in_canada", 15)
+        breakdown["ca_sibling"] = {"value": True, "points": pts}
+        total += pts
     if bool(extras.get("french_proficiency_clb_7")):
-        breakdown["ca_french"] = {"value": "CLB 7+", "points": 50}
-        total += 50
+        pts = _lookup_named_item(rules, "additional", "french_clb_7", 50)
+        breakdown["ca_french"] = {"value": "CLB 7+", "points": pts}
+        total += pts
 
     # Visa eligibility — Express Entry needs minimum CRS that varies by draw
     visa_eligibility = {
@@ -670,8 +682,13 @@ def _ca_recommendation(total: int, ve: Dict[str, Any]) -> str:
 # ════════════════════════════════════════════════════════════════
 # NEW ZEALAND — Skilled Migrant Category (SMC) Points
 # ════════════════════════════════════════════════════════════════
-def calculate_nz_smc(profile: Dict[str, Any]) -> Dict[str, Any]:
-    """NZ SMC points. New system uses 6-pt minimum threshold across categories."""
+def calculate_nz_smc(profile: Dict[str, Any], rules: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """NZ SMC points. New system uses 6-pt minimum threshold across categories.
+
+    Phase 9.8: optional `rules` dict (loaded from `kb_settings.calculator_rules_nz`) allows
+    admins to override all point tables — age bands, qualification categories, work
+    experience bands, and named extras (job offer, regional, partner qualification).
+    """
     primary = profile.get("primary_applicant") or {}
     personal = primary.get("personal") or {}
     education = primary.get("education") or {}
@@ -685,76 +702,75 @@ def calculate_nz_smc(profile: Dict[str, Any]) -> Dict[str, Any]:
     breakdown: Dict[str, Dict[str, Any]] = {}
     total = 0
 
-    # 1) AGE (max 30)
+    # 1) AGE (max 30) — Phase 9.8: read bands from rules engine
     age = _to_int(personal.get("age"))
-    age_pts = 0
-    if age >= 20 and age <= 29:
-        age_pts = 30
-    elif age >= 30 and age <= 39:
-        age_pts = 25
-    elif age >= 40 and age <= 44:
-        age_pts = 20
-    elif age >= 45 and age <= 49:
-        age_pts = 10
-    breakdown["nz_age"] = {"value": age, "points": age_pts}
+    if age >= 50:
+        age_pts, age_bucket = 0, "50+_ineligible"
+    elif age < 20:
+        age_pts, age_bucket = 0, "below_20"
+    else:
+        age_pts, age_bucket = _lookup_band_points(
+            rules, "age", age,
+            default_band=(0, "no_band"),
+            default_bands=[(20, 29, 30), (30, 39, 25), (40, 44, 20), (45, 49, 10)],
+        )
+    breakdown["nz_age"] = {"value": age, "bucket": age_bucket, "points": age_pts}
     total += age_pts
 
-    # 2) Qualification (max 70)
+    # 2) Qualification (max 70) — Phase 9.8: categorical lookup
     qual = _safe_lower(education.get("highest_qualification"))
     if qual in ("doctorate", "phd"):
-        q_pts = 70
+        q_pts = _lookup_category_points(rules, "qualification", qual if qual in ("doctorate", "phd") else "doctorate", 70)
     elif qual in ("master", "honours"):
-        q_pts = 50
+        q_pts = _lookup_category_points(rules, "qualification", "master", 50)
     elif qual in ("bachelor", "bachelor_3yr"):
-        q_pts = 40
+        q_pts = _lookup_category_points(rules, "qualification", "bachelor", 40)
     elif qual in ("diploma", "trade", "advanced_diploma"):
-        q_pts = 20
+        q_pts = _lookup_category_points(rules, "qualification", "diploma", 20)
     else:
-        q_pts = 0
+        q_pts = _lookup_category_points(rules, "qualification", "other", 0)
     breakdown["nz_qualification"] = {"value": qual, "points": q_pts}
     total += q_pts
 
-    # 3) Skilled Employment (max 50)
+    # 3) Skilled Employment (max 50) — Phase 9.8: named bonus
     if bool(extras.get("nz_skilled_employment_current")):
-        breakdown["nz_skilled_employment"] = {"value": True, "points": 50}
-        total += 50
+        pts = _lookup_named_item(rules, "extras", "nz_skilled_employment_current", 50)
+        breakdown["nz_skilled_employment"] = {"value": True, "points": pts}
+        total += pts
 
-    # 4) Work Experience (max 30)
+    # 4) Work Experience (max 30) — Phase 9.8: band lookup
     years_skilled = _to_float(professional.get("years_experience_total"))
-    if years_skilled >= 10:
-        we_pts = 30
-    elif years_skilled >= 8:
-        we_pts = 20
-    elif years_skilled >= 6:
-        we_pts = 15
-    elif years_skilled >= 4:
-        we_pts = 10
-    elif years_skilled >= 2:
-        we_pts = 5
-    else:
-        we_pts = 0
-    breakdown["nz_work_experience"] = {"value": years_skilled, "points": we_pts}
+    we_pts, we_bucket = _lookup_band_points(
+        rules, "skilled_employment_years", years_skilled,
+        default_band=(0, "less_than_2"),
+        default_bands=[(0, 1, 0), (2, 3, 5), (4, 5, 10), (6, 7, 15), (8, 9, 20), (10, 99, 30)],
+    )
+    breakdown["nz_work_experience"] = {"value": years_skilled, "bucket": we_bucket, "points": we_pts}
     total += we_pts
 
-    # 5) Job Offer (max 30) — if not already counted as current employment
+    # 5) Job Offer (max 30) — Phase 9.8: named bonus
     if not extras.get("nz_skilled_employment_current") and bool(extras.get("nz_job_offer")):
-        breakdown["nz_job_offer"] = {"value": True, "points": 30}
-        total += 30
+        pts = _lookup_named_item(rules, "extras", "nz_job_offer", 30)
+        breakdown["nz_job_offer"] = {"value": True, "points": pts}
+        total += pts
 
-    # 6) Partner Qualification (max 20)
+    # 6) Partner Qualification (max 20) — Phase 9.8: named bonus
     if has_partner and spouse_block:
         sp_qual = _safe_lower((spouse_block.get("education") or {}).get("highest_qualification"))
         if sp_qual in ("doctorate", "phd", "master"):
-            breakdown["nz_partner_qual"] = {"value": sp_qual, "points": 20}
-            total += 20
+            pts = _lookup_named_item(rules, "extras", "partner_skilled_master", 20)
+            breakdown["nz_partner_qual"] = {"value": sp_qual, "points": pts}
+            total += pts
         elif sp_qual in ("bachelor", "honours"):
-            breakdown["nz_partner_qual"] = {"value": sp_qual, "points": 10}
-            total += 10
+            pts = max(_lookup_named_item(rules, "extras", "partner_skilled_master", 20) // 2, 0)
+            breakdown["nz_partner_qual"] = {"value": sp_qual, "points": pts}
+            total += pts
 
-    # 7) Bonus — Regional employment (max 30)
+    # 7) Bonus — Regional employment (max 30) — Phase 9.8: named bonus
     if bool(extras.get("regional_employment_nz")):
-        breakdown["nz_regional"] = {"value": True, "points": 30}
-        total += 30
+        pts = _lookup_named_item(rules, "extras", "regional_employment_nz", 30)
+        breakdown["nz_regional"] = {"value": True, "points": pts}
+        total += pts
 
     # NZ SMC: minimum 6 points needed across the categories (new SMC threshold post-2023)
     visa_eligibility = {
@@ -814,9 +830,9 @@ def calculate(profile: Dict[str, Any], country: str, visa_subclass: Optional[str
     if c == "CA":
         marital = _safe_lower(profile.get("marital_status"))
         with_spouse = marital in ("married", "de_facto") and bool(profile.get("spouse"))
-        return calculate_ca_crs(profile, with_spouse)
+        return calculate_ca_crs(profile, with_spouse, rules=rules)
     if c == "NZ":
-        return calculate_nz_smc(profile)
+        return calculate_nz_smc(profile, rules=rules)
     return {"error": f"Country '{c}' not supported by calculator yet (only AU, CA, NZ)"}
 
 
