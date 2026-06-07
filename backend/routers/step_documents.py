@@ -687,12 +687,13 @@ async def _web_search_context(product_name: str, step_name: str) -> str:
 
 async def _call_ai(prompt: str, system_msg: str) -> str:
     from emergentintegrations.llm.chat import LlmChat, UserMessage
+    from core.ai_models import model_for
     try:
         chat = LlmChat(
             api_key=EMERGENT_LLM_KEY,
             session_id=f"doc-suggest-{uuid.uuid4().hex[:8]}",
             system_message=system_msg
-        )
+        ).with_model("anthropic", model_for("step_document_helper"))  # Phase 9.7 — Haiku 4.5
         return await chat.send_message(UserMessage(text=prompt))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"AI service error: {str(e)}")

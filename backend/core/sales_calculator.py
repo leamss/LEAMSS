@@ -35,11 +35,112 @@ def _safe_lower(s) -> str:
 
 
 # ════════════════════════════════════════════════════════════════
+# Phase 9.7 — Rules-engine lookup helpers
+# ────────────────────────────────────────────────────────────────
+# These wrappers let any subsection of the calculator read its
+# points from an optional admin-override `rules` dict (loaded from
+# `kb_settings.calculator_rules_<country>`). When `rules` is None
+# the calculator behaves IDENTICALLY to the hardcoded baseline.
+# ════════════════════════════════════════════════════════════════
+def _rules_table(rules: Optional[Dict[str, Any]], table_name: str) -> Optional[Dict[str, Any]]:
+    """Return the rules.tables[<table_name>] sub-document or None."""
+    if not rules:
+        return None
+    return ((rules.get("tables") or {}).get(table_name)) or None
+
+
+def _lookup_band_points(
+    rules: Optional[Dict[str, Any]], table_name: str, value: float,
+    default_band: Tuple[int, str], default_bands: List[Tuple[int, int, int]],
+) -> Tuple[int, str]:
+    """Match an integer/float value against {bands: [{min, max, points}]}.
+    Falls back to `default_bands` list of (min, max, points) tuples when no override.
+    Returns (points, bucket_label)."""
+    tbl = _rules_table(rules, table_name)
+    bands = (tbl or {}).get("bands") if tbl else None
+    if isinstance(bands, list) and bands:
+        for b in bands:
+            try:
+                lo = float(b.get("min", 0))
+                hi = float(b.get("max", 99))
+            except (TypeError, ValueError):
+                continue
+            if lo <= value <= hi:
+                return int(b.get("points", 0)), f"{int(lo)}-{int(hi)}"
+        return default_band
+    # Hardcoded fallback
+    for lo, hi, pts in default_bands:
+        if lo <= value <= hi:
+            return pts, f"{lo}-{hi}"
+    return default_band
+
+
+def _lookup_tier_points(
+    rules: Optional[Dict[str, Any]], table_name: str, tier_key: str, default_pts: int,
+) -> int:
+    """Lookup categorical tier value (e.g. english 'superior') from `tiers` dict."""
+    tbl = _rules_table(rules, table_name)
+    tiers = (tbl or {}).get("tiers") if tbl else None
+    if isinstance(tiers, dict) and tier_key in tiers:
+        try:
+            return int(tiers[tier_key])
+        except (TypeError, ValueError):
+            return default_pts
+    return default_pts
+
+
+def _lookup_category_points(
+    rules: Optional[Dict[str, Any]], table_name: str, key: str, default_pts: int,
+) -> int:
+    """Lookup categorical value (e.g. education 'master') from `categories` dict."""
+    tbl = _rules_table(rules, table_name)
+    cats = (tbl or {}).get("categories") if tbl else None
+    if isinstance(cats, dict) and key in cats:
+        try:
+            return int(cats[key])
+        except (TypeError, ValueError):
+            return default_pts
+    return default_pts
+
+
+def _lookup_named_item(
+    rules: Optional[Dict[str, Any]], table_name: str, item_key: str, default_pts: int,
+) -> int:
+    """Lookup named bonus from `items` dict (e.g. naati_accredited: 5)."""
+    tbl = _rules_table(rules, table_name)
+    items = (tbl or {}).get("items") if tbl else None
+    if isinstance(items, dict) and item_key in items:
+        try:
+            return int(items[item_key])
+        except (TypeError, ValueError):
+            return default_pts
+    return default_pts
+
+
+def _lookup_subclass_points(
+    rules: Optional[Dict[str, Any]], table_name: str, subclass: str, default_pts: int,
+) -> int:
+    """Lookup state-nomination points by visa subclass."""
+    tbl = _rules_table(rules, table_name)
+    by = (tbl or {}).get("by_subclass") if tbl else None
+    if isinstance(by, dict) and subclass in by:
+        try:
+            return int(by[subclass])
+        except (TypeError, ValueError):
+            return default_pts
+    return default_pts
+
+
+# ════════════════════════════════════════════════════════════════
 # AUSTRALIA — Subclass 189 / 190 / 491
 # ════════════════════════════════════════════════════════════════
-def calculate_au_points(profile: Dict[str, Any], visa_subclass: str = "189") -> Dict[str, Any]:
+def calculate_au_points(profile: Dict[str, Any], visa_subclass: str = "189", rules: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Australia GSM points calculator — STRICTLY per official rules.
     Returns: { breakdown: {...}, total, visa_eligibility: {...}, recommendation }
+
+    Phase 9.7 — accepts optional `rules` dict (loaded from `kb_settings.calculator_rules_au`)
+    to override point values per band/tier/category. When `rules=None`, behavior is identical
+    to the hardcoded baseline (2025-26 official program-year rules).
     """
     primary = profile.get("primary_applicant") or {}
     personal = primary.get("personal") or {}
@@ -59,20 +160,16 @@ def calculate_au_points(profile: Dict[str, Any], visa_subclass: str = "189") -> 
 
     # 1) AGE — 18-24:25, 25-32:30, 33-39:25, 40-44:15, 45+:0 (ineligible)
     age = _to_int(personal.get("age"))
-    age_pts = 0
-    age_bucket = ""
-    if age >= 18 and age <= 24:
-        age_pts, age_bucket = 25, "18-24"
-    elif age >= 25 and age <= 32:
-        age_pts, age_bucket = 30, "25-32"
-    elif age >= 33 and age <= 39:
-        age_pts, age_bucket = 25, "33-39"
-    elif age >= 40 and age <= 44:
-        age_pts, age_bucket = 15, "40-44"
-    elif age >= 45:
+    if age >= 45:
         age_pts, age_bucket = 0, "45+_INELIGIBLE"
-    else:
+    elif age < 18:
         age_pts, age_bucket = 0, "below_18"
+    else:
+        age_pts, age_bucket = _lookup_band_points(
+            rules, "age", age,
+            default_band=(0, "no_band"),
+            default_bands=[(18, 24, 25), (25, 32, 30), (33, 39, 25), (40, 44, 15)],
+        )
     breakdown["age"] = {"value": age, "bucket": age_bucket, "points": age_pts}
     total += age_pts
 
@@ -84,11 +181,14 @@ def calculate_au_points(profile: Dict[str, Any], visa_subclass: str = "189") -> 
     eng_pts = 0
     eng_bucket = "below_competent"
     if overall and min_band >= 8.0:
-        eng_pts, eng_bucket = 20, "superior_IELTS_8"
+        eng_pts = _lookup_tier_points(rules, "english", "superior", 20)
+        eng_bucket = "superior_IELTS_8"
     elif overall and min_band >= 7.0:
-        eng_pts, eng_bucket = 10, "proficient_IELTS_7"
+        eng_pts = _lookup_tier_points(rules, "english", "proficient", 10)
+        eng_bucket = "proficient_IELTS_7"
     elif overall and min_band >= 6.0:
-        eng_pts, eng_bucket = 0, "competent_IELTS_6"
+        eng_pts = _lookup_tier_points(rules, "english", "competent", 0)
+        eng_bucket = "competent_IELTS_6"
     breakdown["english"] = {"overall": overall, "min_band": min_band, "bucket": eng_bucket, "points": eng_pts}
     total += eng_pts
 
@@ -98,28 +198,20 @@ def calculate_au_points(profile: Dict[str, Any], visa_subclass: str = "189") -> 
     years_overseas = max(0.0, years_total - years_au)
 
     # Outside AU
-    out_pts = 0
-    out_bucket = "less_than_3"
-    if years_overseas >= 8:
-        out_pts, out_bucket = 15, "8+_years"
-    elif years_overseas >= 5:
-        out_pts, out_bucket = 10, "5-7_years"
-    elif years_overseas >= 3:
-        out_pts, out_bucket = 5, "3-4_years"
+    out_pts, out_bucket = _lookup_band_points(
+        rules, "overseas_experience", years_overseas,
+        default_band=(0, "less_than_3"),
+        default_bands=[(0, 2, 0), (3, 4, 5), (5, 7, 10), (8, 99, 15)],
+    )
     breakdown["experience_overseas"] = {"value": years_overseas, "bucket": out_bucket, "points": out_pts}
     total += out_pts
 
     # Inside AU
-    in_pts = 0
-    in_bucket = "less_than_1"
-    if years_au >= 8:
-        in_pts, in_bucket = 20, "8+_years_AU"
-    elif years_au >= 5:
-        in_pts, in_bucket = 15, "5-7_years_AU"
-    elif years_au >= 3:
-        in_pts, in_bucket = 10, "3-4_years_AU"
-    elif years_au >= 1:
-        in_pts, in_bucket = 5, "1-2_years_AU"
+    in_pts, in_bucket = _lookup_band_points(
+        rules, "australia_experience", years_au,
+        default_band=(0, "less_than_1"),
+        default_bands=[(0, 0, 0), (1, 2, 5), (3, 4, 10), (5, 7, 15), (8, 99, 20)],
+    )
     breakdown["experience_australia"] = {"value": years_au, "bucket": in_bucket, "points": in_pts}
     total += in_pts
 
@@ -128,41 +220,49 @@ def calculate_au_points(profile: Dict[str, Any], visa_subclass: str = "189") -> 
     edu_pts = 0
     edu_bucket = "other"
     if qual in ("doctorate", "phd"):
-        edu_pts, edu_bucket = 20, "doctorate"
+        edu_pts = _lookup_category_points(rules, "education", "doctorate", 20)
+        edu_bucket = "doctorate"
     elif qual in ("master", "bachelor", "bachelor_3yr", "honours"):
-        edu_pts, edu_bucket = 15, "bachelor_or_masters"
+        edu_pts = _lookup_category_points(rules, "education", qual if qual in ("master", "bachelor") else "bachelor", 15)
+        edu_bucket = "bachelor_or_masters"
     elif qual in ("diploma", "trade", "advanced_diploma"):
-        edu_pts, edu_bucket = 10, "diploma_or_trade"
+        edu_pts = _lookup_category_points(rules, "education", qual if qual in ("diploma", "trade") else "diploma", 10)
+        edu_bucket = "diploma_or_trade"
     breakdown["education"] = {"value": qual, "bucket": edu_bucket, "points": edu_pts}
     total += edu_pts
 
     # 5) AUSTRALIAN STUDY REQUIREMENT — 2+ years study in AU = 5 pts
     if bool(extras.get("australian_study_2_years")):
-        breakdown["australian_study"] = {"value": True, "points": 5}
-        total += 5
+        pts = _lookup_named_item(rules, "bonuses", "australian_study_2_years", 5)
+        breakdown["australian_study"] = {"value": True, "points": pts}
+        total += pts
 
     # 6) SPECIALIST EDUCATION (STEM at AU) — 10 pts
     if bool(extras.get("specialist_education_stem_au")):
-        breakdown["specialist_education"] = {"value": True, "points": 10}
-        total += 10
+        pts = _lookup_named_item(rules, "bonuses", "specialist_education_stem_au", 10)
+        breakdown["specialist_education"] = {"value": True, "points": pts}
+        total += pts
 
     # 7) PROFESSIONAL YEAR — 5 pts
     if bool(extras.get("professional_year_completed")):
-        breakdown["professional_year"] = {"value": True, "points": 5}
-        total += 5
+        pts = _lookup_named_item(rules, "bonuses", "professional_year_completed", 5)
+        breakdown["professional_year"] = {"value": True, "points": pts}
+        total += pts
 
     # 8) NAATI — 5 pts
     if bool(extras.get("naati_accredited")):
-        breakdown["naati"] = {"value": True, "points": 5}
-        total += 5
+        pts = _lookup_named_item(rules, "bonuses", "naati_accredited", 5)
+        breakdown["naati"] = {"value": True, "points": pts}
+        total += pts
 
     # 9) REGIONAL STUDY (AU) — 5 pts
     if bool(extras.get("regional_study_au")):
-        breakdown["regional_study"] = {"value": True, "points": 5}
-        total += 5
+        pts = _lookup_named_item(rules, "bonuses", "regional_study_au", 5)
+        breakdown["regional_study"] = {"value": True, "points": pts}
+        total += pts
 
     # 10) PARTNER SKILLS — EXACT rules
-    partner_block = _au_partner_skills(marital, spouse_block)
+    partner_block = _au_partner_skills(marital, spouse_block, rules=rules)
     if partner_block["points"] or partner_block.get("note"):
         breakdown["partner"] = partner_block
         total += partner_block["points"]
@@ -171,11 +271,11 @@ def calculate_au_points(profile: Dict[str, Any], visa_subclass: str = "189") -> 
     visa = (visa_subclass or "189").strip()
     nomination_pts = 0
     if visa == "190" and bool(extras.get("state_nominated")):
-        nomination_pts = 5
-        breakdown["state_nomination"] = {"value": "190_state", "points": 5}
+        nomination_pts = _lookup_subclass_points(rules, "state_nomination", "190", 5)
+        breakdown["state_nomination"] = {"value": "190_state", "points": nomination_pts}
     elif visa == "491" and bool(extras.get("state_nominated")):
-        nomination_pts = 15
-        breakdown["state_nomination"] = {"value": "491_regional", "points": 15}
+        nomination_pts = _lookup_subclass_points(rules, "state_nomination", "491", 15)
+        breakdown["state_nomination"] = {"value": "491_regional", "points": nomination_pts}
     total += nomination_pts
 
     # Visa eligibility — official minimum is 65 for 189/190/491; age 45+ = ineligible
@@ -228,15 +328,22 @@ def calculate_au_points(profile: Dict[str, Any], visa_subclass: str = "189") -> 
     }
 
 
-def _au_partner_skills(marital: str, spouse_block: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+def _au_partner_skills(marital: str, spouse_block: Optional[Dict[str, Any]], rules: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Exact AU partner-skills rules.
     Returns: {matched_key, points, note, contribution_type, marital_status}.
+
+    Phase 9.7 — accepts optional `rules` so admins can override the 4 outcome point values
+    via `kb_settings.calculator_rules_au.tables.partner_skills.categories.{key}`.
     """
+    # Helper to fetch the points for a given outcome key
+    def _pts(key: str, default: int) -> int:
+        return _lookup_category_points(rules, "partner_skills", key, default)
+
     # SINGLE / DIVORCED / WIDOWED / SEPARATED → +10 single_or_pr_partner
     if marital not in ("married", "de_facto"):
         return {
             "matched_key": "single_or_pr_partner",
-            "points": 10,
+            "points": _pts("single_or_pr_partner", 10),
             "note": f"{marital.title()} applicant — full +10 partner-skills bonus awarded",
             "contribution_type": "not_applicable",
             "marital_status": marital,
@@ -259,7 +366,7 @@ def _au_partner_skills(marital: str, spouse_block: Optional[Dict[str, Any]]) -> 
     if is_pr or contribution == "australian_pr_citizen":
         return {
             "matched_key": "single_or_pr_partner",
-            "points": 10,
+            "points": _pts("single_or_pr_partner", 10),
             "note": "Spouse is AU PR / Citizen — counted as no migrating partner",
             "contribution_type": contribution,
             "marital_status": marital,
@@ -269,7 +376,7 @@ def _au_partner_skills(marital: str, spouse_block: Optional[Dict[str, Any]]) -> 
     if not on_visa:
         return {
             "matched_key": "single_or_pr_partner",
-            "points": 10,
+            "points": _pts("single_or_pr_partner", 10),
             "note": "Spouse will not migrate on this visa — applicant treated as single",
             "contribution_type": contribution,
             "marital_status": marital,
@@ -294,7 +401,7 @@ def _au_partner_skills(marital: str, spouse_block: Optional[Dict[str, Any]]) -> 
         if not gates:
             return {
                 "matched_key": "skilled_partner",
-                "points": 10,
+                "points": _pts("skilled_partner", 10),
                 "note": "Spouse meets all gates: age<45, competent English, positive skill assessment, on visa",
                 "contribution_type": contribution,
                 "marital_status": marital,
@@ -302,7 +409,7 @@ def _au_partner_skills(marital: str, spouse_block: Optional[Dict[str, Any]]) -> 
         if sp_competent_eng:
             return {
                 "matched_key": "competent_english_only",
-                "points": 5,
+                "points": _pts("competent_english_only", 5),
                 "note": f"Downgraded to English-only (gate failed: {', '.join(gates)})",
                 "contribution_type": contribution,
                 "marital_status": marital,
@@ -320,7 +427,7 @@ def _au_partner_skills(marital: str, spouse_block: Optional[Dict[str, Any]]) -> 
         if sp_competent_eng:
             return {
                 "matched_key": "competent_english_only",
-                "points": 5,
+                "points": _pts("competent_english_only", 5),
                 "note": "Spouse has competent English (IELTS 6+ all bands)",
                 "contribution_type": contribution,
                 "marital_status": marital,
@@ -337,7 +444,7 @@ def _au_partner_skills(marital: str, spouse_block: Optional[Dict[str, Any]]) -> 
     if contribution == "non_contributing":
         return {
             "matched_key": "non_contributing",
-            "points": 0,
+            "points": _pts("non_contributing", 0),
             "note": "Spouse will be on visa but is not contributing to points",
             "contribution_type": contribution,
             "marital_status": marital,
@@ -689,17 +796,21 @@ def _nz_recommendation(total: int, ve: Dict[str, Any], age: int) -> str:
 # ════════════════════════════════════════════════════════════════
 # Master dispatcher
 # ════════════════════════════════════════════════════════════════
-def calculate(profile: Dict[str, Any], country: str, visa_subclass: Optional[str] = None) -> Dict[str, Any]:
+def calculate(profile: Dict[str, Any], country: str, visa_subclass: Optional[str] = None, rules: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Run the calculator for a country.
 
     Phase 6.10.1 note: the result is a pure synchronous rule-engine output.
     Callers that want to surface `template_status` / `template_in_use` should
     look up `core.template_calculator.template_status(country)` themselves
     (async) and merge the result. This keeps `calculate()` testable without DB.
+
+    Phase 9.7: optional `rules` dict (loaded from `kb_settings.calculator_rules_<country>`
+    via `core.rules_engine.load_rules()`) allows admin overrides. When None, hardcoded
+    defaults are used (identical to pre-9.7 behavior).
     """
     c = (country or "AU").upper()
     if c == "AU":
-        return calculate_au_points(profile, visa_subclass or "189")
+        return calculate_au_points(profile, visa_subclass or "189", rules=rules)
     if c == "CA":
         marital = _safe_lower(profile.get("marital_status"))
         with_spouse = marital in ("married", "de_facto") and bool(profile.get("spouse"))
@@ -707,3 +818,24 @@ def calculate(profile: Dict[str, Any], country: str, visa_subclass: Optional[str
     if c == "NZ":
         return calculate_nz_smc(profile)
     return {"error": f"Country '{c}' not supported by calculator yet (only AU, CA, NZ)"}
+
+
+async def calculate_with_rules(db, profile: Dict[str, Any], country: str, visa_subclass: Optional[str] = None) -> Dict[str, Any]:
+    """Phase 9.7 — async wrapper that loads admin overrides from `kb_settings`
+    then calls `calculate()`. Includes the rules `source` in the response under
+    `rules_source` so the UI can show whether DB-override or hardcoded-defaults
+    were applied.
+    """
+    from core.rules_engine import load_rules, supported_countries
+    c = (country or "AU").upper()
+    if c not in supported_countries():
+        return calculate(profile, c, visa_subclass)
+    try:
+        rules = await load_rules(db, c)
+    except Exception:
+        rules = None
+    result = calculate(profile, c, visa_subclass, rules=rules)
+    if isinstance(result, dict) and rules:
+        result["rules_source"] = rules.get("source")
+        result["rules_version"] = rules.get("version")
+    return result

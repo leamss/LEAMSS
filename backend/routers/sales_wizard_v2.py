@@ -20,7 +20,7 @@ from pydantic import BaseModel, Field
 
 from core.auth import get_current_user
 from core.database import db
-from core.sales_calculator import calculate
+from core.sales_calculator import calculate, calculate_with_rules
 from core.template_calculator import template_status
 
 logger = logging.getLogger(__name__)
@@ -94,7 +94,7 @@ async def calculate_parallel(req: ParallelCalcRequest, current_user: dict = Depe
             profile_with_occ = dict(req.profile)
             if req.occupation and "occupation" not in profile_with_occ:
                 profile_with_occ["occupation"] = req.occupation
-            calc_out = calculate(profile=profile_with_occ, country=cc, visa_subclass=sub)
+            calc_out = await calculate_with_rules(db, profile=profile_with_occ, country=cc, visa_subclass=sub)
             total = calc_out.get("total") or 0
             results.append({
                 "visa_subclass": sub,

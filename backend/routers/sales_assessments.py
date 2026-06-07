@@ -22,7 +22,7 @@ from pydantic import BaseModel, Field
 
 from core.auth import get_current_user
 from core.database import db
-from core.sales_calculator import calculate
+from core.sales_calculator import calculate, calculate_with_rules
 from core.sales_checklist import build_checklist
 from core.share_audit import record_share_event
 
@@ -80,7 +80,7 @@ async def save_assessment(req: SaveAssessmentRequest, current_user: dict = Depen
     # Run the calculator for each target to capture the snapshot
     results = []
     for t in req.targets:
-        r = calculate(req.profile, t.country, t.visa_subclass)
+        r = await calculate_with_rules(db, req.profile, t.country, t.visa_subclass)
         results.append(r)
 
     # Pick best target by points (or by recommendation language if scoring metric differs)
@@ -290,7 +290,7 @@ async def update_assessment(assessment_id: str, req: SaveAssessmentRequest, curr
     # Re-run calculator
     results = []
     for t in req.targets:
-        r = calculate(req.profile, t.country, t.visa_subclass)
+        r = await calculate_with_rules(db, req.profile, t.country, t.visa_subclass)
         results.append(r)
     best = max(results, key=lambda r: r.get("total", 0)) if results else None
     new_best_country = best.get("country_code") if best else None

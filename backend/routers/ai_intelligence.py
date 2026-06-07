@@ -25,14 +25,15 @@ EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
 
 
 async def _call_gpt(prompt: str, system_msg: str = "") -> str:
-    """Unified GPT-5.2 call"""
+    """Unified short-form AI call — Phase 9.7 uses Haiku 4.5 for 4x cost savings."""
     from emergentintegrations.llm.chat import LlmChat, UserMessage
+    from core.ai_models import model_for
     try:
         chat_instance = LlmChat(
             api_key=EMERGENT_LLM_KEY,
             session_id=f"ai-intel-{uuid.uuid4().hex[:8]}",
             system_message=system_msg or "You are a helpful AI assistant."
-        )
+        ).with_model("anthropic", model_for("ai_intelligence_quick"))  # Haiku 4.5
         user_message = UserMessage(text=prompt)
         return await chat_instance.send_message(user_message)
     except Exception as e:

@@ -5,6 +5,61 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 
 > **📌 Update (Feb 13, 2026):** `CHANGELOG.md` now tracks all completed phases (incl. **Phase 3A — Attendance & Leave** with full company policies). `ROADMAP.md` lists prioritized backlog. This PRD remains the static reference for original requirements.
 
+### ⚡ Phase 9.7 — Calculator Wired to Rules Engine + Haiku Cost Optimization (Jun 7, 2026)
+**Status:** ✅ COMPLETE — 6/6 new wiring tests PASS · 43/43 total regression PASS · UI verified live end-to-end.
+
+#### Task 1 — Calculator now consumes `rules_engine.load_rules()` (admin overrides flow through end-to-end)
+
+The Phase 9.6 foundation was infrastructure-only — calculator still used hardcoded constants. Phase 9.7 wires the actual point-lookups to read from `kb_settings.calculator_rules_<country>` documents with fallback to hardcoded baselines.
+
+**Backend changes (`core/sales_calculator.py`):**
+- 5 new lookup helpers — `_lookup_band_points`, `_lookup_tier_points`, `_lookup_category_points`, `_lookup_named_item`, `_lookup_subclass_points`
+- `calculate_au_points()` + `_au_partner_skills()` now accept optional `rules=None` parameter; all 13 hardcoded point values (age bands, english tiers, education categories, experience bands, 5 bonus values, 2 state-nomination subclass values, 4 partner-skills categories) route through lookups
+- New async wrapper `calculate_with_rules(db, profile, country, visa_subclass)` — loads override from DB, calls calculator, attaches `rules_source` + `rules_version` to response
+- **Behavior preserved**: when no override exists OR partial override is set, untouched tables still use hardcoded defaults (verified by `test_partial_override_other_tables_use_defaults`)
+
+**Routers updated to call `calculate_with_rules()`:**
+- `routers/sales_calculator.py` — `/sales/calculator/calculate` + `/calculate-batch`
+- `routers/sales_wizard_v2.py` — `/sales/wizard/calculate-parallel`
+- `routers/sales_assessments.py` — assessment save + re-calc endpoints
+
+**End-to-end live verification:**
+- Saved override: `english.tiers.proficient = 999` via Admin Rules Editor → calculator immediately returned new score (no restart)
+- Reset → score back to baseline 75
+- Partial override (only age bands changed) → other tables still on defaults
+
+#### Task 2 — Haiku 4.5 wired to `step_document_helper` + `ai_intelligence_quick`
+
+- `routers/step_documents.py:_call_ai()` now uses `model_for("step_document_helper")` → Haiku 4.5
+- `routers/ai_intelligence.py:_call_gpt()` now uses `model_for("ai_intelligence_quick")` → Haiku 4.5
+- ~73% cost reduction on these high-frequency, low-stakes calls (per Anthropic pricing)
+- Quality-critical features (resume parsing, proposal generation, country guides, KB polishing, eligibility reasoning, admin AI-Extract) stay on Sonnet 4.6
+
+**Model registry status (`core/ai_models.py`):**
+| Task                        | Model      | Why |
+|----------------------------|------------|-----|
+| occupation_suggester       | Haiku 4.5  | typeahead-style suggestions, high frequency |
+| step_document_helper       | Haiku 4.5  | quick doc hints |
+| ai_intelligence_quick      | Haiku 4.5  | short helper outputs |
+| resume_extractor           | Sonnet 4.6 | multi-section extraction |
+| proposal_standard          | Sonnet 4.6 | client-facing |
+| country_guide              | Sonnet 4.6 | long-form |
+| kb_ai_polish               | Sonnet 4.6 | quality-critical |
+| ai_verification            | Sonnet 4.6 | mission-critical |
+| ai_workflow_builder        | Sonnet 4.6 | multi-step plans |
+| eligibility_reasoning      | Sonnet 4.6 | mission-critical |
+| ai_extract_admin           | Sonnet 4.6 | high-stakes |
+| proposal_premium           | Opus 4.6   | premium tier |
+
+**Tests added (`tests/test_phase97_rules_wiring.py`):**
+1. `test_default_baseline_score` — confirms baseline 75 with no override + `rules_source = "hardcoded_defaults"`
+2. `test_override_age_band_changes_score` — age band 30 → 99 yields total 144 + `rules_source = "db_override"`
+3. `test_override_english_tier_changes_score` — proficient 10 → 50 yields total 115
+4. `test_override_partner_skills_single_value` — single bonus 10 → 0 yields total 65
+5. `test_reset_returns_to_baseline` — POST `/reset` restores baseline 75
+6. `test_partial_override_other_tables_use_defaults` — touching only `age` leaves `english`/`education`/`partner` on defaults
+
+
 ### 🧮 Phase 9.6 — Rule-Based Engine + Bulk State AI + DAMA/ILA PDF (Jun 7, 2026)
 **Status:** ✅ COMPLETE — 11/11 backend pytest PASS. UI verified via live screenshots.
 
