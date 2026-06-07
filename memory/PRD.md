@@ -5,6 +5,81 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 
 > **📌 Update (Feb 13, 2026):** `CHANGELOG.md` now tracks all completed phases (incl. **Phase 3A — Attendance & Leave** with full company policies). `ROADMAP.md` lists prioritized backlog. This PRD remains the static reference for original requirements.
 
+### 🧮 Phase 9.6 — Rule-Based Engine + Bulk State AI + DAMA/ILA PDF (Jun 7, 2026)
+**Status:** ✅ COMPLETE — 11/11 backend pytest PASS. UI verified via live screenshots.
+
+Sir's ask: "Rule-Based Scoring Engine + VIC/SA/ACT/NT/TAS state nomination AI extract + DAMA/ILA PDF parsing".
+
+#### Task 1 — Calculator Rules Engine (`core/rules_engine.py`)
+Admin-configurable scoring tables persisting to `kb_settings.calculator_rules_{country}`. Calculator stays stable (hardcoded fallback). 3 countries supported: AU, CA, NZ.
+
+**Endpoints:**
+- `GET /api/anz-intel/calculator-rules/{AU|CA|NZ}` — returns active rules (DB override or hardcoded defaults)
+- `PUT /api/anz-intel/calculator-rules/{country}` — saves override
+- `POST /api/anz-intel/calculator-rules/{country}/reset` — deletes override → defaults
+
+**Admin UI** (`pages/admin/CalculatorRulesEditor.jsx` at `/admin/calculator-rules`):
+- 3 country tabs (🇦🇺🇨🇦🇳🇿) with flag + description
+- Active source badge: 🔒 Hardcoded Defaults vs ✏️ DB Override
+- Sidebar: list of tables with rule summary + version + last-edit metadata
+- Main: live JSON editor with real-time parse-error indicator + Save / Reset
+- Production caution panel + Save success toast
+
+**Default rule sets cover:**
+- AU: age (5 bands), english (4 tiers), education (8 categories), overseas/AU experience (bands), partner skills (4 categories), bonuses (5 named items), state nomination (per-subclass)
+- CA: age (6 bands), language (CLB 4-10), education (PhD-Trade), additional (7 named — PNP/French/Sibling/Job offer/Canadian-edu)
+- NZ: qualification, skilled employment years, named extras (NZ job offer / regional / partner)
+
+#### Task 2 — Bulk State Nomination AI Extract (`/ai-extract-state-bulk/{preview,commit}`)
+For VIC, SA, ACT, NT, TAS, WA (sites that are JS-driven and don't scrape).
+
+- Body: `{state, source_url, raw_text}` (up to 12,000 chars)
+- Claude Sonnet 4.6 extracts array of `{code, title, sc190, sc491, demand, caveats}`
+- Smart matching: 6-digit exact OR 4-digit unit-group expansion to all child codes
+- Preview shows matched_count / unmatched_count / unit_group_expansions
+- Commit merges into `state_territory_eligibility` (replaces existing entry for that state, preserves others)
+
+**Admin UI** (new `BulkStateExtractCard` in Step 5 Manual Tools tab):
+- State dropdown (VIC/SA/ACT/NT/TAS/WA/NSW/QLD)
+- Source URL field for audit trail
+- Large textarea for pasted content
+- Preview cards + per-record badges (190/491/demand) + commit button
+
+#### Task 3 — DAMA/ILA PDF Parser (`/dama-pdf/{preview,commit}`)
+Admin uploads official DAMA agreement PDF (or ILA PDF) → `pdfplumber` extracts text → regex finds all 6-digit ANZSCO codes → checkbox preview → commit.
+
+- POST with `multipart/form-data` file + query params `target_id` (e.g., `nt`, `aerotropolis`, `restaurant`) + `target_type` (`dama` or `ila`)
+- Preview shows PDF pages, codes_extracted, matched_in_db (with `already_tagged_with_target` flag per code), unmatched_codes
+- Commit attaches the full DAMA/ILA seed entry (region, state, valid_until, concessions) to selected codes
+
+**Admin UI** (new `DamaIlaPdfCard` in Step 5 Manual Tools tab):
+- Type toggle (DAMA / ILA) → dropdown with all 13 DAMAs OR 4 ILAs
+- File upload + Extract Codes button
+- Per-code checkbox list with status badges (verified/already-tagged)
+- Pre-selects all NOT-already-tagged codes
+- Commit confirms count + invokes parent refresh
+
+**Tests added (`tests/test_phase96_rules_engine.py`):**
+1. `test_get_rules_returns_au_defaults` — defaults load correctly
+2. `test_save_and_reload_override` — PUT → GET → reset → GET round-trip
+3. `test_rules_supports_au_ca_nz` — all 3 countries
+4. `test_rules_rejects_unsupported_country` — 400 on invalid country
+5. `test_rules_rbac_partner_blocked` — partner blocked
+6. `test_bulk_state_extract_preview_vic` — live AI call extracts ≥3 codes from sample text
+7. `test_bulk_state_bad_state_400` — input validation
+8. `test_dama_pdf_preview_extracts_codes` — pdfplumber + regex flow
+9. `test_dama_pdf_commit_updates_records` — `dama_eligibility` populated post-commit
+10. `test_dama_pdf_rejects_invalid_target` — target_type validation
+11. `test_dama_pdf_rbac_partner_blocked` — partner blocked
+
+**Files:**
+- NEW `/app/backend/core/rules_engine.py` — admin-configurable rules
+- MOD `/app/backend/routers/anz_intel.py` — 7 new endpoints (rules GET/PUT/RESET + bulk state preview/commit + dama-pdf preview/commit)
+- NEW `/app/frontend/src/pages/admin/CalculatorRulesEditor.jsx`
+- MOD `/app/frontend/src/pages/admin/AnzIntelAudit.jsx` — added `BulkStateExtractCard` + `DamaIlaPdfCard` + Calculator Rules Editor link in hero
+- MOD `/app/frontend/src/App.js` — new route `/admin/calculator-rules`
+
+
 ### 🚀 Phase 9.5 — Min Invitation Points + DAMA + ILA Scrapers (Jun 7, 2026)
 **Status:** ✅ COMPLETE — 9/9 new pytest PASS · 12/12 existing scrapers + verify endpoint tests PASS · UI verified via screenshots.
 

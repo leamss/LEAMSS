@@ -16,6 +16,7 @@ ZERO mutations — purely diagnostic.
 from __future__ import annotations
 
 import os
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -1255,3 +1256,432 @@ async def verify_in_atlas(
         "atlas_url": "/admin/anz-intel/audit",
         "infosheet_pdf": f"/api/anz-intel/occupation/{code}/infosheet.pdf",
     }
+
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Phase 9.6 — Bulk State Nomination AI Extract (for VIC/SA/ACT/NT/TAS)
+# ═════════════════════════════════════════════════════════════════════════════
+@router.post("/ai-extract-state-bulk/preview")
+async def ai_extract_state_bulk_preview(
+    payload: Dict[str, Any] = Body(...),
+    current_user: dict = Depends(get_current_user),
+):
+    """Bulk state-nomination AI extraction for states whose sites are JS-driven.
+
+    Body:
+      • state: "VIC" | "SA" | "ACT" | "NT" | "TAS" | "WA" (any 2-3 letter state code)
+      • raw_text: pasted page content from official state migration site
+      • source_url: official source URL for audit trail
+    """
+    if not _is_admin(current_user):
+        raise HTTPException(403, "Admin only")
+
+    state = (payload.get("state") or "").strip().upper()
+    raw_text = (payload.get("raw_text") or "").strip()
+    source_url = (payload.get("source_url") or "").strip()
+
+    if not state or not raw_text:
+        raise HTTPException(400, "state and raw_text are required")
+    if len(state) not in (2, 3) or not state.isalpha():
+        raise HTTPException(400, "state must be a 2-3 letter code (NSW/VIC/QLD/SA/WA/TAS/NT/ACT)")
+
+    EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
+    if not EMERGENT_LLM_KEY:
+        raise HTTPException(500, "EMERGENT_LLM_KEY not configured")
+
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
+    import uuid
+    import json as _json
+
+    system = (
+        "You are LEAMSS Migration Atlas bulk extractor. Read raw text copied from an official Australian "
+        "state-migration website and return a JSON array of occupation eligibility entries. "
+        "Each entry must be: {code, title, sc190, sc491, demand, caveats}. "
+        "If 'code' is 4-digit ANZSCO unit-group, set field 'unit_group_match' instead of 'code'. "
+        "Strictly valid JSON, no markdown fences, no commentary."
+    )
+    prompt = (
+        f"State: {state}\nSource URL: {source_url or '(not provided)'}\n\n"
+        "Extract ALL occupations referenced in the text. Return JSON of this shape:\n"
+        "{ \"records\": [ "
+        "{ \"code\": \"261313\" | null, \"unit_group_match\": \"2613\" | null, "
+        "\"title\": \"Software Engineer\", \"sc190\": true|false, \"sc491\": true|false, "
+        "\"demand\": \"high\"|\"medium\"|\"low\"|null, \"caveats\": \"any notes\"|null } ] }\n\n"
+        f"Raw text:\n---\n{raw_text[:12000]}\n---\n\n"
+        "Return JSON only."
+    )
+
+    chat = LlmChat(
+        api_key=EMERGENT_LLM_KEY,
+        session_id=f"atlas-state-bulk-{uuid.uuid4().hex[:8]}",
+        system_message=system,
+    ).with_model("anthropic", "claude-sonnet-4-6")
+
+    try:
+        response = await chat.send_message(UserMessage(text=prompt))
+    except Exception as e:
+        raise HTTPException(502, f"AI extraction failed: {str(e)[:200]}")
+
+    text = str(response).strip()
+    if text.startswith("```"):
+        text = text.strip("`")
+        if text.lower().startswith("json"):
+            text = text.split("\n", 1)[1] if "\n" in text else text[4:]
+    try:
+        extracted = _json.loads(text)
+    except _json.JSONDecodeError:
+        raise HTTPException(502, f"AI returned non-JSON: {text[:400]}")
+
+    records = extracted.get("records") if isinstance(extracted, dict) else (extracted if isinstance(extracted, list) else [])
+    if not isinstance(records, list):
+        records = []
+
+    # Match records to existing occupation_master codes
+    matched: List[Dict[str, Any]] = []
+    unmatched: List[Dict[str, Any]] = []
+    unit_group_resolutions: List[Dict[str, Any]] = []
+
+    for rec in records:
+        code = (rec.get("code") or "").strip() if isinstance(rec.get("code"), str) else None
+        unit_group = (rec.get("unit_group_match") or "").strip() if isinstance(rec.get("unit_group_match"), str) else None
+        if code and code.isdigit() and len(code) == 6:
+            ex = await db["occupation_master"].find_one({"country_code": "AU", "code": code}, {"_id": 1, "title": 1})
+            if ex:
+                matched.append({**rec, "matched_code": code, "match_type": "6_digit_exact"})
+            else:
+                unmatched.append({**rec, "reason": f"6-digit code {code} not in DB"})
+        elif unit_group and unit_group.isdigit() and len(unit_group) == 4:
+            children = await db["occupation_master"].find(
+                {"country_code": "AU", "code": {"$regex": f"^{unit_group}"}},
+                {"code": 1, "title": 1, "_id": 0},
+            ).to_list(length=200)
+            if children:
+                unit_group_resolutions.append({
+                    "unit_group": unit_group,
+                    "rec_title": rec.get("title"),
+                    "child_count": len(children),
+                    "sample_children": children[:3],
+                })
+                matched.append({**rec, "matched_unit_group": unit_group, "child_count": len(children), "match_type": "4_digit_expanded"})
+            else:
+                unmatched.append({**rec, "reason": f"Unit group {unit_group} not in DB"})
+        else:
+            unmatched.append({**rec, "reason": "Invalid code/unit_group"})
+
+    return {
+        "state": state,
+        "source_url": source_url,
+        "total_extracted": len(records),
+        "matched_count": len(matched),
+        "unmatched_count": len(unmatched),
+        "unit_group_expansions": unit_group_resolutions,
+        "records": matched,
+        "unmatched": unmatched[:20],
+        "raw_ai_response_preview": text[:1000],
+    }
+
+
+@router.post("/ai-extract-state-bulk/commit")
+async def ai_extract_state_bulk_commit(
+    payload: Dict[str, Any] = Body(...),
+    current_user: dict = Depends(get_current_user),
+):
+    """Commit matched records from /ai-extract-state-bulk/preview to occupation_master.state_territory_eligibility.
+
+    Body:
+      • state, source_url
+      • records: the `matched` array from preview (only matched ones are processed)
+    """
+    if not _is_admin(current_user):
+        raise HTTPException(403, "Admin only")
+
+    state = (payload.get("state") or "").strip().upper()
+    source_url = (payload.get("source_url") or "").strip()
+    records = payload.get("records") or []
+
+    if not state or not records:
+        raise HTTPException(400, "state and records are required")
+
+    now = datetime.now(timezone.utc).isoformat()
+    actor = current_user.get("id") or "admin"
+    updates_6d = 0
+    updates_4d_expanded = 0
+    skipped_verified = 0
+
+    for rec in records:
+        match_type = rec.get("match_type")
+        if match_type == "6_digit_exact":
+            target_codes = [rec["matched_code"]]
+        elif match_type == "4_digit_expanded":
+            unit_group = rec["matched_unit_group"]
+            children_docs = await db["occupation_master"].find(
+                {"country_code": "AU", "code": {"$regex": f"^{unit_group}"}},
+                {"code": 1, "_id": 0},
+            ).to_list(length=500)
+            target_codes = [c["code"] for c in children_docs]
+        else:
+            continue
+
+        new_entry = {
+            "state": state,
+            "sc190": bool(rec.get("sc190")),
+            "sc491": bool(rec.get("sc491")),
+            "demand": rec.get("demand"),
+            "caveats": rec.get("caveats"),
+            "source": source_url or "AI-extracted",
+            "ai_extracted_at": now,
+        }
+        if match_type == "4_digit_expanded":
+            new_entry["unit_group_match"] = rec["matched_unit_group"]
+
+        async for d in db["occupation_master"].find(
+            {"country_code": "AU", "code": {"$in": target_codes}},
+            {"_id": 1, "code": 1, "state_territory_eligibility": 1, "status": 1},
+        ):
+            if d.get("status") == "verified":
+                skipped_verified += 1
+                continue
+            merged = [e for e in (d.get("state_territory_eligibility") or []) if (e.get("state") or "").upper() != state]
+            merged.append(new_entry)
+            await db["occupation_master"].update_one(
+                {"_id": d["_id"]},
+                {"$set": {"state_territory_eligibility": merged, "last_state_ai_extracted_at": now, "last_state_ai_extracted_by": actor}},
+            )
+            if match_type == "6_digit_exact":
+                updates_6d += 1
+            else:
+                updates_4d_expanded += 1
+
+    return {
+        "state": state,
+        "source_url": source_url,
+        "updates_6_digit_exact": updates_6d,
+        "updates_4_digit_expanded": updates_4d_expanded,
+        "skipped_verified": skipped_verified,
+        "ran_at": now,
+        "ran_by": actor,
+    }
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Phase 9.6 — DAMA / ILA PDF Parser (admin uploads official PDF → extract codes)
+# ═════════════════════════════════════════════════════════════════════════════
+@router.post("/dama-pdf/preview")
+async def dama_pdf_preview(
+    file: UploadFile = File(...),
+    target_id: str = Query(..., description="DAMA id (nt/goldfields/aerotropolis/etc) OR ILA id (restaurant/meat/aged_care/fishing)"),
+    target_type: str = Query("dama", description="'dama' or 'ila'"),
+    current_user: dict = Depends(get_current_user),
+):
+    """Upload official DAMA/ILA PDF → pdfplumber extracts text → regex finds all 6-digit ANZSCO codes.
+    Returns preview (no DB writes)."""
+    if not _is_admin(current_user):
+        raise HTTPException(403, "Admin only")
+    if target_type not in ("dama", "ila"):
+        raise HTTPException(400, "target_type must be 'dama' or 'ila'")
+    if file.content_type not in ("application/pdf", "application/octet-stream"):
+        raise HTTPException(400, f"Expected PDF, got {file.content_type}")
+
+    import pdfplumber
+    import re as _re
+    import io as _io
+
+    contents = await file.read()
+    if len(contents) > 20 * 1024 * 1024:
+        raise HTTPException(413, "PDF too large (max 20MB)")
+
+    try:
+        all_text = []
+        with pdfplumber.open(_io.BytesIO(contents)) as pdf:
+            page_count = len(pdf.pages)
+            for page in pdf.pages:
+                txt = page.extract_text() or ""
+                all_text.append(txt)
+        full_text = "\n".join(all_text)
+    except Exception as e:
+        raise HTTPException(502, f"Failed to parse PDF: {str(e)[:200]}")
+
+    # Extract all 6-digit ANZSCO codes
+    codes_found = sorted(set(_re.findall(r"\b([1-8]\d{5})\b", full_text)))
+    if not codes_found:
+        return {
+            "target_id": target_id, "target_type": target_type,
+            "pdf_pages": page_count, "pdf_size_bytes": len(contents),
+            "codes_extracted": [], "matched_in_db": [], "unmatched_codes": [],
+            "warning": "No 6-digit ANZSCO codes found in PDF",
+        }
+
+    # Cross-check against occupation_master
+    matched: List[Dict[str, Any]] = []
+    db_titles = {}
+    async for d in db["occupation_master"].find(
+        {"country_code": "AU", "code": {"$in": codes_found}},
+        {"_id": 0, "code": 1, "title": 1, "status": 1, "dama_eligibility": 1, "ila_eligibility": 1},
+    ):
+        db_titles[d["code"]] = d
+        matched.append({
+            "code": d["code"],
+            "title": d.get("title"),
+            "status": d.get("status"),
+            "already_tagged_with_target": any(
+                (e.get("id") == target_id)
+                for e in (d.get("dama_eligibility" if target_type == "dama" else "ila_eligibility") or [])
+            ),
+        })
+    unmatched = [c for c in codes_found if c not in db_titles]
+
+    return {
+        "target_id": target_id,
+        "target_type": target_type,
+        "filename": file.filename,
+        "pdf_pages": page_count,
+        "pdf_size_bytes": len(contents),
+        "total_codes_extracted": len(codes_found),
+        "matched_in_db": matched,
+        "unmatched_codes": unmatched,
+        "preview_text_snippet": full_text[:600],
+    }
+
+
+@router.post("/dama-pdf/commit")
+async def dama_pdf_commit(
+    payload: Dict[str, Any] = Body(...),
+    current_user: dict = Depends(get_current_user),
+):
+    """Commit selected codes from a DAMA/ILA PDF preview to occupation_master.
+
+    Body:
+      • target_id (e.g. 'nt', 'aerotropolis', 'restaurant')
+      • target_type: 'dama' | 'ila'
+      • codes: list of 6-digit codes to commit
+      • source: PDF filename or URL
+    """
+    if not _is_admin(current_user):
+        raise HTTPException(403, "Admin only")
+
+    target_id = (payload.get("target_id") or "").strip()
+    target_type = (payload.get("target_type") or "dama").strip()
+    codes = payload.get("codes") or []
+    source = (payload.get("source") or "").strip()
+
+    if not target_id or not codes:
+        raise HTTPException(400, "target_id and codes are required")
+    if target_type not in ("dama", "ila"):
+        raise HTTPException(400, "target_type must be 'dama' or 'ila'")
+
+    # Look up the seed entry for target_id from kb_settings
+    settings_key = "dama_list" if target_type == "dama" else "ila_list"
+    settings_doc = await db["kb_settings"].find_one({"_id": settings_key})
+    if not settings_doc:
+        raise HTTPException(404, f"{settings_key} not seeded — run /scrapers/{target_type}/run first")
+    seeded = settings_doc.get("data") or []
+    target_seed = next((s for s in seeded if s.get("id") == target_id), None)
+    if not target_seed:
+        raise HTTPException(404, f"{target_type.upper()} id '{target_id}' not found in seed")
+
+    now = datetime.now(timezone.utc).isoformat()
+    actor = current_user.get("id") or "admin"
+    field_key = "dama_eligibility" if target_type == "dama" else "ila_eligibility"
+
+    new_entry: Dict[str, Any] = {
+        "id": target_seed["id"],
+        "source": source or settings_doc.get("source_url"),
+        "pdf_extracted_at": now,
+    }
+    if target_type == "dama":
+        new_entry.update({
+            "region": target_seed["region"], "state": target_seed["state"],
+            "valid_until": target_seed["valid_until"], "concessions": target_seed["concessions"],
+        })
+    else:
+        new_entry.update({
+            "industry": target_seed["industry"],
+            "visa_subclasses": target_seed["visa_subclasses"],
+            "concessions": target_seed["concessions"],
+        })
+
+    updated = 0
+    skipped_verified = 0
+    async for d in db["occupation_master"].find(
+        {"country_code": "AU", "code": {"$in": codes}},
+        {"_id": 1, "code": 1, field_key: 1, "status": 1},
+    ):
+        if d.get("status") == "verified":
+            skipped_verified += 1
+            continue
+        existing = [e for e in (d.get(field_key) or []) if e.get("id") != target_seed["id"]]
+        existing.append(new_entry)
+        await db["occupation_master"].update_one(
+            {"_id": d["_id"]},
+            {"$set": {
+                field_key: existing,
+                f"last_{target_type}_pdf_committed_at": now,
+                f"last_{target_type}_pdf_committed_by": actor,
+            }},
+        )
+        updated += 1
+
+    return {
+        "target_id": target_id,
+        "target_type": target_type,
+        "updated": updated,
+        "skipped_verified": skipped_verified,
+        "codes_attempted": len(codes),
+        "ran_at": now,
+        "ran_by": actor,
+    }
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Phase 9.6 — Admin-editable Calculator Rules Engine
+# ═════════════════════════════════════════════════════════════════════════════
+@router.get("/calculator-rules/{country}")
+async def get_calculator_rules(
+    country: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """Return active rule set for a country — DB override or hardcoded defaults."""
+    if not _is_admin(current_user):
+        raise HTTPException(403, "Admin only")
+    from core.rules_engine import load_rules, supported_countries
+    if country.upper() not in supported_countries():
+        raise HTTPException(400, f"Unsupported country. Choose from {supported_countries()}")
+    return await load_rules(db, country)
+
+
+@router.put("/calculator-rules/{country}")
+async def put_calculator_rules(
+    country: str,
+    payload: Dict[str, Any] = Body(...),
+    current_user: dict = Depends(get_current_user),
+):
+    """Admin saves edited rule set for a country.
+    Body: { tables: {...}, version?: "2025-26" }
+    """
+    if not _is_admin(current_user):
+        raise HTTPException(403, "Admin only")
+    from core.rules_engine import save_rules, supported_countries
+    if country.upper() not in supported_countries():
+        raise HTTPException(400, f"Unsupported country. Choose from {supported_countries()}")
+    tables = payload.get("tables")
+    if not isinstance(tables, dict) or not tables:
+        raise HTTPException(400, "Body must contain non-empty 'tables' object")
+    return await save_rules(
+        db, country, tables, payload.get("version"),
+        actor=current_user.get("id") or "admin",
+    )
+
+
+@router.post("/calculator-rules/{country}/reset")
+async def reset_calculator_rules(
+    country: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """Delete the DB override → calculator falls back to hardcoded defaults."""
+    if not _is_admin(current_user):
+        raise HTTPException(403, "Admin only")
+    from core.rules_engine import reset_rules, supported_countries
+    if country.upper() not in supported_countries():
+        raise HTTPException(400, f"Unsupported country. Choose from {supported_countries()}")
+    return await reset_rules(db, country, actor=current_user.get("id") or "admin")

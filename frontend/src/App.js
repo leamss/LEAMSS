@@ -44,6 +44,7 @@ import ProtectionPoliciesAdmin from '@/pages/admin/ProtectionPoliciesAdmin';
 import CockpitMockup from '@/pages/admin/CockpitMockup';
 import Cockpit from '@/pages/admin/Cockpit';
 import AnzIntelAudit from '@/pages/admin/AnzIntelAudit';
+import CalculatorRulesEditor from '@/pages/admin/CalculatorRulesEditor';
 import AtlasSearch from '@/pages/admin/AtlasSearch';
 import PublicCountryGuide from '@/pages/PublicCountryGuide';
 import PublicCountryIndex from '@/pages/PublicCountryIndex';
@@ -209,6 +210,11 @@ function App() {
           <Route path="/admin/anz-intel/audit" element={
             <RequirePermission allowRoles={['admin_owner', 'admin']}>
               <AnzIntelAudit />
+            </RequirePermission>
+          } />
+          <Route path="/admin/calculator-rules" element={
+            <RequirePermission allowRoles={['admin_owner', 'admin']}>
+              <CalculatorRulesEditor />
             </RequirePermission>
           } />
           <Route path="/admin/atlas/search" element={

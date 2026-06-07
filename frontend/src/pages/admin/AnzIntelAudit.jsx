@@ -14,8 +14,9 @@ import axios from 'axios';
 import {
   Database, AlertTriangle, CheckCircle2, FileText, MapPin, Briefcase,
   Building2, Award, Globe2, Layers, Sparkles, RefreshCw, Search, Loader2,
-  GitMerge, ArrowRight,
+  GitMerge, ArrowRight, Sliders,
 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -93,7 +94,7 @@ export default function AnzIntelAudit() {
     setMergeRunning(false);
   };
 
-  useEffect(() => { fetchAll(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [statusFilter, searchTxt]);
+  useEffect(() => { fetchAll(); }, [statusFilter, searchTxt]); // eslint-disable-line
 
   if (loading) {
     return (
@@ -127,15 +128,25 @@ export default function AnzIntelAudit() {
               </a>
             </p>
           </div>
-          <button
-            onClick={fetchAll}
-            disabled={refreshing}
-            className="px-3 py-2 rounded-md text-xs font-bold flex items-center gap-2 transition-colors"
-            style={{ background: C.card, color: C.body, border: `1px solid ${C.border}` }}
-            data-testid="anz-audit-refresh"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />Refresh
-          </button>
+          <div className="flex items-center gap-2">
+            <a
+              href="/admin/calculator-rules"
+              className="px-3 py-2 rounded-md text-xs font-bold flex items-center gap-2 transition-colors"
+              style={{ background: C.teal, color: '#fff' }}
+              data-testid="anz-audit-rules-link"
+            >
+              <Sliders className="h-3.5 w-3.5" />Calculator Rules Editor
+            </a>
+            <button
+              onClick={fetchAll}
+              disabled={refreshing}
+              className="px-3 py-2 rounded-md text-xs font-bold flex items-center gap-2 transition-colors"
+              style={{ background: C.card, color: C.body, border: `1px solid ${C.border}` }}
+              data-testid="anz-audit-refresh"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />Refresh
+            </button>
+          </div>
         </div>
       </header>
 
@@ -440,7 +451,7 @@ function MergeTab({ preview, running, result, onRun }) {
             <p className="text-sm font-bold mb-2" style={{ color: C.ink }}>Ready to commit?</p>
             <p className="text-xs mb-4" style={{ color: C.body }}>
               ⚠️ Yeh action database me actual write karega. Existing data preserved rahega.
-              Aap "Refresh" karke baad me result verify kar sakte hain.
+              Aap &ldquo;Refresh&rdquo; karke baad me result verify kar sakte hain.
             </p>
             <button
               onClick={onRun}
@@ -663,7 +674,7 @@ function ScrapersTab({ headers, onAfterCommit }) {
                   <p className="text-sm font-bold flex items-center gap-2" style={{ color: C.tealDeep }}>
                     <CheckCircle2 className="h-4 w-4" />Commit complete — data persisted to database
                   </p>
-                  <p className="text-xs mt-1" style={{ color: C.muted }}>Run "Refresh" up top OR click any tab to see updated coverage bars.</p>
+                  <p className="text-xs mt-1" style={{ color: C.muted }}>Run &ldquo;Refresh&rdquo; up top OR click any tab to see updated coverage bars.</p>
                 </div>
               )}
               {commit?.error && (
@@ -824,7 +835,7 @@ function ManualToolsTab({ headers, onAfterCommit }) {
     <div className="space-y-6" data-testid="anz-audit-tools-tab">
       <div className="p-4 rounded-lg" style={{ background: C.tealWash, border: `1px solid ${C.tealWash2}` }}>
         <p className="text-sm font-bold flex items-center gap-2" style={{ color: C.tealDeep }}>
-          <FileText className="h-4 w-4" />Step 5 — Manual Tools for VIC · SA · ACT · NT · TAS · WA (sites that don't scrape)
+          <FileText className="h-4 w-4" />Step 5 — Manual Tools for VIC · SA · ACT · NT · TAS · WA (sites that don&apos;t scrape)
         </p>
         <p className="text-xs mt-1" style={{ color: C.body }}>
           In states ki nomination lists JS-driven hain ya scraping block karti hain. Aap official site se data copy karke
@@ -835,6 +846,8 @@ function ManualToolsTab({ headers, onAfterCommit }) {
 
       <CsvUploadCard headers={headers} onAfterCommit={onAfterCommit} />
       <AiExtractCard headers={headers} onAfterCommit={onAfterCommit} />
+      <BulkStateExtractCard headers={headers} onAfterCommit={onAfterCommit} />
+      <DamaIlaPdfCard headers={headers} onAfterCommit={onAfterCommit} />
     </div>
   );
 }
@@ -1151,6 +1164,369 @@ function AiExtractCard({ headers, onAfterCommit }) {
           <p className="text-sm font-bold" style={{ color: C.tealDeep }}>
             <CheckCircle2 className="h-4 w-4 inline mr-1" />
             Saved to {commitResult.code} · fields: {(commitResult.updated_fields || []).join(', ')}
+          </p>
+        </div>
+      )}
+      {commitResult?.error && (
+        <div className="mt-3 p-3 rounded-md" style={{ background: C.redWash, border: '1px solid #FCA5A5' }}>
+          <p className="text-sm font-bold" style={{ color: C.red }}>Commit failed</p>
+          <p className="text-xs mt-1" style={{ color: C.body }}>{commitResult.error}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+// ─── Phase 9.6 — Bulk State Nomination AI Extract (VIC/SA/ACT/NT/TAS/WA) ─────
+function BulkStateExtractCard({ headers, onAfterCommit }) {
+  const [state, setState] = useState('VIC');
+  const [sourceUrl, setSourceUrl] = useState('');
+  const [rawText, setRawText] = useState('');
+  const [preview, setPreview] = useState(null);
+  const [previewing, setPreviewing] = useState(false);
+  const [committing, setCommitting] = useState(false);
+  const [commitResult, setCommitResult] = useState(null);
+
+  const runPreview = async () => {
+    if (!state || !rawText) return;
+    setPreviewing(true); setPreview(null); setCommitResult(null);
+    try {
+      const r = await axios.post(`${API}/anz-intel/ai-extract-state-bulk/preview`, {
+        state, source_url: sourceUrl, raw_text: rawText,
+      }, { headers });
+      setPreview(r.data);
+    } catch (e) {
+      setPreview({ error: e.response?.data?.detail || String(e) });
+    }
+    setPreviewing(false);
+  };
+
+  const runCommit = async () => {
+    if (!preview?.records?.length) return;
+    if (!window.confirm(`Sir, confirm — ${state} state nomination tag honga ${preview.matched_count} matched records par. Proceed?`)) return;
+    setCommitting(true); setCommitResult(null);
+    try {
+      const r = await axios.post(`${API}/anz-intel/ai-extract-state-bulk/commit`, {
+        state, source_url: sourceUrl, records: preview.records,
+      }, { headers });
+      setCommitResult(r.data);
+      if (onAfterCommit) await onAfterCommit();
+    } catch (e) {
+      setCommitResult({ error: e.response?.data?.detail || String(e) });
+    }
+    setCommitting(false);
+  };
+
+  return (
+    <div className="rounded-xl border bg-white p-4" style={{ borderColor: C.border }} data-testid="bulk-state-extract-card">
+      <div className="mb-3">
+        <h3 className="text-base font-bold flex items-center gap-2" style={{ color: C.ink }}>
+          <Sparkles className="h-4 w-4" style={{ color: C.gold }} />
+          Bulk State Nomination AI Extract (VIC · SA · ACT · NT · TAS · WA)
+        </h3>
+        <p className="text-xs mt-1" style={{ color: C.body }}>
+          Aap official state migration site (VIC / SA / ACT / NT / TAS / WA) ka content paste karein.
+          AI saare occupations + 190/491 eligibility extract karke matched records par tag kar dega — including 4-digit unit-group expansion.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+        <div>
+          <label className="text-[10px] uppercase font-bold" style={{ color: C.muted }}>State</label>
+          <select
+            value={state}
+            onChange={(e) => setState(e.target.value)}
+            className="w-full px-3 py-2 rounded border text-sm font-mono"
+            style={{ borderColor: C.border }}
+            data-testid="bulk-state-select"
+          >
+            {['VIC', 'SA', 'ACT', 'NT', 'TAS', 'WA', 'NSW', 'QLD'].map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+        <div className="md:col-span-2">
+          <label className="text-[10px] uppercase font-bold" style={{ color: C.muted }}>Official Source URL (for audit)</label>
+          <input
+            type="text"
+            value={sourceUrl}
+            onChange={(e) => setSourceUrl(e.target.value)}
+            placeholder="https://liveinmelbourne.vic.gov.au/migrate"
+            className="w-full px-3 py-2 rounded border text-sm"
+            style={{ borderColor: C.border }}
+            data-testid="bulk-state-source"
+          />
+        </div>
+      </div>
+
+      <div className="mb-3">
+        <label className="text-[10px] uppercase font-bold" style={{ color: C.muted }}>Raw text from official site</label>
+        <textarea
+          value={rawText}
+          onChange={(e) => setRawText(e.target.value)}
+          placeholder="Paste the full occupation list page content here (e.g., 'Software Engineer 261313 - eligible for 190 and 491 - high demand...')"
+          className="w-full px-3 py-2 rounded border text-xs font-mono"
+          style={{ borderColor: C.border, minHeight: 160 }}
+          data-testid="bulk-state-raw"
+        />
+        <p className="text-[10px] mt-1" style={{ color: C.muted }}>{rawText.length} chars · max 12000 sent to AI</p>
+      </div>
+
+      <button
+        onClick={runPreview}
+        disabled={!rawText || previewing}
+        className="px-4 py-2 rounded-md text-xs font-bold flex items-center gap-2 disabled:opacity-50"
+        style={{ background: C.teal, color: '#fff' }}
+        data-testid="bulk-state-preview-btn"
+      >
+        {previewing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+        {previewing ? 'AI extracting…' : 'AI Extract Preview'}
+      </button>
+
+      {preview && !preview.error && (
+        <div className="mt-4 p-3 rounded-md" style={{ background: C.bg, border: `1px solid ${C.tealWash2}` }} data-testid="bulk-state-preview-result">
+          <p className="text-xs font-bold uppercase mb-2" style={{ color: C.tealDeep }}>Bulk Extract Preview · {preview.state}</p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+            <PreviewStat icon={Database}      label="Total extracted"      value={preview.total_extracted} tone="teal" />
+            <PreviewStat icon={CheckCircle2}  label="Matched in DB"         value={preview.matched_count}   tone="gold" />
+            <PreviewStat icon={AlertTriangle} label="Unmatched"             value={preview.unmatched_count} tone="orange" />
+            <PreviewStat icon={ArrowRight}    label="4-digit expansions"    value={preview.unit_group_expansions?.length || 0} tone="teal" />
+          </div>
+          {preview.records?.length > 0 && (
+            <div className="space-y-1">
+              <p className="text-xs font-bold" style={{ color: C.tealDeep }}>Matched records (first 10):</p>
+              {preview.records.slice(0, 10).map((r, i) => (
+                <div key={i} className="text-xs flex flex-wrap gap-2 items-baseline">
+                  <span className="font-mono font-bold" style={{ color: C.tealDeep }}>
+                    {r.matched_code || r.matched_unit_group}
+                  </span>
+                  <span style={{ color: C.ink }}>{r.title}</span>
+                  {r.sc190 && <Badge style={{ background: C.tealWash2, color: C.tealDeep, fontSize: 9 }}>190</Badge>}
+                  {r.sc491 && <Badge style={{ background: C.goldWash, color: C.orangeDeep, fontSize: 9 }}>491</Badge>}
+                  {r.demand && <span className="text-[10px]" style={{ color: C.muted }}>· {r.demand}</span>}
+                  {r.match_type === '4_digit_expanded' && <span className="text-[10px]" style={{ color: C.orange }}>· expand to {r.child_count}</span>}
+                </div>
+              ))}
+            </div>
+          )}
+          <button
+            onClick={runCommit}
+            disabled={committing || preview.matched_count === 0}
+            className="mt-3 px-4 py-2 rounded-md text-xs font-bold flex items-center gap-2 disabled:opacity-50"
+            style={{ background: C.teal, color: '#fff' }}
+            data-testid="bulk-state-commit-btn"
+          >
+            {committing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+            Commit — Tag {preview.matched_count} records with {state} nomination
+          </button>
+        </div>
+      )}
+      {preview?.error && (
+        <div className="mt-3 p-3 rounded-md" style={{ background: C.redWash, border: '1px solid #FCA5A5' }}>
+          <p className="text-sm font-bold" style={{ color: C.red }}>Preview failed</p>
+          <p className="text-xs mt-1" style={{ color: C.body }}>{preview.error}</p>
+        </div>
+      )}
+      {commitResult && !commitResult.error && (
+        <div className="mt-3 p-3 rounded-md" style={{ background: C.tealWash, border: `1px solid ${C.tealWash2}` }} data-testid="bulk-state-commit-result">
+          <p className="text-sm font-bold" style={{ color: C.tealDeep }}>
+            <CheckCircle2 className="h-4 w-4 inline mr-1" />
+            {commitResult.updates_6_digit_exact} exact + {commitResult.updates_4_digit_expanded} via 4-digit expansion · {commitResult.skipped_verified} verified preserved
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+// ─── Phase 9.6 — DAMA / ILA PDF Upload ──────────────────────────────────────
+function DamaIlaPdfCard({ headers, onAfterCommit }) {
+  const [targetType, setTargetType] = useState('dama');
+  const [targetId, setTargetId] = useState('nt');
+  const [file, setFile] = useState(null);
+  const [preview, setPreview] = useState(null);
+  const [previewing, setPreviewing] = useState(false);
+  const [selectedCodes, setSelectedCodes] = useState({});
+  const [committing, setCommitting] = useState(false);
+  const [commitResult, setCommitResult] = useState(null);
+
+  const damaOptions = [
+    { id: 'nt', name: 'NT — Northern Territory' },
+    { id: 'goldfields', name: 'WA — Goldfields' },
+    { id: 'fnq', name: 'QLD — Far North Queensland' },
+    { id: 'east_kimberley', name: 'WA — East Kimberley' },
+    { id: 'pilbara', name: 'WA — Pilbara' },
+    { id: 'sw_wa', name: 'WA — South West' },
+    { id: 'orana_nsw', name: 'NSW — Orana' },
+    { id: 'adelaide_tech', name: 'SA — Adelaide Tech & Innovation' },
+    { id: 'sa_regional', name: 'SA — Regional' },
+    { id: 'townsville', name: 'QLD — Townsville' },
+    { id: 'hobart_city', name: 'TAS — Hobart City' },
+    { id: 'great_south_coast', name: 'VIC — Great South Coast' },
+    { id: 'aerotropolis', name: 'NSW — Western Sydney Aerotropolis' },
+  ];
+  const ilaOptions = [
+    { id: 'restaurant', name: 'Restaurant (Premium Dining)' },
+    { id: 'meat', name: 'Meat Industry' },
+    { id: 'aged_care', name: 'Aged Care' },
+    { id: 'fishing', name: 'Fishing' },
+  ];
+  const opts = targetType === 'dama' ? damaOptions : ilaOptions;
+
+  const runPreview = async () => {
+    if (!file) return;
+    setPreviewing(true); setPreview(null); setCommitResult(null); setSelectedCodes({});
+    const fd = new FormData();
+    fd.append('file', file);
+    try {
+      const r = await axios.post(
+        `${API}/anz-intel/dama-pdf/preview?target_id=${targetId}&target_type=${targetType}`,
+        fd, { headers: { ...headers, 'Content-Type': 'multipart/form-data' } }
+      );
+      setPreview(r.data);
+      // Pre-select all NOT already tagged
+      const initial = {};
+      for (const m of (r.data.matched_in_db || [])) {
+        initial[m.code] = !m.already_tagged_with_target;
+      }
+      setSelectedCodes(initial);
+    } catch (e) {
+      setPreview({ error: e.response?.data?.detail || String(e) });
+    }
+    setPreviewing(false);
+  };
+
+  const runCommit = async () => {
+    const codes = Object.entries(selectedCodes).filter(([_, v]) => v).map(([k]) => k);
+    if (!codes.length) return;
+    if (!window.confirm(`Sir, confirm — ${codes.length} codes ko ${targetType.toUpperCase()} "${targetId}" se tag karein. Proceed?`)) return;
+    setCommitting(true); setCommitResult(null);
+    try {
+      const r = await axios.post(`${API}/anz-intel/dama-pdf/commit`, {
+        target_id: targetId, target_type: targetType, codes,
+        source: preview?.filename || 'uploaded.pdf',
+      }, { headers });
+      setCommitResult(r.data);
+      if (onAfterCommit) await onAfterCommit();
+    } catch (e) {
+      setCommitResult({ error: e.response?.data?.detail || String(e) });
+    }
+    setCommitting(false);
+  };
+
+  return (
+    <div className="rounded-xl border bg-white p-4" style={{ borderColor: C.border }} data-testid="dama-ila-pdf-card">
+      <div className="mb-3">
+        <h3 className="text-base font-bold flex items-center gap-2" style={{ color: C.ink }}>
+          <FileText className="h-4 w-4" style={{ color: C.teal }} />DAMA · ILA PDF Upload &amp; Extract
+        </h3>
+        <p className="text-xs mt-1" style={{ color: C.body }}>
+          Official DAMA / ILA PDF agreement upload karein. PDF se 6-digit ANZSCO codes extract honge.
+          Aap preview dekhke select karein, fir matched DAMA / ILA ke saath tag kar dein.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+        <div>
+          <label className="text-[10px] uppercase font-bold" style={{ color: C.muted }}>Type</label>
+          <select
+            value={targetType}
+            onChange={(e) => { setTargetType(e.target.value); setTargetId(e.target.value === 'dama' ? 'nt' : 'restaurant'); }}
+            className="w-full px-3 py-2 rounded border text-sm"
+            style={{ borderColor: C.border }}
+            data-testid="dama-ila-type"
+          >
+            <option value="dama">DAMA (13 options)</option>
+            <option value="ila">ILA (4 industries)</option>
+          </select>
+        </div>
+        <div className="md:col-span-2">
+          <label className="text-[10px] uppercase font-bold" style={{ color: C.muted }}>{targetType.toUpperCase()} Agreement</label>
+          <select
+            value={targetId}
+            onChange={(e) => setTargetId(e.target.value)}
+            className="w-full px-3 py-2 rounded border text-sm"
+            style={{ borderColor: C.border }}
+            data-testid="dama-ila-target-id"
+          >
+            {opts.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+          </select>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3 flex-wrap mb-2">
+        <input
+          type="file"
+          accept=".pdf,application/pdf"
+          onChange={(e) => setFile(e.target.files?.[0] || null)}
+          className="text-xs"
+          data-testid="dama-ila-file"
+        />
+        <button
+          onClick={runPreview}
+          disabled={!file || previewing}
+          className="px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 disabled:opacity-50"
+          style={{ background: C.teal, color: '#fff' }}
+          data-testid="dama-ila-preview-btn"
+        >
+          {previewing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+          Extract Codes
+        </button>
+      </div>
+
+      {preview && !preview.error && (
+        <div className="mt-3 p-3 rounded-md" style={{ background: C.bg, border: `1px solid ${C.tealWash2}` }} data-testid="dama-ila-preview-result">
+          <p className="text-xs font-bold uppercase mb-2" style={{ color: C.tealDeep }}>PDF Preview · {preview.target_type}/{preview.target_id}</p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+            <PreviewStat icon={Database}      label="PDF pages"            value={preview.pdf_pages} tone="teal" />
+            <PreviewStat icon={Database}      label="Codes extracted"      value={preview.total_codes_extracted} tone="teal" />
+            <PreviewStat icon={CheckCircle2}  label="Matched in DB"        value={preview.matched_in_db?.length || 0} tone="gold" />
+            <PreviewStat icon={AlertTriangle} label="Unmatched codes"      value={preview.unmatched_codes?.length || 0} tone="orange" />
+          </div>
+          {preview.matched_in_db?.length > 0 && (
+            <div className="space-y-1 max-h-72 overflow-y-auto p-2 rounded" style={{ background: '#fff' }}>
+              {preview.matched_in_db.map((m, i) => (
+                <label key={i} className="flex items-center gap-2 text-xs cursor-pointer hover:bg-slate-50 p-1 rounded" data-testid={`dama-ila-code-${m.code}`}>
+                  <input
+                    type="checkbox"
+                    checked={!!selectedCodes[m.code]}
+                    onChange={(e) => setSelectedCodes(prev => ({ ...prev, [m.code]: e.target.checked }))}
+                  />
+                  <span className="font-mono font-bold" style={{ color: C.tealDeep }}>{m.code}</span>
+                  <span style={{ color: C.ink }}>{m.title}</span>
+                  {m.already_tagged_with_target && (
+                    <Badge style={{ background: C.goldWash, color: C.orangeDeep, fontSize: 9 }}>already tagged</Badge>
+                  )}
+                  {m.status === 'verified' && (
+                    <Badge style={{ background: C.redWash, color: C.red, fontSize: 9 }}>verified (skip)</Badge>
+                  )}
+                </label>
+              ))}
+            </div>
+          )}
+          <button
+            onClick={runCommit}
+            disabled={committing || Object.values(selectedCodes).every(v => !v)}
+            className="mt-3 px-4 py-2 rounded-md text-xs font-bold flex items-center gap-2 disabled:opacity-50"
+            style={{ background: C.teal, color: '#fff' }}
+            data-testid="dama-ila-commit-btn"
+          >
+            {committing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+            Tag {Object.values(selectedCodes).filter(v => v).length} selected codes
+          </button>
+        </div>
+      )}
+      {preview?.error && (
+        <div className="mt-3 p-3 rounded-md" style={{ background: C.redWash, border: '1px solid #FCA5A5' }}>
+          <p className="text-sm font-bold" style={{ color: C.red }}>Preview failed</p>
+          <p className="text-xs mt-1" style={{ color: C.body }}>{preview.error}</p>
+        </div>
+      )}
+      {commitResult && !commitResult.error && (
+        <div className="mt-3 p-3 rounded-md" style={{ background: C.tealWash, border: `1px solid ${C.tealWash2}` }} data-testid="dama-ila-commit-result">
+          <p className="text-sm font-bold" style={{ color: C.tealDeep }}>
+            <CheckCircle2 className="h-4 w-4 inline mr-1" />
+            Tagged {commitResult.updated} records · {commitResult.skipped_verified} verified preserved
           </p>
         </div>
       )}
