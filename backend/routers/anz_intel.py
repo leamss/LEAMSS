@@ -679,6 +679,44 @@ async def list_scrapers(current_user: dict = Depends(get_current_user)):
                 "run_endpoint": "/api/anz-intel/scrapers/vetassess-groups/run",
                 "note": "Site is JS-driven — this seed covers top occupations. Extend via CSV Upload or AI-Extract.",
             },
+            {
+                "id": "min_invitation_points",
+                "name": "SkillSelect — Min Invitation Points",
+                "source_url": "https://immi.homeaffairs.gov.au/visas/working-in-australia/skillselect/previous-rounds",
+                "what_it_provides": [
+                    "Latest confirmed minimum points for 189 + 491 invitations (2025-26 program year)",
+                    "Tier-1 priority Health/Education cutoffs (often 25+ points lower)",
+                    "Singleton kb_settings doc consumable by the wizard",
+                ],
+                "status": "ready",
+                "run_endpoint": "/api/anz-intel/scrapers/min-invitation-points/run",
+                "note": "Round results are in PDFs — this seed captures median cutoffs. Admin can edit via CSV/AI-Extract.",
+            },
+            {
+                "id": "dama",
+                "name": "DAMA — Designated Area Migration Agreements (13 current)",
+                "source_url": "https://immi.homeaffairs.gov.au/visas/employing-and-sponsoring-someone/labour-agreements/types-of-labour-agreements/designated-area-migration-agreements-(dama)",
+                "what_it_provides": [
+                    "All 13 current DAMAs with region + state + validity",
+                    "Concessions (age, English, salary) per DAMA",
+                    "Sample occupation tagging on occupation_master",
+                ],
+                "status": "ready",
+                "run_endpoint": "/api/anz-intel/scrapers/dama/run",
+                "note": "Detailed per-occupation lists are in PDF agreements — admin extends via CSV/AI-Extract.",
+            },
+            {
+                "id": "ila",
+                "name": "ILA — Industry Labour Agreements (4 main industries)",
+                "source_url": "https://immi.homeaffairs.gov.au/visas/employing-and-sponsoring-someone/labour-agreements/types-of-labour-agreements/industry-labour-agreements",
+                "what_it_provides": [
+                    "Restaurant (Premium Dining), Meat, Aged Care, Fishing industries",
+                    "Specific occupation codes per industry agreement",
+                    "Visa subclasses + concessions (English/salary/PR pathway)",
+                ],
+                "status": "ready",
+                "run_endpoint": "/api/anz-intel/scrapers/ila/run",
+            },
         ]
     }
 
@@ -738,6 +776,60 @@ async def run_vetassess_groups(
         return result
     except Exception as e:
         raise HTTPException(500, f"VETASSESS seed failed: {e}")
+
+
+# ─── Step 4e — Min Invitation Points Seed (Phase 9.5) ───────────────────────
+@router.post("/scrapers/min-invitation-points/run")
+async def run_min_invitation_points(
+    dry_run: bool = Query(True),
+    current_user: dict = Depends(get_current_user),
+):
+    """Seed SkillSelect minimum invitation points (latest confirmed cutoffs)."""
+    if not _is_admin(current_user):
+        raise HTTPException(403, "Admin only")
+    try:
+        from core.scrapers import home_affairs_supplementary as supp
+        return await supp.apply_min_invitation_points(
+            db, dry_run=dry_run, actor=current_user.get("id") or "admin"
+        )
+    except Exception as e:
+        raise HTTPException(500, f"Min invitation points seed failed: {e}")
+
+
+# ─── Step 4f — DAMA Seed (Phase 9.5) ────────────────────────────────────────
+@router.post("/scrapers/dama/run")
+async def run_dama(
+    dry_run: bool = Query(True),
+    current_user: dict = Depends(get_current_user),
+):
+    """Seed 13 current Designated Area Migration Agreements with their region + concessions."""
+    if not _is_admin(current_user):
+        raise HTTPException(403, "Admin only")
+    try:
+        from core.scrapers import home_affairs_supplementary as supp
+        return await supp.apply_dama_to_db(
+            db, dry_run=dry_run, actor=current_user.get("id") or "admin"
+        )
+    except Exception as e:
+        raise HTTPException(500, f"DAMA seed failed: {e}")
+
+
+# ─── Step 4g — ILA Seed (Phase 9.5) ─────────────────────────────────────────
+@router.post("/scrapers/ila/run")
+async def run_ila(
+    dry_run: bool = Query(True),
+    current_user: dict = Depends(get_current_user),
+):
+    """Seed 4 main Industry Labour Agreements (Restaurant/Meat/Aged Care/Fishing)."""
+    if not _is_admin(current_user):
+        raise HTTPException(403, "Admin only")
+    try:
+        from core.scrapers import home_affairs_supplementary as supp
+        return await supp.apply_ila_to_db(
+            db, dry_run=dry_run, actor=current_user.get("id") or "admin"
+        )
+    except Exception as e:
+        raise HTTPException(500, f"ILA seed failed: {e}")
 
 
 # ─── Step 5 — Manual Tools (Bulk CSV Upload + AI Paste-Extract) ─────────────
@@ -1151,11 +1243,14 @@ async def verify_in_atlas(
         "classification_dual_code": d.get("classification_dual_code") or {},
         "verification_status": d.get("status") or "draft",
         "skillselect_tier": tier_meta,
+        "min_invitation_points": d.get("min_invitation_points") or {},
         "assessing_authority": d.get("assessing_authority") or {},
         "vetassess": vetassess,
         "visa_eligibility": visas,
         "pathway_lists": (d.get("pathway_list") or "").split(";") if d.get("pathway_list") else [],
         "state_nomination_matrix": state_matrix,
+        "dama_eligibility": d.get("dama_eligibility") or [],
+        "ila_eligibility": d.get("ila_eligibility") or [],
         "tasks_count": len(d.get("tasks") or []),
         "atlas_url": "/admin/anz-intel/audit",
         "infosheet_pdf": f"/api/anz-intel/occupation/{code}/infosheet.pdf",

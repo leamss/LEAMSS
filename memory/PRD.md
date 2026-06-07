@@ -5,6 +5,61 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 
 > **📌 Update (Feb 13, 2026):** `CHANGELOG.md` now tracks all completed phases (incl. **Phase 3A — Attendance & Leave** with full company policies). `ROADMAP.md` lists prioritized backlog. This PRD remains the static reference for original requirements.
 
+### 🚀 Phase 9.5 — Min Invitation Points + DAMA + ILA Scrapers (Jun 7, 2026)
+**Status:** ✅ COMPLETE — 9/9 new pytest PASS · 12/12 existing scrapers + verify endpoint tests PASS · UI verified via screenshots.
+
+Sir's ask: "Min Invitation Points scraper + DAMA + ILA scrapers banao".
+
+Each Home Affairs source publishes data behind PDFs or JS-driven UIs (same constraint as VETASSESS). Pragmatic curated-seed approach used, identical to vetassess_groups.py — extensible via existing CSV/AI-Extract tools.
+
+**1. SkillSelect Min Invitation Points (`/api/anz-intel/scrapers/min-invitation-points/run`)**
+- Source: https://immi.homeaffairs.gov.au/visas/working-in-australia/skillselect/previous-rounds
+- Latest confirmed cutoffs (2025-26):
+  - Subclass 189 (standard) = **90 pts**
+  - Subclass 189 (Health/Education priority Tier 1) = **65 pts**
+  - Subclass 491 (Family-sponsored) = **65 pts**
+- Stored in two places: `kb_settings._id='min_invitation_points'` singleton + `occupation_master.min_invitation_points` on all Tier-1/Tier-2 records
+- 370 Tier-1/Tier-2 records tagged with `min_invitation_points` payload
+
+**2. DAMA — Designated Area Migration Agreements (`/api/anz-intel/scrapers/dama/run`)**
+- Source: https://immi.homeaffairs.gov.au/visas/employing-and-sponsoring-someone/labour-agreements/types-of-labour-agreements/designated-area-migration-agreements-(dama)
+- **13 current DAMAs** seeded: NT, Goldfields, FNQ, East Kimberley, Pilbara, SW WA, Orana NSW, Adelaide Tech, SA Regional, Townsville, Hobart City, Great South Coast, Western Sydney Aerotropolis
+- Each DAMA stores: region, state, valid_until, concessions (age 55, English IELTS 5.0, salary), sample occupations
+- 15 occupations tagged across DAMA regions (e.g., 263111 Network Engineer → Adelaide Tech + Aerotropolis)
+
+**3. ILA — Industry Labour Agreements (`/api/anz-intel/scrapers/ila/run`)**
+- Source: https://immi.homeaffairs.gov.au/visas/employing-and-sponsoring-someone/labour-agreements/types-of-labour-agreements/industry-labour-agreements
+- **4 industries** seeded:
+  - **Restaurant** (Premium Dining): Chef · Cook · Café/Restaurant Manager · Trade Waiter
+  - **Meat**: Skilled Meat Worker · Meat Boner and Slicer
+  - **Aged Care**: Nursing Support · Personal Care Assistant · Aged/Disabled Carer
+  - **Fishing**: Deck Hand · Fishing Hand · Ship's Master · Engineer · Officer · Seafood Process
+- Each ILA stores: industry name, visa subclasses (482/186/494), concessions (PR pathway, English, salary, union MoU)
+- 9 occupations tagged with ILA eligibility
+
+**Atlas Verify Card UI extended (`pages/sales/components/AtlasVerifyCard.jsx`)**
+3 new sections rendered for sales reps:
+- 🎯 SkillSelect Min Invitation Points — large numeric cards for 189 + 491(family) cutoffs with program year footnote
+- 🗺️ DAMA Eligibility — region cards with state badge, valid-until date, concession pills
+- 🏭 ILA Eligibility — industry cards with visa subclass badges + concession pills
+
+**Backend endpoints:**
+- `GET /api/anz-intel/scrapers/list` now returns 7 ready scrapers (was 4)
+- `GET /api/anz-intel/verify/{code}` returns 3 new fields: `min_invitation_points`, `dama_eligibility`, `ila_eligibility`
+- 3 new POST endpoints under `/scrapers/{min-invitation-points,dama,ila}/run`
+
+**Tests (`tests/test_phase95_dama_ila_invitation.py`):**
+1. `test_scrapers_list_has_seven` — `/scrapers/list` exposes all 7 ready scrapers
+2. `test_min_invitation_points_dry_run` — cutoffs match expected values
+3. `test_min_invitation_points_idempotency` — 2nd run does 0 updates
+4. `test_dama_dry_run` — 13 DAMAs registered with required fields
+5. `test_dama_tags_aerotropolis_for_software_engineer_unit_group` — 263111 gets Aerotropolis after commit
+6. `test_ila_dry_run` — 4 industries (restaurant/meat/aged_care/fishing)
+7. `test_verify_returns_new_fields` — Atlas verify endpoint includes all 3 new fields
+8. `test_partner_blocked_from_dama` — RBAC enforced
+9. `test_partner_can_still_read_verify` — sales can read enriched data
+
+
 ### 🎯 Phase 9.4 — Smart Sales Helper Calculator P0 Bug Fixes (Jun 7, 2026)
 **Status:** ✅ COMPLETE — 5/5 P0 regression PASS + 54/54 calculator unit tests PASS. UI verified via live screenshot.
 

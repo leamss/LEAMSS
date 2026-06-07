@@ -16,7 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Loader2, Award, CheckCircle2, XCircle, MapPin, Building2,
-  ShieldCheck, FileDown, ExternalLink, X,
+  ShieldCheck, FileDown, ExternalLink, X, Target, Factory, Briefcase,
 } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -285,6 +285,114 @@ export default function AtlasVerifyCard({ code, headers, onClose }) {
                 })}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* Phase 9.5 — Min Invitation Points */}
+        {data.min_invitation_points && Object.keys(data.min_invitation_points).length > 0 && (
+          <div className="rounded-lg border p-3" style={{ background: C.goldWash, borderColor: C.goldLight }}
+               data-testid="atlas-min-invitation-points">
+            <p className="text-[10px] uppercase font-bold tracking-wider mb-2 flex items-center gap-1"
+               style={{ color: C.orangeDeep, letterSpacing: '0.1em' }}>
+              <Target className="h-3 w-3" />SkillSelect Minimum Invitation Points
+              <span className="ml-auto text-[9px] opacity-70 normal-case font-normal">
+                As of {data.min_invitation_points.as_of_program_year}
+              </span>
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="text-center p-2 rounded" style={{ background: '#fff' }}>
+                <p className="text-[10px] uppercase font-bold" style={{ color: C.muted, letterSpacing: '0.08em' }}>Subclass 189</p>
+                <p className="text-2xl font-bold leading-none mt-1" style={{ color: C.orangeDeep, fontFamily: "'Playfair Display', serif" }}>
+                  {data.min_invitation_points['189'] || '—'}
+                </p>
+                <p className="text-[9px] mt-0.5" style={{ color: C.muted }}>points minimum</p>
+              </div>
+              <div className="text-center p-2 rounded" style={{ background: '#fff' }}>
+                <p className="text-[10px] uppercase font-bold" style={{ color: C.muted, letterSpacing: '0.08em' }}>Subclass 491 (Family)</p>
+                <p className="text-2xl font-bold leading-none mt-1" style={{ color: C.orangeDeep, fontFamily: "'Playfair Display', serif" }}>
+                  {data.min_invitation_points['491_family'] || '—'}
+                </p>
+                <p className="text-[9px] mt-0.5" style={{ color: C.muted }}>points minimum</p>
+              </div>
+            </div>
+            <p className="text-[9px] italic mt-2" style={{ color: C.body }}>
+              State-nominated 491 has separate cutoffs (see State Nomination above).
+            </p>
+          </div>
+        )}
+
+        {/* Phase 9.5 — DAMA eligibility */}
+        {data.dama_eligibility && data.dama_eligibility.length > 0 && (
+          <div className="rounded-lg border p-3" style={{ background: C.tealWash, borderColor: C.tealWash2 }}
+               data-testid="atlas-dama-eligibility">
+            <p className="text-[10px] uppercase font-bold tracking-wider mb-2 flex items-center gap-1"
+               style={{ color: C.tealDeep, letterSpacing: '0.1em' }}>
+              <MapPin className="h-3 w-3" />DAMA — Designated Area Migration Agreements
+              <span className="ml-auto text-[9px] opacity-70 normal-case font-normal">{data.dama_eligibility.length} match</span>
+            </p>
+            <div className="space-y-1.5">
+              {data.dama_eligibility.slice(0, 4).map((dama, i) => (
+                <div key={i} className="p-2 rounded text-xs flex items-start gap-2"
+                     style={{ background: '#fff', border: `1px solid ${C.tealWash2}` }}
+                     data-testid={`atlas-dama-${dama.id || i}`}>
+                  <Badge style={{ background: C.teal, color: '#fff', fontSize: 9 }}>{dama.state}</Badge>
+                  <div className="flex-1">
+                    <p className="font-bold" style={{ color: C.ink }}>{dama.region}</p>
+                    <p className="text-[10px]" style={{ color: C.muted }}>Valid until {dama.valid_until}</p>
+                    {dama.concessions && dama.concessions.length > 0 && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {dama.concessions.slice(0, 3).map((c, j) => (
+                          <span key={j} className="text-[9px] px-1.5 py-0.5 rounded"
+                                style={{ background: C.tealWash2, color: C.tealDeep }}>{c}</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {data.dama_eligibility.length > 4 && (
+                <p className="text-[10px] italic text-center" style={{ color: C.muted }}>
+                  +{data.dama_eligibility.length - 4} more DAMAs available
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Phase 9.5 — ILA eligibility */}
+        {data.ila_eligibility && data.ila_eligibility.length > 0 && (
+          <div className="rounded-lg border p-3" style={{ background: C.orangeWash, borderColor: C.orangeWash2 }}
+               data-testid="atlas-ila-eligibility">
+            <p className="text-[10px] uppercase font-bold tracking-wider mb-2 flex items-center gap-1"
+               style={{ color: C.orangeDeep, letterSpacing: '0.1em' }}>
+              <Factory className="h-3 w-3" />ILA — Industry Labour Agreements
+            </p>
+            <div className="space-y-1.5">
+              {data.ila_eligibility.map((ila, i) => (
+                <div key={i} className="p-2 rounded text-xs flex items-start gap-2"
+                     style={{ background: '#fff', border: `1px solid ${C.orangeWash2}` }}
+                     data-testid={`atlas-ila-${ila.id || i}`}>
+                  <Briefcase className="h-3.5 w-3.5 mt-0.5" style={{ color: C.orange }} />
+                  <div className="flex-1">
+                    <p className="font-bold" style={{ color: C.ink }}>{ila.industry}</p>
+                    <div className="mt-0.5 flex flex-wrap gap-1 items-center">
+                      <span className="text-[9px]" style={{ color: C.muted }}>Visa:</span>
+                      {(ila.visa_subclasses || []).map(v => (
+                        <Badge key={v} style={{ background: C.orange, color: '#fff', fontSize: 9 }}>{v}</Badge>
+                      ))}
+                    </div>
+                    {ila.concessions && ila.concessions.length > 0 && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {ila.concessions.slice(0, 3).map((c, j) => (
+                          <span key={j} className="text-[9px] px-1.5 py-0.5 rounded"
+                                style={{ background: C.orangeWash2, color: C.orangeDeep }}>{c}</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

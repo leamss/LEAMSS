@@ -527,10 +527,13 @@ function ScrapersTab({ headers, onAfterCommit }) {
 
   const runEndpointForId = (id) => {
     const mapping = {
-      home_affairs:       '/anz-intel/scrapers/home-affairs/run',
-      state_nominations:  '/anz-intel/scrapers/state-nominations/run',
-      skillselect_tiers:  '/anz-intel/scrapers/skillselect-tiers/run',
-      vetassess_groups:   '/anz-intel/scrapers/vetassess-groups/run',
+      home_affairs:          '/anz-intel/scrapers/home-affairs/run',
+      state_nominations:     '/anz-intel/scrapers/state-nominations/run',
+      skillselect_tiers:     '/anz-intel/scrapers/skillselect-tiers/run',
+      vetassess_groups:      '/anz-intel/scrapers/vetassess-groups/run',
+      min_invitation_points: '/anz-intel/scrapers/min-invitation-points/run',
+      dama:                  '/anz-intel/scrapers/dama/run',
+      ila:                   '/anz-intel/scrapers/ila/run',
     };
     return mapping[id];
   };
@@ -554,10 +557,13 @@ function ScrapersTab({ headers, onAfterCommit }) {
     const dry = dryRunByScraper[id];
     if (!dry) return;
     const commitMsgMap = {
-      home_affairs:      `${dry.ha_codes_with_changes} records enrich honge`,
-      state_nominations: `${dry.counts?.total_unique_docs_touched} records me state nomination data add hoga (NSW + QLD)`,
-      skillselect_tiers: `${dry.to_update} records me SkillSelect Tier (1-4) assign hoga`,
-      vetassess_groups:  `${dry.to_update} records me VETASSESS Group (A-F) seed hoga`,
+      home_affairs:          `${dry.ha_codes_with_changes} records enrich honge`,
+      state_nominations:     `${dry.counts?.total_unique_docs_touched} records me state nomination data add hoga (NSW + QLD)`,
+      skillselect_tiers:     `${dry.to_update} records me SkillSelect Tier (1-4) assign hoga`,
+      vetassess_groups:      `${dry.to_update} records me VETASSESS Group (A-F) seed hoga`,
+      min_invitation_points: `${dry.counts?.tier_1_codes_tagged} priority-tier records me invitation cutoffs tag honge`,
+      dama:                  `${dry.counts?.occupations_tagged} occupations ko ${dry.total_damas} DAMAs ke saath tag karenge`,
+      ila:                   `${dry.counts?.occupations_tagged} occupations ko ${dry.total_ilas} Industry Labour Agreements ke saath tag karenge`,
     };
     if (!window.confirm(`Sir, confirm — ${commitMsgMap[id]}. Existing verified records preserved rahenge. Proceed?`)) return;
 
@@ -729,6 +735,43 @@ function ScraperDryRunPreview({ id, dry, running, onCommit }) {
     commitLabel = `Commit — Seed ${dry.to_update} records`;
     samples = (dry.sample_updates || []).map(u => ({
       code: u.code, title: u.title, updated_fields: [u.group],
+    }));
+  } else if (id === 'min_invitation_points') {
+    const c = dry.counts || {};
+    const cuts = dry.global_cutoffs || {};
+    stats = [
+      { icon: Award, label: '189 min (standard)',          value: cuts['189']?.min_points,                  tone: 'teal' },
+      { icon: Award, label: '189 priority (Health/Edu)',   value: cuts['189_priority_health']?.min_points,  tone: 'gold' },
+      { icon: Award, label: '491 family-sponsored',        value: cuts['491_family']?.min_points,           tone: 'gold' },
+      { icon: ArrowRight, label: 'Tier 1+2 records tagged',value: c.tier_1_codes_tagged,                    tone: 'teal' },
+    ];
+    commitLabel = `Commit — Tag ${c.tier_1_codes_tagged} priority records`;
+    samples = (dry.sample_updates || []).map(u => ({
+      code: u.code, title: u.title, updated_fields: [`${u.tier}: ${u.min_189}pts`],
+    }));
+  } else if (id === 'dama') {
+    const c = dry.counts || {};
+    stats = [
+      { icon: Database,    label: 'Total DAMAs',             value: dry.total_damas,         tone: 'teal' },
+      { icon: ArrowRight,  label: 'Occupations to tag',      value: c.occupations_tagged,    tone: 'gold' },
+      { icon: CheckCircle2, label: 'Verified preserved',     value: c.skipped_verified,      tone: 'teal' },
+      { icon: AlertTriangle, label: 'Codes not in DB',       value: c.no_match_in_db,        tone: 'orange' },
+    ];
+    commitLabel = `Commit — Tag ${c.occupations_tagged} records`;
+    samples = (dry.damas || []).slice(0, 6).map(d => ({
+      code: d.id, title: d.region, updated_fields: [d.state, `until ${d.valid_until}`],
+    }));
+  } else if (id === 'ila') {
+    const c = dry.counts || {};
+    stats = [
+      { icon: Database,    label: 'Total industries',        value: dry.total_ilas,          tone: 'teal' },
+      { icon: ArrowRight,  label: 'Occupations to tag',      value: c.occupations_tagged,    tone: 'gold' },
+      { icon: CheckCircle2, label: 'Verified preserved',     value: c.skipped_verified,      tone: 'teal' },
+      { icon: AlertTriangle, label: 'Codes not in DB',       value: c.no_match_in_db,        tone: 'orange' },
+    ];
+    commitLabel = `Commit — Tag ${c.occupations_tagged} records`;
+    samples = (dry.ilas || []).map(i => ({
+      code: i.id, title: i.industry, updated_fields: [`${i.occupations_count} occupations`],
     }));
   }
 
