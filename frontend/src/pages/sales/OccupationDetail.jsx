@@ -156,7 +156,9 @@ export default function OccupationDetail() {
               <Card className="p-5" data-testid="overview-state-demand">
                 <h3 className="text-sm font-bold mb-3 flex items-center gap-1"><MapPin className="h-4 w-4 text-indigo-600" />State / Province Demand</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                  {Object.entries(overview.state_demand).map(([st, d]) => {
+                  {Object.entries(overview.state_demand)
+                    .filter(([, d]) => typeof d === 'string' && d)
+                    .map(([st, d]) => {
                     const isHigh = d === 'very_high' || d === 'high';
                     return (
                       <div key={st} className={`p-2 rounded border ${isHigh ? 'bg-emerald-50 border-emerald-200' : d === 'medium' ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-200'}`}>

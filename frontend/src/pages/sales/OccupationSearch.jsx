@@ -328,7 +328,10 @@ export default function OccupationSearch() {
                     <div className="mt-2 flex items-start gap-1">
                       <MapPin className="h-3 w-3 text-slate-400 mt-0.5 flex-shrink-0" />
                       <div className="flex flex-wrap gap-1">
-                        {Object.entries(item.state_demand).slice(0, 4).map(([st, d]) => (
+                        {Object.entries(item.state_demand)
+                          .filter(([, d]) => typeof d === 'string' && d)
+                          .slice(0, 4)
+                          .map(([st, d]) => (
                           <span
                             key={st}
                             className={`text-[9px] px-1.5 py-0.5 rounded ${
