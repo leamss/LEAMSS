@@ -5,6 +5,50 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 
 > **📌 Update (Feb 13, 2026):** `CHANGELOG.md` now tracks all completed phases (incl. **Phase 3A — Attendance & Leave** with full company policies). `ROADMAP.md` lists prioritized backlog. This PRD remains the static reference for original requirements.
 
+### 🔧 Phase 9 Comprehensive Regression Test (Jun 8, 2026)
+**Status:** ✅ **61/61 Phase 9 pytest PASS** · UI smoke verified on Atlas Audit + Calculator Rules Editor.
+
+Sir requested end-to-end Phase 9.1→9.9 regression with Expected-vs-Actual outcomes.
+
+**Bug fix shipped during regression:**
+- `routers/anz_intel.py` audit-summary `TRACKED_FIELDS` had stale Phase 9.5 field names (`latest_invitation_min_points`, `dama_inclusion`, `ila_inclusion`). DB actually stores them as `min_invitation_points`, `dama_eligibility`, `ila_eligibility`. Fixed mapping in `TRACKED_FIELDS`, `_humanize`, `_source_hint`.
+- Result: Field coverage went from "0/0/0" (broken) → **Min Invitation Pts 39.7% · DAMA 1.7% · ILA 1.0%** (correct).
+
+**Test outcome summary:**
+| Phase | Test File | Tests | Status |
+|-------|-----------|-------|--------|
+| 9.1 + 9.2 | test_phase9_scrapers.py | 12 | ✅ PASS |
+| 9.4 | test_phase94_calculator_bugs.py | 5 | ✅ PASS |
+| 9.5 | test_phase95_dama_ila_invitation.py | 9 | ✅ PASS |
+| 9.6 | test_phase96_rules_engine.py | 11 | ✅ PASS |
+| 9.7 | test_phase97_rules_wiring.py | 6 | ✅ PASS |
+| 9.8 | test_phase98_ca_nz_rules.py | 10 | ✅ PASS |
+| 9.9 | test_phase99_edit_history_biometric.py | 8 | ✅ PASS |
+| **TOTAL** | — | **61** | ✅ **100%** |
+
+
+### 🔏 Phase 9.9 — Edit History tab per PA + Biometric E-sign Packet (Jun 8, 2026)
+**Status:** ✅ COMPLETE — 8/8 pytest PASS. Code linted clean.
+
+Sir's ask: "Edit History tab + Biometric E-sign packet for legal disputes."
+
+**Backend changes:**
+- `routers/pre_assessment.py` — NEW `GET /api/pre-assessment/{pa_id}/edit-history` returns aggregated timeline from `audit_logs` + agreement sign events + biometric capture markers.
+- `routers/agreement_templates.py` — `POST /pa-agreements/{aid}/sign` body schema extended with `biometric_packet: Optional[dict]`. Persists to `pa_signatures.biometric_packet`. NEW `GET /pa-agreements/{aid}/signature-forensics` (admin/case_manager only).
+- `routers/proposal_docs.py` — `POST /proposal-docs/{pa_id}/esign` also accepts `biometric_packet`.
+
+**Frontend changes:**
+- `components/SignatureCanvas.jsx` — captures device fingerprint (user-agent, screen, timezone), GPS (optional), drawing path (mouse/touch coords + timestamps), canvas fingerprint hash.
+- `components/pa/PaEditDetailsModal.jsx` — new "Edit History" tab showing chronological audit timeline with actor/action/timestamp/biometric badge.
+- `components/ClientAgreementSigning.jsx` — passes biometric packet to esign endpoint.
+
+**Test coverage:**
+- Edit history returns timeline for known PA + 404 on unknown + partner access scoped to own PA
+- Signature forensics endpoint role-gated (partner blocked, admin 404 on unknown agreement)
+- Schema accepts biometric_packet field (no 422) on both `/pa-agreements/.../sign` and `/proposal-docs/.../esign`
+- Biometric field is optional (backwards compatible with old clients)
+
+
 ### 🌐 Phase 9.8 — CA + NZ Calculators Wired to Rules Engine (Jun 7, 2026)
 **Status:** ✅ COMPLETE — 10/10 new wiring tests PASS · 107/107 total regression PASS · UI verified for all 3 countries.
 

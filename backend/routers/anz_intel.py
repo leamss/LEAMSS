@@ -36,11 +36,11 @@ TRACKED_FIELDS = [
     "skill_assessment_details",# group classification (A/B/C/D/E/F for VETASSESS)
     "visa_pathways",           # 189/190/491/482/186 eligibility
     "state_territory_eligibility",  # NSW/VIC/etc nomination lists
-    "skillselect_tier",        # SkillSelect Tier 1-4 (NEW — not yet populated)
-    "latest_invitation_min_points",  # NEW — from Home Affairs invitation rounds
-    "dama_inclusion",          # NEW — DAMA agreement membership
-    "ila_inclusion",           # NEW — Industry Labour Agreement
-    "classification_dual_code",# NEW — v1.3 ↔ v2022 mapping
+    "skillselect_tier",        # SkillSelect Tier 1-4
+    "min_invitation_points",   # Home Affairs invitation rounds (Phase 9.5)
+    "dama_eligibility",        # DAMA agreement membership (Phase 9.5)
+    "ila_eligibility",         # Industry Labour Agreement (Phase 9.5)
+    "classification_dual_code",# v1.3 ↔ v2022 mapping
 ]
 
 ADMIN_ROLES = {"admin", "admin_owner"}
@@ -562,9 +562,9 @@ def _humanize(field: str) -> str:
         "visa_pathways":             "Visa Eligibility",
         "state_territory_eligibility":"State Nomination",
         "skillselect_tier":          "SkillSelect Tier",
-        "latest_invitation_min_points":"Min Invitation Pts",
-        "dama_inclusion":            "DAMA",
-        "ila_inclusion":             "Industry Labour Agreement",
+        "min_invitation_points":     "Min Invitation Pts",
+        "dama_eligibility":          "DAMA",
+        "ila_eligibility":           "Industry Labour Agreement",
         "classification_dual_code":  "ANZSCO v1.3 ↔ v2022",
     }
     return mapping.get(field, field.replace("_", " ").title())
@@ -582,9 +582,9 @@ def _source_hint(field: str) -> str:
         "visa_pathways":              "immi.homeaffairs.gov.au — LIN 19/051, MLTSSL/STSOL/ROL",
         "state_territory_eligibility":"NSW, VIC, QLD, SA, WA, TAS, NT, ACT state migration sites",
         "skillselect_tier":           "Home Affairs SkillSelect Tier prioritisation publication",
-        "latest_invitation_min_points":"Home Affairs Invitation Rounds outcomes (monthly)",
-        "dama_inclusion":             "Home Affairs DAMA agreement pages",
-        "ila_inclusion":              "Home Affairs Industry Labour Agreement page",
+        "min_invitation_points":      "Home Affairs Invitation Rounds outcomes (monthly)",
+        "dama_eligibility":           "Home Affairs DAMA agreement pages",
+        "ila_eligibility":            "Home Affairs Industry Labour Agreement page",
         "classification_dual_code":   "legislation.gov.au — ANZSCO v1.3 & v2022",
     }
     return hints.get(field, "manual entry")
