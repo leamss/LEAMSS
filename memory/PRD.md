@@ -5,6 +5,83 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 
 > **📌 Update (Feb 13, 2026):** `CHANGELOG.md` now tracks all completed phases (incl. **Phase 3A — Attendance & Leave** with full company policies). `ROADMAP.md` lists prioritized backlog. This PRD remains the static reference for original requirements.
 
+### 🇨🇦 Phase 10.2 — IRCC Express Entry Streams Classifier (Jun 8, 2026)
+**Status:** ✅ COMPLETE — 15/15 pytest PASS · 45/45 regression PASS (no breakage in Phase 9).
+
+Sir's ask: "FSWP/CEC/FSTP + 10 Category-Based Selection per NOC (2026 official IRCC list)".
+
+**Data Source:** IRCC official — https://www.canada.ca/en/immigration-refugees-citizenship/services/immigrate-canada/express-entry/rounds-invitations/category-based-selection.html (scraped 2026-03-31 edition)
+
+**Eligibility Rules Implemented (Deterministic — no AI/scrape):**
+
+A) **Federal Programs:**
+- **FSWP** (Federal Skilled Worker Program) — TEER 0/1/2/3 → 376 of 516 CA codes eligible
+- **CEC** (Canadian Experience Class) — TEER 0/1/2/3 + 1yr Canadian exp → 376 eligible
+- **FSTP** (Federal Skilled Trades Program) — Major Groups 72/73/82/83/92/93 + TEER 2-3 only → 98 eligible
+
+B) **Category-Based Selection 2026 (10 categories, exact counts match official IRCC tables):**
+| # | Category | NOCs | Notes |
+|---|----------|------|-------|
+| 1 | French-language proficiency | 376 (all FSWP-eligible) | NCLC 7+ required, not NOC-specific |
+| 2 | Healthcare and social services | **37** | Physicians, nurses, allied health, social workers |
+| 3 | STEM | **11** | Cybersecurity, eng disciplines, eng technologists, insurance agents |
+| 4 | Trade occupations | **25** | Construction mgrs, machinists, electricians, plumbers, carpenters, etc. |
+| 5 | Education | **5** | Teachers, ECEs, classroom assistants |
+| 6 | Transport | **4** | Aircraft mechs, pilots, avionics, auto techs |
+| 7 | Physicians (Canadian exp) | **3** | NOCs 31100/31101/31102 — CA work exp required |
+| 8 | Senior Managers (Canadian exp) | **4** | NOCs 00012-00015 — CA work exp required |
+| 9 | Researchers (Canadian exp) | **2** | University profs, post-secondary asst — CA work exp required |
+| 10 | Skilled Military Recruits | **3** | NOCs 40042/42102/43204 — CAF offer + 10yr foreign mil svc |
+
+**❌ Removed in 2026:** Agriculture and agri-food (was 5th category in 2024-25, no longer in 2026 official list)
+
+**Backend additions:**
+- `core/scrapers/ircc_ee_streams.py` — pure-Python deterministic classifier
+  - `CATEGORY_REGISTRY` — UI metadata (icon, label, requires_canadian_exp flag)
+  - `_CATEGORY_NOC_MAP` — NOC lookup sets per category (baked from IRCC official 2026 tables)
+  - `classify(code, teer)` — returns full payload for a single NOC
+  - `apply_to_db(db, dry_run, actor)` — bulk-tag all CA records, idempotent
+
+- `routers/anz_intel.py`:
+  - `POST /api/anz-intel/scrapers/ircc-ee-streams/run?dry_run=` (admin-only)
+  - `/scrapers/list` updated → 9 scrapers ready (was 8, now incl. CA EE streams)
+  - `/verify/{code}` Atlas Verify endpoint now:
+    - Accepts 5-digit (CA NOC) OR 6-digit (AU/NZ ANZSCO) with country-aware validation
+    - Returns new fields: `teer_category`, `teer_label`, `ee_eligibility`, `hierarchy`
+
+**Live Verification (sample spot-checks):**
+- **21231 Software engineers** (TEER 1) → FSWP+CEC ✓, French only (NOT in STEM 2026 ❌)
+- **31102 Family physicians** (TEER 1) → FSWP+CEC ✓ + Healthcare + Physicians-CA-exp (3 categories!)
+- **21300 Civil engineers** (TEER 1) → FSWP+CEC ✓ + STEM ✓
+- **72310 Carpenters** (TEER 2) → FSWP+CEC+FSTP ✓ + Trade ✓ (all 4!)
+- **40042 CAF Officers** (TEER 0) → FSWP+CEC ✓ + Military Recruits ✓
+- **85100 Labour TEER 5 sample** → ALL programs FALSE, no categories (correctly excluded)
+
+**Idempotency:** 2nd commit → 0 updated, 516 skipped_unchanged ✅
+
+**Tests added (`tests/test_phase102_ircc_ee_streams.py` — 15 tests):**
+1. `test_classify_software_engineer` — SW eng NOT in STEM 2026 list (subtle correctness)
+2. `test_classify_family_physician_multi_category` — multi-category match
+3. `test_classify_civil_engineer_stem` — STEM eligible
+4. `test_classify_carpenter_fstp_trade` — FSTP + Trade dual-tag
+5. `test_classify_military_recruit` — Military category
+6. `test_classify_high_school_only_excluded_from_fswp` — TEER 5 excluded
+7. `test_classify_senior_managers_ca_exp` — All 4 senior mgr codes
+8. `test_scrapers_list_includes_ircc_ee_streams` — endpoint exposed
+9. `test_ircc_ee_streams_dry_run_matches_official_2026_counts` — exact IRCC counts (37/11/25/5/4/3/4/2/3)
+10. `test_ircc_ee_idempotent` — 0 updates on re-run
+11. `test_ircc_ee_partner_blocked` — RBAC enforced
+12. `test_category_registry_completeness` — every category has metadata
+13. `test_agriculture_removed_per_2026` — confirm 2026 removal
+14. `test_atlas_verify_ca_surfaces_ee_eligibility` — Atlas Verify endpoint integration
+15. `test_atlas_verify_rejects_wrong_length_for_country` — AU 6-digit, CA 5-digit validation
+
+**Files:**
+- NEW `/app/backend/core/scrapers/ircc_ee_streams.py` — 280-line deterministic classifier
+- NEW `/app/backend/tests/test_phase102_ircc_ee_streams.py` — 15 tests
+- MOD `/app/backend/routers/anz_intel.py` — new scraper endpoint + scrapers/list entry + verify endpoint country-aware
+
+
 ### 🇨🇦 Phase 10.1 — Canada NOC 2021 V1.0 Bulk Importer (Jun 8, 2026)
 **Status:** ✅ COMPLETE — 9/9 pytest PASS · UI verified live (Smart Sales Helper shows 516 CA codes).
 

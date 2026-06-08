@@ -741,6 +741,25 @@ async def list_scrapers(current_user: dict = Depends(get_current_user)):
                 "run_endpoint": "/api/anz-intel/scrapers/noc-canada/run",
                 "note": "Statistics Canada official CSVs — idempotent. Preserves admin verification + custom edits.",
             },
+            {
+                "id": "ircc_ee_streams",
+                "name": "🇨🇦 IRCC Express Entry Streams Classifier (FSWP/CEC/FSTP + 10 Categories)",
+                "source_url": (
+                    "https://www.canada.ca/en/immigration-refugees-citizenship/services/"
+                    "immigrate-canada/express-entry/rounds-invitations/category-based-selection.html"
+                ),
+                "what_it_provides": [
+                    "FSWP (Federal Skilled Worker) eligibility — TEER 0/1/2/3",
+                    "CEC (Canadian Experience Class) eligibility — TEER 0/1/2/3",
+                    "FSTP (Federal Skilled Trades) eligibility — Major Groups 72/73/82/83/92/93 TEER 2-3",
+                    "Category-Based Selection 2026 (10 categories: French, Healthcare, STEM, Trade, Education, Transport, Physicians-CA, Senior Mgr-CA, Researchers-CA, Military Recruits)",
+                ],
+                "country": "CA",
+                "estimated_records": 516,
+                "status": "ready",
+                "run_endpoint": "/api/anz-intel/scrapers/ircc-ee-streams/run",
+                "note": "Deterministic classification using IRCC 2026 official NOC tables — no network calls.",
+            },
         ]
     }
 
@@ -878,6 +897,33 @@ async def run_noc_canada(
         raise HTTPException(503, f"NOC CSV files missing — re-download from statcan.gc.ca: {e}")
     except Exception as e:
         raise HTTPException(500, f"NOC Canada importer failed: {e}")
+
+
+# ─── Step 4i — IRCC Express Entry Streams Classifier (Phase 10.2) ──────────
+@router.post("/scrapers/ircc-ee-streams/run")
+async def run_ircc_ee_streams(
+    dry_run: bool = Query(True, description="If true, returns preview without writing"),
+    current_user: dict = Depends(get_current_user),
+):
+    """Classify every CA NOC record with IRCC Express Entry eligibility.
+
+    Tags each occupation with:
+      - FSWP / CEC / FSTP federal program eligibility (TEER-driven)
+      - Category-Based Selection 2026 categories (10 total)
+        French, Healthcare, STEM, Trade, Education, Transport, Physicians-CA-exp,
+        Senior Managers-CA-exp, Researchers-CA-exp, Military Recruits.
+
+    Deterministic — no scraping, no AI. Idempotent.
+    """
+    if not _is_admin(current_user):
+        raise HTTPException(403, "Admin only")
+    try:
+        from core.scrapers import ircc_ee_streams
+        return await ircc_ee_streams.apply_to_db(
+            db, dry_run=dry_run, actor=current_user.get("id") or "admin"
+        )
+    except Exception as e:
+        raise HTTPException(500, f"IRCC EE Streams classifier failed: {e}")
 
 
 # ─── Step 5 — Manual Tools (Bulk CSV Upload + AI Paste-Extract) ─────────────
@@ -1241,15 +1287,21 @@ async def verify_in_atlas(
     """
     if not _can_read_atlas(current_user):
         raise HTTPException(403, "Atlas read access required")
-    if not (code.isdigit() and len(code) == 6):
-        raise HTTPException(400, "Code must be 6-digit ANZSCO")
+    # AU = 6-digit ANZSCO, CA = 5-digit NOC, NZ = 6-digit ANZSCO
+    country_upper = country.upper()
+    if country_upper == "CA":
+        if not (code.isdigit() and len(code) == 5):
+            raise HTTPException(400, "CA code must be 5-digit NOC")
+    else:
+        if not (code.isdigit() and len(code) == 6):
+            raise HTTPException(400, f"{country_upper} code must be 6-digit ANZSCO")
 
     d = await db["occupation_master"].find_one(
-        {"country_code": country, "code": code},
+        {"country_code": country_upper, "code": code},
         {"_id": 0},
     )
     if not d:
-        raise HTTPException(404, f"Occupation {code} not found in {country} Atlas")
+        raise HTTPException(404, f"Occupation {code} not found in {country_upper} Atlas")
 
     tier_key = d.get("skillselect_tier") or "tier_4"
     tier_meta = {**TIER_LABELS.get(tier_key, TIER_LABELS["tier_4"]),
@@ -1299,6 +1351,11 @@ async def verify_in_atlas(
         "state_nomination_matrix": state_matrix,
         "dama_eligibility": d.get("dama_eligibility") or [],
         "ila_eligibility": d.get("ila_eligibility") or [],
+        # Phase 10.1/10.2 — Canada-specific fields (empty for AU/NZ)
+        "teer_category": d.get("teer_category"),
+        "teer_label": d.get("teer_label"),
+        "ee_eligibility": d.get("ee_eligibility") or {},
+        "hierarchy": d.get("hierarchy") or {},
         "tasks_count": len(d.get("tasks") or []),
         "atlas_url": "/admin/anz-intel/audit",
         "infosheet_pdf": f"/api/anz-intel/occupation/{code}/infosheet.pdf",

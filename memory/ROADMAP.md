@@ -54,6 +54,15 @@
 ### Phase 6 — Real Stripe Payments Integration
 - Test key in pod
 
+### 🇨🇦 Phase 10 Series — Canada Atlas (in progress)
+- ✅ **Phase 10.1** — NOC 2021 V1.0 Bulk Importer (516 unit groups, June 8 2026)
+- 🟢 **Phase 10.2** — IRCC Express Entry Streams Mapping (FSWP/CEC/FSTP + 10 categories) — Next
+- 🟢 **Phase 10.3** — 11 PNP Provincial Nomination Scrapers (BC/ON/AB/SK/MB/NB/NS/PE/NL/YT/NT)
+  - **🌟 Enhancement to ship with 10.3:** AI Auto-Suggest — client says "I'm a baker, want to go to Quebec" → system auto-suggests NOC 63201 + tags Quebec PEQ stream + shows IRCC EE eligibility + provincial draws in 2 seconds (Sonnet 4.6 hybrid Haiku 4.5 router)
+- 🟢 **Phase 10.4** — IRCC Round Cutoff Tracker (CRS min scores per category)
+- 🟢 **Phase 10.5** — AIP + RNIP Regional Programs (AU DAMA/ILA equivalent)
+- 🟢 **Phase 10.6** — Atlas Verify Card + Calculator Rules for CA
+
 ---
 
 ## 🟠 P2 — Backlog
