@@ -5,6 +5,53 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 
 > **📌 Update (Feb 13, 2026):** `CHANGELOG.md` now tracks all completed phases (incl. **Phase 3A — Attendance & Leave** with full company policies). `ROADMAP.md` lists prioritized backlog. This PRD remains the static reference for original requirements.
 
+### 🌍 Migration Atlas — Country-Separated Views + Dry-Run Bug Fix (Jun 8, 2026)
+**Status:** ✅ COMPLETE — both issues Sir reported are resolved.
+
+**Issue 1 (CRITICAL BUG):** Dry-Run Preview button was failing on all 5 new CA scrapers because `runEndpointForId()` only had a hard-coded mapping for the original 7 AU scrapers.
+
+**Fix:** Rewrote `runEndpointForId` to read directly from `s.run_endpoint` returned by the backend (with the original 7-mapping kept as a fallback). Now any newly-added scraper auto-works without frontend changes — future-proof.
+
+**Issue 2 (UX):** Sir said: "Migration atlas must have all countries Atlas information separately. AU, CA, NZ should not be merged."
+
+**Fix:** Restructured `AnzIntelAudit.jsx` with **country tabs at the top**:
+- 🇦🇺 Australia (932 occupations) · 🇨🇦 Canada (516 occupations) · 🇳🇿 New Zealand (20 occupations)
+- Active country highlighted with teal background + raised shadow
+- Switching country re-fetches everything country-scoped
+- Hero stats now show **CA 5-digit NOCs** / **CA NOC 2021** for CA, or **ANZSCO 4-digit Groups** / **AU 6-digit Records** for AU
+- Reference benchmark link auto-switches: `statcan.gc.ca` for CA, `anzscosearch.com` for AU, `immigration.govt.nz` for NZ
+- **Tabs auto-hide:** Per-Occupation Heatmap, Orphan 4-digit Groups, and Step 3 — Data Merge are only shown for AU (they don't apply to CA/NZ)
+- **Step 4 — Scrapers tab:** Now filters by country. Header shows "(5 for CA)" or "(7 for AU)" with count.
+- **Coverage tab:** AU shows full field-coverage heatmap; CA/NZ show a summary card with "Detailed field-coverage will be added in next phase" placeholder
+
+**Backend Changes:**
+- `routers/anz_intel.py` → `/scrapers/list` now auto-tags all scrapers without a `country` field as `country: "AU"` (defaults the legacy 7 AU scrapers; new CA scrapers already tagged)
+
+**Frontend Changes:**
+- `pages/admin/AnzIntelAudit.jsx`:
+  - `selectedCountry` state at top (default 'AU')
+  - 3 prominent country tabs with flag + name + occupation count
+  - `fetchAll` uses `selectedCountry` param
+  - `useEffect` re-fetches when `selectedCountry` changes
+  - Hero stats now country-aware (`countryTotals[selectedCountry]`)
+  - Reference benchmark URL auto-switches per country
+  - Tab list filters out AU-only tabs when CA/NZ selected
+  - New `<CoverageCAorNZ>` component for CA/NZ summary placeholder
+  - `ScrapersTab` accepts `country` prop and uses `filteredScrapers` (filters by `s.country === country`)
+  - Dry-Run fix: `runEndpointForId` reads from backend metadata directly
+  - Commit confirmation messages added for all 5 CA scrapers (Hinglish, respectful)
+  - Generic CA fallback added to `ScraperDryRunPreview` so any future CA scraper auto-renders stats
+
+**Live Verification:**
+- 🇦🇺 AU tab: Hero stats show 1236 ANZSCO 4-digit + 932 AU + 4 verified + 34 drafts + 247 with-child + 989 orphans (all 6 tiles)
+- 🇨🇦 CA tab: Hero stats show 516 CA NOCs + 0 verified + 516 drafts (3 tiles, no AU-irrelevant ones)
+- 🇨🇦 CA Scrapers tab: only 5 CA scrapers visible (NOC Canada / IRCC EE Streams / Canada PNP / IRCC Round Cutoffs / AIP-RCIP-FCIP)
+- 🇨🇦 Dry-Run NOC Canada: Returns 516 unit groups, 0 to create, 0 to update, 516 unchanged (perfect idempotency)
+
+**Files:**
+- MOD `/app/backend/routers/anz_intel.py` — auto-tag scrapers with country=AU default
+- MOD `/app/frontend/src/pages/admin/AnzIntelAudit.jsx` — country tabs + per-country state + filtered scrapers + generic dry-run preview fallback
+
 ### 🇨🇦 Phase 10.4 + 10.5 + 10.6 — IRCC Round Cutoffs, Regional Pilots & Atlas Verify CA UI (Jun 8, 2026)
 **Status:** ✅ COMPLETE — 13/13 new pytest PASS · 51/51 Phase 10 regression PASS · Atlas Verify Card UI live with CA-aware tabs.
 

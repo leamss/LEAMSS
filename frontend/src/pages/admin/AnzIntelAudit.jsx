@@ -14,7 +14,7 @@ import axios from 'axios';
 import {
   Database, AlertTriangle, CheckCircle2, FileText, MapPin, Briefcase,
   Building2, Award, Globe2, Layers, Sparkles, RefreshCw, Search, Loader2,
-  GitMerge, ArrowRight, Sliders,
+  GitMerge, ArrowRight, Sliders, TrendingUp,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
@@ -51,6 +51,7 @@ export default function AnzIntelAudit() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchTxt, setSearchTxt] = useState('');
   const [activeTab, setActiveTab] = useState('coverage');
+  const [selectedCountry, setSelectedCountry] = useState('AU');  // Phase 10 — country separation
 
   const headers = useMemo(() => {
     const t = localStorage.getItem('token');
@@ -60,7 +61,7 @@ export default function AnzIntelAudit() {
   const fetchAll = async () => {
     setRefreshing(true);
     try {
-      const params = new URLSearchParams({ country: 'AU', limit: '200' });
+      const params = new URLSearchParams({ country: selectedCountry, limit: '200' });
       if (statusFilter !== 'all') params.set('only_status', statusFilter);
       if (searchTxt) params.set('search', searchTxt);
 
@@ -94,7 +95,7 @@ export default function AnzIntelAudit() {
     setMergeRunning(false);
   };
 
-  useEffect(() => { fetchAll(); }, [statusFilter, searchTxt]); // eslint-disable-line
+  useEffect(() => { fetchAll(); }, [statusFilter, searchTxt, selectedCountry]); // eslint-disable-line
 
   if (loading) {
     return (
@@ -108,23 +109,55 @@ export default function AnzIntelAudit() {
   const fieldCoverage = summary?.field_coverage_au || [];
   const trackedFields = rows[0]?.coverage ? Object.keys(rows[0].coverage) : [];
 
+  // Country-specific totals (Phase 10)
+  const countryTotals = {
+    AU: {
+      total:    totals.occupation_master_au_total,
+      verified: totals.occupation_master_au_verified,
+      draft:    totals.occupation_master_au_draft,
+      label_total: 'AU 6-digit Records',
+      classification: 'ANZSCO',
+      benchmark_url: 'https://www.anzscosearch.com/search/',
+      benchmark_label: 'anzscosearch.com',
+    },
+    CA: {
+      total:    totals.occupation_master_ca_total,
+      verified: totals.occupation_master_ca_verified,
+      draft:    totals.occupation_master_ca_draft,
+      label_total: 'CA 5-digit NOCs',
+      classification: 'NOC 2021',
+      benchmark_url: 'https://www.statcan.gc.ca/en/subjects/standard/noc/2021/indexV1',
+      benchmark_label: 'statcan.gc.ca (NOC 2021)',
+    },
+    NZ: {
+      total:    totals.occupation_master_nz_total,
+      verified: totals.occupation_master_nz_verified,
+      draft:    totals.occupation_master_nz_draft,
+      label_total: 'NZ 6-digit Records',
+      classification: 'ANZSCO',
+      benchmark_url: 'https://www.immigration.govt.nz/new-zealand-visas/preparing-a-visa-application/working-in-nz/work-visa-eligibility/green-list-roles',
+      benchmark_label: 'immigration.govt.nz (Green List)',
+    },
+  };
+  const ct = countryTotals[selectedCountry] || countryTotals.AU;
+
   return (
     <div className="min-h-screen p-6 lg:p-10" style={{ background: C.bg, fontFamily: "'Manrope', sans-serif" }} data-testid="anz-audit-root">
       {/* ─── HEADER ─── */}
-      <header className="mb-8">
+      <header className="mb-6">
         <div className="flex items-start justify-between flex-wrap gap-4">
           <div>
             <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: C.orange, letterSpacing: '0.14em' }}>
-              Phase 9 · LEAMSS Migration Atlas
+              Phase 9 / 10 · LEAMSS Migration Atlas
             </p>
             <h1 className="text-3xl font-bold tracking-tight" style={{ color: C.tealDark, fontFamily: "'Playfair Display', serif" }}>
               Coverage Audit &amp; Data Merge
             </h1>
             <p className="text-sm mt-2 max-w-2xl" style={{ color: C.body }}>
-              Step 1: read-only diagnostic. Step 2: safely merge anzsco_4digit_master → occupation_master.
-              Reference benchmark:{' '}
-              <a href="https://www.anzscosearch.com/search/" target="_blank" rel="noreferrer" style={{ color: C.teal, textDecoration: 'underline' }}>
-                anzscosearch.com
+              Each country&apos;s Atlas runs independently. Switch country tab above to see its scrapers, totals,
+              and coverage. Reference benchmark for {selectedCountry}:{' '}
+              <a href={ct.benchmark_url} target="_blank" rel="noreferrer" style={{ color: C.teal, textDecoration: 'underline' }}>
+                {ct.benchmark_label}
               </a>
             </p>
           </div>
@@ -150,26 +183,62 @@ export default function AnzIntelAudit() {
         </div>
       </header>
 
-      {/* ─── HERO STATS ─── */}
+      {/* ─── COUNTRY SELECTOR (Phase 10) ─── */}
+      <div className="mb-6 flex flex-wrap gap-2" data-testid="atlas-country-selector">
+        {[
+          { code: 'AU', flag: '🇦🇺', name: 'Australia', total: totals.occupation_master_au_total },
+          { code: 'CA', flag: '🇨🇦', name: 'Canada',    total: totals.occupation_master_ca_total },
+          { code: 'NZ', flag: '🇳🇿', name: 'New Zealand', total: totals.occupation_master_nz_total },
+        ].map(c => (
+          <button
+            key={c.code}
+            onClick={() => { setSelectedCountry(c.code); setActiveTab('coverage'); }}
+            className="px-5 py-3 rounded-lg text-sm font-bold flex items-center gap-3 transition-all"
+            style={{
+              background: selectedCountry === c.code ? C.tealDeep : C.card,
+              color:      selectedCountry === c.code ? '#fff' : C.body,
+              border: `2px solid ${selectedCountry === c.code ? C.tealDeep : C.border}`,
+              boxShadow: selectedCountry === c.code ? '0 4px 12px rgba(15,118,110,0.2)' : 'none',
+            }}
+            data-testid={`country-tab-${c.code}`}
+          >
+            <span className="text-2xl">{c.flag}</span>
+            <div className="text-left">
+              <p className="font-bold text-sm leading-none">{c.name}</p>
+              <p className="text-[10px] mt-0.5 opacity-80">
+                {c.total ?? 0} occupations
+              </p>
+            </div>
+          </button>
+        ))}
+      </div>
+
+      {/* ─── HERO STATS (country-specific) ─── */}
       <section className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-8" data-testid="anz-audit-hero-stats">
-        <HeroStat icon={Database}      label="ANZSCO 4-digit Groups" value={totals.anzsco_4digit_groups} sub="from jobsandskills.gov.au" tone="teal" />
-        <HeroStat icon={Layers}        label="AU 6-digit Records"    value={totals.occupation_master_au_total} sub="in occupation_master" tone="teal" />
-        <HeroStat icon={CheckCircle2}  label="Verified by Admin"     value={totals.occupation_master_au_verified} sub={`of ${totals.occupation_master_au_total}`} tone="gold" />
-        <HeroStat icon={FileText}      label="Drafts (unverified)"   value={totals.occupation_master_au_draft} sub="need verification" tone="orange" />
-        <HeroStat icon={CheckCircle2}  label="4-digit with Child"    value={totals['4digit_groups_with_child']} sub="have at least one 6-digit" tone="teal" />
-        <HeroStat icon={AlertTriangle} label="4-digit ORPHANED"      value={totals['4digit_groups_without_child']} sub="have zero 6-digit children" tone="red" />
+        {selectedCountry === 'AU' && (
+          <HeroStat icon={Database}      label="ANZSCO 4-digit Groups" value={totals.anzsco_4digit_groups} sub="from jobsandskills.gov.au" tone="teal" />
+        )}
+        <HeroStat icon={Layers}        label={ct.label_total}        value={ct.total ?? 0} sub={`in occupation_master · ${ct.classification}`} tone="teal" />
+        <HeroStat icon={CheckCircle2}  label="Verified by Admin"     value={ct.verified ?? 0} sub={`of ${ct.total ?? 0}`} tone="gold" />
+        <HeroStat icon={FileText}      label="Drafts (unverified)"   value={ct.draft ?? 0} sub="need verification" tone="orange" />
+        {selectedCountry === 'AU' && (
+          <>
+            <HeroStat icon={CheckCircle2}  label="4-digit with Child"    value={totals['4digit_groups_with_child']} sub="have at least one 6-digit" tone="teal" />
+            <HeroStat icon={AlertTriangle} label="4-digit ORPHANED"      value={totals['4digit_groups_without_child']} sub="have zero 6-digit children" tone="red" />
+          </>
+        )}
       </section>
 
       {/* ─── TABS ─── */}
       <nav className="flex gap-1 mb-6 border-b flex-wrap" style={{ borderColor: C.border }} data-testid="anz-audit-tabs">
         {[
-          { key: 'coverage',  label: 'Field Coverage',  icon: Award },
-          { key: 'rows',      label: 'Per-Occupation Heatmap', icon: Layers },
-          { key: 'orphans',   label: 'Orphan 4-digit Groups',  icon: AlertTriangle },
-          { key: 'merge',     label: 'Step 3 — Data Merge', icon: GitMerge },
-          { key: 'scrapers',  label: 'Step 4 — Scrapers',  icon: Sparkles },
-          { key: 'tools',     label: 'Step 5 — Manual Tools (CSV + AI Extract)', icon: FileText },
-        ].map(t => (
+          { key: 'coverage',  label: 'Field Coverage',  icon: Award, all: true },
+          { key: 'rows',      label: 'Per-Occupation Heatmap', icon: Layers, all: false },
+          { key: 'orphans',   label: 'Orphan 4-digit Groups',  icon: AlertTriangle, all: false },
+          { key: 'merge',     label: 'Step 3 — Data Merge', icon: GitMerge, all: false },
+          { key: 'scrapers',  label: 'Step 4 — Scrapers',  icon: Sparkles, all: true },
+          { key: 'tools',     label: 'Step 5 — Manual Tools (CSV + AI Extract)', icon: FileText, all: true },
+        ].filter(t => t.all || selectedCountry === 'AU').map(t => (
           <button
             key={t.key}
             onClick={() => setActiveTab(t.key)}
@@ -186,8 +255,14 @@ export default function AnzIntelAudit() {
       </nav>
 
       {/* ─── TAB CONTENT ─── */}
-      {activeTab === 'coverage' && <CoverageTab fields={fieldCoverage} totalCodes={totals.occupation_master_au_total} />}
-      {activeTab === 'rows'     && (
+      {activeTab === 'coverage' && (
+        selectedCountry === 'AU' ? (
+          <CoverageTab fields={fieldCoverage} totalCodes={totals.occupation_master_au_total} />
+        ) : (
+          <CoverageCAorNZ country={selectedCountry} totals={ct} />
+        )
+      )}
+      {activeTab === 'rows'     && selectedCountry === 'AU' && (
         <HeatmapTab
           rows={rows} trackedFields={trackedFields}
           statusFilter={statusFilter} setStatusFilter={setStatusFilter}
@@ -195,12 +270,48 @@ export default function AnzIntelAudit() {
           coverageLabels={summary?.field_coverage_au || []}
         />
       )}
-      {activeTab === 'orphans'  && <OrphansTab orphans={orphans} />}
-      {activeTab === 'merge'    && (
+      {activeTab === 'orphans'  && selectedCountry === 'AU' && <OrphansTab orphans={orphans} />}
+      {activeTab === 'merge'    && selectedCountry === 'AU' && (
         <MergeTab preview={mergePreview} running={mergeRunning} result={mergeResult} onRun={runMerge} />
       )}
-      {activeTab === 'scrapers' && <ScrapersTab headers={headers} onAfterCommit={fetchAll} />}
+      {activeTab === 'scrapers' && <ScrapersTab headers={headers} onAfterCommit={fetchAll} country={selectedCountry} />}
       {activeTab === 'tools'    && <ManualToolsTab headers={headers} onAfterCommit={fetchAll} />}
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────
+// Phase 10 — Country-specific coverage view for CA / NZ (placeholder until
+// per-country field coverage endpoints are built).
+function CoverageCAorNZ({ country, totals }) {
+  const flag = country === 'CA' ? '🇨🇦' : '🇳🇿';
+  const name = country === 'CA' ? 'Canada' : 'New Zealand';
+  return (
+    <div className="space-y-4" data-testid={`coverage-${country}`}>
+      <div className="rounded-xl p-6 border" style={{ background: C.tealWash, borderColor: C.tealWash2 }}>
+        <p className="text-2xl mb-2">{flag} <strong>{name} Atlas Summary</strong></p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
+          <div className="p-3 rounded bg-white border">
+            <p className="text-[10px] uppercase font-bold" style={{ color: C.muted, letterSpacing: '0.06em' }}>Total Codes</p>
+            <p className="text-3xl font-bold mt-1" style={{ color: C.tealDeep, fontFamily: "'Playfair Display', serif" }}>{totals.total ?? 0}</p>
+            <p className="text-[10px] mt-1" style={{ color: C.muted }}>{totals.classification}</p>
+          </div>
+          <div className="p-3 rounded bg-white border">
+            <p className="text-[10px] uppercase font-bold" style={{ color: C.muted, letterSpacing: '0.06em' }}>Verified</p>
+            <p className="text-3xl font-bold mt-1" style={{ color: C.gold, fontFamily: "'Playfair Display', serif" }}>{totals.verified ?? 0}</p>
+            <p className="text-[10px] mt-1" style={{ color: C.muted }}>by admin</p>
+          </div>
+          <div className="p-3 rounded bg-white border">
+            <p className="text-[10px] uppercase font-bold" style={{ color: C.muted, letterSpacing: '0.06em' }}>Drafts</p>
+            <p className="text-3xl font-bold mt-1" style={{ color: C.orange, fontFamily: "'Playfair Display', serif" }}>{totals.draft ?? 0}</p>
+            <p className="text-[10px] mt-1" style={{ color: C.muted }}>need verification</p>
+          </div>
+        </div>
+        <p className="text-xs mt-4 italic" style={{ color: C.body }}>
+          Detailed field-coverage heatmap for {name} will be added in the next phase. For now, head to{' '}
+          <strong>Step 4 — Scrapers</strong> tab above to run {name}-specific scrapers and enrich the data.
+        </p>
+      </div>
     </div>
   );
 }
@@ -523,7 +634,7 @@ function SampleList({ title, items, tone }) {
 }
 
 // ─── Step 4 — Scrapers Tab ──────────────────────────────────────────────────
-function ScrapersTab({ headers, onAfterCommit }) {
+function ScrapersTab({ headers, onAfterCommit, country = 'AU' }) {
   const [scrapers, setScrapers] = useState([]);
   const [activeId, setActiveId] = useState(null);
   const [dryRunByScraper, setDryRunByScraper] = useState({});
@@ -536,7 +647,19 @@ function ScrapersTab({ headers, onAfterCommit }) {
       .catch(e => console.error('scrapers/list', e));
   }, [headers]);
 
+  // Filter by selected country (Phase 10)
+  const filteredScrapers = scrapers.filter(s => (s.country || 'AU') === country);
+
   const runEndpointForId = (id) => {
+    // Read directly from the scraper meta returned by backend so any newly-added
+    // scraper auto-works without frontend changes (Phase 10.x — CA scrapers etc.)
+    const s = scrapers.find(x => x.id === id);
+    if (s?.run_endpoint) {
+      // Backend returns "/api/anz-intel/scrapers/.../run" — strip the /api prefix
+      // because we're already calling `${API}${ep}` (where API has /api in it).
+      return s.run_endpoint.replace(/^\/api/, '');
+    }
+    // Legacy fallback for the original 7 AU scrapers
     const mapping = {
       home_affairs:          '/anz-intel/scrapers/home-affairs/run',
       state_nominations:     '/anz-intel/scrapers/state-nominations/run',
@@ -575,8 +698,14 @@ function ScrapersTab({ headers, onAfterCommit }) {
       min_invitation_points: `${dry.counts?.tier_1_codes_tagged} priority-tier records me invitation cutoffs tag honge`,
       dama:                  `${dry.counts?.occupations_tagged} occupations ko ${dry.total_damas} DAMAs ke saath tag karenge`,
       ila:                   `${dry.counts?.occupations_tagged} occupations ko ${dry.total_ilas} Industry Labour Agreements ke saath tag karenge`,
+      // Phase 10.x — Canada scrapers
+      noc_canada:            `${dry.counts?.created || 0} new NOC codes create + ${dry.counts?.updated || 0} update honge (Statistics Canada NOC 2021)`,
+      ircc_ee_streams:       `${dry.counts?.updated || 0} CA codes me FSWP/CEC/FSTP + 10 categories tag honge`,
+      pnp_canada:            `${dry.counts?.updated || 0} CA codes me 11 PNPs ka pnp_eligibility[] tag hoga`,
+      ircc_round_cutoffs:    `${dry.counts?.updated || 0} CA codes me IRCC 2026 round cutoffs (13 categories) tag honge`,
+      ca_regional_pilots:    `${dry.totals?.ca_codes_tagged || 0} CA codes me AIP + 14 RCIP + 6 FCIP communities tag honge`,
     };
-    if (!window.confirm(`Sir, confirm — ${commitMsgMap[id]}. Existing verified records preserved rahenge. Proceed?`)) return;
+    if (!window.confirm(`Sir, confirm — ${commitMsgMap[id] || 'records affected'}. Existing verified records preserved rahenge. Proceed?`)) return;
 
     setActiveId(id);
     setRunning(true);
@@ -596,7 +725,7 @@ function ScrapersTab({ headers, onAfterCommit }) {
     <div data-testid="anz-audit-scrapers-tab">
       <div className="mb-4 p-4 rounded-lg" style={{ background: C.tealWash, border: `1px solid ${C.tealWash2}` }}>
         <p className="text-sm font-bold flex items-center gap-2" style={{ color: C.tealDeep }}>
-          <Sparkles className="h-4 w-4" />Step 4 — Live Scrapers &amp; Classifiers
+          <Sparkles className="h-4 w-4" />Step 4 — Live Scrapers &amp; Classifiers <span style={{ color: C.orange }}>({filteredScrapers.length} for {country})</span>
         </p>
         <p className="text-xs mt-1" style={{ color: C.body }}>
           Har scraper run karne se pehle <b>DRY-RUN preview</b> dikhega. Aap dekhke confirm kar sakte hain,
@@ -606,7 +735,13 @@ function ScrapersTab({ headers, onAfterCommit }) {
 
       {/* Scrapers list */}
       <div className="space-y-4 mb-6">
-        {scrapers.map(s => {
+        {filteredScrapers.length === 0 && (
+          <div className="rounded-xl border p-6 text-center" style={{ background: C.card, borderColor: C.border }}>
+            <p className="text-sm font-bold" style={{ color: C.muted }}>No scrapers registered for {country} yet.</p>
+            <p className="text-xs mt-1" style={{ color: C.muted }}>This country&apos;s Atlas build is on the roadmap.</p>
+          </div>
+        )}
+        {filteredScrapers.map(s => {
           const dry = dryRunByScraper[s.id];
           const commit = commitResultByScraper[s.id];
           const isActive = activeId === s.id;
@@ -784,6 +919,65 @@ function ScraperDryRunPreview({ id, dry, running, onCommit }) {
     samples = (dry.ilas || []).map(i => ({
       code: i.id, title: i.industry, updated_fields: [`${i.occupations_count} occupations`],
     }));
+  } else {
+    // ───── Phase 10.x — Generic preview for CA scrapers (and any future scrapers) ─────
+    // Falls back to extracting common fields from the dry-run payload.
+    const c = dry.counts || {};
+    const totals = dry.totals || {};
+    const cat = dry.category_distribution || {};
+    const pnpSummary = dry.pnp_summary || null;
+    stats = [];
+    if (dry.total_unit_groups_in_csv != null) {
+      stats.push({ icon: Database, label: 'NOC unit groups',  value: dry.total_unit_groups_in_csv, tone: 'teal' });
+    }
+    if (dry.total_categories != null) {
+      stats.push({ icon: Award, label: 'Categories',           value: dry.total_categories, tone: 'teal' });
+    }
+    if (dry.categories_with_active_cutoff != null) {
+      stats.push({ icon: TrendingUp, label: 'Active cutoffs',  value: dry.categories_with_active_cutoff, tone: 'gold' });
+    }
+    if (dry.total_pnps_registered != null) {
+      stats.push({ icon: Database, label: 'PNPs registered',   value: dry.total_pnps_registered, tone: 'teal' });
+    }
+    if (totals.rcip_communities != null) {
+      stats.push({ icon: Database, label: 'RCIP communities',  value: totals.rcip_communities, tone: 'teal' });
+    }
+    if (totals.fcip_communities != null) {
+      stats.push({ icon: Database, label: 'FCIP communities',  value: totals.fcip_communities, tone: 'gold' });
+    }
+    if (totals.aip_priority_nocs != null) {
+      stats.push({ icon: Award, label: 'AIP priority NOCs',    value: totals.aip_priority_nocs, tone: 'teal' });
+    }
+    if (totals.ca_codes_tagged != null) {
+      stats.push({ icon: ArrowRight, label: 'CA codes tagged', value: totals.ca_codes_tagged, tone: 'gold' });
+    }
+    if (c.created != null) {
+      stats.push({ icon: ArrowRight, label: 'To create',       value: c.created, tone: 'gold' });
+    }
+    if (c.updated != null) {
+      stats.push({ icon: ArrowRight, label: 'To update',       value: c.updated, tone: 'gold' });
+    }
+    if (c.skipped_unchanged != null) {
+      stats.push({ icon: CheckCircle2, label: 'Unchanged',     value: c.skipped_unchanged, tone: 'teal' });
+    }
+    // Category distribution (IRCC EE Streams)
+    if (cat && Object.keys(cat).length > 0) {
+      const topCats = Object.entries(cat).sort((a, b) => b[1] - a[1]).slice(0, 4);
+      samples = topCats.map(([k, v]) => ({
+        code: k,
+        title: k.replace(/_/g, ' '),
+        updated_fields: [`${v} NOCs`],
+      }));
+    }
+    // PNP summary
+    if (pnpSummary && Object.keys(pnpSummary).length > 0) {
+      samples = Object.values(pnpSummary).slice(0, 6).map(p => ({
+        code: p.province_code,
+        title: p.name,
+        updated_fields: [`${p.streams_count} streams`, `${p.priority_nocs_tagged} NOCs`],
+      }));
+    }
+    commitLabel = `Commit — ${(c.updated || 0) + (c.created || 0) || (totals.ca_codes_tagged || 0)} records affected`;
   }
 
   return (

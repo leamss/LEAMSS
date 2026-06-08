@@ -628,7 +628,7 @@ async def list_scrapers(current_user: dict = Depends(get_current_user)):
     """List of available scrapers + their source URLs + last-run summary."""
     if not _is_admin(current_user):
         raise HTTPException(403, "Admin only")
-    return {
+    payload = {
         "scrapers": [
             {
                 "id": "home_affairs",
@@ -813,6 +813,10 @@ async def list_scrapers(current_user: dict = Depends(get_current_user)):
             },
         ]
     }
+    # Default any scraper without a country tag to AU (legacy 7 AU scrapers).
+    for s in payload["scrapers"]:
+        s.setdefault("country", "AU")
+    return payload
 
 
 # ─── Step 4b — State Nominations Scraper ────────────────────────────────────
