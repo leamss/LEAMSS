@@ -113,6 +113,12 @@ async def audit_summary(current_user: dict = Depends(get_current_user)):
             "occupation_master_au_draft": draft_6d_au,
             "4digit_groups_with_child": len(parents_with_child),
             "4digit_groups_without_child": total_4d - len(parents_with_child),
+            "occupation_master_ca_total": await db["occupation_master"].count_documents({"country_code": "CA"}),
+            "occupation_master_ca_verified": await db["occupation_master"].count_documents({"country_code": "CA", "status": "verified"}),
+            "occupation_master_ca_draft": await db["occupation_master"].count_documents({"country_code": "CA", "status": "draft"}),
+            "occupation_master_nz_total": await db["occupation_master"].count_documents({"country_code": "NZ"}),
+            "occupation_master_nz_verified": await db["occupation_master"].count_documents({"country_code": "NZ", "status": "verified"}),
+            "occupation_master_nz_draft": await db["occupation_master"].count_documents({"country_code": "NZ", "status": "draft"}),
         },
         "field_coverage_au": [
             {
@@ -718,6 +724,23 @@ async def list_scrapers(current_user: dict = Depends(get_current_user)):
                 "status": "ready",
                 "run_endpoint": "/api/anz-intel/scrapers/ila/run",
             },
+            {
+                "id": "noc_canada",
+                "name": "🇨🇦 Canada NOC 2021 V1.0 Bulk Importer (516 unit groups)",
+                "source_url": "https://www.statcan.gc.ca/en/subjects/standard/noc/2021/indexV1",
+                "what_it_provides": [
+                    "All 516 NOC 2021 unit groups (5-digit codes)",
+                    "Full hierarchy (Broad Cat / Major / Sub-major / Minor / Unit)",
+                    "TEER categorization (0-5) — Canada's skill_level equivalent",
+                    "Class definition + main duties + employment requirements",
+                    "27,000+ alternative job titles for search/typeahead",
+                ],
+                "country": "CA",
+                "estimated_records": 516,
+                "status": "ready",
+                "run_endpoint": "/api/anz-intel/scrapers/noc-canada/run",
+                "note": "Statistics Canada official CSVs — idempotent. Preserves admin verification + custom edits.",
+            },
         ]
     }
 
@@ -831,6 +854,30 @@ async def run_ila(
         )
     except Exception as e:
         raise HTTPException(500, f"ILA seed failed: {e}")
+
+
+# ─── Step 4h — Canada NOC 2021 Bulk Importer (Phase 10.1) ───────────────────
+@router.post("/scrapers/noc-canada/run")
+async def run_noc_canada(
+    dry_run: bool = Query(True, description="If true, returns preview without writing"),
+    current_user: dict = Depends(get_current_user),
+):
+    """Bulk import all 516 NOC 2021 V1.0 unit groups from Statistics Canada CSVs.
+
+    Idempotent: re-runs preserve admin verification, custom_qa, linked_product_id,
+    assessing_authority, and status. Only scraper-owned fields are refreshed.
+    """
+    if not _is_admin(current_user):
+        raise HTTPException(403, "Admin only")
+    try:
+        from core.scrapers import noc_canada
+        return await noc_canada.apply_to_db(
+            db, dry_run=dry_run, actor=current_user.get("id") or "admin"
+        )
+    except FileNotFoundError as e:
+        raise HTTPException(503, f"NOC CSV files missing — re-download from statcan.gc.ca: {e}")
+    except Exception as e:
+        raise HTTPException(500, f"NOC Canada importer failed: {e}")
 
 
 # ─── Step 5 — Manual Tools (Bulk CSV Upload + AI Paste-Extract) ─────────────

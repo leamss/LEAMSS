@@ -5,6 +5,66 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 
 > **📌 Update (Feb 13, 2026):** `CHANGELOG.md` now tracks all completed phases (incl. **Phase 3A — Attendance & Leave** with full company policies). `ROADMAP.md` lists prioritized backlog. This PRD remains the static reference for original requirements.
 
+### 🇨🇦 Phase 10.1 — Canada NOC 2021 V1.0 Bulk Importer (Jun 8, 2026)
+**Status:** ✅ COMPLETE — 9/9 pytest PASS · UI verified live (Smart Sales Helper shows 516 CA codes).
+
+Sir's ask: Start Canada Atlas build (mirror of AU Phase 9.1).
+
+**Data Source:**
+- Statistics Canada NOC 2021 V1.0 (official, current) — https://www.statcan.gc.ca/en/subjects/standard/noc/2021/indexV1
+- Direct CSV download: `noc-2021-v1.0-classification-structure.csv` (384 KB) + `noc-2021-v1.0-elements.csv` (4.89 MB)
+- Stored locally at `/app/backend/data/noc_2021/` (no network calls on every run)
+
+**NOC 2021 Hierarchy (5-level, 5-digit codes):**
+- 10 Broad Categories · 45 Major Groups · 89 Sub-major Groups · 162 Minor Groups · **516 Unit Groups**
+- TEER (Training/Education/Experience/Responsibility) = 2nd digit of 5-digit code
+- TEER 0 = Mgmt · 1 = University · 2 = College/apprenticeship 2+yrs · 3 = College <2yrs · 4 = High school · 5 = Short-term
+
+**Backend additions:**
+- `core/scrapers/noc_canada.py` — pure-Python CSV parser + idempotent upsert
+  - Reads structure CSV → 516 unit groups with title + class definition
+  - Reads elements CSV (44,037 rows) → enriches each code with alternative titles (up to 30), main duties (up to 25), employment requirements, exclusions, additional info
+  - Computes hierarchy chain (broad → major → sub-major → minor → unit) for breadcrumbs
+  - Idempotency: only "scraper-owned" fields are refreshed; `status`/`verification`/`linked_product_id`/`custom_qa`/`assessing_authority` are preserved across re-runs
+  - Timestamp fields (`updated_at`, `last_enriched_at`) excluded from change-detection so 2nd run shows 516 skipped_unchanged
+- `routers/anz_intel.py`:
+  - `POST /api/anz-intel/scrapers/noc-canada/run?dry_run=` (admin-only)
+  - `/scrapers/list` updated → 8 scrapers ready (was 7)
+  - `/audit-summary` totals now include CA + NZ counts (was AU-only)
+
+**Live verification:**
+- Dry-run: 486 to create + 30 to update (existing legacy migration) = 516 total
+- Commit: 486 inserted + 30 updated successfully
+- Idempotency: 2nd commit → 0 changes, 516 skipped_unchanged
+- TEER distribution: TEER 0=48, 1=97, 2=162, 3=69, 4=95, 5=45 (sums to 516)
+- Sample 21231 (Software engineers and designers): TEER 1 (University degree) + 30 alt titles + 7 typical_tasks + major group "Professional occupations in natural and applied sciences"
+
+**Smart Sales Helper integration:**
+- ✅ `/api/sales/occupations/search?country=CA` returns 516 codes immediately (no sync needed — Atlas + Sales share `occupation_master`)
+- ✅ `/typeahead?q=software&country=CA` correctly ranks: 21231 (88%) → 21232 (88%) → 21311 (88%) → 22222 (60%)
+- ✅ Partner Portal → Smart Sales Helper → CA filter → all 516 cards render with NOC code, title, TEER level, alt titles, federal/WES badges
+
+**Tests added (`tests/test_phase101_noc_canada.py`):**
+1. `test_scrapers_list_includes_noc_canada` — exposed in `/scrapers/list` with country=CA + estimated_records=516
+2. `test_noc_canada_dry_run_reports_516` — dry-run returns 516 unit groups + TEER distribution covers 0-5
+3. `test_noc_canada_idempotent_after_commit` — 2nd run = 0 created/updated, 516 skipped_unchanged
+4. `test_noc_canada_partner_blocked` — RBAC enforced (partner gets 403)
+5. `test_sales_search_returns_516_ca_codes` — Sales API correctly exposes all 516
+6. `test_known_software_engineer_noc_21231` — typeahead returns the famous SW engineer code
+7. `test_audit_summary_now_includes_ca_totals` — totals expose CA aggregate
+8. `test_noc_data_files_exist` — CSV files shipped with repo
+9. `test_teer_label_helper` — TEER 0-5 → human labels
+
+**Files:**
+- NEW `/app/backend/core/scrapers/noc_canada.py` — importer module
+- NEW `/app/backend/data/noc_2021/noc-2021-v1.0-classification-structure.csv` — 822 rows (10+45+89+162+516)
+- NEW `/app/backend/data/noc_2021/noc-2021-v1.0-elements.csv` — 44,037 rows
+- NEW `/app/backend/tests/test_phase101_noc_canada.py` — 9 tests
+- MOD `/app/backend/routers/anz_intel.py` — new scraper endpoint + scrapers/list entry + audit-summary CA/NZ totals
+
+**Next:** Phase 10.2 will map each NOC to IRCC Express Entry streams (FSWP / CEC / FSTP) using TEER eligibility rules.
+
+
 ### 🔧 Phase 9 Comprehensive Regression Test (Jun 8, 2026)
 **Status:** ✅ **61/61 Phase 9 pytest PASS** · UI smoke verified on Atlas Audit + Calculator Rules Editor.
 
