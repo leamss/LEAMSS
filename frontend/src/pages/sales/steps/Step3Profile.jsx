@@ -77,6 +77,7 @@ export default function Step3Profile({ data, update, setData, headers }) {
           {showAtlas && (
             <AtlasVerifyCard
               code={data.occupation_code}
+              country={data.occupation_country || 'AU'}
               headers={headers}
               onClose={() => setShowAtlas(false)}
             />

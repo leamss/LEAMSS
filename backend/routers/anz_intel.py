@@ -776,6 +776,41 @@ async def list_scrapers(current_user: dict = Depends(get_current_user)):
                 "run_endpoint": "/api/anz-intel/scrapers/pnp-canada/run",
                 "note": "Quebec excluded (separate PEQ/PSTQ system). Static seed — admin extends via CSV/AI-Extract.",
             },
+            {
+                "id": "ircc_round_cutoffs",
+                "name": "🇨🇦 IRCC Round Cutoff Tracker (2026 CRS minimums per category)",
+                "source_url": (
+                    "https://www.canada.ca/en/immigration-refugees-citizenship/corporate/mandate/"
+                    "policies-operational-instructions-agreements/ministerial-instructions/express-entry-rounds.html"
+                ),
+                "what_it_provides": [
+                    "Latest 2026 CRS minimum scores per category (CEC 518, PNP 749, Healthcare 467, Trades 477, etc.)",
+                    "Latest draw date + ITA count per category",
+                    "Per-NOC tagging — each occupation gets the cutoffs applicable to its categories",
+                    "Singleton kb_settings doc for global Atlas view",
+                ],
+                "country": "CA",
+                "estimated_records": 516,
+                "status": "ready",
+                "run_endpoint": "/api/anz-intel/scrapers/ircc-round-cutoffs/run",
+                "note": "IRCC rounds change every 2-4 weeks. Admin refreshes via CSV/AI-Extract.",
+            },
+            {
+                "id": "ca_regional_pilots",
+                "name": "🇨🇦 AIP + RCIP + FCIP Regional Programs (AU DAMA/ILA equivalent)",
+                "source_url": "https://www.canada.ca/en/immigration-refugees-citizenship/services/immigrate-canada/rural-franco-pilots.html",
+                "what_it_provides": [
+                    "AIP — Atlantic Immigration Program (NB/NS/PE/NL) with designated-employer rules",
+                    "RCIP — 14 designated rural communities (NS/ON/MB/SK/AB/BC)",
+                    "FCIP — 6 Francophone communities (NB/ON/MB/BC)",
+                    "Per-occupation regional_pilot_eligibility[] array",
+                ],
+                "country": "CA",
+                "estimated_records": 516,
+                "status": "ready",
+                "run_endpoint": "/api/anz-intel/scrapers/ca-regional-pilots/run",
+                "note": "Static seed of priority NOCs per community. Admin extends via CSV upload.",
+            },
         ]
     }
 
@@ -961,6 +996,50 @@ async def run_pnp_canada(
         )
     except Exception as e:
         raise HTTPException(500, f"PNP Canada seed failed: {e}")
+
+
+# ─── Step 4k — IRCC Round Cutoff Tracker (Phase 10.4) ───────────────────────
+@router.post("/scrapers/ircc-round-cutoffs/run")
+async def run_ircc_round_cutoffs(
+    dry_run: bool = Query(True, description="If true, returns preview without writing"),
+    current_user: dict = Depends(get_current_user),
+):
+    """Snapshot 2026 IRCC Express Entry round cutoffs and tag each CA NOC.
+
+    Stores singleton in kb_settings + tags every CA occupation with applicable
+    category cutoffs (CEC, PNP, Healthcare, STEM, Trades, French, etc.).
+    """
+    if not _is_admin(current_user):
+        raise HTTPException(403, "Admin only")
+    try:
+        from core.scrapers import ircc_round_cutoffs
+        return await ircc_round_cutoffs.apply_to_db(
+            db, dry_run=dry_run, actor=current_user.get("id") or "admin"
+        )
+    except Exception as e:
+        raise HTTPException(500, f"IRCC Round Cutoffs scraper failed: {e}")
+
+
+# ─── Step 4l — CA Regional Pilots: AIP + RCIP + FCIP (Phase 10.5) ───────────
+@router.post("/scrapers/ca-regional-pilots/run")
+async def run_ca_regional_pilots(
+    dry_run: bool = Query(True, description="If true, returns preview without writing"),
+    current_user: dict = Depends(get_current_user),
+):
+    """Seed AIP + 14 RCIP communities + 6 FCIP communities.
+
+    Tags each CA NOC with regional_pilot_eligibility[] showing which pilots/communities
+    target this occupation. Equivalent to AU's DAMA + ILA.
+    """
+    if not _is_admin(current_user):
+        raise HTTPException(403, "Admin only")
+    try:
+        from core.scrapers import ca_regional_pilots
+        return await ca_regional_pilots.apply_to_db(
+            db, dry_run=dry_run, actor=current_user.get("id") or "admin"
+        )
+    except Exception as e:
+        raise HTTPException(500, f"CA Regional Pilots seed failed: {e}")
 
 
 # ─── Step 5 — Manual Tools (Bulk CSV Upload + AI Paste-Extract) ─────────────
@@ -1393,6 +1472,8 @@ async def verify_in_atlas(
         "teer_label": d.get("teer_label"),
         "ee_eligibility": d.get("ee_eligibility") or {},
         "pnp_eligibility": d.get("pnp_eligibility") or [],
+        "ircc_round_cutoffs": d.get("ircc_round_cutoffs") or {},
+        "regional_pilot_eligibility": d.get("regional_pilot_eligibility") or [],
         "hierarchy": d.get("hierarchy") or {},
         "tasks_count": len(d.get("tasks") or []),
         "atlas_url": "/admin/anz-intel/audit",

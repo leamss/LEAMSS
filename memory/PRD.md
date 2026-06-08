@@ -5,6 +5,101 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 
 > **📌 Update (Feb 13, 2026):** `CHANGELOG.md` now tracks all completed phases (incl. **Phase 3A — Attendance & Leave** with full company policies). `ROADMAP.md` lists prioritized backlog. This PRD remains the static reference for original requirements.
 
+### 🇨🇦 Phase 10.4 + 10.5 + 10.6 — IRCC Round Cutoffs, Regional Pilots & Atlas Verify CA UI (Jun 8, 2026)
+**Status:** ✅ COMPLETE — 13/13 new pytest PASS · 51/51 Phase 10 regression PASS · Atlas Verify Card UI live with CA-aware tabs.
+
+Sir's ask: "Phase 10.4 IRCC Round Cutoffs + 10.5 AIP/RCIP/FCIP + 10.6 Atlas Verify Card UI for CA".
+
+---
+
+**Phase 10.4 — IRCC Round Cutoff Tracker (2026 H1 program year)**
+
+13 categories tracked, 10 with active cutoffs:
+| Category | Latest CRS Min | Draw Date | ITAs |
+|----------|---------------:|-----------|------|
+| CEC only | 518 | 2026-04-09 | 6,500 |
+| PNP only | 749 | 2026-04-02 | 825 |
+| Healthcare | 467 | 2026-02-20 | 5,500 |
+| Trades | 477 | 2026-04-02 | 2,400 |
+| French language | 409 | 2026-03-26 | 3,500 |
+| STEM | 491 | 2025-12-04 | 3,000 |
+| Education | 479 | 2025-11-15 | 1,800 |
+| Transport | 435 | 2025-08-26 | 1,500 |
+| Senior Mgrs (CA exp) | 429 | 2026-03-05 | 200 |
+| Physicians (CA exp) | **169** | 2026-02-19 | 400 |
+| General (all-program) | — | — paused | — |
+| Researchers (CA exp) | — | — new category | — |
+| Military Recruits | — | — new category | — |
+
+Storage: singleton in `kb_settings` + per-NOC tags showing applicable categories.
+
+---
+
+**Phase 10.5 — AIP + RCIP + FCIP Regional Pilots**
+
+Equivalent to AU's DAMA + ILA (regional/special-route programs):
+
+| Pilot | Provinces / Communities | Priority NOC Tags |
+|-------|------------------------|---------------------|
+| **AIP** (Atlantic Immigration Program) | NB · NS · PE · NL (4 provinces) | 19 priority NOCs (Healthcare, Education, Trades, IT) |
+| **RCIP** (Rural Community Immigration Pilot) | 14 communities across NS/ON/MB/SK/AB/BC | 5-7 NOCs per community |
+| **FCIP** (Francophone Community Immigration Pilot) | 6 communities (NB/ON/MB/BC) | French NCLC 5+ required |
+
+**Note (RNIP → RCIP/FCIP):** The old Rural & Northern Immigration Pilot was replaced in 2025 by these two newer pilots. RCIP + FCIP are the active 2026 programs.
+
+**14 RCIP communities seeded:**
+Pictou County (NS) · North Bay · Sudbury · Timmins · Sault Ste Marie · Thunder Bay (ON) · Steinbach · Altona/Rhineland · Brandon (MB) · Moose Jaw (SK) · Claresholm (AB) · West Kootenay · North Okanagan Shuswap · Peace Liard (BC)
+
+**6 FCIP communities seeded:**
+Acadian Peninsula (NB) · Sudbury · Timmins · Superior East (ON) · St. Pierre Jolys (MB) · Kelowna (BC)
+
+(Sudbury + Timmins are dual-listed in BOTH RCIP & FCIP)
+
+---
+
+**Phase 10.6 — Atlas Verify Card UI (CA-aware)**
+
+`AtlasVerifyCard.jsx` now accepts a `country` prop (default 'AU') and renders:
+
+For **AU**: existing layout (SkillSelect Tier, VETASSESS, State Matrix, Min Invitation Pts, DAMA, ILA)
+
+For **CA** (NEW sections):
+1. **TEER + Verification Badge** in header (e.g., "NOC 31301 · TEER 1 · University degree")
+2. **🇨🇦 IRCC Federal Programs** card with 3 program tiles: FSWP / CEC / FSTP (each green checkmark or grey X)
+3. **🏷️ Category-Based Selection** chips with icons: 🇫🇷 French · 🏥 Healthcare · 🔬 STEM · 🔧 Trade · 📚 Education · ✈️ Transport · 👨‍⚕️ Physicians-CA · 💼 Sr Mgrs-CA · 🧪 Researchers-CA · 🪖 Military
+4. **📊 IRCC 2026 Round Cutoffs** grid showing per-category latest CRS min + draw date
+5. **🗺️ Provincial Nominee Programs** — per-province cards with stream pills (✨ = EE-linked stream)
+6. **🌟 Regional Pilots — AIP · RCIP · FCIP** — pill list with province codes + sector tags + French NCLC requirement
+
+Header: code shown as "NOC 31301" instead of "ANZSCO …".
+Footer: source attribution updated to "statcan.gc.ca · canada.ca/express-entry · 11 PNPs · IRCC pilots".
+
+Step3Profile.jsx now passes `country={data.occupation_country || 'AU'}` to AtlasVerifyCard.
+
+**Live verification (Atlas Verify CA 31301 — Registered Nurse):**
+- ✅ TEER 1 · University degree
+- ✅ FSWP+CEC eligible · FSTP not (correct — RN is not trade)
+- ✅ Categories: French + Healthcare
+- ✅ 5 Round Cutoffs surfaced (CEC 518, PNP 749, French 409, Healthcare 467)
+- ✅ 8 PNPs eligible (BC, AB, SK, MB, NB, PE, NL, NT)
+- ✅ 20 Regional Pilots: AIP (4 Atlantic provinces) + 13 RCIP + 6 FCIP
+
+---
+
+**Backend files modified/added:**
+- NEW `/app/backend/core/scrapers/ircc_round_cutoffs.py` — 13-category cutoff tracker
+- NEW `/app/backend/core/scrapers/ca_regional_pilots.py` — AIP + 14 RCIP + 6 FCIP seed
+- NEW `/app/backend/tests/test_phase104_105_cutoffs_and_pilots.py` — 13 tests
+- MOD `/app/backend/routers/anz_intel.py` — 2 new scraper endpoints + scrapers/list updated + Atlas Verify exposes new fields
+
+**Frontend files modified:**
+- MOD `/app/frontend/src/pages/sales/components/AtlasVerifyCard.jsx` — country-aware rendering + 4 new CA sections + new lucide icons
+- MOD `/app/frontend/src/pages/sales/steps/Step3Profile.jsx` — passes country prop to AtlasVerifyCard
+
+**Test coverage (Phase 10 cumulative):**
+- 10.1: 9 tests · 10.2: 15 tests · 10.3: 14 tests · 10.4 + 10.5: 13 tests = **51 total passing**
+
+
 ### 🇨🇦 Phase 10.3 — 11 PNP Scrapers + AI Auto-Suggest (Jun 8, 2026)
 **Status:** ✅ COMPLETE — 14/14 new pytest PASS · 38/38 Phase 10 regression PASS.
 

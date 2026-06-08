@@ -17,6 +17,8 @@ import { Button } from '@/components/ui/button';
 import {
   Loader2, Award, CheckCircle2, XCircle, MapPin, Building2,
   ShieldCheck, FileDown, ExternalLink, X, Target, Factory, Briefcase,
+  Globe, GraduationCap, Wrench, Stethoscope, Hammer, BookOpen, Plane, Users,
+  Microscope, Shield as ShieldIcon, TrendingUp, Sparkles,
 } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -39,20 +41,46 @@ const TIER_TONE = {
 
 const STATE_ORDER = ['NSW', 'VIC', 'QLD', 'SA', 'WA', 'TAS', 'NT', 'ACT'];
 
-export default function AtlasVerifyCard({ code, headers, onClose }) {
+// Phase 10.2 — IRCC EE Category icons
+const EE_CATEGORY_META = {
+  french_language:        { icon: Globe,      label: 'French', tone: 'teal' },
+  healthcare:             { icon: Stethoscope,label: 'Healthcare', tone: 'teal' },
+  stem:                   { icon: Microscope, label: 'STEM', tone: 'orange' },
+  trade:                  { icon: Hammer,     label: 'Trade', tone: 'gold' },
+  education:              { icon: BookOpen,   label: 'Education', tone: 'teal' },
+  transport:              { icon: Plane,      label: 'Transport', tone: 'orange' },
+  physicians_ca_exp:      { icon: Stethoscope,label: 'Physicians (CA exp)', tone: 'teal' },
+  senior_managers_ca_exp: { icon: Users,      label: 'Sr Managers (CA exp)', tone: 'gold' },
+  researchers_ca_exp:     { icon: Microscope, label: 'Researchers (CA exp)', tone: 'orange' },
+  military_recruits:      { icon: ShieldIcon, label: 'Military Recruits', tone: 'gold' },
+};
+
+export default function AtlasVerifyCard({ code, country = 'AU', headers, onClose }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (!code || code.length !== 6) return;
+    if (!code) return;
+    // AU/NZ = 6-digit, CA = 5-digit
+    const expectedLen = country === 'CA' ? 5 : 6;
+    if (code.length !== expectedLen) return;
+    let cancelled = false;
     setLoading(true);
     setError(null);
-    axios.get(`${API}/anz-intel/verify/${code}`, { headers })
-      .then(r => setData(r.data))
-      .catch(e => setError(e.response?.data?.detail || 'Failed to fetch Atlas data'))
-      .finally(() => setLoading(false));
-  }, [code, headers]);
+    const fetchAtlas = async () => {
+      try {
+        const r = await axios.get(`${API}/anz-intel/verify/${code}?country=${country}`, { headers });
+        if (!cancelled) setData(r.data);
+      } catch (e) {
+        if (!cancelled) setError(e.response?.data?.detail || 'Failed to fetch Atlas data');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    fetchAtlas();
+    return () => { cancelled = true; };
+  }, [code, country, headers]);
 
   if (!code) return null;
 
@@ -76,12 +104,17 @@ export default function AtlasVerifyCard({ code, headers, onClose }) {
     );
   }
 
+  const isCA = (data.country_code || country) === 'CA';
   const tier = data.skillselect_tier || {};
   const tierTone = TIER_TONE[tier.tone] || TIER_TONE.orange;
   const aa = data.assessing_authority || {};
   const vet = data.vetassess || {};
   const visas = data.visa_eligibility || [];
   const states = data.state_nomination_matrix || {};
+  const ee = data.ee_eligibility || {};
+  const pnps = data.pnp_eligibility || [];
+  const cutoffs = data.ircc_round_cutoffs || {};
+  const pilots = data.regional_pilot_eligibility || [];
   const isVerified = data.verification_status === 'verified';
 
   return (
@@ -101,10 +134,15 @@ export default function AtlasVerifyCard({ code, headers, onClose }) {
           </h3>
           <div className="flex items-center gap-2 mt-1 flex-wrap">
             <span className="text-[11px] font-mono px-2 py-0.5 rounded" style={{ background: 'rgba(255,255,255,0.18)' }}>
-              ANZSCO {data.code}
+              {isCA ? 'NOC' : 'ANZSCO'} {data.code}
             </span>
-            {data.classification_dual_code?.['2022'] && (
+            {data.classification_dual_code?.['2022'] && !isCA && (
               <span className="text-[10px] opacity-80">v2022: {data.classification_dual_code['2022']}</span>
+            )}
+            {isCA && data.teer_category !== null && data.teer_category !== undefined && (
+              <Badge style={{ background: '#fff', color: C.tealDeep, fontSize: 9 }}>
+                TEER {data.teer_category} · {data.teer_label}
+              </Badge>
             )}
             {isVerified ? (
               <Badge style={{ background: C.gold, color: '#fff', fontSize: 9 }}>
@@ -125,7 +163,8 @@ export default function AtlasVerifyCard({ code, headers, onClose }) {
       </div>
 
       <div className="p-4 space-y-4">
-        {/* SkillSelect Tier hero */}
+        {/* SkillSelect Tier hero — AU only */}
+        {!isCA && (
         <div className="rounded-lg p-3 flex items-center gap-3"
              style={{ background: tierTone.bg, border: `1px solid ${tierTone.bd}` }}
              data-testid="atlas-skillselect-tier">
@@ -157,8 +196,184 @@ export default function AtlasVerifyCard({ code, headers, onClose }) {
             </div>
           )}
         </div>
+        )}
 
-        {/* Assessing Authority + VETASSESS Group side-by-side */}
+        {/* Phase 10.2 — IRCC Federal Programs (CA only) */}
+        {isCA && ee.fswp_eligible !== undefined && (
+          <div className="rounded-lg p-3 border" style={{ background: C.tealWash, borderColor: C.tealWash2 }}
+               data-testid="atlas-ee-federal-programs">
+            <p className="text-[10px] uppercase font-bold tracking-wider mb-2 flex items-center gap-1"
+               style={{ color: C.tealDeep, letterSpacing: '0.1em' }}>
+              <ShieldCheck className="h-3 w-3" />IRCC Federal Programs Eligibility
+            </p>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { id: 'fswp', label: 'FSWP', sublabel: 'Federal Skilled Worker', eligible: ee.fswp_eligible },
+                { id: 'cec', label: 'CEC', sublabel: 'Canadian Experience Class', eligible: ee.cec_eligible },
+                { id: 'fstp', label: 'FSTP', sublabel: 'Federal Skilled Trades', eligible: ee.fstp_eligible },
+              ].map(p => (
+                <div key={p.id} className="p-2 rounded text-center"
+                     style={{
+                       background: p.eligible ? C.tealWash2 : '#fff',
+                       border: `1px solid ${p.eligible ? C.teal : C.border}`,
+                     }}
+                     data-testid={`atlas-ee-${p.id}`}>
+                  {p.eligible
+                    ? <CheckCircle2 className="h-5 w-5 mx-auto mb-0.5" style={{ color: C.teal }} />
+                    : <XCircle className="h-5 w-5 mx-auto mb-0.5" style={{ color: C.muted }} />}
+                  <p className="text-xs font-bold" style={{ color: p.eligible ? C.tealDeep : C.muted }}>{p.label}</p>
+                  <p className="text-[9px]" style={{ color: C.muted }}>{p.sublabel}</p>
+                </div>
+              ))}
+            </div>
+            {(ee.categories || []).length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider mt-1" style={{ color: C.tealDeep, letterSpacing: '0.1em' }}>
+                  Category-Based Selection:
+                </span>
+                {ee.categories.map(cid => {
+                  const meta = EE_CATEGORY_META[cid];
+                  if (!meta) return null;
+                  const Icon = meta.icon;
+                  const tone = TIER_TONE[meta.tone] || TIER_TONE.teal;
+                  return (
+                    <Badge key={cid} className="flex items-center gap-1"
+                           style={{ background: tone.bg, color: tone.fg, border: `1px solid ${tone.bd}`, fontSize: 9 }}
+                           data-testid={`atlas-ee-category-${cid}`}>
+                      <Icon className="h-3 w-3" />{meta.label}
+                    </Badge>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Phase 10.4 — IRCC Round Cutoffs (CA only) */}
+        {isCA && (cutoffs.cutoffs_by_category && Object.keys(cutoffs.cutoffs_by_category).length > 0) && (
+          <div className="rounded-lg border p-3" style={{ background: C.goldWash, borderColor: C.goldLight }}
+               data-testid="atlas-round-cutoffs">
+            <p className="text-[10px] uppercase font-bold tracking-wider mb-2 flex items-center gap-1"
+               style={{ color: C.orangeDeep, letterSpacing: '0.1em' }}>
+              <TrendingUp className="h-3 w-3" />IRCC 2026 Round Cutoffs · Latest CRS Minimums
+              <span className="ml-auto text-[9px] opacity-70 normal-case font-normal">v{cutoffs.version || '—'}</span>
+            </p>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              {Object.entries(cutoffs.cutoffs_by_category).map(([cid, cv]) => (
+                <div key={cid} className="p-2 rounded text-center" style={{ background: '#fff', border: `1px solid ${C.goldLight}` }}
+                     data-testid={`atlas-cutoff-${cid}`}>
+                  <p className="text-[9px] uppercase font-bold truncate" style={{ color: C.muted, letterSpacing: '0.06em' }}>
+                    {(cv.label || cid).split(' (')[0]}
+                  </p>
+                  <p className="text-2xl font-bold leading-none my-1"
+                     style={{ color: cv.latest_crs_min ? C.orangeDeep : C.muted, fontFamily: "'Playfair Display', serif" }}>
+                    {cv.latest_crs_min ?? '—'}
+                  </p>
+                  <p className="text-[9px]" style={{ color: C.muted }}>
+                    {cv.latest_draw_date || 'No 2026 draw yet'}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Phase 10.3 — Provincial Nominee Programs (CA only) */}
+        {isCA && pnps.length > 0 && (
+          <div className="rounded-lg border p-3" style={{ background: C.card, borderColor: C.border }}
+               data-testid="atlas-pnp-eligibility">
+            <p className="text-[10px] uppercase font-bold tracking-wider mb-2 flex items-center gap-1"
+               style={{ color: C.tealDeep, letterSpacing: '0.1em' }}>
+              <MapPin className="h-3 w-3" />Provincial Nominee Programs ({pnps.length} province{pnps.length > 1 ? 's' : ''})
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {pnps.map(p => (
+                <div key={p.pnp_id} className="p-2 rounded border" style={{ background: C.tealWash, borderColor: C.tealWash2 }}
+                     data-testid={`atlas-pnp-${p.province_code}`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded" style={{ background: C.teal, color: '#fff' }}>
+                      {p.province_code}
+                    </span>
+                    <a href={p.official_url} target="_blank" rel="noreferrer"
+                       className="text-[10px] underline truncate" style={{ color: C.tealDeep }}>
+                      Open ↗
+                    </a>
+                  </div>
+                  <p className="text-[11px] font-bold mt-1 leading-tight" style={{ color: C.ink }}>{p.province_name}</p>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {(p.streams || []).map((s, i) => (
+                      <span key={i} className="text-[9px] px-1.5 py-0.5 rounded"
+                            style={{
+                              background: s.ee_linked ? C.goldWash : C.tealWash2,
+                              color: s.ee_linked ? C.orangeDeep : C.tealDeep,
+                            }}>
+                        {s.ee_linked && <Sparkles className="h-2.5 w-2.5 inline mr-0.5" />}
+                        {s.name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Phase 10.5 — Regional Pilots: AIP + RCIP + FCIP (CA only) */}
+        {isCA && pilots.length > 0 && (
+          <div className="rounded-lg border p-3" style={{ background: C.orangeWash, borderColor: C.orangeWash2 }}
+               data-testid="atlas-regional-pilots">
+            <p className="text-[10px] uppercase font-bold tracking-wider mb-2 flex items-center gap-1"
+               style={{ color: C.orangeDeep, letterSpacing: '0.1em' }}>
+              <Sparkles className="h-3 w-3" />Regional Pilots — AIP · RCIP · FCIP ({pilots.length} match{pilots.length > 1 ? 'es' : ''})
+            </p>
+            <div className="space-y-1.5">
+              {pilots.map((p, idx) => (
+                <div key={idx} className="p-2 rounded flex items-start gap-2"
+                     style={{ background: '#fff', border: `1px solid ${C.orangeWash2}` }}
+                     data-testid={`atlas-pilot-${idx}`}>
+                  <Badge style={{
+                    background: p.pilot === 'aip' ? C.teal : p.pilot === 'fcip' ? C.gold : C.orange,
+                    color: '#fff', fontSize: 9,
+                  }}>{p.pilot?.toUpperCase()}</Badge>
+                  <div className="flex-1">
+                    {p.pilot === 'aip' ? (
+                      <>
+                        <p className="text-[11px] font-bold" style={{ color: C.ink }}>{p.program_name}</p>
+                        <p className="text-[10px]" style={{ color: C.body }}>
+                          Provinces: <strong>{(p.provinces || []).join(' · ')}</strong> · CLB {p.language_clb}
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-[11px] font-bold" style={{ color: C.ink }}>{p.community_name}</p>
+                        <div className="flex flex-wrap gap-1 mt-0.5">
+                          {(p.priority_sectors || []).slice(0, 4).map((s, i) => (
+                            <span key={i} className="text-[9px] px-1.5 py-0.5 rounded"
+                                  style={{ background: C.orangeWash, color: C.orangeDeep }}>{s}</span>
+                          ))}
+                          {p.language_nclc && (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded font-bold"
+                                  style={{ background: C.goldWash, color: C.orangeDeep }}>
+                              French NCLC {p.language_nclc}
+                            </span>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  {p.url && (
+                    <a href={p.url} target="_blank" rel="noreferrer" className="text-[10px] underline" style={{ color: C.orange }}>
+                      ↗
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Assessing Authority + VETASSESS Group side-by-side — AU only */}
+        {!isCA && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div className="rounded-lg p-3 border" style={{ background: C.tealWash, borderColor: C.tealWash2 }}
                data-testid="atlas-assessing-authority">
@@ -211,9 +426,10 @@ export default function AtlasVerifyCard({ code, headers, onClose }) {
             )}
           </div>
         </div>
+        )}
 
-        {/* Visa pathways */}
-        {visas.length > 0 && (
+        {/* Visa pathways — AU only */}
+        {!isCA && visas.length > 0 && (
           <div className="rounded-lg border p-3" style={{ background: C.card, borderColor: C.border }}
                data-testid="atlas-visa-pathways">
             <p className="text-[10px] uppercase font-bold tracking-wider mb-2"
@@ -240,8 +456,8 @@ export default function AtlasVerifyCard({ code, headers, onClose }) {
           </div>
         )}
 
-        {/* State nomination matrix */}
-        {Object.keys(states).length > 0 && (
+        {/* State nomination matrix — AU only */}
+        {!isCA && Object.keys(states).length > 0 && (
           <div className="rounded-lg border p-3" style={{ background: C.card, borderColor: C.border }}
                data-testid="atlas-state-matrix">
             <p className="text-[10px] uppercase font-bold tracking-wider mb-2 flex items-center gap-1"
@@ -288,8 +504,8 @@ export default function AtlasVerifyCard({ code, headers, onClose }) {
           </div>
         )}
 
-        {/* Phase 9.5 — Min Invitation Points */}
-        {data.min_invitation_points && Object.keys(data.min_invitation_points).length > 0 && (
+        {/* Phase 9.5 — Min Invitation Points — AU only */}
+        {!isCA && data.min_invitation_points && Object.keys(data.min_invitation_points).length > 0 && (
           <div className="rounded-lg border p-3" style={{ background: C.goldWash, borderColor: C.goldLight }}
                data-testid="atlas-min-invitation-points">
             <p className="text-[10px] uppercase font-bold tracking-wider mb-2 flex items-center gap-1"
@@ -321,8 +537,8 @@ export default function AtlasVerifyCard({ code, headers, onClose }) {
           </div>
         )}
 
-        {/* Phase 9.5 — DAMA eligibility */}
-        {data.dama_eligibility && data.dama_eligibility.length > 0 && (
+        {/* Phase 9.5 — DAMA eligibility — AU only */}
+        {!isCA && data.dama_eligibility && data.dama_eligibility.length > 0 && (
           <div className="rounded-lg border p-3" style={{ background: C.tealWash, borderColor: C.tealWash2 }}
                data-testid="atlas-dama-eligibility">
             <p className="text-[10px] uppercase font-bold tracking-wider mb-2 flex items-center gap-1"
@@ -359,8 +575,8 @@ export default function AtlasVerifyCard({ code, headers, onClose }) {
           </div>
         )}
 
-        {/* Phase 9.5 — ILA eligibility */}
-        {data.ila_eligibility && data.ila_eligibility.length > 0 && (
+        {/* Phase 9.5 — ILA eligibility — AU only */}
+        {!isCA && data.ila_eligibility && data.ila_eligibility.length > 0 && (
           <div className="rounded-lg border p-3" style={{ background: C.orangeWash, borderColor: C.orangeWash2 }}
                data-testid="atlas-ila-eligibility">
             <p className="text-[10px] uppercase font-bold tracking-wider mb-2 flex items-center gap-1"
@@ -412,7 +628,9 @@ export default function AtlasVerifyCard({ code, headers, onClose }) {
             <ExternalLink className="h-3.5 w-3.5" />Open Atlas Dashboard
           </a>
           <p className="text-[10px] ml-auto" style={{ color: C.muted }}>
-            Sources: immi.homeaffairs.gov.au · jobsandskills.gov.au · state migration sites
+            {isCA
+              ? 'Sources: statcan.gc.ca · canada.ca/express-entry · 11 PNPs · IRCC pilots'
+              : 'Sources: immi.homeaffairs.gov.au · jobsandskills.gov.au · state migration sites'}
           </p>
         </div>
       </div>
