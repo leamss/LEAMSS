@@ -58,6 +58,7 @@
 
 ## 🟠 P2 — Backlog
 
+- **Bulk Auto-Verify Tool for Occupation Master**: One-click bulk verification with auto source-attribution per data source. Currently only 4/932 AU codes verified — UI tool needed to verify ~888 codes that came from scrapers in one click (with auto source URL from scraper origin). 3 plans available: A) Bulk by source, B) Top-100 priority queue, C) Self-audit one-by-one.
 - **Phase 3C — Reports/Exports**: HR dashboard, dept-wise attendance %, monthly PDFs
 - **Performance Module**: Goal-setting, 360 feedback
 - **Edit History tab per PA**
