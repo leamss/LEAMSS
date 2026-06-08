@@ -760,6 +760,22 @@ async def list_scrapers(current_user: dict = Depends(get_current_user)):
                 "run_endpoint": "/api/anz-intel/scrapers/ircc-ee-streams/run",
                 "note": "Deterministic classification using IRCC 2026 official NOC tables — no network calls.",
             },
+            {
+                "id": "pnp_canada",
+                "name": "🇨🇦 Canada PNP — 11 Provincial Nominee Programs",
+                "source_url": "https://www.canada.ca/en/immigration-refugees-citizenship/services/immigrate-canada/provincial-nominees.html",
+                "what_it_provides": [
+                    "All 11 PNPs registered (BC/ON/AB/SK/MB/NB/NS/PE/NL/YT/NT)",
+                    "Per-PNP streams with Express Entry linkage flag",
+                    "Priority NOC tagging per stream (BC Tech 36 NOCs, OINP HCP 6 tech NOCs, AAIP Tech 17 NOCs, etc.)",
+                    "Per-occupation pnp_eligibility[] array for Atlas Verify card",
+                ],
+                "country": "CA",
+                "estimated_records": 516,
+                "status": "ready",
+                "run_endpoint": "/api/anz-intel/scrapers/pnp-canada/run",
+                "note": "Quebec excluded (separate PEQ/PSTQ system). Static seed — admin extends via CSV/AI-Extract.",
+            },
         ]
     }
 
@@ -924,6 +940,27 @@ async def run_ircc_ee_streams(
         )
     except Exception as e:
         raise HTTPException(500, f"IRCC EE Streams classifier failed: {e}")
+
+
+# ─── Step 4j — Canada PNP Seed (Phase 10.3) ─────────────────────────────────
+@router.post("/scrapers/pnp-canada/run")
+async def run_pnp_canada(
+    dry_run: bool = Query(True, description="If true, returns preview without writing"),
+    current_user: dict = Depends(get_current_user),
+):
+    """Seed 11 Canadian PNPs and tag each CA NOC with pnp_eligibility[].
+
+    Excludes Quebec (separate PEQ/PSTQ system).
+    """
+    if not _is_admin(current_user):
+        raise HTTPException(403, "Admin only")
+    try:
+        from core.scrapers import pnp_canada
+        return await pnp_canada.apply_to_db(
+            db, dry_run=dry_run, actor=current_user.get("id") or "admin"
+        )
+    except Exception as e:
+        raise HTTPException(500, f"PNP Canada seed failed: {e}")
 
 
 # ─── Step 5 — Manual Tools (Bulk CSV Upload + AI Paste-Extract) ─────────────
@@ -1355,6 +1392,7 @@ async def verify_in_atlas(
         "teer_category": d.get("teer_category"),
         "teer_label": d.get("teer_label"),
         "ee_eligibility": d.get("ee_eligibility") or {},
+        "pnp_eligibility": d.get("pnp_eligibility") or [],
         "hierarchy": d.get("hierarchy") or {},
         "tasks_count": len(d.get("tasks") or []),
         "atlas_url": "/admin/anz-intel/audit",

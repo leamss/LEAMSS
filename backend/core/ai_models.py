@@ -43,6 +43,7 @@ MODEL_FOR = {
     "occupation_suggester":     HAIKU,   # Sales — typeahead-style suggestions
     "step_document_helper":     HAIKU,   # Sales — quick doc hints
     "ai_intelligence_quick":    HAIKU,   # Generic short helpers
+    "atlas_auto_suggest":       HAIKU,   # Phase 10.3 — free-text → NOC + PNP/EE ranking
     # ── SONNET 4.6 (quality-critical tasks) ─────────────────────────────────
     "resume_extractor":         SONNET,  # Multi-section structured extraction
     "proposal_standard":        SONNET,  # Client-facing proposals

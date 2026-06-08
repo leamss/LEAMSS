@@ -5,6 +5,108 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 
 > **📌 Update (Feb 13, 2026):** `CHANGELOG.md` now tracks all completed phases (incl. **Phase 3A — Attendance & Leave** with full company policies). `ROADMAP.md` lists prioritized backlog. This PRD remains the static reference for original requirements.
 
+### 🇨🇦 Phase 10.3 — 11 PNP Scrapers + AI Auto-Suggest (Jun 8, 2026)
+**Status:** ✅ COMPLETE — 14/14 new pytest PASS · 38/38 Phase 10 regression PASS.
+
+Sir's ask: "11 PNP scrapers + AI Auto-Suggest enhancement".
+
+**Part A — 11 PNPs Registered:**
+
+| # | Code | Province | PNP Name | Streams | Priority NOCs |
+|---|------|----------|----------|---------|---------------|
+| 1 | BC | British Columbia | BC PNP | 5 | 66 |
+| 2 | ON | Ontario | OINP | 7 | 13 |
+| 3 | AB | Alberta | AAIP | 6 | 28 |
+| 4 | SK | Saskatchewan | SINP | 5 | 11 |
+| 5 | MB | Manitoba | MPNP | 4 | 11 |
+| 6 | NB | New Brunswick | NBPNP | 4 | 11 |
+| 7 | NS | Nova Scotia | NSNP | 5 | 17 |
+| 8 | PE | Prince Edward Island | PEI PNP | 3 | 7 |
+| 9 | NL | Newfoundland & Labrador | NLPNP | 4 | 5 |
+| 10 | YT | Yukon | YNP | 4 | 4 |
+| 11 | NT | Northwest Territories | NTNP | 4 | 9 |
+| | **Totals** | | | **51 streams** | **182 unique priority NOC tags** |
+
+(Quebec excluded — runs separate PEQ/PSTQ system)
+
+**Highlight streams seeded with verified 2026 occupation lists:**
+- **BC PNP Skills Immigration — Technology**: 35 NOCs (per official May 28 2026 program guide)
+- **BC PNP Skills Immigration — Healthcare**: 31 NOCs (nurses, physicians, dentists, allied health)
+- **OINP Human Capital Priorities**: 6 tech NOCs (per Ontario tech draws)
+- **OINP In-Demand Skills**: TEER 4-5 priority occupations (warehousing, agriculture, construction labour)
+- **AAIP Accelerated Tech Pathway**: 17 tech NOCs
+- **NS Critical Construction Worker Pilot**: 14 trade NOCs
+
+**Live verification (sample):**
+- **21231 Software Engineer** → eligible across **7 provinces** (BC/ON/AB/SK/MB/NB/NL)
+- **72310 Carpenter** → eligible in **NS Critical Construction** + others
+- **31301 Registered Nurse** → eligible in **8 provinces** (BC/AB/SK/MB/NB/PE/NL/NT)
+- **62200 Chef** → eligible in **5 provinces** (AB/MB/NB/PE/NT)
+
+**Part B — AI Auto-Suggest Endpoint (NEW):**
+
+`POST /api/sales/ai/atlas-auto-suggest`
+
+Hybrid LLM Router routes this task to **Haiku 4.5** (registered as `atlas_auto_suggest` in `ai_models.py` — fast + cheap).
+
+Input:
+```json
+{
+  "description": "Backend software engineer, 8 years Python distributed systems experience",
+  "province_code": "BC",  // optional
+  "max_suggestions": 3
+}
+```
+
+Output (live response):
+```json
+{
+  "suggestions": [
+    {
+      "code": "21231",
+      "title": "Software engineers and designers",
+      "confidence": "high",
+      "reasoning": "Backend engineer is explicitly listed in alt titles...",
+      "destination_province_match": true,
+      "atlas": {
+        "teer_category": 1,
+        "teer_label": "University degree",
+        "ee_eligibility": {
+          "fswp_eligible": true,
+          "cec_eligible": true,
+          "fstp_eligible": false,
+          "categories": ["french_language"]
+        },
+        "pnp_eligibility": [
+          {"province_code": "BC", "streams": [{"name": "Skills Immigration — Technology"}], ...},
+          {"province_code": "ON", "streams": [{"name": "Human Capital Priorities (HCP)"}], ...},
+          ...
+        ]
+      }
+    }
+  ],
+  "tip": "Backend engineers in fintech are highly sought in BC; emphasize distributed systems...",
+  "_ai_model": "claude-haiku-4-5-20251001",
+  "_province_filter": "BC"
+}
+```
+
+**Demo flows tested live:**
+- **"Baker → Manitoba"** → returns 63202 Bakers (HIGH), Sales tip: "emphasize commercial production scale"
+- **"Tech → BC"** → returns 21231 + 21230 (both HIGH), BC PNP sorted first in eligibility
+- **"Indian chef, 12yr, 5-star hotels"** → 62200 Chefs (HIGH) + 63200 Cooks (MEDIUM, 5 PNPs), human-quality tip
+- **"Nurse, 6yr ICU"** → 31301 RN (HIGH) with 8 PNPs eligible + Healthcare category
+
+**Files:**
+- NEW `/app/backend/core/scrapers/pnp_canada.py` — 330-line PNP registry + idempotent applier
+- NEW `/app/backend/tests/test_phase103_pnp_and_auto_suggest.py` — 14 tests
+- MOD `/app/backend/routers/sales_ai_helpers.py` — added `/atlas-auto-suggest` endpoint (~120 lines)
+- MOD `/app/backend/core/ai_models.py` — `atlas_auto_suggest` → Haiku 4.5
+- MOD `/app/backend/routers/anz_intel.py` — new scraper endpoint + scrapers/list entry + Atlas Verify now exposes `pnp_eligibility`
+
+**Total Phase 10 backend tests: 38 passing (10.1: 9 + 10.2: 15 + 10.3: 14)**
+
+
 ### 🇨🇦 Phase 10.2 — IRCC Express Entry Streams Classifier (Jun 8, 2026)
 **Status:** ✅ COMPLETE — 15/15 pytest PASS · 45/45 regression PASS (no breakage in Phase 9).
 
