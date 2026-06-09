@@ -5,6 +5,46 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 
 > **📌 Update (Feb 13, 2026):** `CHANGELOG.md` now tracks all completed phases (incl. **Phase 3A — Attendance & Leave** with full company policies). `ROADMAP.md` lists prioritized backlog. This PRD remains the static reference for original requirements.
 
+### 🎯 Phase 13 — Public Atlas Pages (SEO + Lead Capture) (Jun 9, 2026)
+**Status:** ✅ COMPLETE — 13/13 active pytest PASS (1 by-design skip) · testing_agent reports 100% backend + 100% frontend.
+
+Sir's ask: "P2 Client-facing public Atlas pages (/atlas/au/261313) for SEO + organic lead capture".
+
+**Backend** — `routers/public_atlas.py` (no auth):
+- `GET /api/public-atlas/featured` — 12 hero cards across AU/CA/NZ + country totals
+- `GET /api/public-atlas/{country}/list?limit=N&search=Q` — paginated verified browse
+- `GET /api/public-atlas/{country}/{code}` — single occupation deep-dive with `seo` block (page_title, meta_description, og_image, canonical_url, JSON-LD `@type=Occupation`) + similar codes + cross_country
+- `GET /api/public-atlas/sitemap.xml` — auto-generated sitemap of all 720+ verified URLs
+- `POST /api/public-atlas/lead` — captures lead → `leads` collection with `source=public_atlas` + tags. Honeypot field `company_url` silently drops bots. Rate-limited 15/min per IP (in-memory). Pydantic email validation.
+- Filters: only `status="verified"` records exposed publicly. Admin metadata (verification, ai_draft) stripped from response.
+- Absolute URLs (https://) for canonical_url + og_image — reads `FRONTEND_URL` env.
+
+**Frontend** — `pages/PublicAtlas.jsx` (no `<ProtectedRoute>`):
+- `/atlas` — Hero + 3 country cards + 12-tile featured grid
+- `/atlas/:country` — Browseable list with live search
+- `/atlas/:country/:code` — Single occupation page with sticky `LeadCaptureForm` on the right rail
+- `applySEO()` injects `<title>`, meta description, og:image, og:title, canonical, JSON-LD into `<head>` per page
+- Lead form has hidden honeypot field absolutely positioned off-screen
+- Routes registered in `App.js` lines 92-94 (before login redirect)
+
+**Tests `test_phase13_public_atlas.py` (13/13 active + 1 skipped):**
+1. Featured works without auth
+2. Single occupation no-auth + SEO + JSON-LD
+3-5. Unknown country (404), unknown code (404), invalid format (400)
+6. Draft codes never exposed
+7. Country list search filter
+8. Country list returns meta + seo
+9. Sitemap XML valid + 50+ URLs
+10-13. Lead capture (success, honeypot, invalid email, stored in DB)
+14. Rate limit (skipped by default — RUN_RATELIMIT_TEST=1 to enable)
+
+**Post-test fixes applied:**
+- Cleaned page title (removed "Legacy migration · 2026-05-22" fragment from classification_version)
+- Absolute URLs for canonical_url + og_image (now uses FRONTEND_URL env)
+- Replaced AU "Chef 351311" (draft) with AU "263111 Network Engineer" in featured → all 12 cards render
+- Rate-limit threshold bumped 5→15/min to reduce false positives in shared-IP environments
+
+
 ### 🎯 Phase 12 — NZ Atlas Full Build + Bulk Auto-Verify Tool (Jun 9, 2026)
 **Status:** ✅ COMPLETE — 16/16 new pytest PASS · 49 total tests PASS · testing_agent_v3_fork reports 100%/100% backend+frontend.
 

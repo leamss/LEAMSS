@@ -43,7 +43,7 @@ FEATURED_CODES = [
     ("AU", "261313", "Software Engineer"),
     ("AU", "233211", "Civil Engineer"),
     ("AU", "254499", "Registered Nurses"),
-    ("AU", "351311", "Chef"),
+    ("AU", "263111", "Computer Network Engineer"),
     ("CA", "21231",  "Software Engineers"),
     ("CA", "21321",  "Industrial and Manufacturing Engineers"),
     ("CA", "31301",  "Registered Nurses"),
@@ -55,7 +55,22 @@ FEATURED_CODES = [
 ]
 
 # Base URL for canonical/og links — read from env so deployment swap is easy.
-PUBLIC_SITE_URL = os.environ.get("PUBLIC_SITE_URL") or os.environ.get("REACT_APP_BACKEND_URL", "")
+PUBLIC_SITE_URL = (
+    os.environ.get("PUBLIC_SITE_URL")
+    or os.environ.get("FRONTEND_URL")
+    or ""
+)
+
+
+def _public_site_url() -> str:
+    """Return the absolute base URL for SEO canonicals + OG images.
+
+    Priority: PUBLIC_SITE_URL env > FRONTEND_URL env > fallback.
+    """
+    base = (PUBLIC_SITE_URL or "https://leamss.com").rstrip("/")
+    if not base.startswith(("http://", "https://")):
+        base = "https://" + base
+    return base
 
 
 # ─── Helpers ────────────────────────────────────────────────────────────────
@@ -87,7 +102,9 @@ def _build_seo(country: str, doc: Dict[str, Any]) -> Dict[str, Any]:
     cm = _country_meta(country)
     code = doc.get("code") or ""
     title = doc.get("title") or "Occupation"
-    classification = doc.get("classification_version") or cm["classification"]
+    # Use the country's official classification name (NOT the doc-stored version
+    # which may include sync timestamps like "Legacy migration · 2026-05-22").
+    classification = cm["classification"]
     salary_min = (doc.get("anzsco_profile") or {}).get("median_salary_aud")
     description = (doc.get("description") or "").strip()[:400] or (
         f"Comprehensive guide to migrating to {cm['name']} as a {title} ({code}). "
@@ -100,6 +117,11 @@ def _build_seo(country: str, doc: Dict[str, Any]) -> Dict[str, Any]:
         f"Visa pathways, eligibility criteria, assessing authority, salary band, and how to migrate. "
         f"Free eligibility check available."
     )
+
+    # Build absolute URLs — required by Open Graph + Google's canonical spec.
+    base = _public_site_url()
+    canonical = f"{base}/atlas/{country.lower()}/{code}"
+    og_image = f"{base}/og-atlas.png"
 
     # JSON-LD structured data per schema.org/Occupation
     json_ld = {
@@ -121,10 +143,10 @@ def _build_seo(country: str, doc: Dict[str, Any]) -> Dict[str, Any]:
     return {
         "page_title": page_title,
         "meta_description": meta_desc,
-        "canonical_url": f"{PUBLIC_SITE_URL}/atlas/{country.lower()}/{code}".rstrip("/"),
+        "canonical_url": canonical,
         "og_title": page_title,
         "og_description": meta_desc,
-        "og_image": f"{PUBLIC_SITE_URL}/og-atlas.png",
+        "og_image": og_image,
         "json_ld": json_ld,
     }
 
@@ -165,7 +187,7 @@ async def get_featured():
         "seo": {
             "page_title": "Migration Atlas — Australia, Canada & New Zealand Occupation Guide | LEAMSS",
             "meta_description": "Free migration occupation atlas covering ANZSCO + NOC codes. Visa pathways, eligibility, salary trends for AU, CA, NZ. Verified by licensed migration experts.",
-            "canonical_url": f"{PUBLIC_SITE_URL}/atlas",
+            "canonical_url": f"{_public_site_url()}/atlas",
         },
     }
 
@@ -214,7 +236,7 @@ async def list_country(
                 f"Browse {total} verified {cm['classification']} occupations for {cm['name']} migration. "
                 f"Visa pathways, salary band, assessing authority for each code."
             ),
-            "canonical_url": f"{PUBLIC_SITE_URL}/atlas/{country.lower()}",
+            "canonical_url": f"{_public_site_url()}/atlas/{country.lower()}",
         },
     }
 
@@ -285,7 +307,7 @@ async def get_single_occupation(country: str, code: str):
 @router.get("/sitemap.xml")
 async def sitemap_xml(response: Response):
     """Return XML sitemap with all verified occupation URLs."""
-    base = PUBLIC_SITE_URL or "https://leamss.com"
+    base = _public_site_url()
     urls: List[str] = [f"{base}/atlas", f"{base}/atlas/au", f"{base}/atlas/ca", f"{base}/atlas/nz"]
     async for d in db["occupation_master"].find(
         {"status": "verified"},
