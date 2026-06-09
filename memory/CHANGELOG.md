@@ -3,6 +3,17 @@
 This file appends every completed phase/feature with dates and verification status.
 
 ---
+### 🎨 Phase 16.3 — Premium Branded Scorecard PDF redesign (Jun 9, 2026)
+**Tests:** PDF/share tests in `tests/test_eligibility_scoring.py` PASS; design verified via analyze_file_tool (logo, score bars, fit tags, gold-star reviews, footer band all render correctly).
+
+User: old PDF was too basic. Rebuilt `_generate_scorecard_pdf` (routers/eligibility.py) into a rich, multi-page, brand-consistent report:
+- **Header**: real LEAMSS logo (`/app/frontend/public/leamss-logo.png`) + "Pathway Fit Scorecard" + "We Value Consultants · MARA Registered · Trusted since 2014" + green rule. Prepared-for / date / ref.
+- **Best-Fit card** (cream, accent-left), summary, ranked table with **visual score bars (Drawing/Rect)** + **colored fit tags** + per-row dividers, disclaimer note.
+- **Page 2/3**: "Our Aim", "Our Core Values" (2×2 cards), green **100% Refund Guarantee** protection box, "What Our Clients Say" (4 real testimonials + 4.9/5 badge with **gold star polygons**), orange CTA box.
+- **Footer band** (green) on every page via canvas onPage callback: website, phone, WhatsApp, email + legal name. Brand palette only (#1F4D44 green / #D4633F orange / gold stars). ~142KB, 3 pages.
+
+---
+
 ### 📥 Phase 16.2 — Scorecard Download PDF + WhatsApp Share + Public Shared Scorecard (Jun 9, 2026)
 **Tests:** `tests/test_eligibility_scoring.py` → **16/16 PASS** (added share endpoint no-profile-leak, PDF validity, PDF 404). Frontend verified via Playwright.
 

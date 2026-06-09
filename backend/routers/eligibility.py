@@ -336,100 +336,273 @@ _TIER_PDF = {
 }
 
 
+LOGO_PATH = "/app/frontend/public/leamss-logo.png"
+_CONTACT = {
+    "website": "www.leamss.com",
+    "phone": "+91 77188 82427",
+    "whatsapp": "+91 77383 52427",
+    "email": "info@leamss.com",
+    "legal": "Ladhani Education & Migration Services (OPC) Pvt. Ltd",
+}
+_REVIEWS = [
+    ("Sophia Chowdhury", "Mumbai \u2192 Sydney", "So grateful to LEAMSS for guiding my Australian PR journey. Their expertise and support made a huge difference."),
+    ("Varsha Bhatia", "Pune \u2192 Toronto", "Extremely happy with the service. The team was supportive, professional and highly responsive \u2014 patiently addressed every query."),
+    ("Krishna K V", "Bangalore \u2192 Brisbane", "Practical, supportive and expert at analysing profiles for the ideal destination. Strongly recommend for anyone exploring migration."),
+    ("Gurleen Kaur", "Delhi \u2192 Auckland", "A wonderful team to work with. Professional and lucid \u2014 they kept their word and made the whole journey wonderful."),
+]
+_VALUES = [
+    ("Radical Transparency", "Fixed, written fees with zero hidden charges. You always know exactly what you pay \u2014 and why."),
+    ("Integrity First", "MARA-registered, legally-compliant advice. We never over-promise just to win a client."),
+    ("Client at the Centre", "A dedicated case manager, 24-hour response times and genuine end-to-end support."),
+    ("Speed with Accuracy", "Streamlined, fixed-timeline processing on eligible profiles \u2014 fast, without cutting corners."),
+]
+
+
 def _generate_scorecard_pdf(rec: dict, filename: str):
+    import os as _os
     from reportlab.lib.pagesizes import A4
     from reportlab.lib import colors
     from reportlab.lib.units import mm
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT
     from reportlab.platypus import (SimpleDocTemplate, Table, TableStyle, Paragraph,
-                                    Spacer, HRFlowable)
+                                    Spacer, HRFlowable, Image, PageBreak)
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.graphics.shapes import Drawing, Rect, Polygon
+    import math
 
     GREEN = colors.HexColor("#1F4D44")
     ACCENT = colors.HexColor("#D4633F")
     INK = colors.HexColor("#1A2A30")
-    LIGHT = colors.HexColor("#F4F1EC")
+    BODY = colors.HexColor("#33444C")
+    MUTE = colors.HexColor("#6B7B82")
+    CREAM = colors.HexColor("#F5F2EC")
+    GOLD = colors.HexColor("#E0A82E")
+    LINE = colors.HexColor("#E3DED5")
+    PAGE_W, PAGE_H = A4
+    CONTENT_W = PAGE_W - 32 * mm  # margins 16mm each side
 
     result = rec.get("result") or {}
     pathways = result.get("pathways") or {}
     ordered = sorted(pathways.items(), key=lambda kv: -(kv[1].get("score") or 0))
     top = result.get("top_recommendation")
-    top_name = pathways.get(top, {}).get("name", top) if top else "—"
+    top_name = pathways.get(top, {}).get("name", top) if top else "\u2014"
 
     styles = getSampleStyleSheet()
-    h1 = ParagraphStyle("h1", parent=styles["Title"], textColor=GREEN, fontSize=22, spaceAfter=2, alignment=0)
-    sub = ParagraphStyle("sub", parent=styles["Normal"], textColor=ACCENT, fontSize=10, spaceAfter=10, leading=12)
-    body = ParagraphStyle("body", parent=styles["Normal"], textColor=INK, fontSize=10, leading=15)
-    small = ParagraphStyle("small", parent=styles["Normal"], textColor=colors.HexColor("#6B7B82"), fontSize=8, leading=11)
-    disc = ParagraphStyle("disc", parent=styles["Normal"], textColor=colors.HexColor("#8a4b22"), fontSize=8.5, leading=12)
 
-    doc = SimpleDocTemplate(filename, pagesize=A4, topMargin=18 * mm, bottomMargin=16 * mm,
-                            leftMargin=16 * mm, rightMargin=16 * mm)
+    def PS(name, **kw):
+        return ParagraphStyle(name, parent=styles["Normal"], **kw)
+
+    title_st = PS("t", fontName="Helvetica-Bold", fontSize=19, textColor=GREEN, leading=22, alignment=TA_LEFT)
+    sub_st = PS("s", fontName="Helvetica", fontSize=8.5, textColor=MUTE, leading=11, alignment=TA_LEFT)
+    sect_st = PS("sec", fontName="Helvetica-Bold", fontSize=13.5, textColor=GREEN, leading=16, spaceAfter=2)
+    body_st = PS("b", fontName="Helvetica", fontSize=9.5, textColor=BODY, leading=14)
+    bodyc_st = PS("bc", fontName="Helvetica", fontSize=9, textColor=colors.white, leading=14)
+    small_st = PS("sm", fontName="Helvetica", fontSize=8, textColor=MUTE, leading=11)
+    italic_st = PS("it", fontName="Helvetica-Oblique", fontSize=8.5, textColor=BODY, leading=12.5)
+    disc_st = PS("d", fontName="Helvetica", fontSize=8, textColor=colors.HexColor("#8a4b22"), leading=11)
+    vtitle_st = PS("vt", fontName="Helvetica-Bold", fontSize=9.5, textColor=GREEN, leading=12)
+    vbody_st = PS("vb", fontName="Helvetica", fontSize=8, textColor=BODY, leading=11)
+
+    def fit_tag(tier):
+        label, hexc = _TIER_PDF.get(tier, ("\u2014", "#888888"))
+        return Paragraph(label, PS("ft", fontName="Helvetica-Bold", fontSize=7.5,
+                                   textColor=colors.white, backColor=colors.HexColor(hexc),
+                                   alignment=TA_CENTER, leading=12, borderPadding=(2, 3, 2, 3)))
+
+    def score_bar(score, hexc):
+        w = 58
+        d = Drawing(w, 7)
+        d.add(Rect(0, 0, w, 6, fillColor=CREAM, strokeColor=None))
+        d.add(Rect(0, 0, max(2, w * float(score) / 100.0), 6, fillColor=colors.HexColor(hexc), strokeColor=None))
+        return d
+
+    def stars(n=5, size=9):
+        d = Drawing(n * (size + 1.5), size + 2)
+        R = size / 2.0
+        r = R * 0.42
+        cy = (size + 2) / 2.0
+        for i in range(n):
+            cx = R + i * (size + 1.5)
+            pts = []
+            for k in range(10):
+                ang = -math.pi / 2.0 + k * math.pi / 5.0
+                rad = R if k % 2 == 0 else r
+                pts.extend([cx + rad * math.cos(ang), cy + rad * math.sin(ang)])
+            d.add(Polygon(points=pts, fillColor=GOLD, strokeColor=None))
+        return d
+
+    def card(flowables, bg=CREAM, border=LINE, accent_left=None, width=CONTENT_W, pad=10):
+        rows = [[f] for f in flowables]
+        t = Table(rows, colWidths=[width])
+        st = [
+            ("BACKGROUND", (0, 0), (-1, -1), bg),
+            ("BOX", (0, 0), (-1, -1), 0.75, border),
+            ("TOPPADDING", (0, 0), (-1, -1), pad), ("BOTTOMPADDING", (0, 0), (-1, -1), pad),
+            ("LEFTPADDING", (0, 0), (-1, -1), pad + 2), ("RIGHTPADDING", (0, 0), (-1, -1), pad + 2),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ]
+        if accent_left:
+            st.append(("LINEBEFORE", (0, 0), (0, -1), 3, accent_left))
+        t.setStyle(TableStyle(st))
+        return t
+
+    doc = SimpleDocTemplate(filename, pagesize=A4, topMargin=16 * mm, bottomMargin=22 * mm,
+                            leftMargin=16 * mm, rightMargin=16 * mm, title="LEAMSS Pathway Fit Scorecard")
     story = []
-    story.append(Paragraph("LEAMSS", h1))
-    story.append(Paragraph("Your Pathway Fit Scorecard", sub))
+
+    # ── Header: logo + title ─────────────────────────────────────────────────
+    if _os.path.exists(LOGO_PATH):
+        logo = Image(LOGO_PATH, width=46 * mm, height=46 * mm * 1177.0 / 1883.0)
+    else:
+        logo = Paragraph("LEAMSS", title_st)
+    title_block = [Paragraph("Pathway Fit Scorecard", title_st),
+                   Paragraph("We Value Consultants &nbsp;\u00b7&nbsp; MARA Registered &nbsp;\u00b7&nbsp; Trusted since 2014", sub_st)]
+    htab = Table([[logo, title_block]], colWidths=[58 * mm, CONTENT_W - 58 * mm])
+    htab.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("ALIGN", (1, 0), (1, 0), "RIGHT"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+    ]))
+    story.append(htab)
+    story.append(Spacer(1, 6))
+    story.append(HRFlowable(width="100%", color=GREEN, thickness=2))
+    story.append(Spacer(1, 8))
+
     name = rec.get("full_name") or "Website Visitor"
     created = rec.get("created_at")
     created = created if isinstance(created, str) else (created.isoformat() if created else "")
-    story.append(Paragraph(f"Prepared for: <b>{name}</b> &nbsp;·&nbsp; {created[:10]}", small))
-    story.append(Spacer(1, 8))
-    story.append(HRFlowable(width="100%", color=LIGHT, thickness=2))
-    story.append(Spacer(1, 8))
-
-    # Disclaimer
-    story.append(Paragraph(
-        "<b>Note:</b> This is a “best-fit” ranking to help you shortlist the right pathway — "
-        "it is <b>not</b> an official visa points / CRS score. Final eligibility depends on document "
-        "verification, skills assessment and current policy. Please consult a LEAMSS expert before any decision.",
-        disc))
+    ref = (rec.get("id") or "")[:8].upper()
+    story.append(Paragraph(f"Prepared for: <b>{name}</b> &nbsp;&nbsp;|&nbsp;&nbsp; Date: {created[:10]} &nbsp;&nbsp;|&nbsp;&nbsp; Ref: {ref}", small_st))
     story.append(Spacer(1, 10))
 
-    story.append(Paragraph(f"Best Fit: <b>{top_name}</b>", body))
+    # ── Best Fit card ────────────────────────────────────────────────────────
+    bf = [Paragraph(f'<font color="#D4633F"><b>\u2605 YOUR BEST FIT</b></font>', PS("bf", fontName="Helvetica-Bold", fontSize=9, textColor=ACCENT, leading=12)),
+          Paragraph(f"<b>{top_name}</b>", PS("bfn", fontName="Helvetica-Bold", fontSize=13, textColor=GREEN, leading=16))]
     if result.get("overall_summary"):
-        story.append(Spacer(1, 4))
-        story.append(Paragraph(result["overall_summary"], body))
-    story.append(Spacer(1, 12))
+        bf.append(Spacer(1, 3))
+        bf.append(Paragraph(result["overall_summary"], body_st))
+    story.append(card(bf, bg=CREAM, accent_left=ACCENT))
+    story.append(Spacer(1, 10))
 
-    # Table
-    data = [["#", "Pathway", "Country", "Score", "Fit"]]
+    # ── Ranked table ─────────────────────────────────────────────────────────
+    hdr_st = PS("h", fontName="Helvetica-Bold", fontSize=8.5, textColor=colors.white, leading=11)
+    data = [[Paragraph("#", hdr_st), Paragraph("PATHWAY", hdr_st), Paragraph("SCORE", hdr_st), Paragraph("FIT", hdr_st)]]
     for i, (slug, p) in enumerate(ordered, 1):
-        tier_label, _ = _TIER_PDF.get(p.get("tier"), ("—", "#000"))
-        data.append([str(i), Paragraph(p.get("name", slug), body), p.get("country", ""),
-                     f"{p.get('score', 0)}/100", tier_label])
-    table = Table(data, colWidths=[10 * mm, 78 * mm, 30 * mm, 22 * mm, 28 * mm])
+        _, hexc = _TIER_PDF.get(p.get("tier"), ("\u2014", "#888888"))
+        pname = [Paragraph(f"<b>{p.get('name', slug)}</b>", PS('pn', fontName='Helvetica-Bold', fontSize=9, textColor=INK, leading=11)),
+                 Paragraph(p.get("country", ""), small_st)]
+        sc = [Paragraph(f'<font color="{hexc}"><b>{p.get("score", 0)}</b></font><font color="#9aa5aa">/100</font>',
+                        PS('sc', fontName='Helvetica-Bold', fontSize=10, leading=12)),
+              Spacer(1, 2), score_bar(p.get("score", 0), hexc)]
+        data.append([str(i), pname, sc, fit_tag(p.get("tier"))])
+    table = Table(data, colWidths=[9 * mm, CONTENT_W - 9 * mm - 32 * mm - 26 * mm, 32 * mm, 26 * mm], repeatRows=1)
     table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), GREEN),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("FONTSIZE", (0, 0), (-1, -1), 9),
-        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, LIGHT]),
-        ("TEXTCOLOR", (3, 1), (3, -1), ACCENT),
-        ("FONTNAME", (3, 1), (3, -1), "Helvetica-Bold"),
+        ("TOPPADDING", (0, 0), (-1, -1), 7), ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+        ("LEFTPADDING", (0, 0), (-1, -1), 7), ("RIGHTPADDING", (0, 0), (-1, -1), 7),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, CREAM]),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("TOPPADDING", (0, 0), (-1, -1), 6),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-        ("LINEBELOW", (0, 0), (-1, 0), 0.5, colors.white),
+        ("ALIGN", (0, 0), (0, -1), "CENTER"),
+        ("ALIGN", (3, 0), (3, -1), "CENTER"),
+        ("TEXTCOLOR", (0, 1), (0, -1), MUTE),
+        ("FONTNAME", (0, 1), (0, -1), "Helvetica-Bold"),
+        ("LINEBELOW", (0, 1), (-1, -2), 0.4, LINE),
+        ("BOX", (0, 0), (-1, -1), 0.5, LINE),
     ]))
     story.append(table)
-    story.append(Spacer(1, 16))
+    story.append(Spacer(1, 8))
+    story.append(Paragraph(
+        "<b>Note:</b> This is a \u201cbest-fit\u201d ranking to help you shortlist the right pathway \u2014 it is "
+        "<b>not</b> an official visa points / CRS score. Final eligibility depends on document verification, "
+        "skills assessment and current policy. Please consult a LEAMSS expert before any decision.", disc_st))
 
-    # CTA box
-    cta = Table([[Paragraph(
-        "<b>Get your personalised, expert-verified plan.</b><br/>"
-        "Talk to a MARA-registered LEAMSS consultant — 100% refund if your assessment fails. "
-        "Visit <b>www.leamss.com</b> or message us on WhatsApp.", body)]],
-        colWidths=[168 * mm])
-    cta.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, -1), LIGHT),
-        ("BOX", (0, 0), (-1, -1), 1, ACCENT),
-        ("TOPPADDING", (0, 0), (-1, -1), 10),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
-        ("LEFTPADDING", (0, 0), (-1, -1), 12),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 12),
-    ]))
-    story.append(cta)
+    # ── Page 2 : About / Aim / Values / Protection / Reviews ─────────────────
+    story.append(PageBreak())
+    story.append(Paragraph("Our Aim", sect_st))
+    story.append(HRFlowable(width="22%", color=ACCENT, thickness=2, spaceAfter=6))
+    story.append(Paragraph(
+        "At <b>LEAMSS</b>, our aim is simple \u2014 to help skilled Indian professionals and families migrate to "
+        "<b>Australia, Canada and New Zealand</b> with complete transparency, speed and legal certainty. Since 2014 we "
+        "have guided thousands of applicants, replacing guesswork and hidden costs with honest, MARA-registered advice "
+        "and a clear, fixed-fee roadmap to permanent residence.", body_st))
+    story.append(Spacer(1, 12))
+
+    story.append(Paragraph("Our Core Values", sect_st))
+    story.append(HRFlowable(width="22%", color=ACCENT, thickness=2, spaceAfter=6))
+    half = (CONTENT_W - 6 * mm) / 2.0
+    vcards = [card([Paragraph(t, vtitle_st), Spacer(1, 2), Paragraph(d, vbody_st)], width=half, pad=8) for t, d in _VALUES]
+    vrows = []
+    for i in range(0, len(vcards), 2):
+        vrows.append([vcards[i], vcards[i + 1] if i + 1 < len(vcards) else ""])
+    vgrid = Table(vrows, colWidths=[half + 3 * mm, half + 3 * mm])
+    vgrid.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"),
+                               ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (0, -1), 6),
+                               ("TOPPADDING", (0, 0), (-1, -1), 0), ("BOTTOMPADDING", (0, 0), (-1, -1), 6)]))
+    story.append(vgrid)
     story.append(Spacer(1, 10))
-    story.append(Paragraph("© LEAMSS — We Value Consultants. Indicative assessment only, generated automatically.", small))
-    doc.build(story)
+
+    # Protection policy — green highlight
+    story.append(Paragraph("Your Protection", sect_st))
+    story.append(HRFlowable(width="22%", color=ACCENT, thickness=2, spaceAfter=6))
+    prot = [Paragraph('<font color="#FFFFFF"><b>\u2713 100% Refund Guarantee \u2014 in writing</b></font>',
+                      PS('ph', fontName='Helvetica-Bold', fontSize=11, textColor=colors.white, leading=14)),
+            Spacer(1, 3),
+            Paragraph(
+                "We stand behind our assessments. If your <b>skill assessment is negative</b>, or your visa is "
+                "<b>rejected due to a LEAMSS-attributable error</b>, you receive a full refund of LEAMSS professional fees. "
+                "The only exclusion is rejection caused by false information provided by the applicant (a legal disqualifier "
+                "in any case). Full policy at leamss.com/privacy-policy.", bodyc_st)]
+    story.append(card(prot, bg=GREEN, border=GREEN, pad=12))
+    story.append(Spacer(1, 12))
+
+    # Reviews
+    story.append(Paragraph("What Our Clients Say", sect_st))
+    story.append(HRFlowable(width="22%", color=ACCENT, thickness=2, spaceAfter=4))
+    badge = Table([[stars(5, 10), Paragraph('<b>4.9 / 5</b>  <font color="#6B7B82">from 500+ Google reviews</font>',
+                                            PS('bg', fontName='Helvetica', fontSize=9, textColor=INK, leading=13))]],
+                  colWidths=[58, CONTENT_W - 58])
+    badge.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("LEFTPADDING", (0, 0), (-1, -1), 0)]))
+    story.append(badge)
+    story.append(Spacer(1, 6))
+    rcards = []
+    for nm, city, txt in _REVIEWS:
+        rcards.append(card([stars(5, 8), Spacer(1, 3), Paragraph(f'\u201c{txt}\u201d', italic_st), Spacer(1, 3),
+                            Paragraph(f'<b>{nm}</b>  <font color="#6B7B82">{city}</font>', small_st)],
+                           bg=colors.white, width=half, pad=9))
+    rrows = []
+    for i in range(0, len(rcards), 2):
+        rrows.append([rcards[i], rcards[i + 1] if i + 1 < len(rcards) else ""])
+    rgrid = Table(rrows, colWidths=[half + 3 * mm, half + 3 * mm])
+    rgrid.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"),
+                               ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (0, -1), 6),
+                               ("TOPPADDING", (0, 0), (-1, -1), 0), ("BOTTOMPADDING", (0, 0), (-1, -1), 6)]))
+    story.append(rgrid)
+    story.append(Spacer(1, 12))
+
+    # Final CTA
+    cta = [Paragraph('<font color="#FFFFFF"><b>Ready for your verified, personalised plan?</b></font>',
+                     PS('ct', fontName='Helvetica-Bold', fontSize=12, textColor=colors.white, leading=15)),
+           Spacer(1, 3),
+           Paragraph(f'<font color="#FFFFFF">Book a free consultation with a MARA-registered LEAMSS expert today. '
+                     f'Call {_CONTACT["phone"]} &nbsp;\u00b7&nbsp; WhatsApp {_CONTACT["whatsapp"]} &nbsp;\u00b7&nbsp; {_CONTACT["website"]}</font>',
+                     bodyc_st)]
+    story.append(card(cta, bg=ACCENT, border=ACCENT, pad=12))
+
+    def _on_page(canvas, _doc):
+        canvas.saveState()
+        canvas.setFillColor(GREEN)
+        canvas.rect(0, 0, PAGE_W, 15 * mm, fill=1, stroke=0)
+        canvas.setFillColor(colors.white)
+        canvas.setFont("Helvetica", 7.5)
+        canvas.drawCentredString(PAGE_W / 2.0, 8.5 * mm,
+                                 f'{_CONTACT["website"]}   \u00b7   Phone {_CONTACT["phone"]}   \u00b7   WhatsApp {_CONTACT["whatsapp"]}   \u00b7   {_CONTACT["email"]}')
+        canvas.setFont("Helvetica", 6.5)
+        canvas.setFillColor(colors.HexColor("#BFD6CF"))
+        canvas.drawCentredString(PAGE_W / 2.0, 4.5 * mm,
+                                 f'\u00a9 {_CONTACT["legal"]}  \u00b7  MARA Registered  \u00b7  Indicative assessment only, generated automatically.')
+        canvas.restoreState()
+
+    doc.build(story, onFirstPage=_on_page, onLaterPages=_on_page)
 
 
 @router.get("/report/{score_id}")
