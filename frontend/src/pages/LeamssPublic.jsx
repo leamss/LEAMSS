@@ -21,7 +21,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowRight, Sparkles, CheckCircle2, Globe2, ChevronDown, ChevronRight,
   Search, Star, Award, Briefcase, Loader2, Send, Mail, Phone, User as UserIcon,
-  MessageCircle, Calculator, Plane, Shield, Clock, ArrowUpRight, MapPin,
+  MessageCircle, Calculator, Plane, Shield, Clock, ArrowUpRight, MapPin, Info,
 } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { formatApiError } from '@/lib/apiErrors';
@@ -491,8 +491,8 @@ function EligibilityQuizSection() {
       <div className="max-w-5xl mx-auto px-4">
         <SectionTitle
           eyebrow="Free · 60 Seconds · No Login"
-          title="AI Eligibility Score across all major pathways"
-          sub="Powered by Claude Sonnet. We score you against 8+ visa pathways (189, 190, 491, 482, 186, Express Entry, NZ Green List, AEWV) and show you honest odds."
+          title="Find your best-fit visa pathway in 60 seconds"
+          sub="We rank 8+ pathways (Express Entry, 189/190/491, UK, Germany, NZ Green List) by how well they fit your profile — an indicative shortlist to guide your choice, not an official visa score. Always confirm with a LEAMSS expert before deciding."
         />
 
         <div className="rounded-2xl overflow-hidden shadow-lg" style={{ background: BRAND.bgSoft, border: `1px solid ${BRAND.border}` }} data-testid="quiz-card">
@@ -764,18 +764,32 @@ function QuizResult({ result, onReset }) {
   return (
     <div className="p-8 lg:p-12" data-testid="quiz-result">
       <div className="flex items-center justify-between mb-2 flex-wrap gap-3">
-        <p className="text-xs font-bold uppercase tracking-[0.16em]" style={{ color: BRAND.accent }}>Your Eligibility Scorecard</p>
+        <p className="text-xs font-bold uppercase tracking-[0.16em]" style={{ color: BRAND.accent }}>Your Pathway Fit Ranking</p>
         <Button variant="ghost" size="sm" onClick={onReset}>↻ Re-take</Button>
       </div>
       <h3 className="font-serif-leamss text-3xl sm:text-4xl font-bold mb-3" style={{ color: BRAND.ink }}>
-        {pathways[0] ? `Best Match: ${pathways[0].name}` : 'Your eligibility breakdown'}
+        {pathways[0] ? `Best Fit: ${pathways[0].name}` : 'Your eligibility breakdown'}
       </h3>
+
+      {/* Prominent honesty disclaimer */}
+      <div className="rounded-xl p-4 mb-5 flex gap-3" style={{ background: BRAND.bgWarm, border: `1.5px solid ${BRAND.accent}` }} data-testid="score-disclaimer">
+        <Info className="w-5 h-5 shrink-0 mt-0.5" style={{ color: BRAND.accent }} />
+        <div>
+          <p className="text-sm font-bold" style={{ color: BRAND.ink }}>
+            This is a “best-fit” ranking — not an official visa eligibility score
+          </p>
+          <p className="text-xs mt-1 leading-relaxed" style={{ color: BRAND.body }}>
+            These numbers rank <b>which pathways suit your profile best</b> (based on your details and how selective each route is) so you can shortlist the right option. They are <b>not</b> the official points / CRS scores used by immigration authorities. Your real eligibility depends on document verification, skills assessment and current policy — so <b>please speak to a LEAMSS expert before making any decision</b>, to avoid any confusion.
+          </p>
+        </div>
+      </div>
+
       {result.overall_summary && (
         <p className="text-sm sm:text-base mb-5 max-w-3xl" style={{ color: BRAND.body }}>{result.overall_summary}</p>
       )}
-      <div className="rounded-lg px-4 py-2.5 mb-6 inline-flex items-center gap-2 text-xs" style={{ background: BRAND.bgWarm, color: BRAND.muted, border: `1px solid ${BRAND.border}` }}>
+      <div className="rounded-lg px-4 py-2.5 mb-6 inline-flex items-center gap-2 text-xs" style={{ background: BRAND.bgSoft, color: BRAND.muted, border: `1px solid ${BRAND.border}` }}>
         <Shield className="w-3.5 h-3.5" style={{ color: BRAND.primary }} />
-        Scores are calculated from your <b style={{ color: BRAND.ink }}>&nbsp;age, education, experience, English, occupation</b>&nbsp;& job offer — tap "How is this calculated?" on any card.
+        How we rank: your <b style={{ color: BRAND.ink }}>&nbsp;age, education, experience, English, occupation</b>&nbsp;& job offer — tap "How is this calculated?" on any card.
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {pathways.map((p) => (
