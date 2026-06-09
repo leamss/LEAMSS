@@ -62,10 +62,13 @@ TRACKED_FIELDS_CA = [
 TRACKED_FIELDS_NZ = [
     "title",                        # basic occupation title
     "alternative_titles",           # search synonyms
-    "tasks",                        # NZ-equivalent of typical_tasks (legacy field)
-    "anzsco_profile",               # salary/employment (shared with AU)
-    "visa_pathways",                # SMC / AEWV / Green List eligibility
+    "skill_level",                  # ANZSCO skill_level 1-5
     "assessing_authority",          # NZQA / engineering NZ etc.
+    "visa_pathways",                # SMC / AEWV / Green List eligibility
+    "nz_green_list_tier",           # 1 = Straight to Residence · 2 = Work to Residence
+    "aewv_eligibility",             # Accredited Employer Work Visa block
+    "smc_points_breakdown",         # Skilled Migrant Category 6-point base
+    "sector_agreement_eligibility", # Construction / Care / Transport / etc.
 ]
 
 
@@ -662,8 +665,13 @@ def _humanize(field: str) -> str:
         "ircc_round_cutoffs":        "IRCC Round Cutoffs",
         "regional_pilot_eligibility":"Regional Pilots (AIP/RCIP/FCIP)",
         "quebec_eligibility":        "Quebec PSTQ/PEQ",
-        # NZ (Phase 11)
+        # NZ (Phase 11 + 12)
         "title":                     "Title",
+        "skill_level":               "ANZSCO Skill Level (1-5)",
+        "nz_green_list_tier":        "Green List Tier (1 / 2)",
+        "aewv_eligibility":          "AEWV (Accredited Employer Visa)",
+        "smc_points_breakdown":      "SMC 6-Point Base",
+        "sector_agreement_eligibility": "Sector Agreement (CISA / Care / Transport)",
     }
     return mapping.get(field, field.replace("_", " ").title())
 
@@ -681,6 +689,12 @@ def _source_hint(field: str, country: str = "AU") -> str:
         "alternative_titles":   "careers.govt.nz",
         "visa_pathways":        "immigration.govt.nz — SMC / AEWV / Green List Tier 1+2",
         "assessing_authority":  "NZQA / Engineering NZ / Teaching Council NZ / etc.",
+        # Phase 12 — NZ-only fields
+        "skill_level":          "Stats NZ — ANZSCO 1.3 skill levels (1-5)",
+        "nz_green_list_tier":   "immigration.govt.nz — Green List Tier 1/2 occupation list (2026)",
+        "aewv_eligibility":     "immigration.govt.nz — Accredited Employer Work Visa (AEWV) rules",
+        "smc_points_breakdown": "immigration.govt.nz — Skilled Migrant Category 6-point system (2024+)",
+        "sector_agreement_eligibility": "immigration.govt.nz — Sector Agreements (CISA / Care / Transport / etc.)",
     }
     if (country or "").upper() == "NZ" and field in nz_overrides:
         return nz_overrides[field]
@@ -949,6 +963,72 @@ async def list_scrapers(current_user: dict = Depends(get_current_user)):
                 "run_endpoint": "/api/anz-intel/scrapers/quebec-immigration/run",
                 "note": "Quebec runs its own immigration system (not federal). FEER = NOC 2021 TEER. Admin extends per-draw priority lists.",
             },
+            # ─── 🇳🇿 NZ Atlas (Phase 12.1) ────────────────────────────
+            {
+                "id": "nz_anzsco_seed",
+                "name": "🇳🇿 NZ ANZSCO 1.3 Base Seed (~200 most-common occupations)",
+                "source_url": "https://www.immigration.govt.nz/work/requirements-for-work-visas/green-list-occupations-qualifications-and-skills/national-occupation-list-occupations-used-for-an-aewv/",
+                "what_it_provides": [
+                    "~200 6-digit ANZSCO 1.3 codes covering Green List + AEWV National Occupation List",
+                    "Title + skill_level + hierarchy + NZQA assessing body",
+                    "Pre-populated visa_pathways skeleton (SMC / Green-T1 / Green-T2 / AEWV)",
+                    "Idempotent — preserves admin-verified records on re-run",
+                ],
+                "country": "NZ",
+                "estimated_records": 200,
+                "status": "ready",
+                "run_endpoint": "/api/anz-intel/scrapers/nz-anzsco-seed/run",
+                "note": "Curated from Immigration NZ official lists. Admin extends via CSV/AI-Extract.",
+            },
+            {
+                "id": "nz_green_list",
+                "name": "🇳🇿 NZ Green List — Tier 1 (Straight to Residence) + Tier 2 (Work to Residence)",
+                "source_url": "https://www.immigration.govt.nz/work/requirements-for-work-visas/green-list-occupations-qualifications-and-skills/green-list-roles-jobs-we-need-people-for-in-new-zealand/",
+                "what_it_provides": [
+                    "Tier 1: ~85 occupations eligible for Straight to Residence Visa",
+                    "Tier 2: ~22 occupations eligible for Work to Residence (24-month pathway)",
+                    "Per-NOC nz_green_list_tier + nz_residence_pathway + pathway_notes",
+                    "Flips visa_pathways[Green-T1/T2].eligible booleans automatically",
+                ],
+                "country": "NZ",
+                "estimated_records": 200,
+                "status": "ready",
+                "run_endpoint": "/api/anz-intel/scrapers/nz-green-list/run",
+                "note": "Replaces the legacy LTSSL (2022 retired) + RSSL (2022 retired) lists. Static seed from immigration.govt.nz.",
+            },
+            {
+                "id": "nz_aewv_smc",
+                "name": "🇳🇿 NZ AEWV + SMC Classifier (Skill-level → Visa + 6-point base)",
+                "source_url": "https://www.immigration.govt.nz/employ-migrants/employer-accreditation-and-the-accredited-employer-work-visa-aewv/",
+                "what_it_provides": [
+                    "AEWV eligibility per skill_level (1-3 eligible, 4-5 restricted)",
+                    "Median wage threshold NZD$30/hr + wage-band notes",
+                    "SMC 6-point base derived from skill_level (6/5/4/3/2)",
+                    "Green-List auto-pass flag (Tier 1/2 → automatic 6 points)",
+                ],
+                "country": "NZ",
+                "estimated_records": 200,
+                "status": "ready",
+                "run_endpoint": "/api/anz-intel/scrapers/nz-aewv-smc/run",
+                "note": "Deterministic classification — no network calls. Re-run after Green List changes.",
+            },
+            {
+                "id": "nz_sector_agreements",
+                "name": "🇳🇿 NZ Sector Agreements (CISA / Care / Transport / Tourism / Meat / Snow)",
+                "source_url": "https://www.immigration.govt.nz/employ-migrants/sector-agreements",
+                "what_it_provides": [
+                    "Construction & Infrastructure (CISA) — sub-median wage, 3-yr visas",
+                    "Care Workforce — Aged + Disability care concessions",
+                    "Transport — HGV / bus driver agreement",
+                    "Tourism & Hospitality — Chefs + Cafe Managers sub-cap",
+                    "Per-NOC sector_agreement_eligibility[] array",
+                ],
+                "country": "NZ",
+                "estimated_records": 200,
+                "status": "ready",
+                "run_endpoint": "/api/anz-intel/scrapers/nz-sector-agreements/run",
+                "note": "6 active sector agreements as of Q1 2026. Admin extends per annual review.",
+            },
         ]
     }
     # Default any scraper without a country tag to AU (legacy 7 AU scrapers).
@@ -1204,6 +1284,124 @@ async def run_quebec_immigration(
         )
     except Exception as e:
         raise HTTPException(500, f"Quebec immigration seed failed: {e}")
+
+
+# ─── 🇳🇿 NZ Atlas Scrapers (Phase 12.1) ────────────────────────────────────
+@router.post("/scrapers/nz-anzsco-seed/run")
+async def run_nz_anzsco_seed(
+    dry_run: bool = Query(True, description="If true, returns preview without writing"),
+    current_user: dict = Depends(get_current_user),
+):
+    """Seed the NZ ANZSCO 1.3 master list (~200 occupations). Idempotent."""
+    if not _is_admin(current_user):
+        raise HTTPException(403, "Admin only")
+    try:
+        from core.scrapers import nz_anzsco_seed
+        return await nz_anzsco_seed.apply_to_db(
+            db, dry_run=dry_run, actor=current_user.get("id") or "admin"
+        )
+    except Exception as e:
+        raise HTTPException(500, f"NZ ANZSCO seed failed: {e}")
+
+
+@router.post("/scrapers/nz-green-list/run")
+async def run_nz_green_list(
+    dry_run: bool = Query(True, description="If true, returns preview without writing"),
+    current_user: dict = Depends(get_current_user),
+):
+    """Classify NZ occupations into Green List Tier 1 / Tier 2 / None."""
+    if not _is_admin(current_user):
+        raise HTTPException(403, "Admin only")
+    try:
+        from core.scrapers import nz_green_list
+        return await nz_green_list.apply_to_db(
+            db, dry_run=dry_run, actor=current_user.get("id") or "admin"
+        )
+    except Exception as e:
+        raise HTTPException(500, f"NZ Green List classifier failed: {e}")
+
+
+@router.post("/scrapers/nz-aewv-smc/run")
+async def run_nz_aewv_smc(
+    dry_run: bool = Query(True, description="If true, returns preview without writing"),
+    current_user: dict = Depends(get_current_user),
+):
+    """Classify NZ occupations for AEWV (work visa) + SMC (residency) eligibility."""
+    if not _is_admin(current_user):
+        raise HTTPException(403, "Admin only")
+    try:
+        from core.scrapers import nz_aewv_smc
+        return await nz_aewv_smc.apply_to_db(
+            db, dry_run=dry_run, actor=current_user.get("id") or "admin"
+        )
+    except Exception as e:
+        raise HTTPException(500, f"NZ AEWV/SMC classifier failed: {e}")
+
+
+@router.post("/scrapers/nz-sector-agreements/run")
+async def run_nz_sector_agreements(
+    dry_run: bool = Query(True, description="If true, returns preview without writing"),
+    current_user: dict = Depends(get_current_user),
+):
+    """Tag NZ occupations with sector agreement eligibility (CISA/Care/Transport/etc.)."""
+    if not _is_admin(current_user):
+        raise HTTPException(403, "Admin only")
+    try:
+        from core.scrapers import nz_sector_agreements
+        return await nz_sector_agreements.apply_to_db(
+            db, dry_run=dry_run, actor=current_user.get("id") or "admin"
+        )
+    except Exception as e:
+        raise HTTPException(500, f"NZ Sector Agreements classifier failed: {e}")
+
+
+# ─── Phase 12.2 — Bulk Auto-Verify Tool ────────────────────────────────────
+@router.get("/auto-verify/rules")
+async def get_auto_verify_rules(current_user: dict = Depends(get_current_user)):
+    """Return the per-country verification rules summary."""
+    if not _is_admin(current_user):
+        raise HTTPException(403, "Admin only")
+    from core import auto_verify
+    return auto_verify.get_rules_summary()
+
+
+@router.get("/auto-verify/{country}/preview")
+async def auto_verify_preview(
+    country: str,
+    min_coverage_pct: float = Query(70.0, ge=0, le=100),
+    current_user: dict = Depends(get_current_user),
+):
+    """Preview which records would pass/fail auto-verification."""
+    if not _is_admin(current_user):
+        raise HTTPException(403, "Admin only")
+    from core import auto_verify
+    try:
+        return await auto_verify.preview(db, country, min_coverage_pct=min_coverage_pct)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.post("/auto-verify/{country}/run")
+async def auto_verify_run(
+    country: str,
+    dry_run: bool = Query(True),
+    min_coverage_pct: float = Query(70.0, ge=0, le=100),
+    current_user: dict = Depends(get_current_user),
+):
+    """Bulk auto-verify all qualifying records for a country (admin-only)."""
+    if not _is_admin(current_user):
+        raise HTTPException(403, "Admin only")
+    from core import auto_verify
+    actor = current_user.get("email") or current_user.get("id") or "admin"
+    try:
+        return await auto_verify.run(
+            db, country,
+            min_coverage_pct=min_coverage_pct,
+            dry_run=dry_run,
+            actor=actor,
+        )
+    except ValueError as e:
+        raise HTTPException(400, str(e))
 
 
 # ─── Step 5 — Manual Tools (Bulk CSV Upload + AI Paste-Extract) ─────────────

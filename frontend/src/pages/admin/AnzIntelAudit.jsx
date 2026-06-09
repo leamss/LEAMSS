@@ -237,12 +237,13 @@ export default function AnzIntelAudit() {
       {/* ─── TABS ─── */}
       <nav className="flex gap-1 mb-6 border-b flex-wrap" style={{ borderColor: C.border }} data-testid="anz-audit-tabs">
         {[
-          { key: 'coverage',  label: 'Field Coverage',  icon: Award, all: true },
-          { key: 'rows',      label: 'Per-Occupation Heatmap', icon: Layers, all: true },
-          { key: 'orphans',   label: 'Orphan 4-digit Groups',  icon: AlertTriangle, all: false },
-          { key: 'merge',     label: 'Step 3 — Data Merge', icon: GitMerge, all: false },
-          { key: 'scrapers',  label: 'Step 4 — Scrapers',  icon: Sparkles, all: true },
-          { key: 'tools',     label: 'Step 5 — Manual Tools (CSV + AI Extract)', icon: FileText, all: true },
+          { key: 'coverage',    label: 'Field Coverage',  icon: Award, all: true },
+          { key: 'rows',        label: 'Per-Occupation Heatmap', icon: Layers, all: true },
+          { key: 'autoverify',  label: 'Bulk Auto-Verify ⚡', icon: CheckCircle2, all: true },
+          { key: 'orphans',     label: 'Orphan 4-digit Groups',  icon: AlertTriangle, all: false },
+          { key: 'merge',       label: 'Step 3 — Data Merge', icon: GitMerge, all: false },
+          { key: 'scrapers',    label: 'Step 4 — Scrapers',  icon: Sparkles, all: true },
+          { key: 'tools',       label: 'Step 5 — Manual Tools (CSV + AI Extract)', icon: FileText, all: true },
         ].filter(t => t.all || selectedCountry === 'AU').map(t => (
           <button
             key={t.key}
@@ -277,12 +278,228 @@ export default function AnzIntelAudit() {
           country={selectedCountry}
         />
       )}
+      {activeTab === 'autoverify' && (
+        <AutoVerifyTab key={`av-${selectedCountry}`} country={selectedCountry} headers={headers} onAfterCommit={fetchAll} />
+      )}
       {activeTab === 'orphans'  && selectedCountry === 'AU' && <OrphansTab orphans={orphans} />}
       {activeTab === 'merge'    && selectedCountry === 'AU' && (
         <MergeTab preview={mergePreview} running={mergeRunning} result={mergeResult} onRun={runMerge} />
       )}
       {activeTab === 'scrapers' && <ScrapersTab headers={headers} onAfterCommit={fetchAll} country={selectedCountry} />}
       {activeTab === 'tools'    && <ManualToolsTab headers={headers} onAfterCommit={fetchAll} />}
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────
+// Phase 12.2 — Bulk Auto-Verify Tab
+// Lets admin preview + run auto-verification per country with rule explanation.
+function AutoVerifyTab({ country, headers, onAfterCommit }) {
+  const [rules, setRules] = useState(null);
+  const [preview, setPreview] = useState(null);
+  const [previewing, setPreviewing] = useState(false);
+  const [running, setRunning] = useState(false);
+  const [result, setResult] = useState(null);
+  const [minCoveragePct, setMinCoveragePct] = useState(70);
+
+  const loadRules = async () => {
+    try {
+      const r = await axios.get(`${API}/anz-intel/auto-verify/rules`, { headers });
+      setRules(r.data.rules?.[country]);
+    } catch (e) {
+      setRules({ error: e.response?.data?.detail || String(e) });
+    }
+  };
+  // Load rules once on mount — component is remounted by parent via key={country}.
+  useEffect(() => { loadRules(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const runPreview = async () => {
+    setPreviewing(true); setPreview(null);
+    try {
+      const r = await axios.get(
+        `${API}/anz-intel/auto-verify/${country}/preview?min_coverage_pct=${minCoveragePct}`,
+        { headers },
+      );
+      setPreview(r.data);
+    } catch (e) {
+      setPreview({ error: e.response?.data?.detail || String(e) });
+    }
+    setPreviewing(false);
+  };
+
+  const runVerify = async () => {
+    if (!window.confirm(`Sir, ${country} ke saare qualifying records (status=draft → verified) flip ho jaayenge. Proceed?`)) return;
+    setRunning(true); setResult(null);
+    try {
+      const r = await axios.post(
+        `${API}/anz-intel/auto-verify/${country}/run?dry_run=false&min_coverage_pct=${minCoveragePct}`,
+        {},
+        { headers },
+      );
+      setResult(r.data);
+      if (onAfterCommit) onAfterCommit();
+    } catch (e) {
+      setResult({ error: e.response?.data?.detail || String(e) });
+    }
+    setRunning(false);
+  };
+
+  return (
+    <div className="space-y-4" data-testid="auto-verify-tab">
+      {/* Hero Card with rules */}
+      <div className="rounded-xl border p-4" style={{ background: C.tealWash, borderColor: C.tealWash2 }}>
+        <p className="text-sm font-bold mb-2 flex items-center gap-2" style={{ color: C.tealDeep }}>
+          <CheckCircle2 className="h-4 w-4" />
+          Bulk Auto-Verify Rules · {country === 'AU' ? '🇦🇺 Australia' : country === 'CA' ? '🇨🇦 Canada' : '🇳🇿 New Zealand'}
+        </p>
+        {rules?.error && <p className="text-xs" style={{ color: C.red }}>{rules.error}</p>}
+        {rules && !rules.error && (
+          <div className="text-xs space-y-1" style={{ color: C.body }}>
+            <p>{rules.description}</p>
+            <p>
+              <strong>Required:</strong>{' '}
+              {(rules.required_fields || []).map(f => <code key={f} className="px-1 py-0.5 rounded mr-1" style={{ background: '#fff', color: C.tealDeep }}>{f}</code>)}
+            </p>
+            {rules.one_of && (
+              <p>
+                <strong>One of:</strong>{' '}
+                {rules.one_of.map(f => <code key={f} className="px-1 py-0.5 rounded mr-1" style={{ background: '#fff', color: C.orangeDeep || '#92400E' }}>{f}</code>)}
+              </p>
+            )}
+            <p className="italic mt-2" style={{ color: C.muted }}>
+              Records that pass both the rules AND the min-coverage threshold are flipped from <code>status=&quot;draft&quot;</code> to <code>status=&quot;verified&quot;</code>, with an audit footprint (auto_verified_at, auto_verified_by, auto_verify_version, auto_verify_pct).
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Controls */}
+      <div className="rounded-xl border bg-white p-4" style={{ borderColor: C.border }}>
+        <div className="flex flex-wrap items-end gap-3">
+          <div>
+            <label className="text-[10px] uppercase font-bold mb-1 block" style={{ color: C.tealDeep, letterSpacing: '0.06em' }}>
+              Min Coverage %
+            </label>
+            <input
+              type="number"
+              min={0} max={100} step={5}
+              value={minCoveragePct}
+              onChange={(e) => setMinCoveragePct(Number(e.target.value) || 0)}
+              className="w-24 px-2 py-1.5 rounded border text-sm font-mono"
+              style={{ borderColor: C.border }}
+              data-testid="auto-verify-min-coverage-input"
+            />
+          </div>
+          <button
+            onClick={runPreview}
+            disabled={previewing}
+            className="px-4 py-2 rounded text-sm font-bold border flex items-center gap-2"
+            style={{ background: '#fff', borderColor: C.teal, color: C.tealDeep }}
+            data-testid="auto-verify-preview-btn"
+          >
+            {previewing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
+            Preview
+          </button>
+          <button
+            onClick={runVerify}
+            disabled={running || !preview?.totals?.would_verify}
+            className="px-4 py-2 rounded text-sm font-bold flex items-center gap-2 disabled:opacity-50"
+            style={{ background: C.teal, color: '#fff' }}
+            data-testid="auto-verify-run-btn"
+          >
+            {running ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+            Run Auto-Verify
+          </button>
+        </div>
+      </div>
+
+      {/* Preview Result */}
+      {preview && !preview.error && (
+        <div className="rounded-xl border bg-white p-4" style={{ borderColor: C.border }} data-testid="auto-verify-preview-result">
+          <p className="text-sm font-bold mb-3" style={{ color: C.tealDeep }}>
+            Preview · {preview.country} · min coverage {preview.min_coverage_pct}%
+          </p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <Stat label="Total"     value={preview.totals.total_records}     tone="muted" />
+            <Stat label="Would Verify" value={preview.totals.would_verify}  tone="teal" testid="auto-verify-preview-would-verify" />
+            <Stat label="Would Skip"   value={preview.totals.would_skip}    tone="orange" />
+            <Stat label="Already Verified" value={preview.totals.already_verified} tone="muted" />
+          </div>
+
+          {preview.pass_codes?.length > 0 && (
+            <div className="mt-4">
+              <p className="text-[10px] uppercase font-bold mb-1" style={{ color: C.tealDeep, letterSpacing: '0.06em' }}>
+                ✅ Sample passes ({preview.pass_codes_truncated ? `first 50` : preview.pass_codes.length} shown)
+              </p>
+              <div className="flex flex-wrap gap-1 max-h-32 overflow-y-auto">
+                {preview.pass_codes.slice(0, 30).map(c => (
+                  <span key={c.code} title={`${c.title} · coverage ${c.coverage_pct}%`} className="text-[10px] px-1.5 py-0.5 rounded font-mono"
+                        style={{ background: '#D1FAE5', color: '#065F46' }}>
+                    {c.code}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {preview.fail_codes?.length > 0 && (
+            <div className="mt-4">
+              <p className="text-[10px] uppercase font-bold mb-1" style={{ color: C.red, letterSpacing: '0.06em' }}>
+                ❌ Sample fails ({preview.fail_codes_truncated ? `first 50` : preview.fail_codes.length} shown)
+              </p>
+              <div className="space-y-1 max-h-40 overflow-y-auto">
+                {preview.fail_codes.slice(0, 10).map(c => (
+                  <div key={c.code} className="text-[10px] flex gap-2 items-start">
+                    <code className="font-mono">{c.code}</code>
+                    <span className="flex-1" style={{ color: C.body }}>{c.title}</span>
+                    <span className="font-mono" style={{ color: C.red }}>{c.coverage_pct}%</span>
+                    <span className="italic" style={{ color: C.muted }}>missing: {(c.missing_fields || []).join(', ')}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+      {preview?.error && (
+        <div className="rounded-xl p-3" style={{ background: C.redWash, color: C.red }}>{preview.error}</div>
+      )}
+
+      {/* Run Result */}
+      {result && !result.error && (
+        <div className="rounded-xl p-4" style={{ background: C.tealWash2, borderLeft: `4px solid ${C.teal}` }} data-testid="auto-verify-run-result">
+          <p className="text-sm font-bold flex items-center gap-2" style={{ color: C.tealDeep }}>
+            <CheckCircle2 className="h-4 w-4" />Auto-Verify Complete
+          </p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
+            <Stat label="Verified Now" value={result.totals.verified_now} tone="teal" testid="auto-verify-result-verified-now" />
+            <Stat label="Skipped (incomplete)" value={result.totals.skipped_incomplete} tone="orange" />
+            <Stat label="Already Verified" value={result.totals.already_verified} tone="muted" />
+            <Stat label="Total Records" value={result.totals.total_records} tone="muted" />
+          </div>
+          <p className="text-[10px] mt-2 italic" style={{ color: C.muted }}>
+            by <code>{result.actor}</code> · version {result.version} · {new Date(result.ran_at).toLocaleString()}
+          </p>
+        </div>
+      )}
+      {result?.error && (
+        <div className="rounded-xl p-3" style={{ background: C.redWash, color: C.red }}>{result.error}</div>
+      )}
+    </div>
+  );
+}
+
+function Stat({ label, value, tone, testid }) {
+  const map = {
+    teal:   { fg: C.tealDeep, bg: C.tealWash },
+    orange: { fg: '#92400E',  bg: C.goldWash || '#FEF3C7' },
+    muted:  { fg: C.muted,    bg: C.bg },
+  };
+  const t = map[tone] || map.muted;
+  return (
+    <div className="rounded p-2 border" style={{ background: t.bg, borderColor: C.borderSoft }} data-testid={testid}>
+      <p className="text-[9px] uppercase font-bold" style={{ color: C.muted, letterSpacing: '0.06em' }}>{label}</p>
+      <p className="text-2xl font-bold mt-1" style={{ color: t.fg, fontFamily: "'Playfair Display', serif" }}>{value}</p>
     </div>
   );
 }
