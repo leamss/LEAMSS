@@ -211,6 +211,29 @@ export default function AtlasAutoSuggestModal({
               </div>
             )}
 
+            {/* Phase 10.8 — Compare All button (2+ suggestions) */}
+            {result.suggestions.length >= 2 && (
+              <div className="rounded-lg p-3 flex items-center justify-between gap-2"
+                   style={{ background: C.tealWash, border: `1px dashed ${C.teal}` }}>
+                <p className="text-xs" style={{ color: C.body }}>
+                  <strong style={{ color: C.tealDeep }}>Compare these {Math.min(result.suggestions.length, 5)} suggestions side-by-side</strong> —
+                  rich table with TEER/skill, EE/PNPs/Quebec, cutoffs, best-fit auto-highlighted.
+                </p>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    const ids = result.suggestions.slice(0, 5).map(s => `${country}:${s.code}`);
+                    sessionStorage.setItem('compare_ids', JSON.stringify(ids));
+                    window.open('/sales/occupations/compare', '_blank');
+                  }}
+                  style={{ background: C.teal, color: '#fff', fontSize: 11 }}
+                  data-testid="aas-compare-all-btn"
+                >
+                  <Sparkles className="h-3 w-3 mr-1" />Compare All
+                </Button>
+              </div>
+            )}
+
             {result.suggestions.map((s, idx) => (
               <SuggestionCard
                 key={`${s.code}-${idx}`}

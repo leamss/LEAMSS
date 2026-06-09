@@ -5,6 +5,74 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 
 > **📌 Update (Feb 13, 2026):** `CHANGELOG.md` now tracks all completed phases (incl. **Phase 3A — Attendance & Leave** with full company policies). `ROADMAP.md` lists prioritized backlog. This PRD remains the static reference for original requirements.
 
+### 🏆 Phase 10.8 — Compare Programs Side-by-Side (Jun 8, 2026)
+**Status:** ✅ COMPLETE — 7/7 pytest PASS · UI live with best-fit auto-highlight · Backend scoring algorithm.
+
+Sir's ask: "Compare Programs Side-by-Side enhancement (depends on rich auto-suggest data, now ready to build)".
+
+**Backend changes:**
+- `routers/sales_occupations.py`:
+  - `/sales/occupations/compare` max items bumped: 4 → **5**
+  - Per-item enrichment block: appends full Phase 10 atlas data from `occupation_master`:
+    - `teer_category`, `teer_label`, `ee_eligibility`, `pnp_eligibility`,
+    - `ircc_round_cutoffs`, `regional_pilot_eligibility`, `quebec_eligibility`,
+    - `skillselect_tier`, `assessing_authority`, `state_nomination`,
+    - `min_invitation_points`, `dama_eligibility`, `ila_eligibility`, `classification_version`
+  - NEW `_compute_best_fit_score(item)` — transparent scoring rubric (country-agnostic):
+    - In-demand → +20
+    - Low min-points → +(100 − mp/2) cap +50
+    - Higher age limit → +(age − 30) cap +15
+    - Atlas TEER label → +5
+    - Each federal program (FSWP/CEC/FSTP) → +10
+    - PNPs/States count → +(count × 3) cap +30
+    - SkillSelect Tier 1 → +15 (AU)
+    - Round cutoffs present → +5
+    - Regional pilots + DAMA + ILA → +(count × 2) cap +15
+    - Quebec eligible → +10 (+5 extra if priority section)
+  - Endpoint marks exactly ONE item with `best_fit=true` (the highest scorer)
+
+**Frontend (rebuilt):** `/app/frontend/src/pages/sales/OccupationCompare.jsx` (~430 lines):
+- Top banner: **"🏆 Best Fit (Score X) · Country · Code · Title"** with green emerald glow
+- Card grid (auto 2/3/4/5 columns) — best-fit card gets:
+  - Thick emerald top-border
+  - Floating "🏆 Best Fit" ribbon
+  - Drop shadow with emerald tint
+- Per-card quick stats: PNPs · Cats · Pilots · QC ✓ (CA) or Visas · States · Tier (AU)
+- **Detailed Comparison Table** with row-bands:
+  - Title · Classification · Skill/TEER · In Demand
+  - **🇨🇦 IRCC Federal Programs:** FSWP/CEC/FSTP (✓/✗) · Categories (chips with icons) · PNPs (badges) · Regional Pilots (counts by type) · Quebec PSTQ (with ⭐ priority) · Latest CRS Cutoff
+  - **🇦🇺 Australia Specifics:** Skill Body · SkillSelect Tier · State Nominations · Min Invit Pts · DAMA+ILA
+  - **📊 Cost/Process:** Min Points · Age Limit · Body Fee · Processing Weeks
+  - **🏆 Best-Fit Score** row with 🏆 indicator
+- Best-fit column highlighted with subtle green background
+- Sections only render if at least one item has data for that country
+
+**AtlasAutoSuggestModal.jsx integration:**
+- NEW "Compare All" button shown when AI returns 2+ suggestions
+- Click → stores `compare_ids` in sessionStorage, opens `/sales/occupations/compare` in new tab
+- Sales workflow: AI suggests 5 NOCs → "Compare All" → instant side-by-side
+
+**Live Verification (3-CA comparison):**
+- 21231 SW Engineer: Score **157** (FSWP+CEC, 7 PNPs, 3 pilots, 1 cat, QC ✓)
+- 31102 Family Physician: Score **136** (FSWP+CEC, 2 PNPs, 0 pilots, 3 cats, QC ✓)
+- 72310 Carpenter: Score **168** 🏆 (FSWP+CEC+**FSTP**, 6 PNPs, **14 pilots**, 2 cats, QC ✓) → **Best Fit**
+
+**Tests (7/7 PASS):**
+1. Compare returns atlas data per item
+2. Exactly one item assigned best_fit=true
+3. Carpenter (FSTP+pilots) beats SW Engineer in score
+4. Pydantic min 2 / max 5 validation
+5. AU-specific fields (skillselect_tier/state_nomination) surface for AU codes
+6. Cross-country mix (AU + CA) renders both
+7. Quebec bonus reflected in score
+
+**Files:**
+- MOD `/app/backend/routers/sales_occupations.py` — atlas enrichment + best-fit scoring + max 5 items
+- REWRITTEN `/app/frontend/src/pages/sales/OccupationCompare.jsx` — rich side-by-side comparison
+- MOD `/app/frontend/src/pages/sales/components/AtlasAutoSuggestModal.jsx` — "Compare All" button
+- NEW `/app/backend/tests/test_phase108_compare_side_by_side.py` — 7 tests
+
+
 ### 🇨🇦🇫🇷 Phase 10.7 — Quebec PSTQ/PEQ + Multi-Country AI Auto-Suggest UI (Jun 8, 2026)
 **Status:** ✅ COMPLETE — 13/13 new pytest PASS · Quebec live · AI Auto-Suggest now multi-country (AU/CA/NZ) · UI button in Sales Wizard.
 

@@ -366,7 +366,65 @@ class CompareItem(BaseModel):
 
 
 class CompareRequest(BaseModel):
-    items: List[CompareItem] = Field(..., min_length=2, max_length=4)
+    items: List[CompareItem] = Field(..., min_length=2, max_length=5)
+
+
+def _compute_best_fit_score(item: dict) -> int:
+    """Higher = better-fit candidate. Used for ranking + green-highlight in UI.
+
+    Scoring rubric (transparent, country-agnostic):
+      • In-demand              → +20
+      • Min points required low → +(100 - min_points/2) cap +50
+      • Lower age_limit penalty → +(age_limit - 30) cap +15
+      • Atlas data present     → +5 each (TEER label, EE eligibility, PNP/state count)
+      • PNPs/States count      → +(count * 3) cap +30
+      • Federal program eligibility (CA) → +10 per (FSWP/CEC/FSTP)
+      • SkillSelect Tier 1     → +15 (AU)
+      • Round cutoffs available → +5
+      • Regional pilots / DAMA / ILA → +(count * 2) cap +15
+      • Quebec eligible (CA)   → +10 (extra optionality)
+    """
+    score = 0
+    if item.get("in_demand"):
+        score += 20
+    if (mp := item.get("min_points_required")) is not None:
+        score += max(0, min(50, 100 - int(mp) // 2))
+    if (al := item.get("age_limit")) is not None:
+        score += max(0, min(15, int(al) - 30))
+
+    atlas = item.get("atlas") or {}
+    if atlas.get("teer_label"):
+        score += 5
+    ee = atlas.get("ee_eligibility") or {}
+    for k in ("fswp_eligible", "cec_eligible", "fstp_eligible"):
+        if ee.get(k):
+            score += 10
+    pnps = atlas.get("pnp_eligibility") or []
+    score += min(30, len(pnps) * 3)
+    states = atlas.get("state_nomination") or {}
+    score += min(30, sum(1 for v in states.values() if v) * 3)
+
+    tier = (atlas.get("skillselect_tier") or "").lower()
+    if "tier_1" in tier or "tier 1" in tier:
+        score += 15
+
+    if atlas.get("ircc_round_cutoffs"):
+        score += 5
+
+    regional = atlas.get("regional_pilot_eligibility") or []
+    score += min(15, len(regional) * 2)
+    dama = atlas.get("dama_eligibility") or []
+    ila = atlas.get("ila_eligibility") or []
+    score += min(15, (len(dama) + len(ila)) * 2)
+
+    qc = atlas.get("quebec_eligibility") or {}
+    if qc.get("eligible"):
+        score += 10
+        # Priority section gives extra bonus
+        if any(s.get("priority") for s in (qc.get("sections") or [])):
+            score += 5
+
+    return score
 
 
 @router.post("/compare")
@@ -417,6 +475,36 @@ async def compare_occupations(req: CompareRequest, current_user: dict = Depends(
             "body_fee_native": (body or {}).get("fee_native"),
             "body_processing_weeks": (body or {}).get("processing_time_weeks"),
         })
+
+    # Phase 10 — append rich atlas data per item (TEER + EE + PNPs + Quebec + cutoffs)
+    for o in out:
+        atlas_doc = await occupation_master_col.find_one(
+            {"country_code": o["country_code"], "code": o["code"]},
+            {
+                "_id": 0,
+                "teer_category": 1, "teer_label": 1,
+                "ee_eligibility": 1, "pnp_eligibility": 1,
+                "ircc_round_cutoffs": 1, "regional_pilot_eligibility": 1,
+                "quebec_eligibility": 1,
+                "skillselect_tier": 1, "assessing_authority": 1,
+                "state_nomination": 1, "min_invitation_points": 1,
+                "visa_pathways": 1, "hierarchy": 1, "classification_version": 1,
+                "dama_eligibility": 1, "ila_eligibility": 1,
+            },
+        )
+        if atlas_doc:
+            o["atlas"] = atlas_doc
+
+    # Phase 10 — compute best-fit score for green highlight
+    for o in out:
+        o["best_fit_score"] = _compute_best_fit_score(o)
+
+    # Mark the highest-scoring item as best_fit=True
+    if out:
+        max_score = max(o["best_fit_score"] for o in out)
+        for o in out:
+            o["best_fit"] = (o["best_fit_score"] == max_score and max_score > 0)
+
     return {"items": out, "count": len(out)}
 
 

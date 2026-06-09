@@ -43,6 +43,42 @@ TRACKED_FIELDS = [
     "classification_dual_code",# v1.3 ↔ v2022 mapping
 ]
 
+# Phase 11 — Per-country field coverage configs.
+# Each country tracks DIFFERENT enrichment fields because immigration data shapes differ.
+TRACKED_FIELDS_CA = [
+    "teer_category",                # Phase 10.1 — NOC TEER classification
+    "hierarchy",                    # Phase 10.1 — broad/major/sub-major/minor parents
+    "alternative_titles",           # Phase 10.1 — search synonyms
+    "typical_tasks",                # Phase 10.1 — main duties
+    "employment_requirements",      # Phase 10.1 — education / training
+    "description",                  # Phase 10.1 — class definition
+    "ee_eligibility",               # Phase 10.2 — FSWP/CEC/FSTP + 10 categories
+    "pnp_eligibility",              # Phase 10.3 — 11 provincial nominee programs
+    "ircc_round_cutoffs",           # Phase 10.4 — latest CRS minimums per category
+    "regional_pilot_eligibility",   # Phase 10.5 — AIP + RCIP + FCIP
+    "quebec_eligibility",           # Phase 10.7 — PSTQ + PEQ-legacy
+]
+
+TRACKED_FIELDS_NZ = [
+    "title",                        # basic occupation title
+    "alternative_titles",           # search synonyms
+    "tasks",                        # NZ-equivalent of typical_tasks (legacy field)
+    "anzsco_profile",               # salary/employment (shared with AU)
+    "visa_pathways",                # SMC / AEWV / Green List eligibility
+    "assessing_authority",          # NZQA / engineering NZ etc.
+]
+
+
+def _tracked_fields_for(country: str):
+    """Returns the appropriate field list per country."""
+    c = (country or "AU").upper()
+    if c == "CA":
+        return TRACKED_FIELDS_CA
+    if c == "NZ":
+        return TRACKED_FIELDS_NZ
+    return TRACKED_FIELDS  # default AU
+
+
 ADMIN_ROLES = {"admin", "admin_owner"}
 ATLAS_READ_ROLES = {
     "admin", "admin_owner", "case_manager",
