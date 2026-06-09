@@ -5,6 +5,61 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 
 > **📌 Update (Feb 13, 2026):** `CHANGELOG.md` now tracks all completed phases (incl. **Phase 3A — Attendance & Leave** with full company policies). `ROADMAP.md` lists prioritized backlog. This PRD remains the static reference for original requirements.
 
+### 🎯 Phase 14 — LEAMSS Brand Mega Landing + Atlas Redesign (Jun 9, 2026)
+**Status:** ✅ COMPLETE — visual + functional smoke tests verified · 13/13 backend regression PASS.
+
+User Sir's ask: (1) Fix lead-not-stored bug, (2) Merge Atlas + AI Eligibility Score + Visa Compare into single SEO mega landing page, (3) Use real LEAMSS brand identity from leamss.com, (4) Plan integration with www.leamss.com domain.
+
+**A) Lead Bug Fix:**
+- Field-based honeypot (`company_url` text input) was being auto-filled by browser password managers/autofill → submissions silently dropped.
+- Replaced with **time-based bot detection** — measures `Date.now() - mountTime`; if < 1500ms, marks as bot. Verified by submitting lead for AU 261313 → stored in DB successfully.
+
+**B) Brand Identity Captured from leamss.com:**
+- Logo (high-res): `https://leamss.com/public/assets/web/images/logo.webp`
+- Primary: `#1F4D44` (Deep Forest Green) — header, footer, hero overlays
+- Accent: `#D4633F` (Burnt Orange) — primary CTAs, badges, headline italic words
+- Tagline: "We Value Emotions"
+- Full Name: "Ladhani Education & Migration Services (OPC) Pvt. Ltd"
+- Contact: Toll-Free 1800-210-2427 · Phone +91 77188-82427 · WhatsApp 77383-52427 · Thane Mumbai
+- Fonts: Playfair Display (serif headlines) + Plus Jakarta Sans (body)
+
+**C) New Mega Landing Page `/start`** — single SEO money page combining:
+1. **Hero** — bold serif headline "Find your migration pathway in 60 seconds" with orange italic + 3 country flag chips + AI quiz CTA + 3 right-rail country cards with landmark hero images
+2. **Trust Strip** — marquee with 80+ visa categories · 80k+ processed · 4.9★ · 100% refund · 12+ years
+3. **AI Eligibility Quiz** — 5-step inline quiz (age → education → English → exp → country) with progress bar + animated transitions + scorecard with top 6 pathways
+4. **Visa Compare** — 3-column side-by-side (AU 189/190/491 · CA EE-FSW/PNP/Quebec · NZ Green T1/T2/SMC) with points · age · English · processing
+5. **Featured Occupations** — 12 cards with Tier/TEER/Skill-Level badges
+6. **Browse Atlas** — 3 landmark country cards (Sydney Opera House, CN Tower, Auckland Sky Tower)
+7. **Social Proof** — 4 real testimonials (Sophia, Varsha, Krishna, Gurleen)
+8. **FAQ** — 6 accordion items (ANZSCO, CRS, SMC vs Green List, Refund policy, Timelines, English test) — doubles as SEO-optimised JSON-LD FAQPage schema
+9. **Sticky Lead Footer** — persistent bottom bar with WhatsApp + Request Call CTAs → opens a polished modal lead form
+
+**D) Atlas Pages V2 (`/atlas`, `/atlas/:country`, `/atlas/:country/:code`)** — redesigned:
+- Premium editorial hero with landmark backdrop images per country
+- Brand-aligned `#1F4D44` + `#D4633F` palette throughout
+- Single occupation page: sticky lead form on right rail with WhatsApp CTA + "Talk to a MARA expert" headline
+- Country page: search-first design with full-width hero
+- Hub: 3 landmark country cards with verified-count overlay + mid-page CTA to AI quiz
+
+**E) SEO Enhancements:**
+- JSON-LD on `/start`: Organization + FAQPage schemas
+- Open Graph + Twitter Card meta tags via `applySEO()` helper
+- Canonical URLs using `FRONTEND_URL` env (absolute https://)
+- Sitemap.xml with 720+ verified occupation URLs
+
+**F) Custom Domain Integration Strategy (www.leamss.com)** — documented in finish summary:
+- Option A: Subdomain (`atlas.leamss.com` → CNAME to Emergent preview/prod URL)
+- Option B: Path-based reverse proxy (`leamss.com/atlas` → proxy to Emergent backend)
+- Option C: Full migration (move all leamss.com traffic to Emergent deployment)
+
+**Files:**
+- NEW `/app/frontend/src/pages/LeamssPublic.jsx` (1430+ lines) — exports MegaLanding, AtlasHubV2, AtlasCountryV2, AtlasOccupationV2
+- MOD `/app/frontend/src/App.js` — wired 4 public routes
+- MOD `/app/frontend/src/pages/PublicAtlas.jsx` — fixed time-based honeypot
+- ADD `framer-motion@12.40.0` for scroll animations
+- `/app/design_guidelines.json` — full LEAMSS brand system from design_agent_full_stack
+
+
 ### 🎯 Phase 13 — Public Atlas Pages (SEO + Lead Capture) (Jun 9, 2026)
 **Status:** ✅ COMPLETE — 13/13 active pytest PASS (1 by-design skip) · testing_agent reports 100% backend + 100% frontend.
 

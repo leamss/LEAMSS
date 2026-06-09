@@ -80,7 +80,7 @@ import PreAssessmentPayment from '@/pages/PreAssessmentPayment';
 import MagicLinkLogin from '@/pages/MagicLinkLogin';
 import EligibilityCheck from '@/pages/EligibilityCheck';
 import VisaCompare from '@/pages/VisaCompare';
-import { PublicAtlasHub, PublicAtlasCountry, PublicAtlasOccupation } from '@/pages/PublicAtlas';
+import { MegaLanding, AtlasHubV2, AtlasCountryV2, AtlasOccupationV2 } from '@/pages/LeamssPublic';
 import '@/App.css';
 
 function App() {
@@ -91,10 +91,11 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Login />} />
-          {/* ─── Public Atlas (Phase 13 — no auth required) ─── */}
-          <Route path="/atlas" element={<PublicAtlasHub />} />
-          <Route path="/atlas/:country" element={<PublicAtlasCountry />} />
-          <Route path="/atlas/:country/:code" element={<PublicAtlasOccupation />} />
+          {/* ─── Phase 14: LEAMSS Public Brand Experience (no auth) ─── */}
+          <Route path="/start" element={<MegaLanding />} />
+          <Route path="/atlas" element={<AtlasHubV2 />} />
+          <Route path="/atlas/:country" element={<AtlasCountryV2 />} />
+          <Route path="/atlas/:country/:code" element={<AtlasOccupationV2 />} />
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/admin/analytics" element={<AnalyticsDashboard />} />
           <Route path="/admin/activity" element={<ActivityLog />} />
