@@ -13,7 +13,7 @@ import { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import {
   Database, AlertTriangle, CheckCircle2, FileText, MapPin, Briefcase,
-  Building2, Award, Globe2, Layers, Sparkles, RefreshCw, Search, Loader2,
+  Building2, Award, Globe2, Globe, Layers, Sparkles, RefreshCw, Search, Loader2,
   GitMerge, ArrowRight, Sliders, TrendingUp,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -167,6 +167,14 @@ export default function AnzIntelAudit() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <a
+              href="/admin/public-pages"
+              className="px-3 py-2 rounded-md text-xs font-bold flex items-center gap-2 transition-colors"
+              style={{ background: C.gold, color: '#fff' }}
+              data-testid="anz-audit-public-pages-link"
+            >
+              <Globe className="h-3.5 w-3.5" />Public Pages Manager
+            </a>
             <a
               href="/admin/calculator-rules"
               className="px-3 py-2 rounded-md text-xs font-bold flex items-center gap-2 transition-colors"

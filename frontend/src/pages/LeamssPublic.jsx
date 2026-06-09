@@ -247,7 +247,9 @@ const SectionTitle = ({ eyebrow, title, sub }) => (
 // MEGA LANDING PAGE — /start
 // ═══════════════════════════════════════════════════════════════════════════
 export function MegaLanding() {
+  const [content, setContent] = useState(null);
   useEffect(() => {
+    axios.get(`${API}/public-pages/content`).then(r => setContent(r.data)).catch(() => setContent({}));
     applySEO({
       page_title: 'Find Your Migration Pathway in 60 Seconds — Australia, Canada, New Zealand PR | LEAMSS',
       meta_description: 'Free AI eligibility check + verified ANZSCO/NOC atlas + visa comparison for AU, CA, NZ. 100% refund guarantee on negative skill assessment. India\'s most trusted migration consultancy since 2014.',
@@ -265,14 +267,6 @@ export function MegaLanding() {
             "address": { "@type": "PostalAddress", "addressLocality": "Thane", "addressRegion": "Maharashtra", "addressCountry": "IN" },
             "contactPoint": { "@type": "ContactPoint", "telephone": "+91-77188-82427", "contactType": "customer service" },
           },
-          {
-            "@type": "FAQPage",
-            "mainEntity": FAQS.map(f => ({
-              "@type": "Question",
-              "name": f.q,
-              "acceptedAnswer": { "@type": "Answer", "text": f.a },
-            })),
-          },
         ],
       },
     });
@@ -280,21 +274,32 @@ export function MegaLanding() {
 
   return (
     <LeamssShell>
-      <Hero />
-      <TrustStrip />
+      <Hero content={content?.hero} />
+      <TrustStrip items={content?.trust_strip} />
       <EligibilityQuizSection />
       <VisaCompareSection />
-      <FeaturedOccupationsSection />
+      <FeaturedOccupationsSection featuredOverride={content?.featured_codes} />
       <BrowseAtlasSection />
-      <SocialProofSection />
-      <FAQSection />
+      <SocialProofSection testimonialsOverride={content?.testimonials} />
+      <FAQSection faqsOverride={content?.faqs} />
       <StickyLeadFooter />
     </LeamssShell>
   );
 }
 
 // ─── Hero ──────────────────────────────────────────────────────────────────
-function Hero() {
+function Hero({ content }) {
+  const hero = content || {
+    eyebrow: '100% Refund Guarantee · MARA Registered',
+    title_line1: 'Find your migration',
+    title_line2: 'pathway',
+    title_line3_accent: 'in 60 seconds.',
+    subtitle: 'Free AI eligibility check across 80+ visa categories for Australia, Canada & New Zealand. No login. No spam. Just an honest scorecard.',
+    cta_primary: 'Start AI Eligibility Quiz',
+    cta_secondary: 'Browse Migration Atlas',
+    rating: '4.9 / 5',
+    rating_subtitle: 'from 500+ Google reviews',
+  };
   return (
     <section className="relative overflow-hidden" style={{ background: BRAND.bgWarm }}>
       <div className="absolute top-0 right-0 w-1/2 h-full opacity-[0.08] pointer-events-none"
@@ -306,25 +311,24 @@ function Hero() {
             initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}
           >
             <Pill color={BRAND.accent}>
-              <Shield className="w-3 h-3" />100% Refund Guarantee · MARA Registered
+              <Shield className="w-3 h-3" />{hero.eyebrow}
             </Pill>
             <h1 className="font-serif-leamss text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-bold leading-[1.05] mt-5"
               style={{ color: BRAND.ink }}>
-              Find your migration
+              {hero.title_line1}
               <br />
-              <span style={{ color: BRAND.primary }}>pathway</span> in{' '}
-              <span style={{ color: BRAND.accent, fontStyle: 'italic' }}>60 seconds</span>.
+              <span style={{ color: BRAND.primary }}>{hero.title_line2}</span>{' '}
+              <span style={{ color: BRAND.accent, fontStyle: 'italic' }}>{hero.title_line3_accent}</span>
             </h1>
             <p className="mt-6 text-lg lg:text-xl leading-relaxed max-w-xl" style={{ color: BRAND.body }}>
-              Free AI eligibility check across 80+ visa categories for Australia, Canada & New Zealand.
-              No login. No spam. Just an honest scorecard.
+              {hero.subtitle}
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Button size="lg" data-testid="hero-start-quiz" onClick={() => document.getElementById('quiz')?.scrollIntoView({ behavior: 'smooth' })}>
-                Start AI Eligibility Quiz<ArrowRight className="w-4 h-4" />
+                {hero.cta_primary}<ArrowRight className="w-4 h-4" />
               </Button>
               <Button variant="secondary" size="lg" as={Link} to="/atlas" data-testid="hero-browse-atlas">
-                Browse Migration Atlas
+                {hero.cta_secondary}
               </Button>
             </div>
             <div className="mt-7 flex items-center gap-5 flex-wrap">
@@ -337,9 +341,9 @@ function Hero() {
               <div className="text-sm">
                 <div className="flex items-center gap-1">
                   {[1,2,3,4,5].map(i => <Star key={i} className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />)}
-                  <span className="font-bold ml-1" style={{ color: BRAND.ink }}>4.9 / 5</span>
+                  <span className="font-bold ml-1" style={{ color: BRAND.ink }}>{hero.rating}</span>
                 </div>
-                <p className="text-xs" style={{ color: BRAND.muted }}>from 500+ Google reviews</p>
+                <p className="text-xs" style={{ color: BRAND.muted }}>{hero.rating_subtitle}</p>
               </div>
             </div>
           </motion.div>
@@ -381,8 +385,8 @@ function Hero() {
 }
 
 // ─── Trust strip (marquee) ─────────────────────────────────────────────────
-function TrustStrip() {
-  const items = [
+function TrustStrip({ items: itemsOverride }) {
+  const items = itemsOverride && itemsOverride.length > 0 ? itemsOverride : [
     { num: '80+', label: 'Visa Categories' },
     { num: '80k+', label: 'Visas Processed' },
     { num: '80+', label: 'LEAMSS Experts' },
@@ -709,11 +713,23 @@ const CompareRow = ({ label, value }) => (
 );
 
 // ─── Featured Occupations ──────────────────────────────────────────────────
-function FeaturedOccupationsSection() {
+function FeaturedOccupationsSection({ featuredOverride }) {
   const [items, setItems] = useState([]);
   useEffect(() => {
-    axios.get(`${API}/public-atlas/featured`).then(r => setItems(r.data.items || [])).catch(() => {});
-  }, []);
+    // If admin has customized featured codes, use those (resolve titles via /featured endpoint).
+    if (featuredOverride && featuredOverride.length > 0) {
+      // Map override -> shape matching /featured payload by re-using items from featured API.
+      axios.get(`${API}/public-atlas/featured`).then(r => {
+        const lookup = {};
+        (r.data.items || []).forEach(it => { lookup[`${it.country_code}-${it.code}`] = it; });
+        // For codes not in lookup, build minimal shape from override
+        const resolved = featuredOverride.map(o => lookup[`${o.country_code}-${o.code}`] || { country_code: o.country_code, code: o.code, title: o.title });
+        setItems(resolved);
+      }).catch(() => setItems(featuredOverride));
+    } else {
+      axios.get(`${API}/public-atlas/featured`).then(r => setItems(r.data.items || [])).catch(() => {});
+    }
+  }, [featuredOverride]);
   return (
     <section className="py-20">
       <div className="max-w-7xl mx-auto px-4">
@@ -806,14 +822,15 @@ const TESTIMONIALS = [
   { name: 'Gurleen Kaur', city: 'Delhi → Auckland', text: "A wonderful team to work with. Worth trusting. Professional, lucid. They have marked their words and made this journey wonderful.", stars: 5 },
 ];
 
-function SocialProofSection() {
+function SocialProofSection({ testimonialsOverride }) {
+  const list = testimonialsOverride && testimonialsOverride.length > 0 ? testimonialsOverride : TESTIMONIALS;
   return (
     <section className="py-20">
       <div className="max-w-7xl mx-auto px-4">
         <SectionTitle eyebrow="Trusted by 80,000+ Indians" title="Real stories. Real outcomes."
           sub="From Mumbai to Sydney. Pune to Toronto. Delhi to Auckland. Here's what our clients say." />
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" data-testid="testimonials-grid">
-          {TESTIMONIALS.map((t, i) => (
+          {list.map((t, i) => (
             <motion.div
               key={i}
               initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
@@ -853,13 +870,14 @@ const FAQS = [
     a: 'No major skilled visa pathway allows skipping the English test. Minimum requirements: Australia (IELTS 6.0 each band or equivalent PTE), Canada (CLB 7), New Zealand (IELTS 6.5). However, LEAMSS offers PTE/IELTS coaching as part of our PR package.' },
 ];
 
-function FAQSection() {
+function FAQSection({ faqsOverride }) {
+  const list = faqsOverride && faqsOverride.length > 0 ? faqsOverride : FAQS;
   return (
     <section className="py-20" style={{ background: BRAND.bgWarm }}>
       <div className="max-w-3xl mx-auto px-4">
         <SectionTitle eyebrow="FAQ" title="Quick answers to common migration questions" />
         <Accordion type="single" collapsible className="space-y-2" data-testid="faq-accordion">
-          {FAQS.map((f, i) => (
+          {list.map((f, i) => (
             <AccordionItem key={i} value={`faq-${i}`}
               className="rounded-xl bg-white px-5 border-0" style={{ border: `1px solid ${BRAND.border}` }}>
               <AccordionTrigger className="text-left font-semibold py-4 hover:no-underline" style={{ color: BRAND.ink }} data-testid={`faq-trigger-${i}`}>

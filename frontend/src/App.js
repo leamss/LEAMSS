@@ -81,6 +81,7 @@ import MagicLinkLogin from '@/pages/MagicLinkLogin';
 import EligibilityCheck from '@/pages/EligibilityCheck';
 import VisaCompare from '@/pages/VisaCompare';
 import { MegaLanding, AtlasHubV2, AtlasCountryV2, AtlasOccupationV2 } from '@/pages/LeamssPublic';
+import PublicPagesManager from '@/pages/admin/PublicPagesManager';
 import '@/App.css';
 
 function App() {
@@ -221,6 +222,11 @@ function App() {
           <Route path="/admin/calculator-rules" element={
             <RequirePermission allowRoles={['admin_owner', 'admin']}>
               <CalculatorRulesEditor />
+            </RequirePermission>
+          } />
+          <Route path="/admin/public-pages" element={
+            <RequirePermission allowRoles={['admin_owner', 'admin']}>
+              <PublicPagesManager />
             </RequirePermission>
           } />
           <Route path="/admin/atlas/search" element={
