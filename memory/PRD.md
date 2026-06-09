@@ -5,6 +5,46 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 
 > **📌 Update (Feb 13, 2026):** `CHANGELOG.md` now tracks all completed phases (incl. **Phase 3A — Attendance & Leave** with full company policies). `ROADMAP.md` lists prioritized backlog. This PRD remains the static reference for original requirements.
 
+### 🎯 Phase 12 — NZ Atlas Full Build + Bulk Auto-Verify Tool (Jun 9, 2026)
+**Status:** ✅ COMPLETE — 16/16 new pytest PASS · 49 total tests PASS · testing_agent_v3_fork reports 100%/100% backend+frontend.
+
+Sir's ask: "P1 New Zealand Atlas Full Build (Green List Tier 1/2 scrapers, LTSSL/RSSL) + P2 Bulk Auto-Verify Tool for Occupation Codes".
+
+**A) NZ Atlas — 4 New Scrapers:**
+- `core/scrapers/nz_anzsco_seed.py` — 243 ANZSCO 1.3 base records inserted idempotently (Managers, Professionals, Engineers, ICT, Health, Education, Trades, Care Workers, Plant Operators).
+- `core/scrapers/nz_green_list.py` — Classifies 91 Tier 1 (Straight to Residence) + 23 Tier 2 (Work to Residence 24mo) occupations. Notes LTSSL/RSSL retired 2022 → replaced by Green List Tier 2 + AEWV.
+- `core/scrapers/nz_aewv_smc.py` — AEWV eligibility (skill_level 1-3 eligible) + SMC 6-point base (skill_points 2-6 + green_list_auto_pass flag).
+- `core/scrapers/nz_sector_agreements.py` — 6 sectors: CISA (31 codes), Care Workforce (13), Transport (9), Tourism (7), Meat (1), Snow/Adventure (2).
+- 4 new endpoints under `/api/anz-intel/scrapers/nz-*/run`.
+- `TRACKED_FIELDS_NZ` expanded from 6 → 9 fields including `nz_green_list_tier`, `aewv_eligibility`, `smc_points_breakdown`, `sector_agreement_eligibility`.
+- NZ heatmap shows 100% coverage on 7 of 9 fields after running all 4 scrapers.
+
+**B) Bulk Auto-Verify Tool:**
+- `core/auto_verify.py` — per-country verification rules:
+  - **AU**: assessing_authority + visa_pathways + skillselect_tier + min_invitation_points
+  - **CA**: teer_category + ee_eligibility + hierarchy + (pnp OR quebec OR regional_pilot)
+  - **NZ**: skill_level + assessing_authority + visa_pathways + (green_list_tier OR aewv_eligibility)
+- 3 new admin endpoints: `GET /auto-verify/rules`, `GET /auto-verify/{country}/preview`, `POST /auto-verify/{country}/run`.
+- `min_coverage_pct` filter (default 70%) — records below threshold are skipped.
+- Idempotent: re-runs return `verified_now=0`, `already_verified=N`.
+- Records flipped from `status="draft"` → `status="verified"` with audit footprint (auto_verified_at, auto_verified_by, auto_verify_version, auto_verify_pct).
+- New frontend tab in `AnzIntelAudit.jsx` — `AutoVerifyTab` component with rules card + min coverage input + preview table + run button. Uses `key={country}` for clean remount.
+
+**Live state after Phase 12:**
+- NZ Atlas: 243 records (was 20) — all auto-verified
+- CA Atlas: 516 records — 103 auto-verifiable
+- AU Atlas: 932 records — 370 auto-verifiable, 558 below threshold
+
+**Tests `test_phase12_nz_atlas_and_autoverify.py` (16/16 PASS):**
+1-2. Scrapers list contains 4 new NZ entries
+3-6. Each NZ scraper returns correct counts (Tier 1/2, AEWV, SMC, Sector distribution)
+7. Audit summary now has 200+ NZ records
+8. NZ tracked fields include Phase 12 additions
+9. Software Engineer (261313) spot-check = Green List Tier 1
+10. Partner blocked on NZ scrapers
+11-16. Auto-Verify rules + preview + dry-run + idempotency + 400 on unsupported + partner-blocked
+
+
 ### 🎯 Phase 11 — Per-country Heatmap (CA + NZ) + IRCC Category Overrides (Jun 9, 2026)
 **Status:** ✅ COMPLETE — 11/11 new pytest PASS · 22/22 regression PASS · UI live for both features.
 
