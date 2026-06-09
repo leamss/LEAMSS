@@ -34,6 +34,11 @@ DEFAULT_RULES: Dict[str, Any] = {
     },
     # Score (0-100) >= threshold => tier. Checked strong → weak.
     "tiers": {"strong": 75, "moderate": 55, "weak": 35},
+    # Max points deducted for a fully-competitive (competitiveness=100) pathway.
+    "competitiveness_penalty_max": 22,
+    # Multiplier applied to raw score when a pathway REQUIRES a job offer and the
+    # candidate has none (0.5 => lose half the score).
+    "no_offer_penalty": 0.5,
     # Age full marks up to `optimal_max`, then linear decay to `floor_ratio` of
     # the weight at the pathway's max_age. Above max_age => 0.
     "age_curve": {"optimal_max": 32, "floor_ratio": 0.3},
@@ -194,26 +199,47 @@ def _score_english(eng_text: str, pathway: Dict, weight: float) -> Dict:
 
 
 def _score_job_offer(has_offer: bool, pathway: Dict, weight: float) -> Dict:
-    requires = float(pathway.get("min_work_exp_years") or 0) == 0 and (
-        "work visa" in _norm(pathway.get("category")) or "sponsor" in _norm(pathway.get("post_arrival_jobs"))
-    )
+    requires = bool(pathway.get("requires_job_offer"))
     if has_offer:
         return {"earned": weight, "reason": "Job offer in hand — strong positive signal"}
-    reason = "A job offer is essentially required for this route" if requires else "No job offer (optional for this pathway)"
+    reason = "A job offer / employer sponsor is required for this route" if requires else "No job offer (optional for this pathway)"
     return {"earned": 0.0, "reason": reason}
 
 
-def _score_occupation(demand_ratio: float, weight: float) -> Dict:
-    earned = round(weight * demand_ratio, 1)
-    if demand_ratio >= 0.99:
-        reason = "Occupation found on a verified in-demand list"
-    elif demand_ratio >= 0.5:
-        reason = "Occupation recognised in our atlas"
-    elif demand_ratio > 0:
-        reason = "Occupation provided but not matched to a verified list"
-    else:
-        reason = "Occupation not provided"
-    return {"earned": earned, "reason": reason}
+_COUNTRY_TO_CODE = {
+    "canada": "CA", "australia": "AU", "new zealand": "NZ",
+}
+
+
+async def _occupation_demand_ratio(occupation: str, country: Optional[str]) -> Dict[str, Any]:
+    """Per-country occupation demand → {ratio 0..1, reason}.
+
+    Uses occupation_master (has AU/CA/NZ data with status='verified'). For
+    countries we don't have data for (UK/Germany/USA) we return a neutral 0.5 so
+    we neither reward nor unfairly penalise.
+    """
+    occ = _norm(occupation)
+    if not occ or occ in ("not specified", "na", "n/a"):
+        return {"ratio": 0.0, "reason": "Occupation not provided"}
+    code = _COUNTRY_TO_CODE.get(_norm(country))
+    if not code:
+        return {"ratio": 0.5, "reason": f"Demand data for {country or 'this country'} not catalogued — neutral credit"}
+    try:
+        regex = {"$regex": re.escape(occupation.strip()), "$options": "i"}
+        q = {"country_code": code, "$or": [{"title": regex}, {"alternative_titles": regex}]}
+        doc = await db["occupation_master"].find_one(q, {"status": 1, "title": 1})
+        if not doc:
+            return {"ratio": 0.25, "reason": f"Not found on {country}'s skilled occupation list"}
+        if doc.get("status") == "verified":
+            return {"ratio": 1.0, "reason": f"On {country}'s verified in-demand occupation list"}
+        return {"ratio": 0.6, "reason": f"Listed for {country} (pending verification)"}
+    except Exception:
+        return {"ratio": 0.4, "reason": "Occupation provided"}
+
+
+def _score_occupation(demand: Dict[str, Any], weight: float) -> Dict:
+    ratio = demand.get("ratio", 0.0)
+    return {"earned": round(weight * ratio, 1), "reason": demand.get("reason", "")}
 
 
 def _score_funds(savings: Optional[float], pathway: Dict, weight: float) -> Dict:
@@ -226,31 +252,16 @@ def _score_funds(savings: Optional[float], pathway: Dict, weight: float) -> Dict
     return {"earned": earned, "reason": f"Funds below the ~₹{req/100000:.1f}L typically required"}
 
 
-async def _occupation_demand_ratio(occupation: str, country_codes: List[str]) -> float:
-    """One lightweight lookup → a 0..1 demand signal applied to all pathways."""
-    occ = _norm(occupation)
-    if not occ or occ in ("not specified", "na", "n/a"):
-        return 0.0
-    try:
-        col = db["occupation_master"]
-        regex = {"$regex": re.escape(occupation.strip()), "$options": "i"}
-        query: Dict[str, Any] = {"$or": [{"title": regex}, {"alternative_titles": regex}]}
-        doc = await col.find_one(query, {"in_demand": 1, "status": 1})
-        if not doc:
-            return 0.4  # provided but unmatched
-        if doc.get("in_demand") or doc.get("status") == "verified":
-            return 1.0
-        return 0.7
-    except Exception:
-        return 0.4
-
-
 async def score_candidate(profile: Dict[str, Any], pathways: List[Dict[str, Any]],
                           rules: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-    """Compute deterministic per-pathway scores + breakdown.
+    """Compute deterministic per-pathway scores + breakdown + adjustments.
 
     profile keys: age, education, work_experience_years, english_score, occupation,
                   has_job_offer, family_savings_inr, preferred_countries
+
+    Final score = raw factor strength (0-100)
+                  × job-offer gate (if the pathway REQUIRES an offer and there is none)
+                  − selection-competitiveness penalty (per pathway)
     """
     if rules is None:
         rules = await load_scoring_rules()
@@ -259,6 +270,8 @@ async def score_candidate(profile: Dict[str, Any], pathways: List[Dict[str, Any]
     curve = rules.get("age_curve", DEFAULT_RULES["age_curve"])
     levels = rules.get("education_levels", DEFAULT_RULES["education_levels"])
     buffer = rules.get("experience_buffer_years", DEFAULT_RULES["experience_buffer_years"])
+    comp_max = float(rules.get("competitiveness_penalty_max", DEFAULT_RULES["competitiveness_penalty_max"]))
+    no_offer_penalty = float(rules.get("no_offer_penalty", DEFAULT_RULES["no_offer_penalty"]))
 
     age = int(profile.get("age") or 0)
     education = profile.get("education") or ""
@@ -268,9 +281,6 @@ async def score_candidate(profile: Dict[str, Any], pathways: List[Dict[str, Any]
     has_offer = bool(profile.get("has_job_offer"))
     savings = profile.get("family_savings_inr")
 
-    country_codes = profile.get("preferred_countries") or []
-    demand_ratio = await _occupation_demand_ratio(occupation, country_codes)
-
     def w(name: str) -> float:
         return float(factors.get(name, {}).get("weight", 0))
 
@@ -278,6 +288,8 @@ async def score_candidate(profile: Dict[str, Any], pathways: List[Dict[str, Any]
         return factors.get(name, {}).get("label", name.title())
 
     max_total = sum(w(n) for n in factors)
+    # Cache occupation demand per country (avoid duplicate DB hits)
+    demand_cache: Dict[str, Dict[str, Any]] = {}
     results: Dict[str, Any] = {}
     best_slug, best_score = None, -1
 
@@ -285,13 +297,18 @@ async def score_candidate(profile: Dict[str, Any], pathways: List[Dict[str, Any]
         slug = p.get("slug")
         if not slug:
             continue
+        country = p.get("country", "")
+        if country not in demand_cache:
+            demand_cache[country] = await _occupation_demand_ratio(occupation, country)
+        demand = demand_cache[country]
+
         parts = [
             ("age", _score_age(age, p, w("age"), curve)),
             ("education", _score_education(education, p, w("education"), levels)),
             ("experience", _score_experience(years, p, w("experience"), buffer)),
             ("english", _score_english(english, p, w("english"))),
             ("job_offer", _score_job_offer(has_offer, p, w("job_offer"))),
-            ("occupation", _score_occupation(demand_ratio, w("occupation"))),
+            ("occupation", _score_occupation(demand, w("occupation"))),
             ("funds", _score_funds(savings, p, w("funds"))),
         ]
         breakdown = []
@@ -302,21 +319,51 @@ async def score_candidate(profile: Dict[str, Any], pathways: List[Dict[str, Any]
                 continue
             earned_total += res["earned"]
             breakdown.append({
-                "factor": name,
-                "label": lbl(name),
-                "earned": round(res["earned"], 1),
-                "max": round(mx, 1),
+                "factor": name, "label": lbl(name),
+                "earned": round(res["earned"], 1), "max": round(mx, 1),
                 "reason": res["reason"],
             })
-        score = int(round(100 * earned_total / max_total)) if max_total else 0
-        score = max(0, min(100, score))
+        raw = int(round(100 * earned_total / max_total)) if max_total else 0
+        raw = max(0, min(100, raw))
+
+        # ── Per-pathway adjustments ──────────────────────────────────────────
+        adjustments: List[Dict[str, Any]] = []
+        score = float(raw)
+
+        # (c) Job-offer gate — pathways that require an employer/sponsor
+        requires_offer = bool(p.get("requires_job_offer"))
+        if requires_offer and not has_offer:
+            before = score
+            score = score * (1 - no_offer_penalty)
+            adjustments.append({
+                "label": "Job offer required",
+                "delta": -int(round(before - score)),
+                "reason": f"{p.get('name', slug)} essentially needs an employer/sponsor — without an offer your realistic chance drops sharply.",
+            })
+
+        # (a) Selection competitiveness — how hard it is to win an invite/approval
+        comp = float(p.get("competitiveness") or 0)
+        if comp > 0 and comp_max > 0:
+            penalty = int(round((comp / 100.0) * comp_max))
+            if penalty > 0:
+                score -= penalty
+                adjustments.append({
+                    "label": "Selection competitiveness",
+                    "delta": -penalty,
+                    "reason": f"This is a highly selective route (competitiveness {int(comp)}/100) — even strong profiles face tough cut-offs.",
+                })
+
+        score = max(0, min(100, int(round(score))))
+
         results[slug] = {
             "name": p.get("name", slug),
-            "country": p.get("country", ""),
+            "country": country,
             "score": score,
+            "raw_score": raw,
             "tier": _tier_for(score, tiers),
             "estimated_timeline": (f"{p.get('timeline_months')} months" if p.get("timeline_months") else None),
             "breakdown": breakdown,
+            "adjustments": adjustments,
         }
         if score > best_score:
             best_score, best_slug = score, slug

@@ -3,6 +3,23 @@
 This file appends every completed phase/feature with dates and verification status.
 
 ---
+### 🎯 Phase 16.1 — Pathway-Differentiated Scoring + Admin Visa Pathways Editor (Jun 9, 2026)
+**Tests:** `tests/test_eligibility_scoring.py` → **13/13 PASS** (added differentiation, job-offer gate, competitiveness, "not all identical" regression). Frontend verified via Playwright screenshots.
+
+**Problem:** After Phase 16, a strong young profile scored the SAME (86) for ALL 8 pathways — felt meaningless. User approved a+b+c+d to differentiate.
+
+**(a) Per-pathway competitiveness** — added `competitiveness` (0-100) to `visa_pathways`. Final score deducts up to `competitiveness_penalty_max` (default 22) pts → selective routes (USA EB2-NIW 88, AU189 78) score lower than easy ones (NZ 45, PNP 50).
+**(b) Per-country occupation demand** — `_occupation_demand_ratio` now country-aware: queries `occupation_master` by `country_code` (AU/CA/NZ have verified data; UK/DE/US → neutral 0.5). Occupation factor now differs per pathway.
+**(c) Job-offer gate** — added `requires_job_offer` (UK, Germany = true). No offer → raw × (1 − `no_offer_penalty`, default 0.5) → UK/Germany drop to ~32 ("Unlikely"). Each penalty shown as an explicit `adjustment` row.
+**(d) Admin Visa Pathways Editor** — new page `pages/admin/VisaPathwaysEditor.jsx` (`/admin/visa-pathways`, sidebar Tools → 🗺️ Visa Pathways): master-detail edit of all pathway fields incl. competitiveness, requires-job-offer, fees, requirements, benefits/drawbacks; Save (PUT) + two-click Reseed. SINGLE SOURCE OF TRUTH — verified: editing competitiveness instantly changes the public quiz score (NZ 45→95 ⇒ score 78→67).
+
+**Engine/UI extras:**
+- `score_candidate` now returns `raw_score` + `adjustments[]` per pathway. Quiz breakdown shows "Profile strength · raw/100" → factor bars → "Pathway adjustments" (label, −delta, reason) → "Final score".
+- Admin Scoring Rules page extended with `competitiveness_penalty_max` + `no_offer_penalty` controls.
+- Scores now differentiate: e.g. NZ 78 · PNP 77 · AU190 75 · CA-EE 72 · AU189 71 · USA 67 · UK/DE 32.
+
+---
+
 ### 🎯 Phase 16 — Transparent Eligibility Scoring + Merged Public Tools on /start (Jun 9, 2026)
 **Tests:** `tests/test_eligibility_scoring.py` → **10/10 PASS** (engine determinism, breakdown, lead capture, admin RBAC CRUD, visa-compare). Frontend tested via Playwright (testing agent iteration_117) → quiz/breakdown/lead/compare/redirects/admin Save PASS; 2 follow-up issues fixed & self-verified.
 

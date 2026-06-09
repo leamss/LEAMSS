@@ -70,6 +70,8 @@ export default function EligibilityScoringRules() {
         tiers: rules.tiers,
         age_curve: rules.age_curve,
         experience_buffer_years: rules.experience_buffer_years,
+        competitiveness_penalty_max: rules.competitiveness_penalty_max,
+        no_offer_penalty: rules.no_offer_penalty,
       }, { headers });
       toast.success('Scoring rules saved — live immediately');
       load();
@@ -187,6 +189,16 @@ export default function EligibilityScoringRules() {
             <div>
               <label className="text-sm text-slate-600 block mb-1">Experience buffer (yrs for full marks)</label>
               <Input type="number" min="0" max="10" value={rules.experience_buffer_years ?? 3} onChange={(e) => setRules(prev => ({ ...prev, experience_buffer_years: Number(e.target.value) || 0 }))} data-testid="exp-buffer" />
+            </div>
+            <div>
+              <label className="text-sm text-slate-600 block mb-1">Max competitiveness penalty (pts)</label>
+              <Input type="number" min="0" max="50" value={rules.competitiveness_penalty_max ?? 22} onChange={(e) => setRules(prev => ({ ...prev, competitiveness_penalty_max: Number(e.target.value) || 0 }))} data-testid="comp-penalty" />
+              <p className="text-[11px] text-slate-400 mt-1">Deducted for a 100/100 competitiveness pathway (e.g. USA EB2-NIW).</p>
+            </div>
+            <div>
+              <label className="text-sm text-slate-600 block mb-1">No-offer penalty (0-1)</label>
+              <Input type="number" step="0.05" min="0" max="1" value={rules.no_offer_penalty ?? 0.5} onChange={(e) => setRules(prev => ({ ...prev, no_offer_penalty: Number(e.target.value) || 0 }))} data-testid="no-offer-penalty" />
+              <p className="text-[11px] text-slate-400 mt-1">Score × (1 − this) when a pathway needs a job offer and there is none (UK/Germany).</p>
             </div>
           </div>
         </Card>

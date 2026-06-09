@@ -50,6 +50,8 @@ SEEDS = [
         ],
         "post_arrival_jobs": "Strong demand: IT, healthcare, skilled trades, finance",
         "rank": 1,
+        "competitiveness": 72,
+        "requires_job_offer": False,
     },
     {
         "slug": "australia_189",
@@ -76,6 +78,8 @@ SEEDS = [
         ],
         "post_arrival_jobs": "Hot sectors: nursing, software, accounting, civil engineering",
         "rank": 2,
+        "competitiveness": 78,
+        "requires_job_offer": False,
     },
     {
         "slug": "australia_190",
@@ -101,6 +105,8 @@ SEEDS = [
         ],
         "post_arrival_jobs": "Varies by state — Tasmania/SA generous, NSW/VIC selective",
         "rank": 3,
+        "competitiveness": 60,
+        "requires_job_offer": False,
     },
     {
         "slug": "uk_skilled_worker",
@@ -128,6 +134,8 @@ SEEDS = [
         ],
         "post_arrival_jobs": "Already employed at sponsor; switching jobs = new sponsor",
         "rank": 4,
+        "competitiveness": 50,
+        "requires_job_offer": True,
     },
     {
         "slug": "germany_eu_blue_card",
@@ -155,6 +163,8 @@ SEEDS = [
         ],
         "post_arrival_jobs": "IT, engineering, healthcare in massive shortage",
         "rank": 5,
+        "competitiveness": 48,
+        "requires_job_offer": True,
     },
     {
         "slug": "usa_eb2_niw",
@@ -182,6 +192,8 @@ SEEDS = [
         ],
         "post_arrival_jobs": "Any employer, any state — full flexibility",
         "rank": 6,
+        "competitiveness": 88,
+        "requires_job_offer": False,
     },
     {
         "slug": "new_zealand_swv",
@@ -208,6 +220,8 @@ SEEDS = [
         ],
         "post_arrival_jobs": "Construction, healthcare, IT, dairy industry",
         "rank": 7,
+        "competitiveness": 45,
+        "requires_job_offer": False,
     },
     {
         "slug": "canada_pnp",
@@ -234,6 +248,8 @@ SEEDS = [
         ],
         "post_arrival_jobs": "Province-dependent; in-demand trades, healthcare, IT",
         "rank": 8,
+        "competitiveness": 50,
+        "requires_job_offer": False,
     },
 ]
 
@@ -300,6 +316,8 @@ class PathwayUpdate(BaseModel):
     key_benefits: Optional[List[str]] = None
     key_drawbacks: Optional[List[str]] = None
     post_arrival_jobs: Optional[str] = None
+    competitiveness: Optional[int] = None
+    requires_job_offer: Optional[bool] = None
     rank: Optional[int] = None
     is_active: Optional[bool] = None
 

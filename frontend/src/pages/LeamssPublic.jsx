@@ -664,8 +664,26 @@ function PathwayResultCard({ p, isBest }) {
             transition={{ duration: 0.25 }} style={{ overflow: 'hidden', background: BRAND.bgSoft }}
           >
             <div className="px-5 py-4 border-t" style={{ borderColor: BRAND.border }}>
-              <p className="text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: BRAND.muted }}>Score breakdown</p>
+              <p className="text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: BRAND.muted }}>Profile strength {typeof p.raw_score === 'number' ? `· ${p.raw_score}/100` : ''}</p>
               {(p.breakdown || []).map((b, i) => <FactorBar key={i} b={b} />)}
+              {(p.adjustments?.length > 0) && (
+                <div className="mt-3 pt-3 border-t" style={{ borderColor: BRAND.border }}>
+                  <p className="text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: BRAND.muted }}>Pathway adjustments</p>
+                  {p.adjustments.map((a, i) => (
+                    <div key={i} className="flex items-start justify-between gap-2 py-1" data-testid="adjustment-row">
+                      <div className="flex-1">
+                        <span className="text-xs font-semibold" style={{ color: BRAND.ink }}>{a.label}</span>
+                        <p className="text-[11px]" style={{ color: BRAND.muted }}>{a.reason}</p>
+                      </div>
+                      <span className="text-xs font-bold tabular-nums whitespace-nowrap" style={{ color: BRAND.accent }}>{a.delta}</span>
+                    </div>
+                  ))}
+                  <div className="flex items-center justify-between mt-2 pt-2 border-t" style={{ borderColor: BRAND.border }}>
+                    <span className="text-xs font-bold" style={{ color: BRAND.ink }}>Final score</span>
+                    <span className="text-sm font-bold" style={{ color: tm.color }}>{p.score}/100</span>
+                  </div>
+                </div>
+              )}
               {p.gaps_to_fix?.length > 0 && (
                 <div className="mt-3 pt-3 border-t" style={{ borderColor: BRAND.border }}>
                   <p className="text-[11px] font-bold mb-1" style={{ color: BRAND.accent }}>To improve your score:</p>

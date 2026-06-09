@@ -249,6 +249,8 @@ class ScoringRulesUpdate(BaseModel):
     age_curve: Optional[Dict[str, float]] = None
     education_levels: Optional[Dict[str, int]] = None
     experience_buffer_years: Optional[float] = None
+    competitiveness_penalty_max: Optional[float] = None
+    no_offer_penalty: Optional[float] = None
 
 
 @router.put("/scoring-rules")

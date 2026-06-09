@@ -67,6 +67,55 @@ def test_engine_age_over_limit_zeroes_age_factor():
     assert age_b["earned"] == 0
 
 
+def test_job_offer_gate_drops_required_pathways():
+    from core.eligibility_scoring import score_candidate
+    base = {"min_age": 18, "max_age": 60, "min_education": "Bachelor's Degree",
+            "min_work_exp_years": 0, "language_required": "IELTS 6.0", "min_funds_inr": 100000,
+            "competitiveness": 50}
+    pathways = [
+        {**base, "slug": "needs_offer", "name": "UK", "country": "United Kingdom", "requires_job_offer": True},
+        {**base, "slug": "no_offer", "name": "CA", "country": "Canada", "requires_job_offer": False},
+    ]
+    prof = {"age": 28, "education": "Master", "work_experience_years": 6,
+            "english_score": "IELTS 8.0", "occupation": "Engineer", "has_job_offer": False}
+    r = asyncio.get_event_loop().run_until_complete(score_candidate(prof, pathways))
+    needs = r["pathways"]["needs_offer"]
+    free = r["pathways"]["no_offer"]
+    # Job-offer-required pathway must score lower and expose an adjustment
+    assert needs["score"] < free["score"]
+    assert any(a["label"] == "Job offer required" for a in needs["adjustments"])
+
+
+def test_competitiveness_differentiates_scores():
+    from core.eligibility_scoring import score_candidate
+    base = {"min_age": 18, "max_age": 60, "min_education": "Bachelor's Degree",
+            "min_work_exp_years": 0, "language_required": "IELTS 6.0", "min_funds_inr": 100000,
+            "requires_job_offer": False}
+    pathways = [
+        {**base, "slug": "easy", "name": "NZ", "country": "New Zealand", "competitiveness": 30},
+        {**base, "slug": "hard", "name": "US", "country": "United States", "competitiveness": 95},
+    ]
+    prof = {"age": 28, "education": "Master", "work_experience_years": 6,
+            "english_score": "IELTS 8.0", "occupation": "Engineer", "has_job_offer": False}
+    r = asyncio.get_event_loop().run_until_complete(score_candidate(prof, pathways))
+    assert r["pathways"]["easy"]["score"] > r["pathways"]["hard"]["score"]
+    assert r["top_recommendation"] == "easy"
+
+
+def test_live_scores_are_not_all_identical():
+    # Regression for the "all 86" bug — a strong profile must yield varied scores
+    payload = {"age": 29, "education": "Master", "work_experience_years": 10,
+               "occupation": "Software Engineer", "english_score": "IELTS 7.0-7.5",
+               "has_job_offer": False, "preferred_countries": ["Canada"]}
+    r = httpx.post(f"{API}/eligibility/score", json=payload, timeout=90)
+    assert r.status_code == 200, r.text
+    scores = {s: p["score"] for s, p in r.json()["pathways"].items()}
+    assert len(set(scores.values())) >= 3, f"Scores not differentiated: {scores}"
+    # UK/Germany (require offer) should be clearly lower than the top
+    top = max(scores.values())
+    assert scores.get("uk_skilled_worker", 0) < top
+
+
 # ── HTTP endpoint tests ──────────────────────────────────────────────────────
 def test_score_endpoint_returns_breakdown_and_no_422_on_minimal():
     payload = {"age": 29, "education": "Bachelors", "work_experience_years": 4,
