@@ -5,18 +5,20 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
-import { Bot, Briefcase, Heart, Upload, Map } from 'lucide-react';
+import { Bot, Briefcase, Heart, Upload, Map, Sparkles } from 'lucide-react';
 import FieldWithLabel from '../lib/FieldWithLabel';
 import SuggesterModal from '../lib/SuggesterModal';
 import ResumeUploadModal from '../lib/ResumeUploadModal';
 import ANZSCOPreviewCard from '../components/ANZSCOPreviewCard';
 import AtlasVerifyCard from '../components/AtlasVerifyCard';
+import AtlasAutoSuggestModal from '../components/AtlasAutoSuggestModal';
 import { QUALIFICATIONS, MARITAL_OPTIONS, CONTRIBUTION_OPTIONS } from '../lib/constants';
 
 export default function Step3Profile({ data, update, setData, headers }) {
   const [showSuggester, setShowSuggester] = useState(false);
   const [showResumeUpload, setShowResumeUpload] = useState(false);
   const [showAtlas, setShowAtlas] = useState(false);
+  const [showAutoSuggest, setShowAutoSuggest] = useState(false);
 
   // Auto-open the chosen helper on first visit
   useEffect(() => {
@@ -27,6 +29,14 @@ export default function Step3Profile({ data, update, setData, headers }) {
 
   const isMarried = data.marital_status === 'married' || data.marital_status === 'de_facto';
 
+  const handleAutoSuggestPick = (picked) => {
+    update('occupation_code', picked.code);
+    update('occupation_title', picked.title);
+    if (picked.country_code) update('occupation_country', picked.country_code);
+    toast.success(`Selected ${picked.code} · ${picked.title}`);
+    setShowAtlas(true);  // auto-open Atlas Verify for the new pick
+  };
+
   return (
     <div className="space-y-4">
       <h2 className="text-lg font-bold flex items-center gap-2">
@@ -36,6 +46,14 @@ export default function Step3Profile({ data, update, setData, headers }) {
       <div className="flex gap-2 flex-wrap">
         <Button variant="outline" size="sm" onClick={() => setShowSuggester(true)} data-testid="open-suggester">
           <Bot className="h-3.5 w-3.5 mr-1" />AI Occupation Helper
+        </Button>
+        <Button
+          size="sm"
+          onClick={() => setShowAutoSuggest(true)}
+          data-testid="open-atlas-auto-suggest"
+          style={{ background: '#EA7C2E', color: '#fff' }}
+        >
+          <Sparkles className="h-3.5 w-3.5 mr-1" />AI Atlas Auto-Suggest
         </Button>
         <Button variant="outline" size="sm" onClick={() => setShowResumeUpload(true)} data-testid="open-resume-upload">
           <Upload className="h-3.5 w-3.5 mr-1" />Upload Resume
@@ -204,6 +222,15 @@ export default function Step3Profile({ data, update, setData, headers }) {
           headers={headers}
         />
       )}
+
+      {/* Phase 10.3/10.7 — AI Atlas Auto-Suggest modal */}
+      <AtlasAutoSuggestModal
+        open={showAutoSuggest}
+        onClose={() => setShowAutoSuggest(false)}
+        country={data.occupation_country || 'AU'}
+        headers={headers}
+        onSelect={handleAutoSuggestPick}
+      />
     </div>
   );
 }

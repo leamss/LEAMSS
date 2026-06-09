@@ -5,6 +5,93 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 
 > **📌 Update (Feb 13, 2026):** `CHANGELOG.md` now tracks all completed phases (incl. **Phase 3A — Attendance & Leave** with full company policies). `ROADMAP.md` lists prioritized backlog. This PRD remains the static reference for original requirements.
 
+### 🇨🇦🇫🇷 Phase 10.7 — Quebec PSTQ/PEQ + Multi-Country AI Auto-Suggest UI (Jun 8, 2026)
+**Status:** ✅ COMPLETE — 13/13 new pytest PASS · Quebec live · AI Auto-Suggest now multi-country (AU/CA/NZ) · UI button in Sales Wizard.
+
+Sir's ask: "Quebec PEQ/PSTQ separate system + AI Auto-Suggest UI configured for ALL countries (present + future)".
+
+---
+
+**Part A — Quebec PSTQ + PEQ-Legacy Seed**
+
+Quebec is the ONLY Canadian province that runs its own immigration system separate from federal IRCC Express Entry and the 11 PNPs.
+
+| Program | Status | Notes |
+|---------|--------|-------|
+| **PSTQ — Programme de sélection des travailleurs qualifiés** | ✅ Active (2024-11 →) | Current main skilled-worker stream |
+| **PEQ — Programme de l'expérience québécoise** | ❌ Closed 2025 | Legacy reference only |
+| **CAQ — Certificat d'acceptation du Québec** | Issued post-PSTQ | Step toward federal IRCC PR |
+
+**4 PSTQ Sections seeded:**
+| Section | Name | FEER Eligible | French | Notes |
+|---------|------|---------------|--------|-------|
+| **A** | Skilled Workers (priority TEER 0-2) | 0/1/2 | Oral 7+ Written 5+ | 21 priority NOCs |
+| **B** | Skilled Workers (priority TEER 3-5) | 3/4/5 | Oral 5+ | 8 priority NOCs |
+| **C** | Regulated Professions | 0-5 | Oral 7+ Written 5+ | Requires Quebec authority licence |
+| **D** | Quebec-Graduated Applicants | 0-5 | Oral 7+ Written 5+ | For QC post-secondary grads |
+
+**Live Verification (Atlas Verify):**
+- 21231 SW Engineer (TEER 1) → A ⭐ + D
+- 31102 Family Physician (TEER 1) → A + **C (regulated)** + D
+- 72310 Carpenter (TEER 2) → A + D, NOT C (not regulated)
+- 85100 Livestock Labourer (TEER 5) → **B only** (Section A excludes TEER 5)
+
+**Section Distribution (live):** Section A = 307 NOCs · B = 209 · C = 52 (regulated) · D = 516 (all)
+
+---
+
+**Part B — AI Atlas Auto-Suggest: Multi-Country (Future-Proof)**
+
+Previously CA-only; now accepts `country_code` for **AU/CA/NZ** (and any future country added to `occupation_master`).
+
+**Backend changes:** `routers/sales_ai_helpers.py` → `/atlas-auto-suggest`:
+- Accepts `country_code: "AU" | "CA" | "NZ"` (default CA for backward compat)
+- Renamed `province_code` → `region_code` (works for province/state)
+- Country-aware system prompt + classification label (NOC 2021 vs ANZSCO)
+- Per-country atlas enrichment block:
+  - **AU:** skillselect_tier, assessing_authority, state_nomination, visa_pathways, min_invitation_points
+  - **CA:** teer_category, ee_eligibility, pnp_eligibility, ircc_round_cutoffs, regional_pilot_eligibility, quebec_eligibility (NEW)
+  - **NZ:** assessing_authority, visa_pathways (extends in Phase 11)
+- Region preference re-sorts PNPs/states with selected region first
+
+**Frontend (NEW):** `pages/sales/components/AtlasAutoSuggestModal.jsx` (~300 lines):
+- Free-text candidate description input (15-2000 chars)
+- Country badge auto-detected from wizard
+- Region selector (12 CA provinces incl. QC · 8 AU states · 6 NZ regions)
+- Calls `/api/sales/ai/atlas-auto-suggest` with Haiku 4.5 routing
+- Each result card shows:
+  - NOC/ANZSCO code + confidence badge (HIGH/MEDIUM/LOW)
+  - "Region match" badge if applicable
+  - **CA cards:** TEER · Federal Programs · Categories (chips with icons) · PNPs (region highlighted gold) · CRS Cutoffs · Regional Pilots · Quebec PSTQ sections
+  - **AU cards:** Skill Level · Skill Body · SkillSelect Tier · Visa Pathways · State Nominations
+  - **NZ cards:** Skill Level · Visa Pathways count
+- "Pick this" button → auto-fills `occupation_code` + `occupation_country` + auto-opens Atlas Verify Card
+
+**Step3Profile.jsx changes:**
+- New "AI Atlas Auto-Suggest" orange button next to existing "AI Occupation Helper"
+- Modal opens with current country from wizard state
+- On pick → updates wizard data + auto-opens Atlas Verify Card
+
+**Live AI Calls (verified end-to-end):**
+
+| Test | Result | Atlas data |
+|------|--------|------------|
+| 🇦🇺 "Civil engineer, 8yr infra → NSW" | 233211 Civil Engineer (HIGH) | Skill Lv 1 · Skill Body: EA |
+| 🇨🇦 "Family physician, 8yr GP → QC" | 31102 (HIGH) | TEER 1 · Healthcare+Physicians-CA · **Quebec Sections A+C+D, regulated** |
+| 🇳🇿 "Software engineer, 5yr Python" | 261313 SW Engineer (HIGH) | 20 NZ candidates considered |
+
+**Files:**
+- NEW `/app/backend/core/scrapers/quebec_immigration.py` — 250-line PSTQ classifier
+- NEW `/app/backend/tests/test_phase107_quebec_and_multi_country.py` — 13 tests
+- NEW `/app/frontend/src/pages/sales/components/AtlasAutoSuggestModal.jsx` — Multi-country UI modal
+- MOD `/app/backend/routers/sales_ai_helpers.py` — country-aware auto-suggest (140 lines refactored)
+- MOD `/app/backend/routers/anz_intel.py` — quebec scraper endpoint + atlas verify exposes quebec_eligibility
+- MOD `/app/frontend/src/pages/sales/steps/Step3Profile.jsx` — new button + modal wiring
+
+**Total Phase 10 scrapers:** **11** (7 AU + 6 CA: NOC Canada · IRCC EE Streams · 11 PNPs · IRCC Round Cutoffs · AIP+RCIP+FCIP · **Quebec**)
+**Total Phase 10 tests:** **64 passing** (Phase 10.1-10.7)
+
+
 ### 🌍 Migration Atlas — Country-Separated Views + Dry-Run Bug Fix (Jun 8, 2026)
 **Status:** ✅ COMPLETE — both issues Sir reported are resolved.
 

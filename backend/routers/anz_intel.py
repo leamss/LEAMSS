@@ -811,6 +811,22 @@ async def list_scrapers(current_user: dict = Depends(get_current_user)):
                 "run_endpoint": "/api/anz-intel/scrapers/ca-regional-pilots/run",
                 "note": "Static seed of priority NOCs per community. Admin extends via CSV upload.",
             },
+            {
+                "id": "quebec_immigration",
+                "name": "🇨🇦 Quebec PSTQ + PEQ-Legacy (Separate Provincial System)",
+                "source_url": "https://www.quebec.ca/en/immigration/permanent/skilled-workers",
+                "what_it_provides": [
+                    "PSTQ — Programme de sélection des travailleurs qualifiés (current 2026 program)",
+                    "4 PSTQ Sections: A (TEER 0-2) · B (TEER 3-5) · C (Regulated) · D (QC graduates)",
+                    "Per-NOC quebec_eligibility[] with FEER category, French requirements, priority flags",
+                    "PEQ-Legacy reference (closed for new applicants 2025)",
+                ],
+                "country": "CA",
+                "estimated_records": 516,
+                "status": "ready",
+                "run_endpoint": "/api/anz-intel/scrapers/quebec-immigration/run",
+                "note": "Quebec runs its own immigration system (not federal). FEER = NOC 2021 TEER. Admin extends per-draw priority lists.",
+            },
         ]
     }
     # Default any scraper without a country tag to AU (legacy 7 AU scrapers).
@@ -1044,6 +1060,28 @@ async def run_ca_regional_pilots(
         )
     except Exception as e:
         raise HTTPException(500, f"CA Regional Pilots seed failed: {e}")
+
+
+# ─── Step 4m — Quebec PSTQ + PEQ-Legacy (Phase 10.7) ────────────────────────
+@router.post("/scrapers/quebec-immigration/run")
+async def run_quebec_immigration(
+    dry_run: bool = Query(True, description="If true, returns preview without writing"),
+    current_user: dict = Depends(get_current_user),
+):
+    """Seed Quebec PSTQ (4 sections) + PEQ legacy reference.
+
+    Tags every CA NOC with quebec_eligibility (FEER category, eligible PSTQ sections,
+    French requirements, regulated flag).
+    """
+    if not _is_admin(current_user):
+        raise HTTPException(403, "Admin only")
+    try:
+        from core.scrapers import quebec_immigration
+        return await quebec_immigration.apply_to_db(
+            db, dry_run=dry_run, actor=current_user.get("id") or "admin"
+        )
+    except Exception as e:
+        raise HTTPException(500, f"Quebec immigration seed failed: {e}")
 
 
 # ─── Step 5 — Manual Tools (Bulk CSV Upload + AI Paste-Extract) ─────────────
@@ -1478,6 +1516,7 @@ async def verify_in_atlas(
         "pnp_eligibility": d.get("pnp_eligibility") or [],
         "ircc_round_cutoffs": d.get("ircc_round_cutoffs") or {},
         "regional_pilot_eligibility": d.get("regional_pilot_eligibility") or [],
+        "quebec_eligibility": d.get("quebec_eligibility") or {},
         "hierarchy": d.get("hierarchy") or {},
         "tasks_count": len(d.get("tasks") or []),
         "atlas_url": "/admin/anz-intel/audit",

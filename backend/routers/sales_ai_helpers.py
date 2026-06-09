@@ -183,16 +183,17 @@ async def suggest_occupation(req: SuggestRequest, current_user: dict = Depends(g
 # ════════════════════════════════════════════════════════════════
 # Phase 10.3 — ATLAS AUTO-SUGGEST (free-text → NOC + PNP + EE intel)
 # ════════════════════════════════════════════════════════════════
-ATLAS_AUTO_SUGGEST_SYSTEM_PROMPT = """You are a Canadian immigration NOC matching expert.
+ATLAS_AUTO_SUGGEST_SYSTEM_PROMPT = """You are an immigration occupation matching expert.
 
-A sales rep will describe a candidate in plain English, optionally with a province
-preference. Your task: from the CA_NOC_LIST, return the TOP 3-5 NOC codes that
-best match the candidate's CURRENT occupation.
+A sales rep will describe a candidate in plain English, optionally with a destination
+country and/or sub-region (province/state). Your task: from the OCCUPATION_LIST, return
+the TOP 3-5 occupation codes that best match the candidate's CURRENT occupation.
 
 ABSOLUTE RULES
 🔴 RULE 1 — Match on the candidate's CURRENT job duties, NOT their degree.
-🔴 RULE 2 — Only suggest codes from CA_NOC_LIST. Do NOT invent codes.
-🔴 RULE 3 — If a destination province is mentioned, prefer NOCs that province targets.
+🔴 RULE 2 — Only suggest codes from OCCUPATION_LIST. Do NOT invent codes.
+🔴 RULE 3 — If a destination sub-region (province/state) is mentioned, prefer codes
+            that region targets.
 🔴 RULE 4 — Confidence: HIGH (clear duty match), MEDIUM (related), LOW (loose).
 🔴 RULE 5 — Output ONLY JSON, no prose, no markdown.
 
@@ -204,7 +205,7 @@ OUTPUT FORMAT
       "title": "Software engineers and designers",
       "confidence": "high|medium|low",
       "reasoning": "2-3 sentence match explanation",
-      "destination_province_match": true|false
+      "destination_region_match": true|false
     }
   ],
   "tip": "1-sentence sales advice"
@@ -214,16 +215,17 @@ OUTPUT FORMAT
 
 class AtlasAutoSuggestRequest(BaseModel):
     description: str = Field(..., min_length=15, max_length=2000)
-    province_code: Optional[str] = Field(None, description="Optional: BC/ON/AB/SK/MB/NB/NS/PE/NL/YT/NT")
+    country_code: str = Field("CA", description="AU / CA / NZ — the destination country")
+    region_code: Optional[str] = Field(None, description="Optional state/province: NSW/VIC/BC/ON/etc")
     max_suggestions: int = Field(5, ge=1, le=8)
 
 
 @router.post("/atlas-auto-suggest")
 async def atlas_auto_suggest(req: AtlasAutoSuggestRequest, current_user: dict = Depends(get_current_user)):
-    """Phase 10.3 — Canada Atlas Auto-Suggest.
+    """Phase 10.3 → 10.7 — Multi-country Atlas Auto-Suggest.
 
-    Free-text → top NOC matches enriched with TEER + IRCC EE eligibility + PNP
-    eligibility. Optimised for Canada with the 2026 IRCC/PNP intel baked in.
+    Free-text → top occupation matches enriched with country-specific Atlas data.
+    Works across AU (ANZSCO 6-digit), CA (NOC 5-digit), NZ (ANZSCO 6-digit).
 
     Hybrid LLM router: routes to Haiku 4.5 (fast, cheap) via `atlas_auto_suggest`.
     """
@@ -232,41 +234,69 @@ async def atlas_auto_suggest(req: AtlasAutoSuggestRequest, current_user: dict = 
     if not EMERGENT_LLM_KEY:
         raise HTTPException(status_code=500, detail="EMERGENT_LLM_KEY not configured")
 
-    # Slim list of CA NOCs only (cap to ~300 to keep prompt tight)
+    country = (req.country_code or "CA").upper()
+    if country not in {"AU", "CA", "NZ"}:
+        raise HTTPException(status_code=400, detail=f"Unsupported country: {country}")
+
+    # Country-specific priority field used for region-match enrichment
+    if country == "AU":
+        priority_match_key = "state_nomination"
+    elif country == "CA":
+        priority_match_key = "pnp_eligibility"
+    else:  # NZ
+        priority_match_key = "regional_skill_shortage"
+
+    # Slim list — cap to ~600 codes per country to keep prompt size reasonable
     available: List[Dict[str, Any]] = []
     async for occ in db["occupation_master"].find(
-        {"country_code": "CA", "status": {"$ne": "superseded"}},
-        {"_id": 0, "code": 1, "title": 1, "teer_category": 1, "alternative_titles": 1, "pnp_eligibility": 1, "hierarchy": 1},
+        {"country_code": country, "status": {"$ne": "superseded"}},
+        {"_id": 0, "code": 1, "title": 1, "teer_category": 1, "skill_level": 1,
+         "alternative_titles": 1, "hierarchy": 1, priority_match_key: 1, "state_nomination": 1},
     ):
-        # If province_code given, prefer codes targeted by that province
-        prov_match = False
-        if req.province_code:
-            for p in (occ.get("pnp_eligibility") or []):
-                if (p.get("province_code") or "").upper() == req.province_code.upper():
-                    prov_match = True
-                    break
-        major_group = (occ.get("hierarchy") or {}).get("major_group", {})
+        # If region_code given, prefer codes targeted by that region
+        region_match = False
+        if req.region_code:
+            rc = req.region_code.upper()
+            if country == "CA":
+                for p in (occ.get("pnp_eligibility") or []):
+                    if (p.get("province_code") or "").upper() == rc:
+                        region_match = True
+                        break
+            elif country == "AU":
+                state_doc = occ.get("state_nomination") or {}
+                if rc in state_doc and state_doc.get(rc):
+                    region_match = True
+        major_group = (occ.get("hierarchy") or {}).get("major_group", {}) if isinstance(occ.get("hierarchy"), dict) else {}
         available.append({
             "code": occ.get("code"),
             "title": occ.get("title"),
-            "teer": occ.get("teer_category"),
+            "skill_level_or_teer": occ.get("teer_category") if country == "CA" else occ.get("skill_level"),
             "major_group": major_group.get("title") if isinstance(major_group, dict) else None,
             "alt": (occ.get("alternative_titles") or [])[:5],
-            "_prov_match": prov_match,
+            "_region_match": region_match,
         })
 
     if not available:
-        raise HTTPException(status_code=400, detail="No CA NOC codes in occupation_master")
+        raise HTTPException(
+            status_code=400,
+            detail=f"No {country} occupation codes available in Atlas yet.",
+        )
 
-    # Strip the helper flag before sending to LLM
     available_slim = [{k: v for k, v in a.items() if not k.startswith("_")} for a in available]
 
+    classification_label = "NOC 2021" if country == "CA" else "ANZSCO"
+    region_hint = ""
+    if req.region_code:
+        region_label = "PROVINCE" if country == "CA" else "STATE"
+        region_hint = f"## DESTINATION {region_label} PREFERENCE\n{req.region_code.upper()}\n\n"
+
     user_prompt = (
+        f"## DESTINATION COUNTRY\n{country} (classification: {classification_label})\n\n"
         f"## CANDIDATE DESCRIPTION\n{req.description.strip()}\n\n"
-        + (f"## DESTINATION PROVINCE PREFERENCE\n{req.province_code.upper()}\n\n" if req.province_code else "")
-        + "## CA_NOC_LIST\n```json\n"
+        f"{region_hint}"
+        + "## OCCUPATION_LIST\n```json\n"
         + json.dumps(available_slim, ensure_ascii=False)
-        + f"\n```\n\nSuggest the top {req.max_suggestions} NOCs. Return JSON only."
+        + f"\n```\n\nSuggest the top {req.max_suggestions} occupation codes. Return JSON only."
     )
 
     try:
@@ -277,7 +307,7 @@ async def atlas_auto_suggest(req: AtlasAutoSuggestRequest, current_user: dict = 
     try:
         chat = LlmChat(
             api_key=EMERGENT_LLM_KEY,
-            session_id=f"atlas-suggest-{current_user.get('id','anon')[:8]}",
+            session_id=f"atlas-suggest-{country.lower()}-{current_user.get('id','anon')[:8]}",
             system_message=ATLAS_AUTO_SUGGEST_SYSTEM_PROMPT,
         ).with_model("anthropic", model_for("atlas_auto_suggest"))
         response = await chat.send_message(UserMessage(text=user_prompt))
@@ -290,7 +320,7 @@ async def atlas_auto_suggest(req: AtlasAutoSuggestRequest, current_user: dict = 
             raise HTTPException(status_code=502, detail=f"AI returned non-JSON: {raw[:200]}")
         parsed = json.loads(raw[first:last + 1])
 
-        # Enrich each suggestion with full Atlas data (EE + PNP eligibility)
+        # Enrich each suggestion with full country-specific Atlas data
         valid_codes = {a["code"] for a in available}
         enriched: List[Dict[str, Any]] = []
         for s in parsed.get("suggestions", []):
@@ -298,35 +328,55 @@ async def atlas_auto_suggest(req: AtlasAutoSuggestRequest, current_user: dict = 
             if code not in valid_codes:
                 continue
             full = await db["occupation_master"].find_one(
-                {"country_code": "CA", "code": code},
+                {"country_code": country, "code": code},
                 {"_id": 0, "code": 1, "title": 1, "teer_category": 1, "teer_label": 1,
-                 "ee_eligibility": 1, "pnp_eligibility": 1, "hierarchy": 1},
+                 "skill_level": 1, "ee_eligibility": 1, "pnp_eligibility": 1,
+                 "quebec_eligibility": 1, "ircc_round_cutoffs": 1, "regional_pilot_eligibility": 1,
+                 "state_nomination": 1, "visa_pathways": 1, "skillselect_tier": 1,
+                 "hierarchy": 1, "assessing_authority": 1, "min_invitation_points": 1},
             )
-            if full:
-                # If province_code given, filter PNP eligibility to that province first
+            if not full:
+                continue
+
+            # Build country-flavoured atlas payload
+            atlas: Dict[str, Any] = {
+                "country_code": country,
+                "skill_level_or_teer": full.get("teer_category") if country == "CA" else full.get("skill_level"),
+                "major_group": (full.get("hierarchy") or {}).get("major_group", {}),
+                "classification": classification_label,
+            }
+            if country == "CA":
+                atlas["teer_category"] = full.get("teer_category")
+                atlas["teer_label"] = full.get("teer_label")
+                atlas["ee_eligibility"] = full.get("ee_eligibility") or {}
+                # Sort PNPs by region preference
                 pnps = full.get("pnp_eligibility") or []
-                if req.province_code:
-                    pc = req.province_code.upper()
-                    pnps_sorted = sorted(pnps, key=lambda p: 0 if p.get("province_code") == pc else 1)
-                else:
-                    pnps_sorted = pnps
-                enriched.append({
-                    **s,
-                    "atlas": {
-                        "teer_category": full.get("teer_category"),
-                        "teer_label": full.get("teer_label"),
-                        "ee_eligibility": full.get("ee_eligibility") or {},
-                        "pnp_eligibility": pnps_sorted,
-                        "major_group": (full.get("hierarchy") or {}).get("major_group", {}),
-                    },
-                })
+                if req.region_code:
+                    rc = req.region_code.upper()
+                    pnps = sorted(pnps, key=lambda p: 0 if (p.get("province_code") or "").upper() == rc else 1)
+                atlas["pnp_eligibility"] = pnps
+                atlas["ircc_round_cutoffs"] = full.get("ircc_round_cutoffs") or {}
+                atlas["regional_pilot_eligibility"] = full.get("regional_pilot_eligibility") or []
+                atlas["quebec_eligibility"] = full.get("quebec_eligibility") or {}
+            elif country == "AU":
+                atlas["assessing_authority"] = full.get("assessing_authority") or {}
+                atlas["skillselect_tier"] = full.get("skillselect_tier")
+                atlas["state_nomination"] = full.get("state_nomination") or {}
+                atlas["visa_pathways"] = full.get("visa_pathways") or []
+                atlas["min_invitation_points"] = full.get("min_invitation_points") or {}
+            else:  # NZ
+                atlas["assessing_authority"] = full.get("assessing_authority") or {}
+                atlas["visa_pathways"] = full.get("visa_pathways") or []
+
+            enriched.append({**s, "atlas": atlas})
 
         return {
             "suggestions": enriched,
             "tip": parsed.get("tip", ""),
             "_ai_model": model_for("atlas_auto_suggest"),
             "_total_candidates_considered": len(available),
-            "_province_filter": req.province_code,
+            "_country": country,
+            "_region_filter": req.region_code,
         }
     except json.JSONDecodeError as e:
         raise HTTPException(status_code=502, detail=f"AI returned malformed JSON: {e}")
