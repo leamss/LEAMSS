@@ -574,22 +574,33 @@ function OccupationCard({ item, compact }) {
 }
 
 function LeadCaptureForm({ atlas_code, atlas_title, country }) {
-  const [form, setForm] = useState({ name: '', email: '', phone: '', message: '', company_url: '' });
+  const [form, setForm] = useState({ name: '', email: '', phone: '', message: '' });
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState(null);
+  // Mount time — bots typically auto-submit in <1s. Honeypot dropped only if too fast.
+  const [mountTime] = useState(() => Date.now());
 
   const set = (k, v) => setForm(prev => ({ ...prev, [k]: v }));
 
   const submit = async (e) => {
     e.preventDefault();
     setSubmitting(true); setError(null);
+
+    // Time-based bot detection: only mark as bot if submission < 1.5s after mount
+    // (legitimate users always take longer to fill the form).
+    const elapsedMs = Date.now() - mountTime;
+    const isBotFastSubmit = elapsedMs < 1500;
+
     try {
       const r = await axios.post(`${API}/public-atlas/lead`, {
         name: form.name, email: form.email, phone: form.phone,
         country_of_interest: country, atlas_code, atlas_title,
-        message: form.message, company_url: form.company_url,
+        message: form.message,
+        // Honeypot triggered ONLY if form filled too quickly
+        company_url: isBotFastSubmit ? 'bot-detected' : '',
       });
+      // Treat honeypot drop as silent success on the UI (don't reveal anti-bot logic)
       if (r.data.ok) setSuccess(true);
     } catch (e) {
       setError(e.response?.data?.detail || 'Submission failed. Please try again.');
@@ -631,18 +642,6 @@ function LeadCaptureForm({ atlas_code, atlas_title, country }) {
           className="w-full px-3 py-2 rounded border text-sm"
           style={{ borderColor: C.border }}
           data-testid="atlas-lead-message"
-        />
-
-        {/* Hidden honeypot — not visible to humans */}
-        <input
-          type="text"
-          tabIndex={-1}
-          autoComplete="off"
-          name="company_url"
-          value={form.company_url}
-          onChange={(e) => set('company_url', e.target.value)}
-          style={{ position: 'absolute', left: '-9999px', height: 0, opacity: 0 }}
-          aria-hidden="true"
         />
 
         {error && <p className="text-xs" style={{ color: C.red }}>{error}</p>}
