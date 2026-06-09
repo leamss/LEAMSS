@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Sparkles, ArrowRight, CheckCircle2, AlertTriangle, Globe, RefreshCw, Share2 } from 'lucide-react';
+import { formatApiError } from '@/lib/apiErrors';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -50,6 +51,9 @@ export default function EligibilityCheck() {
     try {
       const payload = {
         ...form,
+        email: form.email?.trim() ? form.email.trim() : null,
+        mobile: form.mobile?.trim() ? form.mobile.trim() : null,
+        spouse_education: form.spouse_education?.trim() ? form.spouse_education.trim() : null,
         age: parseInt(form.age) || 28,
         work_experience_years: parseFloat(form.work_experience_years) || 0,
         family_savings_inr: form.family_savings_inr ? parseFloat(form.family_savings_inr) : null,
@@ -60,7 +64,7 @@ export default function EligibilityCheck() {
       setResult(r.data);
       setStep(3);
     } catch (e) {
-      toast.error(e.response?.data?.detail || 'Scoring failed — try again');
+      toast.error(formatApiError(e, 'Scoring failed — try again'));
       setStep(1);
     }
   };

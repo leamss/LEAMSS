@@ -24,6 +24,7 @@ import {
   MessageCircle, Calculator, Plane, Shield, Clock, ArrowUpRight, MapPin,
 } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { formatApiError } from '@/lib/apiErrors';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -433,19 +434,23 @@ function EligibilityQuizSection() {
   const submit = async () => {
     setComputing(true);
     try {
+      const countryMap = { AU: 'Australia', CA: 'Canada', NZ: 'New Zealand' };
+      const pref = countryMap[answers.country];
       const payload = {
+        full_name: 'Website Visitor',
         age: Number(answers.age || 28),
         education: answers.education || 'Bachelors',
         english_score: answers.english_score || 'IELTS 6.5',
         work_experience_years: Number(answers.work_experience_years || 3),
-        occupation: '',
+        occupation: 'Not specified',
         has_job_offer: false,
         consent_to_contact: false,
+        preferred_countries: pref ? [pref] : null,
       };
       const r = await axios.post(`${API}/eligibility/score`, payload);
       setResult(r.data);
     } catch (e) {
-      setResult({ error: e.response?.data?.detail || 'Failed to compute score' });
+      setResult({ error: formatApiError(e, 'Failed to compute score') });
     }
     setComputing(false);
   };
@@ -572,7 +577,9 @@ function QuizResult({ result, onReset }) {
   if (result.error) {
     return (
       <div className="p-12 text-center" data-testid="quiz-error">
-        <p className="text-base font-bold" style={{ color: '#B91C1C' }}>{result.error}</p>
+        <p className="text-base font-bold" style={{ color: '#B91C1C' }}>
+          {typeof result.error === 'string' ? result.error : 'Something went wrong. Please try again.'}
+        </p>
         <Button variant="secondary" className="mt-4" onClick={onReset}>Try Again</Button>
       </div>
     );

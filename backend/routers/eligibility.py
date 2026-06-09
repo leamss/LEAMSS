@@ -86,13 +86,10 @@ async def score_eligibility(data: EligibilityRequest):
         f"- Occupation: {data.occupation}\n"
         f"- English score: {data.english_score or 'Not taken yet'}\n"
         f"- Job offer abroad: {'Yes' if data.has_job_offer else 'No'}\n"
-        f"- Family savings: ₹{data.family_savings_inr:,.0f}" if data.family_savings_inr else "- Family savings: Not disclosed"
-    ) + (
-        f"\n- Spouse education: {data.spouse_education}" if data.spouse_education else ""
-    ) + (
-        f"\n- Dependent children: {data.children_count}" if data.children_count else ""
-    ) + (
-        f"\n- Preferred countries: {', '.join(data.preferred_countries)}" if data.preferred_countries else ""
+        + (f"- Family savings: ₹{data.family_savings_inr:,.0f}" if data.family_savings_inr else "- Family savings: Not disclosed")
+        + (f"\n- Spouse education: {data.spouse_education}" if data.spouse_education else "")
+        + (f"\n- Dependent children: {data.children_count}" if data.children_count else "")
+        + (f"\n- Preferred countries: {', '.join(data.preferred_countries)}" if data.preferred_countries else "")
     )
 
     pathway_list = "\n".join([f"  - {p['slug']}: {p['name']}" for p in PATHWAYS])
