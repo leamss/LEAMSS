@@ -79,11 +79,14 @@ export default function EligibilityScoringRules() {
     setSaving(false);
   };
 
+  const [confirmReset, setConfirmReset] = useState(false);
+
   const reset = async () => {
-    if (!window.confirm('Revert to hardcoded default scoring rules?')) return;
+    if (!confirmReset) { setConfirmReset(true); setTimeout(() => setConfirmReset(false), 4000); return; }
+    setConfirmReset(false);
     try {
       await axios.post(`${API}/eligibility/scoring-rules/reset`, {}, { headers });
-      toast.success('Reverted to defaults');
+      toast.success('Reverted to default scoring rules');
       load();
     } catch (e) {
       toast.error('Reset failed');
@@ -111,7 +114,7 @@ export default function EligibilityScoringRules() {
           <Badge className={source === 'db_override' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}>
             {source === 'db_override' ? '✏️ Custom (DB override)' : '🔒 Default rules'}
           </Badge>
-          <Button variant="outline" size="sm" onClick={reset} data-testid="reset-btn"><RotateCcw className="h-4 w-4 mr-1.5" /> Reset</Button>
+          <Button variant="outline" size="sm" onClick={reset} data-testid="reset-btn" className={confirmReset ? 'border-red-400 text-red-600' : ''}><RotateCcw className="h-4 w-4 mr-1.5" /> {confirmReset ? 'Click again to confirm' : 'Reset'}</Button>
           <Button size="sm" onClick={save} disabled={saving} className="bg-emerald-700 hover:bg-emerald-800 text-white" data-testid="save-btn">
             {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Save className="h-4 w-4 mr-1.5" />} Save
           </Button>

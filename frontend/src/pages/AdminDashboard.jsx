@@ -1300,7 +1300,7 @@ const AdminDashboard = () => {
     },
     {
       groupLabel: 'Tools',
-      defaultOpen: false,
+      defaultOpen: true,
       items: [
         { id: 'marketing', icon: Megaphone, label: 'Marketing', onClick: () => navigate('/admin/marketing') },
         { id: 'public-pages', icon: Globe, label: '🌐 Public Pages', onClick: () => navigate('/admin/public-pages') },

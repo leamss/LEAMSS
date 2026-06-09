@@ -3,6 +3,34 @@
 This file appends every completed phase/feature with dates and verification status.
 
 ---
+### 🎯 Phase 16 — Transparent Eligibility Scoring + Merged Public Tools on /start (Jun 9, 2026)
+**Tests:** `tests/test_eligibility_scoring.py` → **10/10 PASS** (engine determinism, breakdown, lead capture, admin RBAC CRUD, visa-compare). Frontend tested via Playwright (testing agent iteration_117) → quiz/breakdown/lead/compare/redirects/admin Save PASS; 2 follow-up issues fixed & self-verified.
+
+**Problem:** Public AI Eligibility Score was a 100% black-box AI number — non-deterministic, no breakdown, no admin control ("feels random", hurts reputation). Also Visa Compare & detailed Eligibility lived on separate portal routes, disconnected from the branded /start landing.
+
+**1. Hybrid Scoring Engine (transparent + admin-controlled)** — `core/eligibility_scoring.py`
+- Deterministic, explainable formula. 7 weighted factors: Age, Education, Work Experience, English, Job Offer, Occupation-in-demand, Settlement Funds. Each returns `earned/max` + a human reason. Normalised to 0-100, mapped to tier (strong/moderate/weak/unlikely).
+- Pathway requirements pulled from `visa_pathways` (the Visa-Compare data) → SINGLE SOURCE OF TRUTH.
+- English parser handles IELTS/PTE/CLB/CEFR. Same input → same score (deterministic).
+- AI (Haiku) now ONLY writes the narrative (summary/strengths/gaps) — numbers come from the engine. AI is best-effort: deterministic fallback text if it fails, so the feature NEVER hard-fails (fixed prior 502 fragility).
+
+**2. Bug fixes (original crash report)** — `routers/eligibility.py`, `LeamssPublic.jsx`, `EligibilityCheck.jsx`
+- Fixed React crash "Objects are not valid as a React child {type,loc,msg,input,url}": quiz omitted required `full_name` → 422; empty `email` string failed EmailStr. Now coerced/defaulted + all errors run through `formatApiError` (never render an object/array).
+- Fixed Python precedence bug in old profile-summary (ternary swallowed age/education/experience when savings empty).
+
+**3. Admin control** — new page `pages/admin/EligibilityScoringRules.jsx` (`/admin/eligibility-scoring`)
+- Edit factor weights, tier thresholds, age curve, experience buffer. Save (live immediately) / two-click Reset to defaults. Source badge (Default vs Custom DB override).
+- Endpoints: `GET/PUT/POST /api/eligibility/scoring-rules(/reset)` (admin-only, partner blocked 403).
+- Added to admin sidebar **Tools** group (now `defaultOpen: true`) alongside new **🌐 Public Pages** link.
+
+**4. Merged public tools on /start (branded, no separate portal)** — `LeamssPublic.jsx`
+- Quiz upgraded to 7 steps (added Occupation + Job Offer). New scorecard with per-pathway cards: score/100, tier badge, strengths chips, "How is this calculated?" expander → factor bars (earned/max + reason). Transparency note shown.
+- Result-screen lead capture form → `POST /api/eligibility/lead` (creates a prioritised lead).
+- Static Visa-Compare teaser replaced with INTERACTIVE branded compare tool wired to `/api/visa-compare` (picker 2-4 pathways, side-by-side cards: cost ₹L, timeline, education, experience, age, language, benefits/drawbacks).
+- Old routes redirect (SEO-safe): `/visa-compare → /start#compare`, `/eligibility → /start#quiz` (with smooth hash scroll). Removed now-unused VisaCompare/EligibilityCheck imports.
+
+---
+
 ### 🏆 Phase 6.9b — IP Geolocation + Alert Notifications + Audit Insights Dashboard (May 20, 2026)
 **Tests:** `test_iteration117_insights_alerts.py` → **10/10 PASS**. Full Phase 6 regression → **54/55 PASS** (1 skip for missing partner login).
 
