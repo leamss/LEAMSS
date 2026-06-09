@@ -1,0 +1,39 @@
+{
+  "summary": "Phase 14 — LEAMSS transparent eligibility scoring + merged Visa Compare on /start + redirects + admin Eligibility Scoring Rules page tested end-to-end via Playwright. Quiz, transparency breakdown, lead capture, compare picker, redirects, and admin Save all PASS. Two issues found: (1) admin sidebar is MISSING the two new Tools links ('🌐 Public Pages', '🎯 Eligibility Scoring') — page only reachable via direct URL; (2) admin Reset button on Eligibility Scoring Rules did NOT revert the override (badge stayed 'Custom', age weight stayed 28 instead of 25).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "AdminLayout sidebar / Tools group",
+        "issue": "The two NEW links '🌐 Public Pages' and '🎯 Eligibility Scoring' are NOT present anywhere in the admin sidebar (full sidebar text dumped — no match for 'Public Pages' or 'Eligibility Scoring' strings). Tools-related groups visible: 'SMART SALES HELPER', 'PLANNING TOOLS' (Fee Calculator, Upsell Bundles, Fee Database, AI Workflow Builder, Workflows). The /admin/eligibility-scoring route DOES work via direct URL; only the sidebar entry is missing.",
+        "selector": "admin sidebar 'Tools' group",
+        "priority": "HIGH"
+      },
+      {
+        "component": "EligibilityScoringRules / Reset button",
+        "issue": "Clicking Reset (data-testid='reset-btn') with the browser confirm dialog auto-accepted did NOT revert the rule. After reset: 'Default rules' badge not visible and factor-weight-age stayed at 28 (was 25 originally, changed to 28 and saved, then reset — expected to revert to 25). Possible RCAs: (a) reset handler waits for window.confirm synchronously while playwright's dialog handler races, (b) the POST/DELETE override API silently fails, (c) the component does not refetch defaults after reset. Save flow is verified working (toast 'Scoring rules saved — live immediately' + body switches to Custom (DB override)).",
+        "selector": "[data-testid='reset-btn']",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "[HIGH] Add the two missing sidebar items '🌐 Public Pages' and '🎯 Eligibility Scoring' under the admin Tools group (the route /admin/eligibility-scoring works fine — only sidebar navigation entry is absent).",
+    "[HIGH] Fix Reset on /admin/eligibility-scoring — verify (a) DELETE/POST scoring-rules override endpoint is being hit on reset, (b) component refetches rules and source badge flips back to 'Default rules', (c) test outside browser-confirm timing race by replacing window.confirm with a shadcn AlertDialog so it survives async dialog handlers."
+  ],
+  "critical_code_review_comments": [
+    "QuizLeadForm.send() swallows API errors and still sets done=true (line ~702). This silently hides backend lead-capture failures from QA; consider logging or surfacing a subtle 'we will retry' state for observability.",
+    "LeamssPublic.jsx is now 1678 lines — exceeds the >700 line guideline. Recommend splitting into pages/leamss/{MegaLanding,EligibilityQuiz,VisaCompare,AtlasHub,AtlasCountry,AtlasOccupation}.jsx for maintainability.",
+    "The 'AI Eligibility Score' title text on /start still says 'Powered by Claude Sonnet' and 'AI Eligibility Score across all major pathways' even though the new design is transparent/deterministic + AI narrative. Either keep narrative-only AI badge or update copy to reflect the hybrid (transparent scoring + AI explanation) so users understand what is actually AI vs deterministic."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (skipped — already covered)", "frontend": "~85% (11 of 13 sub-checks pass; sidebar entries + Reset behavior fail)"},
+  "test_credentials": "admin@leamss.com / Admin@123 (worked; no MFA prompt).",
+  "seed_data_creation": "Created one quiz lead via /api/eligibility/lead (name='QA Tester', email='qa+leamssquiz@test.example.com'). Persisted any custom scoring override under factor age=28 — reset did NOT clean it up, so a residual custom override may still be live in DB; main agent should manually reset or call DELETE on the rules endpoint to restore defaults after fix.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "VERIFIED OK: (1) 7-step quiz end-to-end with no React crash, Best Match shows full pathway name 'Canada · Express Entry (FSW)' (not slug), 8 pathway-card-* rendered, toggle-breakdown reveals 7 factor-* bars each with earned/max + reason. (2) data-testid='quiz-lead-form' / quiz-lead-name / quiz-lead-contact / quiz-lead-submit → quiz-lead-done works (needs scroll_into_view_if_needed before fill — sticky footer overlaps). (3) /start#compare auto-loads 3 compare-card-* (canada_express_entry, australia_189, australia_190), 8 compare-pick-* pills, adding uk_skilled_worker brings card count to 4, all required columns rendered (processing months, ₹L cost, min education, work exp, age range, language, benefits). (4) /visa-compare → /start#compare and /eligibility → /start#quiz redirects work. (5) /admin/eligibility-scoring renders all 7 factor-weight-* inputs, 3 tier-* inputs, 3 advanced inputs (curve-optimal, curve-floor, exp-buffer); Save works (toast + badge flips to 'Custom (DB override)'). FAILED: (a) Reset does not revert, (b) admin sidebar missing both new entries. Use wait_until='domcontentloaded' for /admin/eligibility-scoring (networkidle hangs)."
+}

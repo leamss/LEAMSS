@@ -1,0 +1,143 @@
+"""Tests for the deterministic eligibility scoring engine + endpoints.
+
+Run: cd /app/backend && python -m pytest tests/test_eligibility_scoring.py -q
+"""
+import asyncio
+import os
+import httpx
+import pytest
+
+BASE = os.environ.get("REACT_APP_BACKEND_URL", "http://localhost:8001")
+API = f"{BASE}/api"
+ADMIN = {"email": "admin@leamss.com", "password": "Admin@123"}
+PARTNER = {"email": "partner@leamss.com", "password": "Partner@123"}
+
+
+def _login(creds):
+    r = httpx.post(f"{API}/auth/login", json=creds, timeout=30)
+    r.raise_for_status()
+    d = r.json()
+    return d.get("token") or d.get("access_token")
+
+
+# ── Pure engine unit tests (no HTTP) ─────────────────────────────────────────
+def test_engine_strong_vs_weak_profile_is_deterministic():
+    from core.eligibility_scoring import score_candidate
+    pathways = [{
+        "slug": "canada_express_entry", "name": "Canada EE", "country": "Canada",
+        "min_age": 18, "max_age": 47, "min_education": "Bachelor's Degree",
+        "min_work_exp_years": 1, "language_required": "IELTS 6.0", "min_funds_inr": 1300000,
+        "timeline_months": "8-14",
+    }]
+    strong = {"age": 27, "education": "Master", "work_experience_years": 7,
+              "english_score": "IELTS 8.0", "occupation": "Software Engineer", "has_job_offer": True,
+              "family_savings_inr": 2000000}
+    weak = {"age": 46, "education": "Class 12", "work_experience_years": 0,
+            "english_score": "Not taken yet", "occupation": "", "has_job_offer": False,
+            "family_savings_inr": None}
+
+    r1 = asyncio.get_event_loop().run_until_complete(score_candidate(strong, pathways))
+    r2 = asyncio.get_event_loop().run_until_complete(score_candidate(strong, pathways))
+    r3 = asyncio.get_event_loop().run_until_complete(score_candidate(weak, pathways))
+
+    s_strong = r1["pathways"]["canada_express_entry"]["score"]
+    s_weak = r3["pathways"]["canada_express_entry"]["score"]
+    # Deterministic — same input, same score
+    assert r1["pathways"]["canada_express_entry"]["score"] == r2["pathways"]["canada_express_entry"]["score"]
+    # Strong profile must beat weak profile
+    assert s_strong > s_weak
+    assert s_strong >= 75  # strong tier
+    # Breakdown present + earned never exceeds max
+    bd = r1["pathways"]["canada_express_entry"]["breakdown"]
+    assert len(bd) == 7
+    for b in bd:
+        assert 0 <= b["earned"] <= b["max"]
+        assert b["reason"]
+
+
+def test_engine_age_over_limit_zeroes_age_factor():
+    from core.eligibility_scoring import score_candidate
+    pathways = [{"slug": "p", "name": "P", "country": "X", "min_age": 18, "max_age": 44,
+                 "min_education": "Bachelor's Degree", "min_work_exp_years": 3,
+                 "language_required": "IELTS 6.0", "min_funds_inr": 1000000}]
+    over = {"age": 60, "education": "Bachelor", "work_experience_years": 5,
+            "english_score": "IELTS 7.0", "occupation": "Nurse", "has_job_offer": False}
+    r = asyncio.get_event_loop().run_until_complete(score_candidate(over, pathways))
+    age_b = next(b for b in r["pathways"]["p"]["breakdown"] if b["factor"] == "age")
+    assert age_b["earned"] == 0
+
+
+# ── HTTP endpoint tests ──────────────────────────────────────────────────────
+def test_score_endpoint_returns_breakdown_and_no_422_on_minimal():
+    payload = {"age": 29, "education": "Bachelors", "work_experience_years": 4,
+               "occupation": "Civil Engineer", "english_score": "IELTS 7.0",
+               "preferred_countries": ["Australia"]}
+    r = httpx.post(f"{API}/eligibility/score", json=payload, timeout=90)
+    assert r.status_code == 200, r.text
+    d = r.json()
+    assert d["top_recommendation"]
+    assert d["overall_summary"]
+    assert d["pathways"]
+    any_path = next(iter(d["pathways"].values()))
+    assert "breakdown" in any_path and len(any_path["breakdown"]) >= 5
+    assert 0 <= any_path["score"] <= 100
+
+
+def test_score_empty_email_does_not_422():
+    # Empty email must be coerced/omitted — never a 422 crash
+    payload = {"age": 30, "education": "Master", "work_experience_years": 6,
+               "occupation": "Doctor", "english_score": "IELTS 7.5", "email": None}
+    r = httpx.post(f"{API}/eligibility/score", json=payload, timeout=90)
+    assert r.status_code == 200, r.text
+
+
+def test_lead_capture_requires_contact():
+    r = httpx.post(f"{API}/eligibility/lead", json={"name": "Test"}, timeout=30)
+    assert r.status_code == 400
+
+
+def test_lead_capture_succeeds_with_email():
+    r = httpx.post(f"{API}/eligibility/lead",
+                   json={"name": "Test Lead", "email": "lead@example.com", "preferred_country": "Canada"},
+                   timeout=30)
+    assert r.status_code == 200
+    assert r.json().get("ok") is True
+
+
+def test_scoring_rules_admin_crud_and_rbac():
+    admin = _login(ADMIN)
+    h = {"Authorization": f"Bearer {admin}"}
+    # GET defaults
+    r = httpx.get(f"{API}/eligibility/scoring-rules", headers=h, timeout=30)
+    assert r.status_code == 200
+    body = r.json()
+    assert "age" in body["rules"]["factors"]
+    # PUT override
+    r = httpx.put(f"{API}/eligibility/scoring-rules", headers=h,
+                  json={"tiers": {"strong": 80, "moderate": 60, "weak": 40}}, timeout=30)
+    assert r.status_code == 200
+    assert r.json()["rules"]["tiers"]["strong"] == 80
+    assert r.json()["rules"]["_source"] == "db_override"
+    # RESET
+    r = httpx.post(f"{API}/eligibility/scoring-rules/reset", headers=h, timeout=30)
+    assert r.status_code == 200
+    assert r.json()["rules"]["_source"] == "defaults"
+
+
+def test_scoring_rules_partner_blocked():
+    partner = _login(PARTNER)
+    h = {"Authorization": f"Bearer {partner}"}
+    r = httpx.get(f"{API}/eligibility/scoring-rules", headers=h, timeout=30)
+    assert r.status_code == 403
+
+
+def test_visa_compare_pathways_public():
+    r = httpx.get(f"{API}/visa-compare/pathways", timeout=30)
+    assert r.status_code == 200
+    assert len(r.json()["pathways"]) >= 2
+
+
+def test_visa_compare_compare_two():
+    r = httpx.get(f"{API}/visa-compare/compare?slugs=canada_express_entry,australia_189", timeout=30)
+    assert r.status_code == 200
+    assert len(r.json()["pathways"]) == 2

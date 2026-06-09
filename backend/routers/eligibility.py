@@ -12,54 +12,45 @@ import logging
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, EmailStr, Field
 
 from core.database import db
+from core.eligibility_scoring import (
+    score_candidate, load_scoring_rules, DEFAULT_RULES, SCORING_RULES_ID,
+)
+from core.ai_models import model_for
+from routers.auth import get_current_user
+from routers.visa_compare import SEEDS as VISA_SEEDS
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/eligibility", tags=["Eligibility Pre-Score"])
 
 scores_col = db["eligibility_scores"]
 leads_col = db["leads"]
+pathways_col = db["visa_pathways"]
 
 EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
 
 SYSTEM_PROMPT = (
-    "You are a senior immigration consultant scoring a prospective client's eligibility "
-    "across multiple visa pathways. You MUST respond with VALID JSON ONLY (no markdown, no prose). "
-    "Be honest, conservative, and never inflate eligibility scores. Use Indian English conventions. "
-    "Score 8 specific pathways listed by the user. For each, output:\n"
-    "  - score: integer 0-100 (eligibility likelihood)\n"
-    "  - tier: one of 'strong' (75-100), 'moderate' (50-74), 'weak' (25-49), 'unlikely' (0-24)\n"
-    "  - estimated_timeline: realistic months range (e.g. '8-14 months')\n"
-    "  - key_strengths: array of 1-3 short bullet phrases\n"
-    "  - gaps_to_fix: array of 1-3 short bullet phrases (what to improve)\n"
-    "  - notes: 1-2 sentence pathway-specific advice\n"
-    "Also include a top-level field 'top_recommendation' = the pathway slug with highest score "
-    "and 'overall_summary' = a 2-sentence honest assessment."
+    "You are a senior MARA-registered immigration consultant writing a short, honest, "
+    "encouraging narrative for a prospective client. The numeric eligibility scores are "
+    "ALREADY computed by a transparent rules engine — DO NOT change or invent scores. "
+    "Your job is ONLY to explain the results in warm, professional Indian English. "
+    "Respond with VALID JSON ONLY (no markdown). Shape: "
+    '{"overall_summary": "2-3 sentence honest assessment referencing the best pathway", '
+    '"pathways": {"<slug>": {"strengths": ["1-3 short phrases"], '
+    '"gaps_to_fix": ["1-3 short phrases"], "notes": "1 sentence pathway-specific advice"}}}'
 )
 
-PATHWAYS = [
-    {"slug": "canada_express_entry", "name": "Canada · Express Entry (Federal Skilled Worker)"},
-    {"slug": "canada_pnp", "name": "Canada · Provincial Nominee Program"},
-    {"slug": "australia_189", "name": "Australia · Subclass 189 (Skilled Independent)"},
-    {"slug": "australia_190", "name": "Australia · Subclass 190 (State Nominated)"},
-    {"slug": "uk_skilled_worker", "name": "UK · Skilled Worker Visa"},
-    {"slug": "germany_eu_blue_card", "name": "Germany · EU Blue Card"},
-    {"slug": "usa_eb2_niw", "name": "USA · EB2-NIW (National Interest Waiver)"},
-    {"slug": "new_zealand_swv", "name": "New Zealand · Skilled Migrant Category"},
-]
-
-
 class EligibilityRequest(BaseModel):
-    full_name: str
+    full_name: str = "Website Visitor"
     email: Optional[EmailStr] = None
     mobile: Optional[str] = None
-    age: int = Field(..., ge=18, le=70)
+    age: int = Field(..., ge=16, le=80)
     education: str  # "Bachelor", "Master", "PhD", "Diploma"
-    work_experience_years: float = Field(..., ge=0, le=50)
-    occupation: str
+    work_experience_years: float = Field(0, ge=0, le=60)
+    occupation: Optional[str] = None
     english_score: Optional[str] = None  # "IELTS 7.0", "PTE 65", "None"
     family_savings_inr: Optional[float] = None
     has_job_offer: bool = False
@@ -69,85 +60,149 @@ class EligibilityRequest(BaseModel):
     consent_to_contact: bool = False
 
 
-@router.get("/pathways")
-async def list_pathways():
-    """Public — list of pathways scored by the engine."""
-    return {"pathways": PATHWAYS}
+async def _ensure_pathways() -> List[Dict[str, Any]]:
+    """Return active pathway requirement docs (auto-seed from visa_compare if empty)."""
+    if await pathways_col.count_documents({}) == 0:
+        now = datetime.now(timezone.utc)
+        for s in VISA_SEEDS:
+            await pathways_col.insert_one({
+                **s, "id": str(uuid.uuid4()), "is_active": True,
+                "created_at": now, "updated_at": now,
+            })
+    return await pathways_col.find({"is_active": True}, {"_id": 0}).sort("rank", 1).to_list(50)
 
 
-@router.post("/score")
-async def score_eligibility(data: EligibilityRequest):
-    """Public — score a candidate across all pathways and persist a lead if consent given."""
-    profile_summary = (
-        f"Candidate profile:\n"
-        f"- Age: {data.age}\n"
-        f"- Education: {data.education}\n"
-        f"- Work experience: {data.work_experience_years} years\n"
-        f"- Occupation: {data.occupation}\n"
-        f"- English score: {data.english_score or 'Not taken yet'}\n"
-        f"- Job offer abroad: {'Yes' if data.has_job_offer else 'No'}\n"
-        + (f"- Family savings: ₹{data.family_savings_inr:,.0f}" if data.family_savings_inr else "- Family savings: Not disclosed")
-        + (f"\n- Spouse education: {data.spouse_education}" if data.spouse_education else "")
-        + (f"\n- Dependent children: {data.children_count}" if data.children_count else "")
-        + (f"\n- Preferred countries: {', '.join(data.preferred_countries)}" if data.preferred_countries else "")
-    )
+def _profile_summary(data: "EligibilityRequest") -> str:
+    lines = [
+        "Candidate profile:",
+        f"- Age: {data.age}",
+        f"- Education: {data.education}",
+        f"- Work experience: {data.work_experience_years} years",
+        f"- Occupation: {data.occupation or 'Not specified'}",
+        f"- English score: {data.english_score or 'Not taken yet'}",
+        f"- Job offer abroad: {'Yes' if data.has_job_offer else 'No'}",
+    ]
+    if data.family_savings_inr:
+        lines.append(f"- Family savings: ₹{data.family_savings_inr:,.0f}")
+    if data.preferred_countries:
+        lines.append(f"- Preferred countries: {', '.join(data.preferred_countries)}")
+    return "\n".join(lines)
 
-    pathway_list = "\n".join([f"  - {p['slug']}: {p['name']}" for p in PATHWAYS])
-    user_prompt = (
-        f"{profile_summary}\n\n"
-        f"Score this candidate against EXACTLY these 8 pathways:\n{pathway_list}\n\n"
-        f'Output JSON: {{"top_recommendation": "<slug>", "overall_summary": "...", '
-        f'"pathways": {{"<slug>": {{"score": int, "tier": "strong|moderate|weak|unlikely", '
-        f'"estimated_timeline": "...", "key_strengths": [...], "gaps_to_fix": [...], "notes": "..."}}}}}}.'
-    )
 
+async def _ai_narrative(data: "EligibilityRequest", deterministic: Dict[str, Any]) -> Dict[str, Any]:
+    """Best-effort AI narrative layer. NEVER raises — returns {} on any failure."""
     try:
         from emergentintegrations.llm.chat import LlmChat, UserMessage
     except ImportError:
-        raise HTTPException(status_code=500, detail="LLM library not available")
-
-    chat = LlmChat(
-        api_key=EMERGENT_LLM_KEY,
-        session_id=f"elig-{uuid.uuid4()}",
-        system_message=SYSTEM_PROMPT,
-    ).with_model("anthropic", "claude-sonnet-4-6")
-
+        return {}
+    # Compact deterministic context (slug, score, tier, top factors)
+    ctx_lines = []
+    for slug, p in deterministic["pathways"].items():
+        tops = ", ".join(f"{b['label']} {b['earned']:g}/{b['max']:g}" for b in p["breakdown"])
+        ctx_lines.append(f"  - {slug} ({p['name']}): score={p['score']} tier={p['tier']} | {tops}")
+    user_prompt = (
+        f"{_profile_summary(data)}\n\n"
+        f"Pre-computed scores (DO NOT change them):\n" + "\n".join(ctx_lines) +
+        f"\n\nBest pathway: {deterministic['top_recommendation']}.\n"
+        "Write the narrative JSON now for ALL the slugs above."
+    )
     try:
+        chat = LlmChat(
+            api_key=EMERGENT_LLM_KEY,
+            session_id=f"elig-{uuid.uuid4()}",
+            system_message=SYSTEM_PROMPT,
+        ).with_model("anthropic", model_for("eligibility_narrative"))
         response = await chat.send_message(UserMessage(text=user_prompt))
     except Exception as e:
-        logger.error(f"Eligibility AI failed: {e}")
-        raise HTTPException(status_code=502, detail=f"AI scoring failed: {str(e)[:200]}")
-
+        logger.warning(f"Eligibility narrative AI failed (non-fatal): {e}")
+        return {}
     raw = str(response).strip()
-    # Strip fences
     if raw.startswith("```"):
         raw = raw.strip("`").strip()
         if raw.startswith("json"):
             raw = raw[4:].strip()
-
     try:
-        parsed: Dict[str, Any] = json.loads(raw)
-    except Exception as e:
-        logger.error(f"Eligibility JSON parse failed: {e}; raw={raw[:200]}")
-        raise HTTPException(status_code=502, detail="AI returned invalid response, please retry")
+        return json.loads(raw)
+    except Exception:
+        # last-ditch: extract the first {...} block
+        try:
+            start, end = raw.index("{"), raw.rindex("}")
+            return json.loads(raw[start:end + 1])
+        except Exception as e:
+            logger.warning(f"Eligibility narrative parse failed (non-fatal): {e}")
+            return {}
 
-    # Persist score for analytics
+
+def _fallback_text(p: Dict[str, Any]) -> Dict[str, Any]:
+    """Deterministic narrative when AI is unavailable — uses the breakdown."""
+    strengths = [f"{b['label']}" for b in p["breakdown"] if b["max"] > 0 and b["earned"] >= 0.8 * b["max"]][:3]
+    gaps = [b["label"] for b in p["breakdown"] if b["max"] > 0 and b["earned"] < 0.5 * b["max"]][:3]
+    return {
+        "strengths": strengths or ["Profile basics captured"],
+        "gaps_to_fix": gaps or ["Share more details for a sharper score"],
+        "notes": f"Indicative {p['tier']} match — talk to a LEAMSS expert for a verified assessment.",
+    }
+
+
+@router.get("/pathways")
+async def list_pathways():
+    """Public — list of pathways scored by the engine."""
+    items = await _ensure_pathways()
+    return {"pathways": [{"slug": p["slug"], "name": p["name"], "country": p.get("country")} for p in items]}
+
+
+@router.post("/score")
+async def score_eligibility(data: EligibilityRequest):
+    """Public — transparent rule-based scoring + AI narrative; persists a lead on consent."""
+    pathways = await _ensure_pathways()
+    profile = data.dict()
+
+    # 1) Deterministic, explainable scoring (the numbers)
+    deterministic = await score_candidate(profile, pathways)
+
+    # 2) Best-effort AI narrative (the words) — never fatal
+    narrative = await _ai_narrative(data, deterministic)
+    nar_paths = (narrative or {}).get("pathways") or {}
+
+    # 3) Merge number + words
+    merged_pathways: Dict[str, Any] = {}
+    for slug, p in deterministic["pathways"].items():
+        n = nar_paths.get(slug) or _fallback_text(p)
+        merged_pathways[slug] = {
+            **p,
+            "strengths": n.get("strengths") or n.get("key_strengths") or [],
+            "key_strengths": n.get("strengths") or n.get("key_strengths") or [],
+            "gaps_to_fix": n.get("gaps_to_fix") or [],
+            "notes": n.get("notes") or "",
+        }
+
+    top = deterministic["top_recommendation"]
+    top_name = merged_pathways.get(top, {}).get("name", top)
+    overall = (narrative or {}).get("overall_summary") or (
+        f"Your strongest indicative match is {top_name} "
+        f"({merged_pathways.get(top, {}).get('score', 0)}/100). "
+        "This score is calculated from your age, education, experience, English and other factors — "
+        "expand each pathway to see exactly how it was computed."
+    )
+
     score_id = str(uuid.uuid4())
-    record = {
+    await scores_col.insert_one({
         "id": score_id,
         "full_name": data.full_name,
         "email": data.email,
         "mobile": data.mobile,
-        "profile": data.dict(),
-        "result": parsed,
+        "profile": profile,
+        "result": {
+            "top_recommendation": top,
+            "overall_summary": overall,
+            "pathways": merged_pathways,
+            "rules_source": deterministic.get("rules_source"),
+        },
         "created_at": datetime.now(timezone.utc),
-    }
-    await scores_col.insert_one(record)
+    })
 
-    # If consent given, also create a lead
     if data.consent_to_contact and (data.email or data.mobile):
-        top = parsed.get("top_recommendation") or "unknown"
-        top_score = (parsed.get("pathways") or {}).get(top, {}).get("score") or 0
+        top_score = merged_pathways.get(top, {}).get("score") or 0
         await leads_col.insert_one({
             "id": str(uuid.uuid4()),
             "name": data.full_name,
@@ -158,7 +213,7 @@ async def score_eligibility(data: EligibilityRequest):
             "source": "eligibility_pre_score",
             "priority": "high" if top_score >= 70 else "normal",
             "tag": f"elig-{top_score}",
-            "notes": parsed.get("overall_summary", "")[:500],
+            "notes": overall[:500],
             "score_id": score_id,
             "status": "new",
             "created_at": datetime.now(timezone.utc),
@@ -166,11 +221,95 @@ async def score_eligibility(data: EligibilityRequest):
 
     return {
         "score_id": score_id,
-        "top_recommendation": parsed.get("top_recommendation"),
-        "overall_summary": parsed.get("overall_summary"),
-        "pathways": parsed.get("pathways") or {},
+        "top_recommendation": top,
+        "overall_summary": overall,
+        "pathways": merged_pathways,
         "lead_captured": data.consent_to_contact and bool(data.email or data.mobile),
     }
+
+
+# ── Admin — Eligibility Scoring Rules (transparency & control) ───────────────
+
+def _admin_only(u: dict):
+    if u.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+
+
+@router.get("/scoring-rules")
+async def get_scoring_rules(current_user: dict = Depends(get_current_user)):
+    """Admin — current scoring rules (DB override merged over defaults) + defaults."""
+    _admin_only(current_user)
+    rules = await load_scoring_rules()
+    return {"rules": rules, "defaults": DEFAULT_RULES, "source": rules.get("_source", "defaults")}
+
+
+class ScoringRulesUpdate(BaseModel):
+    factors: Optional[Dict[str, Any]] = None
+    tiers: Optional[Dict[str, int]] = None
+    age_curve: Optional[Dict[str, float]] = None
+    education_levels: Optional[Dict[str, int]] = None
+    experience_buffer_years: Optional[float] = None
+
+
+@router.put("/scoring-rules")
+async def update_scoring_rules(body: ScoringRulesUpdate, current_user: dict = Depends(get_current_user)):
+    """Admin — save scoring-rules override."""
+    _admin_only(current_user)
+    upd = {k: v for k, v in body.dict().items() if v is not None}
+    if not upd:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    upd["version"] = (await db["kb_settings"].find_one({"_id": SCORING_RULES_ID}) or {}).get("version", 1) + 1
+    upd["updated_at"] = datetime.now(timezone.utc).isoformat()
+    upd["updated_by"] = current_user.get("email") or current_user.get("id")
+    await db["kb_settings"].update_one({"_id": SCORING_RULES_ID}, {"$set": upd}, upsert=True)
+    return {"ok": True, "rules": await load_scoring_rules()}
+
+
+@router.post("/scoring-rules/reset")
+async def reset_scoring_rules(current_user: dict = Depends(get_current_user)):
+    """Admin — delete override → revert to hardcoded defaults."""
+    _admin_only(current_user)
+    await db["kb_settings"].delete_one({"_id": SCORING_RULES_ID})
+    return {"ok": True, "rules": {**DEFAULT_RULES, "_source": "defaults"}}
+
+
+class EligibilityLead(BaseModel):
+    score_id: Optional[str] = None
+    name: str = "Website Visitor"
+    email: Optional[EmailStr] = None
+    mobile: Optional[str] = None
+    preferred_country: Optional[str] = None
+
+
+@router.post("/lead")
+async def capture_lead(body: EligibilityLead):
+    """Public — capture contact from the result screen and link to a prior score."""
+    if not (body.email or body.mobile):
+        raise HTTPException(status_code=400, detail="Provide an email or mobile number")
+    top, top_score, summary = "unknown", 0, ""
+    if body.score_id:
+        rec = await scores_col.find_one({"id": body.score_id}, {"_id": 0, "result": 1})
+        if rec:
+            res = rec.get("result") or {}
+            top = res.get("top_recommendation") or "unknown"
+            top_score = (res.get("pathways") or {}).get(top, {}).get("score") or 0
+            summary = res.get("overall_summary", "")
+    await leads_col.insert_one({
+        "id": str(uuid.uuid4()),
+        "name": body.name,
+        "email": body.email,
+        "mobile": body.mobile,
+        "country": body.preferred_country or "",
+        "service_type": top,
+        "source": "eligibility_quiz",
+        "priority": "high" if top_score >= 70 else "normal",
+        "tag": f"elig-{top_score}",
+        "notes": summary[:500],
+        "score_id": body.score_id,
+        "status": "new",
+        "created_at": datetime.now(timezone.utc),
+    })
+    return {"ok": True, "message": "Thanks! A LEAMSS expert will reach out within 24 hours."}
 
 
 @router.get("/share/{score_id}")

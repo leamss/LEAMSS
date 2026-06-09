@@ -78,10 +78,9 @@ import LeadCapture from '@/pages/LeadCapture';
 import SharedEstimate from '@/pages/SharedEstimate';
 import PreAssessmentPayment from '@/pages/PreAssessmentPayment';
 import MagicLinkLogin from '@/pages/MagicLinkLogin';
-import EligibilityCheck from '@/pages/EligibilityCheck';
-import VisaCompare from '@/pages/VisaCompare';
 import { MegaLanding, AtlasHubV2, AtlasCountryV2, AtlasOccupationV2 } from '@/pages/LeamssPublic';
 import PublicPagesManager from '@/pages/admin/PublicPagesManager';
+import EligibilityScoringRules from '@/pages/admin/EligibilityScoringRules';
 import '@/App.css';
 
 function App() {
@@ -229,6 +228,11 @@ function App() {
               <PublicPagesManager />
             </RequirePermission>
           } />
+          <Route path="/admin/eligibility-scoring" element={
+            <RequirePermission allowRoles={['admin_owner', 'admin']}>
+              <EligibilityScoringRules />
+            </RequirePermission>
+          } />
           <Route path="/admin/atlas/search" element={
             <RequirePermission allowRoles={['admin_owner', 'admin', 'sales_executive', 'sr_sales_executive', 'sales_manager', 'sales_head', 'case_manager', 'partner']}>
               <AtlasSearch />
@@ -356,9 +360,9 @@ function App() {
           <Route path="/shared-estimate/:token" element={<SharedEstimate />} />
           <Route path="/pre-assess/:token" element={<PreAssessmentPayment />} />
           <Route path="/magic/:token" element={<MagicLinkLogin />} />
-          <Route path="/eligibility" element={<EligibilityCheck />} />
+          <Route path="/eligibility" element={<Navigate to="/start#quiz" replace />} />
           <Route path="/info-sheet/:token" element={<PublicInfoSheet />} />
-          <Route path="/visa-compare" element={<VisaCompare />} />
+          <Route path="/visa-compare" element={<Navigate to="/start#compare" replace />} />
           <Route path="/partner" element={<PartnerDashboard />} />
           <Route path="/case-manager" element={<CaseManagerDashboard />} />
           <Route path="/client" element={<ClientDashboard />} />

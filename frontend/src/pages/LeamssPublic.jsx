@@ -273,6 +273,22 @@ export function MegaLanding() {
     });
   }, []);
 
+  // Scroll to #quiz / #compare when arriving via a redirected old route
+  useEffect(() => {
+    const hash = window.location.hash?.replace('#', '');
+    if (!hash) return;
+    let tries = 0;
+    const timer = setInterval(() => {
+      const el = document.getElementById(hash);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        clearInterval(timer);
+      }
+      if (++tries > 20) clearInterval(timer);
+    }, 200);
+    return () => clearInterval(timer);
+  }, []);
+
   return (
     <LeamssShell>
       <Hero content={content?.hero} />
@@ -414,10 +430,14 @@ function TrustStrip({ items: itemsOverride }) {
 
 // ─── Eligibility Quiz Section ──────────────────────────────────────────────
 const QUIZ_STEPS = [
-  { id: 'age', label: 'Age', type: 'number', placeholder: 'e.g., 28', min: 18, max: 60 },
+  { id: 'age', label: 'Your Age', type: 'number', placeholder: 'e.g., 28', min: 18, max: 60 },
   { id: 'education', label: 'Highest Education', type: 'select', options: ['PhD', 'Masters', 'Bachelors', 'Diploma', 'Class 12'] },
   { id: 'english_score', label: 'English Test Score', type: 'select', options: ['IELTS 8+', 'IELTS 7.0-7.5', 'IELTS 6.5', 'IELTS 6.0', 'PTE 79+', 'PTE 65', 'PTE 50', 'Not taken yet'] },
-  { id: 'work_experience_years', label: 'Years of Work Experience', type: 'number', placeholder: 'e.g., 5', min: 0, max: 30 },
+  { id: 'work_experience_years', label: 'Years of Work Experience', type: 'number', placeholder: 'e.g., 5', min: 0, max: 40 },
+  { id: 'occupation', label: 'Your Occupation / Job Title', type: 'text', placeholder: 'e.g., Software Engineer, Registered Nurse, Civil Engineer' },
+  { id: 'has_job_offer', label: 'Do you have a job offer abroad?', type: 'radio', options: [
+    { value: 'no', label: 'Not yet' }, { value: 'yes', label: '✅ Yes, I have an offer' },
+  ] },
   { id: 'country', label: 'Preferred Country', type: 'radio', options: [
     { value: 'AU', label: '🇦🇺 Australia' }, { value: 'CA', label: '🇨🇦 Canada' }, { value: 'NZ', label: '🇳🇿 New Zealand' }, { value: 'any', label: '✨ All three — show me everything' },
   ] },
@@ -442,13 +462,13 @@ function EligibilityQuizSection() {
         education: answers.education || 'Bachelors',
         english_score: answers.english_score || 'IELTS 6.5',
         work_experience_years: Number(answers.work_experience_years || 3),
-        occupation: 'Not specified',
-        has_job_offer: false,
+        occupation: (answers.occupation || '').trim() || 'Not specified',
+        has_job_offer: answers.has_job_offer === 'yes',
         consent_to_contact: false,
         preferred_countries: pref ? [pref] : null,
       };
       const r = await axios.post(`${API}/eligibility/score`, payload);
-      setResult(r.data);
+      setResult({ ...r.data, _country: pref || null });
     } catch (e) {
       setResult({ error: formatApiError(e, 'Failed to compute score') });
     }
@@ -500,9 +520,9 @@ function EligibilityQuizSection() {
                     <h3 className="font-serif-leamss text-3xl sm:text-4xl font-bold mb-6" style={{ color: BRAND.ink }}>
                       {currentStep.label}
                     </h3>
-                    {currentStep.type === 'number' && (
+                    {(currentStep.type === 'number' || currentStep.type === 'text') && (
                       <input
-                        type="number"
+                        type={currentStep.type}
                         autoFocus
                         value={answers[currentStep.id] || ''}
                         onChange={(e) => setAns(currentStep.id, e.target.value)}
@@ -573,6 +593,141 @@ function EligibilityQuizSection() {
   );
 }
 
+const TIER_META = {
+  strong:   { label: 'Strong match',   color: BRAND.success, bg: '#E8F3E9' },
+  moderate: { label: 'Moderate match', color: BRAND.primary, bg: '#E9F0EE' },
+  weak:     { label: 'Needs work',     color: BRAND.accent,  bg: '#FBEDE7' },
+  unlikely: { label: 'Unlikely',       color: BRAND.muted,   bg: '#F1F3F2' },
+};
+const tierMeta = (t) => TIER_META[t] || TIER_META.unlikely;
+
+function FactorBar({ b }) {
+  const pct = b.max > 0 ? Math.round((b.earned / b.max) * 100) : 0;
+  const color = pct >= 80 ? BRAND.success : pct >= 50 ? BRAND.primary : BRAND.accent;
+  return (
+    <div className="py-1.5" data-testid={`factor-${b.factor}`}>
+      <div className="flex items-center justify-between text-xs mb-1">
+        <span className="font-semibold" style={{ color: BRAND.ink }}>{b.label}</span>
+        <span className="font-bold tabular-nums" style={{ color }}>{b.earned}<span style={{ color: BRAND.muted }}>/{b.max}</span></span>
+      </div>
+      <div className="h-1.5 rounded-full overflow-hidden" style={{ background: BRAND.border }}>
+        <div style={{ width: `${pct}%`, background: color, height: '100%' }} />
+      </div>
+      <p className="text-[11px] mt-1" style={{ color: BRAND.muted }}>{b.reason}</p>
+    </div>
+  );
+}
+
+function PathwayResultCard({ p, isBest }) {
+  const [open, setOpen] = useState(isBest);
+  const tm = tierMeta(p.tier);
+  return (
+    <div className="rounded-xl border overflow-hidden bg-white" style={{ borderColor: isBest ? BRAND.accent : BRAND.border, borderWidth: isBest ? 2 : 1 }} data-testid={`pathway-card-${p.score}`}>
+      <div className="p-5">
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <div>
+            {isBest && <Pill color={BRAND.accent}>★ Best Match</Pill>}
+            <p className="text-sm font-bold mt-1" style={{ color: BRAND.ink }}>{p.name}</p>
+            {p.estimated_timeline && <p className="text-[11px] mt-0.5" style={{ color: BRAND.muted }}>⏱ {p.estimated_timeline}</p>}
+          </div>
+          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap" style={{ background: tm.bg, color: tm.color }}>{tm.label}</span>
+        </div>
+        <div className="flex items-baseline gap-1">
+          <span className="text-4xl font-bold font-serif-leamss" style={{ color: tm.color }}>{p.score}</span>
+          <span className="text-sm" style={{ color: BRAND.muted }}>/ 100</span>
+        </div>
+        <div className="h-2 rounded-full overflow-hidden mt-2" style={{ background: BRAND.border }}>
+          <div style={{ width: `${p.score}%`, background: tm.color, height: '100%' }} />
+        </div>
+        {p.notes && <p className="text-xs mt-3" style={{ color: BRAND.body }}>{p.notes}</p>}
+        {(p.strengths?.length > 0) && (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {p.strengths.slice(0, 3).map((s, i) => (
+              <span key={i} className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: '#E8F3E9', color: BRAND.success }}>✓ {s}</span>
+            ))}
+          </div>
+        )}
+        <button
+          onClick={() => setOpen(!open)}
+          className="mt-3 inline-flex items-center gap-1 text-xs font-semibold"
+          style={{ color: BRAND.primary }}
+          data-testid="toggle-breakdown"
+        >
+          {open ? 'Hide' : 'How is this calculated?'}
+          <ChevronDown className="w-3.5 h-3.5 transition-transform" style={{ transform: open ? 'rotate(180deg)' : 'none' }} />
+        </button>
+      </div>
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25 }} style={{ overflow: 'hidden', background: BRAND.bgSoft }}
+          >
+            <div className="px-5 py-4 border-t" style={{ borderColor: BRAND.border }}>
+              <p className="text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: BRAND.muted }}>Score breakdown</p>
+              {(p.breakdown || []).map((b, i) => <FactorBar key={i} b={b} />)}
+              {p.gaps_to_fix?.length > 0 && (
+                <div className="mt-3 pt-3 border-t" style={{ borderColor: BRAND.border }}>
+                  <p className="text-[11px] font-bold mb-1" style={{ color: BRAND.accent }}>To improve your score:</p>
+                  <ul className="text-[11px] space-y-0.5 ml-4" style={{ color: BRAND.body }}>
+                    {p.gaps_to_fix.map((g, i) => <li key={i} className="list-disc">{g}</li>)}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function QuizLeadForm({ scoreId, country }) {
+  const [form, setForm] = useState({ name: '', contact: '' });
+  const [done, setDone] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const send = async () => {
+    if (!form.contact.trim()) return;
+    setBusy(true);
+    try {
+      const isEmail = form.contact.includes('@');
+      await axios.post(`${API}/eligibility/lead`, {
+        score_id: scoreId,
+        name: form.name.trim() || 'Website Visitor',
+        email: isEmail ? form.contact.trim() : null,
+        mobile: isEmail ? null : form.contact.trim(),
+        preferred_country: country || null,
+      });
+      setDone(true);
+    } catch (e) { /* swallow — non-blocking */ setDone(true); }
+    setBusy(false);
+  };
+  if (done) {
+    return (
+      <div className="flex items-center gap-2 text-sm font-semibold" style={{ color: '#fff' }} data-testid="quiz-lead-done">
+        <CheckCircle2 className="w-4 h-4" /> Thank you! A LEAMSS expert will reach out within 24 hours.
+      </div>
+    );
+  }
+  return (
+    <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto" data-testid="quiz-lead-form">
+      <input
+        value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
+        placeholder="Your name" data-testid="quiz-lead-name"
+        className="px-3 py-2 rounded-md text-sm outline-none" style={{ color: BRAND.ink, minWidth: 130 }}
+      />
+      <input
+        value={form.contact} onChange={(e) => setForm({ ...form, contact: e.target.value })}
+        placeholder="Email or WhatsApp number" data-testid="quiz-lead-contact"
+        className="px-3 py-2 rounded-md text-sm outline-none" style={{ color: BRAND.ink, minWidth: 190 }}
+      />
+      <Button onClick={send} disabled={busy || !form.contact.trim()} data-testid="quiz-lead-submit">
+        {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Get Report<Send className="w-4 h-4" /></>}
+      </Button>
+    </div>
+  );
+}
+
 function QuizResult({ result, onReset }) {
   if (result.error) {
     return (
@@ -585,137 +740,200 @@ function QuizResult({ result, onReset }) {
     );
   }
   const pathways = Object.entries(result.pathways || {})
-    .sort(([, a], [, b]) => (b.score || 0) - (a.score || 0))
-    .slice(0, 6);
+    .map(([slug, p]) => ({ slug, ...p }))
+    .sort((a, b) => (b.score || 0) - (a.score || 0));
+  const top = result.top_recommendation;
   return (
     <div className="p-8 lg:p-12" data-testid="quiz-result">
       <div className="flex items-center justify-between mb-2 flex-wrap gap-3">
-        <p className="text-xs font-bold uppercase tracking-[0.16em]" style={{ color: BRAND.accent }}>Your AI Scorecard</p>
+        <p className="text-xs font-bold uppercase tracking-[0.16em]" style={{ color: BRAND.accent }}>Your Eligibility Scorecard</p>
         <Button variant="ghost" size="sm" onClick={onReset}>↻ Re-take</Button>
       </div>
-      <h3 className="font-serif-leamss text-3xl sm:text-4xl font-bold mb-6" style={{ color: BRAND.ink }}>
-        {result.top_recommendation ? `Best Match: ${result.top_recommendation}` : 'Your eligibility breakdown'}
+      <h3 className="font-serif-leamss text-3xl sm:text-4xl font-bold mb-3" style={{ color: BRAND.ink }}>
+        {pathways[0] ? `Best Match: ${pathways[0].name}` : 'Your eligibility breakdown'}
       </h3>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {pathways.map(([id, p]) => (
-          <div key={id} className="rounded-lg p-4 border" style={{ background: '#fff', borderColor: BRAND.border }}>
-            <div className="flex items-center justify-between mb-1">
-              <p className="text-sm font-bold" style={{ color: BRAND.ink }}>{p.title || id}</p>
-              <Pill color={p.tier === 'gold' ? BRAND.accent : p.tier === 'silver' ? BRAND.primary : BRAND.muted}>
-                {p.tier || 'review'}
-              </Pill>
-            </div>
-            <div className="flex items-baseline gap-1 mt-2">
-              <span className="text-3xl font-bold font-serif-leamss" style={{ color: BRAND.primary }}>{p.score || 0}</span>
-              <span className="text-sm" style={{ color: BRAND.muted }}>/ 100</span>
-            </div>
-            <div className="h-1.5 rounded-full overflow-hidden mt-2" style={{ background: BRAND.border }}>
-              <div style={{ width: `${p.score || 0}%`, background: p.tier === 'gold' ? BRAND.accent : BRAND.primary, height: '100%' }} />
-            </div>
-            <p className="text-xs mt-2 line-clamp-2" style={{ color: BRAND.body }}>{p.notes || p.summary || ''}</p>
-          </div>
+      {result.overall_summary && (
+        <p className="text-sm sm:text-base mb-5 max-w-3xl" style={{ color: BRAND.body }}>{result.overall_summary}</p>
+      )}
+      <div className="rounded-lg px-4 py-2.5 mb-6 inline-flex items-center gap-2 text-xs" style={{ background: BRAND.bgWarm, color: BRAND.muted, border: `1px solid ${BRAND.border}` }}>
+        <Shield className="w-3.5 h-3.5" style={{ color: BRAND.primary }} />
+        Scores are calculated from your <b style={{ color: BRAND.ink }}>&nbsp;age, education, experience, English, occupation</b>&nbsp;& job offer — tap "How is this calculated?" on any card.
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {pathways.map((p) => (
+          <PathwayResultCard key={p.slug} p={p} isBest={p.slug === top} />
         ))}
       </div>
-      <div className="mt-8 rounded-lg p-5 flex flex-wrap items-center justify-between gap-4" style={{ background: BRAND.primary, color: '#fff' }}>
+      <div className="mt-8 rounded-xl p-5 flex flex-wrap items-center justify-between gap-4" style={{ background: BRAND.primary, color: '#fff' }}>
         <div>
-          <p className="font-serif-leamss text-xl font-bold">Get a personalised detailed report</p>
+          <p className="font-serif-leamss text-xl font-bold">Get your personalised detailed report</p>
           <p className="text-sm opacity-90">Talk to a MARA-registered LEAMSS expert. 100% refund if assessment fails.</p>
         </div>
-        <Button as="a" href={`https://wa.me/${WHATSAPP}`} data-testid="quiz-cta-whatsapp">
-          WhatsApp Expert<MessageCircle className="w-4 h-4" />
-        </Button>
+        <QuizLeadForm scoreId={result.score_id} country={result._country} />
       </div>
+      <p className="text-[11px] mt-4 text-center" style={{ color: BRAND.muted }}>
+        Indicative assessment only. Final eligibility depends on document verification, skills assessment & current policy.
+      </p>
     </div>
   );
 }
 
-// ─── Visa Compare Section ──────────────────────────────────────────────────
-const COMPARE_DATA = [
-  {
-    country: 'Australia', flag: '🇦🇺', code: 'AU',
-    pathways: [
-      { name: 'Subclass 189 (Skilled Independent)', pts: 65, age: '< 45', english: 'IELTS 6.0', time: '8-12 mo', highlight: true },
-      { name: 'Subclass 190 (State Nominated)',    pts: 65, age: '< 45', english: 'IELTS 6.0', time: '6-10 mo' },
-      { name: 'Subclass 491 (Regional)',           pts: 65, age: '< 45', english: 'IELTS 6.0', time: '6-9 mo' },
-    ],
-  },
-  {
-    country: 'Canada', flag: '🇨🇦', code: 'CA',
-    pathways: [
-      { name: 'Express Entry — FSW',     pts: 67, age: '< 45', english: 'CLB 7',   time: '6-8 mo', highlight: true },
-      { name: 'Provincial Nominee (PNP)', pts: '60+CRS', age: 'Varies', english: 'CLB 5-7', time: '12-18 mo' },
-      { name: 'Quebec PSTQ',             pts: '50+',    age: 'Varies', english: 'French B2', time: '24-36 mo' },
-    ],
-  },
-  {
-    country: 'New Zealand', flag: '🇳🇿', code: 'NZ',
-    pathways: [
-      { name: 'Green List Tier 1 (Straight to Residence)', pts: 'N/A (auto)', age: '< 55', english: 'IELTS 6.5', time: '3-6 mo', highlight: true },
-      { name: 'Green List Tier 2 (Work-to-Residence)',     pts: 'N/A',        age: '< 55', english: 'IELTS 6.5', time: '24 mo work + 6 mo' },
-      { name: 'SMC 6-Point System',                        pts: 6,            age: '< 55', english: 'IELTS 6.5', time: '12-18 mo' },
-    ],
-  },
-];
+// ─── Visa Compare Section (interactive · wired to /visa-compare API) ─────────
+const COUNTRY_FLAG = {
+  Canada: '🇨🇦', Australia: '🇦🇺', 'New Zealand': '🇳🇿',
+  'United Kingdom': '🇬🇧', Germany: '🇩🇪', 'United States': '🇺🇸',
+};
+const inrL = (v) => (v ? `₹${(v / 100000).toFixed(1)}L` : '—');
 
 function VisaCompareSection() {
+  const [allPathways, setAllPathways] = useState([]);
+  const [picked, setPicked] = useState([]);
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    axios.get(`${API}/visa-compare/pathways`)
+      .then(r => {
+        const pw = r.data.pathways || [];
+        setAllPathways(pw);
+        // Smart default: pre-select the 3 most popular for instant value
+        const defaults = pw.slice(0, 3).map(p => p.slug);
+        setPicked(defaults);
+        if (defaults.length >= 2) runCompare(defaults);
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const runCompare = async (slugs) => {
+    if (slugs.length < 2) { setData([]); return; }
+    setLoading(true);
+    try {
+      const r = await axios.get(`${API}/visa-compare/compare?slugs=${slugs.join(',')}`);
+      setData(r.data.pathways || []);
+    } catch (e) { /* keep previous */ }
+    setLoading(false);
+  };
+
+  const toggle = (slug) => {
+    let next;
+    if (picked.includes(slug)) next = picked.filter(s => s !== slug);
+    else { if (picked.length >= 4) return; next = [...picked, slug]; }
+    setPicked(next);
+    runCompare(next);
+  };
+
   return (
-    <section className="py-20" style={{ background: BRAND.bgSoft }}>
+    <section id="compare" className="py-20" style={{ background: BRAND.bgSoft }}>
       <div className="max-w-7xl mx-auto px-4">
         <SectionTitle
           eyebrow="Side-by-Side Visa Compare"
-          title="Choose the pathway that fits your profile"
-          sub="9 most-applied visa programs across AU, CA, NZ — points, age limits, English requirements, processing time."
+          title="Compare visa pathways that fit your profile"
+          sub="Pick 2-4 programs across AU, CA, NZ, UK, Germany & USA — compare fees, timelines, eligibility, benefits & post-arrival jobs side-by-side."
         />
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5" data-testid="visa-compare-grid">
-          {COMPARE_DATA.map((c, idx) => (
-            <motion.div
-              key={c.code}
-              initial={{ opacity: 0, y: 24 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: '-50px' }}
-              transition={{ duration: 0.5, delay: idx * 0.1 }}
-              className="rounded-2xl overflow-hidden bg-white"
-              style={{ border: `1px solid ${BRAND.border}` }}
-            >
-              <div className="p-6 flex items-center justify-between" style={{ background: BRAND.primary, color: '#fff' }}>
-                <p className="font-serif-leamss text-2xl font-bold">{c.flag} {c.country}</p>
-                <Link to={`/atlas/${c.code.toLowerCase()}`} className="text-xs hover:underline opacity-90">
-                  Browse atlas →
-                </Link>
-              </div>
-              <div className="p-5 space-y-4">
-                {c.pathways.map((p, i) => (
-                  <div key={i} className="border-b last:border-b-0 pb-4 last:pb-0" style={{ borderColor: BRAND.border }}>
-                    <div className="flex items-start justify-between mb-2">
-                      <p className="text-sm font-bold flex-1" style={{ color: BRAND.ink }}>{p.name}</p>
-                      {p.highlight && <Pill color={BRAND.accent}>Popular</Pill>}
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <CompareRow label="Min Points" value={p.pts} />
-                      <CompareRow label="Age Limit"  value={p.age} />
-                      <CompareRow label="English"    value={p.english} />
-                      <CompareRow label="Processing" value={p.time} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-          ))}
+        {/* Picker */}
+        <div className="rounded-2xl p-5 mb-6 bg-white" style={{ border: `1px solid ${BRAND.border}` }} data-testid="compare-picker">
+          <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: BRAND.muted }}>
+            Select pathways ({picked.length}/4)
+          </p>
+          <div className="flex gap-2 flex-wrap">
+            {allPathways.map(p => {
+              const on = picked.includes(p.slug);
+              return (
+                <button
+                  key={p.slug}
+                  onClick={() => toggle(p.slug)}
+                  className="px-3 py-1.5 rounded-full text-xs font-semibold border inline-flex items-center gap-1.5 transition-all"
+                  style={{
+                    background: on ? BRAND.primary : '#fff',
+                    color: on ? '#fff' : BRAND.body,
+                    borderColor: on ? BRAND.primary : BRAND.border,
+                  }}
+                  data-testid={`compare-pick-${p.slug}`}
+                >
+                  {on ? <CheckCircle2 className="w-3.5 h-3.5" /> : <span className="w-3.5 h-3.5 inline-flex items-center justify-center">+</span>}
+                  {COUNTRY_FLAG[p.country] || ''} {p.name}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        <p className="text-center text-xs mt-8" style={{ color: BRAND.muted }}>
-          Want a side-by-side mathematical comparison with your specific profile? <Link to="/visa-compare" className="font-semibold underline" style={{ color: BRAND.primary }}>Use detailed Visa Compare tool →</Link>
+        {/* Comparison grid */}
+        {loading && data.length === 0 ? (
+          <div className="text-center py-12"><Loader2 className="w-7 h-7 animate-spin mx-auto" style={{ color: BRAND.primary }} /></div>
+        ) : data.length >= 2 ? (
+          <div className="overflow-x-auto pb-2" data-testid="compare-results">
+            <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${data.length}, minmax(260px, 1fr))` }}>
+              {data.map((p, idx) => (
+                <motion.div
+                  key={p.slug}
+                  initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, delay: idx * 0.05 }}
+                  className="rounded-2xl overflow-hidden bg-white flex flex-col"
+                  style={{ border: `1px solid ${BRAND.border}` }}
+                  data-testid={`compare-card-${p.slug}`}
+                >
+                  <div className="p-5" style={{ background: BRAND.primary, color: '#fff' }}>
+                    <p className="text-xs opacity-90">{COUNTRY_FLAG[p.country] || ''} {p.country}</p>
+                    <p className="font-serif-leamss text-lg font-bold leading-tight mt-1">{p.name}</p>
+                    <p className="text-[11px] opacity-80 mt-1">{p.category}</p>
+                  </div>
+                  <div className="p-5 space-y-3 text-sm flex-1">
+                    <CompareRow label="⏱ Processing" value={`${p.timeline_months} months`} />
+                    <CompareRow label="💰 Total Cost (Govt + LEAMSS)" value={inrL((p.govt_fee_inr || 0) + (p.leamss_fee_inr || 0))} sub={`+ ${inrL(p.min_funds_inr)} settlement funds`} />
+                    <CompareRow label="🎓 Min Education" value={p.min_education} />
+                    <CompareRow label="💼 Work Experience" value={`${p.min_work_exp_years}+ years`} />
+                    <CompareRow label="🎂 Age Range" value={`${p.min_age} – ${p.max_age} years`} />
+                    <CompareRow label="🗣 Language" value={p.language_required} />
+                    {p.key_benefits?.length > 0 && (
+                      <div className="pt-3 border-t" style={{ borderColor: BRAND.border }}>
+                        <p className="text-[11px] font-bold mb-1" style={{ color: BRAND.success }}>✓ Key Benefits</p>
+                        <ul className="text-[11px] space-y-1 ml-4" style={{ color: BRAND.body }}>
+                          {p.key_benefits.slice(0, 4).map((b, i) => <li key={i} className="list-disc">{b}</li>)}
+                        </ul>
+                      </div>
+                    )}
+                    {p.key_drawbacks?.length > 0 && (
+                      <div>
+                        <p className="text-[11px] font-bold mb-1" style={{ color: BRAND.accent }}>⚠ Watch-outs</p>
+                        <ul className="text-[11px] space-y-1 ml-4" style={{ color: BRAND.body }}>
+                          {p.key_drawbacks.slice(0, 3).map((b, i) => <li key={i} className="list-disc">{b}</li>)}
+                        </ul>
+                      </div>
+                    )}
+                    {p.post_arrival_jobs && (
+                      <div>
+                        <p className="text-[11px] font-bold mb-1" style={{ color: BRAND.primary }}>💼 Post-Arrival Jobs</p>
+                        <p className="text-[11px]" style={{ color: BRAND.body }}>{p.post_arrival_jobs}</p>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="text-center py-12" style={{ color: BRAND.muted }}>
+            <Globe2 className="w-10 h-10 mx-auto mb-2" style={{ color: BRAND.border }} />
+            <p className="text-sm">Select at least 2 pathways above to compare side-by-side.</p>
+          </div>
+        )}
+
+        <p className="text-center text-sm mt-8" style={{ color: BRAND.muted }}>
+          Not sure which fits you?{' '}
+          <a href="#quiz" className="font-semibold underline" style={{ color: BRAND.primary }}>Take the 60-second eligibility quiz →</a>
         </p>
       </div>
     </section>
   );
 }
 
-const CompareRow = ({ label, value }) => (
+const CompareRow = ({ label, value, sub }) => (
   <div>
     <p className="text-[10px] uppercase font-bold tracking-wider" style={{ color: BRAND.muted }}>{label}</p>
-    <p className="font-medium mt-0.5" style={{ color: BRAND.ink }}>{value}</p>
+    <p className="font-semibold mt-0.5" style={{ color: BRAND.ink }}>{value}</p>
+    {sub && <p className="text-[10px] mt-0.5" style={{ color: BRAND.muted }}>{sub}</p>}
   </div>
 );
 

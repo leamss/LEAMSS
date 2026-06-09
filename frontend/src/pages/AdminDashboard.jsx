@@ -1304,6 +1304,7 @@ const AdminDashboard = () => {
       items: [
         { id: 'marketing', icon: Megaphone, label: 'Marketing', onClick: () => navigate('/admin/marketing') },
         { id: 'public-pages', icon: Globe, label: '🌐 Public Pages', onClick: () => navigate('/admin/public-pages') },
+        { id: 'eligibility-scoring', icon: Calculator, label: '🎯 Eligibility Scoring', onClick: () => navigate('/admin/eligibility-scoring') },
         { id: 'knowledge-base', icon: BookOpen, label: 'Knowledge Base', onClick: () => { setActiveTab('knowledge-base'); resetSelections(); } },
         { id: 'surveys', icon: Star, label: 'Satisfaction Surveys', onClick: () => { setActiveTab('surveys'); resetSelections(); } },
         { id: 'canned-responses', icon: MessageSquare, label: 'Canned Responses', onClick: () => { setActiveTab('canned-responses'); resetSelections(); } },
