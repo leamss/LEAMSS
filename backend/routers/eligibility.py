@@ -208,15 +208,23 @@ async def score_eligibility(data: EligibilityRequest):
             "name": data.full_name,
             "email": data.email,
             "mobile": data.mobile,
+            "phone": data.mobile,
             "country": (data.preferred_countries or [""])[0] if data.preferred_countries else "",
             "service_type": top,
+            "service_interested": top_name,
+            "top_pathway_name": top_name,
+            "top_score": top_score,
             "source": "eligibility_pre_score",
             "priority": "high" if top_score >= 70 else "normal",
             "tag": f"elig-{top_score}",
             "notes": overall[:500],
             "score_id": score_id,
             "status": "new",
+            "stage": "new",
+            "assigned_to": None,
+            "assigned_to_name": None,
             "created_at": datetime.now(timezone.utc),
+            "updated_at": datetime.now(timezone.utc),
         })
 
     return {
@@ -288,30 +296,97 @@ async def capture_lead(body: EligibilityLead):
     """Public — capture contact from the result screen and link to a prior score."""
     if not (body.email or body.mobile):
         raise HTTPException(status_code=400, detail="Provide an email or mobile number")
-    top, top_score, summary = "unknown", 0, ""
+    top, top_score, summary, top_name = "unknown", 0, "", "Pathway"
     if body.score_id:
         rec = await scores_col.find_one({"id": body.score_id}, {"_id": 0, "result": 1})
         if rec:
             res = rec.get("result") or {}
             top = res.get("top_recommendation") or "unknown"
-            top_score = (res.get("pathways") or {}).get(top, {}).get("score") or 0
+            top_p = (res.get("pathways") or {}).get(top, {})
+            top_score = top_p.get("score") or 0
+            top_name = top_p.get("name") or top
             summary = res.get("overall_summary", "")
     await leads_col.insert_one({
         "id": str(uuid.uuid4()),
         "name": body.name,
         "email": body.email,
         "mobile": body.mobile,
+        "phone": body.mobile,
         "country": body.preferred_country or "",
         "service_type": top,
+        "service_interested": top_name,
+        "top_pathway_name": top_name,
+        "top_score": top_score,
         "source": "eligibility_quiz",
         "priority": "high" if top_score >= 70 else "normal",
         "tag": f"elig-{top_score}",
         "notes": summary[:500],
         "score_id": body.score_id,
         "status": "new",
+        "stage": "new",
+        "assigned_to": None,
+        "assigned_to_name": None,
         "created_at": datetime.now(timezone.utc),
+        "updated_at": datetime.now(timezone.utc),
     })
     return {"ok": True, "message": "Thanks! A LEAMSS expert will reach out within 24 hours."}
+
+
+@router.get("/admin/scorecard-leads")
+async def admin_scorecard_leads(current_user: dict = Depends(get_current_user)):
+    """Admin/partner — eligibility scorecard leads (with PDF link data + assignment)."""
+    if current_user.get("role") not in ("admin", "partner", "case_manager", "sales_manager"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+    q = {"source": {"$in": ["eligibility_quiz", "eligibility_pre_score"]}}
+    # Partners only see leads assigned to them
+    if current_user.get("role") == "partner":
+        q["assigned_to"] = current_user["id"]
+    leads = await leads_col.find(q, {"_id": 0}).sort("created_at", -1).to_list(500)
+    out = []
+    for ld in leads:
+        ca = ld.get("created_at")
+        out.append({
+            "id": ld.get("id"),
+            "name": ld.get("name"),
+            "email": ld.get("email"),
+            "phone": ld.get("phone") or ld.get("mobile"),
+            "country": ld.get("country"),
+            "top_pathway_name": ld.get("top_pathway_name") or ld.get("service_interested") or ld.get("service_type"),
+            "top_score": ld.get("top_score"),
+            "score_id": ld.get("score_id"),
+            "source": ld.get("source"),
+            "stage": ld.get("stage") or ld.get("status") or "new",
+            "assigned_to": ld.get("assigned_to"),
+            "assigned_to_name": ld.get("assigned_to_name"),
+            "created_at": ca.isoformat() if hasattr(ca, "isoformat") else ca,
+        })
+    return out
+
+
+class AssignLead(BaseModel):
+    assigned_to: str
+    assigned_to_name: Optional[str] = None
+
+
+@router.put("/admin/scorecard-leads/{lead_id}/assign")
+async def assign_scorecard_lead(lead_id: str, body: AssignLead, current_user: dict = Depends(get_current_user)):
+    """Admin — assign a scorecard lead (with client details + PDF) to a partner/sales person."""
+    if current_user.get("role") not in ("admin", "sales_manager"):
+        raise HTTPException(status_code=403, detail="Admin only")
+    lead = await leads_col.find_one({"id": lead_id}, {"_id": 0, "id": 1})
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    name = body.assigned_to_name
+    if not name:
+        u = await db["users"].find_one({"id": body.assigned_to}, {"_id": 0, "name": 1})
+        name = u.get("name") if u else None
+    await leads_col.update_one({"id": lead_id}, {"$set": {
+        "assigned_to": body.assigned_to,
+        "assigned_to_name": name,
+        "stage": "contacted",
+        "updated_at": datetime.now(timezone.utc),
+    }})
+    return {"ok": True, "assigned_to_name": name}
 
 
 @router.get("/share/{score_id}")

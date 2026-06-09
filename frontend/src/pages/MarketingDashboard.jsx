@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import {
   ArrowLeft, Plus, Users, Target, Mail, Star, Trophy, BarChart3, Send,
   Trash2, Edit, Phone, Globe, TrendingUp, Filter, Search, MessageSquare,
-  Calendar, CheckCircle, XCircle, Eye, ChevronRight
+  Calendar, CheckCircle, XCircle, Eye, ChevronRight, FileText, Download, UserPlus
 } from 'lucide-react';
 
 const API = process.env.REACT_APP_BACKEND_URL + '/api';
@@ -48,6 +48,25 @@ const MarketingDashboard = () => {
   const [promos, setPromos] = useState([]);
   const [promoDialog, setPromoDialog] = useState({ open: false, data: {} });
 
+  // Scorecards (eligibility leads)
+  const [scorecardLeads, setScorecardLeads] = useState([]);
+  const [assignableUsers, setAssignableUsers] = useState([]);
+  const [assignDialog, setAssignDialog] = useState({ open: false, lead: null, userId: '' });
+
+  const loadScorecards = useCallback(async () => {
+    try {
+      const [scRes, usersRes] = await Promise.allSettled([
+        axios.get(`${API}/eligibility/admin/scorecard-leads`, getAuthHeader()),
+        axios.get(`${API}/users`, getAuthHeader()),
+      ]);
+      if (scRes.status === 'fulfilled') setScorecardLeads(scRes.value.data || []);
+      if (usersRes.status === 'fulfilled') {
+        const roles = ['partner', 'sales_executive', 'sr_sales_executive', 'sales_manager', 'case_manager'];
+        setAssignableUsers((usersRes.value.data || []).filter(u => roles.includes(u.role)));
+      }
+    } catch (e) { console.error(e); }
+  }, []);
+
   const loadData = useCallback(async () => {
     try {
       const [leadsRes, statsRes, followUpsRes, campaignsRes, campStatsRes, testimonialsRes, leaderboardRes, promosRes] = await Promise.allSettled([
@@ -72,10 +91,32 @@ const MarketingDashboard = () => {
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => { loadScorecards(); }, [loadScorecards]);
+
+  const openPdf = (scoreId) => {
+    if (!scoreId) { toast.error('No scorecard PDF for this lead'); return; }
+    window.open(`${API}/eligibility/report/${scoreId}`, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleAssign = async () => {
+    const { lead, userId } = assignDialog;
+    if (!userId) { toast.error('Select a person'); return; }
+    const u = assignableUsers.find(x => x.id === userId);
+    try {
+      await axios.put(`${API}/eligibility/admin/scorecard-leads/${lead.id}/assign`,
+        { assigned_to: userId, assigned_to_name: u?.name }, getAuthHeader());
+      toast.success(`Assigned to ${u?.name || 'team member'}`);
+      setAssignDialog({ open: false, lead: null, userId: '' });
+      loadScorecards();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Assign failed');
+    }
+  };
 
   const tabs = [
     { id: 'overview', label: 'Overview', icon: BarChart3 },
     { id: 'leads', label: 'Lead CRM', icon: Target },
+    { id: 'scorecards', label: 'Scorecards', icon: FileText },
     { id: 'campaigns', label: 'Campaigns', icon: Mail },
     { id: 'testimonials', label: 'Testimonials', icon: Star },
     { id: 'leaderboard', label: 'Leaderboard', icon: Trophy },
@@ -433,6 +474,75 @@ const MarketingDashboard = () => {
           </div>
         )}
 
+        {/* ===== SCORECARDS TAB ===== */}
+        {activeTab === 'scorecards' && (
+          <div className="space-y-4" data-testid="scorecards-tab">
+            <Card className="p-4">
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div>
+                  <h3 className="font-semibold text-slate-800 flex items-center gap-2"><FileText className="h-4 w-4 text-[#2a777a]" /> Eligibility Scorecard Leads</h3>
+                  <p className="text-sm text-slate-500">Visitors who downloaded their pathway-fit PDF. View the report and assign to a partner / sales person.</p>
+                </div>
+                <Badge className="bg-[#2a777a] text-white">{scorecardLeads.length} leads</Badge>
+              </div>
+            </Card>
+
+            <Card className="overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
+                    <tr>
+                      <th className="text-left px-4 py-3">Client</th>
+                      <th className="text-left px-4 py-3">Contact</th>
+                      <th className="text-left px-4 py-3">Best Fit</th>
+                      <th className="text-center px-4 py-3">Score</th>
+                      <th className="text-left px-4 py-3">Assigned To</th>
+                      <th className="text-right px-4 py-3">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {scorecardLeads.length === 0 && (
+                      <tr><td colSpan={6} className="px-4 py-10 text-center text-slate-400">No scorecard leads yet.</td></tr>
+                    )}
+                    {scorecardLeads.map(ld => (
+                      <tr key={ld.id} className="hover:bg-slate-50" data-testid={`scorecard-row-${ld.id}`}>
+                        <td className="px-4 py-3">
+                          <p className="font-medium text-slate-800">{ld.name || '—'}</p>
+                          <p className="text-xs text-slate-400">{ld.created_at ? new Date(ld.created_at).toLocaleDateString() : ''} · {ld.source === 'eligibility_quiz' ? 'Quiz' : 'Pre-score'}</p>
+                        </td>
+                        <td className="px-4 py-3 text-slate-600">
+                          <p className="text-xs flex items-center gap-1"><Mail className="h-3 w-3 text-slate-400" /> {ld.email || '—'}</p>
+                          <p className="text-xs flex items-center gap-1"><Phone className="h-3 w-3 text-slate-400" /> {ld.phone || '—'}</p>
+                        </td>
+                        <td className="px-4 py-3 text-slate-700">{ld.top_pathway_name || '—'}</td>
+                        <td className="px-4 py-3 text-center">
+                          <span className="font-bold text-[#2a777a]">{ld.top_score ?? '—'}</span><span className="text-xs text-slate-400">/100</span>
+                        </td>
+                        <td className="px-4 py-3">
+                          {ld.assigned_to_name
+                            ? <Badge className="bg-emerald-100 text-emerald-700">{ld.assigned_to_name}</Badge>
+                            : <span className="text-xs text-slate-400">Unassigned</span>}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center justify-end gap-2">
+                            <Button size="sm" variant="outline" onClick={() => openPdf(ld.score_id)} data-testid={`view-pdf-${ld.id}`}>
+                              <Download className="h-3.5 w-3.5 mr-1" /> PDF
+                            </Button>
+                            <Button size="sm" className="bg-[#2a777a] hover:bg-[#1f5c5e] text-white" onClick={() => setAssignDialog({ open: true, lead: ld, userId: ld.assigned_to || '' })} data-testid={`assign-btn-${ld.id}`}>
+                              <UserPlus className="h-3.5 w-3.5 mr-1" /> {ld.assigned_to_name ? 'Reassign' : 'Assign'}
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          </div>
+        )}
+
+
         {/* ===== CAMPAIGNS TAB ===== */}
         {activeTab === 'campaigns' && (
           <div className="space-y-6">
@@ -690,6 +800,46 @@ const MarketingDashboard = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Assign Scorecard Lead Dialog */}
+      <Dialog open={assignDialog.open} onOpenChange={(o) => setAssignDialog({ ...assignDialog, open: o })}>
+        <DialogContent data-testid="assign-dialog">
+          <DialogHeader>
+            <DialogTitle>Assign scorecard lead</DialogTitle>
+          </DialogHeader>
+          {assignDialog.lead && (
+            <div className="space-y-4">
+              <div className="rounded-lg bg-slate-50 p-3 text-sm">
+                <p className="font-semibold text-slate-800">{assignDialog.lead.name}</p>
+                <p className="text-xs text-slate-500">{assignDialog.lead.email} · {assignDialog.lead.phone}</p>
+                <p className="text-xs text-slate-500 mt-1">Best fit: <b>{assignDialog.lead.top_pathway_name}</b> ({assignDialog.lead.top_score}/100)</p>
+                <button onClick={() => openPdf(assignDialog.lead.score_id)} className="text-xs text-[#2a777a] font-semibold mt-1 inline-flex items-center gap-1" data-testid="assign-dialog-pdf">
+                  <Download className="h-3 w-3" /> View attached PDF report
+                </button>
+              </div>
+              <div>
+                <Label className="text-sm">Assign to partner / sales person</Label>
+                <Select value={assignDialog.userId} onValueChange={(v) => setAssignDialog({ ...assignDialog, userId: v })}>
+                  <SelectTrigger className="mt-1" data-testid="assign-user-select"><SelectValue placeholder="Select a team member" /></SelectTrigger>
+                  <SelectContent>
+                    {assignableUsers.map(u => (
+                      <SelectItem key={u.id} value={u.id} data-testid={`assign-user-${u.id}`}>
+                        {u.name} · {String(u.role).replace(/_/g, ' ')}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <p className="text-xs text-slate-400">The client details and PDF scorecard will be linked to the assigned person.</p>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setAssignDialog({ open: false, lead: null, userId: '' })}>Cancel</Button>
+                <Button className="bg-[#2a777a] hover:bg-[#1f5c5e] text-white" onClick={handleAssign} data-testid="assign-confirm-btn">Assign</Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 };

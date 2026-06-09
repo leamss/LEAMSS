@@ -746,7 +746,12 @@ function QuizLeadForm({ scoreId, country }) {
   );
 }
 
-function ScorecardActions({ scoreId, topName, topScore }) {
+function ScorecardActions({ scoreId, topName, topScore, country }) {
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({ name: '', email: '', phone: '' });
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+
   const pdfUrl = `${API}/eligibility/report/${scoreId}`;
   const shareUrl = `${window.location.origin}/scorecard/${scoreId}`;
   const waText = encodeURIComponent(
@@ -755,15 +760,75 @@ function ScorecardActions({ scoreId, topName, topScore }) {
     `Check your free pathway-fit score in 60 seconds 👇\n${shareUrl}`
   );
   const waUrl = `https://wa.me/?text=${waText}`;
+
+  const validEmail = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+  const validPhone = (p) => p.replace(/\D/g, '').length >= 8;
+
+  const submit = async () => {
+    setErr('');
+    if (!form.name.trim()) return setErr('Please enter your name.');
+    if (!validEmail(form.email.trim())) return setErr('Please enter a valid email.');
+    if (!validPhone(form.phone.trim())) return setErr('Please enter a valid phone number.');
+    setBusy(true);
+    try {
+      await axios.post(`${API}/eligibility/lead`, {
+        score_id: scoreId,
+        name: form.name.trim(),
+        email: form.email.trim(),
+        mobile: form.phone.trim(),
+        preferred_country: country || null,
+      });
+      // trigger download / open the branded PDF
+      window.open(pdfUrl, '_blank', 'noopener,noreferrer');
+      setOpen(false);
+      setForm({ name: '', email: '', phone: '' });
+    } catch (e) {
+      setErr(formatApiError(e, 'Something went wrong. Please try again.'));
+    }
+    setBusy(false);
+  };
+
   return (
-    <div className="flex flex-wrap gap-3 mb-6" data-testid="scorecard-actions">
-      <Button as="a" href={pdfUrl} target="_blank" rel="noopener noreferrer" data-testid="download-pdf-btn">
-        <Download className="w-4 h-4" /> Download PDF report
-      </Button>
-      <Button as="a" variant="secondary" href={waUrl} target="_blank" rel="noopener noreferrer" data-testid="share-whatsapp-btn">
-        <MessageCircle className="w-4 h-4" /> Share on WhatsApp
-      </Button>
-    </div>
+    <>
+      <div className="flex flex-wrap gap-3 mb-6" data-testid="scorecard-actions">
+        <Button onClick={() => setOpen(true)} data-testid="download-pdf-btn">
+          <Download className="w-4 h-4" /> Download PDF report
+        </Button>
+        <Button as="a" variant="secondary" href={waUrl} target="_blank" rel="noopener noreferrer" data-testid="share-whatsapp-btn">
+          <MessageCircle className="w-4 h-4" /> Share on WhatsApp
+        </Button>
+      </div>
+
+      {open && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" style={{ background: 'rgba(20,30,28,0.55)' }} data-testid="download-lead-modal" onClick={() => !busy && setOpen(false)}>
+          <div className="w-full max-w-md rounded-2xl p-6" style={{ background: BRAND.bg }} onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between mb-1">
+              <div className="inline-flex items-center gap-2">
+                <Download className="w-5 h-5" style={{ color: BRAND.accent }} />
+                <h4 className="font-serif-leamss text-xl font-bold" style={{ color: BRAND.ink }}>Get your PDF report</h4>
+              </div>
+              <button onClick={() => setOpen(false)} className="text-2xl leading-none" style={{ color: BRAND.muted }} data-testid="download-modal-close">×</button>
+            </div>
+            <p className="text-xs mb-4" style={{ color: BRAND.muted }}>
+              Enter your details to download the full branded scorecard. A LEAMSS expert may reach out to help — no spam, ever.
+            </p>
+            <div className="space-y-3">
+              <input data-testid="dl-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Full name *"
+                className="w-full px-4 py-2.5 rounded-lg border-2 text-sm outline-none" style={{ borderColor: BRAND.border, color: BRAND.ink }} />
+              <input data-testid="dl-email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="Email *"
+                className="w-full px-4 py-2.5 rounded-lg border-2 text-sm outline-none" style={{ borderColor: BRAND.border, color: BRAND.ink }} />
+              <input data-testid="dl-phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="Phone / WhatsApp *"
+                className="w-full px-4 py-2.5 rounded-lg border-2 text-sm outline-none" style={{ borderColor: BRAND.border, color: BRAND.ink }} />
+              {err && <p className="text-xs font-semibold" style={{ color: '#B91C1C' }} data-testid="dl-error">{err}</p>}
+              <Button onClick={submit} disabled={busy} className="w-full justify-center" data-testid="dl-submit">
+                {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Download className="w-4 h-4" /> Download my report</>}
+              </Button>
+              <p className="text-[10px] text-center" style={{ color: BRAND.muted }}>🔒 Your details are confidential · MARA-registered consultants</p>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -818,6 +883,7 @@ function QuizResult({ result, onReset }) {
           scoreId={result.score_id}
           topName={pathways[0]?.name}
           topScore={pathways[0]?.score}
+          country={result._country}
         />
       )}
 

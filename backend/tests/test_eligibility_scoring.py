@@ -225,3 +225,44 @@ def test_pdf_report_404_for_bad_id():
     r = httpx.get(f"{API}/eligibility/report/nonexistent-id", timeout=30)
     assert r.status_code == 404
 
+
+def test_scorecard_lead_flow_list_and_assign():
+    # 1) Public lead capture (download gate) linked to a score
+    sid = _make_score()
+    r = httpx.post(f"{API}/eligibility/lead", json={
+        "score_id": sid, "name": "Assign Test", "email": "assign@example.com",
+        "mobile": "9990001112", "preferred_country": "Canada"}, timeout=30)
+    assert r.status_code == 200
+
+    admin = _login(ADMIN)
+    h = {"Authorization": f"Bearer {admin}"}
+    # 2) Admin sees it in scorecard-leads, enriched
+    r = httpx.get(f"{API}/eligibility/admin/scorecard-leads", headers=h, timeout=30)
+    assert r.status_code == 200
+    leads = r.json()
+    mine = next((l for l in leads if l["email"] == "assign@example.com"), None)
+    assert mine is not None
+    assert mine["score_id"] == sid
+    assert mine["top_pathway_name"] and mine["phone"] == "9990001112"
+
+    # 3) Pick an assignable user and assign
+    users = httpx.get(f"{API}/users", headers=h, timeout=30).json()
+    roles = ("partner", "sales_executive", "sr_sales_executive", "sales_manager", "case_manager")
+    target = next((u for u in users if u.get("role") in roles), None)
+    assert target, "No assignable user found"
+    r = httpx.put(f"{API}/eligibility/admin/scorecard-leads/{mine['id']}/assign",
+                  headers=h, json={"assigned_to": target["id"]}, timeout=30)
+    assert r.status_code == 200
+    assert r.json()["assigned_to_name"] == target["name"]
+
+    # 4) Verify persisted
+    leads2 = httpx.get(f"{API}/eligibility/admin/scorecard-leads", headers=h, timeout=30).json()
+    again = next(l for l in leads2 if l["id"] == mine["id"])
+    assert again["assigned_to_name"] == target["name"]
+
+
+def test_scorecard_leads_requires_auth():
+    r = httpx.get(f"{API}/eligibility/admin/scorecard-leads", timeout=30)
+    assert r.status_code in (401, 403)
+
+

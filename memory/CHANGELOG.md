@@ -3,6 +3,17 @@
 This file appends every completed phase/feature with dates and verification status.
 
 ---
+### 🔒 Phase 16.4 — Lead-gated PDF Download + Marketing Scorecards (assign to partner/sales) (Jun 9, 2026)
+**Tests:** `tests/test_eligibility_scoring.py` → **18/18 PASS** (added lead list/assign flow + auth gate). Frontend verified via Playwright (download modal validation + Marketing Scorecards tab + assign dialog).
+
+**1. Lead-gated PDF download** — `ScorecardActions` (LeamssPublic.jsx): "Download PDF report" now opens a branded modal requiring **Name + Email + Phone** (validated). On submit → `POST /api/eligibility/lead` (captures lead) → opens the branded PDF. Applies on both the quiz result and `/scorecard/:id` shared page.
+
+**2. Marketing → Scorecards tab** — `MarketingDashboard.jsx`: new tab lists all eligibility scorecard leads (client name, email, phone, best-fit pathway, score, source, assigned-to). Per row: **PDF** (view/download `/api/eligibility/report/{score_id}`) + **Assign/Reassign** dialog → assign to a partner/sales/case-manager with the client details + PDF linked.
+
+**Backend** (routers/eligibility.py): eligibility leads now CRM-consistent (`phone`, `stage`, `assigned_to`, `top_pathway_name`, `top_score`). New endpoints: `GET /api/eligibility/admin/scorecard-leads` (admin/partner/sales-manager/case-manager; partners see only their assigned) + `PUT /api/eligibility/admin/scorecard-leads/{id}/assign` (admin/sales-manager). Partner role sees only leads assigned to them.
+
+---
+
 ### 🎨 Phase 16.3 — Premium Branded Scorecard PDF redesign (Jun 9, 2026)
 **Tests:** PDF/share tests in `tests/test_eligibility_scoring.py` PASS; design verified via analyze_file_tool (logo, score bars, fit tags, gold-star reviews, footer band all render correctly).
 
