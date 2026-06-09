@@ -1,115 +1,233 @@
 {
   "theme": "Light",
-  "archetype": "Archetype 4 (Swiss & High-Contrast) + Archetype 5 (Luxury)",
-  "global_rules": {
-    "forbidden_colors": ["purple", "teal", "cyan", "magenta"],
-    "forbidden_fonts": ["Inter", "Roboto", "Open Sans"],
-    "design_tone": "High-end, authoritative, professional, $50K+ immigration consultancy grade. No generic SaaS slop."
-  },
-  "colors": {
-    "brand": {
-      "electric_blue": "#1E40FF",
-      "electric_blue_light": "#2563EB",
-      "deep_indigo": "#312E81",
-      "deep_indigo_dark": "#1E1B4B",
-      "gold_accent": "#F59E0B",
-      "gold_accent_light": "#FBBF24"
+  "archetype": "1 - Organic & Earthy",
+  "brand_identity": {
+    "name": "Ladhani Education & Migration Services (OPC) Pvt. Ltd",
+    "short_name": "LEAMSS",
+    "logo_url": "https://leamss.com/public/assets/web/images/logo.webp",
+    "taglines": [
+      "We Value Emotions",
+      "India's Trusted Immigration Experts & Education Consultant",
+      "100% Refund Guarantee on Negative Skill Assessment / Visa Rejection",
+      "Get Expert Help for Canada or Australia PR Today"
+    ],
+    "colors": {
+      "primary": "#1F4D44",
+      "accent": "#D4633F",
+      "background_primary": "#FFFFFF",
+      "background_secondary": "#F7F9F8",
+      "text_main": "#2D3D45",
+      "text_muted": "#5C737D",
+      "border": "#E5EBE9",
+      "success": "#2E7D32"
     },
-    "surface": {
-      "background": "#F8FAFC",
-      "card_bg": "#FFFFFF",
-      "sidebar_bg": "#FFFFFF",
-      "ai_panel_bg": "#F8FAFC"
-    },
-    "text": {
-      "primary": "#1E1B4B",
-      "secondary": "#475569",
-      "muted": "#94A3B8",
-      "on_brand": "#FFFFFF"
+    "typography": {
+      "heading_font": "Playfair Display",
+      "heading_fallback": "serif",
+      "body_font": "Plus Jakarta Sans",
+      "body_fallback": "sans-serif",
+      "weights": {
+        "regular": 400,
+        "medium": 500,
+        "semibold": 600,
+        "bold": 700
+      }
     }
   },
-  "typography": {
-    "headings": {
-      "family": "Manrope, sans-serif",
-      "weight": "700",
-      "tracking": "tracking-tight"
+  "design_principles": [
+    "Fusion over Imitation: Premium editorial aesthetic mixed with SaaS conversion mechanics",
+    "Emotion First: High trust, authoritative, calming visuals to reduce migration anxiety",
+    "Generous Spacing: Large padding (p-8 to p-16) for breathing room",
+    "Mobile-first: Thumb-friendly controls, sticky CTAs, optimized tables for Indian mobile traffic",
+    "Micro-animations: Lenis smooth scroll, hover lifts, progress bar fills"
+  ],
+  "routes": {
+    "/": {
+      "name": "Mega Landing Page",
+      "seo_title": "Find Your Migration Pathway in 60 Seconds | LEAMSS",
+      "json_ld": [
+        "Organization",
+        "FAQPage"
+      ],
+      "sections": [
+        {
+          "name": "Hero",
+          "layout": "2-column or centered wide. Strong H1 (Playfair Display), Subheading with refund guarantee.",
+          "components": [
+            "Start AI Eligibility Quiz CTA (Accent Color)",
+            "3 Country Flags (AU, CA, NZ)",
+            "Trust Strip Marquee (80k+ processed, 4.9 stars)"
+          ]
+        },
+        {
+          "name": "AI Eligibility Score Widget",
+          "layout": "Interactive Card Embedded. 5-step progress.",
+          "components": [
+            "Progress Bar",
+            "Score Visualizer (0-100)",
+            "Lead Capture Modal Trigger"
+          ]
+        },
+        {
+          "name": "Compare Visa Side-by-Side",
+          "layout": "Cards + Table approach. Grouped by outcomes.",
+          "components": [
+            "3-Column Grid",
+            "Sticky Headers",
+            "Feature Checkmarks",
+            "Mobile Accordion"
+          ]
+        },
+        {
+          "name": "Featured Occupations",
+          "layout": "Bento Grid or 12-tile CSS Grid (4 AU, 4 CA, 4 NZ).",
+          "components": [
+            "OccupationCard (Skill level, Tier badges)"
+          ]
+        },
+        {
+          "name": "Browse Atlas CTA",
+          "layout": "3 Large Premium Country Cards",
+          "components": [
+            "Image Backgrounds",
+            "Hover interactions",
+            "Verified counts"
+          ]
+        },
+        {
+          "name": "Trust / Social Proof",
+          "layout": "Carousel and Logo Grid",
+          "components": [
+            "Google Reviews Cards",
+            "Partner University Logos",
+            "Official Badges"
+          ]
+        },
+        {
+          "name": "FAQ",
+          "layout": "Centered Accordion, max-w-3xl",
+          "components": [
+            "Shadcn Accordion"
+          ]
+        }
+      ]
     },
-    "body": {
-      "family": "Public Sans, sans-serif",
-      "weight": "400",
-      "tracking": "tracking-normal"
+    "/atlas": {
+      "name": "Atlas Hub",
+      "seo_title": "Global Migration Atlas & Occupation List 2026 | LEAMSS",
+      "json_ld": [
+        "BreadcrumbList"
+      ],
+      "sections": [
+        {
+          "name": "Header",
+          "layout": "Solid Background #1F4D44 with Logo and Navigation"
+        },
+        {
+          "name": "Filterable Grid",
+          "layout": "Sidebar filters (left) + Occupation Cards Grid (right)",
+          "components": [
+            "Skill Level Filters",
+            "Search Bar",
+            "OccupationCard"
+          ]
+        }
+      ]
     },
-    "scale": {
-      "h1": "text-2xl sm:text-3xl font-bold text-[#1E1B4B]",
-      "h2": "text-xl font-bold text-[#1E1B4B]",
-      "card_title": "text-base font-bold text-[#1E1B4B] leading-tight",
-      "body": "text-sm text-[#475569]",
-      "label": "text-xs font-bold uppercase tracking-[0.05em] text-[#94A3B8]"
+    "/atlas/:country": {
+      "name": "Country Browse",
+      "seo_title": "Immigrate to {Country} - PR Eligibility & Occupations | LEAMSS",
+      "json_ld": [
+        "ItemList",
+        "BreadcrumbList"
+      ],
+      "sections": [
+        {
+          "name": "Country Hero",
+          "layout": "Full width image overlay (bg-black/40) over iconic landmark.",
+          "components": [
+            "Country Title",
+            "Key Stats Strip"
+          ]
+        },
+        {
+          "name": "Pathways & Occupations",
+          "layout": "Tabbed view or list of occupations",
+          "components": [
+            "Shadcn Tabs",
+            "List Items with arrows"
+          ]
+        }
+      ]
+    },
+    "/atlas/:country/:code": {
+      "name": "Single Occupation Deep-Dive",
+      "seo_title": "{Occupation} {Code} {Country} PR Eligibility & Salary | LEAMSS",
+      "json_ld": [
+        "Occupation",
+        "BreadcrumbList"
+      ],
+      "sections": [
+        {
+          "name": "Occupation Hero",
+          "layout": "Split Layout. Left: Details, Right: AI Eligibility Widget.",
+          "components": [
+            "Salary Chart",
+            "Visa Pathways List",
+            "EligibilityWidget (Sticky)"
+          ]
+        }
+      ]
     }
-  },
-  "layout": {
-    "structure": "Grid-based Unified Cockpit with Sticky Panels",
-    "sidebar_left": "w-16 md:w-64 border-r border-[#E2E8F0] bg-white flex flex-col justify-between shrink-0 transition-all",
-    "main_content": "flex-1 flex flex-col min-w-0 bg-[#F8FAFC] overflow-hidden",
-    "sidebar_right": "w-80 border-l border-[#E2E8F0] bg-[#F8FAFC] shrink-0 hidden lg:flex flex-col sticky top-0 h-screen overflow-y-auto"
   },
   "components": {
-    "top_bar": {
-      "container": "h-16 border-b border-[#E2E8F0] bg-white flex items-center justify-between px-6 shrink-0",
-      "new_client_btn": "bg-[#2563EB] text-white px-4 py-2 rounded-md font-semibold text-sm hover:bg-[#1E40FF] shadow-sm transition-colors flex items-center gap-2"
+    "Buttons": {
+      "primary": "bg-[#D4633F] text-white hover:bg-[#B85333] transition-all rounded-md px-6 py-3 font-semibold",
+      "secondary": "bg-white text-[#1F4D44] border border-[#1F4D44] hover:bg-[#F7F9F8] transition-all rounded-md px-6 py-3",
+      "ghost": "text-[#1F4D44] hover:bg-[#F7F9F8] transition-all rounded-md px-4 py-2"
     },
-    "funnel_bar": {
-      "container": "flex gap-2 overflow-x-auto pb-2 scrollbar-hide w-full",
-      "item": "px-4 py-2 rounded-lg border border-[#E2E8F0] bg-white text-sm font-semibold text-[#475569] flex items-center gap-3 cursor-pointer hover:border-[#2563EB] hover:text-[#2563EB] transition-colors whitespace-nowrap",
-      "active_item": "bg-[#EFF6FF] border-[#2563EB] text-[#1E40FF] shadow-sm ring-1 ring-[#2563EB]/20",
-      "badge": "px-2 py-0.5 rounded-full bg-[#F1F5F9] text-xs font-bold text-[#64748B]",
-      "active_badge": "bg-[#DBEAFE] text-[#1E40FF]"
+    "Cards": {
+      "base": "bg-white rounded-xl border border-[#E5EBE9] shadow-sm hover:shadow-md transition-all p-6",
+      "interactive": "hover:-translate-y-1 cursor-pointer"
     },
-    "pipeline_card": {
-      "container": "bg-white p-4 rounded-xl border border-[#E2E8F0] shadow-[0_1px_3px_rgba(0,0,0,0.05)] hover:shadow-md hover:border-[#2563EB] transition-all cursor-grab group flex flex-col gap-3",
-      "header": "flex justify-between items-start",
-      "title": "text-base font-bold text-[#1E1B4B] leading-tight",
-      "score_badge": "flex items-center gap-1 text-xs font-bold text-[#D97706] bg-[#FEF3C7] px-2 py-1 rounded-md border border-[#FDE68A]",
-      "lifecycle_tracker": {
-        "container": "flex justify-between items-center w-full gap-1 pt-2",
-        "dot": "h-1.5 flex-1 rounded-full bg-[#F1F5F9]",
-        "dot_completed": "bg-[#2563EB]",
-        "dot_current": "bg-[#F59E0B] animate-pulse"
-      },
-      "footer": "flex justify-between items-center pt-3 border-t border-[#F1F5F9] mt-1",
-      "cta": "text-xs font-bold text-[#2563EB] hover:text-[#1E40FF] flex items-center gap-1",
-      "avatar": "w-6 h-6 rounded-full border border-[#E2E8F0] object-cover shadow-sm"
-    },
-    "ai_sidebar": {
-      "container": "p-5 flex flex-col gap-6",
-      "header": "flex items-center gap-2 text-[#312E81] font-bold text-lg",
-      "command_palette_hint": "flex items-center justify-between p-3 rounded-lg border border-[#E2E8F0] bg-white shadow-sm text-sm font-medium text-[#64748B]",
-      "quick_action_btn": "w-full text-left px-4 py-3 rounded-lg border border-[#E2E8F0] bg-white hover:border-[#2563EB] hover:shadow-sm transition-all text-sm font-semibold text-[#475569] flex items-center gap-3 group"
+    "StickyFooterLead": {
+      "layout": "fixed bottom-0 left-0 w-full bg-[#1F4D44] text-white p-4 z-50 flex justify-between items-center",
+      "elements": [
+        "Quick Form (Name, Phone)",
+        "WhatsApp Button (wa.me/7738352427)"
+      ]
     }
   },
   "media": {
-    "avatars": [
+    "image_urls": [
       {
-        "url": "https://images.unsplash.com/photo-1560250097-0b93528c311a?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA4Mzl8MHwxfHNlYXJjaHwxfHxwcm9mZXNzaW9uYWwlMjBidXNpbmVzcyUyMHBvcnRyYWl0JTIwaGVhZHNob3R8ZW58MHx8fHwxNzc5NDY4MjA5fDA&ixlib=rb-4.1.0&q=85",
-        "category": "agent_avatar",
-        "description": "Male agent professional headshot"
+        "category": "Hero Background AU",
+        "url": "https://images.unsplash.com/photo-1753275032483-d13bd056f4da?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzNzl8MHwxfHNlYXJjaHwyfHxzeWRuZXklMjBvcGVyYSUyMGhvdXNlJTIwc2t5bGluZXxlbnwwfHx8fDE3ODEwMzY4ODN8MA&ixlib=rb-4.1.0&q=85",
+        "description": "Sydney Opera House sunset, use with #1F4D44 color burn or dark overlay"
       },
       {
-        "url": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA4Mzl8MHwxfHNlYXJjaHwyfHxwcm9mZXNzaW9uYWwlMjBidXNpbmVzcyUyMHBvcnRyYWl0JTIwaGVhZHNob3R8ZW58MHx8fHwxNzc5NDY4MjA5fDA&ixlib=rb-4.1.0&q=85",
-        "category": "agent_avatar",
-        "description": "Female agent professional headshot"
+        "category": "Hero Background CA",
+        "url": "https://images.unsplash.com/photo-1517935706615-2717063c2225?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1ODF8MHwxfHNlYXJjaHwxfHx0b3JvbnRvJTIwY24lMjB0b3dlciUyMGNpdHlzY2FwZXxlbnwwfHx8fDE3ODEwMzY4ODN8MA&ixlib=rb-4.1.0&q=85",
+        "description": "Toronto CN Tower golden hour"
+      },
+      {
+        "category": "Hero Background NZ",
+        "url": "https://images.unsplash.com/photo-1677557769726-565a3034fa2c?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1ODh8MHwxfHNlYXJjaHwzfHxhdWNrbGFuZCUyMHNreSUyMHRvd2VyfGVufDB8fHx8MTc4MTAzNjg4M3ww&ixlib=rb-4.1.0&q=85",
+        "description": "Auckland Sky Tower skyline"
       }
+    ],
+    "logos": {
+      "instructions_to_main_agent": "Use typography-based logos if actual SVGs for partner universities (DY Patil, Jain, Manipal, Amity, UKIQ) or badges (NAAC, NIRF, UGS, QS, WES) are unavailable. NEVER use placeholder text like 'via.placeholder.com'. Format them neatly in grayscale to fit the trust strip."
+    }
+  },
+  "testing": {
+    "attributes": [
+      "data-testid='start-ai-quiz-button'",
+      "data-testid='visa-compare-table'",
+      "data-testid='occupation-card'",
+      "data-testid='lead-capture-form'",
+      "data-testid='whatsapp-cta'"
     ]
   },
-  "instructions_to_main_agent": [
-    "Build a unified Dashboard view utilizing the provided colors. Map the primary background to #F8FAFC, and cards to pure #FFFFFF.",
-    "Do not use generic SaaS fonts (Inter/Roboto). Use 'Manrope' for headings and 'Public Sans' for body text (already imported in index.css).",
-    "Implement the Funnel Bar at the top of the main view (Leads, Assessments, PAs, Proposals, Cases, Closed) making sure they are clickable.",
-    "Each Card must display a 7-step tracker (7 small horizontal pill-shaped divs). Fill them according to a mock progress state.",
-    "On Card hover, slightly lift the card and tint the border to Electric Blue (#2563EB).",
-    "The Right panel is fixed and sticky, acting as an AI command center. Add a mock input for Cmd+K command palette.",
-    "Ensure all interactive elements have data-testid attributes.",
-    "Build a mock quick drill-in Drawer (using Shadcn Sheet component) that triggers on card click to show details.",
-    "No purple gradients. Maintain high-contrast, crisp UI suitable for $50k+ transactions."
-  ]
+  "instructions_to_main_agent": "Implement all designs using standard HTML tags heavily styled with Tailwind CSS. Use Shadcn components for complex interactions (Accordions, Tabs, Dialogs) but heavily customize them to remove standard Vercel aesthetic. Enforce the #1F4D44 and #D4633F color scheme globally. Ensure mobile-first responsive design, especially for the comparison table (use accordion or horizontal scroll) and sticky footer. Apply Lenis smooth scroll and Framer Motion for scroll reveals."
 }
