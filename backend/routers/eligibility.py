@@ -323,3 +323,123 @@ async def get_share(score_id: str):
     if hasattr(rec.get("created_at"), "isoformat"):
         rec["created_at"] = rec["created_at"].isoformat()
     return rec
+
+
+REPORTS_DIR = "/app/uploads/reports"
+os.makedirs(REPORTS_DIR, exist_ok=True)
+
+_TIER_PDF = {
+    "strong": ("Strong fit", "#2E7D32"),
+    "moderate": ("Moderate fit", "#1F4D44"),
+    "weak": ("Needs work", "#D4633F"),
+    "unlikely": ("Unlikely", "#8A8A8A"),
+}
+
+
+def _generate_scorecard_pdf(rec: dict, filename: str):
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.lib.units import mm
+    from reportlab.platypus import (SimpleDocTemplate, Table, TableStyle, Paragraph,
+                                    Spacer, HRFlowable)
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+
+    GREEN = colors.HexColor("#1F4D44")
+    ACCENT = colors.HexColor("#D4633F")
+    INK = colors.HexColor("#1A2A30")
+    LIGHT = colors.HexColor("#F4F1EC")
+
+    result = rec.get("result") or {}
+    pathways = result.get("pathways") or {}
+    ordered = sorted(pathways.items(), key=lambda kv: -(kv[1].get("score") or 0))
+    top = result.get("top_recommendation")
+    top_name = pathways.get(top, {}).get("name", top) if top else "—"
+
+    styles = getSampleStyleSheet()
+    h1 = ParagraphStyle("h1", parent=styles["Title"], textColor=GREEN, fontSize=22, spaceAfter=2, alignment=0)
+    sub = ParagraphStyle("sub", parent=styles["Normal"], textColor=ACCENT, fontSize=10, spaceAfter=10, leading=12)
+    body = ParagraphStyle("body", parent=styles["Normal"], textColor=INK, fontSize=10, leading=15)
+    small = ParagraphStyle("small", parent=styles["Normal"], textColor=colors.HexColor("#6B7B82"), fontSize=8, leading=11)
+    disc = ParagraphStyle("disc", parent=styles["Normal"], textColor=colors.HexColor("#8a4b22"), fontSize=8.5, leading=12)
+
+    doc = SimpleDocTemplate(filename, pagesize=A4, topMargin=18 * mm, bottomMargin=16 * mm,
+                            leftMargin=16 * mm, rightMargin=16 * mm)
+    story = []
+    story.append(Paragraph("LEAMSS", h1))
+    story.append(Paragraph("Your Pathway Fit Scorecard", sub))
+    name = rec.get("full_name") or "Website Visitor"
+    created = rec.get("created_at")
+    created = created if isinstance(created, str) else (created.isoformat() if created else "")
+    story.append(Paragraph(f"Prepared for: <b>{name}</b> &nbsp;·&nbsp; {created[:10]}", small))
+    story.append(Spacer(1, 8))
+    story.append(HRFlowable(width="100%", color=LIGHT, thickness=2))
+    story.append(Spacer(1, 8))
+
+    # Disclaimer
+    story.append(Paragraph(
+        "<b>Note:</b> This is a “best-fit” ranking to help you shortlist the right pathway — "
+        "it is <b>not</b> an official visa points / CRS score. Final eligibility depends on document "
+        "verification, skills assessment and current policy. Please consult a LEAMSS expert before any decision.",
+        disc))
+    story.append(Spacer(1, 10))
+
+    story.append(Paragraph(f"Best Fit: <b>{top_name}</b>", body))
+    if result.get("overall_summary"):
+        story.append(Spacer(1, 4))
+        story.append(Paragraph(result["overall_summary"], body))
+    story.append(Spacer(1, 12))
+
+    # Table
+    data = [["#", "Pathway", "Country", "Score", "Fit"]]
+    for i, (slug, p) in enumerate(ordered, 1):
+        tier_label, _ = _TIER_PDF.get(p.get("tier"), ("—", "#000"))
+        data.append([str(i), Paragraph(p.get("name", slug), body), p.get("country", ""),
+                     f"{p.get('score', 0)}/100", tier_label])
+    table = Table(data, colWidths=[10 * mm, 78 * mm, 30 * mm, 22 * mm, 28 * mm])
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), GREEN),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, LIGHT]),
+        ("TEXTCOLOR", (3, 1), (3, -1), ACCENT),
+        ("FONTNAME", (3, 1), (3, -1), "Helvetica-Bold"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ("LINEBELOW", (0, 0), (-1, 0), 0.5, colors.white),
+    ]))
+    story.append(table)
+    story.append(Spacer(1, 16))
+
+    # CTA box
+    cta = Table([[Paragraph(
+        "<b>Get your personalised, expert-verified plan.</b><br/>"
+        "Talk to a MARA-registered LEAMSS consultant — 100% refund if your assessment fails. "
+        "Visit <b>www.leamss.com</b> or message us on WhatsApp.", body)]],
+        colWidths=[168 * mm])
+    cta.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), LIGHT),
+        ("BOX", (0, 0), (-1, -1), 1, ACCENT),
+        ("TOPPADDING", (0, 0), (-1, -1), 10),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
+        ("LEFTPADDING", (0, 0), (-1, -1), 12),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 12),
+    ]))
+    story.append(cta)
+    story.append(Spacer(1, 10))
+    story.append(Paragraph("© LEAMSS — We Value Consultants. Indicative assessment only, generated automatically.", small))
+    doc.build(story)
+
+
+@router.get("/report/{score_id}")
+async def download_scorecard_pdf(score_id: str):
+    """Public — branded PDF of a scorecard (for the 'Download report' button)."""
+    from fastapi.responses import FileResponse
+    rec = await scores_col.find_one({"id": score_id}, {"_id": 0})
+    if not rec:
+        raise HTTPException(status_code=404, detail="Score not found")
+    filename = os.path.join(REPORTS_DIR, f"scorecard_{score_id[:8]}_{uuid.uuid4().hex[:6]}.pdf")
+    _generate_scorecard_pdf(rec, filename)
+    return FileResponse(filename, media_type="application/pdf",
+                        filename=f"LEAMSS_Pathway_Scorecard_{score_id[:8]}.pdf")

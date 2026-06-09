@@ -21,7 +21,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowRight, Sparkles, CheckCircle2, Globe2, ChevronDown, ChevronRight,
   Search, Star, Award, Briefcase, Loader2, Send, Mail, Phone, User as UserIcon,
-  MessageCircle, Calculator, Plane, Shield, Clock, ArrowUpRight, MapPin, Info,
+  MessageCircle, Calculator, Plane, Shield, Clock, ArrowUpRight, MapPin, Info, Download,
 } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { formatApiError } from '@/lib/apiErrors';
@@ -746,6 +746,27 @@ function QuizLeadForm({ scoreId, country }) {
   );
 }
 
+function ScorecardActions({ scoreId, topName, topScore }) {
+  const pdfUrl = `${API}/eligibility/report/${scoreId}`;
+  const shareUrl = `${window.location.origin}/scorecard/${scoreId}`;
+  const waText = encodeURIComponent(
+    `I just found my best-fit visa pathway on LEAMSS! 🌍\n\n` +
+    `✅ Best fit: ${topName || 'My pathway'} — ${topScore ?? ''}/100\n\n` +
+    `Check your free pathway-fit score in 60 seconds 👇\n${shareUrl}`
+  );
+  const waUrl = `https://wa.me/?text=${waText}`;
+  return (
+    <div className="flex flex-wrap gap-3 mb-6" data-testid="scorecard-actions">
+      <Button as="a" href={pdfUrl} target="_blank" rel="noopener noreferrer" data-testid="download-pdf-btn">
+        <Download className="w-4 h-4" /> Download PDF report
+      </Button>
+      <Button as="a" variant="secondary" href={waUrl} target="_blank" rel="noopener noreferrer" data-testid="share-whatsapp-btn">
+        <MessageCircle className="w-4 h-4" /> Share on WhatsApp
+      </Button>
+    </div>
+  );
+}
+
 function QuizResult({ result, onReset }) {
   if (result.error) {
     return (
@@ -791,6 +812,15 @@ function QuizResult({ result, onReset }) {
         <Shield className="w-3.5 h-3.5" style={{ color: BRAND.primary }} />
         How we rank: your <b style={{ color: BRAND.ink }}>&nbsp;age, education, experience, English, occupation</b>&nbsp;& job offer — tap "How is this calculated?" on any card.
       </div>
+
+      {result.score_id && (
+        <ScorecardActions
+          scoreId={result.score_id}
+          topName={pathways[0]?.name}
+          topScore={pathways[0]?.score}
+        />
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {pathways.map((p) => (
           <PathwayResultCard key={p.slug} p={p} isBest={p.slug === top} />
@@ -806,6 +836,44 @@ function QuizResult({ result, onReset }) {
       <p className="text-[11px] mt-4 text-center" style={{ color: BRAND.muted }}>
         Indicative assessment only. Final eligibility depends on document verification, skills assessment & current policy.
       </p>
+    </div>
+  );
+}
+
+// ─── Public shared scorecard page (/scorecard/:id) ──────────────────────────
+export function SharedScorecard() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [result, setResult] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    axios.get(`${API}/eligibility/share/${id}`)
+      .then((r) => {
+        const rec = r.data || {};
+        setResult({ score_id: rec.id, ...(rec.result || {}) });
+      })
+      .catch(() => setResult({ error: 'This scorecard link is invalid or has expired.' }))
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  return (
+    <div style={{ background: BRAND.bgSoft, minHeight: '100vh' }} data-testid="shared-scorecard">
+      <header className="border-b" style={{ borderColor: BRAND.border, background: BRAND.bg }}>
+        <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
+          <Link to="/start" className="font-serif-leamss text-2xl font-bold" style={{ color: BRAND.primary }}>LEAMSS</Link>
+          <Button as="a" href="/start#quiz" size="sm" data-testid="shared-cta-own-score">Check my own score</Button>
+        </div>
+      </header>
+      <div className="max-w-5xl mx-auto px-4 py-8">
+        {loading ? (
+          <div className="flex items-center justify-center py-24"><Loader2 className="w-7 h-7 animate-spin" style={{ color: BRAND.primary }} /></div>
+        ) : (
+          <div className="rounded-2xl overflow-hidden" style={{ background: BRAND.bg, border: `1px solid ${BRAND.border}` }}>
+            <QuizResult result={result} onReset={() => navigate('/start#quiz')} />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

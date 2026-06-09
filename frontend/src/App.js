@@ -78,7 +78,7 @@ import LeadCapture from '@/pages/LeadCapture';
 import SharedEstimate from '@/pages/SharedEstimate';
 import PreAssessmentPayment from '@/pages/PreAssessmentPayment';
 import MagicLinkLogin from '@/pages/MagicLinkLogin';
-import { MegaLanding, AtlasHubV2, AtlasCountryV2, AtlasOccupationV2 } from '@/pages/LeamssPublic';
+import { MegaLanding, AtlasHubV2, AtlasCountryV2, AtlasOccupationV2, SharedScorecard } from '@/pages/LeamssPublic';
 import PublicPagesManager from '@/pages/admin/PublicPagesManager';
 import EligibilityScoringRules from '@/pages/admin/EligibilityScoringRules';
 import VisaPathwaysEditor from '@/pages/admin/VisaPathwaysEditor';
@@ -369,6 +369,7 @@ function App() {
           <Route path="/eligibility" element={<Navigate to="/start#quiz" replace />} />
           <Route path="/info-sheet/:token" element={<PublicInfoSheet />} />
           <Route path="/visa-compare" element={<Navigate to="/start#compare" replace />} />
+          <Route path="/scorecard/:id" element={<SharedScorecard />} />
           <Route path="/partner" element={<PartnerDashboard />} />
           <Route path="/case-manager" element={<CaseManagerDashboard />} />
           <Route path="/client" element={<ClientDashboard />} />

@@ -190,3 +190,38 @@ def test_visa_compare_compare_two():
     r = httpx.get(f"{API}/visa-compare/compare?slugs=canada_express_entry,australia_189", timeout=30)
     assert r.status_code == 200
     assert len(r.json()["pathways"]) == 2
+
+
+def _make_score():
+    payload = {"full_name": "PDF Tester", "age": 29, "education": "Master",
+               "work_experience_years": 6, "occupation": "Software Engineer",
+               "english_score": "IELTS 7.0-7.5", "preferred_countries": ["Canada"]}
+    r = httpx.post(f"{API}/eligibility/score", json=payload, timeout=90)
+    r.raise_for_status()
+    return r.json()["score_id"]
+
+
+def test_share_endpoint_returns_scorecard():
+    sid = _make_score()
+    r = httpx.get(f"{API}/eligibility/share/{sid}", timeout=30)
+    assert r.status_code == 200
+    d = r.json()
+    assert d["id"] == sid
+    assert d["result"]["pathways"]
+    # profile must NOT leak on the shareable endpoint
+    assert "profile" not in d
+
+
+def test_pdf_report_endpoint_returns_valid_pdf():
+    sid = _make_score()
+    r = httpx.get(f"{API}/eligibility/report/{sid}", timeout=60)
+    assert r.status_code == 200
+    assert "application/pdf" in r.headers.get("content-type", "")
+    assert r.content[:5] == b"%PDF-"
+    assert len(r.content) > 1000
+
+
+def test_pdf_report_404_for_bad_id():
+    r = httpx.get(f"{API}/eligibility/report/nonexistent-id", timeout=30)
+    assert r.status_code == 404
+

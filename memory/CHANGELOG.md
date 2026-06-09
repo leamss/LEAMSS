@@ -3,6 +3,17 @@
 This file appends every completed phase/feature with dates and verification status.
 
 ---
+### 📥 Phase 16.2 — Scorecard Download PDF + WhatsApp Share + Public Shared Scorecard (Jun 9, 2026)
+**Tests:** `tests/test_eligibility_scoring.py` → **16/16 PASS** (added share endpoint no-profile-leak, PDF validity, PDF 404). Frontend verified via Playwright.
+
+**Goal:** Let visitors save/share their branded scorecard → organic leads + trust.
+- **Download PDF report** — new public `GET /api/eligibility/report/{score_id}` generates a branded LEAMSS PDF (reportlab): header, "best-fit not official score" disclaimer, best-fit + summary, ranked pathway table (score/tier/timeline), expert-CTA box. Button on scorecard (`download-pdf-btn`).
+- **Share on WhatsApp** — `share-whatsapp-btn` opens `wa.me/?text=...` with a branded message + a public scorecard link (`/scorecard/:id`).
+- **Public Shared Scorecard page** — new route `/scorecard/:id` (`SharedScorecard` in LeamssPublic.jsx) fetches `/api/eligibility/share/:id` and renders the full branded `QuizResult` (disclaimer, breakdown, adjustments, its own Download/Share + lead-capture). Recipients can capture as leads too. LEAMSS header + "Check my own score" CTA.
+- Honesty disclaimer (Phase 16.1.x): scorecard now clearly states it is a "best-fit ranking, NOT an official visa score — consult an expert" (top banner + reworded section header + "Best Fit" wording).
+
+---
+
 ### 🎯 Phase 16.1 — Pathway-Differentiated Scoring + Admin Visa Pathways Editor (Jun 9, 2026)
 **Tests:** `tests/test_eligibility_scoring.py` → **13/13 PASS** (added differentiation, job-offer gate, competitiveness, "not all identical" regression). Frontend verified via Playwright screenshots.
 
