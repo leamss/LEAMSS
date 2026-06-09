@@ -106,7 +106,12 @@ export default function AnzIntelAudit() {
   }
 
   const totals = summary?.totals || {};
-  const fieldCoverage = summary?.field_coverage_au || [];
+  const fieldCoverageByCountry = {
+    AU: summary?.field_coverage_au || [],
+    CA: summary?.field_coverage_ca || [],
+    NZ: summary?.field_coverage_nz || [],
+  };
+  const fieldCoverage = fieldCoverageByCountry[selectedCountry] || [];
   const trackedFields = rows[0]?.coverage ? Object.keys(rows[0].coverage) : [];
 
   // Country-specific totals (Phase 10)
@@ -233,7 +238,7 @@ export default function AnzIntelAudit() {
       <nav className="flex gap-1 mb-6 border-b flex-wrap" style={{ borderColor: C.border }} data-testid="anz-audit-tabs">
         {[
           { key: 'coverage',  label: 'Field Coverage',  icon: Award, all: true },
-          { key: 'rows',      label: 'Per-Occupation Heatmap', icon: Layers, all: false },
+          { key: 'rows',      label: 'Per-Occupation Heatmap', icon: Layers, all: true },
           { key: 'orphans',   label: 'Orphan 4-digit Groups',  icon: AlertTriangle, all: false },
           { key: 'merge',     label: 'Step 3 — Data Merge', icon: GitMerge, all: false },
           { key: 'scrapers',  label: 'Step 4 — Scrapers',  icon: Sparkles, all: true },
@@ -256,18 +261,20 @@ export default function AnzIntelAudit() {
 
       {/* ─── TAB CONTENT ─── */}
       {activeTab === 'coverage' && (
-        selectedCountry === 'AU' ? (
-          <CoverageTab fields={fieldCoverage} totalCodes={totals.occupation_master_au_total} />
-        ) : (
-          <CoverageCAorNZ country={selectedCountry} totals={ct} />
-        )
+        <CoverageTab
+          fields={fieldCoverage}
+          totalCodes={ct.total ?? 0}
+          country={selectedCountry}
+          classification={ct.classification}
+        />
       )}
-      {activeTab === 'rows'     && selectedCountry === 'AU' && (
+      {activeTab === 'rows' && (
         <HeatmapTab
           rows={rows} trackedFields={trackedFields}
           statusFilter={statusFilter} setStatusFilter={setStatusFilter}
           searchTxt={searchTxt} setSearchTxt={setSearchTxt}
-          coverageLabels={summary?.field_coverage_au || []}
+          coverageLabels={fieldCoverage}
+          country={selectedCountry}
         />
       )}
       {activeTab === 'orphans'  && selectedCountry === 'AU' && <OrphansTab orphans={orphans} />}
@@ -276,42 +283,6 @@ export default function AnzIntelAudit() {
       )}
       {activeTab === 'scrapers' && <ScrapersTab headers={headers} onAfterCommit={fetchAll} country={selectedCountry} />}
       {activeTab === 'tools'    && <ManualToolsTab headers={headers} onAfterCommit={fetchAll} />}
-    </div>
-  );
-}
-
-// ────────────────────────────────────────────────────────────────────
-// Phase 10 — Country-specific coverage view for CA / NZ (placeholder until
-// per-country field coverage endpoints are built).
-function CoverageCAorNZ({ country, totals }) {
-  const flag = country === 'CA' ? '🇨🇦' : '🇳🇿';
-  const name = country === 'CA' ? 'Canada' : 'New Zealand';
-  return (
-    <div className="space-y-4" data-testid={`coverage-${country}`}>
-      <div className="rounded-xl p-6 border" style={{ background: C.tealWash, borderColor: C.tealWash2 }}>
-        <p className="text-2xl mb-2">{flag} <strong>{name} Atlas Summary</strong></p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
-          <div className="p-3 rounded bg-white border">
-            <p className="text-[10px] uppercase font-bold" style={{ color: C.muted, letterSpacing: '0.06em' }}>Total Codes</p>
-            <p className="text-3xl font-bold mt-1" style={{ color: C.tealDeep, fontFamily: "'Playfair Display', serif" }}>{totals.total ?? 0}</p>
-            <p className="text-[10px] mt-1" style={{ color: C.muted }}>{totals.classification}</p>
-          </div>
-          <div className="p-3 rounded bg-white border">
-            <p className="text-[10px] uppercase font-bold" style={{ color: C.muted, letterSpacing: '0.06em' }}>Verified</p>
-            <p className="text-3xl font-bold mt-1" style={{ color: C.gold, fontFamily: "'Playfair Display', serif" }}>{totals.verified ?? 0}</p>
-            <p className="text-[10px] mt-1" style={{ color: C.muted }}>by admin</p>
-          </div>
-          <div className="p-3 rounded bg-white border">
-            <p className="text-[10px] uppercase font-bold" style={{ color: C.muted, letterSpacing: '0.06em' }}>Drafts</p>
-            <p className="text-3xl font-bold mt-1" style={{ color: C.orange, fontFamily: "'Playfair Display', serif" }}>{totals.draft ?? 0}</p>
-            <p className="text-[10px] mt-1" style={{ color: C.muted }}>need verification</p>
-          </div>
-        </div>
-        <p className="text-xs mt-4 italic" style={{ color: C.body }}>
-          Detailed field-coverage heatmap for {name} will be added in the next phase. For now, head to{' '}
-          <strong>Step 4 — Scrapers</strong> tab above to run {name}-specific scrapers and enrich the data.
-        </p>
-      </div>
     </div>
   );
 }
@@ -336,15 +307,23 @@ function HeroStat({ icon: Icon, label, value, sub, tone }) {
   );
 }
 
-function CoverageTab({ fields, totalCodes }) {
+function CoverageTab({ fields, totalCodes, country = 'AU', classification = 'ANZSCO' }) {
+  if (!fields || fields.length === 0) {
+    return (
+      <div className="rounded-xl border p-8 text-center" style={{ background: '#FFFFFF', borderColor: C.border }} data-testid={`anz-audit-coverage-tab-${country}`}>
+        <p className="text-sm font-bold" style={{ color: C.muted }}>No {country} occupations in the DB yet.</p>
+        <p className="text-xs mt-1" style={{ color: C.muted }}>Run a {country} scraper from <strong>Step 4 — Scrapers</strong> to populate.</p>
+      </div>
+    );
+  }
   return (
-    <div className="rounded-xl border bg-white p-1" style={{ borderColor: C.border }} data-testid="anz-audit-coverage-tab">
+    <div className="rounded-xl border bg-white p-1" style={{ borderColor: C.border }} data-testid={`anz-audit-coverage-tab-${country}`}>
       <table className="w-full">
         <thead>
           <tr style={{ background: C.tealWash, borderBottom: `2px solid ${C.tealWash2}` }}>
             <th className="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-wider" style={{ color: C.tealDeep, letterSpacing: '0.08em' }}>Field</th>
             <th className="text-right px-4 py-3 text-[10px] font-bold uppercase tracking-wider" style={{ color: C.tealDeep }}>Coverage</th>
-            <th className="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-wider w-1/2" style={{ color: C.tealDeep }}>Progress · {totalCodes} AU codes total</th>
+            <th className="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-wider w-1/2" style={{ color: C.tealDeep }}>Progress · {totalCodes} {country} codes total ({classification})</th>
             <th className="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-wider" style={{ color: C.tealDeep }}>Source (when we scrape)</th>
           </tr>
         </thead>
@@ -352,7 +331,7 @@ function CoverageTab({ fields, totalCodes }) {
           {fields.map((f, idx) => {
             const col = coverageColor(f.pct_present);
             return (
-              <tr key={f.field} style={{ borderBottom: `1px solid ${C.borderSoft}`, background: idx % 2 ? C.bg : C.card }}>
+              <tr key={f.field} style={{ borderBottom: `1px solid ${C.borderSoft}`, background: idx % 2 ? C.bg : C.card }} data-testid={`coverage-row-${country}-${f.field}`}>
                 <td className="px-4 py-3 text-sm font-semibold" style={{ color: C.ink }}>{f.label}</td>
                 <td className="px-4 py-3 text-right text-sm font-bold" style={{ color: col.fg, fontFamily: 'monospace' }}>
                   {f.count_present} / {f.count_present + f.count_missing}
@@ -373,10 +352,10 @@ function CoverageTab({ fields, totalCodes }) {
   );
 }
 
-function HeatmapTab({ rows, trackedFields, statusFilter, setStatusFilter, searchTxt, setSearchTxt, coverageLabels }) {
+function HeatmapTab({ rows, trackedFields, statusFilter, setStatusFilter, searchTxt, setSearchTxt, coverageLabels, country = 'AU' }) {
   const fieldLabel = (f) => (coverageLabels.find(x => x.field === f)?.label) || f;
   return (
-    <div data-testid="anz-audit-heatmap-tab">
+    <div data-testid={`anz-audit-heatmap-tab-${country}`}>
       {/* Filter row */}
       <div className="flex items-center gap-3 mb-4 flex-wrap">
         <div className="relative">

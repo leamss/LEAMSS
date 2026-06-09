@@ -141,6 +141,24 @@ async def audit_summary(current_user: dict = Depends(get_current_user)):
             if _has_value(d, f):
                 field_counts[f] += 1
 
+    # ─── Phase 11 — Per-country field coverage (CA + NZ) ──────────────────
+    total_6d_ca = await db["occupation_master"].count_documents({"country_code": "CA"})
+    total_6d_nz = await db["occupation_master"].count_documents({"country_code": "NZ"})
+
+    field_counts_ca: Dict[str, int] = {f: 0 for f in TRACKED_FIELDS_CA}
+    proj_ca = {"_id": 0, **{f: 1 for f in TRACKED_FIELDS_CA}}
+    async for d in db["occupation_master"].find({"country_code": "CA"}, proj_ca):
+        for f in TRACKED_FIELDS_CA:
+            if _has_value(d, f):
+                field_counts_ca[f] += 1
+
+    field_counts_nz: Dict[str, int] = {f: 0 for f in TRACKED_FIELDS_NZ}
+    proj_nz = {"_id": 0, **{f: 1 for f in TRACKED_FIELDS_NZ}}
+    async for d in db["occupation_master"].find({"country_code": "NZ"}, proj_nz):
+        for f in TRACKED_FIELDS_NZ:
+            if _has_value(d, f):
+                field_counts_nz[f] += 1
+
     return {
         "totals": {
             "anzsco_4digit_groups": total_4d,
@@ -149,10 +167,10 @@ async def audit_summary(current_user: dict = Depends(get_current_user)):
             "occupation_master_au_draft": draft_6d_au,
             "4digit_groups_with_child": len(parents_with_child),
             "4digit_groups_without_child": total_4d - len(parents_with_child),
-            "occupation_master_ca_total": await db["occupation_master"].count_documents({"country_code": "CA"}),
+            "occupation_master_ca_total": total_6d_ca,
             "occupation_master_ca_verified": await db["occupation_master"].count_documents({"country_code": "CA", "status": "verified"}),
             "occupation_master_ca_draft": await db["occupation_master"].count_documents({"country_code": "CA", "status": "draft"}),
-            "occupation_master_nz_total": await db["occupation_master"].count_documents({"country_code": "NZ"}),
+            "occupation_master_nz_total": total_6d_nz,
             "occupation_master_nz_verified": await db["occupation_master"].count_documents({"country_code": "NZ", "status": "verified"}),
             "occupation_master_nz_draft": await db["occupation_master"].count_documents({"country_code": "NZ", "status": "draft"}),
         },
@@ -166,6 +184,28 @@ async def audit_summary(current_user: dict = Depends(get_current_user)):
                 "source_hint": _source_hint(f),
             }
             for f in TRACKED_FIELDS
+        ],
+        "field_coverage_ca": [
+            {
+                "field": f,
+                "label": _humanize(f),
+                "count_present": field_counts_ca[f],
+                "count_missing": total_6d_ca - field_counts_ca[f],
+                "pct_present": round((field_counts_ca[f] / total_6d_ca * 100), 1) if total_6d_ca else 0,
+                "source_hint": _source_hint(f),
+            }
+            for f in TRACKED_FIELDS_CA
+        ],
+        "field_coverage_nz": [
+            {
+                "field": f,
+                "label": _humanize(f),
+                "count_present": field_counts_nz[f],
+                "count_missing": total_6d_nz - field_counts_nz[f],
+                "pct_present": round((field_counts_nz[f] / total_6d_nz * 100), 1) if total_6d_nz else 0,
+                "source_hint": _source_hint(f, country="NZ"),
+            }
+            for f in TRACKED_FIELDS_NZ
         ],
     }
 
@@ -192,16 +232,17 @@ async def audit_rows(
             {"title": {"$regex": search, "$options": "i"}},
         ]
 
+    tracked = _tracked_fields_for(country)
     total = await db["occupation_master"].count_documents(match)
     proj = {
         "_id": 0, "occupation_id": 1, "code": 1, "title": 1, "status": 1,
         "country_code": 1, "classification_version": 1, "updated_at": 1,
-        **{f: 1 for f in TRACKED_FIELDS},
+        **{f: 1 for f in tracked},
     }
     rows: List[Dict[str, Any]] = []
     cursor = db["occupation_master"].find(match, proj).sort("code", 1).skip(offset).limit(limit)
     async for d in cursor:
-        coverage = {f: _has_value(d, f) for f in TRACKED_FIELDS}
+        coverage = {f: _has_value(d, f) for f in tracked}
         rows.append({
             "code": d.get("code"),
             "title": d.get("title"),
@@ -210,7 +251,7 @@ async def audit_rows(
             "coverage": coverage,
             "coverage_pct": round(
                 (sum(1 for v in coverage.values() if v) / len(coverage) * 100), 0
-            ),
+            ) if coverage else 0,
             "updated_at": d.get("updated_at"),
         })
 
@@ -219,7 +260,7 @@ async def audit_rows(
         "total": total,
         "offset": offset,
         "limit": limit,
-        "tracked_fields": [{"key": f, "label": _humanize(f)} for f in TRACKED_FIELDS],
+        "tracked_fields": [{"key": f, "label": _humanize(f)} for f in tracked],
     }
 
 
@@ -595,6 +636,7 @@ def _search_card(d: Dict[str, Any]) -> Dict[str, Any]:
 def _humanize(field: str) -> str:
     """Friendly column header for the audit grid."""
     mapping = {
+        # AU
         "anzsco_profile":            "Salary & Workforce",
         "tasks":                     "Job Tasks",
         "industries_ranked":         "Top Industries",
@@ -608,13 +650,43 @@ def _humanize(field: str) -> str:
         "dama_eligibility":          "DAMA",
         "ila_eligibility":           "Industry Labour Agreement",
         "classification_dual_code":  "ANZSCO v1.3 ↔ v2022",
+        # CA (Phase 10 / 11)
+        "teer_category":             "TEER (0-5)",
+        "hierarchy":                 "NOC Hierarchy",
+        "alternative_titles":        "Alt. Titles",
+        "typical_tasks":             "Typical Tasks",
+        "employment_requirements":   "Employment Requirements",
+        "description":               "Description",
+        "ee_eligibility":            "Express Entry (FSWP/CEC/FSTP+Cats)",
+        "pnp_eligibility":           "PNPs (11 provinces)",
+        "ircc_round_cutoffs":        "IRCC Round Cutoffs",
+        "regional_pilot_eligibility":"Regional Pilots (AIP/RCIP/FCIP)",
+        "quebec_eligibility":        "Quebec PSTQ/PEQ",
+        # NZ (Phase 11)
+        "title":                     "Title",
     }
     return mapping.get(field, field.replace("_", " ").title())
 
 
-def _source_hint(field: str) -> str:
-    """Where will we get this data from when we scrape?"""
+def _source_hint(field: str, country: str = "AU") -> str:
+    """Where will we get this data from when we scrape?
+
+    Some fields are shared across countries (e.g. `tasks`, `anzsco_profile`,
+    `alternative_titles`) but should resolve to a country-specific source.
+    """
+    # NZ-specific overrides for shared-name fields
+    nz_overrides = {
+        "tasks":                "careers.govt.nz + Stats NZ ANZSCO catalogue",
+        "anzsco_profile":       "Stats NZ + immigration.govt.nz",
+        "alternative_titles":   "careers.govt.nz",
+        "visa_pathways":        "immigration.govt.nz — SMC / AEWV / Green List Tier 1+2",
+        "assessing_authority":  "NZQA / Engineering NZ / Teaching Council NZ / etc.",
+    }
+    if (country or "").upper() == "NZ" and field in nz_overrides:
+        return nz_overrides[field]
+
     hints = {
+        # AU
         "anzsco_profile":             "jobsandskills.gov.au (4-digit aggregate)",
         "tasks":                      "jobsandskills.gov.au + ABS ANZSCO catalogue",
         "industries_ranked":          "jobsandskills.gov.au",
@@ -628,6 +700,20 @@ def _source_hint(field: str) -> str:
         "dama_eligibility":           "Home Affairs DAMA agreement pages",
         "ila_eligibility":            "Home Affairs Industry Labour Agreement page",
         "classification_dual_code":   "legislation.gov.au — ANZSCO v1.3 & v2022",
+        # CA
+        "teer_category":              "statcan.gc.ca — NOC 2021 TEER classification",
+        "hierarchy":                  "statcan.gc.ca — NOC 2021 broad/major/sub-major/minor groups",
+        "alternative_titles":         "statcan.gc.ca — NOC 2021 alternate titles",
+        "typical_tasks":              "statcan.gc.ca — NOC 2021 main duties",
+        "employment_requirements":    "statcan.gc.ca — NOC 2021 employment requirements",
+        "description":                "statcan.gc.ca — NOC 2021 unit group definitions",
+        "ee_eligibility":             "ircc.canada.ca — Express Entry streams + 2026 category-based selection",
+        "pnp_eligibility":            "Provincial nominee program pages (11 provinces/territories)",
+        "ircc_round_cutoffs":         "ircc.canada.ca — Express Entry rounds of invitations (monthly)",
+        "regional_pilot_eligibility": "ircc.canada.ca — AIP + RCIP + FCIP pilot pages",
+        "quebec_eligibility":         "quebec.ca — PSTQ + PEQ-legacy lists",
+        # NZ
+        "title":                      "immigration.govt.nz + Stats NZ ANZSCO catalogue",
     }
     return hints.get(field, "manual entry")
 
@@ -1987,3 +2073,157 @@ async def reset_calculator_rules(
     if country.upper() not in supported_countries():
         raise HTTPException(400, f"Unsupported country. Choose from {supported_countries()}")
     return await reset_rules(db, country, actor=current_user.get("id") or "admin")
+
+
+# ─── Phase 11 — IRCC Express Entry Category NOC Overrides ───────────────────
+# Admin UI to override the hardcoded category NOC lists from
+# core/scrapers/ircc_ee_streams.py without touching code.
+# Persists to `ircc_category_overrides` collection.
+
+OVERRIDE_COLLECTION = "ircc_category_overrides"
+OVERRIDABLE_CATEGORIES = {
+    "healthcare", "stem", "trade", "education", "transport",
+    "physicians_ca_exp", "senior_managers_ca_exp", "researchers_ca_exp",
+    "military_recruits",
+}
+
+
+def _is_valid_noc(code: str) -> bool:
+    return isinstance(code, str) and len(code) == 5 and code.isdigit()
+
+
+@router.get("/calc-rules/ircc-categories")
+async def get_ircc_category_rules(current_user: dict = Depends(get_current_user)):
+    """Return the EFFECTIVE NOC list per IRCC EE category (defaults + overrides merged)."""
+    if not _is_admin(current_user):
+        raise HTTPException(403, "Admin only")
+    from core.scrapers.ircc_ee_streams import (
+        CATEGORY_REGISTRY,
+        HEALTHCARE_NOCS, STEM_NOCS, TRADE_NOCS, EDUCATION_NOCS, TRANSPORT_NOCS,
+        PHYSICIANS_CA_NOCS, SENIOR_MANAGERS_CA_NOCS, RESEARCHERS_CA_NOCS, MILITARY_NOCS,
+    )
+    defaults_map = {
+        "healthcare":            sorted(HEALTHCARE_NOCS),
+        "stem":                  sorted(STEM_NOCS),
+        "trade":                 sorted(TRADE_NOCS),
+        "education":             sorted(EDUCATION_NOCS),
+        "transport":             sorted(TRANSPORT_NOCS),
+        "physicians_ca_exp":     sorted(PHYSICIANS_CA_NOCS),
+        "senior_managers_ca_exp":sorted(SENIOR_MANAGERS_CA_NOCS),
+        "researchers_ca_exp":    sorted(RESEARCHERS_CA_NOCS),
+        "military_recruits":     sorted(MILITARY_NOCS),
+    }
+
+    overrides_cursor = db[OVERRIDE_COLLECTION].find({}, {"_id": 0})
+    overrides_map: Dict[str, Dict[str, Any]] = {}
+    async for o in overrides_cursor:
+        overrides_map[o["category_id"]] = o
+
+    categories = []
+    for cat_id, default_list in defaults_map.items():
+        ov = overrides_map.get(cat_id) or {}
+        added = sorted(set(ov.get("added_nocs") or []))
+        removed = sorted(set(ov.get("removed_nocs") or []))
+        effective = sorted((set(default_list) | set(added)) - set(removed))
+        meta = CATEGORY_REGISTRY.get(cat_id, {})
+        categories.append({
+            "id": cat_id,
+            "label": meta.get("label", cat_id),
+            "icon": meta.get("icon"),
+            "requires_canadian_exp": meta.get("requires_canadian_exp", False),
+            "default_nocs": default_list,
+            "default_count": len(default_list),
+            "added_nocs": added,
+            "removed_nocs": removed,
+            "effective_nocs": effective,
+            "effective_count": len(effective),
+            "has_override": bool(added or removed),
+            "updated_at": ov.get("updated_at"),
+            "updated_by": ov.get("updated_by"),
+        })
+    return {
+        "categories": categories,
+        "total_categories": len(categories),
+        "source": "ircc_ee_streams_2026 + db_overrides",
+        "source_url": "https://www.canada.ca/en/immigration-refugees-citizenship/services/immigrate-canada/express-entry/rounds-invitations/category-based-selection.html",
+    }
+
+
+@router.put("/calc-rules/ircc-categories/{category_id}")
+async def put_ircc_category_override(
+    category_id: str,
+    payload: Dict[str, Any] = Body(...),
+    current_user: dict = Depends(get_current_user),
+):
+    """Save admin override for one category.
+    Body: { added_nocs: [..], removed_nocs: [..] }
+    Sends are full replacements of the override arrays.
+    """
+    if not _is_admin(current_user):
+        raise HTTPException(403, "Admin only")
+    if category_id not in OVERRIDABLE_CATEGORIES:
+        raise HTTPException(400, f"Unknown or non-overridable category: {category_id}")
+    added = payload.get("added_nocs") or []
+    removed = payload.get("removed_nocs") or []
+    if not isinstance(added, list) or not isinstance(removed, list):
+        raise HTTPException(400, "added_nocs and removed_nocs must be arrays")
+    bad = [c for c in (added + removed) if not _is_valid_noc(c)]
+    if bad:
+        raise HTTPException(400, f"Invalid NOC codes (must be 5-digit numeric strings): {bad[:5]}")
+    # Cannot have a code in both lists
+    overlap = set(added) & set(removed)
+    if overlap:
+        raise HTTPException(400, f"NOC codes cannot be both added and removed: {sorted(overlap)}")
+
+    now = datetime.now(timezone.utc).isoformat()
+    actor = current_user.get("email") or current_user.get("id") or "admin"
+    await db[OVERRIDE_COLLECTION].update_one(
+        {"category_id": category_id},
+        {"$set": {
+            "category_id": category_id,
+            "added_nocs": sorted(set(added)),
+            "removed_nocs": sorted(set(removed)),
+            "updated_at": now,
+            "updated_by": actor,
+        }},
+        upsert=True,
+    )
+    return {
+        "ok": True,
+        "category_id": category_id,
+        "added_count": len(set(added)),
+        "removed_count": len(set(removed)),
+        "updated_at": now,
+        "updated_by": actor,
+    }
+
+
+@router.delete("/calc-rules/ircc-categories/{category_id}")
+async def reset_ircc_category_override(
+    category_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """Remove override for one category → revert to hardcoded defaults."""
+    if not _is_admin(current_user):
+        raise HTTPException(403, "Admin only")
+    if category_id not in OVERRIDABLE_CATEGORIES:
+        raise HTTPException(400, f"Unknown category: {category_id}")
+    res = await db[OVERRIDE_COLLECTION].delete_one({"category_id": category_id})
+    return {"ok": True, "category_id": category_id, "deleted": res.deleted_count}
+
+
+@router.post("/calc-rules/ircc-categories/reapply")
+async def reapply_ircc_category_overrides(
+    dry_run: bool = Query(False, description="If true, returns preview without writing"),
+    current_user: dict = Depends(get_current_user),
+):
+    """Re-run the IRCC EE classifier against all CA occupations using current overrides.
+    This refreshes `ee_eligibility.categories` on every CA NOC.
+    """
+    if not _is_admin(current_user):
+        raise HTTPException(403, "Admin only")
+    from core.scrapers import ircc_ee_streams
+    return await ircc_ee_streams.apply_to_db(
+        db, dry_run=dry_run, actor=current_user.get("email") or current_user.get("id") or "admin",
+    )
+

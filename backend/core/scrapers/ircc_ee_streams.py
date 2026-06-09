@@ -218,7 +218,7 @@ _CATEGORY_NOC_MAP: Dict[str, Set[str]] = {
 }
 
 
-def classify(code: str, teer: int) -> Dict[str, Any]:
+def classify(code: str, teer: int, noc_sets_override: Dict[str, Set[str]] = None) -> Dict[str, Any]:
     """Returns full EE eligibility payload for a single NOC code + TEER.
 
     Output schema:
@@ -230,6 +230,9 @@ def classify(code: str, teer: int) -> Dict[str, Any]:
         "category_details": [{...metadata...} for each category],
         "french_language_eligible": bool,
       }
+
+    If `noc_sets_override` is supplied (Phase 11 admin overrides), it is used in
+    place of the hardcoded `_CATEGORY_NOC_MAP`.
     """
     major_group = code[:2]
 
@@ -241,9 +244,11 @@ def classify(code: str, teer: int) -> Dict[str, Any]:
         and teer in FSTP_ELIGIBLE_TEER
     )
 
+    noc_map = noc_sets_override if noc_sets_override is not None else _CATEGORY_NOC_MAP
+
     # B) Category-Based Selection — match against NOC lists
     matched_categories: List[str] = []
-    for cat_id, noc_set in _CATEGORY_NOC_MAP.items():
+    for cat_id, noc_set in noc_map.items():
         if code in noc_set:
             matched_categories.append(cat_id)
 
@@ -267,13 +272,40 @@ def classify(code: str, teer: int) -> Dict[str, Any]:
     }
 
 
+OVERRIDE_COLLECTION = "ircc_category_overrides"
+
+
+async def _build_effective_noc_map(db) -> Dict[str, Set[str]]:
+    """Phase 11 — merge hardcoded defaults with admin DB overrides.
+
+    Each override doc shape:
+      { category_id, added_nocs: [..], removed_nocs: [..], updated_at, updated_by }
+    """
+    effective: Dict[str, Set[str]] = {k: set(v) for k, v in _CATEGORY_NOC_MAP.items()}
+    async for o in db[OVERRIDE_COLLECTION].find({}, {"_id": 0}):
+        cat_id = o.get("category_id")
+        if cat_id not in effective:
+            continue
+        added = set(o.get("added_nocs") or [])
+        removed = set(o.get("removed_nocs") or [])
+        effective[cat_id] = (effective[cat_id] | added) - removed
+    return effective
+
+
 async def apply_to_db(db, dry_run: bool = True, actor: str = "system") -> Dict[str, Any]:
     """Run the IRCC EE Streams classifier against `occupation_master` (CA only).
 
     Updates each CA record with an `ee_eligibility` block. Idempotent.
+
+    Phase 11: respects admin overrides from `ircc_category_overrides` collection.
     """
     coll = db["occupation_master"]
     now = datetime.now(timezone.utc)
+    effective_map = await _build_effective_noc_map(db)
+    overrides_used = sum(
+        1 for cat_id in effective_map
+        if effective_map[cat_id] != _CATEGORY_NOC_MAP.get(cat_id, set())
+    )
 
     total = 0
     updated = 0
@@ -290,7 +322,7 @@ async def apply_to_db(db, dry_run: bool = True, actor: str = "system") -> Dict[s
             skipped_no_teer += 1
             continue
 
-        new_ee = classify(code, teer)
+        new_ee = classify(code, teer, noc_sets_override=effective_map)
         existing_ee = d.get("ee_eligibility") or {}
 
         # Compare (ignoring meta source/version/timestamps)
@@ -325,6 +357,7 @@ async def apply_to_db(db, dry_run: bool = True, actor: str = "system") -> Dict[s
         "dry_run": dry_run,
         "version": "2026-01",
         "total_ca_codes_processed": total,
+        "overrides_applied_categories": overrides_used,
         "counts": {
             "updated": updated,
             "skipped_unchanged": skipped_unchanged,

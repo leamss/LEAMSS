@@ -5,6 +5,57 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 
 > **📌 Update (Feb 13, 2026):** `CHANGELOG.md` now tracks all completed phases (incl. **Phase 3A — Attendance & Leave** with full company policies). `ROADMAP.md` lists prioritized backlog. This PRD remains the static reference for original requirements.
 
+### 🎯 Phase 11 — Per-country Heatmap (CA + NZ) + IRCC Category Overrides (Jun 9, 2026)
+**Status:** ✅ COMPLETE — 11/11 new pytest PASS · 22/22 regression PASS · UI live for both features.
+
+Sir's ask: "Per-country Field Coverage Heatmap (CA + NZ — currently AU-only) + Calculator Rules Editor — admin override UI for IRCC category NOC lists".
+
+**A) Heatmap CA + NZ (Backend):**
+- `routers/anz_intel.py`:
+  - `_humanize()` + `_source_hint(field, country)` extended with CA/NZ field labels & NZ-specific source URLs (careers.govt.nz, immigration.govt.nz, NZQA).
+  - `/audit-summary` now also returns `field_coverage_ca` (11 fields) and `field_coverage_nz` (6 fields) alongside existing AU block.
+  - `/audit-rows?country=CA|NZ` uses `_tracked_fields_for(country)` so each country sees its own fields.
+
+**A) Heatmap (Frontend `AnzIntelAudit.jsx`):**
+- Removed placeholder `CoverageCAorNZ`. Real heatmap now renders for CA + NZ.
+- `CoverageTab` and `HeatmapTab` accept `country` prop and switch the right field list/data.
+- Per-Occupation Heatmap tab is now visible for ALL countries (was AU-only).
+
+**B) IRCC Category Overrides (Backend):**
+- `routers/anz_intel.py` — 4 new admin endpoints under `/calc-rules/ircc-categories`:
+  - `GET` → returns 9 overridable categories with default_nocs, added_nocs, removed_nocs, effective_nocs (merged).
+  - `PUT /{category_id}` → save added/removed NOC arrays with strict 5-digit validation, no-overlap rule.
+  - `DELETE /{category_id}` → revert to hardcoded defaults.
+  - `POST /reapply?dry_run=` → re-classify all 516 CA NOCs using current overrides.
+- `core/scrapers/ircc_ee_streams.py` — `classify()` accepts optional `noc_sets_override`; new `_build_effective_noc_map(db)` merges defaults with `ircc_category_overrides` collection; `apply_to_db()` reports `overrides_applied_categories` count.
+- New collection: `ircc_category_overrides` (one doc per category with added_nocs/removed_nocs/updated_at/updated_by).
+
+**B) IRCC Editor (Frontend `CalculatorRulesEditor.jsx`):**
+- Added section toggle: **Scoring Tables (Phase 9.6)** ↔ **IRCC EE Category NOCs (Phase 11)**.
+- New `IrccCategoriesEditor` + 9 `IrccCategoryCard` components — each card has chip-based add/remove inputs, defaults preview, save/reset buttons, and live effective_count badge.
+- "Re-apply to 516 CA NOCs" button triggers a full re-classification with success summary.
+
+**Tests `test_phase11_heatmap_and_ircc_overrides.py` (11/11 PASS):**
+1. audit-summary has au/ca/nz coverage blocks
+2. CA coverage has CA-specific fields & correct shape
+3. NZ uses NZ-specific source hints (careers.govt.nz, immigration.govt.nz)
+4. audit-rows CA returns CA tracked fields (not AU)
+5. audit-rows NZ returns NZ tracked fields
+6. GET ircc-categories returns 9 overridable
+7. PUT + GET roundtrip reflects effective_nocs
+8. Validation rejects bad NOC format, overlap, unknown category
+9. DELETE reverts to defaults
+10. Reapply dry-run reports overrides_applied_categories ≥ 1
+11. Reapply with no overrides reports 0
+
+**Files:**
+- MOD `/app/backend/routers/anz_intel.py` — Phase 11 endpoints + per-country audit
+- MOD `/app/backend/core/scrapers/ircc_ee_streams.py` — override-aware classification
+- MOD `/app/frontend/src/pages/admin/AnzIntelAudit.jsx` — real CA/NZ heatmap
+- MOD `/app/frontend/src/pages/admin/CalculatorRulesEditor.jsx` — IRCC section + 9 category cards
+- NEW `/app/backend/tests/test_phase11_heatmap_and_ircc_overrides.py` — 11 tests
+
+
 ### 🏆 Phase 10.8 — Compare Programs Side-by-Side (Jun 8, 2026)
 **Status:** ✅ COMPLETE — 7/7 pytest PASS · UI live with best-fit auto-highlight · Backend scoring algorithm.
 

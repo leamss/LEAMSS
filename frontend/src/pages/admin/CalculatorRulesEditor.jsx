@@ -1,9 +1,13 @@
 /**
- * Phase 9.6 — Admin Calculator Rules Editor
+ * Phase 9.6 + Phase 11 — Admin Calculator Rules Editor
  *
- * Lets admins view + edit the deterministic scoring tables (age bands, English
- * tiers, education categories, partner bonuses, state nomination multipliers)
- * used by /api/sales/calculator/calculate. Edits persist to kb_settings.
+ * Lets admins view + edit:
+ *   1. (Phase 9.6) Deterministic scoring tables (age bands, English tiers,
+ *      education categories, partner bonuses, state nomination multipliers)
+ *      used by /api/sales/calculator/calculate. Edits persist to kb_settings.
+ *   2. (Phase 11) IRCC Express Entry category NOC lists — override the
+ *      hardcoded 2026 lists from `core/scrapers/ircc_ee_streams.py` without
+ *      shipping code. Persists to `ircc_category_overrides`.
  *
  * Rules apply to AU / CA / NZ — each country has its own JSON document.
  * No code deploy needed when a new program year is published by Home Affairs / IRCC / INZ.
@@ -15,7 +19,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
   Loader2, Save, RotateCcw, AlertTriangle, CheckCircle2, Award,
-  Sliders, Database, FileWarning,
+  Sliders, Database, FileWarning, X, Plus, RefreshCw,
 } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -36,6 +40,7 @@ const COUNTRIES = [
 ];
 
 export default function CalculatorRulesEditor() {
+  const [section, setSection] = useState('scoring-tables'); // 'scoring-tables' | 'ircc-categories'
   const [country, setCountry] = useState('AU');
   const [rules, setRules] = useState(null);
   const [draftJson, setDraftJson] = useState('');
@@ -48,7 +53,7 @@ export default function CalculatorRulesEditor() {
   const token = localStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}` };
 
-  useEffect(() => { loadRules(); }, [country]); // eslint-disable-line
+  useEffect(() => { if (section === 'scoring-tables') loadRules(); }, [country, section]); // eslint-disable-line
 
   const loadRules = async () => {
     setLoading(true);
@@ -119,6 +124,40 @@ export default function CalculatorRulesEditor() {
           Calculator reads override if present, else falls back to hardcoded defaults — zero downtime.
         </p>
       </div>
+
+      {/* Section selector — Scoring Tables vs IRCC NOC Categories (Phase 11) */}
+      <div className="flex gap-2 mb-5" data-testid="calc-rules-section-tabs">
+        <button
+          onClick={() => setSection('scoring-tables')}
+          className="px-4 py-2 rounded-md text-sm font-bold flex items-center gap-2 transition-colors border"
+          style={{
+            background:  section === 'scoring-tables' ? C.tealDeep : C.card,
+            color:       section === 'scoring-tables' ? '#fff' : C.body,
+            borderColor: section === 'scoring-tables' ? C.tealDeep : C.border,
+          }}
+          data-testid="section-scoring-tables"
+        >
+          <Sliders className="h-4 w-4" />Scoring Tables (Phase 9.6)
+        </button>
+        <button
+          onClick={() => setSection('ircc-categories')}
+          className="px-4 py-2 rounded-md text-sm font-bold flex items-center gap-2 transition-colors border"
+          style={{
+            background:  section === 'ircc-categories' ? C.tealDeep : C.card,
+            color:       section === 'ircc-categories' ? '#fff' : C.body,
+            borderColor: section === 'ircc-categories' ? C.tealDeep : C.border,
+          }}
+          data-testid="section-ircc-categories"
+        >
+          <Award className="h-4 w-4" />IRCC EE Category NOCs (Phase 11)
+        </button>
+      </div>
+
+      {section === 'ircc-categories' && (
+        <IrccCategoriesEditor headers={headers} />
+      )}
+
+      {section === 'scoring-tables' && (<>
 
       {/* Country tabs */}
       <div className="flex gap-2 mb-5">
@@ -278,6 +317,328 @@ export default function CalculatorRulesEditor() {
           </div>
         </div>
       )}
+      </>)}
     </div>
+  );
+}
+
+// ─── Phase 11 — IRCC EE Category NOC Override Editor ────────────────────────
+function IrccCategoriesEditor({ headers }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [savingId, setSavingId] = useState(null);
+  const [reapplying, setReapplying] = useState(false);
+  const [reapplyResult, setReapplyResult] = useState(null);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const r = await axios.get(`${API}/anz-intel/calc-rules/ircc-categories`, { headers });
+      setData(r.data);
+    } catch (e) {
+      setData({ error: e.response?.data?.detail || String(e) });
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, []); // eslint-disable-line
+
+  const saveCategory = async (catId, addedNocs, removedNocs) => {
+    setSavingId(catId);
+    try {
+      await axios.put(`${API}/anz-intel/calc-rules/ircc-categories/${catId}`, {
+        added_nocs: addedNocs, removed_nocs: removedNocs,
+      }, { headers });
+      await load();
+    } catch (e) {
+      alert('Save failed: ' + (e.response?.data?.detail || e.message));
+    }
+    setSavingId(null);
+  };
+
+  const resetCategory = async (catId) => {
+    if (!window.confirm(`Sir, ${catId} ka override delete kar denge — defaults par revert hoga. Proceed?`)) return;
+    setSavingId(catId);
+    try {
+      await axios.delete(`${API}/anz-intel/calc-rules/ircc-categories/${catId}`, { headers });
+      await load();
+    } catch (e) {
+      alert('Reset failed: ' + (e.response?.data?.detail || e.message));
+    }
+    setSavingId(null);
+  };
+
+  const reapply = async () => {
+    if (!window.confirm('Sir, ye action sabhi 516 CA NOCs par new mapping write karega (existing ee_eligibility.categories overwrite hoga). Proceed?')) return;
+    setReapplying(true);
+    setReapplyResult(null);
+    try {
+      const r = await axios.post(`${API}/anz-intel/calc-rules/ircc-categories/reapply?dry_run=false`, {}, { headers });
+      setReapplyResult(r.data);
+    } catch (e) {
+      setReapplyResult({ error: e.response?.data?.detail || String(e) });
+    }
+    setReapplying(false);
+  };
+
+  if (loading) {
+    return (
+      <Card className="p-8 text-center" data-testid="ircc-cats-loading">
+        <Loader2 className="h-6 w-6 animate-spin mx-auto" style={{ color: C.teal }} />
+        <p className="text-sm mt-2" style={{ color: C.body }}>Loading IRCC categories…</p>
+      </Card>
+    );
+  }
+  if (data?.error) {
+    return (
+      <Card className="p-4" style={{ background: C.redWash, border: '1px solid #FCA5A5' }}>
+        <p className="text-sm font-bold" style={{ color: C.red }}>Failed to load categories</p>
+        <p className="text-xs mt-1" style={{ color: C.body }}>{data.error}</p>
+      </Card>
+    );
+  }
+
+  const cats = data?.categories || [];
+  const overriddenCount = cats.filter(c => c.has_override).length;
+
+  return (
+    <div className="space-y-4" data-testid="ircc-cats-root">
+      {/* Hero banner */}
+      <Card className="p-4" style={{ background: C.tealWash, border: `1px solid ${C.tealWash2}` }}>
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold" style={{ color: C.tealDeep }}>
+              <Award className="h-4 w-4 inline mr-1" />
+              Express Entry Category-Based Selection · 2026 ({cats.length} overridable categories · {overriddenCount} active overrides)
+            </p>
+            <p className="text-xs mt-1" style={{ color: C.body }}>
+              IRCC officially publishes the NOC list per category. When they release a mid-year correction,
+              aap yahan NOCs add ya remove kar sakte hain — code deploy ki zaroorat nahi.
+              French-language category NOC-agnostic hai (saare TEER 0-3 eligible) — isliye yahan list nahi hai.
+            </p>
+            <a href={data.source_url} target="_blank" rel="noreferrer" className="text-xs underline mt-1 inline-block" style={{ color: C.teal }}>
+              {data.source_url}
+            </a>
+          </div>
+          <Button
+            size="sm"
+            onClick={reapply}
+            disabled={reapplying}
+            style={{ background: C.teal, color: '#fff' }}
+            data-testid="ircc-cats-reapply-btn"
+          >
+            {reapplying ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <RefreshCw className="h-3.5 w-3.5 mr-1" />}
+            Re-apply to 516 CA NOCs
+          </Button>
+        </div>
+        {reapplyResult && !reapplyResult.error && (
+          <div className="mt-3 p-2 rounded text-xs" style={{ background: '#fff', color: C.tealDeep }} data-testid="ircc-cats-reapply-result">
+            <CheckCircle2 className="h-3.5 w-3.5 inline mr-1" />
+            Re-applied · processed <strong>{reapplyResult.total_ca_codes_processed}</strong> · updated <strong>{reapplyResult.counts?.updated}</strong> · overrides applied to <strong>{reapplyResult.overrides_applied_categories}</strong> categories
+          </div>
+        )}
+        {reapplyResult?.error && (
+          <div className="mt-3 p-2 rounded text-xs" style={{ background: C.redWash, color: C.red }}>
+            <AlertTriangle className="h-3.5 w-3.5 inline mr-1" />{reapplyResult.error}
+          </div>
+        )}
+      </Card>
+
+      {/* Category cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3" data-testid="ircc-cats-grid">
+        {cats.map(c => (
+          <IrccCategoryCard
+            key={`${c.id}-${c.updated_at || 'default'}-${(c.added_nocs||[]).length}-${(c.removed_nocs||[]).length}`}
+            cat={c}
+            saving={savingId === c.id}
+            onSave={(added, removed) => saveCategory(c.id, added, removed)}
+            onReset={() => resetCategory(c.id)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function IrccCategoryCard({ cat, saving, onSave, onReset }) {
+  const [added, setAdded] = useState(cat.added_nocs || []);
+  const [removed, setRemoved] = useState(cat.removed_nocs || []);
+  const [newAdd, setNewAdd] = useState('');
+  const [newRemove, setNewRemove] = useState('');
+  const [dirty, setDirty] = useState(false);
+
+  const addNoc = (list, setList, val, setVal) => {
+    const code = (val || '').trim();
+    if (!/^\d{5}$/.test(code)) {
+      alert('NOC code 5-digit numeric hona chahiye (e.g., "21300")');
+      return;
+    }
+    if (list.includes(code)) { setVal(''); return; }
+    setList([...list, code].sort());
+    setVal('');
+    setDirty(true);
+  };
+
+  const removeChip = (list, setList, code) => {
+    setList(list.filter(x => x !== code));
+    setDirty(true);
+  };
+
+  const effective = (() => {
+    const defaultSet = new Set(cat.default_nocs || []);
+    const addedSet = new Set(added);
+    const removedSet = new Set(removed);
+    return [...new Set([...defaultSet, ...addedSet].filter(x => !removedSet.has(x)))].sort();
+  })();
+
+  return (
+    <Card className="p-4" data-testid={`ircc-cat-card-${cat.id}`}>
+      {/* Header */}
+      <div className="flex items-start justify-between gap-2 mb-3 flex-wrap">
+        <div className="flex-1 min-w-0">
+          <p className="text-base font-bold flex items-center gap-2" style={{ color: C.ink }}>
+            <span className="text-2xl">{cat.icon}</span>
+            {cat.label}
+          </p>
+          <div className="flex flex-wrap gap-1 mt-1">
+            <Badge style={{ background: C.tealWash2, color: C.tealDeep, fontSize: 9 }}>
+              Default {cat.default_count}
+            </Badge>
+            <Badge style={{ background: C.goldWash, color: C.orangeDeep, fontSize: 9 }}>
+              Effective {effective.length}
+            </Badge>
+            {cat.requires_canadian_exp && (
+              <Badge style={{ background: C.orangeWash, color: C.orangeDeep, fontSize: 9 }}>
+                Requires CA Exp
+              </Badge>
+            )}
+            {cat.has_override && (
+              <Badge style={{ background: C.gold, color: '#fff', fontSize: 9 }}>
+                ✏️ Overridden
+              </Badge>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Added NOCs */}
+      <div className="mb-3">
+        <p className="text-[10px] uppercase font-bold mb-1" style={{ color: C.tealDeep, letterSpacing: '0.06em' }}>
+          ➕ Added NOCs ({added.length})
+        </p>
+        <div className="flex flex-wrap gap-1 mb-2">
+          {added.length === 0 && <span className="text-[10px] italic" style={{ color: C.muted }}>None added</span>}
+          {added.map(code => (
+            <span key={code} className="text-[11px] px-2 py-0.5 rounded flex items-center gap-1 font-mono"
+                  style={{ background: C.tealWash2, color: C.tealDeep, border: `1px solid ${C.teal}` }}
+                  data-testid={`added-chip-${cat.id}-${code}`}>
+              {code}
+              <button onClick={() => removeChip(added, setAdded, code)}>
+                <X className="h-2.5 w-2.5" />
+              </button>
+            </span>
+          ))}
+        </div>
+        <div className="flex gap-1">
+          <input
+            value={newAdd}
+            onChange={(e) => setNewAdd(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && addNoc(added, setAdded, newAdd, setNewAdd)}
+            placeholder="e.g., 21300"
+            maxLength={5}
+            className="px-2 py-1 rounded border text-[11px] font-mono flex-1"
+            style={{ borderColor: C.border }}
+            data-testid={`add-noc-input-${cat.id}`}
+          />
+          <Button
+            size="sm"
+            onClick={() => addNoc(added, setAdded, newAdd, setNewAdd)}
+            style={{ background: C.teal, color: '#fff', height: 26, padding: '0 8px' }}
+            data-testid={`add-noc-btn-${cat.id}`}
+          >
+            <Plus className="h-3 w-3" />
+          </Button>
+        </div>
+      </div>
+
+      {/* Removed NOCs */}
+      <div className="mb-3">
+        <p className="text-[10px] uppercase font-bold mb-1" style={{ color: C.red, letterSpacing: '0.06em' }}>
+          ➖ Removed NOCs ({removed.length})
+        </p>
+        <div className="flex flex-wrap gap-1 mb-2">
+          {removed.length === 0 && <span className="text-[10px] italic" style={{ color: C.muted }}>None removed</span>}
+          {removed.map(code => (
+            <span key={code} className="text-[11px] px-2 py-0.5 rounded flex items-center gap-1 font-mono"
+                  style={{ background: C.redWash, color: C.red, border: `1px solid #FCA5A5` }}
+                  data-testid={`removed-chip-${cat.id}-${code}`}>
+              {code}
+              <button onClick={() => removeChip(removed, setRemoved, code)}>
+                <X className="h-2.5 w-2.5" />
+              </button>
+            </span>
+          ))}
+        </div>
+        <div className="flex gap-1">
+          <input
+            value={newRemove}
+            onChange={(e) => setNewRemove(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && addNoc(removed, setRemoved, newRemove, setNewRemove)}
+            placeholder="e.g., 31100"
+            maxLength={5}
+            className="px-2 py-1 rounded border text-[11px] font-mono flex-1"
+            style={{ borderColor: C.border }}
+            data-testid={`remove-noc-input-${cat.id}`}
+          />
+          <Button
+            size="sm"
+            onClick={() => addNoc(removed, setRemoved, newRemove, setNewRemove)}
+            style={{ background: C.red, color: '#fff', height: 26, padding: '0 8px' }}
+            data-testid={`remove-noc-btn-${cat.id}`}
+          >
+            <Plus className="h-3 w-3" />
+          </Button>
+        </div>
+      </div>
+
+      {/* Defaults preview */}
+      <details className="mb-3">
+        <summary className="text-[10px] font-bold cursor-pointer" style={{ color: C.muted }}>
+          Show {cat.default_count} hardcoded defaults
+        </summary>
+        <p className="text-[10px] font-mono mt-1" style={{ color: C.muted, wordBreak: 'break-all' }}>
+          {(cat.default_nocs || []).join(', ')}
+        </p>
+      </details>
+
+      {/* Actions */}
+      <div className="flex gap-2 justify-end pt-2 border-t" style={{ borderColor: C.border }}>
+        {cat.has_override && (
+          <Button
+            size="sm" variant="outline"
+            onClick={onReset}
+            disabled={saving}
+            data-testid={`reset-cat-${cat.id}`}
+          >
+            <RotateCcw className="h-3 w-3 mr-1" />Reset
+          </Button>
+        )}
+        <Button
+          size="sm"
+          onClick={() => onSave(added, removed)}
+          disabled={saving || !dirty}
+          style={{ background: C.teal, color: '#fff' }}
+          data-testid={`save-cat-${cat.id}`}
+        >
+          {saving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Save className="h-3 w-3 mr-1" />}
+          {dirty ? 'Save Changes' : 'Saved'}
+        </Button>
+      </div>
+      {cat.updated_at && (
+        <p className="text-[9px] mt-2 italic" style={{ color: C.muted }}>
+          Last edit: {new Date(cat.updated_at).toLocaleString()} by <code>{cat.updated_by}</code>
+        </p>
+      )}
+    </Card>
   );
 }
