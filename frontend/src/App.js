@@ -80,6 +80,7 @@ import PreAssessmentPayment from '@/pages/PreAssessmentPayment';
 import MagicLinkLogin from '@/pages/MagicLinkLogin';
 import EligibilityCheck from '@/pages/EligibilityCheck';
 import VisaCompare from '@/pages/VisaCompare';
+import { PublicAtlasHub, PublicAtlasCountry, PublicAtlasOccupation } from '@/pages/PublicAtlas';
 import '@/App.css';
 
 function App() {
@@ -90,6 +91,10 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Login />} />
+          {/* ─── Public Atlas (Phase 13 — no auth required) ─── */}
+          <Route path="/atlas" element={<PublicAtlasHub />} />
+          <Route path="/atlas/:country" element={<PublicAtlasCountry />} />
+          <Route path="/atlas/:country/:code" element={<PublicAtlasOccupation />} />
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/admin/analytics" element={<AnalyticsDashboard />} />
           <Route path="/admin/activity" element={<ActivityLog />} />
