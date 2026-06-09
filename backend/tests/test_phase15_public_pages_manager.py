@@ -3,7 +3,7 @@ import os
 import pytest
 import requests
 
-BASE_URL = os.environ.get("BASE_URL", "https://staff-dashboard-66.preview.emergentagent.com")
+BASE_URL = os.environ.get("BASE_URL", "https://compliance-hub-751.preview.emergentagent.com")
 ADMIN = {"email": "admin@leamss.com", "password": "Admin@123"}
 PARTNER = {"email": "partner@leamss.com", "password": "Partner@123"}
 
@@ -47,7 +47,7 @@ def test_urls_partner_blocked(partner_headers):
 def test_qr_generation(admin_headers):
     r = requests.post(
         f"{BASE_URL}/api/admin-public-pages/qr",
-        json={"url": "https://staff-dashboard-66.preview.emergentagent.com/atlas/au/261313"},
+        json={"url": "https://compliance-hub-751.preview.emergentagent.com/atlas/au/261313"},
         headers=admin_headers, timeout=15,
     )
     assert r.status_code == 200

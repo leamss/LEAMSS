@@ -143,7 +143,7 @@ class TestCreateCheckout:
             f"{BASE_URL}/api/payments/create-checkout",
             json={
                 "sale_id": approved_sale["id"],
-                "origin_url": "https://staff-dashboard-66.preview.emergentagent.com"
+                "origin_url": "https://compliance-hub-751.preview.emergentagent.com"
             },
             headers={"Authorization": f"Bearer {promo_client_token}"}
         )
@@ -169,7 +169,7 @@ class TestCreateCheckout:
             f"{BASE_URL}/api/payments/create-checkout",
             json={
                 "sale_id": "non-existent-sale-id",
-                "origin_url": "https://staff-dashboard-66.preview.emergentagent.com"
+                "origin_url": "https://compliance-hub-751.preview.emergentagent.com"
             },
             headers={"Authorization": f"Bearer {admin_token}"}
         )
@@ -213,7 +213,7 @@ class TestPaymentStatus:
                     f"{BASE_URL}/api/payments/create-checkout",
                     json={
                         "sale_id": approved_sale["id"],
-                        "origin_url": "https://staff-dashboard-66.preview.emergentagent.com"
+                        "origin_url": "https://compliance-hub-751.preview.emergentagent.com"
                     },
                     headers={"Authorization": f"Bearer {promo_client_token}"}
                 )
@@ -321,7 +321,7 @@ class TestFullPaymentFlow:
             f"{BASE_URL}/api/payments/create-checkout",
             json={
                 "sale_id": approved_sale["id"],
-                "origin_url": "https://staff-dashboard-66.preview.emergentagent.com"
+                "origin_url": "https://compliance-hub-751.preview.emergentagent.com"
             },
             headers={"Authorization": f"Bearer {promo_client_token}"}
         )

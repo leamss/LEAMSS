@@ -1,50 +1,48 @@
-<analysis>### handover_summary
+<analysis>**original_problem_statement**: 
+The user is building an Immigration CRM + Client Sales Funnel. The application features a 5-step funnel (Pre-Assessment, 1st Admin Approval, Proposal Generation, Consent & Payment, Case Manager assignment). Recently, the user requested the development of a brand-new, dedicated **Employee Portal** (for internal HR, Sales, IT, etc.) while rejecting a previous approach of merging employees with external partners. The user also recently requested a premium Public Migration Atlas landing page and an admin Public Pages Manager to handle dynamic SEO content and QR generation.
+PRODUCT REQUIREMENTS: Fast, highly transparent financially, legally compliant (Audit trails), automated PDF/Invoice generation. Now focusing heavily on a standalone internal Employee Portal architecture and real integrations (Stripe/Resend).
 
-**original_problem_statement**: 
-The user is building a comprehensive Immigration CRM + Client Sales Funnel. The strict 5-step journey includes Pre-Assessment, 1st Admin Approval, Proposal Generation (AI), Consent & Main Fee Payment (with E-sign/Agreement), and final Case Manager assignment. 
-PRODUCT REQUIREMENTS: The application must be fast, highly transparent financially, legally compliant (Audit trails/Legal Archive), and support automated PDF/Invoice generation along with editable agreement templates per country/visa type. Recently, the user shifted focus toward building a dedicated **Employee Portal** (for internal HR, Sales, IT, Marketing, etc.) after rejecting a previous attempt to merge employees with external partners.
-
-**User's preferred language**: **HINGLISH** (You MUST automatically detect the user's primary language and INSTRUCT the next agent to respond in **respectful Hinglish ONLY** - e.g., Aap, Sir, Maine update kar diya hai). 
-*CRITICAL NOTE*: The user got highly offended when the previous agent used tu/tera instead of aap. **ALWAYS use respectful pronouns (Aap/Aapka/Sir).**
+**User's preferred language**: **HINGLISH** (You MUST respond in **respectful Hinglish ONLY** - e.g., Aap, Sir, Maine update kar diya hai). 
+*CRITICAL NOTE*: The user got highly offended in the past when an agent used tu/tera instead of aap. **ALWAYS use respectful pronouns (Aap/Aapka/Sir).**
 
 **what currently exists?** 
-A highly-polished React + FastAPI + MongoDB CRM portal. Phases A, B, C, and D are fully complete. It includes an AI Proposal generator, Client MiniPortal, Legal Archive (with SHA-256 tamper detection), Agreement Template Engine, AI Eligibility Pre-Score, Visa Pathway Comparison, Document Expiry Tracker, WhatsApp Smart Share, and an Active Share Links admin dashboard.
-*Note: The previously built In-House Sales Team CRM features (Phase 1, 2, and 3) were completely REMOVED in this session as the user did not like the UX/Architecture. The codebase is currently clean of those changes.*
+A highly-polished React + FastAPI + MongoDB CRM portal. Phases A, B, C, and D are fully complete. The In-House Sales CRM from earlier was completely purged at the user's request. Recently completed: Phase 14 (Premium UI/UX Revamp for Public Atlas with brand colors) and Phase 15 (Admin Public Pages Manager for SEO URLs, dynamic content, and QR code generation).
 
 **Last working item**:
-    - Last item agent was working: Complete manual removal/cleanup of the rejected In-House Sales Team CRM features from the backend (, DB collections, users schema) and frontend (, , Admin/Partner routing). The agent proposed a new **Employee Portal** architecture (P0 Foundation: Departments, Org Chart) and is waiting for the user to confirm the next steps.
-    - Status: WAITING FOR USER INPUT
-    - Agent Testing Done: Y (Verified cleanup via backend curl and frontend screenshots).
-    - Which testing method agent to use? manual testing by curl / screenshot tool
+    - Last item agent was working: Gathering context from memory files (PRD, ROADMAP, test_credentials) and executing the  tool to present the next execution plan to the user, as the user explicitly requested (Please use ask_human tool and confirm your plan now).
+    - Status: USER VERIFICATION PENDING
+    - Agent Testing Done: NA
+    - Which testing method agent to use? NA
     - User Testing Done: N
 
-**All Pending/In progress Issue list**:
-  None currently. The codebase is clean and stable following the manual rollback of the rejected features.
+**All Pending/In progress Issue list**:  
+None. The codebase is clean and stable.
 
 **In progress Task List**:
-  None active. Waiting for user's confirmation on the Employee Portal scope.
+  - Task 1: Await User Confirmation on Execution Plan
+     - Where to resume: Read the user's response to the pending  prompt. The prompt proposed the upcoming roadmap (Employee Portal foundation, Email/Stripe integrations, etc.). 
+     - What will be achieved with this? Aligns the agent and user on exact priorities before writing any new code.
+     - Status: USER VERIFICATION PENDING
+     - Should Test frontend/backend/both after fix? NA
+     - Blocked on something: Waiting for the user's reply.
 
 **Upcoming and Future Tasks**
     Upcoming Tasks:
-    - P0: Dedicated Employee Portal - Foundation (Employee Master, 7 Departments: Sales, IT, Marketing, Operations, Admin, HR, Accounts, Org Chart) *[Pending user confirmation on scope]*
-    - P1: Employee Portal - Attendance & Leave Management *[Pending user confirmation on scope]*
-    - P1: Resend live emails dispatch (Currently mocked. Need to ask user for ).
-    - P1: Real Stripe payments integration (Test key is already available in the pod environment folder).
-    - P2: Edit History tab per PA (UI for audit trail of edited PA fields).
-    - P2: Biometric E-sign packet (Capture device fingerprint, GPS, etc., for legal disputes).
+    - P0: Dedicated Employee Portal - Foundation (Employee Master, 7 Departments: Sales, IT, Marketing, Operations, Admin, HR, Accounts, Org Chart) 
+    - P1: Employee Portal - Attendance & Leave Management
+    - P1: Resend live emails dispatch (Need to ask user for ).
+    - P1: Real Stripe payments integration (Test key is already available in the pod environment folder. Need to replace mocked flags).
     
     Future Tasks:
+    - P2: Edit History tab per PA (UI for audit trail of edited PA fields).
+    - P2: Biometric E-sign packet (Capture device fingerprint, GPS, etc., for legal disputes).
     - P3: Twilio WhatsApp full integration.
     - P3: Progressive Web App (PWA) setup and Push Notifications.
-    - P3: White-Label SaaS Architecture (Multi-tenancy isolation).
 
 **Completed work in this session**
-- Built Phase 3 (Manager Dashboard) of the In-House Sales CRM end-to-end and successfully regression-tested it.
-- **[CRITICAL PIVOT]**: User reviewed the In-House Sales CRM and strongly disliked the approach of merging internal employees with external partners. 
-- Conducted a full manual cleanup/rollback of Phase 1, Phase 2, and Phase 3 of the In-House Sales CRM across the entire stack (DONE)
-- Removed  router, stripped  and  from the DB, dropped unused collections (DONE)
-- Removed all related UI components (, , ) and cleaned up routing (DONE)
-- Clarified credit usage constraints to the user and pitched a 4-phase plan for a proper, dedicated Employee Portal.
+- Read and analyzed , , and  to build fresh context.
+- Formulated the next execution plan and sent it to the user via the  tool.
+- *(Note: No code was changed in this session as the agent was paused waiting for user input).*
 
 **Earlier issues found/mentioned but not fixed**
 None.
@@ -58,47 +56,44 @@ None.
 
 
 **Key Technical Concepts**
-React, FastAPI, Motor (Async MongoDB), SSE (Server-Sent Events),  for PDF Generation, Anthropic Claude Sonnet 4.6 (via Emergent LLM Key), Shadcn UI, SHA-256 Integrity chains.
+React, FastAPI, Async MongoDB (Motor), Framer Motion (Animations), Pillow & QRCode (Backend QR Generation).
 
 **key DB schema**
-  - : Standard roles (admin, partner, case_manager, client). *(Note:  and  were stripped).*
+  - : Standard roles (admin, partner, case_manager, client).
+  - : Tracks  and .
   - , : Includes .
-  - : Tracks , , and .
 
 **changes in tech stack**
-  - None.
+  - None in this session.
 
 **All files of reference** 
   - 
   - 
   - 
-  - 
 
-**Areas that need refactoring**:
-  - None currently.
+**Areas that need refactoring**: 
+  -  is reaching 950+ lines — refactor recommended for Phase 4 follow-ups.
+  - 6 Pre-Assessment endpoints still have inline ownership checks instead of using the new  helper.
 
 **key api endpoints**
   - 
   - 
-
-**Critical Info for New Agent**
-  - **Tone & Respect**: The user was highly offended by the use of Tu. **YOU MUST ONLY USE Aap, Aapka, Sir** when speaking in Hinglish. Be extremely polite and professional.
-  - **Context Pivot**: Do **NOT** attempt to rebuild the In-House Sales CRM or add  back to the partner flow. The user explicitly wants a brand new, dedicated **Employee Portal** (for Sales, IT, Admin, HR, etc.) that handles attendance, hierarchy, and payroll.
-  - **Pending State**: The agent just finished completely cleaning up the old codebase and gave the user options (A, B, C, D) on how to start the Employee Portal (e.g., Option A: Just build the P0 Foundation first). 
-  - **First Step**: Read the user's response to your last message, acknowledge their choice for the Employee Portal scope, and begin planning/building exactly what they requested in a highly step-by-step, credit-efficient manner. 
-
-**documents and test reports created in this job**
-  -  (Updated to reflect rollback and new Employee Portal roadmap)
   - 
 
+**Critical Info for New Agent**
+  - **Tone & Respect**: The user is highly sensitive to tone. **YOU MUST ONLY USE Aap, Aapka, Sir** when speaking in Hinglish. Never use tu/tera.
+  - **Current State**: The agent is paused completely, waiting for the user to respond to the  tool regarding the proposed roadmap (Employee portal, Stripe, Resend). 
+  - **First Step**: Immediately read the user's response to your last message, acknowledge their choice, and begin implementation incrementally. Do not write code until you see their answer.
+
+**documents and test reports created in this job**
+  - None created in this session. Existing memory files were reviewed.
+
 **Last 10 User Messages and any pending HUMAN messages** 
- - 3. **User**: Bhai Kya banaya hai... kuch samaj he nhi raha hai??? ... I am saying instead of inhouse partner... Employeee portal banathe hai... jaha pe As a organisation.. as company inhouse employees ko kaise manage kregey uspe focus krthe hai... Please rollback krlo (Complained about the confusing UX, asked to redesign as a dedicated Employee portal, asked about high credit usage, demanded respectful language).
- - 2. **User**: Muje rollback ka samaj nhi raha hai kaise kru?? (Asked for help with the rollback tool).
- - 1. **User**: arey usse acha... Rollback krne se better.. AAP he yeh features hata do na (User asked the agent to manually remove the offending features from the code instead of using the platform rollback tool).
- *Agent responded by manually deleting all related files/code, verifying the cleanup, and asking the user how they want to proceed with the new Employee Portal (Option A, B, C).*
+ - 1. **User**: [Tool result: Question has been sent to the user. Waiting for response] *(Pending Action: Wait for user to reply to the  tool)*
+ - *(Prior messages from handoff)*: Please use ask_human tool and confirm your plan now.
 
 **Project Health Check:**
-  - Broken: None.
+  - Broken: None
   - Mocked: Payments (Stripe mocked), Emails (Resend mocked).
 
 **3rd Party Integrations** 
@@ -107,10 +102,10 @@ React, FastAPI, Motor (Async MongoDB), SSE (Server-Sent Events),  for PDF Genera
   - Resend (Emails) — Mocked
 
 **Testing status**
-  - Testing agent used after significant changes: NO (Manual screenshots/curl used for the cleanup phase to save credits).
+  - Testing agent used after significant changes: NA
   - Troubleshoot agent used after agent stuck in loop: NO
-  - Test files created: None this session.
-  - Known regressions: None. Code is stable.
+  - Test files created: None
+  - Known regressions: None
 
 **Credentials to test flow:**
   - Admin:  / 
@@ -118,4 +113,4 @@ React, FastAPI, Motor (Async MongoDB), SSE (Server-Sent Events),  for PDF Genera
   - Client:  / 
 
 **What agent forgot to execute**
-The agent did not forget anything. The manual rollback of features was executed flawlessly. The agent is waiting on the user's explicit approval to begin building the new Employee Portal.</analysis>
+The agent did not forget anything. It followed instructions perfectly by reviewing the requested documents and immediately pausing via  to get user approval on the plan.</analysis>

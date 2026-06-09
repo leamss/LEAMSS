@@ -5,7 +5,7 @@ from datetime import datetime
 import io
 
 class LEAMSSAPITester:
-    def __init__(self, base_url="https://staff-dashboard-66.preview.emergentagent.com"):
+    def __init__(self, base_url="https://compliance-hub-751.preview.emergentagent.com"):
         self.base_url = base_url
         self.api = f"{base_url}/api"
         self.tokens = {}
