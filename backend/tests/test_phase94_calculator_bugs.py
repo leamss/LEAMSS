@@ -11,7 +11,7 @@ import os
 import pytest
 import requests
 
-BASE_URL = os.environ.get("BASE_URL", "https://compliance-hub-751.preview.emergentagent.com")
+BASE_URL = os.environ.get("BASE_URL", "https://career-match-320.preview.emergentagent.com")
 ADMIN_CREDS = {"email": "admin@leamss.com", "password": "Admin@123"}
 
 

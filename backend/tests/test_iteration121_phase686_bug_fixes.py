@@ -8,7 +8,7 @@ import os
 import pytest
 import requests
 
-API = os.environ.get("REACT_APP_BACKEND_URL") or "https://compliance-hub-751.preview.emergentagent.com"
+API = os.environ.get("REACT_APP_BACKEND_URL") or "https://career-match-320.preview.emergentagent.com"
 BASE = f"{API}/api"
 
 

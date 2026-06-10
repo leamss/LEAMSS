@@ -16,7 +16,7 @@ import time
 import pytest
 import requests
 
-BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://compliance-hub-751.preview.emergentagent.com").rstrip("/")
+BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://career-match-320.preview.emergentagent.com").rstrip("/")
 API = f"{BASE_URL}/api"
 
 ADMIN = {"email": "admin@leamss.com", "password": "Admin@123"}
@@ -230,7 +230,7 @@ class TestInfoSheetFlow:
         assert data["ok"] is True
         assert data["token"] and len(data["token"]) > 10
         assert data["profile_id"].startswith("ELG-")
-        assert data["public_url"].startswith("https://compliance-hub-751.preview.emergentagent.com/info-sheet/"), f"public_url wrong: {data['public_url']}"
+        assert data["public_url"].startswith("https://career-match-320.preview.emergentagent.com/info-sheet/"), f"public_url wrong: {data['public_url']}"
         _created_profiles.append(data["profile_id"])
         _created_tokens.append(data["token"])
 

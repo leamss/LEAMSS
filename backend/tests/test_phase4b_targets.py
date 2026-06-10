@@ -19,7 +19,7 @@ import pytest
 import requests
 from datetime import datetime, timezone
 
-BASE_URL = (os.environ.get("REACT_APP_BACKEND_URL") or "https://compliance-hub-751.preview.emergentagent.com").rstrip("/")
+BASE_URL = (os.environ.get("REACT_APP_BACKEND_URL") or "https://career-match-320.preview.emergentagent.com").rstrip("/")
 API = f"{BASE_URL}/api"
 
 ADMIN = ("admin@leamss.com", "Admin@123")
