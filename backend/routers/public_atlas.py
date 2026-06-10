@@ -215,6 +215,274 @@ def _build_occupation_faqs(country: str, doc: Dict[str, Any], cm: Dict[str, str]
     return faqs[:6]
 
 
+_CTA = "Check eligibility with LEAMSS."
+_MAX_META_LEN = 200
+_TARGET_META_LEN = 165  # SERP sweet spot
+_MIN_META_LEN = 120
+
+
+def _clean_sentence(parts: List[str]) -> str:
+    """Join non-empty fragments into a clean sentence — strips empty parens,
+    'None', doubled spaces, dangling commas / semicolons."""
+    s = " ".join(p.strip() for p in parts if p and p.strip())
+    # Collapse whitespace
+    s = re.sub(r"\s+", " ", s)
+    # Strip empty parens / brackets / "None"
+    s = re.sub(r"\(\s*\)|\[\s*\]|\bNone\b", "", s)
+    # Fix " ," / " ." / " ;" / " :" doubled punctuation
+    s = re.sub(r"\s+([,.;:])", r"\1", s)
+    s = re.sub(r",\s*,+", ",", s)
+    s = re.sub(r",\s*\.", ".", s)
+    s = re.sub(r"\s+", " ", s).strip()
+    # Ensure terminal full stop
+    if s and s[-1] not in ".!?":
+        s += "."
+    return s
+
+
+def _au_visa_subclasses(doc: Dict[str, Any]) -> List[str]:
+    """Return ordered unique AU visa subclasses where eligible=True.
+    Priority order: PR streams first (189 > 190 > 491 > 186 > 482), then others."""
+    seen: List[str] = []
+    for v in (doc.get("visa_pathways") or {}).get("visa_eligibility") or []:
+        if not v.get("eligible"):
+            continue
+        sc = str(v.get("visa_subclass") or "").strip()
+        if sc and sc not in seen:
+            seen.append(sc)
+    priority = ["189", "190", "491", "186", "482", "494", "485", "407", "489"]
+    return sorted(seen, key=lambda x: priority.index(x) if x in priority else 99)
+
+
+def _ca_ee_programs(ee: Dict[str, Any]) -> List[str]:
+    out: List[str] = []
+    if ee.get("fswp_eligible"):
+        out.append("FSWP")
+    if ee.get("cec_eligible"):
+        out.append("CEC")
+    if ee.get("fstp_eligible"):
+        out.append("FSTP")
+    return out
+
+
+# Friendly labels for IRCC category ids (fallback if `label` is absent).
+_CA_CAT_LABELS = {
+    "french_language": "French",
+    "healthcare": "Healthcare",
+    "stem": "STEM",
+    "trade": "Trade",
+    "education": "Education",
+    "transport": "Transport",
+    "physicians_ca": "Physicians",
+    "senior_managers_ca": "Senior Managers",
+    "researchers_ca": "Researchers",
+    "military": "Military Recruits",
+    "agriculture": "Agriculture",
+}
+
+
+def _ca_categories(ee: Dict[str, Any]) -> List[str]:
+    """Return short category labels (max 2) from EE category_details / categories."""
+    raw_details = ee.get("category_details") or []
+    raw_ids = ee.get("categories") or []
+    labels: List[str] = []
+    if raw_details:
+        for d in raw_details:
+            cid = d.get("id")
+            lbl = _CA_CAT_LABELS.get(cid) or (d.get("label") or "").split(" ")[0]
+            if lbl and lbl not in labels:
+                labels.append(lbl)
+    else:
+        for cid in raw_ids:
+            lbl = _CA_CAT_LABELS.get(cid)
+            if lbl and lbl not in labels:
+                labels.append(lbl)
+    return labels[:2]
+
+
+def _build_au_meta(doc: Dict[str, Any], code: str, title: str, country_name: str) -> str:
+    subs = _au_visa_subclasses(doc)[:3]
+    aa = doc.get("assessing_authority") or {}
+    body_short = (aa.get("short_name") or aa.get("name") or "").strip()
+    body_full = (aa.get("name") or "").strip()
+    # Strip the long legal "Incorporated" / "Limited" suffix for readability.
+    body_full = re.sub(r"\s+(Incorporated|Limited|Ltd\.?|Inc\.?|Pty\.?\s*Ltd)\.?$", "", body_full)
+    tier = doc.get("skillselect_tier") or ""
+    tier_phrase = ""
+    if isinstance(tier, str) and "tier 1" in tier.lower():
+        tier_phrase = "Tier 1 SkillSelect priority."
+    elif isinstance(tier, dict) and str(tier.get("tier", "")).lower() in ("tier 1", "1"):
+        tier_phrase = "Tier 1 SkillSelect priority."
+    salary = (doc.get("anzsco_profile") or {}).get("median_salary_aud")
+
+    # Core clause
+    if subs:
+        # Pretty list: "189, 190 & 491" (Oxford-comma-less, Aussie-friendly).
+        if len(subs) == 1:
+            sub_str = subs[0]
+        elif len(subs) == 2:
+            sub_str = f"{subs[0]} & {subs[1]}"
+        else:
+            sub_str = ", ".join(subs[:-1]) + f" & {subs[-1]}"
+        visa_clause = f"Skilled migration via subclass {sub_str}."
+    else:
+        visa_clause = "Skilled migration pathway available."
+
+    # Authority clause: prefer short_name (e.g., "ACS") for brevity.
+    if body_short and body_full and body_short.lower() != body_full.lower():
+        body_clause = f"Assessed by {body_short} ({body_full})."
+        body_clause_compact = f"Assessed by {body_short}."
+    elif body_short or body_full:
+        body_clause = f"Assessed by {body_short or body_full}."
+        body_clause_compact = body_clause
+    else:
+        body_clause = body_clause_compact = ""
+
+    salary_clause = f"Median AUD {salary:,}." if isinstance(salary, (int, float)) and salary else ""
+
+    head = f"{title} ({code}) in {country_name}:"
+    # Full version (all signals)
+    full = _clean_sentence([head, visa_clause, body_clause, tier_phrase, salary_clause, _CTA])
+    if len(full) <= _TARGET_META_LEN + 10:
+        return full
+
+    # Trim 1: drop salary
+    s = _clean_sentence([head, visa_clause, body_clause, tier_phrase, _CTA])
+    if len(s) <= _TARGET_META_LEN + 10:
+        return s
+    # Trim 2: drop tier phrase, switch to compact authority (no full name parens)
+    s = _clean_sentence([head, visa_clause, body_clause_compact, _CTA])
+    if len(s) <= _TARGET_META_LEN + 15:
+        return s
+    # Trim 3: drop authority entirely
+    s = _clean_sentence([head, visa_clause, _CTA])
+    if len(s) <= _MAX_META_LEN:
+        return s
+    return s[:_MAX_META_LEN].rstrip(" ,.;:") + "."
+
+
+def _build_ca_meta(doc: Dict[str, Any], code: str, title: str, country_name: str) -> str:
+    teer = doc.get("teer_category")
+    teer_label = (doc.get("teer_label") or "").strip()
+    ee = doc.get("ee_eligibility") or {}
+    progs = _ca_ee_programs(ee)
+    cats = _ca_categories(ee)
+    quebec_ok = bool((doc.get("quebec_eligibility") or {}).get("eligible"))
+
+    head = f"{title} (NOC {code}) in {country_name}:"
+
+    if teer is not None:
+        teer_phrase = f"TEER {teer}" + (f" ({teer_label})" if teer_label else "") + "."
+    else:
+        teer_phrase = ""
+
+    if progs:
+        ee_clause = f"Eligible for Express Entry {' + '.join(progs)}."
+    else:
+        ee_clause = "Not in core Express Entry federal programs."
+
+    cat_clause = f"Category-based: {' + '.join(cats)}." if cats else ""
+    qc_clause = "Quebec PSTQ pathway open." if quebec_ok else ""
+
+    # Full version
+    full = _clean_sentence([head, teer_phrase, ee_clause, cat_clause, qc_clause, _CTA])
+    if len(full) <= _TARGET_META_LEN + 10:
+        return full
+
+    # Trim 1: drop teer_label parenthesis
+    teer_phrase_compact = f"TEER {teer}." if teer is not None else ""
+    s = _clean_sentence([head, teer_phrase_compact, ee_clause, cat_clause, qc_clause, _CTA])
+    if len(s) <= _TARGET_META_LEN + 10:
+        return s
+    # Trim 2: drop quebec clause
+    s = _clean_sentence([head, teer_phrase_compact, ee_clause, cat_clause, _CTA])
+    if len(s) <= _MAX_META_LEN:
+        return s
+    # Trim 3: drop category clause
+    s = _clean_sentence([head, teer_phrase_compact, ee_clause, _CTA])
+    return s[:_MAX_META_LEN].rstrip(" ,.;:") + "."
+
+
+def _build_nz_meta(doc: Dict[str, Any], code: str, title: str, country_name: str) -> str:
+    tier = doc.get("nz_green_list_tier")
+    tier_str = str(tier) if tier is not None else ""
+    aewv = (doc.get("aewv_eligibility") or {})
+    aewv_ok = bool(aewv.get("eligible")) if isinstance(aewv, dict) else False
+    smc = (doc.get("smc_points_breakdown") or {})
+    smc_pts = smc.get("skill_points_base") if isinstance(smc, dict) else None
+    aa = doc.get("assessing_authority") or {}
+    body_short = (aa.get("name") or aa.get("short_name") or "").strip()
+
+    head = f"{title} ({code}) in {country_name}:"
+
+    # Green List tier (top signal for NZ)
+    if tier_str == "1":
+        gl_clause = "Green List Tier 1 — Straight to Residence pathway."
+    elif tier_str == "2":
+        gl_clause = "Green List Tier 2 — Work to Residence after 24 months on AEWV."
+    else:
+        gl_clause = ""
+
+    # AEWV
+    aewv_clause = "AEWV-eligible." if aewv_ok and not gl_clause else ""
+
+    # SMC
+    if smc_pts and isinstance(smc_pts, (int, float)):
+        smc_clause = f"SMC {int(smc_pts)}-point base."
+    else:
+        smc_clause = ""
+
+    body_clause = f"Assessed by {body_short}." if body_short else ""
+
+    # Full
+    full = _clean_sentence([head, gl_clause, aewv_clause, smc_clause, body_clause, _CTA])
+    if len(full) <= _TARGET_META_LEN + 10:
+        return full
+
+    # Trim 1: drop SMC
+    s = _clean_sentence([head, gl_clause, aewv_clause, body_clause, _CTA])
+    if len(s) <= _TARGET_META_LEN + 10:
+        return s
+    # Trim 2: drop body
+    s = _clean_sentence([head, gl_clause, aewv_clause, _CTA])
+    if len(s) <= _MAX_META_LEN:
+        return s
+    # Trim 3: keep only green list / aewv
+    core = gl_clause or aewv_clause or "Skilled migration pathway available."
+    s = _clean_sentence([head, core, _CTA])
+    return s[:_MAX_META_LEN].rstrip(" ,.;:") + "."
+
+
+def _build_meta_description(country: str, doc: Dict[str, Any], code: str, title: str, country_name: str) -> str:
+    """Country-aware, data-driven meta description for one occupation page.
+
+    Returns a 120-200 char sentence woven from real `occupation_master` fields.
+    Falls back to a generic-but-still-unique sentence if a country has no
+    handler (e.g., new countries added later).
+    """
+    if country == "AU":
+        meta = _build_au_meta(doc, code, title, country_name)
+    elif country == "CA":
+        meta = _build_ca_meta(doc, code, title, country_name)
+    elif country == "NZ":
+        meta = _build_nz_meta(doc, code, title, country_name)
+    else:
+        meta = _clean_sentence([
+            f"{title} ({code}) in {country_name}:",
+            "Skilled migration pathway and eligibility details.",
+            _CTA,
+        ])
+
+    # Final safety: hard-cap 200 chars and ensure minimum length.
+    if len(meta) > _MAX_META_LEN:
+        meta = meta[: _MAX_META_LEN - 1].rstrip(" ,.;:") + "."
+    if len(meta) < _MIN_META_LEN:
+        # Pad with a neutral, non-templated tail using a unique attribute (code)
+        # so two short metas don't collide.
+        meta = _clean_sentence([meta.rstrip("."), f"Pathway code {code}.", _CTA])
+    return meta
+
+
 def _build_seo(country: str, doc: Dict[str, Any], faqs: Optional[List[Dict[str, str]]] = None) -> Dict[str, Any]:
     """Build SEO meta + JSON-LD structured data for one occupation."""
     cm = _country_meta(country)
@@ -231,11 +499,8 @@ def _build_seo(country: str, doc: Dict[str, Any], faqs: Optional[List[Dict[str, 
     )
 
     page_title = f"{title} ({code}) — {cm['name']} {classification} Migration Guide | LEAMSS"
-    meta_desc = (
-        f"{title} ({code}) is a verified {cm['name']} occupation under {classification}. "
-        f"Visa pathways, eligibility criteria, assessing authority, salary band, and how to migrate. "
-        f"Free eligibility check available."
-    )
+    # Phase 16.7: data-driven country-aware meta description (replaces boilerplate).
+    meta_desc = _build_meta_description(country, doc, code, title, cm["name"])
 
     # Occupation-specific keywords for long-tail organic search.
     kw = [

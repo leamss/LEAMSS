@@ -50,3 +50,40 @@ These test accounts demonstrate the full leave approval workflow:
 - Long leave (>5 days): once per year
 - Sandwich leave (Fri+Mon): weekend counted
 - No approval = LWP (regularize within 3 days)
+
+
+## Login Verification (Jun 10, 2026 — Phase 16.7 environment restore)
+
+After a container restore, `.env` files for both backend + frontend were missing
+and had to be recreated. Login itself was never broken — only the **frontend
+service** was in BACKOFF (missing `node_modules` → `craco: not found`). After
+`yarn install` it compiles cleanly and login works end-to-end.
+
+**Login endpoint:** `POST /api/auth/login` · Content-Type: `application/json`
+
+**Verified sample curl (works on local + preview URL):**
+
+```bash
+curl -s -X POST http://localhost:8001/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@leamss.com","password":"Admin@123"}'
+# → HTTP 200, returns {"token":"eyJ...","user":{...}}
+
+# Token is accepted on a protected endpoint:
+TOKEN=$(curl -s -X POST http://localhost:8001/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@leamss.com","password":"Admin@123"}' \
+  | python3 -c "import sys,json;print(json.load(sys.stdin)['token'])")
+curl -s http://localhost:8001/api/auth/me -H "Authorization: Bearer $TOKEN"
+# → HTTP 200, returns admin profile
+```
+
+**Idempotent re-seed status:** Auto-seed runs on every backend boot
+(`migrations`, `[RBAC]`, `[Attendance]`, `[Phase4A/B/C…]` lines visible in
+`/var/log/supervisor/backend.out.log`). User docs are NOT overwritten on
+re-boot — bcrypt hashes stored in the `password` field (NOT `hashed_password`).
+Verified `$2b$12$…` bcrypt prefix with length 60.
+
+**Frontend login page:** `<REACT_APP_BACKEND_URL>/login` — once frontend is
+RUNNING, browser → preview URL → login form sends to `/api/auth/login`.
+

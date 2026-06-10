@@ -3,6 +3,70 @@
 This file appends every completed phase/feature with dates and verification status.
 
 ---
+### 🔍 Phase 16.7 — Atlas occupation pages: data-driven UNIQUE meta_description (Jun 10, 2026)
+**Tests:** `tests/test_phase167_seo_uniqueness.py` → **9/9 PASS** · `tests/test_phase13_public_atlas.py` regression → **13/13 PASS** + 1 skipped. Audit script (300 sampled pages) → **300/300 unique**, 0 over 200 chars, 0 artefacts.
+
+User Sir reported: Atlas occupation pages had **templated/boilerplate** meta descriptions — every page read *"…is a verified {country} occupation under {classification}. Visa pathways, eligibility criteria, assessing authority, salary band, and how to migrate. Free eligibility check available."* — 720+ pages, near-identical text → Google treats as thin content, hurts long-tail organic ranking.
+
+**Backend (`routers/public_atlas.py`):**
+- NEW `_build_meta_description()` dispatcher + 3 country-aware builders (`_build_au_meta`, `_build_ca_meta`, `_build_nz_meta`) that weave **real per-occupation `occupation_master` fields** into a natural 120-200 char sentence.
+- NEW `_clean_sentence()` helper — strips empty parens, "None" tokens, double commas/spaces, dangling punctuation → graceful fallback when a field is missing.
+- Signal priority per country (Sir's spec, approved):
+  - **🇦🇺 AU**: visa subclasses (PR-priority order: 189 → 190 → 491 → 186 → 482 …) → assessing authority short_name + (full name) → SkillSelect Tier 1 phrase (only if Tier 1) → median salary AUD (only if present)
+  - **🇨🇦 CA**: TEER + label → Express Entry programs eligible (FSWP / CEC / FSTP) → category-based labels (top 2: French/Healthcare/STEM/Trade/Education/Transport/Physicians-CA/Sr Mgrs-CA/Researchers-CA/Military) → Quebec PSTQ flag
+  - **🇳🇿 NZ**: Green List Tier 1 ("Straight to Residence") or Tier 2 ("Work to Residence after 24 months on AEWV") → AEWV-eligible → SMC point base → assessing body (NZQA)
+- Length-trim ladder when over 175 chars: drop salary → drop tier phrase → switch to compact authority (no parens) → drop authority entirely. Hard cap = 200.
+- CTA = `"Check eligibility with LEAMSS."` (subtle brand, not marketing fluff).
+- `/start` static MegaLanding SEO config **untouched** (regression-guarded by test).
+
+**Live samples (real data, real lengths):**
+- 🇦🇺 261313 Software Engineer (165 chars): *"Software Engineer (261313) in Australia: Skilled migration via subclass 189, 190 & 491. Assessed by ACS (Australian Computer Society). Check eligibility with LEAMSS."*
+- 🇨🇦 21231 Software engineers (157 chars): *"Software engineers and designers (NOC 21231) in Canada: TEER 1. Eligible for Express Entry FSWP + CEC. Category-based: French. Check eligibility with LEAMSS."*
+- 🇳🇿 261313 Software Engineer (160 chars): *"Software Engineer (261313) in New Zealand: Green List Tier 1 — Straight to Residence pathway. SMC 6-point base. Assessed by NZQA. Check eligibility with LEAMSS."*
+- 🇨🇦 72310 Carpenters (150 chars): *"Carpenters (NOC 72310) in Canada: TEER 2. Eligible for Express Entry FSWP + CEC + FSTP. Category-based: French + Trade. Check eligibility with LEAMSS."*
+
+**Tests added (`tests/test_phase167_seo_uniqueness.py` — 9):**
+1. `test_descriptions_are_unique_across_countries` — 90 sampled pages (30 AU + 30 CA + 30 NZ), `len(set(metas)) == len(metas)` ✅
+2. `test_descriptions_are_data_driven_au_software_engineer` — 261313 contains "ACS" + a real subclass
+3. `test_descriptions_are_data_driven_ca_software_engineer` — 21231 contains "TEER 1" + "Express Entry" + ("FSWP" or "CEC")
+4. `test_descriptions_are_data_driven_nz_green_list` — 261313 contains "Green List Tier 1" + "Residence"
+5. `test_descriptions_under_200_chars` — 90 sampled, all ≤ 200 (Google SERP cap)
+6. `test_descriptions_no_none_no_empty_brackets` — no "None"/`()`/`[]`/`,,`/`  ` artefacts
+7. `test_descriptions_minimum_length_120` — catches under-stuffed fallbacks
+8. `test_start_static_description_unchanged` — anchor phrase `"60 seconds"` still present in MegaLanding (regression guard)
+9. `test_au_meta_uses_short_authority_label` — ACS / ANMAC / VETASSESS short names surface (not just long legal names)
+
+**Audit script (`scripts/audit_atlas_seo.py` — top-100 per country = 300 pages):**
+```
+Unique descriptions : 300 / 300        (0 duplicates)
+Length min/median/p95/max : 120 / 154 / 176 / 200
+> 200 chars       : 0
+< 120 chars       : 0
+None / empty-parens / double-comma / double-space artefacts : all 0
+✅ PASS
+```
+
+**Environment housekeeping done during this session:**
+- Recreated missing `/app/backend/.env` (MONGO_URL, DB_NAME, FRONTEND_URL, PUBLIC_SITE_URL) + `/app/frontend/.env` (REACT_APP_BACKEND_URL, WDS_SOCKET_PORT)
+- `yarn install` restored frontend node_modules → frontend RUNNING (was BACKOFF due to `craco: not found`)
+- `pip install -r requirements.txt` restored backend deps (rapidfuzz, openpyxl, etc.)
+- Re-seeded `occupation_master`: AU **708** + CA **516** + NZ **243** = **1,467 verified records** (AU was scraped LIVE from Home Affairs SOL via new `scripts/seed_au_from_home_affairs.py`; CA via `noc-canada` scraper from bundled CSV; NZ via `nz-anzsco-seed`)
+- Phase 10/11/12 enrichment scrapers re-applied: ircc-ee-streams, pnp-canada, ircc-round-cutoffs, ca-regional-pilots, quebec-immigration, nz-green-list, nz-aewv-smc, nz-sector-agreements
+- Auto-verify run for CA + NZ (min_coverage_pct=50%) → all 516 CA + 243 NZ flipped `draft → verified`
+- Indexes created on `occupation_master`: `{country_code:1, code:1}` (unique), `status:1`, `{country_code:1, status:1}`, text index on `title + code`
+
+**Login E2E verified:** `POST /api/auth/login` with admin@leamss.com/Admin@123 → 200 + valid JWT → `/api/auth/me` accepts token → 200. Sir's login issue was caused purely by frontend service being in BACKOFF state — backend auth was healthy.
+
+**Files:**
+- MOD `/app/backend/routers/public_atlas.py` — `_build_seo()` now calls `_build_meta_description()`; +6 new helpers (~200 lines)
+- NEW `/app/backend/scripts/seed_au_from_home_affairs.py` — one-time AU base-record seeder from live Home Affairs SOL
+- NEW `/app/backend/tests/test_phase167_seo_uniqueness.py` — 9 tests
+- NEW `/app/scripts/audit_atlas_seo.py` — uniqueness + length audit CLI
+- MOD `/app/memory/test_credentials.md` — appended login verification block (idempotent re-seed details + sample curl)
+
+
+
+---
 ### 🔍 Phase 16.6 — Atlas occupation pages: rich SEO + FAQPage rich-results (Jun 10, 2026)
 **Tests:** `tests/test_phase13_public_atlas.py` → **13 passed, 1 skipped** (updated single-occupation assertion for new `@graph` + faqs). Frontend verified via DOM inspection on `/atlas/au/261313`.
 
