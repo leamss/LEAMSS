@@ -68,10 +68,21 @@ function applySEO(seo) {
     el.setAttribute('content', content);
   };
   upsert('description', seo.meta_description);
+  upsert('keywords', seo.keywords);
+  upsert('robots', seo.robots || 'index, follow, max-image-preview:large, max-snippet:-1');
+  // Open Graph
+  upsert('og:type', seo.og_type || 'website', true);
+  upsert('og:site_name', seo.og_site_name || 'LEAMSS — Ladhani Education & Migration Services', true);
   upsert('og:title', seo.og_title || seo.page_title, true);
   upsert('og:description', seo.og_description || seo.meta_description, true);
   upsert('og:image', seo.og_image, true);
-  upsert('og:type', 'article', true);
+  upsert('og:url', seo.og_url || seo.canonical_url, true);
+  upsert('og:locale', seo.og_locale || 'en_IN', true);
+  // Twitter Card
+  upsert('twitter:card', 'summary_large_image');
+  upsert('twitter:title', seo.og_title || seo.page_title);
+  upsert('twitter:description', seo.og_description || seo.meta_description);
+  upsert('twitter:image', seo.og_image);
   if (seo.canonical_url) {
     let canon = document.head.querySelector('link[rel="canonical"]');
     if (!canon) { canon = document.createElement('link'); canon.rel = 'canonical'; document.head.appendChild(canon); }
@@ -254,19 +265,49 @@ export function MegaLanding() {
     applySEO({
       page_title: 'Find Your Migration Pathway in 60 Seconds — Australia, Canada, New Zealand PR | LEAMSS',
       meta_description: 'Free AI eligibility check + verified ANZSCO/NOC atlas + visa comparison for AU, CA, NZ. 100% refund guarantee on negative skill assessment. India\'s most trusted migration consultancy since 2014.',
+      keywords: 'immigration consultant India, Australia PR visa, Canada Express Entry, New Zealand migration, skilled migration, ANZSCO occupation code, NOC code Canada, CRS points calculator, visa eligibility check, skill assessment, subclass 189 190 491, Express Entry FSWP, NZ Green List, MARA registered agent, PR consultant Mumbai Thane, free eligibility check, LEAMSS',
       canonical_url: `${window.location.origin}/start`,
+      og_url: `${window.location.origin}/start`,
       og_image: LOGO_URL,
       json_ld: {
         "@context": "https://schema.org",
         "@graph": [
           {
             "@type": "Organization",
+            "@id": "https://www.leamss.com/#organization",
             "name": "Ladhani Education & Migration Services (OPC) Pvt. Ltd",
             "alternateName": "LEAMSS",
             "url": "https://www.leamss.com",
             "logo": LOGO_URL,
+            "description": "MARA-registered immigration consultancy for Australia, Canada & New Zealand PR. Trusted since 2014 with a 100% refund guarantee on negative skill assessment.",
+            "foundingDate": "2014",
             "address": { "@type": "PostalAddress", "addressLocality": "Thane", "addressRegion": "Maharashtra", "addressCountry": "IN" },
-            "contactPoint": { "@type": "ContactPoint", "telephone": "+91-77188-82427", "contactType": "customer service" },
+            "contactPoint": { "@type": "ContactPoint", "telephone": "+91-77188-82427", "contactType": "customer service", "areaServed": "IN", "availableLanguage": ["en", "hi"] },
+            "sameAs": ["https://www.leamss.com"],
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://www.leamss.com/#website",
+            "url": "https://www.leamss.com",
+            "name": "LEAMSS",
+            "publisher": { "@id": "https://www.leamss.com/#organization" },
+          },
+          {
+            "@type": "WebPage",
+            "@id": `${window.location.origin}/start#webpage`,
+            "url": `${window.location.origin}/start`,
+            "name": "Find Your Migration Pathway in 60 Seconds — AU, CA, NZ PR",
+            "isPartOf": { "@id": "https://www.leamss.com/#website" },
+            "about": { "@id": "https://www.leamss.com/#organization" },
+          },
+          {
+            "@type": "FAQPage",
+            "@id": `${window.location.origin}/start#faq`,
+            "mainEntity": FAQS.map((f) => ({
+              "@type": "Question",
+              "name": f.q,
+              "acceptedAnswer": { "@type": "Answer", "text": f.a },
+            })),
           },
         ],
       },

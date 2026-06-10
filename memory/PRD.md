@@ -5,6 +5,8 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 
 > **📌 Update (Feb 13, 2026):** `CHANGELOG.md` now tracks all completed phases (incl. **Phase 3A — Attendance & Leave** with full company policies). `ROADMAP.md` lists prioritized backlog. This PRD remains the static reference for original requirements.
 
+> **🔍 Update (Jun 10, 2026) — Phase 16.5 SEO:** `/start` Mega Landing Page made fully SEO-friendly — added `keywords` meta (was missing), enriched static `index.html` (title/description/keywords/OG/Twitter for View Source + social scrapers), upgraded `applySEO()` (keywords + Twitter Card + og:url/site_name/locale + robots), expanded JSON-LD to Organization + WebSite + WebPage + FAQPage, and added `robots.txt` + static `sitemap.xml`. See CHANGELOG Phase 16.5. Full SSR/pre-render deferred to P2.
+
 ### 🎯 Phase 14 — LEAMSS Brand Mega Landing + Atlas Redesign (Jun 9, 2026)
 **Status:** ✅ COMPLETE — visual + functional smoke tests verified · 13/13 backend regression PASS.
 

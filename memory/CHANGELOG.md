@@ -3,6 +3,24 @@
 This file appends every completed phase/feature with dates and verification status.
 
 ---
+### 🔍 Phase 16.5 — Mega Landing Page (/start) SEO hardening (Jun 10, 2026)
+**Verified:** DOM inspection on live `/start` + curl of static HTML/robots/sitemap. Frontend-only change (no backend).
+
+User Sir reported the new `/start` page had "no keywords, meta title, description" → not SEO-friendly. Root cause: (1) `applySEO()` never handled a `keywords` tag, and (2) static `index.html` shipped the generic "Emergent | Fullstack App" title with no keywords/OG/Twitter — so View Source & social scrapers (which don't run JS) saw nothing useful.
+
+**Fixes shipped:**
+- **`public/index.html`** — proper LEAMSS `<title>`, meta description, **keywords**, author, robots, canonical, full **Open Graph** + **Twitter Card** set (so View Source + WhatsApp/FB/LinkedIn/Twitter previews render correctly without JS).
+- **`applySEO()` (LeamssPublic.jsx)** — now injects `keywords`, `robots`, `og:type/site_name/url/locale`, and full **Twitter Card** (`twitter:card/title/description/image`) in addition to existing title/description/OG/canonical.
+- **MegaLanding SEO data** — added rich `keywords` (Australia PR, Canada Express Entry, NZ migration, ANZSCO/NOC, CRS, skill assessment, subclass 189/190/491, MARA, etc.) + `og_url`; expanded JSON-LD `@graph` from Organization-only → **Organization + WebSite + WebPage + FAQPage** (FAQPage built from the 6 landing FAQs for rich-result eligibility).
+- **`public/robots.txt`** (NEW) — allows public `/start` + `/atlas`, disallows app areas (/admin, /partner, /sales, etc.), references sitemap. (Served after Cloudflare's managed block.)
+- **`public/sitemap.xml`** (NEW) — key public marketing URLs (/start, /atlas, /atlas/{au,ca,nz}).
+
+**Live verification:** title, description, keywords, robots, og:title/image/url/site_name, twitter:card/title, canonical all present at runtime; JSON-LD `@graph` types = `[Organization, WebSite, WebPage, FAQPage]`; static index.html + sitemap.xml + custom robots.txt all served correctly.
+
+**Note:** This is a CRA SPA — Google renders JS so client-injected meta is indexed, and the static index.html now covers social scrapers + View Source. Full SSR/pre-render deferred (P2) for 100% bulletproof initial-HTML SEO.
+
+---
+
 ### 🔒 Phase 16.4 — Lead-gated PDF Download + Marketing Scorecards (assign to partner/sales) (Jun 9, 2026)
 **Tests:** `tests/test_eligibility_scoring.py` → **18/18 PASS** (added lead list/assign flow + auth gate). Frontend verified via Playwright (download modal validation + Marketing Scorecards tab + assign dialog).
 
