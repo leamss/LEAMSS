@@ -97,7 +97,125 @@ def _country_meta(code: str) -> Dict[str, str]:
     }.get(code, {"flag": "", "name": code, "classification": "—"})
 
 
-def _build_seo(country: str, doc: Dict[str, Any]) -> Dict[str, Any]:
+LOGO_IMG = "https://leamss.com/public/assets/web/images/logo.webp"
+
+
+def _org_node() -> Dict[str, Any]:
+    """Reusable schema.org Organization node for JSON-LD @graph."""
+    return {
+        "@type": "Organization",
+        "@id": "https://www.leamss.com/#organization",
+        "name": "Ladhani Education & Migration Services (OPC) Pvt. Ltd",
+        "alternateName": "LEAMSS",
+        "url": "https://www.leamss.com",
+        "logo": LOGO_IMG,
+        "foundingDate": "2014",
+        "address": {"@type": "PostalAddress", "addressLocality": "Thane", "addressRegion": "Maharashtra", "addressCountry": "IN"},
+        "contactPoint": {"@type": "ContactPoint", "telephone": "+91-77188-82427", "contactType": "customer service", "areaServed": "IN", "availableLanguage": ["en", "hi"]},
+    }
+
+
+def _build_occupation_faqs(country: str, doc: Dict[str, Any], cm: Dict[str, str]) -> List[Dict[str, str]]:
+    """Deterministic, occupation-specific FAQ pairs — rendered on the page AND
+    emitted as FAQPage JSON-LD so the page is eligible for Google rich results."""
+    code = doc.get("code") or ""
+    title = doc.get("title") or "this occupation"
+    classification = cm["classification"]
+    cname = cm["name"]
+    body = (doc.get("assessing_authority") or {}).get("name")
+    salary = (doc.get("anzsco_profile") or {}).get("median_salary_aud")
+    faqs: List[Dict[str, str]] = []
+
+    faqs.append({
+        "q": f"How can I migrate to {cname} as a {title}?",
+        "a": (
+            f"{title} ({code}) is a verified {cname} occupation under {classification}. "
+            f"You can migrate through skilled-migration visa pathways after a positive skills assessment"
+            f"{f' from {body}' if body else ''}. LEAMSS offers a free eligibility check that maps your "
+            f"age, education, English and experience to the best-fit visa pathway for {title}."
+        ),
+    })
+
+    # Visa pathways (AU / NZ)
+    vp = doc.get("visa_pathways") or {}
+    eligible = [v.get("visa_subclass") for v in (vp.get("visa_eligibility") or []) if v.get("eligible")]
+    if eligible:
+        faqs.append({
+            "q": f"Which visa subclasses can {title} ({code}) apply for?",
+            "a": (
+                f"Based on the latest {classification} rules, {title} ({code}) is eligible for the following "
+                f"visa pathways: {', '.join(str(e) for e in eligible)}. Exact eligibility also depends on your "
+                f"points score, state/territory nomination and English level — confirm with a LEAMSS expert."
+            ),
+        })
+
+    # Assessing authority
+    if body:
+        full = (doc.get("assessing_authority") or {}).get("full_name")
+        faqs.append({
+            "q": f"What is the assessing authority for {title} in {cname}?",
+            "a": (
+                f"{title} ({code}) is assessed by {body}{f' ({full})' if full and full != body else ''}. "
+                f"A positive skills assessment from this authority is required before lodging most skilled-migration "
+                f"applications. LEAMSS guides you through the full documentation and RPL/CDR pathway where applicable."
+            ),
+        })
+
+    # Express Entry (CA)
+    ee = doc.get("ee_eligibility") or {}
+    if ee:
+        progs = []
+        if ee.get("fswp_eligible"): progs.append("FSWP")
+        if ee.get("cec_eligible"): progs.append("CEC")
+        if ee.get("fstp_eligible"): progs.append("FSTP")
+        faqs.append({
+            "q": f"Is {title} ({code}) eligible for Canada Express Entry?",
+            "a": (
+                f"{title} (NOC {code}) is "
+                + (f"eligible for {', '.join(progs)} under Express Entry." if progs
+                   else "currently not eligible under the core Express Entry federal programs.")
+                + " Your final outcome depends on your CRS score, language ability (CLB) and provincial nomination."
+            ),
+        })
+
+    # Green List (NZ)
+    tier = doc.get("nz_green_list_tier")
+    if tier:
+        faqs.append({
+            "q": f"Is {title} on the New Zealand Green List?",
+            "a": (
+                f"Yes — {title} ({code}) is on the New Zealand Green List (Tier {tier}). "
+                + ("Tier 1 offers a Straight to Residence pathway. " if str(tier) == "1"
+                   else "Tier 2 offers a Work to Residence pathway after 24 months on the AEWV. ")
+                + "This is a faster route than the standard SMC 6-point system."
+            ),
+        })
+
+    # Salary (AU)
+    if salary:
+        cur = "AUD" if country == "AU" else "CAD" if country == "CA" else "NZD"
+        faqs.append({
+            "q": f"What salary can a {title} expect in {cname}?",
+            "a": (
+                f"The indicative median salary for {title} ({code}) in {cname} is around {cur} {salary:,}. "
+                f"Actual pay varies by state/region, employer and years of experience."
+            ),
+        })
+
+    # Brand trust FAQ (always)
+    faqs.append({
+        "q": "Does LEAMSS offer a refund guarantee?",
+        "a": (
+            "Yes. LEAMSS offers a written 100% refund guarantee on a negative skill assessment "
+            "(excluding rejections caused by false information provided by the applicant). We are MARA-registered "
+            "and have helped clients migrate since 2014."
+        ),
+    })
+
+    return faqs[:6]
+
+
+def _build_seo(country: str, doc: Dict[str, Any], faqs: Optional[List[Dict[str, str]]] = None) -> Dict[str, Any]:
     """Build SEO meta + JSON-LD structured data for one occupation."""
     cm = _country_meta(country)
     code = doc.get("code") or ""
@@ -106,6 +224,7 @@ def _build_seo(country: str, doc: Dict[str, Any]) -> Dict[str, Any]:
     # which may include sync timestamps like "Legacy migration · 2026-05-22").
     classification = cm["classification"]
     salary_min = (doc.get("anzsco_profile") or {}).get("median_salary_aud")
+    body = (doc.get("assessing_authority") or {}).get("name")
     description = (doc.get("description") or "").strip()[:400] or (
         f"Comprehensive guide to migrating to {cm['name']} as a {title} ({code}). "
         f"Visa pathways, eligibility, salary trends, and assessing-body requirements."
@@ -118,15 +237,31 @@ def _build_seo(country: str, doc: Dict[str, Any]) -> Dict[str, Any]:
         f"Free eligibility check available."
     )
 
+    # Occupation-specific keywords for long-tail organic search.
+    kw = [
+        title, code, f"{title} {cm['name']}", f"{cm['name']} PR",
+        f"{classification} {code}", f"migrate to {cm['name']} as {title}",
+        f"{title} visa pathway", f"{title} skill assessment",
+        f"{title} {cm['name']} immigration",
+    ]
+    if body:
+        kw.append(f"{body} skill assessment")
+    if doc.get("nz_green_list_tier"):
+        kw.append(f"{title} NZ Green List")
+    if doc.get("ee_eligibility"):
+        kw.append(f"NOC {code} Express Entry")
+    kw += ["immigration consultant India", "MARA registered agent", "LEAMSS"]
+    keywords = ", ".join(kw)
+
     # Build absolute URLs — required by Open Graph + Google's canonical spec.
     base = _public_site_url()
     canonical = f"{base}/atlas/{country.lower()}/{code}"
-    og_image = f"{base}/og-atlas.png"
+    og_image = LOGO_IMG
 
-    # JSON-LD structured data per schema.org/Occupation
-    json_ld = {
-        "@context": "https://schema.org/",
+    # JSON-LD structured data — @graph with Occupation + BreadcrumbList + FAQPage + Organization
+    occupation_node = {
         "@type": "Occupation",
+        "@id": f"{canonical}#occupation",
         "name": title,
         "occupationLocation": {"@type": "Country", "name": cm["name"]},
         "occupationalCategory": code,
@@ -140,13 +275,37 @@ def _build_seo(country: str, doc: Dict[str, Any]) -> Dict[str, Any]:
             }] if salary_min else []
         ),
     }
+    breadcrumb_node = {
+        "@type": "BreadcrumbList",
+        "@id": f"{canonical}#breadcrumb",
+        "itemListElement": [
+            {"@type": "ListItem", "position": 1, "name": "Atlas", "item": f"{base}/atlas"},
+            {"@type": "ListItem", "position": 2, "name": cm["name"], "item": f"{base}/atlas/{country.lower()}"},
+            {"@type": "ListItem", "position": 3, "name": f"{title} ({code})", "item": canonical},
+        ],
+    }
+    graph: List[Dict[str, Any]] = [_org_node(), occupation_node, breadcrumb_node]
+    if faqs:
+        graph.append({
+            "@type": "FAQPage",
+            "@id": f"{canonical}#faq",
+            "mainEntity": [
+                {"@type": "Question", "name": f["q"],
+                 "acceptedAnswer": {"@type": "Answer", "text": f["a"]}}
+                for f in faqs
+            ],
+        })
+    json_ld = {"@context": "https://schema.org", "@graph": graph}
+
     return {
         "page_title": page_title,
         "meta_description": meta_desc,
+        "keywords": keywords,
         "canonical_url": canonical,
         "og_title": page_title,
         "og_description": meta_desc,
         "og_image": og_image,
+        "og_url": canonical,
         "json_ld": json_ld,
     }
 
@@ -187,7 +346,22 @@ async def get_featured():
         "seo": {
             "page_title": "Migration Atlas — Australia, Canada & New Zealand Occupation Guide | LEAMSS",
             "meta_description": "Free migration occupation atlas covering ANZSCO + NOC codes. Visa pathways, eligibility, salary trends for AU, CA, NZ. Verified by licensed migration experts.",
+            "keywords": "migration atlas, ANZSCO occupation list, NOC code list, Australia occupation codes, Canada NOC 2021, New Zealand Green List, skilled occupation list, visa pathways AU CA NZ, immigration consultant India, LEAMSS",
             "canonical_url": f"{_public_site_url()}/atlas",
+            "og_url": f"{_public_site_url()}/atlas",
+            "og_image": LOGO_IMG,
+            "json_ld": {
+                "@context": "https://schema.org",
+                "@graph": [
+                    _org_node(),
+                    {
+                        "@type": "CollectionPage",
+                        "name": "Migration Atlas — AU, CA, NZ Occupation Guide",
+                        "url": f"{_public_site_url()}/atlas",
+                        "isPartOf": {"@id": "https://www.leamss.com/#organization"},
+                    },
+                ],
+            },
         },
     }
 
@@ -236,7 +410,26 @@ async def list_country(
                 f"Browse {total} verified {cm['classification']} occupations for {cm['name']} migration. "
                 f"Visa pathways, salary band, assessing authority for each code."
             ),
+            "keywords": (
+                f"{cm['name']} occupation list, {cm['classification']} codes, {cm['name']} skilled occupation list, "
+                f"{cm['name']} PR visa, {cm['name']} migration, immigration consultant India, LEAMSS"
+            ),
             "canonical_url": f"{_public_site_url()}/atlas/{country.lower()}",
+            "og_url": f"{_public_site_url()}/atlas/{country.lower()}",
+            "og_image": LOGO_IMG,
+            "json_ld": {
+                "@context": "https://schema.org",
+                "@graph": [
+                    _org_node(),
+                    {
+                        "@type": "BreadcrumbList",
+                        "itemListElement": [
+                            {"@type": "ListItem", "position": 1, "name": "Atlas", "item": f"{_public_site_url()}/atlas"},
+                            {"@type": "ListItem", "position": 2, "name": cm["name"], "item": f"{_public_site_url()}/atlas/{country.lower()}"},
+                        ],
+                    },
+                ],
+            },
         },
     }
 
@@ -260,6 +453,7 @@ async def get_single_occupation(country: str, code: str):
 
     cm = _country_meta(country)
     safe = _safe_doc(d)
+    faqs = _build_occupation_faqs(country, d, cm)
 
     # Similar codes — same minor_group (3 chars) or major_group (1-2 chars)
     same_minor = (d.get("hierarchy") or {}).get("minor_group") or code[:3]
@@ -299,7 +493,8 @@ async def get_single_occupation(country: str, code: str):
         "occupation": safe,
         "similar": similar,
         "cross_country": cross_country,
-        "seo": _build_seo(country, d),
+        "faqs": faqs,
+        "seo": _build_seo(country, d, faqs),
     }
 
 

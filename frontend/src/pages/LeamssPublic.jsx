@@ -1759,6 +1759,23 @@ export function AtlasOccupationV2() {
               </DetailCard>
             )}
 
+            {data.faqs?.length > 0 && (
+              <DetailCard title="Frequently Asked Questions">
+                <Accordion type="single" collapsible className="space-y-2" data-testid="atlas-occ-faq">
+                  {data.faqs.map((f, i) => (
+                    <AccordionItem key={i} value={`occ-faq-${i}`} className="border rounded-lg px-4" style={{ borderColor: BRAND.border }}>
+                      <AccordionTrigger className="text-left font-semibold py-3 hover:no-underline text-sm" style={{ color: BRAND.ink }} data-testid={`atlas-faq-trigger-${i}`}>
+                        {f.q}
+                      </AccordionTrigger>
+                      <AccordionContent className="text-sm leading-relaxed pb-4" style={{ color: BRAND.body }}>
+                        {f.a}
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+              </DetailCard>
+            )}
+
             {data.similar?.length > 0 && (
               <DetailCard title="Similar Occupations">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">

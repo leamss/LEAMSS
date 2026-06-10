@@ -3,6 +3,20 @@
 This file appends every completed phase/feature with dates and verification status.
 
 ---
+### 🔍 Phase 16.6 — Atlas occupation pages: rich SEO + FAQPage rich-results (Jun 10, 2026)
+**Tests:** `tests/test_phase13_public_atlas.py` → **13 passed, 1 skipped** (updated single-occupation assertion for new `@graph` + faqs). Frontend verified via DOM inspection on `/atlas/au/261313`.
+
+Built on Phase 16.5 — extended the SEO treatment to the **720+ verified occupation pages** (`/atlas/:country/:code`) for long-tail organic traffic (e.g. "261313 software engineer Australia PR").
+
+**Backend (`routers/public_atlas.py`):**
+- `_build_seo()` now returns occupation-specific **`keywords`** + **`og_url`**, fixed broken `og_image` (`/og-atlas.png` → real LEAMSS logo), and a 4-node JSON-LD **`@graph`**: `Organization` + `Occupation` + `BreadcrumbList` + `FAQPage` (was a single Occupation node).
+- NEW `_build_occupation_faqs()` — deterministic, data-driven Q&A per occupation (how to migrate, eligible visa subclasses, assessing authority, Express Entry/Green List, salary, refund guarantee). Returned both as top-level `faqs` (for visible render) and as the FAQPage schema.
+- NEW `_org_node()` reusable Organization node; hub (`/featured`) + country-list (`/{country}/list`) SEO blocks also gained `keywords` + `og_url` + `og_image` + JSON-LD (`CollectionPage`/`BreadcrumbList`).
+
+**Frontend (`LeamssPublic.jsx`):** `AtlasOccupationV2` now renders a visible **"Frequently Asked Questions"** accordion from `data.faqs` (matches the FAQPage schema — Google requires FAQ content to be visible on-page for rich results). `applySEO` (already upgraded in 16.5) flows the new keywords/twitter/og:url/@graph automatically.
+
+---
+
 ### 🔍 Phase 16.5 — Mega Landing Page (/start) SEO hardening (Jun 10, 2026)
 **Verified:** DOM inspection on live `/start` + curl of static HTML/robots/sitemap. Frontend-only change (no backend).
 

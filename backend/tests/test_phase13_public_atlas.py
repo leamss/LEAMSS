@@ -38,7 +38,17 @@ def test_au_261313_single_no_auth():
     # SEO
     assert d["seo"]["page_title"]
     assert d["seo"]["meta_description"]
-    assert d["seo"]["json_ld"]["@type"] == "Occupation"
+    assert d["seo"]["keywords"]
+    assert d["seo"]["og_url"]
+    # JSON-LD now uses @graph with Occupation + BreadcrumbList + FAQPage + Organization
+    graph = d["seo"]["json_ld"]["@graph"]
+    types = {node.get("@type") for node in graph}
+    assert "Occupation" in types
+    assert "FAQPage" in types
+    assert "BreadcrumbList" in types
+    # Occupation-specific FAQs surfaced for the page (visible + schema)
+    assert isinstance(d.get("faqs"), list) and len(d["faqs"]) >= 2
+    assert all("q" in f and "a" in f for f in d["faqs"])
     # Should not expose admin metadata
     assert "verification" not in d["occupation"]
     assert "ai_draft" not in d["occupation"]
