@@ -241,6 +241,12 @@ async def startup():
         # run on every boot — touches only rows where the file is provably absent.
         pruned = await import_storage.prune_orphan_failed_rows(_db_handle)
         print(f"[Phase17.0] Import storage ready · indexes ensured · orphans pruned={pruned}")
+        # Phase 17.1.1 — backfill `verification.source` + `last_scraped_at`
+        # on existing CA + NZ records that were seeded before these fields
+        # became standard. Idempotent; touches only rows lacking the fields.
+        from migrations.phase1711_backfill_verification import run_backfill
+        bf = await run_backfill(_db_handle)
+        print(f"[Phase17.1.1] Verification backfill: {bf}")
     except Exception as e:
         print(f"[Phase17.0 ERROR] {e}")
 

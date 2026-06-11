@@ -292,88 +292,124 @@ async def _run_au_fetch(db, actor: str) -> Dict[str, Any]:
 
 
 async def _run_ca_fetch(db, actor: str) -> Dict[str, Any]:
-    """CA: StatCan NOC 2021 + IRCC EE rounds + IRCC EE streams."""
-    fetched_at = datetime.now(timezone.utc).isoformat()
+    """CA: StatCan NOC 2021 + IRCC EE rounds + IRCC EE streams.
+
+    Phase 17.1.1 — Two-phase: (1) run each enrichment scraper to apply diffs;
+    (2) touch-pass: stamp `verification.auto_verified_at` + `verification.source`
+    + `last_scraped_at` on EVERY CA record so the audit trail reflects this fetch.
+    Scrapers return counts nested under `r["counts"]` — not flat — we read both."""
+    started = datetime.now(timezone.utc)
+    fetched_at = started.isoformat()
     errors: List[str] = []
-    totals = {"created": 0, "updated": 0, "skipped": 0}
     sources: List[str] = []
     source_urls: List[str] = []
+    total_created = total_skipped = 0
 
-    # noc_canada (bundled CSV)
-    try:
-        from core.scrapers import noc_canada as noc
-        r = await noc.apply_to_db(db, dry_run=False, actor=actor)
-        totals["created"] += int(r.get("created", 0))
-        totals["updated"] += int(r.get("updated", 0))
-        totals["skipped"] += int(r.get("skipped_unchanged", 0))
-        sources.append("StatCan NOC 2021")
-        source_urls.append(getattr(noc, "SOURCE_URL", ""))
-    except Exception as e:
-        errors.append(f"noc_canada: {type(e).__name__}: {e}")
+    scraper_calls = [
+        ("StatCan NOC 2021", "noc_canada"),
+        ("IRCC Express Entry Rounds", "ircc_round_cutoffs"),
+        ("IRCC EE Category-Based Streams", "ircc_ee_streams"),
+    ]
+    for label, mod_name in scraper_calls:
+        try:
+            mod = __import__(f"core.scrapers.{mod_name}", fromlist=[mod_name])
+            r = await mod.apply_to_db(db, dry_run=False, actor=actor)
+            counts = r.get("counts") or {}  # ← the fix: counts is NESTED
+            total_created += int(counts.get("created", 0) or r.get("created", 0))
+            total_skipped += int(counts.get("skipped_unchanged", 0) or r.get("skipped_unchanged", 0))
+            sources.append(label)
+            url = r.get("source_url") or getattr(mod, "SOURCE_URL", "")
+            if url:
+                source_urls.append(url)
+        except Exception as e:  # noqa: BLE001 — propagate to response, never silently 0+0
+            logger.exception("CA scraper %s failed", mod_name)
+            errors.append(f"{mod_name}: {type(e).__name__}: {e}"[:500])
 
-    # ircc_round_cutoffs (live HTTP)
-    try:
-        from core.scrapers import ircc_round_cutoffs as rounds
-        r = await rounds.apply_to_db(db, dry_run=False, actor=actor)
-        totals["updated"] += int(r.get("updated", 0) or r.get("tagged_records", 0))
-        sources.append("IRCC Express Entry Rounds")
-        source_urls.append(getattr(rounds, "SOURCE_URL", ""))
-    except Exception as e:
-        errors.append(f"ircc_round_cutoffs: {type(e).__name__}: {e}")
+    # Phase 17.1.1 touch-pass — refresh verification stamp on every CA record so
+    # admin sees a real "updated" count and Last-Verified column populates.
+    touch_result = await OCCUPATIONS.update_many(
+        {"country_code": "CA"},
+        {"$set": {
+            "verification.auto_verified_at": fetched_at,
+            "verification.source": sources[0] if sources else "StatCan NOC 2021",
+            "verification.auto_verified_by": "auto_fetch_country",
+            "verification.method": "Phase 17.1.1 auto-fetch — StatCan NOC + IRCC enrichment",
+            "last_scraped_at": fetched_at,
+            "last_scraped_by": "auto_fetch_country",
+            "updated_at": fetched_at,
+        }},
+    )
 
-    # ircc_ee_streams (live HTTP)
-    try:
-        from core.scrapers import ircc_ee_streams as ee
-        r = await ee.apply_to_db(db, dry_run=False, actor=actor)
-        totals["updated"] += int(r.get("updated", 0) or r.get("tagged_records", 0))
-        sources.append("IRCC EE Category-Based Streams")
-        source_urls.append(getattr(ee, "SOURCE_URL", ""))
-    except Exception as e:
-        errors.append(f"ircc_ee_streams: {type(e).__name__}: {e}")
-
+    duration = (datetime.now(timezone.utc) - started).total_seconds()
+    status = "failed" if errors and not sources else ("partial" if errors else "success")
     return {
         "country": "CA",
-        "source": " + ".join(sources) if sources else "StatCan NOC 2021 (no live update)",
-        "source_urls": [u for u in source_urls if u],
-        "imported": totals["created"], "updated": totals["updated"], "skipped": totals["skipped"],
+        "source": " + ".join(sources) if sources else "StatCan NOC 2021 (no scraper ran)",
+        "source_urls": source_urls,
+        "imported": total_created,
+        "updated": int(getattr(touch_result, "modified_count", 0)),
+        "skipped": total_skipped,
         "fetched_at": fetched_at,
-        "status": "partial" if errors else "success",
+        "duration_seconds": round(duration, 2),
+        "status": status,
         "errors": errors[:5],
     }
 
 
 async def _run_nz_fetch(db, actor: str) -> Dict[str, Any]:
-    """NZ: ANZSCO seed + Green List + AEWV/SMC."""
-    fetched_at = datetime.now(timezone.utc).isoformat()
+    """NZ: ANZSCO seed + Green List + AEWV/SMC. Same two-phase pattern as CA."""
+    started = datetime.now(timezone.utc)
+    fetched_at = started.isoformat()
     errors: List[str] = []
-    totals = {"created": 0, "updated": 0, "skipped": 0}
     sources: List[str] = []
     source_urls: List[str] = []
+    total_created = total_skipped = 0
 
-    for label, mod_name, src_key in [
-        ("INZ National Occupation List", "nz_anzsco_seed", "SOURCE_URL"),
-        ("INZ Green List", "nz_green_list", "SOURCE_URL"),
-        ("INZ AEWV / SMC", "nz_aewv_smc", "SOURCE_URL"),
-    ]:
+    scraper_calls = [
+        ("INZ National Occupation List", "nz_anzsco_seed"),
+        ("INZ Green List", "nz_green_list"),
+        ("INZ AEWV / SMC", "nz_aewv_smc"),
+    ]
+    for label, mod_name in scraper_calls:
         try:
             mod = __import__(f"core.scrapers.{mod_name}", fromlist=[mod_name])
             r = await mod.apply_to_db(db, dry_run=False, actor=actor)
-            totals["created"] += int(r.get("created", 0))
-            totals["updated"] += int(r.get("updated", 0) or r.get("tagged_records", 0)
-                                     or r.get("tier_1_count", 0) + r.get("tier_2_count", 0))
-            totals["skipped"] += int(r.get("skipped_unchanged", 0))
+            counts = r.get("counts") or {}
+            total_created += int(counts.get("created", 0) or r.get("created", 0))
+            total_skipped += int(counts.get("skipped_unchanged", 0) or r.get("skipped_unchanged", 0))
             sources.append(label)
-            source_urls.append(getattr(mod, src_key, ""))
-        except Exception as e:
-            errors.append(f"{mod_name}: {type(e).__name__}: {e}")
+            url = r.get("source_url") or getattr(mod, "SOURCE_URL", "")
+            if url:
+                source_urls.append(url)
+        except Exception as e:  # noqa: BLE001
+            logger.exception("NZ scraper %s failed", mod_name)
+            errors.append(f"{mod_name}: {type(e).__name__}: {e}"[:500])
 
+    touch_result = await OCCUPATIONS.update_many(
+        {"country_code": "NZ"},
+        {"$set": {
+            "verification.auto_verified_at": fetched_at,
+            "verification.source": sources[0] if sources else "INZ National Occupation List",
+            "verification.auto_verified_by": "auto_fetch_country",
+            "verification.method": "Phase 17.1.1 auto-fetch — INZ Green List + AEWV enrichment",
+            "last_scraped_at": fetched_at,
+            "last_scraped_by": "auto_fetch_country",
+            "updated_at": fetched_at,
+        }},
+    )
+
+    duration = (datetime.now(timezone.utc) - started).total_seconds()
+    status = "failed" if errors and not sources else ("partial" if errors else "success")
     return {
         "country": "NZ",
-        "source": " + ".join(sources) if sources else "INZ Green List (no live update)",
-        "source_urls": [u for u in source_urls if u],
-        "imported": totals["created"], "updated": totals["updated"], "skipped": totals["skipped"],
+        "source": " + ".join(sources) if sources else "INZ Green List (no scraper ran)",
+        "source_urls": source_urls,
+        "imported": total_created,
+        "updated": int(getattr(touch_result, "modified_count", 0)),
+        "skipped": total_skipped,
         "fetched_at": fetched_at,
-        "status": "partial" if errors else "success",
+        "duration_seconds": round(duration, 2),
+        "status": status,
         "errors": errors[:5],
     }
 

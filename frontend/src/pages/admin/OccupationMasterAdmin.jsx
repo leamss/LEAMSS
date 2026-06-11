@@ -79,7 +79,14 @@ export default function OccupationMasterAdmin() {
 // ════════════════════════════════════════════════════════════════
 function BrowseAndVerify({ headers }) {
   const [list, setList] = useState([]);
-  const [filters, setFilters] = useState({ status: 'draft', country: '', search: '' });
+  // Phase 17.1.1 — default to "all statuses" so the Edit link from /admin/verify-hub
+  // lands on a populated list (1467 records are status=verified). URL params override.
+  const searchParams = new URLSearchParams(window.location.search);
+  const [filters, setFilters] = useState({
+    status: searchParams.get('status') || '',
+    country: searchParams.get('country') || '',
+    search: searchParams.get('code') || searchParams.get('search') || '',
+  });
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
 
