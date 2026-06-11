@@ -207,6 +207,39 @@ async def startup():
     except Exception as e:
         print(f"[Phase4C-Unify ERROR] {e}")
 
+    # Phase 7.1 KB Unification piggyback (Phase 17.0) — idempotent seed of
+    # UK + USA country_templates, default LEAMSS Protection Policy, and status
+    # backfills. Restores the Verification Hub KPI tiles after a fresh DB.
+    try:
+        from migrations.phase71_kb_unification import run_idempotent as run_phase71
+        from core.database import db as _db_handle
+        pr71 = await run_phase71(_db_handle)
+        print(f"[Phase7.1] KB unification {pr71['status']}: "
+              f"uk={pr71['uk_template']}, usa={pr71['usa_template']}, "
+              f"policy={pr71['default_policy']}")
+    except Exception as e:
+        print(f"[Phase7.1 ERROR] {e}")
+
+    # Phase 6.9.5 — AU/CA/NZ country_templates from legacy country_rules
+    # (idempotent — only inserts if missing). Runs after Phase 7.1 so the
+    # template count reaches 5 (AU/CA/NZ/UK/USA) on a fresh DB.
+    try:
+        from core.migrations.country_template_migrate import main as run_country_template_migrate
+        await run_country_template_migrate(dry_run=False)
+        print("[Phase6.9.5] AU/CA/NZ country_templates migrated/skipped")
+    except Exception as e:
+        print(f"[Phase6.9.5 ERROR] {e}")
+
+    # Phase 17.0 — ensure persistent-import storage dirs + indexes exist
+    try:
+        from core import import_storage
+        import_storage.ensure_storage_dirs()
+        from core.database import db as _db_handle
+        await import_storage.ensure_indexes(_db_handle)
+        print("[Phase17.0] Import storage ready · indexes ensured")
+    except Exception as e:
+        print(f"[Phase17.0 ERROR] {e}")
+
 
 async def seed_database():
     """Seed the database with initial data"""

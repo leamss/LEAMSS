@@ -11,7 +11,7 @@
  *
  * Route: /admin/verify-hub
  */
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -23,10 +23,12 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
   ArrowLeft, ShieldCheck, FileText, Globe2, FileBadge, Loader2,
   Upload, Database, Sparkles, AlertCircle, Clock, ExternalLink, RefreshCw,
+  Cloud, Info,
 } from 'lucide-react';
 import { formatApiError } from '@/lib/apiErrors';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const ANZSCO_SOURCE_TYPE = 'anzsco_4digit';
 
 const STATUS_PILL = {
   active: 'bg-emerald-100 text-emerald-700',
@@ -37,16 +39,42 @@ const STATUS_PILL = {
   hidden: 'bg-slate-200 text-slate-600',
 };
 
+// Phase 17.0 — Human-friendly "x minutes ago" without a heavy dep.
+function relativeTime(iso) {
+  if (!iso) return '';
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return '';
+  const diff = (Date.now() - t) / 1000;
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)} hr ago`;
+  if (diff < 604800) return `${Math.floor(diff / 86400)} d ago`;
+  return new Date(iso).toLocaleDateString();
+}
+
+function formatBytes(n) {
+  if (!n) return '';
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export default function VerificationHub() {
   const navigate = useNavigate();
   const token = localStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}` };
+  const fileInputRef = useRef(null);
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [autoFetching, setAutoFetching] = useState(false);
+  const [latestFile, setLatestFile] = useState(null);
+  // Phase 17.0 — banner shown when /import-anzsco-default returns 409 NO_PRIOR_FILE
+  const [noPriorBanner, setNoPriorBanner] = useState(null);
 
-  const load = useCallback(async () => {
+  const loadHub = useCallback(async () => {
     setLoading(true);
     try {
       const r = await axios.get(`${API}/kb-unified/verification-hub`, { headers });
@@ -56,18 +84,93 @@ export default function VerificationHub() {
     } finally { setLoading(false); }
   }, [headers]);
 
-  useEffect(() => { load(); }, []);
+  const loadLatest = useCallback(async () => {
+    try {
+      const r = await axios.get(
+        `${API}/kb-unified/import-files/latest?source_type=${ANZSCO_SOURCE_TYPE}`,
+        { headers },
+      );
+      setLatestFile(r.data?.file || null);
+    } catch (e) {
+      // Non-fatal — button will just default to upload behaviour.
+      console.warn('latest-file fetch failed', e);
+    }
+  }, [headers]);
 
+  useEffect(() => { loadHub(); loadLatest(); /* eslint-disable-next-line */ }, []);
+
+  // Phase 17.0 — REIMPORT: re-runs against latest stored file. If backend says
+  // NO_PRIOR_FILE (race condition or storage cleared) we surface a banner with
+  // action choices rather than a toast-and-forget error.
   const reimportExcel = async () => {
-    if (!window.confirm('Re-run Feb 2026 ANZSCO Excel import? This will upsert all 1,236 codes (existing data preserved, new data added).')) return;
+    if (!latestFile) {
+      // No prior file → trigger upload picker directly (no broken-error UX).
+      fileInputRef.current?.click();
+      return;
+    }
+    if (!window.confirm(`Re-import ${latestFile.filename_original}? This will upsert all ANZSCO 4-digit codes (verified data preserved).`)) return;
     setImporting(true);
+    setNoPriorBanner(null);
     try {
       const r = await axios.post(`${API}/kb-unified/import-anzsco-default`, {}, { headers });
-      toast.success(`✓ Imported ${r.data.imported} new + updated ${r.data.updated} (skipped ${r.data.skipped} errors) in ${r.data.duration_seconds}s`);
-      load();
+      const s = r.data?.summary || {};
+      const fn = r.data?.file?.filename_original || latestFile.filename_original;
+      toast.success(`✓ Re-imported ${fn} — ${s.imported || 0} new + ${s.updated || 0} updated (${s.skipped || 0} skipped, ${s.duration_seconds || 0}s)`);
+      await Promise.all([loadHub(), loadLatest()]);
     } catch (e) {
-      toast.error(formatApiError(e, 'Import failed'));
+      // 409 NO_PRIOR_FILE — show structured banner, not a toast.
+      if (e?.response?.status === 409 && e?.response?.data?.code === 'NO_PRIOR_FILE') {
+        setNoPriorBanner(e.response.data);
+      } else {
+        toast.error(formatApiError(e, 'Re-import failed'));
+      }
     } finally { setImporting(false); }
+  };
+
+  // Phase 17.0 — UPLOAD path: multipart POST to /import-anzsco-excel which
+  // both persists the file AND runs the import in one shot.
+  const handleFilePicked = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith('.xlsx')) {
+      toast.error('Only .xlsx files are supported');
+      return;
+    }
+    setUploading(true);
+    setNoPriorBanner(null);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const r = await axios.post(`${API}/kb-unified/import-anzsco-excel`, fd, {
+        headers: { ...headers, 'Content-Type': 'multipart/form-data' },
+      });
+      const s = r.data?.summary || {};
+      toast.success(`✓ Uploaded ${file.name} — ${s.imported || 0} new + ${s.updated || 0} updated in ${s.duration_seconds || 0}s`);
+      await Promise.all([loadHub(), loadLatest()]);
+    } catch (err) {
+      toast.error(formatApiError(err, 'Upload failed'));
+    } finally {
+      setUploading(false);
+      // Reset input so picking the same file again still fires `onChange`.
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  // Phase 17.0 — AUTO-FETCH: live scrape AU Home Affairs Skilled Occupation
+  // List. Updates `occupation_master` (6-digit AU codes), NOT the 4-digit
+  // ANZSCO master — the response label below reflects this honestly.
+  const autoFetchAnzsco = async () => {
+    if (!window.confirm("Yeh AU occupations ko live Home Affairs data se update karega. Continue?")) return;
+    setAutoFetching(true);
+    setNoPriorBanner(null);
+    try {
+      const r = await axios.post(`${API}/kb-unified/auto-fetch-anzsco`, {}, { headers });
+      const d = r.data || {};
+      toast.success(`✓ ${d.source || 'Home Affairs'} — ${d.imported || 0} new + ${d.updated || 0} updated (${d.target_collection || 'occupation_master'})`);
+      await loadHub();
+    } catch (e) {
+      toast.error(formatApiError(e, 'Auto-fetch failed'));
+    } finally { setAutoFetching(false); }
   };
 
   if (loading) {
@@ -116,6 +219,14 @@ export default function VerificationHub() {
     },
   ];
 
+  // Phase 17.0 — Dynamic primary-button label/icon based on whether a file
+  // has ever been stored. NEVER renders any path-like string — only the
+  // sanitised `filename_original` reaches the user.
+  const primaryBtnLabel = latestFile ? 'Re-import Excel' : 'Upload Excel';
+  const primaryBtnIcon = latestFile ? RefreshCw : Upload;
+  const PrimaryIcon = primaryBtnIcon;
+  const primaryBusy = importing || uploading;
+
   return (
     <div className="min-h-screen bg-slate-50 p-6" data-testid="verification-hub">
       <div className="max-w-7xl mx-auto space-y-5">
@@ -128,44 +239,122 @@ export default function VerificationHub() {
             <h1 className="text-2xl font-bold flex items-center gap-2 text-indigo-900">
               <ShieldCheck className="h-7 w-7 text-indigo-600" />
               Verification Hub
-              <Badge className="bg-indigo-600 text-white text-[9px]">Phase 7.1</Badge>
+              <Badge className="bg-indigo-600 text-white text-[9px]">Phase 17.0</Badge>
             </h1>
             <p className="text-xs text-slate-500 mt-0.5">
               Single dashboard for all Knowledge Base verifications — Occupations · Country Templates · Country Guides · Protection Policies
             </p>
           </div>
-          <Button variant="outline" size="sm" onClick={load} data-testid="refresh-btn">
+          <Button variant="outline" size="sm" onClick={() => { loadHub(); loadLatest(); }} data-testid="refresh-btn">
             <RefreshCw className="h-4 w-4 mr-1" />Refresh
           </Button>
         </div>
 
+        {/* Hidden file input — opened programmatically */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".xlsx"
+          onChange={handleFilePicked}
+          className="hidden"
+          data-testid="anzsco-file-input"
+        />
+
+        {/* 409 NO_PRIOR_FILE banner (non-modal) */}
+        {noPriorBanner && (
+          <Card className="p-4 border-l-4 border-l-amber-500 bg-amber-50/40" data-testid="no-prior-banner">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-amber-900">{noPriorBanner.message}</p>
+                <div className="flex flex-wrap gap-2 mt-3">
+                  {(noPriorBanner.actions || []).map((a, i) => (
+                    <Button
+                      key={i}
+                      size="sm"
+                      variant={a.kind === 'upload' ? 'default' : 'outline'}
+                      onClick={() => {
+                        if (a.kind === 'upload') fileInputRef.current?.click();
+                        else if (a.kind === 'fetch_latest') autoFetchAnzsco();
+                        setNoPriorBanner(null);
+                      }}
+                      data-testid={`no-prior-action-${a.kind}`}
+                    >
+                      {a.kind === 'upload' ? <Upload className="h-3.5 w-3.5 mr-1" /> : <Cloud className="h-3.5 w-3.5 mr-1" />}
+                      {a.label}
+                    </Button>
+                  ))}
+                  <Button size="sm" variant="ghost" onClick={() => setNoPriorBanner(null)}>Dismiss</Button>
+                </div>
+              </div>
+            </div>
+          </Card>
+        )}
+
         {/* ANZSCO Master Card */}
         <Card className="p-4 border-l-4 border-l-indigo-500 bg-gradient-to-r from-indigo-50/40 to-white" data-testid="anzsco-master-card">
           <div className="flex items-center justify-between flex-wrap gap-3">
-            <div className="flex items-center gap-3">
-              <div className="h-12 w-12 rounded-lg bg-indigo-600 flex items-center justify-center">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="h-12 w-12 rounded-lg bg-indigo-600 flex items-center justify-center shrink-0">
                 <Database className="h-6 w-6 text-white" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <h3 className="text-base font-bold text-indigo-900">ANZSCO 4-Digit Master</h3>
                 <p className="text-xs text-slate-600">
                   <strong className="text-indigo-700">{summary.anzsco_4digit_master.total_codes.toLocaleString()}</strong> codes loaded ·
                   Source: <span className="font-mono">{summary.anzsco_4digit_master.data_source}</span>
                 </p>
-                <a href="https://www.jobsandskills.gov.au/data/occupation-and-industry-profiles/occupations" target="_blank" rel="noopener noreferrer" className="text-[10px] text-indigo-600 hover:underline flex items-center gap-1 mt-0.5">
+                {latestFile ? (
+                  <p
+                    className="text-[10px] text-slate-500 mt-0.5 truncate"
+                    data-testid="verif-hub-latest-file-meta"
+                    title={latestFile.filename_original}
+                  >
+                    <Clock className="inline h-3 w-3 mr-0.5" />
+                    Last upload: <strong>{latestFile.filename_original}</strong>
+                    {' · '}{relativeTime(latestFile.uploaded_at)}
+                    {latestFile.size_bytes ? ` · ${formatBytes(latestFile.size_bytes)}` : ''}
+                    {latestFile.uploaded_by_name ? ` · by ${latestFile.uploaded_by_name}` : ''}
+                  </p>
+                ) : (
+                  <p className="text-[10px] text-slate-500 mt-0.5">
+                    <Info className="inline h-3 w-3 mr-0.5" />
+                    No Excel uploaded yet — click "Upload Excel" or "Fetch Latest".
+                  </p>
+                )}
+                <a
+                  href="https://www.jobsandskills.gov.au/data/occupation-and-industry-profiles/occupations"
+                  target="_blank" rel="noopener noreferrer"
+                  className="text-[10px] text-indigo-600 hover:underline flex items-center gap-1 mt-0.5"
+                >
                   <ExternalLink className="h-3 w-3" />jobsandskills.gov.au
                 </a>
               </div>
             </div>
-            <Button
-              onClick={reimportExcel}
-              disabled={importing}
-              className="bg-indigo-600 hover:bg-indigo-700"
-              data-testid="reimport-excel-btn"
-            >
-              {importing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
-              {importing ? 'Importing…' : 'Re-import Excel'}
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                onClick={reimportExcel}
+                disabled={primaryBusy}
+                className="bg-indigo-600 hover:bg-indigo-700"
+                data-testid={latestFile ? 'verif-hub-reimport-btn' : 'verif-hub-upload-btn'}
+              >
+                {primaryBusy
+                  ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  : <PrimaryIcon className="h-4 w-4 mr-2" />}
+                {primaryBusy ? (importing ? 'Importing…' : 'Uploading…') : primaryBtnLabel}
+              </Button>
+              <Button
+                onClick={autoFetchAnzsco}
+                disabled={autoFetching}
+                variant="outline"
+                className="border-indigo-300 text-indigo-700 hover:bg-indigo-50"
+                data-testid="verif-hub-autofetch-btn"
+                title="Live scrape AU Skilled Occupation List from Home Affairs"
+              >
+                {autoFetching ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Cloud className="h-4 w-4 mr-2" />}
+                {autoFetching ? 'Fetching…' : 'Fetch Latest from Official Source'}
+              </Button>
+            </div>
           </div>
         </Card>
 

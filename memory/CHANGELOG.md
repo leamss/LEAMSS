@@ -3,6 +3,61 @@
 This file appends every completed phase/feature with dates and verification status.
 
 ---
+### 🛠️ Phase 17.0 — Verification Hub "Re-import Excel" UX hardening + persistent file storage (Jun 11, 2026)
+**Tests:** `tests/test_phase170_persistent_import.py` → **8/8 PASS** in 2.05s. Phase 13 + 16.7 regression → **25 passed + 1 skipped**. No path leak across all 6 sanitisation checks.
+
+**Reported bug:** Verification Hub's "Re-import Excel" button hardcoded `DEFAULT_EXCEL_PATH = "/tmp/anzsco_feb2026.xlsx"`. After every container restart, `/tmp` wipes, button breaks → returned a naked error `"Default Excel file not found at /tmp/anzsco_feb2026.xlsx. Use /import-anzsco-excel to upload."` (server path leak + dead-end UX).
+
+**Backend changes (`routers/kb_unified.py` + new `core/import_storage.py`):**
+- 🆕 Persistent storage at `/app/backend/storage/imports/anzsco_4digit/` (mode 700, owner-only). Filename pattern `anzsco_4digit_{YYYYMMDD_HHMMSS}_{sanitised_original}.xlsx`. Storage root now in `.gitignore` so artefacts never reach version control.
+- 🆕 New `import_files` Mongo collection — full audit trail per upload (uuid, `filename_original`, `filename_stored`, sha256, size, `uploaded_by`/`name`, `uploaded_at`, `is_latest`, `status`, `last_import_summary`, `last_imported_at`). Indexes: `(source_type, is_latest)`, `uploaded_at desc`, `id` unique. Retention = newest 10 per source_type (older artefacts auto-pruned from disk + DB).
+- 🔄 `POST /api/kb-unified/import-anzsco-excel` — now writes bytes to durable storage via `import_storage.save_import_file()`, computes sha256, dedupe-vs-latest (same hash → reuse file_id, no duplicate write/row), demotes any prior `is_latest`, then runs the importer against the **stored path** (no more `/tmp` temp file). Response stripped through `public_view()` whitelist so `storage_path` NEVER reaches the client.
+- 🔄 `POST /api/kb-unified/import-anzsco-default` — completely replaced. No more `/tmp` lookup. Now: if a stored latest exists → re-runs importer against it; if NO prior file (or on-disk artefact missing) → returns **HTTP 409 `{code:"NO_PRIOR_FILE", message:"...", actions:[{kind:"upload"},{kind:"fetch_latest", endpoint:"/api/kb-unified/auto-fetch-anzsco"}]}`** — structured action choices that the frontend renders as a banner with buttons, NOT a toast-and-forget error.
+- 🆕 `POST /api/kb-unified/auto-fetch-anzsco` — live scrapes AU Home Affairs Skilled Occupation List (708 codes), upserts into `occupation_master` (NOT `anzsco_4digit_master` — response carries honest `target_collection` label so frontend can render the right "what got updated" copy).
+- 🆕 `GET /api/kb-unified/import-files/latest?source_type=…` — returns latest file metadata or `{file:null}` for empty-state.
+- 🆕 `GET /api/kb-unified/import-files?source_type=…&limit=20` — paginated history for the upcoming Phase 17.1 history UI.
+- Centralised `_no_prior_file_response()` helper guarantees that error never contains any path string.
+
+**Frontend changes (`pages/admin/VerificationHub.jsx`):**
+- Button label is now dynamic — `"Re-import Excel"` (with `{filename_original} · {relative time} · {size}` subtext) when a stored file exists; `"Upload Excel"` (opens hidden `<input type="file" accept=".xlsx">` picker directly) when none.
+- New secondary button: **"Fetch Latest from Official Source"** (always visible). Confirm dialog in Hinglish: "Yeh AU occupations ko live Home Affairs data se update karega. Continue?"
+- 409 `NO_PRIOR_FILE` rendered as a **non-modal amber banner** with two action buttons matching `actions[]` from the response — clicking "Upload Excel" opens picker, clicking "Fetch Latest" calls auto-fetch. Dismissable.
+- Loads latest-file metadata on mount + after every import (`/import-files/latest`).
+- `data-testid` on every new control: `verif-hub-reimport-btn`, `verif-hub-upload-btn`, `verif-hub-autofetch-btn`, `verif-hub-latest-file-meta`, `anzsco-file-input`, `no-prior-banner`, `no-prior-action-upload`, `no-prior-action-fetch_latest`.
+- Phase 7.1 → Phase 17.0 badge in header.
+
+**Piggyback fix — Phase 7.1 seeders wired into boot (`server.py`):**
+- Added `await run_phase71(_db_handle)` after Phase 4C unification → seeds UK + USA `country_templates` + default LEAMSS `protection_policy` (idempotent). New `run_idempotent(database)` wrapper added to `migrations/phase71_kb_unification.py`.
+- Added `await run_country_template_migrate(dry_run=False)` → seeds AU/CA/NZ templates from `country_rules`. Reaches the PRD-promised **5 templates total**.
+- Added `import_storage.ensure_storage_dirs()` + `ensure_indexes()` → storage tree + Mongo indexes created on every boot.
+- Boot log now shows: `[Phase7.1] KB unification ok: uk=existed, usa=existed, policy=existed` · `[Phase6.9.5] AU/CA/NZ country_templates migrated/skipped` · `[Phase17.0] Import storage ready · indexes ensured`.
+- Result: Verification Hub KPI cards now show **Occupations 1467 / Country Templates 5 / Country Guides 5 / Protection Policies 1** (was 1467/0/5/0 pre-fix).
+
+**Tests added (`tests/test_phase170_persistent_import.py` — 8/8 PASS):**
+1. `test_1_upload_creates_import_files_row` — POST xlsx → DB row + on-disk file exists; `storage_path` NOT in response
+2. `test_2_second_upload_demotes_first` — only one `is_latest=True` after two uploads; newer wins
+3. `test_3_same_hash_dedupe` — identical bytes reuse file_id (no duplicate rows / disk write)
+4. `test_4_reimport_with_no_prior_returns_409` — HTTP 409 + `code=NO_PRIOR_FILE` + 2 actions (`upload` + `fetch_latest`) + no `/tmp` substring anywhere
+5. `test_5_reimport_with_prior_works` — uploads then re-imports stored file successfully
+6. `test_6_response_never_leaks_server_path` — sweeps 6 endpoints with `_assert_no_path_leak()` (checks `/tmp/`, `/app/backend/storage`, `storage_path` across every response)
+7. `test_7_auto_fetch_anzsco_runs` — live Home Affairs scrape returns 708 AU codes refreshed (skip-on-502 for offline envs)
+8. `test_8_phase71_seeder_idempotent` — two consecutive `run_idempotent(db)` calls → exactly 5 templates (AU/CA/NZ/UK/USA) + 1 default policy, no dupes
+
+**Path-leak audit (user-visible strings only):**
+Greps confirmed the only remaining `/tmp` reference in user-facing flows is `routers/agreement_templates.py:264` (`tmp_path = f"/tmp/{uuid.uuid4().hex}.docx"`) — used internally for DOCX rendering and never echoed to clients. Logged for follow-up but out of scope for Phase 17.0.
+
+**Files:**
+- NEW `/app/backend/core/import_storage.py` (~240 lines — save / dedupe / list / prune / public_view / ensure_indexes / ensure_storage_dirs)
+- MOD `/app/backend/routers/kb_unified.py` — 5 endpoints touched/added (~210 net lines)
+- MOD `/app/backend/migrations/phase71_kb_unification.py` — added `run_idempotent(database)` wrapper
+- MOD `/app/backend/server.py` — wired Phase 7.1 + Phase 6.9.5 seeders + Phase 17.0 storage init into startup
+- MOD `/app/frontend/src/pages/admin/VerificationHub.jsx` — new state (`latestFile`, `noPriorBanner`, `uploading`, `autoFetching`), 3 button paths, file picker, banner UI
+- NEW `/app/backend/tests/test_phase170_persistent_import.py` — 8 tests
+- MOD `/app/.gitignore` — `backend/storage/` excluded
+
+
+
+---
 ### 🔍 Phase 16.7 — Atlas occupation pages: data-driven UNIQUE meta_description (Jun 10, 2026)
 **Tests:** `tests/test_phase167_seo_uniqueness.py` → **9/9 PASS** · `tests/test_phase13_public_atlas.py` regression → **13/13 PASS** + 1 skipped. Audit script (300 sampled pages) → **300/300 unique**, 0 over 200 chars, 0 artefacts.
 

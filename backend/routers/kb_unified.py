@@ -1,11 +1,17 @@
 """Phase 7.1 — KB Unification: Excel Import + Verification Hub.
+Phase 17.0 — Persistent file storage + sanitised error messages + Auto-Fetch.
 
 Endpoints under /api/kb-unified:
-  POST   /import-anzsco-excel       — multipart upload of Feb 2026 ABS Excel
-  POST   /import-anzsco-default     — admin one-click import using bundled file (/tmp/anzsco_feb2026.xlsx)
-  GET    /verification-hub          — unified count of draft/verified items across 4 entity types
-  GET    /anzsco/{four_digit_code}  — single 4-digit profile (joined view)
-  GET    /occupation-full/{code}    — 6-digit occupation_master + 4-digit profile joined
+  POST   /import-anzsco-excel       — multipart upload → persistent storage → import
+  POST   /import-anzsco-default     — re-run import using LATEST stored file
+                                      (returns 409 NO_PRIOR_FILE with action choices
+                                       when no stored file exists)
+  POST   /auto-fetch-anzsco         — live-fetch AU codes from Home Affairs SOL
+  GET    /import-files/latest       — metadata of the most-recent stored file
+  GET    /import-files              — paginated history
+  GET    /verification-hub          — unified count of draft/verified items
+  GET    /anzsco/{four_digit_code}  — single 4-digit profile
+  GET    /occupation-full/{code}    — 6-digit + 4-digit + template joined
 """
 import logging
 import os
@@ -13,13 +19,16 @@ import tempfile
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi.responses import JSONResponse
 
 from core.anzsco_excel_importer import (
     ANZSCO_4DIGIT, import_anzsco_excel, get_4digit_parent_code,
 )
 from core.auth import get_current_user
 from core.database import db
+from core import import_storage
+from core.scrapers import home_affairs as home_affairs_scraper
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +40,9 @@ COUNTRY_GUIDES = db["country_guides"]
 POLICIES = db["protection_policies"]
 
 ADMIN_ROLES = {"admin", "admin_owner"}
-DEFAULT_EXCEL_PATH = "/tmp/anzsco_feb2026.xlsx"
+
+# Phase 17.0 — file metadata lives in MongoDB; bytes live under STORAGE_ROOT.
+ANZSCO_SOURCE_TYPE = "anzsco_4digit"
 
 
 def _is_admin(user: dict) -> bool:
@@ -39,42 +50,242 @@ def _is_admin(user: dict) -> bool:
     return role in ADMIN_ROLES or "*" in (user.get("permissions") or [])
 
 
+def _user_display_name(user: dict) -> str:
+    return user.get("name") or user.get("email") or user.get("id") or "admin"
+
+
+def _no_prior_file_response(filename_hint: Optional[str] = None) -> JSONResponse:
+    """Return a structured 409 the frontend can render as an action choice
+    rather than a dead-end error. NEVER include any server path string."""
+    msg = (
+        "No previously imported Excel file was found. "
+        "Please upload an ANZSCO Excel file to continue."
+    )
+    return JSONResponse(
+        status_code=409,
+        content={
+            "code": "NO_PRIOR_FILE",
+            "message": msg,
+            "actions": [
+                {"label": "Upload Excel", "kind": "upload"},
+                {
+                    "label": "Fetch Latest from Official Source",
+                    "kind": "fetch_latest",
+                    "endpoint": "/api/kb-unified/auto-fetch-anzsco",
+                },
+            ],
+        },
+    )
+
+
 @router.post("/import-anzsco-excel")
 async def upload_and_import(
     file: UploadFile = File(...),
     current_user: dict = Depends(get_current_user),
 ):
-    """Admin uploads the Feb 2026 ABS ANZSCO Excel; we import to anzsco_4digit_master."""
+    """Multipart upload an ANZSCO Excel — persist to durable storage, import to
+    `anzsco_4digit_master`, then update the file row with the run summary.
+    Response NEVER contains a server-internal path."""
     if not _is_admin(current_user):
         raise HTTPException(403, "Admin only")
     if not file.filename or not file.filename.lower().endswith(".xlsx"):
-        raise HTTPException(400, "Only .xlsx files supported")
+        raise HTTPException(400, "Only .xlsx files are supported")
 
-    with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
-        contents = await file.read()
-        tmp.write(contents)
-        tmp_path = tmp.name
+    contents = await file.read()
+    if not contents:
+        raise HTTPException(400, "Empty file")
+
+    file_doc = await import_storage.save_import_file(
+        db=db,
+        source_type=ANZSCO_SOURCE_TYPE,
+        data=contents,
+        filename_original=file.filename,
+        uploaded_by=current_user.get("id") or "admin",
+        uploaded_by_name=_user_display_name(current_user),
+    )
+
+    # Run import against the persisted file.
     try:
-        summary = await import_anzsco_excel(tmp_path, imported_by=current_user.get("id") or "admin")
-    finally:
-        try:
-            os.unlink(tmp_path)
-        except OSError:
-            pass
-    return summary
+        summary = await import_anzsco_excel(
+            file_doc["storage_path"],
+            imported_by=current_user.get("id") or "admin",
+        )
+        await import_storage.update_last_import_summary(
+            db=db, file_id=file_doc["id"], summary=summary, status="imported",
+        )
+        # Reflect post-import state in the response (status flips ready→imported).
+        file_doc["status"] = "imported"
+        file_doc["last_import_summary"] = summary
+        file_doc["last_imported_at"] = datetime.now(timezone.utc).isoformat()
+    except Exception as e:
+        await import_storage.update_last_import_summary(
+            db=db,
+            file_id=file_doc["id"],
+            summary={"error": str(e)},
+            status="failed",
+        )
+        logger.exception("Excel import failed for file_id=%s", file_doc["id"])
+        raise HTTPException(500, f"Excel import failed: {e}") from e
+
+    return {
+        "ok": True,
+        "file": import_storage.public_view(file_doc),
+        "summary": summary,
+    }
 
 
 @router.post("/import-anzsco-default")
 async def import_default(current_user: dict = Depends(get_current_user)):
-    """Admin one-click — uses Sir's already-uploaded Feb 2026 Excel at DEFAULT_EXCEL_PATH."""
+    """Re-run import using the LATEST stored file for ANZSCO_SOURCE_TYPE.
+    Returns 409 NO_PRIOR_FILE with structured `actions` if no file exists yet."""
     if not _is_admin(current_user):
         raise HTTPException(403, "Admin only")
-    if not os.path.exists(DEFAULT_EXCEL_PATH):
-        raise HTTPException(
-            404,
-            f"Default Excel file not found at {DEFAULT_EXCEL_PATH}. Use /import-anzsco-excel to upload.",
+
+    latest = await import_storage.get_latest_file(db, ANZSCO_SOURCE_TYPE)
+    if not latest:
+        return _no_prior_file_response()
+    if not os.path.exists(latest.get("storage_path", "")):
+        # On-disk artefact missing (e.g. manual clean) — treat as no prior file.
+        logger.warning(
+            "[kb_unified] import_files row found but on-disk artefact missing for id=%s",
+            latest.get("id"),
         )
-    return await import_anzsco_excel(DEFAULT_EXCEL_PATH, imported_by=current_user.get("id") or "admin")
+        return _no_prior_file_response()
+
+    try:
+        summary = await import_anzsco_excel(
+            latest["storage_path"],
+            imported_by=current_user.get("id") or "admin",
+        )
+        await import_storage.update_last_import_summary(
+            db=db, file_id=latest["id"], summary=summary, status="imported",
+        )
+    except Exception as e:
+        await import_storage.update_last_import_summary(
+            db=db, file_id=latest["id"], summary={"error": str(e)}, status="failed",
+        )
+        logger.exception("Re-import failed for file_id=%s", latest.get("id"))
+        raise HTTPException(500, f"Re-import failed: {e}") from e
+
+    return {
+        "ok": True,
+        "file": import_storage.public_view(latest),
+        "summary": summary,
+    }
+
+
+@router.post("/auto-fetch-anzsco")
+async def auto_fetch_anzsco(current_user: dict = Depends(get_current_user)):
+    """Live-fetch the AU Skilled Occupation List from Home Affairs and upsert
+    base `occupation_master` records. This is a 6-digit-code refresh — NOT a
+    replacement for the ANZSCO 4-digit Excel import. Frontend should label the
+    outcome accordingly using the `target_collection` field."""
+    if not _is_admin(current_user):
+        raise HTTPException(403, "Admin only")
+    actor = current_user.get("id") or "admin"
+    fetched_at = datetime.now(timezone.utc).isoformat()
+    try:
+        # Step 1 — live scrape (in-memory, no on-disk artefact)
+        raw = home_affairs_scraper.fetch_raw_records()
+        records = [home_affairs_scraper.normalize_record(r) for r in raw]
+
+        # Step 2 — dedupe by code (prefer entries with a title)
+        by_code: Dict[str, Dict[str, Any]] = {}
+        for n in records:
+            c = n.get("code")
+            if not c:
+                continue
+            if c in by_code and not n.get("title"):
+                continue
+            by_code[c] = n
+
+        # Step 3 — existing codes already in occupation_master (AU)
+        existing_codes: set[str] = set()
+        async for d in OCCUPATIONS.find(
+            {"country_code": "AU"}, {"code": 1, "_id": 0}
+        ):
+            existing_codes.add(d.get("code") or "")
+
+        created = 0
+        updated = 0
+        now_iso = fetched_at
+        for code, n in by_code.items():
+            base_doc = {
+                "country_code": "AU",
+                "code": code,
+                "title": n.get("title") or "",
+                "classification_version": n.get("classification_version") or "ANZSCO 2013",
+                "classification_dual_code": n.get("classification_dual_code") or {},
+                "anzsco_ref_url": n.get("anzsco_ref_url") or "",
+                "visa_pathways": n.get("visa_pathways") or {},
+                "pathway_list": n.get("pathway_list") or "",
+                "assessing_authority": n.get("assessing_authority") or {},
+                "last_scraped_at": now_iso,
+                "last_scraped_by": "auto_fetch_anzsco",
+                "updated_at": now_iso,
+            }
+            if code in existing_codes:
+                await OCCUPATIONS.update_one(
+                    {"country_code": "AU", "code": code}, {"$set": base_doc}
+                )
+                updated += 1
+            else:
+                base_doc.update({
+                    "status": "verified",
+                    "verification": {
+                        "source": "home_affairs_skilled_occupation_list",
+                        "auto_verified_at": now_iso,
+                        "auto_verified_by": "auto_fetch_anzsco",
+                        "method": "Home Affairs live scrape via /auto-fetch-anzsco",
+                    },
+                    "created_at": now_iso,
+                    "anzsco_4digit_code": code[:4] if len(code) == 6 and code.isdigit() else None,
+                    "anzsco_major_group_code": code[0] if code and code[0].isdigit() else None,
+                })
+                await OCCUPATIONS.insert_one(base_doc)
+                created += 1
+    except Exception as e:
+        logger.exception("auto-fetch-anzsco failed")
+        raise HTTPException(502, f"Auto-fetch failed: {e}") from e
+
+    return {
+        "ok": True,
+        "source": "Home Affairs Skilled Occupation List",
+        "source_url": home_affairs_scraper.SOURCE_URL,
+        "target_collection": "occupation_master",
+        "country_code": "AU",
+        "fetched_at": fetched_at,
+        "imported": created,
+        "updated": updated,
+        "skipped": 0,
+        "total_processed": created + updated,
+    }
+
+
+@router.get("/import-files/latest")
+async def get_latest_import_file(
+    source_type: str = Query(ANZSCO_SOURCE_TYPE),
+    current_user: dict = Depends(get_current_user),
+):
+    """Return metadata of the latest stored file for a source_type, or
+    `{file: None}` when nothing has been uploaded yet. Never returns a path."""
+    if not _is_admin(current_user):
+        raise HTTPException(403, "Admin only")
+    latest = await import_storage.get_latest_file(db, source_type)
+    return {"file": import_storage.public_view(latest)}
+
+
+@router.get("/import-files")
+async def list_import_files(
+    source_type: Optional[str] = Query(None),
+    limit: int = Query(20, ge=1, le=100),
+    current_user: dict = Depends(get_current_user),
+):
+    """Paginated history list — newest first. Used by Phase 17.1 import-history UI."""
+    if not _is_admin(current_user):
+        raise HTTPException(403, "Admin only")
+    rows = await import_storage.list_files(db, source_type, limit)
+    return {"items": rows, "count": len(rows)}
 
 
 @router.get("/verification-hub")

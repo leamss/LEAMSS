@@ -213,3 +213,8 @@ frontend/node_modules/.cache/default-development/113.pack
 frontend/node_modules/.cache/default-development/117.pack
 frontend/node_modules/.cache/default-development/116.pack
 frontend/node_modules/.cache/default-development/8.pack
+
+# Phase 17.0 — Persistent import file storage (never commit uploaded artefacts)
+backend/storage/
+/app/backend/storage/
+

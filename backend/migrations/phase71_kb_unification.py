@@ -165,5 +165,27 @@ async def main():
     logger.info("  Default Protection Policy: %s", "✅ inserted" if inserted_policy else "⏭️  existed")
 
 
+async def run_idempotent(database) -> dict:
+    """Phase 17.0 piggyback — call from `@app.on_event("startup")` so the
+    Country Templates + Protection Policies KPI cards are never empty on a
+    fresh DB. The ``database`` arg is accepted for API symmetry with other
+    migrations but module-level collection handles are reused.
+
+    Returns a small status dict suitable for printing during boot.
+    """
+    inserted_uk = await seed_country_template(UK_TEMPLATE)
+    inserted_usa = await seed_country_template(USA_TEMPLATE)
+    inserted_policy = await seed_default_protection_policy()
+    await backfill_status_field(COUNTRY_TEMPLATES, "country_templates")
+    await backfill_status_field(COUNTRY_GUIDES, "country_guides")
+    await backfill_custom_qa_field()
+    return {
+        "status": "ok",
+        "uk_template": "inserted" if inserted_uk else "existed",
+        "usa_template": "inserted" if inserted_usa else "existed",
+        "default_policy": "inserted" if inserted_policy else "existed",
+    }
+
+
 if __name__ == "__main__":
     asyncio.run(main())
