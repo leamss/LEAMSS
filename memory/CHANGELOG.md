@@ -3,7 +3,16 @@
 This file appends every completed phase/feature with dates and verification status.
 
 ---
-### 🩹 Patch 18.0.1 — Broaden cleanup regex + UI testid audit (Jun 11, 2026)
+### 🩹 Patch 18.1.1 — Missing view-mode render branch + DB re-pollution self-heal (Jun 11, 2026)
+**Reported by:** Sir directly (UI changes weren't visible on live preview).
+**Root cause:** My earlier `search_replace` to wire `<VerifiedRecordView>` into `BrowseAndVerify` **landed only partially**. The `useState`, `openItem` callback, AND `VerifiedRecordView` component all landed correctly in source AND in the deployed `bundle.js` (verified via curl grep — all 13 testids present in 22.7MB bundle). HOWEVER the actual `if (viewing) return <VerifiedRecordView ... />` render branch went missing from `BrowseAndVerify` before the existing `if (editing)` check. Net effect: click on a verified card called `setViewing(it)` successfully, but the component had no render path for `viewing` state → list stayed visible, Sir saw no change.
+**Diagnosis chain:** (1) supervisorctl → frontend RUNNING (uptime 1:38:24, hot-reload alive). (2) `/app/frontend/build/` doesn't exist (CRA dev-server serves in-memory). (3) Curl on deployed `/static/js/bundle.js` → ALL 13 testids/component names present in shipped bundle (NOT stale). (4) Playwright DOM probe after click: `verified-view=False` even though `code-card` had `onclick` registered. (5) Source inspect of `BrowseAndVerify` JSX lines 128-132 → only `if (editing)` exists, `if (viewing)` block MISSING.
+**Fix:** One `search_replace` inserted the missing `if (viewing) { return <VerifiedRecordView ... /> }` block above `if (editing)`. Bundle re-compiled (22,715,454 → 22,716,344 bytes; `+890 bytes`). `grep "if (viewing)" bundle.js` = 1 ✅. `VerifiedRecordView` mentions 7 → 9. Playwright re-probe: `verified-view=True, edit-again=True, verification-history=True` ✅. "Edit Again" toggle → ThreePanelEditor with all 8 new field testids = True ✅. Two real screenshots saved at `/tmp/p1801_FIXED_view.png` and `/tmp/p1801_FIXED_edit.png`.
+**Bonus:** `test_phase1713_edit_page_actions.py::test_3_save_draft_by_slug` was re-polluting `au-111111.description` with `"Phase 17.1.3 description update marker"` on every test run. Re-ran the Phase 18.0.1 broadened-regex migration → `cleaned=2 (AU:2)` → description restored to 496 chars. Migration auto-runs on every supervisor boot, so this self-heals going forward.
+**Lessons:** Trust source AND bundle AND DOM — not any single one. From now on, claim-of-success requires (1) source grep, (2) bundle curl, AND (3) Playwright DOM probe confirming rendered DOM, before marking UI work complete.
+
+---
+
 **Tests:** `tests/test_phase181_workspace_expansion.py` → **16/16 PASS** in 9.53s (13 prior + 3 new). Full Phase 17.* + 18.* regression unchanged.
 
 **Problem:** Phase 18.0's regex (`^Tester probe|probe task|test_|demo_`) didn't catch the second probe pattern — `"Phase 17.1.3 description update marker"` (38 chars) — that Phase 17.1.3's `test_3_save_draft_by_slug` left behind on `au-111111`. Real ACS-grade content (562 chars + 10 tasks + 988-char qualification_rules) was sitting on `ai_draft.*` but never lifted.

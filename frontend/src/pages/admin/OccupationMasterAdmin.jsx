@@ -125,9 +125,18 @@ function BrowseAndVerify({ headers }) {
 
   useEffect(() => { load(); }, [load]);
 
+  if (viewing) {
+    return <VerifiedRecordView item={viewing} headers={headers}
+      onEditAgain={() => { setEditing(viewing); setViewing(null); }}
+      onBack={() => { setViewing(null); load(); }} />;
+  }
   if (editing) {
     return <ThreePanelEditor item={editing} headers={headers}
-      onSaved={() => { setEditing(null); load(); }}
+      onSaved={(updated) => {
+        // Phase 18.1 — after verify, route into VIEW MODE rather than back to list
+        if (updated && updated.status === 'verified') { setViewing(updated); setEditing(null); }
+        else { setEditing(null); load(); }
+      }}
       onCancel={() => setEditing(null)} />;
   }
 
