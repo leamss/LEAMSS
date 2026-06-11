@@ -19,11 +19,12 @@ Endpoints:
   DELETE /api/occupation-master/{id}/custom-sections/{sec_id}  — remove custom section
 """
 import uuid
+import re
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from core.auth import get_current_user
 from core.database import db, audit_logs_col
@@ -92,23 +93,69 @@ class RequiredDocument(BaseModel):
     country_override: Optional[str] = None  # None = applies to all countries
 
 
+# Phase 18.3 — outcome enum enforced
+VALID_SAMPLE_CASE_OUTCOMES = {"Approved", "Refused", "Withdrawn", "Pending"}
+
+
 class SampleCase(BaseModel):
-    """Phase 18.1 — anonymised client success story."""
+    """Phase 18.1 / 18.3 — anonymised client success story (lenient bulk shape).
+
+    The model itself stays lenient so bulk PUT (`/occupation-master/{id}`) can
+    replace the whole array without per-row blow-ups. The dedicated POST/PATCH
+    `/sample-cases` endpoints validate strictly via `SampleCaseStrict`.
+    """
     id: Optional[str] = None
-    client_age: Optional[int] = None
-    profile_summary: Optional[str] = ""
-    visa_subclass: Optional[str] = ""
-    outcome: Optional[str] = ""
-    timeline_months: Optional[int] = None
-    notes: Optional[str] = ""
+    client_age: Optional[int] = Field(None, ge=18, le=70)
+    profile_summary: Optional[str] = Field("", max_length=500)
+    visa_subclass: Optional[str] = Field("", max_length=40)
+    outcome: Optional[str] = Field("", max_length=40)
+    timeline_months: Optional[int] = Field(None, ge=0, le=48)
+    notes: Optional[str] = Field("", max_length=1000)
+
+
+_URL_RE = re.compile(r"^https?://[^\s<>\"']+$", re.IGNORECASE)
 
 
 class CustomSection(BaseModel):
-    """Phase 18.1 — free-form admin-authored section."""
+    """Phase 18.1 / 18.3 — free-form section (lenient bulk shape)."""
     id: Optional[str] = None
-    title: str
-    body_markdown: Optional[str] = ""
-    source_url: Optional[str] = ""
+    title: Optional[str] = Field("", max_length=80)
+    body_markdown: Optional[str] = Field("", max_length=5000)
+    source_url: Optional[str] = Field("", max_length=500)
+
+
+# Phase 18.3 — strict sub-CRUD payloads for POST /sample-cases & POST /custom-sections
+class SampleCaseStrict(BaseModel):
+    id: Optional[str] = None
+    client_age: Optional[int] = Field(None, ge=18, le=70)
+    profile_summary: Optional[str] = Field("", max_length=500)
+    visa_subclass: Optional[str] = Field("", max_length=40)
+    outcome: str = Field(..., min_length=1)
+    timeline_months: Optional[int] = Field(None, ge=0, le=48)
+    notes: Optional[str] = Field("", max_length=1000)
+
+    @field_validator("outcome")
+    @classmethod
+    def _outcome_enum(cls, v: str) -> str:
+        if v not in VALID_SAMPLE_CASE_OUTCOMES:
+            raise ValueError(f"outcome must be one of {sorted(VALID_SAMPLE_CASE_OUTCOMES)}")
+        return v
+
+
+class CustomSectionStrict(BaseModel):
+    id: Optional[str] = None
+    title: str = Field(..., min_length=1, max_length=80)
+    body_markdown: Optional[str] = Field("", max_length=5000)
+    source_url: Optional[str] = Field("", max_length=500)
+
+    @field_validator("source_url")
+    @classmethod
+    def _source_url_format(cls, v: Optional[str]) -> Optional[str]:
+        if not v:
+            return v
+        if not _URL_RE.match(v.strip()):
+            raise ValueError("source_url must be a valid http(s) URL")
+        return v.strip()
 
 
 class OccupationCreate(BaseModel):
@@ -523,7 +570,7 @@ async def copy_from_ai(occupation_id: str, current_user: dict = Depends(get_curr
 # Phase 18.1 — Sample Cases sub-CRUD
 # ─────────────────────────────────────────────────────────────────────────────
 @router.post("/{occupation_id}/sample-cases")
-async def add_sample_case(occupation_id: str, req: SampleCase, current_user: dict = Depends(get_current_user)):
+async def add_sample_case(occupation_id: str, req: SampleCaseStrict, current_user: dict = Depends(get_current_user)):
     await _require_admin(current_user)
     occ = await _find_occupation(occupation_id)
     if not occ:
@@ -586,7 +633,7 @@ async def delete_sample_case(occupation_id: str, case_id: str, current_user: dic
 # Phase 18.1 — Custom Sections sub-CRUD
 # ─────────────────────────────────────────────────────────────────────────────
 @router.post("/{occupation_id}/custom-sections")
-async def add_custom_section(occupation_id: str, req: CustomSection, current_user: dict = Depends(get_current_user)):
+async def add_custom_section(occupation_id: str, req: CustomSectionStrict, current_user: dict = Depends(get_current_user)):
     await _require_admin(current_user)
     occ = await _find_occupation(occupation_id)
     if not occ:

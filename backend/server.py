@@ -104,6 +104,8 @@ from routers.cockpit import router as cockpit_router
 from routers.anz_intel import router as anz_intel_router
 from routers.public_atlas import router as public_atlas_router
 from routers.admin_public_pages import router as admin_public_pages_router, public_router as public_pages_read_router
+# Phase 18.3 — verification feedback queue (sales → admin)
+from routers.feedback_requests import router as feedback_requests_router, ensure_indexes as ensure_feedback_indexes
 
 app = FastAPI(title="LEAMSS Portal API", version="3.0")
 
@@ -262,6 +264,9 @@ async def startup():
         from migrations.phase181_seed_default_documents import run_seed_default_documents
         seed181 = await run_seed_default_documents(_db_handle)
         print(f"[Phase18.1] default required_documents seed: {seed181}")
+        # Phase 18.3 — feedback_requests indexes (idempotent)
+        await ensure_feedback_indexes()
+        print("[Phase18.3] feedback_requests indexes ensured")
     except Exception as e:
         print(f"[Phase17.0 ERROR] {e}")
 
@@ -437,7 +442,8 @@ for r in [targets_router, cost_structures_router, auth_router, users_router, pro
           pa_allocations_router, sales_commission_router,
           cm_earnings_router, vendor_portal_router, payouts_router, people_router,
           cockpit_router, anz_intel_router, public_atlas_router,
-          admin_public_pages_router, public_pages_read_router]:
+          admin_public_pages_router, public_pages_read_router,
+          feedback_requests_router]:
     app.include_router(r, prefix="/api")
 
 

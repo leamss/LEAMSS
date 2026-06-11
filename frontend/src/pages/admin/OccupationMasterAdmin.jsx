@@ -687,9 +687,22 @@ function SimilarOverrideEditor({ items, onChange }) {
 }
 
 function SampleCasesEditor({ items, onChange }) {
+  // Phase 18.3 — polished collapsible card editor.
+  const OUTCOMES = ['Approved', 'Refused', 'Withdrawn', 'Pending'];
   const upd = (idx, patch) => onChange(items.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
-  const add = () => onChange([...items, { client_age: null, profile_summary: '', visa_subclass: '', outcome: '', timeline_months: null, notes: '' }]);
-  const rm = (idx) => onChange(items.filter((_, i) => i !== idx));
+  const add = () => onChange([...items, { client_age: null, profile_summary: '', visa_subclass: '',
+    outcome: 'Pending', timeline_months: null, notes: '' }]);
+  const rm = (idx) => {
+    if (!window.confirm('Delete this sample case? This cannot be undone.')) return;
+    onChange(items.filter((_, i) => i !== idx));
+  };
+  const move = (idx, dir) => {
+    const j = idx + dir;
+    if (j < 0 || j >= items.length) return;
+    const next = [...items];
+    [next[idx], next[j]] = [next[j], next[idx]];
+    onChange(next);
+  };
   return (
     <div className="bg-white border border-emerald-200 rounded p-2" data-testid="sample-cases-editor">
       <div className="flex items-center justify-between mb-1">
@@ -698,30 +711,110 @@ function SampleCasesEditor({ items, onChange }) {
       </div>
       {items.length === 0 && <p className="text-[10px] text-slate-400 italic">No sample cases yet — anonymised client success stories live here.</p>}
       <div className="space-y-2">
-        {items.map((c, idx) => (
-          <div key={c.id || idx} className="border border-slate-200 rounded p-2 bg-slate-50/50" data-testid={`sample-case-${idx}`}>
-            <div className="grid grid-cols-3 gap-1 mb-1">
-              <Input type="number" value={c.client_age ?? ''} placeholder="Age" onChange={(e) => upd(idx, { client_age: e.target.value ? Number(e.target.value) : null })} className="h-6 text-xs" data-testid={`sc-age-${idx}`} />
-              <Input value={c.visa_subclass || ''} placeholder="Visa" onChange={(e) => upd(idx, { visa_subclass: e.target.value })} className="h-6 text-xs" data-testid={`sc-visa-${idx}`} />
-              <Input value={c.outcome || ''} placeholder="Outcome" onChange={(e) => upd(idx, { outcome: e.target.value })} className="h-6 text-xs" data-testid={`sc-outcome-${idx}`} />
-            </div>
-            <Input value={c.profile_summary || ''} placeholder="Profile (e.g. ACS-cleared SW eng, 6 yrs)" onChange={(e) => upd(idx, { profile_summary: e.target.value })} className="h-6 text-xs mb-1" data-testid={`sc-profile-${idx}`} />
-            <div className="flex gap-1 mb-1">
-              <Input type="number" value={c.timeline_months ?? ''} placeholder="Months" onChange={(e) => upd(idx, { timeline_months: e.target.value ? Number(e.target.value) : null })} className="h-6 text-xs w-24" data-testid={`sc-months-${idx}`} />
-              <Input value={c.notes || ''} placeholder="Notes" onChange={(e) => upd(idx, { notes: e.target.value })} className="h-6 text-xs flex-1" data-testid={`sc-notes-${idx}`} />
-              <button type="button" onClick={() => rm(idx)} className="text-rose-500 hover:text-rose-700" data-testid={`sc-remove-${idx}`}><Trash2 className="h-3 w-3" /></button>
-            </div>
-          </div>
-        ))}
+        {items.map((c, idx) => <SampleCaseCardEditor key={c.id || idx} c={c} idx={idx}
+            startOpen={items.length < 3} outcomes={OUTCOMES}
+            onUpd={(p) => upd(idx, p)} onRemove={() => rm(idx)}
+            onMove={(d) => move(idx, d)} canUp={idx > 0} canDown={idx < items.length - 1} />)}
       </div>
     </div>
   );
 }
 
+function SampleCaseCardEditor({ c, idx, startOpen, outcomes, onUpd, onRemove, onMove, canUp, canDown }) {
+  const [open, setOpen] = useState(startOpen);
+  const outcomeTone = (c.outcome === 'Approved') ? 'bg-emerald-100 text-emerald-700' :
+                      (c.outcome === 'Refused')  ? 'bg-rose-100 text-rose-700' :
+                      (c.outcome === 'Pending')  ? 'bg-amber-100 text-amber-700' :
+                      'bg-slate-100 text-slate-600';
+  const ageInvalid = c.client_age != null && (c.client_age < 18 || c.client_age > 70);
+  const tlInvalid = c.timeline_months != null && (c.timeline_months < 0 || c.timeline_months > 48);
+  return (
+    <div className="border border-slate-200 rounded bg-slate-50/50" data-testid={`sample-case-card-${idx}`}>
+      <div className="flex items-center justify-between gap-1 p-2">
+        <button type="button" onClick={() => setOpen(!open)} className="flex-1 flex items-center gap-2 text-left text-[11px]" data-testid={`sample-case-toggle-${idx}`}>
+          <ChevronDownIcon open={open} />
+          <span className="font-medium text-slate-700">
+            {c.client_age ? `${c.client_age}y` : 'Age —'} · {c.visa_subclass || 'Visa —'}
+          </span>
+          {c.outcome && <Badge className={`${outcomeTone} text-[9px]`} data-testid={`sample-case-outcome-${idx}`}>{c.outcome}</Badge>}
+          {c.timeline_months != null && <span className="text-slate-400 text-[10px]">· {c.timeline_months} mo</span>}
+        </button>
+        <div className="flex gap-0.5">
+          <button type="button" onClick={() => onMove(-1)} disabled={!canUp} className="text-slate-400 hover:text-slate-700 disabled:opacity-30 px-1" data-testid={`sample-case-up-${idx}`}>▲</button>
+          <button type="button" onClick={() => onMove(1)} disabled={!canDown} className="text-slate-400 hover:text-slate-700 disabled:opacity-30 px-1" data-testid={`sample-case-down-${idx}`}>▼</button>
+          <button type="button" onClick={onRemove} className="text-rose-500 hover:text-rose-700 px-1" data-testid={`sample-case-remove-${idx}`}><Trash2 className="h-3 w-3" /></button>
+        </div>
+      </div>
+      {open && (
+        <div className="px-2 pb-2 space-y-1.5 border-t border-slate-100 pt-2">
+          <div className="grid grid-cols-3 gap-1.5">
+            <div>
+              <Label className="text-[9px] uppercase text-slate-500">Age (18–70)</Label>
+              <Input type="number" min="18" max="70" value={c.client_age ?? ''} placeholder="32"
+                onChange={(e) => onUpd({ client_age: e.target.value ? Number(e.target.value) : null })}
+                className={`h-6 text-xs ${ageInvalid ? 'border-rose-400' : ''}`}
+                data-testid={`sample-case-age-${idx}`} />
+            </div>
+            <div>
+              <Label className="text-[9px] uppercase text-slate-500">Visa Subclass</Label>
+              <Input value={c.visa_subclass || ''} placeholder="189, SMC, FSWP"
+                onChange={(e) => onUpd({ visa_subclass: e.target.value })}
+                className="h-6 text-xs" data-testid={`sample-case-visa-${idx}`} />
+            </div>
+            <div>
+              <Label className="text-[9px] uppercase text-slate-500">Outcome*</Label>
+              <Select value={c.outcome || 'Pending'} onValueChange={(v) => onUpd({ outcome: v })}>
+                <SelectTrigger className="h-6 text-xs" data-testid={`sample-case-outcome-select-${idx}`}><SelectValue /></SelectTrigger>
+                <SelectContent>{outcomes.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div>
+            <Label className="text-[9px] uppercase text-slate-500">Profile Summary (≤500)</Label>
+            <Textarea value={c.profile_summary || ''} placeholder="e.g. Backend engineer, 7 yrs exp, IELTS 7.5, AU education"
+              maxLength={500} onChange={(e) => onUpd({ profile_summary: e.target.value })}
+              className="text-xs min-h-[50px]" data-testid={`sample-case-profile-${idx}`} />
+          </div>
+          <div className="grid grid-cols-2 gap-1.5">
+            <div>
+              <Label className="text-[9px] uppercase text-slate-500">Timeline (months, 0–48)</Label>
+              <Input type="number" min="0" max="48" value={c.timeline_months ?? ''} placeholder="11"
+                onChange={(e) => onUpd({ timeline_months: e.target.value ? Number(e.target.value) : null })}
+                className={`h-6 text-xs ${tlInvalid ? 'border-rose-400' : ''}`}
+                data-testid={`sample-case-months-${idx}`} />
+            </div>
+          </div>
+          <div>
+            <Label className="text-[9px] uppercase text-slate-500">Notes (optional, ≤1000)</Label>
+            <Textarea value={c.notes || ''} maxLength={1000}
+              onChange={(e) => onUpd({ notes: e.target.value })}
+              className="text-xs min-h-[40px]" data-testid={`sample-case-notes-${idx}`} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ChevronDownIcon({ open }) {
+  return <span className={`text-slate-400 inline-block transition ${open ? 'rotate-90' : ''}`}>▶</span>;
+}
+
 function CustomSectionsEditor({ items, onChange }) {
   const upd = (idx, patch) => onChange(items.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
   const add = () => onChange([...items, { title: '', body_markdown: '', source_url: '' }]);
-  const rm = (idx) => onChange(items.filter((_, i) => i !== idx));
+  const rm = (idx) => {
+    if (!window.confirm('Delete this section? This cannot be undone.')) return;
+    onChange(items.filter((_, i) => i !== idx));
+  };
+  const move = (idx, dir) => {
+    const j = idx + dir;
+    if (j < 0 || j >= items.length) return;
+    const next = [...items];
+    [next[idx], next[j]] = [next[j], next[idx]];
+    onChange(next);
+  };
+  const urlBad = (u) => u && !/^https?:\/\/[^\s<>"']+$/i.test(u);
   return (
     <div className="bg-white border border-emerald-200 rounded p-2" data-testid="custom-sections-editor">
       <div className="flex items-center justify-between mb-1">
@@ -731,13 +824,26 @@ function CustomSectionsEditor({ items, onChange }) {
       {items.length === 0 && <p className="text-[10px] text-slate-400 italic">No custom sections yet — free-form admin-authored blocks.</p>}
       <div className="space-y-2">
         {items.map((c, idx) => (
-          <div key={c.id || idx} className="border border-slate-200 rounded p-2 bg-slate-50/50" data-testid={`custom-section-${idx}`}>
-            <Input value={c.title || ''} placeholder="Title" onChange={(e) => upd(idx, { title: e.target.value })} className="h-6 text-xs mb-1" data-testid={`cs-title-${idx}`} />
-            <Textarea value={c.body_markdown || ''} placeholder="Body markdown…" onChange={(e) => upd(idx, { body_markdown: e.target.value })} className="text-xs min-h-[60px] mb-1" data-testid={`cs-body-${idx}`} />
-            <div className="flex gap-1">
-              <Input value={c.source_url || ''} placeholder="https://source.example.com" onChange={(e) => upd(idx, { source_url: e.target.value })} className="h-6 text-xs flex-1" data-testid={`cs-url-${idx}`} />
-              <button type="button" onClick={() => rm(idx)} className="text-rose-500 hover:text-rose-700" data-testid={`cs-remove-${idx}`}><Trash2 className="h-3 w-3" /></button>
+          <div key={c.id || idx} className="border border-slate-200 rounded p-2 bg-slate-50/50 space-y-1" data-testid={`custom-section-${idx}`}>
+            <div className="flex items-center gap-1">
+              <Input value={c.title || ''} placeholder="Title (1–80 chars)" maxLength={80}
+                onChange={(e) => upd(idx, { title: e.target.value })} className="h-6 text-xs flex-1"
+                data-testid={`cs-title-${idx}`} />
+              <button type="button" onClick={() => move(idx, -1)} disabled={idx === 0}
+                className="text-slate-400 hover:text-slate-700 disabled:opacity-30 px-1" data-testid={`cs-up-${idx}`}>▲</button>
+              <button type="button" onClick={() => move(idx, 1)} disabled={idx === items.length - 1}
+                className="text-slate-400 hover:text-slate-700 disabled:opacity-30 px-1" data-testid={`cs-down-${idx}`}>▼</button>
+              <button type="button" onClick={() => rm(idx)} className="text-rose-500 hover:text-rose-700 px-1" data-testid={`cs-remove-${idx}`}><Trash2 className="h-3 w-3" /></button>
             </div>
+            <div className="text-[9px] text-slate-400">Markdown supported (line breaks preserved; rendered raw — no scripts).</div>
+            <Textarea value={c.body_markdown || ''} placeholder="Body markdown…" maxLength={5000}
+              onChange={(e) => upd(idx, { body_markdown: e.target.value })}
+              className="text-xs min-h-[60px]" data-testid={`cs-body-${idx}`} />
+            <Input value={c.source_url || ''} placeholder="https://source.example.com"
+              onChange={(e) => upd(idx, { source_url: e.target.value })}
+              className={`h-6 text-xs ${urlBad(c.source_url) ? 'border-rose-400' : ''}`}
+              data-testid={`cs-url-${idx}`} />
+            {urlBad(c.source_url) && <p className="text-[9px] text-rose-500">Must start with http:// or https://</p>}
           </div>
         ))}
       </div>

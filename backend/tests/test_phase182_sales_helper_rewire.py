@@ -138,7 +138,7 @@ def test_7_sample_cases_surfaced(H):
     for i in range(2):
         httpx.post(f"{API_BASE}/occupation-master/{TEST_OID}/sample-cases", headers=H,
                    json={"client_age": 30 + i, "profile_summary": f"P182 case {i}",
-                         "visa_subclass": "189", "outcome": "Granted",
+                         "visa_subclass": "189", "outcome": "Approved",
                          "timeline_months": 12 + i}, timeout=15)
     r = _detail(H)
     cases = r.json().get("sample_cases") or []

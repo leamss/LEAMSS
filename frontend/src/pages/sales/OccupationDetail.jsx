@@ -168,7 +168,7 @@ export default function OccupationDetail() {
           </TabsList>
 
           <TabsContent value="overview"><OverviewTab ov={ov} /></TabsContent>
-          <TabsContent value="skill"><SkillAssessmentTab sa={sa} /></TabsContent>
+          <TabsContent value="skill"><SkillAssessmentTab sa={sa} occupationId={`${(countryCode || '').toLowerCase()}-${code}`} occupationTitle={ov.title} headers={headers} /></TabsContent>
           <TabsContent value="visas"><VisaPathwaysTab pathways={vp} /></TabsContent>
           <TabsContent value="docs"><DocumentsTab docs={docs} /></TabsContent>
           <TabsContent value="similar"><SimilarTab similar={similar} onClick={(s) => navigate(`/sales/occupations/${s.country_code}/${s.code}`)} /></TabsContent>
@@ -315,18 +315,22 @@ function OverviewTab({ ov }) {
   );
 }
 
-function CustomSectionCard({ s }) {
-  const [open, setOpen] = useState(false);
+function CustomSectionCard({ s, idx = 0 }) {
+  const [open, setOpen] = useState(idx === 0); // Phase 18.3 — first section expanded by default
   return (
-    <Card className="overflow-hidden print-card" data-testid="sales-custom-section">
+    <Card className="overflow-hidden print-card" data-testid={`sales-custom-section-${idx}`}>
       <button type="button" onClick={() => setOpen(!open)} className="w-full p-3 text-left flex items-center justify-between hover:bg-slate-50">
-        <span className="font-medium text-[13px] text-slate-800">{s.title}</span>
+        <span className="font-medium text-[13px] text-slate-800" style={{ fontFamily: 'Georgia, serif' }}>{s.title}</span>
         <ChevronDown className={`h-4 w-4 text-slate-400 transition ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && (
         <div className="px-3 pb-3 border-t border-slate-100">
           {s.body_markdown && <p className="text-[13px] text-slate-700 whitespace-pre-wrap mt-2">{s.body_markdown}</p>}
-          {s.source_url && <a href={s.source_url} target="_blank" rel="noreferrer" className="text-[11px] text-indigo-600 inline-flex items-center gap-0.5 mt-1">{s.source_url} <ExternalLink className="h-2.5 w-2.5" /></a>}
+          {s.source_url && (
+            <a href={s.source_url} target="_blank" rel="noreferrer" className="text-[11px] text-indigo-600 inline-flex items-center gap-0.5 mt-2">
+              Source: {(s.source_url.replace(/^https?:\/\//, '').split('/')[0]) || s.source_url} <ExternalLink className="h-2.5 w-2.5" />
+            </a>
+          )}
         </div>
       )}
     </Card>
@@ -349,17 +353,29 @@ function DemandBadge({ value }) {
 /* ════════════════════════════════════════════════════════════════
    Tab 2 — SKILL ASSESSMENT
    ════════════════════════════════════════════════════════════════ */
-function SkillAssessmentTab({ sa }) {
+function SkillAssessmentTab({ sa, occupationId, occupationTitle, headers }) {
+  const [showRequest, setShowRequest] = useState(false);
   if (!sa.has_data) {
     return (
-      <Card className="p-8 text-center print-card" data-testid="sales-skill-assessment-empty">
-        <AlertTriangle className="h-10 w-10 mx-auto text-amber-400 mb-2" />
-        <h3 className="text-base font-semibold text-slate-700">Admin verification pending</h3>
-        <p className="text-[13px] text-slate-500 mt-1 max-w-md mx-auto">Assessing-body details for this occupation haven&apos;t been published yet. Once admin completes verification, this section will populate automatically.</p>
-        <Button className="mt-4 text-white" style={{ background: BRAND.burnt }} data-testid="sales-request-verification" onClick={() => toast.success('Verification request logged', { description: 'Admin will be notified.' })}>
-          Request Verification
-        </Button>
-      </Card>
+      <>
+        <Card className="p-8 text-center print-card" data-testid="sales-skill-assessment-empty">
+          <AlertTriangle className="h-10 w-10 mx-auto text-amber-400 mb-2" />
+          <h3 className="text-base font-semibold text-slate-700">Admin verification pending</h3>
+          <p className="text-[13px] text-slate-500 mt-1 max-w-md mx-auto">Assessing-body details for this occupation haven&apos;t been published yet. Once admin completes verification, this section will populate automatically.</p>
+          <Button className="mt-4 text-white" style={{ background: BRAND.burnt }} data-testid="sales-request-verification" onClick={() => setShowRequest(true)}>
+            Request Verification
+          </Button>
+        </Card>
+        {showRequest && (
+          <RequestVerificationModal
+            occupationId={occupationId}
+            occupationTitle={occupationTitle}
+            defaultField="assessing_authority"
+            headers={headers}
+            onClose={() => setShowRequest(false)}
+          />
+        )}
+      </>
     );
   }
   return (
@@ -392,6 +408,66 @@ function SkillAssessmentTab({ sa }) {
           <p className="text-[13px] leading-relaxed text-slate-700 mt-2 whitespace-pre-wrap">{sa.rules_summary}</p>
         </Card>
       )}
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════
+   Phase 18.3 — Request Verification modal
+   ════════════════════════════════════════════════════════════════ */
+function RequestVerificationModal({ occupationId, occupationTitle, defaultField = 'general', headers, onClose }) {
+  const [field, setField] = useState(defaultField);
+  const [message, setMessage] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const submit = async () => {
+    setSubmitting(true);
+    try {
+      await axios.post(`${API}/feedback-requests`, {
+        occupation_id: occupationId,
+        request_type: 'verification_request',
+        requested_field: field,
+        message: message.trim(),
+      }, { headers });
+      toast.success('Verification request sent', { description: 'Typical response 2-3 business days.' });
+      onClose();
+    } catch (e) {
+      toast.error(formatApiError(e, 'Could not submit request'));
+    } finally { setSubmitting(false); }
+  };
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={onClose}
+         data-testid="request-verification-modal">
+      <Card className="max-w-md w-full p-5 bg-white" onClick={(e) => e.stopPropagation()}>
+        <h3 className="font-bold text-base mb-2" style={{ color: BRAND.forest }}>Request data verification</h3>
+        <p className="text-[12px] text-slate-500 mb-3">Admin will review and update the requested fields.</p>
+        <div className="mb-3 text-[12px] bg-slate-50 p-2 rounded border border-slate-200">
+          <strong className="text-slate-700">{occupationId}</strong> · {occupationTitle}
+        </div>
+        <label className="text-[11px] uppercase text-slate-500 font-bold mb-1 block">Field</label>
+        <select value={field} onChange={(e) => setField(e.target.value)}
+          className="w-full h-9 px-2 text-[13px] border border-slate-300 rounded mb-3"
+          data-testid="request-verification-field">
+          <option value="general">General — anything in this record</option>
+          <option value="assessing_authority">Assessing Authority</option>
+          <option value="visa_pathways">Visa Pathways</option>
+          <option value="qualification_rules">Qualification Rules</option>
+          <option value="required_documents">Required Documents</option>
+          <option value="sample_cases">Sample Cases</option>
+          <option value="description">Description / Tasks</option>
+        </select>
+        <label className="text-[11px] uppercase text-slate-500 font-bold mb-1 block">Message (optional)</label>
+        <textarea value={message} onChange={(e) => setMessage(e.target.value)}
+          className="w-full p-2 text-[13px] border border-slate-300 rounded min-h-[80px] mb-3"
+          placeholder="Add any specific detail you'd like updated…" maxLength={2000}
+          data-testid="request-verification-message" />
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={onClose} disabled={submitting}>Cancel</Button>
+          <Button onClick={submit} disabled={submitting} className="text-white" style={{ background: BRAND.forest }}
+            data-testid="request-verification-submit">
+            {submitting ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : null}Submit Request
+          </Button>
+        </div>
+      </Card>
     </div>
   );
 }
@@ -566,30 +642,43 @@ function SimilarTab({ similar, onClick }) {
    Tab 6 — SAMPLE CASES
    ════════════════════════════════════════════════════════════════ */
 function SampleCasesTab({ cases }) {
+  const [showAll, setShowAll] = useState(false);
   if (!cases || cases.length === 0) {
     return (
       <Card className="p-10 text-center print-card" data-testid="sales-cases-empty">
         <BookOpen className="h-10 w-10 mx-auto text-slate-300 mb-3" />
-        <h3 className="font-semibold text-slate-700">No anonymised cases shared yet</h3>
-        <p className="text-[12px] text-slate-500 mt-1">Admin can publish success stories via the Verification Hub. Once added, they&apos;ll appear here for sales reference.</p>
+        <h3 className="font-semibold text-slate-700">No published cases yet</h3>
+        <p className="text-[12px] text-slate-500 mt-1">Admin can add anonymised success stories via the Verification Hub.</p>
       </Card>
     );
   }
+  const visible = showAll ? cases : cases.slice(0, 3);
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-3" data-testid="sales-tab-content-cases">
-      {cases.map((c, i) => <SampleCaseCard key={c.id || i} c={c} />)}
+    <div className="space-y-3" data-testid="sales-tab-content-cases">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {visible.map((c, i) => <SampleCaseCard key={c.id || i} c={c} idx={i} />)}
+      </div>
+      {cases.length > 3 && (
+        <div className="text-center pt-2">
+          <Button variant="outline" size="sm" onClick={() => setShowAll(!showAll)} data-testid="sales-cases-show-toggle">
+            {showAll ? `Show top 3` : `Show ${cases.length - 3} more`}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
 
-function SampleCaseCard({ c }) {
-  const outcomeColor = ((c.outcome || '').toLowerCase().includes('grant') || (c.outcome || '').toLowerCase().includes('approv'))
-    ? 'bg-emerald-100 text-emerald-700'
-    : (c.outcome || '').toLowerCase().includes('refus')
-      ? 'bg-rose-100 text-rose-700'
-      : 'bg-slate-100 text-slate-600';
+function SampleCaseCard({ c, idx = 0 }) {
+  const tone = (c.outcome || '').toLowerCase();
+  const outcomeColor =
+    tone.startsWith('approv') ? 'bg-emerald-100 text-emerald-700' :
+    tone.startsWith('refus')  ? 'bg-rose-100 text-rose-700' :
+    tone.startsWith('withdr') ? 'bg-slate-100 text-slate-600' :
+    tone.startsWith('pend')   ? 'bg-amber-100 text-amber-700' :
+    'bg-slate-100 text-slate-600';
   return (
-    <Card className="p-4 print-card" data-testid="sales-sample-case">
+    <Card className="p-4 print-card" data-testid={`sales-sample-case-${idx}`}>
       <div className="flex items-start justify-between mb-2 gap-2">
         <div>
           <p className="text-[11px] uppercase text-slate-500 mb-0.5">
@@ -598,7 +687,7 @@ function SampleCaseCard({ c }) {
           </p>
           <h4 className="font-semibold text-[13px] text-slate-800 line-clamp-2">{c.profile_summary || 'Anonymised client case'}</h4>
         </div>
-        {c.outcome && <Badge className={`text-[10px] font-semibold ${outcomeColor}`}>{c.outcome}</Badge>}
+        {c.outcome && <Badge className={`text-[10px] font-semibold ${outcomeColor}`} data-testid={`sales-sample-case-outcome-${idx}`}>{c.outcome}</Badge>}
       </div>
       <div className="flex items-center gap-2 text-[11px] text-slate-500 mt-2">
         {c.timeline_months != null && <span className="inline-flex items-center gap-0.5"><Clock className="h-3 w-3" />{c.timeline_months} months</span>}

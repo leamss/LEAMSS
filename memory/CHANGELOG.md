@@ -3,7 +3,75 @@
 This file appends every completed phase/feature with dates and verification status.
 
 ---
-### 🚀 Phase 18.2 — Smart Sales Helper rewire + UI/UX overhaul (Jun 11, 2026)
+### 🚀 Phase 18.3 — Sample Cases polish + Custom Sections render + Request Verification flow (Jun 11, 2026)
+**Tests:** `tests/test_phase183_cases_sections_feedback.py` → **13/13 PASS** in 1.60s. Combined Phase 17.* + 18.* regression: **84 passed, 2 skipped, 1 deselected** (exactly the 84+ target).
+
+**Goal:** Close the loop end-to-end on the three Phase 18.1 surfaces that were functional but bare: Sample Cases, Custom Sections, and the "Request Verification" CTA on the Sales Helper Skill Assessment empty state.
+
+### A) Sample Cases — admin → DB → sales end-to-end polish
+
+**Backend (`routers/occupation_master.py`):**
+- NEW Pydantic shapes — `SampleCase` (lenient, used by bulk PUT) and **`SampleCaseStrict`** (used by `POST /sample-cases`) with field-level constraints: `client_age` 18–70, `outcome` ∈ `{Approved, Refused, Withdrawn, Pending}` (enforced via `@field_validator`), `profile_summary` ≤ 500 chars, `timeline_months` 0–48, `notes` ≤ 1000 chars.
+- POST endpoint signature switched to `SampleCaseStrict` so adding a case without outcome → `422`.
+
+**Admin frontend (`OccupationMasterAdmin.jsx`):**
+- Replaced bare list with **collapsible card editor**. Each card:
+  - Header summary line: `32y · 189 · ✓ Approved · 11 mo` (color-coded outcome chip)
+  - Click-to-expand form with proper labels + placeholders
+  - **`<Select>` dropdown** for Outcome (Approved/Refused/Withdrawn/Pending) — replaces free-text input
+  - Number inputs with `min/max` and inline rose-border on out-of-range values
+  - Up/down ▲▼ arrows for reorder, `confirm()` modal on delete
+  - Default-collapsed when 3+ exist
+  - All new testids: `sample-case-card-{idx}`, `sample-case-outcome-{idx}`, `sample-case-outcome-select-{idx}`, `sample-case-age/visa/profile/months/notes-{idx}`, `sample-case-up/down/remove-{idx}`
+
+**Sales frontend (`OccupationDetail.jsx` Tab 6):**
+- `SampleCaseCard` now color-codes outcome pill: Approved=emerald-700, Refused=rose-700, Withdrawn=slate-600, Pending=amber-700.
+- "Show {N} more" toggle when >3 cases (`data-testid="sales-cases-show-toggle"`) — top 3 visible by default.
+- `data-testid="sales-sample-case-{idx}"` and `sales-sample-case-outcome-{idx}` per card.
+
+### B) Custom Sections — admin polish + sales rendering
+
+**Backend:** NEW `CustomSectionStrict` Pydantic model — `title` 1–80 chars required, `body_markdown` ≤ 5000, `source_url` validated via `_URL_RE` regex (`^https?://...`) when present. POST endpoint uses strict shape.
+
+**Admin frontend:** `CustomSectionsEditor` adds title char-limit, URL hint "Must start with http:// or https://" with rose-border on invalid input, up/down reorder ▲▼, delete confirm. New testids: `cs-title/body/url/up/down/remove-{idx}`.
+
+**Sales frontend:** `CustomSectionCard` now takes `idx` prop — **first section expanded by default** (rest collapsed), source URL footer renders as "Source: <domain>" with external link icon. `data-testid="sales-custom-section-{idx}"`.
+
+### C) Request Verification CTA — fully wired to DB
+
+**Backend — NEW collection + 3 endpoints** (`routers/feedback_requests.py`):
+- Collection `feedback_requests` with indexes `(status, requested_at desc)` + `(occupation_id, status)` (created at startup via `ensure_indexes()` — idempotent).
+- **`POST /api/feedback-requests`** — any authed user can file; validates occupation exists via dual-lookup (slug or `cc-code`); auto-stamps `requested_by`, `requested_by_name`, `requested_by_role`, `requested_at`, default `status=open`. Returns the new row.
+- **`GET /api/feedback-requests`** — admin only; filters by `status`/`occupation_id`; paginated; returns `counts: {open, in_progress, all_pending}`.
+- **`PATCH /api/feedback-requests/{id}`** — admin updates `status` (transitions enforced: `resolved/rejected` are terminal — 400 on illegal back-walk) + `resolution_notes`.
+- Audit log entries on create + every status change.
+- New router registered in `server.py`; `ensure_feedback_indexes()` wired into startup migrations.
+
+**Sales frontend:** Skill Assessment empty state's "Request Verification" button now opens a **modal** (`data-testid="request-verification-modal"`):
+- Read-only occupation context chip
+- Field dropdown (defaults to `assessing_authority` from empty-state path, else `general`)
+- Optional message textarea (≤ 2000 chars)
+- Submit → POST → success toast "Verification request sent · Typical response 2-3 business days" → modal closes.
+
+**Admin frontend (`VerificationHub.jsx`):** NEW **`<FeedbackRequestsCard>`** rendered between KPI tiles and the pending-occupations list:
+- Hides to a compact "0 open verification requests" line when queue is empty
+- Activates as an **amber-left-bordered Card** with "Open Verification Requests (N)" + in-progress count when queue has items
+- Click "View" → expands rows; each row shows country-code chip + occupation title + requested_field + message preview + requester name; click row → navigates to admin edit page (`/admin/kb/occupation-master?country={cc}&search={code}`).
+- Testids: `verif-hub-feedback-requests-card`, `verif-hub-feedback-request-row-{id}`.
+
+### Triple verification gate (all 3 confirmations passed)
+1. ✅ **pytest 84/84 PASS** across Phase 17.* + 18.* combined (13 new Phase 18.3 + 13 Phase 18.1 + 13 Phase 18.2 + 13 Phase 1713 + 14 Phase 17.0/17.1/17.1.1/17.1.2/17.1.3 + 3 Patch 18.0.1, etc.)
+2. ✅ **Bundle curl-grep** on deployed `/static/js/bundle.js` (22.81MB): `verif-hub-feedback-requests-card` ✅, `verif-hub-feedback-request-row-` ✅, `FeedbackRequestsCard` (×6) ✅, `request-verification-modal` ✅, `request-verification-field` ✅, `request-verification-submit` ✅, `sample-case-card-` ✅, `sample-case-outcome-` (×3) ✅, `sales-sample-case-` ✅, `sales-sample-case-outcome-` ✅, `sales-cases-show-toggle` ✅, `sales-custom-section-` ✅
+3. ✅ **4 Real Playwright screenshots** confirming:
+   - **Sales Overview tab (AU 111111)**: code badge "111111" filled forest green + "Additional Notes" with "Phase 18.3 special note" custom section EXPANDED with markdown body + source link "Source: imll.com.au"
+   - **Sales Sample Cases tab**: card with "AGE 32 · VISA 189 · Backend engineer, 7 yrs, ACS-cleared, IELTS 7.5" + emerald **"Approved"** outcome badge + "11 months · Phase 18.3 demo case" footer (probe: `has_case=True, outcome_text="Approved"`)
+   - **Sales Skill Assessment tab (CA 21231)**: ACS body card rendered with URL link + 3-metric strip
+   - **Admin Verification Hub**: amber-left-bordered **"Open Verification Requests (6)"** card with "View" CTA visible between KPI tiles and occupations list (probe: `card_visible=True, card_text="Open Verification Requests (6) ..."`)
+
+Saved screenshots: `/tmp/p183_sales_overview.png`, `/tmp/p183_sales_cases.png`, `/tmp/p183_skill_empty.png`, `/tmp/p183_hub_feedback.png`.
+
+---
+
 **Tests:** `tests/test_phase182_sales_helper_rewire.py` → **13/13 PASS** in 1.31s. Combined Phase 17.* + 18.* regression: **71 passed, 2 skipped, 1 deselected**.
 
 **Smoking-gun bug closed:** Admin VerifiedRecordView for au-111111 showed "Institute of Managers and Leaders National" with IML processing time + fee, but Sales Helper Skill Assessment tab showed `"No assessing body data on file for this code"` and the header code badge was an empty white box. Root cause (mapped in recon Section D): `get_occupation_detail` read from legacy `country_rules` via `_fetch_legacy_shaped_occupation()` — bypassing every admin-verified field on `occupation_master`.

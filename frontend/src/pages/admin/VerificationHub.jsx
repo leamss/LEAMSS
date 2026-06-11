@@ -23,7 +23,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
   ArrowLeft, ShieldCheck, FileText, Globe2, FileBadge, Loader2,
   Upload, Database, Sparkles, AlertCircle, Clock, ExternalLink, RefreshCw,
-  Cloud, Info,
+  Cloud, Info, ChevronRight,
 } from 'lucide-react';
 import { formatApiError } from '@/lib/apiErrors';
 
@@ -384,6 +384,9 @@ export default function VerificationHub() {
           {STATS_TILES.map(t => <StatTile key={t.label} tile={t} navigate={navigate} />)}
         </div>
 
+        {/* Phase 18.3 — Open verification requests */}
+        <FeedbackRequestsCard headers={headers} />
+
         {/* Pending Lists tabs */}
         <Card className="p-4">
           <Tabs defaultValue="occupations" className="w-full">
@@ -445,6 +448,72 @@ export default function VerificationHub() {
         </Card>
       </div>
     </div>
+  );
+}
+
+// Phase 18.3 — feedback / verification-request queue card
+function FeedbackRequestsCard({ headers }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [open, setOpen] = useState(false);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    let cancelled = false;
+    axios.get(`${API}/feedback-requests?status=open&page_size=50`, { headers })
+      .then((r) => { if (!cancelled) setData(r.data); })
+      .catch(() => { if (!cancelled) setData({ items: [], counts: { open: 0, in_progress: 0, all_pending: 0 } }); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [headers]);
+
+  if (loading) return null;
+  const items = data?.items || [];
+  const openCount = data?.counts?.open || 0;
+  const inProgress = data?.counts?.in_progress || 0;
+
+  if (openCount === 0 && inProgress === 0) {
+    return (
+      <div className="text-[11px] text-slate-400 flex items-center gap-2" data-testid="verif-hub-feedback-requests-card">
+        <ShieldCheck className="h-3 w-3" />0 open verification requests
+      </div>
+    );
+  }
+
+  return (
+    <Card className="p-4 border-l-4 border-l-amber-500 bg-amber-50/30" data-testid="verif-hub-feedback-requests-card">
+      <button type="button" onClick={() => setOpen(!open)} className="w-full text-left flex items-center justify-between">
+        <div>
+          <h3 className="font-semibold text-slate-800">Open Verification Requests <span className="text-amber-700">({openCount})</span></h3>
+          <p className="text-[11px] text-slate-500 mt-0.5">{inProgress > 0 && <>{inProgress} in progress · </>}From sales / case managers — click a row to open in admin edit.</p>
+        </div>
+        <Badge className="bg-amber-500 text-white text-[10px]">{open ? 'Hide' : 'View'}</Badge>
+      </button>
+      {open && (
+        <div className="mt-3 space-y-1.5 max-h-72 overflow-y-auto">
+          {items.length === 0 ? <p className="text-[12px] text-slate-400">No open requests.</p> : items.map((it) => (
+            <button
+              key={it.id}
+              type="button"
+              onClick={() => navigate(`/admin/kb/occupation-master?country=${it.country_code}&search=${it.code}`)}
+              className="w-full text-left p-2 rounded hover:bg-white border border-slate-200 flex items-start gap-2 text-[12px]"
+              data-testid={`verif-hub-feedback-request-row-${it.id}`}
+            >
+              <Badge className="bg-slate-100 text-slate-700 text-[9px] font-mono shrink-0">{it.country_code}-{it.code}</Badge>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-slate-800 truncate">{it.occupation_title || `${it.country_code}-${it.code}`}</p>
+                <p className="text-[10px] text-slate-500 truncate">
+                  <strong>{it.requested_field}</strong>
+                  {it.message && <> · {it.message.slice(0, 80)}</>}
+                  <> · by {it.requested_by_name || '—'}</>
+                </p>
+              </div>
+              <ChevronRight className="h-4 w-4 text-slate-400 shrink-0" />
+            </button>
+          ))}
+        </div>
+      )}
+    </Card>
   );
 }
 

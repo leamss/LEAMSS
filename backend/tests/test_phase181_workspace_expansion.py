@@ -168,7 +168,7 @@ def test_6_recommended_visa_per_country_merges(H):
 def test_7_sample_cases_crud_with_uuids(H):
     # POST — backend assigns UUID
     payload = {"client_age": 32, "profile_summary": "ACS-cleared SW eng",
-               "visa_subclass": "189", "outcome": "Granted",
+               "visa_subclass": "189", "outcome": "Approved",
                "timeline_months": 14, "notes": "Phase 18.1 test case"}
     r = httpx.post(f"{API_BASE}/occupation-master/{TEST_OID}/sample-cases",
                    headers=H, json=payload, timeout=10)
