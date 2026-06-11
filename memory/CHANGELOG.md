@@ -3,6 +3,46 @@
 This file appends every completed phase/feature with dates and verification status.
 
 ---
+### 🩹 Patch 18.0.1 — Broaden cleanup regex + UI testid audit (Jun 11, 2026)
+**Tests:** `tests/test_phase181_workspace_expansion.py` → **16/16 PASS** in 9.53s (13 prior + 3 new). Full Phase 17.* + 18.* regression unchanged.
+
+**Problem:** Phase 18.0's regex (`^Tester probe|probe task|test_|demo_`) didn't catch the second probe pattern — `"Phase 17.1.3 description update marker"` (38 chars) — that Phase 17.1.3's `test_3_save_draft_by_slug` left behind on `au-111111`. Real ACS-grade content (562 chars + 10 tasks + 988-char qualification_rules) was sitting on `ai_draft.*` but never lifted.
+
+**Fix (`migrations/phase180_cleanup_probe_pollution.py`, rewritten):**
+- NEW regex: `^Phase\s+\d+(\.\d+)*\b` catches `"Phase 17.1.3 …"`, `"Phase 18.1 …"`, and any future `Phase X.Y…` placeholder.
+- NEW heuristic A: top-level `description` shorter than **80 chars** while `ai_draft.description` has **200+ chars** → restore (signal that top-level was wiped while AI baseline is intact).
+- NEW heuristic B: top-level `typical_tasks` shorter than **3 items** while `ai_draft.typical_tasks` has **5+ items** → restore.
+- NEW: `qualification_rules` (Phase 18.1 first-class field) restored when empty AND `ai_draft.qualification_rules` has **100+ chars**. Closes the data-loss gap from earlier patches that never propagated the AI baseline.
+
+**Re-run result on live DB:** `scanned=1473, cleaned=4, by_country={AU:2, CA:1, NZ:1}`. Second run: `cleaned=0` (idempotent ✅).
+
+**Curl proof on `au-111111` post-patch (`GET /api/occupation-master/au-111111`):**
+- `description.len = 562` ✅ (was 38)
+- `description` contains `"Chief Executives"` ✅
+- `typical_tasks.count = 10` ✅ (was 3 probe-task entries)
+- `qualification_rules.len = 988` ✅ (was empty)
+
+**Testid audit on `frontend/src/pages/admin/OccupationMasterAdmin.jsx`:**
+| Element | Status | Location |
+|---|---|---|
+| `VerifiedRecordView` component | ✅ PRESENT (4 occurrences) | imported in BrowseAndVerify + defined |
+| `data-testid="verified-view"` | ✅ PRESENT (1) | VerifiedRecordView root Card |
+| `data-testid="edit-again-btn"` | ✅ PRESENT (1) | Edit Again toggle |
+| `data-testid="verification-history"` | ✅ PRESENT (1) | History collapsible button |
+| `data-testid="edit-qualification-rules"` | ✅ PRESENT (1) | Middle panel textarea |
+| `data-testid="assessing-authority-editor"` | ✅ PRESENT (1) | AA sub-form root |
+| `data-testid={\`recommended-visa-${cc.toLowerCase()}\`}` | ✅ PRESENT (line 590, template literal) | Per-country dropdown |
+| `data-testid="required-docs-editor"` | ✅ PRESENT (1) | Docs editor root |
+| `data-testid="similar-override-editor"` | ✅ PRESENT (1) | Similar chip editor root |
+| `data-testid="sample-cases-editor"` | ✅ PRESENT (1) | Sample cases root |
+| `data-testid="custom-sections-editor"` | ✅ PRESENT (1) | Custom sections root |
+| `it.status === 'verified'` (switching) | ✅ PRESENT (line 107) | `openItem` routes verified→view |
+| `?edit=1` URL param | ✅ PRESENT (line 106) | `forceEdit` bypass for deep-links |
+
+**3 NEW tests:** `test_14_phase17_marker_description_cleaned` (no record has `^Phase \d+` placeholder), `test_15_au_111111_description_real` (>=500 chars + "Chief Executive"), `test_16_au_111111_qualification_rules_populated` (>=100 chars).
+
+---
+
 ### 🛠️ Phase 18.0 — Hotfix: probe-pollution cleanup on occupation_master (Jun 11, 2026)
 **Tests:** `tests/test_phase181_workspace_expansion.py::test_12,test_13` → **2/2 PASS**.
 

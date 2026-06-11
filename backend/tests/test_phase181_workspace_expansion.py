@@ -327,3 +327,48 @@ def test_13_phase180_au_111111_restored():
     assert len(tasks) >= 8, f"au-111111 typical_tasks too few ({len(tasks)}) — restore failed"
     assert not any((t or "").lower().startswith("probe task") for t in tasks), \
         f"au-111111 still has probe-task entries: {tasks[:3]}"
+
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Patch 18.0.1 — additional cleanup-regex coverage tests
+# ─────────────────────────────────────────────────────────────────────────────
+import re as _re
+
+_PHASE_MARKER_RE = _re.compile(r"^Phase\s+\d+(\.\d+)*\b", _re.IGNORECASE)
+
+
+def test_14_phase17_marker_description_cleaned():
+    """No record may have a top-level `description` starting with
+    ``Phase X(.Y…)?`` placeholder strings after Patch 18.0.1 ran."""
+    async def _scan():
+        coll = _db["occupation_master"]
+        hits = []
+        async for d in coll.find({}, {"_id": 0, "occupation_id": 1, "description": 1}):
+            desc = (d.get("description") or "").strip()
+            if _PHASE_MARKER_RE.match(desc):
+                hits.append((d.get("occupation_id"), desc[:80]))
+        return hits
+    leftover = _async(_scan())
+    assert not leftover, f"{len(leftover)} records still hold a Phase-marker description: {leftover[:3]}"
+
+
+def test_15_au_111111_description_real():
+    """au-111111.description is the real ACS-grade content (>=500 chars,
+    mentions ``Chief Executive`` or ``executive leadership``)."""
+    doc = _async(_db["occupation_master"].find_one({"occupation_id": "au-111111"}, {"_id": 0}))
+    assert doc is not None
+    desc = doc.get("description") or ""
+    assert len(desc) >= 500, f"au-111111 description too short ({len(desc)} chars) — restore failed"
+    haystack = desc.lower()
+    assert ("chief executive" in haystack) or ("executive leadership" in haystack), \
+        f"au-111111 description missing expected ACS-grade phrasing: {desc[:200]!r}"
+
+
+def test_16_au_111111_qualification_rules_populated():
+    """au-111111.qualification_rules carries substantive content (>=100 chars)
+    after Patch 18.0.1 promoted the AI baseline into the top-level field."""
+    doc = _async(_db["occupation_master"].find_one({"occupation_id": "au-111111"}, {"_id": 0}))
+    assert doc is not None
+    qual = (doc.get("qualification_rules") or "").strip()
+    assert len(qual) >= 100, f"au-111111 qualification_rules too short ({len(qual)} chars): {qual[:120]!r}"
