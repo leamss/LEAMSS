@@ -46,14 +46,13 @@ This file appends every completed phase/feature with dates and verification stat
 **Path-leak audit (user-visible strings only):**
 Greps confirmed the only remaining `/tmp` reference in user-facing flows is `routers/agreement_templates.py:264` (`tmp_path = f"/tmp/{uuid.uuid4().hex}.docx"`) — used internally for DOCX rendering and never echoed to clients. Logged for follow-up but out of scope for Phase 17.0.
 
-**Files:**
-- NEW `/app/backend/core/import_storage.py` (~240 lines — save / dedupe / list / prune / public_view / ensure_indexes / ensure_storage_dirs)
-- MOD `/app/backend/routers/kb_unified.py` — 5 endpoints touched/added (~210 net lines)
-- MOD `/app/backend/migrations/phase71_kb_unification.py` — added `run_idempotent(database)` wrapper
-- MOD `/app/backend/server.py` — wired Phase 7.1 + Phase 6.9.5 seeders + Phase 17.0 storage init into startup
-- MOD `/app/frontend/src/pages/admin/VerificationHub.jsx` — new state (`latestFile`, `noPriorBanner`, `uploading`, `autoFetching`), 3 button paths, file picker, banner UI
-- NEW `/app/backend/tests/test_phase170_persistent_import.py` — 8 tests
-- MOD `/app/.gitignore` — `backend/storage/` excluded
+**Patch 17.0.1 (same-day) — malformed upload returns 400, not 500.** e1_tester surfaced: POST `/api/kb-unified/import-anzsco-excel` with plain text renamed `.xlsx` returned `HTTP 500 {"detail":"Excel import failed: File is not a zip file"}`. Body was already sanitised (no path leak) but a client-fault should be 4xx not 5xx.
+- NEW `core/import_storage.classify_upload_error(exc) → (status_code, message)` — central helper: `BadZipFile` / `InvalidFileException` / `KeyError(Worksheet)` / `EmptyFileError` → 400 with friendly text; anything else → genuine 500.
+- NEW `core/import_storage.validate_xlsx_bytes(data, required_sheets)` — opens bytes via `openpyxl.load_workbook(read_only=True)` IN MEMORY before any disk write. Junk uploads now rejected at the door (HTTP 400) and NEVER reach `storage/imports/`.
+- NEW `core/import_storage.delete_file(db, file_id)` — rollback helper. If a file slips past pre-validation but the importer fails with a client-fault exception, both the on-disk artefact AND the `import_files` row are deleted, and the next-most-recent file is re-promoted to `is_latest=True`. Storage stays clean.
+- Upload handler now (a) checks content-type whitelist, (b) calls `validate_xlsx_bytes()` before `save_import_file()`, (c) wraps the importer call with `classify_upload_error()` and calls `delete_file()` on rollback. Genuine server faults (e.g., Mongo write failure) still surface as 500 with sanitised message.
+- 3 new tests added (now 10/10 PASS + 1 documented skip — the skip covers a cross-process mock that can't reach the live uvicorn worker, brief explicitly allowed this): `test_9_malformed_xlsx_returns_400` (HTTP 400 + user-friendly message + no path leak), `test_10_malformed_upload_not_persisted` (zero increase in `import_files` count + zero new files in storage dir after a 400), `test_11_genuine_500_still_returns_500` (server-class exceptions still produce 500). Manual curl: `POST /import-anzsco-excel` with plain-text junk → HTTP 400 `{"detail":"Uploaded file is not a valid .xlsx workbook. Please upload a real Excel file."}`. Storage dir + `import_files` collection stay clean (verified post-call: 0 junk artefacts).
+
 
 
 

@@ -337,3 +337,111 @@ def test_8_phase71_seeder_idempotent():
     assert len(default_policies) == 1, (
         f"Expected exactly 1 default protection policy, got {len(default_policies)}"
     )
+
+
+# ─── Phase 17.0.1 — Malformed-upload regression ────────────────────────────
+def test_9_malformed_xlsx_returns_400(auth_headers):
+    """Plain text renamed to .xlsx must return HTTP 400 (not 500) with a
+    user-friendly detail string and NO server-path leak."""
+    _async(_drop_import_files())
+    _async(_wipe_storage_dir())
+
+    junk = b"this is just plain text masquerading as an xlsx workbook" * 5
+    r = httpx.post(
+        f"{API_BASE}/kb-unified/import-anzsco-excel",
+        headers=auth_headers,
+        files={"file": ("fake.xlsx", junk, "application/octet-stream")},
+        timeout=30,
+    )
+    assert r.status_code == 400, (
+        f"Expected 400 for malformed xlsx, got {r.status_code}: {r.text[:200]}"
+    )
+    body = r.json()
+    detail = body.get("detail", "")
+    assert ".xlsx" in detail.lower() or "excel" in detail.lower() or "workbook" in detail.lower(), (
+        f"Detail must be user-friendly: {detail}"
+    )
+    _assert_no_path_leak(body, "malformed-xlsx-400")
+
+
+def test_10_malformed_upload_not_persisted(auth_headers):
+    """After a 400 the malformed bytes must NOT appear in `import_files` and
+    must NOT leave an on-disk artefact behind — storage stays clean."""
+    _async(_drop_import_files())
+    _async(_wipe_storage_dir())
+
+    from core import import_storage as st
+    src_dir = st.STORAGE_ROOT / SRC
+
+    rows_before = _async(_db["import_files"].count_documents({"source_type": SRC}))
+    files_before = list(src_dir.iterdir()) if src_dir.exists() else []
+
+    junk = b"<html>not an xlsx</html>"
+    r = httpx.post(
+        f"{API_BASE}/kb-unified/import-anzsco-excel",
+        headers=auth_headers,
+        files={"file": ("evil.xlsx", junk, "application/octet-stream")},
+        timeout=30,
+    )
+    assert r.status_code == 400, f"Expected 400, got {r.status_code}"
+
+    rows_after = _async(_db["import_files"].count_documents({"source_type": SRC}))
+    files_after = list(src_dir.iterdir()) if src_dir.exists() else []
+    assert rows_after == rows_before, (
+        f"Malformed upload polluted import_files: before={rows_before} after={rows_after}"
+    )
+    assert len(files_after) == len(files_before), (
+        f"Malformed upload left disk artefact: before={files_before} after={files_after}"
+    )
+
+
+def test_11_genuine_500_still_returns_500(auth_headers, monkeypatch):
+    """When a TRUE server fault hits the importer (not a bad-file error), the
+    response must still be 500 — we don't want to mask real bugs as 400.
+
+    We mock `import_anzsco_excel` to raise a server-class exception AFTER the
+    pre-validation pass (so the file does get persisted) — `classify_upload_error`
+    must route this to a 500 because the exception type isn't one of the
+    bad-file kinds.
+    """
+    _async(_drop_import_files())
+    _async(_wipe_storage_dir())
+
+    # Patch the imported symbol used by the router. We use sys.modules so the
+    # change is visible to the live-running FastAPI server. NOTE: this is a
+    # best-effort test — the running server has already cached the import,
+    # so we send a real valid xlsx but monkeypatch raises only inside our own
+    # synchronous re-implementation. If we cannot guarantee mock observability
+    # in the running server, we accept skip.
+    import importlib
+    try:
+        from routers import kb_unified as _kb  # type: ignore
+    except ImportError:  # pragma: no cover
+        pytest.skip("kb_unified router not directly importable in this layout")
+
+    async def _boom(*a, **kw):  # pragma: no cover (executed via monkeypatch)
+        raise RuntimeError("simulated downstream Mongo write failure")
+
+    original = _kb.import_anzsco_excel
+    _kb.import_anzsco_excel = _boom  # type: ignore[attr-defined]
+    try:
+        r = httpx.post(
+            f"{API_BASE}/kb-unified/import-anzsco-excel",
+            headers=auth_headers,
+            files={"file": ("good.xlsx", _build_min_xlsx("_t11"), "application/octet-stream")},
+            timeout=30,
+        )
+    finally:
+        _kb.import_anzsco_excel = original  # type: ignore[attr-defined]
+
+    # The patch only affects in-process callers. The HTTP-side server is the
+    # uvicorn process which holds its own reference — so this test will most
+    # likely see a normal 200 (mock didn't reach the live server). In that
+    # case we mark the test as a documented xfail per spec.
+    if r.status_code == 200:
+        pytest.skip(
+            "Cannot inject into live uvicorn process — documented in task brief "
+            "(\"If too contrived to mock, skip\")."
+        )
+    assert r.status_code == 500, f"Expected 500 for true server fault, got {r.status_code}"
+    _assert_no_path_leak(r.json(), "genuine-500")

@@ -91,9 +91,32 @@ async def upload_and_import(
     if not file.filename or not file.filename.lower().endswith(".xlsx"):
         raise HTTPException(400, "Only .xlsx files are supported")
 
+    # Phase 17.0.1 — accept the standard xlsx mimetype OR generic streams
+    # (curl uploads often arrive as application/octet-stream). Anything else
+    # is almost certainly a junk upload from the browser file picker.
+    ct = (file.content_type or "").lower()
+    allowed_ct = {
+        "",
+        "application/octet-stream",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/vnd.ms-excel",
+    }
+    if ct and ct not in allowed_ct:
+        raise HTTPException(
+            400,
+            "Uploaded file content-type is not an Excel workbook. Please pick a .xlsx file.",
+        )
+
     contents = await file.read()
     if not contents:
         raise HTTPException(400, "Empty file")
+
+    # Phase 17.0.1 — pre-validate IN MEMORY before touching disk. Malformed
+    # uploads (plain text, corrupt zip, missing sheets) must NOT get persisted.
+    try:
+        import_storage.validate_xlsx_bytes(contents, required_sheets=["Table_1"])
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
 
     file_doc = await import_storage.save_import_file(
         db=db,
@@ -118,14 +141,26 @@ async def upload_and_import(
         file_doc["last_import_summary"] = summary
         file_doc["last_imported_at"] = datetime.now(timezone.utc).isoformat()
     except Exception as e:
+        # Phase 17.0.1 — classify between user-error (4xx) and server-error (5xx).
+        status_code, msg = import_storage.classify_upload_error(e)
+        if status_code == 400:
+            # Client-fault: roll back the on-disk artefact + DB row so junk
+            # uploads don't accumulate. Caller gets the user-friendly message.
+            await import_storage.delete_file(db, file_doc["id"])
+            logger.warning(
+                "Rejected malformed upload after persist (file_id=%s): %s",
+                file_doc["id"], msg,
+            )
+            raise HTTPException(400, msg) from e
+        # Genuine server fault — keep the row (marked failed) for forensics.
         await import_storage.update_last_import_summary(
             db=db,
             file_id=file_doc["id"],
-            summary={"error": str(e)},
+            summary={"error": msg},
             status="failed",
         )
         logger.exception("Excel import failed for file_id=%s", file_doc["id"])
-        raise HTTPException(500, f"Excel import failed: {e}") from e
+        raise HTTPException(500, msg) from e
 
     return {
         "ok": True,

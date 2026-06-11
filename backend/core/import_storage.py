@@ -273,3 +273,75 @@ async def ensure_indexes(db) -> None:
         name="uploaded_at_desc",
     )
     await coll.create_index([("id", 1)], unique=True, name="id_unique")
+
+
+# ─── Phase 17.0.1 — Upload error classification ──────────────────────────────
+# Shared helper used by all import endpoints to convert parser exceptions into
+# user-friendly 4xx responses (so client-side junk uploads don't surface as 500).
+def classify_upload_error(exc: BaseException) -> tuple[int, str]:
+    """Decide whether an exception thrown during file parse/import is a CLIENT
+    error (bad upload → 400) or a SERVER error (true bug → 500). Returns
+    ``(status_code, sanitised_message)``. Never leaks paths or stack traces."""
+    name = type(exc).__name__
+    msg = str(exc)
+    # zipfile.BadZipFile / openpyxl.InvalidFileException — file is not a real xlsx
+    if name in ("BadZipFile", "InvalidFileException", "ParserError"):
+        return (400, "Uploaded file is not a valid .xlsx workbook. Please upload a real Excel file.")
+    # KeyError raised when load_workbook can't find an expected sheet name —
+    # caller does e.g. `wb["Table_1"]` and that table doesn't exist.
+    if name == "KeyError" and "Worksheet" in msg:
+        return (400, "Uploaded file is missing required ANZSCO sheets (Table_1, Table_2, ...). Please upload the official ABS workbook.")
+    if name == "EmptyFileError" or "empty" in msg.lower() and "file" in msg.lower():
+        return (400, "Uploaded file appears to be empty.")
+    # Anything else → genuine server fault
+    return (500, f"Excel import failed: {msg}")
+
+
+def validate_xlsx_bytes(data: bytes, required_sheets: Optional[List[str]] = None) -> None:
+    """Cheap in-memory validation BEFORE touching disk. Raises ValueError with
+    a user-friendly message if the bytes are not a valid xlsx (and bad files
+    therefore never get persisted to storage)."""
+    import io
+    try:
+        from openpyxl import load_workbook
+        wb = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
+        if required_sheets:
+            present = set(wb.sheetnames)
+            missing = [s for s in required_sheets if s not in present]
+            if missing:
+                raise ValueError(
+                    f"Uploaded file is missing required sheet(s): {', '.join(missing)}. "
+                    "Please upload the official ABS ANZSCO workbook."
+                )
+    except ValueError:
+        raise
+    except Exception as e:  # noqa: BLE001 — convert all parse failures uniformly
+        code, msg = classify_upload_error(e)
+        # We only call this from upload paths, so 500-class faults here mean the
+        # bytes truly can't be opened — still a client problem at this stage.
+        raise ValueError(msg if code == 400 else "Uploaded file could not be parsed as a valid .xlsx workbook.") from e
+
+
+async def delete_file(db, file_id: str) -> None:
+    """Remove a file_files row + its on-disk artefact. Used when a persisted
+    upload subsequently fails import-time validation."""
+    doc = await db["import_files"].find_one({"id": file_id}, {"_id": 0})
+    if not doc:
+        return
+    sp = doc.get("storage_path")
+    if sp:
+        try:
+            os.unlink(sp)
+        except OSError as e:
+            logger.warning("[import_storage] Could not unlink %s on rollback: %s", sp, e)
+    await db["import_files"].delete_one({"id": file_id})
+    # Re-promote the next-most-recent file (if any) to is_latest=True
+    next_latest = await db["import_files"].find_one(
+        {"source_type": doc.get("source_type")},
+        sort=[("uploaded_at", -1)],
+    )
+    if next_latest:
+        await db["import_files"].update_one(
+            {"id": next_latest["id"]},
+            {"$set": {"is_latest": True}},
+        )
