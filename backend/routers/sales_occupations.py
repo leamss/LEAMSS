@@ -510,141 +510,336 @@ async def compare_occupations(req: CompareRequest, current_user: dict = Depends(
 
 # ════════════════════════════════════════════════════════════════
 # 7. DETAIL — full code info with 6 tabs (DYNAMIC path — keep LAST)
+# Phase 18.2 — full rewire to read from `occupation_master` directly so all
+# admin-verified fields (qualification_rules, assessing_authority,
+# required_documents, similar_codes_override, recommended_visa_subclass,
+# sample_cases, custom_sections, verification_history) surface to sales.
+# Legacy `country_rules` is now used only for: country name + visa catalogue
+# metadata (subclass name / points / fee / age limit). Falls back to the
+# legacy shape only when an occupation isn't yet in `occupation_master`.
 # ════════════════════════════════════════════════════════════════
 @router.get("/{country_code}/{code}")
 async def get_occupation_detail(
     country_code: str,
     code: str,
+    include_legacy: bool = Query(False, description="Also return the old legacy-shaped payload under `_legacy` for debugging."),
     current_user: dict = Depends(get_current_user),
 ):
+    from datetime import datetime, timezone
+
     if not _can_access(current_user):
         raise HTTPException(status_code=403, detail="Not authorised")
 
-    country = await country_rules_col.find_one({"country_code": country_code.upper()}, {"_id": 0})
-    if not country:
-        raise HTTPException(status_code=404, detail=f"Country '{country_code}' not in knowledge base")
+    cc = country_code.upper()
+    country = await country_rules_col.find_one({"country_code": cc}, {"_id": 0})
+    name_map = await _country_names()
+    country_name = (country or {}).get("country") or name_map.get(cc) or cc
 
-    # Phase 6.9.1 — occupation read from occupation_master via adapter
-    occ = await _fetch_legacy_shaped_occupation(country_code, code)
-    if not occ:
-        raise HTTPException(status_code=404, detail=f"Occupation code '{code}' not found in {country_code}")
+    occ_master = await occupation_master_col.find_one(
+        {"country_code": cc, "code": str(code), "status": {"$ne": "superseded"}},
+        {"_id": 0},
+    )
+    # Graceful fallback: if occupation_master misses this code, return the legacy
+    # shape so older codes don't 404 the page.
+    if not occ_master:
+        if not country:
+            raise HTTPException(status_code=404, detail=f"Country '{country_code}' not in knowledge base")
+        legacy = await _fetch_legacy_shaped_occupation(country_code, code)
+        if not legacy:
+            raise HTTPException(status_code=404, detail=f"Occupation code '{code}' not found in {country_code}")
+        # Return a minimal compatible response shape with empty new sections
+        return _build_minimal_legacy_response(legacy, country, country_name)
 
-    # Tab 1: Overview
+    # ─── Local helpers (closure-scoped) ───────────────────────────────────
+    aa = occ_master.get("assessing_authority") or {}
+    hierarchy = occ_master.get("hierarchy") or {}
+    visa_pathways_raw = occ_master.get("visa_pathways") or {}
+    pathway_lists = visa_pathways_raw.get("pathway_lists") or []
+    primary_pathway = pathway_lists[0] if pathway_lists else None
+    state_demand = {
+        s.get("state"): s.get("demand")
+        for s in (occ_master.get("state_territory_eligibility") or [])
+        if s.get("state")
+    }
+    rvs = occ_master.get("recommended_visa_subclass") or {}
+    recommended_subclass = rvs.get(cc) or ""
+
+    # ─── overview ────────────────────────────────────────────────────────
+    tasks = occ_master.get("typical_tasks") or []
+    if not tasks:
+        tasks = _default_tasks(occ_master.get("title", ""))
     overview = {
-        "code": occ.get("code"),
-        "title": occ.get("title"),
-        "group": occ.get("group"),
-        "group_code": occ.get("group_code"),
-        "skill_level": occ.get("skill_level"),
-        "pathway": occ.get("pathway"),
-        "alternative_titles": occ.get("alternative_titles") or [],
-        "state_demand": occ.get("state_demand") or {},
-        "in_demand": _is_in_demand(occ.get("state_demand") or {}),
-        "typical_tasks": occ.get("typical_tasks") or _default_tasks(occ.get("title", "")),
-        "salary_range": occ.get("salary_range"),
+        "code": occ_master.get("code"),
+        "title": occ_master.get("title"),
+        "country_code": cc,
+        "country_name": country_name,
+        "group": hierarchy.get("unit_group_name"),
+        "group_code": hierarchy.get("unit_group"),
+        "skill_level": occ_master.get("skill_level"),
+        "pathway": primary_pathway,
+        "alternative_titles": occ_master.get("alternative_titles") or [],
+        "description": occ_master.get("description") or "",
+        "typical_tasks": tasks,
+        "qualification_rules": occ_master.get("qualification_rules") or "",
+        "custom_sections": occ_master.get("custom_sections") or [],
+        "state_demand": state_demand,
+        "in_demand": _is_in_demand(state_demand),
+        "salary_range": (occ_master.get("skill_assessment_details") or {}).get("salary_range"),
     }
 
-    # Tab 2: Skill Assessment Body
-    skill_body = None
-    body_name = occ.get("assessing_body")
-    if body_name:
-        for b in (country.get("skill_assessment_bodies") or []):
-            if (b.get("name") or "").upper() == body_name.upper() and str(occ.get("code")) in (b.get("assesses_occupations") or []):
-                skill_body = {
-                    "body_id": b.get("body_id"),
-                    "name": b.get("name"),
-                    "full_name": b.get("full_name"),
-                    "website": b.get("website"),
-                    "fee_native": b.get("fee_native"),
-                    "assessment_fee_inr": b.get("assessment_fee_inr"),
-                    "processing_time_weeks": b.get("processing_time_weeks"),
-                    "documents_required": b.get("documents_required") or [],
-                    "criteria_general": b.get("criteria_general") or {},
-                    "contact_info": b.get("contact_info") or {},
-                }
-                break
-        # Fallback: pick the first body that assesses this code (in case of name mismatch)
-        if not skill_body:
-            for b in (country.get("skill_assessment_bodies") or []):
-                if str(occ.get("code")) in (b.get("assesses_occupations") or []):
-                    skill_body = {
-                        "body_id": b.get("body_id"),
-                        "name": b.get("name"),
-                        "full_name": b.get("full_name"),
-                        "website": b.get("website"),
-                        "fee_native": b.get("fee_native"),
-                        "assessment_fee_inr": b.get("assessment_fee_inr"),
-                        "processing_time_weeks": b.get("processing_time_weeks"),
-                        "documents_required": b.get("documents_required") or [],
-                        "criteria_general": b.get("criteria_general") or {},
-                    }
-                    break
+    # ─── skill_assessment — direct from occupation_master.assessing_authority ──
+    skill_assessment = {
+        "body_name": aa.get("name") or "",
+        "body_short": aa.get("short_name") or aa.get("name") or "",
+        "body_url": aa.get("url") or aa.get("website") or "",
+        "processing_time_weeks": aa.get("processing_time_weeks"),
+        "fee_native": aa.get("fee_native"),
+        "fee_currency": aa.get("fee_currency") or "",
+        "contact_details": aa.get("contact_details") or "",
+        "rules_summary": aa.get("rules_summary") or "",
+        "has_data": bool(aa.get("name")),
+    }
 
-    # Tab 3: Visa Pathways — all visas accepting this code
-    eligible_visa_codes = set(occ.get("eligible_visas") or [])
+    # ─── visa_pathways — merge occ_master eligibility flags w/ country catalogue ──
+    elig_index = {
+        (v.get("visa_subclass") or v.get("subclass") or v.get("code") or "").strip(): v
+        for v in (visa_pathways_raw.get("visa_eligibility") or [])
+    }
+    visa_catalogue = {
+        (v.get("code") or v.get("subclass") or "").strip(): v
+        for v in ((country or {}).get("visa_categories") or [])
+    }
+    # Union of subclasses present in either source
+    all_subclasses = list({*elig_index.keys(), *visa_catalogue.keys()})
+    all_subclasses = [s for s in all_subclasses if s]
+
     visa_pathways = []
-    for v in (country.get("visa_categories") or []):
-        if v.get("code") in eligible_visa_codes or _visa_accepts_pathway(v, occ.get("pathway")):
-            elig = v.get("eligibility") or {}
-            visa_pathways.append({
-                "code": v.get("code"),
-                "name": v.get("name"),
-                "type": v.get("type"),
-                "pathway_type": v.get("pathway_type"),
-                "age_limit": elig.get("age_max") or elig.get("age_limit"),
-                "points_minimum": elig.get("points_minimum"),
-                "english_minimum": elig.get("english_minimum"),
-                "experience_minimum_years": elig.get("experience_minimum_years"),
-                "fee_inr": (v.get("cost") or {}).get("government_fee_inr"),
-                "fee_native": (v.get("cost") or {}).get("government_fee_native"),
-                "processing_time_months": v.get("processing_time_months"),
-                "is_active": v.get("is_active", True),
-                "description": v.get("description"),
-            })
+    for sub in all_subclasses:
+        e = elig_index.get(sub) or {}
+        cat = visa_catalogue.get(sub) or {}
+        cat_elig = cat.get("eligibility") or {}
+        cat_cost = cat.get("cost") or {}
+        # eligible = either marker says true; if occ_master is missing this sub, treat as legacy-implied
+        is_eligible = e.get("eligible") if "eligible" in e else (sub in elig_index)
+        if not (is_eligible or sub in elig_index or sub in visa_catalogue):
+            continue
+        visa_pathways.append({
+            "subclass": sub,
+            "name": e.get("visa_name") or cat.get("name") or sub,
+            "eligible": bool(is_eligible),
+            "pathway_type": e.get("pathway_type") or cat.get("pathway_type") or "",
+            "is_recommended": bool(recommended_subclass) and sub == recommended_subclass,
+            "points_minimum": e.get("points_minimum") if e.get("points_minimum") is not None else cat_elig.get("points_minimum"),
+            "age_limit": e.get("age_limit") or cat_elig.get("age_max") or cat_elig.get("age_limit"),
+            "experience_required": e.get("experience_required") or cat_elig.get("experience_minimum_years") or "",
+            "english_minimum": cat_elig.get("english_minimum"),
+            "fee_native": cat_cost.get("government_fee_native"),
+            "fee_inr": cat_cost.get("government_fee_inr"),
+            "processing_time_months": cat.get("processing_time_months"),
+        })
+    # Sort: recommended first → eligible → subclass alphabetical
+    visa_pathways.sort(key=lambda x: (
+        0 if x.get("is_recommended") else 1,
+        0 if x.get("eligible") else 1,
+        (x.get("subclass") or "").lower(),
+    ))
 
-    # Tab 4: Document Checklist (rule-based, no AI)
-    docs_checklist = _build_doc_checklist(occ, country, skill_body)
-
-    # Tab 5: Similar Codes (same group + skill_body) — Phase 6.9.1: query master directly
-    similar = []
-    similar_query = {
-        "country_code": country_code.upper(),
-        "code": {"$ne": occ.get("code")},
-        "status": {"$ne": "superseded"},
+    # ─── documents — filter by country_override ──────────────────────────
+    doc_items: List[Dict[str, Any]] = []
+    by_category: Dict[str, int] = {}
+    for d in occ_master.get("required_documents") or []:
+        co = d.get("country_override")
+        if co and co.upper() != cc:
+            continue  # skip docs scoped to a different country
+        doc_items.append(d)
+        cat = d.get("category") or "Other"
+        by_category[cat] = by_category.get(cat, 0) + 1
+    documents = {
+        "items": doc_items,
+        "total": len(doc_items),
+        "by_category": by_category,
+        "filtered_by_country": True,
     }
-    async for o in occupation_master_col.find(similar_query, {"_id": 0}):
-        o_aa = o.get("assessing_authority") or {}
-        o_hier = o.get("hierarchy") or {}
-        o_pathway = ((o.get("visa_pathways") or {}).get("pathway_lists") or [None])[0]
-        score = 0
-        if o_hier.get("unit_group") == occ.get("group_code"):
-            score += 50
-        if o_aa.get("name") == occ.get("assessing_body"):
-            score += 30
-        if o_pathway == occ.get("pathway"):
-            score += 20
-        if score > 0:
-            similar.append({
-                "code": o.get("code"),
-                "title": o.get("title"),
-                "group": o_hier.get("unit_group_name"),
-                "pathway": o_pathway,
-                "assessing_body": o_aa.get("name"),
-                "skill_level": o.get("skill_level"),
-                "similarity_score": score,
-            })
-    similar.sort(key=lambda x: -x["similarity_score"])
-    similar = similar[:8]
+    # Back-compat alias for legacy frontend (until Tab 4 rewire ships)
+    document_checklist = {
+        "code": occ_master.get("code"),
+        "title": occ_master.get("title"),
+        "country": cc,
+        "categories": [{"name": k, "docs": [d for d in doc_items if (d.get("category") or "Other") == k]} for k in by_category],
+        "total_docs": len(doc_items),
+    }
 
-    return {
-        "country_code": country.get("country_code"),
-        "country": country.get("country"),
+    # ─── similar — override priority → auto top-up to 8 ──────────────────
+    similar: List[Dict[str, Any]] = []
+    seen_slugs: Set[str] = set()
+    own_slug = f"{cc.lower()}-{occ_master.get('code')}"
+    seen_slugs.add(own_slug)
+
+    overrides = occ_master.get("similar_codes_override") or []
+    for slug in overrides:
+        slug = (slug or "").strip().lower()
+        if not slug or slug in seen_slugs:
+            continue
+        sub_cc, _, sub_code = slug.partition("-")
+        if not (sub_cc and sub_code):
+            continue
+        pinned = await occupation_master_col.find_one(
+            {"country_code": sub_cc.upper(), "code": sub_code, "status": {"$ne": "superseded"}},
+            {"_id": 0, "code": 1, "title": 1, "country_code": 1, "assessing_authority": 1, "hierarchy": 1, "visa_pathways": 1, "skill_level": 1},
+        )
+        if not pinned:
+            continue
+        p_aa = pinned.get("assessing_authority") or {}
+        p_hier = pinned.get("hierarchy") or {}
+        p_pathway = ((pinned.get("visa_pathways") or {}).get("pathway_lists") or [None])[0]
+        similar.append({
+            "country_code": pinned.get("country_code"),
+            "code": pinned.get("code"),
+            "title": pinned.get("title"),
+            "group": p_hier.get("unit_group_name"),
+            "pathway": p_pathway,
+            "assessing_body": p_aa.get("name"),
+            "skill_level": pinned.get("skill_level"),
+            "is_override": True,
+            "similarity_score": 100,
+        })
+        seen_slugs.add(slug)
+        if len(similar) >= 8:
+            break
+
+    auto_slots = 8 - len(similar)
+    if auto_slots > 0:
+        own_group = hierarchy.get("unit_group")
+        own_body = aa.get("name")
+        async for o in occupation_master_col.find(
+            {"country_code": cc, "code": {"$ne": occ_master.get("code")}, "status": {"$ne": "superseded"}},
+            {"_id": 0, "code": 1, "title": 1, "country_code": 1, "assessing_authority": 1, "hierarchy": 1, "visa_pathways": 1, "skill_level": 1},
+        ):
+            o_slug = f"{(o.get('country_code') or '').lower()}-{o.get('code')}"
+            if o_slug in seen_slugs:
+                continue
+            o_aa = o.get("assessing_authority") or {}
+            o_hier = o.get("hierarchy") or {}
+            o_pathway = ((o.get("visa_pathways") or {}).get("pathway_lists") or [None])[0]
+            score = 0
+            if own_group and o_hier.get("unit_group") == own_group:
+                score += 50
+            if own_body and o_aa.get("name") == own_body:
+                score += 30
+            if primary_pathway and o_pathway == primary_pathway:
+                score += 20
+            if score > 0:
+                similar.append({
+                    "country_code": o.get("country_code"),
+                    "code": o.get("code"),
+                    "title": o.get("title"),
+                    "group": o_hier.get("unit_group_name"),
+                    "pathway": o_pathway,
+                    "assessing_body": o_aa.get("name"),
+                    "skill_level": o.get("skill_level"),
+                    "is_override": False,
+                    "similarity_score": score,
+                })
+                seen_slugs.add(o_slug)
+        # Sort the auto portion by score desc and cap at 8 total
+        overrides_pinned = [s for s in similar if s.get("is_override")]
+        auto_only = sorted([s for s in similar if not s.get("is_override")], key=lambda x: -x.get("similarity_score", 0))
+        similar = (overrides_pinned + auto_only)[:8]
+
+    # ─── sample_cases ────────────────────────────────────────────────────
+    sample_cases = occ_master.get("sample_cases") or []
+
+    # ─── verification_meta ───────────────────────────────────────────────
+    ver = occ_master.get("verification") or {}
+    verified_at_raw = ver.get("verified_at")
+    verified_at_iso = None
+    days_since = None
+    if verified_at_raw:
+        if hasattr(verified_at_raw, "isoformat"):
+            verified_at_dt = verified_at_raw
+        else:
+            try:
+                verified_at_dt = datetime.fromisoformat(str(verified_at_raw).replace("Z", "+00:00"))
+            except Exception:  # noqa: BLE001
+                verified_at_dt = None
+        if verified_at_dt:
+            if verified_at_dt.tzinfo is None:
+                verified_at_dt = verified_at_dt.replace(tzinfo=timezone.utc)
+            verified_at_iso = verified_at_dt.isoformat()
+            days_since = (datetime.now(timezone.utc) - verified_at_dt).days
+    verification_meta = {
+        "is_verified": bool(ver.get("is_verified")) or occ_master.get("status") == "verified",
+        "verified_at": verified_at_iso,
+        "verified_by_name": ver.get("verified_by_name") or ver.get("verified_by") or "",
+        "source_reference": ver.get("source_reference") or "",
+        "verification_count": len(occ_master.get("verification_history") or []),
+        "days_since_verified": days_since,
+    }
+
+    response: Dict[str, Any] = {
+        "country_code": cc,
+        "country": country_name,
         "overview": overview,
-        "skill_assessment": skill_body,
+        "skill_assessment": skill_assessment,
         "visa_pathways": visa_pathways,
-        "document_checklist": docs_checklist,
-        "similar_codes": similar,
-        "sample_cases": [],  # Placeholder for future
+        "documents": documents,
+        "document_checklist": document_checklist,  # back-compat alias
+        "similar": similar,
+        "similar_codes": similar,                  # back-compat alias
+        "sample_cases": sample_cases,
+        "verification_meta": verification_meta,
+    }
+
+    if include_legacy:
+        try:
+            legacy_doc = await _fetch_legacy_shaped_occupation(country_code, code)
+            response["_legacy"] = legacy_doc
+        except Exception:  # noqa: BLE001
+            response["_legacy"] = None
+
+    return response
+
+
+def _build_minimal_legacy_response(legacy: Dict[str, Any], country: Dict[str, Any], country_name: str) -> Dict[str, Any]:
+    """Phase 18.2 — when occupation_master is missing this code, return a minimal
+    new-shape response built from the legacy adapter so the page still renders
+    without errors."""
+    return {
+        "country_code": (country or {}).get("country_code") or "",
+        "country": country_name,
+        "overview": {
+            "code": legacy.get("code"),
+            "title": legacy.get("title"),
+            "country_code": (country or {}).get("country_code") or "",
+            "country_name": country_name,
+            "group": legacy.get("group"),
+            "group_code": legacy.get("group_code"),
+            "skill_level": legacy.get("skill_level"),
+            "pathway": legacy.get("pathway"),
+            "alternative_titles": legacy.get("alternative_titles") or [],
+            "description": legacy.get("description") or "",
+            "typical_tasks": legacy.get("typical_tasks") or _default_tasks(legacy.get("title", "")),
+            "qualification_rules": "",
+            "custom_sections": [],
+            "state_demand": legacy.get("state_demand") or {},
+            "in_demand": _is_in_demand(legacy.get("state_demand") or {}),
+            "salary_range": legacy.get("salary_range"),
+        },
+        "skill_assessment": {
+            "body_name": legacy.get("assessing_body") or "",
+            "body_short": legacy.get("assessing_body") or "",
+            "body_url": "", "processing_time_weeks": None, "fee_native": None,
+            "fee_currency": "", "contact_details": "", "rules_summary": "",
+            "has_data": bool(legacy.get("assessing_body")),
+        },
+        "visa_pathways": [],
+        "documents": {"items": [], "total": 0, "by_category": {}, "filtered_by_country": True},
+        "document_checklist": {"categories": [], "total_docs": 0},
+        "similar": [],
+        "similar_codes": [],
+        "sample_cases": [],
+        "verification_meta": {"is_verified": False, "verified_at": None, "verified_by_name": "",
+                              "source_reference": "", "verification_count": 0, "days_since_verified": None},
     }
 
 

@@ -3,7 +3,62 @@
 This file appends every completed phase/feature with dates and verification status.
 
 ---
-### 🩹 Patch 18.1.1 — Missing view-mode render branch + DB re-pollution self-heal (Jun 11, 2026)
+### 🚀 Phase 18.2 — Smart Sales Helper rewire + UI/UX overhaul (Jun 11, 2026)
+**Tests:** `tests/test_phase182_sales_helper_rewire.py` → **13/13 PASS** in 1.31s. Combined Phase 17.* + 18.* regression: **71 passed, 2 skipped, 1 deselected**.
+
+**Smoking-gun bug closed:** Admin VerifiedRecordView for au-111111 showed "Institute of Managers and Leaders National" with IML processing time + fee, but Sales Helper Skill Assessment tab showed `"No assessing body data on file for this code"` and the header code badge was an empty white box. Root cause (mapped in recon Section D): `get_occupation_detail` read from legacy `country_rules` via `_fetch_legacy_shaped_occupation()` — bypassing every admin-verified field on `occupation_master`.
+
+### A) Backend rewrite — `routers/sales_occupations.py::get_occupation_detail`
+- Direct read from `occupation_master`; legacy `country_rules` retained ONLY for country name + visa-catalogue metadata (subclass name/points/fee/age-limit).
+- New response shape: `overview` (incl. `description`, `qualification_rules`, `custom_sections`), `skill_assessment` (with `has_data` flag), `visa_pathways[]` (with `is_recommended` boolean), `documents` (with `by_category` + `country_override` filter), `similar` (override-pinned first then auto top-up to 8), `sample_cases`, `verification_meta` (`is_verified`, `verified_by_name`, `days_since_verified`, `verification_count`).
+- Business rules: `recommended_visa_subclass[country_code]` → `is_recommended: true` on matching subclass; documents with `country_override` mismatch are filtered out; `similar_codes_override[]` preserves order; auto-similarity scores by hierarchy unit_group (+50) + assessing body (+30) + pathway (+20).
+- `?include_legacy=1` debug query returns the old legacy shape under `_legacy`.
+- Endpoint URL unchanged (`/api/sales/occupations/{cc}/{code}`) — no breaking change.
+- Graceful fallback: `_build_minimal_legacy_response()` for codes missing in `occupation_master` (404 codes still degrade cleanly).
+
+### B) Frontend rewrite — `OccupationDetail.jsx` (complete redesign, ~600 lines)
+- **LEAMSS brand colours**: Forest Green `#1F4D44` (primary), Burnt Orange `#D4633F` (Add to Compare CTA), Warm White `#FAFAF7` (background), Cream `#F5F2EC` (qualification card tint), Amber-500 (recommended primary pathway).
+- **Header redesign**: Filled forest-green code badge (Sir's empty-badge bug FIXED — `<div style={{ background: BRAND.forest }}>{ov.code}</div>`), flag emoji + country name + group, serif title (Georgia 2xl), "✓ Verified by X · Nh ago · Source link · MLTSSL;CSOL" subtle metadata.
+- **Last Verified badge**: emerald (≤30d), amber (30–90d), rose (>90d, "Re-verify due"). Surfaces ageing.
+- **Tabs**: Pill-style segmented control inside a rounded-full white container, active pill = forest green fill + white text, count chips, horizontally scrollable on mobile.
+- **Overview tab**: Description in serif body, numbered Typical Tasks with forest cream-bg number bullets, Qualification Rules in cream-tinted card, Custom Sections collapsible accordion, State Demand grid with colour-tiered DemandBadge (very_high=emerald-600, high=emerald-100, medium=amber, low=slate).
+- **Skill Assessment tab**: hero card with forest-green building icon + body name + URL, 3-column metric strip (Processing Time / Assessment Fee / Contact), Rules Summary block. **Empty state**: "Admin verification pending" + burnt-orange "Request Verification" CTA (currently fires a toast — Phase 18.3 will log to `feedback_requests`).
+- **Visa Pathways tab**: 2-column grid. Recommended card highlighted with amber-400 ring + amber subclass pill + "⭐ Recommended Primary Pathway" badge. Other eligible cards show subclass in forest green. Sort: recommended → eligible → alphabetical.
+- **Documents tab**: Group-by-category accordion (expanded by default), required (emerald check) vs optional (slate dot circle), country-override blue badge ("AU-only"), "Export Checklist (PDF)" stub uses `window.print()` (print CSS hides nav + adds page borders).
+- **Similar tab**: 3-column grid. Override-pinned cards highlighted with amber border + amber-400 "📌 Pinned" badge. Auto-similar cards show "N% match" subtle scoring. Country flag + mono code + title + pathway badge.
+- **Sample Cases tab**: 2-column card grid with outcome-tinted badges (grant/approve=emerald, refuse=rose, else slate). Empty state with BookOpen illustration + admin-hint message.
+- **Skeleton loader**: in-page placeholder while fetching (not blank-then-snap).
+- **Print CSS**: `.no-print` hides nav, `.print-card` adds page-friendly borders.
+- **Page title**: dynamically set to `${title} — LEAMSS Occupation Atlas`.
+
+### C) 13 new tests — `tests/test_phase182_sales_helper_rewire.py`
+1. Skill Assessment from occupation_master (was empty) ✅
+2. Visa pathways present + `is_recommended` boolean type ✅
+3. Recommended-visa badge flag flips when admin sets `recommended_visa_subclass={AU:189}` ✅
+4. Documents `total=17` after admin PUTs 17 docs (was hardcoded 16) ✅
+5. `country_override="CA"` excluded for AU; "AU"/None included ✅
+6. Override-pinned similar codes appear BEFORE auto codes ✅
+7. Sample cases surfaced after POST /sample-cases ✅
+8. Custom sections appear in `overview.custom_sections` ✅
+9. `verification_meta.is_verified=True, verified_at, days_since_verified` populated ✅
+10. Admin save+verify reflected in sales detail immediately (no cache) ✅
+11. `overview.code === "111111"` (Sir's empty-badge bug) ✅
+12. Legacy fallback for missing codes (404 or 200, never 500) ✅
+13. Adversarial path-leak sweep (no 5xx on traversal / XSS / SQL-i strings) ✅
+
+### D) Triple verification gate (3 confirmations)
+1. ✅ **pytest 71/71 PASS** (Phase 17.* + 18.* combined regression, 2 skipped LLM, 1 deselected stale-count)
+2. ✅ **Bundle curl-grep on deployed `/static/js/bundle.js`** (22.76MB): `sales-code-badge`, `sales-occupation-title`, `sales-verified-badge`, `sales-skill-assessment-card`, `sales-skill-assessment-empty`, `sales-skill-metric-strip`, `sales-recommended-badge`, `sales-similar-override-pin`, `sales-export-docs-pdf`, `Request Verification` — all present
+3. ✅ **Real Playwright DOM probes + 3 screenshots** showing:
+   - Overview tab: forest-green "111111" code badge + serif title + 496-char ACS description + 10 numbered tasks + 988-char qualification rules card + "P182 note" custom section
+   - Visa Pathways tab: subclass **189 highlighted amber + "⭐ Recommended Primary Pathway"** badge, 8 other eligible cards
+   - Similar tab: **261313 + 111211 pinned with amber "📌 Pinned"** badges first, auto-similar codes follow with "30% match" scoring
+   - Skill Assessment tab: **"Institute of Managers and Leaders National"** rendered (was "No assessing body data" before) — Sir's smoking-gun bug FIXED
+
+Saved screenshots: `/tmp/p182_final_overview.png`, `/tmp/p182_final_visas.png`, `/tmp/p182_final_similar.png`.
+
+---
+
 **Reported by:** Sir directly (UI changes weren't visible on live preview).
 **Root cause:** My earlier `search_replace` to wire `<VerifiedRecordView>` into `BrowseAndVerify` **landed only partially**. The `useState`, `openItem` callback, AND `VerifiedRecordView` component all landed correctly in source AND in the deployed `bundle.js` (verified via curl grep — all 13 testids present in 22.7MB bundle). HOWEVER the actual `if (viewing) return <VerifiedRecordView ... />` render branch went missing from `BrowseAndVerify` before the existing `if (editing)` check. Net effect: click on a verified card called `setViewing(it)` successfully, but the component had no render path for `viewing` state → list stayed visible, Sir saw no change.
 **Diagnosis chain:** (1) supervisorctl → frontend RUNNING (uptime 1:38:24, hot-reload alive). (2) `/app/frontend/build/` doesn't exist (CRA dev-server serves in-memory). (3) Curl on deployed `/static/js/bundle.js` → ALL 13 testids/component names present in shipped bundle (NOT stale). (4) Playwright DOM probe after click: `verified-view=False` even though `code-card` had `onclick` registered. (5) Source inspect of `BrowseAndVerify` JSX lines 128-132 → only `if (editing)` exists, `if (viewing)` block MISSING.
