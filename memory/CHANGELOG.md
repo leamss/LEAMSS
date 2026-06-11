@@ -3,6 +3,64 @@
 This file appends every completed phase/feature with dates and verification status.
 
 ---
+### 🔓 Phase 17.1.3 — Edit-page action endpoints unblocked ("Occupation not found" fix) (Jun 11, 2026)
+**Tests:** `tests/test_phase1713_edit_page_actions.py` → **7/7 PASS** in 12.85s. Full Phase 17 + regression: **68 passed, 3 skipped**. AI-draft endpoint live-verified with real LLM response (580-char description + 10 typical tasks).
+
+User Sir's screenshot of `/admin/kb/occupation-master?country=AU&code=111111` showed the record rendering correctly ("AU · 111111 · verified · Chief Executive or Managing Director") but every action button (**Generate**, **Verify & Publish**, **Save Draft**, **Polish**) toasted *"Occupation not found"*. Frontend already passed `item.occupation_id` to the action endpoints — but for AU records, that field didn't exist on the document at all → `undefined` reached the URL.
+
+**Smoking-gun root cause:**
+```
+db.occupation_master.countDocuments({country_code:"AU", occupation_id:{$exists:false}}) = 708
+db.occupation_master.findOne({country_code:"AU",code:"111111"},{occupation_id:1}).occupation_id = undefined
+```
+The Phase 16.7 `seed_au_from_home_affairs.py` script (which I wrote to recover the 708 AU records after the container restore) never set `occupation_id`. CA records had `"ca-{code}"` slug. NZ records had real UUIDs. AU records had NONE. So `frontend → POST /api/occupation-master/${undefined}/ai-draft → 404`.
+
+**Why it didn't show up earlier:** Phase 16.7 only verified Atlas public pages (which lookup by `(country_code, code)` directly). Phase 17.0 / 17.1 used the public list endpoint which doesn't need `occupation_id`. The admin Edit page was the first surface to dereference `occupation_id` — and the URL-param-driven entry (Phase 17.1.2) is what first sent admins there for AU records. Internal-list-click on CA / NZ records worked because those did have `occupation_id`.
+
+**Defense-in-depth fix (both A + B):**
+
+**Option A (frontend already correct):** `OccupationMasterAdmin.jsx` was already loading the full doc via `setEditing(item)` and referencing `item.occupation_id` in all 3 handlers (lines 211 ai-draft, 251 PUT update, 263 POST verify). Once `occupation_id` is populated server-side (Option B), every existing handler works without code change. Polish endpoint hits `POST /api/kb/polish-text` (free-text endpoint, doesn't need occupation_id) — unaffected by this bug.
+
+**Option B (backend backfill + dual-lookup resolver):**
+- NEW `/app/backend/migrations/phase1713_backfill_occupation_id.py` — idempotent startup migration that backfills `occupation_id = "{cc.lower()}-{code}"` (e.g. `au-111111`) on every record where it's missing/null/empty. First boot patched **708 AU records**. Subsequent boots `patched=0, status=ok` (idempotent).
+- NEW `routers/occupation_master._find_occupation(identifier)` — dual-lookup helper. Tries `occupation_id` field first; if no match AND identifier contains `-`, falls back to `(country_code=cc.upper(), code=tail)`. Safety net for any future deep-link/bookmark with the slug format even if `occupation_id` field is somehow stripped.
+- Rewired 5 endpoints to use the helper + resolve to canonical `real_id` from found doc before update_one/delete (so updates can't 404 on the second hop): GET, PUT (`update`), POST `/verify`, DELETE, POST `/ai-draft`.
+
+**Live curl proof (all 4 actions on `au-111111` post-fix):**
+```
+GET    /api/occupation-master/au-111111            → 200, returns {code:"111111", title:"Chief Executive..."}
+POST   /api/occupation-master/au-111111/verify     → 200, status flips to verified, verification.verified_at set
+PUT    /api/occupation-master/au-111111            → 200, description updated
+POST   /api/occupation-master/au-111111/ai-draft   → 200, ai_draft.description (580ch) + typical_tasks (10) + qualification_rules (1001ch) populated by Claude Sonnet 4.6
+GET    /api/occupation-master/au-999999            → 404 "Occupation not found" (regression preserved — legit not-found still 404s)
+GET    /api/occupation-master/ca-10010             → 200 (dual-lookup safety verified for CA slug too)
+```
+
+**Adjacent fix — EMERGENT_LLM_KEY restored** in `backend/.env` (was missing after container restore; AI-draft endpoint requires it). Verified via Claude Sonnet 4.6 live call returning structured draft.
+
+**Tests added (`tests/test_phase1713_edit_page_actions.py` — 7/7 PASS):**
+1. `test_1_get_occupation_by_slug` — GET `au-111111` returns full record
+2. `test_2_verify_publish_by_slug` — POST `/verify` flips status to `verified` + sets `verification.verified_at`
+3. `test_3_save_draft_by_slug` — PUT updates description, doc reflects change
+4. `test_4_generate_ai_draft_by_slug` — POST `/ai-draft` returns `description` + non-empty `typical_tasks` (skips if `EMERGENT_LLM_KEY` missing; LIVE PASS with key)
+5. `test_5_404_for_truly_missing_occupation` — `au-999999` still HTTP 404 (regression guard)
+6. `test_6_au_records_have_occupation_id_after_backfill` — `countDocuments({country_code: AU/CA/NZ, occupation_id: {$exists:false}}) == 0` for all 3 countries (1,467 records)
+7. `test_7_dual_lookup_safety_works_for_ca` — `ca-10010` slug returns CA record (dual-lookup helper exercised end-to-end)
+
+**Files:**
+- NEW `/app/backend/migrations/phase1713_backfill_occupation_id.py` — idempotent AU occupation_id backfill
+- MOD `/app/backend/server.py` — backfill wired into startup after `phase1711_backfill_verification.run_backfill`
+- MOD `/app/backend/routers/occupation_master.py` — `_find_occupation()` helper + 5 endpoints rewired to use it (~30 net lines)
+- MOD `/app/backend/.env` — `EMERGENT_LLM_KEY` restored
+- NEW `/app/backend/tests/test_phase1713_edit_page_actions.py` — 7 tests
+- MOD `/app/memory/CHANGELOG.md`
+
+**Sir-facing explanation (paste verbatim):**
+> Sir, root-cause yeh tha: Phase 16.7 mein jo `seed_au_from_home_affairs.py` script likhi thi AU ke 708 records recover karne ke liye, usne har record pe `occupation_id` field set hi nahi ki thi (CA aur NZ records ke paas ye field theek tha). Toh jab Edit page pe Generate/Verify dabaya gaya, frontend ne `POST /api/occupation-master/undefined/ai-draft` bheja → backend ne 404 "Occupation not found" return kiya. Fix do-layer hai: (1) ek startup migration ne saare 708 AU records pe `occupation_id="au-{code}"` slug populate kar diya (idempotent — dobara nahi chalta agar pehle se set hai), aur (2) backend mein `_find_occupation()` dual-lookup helper add kiya jo pehle `occupation_id` se dhoondhta hai, fail ho toh `(country_code, code)` se fallback karta hai. Ab koi bhi URL — UUID, slug, bookmark, deep-link — sab kaam karega. AI Generate live test mein Claude Sonnet 4.6 se 580 character ki description + 10 typical tasks return ho gayi. 🙏
+
+
+
+---
 ### 🔒 Phase 17.1.2 — Status wildcard defense-in-depth (Jun 11, 2026)
 **Tests:** `tests/test_phase1711_country_runners_actually_work.py` → **12/12 PASS + 1 documented skip** (added 4 new). Full suite (Phase 13 + 16.7 + 17.0 + 17.1 + 17.1.1 + 17.1.2): **61 passed, 3 skipped** in 117s.
 

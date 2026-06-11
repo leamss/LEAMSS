@@ -195,9 +195,8 @@ async def list_occupations(
 # ─────────────────────────────────────────────────────────────────────────────
 @router.get("/{occupation_id}")
 async def get_occupation(occupation_id: str, current_user: dict = Depends(get_current_user)):
-    doc = await OCCUPATION_MASTER.find_one({"occupation_id": occupation_id}, {"_id": 0})
+    doc = await _find_occupation(occupation_id)
     if not doc:
-        # Fallback: try lookup by (country_code, code) for friendlier URLs
         raise HTTPException(status_code=404, detail="Occupation not found")
     # Populate assessing-body full record if linked
     body_slug = (doc.get("assessing_authority") or {}).get("body_id")
@@ -209,6 +208,31 @@ async def get_occupation(occupation_id: str, current_user: dict = Depends(get_cu
         if body:
             doc["assessing_authority_full"] = _strip(body)
     return _strip(doc)
+
+
+# ─── Phase 17.1.3 — dual-lookup resolver ───────────────────────────────────
+async def _find_occupation(identifier: str) -> Optional[dict]:
+    """Find one record by `occupation_id` (UUID or slug like 'au-261313').
+
+    Fallback: if the identifier looks like a country-prefixed slug
+    `{cc}-{code}` (e.g. ``au-261313``), also try `(country_code, code)` —
+    protects against records that still lack `occupation_id` after backfill
+    OR future records seeded by external scripts.
+    """
+    doc = await OCCUPATION_MASTER.find_one({"occupation_id": identifier}, {"_id": 0})
+    if doc:
+        return doc
+    # Slug fallback: "{cc}-{code}" → split and try (country_code, code)
+    if isinstance(identifier, str) and "-" in identifier:
+        cc, _, code = identifier.partition("-")
+        if cc and code:
+            doc = await OCCUPATION_MASTER.find_one(
+                {"country_code": cc.upper(), "code": code},
+                {"_id": 0},
+            )
+            if doc:
+                return doc
+    return None
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -274,11 +298,14 @@ async def create_occupation(req: OccupationCreate, current_user: dict = Depends(
 @router.put("/{occupation_id}")
 async def update_occupation(occupation_id: str, req: OccupationUpdate, current_user: dict = Depends(get_current_user)):
     await _require_admin(current_user)
-    existing = await OCCUPATION_MASTER.find_one({"occupation_id": occupation_id})
+    existing = await _find_occupation(occupation_id)
     if not existing:
         raise HTTPException(status_code=404, detail="Occupation not found")
     if req.status and req.status not in VALID_STATUSES:
         raise HTTPException(status_code=400, detail=f"Invalid status. Use one of {VALID_STATUSES}")
+
+    # Resolve to the canonical id stored on the doc (handles slug → uuid fallback)
+    real_id = existing.get("occupation_id") or occupation_id
 
     update_doc = req.model_dump(exclude_unset=True)
     if "hierarchy" in update_doc and update_doc["hierarchy"]:
@@ -286,8 +313,8 @@ async def update_occupation(occupation_id: str, req: OccupationUpdate, current_u
     if "assessing_authority" in update_doc and update_doc["assessing_authority"]:
         update_doc["assessing_authority"] = update_doc["assessing_authority"]
     update_doc["updated_at"] = datetime.now(timezone.utc)
-    await OCCUPATION_MASTER.update_one({"occupation_id": occupation_id}, {"$set": update_doc})
-    refreshed = await OCCUPATION_MASTER.find_one({"occupation_id": occupation_id}, {"_id": 0})
+    await OCCUPATION_MASTER.update_one({"occupation_id": real_id}, {"$set": update_doc})
+    refreshed = await OCCUPATION_MASTER.find_one({"occupation_id": real_id}, {"_id": 0})
     return _strip(refreshed)
 
 
@@ -297,12 +324,13 @@ async def update_occupation(occupation_id: str, req: OccupationUpdate, current_u
 @router.post("/{occupation_id}/verify")
 async def verify_occupation(occupation_id: str, req: VerifyRequest, current_user: dict = Depends(get_current_user)):
     await _require_admin(current_user)
-    existing = await OCCUPATION_MASTER.find_one({"occupation_id": occupation_id})
+    existing = await _find_occupation(occupation_id)
     if not existing:
         raise HTTPException(status_code=404, detail="Occupation not found")
+    real_id = existing.get("occupation_id") or occupation_id
     now = datetime.now(timezone.utc)
     await OCCUPATION_MASTER.update_one(
-        {"occupation_id": occupation_id},
+        {"occupation_id": real_id},
         {"$set": {
             "status": "verified",
             "verification.verified_by": current_user["id"],
@@ -313,7 +341,7 @@ async def verify_occupation(occupation_id: str, req: VerifyRequest, current_user
             "updated_at": now,
         }},
     )
-    refreshed = await OCCUPATION_MASTER.find_one({"occupation_id": occupation_id}, {"_id": 0})
+    refreshed = await OCCUPATION_MASTER.find_one({"occupation_id": real_id}, {"_id": 0})
     return _strip(refreshed)
 
 
@@ -323,15 +351,16 @@ async def verify_occupation(occupation_id: str, req: VerifyRequest, current_user
 @router.delete("/{occupation_id}")
 async def delete_occupation(occupation_id: str, current_user: dict = Depends(get_current_user)):
     await _require_admin(current_user)
-    existing = await OCCUPATION_MASTER.find_one({"occupation_id": occupation_id})
+    existing = await _find_occupation(occupation_id)
     if not existing:
         raise HTTPException(status_code=404, detail="Occupation not found")
+    real_id = existing.get("occupation_id") or occupation_id
     now = datetime.now(timezone.utc)
     await OCCUPATION_MASTER.update_one(
-        {"occupation_id": occupation_id},
+        {"occupation_id": real_id},
         {"$set": {"status": "superseded", "updated_at": now}},
     )
-    return {"ok": True, "occupation_id": occupation_id, "status": "superseded"}
+    return {"ok": True, "occupation_id": real_id, "status": "superseded"}
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -384,9 +413,10 @@ async def generate_occupation_ai_draft(occupation_id: str, current_user: dict = 
     occupation's `ai_draft` block. Status remains 'draft' until admin verifies.
     """
     await _require_admin(current_user)
-    occ = await OCCUPATION_MASTER.find_one({"occupation_id": occupation_id})
+    occ = await _find_occupation(occupation_id)
     if not occ:
         raise HTTPException(status_code=404, detail="Occupation not found")
+    real_id = occ.get("occupation_id") or occupation_id
     aa = occ.get("assessing_authority") or {}
     pathway_lists = (occ.get("visa_pathways") or {}).get("pathway_lists") or []
     hierarchy = occ.get("hierarchy") or {}
@@ -414,7 +444,7 @@ async def generate_occupation_ai_draft(occupation_id: str, current_user: dict = 
         "is_stale": False,
     }
     await OCCUPATION_MASTER.update_one(
-        {"occupation_id": occupation_id},
+        {"occupation_id": real_id},
         {"$set": {"ai_draft": ai_draft_block, "updated_at": now}},
     )
     return {"ok": True, "ai_draft": ai_draft_block}

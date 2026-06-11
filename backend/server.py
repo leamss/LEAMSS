@@ -247,6 +247,11 @@ async def startup():
         from migrations.phase1711_backfill_verification import run_backfill
         bf = await run_backfill(_db_handle)
         print(f"[Phase17.1.1] Verification backfill: {bf}")
+        # Phase 17.1.3 — backfill `occupation_id` on AU records (and any other
+        # country whose records are missing this slug). Idempotent.
+        from migrations.phase1713_backfill_occupation_id import run_backfill_occupation_id
+        oid_bf = await run_backfill_occupation_id(_db_handle)
+        print(f"[Phase17.1.3] occupation_id backfill: {oid_bf}")
     except Exception as e:
         print(f"[Phase17.0 ERROR] {e}")
 
