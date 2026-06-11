@@ -252,6 +252,16 @@ async def startup():
         from migrations.phase1713_backfill_occupation_id import run_backfill_occupation_id
         oid_bf = await run_backfill_occupation_id(_db_handle)
         print(f"[Phase17.1.3] occupation_id backfill: {oid_bf}")
+        # Phase 18.0 — restore probe-polluted occupation_master docs from
+        # ai_draft.* sub-block. Idempotent; only touches polluted rows.
+        from migrations.phase180_cleanup_probe_pollution import run_cleanup_probe_pollution
+        clean180 = await run_cleanup_probe_pollution(_db_handle)
+        print(f"[Phase18.0] probe-pollution cleanup: {clean180}")
+        # Phase 18.1 — seed canonical 16-doc baseline on records whose
+        # `required_documents` is missing or empty. Idempotent.
+        from migrations.phase181_seed_default_documents import run_seed_default_documents
+        seed181 = await run_seed_default_documents(_db_handle)
+        print(f"[Phase18.1] default required_documents seed: {seed181}")
     except Exception as e:
         print(f"[Phase17.0 ERROR] {e}")
 

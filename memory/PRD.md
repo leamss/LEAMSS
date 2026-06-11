@@ -7,6 +7,8 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 
 > **🔍 Update (Jun 10, 2026) — Phase 16.5 SEO:** `/start` Mega Landing Page made fully SEO-friendly — added `keywords` meta (was missing), enriched static `index.html` (title/description/keywords/OG/Twitter for View Source + social scrapers), upgraded `applySEO()` (keywords + Twitter Card + og:url/site_name/locale + robots), expanded JSON-LD to Organization + WebSite + WebPage + FAQPage, and added `robots.txt` + static `sitemap.xml`. See CHANGELOG Phase 16.5. Full SSR/pre-render deferred to P2.
 
+> **🛠️ Update (Jun 11, 2026) — Phase 18.0 + 18.1:** Hotfix probe-pollution cleanup on `occupation_master` (`au-111111` restored from `ai_draft`). Verification Workspace expanded — `qualification_rules`, `assessing_authority` (8-field sub-form), `required_documents` (16 baseline + per-occ curation), `similar_codes_override`, `recommended_visa_subclass` (per-country merge), `sample_cases`, `custom_sections`, `verification_history[]` snapshots. New `<VerifiedRecordView>` read-only mode for verified records + `Edit Again` toggle. `/verify` endpoint accepts full payload, snapshots before write, writes audit logs. NEW `/copy-from-ai` endpoint. **13/13 Phase 18.1 tests + Phase 17.* regression PASS**. See CHANGELOG.
+
 ### 🎯 Phase 14 — LEAMSS Brand Mega Landing + Atlas Redesign (Jun 9, 2026)
 **Status:** ✅ COMPLETE — visual + functional smoke tests verified · 13/13 backend regression PASS.
 

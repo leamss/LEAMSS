@@ -3,6 +3,42 @@
 This file appends every completed phase/feature with dates and verification status.
 
 ---
+### 🛠️ Phase 18.0 — Hotfix: probe-pollution cleanup on occupation_master (Jun 11, 2026)
+**Tests:** `tests/test_phase181_workspace_expansion.py::test_12,test_13` → **2/2 PASS**.
+
+Phase 17.1.3 tester PUT calls polluted `au-111111` with `description="Tester probe update …"` and `typical_tasks=["probe task 1", "probe task 2", "probe task 3"]`. The official content survived on `ai_draft.{description, typical_tasks, qualification_rules}`.
+
+**Fix:** NEW `migrations/phase180_cleanup_probe_pollution.py` — idempotent startup migration that scans every `occupation_master` doc. Regex `^(Tester probe|probe task|test_|demo_)` matches polluted text / tasks. Restores from `ai_draft.*` when available; clears to `""` / `[]` otherwise. Wired into `server.py` startup after Phase 17.1.3.
+
+**First-boot result:** `scanned=1468, cleaned=1, by_country={'AU': 1}` (only au-111111 polluted). Post-cleanup: description = "Chief Executives and Managing Directors are responsible…" (full ACS-grade paragraph), typical_tasks = 10 official items ("Determine and articulate the organisation's strategic vision…"). Second boot: `cleaned=0` confirms idempotency.
+
+---
+### 🚀 Phase 18.1 — Admin Verification Workspace expansion (Jun 11, 2026)
+**Tests:** `tests/test_phase181_workspace_expansion.py` → **13/13 PASS** in 1.08s. Phase 17.* regression suite: **55 passed, 2 skipped** (LLM env skip). Frontend compiled cleanly + smoke screenshot confirmed all 7 new field blocks render with proper testids.
+
+**Goal:** Closes the schema-vs-UI gap identified in the Phase 18 recon report. Of the 11 critical fields audited, only 3 were usable (description / typical_tasks / verification). Phase 18.1 makes 8 more fields admin-editable, snapshot-tracked on /verify, and view-mode rendered.
+
+**Backend changes — `routers/occupation_master.py` (rewritten):**
+- NEW schema fields on `occupation_master`: `qualification_rules` (str), `assessing_authority` (normalized: name, full_name, url, processing_time_weeks, fee_native, fee_currency, contact_details, rules_summary), `required_documents` ([{id, name, category, required, country_override}]), `similar_codes_override` ([slug]), `recommended_visa_subclass` ({CC: subclass} — MERGE per-country), `sample_cases` ([{id, client_age, profile_summary, visa_subclass, outcome, timeline_months, notes}]), `custom_sections` ([{id, title, body_markdown, source_url}]), `verification_history` ([{verified_by, verified_by_name, verified_at, source_reference, review_notes, snapshot}]).
+- **PUT `/occupation-master/{id}`** now accepts and persists all new fields. UUID auto-stamping for sub-doc items. `recommended_visa_subclass` uses dot-notation `$set` for per-country merge (NOT replacement).
+- **POST `/occupation-master/{id}/verify`** rewritten: (1) snapshots current top-level state into `verification_history[]` before write, (2) accepts FULL payload (any subset of editable fields), (3) sets `verification.is_verified: true` (fixes NZ inconsistency), (4) writes `audit_logs` entry. Legacy `{source_reference, review_notes}`-only callers still work (no-op snapshot if no field changes).
+- **NEW POST `/occupation-master/{id}/copy-from-ai`** — bulk-lift `ai_draft.{description, typical_tasks, qualification_rules}` → top-level. Saves manual copy-paste.
+- **6 NEW sub-CRUD endpoints**: `POST/PATCH/DELETE /sample-cases[/{case_id}]` and `POST/PATCH/DELETE /custom-sections[/{section_id}]`. Backend assigns UUIDs.
+- All mutating endpoints write to `audit_logs`.
+
+**Migration — `phase181_seed_default_documents.py`:**
+Seeded canonical 16-doc baseline (Identity×3, Education×3, Employment×6, Health×1, Character×1, English×1, Professional×1) onto every record where `required_documents` was missing/empty. First-boot: `seeded=1468, skipped=0`. Idempotent — second boot `seeded=0`.
+
+**Frontend changes — `OccupationMasterAdmin.jsx` (∼450 new lines):**
+- Expanded Admin Edit middle panel with 7 new field blocks (all testid-tagged): `edit-qualification-rules` + "Copy from AI" + Polish, `assessing-authority-editor` (collapsible 8-field sub-form), `recommended-visa-{cc}` dropdown sourced from `visa_pathways.visa_eligibility[]`, `required-docs-editor` (dynamic rows: name + category + country-override + required-toggle + remove), `similar-override-editor` (chip input with `cc-code` validation), `sample-cases-editor` + `custom-sections-editor` (dynamic card lists).
+- AI Draft panel now has **"Copy All"** button (`data-testid="copy-all-from-ai"`) calling `/copy-from-ai`.
+- NEW `<VerifiedRecordView>` component (read-only) — verified records open here by default. Shows verification meta (verified_by, verified_at, source link), 8 view blocks (Description, Tasks, Qualification Rules, Assessing Authority, Recommended Visa, Required Documents, Similar Override, Sample Cases), inline Custom Sections renderer, collapsible `verification-history` (timestamps + diff hints), and `edit-again-btn` to switch into the existing 3-panel editor.
+- `BrowseAndVerify.openItem()` routes to view-mode (status=verified) vs edit-mode (others). URL param `?edit=1` forces edit mode for deep-link bookmarking. After successful /verify, `onSaved(updated)` callback routes the user into view-mode of the just-published record.
+
+**Smoke screenshot confirmed:** All 7 new field blocks render correctly with the 16-doc seed pre-populated; `Copy from AI` button surfaces on the Qualification Rules row; assessing authority shows "Institute of Managers and Leaders National" populated; visa pathway dropdown ready for AU.
+
+---
+
 ### 🔓 Phase 17.1.3 — Edit-page action endpoints unblocked ("Occupation not found" fix) (Jun 11, 2026)
 **Tests:** `tests/test_phase1713_edit_page_actions.py` → **7/7 PASS** in 12.85s. Full Phase 17 + regression: **68 passed, 3 skipped**. AI-draft endpoint live-verified with real LLM response (580-char description + 10 typical tasks).
 

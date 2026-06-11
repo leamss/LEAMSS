@@ -1,25 +1,32 @@
-"""Phase 6.9.1 — Occupation Master CRUD endpoints (admin-controlled).
+"""Phase 6.9.1 / 18.1 — Occupation Master CRUD endpoints (admin-controlled).
 
 Single source of truth for occupation codes across all sales/partner tabs.
 
 Endpoints:
-  GET  /api/occupation-master              — list with filters (country, status, search)
-  GET  /api/occupation-master/stats        — counts by status (feeds admin KB dashboard)
-  GET  /api/occupation-master/{id}         — single + populated assessing-body details
-  POST /api/occupation-master              — admin creates a new code manually
-  PUT  /api/occupation-master/{id}         — admin updates a code (incl. status flip)
-  DELETE /api/occupation-master/{id}       — admin soft-delete (status=superseded)
-  POST /api/occupation-master/{id}/verify  — admin marks 'verified' with source_reference
+  GET    /api/occupation-master                       — list with filters
+  GET    /api/occupation-master/stats                 — counts by status
+  GET    /api/occupation-master/{id}                  — single + populated body
+  POST   /api/occupation-master                       — admin creates a new code
+  PUT    /api/occupation-master/{id}                  — admin updates (incl. all expanded fields)
+  DELETE /api/occupation-master/{id}                  — admin soft-delete
+  POST   /api/occupation-master/{id}/verify           — verify+publish with snapshot history
+  POST   /api/occupation-master/{id}/copy-from-ai     — Phase 18.1: lift ai_draft.* to top-level
+  POST   /api/occupation-master/{id}/sample-cases     — Phase 18.1: add sample case (assigns UUID)
+  PATCH  /api/occupation-master/{id}/sample-cases/{case_id}    — update sample case by UUID
+  DELETE /api/occupation-master/{id}/sample-cases/{case_id}    — remove sample case by UUID
+  POST   /api/occupation-master/{id}/custom-sections           — add custom section (assigns UUID)
+  PATCH  /api/occupation-master/{id}/custom-sections/{sec_id}  — update custom section
+  DELETE /api/occupation-master/{id}/custom-sections/{sec_id}  — remove custom section
 """
 import uuid
 from datetime import datetime, timezone
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from core.auth import get_current_user
-from core.database import db
+from core.database import db, audit_logs_col
 from core.kb_ai import draft_occupation, draft_skill_body, now_utc
 
 router = APIRouter(prefix="/occupation-master", tags=["occupation-master"])
@@ -59,6 +66,13 @@ class AssessingAuthority(BaseModel):
     name: Optional[str] = ""
     full_name: Optional[str] = ""
     website: Optional[str] = ""
+    # Phase 18.1 — richer admin-curated body info
+    url: Optional[str] = ""
+    processing_time_weeks: Optional[int] = None
+    fee_native: Optional[float] = None
+    fee_currency: Optional[str] = ""
+    contact_details: Optional[str] = ""
+    rules_summary: Optional[str] = ""
 
 
 class HierarchyModel(BaseModel):
@@ -67,6 +81,34 @@ class HierarchyModel(BaseModel):
     minor_group: Optional[str] = ""
     unit_group: Optional[str] = ""
     unit_group_name: Optional[str] = ""
+
+
+class RequiredDocument(BaseModel):
+    """Phase 18.1 — admin-curated document checklist item."""
+    id: Optional[str] = None  # backend assigns UUID if missing
+    name: str
+    category: str = "Other"
+    required: bool = True
+    country_override: Optional[str] = None  # None = applies to all countries
+
+
+class SampleCase(BaseModel):
+    """Phase 18.1 — anonymised client success story."""
+    id: Optional[str] = None
+    client_age: Optional[int] = None
+    profile_summary: Optional[str] = ""
+    visa_subclass: Optional[str] = ""
+    outcome: Optional[str] = ""
+    timeline_months: Optional[int] = None
+    notes: Optional[str] = ""
+
+
+class CustomSection(BaseModel):
+    """Phase 18.1 — free-form admin-authored section."""
+    id: Optional[str] = None
+    title: str
+    body_markdown: Optional[str] = ""
+    source_url: Optional[str] = ""
 
 
 class OccupationCreate(BaseModel):
@@ -101,11 +143,79 @@ class OccupationUpdate(BaseModel):
     state_territory_eligibility: Optional[list] = None
     status: Optional[str] = None
     linked_product_id: Optional[str] = None
+    # Phase 18.1 — workspace expansion fields
+    qualification_rules: Optional[str] = None
+    required_documents: Optional[List[RequiredDocument]] = None
+    similar_codes_override: Optional[List[str]] = None
+    recommended_visa_subclass: Optional[Dict[str, str]] = None  # MERGE per-country
+    sample_cases: Optional[List[SampleCase]] = None
+    custom_sections: Optional[List[CustomSection]] = None
 
 
 class VerifyRequest(BaseModel):
+    """Phase 18.1 — /verify accepts both legacy (source_reference + review_notes
+    only) and the new full payload that includes all editable fields. Snapshots
+    the pre-change state into `verification_history[]` before applying changes."""
     source_reference: str = Field(..., min_length=1)
     review_notes: Optional[str] = ""
+    # Optional full editable payload (any subset)
+    title: Optional[str] = None
+    description: Optional[str] = None
+    typical_tasks: Optional[List[str]] = None
+    qualification_rules: Optional[str] = None
+    alternative_titles: Optional[List[str]] = None
+    assessing_authority: Optional[AssessingAuthority] = None
+    required_documents: Optional[List[RequiredDocument]] = None
+    similar_codes_override: Optional[List[str]] = None
+    recommended_visa_subclass: Optional[Dict[str, str]] = None
+    sample_cases: Optional[List[SampleCase]] = None
+    custom_sections: Optional[List[CustomSection]] = None
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 18.1 helpers — UUID stamping + merge semantics
+# ─────────────────────────────────────────────────────────────────────────────
+_SNAPSHOT_FIELDS = (
+    "title", "description", "typical_tasks", "qualification_rules",
+    "alternative_titles", "assessing_authority", "required_documents",
+    "similar_codes_override", "recommended_visa_subclass",
+    "sample_cases", "custom_sections",
+)
+
+
+def _ensure_ids(items: Optional[List[dict]]) -> List[dict]:
+    """Stamp a UUID on any list item missing an `id` field. Returns new list."""
+    out: List[dict] = []
+    for it in items or []:
+        if isinstance(it, dict):
+            if not it.get("id"):
+                it = {**it, "id": str(uuid.uuid4())}
+            out.append(it)
+    return out
+
+
+def _snapshot(doc: dict) -> dict:
+    """Capture current top-level editable fields for verification_history entry."""
+    return {k: doc.get(k) for k in _SNAPSHOT_FIELDS if k in doc}
+
+
+async def _write_audit(user: dict, action: str, occupation_id: str, extra: Optional[dict] = None):
+    """Append a row to `audit_logs` for any verify/copy/sub-CRUD action."""
+    log_doc = {
+        "id": str(uuid.uuid4()),
+        "user_id": user.get("id"),
+        "user_email": user.get("email"),
+        "action": action,
+        "entity_type": "occupation_master",
+        "entity_id": occupation_id,
+        "created_at": datetime.now(timezone.utc),
+    }
+    if extra:
+        log_doc["extra"] = extra
+    try:
+        await audit_logs_col.insert_one(log_doc)
+    except Exception:  # noqa: BLE001 — never block an admin action on audit failure
+        pass
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -113,11 +223,6 @@ class VerifyRequest(BaseModel):
 # ─────────────────────────────────────────────────────────────────────────────
 @router.get("/stats")
 async def stats(current_user: dict = Depends(get_current_user)):
-    """Status / country breakdown for the admin Knowledge Base dashboard.
-
-    Excludes superseded (soft-deleted) records from totals since they are
-    not actionable. Phase 6.9.4 will surface them separately.
-    """
     pipeline = [
         {"$match": {"status": {"$ne": "superseded"}}},
         {"$group": {"_id": {"country": "$country_code", "status": "$status"}, "count": {"$sum": 1}}},
@@ -126,7 +231,7 @@ async def stats(current_user: dict = Depends(get_current_user)):
     total = await OCCUPATION_MASTER.count_documents({"status": {"$ne": "superseded"}})
     superseded_count = await OCCUPATION_MASTER.count_documents({"status": "superseded"})
     by_status = {"verified": 0, "draft": 0, "outdated": 0}
-    by_country = {}
+    by_country: Dict[str, Dict[str, int]] = {}
     for r in rows:
         k = r["_id"]
         st = k.get("status") or "draft"
@@ -150,32 +255,24 @@ async def stats(current_user: dict = Depends(get_current_user)):
 # ─────────────────────────────────────────────────────────────────────────────
 @router.get("")
 async def list_occupations(
-    country: Optional[str] = Query(None, description="Filter by country_code (AU/CA/NZ)"),
-    status: Optional[str] = Query(None, description="Filter by status"),
-    search: Optional[str] = Query(None, description="Search title / code / alternative_titles"),
-    body_id: Optional[str] = Query(None, description="Filter by assessing-body slug/id"),
+    country: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
+    body_id: Optional[str] = Query(None),
     limit: int = Query(200, ge=1, le=500),
     skip: int = Query(0, ge=0),
     current_user: dict = Depends(get_current_user),
 ):
-    """Admin sees everything (except superseded by default). Non-admin during
-    transition also sees everything non-superseded (Phase 6.9.4 will enforce
-    status filter once verification reaches threshold)."""
     q: dict = {}
     if country:
         q["country_code"] = country.upper()
-    # Phase 17.1.2 — accept "all" / "any" / "*" as wildcards (no status filter).
-    # Prevents the 400 papercut when callers pass a deliberate "show everything"
-    # sentinel from a URL query param.
     _STATUS_WILDCARDS = {"all", "any", "*"}
     if status and status.strip().lower() not in _STATUS_WILDCARDS:
         if status not in VALID_STATUSES:
             raise HTTPException(status_code=400, detail=f"Invalid status. Use one of {VALID_STATUSES}")
         q["status"] = status
     elif not status:
-        # Default (no param at all): hide superseded (soft-deleted) records.
         q["status"] = {"$ne": "superseded"}
-    # else: wildcard passed → no status clause added → returns all statuses
     if body_id:
         q["assessing_authority.body_id"] = body_id
     if search:
@@ -198,37 +295,26 @@ async def get_occupation(occupation_id: str, current_user: dict = Depends(get_cu
     doc = await _find_occupation(occupation_id)
     if not doc:
         raise HTTPException(status_code=404, detail="Occupation not found")
-    # Populate assessing-body full record if linked
     body_slug = (doc.get("assessing_authority") or {}).get("body_id")
     if body_slug:
         body = await SKILL_BODY_MASTER.find_one(
-            {"country_code": doc["country_code"], "slug": body_slug},
-            {"_id": 0},
+            {"country_code": doc["country_code"], "slug": body_slug}, {"_id": 0},
         )
         if body:
             doc["assessing_authority_full"] = _strip(body)
     return _strip(doc)
 
 
-# ─── Phase 17.1.3 — dual-lookup resolver ───────────────────────────────────
+# ─── Dual-lookup resolver (Phase 17.1.3) ─────────────────────────────────────
 async def _find_occupation(identifier: str) -> Optional[dict]:
-    """Find one record by `occupation_id` (UUID or slug like 'au-261313').
-
-    Fallback: if the identifier looks like a country-prefixed slug
-    `{cc}-{code}` (e.g. ``au-261313``), also try `(country_code, code)` —
-    protects against records that still lack `occupation_id` after backfill
-    OR future records seeded by external scripts.
-    """
     doc = await OCCUPATION_MASTER.find_one({"occupation_id": identifier}, {"_id": 0})
     if doc:
         return doc
-    # Slug fallback: "{cc}-{code}" → split and try (country_code, code)
     if isinstance(identifier, str) and "-" in identifier:
         cc, _, code = identifier.partition("-")
         if cc and code:
             doc = await OCCUPATION_MASTER.find_one(
-                {"country_code": cc.upper(), "code": code},
-                {"_id": 0},
+                {"country_code": cc.upper(), "code": code}, {"_id": 0},
             )
             if doc:
                 return doc
@@ -241,15 +327,11 @@ async def _find_occupation(identifier: str) -> Optional[dict]:
 @router.post("")
 async def create_occupation(req: OccupationCreate, current_user: dict = Depends(get_current_user)):
     await _require_admin(current_user)
-    # Uniqueness check
     existing = await OCCUPATION_MASTER.find_one(
         {"country_code": req.country_code.upper(), "code": req.code}, {"_id": 0}
     )
     if existing:
-        raise HTTPException(
-            status_code=409,
-            detail=f"Code {req.code} already exists for {req.country_code}",
-        )
+        raise HTTPException(status_code=409, detail=f"Code {req.code} already exists for {req.country_code}")
     now = datetime.now(timezone.utc)
     doc = {
         "occupation_id": str(uuid.uuid4()),
@@ -273,9 +355,17 @@ async def create_occupation(req: OccupationCreate, current_user: dict = Depends(
         "visa_pathways": {"pathway_lists": [], "visa_eligibility": [], "processing_times": {}},
         "state_territory_eligibility": [],
         "similar_codes": [],
-        "status": "draft",  # always draft on create — admin verifies later
+        # Phase 18.1 — new workspace fields default-empty
+        "qualification_rules": "",
+        "required_documents": [],
+        "similar_codes_override": [],
+        "recommended_visa_subclass": {},
+        "sample_cases": [],
+        "custom_sections": [],
+        "verification_history": [],
+        "status": "draft",
         "verification": {
-            "verified_by": None, "verified_at": None,
+            "verified_by": None, "verified_at": None, "is_verified": False,
             "source_reference": "", "review_notes": "",
         },
         "ai_draft": {
@@ -303,23 +393,37 @@ async def update_occupation(occupation_id: str, req: OccupationUpdate, current_u
         raise HTTPException(status_code=404, detail="Occupation not found")
     if req.status and req.status not in VALID_STATUSES:
         raise HTTPException(status_code=400, detail=f"Invalid status. Use one of {VALID_STATUSES}")
-
-    # Resolve to the canonical id stored on the doc (handles slug → uuid fallback)
     real_id = existing.get("occupation_id") or occupation_id
 
     update_doc = req.model_dump(exclude_unset=True)
-    if "hierarchy" in update_doc and update_doc["hierarchy"]:
-        update_doc["hierarchy"] = update_doc["hierarchy"]
-    if "assessing_authority" in update_doc and update_doc["assessing_authority"]:
-        update_doc["assessing_authority"] = update_doc["assessing_authority"]
-    update_doc["updated_at"] = datetime.now(timezone.utc)
-    await OCCUPATION_MASTER.update_one({"occupation_id": real_id}, {"$set": update_doc})
+    update_set: Dict[str, Any] = {}
+
+    # Phase 18.1 — stamp UUIDs on sub-doc items
+    if "required_documents" in update_doc and update_doc["required_documents"] is not None:
+        update_set["required_documents"] = _ensure_ids(update_doc.pop("required_documents"))
+    if "sample_cases" in update_doc and update_doc["sample_cases"] is not None:
+        update_set["sample_cases"] = _ensure_ids(update_doc.pop("sample_cases"))
+    if "custom_sections" in update_doc and update_doc["custom_sections"] is not None:
+        update_set["custom_sections"] = _ensure_ids(update_doc.pop("custom_sections"))
+
+    # Phase 18.1 — recommended_visa_subclass uses MERGE semantics per-country.
+    rvs = update_doc.pop("recommended_visa_subclass", None)
+    if rvs is not None and isinstance(rvs, dict):
+        for cc, subclass in rvs.items():
+            update_set[f"recommended_visa_subclass.{cc.upper()}"] = subclass
+
+    # Remaining fields → straight $set
+    for k, v in update_doc.items():
+        update_set[k] = v
+
+    update_set["updated_at"] = datetime.now(timezone.utc)
+    await OCCUPATION_MASTER.update_one({"occupation_id": real_id}, {"$set": update_set})
     refreshed = await OCCUPATION_MASTER.find_one({"occupation_id": real_id}, {"_id": 0})
     return _strip(refreshed)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# POST /api/occupation-master/{id}/verify — verify & publish
+# POST /api/occupation-master/{id}/verify — verify, snapshot, persist
 # ─────────────────────────────────────────────────────────────────────────────
 @router.post("/{occupation_id}/verify")
 async def verify_occupation(occupation_id: str, req: VerifyRequest, current_user: dict = Depends(get_current_user)):
@@ -329,20 +433,216 @@ async def verify_occupation(occupation_id: str, req: VerifyRequest, current_user
         raise HTTPException(status_code=404, detail="Occupation not found")
     real_id = existing.get("occupation_id") or occupation_id
     now = datetime.now(timezone.utc)
+
+    # 1. Snapshot current top-level state into history (immutable, append-only).
+    history_entry = {
+        "verified_by": current_user.get("id"),
+        "verified_by_name": current_user.get("name") or current_user.get("email") or "admin",
+        "verified_at": now.isoformat(),
+        "source_reference": req.source_reference,
+        "review_notes": req.review_notes or "",
+        "snapshot": _snapshot(existing),
+    }
+
+    # 2. Build $set payload — apply any editable fields from the payload.
+    update_set: Dict[str, Any] = {
+        "status": "verified",
+        "verification.verified_by": current_user["id"],
+        "verification.verified_by_name": current_user.get("name") or current_user.get("email") or "admin",
+        "verification.verified_at": now,
+        "verification.source_reference": req.source_reference,
+        "verification.review_notes": req.review_notes or "",
+        "verification.is_verified": True,
+        "last_reviewed_at": now,
+        "updated_at": now,
+    }
+    body = req.model_dump(exclude_unset=True)
+    for key in ("source_reference", "review_notes"):
+        body.pop(key, None)
+
+    if "required_documents" in body and body["required_documents"] is not None:
+        update_set["required_documents"] = _ensure_ids(body.pop("required_documents"))
+    if "sample_cases" in body and body["sample_cases"] is not None:
+        update_set["sample_cases"] = _ensure_ids(body.pop("sample_cases"))
+    if "custom_sections" in body and body["custom_sections"] is not None:
+        update_set["custom_sections"] = _ensure_ids(body.pop("custom_sections"))
+
+    rvs = body.pop("recommended_visa_subclass", None)
+    if rvs is not None and isinstance(rvs, dict):
+        for cc, subclass in rvs.items():
+            update_set[f"recommended_visa_subclass.{cc.upper()}"] = subclass
+
+    for k, v in body.items():
+        update_set[k] = v
+
     await OCCUPATION_MASTER.update_one(
         {"occupation_id": real_id},
-        {"$set": {
-            "status": "verified",
-            "verification.verified_by": current_user["id"],
-            "verification.verified_at": now,
-            "verification.source_reference": req.source_reference,
-            "verification.review_notes": req.review_notes or "",
-            "last_reviewed_at": now,
-            "updated_at": now,
-        }},
+        {"$set": update_set, "$push": {"verification_history": history_entry}},
     )
+
+    await _write_audit(
+        current_user, "verify_occupation", real_id,
+        extra={"source_reference": req.source_reference},
+    )
+
     refreshed = await OCCUPATION_MASTER.find_one({"occupation_id": real_id}, {"_id": 0})
     return _strip(refreshed)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# POST /api/occupation-master/{id}/copy-from-ai — Phase 18.1
+# ─────────────────────────────────────────────────────────────────────────────
+@router.post("/{occupation_id}/copy-from-ai")
+async def copy_from_ai(occupation_id: str, current_user: dict = Depends(get_current_user)):
+    """Bulk-copy ai_draft.{description, typical_tasks, qualification_rules}
+    into the top-level editable fields. Does NOT auto-verify; status remains
+    whatever it was. Used by the "Copy All from AI" button in Admin Edit."""
+    await _require_admin(current_user)
+    occ = await _find_occupation(occupation_id)
+    if not occ:
+        raise HTTPException(status_code=404, detail="Occupation not found")
+    real_id = occ.get("occupation_id") or occupation_id
+    ai = occ.get("ai_draft") or {}
+    if not (ai.get("description") or ai.get("typical_tasks") or ai.get("qualification_rules")):
+        raise HTTPException(status_code=400, detail="No ai_draft content to copy — generate first")
+    now = datetime.now(timezone.utc)
+    payload: Dict[str, Any] = {"updated_at": now}
+    if ai.get("description"):
+        payload["description"] = ai["description"]
+    if ai.get("typical_tasks"):
+        payload["typical_tasks"] = ai["typical_tasks"]
+    if ai.get("qualification_rules"):
+        payload["qualification_rules"] = ai["qualification_rules"]
+    await OCCUPATION_MASTER.update_one({"occupation_id": real_id}, {"$set": payload})
+    await _write_audit(current_user, "copy_from_ai", real_id, extra={"fields": list(payload.keys())})
+    refreshed = await OCCUPATION_MASTER.find_one({"occupation_id": real_id}, {"_id": 0})
+    return _strip(refreshed)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 18.1 — Sample Cases sub-CRUD
+# ─────────────────────────────────────────────────────────────────────────────
+@router.post("/{occupation_id}/sample-cases")
+async def add_sample_case(occupation_id: str, req: SampleCase, current_user: dict = Depends(get_current_user)):
+    await _require_admin(current_user)
+    occ = await _find_occupation(occupation_id)
+    if not occ:
+        raise HTTPException(status_code=404, detail="Occupation not found")
+    real_id = occ.get("occupation_id") or occupation_id
+    now = datetime.now(timezone.utc)
+    case = req.model_dump()
+    case["id"] = case.get("id") or str(uuid.uuid4())
+    case["created_at"] = now.isoformat()
+    case["created_by"] = current_user["id"]
+    await OCCUPATION_MASTER.update_one(
+        {"occupation_id": real_id},
+        {"$push": {"sample_cases": case}, "$set": {"updated_at": now}},
+    )
+    await _write_audit(current_user, "add_sample_case", real_id, extra={"case_id": case["id"]})
+    return {"ok": True, "sample_case": case}
+
+
+@router.patch("/{occupation_id}/sample-cases/{case_id}")
+async def update_sample_case(occupation_id: str, case_id: str, req: SampleCase, current_user: dict = Depends(get_current_user)):
+    await _require_admin(current_user)
+    occ = await _find_occupation(occupation_id)
+    if not occ:
+        raise HTTPException(status_code=404, detail="Occupation not found")
+    real_id = occ.get("occupation_id") or occupation_id
+    fields = req.model_dump(exclude_unset=True)
+    fields.pop("id", None)
+    set_payload = {f"sample_cases.$.{k}": v for k, v in fields.items()}
+    set_payload["updated_at"] = datetime.now(timezone.utc)
+    res = await OCCUPATION_MASTER.update_one(
+        {"occupation_id": real_id, "sample_cases.id": case_id},
+        {"$set": set_payload},
+    )
+    if not res.matched_count:
+        raise HTTPException(status_code=404, detail="Sample case not found")
+    refreshed = await OCCUPATION_MASTER.find_one({"occupation_id": real_id}, {"_id": 0})
+    case = next((c for c in (refreshed.get("sample_cases") or []) if c.get("id") == case_id), None)
+    await _write_audit(current_user, "update_sample_case", real_id, extra={"case_id": case_id})
+    return {"ok": True, "sample_case": case}
+
+
+@router.delete("/{occupation_id}/sample-cases/{case_id}")
+async def delete_sample_case(occupation_id: str, case_id: str, current_user: dict = Depends(get_current_user)):
+    await _require_admin(current_user)
+    occ = await _find_occupation(occupation_id)
+    if not occ:
+        raise HTTPException(status_code=404, detail="Occupation not found")
+    real_id = occ.get("occupation_id") or occupation_id
+    res = await OCCUPATION_MASTER.update_one(
+        {"occupation_id": real_id},
+        {"$pull": {"sample_cases": {"id": case_id}}, "$set": {"updated_at": datetime.now(timezone.utc)}},
+    )
+    if not res.modified_count:
+        raise HTTPException(status_code=404, detail="Sample case not found")
+    await _write_audit(current_user, "delete_sample_case", real_id, extra={"case_id": case_id})
+    return {"ok": True, "case_id": case_id}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 18.1 — Custom Sections sub-CRUD
+# ─────────────────────────────────────────────────────────────────────────────
+@router.post("/{occupation_id}/custom-sections")
+async def add_custom_section(occupation_id: str, req: CustomSection, current_user: dict = Depends(get_current_user)):
+    await _require_admin(current_user)
+    occ = await _find_occupation(occupation_id)
+    if not occ:
+        raise HTTPException(status_code=404, detail="Occupation not found")
+    real_id = occ.get("occupation_id") or occupation_id
+    now = datetime.now(timezone.utc)
+    section = req.model_dump()
+    section["id"] = section.get("id") or str(uuid.uuid4())
+    section["created_at"] = now.isoformat()
+    section["created_by"] = current_user["id"]
+    await OCCUPATION_MASTER.update_one(
+        {"occupation_id": real_id},
+        {"$push": {"custom_sections": section}, "$set": {"updated_at": now}},
+    )
+    await _write_audit(current_user, "add_custom_section", real_id, extra={"section_id": section["id"]})
+    return {"ok": True, "custom_section": section}
+
+
+@router.patch("/{occupation_id}/custom-sections/{section_id}")
+async def update_custom_section(occupation_id: str, section_id: str, req: CustomSection, current_user: dict = Depends(get_current_user)):
+    await _require_admin(current_user)
+    occ = await _find_occupation(occupation_id)
+    if not occ:
+        raise HTTPException(status_code=404, detail="Occupation not found")
+    real_id = occ.get("occupation_id") or occupation_id
+    fields = req.model_dump(exclude_unset=True)
+    fields.pop("id", None)
+    set_payload = {f"custom_sections.$.{k}": v for k, v in fields.items()}
+    set_payload["updated_at"] = datetime.now(timezone.utc)
+    res = await OCCUPATION_MASTER.update_one(
+        {"occupation_id": real_id, "custom_sections.id": section_id},
+        {"$set": set_payload},
+    )
+    if not res.matched_count:
+        raise HTTPException(status_code=404, detail="Custom section not found")
+    refreshed = await OCCUPATION_MASTER.find_one({"occupation_id": real_id}, {"_id": 0})
+    section = next((s for s in (refreshed.get("custom_sections") or []) if s.get("id") == section_id), None)
+    await _write_audit(current_user, "update_custom_section", real_id, extra={"section_id": section_id})
+    return {"ok": True, "custom_section": section}
+
+
+@router.delete("/{occupation_id}/custom-sections/{section_id}")
+async def delete_custom_section(occupation_id: str, section_id: str, current_user: dict = Depends(get_current_user)):
+    await _require_admin(current_user)
+    occ = await _find_occupation(occupation_id)
+    if not occ:
+        raise HTTPException(status_code=404, detail="Occupation not found")
+    real_id = occ.get("occupation_id") or occupation_id
+    res = await OCCUPATION_MASTER.update_one(
+        {"occupation_id": real_id},
+        {"$pull": {"custom_sections": {"id": section_id}}, "$set": {"updated_at": datetime.now(timezone.utc)}},
+    )
+    if not res.modified_count:
+        raise HTTPException(status_code=404, detail="Custom section not found")
+    await _write_audit(current_user, "delete_custom_section", real_id, extra={"section_id": section_id})
+    return {"ok": True, "section_id": section_id}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -396,7 +696,6 @@ async def list_bodies(
 async def get_body(body_id: str, current_user: dict = Depends(get_current_user)):
     doc = await SKILL_BODY_MASTER.find_one({"body_id": body_id}, {"_id": 0})
     if not doc:
-        # Fall back to slug
         doc = await SKILL_BODY_MASTER.find_one({"slug": body_id}, {"_id": 0})
     if not doc:
         raise HTTPException(status_code=404, detail="Skill body not found")
@@ -408,10 +707,6 @@ async def get_body(body_id: str, current_user: dict = Depends(get_current_user))
 # ─────────────────────────────────────────────────────────────────────────────
 @router.post("/{occupation_id}/ai-draft")
 async def generate_occupation_ai_draft(occupation_id: str, current_user: dict = Depends(get_current_user)):
-    """Admin clicks "🤖 Generate AI Draft" → calls Claude for baseline content
-    (description / typical_tasks / qualification_rules). Result cached on the
-    occupation's `ai_draft` block. Status remains 'draft' until admin verifies.
-    """
     await _require_admin(current_user)
     occ = await _find_occupation(occupation_id)
     if not occ:

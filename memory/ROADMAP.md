@@ -1,6 +1,6 @@
 # LEAMSS — Roadmap (Prioritized Backlog)
 
-> Last updated: Feb 13, 2026 (Phase 4A foundation complete)
+> Last updated: Jun 11, 2026 (Phase 18.0 + 18.1 complete)
 
 ## 🟢 Currently Live
 - ✅ Phases A-D: 5-step funnel
@@ -10,10 +10,31 @@
 - ✅ Phase 3A: Attendance & Leave Management
 - ✅ Phase 3B: HR Admin Settings UI
 - ✅ **Phase 4A: Sales Workflow Inheritance** (Sales execs = internal partners)
+- ✅ Phase 16.7: Atlas SEO data-driven meta descriptions
+- ✅ Phase 17.0 → 17.1.3: Verification Hub + multi-country auto-fetch + Edit-page action fix
+- ✅ **Phase 18.0**: Probe-pollution cleanup migration (Jun 11, 2026)
+- ✅ **Phase 18.1**: Admin Verification Workspace expansion (Jun 11, 2026) — 7 new editable fields + view-mode + verification history + sub-CRUD
 
 ---
 
-## 🟡 P1 — Next Up
+## 🔴 P0 — Next In Queue (post Phase 18.1)
+
+### Phase 18.2 — Smart Sales Helper rewire (gap G3 + G4)
+**Why:** Sales currently reads legacy `country_rules` for Skill Assessment & Visa Pathways tabs, ignoring admin-verified `occupation_master.assessing_authority` + `recommended_visa_subclass` + `visa_pathways.visa_eligibility[]`. Admin curates → Sales doesn't see it.
+**Effort:** Medium.
+- Update `routers/sales_occupations.get_occupation_detail` to source Skill Assessment tab from `occupation_master.assessing_authority` (fall back to `country_rules` if blank).
+- Source Visa Pathways tab from `occupation_master.visa_pathways.visa_eligibility[]` + highlight `recommended_visa_subclass[country]` with ⭐ badge.
+- Source Documents tab from `occupation_master.required_documents` (filter by `country_override`).
+
+### Phase 18.3 — Sample Cases + Custom Sections render tabs
+**Effort:** Small.
+- Wire `sample_cases[]` + `custom_sections[]` into the existing Sales Helper Detail page (Tab 6 "Sample Cases" + new Tab "Custom" or inline accordion).
+- Honor `similar_codes_override` priority before auto-similarity scoring.
+
+---
+
+## 🟡 P1 — Backlog
+
 
 ### Phase 4B — Targets Management
 **Effort:** ~2-3 hours
