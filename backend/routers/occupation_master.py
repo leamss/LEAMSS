@@ -164,13 +164,18 @@ async def list_occupations(
     q: dict = {}
     if country:
         q["country_code"] = country.upper()
-    if status:
+    # Phase 17.1.2 — accept "all" / "any" / "*" as wildcards (no status filter).
+    # Prevents the 400 papercut when callers pass a deliberate "show everything"
+    # sentinel from a URL query param.
+    _STATUS_WILDCARDS = {"all", "any", "*"}
+    if status and status.strip().lower() not in _STATUS_WILDCARDS:
         if status not in VALID_STATUSES:
             raise HTTPException(status_code=400, detail=f"Invalid status. Use one of {VALID_STATUSES}")
         q["status"] = status
-    else:
-        # Default: hide superseded (soft-deleted) records unless explicitly asked.
+    elif not status:
+        # Default (no param at all): hide superseded (soft-deleted) records.
         q["status"] = {"$ne": "superseded"}
+    # else: wildcard passed → no status clause added → returns all statuses
     if body_id:
         q["assessing_authority.body_id"] = body_id
     if search:

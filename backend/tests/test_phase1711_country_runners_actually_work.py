@@ -126,4 +126,58 @@ def test_8_edit_link_carries_filters():
         content = f.read()
     assert "country=${encodeURIComponent(r.country_code" in content, "Edit link missing country param"
     assert "code=${encodeURIComponent(r.code" in content, "Edit link missing code param"
-    assert "status=all" in content, "Edit link missing status=all to bypass draft default"
+    # Phase 17.1.2 — status=all removed from Edit link; tested explicitly in test_13.
+
+
+
+# ─── Phase 17.1.2 — status wildcard defense-in-depth ───────────────────────
+def test_9_status_all_returns_all_records(H):
+    """GET /occupation-master?country=CA&status=all → HTTP 200 + 516 records.
+    Was returning HTTP 400 'Invalid status' before Phase 17.1.2."""
+    r = httpx.get(f"{API_BASE}/occupation-master?country=CA&status=all&limit=1",
+                  headers=H, timeout=10)
+    assert r.status_code == 200, f"status=all should not 400; got {r.status_code}: {r.text[:200]}"
+    body = r.json()
+    assert body.get("total") == 516, f"Expected 516 CA records, got {body.get('total')}"
+    assert len(body.get("items", [])) >= 1
+
+
+def test_10_status_any_returns_all_records(H):
+    r = httpx.get(f"{API_BASE}/occupation-master?country=NZ&status=any&limit=1",
+                  headers=H, timeout=10)
+    assert r.status_code == 200, f"status=any should not 400; got {r.status_code}"
+    assert r.json().get("total") == 243
+
+
+def test_11_status_empty_returns_all_records(H):
+    r = httpx.get(f"{API_BASE}/occupation-master?country=AU&status=&limit=1",
+                  headers=H, timeout=10)
+    assert r.status_code == 200
+    # Empty string defaults to "hide superseded" — should still see 708 AU records
+    assert r.json().get("total", 0) >= 700
+
+
+def test_12_status_invalid_still_400(H):
+    """Regression: random strings must STILL produce 400 — wildcard only matches
+    the 3 sentinels (all / any / *), not arbitrary values."""
+    r = httpx.get(f"{API_BASE}/occupation-master?country=CA&status=garbage",
+                  headers=H, timeout=10)
+    assert r.status_code == 400
+    assert "Invalid status" in r.text
+
+
+def test_13_edit_link_no_status_param():
+    """Frontend grep: VerificationHub.jsx Edit href must NOT carry ?status=all
+    (it caused the original blocker). country= and code= remain mandatory."""
+    path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                        "..", "frontend", "src", "pages", "admin", "VerificationHub.jsx")
+    path = os.path.normpath(path)
+    if not os.path.exists(path):
+        pytest.skip("Frontend file not present")
+    with open(path, encoding="utf-8") as f:
+        content = f.read()
+    # Find the Edit Link's href template and confirm it has no status=...
+    assert "/admin/kb/occupation-master?country=" in content
+    # The specific old bad pattern must be gone:
+    assert "status=all" not in content, "Edit link still carries status=all (Phase 17.1.2 regression)"
+

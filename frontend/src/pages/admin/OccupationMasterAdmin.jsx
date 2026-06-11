@@ -81,9 +81,16 @@ function BrowseAndVerify({ headers }) {
   const [list, setList] = useState([]);
   // Phase 17.1.1 — default to "all statuses" so the Edit link from /admin/verify-hub
   // lands on a populated list (1467 records are status=verified). URL params override.
+  // Phase 17.1.2 — defensive coercion: treat "all" / "any" / "*" sentinels as ""
+  // (no status filter) so external URLs can't trigger a 400 from the backend.
+  const _STATUS_WILDCARDS = new Set(['all', 'any', '*']);
+  const _coerceStatus = (raw) => {
+    const s = (raw || '').toString().trim().toLowerCase();
+    return _STATUS_WILDCARDS.has(s) ? '' : (raw || '');
+  };
   const searchParams = new URLSearchParams(window.location.search);
   const [filters, setFilters] = useState({
-    status: searchParams.get('status') || '',
+    status: _coerceStatus(searchParams.get('status')),
     country: searchParams.get('country') || '',
     search: searchParams.get('code') || searchParams.get('search') || '',
   });
@@ -94,7 +101,7 @@ function BrowseAndVerify({ headers }) {
     setLoading(true);
     try {
       const p = new URLSearchParams();
-      if (filters.status) p.append('status', filters.status);
+      if (filters.status && !_STATUS_WILDCARDS.has(filters.status.toLowerCase())) p.append('status', filters.status);
       if (filters.country) p.append('country', filters.country);
       if (filters.search) p.append('search', filters.search);
       p.append('limit', '200');

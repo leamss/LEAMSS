@@ -3,6 +3,44 @@
 This file appends every completed phase/feature with dates and verification status.
 
 ---
+### 🔒 Phase 17.1.2 — Status wildcard defense-in-depth (Jun 11, 2026)
+**Tests:** `tests/test_phase1711_country_runners_actually_work.py` → **12/12 PASS + 1 documented skip** (added 4 new). Full suite (Phase 13 + 16.7 + 17.0 + 17.1 + 17.1.1 + 17.1.2): **61 passed, 3 skipped** in 117s.
+
+**Residual blocker from Sir's original repro (Phase 17.1.1 fixed Edit-link wiring but not at runtime):** VerifyHub → Edit → land URL `/admin/kb/occupation-master?country=CA&code=10010&status=all` → OccupationMasterAdmin passed `status=all` to backend verbatim → `GET /api/occupation-master?status=all` → backend HTTP 400 `Invalid status. Use one of {'verified','superseded','outdated','draft'}` → user STILL sees "No codes match these filters." Original bug not actually closed.
+
+**Fix — defense in depth across all 3 layers:**
+1. **Frontend Edit-link source (`VerificationHub.jsx`):** Dropped `status=all` from the Edit href entirely. Just `?country={r.country_code}&code={r.code}`. OccupationMasterAdmin's initial state already defaults to `''` (show all) — no sentinel needed in URL.
+2. **Frontend Admin page (`OccupationMasterAdmin.jsx`):** Defensive coercion `_coerceStatus(raw)` treats `"all"` / `"any"` / `"*"` (case-insensitive) → empty string. Applied at BOTH initial-state read AND right before the API call (`p.append('status', ...)` only fires if non-empty after coercion). Protects against future URL papercuts.
+3. **Backend (`routers/occupation_master.py`):** Wildcard handling — if `status` ∈ `{"all", "any", "*"}` (case-insensitive, whitespace-stripped) → skip the status filter entirely (returns all statuses). Empty/missing `status` → preserves existing behaviour (hide `superseded`). Any other unrecognised value → still HTTP 400 (regression preserved — wildcard does NOT match arbitrary garbage).
+
+**Live evidence:**
+```
+GET /occupation-master?country=CA&code=10010&status=all → HTTP 200, total=516, items[0]=Legislators ✅
+GET /occupation-master?country=NZ&status=any&limit=1   → HTTP 200, total=243                       ✅
+GET /occupation-master?country=AU&status=                → HTTP 200, total=708                     ✅
+GET /occupation-master?country=CA&status=garbage         → HTTP 400 "Invalid status..."             ✅ (regression preserved)
+```
+
+**Tests added (4 new + 1 updated):**
+- `test_9_status_all_returns_all_records` — `status=all&country=CA` → HTTP 200 + total=516
+- `test_10_status_any_returns_all_records` — `status=any&country=NZ` → HTTP 200 + total=243
+- `test_11_status_empty_returns_all_records` — `status=` → HTTP 200 + total >= 700 (AU)
+- `test_12_status_invalid_still_400` — regression guard: arbitrary strings still HTTP 400
+- `test_13_edit_link_no_status_param` — grep on `VerificationHub.jsx`: confirm `status=all` NOT in Edit href
+- `test_8_edit_link_carries_filters` (updated) — keeps country+code assertions; status-related claim moved to test_13
+
+**Files:**
+- MOD `/app/backend/routers/occupation_master.py` — `_STATUS_WILDCARDS` set + branched validation (~10 lines)
+- MOD `/app/frontend/src/pages/admin/VerificationHub.jsx` — Edit link no longer carries `status=all`
+- MOD `/app/frontend/src/pages/admin/OccupationMasterAdmin.jsx` — `_coerceStatus()` helper at initial-state + before API call
+- MOD `/app/backend/tests/test_phase1711_country_runners_actually_work.py` — 4 new tests + test_8 updated
+- MOD `/app/memory/CHANGELOG.md`
+
+**Sir's original blocker — genuinely closed now**: VerifyHub Edit click lands on a populated 1467-record list with the right row visible. No HTTP 400 anywhere on the happy path. The 3-layer defense ensures this papercut can never resurface from external URLs, browser back-forward navigation, bookmarks, or future code refactors.
+
+
+
+---
 ### 🐞 Phase 17.1.1 — Country runners actually work + verification backfill + Edit-link bridge (Jun 11, 2026)
 **Tests:** `tests/test_phase1711_country_runners_actually_work.py` → **7/7 PASS + 1 documented skip** in 2.96s. Full Phase 17 + regression: **56 passed, 3 skipped** in 111s.
 

@@ -648,7 +648,7 @@ function OccupationsTable({ headers }) {
                     {r.verification?.source || r.last_scraped_by || '—'}
                   </td>
                   <td className="px-2 py-1.5 whitespace-nowrap">
-                    <Link to={`/admin/kb/occupation-master?country=${encodeURIComponent(r.country_code || '')}&code=${encodeURIComponent(r.code || '')}&status=all`}
+                    <Link to={`/admin/kb/occupation-master?country=${encodeURIComponent(r.country_code || '')}&code=${encodeURIComponent(r.code || '')}`}
                           className="text-indigo-600 hover:underline">
                       Edit
                     </Link>
