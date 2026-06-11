@@ -445,3 +445,162 @@ def test_11_genuine_500_still_returns_500(auth_headers, monkeypatch):
         )
     assert r.status_code == 500, f"Expected 500 for true server fault, got {r.status_code}"
     _assert_no_path_leak(r.json(), "genuine-500")
+
+
+
+# ─── Phase 17.0.2 — Schema-shape pre-validation ────────────────────────────
+def _build_xlsx_with(sheets: list[tuple[str, list[list]]]) -> bytes:
+    """Construct an xlsx where each entry is (sheet_name, [[row7_cells], [row8_cells], …]).
+    Rows 1-6 are auto-padded blank so the header row remains at row 7.
+    Pass an empty `rows` list to get a sheet with no header at all."""
+    from openpyxl import Workbook
+    wb = Workbook()
+    first = True
+    for name, rows in sheets:
+        ws = wb.active if first else wb.create_sheet(name)
+        if first:
+            ws.title = name
+            first = False
+        for offset, row in enumerate(rows):
+            r_num = 7 + offset
+            for c_idx, val in enumerate(row, start=1):
+                ws.cell(row=r_num, column=c_idx).value = val
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+def test_12_xlsx_missing_required_sheet_returns_400(auth_headers):
+    """Valid xlsx with sheet named 'WrongName' (no Table_1) → HTTP 400, no
+    DB row, no on-disk artefact."""
+    _async(_drop_import_files())
+    _async(_wipe_storage_dir())
+
+    data = _build_xlsx_with([(
+        "WrongName",
+        [["Code", "Title"], ["2613", "Software Programmer"]],
+    )])
+    rows_before = _async(_db["import_files"].count_documents({"source_type": SRC}))
+
+    r = httpx.post(
+        f"{API_BASE}/kb-unified/import-anzsco-excel",
+        headers=auth_headers,
+        files={"file": ("wrong_sheet.xlsx", data, "application/octet-stream")},
+        timeout=30,
+    )
+    assert r.status_code == 400, f"Expected 400, got {r.status_code}: {r.text[:200]}"
+    detail = r.json().get("detail", "")
+    assert "Table_1" in detail or "sheet" in detail.lower(), (
+        f"Detail must mention the missing sheet: {detail}"
+    )
+    _assert_no_path_leak(r.json(), "missing-sheet-400")
+    rows_after = _async(_db["import_files"].count_documents({"source_type": SRC}))
+    assert rows_after == rows_before, "Missing-sheet upload polluted import_files"
+
+
+def test_13_xlsx_missing_code_column_returns_400(auth_headers):
+    """Table_1 exists but row 7 headers contain no 'Code' column → HTTP 400."""
+    _async(_drop_import_files())
+    _async(_wipe_storage_dir())
+
+    sheets = [(
+        "Table_1",
+        [["RandomCol1", "RandomCol2"], ["foo", "bar"]],
+    )]
+    for n in ("Table_2", "Table_3", "Table_4", "Table_5", "Table_6", "Table_7", "Table_8"):
+        sheets.append((n, [["x"], ["y"]]))
+    data = _build_xlsx_with(sheets)
+
+    rows_before = _async(_db["import_files"].count_documents({"source_type": SRC}))
+    r = httpx.post(
+        f"{API_BASE}/kb-unified/import-anzsco-excel",
+        headers=auth_headers,
+        files={"file": ("no_code.xlsx", data, "application/octet-stream")},
+        timeout=30,
+    )
+    assert r.status_code == 400, f"Expected 400, got {r.status_code}: {r.text[:200]}"
+    detail = r.json().get("detail", "")
+    assert "Code" in detail or "column" in detail.lower(), (
+        f"Detail must mention the missing column: {detail}"
+    )
+    _assert_no_path_leak(r.json(), "missing-col-400")
+    rows_after = _async(_db["import_files"].count_documents({"source_type": SRC}))
+    assert rows_after == rows_before, "Missing-column upload polluted import_files"
+
+
+def test_14_xlsx_no_data_rows_returns_400(auth_headers):
+    """Table_1 header row 7 present but rows 8+ empty → HTTP 400."""
+    _async(_drop_import_files())
+    _async(_wipe_storage_dir())
+
+    sheets = [(
+        "Table_1",
+        [["Code", "Title", "Employed"]],  # only header, no data row
+    )]
+    for n in ("Table_2", "Table_3", "Table_4", "Table_5", "Table_6", "Table_7", "Table_8"):
+        sheets.append((n, [["x"], ["y"]]))
+    data = _build_xlsx_with(sheets)
+
+    rows_before = _async(_db["import_files"].count_documents({"source_type": SRC}))
+    r = httpx.post(
+        f"{API_BASE}/kb-unified/import-anzsco-excel",
+        headers=auth_headers,
+        files={"file": ("no_data.xlsx", data, "application/octet-stream")},
+        timeout=30,
+    )
+    assert r.status_code == 400, f"Expected 400, got {r.status_code}: {r.text[:200]}"
+    detail = r.json().get("detail", "")
+    assert "data" in detail.lower() or "row" in detail.lower(), (
+        f"Detail must mention missing data rows: {detail}"
+    )
+    _assert_no_path_leak(r.json(), "no-data-400")
+    rows_after = _async(_db["import_files"].count_documents({"source_type": SRC}))
+    assert rows_after == rows_before, "No-data upload polluted import_files"
+
+
+def test_15_failed_rows_never_persisted(auth_headers):
+    """Sweep `import_files` count before + after all three negative uploads.
+    Total delta must be exactly zero — no schema-failure should ever leave
+    a row behind."""
+    _async(_drop_import_files())
+    _async(_wipe_storage_dir())
+    before = _async(_db["import_files"].count_documents({}))
+
+    # (a) plain text
+    httpx.post(
+        f"{API_BASE}/kb-unified/import-anzsco-excel", headers=auth_headers,
+        files={"file": ("a.xlsx", b"junk text", "application/octet-stream")}, timeout=15,
+    )
+    # (b) wrong sheet
+    bad1 = _build_xlsx_with([("Nope", [["a"], ["b"]])])
+    httpx.post(
+        f"{API_BASE}/kb-unified/import-anzsco-excel", headers=auth_headers,
+        files={"file": ("b.xlsx", bad1, "application/octet-stream")}, timeout=15,
+    )
+    # (c) Table_1 with wrong columns
+    bad2 = _build_xlsx_with([
+        ("Table_1", [["X", "Y"], ["1", "2"]]),
+        ("Table_2", [["x"]]),
+        ("Table_3", [["x"]]),
+        ("Table_4", [["x"]]),
+        ("Table_5", [["x"]]),
+        ("Table_6", [["x"]]),
+        ("Table_7", [["x"]]),
+        ("Table_8", [["x"]]),
+    ])
+    httpx.post(
+        f"{API_BASE}/kb-unified/import-anzsco-excel", headers=auth_headers,
+        files={"file": ("c.xlsx", bad2, "application/octet-stream")}, timeout=15,
+    )
+
+    after = _async(_db["import_files"].count_documents({}))
+    assert after == before, (
+        f"Schema failures leaked into import_files: before={before} after={after}"
+    )
+
+    # And the storage dir must contain no files for the SRC source_type
+    from core import import_storage as st
+    src_dir = st.STORAGE_ROOT / SRC
+    files_on_disk = list(src_dir.iterdir()) if src_dir.exists() else []
+    assert not files_on_disk, f"Schema-failed uploads left disk artefacts: {files_on_disk}"
+

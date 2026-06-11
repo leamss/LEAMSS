@@ -39,6 +39,19 @@ ANZSCO_4DIGIT = db["anzsco_4digit_master"]
 HEADER_ROW = 7
 DATA_START_ROW = 8
 
+# Phase 17.0.2 — schema contract exposed for pre-validation by the upload router.
+# Table_9 is "All-occupation aggregates" — not strictly required for the per-code
+# parsers to succeed, so we leave it out of the must-have list.
+REQUIRED_SHEETS: Tuple[str, ...] = (
+    "Table_1", "Table_2", "Table_3", "Table_4", "Table_5", "Table_6", "Table_7", "Table_8",
+)
+# Header row 7 in Table_1 MUST contain (case-insensitive, trimmed) at least
+# one match for each role. Accepts ABS variants seen in past releases.
+REQUIRED_HEADER_ALIASES: Dict[str, Tuple[str, ...]] = {
+    "code":  ("code", "anzsco code", "anzsco", "occupation code"),
+    "title": ("title", "occupation", "occupation title", "name"),
+}
+
 
 def _clean(v: Any) -> Any:
     """Normalize cell values — 'N/A' → None, strip strings, leave numbers."""

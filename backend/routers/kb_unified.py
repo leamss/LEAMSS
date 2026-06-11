@@ -118,6 +118,26 @@ async def upload_and_import(
     except ValueError as e:
         raise HTTPException(400, str(e)) from e
 
+    # Phase 17.0.2 — schema-shape pre-check (sheets + Code/Title cols + data row).
+    # Raises InvalidExcelSchemaError which we map to a 400. NOTHING is persisted
+    # on failure here — the DB row + on-disk artefact are only created after
+    # both content + schema validation pass.
+    try:
+        from core.anzsco_excel_importer import (
+            REQUIRED_SHEETS,
+            REQUIRED_HEADER_ALIASES,
+            HEADER_ROW,
+        )
+        import_storage.validate_xlsx_schema(
+            contents,
+            required_sheets=list(REQUIRED_SHEETS),
+            header_row=HEADER_ROW,
+            primary_sheet="Table_1",
+            required_header_aliases=REQUIRED_HEADER_ALIASES,
+        )
+    except import_storage.InvalidExcelSchemaError as e:
+        raise HTTPException(400, str(e)) from e
+
     file_doc = await import_storage.save_import_file(
         db=db,
         source_type=ANZSCO_SOURCE_TYPE,

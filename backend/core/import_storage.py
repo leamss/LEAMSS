@@ -278,19 +278,45 @@ async def ensure_indexes(db) -> None:
 # ─── Phase 17.0.1 — Upload error classification ──────────────────────────────
 # Shared helper used by all import endpoints to convert parser exceptions into
 # user-friendly 4xx responses (so client-side junk uploads don't surface as 500).
+
+
+class InvalidExcelSchemaError(ValueError):
+    """Raised by :func:`validate_xlsx_schema` for client-fault schema problems
+    (wrong sheets / missing required columns / no data rows). Mapped to HTTP
+    400 by :func:`classify_upload_error`."""
+
+
 def classify_upload_error(exc: BaseException) -> tuple[int, str]:
     """Decide whether an exception thrown during file parse/import is a CLIENT
     error (bad upload → 400) or a SERVER error (true bug → 500). Returns
     ``(status_code, sanitised_message)``. Never leaks paths or stack traces."""
     name = type(exc).__name__
     msg = str(exc)
+    # Phase 17.0.2 — explicit schema-error subclass always maps to 400.
+    if isinstance(exc, InvalidExcelSchemaError):
+        return (400, msg)
     # zipfile.BadZipFile / openpyxl.InvalidFileException — file is not a real xlsx
     if name in ("BadZipFile", "InvalidFileException", "ParserError"):
         return (400, "Uploaded file is not a valid .xlsx workbook. Please upload a real Excel file.")
-    # KeyError raised when load_workbook can't find an expected sheet name —
-    # caller does e.g. `wb["Table_1"]` and that table doesn't exist.
+    # ValueError raised by the importer when a required sheet is missing.
+    if name == "ValueError" and "Required sheet" in msg and "missing" in msg:
+        return (
+            400,
+            "Excel file is missing one of the required sheets (Table_1 to Table_8). "
+            "Please upload a valid ANZSCO workbook (ABS Feb 2026 format).",
+        )
+    # KeyError raised when load_workbook can't find an expected sheet name.
     if name == "KeyError" and "Worksheet" in msg:
         return (400, "Uploaded file is missing required ANZSCO sheets (Table_1, Table_2, ...). Please upload the official ABS workbook.")
+    # Phase 17.0.2 — per-row column shape errors inside the importer
+    # (`row[2]` on a 2-column row → IndexError). These are user-fault uploads
+    # with the wrong column layout, not server bugs.
+    if name == "IndexError" and "tuple index" in msg:
+        return (
+            400,
+            "Excel file has the wrong column layout in row 7. "
+            "Please upload a valid ANZSCO workbook (ABS Feb 2026 format).",
+        )
     if name == "EmptyFileError" or "empty" in msg.lower() and "file" in msg.lower():
         return (400, "Uploaded file appears to be empty.")
     # Anything else → genuine server fault
@@ -320,6 +346,96 @@ def validate_xlsx_bytes(data: bytes, required_sheets: Optional[List[str]] = None
         # We only call this from upload paths, so 500-class faults here mean the
         # bytes truly can't be opened — still a client problem at this stage.
         raise ValueError(msg if code == 400 else "Uploaded file could not be parsed as a valid .xlsx workbook.") from e
+
+
+def validate_xlsx_schema(
+    data: bytes,
+    *,
+    required_sheets: List[str],
+    header_row: int,
+    primary_sheet: str,
+    required_header_aliases: Dict[str, Any],
+) -> None:
+    """Phase 17.0.2 — schema-shape pre-check. Raises :class:`InvalidExcelSchemaError`
+    (a client-fault subclass of ``ValueError``) on any schema deviation so the
+    caller can return HTTP 400 BEFORE persisting the file. Performed entirely
+    in memory — no disk write on failure.
+
+    Checks:
+      1. All ``required_sheets`` exist in the workbook
+      2. The ``primary_sheet`` (typically ``"Table_1"``) has a header row at
+         ``header_row`` containing at minimum one cell matching EACH key in
+         ``required_header_aliases`` (case-insensitive, whitespace-stripped)
+      3. At least one non-empty data row below the header
+    """
+    import io
+    from openpyxl import load_workbook
+
+    try:
+        wb = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
+    except Exception as e:  # noqa: BLE001
+        # Pre-validate already ran — getting here means the file passed BadZipFile
+        # but can't be re-opened for schema; treat as bad xlsx (client fault).
+        raise InvalidExcelSchemaError(
+            "Uploaded file could not be parsed as a valid .xlsx workbook."
+        ) from e
+
+    # 1. Required sheets
+    present = set(wb.sheetnames)
+    missing = [s for s in required_sheets if s not in present]
+    if missing:
+        raise InvalidExcelSchemaError(
+            f"Excel file is missing the expected '{missing[0]}' sheet. "
+            "Please upload a valid ANZSCO workbook (ABS Feb 2026 format)."
+        )
+
+    # 2. Primary sheet header row column check
+    ws = wb[primary_sheet]
+    # Pull header row cells (read-only workbook iter)
+    header_cells: List[Any] = []
+    for r_idx, row in enumerate(ws.iter_rows(values_only=True), start=1):
+        if r_idx == header_row:
+            header_cells = list(row or [])
+            break
+    headers_lc = {(str(c).strip().lower() if c is not None else "") for c in header_cells}
+    headers_lc.discard("")
+    for role, aliases in required_header_aliases.items():
+        alias_set = {a.strip().lower() for a in aliases}
+        if not (headers_lc & alias_set):
+            raise InvalidExcelSchemaError(
+                f"Excel file is missing the required '{role.capitalize()}' column "
+                f"in row {header_row}. Please upload a valid ANZSCO workbook."
+            )
+
+    # 3. At least one non-empty data row
+    has_data = False
+    for r_idx, row in enumerate(ws.iter_rows(values_only=True), start=1):
+        if r_idx <= header_row:
+            continue
+        if any(c not in (None, "") for c in (row or [])):
+            has_data = True
+            break
+    if not has_data:
+        raise InvalidExcelSchemaError(
+            "Excel file has no data rows below the header. "
+            "Please upload a workbook with at least one occupation."
+        )
+
+
+# ─── Phase 17.0.2 — Orphan-row cleanup ──────────────────────────────────────
+async def prune_orphan_failed_rows(db) -> int:
+    """Delete any ``import_files`` row whose ``status='failed'`` AND whose
+    on-disk artefact no longer exists. Safe to run on every startup.
+    Returns the number of rows pruned."""
+    pruned = 0
+    async for d in db["import_files"].find({"status": "failed"}, {"_id": 0}):
+        sp = d.get("storage_path") or ""
+        if not sp or not os.path.exists(sp):
+            await db["import_files"].delete_one({"id": d.get("id")})
+            pruned += 1
+    if pruned:
+        logger.info("[import_storage] Pruned %d orphan failed rows on startup", pruned)
+    return pruned
 
 
 async def delete_file(db, file_id: str) -> None:

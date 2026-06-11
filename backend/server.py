@@ -236,7 +236,11 @@ async def startup():
         import_storage.ensure_storage_dirs()
         from core.database import db as _db_handle
         await import_storage.ensure_indexes(_db_handle)
-        print("[Phase17.0] Import storage ready · indexes ensured")
+        # Phase 17.0.2 — prune any orphan `status=failed` rows whose on-disk
+        # artefact is gone (left behind by pre-17.0.2 upload paths). Safe to
+        # run on every boot — touches only rows where the file is provably absent.
+        pruned = await import_storage.prune_orphan_failed_rows(_db_handle)
+        print(f"[Phase17.0] Import storage ready · indexes ensured · orphans pruned={pruned}")
     except Exception as e:
         print(f"[Phase17.0 ERROR] {e}")
 
