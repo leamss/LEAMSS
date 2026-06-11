@@ -3,6 +3,60 @@
 This file appends every completed phase/feature with dates and verification status.
 
 ---
+### 🌏 Phase 17.1 — Verification Hub data surfacing + multi-country Auto-Fetch (Jun 11, 2026)
+**Tests:** `tests/test_phase171_multi_country_fetch.py` → **10/10 PASS** in 7.3s. Full Phase 17 suite (17.0 + 17.1 + Phase 13 + Phase 16.7): **49 passed + 2 skipped** in 116s. Zero path leaks across all new endpoints.
+
+User Sir's screenshot of `/admin/verify-hub` surfaced 3 real bugs:
+- 🐞 Tab badge counts said `Occupations (0) / Templates (2) / Guides (5) / Policies (1)` but KPI tiles correctly showed totals `1467 / 5 / 5 / 1`. Tabs were rendering only the pending-list subset.
+- 🐞 Occupations tab body said "All occupations verified ✓" with empty list — Sir's original ask was a paginated record table with search + country/status filters.
+- 🐞 "Fetch Latest from Official Source" only handled AU. Verification Hub manages AU + CA + NZ, so Fetch needed multi-country.
+
+**Backend (`routers/kb_unified.py` + `core/import_storage.py`):**
+- 🆕 `POST /api/kb-unified/auto-fetch-country` — body `{country: "AU"|"CA"|"NZ"|"ALL"}` (admin auth). Sequential execution for ALL. Per-country breakdown response:
+  - AU → `_run_au_fetch()` → live Home Affairs SOL (708 codes)
+  - CA → `_run_ca_fetch()` → StatCan NOC 2021 + IRCC EE rounds + IRCC EE streams (combined)
+  - NZ → `_run_nz_fetch()` → INZ National Occupation List + INZ Green List + INZ AEWV/SMC (combined)
+  - Response totals computed across all results: `{imported, updated, skipped, duration_seconds}`
+- 🆕 `import_runs` collection — every fetch run writes an audit row: `{id, method:"auto_fetch", country, source, source_urls[], triggered_by, triggered_by_name, started_at, completed_at, duration_seconds, status: success|partial|failed, summary:{imported,updated,skipped,errors[:50]}}`. Indexes: `(method, country, started_at desc)`, `(triggered_by, started_at desc)`, `id` unique.
+- 🆕 `GET /api/kb-unified/import-runs?country=&limit=` — paginated audit history (newest first).
+- 🔄 `POST /auto-fetch-anzsco` kept alive as backwards-compat alias — forwards to `/auto-fetch-country?country=AU` (same response shape).
+
+**Frontend (`pages/admin/VerificationHub.jsx`):**
+- Tab badges now use `sumCounts(summary[entity].counts)` (sum across ALL status buckets) → matches KPI tile totals exactly.
+- 🆕 `<OccupationsTable>` component inside Occupations tab — paginated table (25/50/100 per page) with:
+  - Debounced search (400ms) on code + title
+  - Country filter dropdown (AU/CA/NZ)
+  - Status filter dropdown (verified/draft/needs_review/archived/All)
+  - Columns: Code · Name · Country · Category (TEER / Major group) · Status badge · Last Verified (relative time) · Source · Actions (Edit link to `OccupationMasterAdmin`)
+  - Empty-state copy: *"No occupations match the current filters. Try changing the country or status filter, or upload a new Excel."*
+  - Hits paginated `GET /api/occupation-master?country=&status=&search=&limit=&skip=` (already supported by existing router).
+- 🆕 Multi-country Auto-Fetch buttons:
+  - Primary: **"Fetch All 3 Countries"** (calls `country=ALL`)
+  - Three small per-country pills: 🇦🇺 AU · 🇨🇦 CA · 🇳🇿 NZ
+  - All require Hinglish confirm dialog naming the gov source(s)
+  - Success toast: `"✓ Auto-fetch complete — AU: 0+ 708↻ · CA: 0+ 516↻ · NZ: 0+ 243↻ (39.8s)"`
+- `data-testid` added on all new controls: `tab-occupations`, `tab-templates`, `tab-guides`, `tab-policies`, `occupations-table`, `occ-search`, `occ-country`, `occ-status`, `occ-page-size`, `occ-prev`, `occ-next`, `verif-hub-autofetch-au`, `verif-hub-autofetch-ca`, `verif-hub-autofetch-nz`.
+
+**Tests (`tests/test_phase171_multi_country_fetch.py` — 10/10 PASS):**
+1. `test_tab_count_matches_tile_total` — sum of `occupation_master.counts` equals `/occupation-master?limit=1.total`
+2. `test_occupation_list_endpoint_pagination` — page 1 vs page 2 return disjoint sets of 25 each
+3. `test_occupation_list_country_filter` — AU 600-900 / CA 400-700 / NZ 100-400 (within seeded count tolerance)
+4-6. `test_auto_fetch_country_au/ca/nz` — each returns 200 with the right country + source label + no path leak
+7. `test_auto_fetch_all_orders_au_ca_nz` — order is exactly `[AU, CA, NZ]`, totals computed correctly
+8. `test_import_runs_row_written` — every call appends row with correct method/country/status/summary/triggered_by
+9. `test_backcompat_anzsco_alias` — old `/auto-fetch-anzsco` still 200 + forwards to country=AU
+10. `test_no_path_leak_on_new_endpoints` — adversarial sweep on all 4 fetch variants + `/import-runs` list; zero `/tmp` / `/app/backend/storage` / `Traceback` substrings
+
+**Files:**
+- MOD `/app/backend/routers/kb_unified.py` (+~210 lines — 3 country fetchers, `/auto-fetch-country`, `/import-runs`, backcompat alias)
+- MOD `/app/backend/core/import_storage.py` (+3 lines — `import_runs` indexes)
+- MOD `/app/frontend/src/pages/admin/VerificationHub.jsx` (+~210 lines — `sumCounts`, `OccupationsTable`, multi-country buttons)
+- NEW `/app/backend/tests/test_phase171_multi_country_fetch.py` — 10 tests
+- MOD `/app/backend/tests/test_phase170_persistent_import.py` — test_7 updated for new alias response shape (Phase 17.1 unified multi-country format)
+
+
+
+---
 ### 🛠️ Phase 17.0 — Verification Hub "Re-import Excel" UX hardening + persistent file storage (Jun 11, 2026)
 **Tests:** `tests/test_phase170_persistent_import.py` → **8/8 PASS** in 2.05s. Phase 13 + 16.7 regression → **25 passed + 1 skipped**. No path leak across all 6 sanitisation checks.
 

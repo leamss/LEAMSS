@@ -273,6 +273,13 @@ async def ensure_indexes(db) -> None:
         name="uploaded_at_desc",
     )
     await coll.create_index([("id", 1)], unique=True, name="id_unique")
+    # Phase 17.1 — import_runs audit collection indexes (auto-fetch history)
+    runs = db["import_runs"]
+    await runs.create_index([("method", 1), ("country", 1), ("started_at", -1)],
+                            name="method_country_started")
+    await runs.create_index([("triggered_by", 1), ("started_at", -1)],
+                            name="triggered_by_started")
+    await runs.create_index([("id", 1)], unique=True, name="run_id_unique")
 
 
 # ─── Phase 17.0.1 — Upload error classification ──────────────────────────────

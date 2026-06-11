@@ -231,90 +231,250 @@ async def import_default(current_user: dict = Depends(get_current_user)):
 
 @router.post("/auto-fetch-anzsco")
 async def auto_fetch_anzsco(current_user: dict = Depends(get_current_user)):
-    """Live-fetch the AU Skilled Occupation List from Home Affairs and upsert
-    base `occupation_master` records. This is a 6-digit-code refresh — NOT a
-    replacement for the ANZSCO 4-digit Excel import. Frontend should label the
-    outcome accordingly using the `target_collection` field."""
-    if not _is_admin(current_user):
-        raise HTTPException(403, "Admin only")
-    actor = current_user.get("id") or "admin"
+    """Backwards-compat alias — forwards to /auto-fetch-country?country=AU.
+    Original Phase 17.0 entry point; new code should target /auto-fetch-country."""
+    return await auto_fetch_country({"country": "AU"}, current_user=current_user)
+
+
+# Map of country → (label, source list, async fn(db, actor) → summary dict)
+async def _run_au_fetch(db, actor: str) -> Dict[str, Any]:
+    """AU: live Home Affairs SOL → occupation_master (existing 17.0 logic)."""
     fetched_at = datetime.now(timezone.utc).isoformat()
+    raw = home_affairs_scraper.fetch_raw_records()
+    records = [home_affairs_scraper.normalize_record(r) for r in raw]
+    by_code: Dict[str, Dict[str, Any]] = {}
+    for n in records:
+        c = n.get("code")
+        if not c:
+            continue
+        if c in by_code and not n.get("title"):
+            continue
+        by_code[c] = n
+    existing: set[str] = set()
+    async for d in OCCUPATIONS.find({"country_code": "AU"}, {"code": 1, "_id": 0}):
+        existing.add(d.get("code") or "")
+    created = updated = 0
+    for code, n in by_code.items():
+        base = {
+            "country_code": "AU", "code": code, "title": n.get("title") or "",
+            "classification_version": n.get("classification_version") or "ANZSCO 2013",
+            "anzsco_ref_url": n.get("anzsco_ref_url") or "",
+            "visa_pathways": n.get("visa_pathways") or {},
+            "pathway_list": n.get("pathway_list") or "",
+            "assessing_authority": n.get("assessing_authority") or {},
+            "last_scraped_at": fetched_at, "last_scraped_by": "auto_fetch_country",
+            "updated_at": fetched_at,
+        }
+        if code in existing:
+            await OCCUPATIONS.update_one({"country_code": "AU", "code": code}, {"$set": base})
+            updated += 1
+        else:
+            base.update({
+                "status": "verified",
+                "verification": {
+                    "source": "home_affairs_skilled_occupation_list",
+                    "auto_verified_at": fetched_at,
+                    "auto_verified_by": "auto_fetch_country",
+                    "method": "Home Affairs live scrape via /auto-fetch-country",
+                },
+                "created_at": fetched_at,
+                "anzsco_4digit_code": code[:4] if len(code) == 6 and code.isdigit() else None,
+            })
+            await OCCUPATIONS.insert_one(base)
+            created += 1
+    return {
+        "country": "AU",
+        "source": "Home Affairs Skilled Occupation List",
+        "source_urls": [home_affairs_scraper.SOURCE_URL],
+        "imported": created, "updated": updated, "skipped": 0,
+        "fetched_at": fetched_at, "status": "success", "errors": [],
+    }
+
+
+async def _run_ca_fetch(db, actor: str) -> Dict[str, Any]:
+    """CA: StatCan NOC 2021 + IRCC EE rounds + IRCC EE streams."""
+    fetched_at = datetime.now(timezone.utc).isoformat()
+    errors: List[str] = []
+    totals = {"created": 0, "updated": 0, "skipped": 0}
+    sources: List[str] = []
+    source_urls: List[str] = []
+
+    # noc_canada (bundled CSV)
     try:
-        # Step 1 — live scrape (in-memory, no on-disk artefact)
-        raw = home_affairs_scraper.fetch_raw_records()
-        records = [home_affairs_scraper.normalize_record(r) for r in raw]
-
-        # Step 2 — dedupe by code (prefer entries with a title)
-        by_code: Dict[str, Dict[str, Any]] = {}
-        for n in records:
-            c = n.get("code")
-            if not c:
-                continue
-            if c in by_code and not n.get("title"):
-                continue
-            by_code[c] = n
-
-        # Step 3 — existing codes already in occupation_master (AU)
-        existing_codes: set[str] = set()
-        async for d in OCCUPATIONS.find(
-            {"country_code": "AU"}, {"code": 1, "_id": 0}
-        ):
-            existing_codes.add(d.get("code") or "")
-
-        created = 0
-        updated = 0
-        now_iso = fetched_at
-        for code, n in by_code.items():
-            base_doc = {
-                "country_code": "AU",
-                "code": code,
-                "title": n.get("title") or "",
-                "classification_version": n.get("classification_version") or "ANZSCO 2013",
-                "classification_dual_code": n.get("classification_dual_code") or {},
-                "anzsco_ref_url": n.get("anzsco_ref_url") or "",
-                "visa_pathways": n.get("visa_pathways") or {},
-                "pathway_list": n.get("pathway_list") or "",
-                "assessing_authority": n.get("assessing_authority") or {},
-                "last_scraped_at": now_iso,
-                "last_scraped_by": "auto_fetch_anzsco",
-                "updated_at": now_iso,
-            }
-            if code in existing_codes:
-                await OCCUPATIONS.update_one(
-                    {"country_code": "AU", "code": code}, {"$set": base_doc}
-                )
-                updated += 1
-            else:
-                base_doc.update({
-                    "status": "verified",
-                    "verification": {
-                        "source": "home_affairs_skilled_occupation_list",
-                        "auto_verified_at": now_iso,
-                        "auto_verified_by": "auto_fetch_anzsco",
-                        "method": "Home Affairs live scrape via /auto-fetch-anzsco",
-                    },
-                    "created_at": now_iso,
-                    "anzsco_4digit_code": code[:4] if len(code) == 6 and code.isdigit() else None,
-                    "anzsco_major_group_code": code[0] if code and code[0].isdigit() else None,
-                })
-                await OCCUPATIONS.insert_one(base_doc)
-                created += 1
+        from core.scrapers import noc_canada as noc
+        r = await noc.apply_to_db(db, dry_run=False, actor=actor)
+        totals["created"] += int(r.get("created", 0))
+        totals["updated"] += int(r.get("updated", 0))
+        totals["skipped"] += int(r.get("skipped_unchanged", 0))
+        sources.append("StatCan NOC 2021")
+        source_urls.append(getattr(noc, "SOURCE_URL", ""))
     except Exception as e:
-        logger.exception("auto-fetch-anzsco failed")
-        raise HTTPException(502, f"Auto-fetch failed: {e}") from e
+        errors.append(f"noc_canada: {type(e).__name__}: {e}")
+
+    # ircc_round_cutoffs (live HTTP)
+    try:
+        from core.scrapers import ircc_round_cutoffs as rounds
+        r = await rounds.apply_to_db(db, dry_run=False, actor=actor)
+        totals["updated"] += int(r.get("updated", 0) or r.get("tagged_records", 0))
+        sources.append("IRCC Express Entry Rounds")
+        source_urls.append(getattr(rounds, "SOURCE_URL", ""))
+    except Exception as e:
+        errors.append(f"ircc_round_cutoffs: {type(e).__name__}: {e}")
+
+    # ircc_ee_streams (live HTTP)
+    try:
+        from core.scrapers import ircc_ee_streams as ee
+        r = await ee.apply_to_db(db, dry_run=False, actor=actor)
+        totals["updated"] += int(r.get("updated", 0) or r.get("tagged_records", 0))
+        sources.append("IRCC EE Category-Based Streams")
+        source_urls.append(getattr(ee, "SOURCE_URL", ""))
+    except Exception as e:
+        errors.append(f"ircc_ee_streams: {type(e).__name__}: {e}")
 
     return {
-        "ok": True,
-        "source": "Home Affairs Skilled Occupation List",
-        "source_url": home_affairs_scraper.SOURCE_URL,
-        "target_collection": "occupation_master",
-        "country_code": "AU",
+        "country": "CA",
+        "source": " + ".join(sources) if sources else "StatCan NOC 2021 (no live update)",
+        "source_urls": [u for u in source_urls if u],
+        "imported": totals["created"], "updated": totals["updated"], "skipped": totals["skipped"],
         "fetched_at": fetched_at,
-        "imported": created,
-        "updated": updated,
-        "skipped": 0,
-        "total_processed": created + updated,
+        "status": "partial" if errors else "success",
+        "errors": errors[:5],
     }
+
+
+async def _run_nz_fetch(db, actor: str) -> Dict[str, Any]:
+    """NZ: ANZSCO seed + Green List + AEWV/SMC."""
+    fetched_at = datetime.now(timezone.utc).isoformat()
+    errors: List[str] = []
+    totals = {"created": 0, "updated": 0, "skipped": 0}
+    sources: List[str] = []
+    source_urls: List[str] = []
+
+    for label, mod_name, src_key in [
+        ("INZ National Occupation List", "nz_anzsco_seed", "SOURCE_URL"),
+        ("INZ Green List", "nz_green_list", "SOURCE_URL"),
+        ("INZ AEWV / SMC", "nz_aewv_smc", "SOURCE_URL"),
+    ]:
+        try:
+            mod = __import__(f"core.scrapers.{mod_name}", fromlist=[mod_name])
+            r = await mod.apply_to_db(db, dry_run=False, actor=actor)
+            totals["created"] += int(r.get("created", 0))
+            totals["updated"] += int(r.get("updated", 0) or r.get("tagged_records", 0)
+                                     or r.get("tier_1_count", 0) + r.get("tier_2_count", 0))
+            totals["skipped"] += int(r.get("skipped_unchanged", 0))
+            sources.append(label)
+            source_urls.append(getattr(mod, src_key, ""))
+        except Exception as e:
+            errors.append(f"{mod_name}: {type(e).__name__}: {e}")
+
+    return {
+        "country": "NZ",
+        "source": " + ".join(sources) if sources else "INZ Green List (no live update)",
+        "source_urls": [u for u in source_urls if u],
+        "imported": totals["created"], "updated": totals["updated"], "skipped": totals["skipped"],
+        "fetched_at": fetched_at,
+        "status": "partial" if errors else "success",
+        "errors": errors[:5],
+    }
+
+
+@router.post("/auto-fetch-country")
+async def auto_fetch_country(
+    body: Dict[str, Any],
+    current_user: dict = Depends(get_current_user),
+):
+    """Live-fetch occupation data for AU, CA, NZ, or ALL three sequentially.
+    Each run writes an audit row to `import_runs`. Response per-country
+    breakdown includes source label, URLs, counts, and duration."""
+    if not _is_admin(current_user):
+        raise HTTPException(403, "Admin only")
+    country = (body or {}).get("country", "AU")
+    country = str(country).upper()
+    if country not in ("AU", "CA", "NZ", "ALL"):
+        raise HTTPException(400, "country must be one of AU, CA, NZ, ALL")
+    actor = current_user.get("id") or "admin"
+    actor_name = _user_display_name(current_user)
+
+    countries = ["AU", "CA", "NZ"] if country == "ALL" else [country]
+    fetchers = {"AU": _run_au_fetch, "CA": _run_ca_fetch, "NZ": _run_nz_fetch}
+    results: List[Dict[str, Any]] = []
+    runs_coll = db["import_runs"]
+
+    for c in countries:
+        started_at = datetime.now(timezone.utc)
+        run_doc: Dict[str, Any] = {
+            "id": __import__("uuid").uuid4().hex,
+            "method": "auto_fetch",
+            "country": c,
+            "triggered_by": actor,
+            "triggered_by_name": actor_name,
+            "started_at": started_at.isoformat(),
+            "completed_at": None,
+            "duration_seconds": None,
+            "status": "running",
+            "source": "", "source_urls": [],
+            "summary": {"imported": 0, "updated": 0, "skipped": 0, "errors": []},
+            "created_at": started_at.isoformat(),
+        }
+        await runs_coll.insert_one(run_doc)
+        try:
+            r = await fetchers[c](db, actor)
+        except Exception as e:
+            logger.exception("auto-fetch %s failed", c)
+            completed = datetime.now(timezone.utc)
+            r = {
+                "country": c, "source": "(failed)",
+                "source_urls": [], "imported": 0, "updated": 0, "skipped": 0,
+                "fetched_at": completed.isoformat(),
+                "status": "failed", "errors": [f"{type(e).__name__}: {e}"],
+            }
+        completed = datetime.now(timezone.utc)
+        dur = (completed - started_at).total_seconds()
+        r["duration_seconds"] = round(dur, 2)
+        await runs_coll.update_one(
+            {"id": run_doc["id"]},
+            {"$set": {
+                "completed_at": completed.isoformat(),
+                "duration_seconds": round(dur, 2),
+                "status": r.get("status", "success"),
+                "source": r.get("source", ""),
+                "source_urls": r.get("source_urls", []),
+                "summary": {
+                    "imported": r.get("imported", 0),
+                    "updated": r.get("updated", 0),
+                    "skipped": r.get("skipped", 0),
+                    "errors": r.get("errors", [])[:50],
+                },
+            }},
+        )
+        results.append(r)
+
+    totals = {
+        "imported": sum(r.get("imported", 0) for r in results),
+        "updated": sum(r.get("updated", 0) for r in results),
+        "skipped": sum(r.get("skipped", 0) for r in results),
+        "duration_seconds": round(sum(r.get("duration_seconds", 0) for r in results), 2),
+    }
+    overall_ok = all(r.get("status") in ("success", "partial") for r in results)
+    return {"ok": overall_ok, "results": results, "totals": totals}
+
+
+@router.get("/import-runs")
+async def list_import_runs(
+    country: Optional[str] = Query(None),
+    limit: int = Query(50, ge=1, le=200),
+    current_user: dict = Depends(get_current_user),
+):
+    """Audit history for /auto-fetch-country runs."""
+    if not _is_admin(current_user):
+        raise HTTPException(403, "Admin only")
+    q: Dict[str, Any] = {}
+    if country:
+        q["country"] = country.upper()
+    rows: List[Dict[str, Any]] = []
+    async for d in db["import_runs"].find(q, {"_id": 0}).sort("started_at", -1).limit(limit):
+        rows.append(d)
+    return {"items": rows, "count": len(rows)}
 
 
 @router.get("/import-files/latest")

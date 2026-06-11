@@ -59,6 +59,12 @@ function formatBytes(n) {
   return `${(n / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+// Phase 17.1 — sum every status bucket so tab badges match KPI tile totals.
+function sumCounts(counts) {
+  if (!counts) return 0;
+  return Object.values(counts).reduce((a, b) => a + (typeof b === 'number' ? b : 0), 0);
+}
+
 export default function VerificationHub() {
   const navigate = useNavigate();
   const token = localStorage.getItem('token');
@@ -156,17 +162,23 @@ export default function VerificationHub() {
     }
   };
 
-  // Phase 17.0 — AUTO-FETCH: live scrape AU Home Affairs Skilled Occupation
-  // List. Updates `occupation_master` (6-digit AU codes), NOT the 4-digit
-  // ANZSCO master — the response label below reflects this honestly.
-  const autoFetchAnzsco = async () => {
-    if (!window.confirm("Yeh AU occupations ko live Home Affairs data se update karega. Continue?")) return;
+  // Phase 17.1 — multi-country auto-fetch. Defaults to all 3 sequentially.
+  const autoFetchAnzsco = async (country = 'ALL') => {
+    const label = country === 'ALL' ? 'all 3 countries (AU + CA + NZ)' :
+                  country === 'AU' ? 'AU (Home Affairs SOL)' :
+                  country === 'CA' ? 'CA (StatCan NOC + IRCC EE)' :
+                  country === 'NZ' ? 'NZ (Green List + AEWV + ANZSCO)' : country;
+    if (!window.confirm(`Yeh ${label} ko live gov sources se update karega. Continue?`)) return;
     setAutoFetching(true);
     setNoPriorBanner(null);
     try {
-      const r = await axios.post(`${API}/kb-unified/auto-fetch-anzsco`, {}, { headers });
+      const r = await axios.post(`${API}/kb-unified/auto-fetch-country`,
+                                 { country }, { headers });
       const d = r.data || {};
-      toast.success(`✓ ${d.source || 'Home Affairs'} — ${d.imported || 0} new + ${d.updated || 0} updated (${d.target_collection || 'occupation_master'})`);
+      const summary = (d.results || []).map(x =>
+        `${x.country}: ${x.imported || 0}+ ${x.updated || 0}↻`
+      ).join(' · ');
+      toast.success(`✓ Auto-fetch complete — ${summary} (${d.totals?.duration_seconds || 0}s)`);
       await loadHub();
     } catch (e) {
       toast.error(formatApiError(e, 'Auto-fetch failed'));
@@ -344,16 +356,25 @@ export default function VerificationHub() {
                 {primaryBusy ? (importing ? 'Importing…' : 'Uploading…') : primaryBtnLabel}
               </Button>
               <Button
-                onClick={autoFetchAnzsco}
+                onClick={() => autoFetchAnzsco('ALL')}
                 disabled={autoFetching}
                 variant="outline"
                 className="border-indigo-300 text-indigo-700 hover:bg-indigo-50"
                 data-testid="verif-hub-autofetch-btn"
-                title="Live scrape AU Skilled Occupation List from Home Affairs"
+                title="Live scrape AU + CA + NZ official sources"
               >
                 {autoFetching ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Cloud className="h-4 w-4 mr-2" />}
-                {autoFetching ? 'Fetching…' : 'Fetch Latest from Official Source'}
+                {autoFetching ? 'Fetching…' : 'Fetch All 3 Countries'}
               </Button>
+              <Button onClick={() => autoFetchAnzsco('AU')} disabled={autoFetching}
+                      variant="ghost" size="sm" className="text-indigo-700"
+                      data-testid="verif-hub-autofetch-au">🇦🇺 AU</Button>
+              <Button onClick={() => autoFetchAnzsco('CA')} disabled={autoFetching}
+                      variant="ghost" size="sm" className="text-indigo-700"
+                      data-testid="verif-hub-autofetch-ca">🇨🇦 CA</Button>
+              <Button onClick={() => autoFetchAnzsco('NZ')} disabled={autoFetching}
+                      variant="ghost" size="sm" className="text-indigo-700"
+                      data-testid="verif-hub-autofetch-nz">🇳🇿 NZ</Button>
             </div>
           </div>
         </Card>
@@ -368,35 +389,26 @@ export default function VerificationHub() {
           <Tabs defaultValue="occupations" className="w-full">
             <TabsList className="bg-slate-100">
               <TabsTrigger value="occupations" data-testid="tab-occupations">
-                Occupations ({pending_lists.occupations.length})
+                Occupations ({sumCounts(summary.occupation_master.counts)})
               </TabsTrigger>
               <TabsTrigger value="templates" data-testid="tab-templates">
-                Country Templates ({pending_lists.country_templates.length})
+                Country Templates ({sumCounts(summary.country_templates.counts)})
               </TabsTrigger>
               <TabsTrigger value="guides" data-testid="tab-guides">
-                Country Guides ({pending_lists.country_guides.length})
+                Country Guides ({sumCounts(summary.country_guides.counts)})
               </TabsTrigger>
               <TabsTrigger value="policies" data-testid="tab-policies">
-                Protection Policies ({pending_lists.protection_policies.length})
+                Protection Policies ({sumCounts(summary.protection_policies.counts)})
               </TabsTrigger>
             </TabsList>
 
             <TabsContent value="occupations" className="pt-3">
-              <PendingList
-                items={pending_lists.occupations}
-                emptyMessage="All occupations verified ✓"
-                renderItem={(it) => ({
-                  primary: `${it.code} · ${it.title}`,
-                  secondary: it.country_code ? `Country: ${it.country_code}` : '—',
-                  status: it.status,
-                  link: `/admin/kb/occupation-master?focus=${it.occupation_id || it.code}`,
-                })}
-              />
+              <OccupationsTable headers={headers} />
             </TabsContent>
             <TabsContent value="templates" className="pt-3">
               <PendingList
                 items={pending_lists.country_templates}
-                emptyMessage="All country templates verified ✓"
+                emptyMessage="No country templates match the current filters. Try changing the status filter or seed defaults."
                 renderItem={(it) => ({
                   primary: `${it.country_code} · ${it.country_name}`,
                   secondary: it.updated_at ? `Updated: ${new Date(it.updated_at).toLocaleDateString()}` : '—',
@@ -408,7 +420,7 @@ export default function VerificationHub() {
             <TabsContent value="guides" className="pt-3">
               <PendingList
                 items={pending_lists.country_guides}
-                emptyMessage="All country guides verified ✓"
+                emptyMessage="No country guides match the current filters."
                 renderItem={(it) => ({
                   primary: `${it.country_code} · ${it.name}`,
                   secondary: it.updated_at ? `Updated: ${new Date(it.updated_at).toLocaleDateString()}` : '—',
@@ -420,7 +432,7 @@ export default function VerificationHub() {
             <TabsContent value="policies" className="pt-3">
               <PendingList
                 items={pending_lists.protection_policies}
-                emptyMessage="All policies verified ✓ · or none created yet"
+                emptyMessage="No protection policies match the current filters."
                 renderItem={(it) => ({
                   primary: it.title,
                   secondary: `ID: ${it.policy_id}`,
@@ -498,3 +510,171 @@ function PendingList({ items, emptyMessage, renderItem }) {
     </ul>
   );
 }
+
+
+// Phase 17.1 — Occupations table with country/status filter + pagination
+function OccupationsTable({ headers }) {
+  const [rows, setRows] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [country, setCountry] = useState('');
+  const [status, setStatus] = useState('');
+  const [search, setSearch] = useState('');
+  const [searchDebounced, setSearchDebounced] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [loading, setLoading] = useState(false);
+
+  // Debounce search input by 400ms
+  useEffect(() => {
+    const t = setTimeout(() => setSearchDebounced(search), 400);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const skip = (page - 1) * pageSize;
+        const params = new URLSearchParams({ limit: pageSize, skip });
+        if (country) params.set('country', country);
+        if (status) params.set('status', status);
+        if (searchDebounced) params.set('search', searchDebounced);
+        const r = await axios.get(`${API}/occupation-master?${params}`, { headers });
+        if (cancelled) return;
+        setRows(r.data?.items || []);
+        setTotal(r.data?.total || 0);
+      } catch (e) {
+        if (!cancelled) toast.error(formatApiError(e, 'Failed to load occupations'));
+      } finally { if (!cancelled) setLoading(false); }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line
+  }, [country, status, searchDebounced, page, pageSize]);
+
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  return (
+    <div data-testid="occupations-table">
+      {/* Filter bar */}
+      <div className="flex flex-wrap gap-2 items-center mb-3">
+        <input
+          type="text"
+          placeholder="Search code or title…"
+          value={search}
+          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+          className="px-3 py-1.5 text-sm border border-slate-300 rounded-md flex-1 min-w-[200px]"
+          data-testid="occ-search"
+        />
+        <select
+          value={country}
+          onChange={(e) => { setCountry(e.target.value); setPage(1); }}
+          className="px-2 py-1.5 text-sm border border-slate-300 rounded-md"
+          data-testid="occ-country"
+        >
+          <option value="">All countries</option>
+          <option value="AU">🇦🇺 Australia</option>
+          <option value="CA">🇨🇦 Canada</option>
+          <option value="NZ">🇳🇿 New Zealand</option>
+        </select>
+        <select
+          value={status}
+          onChange={(e) => { setStatus(e.target.value); setPage(1); }}
+          className="px-2 py-1.5 text-sm border border-slate-300 rounded-md"
+          data-testid="occ-status"
+        >
+          <option value="">All statuses</option>
+          <option value="verified">Verified</option>
+          <option value="draft">Draft</option>
+          <option value="needs_review">Needs Review</option>
+          <option value="archived">Archived</option>
+        </select>
+        <select
+          value={pageSize}
+          onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
+          className="px-2 py-1.5 text-sm border border-slate-300 rounded-md"
+          data-testid="occ-page-size"
+        >
+          <option value={25}>25 / page</option>
+          <option value={50}>50 / page</option>
+          <option value={100}>100 / page</option>
+        </select>
+        <span className="text-xs text-slate-500 ml-auto">
+          {loading ? 'Loading…' : `${total} record${total === 1 ? '' : 's'}`}
+        </span>
+      </div>
+
+      {/* Table */}
+      {rows.length === 0 && !loading ? (
+        <p className="text-xs text-slate-500 py-6 text-center">
+          No occupations match the current filters. Try changing the country or status filter, or upload a new Excel.
+        </p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="bg-slate-50 text-left text-slate-600">
+                <th className="px-2 py-2">Code</th>
+                <th className="px-2 py-2">Name</th>
+                <th className="px-2 py-2">Country</th>
+                <th className="px-2 py-2">Category</th>
+                <th className="px-2 py-2">Status</th>
+                <th className="px-2 py-2">Last Verified</th>
+                <th className="px-2 py-2">Source</th>
+                <th className="px-2 py-2">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map(r => (
+                <tr key={`${r.country_code}-${r.code}`} className="border-t hover:bg-slate-50">
+                  <td className="px-2 py-1.5 font-mono">{r.code}</td>
+                  <td className="px-2 py-1.5">{r.title}</td>
+                  <td className="px-2 py-1.5">{r.country_code}</td>
+                  <td className="px-2 py-1.5">
+                    {r.teer_category != null ? `TEER ${r.teer_category}` :
+                     r.anzsco_major_group_code ? `Major ${r.anzsco_major_group_code}` : '—'}
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <Badge className={STATUS_PILL[r.status] || 'bg-slate-200 text-slate-600'}>
+                      {r.status}
+                    </Badge>
+                  </td>
+                  <td className="px-2 py-1.5">
+                    {r.verification?.verified_at || r.verification?.auto_verified_at
+                      ? relativeTime(r.verification.verified_at || r.verification.auto_verified_at)
+                      : '—'}
+                  </td>
+                  <td className="px-2 py-1.5 text-slate-500 truncate max-w-[160px]">
+                    {r.verification?.source || r.last_scraped_by || '—'}
+                  </td>
+                  <td className="px-2 py-1.5 whitespace-nowrap">
+                    <Link to={`/admin/kb/occupation-master?focus=${r.id || r.code}`}
+                          className="text-indigo-600 hover:underline">
+                      Edit
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Pagination */}
+      <div className="flex items-center justify-between mt-3 text-xs">
+        <span className="text-slate-500">Page {page} of {totalPages}</span>
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" disabled={page <= 1 || loading}
+                  onClick={() => setPage(p => p - 1)} data-testid="occ-prev">
+            Prev
+          </Button>
+          <Button size="sm" variant="outline" disabled={page >= totalPages || loading}
+                  onClick={() => setPage(p => p + 1)} data-testid="occ-next">
+            Next
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+

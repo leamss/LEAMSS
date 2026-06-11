@@ -295,7 +295,8 @@ def test_6_response_never_leaks_server_path(auth_headers):
 
 
 def test_7_auto_fetch_anzsco_runs(auth_headers):
-    """Live scrape Home Affairs SOL. Network-dependent — skips if backend says 502."""
+    """Live scrape Home Affairs SOL via the Phase 17.0 alias (now forwards
+    to /auto-fetch-country?country=AU). Skips if backend says 502."""
     r = httpx.post(
         f"{API_BASE}/kb-unified/auto-fetch-anzsco", headers=auth_headers, timeout=60,
     )
@@ -304,12 +305,14 @@ def test_7_auto_fetch_anzsco_runs(auth_headers):
     assert r.status_code == 200, f"auto-fetch failed: {r.status_code} · {r.text[:200]}"
     body = r.json()
     assert body.get("ok") is True
-    assert body.get("source") == "Home Affairs Skilled Occupation List"
-    assert body.get("target_collection") == "occupation_master"
-    assert isinstance(body.get("imported"), int)
-    assert isinstance(body.get("updated"), int)
-    # At least the 708 existing AU codes should be matched (updated) or new
-    assert body["imported"] + body["updated"] >= 100
+    # Phase 17.1 — response is now the multi-country shape with one AU entry.
+    assert isinstance(body.get("results"), list) and len(body["results"]) == 1
+    au = body["results"][0]
+    assert au["country"] == "AU"
+    assert "Home Affairs" in au["source"]
+    assert isinstance(au.get("imported"), int)
+    assert isinstance(au.get("updated"), int)
+    assert au["imported"] + au["updated"] >= 100
     _assert_no_path_leak(body, "auto-fetch")
 
 
