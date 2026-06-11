@@ -101,6 +101,9 @@ def main() -> int:
         "double_comma":    re.compile(r",\s*,"),
         "double_space":    re.compile(r"  +"),
         "space_punct":     re.compile(r"\s+[.,;]"),
+        # Phase 16.7.1 additions
+        "double_cta":      re.compile(r"Check eligibility with LEAMSS.*Check eligibility with LEAMSS"),
+        "pathway_filler":  re.compile(r"Pathway code "),
     }
     artefact_counts = {k: sum(1 for r in rows if p.search(r["meta"])) for k, p in bad_patterns.items()}
 

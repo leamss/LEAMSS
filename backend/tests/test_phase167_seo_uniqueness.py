@@ -194,3 +194,84 @@ def test_au_meta_uses_short_authority_label():
     for code, body in cases:
         m = _get_meta("AU", code)
         assert body in m, f"Expected {body} in AU {code}: {m}"
+
+
+
+# ─── Phase 16.7.1 Patch — single-CTA + no filler artefact regression ───────
+async def _all_verified() -> List[Dict[str, str]]:
+    cur = _db["occupation_master"].find(
+        {"status": "verified"},
+        {"code": 1, "country_code": 1},
+    )
+    return [{"code": d["code"], "country_code": d["country_code"]} async for d in cur]
+
+
+def test_no_cta_duplicated():
+    """Across ALL 1,467 verified occupations, the CTA phrase must appear
+    EXACTLY ONCE per meta_description (never zero, never twice)."""
+    rows = _async(_all_verified())
+    assert len(rows) >= 1000, f"Expected ≥1000 verified docs, got {len(rows)}"
+    failures = []
+    for r in rows:
+        m = _get_meta(r["country_code"], r["code"])
+        count = m.count("Check eligibility with LEAMSS")
+        if count != 1:
+            failures.append((r["country_code"], r["code"], count, m))
+    assert not failures, (
+        f"CTA-count violations in {len(failures)} pages, "
+        f"e.g.: {failures[:3]}"
+    )
+
+
+def test_no_filler_artefact():
+    """Legacy 'Pathway code XXX' filler (removed in 16.7.1) must never leak
+    into ANY verified-page meta_description."""
+    rows = _async(_all_verified())
+    failures = []
+    for r in rows:
+        m = _get_meta(r["country_code"], r["code"])
+        if "Pathway code " in m:
+            failures.append((r["country_code"], r["code"], m))
+    assert not failures, f"'Pathway code' leak in {len(failures)} pages: {failures[:3]}"
+
+
+def test_nz_low_data_grammatical():
+    """For NZ occupations lacking Green List tier (low-data path),
+    meta_description must end with EXACTLY one CTA, contain no 'Pathway code'
+    filler, and be a grammatical sentence — not an ungrammatical glue.
+
+    Includes the specific regression case `nz/331213` Joiner that triggered
+    the bug."""
+    cases = ["331213"]
+    # Programmatically add another low-data NZ code (no Green List tier).
+    async def _find_more():
+        cur = _db["occupation_master"].find(
+            {
+                "country_code": "NZ",
+                "status": "verified",
+                "$or": [
+                    {"nz_green_list_tier": {"$in": [None, "", 0]}},
+                    {"nz_green_list_tier": {"$exists": False}},
+                ],
+            },
+            {"code": 1},
+        ).limit(5)
+        return [d["code"] async for d in cur]
+    cases += [c for c in _async(_find_more()) if c not in cases]
+
+    for code in cases:
+        m = _get_meta("NZ", code)
+        assert m.count("Check eligibility with LEAMSS") == 1, (
+            f"NZ {code} CTA count != 1: {m}"
+        )
+        assert m.endswith("Check eligibility with LEAMSS."), (
+            f"NZ {code} doesn't end with single CTA: {m}"
+        )
+        assert "Pathway code " not in m, f"NZ {code} contains 'Pathway code' filler: {m}"
+        # Grammatical: no truncated trailing word right before CTA
+        body = m[: -len("Check eligibility with LEAMSS.")].strip()
+        assert body.endswith((".", "!", "?", ":")), (
+            f"NZ {code} body doesn't end with proper terminator before CTA: {m!r}"
+        )
+        # Length still within hard cap
+        assert len(m) <= 200, f"NZ {code} over 200 chars: {len(m)}"

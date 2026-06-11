@@ -216,14 +216,37 @@ def _build_occupation_faqs(country: str, doc: Dict[str, Any], cm: Dict[str, str]
 
 
 _CTA = "Check eligibility with LEAMSS."
+_CTA_CORE = _CTA.rstrip(" .")  # "Check eligibility with LEAMSS" — for duplicate detection
 _MAX_META_LEN = 200
 _TARGET_META_LEN = 165  # SERP sweet spot
 _MIN_META_LEN = 120
 
 
+def _ensure_cta_once(s: str) -> str:
+    """Guarantee the string ends with exactly ONE trailing CTA.
+
+    Strips any number of trailing CTA repeats (with or without final period)
+    then appends a single canonical CTA. Idempotent.
+    """
+    s = (s or "").strip()
+    # Strip trailing CTAs (with optional period / whitespace between repeats)
+    while True:
+        # Drop trailing whitespace + optional period
+        trimmed = s.rstrip()
+        if trimmed.endswith("."):
+            trimmed = trimmed[:-1].rstrip()
+        if trimmed.endswith(_CTA_CORE):
+            s = trimmed[: -len(_CTA_CORE)].rstrip(" ,.;:")
+            continue
+        break
+    if s and s[-1] not in ".!?":
+        s += "."
+    return (s + " " + _CTA).strip()
+
+
 def _clean_sentence(parts: List[str]) -> str:
     """Join non-empty fragments into a clean sentence — strips empty parens,
-    'None', doubled spaces, dangling commas / semicolons."""
+    'None', doubled spaces, dangling commas / semicolons / repeated CTAs."""
     s = " ".join(p.strip() for p in parts if p and p.strip())
     # Collapse whitespace
     s = re.sub(r"\s+", " ", s)
@@ -234,6 +257,10 @@ def _clean_sentence(parts: List[str]) -> str:
     s = re.sub(r",\s*,+", ",", s)
     s = re.sub(r",\s*\.", ".", s)
     s = re.sub(r"\s+", " ", s).strip()
+    # Collapse any duplicated CTA (Phase 16.7.1 guard) — e.g. when two builders
+    # both appended the CTA in chained calls.
+    cta_escaped = re.escape(_CTA_CORE)
+    s = re.sub(rf"({cta_escaped}\.?\s*){{2,}}", _CTA + " ", s).strip()
     # Ensure terminal full stop
     if s and s[-1] not in ".!?":
         s += "."
@@ -457,8 +484,8 @@ def _build_meta_description(country: str, doc: Dict[str, Any], code: str, title:
     """Country-aware, data-driven meta description for one occupation page.
 
     Returns a 120-200 char sentence woven from real `occupation_master` fields.
-    Falls back to a generic-but-still-unique sentence if a country has no
-    handler (e.g., new countries added later).
+    Falls back to a grammatical generic sentence if a country has no
+    handler (e.g., new countries added later) or signals are sparse.
     """
     if country == "AU":
         meta = _build_au_meta(doc, code, title, country_name)
@@ -476,10 +503,69 @@ def _build_meta_description(country: str, doc: Dict[str, Any], code: str, title:
     # Final safety: hard-cap 200 chars and ensure minimum length.
     if len(meta) > _MAX_META_LEN:
         meta = meta[: _MAX_META_LEN - 1].rstrip(" ,.;:") + "."
+
+    # Phase 16.7.1 — pad short metas with a grammatical, country-specific
+    # extension. Uniqueness preserved by the title + code at the head.
+    # The extension intentionally uses different verbs/keywords than any
+    # builder phrase so no "X X" doubling can occur, and never contains the
+    # CTA core phrase ("Check eligibility with LEAMSS") so `_ensure_cta_once`
+    # can safely re-append a single CTA at the end.
     if len(meta) < _MIN_META_LEN:
-        # Pad with a neutral, non-templated tail using a unique attribute (code)
-        # so two short metas don't collide.
-        meta = _clean_sentence([meta.rstrip("."), f"Pathway code {code}.", _CTA])
+        extension_map = {
+            "AU": "Speak to our team about visa subclass criteria, English bands and skill-assessment documentation.",
+            "CA": "Speak to our team about CRS scoring, NOC eligibility and provincial nomination pathways.",
+            "NZ": "Speak to our team about SMC points, AEWV thresholds and English-language requirements.",
+        }
+        ext_short = {
+            "AU": "Speak to our team about visa criteria and documentation.",
+            "CA": "Speak to our team about CRS, NOC and PNP pathways.",
+            "NZ": "Speak to our team about SMC points and AEWV thresholds.",
+        }
+        # 1. Strip any existing trailing CTA(s) from the body.
+        body = meta
+        while True:
+            trimmed = body.rstrip().rstrip(".").rstrip()
+            if trimmed.endswith(_CTA_CORE):
+                body = trimmed[: -len(_CTA_CORE)].rstrip(" ,;")  # keep ':' if present
+                continue
+            break
+        # 2. Ensure body ends with proper sentence terminator (period, !, ?).
+        body = body.rstrip()
+        if body and body[-1] not in ".!?":
+            body = body.rstrip(" ,;:") + "."
+        # 3. Choose extension that fits within budget. Prefer long version; fall
+        #    back to short version if long would push us over.
+        budget = _MAX_META_LEN - len(_CTA) - 1  # space before CTA
+        for ext in (extension_map.get(country) or "", ext_short.get(country) or ""):
+            if not ext:
+                continue
+            candidate = (body + " " + ext).strip()
+            if len(candidate) <= budget:
+                meta = candidate
+                break
+        else:
+            # Even the short extension doesn't fit — use body alone (still better
+            # than truncating an extension mid-word).
+            meta = body if (body and len(body) <= budget) else body[:budget].rstrip(" ,.;:") + "."
+
+    # Belt-and-braces: enforce single trailing CTA on every path.
+    meta = _ensure_cta_once(meta)
+    # Final hard cap (defensive — covers the rare builder-output > 200 case).
+    # When trimming, cut at the last sentence boundary so we never end mid-word.
+    if len(meta) > _MAX_META_LEN:
+        body = meta[: -len(_CTA)].rstrip(" ,.;:")
+        budget = _MAX_META_LEN - len(_CTA) - 1
+        if len(body) > budget:
+            cut = body[:budget]
+            # Prefer to cut at the last full stop within budget
+            last_dot = cut.rfind(".")
+            if last_dot >= int(budget * 0.5):
+                body = cut[: last_dot + 1].rstrip()
+            else:
+                # No good period — cut at last word boundary
+                last_space = cut.rfind(" ")
+                body = (cut[:last_space] if last_space > 0 else cut).rstrip(" ,.;:") + "."
+        meta = _ensure_cta_once(body)
     return meta
 
 

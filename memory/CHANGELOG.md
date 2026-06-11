@@ -64,6 +64,17 @@ None / empty-parens / double-comma / double-space artefacts : all 0
 - NEW `/app/scripts/audit_atlas_seo.py` — uniqueness + length audit CLI
 - MOD `/app/memory/test_credentials.md` — appended login verification block (idempotent re-seed details + sample curl)
 
+**Patch 16.7.1 (same-day) — single-CTA guard + grammatical low-data filler.**
+e1_tester surfaced an ungrammatical filler artefact on `nz/331213` ("*Pathway code 331213. Check eligibility with LEAMSS.*" — duplicated CTA + meaningless code-token glue). Full DB scan revealed 37 affected records (16 AU + 21 NZ + 0 CA) where the short-meta padder was incorrectly re-appending the CTA on top of an existing one and inserting the ungrammatical `"Pathway code {code}."` filler.
+- Replaced `"Pathway code {code}."` filler with country-specific grammatical extensions (e.g. AU: *"Speak to our team about visa subclass criteria, English bands and skill-assessment documentation."*, NZ: *"Speak to our team about SMC points, AEWV thresholds and English-language requirements."*, CA equivalent).
+- Long/short extension variants — picks the longest that fits the 200-char budget; never truncates mid-word.
+- NEW `_ensure_cta_once()` helper — centralised single-CTA guard. Strips any trailing CTA repeats (with/without periods) and appends exactly one canonical CTA. Used on every final-meta path.
+- `_clean_sentence()` now also collapses `(CTA){2,}` patterns defensively.
+- Final hard-cap now cuts at last sentence boundary (or word boundary) instead of mid-character — so we never produce *"Check eligibility with LEA."*-style truncation.
+- Sample fix — `nz/331213` (was 164 chars, doubled CTA): *"Joiner (331213) in New Zealand: AEWV-eligible. SMC 4-point base. Assessed by NZQA. Speak to our team about SMC points, AEWV thresholds and English-language requirements. Check eligibility with LEAMSS."* (200 chars, single CTA, grammatical).
+- 3 regression tests added (now 12/12 PASS): `test_no_cta_duplicated` (all 1,467 verified pages exactly 1 CTA each), `test_no_filler_artefact` (no "Pathway code " token anywhere), `test_nz_low_data_grammatical` (NZ low-data path specifically — incl. `nz/331213`).
+- Audit script extended with 2 new artefact checks: `double_cta` regex + `pathway_filler` substring — both 0 across 300 sampled pages. Full-DB sweep confirms 0/1,467 violations on any axis.
+
 
 
 ---
