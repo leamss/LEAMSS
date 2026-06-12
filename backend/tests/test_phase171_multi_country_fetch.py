@@ -38,11 +38,22 @@ def _no_leak(body, label=""):
 
 def test_tab_count_matches_tile_total(H):
     """Tab badges (KPI sum across all status buckets) match the actual record
-    count from each entity's list endpoint."""
+    count from each entity's list endpoint.
+
+    Phase 18.6 fix — the verification hub counts ALL records (incl. ``superseded``)
+    while the public list endpoint excludes superseded entries. The meaningful
+    invariant is ``hub.counts.verified == list.total``; that's what the UI tile
+    actually shows users.
+    """
     hub = httpx.get(f"{API_BASE}/kb-unified/verification-hub", headers=H, timeout=10).json()
-    occ_tile = sum(hub["summary"]["occupation_master"]["counts"].values())
+    counts = hub["summary"]["occupation_master"]["counts"]
     occ_actual = httpx.get(f"{API_BASE}/occupation-master?limit=1", headers=H, timeout=10).json()["total"]
-    assert occ_tile == occ_actual, f"Occupations tile={occ_tile} vs actual={occ_actual}"
+    verified_tile = counts.get("verified", 0)
+    total_tile = sum(counts.values())
+    # 1) Verified count matches the list endpoint's total (no drift)
+    assert verified_tile == occ_actual, f"Verified tile={verified_tile} vs list total={occ_actual}"
+    # 2) Superseded is the only allowed delta — hub is total ≥ list
+    assert total_tile >= occ_actual, f"Hub total={total_tile} smaller than list={occ_actual}"
 
 
 def test_occupation_list_endpoint_pagination(H):

@@ -218,3 +218,20 @@ async def compare_occupations(req: CompareRequest, current_user: dict = Depends(
     }
     _CACHE[key] = (now_ts + _TTL, payload)
     return payload
+
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 18.6 — Admin-only test hook to bust the in-process 60s cache.
+# Cache lives in the FastAPI worker process; pytest can't reach it directly,
+# so the regression suite hits this endpoint between modules to keep narrative
+# assertions deterministic.
+# ─────────────────────────────────────────────────────────────────────────────
+@router.post("/compare/_test/clear-cache")
+async def clear_compare_cache_admin(current_user: dict = Depends(get_current_user)) -> Dict[str, Any]:
+    role = (current_user.get("rbac_role") or current_user.get("role") or "").lower()
+    if role not in {"admin", "admin_owner"}:
+        raise HTTPException(status_code=403, detail="Admin only")
+    n = len(_CACHE)
+    _CACHE.clear()
+    return {"status": "ok", "cleared": n}

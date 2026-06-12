@@ -84,7 +84,31 @@ import EligibilityScoringRules from '@/pages/admin/EligibilityScoringRules';
 import VisaPathwaysEditor from '@/pages/admin/VisaPathwaysEditor';
 import ComparePage from '@/pages/sales/ComparePage';
 import CompareBar from '@/components/CompareBar';
+import AppErrorBoundary from '@/components/AppErrorBoundary';
+import { useLocation } from 'react-router-dom';
 import '@/App.css';
+
+/**
+ * Phase 18.6 — Scoped error boundary that wraps the Routes tree.
+ * Reads the pathname to label the scope, and uses a `key` on the boundary
+ * so a crash on one scope doesn't leak into another (boundary remounts
+ * when we navigate between scopes).
+ */
+function ScopedRouteBoundary({ children }) {
+  const location = useLocation();
+  const path = location?.pathname || '';
+  let scope = 'public';
+  if (path.startsWith('/sales')) scope = 'sales';
+  else if (path.startsWith('/admin')) scope = 'admin';
+  else if (path.startsWith('/portal')) scope = 'portal';
+  else if (path.startsWith('/partner')) scope = 'partner';
+  else if (path.startsWith('/case-manager') || path.startsWith('/client') || path.startsWith('/cm')) scope = 'workspace';
+  return (
+    <AppErrorBoundary key={scope} scope={scope}>
+      {children}
+    </AppErrorBoundary>
+  );
+}
 
 function App() {
   return (
@@ -92,6 +116,7 @@ function App() {
     <LanguageProvider>
     <div className="App">
       <BrowserRouter>
+        <ScopedRouteBoundary>
         <Routes>
           <Route path="/" element={<Login />} />
           {/* ─── Phase 14: LEAMSS Public Brand Experience (no auth) ─── */}
@@ -386,6 +411,7 @@ function App() {
           <Route path="/payment-cancel" element={<Navigate to="/client" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </ScopedRouteBoundary>
         {/* Phase 18.5 — Floating CompareBar (auto-hides on /sales/compare + when empty) */}
         <CompareBar />
       </BrowserRouter>

@@ -58,6 +58,38 @@ const CAT_META = {
   military_recruits:      { icon: ShieldIcon,  label: 'Military' },
 };
 
+/**
+ * Phase 18.6 — Defensive renderer for scalar-or-object backend fields.
+ *
+ * Backend schemas evolve: a field that was a simple ``int`` or ``str`` last
+ * release may now arrive as ``{label: ..., currency: ..., …}``. This helper
+ * surfaces a sensible string without ever throwing the dreaded
+ * "Objects are not valid as a React child" error.
+ *
+ * Resolution order: null/undefined → fallback · array → joined names ·
+ * object with ``label`` → ``label`` · object with ``name`` → ``name`` ·
+ * object → key=value pairs · scalar → as-is.
+ */
+export function safeRender(value, fallback = '—') {
+  if (value === null || value === undefined || value === '') return fallback;
+  if (Array.isArray(value)) {
+    const labelled = value
+      .map((it) => (it && typeof it === 'object' ? (it.label || it.name || '') : it))
+      .filter(Boolean);
+    return labelled.length ? labelled.join(', ') : fallback;
+  }
+  if (typeof value === 'object') {
+    if (typeof value.label === 'string' && value.label) return value.label;
+    if (typeof value.name === 'string' && value.name) return value.name;
+    const flat = Object.entries(value)
+      .filter(([, v]) => v != null && typeof v !== 'object')
+      .map(([k, v]) => `${k}: ${v}`)
+      .join(', ');
+    return flat || fallback;
+  }
+  return value;
+}
+
 
 export default function OccupationCompare() {
   const navigate = useNavigate();
@@ -304,18 +336,19 @@ export default function OccupationCompare() {
 
               {/* Common cost/process rows */}
               <SectionHeader label="📊 Cost / Process" />
-              <Row label="Min Points Required" items={items} render={it => it.min_points_required ?? <span style={{ color: C.muted }}>—</span>} />
-              <Row label="Age Limit" items={items} render={it => it.age_limit ? `${it.age_limit} yrs` : <span style={{ color: C.muted }}>—</span>} />
+              <Row label="Min Points Required" items={items} render={it => (
+                <span data-testid={`compare-field-min-points-${it.country_code}-${it.code}`}>{safeRender(it.min_points_required)}</span>
+              )} />
+              <Row label="Age Limit" items={items} render={it => (
+                <span data-testid={`compare-field-age-limit-${it.country_code}-${it.code}`}>{it.age_limit ? `${safeRender(it.age_limit)} yrs` : '—'}</span>
+              )} />
               <Row label="Body Fee" items={items} render={it => {
-                const fee = it.body_fee_native;
-                if (fee == null) return <span style={{ color: C.muted }}>—</span>;
-                // Backend may return scalar (legacy) OR an object {currency, standard, rpl, label}
-                if (typeof fee === 'object') {
-                  return <span className="text-[10px]" title={fee.label || ''}>{fee.label || `${fee.currency || ''} ${fee.standard ?? ''}`.trim() || '—'}</span>;
-                }
-                return fee;
+                const v = safeRender(it.body_fee_native);
+                return <span className="text-[10px]" data-testid={`compare-field-body-fee-${it.country_code}-${it.code}`}>{v}</span>;
               }} />
-              <Row label="Processing (weeks)" items={items} render={it => it.body_processing_weeks ?? <span style={{ color: C.muted }}>—</span>} />
+              <Row label="Processing (weeks)" items={items} render={it => (
+                <span data-testid={`compare-field-processing-weeks-${it.country_code}-${it.code}`}>{safeRender(it.body_processing_weeks)}</span>
+              )} />
 
               {/* Score */}
               <SectionHeader label="🏆 Best-Fit Score" />

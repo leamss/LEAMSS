@@ -35,6 +35,27 @@ import { formatApiError } from '@/lib/apiErrors';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
+/**
+ * Phase 18.6 — Dev-only crash trigger used by the regression suite to verify
+ * the global ErrorBoundary catches render errors in production routes.
+ *
+ * Activated ONLY when the page mounts with `localStorage.__leamss_force_crash__`
+ * set matching the page's scope. Throws on EVERY render attempt so React's
+ * concurrent recovery cannot bypass the boundary. The flag persists until the
+ * boundary's "Reload page" button is pressed (which clears it before reload).
+ *
+ * Zero impact in normal sessions — the flag is never set by the app itself.
+ */
+function DevCrashTrigger({ scope }) {
+  if (typeof window === 'undefined') return null;
+  let flag = '';
+  try { flag = window.localStorage.getItem('__leamss_force_crash__') || ''; } catch { /* ignore */ }
+  if (flag && flag === scope) {
+    throw new Error(`Phase 18.6 ErrorBoundary smoke-test crash (scope=${scope})`);
+  }
+  return null;
+}
+
 const BRAND = {
   forest: '#1F4D44',
   forestDark: '#173B34',
@@ -84,6 +105,7 @@ export default function ComparePage() {
 
   return (
     <div className="min-h-screen" style={{ background: BRAND.warm }} data-testid="compare-page">
+      <DevCrashTrigger scope="sales" />
       <div className="border-b border-slate-200 bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between flex-wrap gap-2">

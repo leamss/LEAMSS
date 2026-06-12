@@ -69,7 +69,19 @@ def _seed_known_state():
 
     Idempotent — only touches the fields this test cares about and never wipes
     existing admin-curated payloads beyond a known reset to a fixture state.
+
+    Phase 18.6 — also busts the /sales/compare 60s cache via an admin-only HTTP
+    endpoint so prior tests that populated it with stale data don't bleed into
+    this module's assertions. (The cache lives in the FastAPI process — direct
+    in-process clears from pytest don't reach it.)
     """
+    # Server-side cache bust
+    try:
+        H = _login()
+        httpx.post(f"{API_BASE}/sales/compare/_test/clear-cache", headers=H, timeout=10)
+    except Exception:
+        pass
+
     async def _seed():
         # Occupation A — full skill_body + sample cases for outcome counts
         await DB.occupation_master.update_one(
