@@ -46,6 +46,12 @@ class ClientErrorIn(BaseModel):
         populate_by_name = True
 
 
+class ClientErrorPatch(BaseModel):
+    """Phase 18.7 — partial update from the admin dashboard."""
+    resolved: Optional[bool] = None
+    notes: Optional[str] = Field(default=None, max_length=2000)
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # In-memory rate limit (per process — sufficient for our single-replica setup)
 # 30 events per user per 60s
@@ -168,28 +174,219 @@ async def post_client_error(payload: ClientErrorIn, current_user: dict = Depends
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# GET /api/client-errors — admin only, future dashboard scaffold
+# Dashboard read endpoints (Phase 18.7 — extends the Phase 18.6 scaffold)
 # ─────────────────────────────────────────────────────────────────────────────
+def _is_admin_user(user: dict) -> bool:
+    role = (user.get("rbac_role") or user.get("role") or "").lower()
+    return role in {"admin", "admin_owner"}
+
+
+def _iso_dt(d: dict, *keys: str) -> dict:
+    for k in keys:
+        if isinstance(d.get(k), datetime):
+            d[k] = d[k].isoformat()
+    return d
+
+
+@router.get("/summary")
+async def client_errors_summary(current_user: dict = Depends(get_current_user)) -> Dict[str, Any]:
+    """Counters for the dashboard top strip: open / resolved / last_24h / critical."""
+    if not _is_admin_user(current_user):
+        raise HTTPException(status_code=403, detail="Admin only")
+    now = datetime.now(timezone.utc)
+    cutoff_24h = now - timedelta(hours=24)
+    coll = db["client_errors"]
+    open_count = await coll.count_documents({"resolved": False})
+    resolved_count = await coll.count_documents({"resolved": True})
+    last_24h = await coll.count_documents({"received_at": {"$gte": cutoff_24h}})
+    critical = await coll.count_documents({"occurrence_count": {"$gt": 10}, "resolved": False})
+    return {
+        "open": open_count,
+        "resolved": resolved_count,
+        "last_24h": last_24h,
+        "critical": critical,
+    }
+
+
 @router.get("")
 async def list_client_errors(
     resolved: Optional[bool] = Query(default=None),
-    limit: int = Query(default=50, ge=1, le=200),
+    scope: Optional[str] = Query(default=None, max_length=50),
+    since: Optional[str] = Query(default=None),
+    until: Optional[str] = Query(default=None),
+    search: Optional[str] = Query(default=None, max_length=200),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=25, ge=1, le=100),
+    limit: Optional[int] = Query(default=None, ge=1, le=200),
     current_user: dict = Depends(get_current_user),
 ) -> Dict[str, Any]:
-    """List recent client errors. Admin-only — used by the future ops dashboard."""
-    role = (current_user.get("rbac_role") or current_user.get("role") or "").lower()
-    if role not in {"admin", "admin_owner"}:
+    """List client errors with filters + pagination. Admin-only.
+
+    Backwards-compatible: the original ``limit`` parameter still works and, when
+    supplied, takes precedence over ``page_size`` (legacy clients pass only limit).
+    """
+    if not _is_admin_user(current_user):
         raise HTTPException(status_code=403, detail="Admin only")
+
     q: Dict[str, Any] = {}
     if resolved is not None:
         q["resolved"] = resolved
-    cur = db["client_errors"].find(q, {"_id": 0}).sort("received_at", -1).limit(limit)
+    if scope:
+        q["scope"] = scope
+    received_at_clause: Dict[str, Any] = {}
+    for label, raw in (("$gte", since), ("$lte", until)):
+        if raw:
+            try:
+                received_at_clause[label] = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+            except Exception:  # noqa: BLE001
+                raise HTTPException(status_code=400, detail=f"Bad date format: {raw}")
+    if received_at_clause:
+        q["received_at"] = received_at_clause
+    if search:
+        q["message"] = {"$regex": search, "$options": "i"}
+
+    coll = db["client_errors"]
+    total_count = await coll.count_documents(q)
+
+    effective_limit = limit if limit is not None else page_size
+    skip = 0 if limit is not None else (page - 1) * page_size
+
+    cur = coll.find(q, {"_id": 0}).sort("received_at", -1).skip(skip).limit(effective_limit)
     items: List[Dict[str, Any]] = []
     async for d in cur:
-        # ISO-stringify datetime
-        for k in ("received_at",):
-            if isinstance(d.get(k), datetime):
-                d[k] = d[k].isoformat()
+        _iso_dt(d, "received_at", "resolved_at", "last_digest_sent_at")
         items.append(d)
-    total = await db["client_errors"].count_documents(q)
-    return {"items": items, "total": total}
+
+    return {
+        "items": items,
+        "total": total_count,         # keep legacy key
+        "total_count": total_count,   # spec key
+        "page": page,
+        "page_size": effective_limit,
+    }
+
+
+@router.get("/groups")
+async def client_errors_groups(
+    limit: int = Query(default=10, ge=1, le=50),
+    current_user: dict = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """Top occurrence groups aggregated by (message, route)."""
+    if not _is_admin_user(current_user):
+        raise HTTPException(status_code=403, detail="Admin only")
+    pipeline = [
+        {"$group": {
+            "_id": {"message": "$message", "route": "$route"},
+            "total_occurrences": {"$sum": "$occurrence_count"},
+            "row_count": {"$sum": 1},
+            "scopes": {"$addToSet": "$scope"},
+            "latest": {"$max": "$received_at"},
+        }},
+        {"$sort": {"total_occurrences": -1}},
+        {"$limit": limit},
+    ]
+    items: List[Dict[str, Any]] = []
+    async for r in db["client_errors"].aggregate(pipeline):
+        items.append({
+            "message": (r["_id"] or {}).get("message"),
+            "route": (r["_id"] or {}).get("route"),
+            "total_occurrences": r.get("total_occurrences", 0),
+            "row_count": r.get("row_count", 0),
+            "scopes": [s for s in (r.get("scopes") or []) if s],
+            "latest": _iso(r.get("latest")),
+        })
+    return {"items": items, "total": len(items)}
+
+
+@router.get("/{cid}/users")
+async def client_error_users(cid: str, current_user: dict = Depends(get_current_user)) -> Dict[str, Any]:
+    """Distinct users who hit this exact error (matched by message + route)."""
+    if not _is_admin_user(current_user):
+        raise HTTPException(status_code=403, detail="Admin only")
+    err = await db["client_errors"].find_one({"id": cid})
+    if not err:
+        raise HTTPException(status_code=404, detail="Error not found")
+    pipeline = [
+        {"$match": {"message": err.get("message"), "route": err.get("route")}},
+        {"$group": {
+            "_id": "$user_id",
+            "user_email": {"$last": "$user_email"},
+            "user_role": {"$last": "$user_role"},
+            "last_seen_at": {"$max": "$received_at"},
+            "occurrences": {"$sum": "$occurrence_count"},
+        }},
+        {"$sort": {"last_seen_at": -1}},
+    ]
+    users: List[Dict[str, Any]] = []
+    async for r in db["client_errors"].aggregate(pipeline):
+        users.append({
+            "user_id": r["_id"],
+            "user_email": r.get("user_email"),
+            "user_role": r.get("user_role"),
+            "last_seen_at": _iso(r.get("last_seen_at")),
+            "occurrences": r.get("occurrences", 0),
+        })
+    return {"items": users, "total": len(users)}
+
+
+@router.patch("/{cid}")
+async def patch_client_error(
+    cid: str,
+    payload: "ClientErrorPatch",
+    current_user: dict = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """Mark an error resolved/unresolved + optional notes."""
+    if not _is_admin_user(current_user):
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    now = datetime.now(timezone.utc)
+    set_payload: Dict[str, Any] = {}
+    if payload.resolved is not None:
+        set_payload["resolved"] = payload.resolved
+        if payload.resolved:
+            set_payload["resolved_at"] = now
+            set_payload["resolved_by"] = str(current_user.get("id") or current_user.get("user_id") or "admin")
+            set_payload["resolved_by_name"] = current_user.get("name") or current_user.get("email") or "admin"
+        else:
+            set_payload["resolved_at"] = None
+            set_payload["resolved_by"] = None
+            set_payload["resolved_by_name"] = None
+    if payload.notes is not None:
+        set_payload["resolution_notes"] = payload.notes[:2000]
+
+    if not set_payload:
+        raise HTTPException(status_code=400, detail="No fields to update")
+
+    r = await db["client_errors"].find_one_and_update(
+        {"id": cid},
+        {"$set": set_payload},
+        return_document=True,
+    )
+    if not r:
+        raise HTTPException(status_code=404, detail="Error not found")
+
+    # audit trail (best-effort)
+    try:
+        await db["audit_logs"].insert_one({
+            "id": str(uuid.uuid4()),
+            "kind": "client_error.patch",
+            "entity_id": cid,
+            "actor_id": str(current_user.get("id") or ""),
+            "actor_email": current_user.get("email"),
+            "payload": set_payload,
+            "at": now,
+        })
+    except Exception:  # noqa: BLE001
+        pass
+
+    r.pop("_id", None)
+    _iso_dt(r, "received_at", "resolved_at", "last_digest_sent_at")
+    return r
+
+
+def _iso(v: Any) -> Optional[str]:
+    if v is None:
+        return None
+    if isinstance(v, datetime):
+        return v.isoformat()
+    return str(v)

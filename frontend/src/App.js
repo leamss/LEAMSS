@@ -85,6 +85,7 @@ import VisaPathwaysEditor from '@/pages/admin/VisaPathwaysEditor';
 import ComparePage from '@/pages/sales/ComparePage';
 import CompareBar from '@/components/CompareBar';
 import AppErrorBoundary from '@/components/AppErrorBoundary';
+import ClientErrorsDashboard from '@/pages/admin/ClientErrorsDashboard';
 import { useLocation } from 'react-router-dom';
 import '@/App.css';
 
@@ -214,6 +215,12 @@ function App() {
           <Route path="/admin/kb/occupation-master" element={
             <RequirePermission allowRoles={['admin_owner', 'admin']}>
               <OccupationMasterAdmin />
+            </RequirePermission>
+          } />
+          {/* Phase 18.7 — Client Errors Admin Dashboard */}
+          <Route path="/admin/client-errors" element={
+            <RequirePermission allowRoles={['admin_owner', 'admin']}>
+              <ClientErrorsDashboard />
             </RequirePermission>
           } />
           <Route path="/admin/country-guides" element={

@@ -3,6 +3,74 @@
 This file appends every completed phase/feature with dates and verification status.
 
 ---
+### 🚀 Phase 18.7 — Client Errors Admin Dashboard + Slack/Email Digest (Jun 12, 2026)
+
+Sir's "Quick Win Bundle follow-up" — turns the Phase 18.6 silent monitoring into proactive ops alerts with a full admin dashboard, channel CRUD, and a 30-min APScheduler digest.
+
+#### A) Admin Dashboard UI — `/admin/client-errors`
+
+New page at `frontend/src/pages/admin/ClientErrorsDashboard.jsx`:
+- **4 KPI counter pills** (Open emerald/amber/rose tonal · Resolved slate · Last 24h burnt orange · Critical rose w/ ⚠️). Auto-updates on filter changes.
+- **Filter bar** — scope dropdown, status (Open/Resolved/All — default Open), window (24h/7d/30d/All time), debounced search (400ms) + manual Refresh.
+- **Table** — Scope badge (color-coded) · Route (mono, truncated) · Message (truncated, full on hover) · Occurrence badge (rose ≥10) · Last seen (relative) · Status pill.
+- **Side drawer** on row click — full message, stack trace + Copy to clipboard, component stack, affected users list (deduped by user_id), resolution notes textarea, Mark Resolved / Reopen CTA. Drawer URL-syncs via `?id=<id>` query param so links are sharable.
+- **Channels tab** — full CRUD (Slack/Email), enable/disable toggle, threshold + window inputs, scope filter, soft delete, test-send button + "Run digest now" manual trigger.
+
+#### B) Backend extensions
+
+**Extended `routers/client_errors.py`:**
+- `GET /api/client-errors` now accepts `scope, since, until, search, page, page_size` (legacy `limit` still works).
+- `GET /api/client-errors/summary` — 4 counters in one call.
+- `GET /api/client-errors/groups` — top occurrence groups aggregated by `(message, route)`.
+- `GET /api/client-errors/{cid}/users` — distinct users for an error (paginated).
+- `PATCH /api/client-errors/{cid}` — resolved + notes, writes `client_error.patch` audit log row.
+
+**New `routers/notification_channels.py`:**
+- Models: `ChannelIn`, `ChannelPatch`. Slack message uses Block Kit (header + section + button); email uses subject + HTML body. Email send is preview-only (logs payload) until a future Resend/SendGrid integration phase.
+- CRUD endpoints: POST · GET · PATCH · DELETE (soft). All admin-only.
+- `POST /api/notification-channels/{cid}/test` — immediate test send + updates `last_test_sent_at`/`last_test_result`.
+- `POST /api/notification-channels/run-digest-now` — manual digest trigger.
+- `POST /api/notification-channels/_test/set-dry-run` — admin-only flag to short-circuit external network calls during regression tests.
+- `maybe_seed_default_channel()` — one-time seeds a default Slack channel from `SLACK_WEBHOOK_URL` env (no-op if any channel exists).
+
+**Indexes** (lazily ensured):
+- `notification_channels`: `(enabled, type)`, `deleted`
+- `client_errors`: existing `(message, route, received_at desc)`, `(resolved, received_at desc)`, `user_id` (from Phase 18.6)
+
+#### C) APScheduler digest worker
+
+- Installed `APScheduler==3.11.2` (added to `requirements.txt`).
+- `AsyncIOScheduler` starts in `server.py` startup hook; runs `run_digest_once` every **30 min**. Cleanly shuts down via `@app.on_event("shutdown")`.
+- Disabled via `LEAMSS_DISABLE_SCHEDULER` env (for any env that wants to opt out).
+- **Digest logic** — for each enabled channel: find `client_errors` where `occurrence_count ≥ channel.threshold_count` AND `received_at` within `threshold_window_hours` AND `last_digest_sent_at` is null OR > 1h old AND (channel.scopes empty OR scope ∈ scopes). Send + stamp `last_digest_sent_at` on success; log to `notification_send_failures` on failure.
+- **No external dependencies** in tests — toggling `POST /_test/set-dry-run` makes Slack/email functions return synthetic `{ok: True, dry_run: True}` envelopes without touching the network.
+
+#### Tests — `tests/test_phase187_client_errors_dashboard.py` (17/17 PASS)
+
+Sir requested 16; the 17th is a bonus partner-RBAC regression (`test_partner_cannot_access_dashboard_endpoints`). All 17 + Phase 17/18 baseline = **125 passed · 0 failed · 2 skipped**.
+
+#### 3-Confirmation Gate — ALL GREEN
+
+1. ✅ **pytest:** **125 passed**, 0 failed, 2 skipped (target was 115+, exceeded by 10).
+2. ✅ **Bundle curl-grep:** All 15 testids present — `client-errors-dashboard` (1), `error-counter-*` (4), `error-filter-*` (3), `error-row` (1), `error-drawer*` (9+1+1), `error-notes-input` (1), `error-add-channel-btn` (1), `channels-tab` (1).
+3. ✅ **Playwright screenshots (3):**
+   - **Dashboard** — Open=2/Resolved=1/24h=3/Critical=1 pills · Errors/Channels tabs · filter bar · 2-row table (sales `/sales/compare` "Cannot read property label of undefined" 14 occ + workspace `/cm/inbox` "NetworkError: failed to fetch" 5 occ).
+   - **Drawer** — sales scope badge · "Cannot read property label of undefined" message · 3-card row (route/occurrences/last seen) · stack trace with Copy · component stack ("in ComparePage / in Routes / in AppErrorBoundary") · Affected users (admin@leamss.com 14x) · Resolution Notes textarea · forest-green **Mark Resolved** CTA + Close.
+   - **Channels** — Notification channels heading + APScheduler subtitle · Run digest now + burnt-orange Add channel buttons · Add form filled (Slack webhook / "Ops Slack (demo)" / hooks URL / threshold 5 / window 1 / scopes empty) · forest-green Create button.
+
+#### Files changed/added
+
+- **New backend:** `routers/notification_channels.py` · `tests/test_phase187_client_errors_dashboard.py`
+- **Updated backend:** `routers/client_errors.py` (extended GET + 4 new endpoints + Patch model) · `server.py` (wire router + APScheduler startup/shutdown) · `requirements.txt` (APScheduler + tzlocal)
+- **New frontend:** `pages/admin/ClientErrorsDashboard.jsx`
+- **Updated frontend:** `App.js` (import + `/admin/client-errors` route)
+- **Docs:** `memory/CHANGELOG.md`
+
+#### Honest note on email delivery
+The email channel currently logs the payload (`[EMAIL DIGEST PREVIEW] to=… subject=…`) instead of sending — a Resend/SendGrid integration is a separate ticket. Slack channels send in production once the webhook URL is configured via the UI. The digest scheduler, dedup, threshold, scope filter, and 1-h re-trigger guard are all live and proven by tests.
+
+---
+
 ### 🎁 Phase 18.6 — Quick Win Bundle: ErrorBoundary + Client-Error Monitoring + Test Hardening (Jun 12, 2026)
 
 **Goal:** Ship 3 cross-cutting reliability wins as one PR — global ErrorBoundary, server-side client-error capture, and fix the 2 long-standing pre-existing test failures.

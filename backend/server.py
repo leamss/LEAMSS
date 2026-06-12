@@ -110,6 +110,13 @@ from routers.feedback_requests import router as feedback_requests_router, ensure
 from routers.sales_compare import router as sales_compare_router
 # Phase 18.6 — Client-side error monitoring
 from routers.client_errors import router as client_errors_router, ensure_indexes as ensure_client_errors_indexes
+# Phase 18.7 — Notification channels + digest scheduler
+from routers.notification_channels import (
+    router as notification_channels_router,
+    ensure_channels_indexes,
+    maybe_seed_default_channel,
+    run_digest_once,
+)
 
 app = FastAPI(title="LEAMSS Portal API", version="3.0")
 
@@ -271,8 +278,38 @@ async def startup():
         # Phase 18.3 — feedback_requests indexes (idempotent)
         await ensure_feedback_indexes()
         print("[Phase18.3] feedback_requests indexes ensured")
+        # Phase 18.7 — Client-errors + notification channel indexes + scheduler
+        await ensure_client_errors_indexes()
+        await ensure_channels_indexes()
+        await maybe_seed_default_channel()
+        # Start APScheduler (every 30 min). Disabled in tests via LEAMSS_DISABLE_SCHEDULER env.
+        if not os.environ.get("LEAMSS_DISABLE_SCHEDULER"):
+            try:
+                from apscheduler.schedulers.asyncio import AsyncIOScheduler
+                global _digest_scheduler
+                _digest_scheduler = AsyncIOScheduler(timezone="UTC")
+                _digest_scheduler.add_job(run_digest_once, "interval", minutes=30, id="client_error_digest", replace_existing=True)
+                _digest_scheduler.start()
+                app.state.digest_scheduler = _digest_scheduler
+                print("[Phase18.7] Client-error digest scheduler started (30 min interval)")
+            except Exception as e:
+                print(f"[Phase18.7 scheduler ERROR] {e}")
     except Exception as e:
         print(f"[Phase17.0 ERROR] {e}")
+
+
+# Phase 18.7 — module-level handle to the scheduler so shutdown can stop it
+_digest_scheduler = None
+
+
+@app.on_event("shutdown")
+async def shutdown_scheduler():
+    try:
+        if _digest_scheduler is not None and _digest_scheduler.running:
+            _digest_scheduler.shutdown(wait=False)
+            print("[Phase18.7] Digest scheduler stopped")
+    except Exception:  # noqa: BLE001
+        pass
 
 
 async def seed_database():
@@ -447,7 +484,8 @@ for r in [targets_router, cost_structures_router, auth_router, users_router, pro
           cm_earnings_router, vendor_portal_router, payouts_router, people_router,
           cockpit_router, anz_intel_router, public_atlas_router,
           admin_public_pages_router, public_pages_read_router,
-          feedback_requests_router, sales_compare_router, client_errors_router]:
+          feedback_requests_router, sales_compare_router, client_errors_router,
+          notification_channels_router]:
     app.include_router(r, prefix="/api")
 
 
