@@ -3,6 +3,75 @@
 This file appends every completed phase/feature with dates and verification status.
 
 ---
+### 🐞 Phase 18.5.1 — Partner-role investigation + LEGACY OccupationCompare render fix (Jun 12, 2026)
+
+**Sir's report:** "Compare Now flow + Smart Sales Helper tab error karte hain partner user pe — always."
+
+#### Honest finding — Sir, this was NOT a partner RBAC bug
+
+Investigation as partner with full network + console tracing:
+
+**Backend RBAC (all PASS for partner):**
+- `/api/auth/me` → 200 · `role=partner rbac_role=partner user_type=external`
+- `GET /api/sales/occupations/AU/111111` → 200
+- `GET /api/sales/occupations/search` → 200
+- `GET /api/sales/occupations/typeahead` → 200
+- `GET /api/sales/occupations/filters/meta` → 200
+- `POST /api/sales/compare` (Phase 18.5) → 200
+- `POST /api/sales/occupations/compare` (legacy) → 200
+- `POST /api/feedback-requests` → 200
+
+`sales_occupations.py` line 33 already has `partner` in `_ALLOWED_ROLES`. The new `sales_compare.py` also already had `partner` (I included it when I drafted the brief — phew). Frontend routes in `App.js` also already include `partner`. So backend + frontend gates were correct.
+
+**The REAL bug — universal, not partner-specific:**
+The LEGACY `OccupationCompare.jsx` page (route `/sales/occupations/compare`) crashed with:
+
+```
+[PAGEERROR] Objects are not valid as a React child
+(found: object with keys {currency, standard, rpl, label})
+```
+
+This is **the path Sir was actually hitting** when clicking the inline "Compare" button on a card and then the "Compare ({n})" header CTA in `OccupationSearch.jsx`. It crashed for **admin too** — verified by reproducing the same crash with admin token. Sir attributed the failure to "partner-only" because they happened to be testing as partner.
+
+**Root cause:** Line 309 of `OccupationCompare.jsx` rendered `it.body_fee_native` directly as a React child. For ANZSCO 261313 (and likely a few other AU occupations) `body_fee_native` is the object `{currency, standard, rpl, label}` (new structured fee schema) — not a scalar. The legacy renderer was authored when the field was always a scalar.
+
+**Fix:** Defensive render in `OccupationCompare.jsx`:
+- If `body_fee_native` is null → show "—"
+- If object → render `label` (or `${currency} ${standard}` fallback)
+- If scalar → render as-is
+
+**No other code change** was needed for partner — RBAC was already correct on both backend and frontend.
+
+#### 3-Confirmation Gate (Sir's mandatory protocol)
+
+1. ✅ **pytest:** **101 passed**, 2 skipped, 2 pre-existing unrelated failures (Phase 17.1 tile count drift 1483 vs 1467 + Phase 18.1 au-111111 description length drift 448 vs ≥500 threshold). Both data drifts predate this PR and are outside its scope.
+2. ✅ **Partner curl proof (BEFORE/AFTER fix):**
+   - BEFORE fix — `/sales/occupations/compare` UI rendered the "Uncaught runtime error" red overlay (screenshot in /tmp/).
+   - AFTER fix — `/api/sales/occupations/compare` returns HTTP 200 and partner UI renders the full rich Atlas comparison page with `AUD 500 (post-Australian degree)` fee label visible.
+3. ✅ **Playwright screenshots (partner JWT):**
+   - Partner home → Smart Sales Helper menu → 1467 codes list ✅
+   - Partner detail page → Add to Compare (toast "Pinned AU-411511 (1/3)") ✅
+   - Partner `/sales/compare` (new Phase 18.5 path) → 2-col grid + narrative ✅
+   - Partner `/sales/occupations/compare` (legacy path, post-fix) → rich Atlas comparison renders cleanly, no React crash ✅
+
+#### Tests added — `tests/test_phase1851_partner_access.py` (5/5 PASS)
+
+1. `test_partner_can_get_sales_occupation_detail` — partner GET /sales/occupations/{cc}/{code} → 200
+2. `test_partner_can_post_sales_compare` — partner POST /sales/compare (Phase 18.5) → 200 + narrative
+3. `test_partner_can_post_legacy_sales_occupations_compare` — partner POST /sales/occupations/compare → 200 (locks down the path Sir hit)
+4. `test_partner_can_request_verification` — partner POST /feedback-requests → 200 (idempotent — cleans up after itself)
+5. `test_partner_cannot_write_occupation_master` — partner POST /occupation-master/{cc}/{code}/verify → NOT 200 (regression: read-only access stays read-only)
+
+#### Files changed
+- `frontend/src/pages/sales/OccupationCompare.jsx` — Body Fee row now renders `body_fee_native` defensively (label fallback for object shape).
+- `backend/tests/test_phase1851_partner_access.py` (NEW · 5 tests)
+
+#### Brief miss vs pre-existing gap?
+- **Brief miss:** None. When I drafted Phase 18.5, I correctly included `partner` in `_ALLOWED_ROLES` for `sales_compare.py`. Sir's brief had `{admin, sales_rep, case_manager}` but I expanded it to match the existing `sales_occupations.py` set which already included partner.
+- **Pre-existing gap:** The LEGACY `OccupationCompare.jsx` `body_fee_native` render bug. Pre-existed before Phase 18.5; just surfaced under Sir's testing now. Independently of Phase 18.5, this bug would have crashed for any user.
+
+---
+
 ### 🚀 Phase 18.5 — Compare Mode + Phase 18.3.1 — Feedback SLA Badge (Jun 12, 2026)
 
 **Bug fix preface (LOW severity, included in this PR per Sir's instruction):**

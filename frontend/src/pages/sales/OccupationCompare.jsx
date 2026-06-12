@@ -306,7 +306,15 @@ export default function OccupationCompare() {
               <SectionHeader label="📊 Cost / Process" />
               <Row label="Min Points Required" items={items} render={it => it.min_points_required ?? <span style={{ color: C.muted }}>—</span>} />
               <Row label="Age Limit" items={items} render={it => it.age_limit ? `${it.age_limit} yrs` : <span style={{ color: C.muted }}>—</span>} />
-              <Row label="Body Fee" items={items} render={it => it.body_fee_native ?? <span style={{ color: C.muted }}>—</span>} />
+              <Row label="Body Fee" items={items} render={it => {
+                const fee = it.body_fee_native;
+                if (fee == null) return <span style={{ color: C.muted }}>—</span>;
+                // Backend may return scalar (legacy) OR an object {currency, standard, rpl, label}
+                if (typeof fee === 'object') {
+                  return <span className="text-[10px]" title={fee.label || ''}>{fee.label || `${fee.currency || ''} ${fee.standard ?? ''}`.trim() || '—'}</span>;
+                }
+                return fee;
+              }} />
               <Row label="Processing (weeks)" items={items} render={it => it.body_processing_weeks ?? <span style={{ color: C.muted }}>—</span>} />
 
               {/* Score */}
