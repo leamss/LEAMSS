@@ -13,7 +13,7 @@ Indexes (created on startup):
 from __future__ import annotations
 import uuid
 from datetime import datetime, timezone, timedelta
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field

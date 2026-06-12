@@ -28,9 +28,10 @@ import {
   ArrowLeft, ExternalLink, FileText, CheckCircle2, MapPin, Building2, Calendar,
   Sparkles, Globe, GitCompare, Loader2, ChevronRight, TrendingUp,
   Star, Briefcase, BookOpen, Layers, Clock, IndianRupee, ShieldCheck,
-  ChevronDown, Phone, FileDown, AlertTriangle, Pin,
+  ChevronDown, Phone, FileDown, AlertTriangle, Pin, Check,
 } from 'lucide-react';
 import { formatApiError } from '@/lib/apiErrors';
+import { useCompareStore } from '@/hooks/useCompareStore';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -63,6 +64,7 @@ export default function OccupationDetail() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState('overview');
+  const compareStore = useCompareStore();
 
   useEffect(() => {
     setLoading(true);
@@ -109,9 +111,12 @@ export default function OccupationDetail() {
             <button onClick={() => navigate(-1)} className="inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900" data-testid="sales-back-btn">
               <ArrowLeft className="h-4 w-4" />Back to results
             </button>
-            <Button variant="outline" size="sm" className="text-[#D4633F] border-[#D4633F] hover:bg-[#D4633F] hover:text-white" data-testid="sales-add-to-compare">
-              <GitCompare className="h-3.5 w-3.5 mr-1" />Add to Compare
-            </Button>
+            <AddToCompareBtn
+              store={compareStore}
+              countryCode={(countryCode || '').toUpperCase()}
+              code={code}
+              title={ov.title || ''}
+            />
           </div>
 
           <div className="flex items-start gap-4 flex-wrap">
@@ -182,6 +187,40 @@ export default function OccupationDetail() {
 /* ════════════════════════════════════════════════════════════════
    Header pieces
    ════════════════════════════════════════════════════════════════ */
+function AddToCompareBtn({ store, countryCode, code, title }) {
+  const target = { country_code: countryCode, code: String(code || ''), title };
+  const pinned = store.has(target);
+  const onClick = () => {
+    if (pinned) {
+      store.remove(target);
+      toast.success('Removed from comparison');
+      return;
+    }
+    const r = store.add(target);
+    if (!r.ok && r.reason === 'limit') {
+      toast.error(`Compare cap reached — maximum ${r.max} occupations. Remove one to pin another.`);
+      return;
+    }
+    if (r.ok) toast.success(`Pinned ${countryCode}-${code} for comparison (${r.count}/${store.max})`);
+  };
+  return (
+    <Button
+      variant={pinned ? 'default' : 'outline'}
+      size="sm"
+      onClick={onClick}
+      className={pinned
+        ? 'text-white bg-[#1F4D44] hover:bg-[#173B34] border-[#1F4D44]'
+        : 'text-[#D4633F] border-[#D4633F] hover:bg-[#D4633F] hover:text-white'}
+      data-testid="add-to-compare-btn"
+      aria-pressed={pinned}
+    >
+      {pinned
+        ? <><Check className="h-3.5 w-3.5 mr-1" />Added to Compare ({store.count}/{store.max})</>
+        : <><GitCompare className="h-3.5 w-3.5 mr-1" />Add to Compare</>}
+    </Button>
+  );
+}
+
 function VerificationBadge({ daysSince }) {
   let tone = 'bg-emerald-100 text-emerald-700';
   let label = 'Verified';

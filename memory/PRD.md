@@ -9,6 +9,8 @@ Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case
 
 > **🛠️ Update (Jun 11, 2026) — Phase 18.0 + 18.1:** Hotfix probe-pollution cleanup on `occupation_master` (`au-111111` restored from `ai_draft`). Verification Workspace expanded — `qualification_rules`, `assessing_authority` (8-field sub-form), `required_documents` (16 baseline + per-occ curation), `similar_codes_override`, `recommended_visa_subclass` (per-country merge), `sample_cases`, `custom_sections`, `verification_history[]` snapshots. New `<VerifiedRecordView>` read-only mode for verified records + `Edit Again` toggle. `/verify` endpoint accepts full payload, snapshots before write, writes audit logs. NEW `/copy-from-ai` endpoint. **13/13 Phase 18.1 tests + Phase 17.* regression PASS**. See CHANGELOG.
 
+> **🛒 Update (Jun 12, 2026) — Phase 18.5 Compare Mode + Phase 18.3.1 SLA Badge:** Sales agents can now pin up to **3 occupations** from search results (sessionStorage-backed `useCompareStore`, key `leamss_compare_v1`) and view a side-by-side comparison at `/sales/compare`. Backend `POST /api/sales/compare` returns occupation data + a deterministic `summary_narrative` (no LLM — sub-15ms response, 60s in-memory cache). Floating `CompareBar` auto-mounts globally, auto-hides on `/sales/compare`. Admin VerificationHub feedback card now shows an **SLA age badge** (`emerald <7d · amber 7-14d · rose ≥14d`). All 6 required testids verified in served bundle. **97/97 Phase 17/18 regression PASS** + 13 new Phase 18.5 tests. See CHANGELOG.
+
 ### 🎯 Phase 14 — LEAMSS Brand Mega Landing + Atlas Redesign (Jun 9, 2026)
 **Status:** ✅ COMPLETE — visual + functional smoke tests verified · 13/13 backend regression PASS.
 

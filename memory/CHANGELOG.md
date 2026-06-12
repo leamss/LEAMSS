@@ -3,6 +3,70 @@
 This file appends every completed phase/feature with dates and verification status.
 
 ---
+### 🚀 Phase 18.5 — Compare Mode + Phase 18.3.1 — Feedback SLA Badge (Jun 12, 2026)
+
+**Bug fix preface (LOW severity, included in this PR per Sir's instruction):**
+- `backend/routers/feedback_requests.py` declared `_SUMMARY_CACHE: Dict[str, Any]` (line 174) but the file only imported `List, Optional`. Severity = **LOW (cosmetic only)** because `from __future__ import annotations` is enabled, so the annotation is a deferred string and never evaluated at runtime. **NOT a regression of Phase 18.3** — it was introduced together with the new `/summary` endpoint in this PR's pre-work. Fixed by widening the typing import to `Any, Dict, List, Optional`. No runtime behaviour change.
+
+---
+
+**Tests:** `tests/test_phase185_compare_mode.py` → **13/13 PASS**. Combined Phase 17.* + 18.* regression: **97 passed, 2 skipped, 1 pre-existing unrelated failure** (`test_phase171_multi_country_fetch::test_tab_count_matches_tile_total` — occupation tile count drift 1483 vs 1467, unchanged).
+
+**3-Confirmation Gate (Sir's protocol):**
+- ✅ **Gate 1 — pytest:** 97 PASS (target was 97+).
+- ✅ **Gate 2 — bundle curl-grep:** All 6 testids present in served `/static/js/bundle.js` — `add-to-compare-btn` (1), `compare-bar` (5), `compare-now-btn` (1), `compare-page` (2), `compare-row-skill-body` (1), `feedback-oldest-age-badge` (2).
+- ✅ **Gate 3 — Playwright screenshots:** 4 captured — Sales detail header w/ "Add to Compare" button, floating CompareBar w/ 2 chips + Compare Now CTA, ComparePage `/sales/compare` showing 2-col grid + amber summary narrative card, Admin Verify Hub showing amber "Oldest open: 9d · approaching SLA" badge.
+
+---
+
+### A) Phase 18.5 — Compare Mode
+
+**Goal:** Sales agents can pin up to 3 occupations from search and view a side-by-side comparison at `/sales/compare` with a server-generated summary narrative.
+
+**Backend (`backend/routers/sales_compare.py` — already created pre-fork, verified end-to-end):**
+- `POST /api/sales/compare` accepts `{codes: [{country_code, code}, …]}` (`min_length=1`, `max_length=3`).
+- Loads each occupation from `occupation_master`, applies the same enrichment as `/sales/occupations/{cc}/{code}` (visa pathways, similar codes, sample case outcome distribution, verification meta).
+- Unknown occupations land in `not_found`.
+- **Deterministic summary narrative** — no LLM. Template surfaces: common subclass(es), shortest assessment timeline + provider, most-sample-cases winner, latest-verified leader, per-occupation recommended primary visa, and the "pin another" hint when only 1 pinned.
+- **60-second in-memory cache** keyed on the sorted `country_code|code` tuple — identical compared_at on repeat call within TTL.
+- Allowed roles: `admin_owner, admin, sales_executive, sr_sales_executive, sales_manager, sales_head, partner, case_manager`.
+
+**Frontend:**
+- **`frontend/src/hooks/useCompareStore.js`** — lightweight sessionStorage hook (key `leamss_compare_v1`). Max 3 pins. Exposes `{items, count, max, isFull, has, add, remove, toggle, clear}`. Broadcasts changes via a custom `leamss-compare-changed` event so multiple mounted components stay in sync. No Redux / no localStorage.
+- **`frontend/src/components/CompareBar.jsx`** — floating pill at `bottom-4 left-1/2`, forest-green chips + burnt-orange "Compare Now" CTA, auto-hides when count=0 or pathname starts with `/sales/compare`. Per-chip remove and "Clear all". `data-testid="compare-bar" / "compare-now-btn" / "compare-bar-chip-{cc}-{code}"`. Mounted globally in `App.js` inside `<BrowserRouter>`.
+- **`frontend/src/pages/sales/ComparePage.jsx`** — new route `/sales/compare`. Empty state when nothing pinned. Otherwise calls `POST /api/sales/compare` once per pinned-set change (memoised on joined keys). Renders an amber-bordered Summary card with the server narrative + a 3-column data grid with rows: `title, verification, skill-body, recommended-visa, eligible-visas, documents, similar, sample-cases, outcomes`. Each row has `data-testid="compare-row-{key}"`; skill-body uses an explicit literal testid `compare-row-skill-body` so it appears in the bundle (verified). Country flag emoji + per-column "remove" X + sticky left label column. `data-testid="compare-page"`.
+- **`frontend/src/pages/sales/OccupationDetail.jsx`** — replaced the inert "Add to Compare" header button with a wired `AddToCompareBtn` that toggles state via `useCompareStore`. When pinned, the button flips to forest-green w/ a check icon and shows `Added to Compare (n/3)`. Toast feedback for added / removed / cap-reached. `data-testid="add-to-compare-btn"`.
+- **`frontend/src/App.js`** — registered `/sales/compare` route (preserves the legacy `/sales/occupations/compare`), imported `CompareBar` + `ComparePage`, mounted `<CompareBar />` globally so it overlays any page.
+
+---
+
+### B) Phase 18.3.1 — Feedback SLA Age Badge
+
+**Goal:** On the admin verification hub, show an at-a-glance health badge for the open verification request queue.
+
+**Backend (`backend/routers/feedback_requests.py`):**
+- `GET /api/feedback-requests/summary` already returns `oldest_open_age_days` (added in this PR's pre-work). Verified via test 13.
+- Fixed the LOW-severity import gap noted above.
+
+**Frontend (`frontend/src/pages/admin/VerificationHub.jsx` — `FeedbackRequestsCard`):**
+- Computes `oldestAge` client-side from the queue items already in the card payload (avoids a second roundtrip).
+- Tone logic: `null/no open → emerald "SLA · clear"`, `<7d → emerald "within SLA"`, `7–13d → amber "approaching SLA"`, `≥14d → rose "SLA breached"`.
+- Badge has `data-testid="feedback-oldest-age-badge"` and renders next to the existing View toggle. Shown in both the zero-state and the queue-open state.
+
+---
+
+**Files changed/added:**
+- `backend/routers/feedback_requests.py` (typing imports widened)
+- `backend/tests/test_phase185_compare_mode.py` (NEW · 13 cases · idempotent seed/cleanup)
+- `frontend/src/hooks/useCompareStore.js` (NEW)
+- `frontend/src/components/CompareBar.jsx` (NEW)
+- `frontend/src/pages/sales/ComparePage.jsx` (NEW)
+- `frontend/src/pages/sales/OccupationDetail.jsx` (`AddToCompareBtn` wired)
+- `frontend/src/pages/admin/VerificationHub.jsx` (SLA badge wired)
+- `frontend/src/App.js` (route + global CompareBar mount)
+
+---
+
 ### 🚀 Phase 18.3 — Sample Cases polish + Custom Sections render + Request Verification flow (Jun 11, 2026)
 **Tests:** `tests/test_phase183_cases_sections_feedback.py` → **13/13 PASS** in 1.60s. Combined Phase 17.* + 18.* regression: **84 passed, 2 skipped, 1 deselected** (exactly the 84+ target).
 

@@ -82,6 +82,8 @@ import { MegaLanding, AtlasHubV2, AtlasCountryV2, AtlasOccupationV2, SharedScore
 import PublicPagesManager from '@/pages/admin/PublicPagesManager';
 import EligibilityScoringRules from '@/pages/admin/EligibilityScoringRules';
 import VisaPathwaysEditor from '@/pages/admin/VisaPathwaysEditor';
+import ComparePage from '@/pages/sales/ComparePage';
+import CompareBar from '@/components/CompareBar';
 import '@/App.css';
 
 function App() {
@@ -277,6 +279,12 @@ function App() {
               <OccupationCompare />
             </RequirePermission>
           } />
+          {/* Phase 18.5 — New unified Compare Mode (sessionStorage-backed) */}
+          <Route path="/sales/compare" element={
+            <RequirePermission allowRoles={['admin_owner', 'admin', 'sales_executive', 'sr_sales_executive', 'sales_manager', 'sales_head', 'partner', 'case_manager']}>
+              <ComparePage />
+            </RequirePermission>
+          } />
           <Route path="/sales/occupations/:countryCode/:code" element={
             <RequirePermission allowRoles={['admin_owner', 'admin', 'sales_executive', 'sr_sales_executive', 'sales_manager', 'sales_head', 'partner', 'case_manager']}>
               <OccupationDetail />
@@ -378,6 +386,8 @@ function App() {
           <Route path="/payment-cancel" element={<Navigate to="/client" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        {/* Phase 18.5 — Floating CompareBar (auto-hides on /sales/compare + when empty) */}
+        <CompareBar />
       </BrowserRouter>
       <Toaster position="top-right" richColors />
     </div>

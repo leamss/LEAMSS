@@ -471,11 +471,34 @@ function FeedbackRequestsCard({ headers }) {
   const items = data?.items || [];
   const openCount = data?.counts?.open || 0;
   const inProgress = data?.counts?.in_progress || 0;
+  // Phase 18.3.1 — SLA age badge: emerald <7d · amber 7-14d · rose >14d.
+  // `oldest_open_age_days` is the age (days) of the oldest still-open request.
+  // We compute it client-side from items because it’s already in the queue payload
+  // (avoids a second roundtrip to /summary).
+  const oldestAge = (() => {
+    let maxDays = -1;
+    for (const it of items) {
+      if (it.status !== 'open' || !it.requested_at) continue;
+      const t = new Date(it.requested_at).getTime();
+      if (!t) continue;
+      const days = Math.max(0, Math.floor((Date.now() - t) / 86400000));
+      if (days > maxDays) maxDays = days;
+    }
+    return maxDays >= 0 ? maxDays : null;
+  })();
+  const slaTone = oldestAge == null
+    ? null
+    : oldestAge >= 14
+      ? { bg: 'bg-rose-500', label: `Oldest open: ${oldestAge}d · SLA breached` }
+      : oldestAge >= 7
+        ? { bg: 'bg-amber-500', label: `Oldest open: ${oldestAge}d · approaching SLA` }
+        : { bg: 'bg-emerald-500', label: `Oldest open: ${oldestAge}d · within SLA` };
 
   if (openCount === 0 && inProgress === 0) {
     return (
       <div className="text-[11px] text-slate-400 flex items-center gap-2" data-testid="verif-hub-feedback-requests-card">
         <ShieldCheck className="h-3 w-3" />0 open verification requests
+        <Badge className="bg-emerald-500 text-white text-[9px] ml-1" data-testid="feedback-oldest-age-badge">SLA · clear</Badge>
       </div>
     );
   }
@@ -487,7 +510,14 @@ function FeedbackRequestsCard({ headers }) {
           <h3 className="font-semibold text-slate-800">Open Verification Requests <span className="text-amber-700">({openCount})</span></h3>
           <p className="text-[11px] text-slate-500 mt-0.5">{inProgress > 0 && <>{inProgress} in progress · </>}From sales / case managers — click a row to open in admin edit.</p>
         </div>
-        <Badge className="bg-amber-500 text-white text-[10px]">{open ? 'Hide' : 'View'}</Badge>
+        <div className="flex items-center gap-2">
+          {slaTone && (
+            <Badge className={`${slaTone.bg} text-white text-[9px]`} data-testid="feedback-oldest-age-badge">
+              {slaTone.label}
+            </Badge>
+          )}
+          <Badge className="bg-amber-500 text-white text-[10px]">{open ? 'Hide' : 'View'}</Badge>
+        </div>
       </button>
       {open && (
         <div className="mt-3 space-y-1.5 max-h-72 overflow-y-auto">
