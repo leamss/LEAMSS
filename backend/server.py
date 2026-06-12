@@ -106,6 +106,8 @@ from routers.public_atlas import router as public_atlas_router
 from routers.admin_public_pages import router as admin_public_pages_router, public_router as public_pages_read_router
 # Phase 18.3 — verification feedback queue (sales → admin)
 from routers.feedback_requests import router as feedback_requests_router, ensure_indexes as ensure_feedback_indexes
+# Phase 18.5 — Compare Mode (sales side-by-side analytics)
+from routers.sales_compare import router as sales_compare_router
 
 app = FastAPI(title="LEAMSS Portal API", version="3.0")
 
@@ -443,7 +445,7 @@ for r in [targets_router, cost_structures_router, auth_router, users_router, pro
           cm_earnings_router, vendor_portal_router, payouts_router, people_router,
           cockpit_router, anz_intel_router, public_atlas_router,
           admin_public_pages_router, public_pages_read_router,
-          feedback_requests_router]:
+          feedback_requests_router, sales_compare_router]:
     app.include_router(r, prefix="/api")
 
 

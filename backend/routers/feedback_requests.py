@@ -12,7 +12,7 @@ Indexes (created on startup):
 """
 from __future__ import annotations
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -123,6 +123,7 @@ async def create_feedback(req: FeedbackCreate, current_user: dict = Depends(get_
         "resolution_notes": None,
     }
     await FEEDBACK.insert_one(doc)
+    _bust_summary_cache()
     await _write_audit(current_user, "create_feedback_request", doc["id"],
                        extra={"occupation_id": doc["occupation_id"], "requested_field": doc["requested_field"]})
     return _strip({**doc})
@@ -168,6 +169,65 @@ async def list_feedback(
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Phase 18.3.1 — Summary endpoint with oldest-open age (60s in-memory cache)
+# ─────────────────────────────────────────────────────────────────────────────
+_SUMMARY_CACHE: Dict[str, Any] = {"data": None, "expires_at": None}
+_SUMMARY_TTL_SEC = 60
+
+
+@router.get("/summary")
+async def feedback_summary(current_user: dict = Depends(get_current_user)):
+    if not _is_admin(current_user):
+        raise HTTPException(status_code=403, detail="Admin only")
+    now = datetime.now(timezone.utc)
+    cache = _SUMMARY_CACHE
+    if cache["data"] is not None and cache["expires_at"] and cache["expires_at"] > now:
+        return cache["data"]
+
+    open_count = await FEEDBACK.count_documents({"status": "open"})
+    in_progress_count = await FEEDBACK.count_documents({"status": "in_progress"})
+    resolved_count = await FEEDBACK.count_documents({"status": "resolved"})
+    oldest_open_at = None
+    oldest_open_age_days = None
+    if open_count:
+        # Index (status, requested_at desc) — query is asc to get oldest
+        cursor = FEEDBACK.find({"status": "open"}, {"_id": 0, "requested_at": 1}).sort([("requested_at", 1)]).limit(1)
+        async for row in cursor:
+            raw = row.get("requested_at")
+            if raw:
+                if hasattr(raw, "isoformat"):
+                    dt = raw if raw.tzinfo else raw.replace(tzinfo=timezone.utc)
+                else:
+                    try:
+                        dt = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+                        if dt.tzinfo is None:
+                            dt = dt.replace(tzinfo=timezone.utc)
+                    except Exception:  # noqa: BLE001
+                        dt = None
+                if dt:
+                    oldest_open_at = dt.isoformat()
+                    oldest_open_age_days = max(0, (now - dt).days)
+    result = {
+        "open_count": open_count,
+        "in_progress_count": in_progress_count,
+        "resolved_count": resolved_count,
+        "oldest_open_at": oldest_open_at,
+        "oldest_open_age_days": oldest_open_age_days,
+    }
+    cache["data"] = result
+    cache["expires_at"] = now.replace(microsecond=0) + timedelta(seconds=_SUMMARY_TTL_SEC)
+    return result
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Cache buster on writes — keeps SLA badge fresh on next admin load
+# ─────────────────────────────────────────────────────────────────────────────
+def _bust_summary_cache():
+    _SUMMARY_CACHE["data"] = None
+    _SUMMARY_CACHE["expires_at"] = None
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # PATCH /feedback-requests/{id} — admin updates status / resolution notes
 # ─────────────────────────────────────────────────────────────────────────────
 @router.patch("/{feedback_id}")
@@ -193,6 +253,7 @@ async def patch_feedback(feedback_id: str, req: FeedbackPatch, current_user: dic
     if not set_payload:
         raise HTTPException(status_code=400, detail="Nothing to update")
     await FEEDBACK.update_one({"id": feedback_id}, {"$set": set_payload})
+    _bust_summary_cache()
     await _write_audit(current_user, "patch_feedback_request", feedback_id, extra=set_payload)
     refreshed = await FEEDBACK.find_one({"id": feedback_id}, {"_id": 0})
     return _strip(refreshed)
