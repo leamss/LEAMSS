@@ -28,10 +28,13 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
   ArrowLeft, GitCompare, ShieldCheck, Building2, FileText, Layers, Briefcase,
-  AlertCircle, X, Sparkles, Loader2, Plane,
+  AlertCircle, X, Sparkles, Loader2, Plane, FileDown, UserPlus, Mail, Phone, User as UserIcon,
 } from 'lucide-react';
 import { useCompareStore } from '@/hooks/useCompareStore';
 import { formatApiError } from '@/lib/apiErrors';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -80,6 +83,76 @@ export default function ComparePage() {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
 
+  // Phase 18.8 — PDF export + Lead modal state
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [leadModalOpen, setLeadModalOpen] = useState(false);
+  const [leadForm, setLeadForm] = useState({ name: '', email: '', phone: '', source: 'WhatsApp', notes: '' });
+  const [leadSubmitting, setLeadSubmitting] = useState(false);
+  const [leadResult, setLeadResult] = useState(null);
+
+  const exportPdf = async () => {
+    if (count === 0) return;
+    setPdfLoading(true);
+    try {
+      const codes = items.map(({ country_code, code }) => ({ country_code, code }));
+      const resp = await axios.post(
+        `${API}/sales/compare/pdf`,
+        { codes },
+        { headers, responseType: 'blob' },
+      );
+      const blob = new Blob([resp.data], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      // Derive filename from Content-Disposition if present
+      const cd = resp.headers?.['content-disposition'] || '';
+      const m = /filename="?([^";]+)"?/i.exec(cd);
+      const filename = m ? m[1] : `leamss_occupation_compare_${Date.now()}.pdf`;
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      toast.success('✓ PDF downloaded');
+    } catch (e) {
+      const msg = formatApiError(e, 'PDF export failed');
+      toast.error(msg);
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
+  const submitLead = async () => {
+    if (!leadForm.name.trim() || !leadForm.email.trim()) {
+      toast.error('Client name + email are required');
+      return;
+    }
+    setLeadSubmitting(true);
+    try {
+      const codes = items.map(({ country_code, code }) => ({ country_code, code }));
+      const resp = await axios.post(
+        `${API}/sales/compare/create-lead-draft`,
+        {
+          codes,
+          lead_data: {
+            name: leadForm.name.trim(),
+            email: leadForm.email.trim(),
+            phone: leadForm.phone.trim() || undefined,
+            source: leadForm.source || undefined,
+            notes: leadForm.notes.trim() || undefined,
+          },
+        },
+        { headers },
+      );
+      setLeadResult(resp.data);
+      toast.success('Lead draft saved');
+    } catch (e) {
+      toast.error(formatApiError(e, 'Could not create lead draft'));
+    } finally {
+      setLeadSubmitting(false);
+    }
+  };
+
   useEffect(() => {
     if (count === 0) {
       setData(null);
@@ -121,10 +194,35 @@ export default function ComparePage() {
                 <Badge className="bg-slate-100 text-slate-700 text-[10px]" data-testid="compare-count">{count}/{max} pinned</Badge>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <Button variant="outline" size="sm" onClick={() => navigate('/sales/occupations')} data-testid="compare-add-more-btn">
                 Pin more
               </Button>
+              {count > 0 && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={exportPdf}
+                    disabled={pdfLoading || count === 0}
+                    className="text-[#173B34] border-[#1F4D44] hover:bg-[#F5F2EC]"
+                    data-testid="compare-export-pdf-btn"
+                  >
+                    {pdfLoading
+                      ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" data-testid="compare-export-pdf-loading" />Generating…</>
+                      : <><FileDown className="h-3.5 w-3.5 mr-1" />Export PDF</>}
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => setLeadModalOpen(true)}
+                    className="text-white hover:opacity-90"
+                    style={{ background: BRAND.forest }}
+                    data-testid="compare-capture-lead-btn"
+                  >
+                    <UserPlus className="h-3.5 w-3.5 mr-1" />Capture Lead
+                  </Button>
+                </>
+              )}
               {count > 0 && (
                 <Button variant="ghost" size="sm" onClick={clear} className="text-slate-600" data-testid="compare-clear-all-btn">
                   Clear all
@@ -181,6 +279,90 @@ export default function ComparePage() {
           </>
         )}
       </div>
+
+      {/* Phase 18.8 — Lead capture modal */}
+      {leadModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" data-testid="lead-modal">
+          <div className="bg-white rounded-lg shadow-2xl max-w-lg w-full p-5" style={{ background: BRAND.cream }}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold text-slate-800 flex items-center gap-2" style={{ fontFamily: 'Georgia, serif' }}>
+                <UserPlus className="h-5 w-5" style={{ color: BRAND.forest }} />
+                Capture Lead from this Comparison
+              </h3>
+              <button onClick={() => { setLeadModalOpen(false); setLeadResult(null); }} className="rounded-full p-1 hover:bg-slate-100" aria-label="Close" data-testid="lead-modal-close">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {!leadResult && (
+              <>
+                <p className="text-[11px] text-slate-500 mb-3">Pinned occupations will be saved to the lead's <code>interest_occupations</code> for quick follow-up:</p>
+                <div className="flex flex-wrap gap-1 mb-4" data-testid="lead-modal-pinned-chips">
+                  {items.map((it) => (
+                    <Badge key={`${it.country_code}-${it.code}`} className="bg-slate-100 text-slate-700 font-mono text-[10px]">
+                      {it.country_code}-{it.code}
+                    </Badge>
+                  ))}
+                </div>
+                <div className="space-y-2">
+                  <div className="relative">
+                    <UserIcon className="h-3.5 w-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <Input placeholder="Client name *" value={leadForm.name} onChange={(e) => setLeadForm({ ...leadForm, name: e.target.value })} className="pl-7 text-[12px]" data-testid="lead-modal-name" />
+                  </div>
+                  <div className="relative">
+                    <Mail className="h-3.5 w-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <Input placeholder="Email *" value={leadForm.email} onChange={(e) => setLeadForm({ ...leadForm, email: e.target.value })} className="pl-7 text-[12px]" data-testid="lead-modal-email" />
+                  </div>
+                  <div className="relative">
+                    <Phone className="h-3.5 w-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <Input placeholder="Phone (optional)" value={leadForm.phone} onChange={(e) => setLeadForm({ ...leadForm, phone: e.target.value })} className="pl-7 text-[12px]" data-testid="lead-modal-phone" />
+                  </div>
+                  <Select value={leadForm.source} onValueChange={(v) => setLeadForm({ ...leadForm, source: v })}>
+                    <SelectTrigger className="text-[12px]" data-testid="lead-modal-source"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="WhatsApp">WhatsApp</SelectItem>
+                      <SelectItem value="Web">Web</SelectItem>
+                      <SelectItem value="Referral">Referral</SelectItem>
+                      <SelectItem value="Other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Textarea placeholder="Notes (optional)" rows={3} value={leadForm.notes} onChange={(e) => setLeadForm({ ...leadForm, notes: e.target.value })} className="text-[12px]" data-testid="lead-modal-notes" />
+                </div>
+                <div className="flex gap-2 mt-4">
+                  <Button onClick={submitLead} disabled={leadSubmitting} className="text-white" style={{ background: BRAND.forest }} data-testid="lead-modal-submit-btn">
+                    {leadSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <UserPlus className="h-4 w-4 mr-1" />}
+                    Save lead draft
+                  </Button>
+                  <Button variant="outline" onClick={() => setLeadModalOpen(false)}>Cancel</Button>
+                </div>
+              </>
+            )}
+
+            {leadResult && (
+              <div data-testid="lead-modal-success">
+                <Card className="p-3 border-l-4 border-l-emerald-500 bg-emerald-50/30 mb-3">
+                  <p className="text-[13px] font-semibold text-emerald-800 mb-1">Lead saved ·  draft</p>
+                  <p className="text-[11px] text-slate-700">id: <code className="text-[10px]">{leadResult.lead_id}</code></p>
+                  <p className="text-[11px] text-slate-700">interest occupations: {(leadResult.lead?.interest_occupations || []).map(o => `${o.country_code}-${o.code}`).join(', ')}</p>
+                </Card>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => navigate(`/admin/leads`)}
+                    className="text-white"
+                    style={{ background: BRAND.burnt }}
+                    data-testid="lead-success-redirect"
+                  >
+                    Open Leads board
+                  </Button>
+                  <Button variant="outline" onClick={() => { setLeadModalOpen(false); setLeadResult(null); setLeadForm({ name: '', email: '', phone: '', source: 'WhatsApp', notes: '' }); }}>
+                    Close
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -235,3 +235,224 @@ async def clear_compare_cache_admin(current_user: dict = Depends(get_current_use
     n = len(_CACHE)
     _CACHE.clear()
     return {"status": "ok", "cleared": n}
+
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Phase 18.8 — Compare PDF Export + Lead pre-fill
+# ═════════════════════════════════════════════════════════════════════════════
+import os
+import uuid
+import hashlib
+from io import BytesIO
+from datetime import datetime as _dt
+from pathlib import Path as _Path
+
+from fastapi import Response
+from pydantic import BaseModel as _BaseModel
+
+
+def _ref_for(payload: Dict[str, Any]) -> str:
+    """Short, stable ref derived from compared_at + codes — for support tracking."""
+    seed = (payload.get("compared_at") or "") + "|" + "|".join(
+        f"{(o or {}).get('country_code')}-{(o or {}).get('code')}" for o in (payload.get("occupations") or [])
+    )
+    return hashlib.sha1(seed.encode("utf-8")).hexdigest()[:8].upper()
+
+
+def _human_dt(iso: str) -> str:
+    try:
+        d = _dt.fromisoformat(iso.replace("Z", "+00:00"))
+        return d.strftime("%d %b %Y · %H:%M UTC")
+    except Exception:  # noqa: BLE001
+        return iso or ""
+
+
+async def _compare_payload(req: CompareRequest, current_user: dict) -> Dict[str, Any]:
+    """Build the compare payload (mirrors compare_occupations but reusable from
+    other endpoints WITHOUT going through HTTP)."""
+    occupations: List[dict] = []
+    not_found: List[Dict[str, str]] = []
+    for c in req.codes:
+        cc = c.country_code.upper()
+        occ = await OCCUPATION_MASTER.find_one(
+            {"country_code": cc, "code": str(c.code), "status": {"$ne": "superseded"}},
+            {"_id": 0},
+        )
+        if not occ:
+            not_found.append({"country_code": cc, "code": str(c.code)})
+            continue
+        occupations.append(_shape_occupation(occ))
+    return {
+        "occupations": occupations,
+        "not_found": not_found,
+        "summary_narrative": _build_narrative(occupations),
+        "compared_at": _dt.now(timezone.utc).isoformat(),
+    }
+
+
+@router.post("/compare/pdf")
+async def compare_pdf(req: CompareRequest, current_user: dict = Depends(get_current_user)):
+    """Render the compare payload as a LEAMSS-branded PDF (WeasyPrint + Jinja2)."""
+    if not _can_compare(current_user):
+        raise HTTPException(status_code=403, detail="Not authorised")
+    if not req.codes or len(req.codes) > 3:
+        raise HTTPException(status_code=400, detail="Provide 1–3 occupation codes")
+
+    payload = await _compare_payload(req, current_user)
+    if not payload["occupations"]:
+        raise HTTPException(status_code=400, detail="No valid occupations to render — check the codes")
+
+    # Render template
+    try:
+        from jinja2 import Environment, FileSystemLoader, select_autoescape
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=f"Template engine missing: {e}")
+
+    templates_dir = _Path(__file__).resolve().parent.parent / "templates"
+    env = Environment(loader=FileSystemLoader(str(templates_dir)), autoescape=select_autoescape(["html", "xml"]))
+    tmpl = env.get_template("compare_export.html")
+    n = len(payload["occupations"])
+    page_size = "A4 landscape" if n >= 3 else "A4 portrait"
+    ref = _ref_for(payload)
+    html = tmpl.render(
+        occupations=payload["occupations"],
+        not_found=payload["not_found"],
+        narrative=payload["summary_narrative"],
+        ref=ref,
+        generated_at_human=_human_dt(payload["compared_at"]),
+        agent_name=current_user.get("name") or current_user.get("email") or "LEAMSS agent",
+        page_size=page_size,
+    )
+
+    try:
+        from weasyprint import HTML  # type: ignore
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=f"PDF engine unavailable: {e}")
+
+    buf = BytesIO()
+    HTML(string=html, base_url=str(templates_dir)).write_pdf(target=buf)
+    buf.seek(0)
+    pdf_bytes = buf.read()
+
+    # Sanitise filename — only the date + ref (no path leak)
+    date_part = _dt.now(timezone.utc).strftime("%Y%m%d")
+    filename = f"leamss_occupation_compare_{date_part}_{ref}.pdf"
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "X-Compare-Ref": ref,
+        },
+    )
+
+
+# ── Lead draft from comparison ──────────────────────────────────────────────
+class LeadDraftBody(_BaseModel):
+    name: Optional[str] = Field(default=None, max_length=160)
+    email: Optional[str] = Field(default=None, max_length=200)
+    phone: Optional[str] = Field(default=None, max_length=40)
+    source: Optional[str] = Field(default=None, max_length=60)
+    message: Optional[str] = Field(default=None, max_length=2000)
+    notes: Optional[str] = Field(default=None, max_length=2000)
+
+
+class CreateLeadFromCompare(_BaseModel):
+    codes: List[CompareCode] = Field(..., min_length=1, max_length=3)
+    lead_data: Optional[LeadDraftBody] = None
+
+
+from typing import Optional  # noqa: E402
+
+
+@router.post("/compare/create-lead-draft")
+async def create_lead_draft_from_compare(req: CreateLeadFromCompare, current_user: dict = Depends(get_current_user)):
+    """Create a draft lead pre-populated with the pinned occupations.
+
+    Sets ``stage="compare_draft"`` so the existing leads dashboard can filter
+    these out by default (or surface them as a special bucket).
+    Writes an audit log row for traceability.
+    """
+    if not _can_compare(current_user):
+        raise HTTPException(status_code=403, detail="Not authorised")
+
+    # Validate codes exist
+    interest: List[Dict[str, Any]] = []
+    bad: List[Dict[str, str]] = []
+    now = _dt.now(timezone.utc)
+    for c in req.codes:
+        cc = c.country_code.upper()
+        occ = await OCCUPATION_MASTER.find_one(
+            {"country_code": cc, "code": str(c.code), "status": {"$ne": "superseded"}},
+            {"_id": 0, "country_code": 1, "code": 1, "title": 1, "recommended_visa_subclass": 1, "ai_draft.title": 1},
+        )
+        if not occ:
+            bad.append({"country_code": cc, "code": str(c.code)})
+            continue
+        title = occ.get("title") or (occ.get("ai_draft") or {}).get("title") or ""
+        rec = ((occ.get("recommended_visa_subclass") or {}) or {}).get(cc)
+        interest.append({
+            "country_code": cc,
+            "code": str(c.code),
+            "title": title,
+            "pinned_at": now.isoformat(),
+            "recommended_visa": rec,
+        })
+    if bad:
+        raise HTTPException(status_code=400, detail={
+            "message": "One or more occupations not found in atlas",
+            "not_found": bad,
+        })
+    if not interest:
+        raise HTTPException(status_code=400, detail="No valid occupations to pin")
+
+    ld = req.lead_data.dict(exclude_unset=True) if req.lead_data else {}
+    lead = {
+        "id": str(uuid.uuid4()),
+        "name": ld.get("name", ""),
+        "email": ld.get("email", ""),
+        "phone": ld.get("phone", ""),
+        "service_interested": "occupation_compare",
+        "country_of_interest": ",".join(sorted({c.country_code.upper() for c in req.codes})),
+        "message": ld.get("message") or ld.get("notes") or "",
+        "source": ld.get("source") or "compare_draft",
+        "utm_source": "",
+        "utm_medium": "",
+        "utm_campaign": "",
+        "stage": "compare_draft",
+        "assigned_to": str(current_user.get("id") or current_user.get("user_id") or ""),
+        "priority": "medium",
+        "tags": ["compare-pin"],
+        "notes": [],
+        "interest_occupations": interest,
+        "created_at": now,
+        "updated_at": now,
+        "last_contacted_at": None,
+        "converted": False,
+        "converted_sale_id": None,
+        "created_by": str(current_user.get("id") or current_user.get("user_id") or ""),
+        "created_by_name": current_user.get("name") or current_user.get("email") or "",
+    }
+    await db["leads"].insert_one(lead)
+
+    # Audit log
+    try:
+        await db["audit_logs"].insert_one({
+            "id": str(uuid.uuid4()),
+            "kind": "lead_drafted_from_compare",
+            "entity_id": lead["id"],
+            "actor_id": str(current_user.get("id") or ""),
+            "actor_email": current_user.get("email"),
+            "payload": {"codes": [{"country_code": c.country_code.upper(), "code": c.code} for c in req.codes]},
+            "at": now,
+        })
+    except Exception:  # noqa: BLE001
+        pass
+
+    # Strip mongo _id for response
+    lead.pop("_id", None)
+    lead["created_at"] = lead["created_at"].isoformat() if isinstance(lead["created_at"], _dt) else lead["created_at"]
+    lead["updated_at"] = lead["updated_at"].isoformat() if isinstance(lead["updated_at"], _dt) else lead["updated_at"]
+    return {"lead": lead, "lead_id": lead["id"]}

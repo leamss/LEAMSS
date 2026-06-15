@@ -3,6 +3,107 @@
 This file appends every completed phase/feature with dates and verification status.
 
 ---
+### 📄 Phase 18.8 — Compare PDF Export + Lead Pre-fill from Compare (Jun 15, 2026)
+
+Two tightly-coupled deliverables that turn the Compare page from a research tool into a **conversion surface** — sales agents can now hand a polished PDF to a prospect AND immediately capture the lead with the pinned occupations pre-attached.
+
+#### Stack choice — WeasyPrint + Jinja2
+
+Both `weasyprint==68.1` and `reportlab==4.4.10` were already in `requirements.txt`. **Chose WeasyPrint** because:
+1. HTML + CSS template is far easier to maintain than reportlab's flowable API.
+2. LEAMSS-brand styling (forest/burnt-orange/cream, Georgia serif headings) translates 1:1 from the React app to print CSS.
+3. Already used elsewhere in the codebase; no new SDK to learn.
+
+`jinja2==3.1.6` already in stack via FastAPI.
+
+#### A) Compare PDF Export
+
+**Template — `backend/templates/compare_export.html`** (~210 lines):
+- LEAMSS-branded header: serif logo with `.` burnt-orange accent · "Occupation Comparison" title · generation timestamp · agent name · monospace short-hash ref (8 chars, SHA1 of compared_at + codes) for support tracking.
+- Auto-narrative summary card (burnt-orange left border, cream background, Georgia serif).
+- 9-row × 2-3-column compare table — Code-badge header (with verified pill) · Verification (verified + verified_by_name + days_since) · Skill Body (name + processing weeks + fee) · Recommended Visa (amber pill + name) · Eligible Visas list · Documents (total + top categories) · Similar (count + top 2) · Sample Cases count · Outcome distribution (emerald ✓ / rose ✗ / slate ↩ / amber ⋯).
+- Print-optimized CSS: forest-green table headers, cream label column, color-coded pills, A4 landscape for 3 columns / portrait for 1-2.
+- Page numbers ("Page X of Y") + footer ribbon with ref + support email + source disclaimer.
+
+**Endpoint — `POST /api/sales/compare/pdf`**:
+- Same body as `/api/sales/compare`: `{codes: [{country_code, code}, ...]}` (1–3 codes).
+- Auth: same role set as compare endpoint (`admin_owner, admin, sales_executive, sr_sales_executive, sales_manager, sales_head, partner, case_manager`).
+- Returns `application/pdf` with `Content-Disposition: attachment; filename="leamss_occupation_compare_YYYYMMDD_REF.pdf"` and an `X-Compare-Ref` header for support traceability.
+- Internal: extracted `_compare_payload()` helper so PDF + JSON endpoints share the same shape pipeline (no HTTP round-trip, no double-cache).
+- < 1s generation for 2 occupations (verified by test timing).
+
+**Frontend — `ComparePage.jsx`**:
+- New outlined "Export PDF" button next to "Pin more". Loading state shows spinner + "Generating…". On success: triggers Blob download with backend-provided filename (parsed from `Content-Disposition`), shows green "✓ PDF downloaded" toast. On error: friendly toast.
+- testid: `compare-export-pdf-btn`, `compare-export-pdf-loading`.
+
+#### B) Lead Pre-fill from Compare
+
+**Schema recon** — `backend/routers/leads.py` already had a CRM-style schema. Added one new field per Sir's spec:
+```python
+interest_occupations: [
+  {country_code, code, title, pinned_at, recommended_visa}
+]
+```
+Stored on the lead row alongside the standard fields (`name, email, phone, source, message, stage, assigned_to, priority, tags, notes, created_at, ...`). Schema is additive — existing leads are untouched and the new field defaults to empty when not provided.
+
+**Endpoint — `POST /api/sales/compare/create-lead-draft`**:
+- Body: `{codes: [...], lead_data?: {name, email, phone, source, notes, message}}`.
+- Validates every code against `occupation_master` — bad codes return 400 with `{not_found: [...]}` payload.
+- For each valid code, pulls `title` + `recommended_visa_subclass[country_code]` and attaches them to `interest_occupations[]`.
+- Sets `stage="compare_draft"` so the leads dashboard can filter these as a special bucket.
+- `assigned_to` defaults to the requesting agent's user_id. `tags=["compare-pin"]` for quick query.
+- Writes `audit_logs.lead_drafted_from_compare` with the code list for traceability.
+- Auth: same role set as PDF endpoint (partner included).
+
+**Frontend — Lead modal in `ComparePage.jsx`**:
+- New filled forest-green "Capture Lead" CTA next to "Export PDF".
+- Modal layout: read-only pinned chips (CA-21231, CA-31102) + Name / Email / Phone / Source dropdown (WhatsApp · Web · Referral · Other) / Notes textarea + "Save lead draft" (forest green) + Cancel.
+- Validation: name + email required client-side.
+- Success state: emerald card showing the new lead id + interest occupation pairs + "Open Leads board" (burnt orange) CTA → navigates to `/admin/leads`.
+- testids: `compare-capture-lead-btn`, `lead-modal`, `lead-modal-pinned-chips`, `lead-modal-name`, `lead-modal-email`, `lead-modal-phone`, `lead-modal-source`, `lead-modal-notes`, `lead-modal-submit-btn`, `lead-modal-success`, `lead-success-redirect`.
+
+#### Tests — `tests/test_phase188_compare_pdf_lead.py` (12/12 PASS)
+
+Uses **pdfminer** to decompress + extract text from WeasyPrint's FlateDecode streams (raw byte search wouldn't find "21231" because the text stream is compressed).
+
+1. PDF endpoint returns `application/pdf` with `Content-Disposition: attachment; filename=…` and `%PDF-` magic bytes
+2. Extracted text includes both code strings ("21231" + "31102") + content > 20KB
+3. >3 codes → 422 (Pydantic max_length)
+4. No-token → 401/403
+5. Partner JWT → 200 with valid PDF (RBAC regression)
+6. No path leak — `/app/`, `/tmp`, `.py`, `/root`, `/etc` absent from header AND first 50KB of PDF body
+7. Lead draft creates row with `stage="compare_draft"` + correct interest_occupations pairs
+8. Partner can create lead draft (RBAC)
+9. Non-existent code → 400 with `{not_found: [{country_code, code}]}` payload
+10. Audit log row written with `kind="lead_drafted_from_compare"` + correct codes payload
+11. Recommended visa subclass "FSWP" appears in extracted PDF text (CA-21231 fixture)
+12. Sparse data (1 occupation, default fixture) → PDF still generates without `NoneType` / `AttributeError`
+
+#### 3-Confirmation Gate — ALL GREEN
+
+1. ✅ **pytest:** **142 passed**, 0 failed, 2 skipped (target was 140+). All 12 Phase 18.8 tests + Phase 17/18 baseline green.
+2. ✅ **Bundle curl-grep:** All 10 testids present — `compare-export-pdf-btn` (1) · `compare-export-pdf-loading` (1) · `compare-capture-lead-btn` (1) · `lead-modal` (18) · `lead-modal-name` (2) · `lead-modal-email` (2) · `lead-modal-submit-btn` (1) · `lead-success-redirect` (1) · `lead-modal-pinned-chips` (1) · `lead-modal-source` (1).
+3. ✅ **Playwright (4 screenshots):**
+   - **Shot 1** — Compare page header with "Export PDF" (outlined) + "Capture Lead" (filled forest green) buttons visible; full 2-col grid + narrative below.
+   - **Shot 2** — Post-download state · "PDF downloaded" green toast top right · download intercepted with suggested filename `leamss_occupation_compare_20260615_CE0F7D6D.pdf` (8-char ref suffix proves backend-side ref generation).
+   - **Shot 3** — Lead modal filled: "Aarav Mehta" / "aarav.demo@leamss.com" / "+91 99999 12345" / Source=WhatsApp / Notes="Comparing CA software vs family physician options" · pinned chips CA-21231 + CA-31102 read-only · forest-green "Save lead draft" CTA.
+   - **Shot 4** — Success state: emerald-bordered "Lead saved · draft" card · id `a74028ab-14e2-49b3-9cfa-25d3d806ef03` visible · "interest occupations: CA-21231, CA-31102" · burnt-orange "Open Leads board" CTA · "Lead draft saved" green toast.
+
+#### Sample artifact preserved
+`/tmp/sample_compare.pdf` (36KB · `%PDF-1.7`) — 2-occupation comparison generated by the regression suite.
+
+#### Files changed/added
+- **New backend:** `templates/compare_export.html` · `tests/test_phase188_compare_pdf_lead.py`
+- **Updated backend:** `routers/sales_compare.py` (+`_compare_payload`, `_ref_for`, `_human_dt`, `/compare/pdf`, `/compare/create-lead-draft` endpoints; `LeadDraftBody`, `CreateLeadFromCompare` models)
+- **Updated frontend:** `pages/sales/ComparePage.jsx` (Export PDF + Capture Lead buttons + lead modal + success state)
+- **Docs:** `memory/CHANGELOG.md` + `memory/PRD.md`
+
+#### Why this matters
+Before today: a sales agent ran the compare → showed it on a screen → manually copied the codes to a lead form → lost half the prospect's context.
+After: one click for a beautiful brand-consistent PDF (WhatsApp-friendly, prospect-shareable), one click to capture the lead with the pinned occupations + recommended visa already attached. The lead is searchable by `tag=compare-pin` and `stage=compare_draft` so the conversion funnel is now fully instrumented.
+
+---
+
 ### 🧪 Phase 18.7.1 — Test-error pipeline closer (Jun 15, 2026)
 
 15-minute closer for Phase 18.7 — turns the silent observability pipeline into a one-click verifiable system, exactly what ops needs to onboard new admins and validate Slack-webhook wiring before production traffic arrives.

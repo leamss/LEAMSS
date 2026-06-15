@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LEAMSS — Occupation Comparison · {{ ref }}</title>
+<style>
+  @page {
+    size: {{ page_size }};
+    margin: 18mm 14mm 18mm 14mm;
+    @bottom-left { content: "LEAMSS · Occupation Comparison · ref {{ ref }}"; font-size: 9pt; color: #6b7280; }
+    @bottom-right { content: "Page " counter(page) " of " counter(pages); font-size: 9pt; color: #6b7280; }
+  }
+  * { box-sizing: border-box; }
+  html, body { font-family: 'Helvetica', 'Arial', sans-serif; color: #1f2937; font-size: 10pt; }
+  body { background: #FAFAF7; }
+  h1 { font-family: Georgia, serif; color: #173B34; font-size: 22pt; margin: 0 0 4pt 0; }
+  h2 { font-family: Georgia, serif; color: #173B34; font-size: 13pt; margin: 14pt 0 4pt 0; }
+  .muted { color: #6b7280; font-size: 9pt; }
+  .header {
+    border-bottom: 3px solid #1F4D44;
+    padding-bottom: 8pt;
+    margin-bottom: 12pt;
+  }
+  .header-row { display: flex; justify-content: space-between; align-items: flex-end; }
+  .logo {
+    font-family: Georgia, serif;
+    font-weight: bold;
+    color: #1F4D44;
+    font-size: 18pt;
+    letter-spacing: -0.5pt;
+  }
+  .logo .accent { color: #D4633F; }
+  .ref { font-family: 'Courier New', monospace; font-size: 9pt; color: #6b7280; }
+  .narrative {
+    background: #FFF6F1;
+    border-left: 4px solid #D4633F;
+    padding: 10pt 12pt;
+    margin: 10pt 0 14pt 0;
+    font-family: Georgia, serif;
+    line-height: 1.5;
+    font-size: 10.5pt;
+    color: #1f2937;
+  }
+  .narrative .label {
+    text-transform: uppercase;
+    letter-spacing: 1pt;
+    font-size: 7.5pt;
+    color: #D4633F;
+    font-weight: bold;
+    font-family: 'Helvetica', sans-serif;
+    margin-bottom: 3pt;
+  }
+  table.compare {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 4pt;
+  }
+  table.compare th, table.compare td {
+    padding: 6pt 8pt;
+    text-align: left;
+    vertical-align: top;
+    border-bottom: 1px solid #e5e7eb;
+    font-size: 9.5pt;
+  }
+  table.compare thead th {
+    background: #1F4D44;
+    color: #ffffff;
+    font-size: 10pt;
+  }
+  table.compare thead .code-badge {
+    display: inline-block;
+    background: rgba(255,255,255,0.18);
+    color: #fff;
+    padding: 1pt 5pt;
+    border-radius: 2pt;
+    font-family: 'Courier New', monospace;
+    font-size: 8.5pt;
+    margin-bottom: 2pt;
+  }
+  table.compare thead .title { font-family: Georgia, serif; font-weight: bold; font-size: 11pt; }
+  table.compare td.label-col {
+    background: #F5F2EC;
+    width: 22%;
+    font-weight: bold;
+    color: #173B34;
+    text-transform: uppercase;
+    font-size: 8.5pt;
+    letter-spacing: 0.5pt;
+  }
+  .pill {
+    display: inline-block;
+    padding: 1pt 5pt;
+    border-radius: 8pt;
+    font-size: 8.5pt;
+    margin-right: 3pt;
+    margin-bottom: 2pt;
+  }
+  .pill-amber { background: #fef3c7; color: #92400e; }
+  .pill-emerald { background: #d1fae5; color: #065f46; }
+  .pill-rose { background: #fee2e2; color: #991b1b; }
+  .pill-slate { background: #f1f5f9; color: #334155; }
+  .pill-mono { font-family: 'Courier New', monospace; }
+  .verified { color: #065f46; font-weight: bold; }
+  .unverified { color: #6b7280; }
+  .footer-note {
+    margin-top: 14pt;
+    padding-top: 8pt;
+    border-top: 1px solid #d1d5db;
+    font-size: 8.5pt;
+    color: #6b7280;
+    line-height: 1.45;
+  }
+  .footer-note strong { color: #173B34; }
+  .not-found {
+    background: #fffbeb;
+    border: 1px solid #fcd34d;
+    padding: 6pt 9pt;
+    border-radius: 3pt;
+    color: #92400e;
+    font-size: 9pt;
+    margin: 6pt 0;
+  }
+</style>
+</head>
+<body>
+  <header class="header">
+    <div class="header-row">
+      <div>
+        <div class="logo">LEAMSS<span class="accent">.</span></div>
+        <h1>Occupation Comparison</h1>
+        <div class="muted">
+          Generated {{ generated_at_human }} · Prepared by <strong>{{ agent_name }}</strong>
+        </div>
+      </div>
+      <div class="ref">REF · {{ ref }}</div>
+    </div>
+  </header>
+
+  {% if narrative %}
+  <div class="narrative">
+    <div class="label">Summary</div>
+    {{ narrative }}
+  </div>
+  {% endif %}
+
+  {% if not_found %}
+  <div class="not-found">
+    <strong>Skipped — not found in atlas:</strong>
+    {% for nf in not_found %}{{ nf.country_code }}-{{ nf.code }}{% if not loop.last %}, {% endif %}{% endfor %}
+  </div>
+  {% endif %}
+
+  <table class="compare">
+    <thead>
+      <tr>
+        <th></th>
+        {% for o in occupations %}
+        <th>
+          <span class="code-badge">{{ o.country_code }} · {{ o.code }}</span>
+          <div class="title">{{ o.title|default('—') }}</div>
+          {% if o.verification_meta and o.verification_meta.is_verified %}
+          <div class="pill pill-emerald" style="background:#10b981; color:#fff;">✓ Verified</div>
+          {% endif %}
+        </th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="label-col">Verification</td>
+        {% for o in occupations %}
+        <td>
+          {% if o.verification_meta and o.verification_meta.is_verified %}
+            <span class="verified">Verified</span>
+            {% if o.verification_meta.verified_by_name %}<br>by <strong>{{ o.verification_meta.verified_by_name }}</strong>{% endif %}
+            {% if o.verification_meta.days_since_verified is not none %}<br><span class="muted">{{ o.verification_meta.days_since_verified }}d ago</span>{% endif %}
+          {% else %}
+            <span class="unverified">Not verified</span>
+          {% endif %}
+        </td>
+        {% endfor %}
+      </tr>
+
+      <tr>
+        <td class="label-col">Skill Body</td>
+        {% for o in occupations %}
+        <td>
+          {% if o.skill_body and o.skill_body.name %}
+            <strong>{{ o.skill_body.name }}</strong>
+            {% if o.skill_body.processing_time_weeks %}<br><span class="muted">{{ o.skill_body.processing_time_weeks }} weeks</span>{% endif %}
+            {% if o.skill_body.fee_native %}<br><span class="muted">{{ o.skill_body.fee_native }}{% if o.skill_body.fee_currency %} {{ o.skill_body.fee_currency }}{% endif %}</span>{% endif %}
+          {% else %}—{% endif %}
+        </td>
+        {% endfor %}
+      </tr>
+
+      <tr>
+        <td class="label-col">Recommended Visa</td>
+        {% for o in occupations %}
+        <td>
+          {% if o.recommended_visa and o.recommended_visa.subclass %}
+            <span class="pill pill-amber pill-mono">{{ o.recommended_visa.subclass }}</span>
+            {% if o.recommended_visa.name and o.recommended_visa.name != o.recommended_visa.subclass %}<br><span class="muted">{{ o.recommended_visa.name }}</span>{% endif %}
+          {% else %}—{% endif %}
+        </td>
+        {% endfor %}
+      </tr>
+
+      <tr>
+        <td class="label-col">Eligible Visas</td>
+        {% for o in occupations %}
+        <td>
+          {% if o.eligible_visas %}
+            {% for v in o.eligible_visas %}<span class="pill pill-slate pill-mono">{{ v }}</span>{% endfor %}
+          {% else %}—{% endif %}
+        </td>
+        {% endfor %}
+      </tr>
+
+      <tr>
+        <td class="label-col">Documents</td>
+        {% for o in occupations %}
+        <td>
+          <strong>{{ o.required_documents_total or 0 }}</strong> required
+          {% if o.doc_categories_top3 %}
+          <br>{% for c in o.doc_categories_top3 %}<span class="pill pill-slate">{{ c }}</span>{% endfor %}
+          {% endif %}
+        </td>
+        {% endfor %}
+      </tr>
+
+      <tr>
+        <td class="label-col">Similar Codes</td>
+        {% for o in occupations %}
+        <td>
+          {% if o.similar_count and o.similar_count > 0 %}
+            <strong>{{ o.similar_count }}</strong>
+            {% if o.similar_top2 %}<br>{% for s in o.similar_top2 %}<span class="pill pill-slate pill-mono">{{ s }}</span>{% endfor %}{% endif %}
+          {% else %}—{% endif %}
+        </td>
+        {% endfor %}
+      </tr>
+
+      <tr>
+        <td class="label-col">Sample Cases</td>
+        {% for o in occupations %}
+        <td><strong>{{ o.sample_cases_count or 0 }}</strong></td>
+        {% endfor %}
+      </tr>
+
+      <tr>
+        <td class="label-col">Outcomes</td>
+        {% for o in occupations %}
+        <td>
+          {% set od = o.outcome_distribution or {} %}
+          {% set total = (od.approved or 0) + (od.refused or 0) + (od.withdrawn or 0) + (od.pending or 0) %}
+          {% if total == 0 %}—{% else %}
+            {% if od.approved %}<span class="pill pill-emerald">✓ {{ od.approved }}</span>{% endif %}
+            {% if od.refused %}<span class="pill pill-rose">✗ {{ od.refused }}</span>{% endif %}
+            {% if od.withdrawn %}<span class="pill pill-slate">↩ {{ od.withdrawn }}</span>{% endif %}
+            {% if od.pending %}<span class="pill pill-amber">⋯ {{ od.pending }}</span>{% endif %}
+          {% endif %}
+        </td>
+        {% endfor %}
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="footer-note">
+    <strong>Source disclaimer.</strong> Data shown above is curated from official government and skills-assessment sources by LEAMSS verification team. Final eligibility depends on personal circumstances and current government policy — always consult a licensed migration agent before submitting an application. This document is for advisory use only.
+    <br><br>
+    LEAMSS · Customer support: support@leamss.com · Reference: <strong>{{ ref }}</strong>
+  </div>
+</body>
+</html>
