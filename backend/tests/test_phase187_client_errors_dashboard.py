@@ -413,3 +413,92 @@ def test_partner_cannot_access_dashboard_endpoints(P):
         "type": "slack", "name": "P denied", "target": "x",
     }, timeout=10)
     assert r_create.status_code == 403
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Phase 18.7.1 — Test-error pipeline closer
+# ═════════════════════════════════════════════════════════════════════════════
+def _purge_synthetic():
+    _async(DB["client_errors"].delete_many({"is_synthetic": True}))
+
+
+# 18. POST /_test/throw creates a synthetic row in DB
+def test_throw_creates_synthetic_row(H):
+    _purge_synthetic()
+    r = httpx.post(f"{API_BASE}/client-errors/_test/throw", headers=H, json={
+        "message": "Phase18.7.1 throw row test", "route": "/admin/x", "scope": "admin",
+    }, timeout=30)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["ok"] is True
+    assert body["synthetic"] is True
+    error_id = body["error_id"]
+    doc = _async(DB["client_errors"].find_one({"id": error_id}))
+    assert doc is not None
+    assert doc["is_synthetic"] is True
+    assert doc["message"] == "Phase18.7.1 throw row test"
+    # Audit row created
+    al = _async(DB["audit_logs"].find_one({"entity_id": error_id, "kind": "client_error.test_error_thrown"}))
+    assert al is not None
+    _purge_synthetic()
+
+
+# 19. POST /_test/throw triggers digest for a matching channel
+def test_throw_triggers_digest_for_matching_channels(H):
+    _purge_synthetic()
+    # Channel with threshold=1 so every test error matches
+    ch_id = httpx.post(f"{API_BASE}/notification-channels", headers=H, json={
+        "type": "slack", "name": "Phase18.7.1 ThrowChan",
+        "target": "https://hooks.slack.com/services/T/B/X",
+        "threshold_count": 1, "threshold_window_hours": 1, "scopes": [],
+    }, timeout=20).json()["id"]
+    r = httpx.post(f"{API_BASE}/client-errors/_test/throw", headers=H, json={
+        "message": "Phase18.7.1 dispatch test", "route": "/admin/x", "scope": "admin",
+    }, timeout=30)
+    assert r.status_code == 200, r.text
+    dr = r.json()["dispatch_result"]
+    assert dr["matched_channels"] >= 1
+    assert dr["sent"] >= 1, dr
+    httpx.delete(f"{API_BASE}/notification-channels/{ch_id}", headers=H, timeout=10)
+    _purge_synthetic()
+
+
+# 20. /_test/throw admin-only
+def test_throw_admin_only(P):
+    r = httpx.post(f"{API_BASE}/client-errors/_test/throw", headers=P, json={}, timeout=10)
+    assert r.status_code == 403
+
+
+# 21. /_test/cleanup deletes only synthetic rows
+def test_cleanup_deletes_only_synthetic(H):
+    _purge_synthetic()
+    # Three synthetic
+    for i in range(3):
+        httpx.post(f"{API_BASE}/client-errors/_test/throw", headers=H, json={
+            "message": f"Phase18.7.1 cleanup-syn-{i}", "route": f"/x/{i}", "scope": "admin",
+        }, timeout=30)
+    # One real error (no is_synthetic flag)
+    real_msg = "Phase18.7.1 cleanup REAL keep"
+    _reset_rate_limit(H)
+    real_id = httpx.post(f"{API_BASE}/client-errors", headers=H, json={
+        "message": real_msg, "stack": "real", "route": "/x/real", "scope": "admin",
+    }, timeout=20).json()["id"]
+    # Cleanup
+    r = httpx.delete(f"{API_BASE}/client-errors/_test/cleanup", headers=H, timeout=20)
+    assert r.status_code == 200, r.text
+    deleted = r.json()["deleted_count"]
+    assert deleted >= 3, f"Expected ≥3 synthetic rows deleted, got {deleted}"
+    # Real error must still exist
+    real_doc = _async(DB["client_errors"].find_one({"id": real_id}))
+    assert real_doc is not None, "real (non-synthetic) error must NOT be deleted"
+    # All synthetic gone
+    syn = _async(DB["client_errors"].count_documents({"is_synthetic": True}))
+    assert syn == 0
+    # Cleanup our real error too
+    _async(DB["client_errors"].delete_one({"id": real_id}))
+
+
+# 22. Cleanup endpoint admin-only
+def test_cleanup_admin_only(P):
+    r = httpx.delete(f"{API_BASE}/client-errors/_test/cleanup", headers=P, timeout=10)
+    assert r.status_code == 403

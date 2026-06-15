@@ -517,20 +517,121 @@ function ChannelsTab({ headers }) {
     } catch { toast.error('Digest run failed'); }
   };
 
+  // Phase 18.7.1 — synthetic test pipeline state
+  const [testModalOpen, setTestModalOpen] = useState(false);
+  const [testForm, setTestForm] = useState({ message: '', scope: 'admin' });
+  const [testResult, setTestResult] = useState(null);
+  const [testSubmitting, setTestSubmitting] = useState(false);
+
+  const submitTestError = async () => {
+    setTestSubmitting(true);
+    try {
+      const body = {};
+      if (testForm.message.trim()) body.message = testForm.message.trim();
+      if (testForm.scope) body.scope = testForm.scope;
+      const r = await axios.post(`${API}/client-errors/_test/throw`, body, { headers });
+      setTestResult(r.data);
+      const dr = r.data?.dispatch_result || {};
+      toast.success(`Test error injected — ${dr.matched_channels ?? 0} channels matched, ${dr.sent ?? 0} sent successfully`);
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || 'Test injection failed');
+    } finally {
+      setTestSubmitting(false);
+    }
+  };
+
+  const cleanupSynthetic = async () => {
+    if (!window.confirm('Delete ALL synthetic test errors? Real errors are kept.')) return;
+    try {
+      const r = await axios.delete(`${API}/client-errors/_test/cleanup`, { headers });
+      toast.success(`Cleared ${r.data.deleted_count} synthetic error${r.data.deleted_count === 1 ? '' : 's'}`);
+      setTestResult(null);
+    } catch { toast.error('Cleanup failed'); }
+  };
+
   return (
     <Card className="p-4" data-testid="channels-tab">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <div>
           <h2 className="font-semibold text-slate-800 text-[15px]" style={{ fontFamily: 'Georgia, serif' }}>Notification channels</h2>
           <p className="text-[11px] text-slate-500 mt-0.5">Slack / Email digest when an error crosses your threshold. Runs every 30 min via APScheduler.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <Button variant="outline" size="sm" onClick={() => setTestModalOpen(true)} className="text-violet-700 border-violet-300 hover:bg-violet-50" data-testid="send-test-error-btn">
+            🧪 Send Test Error
+          </Button>
+          <button onClick={cleanupSynthetic} className="text-[11px] text-slate-500 hover:text-rose-600 underline" data-testid="cleanup-synthetic-link">Clear test errors</button>
           <Button variant="outline" size="sm" onClick={runDigest} data-testid="channels-run-digest-btn"><Send className="h-3.5 w-3.5 mr-1" />Run digest now</Button>
           <Button size="sm" onClick={() => setAdding(true)} className="text-white" style={{ background: BRAND.burnt }} data-testid="error-add-channel-btn">
             <Plus className="h-3.5 w-3.5 mr-1" />Add channel
           </Button>
         </div>
       </div>
+
+      {/* Test pipeline modal */}
+      {testModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" data-testid="test-error-modal">
+          <div className="bg-white rounded-lg shadow-2xl max-w-md w-full p-5" style={{ background: BRAND.cream }}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold text-slate-800" style={{ fontFamily: 'Georgia, serif' }}>🧪 Send synthetic test error</h3>
+              <button onClick={() => setTestModalOpen(false)} className="rounded-full p-1 hover:bg-slate-100" data-testid="test-error-modal-close" aria-label="Close"><X className="h-4 w-4" /></button>
+            </div>
+            <p className="text-[11px] text-slate-500 mb-3">Injects a synthetic <code>client_errors</code> row + immediately runs the digest evaluator. Use this to verify your Slack webhook wiring without waiting for a real bug.</p>
+            <div className="space-y-2">
+              <Input placeholder="Optional message override (defaults to a friendly synthetic message)" value={testForm.message} onChange={(e) => setTestForm({ ...testForm, message: e.target.value })} className="text-[12px]" data-testid="test-error-message-input" />
+              <Select value={testForm.scope} onValueChange={(v) => setTestForm({ ...testForm, scope: v })}>
+                <SelectTrigger className="text-[12px]" data-testid="test-error-scope-select"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">admin</SelectItem>
+                  <SelectItem value="sales">sales</SelectItem>
+                  <SelectItem value="workspace">workspace</SelectItem>
+                  <SelectItem value="partner">partner</SelectItem>
+                  <SelectItem value="portal">portal</SelectItem>
+                  <SelectItem value="public">public</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex gap-2 mt-4">
+              <Button onClick={submitTestError} disabled={testSubmitting} className="text-white" style={{ background: BRAND.burnt }} data-testid="test-error-submit-btn">
+                {testSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Send className="h-4 w-4 mr-1" />}
+                Inject + dispatch
+              </Button>
+              <Button variant="outline" onClick={() => setTestModalOpen(false)}>Cancel</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Result panel */}
+      {testResult && (
+        <Card className="p-3 mb-3 border-l-4 border-l-violet-500 bg-violet-50/30" data-testid="test-error-result-panel">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[11px] uppercase tracking-wider font-bold text-violet-700">Last test injection</p>
+            <button onClick={() => setTestResult(null)} className="text-[10px] text-slate-400 hover:text-slate-700" data-testid="test-error-result-dismiss">dismiss</button>
+          </div>
+          <p className="text-[11px] text-slate-700">
+            Synthetic error id:{' '}
+            <a href={`?id=${testResult.error_id}`} className="font-mono text-[10px] underline hover:text-violet-700" data-testid="test-error-result-id">{testResult.error_id}</a>
+          </p>
+          <div className="text-[11px] text-slate-700 mt-1">
+            Dispatch: <strong>{testResult.dispatch_result?.matched_channels ?? 0}</strong> channels processed ·{' '}
+            <span className="text-emerald-700"><strong>{testResult.dispatch_result?.sent ?? 0}</strong> sent</span> ·{' '}
+            <span className="text-rose-700"><strong>{testResult.dispatch_result?.failed ?? 0}</strong> failed</span>
+          </div>
+          {(testResult.dispatch_result?.details || []).length > 0 && (
+            <div className="mt-2 space-y-1" data-testid="test-error-result-channels">
+              {testResult.dispatch_result.details.map((d, i) => (
+                <div key={i} className="text-[10px] flex items-center gap-1 bg-white px-2 py-1 rounded border border-violet-100">
+                  <CheckCircle2 className="h-3 w-3 text-emerald-600" /> {d.channel_name} · error {d.error_id?.slice(0, 8)}… ({d.occurrences} occ.)
+                </div>
+              ))}
+            </div>
+          )}
+          {testResult.dispatch_result?.matched_channels === 0 && (
+            <p className="text-[10px] text-slate-500 mt-2">No enabled channels matched — add a channel below with a threshold ≥ 1 to receive this alert.</p>
+          )}
+        </Card>
+      )}
 
       {/* Add form */}
       {adding && (

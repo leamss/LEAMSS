@@ -3,6 +3,77 @@
 This file appends every completed phase/feature with dates and verification status.
 
 ---
+### 🧪 Phase 18.7.1 — Test-error pipeline closer (Jun 15, 2026)
+
+15-minute closer for Phase 18.7 — turns the silent observability pipeline into a one-click verifiable system, exactly what ops needs to onboard new admins and validate Slack-webhook wiring before production traffic arrives.
+
+#### A) Synthetic test-throw endpoint
+
+**`backend/routers/client_errors.py`**:
+- `POST /api/client-errors/_test/throw` (admin-only) — writes a synthetic `client_errors` row flagged `is_synthetic: true`, then immediately invokes the digest evaluator so matching channels send right away. Dedup-aware (same `(message, route, user_id)` within 24h bumps `occurrence_count` instead of multiplying rows). Audit-logged as `client_error.test_error_thrown`.
+- `DELETE /api/client-errors/_test/cleanup` (admin-only) — purges ALL synthetic rows. Real (non-synthetic) errors are preserved. Audit-logged as `client_error.test_cleanup`.
+- Both endpoints return 403 for non-admin tokens.
+
+Response shape for `/_test/throw`:
+```json
+{
+  "ok": true,
+  "error_id": "uuid",
+  "synthetic": true,
+  "dispatch_result": {
+    "matched_channels": 1,
+    "sent": 1,
+    "failed": 0,
+    "details": [{ "channel_id": "...", "channel_name": "...", "error_id": "...", "occurrences": 1 }]
+  }
+}
+```
+
+#### B) "Send Test Error" UI
+
+**`frontend/src/pages/admin/ClientErrorsDashboard.jsx` — `ChannelsTab`**:
+- New purple-outlined "🧪 Send Test Error" CTA in the Channels-tab header (next to "Run digest now" + "+ Add channel"). Opens a centered modal with:
+  - Optional message override
+  - Scope dropdown (admin/sales/workspace/partner/portal/public)
+  - "Inject + dispatch" (burnt orange) + Cancel
+- After submission a violet-bordered "LAST TEST INJECTION" result panel appears:
+  - Synthetic error id (clickable `?id=…` link → opens the drawer view)
+  - Dispatch line: `N channels processed · M sent · K failed`
+  - Per-channel green-check list of successful sends with error-id snippet + occurrence count
+  - Graceful zero-state when no channels match
+- Subtle "Clear test errors" link next to the CTA → soft-confirm + cleanup call.
+
+#### Tests added — 5 new in `tests/test_phase187_client_errors_dashboard.py`
+
+18. `test_throw_creates_synthetic_row` — POST → 200 · row in DB with `is_synthetic: true` · audit log row written
+19. `test_throw_triggers_digest_for_matching_channels` — threshold=1 channel + throw → `dispatch_result.sent ≥ 1`
+20. `test_throw_admin_only` — partner token → 403
+21. `test_cleanup_deletes_only_synthetic` — 3 synthetic + 1 real · DELETE returns ≥3 · real row untouched · synthetic count=0
+22. `test_cleanup_admin_only` — partner token → 403
+
+#### 3-Confirmation Gate — ALL GREEN
+
+1. ✅ **pytest:** **130 passed**, 0 failed, 2 skipped (target was 129+). All 22 Phase 18.7+18.7.1 tests pass.
+2. ✅ **Bundle curl-grep:** All 7 testids present — `send-test-error-btn` (1), `test-error-modal` (2), `test-error-result-panel` (1), `cleanup-synthetic-link` (1), `test-error-submit-btn` (1), `test-error-result-id` (1), `test-error-message-input` (1).
+3. ✅ **Playwright screenshot — single frame captures the full pipeline:**
+   - Toast (top right): "✓ Test error injected — 1 channels matched, 1 sent successfully"
+   - Modal (foreground): "🧪 Send synthetic test error" + message input filled with "Sir's test ping — pipeline verification" + scope=admin + burnt-orange "Inject + dispatch" CTA
+   - **Result panel** (visible behind modal): "LAST TEST INJECTION" violet-bordered card → Synthetic error id `8798d5bf…` (clickable link) → "Dispatch: 1 channels processed · 1 sent · 0 failed" → green check "Phase 18.7.1 Smoke Channel · error 8798d5bf… (1 occ.)"
+   - Channels list: "Phase 18.7.1 Smoke Channel · enabled · hooks URL · threshold 1 in 1h" with Test/Disable/Delete actions
+   - Header row buttons: "🧪 Send Test Error" (purple outlined, active state), "Clear test errors" link, "Run digest now", "+ Add channel"
+   - 4 KPI pills still visible up top (Open=0 emerald · Resolved=0 slate · Last 24h=0 burnt · Critical=0 rose)
+
+#### Files changed
+- **Updated backend:** `routers/client_errors.py` (2 new test endpoints + `TestThrowIn` model + audit logs)
+- **Updated backend tests:** `tests/test_phase187_client_errors_dashboard.py` (+5 cases)
+- **Updated frontend:** `pages/admin/ClientErrorsDashboard.jsx` (modal + result panel + cleanup link + state hooks)
+- **Docs:** `memory/CHANGELOG.md` + `memory/PRD.md`
+
+#### Why this matters
+Without this, ops had to wait for a real production crash to validate the digest pipeline — a chicken-and-egg problem for any new admin onboarding. Now `/admin/client-errors → Channels → Send Test Error` is a 10-second smoke test that proves end-to-end: synthetic row → indexed → threshold check → scope filter → channel match → Slack/email send → dispatch summary echoed back. Audit-logged so the pings don't pollute future investigations.
+
+---
+
 ### 🚀 Phase 18.7 — Client Errors Admin Dashboard + Slack/Email Digest (Jun 12, 2026)
 
 Sir's "Quick Win Bundle follow-up" — turns the Phase 18.6 silent monitoring into proactive ops alerts with a full admin dashboard, channel CRUD, and a 30-min APScheduler digest.
