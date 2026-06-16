@@ -121,3 +121,36 @@ async def run_scraper(
 def list_scraper_objects():
     """Used by APScheduler for the monthly nightly chain."""
     return list(_SCRAPERS.values())
+
+
+@router.get("/scheduler-status")
+async def scheduler_status(user: Dict[str, Any] = Depends(_require_admin)):
+    """Phase 19.2c — Introspect APScheduler to verify monthly scraper crons.
+
+    Returns list of registered job IDs + next-run timestamps so tests/ops can
+    confirm the 5 scraper monthly crons are actually scheduled.
+    """
+    try:
+        import server  # noqa: PLC0415
+        sched = getattr(server, "_digest_scheduler", None)
+        if sched is None:
+            return {"running": False, "jobs": [], "scraper_jobs": []}
+        jobs = []
+        scraper_jobs = []
+        for j in sched.get_jobs():
+            row = {
+                "id": j.id,
+                "next_run_time": j.next_run_time.isoformat() if j.next_run_time else None,
+                "trigger": str(j.trigger),
+            }
+            jobs.append(row)
+            if j.id.startswith("scraper_monthly_"):
+                scraper_jobs.append(j.id)
+        return {
+            "running": sched.running,
+            "jobs": jobs,
+            "scraper_jobs": sorted(scraper_jobs),
+            "scraper_job_count": len(scraper_jobs),
+        }
+    except Exception as e:  # noqa: BLE001
+        return {"running": False, "error": str(e), "jobs": [], "scraper_jobs": []}

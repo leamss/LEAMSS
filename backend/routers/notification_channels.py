@@ -326,6 +326,8 @@ async def run_digest_once() -> Dict[str, Any]:
         if scopes:
             err_query["scope"] = {"$in": scopes}
         async for err in db["client_errors"].find(err_query):
+            # Defensive: legacy docs (pre Phase 19.2c fix) lack `id`; fall back to _id.
+            err_id = err.get("id") or str(err.get("_id"))
             try:
                 affected = await _affected_user_count(err.get("message") or "", err.get("route") or "", win_h)
                 if ch["type"] == "slack":
@@ -339,11 +341,11 @@ async def run_digest_once() -> Dict[str, Any]:
                     summary["details"].append({
                         "channel_id": ch["id"],
                         "channel_name": ch.get("name"),
-                        "error_id": err["id"],
+                        "error_id": err_id,
                         "occurrences": err.get("occurrence_count"),
                     })
                     await db["client_errors"].update_one(
-                        {"id": err["id"]},
+                        {"_id": err["_id"]},
                         {"$set": {"last_digest_sent_at": now}},
                     )
                 else:
@@ -351,7 +353,7 @@ async def run_digest_once() -> Dict[str, Any]:
                     await db["notification_send_failures"].insert_one({
                         "id": str(uuid.uuid4()),
                         "channel_id": ch["id"],
-                        "error_id": err["id"],
+                        "error_id": err_id,
                         "result": result,
                         "occurred_at": now,
                     })
@@ -361,7 +363,7 @@ async def run_digest_once() -> Dict[str, Any]:
                 await db["notification_send_failures"].insert_one({
                     "id": str(uuid.uuid4()),
                     "channel_id": ch["id"],
-                    "error_id": err.get("id"),
+                    "error_id": err_id,
                     "result": {"ok": False, "exception": str(e)[:300]},
                     "occurred_at": now,
                 })

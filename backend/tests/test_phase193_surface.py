@@ -33,6 +33,26 @@ def admin_token() -> str:
     return _login(ADMIN_EMAIL, ADMIN_PASSWORD)
 
 
+@pytest.fixture(scope="module")
+def scrapers_primed(admin_token: str) -> dict:
+    """Phase 19.2c — Prime the DB once per test-module by running all 5
+    reachable scrapers + a full SSG regen. This makes Phase 19.3 surfacing
+    tests deterministic regardless of run order. Returns a small status dict
+    so individual tests can pytest.skip if an upstream is blocked.
+    """
+    status: Dict[str, Any] = {}
+    with httpx.Client(base_url=BASE_URL, timeout=120) as c:
+        for sid in ("acs", "vetassess", "engineers_australia", "nzqa", "wes"):
+            try:
+                r = c.post(f"{API}/scrapers/{sid}/run", headers=_hdr(admin_token), json={})
+                status[sid] = r.json() if r.status_code == 200 else {"status": "error", "code": r.status_code}
+            except Exception as e:  # noqa: BLE001
+                status[sid] = {"status": "error", "exc": str(e)[:80]}
+        # One full SSG regen so all SSG files reflect the freshly-scraped fees
+        c.post(f"{API}/seo-ssg/regenerate-all", headers=_hdr(admin_token))
+    return status
+
+
 def _hdr(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
 
@@ -59,18 +79,17 @@ def test_01_vetassess_catch_all_maps_350plus(admin_token: str):
 
 
 # 2. APScheduler has 5 monthly scraper jobs registered
-def test_02_scheduler_has_5_scrapers():
-    import requests
-    # Scheduler isn't exposed via REST so introspect Python-side
-    import importlib
-    # The scheduler instance lives in routers.notification_channels (Phase 18.7)
-    nc = importlib.import_module("routers.notification_channels")
-    sched = getattr(nc, "_digest_scheduler", None)
-    if sched is None:
-        pytest.skip("digest scheduler not initialised")
-    job_ids = {j.id for j in sched.get_jobs()}
-    expected = {f"scraper_monthly_{s}" for s in ("acs", "vetassess", "engineers_australia", "nzqa", "wes")}
-    assert expected.issubset(job_ids), f"missing scraper jobs. Got: {job_ids}"
+def test_02_scheduler_has_5_scrapers(admin_token: str):
+    # Use the live REST introspection endpoint exposed by routers/scrapers.py
+    with httpx.Client(base_url=BASE_URL, timeout=20) as c:
+        r = c.get(f"{API}/scrapers/scheduler-status", headers=_hdr(admin_token))
+        assert r.status_code == 200, r.text
+        j = r.json()
+        if not j.get("running"):
+            pytest.skip(f"scheduler not running in test env: {j.get('error') or ''}")
+        scraper_jobs = set(j.get("scraper_jobs") or [])
+        expected = {f"scraper_monthly_{s}" for s in ("acs", "vetassess", "engineers_australia", "nzqa", "wes")}
+        assert expected.issubset(scraper_jobs), f"missing scraper jobs. Got: {scraper_jobs}"
 
 
 # 3. EA / NZQA / WES records have data_quality field set
@@ -90,7 +109,7 @@ def test_03_data_quality_fallback_marked(admin_token: str):
 # ─── Phase 19.3 — surfacing ────────────────────────────────────────────────
 
 # 4. AU 261313 (Software Eng) occupation page shows real ACS fee + 12 weeks
-def test_04_au_occupation_shows_acs_fee_and_processing():
+def test_04_au_occupation_shows_acs_fee_and_processing(scrapers_primed):
     status, html = _fetch_fe("/atlas/au/261313/")
     assert status == 200
     assert "ACS" in html, "ACS body name not surfaced"
@@ -100,14 +119,14 @@ def test_04_au_occupation_shows_acs_fee_and_processing():
 
 
 # 5. AU 132311 (Marketing Sales) — VETASSESS catch-all fee surfaced
-def test_05_au_occupation_shows_vetassess_fee():
+def test_05_au_occupation_shows_vetassess_fee(scrapers_primed):
     status, html = _fetch_fe("/atlas/au/132311/")
     assert status == 200
     assert "1205" in html, "VETASSESS $1205 fee not visible"
 
 
 # 6. AU occupation page shows fallback indicator for EA-assessed codes
-def test_06_au_engineering_shows_published_rate():
+def test_06_au_engineering_shows_published_rate(scrapers_primed):
     status, html = _fetch_fe("/atlas/au/233211/")
     assert status == 200
     # Either fallback indicator OR a live fee (depending on scrape result)
@@ -115,10 +134,7 @@ def test_06_au_engineering_shows_published_rate():
 
 
 # 7. Country page card has fee chip
-def test_07_country_card_shows_fee_chip(admin_token: str):
-    # Ensure SSG is fresh
-    with httpx.Client(base_url=BASE_URL, timeout=60) as c:
-        c.post(f"{API}/seo-ssg/regenerate-all", headers=_hdr(admin_token))
+def test_07_country_card_shows_fee_chip(scrapers_primed):
     status, html = _fetch_fe("/atlas/au/")
     assert status == 200
     # At least one card shows a 💰 fee chip
@@ -135,7 +151,7 @@ def test_08_hub_mentions_five_official_bodies():
 
 
 # 9. AU occupation page has Salary "Coming Soon" honest strip
-def test_09_salary_coming_soon_strip_au():
+def test_09_salary_coming_soon_strip_au(scrapers_primed):
     status, html = _fetch_fe("/atlas/au/261313/")
     assert status == 200
     assert "Coming Soon" in html
@@ -144,7 +160,7 @@ def test_09_salary_coming_soon_strip_au():
 
 
 # 10. Assessing-authority section hides empty fields (no "Not available")
-def test_10_assessing_authority_section_hides_empty_fields():
+def test_10_assessing_authority_section_hides_empty_fields(scrapers_primed):
     status, html = _fetch_fe("/atlas/au/261313/")
     assert status == 200
     # Even if some sub-fields are empty, NO "Not available" placeholder text
@@ -152,11 +168,7 @@ def test_10_assessing_authority_section_hides_empty_fields():
 
 
 # 11. CA occupation page shows WES fallback fee (CAD $265)
-def test_11_ca_occupation_shows_wes_fee(admin_token: str):
-    # Ensure WES + regen are fresh
-    with httpx.Client(base_url=BASE_URL, timeout=90) as c:
-        c.post(f"{API}/scrapers/wes/run", headers=_hdr(admin_token), json={})
-        c.post(f"{API}/seo-ssg/regenerate-all", headers=_hdr(admin_token))
+def test_11_ca_occupation_shows_wes_fee(scrapers_primed):
     # NOC 21231 (Software Engineer) — CA
     status, html = _fetch_fe("/atlas/ca/21231/")
     if status != 200:

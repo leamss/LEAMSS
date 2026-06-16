@@ -3,6 +3,71 @@
 This file appends every completed phase/feature with dates and verification status.
 
 ---
+### 🎯 Phase 19.2c + 19.3 — Scraper Polish + Surface Enriched Data (Jun 16, 2026)
+
+**Goal:** Polish the 5 reachable scrapers from 19.2a-Lite + surface their fee/processing data on every public Atlas page. Close out Phase 19 with a strict triple-gate verification (pytest + curl + Playwright).
+
+#### A) P0 Bug Fix — `KeyError: 'id'` in fee-change digest dispatch
+
+- **Root cause:** `backend/scrapers/base.py` was inserting `client_errors` rows on partial/failed scraper runs **without an `id` UUID field**, while every other inserter (`routers/client_errors.py`, `routers/seo_ssg.py`) writes `id: str(uuid.uuid4())`. Downstream `routers/notification_channels.py::run_digest_once()` then crashed with `KeyError: 'id'` when reading those legacy docs.
+- **Fix at source:** `scrapers/base.py` now adds `"id": str(uuid.uuid4())` to every `client_errors.insert_one` call.
+- **Defensive fix at consumer:** `notification_channels.py::run_digest_once` uses `err.get("id") or str(err["_id"])` pattern so the digest worker is resilient to any legacy doc missing the `id` field. Update query also switched to `{"_id": err["_id"]}` for the same reason.
+- **DB backfill:** one-shot script patched 22 legacy `client_errors` docs that had only `_id` (no `id`). Digest worker now runs clean (`channels_processed: 0, alerts_sent: 0, skipped: 0, failures: 0, details: []`).
+
+#### B) Test Fixes — `tests/test_phase193_surface.py`
+
+- **`test_02_scheduler_has_5_scrapers`** — was importing `_digest_scheduler` from wrong module (`routers.notification_channels` instead of `server`). Plus, in-process import couldn't see uvicorn's lifespan-initialised scheduler. **Fix:** added `GET /api/scrapers/scheduler-status` admin endpoint that introspects the live `server._digest_scheduler` and returns registered job IDs + next-run timestamps. Test now hits this REST endpoint instead of importing — works reliably from any test process.
+- **Test ordering / isolation** — Phase 19.3 surfacing tests assumed scraper-state from Phase 19.2 had been primed. **Fix:** added module-scoped `scrapers_primed` fixture that runs all 5 reachable scrapers + one full SSG regen exactly **once per test-module run**. All surfacing tests (test_04–test_07, test_09–test_11) now use it, making them deterministic regardless of run order or which test files are run alongside.
+
+#### C) New REST endpoint — `GET /api/scrapers/scheduler-status` (admin only)
+
+Returns:
+```json
+{
+  "running": true,
+  "jobs": [...7 jobs incl. client_error_digest, seo_ssg_nightly, 5 scraper_monthly_*...],
+  "scraper_jobs": ["scraper_monthly_acs", "scraper_monthly_engineers_australia",
+                   "scraper_monthly_nzqa", "scraper_monthly_vetassess", "scraper_monthly_wes"],
+  "scraper_job_count": 5
+}
+```
+Each scraper job is staggered 5 minutes apart on the **1st Sunday of every month at 02:00 UTC** (02:00, 02:05, 02:10, 02:15, 02:20).
+
+#### D) Surfaced data — what bots/crawlers now see
+
+| Page | Live data surfaced |
+|---|---|
+| `/atlas/` (hub) | "5 official bodies" trust pill + 100% Refund + MARA + 4.9★ pillars |
+| `/atlas/au/` (country) | **50 fee chips** (💰 AUD $1206) + 50 processing chips (⏱ 12w) + assessing body name on each card |
+| `/atlas/au/261313/` | ACS · AUD $625 · 12 weeks · "live · ACS" data-quality indicator |
+| `/atlas/au/132311/` | VETASSESS · AUD $1206 · 12 weeks · live_scraped |
+| `/atlas/au/233211/` | Engineers Australia · AUD $720 · "📋 Published rate · live fees may vary" |
+| `/atlas/ca/21231/` | WES · CAD $265 · "📋 Published rate · live fees may vary" |
+
+Honest disclosure preserved: Engineers Australia, NZQA and WES fees render `data_quality: "fallback_published_rate"` on the page with a "📋 Published rate · live fees may vary" badge — no fake "live" claim where the upstream JS-rendered fees couldn't be parsed.
+
+#### E) Triple-Gate verification (Sir's strict protocol)
+
+- **Gate 1 — Pytest:** **75/75 PASS** (53 Phase 19 SSG/scraper/surface tests + 22 Phase 18.7 notification-dashboard regression). Zero regressions from the `KeyError` fix.
+- **Gate 2 — Curl + grep:** All 4 atlas pages return enriched data via Googlebot UA — 50 fee chips on country page, AUD $625 + 12 weeks on AU 261313, CAD $265 + Published rate on CA 21231, AUD $720 + Published rate on AU 233211.
+- **Gate 3 — Playwright screenshots:** 4 screenshots captured with Googlebot UA showing visible enriched data + admin Scraper Hub displaying all 6 scrapers (ACS Success, VETASSESS Success, EA Partial, NZQA Partial, WES Partial, ABS Census Skipped) with the **Phase 19.2b deferred** callout banner intact.
+
+#### F) Files touched
+
+- `backend/scrapers/base.py` — add `id` UUID on `client_errors.insert_one`; `import uuid`
+- `backend/routers/notification_channels.py` — defensive `err.get("id") or str(err["_id"])`; switch update query to `_id`
+- `backend/routers/scrapers.py` — new `GET /scheduler-status` endpoint
+- `backend/tests/test_phase193_surface.py` — `scrapers_primed` module fixture; `test_02` now uses REST endpoint
+- DB backfill: 22 legacy `client_errors` docs given `id` field (one-shot)
+
+#### G) Phase 19.2b still deferred — production-deploy callout
+
+JSA labour-market data, TRA assessor and ESCC scrapers remain **blocked at preview-env egress** (Cloudflare WAF returns HTTP 000 on `*.gov.au` direct domains). ABS Census per-ANZSCO dataflow-ID discovery is also non-trivial via the SDMX API. **These activate automatically on production cutover (whitelisted egress IP) or via a paid proxy vendor (BrightData / ScraperAPI). The 6th scraper (`ABSCensusScraper`) ships as a skeleton today.**
+
+---
+
+
+---
 ### 🔧 Phase 19.2a-Lite — Data Scraper Foundation (Jun 16, 2026)
 
 **Goal:** populate the empty assessing-authority + salary fields that Phase 19.1a's

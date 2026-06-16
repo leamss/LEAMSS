@@ -18,6 +18,7 @@ import hashlib
 import logging
 import os
 import time
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional
@@ -168,6 +169,7 @@ class BaseScraper:
         if result.status in ("failed", "partial"):
             try:
                 await _db["client_errors"].insert_one({
+                    "id": str(uuid.uuid4()),
                     "message": f"Scraper {self.scraper_id} status={result.status}",
                     "route": f"/scrapers/{self.scraper_id}",
                     "occurrence_count": 1,
