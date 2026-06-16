@@ -354,6 +354,11 @@ async def render_country_index_html(country_code: str) -> str:
             o["recommended_visa"] = rvs.get(cc) or ""
         else:
             o["recommended_visa"] = ""
+        # Phase 19.3 — surface assessing-authority fee + proc time on cards
+        aa = o.get("assessing_authority") or {}
+        o["aa_fee"] = aa.get("fee_native")
+        o["aa_currency"] = aa.get("fee_currency")
+        o["aa_proc_weeks"] = aa.get("processing_time_weeks")
         top.append(o)
     total = await db["occupation_master"].count_documents({"country_code": cc, "status": "verified"})
     skill_breakdown = await _skill_level_breakdown(cc)

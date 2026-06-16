@@ -91,6 +91,7 @@ class EngineersAustraliaScraper(BaseScraper):
                     "assessing_authority.last_scraped_at": datetime.now(timezone.utc).isoformat(),
                     "assessing_authority.scraped_by": "engineers_australia_scraper_v1",
                     "assessing_authority._fee_fallback_used": fee_is_fallback,
+                    "assessing_authority.data_quality": "fallback_published_rate" if fee_is_fallback else "live_scraped",
                 }},
             )
             result.records_updated += 1

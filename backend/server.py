@@ -301,6 +301,20 @@ async def startup():
                     id="seo_ssg_nightly",
                     replace_existing=True,
                 )
+                # Phase 19.2c — Monthly scraper cron: 1st Sunday 02:00 UTC, 5-min stagger between bodies
+                try:
+                    from routers.scrapers import list_scraper_objects
+                    monthly_targets = [s for s in list_scraper_objects() if s.scraper_id != "abs_census"]
+                    for idx, scraper in enumerate(monthly_targets):
+                        minute = idx * 5  # 0, 5, 10, 15, 20 UTC minutes
+                        _digest_scheduler.add_job(
+                            scraper.run,
+                            CronTrigger(day="1-7", day_of_week="sun", hour=2, minute=minute, timezone="UTC"),
+                            id=f"scraper_monthly_{scraper.scraper_id}",
+                            replace_existing=True,
+                        )
+                except Exception:  # noqa: BLE001
+                    pass
                 _digest_scheduler.start()
                 app.state.digest_scheduler = _digest_scheduler
                 print("[Phase18.7] Client-error digest scheduler started (30 min interval)")

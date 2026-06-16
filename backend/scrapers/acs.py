@@ -87,6 +87,7 @@ class ACSScraper(BaseScraper):
                     "assessing_authority.rules_summary": rules_summary,
                     "assessing_authority.last_scraped_at": datetime.now(timezone.utc).isoformat(),
                     "assessing_authority.scraped_by": "acs_scraper_v1",
+                    "assessing_authority.data_quality": "live_scraped",
                 }},
             )
             result.records_updated += 1

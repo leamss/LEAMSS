@@ -212,6 +212,12 @@ footer a{color:var(--muted)}footer a:hover{color:var(--burnt)}
               {% endif %}
             </div>
           {% endif %}
+          {% if (occ.assessing_authority or {}).get('fee_native') %}
+            {% set aa2 = occ.assessing_authority %}
+            <div class="metric"><div class="ml">Skills Assessment Fee</div><div class="mv">{{ aa2.fee_currency }} ${{ '%.0f' % aa2.fee_native if (aa2.fee_native|float) == (aa2.fee_native|int) else '%.2f' % aa2.fee_native }}</div><div class="ms">
+              {% if aa2.data_quality == 'fallback_published_rate' %}📋 Published rate &middot; live fees may vary{% else %}live · {{ (aa2.short_name or aa2.name)|truncate(28, true, '…') }}{% endif %}
+            </div></div>
+          {% endif %}
           <div class="metric"><div class="ml">Required Documents</div><div class="mv">{{ (occ.required_documents or [])|length }}</div><div class="ms">items in checklist</div></div>
         </div>
         {% set aa = occ.assessing_authority or {} %}
@@ -229,6 +235,21 @@ footer a{color:var(--muted)}footer a:hover{color:var(--burnt)}
         <span class="card-eyebrow">Overview</span>
         <h2 class="card-title">About this occupation</h2>
         <p style="white-space:pre-line">{{ occ.description }}</p>
+      </article>
+      {% endif %}
+
+      {# Phase 19.3 — Salary / Labour-market "Coming Soon" honest strip #}
+      {% if country_code == 'AU' %}
+      <article class="card" style="background:#FCFBF7;border-style:dashed">
+        <span class="card-eyebrow" style="color:var(--muted)">Data in progress</span>
+        <h2 class="card-title" style="font-size:16px;color:var(--muted)">
+          💰 Salary range &middot; 📊 Labour-market outlook &mdash; <em>Coming Soon</em>
+        </h2>
+        <p style="font-size:13px;color:var(--muted)">
+          Median weekly income (ABS Census 2021) and employment outlook (jobsandskills.gov.au)
+          will appear here once Phase 19.2b enrichment lands. The scrape infrastructure is built &mdash;
+          we&rsquo;re currently blocked at the preview CDN; production deploy will unlock.
+        </p>
       </article>
       {% endif %}
 

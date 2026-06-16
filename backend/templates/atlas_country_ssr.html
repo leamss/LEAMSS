@@ -188,6 +188,12 @@ footer a{color:var(--muted)}footer a:hover{color:var(--burnt)}
           {% elif o.teer_category is defined and o.teer_category is not none %}
             <span class="pill-sm pill-sm-slate">TEER {{ o.teer_category }}</span>
           {% endif %}
+          {% if o.aa_fee %}
+            <span class="pill-sm pill-sm-slate" title="Skills assessment fee">💰 {{ o.aa_currency }} ${{ '%.0f' % o.aa_fee if (o.aa_fee|float) == (o.aa_fee|int) else '%.0f' % o.aa_fee }}</span>
+          {% endif %}
+          {% if o.aa_proc_weeks %}
+            <span class="pill-sm pill-sm-slate" title="Typical processing time">⏱ {{ o.aa_proc_weeks }}w</span>
+          {% endif %}
           <span class="pill-sm pill-sm-emerald">✓ Verified</span>
         </div>
         <div class="meta">
