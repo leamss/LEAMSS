@@ -1,0 +1,15 @@
+{# Phase 19.1a — LEAMSS tricolor wordmark macro
+   Renders the brand exactly as on www.leamss.com: LE teal · AM orange · SS red.
+   `size` ∈ small | md | lg
+   `with_dot` appends a forest-green "." after SS (visual full-stop) #}
+
+{% macro leamss_logo(size="md", with_dot=true) -%}
+<span class="leamss-wordmark leamss-wordmark--{{ size }}" aria-label="LEAMSS">
+<span style="color:#2a777a">LE</span><span style="color:#f7620b">AM</span><span style="color:#d81f26">SS</span>{%- if with_dot -%}<span style="color:#1F4D44">.</span>{%- endif -%}
+</span>
+{%- endmacro %}
+
+{# Same as above but text-only fallback for spots where size doesn't matter #}
+{% macro leamss_logo_inline() -%}
+<span style="color:#2a777a">LE</span><span style="color:#f7620b">AM</span><span style="color:#d81f26">SS</span>
+{%- endmacro %}

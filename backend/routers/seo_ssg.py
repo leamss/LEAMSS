@@ -66,6 +66,75 @@ def _country_meta(cc: str) -> Dict[str, str]:
     }.get(cc, {"flag": "🌐", "name": cc, "classification": "Code", "currency": ""})
 
 
+# Phase 19.1a — Country landmark hero images (Unsplash CDN, matches V2 React).
+def _hero_image(cc: str) -> str:
+    cc = (cc or "").upper()
+    return {
+        "AU": "https://images.unsplash.com/photo-1753275032483-d13bd056f4da?crop=entropy&cs=srgb&fm=jpg&w=1920&q=78&auto=format",
+        "CA": "https://images.unsplash.com/photo-1517935706615-2717063c2225?crop=entropy&cs=srgb&fm=jpg&w=1920&q=78&auto=format",
+        "NZ": "https://images.unsplash.com/photo-1677557769726-565a3034fa2c?crop=entropy&cs=srgb&fm=jpg&w=1920&q=78&auto=format",
+    }.get(cc, "")
+
+
+# Phase 19.1a — Per-country skill-level breakdown (for hub + country pages).
+async def _skill_level_breakdown(cc: str) -> List[Dict[str, Any]]:
+    cc = (cc or "").upper()
+    pipeline = [
+        {"$match": {"country_code": cc, "status": "verified", "skill_level": {"$nin": [None, ""]}}},
+        {"$group": {"_id": "$skill_level", "count": {"$sum": 1}}},
+        {"$sort": {"_id": 1}},
+    ]
+    out: List[Dict[str, Any]] = []
+    async for row in db["occupation_master"].aggregate(pipeline):
+        lvl = row.get("_id")
+        cnt = row.get("count", 0)
+        if lvl is None or cnt <= 0:
+            continue
+        try:
+            lvl_int = int(lvl)
+        except (TypeError, ValueError):
+            continue
+        out.append({"level": lvl_int, "count": cnt})
+    return out
+
+
+# Phase 19.1a — Visa pathway chips for occupation template.
+def _build_visa_pathway_chips(occ: Dict[str, Any], recommended: Optional[str]) -> List[Dict[str, Any]]:
+    chips: List[Dict[str, Any]] = []
+    pw = (occ.get("visa_pathways") or {})
+    for v in (pw.get("visa_eligibility") or []):
+        sub = v.get("visa_subclass")
+        if not sub:
+            continue
+        eligible = bool(v.get("eligible"))
+        cls = "ineligible"
+        if recommended and str(sub) == str(recommended):
+            cls = "recommended"
+        elif eligible:
+            cls = "eligible"
+        chips.append({"subclass": sub, "cls": cls, "notes": v.get("notes") or ""})
+    return chips
+
+
+def _pathway_list_pills(occ: Dict[str, Any]) -> List[str]:
+    """Split `pathway_list` like 'MLTSSL;CSOL' into individual pills."""
+    pls = (occ.get("visa_pathways") or {}).get("pathway_lists") or []
+    out: List[str] = []
+    if isinstance(pls, list):
+        for entry in pls:
+            for token in str(entry).replace(",", ";").split(";"):
+                t = token.strip()
+                if t and t not in out:
+                    out.append(t)
+    raw_pl = occ.get("pathway_list")
+    if raw_pl:
+        for token in str(raw_pl).replace(",", ";").split(";"):
+            t = token.strip()
+            if t and t not in out:
+                out.append(t)
+    return out
+
+
 def _days_since(dt: Any) -> Optional[int]:
     if not dt:
         return None
@@ -237,6 +306,9 @@ async def render_occupation_html(country_code: str, code: str) -> Optional[str]:
     rvs = occ.get("recommended_visa_subclass") or {}
     rec_visa = rvs.get(cc) if isinstance(rvs, dict) else None
 
+    visa_pathway_chips = _build_visa_pathway_chips(occ, rec_visa)
+    pathway_list_pills = _pathway_list_pills(occ)
+
     tmpl = _env.get_template("atlas_occupation_ssr.html")
     return tmpl.render(
         occ=occ,
@@ -255,6 +327,9 @@ async def render_occupation_html(country_code: str, code: str) -> Optional[str]:
         faq_jsonld=faq_jsonld,
         eligible_visas=eligible_visas,
         recommended_visa=rec_visa,
+        visa_pathway_chips=visa_pathway_chips,
+        pathway_list_pills=pathway_list_pills,
+        hero_image=_hero_image(cc),
         og_image=f"{base}/leamss-logo.png",
         now_iso=datetime.now(timezone.utc).isoformat(),
     )
@@ -269,15 +344,26 @@ async def render_country_index_html(country_code: str) -> str:
     top: List[Dict[str, Any]] = []
     async for o in db["occupation_master"].find(
         {"country_code": cc, "status": "verified"},
-        {"_id": 0, "code": 1, "title": 1, "assessing_authority": 1, "recommended_visa_subclass": 1, "anzsco_major_group_code": 1},
+        {"_id": 0, "code": 1, "title": 1, "assessing_authority": 1,
+         "recommended_visa_subclass": 1, "anzsco_major_group_code": 1,
+         "skill_level": 1, "teer_category": 1},
     ).sort("code", 1).limit(50):
+        # Flatten recommended_visa to a single string for the template
+        rvs = o.get("recommended_visa_subclass") or {}
+        if isinstance(rvs, dict):
+            o["recommended_visa"] = rvs.get(cc) or ""
+        else:
+            o["recommended_visa"] = ""
         top.append(o)
     total = await db["occupation_master"].count_documents({"country_code": cc, "status": "verified"})
+    skill_breakdown = await _skill_level_breakdown(cc)
 
     tmpl = _env.get_template("atlas_country_ssr.html")
     return tmpl.render(
         country=country, country_code=cc, country_code_lower=cc.lower(),
         page_url=page_url, base_url=base, top=top, total=total,
+        skill_level_breakdown=skill_breakdown,
+        hero_image=_hero_image(cc),
         og_image=f"{base}/leamss-logo.png",
         now_iso=datetime.now(timezone.utc).isoformat(),
     )
@@ -291,7 +377,14 @@ async def render_atlas_hub_html() -> str:
     for cc in ("AU", "CA", "NZ"):
         n = await db["occupation_master"].count_documents({"country_code": cc, "status": "verified"})
         meta = _country_meta(cc)
-        countries.append({"code": cc, "code_lower": cc.lower(), "name": meta["name"], "flag": meta["flag"], "classification": meta["classification"], "count": n})
+        skill_breakdown = await _skill_level_breakdown(cc)
+        countries.append({
+            "code": cc, "code_lower": cc.lower(),
+            "name": meta["name"], "flag": meta["flag"],
+            "classification": meta["classification"], "count": n,
+            "skill_level_breakdown": skill_breakdown,
+            "hero_image": _hero_image(cc),
+        })
 
     tmpl = _env.get_template("atlas_hub_ssr.html")
     return tmpl.render(

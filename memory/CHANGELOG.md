@@ -3,7 +3,154 @@
 This file appends every completed phase/feature with dates and verification status.
 
 ---
-### 🩹 Phase 19.0.1 — Fix: country/hub SSR not visible in browser + card click bypassing SSR (Jun 16, 2026)
+### 🎨 Phase 19.1a — V2 Visual Fidelity SSR Templates (Jun 16, 2026)
+
+**Goal:** Take the bot-friendly Phase 19 SSG and lift it to the visual level of the
+Phase 14 V2 React components — without losing any SSR plumbing, JSON-LD, or the
+Phase 19.0.1 file-first routing.
+
+#### Approved scope (Sir's verbatim decisions)
+
+| Decision | Choice |
+|---|---|
+| Salary display | Hide for now (data ZERO in DB — Phase 19.2 to scrape jsa.gov.au + ABS) |
+| JSA / processing-time / fees | Hide where empty (Phase 19.2 will scrape + 19.3 will surface) |
+| Brand wordmark | **Tricolor LEAMSS** — `LE` teal `#2a777a`, `AM` orange `#f7620b`, `SS` red `#d81f26`, dot forest `#1F4D44` |
+| Tagline strategy | Hub eyebrow + header pill *"India's Trusted Immigration Experts"*, hero subtitle *"India's Trusted Immigration Experts — We Value Emotions"*, trust strip *"100% Refund on Negative Skill Assessment or Visa Rejection"* |
+| Hero images | Unsplash CDN (Sydney Opera House / CN Tower / Auckland Sky Tower) |
+| Phase 19 SSR features | ALL preserved — verified pill, JSON-LD Occupation + FAQPage + BreadcrumbList, canonical, OG, Twitter |
+| Phase 19.0.1 routing fix | **100% preserved** — App.js, setupProxy.js untouched |
+
+#### A) Three Jinja2 templates rewritten for V2 visual fidelity
+
+**1. `backend/templates/atlas_hub_ssr.html` — full landing-page treatment**
+- Sticky white header with tricolor LEAMSS wordmark + "India's Trusted Immigration Experts" pill + nav (Migration Atlas / AI Quiz / Compare Visas / Free Eligibility CTA)
+- Full-bleed forest-green hero with offset burnt-orange radial gradients
+- Playfair Display 800 H1 — *"Your pathway to Australia, Canada & New Zealand"* with italic burnt-cream accent on the country names
+- Subtitle: *"India's Trusted Immigration Experts — We Value Emotions"* + brief value prop
+- Stats row: `1467` verified · `3` countries · `80+` visa categories · `Updated daily`
+- Primary CTA (burnt-orange pill) + outline secondary
+- 4-tile trust strip with 100% Refund / 80+ Visa Categories / 80,000+ Visas Processed / 4.9★ Google Reviews
+- 3 tall (340px) country cards with Unsplash landmark backgrounds, dark gradient overlay, classification mini-eyebrow, flag + name, per-country skill-level breakdown pills (CA: Level 0–5, NZ: Level 1–4), big burnt-orange verified count, hover lift + arrow
+- Mid-page forest-green "Take 60-second AI Quiz" CTA banner
+- Footer: 4-column grid (Brand / Atlas / Tools / Trust) + tricolor wordmark + © year
+
+**2. `backend/templates/atlas_country_ssr.html` — country landing**
+- Same sticky header
+- 46vh country hero with landmark Unsplash backdrop + dark gradient overlay (left-aligned text)
+- Breadcrumb · 3 glass pills (Classification · Verified count · Updated daily by LEAMSS) · Playfair H1 with flag emoji · "We Value Emotions" subtitle
+- **Skill-level breakdown chips** rendered from a new `_skill_level_breakdown(cc)` Mongo aggregation (e.g. CA → Level 0:48 · Level 1:97 · Level 2:162 · Level 3:69 · Level 4:95 · Level 5:45)
+- Live search box (`<input type="search">` with `<form method="get">`) — placeholder per country
+- "Browse occupations" section title + meta line "Showing top N of T"
+- 50 occupation cards in responsive 2/3/4-col grid: code chip (forest-green) + Playfair title + pill row (⭐ Recommended Visa · Skill Level / TEER · ✓ Verified) + bottom meta (assessing-body short name) + hover lift
+- Mid-page forest-green AI Quiz CTA banner referencing country
+- Same footer
+
+**3. `backend/templates/atlas_occupation_ssr.html` — occupation detail (the showpiece)**
+- Sticky header
+- Landmark hero with breadcrumb · code-mono pill + classification glass pill + ✓ Verified emerald pill + ⭐ Recommended visa amber pill (+ Green List Tier or TEER pill where applicable) · Playfair "Software Engineer" H1 · mono meta line including "India's Trusted Immigration Experts — We Value Emotions"
+- Two-column body: main content (1fr) + sticky right rail (380px)
+- Main content sections (in order, each as a `<article class="card">`):
+  1. **Eligibility & Classification** — metric grid (ANZSCO/NOC skill level, TEER for CA, Assessing Body short_name with processing-time sub when available, Required Documents count) + assessing body full_name + official site link
+  2. **About this occupation** — full description, white-space:pre-line
+  3. **Typical tasks performed** — numbered list (max 10) with Playfair numbered tiles
+  4. **Qualification rules** — cream-tinted card
+  5. **Visa Pathways** — colored chips (recommended=amber-bordered with ⭐ + box-shadow halo, eligible=forest, ineligible=cream) + pathway-list pills (MLTSSL / CSOL / etc.) — built by new `_build_visa_pathway_chips()` + `_pathway_list_pills()` helpers
+  6. **🇨🇦 Express Entry (CA only)** — FSWP / CEC / FSTP tiles + category-based pills (when present)
+  7. **🇳🇿 AEWV + SMC (NZ only)** — work-visa band + max stay + residency skill points + green-list pass
+  8. **Required Documents** — first 4 visible, "+N more documents" `<details>` toggle to see the rest, each with 📄 icon + name + category badge
+  9. **FAQ** — `<details>` accordion (first open), `+` toggle indicator that rotates to ×
+  10. **Similar occupations** — 4–6 sim-cards in same anzsco_4digit_code
+- **Sticky right-rail lead form** (V2 win) — Full name · Email · Phone (WhatsApp preferred) · Notes textarea · hidden atlas_code/title/country fields · "Get my pathway plan →" submit · privacy footer linking to `/privacy`
+- Bottom CTA banner + same footer
+
+#### B) `backend/templates/_macros/brand.html` — reusable tricolor macro
+
+Created `{% from "_macros/brand.html" import leamss_logo %}` for any future template (kept inline in current 3 templates for zero-runtime indirection).
+
+#### C) `backend/routers/seo_ssg.py` data-context enrichments
+
+Added helpers and updated all three render functions:
+- `_hero_image(cc)` — returns Unsplash landmark URL (matches V2 React COUNTRY_HERO map)
+- `_skill_level_breakdown(cc)` — Mongo `$group` aggregation by `skill_level` filtering `None`
+- `_build_visa_pathway_chips(occ, recommended)` — emits `{subclass, cls, notes}` for the template; `cls ∈ recommended | eligible | ineligible`
+- `_pathway_list_pills(occ)` — splits `MLTSSL;CSOL` etc. into deduped pills
+- `render_country_index_html()` — top-50 query now also pulls `skill_level`, `teer_category` and flattens `recommended_visa_subclass[cc]` to a string per item
+- `render_atlas_hub_html()` — countries list now includes `skill_level_breakdown` + `hero_image`
+- `render_occupation_html()` — adds `visa_pathway_chips`, `pathway_list_pills`, `hero_image` to template context
+
+#### D) Critical preservation rules (verified by tests)
+- `App.js` — **untouched** (V2 React routes stay removed)
+- `frontend/src/setupProxy.js` — **untouched** (file-first routing intact)
+- `seo_ssg.py` render-function signatures — **unchanged** (only context dict expanded)
+- React bundle hydration `<div id="root"></div>` at bottom of every template — preserved
+- Initial regeneration `POST /api/seo-ssg/regenerate-all` re-baked all 1,471 files
+
+#### E) Initial regeneration (V2 fidelity)
+
+| Metric | Value |
+|---|---|
+| Occupation pages written | **1,467** |
+| Country index pages | 3 |
+| Hub page | 1 |
+| **Total files on disk** | **1,471** |
+| Sitemap URL count | 1,473 |
+| Full-sweep duration | **3,956 ms** (~2.7 ms/page) |
+| Per-occupation render errors | **0** |
+| Avg file size | hub ~19.5 KB · country ~40.7 KB · occupation ~34.6 KB |
+
+#### F) 10 new tests (24-33) + 1 updated
+
+`backend/tests/test_phase19_seo_ssg.py`:
+- **24.** Hub renders tricolor LEAMSS wordmark (all 3 hex colors + `>LE<`/`>AM<`/`>SS<` tokens)
+- **25.** Hub country cards have ≥3 Unsplash landmark image references
+- **26.** Hub shows verified counts (708/516/243) + "verified occupations"
+- **27.** Country page has `<input type="search">` + placeholder "Search Australia occupations"
+- **28.** Country page shows skill-level breakdown chips (≥3, tested on CA which has 6 levels — AU's `skill_level` is sparse pending Phase 19.2 scrape)
+- **29.** Occupation page has sticky `<form class="lead-form">` with `name="name"` + `name="email"` + `name="phone"` + `data-testid="lead-submit"`
+- **30.** Hero subtitle contains both *"India's Trusted Immigration Experts"* AND *"We Value Emotions"* on hub + occupation
+- **31.** Trust strip contains *"100% Refund"* + *"Negative"*
+- **32.** Phase 19 SSR features preserved (verified pill + JSON-LD Occupation/BreadcrumbList/FAQPage + `<details>` FAQ markup + canonical)
+- **33.** All 3 surfaces (hub / country / occupation) serve V2-fidelity tokens (tricolor + Playfair Display + footer signature)
+- **23 updated** — removed `"We Value Emotions"` from forbidden-legacy-tokens list (Sir explicitly approved its return in the hero subtitle)
+
+#### G) Triple-Confirmation Gate — ALL GREEN
+
+1. ✅ **pytest:** **175 passed**, 2 skipped, 0 failed (target was 175+) — 33 Phase 19/19.0.1/19.1a + Phase 17/18 regression intact in 51s
+2. ✅ **Curl matrix on 6 URLs** (Googlebot UA, follow-redirects):
+   ```
+   /atlas              ✅ · tricolor:✓ · unsplash:4 · Playfair:9  · 'We Value':1 · '100% Refund':2 · 19553 b
+   /atlas/             ✅ · tricolor:✓ · unsplash:4 · Playfair:9  · 'We Value':1 · '100% Refund':2 · 19553 b
+   /atlas/au           ✅ · tricolor:✓ · unsplash:2 · Playfair:7  · 'We Value':1 · '100% Refund':2 · 40734 b
+   /atlas/au/          ✅ · tricolor:✓ · unsplash:2 · Playfair:7  · 'We Value':1 · '100% Refund':2 · 40734 b
+   /atlas/au/261313    ✅ · tricolor:✓ · unsplash:2 · Playfair:10 · 'We Value':1 · '100% Refund':2 · 34653 b
+   /atlas/au/261313/   ✅ · tricolor:✓ · unsplash:2 · Playfair:10 · 'We Value':1 · '100% Refund':2 · 34653 b
+   ```
+3. ✅ **Playwright screenshots (3)**:
+   - `/atlas/` — tricolor LEAMSS logo + "India's Trusted Immigration Experts" pill + Playfair "Your pathway to **Australia, Canada & New Zealand.**" H1 (italic burnt-cream accent) + subtitle with "We Value Emotions" + stats (1467/3/80+/Updated daily) + 4-item trust strip ("100% Refund on Negative Skill Assessment or Visa Rejection" first) + "BROWSE BY COUNTRY" eyebrow above country cards
+   - `/atlas/ca/` — Toronto CN Tower landmark backdrop · breadcrumb · NOC Classification + 516 Verified + Updated daily glass pills · 🇨🇦 Canada Migration Atlas Playfair H1 · "We Value Emotions" subtitle · 6 skill-level chips (Level 0:48 · Level 1:97 · Level 2:162 · Level 3:69 · Level 4:95 · Level 5:45) · search input · 50 occupation cards (NOC 00010 Legislators / 00011 / 00012) with TEER 0 + ✓ Verified pills
+   - `/atlas/au/261313/` — Sydney Opera House landmark hero · breadcrumb · ANZSCO 261313 mono + Classification + ✓ Verified pills · Playfair "Software Engineer" H1 · "India's Trusted Immigration Experts — We Value Emotions" mono meta · 3-tile metric grid (Level 1 · ACS · 16 docs) · About this occupation (full description) · Typical tasks · 11 visa chips (189/190/407/485/489/491/494/482/186) · 6 similar occupations · 2 JSON-LD blocks (Occupation + FAQPage) · **sticky right-rail "Free Consultation" lead form** (Full name · Email · Phone · Notes · "Get my pathway plan →") · privacy footer
+
+#### H) Files changed
+
+- **REWRITTEN:** `backend/templates/atlas_hub_ssr.html` · `backend/templates/atlas_country_ssr.html` · `backend/templates/atlas_occupation_ssr.html`
+- **NEW:** `backend/templates/_macros/brand.html` (tricolor wordmark macro)
+- **UPDATED:** `backend/routers/seo_ssg.py` (4 new helpers + 3 render context expansions)
+- **UPDATED:** `backend/tests/test_phase19_seo_ssg.py` (tests 24-33 added, test 23 forbidden-token list updated)
+- **REGENERATED:** all 1,471 files at `frontend/public/atlas/...` + `frontend/public/sitemap.xml`
+- **NOT TOUCHED (per Sir's preservation rules):** `frontend/src/App.js` · `frontend/src/setupProxy.js` · `frontend/src/pages/LeamssPublic.jsx`
+
+#### I) Why this matters
+
+Before Phase 19.1a: bots saw 1,471 functional SSG pages with plain mid-fidelity styling. Humans landing via direct URL or refresh got the same plain treatment. Visual gap with Phase 14 V2 React was wide enough that Sir noticed it as soon as he clicked from the React-loaded SPA.
+
+After Phase 19.1a: every `/atlas/*` HTML file is now **brand-consistent, editorial-grade, conversion-tuned**. The tricolor LEAMSS wordmark, "We Value Emotions" emotional pull, "100% Refund" trust hammer, landmark imagery, and sticky lead form per occupation are all rendered **server-side**, before any JS executes. Googlebot, Twitter Card preview, Open Graph previews, and the user's first paint all see the same polished result.
+
+Phase 19.2 (planned) will scrape jsa.gov.au + assessing-body sites for salary, processing-time and fees. Phase 19.3 (planned) will surface that data in the existing template slots already wired up. The current templates gracefully render "—" or hide entire sections when data is absent, so 19.2/19.3 will be additive, not disruptive.
+
+---
+
+### 🩹 Phase 19.0.1 — Country/hub SSR not visible in browser + card click bypassing SSR (Jun 16, 2026)
 
 Sir reported via 2 screenshots that `/atlas/au` and `/atlas/au/{code}` clicked from the SPA showed the **legacy `AtlasCountryV2.jsx` / `AtlasOccupationV2.jsx` design** (old "LEAMS We Value Emotions" header), while the new Phase 19 SSR template only appeared on direct URL visits to occupation pages. Two distinct designs depending on entry path = broken UX.
 

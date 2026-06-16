@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
-<title>{{ country.name }} Migration Atlas — {{ total }} Verified {{ country.classification }} Occupations | LEAMSS</title>
-<meta name="description" content="Browse {{ total }} verified {{ country.classification }} occupations for {{ country.name }} skilled migration. Independent eligibility, points, assessment authority and visa pathway data — curated by LEAMSS migration experts.">
+<title>{{ country.name }} Skilled Migration Atlas — {{ total }} Verified {{ country.classification }} Occupations | LEAMSS</title>
+<meta name="description" content="Browse {{ total }} verified {{ country.classification }} occupations for {{ country.name }} skilled migration. Independent eligibility, points, assessing authority and visa pathway data &mdash; curated by LEAMSS migration experts.">
 <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
 <meta name="theme-color" content="#1F4D44">
 <link rel="canonical" href="{{ page_url }}">
@@ -22,123 +22,243 @@
 <meta name="twitter:image" content="{{ og_image }}">
 <script type="application/ld+json">
 {
-  "@context": "https://schema.org",
-  "@type": "CollectionPage",
-  "name": "{{ country.name }} Migration Atlas",
-  "url": "{{ page_url }}",
-  "description": "Verified {{ country.classification }} occupations for {{ country.name }} skilled migration.",
-  "isPartOf": {"@type":"WebSite","name":"LEAMSS","url":"{{ base_url }}"},
-  "publisher": {"@type":"Organization","name":"LEAMSS","logo":"{{ og_image }}"}
+  "@context":"https://schema.org",
+  "@type":"CollectionPage",
+  "name":"{{ country.name }} Migration Atlas",
+  "url":"{{ page_url }}",
+  "description":"Verified {{ country.classification }} occupations for {{ country.name }} skilled migration.",
+  "isPartOf":{"@type":"WebSite","name":"LEAMSS","url":"{{ base_url }}"},
+  "publisher":{"@type":"Organization","name":"LEAMSS","logo":"{{ og_image }}"},
+  "breadcrumb":{"@type":"BreadcrumbList","itemListElement":[
+    {"@type":"ListItem","position":1,"name":"Home","item":"{{ base_url }}/"},
+    {"@type":"ListItem","position":2,"name":"Migration Atlas","item":"{{ base_url }}/atlas"},
+    {"@type":"ListItem","position":3,"name":"{{ country.name }}","item":"{{ page_url }}"}
+  ]}
 }
 </script>
+<link rel="preconnect" href="https://images.unsplash.com">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  :root { --forest:#1F4D44; --forest-dark:#173B34; --burnt:#D4633F; --warm:#FAFAF7; --cream:#F5F2EC; --ink:#1f2937; --muted:#6b7280; --border:#e5e7eb; }
-  *{box-sizing:border-box}
-  html,body{margin:0;padding:0;background:var(--warm);color:var(--ink);font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;line-height:1.55}
-  a{color:var(--burnt);text-decoration:none}a:hover{text-decoration:underline}
-  .container{max-width:1100px;margin:0 auto;padding:0 1rem}
-  header.top{background:#fff;border-bottom:1px solid var(--border);padding:14px 0}
-  .nav-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
-  .logo{font-family:'Playfair Display',Georgia,serif;font-weight:700;font-size:22px;color:var(--forest);letter-spacing:-.5px}
-  .logo .accent{color:var(--burnt)}
-  .nav-links{display:flex;gap:1.2rem;font-size:14px}.nav-links a{color:var(--ink)}
-  .hero{background:linear-gradient(135deg,#FFF8F2 0%,#FFFFFF 70%);padding:40px 0 28px;border-bottom:1px solid var(--border)}
-  .breadcrumb{font-size:12px;color:var(--muted);margin-bottom:12px}
-  .breadcrumb a{color:var(--muted)}.breadcrumb .sep{margin:0 6px}
-  .hero-flag{font-size:32px;margin-right:8px;vertical-align:middle}
-  h1.hero-title{font-family:'Playfair Display',Georgia,serif;color:var(--forest-dark);font-size:42px;font-weight:700;line-height:1.1;margin:6px 0 12px}
-  .hero-lead{font-size:16px;color:var(--ink);max-width:720px;margin:0 0 14px}
-  .pill{display:inline-block;padding:5px 12px;border-radius:999px;font-size:12px;font-weight:600}
-  .pill-forest{background:var(--forest);color:#fff}
-  .pill-emerald{background:#d1fae5;color:#065f46}
-  section{padding:28px 0}
-  h2{font-family:'Playfair Display',Georgia,serif;color:var(--forest-dark);font-size:26px;margin:0 0 14px}
-  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
-  .card{background:#fff;border:1px solid var(--border);border-radius:8px;padding:16px 18px;transition:all .15s}
-  .card:hover{border-color:var(--forest);box-shadow:0 6px 16px rgba(31,77,68,.08);transform:translateY(-1px)}
-  .card .code{font-family:'Courier New',monospace;font-weight:700;color:var(--forest);font-size:13px;letter-spacing:.5px;margin-bottom:6px}
-  .card .title{font-size:15px;font-weight:600;color:var(--ink);margin-bottom:6px;line-height:1.35}
-  .card .meta{font-size:12px;color:var(--muted)}
-  .card a{color:inherit;text-decoration:none;display:block}
-  .cta-block{background:var(--forest);color:#fff;border-radius:12px;padding:30px 28px;margin:22px 0;text-align:center}
-  .cta-block h2{color:#fff}
-  .cta-btn{display:inline-block;background:var(--burnt);color:#fff;padding:12px 28px;border-radius:999px;font-weight:700;font-size:15px;margin-top:8px}
-  footer{background:#fff;border-top:1px solid var(--border);padding:22px 0;color:var(--muted);font-size:12px}
-  footer a{color:var(--muted)}
-  .footer-grid{display:flex;flex-wrap:wrap;gap:20px;justify-content:space-between}
-  @media (max-width:640px){h1.hero-title{font-size:30px}h2{font-size:21px}}
+:root { --forest:#1F4D44; --forest-dark:#13332D; --burnt:#D4633F; --burnt-dark:#B85333; --warm:#FCFAF7; --cream:#F5F2EC; --ink:#1A2A30; --body:#2D3D45; --muted:#5C737D; --border:#E5EBE9; }
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--warm);color:var(--ink);font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;line-height:1.55}
+a{color:var(--burnt);text-decoration:none}a:hover{text-decoration:underline}
+.container{max-width:1240px;margin:0 auto;padding:0 1.25rem}
+.serif{font-family:'Playfair Display',Georgia,serif}
+.site-header{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.94);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.site-header .row{display:flex;align-items:center;justify-content:space-between;padding:14px 0;gap:1rem;flex-wrap:wrap}
+.brand-wordmark{font-family:'Playfair Display',Georgia,serif;font-weight:800;font-size:24px;letter-spacing:-.5px;line-height:1}
+.nav-links{display:flex;gap:1.5rem;font-size:14px;font-weight:500;align-items:center}
+.nav-links a{color:var(--ink)}.nav-links a:hover{color:var(--burnt)}
+.btn{display:inline-flex;align-items:center;gap:.5rem;padding:10px 22px;border-radius:999px;font-size:14px;font-weight:700;cursor:pointer;border:none;transition:transform .15s,box-shadow .15s;text-decoration:none}
+.btn:hover{transform:translateY(-1px);box-shadow:0 6px 14px rgba(31,77,68,.18);text-decoration:none}
+.btn-primary{background:var(--burnt);color:#fff}.btn-primary:hover{background:var(--burnt-dark);color:#fff}
+.btn-secondary{background:#fff;color:var(--forest);border:1.5px solid var(--forest)}
+.btn-secondary:hover{background:var(--cream);color:var(--forest)}
+/* Country hero with landmark */
+.country-hero{position:relative;overflow:hidden;height:46vh;min-height:380px;color:#fff;display:flex;align-items:flex-end}
+.country-hero .bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.country-hero .overlay{position:absolute;inset:0;background:linear-gradient(to right,rgba(19,51,45,.92) 0%,rgba(19,51,45,.78) 45%,rgba(19,51,45,.4) 100%)}
+.country-hero .content{position:relative;z-index:2;padding:40px 0 48px;width:100%}
+.breadcrumb{font-size:12px;color:rgba(255,255,255,.85);margin-bottom:14px}
+.breadcrumb a{color:rgba(255,255,255,.85)}
+.breadcrumb a:hover{color:#fff;text-decoration:underline}
+.breadcrumb .sep{margin:0 6px;opacity:.6}
+.hero-pills{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.pill{display:inline-block;padding:5px 13px;border-radius:999px;font-size:12px;font-weight:600;letter-spacing:.02em}
+.pill-glass{background:rgba(255,255,255,.18);color:#fff;backdrop-filter:blur(4px);border:1px solid rgba(255,255,255,.15)}
+.pill-emerald{background:#d1fae5;color:#065f46}
+.pill-amber{background:#fef3c7;color:#92400e}
+.pill-slate{background:#f1f5f9;color:#334155}
+.pill-forest-on-light{background:var(--cream);color:var(--forest-dark)}
+h1.country-h1{font-family:'Playfair Display',Georgia,serif;font-size:clamp(36px,5vw,62px);font-weight:800;line-height:1.04;letter-spacing:-.02em;margin-bottom:12px}
+h1.country-h1 .flag{margin-right:10px;font-size:.9em;vertical-align:baseline}
+.country-meta{font-size:15px;color:rgba(255,255,255,.92);margin-bottom:14px;line-height:1.5}
+.level-pills-light{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:10px}
+.level-pills-light .lp{display:inline-block;background:rgba(255,255,255,.16);color:#fff;padding:5px 12px;border-radius:999px;font-size:12px;font-weight:600;backdrop-filter:blur(4px);border:1px solid rgba(255,255,255,.12)}
+/* Search */
+.search-bar{margin:24px 0 20px;background:#fff;border:1.5px solid var(--border);border-radius:14px;padding:6px 6px 6px 18px;display:flex;align-items:center;gap:10px;box-shadow:0 4px 18px rgba(31,77,68,.05);max-width:680px}
+.search-bar input{flex:1;outline:none;border:none;padding:12px 6px;font-size:15px;color:var(--ink);background:transparent;font-family:inherit}
+.search-bar input::placeholder{color:var(--muted)}
+.search-bar .ic{color:var(--muted);font-size:18px;flex-shrink:0}
+/* Section */
+section.section{padding:48px 0}
+.section-title-row{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:14px;margin-bottom:24px}
+h2.section-title{font-family:'Playfair Display',Georgia,serif;font-size:clamp(24px,2.6vw,32px);font-weight:700;color:var(--ink);line-height:1.2}
+.section-title-meta{font-size:13px;color:var(--muted)}
+/* Occupation grid */
+.occ-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:18px}
+.occ-card{position:relative;background:#fff;border:1px solid var(--border);border-radius:14px;padding:20px 22px;transition:transform .18s,box-shadow .18s,border-color .18s;display:block;text-decoration:none;color:inherit}
+.occ-card:hover{transform:translateY(-3px);box-shadow:0 12px 28px rgba(31,77,68,.1);border-color:var(--forest);text-decoration:none;color:inherit}
+.occ-card .code-chip{display:inline-block;background:var(--forest);color:#fff;padding:4px 11px;border-radius:6px;font-family:'Courier New',monospace;font-size:12px;font-weight:700;letter-spacing:.04em;margin-bottom:10px}
+.occ-card .title{font-family:'Playfair Display',Georgia,serif;font-size:17px;font-weight:700;color:var(--ink);line-height:1.35;margin-bottom:10px;min-height:46px}
+.occ-card .pill-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.occ-card .pill-sm{display:inline-block;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:600}
+.occ-card .pill-sm-amber{background:#fef3c7;color:#92400e}
+.occ-card .pill-sm-slate{background:#f1f5f9;color:#475569}
+.occ-card .pill-sm-emerald{background:#d1fae5;color:#065f46}
+.occ-card .meta{font-size:12px;color:var(--muted);display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border);padding-top:10px}
+.occ-card .arrow{font-size:18px;color:var(--burnt);transition:transform .2s}
+.occ-card:hover .arrow{transform:translate(3px,-3px)}
+/* Mid CTA */
+.mid-cta{position:relative;background:var(--forest);color:#fff;border-radius:24px;padding:40px;margin:40px 0;overflow:hidden}
+.mid-cta::before{content:"";position:absolute;top:-80px;right:-60px;width:300px;height:300px;background:radial-gradient(circle,rgba(212,99,63,.3),transparent 70%);pointer-events:none}
+.mid-cta-inner{position:relative;z-index:2;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:20px}
+.mid-cta h3{font-family:'Playfair Display',Georgia,serif;font-size:26px;font-weight:700;color:#fff;margin-bottom:6px}
+.mid-cta p{color:rgba(255,255,255,.9);font-size:14px;max-width:480px}
+/* Footer */
+footer{background:#fff;border-top:1px solid var(--border);padding:42px 0 28px;color:var(--muted);font-size:13px;margin-top:40px}
+footer .footer-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:32px;margin-bottom:24px}
+footer h4{font-family:'Playfair Display',Georgia,serif;color:var(--ink);font-size:15px;font-weight:700;margin-bottom:10px}
+footer ul{list-style:none}footer ul li{margin:5px 0}
+footer a{color:var(--muted)}footer a:hover{color:var(--burnt)}
+.footer-bottom{border-top:1px solid var(--border);padding-top:18px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:14px}
+@media(max-width:640px){h1.country-h1{font-size:34px}.country-hero{min-height:320px}.occ-grid{grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}.mid-cta{padding:28px 22px}.mid-cta-inner{flex-direction:column;align-items:flex-start}}
 </style>
 </head>
 <body>
-<header class="top">
-  <div class="container nav-row">
-    <a href="/" class="logo">LEAMSS<span class="accent">.</span></a>
+
+<header class="site-header">
+  <div class="container row">
+    <a href="/" class="brand-wordmark" aria-label="LEAMSS"><span style="color:#2a777a">LE</span><span style="color:#f7620b">AM</span><span style="color:#d81f26">SS</span><span style="color:#1F4D44">.</span></a>
     <nav class="nav-links">
-      <a href="/atlas">Migration Atlas</a>
-      <a href="/atlas/au">Australia</a>
-      <a href="/atlas/ca">Canada</a>
-      <a href="/atlas/nz">New Zealand</a>
-      <a href="/start">Free Eligibility Check</a>
+      <a href="/atlas/">Migration Atlas</a>
+      <a href="/atlas/au/">🇦🇺 AU</a>
+      <a href="/atlas/ca/">🇨🇦 CA</a>
+      <a href="/atlas/nz/">🇳🇿 NZ</a>
+      <a class="btn btn-primary" href="/start">Free Eligibility Check</a>
     </nav>
   </div>
 </header>
 
-<section class="hero">
-  <div class="container">
-    <div class="breadcrumb">
-      <a href="/">Home</a><span class="sep">›</span>
-      <a href="/atlas">Atlas</a><span class="sep">›</span>
-      <span>{{ country.name }}</span>
+<section class="country-hero" aria-labelledby="country-h1">
+  <img class="bg" src="{{ hero_image }}" alt="{{ country.name }} landmark" loading="eager" fetchpriority="high">
+  <div class="overlay"></div>
+  <div class="content">
+    <div class="container">
+      <div class="breadcrumb">
+        <a href="/">Home</a><span class="sep">›</span>
+        <a href="/atlas/">Atlas</a><span class="sep">›</span>
+        <span>{{ country.name }}</span>
+      </div>
+      <div class="hero-pills">
+        <span class="pill pill-glass">{{ country.classification }} Classification</span>
+        <span class="pill pill-glass">{{ total }} Verified Occupations</span>
+        <span class="pill pill-glass">Updated daily by LEAMSS</span>
+      </div>
+      <h1 id="country-h1" class="country-h1"><span class="flag">{{ country.flag }}</span>{{ country.name }} Migration Atlas</h1>
+      <p class="country-meta">{{ total }} verified {{ country.classification }} occupations &mdash; independent eligibility, points, assessing authority and visa pathways. India&rsquo;s Trusted Immigration Experts &mdash; We Value Emotions.</p>
+      {% if skill_level_breakdown %}
+      <div class="level-pills-light" aria-label="Skill level breakdown">
+        {% for sl in skill_level_breakdown %}
+        <span class="lp">Level {{ sl.level }}: {{ sl.count }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
     </div>
-    <div><span class="hero-flag">{{ country.flag }}</span><span class="pill pill-forest">{{ country.classification }}</span></div>
-    <h1 class="hero-title">{{ country.name }} Migration Atlas</h1>
-    <p class="hero-lead">{{ total }} verified {{ country.classification }} occupations — eligibility, points, assessing authority and visa pathways. Curated and reviewed by LEAMSS migration experts.</p>
-    <span class="pill pill-emerald">✓ {{ total }} verified occupations</span>
   </div>
 </section>
 
-<section>
+<section class="section">
   <div class="container">
-    <h2>Browse occupations</h2>
-    <div class="grid">
+    <form role="search" class="search-bar" action="/atlas/{{ country_code_lower }}/" method="get" aria-label="Search occupations">
+      <span class="ic" aria-hidden="true">🔍</span>
+      <input type="search" name="q" placeholder="Search {{ country.name }} occupations — e.g., 261313 or Software Engineer" autocomplete="off" data-testid="atlas-country-search">
+      <button class="btn btn-primary" type="submit" aria-label="Search">Search</button>
+    </form>
+
+    <div class="section-title-row">
+      <h2 class="section-title">Browse occupations</h2>
+      <span class="section-title-meta">Showing top {{ top|length }} of {{ total }} verified · sorted by code</span>
+    </div>
+
+    <div class="occ-grid">
       {% for o in top %}
-      <div class="card">
-        <a href="/atlas/{{ country_code_lower }}/{{ o.code }}">
-          <div class="code">{{ country.classification }} {{ o.code }}</div>
-          <div class="title">{{ o.title or '—' }}</div>
-          <div class="meta">
+      <a class="occ-card" href="/atlas/{{ country_code_lower }}/{{ o.code }}/" data-testid="occ-card-{{ o.code }}">
+        <div class="code-chip">{{ country.classification }} {{ o.code }}</div>
+        <div class="title">{{ o.title or '—' }}</div>
+        <div class="pill-row">
+          {% if o.recommended_visa %}
+            <span class="pill-sm pill-sm-amber">⭐ Recommended visa · {{ o.recommended_visa }}</span>
+          {% endif %}
+          {% if o.skill_level %}
+            <span class="pill-sm pill-sm-slate">Skill Level {{ o.skill_level }}</span>
+          {% elif o.teer_category is defined and o.teer_category is not none %}
+            <span class="pill-sm pill-sm-slate">TEER {{ o.teer_category }}</span>
+          {% endif %}
+          <span class="pill-sm pill-sm-emerald">✓ Verified</span>
+        </div>
+        <div class="meta">
+          <span>
             {% if o.assessing_authority and o.assessing_authority.name %}
-              {{ o.assessing_authority.name }}
+              {{ o.assessing_authority.name[:30] }}{% if o.assessing_authority.name|length > 30 %}…{% endif %}
             {% elif o.anzsco_major_group_code %}
               Major group {{ o.anzsco_major_group_code }}
             {% else %}
-              Verified by LEAMSS
+              LEAMSS verified
             {% endif %}
-          </div>
-        </a>
-      </div>
+          </span>
+          <span class="arrow" aria-hidden="true">↗</span>
+        </div>
+      </a>
       {% endfor %}
     </div>
-    {% if total > top|length %}
-      <p style="text-align:center;margin-top:18px;color:var(--muted);font-size:13px;">Showing top {{ top|length }} of {{ total }} verified occupations. <a href="/start" style="color:var(--burnt);">Talk to an expert →</a></p>
-    {% endif %}
-  </div>
-</section>
 
-<section>
-  <div class="container">
-    <div class="cta-block">
-      <h2 style="margin-top:0;">Not sure which occupation fits you?</h2>
-      <p style="opacity:.92;margin:8px 0 18px;">Free 60-second AI eligibility check across {{ country.name }} pathways · 100% refund guarantee on negative skill assessment.</p>
-      <a href="/start" class="cta-btn">Start your free eligibility check →</a>
+    {% if total > top|length %}
+      <p style="text-align:center;margin-top:30px;color:var(--muted);font-size:14px;">Showing top {{ top|length }} of {{ total }} verified occupations. <a href="/start" style="color:var(--burnt);font-weight:600;">Talk to an expert →</a></p>
+    {% endif %}
+
+    <div class="mid-cta">
+      <div class="mid-cta-inner">
+        <div>
+          <h3>Not sure which occupation fits you?</h3>
+          <p>Take our free 60-second AI eligibility quiz across {{ country.name }}&rsquo;s pathways. No login. No spam. 100% Refund on Negative Assessment or Visa Rejection.</p>
+        </div>
+        <a class="btn btn-primary" href="/start">Start AI Quiz →</a>
+      </div>
     </div>
   </div>
 </section>
 
 <footer>
-  <div class="container footer-grid">
-    <div><strong style="color:var(--forest-dark);">LEAMSS</strong> · Ladhani Education & Migration Services<br>Migration consultancy since 2014 · support@leamss.com</div>
-    <div><a href="/atlas">Atlas</a> · <a href="/start">Eligibility</a> · <a href="/atlas/au">Australia</a> · <a href="/atlas/ca">Canada</a> · <a href="/atlas/nz">New Zealand</a></div>
+  <div class="container">
+    <div class="footer-grid">
+      <div>
+        <div class="brand-wordmark" style="font-size:22px;margin-bottom:10px"><span style="color:#2a777a">LE</span><span style="color:#f7620b">AM</span><span style="color:#d81f26">SS</span><span style="color:#1F4D44">.</span></div>
+        <div style="margin-bottom:8px;color:var(--body);font-weight:500">LEAMSS &mdash; Ladhani Education &amp; Migration Services</div>
+        Migration consultancy since 2014.<br>support@leamss.com
+      </div>
+      <div>
+        <h4>Migration Atlas</h4>
+        <ul>
+          <li><a href="/atlas/au/">🇦🇺 Australia</a></li>
+          <li><a href="/atlas/ca/">🇨🇦 Canada</a></li>
+          <li><a href="/atlas/nz/">🇳🇿 New Zealand</a></li>
+          <li><a href="/sitemap.xml">Sitemap</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Tools</h4>
+        <ul>
+          <li><a href="/start">Free Eligibility Quiz</a></li>
+          <li><a href="/start#compare">Compare Visas</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Trust</h4>
+        <ul>
+          <li>100% Refund on Negative Assessment</li>
+          <li>MARA-registered network</li>
+          <li>4.9/5 Google Reviews</li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>&copy; {{ now_iso[:4] }} LEAMSS &mdash; Ladhani Education &amp; Migration Services. All rights reserved.</span>
+      <span>India&rsquo;s Trusted Immigration Experts</span>
+    </div>
   </div>
 </footer>
 

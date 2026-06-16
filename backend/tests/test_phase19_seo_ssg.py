@@ -406,7 +406,122 @@ def test_23_all_atlas_pages_use_leamss_brand():
         assert "LEAMSS" in html, f"{f} missing LEAMSS brand"
         # legacy "LEAMS " (with trailing space) or "LEAMS<" tags should not appear
         # (LEAMSS itself contains "LEAMS" as substring — guard against false positives)
-        legacy_tokens = ['"LEAMS"', '>LEAMS<', 'LEAMS &', 'We Value Emotions']
+        # NOTE: "We Value Emotions" is intentionally allowed in Phase 19.1a (Sir-approved
+        # hero subtitle).
+        legacy_tokens = ['"LEAMS"', '>LEAMS<', 'LEAMS &']
         for t in legacy_tokens:
             assert t not in html, f"{f} contains legacy brand token {t!r}"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 19.1a — V2 visual fidelity SSR templates
+# ─────────────────────────────────────────────────────────────────────────────
+
+# 24. Hub page renders tricolor LEAMSS wordmark (LE teal + AM orange + SS red)
+def test_24_hub_renders_tricolor_logo():
+    status, html = _fetch_fe("/atlas/")
+    assert status == 200
+    # All 3 brand colors must appear in same HTML
+    assert "#2a777a" in html, "LE teal color missing"
+    assert "#f7620b" in html, "AM orange color missing"
+    assert "#d81f26" in html, "SS red color missing"
+    # And the wordmark structure
+    assert ">LE<" in html and ">AM<" in html and ">SS<" in html
+
+
+# 25. Hub country cards have Unsplash landmark images (3 cards)
+def test_25_country_cards_have_landmark_images():
+    status, html = _fetch_fe("/atlas/")
+    assert status == 200
+    # At least 3 Unsplash image URLs
+    unsplash_count = html.count("images.unsplash.com")
+    assert unsplash_count >= 3, f"only {unsplash_count} Unsplash references"
+
+
+# 26. Hub shows verified counts on country cards (708/516/243)
+def test_26_country_cards_show_verified_count():
+    status, html = _fetch_fe("/atlas/")
+    assert status == 200
+    # At least one of the verified counts must appear in the big-stat block
+    found_any = any(s in html for s in ("708", "516", "243"))
+    assert found_any, "no verified counts (708/516/243) in hub HTML"
+    assert "verified occupations" in html
+
+
+# 27. Country page has a search box (input type="search")
+def test_27_country_page_has_search_box():
+    status, html = _fetch_fe("/atlas/au/")
+    assert status == 200
+    assert 'type="search"' in html
+    assert "Search Australia occupations" in html
+
+
+# 28. Country page shows skill-level breakdown chips (≥3 distinct levels — CA has 6)
+def test_28_country_page_shows_skill_level_chips():
+    # Use CA (NOC TEER) — has skill_level 0-5 populated; AU's skill_level is sparse
+    # (Phase 19.2 will scrape AU skill levels)
+    status, html = _fetch_fe("/atlas/ca/")
+    assert status == 200
+    # Count "Level N:" patterns in skill-level breakdown
+    import re
+    matches = re.findall(r"Level \d+:\s*\d+", html)
+    assert len(matches) >= 3, f"only {len(matches)} skill-level chips found"
+
+
+# 29. Occupation page has sticky lead form with name/email/phone inputs
+def test_29_occupation_page_has_lead_form():
+    status, html = _fetch_fe("/atlas/au/111111/")
+    assert status == 200
+    assert "<form" in html
+    assert 'name="name"' in html
+    assert 'name="email"' in html
+    assert 'name="phone"' in html
+    assert 'data-testid="lead-submit"' in html
+
+
+# 30. Hero subtitle contains both tagline phrases
+def test_30_hero_has_tagline_phrases():
+    status, html = _fetch_fe("/atlas/")
+    assert status == 200
+    assert "India" in html and "Trusted Immigration Experts" in html
+    assert "We Value Emotions" in html
+    # Same on occupation page
+    _, html_occ = _fetch_fe("/atlas/au/111111/")
+    assert "We Value Emotions" in html_occ
+
+
+# 31. Trust strip on hub contains "100% Refund" phrase
+def test_31_trust_strip_has_refund_phrase():
+    status, html = _fetch_fe("/atlas/")
+    assert status == 200
+    assert "100% Refund" in html
+    assert "Negative" in html  # "Negative Skill Assessment or Visa Rejection"
+
+
+# 32. Phase 19 SSR features preserved (verified pill, JSON-LD blocks, FAQ markup)
+def test_32_phase_19_features_preserved():
+    status, html = _fetch_fe("/atlas/au/111111/")
+    assert status == 200
+    # Verified pill (any tone: emerald / amber / rose / slate)
+    assert "✓ Verified" in html or "Verified" in html
+    # JSON-LD blocks
+    assert "application/ld+json" in html
+    assert '"@type": "Occupation"' in html or '"@type":"Occupation"' in html
+    assert '"@type": "BreadcrumbList"' in html or '"@type":"BreadcrumbList"' in html
+    assert '"@type": "FAQPage"' in html or '"@type":"FAQPage"' in html
+    # FAQ accordion markup preserved
+    assert "<details" in html
+    # Canonical
+    assert 'rel="canonical"' in html
+
+
+# 33. setupProxy serves NEW V2-fidelity tokens (tricolor + landmark) not legacy plain template
+def test_33_setup_proxy_serves_new_templates():
+    for path in ("/atlas/", "/atlas/au/", "/atlas/au/111111/"):
+        _, html = _fetch_fe(path)
+        # New design markers (all 3 templates share these)
+        assert "#2a777a" in html, f"{path}: tricolor LE teal missing"
+        assert "Playfair Display" in html, f"{path}: Playfair font missing"
+        # No leftovers from the OLD simple template
+        assert "Migration consultancy since 2014" in html, f"{path}: footer missing"
 
