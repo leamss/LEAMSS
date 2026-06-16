@@ -110,6 +110,8 @@ from routers.feedback_requests import router as feedback_requests_router, ensure
 from routers.sales_compare import router as sales_compare_router
 # Phase 18.6 — Client-side error monitoring
 from routers.client_errors import router as client_errors_router, ensure_indexes as ensure_client_errors_indexes
+# Phase 19 — SEO SSG generator
+from routers.seo_ssg import router as seo_ssg_router, regenerate_all as ssg_regenerate_all
 # Phase 18.7 — Notification channels + digest scheduler
 from routers.notification_channels import (
     router as notification_channels_router,
@@ -289,6 +291,14 @@ async def startup():
                 global _digest_scheduler
                 _digest_scheduler = AsyncIOScheduler(timezone="UTC")
                 _digest_scheduler.add_job(run_digest_once, "interval", minutes=30, id="client_error_digest", replace_existing=True)
+                # Phase 19 — Nightly SEO SSG full sweep @ 03:00 UTC
+                from apscheduler.triggers.cron import CronTrigger
+                _digest_scheduler.add_job(
+                    ssg_regenerate_all,
+                    CronTrigger(hour=3, minute=0, timezone="UTC"),
+                    id="seo_ssg_nightly",
+                    replace_existing=True,
+                )
                 _digest_scheduler.start()
                 app.state.digest_scheduler = _digest_scheduler
                 print("[Phase18.7] Client-error digest scheduler started (30 min interval)")
@@ -485,7 +495,7 @@ for r in [targets_router, cost_structures_router, auth_router, users_router, pro
           cockpit_router, anz_intel_router, public_atlas_router,
           admin_public_pages_router, public_pages_read_router,
           feedback_requests_router, sales_compare_router, client_errors_router,
-          notification_channels_router]:
+          notification_channels_router, seo_ssg_router]:
     app.include_router(r, prefix="/api")
 
 

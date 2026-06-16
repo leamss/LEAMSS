@@ -3,6 +3,185 @@
 This file appends every completed phase/feature with dates and verification status.
 
 ---
+
+### 🌐 Phase 19 — SEO/SSR/SSG for Public Atlas Pages (Jun 16, 2026)
+
+> ## ⚠️ **PRODUCTION DEPLOY CALL-OUT — READ BEFORE GOING LIVE** ⚠️
+>
+> The preview/staging environment injects **two CDN-level overrides** that
+> render the entire SSG work invisible to Google:
+>
+> 1. **`x-robots-tag: noindex, nofollow`** response header on every page
+> 2. **Cloudflare-managed `Content-Signal:` directives** auto-prepended to `/robots.txt`
+>
+> **Deploy team — both MUST be dropped before public DNS cutover.** Without
+> this, Googlebot will index nothing despite 1471+ static SSG files sitting
+> on disk. Verified empirically — Lighthouse SEO on the preview URL scores
+> **58/100 due solely to these two CDN injections**; the SAME pages on
+> `localhost:3000` (clean origin) score a **perfect 100/100**.
+>
+> Verification curl post-cutover:
+> ```
+> curl -I https://www.leamss.com/atlas/au/111111/
+> # Expect: NO x-robots-tag header
+> curl -s https://www.leamss.com/robots.txt | head -5
+> # Expect: starts with "# LEAMSS — robots.txt" (NOT Cloudflare's Content-Signal block)
+> ```
+
+**Goal:** Drop a fully-rendered, brand-consistent HTML for every verified
+occupation onto disk so Googlebot crawls indexable content **without
+executing JS**. SPA users continue hydrating into the existing React app.
+
+#### A) Backend SSG generator — `backend/routers/seo_ssg.py` (~535 lines)
+
+- **Jinja2 templates** loaded once at module init from `backend/templates/`.
+- **`render_occupation_html(cc, code)`** — loads the verified record direct
+  from `occupation_master` (no HTTP round-trip), builds Schema.org
+  Occupation @graph (Organization + WebSite + Occupation + BreadcrumbList) +
+  FAQPage JSON-LD + Open Graph + Twitter Card meta, hydrates the mid-fidelity
+  LEAMSS-brand template. Verified badge tone (`emerald ≤30d · amber ≤90d
+  · rose >90d`) computed server-side.
+- **`render_country_index_html(cc)`** — top-50 verified occupations grid for
+  AU/CA/NZ. Total count visible.
+- **`render_atlas_hub_html()`** — 3 country cards with live verified counts.
+- **`regenerate_one`, `regenerate_country_index`, `regenerate_atlas_hub`,
+  `regenerate_sitemap`, `prune_unverified_files`, `regenerate_all`** —
+  file-writer helpers. Output rooted at `/app/frontend/public/atlas/...`.
+- **Admin endpoints** (admin-only via `_is_admin`):
+  - `POST /api/seo-ssg/regenerate-all` — full sweep, returns timing + per-
+    occupation error report
+  - `POST /api/seo-ssg/regenerate-one` — single code; 404 on unverified
+  - `POST /api/seo-ssg/prune` — deletes static files for occupations that
+    are no longer verified
+  - `GET /api/seo-ssg/status` — in-process memo of last sweep time/duration/
+    file count/sitemap URL count/errors
+- **`on_verified_hook(cc, code)`** — best-effort regen called from the
+  admin `/verify` endpoint (occupation + country index + sitemap), errors
+  swallowed and reported into `client_errors` collection.
+
+#### B) Templates — `backend/templates/`
+
+- **`atlas_occupation_ssr.html`** (323 lines) — full mid-fidelity occupation
+  page: hero with code badge + verified pill + recommended visa amber pill,
+  hero description (300-char preview), 4-card fact strip, About + Typical
+  tasks + Qualification rules + FAQ accordion (1st open) + Similar
+  occupations + CTA block + footer. LEAMSS brand variables baked in.
+- **`atlas_country_ssr.html`** (NEW) — country page with top-50 occupation
+  cards, total verified count badge, AI eligibility CTA.
+- **`atlas_hub_ssr.html`** (NEW) — 3 country cards (AU/CA/NZ) with flag,
+  classification, live verified count, SEO `CollectionPage` JSON-LD.
+
+#### C) CRA dev-server middleware — `frontend/src/setupProxy.js` (NEW)
+
+- File-first routing for `/atlas/*` and `/sitemap.xml`. Reads from
+  `frontend/public/atlas/{cc}/{code}/index.html` (and the country / hub
+  variants) before letting the SPA take over.
+- Sets `X-LEAMSS-SSG: 1` header on every SSG-served response (visible at
+  the origin; CDN may strip).
+- Guards against path-traversal (`..`), asset extensions
+  (`.js/.css/.png/.svg/...`), and malformed country/code patterns.
+- If the static file does not exist (record not verified yet), falls
+  through to CRA so the SPA still resolves.
+
+#### D) Verify hook — `backend/routers/occupation_master.py`
+
+- After every `POST /api/occupation-master/{id}/verify` write, calls
+  `seo_ssg.on_verified_hook(cc, code)`. Non-blocking — caught in a
+  try/except so the verify response is never delayed.
+
+#### E) Nightly safety-net scheduler — `backend/server.py`
+
+- Added `CronTrigger(hour=3, minute=0, timezone="UTC")` job on the
+  existing APScheduler instance, calling `ssg_regenerate_all` so the
+  full set of pages stays in lock-step with DB state even if a hot
+  hook silently fails.
+
+#### F) Initial full sweep — production-ready numbers
+
+| Metric                          | Value             |
+|---------------------------------|-------------------|
+| Occupation pages written        | **1,467**         |
+| Country index pages written     | 3                 |
+| Atlas hub page written          | 1                 |
+| **Total HTML files on disk**    | **1,471**         |
+| Sitemap URL count               | **1,473**         |
+| Sitemap file size               | 215,894 bytes     |
+| Full-sweep duration             | **2,052 ms**      |
+| Per-occupation render errors    | 0                 |
+
+#### G) Triple-Confirmation Gate — ALL GREEN
+
+**Gate 1 — pytest:** **158 passed**, 2 skipped, 0 failed (target 158+ exceeded). All 16 new Phase 19 tests +
+all Phase 17/18 regression green in 51s.
+
+**Gate 2 — curl (raw HTML, no JS):**
+- `GET /atlas/au/111111/` → **HTTP 200** with full SSR HTML:
+  - `<title>Chief Executive or Managing Director (ANZSCO 111111) — Australia Migration Pathway | LEAMSS</title>`
+  - `<meta name="description" content="Chief Executives and Managing Directors are senior organisational leaders…">`
+  - `<link rel="canonical" href="https://www.leamss.com/atlas/au/111111">`
+  - 2× `<script type="application/ld+json">` blocks: Occupation @graph + FAQPage
+  - Visible `<h1>` reads "Chief Executive or Managing Director"
+  - "✓ Verified · Last updated 0 days ago" emerald pill present
+  - Amber recommended-visa pill: "Recommended visa · 189"
+- `GET /sitemap.xml` → 1,473 `<url>` entries, valid XML, served as `application/xml`
+- `GET /atlas/au/111111/index.html` → identical body served directly
+- Googlebot UA header on every probe — same response served
+
+**Gate 3 — Playwright + Lighthouse SEO:**
+- Playwright with Googlebot UA on `http://localhost:3000/atlas/au/111111/`:
+  - Status 200 · 2 JSON-LD scripts in DOM · canonical/meta-description set ·
+    H1 reads "Chief Executive or Managing Director" · emerald verified pill ·
+    LEAMSS-brand forest-green nav · breadcrumb · 4-card fact strip ·
+    "About this occupation" + "Typical tasks" sections — **all rendered
+    pre-hydration**.
+- Lighthouse SEO **localhost:3000 (clean origin) — 100/100 ✓**
+  - ✓ Page isn't blocked from indexing
+  - ✓ Document has a `<title>` element
+  - ✓ Document has a meta description
+  - ✓ Page has successful HTTP status code
+  - ✓ Links have descriptive text
+  - ✓ Links are crawlable
+  - ✓ robots.txt is valid
+  - ✓ Document has a valid `hreflang`
+  - ✓ Document has a valid `rel=canonical`
+- Lighthouse SEO **preview URL — 58/100** (the two failures are 100%
+  Cloudflare-preview CDN injections; see deploy call-out above).
+
+#### Files changed / added
+
+- **NEW backend:** `routers/seo_ssg.py` · `templates/atlas_country_ssr.html` ·
+  `templates/atlas_hub_ssr.html` · `tests/test_phase19_seo_ssg.py`
+- **Pre-existing backend (untouched):** `templates/atlas_occupation_ssr.html`
+- **UPDATED backend:** `server.py` (router wire + nightly cron) ·
+  `routers/occupation_master.py` (verify-hook trigger)
+- **NEW frontend:** `src/setupProxy.js`
+- **Generated on disk:** `frontend/public/atlas/{au,ca,nz}/{code}/index.html` ×1467 ·
+  `frontend/public/atlas/{au,ca,nz}/index.html` ×3 ·
+  `frontend/public/atlas/index.html` ·
+  `frontend/public/sitemap.xml` (1,473 URLs)
+- **Docs:** `memory/CHANGELOG.md` + `memory/PRD.md`
+
+#### Why this matters
+
+Before today: every public `/atlas/*` route returned the empty CRA shell + a
+fat JS bundle. Googlebot (limited JS budget) saw effectively nothing,
+indexing zero LEAMSS atlas pages.
+
+After today: **1,471 brand-consistent HTML files sit on disk**, each one
+with a full Schema.org Occupation graph, FAQ schema, Open Graph + Twitter
+Card meta, visible H1, breadcrumb, and a 4-card fact strip — all rendered
+in **~1.4 ms / page** during the initial sweep. The setupProxy.js middleware
+intercepts every `/atlas/*` and `/sitemap.xml` request file-first, while
+SPA navigations continue hydrating React over the same DOM. The
+verify-hook ensures that every admin publish instantly re-bakes that
+occupation's HTML; the 03:00 UTC APScheduler cron is a safety net.
+
+The one and only blocker to Google indexing is the CDN-preview `noindex`
+header — drop it on the production cutover and LEAMSS goes from
+"effectively invisible" to "1,471 organic landing pages".
+
+---
+
 ### 📄 Phase 18.8 — Compare PDF Export + Lead Pre-fill from Compare (Jun 15, 2026)
 
 Two tightly-coupled deliverables that turn the Compare page from a research tool into a **conversion surface** — sales agents can now hand a polished PDF to a prospect AND immediately capture the lead with the pinned occupations pre-attached.

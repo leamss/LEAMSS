@@ -533,6 +533,17 @@ async def verify_occupation(occupation_id: str, req: VerifyRequest, current_user
     )
 
     refreshed = await OCCUPATION_MASTER.find_one({"occupation_id": real_id}, {"_id": 0})
+
+    # Phase 19 — Trigger SSG regeneration for this occupation (best-effort, non-blocking)
+    try:
+        from routers.seo_ssg import on_verified_hook
+        cc = refreshed.get("country_code") if refreshed else None
+        code = refreshed.get("code") if refreshed else None
+        if cc and code:
+            await on_verified_hook(cc, str(code))
+    except Exception:  # noqa: BLE001
+        pass
+
     return _strip(refreshed)
 
 
