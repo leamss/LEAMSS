@@ -110,6 +110,8 @@ from routers.feedback_requests import router as feedback_requests_router, ensure
 from routers.sales_compare import router as sales_compare_router
 # Phase 18.6 — Client-side error monitoring
 from routers.client_errors import router as client_errors_router, ensure_indexes as ensure_client_errors_indexes
+# Phase 19.2a-Lite — Data scrapers
+from routers.scrapers import router as scrapers_router
 # Phase 19 — SEO SSG generator
 from routers.seo_ssg import router as seo_ssg_router, regenerate_all as ssg_regenerate_all
 # Phase 18.7 — Notification channels + digest scheduler
@@ -495,7 +497,7 @@ for r in [targets_router, cost_structures_router, auth_router, users_router, pro
           cockpit_router, anz_intel_router, public_atlas_router,
           admin_public_pages_router, public_pages_read_router,
           feedback_requests_router, sales_compare_router, client_errors_router,
-          notification_channels_router, seo_ssg_router]:
+          notification_channels_router, seo_ssg_router, scrapers_router]:
     app.include_router(r, prefix="/api")
 
 

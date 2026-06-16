@@ -40,6 +40,7 @@ import EligibilityKnowledgeBase from '@/pages/admin/EligibilityKnowledgeBase';
 import OccupationMasterAdmin from '@/pages/admin/OccupationMasterAdmin';
 import CountryGuidesAdmin from '@/pages/admin/CountryGuidesAdmin';
 import VerificationHub from '@/pages/admin/VerificationHub';
+import ScraperHub from '@/pages/admin/ScraperHub';
 import ProtectionPoliciesAdmin from '@/pages/admin/ProtectionPoliciesAdmin';
 import CockpitMockup from '@/pages/admin/CockpitMockup';
 import Cockpit from '@/pages/admin/Cockpit';
@@ -233,6 +234,11 @@ function App() {
           <Route path="/admin/verify-hub" element={
             <RequirePermission allowRoles={['admin_owner', 'admin']}>
               <VerificationHub />
+            </RequirePermission>
+          } />
+          <Route path="/admin/scrapers" element={
+            <RequirePermission allowRoles={['admin_owner', 'admin']}>
+              <ScraperHub />
             </RequirePermission>
           } />
           <Route path="/admin/protection-policies" element={
