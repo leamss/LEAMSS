@@ -73,7 +73,7 @@ function PublicShell({ children }) {
     <div style={{ background: C.bg, minHeight: '100vh', color: C.ink }}>
       <header className="border-b sticky top-0 z-20" style={{ background: C.card, borderColor: C.border }}>
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-          <Link to="/atlas" className="flex items-center gap-2" data-testid="atlas-header-logo">
+          <Link reloadDocument to="/atlas" className="flex items-center gap-2" data-testid="atlas-header-logo">
             <div className="w-8 h-8 rounded flex items-center justify-center" style={{ background: C.tealDeep, color: '#fff' }}>
               <Globe2 className="w-4 h-4" />
             </div>
@@ -82,9 +82,9 @@ function PublicShell({ children }) {
             </span>
           </Link>
           <nav className="hidden md:flex items-center gap-5 text-sm">
-            <Link to="/atlas/au" className="hover:underline" style={{ color: C.body }} data-testid="header-link-au">🇦🇺 Australia</Link>
-            <Link to="/atlas/ca" className="hover:underline" style={{ color: C.body }} data-testid="header-link-ca">🇨🇦 Canada</Link>
-            <Link to="/atlas/nz" className="hover:underline" style={{ color: C.body }} data-testid="header-link-nz">🇳🇿 New Zealand</Link>
+            <Link reloadDocument to="/atlas/au" className="hover:underline" style={{ color: C.body }} data-testid="header-link-au">🇦🇺 Australia</Link>
+            <Link reloadDocument to="/atlas/ca" className="hover:underline" style={{ color: C.body }} data-testid="header-link-ca">🇨🇦 Canada</Link>
+            <Link reloadDocument to="/atlas/nz" className="hover:underline" style={{ color: C.body }} data-testid="header-link-nz">🇳🇿 New Zealand</Link>
             <Link to="/" className="px-3 py-1.5 rounded text-xs font-bold" style={{ background: C.gold, color: '#fff' }} data-testid="header-cta-login">
               Agent Login
             </Link>
@@ -103,9 +103,9 @@ function PublicShell({ children }) {
           <div>
             <p className="font-bold mb-2" style={{ color: C.tealDeep }}>Browse</p>
             <ul className="space-y-1" style={{ color: C.body }}>
-              <li><Link to="/atlas/au">Australia ANZSCO Codes</Link></li>
-              <li><Link to="/atlas/ca">Canada NOC 2021 Codes</Link></li>
-              <li><Link to="/atlas/nz">New Zealand ANZSCO 1.3</Link></li>
+              <li><Link reloadDocument to="/atlas/au">Australia ANZSCO Codes</Link></li>
+              <li><Link reloadDocument to="/atlas/ca">Canada NOC 2021 Codes</Link></li>
+              <li><Link reloadDocument to="/atlas/nz">New Zealand ANZSCO 1.3</Link></li>
             </ul>
           </div>
           <div>
@@ -164,7 +164,7 @@ export function PublicAtlasHub() {
       <section className="max-w-6xl mx-auto px-6 pb-10">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {(data?.countries || []).map(c => (
-            <Link
+            <Link reloadDocument
               key={c.code} to={`/atlas/${c.code.toLowerCase()}`}
               className="rounded-xl border p-5 transition-all hover:-translate-y-0.5 hover:shadow-lg group"
               style={{ background: C.card, borderColor: C.border }}
@@ -252,7 +252,7 @@ export function PublicAtlasCountry() {
   return (
     <PublicShell>
       <section className="max-w-6xl mx-auto px-6 pt-12 pb-6" data-testid="atlas-country-root">
-        <Link to="/atlas" className="text-xs hover:underline" style={{ color: C.muted }}>← Atlas Hub</Link>
+        <Link reloadDocument to="/atlas" className="text-xs hover:underline" style={{ color: C.muted }}>← Atlas Hub</Link>
         <h1 className="text-4xl sm:text-5xl font-bold mt-2 mb-2" style={{ color: C.ink, fontFamily: "'Playfair Display', serif" }}>
           {cm.flag} {cm.name || country} <span style={{ color: C.tealDeep }}>Occupation Atlas</span>
         </h1>
@@ -338,9 +338,9 @@ export function PublicAtlasOccupation() {
     <PublicShell>
       <section className="max-w-6xl mx-auto px-6 pt-8 pb-3" data-testid="atlas-occ-root">
         <div className="text-xs mb-3" style={{ color: C.muted }}>
-          <Link to="/atlas" className="hover:underline">Atlas</Link>
+          <Link reloadDocument to="/atlas" className="hover:underline">Atlas</Link>
           <ChevronRight className="w-3 h-3 inline mx-1" />
-          <Link to={`/atlas/${country.toLowerCase()}`} className="hover:underline">{cm.flag} {cm.name}</Link>
+          <Link reloadDocument to={`/atlas/${country.toLowerCase()}`} className="hover:underline">{cm.flag} {cm.name}</Link>
           <ChevronRight className="w-3 h-3 inline mx-1" />
           <span>{occ.code}</span>
         </div>
@@ -489,7 +489,7 @@ export function PublicAtlasOccupation() {
             <Section title="Also Available In">
               <div className="flex flex-wrap gap-2">
                 {data.cross_country.map(cc => (
-                  <Link
+                  <Link reloadDocument
                     key={`${cc.country_code}-${cc.code}`}
                     to={`/atlas/${cc.country_code.toLowerCase()}/${cc.code}`}
                     className="text-sm px-3 py-1.5 rounded border hover:shadow"
@@ -541,7 +541,7 @@ function Mini({ label, value, tone }) {
 function OccupationCard({ item, compact }) {
   const cm = { AU: '🇦🇺', CA: '🇨🇦', NZ: '🇳🇿' }[item.country_code] || '';
   return (
-    <Link
+    <Link reloadDocument
       to={`/atlas/${item.country_code.toLowerCase()}/${item.code}`}
       className="rounded-lg border p-3 hover:shadow transition-all block"
       style={{ background: C.card, borderColor: C.border }}

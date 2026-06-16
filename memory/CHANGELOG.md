@@ -3,6 +3,72 @@
 This file appends every completed phase/feature with dates and verification status.
 
 ---
+### 🩹 Phase 19.0.1 — Fix: country/hub SSR not visible in browser + card click bypassing SSR (Jun 16, 2026)
+
+Sir reported via 2 screenshots that `/atlas/au` and `/atlas/au/{code}` clicked from the SPA showed the **legacy `AtlasCountryV2.jsx` / `AtlasOccupationV2.jsx` design** (old "LEAMS We Value Emotions" header), while the new Phase 19 SSR template only appeared on direct URL visits to occupation pages. Two distinct designs depending on entry path = broken UX.
+
+#### Root cause
+
+Phase 19 was correct at the file/server layer — curl from any user-agent (Googlebot included) returned the freshly-baked SSR HTML for all 6 URL variants:
+```
+/atlas       /atlas/       → atlas hub SSR ✓
+/atlas/au    /atlas/au/    → AU country SSR ✓
+/atlas/au/X  /atlas/au/X/  → occupation SSR ✓
+```
+
+BUT three React-side routes in `App.js` intercepted the same paths client-side:
+```js
+<Route path="/atlas" element={<AtlasHubV2 />} />
+<Route path="/atlas/:country" element={<AtlasCountryV2 />} />
+<Route path="/atlas/:country/:code" element={<AtlasOccupationV2 />} />
+```
+…and 29 `<Link to="/atlas/...">` usages (across `PublicAtlas.jsx` + `LeamssPublic.jsx`) triggered React Router's client-side push, never asking the server for the SSR file. Result: any click from inside the SPA dropped the user onto the legacy V2 component which still rendered the older "LEAMS" branded design.
+
+#### Fix — "SSR is the single source of truth for /atlas/*"
+
+1. **`frontend/src/App.js`** — removed all three `/atlas/*` Routes and the `AtlasHubV2/AtlasCountryV2/AtlasOccupationV2` imports. The SPA no longer claims these paths, so the browser falls through to the server file on every navigation.
+2. **`frontend/src/pages/LeamssPublic.jsx` + `PublicAtlas.jsx`** — bulk-injected React Router 7's **`reloadDocument`** prop on every `<Link>` (and `<Button as={Link}>`) whose `to=` points to `/atlas/...`. 29 total: 16 in LeamssPublic.jsx, 13 in PublicAtlas.jsx. `reloadDocument` forces a full HTTP GET on click → browser fetches the static SSR file → user sees the new design every time.
+3. **`frontend/src/setupProxy.js`** — already handled all six trailing/non-trailing slash variants. (webpack-dev-server's static handler hits first for files in `public/atlas/...` and serves a 200, with a 301 → trailing-slash bounce for directory paths — both are bot-friendly.) No change required.
+
+#### Test additions — `tests/test_phase19_seo_ssg.py` 17–23 (7 new cases)
+
+- **17, 18** — hub @ `/atlas` and `/atlas/` → SSR HTML
+- **19, 20** — country @ `/atlas/au` and `/atlas/au/` → SSR HTML
+- **21, 22** — occupation @ `/atlas/au/111111` and `/atlas/au/111111/` → SSR HTML with JSON-LD
+- **23** — sample 25 random files of 1471 → all contain "LEAMSS" brand · zero legacy `>LEAMS<` / `"LEAMS"` / `We Value Emotions` tokens
+
+Each test fetches via the real dev-server URL (`http://localhost:3000`), follows redirects, and asserts both "LEAMSS" string presence + brand CSS token (`--forest:#1F4D44` or `var(--forest)`) + zero SPA-shell markers.
+
+#### Triple-Confirmation Gate
+
+1. ✅ **pytest:** **165 passed**, 2 skipped, 0 failed (target was 165+) — 23 Phase 19 + Phase 17/18 regression intact.
+2. ✅ **Curl all 6 URL patterns** (Googlebot UA, follow-redirects):
+   ```
+   /atlas              ✅ SSR · LEAMSS:10 · brand-token:6  · legacy-token:0  · 9201 b
+   /atlas/             ✅ SSR · LEAMSS:10 · brand-token:6  · legacy-token:0  · 9201 b
+   /atlas/au           ✅ SSR · LEAMSS:9  · brand-token:7  · legacy-token:0  · 23273 b
+   /atlas/au/          ✅ SSR · LEAMSS:9  · brand-token:7  · legacy-token:0  · 23273 b
+   /atlas/au/111111    ✅ SSR · LEAMSS:8  · brand-token:5  · legacy-token:0  · 20335 b
+   /atlas/au/111111/   ✅ SSR · LEAMSS:8  · brand-token:5  · legacy-token:0  · 20335 b
+   ```
+3. ✅ **Playwright on dev-server** (Googlebot UA + Mozilla UA, both behaviours):
+   - `/atlas/au/` rendered with **LEAMSS. logo, Playfair "Australia Migration Atlas" H1, ANZSCO + emerald-verified pills, 50 occupation cards**.
+   - Clicked first card (`/atlas/au/111111`) → full HTTP GET, landed on occupation page with **identical LEAMSS. logo, "Chief Executive or Managing Director" H1, 4-card fact strip, About + Typical tasks**, 2 JSON-LD scripts, "✓ Verified · Last updated 0 days ago" pill.
+   - **Zero design flicker. Both pages share the same header, fonts, colours, nav, breadcrumb pattern.**
+
+#### Files changed
+
+- **UPDATED:** `frontend/src/App.js` (removed 3 routes + 1 unused import)
+- **UPDATED:** `frontend/src/pages/LeamssPublic.jsx` (16× `reloadDocument` injections)
+- **UPDATED:** `frontend/src/pages/PublicAtlas.jsx` (13× `reloadDocument` injections)
+- **UPDATED:** `backend/tests/test_phase19_seo_ssg.py` (added tests 17–23)
+
+#### Why this matters
+
+Before: bots saw 1,471 brand-new SSG pages; humans inside the SPA saw the old design. After: **everyone sees the new SSR design**, whether they land via Google, type a URL, refresh, or click an in-SPA link. The SSR template is now the unambiguous design source of truth for the entire `/atlas/*` surface. The legacy V2 React components remain exported from `LeamssPublic.jsx` for any callers that might still need the component reference, but are no longer routed.
+
+---
+
 
 ### 🌐 Phase 19 — SEO/SSR/SSG for Public Atlas Pages (Jun 16, 2026)
 

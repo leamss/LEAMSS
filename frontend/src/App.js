@@ -78,7 +78,7 @@ import LeadCapture from '@/pages/LeadCapture';
 import SharedEstimate from '@/pages/SharedEstimate';
 import PreAssessmentPayment from '@/pages/PreAssessmentPayment';
 import MagicLinkLogin from '@/pages/MagicLinkLogin';
-import { MegaLanding, AtlasHubV2, AtlasCountryV2, AtlasOccupationV2, SharedScorecard } from '@/pages/LeamssPublic';
+import { MegaLanding, SharedScorecard } from '@/pages/LeamssPublic';
 import PublicPagesManager from '@/pages/admin/PublicPagesManager';
 import EligibilityScoringRules from '@/pages/admin/EligibilityScoringRules';
 import VisaPathwaysEditor from '@/pages/admin/VisaPathwaysEditor';
@@ -122,9 +122,11 @@ function App() {
           <Route path="/" element={<Login />} />
           {/* ─── Phase 14: LEAMSS Public Brand Experience (no auth) ─── */}
           <Route path="/start" element={<MegaLanding />} />
-          <Route path="/atlas" element={<AtlasHubV2 />} />
-          <Route path="/atlas/:country" element={<AtlasCountryV2 />} />
-          <Route path="/atlas/:country/:code" element={<AtlasOccupationV2 />} />
+          {/* Phase 19: /atlas/* paths are served by setupProxy.js as static SSR HTML files.
+              We intentionally do NOT mount React routes for them so that ANY navigation
+              (direct, refresh, or click from inside the SPA) triggers a full page reload
+              and the bot/user receives the pre-rendered, SEO-optimised HTML from
+              frontend/public/atlas/... See Phase 19 CHANGELOG. */}
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/admin/analytics" element={<AnalyticsDashboard />} />
           <Route path="/admin/activity" element={<ActivityLog />} />

@@ -138,15 +138,15 @@ function LeamssShell({ children, transparentHeader = false }) {
         style={{ background: headerBg, borderBottom: `1px solid ${headerBorder}`, backdropFilter: scrolled ? 'blur(8px)' : 'none' }}
       >
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-          <Link to="/atlas" data-testid="leamss-logo" className="flex items-center gap-2">
+          <Link reloadDocument to="/atlas" data-testid="leamss-logo" className="flex items-center gap-2">
             <img src={LOGO_URL} alt="LEAMSS — Ladhani Education & Migration Services" className="h-12 w-auto" />
           </Link>
           <nav className="hidden md:flex items-center gap-6 text-sm font-medium" style={{ color: headerTextColor }}>
-            <Link to="/atlas" className="hover:opacity-80 transition-opacity">Atlas</Link>
+            <Link reloadDocument to="/atlas" className="hover:opacity-80 transition-opacity">Atlas</Link>
             <Link to="/start" className="hover:opacity-80 transition-opacity">Eligibility Quiz</Link>
-            <Link to="/atlas/au" className="hover:opacity-80 transition-opacity">🇦🇺 Australia</Link>
-            <Link to="/atlas/ca" className="hover:opacity-80 transition-opacity">🇨🇦 Canada</Link>
-            <Link to="/atlas/nz" className="hover:opacity-80 transition-opacity">🇳🇿 New Zealand</Link>
+            <Link reloadDocument to="/atlas/au" className="hover:opacity-80 transition-opacity">🇦🇺 Australia</Link>
+            <Link reloadDocument to="/atlas/ca" className="hover:opacity-80 transition-opacity">🇨🇦 Canada</Link>
+            <Link reloadDocument to="/atlas/nz" className="hover:opacity-80 transition-opacity">🇳🇿 New Zealand</Link>
             <a href={`https://wa.me/${WHATSAPP}`} target="_blank" rel="noreferrer"
               className="px-4 py-2 rounded-md text-white font-semibold transition-all hover:brightness-110"
               style={{ background: BRAND.accent }}
@@ -174,9 +174,9 @@ function LeamssShell({ children, transparentHeader = false }) {
           <div>
             <p className="font-bold mb-3 font-serif-leamss text-lg">Browse Atlas</p>
             <ul className="space-y-1.5 text-white/80">
-              <li><Link to="/atlas/au" className="hover:text-white">🇦🇺 Australia ANZSCO</Link></li>
-              <li><Link to="/atlas/ca" className="hover:text-white">🇨🇦 Canada NOC 2021</Link></li>
-              <li><Link to="/atlas/nz" className="hover:text-white">🇳🇿 New Zealand</Link></li>
+              <li><Link reloadDocument to="/atlas/au" className="hover:text-white">🇦🇺 Australia ANZSCO</Link></li>
+              <li><Link reloadDocument to="/atlas/ca" className="hover:text-white">🇨🇦 Canada NOC 2021</Link></li>
+              <li><Link reloadDocument to="/atlas/nz" className="hover:text-white">🇳🇿 New Zealand</Link></li>
               <li><Link to="/start" className="hover:text-white">AI Eligibility Score</Link></li>
             </ul>
           </div>
@@ -385,7 +385,7 @@ function Hero({ content }) {
               <Button size="lg" data-testid="hero-start-quiz" onClick={() => document.getElementById('quiz')?.scrollIntoView({ behavior: 'smooth' })}>
                 {hero.cta_primary}<ArrowRight className="w-4 h-4" />
               </Button>
-              <Button variant="secondary" size="lg" as={Link} to="/atlas" data-testid="hero-browse-atlas">
+              <Button reloadDocument variant="secondary" size="lg" as={Link} to="/atlas" data-testid="hero-browse-atlas">
                 {hero.cta_secondary}
               </Button>
             </div>
@@ -418,7 +418,7 @@ function Hero({ content }) {
               key={c.code}
               initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.6, delay: 0.15 + i * 0.1 }}
             >
-              <Link
+              <Link reloadDocument
                 to={`/atlas/${c.code.toLowerCase()}`}
                 className="block relative overflow-hidden rounded-xl group h-32 hover:shadow-xl transition-all"
                 style={{ border: `1px solid ${BRAND.border}` }}
@@ -1186,7 +1186,7 @@ function FeaturedOccupationsSection({ featuredOverride }) {
 function OccupationCard({ item, compact = false }) {
   const flag = { AU: '🇦🇺', CA: '🇨🇦', NZ: '🇳🇿' }[item.country_code];
   return (
-    <Link
+    <Link reloadDocument
       to={`/atlas/${item.country_code.toLowerCase()}/${item.code}`}
       className="block rounded-xl p-4 bg-white hover:shadow-md transition-all hover:-translate-y-0.5"
       style={{ border: `1px solid ${BRAND.border}` }}
@@ -1222,7 +1222,7 @@ function BrowseAtlasSection() {
               initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }} transition={{ duration: 0.5, delay: i * 0.1 }}
             >
-              <Link
+              <Link reloadDocument
                 to={`/atlas/${c.code.toLowerCase()}`}
                 className="relative block overflow-hidden rounded-2xl group h-72"
                 data-testid={`browse-atlas-${c.code}`}
@@ -1466,7 +1466,7 @@ export function AtlasHubV2() {
             {(data?.countries || []).map((c, i) => (
               <motion.div key={c.code} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }} transition={{ duration: 0.4, delay: i * 0.08 }}>
-                <Link
+                <Link reloadDocument
                   to={`/atlas/${c.code.toLowerCase()}`}
                   className="relative block overflow-hidden rounded-2xl group h-80"
                   data-testid={`atlas-hub-country-${c.code}`}
@@ -1562,7 +1562,7 @@ export function AtlasCountryV2() {
         <img src={COUNTRY_HERO[country]} alt={cm.name || country} className="absolute inset-0 w-full h-full object-cover" />
         <div className="absolute inset-0" style={{ background: `linear-gradient(to right, ${BRAND.primaryDk}E0, ${BRAND.primaryDk}80 60%, transparent)` }} />
         <div className="relative h-full max-w-7xl mx-auto px-4 flex flex-col justify-end pb-12 text-white">
-          <Link to="/atlas" className="text-xs hover:underline opacity-80 mb-3 inline-block">← Atlas Hub</Link>
+          <Link reloadDocument to="/atlas" className="text-xs hover:underline opacity-80 mb-3 inline-block">← Atlas Hub</Link>
           <h1 className="font-serif-leamss text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight">
             {cm.flag} Migrate to {cm.name || country}
           </h1>
@@ -1655,9 +1655,9 @@ export function AtlasOccupationV2() {
         </div>
         <div className="relative max-w-7xl mx-auto px-4 py-16 lg:py-20 text-white">
           <div className="text-xs opacity-80 mb-3">
-            <Link to="/atlas" className="hover:underline">Atlas</Link>
+            <Link reloadDocument to="/atlas" className="hover:underline">Atlas</Link>
             <ChevronRight className="w-3 h-3 inline mx-1" />
-            <Link to={`/atlas/${country.toLowerCase()}`} className="hover:underline">{cm.flag} {cm.name}</Link>
+            <Link reloadDocument to={`/atlas/${country.toLowerCase()}`} className="hover:underline">{cm.flag} {cm.name}</Link>
             <ChevronRight className="w-3 h-3 inline mx-1" />
             <span>{occ.code}</span>
           </div>

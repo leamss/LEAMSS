@@ -315,3 +315,98 @@ def test_16_unverified_record_not_rendered(admin_token: str):
                 return
     # If no draft found, the assertion is trivially satisfied
     assert True
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 19.0.1 — file-first proxy + slash variants + brand consistency
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Frontend dev-server URL (file-first middleware lives here)
+FE_BASE_URL = os.environ.get("LEAMSS_FE_URL", "http://localhost:3000")
+
+
+def _fetch_fe(path: str) -> tuple[int, str]:
+    """Fetch a frontend URL via the dev-server. Follows 301 redirects."""
+    with httpx.Client(base_url=FE_BASE_URL, timeout=20, follow_redirects=True) as c:
+        r = c.get(path, headers={"User-Agent": "Mozilla/5.0 (compatible; Googlebot/2.1)"})
+        return r.status_code, r.text
+
+
+def _is_ssr_html(html: str) -> bool:
+    """Heuristic: SSR has both LEAMSS brand string AND the SSR brand-token in CSS vars."""
+    return ("LEAMSS" in html) and ("--forest:#1F4D44" in html or "--forest: #1F4D44" in html)
+
+
+def _is_spa_shell(html: str) -> bool:
+    """Heuristic: empty CRA shell has <div id=\"root\"></div> AND no SSR brand token."""
+    return ('<div id="root"></div>' in html) and ("--forest:#1F4D44" not in html and "--forest: #1F4D44" not in html)
+
+
+# 17. /atlas (no trailing slash, no country) → SSR hub
+def test_17_proxy_serves_ssr_for_hub_no_trailing_slash():
+    status, html = _fetch_fe("/atlas")
+    assert status == 200
+    assert _is_ssr_html(html), "hub @ /atlas did not return SSR HTML"
+    assert "Migration Atlas" in html
+    assert not _is_spa_shell(html)
+
+
+# 18. /atlas/ (with trailing slash) → SSR hub
+def test_18_proxy_serves_ssr_for_hub_with_trailing_slash():
+    status, html = _fetch_fe("/atlas/")
+    assert status == 200
+    assert _is_ssr_html(html), "hub @ /atlas/ did not return SSR HTML"
+    assert "Migration Atlas" in html
+
+
+# 19. /atlas/au (no trailing slash) → SSR country index
+def test_19_proxy_serves_ssr_for_country_no_trailing_slash():
+    status, html = _fetch_fe("/atlas/au")
+    assert status == 200
+    assert _is_ssr_html(html), "country @ /atlas/au did not return SSR HTML"
+    assert "Australia Migration Atlas" in html
+    assert "Browse occupations" in html
+
+
+# 20. /atlas/au/ (with trailing slash) → SSR country index
+def test_20_proxy_serves_ssr_for_country_with_trailing_slash():
+    status, html = _fetch_fe("/atlas/au/")
+    assert status == 200
+    assert _is_ssr_html(html), "country @ /atlas/au/ did not return SSR HTML"
+
+
+# 21. /atlas/au/111111 (no trailing slash) → SSR occupation
+def test_21_proxy_serves_ssr_for_occupation_no_trailing_slash():
+    status, html = _fetch_fe("/atlas/au/111111")
+    assert status == 200
+    assert _is_ssr_html(html), "occ @ /atlas/au/111111 did not return SSR HTML"
+    assert "111111" in html
+
+
+# 22. /atlas/au/111111/ (with trailing slash) → SSR occupation
+def test_22_proxy_serves_ssr_for_occupation_with_trailing_slash():
+    status, html = _fetch_fe("/atlas/au/111111/")
+    assert status == 200
+    assert _is_ssr_html(html), "occ @ /atlas/au/111111/ did not return SSR HTML"
+    assert "111111" in html
+    # JSON-LD present pre-hydration
+    assert 'application/ld+json' in html
+
+
+# 23. All generated atlas SSR files use the LEAMSS brand string (never legacy "LEAMS")
+def test_23_all_atlas_pages_use_leamss_brand():
+    import random
+    all_files = list(ATLAS_OUT.rglob("index.html"))
+    assert len(all_files) >= 1000, f"only {len(all_files)} ssg files on disk"
+    # Sample 25 random files (deterministic seed)
+    random.seed(19)
+    sample = random.sample(all_files, min(25, len(all_files)))
+    for f in sample:
+        html = f.read_text(encoding="utf-8")
+        assert "LEAMSS" in html, f"{f} missing LEAMSS brand"
+        # legacy "LEAMS " (with trailing space) or "LEAMS<" tags should not appear
+        # (LEAMSS itself contains "LEAMS" as substring — guard against false positives)
+        legacy_tokens = ['"LEAMS"', '>LEAMS<', 'LEAMS &', 'We Value Emotions']
+        for t in legacy_tokens:
+            assert t not in html, f"{f} contains legacy brand token {t!r}"
+
