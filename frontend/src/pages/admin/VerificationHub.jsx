@@ -23,7 +23,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
   ArrowLeft, ShieldCheck, FileText, Globe2, FileBadge, Loader2,
   Upload, Database, Sparkles, AlertCircle, Clock, ExternalLink, RefreshCw,
-  Cloud, Info, ChevronRight,
+  Cloud, Info, ChevronRight, Wrench, FileSpreadsheet,
 } from 'lucide-react';
 import { formatApiError } from '@/lib/apiErrors';
 
@@ -382,6 +382,64 @@ export default function VerificationHub() {
         {/* Stat Tiles */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" data-testid="stat-tiles">
           {STATS_TILES.map(t => <StatTile key={t.label} tile={t} navigate={navigate} />)}
+        </div>
+
+        {/* Phase 19.4c — Data & Scraper Hubs entrypoint tiles */}
+        <div data-testid="data-hubs-section">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-600 mt-2 mb-2 px-1">
+            Data & Scraper Hubs
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <button
+              type="button"
+              onClick={() => navigate('/admin/data-import')}
+              className="text-left bg-gradient-to-br from-rose-50 to-amber-50 hover:from-rose-100 hover:to-amber-100 border border-rose-200 rounded-xl p-5 transition-all hover:shadow-md group"
+              data-testid="nav-data-import-hub"
+            >
+              <div className="flex items-start gap-3">
+                <div className="bg-rose-600 text-white p-2.5 rounded-lg shrink-0">
+                  <FileSpreadsheet className="h-5 w-5" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="font-bold text-slate-900">Data Import Hub</h3>
+                    <Badge className="bg-rose-600 text-white text-[9px]">Phase 19.4</Badge>
+                  </div>
+                  <p className="text-xs text-slate-600 leading-snug">
+                    Upload JSA xlsx/PDF drops · Occupation profiles, employment projections, SA4 ratings, industry data, vacancy reports. Idempotent commits.
+                  </p>
+                  <p className="text-[11px] text-rose-700 font-semibold mt-2 group-hover:underline">
+                    Open Data Import Hub <ChevronRight className="inline h-3 w-3" />
+                  </p>
+                </div>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => navigate('/admin/scrapers')}
+              className="text-left bg-gradient-to-br from-emerald-50 to-cyan-50 hover:from-emerald-100 hover:to-cyan-100 border border-emerald-200 rounded-xl p-5 transition-all hover:shadow-md group"
+              data-testid="nav-scraper-hub"
+            >
+              <div className="flex items-start gap-3">
+                <div className="bg-emerald-700 text-white p-2.5 rounded-lg shrink-0">
+                  <Wrench className="h-5 w-5" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="font-bold text-slate-900">Scraper Hub</h3>
+                    <Badge className="bg-emerald-700 text-white text-[9px]">Phase 19.2</Badge>
+                  </div>
+                  <p className="text-xs text-slate-600 leading-snug">
+                    Manual + scheduled scrapers · ACS, VETASSESS, Engineers Australia, NZQA, WES. Monthly cron 1st Sunday 02:00 UTC.
+                  </p>
+                  <p className="text-[11px] text-emerald-700 font-semibold mt-2 group-hover:underline">
+                    Open Scraper Hub <ChevronRight className="inline h-3 w-3" />
+                  </p>
+                </div>
+              </div>
+            </button>
+          </div>
         </div>
 
         {/* Phase 18.3 — Open verification requests */}
