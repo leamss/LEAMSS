@@ -253,19 +253,48 @@ async def commit_import(
     classification_type: str = Form("ANZSCO"),
     classification_version: str = Form(...),
     on_duplicate: str = Form("skip"),
+    preview_token: str = Form(""),  # Phase 19.6 — required by /commit
     current_user: dict = Depends(get_current_user),
 ):
     if not _is_admin(current_user):
         raise HTTPException(status_code=403, detail="Admin only")
     if on_duplicate not in ("skip", "update"):
         raise HTTPException(status_code=400, detail="on_duplicate must be 'skip' or 'update'")
+    # Phase 19.6 — preview_token enforcement
+    from services.preview_token_service import verify_preview_token
+    if not preview_token:
+        raise HTTPException(
+            status_code=400,
+            detail="preview_token required — call /api/occupation-master/import/preview first to get an authorised token.",
+        )
     content = await file.read()
+    if not verify_preview_token(preview_token, content):
+        raise HTTPException(
+            status_code=400,
+            detail="invalid or expired preview_token — re-preview the exact same file.",
+        )
+
     df = _parse_upload(content, file.filename or "")
     if df.empty:
         raise HTTPException(status_code=400, detail="File has 0 data rows")
     mapping = _detect_columns(list(df.columns))
     if not mapping.get("code") or not mapping.get("title"):
         raise HTTPException(status_code=400, detail="Required 'code' and 'title' columns not detected")
+
+    # Phase 19.6 — open import batch
+    from services import import_batch_service as ibs
+    from core.database import db as _db
+    batch = await ibs.open_batch(
+        _db,
+        ingestion_path="phase_6.9.2_bulk",
+        endpoint="POST /api/occupation-master/import/commit",
+        uploaded_by=current_user.get("id") or current_user.get("email", ""),
+        uploaded_by_name=current_user.get("name") or current_user.get("email", "admin"),
+        file_name=file.filename or "upload.xlsx",
+        file_hash=ibs.file_sha256(content),
+        file_size_bytes=len(content),
+        target_collection="occupation_master",
+    )
 
     imported = 0
     updated = 0
@@ -279,10 +308,12 @@ async def commit_import(
             if not code:
                 errors.append(f"Row {idx + 2}: missing code, skipped")
                 skipped += 1
+                ibs.record_skip(batch, {"row": idx + 2}, "missing code")
                 continue
             if code in seen_codes_in_file:
                 errors.append(f"Row {idx + 2}: duplicate code '{code}' within file, skipped")
                 skipped += 1
+                ibs.record_skip(batch, {"country_code": country_code.upper(), "code": code}, "duplicate in file")
                 continue
             seen_codes_in_file.add(code)
 
@@ -292,6 +323,7 @@ async def commit_import(
             if existing:
                 if on_duplicate == "skip":
                     skipped += 1
+                    ibs.record_skip(batch, {"country_code": country_code.upper(), "code": code}, "exists, on_duplicate=skip")
                     continue
                 # update: refresh select fields, preserve verification + linked_product_id + occupation_id
                 new_doc = _row_to_doc(row, mapping, country_code, classification_type,
@@ -315,16 +347,37 @@ async def commit_import(
                 new_doc["updated_at"] = datetime.now(timezone.utc)
                 new_doc["_re_imported_at"] = new_doc["updated_at"]
                 await OCCUPATION_MASTER.update_one({"occupation_id": preserve["occupation_id"]}, {"$set": new_doc})
+                ibs.record_update(batch, preserve["occupation_id"],
+                                  {"country_code": country_code.upper(), "code": code}, existing)
                 updated += 1
                 continue
 
             doc = _row_to_doc(row, mapping, country_code, classification_type,
                                classification_version, current_user["id"])
             await OCCUPATION_MASTER.insert_one(doc)
+            ibs.record_create(batch, doc["occupation_id"],
+                              {"country_code": country_code.upper(), "code": code})
             imported += 1
         except Exception as e:  # noqa: BLE001
             errors.append(f"Row {idx + 2}: {e}")
             skipped += 1
+            ibs.record_skip(batch, {"row": idx + 2}, str(e)[:120])
+
+    # Close batch + audit log
+    await ibs.close_batch(_db, batch, total_rows=len(df))
+    await _db["audit_logs"].insert_one({
+        "id": str(uuid.uuid4()),
+        "action": "occupation_master.bulk_import",
+        "user_id": current_user.get("id") or current_user.get("email"),
+        "at": datetime.now(timezone.utc),
+        "summary": {
+            "batch_id": batch["batch_id"],
+            "ingestion_path": "phase_6.9.2_bulk",
+            "file_name": file.filename,
+            "imported": imported, "updated": updated, "skipped": skipped,
+            "total_rows": len(df),
+        },
+    })
 
     return {
         "ok": True,
@@ -334,4 +387,5 @@ async def commit_import(
         "errors": errors[:50],
         "total_processed": imported + updated + skipped,
         "classification_version": classification_version,
+        "batch_id": batch["batch_id"],
     }
