@@ -1,0 +1,132 @@
+{# Phase 19.4c — Industry hub page (AU only). Routed via /atlas/au/industry/{slug}/ #}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+<title>{{ seo.page_title }}</title>
+<meta name="description" content="{{ seo.meta_description }}">
+<meta property="og:title" content="{{ seo.og_title }}">
+<meta property="og:description" content="{{ seo.og_description }}">
+<meta property="og:image" content="{{ og_image }}">
+<meta property="og:url" content="{{ page_url }}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:description" content="{{ seo.og_description }}">
+<link rel="canonical" href="{{ page_url }}">
+{% include '_atlas_css.html' ignore missing %}
+<style>
+:root{--ink:#0F1A1F;--muted:#5b6770;--burnt:#f7620b;--forest:#1F4D44;--cream:#FCFBF7;--border:#e6e2dc;--body:#5b6770}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,sans-serif;color:var(--ink);background:var(--cream)}
+.container{max-width:1200px;margin:0 auto;padding:0 24px}
+.header{background:#fff;border-bottom:1px solid var(--border);padding:14px 0}
+.header-nav{display:flex;justify-content:space-between;align-items:center}
+.header-nav a{color:var(--ink);text-decoration:none;margin-left:18px;font-size:14px}
+.btn{display:inline-block;padding:9px 18px;border-radius:8px;font-weight:600;text-decoration:none;font-size:14px}
+.btn-primary{background:var(--burnt);color:#fff}
+.section{padding:36px 0}
+.h1{font-size:32px;font-weight:800;letter-spacing:-.5px;margin:0 0 8px}
+.eyebrow{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--burnt);font-weight:700;margin-bottom:8px}
+.lead{font-size:16px;color:var(--muted);max-width:760px;margin:0 0 24px}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px;margin:24px 0}
+.stat{background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px 16px}
+.sl{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.sv{font-size:22px;font-weight:800;color:var(--ink)}
+.occ-list{list-style:none;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px}
+.occ-list a{display:flex;align-items:center;gap:10px;padding:12px 14px;background:#fff;border:1px solid var(--border);border-radius:10px;color:var(--ink);text-decoration:none}
+.occ-list a:hover{border-color:var(--burnt)}
+.rank{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;background:var(--burnt);color:#fff;font-size:11px;font-weight:700}
+.spark{height:60px;display:flex;align-items:flex-end;gap:1px;background:#fff;padding:10px;border:1px solid var(--border);border-radius:10px;margin:14px 0}
+.spark-bar{flex:1;background:var(--forest);min-height:2px;border-radius:1px}
+.footer{background:#fff;border-top:1px solid var(--border);padding:24px 0;margin-top:40px;text-align:center;color:var(--muted);font-size:13px}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="container header-nav">
+    <a href="/atlas/" style="font-weight:800;font-size:18px;color:var(--ink);text-decoration:none">
+      <span style="color:#2a777a">LE</span><span style="color:#f7620b">AM</span><span style="color:#d81f26">SS</span> Atlas
+    </a>
+    <nav>
+      <a href="/atlas/au/">🇦🇺 AU</a>
+      <a href="/atlas/ca/">🇨🇦 CA</a>
+      <a href="/atlas/nz/">🇳🇿 NZ</a>
+      <a class="btn btn-primary" href="/start">Free Eligibility Check</a>
+    </nav>
+  </div>
+</header>
+
+<section class="section">
+  <div class="container">
+    <nav style="font-size:13px;color:var(--muted);margin-bottom:18px">
+      <a href="/" style="color:var(--muted)">Home</a> ›
+      <a href="/atlas/" style="color:var(--muted)">Atlas</a> ›
+      <a href="/atlas/au/" style="color:var(--muted)">Australia</a> ›
+      <span style="color:var(--ink)">Industries</span> ›
+      <span style="color:var(--ink)">{{ industry.industry_name }}</span>
+    </nav>
+
+    <div class="eyebrow">ANZSIC Industry · Division {{ industry.anzsic_code }}</div>
+    <h1 class="h1">{{ industry.industry_name }} in Australia</h1>
+    <p class="lead">Live employment, median earnings, workforce demographics and top employing occupations sourced from <strong>JSA Industry Data Feb 2026</strong>. Use this hub to spot in-demand career paths within {{ industry.industry_name|lower }}.</p>
+
+    <div class="stat-grid">
+      {% if industry.employed_count %}<div class="stat"><div class="sl">Workers</div><div class="sv">{{ '{:,}'.format(industry.employed_count) }}</div></div>{% endif %}
+      {% if industry.workforce_share_pct %}<div class="stat"><div class="sl">Workforce Share</div><div class="sv">{{ '%.1f' % industry.workforce_share_pct }}%</div></div>{% endif %}
+      {% if industry.median_weekly_earnings_aud %}<div class="stat"><div class="sl">Median (Weekly)</div><div class="sv">AUD&nbsp;${{ '{:,}'.format(industry.median_weekly_earnings_aud) }}</div></div>{% endif %}
+      {% if industry.median_ft_annual_aud %}<div class="stat"><div class="sl">Annual (× 52)</div><div class="sv" style="color:var(--burnt)">AUD&nbsp;${{ '{:,}'.format(industry.median_ft_annual_aud) }}</div></div>{% endif %}
+      {% if industry.median_age %}<div class="stat"><div class="sl">Median Age</div><div class="sv">{{ industry.median_age }}</div></div>{% endif %}
+      {% if industry.female_share_pct %}<div class="stat"><div class="sl">Female Share</div><div class="sv">{{ '%.0f' % industry.female_share_pct }}%</div></div>{% endif %}
+      {% if industry.part_time_share_pct %}<div class="stat"><div class="sl">Part-time Share</div><div class="sv">{{ '%.0f' % industry.part_time_share_pct }}%</div></div>{% endif %}
+    </div>
+
+    {% if industry.employment_history_20y %}
+    <h2 style="font-size:18px;font-weight:700;margin:30px 0 6px">📈 20-year employment trend</h2>
+    <p style="color:var(--muted);font-size:13px;margin:0 0 10px">{{ industry.employment_history_20y[0].period }} → {{ industry.employment_history_20y[-1].period }} ({{ industry.employment_history_20y|length }} quarterly snapshots)</p>
+    <div class="spark" aria-label="Employment trend sparkline" data-testid="industry-spark">
+      {% set max_emp = (industry.employment_history_20y | map(attribute='employed') | select('number') | max) or 1 %}
+      {% for point in industry.employment_history_20y %}
+        <div class="spark-bar" style="height:{{ (point.employed * 100 / max_emp) if point.employed else 0 }}%" title="{{ point.period }}: {{ '{:,}'.format(point.employed or 0) }} workers"></div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if industry.top_employing_occupations %}
+    <h2 style="font-size:18px;font-weight:700;margin:30px 0 12px">🎯 Top {{ industry.top_employing_occupations|length }} employing occupations</h2>
+    <ul class="occ-list" data-testid="industry-top-occs">
+      {% for occ in industry.top_employing_occupations %}
+      {% set linked_code = occ_link_map.get(occ.anzsco_4digit) %}
+      <li>
+        {% if linked_code %}
+        <a href="/atlas/au/{{ linked_code }}/" data-testid="industry-occ-{{ occ.anzsco_4digit }}">
+          <span class="rank">{{ loop.index }}</span>
+          <span><strong>{{ occ.title }}</strong><br><span style="font-size:11px;color:var(--muted)">ANZSCO {{ occ.anzsco_4digit }}</span></span>
+        </a>
+        {% else %}
+        <a href="/atlas/au/" data-testid="industry-occ-{{ occ.anzsco_4digit }}">
+          <span class="rank">{{ loop.index }}</span>
+          <span><strong>{{ occ.title }}</strong><br><span style="font-size:11px;color:var(--muted)">ANZSCO {{ occ.anzsco_4digit }} · browse</span></span>
+        </a>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+
+    <div style="margin-top:40px;text-align:center">
+      <a class="btn btn-primary" href="/start">Free PR pathway guide →</a>
+    </div>
+
+    <p style="margin-top:30px;font-size:11px;color:var(--muted)">Source: JSA Industry Data Feb 2026 · jobsandskills.gov.au &middot; Imported {{ industry.last_imported_at[:10] }}</p>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="container">
+    &copy; {{ now_iso[:4] }} LEAMSS — Ladhani Education &amp; Migration Services. Data sourced from Jobs and Skills Australia.
+  </div>
+</footer>
+
+</body>
+</html>

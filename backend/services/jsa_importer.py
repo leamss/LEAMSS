@@ -143,6 +143,71 @@ async def commit_sa4_ratings(
     }
 
 
+# Phase 19.4c — Industry Data + Vacancy Snapshots
+INDUSTRY_COLLECTION = "industry_master"
+VACANCY_COLLECTION = "vacancy_snapshots"
+
+
+async def ensure_industry_indexes(db: AsyncIOMotorDatabase) -> None:
+    await db[INDUSTRY_COLLECTION].create_index([("slug", 1)], unique=True)
+    await db[INDUSTRY_COLLECTION].create_index([("anzsic_code", 1)])
+    await db[VACANCY_COLLECTION].create_index([("period", 1)], unique=True)
+    await db[VACANCY_COLLECTION].create_index([("is_latest", 1)])
+
+
+async def commit_industry_data(
+    db: AsyncIOMotorDatabase, parsed: Iterable[Dict[str, Any]]
+) -> Dict[str, Any]:
+    """Upsert industries into `industry_master` collection (idempotent by industry_name)."""
+    import uuid
+    parsed_list = list(parsed)
+    if not parsed_list:
+        return {"parsed_records": 0, "industries_upserted": 0}
+    await ensure_industry_indexes(db)
+    ops: List[UpdateOne] = []
+    for rec in parsed_list:
+        ops.append(UpdateOne(
+            {"industry_name": rec["industry_name"]},
+            {"$set": rec, "$setOnInsert": {"id": str(uuid.uuid4())}},
+            upsert=True,
+        ))
+    result = await db[INDUSTRY_COLLECTION].bulk_write(ops, ordered=False)
+    return {
+        "parsed_records": len(parsed_list),
+        "industries_upserted": result.upserted_count,
+        "industries_modified": result.modified_count,
+    }
+
+
+async def commit_vacancy_report(
+    db: AsyncIOMotorDatabase, parsed: Iterable[Dict[str, Any]]
+) -> Dict[str, Any]:
+    """Upsert vacancy snapshot. Flips `is_latest=False` on prior snapshots,
+    sets `is_latest=True` on the newly-imported one (idempotent by period)."""
+    import uuid
+    parsed_list = list(parsed)
+    if not parsed_list:
+        return {"parsed_records": 0, "snapshots_upserted": 0}
+    await ensure_industry_indexes(db)
+    rec = parsed_list[0]  # one snapshot per file
+
+    # Mark all existing as non-latest first
+    await db[VACANCY_COLLECTION].update_many({"is_latest": True}, {"$set": {"is_latest": False}})
+
+    # Upsert current as latest
+    result = await db[VACANCY_COLLECTION].update_one(
+        {"period": rec["period"]},
+        {"$set": {**rec, "is_latest": True}, "$setOnInsert": {"id": str(uuid.uuid4())}},
+        upsert=True,
+    )
+    return {
+        "parsed_records": len(parsed_list),
+        "period": rec["period"],
+        "snapshots_upserted": 1 if result.upserted_id else 0,
+        "snapshots_modified": result.modified_count,
+    }
+
+
 def detect_file_type(sheet_names: List[str], first_sheet_data: List[Any]) -> str:
     """Heuristic file-type detector based on sheet names / titles."""
     joined = " ".join(sheet_names).lower()

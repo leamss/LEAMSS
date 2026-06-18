@@ -3,6 +3,111 @@
 This file appends every completed phase/feature with dates and verification status.
 
 ---
+### 🏁 Phase 19.4b + 19.4c — JSA Industry Data + Vacancy Snapshots — FULL SHIP (Jun 18, 2026)
+
+**Sales pitch:** Atlas ab **complete labour-market view** carry karta hai — har AU occupation page real salary + 10-year growth (Phase 19.4) + industry hub cross-link (Phase 19.4c). Country hub direct shows **212,000 live job ads** trust chip (-0.9% MoM). 19 brand-new SEO industry hub pages — each ANZSIC industry has its own ranked top-occupations page + 20-year employment trend sparkline. **Total SEO surface area: 1,486 indexable pages** (1,467 occupations + 19 industries + 3 country hubs + 1 atlas hub). Sales team ko har conversation me data-rich talking points: "Sir, Professional Services industry me 1.4M log kaam karte hain, median salary $107k/year, growth strong since 2010 — yeh sab Govt-sourced data hai" — instant credibility.
+
+#### A) Phase 19.4b — Formal Closure of ABS Census SDMX Scraper
+
+**Honest deferral reason:** After exhaustive recon of all 1,223 public ABS dataflows on `api.data.abs.gov.au`, the per-ANZSCO 6-digit income crosstab (OCCP × INCP) is **NOT exposed** in public SDMX REST API. Census 2021 GCP tables only slice by geography (CED/LGA/POA/SA2/etc), NOT by occupation. The OCCP × INCP crosstab exists ONLY in **ABS TableBuilder Pro** (requires separate user authentication). The same data is already delivered (96% coverage on AU records, 703/729) via the Phase 19.4 JSA Occupation Profiles upload pipeline.
+
+- `scrapers/abs_census.py` — docstring rewritten as honest closure marker; KB `_status` changed to `"redundant_data_via_jsa_upload"` with `_replacement_path` pointer
+- APScheduler cron already excludes `abs_census` (server.py line 308)
+- Scraper retained as future-reference scaffolding (if ABS opens the OCCP×INCP API or TableBuilder Pro credentials obtained)
+
+#### B) Phase 19.4c-1 — Industry Data Parser + `industry_master` Collection
+
+- **New file:** `backend/parsers/jsa/industry_data.py` — parses `industry_data_feb_2026.xlsx` (5 sheets — Contents + Table_1..4) yielding 19 ANZSIC industry records:
+  - Table 1: Overview (employed, female %, part-time %, median weekly earnings, workforce share %, median age)
+  - Table 2: 20-year quarterly employment history (85 quarterly snapshots Feb-06 → Feb-26)
+  - Table 4: Top 10 employing ANZSCO 4-digit occupations per industry (industry → occupation graph)
+- **New collection:** `industry_master` — 19 docs, unique by `slug` (e.g. `professional-scientific-and-technical-services`), with ANZSIC division letter (A-S), employment, salaries, demographics, top occupations, 20y history
+- **Committer:** `services/jsa_importer.py::commit_industry_data` — idempotent bulk_write upsert keyed by `industry_name`
+
+#### C) Phase 19.4c-2 — Vacancy Report PDF Parser + `vacancy_snapshots` Collection
+
+- **New file:** `backend/parsers/jsa/vacancy_report.py` — parses 5-page `vacancy_report_apr_2026.pdf` using `pdfplumber`
+- **Defensive regex-first design:** Extracts national total (212k), MoM % (-0.9%), YoY % (-1.4%), state-level table (NSW 63k · QLD 52k · VIC 46k · ...) and ANZSCO major-group table (Managers 25.6k · Professionals 61.2k · ...) from page 4 even when pdfplumber's table-detect misses
+- Featured occupation narrative + next-release date extracted from page 2/5
+- **New collection:** `vacancy_snapshots` — one doc per month, keyed by `period`, with `is_latest` flag flipped on import (older snapshots auto-marked `is_latest=False`)
+- **PDF auto-detect** added to `routers/data_import.py::_detect_type` — `.pdf` extension recognized + page-1 text matched for vacancy report signature
+
+#### D) Phase 19.4c-3 — Atlas Surfacing (Full Fat — 75 min spent)
+
+**4a. AU country hub vacancy chip** (`/atlas/au/`):
+- Pulls from `vacancy_snapshots.is_latest=True`
+- Renders: `📊 212,000 active job ads · -0.9% MoM`
+- Graceful fallback if no snapshot exists (chip hidden)
+
+**4b. 19 NEW Industry Hub SSG Pages** (`/atlas/au/industry/{slug}/`):
+- New Jinja template `atlas_industry_ssr.html`
+- Each page: breadcrumb, 7 stat cards (workers, workforce share, weekly/annual median, age, female %, part-time %), 20-year employment trend **CSS sparkline** (no JS), Top 10 employing occupations grid (with deep-links to actual /atlas/au/{6-digit}/ occupation pages where data exists), CTA, source attribution
+- Phase 19.5 dynamic meta description pattern: `"{Industry} in Australia — 1.40M employed. AUD $107k median. Free PR pathway guide."` (119 chars, ≤165 cap)
+- All 19 added to `sitemap.xml` with `lastmod` + `changefreq: monthly`
+
+**4c. Occupation page → industry hub cross-link:**
+- In `atlas_occupation_ssr.html`, the `abs_data.top_industries[]` list (from Phase 19.4) now renders each entry as clickable link to `/atlas/au/industry/{slug}/` when industry exists in `industry_master` (matched by exact name)
+- Builds the 2-way occupation↔industry SEO graph
+- Sample: AU 261313 (Software Eng) → cross-links to 3 industry hubs (Professional Services, Financial & Insurance, Public Administration)
+
+**4d. Country index footer:**
+- `/atlas/au/` now shows "Browse by Industry" footer with 19 cards (industry name + employed count) at bottom of page
+
+**4e. SSG prune-safety fix:**
+- `prune_unverified_files()` was deleting `/atlas/au/industry/` because slug names aren't ANZSCO codes
+- **Fix:** added `NON_ANZSCO_DIRS = {"industry"}` whitelist so industry hub directories survive the prune sweep
+
+#### E) Phase 19.4c-4 — Admin "Latest Vacancy Snapshot" Panel
+
+- New widget in `pages/admin/DataImportHub.jsx` directly under page header
+- Shows: period, national total, MoM/YoY change (colour-coded red/green), top 3 states, featured occupation, next-release date, source attribution
+- Auto-refreshes via `GET /api/data-import/vacancy/latest` admin endpoint
+- New endpoints:
+  - `GET /api/data-import/vacancy/latest` — returns latest snapshot
+  - `GET /api/data-import/industries` — returns all 19 industries (sorted by employed_count desc)
+
+#### F) Triple-Gate Verification
+
+- **Gate 1 — Pytest:** **92/92 PASS** (all Phase 19 modules including 16 new Phase 19.4c tests). Zero regression.
+- **Gate 2 — Curl + Googlebot UA:**
+  - `/atlas/au/` → vacancy chip + 19 industry footer cards + 50 fee/salary/growth chips on occupation cards
+  - `/atlas/au/industry/professional-scientific-and-technical-services/` (18.4 KB) → all 7 stats + 20y sparkline + top 10 occupations + 119-char meta desc
+  - `/atlas/au/261313/` → 3 industry cross-links visible
+  - `/sitemap.xml` → 19 industry URLs included
+- **Gate 3 — Playwright (Googlebot UA):** 3 screenshots captured —
+  - AU country hub: 📊 212,000 ads chip visible next to existing pills
+  - Industry hub page: 7 stat cards + sparkline + ranked top occupations (Accountants → Software Programmers → Solicitors → Management Analysts)
+  - Admin Hub: Vacancy panel showing April 2026 / 212k / -0.9% / -1.4% / NSW-QLD-VIC top 3
+
+#### G) Full SSG regeneration
+
+- 1,467 occupation pages + 19 industry hubs + 3 country indexes + 1 atlas hub = **1,490 pre-rendered HTML files** in 3.4s, zero errors
+- Sitemap.xml: 1,490+ URLs with proper lastmod / priority / changefreq
+
+#### H) Honest disclosure
+
+- **PDF parsing is brittle** — regex-first design handles April 2026 layout; future months may need format updates. Tests cover the current layout + state/major-group sum invariants.
+- **Industry → 6-digit occupation linking** uses first-match heuristic (lowest 6-digit code per 4-digit parent). For industries listing 4-digit codes like 2613 (Software Programmers), we link to one canonical 6-digit code (e.g. 261311) rather than spreading across all sub-codes.
+- **Phase 19.4b ABS direct scrape** remains closed as redundant. JSA upload path is the canonical source.
+
+#### I) Files touched
+
+- New: `backend/parsers/jsa/industry_data.py`, `backend/parsers/jsa/vacancy_report.py`
+- New: `backend/templates/atlas_industry_ssr.html`
+- New: `backend/tests/test_phase194c_industry_vacancy.py` (16 tests)
+- Modified: `backend/scrapers/abs_census.py` (formal closure)
+- Modified: `backend/services/jsa_importer.py` (+ commit_industry_data, commit_vacancy_report, indexes)
+- Modified: `backend/routers/data_import.py` (+ vacancy/latest + industries endpoints + .pdf auto-detect)
+- Modified: `backend/routers/seo_ssg.py` (+ render_industry_hub_html, regenerate_industry_hub, sitemap industry URLs, prune NON_ANZSCO_DIRS whitelist, occupation page industry_slug_map + vacancy/industries context for country hub)
+- Modified: `backend/templates/atlas_country_ssr.html` (+ vacancy chip + Browse by Industry footer)
+- Modified: `backend/templates/atlas_occupation_ssr.html` (cross-links in top_industries section)
+- Modified: `frontend/src/pages/admin/DataImportHub.jsx` (+ vacancy snapshot panel, new TYPE_LABELS)
+- Modified: `frontend/src/setupProxy.js` (+ `/atlas/{country}/industry/{slug}` route)
+
+---
+
+
+---
 ### 🎯 Phase 19.5 — Dynamic Atlas Meta Descriptions (Jun 18, 2026)
 
 **Sales pitch:** Har Atlas page ka SERP snippet ab UNIQUE aur data-rich hai — Google search results me directly visible salary + growth + visa pathway + assessing authority. Click-through rate (CTR) significantly boost hoga because the snippet itself sells the value before user even clicks. Sample: *"ANZSCO 261313 Software Engineer — Visa 189/190/491 via ACS. Median AUD $132k, +27% growth by 2035. Free PR pathway guide."* — yeh 121 chars me 6 conversion levers carry karta hai.

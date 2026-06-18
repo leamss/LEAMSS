@@ -27,6 +27,8 @@ const TYPE_LABELS = {
   occupation_profiles: { label: 'Occupation Profiles (ABS)', color: 'bg-emerald-100 text-emerald-800' },
   employment_projections: { label: '10-year Employment Projections', color: 'bg-blue-100 text-blue-800' },
   sa4_ratings: { label: 'SA4 Regional Ratings', color: 'bg-purple-100 text-purple-800' },
+  industry_data: { label: 'Industry Data (ANZSIC)', color: 'bg-orange-100 text-orange-800' },
+  vacancy_report: { label: 'Vacancy Report (IVI)', color: 'bg-rose-100 text-rose-800' },
   unknown: { label: 'Unknown / Unsupported', color: 'bg-slate-100 text-slate-700' },
 };
 
@@ -52,6 +54,7 @@ function fmtBytes(n) {
 export default function DataImportHub() {
   const nav = useNavigate();
   const [history, setHistory] = useState([]);
+  const [vacancy, setVacancy] = useState(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState(null);
@@ -66,6 +69,9 @@ export default function DataImportHub() {
       setLoading(true);
       const r = await axios.get(`${API}/data-import/history?limit=20`, authH);
       setHistory(r.data.items || []);
+      // Phase 19.4c — also fetch latest vacancy snapshot
+      const v = await axios.get(`${API}/data-import/vacancy/latest`, authH);
+      setVacancy(v.data.snapshot);
     } catch (e) {
       toast.error(`History fetch failed: ${e?.response?.data?.detail || e.message}`);
     } finally {
@@ -159,6 +165,55 @@ export default function DataImportHub() {
           </div>
         </div>
 
+        {/* Phase 19.4c — Latest Vacancy Snapshot panel */}
+        {vacancy && (
+          <Card className="mb-6 border-rose-200 bg-rose-50/30" data-testid="vacancy-snapshot-panel">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <span>📊 Latest Vacancy Snapshot — {vacancy.period}</span>
+                <Badge className="bg-rose-100 text-rose-800">JSA IVI</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                <div data-testid="vac-national">
+                  <div className="text-xs uppercase tracking-wider text-slate-500">National Ads</div>
+                  <div className="text-xl font-bold text-slate-900">{vacancy.national_ads?.toLocaleString() || '—'}</div>
+                </div>
+                <div data-testid="vac-mom">
+                  <div className="text-xs uppercase tracking-wider text-slate-500">Month-on-Month</div>
+                  <div className={`text-xl font-bold ${(vacancy.monthly_change_pct || 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                    {vacancy.monthly_change_pct >= 0 ? '+' : ''}{vacancy.monthly_change_pct?.toFixed(1) || '—'}%
+                  </div>
+                </div>
+                <div data-testid="vac-yoy">
+                  <div className="text-xs uppercase tracking-wider text-slate-500">Year-on-Year</div>
+                  <div className={`text-xl font-bold ${(vacancy.annual_change_pct || 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                    {vacancy.annual_change_pct >= 0 ? '+' : ''}{vacancy.annual_change_pct?.toFixed(1) || '—'}%
+                  </div>
+                </div>
+                <div data-testid="vac-states">
+                  <div className="text-xs uppercase tracking-wider text-slate-500">Top 3 States</div>
+                  <div className="text-sm font-mono text-slate-700">
+                    {Object.entries(vacancy.by_state || {})
+                      .sort((a, b) => (b[1] || 0) - (a[1] || 0))
+                      .slice(0, 3)
+                      .map(([s, n]) => `${s} ${(n / 1000).toFixed(0)}k`)
+                      .join(' · ')}
+                  </div>
+                </div>
+              </div>
+              {vacancy.featured_occupation?.title && (
+                <p className="text-xs text-slate-600 mt-3" data-testid="vac-featured">
+                  <strong>Featured:</strong> {vacancy.featured_occupation.title}
+                  {vacancy.next_release_date && <span className="ml-3 text-slate-400">Next release: {vacancy.next_release_date}</span>}
+                </p>
+              )}
+              <p className="text-xs text-slate-400 mt-2">Source: {vacancy.source} · Imported {String(vacancy.last_imported_at).slice(0, 10)}</p>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Upload zone */}
         <Card className="mb-6" data-testid="data-import-upload">
           <CardHeader>
@@ -180,7 +235,7 @@ export default function DataImportHub() {
                 {uploading ? 'Uploading…' : 'Choose file'}
               </Button>
               <p className="text-xs text-slate-400 mt-3">
-                Supported: occupation_profiles · employment_projections · sa4_ratings
+                Supported: occupation_profiles · employment_projections · sa4_ratings · industry_data · vacancy_report (PDF)
               </p>
             </div>
           </CardContent>

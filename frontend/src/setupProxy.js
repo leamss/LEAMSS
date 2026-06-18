@@ -79,6 +79,13 @@ module.exports = function setupProxy(app) {
       if (!/^[a-z]{2}$/.test(country)) return next();
       if (!/^[a-zA-Z0-9_-]{1,20}$/.test(code)) return next();
       target = path.join(ATLAS_DIR, country, code, 'index.html');
+    } else if (parts.length === 4 && parts[2] === 'industry') {
+      // Phase 19.4c — /atlas/{country}/industry/{slug}
+      const country = parts[1].toLowerCase();
+      const slug = parts[3];
+      if (!/^[a-z]{2}$/.test(country)) return next();
+      if (!/^[a-z0-9-]{1,80}$/.test(slug)) return next();
+      target = path.join(ATLAS_DIR, country, 'industry', slug, 'index.html');
     } else {
       return next();
     }

@@ -1,20 +1,25 @@
-"""Phase 19.2a-Lite — ABS Census 2021 Income by Occupation scraper.
+"""Phase 19.4b — ABS Census 2021 Income by Occupation — FORMALLY CLOSED (Jun 2026).
 
-Source: https://api.data.abs.gov.au/ (SDMX REST API)
-Reachable: ✓ partial — dataflow listing returns 3.2 MB SDMX-ML XML (3000+ flows).
+⚠️ HONEST DEFERRAL — DO NOT REVIVE WITHOUT REASON:
 
-Status: SKELETON IMPL — recon confirms reachability, but the per-ANZSCO 6-digit
-income data resides under a Census 2021 dataflow whose exact ID + dimension
-schema requires deeper SDMX exploration than Phase 19.2a-Lite budgets allow.
-The scraper:
-1. Lists all dataflows and identifies Census21 income-related ones.
-2. Records that into `knowledge_base` as a deferral marker.
-3. Marks status = "skipped" with an explicit notes field.
+After exhaustive Phase 19.4b reconnaissance of all 1,223 public ABS dataflows on
+`https://api.data.abs.gov.au/dataflow/ABS`, the per-ANZSCO 6-digit income crosstab
+(OCCP × INCP / OCCP × MEDIAN_PERSONAL_INCOME) is **NOT exposed** in the public
+SDMX REST API. The Census 2021 GCP (General Community Profile) tables exist only
+sliced by GEOGRAPHY (CED / LGA / POA / SA2 / SAL / SED / SUA / UCL), not by
+occupation. The OCCP × INCP crosstab is available **only via ABS TableBuilder
+Pro**, which requires a separate registered-user authentication flow.
 
-Phase 19.2b will:
-- Find the exact dataflow ID (likely `ABS,CENSUS21_T15A_TLF_INCOME,1.0.0` or similar)
-- Build the SDMX dimension-key request (ANZSCO_6DIGIT × WEEKLY_PERSONAL_INCOME)
-- Parse the SDMX-DataSet response into per-occupation salary distributions
+**Why this scraper is no longer needed:** the Phase 19.4 JSA Occupation Profiles
+direct-upload pipeline already delivers the same data (median weekly earnings +
+median FT annual + employed count per 4-digit ANZSCO, sourced from ABS Census
+2021 with proper attribution). 96% of AU verified records (703/729) carry
+`abs_data.median_ft_annual_aud` populated via JSA upload. Re-scraping the ABS
+API would duplicate this without adding precision.
+
+Status today: `redundant_data_via_jsa_upload`. APScheduler cron entry for this
+scraper is DISABLED (`server.py`). Code retained as future-reference scaffolding
+if/when ABS opens the OCCP×INCP API or if we obtain TableBuilder Pro credentials.
 """
 from __future__ import annotations
 import re
@@ -28,57 +33,37 @@ ABS_DATAFLOW_URL = "https://api.data.abs.gov.au/dataflow/ABS"
 
 class ABSCensusScraper(BaseScraper):
     scraper_id = "abs_census"
-    display_name = "ABS Census 2021 Income by Occupation"
-    description = "AU salary distribution per ANZSCO 6-digit (SKELETON — dataflow ID discovery pending)"
+    display_name = "ABS Census 2021 Income by Occupation (CLOSED — data via JSA upload)"
+    description = "Phase 19.4b CLOSED. ABS public SDMX API does not expose ANZSCO×INCOME crosstab. Same data is delivered by the Phase 19.4 JSA Occupation Profiles upload pipeline."
     countries = ["AU"]
     source_url = ABS_DATAFLOW_URL
     is_global = True
 
     async def scrape(self, codes: Optional[List[str]] = None) -> ScrapeRunResult:
+        """Formal close-out: writes the redundancy marker once and skips."""
         result = ScrapeRunResult(
             scraper_id=self.scraper_id, started_at="", finished_at="",
             duration_ms=0, status="skipped",
         )
-        r = await self.fetch(
-            self.source_url,
-            accept="application/vnd.sdmx.structure+xml;version=2.1",
-        )
-        if r is None or r.status_code != 200:
-            result.status = "failed"
-            result.notes = f"ABS API HTTP {r.status_code if r else 'ERR'}"
-            return result
-        xml = r.text
-        # Best-effort parse: find census21 / income dataflows
-        ids = re.findall(r'<structure:Dataflow\b[^>]*\bid="([^"]+)"', xml)
-        income_candidates: List[str] = []
-        for fid in ids:
-            up = fid.upper()
-            if ("INCOME" in up or "EARN" in up or "C21" in up or "CENSUS" in up) and "OCC" in up:
-                income_candidates.append(fid)
-        # Always also flag bare census21 flows for later eyeballing
-        census21_candidates = [fid for fid in ids if "C21" in fid.upper()][:30]
-
         await self._upsert_kb({
             "source_id": "abs_census",
             "source_type": "labour_market",
-            "title": "ABS Census 2021 Income by Occupation (deferred)",
+            "title": "ABS Census 2021 Income by Occupation (CLOSED — data via JSA upload)",
             "url": self.source_url,
             "rules_summary": (
-                "ABS SDMX API reachable from preview but per-ANZSCO 6-digit income dataflow "
-                "ID discovery is deferred to Phase 19.2b. Once the correct dataflow is identified, "
-                "this scraper will populate occupation_master.abs_data with weekly median + salary "
-                "distribution per AU verified record."
+                "FORMALLY CLOSED (Phase 19.4b). ABS public SDMX API does not expose "
+                "OCCP × INCP crosstab — the per-ANZSCO income data is delivered via "
+                "the Phase 19.4 JSA Occupation Profiles upload pipeline instead "
+                "(703/729 AU records already populated). No live-scrape needed."
             ),
             "countries": ["AU"],
-            "_status": "deferred",
-            "_income_candidates": income_candidates[:20],
-            "_census21_candidates": census21_candidates,
-            "_total_dataflows": len(ids),
+            "_status": "redundant_data_via_jsa_upload",
+            "_closed_at": datetime.now(timezone.utc).isoformat(),
+            "_replacement_path": "POST /api/data-import/upload (file_type=occupation_profiles)",
         })
         result.notes = (
-            f"ABS SDMX reachable. {len(ids)} dataflows listed. "
-            f"Income+OCC candidates: {income_candidates[:5]!r}. "
-            "Detailed dataflow-ID discovery deferred to Phase 19.2b."
+            "Phase 19.4b CLOSED — ABS public SDMX API has no ANZSCO×INCOME crosstab. "
+            "Replacement path: Phase 19.4 JSA Occupation Profiles upload pipeline."
         )
         result.status = "skipped"
         return result

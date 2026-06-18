@@ -28,6 +28,8 @@ from parsers.jsa import (
     occupation_profiles as p_occ_profiles,
     employment_projections as p_emp_proj,
     sa4_ratings as p_sa4,
+    industry_data as p_industry,
+    vacancy_report as p_vacancy,
 )
 from services import jsa_importer
 
@@ -41,12 +43,16 @@ PARSER_REGISTRY = {
     "occupation_profiles": p_occ_profiles,
     "employment_projections": p_emp_proj,
     "sa4_ratings": p_sa4,
+    "industry_data": p_industry,
+    "vacancy_report": p_vacancy,
 }
 
 COMMITTER_REGISTRY = {
     "occupation_profiles": jsa_importer.commit_occupation_profiles,
     "employment_projections": jsa_importer.commit_employment_projections,
     "sa4_ratings": jsa_importer.commit_sa4_ratings,
+    "industry_data": jsa_importer.commit_industry_data,
+    "vacancy_report": jsa_importer.commit_vacancy_report,
 }
 
 
@@ -62,7 +68,19 @@ def _require_admin(user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str
 
 
 def _detect_type(path: Path) -> str:
-    """Auto-detect file type by inspecting sheet names + first sheet contents."""
+    """Auto-detect file type by extension + inspect."""
+    # PDF branch — currently only Vacancy Report supported
+    if path.suffix.lower() == ".pdf":
+        try:
+            import pdfplumber  # noqa: PLC0415
+            with pdfplumber.open(str(path)) as pdf:
+                page1 = pdf.pages[0].extract_text() or ""
+            if "vacancy report" in page1.lower() or "internet vacancy index" in page1.lower():
+                return "vacancy_report"
+        except Exception as e:  # noqa: BLE001
+            logger.exception("pdf type detection failed: %s", e)
+        return "unknown"
+    # XLSX branch
     try:
         wb = load_workbook(str(path), read_only=True, data_only=True)
         sheet_names = wb.sheetnames
@@ -92,7 +110,7 @@ async def upload_file(
     storage_path.write_bytes(content)
     file_size = storage_path.stat().st_size
 
-    detected_type = _detect_type(storage_path) if safe_name.lower().endswith(".xlsx") else "non_xlsx"
+    detected_type = _detect_type(storage_path) if safe_name.lower().endswith((".xlsx", ".pdf")) else "unsupported_extension"
 
     doc = {
         "id": file_id,
@@ -231,3 +249,22 @@ async def delete_import(
         logger.warning("delete failed for file %s: %s", file_id, e)
     await db["import_files"].delete_one({"id": file_id})
     return {"deleted": True, "file_id": file_id}
+
+
+# Phase 19.4c — Vacancy snapshot quick-read endpoints (read-only, admin)
+@router.get("/vacancy/latest")
+async def vacancy_latest(user: Dict[str, Any] = Depends(_require_admin)) -> Dict[str, Any]:
+    """Return the most recent imported `vacancy_snapshots` doc (is_latest=True)."""
+    doc = await db["vacancy_snapshots"].find_one({"is_latest": True}, {"_id": 0})
+    if not doc:
+        return {"snapshot": None}
+    return {"snapshot": doc}
+
+
+@router.get("/industries")
+async def list_industries(user: Dict[str, Any] = Depends(_require_admin)) -> Dict[str, Any]:
+    """Phase 19.4c — Return all 19 ANZSIC industry docs from industry_master."""
+    items = []
+    async for ind in db["industry_master"].find({}, {"_id": 0}).sort("employed_count", -1):
+        items.append(ind)
+    return {"count": len(items), "items": items}

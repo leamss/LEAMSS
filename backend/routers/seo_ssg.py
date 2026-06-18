@@ -315,13 +315,19 @@ async def render_occupation_html(country_code: str, code: str) -> Optional[str]:
     visa_pathway_chips = _build_visa_pathway_chips(occ, rec_visa)
     pathway_list_pills = _pathway_list_pills(occ)
 
-    # Phase 19.4 — Top 5 SA4 regions with "Strong" rating (AU only, country-wide)
+    # Phase 19.4c — Top 5 SA4 regions with "Strong" rating (AU only, country-wide)
     strong_regions: List[Dict[str, Any]] = []
     if cc == "AU":
         async for r in db["regional_labour_market"].find(
             {"rating": "Strong"}, {"_id": 0}
         ).limit(5):
             strong_regions.append(r)
+
+    # Phase 19.4c — Industry name → slug map for cross-linking from top_industries chips
+    industry_slug_map: Dict[str, str] = {}
+    if cc == "AU":
+        async for ind in db["industry_master"].find({}, {"_id": 0, "industry_name": 1, "slug": 1}):
+            industry_slug_map[ind["industry_name"]] = ind["slug"]
 
     tmpl = _env.get_template("atlas_occupation_ssr.html")
     return tmpl.render(
@@ -347,6 +353,7 @@ async def render_occupation_html(country_code: str, code: str) -> Optional[str]:
         og_image=f"{base}/leamss-logo.png",
         now_iso=datetime.now(timezone.utc).isoformat(),
         strong_regions=strong_regions,
+        industry_slug_map=industry_slug_map,
     )
 
 
@@ -388,11 +395,28 @@ async def render_country_index_html(country_code: str) -> str:
     total = await db["occupation_master"].count_documents({"country_code": cc, "status": "verified"})
     skill_breakdown = await _skill_level_breakdown(cc)
 
+    # Phase 19.4c — latest Vacancy Report (AU only) for the trust chip
+    vacancy = None
+    if cc == "AU":
+        vacancy = await db["vacancy_snapshots"].find_one(
+            {"is_latest": True}, {"_id": 0}
+        )
+
+    # Phase 19.4c — list of industry hubs to link from country index footer
+    industries = []
+    if cc == "AU":
+        async for ind in db["industry_master"].find(
+            {}, {"_id": 0, "industry_name": 1, "slug": 1, "employed_count": 1}
+        ).sort("employed_count", -1).limit(19):
+            industries.append(ind)
+
     tmpl = _env.get_template("atlas_country_ssr.html")
     return tmpl.render(
         country=country, country_code=cc, country_code_lower=cc.lower(),
         page_url=page_url, base_url=base, top=top, total=total,
         skill_level_breakdown=skill_breakdown,
+        vacancy=vacancy,
+        industries=industries,
         hero_image=_hero_image(cc),
         og_image=f"{base}/leamss-logo.png",
         now_iso=datetime.now(timezone.utc).isoformat(),
@@ -422,6 +446,70 @@ async def render_atlas_hub_html() -> str:
         og_image=f"{base}/leamss-logo.png",
         now_iso=datetime.now(timezone.utc).isoformat(),
     )
+
+
+async def render_industry_hub_html(slug: str) -> Optional[str]:
+    """Phase 19.4c — render one industry hub page (AU only)."""
+    industry = await db["industry_master"].find_one({"slug": slug}, {"_id": 0})
+    if not industry:
+        return None
+    base = _public_base()
+    page_url = f"{base}/atlas/au/industry/{slug}"
+
+    # Build a map of 4-digit ANZSCO → linkable 6-digit code (best-match by occupation count)
+    occ_link_map: Dict[str, str] = {}
+    seen = set()
+    async for o in db["occupation_master"].find(
+        {"country_code": "AU", "status": "verified"},
+        {"_id": 0, "code": 1},
+    ).sort("code", 1):
+        code = str(o.get("code") or "")
+        parent4 = code[:4]
+        if parent4 and parent4 not in seen:
+            occ_link_map[parent4] = code
+            seen.add(parent4)
+
+    # Build SEO meta description — Phase 19.5 pattern, ≤165 chars
+    top3 = [o["title"] for o in (industry.get("top_employing_occupations") or [])[:3]]
+    top3_str = ", ".join(top3) if top3 else ""
+    employed = industry.get("employed_count") or 0
+    employed_str = f"{employed/1_000_000:.2f}M" if employed >= 1_000_000 else f"{employed//1000}k"
+    annual = industry.get("median_ft_annual_aud")
+    annual_str = f"AUD ${annual//1000}k median" if annual else ""
+    head = f"{industry['industry_name']} in Australia"
+    parts = [f"{head} — {employed_str} employed"]
+    if annual_str:
+        parts.append(annual_str)
+    if top3_str:
+        parts.append(f"Top: {top3_str}")
+    cta = "Free PR pathway guide."
+    desc_full = ". ".join(parts) + ". " + cta
+    if len(desc_full) > 165:
+        # Drop top occupations if too long
+        desc_full = ". ".join(parts[:-1] if top3_str else parts) + ". " + cta
+    if len(desc_full) > 165:
+        desc_full = desc_full[:163].rstrip(" ,.;:") + "."
+
+    seo = {
+        "page_title": f"{industry['industry_name']} — Australia Industry Hub | LEAMSS Atlas",
+        "meta_description": desc_full,
+        "og_title": f"{industry['industry_name']} — Top Occupations & Salaries in Australia",
+        "og_description": desc_full,
+        "canonical_url": page_url,
+    }
+
+    tmpl = _env.get_template("atlas_industry_ssr.html")
+    return tmpl.render(
+        industry=industry,
+        page_url=page_url,
+        base_url=base,
+        seo=seo,
+        occ_link_map=occ_link_map,
+        og_image=f"{base}/leamss-logo.png",
+        now_iso=datetime.now(timezone.utc).isoformat(),
+    )
+
+
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -457,6 +545,16 @@ async def regenerate_atlas_hub() -> str:
     return str(target)
 
 
+async def regenerate_industry_hub(slug: str) -> Optional[str]:
+    """Phase 19.4c — write one industry hub SSG page to /atlas/au/industry/{slug}/index.html."""
+    html = await render_industry_hub_html(slug)
+    if not html:
+        return None
+    target = ATLAS_OUT / "au" / "industry" / slug / "index.html"
+    _write_file(target, html)
+    return str(target)
+
+
 async def prune_unverified_files() -> Dict[str, Any]:
     """Walk written files; delete any that no longer have a verified record."""
     if not ATLAS_OUT.exists():
@@ -465,6 +563,8 @@ async def prune_unverified_files() -> Dict[str, Any]:
     async for d in db["occupation_master"].find({"status": "verified"}, {"_id": 0, "country_code": 1, "code": 1}):
         verified_codes.add((str(d.get("country_code", "")).lower(), str(d.get("code", ""))))
     deleted = 0
+    # Phase 19.4c — whitelist non-ANZSCO subdirectories (e.g. /atlas/au/industry/)
+    NON_ANZSCO_DIRS = {"industry"}
     for cc_dir in ATLAS_OUT.iterdir():
         if not cc_dir.is_dir():
             continue
@@ -473,6 +573,8 @@ async def prune_unverified_files() -> Dict[str, Any]:
         for code_dir in cc_dir.iterdir():
             if not code_dir.is_dir():
                 continue
+            if code_dir.name in NON_ANZSCO_DIRS:
+                continue  # protected — industry hub etc.
             if (cc_dir.name, code_dir.name) not in verified_codes:
                 try:
                     shutil.rmtree(code_dir)
@@ -508,6 +610,17 @@ async def regenerate_sitemap() -> Dict[str, Any]:
         if lastmod_str:
             u["lastmod"] = lastmod_str
         urls.append(u)
+
+    # Phase 19.4c — Industry hub URLs (AU only)
+    async for ind in db["industry_master"].find({}, {"_id": 0, "slug": 1, "last_imported_at": 1}):
+        slug = ind.get("slug")
+        if not slug:
+            continue
+        u2: Dict[str, Any] = {"loc": f"{base}/atlas/au/industry/{slug}", "priority": "0.6", "changefreq": "monthly"}
+        last = ind.get("last_imported_at")
+        if isinstance(last, str) and len(last) >= 10:
+            u2["lastmod"] = last[:10]
+        urls.append(u2)
 
     xml_lines = ['<?xml version="1.0" encoding="UTF-8"?>', '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
     for u in urls:
@@ -552,6 +665,18 @@ async def regenerate_all() -> Dict[str, Any]:
                 written += 1
         except Exception as e:  # noqa: BLE001
             errors.append({"path": f"/atlas/{d.get('country_code')}/{d.get('code')}", "error": str(e)[:200]})
+    # 3b. Phase 19.4c — Industry hub pages (AU only)
+    industries_written = 0
+    async for ind in db["industry_master"].find({}, {"_id": 0, "slug": 1}):
+        try:
+            slug = ind.get("slug")
+            if not slug:
+                continue
+            r = await regenerate_industry_hub(slug)
+            if r:
+                industries_written += 1
+        except Exception as e:  # noqa: BLE001
+            errors.append({"path": f"/atlas/au/industry/{ind.get('slug')}", "error": str(e)[:200]})
     # 4. Sitemap
     sitemap = await regenerate_sitemap()
     # 5. Prune (don't fail full sweep on prune errors)
@@ -573,6 +698,7 @@ async def regenerate_all() -> Dict[str, Any]:
         "occupations_written": written,
         "country_indexes_written": 3,
         "hub_written": 1,
+        "industries_written": industries_written,
         "sitemap": sitemap,
         "errors": errors[:20],
     }
