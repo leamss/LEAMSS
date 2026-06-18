@@ -217,9 +217,27 @@ def _build_occupation_faqs(country: str, doc: Dict[str, Any], cm: Dict[str, str]
 
 _CTA = "Check eligibility with LEAMSS."
 _CTA_CORE = _CTA.rstrip(" .")  # "Check eligibility with LEAMSS" — for duplicate detection
-_MAX_META_LEN = 200
-_TARGET_META_LEN = 165  # SERP sweet spot
-_MIN_META_LEN = 120
+_MAX_META_LEN = 165  # Phase 19.5 — hard cap per Sir's brief (SERP-safe)
+_TARGET_META_LEN = 150  # ideal SERP-visible length
+_MIN_META_LEN = 80     # Phase 19.5 — relaxed: country-specific minimums kick-in via padding
+
+# Phase 19.5 — country-specific rotating CTAs. Picked deterministically by code parity
+# so the page-to-page CTA varies subtly without breaking idempotency.
+_CTA_POOL = {
+    "AU": ["Free eligibility check.", "Free PR pathway guide.", "Get free assessment."],
+    "CA": ["Check your CRS score free.", "Free Express Entry guide.", "Get free assessment."],
+    "NZ": ["Get free assessment.", "Free Green List eligibility check.", "Free PR pathway guide."],
+    "DEFAULT": ["Free eligibility check.", "Get free assessment."],
+}
+
+
+def _pick_cta(country: str, code: str) -> str:
+    """Deterministic CTA selection per (country, code) — different occupations get
+    different CTAs so SERP snippets stay fresh."""
+    pool = _CTA_POOL.get(country) or _CTA_POOL["DEFAULT"]
+    # Hash on code char-sum so the same code always picks the same CTA (idempotent).
+    digest = sum(ord(c) for c in (code or "0"))
+    return pool[digest % len(pool)]
 
 
 def _ensure_cta_once(s: str) -> str:
@@ -327,110 +345,163 @@ def _ca_categories(ee: Dict[str, Any]) -> List[str]:
     return labels[:2]
 
 
+def _format_salary_aud(value) -> str:
+    """Phase 19.5 — format salary as 'AUD $131k' (round to nearest 1k)."""
+    if not isinstance(value, (int, float)) or value <= 0:
+        return ""
+    k = round(value / 1000)
+    return f"AUD ${k}k"
+
+
+def _format_salary_cad(value) -> str:
+    if not isinstance(value, (int, float)) or value <= 0:
+        return ""
+    k = round(value / 1000)
+    return f"CAD ${k}k"
+
+
+def _format_salary_nzd(value) -> str:
+    if not isinstance(value, (int, float)) or value <= 0:
+        return ""
+    k = round(value / 1000)
+    return f"NZD ${k}k"
+
+
 def _build_au_meta(doc: Dict[str, Any], code: str, title: str, country_name: str) -> str:
+    """Phase 19.5 — Data-rich AU description.
+
+    Target: `ANZSCO 261313 Software Engineer — Visa 189/190/491 via ACS.
+            Median AUD $132k, +27% growth by 2035. Free eligibility check.`
+    """
     subs = _au_visa_subclasses(doc)[:3]
     aa = doc.get("assessing_authority") or {}
-    body_short = (aa.get("short_name") or aa.get("name") or "").strip()
-    body_full = (aa.get("name") or "").strip()
-    # Strip the long legal "Incorporated" / "Limited" suffix for readability.
-    body_full = re.sub(r"\s+(Incorporated|Limited|Ltd\.?|Inc\.?|Pty\.?\s*Ltd)\.?$", "", body_full)
-    tier = doc.get("skillselect_tier") or ""
-    tier_phrase = ""
-    if isinstance(tier, str) and "tier 1" in tier.lower():
-        tier_phrase = "Tier 1 SkillSelect priority."
-    elif isinstance(tier, dict) and str(tier.get("tier", "")).lower() in ("tier 1", "1"):
-        tier_phrase = "Tier 1 SkillSelect priority."
-    salary = (doc.get("anzsco_profile") or {}).get("median_salary_aud")
+    body_short = (aa.get("short_name") or "").strip() or (aa.get("name") or "").strip()
+    body_short = re.sub(r"\s+(Incorporated|Limited|Ltd\.?|Inc\.?|Pty\.?\s*Ltd)\.?$", "", body_short).split()[0] if body_short else ""
 
-    # Core clause
+    # Salary — prefer Phase 19.4 ABS data, fall back to anzsco_profile.median_salary_aud
+    abs_d = doc.get("abs_data") or {}
+    salary_aud = abs_d.get("median_ft_annual_aud") or (doc.get("anzsco_profile") or {}).get("median_salary_aud")
+    salary_str = _format_salary_aud(salary_aud)
+
+    # Growth — Phase 19.4 JSA projection (10y growth pct)
+    jsa = doc.get("jsa_data") or {}
+    growth_pct = jsa.get("growth_pct_2025_to_2035")
+    growth_str = ""
+    if isinstance(growth_pct, (int, float)):
+        sign = "+" if growth_pct >= 0 else ""
+        growth_str = f"{sign}{growth_pct:.0f}% growth by 2035"
+
+    # Pathway snippet
     if subs:
-        # Pretty list: "189, 190 & 491" (Oxford-comma-less, Aussie-friendly).
-        if len(subs) == 1:
-            sub_str = subs[0]
-        elif len(subs) == 2:
-            sub_str = f"{subs[0]} & {subs[1]}"
-        else:
-            sub_str = ", ".join(subs[:-1]) + f" & {subs[-1]}"
-        visa_clause = f"Skilled migration via subclass {sub_str}."
+        sub_str = "/".join(subs)
+        pathway = f"Visa {sub_str}"
     else:
-        visa_clause = "Skilled migration pathway available."
+        pathway = "Skilled migration pathway"
 
-    # Authority clause: prefer short_name (e.g., "ACS") for brevity.
-    if body_short and body_full and body_short.lower() != body_full.lower():
-        body_clause = f"Assessed by {body_short} ({body_full})."
-        body_clause_compact = f"Assessed by {body_short}."
-    elif body_short or body_full:
-        body_clause = f"Assessed by {body_short or body_full}."
-        body_clause_compact = body_clause
+    # Authority via
+    via = f" via {body_short}" if body_short else ""
+
+    cta = _pick_cta("AU", code)
+    head = f"ANZSCO {code} {title}"
+
+    # Build candidate segments in priority order — earlier ones kept, later trimmed first
+    # Segment 1: head + pathway via authority
+    seg1 = f"{head} — {pathway}{via}."
+    # Segment 2: salary + growth (combine if both present)
+    if salary_str and growth_str:
+        seg2 = f"Median {salary_str}, {growth_str}."
+    elif salary_str:
+        seg2 = f"Median {salary_str}."
+    elif growth_str:
+        seg2 = f"{growth_str.capitalize()}."
     else:
-        body_clause = body_clause_compact = ""
+        seg2 = ""
 
-    salary_clause = f"Median AUD {salary:,}." if isinstance(salary, (int, float)) and salary else ""
+    # Try full → trim growth → trim salary → trim authority
+    for candidate in (
+        f"{seg1} {seg2} {cta}".strip() if seg2 else f"{seg1} {cta}",
+        # Without growth
+        f"{head} — {pathway}{via}. Median {salary_str}. {cta}" if salary_str else None,
+        # Without salary, with growth
+        f"{head} — {pathway}{via}. {growth_str.capitalize()}. {cta}" if growth_str else None,
+        # Without salary/growth (head + pathway + authority + CTA)
+        f"{head} — {pathway}{via}. {cta}",
+        # Compact: no authority
+        f"{head} — {pathway}. {cta}",
+    ):
+        if candidate and len(candidate) <= _MAX_META_LEN:
+            return _clean_sentence([candidate])
 
-    head = f"{title} ({code}) in {country_name}:"
-    # Full version (all signals)
-    full = _clean_sentence([head, visa_clause, body_clause, tier_phrase, salary_clause, _CTA])
-    if len(full) <= _TARGET_META_LEN + 10:
-        return full
-
-    # Trim 1: drop salary
-    s = _clean_sentence([head, visa_clause, body_clause, tier_phrase, _CTA])
-    if len(s) <= _TARGET_META_LEN + 10:
-        return s
-    # Trim 2: drop tier phrase, switch to compact authority (no full name parens)
-    s = _clean_sentence([head, visa_clause, body_clause_compact, _CTA])
-    if len(s) <= _TARGET_META_LEN + 15:
-        return s
-    # Trim 3: drop authority entirely
-    s = _clean_sentence([head, visa_clause, _CTA])
-    if len(s) <= _MAX_META_LEN:
-        return s
+    # Final defensive trim
+    s = f"{head} — {pathway}. {cta}"
     return s[:_MAX_META_LEN].rstrip(" ,.;:") + "."
 
 
 def _build_ca_meta(doc: Dict[str, Any], code: str, title: str, country_name: str) -> str:
+    """Phase 19.5 — Data-rich CA description.
+
+    Target: `NOC 21231 Software Engineer — Express Entry FSW/CEC eligible.
+            WES assessment. Median CAD $95k. Check your CRS score free.`
+
+    Fallback ladder (drop in order: salary → category → body → trim title).
+    EE clause is the TOP signal and kept until last.
+    """
     teer = doc.get("teer_category")
-    teer_label = (doc.get("teer_label") or "").strip()
     ee = doc.get("ee_eligibility") or {}
     progs = _ca_ee_programs(ee)
     cats = _ca_categories(ee)
-    quebec_ok = bool((doc.get("quebec_eligibility") or {}).get("eligible"))
+    aa = doc.get("assessing_authority") or {}
+    body_short = (aa.get("short_name") or aa.get("name") or "").strip()
+    body_short = body_short.split()[0] if body_short else ""
 
-    head = f"{title} (NOC {code}) in {country_name}:"
+    salary_cad = (doc.get("anzsco_profile") or {}).get("median_salary_cad") or (doc.get("salary") or {}).get("median")
+    salary_str = _format_salary_cad(salary_cad)
 
-    if teer is not None:
-        teer_phrase = f"TEER {teer}" + (f" ({teer_label})" if teer_label else "") + "."
-    else:
-        teer_phrase = ""
+    head = f"NOC {code} {title}"
+    cta = _pick_cta("CA", code)
 
+    # Pathway core clause — Express Entry is the top signal
     if progs:
-        ee_clause = f"Eligible for Express Entry {' + '.join(progs)}."
+        ee_short = "/".join(progs)  # e.g. FSWP/CEC
+        ee_core = f"Express Entry {ee_short} eligible"
     else:
-        ee_clause = "Not in core Express Entry federal programs."
+        ee_core = "Skilled migration pathway"
 
-    cat_clause = f"Category-based: {' + '.join(cats)}." if cats else ""
-    qc_clause = "Quebec PSTQ pathway open." if quebec_ok else ""
+    ee_with_cats = ee_core + (f" + {'/'.join(cats)} category" if cats else "")
+    body_clause = f"{body_short} assessment." if body_short else ""
+    teer_clause = f"TEER {teer}" if teer is not None else ""
 
-    # Full version
-    full = _clean_sentence([head, teer_phrase, ee_clause, cat_clause, qc_clause, _CTA])
-    if len(full) <= _TARGET_META_LEN + 10:
-        return full
+    candidates = [
+        # 1. Full: head + EE + categories + body + salary + CTA
+        " ".join(s for s in [f"{head} — {ee_with_cats}.", body_clause, f"Median {salary_str}." if salary_str else "", cta] if s),
+        # 2. Drop salary
+        " ".join(s for s in [f"{head} — {ee_with_cats}.", body_clause, cta] if s),
+        # 3. Drop categories
+        " ".join(s for s in [f"{head} — {ee_core}.", body_clause, f"Median {salary_str}." if salary_str else "", cta] if s),
+        # 4. Drop categories + salary
+        " ".join(s for s in [f"{head} — {ee_core}.", body_clause, cta] if s),
+        # 5. Drop categories + body
+        " ".join(s for s in [f"{head} — {ee_core}.", f"Median {salary_str}." if salary_str else "", cta] if s),
+        # 6. Bare-minimum with EE clause
+        f"{head} — {ee_core}. {cta}",
+    ]
+    for candidate in candidates:
+        if candidate and len(candidate) <= _MAX_META_LEN:
+            return _clean_sentence([candidate])
 
-    # Trim 1: drop teer_label parenthesis
-    teer_phrase_compact = f"TEER {teer}." if teer is not None else ""
-    s = _clean_sentence([head, teer_phrase_compact, ee_clause, cat_clause, qc_clause, _CTA])
-    if len(s) <= _TARGET_META_LEN + 10:
-        return s
-    # Trim 2: drop quebec clause
-    s = _clean_sentence([head, teer_phrase_compact, ee_clause, cat_clause, _CTA])
-    if len(s) <= _MAX_META_LEN:
-        return s
-    # Trim 3: drop category clause
-    s = _clean_sentence([head, teer_phrase_compact, ee_clause, _CTA])
-    return s[:_MAX_META_LEN].rstrip(" ,.;:") + "."
+    # 7. Title too long even for minimal — trim title to fit
+    cta_budget = len(f" — {ee_core}. {cta}") + len("NOC 99999 ")
+    title_max = _MAX_META_LEN - cta_budget - 3
+    short_title = (title[:title_max].rstrip(" -,;:") + "…") if len(title) > title_max else title
+    return _clean_sentence([f"NOC {code} {short_title} — {ee_core}. {cta}"])
 
 
 def _build_nz_meta(doc: Dict[str, Any], code: str, title: str, country_name: str) -> str:
+    """Phase 19.5 — Data-rich NZ description.
+
+    Target: `ANZSCO 261313 Software Engineer — NZ Green List Tier 1,
+            Straight-to-Residence via NZQA. Median NZD $95k. Get free assessment.`
+    """
     tier = doc.get("nz_green_list_tier")
     tier_str = str(tier) if tier is not None else ""
     aewv = (doc.get("aewv_eligibility") or {})
@@ -438,54 +509,51 @@ def _build_nz_meta(doc: Dict[str, Any], code: str, title: str, country_name: str
     smc = (doc.get("smc_points_breakdown") or {})
     smc_pts = smc.get("skill_points_base") if isinstance(smc, dict) else None
     aa = doc.get("assessing_authority") or {}
-    body_short = (aa.get("name") or aa.get("short_name") or "").strip()
+    body_short = (aa.get("short_name") or aa.get("name") or "").strip()
+    body_short = body_short.split()[0] if body_short else ""
 
-    head = f"{title} ({code}) in {country_name}:"
+    # Salary — reserve hook for future NZ imports
+    salary_nzd = (doc.get("anzsco_profile") or {}).get("median_salary_nzd") or (doc.get("salary") or {}).get("median")
+    salary_str = _format_salary_nzd(salary_nzd)
 
-    # Green List tier (top signal for NZ)
+    head = f"ANZSCO {code} {title}"
+    cta = _pick_cta("NZ", code)
+
+    # Green-List clause (top NZ signal)
     if tier_str == "1":
-        gl_clause = "Green List Tier 1 — Straight to Residence pathway."
+        pathway = "NZ Green List Tier 1, Straight-to-Residence"
     elif tier_str == "2":
-        gl_clause = "Green List Tier 2 — Work to Residence after 24 months on AEWV."
+        pathway = "NZ Green List Tier 2, Work-to-Residence on AEWV"
+    elif aewv_ok:
+        pathway = "AEWV-eligible skilled work pathway"
     else:
-        gl_clause = ""
+        pathway = "Skilled migration pathway"
 
-    # AEWV
-    aewv_clause = "AEWV-eligible." if aewv_ok and not gl_clause else ""
+    via = f" via {body_short}" if body_short else ""
+    smc_clause = f"SMC {int(smc_pts)}-pt base." if isinstance(smc_pts, (int, float)) and smc_pts else ""
 
-    # SMC
-    if smc_pts and isinstance(smc_pts, (int, float)):
-        smc_clause = f"SMC {int(smc_pts)}-point base."
-    else:
-        smc_clause = ""
+    for candidate in (
+        # Full
+        " ".join(s for s in [f"{head} — {pathway}{via}.", f"Median {salary_str}." if salary_str else "", cta] if s),
+        # Without salary, with SMC
+        " ".join(s for s in [f"{head} — {pathway}{via}.", smc_clause, cta] if s),
+        # Without via
+        f"{head} — {pathway}. Median {salary_str}. {cta}" if salary_str else f"{head} — {pathway}. {cta}",
+        # Minimal
+        f"{head} — {pathway}. {cta}",
+    ):
+        if candidate and len(candidate) <= _MAX_META_LEN:
+            return _clean_sentence([candidate])
 
-    body_clause = f"Assessed by {body_short}." if body_short else ""
-
-    # Full
-    full = _clean_sentence([head, gl_clause, aewv_clause, smc_clause, body_clause, _CTA])
-    if len(full) <= _TARGET_META_LEN + 10:
-        return full
-
-    # Trim 1: drop SMC
-    s = _clean_sentence([head, gl_clause, aewv_clause, body_clause, _CTA])
-    if len(s) <= _TARGET_META_LEN + 10:
-        return s
-    # Trim 2: drop body
-    s = _clean_sentence([head, gl_clause, aewv_clause, _CTA])
-    if len(s) <= _MAX_META_LEN:
-        return s
-    # Trim 3: keep only green list / aewv
-    core = gl_clause or aewv_clause or "Skilled migration pathway available."
-    s = _clean_sentence([head, core, _CTA])
-    return s[:_MAX_META_LEN].rstrip(" ,.;:") + "."
+    return f"{head} — {pathway[:50]}. {cta}"[:_MAX_META_LEN]
 
 
 def _build_meta_description(country: str, doc: Dict[str, Any], code: str, title: str, country_name: str) -> str:
-    """Country-aware, data-driven meta description for one occupation page.
+    """Phase 19.5 — Data-rich, country-aware meta description for one occupation.
 
-    Returns a 120-200 char sentence woven from real `occupation_master` fields.
-    Falls back to a grammatical generic sentence if a country has no
-    handler (e.g., new countries added later) or signals are sparse.
+    Returns ≤165 chars woven from real `occupation_master` fields with a
+    country-specific rotating CTA. Each builder applies its own length-aware
+    fallback ladder; this wrapper only enforces the hard cap defensively.
     """
     if country == "AU":
         meta = _build_au_meta(doc, code, title, country_name)
@@ -494,78 +562,16 @@ def _build_meta_description(country: str, doc: Dict[str, Any], code: str, title:
     elif country == "NZ":
         meta = _build_nz_meta(doc, code, title, country_name)
     else:
-        meta = _clean_sentence([
-            f"{title} ({code}) in {country_name}:",
-            "Skilled migration pathway and eligibility details.",
-            _CTA,
-        ])
+        cta = _pick_cta(country, code)
+        meta = f"{title} ({code}) in {country_name} — skilled migration pathway and eligibility guide. {cta}"
 
-    # Final safety: hard-cap 200 chars and ensure minimum length.
+    # Defensive hard-cap at 165 chars; cut at last word boundary if too long.
     if len(meta) > _MAX_META_LEN:
-        meta = meta[: _MAX_META_LEN - 1].rstrip(" ,.;:") + "."
-
-    # Phase 16.7.1 — pad short metas with a grammatical, country-specific
-    # extension. Uniqueness preserved by the title + code at the head.
-    # The extension intentionally uses different verbs/keywords than any
-    # builder phrase so no "X X" doubling can occur, and never contains the
-    # CTA core phrase ("Check eligibility with LEAMSS") so `_ensure_cta_once`
-    # can safely re-append a single CTA at the end.
-    if len(meta) < _MIN_META_LEN:
-        extension_map = {
-            "AU": "Speak to our team about visa subclass criteria, English bands and skill-assessment documentation.",
-            "CA": "Speak to our team about CRS scoring, NOC eligibility and provincial nomination pathways.",
-            "NZ": "Speak to our team about SMC points, AEWV thresholds and English-language requirements.",
-        }
-        ext_short = {
-            "AU": "Speak to our team about visa criteria and documentation.",
-            "CA": "Speak to our team about CRS, NOC and PNP pathways.",
-            "NZ": "Speak to our team about SMC points and AEWV thresholds.",
-        }
-        # 1. Strip any existing trailing CTA(s) from the body.
-        body = meta
-        while True:
-            trimmed = body.rstrip().rstrip(".").rstrip()
-            if trimmed.endswith(_CTA_CORE):
-                body = trimmed[: -len(_CTA_CORE)].rstrip(" ,;")  # keep ':' if present
-                continue
-            break
-        # 2. Ensure body ends with proper sentence terminator (period, !, ?).
-        body = body.rstrip()
-        if body and body[-1] not in ".!?":
-            body = body.rstrip(" ,;:") + "."
-        # 3. Choose extension that fits within budget. Prefer long version; fall
-        #    back to short version if long would push us over.
-        budget = _MAX_META_LEN - len(_CTA) - 1  # space before CTA
-        for ext in (extension_map.get(country) or "", ext_short.get(country) or ""):
-            if not ext:
-                continue
-            candidate = (body + " " + ext).strip()
-            if len(candidate) <= budget:
-                meta = candidate
-                break
-        else:
-            # Even the short extension doesn't fit — use body alone (still better
-            # than truncating an extension mid-word).
-            meta = body if (body and len(body) <= budget) else body[:budget].rstrip(" ,.;:") + "."
-
-    # Belt-and-braces: enforce single trailing CTA on every path.
-    meta = _ensure_cta_once(meta)
-    # Final hard cap (defensive — covers the rare builder-output > 200 case).
-    # When trimming, cut at the last sentence boundary so we never end mid-word.
-    if len(meta) > _MAX_META_LEN:
-        body = meta[: -len(_CTA)].rstrip(" ,.;:")
-        budget = _MAX_META_LEN - len(_CTA) - 1
-        if len(body) > budget:
-            cut = body[:budget]
-            # Prefer to cut at the last full stop within budget
-            last_dot = cut.rfind(".")
-            if last_dot >= int(budget * 0.5):
-                body = cut[: last_dot + 1].rstrip()
-            else:
-                # No good period — cut at last word boundary
-                last_space = cut.rfind(" ")
-                body = (cut[:last_space] if last_space > 0 else cut).rstrip(" ,.;:") + "."
-        meta = _ensure_cta_once(body)
+        cut = meta[: _MAX_META_LEN]
+        last_space = cut.rfind(" ")
+        if last_space > _MAX_META_LEN * 0.5:
+            cut = cut[:last_space]
+        meta = cut.rstrip(" ,.;:") + "."
     return meta
 
 

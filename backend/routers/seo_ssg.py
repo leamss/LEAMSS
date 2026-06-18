@@ -235,18 +235,24 @@ def _build_faqpage_jsonld(faqs: List[Dict[str, str]]) -> Optional[Dict[str, Any]
 
 
 def _build_seo_dict(occ: Dict[str, Any], country: Dict[str, str], page_url: str) -> Dict[str, Any]:
+    """Phase 19.5 — use the data-rich `_build_meta_description` from public_atlas.
+
+    Both `meta_description` (SERP) and `og_description` (social cards) share the
+    same dynamic, data-driven string so the SERP snippet and the social preview
+    stay in lockstep. The legacy raw `description` field is no longer used for
+    SEO; it remains on the rendered page body for human readers.
+    """
+    from routers.public_atlas import _build_meta_description  # avoid circular
     title_short = occ.get("title") or "Occupation"
-    code = occ.get("code")
-    desc = occ.get("description") or ""
-    short_desc = (desc[:250] + "…") if len(desc) > 260 else desc
-    if not short_desc:
-        short_desc = f"{title_short} — {country['classification']} code {code} migration pathway to {country['name']}. Verified by LEAMSS — Ladhani Education & Migration Services."
+    code = occ.get("code") or ""
+    cc = (occ.get("country_code") or country.get("name", "")).upper()[:2]
+    dynamic_desc = _build_meta_description(cc, occ, str(code), title_short, country["name"])
 
     return {
         "page_title": f"{title_short} ({country['classification']} {code}) — {country['name']} Migration Pathway | LEAMSS",
-        "meta_description": short_desc,
+        "meta_description": dynamic_desc,
         "og_title": f"{title_short} — {country['name']} Migration Pathway",
-        "og_description": short_desc,
+        "og_description": dynamic_desc,
         "canonical_url": page_url,
     }
 

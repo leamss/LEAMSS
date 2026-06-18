@@ -3,6 +3,79 @@
 This file appends every completed phase/feature with dates and verification status.
 
 ---
+### 🎯 Phase 19.5 — Dynamic Atlas Meta Descriptions (Jun 18, 2026)
+
+**Sales pitch:** Har Atlas page ka SERP snippet ab UNIQUE aur data-rich hai — Google search results me directly visible salary + growth + visa pathway + assessing authority. Click-through rate (CTR) significantly boost hoga because the snippet itself sells the value before user even clicks. Sample: *"ANZSCO 261313 Software Engineer — Visa 189/190/491 via ACS. Median AUD $132k, +27% growth by 2035. Free PR pathway guide."* — yeh 121 chars me 6 conversion levers carry karta hai.
+
+**Goal:** Replace boilerplate `meta_description` (Phase 16.7 logic was 200-char target with single static CTA) with TRULY UNIQUE per-occupation descriptions woven from real `occupation_master` fields. Hard cap 165 chars (SERP sweet spot). Rotating country-aware CTAs.
+
+#### A) Backend — `routers/public_atlas.py` complete rewrite of meta builders
+
+- **New cap:** `_MAX_META_LEN = 165` (was 200), `_TARGET_META_LEN = 150`, `_MIN_META_LEN = 80` (relaxed — quality > padding).
+- **Rotating CTA pool** per country (deterministic hash of code → CTA index, so same code always picks the same CTA for SERP idempotency):
+  - **AU:** "Free eligibility check." / "Free PR pathway guide." / "Get free assessment."
+  - **CA:** "Check your CRS score free." / "Free Express Entry guide." / "Get free assessment."
+  - **NZ:** "Get free assessment." / "Free Green List eligibility check." / "Free PR pathway guide."
+- **AU builder rewrite** — head: `ANZSCO {code} {title}` (replaces parenthetical `(code) in Australia` style). Pathway snippet: `Visa 189/190/491 via {Authority}` (slash-list, brief authority short_name). Salary from **Phase 19.4 ABS data** (`abs_data.median_ft_annual_aud` → "AUD $132k" rounded to nearest 1k). Growth from **Phase 19.4 JSA projections** (`jsa_data.growth_pct_2025_to_2035` → "+27% growth by 2035"). Fallback ladder drops growth first, then salary, then authority parens.
+- **CA builder rewrite** — head: `NOC {code} {title}`. Pathway snippet: `Express Entry FSWP/CEC eligible + French/Healthcare category`. Body: `WES assessment.` Fallback ladder drops categories first (long titles like NOC 00012 work), then body, then salary — **EE clause preserved as top signal until last**. If title still too long (rare), trim with "…" so we never break mid-word.
+- **NZ builder rewrite** — head: `ANZSCO {code} {title}`. Top signal is Green-List tier: `NZ Green List Tier 1, Straight-to-Residence via NZQA` or `NZ Green List Tier 2, Work-to-Residence on AEWV`. Falls back to `AEWV-eligible skilled work pathway` for non-Green-List codes. Salary hook reserved for future NZ data imports.
+- **Removed** the 90-line `_ensure_cta_once` + padding cascade in `_build_meta_description` — each builder now produces a single output within bounds, wrapper just hard-caps at 165.
+
+#### B) Backend — `routers/seo_ssg.py::_build_seo_dict` wired to new builder
+
+The SSG renderer had its own `_build_seo_dict` that used `occ.description[:250]` as the meta_description (Phase 19 leftover). **Wired to call `public_atlas._build_meta_description`** so SSG + JSON API + og + twitter all use the SAME dynamic description. The legacy raw `occ.description` field still appears in the visible page body for human readers but is no longer used for SEO meta tags.
+
+#### C) Backend tests — `tests/test_phase195_dynamic_meta.py` (11 tests)
+
+Coverage:
+1. 5+ AU occupations distinct descriptions (no template dupes)
+2. NZ Green-List tier surfaces in description (Tier 1 → "Straight-to-Residence", Tier 2 → "Work-to-Residence")
+3. CA Express-Entry-eligible codes mention "Express Entry"
+4. **All ≤165 chars** (30 cross-country samples)
+5. Graceful fallback for sparse doc (no salary/growth/tier) — no KeyError
+6. **CTA present in 100% of descriptions** (20 cross-country samples)
+7. AU codes with Phase 19.4 JSA growth data say "growth by 2035"
+8. **Uniqueness audit on ALL 1,467 verified occupations — ≥ 95% unique** (actual: 100% unique)
+9. Country-specific code prefix in description head (ANZSCO/NOC)
+10. No banned boilerplate phrases ("Discover", "Learn about", "Comprehensive guide", "Read more")
+11. **`/start` MegaLanding description in LeamssPublic.jsx untouched** (literal string assertion)
+
+#### D) Triple-Gate Verification
+
+- **Gate 1 — Pytest:** **76/76 PASS** (Phase 19 full suite: 33 SSG + 8 scrapers + 12 surface + 12 JSA import + 11 dynamic meta). Zero regressions.
+- **Gate 2 — Curl evidence:** 7 atlas pages verified with Googlebot UA — meta + og + twitter descriptions all in lockstep, all under cap:
+  - `/atlas/au/261313/` (121 chars) — ACS / Visa 189/190/491 / AUD $132k / +27% growth
+  - `/atlas/au/233211/` (125 chars) — Engineers / Visa 189/190/491 / AUD $115k / +21% growth
+  - `/atlas/au/132311/` (124 chars) — IML / Visa 190/491/186 / AUD $144k / +22% growth
+  - `/atlas/ca/21231/` (138 chars) — Express Entry FSWP/CEC + French / ACS assessment
+  - `/atlas/ca/31100/` (142 chars) — Express Entry FSWP/CEC + French/Healthcare
+  - `/atlas/nz/261313/` (133 chars) — Green List Tier 1 Straight-to-Residence via NZQA
+  - `/atlas/nz/232111/` (114 chars) — Green List Tier 1 Architect
+- **Gate 3 — Sample report:** `/app/memory/phase195_sample_descriptions.md` — 12 random samples across AU/CA/NZ for human review. Coverage: 708 AU + 516 CA + 243 NZ = 1,467 total verified occupations regenerated.
+
+#### E) Full SSG regeneration
+
+- `POST /api/seo-ssg/regenerate-all` → **1,467 atlas HTML files refreshed in 2.7s, zero errors.** Every meta/og/twitter tag now ships dynamic data-rich description.
+
+#### F) Honest disclosure
+
+- **CA salary not surfaced yet** — Phase 19.4 only covered AU. CA + NZ salary fields are hooks (read from `salary.median` / `anzsco_profile.median_salary_cad`) ready for future Stats Canada / Stats NZ imports. Current CA/NZ descriptions correctly omit salary clause.
+- **AU growth only for codes with JSA data** — 703/729 AU codes have growth %. The remaining 26 codes (mostly NFD placeholders) gracefully omit the growth clause.
+- **Deterministic CTA selection** (not random) so SERP snippets stay stable across regens — same code → same CTA every time.
+
+#### G) Files touched
+
+- Modified: `backend/routers/public_atlas.py` (rewritten `_build_au_meta` / `_build_ca_meta` / `_build_nz_meta` / `_build_meta_description`; added `_pick_cta`, `_format_salary_aud/cad/nzd`, `_CTA_POOL` constants)
+- Modified: `backend/routers/seo_ssg.py::_build_seo_dict` (wired to call `public_atlas._build_meta_description`)
+- New: `backend/tests/test_phase195_dynamic_meta.py` (11 tests)
+- New: `/app/memory/phase195_sample_descriptions.md` (human-review sample)
+- Regenerated: all 1,467 SSG HTML files in `/app/frontend/public/atlas/`
+- **Untouched (per Sir's rule):** `/app/frontend/src/pages/LeamssPublic.jsx` `/start` description
+
+---
+
+
+---
 ### 🚀 Phase 19.4 — JSA Data Import + Salary Fix + Atlas Surfacing (Jun 18, 2026)
 
 **Sales pitch:** Every Atlas page now ships **real ABS-verified salary data + 10-year JSA growth projections + state-wise labour-market strength** — turning Atlas from a "skills-assessment lookup" into a "career outlook decision tool". For sales: WhatsApp clients can be told *"Sir, Software Engineer me Australia mein average $131,924/year salary aur 27% growth till 2035 — yeh hum apke pathway plan me proof ke saath denge"*. Trust pillars verified through `data_quality: "official_govt_data"`, never faked.
