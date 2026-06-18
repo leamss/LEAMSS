@@ -150,13 +150,18 @@ def test_08_hub_mentions_five_official_bodies():
     assert "100% Refund" in html  # existing trust pillar preserved
 
 
-# 9. AU occupation page has Salary "Coming Soon" honest strip
-def test_09_salary_coming_soon_strip_au(scrapers_primed):
+# 9. AU occupation page has Salary section (real data OR honest "Coming Soon" fallback)
+def test_09_salary_section_present_au(scrapers_primed):
     status, html = _fetch_fe("/atlas/au/261313/")
     assert status == 200
-    assert "Coming Soon" in html
-    assert "ABS Census 2021" in html or "ABS" in html
-    assert "jobsandskills.gov.au" in html or "Labour-market" in html
+    # Phase 19.4 ships real ABS+JSA data; for codes WITHOUT data the honest
+    # "Coming Soon" strip still appears. AU 261313 (Software Eng) is covered, so
+    # we expect the REAL salary card here:
+    has_real_salary = ("Median earnings" in html and "ABS via JSA" in html)
+    has_coming_soon = ("Coming Soon" in html and "ABS" in html)
+    assert has_real_salary or has_coming_soon, "neither real salary card nor honest Coming Soon strip rendered"
+    # AU 261313 specifically — must have real data (Phase 19.4 ABS import committed)
+    assert has_real_salary, "AU 261313 should now ship real ABS via JSA data (Phase 19.4)"
 
 
 # 10. Assessing-authority section hides empty fields (no "Not available")

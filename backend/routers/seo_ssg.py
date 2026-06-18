@@ -309,6 +309,14 @@ async def render_occupation_html(country_code: str, code: str) -> Optional[str]:
     visa_pathway_chips = _build_visa_pathway_chips(occ, rec_visa)
     pathway_list_pills = _pathway_list_pills(occ)
 
+    # Phase 19.4 — Top 5 SA4 regions with "Strong" rating (AU only, country-wide)
+    strong_regions: List[Dict[str, Any]] = []
+    if cc == "AU":
+        async for r in db["regional_labour_market"].find(
+            {"rating": "Strong"}, {"_id": 0}
+        ).limit(5):
+            strong_regions.append(r)
+
     tmpl = _env.get_template("atlas_occupation_ssr.html")
     return tmpl.render(
         occ=occ,
@@ -332,6 +340,7 @@ async def render_occupation_html(country_code: str, code: str) -> Optional[str]:
         hero_image=_hero_image(cc),
         og_image=f"{base}/leamss-logo.png",
         now_iso=datetime.now(timezone.utc).isoformat(),
+        strong_regions=strong_regions,
     )
 
 
@@ -346,7 +355,8 @@ async def render_country_index_html(country_code: str) -> str:
         {"country_code": cc, "status": "verified"},
         {"_id": 0, "code": 1, "title": 1, "assessing_authority": 1,
          "recommended_visa_subclass": 1, "anzsco_major_group_code": 1,
-         "skill_level": 1, "teer_category": 1},
+         "skill_level": 1, "teer_category": 1,
+         "abs_data": 1, "jsa_data": 1},
     ).sort("code", 1).limit(50):
         # Flatten recommended_visa to a single string for the template
         rvs = o.get("recommended_visa_subclass") or {}
@@ -359,6 +369,15 @@ async def render_country_index_html(country_code: str) -> str:
         o["aa_fee"] = aa.get("fee_native")
         o["aa_currency"] = aa.get("fee_currency")
         o["aa_proc_weeks"] = aa.get("processing_time_weeks")
+        # Phase 19.4 — surface salary + growth on country index cards
+        abs_d = o.get("abs_data") or {}
+        jsa_d = o.get("jsa_data") or {}
+        annual = abs_d.get("median_ft_annual_aud")
+        if annual:
+            o["salary_chip"] = f"${round(annual / 1000)}k/yr"
+        else:
+            o["salary_chip"] = None
+        o["growth_chip"] = jsa_d.get("future_growth") if jsa_d.get("future_growth") not in (None, "Unknown") else None
         top.append(o)
     total = await db["occupation_master"].count_documents({"country_code": cc, "status": "verified"})
     skill_breakdown = await _skill_level_breakdown(cc)

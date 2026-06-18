@@ -194,6 +194,12 @@ footer a{color:var(--muted)}footer a:hover{color:var(--burnt)}
           {% if o.aa_proc_weeks %}
             <span class="pill-sm pill-sm-slate" title="Typical processing time">⏱ {{ o.aa_proc_weeks }}w</span>
           {% endif %}
+          {% if o.salary_chip %}
+            <span class="pill-sm pill-sm-emerald" title="Median full-time annual earnings (ABS via JSA)">💼 {{ o.salary_chip }}</span>
+          {% endif %}
+          {% if o.growth_chip %}
+            <span class="pill-sm {% if o.growth_chip in ('Very Strong','Strong') %}pill-sm-emerald{% else %}pill-sm-slate{% endif %}" title="10-year employment outlook (JSA Projections)">📈 {{ o.growth_chip }}</span>
+          {% endif %}
           <span class="pill-sm pill-sm-emerald">✓ Verified</span>
         </div>
         <div class="meta">

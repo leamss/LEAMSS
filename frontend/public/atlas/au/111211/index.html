@@ -193,17 +193,110 @@ live · IML            </div></div>
       </article>
 
 
-      <article class="card" style="background:#FCFBF7;border-style:dashed">
-        <span class="card-eyebrow" style="color:var(--muted)">Data in progress</span>
-        <h2 class="card-title" style="font-size:16px;color:var(--muted)">
-          💰 Salary range &middot; 📊 Labour-market outlook &mdash; <em>Coming Soon</em>
-        </h2>
-        <p style="font-size:13px;color:var(--muted)">
-          Median weekly income (ABS Census 2021) and employment outlook (jobsandskills.gov.au)
-          will appear here once Phase 19.2b enrichment lands. The scrape infrastructure is built &mdash;
-          we&rsquo;re currently blocked at the preview CDN; production deploy will unlock.
-        </p>
+
+
+      <article class="card">
+        <span class="card-eyebrow">10-year Outlook &middot; JSA Projections</span>
+        <h2 class="card-title">📈 Employment outlook to 2035</h2>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px">
+          <span class="pill pill-emerald">
+            Strong demand
+          </span>
+          <span style="font-weight:700;color:var(--forest)">
++13.7% by 2035
+          </span>
+        </div>
+        <div class="metric-grid" style="grid-template-columns:repeat(3,1fr)">
+<div class="metric"><div class="ml">Workers in 2025</div><div class="mv">71,323</div></div><div class="metric"><div class="ml">Projected 2030</div><div class="mv">75,936</div></div><div class="metric"><div class="ml">Projected 2035</div><div class="mv" style="color:var(--burnt)">81,127</div></div>        </div>
+        <p style="font-size:11px;color:var(--muted);margin-top:14px">
+          Source: <strong>JSA Employment Projections May 2025-2035</strong>
+ &middot; 4-digit ANZSCO 1112 parent rate        </p>
       </article>
+
+      <article class="card card-cream">
+        <span class="card-eyebrow">Where workers go</span>
+        <h2 class="card-title">🏭 Top employing industries</h2>
+        <ul style="list-style:none;display:flex;flex-direction:column;gap:8px">
+          <li style="display:flex;align-items:center;gap:10px">
+            <span style="width:20px;height:20px;border-radius:6px;background:var(--burnt);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">1</span>
+            <span style="font-size:14px;color:var(--ink)">Health Care and Social Assistance</span>
+          </li>
+          <li style="display:flex;align-items:center;gap:10px">
+            <span style="width:20px;height:20px;border-radius:6px;background:var(--burnt);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">2</span>
+            <span style="font-size:14px;color:var(--ink)">Professional, Scientific and Technical Services</span>
+          </li>
+          <li style="display:flex;align-items:center;gap:10px">
+            <span style="width:20px;height:20px;border-radius:6px;background:var(--burnt);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">3</span>
+            <span style="font-size:14px;color:var(--ink)">Manufacturing</span>
+          </li>
+        </ul>
+        <p style="font-size:11px;color:var(--muted);margin-top:12px">Source: ABS via JSA Feb 2026 (ranked by share of employment)</p>
+      </article>
+
+      <article class="card">
+        <span class="card-eyebrow">Education profile</span>
+        <h2 class="card-title">🎓 Workforce qualifications</h2>
+        <p style="font-size:15px;color:var(--ink);font-weight:600;margin-bottom:14px">
+Most workers (54%) have a Bachelor degree or higher.
+        </p>
+        <div style="display:flex;flex-direction:column;gap:8px;font-size:12px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="width:90px;color:var(--muted)">Postgrad</span>
+            <div style="flex:1;background:var(--border);height:18px;border-radius:4px;overflow:hidden">
+              <div style="height:100%;width:23.6%;background:var(--forest);"></div>
+            </div>
+            <span style="width:42px;text-align:right;font-weight:700;color:var(--ink)">24%</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="width:90px;color:var(--muted)">Bachelor</span>
+            <div style="flex:1;background:var(--border);height:18px;border-radius:4px;overflow:hidden">
+              <div style="height:100%;width:30.0%;background:var(--forest);"></div>
+            </div>
+            <span style="width:42px;text-align:right;font-weight:700;color:var(--ink)">30%</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="width:90px;color:var(--muted)">Diploma</span>
+            <div style="flex:1;background:var(--border);height:18px;border-radius:4px;overflow:hidden">
+              <div style="height:100%;width:15.2%;background:var(--forest);"></div>
+            </div>
+            <span style="width:42px;text-align:right;font-weight:700;color:var(--ink)">15%</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="width:90px;color:var(--muted)">Cert III/IV</span>
+            <div style="flex:1;background:var(--border);height:18px;border-radius:4px;overflow:hidden">
+              <div style="height:100%;width:11.6%;background:var(--forest);"></div>
+            </div>
+            <span style="width:42px;text-align:right;font-weight:700;color:var(--ink)">12%</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="width:90px;color:var(--muted)">Year 12</span>
+            <div style="flex:1;background:var(--border);height:18px;border-radius:4px;overflow:hidden">
+              <div style="height:100%;width:11.0%;background:var(--forest);"></div>
+            </div>
+            <span style="width:42px;text-align:right;font-weight:700;color:var(--ink)">11%</span>
+          </div>
+        </div>
+        <p style="font-size:11px;color:var(--muted);margin-top:12px">Source: ABS via JSA Feb 2026</p>
+      </article>
+
+      <article class="card">
+        <span class="card-eyebrow">Where to settle</span>
+        <h2 class="card-title">📍 Strongest labour markets in Australia</h2>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:12px">
+          Top 5 SA4 regions ranked <strong>Strong</strong> by JSA's Regional Labour Market Indicator (March 2026).
+          <em>Regional ratings are country-wide and not occupation-specific.</em>
+        </p>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          <span class="pill pill-emerald" title="Unemployment 3.6%">Sydney - Baulkham Hills and Hawkesbury &middot; NSW</span>
+          <span class="pill pill-emerald" title="Unemployment 2.9%">Sydney - Eastern Suburbs &middot; NSW</span>
+          <span class="pill pill-emerald" title="Unemployment 3.9%">Sydney - North Sydney and Hornsby &middot; NSW</span>
+          <span class="pill pill-emerald" title="Unemployment 2.9%">Sydney - Northern Beaches &middot; NSW</span>
+          <span class="pill pill-emerald" title="Unemployment 4.1%">Sydney - Ryde &middot; NSW</span>
+        </div>
+        <p style="font-size:11px;color:var(--muted);margin-top:12px">Source: JSA Regional Labour Market Indicator (RLMI) — March 2026</p>
+      </article>
+
+
 
 
 

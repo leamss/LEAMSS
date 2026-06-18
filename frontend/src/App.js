@@ -41,6 +41,7 @@ import OccupationMasterAdmin from '@/pages/admin/OccupationMasterAdmin';
 import CountryGuidesAdmin from '@/pages/admin/CountryGuidesAdmin';
 import VerificationHub from '@/pages/admin/VerificationHub';
 import ScraperHub from '@/pages/admin/ScraperHub';
+import DataImportHub from '@/pages/admin/DataImportHub';
 import ProtectionPoliciesAdmin from '@/pages/admin/ProtectionPoliciesAdmin';
 import CockpitMockup from '@/pages/admin/CockpitMockup';
 import Cockpit from '@/pages/admin/Cockpit';
@@ -239,6 +240,11 @@ function App() {
           <Route path="/admin/scrapers" element={
             <RequirePermission allowRoles={['admin_owner', 'admin']}>
               <ScraperHub />
+            </RequirePermission>
+          } />
+          <Route path="/admin/data-import" element={
+            <RequirePermission allowRoles={['admin_owner', 'admin']}>
+              <DataImportHub />
             </RequirePermission>
           } />
           <Route path="/admin/protection-policies" element={

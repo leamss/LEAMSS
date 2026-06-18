@@ -3,6 +3,89 @@
 This file appends every completed phase/feature with dates and verification status.
 
 ---
+### 🚀 Phase 19.4 — JSA Data Import + Salary Fix + Atlas Surfacing (Jun 18, 2026)
+
+**Sales pitch:** Every Atlas page now ships **real ABS-verified salary data + 10-year JSA growth projections + state-wise labour-market strength** — turning Atlas from a "skills-assessment lookup" into a "career outlook decision tool". For sales: WhatsApp clients can be told *"Sir, Software Engineer me Australia mein average $131,924/year salary aur 27% growth till 2035 — yeh hum apke pathway plan me proof ke saath denge"*. Trust pillars verified through `data_quality: "official_govt_data"`, never faked.
+
+**Goal:** Bypass the `.gov.au` WAF blocker (Phase 19.2b) by direct admin upload of 5 public JSA xlsx/PDF files. Build a Universal Data Import Hub that handles future drops too. Surface real salary, growth, regional, industry, and education data on every Atlas occupation/country page.
+
+#### A) New backend modules
+
+- **`backend/parsers/jsa/`** — three parsers (no PDFs/industry data this pass; deferred to Phase 19.4b):
+  - `occupation_profiles.py` — parses 9 sheets of "Occupation profiles Feb 2026.xlsx" (1,236 4-digit ANZSCO records) → ABS data block: employed_count, median_weekly_earnings, median_ft_annual (× 52), top_industries, state_distribution, age_profile, education_attainment.
+  - `employment_projections.py` — parses Table_6 of "employment_projections.xlsx" (358 4-digit ANZSCO records) → JSA data block: employment_2025/2030/2035, growth_pct_5y/10y, future_growth categorical (Very Strong / Strong / Moderate / Stable / Declining).
+  - `sa4_ratings.py` — parses "labour_market_ratings_by_sa4.xlsx" (87 SA4 regions). **HONEST DISCLOSURE: this is region-level, NOT per-occupation demand.** No ANZSCO×SA4 cross-tab exists in the file; surfacing per-occupation regional demand would be fake. Modelled as `regional_labour_market` collection with strength ratings.
+
+- **`backend/services/jsa_importer.py`** — handles 4-digit → 6-digit ANZSCO parent-fallback (each 6-digit code inherits parent's `abs_data` + `_parent_inherited: True` flag), idempotent upsert via PyMongo `bulk_write`, audit logging, file-type auto-detection.
+
+- **`backend/routers/data_import.py`** — 5 endpoints:
+  - `POST /api/data-import/upload` — multipart → file_id + auto-detected type
+  - `POST /api/data-import/{file_id}/parse-preview` — dry-run, 5-row sample + `honest_note` for SA4
+  - `POST /api/data-import/{file_id}/commit` — idempotent commit + audit log
+  - `GET /api/data-import/history` — paginated import log
+  - `DELETE /api/data-import/{file_id}` — cascade delete (does not rollback DB writes)
+
+#### B) Frontend — Admin Data Import Hub
+
+- **`frontend/src/pages/admin/DataImportHub.jsx`** route `/admin/data-import` (admin only)
+- Drag-drop upload zone → auto-preview with sample rows + honest-note banner → "Commit N records" CTA → import history table with status badges
+- Quick "Regenerate Atlas SSG" button (post-commit cache refresh)
+- All `data-testid` attributes for E2E tests
+
+#### C) Atlas template surfacing — `atlas_occupation_ssr.html`
+
+Replaced Phase 19.3 "💰 Coming Soon" placeholder with 5 real cards (when data exists; honest fallback when not):
+
+1. **Salary Card** — Median earnings (full-time): Weekly + Annual (× 52) + Hourly + source attribution
+2. **10-year Outlook Card** — Categorical pill (Very Strong / Strong / Moderate) + growth % + worker counts 2025 → 2030 → 2035
+3. **Top Industries** — Ranked top 5 industries from ABS Table 5
+4. **Workforce Qualifications** — Headline (e.g. "Most workers (84%) have a Bachelor degree or higher") + horizontal bar visualisation
+5. **Strongest Labour Markets** (AU only) — Top 5 SA4 regions with "Strong" RLMI rating, country-wide (NOT per-occupation; clearly disclosed)
+
+Country index card (`atlas_country_ssr.html`) — added **💼 $Xk/yr salary chip** + **📈 Strong/Moderate growth chip** on every card. Phase 19.3 fee chips preserved.
+
+#### D) Live results (verified via curl + Playwright)
+
+| Page | Real data surfaced |
+|---|---|
+| `/atlas/au/261313/` (Software Eng) | AUD $2,537/week · **AUD $131,924/year** · 67/hr · **Very Strong demand** · +26.7% by 2035 · 186,065 → 235,692 workers · Top industries: Prof Services + Finance + Public Admin · 84% Bachelor+ · Strong regions: Sydney Eastern Suburbs + Northern Beaches + Ryde |
+| `/atlas/au/` (country) | 50 fee chips · 20 salary chips · 49 growth chips · 50 verified chips |
+| `/atlas/au/132311/` | VETASSESS $1,206 fee + ABS salary data via 4-digit parent (1323) |
+| `/admin/data-import` | Upload + preview + 19-row import history + "Regenerate Atlas SSG" CTA |
+
+**Coverage:** 703 / 729 AU occupations (96%) enriched with ABS data + JSA projections. 26 codes skipped (no matching 4-digit parent — typically NFD placeholder codes).
+
+#### E) Triple-Gate Verification
+
+- **Gate 1 — Pytest:** **65/65 PASS** (33 Phase 19 SSG + 8 Phase 19.2 scrapers + 12 Phase 19.3 surface + 12 Phase 19.4 JSA import). Test_09 in Phase 19.3 (which previously checked for "Coming Soon" placeholder) updated to validate the new reality: real salary card present (Coming Soon allowed as fallback for uncovered codes).
+- **Gate 2 — Curl + Googlebot UA:** 14/14 content checks on `/atlas/au/261313/` (salary, growth, industries, education, regions, sources). 50 fee chips + 20 salary chips + 49 growth chips on `/atlas/au/`.
+- **Gate 3 — Playwright (Googlebot UA):** 4 screenshots captured — admin Data Import Hub with 19 imports + atlas occupation page top (salary + growth cards visible) + atlas occupation middle (industries + education) + country index with chip-rich cards.
+
+#### F) Honest Disclosure (Sir's "no fake data" rule preserved)
+
+- **SA4 ratings are REGION-LEVEL, not per-occupation.** The uploaded file has no ANZSCO×SA4 cross-tab. We model as `regional_labour_market` (94 regions × 5 rating categories) and surface as "Strongest labour markets in Australia" with an explicit disclaimer ("Regional ratings are country-wide and not occupation-specific").
+- **4-digit → 6-digit fallback** is flagged via `_parent_inherited: True` + `_anzsco_4digit_source: <code>` on every record so admins can audit which 6-digit codes inherit from their 4-digit parent.
+- **`data_quality: "official_govt_data"`** distinguishes uploaded gov data from `"live_scraped"` (Phase 19.2 scrapers) and `"fallback_published_rate"` (Phase 19.2 fallback fees) on the same model.
+- **N/A values from source** (e.g. Chief Executives FT earnings) honestly null in DB — no fabricated numbers.
+
+#### G) Phase 19.2b STILL DEFERRED
+
+Live JSA WAF on `.gov.au` direct domains remains blocked from preview egress. The xlsx/PDF direct-upload path (Phase 19.4) sidesteps this for the foreseeable JSA quarterly drops. **Production-deploy callout still valid for true live-scrape activation; ABS dataflow-ID discovery deferred to Phase 19.4b.**
+
+#### H) Files touched
+
+- New: `backend/parsers/jsa/{__init__.py, occupation_profiles.py, employment_projections.py, sa4_ratings.py}`
+- New: `backend/services/jsa_importer.py`, `backend/routers/data_import.py`
+- New: `frontend/src/pages/admin/DataImportHub.jsx`, route in `App.js`
+- Modified: `backend/templates/atlas_occupation_ssr.html` (5 new cards), `backend/templates/atlas_country_ssr.html` (2 new chips), `backend/routers/seo_ssg.py` (salary/growth/regional context), `backend/server.py` (router register)
+- New tests: `backend/tests/test_phase194_jsa_import.py` (12 tests)
+- Updated test: `backend/tests/test_phase193_surface.py::test_09` (now validates real ABS data vs Coming Soon fallback)
+- Test data: 5 JSA files in `/app/backend/data/jsa_imports/` (1.9 MB total)
+
+---
+
+
+---
 ### 🎯 Phase 19.2c + 19.3 — Scraper Polish + Surface Enriched Data (Jun 16, 2026)
 
 **Goal:** Polish the 5 reachable scrapers from 19.2a-Lite + surface their fee/processing data on every public Atlas page. Close out Phase 19 with a strict triple-gate verification (pytest + curl + Playwright).

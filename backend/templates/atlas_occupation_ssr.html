@@ -238,20 +238,141 @@ footer a{color:var(--muted)}footer a:hover{color:var(--burnt)}
       </article>
       {% endif %}
 
-      {# Phase 19.3 — Salary / Labour-market "Coming Soon" honest strip #}
-      {% if country_code == 'AU' %}
-      <article class="card" style="background:#FCFBF7;border-style:dashed">
-        <span class="card-eyebrow" style="color:var(--muted)">Data in progress</span>
-        <h2 class="card-title" style="font-size:16px;color:var(--muted)">
-          💰 Salary range &middot; 📊 Labour-market outlook &mdash; <em>Coming Soon</em>
-        </h2>
-        <p style="font-size:13px;color:var(--muted)">
-          Median weekly income (ABS Census 2021) and employment outlook (jobsandskills.gov.au)
-          will appear here once Phase 19.2b enrichment lands. The scrape infrastructure is built &mdash;
-          we&rsquo;re currently blocked at the preview CDN; production deploy will unlock.
+      {# Phase 19.4 — Real salary + growth + regional cards (replaces Phase 19.3 "Coming Soon") #}
+      {% if country_code == 'AU' and (occ.abs_data or occ.jsa_data) %}
+      {% set abs_d = occ.abs_data or {} %}
+      {% set jsa_d = occ.jsa_data or {} %}
+
+      {# Salary Card — ABS via JSA #}
+      {% if abs_d.median_ft_weekly_earnings_aud or abs_d.median_weekly_earnings_aud or abs_d.median_ft_annual_aud %}
+      <article class="card">
+        <span class="card-eyebrow">Salary &middot; ABS via JSA</span>
+        <h2 class="card-title">💰 Median earnings (full-time)</h2>
+        <div class="metric-grid" style="grid-template-columns:repeat(3,1fr)">
+          {% if abs_d.median_ft_weekly_earnings_aud %}
+          <div class="metric"><div class="ml">Weekly</div><div class="mv">AUD&nbsp;${{ '{:,}'.format(abs_d.median_ft_weekly_earnings_aud|int) }}</div></div>
+          {% elif abs_d.median_weekly_earnings_aud %}
+          <div class="metric"><div class="ml">Weekly (all hours)</div><div class="mv">AUD&nbsp;${{ '{:,}'.format(abs_d.median_weekly_earnings_aud|int) }}</div></div>
+          {% endif %}
+          {% if abs_d.median_ft_annual_aud %}
+          <div class="metric"><div class="ml">Annual (× 52)</div><div class="mv" style="color:var(--burnt)">AUD&nbsp;${{ '{:,}'.format(abs_d.median_ft_annual_aud) }}</div></div>
+          {% endif %}
+          {% if abs_d.median_ft_hourly_earnings_aud %}
+          <div class="metric"><div class="ml">Hourly</div><div class="mv">${{ '%.0f' | format(abs_d.median_ft_hourly_earnings_aud) }}/hr</div></div>
+          {% endif %}
+        </div>
+        <p style="font-size:11px;color:var(--muted);margin-top:14px">
+          Source: <strong>ABS via JSA Feb 2026</strong>
+          {% if abs_d._parent_inherited %} &middot; 4-digit ANZSCO {{ abs_d._anzsco_4digit_source }} parent rate{% endif %}
         </p>
       </article>
       {% endif %}
+
+      {# Employment Outlook Card — JSA Projections #}
+      {% if jsa_d.future_growth and jsa_d.future_growth != 'Unknown' %}
+      <article class="card">
+        <span class="card-eyebrow">10-year Outlook &middot; JSA Projections</span>
+        <h2 class="card-title">📈 Employment outlook to 2035</h2>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px">
+          <span class="pill {% if jsa_d.future_growth in ('Very Strong','Strong') %}pill-emerald{% elif jsa_d.future_growth == 'Moderate' %}pill-amber{% else %}pill-slate{% endif %}">
+            {{ jsa_d.future_growth }} demand
+          </span>
+          {% if jsa_d.growth_pct_2025_to_2035 is not none %}
+          <span style="font-weight:700;color:var(--forest)">
+            {% if jsa_d.growth_pct_2025_to_2035 >= 0 %}+{% endif %}{{ '%.1f' % jsa_d.growth_pct_2025_to_2035 }}% by 2035
+          </span>
+          {% endif %}
+        </div>
+        <div class="metric-grid" style="grid-template-columns:repeat(3,1fr)">
+          {% if jsa_d.employment_2025 %}<div class="metric"><div class="ml">Workers in 2025</div><div class="mv">{{ '{:,}'.format(jsa_d.employment_2025) }}</div></div>{% endif %}
+          {% if jsa_d.projected_employment_2030 %}<div class="metric"><div class="ml">Projected 2030</div><div class="mv">{{ '{:,}'.format(jsa_d.projected_employment_2030) }}</div></div>{% endif %}
+          {% if jsa_d.projected_employment_2035 %}<div class="metric"><div class="ml">Projected 2035</div><div class="mv" style="color:var(--burnt)">{{ '{:,}'.format(jsa_d.projected_employment_2035) }}</div></div>{% endif %}
+        </div>
+        <p style="font-size:11px;color:var(--muted);margin-top:14px">
+          Source: <strong>JSA Employment Projections May 2025-2035</strong>
+          {% if jsa_d._parent_inherited %} &middot; 4-digit ANZSCO {{ jsa_d._anzsco_4digit_source }} parent rate{% endif %}
+        </p>
+      </article>
+      {% endif %}
+
+      {# Top Industries mini-chart #}
+      {% if abs_d.top_industries %}
+      <article class="card card-cream">
+        <span class="card-eyebrow">Where workers go</span>
+        <h2 class="card-title">🏭 Top employing industries</h2>
+        <ul style="list-style:none;display:flex;flex-direction:column;gap:8px">
+          {% for ind in abs_d.top_industries[:5] %}
+          <li style="display:flex;align-items:center;gap:10px">
+            <span style="width:20px;height:20px;border-radius:6px;background:var(--burnt);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">{{ loop.index }}</span>
+            <span style="font-size:14px;color:var(--ink)">{{ ind.name }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+        <p style="font-size:11px;color:var(--muted);margin-top:12px">Source: ABS via JSA Feb 2026 (ranked by share of employment)</p>
+      </article>
+      {% endif %}
+
+      {# Education attainment benchmark #}
+      {% if abs_d.education_attainment %}
+      {% set ed = abs_d.education_attainment %}
+      {% set ed_bachelor_plus = (ed.postgrad_pct or 0) + (ed.bachelor_pct or 0) %}
+      <article class="card">
+        <span class="card-eyebrow">Education profile</span>
+        <h2 class="card-title">🎓 Workforce qualifications</h2>
+        <p style="font-size:15px;color:var(--ink);font-weight:600;margin-bottom:14px">
+          {% if ed_bachelor_plus >= 50 %}Most workers ({{ '%.0f' % ed_bachelor_plus }}%) have a Bachelor degree or higher.
+          {% elif ed_bachelor_plus >= 25 %}A solid share ({{ '%.0f' % ed_bachelor_plus }}%) hold a Bachelor or higher.
+          {% else %}This role is dominated by Certificate / Diploma holders.{% endif %}
+        </p>
+        <div style="display:flex;flex-direction:column;gap:8px;font-size:12px">
+          {% set bars = [('Postgrad', ed.postgrad_pct), ('Bachelor', ed.bachelor_pct), ('Diploma', ed.diploma_pct), ('Cert III/IV', ed.certIII_IV_pct), ('Year 12', ed.year12_pct)] %}
+          {% for name, v in bars %}{% if v %}
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="width:90px;color:var(--muted)">{{ name }}</span>
+            <div style="flex:1;background:var(--border);height:18px;border-radius:4px;overflow:hidden">
+              <div style="height:100%;width:{{ v }}%;background:var(--forest);"></div>
+            </div>
+            <span style="width:42px;text-align:right;font-weight:700;color:var(--ink)">{{ '%.0f' % v }}%</span>
+          </div>
+          {% endif %}{% endfor %}
+        </div>
+        <p style="font-size:11px;color:var(--muted);margin-top:12px">Source: ABS via JSA Feb 2026</p>
+      </article>
+      {% endif %}
+
+      {# Regional labour-market strength (country-level top 5 — not occupation-specific) #}
+      {% if strong_regions %}
+      <article class="card">
+        <span class="card-eyebrow">Where to settle</span>
+        <h2 class="card-title">📍 Strongest labour markets in Australia</h2>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:12px">
+          Top 5 SA4 regions ranked <strong>Strong</strong> by JSA's Regional Labour Market Indicator (March 2026).
+          <em>Regional ratings are country-wide and not occupation-specific.</em>
+        </p>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          {% for r in strong_regions %}
+          <span class="pill pill-emerald" title="Unemployment {{ r.indicators.unemployment_rate_pct }}%">{{ r.sa4_name }} &middot; {{ r.state }}</span>
+          {% endfor %}
+        </div>
+        <p style="font-size:11px;color:var(--muted);margin-top:12px">Source: JSA Regional Labour Market Indicator (RLMI) — March 2026</p>
+      </article>
+      {% endif %}
+      {% endif %}
+
+      {# Phase 19.3 → 19.4 fallback — if neither abs_data nor jsa_data, show honest placeholder #}
+      {% if country_code == 'AU' and not (occ.abs_data or occ.jsa_data) %}
+      <article class="card" style="background:#FCFBF7;border-style:dashed">
+        <span class="card-eyebrow" style="color:var(--muted)">Data in progress</span>
+        <h2 class="card-title" style="font-size:16px;color:var(--muted)">
+          💰 Salary &middot; 📊 Outlook &mdash; <em>Coming Soon</em>
+        </h2>
+        <p style="font-size:13px;color:var(--muted)">
+          ABS Census and JSA labour-market data for this ANZSCO code will appear once
+          the next Phase 19.4 import covers it. Sources: jobsandskills.gov.au &middot; abs.gov.au
+        </p>
+      </article>
+      {% endif %}
+
 
       {# 3) Typical tasks #}
       {% if occ.typical_tasks %}
