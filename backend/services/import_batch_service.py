@@ -159,6 +159,9 @@ async def revoke_batch(
         if batch.get("finalised_at"):
             raise ValueError(f"batch {batch_id} finalised — cannot revoke")
         uploaded = batch.get("uploaded_at")
+        # Mongo strips tzinfo on read — re-attach UTC before comparing.
+        if isinstance(uploaded, datetime) and uploaded.tzinfo is None:
+            uploaded = uploaded.replace(tzinfo=timezone.utc)
         if uploaded and (datetime.now(timezone.utc) - uploaded).total_seconds() > REVOCATION_WINDOW_HOURS * 3600:
             raise ValueError(f"batch {batch_id} outside 24h revocation window")
 
@@ -168,12 +171,22 @@ async def revoke_batch(
     restored = 0
     errors: List[str] = []
 
-    # 1. Hard-delete creates
+    # Map collection → its unique-id field name (used when `key` filter is empty)
+    _ID_FIELD_BY_COLL = {
+        "occupation_master": "occupation_id",
+        "anzsco_4digit_master": "code",
+        "industry_master": "id",
+        "vacancy_snapshots": "id",
+        "regional_labour_market": "sa4_code",
+    }
+    _id_field = _ID_FIELD_BY_COLL.get(target, "id")
+
+    # 1. Hard-delete creates (prefer natural unique key when present, else doc_id)
     for op in batch["operations"].get("created", []):
         try:
-            doc_id = op["doc_id"]
-            # Key field name depends on collection — use the unique identifier in `key`
-            filt = {"id": doc_id} if doc_id else op["key"]
+            doc_id = op.get("doc_id")
+            natural_key = op.get("key") or {}
+            filt = natural_key if natural_key else {_id_field: doc_id}
             r = await coll.delete_one(filt)
             deleted += r.deleted_count
         except Exception as e:  # noqa: BLE001
@@ -182,9 +195,10 @@ async def revoke_batch(
     # 2. Restore updates
     for op in batch["operations"].get("updated", []):
         try:
-            doc_id = op["doc_id"]
+            doc_id = op.get("doc_id")
+            natural_key = op.get("key") or {}
             pre = op["pre_state"]
-            filt = {"id": doc_id} if doc_id else op["key"]
+            filt = natural_key if natural_key else {_id_field: doc_id}
             await coll.replace_one(filt, pre)
             restored += 1
         except Exception as e:  # noqa: BLE001
@@ -263,8 +277,11 @@ async def list_batches(
     items = []
     async for b in cursor:
         b.pop("_id", None)
-        # Refresh is_revocable on read (avoids stale 24h-window flag)
+        # Refresh is_revocable on read (avoids stale 24h-window flag).
+        # Mongo strips tzinfo on read — re-attach UTC before comparing.
         uploaded = b.get("uploaded_at")
+        if isinstance(uploaded, datetime) and uploaded.tzinfo is None:
+            uploaded = uploaded.replace(tzinfo=timezone.utc)
         if (b.get("is_revocable") and uploaded
                 and (datetime.now(timezone.utc) - uploaded).total_seconds() > REVOCATION_WINDOW_HOURS * 3600
                 and not b.get("finalised_at")):

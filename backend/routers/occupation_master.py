@@ -287,6 +287,23 @@ async def stats(current_user: dict = Depends(get_current_user)):
         by_country.setdefault(cc, {"verified": 0, "draft": 0, "outdated": 0})
         by_country[cc][st] = by_country[cc].get(st, 0) + r["count"]
     pending = by_status["draft"] + by_status["outdated"]
+
+    # Phase 19.6 — split drafts into "raw" (empty body) vs "pending enrichment"
+    # (has description OR tasks OR alt titles — admin needs to verify, not enrich).
+    # A "raw draft" is the danger-zone bucket from the Phase 19.6 bulk-import bug.
+    raw_drafts_count = await OCCUPATION_MASTER.count_documents({
+        "status": "draft",
+        "$or": [
+            {"description": {"$in": ["", None]}},
+            {"description": {"$exists": False}},
+        ],
+        "$and": [
+            {"$or": [{"typical_tasks": {"$size": 0}}, {"typical_tasks": {"$exists": False}}]},
+            {"$or": [{"alternative_titles": {"$size": 0}}, {"alternative_titles": {"$exists": False}}]},
+        ],
+    })
+    pending_enrichment_count = max(by_status["draft"] - raw_drafts_count, 0)
+
     return {
         "total": total,
         "by_status": by_status,
@@ -294,6 +311,13 @@ async def stats(current_user: dict = Depends(get_current_user)):
         "pending_verification": pending,
         "pending_percent": round((pending / total) * 100, 1) if total else 0,
         "superseded_count": superseded_count,
+        # Phase 19.6 — 3-way enrichment buckets for the new stat-card cosmetic
+        "enrichment": {
+            "verified": by_status["verified"],
+            "pending_enrichment": pending_enrichment_count,
+            "raw_drafts": raw_drafts_count,
+            "outdated": by_status["outdated"],
+        },
     }
 
 

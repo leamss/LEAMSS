@@ -3,6 +3,73 @@
 This file appends every completed phase/feature with dates and verification status.
 
 ---
+### 🛡️ Phase 19.6 — Bulk Import Safety: Preview Tokens, Import Batches, Revoke Flow (Jun 18, 2026)
+
+**Sales pitch:** Atlas ab "Knowledge Base" ko data-corruption-proof banata hai — har bulk upload ek **signed, dry-run preview token** + **24-hour revocable batch** ke saath chalega. Agar admin galti se ek galat 1,014-row Excel commit kar de (jaisa pehle hua), woh ek button click se cleanly revoke ho jata hai. Production-grade data integrity ab built-in: tamper-proof token (SHA-256 + HMAC), full audit log per action (info/warn/critical), 3-way "Verified · Pending Enrichment · Raw Drafts" cosmetic stat card admin ko exact health-bar dikhata hai.
+
+#### A) Rollback (Phase 19.6 Phase B) — DONE earlier this session
+- Safely dumped 1,014 raw-draft occupations from the original Phase 6.9.2 incident to `/app/memory/rollback_backups/2026-06-18_phase196_drafts.json` (MD5 `8f4235f334c829b0ec694abee4cfcdbf`, 1.7 MB)
+- Hard-deleted ALL 1,014 rows (1,467 verified untouched)
+- Verified post-state via `/api/occupation-master/stats` enrichment buckets
+
+#### B) Phase 19.6 Phase C — Architecture (this section)
+
+**New services:**
+- `backend/services/import_batch_service.py` — Open/Record/Close/Revoke/Finalise/List/Get/Auto-expire. 24h revocation window with strict tz-aware datetime handling (Mongo strips tzinfo on read → re-attach UTC). Collection-aware ID-field resolution (`occupation_master.occupation_id`, `industry_master.id`, etc) so revoke `delete_one` filter uses the correct unique key. Pre-state snapshots for revoke-restore on update ops.
+- `backend/services/preview_token_service.py` — HMAC-SHA256 signed token bound to file content hash. 5-minute lifetime. Tamper-resistant (any file body change → token rejected with 400).
+- `backend/services/audit_service.py` — Centralised `log_action()` with severity levels (info / warn / critical / force-revoke marked critical). Used by every Phase 19.6 mutation path.
+
+**New router:**
+- `backend/routers/import_batches.py` mounted at `/api/import-batches`:
+  - `GET /` — paginated list with stale-revocability auto-refresh
+  - `GET /{batch_id}` — full detail with operations payload
+  - `POST /{batch_id}/revoke` — within-24h soft revoke. Single-confirm modal. Min 3-char reason. Audit log: severity=warn.
+  - `POST /{batch_id}/force-revoke` — override 24h window. Requires `admin_override=true` + min-10-char reason. Double-confirm UX (`type "FORCE REVOKE"` in modal). Audit log: severity=critical.
+  - `POST /{batch_id}/finalise` — lock-in early (cannot revoke after). Audit log: severity=info.
+
+**Instrumented ingestion paths (no silent ingestion rule):**
+- ✅ Phase 6.9.2 bulk upload (`POST /api/occupation-master/import/commit`) → FULL granular tracking. `record_create/update/skip` per-row. Fully revocable.
+- ✅ Phase 17 KB Unified (`POST /api/kb-unified/import-anzsco-excel`) → registered as `audit_only` (bulk upsert, granular revoke not feasible without invasive parser refactor — honest disclosure)
+- ✅ Phase 19.4 Data Import (`POST /api/data-import/{file_id}/commit`) for 5 types: occupation_profiles, employment_projections, sa4_ratings, industry_data, vacancy_report → registered as `audit_only`
+- Each ingestion writes a `batch_id` to the response payload + audit log entry
+
+**Stats enhancement:**
+- `GET /api/occupation-master/stats` now includes `enrichment: {verified, pending_enrichment, raw_drafts, outdated}` sub-object. Raw draft = `status:"draft"` AND empty description AND empty typical_tasks AND empty alternative_titles (the danger-zone bucket from the 1014-row incident).
+
+**Frontend:**
+- New reusable component `frontend/src/components/admin/RecentImportsPanel.jsx` — mounted on both Verification Hub and Data Import Hub. Shows last N batches with full metadata + status badges (`Revocable · Xh left` / `Finalised` / `Audit-Only` / `Revoked` / `Expired`).
+- Two modals: Revoke (single-confirm) + Force-Revoke (double-confirm with typed phrase). All buttons + inputs carry `data-testid` attributes.
+- `VerificationHub.jsx` Occupations stat tile redesigned: 3-way breakdown (Verified · Pending Enrichment · Raw Drafts) plus optional Outdated row.
+
+**Tests:** `backend/tests/test_phase196_dedup_revoke.py` — 10 pytests covering preview-token shape, dedup-on-skip, revoke-on-create-rows, double-revoke-rejection, force-revoke-admin-override, stats enrichment, file-hash tampering.
+
+**Triple-gate verification (Jun 18, 2026):**
+- 🟢 GATE 1 (Pytest): `pytest tests/test_phase196_dedup_revoke.py -v` → **10/10 PASSED in 3.71s**
+- 🟢 GATE 2 (Curl): `/import-batches` lists batches, `/stats.enrichment` returns 3-way buckets, 17 audit_logs Phase 19.6 entries persisted
+- 🟢 GATE 3 (Playwright): 3 screenshots captured — Recent Imports panel populated, Revoke modal opened with reason filled, 3-way stat card visible. All `data-testid` attributes verified.
+
+**Key DB schema for Phase 19.6:**
+```
+import_batches: {batch_id, ingestion_path, endpoint, uploaded_by/_name, uploaded_at,
+                 file_name, file_hash (sha256), file_size_bytes, target_collection,
+                 operations: {created: [{doc_id, key}],
+                              updated: [{doc_id, key, pre_state}],
+                              skipped: [{key, reason}]},
+                 counts: {created, updated, skipped, total_rows},
+                 status: committed | revoked | partially_revoked | failed,
+                 audit_only: bool, is_revocable: bool, finalised_at,
+                 revoked_at, revoked_by, revoke_reason, revoke_summary}
+
+audit_logs (centralised via audit_service.log_action):
+                {id, action, severity (info|warn|critical),
+                 user_id, user_name, ip, summary, at}
+```
+
+**Honest limitation:** Granular revoke is supported ONLY for Phase 6.9.2 bulk Excel uploads (the path that caused the original 1014-row issue). Other paths (Phase 17 ANZSCO + Phase 19.4 JSA Data Import) register batches as `audit_only` — they appear in the Recent Imports panel for visibility but cannot be revoked granularly since their parsers do bulk_write upserts without capturing per-row pre-state. Force-revoke is also disabled for audit-only batches (no pre-state = no safe undo). To revoke an audit-only commit, the admin must use the existing collection-specific endpoints. Future work (Phase 19.7) could refactor those parsers to capture pre-state.
+
+---
+
+
 ### 🏁 Phase 19.4b + 19.4c — JSA Industry Data + Vacancy Snapshots — FULL SHIP (Jun 18, 2026)
 
 **Sales pitch:** Atlas ab **complete labour-market view** carry karta hai — har AU occupation page real salary + 10-year growth (Phase 19.4) + industry hub cross-link (Phase 19.4c). Country hub direct shows **212,000 live job ads** trust chip (-0.9% MoM). 19 brand-new SEO industry hub pages — each ANZSIC industry has its own ranked top-occupations page + 20-year employment trend sparkline. **Total SEO surface area: 1,486 indexable pages** (1,467 occupations + 19 industries + 3 country hubs + 1 atlas hub). Sales team ko har conversation me data-rich talking points: "Sir, Professional Services industry me 1.4M log kaam karte hain, median salary $107k/year, growth strong since 2010 — yeh sab Govt-sourced data hai" — instant credibility.

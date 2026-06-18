@@ -225,6 +225,9 @@ async def preview_import(
     ):
         existing_codes.add(d["code"])
 
+    # Phase 19.6 — issue short-lived preview token (required by /commit)
+    from services.preview_token_service import issue_preview_token, TOKEN_LIFETIME_SECONDS
+    token = issue_preview_token(content)
     return {
         "ok": True,
         "headers": headers,
@@ -235,6 +238,8 @@ async def preview_import(
         "duplicates_in_db": sorted(existing_codes)[:20],
         "duplicates_in_db_count": len(existing_codes),
         "sample_rows": sample,
+        "preview_token": token,
+        "preview_token_expires_in_seconds": TOKEN_LIFETIME_SECONDS,
     }
 
 

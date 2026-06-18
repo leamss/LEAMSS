@@ -147,6 +147,21 @@ async def upload_and_import(
         uploaded_by_name=_user_display_name(current_user),
     )
 
+    # Phase 19.6 — register a batch for audit visibility (bulk upsert path:
+    # granular revoke is not supported here — marked audit_only).
+    from services import import_batch_service as ibs
+    batch = await ibs.open_batch(
+        db,
+        ingestion_path="phase_17_kb_unified",
+        endpoint="POST /api/kb-unified/import-anzsco-excel",
+        uploaded_by=current_user.get("id") or "admin",
+        uploaded_by_name=_user_display_name(current_user),
+        file_name=file.filename or "anzsco.xlsx",
+        file_hash=ibs.file_sha256(contents),
+        file_size_bytes=len(contents),
+        target_collection="anzsco_4digit_master",
+    )
+
     # Run import against the persisted file.
     try:
         summary = await import_anzsco_excel(
@@ -156,11 +171,39 @@ async def upload_and_import(
         await import_storage.update_last_import_summary(
             db=db, file_id=file_doc["id"], summary=summary, status="imported",
         )
+        # Phase 19.6 — close batch as audit-only (no granular revoke)
+        await ibs.close_batch(
+            db, batch,
+            total_rows=int(summary.get("imported", 0) or 0) + int(summary.get("skipped", 0) or 0)
+                        + int(summary.get("updated", 0) or 0),
+            status="committed",
+        )
+        await db["import_batches"].update_one(
+            {"batch_id": batch["batch_id"]},
+            {"$set": {
+                "is_revocable": False,
+                "audit_only": True,
+                "non_revocable_reason": "bulk_upsert_audit_only",
+                "counts.imported": int(summary.get("imported", 0) or 0),
+                "counts.updated": int(summary.get("updated", 0) or 0),
+                "counts.skipped": int(summary.get("skipped", 0) or 0),
+            }},
+        )
         # Reflect post-import state in the response (status flips ready→imported).
         file_doc["status"] = "imported"
         file_doc["last_import_summary"] = summary
         file_doc["last_imported_at"] = datetime.now(timezone.utc).isoformat()
+        file_doc["batch_id"] = batch["batch_id"]
     except Exception as e:
+        # Phase 19.6 — mark batch as failed before classifying error
+        try:
+            await db["import_batches"].update_one(
+                {"batch_id": batch["batch_id"]},
+                {"$set": {"status": "failed", "is_revocable": False,
+                          "audit_only": True, "non_revocable_reason": "import_failed"}},
+            )
+        except Exception:  # noqa: BLE001
+            pass
         # Phase 17.0.1 — classify between user-error (4xx) and server-error (5xx).
         status_code, msg = import_storage.classify_upload_error(e)
         if status_code == 400:

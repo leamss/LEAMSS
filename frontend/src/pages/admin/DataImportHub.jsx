@@ -19,6 +19,7 @@ import {
   ArrowLeft, RefreshCw, Upload, Trash2, FileText,
   CheckCircle, AlertTriangle, Database,
 } from 'lucide-react';
+import { RecentImportsPanel } from '../../components/admin/RecentImportsPanel';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const TOKEN_KEY = 'token';
@@ -240,6 +241,11 @@ export default function DataImportHub() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Phase 19.6 — Recent Imports + Revoke panel */}
+        <div className="mb-6">
+          <RecentImportsPanel limit={10} />
+        </div>
 
         {/* Preview */}
         {preview && (

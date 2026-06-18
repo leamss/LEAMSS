@@ -172,13 +172,42 @@ async def parse_preview(
 async def commit_file(
     file_id: str, user: Dict[str, Any] = Depends(_require_admin)
 ) -> Dict[str, Any]:
-    """Idempotent commit — runs parser + writes to DB. Always safe to re-run."""
+    """Idempotent commit — runs parser + writes to DB. Always safe to re-run.
+    Phase 19.6 — registers an `import_batches` row (audit-only; granular revoke
+    is not available for JSA bulk upserts since pre-state is not captured here)."""
     doc = await _get_file(file_id)
     ftype = doc["detected_type"]
     if ftype not in PARSER_REGISTRY:
         raise HTTPException(status_code=400, detail=f"unsupported file type: {ftype}")
     parser = PARSER_REGISTRY[ftype]
     committer = COMMITTER_REGISTRY[ftype]
+
+    # Phase 19.6 — open batch BEFORE running committer (audit-only)
+    from services import import_batch_service as ibs
+    try:
+        file_bytes = Path(doc["stored_path"]).read_bytes()
+        file_hash = ibs.file_sha256(file_bytes)
+        file_size = len(file_bytes)
+    except Exception:  # noqa: BLE001
+        file_hash, file_size = "", 0
+    _TARGET_BY_TYPE = {
+        "occupation_profiles": "occupation_master",
+        "employment_projections": "occupation_master",
+        "sa4_ratings": "regional_labour_market",
+        "industry_data": "industry_master",
+        "vacancy_report": "vacancy_snapshots",
+    }
+    batch = await ibs.open_batch(
+        db,
+        ingestion_path=f"phase_19.4_data_import.{ftype}",
+        endpoint=f"POST /api/data-import/{{file_id}}/commit ({ftype})",
+        uploaded_by=str(user.get("id") or user.get("email") or "admin"),
+        uploaded_by_name=str(user.get("name") or user.get("email") or "admin"),
+        file_name=doc.get("filename", "upload"),
+        file_hash=file_hash,
+        file_size_bytes=file_size,
+        target_collection=_TARGET_BY_TYPE.get(ftype, "unknown"),
+    )
 
     started = datetime.now(timezone.utc)
     try:
@@ -190,6 +219,15 @@ async def commit_file(
             {"id": file_id},
             {"$set": {"status": "failed", "last_error": str(e)[:300]}},
         )
+        # Phase 19.6 — close batch as failed
+        try:
+            await db["import_batches"].update_one(
+                {"batch_id": batch["batch_id"]},
+                {"$set": {"status": "failed", "is_revocable": False,
+                          "audit_only": True, "non_revocable_reason": "commit_failed"}},
+            )
+        except Exception:  # noqa: BLE001
+            pass
         raise HTTPException(status_code=500, detail=f"commit failed: {e}") from e
 
     finished = datetime.now(timezone.utc)
@@ -208,7 +246,25 @@ async def commit_file(
     await jsa_importer.audit_log(
         db, str(user.get("id") or user.get("email")),
         f"data_import.commit.{ftype}",
-        {"file_id": file_id, "filename": doc["filename"], **summary},
+        {"file_id": file_id, "filename": doc["filename"], "batch_id": batch["batch_id"], **summary},
+    )
+
+    # Phase 19.6 — close batch as audit-only with parsed counts
+    _total_rows = int(summary.get("parsed_records") or summary.get("parsed_4digit_records") or 0)
+    _created = int(summary.get("regions_upserted", 0) or summary.get("industries_upserted", 0)
+                    or summary.get("snapshots_upserted", 0) or 0)
+    _updated = int(summary.get("regions_modified", 0) or summary.get("industries_modified", 0)
+                    or summary.get("snapshots_modified", 0) or summary.get("occupations_updated", 0) or 0)
+    _skipped = int(summary.get("occupations_skipped_no_4digit_match", 0) or 0)
+    await ibs.close_batch(db, batch, total_rows=_total_rows, status="committed")
+    await db["import_batches"].update_one(
+        {"batch_id": batch["batch_id"]},
+        {"$set": {
+            "is_revocable": False, "audit_only": True,
+            "non_revocable_reason": "bulk_upsert_audit_only",
+            "counts.created": _created, "counts.updated": _updated, "counts.skipped": _skipped,
+            "summary_payload": summary,
+        }},
     )
 
     return {
@@ -216,6 +272,7 @@ async def commit_file(
         "type": ftype,
         "summary": summary,
         "elapsed_seconds": elapsed_s,
+        "batch_id": batch["batch_id"],
     }
 
 

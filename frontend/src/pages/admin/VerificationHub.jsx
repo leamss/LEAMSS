@@ -26,6 +26,7 @@ import {
   Cloud, Info, ChevronRight, Wrench, FileSpreadsheet,
 } from 'lucide-react';
 import { formatApiError } from '@/lib/apiErrors';
+import { RecentImportsPanel } from '@/components/admin/RecentImportsPanel';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const ANZSCO_SOURCE_TYPE = 'anzsco_4digit';
@@ -72,6 +73,7 @@ export default function VerificationHub() {
   const fileInputRef = useRef(null);
 
   const [data, setData] = useState(null);
+  const [occStats, setOccStats] = useState(null);  // Phase 19.6 — 3-way enrichment buckets
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -103,7 +105,17 @@ export default function VerificationHub() {
     }
   }, [headers]);
 
-  useEffect(() => { loadHub(); loadLatest(); /* eslint-disable-next-line */ }, []);
+  // Phase 19.6 — fetch 3-way enrichment buckets for Occupations stat card
+  const loadOccStats = useCallback(async () => {
+    try {
+      const r = await axios.get(`${API}/occupation-master/stats`, { headers });
+      setOccStats(r.data || null);
+    } catch (e) {
+      console.warn('occupation stats fetch failed', e);
+    }
+  }, [headers]);
+
+  useEffect(() => { loadHub(); loadLatest(); loadOccStats(); /* eslint-disable-next-line */ }, []);
 
   // Phase 17.0 — REIMPORT: re-runs against latest stored file. If backend says
   // NO_PRIOR_FILE (race condition or storage cleared) we surface a banner with
@@ -204,6 +216,7 @@ export default function VerificationHub() {
       counts: summary.occupation_master.counts,
       verifiedPct: summary.occupation_master.verified_pct,
       manageUrl: '/admin/kb/occupation-master',
+      enrichment: occStats?.enrichment || null,  // Phase 19.6 — 3-way split
     },
     {
       label: 'Country Templates',
@@ -442,6 +455,9 @@ export default function VerificationHub() {
           </div>
         </div>
 
+        {/* Phase 19.6 — Recent Imports (audit + revoke) */}
+        <RecentImportsPanel limit={8} />
+
         {/* Phase 18.3 — Open verification requests */}
         <FeedbackRequestsCard headers={headers} />
 
@@ -616,6 +632,8 @@ function StatTile({ tile, navigate }) {
     violet: 'border-l-violet-500 bg-violet-50/30',
     emerald: 'border-l-emerald-500 bg-emerald-50/30',
   }[tile.color];
+  // Phase 19.6 — 3-way enrichment breakdown (only for Occupations tile)
+  const enr = tile.enrichment;
   return (
     <Card
       className={`p-4 border-l-4 cursor-pointer transition hover:shadow-md ${colorClass}`}
@@ -628,10 +646,33 @@ function StatTile({ tile, navigate }) {
       </div>
       <h4 className="text-xs uppercase tracking-wider font-bold text-slate-600">{tile.label}</h4>
       <p className="text-2xl font-bold text-slate-900 mt-1" data-testid={`stat-total-${tile.label.replace(/\s+/g, '-').toLowerCase()}`}>{total}</p>
-      <div className="flex items-center gap-3 text-[10px] text-slate-500 mt-1">
-        <span><strong className="text-emerald-700">{verified}</strong> verified</span>
-        {draft > 0 && <span><strong className="text-amber-700">{draft}</strong> draft</span>}
-      </div>
+      {enr ? (
+        <div className="mt-2 space-y-0.5 text-[10px]" data-testid="enrichment-3way">
+          <div className="flex items-center justify-between">
+            <span className="text-slate-600">Verified</span>
+            <span className="font-bold text-emerald-700" data-testid="enrichment-verified">{enr.verified || 0}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-slate-600">Pending Enrichment</span>
+            <span className="font-bold text-amber-700" data-testid="enrichment-pending">{enr.pending_enrichment || 0}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-slate-600">Raw Drafts</span>
+            <span className="font-bold text-rose-700" data-testid="enrichment-raw">{enr.raw_drafts || 0}</span>
+          </div>
+          {(enr.outdated || 0) > 0 && (
+            <div className="flex items-center justify-between">
+              <span className="text-slate-600">Outdated</span>
+              <span className="font-bold text-slate-600">{enr.outdated}</span>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="flex items-center gap-3 text-[10px] text-slate-500 mt-1">
+          <span><strong className="text-emerald-700">{verified}</strong> verified</span>
+          {draft > 0 && <span><strong className="text-amber-700">{draft}</strong> draft</span>}
+        </div>
+      )}
     </Card>
   );
 }
