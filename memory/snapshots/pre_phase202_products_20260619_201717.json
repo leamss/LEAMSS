@@ -1,0 +1,747 @@
+[
+  {
+    "id": "608f2e1c-b2d6-40a9-89ea-5178845d599b",
+    "name": "Canada PR",
+    "description": "Permanent Residence in Canada",
+    "category": "immigration",
+    "base_fee": 50000.0,
+    "status": "active",
+    "created_at": "2026-06-10T08:13:51.069000",
+    "computed": {
+      "expected_base_cost": 0.0,
+      "expected_margin": 50000.0,
+      "expected_margin_pct": 100.0,
+      "max_bonus_payout": 0
+    },
+    "cost_allocations": [],
+    "cost_structure_meta": {},
+    "country": "",
+    "service_price": 50000.0,
+    "success_bonuses": [],
+    "visa_type": "",
+    "updated_at": "2026-06-16T12:56:39.380000",
+    "commission_rate": 0
+  },
+  {
+    "id": "8bb81b83-02bd-44c7-b590-d6b3685a94ef",
+    "name": "Student Visa",
+    "description": "Student Visa Processing",
+    "category": "visa",
+    "base_fee": 25000,
+    "status": "active",
+    "created_at": "2026-06-10T08:13:51.668000",
+    "computed": {
+      "expected_base_cost": 0,
+      "expected_margin": 0,
+      "expected_margin_pct": 0,
+      "max_bonus_payout": 0
+    },
+    "cost_allocations": [],
+    "cost_structure_meta": {},
+    "country": "",
+    "service_price": 25000,
+    "success_bonuses": [],
+    "visa_type": ""
+  },
+  {
+    "id": "264da98a-5c5d-45b8-8d55-cacc5dbd2fdf",
+    "name": "Work Permit",
+    "description": "Work Permit Application",
+    "category": "work",
+    "base_fee": 35000,
+    "status": "active",
+    "created_at": "2026-06-10T08:13:51.669000",
+    "computed": {
+      "expected_base_cost": 0,
+      "expected_margin": 0,
+      "expected_margin_pct": 0,
+      "max_bonus_payout": 0
+    },
+    "cost_allocations": [],
+    "cost_structure_meta": {},
+    "country": "",
+    "service_price": 35000,
+    "success_bonuses": [],
+    "visa_type": ""
+  },
+  {
+    "id": "b3a27c96-c75a-458c-955f-e7ddc95eac79",
+    "name": "Canada PR Express Entry",
+    "description": "",
+    "category": "immigration",
+    "base_fee": 100000.0,
+    "commission_rate": 0,
+    "commission_type": "percentage",
+    "status": "active",
+    "created_at": "2026-06-10T08:13:52.471000",
+    "created_via_migration": true,
+    "country": "Canada",
+    "visa_type": "PR",
+    "service_price": 100000.0,
+    "cost_allocations": [
+      {
+        "allocation_id": "9f2a79c3-57ba-49d2-8cae-759be1fb2dfa",
+        "vendor_category": "sales_commission",
+        "payment_type": "percentage",
+        "amount": 5,
+        "base": "service_price",
+        "label": "Sales Commission (5%)",
+        "is_active": true,
+        "is_optional": false,
+        "conditions": null,
+        "auto_assign": true
+      },
+      {
+        "allocation_id": "32f8b098-25f8-4308-833b-b6f4f436febe",
+        "vendor_category": "case_manager",
+        "payment_type": "flat",
+        "amount": 10000,
+        "base": "service_price",
+        "label": "Case Manager Fee",
+        "is_active": true,
+        "is_optional": false,
+        "conditions": null,
+        "auto_assign": true
+      },
+      {
+        "allocation_id": "035a6d6a-d837-4f51-952a-f95e0ba9c179",
+        "vendor_category": "tutor",
+        "payment_type": "flat",
+        "amount": 15000,
+        "base": "service_price",
+        "label": "IELTS Coaching",
+        "is_active": true,
+        "is_optional": true,
+        "conditions": null,
+        "auto_assign": true
+      },
+      {
+        "allocation_id": "953d898d-50f7-418e-a47b-ca2700521b2e",
+        "vendor_category": "lawyer",
+        "payment_type": "flat",
+        "amount": 8000,
+        "base": "service_price",
+        "label": "Legal Review",
+        "is_active": true,
+        "is_optional": true,
+        "conditions": null,
+        "auto_assign": true
+      }
+    ],
+    "success_bonuses": [
+      {
+        "milestone": "visa_approved",
+        "vendor_category": "case_manager",
+        "bonus_amount": 5000,
+        "label": "Visa Grant Bonus"
+      },
+      {
+        "milestone": "visa_approved",
+        "vendor_category": "sales_commission",
+        "bonus_amount": 2000,
+        "label": "Sales Success Bonus"
+      }
+    ],
+    "cost_structure_meta": {
+      "description": "",
+      "default_currency": "INR",
+      "is_active": true,
+      "migrated_from_cs_id": "43ae7fdc-00ac-4105-8260-fee4c9603885",
+      "migrated_at": "2026-06-10 08:13:52.471000"
+    },
+    "computed": {
+      "expected_base_cost": 10000.0,
+      "expected_margin": 90000.0,
+      "expected_margin_pct": 90.0,
+      "max_bonus_payout": 0.0
+    },
+    "updated_at": "2026-06-10T08:13:52.471000"
+  },
+  {
+    "id": "d3834ff7-0c09-4e6e-bcb1-6b709b026d04",
+    "name": "Australia PR Skilled Worker",
+    "description": "",
+    "category": "immigration",
+    "base_fee": 80000.0,
+    "commission_rate": 0,
+    "commission_type": "percentage",
+    "status": "active",
+    "created_at": "2026-06-10T08:13:52.472000",
+    "created_via_migration": true,
+    "country": "Australia",
+    "visa_type": "PR",
+    "service_price": 80000.0,
+    "cost_allocations": [
+      {
+        "allocation_id": "b5126eff-385f-43b2-a616-7145ec4171af",
+        "vendor_category": "sales_commission",
+        "payment_type": "percentage",
+        "amount": 5,
+        "base": "service_price",
+        "label": "Sales Commission (5%)",
+        "is_active": true,
+        "is_optional": false,
+        "conditions": null,
+        "auto_assign": true
+      },
+      {
+        "allocation_id": "f0fe01c1-1eae-4d36-9ffa-7bd41c7acf16",
+        "vendor_category": "case_manager",
+        "payment_type": "flat",
+        "amount": 8000,
+        "base": "service_price",
+        "label": "Case Manager Fee",
+        "is_active": true,
+        "is_optional": false,
+        "conditions": null,
+        "auto_assign": true
+      },
+      {
+        "allocation_id": "37dd5cfe-a028-4fd5-b11d-56d2cf5dc017",
+        "vendor_category": "tutor",
+        "payment_type": "flat",
+        "amount": 15000,
+        "base": "service_price",
+        "label": "PTE Coaching",
+        "is_active": true,
+        "is_optional": true,
+        "conditions": null,
+        "auto_assign": true
+      }
+    ],
+    "success_bonuses": [
+      {
+        "milestone": "visa_approved",
+        "vendor_category": "case_manager",
+        "bonus_amount": 4000,
+        "label": "Visa Grant Bonus"
+      },
+      {
+        "milestone": "visa_approved",
+        "vendor_category": "sales_commission",
+        "bonus_amount": 2000,
+        "label": "Sales Success Bonus"
+      }
+    ],
+    "cost_structure_meta": {
+      "description": "",
+      "default_currency": "INR",
+      "is_active": true,
+      "migrated_from_cs_id": "da4f2616-f867-4865-a863-a54d9d7b8126",
+      "migrated_at": "2026-06-10 08:13:52.472000"
+    },
+    "computed": {
+      "expected_base_cost": 8000.0,
+      "expected_margin": 72000.0,
+      "expected_margin_pct": 90.0,
+      "max_bonus_payout": 0.0
+    },
+    "updated_at": "2026-06-10T08:13:52.472000"
+  },
+  {
+    "id": "07d4f5ba-9753-4416-ad51-af6dbd70a2f3",
+    "name": "USA H1B",
+    "description": "",
+    "category": "immigration",
+    "base_fee": 150000.0,
+    "commission_rate": 0,
+    "commission_type": "percentage",
+    "status": "active",
+    "created_at": "2026-06-10T08:13:52.473000",
+    "created_via_migration": true,
+    "country": "USA",
+    "visa_type": "H1B",
+    "service_price": 150000.0,
+    "cost_allocations": [
+      {
+        "allocation_id": "73f6b984-44c3-4667-a29a-365b5ff3c177",
+        "vendor_category": "sales_commission",
+        "payment_type": "percentage",
+        "amount": 5,
+        "base": "service_price",
+        "label": "Sales Commission (5%)",
+        "is_active": true,
+        "is_optional": false,
+        "conditions": null,
+        "auto_assign": true
+      },
+      {
+        "allocation_id": "7203cc17-c08f-4e45-a06e-666885d619b0",
+        "vendor_category": "case_manager",
+        "payment_type": "flat",
+        "amount": 15000,
+        "base": "service_price",
+        "label": "Case Manager Fee",
+        "is_active": true,
+        "is_optional": false,
+        "conditions": null,
+        "auto_assign": true
+      },
+      {
+        "allocation_id": "81639e24-1463-4a6d-b6a1-50d950618a71",
+        "vendor_category": "lawyer",
+        "payment_type": "flat",
+        "amount": 15000,
+        "base": "service_price",
+        "label": "Mandatory Legal Filing",
+        "is_active": true,
+        "is_optional": false,
+        "conditions": null,
+        "auto_assign": true
+      }
+    ],
+    "success_bonuses": [
+      {
+        "milestone": "visa_approved",
+        "vendor_category": "case_manager",
+        "bonus_amount": 7500,
+        "label": "Visa Grant Bonus"
+      },
+      {
+        "milestone": "visa_approved",
+        "vendor_category": "sales_commission",
+        "bonus_amount": 3000,
+        "label": "Sales Success Bonus"
+      },
+      {
+        "milestone": "visa_approved",
+        "vendor_category": "lawyer",
+        "bonus_amount": 5000,
+        "label": "Lawyer Success Bonus"
+      }
+    ],
+    "cost_structure_meta": {
+      "description": "",
+      "default_currency": "INR",
+      "is_active": true,
+      "migrated_from_cs_id": "765b3598-169f-4d85-bc63-3c49db9c0315",
+      "migrated_at": "2026-06-10 08:13:52.473000"
+    },
+    "computed": {
+      "expected_base_cost": 30000.0,
+      "expected_margin": 120000.0,
+      "expected_margin_pct": 80.0,
+      "max_bonus_payout": 0.0
+    },
+    "updated_at": "2026-06-10T08:13:52.473000"
+  },
+  {
+    "id": "9030d3e1-7687-432c-b07d-cc548185adb4",
+    "name": "UK Skilled Worker",
+    "description": "",
+    "category": "immigration",
+    "base_fee": 90000.0,
+    "commission_rate": 0,
+    "commission_type": "percentage",
+    "status": "active",
+    "created_at": "2026-06-10T08:13:52.474000",
+    "created_via_migration": true,
+    "country": "UK",
+    "visa_type": "Skilled Worker",
+    "service_price": 90000.0,
+    "cost_allocations": [
+      {
+        "allocation_id": "68d3bf24-1e2d-43e9-9ba8-e52c3ec58db9",
+        "vendor_category": "sales_commission",
+        "payment_type": "percentage",
+        "amount": 5,
+        "base": "service_price",
+        "label": "Sales Commission (5%)",
+        "is_active": true,
+        "is_optional": false,
+        "conditions": null,
+        "auto_assign": true
+      },
+      {
+        "allocation_id": "2e971737-34a8-479a-8073-8a0709c1f56e",
+        "vendor_category": "case_manager",
+        "payment_type": "flat",
+        "amount": 10000,
+        "base": "service_price",
+        "label": "Case Manager Fee",
+        "is_active": true,
+        "is_optional": false,
+        "conditions": null,
+        "auto_assign": true
+      },
+      {
+        "allocation_id": "808ca26c-66d8-49cb-a8f6-8d05a79c30d8",
+        "vendor_category": "tutor",
+        "payment_type": "flat",
+        "amount": 12000,
+        "base": "service_price",
+        "label": "IELTS Coaching",
+        "is_active": true,
+        "is_optional": true,
+        "conditions": null,
+        "auto_assign": true
+      }
+    ],
+    "success_bonuses": [
+      {
+        "milestone": "visa_approved",
+        "vendor_category": "case_manager",
+        "bonus_amount": 5000,
+        "label": "Visa Grant Bonus"
+      },
+      {
+        "milestone": "visa_approved",
+        "vendor_category": "sales_commission",
+        "bonus_amount": 2000,
+        "label": "Sales Success Bonus"
+      }
+    ],
+    "cost_structure_meta": {
+      "description": "",
+      "default_currency": "INR",
+      "is_active": true,
+      "migrated_from_cs_id": "1cedc3a7-0e38-4d4c-a960-997c309cac53",
+      "migrated_at": "2026-06-10 08:13:52.474000"
+    },
+    "computed": {
+      "expected_base_cost": 10000.0,
+      "expected_margin": 80000.0,
+      "expected_margin_pct": 88.89,
+      "max_bonus_payout": 0.0
+    },
+    "updated_at": "2026-06-10T08:13:52.474000"
+  },
+  {
+    "id": "6e03ec9d-8c43-47a9-8b79-b96ab395fe7e",
+    "name": "Student Visa - Canada",
+    "description": "",
+    "category": "immigration",
+    "base_fee": 50000.0,
+    "commission_rate": 0,
+    "commission_type": "percentage",
+    "status": "active",
+    "created_at": "2026-06-10T08:13:52.475000",
+    "created_via_migration": true,
+    "country": "Canada",
+    "visa_type": "Student",
+    "service_price": 50000.0,
+    "cost_allocations": [
+      {
+        "allocation_id": "846956bb-13d3-4839-933f-224ace5dd55e",
+        "vendor_category": "sales_commission",
+        "payment_type": "percentage",
+        "amount": 5,
+        "base": "service_price",
+        "label": "Sales Commission (5%)",
+        "is_active": true,
+        "is_optional": false,
+        "conditions": null,
+        "auto_assign": true
+      },
+      {
+        "allocation_id": "84ba4664-33b9-47eb-89e4-f62dca0d8a50",
+        "vendor_category": "case_manager",
+        "payment_type": "flat",
+        "amount": 7000,
+        "base": "service_price",
+        "label": "Case Manager Fee",
+        "is_active": true,
+        "is_optional": false,
+        "conditions": null,
+        "auto_assign": true
+      },
+      {
+        "allocation_id": "acfcca1b-38e3-45da-9356-4d23c4a3d38e",
+        "vendor_category": "tutor",
+        "payment_type": "flat",
+        "amount": 15000,
+        "base": "service_price",
+        "label": "IELTS Coaching",
+        "is_active": true,
+        "is_optional": true,
+        "conditions": null,
+        "auto_assign": true
+      }
+    ],
+    "success_bonuses": [
+      {
+        "milestone": "visa_approved",
+        "vendor_category": "case_manager",
+        "bonus_amount": 3000,
+        "label": "Visa Grant Bonus"
+      },
+      {
+        "milestone": "visa_approved",
+        "vendor_category": "sales_commission",
+        "bonus_amount": 1500,
+        "label": "Sales Success Bonus"
+      }
+    ],
+    "cost_structure_meta": {
+      "description": "",
+      "default_currency": "INR",
+      "is_active": true,
+      "migrated_from_cs_id": "810ca829-6f77-448a-ba61-681cff77a747",
+      "migrated_at": "2026-06-10 08:13:52.475000"
+    },
+    "computed": {
+      "expected_base_cost": 7000.0,
+      "expected_margin": 43000.0,
+      "expected_margin_pct": 86.0,
+      "max_bonus_payout": 0.0
+    },
+    "updated_at": "2026-06-10T08:13:52.475000"
+  },
+  {
+    "id": "fb9232b3-b4ba-4258-ab5f-965a25f5a1c1",
+    "name": "TEST_Visitor_Visa",
+    "description": "Test visitor visa product",
+    "category": "visa",
+    "country": "",
+    "visa_type": "",
+    "base_fee": 15000.0,
+    "service_price": 15000.0,
+    "commission_rate": 0,
+    "commission_type": "percentage",
+    "cost_allocations": [],
+    "success_bonuses": [],
+    "computed": {
+      "expected_base_cost": 0.0,
+      "expected_margin": 15000.0,
+      "expected_margin_pct": 100.0,
+      "max_bonus_payout": 0
+    },
+    "status": "active",
+    "created_at": "2026-06-12T02:20:41.969000"
+  },
+  {
+    "id": "6e7fafd2-a65c-42f6-8309-b640ae3d0b46",
+    "name": "TEST_Template_Product_DELETE_ME",
+    "description": "Test product from template",
+    "category": "immigration",
+    "base_fee": 0.0,
+    "commission_rate": 10.0,
+    "commission_type": "percentage",
+    "status": "active",
+    "ai_generated": true,
+    "created_at": "2026-06-12T02:37:04.179000",
+    "computed": {
+      "expected_base_cost": 0,
+      "expected_margin": 0,
+      "expected_margin_pct": 0,
+      "max_bonus_payout": 0
+    },
+    "cost_allocations": [],
+    "cost_structure_meta": {},
+    "country": "",
+    "service_price": 0,
+    "success_bonuses": [],
+    "visa_type": ""
+  },
+  {
+    "id": "30675e2f-2d11-4786-92d2-c86971d41651",
+    "name": "TEST_Workflow_3c250c0f",
+    "description": "Test workflow for iteration 62",
+    "category": "immigration",
+    "base_fee": 0.0,
+    "commission_rate": 10.0,
+    "commission_type": "percentage",
+    "status": "active",
+    "ai_generated": true,
+    "created_at": "2026-06-12T02:37:05.742000",
+    "computed": {
+      "expected_base_cost": 0,
+      "expected_margin": 0,
+      "expected_margin_pct": 0,
+      "max_bonus_payout": 0
+    },
+    "cost_allocations": [],
+    "cost_structure_meta": {},
+    "country": "",
+    "service_price": 0,
+    "success_bonuses": [],
+    "visa_type": ""
+  },
+  {
+    "id": "c823f0c0-6b4a-4a28-a94d-d19382d23d23",
+    "name": "TEST_Australia_PR_1781231830",
+    "description": "Australia Permanent Residency (Skilled Migration 189/190/491)",
+    "category": "immigration",
+    "base_fee": 0.0,
+    "commission_rate": 10.0,
+    "commission_type": "percentage",
+    "status": "active",
+    "ai_generated": true,
+    "created_at": "2026-06-12T02:37:11.057000",
+    "computed": {
+      "expected_base_cost": 0,
+      "expected_margin": 0,
+      "expected_margin_pct": 0,
+      "max_bonus_payout": 0
+    },
+    "cost_allocations": [],
+    "cost_structure_meta": {},
+    "country": "",
+    "service_price": 0,
+    "success_bonuses": [],
+    "visa_type": ""
+  },
+  {
+    "id": "275e7236-329d-437e-bf21-ea69564680a1",
+    "name": "TEST_Visitor_Visa",
+    "description": "Test visitor visa product",
+    "category": "visa",
+    "country": "",
+    "visa_type": "",
+    "base_fee": 15000.0,
+    "service_price": 15000.0,
+    "commission_rate": 0,
+    "commission_type": "percentage",
+    "cost_allocations": [],
+    "success_bonuses": [],
+    "computed": {
+      "expected_base_cost": 0.0,
+      "expected_margin": 15000.0,
+      "expected_margin_pct": 100.0,
+      "max_bonus_payout": 0
+    },
+    "status": "active",
+    "created_at": "2026-06-16T12:53:29.157000"
+  },
+  {
+    "id": "5c755ce2-391a-4092-b74f-96a86e0b8f66",
+    "name": "TEST_Template_Product_DELETE_ME",
+    "description": "Test product from template",
+    "category": "immigration",
+    "base_fee": 0.0,
+    "commission_rate": 10.0,
+    "commission_type": "percentage",
+    "status": "active",
+    "ai_generated": true,
+    "created_at": "2026-06-16T12:59:52.942000",
+    "computed": {
+      "expected_base_cost": 0,
+      "expected_margin": 0,
+      "expected_margin_pct": 0,
+      "max_bonus_payout": 0
+    },
+    "cost_allocations": [],
+    "cost_structure_meta": {},
+    "country": "",
+    "service_price": 0,
+    "success_bonuses": [],
+    "visa_type": ""
+  },
+  {
+    "id": "52fb41bb-a9c1-4dbf-b792-2d087b047a7e",
+    "name": "TEST_Workflow_3aebcb71",
+    "description": "Test workflow for iteration 62",
+    "category": "immigration",
+    "base_fee": 0.0,
+    "commission_rate": 10.0,
+    "commission_type": "percentage",
+    "status": "active",
+    "ai_generated": true,
+    "created_at": "2026-06-16T12:59:53.213000",
+    "computed": {
+      "expected_base_cost": 0,
+      "expected_margin": 0,
+      "expected_margin_pct": 0,
+      "max_bonus_payout": 0
+    },
+    "cost_allocations": [],
+    "cost_structure_meta": {},
+    "country": "",
+    "service_price": 0,
+    "success_bonuses": [],
+    "visa_type": ""
+  },
+  {
+    "id": "07a4fcb7-bd01-49c3-ae41-461370656d9c",
+    "name": "TEST_Australia_PR_1781614795",
+    "description": "Australia Permanent Residency (Skilled Migration 189/190/491)",
+    "category": "immigration",
+    "base_fee": 0.0,
+    "commission_rate": 10.0,
+    "commission_type": "percentage",
+    "status": "active",
+    "ai_generated": true,
+    "created_at": "2026-06-16T12:59:55.284000",
+    "computed": {
+      "expected_base_cost": 0,
+      "expected_margin": 0,
+      "expected_margin_pct": 0,
+      "max_bonus_payout": 0
+    },
+    "cost_allocations": [],
+    "cost_structure_meta": {},
+    "country": "",
+    "service_price": 0,
+    "success_bonuses": [],
+    "visa_type": ""
+  },
+  {
+    "id": "e162ad2e-bf19-4e75-ae97-9254f6b61505",
+    "name": "TEST_Product_fc025d",
+    "description": "Test product for testing",
+    "category": "test",
+    "country": "",
+    "visa_type": "",
+    "base_fee": 10000.0,
+    "service_price": 10000.0,
+    "commission_rate": 0,
+    "commission_type": "percentage",
+    "cost_allocations": [],
+    "success_bonuses": [],
+    "computed": {
+      "expected_base_cost": 0.0,
+      "expected_margin": 10000.0,
+      "expected_margin_pct": 100.0,
+      "max_bonus_payout": 0
+    },
+    "status": "active",
+    "created_at": "2026-06-16T13:02:47.908000"
+  },
+  {
+    "id": "d3b8ef0c-9673-49c4-891c-be2b43d66188",
+    "name": "TEST_Updated_Product",
+    "description": "To be updated",
+    "category": "test",
+    "country": "",
+    "visa_type": "",
+    "base_fee": 7500.0,
+    "service_price": 7500.0,
+    "commission_rate": 0,
+    "commission_type": "percentage",
+    "cost_allocations": [],
+    "success_bonuses": [],
+    "computed": {
+      "expected_base_cost": 0.0,
+      "expected_margin": 7500.0,
+      "expected_margin_pct": 100.0,
+      "max_bonus_payout": 0
+    },
+    "status": "active",
+    "created_at": "2026-06-16T13:02:48.145000",
+    "updated_at": "2026-06-16T13:02:48.150000"
+  },
+  {
+    "id": "8c293dc4-1b57-4a23-a414-a61969008aa3",
+    "name": "Australia Permanent Residency (Skilled Migration 189/190/491)",
+    "description": "Immigration workflow for Australia Permanent Residency (Skilled Migration 189/190/491)",
+    "category": "immigration",
+    "base_fee": 0.0,
+    "commission_rate": 10.0,
+    "commission_type": "percentage",
+    "status": "active",
+    "ai_generated": true,
+    "created_at": "2026-06-19T15:19:03.129000",
+    "computed": {
+      "expected_base_cost": 0,
+      "expected_margin": 0,
+      "expected_margin_pct": 0,
+      "max_bonus_payout": 0
+    },
+    "cost_allocations": [],
+    "cost_structure_meta": {},
+    "country": "",
+    "service_price": 0,
+    "success_bonuses": [],
+    "visa_type": ""
+  }
+]

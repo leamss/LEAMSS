@@ -42,15 +42,30 @@ def _compute_margin(service_price: float, cost_allocations: list, success_bonuse
 
 
 @router.get("")
-async def get_products(current_user: dict = Depends(get_current_user)):
-    products = await products_col.find({}, {"_id": 0}).to_list(100)
+async def get_products(
+    include_archived: bool = False,
+    category: Optional[str] = None,
+    country: Optional[str] = None,
+    is_pre_assessment: Optional[bool] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    """Phase 20.2 — extended with filters + archived exclusion by default."""
+    q: Dict[str, Any] = {}
+    if not include_archived:
+        q["archived_at"] = None
+    if category:
+        q["$or"] = [{"category": category}, {"_category_v2": category}]
+    if country:
+        q["country"] = country
+    if is_pre_assessment is not None:
+        q["is_pre_assessment"] = bool(is_pre_assessment)
+    products = await products_col.find(q, {"_id": 0}).to_list(200)
     for p in products:
         steps = await workflow_steps_col.find({"product_id": p["id"]}, {"_id": 0}).sort("step_order", 1).to_list(100)
         p["workflow_steps"] = steps
-        if isinstance(p.get("created_at"), datetime):
-            p["created_at"] = p["created_at"].isoformat()
-        if isinstance(p.get("updated_at"), datetime):
-            p["updated_at"] = p["updated_at"].isoformat()
+        for k in ("created_at", "updated_at", "archived_at"):
+            if isinstance(p.get(k), datetime):
+                p[k] = p[k].isoformat()
     return products
 
 
@@ -114,9 +129,35 @@ async def update_product(product_id: str, data: dict, current_user: dict = Depen
         "country", "visa_type",
         "commission_type", "commission_rate", "commission_tiers", "commission_effective_from",
         "cost_allocations", "success_bonuses", "cost_structure_meta",
+        # Phase 20.2 — new fields
+        "is_pre_assessment", "pre_assessment_fee_inr", "pre_assessment_fee_currency",
+        "workflow_id", "workflow_steps_count",
+        "visa_subclass", "assessing_body_code",
+        "commissions_v2", "_category_v2",
     ]:
         if field in data:
             update[field] = data[field]
+
+    # Phase 20.2 — validation rules
+    if "assessing_body_code" in update and update["assessing_body_code"]:
+        existing = await products_col.find_one({"id": product_id}, {"country": 1})
+        country = (data.get("country") or (existing or {}).get("country") or "").upper()
+        if country not in ("AU", "NZ", "AUSTRALIA", "NEW ZEALAND"):
+            raise HTTPException(status_code=400,
+                                detail=f"assessing_body_code only valid for AU/NZ products; got country={country}")
+        aa = await db["assessing_authorities"].find_one(
+            {"code": update["assessing_body_code"]}, {"_id": 0, "code": 1})
+        if not aa:
+            raise HTTPException(status_code=400,
+                                detail=f"Unknown assessing_body_code: {update['assessing_body_code']}")
+
+    if "workflow_id" in update and update["workflow_id"]:
+        wf = await db["ai_workflow_templates"].find_one(
+            {"id": update["workflow_id"], "verified": True}, {"_id": 0, "id": 1})
+        if not wf:
+            raise HTTPException(status_code=400,
+                                detail=f"Unknown or unverified workflow_id: {update['workflow_id']}")
+
     # base_fee / service_price are mirrored
     if "service_price" in data:
         update["service_price"] = float(data["service_price"] or 0)
@@ -144,6 +185,104 @@ async def update_product(product_id: str, data: dict, current_user: dict = Depen
     await log_activity(current_user["id"], current_user["name"], "updated", "product", product_id,
                        f"Updated product fields: {', '.join(k for k in update.keys() if k != 'updated_at')}")
     return {"message": "Product updated", "computed": update.get("computed")}
+
+
+# ── Phase 20.2 — Soft-archive / restore / link workflow / commissions ─────────
+class ArchiveRequest(BaseModel):
+    reason: str = Field(..., min_length=2, max_length=300)
+
+
+@router.post("/{product_id}/archive")
+async def archive_product(product_id: str, req: ArchiveRequest,
+                          current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    p = await products_col.find_one({"id": product_id}, {"id": 1, "name": 1, "archived_at": 1})
+    if not p:
+        raise HTTPException(status_code=404, detail="Product not found")
+    if p.get("archived_at"):
+        return {"ok": True, "already_archived": True, "id": product_id}
+    now = datetime.now(timezone.utc)
+    await products_col.update_one({"id": product_id}, {"$set": {
+        "archived_at": now, "archived_by": current_user.get("id"),
+        "archived_by_email": current_user.get("email"),
+        "archived_reason": req.reason,
+    }})
+    await log_activity(current_user["id"], current_user.get("name", ""), "archived", "product", product_id,
+                       f"Archived '{p.get('name')}' · reason: {req.reason}")
+    return {"ok": True, "id": product_id, "archived_at": now.isoformat()}
+
+
+@router.post("/{product_id}/restore")
+async def restore_product(product_id: str, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    p = await products_col.find_one({"id": product_id}, {"id": 1, "name": 1, "archived_at": 1})
+    if not p:
+        raise HTTPException(status_code=404, detail="Product not found")
+    if not p.get("archived_at"):
+        return {"ok": True, "already_active": True, "id": product_id}
+    await products_col.update_one({"id": product_id}, {"$set": {
+        "archived_at": None, "archived_by": None,
+        "archived_by_email": None, "archived_reason": None,
+        "restored_at": datetime.now(timezone.utc),
+        "restored_by": current_user.get("id"),
+    }})
+    await log_activity(current_user["id"], current_user.get("name", ""), "restored", "product", product_id,
+                       f"Restored '{p.get('name')}'")
+    return {"ok": True, "id": product_id}
+
+
+class LinkWorkflowRequest(BaseModel):
+    workflow_id: str
+    steps_count: Optional[int] = None
+
+
+@router.post("/{product_id}/link-workflow")
+async def link_workflow(product_id: str, req: LinkWorkflowRequest,
+                        current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    wf = await db["ai_workflow_templates"].find_one(
+        {"id": req.workflow_id, "verified": True}, {"_id": 0})
+    if not wf:
+        raise HTTPException(status_code=400,
+                            detail=f"Unknown or unverified workflow_id: {req.workflow_id}")
+    steps = req.steps_count
+    if steps is None:
+        steps = len((wf.get("workflow_payload") or {}).get("steps") or [])
+    await products_col.update_one({"id": product_id}, {"$set": {
+        "workflow_id": req.workflow_id, "workflow_steps_count": steps,
+        "updated_at": datetime.now(timezone.utc),
+    }})
+    await log_activity(current_user["id"], current_user.get("name", ""), "linked_workflow", "product", product_id,
+                       f"Linked workflow {req.workflow_id} ({steps} steps)")
+    return {"ok": True, "id": product_id, "workflow_id": req.workflow_id, "steps_count": steps}
+
+
+@router.get("/{product_id}/commissions")
+async def get_commissions(product_id: str, current_user: dict = Depends(get_current_user)):
+    """Returns commissions_v2 filtered by caller's role.
+    Sales user → only sales_user · Partner → only partner_internal/external · Admin → all.
+    """
+    p = await products_col.find_one({"id": product_id}, {"_id": 0, "id": 1, "name": 1, "commissions_v2": 1})
+    if not p:
+        raise HTTPException(status_code=404, detail="Product not found")
+    v2 = p.get("commissions_v2") or {}
+    role = (current_user.get("rbac_role") or current_user.get("role") or "").lower()
+    visible = {}
+    if role in ("admin", "admin_owner", "super_admin") or "*" in (current_user.get("permissions") or []):
+        visible = v2  # full view
+    elif role in ("sales", "case_manager"):
+        if "sales_user" in v2:
+            visible["sales_user"] = v2["sales_user"]
+    elif role == "partner":
+        if "partner_internal" in v2:
+            visible["partner_internal"] = v2["partner_internal"]
+        if "partner_external" in v2:
+            visible["partner_external"] = v2["partner_external"]
+    return {"product_id": product_id, "name": p.get("name"), "commissions": visible,
+            "role": role, "has_v2": bool(v2)}
 
 
 @router.delete("/{product_id}")

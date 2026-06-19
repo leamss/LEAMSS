@@ -421,14 +421,24 @@ function ProductDetail({ product, onSaved, onDeleted }) {
             <div><Label className="text-xs font-bold">Country</Label><Input value={form.country} onChange={e => patch({ country: e.target.value })} placeholder="Canada / Australia / UK..." data-testid="field-country" /></div>
             <div><Label className="text-xs font-bold">Visa Type</Label><Input value={form.visa_type} onChange={e => patch({ visa_type: e.target.value })} placeholder="PR / Student / H1B..." data-testid="field-visa" /></div>
             <div><Label className="text-xs font-bold">Category</Label>
-              <Select value={form.category} onValueChange={v => patch({ category: v })}>
+              <Select value={form._category_v2 || form.category} onValueChange={v => patch({ _category_v2: v, category: v })}>
                 <SelectTrigger data-testid="field-category"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="immigration">Immigration</SelectItem>
-                  <SelectItem value="study">Study Abroad</SelectItem>
+                  <SelectItem value="skilled_migration">Skilled Migration</SelectItem>
+                  <SelectItem value="pr">PR (Permanent Residence)</SelectItem>
                   <SelectItem value="work">Work Permit</SelectItem>
-                  <SelectItem value="business">Business / Investor</SelectItem>
-                  <SelectItem value="travel">Travel / Tourist</SelectItem>
+                  <SelectItem value="study">Study Abroad</SelectItem>
+                  <SelectItem value="tourist">Tourist</SelectItem>
+                  <SelectItem value="visitor">Visitor</SelectItem>
+                  <SelectItem value="investment">Investment / Investor</SelectItem>
+                  <SelectItem value="business">Business</SelectItem>
+                  <SelectItem value="dependent">Dependent</SelectItem>
+                  <SelectItem value="parent">Parent</SelectItem>
+                  <SelectItem value="child">Child</SelectItem>
+                  <SelectItem value="exam_voucher">Exam Voucher</SelectItem>
+                  <SelectItem value="coaching">Coaching</SelectItem>
+                  <SelectItem value="service_addon">Service Add-on</SelectItem>
+                  <SelectItem value="uncategorized">Uncategorized</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -442,6 +452,88 @@ function ProductDetail({ product, onSaved, onDeleted }) {
               </Select>
             </div>
           </div>
+
+          {/* Phase 20.2 — new fields */}
+          <Card className="p-3 bg-leamss-orange_50 border border-leamss-orange/30">
+            <p className="text-[10px] uppercase font-bold text-leamss-orange mb-2 flex items-center gap-1">
+              <Sparkles className="h-3 w-3" />Phase 20.2 — Sales Flow Settings
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2 flex items-center gap-2 bg-white rounded p-2 border border-leamss-orange/20">
+                <input
+                  type="checkbox" id={`pa-${product.id}`}
+                  checked={!!form.is_pre_assessment}
+                  onChange={e => patch({ is_pre_assessment: e.target.checked })}
+                  data-testid={`product-edit-pa-toggle-${product.id}`}
+                  className="h-4 w-4"
+                />
+                <label htmlFor={`pa-${product.id}`} className="text-xs font-semibold text-slate-700 cursor-pointer">
+                  Pre-Assessment Flow Required?
+                </label>
+                <span className="text-[10px] text-slate-500 ml-auto">Toggle ON for products needing PA before sale</span>
+              </div>
+              {form.is_pre_assessment && (
+                <div className="col-span-2 grid grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-xs font-bold">Pre-Assessment Fee (₹)</Label>
+                    <Input
+                      type="number" value={form.pre_assessment_fee_inr || ''}
+                      onChange={e => patch({ pre_assessment_fee_inr: e.target.value ? Number(e.target.value) : null })}
+                      placeholder="Leave blank for country default"
+                      data-testid={`product-edit-pa-fee-${product.id}`}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-bold">Fee Currency</Label>
+                    <Select
+                      value={form.pre_assessment_fee_currency || 'INR'}
+                      onValueChange={v => patch({ pre_assessment_fee_currency: v })}
+                    >
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="INR">INR</SelectItem>
+                        <SelectItem value="USD">USD</SelectItem>
+                        <SelectItem value="AUD">AUD</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
+              <div>
+                <Label className="text-xs font-bold">Visa Subclass</Label>
+                <Input
+                  value={form.visa_subclass || ''}
+                  onChange={e => patch({ visa_subclass: e.target.value })}
+                  placeholder="e.g., 189, 190, 491, EE"
+                  data-testid={`product-edit-visa-subclass-${product.id}`}
+                />
+              </div>
+              {(form.country === 'Australia' || form.country === 'AU' || form.country === 'New Zealand' || form.country === 'NZ') && (
+                <div>
+                  <Label className="text-xs font-bold">Assessing Body (AU/NZ only)</Label>
+                  <Input
+                    value={form.assessing_body_code || ''}
+                    onChange={e => patch({ assessing_body_code: e.target.value.toUpperCase() })}
+                    placeholder="ACS, VETASSESS, EA, NZQA..."
+                    data-testid={`product-edit-body-${product.id}`}
+                  />
+                </div>
+              )}
+              <div className="col-span-2">
+                <Label className="text-xs font-bold">Linked AI Workflow ID (optional)</Label>
+                <Input
+                  value={form.workflow_id || ''}
+                  onChange={e => patch({ workflow_id: e.target.value || null })}
+                  placeholder="From /admin/ai-workflow-builder — paste verified template id"
+                  data-testid={`product-edit-workflow-${product.id}`}
+                />
+                {form.workflow_id && (
+                  <p className="text-[10px] text-slate-500 mt-1">{form.workflow_steps_count || 0} workflow step(s)</p>
+                )}
+              </div>
+            </div>
+          </Card>
+
           <div><Label className="text-xs font-bold">Description</Label><Textarea value={form.description} onChange={e => patch({ description: e.target.value })} rows={3} data-testid="field-description" /></div>
           {product.computed && (
             <Card className="p-3 bg-gradient-to-br from-leamss-teal_50 to-emerald-50 mt-3">

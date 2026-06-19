@@ -3,6 +3,73 @@
 This file appends every completed phase/feature with dates and verification status.
 
 ---
+### 📦 Phase 20.2 + 20.2.1 — Product Master Upgrade + Brand Guide (Jun 19, 2026)
+
+**Sales pitch:** Sir ka Product Master ab **production-ready Sales OS foundation** hai. 13 naye fields (`is_pre_assessment`, `pre_assessment_fee_inr`, `workflow_id`, `visa_subclass`, `assessing_body_code`, `commissions_v2`, archived metadata) **additive** add hue — purana data 100% safe. 10 TEST_ products **soft-archived** (revocable). 5 naye/extended endpoints (archive/restore/link-workflow/commissions/filters). Frontend edit modal updated with new "Sales Flow Settings" card. Bonus **`/admin/brand-guide`** — single-page reference for 7 colour tokens, 6 button variants, 7 badge styles, 3 gradients, typography hierarchy, spacing scale — designer + future-contractor reference.
+
+#### Phase 20.2 — Product Master Upgrade
+
+**Migration (idempotent, revocable):**
+- `backend/migrations/m20260619_phase202_products_upgrade.py`:
+  - **Snapshot before mutation**: `/app/memory/snapshots/pre_phase202_products_20260619_201717.json` (19 products · MD5=`6c334b4e3aaff1ecbffe3ad2e860039d`)
+  - **Added 11 new fields to all 19 products** with sensible defaults: `is_pre_assessment=False` · `pre_assessment_fee_inr=null` · `pre_assessment_fee_currency="INR"` · `workflow_id=null` · `workflow_steps_count=0` · `visa_subclass=null` · `assessing_body_code=null` · `commissions_v2=null` · `archived_at=null` · `archived_by=null` · `archived_reason=null`
+  - **Legacy category migration**: `_category_v1` preserved · `_category_v2` mapped via `{immigration → pr, visa → uncategorized, test → uncategorized}`
+  - **Soft-archived 10 TEST_ products** with `archived_reason="Phase 20.2 audit cleanup"` (revocable via /restore endpoint)
+
+**Backend extensions (`backend/routers/products.py` ~140 lines added):**
+- `GET /api/products?include_archived=false&category=pr&country=AU&is_pre_assessment=true` — extended with 4 filters
+- `PUT /api/products/{id}` — accepts all 11 new fields + validation:
+  - `assessing_body_code` rejected if country ≠ AU/NZ (400) + must exist in Phase 19.7 `assessing_authorities`
+  - `workflow_id` rejected if not in verified `ai_workflow_templates`
+- `POST /api/products/{id}/archive` (NEW) — body `{reason: str}`, admin-only, audit logged
+- `POST /api/products/{id}/restore` (NEW) — admin-only, restores via clearing archived_* fields
+- `POST /api/products/{id}/link-workflow` (NEW) — body `{workflow_id, steps_count?}`, validates + denorms count
+- `GET /api/products/{id}/commissions` (NEW) — returns `commissions_v2` filtered by caller role (sales/partner sees only own; admin sees all)
+
+**Frontend (`pages/admin/ProductsManager.jsx`):**
+- Category dropdown expanded from 5 to **15 enum values** (per Sir's spec)
+- New collapsible **"Phase 20.2 — Sales Flow Settings"** card in Overview tab:
+  - Pre-Assessment Flow toggle (with helper text)
+  - Conditional PA Fee input + currency selector (INR/USD/AUD) — shows only when toggle ON
+  - Visa Subclass input
+  - Assessing Body input — shows only for AU/NZ products (Sir's directive #4)
+  - Linked AI Workflow ID input with step count badge
+- All new fields wired with unique `data-testid` per product
+
+#### Phase 20.2.1 — LEAMSS Brand Guide
+- **`/admin/brand-guide`** route registered (admin-only via `system.user_manage.any` permission)
+- **`pages/admin/BrandGuide.jsx`** — single page with 7 sections:
+  1. **Colour Tokens** (7 swatches: teal, orange, red, bg_white + _50 tints, each with copy-to-clipboard buttons for Tailwind class + hex)
+  2. **Buttons** (6 variants: Primary · Accent CTA · Destructive · Outline · Ghost · Disabled)
+  3. **Badges** (7 variants: Success · Info · Warning · Highlight · Error · Alert · Neutral)
+  4. **Gradients** (3 hero/CTA/soft gradient examples with use-cases)
+  5. **Typography** (H1-H6, Body, Small with `cls` names)
+  6. **Spacing Scale** (6 sizes from Tight to Section)
+  7. **Card Variants** (Primary teal-border · Accent orange · Alert red — all branded)
+- "Copy class name" / "Copy hex" buttons per swatch (clipboard API + toast)
+
+#### Verification (Triple-Gate)
+- **Pytest** `backend/tests/test_phase202_products_upgrade.py`: **13/13 PASS in 0.47s** (snapshot exists · new fields default · TEST_ archived · filters · archive/restore · validation · commissions)
+- **Combined regression**: **99/99 PASS in 13.65s** (Phase 19.6/19.7/19.8/19.9/19.9.1/19.10/19.11/20.1/20.2/20.6)
+- **Curl smoke**: GET /products active=9 archived=10 · PATCH with new fields ✓ · USA + ACS rejected 400 ✓ · AU + ACS accepted ✓ · restore/archive round-trip ✓ · commissions role-filter ✓
+- **Playwright**: `/tmp/phase2021_brand_guide.png` — full Brand Guide page rendered perfectly with all 7 sections visible
+
+#### 🟢 Sir's Acceptance Criteria — ALL MET
+- [x] Schema migration idempotent + revocable + backup snapshot exists
+- [x] 10 TEST_ products soft-archived (1 was already missing — original estimate 11)
+- [x] All new endpoints functional + admin-gated where needed
+- [x] Product edit modal extended with all new fields
+- [x] Archived filter works (include_archived=true returns full set)
+- [x] /admin/brand-guide route LIVE
+- [x] All Phase 20.2 + 20.2.1 pytests GREEN + zero regression
+- [x] CHANGELOG + PRD updated
+
+#### Files touched
+- New: `backend/migrations/m20260619_phase202_products_upgrade.py` · `backend/tests/test_phase202_products_upgrade.py` · `frontend/src/pages/admin/BrandGuide.jsx` · `/app/memory/snapshots/pre_phase202_products_*.json`
+- Modified: `backend/routers/products.py` (filters + 4 new endpoints + validation) · `frontend/src/pages/admin/ProductsManager.jsx` (category enum + Sales Flow Settings card) · `frontend/src/App.js` (BrandGuide route registration)
+
+---
+
 ### 🎨 Phase 20.6 — Brand Spot-Audit + VFS URL Verification (Jun 19, 2026)
 
 **Sales pitch:** LEAMSS ki entire UI ab strictly **teal · orange · red · white** brand palette par hai. 106 hardcoded indigo/purple/blue color usages 10 priority files mein swap kiye gaye (`leamss.{teal/orange/red/_50}` Tailwind tokens). VFSglobal URL health verifier ne 25 VFS-supported countries ke URLs ping karke health report generate kiya. Zero functional changes — purely visual + diagnostic.
