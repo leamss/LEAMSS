@@ -72,7 +72,7 @@ async def compute_diff_audit(
     # Simulated patched authority doc
     sim_auth = dict(auth)
     for k, v in (proposed_changes or {}).items():
-        if k in {"full_name", "website"}:
+        if k in {"full_name", "website", "aliases"}:
             sim_auth[k] = v
         elif k in {"fees", "processing"}:
             # Merge nested dicts
@@ -80,6 +80,13 @@ async def compute_diff_audit(
             for sub_k, sub_v in (v or {}).items():
                 current[sub_k] = sub_v
             sim_auth[k] = current
+
+    # Phase 19.9.1 — also detect identity-field changes (name/aliases) and surface
+    # samples even if Phase 19.5 meta-description builder doesn't differ.
+    identity_changed = (
+        "full_name" in (proposed_changes or {})
+        or "aliases" in (proposed_changes or {})
+    )
 
     diffs: List[Dict[str, Any]] = []
     atlas_pages: List[str] = []
@@ -111,6 +118,30 @@ async def compute_diff_audit(
                 "after": meta_after,
                 "char_diff": char_diff,
                 "atlas_url": f"/atlas/au/{code_str}",
+                "diff_type": "seo_meta_description",
+            })
+            atlas_pages.append(f"/atlas/au/{code_str}")
+        elif identity_changed:
+            # Identity-field change but Phase 19.5 builder didn't surface it
+            # (uses short_name = body code, which is locked). Still surface
+            # the change because it WILL show on Atlas detail pages directly.
+            old_id = (occ_before["assessing_authority"].get("name") or "")
+            new_id = (occ_after["assessing_authority"].get("name") or "")
+            old_aliases = (auth.get("aliases") or [])
+            new_aliases = (proposed_changes.get("aliases") or auth.get("aliases") or [])
+            char_diff = len(new_id) - len(old_id)
+            char_diff_total += abs(char_diff)
+            diffs.append({
+                "code": code_str, "title": title,
+                "before": f"Authority displayed as: {old_id}",
+                "after": f"Authority displayed as: {new_id}",
+                "char_diff": char_diff,
+                "atlas_url": f"/atlas/au/{code_str}",
+                "diff_type": "identity_field",
+                "field_changes": {
+                    "full_name": {"old": auth.get("full_name"), "new": sim_auth.get("full_name")} if "full_name" in (proposed_changes or {}) else None,
+                    "aliases": {"old": old_aliases, "new": new_aliases} if "aliases" in (proposed_changes or {}) else None,
+                },
             })
             atlas_pages.append(f"/atlas/au/{code_str}")
 
