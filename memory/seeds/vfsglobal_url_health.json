@@ -1,0 +1,290 @@
+{
+  "verified_at": "2026-06-19T20:07:13.608302+00:00",
+  "map_file": "/app/backend/data/vfsglobal_country_map.json",
+  "total_with_slug": 25,
+  "total_null_slug": 26,
+  "categories": {
+    "blocked_or_rate_limited": [
+      "australia",
+      "austria",
+      "belgium",
+      "canada",
+      "china",
+      "czech_republic",
+      "denmark",
+      "finland",
+      "france",
+      "germany",
+      "greece",
+      "ireland",
+      "italy",
+      "japan",
+      "netherlands",
+      "new_zealand",
+      "norway",
+      "poland",
+      "portugal",
+      "saudi_arabia",
+      "spain",
+      "sweden",
+      "switzerland",
+      "turkey",
+      "uk"
+    ]
+  },
+  "counts_by_category": {
+    "blocked_or_rate_limited": 25
+  },
+  "results": [
+    {
+      "country": "australia",
+      "slug": "aus",
+      "primary_url": "https://visa.vfsglobal.com/ind/en/aus/",
+      "status_code": 403,
+      "final_url": "https://visa.vfsglobal.com/ind/en/aus/",
+      "category": "blocked_or_rate_limited",
+      "elapsed_ms": 160,
+      "tried_alternates": []
+    },
+    {
+      "country": "austria",
+      "slug": "aut",
+      "primary_url": "https://visa.vfsglobal.com/ind/en/aut/",
+      "status_code": 403,
+      "final_url": "https://visa.vfsglobal.com/ind/en/aut/",
+      "category": "blocked_or_rate_limited",
+      "elapsed_ms": 103,
+      "tried_alternates": []
+    },
+    {
+      "country": "belgium",
+      "slug": "bel",
+      "primary_url": "https://visa.vfsglobal.com/ind/en/bel/",
+      "status_code": 403,
+      "final_url": "https://visa.vfsglobal.com/ind/en/bel/",
+      "category": "blocked_or_rate_limited",
+      "elapsed_ms": 108,
+      "tried_alternates": []
+    },
+    {
+      "country": "canada",
+      "slug": "can",
+      "primary_url": "https://visa.vfsglobal.com/ind/en/can/",
+      "status_code": 403,
+      "final_url": "https://visa.vfsglobal.com/ind/en/can/",
+      "category": "blocked_or_rate_limited",
+      "elapsed_ms": 140,
+      "tried_alternates": []
+    },
+    {
+      "country": "china",
+      "slug": "chn",
+      "primary_url": "https://visa.vfsglobal.com/ind/en/chn/",
+      "status_code": 403,
+      "final_url": "https://visa.vfsglobal.com/ind/en/chn/",
+      "category": "blocked_or_rate_limited",
+      "elapsed_ms": 104,
+      "tried_alternates": []
+    },
+    {
+      "country": "czech_republic",
+      "slug": "cze",
+      "primary_url": "https://visa.vfsglobal.com/ind/en/cze/",
+      "status_code": 403,
+      "final_url": "https://visa.vfsglobal.com/ind/en/cze/",
+      "category": "blocked_or_rate_limited",
+      "elapsed_ms": 116,
+      "tried_alternates": []
+    },
+    {
+      "country": "denmark",
+      "slug": "dnk",
+      "primary_url": "https://visa.vfsglobal.com/ind/en/dnk/",
+      "status_code": 403,
+      "final_url": "https://visa.vfsglobal.com/ind/en/dnk/",
+      "category": "blocked_or_rate_limited",
+      "elapsed_ms": 133,
+      "tried_alternates": []
+    },
+    {
+      "country": "finland",
+      "slug": "fin",
+      "primary_url": "https://visa.vfsglobal.com/ind/en/fin/",
+      "status_code": 403,
+      "final_url": "https://visa.vfsglobal.com/ind/en/fin/",
+      "category": "blocked_or_rate_limited",
+      "elapsed_ms": 100,
+      "tried_alternates": []
+    },
+    {
+      "country": "france",
+      "slug": "fra",
+      "primary_url": "https://visa.vfsglobal.com/ind/en/fra/",
+      "status_code": 403,
+      "final_url": "https://visa.vfsglobal.com/ind/en/fra/",
+      "category": "blocked_or_rate_limited",
+      "elapsed_ms": 152,
+      "tried_alternates": []
+    },
+    {
+      "country": "germany",
+      "slug": "deu",
+      "primary_url": "https://visa.vfsglobal.com/ind/en/deu/",
+      "status_code": 403,
+      "final_url": "https://visa.vfsglobal.com/ind/en/deu/",
+      "category": "blocked_or_rate_limited",
+      "elapsed_ms": 94,
+      "tried_alternates": []
+    },
+    {
+      "country": "greece",
+      "slug": "grc",
+      "primary_url": "https://visa.vfsglobal.com/ind/en/grc/",
+      "status_code": 403,
+      "final_url": "https://visa.vfsglobal.com/ind/en/grc/",
+      "category": "blocked_or_rate_limited",
+      "elapsed_ms": 103,
+      "tried_alternates": []
+    },
+    {
+      "country": "ireland",
+      "slug": "irl",
+      "primary_url": "https://visa.vfsglobal.com/ind/en/irl/",
+      "status_code": 403,
+      "final_url": "https://visa.vfsglobal.com/ind/en/irl/",
+      "category": "blocked_or_rate_limited",
+      "elapsed_ms": 60,
+      "tried_alternates": []
+    },
+    {
+      "country": "italy",
+      "slug": "ita",
+      "primary_url": "https://visa.vfsglobal.com/ind/en/ita/",
+      "status_code": 403,
+      "final_url": "https://visa.vfsglobal.com/ind/en/ita/",
+      "category": "blocked_or_rate_limited",
+      "elapsed_ms": 44,
+      "tried_alternates": []
+    },
+    {
+      "country": "japan",
+      "slug": "jpn",
+      "primary_url": "https://visa.vfsglobal.com/ind/en/jpn/",
+      "status_code": 403,
+      "final_url": "https://visa.vfsglobal.com/ind/en/jpn/",
+      "category": "blocked_or_rate_limited",
+      "elapsed_ms": 52,
+      "tried_alternates": []
+    },
+    {
+      "country": "netherlands",
+      "slug": "nld",
+      "primary_url": "https://visa.vfsglobal.com/ind/en/nld/",
+      "status_code": 403,
+      "final_url": "https://visa.vfsglobal.com/ind/en/nld/",
+      "category": "blocked_or_rate_limited",
+      "elapsed_ms": 23,
+      "tried_alternates": []
+    },
+    {
+      "country": "new_zealand",
+      "slug": "nzl",
+      "primary_url": "https://visa.vfsglobal.com/ind/en/nzl/",
+      "status_code": 403,
+      "final_url": "https://visa.vfsglobal.com/ind/en/nzl/",
+      "category": "blocked_or_rate_limited",
+      "elapsed_ms": 50,
+      "tried_alternates": []
+    },
+    {
+      "country": "norway",
+      "slug": "nor",
+      "primary_url": "https://visa.vfsglobal.com/ind/en/nor/",
+      "status_code": 403,
+      "final_url": "https://visa.vfsglobal.com/ind/en/nor/",
+      "category": "blocked_or_rate_limited",
+      "elapsed_ms": 23,
+      "tried_alternates": []
+    },
+    {
+      "country": "poland",
+      "slug": "pol",
+      "primary_url": "https://visa.vfsglobal.com/ind/en/pol/",
+      "status_code": 403,
+      "final_url": "https://visa.vfsglobal.com/ind/en/pol/",
+      "category": "blocked_or_rate_limited",
+      "elapsed_ms": 52,
+      "tried_alternates": []
+    },
+    {
+      "country": "portugal",
+      "slug": "prt",
+      "primary_url": "https://visa.vfsglobal.com/ind/en/prt/",
+      "status_code": 403,
+      "final_url": "https://visa.vfsglobal.com/ind/en/prt/",
+      "category": "blocked_or_rate_limited",
+      "elapsed_ms": 74,
+      "tried_alternates": []
+    },
+    {
+      "country": "saudi_arabia",
+      "slug": "sau",
+      "primary_url": "https://visa.vfsglobal.com/ind/en/sau/",
+      "status_code": 403,
+      "final_url": "https://visa.vfsglobal.com/ind/en/sau/",
+      "category": "blocked_or_rate_limited",
+      "elapsed_ms": 45,
+      "tried_alternates": []
+    },
+    {
+      "country": "spain",
+      "slug": "esp",
+      "primary_url": "https://visa.vfsglobal.com/ind/en/esp/",
+      "status_code": 403,
+      "final_url": "https://visa.vfsglobal.com/ind/en/esp/",
+      "category": "blocked_or_rate_limited",
+      "elapsed_ms": 47,
+      "tried_alternates": []
+    },
+    {
+      "country": "sweden",
+      "slug": "swe",
+      "primary_url": "https://visa.vfsglobal.com/ind/en/swe/",
+      "status_code": 403,
+      "final_url": "https://visa.vfsglobal.com/ind/en/swe/",
+      "category": "blocked_or_rate_limited",
+      "elapsed_ms": 33,
+      "tried_alternates": []
+    },
+    {
+      "country": "switzerland",
+      "slug": "che",
+      "primary_url": "https://visa.vfsglobal.com/ind/en/che/",
+      "status_code": 403,
+      "final_url": "https://visa.vfsglobal.com/ind/en/che/",
+      "category": "blocked_or_rate_limited",
+      "elapsed_ms": 23,
+      "tried_alternates": []
+    },
+    {
+      "country": "turkey",
+      "slug": "tur",
+      "primary_url": "https://visa.vfsglobal.com/ind/en/tur/",
+      "status_code": 403,
+      "final_url": "https://visa.vfsglobal.com/ind/en/tur/",
+      "category": "blocked_or_rate_limited",
+      "elapsed_ms": 46,
+      "tried_alternates": []
+    },
+    {
+      "country": "uk",
+      "slug": "gbr",
+      "primary_url": "https://visa.vfsglobal.com/ind/en/gbr/",
+      "status_code": 403,
+      "final_url": "https://visa.vfsglobal.com/ind/en/gbr/",
+      "category": "blocked_or_rate_limited",
+      "elapsed_ms": 57,
+      "tried_alternates": []
+    }
+  ]
+}

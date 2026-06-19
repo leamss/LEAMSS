@@ -227,7 +227,7 @@ export default function AuthoritiesAdmin() {
               </thead>
               <tbody>
                 {filtered.map(b => (
-                  <tr key={b.code} className={`border-b hover:bg-slate-50 cursor-pointer ${selected?.code === b.code ? 'bg-indigo-50' : ''}`}
+                  <tr key={b.code} className={`border-b hover:bg-slate-50 cursor-pointer ${selected?.code === b.code ? 'bg-leamss-teal_50' : ''}`}
                       onClick={() => selectBody(b)} data-testid={`auth-row-${b.code}`}>
                     <td className="p-2 font-mono font-bold">{b.code}</td>
                     <td className="p-2">{b.full_name?.substring(0, 50)}{b._seed_quality === 'placeholder' && <Badge className="ml-1 text-[9px] bg-rose-100 text-rose-700">PLACEHOLDER</Badge>}</td>
@@ -365,7 +365,7 @@ export default function AuthoritiesAdmin() {
 }
 
 function StatBox({ label, value, color = 'slate', testid }) {
-  const colorClass = { slate: 'text-slate-900', emerald: 'text-emerald-700', amber: 'text-amber-700', rose: 'text-rose-700', indigo: 'text-indigo-700' }[color];
+  const colorClass = { slate: 'text-slate-900', emerald: 'text-emerald-700', amber: 'text-amber-700', rose: 'text-rose-700', indigo: 'text-leamss-teal' }[color];
   return (
     <Card className="p-3 text-center">
       <p className="text-[10px] uppercase font-bold tracking-wider text-slate-500">{label}</p>

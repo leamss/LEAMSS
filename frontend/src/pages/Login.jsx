@@ -144,9 +144,9 @@ const Login = () => {
               <p className="text-xs font-bold text-amber-800">✨ AI Eligibility Score</p>
               <p className="text-[10px] text-amber-700 mt-0.5">90 sec · No login</p>
             </a>
-            <a href="/visa-compare" className="block bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-3 hover:shadow-md transition" data-testid="public-compare-link">
-              <p className="text-xs font-bold text-blue-800">⚖️ Compare Visas</p>
-              <p className="text-[10px] text-blue-700 mt-0.5">Side-by-side · Free</p>
+            <a href="/visa-compare" className="block bg-gradient-to-br from-leamss-teal_50 to-leamss-teal_50 border border-leamss-teal_50 rounded-lg p-3 hover:shadow-md transition" data-testid="public-compare-link">
+              <p className="text-xs font-bold text-leamss-teal">⚖️ Compare Visas</p>
+              <p className="text-[10px] text-leamss-teal mt-0.5">Side-by-side · Free</p>
             </a>
           </div>
         </div>

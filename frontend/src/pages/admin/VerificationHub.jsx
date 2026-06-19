@@ -262,10 +262,10 @@ export default function VerificationHub() {
             <ArrowLeft className="h-4 w-4 mr-1" />Admin Home
           </Button>
           <div className="flex-1">
-            <h1 className="text-2xl font-bold flex items-center gap-2 text-indigo-900">
-              <ShieldCheck className="h-7 w-7 text-indigo-600" />
+            <h1 className="text-2xl font-bold flex items-center gap-2 text-leamss-teal">
+              <ShieldCheck className="h-7 w-7 text-leamss-teal" />
               Verification Hub
-              <Badge className="bg-indigo-600 text-white text-[9px]">Phase 17.0</Badge>
+              <Badge className="bg-leamss-teal text-white text-[9px]">Phase 17.0</Badge>
             </h1>
             <p className="text-xs text-slate-500 mt-0.5">
               Single dashboard for all Knowledge Base verifications — Occupations · Country Templates · Country Guides · Protection Policies
@@ -318,16 +318,16 @@ export default function VerificationHub() {
         )}
 
         {/* ANZSCO Master Card */}
-        <Card className="p-4 border-l-4 border-l-indigo-500 bg-gradient-to-r from-indigo-50/40 to-white" data-testid="anzsco-master-card">
+        <Card className="p-4 border-l-4 border-l-leamss-teal bg-gradient-to-r from-leamss-teal_50/40 to-white" data-testid="anzsco-master-card">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="h-12 w-12 rounded-lg bg-indigo-600 flex items-center justify-center shrink-0">
+              <div className="h-12 w-12 rounded-lg bg-leamss-teal flex items-center justify-center shrink-0">
                 <Database className="h-6 w-6 text-white" />
               </div>
               <div className="min-w-0">
-                <h3 className="text-base font-bold text-indigo-900">ANZSCO 4-Digit Master</h3>
+                <h3 className="text-base font-bold text-leamss-teal">ANZSCO 4-Digit Master</h3>
                 <p className="text-xs text-slate-600">
-                  <strong className="text-indigo-700">{summary.anzsco_4digit_master.total_codes.toLocaleString()}</strong> codes loaded ·
+                  <strong className="text-leamss-teal">{summary.anzsco_4digit_master.total_codes.toLocaleString()}</strong> codes loaded ·
                   Source: <span className="font-mono">{summary.anzsco_4digit_master.data_source}</span>
                 </p>
                 {latestFile ? (
@@ -351,7 +351,7 @@ export default function VerificationHub() {
                 <a
                   href="https://www.jobsandskills.gov.au/data/occupation-and-industry-profiles/occupations"
                   target="_blank" rel="noopener noreferrer"
-                  className="text-[10px] text-indigo-600 hover:underline flex items-center gap-1 mt-0.5"
+                  className="text-[10px] text-leamss-teal hover:underline flex items-center gap-1 mt-0.5"
                 >
                   <ExternalLink className="h-3 w-3" />jobsandskills.gov.au
                 </a>
@@ -361,7 +361,7 @@ export default function VerificationHub() {
               <Button
                 onClick={reimportExcel}
                 disabled={primaryBusy}
-                className="bg-indigo-600 hover:bg-indigo-700"
+                className="bg-leamss-teal hover:bg-leamss-teal"
                 data-testid={latestFile ? 'verif-hub-reimport-btn' : 'verif-hub-upload-btn'}
               >
                 {primaryBusy
@@ -373,7 +373,7 @@ export default function VerificationHub() {
                 onClick={() => autoFetchAnzsco('ALL')}
                 disabled={autoFetching}
                 variant="outline"
-                className="border-indigo-300 text-indigo-700 hover:bg-indigo-50"
+                className="border-leamss-teal_50 text-leamss-teal hover:bg-leamss-teal_50"
                 data-testid="verif-hub-autofetch-btn"
                 title="Live scrape AU + CA + NZ official sources"
               >
@@ -381,13 +381,13 @@ export default function VerificationHub() {
                 {autoFetching ? 'Fetching…' : 'Fetch All 3 Countries'}
               </Button>
               <Button onClick={() => autoFetchAnzsco('AU')} disabled={autoFetching}
-                      variant="ghost" size="sm" className="text-indigo-700"
+                      variant="ghost" size="sm" className="text-leamss-teal"
                       data-testid="verif-hub-autofetch-au">🇦🇺 AU</Button>
               <Button onClick={() => autoFetchAnzsco('CA')} disabled={autoFetching}
-                      variant="ghost" size="sm" className="text-indigo-700"
+                      variant="ghost" size="sm" className="text-leamss-teal"
                       data-testid="verif-hub-autofetch-ca">🇨🇦 CA</Button>
               <Button onClick={() => autoFetchAnzsco('NZ')} disabled={autoFetching}
-                      variant="ghost" size="sm" className="text-indigo-700"
+                      variant="ghost" size="sm" className="text-leamss-teal"
                       data-testid="verif-hub-autofetch-nz">🇳🇿 NZ</Button>
             </div>
           </div>
@@ -631,9 +631,9 @@ function StatTile({ tile, navigate }) {
   const verified = tile.counts.verified || tile.counts.active || 0;
   const draft = tile.counts.draft || 0;
   const colorClass = {
-    indigo: 'border-l-indigo-500 bg-indigo-50/30',
-    blue: 'border-l-blue-500 bg-blue-50/30',
-    violet: 'border-l-violet-500 bg-violet-50/30',
+    indigo: 'border-l-leamss-teal bg-leamss-teal_50/30',
+    blue: 'border-l-leamss-teal bg-leamss-teal_50/30',
+    violet: 'border-l-leamss-orange bg-leamss-orange_50/30',
     emerald: 'border-l-emerald-500 bg-emerald-50/30',
   }[tile.color];
   // Phase 19.6 — 3-way enrichment breakdown (only for Occupations tile)
@@ -703,7 +703,7 @@ function PendingList({ items, emptyMessage, renderItem }) {
             <Badge className={`${STATUS_PILL[r.status] || 'bg-slate-100'} text-[9px]`}>
               {r.status || 'unknown'}
             </Badge>
-            <Link to={r.link} className="text-xs text-indigo-600 hover:underline whitespace-nowrap">
+            <Link to={r.link} className="text-xs text-leamss-teal hover:underline whitespace-nowrap">
               Open →
             </Link>
           </li>
@@ -851,7 +851,7 @@ function OccupationsTable({ headers }) {
                   </td>
                   <td className="px-2 py-1.5 whitespace-nowrap">
                     <Link to={`/admin/kb/occupation-master?country=${encodeURIComponent(r.country_code || '')}&code=${encodeURIComponent(r.code || '')}`}
-                          className="text-indigo-600 hover:underline">
+                          className="text-leamss-teal hover:underline">
                       Edit
                     </Link>
                   </td>

@@ -52,10 +52,10 @@ function fmtBytes(n) {
 
 const PATH_LABELS = {
   'phase_6.9.2_bulk': { name: 'Bulk Excel · Occupation Master', color: 'bg-rose-100 text-rose-800 border-rose-200' },
-  'phase_17_kb_unified': { name: 'KB Unified · ANZSCO 4-digit', color: 'bg-blue-100 text-blue-800 border-blue-200' },
+  'phase_17_kb_unified': { name: 'KB Unified · ANZSCO 4-digit', color: 'bg-leamss-teal_50 text-leamss-teal border-leamss-teal_50' },
   'phase_19.4_data_import.occupation_profiles': { name: 'JSA · Occupation Profiles', color: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
-  'phase_19.4_data_import.employment_projections': { name: 'JSA · Employment Projections', color: 'bg-indigo-100 text-indigo-800 border-indigo-200' },
-  'phase_19.4_data_import.sa4_ratings': { name: 'JSA · SA4 Ratings', color: 'bg-purple-100 text-purple-800 border-purple-200' },
+  'phase_19.4_data_import.employment_projections': { name: 'JSA · Employment Projections', color: 'bg-leamss-teal_50 text-leamss-teal border-leamss-teal_50' },
+  'phase_19.4_data_import.sa4_ratings': { name: 'JSA · SA4 Ratings', color: 'bg-leamss-orange_50 text-leamss-orange border-leamss-orange_50' },
   'phase_19.4_data_import.industry_data': { name: 'JSA · Industry Data', color: 'bg-orange-100 text-orange-800 border-orange-200' },
   'phase_19.4_data_import.vacancy_report': { name: 'JSA · Vacancy Report', color: 'bg-pink-100 text-pink-800 border-pink-200' },
 };
@@ -223,7 +223,7 @@ export function RecentImportsPanel({ limit = 8 }) {
                       </div>
                       <div className="text-[10px] mt-1 flex gap-3">
                         <span className="text-emerald-700">+{b.counts?.created ?? 0} created</span>
-                        <span className="text-blue-700">↻{b.counts?.updated ?? 0} updated</span>
+                        <span className="text-leamss-teal">↻{b.counts?.updated ?? 0} updated</span>
                         <span className="text-slate-500">⏭{b.counts?.skipped ?? 0} skipped</span>
                         {b.counts?.total_rows != null && <span className="text-slate-400">/ {b.counts.total_rows} rows</span>}
                       </div>

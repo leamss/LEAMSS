@@ -408,19 +408,19 @@ const AIWorkflowBuilder = () => {
 
               {/* Government Forms */}
               {govForms.length > 0 && (
-                <Card className="p-5 border-l-4 border-l-blue-400 bg-blue-50/30 rounded-xl" data-testid="gov-forms-section">
-                  <h4 className="font-bold text-sm text-blue-800 mb-3 flex items-center gap-1.5" style={{fontFamily:'Manrope,sans-serif'}}><Download className="h-4 w-4" /> Official Government Forms ({govForms.length})</h4>
+                <Card className="p-5 border-l-4 border-l-leamss-teal bg-leamss-teal_50/30 rounded-xl" data-testid="gov-forms-section">
+                  <h4 className="font-bold text-sm text-leamss-teal mb-3 flex items-center gap-1.5" style={{fontFamily:'Manrope,sans-serif'}}><Download className="h-4 w-4" /> Official Government Forms ({govForms.length})</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                     {govForms.map((form, fi) => (
                       <a key={fi} href={form.url} target="_blank" rel="noopener noreferrer"
-                         className="flex items-start gap-2.5 p-3 bg-white rounded-lg border border-blue-100 hover:border-blue-300 hover:shadow-sm transition-all group" data-testid={`gov-form-${fi}`}>
-                        <FileText className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                         className="flex items-start gap-2.5 p-3 bg-white rounded-lg border border-leamss-teal_50 hover:border-leamss-teal_50 hover:shadow-sm transition-all group" data-testid={`gov-form-${fi}`}>
+                        <FileText className="h-4 w-4 text-leamss-teal mt-0.5 flex-shrink-0" />
                         <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-xs text-slate-800 group-hover:text-blue-700">{form.name}</p>
+                          <p className="font-semibold text-xs text-slate-800 group-hover:text-leamss-teal">{form.name}</p>
                           <p className="text-[10px] text-slate-500 mt-0.5">{form.description}</p>
                           <Badge className={`text-[8px] mt-1 ${form.mandatory ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-500'}`}>{form.mandatory ? 'Required' : 'Optional'}</Badge>
                         </div>
-                        <ExternalLink className="h-3.5 w-3.5 text-blue-400 group-hover:text-blue-600 flex-shrink-0" />
+                        <ExternalLink className="h-3.5 w-3.5 text-leamss-teal group-hover:text-leamss-teal flex-shrink-0" />
                       </a>
                     ))}
                   </div>

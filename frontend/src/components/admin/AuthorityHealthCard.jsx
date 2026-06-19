@@ -78,8 +78,8 @@ export function AuthorityHealthCard() {
 
   return (
     <>
-      <Card className="p-4 border-l-4 border-l-indigo-500 bg-indigo-50/30" data-testid="authority-health-card">
-        <h3 className="text-sm font-bold text-indigo-900 flex items-center gap-2 mb-3">
+      <Card className="p-4 border-l-4 border-l-leamss-teal bg-leamss-teal_50/30" data-testid="authority-health-card">
+        <h3 className="text-sm font-bold text-leamss-teal flex items-center gap-2 mb-3">
           <Shield className="h-4 w-4" />Authority Health Card
           <span className="text-xs font-normal text-slate-500">(Phase 19.9 + 19.9.1)</span>
         </h3>
@@ -116,9 +116,9 @@ export function AuthorityHealthCard() {
           </div>
 
           {/* Phase 19.9.1 — Last Authority Edit tile */}
-          <div className="bg-white rounded p-3 border border-indigo-200" data-testid="health-last-edit-tile">
+          <div className="bg-white rounded p-3 border border-leamss-teal_50" data-testid="health-last-edit-tile">
             <p className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Last Authority Edit</p>
-            <p className="text-sm font-bold text-indigo-700 mt-1 truncate" data-testid="health-last-edit-action">
+            <p className="text-sm font-bold text-leamss-teal mt-1 truncate" data-testid="health-last-edit-action">
               {recentEdit?.action ? recentEdit.action.replace('authority.', '') : 'No edits yet'}
             </p>
             <p className="text-[10px] text-slate-500 mb-2" data-testid="health-last-edit-time">
@@ -128,7 +128,7 @@ export function AuthorityHealthCard() {
                 </>
               ) : '—'}
             </p>
-            <Button size="sm" variant="outline" onClick={() => setTimelineOpen(true)} className="w-full h-7 text-[10px] border-indigo-300 text-indigo-700" data-testid="health-show-diff-trail">
+            <Button size="sm" variant="outline" onClick={() => setTimelineOpen(true)} className="w-full h-7 text-[10px] border-leamss-teal_50 text-leamss-teal" data-testid="health-show-diff-trail">
               <History className="h-3 w-3 mr-1" />Show Diff Trail
             </Button>
           </div>

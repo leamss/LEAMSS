@@ -153,7 +153,7 @@ export default function OccupationDetail() {
                 {vm.source_reference && (
                   <>
                     <span>·</span>
-                    <a href={vm.source_reference} target="_blank" rel="noreferrer" className="inline-flex items-center gap-0.5 text-indigo-600 hover:underline" data-testid="sales-source-link">
+                    <a href={vm.source_reference} target="_blank" rel="noreferrer" className="inline-flex items-center gap-0.5 text-leamss-teal hover:underline" data-testid="sales-source-link">
                       Source <ExternalLink className="h-2.5 w-2.5" />
                     </a>
                   </>
@@ -374,7 +374,7 @@ function CustomSectionCard({ s, idx = 0 }) {
         <div className="px-3 pb-3 border-t border-slate-100">
           {s.body_markdown && <p className="text-[13px] text-slate-700 whitespace-pre-wrap mt-2">{s.body_markdown}</p>}
           {s.source_url && (
-            <a href={s.source_url} target="_blank" rel="noreferrer" className="text-[11px] text-indigo-600 inline-flex items-center gap-0.5 mt-2">
+            <a href={s.source_url} target="_blank" rel="noreferrer" className="text-[11px] text-leamss-teal inline-flex items-center gap-0.5 mt-2">
               Source: {(s.source_url.replace(/^https?:\/\//, '').split('/')[0]) || s.source_url} <ExternalLink className="h-2.5 w-2.5" />
             </a>
           )}
@@ -435,7 +435,7 @@ function SkillAssessmentTab({ sa, phase19_10 = {}, occupationId, occupationTitle
           <div className="flex-1 min-w-0">
             <h2 className="text-lg font-bold text-slate-900" style={{ fontFamily: 'Georgia, serif' }}>{sa.body_name}</h2>
             {sa.body_url && (
-              <a href={sa.body_url} target="_blank" rel="noreferrer" className="text-[12px] text-indigo-600 hover:underline inline-flex items-center gap-0.5 mt-0.5" data-testid="sales-skill-body-url">
+              <a href={sa.body_url} target="_blank" rel="noreferrer" className="text-[12px] text-leamss-teal hover:underline inline-flex items-center gap-0.5 mt-0.5" data-testid="sales-skill-body-url">
                 {sa.body_url} <ExternalLink className="h-2.5 w-2.5" />
               </a>
             )}
@@ -459,7 +459,7 @@ function SkillAssessmentTab({ sa, phase19_10 = {}, occupationId, occupationTitle
             </span>
           )}
           {phase19_10.growth?.display && (
-            <span className="inline-flex items-center gap-1 px-2 py-1 text-[11px] rounded-full bg-indigo-50 border border-indigo-200 text-indigo-800" data-testid="chip-growth">
+            <span className="inline-flex items-center gap-1 px-2 py-1 text-[11px] rounded-full bg-leamss-teal_50 border border-leamss-teal_50 text-leamss-teal" data-testid="chip-growth">
               📈 Growth · {phase19_10.growth.display}
             </span>
           )}
@@ -663,7 +663,7 @@ function DocCategorySection({ category, items }) {
                 )}
                 <span className="text-slate-700 flex-1">{d.name}</span>
                 <div className="flex gap-1">
-                  {d.country_override && <Badge className="bg-blue-100 text-blue-700 text-[9px]">{d.country_override}-only</Badge>}
+                  {d.country_override && <Badge className="bg-leamss-teal_50 text-leamss-teal text-[9px]">{d.country_override}-only</Badge>}
                   <Badge className={`text-[9px] ${d.required ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{d.required ? 'Required' : 'Optional'}</Badge>
                 </div>
               </li>

@@ -29,12 +29,12 @@ const ACTION_ICONS = {
 
 const ACTION_COLORS = {
   'authority.create': 'bg-emerald-100 text-emerald-700 border-emerald-300',
-  'authority.patch': 'bg-indigo-100 text-indigo-700 border-indigo-300',
+  'authority.patch': 'bg-leamss-teal_50 text-leamss-teal border-leamss-teal_50',
   'authority.verify': 'bg-emerald-100 text-emerald-700 border-emerald-300',
   'authority.bulk_verify': 'bg-emerald-100 text-emerald-700 border-emerald-300',
   'authority.split_laa': 'bg-amber-100 text-amber-700 border-amber-300',
   'authority.delete': 'bg-rose-100 text-rose-700 border-rose-300',
-  'authority.migrate_occupation': 'bg-indigo-100 text-indigo-700 border-indigo-300',
+  'authority.migrate_occupation': 'bg-leamss-teal_50 text-leamss-teal border-leamss-teal_50',
 };
 
 function relativeTime(iso) {
@@ -69,7 +69,7 @@ export function AuthorityEditTimeline({ open, onClose, code = null }) {
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex justify-end" data-testid="authority-edit-timeline">
-      <Card className="w-full max-w-md h-full overflow-y-auto rounded-none border-l-4 border-l-indigo-500">
+      <Card className="w-full max-w-md h-full overflow-y-auto rounded-none border-l-4 border-l-leamss-teal">
         <div className="sticky top-0 bg-white border-b p-3 flex justify-between items-center">
           <div>
             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">

@@ -67,7 +67,7 @@ function ProductCard({ product, selected, onSelect }) {
     <button
       onClick={() => onSelect(product)}
       className={`w-full text-left rounded-xl p-4 transition border-2 ${
-        selected ? 'border-indigo-500 bg-indigo-50/40 shadow-md' : 'border-slate-200 hover:border-indigo-300 bg-white'
+        selected ? 'border-leamss-teal bg-leamss-teal_50/40 shadow-md' : 'border-slate-200 hover:border-leamss-teal_50 bg-white'
       }`}
       data-testid={`product-card-${product.id}`}
     >
@@ -76,7 +76,7 @@ function ProductCard({ product, selected, onSelect }) {
           <h3 className="font-bold text-slate-800 truncate">{product.name}</h3>
           <div className="flex gap-1 mt-1 flex-wrap">
             {product.country && <Badge className="bg-slate-100 text-slate-600 text-[10px] gap-1"><Globe className="h-2.5 w-2.5" />{product.country}</Badge>}
-            {product.visa_type && <Badge className="bg-purple-100 text-purple-700 text-[10px]">{product.visa_type}</Badge>}
+            {product.visa_type && <Badge className="bg-leamss-orange_50 text-leamss-orange text-[10px]">{product.visa_type}</Badge>}
             {product.status === 'inactive' && <Badge className="bg-rose-100 text-rose-700 text-[10px]">Inactive</Badge>}
           </div>
         </div>
@@ -140,7 +140,7 @@ function AllocationsEditor({ product, allocations, onChange }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2"><Layers className="h-4 w-4 text-indigo-500" />Cost Allocations</h3>
+        <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2"><Layers className="h-4 w-4 text-leamss-teal" />Cost Allocations</h3>
         <Button size="sm" onClick={addRow} variant="outline" data-testid="add-allocation"><Plus className="h-3.5 w-3.5 mr-1" />Add</Button>
       </div>
       {allocations.length === 0 ? (
@@ -185,7 +185,7 @@ function AllocationsEditor({ product, allocations, onChange }) {
           })}
         </div>
       )}
-      <Card className="p-3 bg-gradient-to-br from-indigo-50 to-emerald-50 mt-3">
+      <Card className="p-3 bg-gradient-to-br from-leamss-teal_50 to-emerald-50 mt-3">
         <div className="grid grid-cols-3 gap-3 text-xs">
           <div>
             <p className="text-slate-500">Service Price</p>
@@ -282,7 +282,7 @@ function PreviewCalculator({ product }) {
   return (
     <div className="space-y-4">
       <Card className="p-4 bg-slate-50">
-        <h3 className="text-sm font-bold mb-3 flex items-center gap-2"><Calculator className="h-4 w-4 text-indigo-500" />Test Calculator</h3>
+        <h3 className="text-sm font-bold mb-3 flex items-center gap-2"><Calculator className="h-4 w-4 text-leamss-teal" />Test Calculator</h3>
         <div className="grid grid-cols-3 gap-3">
           <div>
             <Label className="text-xs">Hypothetical Sale Price (₹)</Label>
@@ -295,7 +295,7 @@ function PreviewCalculator({ product }) {
             </label>
           </div>
           <div className="flex items-end">
-            <Button onClick={run} disabled={busy} className="w-full bg-indigo-600 hover:bg-indigo-700" data-testid="run-calc"><Calculator className="h-4 w-4 mr-1.5" />Compute</Button>
+            <Button onClick={run} disabled={busy} className="w-full bg-leamss-teal hover:bg-leamss-teal" data-testid="run-calc"><Calculator className="h-4 w-4 mr-1.5" />Compute</Button>
           </div>
         </div>
       </Card>
@@ -396,12 +396,12 @@ function ProductDetail({ product, onSaved, onDeleted }) {
           <h2 className="text-xl font-extrabold text-slate-800 truncate">{form.name}</h2>
           <div className="flex gap-1.5 mt-1">
             {form.country && <Badge className="bg-slate-100 text-slate-700 text-[10px] gap-1"><Globe className="h-2.5 w-2.5" />{form.country}</Badge>}
-            {form.visa_type && <Badge className="bg-purple-100 text-purple-700 text-[10px]">{form.visa_type}</Badge>}
+            {form.visa_type && <Badge className="bg-leamss-orange_50 text-leamss-orange text-[10px]">{form.visa_type}</Badge>}
             <Badge className={`text-[10px] ${form.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'}`}>{form.status}</Badge>
           </div>
         </div>
         <div className="flex gap-2">
-          {dirty && <Button onClick={save} disabled={saving} className="bg-indigo-600 hover:bg-indigo-700" data-testid="save-product"><Save className="h-4 w-4 mr-1" />{saving ? 'Saving…' : 'Save'}</Button>}
+          {dirty && <Button onClick={save} disabled={saving} className="bg-leamss-teal hover:bg-leamss-teal" data-testid="save-product"><Save className="h-4 w-4 mr-1" />{saving ? 'Saving…' : 'Save'}</Button>}
           <Button onClick={remove} variant="outline" className="text-rose-600 border-rose-300 hover:bg-rose-50" data-testid="delete-product"><Trash2 className="h-4 w-4" /></Button>
         </div>
       </div>
@@ -444,8 +444,8 @@ function ProductDetail({ product, onSaved, onDeleted }) {
           </div>
           <div><Label className="text-xs font-bold">Description</Label><Textarea value={form.description} onChange={e => patch({ description: e.target.value })} rows={3} data-testid="field-description" /></div>
           {product.computed && (
-            <Card className="p-3 bg-gradient-to-br from-indigo-50 to-emerald-50 mt-3">
-              <p className="text-[10px] uppercase font-bold text-indigo-700 mb-2 flex items-center gap-1"><TrendingUp className="h-3 w-3" />Computed Economics</p>
+            <Card className="p-3 bg-gradient-to-br from-leamss-teal_50 to-emerald-50 mt-3">
+              <p className="text-[10px] uppercase font-bold text-leamss-teal mb-2 flex items-center gap-1"><TrendingUp className="h-3 w-3" />Computed Economics</p>
               <div className="grid grid-cols-4 gap-2 text-xs">
                 <div><p className="text-slate-500">Base Cost</p><p className="font-bold">{formatINR(product.computed.expected_base_cost)}</p></div>
                 <div><p className="text-slate-500">Margin</p><p className="font-bold text-emerald-700">{formatINR(product.computed.expected_margin)}</p></div>
@@ -506,7 +506,7 @@ function NewProductDialog({ open, onClose, onCreated }) {
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent data-testid="new-product-dialog">
-        <DialogHeader><DialogTitle className="flex items-center gap-2"><Package className="h-5 w-5 text-indigo-600" />New Product</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle className="flex items-center gap-2"><Package className="h-5 w-5 text-leamss-teal" />New Product</DialogTitle></DialogHeader>
         <div className="space-y-3">
           <div><Label className="text-xs font-bold">Product Name *</Label><Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g., Canada PR Express Entry" data-testid="new-name" /></div>
           <div className="grid grid-cols-2 gap-3">
@@ -519,7 +519,7 @@ function NewProductDialog({ open, onClose, onCreated }) {
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={save} disabled={saving} className="bg-indigo-600 hover:bg-indigo-700" data-testid="new-create">{saving ? 'Creating…' : 'Create Product'}</Button>
+          <Button onClick={save} disabled={saving} className="bg-leamss-teal hover:bg-leamss-teal" data-testid="new-create">{saving ? 'Creating…' : 'Create Product'}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -576,18 +576,18 @@ export default function ProductsManager() {
           <div className="flex items-center gap-3">
             <button onClick={() => navigate('/admin')} className="p-2 rounded-lg hover:bg-slate-200" data-testid="back-btn"><ArrowLeft className="h-5 w-5 text-slate-700" /></button>
             <div>
-              <h1 className="text-3xl font-extrabold text-slate-800 flex items-center gap-2"><Package className="h-7 w-7 text-indigo-600" />Products</h1>
+              <h1 className="text-3xl font-extrabold text-slate-800 flex items-center gap-2"><Package className="h-7 w-7 text-leamss-teal" />Products</h1>
               <p className="text-sm text-slate-500 mt-1">One source of truth — manage product identity, pricing, cost structures, and bonuses in one place.</p>
             </div>
           </div>
-          <Button onClick={() => setNewOpen(true)} className="bg-indigo-600 hover:bg-indigo-700" data-testid="add-product-btn"><Plus className="h-4 w-4 mr-1.5" />New Product</Button>
+          <Button onClick={() => setNewOpen(true)} className="bg-leamss-teal hover:bg-leamss-teal" data-testid="add-product-btn"><Plus className="h-4 w-4 mr-1.5" />New Product</Button>
         </div>
 
         {/* Stats */}
         <div className="grid grid-cols-4 gap-3 mb-4">
-          <Card className="p-3 bg-gradient-to-br from-indigo-50 to-indigo-100 border-indigo-300" data-testid="stat-total">
-            <p className="text-[10px] uppercase font-bold text-indigo-800">Total Products</p>
-            <p className="text-2xl font-extrabold text-indigo-900 mt-0.5">{counts.total}</p>
+          <Card className="p-3 bg-gradient-to-br from-leamss-teal_50 to-leamss-teal_50 border-leamss-teal_50" data-testid="stat-total">
+            <p className="text-[10px] uppercase font-bold text-leamss-teal">Total Products</p>
+            <p className="text-2xl font-extrabold text-leamss-teal mt-0.5">{counts.total}</p>
           </Card>
           <Card className="p-3 bg-gradient-to-br from-emerald-50 to-emerald-100 border-emerald-300" data-testid="stat-active">
             <p className="text-[10px] uppercase font-bold text-emerald-800">Active</p>
@@ -616,14 +616,14 @@ export default function ProductsManager() {
               { v: 'uncosted', label: 'Need Setup' },
             ].map(b => (
               <button key={b.v} onClick={() => setFilterStatus(b.v)}
-                className={`px-3 py-1.5 rounded ${filterStatus === b.v ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                className={`px-3 py-1.5 rounded ${filterStatus === b.v ? 'bg-leamss-teal text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
                 data-testid={`filter-${b.v}`}>{b.label}</button>
             ))}
           </div>
         </Card>
 
         {loading ? (
-          <Card className="p-12 text-center"><Sparkles className="h-10 w-10 text-indigo-300 mx-auto animate-pulse mb-2" /><p className="text-slate-500">Loading products…</p></Card>
+          <Card className="p-12 text-center"><Sparkles className="h-10 w-10 text-leamss-teal mx-auto animate-pulse mb-2" /><p className="text-slate-500">Loading products…</p></Card>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             {/* Master list */}
