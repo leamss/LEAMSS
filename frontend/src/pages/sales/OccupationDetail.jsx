@@ -23,6 +23,7 @@ import { toast } from 'sonner';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { PreAssessmentReportButton } from '@/components/sales/PreAssessmentReportButton';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
   ArrowLeft, ExternalLink, FileText, CheckCircle2, MapPin, Building2, Calendar,
@@ -89,6 +90,7 @@ export default function OccupationDetail() {
   const meta = COUNTRY_META[(countryCode || '').toUpperCase()] || { flag: '🌐', name: countryCode };
   const ov = data.overview || {};
   const sa = data.skill_assessment || {};
+  const phase19_10 = data._phase_19_10 || {};
   const vp = data.visa_pathways || [];
   const docs = data.documents || { items: [], total: 0, by_category: {} };
   const similar = data.similar || [];
@@ -116,6 +118,12 @@ export default function OccupationDetail() {
               countryCode={(countryCode || '').toUpperCase()}
               code={code}
               title={ov.title || ''}
+            />
+            <PreAssessmentReportButton
+              countryCode={(countryCode || '').toUpperCase()}
+              occupationCode={code}
+              occupationTitle={ov.title || ''}
+              size="sm"
             />
           </div>
 
@@ -173,7 +181,7 @@ export default function OccupationDetail() {
           </TabsList>
 
           <TabsContent value="overview"><OverviewTab ov={ov} /></TabsContent>
-          <TabsContent value="skill"><SkillAssessmentTab sa={sa} occupationId={`${(countryCode || '').toLowerCase()}-${code}`} occupationTitle={ov.title} headers={headers} /></TabsContent>
+          <TabsContent value="skill"><SkillAssessmentTab sa={sa} phase19_10={phase19_10} occupationId={`${(countryCode || '').toLowerCase()}-${code}`} occupationTitle={ov.title} headers={headers} /></TabsContent>
           <TabsContent value="visas"><VisaPathwaysTab pathways={vp} /></TabsContent>
           <TabsContent value="docs"><DocumentsTab docs={docs} /></TabsContent>
           <TabsContent value="similar"><SimilarTab similar={similar} onClick={(s) => navigate(`/sales/occupations/${s.country_code}/${s.code}`)} /></TabsContent>
@@ -392,7 +400,7 @@ function DemandBadge({ value }) {
 /* ════════════════════════════════════════════════════════════════
    Tab 2 — SKILL ASSESSMENT
    ════════════════════════════════════════════════════════════════ */
-function SkillAssessmentTab({ sa, occupationId, occupationTitle, headers }) {
+function SkillAssessmentTab({ sa, phase19_10 = {}, occupationId, occupationTitle, headers }) {
   const [showRequest, setShowRequest] = useState(false);
   if (!sa.has_data) {
     return (
@@ -436,10 +444,38 @@ function SkillAssessmentTab({ sa, occupationId, occupationTitle, headers }) {
       </Card>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3" data-testid="sales-skill-metric-strip">
-        <Metric icon={<Clock className="h-5 w-5" />} label="Processing Time" value={sa.processing_time_weeks ? `${sa.processing_time_weeks} weeks` : '—'} />
-        <Metric icon={<IndianRupee className="h-5 w-5" />} label="Assessment Fee" value={sa.fee_native ? `${sa.fee_currency || ''} ${Number(sa.fee_native).toLocaleString()}` : '—'} />
+        <Metric icon={<Clock className="h-5 w-5" />} label="Processing Time" value={(phase19_10.processing_display) || (sa.processing_time_weeks ? `${sa.processing_time_weeks} weeks` : '—')} />
+        <Metric icon={<IndianRupee className="h-5 w-5" />} label="Assessment Fee" value={(phase19_10.fees?.msa_fee_native_display && phase19_10.fees?.msa_fee_inr_display) ? `${phase19_10.fees.msa_fee_native_display} · ${phase19_10.fees.msa_fee_inr_display}` : (sa.fee_native ? `${sa.fee_currency || ''} ${Number(sa.fee_native).toLocaleString()}` : '—')} />
         <Metric icon={<Phone className="h-5 w-5" />} label="Contact" value={sa.contact_details || '—'} small />
       </div>
+
+      {/* Phase 19.10 enrichment chips */}
+      {(phase19_10.salary?.median_native || phase19_10.growth?.label || phase19_10.state_demand_count > 0) && (
+        <div className="flex flex-wrap gap-2 pt-1" data-testid="phase-19-10-chips">
+          {phase19_10.salary?.median_native_display && (
+            <span className="inline-flex items-center gap-1 px-2 py-1 text-[11px] rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800" data-testid="chip-salary">
+              💰 Salary {phase19_10.salary.median_native_display}
+              {phase19_10.salary.median_inr_display && <span className="text-emerald-600">· {phase19_10.salary.median_inr_display}</span>}
+            </span>
+          )}
+          {phase19_10.growth?.display && (
+            <span className="inline-flex items-center gap-1 px-2 py-1 text-[11px] rounded-full bg-indigo-50 border border-indigo-200 text-indigo-800" data-testid="chip-growth">
+              📈 Growth · {phase19_10.growth.display}
+            </span>
+          )}
+          {phase19_10.state_demand_count > 0 && (
+            <span className="inline-flex items-center gap-1 px-2 py-1 text-[11px] rounded-full bg-amber-50 border border-amber-200 text-amber-800" data-testid="chip-state-demand">
+              🗺️ {phase19_10.state_demand_count} state(s) nominating
+            </span>
+          )}
+          {phase19_10.authority_resolved?.short_name && (
+            <span className="inline-flex items-center gap-1 px-2 py-1 text-[11px] rounded-full bg-slate-100 border border-slate-200 text-slate-700" data-testid="chip-body">
+              🏛️ Body: {phase19_10.authority_resolved.short_name}
+              {phase19_10.authority_resolved._tbd && <span className="text-rose-700">(TBD)</span>}
+            </span>
+          )}
+        </div>
+      )}
 
       {sa.rules_summary && (
         <Card className="p-5 print-card">

@@ -3,6 +3,77 @@
 This file appends every completed phase/feature with dates and verification status.
 
 ---
+### 🎁 Phase 19.9.1 + 19.10 + 19.11 — Triple-batch ship (Jun 19, 2026)
+
+**Sales pitch:** Ek single run mein 3 phases shipped: (1) Authority Admin polish + audit trail timeline, (2) Smart Sales Helper ko AUD/NZD/CAD → INR live conversion + state nomination demand chips milein, aur (3) **client-ready Pre-Assessment Report PDF** (8-section WeasyPrint) — admin/sales/partner ek click se professional PDF nikal sakte hain, salary INR + assessing body fee INR + state demand + timeline + next-steps CTA ke saath. Sab kuch revocable 24h via import_batches.
+
+#### Phase 19.9.1 — Authority Admin Polish
+- **P2 fix** `backend/services/diff_audit_service.py`: identity-field (full_name/website/aliases) changes ab `meta_description_diffs` non-empty return karte hain. SEO impact "none" tabhi when actually no diff
+- **P3** `backend/routers/assessing_authorities.py`:
+  - `GET  /api/assessing-authorities/audit-trail/recent?limit=N` — latest authority write events
+  - `GET  /api/assessing-authorities/{code}/audit-trail` — per-body history
+- **4th Health Card tile**: "Last Authority Edit" with relative time + `[Show Diff Trail]` button
+- **Side-panel** `frontend/src/components/admin/AuthorityEditTimeline.jsx` — color-coded action chips (create/patch/verify/split_laa/delete/migrate), 50-event scroll, refresh button
+
+#### Phase 19.10 — Smart Sales Helper Extension
+- **E1 Currency Service** `backend/services/currency_service.py` + `routers/currency.py`:
+  - `GET  /api/currency/rates` — 3 pairs (AUD_INR/NZD_INR/CAD_INR) — public auth, 5-min cache
+  - `POST /api/currency/rates` — **admin only**, DB override `currency_rates` collection, registers batch
+  - Defaults: AUD=55.5 · NZD=51.0 · CAD=62.5 · DB → env_fallback priority
+- **E2 State Nominations** `backend/parsers/state_nominations.py` + `routers/state_nominations.py`:
+  - `POST   /api/state-nominations/upload` — admin uploads CSV/XLSX (with state + list_type form fields)
+  - `POST   /api/state-nominations/{file_id}/commit` — idempotent upsert into `state_nomination_lists`, registers Phase 19.6 batch (audit-only, bulk_upsert)
+  - `GET    /api/state-nominations` — list all (admin/sales/partner)
+  - `GET    /api/state-nominations/by-code/{anzsco_code}` — Smart Sales lookup: which states want this code?
+  - `DELETE /api/state-nominations/{file_id}` — admin cleanup
+- **E3 Sales endpoint enrichment** `routers/sales_occupations.py`: `_phase_19_10` block surfaces:
+  - INR-converted MSA fee + Salary (e.g. AUD $625 · ₹34.7K · AUD $131,924/yr · ₹73.2L)
+  - Growth label + 10y projection
+  - Processing window display (e.g. "56-84 days")
+  - State demand list (auto from `state_nomination_lists`)
+  - Resolved authority short_name with TBD flag
+- **E4 Frontend chips** `pages/sales/OccupationDetail.jsx`: 4 chips (💰 Salary, 📈 Growth, 🗺️ State demand, 🏛️ Body) on Skill Assessment tab; metric strip shows native + INR side-by-side
+
+#### Phase 19.11 — Pre-Assessment Report PDF (WeasyPrint v2)
+- **F1 Template** `backend/templates/pre_assessment_report_v2.html` — 8 sections:
+  1. **Cover** (client name, occupation, country, verification badge, ref code)
+  2. **Industry Context** (4-tile stat strip: salary + INR · growth · workforce · vacancies + top hiring industries)
+  3. **Occupation Deep-dive** (description, typical tasks, alternative titles)
+  4. **Assessing Body** (full table: body, URL, fee + INR, processing, validity, docs required, methodology)
+  5. **Salary & State Demand** (national salary + state nomination table with open/high-demand badges)
+  6. **Visa Pathways** (full eligibility matrix + recommended primary subclass)
+  7. **Indicative Timeline** (8-step vertical timeline: docs → MSA → English → EOI → state → lodgement → grant, 8-18 months total)
+  8. **Next Steps** (4-action CTA + LEAMSS contact details with 1800 toll-free + WhatsApp)
+- **F2 Endpoint** `backend/routers/pre_assessment_report_v2.py`:
+  - `POST /api/reports/pre-assessment` — RBAC (admin/sales/case_manager/partner), 5-min cache per (client_hash + cc + code), `preview_html` flag for HTML mode
+  - `GET  /api/reports/pre-assessment/log` — generation history
+  - Output: `application/pdf` · ~50KB · Content-Disposition with ref code · X-Cache header
+- **F3 Frontend trigger** `frontend/src/components/sales/PreAssessmentReportButton.jsx`:
+  - Compact modal: client form (name, email, phone, age, English score, work exp) + HTML preview iframe + Download PDF
+  - Wired into `pages/sales/OccupationDetail.jsx` header (visible from any occupation page)
+
+#### Verification (Triple-Gate)
+- **Pytest** `backend/tests/test_phase1991_polish.py`: **19/19 PASS** (5 audit trail/diff fix · 6 currency+state noms · 8 PDF generation)
+- **Regression**: **69/69 PASS** combined (Phase 19.6/19.7/19.8/19.9 + 19.9.1+10+11)
+- **Curl smoke**: Currency rates ✓ · State nom by-code ✓ · Sales endpoint `_phase_19_10` block populated ✓ · Pre-Assessment PDF 50KB %PDF- magic ✓ · Partner role generates PDF ✓
+- **Playwright screenshots**:
+  - `/tmp/phase1991_health_card_4tile.png` — all 4 tiles incl "Last Authority Edit: migrate_occupation · 2m ago" + Show Diff Trail
+  - `/tmp/phase1991_timeline_open.png` — side panel opens
+  - `/tmp/phase1910_chips_tab.png` — Salary AUD $131,924/yr · ₹74.9L · Growth Very Strong · Body ACS chips visible
+  - `/tmp/phase1911_modal_open.png` — Pre-Assessment modal with full form
+
+#### Files touched
+- New backend: `services/currency_service.py` · `routers/currency.py` · `parsers/state_nominations.py` · `routers/state_nominations.py` · `templates/pre_assessment_report_v2.html` · `routers/pre_assessment_report_v2.py` · `tests/test_phase1991_polish.py`
+- Modified backend: `services/diff_audit_service.py` (impact threshold) · `routers/assessing_authorities.py` (audit-trail endpoints) · `services/jsa_importer.py` (commit_state_nominations) · `routers/sales_occupations.py` (_phase_19_10 block) · `server.py` (3 router registrations)
+- New frontend: `components/admin/AuthorityEditTimeline.jsx` · `components/sales/PreAssessmentReportButton.jsx`
+- Modified frontend: `components/admin/AuthorityHealthCard.jsx` (4th tile + timeline integration) · `pages/sales/OccupationDetail.jsx` (chips + PDF button)
+
+#### Defaults shipped (admin can override anytime via DB/UI)
+- AUD_INR=55.5 · NZD_INR=51.0 · CAD_INR=62.5
+- No state nomination lists uploaded yet (uploader UI ready when Sir provides files)
+
+---
+
 ### 🛠️ Phase 19.9 — Authority Admin UI + Health Card + Diff Audit (Jun 19, 2026)
 
 **Sales pitch:** Admin ab `/admin/authorities` page se 44 AU assessing bodies ko ek-click verify, edit fees/processing, ya pure LAA umbrella ko 6 state bodies mein split kar sakte hain. **Mandatory Diff Audit modal** har save se pehle dikhata hai "yeh change kitni Atlas + Sales pages affect karega" + SEO meta description redline preview — galat data live nahi ja sakta. Verification Hub ka naya **Authority Health Card widget** ek glance mein 3 problem areas show karta hai: 342 TBD + 44 draft bodies + 5 placeholder fees, har ek pe 1-click resolve button.

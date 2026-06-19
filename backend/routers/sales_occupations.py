@@ -790,6 +790,96 @@ async def get_occupation_detail(
         "verification_meta": verification_meta,
     }
 
+    # ── Phase 19.10 — Enrichment block: INR, state demand, growth, fees-from-resolver ──
+    try:
+        from services import currency_service
+        from services.authority_resolver import resolve_authority
+        # Re-resolve authority via Phase 19.7 resolver (FK + overrides → back-compat dict)
+        resolved_aa = await resolve_authority(occupation_master_col.database, occ_master)
+        # FX rate
+        if cc == "AU":
+            fx_rec = await currency_service.get_rate(occupation_master_col.database, "AUD_INR")
+            fee_currency = "AUD"
+        elif cc == "NZ":
+            fx_rec = await currency_service.get_rate(occupation_master_col.database, "NZD_INR")
+            fee_currency = "NZD"
+        elif cc == "CA":
+            fx_rec = await currency_service.get_rate(occupation_master_col.database, "CAD_INR")
+            fee_currency = "CAD"
+        else:
+            fx_rec, fee_currency = {"rate": 0}, ""
+        fx_rate = fx_rec.get("rate") or 0
+        # Fee + INR
+        msa_native = ((resolved_aa.get("fees") or {}).get("msa_fee_aud")
+                      or resolved_aa.get("fee_native"))
+        msa_inr = currency_service.convert(msa_native, fx_rate)
+        # Salary + INR (AU only — ABS data sits there)
+        abs_data = occ_master.get("abs_data") or {}
+        salary_native = abs_data.get("median_ft_annual_aud") or abs_data.get("median_ft_annual")
+        salary_inr = currency_service.convert(salary_native, fx_rate)
+        # Growth chip
+        jsa = occ_master.get("jsa_data") or {}
+        growth_label = jsa.get("future_growth")
+        growth_pct = jsa.get("growth_pct_10y")
+        # Processing window
+        proc = resolved_aa.get("processing") or {}
+        proc_display = None
+        if proc.get("standard_days_min") and proc.get("standard_days_max"):
+            proc_display = f"{proc['standard_days_min']}-{proc['standard_days_max']} days"
+        elif resolved_aa.get("processing_time_weeks"):
+            proc_display = f"{resolved_aa['processing_time_weeks']} weeks"
+        # State demand from Phase 19.10 state_nomination_lists
+        state_demand_list = []
+        if cc == "AU":
+            async for d in occupation_master_col.database["state_nomination_lists"].find({}, {"_id": 0}):
+                for entry in (d.get("codes") or []):
+                    if entry.get("anzsco_code") == str(code):
+                        state_demand_list.append({
+                            "state": d["state"], "list_type": d["list_type"],
+                            "status": entry.get("status"), "as_of_date": d.get("as_of_date"),
+                        })
+
+        response["_phase_19_10"] = {
+            "currency": {
+                "fx_rate": fx_rate, "fee_currency": fee_currency,
+                "fx_source": fx_rec.get("source"),
+            },
+            "fees": {
+                "msa_fee_native": msa_native,
+                "msa_fee_native_display": (f"{fee_currency} ${int(msa_native):,}"
+                                           if msa_native else None),
+                "msa_fee_inr": msa_inr,
+                "msa_fee_inr_display": currency_service.format_inr(msa_inr),
+            },
+            "salary": {
+                "median_native": salary_native,
+                "median_native_display": (f"{fee_currency} ${int(salary_native):,}/yr"
+                                          if salary_native else None),
+                "median_inr": salary_inr,
+                "median_inr_display": currency_service.format_inr(salary_inr),
+            },
+            "growth": {
+                "label": growth_label, "pct_10y": growth_pct,
+                "display": (f"{growth_label} · {growth_pct:+.1f}% by 2035"
+                            if growth_label and growth_pct is not None else (growth_label or None)),
+            },
+            "processing_display": proc_display,
+            "state_demand": state_demand_list,
+            "state_demand_count": len(state_demand_list),
+            "authority_resolved": {
+                "short_name": resolved_aa.get("short_name"),
+                "name": resolved_aa.get("name"),
+                "url": resolved_aa.get("url"),
+                "_status": resolved_aa.get("_status"),
+                "_tbd": resolved_aa.get("_tbd"),
+            },
+        }
+    except Exception as e:  # noqa: BLE001
+        # Enrichment must never break the main response
+        import logging
+        logging.getLogger(__name__).warning("Phase 19.10 enrich failed: %s", e)
+        response["_phase_19_10"] = {"_error": str(e)[:200]}
+
     if include_legacy:
         try:
             legacy_doc = await _fetch_legacy_shaped_occupation(country_code, code)

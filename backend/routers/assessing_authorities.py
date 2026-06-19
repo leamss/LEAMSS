@@ -96,3 +96,51 @@ async def list_authority_occupations(
         "total": total, "skip": skip, "limit": limit,
         "items": items, "count": len(items),
     }
+
+
+# ── Phase 19.9.1 — Audit Trail endpoints ──────────────────────────────────────
+def _serialise_audit(d: Dict[str, Any]) -> Dict[str, Any]:
+    d.pop("_id", None)
+    at = d.get("at")
+    if hasattr(at, "isoformat"):
+        d["at"] = at.isoformat()
+    return d
+
+
+@router.get("/audit-trail/recent")
+async def recent_authority_audit(
+    limit: int = Query(20, ge=1, le=100),
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    """Phase 19.9.1 — Recent authority write events (admin/sales/partner-read).
+
+    Powers the "Last Authority Edit" tile on Verification Hub's Authority Health Card.
+    """
+    if not _can_read(current_user):
+        raise HTTPException(status_code=403, detail="Forbidden")
+    cursor = db["audit_logs"].find(
+        {"action": {"$regex": "^authority\\."}},
+        {"_id": 0},
+    ).sort("at", -1).limit(limit)
+    items = [_serialise_audit(d) async for d in cursor]
+    return {"items": items, "count": len(items),
+            "latest_at": items[0]["at"] if items else None,
+            "latest_action": items[0].get("action") if items else None,
+            "latest_summary": items[0].get("summary") if items else None}
+
+
+@router.get("/{code}/audit-trail")
+async def authority_audit_for_code(
+    code: str,
+    limit: int = Query(50, ge=1, le=200),
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    """Phase 19.9.1 — Audit-trail timeline for a single authority code."""
+    if not _can_read(current_user):
+        raise HTTPException(status_code=403, detail="Forbidden")
+    cursor = db["audit_logs"].find(
+        {"action": {"$regex": "^authority\\."}, "summary.code": code},
+        {"_id": 0},
+    ).sort("at", -1).limit(limit)
+    items = [_serialise_audit(d) async for d in cursor]
+    return {"code": code, "items": items, "count": len(items)}

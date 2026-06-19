@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Pre-Assessment Report — {{ client.name or 'Client' }} · {{ occupation.code }} {{ occupation.title }}</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm 22mm 16mm;
+          @bottom-center { content: counter(page) " / " counter(pages); color: #94a3b8; font-size: 9pt; font-family: 'Helvetica', sans-serif; }
+          @bottom-left   { content: "LEAMSS · We Value Emotions"; color: #94a3b8; font-size: 8pt; font-family: 'Helvetica', sans-serif; }
+          @bottom-right  { content: "Generated {{ generated_at }} · Ref {{ ref }}"; color: #94a3b8; font-size: 8pt; font-family: 'Helvetica', sans-serif; } }
+  body { font-family: 'Helvetica', 'Arial', sans-serif; font-size: 9.5pt; color: #1f2937; line-height: 1.45; }
+  h1, h2, h3, h4 { font-family: 'Helvetica', 'Georgia', serif; margin: 0; }
+  h1 { font-size: 24pt; color: #1F4D44; }
+  h2 { font-size: 14pt; color: #1F4D44; margin-top: 14pt; border-bottom: 2px solid #D4633F; padding-bottom: 3pt; }
+  h3 { font-size: 11pt; color: #D4633F; margin-top: 8pt; }
+  h4 { font-size: 10pt; color: #1F4D44; margin-top: 6pt; }
+  .small { font-size: 8pt; color: #64748b; }
+  .meta-row { display: flex; gap: 12pt; margin-top: 4pt; }
+  .meta-row > div { flex: 1; }
+  .badge { display: inline-block; padding: 2pt 6pt; border-radius: 8pt; font-size: 8pt; font-weight: 600; }
+  .badge.green { background: #dcfce7; color: #065f46; }
+  .badge.amber { background: #fef3c7; color: #92400e; }
+  .badge.rose  { background: #ffe4e6; color: #9f1239; }
+  .badge.indigo { background: #e0e7ff; color: #3730a3; }
+  .cover { padding: 30pt 0 18pt; border-bottom: 4pt solid #D4633F; margin-bottom: 12pt; }
+  .cover .tagline { font-style: italic; color: #D4633F; font-size: 11pt; margin-top: 4pt; }
+  .stat-grid { display: flex; gap: 8pt; margin: 8pt 0; }
+  .stat { flex: 1; background: #f8fafc; padding: 8pt; border-left: 3pt solid #1F4D44; }
+  .stat .label { font-size: 7.5pt; text-transform: uppercase; letter-spacing: 0.5pt; color: #64748b; }
+  .stat .value { font-size: 14pt; font-weight: 700; color: #1F4D44; margin-top: 2pt; }
+  table { width: 100%; border-collapse: collapse; margin: 6pt 0; font-size: 9pt; }
+  table th, table td { border: 0.5pt solid #e2e8f0; padding: 4pt 6pt; text-align: left; vertical-align: top; }
+  table th { background: #1F4D44; color: white; font-weight: 600; font-size: 8.5pt; }
+  ul.tight { margin: 2pt 0 2pt 14pt; padding: 0; }
+  ul.tight li { margin: 1pt 0; }
+  .timeline { margin: 6pt 0; }
+  .timeline .step { display: flex; gap: 8pt; align-items: flex-start; padding: 5pt 0; border-left: 2pt solid #e2e8f0; padding-left: 10pt; }
+  .timeline .step .num { display: inline-block; width: 16pt; height: 16pt; border-radius: 50%; background: #1F4D44; color: white; text-align: center; font-size: 9pt; line-height: 16pt; margin-right: 4pt; }
+  .next-steps { background: #fff7ed; border: 1pt solid #fdba74; padding: 8pt 10pt; border-radius: 4pt; margin-top: 8pt; }
+  .next-steps h3 { color: #c2410c; margin-top: 0; }
+  .footer-note { font-size: 7.5pt; color: #94a3b8; margin-top: 14pt; font-style: italic; }
+  .pagebreak { page-break-before: always; }
+  .pill-row { margin: 4pt 0; }
+  .pill-row > * { margin-right: 4pt; }
+</style>
+</head>
+<body>
+
+<!-- ─── COVER ─── -->
+<div class="cover">
+  <div class="small">Pre-Assessment Report · Phase 19.11 · Confidential</div>
+  <h1>{{ occupation.code }} · {{ occupation.title }}</h1>
+  <div class="tagline">Prepared for {{ client.name or "—" }}{% if client.email %} · {{ client.email }}{% endif %}</div>
+  <div class="meta-row">
+    <div><b>Country:</b> {{ country.name }} ({{ country.code }})</div>
+    <div><b>Generated:</b> {{ generated_at }}</div>
+    <div><b>Prepared by:</b> {{ agent_name }}</div>
+    <div><b>Ref:</b> {{ ref }}</div>
+  </div>
+  {% if occupation.verification_meta and occupation.verification_meta.is_verified %}
+    <span class="badge green">✓ Verified by LEAMSS — {{ occupation.verification_meta.days_since_verified or 0 }}d ago</span>
+  {% else %}
+    <span class="badge amber">⚠ Draft — pending LEAMSS verification</span>
+  {% endif %}
+</div>
+
+<!-- ─── 1. INDUSTRY CONTEXT ─── -->
+<h2>1. Industry Context</h2>
+<p class="small">National labour-market overview for {{ occupation.title }} in {{ country.name }}.</p>
+<div class="stat-grid">
+  <div class="stat"><div class="label">Median Annual Salary</div><div class="value">{{ salary.native_display or "—" }}</div><div class="small">{{ salary.inr_display or "" }}</div></div>
+  <div class="stat"><div class="label">10-yr Growth</div><div class="value">{{ growth.label or "—" }}</div><div class="small">{{ growth.pct or "" }}</div></div>
+  <div class="stat"><div class="label">Active Workers</div><div class="value">{{ workforce.current or "—" }}</div><div class="small">{{ workforce.projected_2035 or "" }}</div></div>
+  <div class="stat"><div class="label">Active Vacancies</div><div class="value">{{ vacancy.total or "—" }}</div><div class="small">{{ vacancy.mom_pct or "" }}</div></div>
+</div>
+
+{% if top_industries %}
+<h3>Top Hiring Industries</h3>
+<ul class="tight">
+  {% for ind in top_industries[:5] %}<li>{{ ind.name }}{% if ind.pct %} — {{ ind.pct }}%{% endif %}</li>{% endfor %}
+</ul>
+{% endif %}
+
+<!-- ─── 2. OCCUPATION DEEP-DIVE ─── -->
+<h2>2. Occupation Deep-dive</h2>
+{% if occupation.description %}
+<p>{{ occupation.description }}</p>
+{% endif %}
+{% if occupation.typical_tasks %}
+<h3>Typical Tasks</h3>
+<ul class="tight">
+  {% for t in occupation.typical_tasks[:8] %}<li>{{ t }}</li>{% endfor %}
+</ul>
+{% endif %}
+{% if occupation.alternative_titles %}
+<h3>Also Known As</h3>
+<p class="small">{{ occupation.alternative_titles[:10] | join(" · ") }}</p>
+{% endif %}
+
+<!-- ─── 3. ASSESSING BODY ─── -->
+<h2>3. Assessing Body</h2>
+{% if assessing_body and assessing_body.name %}
+<table>
+<tr><th style="width:30%">Body</th><td><b>{{ assessing_body.name }}</b>{% if assessing_body.short_name %} ({{ assessing_body.short_name }}){% endif %}</td></tr>
+<tr><th>Website</th><td>{{ assessing_body.url or "—" }}</td></tr>
+<tr><th>MSA Fee</th><td>{{ assessing_body.fee_display or "—" }}{% if assessing_body.fee_inr_display %} · {{ assessing_body.fee_inr_display }}{% endif %}</td></tr>
+<tr><th>Processing Time</th><td>{{ assessing_body.processing_display or "—" }}</td></tr>
+<tr><th>Validity</th><td>{{ assessing_body.validity_months }} months</td></tr>
+{% if assessing_body.documents_required %}
+<tr><th>Standard Documents</th><td><ul class="tight">{% for d in assessing_body.documents_required[:10] %}<li>{{ d }}</li>{% endfor %}</ul></td></tr>
+{% endif %}
+{% if assessing_body.methodology_summary %}
+<tr><th>Methodology</th><td>{{ assessing_body.methodology_summary }}</td></tr>
+{% endif %}
+</table>
+{% else %}
+<p class="small">Assessing body has not yet been assigned for this occupation. LEAMSS will identify the correct body during full case review.</p>
+{% endif %}
+
+<!-- ─── 4. SALARY + STATE DEMAND ─── -->
+<h2>4. Salary & State Demand</h2>
+{% if salary.native_display or salary.inr_display %}
+<table>
+<tr><th>Median Annual Salary</th><td>{{ salary.native_display or "—" }}{% if salary.inr_display %}<br><span class="badge indigo">{{ salary.inr_display }}</span>{% endif %}</td></tr>
+{% if salary.weekly %}<tr><th>Weekly Median</th><td>{{ salary.weekly }}</td></tr>{% endif %}
+{% if salary.hourly %}<tr><th>Hourly Median</th><td>{{ salary.hourly }}</td></tr>{% endif %}
+</table>
+{% endif %}
+
+{% if state_demand and state_demand|length > 0 %}
+<h3>States Currently Nominating This Occupation</h3>
+<table>
+<tr><th>State</th><th>List Type</th><th>Status</th><th>As-of date</th></tr>
+{% for s in state_demand %}
+<tr>
+  <td><b>{{ s.state }}</b></td>
+  <td>Subclass {{ s.list_type or "—" }}</td>
+  <td>
+    {% if s.status == "open" %}<span class="badge green">Open</span>
+    {% elif s.status == "high_demand" %}<span class="badge rose">High Demand</span>
+    {% elif s.status == "closed" %}<span class="badge amber">Closed</span>
+    {% else %}<span class="badge amber">{{ s.status }}</span>{% endif %}
+  </td>
+  <td>{{ s.as_of_date or "—" }}</td>
+</tr>
+{% endfor %}
+</table>
+{% else %}
+<p class="small">No state nomination lists currently indexed for this occupation. LEAMSS recommends checking individual state portals directly during the application phase.</p>
+{% endif %}
+
+<!-- ─── 5. VISA PATHWAYS ─── -->
+<h2>5. Visa Pathways</h2>
+{% if pathways and pathways|length > 0 %}
+<table>
+<tr><th>Visa Subclass</th><th>Name</th><th>Eligible</th><th>Notes</th></tr>
+{% for v in pathways %}
+<tr>
+  <td><b>{{ v.subclass }}</b></td>
+  <td>{{ v.name }}</td>
+  <td>{% if v.eligible %}<span class="badge green">Yes</span>{% else %}<span class="badge amber">Check</span>{% endif %}</td>
+  <td class="small">{{ v.notes or "—" }}</td>
+</tr>
+{% endfor %}
+</table>
+{% else %}
+<p class="small">Visa pathway matrix to be confirmed during full case review.</p>
+{% endif %}
+
+{% if recommended_visa %}
+<h3>Recommended Primary Pathway</h3>
+<p><b>{{ recommended_visa.subclass }}</b> — {{ recommended_visa.name }}{% if recommended_visa.reason %} · {{ recommended_visa.reason }}{% endif %}</p>
+{% endif %}
+
+<!-- ─── 6. TIMELINE ─── -->
+<h2>6. Indicative Timeline</h2>
+<div class="timeline">
+  <div class="step"><div><span class="num">1</span><b>Document Collection</b> — 2-4 weeks · {{ assessing_body.documents_required|length if assessing_body and assessing_body.documents_required else 8 }} core documents</div></div>
+  <div class="step"><div><span class="num">2</span><b>Skill Assessment Submission</b> — 1 week · MSA application to {{ assessing_body.short_name if assessing_body else "TBD" }}</div></div>
+  <div class="step"><div><span class="num">3</span><b>Assessment Processing</b> — {{ assessing_body.processing_display or "8-12 weeks" }}</div></div>
+  <div class="step"><div><span class="num">4</span><b>English Test (if not already done)</b> — 2-4 weeks · IELTS / PTE</div></div>
+  <div class="step"><div><span class="num">5</span><b>EOI Submission</b> — 1 week · SkillSelect (Visa 189/190/491)</div></div>
+  <div class="step"><div><span class="num">6</span><b>State Nomination (if applicable)</b> — 4-8 weeks</div></div>
+  <div class="step"><div><span class="num">7</span><b>Visa Lodgement</b> — 1 week · After invitation</div></div>
+  <div class="step"><div><span class="num">8</span><b>Visa Decision</b> — 4-12 months (varies by subclass + queue)</div></div>
+</div>
+<p class="small">Total realistic timeline: <b>8-18 months</b> from start of documentation to visa grant. Indicative only — depends on case complexity, English score, and Home Affairs queues.</p>
+
+<!-- ─── 7. PATHWAY GUIDE ─── -->
+<h2>7. Pathway Guide</h2>
+<p>Based on the assessment above, LEAMSS recommends the following actions:</p>
+<ul class="tight">
+  <li><b>Documents to gather:</b> birth certificate, all education transcripts + degree certificates, all employment evidence (reference letters with detailed duties), passport copy, English test result (current within 3 years), spouse + dependent documents (if applicable).</li>
+  <li><b>English level target:</b> IELTS overall 7.0+ (or PTE 65+) for competitive points score. Minimum 6.0 in each band.</li>
+  <li><b>Employment evidence:</b> reference letters MUST detail tasks performed, hours per week, salary, dates, signed on company letterhead with HR contact details.</li>
+  <li><b>Skill assessment cost (advance):</b> {{ assessing_body.fee_display or "AUD $500-1500" }}{% if assessing_body.fee_inr_display %} ({{ assessing_body.fee_inr_display }} approx){% endif %}</li>
+  {% if state_demand and state_demand|length > 0 %}<li><b>State strategy:</b> {{ state_demand|length }} state(s) currently nominating — LEAMSS will help select the best fit based on your background, regional preference, and current demand.</li>{% endif %}
+</ul>
+
+<!-- ─── 8. NEXT STEPS ─── -->
+<h2>8. Next Steps</h2>
+<div class="next-steps">
+  <h3>Ready to move forward? Here's how to proceed:</h3>
+  <ol class="tight">
+    <li><b>Sign service agreement</b> with LEAMSS (e-sign in 5 minutes)</li>
+    <li><b>Initial document checklist</b> — we'll send a personalised list within 24 hours</li>
+    <li><b>Begin English test preparation</b> if not already complete</li>
+    <li><b>Lock in your case manager</b> — one of our MARA-registered consultants</li>
+  </ol>
+  <p style="margin: 6pt 0 0 0;"><b>Contact LEAMSS:</b> <span class="badge indigo">Toll-Free 1800-210-2427</span> · WhatsApp +91 77383-52427 · Email <a href="mailto:hello@leamss.com">hello@leamss.com</a></p>
+</div>
+
+<!-- ─── Footer note ─── -->
+<p class="footer-note">
+  This Pre-Assessment Report is prepared by LEAMSS (Ladhani Education &amp; Migration Services OPC Pvt. Ltd.) as an
+  indicative pathway guide based on public government data ({{ data_sources or "ABS, JSA, Home Affairs, ACS/VETASSESS/etc." }}).
+  It does NOT constitute migration advice under the Migration Act 1958 (Cth) or guarantee a visa outcome.
+  Full migration advice will be provided after engagement with a registered Migration Agent (MARA).
+  Currency conversions are indicative (₹{{ fx_rate or "55.5" }} = AUD 1 as of {{ generated_at_date }});
+  actual fees are payable in the native currency. Phase 19.11 · Report ref {{ ref }}.
+</p>
+
+</body>
+</html>

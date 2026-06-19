@@ -179,6 +179,44 @@ async def commit_industry_data(
     }
 
 
+# Phase 19.10 — State Nomination Lists
+STATE_NOM_COLLECTION = "state_nomination_lists"
+
+
+async def ensure_state_nom_indexes(db: AsyncIOMotorDatabase) -> None:
+    await db[STATE_NOM_COLLECTION].create_index(
+        [("state", 1), ("list_type", 1)], unique=True,
+    )
+
+
+async def commit_state_nominations(
+    db: AsyncIOMotorDatabase, parsed: Iterable[Dict[str, Any]]
+) -> Dict[str, Any]:
+    """Idempotent upsert: one doc per (state, list_type)."""
+    import uuid
+    parsed_list = list(parsed)
+    if not parsed_list:
+        return {"parsed_records": 0, "lists_upserted": 0, "codes_indexed": 0}
+    await ensure_state_nom_indexes(db)
+    ops: List[UpdateOne] = []
+    total_codes = 0
+    for env in parsed_list:
+        total_codes += len(env.get("codes") or [])
+        ops.append(UpdateOne(
+            {"state": env["state"], "list_type": env["list_type"]},
+            {"$set": {**env, "uploaded_at": datetime.now(timezone.utc)},
+             "$setOnInsert": {"id": str(uuid.uuid4())}},
+            upsert=True,
+        ))
+    result = await db[STATE_NOM_COLLECTION].bulk_write(ops, ordered=False)
+    return {
+        "parsed_records": len(parsed_list),
+        "lists_upserted": result.upserted_count,
+        "lists_modified": result.modified_count,
+        "codes_indexed": total_codes,
+    }
+
+
 async def commit_vacancy_report(
     db: AsyncIOMotorDatabase, parsed: Iterable[Dict[str, Any]]
 ) -> Dict[str, Any]:

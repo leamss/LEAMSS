@@ -146,8 +146,11 @@ async def compute_diff_audit(
             atlas_pages.append(f"/atlas/au/{code_str}")
 
     # Determine SEO impact
-    if char_diff_total == 0:
+    if char_diff_total == 0 and not diffs:
         impact = "none"
+    elif char_diff_total == 0 and diffs:
+        # Identity changed but lengths happen to be equal — still meaningful
+        impact = "low"
     elif char_diff_total < 30:
         impact = "low"
     elif char_diff_total < 100:
