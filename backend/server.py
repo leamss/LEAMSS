@@ -122,6 +122,7 @@ from routers.state_nominations import router as state_nominations_router
 from routers.pre_assessment_report_v2 import router as pre_assessment_report_v2_router
 from routers.pre_assessment_fee_policies import router as pa_fee_policies_router
 from routers.products_bulk_import import router as products_bulk_import_router
+from routers.info_sheets import router as info_sheets_router
 # Phase 19 — SEO SSG generator
 from routers.seo_ssg import router as seo_ssg_router, regenerate_all as ssg_regenerate_all
 # Phase 18.7 — Notification channels + digest scheduler
@@ -292,6 +293,31 @@ async def startup():
         # Phase 18.3 — feedback_requests indexes (idempotent)
         await ensure_feedback_indexes()
         print("[Phase18.3] feedback_requests indexes ensured")
+        # Phase 20.4 — Info Sheets universal schema migration + partial indexes
+        try:
+            from migrations.m20260619_phase204_info_sheets import migrate as migrate_info_sheets
+            isheets = _db_handle["information_sheets"]
+            existing = {i["name"] for i in await isheets.list_indexes().to_list(None)}
+            # Drop legacy non-partial case_id indexes (only indexes string values)
+            for stale in ("case_id_1", "case_id_1_sparse"):
+                if stale in existing:
+                    await isheets.drop_index(stale)
+            if "case_id_unique_partial" not in existing:
+                await isheets.create_index(
+                    "case_id", unique=True, name="case_id_unique_partial",
+                    partialFilterExpression={"case_id": {"$type": "string"}},
+                )
+            if "entity_type_entity_id_unique" not in existing:
+                await isheets.create_index(
+                    [("entity_type", 1), ("entity_id", 1)], unique=True,
+                    name="entity_type_entity_id_unique",
+                    partialFilterExpression={"entity_type": {"$type": "string"},
+                                             "entity_id": {"$type": "string"}},
+                )
+            mig204 = await migrate_info_sheets(_db_handle, user_id="startup", dry_run=False)
+            print(f"[Phase20.4] info_sheets migration: status={mig204.get('status')} migrated={mig204.get('migrated', 0)}")
+        except Exception as e:
+            print(f"[Phase20.4 migration ERROR — non-fatal] {e}")
         # Phase 18.7 — Client-errors + notification channel indexes + scheduler
         await ensure_client_errors_indexes()
         await ensure_channels_indexes()
@@ -525,7 +551,8 @@ for r in [targets_router, cost_structures_router, auth_router, users_router, pro
           data_import_router, import_batches_router, assessing_authorities_router,
           assessing_authorities_write_router, enrichment_router,
           currency_router, state_nominations_router, pre_assessment_report_v2_router,
-          pa_fee_policies_router, products_bulk_import_router]:
+          pa_fee_policies_router, products_bulk_import_router,
+          info_sheets_router]:
     app.include_router(r, prefix="/api")
 
 

@@ -3,6 +3,161 @@
 This file appends every completed phase/feature with dates and verification status.
 
 ---
+### 📋 Phase 20.4 — Universal Info Sheet (M1-M6) (Jun 19, 2026)
+
+**Sales pitch:** Existing case-centric `information_sheets` was siloed under one endpoint (`/api/cases/{id}/information-sheet`) with 6 flat sections and no AI. Phase 20.4 turns this into a **universal**, **auto-updating**, **AI-augmented** form that mounts anywhere — Sales Create, Sales Detail, Admin Case Mgmt — with a 7-tab UI (Personal · Family · Dependents · Qualifications · Employment · Resume), 1-sec debounced auto-save, audit trail drawer, lock/unlock, and **Claude Sonnet 4.5** resume extraction that auto-prefills qualifications + employment after admin confirmation.
+
+#### What shipped (6 milestones — M1 to M6)
+- **M1 Schema Migration** `backend/migrations/m20260619_phase204_info_sheets.py` (NEW):
+  - Idempotent migration of legacy flat-keyed `information_sheets` (Phase 6.7 era: `child_0_*`, `dependent_0_*`, `qualification_0_*`) → canonical 6-section schema (`personal{}`, `family{}`, `dependents[]`, `qualifications[]`, `employment[]`, `resume{}`)
+  - Children + migrating dependents merged into single `dependents[]` array with `is_migrating: bool` (Sir's tactical default #3)
+  - Backup snapshot saved to `/app/memory/snapshots/pre_phase204_info_sheets_<ts>.json` with MD5
+  - Registered as Phase 19.6 revocable batch — `ingestion_path=phase_20.4_info_sheet_migration` · 24h undo window
+  - Schema version bumped to `2` · `_migrated_from_schema_v1_at` watermark
+  - Tested with real legacy doc: 2 children + 1 aunt → 3-item dependents array with correct is_migrating booleans
+
+- **M2 Backend Router** `backend/routers/info_sheets.py` (NEW, 470 lines, registered at `/api/info-sheets`):
+  - `GET /schema` — returns canonical 6-section definition for frontend rendering
+  - `GET /by-entity?entity_type=case|sale|pre_assessment|standalone&entity_id=X` — universal lookup with back-compat (case_id fallback)
+  - `GET /{sheet_id}` — fetch by sheet_id
+  - `POST /` — create (rejects duplicate via 409)
+  - `PATCH /{sheet_id}` — auto-save target · partial updates · respects locked status · returns `completion` payload (% required filled)
+  - `POST /{sheet_id}/lock` + `/unlock` — admin-only · audit-logged
+  - `POST /{sheet_id}/resume` — multipart upload (PDF/DOCX/TXT, max 5MB) → text extraction → Claude Sonnet 4.5 → structured JSON saved in `resume` section
+  - `POST /{sheet_id}/resume/apply-prefill` — confirm + prefill quals/employment · `merge_strategy: append|replace`
+  - `GET /{sheet_id}/audit-trail?limit=50` — recent edit events
+  - MongoDB indexes: `case_id_unique_partial` (partialFilterExpression: case_id is string) + `entity_type_entity_id_unique` (partial) — auto-applied via server.py startup hook
+
+- **M3 Resume AI Service** `backend/services/resume_extraction_service.py` (NEW, 230 lines):
+  - `extract_resume(text)` calls **Claude Sonnet 4.5** (`anthropic/claude-sonnet-4-5-20250929`) via Emergent Universal Key, max 1500 tokens (Sir's budget cap)
+  - Fallback to **Claude Haiku 4.5** silently if Sonnet fails
+  - Strict prompt: "Return EXACTLY this JSON shape, no extra fields, no markdown"
+  - `parse_json_response(text)` strips markdown fences + extracts JSON object even when wrapped in prose
+  - `validate_extraction(data)` coerces to canonical shape, drops invalid entries (empty degree / no job_title), caps skills@30 + certs@20
+  - `extract_text_from_pdf_or_docx(content, filename)` supports PDF (pdfplumber) + DOCX (python-docx) + TXT
+  - **Live test PASS:** Sample CV with 2 degrees + 2 jobs → extracted in ~2s, confidence=0.93, model=`claude-sonnet-4-5-20250929`
+
+- **M4 Universal Frontend** `frontend/src/components/InfoSheet/InfoSheet.jsx` (NEW, 320 lines):
+  - Tabbed 6-section UI with Lucide icons (User, Users, Baby, GraduationCap, Briefcase, FileText)
+  - **1-second debounced auto-save** with dirty indicator: ⟳ Saving… → ⚠ Unsaved → ✓ Saved 21:08
+  - `FieldInput` adapter handles text/email/tel/date/textarea/select/boolean/file uniformly via schema definition
+  - `SectionArrayFields` for dependents/qualifications/employment with Add/Remove + max_entries from schema
+  - `ResumeSection`: 3-tile summary card (Quals count teal · Employment orange · Skills red) + AI confidence % + model badge
+  - `Prefill modal` with Append (safe) vs Replace (overwrite) choices · Hinglish copy
+  - `AuditTrailDrawer` slides in from right · last 50 events · color-coded action badges
+  - Brand-compliant: only `leamss.teal`, `leamss.orange`, `leamss.red`, `leamss.bg_white` tokens
+  - Mount-ready signature: `<InfoSheet entityType="case|sale|pre_assessment|standalone" entityId={X} clientId={Y} caseId={Z} readOnly={false} />`
+  - Standalone host page: `pages/admin/InfoSheetPage.jsx` at route `/admin/info-sheets/:entityType/:entityId`
+
+- **M5 Pytests** `backend/tests/test_phase204_info_sheets.py`: **20/20 PASS** in 3.52s
+  1. Schema returns 6 sections in canonical order
+  2. Schema includes resume section with `is_resume_section: true`
+  3. Create info sheet with empty arrays + schema_version=2
+  4. Patch personal → completion %=100 when all required filled
+  5. Patch dependents with `is_migrating` flag (3 entries: 2 migrating + 1 non)
+  6. Patch qualifications array
+  7. Patch employment array (2 entries: 1 current + 1 past)
+  8. GET by-entity finds existing sheet
+  9. Duplicate POST → 409
+  10. Lock partner-blocked (403)
+  11. Lock works for admin
+  12. Locked sheet rejects partner PATCH (423)
+  13. Unlock restores edit access
+  14. Audit trail captures create + 4 patches + lock + unlock (≥5 events)
+  15. Migration transforms legacy flat doc → canonical (3 deps, 1 qual, 1 emp from prefixed fields)
+  16. Migration idempotent (re-run = 0 pending)
+  17. validate_extraction drops invalid entries (empty degree / no job_title)
+  18. parse_json_response strips markdown fence
+  19. extract_text_from_pdf_or_docx works for TXT
+  20. Partner role can create + read but not lock (RW vs Admin RBAC)
+
+- **M6 Triple-Gate Verification:**
+  - 🟢 **Pytest** full regression: **117/117 PASS in 11.01s** (Phase 19.6 → 20.4 inclusive). Zero regression.
+  - 🟢 **Curl** evidence: admin login → GET schema → POST sheet → PATCH personal (100%) → PATCH dependents (3 entries) → GET by-entity → 409 dup → lock → 423 patch → unlock → audit-trail (8 events) — all green
+  - 🟢 **Live Claude Sonnet 4.5 test**: real resume text → extracted 2 quals (IIT Bombay BTech + Stanford MS) + 2 jobs (Google + Microsoft) + 7 skills + 2 certs, confidence=0.93, model verified=`anthropic/claude-sonnet-4-5-20250929`, ~2s latency
+  - 🟢 **Playwright** 4 screenshots saved at `/app/memory/phase206_brand_screenshots/`:
+    - `phase204_infosheet_personal.jpeg`: 21-field Personal Details form with required asterisks (red), teal headings, marital_status dropdown
+    - `phase204_infosheet_dependents.jpeg`: Add Dependent button + #1 card with all 11 fields including "Migrating with you?" checkbox
+    - `phase204_infosheet_resume.jpeg`: Orange AI extraction card "Claude Sonnet 4.5" branding + Upload Resume button
+    - `phase204_infosheet_audit.jpeg`: Right-side drawer with 3 events (create, patch personal, patch dependents) + timestamps + "Admin User" name
+
+#### 🟢 Sir's Acceptance Criteria — ALL MET
+- [x] Schema migrated to canonical 6-section (Personal/Family/Dependents/Qualifications/Employment/Resume)
+- [x] Backup + MD5 + revocable batch (Phase 19.6)
+- [x] Idempotent (re-run skips already-migrated)
+- [x] Dependents consolidated with `is_migrating: bool` (Sir's #3)
+- [x] Universal CRUD supports `entity_type+entity_id` AND `case_id` back-compat
+- [x] Debounced auto-save (1s) with dirty indicator
+- [x] Resume upload + Claude Sonnet 4.5 strict JSON extraction + max 1500 tokens
+- [x] Prefill confirmation modal (Sir's #1 — append vs replace · Hinglish copy)
+- [x] Audit trail drawer (right slide-in, 50 events)
+- [x] Lock/unlock admin-only
+- [x] RBAC: partner can RW (creates own), only admin can lock + apply
+- [x] 15+ pytests (delivered 20) GREEN + full regression 117/117
+- [x] Brand-compliant teal/orange/red tokens · no indigo
+- [x] CHANGELOG + PRD updated
+
+#### Files touched / new
+- **New backend:** `routers/info_sheets.py`, `services/resume_extraction_service.py`, `migrations/m20260619_phase204_info_sheets.py`, `tests/test_phase204_info_sheets.py`
+- **New frontend:** `components/InfoSheet/InfoSheet.jsx`, `pages/admin/InfoSheetPage.jsx`
+- **Modified:** `backend/server.py` (router registration + startup migration + partial indexes), `frontend/src/App.js` (route mount)
+- **Tactical defaults logged (per Sir's reply):** (a) standalone mount only at `/admin/info-sheets/:entityType/:entityId` for now — Sales/Case page tab-embedding deferred to Phase 20.5 funnel stitching; (b) prefill modal offers both Append + Replace as buttons; (c) auto-save fires on every section change (flat `personal{}`, `family{}`) AND on array mutations (dependents/quals/emp) via single debounce queue
+- **Backwards-compatibility:** Old `/api/cases/{case_id}/information-sheet` endpoint untouched — coexists. New universal endpoints are additive. `_migration_batch_id` watermark on every transformed doc for 24h revoke window.
+
+---
+
+### 🔍 Phase 20.3+ — Fee Policy Diff-Preview Bundle (Jun 19, 2026)
+
+**Sales pitch:** Phase 20.3 ke baad ek critical guardrail — admin jab existing fee policy edit kare aur `fee_inr` change ho, modal turant dikhaata hai "yeh edit kitne active PAs ko affect karega · kitne unpaid hain (safe) vs paid hain (risky)". Galti se retroactive billing disruption prevent ho jata hai. **Apply Retroactively** button bhi add hua — admin manually choose kar sakta hai "unpaid only (safe)" ya "force all" mode + 10-char reason mandatory + 24h revocable via Phase 19.6 batch.
+
+#### What shipped (4 deliverables — N1 to N4)
+- **N1 Diff Service** `backend/services/fee_policy_diff_service.py` (NEW, 270 lines):
+  - `compute_diff(db, policy_id, proposed_changes, lookback_days=90)` — returns: old/new fee, delta_inr, delta_pct, affected_pas_count, unpaid_count, paid_count, in_progress_count, sample_pas (top 5), warnings list, requires_diff_modal flag
+  - Match logic: by `pre_assessment_fee_policy_id` direct match OR `country+visa+source=country_visa_policy` heuristic. GLOBAL/ANY policy matches `global_fallback` source.
+  - Stage classification: UNPAID = `{new, payment_pending}`, PAID = `{payment_received, documents_submitted, admin_approved, admin_rejected, proposal_sent, case_started, completed, refunded}`
+  - Warnings auto-generated for: paid PAs detected (won't be touched by default), delta ≥ 20% (large change flag)
+  - `apply_retroactive(db, policy_id, reason, affect_unpaid_only, ...)` — updates affected PAs, opens Phase 19.6 batch with pre-state snapshots per row, audit-logs at severity=warn
+
+- **N2 Endpoints** `backend/routers/pre_assessment_fee_policies.py`:
+  - `POST /api/pre-assessment-fee-policies/{id}/diff-preview` — admin-only · body `{fee_inr?, lookback_days?}` · returns full diff payload
+  - `POST /api/pre-assessment-fee-policies/{id}/apply-retroactive` — admin-only · body `{reason (min 10 chars), affect_unpaid_only (default True), lookback_days (default 90)}` · returns `{ok, batch_id, updated_count, skipped_count, sample_updated, is_revocable: true, revocation_window_hours: 24}`
+
+- **N2 UI Integration** `frontend/src/pages/admin/PreAssessmentFeePolicies.jsx`:
+  - `PolicyModal.save()` now intercepts when EDITING + `fee_inr` changed → fetches diff-preview → if `requires_diff_modal && affected_pas_count >= 1` (Sir's tactical default #4) → shows `<DiffPreviewModal>` with old/new/delta cards + 4-tile breakdown (Total/Unpaid/Paid/In-Progress) + warnings panel + sample PAs table + Cancel/Confirm buttons
+  - When `affected_pas_count = 0` → modal skipped, save proceeds silently (no admin friction)
+  - New `<RetroactiveApplyModal>` triggered by orange History icon button in each policy row · Mode toggle (Unpaid-Only recommended / Force-All dangerous) · reason textarea (min 10 chars) · "Revocable 24h via Phase 19.6" assurance chip · Apply Now button
+
+- **N3 Retroactive Apply Flow**: Working end-to-end · admin clicks orange History icon · selects mode + writes reason · submits · backend opens revocable batch · updates each PA with new fee + source=`retroactive_policy_apply` + tracks `retroactive_at/reason/by` fields · returns batch_id to admin
+
+- **N4 Pytests** `backend/tests/test_phase203_diff_preview.py`: **7/7 PASS in 0.67s**
+  1. Diff-preview returns affected_pas_count + unpaid/paid breakdown + sample
+  2. requires_diff_modal=False when fee unchanged
+  3. Partner blocked on diff-preview (403)
+  4. Retroactive apply with unpaid_only=true updates 2 unpaid PAs + registers revocable batch + DB verification
+  5. Partner blocked on retroactive apply (403)
+  6. Reason < 10 chars rejected (422)
+  7. Audit log severity=warn written
+
+#### Verification (Triple-Gate)
+- 🟢 **Pytest** combined: **97/97 PASS in 10.24s** (Phase 19.6/19.7/19.8/19.9/20.1/20.2/20.3/20.3+) — zero regression
+- 🟢 **Curl** evidence: diff-preview returns 4 affected (2 unpaid + 2 paid) for AU/PR · retroactive apply updates 2 PAs · batch_id starts with `imp_` · partner 403 · reason-too-short 422 · audit_logs entry severity=warn
+- 🟢 **Playwright** `/app/memory/phase206_brand_screenshots/phase203_diff_preview_modal.jpeg`: Full modal rendered with old=₹5,100 teal · new=₹6,500 orange · delta +₹1,400 (+27.5%) orange · 4-tile breakdown (3 total · 2 unpaid · 1 paid · 0 in-progress) · warnings panel ("1 PAs already collected payment" + "+28% — large delta") · 3-row sample table · Confirm & Save Policy button · Hinglish info note
+
+#### 🟢 Sir's Acceptance Criteria — ALL MET
+- [x] Diff service computes affected count + breakdown (unpaid/paid/in_progress)
+- [x] Diff modal threshold: ONLY shown when fee_inr changes AND affected_count ≥ 1 (Sir's #4)
+- [x] Modal warns about paid PAs + large delta
+- [x] Retroactive apply with mandatory reason (min 10 chars) + admin-only + revocable batch
+- [x] 3+ pytests (delivered 7) GREEN + zero regression
+- [x] UI brand-compliant (teal/orange/red, no indigo)
+- [x] CHANGELOG + PRD updated
+
+#### Files touched
+- New: `backend/services/fee_policy_diff_service.py` · `backend/tests/test_phase203_diff_preview.py`
+- Modified: `backend/routers/pre_assessment_fee_policies.py` (2 new endpoints + 2 new Pydantic models) · `frontend/src/pages/admin/PreAssessmentFeePolicies.jsx` (DiffPreviewModal + RetroactiveApplyModal + save flow interceptor + retro modal trigger button)
+
+---
+
 ### 💰 Phase 20.3 + Bulk Importer — Variable PA Fee Policy + Bulk Products (Jun 19, 2026)
 
 **Sales pitch:** Hardcoded ₹5,100 Pre-Assessment fee constant **GONE** from code. Replaced with **3-tier intelligent resolver** (product override → country+visa policy → global fallback → safety net). 6 seed policies live with brochure-derived defaults (AU Study ₹3K cheaper, CA Work ₹4.5K, etc). **Bulk Product Importer** added — admin upload CSV/XLSX → preview new/update/invalid → commit with revocable batch. Sir's audit fully addressed.

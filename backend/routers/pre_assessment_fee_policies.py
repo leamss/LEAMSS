@@ -27,6 +27,9 @@ from services.audit_service import log_action
 from services.pre_assessment_fee_resolver import (
     COLLECTION, HARDCODED_SAFETY_NET_INR, resolve_pre_assessment_fee,
 )
+from services.fee_policy_diff_service import (
+    DEFAULT_LOOKBACK_DAYS, apply_retroactive, compute_diff,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/pre-assessment-fee-policies", tags=["pre-assessment-fee"])
@@ -65,6 +68,23 @@ class PolicyUpdate(BaseModel):
     policy_name: Optional[str] = Field(None, min_length=3, max_length=200)
     rationale: Optional[str] = Field(None, max_length=1000)
     status: Optional[str] = Field(None, pattern=r"^(active|deprecated|draft)$")
+
+
+class DiffPreviewRequest(BaseModel):
+    """Body for POST /{policy_id}/diff-preview — what would change?"""
+    fee_inr: Optional[int] = Field(None, ge=0, le=1_000_000)
+    lookback_days: int = Field(default=DEFAULT_LOOKBACK_DAYS, ge=1, le=365)
+
+
+class RetroactiveApplyRequest(BaseModel):
+    """Body for POST /{policy_id}/apply-retroactive — update existing PAs."""
+    reason: str = Field(..., min_length=10, max_length=500,
+                        description="Mandatory reason (min 10 chars) for audit trail")
+    affect_unpaid_only: bool = Field(
+        default=True,
+        description="If True, only PAs in stages: new, payment_pending. Recommended for safety.",
+    )
+    lookback_days: int = Field(default=DEFAULT_LOOKBACK_DAYS, ge=1, le=365)
 
 
 def _serialise(doc: Dict[str, Any]) -> Dict[str, Any]:
@@ -246,3 +266,58 @@ async def seed_initial_policies(
         created.append(f"{sp['country_code']}/{sp['visa_category']} @ ₹{sp['fee_inr']}")
     return {"ok": True, "created": created, "skipped_existing": skipped,
             "count_created": len(created), "count_skipped": len(skipped)}
+
+
+# ── Diff-Preview Bundle (Phase 20.3+) ─────────────────────────────────────────
+@router.post("/{policy_id}/diff-preview")
+async def diff_preview(
+    policy_id: str, payload: DiffPreviewRequest,
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    """Compute downstream impact of proposed policy change.
+
+    Returns count of affected PAs + breakdown (unpaid/paid) + sample.
+    Modal shown by frontend ONLY when `requires_diff_modal=True`
+    (i.e. when fee_inr actually changes — Sir's tactical default #4).
+    """
+    if not _is_admin(current_user):
+        raise HTTPException(status_code=403, detail="Admin only")
+    try:
+        diff = await compute_diff(
+            db, policy_id,
+            proposed_changes={k: v for k, v in payload.dict().items() if v is not None and k != "lookback_days"},
+            lookback_days=payload.lookback_days,
+        )
+        return {"ok": True, **diff}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+
+
+@router.post("/{policy_id}/apply-retroactive")
+async def apply_retroactive_endpoint(
+    policy_id: str, payload: RetroactiveApplyRequest,
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    """Apply this policy's CURRENT fee_inr to existing PAs.
+
+    Requires:
+      - reason (min 10 chars, audit-logged)
+      - affect_unpaid_only (default True — safety first; paid PAs untouched)
+
+    Registers a Phase 19.6 revocable batch (24h undo window).
+    """
+    if not _is_admin(current_user):
+        raise HTTPException(status_code=403, detail="Admin only")
+    user_id = str(current_user.get("id") or current_user.get("email") or "admin")
+    user_name = str(current_user.get("name") or current_user.get("email") or "admin")
+    try:
+        result = await apply_retroactive(
+            db, policy_id,
+            reason=payload.reason,
+            affect_unpaid_only=payload.affect_unpaid_only,
+            user_id=user_id, user_name=user_name,
+            lookback_days=payload.lookback_days,
+        )
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
