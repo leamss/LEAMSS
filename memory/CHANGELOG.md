@@ -3,6 +3,70 @@
 This file appends every completed phase/feature with dates and verification status.
 
 ---
+### 🌾 Phase 19.8 — Bulk Enrichment Engine + 19.7.1 CA Data Quality Fix (Jun 19, 2026)
+
+**Sales pitch:** **Manual data entry near-zero for AU.** Every uploaded JSA Excel, every PDF, every CSV that was already sitting in the system gets cross-pollinated into every 6-digit occupation page automatically. Sales team ko ab har Australian occupation page par rich data milta hai — even Defence Force Senior Officer (TBD bucket) ke paas description, 9 tasks, age profile, industries, state distribution sab populated. **description coverage 29.6% → 97.9%** in one engine run. Full provenance trail (which source wrote which field) + 24h-revocable Phase 19.6 batch + idempotent re-runs. No more manual fill-ins for Sir.
+
+#### Task A — Phase 19.7.1 CA Data Quality Fix
+- **515 CA records updated** (513 backfilled with WES + 1 corrupted "ACS / acs.org.au" cross-leak fixed + 1 wes.com URL normalised to canonical wes.org/ca/)
+- **1 MCC record preserved** (Medical Council of Canada — legitimate body for CA medical occupations)
+- **Batch `imp_20260619T115755_1dc5bb05`** registered, revocable 24h, full pre-state captured per row
+- **Resolver tweak:** NZ/CA pass-through now prefers `short_name` over `name` for cleaner downstream consumption
+- **CA 21231 evidence:** was `name="ACS", url="acs.org.au"` → now `short_name="WES", name="World Education Services", url="https://www.wes.org/ca/"` with full `_phase_19_7_1_fix` provenance trail
+
+#### Task B — Phase 19.8 Bulk Enrichment Engine
+**New files:**
+- `backend/services/enrichment_engine.py` — Cross-pollination engine with priority hierarchy (admin_verified > scraped_official > uploaded_official > ai_generated > seed_placeholder). Per-field provenance tracking. Idempotent (skips already-filled fields by default; respects `force=true` admin override).
+- `backend/routers/enrichment.py` — Admin-only endpoints:
+  - `GET  /api/enrichment/coverage?country_code=AU` — per-field % filled
+  - `POST /api/enrichment/preview` — dry-run delta (no DB writes)
+  - `POST /api/enrichment/run` — live enrichment + revocable batch
+- `backend/tests/test_phase198_bulk_enrichment.py` — 12 integration tests
+
+**Data sources cross-pollinated for AU:**
+1. **`anzsco_4digit_master`** (Phase 19.4 JSA Occupation Profiles, 1,237 4-digit codes) → 6-digit children inherit `description`, `typical_tasks`, `industries_ranked`, `state_distribution`, `age_profile`, `education_distribution`, `anzsco_profile_from_4digit`
+2. **`OSL 2025 (OSCA 6).csv`** (Occupation Shortage List, 1,022 codes) → `osl_listed`, `osl_state_shortages`, `osl_national_rating`
+
+**Live enrichment results (Jun 19, 2026):**
+- **Batch:** `imp_20260619T120158_632899e3` (revocable 24h, 1001 docs updated with pre-state)
+- **1001/1026** occupations updated · **3,798 fields** enriched
+- Coverage transformation:
+  - `description`: 29.6% → **97.9%** (+701 occupations)
+  - `typical_tasks`: 29.2% → **97.5%** (+700)
+  - `age_profile`: 0% → **97.5%** (+1000)
+  - `industries_ranked`: 84.9% → **97.5%**
+  - `state_distribution`: 85.6% → **97.5%**
+  - `education_distribution`: 85.6% → **97.5%**
+  - `anzsco_profile_from_4digit`: 0% → **97.6%**
+
+**Phase 19.6 integration:** Every enrichment run = a revocable import_batch with full pre-state. Admin can undo within 24h via existing `/api/import-batches/{id}/revoke` flow. Audit log entry at severity=info.
+
+**Provenance schema (per enriched field):**
+```
+_<field>_provenance: {
+    source: "uploaded_official",
+    source_file: "anzsco_4digit_master (occupation_profiles_feb_2026.xlsx)",
+    set_at: ISO datetime, set_by: user_id,
+}
+_phase_19_8_enriched_at: ISO datetime (tombstone)
+```
+
+**Honest limitations:**
+- **OSL/OSCA-6 vs ANZSCO crosswalk gap:** OSL CSV uses Occupation Standard Classification Australia v6 codes (post-2024); our DB uses ANZSCO 2021. Only 8/1022 happen to numerically match. **Phase 19.10 follow-up:** ABS publishes OSCA↔ANZSCO crosswalk — admin can upload via existing Data Import Hub flow when it becomes available. Until then, OSL flags remain 0.8% coverage.
+- **342 TBD AU occupations** are mostly defence/police/legal/government public-service roles which have NO assessing body — these are correctly TBD, not enrichable via authority FK. Enriched with description + tasks + age profile instead (which makes Atlas pages rich even without body).
+- **NZ + CA enrichment:** Deferred to future phase. Engine supports `country_code: "NZ"` / `"CA"` params but won't enrich much without country-specific data sources.
+- **No frontend UI yet** — backend endpoints functional, Phase 19.9 admin Authority Health Card widget will include an "Enrich All AU" trigger button.
+
+#### Triple-gate Verification (Jun 19, 2026)
+- 🟢 **GATE 1 (Pytest):** `pytest tests/test_phase198_bulk_enrichment.py tests/test_phase197_authority_refactor.py tests/test_phase196_dedup_revoke.py -v` → **35/35 PASSED in 6.84s** (12 Phase 19.8 + 13 Phase 19.7 + 10 Phase 19.6, zero regression)
+- 🟢 **GATE 2 (Curl):** Coverage endpoint returns per-field %, dry-run preview returns delta without DB writes, live run produces revocable batch_id. Spot-check AU 111212 (Defence Force Senior Officer — TBD bucket) now has 227-char description + 9 tasks + age_profile populated. CA 21231 now shows WES (was ACS).
+- 🟢 **GATE 3 (SSG regen):** **1,490 pages regenerated in 3.43s, 0 errors.** Atlas pages now ship enriched data live.
+
+**Coverage report saved:** `/app/memory/coverage_reports/au_enrichment_20260619_120327.md`
+
+---
+
+
 ### 🏛️ Phase 19.7 — Assessing Authority as First-Class Entity (Jun 19, 2026)
 
 **Sales pitch:** Atlas ab "skill assessing body" ko first-class entity treat karta hai — har bulk fee/processing/document-checklist update sirf EK row me hota hai (`assessing_authorities` collection) aur 684 AU occupations ke saath turant reflect ho jata hai. Pehle ACS ka fee badalna tha to 34 occupation rows manually update karne padte the. Ab single admin edit (Phase 19.9 UI) → instantly all 34 software-engineer/IT pages updated. **44 AU bodies seeded** with canonical defaults from Home Affairs/DEWR. **Country-aware resolver** silently merges authority defaults + occupation-level overrides while preserving the back-compat dict shape that 32+ existing readers depend on — zero UI break.

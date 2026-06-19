@@ -149,7 +149,7 @@ async def resolve_authority(
         # NZ / CA / other — pass through existing dict shape unchanged.
         if isinstance(aa_raw, dict) and aa_raw:
             return {
-                "short_name": aa_raw.get("name") or aa_raw.get("short_name") or "",
+                "short_name": aa_raw.get("short_name") or aa_raw.get("name") or "",
                 "name": aa_raw.get("full_name") or aa_raw.get("name") or "",
                 "url": aa_raw.get("website") or aa_raw.get("url") or aa_raw.get("body_url") or "",
                 # Pass through inline NZ/CA fee data unchanged
@@ -189,7 +189,7 @@ def resolve_authority_sync(
     if cc != "AU":
         if isinstance(aa_raw, dict) and aa_raw:
             return {
-                "short_name": aa_raw.get("name") or aa_raw.get("short_name") or "",
+                "short_name": aa_raw.get("short_name") or aa_raw.get("name") or "",
                 "name": aa_raw.get("full_name") or aa_raw.get("name") or "",
                 "url": aa_raw.get("website") or aa_raw.get("url") or aa_raw.get("body_url") or "",
                 **{k: v for k, v in aa_raw.items() if k not in {"short_name", "name", "url"}},
