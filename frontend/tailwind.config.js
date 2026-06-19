@@ -15,6 +15,15 @@ module.exports = {
   		colors: {
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',
+  			leamss: {
+  				teal: '#0D9488',
+  				orange: '#F97316',
+  				red: '#DC2626',
+  				bg_white: '#FFFFFF',
+  				teal_50: '#F0FDFA',
+  				orange_50: '#FFF7ED',
+  				red_50: '#FEF2F2'
+  			},
   			card: {
   				DEFAULT: 'hsl(var(--card))',
   				foreground: 'hsl(var(--card-foreground))'

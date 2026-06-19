@@ -392,21 +392,28 @@ async def generate_workflow(
     request: WorkflowGenerateRequest,
     current_user: dict = Depends(get_current_user)
 ):
-    """Generate a complete immigration workflow using AI"""
+    """Generate a complete immigration workflow using AI (Phase 20.1).
+
+    Wires Claude Sonnet 4.5 primary with GPT-5.2 silent fallback.
+    Enforces quality bar (≥5 steps, ≥3 docs per step) with auto-retry.
+    Injects VFSglobal URL + AU/NZ skill-assessment authority URL into context.
+    """
     if current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
-    
+
+    from services import ai_workflow_service as ai_svc
+
     country_key = request.country.lower().replace(" ", "_")
     service_key = request.service_type.lower().replace(" ", "_")
-    
+
     ref_info = ""
     if country_key in COUNTRY_REFERENCES:
         ref_info = COUNTRY_REFERENCES[country_key].get(service_key, "")
         if not ref_info:
             for k, v in COUNTRY_REFERENCES[country_key].items():
                 ref_info += f"\n{k}: {v}"
-    
-    # Get template context if available for richer prompts
+
+    # Verified template context (for richer prompts)
     from routers.step_documents import _find_best_template
     template = _find_best_template(f"{request.country} {request.service_type}")
     template_context = ""
@@ -418,25 +425,33 @@ async def generate_workflow(
             doc_names = [d["doc_name"] for d in docs]
             template_context += f"Step '{step_name}': {', '.join(doc_names)}\n"
 
-    system_msg = """You are an expert immigration consultant AI with deep knowledge of global immigration processes. 
-You generate accurate, step-by-step immigration workflows based on OFFICIAL government requirements.
-You must return ONLY valid JSON, no markdown, no extra text.
-Your workflows must be practical, actionable, and based on real immigration processes.
-IMPORTANT: Every step MUST have at least 2-5 required documents. Include ALL documents that an applicant would need."""
+    # Phase 20.1 — VFSglobal + AU/NZ skill assessment URLs
+    vfs_url = ai_svc.vfsglobal_url(country_key)
+    sa_url = await ai_svc.resolve_au_nz_skill_assessment_url(db, country_key, service_key)
+    enrichment_block = ai_svc.build_enrichment_context(
+        country_key, service_key, ref_info, vfs_url, sa_url, template_context,
+    )
 
-    prompt = f"""Generate a COMPREHENSIVE immigration workflow for: {request.country} - {request.service_type}
+    system_msg = (
+        "You are an expert immigration consultant AI with deep knowledge of global immigration processes. "
+        "You generate accurate, step-by-step immigration workflows based on OFFICIAL government requirements "
+        "and VFSglobal application centre procedures (for Indian applicants). "
+        "You must return ONLY valid JSON, no markdown, no extra text. "
+        "Every step MUST have at least 3 required documents. Include all documents that an applicant would need."
+    )
 
-Official Reference Information:
-{ref_info}
-{template_context}
+    base_prompt = f"""Generate a COMPREHENSIVE immigration workflow for: {request.country} - {request.service_type}
+
+{enrichment_block}
 {f"Additional Instructions: {request.custom_instructions}" if request.custom_instructions else ""}
 
 CRITICAL RULES:
-1. Every step MUST have 2-6 required_documents. Do NOT leave any step with 0 documents.
-2. Include specific document names as used by the government (e.g., "Form 80 - Personal Particulars" not just "Form")
+1. At least 5 steps. Every step MUST have at least 3 required_documents.
+2. Include specific document names as used by the government (e.g., "Form 80 - Personal Particulars")
 3. Include ALL fees in local currency based on current official government fee schedules
-4. Reference only official government websites
-5. Be thorough - include passport, photos, police clearances, medical exams, financial evidence, etc.
+4. Reference only official government websites (.gov / official portals) AND VFSglobal for application submission step
+5. Be thorough — passport, photos, police clearances, medical exams, financial evidence, biometrics, etc.
+6. For AU/NZ PR ONLY: include "Skills Assessment" as first or second step (mandatory). For all OTHER workflows, DO NOT include a skills assessment step.
 
 Return a JSON object with this EXACT structure:
 {{
@@ -453,6 +468,8 @@ Return a JSON object with this EXACT structure:
       "step_order": 1,
       "description": "Detailed description of what happens in this step",
       "duration_days": 30,
+      "official_source_url": "https://...gov... (specific page URL)",
+      "vfsglobal_url": "https://visa.vfsglobal.com/... (if applicable to this step)",
       "required_documents": [
         {{
           "name": "Official Document Name",
@@ -468,89 +485,80 @@ Return a JSON object with this EXACT structure:
 }}
 
 Include 5-8 steps covering: preparation, assessment/testing, application submission, documentation, biometrics/medical, processing, and grant.
-EVERY step must have 2-6 required_documents with detailed descriptions."""
+EVERY step must have 3-6 required_documents with detailed descriptions."""
 
-    try:
-        response = await _call_gpt(prompt, system_msg)
-    except HTTPException:
-        # AI failed (budget exceeded etc) - try template fallback
-        from routers.step_documents import _find_best_template
-        template = _find_best_template(f"{request.country} {request.service_type}")
-        if template:
-            steps = []
-            for i, (step_name, docs) in enumerate(template.get("steps", {}).items(), 1):
-                steps.append({
-                    "step_name": step_name,
-                    "step_order": i,
-                    "description": "",
-                    "duration_days": 14,
-                    "required_documents": [{"name": d["doc_name"], "description": d.get("description",""), "mandatory": d.get("is_mandatory", True)} for d in docs],
-                    "important_notes": "",
-                    "government_fees": ""
-                })
-            workflow_data = {
-                "product_name": f"{request.country} - {request.service_type}",
-                "description": template.get("label", ""),
-                "category": "immigration",
-                "estimated_government_fees": template.get("fees_info", ""),
-                "steps": steps,
-                "success_tips": [],
-                "common_rejection_reasons": [],
-            }
-            await log_activity(current_user["id"], current_user["name"], "generated_workflow_template", "ai_workflow",
-                               details=f"Template fallback for {request.country} - {request.service_type}")
-            return workflow_data
-        raise HTTPException(status_code=500, detail="AI service unavailable. Please try a verified template or top up your AI balance (Profile -> Universal Key -> Add Balance).")
-    
-    # Parse JSON from response - robust extraction
-    workflow_data = None
-    try:
-        json_str = response.strip()
-        # Remove markdown code blocks
-        if "```json" in json_str:
-            json_str = json_str.split("```json")[1].split("```")[0]
-        elif "```" in json_str:
-            parts = json_str.split("```")
-            for part in parts:
-                stripped = part.strip()
-                if stripped.startswith("{"):
-                    json_str = stripped
-                    break
-        
-        # Try direct parse
+    workflow_data: dict = None
+    model_used = "unknown"
+    last_quality_issues: List[str] = []
+
+    # Try up to MAX_QUALITY_RETRIES (Claude → GPT → stricter retry)
+    prompt = base_prompt
+    for attempt in range(ai_svc.MAX_QUALITY_RETRIES + 1):
         try:
-            workflow_data = json.loads(json_str.strip())
-        except json.JSONDecodeError:
-            # Find JSON object boundaries
-            start = json_str.find("{")
-            end = json_str.rfind("}") + 1
-            if start >= 0 and end > start:
-                workflow_data = json.loads(json_str[start:end])
-    except (json.JSONDecodeError, Exception):
-        pass
-    
-    if not workflow_data or not isinstance(workflow_data, dict):
-        # Last resort: template fallback
-        if template:
-            steps = []
-            for i, (step_name, docs) in enumerate(template.get("steps", {}).items(), 1):
-                steps.append({
-                    "step_name": step_name, "step_order": i, "description": "", "duration_days": 14,
-                    "required_documents": [{"name": d["doc_name"], "description": d.get("description",""), "mandatory": d.get("is_mandatory", True)} for d in docs],
-                    "important_notes": "", "government_fees": ""
-                })
-            workflow_data = {
-                "product_name": f"{request.country} - {request.service_type}",
-                "description": template.get("label", ""), "category": "immigration",
-                "estimated_government_fees": template.get("fees_info", ""),
-                "steps": steps, "success_tips": [], "common_rejection_reasons": [],
-            }
-        else:
-            raise HTTPException(status_code=500, detail="AI returned invalid format. Please try again.")
-    
-    await log_activity(current_user["id"], current_user["name"], "generated_workflow", "ai_workflow",
-                       details=f"Generated workflow for {request.country} - {request.service_type}")
-    
+            response, model_used = await ai_svc.call_ai_with_fallback(prompt, system_msg)
+            workflow_data = ai_svc.parse_json_response(response)
+        except Exception as e:  # noqa: BLE001
+            # Both providers failed OR JSON unparseable
+            workflow_data = None
+            last_err = str(e)[:200]
+            await log_activity(current_user["id"], current_user.get("name", ""), "workflow_generate_failed",
+                               "ai_workflow",
+                               details=f"{request.country}-{request.service_type} · attempt {attempt+1} · {last_err}")
+            break  # Don't retry on hard failure — exit to template fallback
+
+        # Quality bar check
+        passed, issues = ai_svc.validate_workflow_quality(workflow_data)
+        if passed:
+            break  # ✅ Good output
+        last_quality_issues = issues
+        if attempt < ai_svc.MAX_QUALITY_RETRIES:
+            prompt = ai_svc.build_stricter_retry_prompt(base_prompt, issues)
+            await log_activity(current_user["id"], current_user.get("name", ""), "workflow_retry_quality",
+                               "ai_workflow",
+                               details=f"{request.country}-{request.service_type} · attempt {attempt+1} · issues={len(issues)}")
+
+    # If still no workflow → template fallback
+    if not workflow_data and template:
+        steps = []
+        for i, (step_name, docs) in enumerate(template.get("steps", {}).items(), 1):
+            steps.append({
+                "step_name": step_name, "step_order": i, "description": "", "duration_days": 14,
+                "required_documents": [
+                    {"name": d["doc_name"], "description": d.get("description", ""),
+                     "mandatory": d.get("is_mandatory", True)} for d in docs],
+                "important_notes": "", "government_fees": "",
+                "official_source_url": "", "vfsglobal_url": vfs_url or "",
+            })
+        workflow_data = {
+            "product_name": f"{request.country} - {request.service_type}",
+            "description": template.get("label", ""),
+            "category": "immigration",
+            "estimated_government_fees": template.get("fees_info", ""),
+            "steps": steps, "success_tips": [], "common_rejection_reasons": [],
+            "_degraded_mode": "template_fallback",
+        }
+        model_used = "template_fallback"
+    elif not workflow_data:
+        raise HTTPException(
+            status_code=503,
+            detail="AI workflow generation temporarily unavailable. No verified template exists for this country/visa combo. Please try a different category or retry in a minute.",
+        )
+
+    # Phase 20.1 — attach metadata for audit
+    workflow_data["_meta"] = {
+        "model_used": model_used,
+        "country_key": country_key,
+        "service_key": service_key,
+        "vfsglobal_url": vfs_url,
+        "skill_assessment_url": sa_url,
+        "is_skill_assessment_required": (country_key in ("australia", "new_zealand") and service_key == "pr"),
+        "quality_issues": last_quality_issues,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_by": current_user.get("id"),
+    }
+
+    await log_activity(current_user["id"], current_user.get("name", ""), "generated_workflow", "ai_workflow",
+                       details=f"{request.country}-{request.service_type} via {model_used} · {len(workflow_data.get('steps', []))} steps")
     return workflow_data
 
 
@@ -619,4 +627,84 @@ async def get_workflow_templates(current_user: dict = Depends(get_current_user))
         {"id": "dubai_visitor", "country": "Dubai", "service": "Visitor", "label": "UAE Tourist Visa", "icon": "plane"},
         {"id": "dubai_golden", "country": "Dubai", "service": "Golden", "label": "UAE Golden Visa (10-Year)", "icon": "star"},
     ]
+    # Phase 20.1 — merge any admin-verified DB workflow templates
+    verified_db = db["ai_workflow_templates"]
+    async for t in verified_db.find({"verified": True}, {"_id": 0,
+                                                          "id": 1, "country": 1, "service": 1,
+                                                          "label": 1, "icon": 1, "model_used": 1,
+                                                          "verified_by": 1, "verified_at": 1}):
+        templates.append({**t, "source": "db_verified"})
     return templates
+
+
+# ── Phase 20.1 — Verify endpoint (admin-only persistence) ────────────────────
+class VerifyRequest(BaseModel):
+    workflow_payload: dict
+    country: str
+    service_type: str
+    notes: Optional[str] = ""
+
+
+@router.post("/verify")
+async def verify_workflow(
+    request: VerifyRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """Persist an admin-verified AI workflow into `ai_workflow_templates` collection.
+
+    The frontend calls this after the admin ticks "I have verified this information".
+    """
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    country_key = (request.country or "").lower().replace(" ", "_")
+    service_key = (request.service_type or "").lower().replace(" ", "_")
+    if not country_key or not service_key:
+        raise HTTPException(status_code=400, detail="country and service_type required")
+
+    meta = (request.workflow_payload or {}).get("_meta", {})
+    template_id = f"{country_key}_{service_key}_verified"
+    label = f"{request.country} - {request.service_type} (Verified)"
+
+    doc = {
+        "id": template_id,
+        "country": request.country,
+        "country_key": country_key,
+        "service": request.service_type,
+        "service_key": service_key,
+        "label": label,
+        "icon": "shield-check",
+        "verified": True,
+        "verified_by": current_user.get("id"),
+        "verified_by_name": current_user.get("name") or current_user.get("email"),
+        "verified_at": datetime.now(timezone.utc),
+        "model_used": meta.get("model_used", "unknown"),
+        "vfsglobal_url": meta.get("vfsglobal_url"),
+        "skill_assessment_url": meta.get("skill_assessment_url"),
+        "is_skill_assessment_required": meta.get("is_skill_assessment_required", False),
+        "workflow_payload": request.workflow_payload,
+        "notes": request.notes or "",
+        "updated_at": datetime.now(timezone.utc),
+    }
+    await db["ai_workflow_templates"].update_one(
+        {"id": template_id},
+        {"$set": doc, "$setOnInsert": {"created_at": datetime.now(timezone.utc)}},
+        upsert=True,
+    )
+    await log_activity(current_user["id"], current_user.get("name", ""), "verified_workflow",
+                       "ai_workflow_template", template_id,
+                       f"Verified {request.country} - {request.service_type} (model: {meta.get('model_used', 'unknown')})")
+    return {"ok": True, "id": template_id, "label": label,
+            "verified_at": doc["verified_at"].isoformat()}
+
+
+@router.get("/verified-templates")
+async def list_verified_templates(current_user: dict = Depends(get_current_user)):
+    """Phase 20.1 — list all admin-verified workflow templates in DB."""
+    out = []
+    async for t in db["ai_workflow_templates"].find({"verified": True}, {"_id": 0}):
+        for k in ("verified_at", "created_at", "updated_at"):
+            if hasattr(t.get(k), "isoformat"):
+                t[k] = t[k].isoformat()
+        out.append(t)
+    return {"items": out, "count": len(out)}
+

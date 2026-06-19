@@ -87,10 +87,40 @@ const AIWorkflowBuilder = () => {
       const r = await axios.post(`${API}/ai-workflow/generate`, { country: selectedCountry.name, service_type: visaName || '', custom_instructions: customInstructions }, auth());
       setWorkflow(r.data);
       const exp = {}; (r.data.steps || []).forEach((_, i) => { exp[i] = true; }); setExpandedSteps(exp);
-      toast.success('Workflow generated!'); setWorkflowSource('ai'); setVerified(false);
+      // Phase 20.1 — surface model + degraded mode in toast
+      const m = r.data?._meta?.model_used || 'AI';
+      const degraded = r.data?._degraded_mode;
+      if (degraded === 'template_fallback') {
+        toast.warning(`AI budget exceeded — using verified template fallback. Top up at Profile → Universal Key → Add Balance.`);
+      } else {
+        toast.success(`Workflow generated via ${m.replace('anthropic/', '').replace('-20250929', '')}!`);
+      }
+      setWorkflowSource('ai'); setVerified(false);
       if (selectedCountry?.name) loadGovForms(selectedCountry.name);
-    } catch (e) { toast.error(e.response?.data?.detail || 'Generation failed'); setView('pick-visa'); }
+    } catch (e) {
+      const detail = e.response?.data?.detail || 'Generation failed';
+      toast.error(detail);
+      setView('pick-visa');
+    }
     setGenerating(false);
+  };
+
+  // Phase 20.1 — persist verification to `ai_workflow_templates` collection
+  const handleVerifyToggle = async (checked) => {
+    setVerified(checked);
+    if (!checked || !workflow || workflowSource !== 'ai') return;
+    try {
+      await axios.post(`${API}/ai-workflow/verify`, {
+        workflow_payload: workflow,
+        country: selectedCountry?.name || '',
+        service_type: workflow?.product_name?.split(' - ').pop() || '',
+        notes: '',
+      }, auth());
+      toast.success('Verified — saved to template library');
+    } catch (e) {
+      console.warn('Verify persist failed:', e?.response?.data?.detail);
+      // Don't block UX — verification still works locally
+    }
   };
 
   const applyTemplate = async (tmpl) => {
@@ -316,7 +346,7 @@ const AIWorkflowBuilder = () => {
                           </a>
                         )}
                         <label className="flex items-center gap-2 cursor-pointer select-none">
-                          <input type="checkbox" checked={verified} onChange={e => setVerified(e.target.checked)} className="rounded border-amber-400 h-4 w-4 text-amber-600" data-testid="verify-checkbox" />
+                          <input type="checkbox" checked={verified} onChange={e => handleVerifyToggle(e.target.checked)} className="rounded border-amber-400 h-4 w-4 text-amber-600" data-testid="verify-checkbox" />
                           <span className="text-xs font-semibold text-amber-800">I have verified this information</span>
                         </label>
                       </div>
