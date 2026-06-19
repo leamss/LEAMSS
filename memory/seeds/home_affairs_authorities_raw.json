@@ -1,0 +1,21 @@
+{
+  "fetched_at": "2026-06-19T11:35:49.007327+00:00",
+  "page_url": "https://immi.homeaffairs.gov.au/visas/working-in-australia/skills-assessment/assessing-authorities",
+  "method_1_static_curl": {
+    "http_status": 200,
+    "size_bytes": 1269748,
+    "outcome": "SPA shell only \u2014 no static tables/lists in HTML body"
+  },
+  "method_2_playwright_headless": {
+    "outcome": "ACCESS DENIED by Akamai/Edgesuite WAF (Reference #18.ad51c317.1781868914.2348e9f2)",
+    "screenshot": "/tmp/ha_authorities_page.png"
+  },
+  "method_3_dewr_alternate_url": {
+    "url": "https://www.dewr.gov.au/assessing-authority-policy-and-assurance/assessing-authorities",
+    "outcome": "Curl SSL/connection error (HTTP 000) \u2014 egress blocked"
+  },
+  "fallback_strategy": "Per Sir's Q4(b): use 26 DB-present bodies + 13 web-search-canonical missing bodies = ~39 total",
+  "web_search_authoritative_count": 39,
+  "web_search_authoritative_source": "DEWR.gov.au / immi.homeaffairs.gov.au (verified Feb 2026)",
+  "ai_summary_quoted": "Australia uses 39 approved assessing authorities. The exact authority depends on the occupation. The official skilled occupation list shows the assessing authority next to each occupation. Heavy-hitters: ACS, AITSL, AMC, ANMAC, VETASSESS, TRA, Engineers Australia, IML, IPA, Medical specialty colleges, MARA, NARA, plus state-or-territory legal admissions authorities."
+}

@@ -208,6 +208,9 @@ async def compare_occupations(req: CompareRequest, current_user: dict = Depends(
         if not occ:
             not_found.append({"country_code": cc, "code": str(c.code)})
             continue
+        # Phase 19.7 — resolve assessing_authority via FK + overrides (back-compat dict shape)
+        from services.authority_resolver import resolve_authority
+        occ["assessing_authority"] = await resolve_authority(OCCUPATION_MASTER.database, occ)
         occupations.append(_shape_occupation(occ))
 
     payload = {

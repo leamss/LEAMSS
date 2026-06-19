@@ -808,6 +808,10 @@ async def get_single_occupation(country: str, code: str):
     if not d:
         raise HTTPException(404, "Occupation not found or not yet verified")
 
+    # Phase 19.7 — resolve assessing_authority via FK + overrides (back-compat shape)
+    from services.authority_resolver import resolve_authority
+    d["assessing_authority"] = await resolve_authority(db, d)
+
     cm = _country_meta(country)
     safe = _safe_doc(d)
     faqs = _build_occupation_faqs(country, d, cm)
