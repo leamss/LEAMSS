@@ -115,6 +115,7 @@ from routers.scrapers import router as scrapers_router
 from routers.data_import import router as data_import_router
 from routers.import_batches import router as import_batches_router
 from routers.assessing_authorities import router as assessing_authorities_router
+from routers.assessing_authorities_write import router as assessing_authorities_write_router
 from routers.enrichment import router as enrichment_router
 # Phase 19 — SEO SSG generator
 from routers.seo_ssg import router as seo_ssg_router, regenerate_all as ssg_regenerate_all
@@ -517,7 +518,7 @@ for r in [targets_router, cost_structures_router, auth_router, users_router, pro
           feedback_requests_router, sales_compare_router, client_errors_router,
           notification_channels_router, seo_ssg_router, scrapers_router,
           data_import_router, import_batches_router, assessing_authorities_router,
-          enrichment_router]:
+          assessing_authorities_write_router, enrichment_router]:
     app.include_router(r, prefix="/api")
 
 

@@ -38,6 +38,7 @@ import ExpressApprovalsAdmin from '@/pages/admin/ExpressApprovalsAdmin';
 import ExpressSalesSettings from '@/pages/admin/ExpressSalesSettings';
 import EligibilityKnowledgeBase from '@/pages/admin/EligibilityKnowledgeBase';
 import OccupationMasterAdmin from '@/pages/admin/OccupationMasterAdmin';
+import AuthoritiesAdmin from '@/pages/admin/AuthoritiesAdmin';
 import CountryGuidesAdmin from '@/pages/admin/CountryGuidesAdmin';
 import VerificationHub from '@/pages/admin/VerificationHub';
 import ScraperHub from '@/pages/admin/ScraperHub';
@@ -219,6 +220,12 @@ function App() {
           <Route path="/admin/kb/occupation-master" element={
             <RequirePermission allowRoles={['admin_owner', 'admin']}>
               <OccupationMasterAdmin />
+            </RequirePermission>
+          } />
+          {/* Phase 19.9 — Authority Admin */}
+          <Route path="/admin/authorities" element={
+            <RequirePermission allowRoles={['admin_owner', 'admin']}>
+              <AuthoritiesAdmin />
             </RequirePermission>
           } />
           {/* Phase 18.7 — Client Errors Admin Dashboard */}

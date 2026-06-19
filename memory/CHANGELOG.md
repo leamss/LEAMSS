@@ -3,6 +3,66 @@
 This file appends every completed phase/feature with dates and verification status.
 
 ---
+### 🛠️ Phase 19.9 — Authority Admin UI + Health Card + Diff Audit (Jun 19, 2026)
+
+**Sales pitch:** Admin ab `/admin/authorities` page se 44 AU assessing bodies ko ek-click verify, edit fees/processing, ya pure LAA umbrella ko 6 state bodies mein split kar sakte hain. **Mandatory Diff Audit modal** har save se pehle dikhata hai "yeh change kitni Atlas + Sales pages affect karega" + SEO meta description redline preview — galat data live nahi ja sakta. Verification Hub ka naya **Authority Health Card widget** ek glance mein 3 problem areas show karta hai: 342 TBD + 44 draft bodies + 5 placeholder fees, har ek pe 1-click resolve button.
+
+#### A) Backend — 8 New Write Endpoints
+**File:** `backend/routers/assessing_authorities_write.py`
+- `POST   /api/assessing-authorities` — create new body (admin only)
+- `PATCH  /api/assessing-authorities/{code}` — update fields (merge nested dicts)
+- `POST   /api/assessing-authorities/{code}/verify` — flip `draft → active`
+- `POST   /api/assessing-authorities/bulk-verify` — batch flip with `codes: []`
+- `POST   /api/assessing-authorities/{code}/split-laa` — special: LAA → 6 state bodies (creates LAA-NSW/VIC/QLD/SA/WA/TAS with default fees $440-$580, marks LAA `deprecated`)
+- `DELETE /api/assessing-authorities/{code}` — only if `occupation_count == 0`; else 409
+- `POST   /api/assessing-authorities/{code}/diff-preview` — compute downstream cascade impact
+- `POST   /api/assessing-authorities/migrate-occupation` — move occupation FK + recompute counts on both sides
+
+**Every write registers a Phase 19.6 import_batch** (revocable 24h) + audit log entry. Sales/Partner roles **blocked at 403** on all writes. Pydantic validation enforces field shapes.
+
+#### B) Diff Audit Service
+**File:** `backend/services/diff_audit_service.py`
+- Given `(code, proposed_changes)`, simulates patched authority + re-runs Phase 19.5 meta_description builder per linked occupation
+- Returns: affected count, atlas page list, sales-flow page count, **top 5 meta description before/after redline samples** with `char_diff`
+- Categorises impact: `none / low (<30 chars) / medium (<100) / high (>100)`
+- Performance: <2s for any body (samples top 5 by code, single resolver call per body)
+
+#### C) Frontend Authority Admin UI
+**File:** `frontend/src/pages/admin/AuthoritiesAdmin.jsx` mounted at `/admin/authorities`
+- **Top stats row:** Total 44 · Active · Draft · Deprecated · Placeholder · Linked Occupations
+- **Body list table** with search + status filter (incl `placeholder`-only filter)
+- **Detail editor panel** with sections for identity, processing, MSA fee, methodology summary, "Verify Now" button
+- **Verify Wizard Modal** — step-through (1 of N) with Previous/Skip/Verify & Next navigation, placeholder badge warning, can be deep-linked via `?wizard=true`
+- **LAA Split Modal** — pre-populated 6 state bodies with editable fees, single-click "Confirm Split"
+- **Diff Audit Modal** (MANDATORY before any PATCH commit) — shows affected page count, SEO impact badge, proposed JSON, top-5 meta description redline with `char_diff`, Cancel/Confirm & Commit buttons
+- All elements carry `data-testid` (auth-row-{code}, auth-verify-{code}, auth-split-laa-btn, diff-modal-open/confirm/cancel, verify-wizard-step-{n}, etc.)
+
+#### D) Authority Health Card Widget
+**File:** `frontend/src/components/admin/AuthorityHealthCard.jsx` mounted on `/admin/verify-hub`
+- 3-column health tiles:
+  - **TBD Bucket** (342) → "Bulk Enrich AU" button → calls `POST /api/enrichment/run`
+  - **Draft Bodies** (44 of 44) → "Verify Wizard" button → routes to `/admin/authorities?wizard=true`
+  - **Placeholder Fees** (5) → "Review Now" button → routes to `/admin/authorities?status=placeholder`
+- Real-time refresh via `useEffect` on mount
+
+#### E) Triple-gate Verification (Jun 19, 2026)
+- 🟢 **GATE 1 (Pytest):** `pytest tests/test_phase199_authority_admin.py tests/test_phase198_bulk_enrichment.py tests/test_phase197_authority_refactor.py tests/test_phase196_dedup_revoke.py -v` → **50/50 PASSED in 10.33s** (15 Phase 19.9 + 12 Phase 19.8 + 13 Phase 19.7 + 10 Phase 19.6, zero regression)
+- 🟢 **GATE 2 (Curl):** PATCH ACS fees, diff-preview (34 affected, none impact for fee-only changes since Phase 19.5 builder doesn't weave fees into meta), verify (status flips draft → active), LAA split (6 state bodies + 1 deprecated = 7 ops in single batch), migrate-occupation (FK reassigned + both sides' `occupation_count` recomputed)
+- 🟢 **GATE 3 (Playwright):** 5 screenshots captured:
+  - `/tmp/phase199_1_authorities_page.png` — full Authority Admin with 44 bodies + filter + Verify Wizard / Split LAA buttons
+  - `/tmp/phase199_2_verify_wizard.png` — Step 2 showing TRA body details, Previous/Skip/Verify & Next
+  - `/tmp/phase199_3_laa_split.png` — Modal with 6 pre-populated state bodies (LAA-NSW $580 → LAA-TAS $440), editable fees
+  - `/tmp/phase199_4_diff_audit.png` — Modal showing "affects 34 occupation pages", proposed JSON, none-impact badge, Confirm & Commit button
+  - `/tmp/phase199_5_health_card.png` — Verification Hub with Authority Health Card showing 3 metrics + Bulk Enrich AU / Verify Wizard / Review Now buttons + Recent Imports panel listing latest Phase 19.9 batches as "Revocable · 24h left"
+
+#### F) Known Behaviour
+- **Diff Audit returns `estimated_seo_impact: "none"` for fee-only or website-only changes** — because Phase 19.5's `_build_meta_description` does NOT weave fee numbers into the meta string (uses body short_name + occupation title + country + ANZSCO code). Only `full_name` changes (which become `short_name` via resolver fallback) produce visible meta diffs. This is correct + expected behaviour — gives admin honest cascade visibility.
+- **LAA umbrella split keeps occupations linked to LAA** (now deprecated). Admin must manually reassign each occupation to the correct state body via `POST /migrate-occupation` (per Sir's "manual" reassign_strategy default — preserves audit trail of original mapping).
+- All write endpoints are **Phase 19.6-revocable** within 24h. Force-revoke also available for emergency override.
+
+---
+
+
 ### 🌾 Phase 19.8 — Bulk Enrichment Engine + 19.7.1 CA Data Quality Fix (Jun 19, 2026)
 
 **Sales pitch:** **Manual data entry near-zero for AU.** Every uploaded JSA Excel, every PDF, every CSV that was already sitting in the system gets cross-pollinated into every 6-digit occupation page automatically. Sales team ko ab har Australian occupation page par rich data milta hai — even Defence Force Senior Officer (TBD bucket) ke paas description, 9 tasks, age profile, industries, state distribution sab populated. **description coverage 29.6% → 97.9%** in one engine run. Full provenance trail (which source wrote which field) + 24h-revocable Phase 19.6 batch + idempotent re-runs. No more manual fill-ins for Sir.

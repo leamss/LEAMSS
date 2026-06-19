@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { formatApiError } from '@/lib/apiErrors';
 import { RecentImportsPanel } from '@/components/admin/RecentImportsPanel';
+import { AuthorityHealthCard } from '@/components/admin/AuthorityHealthCard';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const ANZSCO_SOURCE_TYPE = 'anzsco_4digit';
@@ -454,6 +455,9 @@ export default function VerificationHub() {
             </button>
           </div>
         </div>
+
+        {/* Phase 19.9 — Authority Health Card */}
+        <AuthorityHealthCard />
 
         {/* Phase 19.6 — Recent Imports (audit + revoke) */}
         <RecentImportsPanel limit={8} />
