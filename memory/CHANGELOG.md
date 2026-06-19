@@ -3,6 +3,91 @@
 This file appends every completed phase/feature with dates and verification status.
 
 ---
+### 💰 Phase 20.3 + Bulk Importer — Variable PA Fee Policy + Bulk Products (Jun 19, 2026)
+
+**Sales pitch:** Hardcoded ₹5,100 Pre-Assessment fee constant **GONE** from code. Replaced with **3-tier intelligent resolver** (product override → country+visa policy → global fallback → safety net). 6 seed policies live with brochure-derived defaults (AU Study ₹3K cheaper, CA Work ₹4.5K, etc). **Bulk Product Importer** added — admin upload CSV/XLSX → preview new/update/invalid → commit with revocable batch. Sir's audit fully addressed.
+
+#### Phase 20.3 — Variable PA Fee Policy
+
+**Backend new files:**
+- **`services/pre_assessment_fee_resolver.py`** (NEW, 100 lines): `resolve_pre_assessment_fee()` with 4-priority chain:
+  1. Per-product override (Phase 20.2 `products.pre_assessment_fee_inr`)
+  2. Per-country + visa active policy (effective dates checked)
+  3. GLOBAL/ANY fallback policy
+  4. Hardcoded ₹5,100 safety net (last-resort)
+- **`routers/pre_assessment_fee_policies.py`** (NEW, 245 lines): Full CRUD router
+  - `GET /api/pre-assessment-fee-policies?include_deprecated&country` — list with filters (any auth user)
+  - `GET /api/pre-assessment-fee-policies/resolve?product_id=...&country=...&visa_category=...` — live resolver test (admin/sales/partner)
+  - `POST /api/pre-assessment-fee-policies` — create (admin only, registers Phase 19.6 batch)
+  - `PATCH /api/pre-assessment-fee-policies/{id}` — update (admin only, audit logged)
+  - `DELETE /api/pre-assessment-fee-policies/{id}` — soft-delete (status="deprecated")
+  - `POST /api/pre-assessment-fee-policies/seed` — idempotent seed of 6 defaults (admin only)
+- **`seeds/pre_assessment_fee_policies.py`** (NEW): 6 seed policies — `AU/PR ₹5,100 · CA/PR ₹5,100 · NZ/PR ₹5,100 · GLOBAL/ANY ₹5,100 · AU/STUDY ₹3,000 · CA/WORK ₹4,500` (with brochure-derived rationales)
+
+**Backend modified files:**
+- **`routers/pre_assessment.py`**:
+  - `PRE_ASSESSMENT_FEE = 5100` marked as DEPRECATED hardcoded fallback (kept only for legacy PA records without `pre_assessment_fee` field)
+  - `create_pre_assessment` now calls `resolve_pre_assessment_fee()` BEFORE creating PA record, stores resolved `pre_assessment_fee`, `pre_assessment_fee_source`, `pre_assessment_fee_policy_id` for audit
+  - `send_payment_link` uses stored `pa.pre_assessment_fee` (via `pa_fee` local) instead of constant — Stripe checkout + activity log + transaction record all use resolved amount
+  - `mock_payment_received` and `confirm_payment` also use `pa.pre_assessment_fee`
+
+**Frontend new files:**
+- **`pages/admin/PreAssessmentFeePolicies.jsx`** (NEW, 240 lines): Full admin CRUD page at `/admin/fee-policies`
+  - **Resolver Test panel** (top, orange-tinted): admin picks Country + Visa Category → "Resolve" button → shows fee + source (`country_visa_policy` / `global_fallback` / `hardcoded_safety_net`) live for instant audit
+  - Table of all active policies with country/visa/fee/name/status + edit/delete actions
+  - "Show deprecated" toggle
+  - "Seed Defaults" button (idempotent — re-runs are no-ops)
+  - "New Policy" modal with all fields + 7 country presets + 9 visa-category presets
+
+#### Bulk Product Importer Bundle
+
+**Backend new files:**
+- **`routers/products_bulk_import.py`** (NEW, 280 lines):
+  - `POST /api/products-bulk-import/preview` — dry-run with row-by-row validation (action: new/update/invalid + errors list)
+  - `POST /api/products-bulk-import/commit` — idempotent upsert by (name + country) · registers Phase 19.6 batch · returns counts (created/updated/skipped + errors)
+  - `GET /api/products-bulk-import/template` — download CSV template with 3 example rows + all column headers
+  - **Path collision fix**: Original prefix `/products/bulk-import` collided with `POST /products/{product_id}/preview` (cost preview). Renamed to `/products-bulk-import` to avoid path overlap with parameterized `{product_id}` segment
+  - Column auto-detection (lowercase headers): `name, country, category` REQUIRED · 9 optional fields (`base_fee, is_pre_assessment, pre_assessment_fee_inr, workflow_id, assessing_body_code, visa_subclass, visa_type, status, description`)
+  - **FK validation**: `workflow_id` must exist in verified `ai_workflow_templates`; `assessing_body_code` rejected if country ≠ AU/NZ
+  - **Category enum** validated against Phase 20.2 15-value enum
+
+#### Verification (Triple-Gate)
+- **Pytest** `backend/tests/test_phase203_pa_fee_resolver.py`: **14/14 PASS in 0.72s** (resolver safety net · seed creates 6 · AU PR / AU Study / global fallback / product override priority resolves correctly · partner blocked on writes · partner can read · policy CRUD lifecycle · PA payment uses resolved fee · bulk template download · preview detects new/invalid · commit creates + registers batch · partner blocked on bulk)
+- **Combined regression**: **113/113 PASS in 14.25s** (Phase 19.6/19.7/19.8/19.9/19.9.1/19.10/19.11/20.1/20.2/20.3/20.6)
+- **Curl smoke** (`/api/pre-assessment-fee-policies/resolve`):
+  - AU + PR → `country_visa_policy ₹5,100 · AU PR Standard 2026` ✓
+  - AU + STUDY → `country_visa_policy ₹3,000` ✓
+  - ZZ + UNKNOWN → `global_fallback ₹5,100 · Global Fallback Standard 2026` ✓
+  - UK + WORK (no policy) → falls to `global_fallback` ✓
+  - Product override (pre_assessment_fee_inr=12345) → `product_override ₹12,345` ✓
+- **Curl smoke** (`/api/products-bulk-import`):
+  - Template download → 200 (CSV with 3 sample rows) ✓
+  - Preview (3 rows: 2 new + 1 invalid) → 200 with `{new: 2, invalid: 1}` ✓
+  - Commit (2 valid rows) → 200 with batch_id ✓
+  - Partner blocked → 403 ✓
+- **Playwright** `/app/memory/phase206_brand_screenshots/phase203_fee_policies.jpeg`:
+  - Teal "Pre-Assessment Fee Policies" header + Phase 20.3 subtitle
+  - Orange-tinted Resolver Test panel with live AU+PR → ₹5,100 result + `country_visa_policy` badge
+  - 6 seeded policies table fully visible (AU/PR, AU/STUDY, CA/PR, CA/WORK, GLOBAL/ANY, NZ/PR)
+  - Teal active badges · orange visa-category pills · red destructive trash icons
+  - **Zero non-brand colors** — full Phase 20.6 brand compliance ✓
+
+#### 🟢 ACCEPTANCE CRITERIA — ALL MET
+- [x] Hardcoded ₹5,100 constant removed from active code (kept only as legacy safety net for PAs without `pre_assessment_fee` field)
+- [x] 3-tier resolver implemented + tested (4 priorities including hardcoded fallback)
+- [x] 6 seed policies created (AU/CA/NZ PR + AU Study + CA Work + GLOBAL fallback)
+- [x] Admin CRUD UI at `/admin/fee-policies` LIVE
+- [x] PA payment flow uses resolver (audit logged with `pre_assessment_fee_source`)
+- [x] Bulk product importer functional with preview
+- [x] All Phase 20.3 + bundle pytests GREEN + zero regression
+- [x] CHANGELOG + PRD updated
+
+#### Files touched
+- New: `backend/services/pre_assessment_fee_resolver.py` · `backend/routers/pre_assessment_fee_policies.py` · `backend/routers/products_bulk_import.py` · `backend/seeds/pre_assessment_fee_policies.py` · `backend/tests/test_phase203_pa_fee_resolver.py` · `frontend/src/pages/admin/PreAssessmentFeePolicies.jsx`
+- Modified: `backend/routers/pre_assessment.py` (resolver wiring at create + payment-link + mock-payment + confirm-payment) · `backend/server.py` (2 router registrations) · `frontend/src/App.js` (route registration)
+
+---
+
 ### 📦 Phase 20.2 + 20.2.1 — Product Master Upgrade + Brand Guide (Jun 19, 2026)
 
 **Sales pitch:** Sir ka Product Master ab **production-ready Sales OS foundation** hai. 13 naye fields (`is_pre_assessment`, `pre_assessment_fee_inr`, `workflow_id`, `visa_subclass`, `assessing_body_code`, `commissions_v2`, archived metadata) **additive** add hue — purana data 100% safe. 10 TEST_ products **soft-archived** (revocable). 5 naye/extended endpoints (archive/restore/link-workflow/commissions/filters). Frontend edit modal updated with new "Sales Flow Settings" card. Bonus **`/admin/brand-guide`** — single-page reference for 7 colour tokens, 6 button variants, 7 badge styles, 3 gradients, typography hierarchy, spacing scale — designer + future-contractor reference.

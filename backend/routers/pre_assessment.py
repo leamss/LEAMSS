@@ -55,7 +55,22 @@ users_col = db["users"]
 products_col = db["products"]
 sales_col = db["sales"]
 
-PRE_ASSESSMENT_FEE = 5100  # INR
+PRE_ASSESSMENT_FEE = 5100  # Phase 20.3 — DEPRECATED hardcoded fallback only; use resolver below
+PRE_ASSESSMENT_SAFETY_NET_INR = 5100
+
+
+async def _resolve_pa_fee(pa: dict) -> dict:
+    """Phase 20.3 — Resolve PA fee using 3-tier policy resolver.
+
+    Returns dict: {amount, currency, source, policy_id?, product_id?}
+    """
+    from services.pre_assessment_fee_resolver import resolve_pre_assessment_fee
+    return await resolve_pre_assessment_fee(
+        db,
+        product_id=pa.get("product_id"),
+        country_code=(pa.get("country") or "").upper()[:2] if pa.get("country") else None,
+        visa_category=(pa.get("service_type") or pa.get("visa_type") or "").upper() or None,
+    )
 STRIPE_API_KEY = os.environ.get("STRIPE_API_KEY")
 
 STAGES = [
@@ -211,6 +226,20 @@ async def create_pre_assessment(data: CreatePreAssessment, current_user: dict = 
     pa_id = str(uuid.uuid4())
     pa_number = f"PA-{datetime.now().strftime('%Y%m%d')}-{pa_id[:6].upper()}"
 
+    # Phase 20.3 — resolve fee using 3-tier policy resolver BEFORE creating the PA
+    from services.pre_assessment_fee_resolver import resolve_pre_assessment_fee
+    fee_resolution = await resolve_pre_assessment_fee(
+        db,
+        product_id=data.product_id,
+        country_code=(data.country or "").upper()[:2] if data.country else None,
+        visa_category=(data.service_type or "").upper() or None,
+    )
+    resolved_fee = int(fee_resolution["amount"])
+
+    # Inject resolved fee back into express_meta for backward compat
+    if sale_type == "express":
+        express_meta["pa_fees_amount"] = resolved_fee
+
     product_name = ""
     if data.product_id:
         product = await products_col.find_one({"id": data.product_id}, {"_id": 0, "name": 1})
@@ -252,7 +281,10 @@ async def create_pre_assessment(data: CreatePreAssessment, current_user: dict = 
         "education": data.education,
         "work_experience": data.work_experience,
         "stage": starting_stage,
-        "pre_assessment_fee": PRE_ASSESSMENT_FEE,
+        "pre_assessment_fee": resolved_fee,
+        "pre_assessment_fee_source": fee_resolution.get("source"),
+        "pre_assessment_fee_policy_id": fee_resolution.get("policy_id"),
+        "pre_assessment_fee_currency": fee_resolution.get("currency", "INR"),
         "fee_payment_status": "skipped" if sale_type == "express" else "unpaid",
         "fee_session_id": None,
         "admin_decision": None,
@@ -319,7 +351,7 @@ async def create_pre_assessment(data: CreatePreAssessment, current_user: dict = 
 
 @router.post("/{pa_id}/send-payment-link")
 async def send_payment_link(pa_id: str, http_request: Request, current_user: dict = Depends(get_current_user)):
-    """Partner sends ₹5,100 pre-assessment payment link to client"""
+    """Partner sends pre-assessment payment link to client (Phase 20.3 — uses stored resolved fee)"""
     pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
     if not pa:
         raise HTTPException(status_code=404, detail="Pre-assessment not found")
@@ -330,6 +362,9 @@ async def send_payment_link(pa_id: str, http_request: Request, current_user: dic
     if pa["stage"] not in ["new", "payment_pending"]:
         raise HTTPException(status_code=400, detail=f"Cannot send payment link at stage: {pa['stage']}")
 
+    # Phase 20.3 — use stored resolved fee (with safety fallback for legacy PAs)
+    pa_fee = int(pa.get("pre_assessment_fee") or PRE_ASSESSMENT_FEE)
+
     if not STRIPE_API_KEY:
         # Mock mode — simulate payment link
         mock_link = f"{str(http_request.base_url)}api/pre-assessment/{pa_id}/mock-payment"
@@ -337,7 +372,7 @@ async def send_payment_link(pa_id: str, http_request: Request, current_user: dic
             "stage": "payment_pending", "updated_at": datetime.now(timezone.utc)
         }})
         await log_activity(current_user["id"], current_user.get("name", ""), "send_payment_link",
-                           "pre_assessment", pa_id, f"Payment link sent to {pa['client_name']} (₹{PRE_ASSESSMENT_FEE})")
+                           "pre_assessment", pa_id, f"Payment link sent to {pa['client_name']} (₹{pa_fee})")
         return {"message": f"Payment link sent to {pa['client_email']}", "payment_url": mock_link, "mode": "mock"}
 
     from emergentintegrations.payments.stripe.checkout import StripeCheckout, CheckoutSessionRequest
@@ -351,7 +386,7 @@ async def send_payment_link(pa_id: str, http_request: Request, current_user: dic
     stripe_checkout = StripeCheckout(api_key=STRIPE_API_KEY, webhook_url=webhook_url)
 
     checkout_request = CheckoutSessionRequest(
-        amount=float(PRE_ASSESSMENT_FEE),
+        amount=float(pa_fee),
         currency="inr",
         success_url=success_url,
         cancel_url=cancel_url,
@@ -371,7 +406,7 @@ async def send_payment_link(pa_id: str, http_request: Request, current_user: dic
         "id": tx_id, "type": "pre_assessment_fee",
         "pre_assessment_id": pa_id, "session_id": session.session_id,
         "user_id": current_user["id"], "client_email": pa["client_email"],
-        "amount": float(PRE_ASSESSMENT_FEE), "currency": "inr",
+        "amount": float(pa_fee), "currency": "inr",
         "status": "initiated", "payment_status": "pending",
         "created_at": datetime.now(timezone.utc)
     })
@@ -382,7 +417,7 @@ async def send_payment_link(pa_id: str, http_request: Request, current_user: dic
     }})
 
     await log_activity(current_user["id"], current_user.get("name", ""), "send_payment_link",
-                       "pre_assessment", pa_id, f"₹{PRE_ASSESSMENT_FEE} payment link sent to {pa['client_name']}")
+                       "pre_assessment", pa_id, f"₹{pa_fee} payment link sent to {pa['client_name']} (source: {pa.get('pre_assessment_fee_source', 'legacy')})")
 
     return {"message": f"Payment link sent to {pa['client_email']}", "payment_url": session.url, "session_id": session.session_id}
 
@@ -393,6 +428,7 @@ async def mock_payment_received(pa_id: str):
     pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
     if not pa:
         raise HTTPException(status_code=404, detail="Pre-assessment not found")
+    pa_fee = int(pa.get("pre_assessment_fee") or PRE_ASSESSMENT_FEE)
 
     await pre_assessments_col.update_one({"id": pa_id}, {"$set": {
         "stage": "payment_received", "fee_payment_status": "paid",
@@ -403,7 +439,7 @@ async def mock_payment_received(pa_id: str):
     await notifications_col.insert_one({
         "id": str(uuid.uuid4()), "user_id": pa["partner_id"],
         "title": "Payment Received!", "type": "payment",
-        "message": f"₹{PRE_ASSESSMENT_FEE} received from {pa['client_name']}. Submit documents for admin review.",
+        "message": f"₹{pa_fee} received from {pa['client_name']}. Submit documents for admin review.",
         "read": False, "created_at": datetime.now(timezone.utc)
     })
 
@@ -416,6 +452,7 @@ async def confirm_payment(pa_id: str, current_user: dict = Depends(get_current_u
     pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
     if not pa:
         raise HTTPException(status_code=404, detail="Pre-assessment not found")
+    pa_fee = int(pa.get("pre_assessment_fee") or PRE_ASSESSMENT_FEE)
 
     await pre_assessments_col.update_one({"id": pa_id}, {"$set": {
         "stage": "payment_received", "fee_payment_status": "paid",
@@ -423,7 +460,7 @@ async def confirm_payment(pa_id: str, current_user: dict = Depends(get_current_u
     }})
 
     await log_activity(current_user["id"], current_user.get("name", ""), "confirm_pa_payment",
-                       "pre_assessment", pa_id, f"₹{PRE_ASSESSMENT_FEE} payment confirmed for {pa['client_name']}")
+                       "pre_assessment", pa_id, f"₹{pa_fee} payment confirmed for {pa['client_name']}")
 
     return {"message": "Payment confirmed"}
 

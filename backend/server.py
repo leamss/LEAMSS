@@ -120,6 +120,8 @@ from routers.enrichment import router as enrichment_router
 from routers.currency import router as currency_router
 from routers.state_nominations import router as state_nominations_router
 from routers.pre_assessment_report_v2 import router as pre_assessment_report_v2_router
+from routers.pre_assessment_fee_policies import router as pa_fee_policies_router
+from routers.products_bulk_import import router as products_bulk_import_router
 # Phase 19 — SEO SSG generator
 from routers.seo_ssg import router as seo_ssg_router, regenerate_all as ssg_regenerate_all
 # Phase 18.7 — Notification channels + digest scheduler
@@ -522,7 +524,8 @@ for r in [targets_router, cost_structures_router, auth_router, users_router, pro
           notification_channels_router, seo_ssg_router, scrapers_router,
           data_import_router, import_batches_router, assessing_authorities_router,
           assessing_authorities_write_router, enrichment_router,
-          currency_router, state_nominations_router, pre_assessment_report_v2_router]:
+          currency_router, state_nominations_router, pre_assessment_report_v2_router,
+          pa_fee_policies_router, products_bulk_import_router]:
     app.include_router(r, prefix="/api")
 
 

@@ -67,6 +67,7 @@ import VendorCategoriesManager from '@/pages/admin/VendorCategoriesManager';
 import CostStructuresManager from '@/pages/admin/CostStructuresManager';
 import ProductsManager from '@/pages/admin/ProductsManager';
 import BrandGuide from '@/pages/admin/BrandGuide';
+import PreAssessmentFeePolicies from '@/pages/admin/PreAssessmentFeePolicies';
 import AdminAllocations from '@/pages/admin/AdminAllocations';
 import CommissionSlabsManager from '@/pages/admin/CommissionSlabsManager';
 import CommissionDashboard from '@/pages/admin/CommissionDashboard';
@@ -385,6 +386,11 @@ function App() {
           <Route path="/admin/brand-guide" element={
             <RequirePermission anyOf={['system.user_manage.any']}>
               <BrandGuide />
+            </RequirePermission>
+          } />
+          <Route path="/admin/fee-policies" element={
+            <RequirePermission anyOf={['system.user_manage.any']}>
+              <PreAssessmentFeePolicies />
             </RequirePermission>
           } />
           <Route path="/admin/allocations" element={
