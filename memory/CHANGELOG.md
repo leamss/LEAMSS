@@ -3,6 +3,76 @@
 This file appends every completed phase/feature with dates and verification status.
 
 ---
+### 🏛️ Phase 19.7 — Assessing Authority as First-Class Entity (Jun 19, 2026)
+
+**Sales pitch:** Atlas ab "skill assessing body" ko first-class entity treat karta hai — har bulk fee/processing/document-checklist update sirf EK row me hota hai (`assessing_authorities` collection) aur 684 AU occupations ke saath turant reflect ho jata hai. Pehle ACS ka fee badalna tha to 34 occupation rows manually update karne padte the. Ab single admin edit (Phase 19.9 UI) → instantly all 34 software-engineer/IT pages updated. **44 AU bodies seeded** with canonical defaults from Home Affairs/DEWR. **Country-aware resolver** silently merges authority defaults + occupation-level overrides while preserving the back-compat dict shape that 32+ existing readers depend on — zero UI break.
+
+#### A) Discovery & Pre-flight Safety
+- **Pre-migration snapshot:** `/app/memory/snapshots/pre_phase197_au_occupations.json` (1,026 AU docs, 7.5 MB, MD5 `9d792514d864d963b7377ce70969eb4b`)
+- **Home Affairs URL** (`immi.homeaffairs.gov.au/...assessing-authorities`) is accessible via curl (HTTP 200, 1.27 MB) but page is SPA + Akamai/Edgesuite WAF blocks Playwright headless rendering. **Fallback path** used per Sir's Q4(b) decision: 26 DB-present bodies + 13 web-search-canonical + 5 surfaced during migration = 44 total. Forensic log at `/app/memory/seeds/home_affairs_authorities_raw.json`.
+- **DEWR alt URL** (egress-blocked HTTP 000) — not usable from preview container.
+
+#### B) Schema & Seed
+- **New collection:** `assessing_authorities` — 44 AU bodies with `{code, full_name, aliases[], website, processing, fees, validity_period_months, documents_required_common, methodology_summary, occupation_count (denormalised), _seed_source, _seed_quality, status, country}`. Indexes: `code unique`, `(country, status)`, `occupation_count desc`.
+- **Seed file:** `backend/seeds/assessing_authorities_au.py` — Tier 1 heavy-hitters (VETASSESS, TRA, ACS, MedBA, EA, ANMAC) with verified Feb-2026 published fees (AUD $625-$1188 MSA range, 56-180 day processing). Tier 6 placeholder bodies (ANZSNM, AOPA, AOAC, SPA, AASW) tagged `_seed_quality: "placeholder"` — Phase 19.9 admin UI will show amber "Needs Review" chip on these.
+- **All bodies seeded with `status: "draft"`** — admin must verify each via Phase 19.9 UI before going active. Resolver still surfaces draft bodies (read continues to work); UI badge invites admin attention.
+- **LAA umbrella** — "Legal admissions authority of a state or territory" intentionally seeded as a single umbrella body. Phase 19.9 admin UI will allow splitting into NSW Law Society / Victorian Legal Admissions Board / etc.
+
+#### C) Country-aware Resolver
+- **New service:** `backend/services/authority_resolver.py` — `resolve_authority(db, occ)` (async) + `resolve_authority_sync(db_sync, occ)` (sync for SSG/pytest).
+- **Country routing:** AU uses new FK + override merge logic. NZ/CA pass-through their existing inline-fee dicts unchanged (NZQA-style with `fee_native, processing_time_weeks, rules_summary` etc.) with `_country_legacy_pass_through: True` flag. Phase 19.10+ will refactor NZ/CA similarly.
+- **Back-compat contract:** Always returns dict with at minimum `{short_name, name, url}` — every existing reader (Atlas SSG, Smart Sales Helper, Pre-Assessment Report, admin views, ~32 files) continues to work unchanged. New fields (`processing`, `fees`, `_id`, `_status`, `_resolver_version`, `_tbd`) layered on top.
+- **TBD handling:** 342 AU occupations with empty assessing_authority → resolver returns `{short_name:"", name:"", url:"", _tbd:True}`. Atlas pages render cleanly without crash; frontend can detect `_tbd:True` to surface "Authority TBD — Pending Enrichment" badge (Phase 19.8 enrichment target).
+
+#### D) Migration (idempotent, revocable)
+- **New file:** `backend/migrations/m20260619_authority_refactor.py` — opens a Phase 19.6 `import_batch` (24h revocable, full pre-state captured per row), walks all 1,026 AU `occupation_master` docs, fuzzy-matches assessing_authority dict via alias index (lowercase+stripped match against 200+ alias variants), sets `assessing_authority_id` FK, preserves `assessing_authority_legacy_string` for forensics, logs unmatched strings to `assessing_authority_unmatched` collection for admin review.
+- **Migration results (final run):**
+  - **Authorities seeded:** 44 bodies (39 canonical + 5 surfaced)
+  - **Occupations matched:** 684 / 1026 (66.7%)
+  - **Empty (TBD bucket):** 342 / 1026 (33.3%) — Phase 19.8 enrichment scope
+  - **Unmatched:** 0 (all surfaced bodies added to seed)
+  - **Data corruption fixed:** 1 (Engineers Australia row with vetassess URL → corrected to `engineersaustralia.org.au`)
+- **Migration batch:** `imp_20260619T114533_8c459995` — revocable for 24h via Phase 19.6 `POST /api/import-batches/{batch_id}/revoke`
+- **Top 5 authorities by occupation count:** VETASSESS (360), TRA (133), ACS (34), MedBA (34), EA (31)
+
+#### E) Read-only API Endpoints
+- **New router:** `backend/routers/assessing_authorities.py` mounted at `/api/assessing-authorities`:
+  - `GET /` — paginated list, sorted by `occupation_count desc`, `?country=AU&include_drafts=...`
+  - `GET /{code}` — full body record with fees, processing, aliases, occupation_count
+  - `GET /{code}/occupations?limit=N&skip=M` — paginated linked occupations
+- **Access:** Admin + Sales + Partner roles (read-only). Write endpoints (POST/PATCH/DELETE) ship in Phase 19.9.
+
+#### F) Resolver Wiring (Step 4)
+**Wired in 19.7:** `routers/public_atlas.py` (Atlas SSG detail endpoint, 1,490-page surface) · `routers/sales_compare.py` (2 hot-path endpoints for sales agent comparisons).
+
+**Deferred to next phases (legacy dict reads still work due to back-compat):** `kb_unified.py` · `sales_occupations.py` · `sales_ai_helpers.py` · `seo_ssg.py` · `feedback_requests.py` · `cases.py` · `occupation_master.py` · `occupation_master_import.py` · `anz_intel.py` · `core/auto_verify.py` · 5 scrapers.
+
+Resolver source file `authority_resolver.py` has a wiring inventory comment block documenting which readers are wired vs. deferred, so future agents can see the surface area at a glance.
+
+#### G) Override Fields on `occupation_master`
+- Optional new fields: `custom_processing_days_min`, `custom_processing_days_max`, `custom_msa_fee_aud`, `assessing_authority_override_notes`. Null by default → authority defaults win. When set, resolver flags them in the merged response as `_override_min: True` etc. Phase 19.9 UI will expose these as per-occupation override controls.
+
+#### H) Triple-gate Verification (Jun 19, 2026)
+- 🟢 **GATE 1 (Pytest):** `pytest tests/test_phase197_authority_refactor.py tests/test_phase196_dedup_revoke.py -v` → **23/23 PASSED in 4.76s** (13 Phase 19.7 + 10 Phase 19.6 regression). Tests cover: 44+ bodies seeded, unique-index enforced, VETASSESS mapping, EA alias fuzzy-match, unmatched collection, resolver default+override merge, TBD fallback, Atlas SSG uses resolver, occupation_count denormalised accuracy, list endpoint auth, detail endpoint fees, occupations endpoint pagination, **Phase 19.5 dynamic descriptions unaffected by Phase 19.7** (zero regression on 1,467-page uniqueness target).
+- 🟢 **GATE 2 (Curl):**
+  - `GET /api/assessing-authorities?country=AU` → 44 items
+  - `GET /api/assessing-authorities/ACS` → fees AUD $625, processing 56-84d, 34 occupations
+  - `GET /api/assessing-authorities/ACS/occupations` → 34 linked codes
+  - `GET /api/public-atlas/AU/261313` (Software Engineer) → resolver merges ACS fees, `_resolver_version: phase_19.7`, back-compat preserved
+  - `GET /api/public-atlas/AU/111212` (TBD case — Defence Force Senior Officer) → graceful empty render, `_tbd: True`
+  - `GET /api/public-atlas/NZ/121111` (NZQA) → pass-through with `fee_native=896, processing_time_weeks=5`, `_country_legacy_pass_through: True`
+  - `GET /api/public-atlas/CA/10010` (WES) → pass-through with `fee_native=265, fee_currency=CAD`
+- 🟢 **GATE 3 (Full SSG regen):** 1,467 occupations + 19 industries + 3 country indexes + 1 hub = **1,490 HTML files regenerated in 3.25s, 0 errors, sitemap 1,492 URLs.** Spot-check confirms AU 261313 has 10 mentions of "ACS / Australian Computer Society" in regenerated HTML.
+
+#### I) Known limitations (honest disclosure)
+- 5 placeholder bodies (ANZSNM/AOPA/AOAC/SPA/AASW) have approximate fee/processing defaults — admin must refine in Phase 19.9 UI. Tagged `_seed_quality: "placeholder"`.
+- 342 AU occupations remain in TBD bucket — Phase 19.8 enrichment scope (vacancy state data + state SOL/ROL + body-mapping for empty rows).
+- Resolver currently wired in 2 hot paths (Atlas SSG detail + Sales Compare). Remaining 13 readers continue using legacy dict (still present + valid) — they'll be migrated to resolver during Phase 19.8/19.9/19.10 routine refactors.
+- All seeded bodies have `status: "draft"` — Phase 19.9 admin UI requires explicit verification before "active". Resolver still surfaces draft bodies (read remains functional).
+
+---
+
+
 ### 🛡️ Phase 19.6 — Bulk Import Safety: Preview Tokens, Import Batches, Revoke Flow (Jun 18, 2026)
 
 **Sales pitch:** Atlas ab "Knowledge Base" ko data-corruption-proof banata hai — har bulk upload ek **signed, dry-run preview token** + **24-hour revocable batch** ke saath chalega. Agar admin galti se ek galat 1,014-row Excel commit kar de (jaisa pehle hua), woh ek button click se cleanly revoke ho jata hai. Production-grade data integrity ab built-in: tamper-proof token (SHA-256 + HMAC), full audit log per action (info/warn/critical), 3-way "Verified · Pending Enrichment · Raw Drafts" cosmetic stat card admin ko exact health-bar dikhata hai.

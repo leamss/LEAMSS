@@ -3,6 +3,32 @@
 Single read-side helper used by every downstream consumer (Atlas SSG,
 Smart Sales Helper, Pre-Assessment Report, admin views).
 
+──────────────────────────────────────────────────────────────────────────
+WIRING INVENTORY (which routers currently invoke this resolver):
+──────────────────────────────────────────────────────────────────────────
+✅ WIRED in Phase 19.7:
+  - routers/public_atlas.py        — get_occupation() detail endpoint (SSG path)
+  - routers/sales_compare.py       — POST /compare + POST /compare/pdf (2 hot paths)
+
+⏳ DEFERRED to subsequent phases (legacy dict read still works due to back-compat):
+  - routers/kb_unified.py          (admin verification — Phase 19.9)
+  - routers/sales_occupations.py   (occupation search — Phase 19.10 Smart Sales)
+  - routers/sales_ai_helpers.py    (AI helpers — Phase 19.10)
+  - routers/seo_ssg.py             (full SSG regen — uses public_atlas internally)
+  - routers/feedback_requests.py   (verification feedback — Phase 19.9)
+  - routers/cases.py               (case management — write-side, doesn't need resolver)
+  - routers/occupation_master.py   (admin CRUD — write-side)
+  - routers/occupation_master_import.py (bulk import — write-side)
+  - routers/anz_intel.py           (analytics — read pattern minimal)
+  - core/auto_verify.py            (auto-verify scripts — Phase 19.9)
+  - scrapers/*.py                  (data ingestion — write-side, no resolver needed)
+
+LEGACY DICT BACK-COMPAT:
+  The pre-Phase-19.7 dict shape `{short_name, name, url}` is preserved on every
+  AU occupation_master doc (assessing_authority_legacy_string also added during
+  migration). Deferred readers continue to work with no change.
+
+──────────────────────────────────────────────────────────────────────────
 Contract — back-compat shape (32+ existing readers depend on this):
     Returns a dict with at minimum:
         {short_name: str, name: str, url: str}
