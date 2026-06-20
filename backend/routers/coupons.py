@@ -74,6 +74,9 @@ def _check_status(c: Dict[str, Any]) -> str:
     vu = c.get("valid_until")
     if isinstance(vu, str):
         vu = datetime.fromisoformat(vu.replace("Z", "+00:00"))
+    # Mongo returns naive datetimes; coerce to UTC-aware for safe comparison
+    if isinstance(vu, datetime) and vu.tzinfo is None:
+        vu = vu.replace(tzinfo=timezone.utc)
     if vu and vu < now:
         return "expired"
     if c.get("usage_limit_total") and c.get("used_count", 0) >= c["usage_limit_total"]:

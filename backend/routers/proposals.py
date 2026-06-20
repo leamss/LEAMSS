@@ -267,6 +267,16 @@ def _render_proposal_html(p: Dict[str, Any]) -> str:
     orange = "#ea580c"
     red = "#dc2626"
     bg = "#ffffff"
+
+    def _date_str(v: Any) -> str:
+        if isinstance(v, datetime):
+            return v.strftime("%Y-%m-%d")
+        if isinstance(v, str):
+            return v[:10]
+        return ""
+
+    created_str = _date_str(p.get("created_at"))
+    expires_str = _date_str(p.get("expires_at"))
     total = p.get("total_inr", 0)
     coupons_html = ""
     for c in p.get("applied_coupons", []):
@@ -310,14 +320,14 @@ table.fees td {{ padding: 6px 0; border-bottom: 1px solid #f3f4f6; font-size: 12
 <div class="brand-strip">LEAMSS · CONFIDENTIAL · PRODUCT &amp; SALES OS</div>
 <div class="hdr">
   <h1>Migration Service Proposal</h1>
-  <p>Reference: <strong>{p["id"][:12].upper()}</strong> · Date: {(p.get('created_at') or '')[:10]}</p>
+  <p>Reference: <strong>{p["id"][:12].upper()}</strong> · Date: {created_str}</p>
   <p>For: <strong>{p.get('client_id','')}</strong> · Country: <strong>{p.get('country','')}</strong> · Visa: <strong>{p.get('service_type','')}</strong></p>
 </div>
 
 <h2>1. Executive Summary</h2>
 <div class="section-box">
   <strong>Recommended Pathway:</strong> {p.get('product_name','')}<br/>
-  <strong>Validity:</strong> Proposal valid until {(p.get('expires_at') or '')[:10]}<br/>
+  <strong>Validity:</strong> Proposal valid until {expires_str}<br/>
   <strong>Status:</strong> {p.get('status','draft').upper()}
 </div>
 

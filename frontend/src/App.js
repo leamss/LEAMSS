@@ -94,6 +94,9 @@ import ComparePage from '@/pages/sales/ComparePage';
 import CompareBar from '@/components/CompareBar';
 import AppErrorBoundary from '@/components/AppErrorBoundary';
 import ClientErrorsDashboard from '@/pages/admin/ClientErrorsDashboard';
+import CouponsAdmin from '@/pages/admin/CouponsAdmin';
+import FunnelDashboard from '@/pages/admin/FunnelDashboard';
+import ProposalBuilder from '@/pages/sales/ProposalBuilder';
 import { useLocation } from 'react-router-dom';
 import '@/App.css';
 
@@ -404,6 +407,21 @@ function App() {
           <Route path="/admin/pa-reviews" element={
             <RequirePermission anyOf={['system.user_manage.any', 'case.update.any']}>
               <PAReviewsQueue />
+            </RequirePermission>
+          } />
+          <Route path="/admin/coupons" element={
+            <RequirePermission anyOf={['system.user_manage.any', 'sale.create.any']}>
+              <CouponsAdmin />
+            </RequirePermission>
+          } />
+          <Route path="/admin/funnel-dashboard" element={
+            <RequirePermission anyOf={['system.user_manage.any', 'case.update.any']}>
+              <FunnelDashboard />
+            </RequirePermission>
+          } />
+          <Route path="/sales/proposal-builder" element={
+            <RequirePermission anyOf={['system.user_manage.any', 'sale.create.any', 'case.update.any']}>
+              <ProposalBuilder />
             </RequirePermission>
           } />
           <Route path="/admin/mini-portals" element={

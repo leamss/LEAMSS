@@ -148,7 +148,6 @@ def test_208_create_proposal_with_coupon(headers, seed_product):
     assert p["gst_inr"] == 28125
     assert p["total_inr"] == 184375
     assert p["status"] == "draft"
-    return p["id"]
 
 
 def test_208_send_and_get_proposal_pdf(headers, seed_product, db):

@@ -97,7 +97,8 @@
 <p class="small">{{ occupation.alternative_titles[:10] | join(" · ") }}</p>
 {% endif %}
 
-<!-- ─── 3. ASSESSING BODY ─── -->
+<!-- ─── 3. ASSESSING BODY (Phase 20.7 — AU/NZ only) ─── -->
+{% if country.code in ['AU', 'NZ'] %}
 <h2>3. Assessing Body</h2>
 {% if assessing_body and assessing_body.name %}
 <table>
@@ -115,6 +116,7 @@
 </table>
 {% else %}
 <p class="small">Assessing body has not yet been assigned for this occupation. LEAMSS will identify the correct body during full case review.</p>
+{% endif %}
 {% endif %}
 
 <!-- ─── 4. SALARY + STATE DEMAND ─── -->
