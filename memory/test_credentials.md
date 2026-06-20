@@ -12,6 +12,33 @@ These accounts are seeded automatically on first boot and backfilled with RBAC f
 | Client      | client@leamss.com      | Client@123   | client         | client    | —          | —                          |
 | Client 2    | client2@leamss.com     | Client@123   | client         | client    | —          | —                          |
 
+## Step 2 Client Portal (Jun 20, 2026)
+
+Client Portal uses a **separate JWT** at `/api/client-auth/login` (NOT `/api/auth/login`).
+Token stored under `localStorage["client_token"]`. JWT claim `user_type: "client"`.
+**Staff tokens get 403** on `/api/client-portal/*` endpoints.
+
+Existing client portal records use the seeded `temp_password` on the
+`client_mini_portals` doc (12-char random alphanumeric). On first login it auto-
+hashes into `password_hash` for subsequent attempts.
+
+Test flow: query `c.client_mini_portals.find_one({"client_email":"client@leamss.com"})`
+to retrieve current `temp_password` for that record, then call:
+
+```
+POST /api/client-auth/login  {"email": "<email>", "password": "<temp_password>"}
+```
+
+Login page URL: `/client-portal/login` · Dashboard: `/client-portal/dashboard`.
+
+To seed a fresh demo client for screenshots:
+```python
+c.client_mini_portals.insert_one({"id":"...","client_id":"demo_cid",
+  "client_email":"demo@example.com","temp_password":"DemoPwd1234",
+  "client_name":"Demo","status":"active","locked":False,
+  "info_sheet_id":"...","temp_password":"...",...})
+```
+
 | Khushii Singh (auto from vendor) | khushiii@leamss.com | Welcome@aYnfWufa | case_manager | internal | — | (must change on first login) |
 ## Phase 3A — Attendance & Leave Test Accounts (May 2026)
 

@@ -241,6 +241,76 @@ body{margin:0;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,sans-
     <ul class="list">
 <li>✓ Most affordable capital</li><li>✓ Designated regional area — extra 5 points</li><li>✓ Wine country</li>    </ul>
 
+    <section style="margin:40px 0">
+      <div style="background:#fff;border:1px solid var(--border);border-radius:14px;padding:28px;box-shadow:0 8px 24px rgba(31,77,68,.06)">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:28px;align-items:start">
+          <div>
+            <span style="display:block;color:var(--burnt);font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;margin-bottom:8px">Free · 3-minute eligibility check</span>
+            <h2 style="font-family:'Playfair Display',Georgia,serif;font-size:26px;font-weight:700;color:var(--ink);line-height:1.2;margin:0 0 10px">Get your South Australia migration plan</h2>
+            <p style="font-size:14px;color:var(--muted);line-height:1.6;margin:0 0 14px">A licensed LEAMSS migration consultant will review your profile for <strong>South Australia (SA)</strong> and reply within <strong>24 hours</strong>. No payment required.</p>
+            <ul style="list-style:none;padding:0;margin:0;font-size:13px;color:var(--ink)">
+              <li style="padding:4px 0">✓ State-specific 190 / 491 / 189 nomination check</li>
+              <li style="padding:4px 0">✓ Points calculation customised to SA</li>
+              <li style="padding:4px 0">✓ Top-3 occupation match against your CV</li>
+            </ul>
+          </div>
+          <form id="lead-form-state" action="/api/public-atlas/lead" method="post" data-state="SA" data-testid="lead-form-state">
+            <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:4px;letter-spacing:.04em">Full name *</label>
+            <input name="name" type="text" required autocomplete="name" placeholder="Rahul Sharma" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:14px;color:var(--ink);margin-bottom:10px;background:#fffdf8" data-testid="lead-state-name">
+            <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:4px;letter-spacing:.04em">Email *</label>
+            <input name="email" type="email" required autocomplete="email" placeholder="rahul@example.com" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:14px;color:var(--ink);margin-bottom:10px;background:#fffdf8" data-testid="lead-state-email">
+            <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:4px;letter-spacing:.04em">Phone (with country code) *</label>
+            <input name="phone" type="tel" required autocomplete="tel" placeholder="+91 …" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:14px;color:var(--ink);margin-bottom:10px;background:#fffdf8" data-testid="lead-state-phone">
+            <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:4px;letter-spacing:.04em">Your occupation or message</label>
+            <textarea name="message" rows="2" placeholder="e.g. Software Engineer, 6 yrs experience" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:14px;color:var(--ink);margin-bottom:8px;background:#fffdf8;resize:vertical" data-testid="lead-state-message"></textarea>
+            <input type="hidden" name="country_of_interest" value="AU">
+            <input type="hidden" name="interested_state" value="SA">
+            <input type="hidden" name="source" value="state_landing_SA">
+            <input type="text" name="company_url" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px;top:-9999px" aria-hidden="true">
+            <button type="submit" style="width:100%;background:var(--burnt);color:#fff;border:none;border-radius:8px;padding:13px;font-size:15px;font-weight:700;cursor:pointer;margin-top:6px;transition:transform .15s" data-testid="lead-state-submit"
+                    onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='none'">
+              Get my free SA eligibility check →
+            </button>
+            <p style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.5">We respect your privacy. Your details are encrypted and never sold. You'll receive only relevant South Australia migration insights.</p>
+            <div id="lead-success-state" style="display:none;padding:10px;background:#dcfce7;color:#166534;border-radius:8px;margin-top:10px;font-size:13px;font-weight:600">✓ Thank you! Our South Australia migration expert will contact you within 24 hours.</div>
+            <div id="lead-error-state" style="display:none;padding:10px;background:#fee2e2;color:#991b1b;border-radius:8px;margin-top:10px;font-size:13px">⚠ Something went wrong. Please try again or email hello@leamss.com</div>
+          </form>
+        </div>
+      </div>
+    </section>
+    <script>
+      (function(){
+        var f = document.getElementById('lead-form-state');
+        if (!f) return;
+        f.addEventListener('submit', async function(e){
+          e.preventDefault();
+          var fd = new FormData(f);
+          var data = {};
+          fd.forEach(function(v,k){ data[k]=v; });
+          var btn = f.querySelector('button[type="submit"]');
+          var orig = btn.textContent;
+          btn.disabled = true; btn.textContent = 'Submitting…';
+          try {
+            var r = await fetch('/api/public-atlas/lead', {
+              method:'POST',
+              headers:{'Content-Type':'application/json'},
+              body: JSON.stringify(data)
+            });
+            if (r.ok) {
+              document.getElementById('lead-success-state').style.display='block';
+              document.getElementById('lead-error-state').style.display='none';
+              f.querySelectorAll('input[type=text],input[type=email],input[type=tel],textarea').forEach(function(el){el.value='';});
+            } else {
+              document.getElementById('lead-error-state').style.display='block';
+            }
+          } catch(err) {
+            document.getElementById('lead-error-state').style.display='block';
+          }
+          btn.disabled=false; btn.textContent=orig;
+        });
+      })();
+    </script>
+
     <div class="cta-bar">
       <h3>Ready for South Australia?</h3>
       <p>Free eligibility check — get your customized South Australia migration roadmap in 3 minutes.</p>

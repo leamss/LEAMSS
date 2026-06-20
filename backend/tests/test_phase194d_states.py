@@ -174,3 +174,45 @@ def test_194d_10_occupation_page_links_to_top_states():
                    "australian-capital-territory"]
     assert any(f"/atlas/au/state/{s}/" in html for s in state_slugs), \
         "No state cross-link found in occupation page"
+
+
+def test_194d_11_state_page_has_inline_lead_form():
+    """Step 1 — every state SSG page embeds the inline lead capture form."""
+    base = pathlib.Path("/app/frontend/public/atlas/au/state")
+    state_slugs = ["new-south-wales", "victoria", "queensland", "south-australia",
+                   "western-australia", "tasmania", "northern-territory",
+                   "australian-capital-territory"]
+    for slug in state_slugs:
+        html = (base / slug / "index.html").read_text()
+        assert 'data-testid="lead-form-state"' in html, f"{slug}: no form"
+        assert 'data-testid="lead-state-submit"' in html, f"{slug}: no submit btn"
+        assert 'name="interested_state"' in html, f"{slug}: no interested_state field"
+        assert 'name="source"' in html, f"{slug}: no source field"
+        assert "state_landing_" in html, f"{slug}: no source prefix"
+
+
+def test_194d_12_state_lead_submission_tags_correctly():
+    """Submitting a lead with interested_state + source tags the lead correctly."""
+    r = requests.post(
+        f"{API}/public-atlas/lead",
+        json={
+            "name": "Pytest Lead",
+            "email": f"pytest.state.{os.getpid()}@example.com",
+            "phone": "+91 99999 11111",
+            "country_of_interest": "AU",
+            "interested_state": "VIC",
+            "source": "state_landing_VIC",
+            "message": "Test from pytest",
+        },
+        timeout=10,
+    )
+    assert r.status_code == 200, r.text
+    j = r.json()
+    assert j["ok"] is True
+    # Verify in DB
+    db = _get_db()
+    lead = db.leads.find_one({"id": j["lead_id"]})
+    assert lead is not None
+    assert lead["interested_state"] == "VIC"
+    assert lead["source"] == "state_landing_VIC"
+    assert "state_vic" in (lead.get("tags") or [])

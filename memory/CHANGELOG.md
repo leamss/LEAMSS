@@ -4,6 +4,73 @@ This file appends every completed phase/feature with dates and verification stat
 
 
 ---
+### 🎯 Step 1 (Inline Lead Capture) + Step 2 (Client Portal Full UI) (Jun 20, 2026)
+
+**Sales pitch:** Sequential ship. Step 1 = 30-40% conversion lift on state SEO pages via inline 3-min eligibility form (no redirect). Step 2 = production-ready Client Portal with hermetic JWT session, 5-tab dashboard, drag-drop documents, proposal accept-flow, settings + change-password. Admin master access (reset/lock) inherited from Phase 20.5.
+
+**STEP 1 — Inline Lead Capture on State Pages**
+- New `atlas_state_ssr.html` Section 7b — 2-col inline form (left explainer + 3 ✓ benefits, right form with name/email/phone/message)
+- 3 hidden pre-fill fields: `country_of_interest=AU`, `interested_state={state_code}`, `source=state_landing_{state_code}`
+- Vanilla JS AJAX submission with success/error states + honeypot anti-bot field
+- Backend `PublicLeadCreate` schema extended (interested_state + source); leads now tagged with `state_{code}`
+- Re-regen of 8 state pages confirmed embed
+- +2 pytests added to existing Phase 19.4d suite
+
+**STEP 2 — Client Portal Full UI**
+
+Backend (2 new routers, 17 endpoints):
+- `routers/client_auth.py` — `/login`, `/logout`, `/forgot-password`, `/reset-password`, `/change-password`, `/me`
+  - Separate JWT with `user_type: "client"` claim — staff tokens get 403 on client endpoints
+  - bcrypt hash + plain `temp_password` fallback on first login (auto-upgrades to hash)
+  - Self-service forgot/reset with 2h-TTL token in `client_password_resets`
+  - Every login attempt audited in `client_login_audit` (ok / bad_password / locked / unknown_email)
+- `routers/client_portal.py` — `/overview`, `/info-sheet` GET+PATCH, `/documents` GET+POST+DELETE, `/proposal` GET + accept/decline
+  - Overview: 7-stage timeline + next-action recommendation
+  - Documents: 5 categories (identity/qualifications/employment/english_test/other), 10MB cap, mime whitelist
+  - Proposal: client_id ownership verified, idempotent transitions, accept unlocks full case
+  - All writes register Phase 19.6 revocable `import_batches`
+
+Frontend (2 new pages):
+- `ClientPortalLogin.jsx` — split-screen (teal gradient + briefcase + LEAMSS pitch on left, white form right), forgot-password modal, `localStorage["client_token"]` distinct key
+- `ClientPortalDashboard.jsx` — 5-tab sidebar layout (Overview / Info Sheet / Documents / Proposal / Settings) + sticky top bar with welcome + status pill + logout
+  - **Overview**: 7-stage visual timeline (done=teal+✓, in_progress=orange+clock, pending=gray+#) + "Next Step" orange CTA card + 3 KPI tiles
+  - **Info Sheet**: 6 personal fields with debounced auto-save on blur, lock-respecting
+  - **Documents**: 5 category drag-drop zones with description + uploaded list with status badges + delete action
+  - **Proposal**: status banner (sent/accepted/declined) + investment breakdown table + Accept/Decline CTAs with decline-reason form + PDF download link
+  - **Settings**: profile display + change-password form with temp-pwd warning banner + help contacts
+
+**Admin override** (inherited from Phase 20.5 — verified wired): `/admin/mini-portals` reset-password + lock/unlock master access remains for admin role.
+
+**Issues fixed during sweep:**
+| Issue | Cause | Fix |
+|---|---|---|
+| `test_step2_05_reset_password` → 400 | Ternary precedence bug: `isinstance(exp, dt) and exp.replace(tz=utc) if ... else ...` is ambiguous Python | Restructured into clean nested if/else |
+
+**Triple-gate verified:**
+- 🟢 **Pytest**: 12/12 step2 tests PASS in 5.30s · 40/40 combined (step2 + 194d + 207 + 208) in 5.30s · **291/291 Phase 19+20+step2 cumulative** PASS in 70.41s (+24 over prior 267 baseline, zero regression)
+- 🟢 **Curl**: Client login → JWT issued · `/me` returns full info · wrong pwd → 401 · locked → 403 · staff token → 403 on client endpoint · `/overview` returns 7 stages · forgot/reset round-trip works
+- 🟢 **Playwright**: 4 screenshots — split-screen login (teal/orange/red branding with briefcase illustration), Overview dashboard (7-stage timeline + Next Step orange card + 3 KPI tiles), Documents tab (5 category drag-drop zones), Settings tab (Profile + Change Password with temp-pwd warning + Help contacts)
+
+**Files added/modified:**
+| File | Status |
+|---|---|
+| `backend/routers/client_auth.py` | NEW · 265 lines · 6 endpoints |
+| `backend/routers/client_portal.py` | NEW · 360 lines · 11 endpoints |
+| `backend/tests/test_step2_client_portal.py` | NEW · 12 tests |
+| `frontend/src/pages/client-portal/ClientPortalLogin.jsx` | NEW · 150 lines |
+| `frontend/src/pages/client-portal/ClientPortalDashboard.jsx` | NEW · 600 lines · 5-tab dashboard |
+| `backend/routers/public_atlas.py` | PublicLeadCreate schema + tags extended |
+| `backend/templates/atlas_state_ssr.html` | Section 7b inline form added |
+| `backend/server.py` | 3 routers registered |
+| `frontend/src/App.js` | 2 client-portal routes |
+| `backend/tests/test_phase194d_states.py` | +2 inline-form tests |
+
+**Step 1 + Step 2 SHIPPED. Option D (Performance + Polish) deferred to next ship.**
+
+---
+
+
+---
 ### 🗺️ Phase 19.4d — Per-State AU Atlas Pages (Jun 20, 2026)
 
 **Sales pitch:** Closed the final deferred scope from Phase 19.4 series. Shipped 8 high-intent SEO landing pages (one per AU state/territory) surfacing vacancy data + state nominations + top occupations + SA4 demand map. Every AU occupation page now links to the top 3 states hiring that ANZSCO code, and the country hub `/atlas/au/` gained a "Browse by State / Territory" section. Bidirectional SEO graph: state → occupation → state.

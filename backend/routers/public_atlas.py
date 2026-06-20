@@ -958,6 +958,8 @@ class PublicLeadCreate(BaseModel):
     country_of_interest: Optional[str] = None       # AU | CA | NZ
     atlas_code: Optional[str] = None
     atlas_title: Optional[str] = None
+    interested_state: Optional[str] = Field(default=None, max_length=8)  # Phase 19.4d — AU state landing
+    source: Optional[str] = Field(default=None, max_length=80)            # e.g. state_landing_NSW
     message: Optional[str] = Field(default=None, max_length=600)
     # Honeypot — bots will fill this; humans won't see it.
     company_url: Optional[str] = Field(default=None, max_length=300)
@@ -985,8 +987,17 @@ async def submit_lead(request: Request, body: PublicLeadCreate = Body(...)):
     msg_parts = []
     if body.atlas_code and body.atlas_title:
         msg_parts.append(f"Interested in: {body.atlas_title} ({body.atlas_code})")
+    if body.interested_state:
+        msg_parts.append(f"State of interest: {body.interested_state}")
     if body.message:
         msg_parts.append(body.message.strip())
+
+    src = body.source or "public_atlas"
+    tags = ["public_atlas"]
+    if coi:
+        tags.append(f"atlas_{coi.lower()}")
+    if body.interested_state:
+        tags.append(f"state_{body.interested_state.lower()}")
 
     doc = {
         "id": lead_id,
@@ -995,15 +1006,16 @@ async def submit_lead(request: Request, body: PublicLeadCreate = Body(...)):
         "phone": body.phone.strip(),
         "service_interested": service,
         "country_of_interest": coi,
+        "interested_state": body.interested_state,
         "message": " · ".join(msg_parts),
-        "source": "public_atlas",
+        "source": src,
         "atlas_code": body.atlas_code,
         "atlas_title": body.atlas_title,
         "utm_source": "", "utm_medium": "", "utm_campaign": "",
         "stage": "new",
         "assigned_to": None,
         "priority": "medium",
-        "tags": ["public_atlas", f"atlas_{coi.lower()}"] if coi else ["public_atlas"],
+        "tags": tags,
         "notes": [],
         "ip_address": ip,
         "created_at": now,
