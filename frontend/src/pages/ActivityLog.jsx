@@ -29,7 +29,7 @@ const ACTION_ICONS = {
 const ACTION_COLORS = {
   login: 'bg-blue-100 text-blue-700',
   created: 'bg-green-100 text-green-700', approved: 'bg-green-100 text-green-700',
-  rejected: 'bg-red-100 text-red-700', uploaded: 'bg-purple-100 text-purple-700',
+  rejected: 'bg-red-100 text-red-700', uploaded: 'bg-leamss-orange-100 text-leamss-orange-700',
   updated: 'bg-amber-100 text-amber-700', deleted: 'bg-red-100 text-red-700',
   replied: 'bg-teal-100 text-teal-700', initiated_payment: 'bg-orange-100 text-orange-700',
 };
@@ -144,7 +144,7 @@ const ActivityLogPage = () => {
           </Card>
           <Card className="p-4 border border-gray-200">
             <p className="text-xs font-semibold uppercase text-gray-500">Active Users</p>
-            <p className="text-2xl font-bold text-purple-600 mt-1">{(stats.most_active_users || []).length}</p>
+            <p className="text-2xl font-bold text-leamss-orange-600 mt-1">{(stats.most_active_users || []).length}</p>
             <p className="text-xs text-gray-400">Contributing users</p>
           </Card>
         </div>

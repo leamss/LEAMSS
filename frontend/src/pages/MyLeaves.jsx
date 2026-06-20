@@ -73,10 +73,10 @@ export default function MyLeaves() {
             <ArrowLeft className="h-4 w-4 mr-1.5" /> Back
           </Button>
           <h1 className="font-bold text-slate-900 flex items-center gap-2">
-            <Calendar className="h-5 w-5 text-indigo-600" /> My Leaves
+            <Calendar className="h-5 w-5 text-leamss-teal-600" /> My Leaves
           </h1>
         </div>
-        <Button onClick={() => setShowApply(true)} className="bg-indigo-600 hover:bg-indigo-700" data-testid="apply-leave-btn">
+        <Button onClick={() => setShowApply(true)} className="bg-leamss-teal-600 hover:bg-leamss-teal-700" data-testid="apply-leave-btn">
           <Plus className="h-4 w-4 mr-1.5" /> Apply Leave
         </Button>
       </header>

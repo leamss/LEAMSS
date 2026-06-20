@@ -30,10 +30,10 @@ export default function Step6Review({ data, results }) {
         </Card>
       )}
       {best && (
-        <Card className="p-4 border-l-4 border-l-indigo-500 bg-indigo-50">
-          <p className="text-[10px] uppercase font-bold text-indigo-700">Best Match</p>
-          <p className="text-2xl font-bold text-indigo-900">{best.country_code} · {best.total} pts</p>
-          <p className="text-[11px] text-indigo-700 italic">{best.recommendation}</p>
+        <Card className="p-4 border-l-4 border-l-leamss-teal-500 bg-leamss-teal-50">
+          <p className="text-[10px] uppercase font-bold text-leamss-teal-700">Best Match</p>
+          <p className="text-2xl font-bold text-leamss-teal-900">{best.country_code} · {best.total} pts</p>
+          <p className="text-[11px] text-leamss-teal-700 italic">{best.recommendation}</p>
         </Card>
       )}
       <Card className="p-3 bg-amber-50 border border-amber-200">

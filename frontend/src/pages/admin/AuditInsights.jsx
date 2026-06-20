@@ -97,7 +97,7 @@ export default function AuditInsights() {
   if (loading || !data) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+        <Loader2 className="h-8 w-8 animate-spin text-leamss-teal-600" />
       </div>
     );
   }
@@ -113,7 +113,7 @@ export default function AuditInsights() {
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
-              <BarChart3 className="h-7 w-7 text-indigo-600" />Audit Insights Dashboard
+              <BarChart3 className="h-7 w-7 text-leamss-teal-600" />Audit Insights Dashboard
             </h1>
             <p className="text-sm text-slate-500">Share-link audit log analytics · SOC-2 ready</p>
           </div>
@@ -132,7 +132,7 @@ export default function AuditInsights() {
             <Button variant="outline" size="sm" onClick={load} className="h-8" data-testid="ai-refresh">
               <RefreshCw className="h-3.5 w-3.5 mr-1" />Refresh
             </Button>
-            <Button size="sm" className="h-8 bg-indigo-600 hover:bg-indigo-700" onClick={downloadCompliancePdf} disabled={pdfDownloading} data-testid="ai-pdf">
+            <Button size="sm" className="h-8 bg-leamss-teal-600 hover:bg-leamss-teal-700" onClick={downloadCompliancePdf} disabled={pdfDownloading} data-testid="ai-pdf">
               {pdfDownloading ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Download className="h-3.5 w-3.5 mr-1" />}
               Export 90-Day Compliance PDF
             </Button>
@@ -189,7 +189,7 @@ export default function AuditInsights() {
         {/* Trend Chart */}
         <Card className="p-4" data-testid="ai-trend-chart">
           <h2 className="text-sm font-bold mb-3 flex items-center gap-2">
-            <BarChart3 className="h-4 w-4 text-indigo-600" />Daily Event Trend ({days} days)
+            <BarChart3 className="h-4 w-4 text-leamss-teal-600" />Daily Event Trend ({days} days)
           </h2>
           <ResponsiveContainer width="100%" height={250}>
             <BarChart data={data.trend}>
@@ -238,7 +238,7 @@ export default function AuditInsights() {
           {/* Share Type Breakdown */}
           <Card className="p-4" data-testid="ai-share-type">
             <h2 className="text-sm font-bold mb-3 flex items-center gap-2">
-              <Shield className="h-4 w-4 text-indigo-600" />Events by Share Type
+              <Shield className="h-4 w-4 text-leamss-teal-600" />Events by Share Type
             </h2>
             <ResponsiveContainer width="100%" height={220}>
               <PieChart>
@@ -298,7 +298,7 @@ export default function AuditInsights() {
 
 function StatCard({ icon: Icon, label, value, color, subtitle }) {
   const colorMap = {
-    indigo: 'border-indigo-200 bg-indigo-50 text-indigo-700',
+    indigo: 'border-leamss-teal-200 bg-leamss-teal-50 text-leamss-teal-700',
     emerald: 'border-emerald-200 bg-emerald-50 text-emerald-700',
     slate: 'border-slate-200 bg-slate-50 text-slate-600',
     amber: 'border-amber-200 bg-amber-50 text-amber-700',

@@ -87,7 +87,7 @@ const ApprovalCenter = ({ token }) => {
   const stageInfo = {
     pre_assessment: { label: 'Pre-Assessment Review', color: 'bg-blue-500', text: 'text-blue-700', bg: 'bg-blue-50', border: 'border-blue-300' },
     sale_review: { label: 'Sale Pending', color: 'bg-amber-500', text: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-300' },
-    assign_cm: { label: 'Assign CM', color: 'bg-purple-500', text: 'text-purple-700', bg: 'bg-purple-50', border: 'border-purple-300' },
+    assign_cm: { label: 'Assign CM', color: 'bg-leamss-orange-500', text: 'text-leamss-orange-700', bg: 'bg-leamss-orange-50', border: 'border-leamss-orange-300' },
     document_review: { label: 'Document Review', color: 'bg-teal-500', text: 'text-teal-700', bg: 'bg-teal-50', border: 'border-teal-300' },
     in_progress: { label: 'In Progress', color: 'bg-emerald-500', text: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-300' },
     completed: { label: 'Completed', color: 'bg-slate-400', text: 'text-slate-700', bg: 'bg-slate-50', border: 'border-slate-300' },
@@ -264,7 +264,7 @@ const ApprovalCenter = ({ token }) => {
                       {/* Cases + CM Assignment */}
                       {client.cases.length > 0 && (
                         <div>
-                          <h5 className="text-sm font-semibold text-purple-700 mb-2 flex items-center gap-1"><Users className="h-4 w-4" />Cases & CM Assignment</h5>
+                          <h5 className="text-sm font-semibold text-leamss-orange-700 mb-2 flex items-center gap-1"><Users className="h-4 w-4" />Cases & CM Assignment</h5>
                           {client.cases.map((c, ci) => (
                             <div key={c.id} className="p-3 mb-2 bg-white dark:bg-slate-800 rounded-lg border" data-testid={`case-item-${ci}`}>
                               <div className="flex items-center justify-between">

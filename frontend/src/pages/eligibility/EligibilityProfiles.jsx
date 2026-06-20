@@ -28,7 +28,7 @@ const STATUS_META = {
   complete: { label: 'Complete', color: 'bg-amber-100 text-amber-700', icon: AlertCircle },
   assessed: { label: 'Assessed', color: 'bg-emerald-100 text-emerald-700', icon: CheckCircle2 },
   awaiting_info_sheet: { label: 'Awaiting Client', color: 'bg-sky-100 text-sky-700', icon: Inbox },
-  pending_review: { label: 'Pending Review', color: 'bg-violet-100 text-violet-700', icon: ClipboardCheck },
+  pending_review: { label: 'Pending Review', color: 'bg-leamss-red-100 text-leamss-red-700', icon: ClipboardCheck },
 };
 
 export function EligibilityProfilesList() {
@@ -138,7 +138,7 @@ export function EligibilityProfilesList() {
             <Button variant="outline" size="sm" onClick={() => navigate(-1)}><ArrowLeft className="h-4 w-4 mr-1" />Back</Button>
             <div>
               <h1 className="text-2xl font-semibold flex items-center gap-2">
-                <Sparkles className="h-7 w-7 text-indigo-600" />Eligibility Profiles
+                <Sparkles className="h-7 w-7 text-leamss-teal-600" />Eligibility Profiles
               </h1>
               <p className="text-sm text-slate-500">Client profiles ready for AI-powered immigration analysis.</p>
             </div>
@@ -168,7 +168,7 @@ export function EligibilityProfilesList() {
             >
               <Send className="h-4 w-4 mr-1" />Send Info Sheet
             </Button>
-            <Button onClick={() => navigate('/eligibility/new-assessment')} className="bg-indigo-600 hover:bg-indigo-700" data-testid="new-assessment-btn">
+            <Button onClick={() => navigate('/eligibility/new-assessment')} className="bg-leamss-teal-600 hover:bg-leamss-teal-700" data-testid="new-assessment-btn">
               <Plus className="h-4 w-4 mr-1" />New Assessment
             </Button>
           </div>
@@ -177,19 +177,19 @@ export function EligibilityProfilesList() {
         {/* Pending Reviews banner (only if any) */}
         {pendingCount > 0 && (
           <Card
-            className="p-4 bg-violet-50 border-l-4 border-l-violet-500 cursor-pointer hover:bg-violet-100 transition"
+            className="p-4 bg-leamss-red-50 border-l-4 border-l-leamss-red-500 cursor-pointer hover:bg-leamss-red-100 transition"
             onClick={() => setStatusFilter('pending_review')}
             data-testid="pending-reviews-banner"
           >
             <div className="flex items-center gap-3">
-              <ClipboardCheck className="h-6 w-6 text-violet-600" />
+              <ClipboardCheck className="h-6 w-6 text-leamss-red-600" />
               <div className="flex-1">
-                <p className="font-bold text-violet-900">
+                <p className="font-bold text-leamss-red-900">
                   {pendingCount} client info-sheet submission{pendingCount === 1 ? '' : 's'} pending your review
                 </p>
-                <p className="text-[11px] text-violet-700">Click to filter and review.</p>
+                <p className="text-[11px] text-leamss-red-700">Click to filter and review.</p>
               </div>
-              <Badge className="bg-violet-600 text-white">{pendingCount}</Badge>
+              <Badge className="bg-leamss-red-600 text-white">{pendingCount}</Badge>
             </div>
           </Card>
         )}
@@ -272,7 +272,7 @@ export function EligibilityProfilesList() {
                           {p.status === 'pending_review' && (
                             <Button
                               size="sm"
-                              className="h-7 bg-violet-600 hover:bg-violet-700 text-white text-[10px]"
+                              className="h-7 bg-leamss-red-600 hover:bg-leamss-red-700 text-white text-[10px]"
                               onClick={async () => {
                                 try {
                                   await axios.post(`${API}/eligibility/info-sheet/${p.id}/approve`, {}, { headers });
@@ -289,7 +289,7 @@ export function EligibilityProfilesList() {
                           {p.status === 'complete' && !p.assessment_id && (
                             <Button
                               size="sm"
-                              className="h-7 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px]"
+                              className="h-7 bg-leamss-teal-600 hover:bg-leamss-teal-700 text-white text-[10px]"
                               onClick={() => navigate(`/sales/occupations`)}
                               title="Use Smart Sales Helper to find right code + calculator"
                               data-testid={`verify-${p.id}`}
@@ -326,7 +326,7 @@ export function EligibilityProfilesList() {
 
 function StatCard({ label, value, color }) {
   const cls = {
-    indigo: 'border-l-indigo-500', slate: 'border-l-slate-500',
+    indigo: 'border-l-leamss-teal-500', slate: 'border-l-slate-500',
     amber: 'border-l-amber-500', emerald: 'border-l-emerald-500',
   }[color];
   return (
@@ -386,7 +386,7 @@ export function EligibilityProfileDetail() {
               <Edit className="h-4 w-4 mr-1" />Edit
             </Button>
             {profile.status === 'complete' && !profile.assessment_id && (
-              <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700" onClick={() => navigate(`/sales/occupations`)} data-testid="run-ai-btn">
+              <Button size="sm" className="bg-leamss-teal-600 hover:bg-leamss-teal-700" onClick={() => navigate(`/sales/occupations`)} data-testid="run-ai-btn">
                 <Sparkles className="h-4 w-4 mr-1" />Open Sales Helper
               </Button>
             )}
@@ -444,7 +444,7 @@ export function EligibilityProfileDetail() {
           <SectionCard title="Work History" icon={FileText}>
             <div className="col-span-2 space-y-2">
               {profile.work_history.map((h, i) => (
-                <div key={i} className="text-xs border-l-2 border-indigo-300 pl-3">
+                <div key={i} className="text-xs border-l-2 border-leamss-teal-300 pl-3">
                   <p className="font-medium">{h.designation} @ {h.employer}</p>
                   <p className="text-[10px] text-slate-500">{h.start_date} → {h.end_date || 'present'} · {h.country}</p>
                   {h.duties && <p className="text-[11px] mt-1 text-slate-600">{h.duties}</p>}
@@ -513,7 +513,7 @@ function InfoSheetModal({ onClose, onGenerate, generated }) {
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose} data-testid="info-sheet-modal">
       <Card className="max-w-md w-full p-6 bg-white" onClick={e => e.stopPropagation()}>
         <h2 className="text-lg font-bold flex items-center gap-2 mb-3">
-          <Send className="h-5 w-5 text-indigo-600" />Send Info Sheet to Client
+          <Send className="h-5 w-5 text-leamss-teal-600" />Send Info Sheet to Client
         </h2>
         {!generated ? (
           <div className="space-y-3">
@@ -533,7 +533,7 @@ function InfoSheetModal({ onClose, onGenerate, generated }) {
               <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
               <Button
                 size="sm"
-                className="bg-indigo-600 hover:bg-indigo-700"
+                className="bg-leamss-teal-600 hover:bg-leamss-teal-700"
                 onClick={submit}
                 disabled={!name || submitting}
                 data-testid="info-sheet-modal-generate"

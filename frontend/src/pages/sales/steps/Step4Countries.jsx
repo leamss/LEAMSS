@@ -16,7 +16,7 @@ export default function Step4Countries({ data, update }) {
   return (
     <div className="max-w-2xl mx-auto space-y-4">
       <h2 className="text-lg font-bold flex items-center gap-2">
-        <Globe className="h-5 w-5 text-indigo-600" />Country Selection
+        <Globe className="h-5 w-5 text-leamss-teal-600" />Country Selection
       </h2>
       <div className="space-y-2">
         {[
@@ -25,7 +25,7 @@ export default function Step4Countries({ data, update }) {
           { v: 'custom', label: 'Custom selection', desc: 'Pick 2+ countries to compare' },
         ].map(o => (
           <Card key={o.v}
-            className={`p-3 cursor-pointer ${data.country_mode === o.v ? 'border-indigo-500 ring-2 ring-indigo-200 bg-indigo-50' : ''}`}
+            className={`p-3 cursor-pointer ${data.country_mode === o.v ? 'border-leamss-teal-500 ring-2 ring-leamss-teal-200 bg-leamss-teal-50' : ''}`}
             onClick={() => update('country_mode', o.v)}
             data-testid={`country-mode-${o.v}`}>
             <p className="font-bold text-sm">{o.label}</p>

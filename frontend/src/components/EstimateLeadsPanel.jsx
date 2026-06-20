@@ -19,7 +19,7 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const STAGE_CONFIG = {
   new: { label: 'New', color: 'bg-blue-100 text-blue-800 border-blue-200' },
   contacted: { label: 'Contacted', color: 'bg-amber-100 text-amber-800 border-amber-200' },
-  qualified: { label: 'Qualified', color: 'bg-purple-100 text-purple-800 border-purple-200' },
+  qualified: { label: 'Qualified', color: 'bg-leamss-orange-100 text-leamss-orange-800 border-leamss-orange-200' },
   payment_pending: { label: 'Payment Pending', color: 'bg-orange-100 text-orange-800 border-orange-200' },
   converted: { label: 'Converted', color: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
   lost: { label: 'Lost', color: 'bg-slate-100 text-slate-600 border-slate-200' },

@@ -51,10 +51,10 @@ export default function VendorAcceptInvite() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-blue-50 to-slate-50 p-6">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-leamss-teal-50 via-blue-50 to-slate-50 p-6">
       <Card className="p-8 max-w-md w-full" data-testid="vendor-accept-page">
         <div className="text-center mb-6">
-          <Briefcase className="h-12 w-12 text-indigo-600 mx-auto mb-2" />
+          <Briefcase className="h-12 w-12 text-leamss-teal-600 mx-auto mb-2" />
           <h1 className="text-2xl font-extrabold text-slate-800">Activate Vendor Portal</h1>
           <p className="text-sm text-slate-500 mt-1">Set your password to access your assignments & payments</p>
         </div>
@@ -69,7 +69,7 @@ export default function VendorAcceptInvite() {
             <Input type="password" value={confirm} onChange={e => setConfirm(e.target.value)} data-testid="vendor-confirm" />
             {confirm.length > 0 && password !== confirm && <p className="text-xs text-rose-600 mt-1">Passwords don&apos;t match</p>}
           </div>
-          <Button onClick={submit} disabled={submitting || password.length < 8 || password !== confirm} className="w-full bg-indigo-600 hover:bg-indigo-700" data-testid="vendor-activate-btn">
+          <Button onClick={submit} disabled={submitting || password.length < 8 || password !== confirm} className="w-full bg-leamss-teal-600 hover:bg-leamss-teal-700" data-testid="vendor-activate-btn">
             <Shield className="h-4 w-4 mr-1.5" />
             {submitting ? 'Activating…' : 'Activate Account'}
           </Button>

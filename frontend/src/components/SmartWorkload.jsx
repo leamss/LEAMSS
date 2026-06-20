@@ -50,7 +50,7 @@ const SmartWorkload = ({ token, onSelectCase }) => {
               caseItem.priority === 'overdue' ? 'bg-red-500 text-white' :
               caseItem.priority === 'due_today' ? 'bg-amber-500 text-white' :
               caseItem.priority === 'action_needed' ? 'bg-blue-500 text-white' :
-              caseItem.priority === 'upcoming' ? 'bg-purple-100 text-purple-700' :
+              caseItem.priority === 'upcoming' ? 'bg-leamss-orange-100 text-leamss-orange-700' :
               'bg-emerald-100 text-emerald-700'
             }>{caseItem.priority?.replace('_', ' ')}</Badge>
           </div>
@@ -101,9 +101,9 @@ const SmartWorkload = ({ token, onSelectCase }) => {
           <p className="text-xs text-blue-600">Action Needed</p>
           <p className="text-xl font-bold text-blue-700">{s.action_needed_count}</p>
         </Card>
-        <Card className="p-3 text-center bg-purple-50 border-purple-200">
-          <p className="text-xs text-purple-600">Upcoming</p>
-          <p className="text-xl font-bold text-purple-700">{s.upcoming_count}</p>
+        <Card className="p-3 text-center bg-leamss-orange-50 border-leamss-orange-200">
+          <p className="text-xs text-leamss-orange-600">Upcoming</p>
+          <p className="text-xl font-bold text-leamss-orange-700">{s.upcoming_count}</p>
         </Card>
         <Card className="p-3 text-center bg-emerald-50 border-emerald-200">
           <p className="text-xs text-emerald-600">On Track</p>

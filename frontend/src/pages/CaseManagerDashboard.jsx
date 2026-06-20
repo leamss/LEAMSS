@@ -815,7 +815,7 @@ const CaseManagerDashboard = () => {
                           <Button
                             size="sm"
                             variant="outline"
-                            className="border-purple-300 text-purple-700 hover:bg-purple-50"
+                            className="border-leamss-orange-300 text-leamss-orange-700 hover:bg-leamss-orange-50"
                             disabled={aiSuggesting === step.step_name}
                             onClick={() => cmAiSuggestDocs(step.step_name, step.description)}
                             data-testid={`ai-suggest-step-${index}`}
@@ -905,7 +905,7 @@ const CaseManagerDashboard = () => {
                                 <Badge variant="outline" className="text-xs bg-red-50 text-red-700">Expiry: {new Date(req.expiry_date).toLocaleDateString()}</Badge>
                               )}
                               {req.validity_months && (
-                                <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700">Valid: {req.validity_months} months</Badge>
+                                <Badge variant="outline" className="text-xs bg-leamss-orange-50 text-leamss-orange-700">Valid: {req.validity_months} months</Badge>
                               )}
                             </div>
                             <p className="text-xs text-slate-500 mt-1">
@@ -1309,7 +1309,7 @@ const CaseManagerDashboard = () => {
                                                   </Button>
                                                 )}
                                                 <Button 
-                                                  size="sm" variant="outline" className="text-purple-600 border-purple-200"
+                                                  size="sm" variant="outline" className="text-leamss-orange-600 border-leamss-orange-200"
                                                   onClick={async () => {
                                                     try {
                                                       toast.info('Running AI analysis...');
@@ -1575,7 +1575,7 @@ const CaseManagerDashboard = () => {
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <span className="text-purple-600">AI Document Analysis</span>
+              <span className="text-leamss-orange-600">AI Document Analysis</span>
               <span className="text-sm font-normal text-slate-500">— {aiAnalysis.doc?.filename}</span>
             </DialogTitle>
           </DialogHeader>

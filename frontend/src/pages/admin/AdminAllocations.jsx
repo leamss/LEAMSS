@@ -28,7 +28,7 @@ const formatINR = (n) => {
 const STATUS_BADGE = {
   unassigned: { color: 'bg-slate-100 text-slate-700', icon: AlertTriangle, label: 'Unassigned' },
   pending: { color: 'bg-amber-100 text-amber-700', icon: Clock, label: 'Pending' },
-  approved: { color: 'bg-indigo-100 text-indigo-700', icon: CheckCircle, label: 'Approved' },
+  approved: { color: 'bg-leamss-teal-100 text-leamss-teal-700', icon: CheckCircle, label: 'Approved' },
   paid: { color: 'bg-emerald-100 text-emerald-700', icon: CheckCircle, label: 'Paid' },
   disputed: { color: 'bg-rose-100 text-rose-700', icon: AlertTriangle, label: 'Disputed' },
 };
@@ -90,7 +90,7 @@ function AssignVendorDialog({ open, onClose, paId, allocation, onAssigned }) {
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleAssign} disabled={saving || !selected} className="bg-indigo-600 hover:bg-indigo-700" data-testid="save-assign-vendor">{saving ? 'Saving…' : 'Assign'}</Button>
+          <Button onClick={handleAssign} disabled={saving || !selected} className="bg-leamss-teal-600 hover:bg-leamss-teal-700" data-testid="save-assign-vendor">{saving ? 'Saving…' : 'Assign'}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -222,7 +222,7 @@ function PaAllocationCard({ pa, onChanged }) {
                   <div className="bg-slate-50 p-2 rounded text-center"><p className="text-slate-500">Allocated</p><p className="font-bold">{formatINR(summary.total_allocated)}</p></div>
                   <div className="bg-amber-50 p-2 rounded text-center"><p className="text-amber-700">Pending</p><p className="font-bold">{formatINR(summary.total_pending)}</p></div>
                   <div className="bg-emerald-50 p-2 rounded text-center"><p className="text-emerald-700">Paid</p><p className="font-bold">{formatINR(summary.total_paid)}</p></div>
-                  <div className="bg-indigo-50 p-2 rounded text-center"><p className="text-indigo-700">Company Margin</p><p className="font-bold">{formatINR(summary.company_margin)} <span className="text-[10px]">({summary.company_margin_percentage}%)</span></p></div>
+                  <div className="bg-leamss-teal-50 p-2 rounded text-center"><p className="text-leamss-teal-700">Company Margin</p><p className="font-bold">{formatINR(summary.company_margin)} <span className="text-[10px]">({summary.company_margin_percentage}%)</span></p></div>
                 </div>
                 <div className="grid grid-cols-12 gap-2 text-[10px] font-bold uppercase text-slate-500 border-b pb-1.5 mb-1">
                   <div className="col-span-3">Allocation</div>
@@ -281,7 +281,7 @@ export default function AdminAllocations() {
           <div className="flex items-center gap-3">
             <button onClick={() => navigate('/admin')} className="p-2 rounded-lg hover:bg-slate-200" data-testid="back-to-admin"><ArrowLeft className="h-5 w-5 text-slate-700" /></button>
             <div>
-              <h1 className="text-3xl font-extrabold text-slate-800 flex items-center gap-2"><IndianRupee className="h-7 w-7 text-indigo-600" />Vendor Cost Allocations</h1>
+              <h1 className="text-3xl font-extrabold text-slate-800 flex items-center gap-2"><IndianRupee className="h-7 w-7 text-leamss-teal-600" />Vendor Cost Allocations</h1>
               <p className="text-sm text-slate-500 mt-1">Auto-generated when PA reaches <strong>case_created</strong>. Assign vendors → approve → mark paid.</p>
             </div>
           </div>

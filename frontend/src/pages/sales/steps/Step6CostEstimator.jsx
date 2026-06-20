@@ -30,8 +30,8 @@ import { API } from '../lib/constants';
 
 const CATEGORY_PILL = {
   'Government Fees': 'bg-blue-100 text-blue-800',
-  'Skill Assessment': 'bg-indigo-100 text-indigo-800',
-  'English Test': 'bg-violet-100 text-violet-800',
+  'Skill Assessment': 'bg-leamss-teal-100 text-leamss-teal-800',
+  'English Test': 'bg-leamss-red-100 text-leamss-red-800',
   'LEAMSS Professional Fees': 'bg-amber-100 text-amber-800',
   'Protection Policy Coverage': 'bg-emerald-100 text-emerald-800',
   'Other': 'bg-slate-100 text-slate-700',
@@ -144,10 +144,10 @@ export default function Step6CostEstimator({ data, setData, saved, headers }) {
     <Card className="p-5 space-y-4" data-testid="step6-cost-estimator">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <h2 className="text-xl font-bold flex items-center gap-2 text-indigo-900">
+          <h2 className="text-xl font-bold flex items-center gap-2 text-leamss-teal-900">
             <Coins className="h-6 w-6 text-amber-600" />
             Step 6 — Cost Estimator
-            <Badge className="bg-indigo-100 text-indigo-700 text-[9px]">Phase 7.2</Badge>
+            <Badge className="bg-leamss-teal-100 text-leamss-teal-700 text-[9px]">Phase 7.2</Badge>
           </h2>
           <p className="text-xs text-slate-600 mt-1">
             KB-driven default fees and costs. Edit each line per client, save to attach to Assessment Report.
@@ -168,7 +168,7 @@ export default function Step6CostEstimator({ data, setData, saved, headers }) {
             size="sm"
             onClick={persist}
             disabled={!saved?.id || saving}
-            className="bg-indigo-600 hover:bg-indigo-700"
+            className="bg-leamss-teal-600 hover:bg-leamss-teal-700"
             data-testid="save-cost-btn"
           >
             {saving ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Sparkles className="h-3 w-3 mr-1" />}
@@ -226,7 +226,7 @@ export default function Step6CostEstimator({ data, setData, saved, headers }) {
                 <p className="text-[10px] text-slate-400 italic mt-1">{it.notes}</p>
               )}
               {it.kb_source && (
-                <p className="text-[9px] text-indigo-600 font-mono mt-0.5">↗ {it.kb_source}</p>
+                <p className="text-[9px] text-leamss-teal-600 font-mono mt-0.5">↗ {it.kb_source}</p>
               )}
             </div>
             <div className="col-span-2">
@@ -279,13 +279,13 @@ export default function Step6CostEstimator({ data, setData, saved, headers }) {
 
       {/* Totals */}
       {items.length > 0 && (
-        <Card className="p-3 bg-gradient-to-r from-indigo-50 to-blue-50 border-indigo-200" data-testid="cost-totals">
-          <p className="text-[10px] uppercase font-bold tracking-wider text-indigo-700 mb-2">Total Investment</p>
+        <Card className="p-3 bg-gradient-to-r from-leamss-teal-50 to-blue-50 border-leamss-teal-200" data-testid="cost-totals">
+          <p className="text-[10px] uppercase font-bold tracking-wider text-leamss-teal-700 mb-2">Total Investment</p>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {Object.entries(totals).map(([cur, amt]) => (
               <div key={cur}>
                 <p className="text-[10px] text-slate-500">{cur}</p>
-                <p className="text-lg font-bold text-indigo-900 font-mono">
+                <p className="text-lg font-bold text-leamss-teal-900 font-mono">
                   {cur === 'INR' ? '₹' : cur === 'GBP' ? '£' : '$'}{amt.toLocaleString()}
                 </p>
               </div>

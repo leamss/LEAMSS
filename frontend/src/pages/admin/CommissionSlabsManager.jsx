@@ -29,7 +29,7 @@ const COLOR_MAP = {
   slate: 'bg-slate-100 text-slate-700 border-slate-300',
   yellow: 'bg-yellow-100 text-yellow-800 border-yellow-300',
   emerald: 'bg-emerald-100 text-emerald-700 border-emerald-300',
-  indigo: 'bg-indigo-100 text-indigo-700 border-indigo-300',
+  indigo: 'bg-leamss-teal-100 text-leamss-teal-700 border-leamss-teal-300',
 };
 
 
@@ -95,7 +95,7 @@ function SlabEditor({ open, slab, onClose, onSaved }) {
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSave} disabled={saving} className="bg-indigo-600 hover:bg-indigo-700" data-testid="save-slab">{saving ? 'Saving…' : (isEdit ? 'Update' : 'Create')}</Button>
+          <Button onClick={handleSave} disabled={saving} className="bg-leamss-teal-600 hover:bg-leamss-teal-700" data-testid="save-slab">{saving ? 'Saving…' : (isEdit ? 'Update' : 'Create')}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -158,11 +158,11 @@ export default function CommissionSlabsManager() {
               <p className="text-sm text-slate-500 mt-1">Configure tiered commission rates. Applied automatically when a PA reaches <strong>case_created</strong>.</p>
             </div>
           </div>
-          <Button onClick={() => setCreating(true)} className="bg-indigo-600 hover:bg-indigo-700" data-testid="add-slab-btn"><Plus className="h-4 w-4 mr-1.5" />New Slab</Button>
+          <Button onClick={() => setCreating(true)} className="bg-leamss-teal-600 hover:bg-leamss-teal-700" data-testid="add-slab-btn"><Plus className="h-4 w-4 mr-1.5" />New Slab</Button>
         </div>
 
         {loading ? (
-          <Card className="p-12 text-center"><Sparkles className="h-8 w-8 text-indigo-300 mx-auto animate-pulse mb-2" /><p className="text-slate-500">Loading…</p></Card>
+          <Card className="p-12 text-center"><Sparkles className="h-8 w-8 text-leamss-teal-300 mx-auto animate-pulse mb-2" /><p className="text-slate-500">Loading…</p></Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4" data-testid="slabs-grid">
             {slabs.map(s => (
@@ -172,7 +172,7 @@ export default function CommissionSlabsManager() {
                     <h3 className="font-bold text-lg flex items-center gap-1"><Trophy className="h-4 w-4" />{s.name}</h3>
                     <p className="text-[10px] uppercase tracking-wider mt-0.5 opacity-70">{s.key}</p>
                   </div>
-                  {s.is_system && <Badge className="bg-purple-100 text-purple-700 text-[10px]"><Lock className="h-3 w-3 mr-0.5 inline" />System</Badge>}
+                  {s.is_system && <Badge className="bg-leamss-orange-100 text-leamss-orange-700 text-[10px]"><Lock className="h-3 w-3 mr-0.5 inline" />System</Badge>}
                 </div>
                 <div className="my-3">
                   <p className="text-3xl font-extrabold">{s.rate_pct}%</p>
@@ -195,8 +195,8 @@ export default function CommissionSlabsManager() {
             ))}
           </div>
         )}
-        <Card className="mt-6 p-4 bg-indigo-50/50 border-indigo-200">
-          <p className="text-xs text-indigo-700 leading-relaxed">
+        <Card className="mt-6 p-4 bg-leamss-teal-50/50 border-leamss-teal-200">
+          <p className="text-xs text-leamss-teal-700 leading-relaxed">
             <strong>How it works:</strong> When a sales rep&apos;s pre-assessment reaches the <strong>case_created</strong> stage, the system looks at their cumulative revenue for the current month, matches the slab whose range covers their <em>achieved-after-this-deal</em> revenue, and applies that slab&apos;s rate to this single deal. Each deal is logged as a commission entry which an admin can later approve and mark as paid.
           </p>
         </Card>

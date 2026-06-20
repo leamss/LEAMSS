@@ -107,7 +107,7 @@ export default function CustomCommissionsPanel() {
     <Card className="p-5" data-testid="custom-commissions-panel">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <Settings className="h-5 w-5 text-indigo-600" />
+          <Settings className="h-5 w-5 text-leamss-teal-600" />
           <div>
             <h2 className="font-bold text-slate-800">Custom Rates · Per Partner × Product</h2>
             <p className="text-xs text-slate-500">
@@ -119,7 +119,7 @@ export default function CustomCommissionsPanel() {
       </div>
 
       {/* Add new row */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-5 p-4 bg-indigo-50/60 border border-indigo-200 rounded-lg" data-testid="add-custom-rate-row">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-5 p-4 bg-leamss-teal-50/60 border border-leamss-teal-200 rounded-lg" data-testid="add-custom-rate-row">
         <div>
           <Label className="text-[11px] font-semibold text-slate-600">Partner</Label>
           <Select value={draft.partner_id} onValueChange={v => setDraft({ ...draft, partner_id: v })}>
@@ -156,7 +156,7 @@ export default function CustomCommissionsPanel() {
           />
         </div>
         <div className="flex items-end">
-          <Button onClick={save} disabled={saving} className="bg-indigo-600 hover:bg-indigo-700 w-full" data-testid="cc-save-btn">
+          <Button onClick={save} disabled={saving} className="bg-leamss-teal-600 hover:bg-leamss-teal-700 w-full" data-testid="cc-save-btn">
             <Plus className="h-4 w-4 mr-1" /> {saving ? 'Saving…' : 'Save'}
           </Button>
         </div>
@@ -239,7 +239,7 @@ function CustomRateRow({ row, index, orphan, onSave, onRemove }) {
             data-testid={`cc-edit-input-${index}`}
           />
         ) : (
-          <Badge className="bg-indigo-100 text-indigo-700">{row.commission_rate}%</Badge>
+          <Badge className="bg-leamss-teal-100 text-leamss-teal-700">{row.commission_rate}%</Badge>
         )}
       </td>
       <td className="px-3 py-2 text-right">

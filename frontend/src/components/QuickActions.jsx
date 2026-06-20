@@ -124,9 +124,9 @@ const QuickActions = ({ userRole, onNavigate, caseId = null }) => {
             icon: FileText,
             label: 'Documents to Review',
             count: pendingReviews,
-            color: 'bg-purple-500',
-            bgColor: 'bg-purple-50',
-            textColor: 'text-purple-700',
+            color: 'bg-leamss-orange-500',
+            bgColor: 'bg-leamss-orange-50',
+            textColor: 'text-leamss-orange-700',
             action: 'pending-review',
             priority: 'high'
           });

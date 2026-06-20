@@ -29,7 +29,7 @@ const currentPeriod = () => {
 
 const STATUS_COLOR = {
   pending: 'bg-amber-100 text-amber-700',
-  approved: 'bg-indigo-100 text-indigo-700',
+  approved: 'bg-leamss-teal-100 text-leamss-teal-700',
   paid: 'bg-emerald-100 text-emerald-700',
   reversed: 'bg-rose-100 text-rose-700',
 };
@@ -54,7 +54,7 @@ export default function MyCommission() {
   }, [period]);
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center"><Sparkles className="h-10 w-10 text-indigo-400 animate-pulse" /></div>;
+    return <div className="min-h-screen flex items-center justify-center"><Sparkles className="h-10 w-10 text-leamss-teal-400 animate-pulse" /></div>;
   }
   if (!data) return null;
 
@@ -122,9 +122,9 @@ export default function MyCommission() {
             <p className="text-xs font-bold uppercase text-amber-700">Pending</p>
             <p className="text-xl font-extrabold text-amber-800 mt-1" data-testid="pending-amount">{formatINR(data.pending)}</p>
           </Card>
-          <Card className="p-4 bg-indigo-50/50 border-indigo-200">
-            <p className="text-xs font-bold uppercase text-indigo-700">Approved</p>
-            <p className="text-xl font-extrabold text-indigo-800 mt-1" data-testid="approved-amount">{formatINR(data.approved)}</p>
+          <Card className="p-4 bg-leamss-teal-50/50 border-leamss-teal-200">
+            <p className="text-xs font-bold uppercase text-leamss-teal-700">Approved</p>
+            <p className="text-xl font-extrabold text-leamss-teal-800 mt-1" data-testid="approved-amount">{formatINR(data.approved)}</p>
           </Card>
           <Card className="p-4 bg-emerald-50/50 border-emerald-200">
             <p className="text-xs font-bold uppercase text-emerald-700">Paid</p>

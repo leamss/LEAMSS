@@ -147,7 +147,7 @@ export default function LegalArchive() {
           <p className="text-sm text-slate-500 mt-1">Searchable compliance dashboard — every consent, signature & invoice with reference IDs.</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <Button variant="outline" onClick={verifyAll} disabled={verifying} className="border-indigo-300 text-indigo-700 hover:bg-indigo-50" data-testid="verify-all-btn">
+          <Button variant="outline" onClick={verifyAll} disabled={verifying} className="border-leamss-teal-300 text-leamss-teal-700 hover:bg-leamss-teal-50" data-testid="verify-all-btn">
             <ShieldCheck className={`h-4 w-4 mr-2 ${verifying ? 'animate-pulse' : ''}`} /> {verifying ? 'Verifying…' : 'Verify Integrity'}
           </Button>
           <Button onClick={() => setShowReportDialog(true)} className="bg-gradient-to-r from-[#2a777a] to-[#1d5658] hover:from-[#1d5658] hover:to-[#143f41] text-white" data-testid="compliance-report-btn">
@@ -417,7 +417,7 @@ export default function LegalArchive() {
                     <div className="flex justify-between"><span>Base Fee:</span> <span>₹{(selected.preview.base_fee || 0).toLocaleString('en-IN')}</span></div>
                     {selected.preview.promo_code && <div className="flex justify-between text-red-600"><span>Promo {selected.preview.promo_code}:</span> <span>- ₹{(selected.preview.promo_discount || 0).toLocaleString('en-IN')}</span></div>}
                     {selected.preview.custom_discount > 0 && <div className="flex justify-between text-red-600"><span>Custom Discount:</span> <span>- ₹{selected.preview.custom_discount.toLocaleString('en-IN')}</span></div>}
-                    {selected.preview.upsell_total > 0 && <div className="flex justify-between text-indigo-600"><span>Upsells ({(selected.preview.upsells || []).length}):</span> <span>+ ₹{selected.preview.upsell_total.toLocaleString('en-IN')}</span></div>}
+                    {selected.preview.upsell_total > 0 && <div className="flex justify-between text-leamss-teal-600"><span>Upsells ({(selected.preview.upsells || []).length}):</span> <span>+ ₹{selected.preview.upsell_total.toLocaleString('en-IN')}</span></div>}
                     <div className="flex justify-between font-bold border-t border-dashed border-emerald-300 pt-1"><span>Final Amount:</span> <span>₹{(selected.preview.final_amount || 0).toLocaleString('en-IN')}</span></div>
                   </div>
                 </div>

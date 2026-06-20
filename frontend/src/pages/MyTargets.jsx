@@ -31,7 +31,7 @@ const formatINR = (n) => {
 const pctColor = (p) => {
   if (p >= 150) return { bar: 'bg-gradient-to-r from-amber-400 via-yellow-500 to-amber-600', text: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-300' };
   if (p >= 100) return { bar: 'bg-gradient-to-r from-emerald-500 to-green-600', text: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-300' };
-  if (p >= 75) return { bar: 'bg-gradient-to-r from-blue-500 to-indigo-600', text: 'text-blue-700', bg: 'bg-blue-50', border: 'border-blue-300' };
+  if (p >= 75) return { bar: 'bg-gradient-to-r from-blue-500 to-leamss-teal-600', text: 'text-blue-700', bg: 'bg-blue-50', border: 'border-blue-300' };
   if (p >= 50) return { bar: 'bg-gradient-to-r from-yellow-400 to-orange-500', text: 'text-yellow-700', bg: 'bg-yellow-50', border: 'border-yellow-300' };
   return { bar: 'bg-gradient-to-r from-rose-500 to-red-600', text: 'text-rose-700', bg: 'bg-rose-50', border: 'border-rose-300' };
 };
@@ -206,7 +206,7 @@ export default function MyTargets() {
             </button>
             <div>
               <h1 className="text-3xl font-extrabold text-slate-800 flex items-center gap-2">
-                <Target className="h-7 w-7 text-indigo-600" /> My Targets
+                <Target className="h-7 w-7 text-leamss-teal-600" /> My Targets
               </h1>
               <p className="text-sm text-slate-500 mt-1">Track your monthly & quarterly progress</p>
             </div>
@@ -215,7 +215,7 @@ export default function MyTargets() {
 
         {loading ? (
           <Card className="p-12 text-center">
-            <Sparkles className="h-8 w-8 text-indigo-300 mx-auto animate-pulse mb-2" />
+            <Sparkles className="h-8 w-8 text-leamss-teal-300 mx-auto animate-pulse mb-2" />
             <p className="text-slate-500">Loading your targets…</p>
           </Card>
         ) : (

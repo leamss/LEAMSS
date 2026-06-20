@@ -16,7 +16,7 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
 const DEPT_THEMES = {
-  admin:       { color: '#7c3aed', tint: 'bg-violet-50',   text: 'text-violet-700',  icon: Shield },
+  admin:       { color: '#7c3aed', tint: 'bg-leamss-red-50',   text: 'text-leamss-red-700',  icon: Shield },
   sales:       { color: '#16a34a', tint: 'bg-emerald-50',  text: 'text-emerald-700', icon: TrendingUp },
   marketing:   { color: '#ea580c', tint: 'bg-orange-50',   text: 'text-orange-700',  icon: Megaphone },
   operations:  { color: '#0891b2', tint: 'bg-cyan-50',     text: 'text-cyan-700',    icon: Briefcase },
@@ -227,10 +227,10 @@ export default function PortalWelcome() {
 
         {/* Stats cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <StatCard icon={CheckSquare} label="My Tasks" value="—" hint="Coming soon" color="text-indigo-600" testid="stat-tasks" />
+          <StatCard icon={CheckSquare} label="My Tasks" value="—" hint="Coming soon" color="text-leamss-teal-600" testid="stat-tasks" />
           <StatCard icon={Bell} label="Notifications" value={notifCount} hint={notifCount > 0 ? 'unread' : 'all caught up'} color="text-amber-600" testid="stat-notifs" />
           <StatCard icon={Clock} label="This Month Attendance" value="—" hint="Phase 3" color="text-emerald-600" testid="stat-attendance" />
-          <StatCard icon={Sparkles} label="Quick Action" value={`${modules.length}`} hint="modules available" color="text-violet-600" testid="stat-modules" />
+          <StatCard icon={Sparkles} label="Quick Action" value={`${modules.length}`} hint="modules available" color="text-leamss-red-600" testid="stat-modules" />
         </div>
 
         {/* Your Access */}

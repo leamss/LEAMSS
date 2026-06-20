@@ -49,7 +49,7 @@ export default function PaFinancialSummary({ pa, onDownload, onSendInvoice, onGe
             <div className="flex justify-between text-red-600"><span>Custom Discount:</span> <span>- ₹{(pa.proposal_additional_discount || 0).toLocaleString('en-IN')}</span></div>
           )}
           {(pa.proposal_upsell_total || 0) > 0 && (
-            <div className="flex justify-between text-indigo-600"><span>Upsells ({upsells.length}):</span> <span>+ ₹{(pa.proposal_upsell_total || 0).toLocaleString('en-IN')}</span></div>
+            <div className="flex justify-between text-leamss-teal-600"><span>Upsells ({upsells.length}):</span> <span>+ ₹{(pa.proposal_upsell_total || 0).toLocaleString('en-IN')}</span></div>
           )}
           <div className="border-t border-dashed border-emerald-300 mt-1.5 pt-1.5 flex justify-between font-bold text-emerald-800">
             <span>Final Paid:</span><span>₹{(pa.proposal_fee || 0).toLocaleString('en-IN')}</span>
@@ -61,7 +61,7 @@ export default function PaFinancialSummary({ pa, onDownload, onSendInvoice, onGe
           <p className="text-[11px] font-semibold text-slate-700 mb-1">Upsell Add-ons:</p>
           <div className="flex flex-wrap gap-1.5">
             {upsells.map((u, i) => (
-              <Badge key={i} className="bg-indigo-100 text-indigo-700 text-[10px]">{u.name} · ₹{(u.amount || 0).toLocaleString('en-IN')}</Badge>
+              <Badge key={i} className="bg-leamss-teal-100 text-leamss-teal-700 text-[10px]">{u.name} · ₹{(u.amount || 0).toLocaleString('en-IN')}</Badge>
             ))}
           </div>
         </div>
@@ -87,7 +87,7 @@ export default function PaFinancialSummary({ pa, onDownload, onSendInvoice, onGe
         </Button>
         {onGenerateAgreement && (
           <Button size="sm" onClick={() => onGenerateAgreement(pa)}
-            className="h-8 text-xs bg-gradient-to-r from-indigo-500 to-purple-600 hover:opacity-90 text-white" data-testid={`gen-agreement-${pa.id}`}>
+            className="h-8 text-xs bg-gradient-to-r from-leamss-teal-500 to-leamss-orange-600 hover:opacity-90 text-white" data-testid={`gen-agreement-${pa.id}`}>
             <FilePlus className="h-3.5 w-3.5 mr-1" />
             {pa.active_agreement_status === 'signed' ? 'Agreement Signed ✓' : pa.active_agreement_id ? 'View Agreement' : 'Generate Agreement'}
           </Button>

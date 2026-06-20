@@ -53,7 +53,7 @@ function PathwayBadge({ value }) {
     ROL: 'bg-rose-100 text-rose-700',
     Federal: 'bg-sky-100 text-sky-700',
     'Green List': 'bg-emerald-100 text-emerald-700',
-    Provincial: 'bg-indigo-100 text-indigo-700',
+    Provincial: 'bg-leamss-teal-100 text-leamss-teal-700',
     Temporary: 'bg-slate-100 text-slate-700',
   };
   return <Badge className={`${map[value] || 'bg-slate-100 text-slate-700'} text-[10px]`}>{value || '—'}</Badge>;
@@ -123,7 +123,7 @@ export default function EligibilityKnowledgeBase() {
             </Button>
             <div>
               <h1 className="text-2xl font-semibold flex items-center gap-2">
-                <Sparkles className="h-7 w-7 text-indigo-600" /> Eligibility Knowledge Base
+                <Sparkles className="h-7 w-7 text-leamss-teal-600" /> Eligibility Knowledge Base
               </h1>
               <p className="text-sm text-slate-500">
                 Country rules, visa categories, skill bodies, occupation codes, points systems & document templates.
@@ -151,7 +151,7 @@ export default function EligibilityKnowledgeBase() {
                 <div>
                   <h3 className="text-sm font-bold flex items-center gap-2">
                     Occupation Master · Verification Status
-                    <Badge className="bg-indigo-600 text-white text-[9px]">Phase 6.9 · Single Source of Truth</Badge>
+                    <Badge className="bg-leamss-teal-600 text-white text-[9px]">Phase 6.9 · Single Source of Truth</Badge>
                   </h3>
                   <p className="text-xs text-slate-600 mt-1">
                     {masterStats.pending_verification > 0 ? (
@@ -190,7 +190,7 @@ export default function EligibilityKnowledgeBase() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="border-indigo-300 text-indigo-700 hover:bg-indigo-50"
+                  className="border-leamss-teal-300 text-leamss-teal-700 hover:bg-leamss-teal-50"
                   onClick={() => window.location.assign('/admin/kb/occupation-master')}
                   data-testid="open-occupation-master-admin"
                 >
@@ -199,7 +199,7 @@ export default function EligibilityKnowledgeBase() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="border-violet-300 text-violet-700 hover:bg-violet-50"
+                  className="border-leamss-red-300 text-leamss-red-700 hover:bg-leamss-red-50"
                   onClick={() => window.location.assign('/admin/country-guides')}
                   data-testid="open-country-guides-admin"
                 >
@@ -253,7 +253,7 @@ export default function EligibilityKnowledgeBase() {
                   onClick={() => setActiveCountry(c.country_code)}
                   className={`px-4 py-2 rounded-lg border-2 text-sm font-medium transition flex items-center gap-2 ${
                     activeCountry === c.country_code
-                      ? 'border-indigo-500 bg-indigo-50 text-indigo-900'
+                      ? 'border-leamss-teal-500 bg-leamss-teal-50 text-leamss-teal-900'
                       : 'border-slate-200 bg-white hover:border-slate-300'
                   } ${!c.is_active ? 'opacity-50' : ''}`}
                   data-testid={`country-tab-${c.country_code}`}
@@ -299,7 +299,7 @@ export default function EligibilityKnowledgeBase() {
 
 function StatCard({ label, value, icon: Icon, color }) {
   const ring = {
-    indigo: 'border-l-indigo-500',
+    indigo: 'border-l-leamss-teal-500',
     emerald: 'border-l-emerald-500',
     amber: 'border-l-amber-500',
     sky: 'border-l-sky-500',
@@ -356,7 +356,7 @@ function CountriesTab({ countries, onRefresh }) {
           <h2 className="text-lg font-bold">All Countries</h2>
           <p className="text-xs text-slate-500">Manage country activation status and add new countries to the knowledge base.</p>
         </div>
-        <Button size="sm" onClick={() => setAdding(true)} className="bg-indigo-600 hover:bg-indigo-700" data-testid="add-country-btn">
+        <Button size="sm" onClick={() => setAdding(true)} className="bg-leamss-teal-600 hover:bg-leamss-teal-700" data-testid="add-country-btn">
           <Plus className="h-4 w-4 mr-1" /> Add Country
         </Button>
       </div>
@@ -410,7 +410,7 @@ function CountriesTab({ countries, onRefresh }) {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAdding(false)}>Cancel</Button>
-            <Button onClick={save} disabled={saving} className="bg-indigo-600 hover:bg-indigo-700" data-testid="save-new-country">
+            <Button onClick={save} disabled={saving} className="bg-leamss-teal-600 hover:bg-leamss-teal-700" data-testid="save-new-country">
               {saving ? 'Saving…' : 'Add Country'}
             </Button>
           </DialogFooter>
@@ -444,7 +444,7 @@ function VisasTab({ country, onRefresh }) {
           <h2 className="text-lg font-bold">{country.country_flag_emoji} {country.country} · Visa Categories ({country.visa_categories?.length || 0})</h2>
           <p className="text-xs text-slate-500">Define visa types, eligibility thresholds, processing times, and costs.</p>
         </div>
-        <Button size="sm" onClick={() => setEditing({})} className="bg-indigo-600 hover:bg-indigo-700" data-testid="add-visa-btn">
+        <Button size="sm" onClick={() => setEditing({})} className="bg-leamss-teal-600 hover:bg-leamss-teal-700" data-testid="add-visa-btn">
           <Plus className="h-4 w-4 mr-1" /> Add Visa
         </Button>
       </div>
@@ -578,7 +578,7 @@ function VisaEditor({ countryCode, visa, onClose, onSaved }) {
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={save} disabled={saving} className="bg-indigo-600 hover:bg-indigo-700" data-testid="visa-save-btn">
+          <Button onClick={save} disabled={saving} className="bg-leamss-teal-600 hover:bg-leamss-teal-700" data-testid="visa-save-btn">
             {saving ? 'Saving…' : 'Save Visa'}
           </Button>
         </DialogFooter>
@@ -611,7 +611,7 @@ function SkillBodiesTab({ country, onRefresh }) {
           <h2 className="text-lg font-bold">{country.country_flag_emoji} {country.country} · Skill Assessment Bodies ({country.skill_assessment_bodies?.length || 0})</h2>
           <p className="text-xs text-slate-500">Bodies that assess foreign qualifications for visa applications.</p>
         </div>
-        <Button size="sm" onClick={() => setEditing({})} className="bg-indigo-600 hover:bg-indigo-700" data-testid="add-body-btn">
+        <Button size="sm" onClick={() => setEditing({})} className="bg-leamss-teal-600 hover:bg-leamss-teal-700" data-testid="add-body-btn">
           <Plus className="h-4 w-4 mr-1" /> Add Skill Body
         </Button>
       </div>
@@ -624,7 +624,7 @@ function SkillBodiesTab({ country, onRefresh }) {
                 <p className="font-bold text-sm">{b.name}</p>
                 <p className="text-[11px] text-slate-500">{b.full_name}</p>
                 {b.website && (
-                  <a href={b.website} target="_blank" rel="noreferrer" className="text-[10px] text-indigo-600 hover:underline">
+                  <a href={b.website} target="_blank" rel="noreferrer" className="text-[10px] text-leamss-teal-600 hover:underline">
                     {b.website.replace(/^https?:\/\//, '')}
                   </a>
                 )}
@@ -707,7 +707,7 @@ function SkillBodyEditor({ countryCode, body, onClose, onSaved }) {
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={save} disabled={saving} className="bg-indigo-600 hover:bg-indigo-700" data-testid="body-save-btn">
+          <Button onClick={save} disabled={saving} className="bg-leamss-teal-600 hover:bg-leamss-teal-700" data-testid="body-save-btn">
             {saving ? 'Saving…' : 'Save Body'}
           </Button>
         </DialogFooter>
@@ -773,7 +773,7 @@ function OccupationsTab({ country, onRefresh }) {
               <Upload className="h-4 w-4" />{importing ? 'Importing…' : 'Bulk CSV Import'}
             </span>
           </label>
-          <Button size="sm" onClick={() => setEditing({})} className="bg-indigo-600 hover:bg-indigo-700" data-testid="add-occ-btn">
+          <Button size="sm" onClick={() => setEditing({})} className="bg-leamss-teal-600 hover:bg-leamss-teal-700" data-testid="add-occ-btn">
             <Plus className="h-4 w-4 mr-1" /> Add Code
           </Button>
         </div>
@@ -901,7 +901,7 @@ function OccupationEditor({ countryCode, occ, onClose, onSaved }) {
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={save} disabled={saving} className="bg-indigo-600 hover:bg-indigo-700" data-testid="occ-save-btn">
+          <Button onClick={save} disabled={saving} className="bg-leamss-teal-600 hover:bg-leamss-teal-700" data-testid="occ-save-btn">
             {saving ? 'Saving…' : 'Save'}
           </Button>
         </DialogFooter>
@@ -956,7 +956,7 @@ function PointsTab({ country, onRefresh }) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {Object.entries(ps).map(([category, values]) => (
             <Card key={category} className="p-3 bg-slate-50">
-              <p className="text-[10px] font-bold uppercase text-indigo-700 mb-2">{category.replace(/_/g, ' ')}</p>
+              <p className="text-[10px] font-bold uppercase text-leamss-teal-700 mb-2">{category.replace(/_/g, ' ')}</p>
               {typeof values === 'object' ? (
                 <div className="space-y-1 text-xs">
                   {Object.entries(values).map(([k, v]) => (
@@ -988,7 +988,7 @@ function PointsTab({ country, onRefresh }) {
           />
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setEditing(false)}>Cancel</Button>
-            <Button onClick={save} disabled={saving} className="bg-indigo-600 hover:bg-indigo-700" data-testid="save-points-json">
+            <Button onClick={save} disabled={saving} className="bg-leamss-teal-600 hover:bg-leamss-teal-700" data-testid="save-points-json">
               <CheckCircle2 className="h-4 w-4 mr-1" />{saving ? 'Saving…' : 'Save Points'}
             </Button>
           </div>
@@ -1028,7 +1028,7 @@ function DocsTab({ country }) {
           <p className="text-xs font-bold text-slate-700 mb-2">Visa-Specific Documents</p>
           {Object.entries(dt.visa_specific).map(([visaCode, docs]) => (
             <div key={visaCode} className="mb-3 bg-slate-50 rounded p-2">
-              <p className="text-[11px] font-bold text-indigo-700 mb-1">{visaCode}</p>
+              <p className="text-[11px] font-bold text-leamss-teal-700 mb-1">{visaCode}</p>
               <ul className="text-xs space-y-0.5">
                 {(docs || []).map((d, i) => (
                   <li key={i} className="flex items-start gap-1.5">

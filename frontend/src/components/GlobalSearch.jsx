@@ -81,11 +81,11 @@ const GlobalSearch = ({ onNavigate }) => {
 
   const getTypeColor = (type) => {
     const colors = {
-      user: 'bg-purple-100 text-purple-600',
+      user: 'bg-leamss-orange-100 text-leamss-orange-600',
       case: 'bg-blue-100 text-blue-600',
       sale: 'bg-green-100 text-green-600',
       ticket: 'bg-orange-100 text-orange-600',
-      product: 'bg-indigo-100 text-indigo-600'
+      product: 'bg-leamss-teal-100 text-leamss-teal-600'
     };
     return colors[type] || 'bg-gray-100 text-gray-600';
   };
@@ -152,7 +152,7 @@ const GlobalSearch = ({ onNavigate }) => {
             <div className="max-h-96 overflow-y-auto">
               {loading ? (
                 <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-leamss-teal-600"></div>
                 </div>
               ) : results.length > 0 ? (
                 <div className="py-2">

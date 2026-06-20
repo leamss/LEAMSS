@@ -19,18 +19,18 @@ import { ArrowLeft, Briefcase, Plus, Search, Mail, Phone, Eye, Send, Power, Powe
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const CATEGORY_COLORS = {
-  sales_commission: 'bg-indigo-100 text-indigo-700 border-indigo-300',
+  sales_commission: 'bg-leamss-teal-100 text-leamss-teal-700 border-leamss-teal-300',
   case_manager:     'bg-emerald-100 text-emerald-700 border-emerald-300',
   tutor:            'bg-blue-100 text-blue-700 border-blue-300',
   lawyer:           'bg-slate-100 text-slate-700 border-slate-300',
   translator:       'bg-amber-100 text-amber-700 border-amber-300',
-  consultant:       'bg-purple-100 text-purple-700 border-purple-300',
+  consultant:       'bg-leamss-orange-100 text-leamss-orange-700 border-leamss-orange-300',
   medical_examiner: 'bg-rose-100 text-rose-700 border-rose-300',
   courier:          'bg-orange-100 text-orange-700 border-orange-300',
   other:            'bg-neutral-100 text-neutral-700 border-neutral-300',
 };
 
-const TYPE_BADGE = { internal: 'bg-violet-100 text-violet-700', external: 'bg-cyan-100 text-cyan-700', freelancer: 'bg-pink-100 text-pink-700' };
+const TYPE_BADGE = { internal: 'bg-leamss-red-100 text-leamss-red-700', external: 'bg-cyan-100 text-cyan-700', freelancer: 'bg-pink-100 text-pink-700' };
 
 const VendorCreateModal = ({ open, onClose, categories, onCreated, editing }) => {
   const [form, setForm] = useState({
@@ -113,7 +113,7 @@ const VendorCreateModal = ({ open, onClose, categories, onCreated, editing }) =>
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto" data-testid="vendor-modal">
-        <DialogHeader><DialogTitle className="flex items-center gap-2"><Briefcase className="h-5 w-5 text-indigo-600" />{editing ? 'Edit Vendor' : 'Add New Vendor'}</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle className="flex items-center gap-2"><Briefcase className="h-5 w-5 text-leamss-teal-600" />{editing ? 'Edit Vendor' : 'Add New Vendor'}</DialogTitle></DialogHeader>
         <div className="space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div><Label className="text-sm font-bold">Name *</Label><Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} data-testid="vendor-name" /></div>
@@ -184,7 +184,7 @@ const VendorCreateModal = ({ open, onClose, categories, onCreated, editing }) =>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSave} disabled={saving} className="bg-indigo-600 hover:bg-indigo-700" data-testid="save-vendor">{saving ? 'Saving…' : (editing ? 'Update' : 'Create')}</Button>
+          <Button onClick={handleSave} disabled={saving} className="bg-leamss-teal-600 hover:bg-leamss-teal-700" data-testid="save-vendor">{saving ? 'Saving…' : (editing ? 'Update' : 'Create')}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -214,7 +214,7 @@ const InviteDialog = ({ open, onClose, vendor }) => {
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent data-testid="invite-dialog">
-        <DialogHeader><DialogTitle className="flex items-center gap-2"><Send className="h-5 w-5 text-indigo-600" />Send Portal Invite</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle className="flex items-center gap-2"><Send className="h-5 w-5 text-leamss-teal-600" />Send Portal Invite</DialogTitle></DialogHeader>
         <p className="text-sm text-slate-600">
           Generate a 72h magic link for <strong>{vendor?.name}</strong> ({vendor?.email}).
           Email delivery is currently <Badge className="bg-amber-100 text-amber-700 text-[10px] uppercase">MOCKED</Badge> — copy link manually.
@@ -262,7 +262,7 @@ const InviteDialog = ({ open, onClose, vendor }) => {
         )}
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Close</Button>
-          {!link && <Button onClick={send} disabled={sending} className="bg-indigo-600 hover:bg-indigo-700" data-testid="confirm-invite">{sending ? 'Sending…' : 'Generate Link'}</Button>}
+          {!link && <Button onClick={send} disabled={sending} className="bg-leamss-teal-600 hover:bg-leamss-teal-700" data-testid="confirm-invite">{sending ? 'Sending…' : 'Generate Link'}</Button>}
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -322,7 +322,7 @@ export default function AdminVendors() {
             </button>
             <div>
               <h1 className="text-3xl font-extrabold text-slate-800 flex items-center gap-2">
-                <Briefcase className="h-7 w-7 text-indigo-600" /> Vendor Management
+                <Briefcase className="h-7 w-7 text-leamss-teal-600" /> Vendor Management
               </h1>
               <p className="text-sm text-slate-500 mt-1">Manage all internal & external vendors (sales commission, case managers, tutors, lawyers, …)</p>
             </div>
@@ -331,7 +331,7 @@ export default function AdminVendors() {
             <Button onClick={() => navigate('/admin/vendors/categories')} variant="outline" data-testid="manage-categories">
               <Layers className="h-4 w-4 mr-1.5" /> Categories
             </Button>
-            <Button onClick={() => setCreateOpen(true)} className="bg-indigo-600 hover:bg-indigo-700" data-testid="add-vendor-btn">
+            <Button onClick={() => setCreateOpen(true)} className="bg-leamss-teal-600 hover:bg-leamss-teal-700" data-testid="add-vendor-btn">
               <Plus className="h-4 w-4 mr-1.5" /> Add Vendor
             </Button>
           </div>
@@ -341,7 +341,7 @@ export default function AdminVendors() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           <Card className="p-3" data-testid="stat-total"><p className="text-xs text-slate-500 uppercase font-bold">Total Vendors</p><p className="text-2xl font-extrabold text-slate-800">{stats.total || 0}</p></Card>
           <Card className="p-3 border-emerald-200" data-testid="stat-active"><p className="text-xs text-emerald-700 uppercase font-bold">Active</p><p className="text-2xl font-extrabold text-emerald-700">{stats.active || 0}</p></Card>
-          <Card className="p-3 border-violet-200" data-testid="stat-internal"><p className="text-xs text-violet-700 uppercase font-bold">Internal</p><p className="text-2xl font-extrabold text-violet-700">{(stats.by_category?.sales_commission || 0) + (stats.by_category?.case_manager || 0)}</p></Card>
+          <Card className="p-3 border-leamss-red-200" data-testid="stat-internal"><p className="text-xs text-leamss-red-700 uppercase font-bold">Internal</p><p className="text-2xl font-extrabold text-leamss-red-700">{(stats.by_category?.sales_commission || 0) + (stats.by_category?.case_manager || 0)}</p></Card>
           <Card className="p-3 border-cyan-200" data-testid="stat-external"><p className="text-xs text-cyan-700 uppercase font-bold">External</p><p className="text-2xl font-extrabold text-cyan-700">{Object.entries(stats.by_category || {}).filter(([k]) => !['sales_commission','case_manager'].includes(k)).reduce((a, [_, v]) => a + v, 0)}</p></Card>
         </div>
 
@@ -381,7 +381,7 @@ export default function AdminVendors() {
 
         {/* Vendor cards */}
         {loading ? (
-          <Card className="p-12 text-center"><Sparkles className="h-8 w-8 text-indigo-300 mx-auto animate-pulse mb-2" /><p className="text-slate-500">Loading…</p></Card>
+          <Card className="p-12 text-center"><Sparkles className="h-8 w-8 text-leamss-teal-300 mx-auto animate-pulse mb-2" /><p className="text-slate-500">Loading…</p></Card>
         ) : vendors.length === 0 ? (
           <Card className="p-12 text-center" data-testid="empty-vendors">
             <Briefcase className="h-12 w-12 text-slate-300 mx-auto mb-2" />
@@ -397,7 +397,7 @@ export default function AdminVendors() {
                 <Card key={v.id} className="p-5 hover:shadow-lg transition" data-testid={`vendor-card-${v.id}`}>
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-3">
-                      <div className="w-11 h-11 rounded-full bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center font-bold text-indigo-700">
+                      <div className="w-11 h-11 rounded-full bg-gradient-to-br from-leamss-teal-100 to-leamss-orange-100 flex items-center justify-center font-bold text-leamss-teal-700">
                         {(v.name || 'V')[0]}
                       </div>
                       <div>
@@ -479,7 +479,7 @@ function VendorDetailDialog({ vendor, onClose, onEdit, onInvite, categoryMap }) 
       <DialogContent className="max-w-3xl" data-testid="vendor-detail-dialog">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">
-            <Briefcase className="h-5 w-5 text-indigo-600" />
+            <Briefcase className="h-5 w-5 text-leamss-teal-600" />
             {vendor.name}
             <Badge className="bg-slate-100 text-slate-700 font-mono text-[10px]">{vendor.vendor_code}</Badge>
             <Badge className={vendor.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}>{vendor.status}</Badge>
@@ -490,7 +490,7 @@ function VendorDetailDialog({ vendor, onClose, onEdit, onInvite, categoryMap }) 
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div><p className="text-[10px] font-bold uppercase text-slate-500">Email</p><p className="text-slate-800 flex items-center gap-1"><Mail className="h-3.5 w-3.5 text-slate-400" />{vendor.email}</p></div>
             <div><p className="text-[10px] font-bold uppercase text-slate-500">Phone</p><p className="text-slate-800 flex items-center gap-1"><Phone className="h-3.5 w-3.5 text-slate-400" />{vendor.phone || '—'}</p></div>
-            <div><p className="text-[10px] font-bold uppercase text-slate-500">Category</p><p>{cat?.name || vendor.category} {cat?.is_internal && <Badge className="bg-violet-100 text-violet-700 text-[10px] ml-1">internal</Badge>}</p></div>
+            <div><p className="text-[10px] font-bold uppercase text-slate-500">Category</p><p>{cat?.name || vendor.category} {cat?.is_internal && <Badge className="bg-leamss-red-100 text-leamss-red-700 text-[10px] ml-1">internal</Badge>}</p></div>
             <div><p className="text-[10px] font-bold uppercase text-slate-500">Type</p><p className="capitalize">{vendor.vendor_type || '—'}</p></div>
             <div><p className="text-[10px] font-bold uppercase text-slate-500">PAN</p><p className="font-mono">{vendor.pan_number || '—'}</p></div>
             <div><p className="text-[10px] font-bold uppercase text-slate-500">GST</p><p className="font-mono">{vendor.gst_number || '—'}</p></div>
@@ -512,10 +512,10 @@ function VendorDetailDialog({ vendor, onClose, onEdit, onInvite, categoryMap }) 
           )}
 
           {/* Performance */}
-          <Card className="p-3 bg-gradient-to-br from-indigo-50 to-emerald-50">
+          <Card className="p-3 bg-gradient-to-br from-leamss-teal-50 to-emerald-50">
             <p className="text-[10px] font-bold uppercase text-slate-500 mb-2">Lifetime Performance</p>
             <div className="grid grid-cols-3 gap-3 text-xs">
-              <div><p className="text-slate-500">Cases Handled</p><p className="text-lg font-extrabold text-indigo-800">{perf.total_cases_handled || 0}</p></div>
+              <div><p className="text-slate-500">Cases Handled</p><p className="text-lg font-extrabold text-leamss-teal-800">{perf.total_cases_handled || 0}</p></div>
               <div><p className="text-slate-500">Total Paid</p><p className="text-lg font-extrabold text-emerald-800">₹{(perf.total_paid_lifetime || 0).toLocaleString('en-IN')}</p></div>
               <div><p className="text-slate-500">Rating</p><p className="text-lg font-extrabold text-amber-700">{(perf.rating || 0).toFixed(1)} ★</p></div>
             </div>
@@ -531,7 +531,7 @@ function VendorDetailDialog({ vendor, onClose, onEdit, onInvite, categoryMap }) 
                   <div key={i} className="flex justify-between items-center text-xs p-1.5 bg-slate-50 rounded">
                     <span><strong>{r.client_name}</strong> · {r.pa_number} · {r.label}</span>
                     <span className="flex items-center gap-1">
-                      <Badge className={`text-[9px] ${r.status === 'paid' ? 'bg-emerald-100 text-emerald-700' : r.status === 'approved' ? 'bg-indigo-100 text-indigo-700' : 'bg-amber-100 text-amber-700'}`}>{r.status}</Badge>
+                      <Badge className={`text-[9px] ${r.status === 'paid' ? 'bg-emerald-100 text-emerald-700' : r.status === 'approved' ? 'bg-leamss-teal-100 text-leamss-teal-700' : 'bg-amber-100 text-amber-700'}`}>{r.status}</Badge>
                       <strong>₹{r.amount.toLocaleString('en-IN')}</strong>
                     </span>
                   </div>
@@ -551,7 +551,7 @@ function VendorDetailDialog({ vendor, onClose, onEdit, onInvite, categoryMap }) 
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Close</Button>
           {vendor.can_login && <Button variant="outline" onClick={onInvite} data-testid="vd-invite"><Send className="h-3.5 w-3.5 mr-1" />Send Invite</Button>}
-          <Button onClick={onEdit} className="bg-indigo-600 hover:bg-indigo-700" data-testid="vd-edit">Edit Vendor</Button>
+          <Button onClick={onEdit} className="bg-leamss-teal-600 hover:bg-leamss-teal-700" data-testid="vd-edit">Edit Vendor</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

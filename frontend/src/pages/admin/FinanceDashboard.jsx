@@ -42,7 +42,7 @@ const currentPeriod = () => {
 
 const STATUS_BADGE = {
   pending: 'bg-amber-100 text-amber-700',
-  approved: 'bg-indigo-100 text-indigo-700',
+  approved: 'bg-leamss-teal-100 text-leamss-teal-700',
   paid: 'bg-emerald-100 text-emerald-700',
   reversed: 'bg-rose-100 text-rose-700',
   disputed: 'bg-rose-100 text-rose-700',
@@ -150,10 +150,10 @@ export default function FinanceDashboard() {
             <p className="text-2xl font-extrabold text-emerald-900 mt-1">{formatINR(salesCommissions.total_revenue)}</p>
             <p className="text-[10px] text-emerald-700">{salesCommissions.entries.length} deals</p>
           </Card>
-          <Card className="p-4 bg-gradient-to-br from-indigo-50 to-indigo-100 border-indigo-300" data-testid="kpi-commission">
-            <p className="text-[10px] uppercase font-bold text-indigo-800">Sales Commission</p>
-            <p className="text-2xl font-extrabold text-indigo-900 mt-1">{formatINR(salesCommissions.total_commission)}</p>
-            <p className="text-[10px] text-indigo-700">{salesCommissions.total_revenue > 0 ? `${((salesCommissions.total_commission / salesCommissions.total_revenue) * 100).toFixed(1)}% avg` : '—'}</p>
+          <Card className="p-4 bg-gradient-to-br from-leamss-teal-50 to-leamss-teal-100 border-leamss-teal-300" data-testid="kpi-commission">
+            <p className="text-[10px] uppercase font-bold text-leamss-teal-800">Sales Commission</p>
+            <p className="text-2xl font-extrabold text-leamss-teal-900 mt-1">{formatINR(salesCommissions.total_commission)}</p>
+            <p className="text-[10px] text-leamss-teal-700">{salesCommissions.total_revenue > 0 ? `${((salesCommissions.total_commission / salesCommissions.total_revenue) * 100).toFixed(1)}% avg` : '—'}</p>
           </Card>
           <Card className="p-4 bg-gradient-to-br from-amber-50 to-amber-100 border-amber-300" data-testid="kpi-payouts">
             <p className="text-[10px] uppercase font-bold text-amber-800">Vendor Payouts Outstanding</p>
@@ -173,7 +173,7 @@ export default function FinanceDashboard() {
           <span className="text-xs text-slate-600">Status filter:</span>
           {['', 'pending', 'approved', 'paid', 'disputed', 'reversed'].map(s => (
             <button key={s || 'all'} onClick={() => setStatusFilter(s)}
-              className={`px-2.5 py-1 rounded text-xs ${statusFilter === s ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600'}`}
+              className={`px-2.5 py-1 rounded text-xs ${statusFilter === s ? 'bg-leamss-teal-600 text-white' : 'bg-slate-100 text-slate-600'}`}
               data-testid={`filter-${s || 'all'}`}>{s || 'All'}</button>
           ))}
         </Card>
@@ -199,7 +199,7 @@ export default function FinanceDashboard() {
                       <div key={l.user_id} className="flex items-center gap-3 p-2 bg-slate-50 rounded">
                         <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${i === 0 ? 'bg-amber-500 text-white' : 'bg-slate-200'}`}>{i + 1}</span>
                         <div className="flex-1"><p className="font-medium text-sm">{l.user_name || l.user_email}</p><p className="text-[10px] text-slate-500">{l.deal_count} deals</p></div>
-                        <div className="text-right"><p className="text-sm font-bold text-emerald-700">{formatINR(l.total_revenue)}</p><p className="text-[11px] text-indigo-600">{formatINR(l.total_commission)} earned</p></div>
+                        <div className="text-right"><p className="text-sm font-bold text-emerald-700">{formatINR(l.total_revenue)}</p><p className="text-[11px] text-leamss-teal-600">{formatINR(l.total_commission)} earned</p></div>
                       </div>
                     ))}
                   </div>
@@ -209,7 +209,7 @@ export default function FinanceDashboard() {
                 <h2 className="font-bold flex items-center gap-2 mb-3"><Banknote className="h-5 w-5 text-emerald-500" />Vendor Payout Health</h2>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between p-2 bg-amber-50 rounded"><span>Pending</span><strong>{formatINR(vendorPayouts.totals.pending)}</strong></div>
-                  <div className="flex justify-between p-2 bg-indigo-50 rounded"><span>Approved (Ready)</span><strong>{formatINR(vendorPayouts.totals.approved)}</strong></div>
+                  <div className="flex justify-between p-2 bg-leamss-teal-50 rounded"><span>Approved (Ready)</span><strong>{formatINR(vendorPayouts.totals.approved)}</strong></div>
                   <div className="flex justify-between p-2 bg-emerald-50 rounded"><span>Paid</span><strong>{formatINR(vendorPayouts.totals.paid)}</strong></div>
                   {vendorPayouts.totals.disputed > 0 && <div className="flex justify-between p-2 bg-rose-50 rounded"><span className="flex items-center gap-1"><AlertCircle className="h-3.5 w-3.5" />Disputed</span><strong>{formatINR(vendorPayouts.totals.disputed)}</strong></div>}
                 </div>
@@ -336,7 +336,7 @@ export default function FinanceDashboard() {
                   ])} disabled={vendorPayouts.rows.length === 0} data-testid="dl-vendors">
                     <Download className="h-3.5 w-3.5 mr-1" />Download CSV
                   </Button>
-                  <Button size="sm" onClick={() => navigate('/admin/payouts')} className="bg-indigo-600 hover:bg-indigo-700">Manage →</Button>
+                  <Button size="sm" onClick={() => navigate('/admin/payouts')} className="bg-leamss-teal-600 hover:bg-leamss-teal-700">Manage →</Button>
                 </div>
               </div>
               {vendorPayouts.rows.length === 0 ? <p className="text-sm italic text-slate-400 text-center py-8">No payouts match filter</p> :

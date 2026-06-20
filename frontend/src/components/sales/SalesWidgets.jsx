@@ -29,7 +29,7 @@ const formatINR = (n) => {
 const pctBarColor = (p) => {
   if (p >= 150) return 'bg-gradient-to-r from-amber-400 to-amber-600';
   if (p >= 100) return 'bg-gradient-to-r from-emerald-500 to-green-600';
-  if (p >= 75) return 'bg-gradient-to-r from-blue-500 to-indigo-600';
+  if (p >= 75) return 'bg-gradient-to-r from-blue-500 to-leamss-teal-600';
   if (p >= 50) return 'bg-gradient-to-r from-yellow-400 to-orange-500';
   return 'bg-gradient-to-r from-rose-500 to-red-600';
 };
@@ -60,9 +60,9 @@ export function TargetWidget() {
   // Loading state
   if (loading) {
     return (
-      <Card className="p-4 border-t-4 border-t-indigo-500" data-testid="widget-target-loading">
+      <Card className="p-4 border-t-4 border-t-leamss-teal-500" data-testid="widget-target-loading">
         <div className="flex items-center gap-2 mb-2">
-          <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center"><Target className="h-4 w-4 text-indigo-600 animate-pulse" /></div>
+          <div className="w-8 h-8 rounded-full bg-leamss-teal-100 flex items-center justify-center"><Target className="h-4 w-4 text-leamss-teal-600 animate-pulse" /></div>
           <p className="text-sm font-bold text-slate-800">Monthly Target</p>
         </div>
         <p className="text-xs text-slate-400">Loading…</p>
@@ -73,11 +73,11 @@ export function TargetWidget() {
   // No target set — keep placeholder behavior
   if (!monthly) {
     return (
-      <Card className="p-4 border-t-4 border-t-indigo-500 hover:shadow-md transition" data-testid="widget-target">
+      <Card className="p-4 border-t-4 border-t-leamss-teal-500 hover:shadow-md transition" data-testid="widget-target">
         <div className="flex items-start justify-between mb-2">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center">
-              <Target className="h-4 w-4 text-indigo-600" />
+            <div className="w-8 h-8 rounded-full bg-leamss-teal-100 flex items-center justify-center">
+              <Target className="h-4 w-4 text-leamss-teal-600" />
             </div>
             <p className="text-sm font-bold text-slate-800">Monthly Target</p>
           </div>
@@ -87,7 +87,7 @@ export function TargetWidget() {
         <p className="text-xs text-slate-400">Your manager will set it soon</p>
         <button
           onClick={() => navigate('/sales/my-targets')}
-          className="mt-2 text-xs text-indigo-600 hover:underline flex items-center gap-1"
+          className="mt-2 text-xs text-leamss-teal-600 hover:underline flex items-center gap-1"
           data-testid="link-targets"
         >
           View targets page <ArrowRight className="h-3 w-3" />
@@ -109,17 +109,17 @@ export function TargetWidget() {
   const dailyReq = daysLeft > 0 && gap > 0 ? gap / daysLeft : 0;
 
   return (
-    <Card className="p-4 border-t-4 border-t-indigo-500 hover:shadow-md transition cursor-pointer" data-testid="widget-target" onClick={() => navigate('/sales/my-targets')}>
+    <Card className="p-4 border-t-4 border-t-leamss-teal-500 hover:shadow-md transition cursor-pointer" data-testid="widget-target" onClick={() => navigate('/sales/my-targets')}>
       <div className="flex items-start justify-between mb-2">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center">
-            <Target className="h-4 w-4 text-indigo-600" />
+          <div className="w-8 h-8 rounded-full bg-leamss-teal-100 flex items-center justify-center">
+            <Target className="h-4 w-4 text-leamss-teal-600" />
           </div>
           <p className="text-sm font-bold text-slate-800">Monthly Target</p>
         </div>
-        <Badge className="bg-indigo-600 text-white text-[10px] font-bold uppercase">{overallPct.toFixed(0)}%</Badge>
+        <Badge className="bg-leamss-teal-600 text-white text-[10px] font-bold uppercase">{overallPct.toFixed(0)}%</Badge>
       </div>
-      <p className="text-lg font-extrabold text-indigo-700 mt-1" data-testid="widget-target-amounts">
+      <p className="text-lg font-extrabold text-leamss-teal-700 mt-1" data-testid="widget-target-amounts">
         {formatINR(currentRev)} <span className="text-slate-400 text-sm font-normal">/ {formatINR(targetRev)}</span>
       </p>
       <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden mt-1.5" data-testid="widget-target-progress">
@@ -138,7 +138,7 @@ export function TargetWidget() {
       )}
       <button
         onClick={(e) => { e.stopPropagation(); navigate('/sales/my-targets'); }}
-        className="mt-2 text-xs text-indigo-600 hover:underline flex items-center gap-1"
+        className="mt-2 text-xs text-leamss-teal-600 hover:underline flex items-center gap-1"
         data-testid="link-targets"
       >
         View details <ArrowRight className="h-3 w-3" />

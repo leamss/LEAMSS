@@ -16,7 +16,7 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const ROLE_BADGE = {
   client: { label: 'Client', color: 'bg-blue-100 text-blue-700', icon: UserCircle },
-  cm: { label: 'Case Manager', color: 'bg-purple-100 text-purple-700', icon: FileText },
+  cm: { label: 'Case Manager', color: 'bg-leamss-orange-100 text-leamss-orange-700', icon: FileText },
   both: { label: 'Both', color: 'bg-emerald-100 text-emerald-700', icon: Users },
 };
 
@@ -128,7 +128,7 @@ const IntakeFormFiller = ({ token, caseId, role = 'client', caseName = '' }) => 
       <div className="flex gap-2 items-center flex-wrap">
         <span className="text-[10px] text-slate-500 font-semibold uppercase">Legend:</span>
         <Badge className="bg-blue-100 text-blue-700 text-[9px]"><UserCircle className="h-3 w-3 mr-0.5" />Client fills</Badge>
-        <Badge className="bg-purple-100 text-purple-700 text-[9px]"><FileText className="h-3 w-3 mr-0.5" />CM fills</Badge>
+        <Badge className="bg-leamss-orange-100 text-leamss-orange-700 text-[9px]"><FileText className="h-3 w-3 mr-0.5" />CM fills</Badge>
         <Badge className="bg-emerald-100 text-emerald-700 text-[9px]"><Users className="h-3 w-3 mr-0.5" />Both can fill</Badge>
         <Badge className="bg-slate-100 text-slate-500 text-[9px]"><Lock className="h-3 w-3 mr-0.5" />Read-only for you</Badge>
       </div>

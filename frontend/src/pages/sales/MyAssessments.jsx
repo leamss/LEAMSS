@@ -155,7 +155,7 @@ export default function MyAssessments() {
             </Button>
             <div>
               <h1 className="text-2xl font-bold flex items-center gap-2">
-                <FileText className="h-7 w-7 text-indigo-600" />
+                <FileText className="h-7 w-7 text-leamss-teal-600" />
                 {isAdmin ? 'All Saved Assessments' : 'My Saved Assessments'}
               </h1>
               <p className="text-sm text-slate-500">
@@ -167,7 +167,7 @@ export default function MyAssessments() {
             <Button variant="outline" size="sm" onClick={load} data-testid="refresh-btn">
               <RefreshCw className="h-4 w-4 mr-1" />Refresh
             </Button>
-            <Button size="sm" onClick={() => navigate('/sales/client-assessment')} className="bg-indigo-600" data-testid="new-assessment-btn">
+            <Button size="sm" onClick={() => navigate('/sales/client-assessment')} className="bg-leamss-teal-600" data-testid="new-assessment-btn">
               <Sparkles className="h-4 w-4 mr-1" />New Assessment
             </Button>
           </div>
@@ -296,7 +296,7 @@ function AssessmentRow({ item, isAdmin, busy, onDelete, onCreatePA, onContinue }
         {/* Score */}
         <div className="text-center">
           <p className="text-[9px] uppercase font-bold text-slate-500">Best</p>
-          <p className="text-2xl font-bold text-indigo-700" data-testid={`score-${item.id}`}>{total ?? '—'}</p>
+          <p className="text-2xl font-bold text-leamss-teal-700" data-testid={`score-${item.id}`}>{total ?? '—'}</p>
           <p className="text-[10px] text-slate-500">{country || '—'}</p>
         </div>
 
@@ -305,7 +305,7 @@ function AssessmentRow({ item, isAdmin, busy, onDelete, onCreatePA, onContinue }
           <Button
             variant="outline"
             size="sm"
-            className="h-7 text-[10px] border-indigo-300 text-indigo-700 hover:bg-indigo-50"
+            className="h-7 text-[10px] border-leamss-teal-300 text-leamss-teal-700 hover:bg-leamss-teal-50"
             disabled={busy}
             onClick={() => onContinue(item.id)}
             data-testid={`continue-${item.id}`}
@@ -321,7 +321,7 @@ function AssessmentRow({ item, isAdmin, busy, onDelete, onCreatePA, onContinue }
           {!linked && (
             <Button
               size="sm"
-              className="h-7 text-[10px] bg-indigo-600 hover:bg-indigo-700"
+              className="h-7 text-[10px] bg-leamss-teal-600 hover:bg-leamss-teal-700"
               disabled={busy}
               onClick={() => onCreatePA(item.id)}
               data-testid={`create-pa-${item.id}`}
@@ -373,7 +373,7 @@ function PartnerPickerModal({ partners, selected, setSelected, onCancel, onConfi
         </Select>
         <div className="flex gap-2 mt-4">
           <Button variant="outline" onClick={onCancel} className="flex-1" data-testid="picker-cancel">Cancel</Button>
-          <Button onClick={onConfirm} disabled={!selected} className="flex-1 bg-indigo-600" data-testid="picker-confirm">Create PA</Button>
+          <Button onClick={onConfirm} disabled={!selected} className="flex-1 bg-leamss-teal-600" data-testid="picker-confirm">Create PA</Button>
         </div>
       </Card>
     </div>

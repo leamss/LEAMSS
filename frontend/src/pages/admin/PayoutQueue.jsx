@@ -25,7 +25,7 @@ const formatINR = (n) => {
 const STATUS_BADGE = {
   unassigned: 'bg-slate-100 text-slate-700',
   pending: 'bg-amber-100 text-amber-700',
-  approved: 'bg-indigo-100 text-indigo-700',
+  approved: 'bg-leamss-teal-100 text-leamss-teal-700',
   paid: 'bg-emerald-100 text-emerald-700',
   disputed: 'bg-rose-100 text-rose-700',
 };
@@ -189,10 +189,10 @@ export default function PayoutQueue() {
               <p className="text-xl font-extrabold text-amber-800 mt-1">{formatINR(stats.totals.pending)}</p>
               <p className="text-[10px] text-amber-600">{stats.counts.pending} items</p>
             </Card>
-            <Card className="p-4 bg-indigo-50/60 border-indigo-200" data-testid="stat-approved">
-              <p className="text-[10px] font-bold uppercase text-indigo-700">Approved · Ready to Pay</p>
-              <p className="text-xl font-extrabold text-indigo-800 mt-1">{formatINR(stats.totals.approved)}</p>
-              <p className="text-[10px] text-indigo-600">{stats.counts.approved} items</p>
+            <Card className="p-4 bg-leamss-teal-50/60 border-leamss-teal-200" data-testid="stat-approved">
+              <p className="text-[10px] font-bold uppercase text-leamss-teal-700">Approved · Ready to Pay</p>
+              <p className="text-xl font-extrabold text-leamss-teal-800 mt-1">{formatINR(stats.totals.approved)}</p>
+              <p className="text-[10px] text-leamss-teal-600">{stats.counts.approved} items</p>
             </Card>
             <Card className="p-4 bg-emerald-50/60 border-emerald-200" data-testid="stat-paid">
               <p className="text-[10px] font-bold uppercase text-emerald-700">Paid</p>
@@ -219,7 +219,7 @@ export default function PayoutQueue() {
             <div className="flex gap-1.5 mt-1">
               {['pending', 'approved', 'paid', 'disputed', ''].map(s => (
                 <button key={s || 'all'} onClick={() => setStatusFilter(s)}
-                  className={`px-2.5 py-1 rounded text-xs ${statusFilter === s ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600'}`}
+                  className={`px-2.5 py-1 rounded text-xs ${statusFilter === s ? 'bg-leamss-teal-600 text-white' : 'bg-slate-100 text-slate-600'}`}
                   data-testid={`filter-${s || 'all'}`}>{s || 'All'}</button>
               ))}
             </div>
@@ -242,13 +242,13 @@ export default function PayoutQueue() {
 
         {/* Bulk actions bar */}
         {selectedRows.length > 0 && (
-          <Card className="p-3 mb-3 bg-indigo-50 border-indigo-200 flex items-center justify-between" data-testid="bulk-bar">
+          <Card className="p-3 mb-3 bg-leamss-teal-50 border-leamss-teal-200 flex items-center justify-between" data-testid="bulk-bar">
             <div className="text-sm">
-              <strong>{selectedRows.length}</strong> selected · Total: <strong className="text-indigo-700">{formatINR(selectedTotal)}</strong>
+              <strong>{selectedRows.length}</strong> selected · Total: <strong className="text-leamss-teal-700">{formatINR(selectedTotal)}</strong>
             </div>
             <div className="flex gap-2">
               <Button size="sm" variant="outline" onClick={() => setSelected({})}>Clear</Button>
-              <Button size="sm" onClick={bulkApprove} disabled={busy || !canBulkApprove} className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50" data-testid="bulk-approve-btn" title={!canBulkApprove ? 'Bulk Approve only works on pending rows' : ''}>Bulk Approve</Button>
+              <Button size="sm" onClick={bulkApprove} disabled={busy || !canBulkApprove} className="bg-leamss-teal-600 hover:bg-leamss-teal-700 disabled:opacity-50" data-testid="bulk-approve-btn" title={!canBulkApprove ? 'Bulk Approve only works on pending rows' : ''}>Bulk Approve</Button>
               <Button size="sm" onClick={bulkPay} disabled={busy || !canBulkPay} className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50" data-testid="bulk-pay-btn" title={!canBulkPay ? 'Bulk Pay only works on pending/approved rows' : ''}><CheckCircle className="h-3.5 w-3.5 mr-1" />Bulk Mark Paid</Button>
             </div>
           </Card>
@@ -291,7 +291,7 @@ export default function PayoutQueue() {
                     const isTerminal = r.status === 'paid' || r.status === 'reversed';
                     const isDisputed = r.status === 'disputed';
                     return (
-                      <tr key={k} className={`border-t hover:bg-slate-50 ${isSel ? 'bg-indigo-50/40' : ''} ${isTerminal ? 'opacity-60' : ''}`} data-testid={`row-${i}`}>
+                      <tr key={k} className={`border-t hover:bg-slate-50 ${isSel ? 'bg-leamss-teal-50/40' : ''} ${isTerminal ? 'opacity-60' : ''}`} data-testid={`row-${i}`}>
                         <td className="px-3 py-2">
                           {isTerminal || isDisputed ? (
                             <span className="text-slate-300 text-[10px] italic" title="Terminal status — cannot bulk action">—</span>

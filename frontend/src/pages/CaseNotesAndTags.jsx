@@ -11,7 +11,7 @@ const NOTE_COLORS = [
   { name: 'blue', bg: 'bg-blue-50 border-blue-200', dot: 'bg-blue-400' },
   { name: 'green', bg: 'bg-green-50 border-green-200', dot: 'bg-green-400' },
   { name: 'pink', bg: 'bg-pink-50 border-pink-200', dot: 'bg-pink-400' },
-  { name: 'purple', bg: 'bg-purple-50 border-purple-200', dot: 'bg-purple-400' },
+  { name: 'purple', bg: 'bg-leamss-orange-50 border-leamss-orange-200', dot: 'bg-leamss-orange-400' },
 ];
 
 export default function CaseNotesAndTags({ caseId, token }) {

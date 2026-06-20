@@ -214,7 +214,7 @@ const NotificationBell = ({ onNotificationClick }) => {
       case 'step_completed':
         return <CheckCircle className="h-4 w-4 text-[#2a777a]" />;
       case 'case_assigned':
-        return <User className="h-4 w-4 text-purple-500" />;
+        return <User className="h-4 w-4 text-leamss-orange-500" />;
       default:
         return <AlertCircle className="h-4 w-4 text-slate-500" />;
     }
@@ -224,7 +224,7 @@ const NotificationBell = ({ onNotificationClick }) => {
     if (type?.includes('ticket')) return 'bg-blue-100 text-blue-700';
     if (type?.includes('doc')) return 'bg-green-100 text-green-700';
     if (type?.includes('sale')) return 'bg-amber-100 text-amber-700';
-    if (type?.includes('step') || type?.includes('case')) return 'bg-purple-100 text-purple-700';
+    if (type?.includes('step') || type?.includes('case')) return 'bg-leamss-orange-100 text-leamss-orange-700';
     return 'bg-slate-100 text-slate-700';
   };
 

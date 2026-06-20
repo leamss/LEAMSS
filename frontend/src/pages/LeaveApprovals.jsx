@@ -43,7 +43,7 @@ export default function LeaveApprovals() {
             <ArrowLeft className="h-4 w-4 mr-1.5" /> Back
           </Button>
           <h1 className="font-bold text-slate-900 flex items-center gap-2">
-            <CheckSquare className="h-5 w-5 text-purple-600" /> Leave Approvals
+            <CheckSquare className="h-5 w-5 text-leamss-orange-600" /> Leave Approvals
           </h1>
         </div>
       </header>
@@ -75,7 +75,7 @@ export default function LeaveApprovals() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-semibold text-slate-800">{r.user_name}</span>
                       <Badge variant="outline" className="text-[10px]">{r.user_employee_id || r.department}</Badge>
-                      <Badge className="bg-indigo-100 text-indigo-800 text-[10px]">{r.leave_type_name}</Badge>
+                      <Badge className="bg-leamss-teal-100 text-leamss-teal-800 text-[10px]">{r.leave_type_name}</Badge>
                       {r.is_sandwich && (
                         <Badge className="bg-amber-100 text-amber-800 text-[10px] flex items-center gap-1">
                           <AlertTriangle className="h-3 w-3" /> Sandwich

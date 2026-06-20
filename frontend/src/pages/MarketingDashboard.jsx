@@ -215,8 +215,8 @@ const MarketingDashboard = () => {
 
   const stageColors = {
     new: 'bg-blue-100 text-blue-700 border-blue-200',
-    contacted: 'bg-indigo-100 text-indigo-700 border-indigo-200',
-    qualified: 'bg-purple-100 text-purple-700 border-purple-200',
+    contacted: 'bg-leamss-teal-100 text-leamss-teal-700 border-leamss-teal-200',
+    qualified: 'bg-leamss-orange-100 text-leamss-orange-700 border-leamss-orange-200',
     proposal: 'bg-amber-100 text-amber-700 border-amber-200',
     negotiation: 'bg-orange-100 text-orange-700 border-orange-200',
     won: 'bg-emerald-100 text-emerald-700 border-emerald-200',
@@ -278,7 +278,7 @@ const MarketingDashboard = () => {
               </Card>
               <Card className="p-4 cursor-pointer hover:shadow-md transition-shadow" onClick={() => setActiveTab('campaigns')} data-testid="stat-campaigns">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-purple-50 rounded-lg"><Mail className="h-5 w-5 text-purple-600" /></div>
+                  <div className="p-2 bg-leamss-orange-50 rounded-lg"><Mail className="h-5 w-5 text-leamss-orange-600" /></div>
                   <div>
                     <p className="text-2xl font-bold text-slate-800">{campaignStats.sent_campaigns}</p>
                     <p className="text-xs text-slate-500">Campaigns Sent</p>

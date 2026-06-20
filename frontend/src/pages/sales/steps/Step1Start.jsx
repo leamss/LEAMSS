@@ -63,7 +63,7 @@ export default function Step1Start({ data, update }) {
   return (
     <div className="max-w-xl mx-auto space-y-4">
       <h2 className="text-lg font-bold flex items-center gap-2">
-        <User className="h-5 w-5 text-indigo-600" />Start a New Assessment
+        <User className="h-5 w-5 text-leamss-teal-600" />Start a New Assessment
       </h2>
       <p className="text-sm text-slate-600">Enter the client's basic contact info. You can edit these later.</p>
       <div>

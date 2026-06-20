@@ -36,11 +36,10 @@ class DocRequest(BaseModel):
 
 
 async def _log(user_id, action, entity_type, entity_id=None, details=None):
-    await audit_logs_col.insert_one({
-        "id": str(uuid.uuid4()), "user_id": user_id, "action": action,
-        "entity_type": entity_type, "entity_id": entity_id,
-        "new_value": details, "created_at": datetime.now(timezone.utc)
-    })
+    # X3: delegate to centralised audit_service.log_legacy_event
+    from services.audit_service import log_legacy_event
+    from core.database import db as _db
+    await log_legacy_event(_db, user_id, action, entity_type, entity_id, details)
 
 
 def _serialize(case):

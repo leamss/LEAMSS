@@ -330,21 +330,26 @@ async def render_occupation_html(country_code: str, code: str) -> Optional[str]:
             industry_slug_map[ind["industry_name"]] = ind["slug"]
 
     # Phase 19.4d — Top 3 states where this occupation has highest share (AU only)
+    # X1 perf: batch find($in) instead of N+1 find_one
     top_states: List[Dict[str, Any]] = []
     if cc == "AU":
         state_dist = (occ.get("jsa_data") or {}).get("state_distribution") or occ.get("state_distribution") or {}
         # Filter out None/missing values then sort by pct (high first)
         clean = [(k, v) for k, v in state_dist.items() if k and v is not None]
         ranked = sorted(clean, key=lambda x: x[1], reverse=True)[:3]
-        for state_code, pct in ranked:
-            if not state_code or pct is None:
-                continue
-            st = await db["au_states_master"].find_one(
-                {"state_code": state_code},
+        if ranked:
+            codes = [c for c, _ in ranked]
+            pct_by_code = {c: p for c, p in ranked}
+            state_docs = {}
+            async for st in db["au_states_master"].find(
+                {"state_code": {"$in": codes}},
                 {"_id": 0, "state_code": 1, "state_name": 1, "slug": 1, "capital_city": 1},
-            )
-            if st:
-                top_states.append({**st, "state_share_pct": pct})
+            ):
+                state_docs[st["state_code"]] = st
+            for code in codes:  # preserve sort order
+                st = state_docs.get(code)
+                if st:
+                    top_states.append({**st, "state_share_pct": pct_by_code[code]})
 
     tmpl = _env.get_template("atlas_occupation_ssr.html")
     return tmpl.render(

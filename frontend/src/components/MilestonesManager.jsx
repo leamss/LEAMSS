@@ -79,7 +79,7 @@ export default function MilestonesManager({ caseId, role }) {
   return (
     <div className="space-y-3" data-testid="milestones-manager">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold text-slate-800 flex items-center gap-1.5"><Package className="h-4 w-4 text-indigo-600" /> Milestone Payments ({items.length})</p>
+        <p className="text-sm font-semibold text-slate-800 flex items-center gap-1.5"><Package className="h-4 w-4 text-leamss-teal-600" /> Milestone Payments ({items.length})</p>
         {canCreate && (
           <Button size="sm" variant="outline" onClick={() => setShowCreate(!showCreate)} className="h-7 text-xs" data-testid="milestone-new-btn">
             <Plus className="h-3 w-3 mr-1" /> New Milestone
@@ -97,7 +97,7 @@ export default function MilestonesManager({ caseId, role }) {
           <Input placeholder="Description (optional)" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
           <div className="flex justify-end gap-2">
             <Button size="sm" variant="outline" onClick={() => setShowCreate(false)}>Cancel</Button>
-            <Button size="sm" onClick={create} className="bg-indigo-600 hover:bg-indigo-700 text-white" data-testid="milestone-save-btn">Save</Button>
+            <Button size="sm" onClick={create} className="bg-leamss-teal-600 hover:bg-leamss-teal-700 text-white" data-testid="milestone-save-btn">Save</Button>
           </div>
         </div>
       )}
@@ -108,7 +108,7 @@ export default function MilestonesManager({ caseId, role }) {
         <div className="space-y-2">
           {items.map(m => (
             <div key={m.id} className="flex items-center gap-3 bg-white border border-slate-200 rounded-lg p-3" data-testid={`milestone-row-${m.id}`}>
-              <div className={`h-9 w-9 rounded-full flex items-center justify-center shrink-0 ${m.status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-indigo-100 text-indigo-700'}`}>
+              <div className={`h-9 w-9 rounded-full flex items-center justify-center shrink-0 ${m.status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-leamss-teal-100 text-leamss-teal-700'}`}>
                 {m.status === 'paid' ? <CheckCircle className="h-4 w-4" /> : <Clock className="h-4 w-4" />}
               </div>
               <div className="flex-1 min-w-0">

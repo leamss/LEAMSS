@@ -30,6 +30,36 @@ COLLECTION = "audit_logs"
 VALID_SEVERITIES = {"info", "warn", "critical"}
 
 
+# ─── Option D / X3 — Legacy compat helpers ────────────────────────────────────
+# 4 routers (cases.py, documents.py, auth.py, sales.py) defined an identical
+# `_log(user_id, action, entity_type, entity_id, details)` helper writing to
+# `audit_logs` with `new_value` field. Consolidated here to single canonical impl.
+
+async def log_legacy_event(
+    db: AsyncIOMotorDatabase,
+    user_id: str,
+    action: str,
+    entity_type: str,
+    entity_id: Optional[str] = None,
+    details: Optional[Dict[str, Any]] = None,
+) -> str:
+    """Centralised replacement for the 4 duplicated `_log()` helpers.
+
+    Preserves original schema (`new_value=details`) for backward compat.
+    """
+    event_id = str(uuid.uuid4())
+    await db[COLLECTION].insert_one({
+        "id": event_id,
+        "user_id": user_id,
+        "action": action,
+        "entity_type": entity_type,
+        "entity_id": entity_id,
+        "new_value": details,
+        "created_at": datetime.now(timezone.utc),
+    })
+    return event_id
+
+
 async def log_action(
     db: AsyncIOMotorDatabase,
     *,

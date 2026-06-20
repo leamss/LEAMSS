@@ -160,7 +160,7 @@ const PreAssessmentQueue = ({ initialFilter = null }) => {
       <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
         {[
           { label: 'Total', value: stats.total || 0, color: 'from-slate-500 to-slate-600', click: () => setActiveView('all') },
-          { label: '1st Review', value: stats.under_review || 0, color: 'from-purple-500 to-purple-600', click: () => setActiveView('under_review') },
+          { label: '1st Review', value: stats.under_review || 0, color: 'from-leamss-orange-500 to-leamss-orange-600', click: () => setActiveView('under_review') },
           { label: 'Approved', value: stats.approved || 0, color: 'from-emerald-500 to-emerald-600', click: () => setActiveView('all') },
           { label: 'Rejected', value: stats.rejected || 0, color: 'from-red-500 to-red-600', click: () => setActiveView('all') },
           { label: 'Awaiting Case', value: proposalPaidItems.length || 0, color: 'from-[#f7620b] to-[#e55a09]', click: () => setActiveView('proposal_paid') },
@@ -180,7 +180,7 @@ const PreAssessmentQueue = ({ initialFilter = null }) => {
           <Eye className="h-4 w-4 mr-2" /> Pending Review ({queue.length})
         </Button>
         <Button variant={activeView === 'under_review' ? 'default' : 'outline'} onClick={() => setActiveView('under_review')}
-          className={activeView === 'under_review' ? 'bg-purple-600' : ''} data-testid="view-first-approval">
+          className={activeView === 'under_review' ? 'bg-leamss-orange-600' : ''} data-testid="view-first-approval">
           1st Approval ({underReviewItems.length})
         </Button>
         <Button variant={activeView === 'proposal_paid' ? 'default' : 'outline'} onClick={() => setActiveView('proposal_paid')}
@@ -205,13 +205,13 @@ const PreAssessmentQueue = ({ initialFilter = null }) => {
             const isExpanded = expandedId === pa.id;
             const isReviewing = reviewingId === pa.id;
             const stageColors = {
-              under_review: 'border-l-purple-500 bg-purple-50/30',
-              documents_submitted: 'border-l-indigo-500 bg-indigo-50/30',
+              under_review: 'border-l-leamss-orange-500 bg-leamss-orange-50/30',
+              documents_submitted: 'border-l-leamss-teal-500 bg-leamss-teal-50/30',
               approved: 'border-l-emerald-500 bg-emerald-50/30',
               rejected: 'border-l-red-500 bg-red-50/30',
               proposal_sent: 'border-l-teal-500 bg-teal-50/30',
               proposal_paid: 'border-l-[#f7620b] bg-orange-50/30',
-              awaiting_final_approval: 'border-l-indigo-600 bg-indigo-50/30',
+              awaiting_final_approval: 'border-l-leamss-teal-600 bg-leamss-teal-50/30',
               case_created: 'border-l-green-600 bg-green-50/30',
             };
 
@@ -233,12 +233,12 @@ const PreAssessmentQueue = ({ initialFilter = null }) => {
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge className={
-                      pa.stage === 'under_review' ? 'bg-purple-100 text-purple-700' :
+                      pa.stage === 'under_review' ? 'bg-leamss-orange-100 text-leamss-orange-700' :
                       pa.stage === 'approved' ? 'bg-emerald-100 text-emerald-700' :
                       pa.stage === 'rejected' ? 'bg-red-100 text-red-700' :
                       pa.stage === 'proposal_sent' ? 'bg-teal-100 text-teal-700' :
                       pa.stage === 'proposal_paid' ? 'bg-orange-100 text-orange-700' :
-                      pa.stage === 'awaiting_final_approval' ? 'bg-indigo-100 text-indigo-700' :
+                      pa.stage === 'awaiting_final_approval' ? 'bg-leamss-teal-100 text-leamss-teal-700' :
                       pa.stage === 'case_created' ? 'bg-green-100 text-green-700' :
                       'bg-slate-100 text-slate-700'
                     }>{pa.stage?.replace(/_/g, ' ').toUpperCase()}</Badge>
@@ -334,7 +334,7 @@ const PreAssessmentQueue = ({ initialFilter = null }) => {
                       <Button
                         size="sm"
                         variant="outline"
-                        className="border-indigo-300 text-indigo-700 hover:bg-indigo-50"
+                        className="border-leamss-teal-300 text-leamss-teal-700 hover:bg-leamss-teal-50"
                         onClick={() => handlePreviewAsClient(pa)}
                         data-testid={`preview-as-client-${pa.id}`}
                       >

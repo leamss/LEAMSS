@@ -88,7 +88,7 @@ export default function LeaveTypesManager() {
           <Button size="sm" variant="outline" onClick={() => setShowAudit(!showAudit)} data-testid="toggle-audit">
             <History className="h-3.5 w-3.5 mr-1.5" /> Audit Log
           </Button>
-          <Button size="sm" onClick={() => setShowCreate(true)} className="bg-indigo-600 hover:bg-indigo-700" data-testid="add-leave-type-btn">
+          <Button size="sm" onClick={() => setShowCreate(true)} className="bg-leamss-teal-600 hover:bg-leamss-teal-700" data-testid="add-leave-type-btn">
             <Plus className="h-3.5 w-3.5 mr-1.5" /> Add Custom Type
           </Button>
         </div>
@@ -493,7 +493,7 @@ function EditCreateModal({ mode, item, onClose, onSuccess }) {
 
         <div className="flex gap-2 justify-end pt-4 mt-4 border-t border-slate-200">
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={submit} disabled={submitting} className="bg-indigo-600 hover:bg-indigo-700" data-testid="modal-submit">
+          <Button onClick={submit} disabled={submitting} className="bg-leamss-teal-600 hover:bg-leamss-teal-700" data-testid="modal-submit">
             {submitting ? 'Saving...' : (mode === 'edit' ? 'Save Changes' : 'Create Leave Type')}
           </Button>
         </div>

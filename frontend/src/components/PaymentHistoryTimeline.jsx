@@ -16,7 +16,7 @@ const KIND_COLOR = {
   pre_assessment_fee: 'text-blue-600 bg-blue-50',
   proposal_sent: 'text-amber-700 bg-amber-50',
   main_fee_paid: 'text-emerald-600 bg-emerald-50',
-  milestone: 'text-indigo-600 bg-indigo-50',
+  milestone: 'text-leamss-teal-600 bg-leamss-teal-50',
   invoice: 'text-slate-600 bg-slate-50',
 };
 

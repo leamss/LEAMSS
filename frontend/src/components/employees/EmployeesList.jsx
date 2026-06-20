@@ -19,7 +19,7 @@ const STATUS_COLORS = {
 };
 
 const DEPT_COLORS = {
-  admin: 'bg-violet-100 text-violet-700',
+  admin: 'bg-leamss-red-100 text-leamss-red-700',
   sales: 'bg-emerald-100 text-emerald-700',
   marketing: 'bg-orange-100 text-orange-700',
   operations: 'bg-cyan-100 text-cyan-700',
@@ -157,7 +157,7 @@ export default function EmployeesList({ initialFilter, onNavigate, onOpenDetail 
                   <tr key={u.id} className="hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => setSelectedId(u.id)} data-testid={`emp-row-${u.id}`}>
                     <td className="p-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-500 to-indigo-600 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
+                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-500 to-leamss-teal-600 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
                           {(u.name || '?').charAt(0).toUpperCase()}
                         </div>
                         <div>

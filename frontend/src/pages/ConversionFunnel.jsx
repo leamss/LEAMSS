@@ -5,7 +5,7 @@ import { ArrowDown, Loader2 } from 'lucide-react';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
-const stageColors = ['bg-blue-500', 'bg-purple-500', 'bg-amber-500', 'bg-green-500'];
+const stageColors = ['bg-blue-500', 'bg-leamss-orange-500', 'bg-amber-500', 'bg-green-500'];
 
 export default function ConversionFunnel({ token }) {
   const [data, setData] = useState(null);
@@ -34,7 +34,7 @@ export default function ConversionFunnel({ token }) {
         <div className="grid grid-cols-3 gap-4">
           <Card><CardContent className="pt-4 text-center"><p className="text-2xl font-bold text-blue-500">{data.summary.total_leads}</p><p className="text-xs text-gray-500">Total Leads</p></CardContent></Card>
           <Card><CardContent className="pt-4 text-center"><p className="text-2xl font-bold text-green-500">{data.summary.total_completions}</p><p className="text-xs text-gray-500">Completions</p></CardContent></Card>
-          <Card><CardContent className="pt-4 text-center"><p className="text-2xl font-bold text-purple-500">{data.summary.overall_rate}%</p><p className="text-xs text-gray-500">Overall Rate</p></CardContent></Card>
+          <Card><CardContent className="pt-4 text-center"><p className="text-2xl font-bold text-leamss-orange-500">{data.summary.overall_rate}%</p><p className="text-xs text-gray-500">Overall Rate</p></CardContent></Card>
         </div>
       )}
 

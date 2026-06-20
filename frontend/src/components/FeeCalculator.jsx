@@ -549,7 +549,7 @@ export default function FeeCalculator({
                                 </Badge>
                               )}
                               {isExtra && (
-                                <Badge className="bg-purple-100 text-purple-800 border-purple-200 text-xs py-0 h-5">
+                                <Badge className="bg-leamss-orange-100 text-leamss-orange-800 border-leamss-orange-200 text-xs py-0 h-5">
                                   Custom
                                 </Badge>
                               )}

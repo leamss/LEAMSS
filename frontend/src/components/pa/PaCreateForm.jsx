@@ -160,9 +160,9 @@ export default function PaCreateForm({ form, setForm, products, onCancel, onSubm
       )}
 
       {/* Phase 4A — Lead Source Tracking */}
-      <div className="mb-4 p-3 bg-indigo-50/50 rounded-md border border-indigo-100" data-testid="lead-source-section">
+      <div className="mb-4 p-3 bg-leamss-teal-50/50 rounded-md border border-leamss-teal-100" data-testid="lead-source-section">
         <label className="text-sm font-semibold text-slate-700 flex items-center gap-2 mb-1.5">
-          <MousePointer2 className="h-3.5 w-3.5 text-indigo-600" />
+          <MousePointer2 className="h-3.5 w-3.5 text-leamss-teal-600" />
           Lead Source
           <span className="text-xs font-normal text-slate-500">— Optional but recommended for analytics</span>
         </label>
@@ -210,7 +210,7 @@ export default function PaCreateForm({ form, setForm, products, onCancel, onSubm
         </div>
         <div className="md:col-span-2">
           <label className="text-sm font-medium text-slate-700 block mb-1 flex items-center gap-2">
-            <Sparkles className="h-3.5 w-3.5 text-indigo-500" />
+            <Sparkles className="h-3.5 w-3.5 text-leamss-teal-500" />
             Product * <span className="text-xs text-slate-400 font-normal">— pick a product first; country &amp; visa type auto-fill</span>
           </label>
           <select

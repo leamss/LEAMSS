@@ -136,9 +136,9 @@ const PaymentReminders = ({ token }) => {
           <p className="text-xs text-blue-600 font-medium">Never Reminded</p>
           <p className="text-xl font-bold text-blue-800">{s.never_reminded}</p>
         </Card>
-        <Card className="p-3 text-center bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
-          <p className="text-xs text-purple-600 font-medium">Total Pending</p>
-          <p className="text-xl font-bold text-purple-800">₹{(s.total_pending || 0).toLocaleString()}</p>
+        <Card className="p-3 text-center bg-gradient-to-br from-leamss-orange-50 to-leamss-orange-100 border-leamss-orange-200">
+          <p className="text-xs text-leamss-orange-600 font-medium">Total Pending</p>
+          <p className="text-xl font-bold text-leamss-orange-800">₹{(s.total_pending || 0).toLocaleString()}</p>
         </Card>
       </div>
 

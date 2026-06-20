@@ -11,7 +11,7 @@ export default function Step2Approach({ data, update }) {
   return (
     <div className="max-w-2xl mx-auto space-y-4">
       <h2 className="text-lg font-bold flex items-center gap-2">
-        <Wand2 className="h-5 w-5 text-indigo-600" />How would you like to start?
+        <Wand2 className="h-5 w-5 text-leamss-teal-600" />How would you like to start?
       </h2>
       <p className="text-sm text-slate-600">Pick the fastest path for this client. You can switch later.</p>
       <div className="space-y-2">
@@ -20,17 +20,17 @@ export default function Step2Approach({ data, update }) {
           return (
             <Card
               key={o.v}
-              className={`p-4 cursor-pointer transition ${data.approach === o.v ? 'border-indigo-500 ring-2 ring-indigo-200 bg-indigo-50' : 'hover:border-slate-300'}`}
+              className={`p-4 cursor-pointer transition ${data.approach === o.v ? 'border-leamss-teal-500 ring-2 ring-leamss-teal-200 bg-leamss-teal-50' : 'hover:border-slate-300'}`}
               onClick={() => update('approach', o.v)}
               data-testid={`approach-${o.v}`}
             >
               <div className="flex items-center gap-3">
-                <Icon className={`h-6 w-6 ${data.approach === o.v ? 'text-indigo-600' : 'text-slate-400'}`} />
+                <Icon className={`h-6 w-6 ${data.approach === o.v ? 'text-leamss-teal-600' : 'text-slate-400'}`} />
                 <div className="flex-1">
                   <p className="font-bold text-sm">{o.label}</p>
                   <p className="text-[11px] text-slate-500">{o.desc}</p>
                 </div>
-                {data.approach === o.v && <CheckCircle2 className="h-5 w-5 text-indigo-600" />}
+                {data.approach === o.v && <CheckCircle2 className="h-5 w-5 text-leamss-teal-600" />}
               </div>
             </Card>
           );

@@ -36,7 +36,7 @@ export default function SuggesterModal({ onClose, onSelect, headers }) {
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose} data-testid="suggester-modal">
       <Card className="max-w-2xl w-full bg-white p-5 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <h3 className="text-base font-bold flex items-center gap-2 mb-3">
-          <Bot className="h-5 w-5 text-indigo-600" />AI Occupation Helper
+          <Bot className="h-5 w-5 text-leamss-teal-600" />AI Occupation Helper
           <Badge className="bg-amber-100 text-amber-700 text-[9px]">AI suggests — you decide</Badge>
         </h3>
         <p className="text-[11px] text-slate-500 mb-3">
@@ -47,7 +47,7 @@ export default function SuggesterModal({ onClose, onSelect, headers }) {
             <div className="grid grid-cols-3 gap-2 mb-3">
               {COUNTRIES.map(c => (
                 <button key={c.code} onClick={() => setCountry(c.code)}
-                  className={`p-2 rounded border-2 text-xs ${country === c.code ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200'}`}>
+                  className={`p-2 rounded border-2 text-xs ${country === c.code ? 'border-leamss-teal-500 bg-leamss-teal-50' : 'border-slate-200'}`}>
                   {c.flag} {c.name}
                 </button>
               ))}
@@ -62,7 +62,7 @@ export default function SuggesterModal({ onClose, onSelect, headers }) {
             <p className="text-[10px] text-slate-400 mt-1">Min 20 chars · Be specific about duties, industry, seniority</p>
             <div className="flex gap-2 justify-end mt-3">
               <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
-              <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700" onClick={submit} disabled={loading} data-testid="suggester-submit">
+              <Button size="sm" className="bg-leamss-teal-600 hover:bg-leamss-teal-700" onClick={submit} disabled={loading} data-testid="suggester-submit">
                 {loading ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Bot className="h-3 w-3 mr-1" />}
                 {loading ? 'Analysing…' : 'Find Matching Codes'}
               </Button>

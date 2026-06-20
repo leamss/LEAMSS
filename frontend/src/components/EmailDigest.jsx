@@ -123,10 +123,10 @@ const EmailDigest = ({ token }) => {
           <p className="text-xs text-blue-600">Active Cases</p>
           <p className="text-xs text-slate-500 mt-1">{c.completion_rate || 0}% completion</p>
         </Card>
-        <Card className="p-4 text-center bg-purple-50 border-purple-200">
-          <MessageSquare className="h-6 w-6 text-purple-500 mx-auto mb-1" />
-          <p className="text-2xl font-bold text-purple-700">{t.open || 0}</p>
-          <p className="text-xs text-purple-600">Open Tickets</p>
+        <Card className="p-4 text-center bg-leamss-orange-50 border-leamss-orange-200">
+          <MessageSquare className="h-6 w-6 text-leamss-orange-500 mx-auto mb-1" />
+          <p className="text-2xl font-bold text-leamss-orange-700">{t.open || 0}</p>
+          <p className="text-xs text-leamss-orange-600">Open Tickets</p>
           <p className="text-xs text-slate-500 mt-1">{t.urgent || 0} urgent</p>
         </Card>
         <Card className="p-4 text-center bg-amber-50 border-amber-200">
@@ -178,7 +178,7 @@ const EmailDigest = ({ token }) => {
               <div className="flex gap-3 text-center text-xs">
                 <div className="flex-1 p-2 bg-red-50 rounded"><p className="font-bold text-red-700 text-lg">{a.total_pending || 0}</p>Pending Approvals</div>
                 <div className="flex-1 p-2 bg-blue-50 rounded"><p className="font-bold text-blue-700 text-lg">{c.active || 0}</p>Active Cases</div>
-                <div className="flex-1 p-2 bg-purple-50 rounded"><p className="font-bold text-purple-700 text-lg">{t.open || 0}</p>Open Tickets</div>
+                <div className="flex-1 p-2 bg-leamss-orange-50 rounded"><p className="font-bold text-leamss-orange-700 text-lg">{t.open || 0}</p>Open Tickets</div>
               </div>
             </div>
             <div className="bg-slate-50 p-3 rounded-b-lg text-center"><p className="text-xs text-slate-400">LEAMSS Portal - Automated Digest</p></div>

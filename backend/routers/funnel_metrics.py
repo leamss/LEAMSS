@@ -1,6 +1,10 @@
-"""Bonus C — Funnel Health Dashboard metrics aggregator."""
+"""Bonus C — Funnel Health Dashboard metrics aggregator.
+
+X1 perf: 5 aggregation pipelines run in parallel via asyncio.gather.
+"""
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List
 
@@ -29,32 +33,47 @@ async def funnel_metrics(
         raise HTTPException(status_code=400, detail="days must be 1..365")
     since = datetime.now(timezone.utc) - timedelta(days=days)
 
-    # Pipeline counts by PA stage
-    pa_counts: Dict[str, int] = {}
-    async for doc in db["pre_assessments"].aggregate([
-        {"$match": {"created_at": {"$gte": since}}},
-        {"$group": {"_id": "$stage", "n": {"$sum": 1}}},
-    ]):
-        pa_counts[doc["_id"] or "unknown"] = doc["n"]
+    # X1 perf: helper that drains an aggregate cursor into a list
+    async def _drain(coll, pipeline):
+        return [doc async for doc in db[coll].aggregate(pipeline)]
 
-    # Review queue counts
-    review_counts: Dict[str, int] = {}
-    async for doc in db["pre_assessment_reviews"].aggregate([
-        {"$match": {"created_at": {"$gte": since}}},
-        {"$group": {"_id": "$status", "n": {"$sum": 1}}},
-    ]):
-        review_counts[doc["_id"] or "unknown"] = doc["n"]
+    # 5 independent aggregations run in PARALLEL (~5x speedup vs sequential)
+    pa_rows, review_rows, prop_rows, reject_rows, decline_rows = await asyncio.gather(
+        _drain("pre_assessments", [
+            {"$match": {"created_at": {"$gte": since}}},
+            {"$group": {"_id": "$stage", "n": {"$sum": 1}}},
+        ]),
+        _drain("pre_assessment_reviews", [
+            {"$match": {"created_at": {"$gte": since}}},
+            {"$group": {"_id": "$status", "n": {"$sum": 1}}},
+        ]),
+        _drain("proposals", [
+            {"$match": {"created_at": {"$gte": since}}},
+            {"$group": {"_id": "$status", "n": {"$sum": 1},
+                        "rev": {"$sum": {"$cond": [{"$eq": ["$status", "accepted"]}, "$total_inr", 0]}}}},
+        ]),
+        _drain("pre_assessment_reviews", [
+            {"$match": {"created_at": {"$gte": since},
+                        "status": {"$in": ["rejected", "refunded", "closed"]},
+                        "review_notes": {"$ne": None}}},
+            {"$group": {"_id": "$rejection_action", "n": {"$sum": 1}}},
+            {"$sort": {"n": -1}}, {"$limit": 5},
+        ]),
+        _drain("proposals", [
+            {"$match": {"status": "declined", "created_at": {"$gte": since}}},
+            {"$project": {"declined_reason": 1}},
+            {"$limit": 100},
+        ]),
+    )
 
-    # Proposal counts + revenue
+    # Marshal aggregation results into existing data structures
+    pa_counts: Dict[str, int] = {(d["_id"] or "unknown"): d["n"] for d in pa_rows}
+    review_counts: Dict[str, int] = {(d["_id"] or "unknown"): d["n"] for d in review_rows}
     proposal_counts: Dict[str, int] = {}
     revenue = 0
-    async for doc in db["proposals"].aggregate([
-        {"$match": {"created_at": {"$gte": since}}},
-        {"$group": {"_id": "$status", "n": {"$sum": 1},
-                    "rev": {"$sum": {"$cond": [{"$eq": ["$status", "accepted"]}, "$total_inr", 0]}}}},
-    ]):
-        proposal_counts[doc["_id"] or "unknown"] = doc["n"]
-        revenue += int(doc.get("rev") or 0)
+    for d in prop_rows:
+        proposal_counts[d["_id"] or "unknown"] = d["n"]
+        revenue += int(d.get("rev") or 0)
 
     # Funnel stages (canonical order)
     funnel = [
@@ -80,25 +99,15 @@ async def funnel_metrics(
         else:
             stg["conversion_from_prev"] = None
 
-    # Top 3 reject reasons
-    reject_reasons: List[Dict[str, Any]] = []
-    async for doc in db["pre_assessment_reviews"].aggregate([
-        {"$match": {"created_at": {"$gte": since},
-                    "status": {"$in": ["rejected", "refunded", "closed"]},
-                    "review_notes": {"$ne": None}}},
-        {"$group": {"_id": "$rejection_action", "n": {"$sum": 1}}},
-        {"$sort": {"n": -1}}, {"$limit": 5},
-    ]):
-        reject_reasons.append({"action": doc["_id"], "count": doc["n"]})
+    # Top 3 reject reasons (already fetched in parallel above)
+    reject_reasons: List[Dict[str, Any]] = [
+        {"action": d["_id"], "count": d["n"]} for d in reject_rows
+    ]
 
-    # Top 3 decline reasons (proposals)
-    decline_reasons: List[Dict[str, Any]] = []
-    async for doc in db["proposals"].aggregate([
-        {"$match": {"status": "declined", "created_at": {"$gte": since}}},
-        {"$project": {"declined_reason": 1}},
-        {"$limit": 100},
-    ]):
-        decline_reasons.append({"reason_snippet": (doc.get("declined_reason") or "")[:80]})
+    # Top 3 decline reasons (already fetched in parallel above)
+    decline_reasons: List[Dict[str, Any]] = [
+        {"reason_snippet": (d.get("declined_reason") or "")[:80]} for d in decline_rows
+    ]
 
     # Average time-in-stage (placeholder — full computation needs status_transitions audit)
     avg_time_in_stage = {

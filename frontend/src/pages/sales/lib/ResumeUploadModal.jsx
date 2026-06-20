@@ -34,7 +34,7 @@ export default function ResumeUploadModal({ onClose, onExtracted, headers }) {
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose} data-testid="resume-modal">
       <Card className="max-w-xl w-full bg-white p-5 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <h3 className="text-base font-bold flex items-center gap-2 mb-3">
-          <Upload className="h-5 w-5 text-indigo-600" />Upload Resume
+          <Upload className="h-5 w-5 text-leamss-teal-600" />Upload Resume
         </h3>
         {!extracted ? (
           <>
@@ -54,7 +54,7 @@ export default function ResumeUploadModal({ onClose, onExtracted, headers }) {
             )}
             <div className="flex gap-2 justify-end mt-3">
               <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
-              <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700" onClick={submit} disabled={!file || loading} data-testid="resume-submit">
+              <Button size="sm" className="bg-leamss-teal-600 hover:bg-leamss-teal-700" onClick={submit} disabled={!file || loading} data-testid="resume-submit">
                 {loading ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Bot className="h-3 w-3 mr-1" />}
                 {loading ? 'Extracting…' : 'Parse Resume with AI'}
               </Button>

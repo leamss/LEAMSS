@@ -115,12 +115,12 @@ export default function HolidayManager() {
           </select>
           <Badge variant="outline" className="text-xs">{items.length} holiday{items.length !== 1 ? 's' : ''}</Badge>
           <div className="hidden md:flex gap-1 border rounded p-0.5 ml-2">
-            <button onClick={() => setView('list')} className={`px-2 py-1 text-xs rounded ${view === 'list' ? 'bg-indigo-600 text-white' : 'text-slate-600'}`} data-testid="tab-list">List</button>
-            <button onClick={() => setView('calendar')} className={`px-2 py-1 text-xs rounded ${view === 'calendar' ? 'bg-indigo-600 text-white' : 'text-slate-600'}`} data-testid="tab-calendar">Calendar</button>
+            <button onClick={() => setView('list')} className={`px-2 py-1 text-xs rounded ${view === 'list' ? 'bg-leamss-teal-600 text-white' : 'text-slate-600'}`} data-testid="tab-list">List</button>
+            <button onClick={() => setView('calendar')} className={`px-2 py-1 text-xs rounded ${view === 'calendar' ? 'bg-leamss-teal-600 text-white' : 'text-slate-600'}`} data-testid="tab-calendar">Calendar</button>
           </div>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <Button size="sm" onClick={() => setModal({ mode: 'create' })} className="bg-indigo-600 hover:bg-indigo-700" data-testid="add-holiday-btn">
+          <Button size="sm" onClick={() => setModal({ mode: 'create' })} className="bg-leamss-teal-600 hover:bg-leamss-teal-700" data-testid="add-holiday-btn">
             <Plus className="h-3.5 w-3.5 mr-1.5" /> Add Holiday
           </Button>
           <Button size="sm" variant="outline" onClick={importIndian} data-testid="import-indian-btn">

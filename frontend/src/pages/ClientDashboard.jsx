@@ -647,7 +647,7 @@ const ClientDashboard = () => {
               </Card>
               <Card className="p-4 bg-white border-0 shadow-md hover:shadow-lg transition-shadow">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                  <div className="w-12 h-12 bg-gradient-to-br from-leamss-orange-500 to-leamss-orange-600 rounded-xl flex items-center justify-center shadow-lg">
                     <FolderOpen className="h-6 w-6 text-white" />
                   </div>
                   <div>

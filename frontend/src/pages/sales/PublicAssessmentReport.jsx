@@ -41,7 +41,7 @@ export default function PublicAssessmentReport() {
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center" data-testid="report-loading">
-        <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+        <Loader2 className="h-8 w-8 animate-spin text-leamss-teal-600" />
       </div>
     );
   }
@@ -68,7 +68,7 @@ export default function PublicAssessmentReport() {
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 p-5" data-testid="public-report-page">
       <div className="max-w-4xl mx-auto space-y-5">
         {/* Header */}
-        <Card className="p-5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white border-0" data-testid="report-header">
+        <Card className="p-5 bg-gradient-to-r from-leamss-teal-600 to-leamss-red-600 text-white border-0" data-testid="report-header">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-3">
               <Sparkles className="h-8 w-8" />
@@ -109,7 +109,7 @@ export default function PublicAssessmentReport() {
         {/* Highlights grid */}
         <Card className="p-4" data-testid="report-highlights">
           <h2 className="text-sm font-bold mb-3 flex items-center gap-2">
-            <CheckCircle2 className="h-4 w-4 text-indigo-600" />Your Profile Highlights
+            <CheckCircle2 className="h-4 w-4 text-leamss-teal-600" />Your Profile Highlights
           </h2>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs">
             <Highlight icon={Briefcase} label="Profession" value={data?.highlights?.current_profession} />
@@ -127,7 +127,7 @@ export default function PublicAssessmentReport() {
         {data?.results?.length > 0 && (
           <Card className="p-4" data-testid="report-results">
             <h2 className="text-sm font-bold mb-3 flex items-center gap-2">
-              <Globe className="h-4 w-4 text-indigo-600" />Country-Wise Comparison
+              <Globe className="h-4 w-4 text-leamss-teal-600" />Country-Wise Comparison
             </h2>
             <div className="space-y-2">
               {data.results.map(r => (
@@ -163,10 +163,10 @@ export default function PublicAssessmentReport() {
           <Card className="p-4" data-testid="report-checklist">
             <div className="flex items-center justify-between mb-2">
               <h2 className="text-sm font-bold flex items-center gap-2">
-                <FileText className="h-4 w-4 text-indigo-600" />Document Checklist
+                <FileText className="h-4 w-4 text-leamss-teal-600" />Document Checklist
               </h2>
               <div className="flex gap-2 text-[10px]">
-                <Badge className="bg-indigo-100 text-indigo-700">{data.checklist.stats.total} items</Badge>
+                <Badge className="bg-leamss-teal-100 text-leamss-teal-700">{data.checklist.stats.total} items</Badge>
                 <Badge className="bg-rose-100 text-rose-700">{data.checklist.stats.required} required</Badge>
               </div>
             </div>
@@ -194,11 +194,11 @@ export default function PublicAssessmentReport() {
         )}
 
         {/* CTA + Footer */}
-        <Card className="p-5 bg-indigo-600 text-white border-0 text-center" data-testid="report-cta">
+        <Card className="p-5 bg-leamss-teal-600 text-white border-0 text-center" data-testid="report-cta">
           <ShieldCheck className="h-7 w-7 mx-auto mb-2" />
           <h3 className="text-base font-bold mb-1">Ready to take the next step?</h3>
           <p className="text-[11px] opacity-90 mb-3">Schedule a free consultation with your LEAMSS consultant to start your application.</p>
-          <Button className="bg-white text-indigo-600 hover:bg-slate-100" onClick={() => window.open('https://wa.me/?text=' + encodeURIComponent('Hi LEAMSS, I just reviewed my eligibility report and would like to schedule a consultation.'), '_blank')} data-testid="cta-whatsapp">
+          <Button className="bg-white text-leamss-teal-600 hover:bg-slate-100" onClick={() => window.open('https://wa.me/?text=' + encodeURIComponent('Hi LEAMSS, I just reviewed my eligibility report and would like to schedule a consultation.'), '_blank')} data-testid="cta-whatsapp">
             <MessageSquare className="h-4 w-4 mr-1" />Contact via WhatsApp
           </Button>
         </Card>
@@ -215,7 +215,7 @@ export default function PublicAssessmentReport() {
 function Highlight({ icon: Icon, label, value }) {
   return (
     <div className="bg-slate-50 rounded p-2 flex items-start gap-2">
-      <Icon className="h-3.5 w-3.5 text-indigo-500 mt-0.5 flex-shrink-0" />
+      <Icon className="h-3.5 w-3.5 text-leamss-teal-500 mt-0.5 flex-shrink-0" />
       <div>
         <p className="text-[9px] uppercase font-bold text-slate-400">{label}</p>
         <p className="text-xs font-medium text-slate-700 truncate">{value || '—'}</p>

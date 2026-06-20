@@ -55,7 +55,7 @@ export default function PublicReportView() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-blue-50" data-testid="public-report-view">
       {/* Brand banner */}
-      <div className="bg-gradient-to-r from-blue-900 to-indigo-800 text-white p-6">
+      <div className="bg-gradient-to-r from-blue-900 to-leamss-teal-800 text-white p-6">
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div>

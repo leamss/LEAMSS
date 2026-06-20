@@ -29,7 +29,7 @@ const currentPeriod = () => {
 
 const STATUS_COLOR = {
   pending: 'bg-amber-100 text-amber-700',
-  approved: 'bg-indigo-100 text-indigo-700',
+  approved: 'bg-leamss-teal-100 text-leamss-teal-700',
   paid: 'bg-emerald-100 text-emerald-700',
   reversed: 'bg-rose-100 text-rose-700',
 };
@@ -94,10 +94,10 @@ export default function CommissionDashboard() {
             <p className="text-2xl font-extrabold text-emerald-900 mt-1" data-testid="total-revenue">{formatINR(stats.total_revenue)}</p>
             <p className="text-[10px] text-emerald-700 mt-1">{period}</p>
           </Card>
-          <Card className="p-4 bg-gradient-to-br from-indigo-50 to-indigo-100 border-indigo-300">
-            <p className="text-xs font-bold uppercase text-indigo-800">Total Commission</p>
-            <p className="text-2xl font-extrabold text-indigo-900 mt-1" data-testid="total-commission">{formatINR(stats.total_commission)}</p>
-            <p className="text-[10px] text-indigo-700 mt-1">{entries.length} entries</p>
+          <Card className="p-4 bg-gradient-to-br from-leamss-teal-50 to-leamss-teal-100 border-leamss-teal-300">
+            <p className="text-xs font-bold uppercase text-leamss-teal-800">Total Commission</p>
+            <p className="text-2xl font-extrabold text-leamss-teal-900 mt-1" data-testid="total-commission">{formatINR(stats.total_commission)}</p>
+            <p className="text-[10px] text-leamss-teal-700 mt-1">{entries.length} entries</p>
           </Card>
           <Card className="p-4 bg-gradient-to-br from-amber-50 to-amber-100 border-amber-300">
             <p className="text-xs font-bold uppercase text-amber-800">Avg Rate</p>
@@ -122,7 +122,7 @@ export default function CommissionDashboard() {
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-bold text-emerald-700">{formatINR(l.total_revenue)}</p>
-                    <p className="text-[11px] text-indigo-600"><TrendingUp className="h-3 w-3 inline" /> {formatINR(l.total_commission)}</p>
+                    <p className="text-[11px] text-leamss-teal-600"><TrendingUp className="h-3 w-3 inline" /> {formatINR(l.total_commission)}</p>
                   </div>
                 </div>
               ))}
@@ -137,7 +137,7 @@ export default function CommissionDashboard() {
             <div className="flex gap-1.5 text-xs">
               {['', 'pending', 'approved', 'paid', 'reversed'].map(s => (
                 <button key={s} onClick={() => setStatusFilter(s)}
-                  className={`px-2.5 py-1 rounded ${statusFilter === s ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600'}`}
+                  className={`px-2.5 py-1 rounded ${statusFilter === s ? 'bg-leamss-teal-600 text-white' : 'bg-slate-100 text-slate-600'}`}
                   data-testid={`filter-${s || 'all'}`}>{s || 'All'}</button>
               ))}
             </div>

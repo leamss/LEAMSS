@@ -271,7 +271,7 @@ const TicketSection = ({ caseId = null, assignedCaseManagerId = null, clientId =
               </div>
               <div className="flex gap-2">
                 {selectedTicket.status === 'open' && (
-                  <Button onClick={() => updateTicketStatus('in_progress')} size="sm" className="bg-purple-500 hover:bg-purple-600">
+                  <Button onClick={() => updateTicketStatus('in_progress')} size="sm" className="bg-leamss-orange-500 hover:bg-leamss-orange-600">
                     <Clock className="mr-1 h-4 w-4" />Start
                   </Button>
                 )}

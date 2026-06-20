@@ -309,7 +309,7 @@ function PolicyEditor({ policy, headers, onSaved }) {
       </div>
 
       <div className="flex flex-wrap items-center gap-2 pt-3 border-t">
-        <Button onClick={save} disabled={saving} className="bg-indigo-600 hover:bg-indigo-700" data-testid="save-btn">
+        <Button onClick={save} disabled={saving} className="bg-leamss-teal-600 hover:bg-leamss-teal-700" data-testid="save-btn">
           {saving ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Save className="h-3 w-3 mr-1" />}
           {saving ? 'Saving…' : 'Save Changes'}
         </Button>

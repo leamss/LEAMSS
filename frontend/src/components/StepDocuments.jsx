@@ -167,7 +167,7 @@ const StepDocuments = ({ token, caseId }) => {
                             <Badge className={`text-[10px] ${doc.is_mandatory ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600'}`}>
                               {doc.tag || (doc.is_mandatory ? 'Mandatory' : 'Optional')}
                             </Badge>
-                            {doc.source === 'cm_request' && <Badge className="text-[10px] bg-purple-100 text-purple-700">CM Requested</Badge>}
+                            {doc.source === 'cm_request' && <Badge className="text-[10px] bg-leamss-orange-100 text-leamss-orange-700">CM Requested</Badge>}
                           </div>
                           {doc.notes && <p className="text-xs text-slate-500 mt-0.5">{doc.notes}</p>}
                           {doc.uploaded && doc.uploaded_doc && (
@@ -204,7 +204,7 @@ const StepDocuments = ({ token, caseId }) => {
       {(data.additional_requests || []).length > 0 && (
         <Card className="p-5" data-testid="additional-docs-section">
           <h4 className="font-semibold text-slate-800 dark:text-white mb-3 flex items-center gap-2">
-            <FileText className="h-4 w-4 text-purple-500" />Additional Requested Documents
+            <FileText className="h-4 w-4 text-leamss-orange-500" />Additional Requested Documents
           </h4>
           <div className="space-y-3">
             {data.additional_requests.map((req, rIdx) => (
@@ -212,11 +212,11 @@ const StepDocuments = ({ token, caseId }) => {
                 req.uploaded_doc ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-slate-200 dark:bg-slate-800'
               }`} data-testid={`additional-doc-${rIdx}`}>
                 <div className="flex items-center gap-3 flex-1">
-                  {req.uploaded_doc ? <CheckCircle className="h-5 w-5 text-emerald-500" /> : <AlertCircle className="h-5 w-5 text-purple-400" />}
+                  {req.uploaded_doc ? <CheckCircle className="h-5 w-5 text-emerald-500" /> : <AlertCircle className="h-5 w-5 text-leamss-orange-400" />}
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-sm text-slate-800 dark:text-white">{req.doc_name}</span>
-                      <Badge className="text-[10px] bg-purple-100 text-purple-700">Additional</Badge>
+                      <Badge className="text-[10px] bg-leamss-orange-100 text-leamss-orange-700">Additional</Badge>
                       <Badge className={`text-[10px] ${req.is_mandatory ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600'}`}>
                         {req.tag || (req.is_mandatory ? 'Mandatory' : 'Optional')}
                       </Badge>

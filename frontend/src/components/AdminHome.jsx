@@ -123,7 +123,7 @@ export default function AdminHome({ user, onNavigate }) {
               count={data.first_approval_pending}
               description="Pre-Assessments awaiting eligibility review."
               cta="Review queue"
-              color="from-purple-500 to-purple-600"
+              color="from-leamss-orange-500 to-leamss-orange-600"
               onClick={() => onNavigate?.('pre-assessments', 'first_approval')}
               testId="action-first-approval"
               highlight
@@ -216,10 +216,10 @@ export default function AdminHome({ user, onNavigate }) {
             <Card
               key={x.tab}
               onClick={() => x.custom ? x.custom() : onNavigate?.(x.tab)}
-              className={`p-4 cursor-pointer hover:shadow-md transition-all border-slate-200 ${x.accent === 'amber' ? 'hover:border-amber-400 bg-gradient-to-br from-amber-50/40 to-transparent' : x.accent === 'indigo' ? 'hover:border-indigo-400 bg-gradient-to-br from-indigo-50/40 to-transparent' : 'hover:border-[#2a777a]/30'}`}
+              className={`p-4 cursor-pointer hover:shadow-md transition-all border-slate-200 ${x.accent === 'amber' ? 'hover:border-amber-400 bg-gradient-to-br from-amber-50/40 to-transparent' : x.accent === 'indigo' ? 'hover:border-leamss-teal-400 bg-gradient-to-br from-leamss-teal-50/40 to-transparent' : 'hover:border-[#2a777a]/30'}`}
               data-testid={`quick-${x.tab}`}
             >
-              <x.icon className={`h-5 w-5 mb-2 ${x.accent === 'amber' ? 'text-amber-600' : x.accent === 'indigo' ? 'text-indigo-600' : 'text-[#2a777a]'}`} />
+              <x.icon className={`h-5 w-5 mb-2 ${x.accent === 'amber' ? 'text-amber-600' : x.accent === 'indigo' ? 'text-leamss-teal-600' : 'text-[#2a777a]'}`} />
               <p className="text-sm font-semibold text-slate-800">{x.label}</p>
             </Card>
           ))}

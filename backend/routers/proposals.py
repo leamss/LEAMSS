@@ -99,21 +99,27 @@ async def create_proposal(
         if rev["status"] != "approved":
             raise HTTPException(status_code=400, detail=f"PA review must be approved (current: {rev['status']})")
 
-    # Resolve coupons → discount amounts
+    # Resolve coupons → discount amounts (X1 perf: batch $in instead of N+1)
     coupon_discounts: List[Dict[str, Any]] = []
     order_pre_coupon = payload.base_fees_inr + sum(int(a.get("price_inr") or 0) for a in payload.addon_products)
-    for code in payload.applied_coupon_codes:
-        c = await db["coupons"].find_one({"code": code.upper()})
-        if not c:
-            continue
-        if c["discount_type"] == "pct":
-            dval = int(order_pre_coupon * c["discount_value"] / 100)
-        else:
-            dval = min(int(c["discount_value"]), order_pre_coupon)
-        coupon_discounts.append({
-            "code": c["code"], "description": c["description"],
-            "discount_amount_inr": dval,
-        })
+    if payload.applied_coupon_codes:
+        codes_upper = [c.upper() for c in payload.applied_coupon_codes]
+        coupons_by_code = {
+            c["code"]: c
+            async for c in db["coupons"].find({"code": {"$in": codes_upper}})
+        }
+        for code in codes_upper:
+            c = coupons_by_code.get(code)
+            if not c:
+                continue
+            if c["discount_type"] == "pct":
+                dval = int(order_pre_coupon * c["discount_value"] / 100)
+            else:
+                dval = min(int(c["discount_value"]), order_pre_coupon)
+            coupon_discounts.append({
+                "code": c["code"], "description": c["description"],
+                "discount_amount_inr": dval,
+            })
 
     totals = _compute_totals(
         payload.base_fees_inr, payload.addon_products,

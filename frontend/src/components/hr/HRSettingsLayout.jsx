@@ -60,7 +60,7 @@ export default function HRSettingsLayout({ children, title, subtitle, breadcrumb
                     onClick={() => navigate(item.path)}
                     className={`w-full text-left px-4 py-2 flex items-center gap-2 text-sm transition-colors ${
                       active
-                        ? 'bg-indigo-50 text-indigo-700 border-l-2 border-indigo-600 font-semibold'
+                        ? 'bg-leamss-teal-50 text-leamss-teal-700 border-l-2 border-leamss-teal-600 font-semibold'
                         : 'text-slate-600 hover:bg-slate-50'
                     }`}
                     data-testid={`hr-nav-${item.key}`}

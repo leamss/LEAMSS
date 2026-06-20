@@ -34,13 +34,13 @@ const STAGE_CONFIG = {
   payment_pending: { label: 'Payment Pending', color: 'bg-amber-500', textColor: 'text-amber-700', bgColor: 'bg-amber-50', icon: Clock },
   payment_received: { label: 'Payment Received', color: 'bg-blue-500', textColor: 'text-blue-700', bgColor: 'bg-blue-50', icon: CreditCard },
   partner_review: { label: 'Awaiting Your Review', color: 'bg-pink-500', textColor: 'text-pink-700', bgColor: 'bg-pink-50', icon: Eye },
-  documents_submitted: { label: 'Sent to Admin', color: 'bg-indigo-500', textColor: 'text-indigo-700', bgColor: 'bg-indigo-50', icon: FileText },
-  under_review: { label: 'Under Review', color: 'bg-purple-500', textColor: 'text-purple-700', bgColor: 'bg-purple-50', icon: Eye },
+  documents_submitted: { label: 'Sent to Admin', color: 'bg-leamss-teal-500', textColor: 'text-leamss-teal-700', bgColor: 'bg-leamss-teal-50', icon: FileText },
+  under_review: { label: 'Under Review', color: 'bg-leamss-orange-500', textColor: 'text-leamss-orange-700', bgColor: 'bg-leamss-orange-50', icon: Eye },
   approved: { label: 'Approved', color: 'bg-emerald-500', textColor: 'text-emerald-700', bgColor: 'bg-emerald-50', icon: CheckCircle },
   rejected: { label: 'Rejected', color: 'bg-red-500', textColor: 'text-red-700', bgColor: 'bg-red-50', icon: XCircle },
   proposal_sent: { label: 'Waiting for Client Payment', color: 'bg-amber-500', textColor: 'text-amber-700', bgColor: 'bg-amber-50', icon: Clock },
   proposal_paid: { label: 'Action: Upload Receipt + Agreement', color: 'bg-[#f7620b]', textColor: 'text-orange-700', bgColor: 'bg-orange-50', icon: Upload },
-  awaiting_final_approval: { label: 'Awaiting Admin Final Approval', color: 'bg-indigo-600', textColor: 'text-indigo-700', bgColor: 'bg-indigo-50', icon: Clock },
+  awaiting_final_approval: { label: 'Awaiting Admin Final Approval', color: 'bg-leamss-teal-600', textColor: 'text-leamss-teal-700', bgColor: 'bg-leamss-teal-50', icon: Clock },
   case_created: { label: 'Case Created', color: 'bg-green-600', textColor: 'text-green-800', bgColor: 'bg-green-50', icon: CheckCircle },
   refund_initiated: { label: 'Refund Initiated', color: 'bg-orange-500', textColor: 'text-orange-700', bgColor: 'bg-orange-50', icon: RefreshCw },
   refunded: { label: 'Refunded', color: 'bg-gray-500', textColor: 'text-gray-700', bgColor: 'bg-gray-50', icon: RefreshCw },
@@ -492,7 +492,7 @@ const PreAssessmentPipeline = ({ initialFilter = null }) => {
         {[
           { label: 'Total', value: stats.total || 0, color: 'from-slate-500 to-slate-600', click: () => setFilterStage('all') },
           { label: 'Needs Your Review', value: assessments.filter(a => a.stage === 'partner_review').length, color: 'from-pink-500 to-pink-600', highlight: true, click: () => setFilterStage('partner_review') },
-          { label: 'Admin Review', value: stats.under_review || 0, color: 'from-purple-500 to-purple-600', click: () => setFilterStage('under_review') },
+          { label: 'Admin Review', value: stats.under_review || 0, color: 'from-leamss-orange-500 to-leamss-orange-600', click: () => setFilterStage('under_review') },
           { label: 'Approved', value: stats.approved || 0, color: 'from-emerald-500 to-emerald-600', click: () => setFilterStage('approved') },
           { label: 'Proposals Sent', value: stats.proposal_sent || 0, color: 'from-teal-500 to-teal-600', click: () => setFilterStage('proposal_sent') },
           { label: 'Conversion', value: `${stats.conversion_rate || 0}%`, color: 'from-[#2a777a] to-[#236466]' },
@@ -584,7 +584,7 @@ const PreAssessmentPipeline = ({ initialFilter = null }) => {
                     <Eye className="h-4 w-4 mr-1" /> Preview as Client
                   </Button>
                   <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setEditingPa(pa); }}
-                    className="text-indigo-600 hover:bg-indigo-50"
+                    className="text-leamss-teal-600 hover:bg-leamss-teal-50"
                     data-testid={`edit-pa-${pa.id}`} title="Edit client details (name, email, mobile, etc.)">
                     <Edit3 className="h-4 w-4" />
                   </Button>
@@ -709,13 +709,13 @@ const PreAssessmentPipeline = ({ initialFilter = null }) => {
 
                     {/* Waiting banner for awaiting_final_approval stage */}
                     {pa.stage === 'awaiting_final_approval' && (
-                      <div className="bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-200 rounded-lg p-4 flex items-center gap-3">
-                        <div className="h-10 w-10 bg-indigo-500 rounded-full flex items-center justify-center shrink-0">
+                      <div className="bg-gradient-to-r from-leamss-teal-50 to-blue-50 border border-leamss-teal-200 rounded-lg p-4 flex items-center gap-3">
+                        <div className="h-10 w-10 bg-leamss-teal-500 rounded-full flex items-center justify-center shrink-0">
                           <Clock className="h-5 w-5 text-white" />
                         </div>
                         <div className="flex-1">
-                          <p className="font-semibold text-indigo-900">Submitted to Admin · Awaiting Final Approval</p>
-                          <p className="text-xs text-indigo-700 mt-0.5">Admin will verify receipt + signed agreement and activate the case by assigning a Case Manager. Aapka role iske baad complete ho jayega.</p>
+                          <p className="font-semibold text-leamss-teal-900">Submitted to Admin · Awaiting Final Approval</p>
+                          <p className="text-xs text-leamss-teal-700 mt-0.5">Admin will verify receipt + signed agreement and activate the case by assigning a Case Manager. Aapka role iske baad complete ho jayega.</p>
                         </div>
                       </div>
                     )}

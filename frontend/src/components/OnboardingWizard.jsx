@@ -153,7 +153,7 @@ const OnboardingWizard = ({ user, caseData, onComplete, onNavigate }) => {
           {currentStep === 3 && (
             <div data-testid="step-documents">
               <div className="flex items-center gap-3 mb-4">
-                <div className="h-10 w-10 bg-purple-100 rounded-lg flex items-center justify-center"><Upload className="h-5 w-5 text-purple-600" /></div>
+                <div className="h-10 w-10 bg-leamss-orange-100 rounded-lg flex items-center justify-center"><Upload className="h-5 w-5 text-leamss-orange-600" /></div>
                 <div>
                   <h3 className="font-bold text-gray-900">Upload Documents</h3>
                   <p className="text-xs text-gray-500">Upload your passport, photos, and other required documents</p>
@@ -168,7 +168,7 @@ const OnboardingWizard = ({ user, caseData, onComplete, onNavigate }) => {
                   </div>
                 ))}
               </div>
-              <Button onClick={() => { onNavigate?.('uploaded'); markComplete(); }} size="sm" className="w-full mt-4 bg-purple-600 hover:bg-purple-700" data-testid="go-to-documents">
+              <Button onClick={() => { onNavigate?.('uploaded'); markComplete(); }} size="sm" className="w-full mt-4 bg-leamss-orange-600 hover:bg-leamss-orange-700" data-testid="go-to-documents">
                 Upload Documents <ArrowRight className="h-4 w-4 ml-2" />
               </Button>
             </div>

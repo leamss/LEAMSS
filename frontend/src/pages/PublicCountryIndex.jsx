@@ -25,13 +25,13 @@ export default function PublicCountryIndex() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white" data-testid="public-countries-index">
-      <header className="bg-gradient-to-br from-indigo-700 via-blue-700 to-cyan-600 text-white">
+      <header className="bg-gradient-to-br from-leamss-teal-700 via-blue-700 to-cyan-600 text-white">
         <div className="max-w-5xl mx-auto px-6 py-12">
-          <Link to="/" className="text-xs text-indigo-200 hover:underline mb-4 inline-block">← LEAMSS Home</Link>
+          <Link to="/" className="text-xs text-leamss-teal-200 hover:underline mb-4 inline-block">← LEAMSS Home</Link>
           <h1 className="text-4xl font-bold mb-2 flex items-center gap-3">
             <Globe2 className="h-9 w-9" />Where would you like to migrate?
           </h1>
-          <p className="text-indigo-100 max-w-2xl">
+          <p className="text-leamss-teal-100 max-w-2xl">
             Browse verified country guides crafted by our migration experts. Each guide covers PR pathways, eligibility, fees, and timelines.
           </p>
         </div>
@@ -45,7 +45,7 @@ export default function PublicCountryIndex() {
         ) : items.length === 0 ? (
           <Card className="p-10 text-center">
             <p className="text-slate-500">No published country guides yet — check back soon.</p>
-            <Link to="/eligibility" className="text-indigo-600 hover:underline text-sm mt-3 inline-block">
+            <Link to="/eligibility" className="text-leamss-teal-600 hover:underline text-sm mt-3 inline-block">
               Or check your eligibility directly →
             </Link>
           </Card>
@@ -58,13 +58,13 @@ export default function PublicCountryIndex() {
                 className="block"
                 data-testid={`country-card-${g.country_code}`}
               >
-                <Card className="p-5 hover:shadow-lg hover:-translate-y-1 transition border-l-4 border-indigo-500 h-full">
+                <Card className="p-5 hover:shadow-lg hover:-translate-y-1 transition border-l-4 border-leamss-teal-500 h-full">
                   <div className="text-5xl mb-3">{g.flag}</div>
                   <h2 className="text-xl font-bold text-slate-800">{g.name}</h2>
                   <p className="text-xs text-slate-500 mt-1 mb-3 line-clamp-2">
                     {g.hero?.subtitle || g.tagline}
                   </p>
-                  <span className="text-xs text-indigo-600 font-semibold flex items-center gap-1">
+                  <span className="text-xs text-leamss-teal-600 font-semibold flex items-center gap-1">
                     Read full guide <ArrowRight className="h-3 w-3" />
                   </span>
                 </Card>

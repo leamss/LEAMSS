@@ -65,15 +65,15 @@ export default function ANZSCOPreviewCard({ code, occupationTitle, headers }) {
     .slice(0, 3);
 
   return (
-    <Card className="p-4 bg-gradient-to-br from-indigo-50/50 via-white to-blue-50/30 border-l-4 border-l-indigo-500" data-testid="anzsco-preview-card">
+    <Card className="p-4 bg-gradient-to-br from-leamss-teal-50/50 via-white to-blue-50/30 border-l-4 border-l-leamss-teal-500" data-testid="anzsco-preview-card">
       <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
         <div>
-          <p className="text-[10px] uppercase font-bold tracking-wider text-indigo-700 flex items-center gap-1">
+          <p className="text-[10px] uppercase font-bold tracking-wider text-leamss-teal-700 flex items-center gap-1">
             <Database className="h-3 w-3" />ANZSCO 4-digit Profile · {profile.code}
           </p>
           <p className="text-sm font-bold text-slate-800">{profile.title}</p>
         </div>
-        <Badge className="bg-indigo-100 text-indigo-700 text-[9px]">ABS Feb 2026 · KB Verified</Badge>
+        <Badge className="bg-leamss-teal-100 text-leamss-teal-700 text-[9px]">ABS Feb 2026 · KB Verified</Badge>
       </div>
 
       {profile.description && (
@@ -140,7 +140,7 @@ export default function ANZSCOPreviewCard({ code, occupationTitle, headers }) {
           </p>
           <div className="flex flex-wrap gap-1">
             {topEducation.map(([k, v]) => (
-              <Badge key={k} className="bg-violet-100 text-violet-800 text-[10px]">
+              <Badge key={k} className="bg-leamss-red-100 text-leamss-red-800 text-[10px]">
                 {k.replace(/_/g, ' ')} {v}%
               </Badge>
             ))}
@@ -174,7 +174,7 @@ function Stat({ icon: Icon, label, value, color }) {
     emerald: 'text-emerald-600 bg-emerald-50',
     blue: 'text-blue-600 bg-blue-50',
     amber: 'text-amber-600 bg-amber-50',
-    violet: 'text-violet-600 bg-violet-50',
+    violet: 'text-leamss-red-600 bg-leamss-red-50',
   }[color] || 'text-slate-600 bg-slate-50';
   return (
     <div className="rounded p-2 bg-white border" data-testid={`stat-${label.replace(/\s+/g, '-').toLowerCase()}`}>

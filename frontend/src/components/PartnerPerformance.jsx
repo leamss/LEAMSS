@@ -76,7 +76,7 @@ const PartnerPerformance = () => {
         {[
           { label: 'Total Revenue', value: `₹${(revenue.total_fee / 1000).toFixed(0)}K`, sub: `Collected: ₹${(revenue.total_received / 1000).toFixed(0)}K`, color: 'from-[#2a777a] to-[#236466]', icon: IndianRupee },
           { label: 'Approval Rate', value: `${sales.approval_rate}%`, sub: `${sales.approved}/${sales.total} sales`, color: 'from-emerald-500 to-emerald-600', icon: Percent },
-          { label: 'Avg Deal Size', value: `₹${(revenue.avg_deal_size / 1000).toFixed(0)}K`, sub: `Collection: ${revenue.collection_rate}%`, color: 'from-indigo-500 to-indigo-600', icon: BarChart3 },
+          { label: 'Avg Deal Size', value: `₹${(revenue.avg_deal_size / 1000).toFixed(0)}K`, sub: `Collection: ${revenue.collection_rate}%`, color: 'from-leamss-teal-500 to-leamss-teal-600', icon: BarChart3 },
           { label: 'Lead Conversion', value: `${leads.approved}/${leads.total}`, sub: `${leads.rejected} rejected`, color: 'from-amber-500 to-amber-600', icon: TrendingUp },
         ].map((m, i) => (
           <Card key={i} className={`bg-gradient-to-br ${m.color} text-white p-5 border-0 shadow-lg`}>

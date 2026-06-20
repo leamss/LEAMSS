@@ -77,9 +77,9 @@ export default function CountryGuidesAdmin() {
           </Button>
           <div className="flex-1">
             <h1 className="text-2xl font-bold flex items-center gap-2">
-              <Globe2 className="h-7 w-7 text-indigo-600" />
+              <Globe2 className="h-7 w-7 text-leamss-teal-600" />
               Country Guides Admin
-              <Badge className="bg-indigo-600 text-white text-[9px]">Phase 6.10.3</Badge>
+              <Badge className="bg-leamss-teal-600 text-white text-[9px]">Phase 6.10.3</Badge>
             </h1>
             <p className="text-sm text-slate-500">AI drafts · Admin verifies · Public reads verified only</p>
           </div>
@@ -119,7 +119,7 @@ export default function CountryGuidesAdmin() {
                       }}
                       className={`w-full text-left px-3 py-2 rounded text-sm transition ${
                         selectedCode === g.country_code
-                          ? 'bg-indigo-50 border-l-4 border-indigo-500 font-semibold'
+                          ? 'bg-leamss-teal-50 border-l-4 border-leamss-teal-500 font-semibold'
                           : 'hover:bg-slate-50 border-l-4 border-transparent'
                       }`}
                       data-testid={`guide-row-${g.country_code}`}
@@ -267,7 +267,7 @@ function GuideEditor({ guide, headers, onSaved }) {
               href={`/countries/${doc.country_code}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs text-indigo-600 hover:underline flex items-center gap-1"
+              className="text-xs text-leamss-teal-600 hover:underline flex items-center gap-1"
               data-testid="preview-public-link"
             >
               <ExternalLink className="h-3 w-3" />Preview Public Page
@@ -277,11 +277,11 @@ function GuideEditor({ guide, headers, onSaved }) {
 
         <div className="flex flex-wrap items-center gap-2 pb-3 border-b">
           <Button size="sm" variant="outline" onClick={generateAIDraft} disabled={drafting}
-                  className="border-violet-400 text-violet-700 hover:bg-violet-50" data-testid="ai-draft-btn">
+                  className="border-leamss-red-400 text-leamss-red-700 hover:bg-leamss-red-50" data-testid="ai-draft-btn">
             {drafting ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Wand2 className="h-3 w-3 mr-1" />}
             {drafting ? 'Drafting…' : 'AI Draft (Claude)'}
           </Button>
-          <Button size="sm" onClick={save} disabled={saving} className="bg-indigo-600 hover:bg-indigo-700" data-testid="save-guide-btn">
+          <Button size="sm" onClick={save} disabled={saving} className="bg-leamss-teal-600 hover:bg-leamss-teal-700" data-testid="save-guide-btn">
             {saving ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Save className="h-3 w-3 mr-1" />}
             {saving ? 'Saving…' : 'Save Changes'}
           </Button>
@@ -350,7 +350,7 @@ function GuideEditor({ guide, headers, onSaved }) {
                   {doc.ai_draft?.sections?.[s.key] && (
                     <Button size="sm" variant="ghost"
                       onClick={() => copyAIToManual(s.key)}
-                      className="text-[10px] text-violet-600 hover:bg-violet-50"
+                      className="text-[10px] text-leamss-red-600 hover:bg-leamss-red-50"
                       data-testid={`copy-ai-${s.key}`}>
                       <Sparkles className="h-3 w-3 mr-1" />Copy AI Draft
                     </Button>
@@ -375,7 +375,7 @@ function GuideEditor({ guide, headers, onSaved }) {
                 {doc.ai_draft?.faq?.length > 0 && (
                   <Button size="sm" variant="outline"
                     onClick={copyAIFAQToManual}
-                    className="border-violet-300 text-violet-700"
+                    className="border-leamss-red-300 text-leamss-red-700"
                     data-testid="copy-ai-faq">
                     <Sparkles className="h-3 w-3 mr-1" />Copy AI FAQ ({doc.ai_draft.faq.length})
                   </Button>
@@ -443,7 +443,7 @@ function GuideEditor({ guide, headers, onSaved }) {
                           toast.success('Hero subtitle copied');
                           setTab('hero');
                         }}
-                        className="text-[10px] text-violet-600"
+                        className="text-[10px] text-leamss-red-600"
                         data-testid="copy-ai-hero">
                         <Sparkles className="h-3 w-3 mr-1" />Use
                       </Button>
@@ -454,10 +454,10 @@ function GuideEditor({ guide, headers, onSaved }) {
                 {Object.entries(doc.ai_draft.sections || {}).map(([key, body]) => (
                   <Card key={key} className="p-3" data-testid={`ai-section-${key}`}>
                     <div className="flex items-center justify-between mb-1">
-                      <Label className="text-xs font-bold uppercase text-violet-700">{key.replace(/_/g, ' ')}</Label>
+                      <Label className="text-xs font-bold uppercase text-leamss-red-700">{key.replace(/_/g, ' ')}</Label>
                       <Button size="sm" variant="ghost"
                         onClick={() => copyAIToManual(key)}
-                        className="text-[10px] text-violet-600"
+                        className="text-[10px] text-leamss-red-600"
                         data-testid={`ai-copy-${key}`}>
                         <Sparkles className="h-3 w-3 mr-1" />Copy to Editor
                       </Button>

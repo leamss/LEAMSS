@@ -66,7 +66,7 @@ const FamilyManager = ({ token }) => {
   };
 
   const relIcons = { spouse: 'ring', child: 'baby', parent: 'user', sibling: 'users' };
-  const relColors = { spouse: 'bg-pink-100 text-pink-700 border-pink-200', child: 'bg-blue-100 text-blue-700 border-blue-200', parent: 'bg-amber-100 text-amber-700 border-amber-200', sibling: 'bg-purple-100 text-purple-700 border-purple-200' };
+  const relColors = { spouse: 'bg-pink-100 text-pink-700 border-pink-200', child: 'bg-blue-100 text-blue-700 border-blue-200', parent: 'bg-amber-100 text-amber-700 border-amber-200', sibling: 'bg-leamss-orange-100 text-leamss-orange-700 border-leamss-orange-200' };
 
   if (loading) return <div className="flex items-center justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-[#2a777a]" /></div>;
 

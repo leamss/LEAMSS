@@ -8,7 +8,7 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
 const DEPT_BORDERS = {
-  admin: 'border-l-violet-500 bg-violet-50/40',
+  admin: 'border-l-leamss-red-500 bg-leamss-red-50/40',
   sales: 'border-l-emerald-500 bg-emerald-50/40',
   marketing: 'border-l-orange-500 bg-orange-50/40',
   operations: 'border-l-cyan-500 bg-cyan-50/40',
@@ -42,7 +42,7 @@ const Node = ({ user, depth, onSelect, expandedIds, toggle }) => {
             )}
             {!hasKids && <div className="w-6" />}
 
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-500 to-indigo-600 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-500 to-leamss-teal-600 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
               {(user.name || '?').charAt(0).toUpperCase()}
             </div>
 

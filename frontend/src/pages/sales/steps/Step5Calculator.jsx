@@ -53,8 +53,8 @@ export default function Step5Calculator({ results, calculating, data, update, he
   return (
     <div className="space-y-4">
       <h2 className="text-lg font-bold flex items-center gap-2">
-        <Calculator className="h-5 w-5 text-indigo-600" />Live Calculation
-        {calculating && <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />}
+        <Calculator className="h-5 w-5 text-leamss-teal-600" />Live Calculation
+        {calculating && <Loader2 className="h-4 w-4 animate-spin text-leamss-teal-500" />}
       </h2>
 
       {/* RESULTS */}
@@ -63,9 +63,9 @@ export default function Step5Calculator({ results, calculating, data, update, he
       ) : (
         <div className={`grid gap-3 ${results.length === 1 ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'}`} data-testid="calc-results">
           {results.map(r => (
-            <Card key={`${r.country_code}-${r.visa_subclass || 'na'}`} className="p-4 border-2 border-indigo-200 bg-gradient-to-br from-white to-indigo-50" data-testid={`result-${r.country_code}`}>
+            <Card key={`${r.country_code}-${r.visa_subclass || 'na'}`} className="p-4 border-2 border-leamss-teal-200 bg-gradient-to-br from-white to-leamss-teal-50" data-testid={`result-${r.country_code}`}>
               <div className="flex items-center justify-between mb-2">
-                <Badge className="bg-indigo-600 text-white">{r.country_code}</Badge>
+                <Badge className="bg-leamss-teal-600 text-white">{r.country_code}</Badge>
                 {r.visa_subclass && <Badge variant="outline" className="text-[10px]">Subclass {r.visa_subclass}</Badge>}
               </div>
               {r.template_status && r.template_status !== 'verified' && (
@@ -78,7 +78,7 @@ export default function Step5Calculator({ results, calculating, data, update, he
                   ✓ Verified template applied
                 </div>
               )}
-              <p className="text-4xl font-bold text-indigo-700 text-center my-3">{r.total}</p>
+              <p className="text-4xl font-bold text-leamss-teal-700 text-center my-3">{r.total}</p>
               <p className="text-[10px] uppercase font-bold text-slate-500 mb-2">Top Categories</p>
               <div className="space-y-0.5">
                 {Object.entries(r.breakdown || {}).slice(0, 8).map(([cat, val]) => (

@@ -51,7 +51,7 @@ function relTime(iso) {
 
 const SCOPE_COLOR = {
   sales: 'bg-amber-100 text-amber-800',
-  admin: 'bg-violet-100 text-violet-800',
+  admin: 'bg-leamss-red-100 text-leamss-red-800',
   workspace: 'bg-cyan-100 text-cyan-800',
   partner: 'bg-emerald-100 text-emerald-800',
   portal: 'bg-blue-100 text-blue-800',
@@ -557,7 +557,7 @@ function ChannelsTab({ headers }) {
           <p className="text-[11px] text-slate-500 mt-0.5">Slack / Email digest when an error crosses your threshold. Runs every 30 min via APScheduler.</p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <Button variant="outline" size="sm" onClick={() => setTestModalOpen(true)} className="text-violet-700 border-violet-300 hover:bg-violet-50" data-testid="send-test-error-btn">
+          <Button variant="outline" size="sm" onClick={() => setTestModalOpen(true)} className="text-leamss-red-700 border-leamss-red-300 hover:bg-leamss-red-50" data-testid="send-test-error-btn">
             🧪 Send Test Error
           </Button>
           <button onClick={cleanupSynthetic} className="text-[11px] text-slate-500 hover:text-rose-600 underline" data-testid="cleanup-synthetic-link">Clear test errors</button>
@@ -604,14 +604,14 @@ function ChannelsTab({ headers }) {
 
       {/* Result panel */}
       {testResult && (
-        <Card className="p-3 mb-3 border-l-4 border-l-violet-500 bg-violet-50/30" data-testid="test-error-result-panel">
+        <Card className="p-3 mb-3 border-l-4 border-l-leamss-red-500 bg-leamss-red-50/30" data-testid="test-error-result-panel">
           <div className="flex items-center justify-between mb-2">
-            <p className="text-[11px] uppercase tracking-wider font-bold text-violet-700">Last test injection</p>
+            <p className="text-[11px] uppercase tracking-wider font-bold text-leamss-red-700">Last test injection</p>
             <button onClick={() => setTestResult(null)} className="text-[10px] text-slate-400 hover:text-slate-700" data-testid="test-error-result-dismiss">dismiss</button>
           </div>
           <p className="text-[11px] text-slate-700">
             Synthetic error id:{' '}
-            <a href={`?id=${testResult.error_id}`} className="font-mono text-[10px] underline hover:text-violet-700" data-testid="test-error-result-id">{testResult.error_id}</a>
+            <a href={`?id=${testResult.error_id}`} className="font-mono text-[10px] underline hover:text-leamss-red-700" data-testid="test-error-result-id">{testResult.error_id}</a>
           </p>
           <div className="text-[11px] text-slate-700 mt-1">
             Dispatch: <strong>{testResult.dispatch_result?.matched_channels ?? 0}</strong> channels processed ·{' '}
@@ -621,7 +621,7 @@ function ChannelsTab({ headers }) {
           {(testResult.dispatch_result?.details || []).length > 0 && (
             <div className="mt-2 space-y-1" data-testid="test-error-result-channels">
               {testResult.dispatch_result.details.map((d, i) => (
-                <div key={i} className="text-[10px] flex items-center gap-1 bg-white px-2 py-1 rounded border border-violet-100">
+                <div key={i} className="text-[10px] flex items-center gap-1 bg-white px-2 py-1 rounded border border-leamss-red-100">
                   <CheckCircle2 className="h-3 w-3 text-emerald-600" /> {d.channel_name} · error {d.error_id?.slice(0, 8)}… ({d.occurrences} occ.)
                 </div>
               ))}
@@ -666,7 +666,7 @@ function ChannelsTab({ headers }) {
         <div className="space-y-2" data-testid="channels-list">
           {channels.map((ch) => (
             <div key={ch.id} className="flex items-center gap-2 bg-white border border-slate-200 rounded p-2" data-testid={`channel-row-${ch.id}`}>
-              {ch.type === 'slack' ? <Slack className="h-4 w-4 text-violet-600" /> : <Mail className="h-4 w-4 text-blue-600" />}
+              {ch.type === 'slack' ? <Slack className="h-4 w-4 text-leamss-red-600" /> : <Mail className="h-4 w-4 text-blue-600" />}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="font-semibold text-[13px]">{ch.name}</span>

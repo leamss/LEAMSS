@@ -53,7 +53,7 @@ export default function CmEarningsWidget() {
   return (
     <>
     <Card
-      className="p-5 mb-4 bg-gradient-to-br from-emerald-50 via-blue-50 to-indigo-50 border-emerald-200 cursor-pointer hover:shadow-md transition"
+      className="p-5 mb-4 bg-gradient-to-br from-emerald-50 via-blue-50 to-leamss-teal-50 border-emerald-200 cursor-pointer hover:shadow-md transition"
       data-testid="cm-earnings-widget"
       onClick={() => setDetailOpen(true)}
     >
@@ -80,10 +80,10 @@ export default function CmEarningsWidget() {
             <p className="font-bold text-slate-800">{formatINR(totals.pending)}</p>
           </div>
         </div>
-        <div className="bg-indigo-50 p-2 rounded flex items-center gap-2" data-testid="cm-approved">
-          <TrendingUp className="h-3.5 w-3.5 text-indigo-600" />
+        <div className="bg-leamss-teal-50 p-2 rounded flex items-center gap-2" data-testid="cm-approved">
+          <TrendingUp className="h-3.5 w-3.5 text-leamss-teal-600" />
           <div>
-            <p className="text-indigo-700 font-bold">Approved</p>
+            <p className="text-leamss-teal-700 font-bold">Approved</p>
             <p className="font-bold text-slate-800">{formatINR(totals.approved)}</p>
           </div>
         </div>
@@ -105,7 +105,7 @@ export default function CmEarningsWidget() {
             <div key={idx} className="flex justify-between text-[11px]" data-testid={`cm-earning-row-${idx}`}>
               <span className="truncate text-slate-600">{li.client_name} ({li.pa_number})</span>
               <span className="flex items-center gap-1">
-                <Badge className={`text-[9px] ${li.status === 'paid' ? 'bg-emerald-100 text-emerald-700' : li.status === 'approved' ? 'bg-indigo-100 text-indigo-700' : 'bg-amber-100 text-amber-700'}`}>{li.status}</Badge>
+                <Badge className={`text-[9px] ${li.status === 'paid' ? 'bg-emerald-100 text-emerald-700' : li.status === 'approved' ? 'bg-leamss-teal-100 text-leamss-teal-700' : 'bg-amber-100 text-amber-700'}`}>{li.status}</Badge>
                 <strong className="text-slate-800 ml-1">{formatINR(li.amount)}</strong>
               </span>
             </div>
@@ -126,7 +126,7 @@ export default function CmEarningsWidget() {
           </DialogTitle>
         </DialogHeader>
         <div className="max-h-[70vh] overflow-y-auto pr-2">
-          <Card className="p-4 mb-4 bg-gradient-to-br from-emerald-50 to-indigo-50">
+          <Card className="p-4 mb-4 bg-gradient-to-br from-emerald-50 to-leamss-teal-50">
             <div className="flex justify-between items-center">
               <div>
                 <p className="text-xs uppercase font-bold text-emerald-700">Lifetime Total</p>
@@ -135,7 +135,7 @@ export default function CmEarningsWidget() {
               </div>
               <div className="text-right grid grid-cols-3 gap-2 text-xs">
                 <div className="bg-white/60 p-2 rounded"><p className="text-amber-700 font-bold">Pending</p><p className="font-bold">{formatINR(totals.pending)}</p></div>
-                <div className="bg-white/60 p-2 rounded"><p className="text-indigo-700 font-bold">Approved</p><p className="font-bold">{formatINR(totals.approved)}</p></div>
+                <div className="bg-white/60 p-2 rounded"><p className="text-leamss-teal-700 font-bold">Approved</p><p className="font-bold">{formatINR(totals.approved)}</p></div>
                 <div className="bg-white/60 p-2 rounded"><p className="text-emerald-700 font-bold">Paid</p><p className="font-bold">{formatINR(totals.paid)}</p></div>
               </div>
             </div>
@@ -165,7 +165,7 @@ export default function CmEarningsWidget() {
                     <td className="py-2 text-xs">{li.label}</td>
                     <td className="py-2 text-right font-bold text-emerald-700">{formatINR(li.amount)}</td>
                     <td className="py-2 text-center">
-                      <Badge className={`text-[10px] ${li.status === 'paid' ? 'bg-emerald-100 text-emerald-700' : li.status === 'approved' ? 'bg-indigo-100 text-indigo-700' : 'bg-amber-100 text-amber-700'}`}>{li.status}</Badge>
+                      <Badge className={`text-[10px] ${li.status === 'paid' ? 'bg-emerald-100 text-emerald-700' : li.status === 'approved' ? 'bg-leamss-teal-100 text-leamss-teal-700' : 'bg-amber-100 text-amber-700'}`}>{li.status}</Badge>
                     </td>
                     <td className="py-2 text-[11px] text-slate-500">{li.paid_at ? new Date(li.paid_at).toLocaleDateString() : '—'}</td>
                     <td className="py-2 text-[11px] text-slate-500 font-mono">{li.payment_reference || '—'}</td>

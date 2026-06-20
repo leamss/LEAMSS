@@ -140,7 +140,7 @@ export default function OccupationSearch() {
             </Button>
             <div>
               <h1 className="text-2xl font-bold flex items-center gap-2">
-                <Sparkles className="h-7 w-7 text-indigo-600" />Smart Sales Helper
+                <Sparkles className="h-7 w-7 text-leamss-teal-600" />Smart Sales Helper
               </h1>
               <p className="text-sm text-slate-500">Search 200+ occupation codes across AU, CA, NZ · Deterministic + rule-based · No AI guessing</p>
             </div>
@@ -181,14 +181,14 @@ export default function OccupationSearch() {
                     key={`${s.country_code}-${s.code}`}
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => navigate(`/sales/occupations/${s.country_code}/${s.code}`)}
-                    className="w-full text-left px-3 py-2 hover:bg-indigo-50 border-b last:border-b-0 flex items-center gap-2"
+                    className="w-full text-left px-3 py-2 hover:bg-leamss-teal-50 border-b last:border-b-0 flex items-center gap-2"
                   >
                     <span className="text-lg">{COUNTRY_META[s.country_code]?.flag}</span>
                     <div className="flex-1">
                       <p className="text-sm font-medium">{s.code} · {s.title}</p>
                       <p className="text-[10px] text-slate-500">{s.assessing_body} · {s.pathway}</p>
                     </div>
-                    <Badge className="bg-indigo-100 text-indigo-700 text-[9px]">{s.score}%</Badge>
+                    <Badge className="bg-leamss-teal-100 text-leamss-teal-700 text-[9px]">{s.score}%</Badge>
                   </button>
                 ))}
               </div>
@@ -215,7 +215,7 @@ export default function OccupationSearch() {
             <button
               onClick={() => setShowAdvanced(!showAdvanced)}
               data-testid="advanced-filters-toggle"
-              className="ml-auto text-xs text-indigo-600 hover:underline flex items-center gap-1"
+              className="ml-auto text-xs text-leamss-teal-600 hover:underline flex items-center gap-1"
             >
               <Filter className="h-3 w-3" />{showAdvanced ? 'Hide' : 'Advanced'} Filters
             </button>
@@ -275,7 +275,7 @@ export default function OccupationSearch() {
               : <><strong className="text-slate-900">{count}</strong> code{count !== 1 ? 's' : ''} {debouncedQuery && <>for "<em>{debouncedQuery}</em>"</>}</>}
           </p>
           {compareIds.length > 0 && (
-            <p className="text-[11px] text-indigo-600">
+            <p className="text-[11px] text-leamss-teal-600">
               {compareIds.length} selected for compare (max 4) ·{' '}
               <button onClick={() => setCompareIds([])} className="underline">Clear</button>
             </p>
@@ -298,7 +298,7 @@ export default function OccupationSearch() {
               return (
                 <Card
                   key={id}
-                  className={`p-4 cursor-pointer transition hover:shadow-md ${selected ? 'border-indigo-500 ring-2 ring-indigo-200' : ''}`}
+                  className={`p-4 cursor-pointer transition hover:shadow-md ${selected ? 'border-leamss-teal-500 ring-2 ring-leamss-teal-200' : ''}`}
                   onClick={() => navigate(`/sales/occupations/${item.country_code}/${item.code}`)}
                   data-testid={`occupation-card-${item.code}`}
                 >
@@ -313,7 +313,7 @@ export default function OccupationSearch() {
                         </Badge>
                       )}
                       {item.confidence !== null && item.confidence !== undefined && (
-                        <Badge className="bg-indigo-100 text-indigo-700 text-[9px]">{item.confidence}%</Badge>
+                        <Badge className="bg-leamss-teal-100 text-leamss-teal-700 text-[9px]">{item.confidence}%</Badge>
                       )}
                     </div>
                   </div>
@@ -356,14 +356,14 @@ export default function OccupationSearch() {
                     <button
                       onClick={(e) => { e.stopPropagation(); toggleCompare(item); }}
                       className={`text-[10px] flex items-center gap-1 px-2 py-1 rounded transition ${
-                        selected ? 'bg-indigo-100 text-indigo-700' : 'text-slate-500 hover:bg-slate-100'
+                        selected ? 'bg-leamss-teal-100 text-leamss-teal-700' : 'text-slate-500 hover:bg-slate-100'
                       }`}
                       data-testid={`compare-toggle-${item.code}`}
                     >
                       <GitCompare className="h-3 w-3" />
                       {selected ? 'Selected' : 'Compare'}
                     </button>
-                    <span className="text-[10px] text-indigo-600 flex items-center gap-0.5">
+                    <span className="text-[10px] text-leamss-teal-600 flex items-center gap-0.5">
                       Details<ChevronRight className="h-3 w-3" />
                     </span>
                   </div>

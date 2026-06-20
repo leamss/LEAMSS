@@ -89,7 +89,7 @@ const TemplateModal = ({ open, onClose, template, onSaved }) => {
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSave} disabled={saving} className="bg-indigo-600 hover:bg-indigo-700" data-testid="save-template-btn">{saving ? 'Saving…' : 'Save'}</Button>
+          <Button onClick={handleSave} disabled={saving} className="bg-leamss-teal-600 hover:bg-leamss-teal-700" data-testid="save-template-btn">{saving ? 'Saving…' : 'Save'}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -133,11 +133,11 @@ export default function TargetTemplatesManager() {
               <ArrowLeft className="h-5 w-5 text-slate-700" />
             </button>
             <div>
-              <h1 className="text-3xl font-extrabold text-slate-800 flex items-center gap-2"><Layers className="h-7 w-7 text-indigo-600" />Target Templates</h1>
+              <h1 className="text-3xl font-extrabold text-slate-800 flex items-center gap-2"><Layers className="h-7 w-7 text-leamss-teal-600" />Target Templates</h1>
               <p className="text-sm text-slate-500 mt-1">Reusable target presets for bulk-applying to teams</p>
             </div>
           </div>
-          <Button onClick={() => setCreating(true)} className="bg-indigo-600 hover:bg-indigo-700" data-testid="new-template-btn"><Plus className="h-4 w-4 mr-1.5" /> New Template</Button>
+          <Button onClick={() => setCreating(true)} className="bg-leamss-teal-600 hover:bg-leamss-teal-700" data-testid="new-template-btn"><Plus className="h-4 w-4 mr-1.5" /> New Template</Button>
         </div>
 
         {loading ? (
@@ -149,7 +149,7 @@ export default function TargetTemplatesManager() {
                 <div className="flex items-start justify-between mb-2">
                   <div>
                     <h3 className="font-bold text-slate-800">{t.name}</h3>
-                    {t.is_system && <Badge className="bg-purple-100 text-purple-700 text-[10px] mt-1"><Lock className="h-3 w-3 mr-1" />System</Badge>}
+                    {t.is_system && <Badge className="bg-leamss-orange-100 text-leamss-orange-700 text-[10px] mt-1"><Lock className="h-3 w-3 mr-1" />System</Badge>}
                   </div>
                   <Badge variant="outline" className="text-xs uppercase">{t.period_type}</Badge>
                 </div>

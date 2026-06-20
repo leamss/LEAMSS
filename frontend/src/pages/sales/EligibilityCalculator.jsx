@@ -174,7 +174,7 @@ export default function EligibilityCalculator() {
             </Button>
             <div>
               <h1 className="text-2xl font-bold flex items-center gap-2">
-                <Calculator className="h-7 w-7 text-indigo-600" />Eligibility Calculator
+                <Calculator className="h-7 w-7 text-leamss-teal-600" />Eligibility Calculator
               </h1>
               <p className="text-sm text-slate-500">100% deterministic · Official rules · Live calc · NO LLM</p>
             </div>
@@ -191,7 +191,7 @@ export default function EligibilityCalculator() {
             {/* STEP 1: Quick Setup */}
             <Card className="p-4" data-testid="step-1-setup">
               <h2 className="text-sm font-bold flex items-center gap-2 mb-3">
-                <span className="w-5 h-5 bg-indigo-600 text-white rounded-full text-[10px] flex items-center justify-center font-bold">1</span>
+                <span className="w-5 h-5 bg-leamss-teal-600 text-white rounded-full text-[10px] flex items-center justify-center font-bold">1</span>
                 Quick Setup
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -239,8 +239,8 @@ export default function EligibilityCalculator() {
             {/* STEP 3: Country + Visa */}
             <Card className="p-4" data-testid="step-3-country">
               <h2 className="text-sm font-bold flex items-center gap-2 mb-3">
-                <span className="w-5 h-5 bg-indigo-600 text-white rounded-full text-[10px] flex items-center justify-center font-bold">3</span>
-                <Globe className="h-3.5 w-3.5 text-indigo-600" />Country + Visa
+                <span className="w-5 h-5 bg-leamss-teal-600 text-white rounded-full text-[10px] flex items-center justify-center font-bold">3</span>
+                <Globe className="h-3.5 w-3.5 text-leamss-teal-600" />Country + Visa
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <Field label="Country">
@@ -267,8 +267,8 @@ export default function EligibilityCalculator() {
             {/* STEP 4: Occupation Code */}
             <Card className="p-4" data-testid="step-4-occupation">
               <h2 className="text-sm font-bold flex items-center gap-2 mb-3">
-                <span className="w-5 h-5 bg-indigo-600 text-white rounded-full text-[10px] flex items-center justify-center font-bold">4</span>
-                <Briefcase className="h-3.5 w-3.5 text-indigo-600" />Occupation Code
+                <span className="w-5 h-5 bg-leamss-teal-600 text-white rounded-full text-[10px] flex items-center justify-center font-bold">4</span>
+                <Briefcase className="h-3.5 w-3.5 text-leamss-teal-600" />Occupation Code
               </h2>
               {data.occupation_code ? (
                 <div className="bg-emerald-50 border border-emerald-200 p-3 rounded flex items-center justify-between">
@@ -305,11 +305,11 @@ export default function EligibilityCalculator() {
             </Card>
 
             {/* STEP 5: Primary Applicant */}
-            <Card className="p-4 border-l-4 border-l-indigo-500" data-testid="step-5-primary">
+            <Card className="p-4 border-l-4 border-l-leamss-teal-500" data-testid="step-5-primary">
               <h2 className="text-sm font-bold flex items-center gap-2 mb-3">
-                <span className="w-5 h-5 bg-indigo-600 text-white rounded-full text-[10px] flex items-center justify-center font-bold">5</span>
-                <User className="h-3.5 w-3.5 text-indigo-600" />PRIMARY APPLICANT
-                <Badge className="bg-indigo-100 text-indigo-700 text-[9px]">All visa decisions based on this</Badge>
+                <span className="w-5 h-5 bg-leamss-teal-600 text-white rounded-full text-[10px] flex items-center justify-center font-bold">5</span>
+                <User className="h-3.5 w-3.5 text-leamss-teal-600" />PRIMARY APPLICANT
+                <Badge className="bg-leamss-teal-100 text-leamss-teal-700 text-[9px]">All visa decisions based on this</Badge>
               </h2>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -467,18 +467,18 @@ function ResultsPane({ result, calculating, country, visaSubclass }) {
   const total = result.total || 0;
   const entries = Object.entries(result.breakdown || {});
   return (
-    <Card className="p-4 bg-gradient-to-br from-indigo-50 to-white border-2 border-indigo-200" data-testid="results-card">
+    <Card className="p-4 bg-gradient-to-br from-leamss-teal-50 to-white border-2 border-leamss-teal-200" data-testid="results-card">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-bold flex items-center gap-1">
-          <Trophy className="h-4 w-4 text-indigo-600" />Live Calculation
+          <Trophy className="h-4 w-4 text-leamss-teal-600" />Live Calculation
         </h3>
-        {calculating && <Loader2 className="h-3 w-3 animate-spin text-indigo-500" />}
+        {calculating && <Loader2 className="h-3 w-3 animate-spin text-leamss-teal-500" />}
       </div>
 
       {/* Total Score Hero */}
       <div className="text-center py-4 bg-white rounded-lg border mb-3">
         <p className="text-[10px] uppercase font-bold text-slate-500">Total Points</p>
-        <p className="text-5xl font-bold text-indigo-700" data-testid="total-points">{total}</p>
+        <p className="text-5xl font-bold text-leamss-teal-700" data-testid="total-points">{total}</p>
         <p className="text-[11px] text-slate-500 mt-1">{country} {country === 'AU' ? `Subclass ${visaSubclass}` : country === 'CA' ? 'CRS Score' : 'SMC Points'}</p>
       </div>
 
@@ -560,7 +560,7 @@ function OccupationSearchModal({ country, onSelect, onClose }) {
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose} data-testid="occupation-search-modal">
       <Card className="max-w-xl w-full bg-white p-4" onClick={e => e.stopPropagation()}>
         <div className="flex items-center gap-2 mb-3">
-          <Search className="h-4 w-4 text-indigo-600" />
+          <Search className="h-4 w-4 text-leamss-teal-600" />
           <Input autoFocus placeholder="Search by code, title, alternative title…" value={q} onChange={e => setQ(e.target.value)} className="flex-1" data-testid="modal-search-input" />
           <Button variant="ghost" size="sm" onClick={onClose}><XCircle className="h-4 w-4" /></Button>
         </div>
@@ -571,7 +571,7 @@ function OccupationSearchModal({ country, onSelect, onClose }) {
             <button
               key={r.code}
               onClick={() => onSelect(r)}
-              className="w-full text-left p-2 hover:bg-indigo-50 rounded border"
+              className="w-full text-left p-2 hover:bg-leamss-teal-50 rounded border"
               data-testid={`modal-result-${r.code}`}
             >
               <p className="text-xs font-bold">{r.code} · {r.title}</p>

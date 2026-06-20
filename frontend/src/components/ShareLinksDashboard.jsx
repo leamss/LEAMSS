@@ -23,7 +23,7 @@ const STATUS_STYLES = {
 
 const EVENT_STYLES = {
   share_generated: { label: 'Link Generated', icon: Send, dot: 'bg-emerald-100 border-emerald-500 text-emerald-700', card: 'bg-emerald-50 border-emerald-200', text: 'text-emerald-800' },
-  share_accessed: { label: 'Public Access', icon: Eye, dot: 'bg-indigo-100 border-indigo-500 text-indigo-700', card: 'bg-indigo-50 border-indigo-200', text: 'text-indigo-800' },
+  share_accessed: { label: 'Public Access', icon: Eye, dot: 'bg-leamss-teal-100 border-leamss-teal-500 text-leamss-teal-700', card: 'bg-leamss-teal-50 border-leamss-teal-200', text: 'text-leamss-teal-800' },
   share_revoked: { label: 'Link Revoked', icon: Ban, dot: 'bg-rose-100 border-rose-500 text-rose-700', card: 'bg-rose-50 border-rose-200', text: 'text-rose-800' },
   share_emailed: { label: 'Emailed to Client', icon: Bot, dot: 'bg-amber-100 border-amber-500 text-amber-700', card: 'bg-amber-50 border-amber-200', text: 'text-amber-800' },
   default: { label: 'Event', icon: AlertTriangle, dot: 'bg-slate-100 border-slate-500 text-slate-700', card: 'bg-slate-50 border-slate-200', text: 'text-slate-700' },
@@ -146,11 +146,11 @@ export default function ShareLinksDashboard() {
   };
 
   return (
-    <Card className="p-5 border-l-4 border-l-indigo-500" data-testid="share-links-dashboard">
+    <Card className="p-5 border-l-4 border-l-leamss-teal-500" data-testid="share-links-dashboard">
       {/* Header */}
       <div className="flex items-center justify-between gap-2 mb-4 flex-wrap">
         <div className="flex items-center gap-2.5">
-          <Link2 className="h-5 w-5 text-indigo-600" />
+          <Link2 className="h-5 w-5 text-leamss-teal-600" />
           <div>
             <p className="font-semibold text-slate-800">Active Share Links</p>
             <p className="text-[11px] text-slate-500">Audit, monitor, and revoke any client-facing link</p>
@@ -218,7 +218,7 @@ export default function ShareLinksDashboard() {
           return (
             <button key={k}
               onClick={() => setStatusFilter(statusFilter === k ? '' : k)}
-              className={`p-2 rounded border text-left transition ${s.c} ${statusFilter === k ? 'ring-2 ring-offset-1 ring-indigo-400' : ''}`}
+              className={`p-2 rounded border text-left transition ${s.c} ${statusFilter === k ? 'ring-2 ring-offset-1 ring-leamss-teal-400' : ''}`}
               data-testid={`sl-stat-${k}`}>
               <div className="flex items-center gap-1.5">
                 <Ic className="h-3.5 w-3.5" />
@@ -322,7 +322,7 @@ export default function ShareLinksDashboard() {
                         <Button size="sm" variant="ghost" onClick={() => window.open(fullUrl(item), '_blank')} title="Open" className="h-7 w-7 p-0">
                           <ExternalLink className="h-3 w-3" />
                         </Button>
-                        <Button size="sm" variant="ghost" onClick={() => openAuditTrail(item)} title="Audit Trail" className="h-7 w-7 p-0 text-indigo-600 hover:bg-indigo-50" data-testid={`sl-audit-${item.token.slice(0,10)}`}>
+                        <Button size="sm" variant="ghost" onClick={() => openAuditTrail(item)} title="Audit Trail" className="h-7 w-7 p-0 text-leamss-teal-600 hover:bg-leamss-teal-50" data-testid={`sl-audit-${item.token.slice(0,10)}`}>
                           <History className="h-3 w-3" />
                         </Button>
                         {item.status === 'active' && (
@@ -377,11 +377,11 @@ export default function ShareLinksDashboard() {
       {auditModalItem && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setAuditModalItem(null)} data-testid="sl-audit-modal">
           <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
-            <div className="p-4 border-b bg-indigo-50 flex items-center justify-between">
+            <div className="p-4 border-b bg-leamss-teal-50 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <History className="h-5 w-5 text-indigo-600" />
+                <History className="h-5 w-5 text-leamss-teal-600" />
                 <div>
-                  <p className="font-bold text-indigo-900">Audit Trail</p>
+                  <p className="font-bold text-leamss-teal-900">Audit Trail</p>
                   <p className="text-[10px] text-slate-600 font-mono">{auditModalItem.token_prefix}</p>
                 </div>
               </div>
@@ -416,9 +416,9 @@ export default function ShareLinksDashboard() {
                       <p className="text-[9px] uppercase font-bold text-emerald-700">Total Events</p>
                       <p className="text-lg font-bold text-emerald-900">{auditEvents.count}</p>
                     </div>
-                    <div className="bg-indigo-50 border border-indigo-200 rounded p-2">
-                      <p className="text-[9px] uppercase font-bold text-indigo-700">Public Accesses</p>
-                      <p className="text-lg font-bold text-indigo-900">{auditEvents.access_count}</p>
+                    <div className="bg-leamss-teal-50 border border-leamss-teal-200 rounded p-2">
+                      <p className="text-[9px] uppercase font-bold text-leamss-teal-700">Public Accesses</p>
+                      <p className="text-lg font-bold text-leamss-teal-900">{auditEvents.access_count}</p>
                     </div>
                     <div className={`${auditEvents.revoked ? 'bg-rose-50 border-rose-200' : 'bg-slate-50 border-slate-200'} border rounded p-2`}>
                       <p className={`text-[9px] uppercase font-bold ${auditEvents.revoked ? 'text-rose-700' : 'text-slate-500'}`}>Status</p>

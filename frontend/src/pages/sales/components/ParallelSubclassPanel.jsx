@@ -174,7 +174,7 @@ export default function ParallelSubclassPanel({ data, headers }) {
                 <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
                   <h4 className="text-sm font-bold flex items-center gap-2">
                     <span className="text-xl">{COUNTRY_FLAGS[cc]}</span>
-                    {cc} · Pass mark: <span className="text-indigo-700">{r.pass_mark ?? '—'}</span>
+                    {cc} · Pass mark: <span className="text-leamss-teal-700">{r.pass_mark ?? '—'}</span>
                   </h4>
                   {r.best_subclass && (
                     <Badge className="bg-amber-100 text-amber-800 text-[10px] font-bold">
@@ -206,7 +206,7 @@ export default function ParallelSubclassPanel({ data, headers }) {
                           <p className="text-[10px] text-rose-500 mt-1">{s.error.slice(0, 40)}</p>
                         ) : (
                           <>
-                            <p className={`text-3xl font-bold my-1 ${isBest ? 'text-amber-700' : 'text-indigo-700'}`}>
+                            <p className={`text-3xl font-bold my-1 ${isBest ? 'text-amber-700' : 'text-leamss-teal-700'}`}>
                               {s.total ?? '—'}
                             </p>
                             <Badge className={`text-[9px] ${

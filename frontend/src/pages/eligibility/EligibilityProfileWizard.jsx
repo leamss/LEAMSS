@@ -393,7 +393,7 @@ export default function EligibilityProfileWizard() {
             <div>
               <p className="text-xs uppercase text-slate-400 tracking-wide">AI Eligibility · v6.7</p>
               <h1 className="text-base font-bold">
-                <StepIcon className="inline h-4 w-4 mr-1 text-indigo-600" />
+                <StepIcon className="inline h-4 w-4 mr-1 text-leamss-teal-600" />
                 Step {step + 1} of {activeSteps.length}: {currentStep?.label}
               </h1>
             </div>
@@ -432,7 +432,7 @@ export default function EligibilityProfileWizard() {
               onClick={() => i < step && setStep(i)}
               disabled={i > step}
               className={`flex-1 h-1.5 rounded transition ${
-                i === step ? 'bg-indigo-600' : i < step ? 'bg-indigo-300 cursor-pointer hover:bg-indigo-400' : 'bg-slate-200'
+                i === step ? 'bg-leamss-teal-600' : i < step ? 'bg-leamss-teal-300 cursor-pointer hover:bg-leamss-teal-400' : 'bg-slate-200'
               }`}
               title={s.label}
               data-testid={`progress-dot-${i}`}
@@ -460,7 +460,7 @@ export default function EligibilityProfileWizard() {
             <Button
               onClick={() => setStep(s => Math.min(activeSteps.length - 1, s + 1))}
               disabled={!canProceed}
-              className="bg-indigo-600 hover:bg-indigo-700"
+              className="bg-leamss-teal-600 hover:bg-leamss-teal-700"
               data-testid="step-next"
             >
               Next<ArrowRight className="h-4 w-4 ml-1" />
@@ -609,7 +609,7 @@ function StepMode({ data, setPref, countries }) {
                   key={c.country_code}
                   onClick={() => toggleCustom(c.country_code)}
                   className={`px-3 py-2 rounded border text-sm font-medium transition ${
-                    selected ? 'border-indigo-500 bg-indigo-50 text-indigo-900' : 'border-slate-200 bg-white hover:border-slate-300'
+                    selected ? 'border-leamss-teal-500 bg-leamss-teal-50 text-leamss-teal-900' : 'border-slate-200 bg-white hover:border-slate-300'
                   }`}
                   data-testid={`custom-toggle-${c.country_code}`}
                 >
@@ -641,9 +641,9 @@ function StepPrimaryPersonal({ data, setRoot, setField }) {
 
   return (
     <Card className="p-6 space-y-4">
-      <div className="bg-indigo-50 border border-indigo-200 rounded p-3">
-        <p className="text-[11px] uppercase font-bold text-indigo-700 flex items-center gap-1"><User className="h-3.5 w-3.5" />Primary Applicant</p>
-        <p className="text-xs text-indigo-800 mt-1">All fields below describe the <strong>primary applicant</strong> — the person whose ANZSCO code will be matched and whose eligibility is calculated.</p>
+      <div className="bg-leamss-teal-50 border border-leamss-teal-200 rounded p-3">
+        <p className="text-[11px] uppercase font-bold text-leamss-teal-700 flex items-center gap-1"><User className="h-3.5 w-3.5" />Primary Applicant</p>
+        <p className="text-xs text-leamss-teal-800 mt-1">All fields below describe the <strong>primary applicant</strong> — the person whose ANZSCO code will be matched and whose eligibility is calculated.</p>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="col-span-2"><Label className="text-xs font-bold">Full Name *</Label><Input value={data.name} onChange={e => setRoot('name', e.target.value)} data-testid="primary-fullname" /></div>
@@ -680,9 +680,9 @@ function StepPrimaryProfEdu({ data, setField }) {
   return (
     <div className="space-y-4">
       <Card className="p-6 space-y-3">
-        <div className="bg-indigo-50 border border-indigo-200 rounded p-3">
-          <p className="text-[11px] uppercase font-bold text-indigo-700 flex items-center gap-1"><Briefcase className="h-3.5 w-3.5" />Primary · Profession</p>
-          <p className="text-xs text-indigo-800 mt-1">Use the <strong>current</strong> profession — what you DO now, not what you studied. AI will match ANZSCO code from your current role + recent work history.</p>
+        <div className="bg-leamss-teal-50 border border-leamss-teal-200 rounded p-3">
+          <p className="text-[11px] uppercase font-bold text-leamss-teal-700 flex items-center gap-1"><Briefcase className="h-3.5 w-3.5" />Primary · Profession</p>
+          <p className="text-xs text-leamss-teal-800 mt-1">Use the <strong>current</strong> profession — what you DO now, not what you studied. AI will match ANZSCO code from your current role + recent work history.</p>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="col-span-2"><Label className="text-xs font-bold">Current Profession *</Label><Input value={prof.current_profession || ''} onChange={e => setField('professional', 'current_profession', e.target.value)} placeholder="e.g., Marketing Specialist (current role, not past degree)" data-testid="prof-current-profession" /></div>
@@ -792,9 +792,9 @@ function StepSpouse({ data, setSpouseField, setSpouseRoot }) {
   return (
     <div className="space-y-4">
       <Card className="p-6 space-y-3">
-        <div className="bg-purple-50 border border-purple-200 rounded p-3">
-          <p className="text-[11px] uppercase font-bold text-purple-700 flex items-center gap-1"><UsersIcon className="h-3.5 w-3.5" />Spouse Information</p>
-          <p className="text-xs text-purple-800 mt-1">Spouse data is tracked <strong>separately</strong> from primary applicant. Spouse contribution determines partner skill points — only relevant fields will be shown below.</p>
+        <div className="bg-leamss-orange-50 border border-leamss-orange-200 rounded p-3">
+          <p className="text-[11px] uppercase font-bold text-leamss-orange-700 flex items-center gap-1"><UsersIcon className="h-3.5 w-3.5" />Spouse Information</p>
+          <p className="text-xs text-leamss-orange-800 mt-1">Spouse data is tracked <strong>separately</strong> from primary applicant. Spouse contribution determines partner skill points — only relevant fields will be shown below.</p>
         </div>
 
         {/* Q1: Will spouse be on visa application? */}
@@ -804,7 +804,7 @@ function StepSpouse({ data, setSpouseField, setSpouseRoot }) {
             <button
               type="button"
               onClick={() => setSpouseRoot('is_applicant_on_visa', true)}
-              className={`p-3 rounded border-2 text-sm transition ${isOnVisa ? 'border-purple-500 bg-purple-50 font-bold' : 'border-slate-200 bg-white'}`}
+              className={`p-3 rounded border-2 text-sm transition ${isOnVisa ? 'border-leamss-orange-500 bg-leamss-orange-50 font-bold' : 'border-slate-200 bg-white'}`}
               data-testid="spouse-on-visa-yes"
             >
               ✅ Yes — Spouse will be included
@@ -812,7 +812,7 @@ function StepSpouse({ data, setSpouseField, setSpouseRoot }) {
             <button
               type="button"
               onClick={() => { setSpouseRoot('is_applicant_on_visa', false); setSpouseRoot('contribution_type', 'not_applicable'); }}
-              className={`p-3 rounded border-2 text-sm transition ${!isOnVisa ? 'border-purple-500 bg-purple-50 font-bold' : 'border-slate-200 bg-white'}`}
+              className={`p-3 rounded border-2 text-sm transition ${!isOnVisa ? 'border-leamss-orange-500 bg-leamss-orange-50 font-bold' : 'border-slate-200 bg-white'}`}
               data-testid="spouse-on-visa-no"
             >
               ❌ No — Spouse will not migrate
@@ -831,7 +831,7 @@ function StepSpouse({ data, setSpouseField, setSpouseRoot }) {
                   type="button"
                   onClick={() => setContrib(opt.v)}
                   className={`w-full text-left p-3 rounded border-2 transition ${
-                    contribution === opt.v ? 'border-purple-500 bg-purple-50' : 'border-slate-200 bg-white hover:border-slate-300'
+                    contribution === opt.v ? 'border-leamss-orange-500 bg-leamss-orange-50' : 'border-slate-200 bg-white hover:border-slate-300'
                   }`}
                   data-testid={`spouse-contrib-${opt.v}`}
                 >
@@ -856,7 +856,7 @@ function StepSpouse({ data, setSpouseField, setSpouseRoot }) {
         {/* Conditional spouse fields based on contribution_type */}
         {isOnVisa && contribution === 'skill_assessment' && (
           <div className="border-t pt-3 space-y-3" data-testid="spouse-skill-fields">
-            <p className="text-xs font-bold text-purple-700">Spouse Skill Details (for +10 partner skill points)</p>
+            <p className="text-xs font-bold text-leamss-orange-700">Spouse Skill Details (for +10 partner skill points)</p>
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2"><Label className="text-xs">Spouse Current Profession</Label><Input value={spouse.professional?.current_profession || ''} onChange={e => setSpouseField('professional', 'current_profession', e.target.value)} placeholder="e.g., Registered Nurse" data-testid="spouse-profession" /></div>
               <div><Label className="text-xs">Spouse Years Experience</Label><Input type="number" min={0} value={spouse.professional?.years_experience_total ?? 0} onChange={e => setSpouseField('professional', 'years_experience_total', Number(e.target.value))} data-testid="spouse-yoe" /></div>
@@ -876,7 +876,7 @@ function StepSpouse({ data, setSpouseField, setSpouseRoot }) {
 
         {isOnVisa && contribution === 'english_only' && (
           <div className="border-t pt-3 space-y-3" data-testid="spouse-english-fields">
-            <p className="text-xs font-bold text-purple-700">Spouse English Details (for +5 partner skill points)</p>
+            <p className="text-xs font-bold text-leamss-orange-700">Spouse English Details (for +5 partner skill points)</p>
             <p className="text-[11px] text-slate-500">Only English proficiency is required — no skill assessment needed.</p>
             <div className="grid grid-cols-5 gap-2">
               {['overall', 'listening', 'reading', 'writing', 'speaking'].map(b => (
@@ -953,7 +953,7 @@ function StepDependentsExtras({ data, setRoot, setPref, setField }) {
       </Card>
 
       <Card className="p-6 space-y-3">
-        <h2 className="text-lg font-bold flex items-center gap-2"><Sparkles className="h-5 w-5 text-purple-600" />Preferences & Extras</h2>
+        <h2 className="text-lg font-bold flex items-center gap-2"><Sparkles className="h-5 w-5 text-leamss-orange-600" />Preferences & Extras</h2>
         <div className="grid grid-cols-2 gap-3">
           <div>
             <Label className="text-xs font-bold">Timeline (months)</Label>
@@ -1012,8 +1012,8 @@ function StepReview({ data, countries, onJump, activeSteps }) {
         <p className="text-xs text-slate-500">Verify primary + spouse separation is correct before running AI.</p>
       </div>
 
-      <Card className="p-4 bg-indigo-50 border-indigo-200">
-        <p className="text-[10px] uppercase font-bold text-indigo-700 mb-1">Relationship & Strategy</p>
+      <Card className="p-4 bg-leamss-teal-50 border-leamss-teal-200">
+        <p className="text-[10px] uppercase font-bold text-leamss-teal-700 mb-1">Relationship & Strategy</p>
         <p className="text-sm"><strong>{maritalLabel}</strong> · {modeLabel}{data.preferences?.search_mode === 'specific' && specificName && ` · ${specificName}`}</p>
       </Card>
 
@@ -1073,7 +1073,7 @@ function StepReview({ data, countries, onJump, activeSteps }) {
 
 
 function ReviewCard({ label, color = 'indigo', onEdit, children }) {
-  const colorMap = { indigo: 'border-l-indigo-500', purple: 'border-l-purple-500', rose: 'border-l-rose-500' };
+  const colorMap = { indigo: 'border-l-leamss-teal-500', purple: 'border-l-leamss-orange-500', rose: 'border-l-rose-500' };
   return (
     <Card className={`p-3 border-l-4 ${colorMap[color] || colorMap.indigo}`}>
       <div className="flex items-center justify-between mb-1">

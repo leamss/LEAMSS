@@ -311,7 +311,7 @@ const UnifiedDocumentView = ({ token, caseId, caseData, onDocumentUploaded }) =>
                                 {doc.tag || (doc.is_mandatory ? 'Mandatory' : 'Optional')}
                               </Badge>
                               {doc.source === 'cm_request' && (
-                                <Badge className="text-[9px] bg-purple-100 text-purple-700">CM Requested</Badge>
+                                <Badge className="text-[9px] bg-leamss-orange-100 text-leamss-orange-700">CM Requested</Badge>
                               )}
                             </div>
                             {doc.notes && (
@@ -374,21 +374,21 @@ const UnifiedDocumentView = ({ token, caseId, caseData, onDocumentUploaded }) =>
       {additionalRequests.length > 0 && (
         <div id="additional-docs-section" className="space-y-4" data-testid="additional-docs-section">
           <div className="flex items-center gap-2 pt-2">
-            <FileText className="h-5 w-5 text-purple-500" />
+            <FileText className="h-5 w-5 text-leamss-orange-500" />
             <h3 className="font-semibold text-slate-800 dark:text-white">Additional Requested Documents</h3>
-            <Badge className="bg-purple-100 text-purple-700 text-xs">{additionalRequests.length}</Badge>
+            <Badge className="bg-leamss-orange-100 text-leamss-orange-700 text-xs">{additionalRequests.length}</Badge>
           </div>
 
           {/* Pending additional docs */}
           {pendingAdditional.map((req, rIdx) => (
-            <Card key={req.id} className="border-l-4 border-l-purple-400 overflow-hidden shadow-sm" data-testid={`additional-doc-${rIdx}`}>
+            <Card key={req.id} className="border-l-4 border-l-leamss-orange-400 overflow-hidden shadow-sm" data-testid={`additional-doc-${rIdx}`}>
               <div className="p-4">
                 <div className="flex items-start gap-3">
-                  <AlertCircle className="h-5 w-5 text-purple-400 flex-shrink-0 mt-0.5" />
+                  <AlertCircle className="h-5 w-5 text-leamss-orange-400 flex-shrink-0 mt-0.5" />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-medium text-sm text-slate-800 dark:text-white">{req.doc_name}</span>
-                      <Badge className="text-[9px] bg-purple-100 text-purple-700">Additional</Badge>
+                      <Badge className="text-[9px] bg-leamss-orange-100 text-leamss-orange-700">Additional</Badge>
                       <Badge className={`text-[9px] ${req.is_mandatory ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600'}`}>
                         {req.tag || 'Required'}
                       </Badge>
@@ -409,7 +409,7 @@ const UnifiedDocumentView = ({ token, caseId, caseData, onDocumentUploaded }) =>
                         }
                       }}
                     />
-                    <span className="flex items-center gap-1.5 text-xs bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-md transition-colors cursor-pointer">
+                    <span className="flex items-center gap-1.5 text-xs bg-leamss-orange-600 hover:bg-leamss-orange-700 text-white px-3 py-1.5 rounded-md transition-colors cursor-pointer">
                       {uploading === req.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
                       Upload
                     </span>

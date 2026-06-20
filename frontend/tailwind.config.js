@@ -22,7 +22,21 @@ module.exports = {
   				bg_white: '#FFFFFF',
   				teal_50: '#F0FDFA',
   				orange_50: '#FFF7ED',
-  				red_50: '#FEF2F2'
+  				red_50: '#FEF2F2',
+  				// X4 — shade-aware aliases so legacy indigo-*/purple-*/violet-*
+  				// classes can be migrated 1:1. All map to brand tokens.
+  				'teal-50': '#F0FDFA', 'teal-100': '#CCFBF1', 'teal-200': '#99F6E4',
+  				'teal-300': '#5EEAD4', 'teal-400': '#2DD4BF', 'teal-500': '#14B8A6',
+  				'teal-600': '#0D9488', 'teal-700': '#0F766E', 'teal-800': '#115E59',
+  				'teal-900': '#134E4A',
+  				'orange-50': '#FFF7ED', 'orange-100': '#FFEDD5', 'orange-200': '#FED7AA',
+  				'orange-300': '#FDBA74', 'orange-400': '#FB923C', 'orange-500': '#F97316',
+  				'orange-600': '#EA580C', 'orange-700': '#C2410C', 'orange-800': '#9A3412',
+  				'orange-900': '#7C2D12',
+  				'red-50': '#FEF2F2', 'red-100': '#FEE2E2', 'red-200': '#FECACA',
+  				'red-300': '#FCA5A5', 'red-400': '#F87171', 'red-500': '#EF4444',
+  				'red-600': '#DC2626', 'red-700': '#B91C1C', 'red-800': '#991B1B',
+  				'red-900': '#7F1D1D'
   			},
   			card: {
   				DEFAULT: 'hsl(var(--card))',

@@ -47,7 +47,7 @@ export default function CommissionAnalytics({ token, role }) {
         </Card>
         <Card>
           <CardContent className="pt-4 text-center">
-            <TrendingUp className="w-8 h-8 text-purple-500 mx-auto mb-1" />
+            <TrendingUp className="w-8 h-8 text-leamss-orange-500 mx-auto mb-1" />
             <p className="text-2xl font-bold">{trend.length}</p>
             <p className="text-xs text-gray-500">Months Tracked</p>
           </CardContent>

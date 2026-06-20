@@ -107,7 +107,7 @@ const TargetEditModal = ({ open, onClose, member, period, onSaved, existingTarge
       <DialogContent className="max-w-md" data-testid="target-edit-modal">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Target className="h-5 w-5 text-indigo-600" />
+            <Target className="h-5 w-5 text-leamss-teal-600" />
             {existingTarget ? 'Edit Target' : 'Set Target'}
           </DialogTitle>
           <DialogDescription>
@@ -137,7 +137,7 @@ const TargetEditModal = ({ open, onClose, member, period, onSaved, existingTarge
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose} data-testid="cancel-edit">Cancel</Button>
-          <Button onClick={handleSave} disabled={saving} className="bg-indigo-600 hover:bg-indigo-700" data-testid="save-target">
+          <Button onClick={handleSave} disabled={saving} className="bg-leamss-teal-600 hover:bg-leamss-teal-700" data-testid="save-target">
             {saving ? 'Saving…' : (existingTarget ? 'Update Target' : 'Set Target')}
           </Button>
         </DialogFooter>
@@ -187,7 +187,7 @@ const BulkApplyModal = ({ open, onClose, members, period, templates, onApplied }
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl" data-testid="bulk-apply-modal">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2"><Layers className="h-5 w-5 text-indigo-600" />Bulk Apply Template</DialogTitle>
+          <DialogTitle className="flex items-center gap-2"><Layers className="h-5 w-5 text-leamss-teal-600" />Bulk Apply Template</DialogTitle>
           <DialogDescription>Apply a target template to multiple users at once.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
@@ -227,7 +227,7 @@ const BulkApplyModal = ({ open, onClose, members, period, templates, onApplied }
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={apply} disabled={applying} className="bg-indigo-600 hover:bg-indigo-700" data-testid="apply-bulk-btn">
+          <Button onClick={apply} disabled={applying} className="bg-leamss-teal-600 hover:bg-leamss-teal-700" data-testid="apply-bulk-btn">
             {applying ? 'Applying…' : `Apply to ${selectedIds.length} user${selectedIds.length !== 1 ? 's' : ''}`}
           </Button>
         </DialogFooter>
@@ -305,7 +305,7 @@ export default function SalesTargetsAdmin() {
             </button>
             <div>
               <h1 className="text-3xl font-extrabold text-slate-800 flex items-center gap-2">
-                <Target className="h-7 w-7 text-indigo-600" /> Sales Targets Management
+                <Target className="h-7 w-7 text-leamss-teal-600" /> Sales Targets Management
               </h1>
               <p className="text-sm text-slate-500 mt-1">Set and monitor targets for your sales team</p>
             </div>
@@ -314,7 +314,7 @@ export default function SalesTargetsAdmin() {
             <Button onClick={() => navigate('/admin/sales/target-templates')} variant="outline" data-testid="manage-templates-btn">
               <Layers className="h-4 w-4 mr-1.5" /> Templates
             </Button>
-            <Button onClick={() => setBulkOpen(true)} className="bg-indigo-600 hover:bg-indigo-700" data-testid="bulk-apply-btn">
+            <Button onClick={() => setBulkOpen(true)} className="bg-leamss-teal-600 hover:bg-leamss-teal-700" data-testid="bulk-apply-btn">
               <Plus className="h-4 w-4 mr-1.5" /> Bulk Apply Template
             </Button>
           </div>
@@ -381,7 +381,7 @@ export default function SalesTargetsAdmin() {
 
         {/* Team grid */}
         {loading ? (
-          <Card className="p-12 text-center"><Sparkles className="h-8 w-8 text-indigo-300 mx-auto animate-pulse mb-2" /><p className="text-slate-500">Loading…</p></Card>
+          <Card className="p-12 text-center"><Sparkles className="h-8 w-8 text-leamss-teal-300 mx-auto animate-pulse mb-2" /><p className="text-slate-500">Loading…</p></Card>
         ) : (
           <Card className="p-0 overflow-hidden" data-testid="team-targets-table">
             <table className="w-full">

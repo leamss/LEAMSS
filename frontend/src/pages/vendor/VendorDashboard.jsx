@@ -24,7 +24,7 @@ const formatINR = (n) => {
 const STATUS_BADGE = {
   unassigned: 'bg-slate-100 text-slate-700',
   pending: 'bg-amber-100 text-amber-700',
-  approved: 'bg-indigo-100 text-indigo-700',
+  approved: 'bg-leamss-teal-100 text-leamss-teal-700',
   paid: 'bg-emerald-100 text-emerald-700',
   disputed: 'bg-rose-100 text-rose-700',
 };
@@ -62,7 +62,7 @@ export default function VendorDashboard() {
   };
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center"><Sparkles className="h-10 w-10 text-indigo-400 animate-pulse" /></div>;
+    return <div className="min-h-screen flex items-center justify-center"><Sparkles className="h-10 w-10 text-leamss-teal-400 animate-pulse" /></div>;
   }
   if (!profile || !assignments) return null;
 
@@ -74,7 +74,7 @@ export default function VendorDashboard() {
       <header className="bg-white border-b shadow-sm sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center"><Briefcase className="h-5 w-5 text-indigo-600" /></div>
+            <div className="w-10 h-10 rounded-lg bg-leamss-teal-100 flex items-center justify-center"><Briefcase className="h-5 w-5 text-leamss-teal-600" /></div>
             <div>
               <p className="text-xs text-slate-500 uppercase tracking-wider">Vendor Portal</p>
               <p className="font-bold text-slate-800">{profile.name}</p>
@@ -89,7 +89,7 @@ export default function VendorDashboard() {
 
       <main className="max-w-6xl mx-auto p-6">
         {/* Greeting + headline */}
-        <Card className="p-6 mb-4 bg-gradient-to-br from-indigo-50 via-blue-50 to-emerald-50 border-indigo-200" data-testid="vendor-greeting">
+        <Card className="p-6 mb-4 bg-gradient-to-br from-leamss-teal-50 via-blue-50 to-emerald-50 border-leamss-teal-200" data-testid="vendor-greeting">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-extrabold text-slate-800">Hello, {profile.name.split(' ')[0]}!</h1>
@@ -116,12 +116,12 @@ export default function VendorDashboard() {
             </div>
             <p className="text-2xl font-extrabold text-amber-800" data-testid="pending-total">{formatINR(totals.pending)}</p>
           </Card>
-          <Card className="p-4 bg-indigo-50/50 border-indigo-200">
+          <Card className="p-4 bg-leamss-teal-50/50 border-leamss-teal-200">
             <div className="flex items-center justify-between mb-1">
-              <p className="text-[10px] font-bold uppercase text-indigo-700">Approved</p>
-              <FileText className="h-4 w-4 text-indigo-500" />
+              <p className="text-[10px] font-bold uppercase text-leamss-teal-700">Approved</p>
+              <FileText className="h-4 w-4 text-leamss-teal-500" />
             </div>
-            <p className="text-2xl font-extrabold text-indigo-800" data-testid="approved-total">{formatINR(totals.approved)}</p>
+            <p className="text-2xl font-extrabold text-leamss-teal-800" data-testid="approved-total">{formatINR(totals.approved)}</p>
           </Card>
           <Card className="p-4 bg-emerald-50/50 border-emerald-200">
             <div className="flex items-center justify-between mb-1">

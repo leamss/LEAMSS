@@ -40,7 +40,7 @@ export default function Step3Profile({ data, update, setData, headers }) {
   return (
     <div className="space-y-4">
       <h2 className="text-lg font-bold flex items-center gap-2">
-        <Briefcase className="h-5 w-5 text-indigo-600" />Capture Client Profile
+        <Briefcase className="h-5 w-5 text-leamss-teal-600" />Capture Client Profile
       </h2>
 
       <div className="flex gap-2 flex-wrap">

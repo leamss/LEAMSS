@@ -49,9 +49,9 @@ export default function OccupationMasterAdmin() {
           </Button>
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
-              <Globe2 className="h-7 w-7 text-indigo-600" />
+              <Globe2 className="h-7 w-7 text-leamss-teal-600" />
               Occupation Master Admin Console
-              <Badge className="bg-indigo-600 text-white text-[9px]">Phase 6.9</Badge>
+              <Badge className="bg-leamss-teal-600 text-white text-[9px]">Phase 6.9</Badge>
             </h1>
             <p className="text-sm text-slate-500">AI drafts · Admin verifies · Sales uses verified data</p>
           </div>
@@ -329,7 +329,7 @@ function ThreePanelEditor({ item, headers, onSaved, onCancel }) {
           <div className="flex items-center gap-2">
             <p className="text-xs font-mono text-slate-500">{item.country_code} · {item.code}</p>
             <Badge className="text-[9px] bg-amber-100 text-amber-700">{item.status}</Badge>
-            <Badge className="text-[9px] bg-indigo-100 text-indigo-700">{item.classification_type}</Badge>
+            <Badge className="text-[9px] bg-leamss-teal-100 text-leamss-teal-700">{item.classification_type}</Badge>
           </div>
           <h2 className="text-lg font-bold">{item.title}</h2>
         </div>
@@ -347,11 +347,11 @@ function ThreePanelEditor({ item, headers, onSaved, onCancel }) {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         {/* LEFT — AI Draft (read-only) */}
-        <Card className="p-3 bg-purple-50/40 border-purple-200">
+        <Card className="p-3 bg-leamss-orange-50/40 border-leamss-orange-200">
           <div className="flex items-center justify-between mb-2 gap-1 flex-wrap">
-            <h3 className="text-xs font-bold uppercase text-purple-800">🤖 AI Draft (not verified)</h3>
+            <h3 className="text-xs font-bold uppercase text-leamss-orange-800">🤖 AI Draft (not verified)</h3>
             <div className="flex gap-1">
-              <Button size="sm" variant="outline" onClick={generate} disabled={genLoading || saving} className="h-7 text-[10px] border-purple-300" data-testid="generate-ai-draft">
+              <Button size="sm" variant="outline" onClick={generate} disabled={genLoading || saving} className="h-7 text-[10px] border-leamss-orange-300" data-testid="generate-ai-draft">
                 {genLoading ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Sparkles className="h-3 w-3 mr-1" />}
                 Generate
               </Button>
@@ -365,17 +365,17 @@ function ThreePanelEditor({ item, headers, onSaved, onCancel }) {
           {aiDraft.generated_at ? (
             <div className="space-y-2 text-xs">
               <div>
-                <p className="font-semibold text-purple-700">Description</p>
+                <p className="font-semibold text-leamss-orange-700">Description</p>
                 <p className="bg-white p-2 rounded border whitespace-pre-wrap">{aiDraft.description || '—'}</p>
               </div>
               <div>
-                <p className="font-semibold text-purple-700">Typical Tasks</p>
+                <p className="font-semibold text-leamss-orange-700">Typical Tasks</p>
                 <ul className="list-disc list-inside bg-white p-2 rounded border space-y-0.5">
                   {(aiDraft.typical_tasks || []).map((t, i) => <li key={i}>{t}</li>)}
                 </ul>
               </div>
               <div>
-                <p className="font-semibold text-purple-700">Qualification Rules</p>
+                <p className="font-semibold text-leamss-orange-700">Qualification Rules</p>
                 <p className="bg-white p-2 rounded border whitespace-pre-wrap">{aiDraft.qualification_rules || '—'}</p>
               </div>
               {aiDraft.ai_confidence_note && (
@@ -529,7 +529,7 @@ function PolishBtn({ onClick, loading }) {
       type="button"
       onClick={onClick}
       disabled={loading}
-      className="text-[10px] px-2 py-0.5 rounded bg-purple-100 text-purple-700 hover:bg-purple-200 disabled:opacity-50 inline-flex items-center gap-1"
+      className="text-[10px] px-2 py-0.5 rounded bg-leamss-orange-100 text-leamss-orange-700 hover:bg-leamss-orange-200 disabled:opacity-50 inline-flex items-center gap-1"
       title="Polish text with AI (no fact changes)"
       data-testid="polish-btn"
     >
@@ -676,7 +676,7 @@ function SimilarOverrideEditor({ items, onChange }) {
       </div>
       <div className="flex flex-wrap gap-1">
         {items.map(s => (
-          <Badge key={s} className="bg-indigo-100 text-indigo-700 text-[10px] font-mono pl-2 pr-1" data-testid={`similar-chip-${s}`}>
+          <Badge key={s} className="bg-leamss-teal-100 text-leamss-teal-700 text-[10px] font-mono pl-2 pr-1" data-testid={`similar-chip-${s}`}>
             {s}<button type="button" onClick={() => rm(s)} className="ml-1 hover:text-rose-600"><Trash2 className="h-2.5 w-2.5" /></button>
           </Badge>
         ))}
@@ -873,13 +873,13 @@ function VerifiedRecordView({ item, headers, onEditAgain, onBack }) {
           <div className="flex items-center gap-2 flex-wrap">
             <p className="text-xs font-mono text-slate-500">{item.country_code} · {item.code}</p>
             <Badge className="text-[9px] bg-emerald-100 text-emerald-700"><CheckCircle2 className="h-2.5 w-2.5 mr-0.5" />Verified</Badge>
-            <Badge className="text-[9px] bg-indigo-100 text-indigo-700">{item.classification_type}</Badge>
+            <Badge className="text-[9px] bg-leamss-teal-100 text-leamss-teal-700">{item.classification_type}</Badge>
           </div>
           <h2 className="text-lg font-bold mt-1">{item.title}</h2>
           <p className="text-[11px] text-slate-500 mt-0.5">
             Verified by <strong>{v.verified_by_name || v.verified_by || '—'}</strong>
             {v.verified_at && <> · {new Date(v.verified_at).toLocaleString()}</>}
-            {isUrl && <> · <a href={sourceUrl} target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline inline-flex items-center gap-0.5">source <ExternalLink className="h-2.5 w-2.5" /></a></>}
+            {isUrl && <> · <a href={sourceUrl} target="_blank" rel="noreferrer" className="text-leamss-teal-600 hover:underline inline-flex items-center gap-0.5">source <ExternalLink className="h-2.5 w-2.5" /></a></>}
           </p>
         </div>
         <div className="flex gap-2">
@@ -902,7 +902,7 @@ function VerifiedRecordView({ item, headers, onEditAgain, onBack }) {
           {!item.assessing_authority?.name ? <em className="text-slate-400">Not set</em> : (
             <div className="text-xs space-y-0.5">
               <p><strong>{item.assessing_authority.name}</strong>{item.assessing_authority.full_name ? ` — ${item.assessing_authority.full_name}` : ''}</p>
-              {item.assessing_authority.url && <a href={item.assessing_authority.url} target="_blank" rel="noreferrer" className="text-indigo-600 text-[11px] hover:underline">{item.assessing_authority.url}</a>}
+              {item.assessing_authority.url && <a href={item.assessing_authority.url} target="_blank" rel="noreferrer" className="text-leamss-teal-600 text-[11px] hover:underline">{item.assessing_authority.url}</a>}
               {item.assessing_authority.processing_time_weeks && <p className="text-[11px]">⏱ {item.assessing_authority.processing_time_weeks} weeks</p>}
               {item.assessing_authority.fee_native && <p className="text-[11px]">💰 {item.assessing_authority.fee_currency} {item.assessing_authority.fee_native}</p>}
               {item.assessing_authority.rules_summary && <p className="text-[11px] text-slate-600 mt-1 whitespace-pre-wrap">{item.assessing_authority.rules_summary}</p>}
@@ -933,7 +933,7 @@ function VerifiedRecordView({ item, headers, onEditAgain, onBack }) {
         <ViewBlock title={`Similar Codes Override (${(item.similar_codes_override || []).length})`}>
           {(item.similar_codes_override || []).length === 0 ? <em className="text-slate-400">Auto-similarity active</em> : (
             <div className="flex gap-1 flex-wrap">
-              {(item.similar_codes_override || []).map(s => <Badge key={s} className="bg-indigo-100 text-indigo-700 font-mono text-[10px]">{s}</Badge>)}
+              {(item.similar_codes_override || []).map(s => <Badge key={s} className="bg-leamss-teal-100 text-leamss-teal-700 font-mono text-[10px]">{s}</Badge>)}
             </div>
           )}
         </ViewBlock>
@@ -958,7 +958,7 @@ function VerifiedRecordView({ item, headers, onEditAgain, onBack }) {
             <Card key={s.id || i} className="p-3 bg-blue-50/30 border-blue-200">
               <h4 className="text-sm font-bold text-blue-900">{s.title}</h4>
               {s.body_markdown && <p className="text-xs whitespace-pre-wrap text-slate-700 mt-1">{s.body_markdown}</p>}
-              {s.source_url && <a href={s.source_url} target="_blank" rel="noreferrer" className="text-[10px] text-indigo-600 mt-1 inline-flex items-center gap-0.5">{s.source_url} <ExternalLink className="h-2.5 w-2.5" /></a>}
+              {s.source_url && <a href={s.source_url} target="_blank" rel="noreferrer" className="text-[10px] text-leamss-teal-600 mt-1 inline-flex items-center gap-0.5">{s.source_url} <ExternalLink className="h-2.5 w-2.5" /></a>}
             </Card>
           ))}
         </div>

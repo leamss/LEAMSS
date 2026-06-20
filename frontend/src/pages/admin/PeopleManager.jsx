@@ -285,7 +285,7 @@ function AddPersonWizard({ open, onClose, onCreated }) {
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto" data-testid="add-person-wizard">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-indigo-600" />
+            <Sparkles className="h-5 w-5 text-leamss-teal-600" />
             Add Person — Step {step} of 4
           </DialogTitle>
         </DialogHeader>
@@ -293,7 +293,7 @@ function AddPersonWizard({ open, onClose, onCreated }) {
         {/* Progress bar */}
         <div className="flex items-center gap-2 mb-4">
           {[1, 2, 3, 4].map(s => (
-            <div key={s} className={`h-1.5 flex-1 rounded ${step >= s ? 'bg-indigo-500' : 'bg-slate-200'}`} />
+            <div key={s} className={`h-1.5 flex-1 rounded ${step >= s ? 'bg-leamss-teal-500' : 'bg-slate-200'}`} />
           ))}
         </div>
 
@@ -345,9 +345,9 @@ function AddPersonWizard({ open, onClose, onCreated }) {
               </div>
             )}
             {form.person_type === 'partner_external' && (
-              <div className="p-3 bg-purple-50 rounded text-xs">
-                <p className="font-bold text-purple-900">Partner Role</p>
-                <p className="text-purple-700 mt-1">This person will get the <strong>partner</strong> role with access to create pre-assessments, send proposals, and earn commissions per slab.</p>
+              <div className="p-3 bg-leamss-orange-50 rounded text-xs">
+                <p className="font-bold text-leamss-orange-900">Partner Role</p>
+                <p className="text-leamss-orange-700 mt-1">This person will get the <strong>partner</strong> role with access to create pre-assessments, send proposals, and earn commissions per slab.</p>
               </div>
             )}
             {(form.person_type === 'vendor_internal' || form.person_type === 'vendor_external') && (
@@ -385,9 +385,9 @@ function AddPersonWizard({ open, onClose, onCreated }) {
 
         {step === 4 && (
           <div className="space-y-4">
-            <div className="p-3 bg-indigo-50 border border-indigo-200 rounded text-xs">
-              <p className="font-bold text-indigo-900 flex items-center gap-1.5"><FileText className="h-4 w-4" />Onboarding Details (optional but recommended)</p>
-              <p className="text-indigo-700 mt-1">Fill what you have now. KYC documents can be uploaded after creation from the person&apos;s detail view.</p>
+            <div className="p-3 bg-leamss-teal-50 border border-leamss-teal-200 rounded text-xs">
+              <p className="font-bold text-leamss-teal-900 flex items-center gap-1.5"><FileText className="h-4 w-4" />Onboarding Details (optional but recommended)</p>
+              <p className="text-leamss-teal-700 mt-1">Fill what you have now. KYC documents can be uploaded after creation from the person&apos;s detail view.</p>
             </div>
 
             {/* Employment */}
@@ -495,7 +495,7 @@ function AddPersonWizard({ open, onClose, onCreated }) {
             <Button
               onClick={() => setStep(step + 1)}
               disabled={step === 1 ? !canNext1 : step === 2 ? !canNext2 : !canNext3}
-              className="bg-indigo-600 hover:bg-indigo-700"
+              className="bg-leamss-teal-600 hover:bg-leamss-teal-700"
               data-testid="wizard-next"
             >
               Next
@@ -570,7 +570,7 @@ function OnboardingPanel({ onboarding }) {
   ];
 
   return (
-    <Card className="p-3 border-l-4 border-l-indigo-400" data-testid="onboarding-panel">
+    <Card className="p-3 border-l-4 border-l-leamss-teal-400" data-testid="onboarding-panel">
       <p className="text-[10px] font-bold uppercase text-slate-500 mb-2 flex items-center gap-1">
         <FileText className="h-3 w-3" />Onboarding Details
       </p>
@@ -880,7 +880,7 @@ function PersonDetail({ personId, onClose, onChanged }) {
 
             {/* User-side details */}
             {data.user && (
-              <Card className="p-3 border-l-4 border-l-indigo-400">
+              <Card className="p-3 border-l-4 border-l-leamss-teal-400">
                 <p className="text-[10px] font-bold uppercase text-slate-500 mb-2 flex items-center gap-1"><Lock className="h-3 w-3" />Login Credentials & Security</p>
                 <div className="grid grid-cols-2 gap-3 text-xs">
                   <div>
@@ -914,7 +914,7 @@ function PersonDetail({ personId, onClose, onChanged }) {
                 </div>
                 <div className="mt-2 text-xs space-y-0.5">
                   <p>Permissions assigned: <strong>{(data.user.permissions || []).length}</strong></p>
-                  {data.user.auto_created_from_vendor && <p className="text-indigo-700">🔗 Auto-created from vendor record</p>}
+                  {data.user.auto_created_from_vendor && <p className="text-leamss-teal-700">🔗 Auto-created from vendor record</p>}
                   {data.user.created_by && <p className="text-slate-400">Onboarded by admin: <code className="text-[10px]">{data.user.created_by.substring(0, 8)}…</code></p>}
                 </div>
               </Card>
@@ -1014,18 +1014,18 @@ export default function PeopleManager() {
           <div className="flex items-center gap-3">
             <button onClick={() => navigate('/admin')} className="p-2 rounded-lg hover:bg-slate-200" data-testid="back-btn"><ArrowLeft className="h-5 w-5 text-slate-700" /></button>
             <div>
-              <h1 className="text-3xl font-extrabold text-slate-800 flex items-center gap-2"><Users className="h-7 w-7 text-indigo-600" />People</h1>
+              <h1 className="text-3xl font-extrabold text-slate-800 flex items-center gap-2"><Users className="h-7 w-7 text-leamss-teal-600" />People</h1>
               <p className="text-sm text-slate-500 mt-1">Unified directory — employees, partners, vendors, clients. Single source of identity.</p>
             </div>
           </div>
-          <Button onClick={() => setWizardOpen(true)} className="bg-indigo-600 hover:bg-indigo-700" data-testid="add-person-btn"><Plus className="h-4 w-4 mr-1.5" />Add Person</Button>
+          <Button onClick={() => setWizardOpen(true)} className="bg-leamss-teal-600 hover:bg-leamss-teal-700" data-testid="add-person-btn"><Plus className="h-4 w-4 mr-1.5" />Add Person</Button>
         </div>
 
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
-          <Card className="p-3 bg-gradient-to-br from-indigo-50 to-indigo-100 border-indigo-300" data-testid="stat-total">
-            <p className="text-[10px] uppercase font-bold text-indigo-800">Total People</p>
-            <p className="text-2xl font-extrabold text-indigo-900 mt-0.5">{stats?.total || 0}</p>
+          <Card className="p-3 bg-gradient-to-br from-leamss-teal-50 to-leamss-teal-100 border-leamss-teal-300" data-testid="stat-total">
+            <p className="text-[10px] uppercase font-bold text-leamss-teal-800">Total People</p>
+            <p className="text-2xl font-extrabold text-leamss-teal-900 mt-0.5">{stats?.total || 0}</p>
           </Card>
           {[
             ['employee_internal', 'Employees'],
@@ -1071,17 +1071,17 @@ export default function PeopleManager() {
             ['client', 'Clients', Users],
           ].map(([k, label, Icon]) => (
             <button key={k} onClick={() => setTab(k)}
-              className={`px-4 py-2 text-sm font-medium border-b-2 flex items-center gap-1.5 transition ${tab === k ? 'border-indigo-600 text-indigo-700' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+              className={`px-4 py-2 text-sm font-medium border-b-2 flex items-center gap-1.5 transition ${tab === k ? 'border-leamss-teal-600 text-leamss-teal-700' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
               data-testid={`tab-${k}`}>
               {Icon && <Icon className="h-3.5 w-3.5" />}{label}
-              {tab !== 'all' && k !== 'all' && tab === k && <Badge className="ml-1 bg-indigo-100 text-indigo-700 text-[10px]">{filtered.length}</Badge>}
+              {tab !== 'all' && k !== 'all' && tab === k && <Badge className="ml-1 bg-leamss-teal-100 text-leamss-teal-700 text-[10px]">{filtered.length}</Badge>}
             </button>
           ))}
         </div>
 
         {/* List */}
         {loading ? (
-          <Card className="p-12 text-center"><Sparkles className="h-10 w-10 text-indigo-300 mx-auto animate-pulse mb-2" /><p className="text-slate-500">Loading…</p></Card>
+          <Card className="p-12 text-center"><Sparkles className="h-10 w-10 text-leamss-teal-300 mx-auto animate-pulse mb-2" /><p className="text-slate-500">Loading…</p></Card>
         ) : filtered.length === 0 ? (
           <Card className="p-12 text-center">
             <Users className="h-10 w-10 text-slate-300 mx-auto mb-2" />

@@ -46,7 +46,7 @@ export default function AgreementViewerModal({ pa, onClose, onRegenerate }) {
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-white rounded-xl max-w-4xl w-full max-h-[92vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()} data-testid="agreement-viewer-modal">
-        <div className="p-4 border-b flex items-center justify-between bg-gradient-to-r from-indigo-500 to-purple-600 text-white">
+        <div className="p-4 border-b flex items-center justify-between bg-gradient-to-r from-leamss-teal-500 to-leamss-orange-600 text-white">
           <div>
             <h3 className="font-bold flex items-center gap-2"><FileText className="h-5 w-5" /> Service Agreement</h3>
             <p className="text-xs opacity-80">{pa.client_name} · {pa.country}</p>

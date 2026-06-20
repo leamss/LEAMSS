@@ -37,11 +37,11 @@ export default function SmartDocChecklist({ paId, initialData = null }) {
   return (
     <div className="space-y-3" data-testid={`smart-checklist-${paId}`}>
       <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold text-slate-800 flex items-center gap-1.5"><ListChecks className="h-4 w-4 text-indigo-600" /> Smart Doc Checklist</p>
-        <Badge className="bg-indigo-100 text-indigo-700 h-5 text-[11px]">{data.stats.done}/{data.stats.total} · {pct}%</Badge>
+        <p className="text-sm font-semibold text-slate-800 flex items-center gap-1.5"><ListChecks className="h-4 w-4 text-leamss-teal-600" /> Smart Doc Checklist</p>
+        <Badge className="bg-leamss-teal-100 text-leamss-teal-700 h-5 text-[11px]">{data.stats.done}/{data.stats.total} · {pct}%</Badge>
       </div>
       <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
-        <div className="h-2 bg-gradient-to-r from-indigo-500 to-emerald-500 transition-all duration-500" style={{ width: `${pct}%` }} />
+        <div className="h-2 bg-gradient-to-r from-leamss-teal-500 to-emerald-500 transition-all duration-500" style={{ width: `${pct}%` }} />
       </div>
       <p className="text-[11px] text-slate-500">Template: <span className="font-semibold text-slate-700 capitalize">{(data.template || '').replace(/_/g, ' ')}</span> · {data.country} · {data.service_type}</p>
       <div className="grid md:grid-cols-2 gap-1.5">

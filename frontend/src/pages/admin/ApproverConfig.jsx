@@ -228,9 +228,9 @@ export default function ApproverConfig() {
         </Card>
 
         {/* Section 4: Simulator */}
-        <Card className="p-4 bg-indigo-50/30 border-indigo-200" data-testid="simulator-section">
+        <Card className="p-4 bg-leamss-teal-50/30 border-leamss-teal-200" data-testid="simulator-section">
           <h3 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-indigo-600" /> 4. Approval Chain Simulator
+            <ShieldCheck className="h-4 w-4 text-leamss-teal-600" /> 4. Approval Chain Simulator
           </h3>
           <p className="text-xs text-slate-600 mb-3">Test the configuration — see who would approve for any employee.</p>
           <select
@@ -320,9 +320,9 @@ export default function ApproverConfig() {
 
 function RadioRow({ checked, onClick, label, description, children, testid }) {
   return (
-    <div className={`rounded border-2 p-3 cursor-pointer transition-colors ${checked ? 'border-indigo-500 bg-indigo-50/50' : 'border-slate-200 hover:border-slate-300'}`} onClick={onClick} data-testid={testid}>
+    <div className={`rounded border-2 p-3 cursor-pointer transition-colors ${checked ? 'border-leamss-teal-500 bg-leamss-teal-50/50' : 'border-slate-200 hover:border-slate-300'}`} onClick={onClick} data-testid={testid}>
       <div className="flex items-start gap-2">
-        <div className={`w-4 h-4 rounded-full border-2 mt-0.5 ${checked ? 'border-indigo-600 bg-indigo-600' : 'border-slate-300'}`}>
+        <div className={`w-4 h-4 rounded-full border-2 mt-0.5 ${checked ? 'border-leamss-teal-600 bg-leamss-teal-600' : 'border-slate-300'}`}>
           {checked && <div className="w-full h-full rounded-full bg-white scale-50" />}
         </div>
         <div className="flex-1">
@@ -369,7 +369,7 @@ function NumRow({ label, description, value, onChange, testid }) {
 function ChainNode({ user, role, color }) {
   if (!user) return <span className="text-xs text-slate-400 italic">(not configured)</span>;
   const COLORS = {
-    indigo: 'bg-indigo-100 text-indigo-800 border-indigo-300',
+    indigo: 'bg-leamss-teal-100 text-leamss-teal-800 border-leamss-teal-300',
     amber: 'bg-amber-100 text-amber-800 border-amber-300',
     emerald: 'bg-emerald-100 text-emerald-800 border-emerald-300',
   };

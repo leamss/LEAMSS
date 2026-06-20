@@ -129,7 +129,7 @@ export default function PublicInfoSheet() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+        <Loader2 className="h-8 w-8 animate-spin text-leamss-teal-600" />
       </div>
     );
   }
@@ -147,7 +147,7 @@ export default function PublicInfoSheet() {
   }
   if (submitted) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 to-indigo-50 p-6">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 to-leamss-teal-50 p-6">
         <Card className="max-w-md p-8 text-center" data-testid="info-sheet-success">
           <CheckCircle2 className="h-16 w-16 text-emerald-500 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-emerald-900">Thank you!</h2>
@@ -164,12 +164,12 @@ export default function PublicInfoSheet() {
   const isMarried = data.marital_status === 'married' || data.marital_status === 'de_facto';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-emerald-50 p-4" data-testid="public-info-sheet">
+    <div className="min-h-screen bg-gradient-to-br from-leamss-teal-50 via-white to-emerald-50 p-4" data-testid="public-info-sheet">
       <div className="max-w-3xl mx-auto py-6">
         {/* Header */}
         <Card className="p-6 mb-4 bg-white" data-testid="info-sheet-header">
           <div className="flex items-center gap-3 mb-2">
-            <Sparkles className="h-7 w-7 text-indigo-600" />
+            <Sparkles className="h-7 w-7 text-leamss-teal-600" />
             <h1 className="text-2xl font-bold">Immigration Eligibility — Info Sheet</h1>
           </div>
           <p className="text-sm text-slate-600">
@@ -324,7 +324,7 @@ export default function PublicInfoSheet() {
                 data-testid={`is-country-${c.code}`}
                 className={`px-3 py-1.5 text-xs rounded-full border-2 transition ${
                   data.preferred_countries.includes(c.code)
-                    ? 'bg-indigo-100 border-indigo-500 text-indigo-700'
+                    ? 'bg-leamss-teal-100 border-leamss-teal-500 text-leamss-teal-700'
                     : 'bg-white border-slate-200 hover:border-slate-300'
                 }`}
               >
@@ -335,7 +335,7 @@ export default function PublicInfoSheet() {
         </Section>
 
         {/* Submit */}
-        <Card className="p-5 bg-gradient-to-r from-indigo-500 to-emerald-500 text-white" data-testid="info-sheet-submit-card">
+        <Card className="p-5 bg-gradient-to-r from-leamss-teal-500 to-emerald-500 text-white" data-testid="info-sheet-submit-card">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div>
               <h3 className="font-bold">Ready to submit?</h3>
@@ -343,7 +343,7 @@ export default function PublicInfoSheet() {
             </div>
             <Button
               size="lg"
-              className="bg-white text-indigo-700 hover:bg-slate-100"
+              className="bg-white text-leamss-teal-700 hover:bg-slate-100"
               onClick={submit}
               disabled={submitting}
               data-testid="is-submit-btn"
@@ -362,7 +362,7 @@ function Section({ icon: Icon, title, children, testid }) {
   return (
     <Card className="p-5 mb-3" data-testid={testid}>
       <h2 className="text-sm font-bold flex items-center gap-2 mb-3">
-        <Icon className="h-4 w-4 text-indigo-600" />{title}
+        <Icon className="h-4 w-4 text-leamss-teal-600" />{title}
       </h2>
       <div className="space-y-3">{children}</div>
     </Card>

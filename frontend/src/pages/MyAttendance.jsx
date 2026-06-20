@@ -15,8 +15,8 @@ const STATUS_COLORS = {
   present: 'bg-emerald-100 text-emerald-800 border-emerald-300',
   late: 'bg-amber-100 text-amber-800 border-amber-300',
   absent: 'bg-rose-100 text-rose-800 border-rose-300',
-  leave: 'bg-indigo-100 text-indigo-800 border-indigo-300',
-  holiday: 'bg-purple-100 text-purple-800 border-purple-300',
+  leave: 'bg-leamss-teal-100 text-leamss-teal-800 border-leamss-teal-300',
+  holiday: 'bg-leamss-orange-100 text-leamss-orange-800 border-leamss-orange-300',
   weekly_off: 'bg-slate-100 text-slate-600 border-slate-300',
   lwp: 'bg-rose-200 text-rose-900 border-rose-400',
   future: 'bg-slate-50 text-slate-400 border-slate-200',
@@ -100,7 +100,7 @@ export default function MyAttendance() {
           <StatCard label="Present" value={counters.present || 0} color="text-emerald-600" icon={Clock} />
           <StatCard label="Late" value={counters.late || 0} color="text-amber-600" icon={AlertTriangle} sublabel={`${lateMarks.count || 0}/${lateMarks.threshold || 3} this month`} />
           <StatCard label="Absent" value={counters.absent || 0} color="text-rose-600" icon={TrendingDown} />
-          <StatCard label="On Leave" value={counters.leave || 0} color="text-indigo-600" icon={CalendarIcon} />
+          <StatCard label="On Leave" value={counters.leave || 0} color="text-leamss-teal-600" icon={CalendarIcon} />
           <StatCard label="LWP" value={counters.lwp || 0} color="text-rose-700" icon={TrendingDown} />
           <StatCard label="Hours" value={counters.total_hours || 0} color="text-slate-700" icon={Clock} sublabel="this month" />
         </div>

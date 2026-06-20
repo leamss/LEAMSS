@@ -11,6 +11,12 @@ Client-scoped endpoints (require client JWT from `routers.client_auth`):
   GET  /api/client-portal/proposal     — receive proposal (if sent)
   POST /api/client-portal/proposal/{id}/accept
   POST /api/client-portal/proposal/{id}/decline
+
+X5 (Option D): Admin/CM/sales preview endpoint:
+  GET  /api/admin/client-portal-preview/{client_id}/overview
+  GET  /api/admin/client-portal-preview/{client_id}/info-sheet
+  GET  /api/admin/client-portal-preview/{client_id}/documents
+  GET  /api/admin/client-portal-preview/{client_id}/proposal
 """
 from __future__ import annotations
 

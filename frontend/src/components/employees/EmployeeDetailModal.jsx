@@ -155,9 +155,9 @@ export default function EmployeeDetailModal({ employeeId, onClose, onUpdated }) 
     <Dialog open onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0" data-testid="employee-detail-modal">
         {/* Header */}
-        <div className="p-6 border-b border-slate-100 bg-gradient-to-r from-teal-50 via-indigo-50 to-violet-50">
+        <div className="p-6 border-b border-slate-100 bg-gradient-to-r from-teal-50 via-leamss-teal-50 to-leamss-red-50">
           <div className="flex items-start gap-4">
-            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-teal-500 to-indigo-600 flex items-center justify-center text-white font-bold text-xl shadow-md">
+            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-teal-500 to-leamss-teal-600 flex items-center justify-center text-white font-bold text-xl shadow-md">
               {(user.name || '?').charAt(0).toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
@@ -255,7 +255,7 @@ export default function EmployeeDetailModal({ employeeId, onClose, onUpdated }) 
                   <div className="flex flex-wrap gap-2">
                     {user.direct_reports.map(r => (
                       <div key={r.id} className="flex items-center gap-2 bg-white px-2 py-1.5 rounded border border-slate-200 text-xs">
-                        <div className="w-6 h-6 rounded-full bg-gradient-to-br from-teal-500 to-indigo-600 flex items-center justify-center text-white text-[10px] font-semibold">{(r.name || '?').charAt(0)}</div>
+                        <div className="w-6 h-6 rounded-full bg-gradient-to-br from-teal-500 to-leamss-teal-600 flex items-center justify-center text-white text-[10px] font-semibold">{(r.name || '?').charAt(0)}</div>
                         <span className="font-medium">{r.name}</span>
                         <span className="text-slate-400">· {r.rbac_role}</span>
                       </div>
@@ -295,7 +295,7 @@ export default function EmployeeDetailModal({ employeeId, onClose, onUpdated }) 
                 <p className="text-xs uppercase tracking-wider text-slate-500 font-semibold mb-2">UI Modules ({user.ui_modules?.length || 0})</p>
                 <div className="flex flex-wrap gap-1.5 p-2 bg-slate-50 rounded-md">
                   {(user.ui_modules || []).map(m => (
-                    <Badge key={m} className="bg-indigo-100 text-indigo-700 text-[10px]">{m}</Badge>
+                    <Badge key={m} className="bg-leamss-teal-100 text-leamss-teal-700 text-[10px]">{m}</Badge>
                   ))}
                 </div>
               </div>

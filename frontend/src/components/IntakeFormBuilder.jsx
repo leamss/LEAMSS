@@ -22,7 +22,7 @@ const FIELD_TYPES = [
 ];
 const ROLE_OPTIONS = [
   { value: 'client', label: 'Client Only', icon: UserCircle, color: 'bg-blue-100 text-blue-700' },
-  { value: 'cm', label: 'CM Only', icon: FileText, color: 'bg-purple-100 text-purple-700' },
+  { value: 'cm', label: 'CM Only', icon: FileText, color: 'bg-leamss-orange-100 text-leamss-orange-700' },
   { value: 'both', label: 'Both', icon: Users, color: 'bg-emerald-100 text-emerald-700' },
 ];
 
@@ -153,7 +153,7 @@ const IntakeFormBuilder = ({ token, products = [] }) => {
                 <div className="flex gap-3 mt-2 text-xs">
                   <span className="bg-white/15 px-2.5 py-1 rounded-lg">{totalFields} total fields</span>
                   <span className="bg-blue-400/30 px-2.5 py-1 rounded-lg">{clientFields} client</span>
-                  <span className="bg-purple-400/30 px-2.5 py-1 rounded-lg">{cmFields} CM</span>
+                  <span className="bg-leamss-orange-400/30 px-2.5 py-1 rounded-lg">{cmFields} CM</span>
                 </div>
               </div>
               <Button variant="outline" className="text-white border-white/30 hover:bg-white/10" onClick={() => setSelectedProduct(null)}>

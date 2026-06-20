@@ -90,7 +90,7 @@ const AnalyticsDashboard = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-leamss-teal-600"></div>
       </div>
     );
   }
@@ -171,8 +171,8 @@ const AnalyticsDashboard = () => {
                   {dashboardData?.total_sales || salesTrend?.data?.reduce((a, b) => a + (b.count || 0), 0) || 0}
                 </p>
               </div>
-              <div className="h-12 w-12 bg-purple-100 rounded-full flex items-center justify-center">
-                <FileText className="h-6 w-6 text-purple-600" />
+              <div className="h-12 w-12 bg-leamss-orange-100 rounded-full flex items-center justify-center">
+                <FileText className="h-6 w-6 text-leamss-orange-600" />
               </div>
             </div>
           </CardContent>
@@ -251,7 +251,7 @@ const AnalyticsDashboard = () => {
                     <span className="w-16 text-xs text-gray-500">{item.month}</span>
                     <div className="flex-1 bg-gray-100 rounded h-4 overflow-hidden">
                       <div 
-                        className="bg-indigo-500 h-full rounded transition-all"
+                        className="bg-leamss-teal-500 h-full rounded transition-all"
                         style={{ width: `${width}%` }}
                       />
                     </div>
@@ -284,7 +284,7 @@ const AnalyticsDashboard = () => {
               {(topProducts?.data || []).map((product, idx) => (
                 <div key={idx} className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 font-bold">
+                    <div className="w-8 h-8 bg-leamss-teal-100 rounded-full flex items-center justify-center text-leamss-teal-600 font-bold">
                       {idx + 1}
                     </div>
                     <div>
@@ -317,7 +317,7 @@ const AnalyticsDashboard = () => {
               {(topPartners?.data || []).map((partner, idx) => (
                 <div key={idx} className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center text-purple-600 font-bold">
+                    <div className="w-8 h-8 bg-leamss-orange-100 rounded-full flex items-center justify-center text-leamss-orange-600 font-bold">
                       {idx + 1}
                     </div>
                     <div>

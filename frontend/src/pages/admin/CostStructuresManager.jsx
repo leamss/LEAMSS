@@ -104,9 +104,9 @@ const StructureEditor = ({ open, onClose, structure, categories, onSaved }) => {
       <DialogContent className="max-w-4xl max-h-[88vh] overflow-y-auto" data-testid="structure-editor">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Calculator className="h-5 w-5 text-indigo-600" />
+            <Calculator className="h-5 w-5 text-leamss-teal-600" />
             {structure?.id ? 'Edit Cost Structure' : 'New Cost Structure'}
-            {structure?.is_system && <Badge className="bg-purple-100 text-purple-700 text-[10px] ml-2"><Lock className="h-3 w-3 mr-0.5 inline" />System</Badge>}
+            {structure?.is_system && <Badge className="bg-leamss-orange-100 text-leamss-orange-700 text-[10px] ml-2"><Lock className="h-3 w-3 mr-0.5 inline" />System</Badge>}
           </DialogTitle>
         </DialogHeader>
 
@@ -210,7 +210,7 @@ const StructureEditor = ({ open, onClose, structure, categories, onSaved }) => {
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSave} disabled={saving} className="bg-indigo-600 hover:bg-indigo-700" data-testid="save-cs">{saving ? 'Saving…' : (structure?.id ? 'Update' : 'Create')}</Button>
+          <Button onClick={handleSave} disabled={saving} className="bg-leamss-teal-600 hover:bg-leamss-teal-700" data-testid="save-cs">{saving ? 'Saving…' : (structure?.id ? 'Update' : 'Create')}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -333,15 +333,15 @@ export default function CostStructuresManager() {
           <div className="flex items-center gap-3">
             <button onClick={() => navigate('/admin')} className="p-2 rounded-lg hover:bg-slate-200" data-testid="back-to-admin"><ArrowLeft className="h-5 w-5 text-slate-700" /></button>
             <div>
-              <h1 className="text-3xl font-extrabold text-slate-800 flex items-center gap-2"><Calculator className="h-7 w-7 text-indigo-600" />Product Cost Structures</h1>
+              <h1 className="text-3xl font-extrabold text-slate-800 flex items-center gap-2"><Calculator className="h-7 w-7 text-leamss-teal-600" />Product Cost Structures</h1>
               <p className="text-sm text-slate-500 mt-1">Define how revenue is split among vendors per product</p>
             </div>
           </div>
-          <Button onClick={() => setCreating(true)} className="bg-indigo-600 hover:bg-indigo-700" data-testid="add-cs-btn"><Plus className="h-4 w-4 mr-1.5" />New Cost Structure</Button>
+          <Button onClick={() => setCreating(true)} className="bg-leamss-teal-600 hover:bg-leamss-teal-700" data-testid="add-cs-btn"><Plus className="h-4 w-4 mr-1.5" />New Cost Structure</Button>
         </div>
 
         {loading ? (
-          <Card className="p-12 text-center"><Sparkles className="h-8 w-8 text-indigo-300 mx-auto animate-pulse mb-2" /><p className="text-slate-500">Loading…</p></Card>
+          <Card className="p-12 text-center"><Sparkles className="h-8 w-8 text-leamss-teal-300 mx-auto animate-pulse mb-2" /><p className="text-slate-500">Loading…</p></Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" data-testid="structures-grid">
             {structures.map(s => (
@@ -354,7 +354,7 @@ export default function CostStructuresManager() {
                     </h3>
                     <p className="text-xs text-slate-500 mt-0.5">{s.country} {s.visa_type && `· ${s.visa_type}`}</p>
                   </div>
-                  {s.is_system && <Badge className="bg-purple-100 text-purple-700 text-[10px]"><Lock className="h-3 w-3 mr-0.5 inline" />System</Badge>}
+                  {s.is_system && <Badge className="bg-leamss-orange-100 text-leamss-orange-700 text-[10px]"><Lock className="h-3 w-3 mr-0.5 inline" />System</Badge>}
                 </div>
                 <div className="bg-slate-50 rounded p-2.5 my-3 space-y-1 text-xs">
                   <p className="text-slate-700">Service Price: <strong className="text-slate-900">{formatINR(s.service_price)}</strong></p>

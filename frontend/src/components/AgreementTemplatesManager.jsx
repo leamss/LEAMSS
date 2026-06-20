@@ -145,7 +145,7 @@ export default function AgreementTemplatesManager() {
             {uniquePlaceholders.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-1">
                 {uniquePlaceholders.map((p, i) => (
-                  <Badge key={i} className="bg-indigo-100 text-indigo-700 text-[10px] font-mono">{`{{${p}}}`}</Badge>
+                  <Badge key={i} className="bg-leamss-teal-100 text-leamss-teal-700 text-[10px] font-mono">{`{{${p}}}`}</Badge>
                 ))}
               </div>
             )}

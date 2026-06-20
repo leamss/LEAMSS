@@ -92,10 +92,10 @@ export default function DashboardPreviewModal({ userId, onClose }) {
 
           {/* Stats */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <PreviewStat icon={CheckSquare} label="My Tasks" value={preview.stats.my_tasks} color="text-indigo-600" />
+            <PreviewStat icon={CheckSquare} label="My Tasks" value={preview.stats.my_tasks} color="text-leamss-teal-600" />
             <PreviewStat icon={Bell} label="Notifications" value={preview.stats.unread_notifications} color="text-amber-600" />
             <PreviewStat icon={Clock} label="Attendance" value={preview.stats.attendance_this_month} color="text-emerald-600" />
-            <PreviewStat icon={Sparkles} label="Modules" value={preview.stats.modules_count} color="text-violet-600" />
+            <PreviewStat icon={Sparkles} label="Modules" value={preview.stats.modules_count} color="text-leamss-red-600" />
           </div>
 
           {/* Modules */}

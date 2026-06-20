@@ -565,10 +565,10 @@ export default function PreAssessmentMiniPortal({ pa, onRefresh, onOpenScanner }
 
       {/* STAGE: awaiting_final_approval — admin working on it */}
       {stage === 'awaiting_final_approval' && (
-        <Card className="p-6 bg-gradient-to-br from-indigo-50 to-white border-indigo-200">
+        <Card className="p-6 bg-gradient-to-br from-leamss-teal-50 to-white border-leamss-teal-200">
           <div className="flex items-start gap-4">
-            <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center shrink-0">
-              <Clock className="h-6 w-6 text-indigo-600" />
+            <div className="w-12 h-12 bg-leamss-teal-100 rounded-full flex items-center justify-center shrink-0">
+              <Clock className="h-6 w-6 text-leamss-teal-600" />
             </div>
             <div>
               <h3 className="font-bold text-slate-800 text-lg">Activating Your Case</h3>

@@ -102,7 +102,7 @@ export default function SatisfactionSurvey({ token, role, caseId = null }) {
               </Card>
               <Card>
                 <CardContent className="pt-4 text-center">
-                  <p className="text-3xl font-bold text-purple-500">{stats.avg_communication || 0}</p>
+                  <p className="text-3xl font-bold text-leamss-orange-500">{stats.avg_communication || 0}</p>
                   <p className="text-sm text-gray-600">Communication</p>
                 </CardContent>
               </Card>

@@ -296,7 +296,7 @@ export default function ClientAssessment() {
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
-              <Sparkles className="h-7 w-7 text-indigo-600" />Smart Client Assessment
+              <Sparkles className="h-7 w-7 text-leamss-teal-600" />Smart Client Assessment
               {editingId && (
                 <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-semibold" data-testid="editing-badge">
                   Editing · {editingId}
@@ -321,13 +321,13 @@ export default function ClientAssessment() {
               return (
                 <div key={s.id} className="flex items-center flex-1">
                   <div
-                    className={`flex flex-col items-center cursor-pointer ${done ? 'text-emerald-600' : active ? 'text-indigo-700' : 'text-slate-300'}`}
+                    className={`flex flex-col items-center cursor-pointer ${done ? 'text-emerald-600' : active ? 'text-leamss-teal-700' : 'text-slate-300'}`}
                     onClick={() => done && setStep(s.id)}
                     data-testid={`step-indicator-${s.id}`}
                   >
                     <div className={`w-7 h-7 rounded-full border-2 flex items-center justify-center ${
                       done ? 'bg-emerald-100 border-emerald-500'
-                      : active ? 'bg-indigo-100 border-indigo-500'
+                      : active ? 'bg-leamss-teal-100 border-leamss-teal-500'
                       : 'bg-white border-slate-200'
                     }`}>
                       {done ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Icon className="h-3.5 w-3.5" />}
@@ -362,7 +362,7 @@ export default function ClientAssessment() {
               <ChevronLeft className="h-4 w-4 mr-1" />Back
             </Button>
             {step < 7 ? (
-              <Button onClick={goNext} className="bg-indigo-600 hover:bg-indigo-700" disabled={!canAdvance(step, data)} data-testid="next-btn">
+              <Button onClick={goNext} className="bg-leamss-teal-600 hover:bg-leamss-teal-700" disabled={!canAdvance(step, data)} data-testid="next-btn">
                 Next<ChevronRight className="h-4 w-4 ml-1" />
               </Button>
             ) : (

@@ -47,7 +47,7 @@ export default function PublicCountryGuide() {
           <p className="text-xs text-slate-500 mb-4">
             The guide may not be published yet. Please check our other country pages.
           </p>
-          <Link to="/countries" className="text-indigo-600 text-sm hover:underline">← Browse all countries</Link>
+          <Link to="/countries" className="text-leamss-teal-600 text-sm hover:underline">← Browse all countries</Link>
         </Card>
       </div>
     );
@@ -56,23 +56,23 @@ export default function PublicCountryGuide() {
   return (
     <div className="min-h-screen bg-white" data-testid="public-guide-page">
       {/* HERO */}
-      <header className="bg-gradient-to-br from-indigo-700 via-blue-700 to-cyan-600 text-white">
+      <header className="bg-gradient-to-br from-leamss-teal-700 via-blue-700 to-cyan-600 text-white">
         <div className="max-w-5xl mx-auto px-6 py-12 md:py-16">
-          <Link to="/" className="text-xs text-indigo-200 hover:underline mb-4 inline-block">
+          <Link to="/" className="text-xs text-leamss-teal-200 hover:underline mb-4 inline-block">
             ← LEAMSS Home
           </Link>
           <div className="flex items-center gap-3 mb-3">
             <Badge className="bg-emerald-500 text-white border-0" data-testid="verified-badge">
               <ShieldCheck className="h-3 w-3 mr-1" />Verified Guide
             </Badge>
-            <span className="text-xs text-indigo-100">
+            <span className="text-xs text-leamss-teal-100">
               Last updated: {new Date(guide.updated_at).toLocaleDateString()}
             </span>
           </div>
           <h1 className="text-4xl md:text-5xl font-bold mb-2" data-testid="hero-title">
             {guide.hero?.title || `${guide.flag} ${guide.name}`}
           </h1>
-          <p className="text-base md:text-lg text-indigo-100 max-w-2xl" data-testid="hero-subtitle">
+          <p className="text-base md:text-lg text-leamss-teal-100 max-w-2xl" data-testid="hero-subtitle">
             {guide.hero?.subtitle || guide.tagline}
           </p>
           <div className="mt-6 flex flex-wrap gap-3">

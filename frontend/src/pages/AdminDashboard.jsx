@@ -1677,9 +1677,9 @@ const AdminDashboard = () => {
                   <p className="text-sm text-slate-600">Total Revenue</p>
                   <p className="text-2xl font-bold text-amber-700">₹{salesReport.filter(s => s.status === 'approved').reduce((sum, s) => sum + (s.fee_amount || 0), 0).toLocaleString()}</p>
                 </Card>
-                <Card className="p-4 bg-purple-50 border-purple-200">
+                <Card className="p-4 bg-leamss-orange-50 border-leamss-orange-200">
                   <p className="text-sm text-slate-600">Total Commission</p>
-                  <p className="text-2xl font-bold text-purple-700">₹{salesReport.filter(s => s.status === 'approved').reduce((sum, s) => sum + (s.commission_amount || 0), 0).toLocaleString()}</p>
+                  <p className="text-2xl font-bold text-leamss-orange-700">₹{salesReport.filter(s => s.status === 'approved').reduce((sum, s) => sum + (s.commission_amount || 0), 0).toLocaleString()}</p>
                 </Card>
               </div>
 
@@ -1754,9 +1754,9 @@ const AdminDashboard = () => {
                     <p className="text-sm text-slate-600">Pending</p>
                     <p className="text-2xl font-bold text-amber-700">{selectedPartnerReport.summary?.pending_sales}</p>
                   </div>
-                  <div className="p-4 bg-purple-50 rounded-lg">
+                  <div className="p-4 bg-leamss-orange-50 rounded-lg">
                     <p className="text-sm text-slate-600">Total Revenue</p>
-                    <p className="text-2xl font-bold text-purple-700">₹{selectedPartnerReport.summary?.total_revenue?.toLocaleString()}</p>
+                    <p className="text-2xl font-bold text-leamss-orange-700">₹{selectedPartnerReport.summary?.total_revenue?.toLocaleString()}</p>
                   </div>
                   <div className="p-4 bg-[#2a777a]/10 rounded-lg">
                     <p className="text-sm text-slate-600">Commission Payable</p>
@@ -1840,7 +1840,7 @@ const AdminDashboard = () => {
                   <p className="text-sm opacity-80">Total Revenue</p>
                   <p className="text-3xl font-bold mt-2">₹{partnerCommissions.reduce((sum, p) => sum + (p.total_fee || 0), 0).toLocaleString()}</p>
                 </Card>
-                <Card className="p-4 bg-gradient-to-br from-purple-500 to-purple-600 text-white">
+                <Card className="p-4 bg-gradient-to-br from-leamss-orange-500 to-leamss-orange-600 text-white">
                   <p className="text-sm opacity-80">Total Partners</p>
                   <p className="text-3xl font-bold mt-2">{partnerCommissions.length}</p>
                 </Card>
@@ -2306,7 +2306,7 @@ const AdminDashboard = () => {
                           <div className="flex flex-wrap gap-3 mt-2 text-xs">
                             <span className="bg-slate-50 text-slate-600 px-2 py-1 rounded border">Fee: ₹{(caseItem.sale_fee || 0).toLocaleString()}</span>
                             {caseItem.sale_discount > 0 && <span className="bg-emerald-50 text-emerald-700 px-2 py-1 rounded border border-emerald-200">Discount: ₹{caseItem.sale_discount.toLocaleString()}</span>}
-                            {caseItem.sale_promo && <span className="bg-purple-50 text-purple-700 px-2 py-1 rounded border border-purple-200">Promo: {caseItem.sale_promo}</span>}
+                            {caseItem.sale_promo && <span className="bg-leamss-orange-50 text-leamss-orange-700 px-2 py-1 rounded border border-leamss-orange-200">Promo: {caseItem.sale_promo}</span>}
                             <span className={`px-2 py-1 rounded border ${caseItem.sale_payment_status === 'paid' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : caseItem.sale_payment_status === 'partial' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
                               Payment: {caseItem.sale_payment_status || 'pending'}
                             </span>
@@ -2502,7 +2502,7 @@ const AdminDashboard = () => {
               <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                 <Card className="p-4 bg-blue-50 border-blue-200"><p className="text-sm text-slate-600">Total</p><p className="text-2xl font-bold text-blue-700">{ticketStats.total || 0}</p></Card>
                 <Card className="p-4 bg-amber-50 border-amber-200"><p className="text-sm text-slate-600">Open</p><p className="text-2xl font-bold text-amber-700">{ticketStats.open || 0}</p></Card>
-                <Card className="p-4 bg-purple-50 border-purple-200"><p className="text-sm text-slate-600">In Progress</p><p className="text-2xl font-bold text-purple-700">{ticketStats.in_progress || 0}</p></Card>
+                <Card className="p-4 bg-leamss-orange-50 border-leamss-orange-200"><p className="text-sm text-slate-600">In Progress</p><p className="text-2xl font-bold text-leamss-orange-700">{ticketStats.in_progress || 0}</p></Card>
                 <Card className="p-4 bg-green-50 border-green-200"><p className="text-sm text-slate-600">Resolved</p><p className="text-2xl font-bold text-green-700">{ticketStats.resolved || 0}</p></Card>
                 <Card className="p-4 bg-slate-50 border-slate-200"><p className="text-sm text-slate-600">Closed</p><p className="text-2xl font-bold text-slate-700">{ticketStats.closed || 0}</p></Card>
               </div>
@@ -2596,7 +2596,7 @@ const AdminDashboard = () => {
                     )}
                   </div>
                   <div className="flex gap-2">
-                    {selectedTicket.status === 'open' && <Button onClick={() => updateTicketStatus(selectedTicket.id, 'in_progress')} size="sm" className="bg-purple-500 hover:bg-purple-600"><Clock className="mr-1 h-4 w-4" />Start</Button>}
+                    {selectedTicket.status === 'open' && <Button onClick={() => updateTicketStatus(selectedTicket.id, 'in_progress')} size="sm" className="bg-leamss-orange-500 hover:bg-leamss-orange-600"><Clock className="mr-1 h-4 w-4" />Start</Button>}
                     {selectedTicket.status !== 'resolved' && selectedTicket.status !== 'closed' && (
                       <Button onClick={() => updateTicketStatus(selectedTicket.id, 'resolved')} size="sm" className="bg-green-500 hover:bg-green-600"><CheckCircle className="mr-1 h-4 w-4" />Resolve</Button>
                     )}
@@ -3001,7 +3001,7 @@ const AdminDashboard = () => {
               <p className="text-sm text-slate-600">Define the steps for this product workflow.</p>
               <div className="flex gap-2">
                 {workflowDialog.product?.workflow_steps?.length > 0 && (
-                  <Button onClick={aiBulkSuggest} disabled={aiSuggesting} variant="outline" className="border-purple-300 text-purple-700 hover:bg-purple-50" data-testid="ai-bulk-suggest-btn">
+                  <Button onClick={aiBulkSuggest} disabled={aiSuggesting} variant="outline" className="border-leamss-orange-300 text-leamss-orange-700 hover:bg-leamss-orange-50" data-testid="ai-bulk-suggest-btn">
                     {aiSuggesting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}AI Auto-Fill Docs
                   </Button>
                 )}
@@ -3118,7 +3118,7 @@ const AdminDashboard = () => {
                 <div className="flex items-center justify-between pt-2">
                   <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={stepEditorDialog.newDoc.is_mandatory} onChange={(e) => setStepEditorDialog({ ...stepEditorDialog, newDoc: { ...stepEditorDialog.newDoc, is_mandatory: e.target.checked } })} className="rounded" data-testid="doc-mandatory-checkbox" />Mandatory Document</label>
                   <div className="flex gap-2">
-                    <Button size="sm" onClick={aiSuggestDocs} disabled={aiSuggesting} variant="outline" className="border-purple-300 text-purple-700 hover:bg-purple-50" data-testid="ai-suggest-docs-btn">
+                    <Button size="sm" onClick={aiSuggestDocs} disabled={aiSuggesting} variant="outline" className="border-leamss-orange-300 text-leamss-orange-700 hover:bg-leamss-orange-50" data-testid="ai-suggest-docs-btn">
                       {aiSuggesting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Sparkles className="h-4 w-4 mr-1" />}AI Suggest
                     </Button>
                     <Button size="sm" onClick={addDocToStep} variant="outline" data-testid="add-doc-btn"><Plus className="h-4 w-4 mr-1" />Add Document</Button>

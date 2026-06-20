@@ -160,7 +160,7 @@ export default function AddEmployeeForm({ onNavigate }) {
             <p className="mt-3 text-xs text-slate-500 flex items-center justify-center gap-1"><Mail className="h-3 w-3" /> Welcome email queued (Resend MOCKED — would deliver when live)</p>
           )}
           {result.require_2fa && (
-            <p className="mt-1 text-xs text-violet-600 flex items-center justify-center gap-1"><Shield className="h-3 w-3" /> 2FA will be required on first login</p>
+            <p className="mt-1 text-xs text-leamss-red-600 flex items-center justify-center gap-1"><Shield className="h-3 w-3" /> 2FA will be required on first login</p>
           )}
 
           <div className="mt-6 flex gap-2 justify-center">
@@ -309,12 +309,12 @@ export default function AddEmployeeForm({ onNavigate }) {
             </label>
 
             <label className="flex items-center gap-3 cursor-pointer p-3 hover:bg-slate-50 rounded-md">
-              <input type="checkbox" checked={form.require_2fa} onChange={(e) => setForm({ ...form, require_2fa: e.target.checked })} className="w-4 h-4 rounded text-violet-600" data-testid="form-require-2fa" />
+              <input type="checkbox" checked={form.require_2fa} onChange={(e) => setForm({ ...form, require_2fa: e.target.checked })} className="w-4 h-4 rounded text-leamss-red-600" data-testid="form-require-2fa" />
               <div className="flex-1">
                 <p className="font-medium text-slate-800">Require 2FA on first login</p>
                 <p className="text-xs text-slate-500">{selectedRoleObj?.hierarchy_level >= 3 ? 'Auto-enabled (senior role L3+)' : 'Recommended for sensitive roles'}</p>
               </div>
-              <Shield className="h-4 w-4 text-violet-500" />
+              <Shield className="h-4 w-4 text-leamss-red-500" />
             </label>
 
             {/* Summary */}

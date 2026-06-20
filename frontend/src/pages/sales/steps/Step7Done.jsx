@@ -159,7 +159,7 @@ export default function Step7Done({ saved, createPA, navigate, headers, creating
             Linked PA: {saved.linked_pa_id?.slice(0, 8)}…
           </Button>
         ) : (
-          <Button size="default" className="bg-indigo-600 hover:bg-indigo-700" onClick={openCreatePAFlow} disabled={creatingPA || loadingPartners} data-testid="create-pa-btn">
+          <Button size="default" className="bg-leamss-teal-600 hover:bg-leamss-teal-700" onClick={openCreatePAFlow} disabled={creatingPA || loadingPartners} data-testid="create-pa-btn">
             {(creatingPA || loadingPartners) ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <ArrowRight className="h-4 w-4 mr-1" />}
             {creatingPA ? 'Creating…' : loadingPartners ? 'Loading…' : 'Create Pre-Assessment'}
           </Button>
@@ -188,10 +188,10 @@ export default function Step7Done({ saved, createPA, navigate, headers, creating
       <Card className="p-4" data-testid="lifecycle-tracker">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-base font-bold flex items-center gap-2">
-            <Clock className="h-5 w-5 text-indigo-600" />Client Journey
+            <Clock className="h-5 w-5 text-leamss-teal-600" />Client Journey
           </h3>
           {lifecycle && (
-            <Badge className="bg-indigo-100 text-indigo-700" data-testid="lifecycle-progress">
+            <Badge className="bg-leamss-teal-100 text-leamss-teal-700" data-testid="lifecycle-progress">
               {lifecycle.progress_pct}% complete · Step {Math.min(lifecycle.current_step_index + 1, 7)}/7
             </Badge>
           )}
@@ -210,7 +210,7 @@ export default function Step7Done({ saved, createPA, navigate, headers, creating
               const iconColor = s.completed
                 ? 'text-emerald-500'
                 : isCurrent
-                  ? 'text-indigo-500 animate-pulse'
+                  ? 'text-leamss-teal-500 animate-pulse'
                   : 'text-slate-300';
               return (
                 <li key={s.key} className="relative pl-8" data-testid={`lifecycle-step-${s.key}`}>
@@ -218,7 +218,7 @@ export default function Step7Done({ saved, createPA, navigate, headers, creating
                     <Icon className={`h-5 w-5 ${iconColor}`} />
                   </div>
                   <div className="flex items-baseline justify-between gap-2 flex-wrap">
-                    <span className={`text-xs font-semibold ${s.completed ? 'text-slate-800' : isCurrent ? 'text-indigo-700' : 'text-slate-400'}`}>
+                    <span className={`text-xs font-semibold ${s.completed ? 'text-slate-800' : isCurrent ? 'text-leamss-teal-700' : 'text-slate-400'}`}>
                       {s.label}
                     </span>
                     {s.timestamp && (
@@ -233,7 +233,7 @@ export default function Step7Done({ saved, createPA, navigate, headers, creating
                       {s.link && (
                         <button
                           onClick={() => navigate(s.link)}
-                          className="ml-2 text-indigo-600 hover:underline"
+                          className="ml-2 text-leamss-teal-600 hover:underline"
                           data-testid={`lifecycle-link-${s.key}`}
                         >
                           Open →
@@ -253,14 +253,14 @@ export default function Step7Done({ saved, createPA, navigate, headers, creating
       <Card className="p-4" data-testid="checklist-card">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-base font-bold flex items-center gap-2">
-            <FileText className="h-5 w-5 text-indigo-600" />Document Checklist
+            <FileText className="h-5 w-5 text-leamss-teal-600" />Document Checklist
             {checklist?.is_locked && (
               <Lock className="h-4 w-4 text-amber-500" data-testid="checklist-lock-icon" />
             )}
           </h3>
           {checklist?.stats && (
             <div className="flex items-center gap-2 text-[11px]">
-              <Badge className="bg-indigo-100 text-indigo-700" data-testid="checklist-total">{checklist.stats.total} items</Badge>
+              <Badge className="bg-leamss-teal-100 text-leamss-teal-700" data-testid="checklist-total">{checklist.stats.total} items</Badge>
               <Badge className="bg-rose-100 text-rose-700">{checklist.stats.required} required</Badge>
               <Badge className="bg-slate-100 text-slate-600">{checklist.stats.optional} optional</Badge>
             </div>
@@ -396,7 +396,7 @@ export default function Step7Done({ saved, createPA, navigate, headers, creating
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setPartnerPickerOpen(false)} data-testid="partner-picker-modal">
           <Card className="max-w-md w-full bg-white p-5" onClick={e => e.stopPropagation()}>
             <h3 className="text-base font-bold flex items-center gap-2 mb-1">
-              <UserCheck className="h-5 w-5 text-indigo-600" />Assign to Partner / Sales
+              <UserCheck className="h-5 w-5 text-leamss-teal-600" />Assign to Partner / Sales
             </h3>
             <p className="text-[11px] text-slate-500 mb-3">
               Admin-initiated PAs must be assigned to a partner or sales person so they enter the correct pipeline.
@@ -420,7 +420,7 @@ export default function Step7Done({ saved, createPA, navigate, headers, creating
             )}
             <div className="flex gap-2 justify-end mt-4">
               <Button variant="outline" size="sm" onClick={() => setPartnerPickerOpen(false)}>Cancel</Button>
-              <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700" onClick={confirmCreatePA} disabled={!selectedPartner} data-testid="partner-picker-confirm">
+              <Button size="sm" className="bg-leamss-teal-600 hover:bg-leamss-teal-700" onClick={confirmCreatePA} disabled={!selectedPartner} data-testid="partner-picker-confirm">
                 <ArrowRight className="h-3 w-3 mr-1" />Create PA
               </Button>
             </div>

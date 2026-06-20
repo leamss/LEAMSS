@@ -30,8 +30,8 @@ const REASON_COLORS = {
   vip_customer: 'bg-amber-100 text-amber-700 border-amber-300',
   repeat_client: 'bg-emerald-100 text-emerald-700 border-emerald-300',
   pre_qualified_referral: 'bg-blue-100 text-blue-700 border-blue-300',
-  partner_channel: 'bg-indigo-100 text-indigo-700 border-indigo-300',
-  renewal_upgrade: 'bg-purple-100 text-purple-700 border-purple-300',
+  partner_channel: 'bg-leamss-teal-100 text-leamss-teal-700 border-leamss-teal-300',
+  renewal_upgrade: 'bg-leamss-orange-100 text-leamss-orange-700 border-leamss-orange-300',
   direct_walkin: 'bg-sky-100 text-sky-700 border-sky-300',
   other: 'bg-slate-100 text-slate-700 border-slate-300',
 };

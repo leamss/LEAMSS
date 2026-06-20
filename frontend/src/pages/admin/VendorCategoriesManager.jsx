@@ -48,7 +48,7 @@ const CategoryModal = ({ open, onClose, editing, onSaved }) => {
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-md" data-testid="category-modal">
-        <DialogHeader><DialogTitle className="flex items-center gap-2"><Layers className="h-5 w-5 text-indigo-600" />{editing ? 'Edit Category' : 'New Category'}</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle className="flex items-center gap-2"><Layers className="h-5 w-5 text-leamss-teal-600" />{editing ? 'Edit Category' : 'New Category'}</DialogTitle></DialogHeader>
         <div className="space-y-3">
           <div><Label className="text-sm font-bold">Key (lowercase_snake) *</Label><Input value={form.key} onChange={e => setForm({ ...form, key: e.target.value.toLowerCase().replace(/[^a-z_]/g, '') })} disabled={!!editing} data-testid="cat-key" /></div>
           <div><Label className="text-sm font-bold">Name *</Label><Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} data-testid="cat-name" /></div>
@@ -70,7 +70,7 @@ const CategoryModal = ({ open, onClose, editing, onSaved }) => {
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={save} disabled={saving} className="bg-indigo-600 hover:bg-indigo-700" data-testid="save-category">{saving ? 'Saving…' : 'Save'}</Button>
+          <Button onClick={save} disabled={saving} className="bg-leamss-teal-600 hover:bg-leamss-teal-700" data-testid="save-category">{saving ? 'Saving…' : 'Save'}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -101,15 +101,15 @@ export default function VendorCategoriesManager() {
           <div className="flex items-center gap-3">
             <button onClick={() => navigate('/admin/vendors')} className="p-2 rounded-lg hover:bg-slate-200" data-testid="back-to-vendors"><ArrowLeft className="h-5 w-5 text-slate-700" /></button>
             <div>
-              <h1 className="text-3xl font-extrabold text-slate-800 flex items-center gap-2"><Layers className="h-7 w-7 text-indigo-600" />Vendor Categories</h1>
+              <h1 className="text-3xl font-extrabold text-slate-800 flex items-center gap-2"><Layers className="h-7 w-7 text-leamss-teal-600" />Vendor Categories</h1>
               <p className="text-sm text-slate-500 mt-1">Define the types of vendors your CRM works with</p>
             </div>
           </div>
-          <Button onClick={() => setCreating(true)} className="bg-indigo-600 hover:bg-indigo-700" data-testid="new-category-btn"><Plus className="h-4 w-4 mr-1.5" />New Category</Button>
+          <Button onClick={() => setCreating(true)} className="bg-leamss-teal-600 hover:bg-leamss-teal-700" data-testid="new-category-btn"><Plus className="h-4 w-4 mr-1.5" />New Category</Button>
         </div>
 
         {loading ? (
-          <Card className="p-12 text-center"><Sparkles className="h-8 w-8 text-indigo-300 mx-auto animate-pulse mb-2" /><p className="text-slate-500">Loading…</p></Card>
+          <Card className="p-12 text-center"><Sparkles className="h-8 w-8 text-leamss-teal-300 mx-auto animate-pulse mb-2" /><p className="text-slate-500">Loading…</p></Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" data-testid="categories-grid">
             {items.map(c => (
@@ -117,8 +117,8 @@ export default function VendorCategoriesManager() {
                 <div className="flex items-start justify-between mb-2">
                   <h3 className="font-bold text-slate-800">{c.name}</h3>
                   <div className="flex gap-1">
-                    {c.is_system && <Badge className="bg-purple-100 text-purple-700 text-[10px]"><Lock className="h-3 w-3 mr-0.5 inline" />System</Badge>}
-                    {c.is_internal ? <Badge className="bg-violet-100 text-violet-700 text-[10px]">Internal</Badge> : <Badge className="bg-cyan-100 text-cyan-700 text-[10px]">External</Badge>}
+                    {c.is_system && <Badge className="bg-leamss-orange-100 text-leamss-orange-700 text-[10px]"><Lock className="h-3 w-3 mr-0.5 inline" />System</Badge>}
+                    {c.is_internal ? <Badge className="bg-leamss-red-100 text-leamss-red-700 text-[10px]">Internal</Badge> : <Badge className="bg-cyan-100 text-cyan-700 text-[10px]">External</Badge>}
                   </div>
                 </div>
                 <p className="text-xs text-slate-500 mb-2 min-h-[32px]">{c.description}</p>

@@ -142,7 +142,7 @@ const CMDocManager = ({ token, caseId, caseName }) => {
                       {doc.uploaded ? <CheckCircle className="h-4 w-4 text-emerald-500" /> : <AlertCircle className="h-4 w-4 text-slate-300" />}
                       <span className="text-slate-800 dark:text-white">{doc.doc_name}</span>
                       <Badge className={`text-[9px] ${doc.is_mandatory ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600'}`}>{doc.tag || 'mandatory'}</Badge>
-                      {doc.source === 'cm_request' && <Badge className="text-[9px] bg-purple-100 text-purple-700">You added</Badge>}
+                      {doc.source === 'cm_request' && <Badge className="text-[9px] bg-leamss-orange-100 text-leamss-orange-700">You added</Badge>}
                     </div>
                     <div className="flex items-center gap-1">
                       <Badge className={`text-[9px] ${doc.uploaded ? (doc.status === 'approved' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700') : 'bg-slate-100 text-slate-500'}`}>
@@ -165,13 +165,13 @@ const CMDocManager = ({ token, caseId, caseName }) => {
       {/* Additional Requests */}
       {(data.additional_requests || []).length > 0 && (
         <Card className="p-4" data-testid="cm-additional-section">
-          <h4 className="font-semibold text-sm text-purple-700 mb-2 flex items-center gap-1"><FileText className="h-4 w-4" />Additional Requests</h4>
+          <h4 className="font-semibold text-sm text-leamss-orange-700 mb-2 flex items-center gap-1"><FileText className="h-4 w-4" />Additional Requests</h4>
           {data.additional_requests.map((r, rIdx) => (
             <div key={r.id} className="flex items-center justify-between p-2 rounded border bg-white dark:bg-slate-800 text-sm mb-1">
               <div className="flex items-center gap-2">
-                {r.uploaded_doc ? <CheckCircle className="h-4 w-4 text-emerald-500" /> : <Clock className="h-4 w-4 text-purple-400" />}
+                {r.uploaded_doc ? <CheckCircle className="h-4 w-4 text-emerald-500" /> : <Clock className="h-4 w-4 text-leamss-orange-400" />}
                 <span>{r.doc_name}</span>
-                <Badge className="text-[9px] bg-purple-100 text-purple-700">Additional</Badge>
+                <Badge className="text-[9px] bg-leamss-orange-100 text-leamss-orange-700">Additional</Badge>
               </div>
               <Badge className={r.uploaded_doc ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}>{r.uploaded_doc ? 'Uploaded' : r.status}</Badge>
             </div>

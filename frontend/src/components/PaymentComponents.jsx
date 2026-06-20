@@ -102,7 +102,7 @@ export const PaymentSuccess = () => {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <Loader2 className="h-12 w-12 animate-spin text-indigo-600 mx-auto mb-4" />
+          <Loader2 className="h-12 w-12 animate-spin text-leamss-teal-600 mx-auto mb-4" />
           <p className="text-gray-500">Verifying payment...</p>
         </div>
       </div>
@@ -211,7 +211,7 @@ export const PaymentHistory = () => {
       initiated: 'bg-blue-100 text-blue-700',
       failed: 'bg-red-100 text-red-700',
       expired: 'bg-gray-100 text-gray-700',
-      refunded: 'bg-purple-100 text-purple-700'
+      refunded: 'bg-leamss-orange-100 text-leamss-orange-700'
     };
     return `px-2 py-1 rounded-full text-xs font-medium ${styles[status] || styles.pending}`;
   };
@@ -219,7 +219,7 @@ export const PaymentHistory = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
-        <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+        <Loader2 className="h-8 w-8 animate-spin text-leamss-teal-600" />
       </div>
     );
   }
@@ -242,8 +242,8 @@ export const PaymentHistory = () => {
                 className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
               >
                 <div className="flex items-center gap-4">
-                  <div className="h-10 w-10 bg-indigo-100 rounded-full flex items-center justify-center">
-                    <IndianRupee className="h-5 w-5 text-indigo-600" />
+                  <div className="h-10 w-10 bg-leamss-teal-100 rounded-full flex items-center justify-center">
+                    <IndianRupee className="h-5 w-5 text-leamss-teal-600" />
                   </div>
                   <div>
                     <p className="font-medium">
@@ -299,7 +299,7 @@ export const PaymentStats = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
-        <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+        <Loader2 className="h-8 w-8 animate-spin text-leamss-teal-600" />
       </div>
     );
   }
@@ -354,8 +354,8 @@ export const PaymentStats = () => {
                     : 0}%
                 </p>
               </div>
-              <div className="h-12 w-12 bg-indigo-100 rounded-full flex items-center justify-center">
-                <TrendingUp className="h-6 w-6 text-indigo-600" />
+              <div className="h-12 w-12 bg-leamss-teal-100 rounded-full flex items-center justify-center">
+                <TrendingUp className="h-6 w-6 text-leamss-teal-600" />
               </div>
             </div>
           </CardContent>

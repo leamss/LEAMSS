@@ -99,6 +99,7 @@ import FunnelDashboard from '@/pages/admin/FunnelDashboard';
 import ProposalBuilder from '@/pages/sales/ProposalBuilder';
 import ClientPortalLogin from '@/pages/client-portal/ClientPortalLogin';
 import ClientPortalDashboard from '@/pages/client-portal/ClientPortalDashboard';
+import AdminClientPortalPreview from '@/pages/admin/AdminClientPortalPreview';
 import { useLocation } from 'react-router-dom';
 import '@/App.css';
 
@@ -429,6 +430,12 @@ function App() {
           {/* Step 2 — Client Portal (separate JWT session, NOT staff RBAC) */}
           <Route path="/client-portal/login" element={<ClientPortalLogin />} />
           <Route path="/client-portal/dashboard" element={<ClientPortalDashboard />} />
+          {/* Option D / X5 — Admin Read-Only Client View */}
+          <Route path="/admin/client-preview/:clientId" element={
+            <RequirePermission anyOf={['system.user_manage.any', 'case.view.any', 'case.update.any', 'sale.create.any']}>
+              <AdminClientPortalPreview />
+            </RequirePermission>
+          } />
           <Route path="/admin/mini-portals" element={
             <RequirePermission anyOf={['system.user_manage.any', 'case.update.any']}>
               <MiniPortalsAdmin />

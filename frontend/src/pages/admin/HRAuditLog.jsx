@@ -21,7 +21,7 @@ const ACTION_COLOR = {
   create: 'bg-emerald-100 text-emerald-800',
   update: 'bg-blue-100 text-blue-800',
   delete: 'bg-rose-100 text-rose-800',
-  bulk_import: 'bg-purple-100 text-purple-800',
+  bulk_import: 'bg-leamss-orange-100 text-leamss-orange-800',
 };
 
 export default function HRAuditLog() {

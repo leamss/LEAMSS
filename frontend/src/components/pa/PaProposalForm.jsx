@@ -27,7 +27,7 @@ export default function PaProposalForm({
       </p>
       {/* Phase 4C — Product price lock indicator */}
       {hasLockedPrice && (
-        <div className={`text-xs rounded p-2 flex items-center justify-between ${isLocked ? 'bg-indigo-50 border border-indigo-200 text-indigo-800' : 'bg-amber-50 border border-amber-200 text-amber-800'}`}>
+        <div className={`text-xs rounded p-2 flex items-center justify-between ${isLocked ? 'bg-leamss-teal-50 border border-leamss-teal-200 text-leamss-teal-800' : 'bg-amber-50 border border-amber-200 text-amber-800'}`}>
           <span className="flex items-center gap-1.5">
             <Package className="h-3.5 w-3.5" />
             <span>Linked to product: <strong>{proposalForm.product_name}</strong> · Base price <strong>₹{parseFloat(proposalForm.product_locked_price).toLocaleString('en-IN')}</strong></span>
@@ -48,7 +48,7 @@ export default function PaProposalForm({
         <div>
           <label className="text-xs font-medium text-slate-600 block mb-1">
             Base Service Fee (₹) *
-            {isLocked && <span className="ml-2 text-[10px] text-indigo-600 font-bold inline-flex items-center gap-1"><Lock className="h-2.5 w-2.5" />Locked to product</span>}
+            {isLocked && <span className="ml-2 text-[10px] text-leamss-teal-600 font-bold inline-flex items-center gap-1"><Lock className="h-2.5 w-2.5" />Locked to product</span>}
           </label>
           <Input
             type="number"
@@ -127,7 +127,7 @@ export default function PaProposalForm({
           <div className="flex gap-1.5">
             <Button size="sm" variant="outline" onClick={() => handleGenerateAI(pa.id, false)}
               disabled={!!aiGenerating}
-              className="h-7 text-xs border-purple-300 text-purple-700 hover:bg-purple-50"
+              className="h-7 text-xs border-leamss-orange-300 text-leamss-orange-700 hover:bg-leamss-orange-50"
               data-testid="ai-generate-btn">
               {aiGenerating === 'std' ? <><RefreshCw className="h-3 w-3 animate-spin mr-1" /> Generating…</> : <>✨ Generate with AI</>}
             </Button>

@@ -13,7 +13,7 @@ const KANBAN_STAGES = [
   { key: 'new', label: 'New Leads', color: 'bg-slate-500', borderColor: 'border-slate-300', headerBg: 'bg-slate-50', icon: Plus },
   { key: 'payment_pending', label: 'Payment Pending', color: 'bg-amber-500', borderColor: 'border-amber-300', headerBg: 'bg-amber-50', icon: Clock },
   { key: 'payment_received', label: 'Paid', color: 'bg-blue-500', borderColor: 'border-blue-300', headerBg: 'bg-blue-50', icon: CreditCard },
-  { key: 'under_review', label: 'Under Review', color: 'bg-purple-500', borderColor: 'border-purple-300', headerBg: 'bg-purple-50', icon: Eye },
+  { key: 'under_review', label: 'Under Review', color: 'bg-leamss-orange-500', borderColor: 'border-leamss-orange-300', headerBg: 'bg-leamss-orange-50', icon: Eye },
   { key: 'approved', label: 'Approved', color: 'bg-emerald-500', borderColor: 'border-emerald-300', headerBg: 'bg-emerald-50', icon: CheckCircle },
   { key: 'proposal_sent', label: 'Proposal Sent', color: 'bg-teal-500', borderColor: 'border-teal-300', headerBg: 'bg-teal-50', icon: Send },
 ];

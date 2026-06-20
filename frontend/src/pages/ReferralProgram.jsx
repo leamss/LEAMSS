@@ -58,7 +58,7 @@ export default function ReferralProgram({ token, role }) {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card><CardContent className="pt-4 text-center"><p className="text-3xl font-bold text-blue-500">{stats.total}</p><p className="text-xs text-gray-500">Total Referrals</p></CardContent></Card>
           <Card><CardContent className="pt-4 text-center"><p className="text-3xl font-bold text-green-500">{stats.converted}</p><p className="text-xs text-gray-500">Converted</p></CardContent></Card>
-          <Card><CardContent className="pt-4 text-center"><p className="text-3xl font-bold text-purple-500">{stats.conversion_rate}%</p><p className="text-xs text-gray-500">Conversion Rate</p></CardContent></Card>
+          <Card><CardContent className="pt-4 text-center"><p className="text-3xl font-bold text-leamss-orange-500">{stats.conversion_rate}%</p><p className="text-xs text-gray-500">Conversion Rate</p></CardContent></Card>
           <Card><CardContent className="pt-4 text-center"><p className="text-3xl font-bold text-amber-500">{stats.by_status?.pending || 0}</p><p className="text-xs text-gray-500">Pending</p></CardContent></Card>
         </div>
       )}

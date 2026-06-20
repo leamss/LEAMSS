@@ -114,9 +114,9 @@ export default function PaEditDetailsModal({ pa, open, onClose, onSaved }) {
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={onClose} data-testid="pa-edit-modal">
       <div className="bg-white rounded-xl max-w-2xl w-full max-h-[92vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
-        <div className="p-4 border-b bg-gradient-to-r from-indigo-50 to-violet-50 flex items-center justify-between">
+        <div className="p-4 border-b bg-gradient-to-r from-leamss-teal-50 to-leamss-red-50 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Edit3 className="h-5 w-5 text-indigo-600" />
+            <Edit3 className="h-5 w-5 text-leamss-teal-600" />
             <div>
               <p className="font-bold text-slate-800">Edit Pre-Assessment Details</p>
               <p className="text-[11px] text-slate-500 font-mono">{pa.pa_number || pa.id?.slice(0, 8)}</p>
@@ -193,7 +193,7 @@ export default function PaEditDetailsModal({ pa, open, onClose, onSaved }) {
           <div className="flex-1 overflow-y-auto p-5 space-y-3" data-testid="pa-edit-history-panel">
             {historyLoading && (
               <div className="p-8 text-center text-sm text-slate-500 flex flex-col items-center gap-2">
-                <Loader2 className="h-5 w-5 animate-spin text-indigo-500" />Loading audit timeline…
+                <Loader2 className="h-5 w-5 animate-spin text-leamss-teal-500" />Loading audit timeline…
               </div>
             )}
             {!historyLoading && history?.error && (
@@ -201,7 +201,7 @@ export default function PaEditDetailsModal({ pa, open, onClose, onSaved }) {
             )}
             {!historyLoading && history && !history.error && (
               <>
-                <div className="bg-indigo-50 border border-indigo-200 rounded p-2.5 text-xs text-indigo-900 flex items-center gap-2">
+                <div className="bg-leamss-teal-50 border border-leamss-teal-200 rounded p-2.5 text-xs text-leamss-teal-900 flex items-center gap-2">
                   <ShieldCheck className="h-3.5 w-3.5" />
                   Total <strong>{history.total_entries}</strong> auditable events for {history.pa_number || history.client_name}
                 </div>
@@ -251,7 +251,7 @@ export default function PaEditDetailsModal({ pa, open, onClose, onSaved }) {
 
         <div className="p-4 border-t bg-slate-50 flex justify-end gap-2">
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={save} disabled={saving || locked} className="bg-indigo-600 hover:bg-indigo-700 text-white" data-testid="edit-save-btn">
+          <Button onClick={save} disabled={saving || locked} className="bg-leamss-teal-600 hover:bg-leamss-teal-700 text-white" data-testid="edit-save-btn">
             <Save className="h-4 w-4 mr-1" /> {saving ? 'Saving…' : 'Save Changes'}
           </Button>
         </div>

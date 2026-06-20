@@ -167,7 +167,7 @@ export default function AttendanceSettings() {
               })}
             </div>
           </Field>
-          <div className="bg-indigo-50 border border-indigo-200 rounded p-3 text-xs text-indigo-900 mt-2">
+          <div className="bg-leamss-teal-50 border border-leamss-teal-200 rounded p-3 text-xs text-leamss-teal-900 mt-2">
             <p className="font-bold mb-1">Live Preview</p>
             <p>Office: <strong>{settings.office_start_time} — {settings.office_end_time}</strong> ({settings.min_work_hours}h)</p>
             <p>Working: <strong>{7 - (settings.weekly_off_days || []).length} days/week</strong></p>
@@ -274,7 +274,7 @@ function Section({ title, icon: Icon, open, onToggle, children, testid }) {
     <Card className="overflow-hidden" data-testid={testid}>
       <button onClick={onToggle} className="w-full px-5 py-3 flex items-center justify-between text-left hover:bg-slate-50 border-b border-slate-100">
         <span className="flex items-center gap-2 font-semibold text-slate-800">
-          <Icon className="h-4 w-4 text-indigo-600" /> {title}
+          <Icon className="h-4 w-4 text-leamss-teal-600" /> {title}
         </span>
         <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>

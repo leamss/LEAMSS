@@ -27,8 +27,8 @@ const URGENCY_CONFIG = {
 
 const TYPE_LABELS = {
   document_expiry: { label: 'Document Expiry', icon: FileText, color: 'text-blue-600' },
-  visa_deadline: { label: 'Visa Deadline', icon: CalendarClock, color: 'text-purple-600' },
-  processing_sla: { label: 'Processing SLA', icon: Timer, color: 'text-indigo-600' },
+  visa_deadline: { label: 'Visa Deadline', icon: CalendarClock, color: 'text-leamss-orange-600' },
+  processing_sla: { label: 'Processing SLA', icon: Timer, color: 'text-leamss-teal-600' },
   task_due: { label: 'Task Due', icon: CheckCircle, color: 'text-teal-600' },
   milestone: { label: 'Milestone', icon: Shield, color: 'text-amber-600' },
   custom: { label: 'Custom', icon: Bell, color: 'text-slate-600' },

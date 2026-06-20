@@ -101,10 +101,10 @@ export default function EmployeesDashboard({ onNavigate }) {
 
       {/* Stat cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <StatCard icon={Users} label="Total Employees" value={stats.total} color="border-l-indigo-500" accent="text-indigo-600" testid="stat-total" />
+        <StatCard icon={Users} label="Total Employees" value={stats.total} color="border-l-leamss-teal-500" accent="text-leamss-teal-600" testid="stat-total" />
         <StatCard icon={UserCheck} label="Active" value={stats.active} color="border-l-emerald-500" accent="text-emerald-600" testid="stat-active" />
         <StatCard icon={Coffee} label="On Leave" value={stats.on_leave} color="border-l-amber-500" accent="text-amber-600" testid="stat-onleave" />
-        <StatCard icon={UserPlus} label="New This Month" value={stats.new_this_month} color="border-l-violet-500" accent="text-violet-600" testid="stat-new" />
+        <StatCard icon={UserPlus} label="New This Month" value={stats.new_this_month} color="border-l-leamss-red-500" accent="text-leamss-red-600" testid="stat-new" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -140,7 +140,7 @@ export default function EmployeesDashboard({ onNavigate }) {
             <div className="space-y-3">
               {recent.map(u => (
                 <div key={u.id} className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-md cursor-pointer" onClick={() => onNavigate('emp-list', { employeeId: u.id })} data-testid={`recent-emp-${u.id}`}>
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-500 to-indigo-600 flex items-center justify-center text-white font-semibold text-sm">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-500 to-leamss-teal-600 flex items-center justify-center text-white font-semibold text-sm">
                     {(u.name || '?').charAt(0).toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">

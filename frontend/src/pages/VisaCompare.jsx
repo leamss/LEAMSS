@@ -125,7 +125,7 @@ export default function VisaCompare() {
                       </div>
                     </div>
                     <div className="flex items-start gap-2">
-                      <GraduationCap className="h-4 w-4 text-purple-600 mt-0.5" />
+                      <GraduationCap className="h-4 w-4 text-leamss-orange-600 mt-0.5" />
                       <div>
                         <p className="text-[11px] text-slate-500">Min Education</p>
                         <p className="font-semibold text-slate-800">{p.min_education}</p>

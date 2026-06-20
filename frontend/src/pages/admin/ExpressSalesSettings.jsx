@@ -43,7 +43,7 @@ const ROLE_LABELS = {
 
 const LIMIT_PRESETS = [
   { value: 'unlimited', label: 'Unlimited', limit: -1, color: 'bg-emerald-100 text-emerald-700 border-emerald-300' },
-  { value: 'custom', label: 'Custom Limit', limit: null, color: 'bg-indigo-100 text-indigo-700 border-indigo-300' },
+  { value: 'custom', label: 'Custom Limit', limit: null, color: 'bg-leamss-teal-100 text-leamss-teal-700 border-leamss-teal-300' },
   { value: 'blocked', label: 'Blocked (0)', limit: 0, color: 'bg-rose-100 text-rose-700 border-rose-300' },
 ];
 
@@ -56,7 +56,7 @@ const limitLabel = (limit) => {
 const limitBadgeClass = (limit) => {
   if (limit === null || limit === undefined || limit === -1) return 'bg-emerald-100 text-emerald-700 border-emerald-300';
   if (limit === 0) return 'bg-rose-100 text-rose-700 border-rose-300';
-  return 'bg-indigo-100 text-indigo-700 border-indigo-300';
+  return 'bg-leamss-teal-100 text-leamss-teal-700 border-leamss-teal-300';
 };
 
 // ────────────────────────────────────────────────────────────
@@ -147,7 +147,7 @@ function OverrideDialog({ open, onClose, initialUser, onSaved }) {
       <DialogContent className="sm:max-w-lg" data-testid="override-dialog">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Shield className="h-5 w-5 text-indigo-600" />
+            <Shield className="h-5 w-5 text-leamss-teal-600" />
             {isEdit ? 'Edit Override' : 'Add Per-User Override'}
           </DialogTitle>
           <DialogDescription>
@@ -180,8 +180,8 @@ function OverrideDialog({ open, onClose, initialUser, onSaved }) {
                     key={u.id}
                     type="button"
                     onClick={() => setSelectedUser(u)}
-                    className={`w-full text-left px-3 py-2 text-sm border-b last:border-b-0 hover:bg-indigo-50 transition ${
-                      selectedUser?.id === u.id ? 'bg-indigo-100' : ''
+                    className={`w-full text-left px-3 py-2 text-sm border-b last:border-b-0 hover:bg-leamss-teal-50 transition ${
+                      selectedUser?.id === u.id ? 'bg-leamss-teal-100' : ''
                     }`}
                     data-testid={`override-user-pick-${u.id}`}
                   >
@@ -199,11 +199,11 @@ function OverrideDialog({ open, onClose, initialUser, onSaved }) {
           )}
 
           {selectedUser && (
-            <Card className="p-3 bg-indigo-50/50 border-indigo-200">
-              <div className="text-sm font-semibold text-indigo-900">
+            <Card className="p-3 bg-leamss-teal-50/50 border-leamss-teal-200">
+              <div className="text-sm font-semibold text-leamss-teal-900">
                 {selectedUser.name || selectedUser.email}
               </div>
-              <div className="text-xs text-indigo-700">
+              <div className="text-xs text-leamss-teal-700">
                 {selectedUser.email} · {ROLE_LABELS[selectedUser.rbac_role || selectedUser.role] || selectedUser.role}
                 {typeof selectedUser.used_this_month === 'number' && (
                   <> · Used this month: <strong>{selectedUser.used_this_month}</strong></>
@@ -221,7 +221,7 @@ function OverrideDialog({ open, onClose, initialUser, onSaved }) {
                   type="button"
                   onClick={() => setPreset(p.value)}
                   className={`px-3 py-2 rounded-md text-xs font-semibold border transition ${
-                    preset === p.value ? p.color + ' ring-2 ring-offset-1 ring-indigo-400' : 'bg-white text-slate-600 border-slate-200'
+                    preset === p.value ? p.color + ' ring-2 ring-offset-1 ring-leamss-teal-400' : 'bg-white text-slate-600 border-slate-200'
                   }`}
                   data-testid={`override-preset-${p.value}`}
                 >
@@ -271,7 +271,7 @@ function OverrideDialog({ open, onClose, initialUser, onSaved }) {
             onClick={handleSave}
             disabled={saving || !selectedUser}
             data-testid="override-save"
-            className="bg-indigo-600 hover:bg-indigo-700"
+            className="bg-leamss-teal-600 hover:bg-leamss-teal-700"
           >
             <Save className="h-4 w-4 mr-1.5" />
             {saving ? 'Saving…' : 'Save Override'}
@@ -450,7 +450,7 @@ export default function ExpressSalesSettings() {
                 <Button
                   size="sm"
                   onClick={() => { setEditingOverride(null); setDialogOpen(true); }}
-                  className="bg-indigo-600 hover:bg-indigo-700"
+                  className="bg-leamss-teal-600 hover:bg-leamss-teal-700"
                   data-testid="add-override-btn"
                 >
                   <Plus className="h-4 w-4 mr-1" /> Add Override
