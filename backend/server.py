@@ -123,6 +123,8 @@ from routers.pre_assessment_report_v2 import router as pre_assessment_report_v2_
 from routers.pre_assessment_fee_policies import router as pa_fee_policies_router
 from routers.products_bulk_import import router as products_bulk_import_router
 from routers.info_sheets import router as info_sheets_router
+from routers.mini_portal import router as mini_portal_router
+from routers.pa_reviews import router as pa_reviews_router
 # Phase 19 — SEO SSG generator
 from routers.seo_ssg import router as seo_ssg_router, regenerate_all as ssg_regenerate_all
 # Phase 18.7 — Notification channels + digest scheduler
@@ -552,7 +554,7 @@ for r in [targets_router, cost_structures_router, auth_router, users_router, pro
           assessing_authorities_write_router, enrichment_router,
           currency_router, state_nominations_router, pre_assessment_report_v2_router,
           pa_fee_policies_router, products_bulk_import_router,
-          info_sheets_router]:
+          info_sheets_router, mini_portal_router, pa_reviews_router]:
     app.include_router(r, prefix="/api")
 
 
@@ -564,6 +566,12 @@ async def health():
         return {"status": "healthy", "database": "connected", "service": "LEAMSS Portal API v3.0 (MongoDB)"}
     except Exception:
         return {"status": "unhealthy", "database": "disconnected"}
+
+
+@app.get("/api/openapi.json")
+async def openapi_spec():
+    """Phase 20.5 Bonus A — OpenAPI spec for tooling / e1_tester discovery."""
+    return app.openapi()
 
 
 @app.post("/api/webhook/stripe")

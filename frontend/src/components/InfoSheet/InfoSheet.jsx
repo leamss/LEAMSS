@@ -296,6 +296,7 @@ export default function InfoSheet({ entityType, entityId, clientId, caseId, read
   const [lastSaved, setLastSaved] = useState(null);
   const [showAudit, setShowAudit] = useState(false);
   const [completion, setCompletion] = useState(null);
+  const [score, setScore] = useState(null);
   const debounceRef = useRef(null);
   const pendingPatchRef = useRef({});
 
@@ -359,7 +360,21 @@ export default function InfoSheet({ entityType, entityId, clientId, caseId, read
     if (!sheet?.id) return;
     const r = await axios.get(`${API}/info-sheets/${sheet.id}`, auth());
     setSheet(r.data);
+    fetchScore();
   }, [sheet?.id]);
+
+  // Phase 20.5 Bonus B — completion score
+  const fetchScore = useCallback(async () => {
+    if (!sheet?.id) return;
+    try {
+      const r = await axios.get(`${API}/info-sheets/${sheet.id}/completion-score`, auth());
+      setScore(r.data);
+    } catch (e) { /* silent */ }
+  }, [sheet?.id]);
+
+  useEffect(() => {
+    if (sheet?.id) fetchScore();
+  }, [sheet?.id, lastSaved]);
 
   if (!schema || !sheet) {
     return <Card className="p-8 text-center text-slate-500" data-testid="info-sheet-loading">
@@ -396,6 +411,39 @@ export default function InfoSheet({ entityType, entityId, clientId, caseId, read
           </Button>
         </div>
       </Card>
+
+      {/* Phase 20.5 Bonus B — Completion Score Sidebar */}
+      {score && (
+        <Card className={`p-3 ${score.color === 'green' ? 'bg-leamss-teal_50 border-leamss-teal/30' : score.color === 'amber' ? 'bg-leamss-orange_50 border-leamss-orange/30' : 'bg-leamss-red_50 border-leamss-red/30'} border`} data-testid="completion-score-card">
+          <div className="flex justify-between items-center mb-2">
+            <p className="text-xs font-bold flex items-center gap-1">
+              <CheckCircle2 className={`h-3.5 w-3.5 ${score.color === 'green' ? 'text-leamss-teal' : score.color === 'amber' ? 'text-leamss-orange' : 'text-leamss-red'}`} />
+              Smart Completion Score
+            </p>
+            <span className={`text-2xl font-bold ${score.color === 'green' ? 'text-leamss-teal' : score.color === 'amber' ? 'text-leamss-orange' : 'text-leamss-red'}`} data-testid="completion-score-value">
+              {score.score}<span className="text-sm">/100</span>
+            </span>
+          </div>
+          <div className="grid grid-cols-6 gap-1 text-[10px] text-center">
+            {Object.entries(score.breakdown).map(([k, v]) => (
+              <div key={k} className="bg-white/60 rounded p-1">
+                <p className="font-bold">{v}</p>
+                <p className="text-[9px] capitalize text-slate-600">{k.slice(0, 6)}</p>
+              </div>
+            ))}
+          </div>
+          {score.warnings && score.warnings.length > 0 && (
+            <div className="mt-2 space-y-1" data-testid="completion-warnings">
+              {score.warnings.slice(0, 3).map((w, i) => (
+                <div key={i} className="flex items-start gap-1 text-[10px] bg-white/70 p-1 rounded">
+                  <AlertCircle className={`h-3 w-3 mt-0.5 ${w.severity === 'high' ? 'text-leamss-red' : w.severity === 'medium' ? 'text-leamss-orange' : 'text-slate-500'}`} />
+                  <span>{w.message}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
 
       {/* Tab strip */}
       <div className="flex flex-wrap gap-1 border-b" data-testid="info-sheet-tabs">

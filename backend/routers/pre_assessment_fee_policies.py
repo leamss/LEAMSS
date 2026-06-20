@@ -71,15 +71,22 @@ class PolicyUpdate(BaseModel):
 
 
 class DiffPreviewRequest(BaseModel):
-    """Body for POST /{policy_id}/diff-preview — what would change?"""
+    """Body for POST /{policy_id}/diff-preview — what would change?
+
+    Accepts BOTH flat `{fee_inr: X}` AND nested `{proposed_changes: {fee_inr: X}}`
+    (Phase 20.5 Bonus A — backward compat).
+    """
     fee_inr: Optional[int] = Field(None, ge=0, le=1_000_000)
     lookback_days: int = Field(default=DEFAULT_LOOKBACK_DAYS, ge=1, le=365)
+    proposed_changes: Optional[Dict[str, Any]] = None
 
 
 class RetroactiveApplyRequest(BaseModel):
     """Body for POST /{policy_id}/apply-retroactive — update existing PAs."""
-    reason: str = Field(..., min_length=10, max_length=500,
-                        description="Mandatory reason (min 10 chars) for audit trail")
+    reason: str = Field(
+        ..., min_length=10, max_length=500,
+        description="Provide a meaningful reason (min 10 chars, recommended 20+) for audit trail",
+    )
     affect_unpaid_only: bool = Field(
         default=True,
         description="If True, only PAs in stages: new, payment_pending. Recommended for safety.",
@@ -283,9 +290,18 @@ async def diff_preview(
     if not _is_admin(current_user):
         raise HTTPException(status_code=403, detail="Admin only")
     try:
+        # Unwrap nested `proposed_changes` if present (Bonus A backwards-compat)
+        body_dict = payload.dict()
+        proposed = body_dict.pop("proposed_changes", None)
+        if proposed:
+            for k, v in proposed.items():
+                if v is not None and k != "lookback_days":
+                    body_dict[k] = v
+        proposed_changes = {k: v for k, v in body_dict.items()
+                            if v is not None and k != "lookback_days"}
         diff = await compute_diff(
             db, policy_id,
-            proposed_changes={k: v for k, v in payload.dict().items() if v is not None and k != "lookback_days"},
+            proposed_changes=proposed_changes,
             lookback_days=payload.lookback_days,
         )
         return {"ok": True, **diff}

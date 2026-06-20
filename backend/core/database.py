@@ -86,7 +86,15 @@ async def init_db():
     await tickets_col.create_index("assigned_to")
     await audit_logs_col.create_index("created_at")
     await notifications_col.create_index("user_id")
-    await information_sheets_col.create_index("case_id", unique=True)
+    # Phase 20.4 — case_id can be null for entity_type-based universal info sheets;
+    # use partial index so multiple null/missing case_id docs don't collide.
+    try:
+        await information_sheets_col.create_index(
+            "case_id", unique=True, name="case_id_unique_partial",
+            partialFilterExpression={"case_id": {"$type": "string"}},
+        )
+    except Exception:
+        pass  # Already exists from startup hook
     await refunds_col.create_index("sale_id")
     await chat_messages_col.create_index([("conversation_id", 1), ("created_at", 1)])
     await chat_conversations_col.create_index("case_id")

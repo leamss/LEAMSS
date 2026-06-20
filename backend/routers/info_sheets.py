@@ -336,6 +336,28 @@ async def patch_sheet(
     if not updates:
         return {"ok": True, "no_change": True}
 
+    # Phase 20.5 Bonus A — field-level audit granularity
+    fields_changed: List[Dict[str, Any]] = []
+    for section_key, new_val in updates.items():
+        old_val = doc.get(section_key)
+        if isinstance(new_val, dict) and isinstance(old_val, dict):
+            for fk, nv in new_val.items():
+                ov = old_val.get(fk)
+                if ov != nv:
+                    fields_changed.append({
+                        "section": section_key, "field": fk,
+                        "old": ov if not isinstance(ov, (datetime,)) else ov.isoformat(),
+                        "new": nv if not isinstance(nv, (datetime,)) else nv.isoformat(),
+                    })
+        else:
+            # Array or scalar section — record summary only
+            ov_len = len(old_val) if isinstance(old_val, list) else 0
+            nv_len = len(new_val) if isinstance(new_val, list) else 0
+            fields_changed.append({
+                "section": section_key, "field": "_root",
+                "old_len": ov_len, "new_len": nv_len,
+            })
+
     now = datetime.now(timezone.utc)
     updates["updated_at"] = now
     updates["updated_by"] = user_id
@@ -343,7 +365,10 @@ async def patch_sheet(
         "action": "patch", "by": user_id, "by_name": user_name,
         "at": now.isoformat(),
         "sections_changed": list(updates.keys()),
-        "changes_summary": payload.changes_summary or "auto-save",
+        "fields_changed": fields_changed[:50],  # cap to prevent bloat
+        "changes_summary": payload.changes_summary or ", ".join(
+            sorted({f"{f['section']}.{f['field']}" for f in fields_changed[:10]})
+        ) or "auto-save",
     }
     await db[COLLECTION].update_one(
         {"id": sheet_id},
@@ -351,7 +376,42 @@ async def patch_sheet(
     )
     new_doc = await db[COLLECTION].find_one({"id": sheet_id})
     return {"ok": True, "completion": _compute_completion(new_doc),
+            "fields_changed_count": len(fields_changed),
             "updated_at": now.isoformat()}
+
+
+# Phase 20.5 Bonus A — section-specific PATCH alias for cleaner URL semantics
+@router.patch("/{sheet_id}/section/{section_name}")
+async def patch_section(
+    sheet_id: str, section_name: str, payload: Dict[str, Any],
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    """Section-scoped PATCH alias. Body is the section content directly.
+
+    e.g. PATCH /info-sheets/{id}/section/personal {"given_names": "Rahul"}
+    Equivalent to PATCH /info-sheets/{id} {"personal": {"given_names": "Rahul"}}.
+    """
+    valid_sections = {"personal", "family", "dependents", "qualifications",
+                      "employment", "resume"}
+    if section_name not in valid_sections:
+        raise HTTPException(status_code=400,
+                            detail=f"Invalid section. Must be one of: {sorted(valid_sections)}")
+    wrap = InfoSheetPatch(**{section_name: payload})
+    return await patch_sheet(sheet_id, wrap, current_user)
+
+
+@router.get("/{sheet_id}/completion-score")
+async def get_completion_score(
+    sheet_id: str, current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    """Phase 20.5 Bonus B — return weighted 0-100 completion score + warnings."""
+    if not _can_rw(current_user):
+        raise HTTPException(status_code=403, detail="Forbidden")
+    doc = await db[COLLECTION].find_one({"id": sheet_id})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Info sheet not found")
+    from services.info_sheet_completion_service import compute_completion_score
+    return compute_completion_score(doc)
 
 
 @router.post("/{sheet_id}/lock")

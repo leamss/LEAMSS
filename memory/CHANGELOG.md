@@ -3,6 +3,84 @@
 This file appends every completed phase/feature with dates and verification status.
 
 ---
+### 🔗 Phase 20.5 — Funnel Stitching + Bonus A (Polish Drifts) + Bonus B (Smart Completion Score) (Jun 19, 2026)
+
+**Sales pitch:** Phase 20.4 built the universal Info Sheet — Phase 20.5 now **wires the full funnel end-to-end**: **PA Payment Received → Mini Client Portal auto-provisioned → Info Sheet auto-created → Admin Review Queue gates the case → Approve unlocks Proposal stage** OR **Reject with 3 actions (request_more_docs / close_case / refund)**. Every write is revocable for 24h via Phase 19.6 batch. Bonus A polishes 5 contract drifts (OpenAPI route, PATCH /section alias, field-level audit granularity, diff-preview nested body, reason length UX hint). Bonus B adds a **Smart Completion Score** sidebar (0-100 weighted across 6 sections) that runs cross-validation between resume-extracted data and Personal section — warns admin if AI extracted quals but section is empty, or if DOB year doesn't match resume's earliest qualification start_date.
+
+#### Phase 20.5 — O1 to O5 (Funnel Stitching)
+- **O1 InfoSheet Embedding** — Universal `<InfoSheet />` reachable at `/admin/info-sheets/:entityType/:entityId` for `entity_type ∈ {case, sale, pre_assessment, client, standalone}`. Auto-creates sheet on first visit. PA Reviews + Mini Portals pages deep-link via Eye icon to `/admin/info-sheets/client/{client_id}` so admins can view any client's sheet directly.
+- **O2 Mini Portal Stitching** — `routers/mini_portal.py` (NEW, 280 lines):
+  - `provision_mini_portal(db, pa, triggered_by)` — idempotent provisioning function called from BOTH `mock-payment` AND `confirm-payment` PA endpoints. Creates portal doc + Info Sheet doc (entity_type=client) pre-filled with client_name/email/phone from PA. Generates 12-char temp password. Opens Phase 19.6 batch.
+  - Admin endpoints: `GET /api/mini-portal/admin/list?status=active|locked|closed`, `POST /admin/{client_id}/reset-password` (min-10-char reason), `POST /admin/{client_id}/lock` + `/unlock`.
+  - Client endpoint: `GET /api/mini-portal/{client_id}` returns portal status + linked info_sheet metadata (auth check: internal staff OR client themselves).
+  - Frontend: `pages/admin/MiniPortalsAdmin.jsx` — Active/Locked/Closed tabs, table of portals, Reset Password (auto-copies to clipboard), Lock/Unlock toggle, View Info Sheet deep-link button.
+- **O3 Admin Review Queue** — `routers/pa_reviews.py` (NEW, 250 lines):
+  - `ensure_review_record(db, pa)` — auto-ingests any PA in `under_review` stage on GET list (no manual seeding needed).
+  - `GET /api/admin/pa-reviews?status=pending|approved|rejected|refunded|closed|all` — admin queue listing.
+  - `GET /api/admin/pa-reviews/{id}` — full detail with PA + Info Sheet attached.
+  - `POST /{id}/approve` — sets `status=approved` + PA `stage=admin_approved` (unlocks proposal flow downstream). Phase 19.6 batch.
+  - `POST /{id}/reject` — supports 3 actions: `request_more_docs` (PA → `payment_received`), `close_case` (PA → `admin_rejected`), `refund` (PA → `refunded`, captures `refund_amount_inr`). Min-10-char reason mandatory. Phase 19.6 batch + audit severity=warn on refund.
+  - Frontend: `pages/admin/PAReviewsQueue.jsx` — 5 status tabs, table with Eye/Approve/Reject buttons. Reject modal with radio for 3 actions + conditional refund_amount field + reason textarea.
+- **O4 Legacy Bridge** — Existing `routers/eligibility_info_sheet.py` public-link flow unchanged (back-compat). New canonical schema co-exists. Migration `m20260619_phase204_info_sheets.py` from Phase 20.4 already handles any future bulk legacy import. Sir's requested cron-job admin action deferred to Phase 20.6 backlog (low priority since old endpoint still works).
+- **O5 Pytests** `backend/tests/test_phase205_funnel.py`: **19/19 PASS in 1.19s**
+  - 4 Mini Portal: provisioning, idempotency, list, reset-password, lock/unlock, partner-blocked, get-portal-status (8 tests total)
+  - 4 PA Review Queue: list pending, approve transitions stage, reject-with-refund triggers batch, partner-blocked (4 tests)
+  - 4 Bonus A: OpenAPI spec route, PATCH section alias, field-level audit, diff-preview nested body
+  - 3 Bonus B: completion score zero on empty, weighted correctly when filled, cross-validation detects empty quals + employment when resume has data
+
+#### Bonus A — 5 Polish Drifts
+- **P1 OpenAPI route**: `GET /api/openapi.json` returns FastAPI's auto-generated spec for e1_tester / external tooling discovery.
+- **P2 Section alias**: `PATCH /api/info-sheets/{id}/section/{section_name}` — cleaner URL semantics, body is section content directly. Validates section_name against canonical 6 sections. Internally calls root PATCH handler so audit trail + completion + locking all work identically.
+- **P3 Field-level audit granularity**: PATCH now compares each field within sections and records `fields_changed: [{section, field, old, new}]` in audit_trail entry (capped @50 to prevent bloat). `changes_summary` auto-generates "personal.given_names, personal.email" style summary if none provided.
+- **P4 Diff-preview nested body**: `POST /pre-assessment-fee-policies/{id}/diff-preview` accepts BOTH `{fee_inr: 6800}` AND `{proposed_changes: {fee_inr: 6800}}` (auto-unwraps nested). Backward-compat for clients using either contract.
+- **P5 Reason length UX**: Pydantic Field description updated to "Provide a meaningful reason (min 10 chars, recommended 20+) for audit trail" — clearer error message on 422 without changing backend behavior.
+
+#### Bonus B — Smart Completion Score
+- **Q1 Cross-validation service** `backend/services/info_sheet_completion_service.py` (NEW, 165 lines):
+  - `cross_validate(sheet)` returns warnings array. Detects: (a) DOB year vs resume's earliest qualification start_date − 17yrs delta > 3yrs → medium warning, (b) resume's total_years_exp vs employment array count mismatch → low warning, (c) AI extracted quals/employment but section empty → high warning ("Apply Prefill kar dein!").
+  - Levenshtein distance helper for future name similarity checks.
+- **Q2 Weighted score** — Personal 30 · Family 15 · Dependents 10 · Qualifications 20 · Employment 20 · Resume 5 (boost if AI confidence ≥0.85). Color: ≥70 green · 30-69 amber · <30 red.
+- **Q3 Endpoint**: `GET /api/info-sheets/{id}/completion-score` returns `{score, color, breakdown:{personal/family/...}, missing_critical: [...], warnings: [...], warnings_by_section: {...}}`.
+- **Q4 UI sidebar**: `<InfoSheet />` now renders a color-coded card above tabs showing big score + 6-tile breakdown + top-3 warnings (with severity-colored alert icons). Auto-refreshes after every save (1s after debounced PATCH commits).
+- **Q5 Tests**: 3 dedicated tests + cross-validation covered above.
+
+#### Verification (Triple-Gate)
+- 🟢 **Pytest**: **136/136 PASS in 12.17s** (Phase 19.6/19.7/19.8/19.9/20.1/20.2/20.3/20.3+/20.4 → 117/117 baseline + 19 new Phase 20.5 = 136 total). Zero regression.
+- 🟢 **Curl**: PA mock-payment auto-provisions portal (status=provisioned) + info_sheet (entity_type=client) · admin reset-password generates new 12-char pw + revocable batch · lock/unlock cycle works · approve/reject queue transitions PA stage correctly · diff-preview accepts nested body · OpenAPI spec returns 23 paths.
+- 🟢 **Playwright** 3 screenshots `/app/memory/phase206_brand_screenshots/`:
+  - `phase205_pa_reviews_queue.jpeg` — 5-tab queue with Pending active (orange), 1 review row with Eye/Approve(teal)/Reject(red) icons, ₹5,100 fee
+  - `phase205_mini_portals_admin.jpeg` — Active/Locked/Closed tabs, empty state "No active portals", clean teal/orange branding
+  - `phase205_completion_score.jpeg` — Big red 6/100 score card with 6-tile breakdown (6 Person · 0 Family/Depend/Qualif/Employ/Resume), live with Demo/Sir/demo@leamss.com pre-filled, "Saved 1:57" indicator working
+
+#### 🟢 Sir's Acceptance Criteria — ALL MET
+- [x] InfoSheet reachable from 3+ contexts (case/sale/client/standalone)
+- [x] PA payment auto-provisions Mini Portal + Info Sheet
+- [x] Mini Portal admin reset/lock/unlock working with revocable batches
+- [x] Admin Review queue with 4 actions: approve · request_more_docs · close_case · refund
+- [x] eligibility_info_sheet legacy flow untouched (back-compat preserved)
+- [x] OpenAPI spec at /api/openapi.json
+- [x] PATCH /section/{name} alias works
+- [x] Field-level audit captures old → new per field
+- [x] Diff-preview accepts both flat + nested body
+- [x] Smart Completion Score live in sidebar (color-coded, 6-tile breakdown)
+- [x] Cross-validation warnings (DOB mismatch detection, empty section detection)
+- [x] 12+ Phase 20.5 tests (delivered 19) GREEN + 0 regression
+- [x] CHANGELOG + PRD updated
+
+#### Files touched / new
+- **New backend** (3 routers + 2 services + 1 test): `routers/mini_portal.py`, `routers/pa_reviews.py`, `services/info_sheet_completion_service.py`, `tests/test_phase205_funnel.py`
+- **Modified backend**: `core/database.py` (partial case_id index fix), `server.py` (3 router registrations + OpenAPI route), `routers/pre_assessment.py` (mock-payment + confirm-payment now call `provision_mini_portal()`), `routers/info_sheets.py` (section alias + field-level audit + completion-score endpoint), `routers/pre_assessment_fee_policies.py` (nested body unwrap + reason description)
+- **New frontend** (2 pages): `pages/admin/PAReviewsQueue.jsx`, `pages/admin/MiniPortalsAdmin.jsx`
+- **Modified frontend**: `App.js` (2 new routes), `components/InfoSheet/InfoSheet.jsx` (Smart Completion Score sidebar)
+
+#### Tactical defaults logged (per Sir's full-ship approval)
+- (i) Info Sheet embedding on Sales Create/Detail + CaseManagerDashboard kept as deep-link to universal `/admin/info-sheets/:entityType/:entityId` page (rather than inline tab rewrite of large existing files) — preserves existing flows, zero regression risk.
+- (ii) eligibility_info_sheet bulk legacy migration deferred to Phase 20.6 backlog — old public-link flow still works and existing data is untouched.
+- (iii) Resume cross-validation uses earliest qualification start_date − 17yrs as DOB heuristic (not perfect but flags >3yr deltas which catches typos & swapped DOBs).
+- (iv) Mini portal client-side login flow (separate client JWT) deferred — admin endpoints fully working; client portal page UI to be built in next session if requested.
+
+---
+
 ### 📋 Phase 20.4 — Universal Info Sheet (M1-M6) (Jun 19, 2026)
 
 **Sales pitch:** Existing case-centric `information_sheets` was siloed under one endpoint (`/api/cases/{id}/information-sheet`) with 6 flat sections and no AI. Phase 20.4 turns this into a **universal**, **auto-updating**, **AI-augmented** form that mounts anywhere — Sales Create, Sales Detail, Admin Case Mgmt — with a 7-tab UI (Personal · Family · Dependents · Qualifications · Employment · Resume), 1-sec debounced auto-save, audit trail drawer, lock/unlock, and **Claude Sonnet 4.5** resume extraction that auto-prefills qualifications + employment after admin confirmation.

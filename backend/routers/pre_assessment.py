@@ -6,6 +6,7 @@ If rejected: ₹5,100 refunded
 """
 import os
 import uuid
+import logging
 from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Depends, Request, UploadFile, File, Form
 from pydantic import BaseModel
@@ -13,6 +14,8 @@ from typing import Optional, List
 from core.database import db
 from routers.auth import get_current_user
 from core.services import log_activity
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/pre-assessment", tags=["Pre-Assessment"])
 
@@ -432,8 +435,19 @@ async def mock_payment_received(pa_id: str):
 
     await pre_assessments_col.update_one({"id": pa_id}, {"$set": {
         "stage": "payment_received", "fee_payment_status": "paid",
+        "paid_at": datetime.now(timezone.utc),
         "updated_at": datetime.now(timezone.utc)
     }})
+
+    # Phase 20.5 — auto-provision Mini Portal + Info Sheet (idempotent)
+    try:
+        from routers.mini_portal import provision_mini_portal
+        from core.database import db as _db
+        pa_fresh = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
+        result = await provision_mini_portal(_db, pa_fresh, triggered_by="pa_mock_payment")
+        logger.info(f"[Phase20.5] mock_payment provisioned mini-portal: {result.get('status')}")
+    except Exception as e:
+        logger.error(f"[Phase20.5] mock_payment mini-portal provisioning failed: {e}")
 
     # Notify partner
     await notifications_col.insert_one({
@@ -456,8 +470,19 @@ async def confirm_payment(pa_id: str, current_user: dict = Depends(get_current_u
 
     await pre_assessments_col.update_one({"id": pa_id}, {"$set": {
         "stage": "payment_received", "fee_payment_status": "paid",
+        "paid_at": datetime.now(timezone.utc),
         "updated_at": datetime.now(timezone.utc)
     }})
+
+    # Phase 20.5 — auto-provision Mini Portal + Info Sheet (idempotent)
+    try:
+        from routers.mini_portal import provision_mini_portal
+        from core.database import db as _db
+        pa_fresh = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
+        result = await provision_mini_portal(_db, pa_fresh, triggered_by=str(current_user.get("id")))
+        logger.info(f"[Phase20.5] confirm_payment provisioned mini-portal: {result.get('status')}")
+    except Exception as e:
+        logger.error(f"[Phase20.5] confirm_payment mini-portal provisioning failed: {e}")
 
     await log_activity(current_user["id"], current_user.get("name", ""), "confirm_pa_payment",
                        "pre_assessment", pa_id, f"₹{pa_fee} payment confirmed for {pa['client_name']}")

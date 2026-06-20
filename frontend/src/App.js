@@ -69,6 +69,8 @@ import ProductsManager from '@/pages/admin/ProductsManager';
 import BrandGuide from '@/pages/admin/BrandGuide';
 import PreAssessmentFeePolicies from '@/pages/admin/PreAssessmentFeePolicies';
 import InfoSheetPage from '@/pages/admin/InfoSheetPage';
+import PAReviewsQueue from '@/pages/admin/PAReviewsQueue';
+import MiniPortalsAdmin from '@/pages/admin/MiniPortalsAdmin';
 import AdminAllocations from '@/pages/admin/AdminAllocations';
 import CommissionSlabsManager from '@/pages/admin/CommissionSlabsManager';
 import CommissionDashboard from '@/pages/admin/CommissionDashboard';
@@ -397,6 +399,16 @@ function App() {
           <Route path="/admin/info-sheets/:entityType/:entityId" element={
             <RequirePermission anyOf={['system.user_manage.any', 'sale.create.any', 'case.update.any', 'partner.create.any']}>
               <InfoSheetPage />
+            </RequirePermission>
+          } />
+          <Route path="/admin/pa-reviews" element={
+            <RequirePermission anyOf={['system.user_manage.any', 'case.update.any']}>
+              <PAReviewsQueue />
+            </RequirePermission>
+          } />
+          <Route path="/admin/mini-portals" element={
+            <RequirePermission anyOf={['system.user_manage.any', 'case.update.any']}>
+              <MiniPortalsAdmin />
             </RequirePermission>
           } />
           <Route path="/admin/allocations" element={
