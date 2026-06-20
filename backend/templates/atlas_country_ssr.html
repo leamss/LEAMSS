@@ -256,6 +256,26 @@ footer a{color:var(--muted)}footer a:hover{color:var(--burnt)}
       {% endfor %}
     </ul>
     {% endif %}
+
+    {# Phase 19.4d — State pages browser (AU only) #}
+    {% if states %}
+    <section class="section-title-row" style="margin-top:48px">
+      <h2 class="section-title">Browse by State / Territory</h2>
+      <span class="section-title-meta">8 states &amp; territories · vacancy data, top occupations, nomination programs</span>
+    </section>
+    <ul class="state-grid" data-testid="state-grid" style="list-style:none;display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin-top:14px">
+      {% for s in states %}
+      <li>
+        <a href="/atlas/au/state/{{ s.slug }}/" style="display:block;padding:14px 16px;border:1px solid var(--border);border-radius:10px;background:#fff;text-decoration:none;color:var(--ink)" data-testid="state-card-{{ s.slug }}">
+          <div style="font-weight:800;font-size:15px;color:var(--ink);margin-bottom:4px">{{ s.state_name }} <span style="color:var(--muted);font-weight:500">· {{ s.state_code }}</span></div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:6px">{{ s.capital_city }} · {{ '{:,.0f}'.format(s.population) }}</div>
+          {% if s.monthly_ads %}<div style="font-size:12px;color:#f7620b;font-weight:600">{{ '{:,.0f}'.format(s.monthly_ads) }} active job ads</div>{% endif %}
+          {% if s.immigration_friendly_score %}<div style="font-size:11px;color:#2a777a;margin-top:4px">⭐ {{ s.immigration_friendly_score }}/10 migration-friendly</div>{% endif %}
+        </a>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
   </div>
 </section>
 

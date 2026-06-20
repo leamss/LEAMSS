@@ -1,0 +1,451 @@
+[
+  {
+    "id": "90a3ca6e-7c91-4d20-8519-98dc5c23e7d8",
+    "case_id": "8ae71f94-5f5f-48c6-9ca7-3f0ab49b4e7e",
+    "client_id": "f2511ecf-2bd8-4f45-a8d6-1b54266e8dbc",
+    "entity_type": "case",
+    "entity_id": "8ae71f94-5f5f-48c6-9ca7-3f0ab49b4e7e",
+    "personal": {
+      "nationality": "Indian",
+      "date_of_birth": "1990-01-15",
+      "passport_number": "TEST123456"
+    },
+    "family": {},
+    "dependents": [],
+    "qualifications": [],
+    "employment": [],
+    "resume": {},
+    "schema_version": 2,
+    "status": "pending",
+    "required_fields": [
+      "full_name",
+      "date_of_birth",
+      "gender",
+      "nationality",
+      "passport_number",
+      "passport_expiry",
+      "address",
+      "phone",
+      "email",
+      "education_level",
+      "occupation",
+      "employer",
+      "marital_status",
+      "work_experience_years"
+    ],
+    "change_history": [],
+    "audit_trail": [],
+    "locked": false,
+    "locked_by": null,
+    "locked_at": null,
+    "created_at": "2026-06-12T02:29:45.965000",
+    "updated_at": "2026-06-12T02:29:45.964000",
+    "_migration_batch_id": "imp_20260619T210609_6d7723ed",
+    "_migrated_from_schema_v1_at": "2026-06-19T21:06:09.051000",
+    "updated_by": "d8ea9fd2-792d-4a36-8915-07932c8a4c33",
+    "updated_by_role": "case_manager"
+  },
+  {
+    "id": "e3a32215-8f03-42d2-9cd7-be8777e0e2e0",
+    "case_id": "92f3b0a5-3c93-487f-8ebc-b3e1a6a1b9bb",
+    "client_id": "cb836841-5151-4438-a0f4-27591ddd5215",
+    "entity_type": "case",
+    "entity_id": "92f3b0a5-3c93-487f-8ebc-b3e1a6a1b9bb",
+    "personal": {
+      "nationality": "Indian",
+      "date_of_birth": "1990-01-15",
+      "passport_number": "TEST123456"
+    },
+    "family": {},
+    "dependents": [],
+    "qualifications": [],
+    "employment": [],
+    "resume": {},
+    "schema_version": 2,
+    "status": "pending",
+    "required_fields": [
+      "full_name",
+      "date_of_birth",
+      "gender",
+      "nationality",
+      "passport_number",
+      "passport_expiry",
+      "address",
+      "phone",
+      "email",
+      "education_level",
+      "occupation",
+      "employer",
+      "marital_status",
+      "work_experience_years"
+    ],
+    "change_history": [],
+    "audit_trail": [],
+    "locked": false,
+    "locked_by": null,
+    "locked_at": null,
+    "created_at": "2026-06-16T12:56:40.309000",
+    "updated_at": "2026-06-16T12:56:40.309000",
+    "_migration_batch_id": "imp_20260619T210609_6d7723ed",
+    "_migrated_from_schema_v1_at": "2026-06-19T21:06:09.052000",
+    "updated_by": "d8ea9fd2-792d-4a36-8915-07932c8a4c33",
+    "updated_by_role": "case_manager"
+  },
+  {
+    "id": "1aa5a2af-8071-475c-ae3f-3c78c58c7ce3",
+    "case_id": "a4166a21-f06a-40b6-a5f1-952a75302924",
+    "client_id": "f2511ecf-2bd8-4f45-a8d6-1b54266e8dbc",
+    "entity_type": "case",
+    "entity_id": "a4166a21-f06a-40b6-a5f1-952a75302924",
+    "personal": {
+      "nationality": "Canadian",
+      "date_of_birth": "1990-01-15",
+      "email": "testclient@test.com",
+      "passport_number": "AB123456",
+      "address": "123 Test Street"
+    },
+    "family": {},
+    "dependents": [],
+    "qualifications": [],
+    "employment": [],
+    "resume": {},
+    "schema_version": 2,
+    "status": "draft",
+    "required_fields": [],
+    "change_history": [],
+    "audit_trail": [],
+    "locked": false,
+    "locked_by": null,
+    "locked_at": null,
+    "created_at": "2026-06-16T13:02:51.281000",
+    "updated_at": "2026-06-16T13:02:51.280000",
+    "_migration_batch_id": "imp_20260619T210609_6d7723ed",
+    "_migrated_from_schema_v1_at": "2026-06-19T21:06:09.052000",
+    "updated_by": "d8ea9fd2-792d-4a36-8915-07932c8a4c33",
+    "updated_by_role": "case_manager",
+    "auto_filled_at": "2026-06-20T02:42:31.176979+00:00",
+    "auto_filled_by": "ai_system",
+    "auto_filled_data": {}
+  },
+  {
+    "id": "2b7fa831-8ce9-45df-ba39-ce3cf9b6be3e",
+    "entity_type": "standalone",
+    "entity_id": "debug_partner_test",
+    "case_id": null,
+    "client_id": null,
+    "personal": {},
+    "family": {},
+    "dependents": [],
+    "qualifications": [],
+    "employment": [],
+    "resume": {},
+    "schema_version": 2,
+    "status": "draft",
+    "locked": false,
+    "locked_by": null,
+    "locked_at": null,
+    "audit_trail": [
+      {
+        "action": "create",
+        "by": "467b0ce5-7a21-4727-9132-7716b3f15375",
+        "by_name": "Partner User",
+        "at": "2026-06-19T21:05:22.520577+00:00"
+      }
+    ],
+    "created_at": "2026-06-19T21:05:22.520000",
+    "updated_at": "2026-06-19T21:05:22.520000",
+    "created_by": "467b0ce5-7a21-4727-9132-7716b3f15375",
+    "updated_by": "467b0ce5-7a21-4727-9132-7716b3f15375"
+  },
+  {
+    "id": "fcc13e67-1a0f-4ad8-a268-6179a059627c",
+    "entity_type": "standalone",
+    "entity_id": "test_orchestrator_verify",
+    "case_id": null,
+    "client_id": null,
+    "personal": {},
+    "family": {},
+    "dependents": [],
+    "qualifications": [],
+    "employment": [],
+    "resume": {},
+    "schema_version": 2,
+    "status": "locked",
+    "locked": true,
+    "locked_by": "3918d774-d353-460b-88d6-9c8a2a959c72",
+    "locked_at": "2026-06-19T21:12:41.691000",
+    "audit_trail": [
+      {
+        "action": "create",
+        "by": "3918d774-d353-460b-88d6-9c8a2a959c72",
+        "by_name": "Admin User",
+        "at": "2026-06-19T21:12:26.639241+00:00"
+      },
+      {
+        "action": "lock",
+        "by": "3918d774-d353-460b-88d6-9c8a2a959c72",
+        "at": "2026-06-19T21:12:41.691597+00:00"
+      }
+    ],
+    "created_at": "2026-06-19T21:12:26.639000",
+    "updated_at": "2026-06-19T21:12:26.639000",
+    "created_by": "3918d774-d353-460b-88d6-9c8a2a959c72",
+    "updated_by": "3918d774-d353-460b-88d6-9c8a2a959c72"
+  },
+  {
+    "id": "6aa50286-343d-45b3-8165-fc8c4d408eb7",
+    "entity_type": "standalone",
+    "entity_id": "orchverify_2",
+    "case_id": null,
+    "client_id": null,
+    "personal": {
+      "full_name": "X"
+    },
+    "family": {},
+    "dependents": [],
+    "qualifications": [],
+    "employment": [],
+    "resume": {},
+    "schema_version": 2,
+    "status": "draft",
+    "locked": false,
+    "locked_by": null,
+    "locked_at": null,
+    "audit_trail": [
+      {
+        "action": "create",
+        "by": "3918d774-d353-460b-88d6-9c8a2a959c72",
+        "by_name": "Admin User",
+        "at": "2026-06-19T21:12:51.438822+00:00"
+      },
+      {
+        "action": "patch",
+        "by": "3918d774-d353-460b-88d6-9c8a2a959c72",
+        "by_name": "Admin User",
+        "at": "2026-06-19T21:12:52.623534+00:00",
+        "sections_changed": [
+          "personal",
+          "updated_at",
+          "updated_by"
+        ],
+        "changes_summary": "auto-save"
+      }
+    ],
+    "created_at": "2026-06-19T21:12:51.438000",
+    "updated_at": "2026-06-19T21:12:52.623000",
+    "created_by": "3918d774-d353-460b-88d6-9c8a2a959c72",
+    "updated_by": "3918d774-d353-460b-88d6-9c8a2a959c72"
+  },
+  {
+    "id": "fe18fc18-b8e5-47a1-b60f-e440d966f6fc",
+    "entity_type": "standalone",
+    "entity_id": "orchverify_audit",
+    "case_id": null,
+    "client_id": null,
+    "personal": {
+      "full_name": "Orchestrator Test",
+      "dob": "1990-01-01"
+    },
+    "family": {},
+    "dependents": [],
+    "qualifications": [],
+    "employment": [],
+    "resume": {},
+    "schema_version": 2,
+    "status": "draft",
+    "locked": false,
+    "locked_by": null,
+    "locked_at": null,
+    "audit_trail": [
+      {
+        "action": "create",
+        "by": "3918d774-d353-460b-88d6-9c8a2a959c72",
+        "by_name": "Admin User",
+        "at": "2026-06-19T21:13:43.345248+00:00"
+      },
+      {
+        "action": "patch",
+        "by": "3918d774-d353-460b-88d6-9c8a2a959c72",
+        "by_name": "Admin User",
+        "at": "2026-06-19T21:13:43.470005+00:00",
+        "sections_changed": [
+          "personal",
+          "updated_at",
+          "updated_by"
+        ],
+        "changes_summary": "auto-save"
+      }
+    ],
+    "created_at": "2026-06-19T21:13:43.345000",
+    "updated_at": "2026-06-19T21:13:43.470000",
+    "created_by": "3918d774-d353-460b-88d6-9c8a2a959c72",
+    "updated_by": "3918d774-d353-460b-88d6-9c8a2a959c72"
+  },
+  {
+    "id": "3b2fc6dc-4795-4fab-ae96-3d8134200081",
+    "entity_type": "standalone",
+    "entity_id": "orch_verify_205",
+    "case_id": null,
+    "client_id": null,
+    "personal": {
+      "full_name": "Test 205",
+      "dob": "1990-01-01",
+      "email": "test205@example.com"
+    },
+    "family": {},
+    "dependents": [],
+    "qualifications": [],
+    "employment": [],
+    "resume": {},
+    "schema_version": 2,
+    "status": "draft",
+    "locked": false,
+    "locked_by": null,
+    "locked_at": null,
+    "audit_trail": [
+      {
+        "action": "create",
+        "by": "3918d774-d353-460b-88d6-9c8a2a959c72",
+        "by_name": "Admin User",
+        "at": "2026-06-20T02:01:44.551693+00:00"
+      },
+      {
+        "action": "patch",
+        "by": "3918d774-d353-460b-88d6-9c8a2a959c72",
+        "by_name": "Admin User",
+        "at": "2026-06-20T02:01:44.664702+00:00",
+        "sections_changed": [
+          "personal",
+          "updated_at",
+          "updated_by"
+        ],
+        "fields_changed": [
+          {
+            "section": "personal",
+            "field": "full_name",
+            "old": null,
+            "new": "Test 205"
+          },
+          {
+            "section": "personal",
+            "field": "dob",
+            "old": null,
+            "new": "1990-01-01"
+          },
+          {
+            "section": "personal",
+            "field": "email",
+            "old": null,
+            "new": "test205@example.com"
+          }
+        ],
+        "changes_summary": "personal.dob, personal.email, personal.full_name"
+      }
+    ],
+    "created_at": "2026-06-20T02:01:44.551000",
+    "updated_at": "2026-06-20T02:01:44.664000",
+    "created_by": "3918d774-d353-460b-88d6-9c8a2a959c72",
+    "updated_by": "3918d774-d353-460b-88d6-9c8a2a959c72"
+  },
+  {
+    "id": "7a32e3ff-fdd5-41bd-b766-7a0cb77e2594",
+    "case_id": "43dbc65b-d9ae-4050-b9d3-d95fe7929b25",
+    "client_id": "f2511ecf-2bd8-4f45-a8d6-1b54266e8dbc",
+    "entity_type": "case",
+    "entity_id": "43dbc65b-d9ae-4050-b9d3-d95fe7929b25",
+    "personal": {
+      "passport_number": "TEST123456",
+      "nationality": "Indian",
+      "date_of_birth": "1990-01-15"
+    },
+    "family": {},
+    "dependents": [],
+    "qualifications": [],
+    "employment": [],
+    "resume": {},
+    "schema_version": 2,
+    "status": "pending",
+    "required_fields": [
+      "full_name",
+      "date_of_birth",
+      "gender",
+      "nationality",
+      "passport_number",
+      "passport_expiry",
+      "address",
+      "phone",
+      "email",
+      "education_level",
+      "occupation",
+      "employer",
+      "marital_status",
+      "work_experience_years"
+    ],
+    "change_history": [],
+    "audit_trail": [],
+    "locked": false,
+    "locked_by": null,
+    "locked_at": null,
+    "created_at": "2026-06-20T02:41:47.080000",
+    "updated_at": "2026-06-20T02:41:47.079000",
+    "_migration_batch_id": "imp_20260620T025520_97b12ef4",
+    "_migrated_from_schema_v1_at": "2026-06-20T02:55:20.883000",
+    "updated_by": "d8ea9fd2-792d-4a36-8915-07932c8a4c33",
+    "updated_by_role": "case_manager"
+  },
+  {
+    "id": "9e62942f-bdcb-455e-9a50-089f9334e859",
+    "entity_type": "client",
+    "entity_id": "467b0ce5-7a21-4727-9132-7716b3f15375",
+    "client_id": "467b0ce5-7a21-4727-9132-7716b3f15375",
+    "case_id": null,
+    "personal": {
+      "given_names": "TEST_Iteration81_Client",
+      "family_name": "",
+      "email": "client@leamss.com",
+      "contact_number": ""
+    },
+    "family": {},
+    "dependents": [],
+    "qualifications": [],
+    "employment": [],
+    "resume": {},
+    "schema_version": 2,
+    "status": "draft",
+    "locked": false,
+    "locked_by": null,
+    "locked_at": null,
+    "audit_trail": [
+      {
+        "action": "auto_create_on_pa_payment",
+        "by": "system",
+        "at": "2026-06-20T02:58:36.072052+00:00",
+        "pa_id": "a1bf62d6-07c3-4ab4-8929-fbb58a752c84",
+        "portal_id": "86bc3227-b288-4a1d-b9c9-54870d7d1e65"
+      }
+    ],
+    "created_at": "2026-06-20T02:58:36.072000",
+    "updated_at": "2026-06-20T02:58:36.072000",
+    "created_by": "system_mini_portal_provisioner",
+    "_provisioning_batch_id": "imp_20260620T025836_62fd3fb4"
+  },
+  {
+    "full_name": "Test Client Name",
+    "date_of_birth": "1990-01-15",
+    "nationality": "Canadian",
+    "passport_number": "AB123456",
+    "email": "testclient@test.com",
+    "phone": "+1-555-1234",
+    "address": "123 Test Street",
+    "education_level": "Bachelor's Degree",
+    "work_experience": "5 years in IT",
+    "case_id": "cea098fb-3d68-4961-8c97-9255643bda96",
+    "client_id": "f2511ecf-2bd8-4f45-a8d6-1b54266e8dbc",
+    "updated_at": "2026-06-20T03:00:57.060000",
+    "updated_by": "d8ea9fd2-792d-4a36-8915-07932c8a4c33",
+    "updated_by_role": "case_manager",
+    "id": "1ada001e-2817-4dde-9a58-61b77dc332a0",
+    "created_at": "2026-06-20T03:00:57.060000",
+    "change_history": []
+  }
+]

@@ -723,6 +723,57 @@ async def get_featured():
     }
 
 
+
+
+# ─── Phase 19.4d — AU State pages (must come before /{country}/{code} catch-all) ───
+def _slug_to_state_code(slug: str) -> Optional[str]:
+    """Resolve a URL slug to a state code (case-insensitive)."""
+    return {
+        "new-south-wales": "NSW", "nsw": "NSW",
+        "victoria": "VIC", "vic": "VIC",
+        "queensland": "QLD", "qld": "QLD",
+        "south-australia": "SA", "sa": "SA",
+        "western-australia": "WA", "wa": "WA",
+        "tasmania": "TAS", "tas": "TAS",
+        "northern-territory": "NT", "nt": "NT",
+        "australian-capital-territory": "ACT", "act": "ACT",
+    }.get((slug or "").lower())
+
+
+@router.get("/AU/states")
+async def list_au_states():
+    """Summary list of 8 AU states — used by hub page Browse-by-State section."""
+    items = []
+    async for s in db["au_states_master"].find({}, {"_id": 0}).sort("state_code", 1):
+        items.append({
+            "state_code": s.get("state_code"),
+            "state_name": s.get("state_name"),
+            "slug": s.get("slug"),
+            "capital_city": s.get("capital_city"),
+            "population": s.get("population"),
+            "tagline": s.get("tagline"),
+            "immigration_friendly_score": s.get("immigration_friendly_score"),
+            "monthly_ads": (s.get("vacancy_data") or {}).get("monthly_ads"),
+            "primary_visa_subclasses": s.get("primary_visa_subclasses"),
+        })
+    return {"country": "AU", "items": items, "total": len(items)}
+
+
+@router.get("/AU/state/{state_code_or_slug}")
+async def get_au_state(state_code_or_slug: str):
+    """Return full state page payload for SSR or React renderer."""
+    raw = (state_code_or_slug or "").strip()
+    code = raw.upper() if len(raw) <= 3 else _slug_to_state_code(raw)
+    if not code:
+        code = _slug_to_state_code(raw)
+    if not code:
+        raise HTTPException(404, "Unknown state code or slug")
+    state = await db["au_states_master"].find_one({"state_code": code}, {"_id": 0})
+    if not state:
+        raise HTTPException(404, f"State {code} not seeded — admin run /api/admin/au-states/seed")
+    return {"country": "AU", "state": state}
+
+
 # ─── Country list ───────────────────────────────────────────────────────────
 @router.get("/{country}/list")
 async def list_country(
@@ -878,6 +929,8 @@ async def sitemap_xml(response: Response):
     xml_lines.append("</urlset>")
     xml = "\n".join(xml_lines)
     return Response(content=xml, media_type="application/xml")
+
+
 
 
 # ─── Lead Capture (rate-limited + honeypot) ─────────────────────────────────

@@ -329,6 +329,23 @@ async def render_occupation_html(country_code: str, code: str) -> Optional[str]:
         async for ind in db["industry_master"].find({}, {"_id": 0, "industry_name": 1, "slug": 1}):
             industry_slug_map[ind["industry_name"]] = ind["slug"]
 
+    # Phase 19.4d — Top 3 states where this occupation has highest share (AU only)
+    top_states: List[Dict[str, Any]] = []
+    if cc == "AU":
+        state_dist = (occ.get("jsa_data") or {}).get("state_distribution") or occ.get("state_distribution") or {}
+        # Filter out None/missing values then sort by pct (high first)
+        clean = [(k, v) for k, v in state_dist.items() if k and v is not None]
+        ranked = sorted(clean, key=lambda x: x[1], reverse=True)[:3]
+        for state_code, pct in ranked:
+            if not state_code or pct is None:
+                continue
+            st = await db["au_states_master"].find_one(
+                {"state_code": state_code},
+                {"_id": 0, "state_code": 1, "state_name": 1, "slug": 1, "capital_city": 1},
+            )
+            if st:
+                top_states.append({**st, "state_share_pct": pct})
+
     tmpl = _env.get_template("atlas_occupation_ssr.html")
     return tmpl.render(
         occ=occ,
@@ -354,6 +371,7 @@ async def render_occupation_html(country_code: str, code: str) -> Optional[str]:
         now_iso=datetime.now(timezone.utc).isoformat(),
         strong_regions=strong_regions,
         industry_slug_map=industry_slug_map,
+        top_states=top_states,
     )
 
 
@@ -410,6 +428,18 @@ async def render_country_index_html(country_code: str) -> str:
         ).sort("employed_count", -1).limit(19):
             industries.append(ind)
 
+    # Phase 19.4d — 8 AU state cards for country hub footer
+    states_list = []
+    if cc == "AU":
+        async for st in db["au_states_master"].find(
+            {}, {"_id": 0, "state_code": 1, "state_name": 1, "slug": 1,
+                 "capital_city": 1, "population": 1, "vacancy_data": 1,
+                 "immigration_friendly_score": 1}
+        ).sort("state_code", 1):
+            ads = (st.get("vacancy_data") or {}).get("monthly_ads")
+            st["monthly_ads"] = ads
+            states_list.append(st)
+
     tmpl = _env.get_template("atlas_country_ssr.html")
     return tmpl.render(
         country=country, country_code=cc, country_code_lower=cc.lower(),
@@ -417,6 +447,7 @@ async def render_country_index_html(country_code: str) -> str:
         skill_level_breakdown=skill_breakdown,
         vacancy=vacancy,
         industries=industries,
+        states=states_list,
         hero_image=_hero_image(cc),
         og_image=f"{base}/leamss-logo.png",
         now_iso=datetime.now(timezone.utc).isoformat(),
@@ -443,6 +474,81 @@ async def render_atlas_hub_html() -> str:
     tmpl = _env.get_template("atlas_hub_ssr.html")
     return tmpl.render(
         countries=countries, page_url=page_url, base_url=base,
+        og_image=f"{base}/leamss-logo.png",
+        now_iso=datetime.now(timezone.utc).isoformat(),
+    )
+
+
+async def render_state_html(state_code: str) -> Optional[str]:
+    """Phase 19.4d — render one AU state SSG page."""
+    state = await db["au_states_master"].find_one(
+        {"state_code": state_code.upper()}, {"_id": 0}
+    )
+    if not state:
+        return None
+    base = _public_base()
+    slug = state.get("slug") or state_code.lower()
+    page_url = f"{base}/atlas/au/state/{slug}"
+
+    # Phase 19.5 pattern — unique, data-rich, ≤165 chars meta description
+    name = state.get("state_name", state_code)
+    code = state.get("state_code", state_code)
+    cap = state.get("capital_city", "")
+    score = state.get("immigration_friendly_score")
+    ads = (state.get("vacancy_data") or {}).get("monthly_ads")
+    top3 = ", ".join([o.get("title", "")[:24] for o in (state.get("top_occupations") or [])[:3] if o.get("title")])
+
+    parts = [f"{name} ({code}) — {cap}"]
+    if score:
+        parts.append(f"{score}/10 score")
+    if ads:
+        parts.append(f"{ads:,} active job ads")
+    if top3:
+        parts.append(f"top: {top3}")
+    cta = "Free eligibility check."
+    desc = ". ".join(parts) + ". " + cta
+    if len(desc) > 165:
+        # Strip top-3 if too long
+        parts = [p for p in parts if not p.startswith("top:")]
+        desc = ". ".join(parts) + ". " + cta
+    if len(desc) > 165:
+        desc = desc[:163].rstrip(" ,.;:") + "."
+
+    seo = {
+        "page_title": f"{name} Migration Guide — Atlas | LEAMSS",
+        "meta_description": desc,
+        "og_title": f"{name} — Migration to Australia · State Atlas",
+        "og_description": desc,
+        "json_ld": {
+            "@context": "https://schema.org",
+            "@graph": [
+                {
+                    "@type": "Place",
+                    "name": f"{name}, Australia",
+                    "url": page_url,
+                    "address": {"@type": "PostalAddress",
+                                "addressCountry": "AU",
+                                "addressRegion": code,
+                                "addressLocality": cap},
+                },
+                {
+                    "@type": "BreadcrumbList",
+                    "itemListElement": [
+                        {"@type": "ListItem", "position": 1, "name": "Atlas", "item": f"{base}/atlas"},
+                        {"@type": "ListItem", "position": 2, "name": "Australia", "item": f"{base}/atlas/au"},
+                        {"@type": "ListItem", "position": 3, "name": name, "item": page_url},
+                    ],
+                },
+            ],
+        },
+    }
+
+    tmpl = _env.get_template("atlas_state_ssr.html")
+    return tmpl.render(
+        state=state,
+        page_url=page_url,
+        base_url=base,
+        seo=seo,
         og_image=f"{base}/leamss-logo.png",
         now_iso=datetime.now(timezone.utc).isoformat(),
     )
@@ -555,6 +661,21 @@ async def regenerate_industry_hub(slug: str) -> Optional[str]:
     return str(target)
 
 
+async def regenerate_state(state_code: str) -> Optional[str]:
+    """Phase 19.4d — write one AU state SSG page to /atlas/au/state/{slug}/index.html."""
+    html = await render_state_html(state_code)
+    if not html:
+        return None
+    # Look up canonical slug
+    state = await db["au_states_master"].find_one(
+        {"state_code": state_code.upper()}, {"_id": 0, "slug": 1}
+    )
+    slug = (state or {}).get("slug") or state_code.lower()
+    target = ATLAS_OUT / "au" / "state" / slug / "index.html"
+    _write_file(target, html)
+    return str(target)
+
+
 async def prune_unverified_files() -> Dict[str, Any]:
     """Walk written files; delete any that no longer have a verified record."""
     if not ATLAS_OUT.exists():
@@ -564,7 +685,7 @@ async def prune_unverified_files() -> Dict[str, Any]:
         verified_codes.add((str(d.get("country_code", "")).lower(), str(d.get("code", ""))))
     deleted = 0
     # Phase 19.4c — whitelist non-ANZSCO subdirectories (e.g. /atlas/au/industry/)
-    NON_ANZSCO_DIRS = {"industry"}
+    NON_ANZSCO_DIRS = {"industry", "state"}
     for cc_dir in ATLAS_OUT.iterdir():
         if not cc_dir.is_dir():
             continue
@@ -622,6 +743,17 @@ async def regenerate_sitemap() -> Dict[str, Any]:
             u2["lastmod"] = last[:10]
         urls.append(u2)
 
+    # Phase 19.4d — AU State URLs (8 total)
+    async for st in db["au_states_master"].find({}, {"_id": 0, "slug": 1, "last_aggregated_at": 1, "last_updated_at": 1}):
+        ss = st.get("slug")
+        if not ss:
+            continue
+        u3: Dict[str, Any] = {"loc": f"{base}/atlas/au/state/{ss}", "priority": "0.8", "changefreq": "monthly"}
+        last = st.get("last_aggregated_at") or st.get("last_updated_at")
+        if isinstance(last, str) and len(last) >= 10:
+            u3["lastmod"] = last[:10]
+        urls.append(u3)
+
     xml_lines = ['<?xml version="1.0" encoding="UTF-8"?>', '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
     for u in urls:
         line = f'  <url><loc>{u["loc"]}</loc>'
@@ -677,6 +809,18 @@ async def regenerate_all() -> Dict[str, Any]:
                 industries_written += 1
         except Exception as e:  # noqa: BLE001
             errors.append({"path": f"/atlas/au/industry/{ind.get('slug')}", "error": str(e)[:200]})
+    # 3c. Phase 19.4d — AU State pages (8 total)
+    states_written = 0
+    async for st in db["au_states_master"].find({}, {"_id": 0, "state_code": 1, "slug": 1}):
+        try:
+            sc = st.get("state_code")
+            if not sc:
+                continue
+            r = await regenerate_state(sc)
+            if r:
+                states_written += 1
+        except Exception as e:  # noqa: BLE001
+            errors.append({"path": f"/atlas/au/state/{st.get('slug')}", "error": str(e)[:200]})
     # 4. Sitemap
     sitemap = await regenerate_sitemap()
     # 5. Prune (don't fail full sweep on prune errors)
@@ -699,6 +843,7 @@ async def regenerate_all() -> Dict[str, Any]:
         "country_indexes_written": 3,
         "hub_written": 1,
         "industries_written": industries_written,
+        "states_written": states_written,
         "sitemap": sitemap,
         "errors": errors[:20],
     }

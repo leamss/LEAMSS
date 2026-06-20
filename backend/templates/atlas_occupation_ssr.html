@@ -514,6 +514,22 @@ footer a{color:var(--muted)}footer a:hover{color:var(--burnt)}
       </article>
       {% endif %}
 
+      {# 10b) Phase 19.4d — Top States (AU only) #}
+      {% if country_code == 'AU' and top_states %}
+      <article class="card">
+        <span class="card-eyebrow">State opportunity map</span>
+        <h2 class="card-title">Top 3 states hiring {{ occ.title }}</h2>
+        <div class="sim-grid">
+          {% for st in top_states %}
+            <a class="sim-card" href="/atlas/au/state/{{ st.slug }}/">
+              <div class="sc-code">{{ st.state_code }} · {{ st.capital_city }}</div>
+              <div class="sc-title">{{ st.state_name }} — {{ st.state_share_pct }}% national share</div>
+            </a>
+          {% endfor %}
+        </div>
+      </article>
+      {% endif %}
+
       {# Bottom CTA #}
       <div class="bottom-cta">
         <div class="inner">

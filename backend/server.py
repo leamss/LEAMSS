@@ -128,6 +128,8 @@ from routers.pa_reviews import router as pa_reviews_router
 from routers.coupons import router as coupons_router
 from routers.proposals import router as proposals_router
 from routers.funnel_metrics import router as funnel_metrics_router
+# Phase 19.4d — AU State Atlas pages
+from routers.admin_au_states import router as admin_au_states_router
 # Phase 19 — SEO SSG generator
 from routers.seo_ssg import router as seo_ssg_router, regenerate_all as ssg_regenerate_all
 # Phase 18.7 — Notification channels + digest scheduler
@@ -558,7 +560,8 @@ for r in [targets_router, cost_structures_router, auth_router, users_router, pro
           currency_router, state_nominations_router, pre_assessment_report_v2_router,
           pa_fee_policies_router, products_bulk_import_router,
           info_sheets_router, mini_portal_router, pa_reviews_router,
-          coupons_router, proposals_router, funnel_metrics_router]:
+          coupons_router, proposals_router, funnel_metrics_router,
+          admin_au_states_router]:
     app.include_router(r, prefix="/api")
 
 

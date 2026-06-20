@@ -1,0 +1,239 @@
+{# Phase 19.4d — AU State SSR page. Routed via /atlas/au/state/{slug}/ #}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+<title>{{ seo.page_title }}</title>
+<meta name="description" content="{{ seo.meta_description }}">
+<meta property="og:title" content="{{ seo.og_title }}">
+<meta property="og:description" content="{{ seo.og_description }}">
+<meta property="og:image" content="{{ og_image }}">
+<meta property="og:url" content="{{ page_url }}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:description" content="{{ seo.og_description }}">
+<link rel="canonical" href="{{ page_url }}">
+<script type="application/ld+json">{{ seo.json_ld | tojson }}</script>
+<style>
+:root{--ink:#0F1A1F;--muted:#5b6770;--teal:#2a777a;--burnt:#f7620b;--red:#d81f26;--cream:#FCFBF7;--border:#e6e2dc;--accent:#1F4D44}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,sans-serif;color:var(--ink);background:var(--cream)}
+.container{max-width:1200px;margin:0 auto;padding:0 24px}
+.header{background:#fff;border-bottom:1px solid var(--border);padding:14px 0}
+.header-nav{display:flex;justify-content:space-between;align-items:center}
+.header-nav a{color:var(--ink);text-decoration:none;margin-left:18px;font-size:14px}
+.btn{display:inline-block;padding:10px 20px;border-radius:8px;font-weight:600;text-decoration:none;font-size:14px;transition:transform .15s}
+.btn-primary{background:var(--burnt);color:#fff}
+.btn-primary:hover{transform:translateY(-1px)}
+.btn-outline{background:#fff;color:var(--teal);border:1.5px solid var(--teal)}
+.section{padding:36px 0}
+.eyebrow{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--burnt);font-weight:700;margin-bottom:8px}
+.h1{font-size:38px;font-weight:800;letter-spacing:-.5px;margin:0 0 8px;line-height:1.1}
+.h2{font-size:24px;font-weight:800;margin:24px 0 12px;color:var(--ink)}
+.lead{font-size:17px;color:var(--muted);max-width:760px;margin:0 0 24px}
+.crumbs{font-size:13px;color:var(--muted);margin-bottom:14px}
+.crumbs a{color:var(--teal);text-decoration:none}
+.hero{background:linear-gradient(135deg,#fff 0%,#f7f1e8 100%);border:1px solid var(--border);border-radius:16px;padding:28px;margin-bottom:24px}
+.score-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;background:var(--teal);color:#fff;border-radius:99px;font-weight:700;font-size:13px;margin-left:10px;vertical-align:middle}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px;margin:16px 0}
+.stat{background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px 16px}
+.sl{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.sv{font-size:22px;font-weight:800;color:var(--ink)}
+.sv .delta{font-size:13px;color:var(--burnt);margin-left:6px;font-weight:600}
+.card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-top:14px}
+.card{background:#fff;border:1px solid var(--border);border-radius:10px;padding:14px;text-decoration:none;color:var(--ink);display:block;transition:border-color .15s}
+.card:hover{border-color:var(--burnt)}
+.card .ttl{font-weight:700;font-size:14px;margin-bottom:4px}
+.card .sub{font-size:12px;color:var(--muted)}
+.rank{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;background:var(--burnt);color:#fff;font-size:11px;font-weight:700;margin-right:8px}
+.tbl{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--border);border-radius:10px;overflow:hidden;font-size:14px}
+.tbl th,.tbl td{padding:10px 14px;text-align:left;border-bottom:1px solid var(--border)}
+.tbl th{background:#f7f1e8;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.tbl tr:last-child td{border-bottom:none}
+.badge{display:inline-block;padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700}
+.b-strong{background:#dcfce7;color:#166534}
+.b-avg{background:#fef3c7;color:#92400e}
+.b-soft{background:#fee2e2;color:#991b1b}
+.cta-bar{background:linear-gradient(135deg,var(--teal) 0%,var(--accent) 100%);color:#fff;padding:36px;border-radius:16px;margin:36px 0;text-align:center}
+.cta-bar h3{margin:0 0 8px;font-size:24px}
+.cta-bar p{margin:0 0 18px;opacity:.92}
+.cta-bar .btn{background:#fff;color:var(--teal)}
+.list{list-style:none;padding:0;margin:0}
+.list li{padding:8px 0;border-bottom:1px solid var(--border)}
+.list li:last-child{border-bottom:none}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.tag{background:#fff;border:1px solid var(--border);padding:4px 10px;border-radius:99px;font-size:12px;color:var(--muted)}
+.placeholder{background:#fffbe6;border:1px dashed var(--burnt);border-radius:8px;padding:14px;font-size:13px;color:var(--muted)}
+.footer{background:#fff;border-top:1px solid var(--border);padding:24px 0;margin-top:40px;text-align:center;color:var(--muted);font-size:13px}
+</style>
+</head>
+<body>
+<header class="header">
+  <div class="container header-nav">
+    <a href="/atlas/" style="font-weight:800;font-size:18px;color:var(--ink);text-decoration:none">
+      <span style="color:var(--teal)">LE</span><span style="color:var(--burnt)">AM</span><span style="color:var(--red)">SS</span> Atlas
+    </a>
+    <nav>
+      <a href="/atlas/au/">🇦🇺 AU</a>
+      <a href="/atlas/ca/">🇨🇦 CA</a>
+      <a href="/atlas/nz/">🇳🇿 NZ</a>
+      <a class="btn btn-primary" href="/start">Free Eligibility Check</a>
+    </nav>
+  </div>
+</header>
+
+<section class="section">
+  <div class="container">
+    <div class="crumbs">
+      <a href="/atlas/">Atlas</a> &rsaquo; <a href="/atlas/au/">🇦🇺 Australia</a> &rsaquo; {{ state.state_name }}
+    </div>
+
+    {# ─── 1. HERO ─── #}
+    <div class="hero">
+      <div class="eyebrow">🇦🇺 Australian State / Territory · {{ state.state_code }}</div>
+      <h1 class="h1">{{ state.state_name }}{% if state.immigration_friendly_score %}<span class="score-chip">⭐ {{ state.immigration_friendly_score }}/10 Migration-Friendly</span>{% endif %}</h1>
+      <p class="lead">{{ state.tagline }} · Capital: <strong>{{ state.capital_city }}</strong> · Population: <strong>{{ '{:,.0f}'.format(state.population) }}</strong></p>
+      <div class="tags">
+        {% for v in state.primary_visa_subclasses %}<span class="tag">Subclass {{ v }}</span>{% endfor %}
+        {% if state.cost_of_living_index %}<span class="tag">Cost-of-living {{ state.cost_of_living_index }}</span>{% endif %}
+      </div>
+    </div>
+
+    {# ─── 2. JOB MARKET SNAPSHOT ─── #}
+    <h2 class="h2">📈 Job Market Snapshot</h2>
+    {% if state.vacancy_data and state.vacancy_data.monthly_ads %}
+    <div class="stat-grid">
+      <div class="stat">
+        <div class="sl">Active job ads</div>
+        <div class="sv">{{ '{:,.0f}'.format(state.vacancy_data.monthly_ads) }}{% if state.vacancy_data.national_monthly_change_pct %}<span class="delta">{{ '+{:.1f}'.format(state.vacancy_data.national_monthly_change_pct) }}% nat.</span>{% endif %}</div>
+      </div>
+      <div class="stat">
+        <div class="sl">Period</div>
+        <div class="sv" style="font-size:15px">{{ state.vacancy_data.period or '—' }}</div>
+      </div>
+      <div class="stat">
+        <div class="sl">Source</div>
+        <div class="sv" style="font-size:13px">{{ state.vacancy_data.source or 'JSA IVI' }}</div>
+      </div>
+    </div>
+    {% else %}
+    <p class="placeholder">Vacancy snapshot not yet aggregated — admin can refresh via /api/admin/au-states/{{ state.state_code }}/refresh.</p>
+    {% endif %}
+
+    {% if state.top_occupations %}
+    <h2 class="h2">🎯 Top Occupations in {{ state.state_name }}</h2>
+    <div class="card-grid">
+      {% for occ in state.top_occupations[:8] %}
+      <a class="card" href="/atlas/au/{{ occ.anzsco_code }}/">
+        <div class="ttl"><span class="rank">{{ loop.index }}</span>{{ occ.title }}</div>
+        <div class="sub">ANZSCO {{ occ.anzsco_code }} · {{ occ.state_share_pct }}% national share</div>
+      </a>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {# ─── 3. STATE NOMINATION PROGRAMS ─── #}
+    <h2 class="h2">📋 State Nomination Programs</h2>
+    {% if state.sol_codes or state.rol_codes %}
+    <div class="stat-grid">
+      {% if state.sol_codes %}
+      <div class="stat">
+        <div class="sl">Skilled Occupation List (SOL)</div>
+        <div class="sv">{{ state.sol_codes | length }} occupations</div>
+      </div>
+      {% endif %}
+      {% if state.rol_codes %}
+      <div class="stat">
+        <div class="sl">Regional Occupation List (ROL)</div>
+        <div class="sv">{{ state.rol_codes | length }} occupations</div>
+      </div>
+      {% endif %}
+      {% if state.state_nom_last_updated %}
+      <div class="stat">
+        <div class="sl">Last Updated</div>
+        <div class="sv" style="font-size:13px">{{ state.state_nom_last_updated[:10] }}</div>
+      </div>
+      {% endif %}
+    </div>
+    {% else %}
+    <p class="placeholder">State nomination lists are updated quarterly. LEAMSS subscribes to all 8 state government feeds — your free eligibility check will surface the latest SOL/ROL for your exact ANZSCO code.</p>
+    {% endif %}
+
+    {# ─── 4. TOP EMPLOYING INDUSTRIES ─── #}
+    {% if state.top_industries %}
+    <h2 class="h2">🏢 Top Employing Industries</h2>
+    <div class="card-grid">
+      {% for ind in state.top_industries %}
+      <a class="card" href="/atlas/au/industry/{{ ind.slug }}/">
+        <div class="ttl">{{ ind.industry_name }}</div>
+        <div class="sub">{% if ind.is_national %}National{% else %}{{ state.state_code }}{% endif %}: {% if ind.employed_count %}{{ '{:,.0f}'.format(ind.employed_count) }} employed{% else %}see industry page{% endif %}</div>
+      </a>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {# ─── 5. REGIONAL DEMAND MAP (SA4) ─── #}
+    {% if state.sa4_regions %}
+    <h2 class="h2">📍 Regional Demand — SA4 Areas</h2>
+    <table class="tbl">
+      <thead><tr><th>Region (SA4)</th><th>Code</th><th>Labour Demand</th></tr></thead>
+      <tbody>
+      {% for r in state.sa4_regions %}
+        <tr>
+          <td>{{ r.region_name }}</td>
+          <td><code>{{ r.sa4_code }}</code></td>
+          <td><span class="badge {% if r.rank_value >= 4 %}b-strong{% elif r.rank_value >= 3 %}b-avg{% else %}b-soft{% endif %}">{{ r.strength_rating }}</span></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+
+    {# ─── 6. MIGRATION PATHWAYS ─── #}
+    <h2 class="h2">🛂 Migration Pathways</h2>
+    <ul class="list">
+      {% for v in state.primary_visa_subclasses %}
+      <li><strong>Subclass {{ v }}</strong>{% if v == '190' %} — Skilled Nominated (permanent, state-nominated){% elif v == '491' %} — Skilled Work Regional (Provisional, 5 yrs → PR){% elif v == '189' %} — Skilled Independent (no state nomination needed){% elif v == '494' %} — Skilled Employer Sponsored Regional{% elif v == '188' %} — Business Innovation & Investment{% endif %}</li>
+      {% endfor %}
+    </ul>
+
+    {# ─── 7. LIFESTYLE & COST OF LIVING ─── #}
+    <h2 class="h2">🏙️ Lifestyle & Cost of Living</h2>
+    <div class="stat-grid">
+      {% if state.cost_of_living_index %}
+      <div class="stat">
+        <div class="sl">Cost-of-Living Index</div>
+        <div class="sv">{{ state.cost_of_living_index }}<span class="delta">national=100</span></div>
+      </div>
+      {% endif %}
+      <div class="stat">
+        <div class="sl">Area</div>
+        <div class="sv">{{ '{:,.0f}'.format(state.area_sq_km) }} km²</div>
+      </div>
+      <div class="stat">
+        <div class="sl">Population</div>
+        <div class="sv">{{ '{:,.0f}'.format(state.population) }}</div>
+      </div>
+    </div>
+    {% if state.lifestyle_highlights %}
+    <ul class="list">
+      {% for h in state.lifestyle_highlights %}<li>✓ {{ h }}</li>{% endfor %}
+    </ul>
+    {% endif %}
+
+    {# ─── 8. CTA ─── #}
+    <div class="cta-bar">
+      <h3>Ready for {{ state.state_name }}?</h3>
+      <p>Free eligibility check — get your customized {{ state.state_name }} migration roadmap in 3 minutes.</p>
+      <a class="btn btn-primary" style="background:#fff;color:var(--teal);font-size:16px;padding:12px 28px" href="/start?state={{ state.state_code }}&country=AU">Start Free Eligibility Check</a>
+    </div>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="container">
+    <p>© {{ now_iso[:4] }} LEAMSS — Licensed Migration Specialists · Atlas auto-aggregated from official AU government data sources.</p>
+  </div>
+</footer>
+</body>
+</html>

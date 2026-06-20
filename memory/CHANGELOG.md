@@ -4,6 +4,81 @@ This file appends every completed phase/feature with dates and verification stat
 
 
 ---
+### 🗺️ Phase 19.4d — Per-State AU Atlas Pages (Jun 20, 2026)
+
+**Sales pitch:** Closed the final deferred scope from Phase 19.4 series. Shipped 8 high-intent SEO landing pages (one per AU state/territory) surfacing vacancy data + state nominations + top occupations + SA4 demand map. Every AU occupation page now links to the top 3 states hiring that ANZSCO code, and the country hub `/atlas/au/` gained a "Browse by State / Territory" section. Bidirectional SEO graph: state → occupation → state.
+
+**What shipped:**
+
+1. **Collection `au_states_master`** — 8 states seeded with canonical values (NSW 8.2M Sydney · VIC 6.7M Melbourne · QLD 5.5M Brisbane · SA 1.8M Adelaide · WA 2.7M Perth · TAS 0.57M Hobart · NT 0.25M Darwin · ACT 0.46M Canberra). Each has `tagline`, `immigration_friendly_score` (NSW/VIC 8 · QLD/WA 7 · SA 9 · TAS/NT 9.5 · ACT 8.5), `primary_visa_subclasses`, `cost_of_living_index`, `lifestyle_highlights`. Indexes: `state_code` unique + `slug` unique. Default `status: draft`.
+
+2. **`services/state_aggregation_service.py`** — Pulls denormalized data from existing collections:
+   - `vacancy_snapshots.by_state` → `monthly_ads` per state
+   - `occupation_master.jsa_data.state_distribution` → top 10 occupations (sorted by est. vacancy count)
+   - `industry_master` → top 5 employing industries (national fallback when per-state ANZSIC not yet uploaded; flagged `is_national: true`)
+   - `regional_labour_market.state` group → SA4 regions sorted by `rating` strength
+   - `state_nomination_lists` → SOL/ROL codes (graceful None when empty)
+   - Each refresh registers Phase 19.6 revocable `import_batches` entry (24h undo) with both `id` and `batch_id` fields
+
+3. **3 admin endpoints** (`routers/admin_au_states.py`) — `POST /api/admin/au-states/seed` (idempotent) · `POST /{code}/refresh` · `POST /refresh-all`. All require admin/admin_owner/super_admin role.
+
+4. **2 public endpoints** (added to `routers/public_atlas.py` BEFORE `/{country}/{code}` catch-all to avoid 400):
+   - `GET /api/public-atlas/AU/states` — list summary
+   - `GET /api/public-atlas/AU/state/{code_or_slug}` — full payload, accepts NSW or new-south-wales
+
+5. **SSR template `atlas_state_ssr.html`** with 8 sections:
+   1. Hero (state name + score chip + visa subclass tags)
+   2. Job Market Snapshot (ads + period + source)
+   3. State Nomination Programs (graceful placeholder when empty)
+   4. Top Employing Industries (linked to industry hubs)
+   5. Regional Demand Map — SA4 table with Strong/Average/Soft strength badges
+   6. Migration Pathways (subclass 190/491/189/494/188 descriptions)
+   7. Lifestyle & Cost of Living
+   8. Gradient CTA bar
+
+6. **Per-state SEO meta** — ≤165 chars, unique format: `{State} ({Code}) — {Capital}. {Score}/10 score. {ads:,} ads. top: {Top 3}. Free eligibility check.` Plus JSON-LD `Place` + `BreadcrumbList` schemas.
+
+7. **Bidirectional cross-links**:
+   - **Occupation page** (`atlas_occupation_ssr.html`): added "Top 3 states hiring {title}" section (AU only) showing state_share_pct from `jsa_data.state_distribution`
+   - **Country hub** (`atlas_country_ssr.html`): added "Browse by State / Territory" grid showing all 8 states with monthly_ads + score
+   - **Sitemap** (`regenerate_sitemap`): added 8 `/atlas/au/state/{slug}` URLs (priority 0.8, changefreq monthly)
+   - **prune_unverified_files**: `state` dir whitelisted alongside `industry` (NON_ANZSCO_DIRS)
+
+8. **SSG regen integration** — `regenerate_state(state_code)` + `regenerate_all` loop. Final regen produces **1,500 sitemap URLs** (1,467 occ + 19 industry + 8 state + 3 country + 1 hub + 2 root).
+
+**Issues fixed during sweep:**
+| Issue | Cause | Fix |
+|---|---|---|
+| `/AU/states` → 400 | `/{country}/{code}` catch-all matched first | Registered new routes BEFORE catch-all |
+| `refresh-all` → 500 (DuplicateKey) | `import_batches` unique index on `batch_id`; was inserting `id` only | Added `batch_id` field alongside `id` |
+| SSG regen errors (2) on `121314`, `254416` | `state_distribution` had None values, `sorted()` couldn't compare | Filter `[(k,v) for k,v in items if v is not None]` before sort |
+| Test 1 KeyError `MONGO_URL` | Test env not auto-loaded | Made `_get_db()` auto-load `/app/backend/.env` |
+
+**Triple-gate verified:**
+- 🟢 **Pytest**: **10/10 Phase 19.4d tests PASS** (0.43s) · Full regression **277/277 Phase 19+20 tests PASS** (69.45s) · +10 over prior 267 baseline, zero breakage
+- 🟢 **Curl/Googlebot**: NSW meta 153 chars, 8 sections present, CTA confirmed · QLD JSON-LD Place schema present · country hub `/atlas/au/` has "Browse by State" + `state-card-new-south-wales` link
+- 🟢 **Playwright**: 2 screenshots (NSW hero with 8.0/10 chip + 62,500 ads + 8 top occupations cards · NSW bottom CTA with SA4 regional table "Above average" badges + Lifestyle stats + "Ready for New South Wales?" gradient CTA)
+
+**Files added/modified:**
+| File | Status |
+|---|---|
+| `backend/seeds/au_states.py` | NEW · 142 lines · 8 canonical states + idempotent seed |
+| `backend/services/state_aggregation_service.py` | NEW · 174 lines · refresh + refresh_all |
+| `backend/routers/admin_au_states.py` | NEW · 64 lines · seed + refresh endpoints |
+| `backend/routers/public_atlas.py` | 2 endpoints added (states + state/{slug}) |
+| `backend/templates/atlas_state_ssr.html` | NEW · 8-section branded template |
+| `backend/templates/atlas_occupation_ssr.html` | "Top 3 states" cross-link section added |
+| `backend/templates/atlas_country_ssr.html` | "Browse by State / Territory" grid added |
+| `backend/routers/seo_ssg.py` | render_state_html + regenerate_state + sitemap state URLs + states_written counter + None-safe sort + prune whitelist |
+| `backend/server.py` | admin_au_states_router registered |
+| `backend/tests/test_phase194d_states.py` | NEW · 10 tests |
+
+**Phase 19.4 series — fully closed.** All AU surface coverage interlinked: 8 states ↔ 19 industries ↔ 1,467 occupations.
+
+---
+
+
+---
 ### 🏁 Phase 20.7 + 20.8 + Bonus C — Skill Assessment Conditional + Coupons + Proposal Builder + Funnel Health Dashboard (Jun 20, 2026)
 
 **Sales pitch:** Master "Product & Sales OS" build complete in one final sprint. **Phase 20.7** ensures Skill Assessment fields/dropdowns/PDF sections are visible **only** for AU + NZ products (server-validated + UI-gated + PDF-conditional). **Phase 20.8** ships the full revenue conversion engine — admin-managed Coupons with idempotent application + WeasyPrint-rendered branded Proposals with cascading discounts + GST. **Bonus C** gives admin/sales head live visibility into the universal funnel with horizontal conversion bars, KPI strip, top reject reasons, and avg time-in-stage.
