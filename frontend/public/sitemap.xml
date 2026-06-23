@@ -6,7 +6,7 @@
   <url><loc>https://www.leamss.com/atlas/au</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
   <url><loc>https://www.leamss.com/atlas/ca</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
   <url><loc>https://www.leamss.com/atlas/nz</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://www.leamss.com/atlas/au/111111</loc><lastmod>2026-06-20</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://www.leamss.com/atlas/au/111111</loc><lastmod>2026-06-23</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
   <url><loc>https://www.leamss.com/atlas/au/111211</loc><lastmod>2026-06-20</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
   <url><loc>https://www.leamss.com/atlas/au/111212</loc><lastmod>2026-06-20</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
   <url><loc>https://www.leamss.com/atlas/au/111311</loc><lastmod>2026-06-20</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
@@ -1473,31 +1473,31 @@
   <url><loc>https://www.leamss.com/atlas/nz/721214</loc><lastmod>2026-06-20</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
   <url><loc>https://www.leamss.com/atlas/nz/721215</loc><lastmod>2026-06-20</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
   <url><loc>https://www.leamss.com/atlas/nz/721216</loc><lastmod>2026-06-20</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://www.leamss.com/atlas/au/industry/agriculture-forestry-and-fishing</loc><lastmod>2026-06-20</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://www.leamss.com/atlas/au/industry/mining</loc><lastmod>2026-06-20</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://www.leamss.com/atlas/au/industry/manufacturing</loc><lastmod>2026-06-20</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://www.leamss.com/atlas/au/industry/electricity-gas-water-and-waste-services</loc><lastmod>2026-06-20</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://www.leamss.com/atlas/au/industry/construction</loc><lastmod>2026-06-20</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://www.leamss.com/atlas/au/industry/wholesale-trade</loc><lastmod>2026-06-20</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://www.leamss.com/atlas/au/industry/retail-trade</loc><lastmod>2026-06-20</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://www.leamss.com/atlas/au/industry/accommodation-and-food-services</loc><lastmod>2026-06-20</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://www.leamss.com/atlas/au/industry/transport-postal-and-warehousing</loc><lastmod>2026-06-20</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://www.leamss.com/atlas/au/industry/information-media-and-telecommunications</loc><lastmod>2026-06-20</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://www.leamss.com/atlas/au/industry/financial-and-insurance-services</loc><lastmod>2026-06-20</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://www.leamss.com/atlas/au/industry/rental-hiring-and-real-estate-services</loc><lastmod>2026-06-20</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://www.leamss.com/atlas/au/industry/professional-scientific-and-technical-services</loc><lastmod>2026-06-20</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://www.leamss.com/atlas/au/industry/administrative-and-support-services</loc><lastmod>2026-06-20</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://www.leamss.com/atlas/au/industry/public-administration-and-safety</loc><lastmod>2026-06-20</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://www.leamss.com/atlas/au/industry/education-and-training</loc><lastmod>2026-06-20</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://www.leamss.com/atlas/au/industry/health-care-and-social-assistance</loc><lastmod>2026-06-20</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://www.leamss.com/atlas/au/industry/arts-and-recreation-services</loc><lastmod>2026-06-20</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://www.leamss.com/atlas/au/industry/other-services</loc><lastmod>2026-06-20</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://www.leamss.com/atlas/au/state/new-south-wales</loc><lastmod>2026-06-20</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://www.leamss.com/atlas/au/state/victoria</loc><lastmod>2026-06-20</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.leamss.com/atlas/au/industry/agriculture-forestry-and-fishing</loc><lastmod>2026-06-23</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://www.leamss.com/atlas/au/industry/mining</loc><lastmod>2026-06-23</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://www.leamss.com/atlas/au/industry/manufacturing</loc><lastmod>2026-06-23</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://www.leamss.com/atlas/au/industry/electricity-gas-water-and-waste-services</loc><lastmod>2026-06-23</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://www.leamss.com/atlas/au/industry/construction</loc><lastmod>2026-06-23</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://www.leamss.com/atlas/au/industry/wholesale-trade</loc><lastmod>2026-06-23</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://www.leamss.com/atlas/au/industry/retail-trade</loc><lastmod>2026-06-23</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://www.leamss.com/atlas/au/industry/accommodation-and-food-services</loc><lastmod>2026-06-23</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://www.leamss.com/atlas/au/industry/transport-postal-and-warehousing</loc><lastmod>2026-06-23</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://www.leamss.com/atlas/au/industry/information-media-and-telecommunications</loc><lastmod>2026-06-23</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://www.leamss.com/atlas/au/industry/financial-and-insurance-services</loc><lastmod>2026-06-23</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://www.leamss.com/atlas/au/industry/rental-hiring-and-real-estate-services</loc><lastmod>2026-06-23</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://www.leamss.com/atlas/au/industry/professional-scientific-and-technical-services</loc><lastmod>2026-06-23</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://www.leamss.com/atlas/au/industry/administrative-and-support-services</loc><lastmod>2026-06-23</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://www.leamss.com/atlas/au/industry/public-administration-and-safety</loc><lastmod>2026-06-23</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://www.leamss.com/atlas/au/industry/education-and-training</loc><lastmod>2026-06-23</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://www.leamss.com/atlas/au/industry/health-care-and-social-assistance</loc><lastmod>2026-06-23</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://www.leamss.com/atlas/au/industry/arts-and-recreation-services</loc><lastmod>2026-06-23</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://www.leamss.com/atlas/au/industry/other-services</loc><lastmod>2026-06-23</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://www.leamss.com/atlas/au/state/new-south-wales</loc><lastmod>2026-06-23</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.leamss.com/atlas/au/state/victoria</loc><lastmod>2026-06-23</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <url><loc>https://www.leamss.com/atlas/au/state/queensland</loc><lastmod>2026-06-20</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <url><loc>https://www.leamss.com/atlas/au/state/south-australia</loc><lastmod>2026-06-20</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <url><loc>https://www.leamss.com/atlas/au/state/western-australia</loc><lastmod>2026-06-20</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://www.leamss.com/atlas/au/state/tasmania</loc><lastmod>2026-06-20</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.leamss.com/atlas/au/state/tasmania</loc><lastmod>2026-06-23</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <url><loc>https://www.leamss.com/atlas/au/state/northern-territory</loc><lastmod>2026-06-20</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <url><loc>https://www.leamss.com/atlas/au/state/australian-capital-territory</loc><lastmod>2026-06-20</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
 </urlset>

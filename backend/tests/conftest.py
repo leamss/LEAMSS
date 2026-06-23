@@ -15,12 +15,16 @@ import pathlib
 import pytest
 
 # ── Env auto-load (idempotent) ────────────────────────────────────────────────
-_ENV_PATH = pathlib.Path("/app/backend/.env")
-if _ENV_PATH.exists():
-    for _line in _ENV_PATH.read_text().splitlines():
-        if "=" in _line and not _line.startswith("#"):
-            _k, _, _v = _line.partition("=")
-            os.environ.setdefault(_k.strip(), _v.strip())
+# Backend .env (MONGO_URL, DB_NAME, JWT_SECRET, etc.)
+for _envp in (pathlib.Path("/app/backend/.env"),
+              pathlib.Path("/app/frontend/.env")):
+    if _envp.exists():
+        for _line in _envp.read_text().splitlines():
+            if "=" in _line and not _line.startswith("#"):
+                _k, _, _v = _line.partition("=")
+                _k, _v = _k.strip(), _v.strip()
+                if _k and _v and _k not in os.environ:
+                    os.environ[_k] = _v
 
 
 # ── Session-scoped event loop (one per pytest run) ────────────────────────────

@@ -100,6 +100,7 @@ import ProposalBuilder from '@/pages/sales/ProposalBuilder';
 import ClientPortalLogin from '@/pages/client-portal/ClientPortalLogin';
 import ClientPortalDashboard from '@/pages/client-portal/ClientPortalDashboard';
 import AdminClientPortalPreview from '@/pages/admin/AdminClientPortalPreview';
+import PublicProposalView from '@/pages/PublicProposalView';
 import { useLocation } from 'react-router-dom';
 import '@/App.css';
 
@@ -430,6 +431,8 @@ function App() {
           {/* Step 2 — Client Portal (separate JWT session, NOT staff RBAC) */}
           <Route path="/client-portal/login" element={<ClientPortalLogin />} />
           <Route path="/client-portal/dashboard" element={<ClientPortalDashboard />} />
+          {/* Option 2 — Public Proposal View (token-auth via ?t=) */}
+          <Route path="/proposal/view" element={<PublicProposalView />} />
           {/* Option D / X5 — Admin Read-Only Client View */}
           <Route path="/admin/client-preview/:clientId" element={
             <RequirePermission anyOf={['system.user_manage.any', 'case.view.any', 'case.update.any', 'sale.create.any']}>

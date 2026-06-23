@@ -126,6 +126,7 @@ from routers.info_sheets import router as info_sheets_router
 from routers.mini_portal import router as mini_portal_router
 from routers.pa_reviews import router as pa_reviews_router
 from routers.coupons import router as coupons_router
+from routers.proposals_public import router as proposals_public_router  # Option 2 — must register BEFORE proposals_router
 from routers.proposals import router as proposals_router
 from routers.funnel_metrics import router as funnel_metrics_router
 # Phase 19.4d — AU State Atlas pages
@@ -565,7 +566,7 @@ for r in [targets_router, cost_structures_router, auth_router, users_router, pro
           currency_router, state_nominations_router, pre_assessment_report_v2_router,
           pa_fee_policies_router, products_bulk_import_router,
           info_sheets_router, mini_portal_router, pa_reviews_router,
-          coupons_router, proposals_router, funnel_metrics_router,
+          coupons_router, proposals_public_router, proposals_router, funnel_metrics_router,
           admin_au_states_router, client_auth_router, client_portal_router,
           admin_client_portal_preview_router]:
     app.include_router(r, prefix="/api")

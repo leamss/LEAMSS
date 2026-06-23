@@ -1,0 +1,36 @@
+{
+  "generated_at": "2026-06-23T08:22:49.271623+00:00",
+  "iterations_per_endpoint": 5,
+  "measurements": {
+    "funnel_30d": {
+      "p95_ms": 126.1,
+      "mean_ms": 106.6,
+      "max_ms": 126.1
+    },
+    "funnel_365d": {
+      "p95_ms": 5099.6,
+      "mean_ms": 1111.2,
+      "max_ms": 5099.6
+    },
+    "coupons_list": {
+      "p95_ms": 121.2,
+      "mean_ms": 101.8,
+      "max_ms": 121.2
+    },
+    "coupon_validate": {
+      "p95_ms": 4200.2,
+      "mean_ms": 924.5,
+      "max_ms": 4200.2
+    },
+    "au_states_list": {
+      "p95_ms": 99.0,
+      "mean_ms": 96.0,
+      "max_ms": 99.0
+    },
+    "au_state_nsw": {
+      "p95_ms": 103.5,
+      "mean_ms": 101.4,
+      "max_ms": 103.5
+    }
+  }
+}

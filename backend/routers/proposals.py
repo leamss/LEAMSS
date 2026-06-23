@@ -194,9 +194,45 @@ async def send_proposal(
     await db[COLL].update_one({"id": proposal_id},
                               {"$set": {"status": "sent", "sent_at": now,
                                         "updated_at": now}})
-    logger.info(f"[Phase20.8] Proposal {proposal_id} sent (email preview — Resend API key pending)")
+
+    # Option 2 — auto-generate public acceptance link so email can include it.
+    from routers.proposals_public import _make_link_token, _public_base
+    tok = _make_link_token(proposal_id, p.get("client_id", ""))
+    public_url = f"{_public_base()}/proposal/view?t={tok['token']}"
+    history = p.get("public_link_history") or []
+    history.append({
+        "token_id": tok["token_id"],
+        "created_at": now.isoformat(),
+        "created_by": current_user.get("id"),
+        "created_via": "auto_on_send",
+        "expires_at": tok["expires_at"],
+    })
+    await db[COLL].update_one(
+        {"id": proposal_id},
+        {"$set": {"public_link_history": history,
+                  "active_public_token_id": tok["token_id"]}},
+    )
+
+    # Email send via centralised email_service (graceful Resend fallback)
+    from services.email_service import send_email
+    email_body_html = (
+        f"<p>Dear {p.get('product_name', 'Client')},</p>"
+        f"<p>Your LEAMSS migration proposal is ready. Click below to review and accept — no login required.</p>"
+        f"<p><a href='{public_url}' style='background:#F97316;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:700'>Review &amp; Accept Proposal</a></p>"
+        f"<p style='color:#64748b;font-size:12px'>This link expires in 30 days. Reference: {proposal_id[:12].upper()}</p>"
+    )
+    delivery_result = await send_email(
+        to=(p.get("client_email") or "client@unknown.example"),
+        subject=f"Your LEAMSS proposal is ready — Ref {proposal_id[:8].upper()}",
+        html_body=email_body_html,
+        from_name="LEAMSS Sales",
+    )
+    logger.info(f"[Phase20.8] Proposal {proposal_id} sent (delivery={delivery_result.get('status')})")
     return {"ok": True, "proposal_id": proposal_id, "status": "sent",
-            "delivery": "EMAIL_PREVIEW_LOGGED", "expires_at": p.get("expires_at")}
+            "delivery": delivery_result.get("status", "preview_only"),
+            "public_url": public_url,
+            "token_id": tok["token_id"],
+            "expires_at": p.get("expires_at")}
 
 
 @router.post("/{proposal_id}/accept")
