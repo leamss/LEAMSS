@@ -2,6 +2,7 @@
 from fastapi import APIRouter, HTTPException, Depends, Query
 from core.database import db
 from core.auth import get_current_user
+from core.rbac.dependencies import require_any_permission
 from core.services import create_notification, log_activity
 import uuid, random, string
 from datetime import datetime, timezone
@@ -80,11 +81,12 @@ async def redeem_referral(data: dict, current_user: dict = Depends(get_current_u
 
 
 @router.get("/referral/stats")
-async def referral_stats(current_user: dict = Depends(get_current_user)):
-    """Get referral statistics for admin"""
-    if current_user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
-    
+async def referral_stats(
+    current_user: dict = Depends(
+        require_any_permission("marketing.view.all", "content.view.all", _legacy_role="admin")
+    ),
+):
+    """Get referral statistics for admin / marketing head."""
     total_codes = await referrals_col.count_documents({"type": "code"})
     total_uses = await referrals_col.count_documents({"type": "usage"})
     
@@ -110,11 +112,13 @@ async def referral_stats(current_user: dict = Depends(get_current_user)):
 # ============ PROMO CODES ============
 
 @router.post("/promo")
-async def create_promo(data: dict, current_user: dict = Depends(get_current_user)):
+async def create_promo(
+    data: dict,
+    current_user: dict = Depends(
+        require_any_permission("marketing.update.all", "promo.manage.all", _legacy_role="admin")
+    ),
+):
     """Create a promo code"""
-    if current_user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
-    
     code = data.get("code", "").strip().upper()
     if not code or len(code) < 3:
         raise HTTPException(status_code=400, detail="Promo code must be at least 3 characters")
@@ -144,10 +148,12 @@ async def create_promo(data: dict, current_user: dict = Depends(get_current_user
 
 
 @router.get("/promos")
-async def get_promos(current_user: dict = Depends(get_current_user)):
+async def get_promos(
+    current_user: dict = Depends(
+        require_any_permission("marketing.view.all", "promo.manage.all", "content.view.all", _legacy_role="admin")
+    ),
+):
     """Get all promo codes"""
-    if current_user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
     promos = await promo_codes_col.find({}, {"_id": 0}).to_list(500)
     for p in promos:
         if isinstance(p.get("created_at"), datetime):
@@ -174,9 +180,12 @@ async def validate_promo(data: dict, current_user: dict = Depends(get_current_us
 
 
 @router.delete("/promo/{promo_id}")
-async def delete_promo(promo_id: str, current_user: dict = Depends(get_current_user)):
+async def delete_promo(
+    promo_id: str,
+    current_user: dict = Depends(
+        require_any_permission("marketing.update.all", "promo.manage.all", _legacy_role="admin")
+    ),
+):
     """Deactivate a promo code"""
-    if current_user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
     await promo_codes_col.update_one({"id": promo_id}, {"$set": {"is_active": False}})
     return {"message": "Promo code deactivated"}

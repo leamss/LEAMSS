@@ -136,6 +136,12 @@ from routers.client_auth import router as client_auth_router
 from routers.client_portal import router as client_portal_router
 # Option D / X5 — Admin Client Portal Preview
 from routers.admin_client_portal_preview import router as admin_client_portal_preview_router
+# Phase 21.A — Portal Hub unified landing
+from routers.portal_hub import router as portal_hub_router
+# Phase 21.E — Employee Tasks (Kanban)
+from routers.tasks import router as tasks_router
+# Phase 21.F — Announcements & Internal Policies
+from routers.announcements_policies import router as announcements_policies_router
 # Phase 19 — SEO SSG generator
 from routers.seo_ssg import router as seo_ssg_router, regenerate_all as ssg_regenerate_all
 # Phase 18.7 — Notification channels + digest scheduler
@@ -568,7 +574,8 @@ for r in [targets_router, cost_structures_router, auth_router, users_router, pro
           info_sheets_router, mini_portal_router, pa_reviews_router,
           coupons_router, proposals_public_router, proposals_router, funnel_metrics_router,
           admin_au_states_router, client_auth_router, client_portal_router,
-          admin_client_portal_preview_router]:
+          admin_client_portal_preview_router, portal_hub_router, tasks_router,
+          announcements_policies_router]:
     app.include_router(r, prefix="/api")
 
 

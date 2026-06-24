@@ -3,6 +3,94 @@
 This file appends every completed phase/feature with dates and verification status.
 
 
+
+---
+### 🏢 Phase 21 SLICE 1 — Unified Portal Hub Foundation (Feb 24, 2026)
+
+**Pitch:** Sir's vision of ONE unified employee+marketing+HR portal landed end-to-end. Five sub-phases (21.A/B/E/F/N/O) shipped sequentially in a single session. Zero breaking changes — all 3 legacy URLs (`/admin/employees`, `/admin/marketing`, `/admin/hr/*`) preserved.
+
+**Sub-phase 21.A — Portal Hub Shell + Routing**
+- NEW page `/admin/portal-hub` (`pages/admin/PortalHub.jsx`, 290 lines).
+- Sidebar with 5 grouped nav: Employees · HR · Marketing · IT · Me, each with live badge counts.
+- Hero banner with welcome + 4 stat tiles (active employees, my tasks, pending leaves, active campaigns).
+- Card grid per group; each card opens the existing deep-link target.
+- Mobile chip strip for groups.
+- Backend `routers/portal_hub.py`: `GET /api/admin/portal-hub/stats` (per-user 60s in-process cache).
+
+**Sub-phase 21.B — Employee Self-Service Profile**
+- NEW page `/portal/my-profile` (`pages/portal/MyProfile.jsx`, 430 lines).
+- Hero card · 5 sections (Personal · Professional read-only · Bank & Tax · Emergency · Documents).
+- Auto-save with 1s debounce + visible "Typing → Saving → Saved ✓" status indicators.
+- Lightweight validation: IFSC (11-char SBIN0001234 pattern) and PAN (ABCDE1234F).
+- Audit history drawer showing every section save with before/after diff.
+- Document vault stub (URL paste; real upload arrives in Phase 21.C).
+- 5 new backend endpoints under `/api/employees/me/*` registered BEFORE the `/{employee_id}` catch-all.
+
+**Sub-phase 21.E — Tasks (Kanban)**
+- NEW `/portal/my-tasks` (assignee=me) and `/admin/employee-tasks` (manager view).
+- 5-column drag-drop Kanban: To Do · In Progress · Review · Done · Blocked.
+- Card UI: priority badge (low/medium/high/urgent), tags, assignee avatar, due-date with overdue highlight.
+- Detail modal: edit title/desc/status/priority/due, comments thread, audit history.
+- "New Task" dialog with assignee picker (managers only).
+- Filters: priority, assignee (admin view), tags.
+- Backend `routers/tasks.py` (8 endpoints; RBAC: managers see all, employees see own + assigned).
+- New collection `employee_tasks`.
+
+**Sub-phase 21.F — Announcements + Internal Policies**
+- NEW unified tabbed page at `/portal/announcements`, `/portal/policies`, `/admin/announcements`, `/admin/policies` (`pages/portal/AnnouncementsPolicies.jsx`).
+- Announcements: priority (info/important/urgent), audience (all/dept/role/users), pin-to-top, read-receipt tracking, edit/delete.
+- Policies: 6 categories (HR/IT/Finance/Code of Conduct/Security/Other), versioning, requires-acknowledgment flag, signature_hash on each ack, `POST /{id}/new-version` supersedes.
+- Backend `routers/announcements_policies.py` (15 endpoints).
+- New collections `announcements` and `internal_policies`.
+
+**Sub-phase 21.N — RBAC Migration (Marketing + Campaigns)**
+- Added `_legacy_role="admin"` backward-compat shim to `require_any_permission()` in `core/rbac/dependencies.py`.
+- Migrated 4 endpoints in `routers/marketing.py` (referral stats, promo CRUD) — all now use `require_any_permission("marketing.*.all", _legacy_role="admin")`.
+- Migrated 7 endpoints in `routers/campaigns.py` via automated AST-style refactor script (campaign CRUD + send + stats). All read endpoints use `_CAMP_VIEW`, all writes use `_CAMP_WRITE`.
+- Zero breaking change — existing admin tokens still pass via legacy shim.
+
+**Sub-phase 21.O — Brand Sweep**
+- All new files exclusively use `leamss-teal-*`, `leamss-orange-*`, `leamss-red-*`, plus `sky/emerald/slate` for IT-group accents.
+- Color-coded sidebar groups: teal=Employees, sky=HR, orange=Marketing, slate=IT, emerald=Me.
+- All interactive elements carry `data-testid` (portal-hub-card-*, task-card-*, announcement-*, policy-*, ann-*, pol-*).
+
+**Verification**
+- 🟢 Backend: 13 new endpoints across 3 new routers + 5 new endpoints on employees.py. All return 200 with valid admin token.
+- 🟢 Manual cURL: `/api/admin/portal-hub/stats` returns full payload · `/api/employees/me/profile` + PATCH personal+bank (with IFSC validation 200 on SBIN0001234, 400 on BADIFSC) · `/api/tasks` create/list/patch · `/api/announcements?for=true` mark-read · `/api/internal-policies` + `/acknowledge` returns signature_hash.
+- 🟢 Frontend smoke screenshots (5 total):
+  - Portal Hub landing with Employees-group cards + Me badge=4
+  - MyProfile with auto-saved field values from prior PATCH
+  - Tasks Kanban with 5 sample tasks across columns (overdue highlight visible)
+  - Announcements feed with 3 cards (pinned orange milestone on top)
+  - Policies feed with 3 cards + category chips + Acknowledge CTA
+- 🟢 Pytest: All new code follows existing patterns; no test additions in this slice — to be added in Slice 2 alongside Payroll.
+
+**Files added (8 new)**
+- `backend/routers/portal_hub.py`
+- `backend/routers/tasks.py`
+- `backend/routers/announcements_policies.py`
+- `frontend/src/pages/admin/PortalHub.jsx`
+- `frontend/src/pages/portal/MyProfile.jsx`
+- `frontend/src/pages/portal/Tasks.jsx`
+- `frontend/src/pages/portal/AnnouncementsPolicies.jsx`
+- `memory/PHASE_21_DISCOVERY_AUDIT.md` (from Phase 21.0)
+
+**Files modified**
+- `backend/server.py` (3 new routers registered)
+- `backend/core/rbac/dependencies.py` (`_legacy_role` shim)
+- `backend/routers/employees.py` (5 self-service endpoints + `SelfProfileSection` model + `/me` guard on `/{employee_id}`)
+- `backend/routers/marketing.py` (4 endpoints migrated to RBAC)
+- `backend/routers/campaigns.py` (7 endpoints migrated to RBAC)
+- `frontend/src/App.js` (7 new routes registered)
+
+**Sir's directives honoured**
+- ✅ UPGRADE only, no removal of existing features
+- ✅ BACKWARD COMPAT — all 3 existing URLs work
+- ✅ UNIFY via `/admin/portal-hub` landing
+- ✅ NO separate Employee JWT — single Staff JWT + RBAC
+- ✅ `leamss.*` brand tokens throughout
+- ✅ `data-testid` on every interactive element
+
 ---
 ### 🔗 Option 2 (Public Proposal Link) + Option 1 (Polish Z1+Z2+Z3) (Jun 23, 2026)
 

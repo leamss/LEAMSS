@@ -107,6 +107,22 @@ class EmployeeUpdate(BaseModel):
     avatar_url: Optional[str] = None
 
 
+# Phase 21.B — Self-service section update payload
+class SelfProfileSection(BaseModel):
+    # personal (subset)
+    mobile: Optional[str] = None
+    alt_contact: Optional[str] = None
+    address: Optional[dict] = None  # {line1, line2, city, state, pincode, country}
+    # bank (HR will verify)
+    bank_account: Optional[dict] = None  # {account_number, ifsc, bank_name, holder_name}
+    pan_number: Optional[str] = None
+    # emergency contact
+    emergency_contact: Optional[dict] = None  # {name, relation, mobile, alt_mobile}
+    # preferences
+    avatar_url: Optional[str] = None
+    work_location: Optional[str] = None
+
+
 class RoleChange(BaseModel):
     new_role: str
     new_department: Optional[str] = None
@@ -270,11 +286,197 @@ async def managers_for_role(
     return items
 
 
+# ────────────────────────────────────────────────────────────
+# Phase 21.B — Employee Self-Service Endpoints (BEFORE /{employee_id} catch-all)
+# ────────────────────────────────────────────────────────────
+@router.get("/me/profile")
+async def get_my_profile(current_user: dict = Depends(get_current_user)):
+    """Return current employee's full profile (self-service view)."""
+    user = await users_col.find_one({"id": current_user["id"]}, {"_id": 0, "password": 0})
+    if not user:
+        raise HTTPException(status_code=404, detail="Profile not found")
+
+    # Manager info
+    manager = None
+    if user.get("reports_to"):
+        m = await users_col.find_one(
+            {"id": user["reports_to"]},
+            {"_id": 0, "id": 1, "name": 1, "designation": 1, "email": 1, "avatar_url": 1},
+        )
+        if m:
+            manager = m
+
+    # Document count (Phase 21.C placeholder — collection may not exist yet)
+    try:
+        doc_count = await db["employee_documents"].count_documents(
+            {"user_id": current_user["id"], "deleted": {"$ne": True}}
+        )
+    except Exception:
+        doc_count = 0
+
+    return {
+        **_serialize_user(user),
+        "manager": manager,
+        "doc_count": doc_count,
+    }
+
+
+SECTION_FIELD_MAP = {
+    "personal": {"mobile", "alt_contact", "address"},
+    "bank": {"bank_account", "pan_number"},
+    "emergency": {"emergency_contact"},
+    "preferences": {"avatar_url", "work_location"},
+}
+
+
+@router.patch("/me/section/{section_name}")
+async def update_my_profile_section(
+    section_name: str,
+    payload: SelfProfileSection,
+    current_user: dict = Depends(get_current_user),
+):
+    """Auto-save a section of the user's profile. Debounced from frontend (1s)."""
+    if section_name not in SECTION_FIELD_MAP:
+        raise HTTPException(status_code=400, detail=f"Unknown section '{section_name}'")
+    allowed_fields = SECTION_FIELD_MAP[section_name]
+    updates_raw = payload.model_dump(exclude_unset=True)
+    updates = {k: v for k, v in updates_raw.items() if k in allowed_fields}
+    if not updates:
+        return {"message": "No changes", "section": section_name, "updated_fields": []}
+
+    # IFSC validation (lightweight)
+    if "bank_account" in updates and updates["bank_account"]:
+        ifsc = (updates["bank_account"] or {}).get("ifsc", "")
+        if ifsc and (len(ifsc) != 11 or not ifsc[:4].isalpha() or not ifsc[4] == "0"):
+            raise HTTPException(status_code=400, detail="Invalid IFSC code format (expected 11 chars, e.g. SBIN0001234)")
+
+    # PAN validation (lightweight)
+    if "pan_number" in updates and updates["pan_number"]:
+        pan = updates["pan_number"].strip().upper()
+        if len(pan) != 10 or not (pan[:5].isalpha() and pan[5:9].isdigit() and pan[9].isalpha()):
+            raise HTTPException(status_code=400, detail="Invalid PAN format (expected ABCDE1234F)")
+        updates["pan_number"] = pan
+
+    # Snapshot before for audit
+    before = await users_col.find_one(
+        {"id": current_user["id"]},
+        {"_id": 0, **{k: 1 for k in updates.keys()}},
+    )
+
+    updates["updated_at"] = datetime.now(timezone.utc)
+    await users_col.update_one({"id": current_user["id"]}, {"$set": updates})
+
+    # Audit log
+    await activity_log_col.insert_one({
+        "id": str(uuid.uuid4()),
+        "user_id": current_user["id"],
+        "entity_type": "employee_self_profile",
+        "entity_id": current_user["id"],
+        "action": f"section_updated:{section_name}",
+        "details": {
+            "section": section_name,
+            "before": {k: (before or {}).get(k) for k in updates if k != "updated_at"},
+            "after": {k: v for k, v in updates.items() if k != "updated_at"},
+        },
+        "created_at": datetime.now(timezone.utc),
+    })
+
+    return {
+        "message": "Section saved",
+        "section": section_name,
+        "updated_fields": [k for k in updates.keys() if k != "updated_at"],
+        "saved_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@router.get("/me/audit-history")
+async def my_profile_audit_history(
+    limit: int = 30,
+    current_user: dict = Depends(get_current_user),
+):
+    """Last N self-service profile section saves (for the drawer)."""
+    items = []
+    async for a in activity_log_col.find(
+        {"entity_type": "employee_self_profile", "user_id": current_user["id"]},
+        {"_id": 0},
+    ).sort("created_at", -1).limit(limit):
+        if isinstance(a.get("created_at"), datetime):
+            a["created_at"] = a["created_at"].isoformat()
+        items.append(a)
+    return items
+
+
+@router.get("/me/documents")
+async def list_my_documents(current_user: dict = Depends(get_current_user)):
+    """List employee's own uploaded personal documents."""
+    items = []
+    async for d in db["employee_documents"].find(
+        {"user_id": current_user["id"], "deleted": {"$ne": True}},
+        {"_id": 0},
+    ).sort("created_at", -1):
+        if isinstance(d.get("created_at"), datetime):
+            d["created_at"] = d["created_at"].isoformat()
+        items.append(d)
+    return items
+
+
+@router.post("/me/documents")
+async def upload_my_document(
+    payload: dict,
+    current_user: dict = Depends(get_current_user),
+):
+    """Register a personal document. Body: {doc_type, file_name, file_url, notes?}
+
+    File upload is expected to happen via a dedicated upload endpoint elsewhere
+    (Phase 21.C). This route just records the metadata.
+    """
+    doc_type = (payload.get("doc_type") or "").strip()
+    file_name = (payload.get("file_name") or "").strip()
+    file_url = (payload.get("file_url") or "").strip()
+    if not doc_type or not file_url:
+        raise HTTPException(status_code=400, detail="doc_type and file_url are required")
+    doc = {
+        "id": str(uuid.uuid4()),
+        "user_id": current_user["id"],
+        "doc_type": doc_type,
+        "file_name": file_name or doc_type,
+        "file_url": file_url,
+        "notes": payload.get("notes", ""),
+        "uploaded_by": current_user["id"],
+        "uploaded_by_name": current_user.get("name"),
+        "status": "pending_verification",
+        "deleted": False,
+        "created_at": datetime.now(timezone.utc),
+    }
+    await db["employee_documents"].insert_one(doc)
+
+    await activity_log_col.insert_one({
+        "id": str(uuid.uuid4()),
+        "user_id": current_user["id"],
+        "entity_type": "employee_document",
+        "entity_id": doc["id"],
+        "action": "document_uploaded",
+        "details": {"doc_type": doc_type, "file_name": file_name},
+        "created_at": datetime.now(timezone.utc),
+    })
+
+    return {
+        "message": "Document recorded",
+        "id": doc["id"],
+        "status": doc["status"],
+    }
+
+
+
+
 @router.get("/{employee_id}")
 async def get_employee(
     employee_id: str,
     current_user: dict = Depends(require_any_permission("employee.view.all", "user.view.all", "employee.view.own")),
 ):
+    # Guard: /me alias should be handled by /me endpoints above, not here
+    if employee_id == "me":
+        raise HTTPException(status_code=404, detail="Use /employees/me endpoints")
     user = await users_col.find_one({"id": employee_id}, {"_id": 0, "password": 0})
     if not user:
         raise HTTPException(status_code=404, detail="Employee not found")

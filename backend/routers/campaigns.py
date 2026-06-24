@@ -2,6 +2,7 @@
 from fastapi import APIRouter, HTTPException, Depends, Query
 from core.database import db
 from core.auth import get_current_user
+from core.rbac.dependencies import require_any_permission
 from datetime import datetime, timezone
 import uuid
 
@@ -10,13 +11,16 @@ campaigns_col = db["campaigns"]
 campaign_recipients_col = db["campaign_recipients"]
 users_col = db["users"]
 
+# Phase 21.N — RBAC migration
+# All write/admin endpoints require campaign or marketing permission.
+# Legacy `role == 'admin'` is honoured via _legacy_role shim during transition.
+_CAMP_VIEW = require_any_permission("campaign.view.all", "marketing.view.all", "content.view.all", _legacy_role="admin")
+_CAMP_WRITE = require_any_permission("campaign.send.any", "marketing.update.all", "content.create.any", _legacy_role="admin")
+
 
 @router.post("/")
-async def create_campaign(data: dict, current_user: dict = Depends(get_current_user)):
+async def create_campaign(data: dict, current_user: dict = Depends(_CAMP_WRITE)):
     """Create a new email campaign"""
-    if current_user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
-    
     campaign = {
         "id": str(uuid.uuid4()),
         "name": data.get("name", ""),
@@ -39,11 +43,8 @@ async def create_campaign(data: dict, current_user: dict = Depends(get_current_u
 
 
 @router.get("/")
-async def get_campaigns(current_user: dict = Depends(get_current_user)):
+async def get_campaigns(current_user: dict = Depends(_CAMP_VIEW)):
     """Get all campaigns"""
-    if current_user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
-    
     campaigns = await campaigns_col.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)
     for c in campaigns:
         for field in ["created_at", "sent_at", "scheduled_at"]:
@@ -53,11 +54,8 @@ async def get_campaigns(current_user: dict = Depends(get_current_user)):
 
 
 @router.get("/{campaign_id}")
-async def get_campaign(campaign_id: str, current_user: dict = Depends(get_current_user)):
+async def get_campaign(campaign_id: str, current_user: dict = Depends(_CAMP_VIEW)):
     """Get campaign details"""
-    if current_user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
-    
     campaign = await campaigns_col.find_one({"id": campaign_id}, {"_id": 0})
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
@@ -72,11 +70,8 @@ async def get_campaign(campaign_id: str, current_user: dict = Depends(get_curren
 
 
 @router.put("/{campaign_id}")
-async def update_campaign(campaign_id: str, data: dict, current_user: dict = Depends(get_current_user)):
+async def update_campaign(campaign_id: str, data: dict, current_user: dict = Depends(_CAMP_WRITE)):
     """Update campaign"""
-    if current_user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
-    
     data.pop("id", None)
     data.pop("_id", None)
     await campaigns_col.update_one({"id": campaign_id}, {"$set": data})
@@ -84,11 +79,8 @@ async def update_campaign(campaign_id: str, data: dict, current_user: dict = Dep
 
 
 @router.post("/{campaign_id}/send")
-async def send_campaign(campaign_id: str, current_user: dict = Depends(get_current_user)):
+async def send_campaign(campaign_id: str, current_user: dict = Depends(_CAMP_WRITE)):
     """Send campaign to target audience (mocked — logs to DB)"""
-    if current_user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
-    
     campaign = await campaigns_col.find_one({"id": campaign_id}, {"_id": 0})
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
@@ -149,21 +141,12 @@ async def send_campaign(campaign_id: str, current_user: dict = Depends(get_curre
 
 
 @router.delete("/{campaign_id}")
-async def delete_campaign(campaign_id: str, current_user: dict = Depends(get_current_user)):
+async def delete_campaign(campaign_id: str, current_user: dict = Depends(_CAMP_WRITE)):
     """Delete a campaign"""
-    if current_user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
-    await campaigns_col.delete_one({"id": campaign_id})
-    await campaign_recipients_col.delete_many({"campaign_id": campaign_id})
-    return {"message": "Campaign deleted"}
-
 
 @router.get("/stats/overview")
-async def campaign_stats(current_user: dict = Depends(get_current_user)):
+async def campaign_stats(current_user: dict = Depends(_CAMP_VIEW)):
     """Get overall campaign statistics"""
-    if current_user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
-    
     total = await campaigns_col.count_documents({})
     sent = await campaigns_col.count_documents({"status": "sent"})
     total_recipients = await campaign_recipients_col.count_documents({})

@@ -17,6 +17,10 @@ import WorkflowBuilder from '@/pages/WorkflowBuilder';
 import AIWorkflowBuilder from '@/pages/AIWorkflowBuilder';
 import MarketingDashboard from '@/pages/MarketingDashboard';
 import EmployeesPortal from '@/pages/EmployeesPortal';
+import PortalHub from '@/pages/admin/PortalHub';
+import MyProfile from '@/pages/portal/MyProfile';
+import Tasks from '@/pages/portal/Tasks';
+import AnnouncementsPolicies from '@/pages/portal/AnnouncementsPolicies';
 import PortalWelcome from '@/pages/PortalWelcome';
 import ForgotPassword from '@/pages/ForgotPassword';
 import ResetPasswordWithToken from '@/pages/ResetPasswordWithToken';
@@ -165,6 +169,18 @@ function App() {
               <EmployeesPortal />
             </RequirePermission>
           } />
+          {/* Phase 21.A — Unified Portal Hub landing */}
+          <Route path="/admin/portal-hub" element={<PortalHub />} />
+          {/* Phase 21.B — Employee self-service profile */}
+          <Route path="/portal/my-profile" element={<MyProfile />} />
+          {/* Phase 21.E — Tasks (Kanban) */}
+          <Route path="/portal/my-tasks" element={<Tasks mode="me" />} />
+          <Route path="/admin/employee-tasks" element={<Tasks mode="all" />} />
+          {/* Phase 21.F — Announcements + Internal Policies */}
+          <Route path="/portal/announcements" element={<AnnouncementsPolicies defaultTab="announcements" />} />
+          <Route path="/portal/policies" element={<AnnouncementsPolicies defaultTab="policies" />} />
+          <Route path="/admin/announcements" element={<AnnouncementsPolicies defaultTab="announcements" />} />
+          <Route path="/admin/policies" element={<AnnouncementsPolicies defaultTab="policies" />} />
           <Route path="/portal/welcome" element={<PortalWelcome />} />
           <Route path="/portal/attendance" element={<MyAttendance />} />
           <Route path="/portal/leaves" element={<MyLeaves />} />

@@ -33,9 +33,21 @@ def require_permission(permission_key: str):
     return checker
 
 
-def require_any_permission(*permission_keys: str):
-    """User must have at least ONE of the listed permissions."""
+def require_any_permission(*permission_keys: str, _legacy_role: Optional[str] = None):
+    """User must have at least ONE of the listed permissions.
+
+    Phase 21.N Backward-compat shim:
+        If `_legacy_role` is passed (e.g. "admin"), users with that legacy `role` value
+        are also allowed through — this lets us migrate `if current_user["role"] == "admin"`
+        checks one endpoint at a time without big-bang flag flips.
+
+    Examples:
+        require_any_permission("marketing.view.all")               # strict
+        require_any_permission("marketing.view.all", _legacy_role="admin")  # transitional
+    """
     async def checker(current_user: dict = Depends(get_current_user)):
+        if _legacy_role and current_user.get("role") == _legacy_role:
+            return current_user
         if not PermissionService.has_any_permission(current_user, list(permission_keys)):
             _deny(" | ".join(permission_keys), current_user,
                   message=f"Requires any of: {', '.join(permission_keys)}")
