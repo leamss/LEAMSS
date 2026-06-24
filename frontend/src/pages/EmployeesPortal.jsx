@@ -95,9 +95,12 @@ const GROUP_CARDS = {
       { id: 'me-tasks', icon: CheckSquare, title: 'My Tasks', desc: 'Kanban board of assigned work', route: '/portal/my-tasks' },
       { id: 'me-attendance', icon: Clock, title: 'My Attendance', desc: 'Punch in/out, monthly calendar', route: '/portal/attendance' },
       { id: 'me-leaves', icon: Coffee, title: 'My Leaves', desc: 'Apply, balance, history', route: '/portal/leaves' },
+      { id: 'me-payslips', icon: Receipt, title: 'My Payslips', desc: 'Monthly salary statements + PDF', route: '/portal/my-payslips' },
+      { id: 'me-documents', icon: FileText, title: 'My Documents', desc: 'ID, education, bank docs vault', route: '/portal/my-documents' },
+      { id: 'me-assets', icon: BookOpen, title: 'My Assets', desc: 'Laptop, phone, access cards', route: '/portal/my-assets' },
+      { id: 'me-onboarding', icon: CheckSquare, title: 'My Onboarding', desc: 'Checklist & evidence upload', route: '/portal/my-onboarding' },
       { id: 'me-announcements', icon: Megaphone, title: 'Announcements', desc: 'Company news feed', route: '/portal/announcements' },
       { id: 'me-policies', icon: BookOpen, title: 'Policies', desc: 'Read & acknowledge handbook', route: '/portal/policies' },
-      { id: 'me-payslips', icon: Receipt, title: 'My Payslips', desc: 'Salary history (Slice 2)', soon: true },
     ],
   },
 };

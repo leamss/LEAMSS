@@ -21,6 +21,7 @@ import EmployeesPortal from '@/pages/EmployeesPortal';
 import MyProfile from '@/pages/portal/MyProfile';
 import Tasks from '@/pages/portal/Tasks';
 import AnnouncementsPolicies from '@/pages/portal/AnnouncementsPolicies';
+import MyWorkspace from '@/pages/portal/MyWorkspace';
 import PortalWelcome from '@/pages/PortalWelcome';
 import ForgotPassword from '@/pages/ForgotPassword';
 import ResetPasswordWithToken from '@/pages/ResetPasswordWithToken';
@@ -181,6 +182,12 @@ function App() {
           <Route path="/portal/policies" element={<AnnouncementsPolicies defaultTab="policies" />} />
           <Route path="/admin/announcements" element={<AnnouncementsPolicies defaultTab="announcements" />} />
           <Route path="/admin/policies" element={<AnnouncementsPolicies defaultTab="policies" />} />
+          {/* Phase 21 Slice 2 — Employee Workspace (Payslips/Documents/Assets/Onboarding) */}
+          <Route path="/portal/my-workspace" element={<MyWorkspace />} />
+          <Route path="/portal/my-payslips" element={<MyWorkspace />} />
+          <Route path="/portal/my-documents" element={<MyWorkspace />} />
+          <Route path="/portal/my-assets" element={<MyWorkspace />} />
+          <Route path="/portal/my-onboarding" element={<MyWorkspace />} />
           <Route path="/portal/welcome" element={<PortalWelcome />} />
           <Route path="/portal/attendance" element={<MyAttendance />} />
           <Route path="/portal/leaves" element={<MyLeaves />} />

@@ -142,6 +142,12 @@ from routers.portal_hub import router as portal_hub_router
 from routers.tasks import router as tasks_router
 # Phase 21.F — Announcements & Internal Policies
 from routers.announcements_policies import router as announcements_policies_router
+# Phase 21.C — Employee Documents Vault
+from routers.employee_documents import router as employee_documents_router
+# Phase 21.D — Onboarding + Assets
+from routers.onboarding_assets import router as onboarding_assets_router
+# Phase 21.G — Salary + Payroll
+from routers.payroll import router as payroll_router
 # Phase 19 — SEO SSG generator
 from routers.seo_ssg import router as seo_ssg_router, regenerate_all as ssg_regenerate_all
 # Phase 18.7 — Notification channels + digest scheduler
@@ -575,7 +581,8 @@ for r in [targets_router, cost_structures_router, auth_router, users_router, pro
           coupons_router, proposals_public_router, proposals_router, funnel_metrics_router,
           admin_au_states_router, client_auth_router, client_portal_router,
           admin_client_portal_preview_router, portal_hub_router, tasks_router,
-          announcements_policies_router]:
+          announcements_policies_router, employee_documents_router,
+          onboarding_assets_router, payroll_router]:
     app.include_router(r, prefix="/api")
 
 
