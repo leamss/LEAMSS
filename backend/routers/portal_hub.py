@@ -113,6 +113,7 @@ async def portal_hub_stats(current_user: dict = Depends(get_current_user)):
         "me": {
             "my_tasks": my_tasks,
             "my_pending_leaves": my_pending_leaves,
+            "unread_announcements": my_unread_announcements,
         },
     }
     _cache_set(cache_key, result)
