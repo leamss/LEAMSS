@@ -148,6 +148,10 @@ from routers.employee_documents import router as employee_documents_router
 from routers.onboarding_assets import router as onboarding_assets_router
 # Phase 21.G — Salary + Payroll
 from routers.payroll import router as payroll_router
+# Phase 21 Slice 3 — Reimbursements + HR Analytics + Content Studio (Claude) + SEO/AEO/GEO
+from routers.reimbursements import router as reimbursements_router
+from routers.hr_analytics import router as hr_analytics_router
+from routers.content_studio import router as content_studio_router
 # Phase 19 — SEO SSG generator
 from routers.seo_ssg import router as seo_ssg_router, regenerate_all as ssg_regenerate_all
 # Phase 18.7 — Notification channels + digest scheduler
@@ -582,7 +586,8 @@ for r in [targets_router, cost_structures_router, auth_router, users_router, pro
           admin_au_states_router, client_auth_router, client_portal_router,
           admin_client_portal_preview_router, portal_hub_router, tasks_router,
           announcements_policies_router, employee_documents_router,
-          onboarding_assets_router, payroll_router]:
+          onboarding_assets_router, payroll_router,
+          reimbursements_router, hr_analytics_router, content_studio_router]:
     app.include_router(r, prefix="/api")
 
 

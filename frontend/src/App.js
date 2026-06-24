@@ -22,6 +22,7 @@ import MyProfile from '@/pages/portal/MyProfile';
 import Tasks from '@/pages/portal/Tasks';
 import AnnouncementsPolicies from '@/pages/portal/AnnouncementsPolicies';
 import MyWorkspace from '@/pages/portal/MyWorkspace';
+import MarketingContentStudio from '@/pages/admin/MarketingContentStudio';
 import PortalWelcome from '@/pages/PortalWelcome';
 import ForgotPassword from '@/pages/ForgotPassword';
 import ResetPasswordWithToken from '@/pages/ResetPasswordWithToken';
@@ -188,6 +189,8 @@ function App() {
           <Route path="/portal/my-documents" element={<MyWorkspace />} />
           <Route path="/portal/my-assets" element={<MyWorkspace />} />
           <Route path="/portal/my-onboarding" element={<MyWorkspace />} />
+          {/* Phase 21 Slice 3 — Marketing Content Studio (Claude Sonnet 4.5) */}
+          <Route path="/admin/marketing/content-studio" element={<MarketingContentStudio />} />
           <Route path="/portal/welcome" element={<PortalWelcome />} />
           <Route path="/portal/attendance" element={<MyAttendance />} />
           <Route path="/portal/leaves" element={<MyLeaves />} />
