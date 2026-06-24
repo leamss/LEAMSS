@@ -214,7 +214,7 @@ const MarketingDashboard = () => {
   };
 
   const stageColors = {
-    new: 'bg-blue-100 text-blue-700 border-blue-200',
+    new: 'bg-sky-100 text-sky-700 border-sky-200',
     contacted: 'bg-leamss-teal-100 text-leamss-teal-700 border-leamss-teal-200',
     qualified: 'bg-leamss-orange-100 text-leamss-orange-700 border-leamss-orange-200',
     proposal: 'bg-amber-100 text-amber-700 border-amber-200',
@@ -262,6 +262,58 @@ const MarketingDashboard = () => {
 
       <div className="max-w-7xl mx-auto px-4 md:px-8 py-6">
 
+        {/* Phase 21 Slice 3 Sub-Slice B — AI Marketing Toolbox row */}
+        <div className="mb-6 grid grid-cols-2 md:grid-cols-4 gap-3" data-testid="ai-marketing-toolbox">
+          <button
+            onClick={() => navigate('/portal/marketing/content-studio')}
+            className="group text-left p-4 rounded-xl bg-gradient-to-br from-leamss-orange-500 to-leamss-orange-600 text-white shadow-md hover:shadow-lg transition-all"
+            data-testid="open-content-studio"
+          >
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[10px] uppercase tracking-wide opacity-80">AI Studio</span>
+              <span className="text-[9px] bg-white/20 px-1.5 py-0.5 rounded-full">Claude 4.5</span>
+            </div>
+            <p className="font-bold text-sm">Content Studio</p>
+            <p className="text-[11px] opacity-90 mt-0.5">3 variants per brief · 6 content types · 5 brand voices</p>
+          </button>
+          <button
+            onClick={() => navigate('/portal/marketing/seo')}
+            className="group text-left p-4 rounded-xl bg-white border-2 border-leamss-teal-300 hover:border-leamss-teal-500 hover:shadow-md transition-all"
+            data-testid="open-seo-hub"
+          >
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[10px] uppercase tracking-wide text-leamss-teal-600 font-semibold">SEO Tools</span>
+            </div>
+            <p className="font-bold text-sm text-slate-800">Keywords · Meta · Links</p>
+            <p className="text-[11px] text-slate-500 mt-0.5">AI keyword research & meta optimisation</p>
+          </button>
+          <button
+            onClick={() => navigate('/portal/marketing/aeo')}
+            className="group text-left p-4 rounded-xl bg-white border-2 border-leamss-orange-300 hover:border-leamss-orange-500 hover:shadow-md transition-all"
+            data-testid="open-aeo-hub"
+          >
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[10px] uppercase tracking-wide text-leamss-orange-600 font-semibold">AEO Tools</span>
+            </div>
+            <p className="font-bold text-sm text-slate-800">FAQ · Voice · Snippets</p>
+            <p className="text-[11px] text-slate-500 mt-0.5">Answer engine optimisation for voice & SERP</p>
+          </button>
+          <button
+            onClick={() => navigate('/portal/marketing/geo')}
+            className="group text-left p-4 rounded-xl bg-white border-2 border-leamss-red-300 hover:border-leamss-red-500 hover:shadow-md transition-all relative overflow-hidden"
+            data-testid="open-geo-hub"
+          >
+            <div className="absolute top-1 right-1">
+              <span className="text-[8px] bg-leamss-red-600 text-white px-1.5 py-0.5 rounded-full font-bold tracking-wider">NEW</span>
+            </div>
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[10px] uppercase tracking-wide text-leamss-red-600 font-semibold">GEO Tools</span>
+            </div>
+            <p className="font-bold text-sm text-slate-800">LLM Citation Optimiser</p>
+            <p className="text-[11px] text-slate-500 mt-0.5">Make content quotable by ChatGPT, Claude, Perplexity</p>
+          </button>
+        </div>
+
         {/* ===== OVERVIEW TAB ===== */}
         {activeTab === 'overview' && (
           <div className="space-y-6">
@@ -269,7 +321,7 @@ const MarketingDashboard = () => {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <Card className="p-4 cursor-pointer hover:shadow-md transition-shadow" onClick={() => setActiveTab('leads')} data-testid="stat-leads">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-blue-50 rounded-lg"><Target className="h-5 w-5 text-blue-600" /></div>
+                  <div className="p-2 bg-sky-50 rounded-lg"><Target className="h-5 w-5 text-sky-600" /></div>
                   <div>
                     <p className="text-2xl font-bold text-slate-800">{pipelineStats.total}</p>
                     <p className="text-xs text-slate-500">Total Leads</p>

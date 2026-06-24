@@ -195,11 +195,48 @@ function App() {
           <Route path="/portal/my-assets" element={<MyWorkspace />} />
           <Route path="/portal/my-onboarding" element={<MyWorkspace />} />
           {/* Phase 21 Slice 3 — Marketing Content Studio (Claude Sonnet 4.5) */}
-          <Route path="/admin/marketing/content-studio" element={<MarketingContentStudio />} />
+          <Route path="/admin/marketing/content-studio" element={
+            <RequirePermission anyOf={['marketing.view.all', 'content.view.all', 'campaign.view.all']} allowRoles={['admin_owner', 'admin']}>
+              <MarketingContentStudio />
+            </RequirePermission>
+          } />
           {/* Phase 21 Slice 3 — SEO/AEO/GEO hubs */}
-          <Route path="/admin/marketing/seo" element={<SEOToolsHub />} />
-          <Route path="/admin/marketing/aeo" element={<AEOToolsHub />} />
-          <Route path="/admin/marketing/geo" element={<GEOToolsHub />} />
+          <Route path="/admin/marketing/seo" element={
+            <RequirePermission anyOf={['marketing.view.all', 'content.view.all', 'campaign.view.all']} allowRoles={['admin_owner', 'admin']}>
+              <SEOToolsHub />
+            </RequirePermission>
+          } />
+          <Route path="/admin/marketing/aeo" element={
+            <RequirePermission anyOf={['marketing.view.all', 'content.view.all', 'campaign.view.all']} allowRoles={['admin_owner', 'admin']}>
+              <AEOToolsHub />
+            </RequirePermission>
+          } />
+          <Route path="/admin/marketing/geo" element={
+            <RequirePermission anyOf={['marketing.view.all', 'content.view.all', 'campaign.view.all']} allowRoles={['admin_owner', 'admin']}>
+              <GEOToolsHub />
+            </RequirePermission>
+          } />
+          {/* Phase 21 Slice 3 Sub-Slice B — /portal/marketing/* canonical aliases */}
+          <Route path="/portal/marketing/content-studio" element={
+            <RequirePermission anyOf={['marketing.view.all', 'content.view.all', 'campaign.view.all']} allowRoles={['admin_owner', 'admin']}>
+              <MarketingContentStudio />
+            </RequirePermission>
+          } />
+          <Route path="/portal/marketing/seo" element={
+            <RequirePermission anyOf={['marketing.view.all', 'content.view.all', 'campaign.view.all']} allowRoles={['admin_owner', 'admin']}>
+              <SEOToolsHub />
+            </RequirePermission>
+          } />
+          <Route path="/portal/marketing/aeo" element={
+            <RequirePermission anyOf={['marketing.view.all', 'content.view.all', 'campaign.view.all']} allowRoles={['admin_owner', 'admin']}>
+              <AEOToolsHub />
+            </RequirePermission>
+          } />
+          <Route path="/portal/marketing/geo" element={
+            <RequirePermission anyOf={['marketing.view.all', 'content.view.all', 'campaign.view.all']} allowRoles={['admin_owner', 'admin']}>
+              <GEOToolsHub />
+            </RequirePermission>
+          } />
           {/* Phase 21 Slice 3 — HR Analytics Dashboard */}
           <Route path="/admin/hr/analytics" element={
             <RequirePermission anyOf={['system.view.all', 'hr.user_manage.any', 'leave.view.all']} allowRoles={['admin_owner', 'admin']}>
