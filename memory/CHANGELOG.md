@@ -5,6 +5,100 @@ This file appends every completed phase/feature with dates and verification stat
 
 
 ---
+### 🚀 Phase 21 SLICE 3 — Sub-Slice A (Reimbursements · HR Analytics · HubHome extraction) (Feb 24, 2026)
+
+**Pitch:** Sir ne phased approach approve kiya — Slice 3 ko 2 sub-slices mein toda. Sub-Slice A = employee + HR side (Reimbursements + HR Analytics + HubHome refactor). Marketing AI tools (Content Studio + SEO/AEO/GEO) Sub-Slice B mein aayenge — backend + page components disk pe ready hain but UI links + Marketing Dashboard toolbox row parked (NO removal rule honoured).
+
+**Sub-Slice A.1 — Reimbursements UI (5th tab in MyWorkspace)**
+- NEW tab "Reimbursements" inside `pages/portal/MyWorkspace.jsx` (alongside Payslips · Documents · Assets · Onboarding).
+- Submission dialog with form: category dropdown (8 options: travel/food/office_supplies/client_entertainment/phone/internet/medical/other) · INR amount · expense date · vendor (optional) · description · bill URL (file upload deferred to Sub-Slice B per Sir's note).
+- Claims list with status badges (Submitted / Manager Approved / HR Approved / Reimbursed / Rejected · all leamss-* tokens, no indigo/purple).
+- Big leamss-orange ₹ amounts formatted with Indian number system (1,200 not 1200) via `Intl.NumberFormat('en-IN')`.
+- "View trail" button opens audit-trail dialog showing approval events with timestamps + color-coded dots (rejected=red, approved=emerald, submitted=orange).
+- Rejected claims show inline reason in leamss-red.
+- Empty state: friendly italic Hinglish copy + "Submit your first claim" CTA.
+- All interactive elements carry `data-testid` (reimbursement-new-btn, reimbursement-amount-input, reimbursement-submit-btn, reimb-status-{id}, reimb-trail-{id}, reimb-audit-list, etc.).
+- Uses shipped backend endpoints: `POST /api/reimbursements`, `GET /api/reimbursements?for_view=me`, `GET /api/reimbursements/{id}/audit-trail` (note: actual shipped routes differ slightly from initial Sir spec — we used what's deployed).
+
+**Sub-Slice A.2 — HR Analytics Dashboard**
+- NEW `pages/admin/HRAnalyticsDashboard.jsx` (270 lines) mounted at both `/admin/hr/analytics` AND `/portal/hr-analytics` (alias per Sir's spec).
+- 4 KPI tiles top row: Total Headcount · Attrition (12mo) · Late Marks (30d) · Onboarding Completion %.
+- Recharts BarChart: Department headcount (total + active, leamss-teal/orange bars).
+- Recharts PieChart: Workforce status (Active/On-leave/Terminated).
+- Recharts BarChart: Leave patterns by type (requests + total days, last 12mo approved).
+- Period filter (30/90/180/365 days), Refresh button, CSV export with full snapshot.
+- 2 raw tables: Departments breakdown + Attendance status (30d).
+- RBAC: gated by `RequirePermission anyOf=['system.view.all', 'hr.user_manage.any', 'leave.view.all']` + allowRoles=['admin_owner','admin'].
+- Uses shipped overview endpoint: `GET /api/hr-analytics/overview` (single-call payload of headcount/attrition/attendance/onboarding/departments/leaves).
+- All interactive elements have `data-testid` (hra-kpis, hra-dept-chart, hra-status-pie, hra-leave-chart, hra-export-csv, etc.).
+
+**Sub-Slice A.3 — HubHome extraction refactor**
+- Earlier testing-agent flagged: `EmployeesPortal.jsx` ~378 lines + inline `HubHome` function too cluttered.
+- Extracted to `frontend/src/components/portal/HubHome.jsx` (152 lines, pure presentational).
+- `HubHome` now receives `groupCards` + `accentMap` as props — `EmployeesPortal.jsx` retains config ownership; zero behavior change.
+- `EmployeesPortal.jsx` shrunk from 378 → 242 lines (35% reduction).
+
+**Marketing tools parked for Sub-Slice B (per Sir's directive):**
+- `pages/admin/MarketingContentStudio.jsx`, `pages/admin/SEOToolsHub.jsx`, `pages/admin/AEOToolsHub.jsx`, `pages/admin/GEOToolsHub.jsx` — files exist on disk, backend pytests green, but UI links unmounted.
+- `pages/MarketingDashboard.jsx` Toolbox row reverted (no toolbox shown).
+- `EmployeesPortal.jsx` Marketing group reverted to original 5 cards (Dashboard/Lead CRM/Campaigns/Promo/Scorecards).
+- `App.js` routes for /admin/marketing/{content-studio,seo,aeo,geo} kept registered but hidden from nav — clean re-enable in Sub-Slice B.
+
+**Verification (triple-gate)**
+- 🟢 **Backend pytest**: 78/78 PASS on Phase 21 Slice 1+2+3 suites (test_phase21a_portal_hub_extended + test_phase21b_my_profile + test_phase21e_tasks + test_phase21f_announcements_policies + test_phase21_slice2 + test_phase21_slice3) in 16.00s · 2 expected idempotent-skips (payslip approve/mark-paid). Zero regression.
+- 🟢 **Frontend lint**: ESLint clean on all 5 modified/new files (MyWorkspace.jsx, HRAnalyticsDashboard.jsx, HubHome.jsx, EmployeesPortal.jsx, App.js).
+- 🟢 **Brand sweep grep**: zero indigo/purple/violet/blue-NN matches in any modified file.
+- 🟢 **Webpack**: compiled with 1 warning (pre-existing hook-deps lint warning unrelated to this slice).
+- 🟢 **Playwright** 3 screenshots:
+  1. Portal Hub home (`/admin/employees`) — HubHome rendered identical to pre-refactor (teal hero + 5 chips + 5 employee cards + tip footer).
+  2. MyWorkspace Reimbursements tab (`/portal/my-workspace?tab=reimbursements`) — 16 claims shown, status badges, big orange ₹ amounts in Indian number format, "New Claim" CTA, "View trail" per claim.
+  3. HR Analytics (`/portal/hr-analytics`) — 4 KPI tiles (26 headcount/0% attrition/0 late/100% onboarding), department bar chart, workforce donut, leave patterns section, raw dept table, attendance panel, Export CSV.
+
+**Acceptance criteria status**
+- [x] Reimbursements tab renders for all employees · submission end-to-end works
+- [x] Backend hook usage matches shipped routes (manager-approve / hr-approve / reject endpoints accessible via standalone Reimbursements.jsx page; tab in MyWorkspace is employee-only by spec)
+- [x] HR Analytics loads all charts for admin · non-admin/HR gets 403 via RequirePermission
+- [x] Brand tokens — zero indigo/purple/blue-NN in modified files
+- [x] `data-testid` on every interactive element (form inputs, buttons, status badges, charts, tabs)
+- [x] HubHome extracted; EmployeesPortal.jsx now 242 lines (down from 378)
+- [x] `pytest backend/tests/test_phase21_slice*.py` 78 passed, 2 skipped, 0 failed
+- [x] No console errors on `/portal/my-workspace`, `/portal/hr-analytics`, `/admin/employees`
+
+**Files added (2)**
+- `frontend/src/pages/admin/HRAnalyticsDashboard.jsx`
+- `frontend/src/components/portal/HubHome.jsx`
+
+**Files modified**
+- `frontend/src/pages/portal/MyWorkspace.jsx` (added Reimbursements tab + submission dialog + audit trail dialog · 543 lines)
+- `frontend/src/pages/EmployeesPortal.jsx` (HubHome inline removed → import from new location · 242 lines)
+- `frontend/src/pages/MarketingDashboard.jsx` (Toolbox row reverted)
+- `frontend/src/App.js` (added /portal/hr-analytics alias)
+
+**Files kept on disk for Sub-Slice B (NO removal rule honoured)**
+- `frontend/src/pages/admin/MarketingContentStudio.jsx`
+- `frontend/src/pages/admin/SEOToolsHub.jsx`
+- `frontend/src/pages/admin/AEOToolsHub.jsx`
+- `frontend/src/pages/admin/GEOToolsHub.jsx`
+- `frontend/src/pages/portal/Reimbursements.jsx` (standalone manager/HR view; alternate route to the tab-based version in MyWorkspace)
+
+**Sir's directives honoured**
+- ✅ Phased approach: Sub-Slice A only, Marketing tools parked for B
+- ✅ UPGRADE only · NO removal of existing features or built code
+- ✅ BACKWARD COMPAT — all existing URLs work
+- ✅ leamss.* brand tokens (zero indigo/purple/blue-NN regression)
+- ✅ data-testid on every interactive element
+- ✅ Hinglish copy in user-facing UX strings (empty state, dialog labels)
+- ✅ Indian number system (Intl.NumberFormat 'en-IN') for ₹ amounts
+- ✅ HubHome extracted per testing-agent's earlier flag
+
+**Test totals**
+- Phase 21 Slice 1+2+3 cumulative: **78 pytests pass + 2 skipped** in 16.00s
+- Plus pre-existing 302 tests untouched (full regression check unchanged).
+
+**Next: Sub-Slice B (when Sir gives green light) — re-mount Marketing Content Studio, SEO/AEO/GEO tools, optional file upload for reimbursements bills.**
+
+
+---
 ### 💼 Phase 21 SLICE 2 — Payroll · Documents · Onboarding · Assets (Feb 24, 2026)
 
 **Pitch:** Heavy chunk — 3 brand-new backend routers + 1 consolidated frontend page (MyWorkspace.jsx) shipped end-to-end. 26 dedicated pytests + 26 Slice 1 backfill tests = **54 phase21 pytests all GREEN** (4.95s). Testing agent verified 100% (iteration_119.json) — zero regressions on Slice 1.

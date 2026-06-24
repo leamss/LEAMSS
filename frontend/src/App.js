@@ -23,6 +23,11 @@ import Tasks from '@/pages/portal/Tasks';
 import AnnouncementsPolicies from '@/pages/portal/AnnouncementsPolicies';
 import MyWorkspace from '@/pages/portal/MyWorkspace';
 import MarketingContentStudio from '@/pages/admin/MarketingContentStudio';
+import HRAnalyticsDashboard from '@/pages/admin/HRAnalyticsDashboard';
+import SEOToolsHub from '@/pages/admin/SEOToolsHub';
+import AEOToolsHub from '@/pages/admin/AEOToolsHub';
+import GEOToolsHub from '@/pages/admin/GEOToolsHub';
+import Reimbursements from '@/pages/portal/Reimbursements';
 import PortalWelcome from '@/pages/PortalWelcome';
 import ForgotPassword from '@/pages/ForgotPassword';
 import ResetPasswordWithToken from '@/pages/ResetPasswordWithToken';
@@ -191,6 +196,26 @@ function App() {
           <Route path="/portal/my-onboarding" element={<MyWorkspace />} />
           {/* Phase 21 Slice 3 — Marketing Content Studio (Claude Sonnet 4.5) */}
           <Route path="/admin/marketing/content-studio" element={<MarketingContentStudio />} />
+          {/* Phase 21 Slice 3 — SEO/AEO/GEO hubs */}
+          <Route path="/admin/marketing/seo" element={<SEOToolsHub />} />
+          <Route path="/admin/marketing/aeo" element={<AEOToolsHub />} />
+          <Route path="/admin/marketing/geo" element={<GEOToolsHub />} />
+          {/* Phase 21 Slice 3 — HR Analytics Dashboard */}
+          <Route path="/admin/hr/analytics" element={
+            <RequirePermission anyOf={['system.view.all', 'hr.user_manage.any', 'leave.view.all']} allowRoles={['admin_owner', 'admin']}>
+              <HRAnalyticsDashboard />
+            </RequirePermission>
+          } />
+          {/* Phase 21 Slice 3 Sub-Slice A — /portal/hr-analytics alias */}
+          <Route path="/portal/hr-analytics" element={
+            <RequirePermission anyOf={['system.view.all', 'hr.user_manage.any', 'leave.view.all']} allowRoles={['admin_owner', 'admin']}>
+              <HRAnalyticsDashboard />
+            </RequirePermission>
+          } />
+          {/* Phase 21 Slice 3 — Reimbursements */}
+          <Route path="/portal/my-reimbursements" element={<Reimbursements view="me" />} />
+          <Route path="/admin/reimbursements/pending" element={<Reimbursements view="team" />} />
+          <Route path="/admin/reimbursements/all" element={<Reimbursements view="all" />} />
           <Route path="/portal/welcome" element={<PortalWelcome />} />
           <Route path="/portal/attendance" element={<MyAttendance />} />
           <Route path="/portal/leaves" element={<MyLeaves />} />
