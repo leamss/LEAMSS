@@ -17,7 +17,7 @@ import WorkflowBuilder from '@/pages/WorkflowBuilder';
 import AIWorkflowBuilder from '@/pages/AIWorkflowBuilder';
 import MarketingDashboard from '@/pages/MarketingDashboard';
 import EmployeesPortal from '@/pages/EmployeesPortal';
-import PortalHub from '@/pages/admin/PortalHub';
+// Phase 21.A-fix — PortalHub merged into EmployeesPortal; keep alias route for backward-compat
 import MyProfile from '@/pages/portal/MyProfile';
 import Tasks from '@/pages/portal/Tasks';
 import AnnouncementsPolicies from '@/pages/portal/AnnouncementsPolicies';
@@ -169,8 +169,8 @@ function App() {
               <EmployeesPortal />
             </RequirePermission>
           } />
-          {/* Phase 21.A — Unified Portal Hub landing */}
-          <Route path="/admin/portal-hub" element={<PortalHub />} />
+          {/* Phase 21.A — Unified Portal Hub merged INTO EmployeesPortal; this alias redirects */}
+          <Route path="/admin/portal-hub" element={<Navigate to="/admin/employees" replace />} />
           {/* Phase 21.B — Employee self-service profile */}
           <Route path="/portal/my-profile" element={<MyProfile />} />
           {/* Phase 21.E — Tasks (Kanban) */}

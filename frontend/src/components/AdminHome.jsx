@@ -97,13 +97,13 @@ export default function AdminHome({ user, onNavigate }) {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button onClick={() => navigate('/admin/employees')} variant="outline" className="border-white/30 text-white hover:bg-white/10" data-testid="goto-employees-portal-btn">
-              <UsersRound className="h-4 w-4 mr-1.5" /> Employee Portal
+            <Button onClick={() => navigate('/admin/employees')} className="bg-[#f7620b] hover:bg-[#e55a09] shadow-lg" data-testid="goto-employees-portal-btn">
+              <UsersRound className="h-4 w-4 mr-1.5" /> Portal Hub
             </Button>
             <Button onClick={() => onNavigate?.('users')} variant="outline" className="border-white/30 text-white hover:bg-white/10">
               <Users className="h-4 w-4 mr-1.5" /> Users
             </Button>
-            <Button onClick={() => onNavigate?.('dashboard')} className="bg-[#f7620b] hover:bg-[#e55a09] shadow-lg">
+            <Button onClick={() => onNavigate?.('dashboard')} variant="outline" className="border-white/30 text-white hover:bg-white/10">
               <TrendingUp className="h-4 w-4 mr-1.5" /> Classic Dashboard
             </Button>
           </div>

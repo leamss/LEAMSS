@@ -1,0 +1,40 @@
+{
+  "summary": "Phase 21 Portal Hub merge into EmployeesPortal — VERIFIED. All 3 bug fixes pass: (1) /admin/employees lands on unified Hub Home with data-testid='portal-hub' + hero + 5 chips + card grid, NOT the old EmployeesDashboard. (2) /admin/portal-hub redirects (client-side) to /admin/employees and renders the hub. (3) AdminHome's orange 'Portal Hub' CTA (data-testid='goto-employees-portal-btn') navigates to /admin/employees and shows hub. All 5 employee sidebar regressions (Dashboard, Departments, All Employees, Org Chart, Add Employee 3-step form) load correctly via Hub cards. All 5 chips (employees/hr/marketing/it/me) render the right card counts (5/5/5/3/7). All 6 cross-route card navigations (HR Settings, Marketing Dashboard, My Profile, My Tasks, Announcements, Policies) navigate to their existing pages successfully. Backend GET /api/admin/portal-hub/stats returns 200 with all 5 group keys; 4/4 pytest tests pass.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/admin/portal-hub/stats", "issue": "Backend computes `my_unread_announcements` (line 90) but does NOT include it in the response dict (lines 113-116). Frontend reads `stats.me.unread_announcements` (defaults to 0 with || 0 so non-fatal). Either remove the unused query or add the field to response."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Add Employee form (step 1)", "issues": ["Date of Birth uses native browser <input type=date> picker instead of a shadcn calendar component — minor consistency issue (pre-existing, not introduced by this fix)."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_phase21_portal_hub.py",
+    "/app/test_reports/pytest/phase21_portal_hub.xml"
+  ],
+  "action_items": [
+    "(Optional/minor) Add `my_unread_announcements` key under `me` in portal_hub.py response, OR remove the unused count_documents call. No functional impact today.",
+    "(Optional, pre-existing) Replace native date picker with shadcn Calendar component for consistency in Add Employee Step 1 — out of scope for this slice."
+  ],
+  "critical_code_review_comments": [
+    "EmployeesPortal.jsx is now ~378 lines including embedded HubHome subcomponent + GROUP_CARDS + ACCENT_MAP constants. Approaching upper limit — consider extracting HubHome to /app/frontend/src/components/portal/HubHome.jsx and GROUP_CARDS config to a separate file if more features are added.",
+    "The 'IT' group cards are all marked `soon: true` (correctly disabled with opacity-60 + cursor-not-allowed). Good UX.",
+    "Frontend `stats.me.unread_announcements` reads a key the backend never returns — code defaults to 0 safely but creates a silent mismatch. See backend minor issue above.",
+    "data-testid coverage is excellent: portal-hub, portal-hub-hero, portal-hub-chips, portal-hub-chip-{key}, portal-hub-group-{key}, portal-hub-cards-{key}, portal-hub-card-{group}-{id} all present. Good testability."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_phase21_portal_hub.py (new)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "admin@leamss.com / Admin@123 (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "None — used existing seeded admin + existing employees/policies data.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Phase 21 Portal Hub now embedded inside EmployeesPortal at /admin/employees as default tab 'hub-home'. /admin/portal-hub redirects via client-side <Navigate>. Sidebar groups: Portal Hub → Employees → Jump To → Back to Main. All Slice 1 portal pages (/portal/my-profile, /portal/my-tasks, /portal/announcements, /portal/policies) verified loading from Me chip cards. Backend stats endpoint at /api/admin/portal-hub/stats stable. SSE notifications stream causes Playwright `networkidle` waits to hang — always use `domcontentloaded` for navigation waits in this app.",
+  "rca of the issue": "N/A — this iteration validates a fix; no new bug found. The only RCA-worthy finding is a tiny backend↔frontend key mismatch (`my_unread_announcements` vs `unread_announcements`) that is silently masked by JS `|| 0` fallback."
+}
