@@ -5,6 +5,116 @@ This file appends every completed phase/feature with dates and verification stat
 
 
 ---
+### 🚀 Phase 21 SLICE 4 — Sub-Slice A (IT Productivity: Site Audit + Dev Tracker) (Feb 25, 2026)
+
+**Pitch:** Sir ne Sub-Slice A scope explicitly approve karke `e1_tester` 4/4 PASS hone ke baad GO de diya. Slice 4 ko 3 sub-slices mein chalayenge — Sub-Slice A = IT productivity tools, B = Chat + Tickets, C = mobile polish. Aaj Sub-Slice A complete.
+
+**A.0 — Carryover fix (Leave seed `num_days` field)**
+`e1_tester` ne Slice 3 backlog mein notice kiya tha ki Leave Patterns chart `total_days: 0` show kar raha tha (despite request_count: 8). Root cause: HR Analytics `/leave-patterns` aggregates `$sum: "$num_days"` but seed script wrote only `total_days`/`working_days`. Fixed by adding `num_days` to the seed payload. Re-ran script: `total_days` now correctly shows **earned=26, casual=11, sick=10**. Idempotency preserved.
+
+**A.1 — IT Site Audit Hub** (new feature)
+
+Backend (`backend/routers/site_audit.py`, 250 lines):
+- `POST /api/site-audit/run` — accepts `{scope: "atlas"|"start"|"all", sample_size: 1-25}`. Returns `run_id` immediately; audit runs as `asyncio.create_task` in background.
+- `GET /api/site-audit/runs` — list recent runs (without page details).
+- `GET /api/site-audit/runs/{run_id}` — full report with per-page check results.
+- Storage: `site_audit_runs` collection with `expires_at` (90 days TTL).
+- **5 audit checks** per page:
+  1. **Meta tags** — title, description, og:title, og:description, twitter:card
+  2. **JSON-LD validity** — parses `<script type="application/ld+json">` blocks; expects BreadcrumbList + FAQPage on Atlas, Organization + WebSite on /start
+  3. **H1/H2 hierarchy** — exactly one H1, H2 nested presence
+  4. **Image alt coverage** — % of `<img>` tags with non-empty alt (PASS ≥95%, WARN ≥80%, FAIL <80%)
+  5. **Internal link health** — samples 5 internal `<a href="/...">` and HEAD-checks via httpx (PASS if 0 broken, WARN if ≤20% broken, FAIL otherwise)
+- Atlas pages read from on-disk `/app/frontend/public/atlas/*.html` (SSG output); `/start` live-fetched via httpx against `REACT_APP_BACKEND_URL`.
+- **Production safety**: max 1 concurrent run per user (409 Conflict), max 10 runs / 24h / workspace (429 Too Many Requests).
+- RBAC: `require_any_permission("it.view.all", "system.view.all", _legacy_role="admin")`.
+
+Frontend (`frontend/src/pages/it/SiteAuditHub.jsx`, 270 lines):
+- Header bar: scope select (All surfaces / Atlas pages / /start funnel), sample size selector (3/5/10/20), Refresh, "Run audit" (teal CTA with spinner during kickoff).
+- Runs table: each row shows status pill (running animated / complete / failed), scope badge, sample size, started by, started_at, PASS/WARN/FAIL summary chips (emerald / leamss-orange / leamss-red).
+- Detail dialog: per-page card showing all 5 checks with PASS/WARN/FAIL chips + issues list + check-specific extras (image alt coverage %, found JSON-LD types, broken links with status codes).
+- **Auto-polling**: while any run shows `running`, list refetches every 4 seconds; stops once all complete.
+- 409/429 toast warnings (concurrency + daily cap) instead of generic error.
+- All elements have `data-testid` (audit-run-btn, audit-scope, audit-sample, audit-detail-dialog, check-{key}-{idx}, etc.).
+
+**A.2 — Dev Tracker** (new feature)
+
+Backend (`backend/routers/dev_tracker.py`, 230 lines):
+- Collection: `dev_tracker_items` with title, description, type (bug/feature/chore), priority (P0/P1/P2/P3), status (backlog/in_progress/in_review/done), assignee, reporter, labels[], linked_employee_id, comments[], audit_log[].
+- `GET /api/dev-tracker/items` with filters: status, priority, type, assignee_id, label, q (title regex). Non-IT users see only items they reported / are assigned / linked to; IT/admin see everything.
+- `POST /api/dev-tracker/items` — create. Auto-validates type/priority/status enums; dedupes + caps labels at 10.
+- `GET /api/dev-tracker/items/{id}` — detail with full comments + audit_log.
+- `PATCH /api/dev-tracker/items/{id}` — partial update. **Records audit_log event for every changed field** (`updated_status`, `updated_priority`, `updated_assignee_id`, etc.) with from→to delta. Edit gated to reporter/assignee OR IT/admin.
+- `POST /api/dev-tracker/items/{id}/comments` — append comment + increment `comment_count` + audit log `commented` event.
+- `GET /api/dev-tracker/stats` — rollup `{total, by_status: {backlog, in_progress, in_review, done}}` (scoped to user's visible items).
+
+Frontend (`frontend/src/pages/it/DevTrackerHub.jsx`, 310 lines):
+- **Kanban board** with 4 columns (Backlog / In Progress / In Review / Done) — column header colour-coded with leamss tokens (slate / leamss-teal / leamss-orange / emerald).
+- **Click-to-move buttons** (◀ ▶) instead of drag-and-drop library — works perfectly on mobile (Sub-Slice C will polish further), zero new dependencies. Each card has left/right buttons that disable at column edges.
+- Card UX: type icon (Bug/Sparkles/Wrench), priority chip (P0 leamss-red / P1 leamss-orange / P2 leamss-teal / P3 sky), title click → detail dialog, label chips (sky bg), assignee preview, comment count badge.
+- Top filter bar: search input (regex), type filter, priority filter, "New" CTA.
+- New-item dialog: title + description + type + priority + comma-separated labels.
+- Detail dialog: full description (whitespace-preserved, no react-markdown dep), 3-column meta (reporter/assignee/created), **threaded comments with form** (Enter-to-submit), collapsible audit log with timestamp dots.
+- All elements have `data-testid` (dev-new-btn, dev-title-input, dev-card-{id}, dev-move-left-{id}, dev-move-right-{id}, dev-comment-input, etc.).
+
+**A.3 — Hub Surface Updates**
+- `EmployeesPortal.jsx` IT group now has 3 cards (was all "Coming Soon"):
+  - **Site Audit** → `/portal/it/site-audit` (live)
+  - **Dev Tracker** → `/portal/it/dev-tracker` (live)
+  - **SEO Health Monitor** (still Coming Soon, reserved for Sub-Slice B/C)
+- Group description updated: "Website audit, dev tracker, internal engineering tools."
+
+**Routes mounted (App.js)**
+- `/portal/it/site-audit` + backward-compat `/admin/it/site-audit` (RBAC: it/admin)
+- `/portal/it/dev-tracker` + backward-compat `/admin/it/dev-tracker` (RBAC: it/admin + employee/staff/case_manager/partner — anyone logged in can report items)
+
+**Verification (triple-gate ✓)**
+- 🟢 **Backend pytest**: **11/11 new Slice 4A tests PASS** in 2.91s (Site Audit: 5 — kickoff/bad-scope/list/detail-completes/concurrency-guard; Dev Tracker: 6 — create-get/invalid-enum/patch-audit/comments/list-filter/stats). Phase 21 Slice 1+2+3+backlog+4A cumulative: **68 passed, 2 skipped, 0 failed** in 15.76s. Pre-existing `test_content_cache_idempotency` flake (excluded per Sir's note).
+- 🟢 **Frontend lint** clean on both new pages.
+- 🟢 **Brand grep**: 0 indigo/purple/violet/blue-NN matches across `pages/it/SiteAuditHub.jsx` + `pages/it/DevTrackerHub.jsx`.
+- 🟢 **Live integration**: Site Audit ran against real Atlas SSG pages — backend logs show `GET http://localhost:3000/atlas/ "HTTP/1.1 200 OK"`, `GET http://localhost:3000/start "HTTP/1.1 200 OK"`, etc. (httpx fetching working end-to-end).
+- 🟢 **Playwright** 2 screenshots:
+  1. **Dev Tracker kanban** — 4 columns (Backlog 4 · In Progress 3 · In Review 1 · Done 1), 9 items spanning all priorities (P0 red blocker + P1 orange + P2 teal + P3 sky), label chips (frontend/mobile/ux/security/seo/atlas/blocker), comment badges, move buttons.
+  2. **Site Audit** — 5 audit runs (1 running + 4 complete) with PASS/WARN/FAIL summary chips visible (PASS 12 · WARN 1 · FAIL 2 / 15 — Sir's "2 PASS + 1 WARN/FAIL visible" criterion satisfied). "Audit started — ae833ed3" toast confirms live kickoff.
+
+**Acceptance criteria status**
+- [x] `pytest backend/tests/ -v` 68 pass + 2 skipped on Slice 1-3-backlog-4A suites
+- [x] Site Audit run produces real report with at least 2 checks PASS + 1 WARN/FAIL — screenshot shows PASS 12 · WARN 1 · FAIL 2
+- [x] 9 Dev Tracker items span all 4 statuses, kanban screenshot captured
+- [x] Brand grep clean on changed files
+- [x] Audit trail on every dev-tracker mutation (status/priority/labels/assignee + commented + created)
+- [x] Production safety: site-audit rate-limited (max 1 concurrent/user, 10/day/workspace)
+- [x] Routes mounted at canonical `/portal/it/*` + backward-compat `/admin/it/*`
+- [x] CHANGELOG.md updated
+
+**Files modified (3)**
+- `backend/server.py` (+2 router imports + include)
+- `backend/scripts/seed_leave_demo_data.py` (added `num_days` field — A.0 carryover fix)
+- `frontend/src/App.js` (+4 routes with RBAC)
+- `frontend/src/pages/EmployeesPortal.jsx` (IT group 3 cards wired)
+
+**Files created (4)**
+- `backend/routers/site_audit.py` (250 lines)
+- `backend/routers/dev_tracker.py` (230 lines)
+- `frontend/src/pages/it/SiteAuditHub.jsx` (270 lines)
+- `frontend/src/pages/it/DevTrackerHub.jsx` (310 lines)
+- `backend/tests/test_phase21_slice4a.py` (11 tests, requests-based to match suite style)
+
+**Sir's directives honoured**
+- ✅ UPGRADE only · NO removal of Slice 1/2/3 artifacts
+- ✅ BACKWARD COMPAT — both `/admin/it/*` and `/portal/it/*` routes work
+- ✅ leamss.* brand tokens (incl. leamss-sky allowed for labels per Sir's spec)
+- ✅ `data-testid` on every interactive element (cards, buttons, inputs, drag-handles)
+- ✅ Hinglish copy in empty state ("Koi audit run abhi tak nahi hua hai", "Audit chal raha hai…")
+- ✅ Audit trail on every dev-tracker mutation
+- ✅ Production safety: rate-limiting on Site Audit (concurrency + daily cap)
+- ✅ Sub-Slice B/C scope NOT touched (Chat/Tickets + mobile polish reserved)
+- ✅ No new heavy dependencies added (skipped @hello-pangea/dnd in favour of click-to-move buttons — cleaner mobile UX too)
+
+**Sub-Slice A complete. Ready for `e1_tester` then Sub-Slice B dispatch.**
+
+
+---
 ### 🧹 Phase 21 Pre-Slice-4 Backlog Cleanup (Feb 25, 2026)
 
 **Pitch:** Sub-Slice A + B verify hone ke baad Sir ne 2 deferred items + 1 demo-quality gap close karne ko bola — bill upload + leave seed.

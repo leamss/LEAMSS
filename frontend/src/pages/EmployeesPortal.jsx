@@ -85,11 +85,11 @@ const GROUP_CARDS = {
     label: 'IT',
     accent: 'slate',
     icon: Server,
-    description: 'Website audit, SEO monitor, dev tasks (Slice 4 — coming soon).',
+    description: 'Website audit, dev tracker, internal engineering tools.',
     cards: [
-      { id: 'it-site-audit', icon: Globe, title: 'Website Audit', desc: 'Broken links, missing alt, perf', soon: true },
+      { id: 'it-site-audit', icon: Globe, title: 'Site Audit', desc: 'Meta · JSON-LD · H-hierarchy · alt · link health', route: '/portal/it/site-audit' },
+      { id: 'it-dev-tracker', icon: CheckSquare, title: 'Dev Tracker', desc: 'Bugs · features · chores kanban', route: '/portal/it/dev-tracker' },
       { id: 'it-seo-health', icon: Search, title: 'SEO Health Monitor', desc: 'Lighthouse + AEO/GEO scoring', soon: true },
-      { id: 'it-dev-tasks', icon: CheckSquare, title: 'Dev Task Tracker', desc: 'Engineering kanban', soon: true },
     ],
   },
   me: {

@@ -108,6 +108,7 @@ async def _upsert_leave(emp: dict, type_key: str, day_offset: int, total_days: i
         "to_date": to_dt.isoformat(),
         "total_days": total_days,
         "working_days": total_days,
+        "num_days": total_days,  # HR Analytics leave-patterns aggregates by this exact field name
         "is_sandwich": False,
         "weekend_included": False,
         "counted_dates": [(from_dt + timedelta(days=i)).isoformat() for i in range(total_days)],

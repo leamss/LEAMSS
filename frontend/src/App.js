@@ -28,6 +28,8 @@ import SEOToolsHub from '@/pages/admin/SEOToolsHub';
 import AEOToolsHub from '@/pages/admin/AEOToolsHub';
 import GEOToolsHub from '@/pages/admin/GEOToolsHub';
 import Reimbursements from '@/pages/portal/Reimbursements';
+import SiteAuditHub from '@/pages/it/SiteAuditHub';
+import DevTrackerHub from '@/pages/it/DevTrackerHub';
 import PortalWelcome from '@/pages/PortalWelcome';
 import ForgotPassword from '@/pages/ForgotPassword';
 import ResetPasswordWithToken from '@/pages/ResetPasswordWithToken';
@@ -247,6 +249,27 @@ function App() {
           <Route path="/portal/hr-analytics" element={
             <RequirePermission anyOf={['system.view.all', 'hr.user_manage.any', 'leave.view.all']} allowRoles={['admin_owner', 'admin']}>
               <HRAnalyticsDashboard />
+            </RequirePermission>
+          } />
+          {/* Phase 21 Slice 4 Sub-Slice A — IT Site Audit + Dev Tracker */}
+          <Route path="/portal/it/site-audit" element={
+            <RequirePermission anyOf={['it.view.all', 'system.view.all']} allowRoles={['admin_owner', 'admin', 'it']}>
+              <SiteAuditHub />
+            </RequirePermission>
+          } />
+          <Route path="/admin/it/site-audit" element={
+            <RequirePermission anyOf={['it.view.all', 'system.view.all']} allowRoles={['admin_owner', 'admin', 'it']}>
+              <SiteAuditHub />
+            </RequirePermission>
+          } />
+          <Route path="/portal/it/dev-tracker" element={
+            <RequirePermission anyOf={['it.view.all', 'system.view.all']} allowRoles={['admin_owner', 'admin', 'it', 'staff', 'employee', 'case_manager', 'partner']}>
+              <DevTrackerHub />
+            </RequirePermission>
+          } />
+          <Route path="/admin/it/dev-tracker" element={
+            <RequirePermission anyOf={['it.view.all', 'system.view.all']} allowRoles={['admin_owner', 'admin', 'it', 'staff', 'employee', 'case_manager', 'partner']}>
+              <DevTrackerHub />
             </RequirePermission>
           } />
           {/* Phase 21 Slice 3 — Reimbursements */}
