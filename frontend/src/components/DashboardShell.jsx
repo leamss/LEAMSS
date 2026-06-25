@@ -317,7 +317,7 @@ const DashboardShell = ({
                     <ArrowLeft className="h-4 w-4" />
                   </Button>
                 )}
-                <h2 className="text-lg font-bold text-gray-900 dark:text-white tracking-tight" data-testid="page-title">{tl(pageTitle)}</h2>
+                <h2 className="text-sm sm:text-lg font-bold text-gray-900 dark:text-white tracking-tight truncate max-w-[120px] sm:max-w-none" data-testid="page-title">{tl(pageTitle)}</h2>
               </div>
               <div className="flex items-center gap-2">
                 {headerActions}

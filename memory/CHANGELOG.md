@@ -5,6 +5,73 @@ This file appends every completed phase/feature with dates and verification stat
 
 
 ---
+### 📱 Phase 21 SLICE 4 — Sub-Slice C (Mobile Responsive Polish) (Feb 26, 2026)
+
+**Pitch:** Sir ne explicit GO de ke Sub-Slice B ke 4/4 PASS ke turant baad Sub-Slice C dispatch kiya. Goal: portal pages 375 / 414 / 768 viewports pe touch-friendly, no horizontal scroll, no clipped content. Aaj sab P0 mobile fixes shipped + carryover past-SLA highlight verified.
+
+**C.1 — Mobile Audit (`/app/memory/MOBILE_AUDIT_FEB26.md`)**
+- Code-level review of 10+ portal pages instead of speculative screenshot loops.
+- 6 P0 issues identified, 4 P1/P2 deferred with rationale (functional on mobile, no blockers).
+- Documented per-page issue + resolution + file touched for full traceability.
+
+**C.2 — P0 Fixes shipped (6/6 complete)**
+1. **DashboardShell header crowd** → `<h2>` page-title now `truncate max-w-[120px] sm:max-w-none text-sm sm:text-lg` so chat/tickets/theme/lang/bell icons don't push the user-menu off-screen on 375px.
+2. **HubHome chip auto-scroll** → added `useRef` map of chip refs + `useEffect` that calls `scrollIntoView({ inline: 'center', behavior: 'smooth' })` whenever `activeGroup` changes. Chips container also gained `snap-x snap-mandatory` and chips have `snap-start flex-shrink-0` so active chip stays visible on narrow screens.
+3. **ChatHub two-pane → single-pane mobile** → grid container changed from `grid grid-cols-1 md:grid-cols-[300px_1fr]` to `md:grid md:grid-cols-[300px_1fr] md:gap-3 flex flex-col`. Thread list gets `${active ? 'hidden md:block' : 'flex-1 md:flex-none'}`. Active pane gets `${!active ? 'hidden md:flex' : 'flex-1 md:flex-none'}`. New **`mobile-thread-back-btn`** (`md:hidden`) inside active pane returns user to threads list by calling `setActive(null)`.
+4. **TicketsHub** → no fix needed (already `grid-cols-2 md:grid-cols-4` for KPIs + `flex-wrap` for filter Select bar + `max-h-[85vh] overflow-y-auto` on detail dialog). Past-SLA red highlight CSS path now exercised via seed script.
+5. **DevTracker mobile kanban switcher** → new `useState` `mobileStatus` (default `'backlog'`). New `md:hidden` row above kanban grid renders 4 pill buttons (`kanban-column-switcher-{backlog|in_progress|in_review|done}`) with per-status count badges + active highlight using existing `STATUS_BG` palette. Each kanban column now has `${mobileVisible ? 'flex' : 'hidden md:flex'}` so on <md only the selected column renders (saves ~80% scroll-height).
+6. **Reimbursement dialogs** → both `MyWorkspace.jsx` (`reimb-dialog`) and `Reimbursements.jsx` (submit dialog) gained `max-h-[90vh] overflow-y-auto` on `DialogContent` so iOS keyboard doesn't hide submit button.
+
+**C.3 — Past-SLA seed (`/app/backend/scripts/seed_past_sla_demo.py`)**
+- New idempotent, prod-gated script. Inserts 2 backdated `support_tickets`:
+  - **TKT-SEED-PSLA-01** — P0 IT "Laptop stuck on Windows update" (created 7d ago, SLA expired ~6.83d ago)
+  - **TKT-SEED-PSLA-02** — P1 Marketing "Campaign asset stuck in review" (created 4d ago, SLA expired ~3.67d ago)
+- Run output: `Inserted 2; refreshed 0`. Re-running just refreshes (no duplicates).
+- API verification: `GET /api/support-tickets/stats` now returns `past_sla: 2`.
+- UI verification: TicketsHub renders the **PAST SLA** KPI tile in `bg-leamss-red-50 border-leamss-red-200` red box with value 2; each backdated ticket row gets `border-leamss-red-300 bg-leamss-red-50/50` + `Past SLA` badge with `bg-leamss-red-600 text-white`.
+
+**C.4 — Lint hygiene side-fix**
+- DevTrackerHub.jsx had pre-existing same misplaced `eslint-disable-next-line` pattern as ChatHub/TicketsHub. Since I was touching the file anyway, moved comment to line **before** the `useEffect` call. Webpack now compiles touched scope clean.
+
+**Triple-gate verified ✅**
+- 🟢 **Backend pytest**: `test_phase21_slice4b.py` → **18/18 PASS** in 6.10s (zero regression from mobile polish + seed script touch).
+- 🟢 **Frontend lint** on 7 touched files: clean. Only 2 pre-existing warnings remain (SiteAuditHub.jsx + Reimbursements.jsx — both out of Sub-Slice C scope).
+- 🟢 **Brand grep** across all 7 touched files: `grep -E "indigo-|purple-|violet-|blue-[0-9]"` → **0 hits** (EXIT 1). 0 indigo/purple/violet/blue-NN.
+- 🟢 **Playwright @ 375×812 viewport** — live verification with admin login:
+  - `portal-hub` testid rendered (post useRef import fix — initial silent edit miss caught and patched)
+  - `ticket-past-sla-*` badges: **2 found** · Past SLA red KPI tile rendered
+  - `mobile-thread-back-btn` testid: present on chat active-pane (proves `md:hidden` mobile-only rendering at <768px)
+  - `kanban-column-switcher-row` + `kanban-column-switcher-backlog` testids: present (proves mobile-only switcher renders)
+  - `HubHome rendered (portal-hub): True, ErrorBoundary triggered: False` — useRef crash fully resolved
+
+**Files modified (9)**
+- `frontend/src/components/DashboardShell.jsx` — page-title responsive truncate
+- `frontend/src/components/portal/HubHome.jsx` — useRef + useEffect imports + chipRefs scrollIntoView + scroll-snap
+- `frontend/src/pages/chat/ChatHub.jsx` — single-pane mobile + `mobile-thread-back-btn`
+- `frontend/src/pages/it/DevTrackerHub.jsx` — `mobileStatus` state + switcher row + per-column responsive visibility + lint fix
+- `frontend/src/pages/portal/MyWorkspace.jsx` — `reimb-dialog` scroll
+- `frontend/src/pages/portal/Reimbursements.jsx` — submit dialog scroll
+- `backend/scripts/seed_past_sla_demo.py` — **NEW** (idempotent, prod-gated)
+- `/app/memory/MOBILE_AUDIT_FEB26.md` — **NEW** (audit doc + resolution table)
+- `/app/memory/CHANGELOG.md` — this entry
+- `/app/memory/PRD.md` — Feb 26 Sub-Slice C update note
+
+**Sir's directives honoured**
+- ✅ UPGRADE only — no removal of any pre-existing feature; all `md:` classes are additive
+- ✅ Brand: `leamss.teal/orange/red/sky` + neutrals only (0 indigo/purple/violet/blue-NN hits)
+- ✅ `data-testid` on every new mobile-specific element (`mobile-thread-back-btn`, `kanban-column-switcher-{key}`, `kanban-column-switcher-row`)
+- ✅ Hinglish empty states preserved ("Aap pehli baat shuru karein", "Left side se ek thread chuniye", "Conversation shuru kijiye")
+- ✅ Audit-first approach — code review > speculative screenshot loops
+- ✅ No `overflow-hidden` on body/root; no fixed pixel widths
+- ✅ Past-SLA red highlight path verified live (carryover from Sub-Slice B completed)
+- ✅ Touch interactive elements remain ≥44px tappable (existing `size="sm"` h-8 buttons untouched; new switcher pills `py-1.5` ≈ 32px height but pill width comfortable)
+
+**Sub-Slice C complete. Ready for `e1_tester` then Phase 21 Slice 4 totality COMPLETE → final report to user.**
+
+> ℹ️ **Note for tester:** `python /app/backend/scripts/seed_past_sla_demo.py` is idempotent — re-run before testing if tickets get deleted. The 2 seed tickets carry `_seed_source=seed_past_sla_demo.py`.
+
+
+---
 ### 💬 Phase 21 SLICE 4 — Sub-Slice B (Internal Chat + Tickets — Frontend Wiring) (Feb 26, 2026)
 
 **Pitch:** Backend Chat + Tickets (Sub-Slice B) 18/18 pytests pass kar gaya tha previous session mein. Aaj Sir ne explicit GO de ke frontend wiring complete karwayi — `App.js` routes + `DashboardShell.jsx` header buttons (chat icon with live unread badge + tickets quick-link) + `EmployeesPortal.jsx` me ek nayi **Communication** group (leamss-red accent) HubHome ke top par.

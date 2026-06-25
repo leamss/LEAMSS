@@ -53,6 +53,8 @@ export default function DevTrackerHub() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({ q: '', type: '', priority: '' });
+  // Mobile-only: which kanban column is currently visible on <md viewports
+  const [mobileStatus, setMobileStatus] = useState('backlog');
   const [newOpen, setNewOpen] = useState(false);
   const [form, setForm] = useState({
     title: '', description: '', type: 'bug', priority: 'P2', labels: '',
@@ -77,7 +79,8 @@ export default function DevTrackerHub() {
     // eslint-disable-next-line
   }, [filters]);
 
-  useEffect(() => { if (!token) { navigate('/'); return; } load(); /* eslint-disable-next-line */ }, [filters]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!token) { navigate('/'); return; } load(); }, [filters]);
 
   const createItem = async () => {
     if (!form.title.trim()) { toast.error('Title required'); return; }
@@ -191,11 +194,34 @@ export default function DevTrackerHub() {
 
       <div className="max-w-7xl mx-auto px-4 md:px-6 py-5">
         {loading && <p className="text-sm text-slate-500">Loading…</p>}
+        {/* Mobile-only status switcher — pick which kanban column to view at <md */}
+        <div className="md:hidden flex gap-1.5 overflow-x-auto pb-2 mb-3" data-testid="kanban-column-switcher-row">
+          {STATUSES.map(s => {
+            const count = byStatus(s.key).length;
+            const isActive = mobileStatus === s.key;
+            return (
+              <button
+                key={s.key}
+                onClick={() => setMobileStatus(s.key)}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border transition-all ${
+                  isActive
+                    ? `${STATUS_BG[s.accent]} border-current shadow-sm`
+                    : 'bg-white text-slate-500 border-slate-200'
+                }`}
+                data-testid={`kanban-column-switcher-${s.key}`}
+              >
+                {s.label} <span className="ml-1 text-[10px] opacity-70">({count})</span>
+              </button>
+            );
+          })}
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3" data-testid="dev-kanban">
           {STATUSES.map(s => {
             const cards = byStatus(s.key);
+            // On mobile, only render the selected column
+            const mobileVisible = mobileStatus === s.key;
             return (
-              <div key={s.key} className="flex flex-col">
+              <div key={s.key} className={`flex-col ${mobileVisible ? 'flex' : 'hidden md:flex'}`}>
                 <div className={`px-3 py-2 rounded-t-lg border-b-2 ${STATUS_BG[s.accent]}`} data-testid={`dev-col-${s.key}`}>
                   <div className="flex items-center justify-between">
                     <span className="font-semibold text-xs">{s.label}</span>

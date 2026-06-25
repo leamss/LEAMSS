@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -21,6 +21,14 @@ export default function HubHome({
   const navigate = useNavigate();
   const group = groupCards[activeGroup];
   const accent = accentMap[group.accent];
+  // Phase 21 Slice 4 Sub-Slice C — auto-scroll active chip into view on mobile
+  const chipRefs = useRef({});
+  useEffect(() => {
+    const el = chipRefs.current[activeGroup];
+    if (el && el.scrollIntoView) {
+      el.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+    }
+  }, [activeGroup]);
 
   const counts = useMemo(() => stats ? {
     employees: stats.employees.active,
@@ -73,7 +81,7 @@ export default function HubHome({
       </div>
 
       {/* Group selector chips */}
-      <div className="flex gap-2 overflow-x-auto pb-2" data-testid="portal-hub-chips">
+      <div className="flex gap-2 overflow-x-auto pb-2 snap-x snap-mandatory" data-testid="portal-hub-chips">
         {Object.entries(groupCards).map(([key, g]) => {
           const a = accentMap[g.accent];
           const Icon = g.icon;
@@ -81,8 +89,9 @@ export default function HubHome({
           return (
             <button
               key={key}
+              ref={(el) => { chipRefs.current[key] = el; }}
               onClick={() => setActiveGroup(key)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border transition-all snap-start flex-shrink-0 ${
                 isActive ? `${a.solid} text-white border-transparent shadow-md` : `${a.bg} ${a.text} ${a.border}`
               }`}
               data-testid={`portal-hub-chip-${key}`}

@@ -201,9 +201,9 @@ export default function ChatHub() {
       </header>
 
       <div className="max-w-7xl mx-auto px-4 md:px-6 py-4">
-        <div className="grid grid-cols-1 md:grid-cols-[300px_1fr] gap-3 h-[calc(100vh-160px)]">
-          {/* Thread list */}
-          <Card className="overflow-y-auto" data-testid="chat-threads-list">
+        <div className="md:grid md:grid-cols-[300px_1fr] md:gap-3 h-[calc(100vh-160px)] flex flex-col">
+          {/* Thread list — visible on md+ always, on mobile only when no active thread */}
+          <Card className={`overflow-y-auto ${active ? 'hidden md:block' : 'flex-1 md:flex-none'}`} data-testid="chat-threads-list">
             {threads.length === 0 && (
               <div className="p-6 text-center text-sm text-slate-500 italic">
                 Aap pehli baat shuru karein 🙏
@@ -234,8 +234,8 @@ export default function ChatHub() {
             })}
           </Card>
 
-          {/* Active thread */}
-          <Card className="flex flex-col overflow-hidden" data-testid="chat-active-panel">
+          {/* Active thread — visible on md+ always, on mobile only when a thread is open */}
+          <Card className={`flex flex-col overflow-hidden ${!active ? 'hidden md:flex' : 'flex-1 md:flex-none'}`} data-testid="chat-active-panel">
             {!active && (
               <div className="flex-1 flex items-center justify-center text-slate-400 text-sm italic">
                 Left side se ek thread chuniye, ya 'New chat' se shuru kijiye
@@ -243,6 +243,18 @@ export default function ChatHub() {
             )}
             {active && (
               <>
+                {/* Mobile back button — return to threads list */}
+                <div className="md:hidden px-3 py-2 border-b border-slate-200 bg-slate-50">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setActive(null)}
+                    className="h-7 px-2 text-xs"
+                    data-testid="mobile-thread-back-btn"
+                  >
+                    <ArrowLeft className="h-3.5 w-3.5 mr-1" /> Back to threads
+                  </Button>
+                </div>
                 <div className="px-4 py-2 border-b border-slate-200 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     {active.type === 'group' ? <Users className="h-4 w-4 text-leamss-teal-600" /> : <MessageCircle className="h-4 w-4 text-leamss-teal-600" />}

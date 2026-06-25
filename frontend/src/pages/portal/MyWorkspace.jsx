@@ -503,7 +503,7 @@ export default function MyWorkspace() {
 
       {/* Submit Reimbursement Dialog */}
       <Dialog open={reimbDialogOpen} onOpenChange={setReimbDialogOpen}>
-        <DialogContent className="max-w-lg" data-testid="reimb-dialog">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto" data-testid="reimb-dialog">
           <DialogHeader><DialogTitle>New Reimbursement Claim</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-2">
