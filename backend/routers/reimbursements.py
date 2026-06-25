@@ -3,9 +3,12 @@
 Employee submits → manager approves → HR approves → eligible for next payroll run.
 """
 import uuid
+import os
+from pathlib import Path
 from datetime import datetime, timezone
 from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from core.database import db, users_col
@@ -15,6 +18,17 @@ router = APIRouter(prefix="/reimbursements", tags=["Reimbursements"])
 
 reimb_col = db["reimbursement_claims"]
 activity_col = db["activity_log"]
+
+# Phase 21 Slice 3 Backlog B.1 — bill file storage
+UPLOAD_DIR = Path(os.environ.get("UPLOAD_DIR", "/app/backend/uploads"))
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+BILL_MAX_BYTES = 5 * 1024 * 1024  # 5 MB
+BILL_ALLOWED_MIME = {
+    "application/pdf": ".pdf",
+    "image/jpeg": ".jpg",
+    "image/jpg": ".jpg",
+    "image/png": ".png",
+}
 
 VALID_CATEGORIES = {
     "travel", "food", "office_supplies", "client_entertainment",
@@ -219,3 +233,91 @@ async def claim_audit_trail(claim_id: str, current_user: dict = Depends(get_curr
     if c["employee_id"] != current_user["id"] and not (_is_manager(current_user) or _is_hr_or_admin(current_user)):
         raise HTTPException(status_code=403, detail="No access")
     return c.get("audit_log", [])
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 21 Slice 3 Backlog B.1 — Bill file upload / download
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _claim_or_404_with_access(claim: dict, current_user: dict) -> None:
+    if not claim:
+        raise HTTPException(status_code=404, detail="Claim not found")
+    if claim["employee_id"] != current_user["id"] and not (_is_manager(current_user) or _is_hr_or_admin(current_user)):
+        raise HTTPException(status_code=403, detail="No access")
+
+
+@router.post("/{claim_id}/bill")
+async def upload_bill(
+    claim_id: str,
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user),
+):
+    """Multipart bill upload — PDF/JPG/PNG up to 5MB. Owner or HR/admin only."""
+    c = await reimb_col.find_one({"id": claim_id}, {"_id": 0})
+    if not c:
+        raise HTTPException(status_code=404, detail="Claim not found")
+    # Only the claim owner may attach a bill (HR/managers approve, not attach)
+    if c["employee_id"] != current_user["id"] and not _is_hr_or_admin(current_user):
+        raise HTTPException(status_code=403, detail="Only the claim owner or HR/admin can attach bills")
+    if c.get("status") in ("reimbursed", "rejected"):
+        raise HTTPException(status_code=400, detail=f"Cannot attach bill to '{c.get('status')}' claim")
+
+    mime = (file.content_type or "").lower()
+    if mime not in BILL_ALLOWED_MIME:
+        raise HTTPException(status_code=400, detail=f"Unsupported file type '{mime}'. Allowed: PDF, JPG, PNG")
+    content = await file.read()
+    if len(content) > BILL_MAX_BYTES:
+        raise HTTPException(status_code=400, detail=f"File too large ({len(content)} bytes). Max 5 MB")
+    if not content:
+        raise HTTPException(status_code=400, detail="Empty file")
+
+    bill_id = str(uuid.uuid4())
+    ext = BILL_ALLOWED_MIME[mime]
+    storage_path = UPLOAD_DIR / f"reimb_{bill_id}{ext}"
+    storage_path.write_bytes(content)
+    safe_name = (file.filename or f"bill{ext}").replace("/", "_")[:255]
+
+    bill_entry = {
+        "bill_id": bill_id,
+        "file_name": safe_name,
+        "mime_type": mime,
+        "size_bytes": len(content),
+        "stored_path": str(storage_path),
+        "uploaded_by": current_user["id"],
+        "uploaded_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await reimb_col.update_one(
+        {"id": claim_id},
+        {
+            "$push": {
+                "bills": bill_entry,
+                "audit_log": {
+                    "action": "bill_attached",
+                    "actor_id": current_user["id"],
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "bill_id": bill_id,
+                    "file_name": safe_name,
+                },
+            },
+            "$set": {"updated_at": datetime.now(timezone.utc)},
+        },
+    )
+    return {"bill_id": bill_id, "file_name": safe_name, "size_bytes": len(content), "mime_type": mime}
+
+
+@router.get("/{claim_id}/bill/{bill_id}")
+async def download_bill(claim_id: str, bill_id: str, current_user: dict = Depends(get_current_user)):
+    """Download attached bill — owner or any manager/HR/admin."""
+    c = await reimb_col.find_one({"id": claim_id}, {"_id": 0})
+    _claim_or_404_with_access(c, current_user)
+    bill = next((b for b in (c.get("bills") or []) if b.get("bill_id") == bill_id), None)
+    if not bill:
+        raise HTTPException(status_code=404, detail="Bill not found")
+    path = Path(bill.get("stored_path", ""))
+    if not path.exists():
+        raise HTTPException(status_code=410, detail="File missing from storage")
+    return FileResponse(
+        path=str(path),
+        media_type=bill.get("mime_type") or "application/octet-stream",
+        filename=bill.get("file_name") or path.name,
+    )

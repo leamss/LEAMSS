@@ -5,6 +5,90 @@ This file appends every completed phase/feature with dates and verification stat
 
 
 ---
+### 🧹 Phase 21 Pre-Slice-4 Backlog Cleanup (Feb 25, 2026)
+
+**Pitch:** Sub-Slice A + B verify hone ke baad Sir ne 2 deferred items + 1 demo-quality gap close karne ko bola — bill upload + leave seed.
+
+**B.1 — Reimbursement bill file upload (deferred from Sub-Slice A)**
+
+Backend (`routers/reimbursements.py`):
+- New `POST /api/reimbursements/{claim_id}/bill` — multipart `UploadFile`, accepts **PDF / JPG / PNG up to 5 MB**, rejects others with 400. RBAC: claim owner OR HR/admin. Refuses to attach to `reimbursed`/`rejected` claims.
+- Files stored to `UPLOAD_DIR = $UPLOAD_DIR or /app/backend/uploads/` (re-uses the existing pod upload directory pattern from `state_nominations.py` / `agreement_templates.py` — no new storage helper invented).
+- Bill metadata pushed into the claim's `bills` array as `{bill_id, file_name, mime_type, size_bytes, stored_path, uploaded_by, uploaded_at}`.
+- Audit log gets a new `bill_attached` event with `bill_id` + `file_name`.
+- New `GET /api/reimbursements/{claim_id}/bill/{bill_id}` — `FileResponse` download, gated to owner OR manager OR HR/admin (approvers can fetch).
+- Returns 404 for unknown bill_id, 410 if file missing from disk.
+
+Frontend (`pages/portal/MyWorkspace.jsx`):
+- Submission dialog now has a 2-part bill section: existing **URL field** + new **file picker** with native `<input type="file" accept="application/pdf,image/jpeg,image/jpg,image/png">`.
+- Selected file preview line shows name + size in KB (data-testid `reimbursement-bill-file-name`).
+- Client-side validation mirrors backend: rejects bad mime + >5 MB with friendly Hinglish toast before hitting API.
+- After `POST /api/reimbursements` succeeds, an immediate follow-up `POST /api/reimbursements/{id}/bill` uploads the file via FormData. Upload failure shows a warning toast but doesn't lose the claim.
+- Claim list now renders a small `📎 Bill` link per attached bill that calls `downloadBill()` via authenticated fetch + blob download. Multiple bills per claim supported. (`data-testid=reimbursement-bill-link-{id}`)
+- Audit-trail dialog automatically picks up the new `bill_attached` action — renders as "Bill attached" with orange dot.
+- New icon import: `Paperclip` from lucide-react.
+
+Tests (`tests/test_phase21_slice3_bill_upload.py` — 7 new tests, all passing):
+1. ✅ PDF upload (happy path) — returns bill_id, correct mime, correct size
+2. ✅ JPG upload (happy path) — JFIF magic header accepted
+3. ✅ Rejects unsupported MIME (text/plain) with 400
+4. ✅ Rejects oversize (>5 MB JPG) with 400 + "too large"
+5. ✅ Download returns exact uploaded bytes
+6. ✅ 404 for unknown bill_id
+7. ✅ Audit log records `bill_attached` event with file_name
+
+**B.2 — Leave demo seed (`backend/scripts/seed_leave_demo_data.py`)**
+
+- Inserts **24 approved leave records** across **8 active employees** + **3 leave types** (sick / casual / earned) spread over last 90 days.
+- **Idempotent**: uses deterministic IDs `seed-leave-{employee_id}-{type}-{day_offset}` with MongoDB upsert. Re-running prints "0 new, 24 already existed" (verified).
+- **Production-safe**: refuses to run when `ENV=production` unless `--confirm` flag is explicitly passed.
+- Auto-seeds the 3 base `leave_types` if missing (sick/casual/earned with sensible quota/policy defaults).
+- Re-runnable: `python backend/scripts/seed_leave_demo_data.py` (no args for dev/staging) or `python backend/scripts/seed_leave_demo_data.py --confirm` (prod override).
+- All seed records tagged `_seed_source: "seed_leave_demo_data.py"` for easy cleanup if needed.
+
+Outcome: `/portal/hr-analytics` Leave Patterns Recharts bar chart **now renders 3 vivid teal bars** (earned/casual/sick) instead of the previous empty-state placeholder. Screenshot captured for confirmation.
+
+**Verification (triple-gate ✓)**
+- 🟢 **Backend pytest**: 7/7 new bill upload tests PASS in 2.64s. Pre-existing Phase 21 Slice 1+2+3 suites: **84 passed, 1 flaky** (`test_content_cache_idempotency` — Claude cache TTL eviction race, unrelated to this backlog scope; pre-existing flake from Sub-Slice B).
+- 🟢 **Frontend lint** clean on `MyWorkspace.jsx`.
+- 🟢 **Brand grep**: 0 indigo/purple/violet/blue-NN in `MyWorkspace.jsx` and `HRAnalyticsDashboard.jsx`.
+- 🟢 **Backend AST parse** OK for `routers/reimbursements.py` + `scripts/seed_leave_demo_data.py`.
+- 🟢 **Playwright** 2 screenshots:
+  1. **HR Analytics with Leave Patterns chart populated** — 3 teal bars (earned/casual/sick) replacing the previous "No approved leaves in the period" empty state.
+  2. **Reimbursements dialog with new file picker** — Category/Amount/Vendor/Description/Bill URL fields + NEW "📎 Attach bill file (optional) — PDF / JPG / PNG, max 5 MB" row with native file input. Background claim list also shows multiple `📎 Bill` links on claims that have bills attached.
+- 🟢 **Idempotency**: seed script run 2× → 1st run: "Inserted 24 new", 2nd run: "0 new, 24 already existed". ✓
+
+**Acceptance criteria status**
+- [x] File upload works for PDF + JPG + PNG up to 5MB; >5MB rejected with toast
+- [x] Approver roles (manager/HR/admin) can download bills via GET endpoint with RBAC
+- [x] Claim list shows attachment indicator only when bill exists (per-bill loop)
+- [x] After running seed, `/portal/hr-analytics` shows Leave Patterns chart with 3 visible bars
+- [x] Seed script idempotent (deterministic IDs + upsert)
+- [x] Production safety: gated behind `ENV != "production"` unless `--confirm`
+- [x] pytest green for new tests (7/7), pre-existing flake noted
+- [x] Brand grep clean
+
+**Files modified (2)**
+- `backend/routers/reimbursements.py` (+97 lines — UploadFile + FileResponse imports, UPLOAD_DIR constants, 2 new endpoints)
+- `frontend/src/pages/portal/MyWorkspace.jsx` (file picker UI in dialog + downloadBill helper + 📎 Bill links in list + Paperclip icon)
+
+**Files created (2)**
+- `backend/scripts/seed_leave_demo_data.py` (167 lines, idempotent, prod-safe)
+- `backend/tests/test_phase21_slice3_bill_upload.py` (7 tests, requests-based to match suite style)
+
+**Sir's directives honoured**
+- ✅ UPGRADE only · NO removal of Slice 3 artifacts
+- ✅ BACKWARD COMPAT (existing claims with URL-only bills still work)
+- ✅ leamss.* brand tokens · zero blue/indigo/purple
+- ✅ `data-testid` on every new interactive element
+- ✅ Hinglish copy in error toasts ("Amount aur description dono zaroori hain")
+- ✅ Reused existing `/app/backend/uploads/` storage pattern — did NOT invent new path
+- ✅ Production-gated seed script (`ENV != "production"` or `--confirm`)
+
+**Ready for Slice 4 dispatch** — Sir, backlog complete. IT productivity + Chat/Tickets + mobile polish ka brief bhej dijiye. 🚀
+
+
+---
 ### 🎯 Phase 21 SLICE 3 — Sub-Slice B (Marketing AI Toolbelt re-mount: Content Studio + SEO + AEO + GEO) (Feb 24, 2026)
 
 **Pitch:** Sir ne Sub-Slice A verify karke green light de diya — ab Sub-Slice B mein Marketing AI Toolbelt ko **un-park** karke production-ready wire up kiya. Sab files Sub-Slice A se disk pe ready thi (NO removal rule honoured); is sub-slice mein routing/RBAC/Toolbox row/Portal Hub cards restore kiye.

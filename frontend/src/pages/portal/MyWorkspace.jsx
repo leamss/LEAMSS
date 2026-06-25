@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   ArrowLeft, Receipt, FileText, Package, ClipboardCheck,
-  Download, Check, Clock, AlertCircle, Wallet, Plus,
+  Download, Check, Clock, AlertCircle, Wallet, Plus, Paperclip,
 } from 'lucide-react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -76,6 +76,7 @@ export default function MyWorkspace() {
     expense_date: new Date().toISOString().slice(0, 10),
     bill_url: '',
   });
+  const [reimbBillFile, setReimbBillFile] = useState(null);
   const [reimbSubmitting, setReimbSubmitting] = useState(false);
 
   // Audit trail drawer
@@ -131,6 +132,19 @@ export default function MyWorkspace() {
       toast.error('Amount aur description dono zaroori hain');
       return;
     }
+    // Client-side file validation (5MB cap, PDF/JPG/PNG)
+    const BILL_MAX = 5 * 1024 * 1024;
+    const BILL_TYPES = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+    if (reimbBillFile) {
+      if (!BILL_TYPES.includes(reimbBillFile.type)) {
+        toast.error('Bill must be PDF, JPG or PNG');
+        return;
+      }
+      if (reimbBillFile.size > BILL_MAX) {
+        toast.error(`Bill is too large (${(reimbBillFile.size / 1024 / 1024).toFixed(1)} MB). Max 5 MB`);
+        return;
+      }
+    }
     setReimbSubmitting(true);
     try {
       const token = localStorage.getItem('token');
@@ -143,13 +157,28 @@ export default function MyWorkspace() {
         expense_date: reimbForm.expense_date,
         bills: reimbForm.bill_url ? [{ file_url: reimbForm.bill_url, file_name: 'bill', mime_type: 'application/pdf' }] : [],
       };
-      await axios.post(`${API}/reimbursements`, payload, auth);
-      toast.success('Claim submitted ✓');
+      const { data: claim } = await axios.post(`${API}/reimbursements`, payload, auth);
+      // Upload bill file if selected
+      if (reimbBillFile && claim?.id) {
+        const fd = new FormData();
+        fd.append('file', reimbBillFile);
+        try {
+          await axios.post(`${API}/reimbursements/${claim.id}/bill`, fd, {
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' },
+          });
+          toast.success('Claim + bill attached ✓');
+        } catch (upErr) {
+          toast.warning('Claim submitted but bill upload failed: ' + (upErr.response?.data?.detail || upErr.message));
+        }
+      } else {
+        toast.success('Claim submitted ✓');
+      }
       setReimbDialogOpen(false);
       setReimbForm({
         category: 'travel', amount_inr: '', vendor_name: '', description: '',
         expense_date: new Date().toISOString().slice(0, 10), bill_url: '',
       });
+      setReimbBillFile(null);
       // refresh
       const r = await axios.get(`${API}/reimbursements?for_view=me`, auth);
       setReimbursements(r.data);
@@ -157,6 +186,23 @@ export default function MyWorkspace() {
       toast.error(e.response?.data?.detail || 'Submission failed');
     } finally {
       setReimbSubmitting(false);
+    }
+  };
+
+  const downloadBill = async (claimId, billId, fileName) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API}/reimbursements/${claimId}/bill/${billId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = fileName || 'bill';
+      a.click();
+    } catch (e) {
+      toast.error('Failed to download bill');
     }
   };
 
@@ -307,15 +353,28 @@ export default function MyWorkspace() {
                   <div className="text-right">
                     <p className="text-[10px] text-slate-400 uppercase">Amount</p>
                     <p className="text-xl font-bold text-leamss-orange-600">₹ {fmtINR(c.amount_inr)}</p>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="mt-1 text-xs"
-                      onClick={() => openAuditTrail(c)}
-                      data-testid={`reimb-trail-${c.id}`}
-                    >
-                      View trail
-                    </Button>
+                    <div className="flex flex-col items-end gap-0.5 mt-1">
+                      {(c.bills || []).filter(b => b.bill_id).map(b => (
+                        <button
+                          key={b.bill_id}
+                          onClick={() => downloadBill(c.id, b.bill_id, b.file_name)}
+                          className="text-[11px] text-leamss-teal-700 hover:text-leamss-teal-900 inline-flex items-center gap-1"
+                          data-testid={`reimbursement-bill-link-${c.id}`}
+                          title={`${b.file_name} · ${(b.size_bytes / 1024).toFixed(1)} KB`}
+                        >
+                          <Paperclip className="h-3 w-3" /> Bill
+                        </button>
+                      ))}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-xs h-auto px-1 py-0.5"
+                        onClick={() => openAuditTrail(c)}
+                        data-testid={`reimb-trail-${c.id}`}
+                      >
+                        View trail
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </Card>
@@ -506,7 +565,26 @@ export default function MyWorkspace() {
                 placeholder="https://drive.google.com/..."
                 data-testid="reimbursement-bill-input"
               />
-              <p className="text-[10px] text-slate-400 mt-1">Paste a link to your bill image/PDF (direct file upload arrives in Sub-Slice B)</p>
+              <p className="text-[10px] text-slate-400 mt-1">Paste a link to your bill image/PDF</p>
+            </div>
+            <div className="border-t border-slate-200 pt-3">
+              <Label className="flex items-center gap-1.5">
+                <Paperclip className="h-3.5 w-3.5 text-leamss-orange-500" />
+                Attach bill file (optional) — PDF / JPG / PNG, max 5 MB
+              </Label>
+              <Input
+                type="file"
+                accept="application/pdf,image/jpeg,image/jpg,image/png"
+                onChange={e => setReimbBillFile(e.target.files?.[0] || null)}
+                className="cursor-pointer"
+                data-testid="reimbursement-bill-file-input"
+              />
+              {reimbBillFile && (
+                <p className="text-[11px] text-leamss-teal-700 mt-1 inline-flex items-center gap-1" data-testid="reimbursement-bill-file-name">
+                  <Paperclip className="h-3 w-3" />
+                  {reimbBillFile.name} · {(reimbBillFile.size / 1024).toFixed(1)} KB
+                </p>
+              )}
             </div>
           </div>
           <DialogFooter>
