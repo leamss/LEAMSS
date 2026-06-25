@@ -1,12 +1,16 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import axios from 'axios';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import NotificationBell from '@/components/NotificationBell';
 import { LanguageToggle, useLanguage } from '@/components/LanguageProvider';
 import { ThemeToggle } from '@/components/ThemeProvider';
-import { LogOut, Menu, ArrowLeft, ChevronDown, ChevronRight } from 'lucide-react';
+import { LogOut, Menu, ArrowLeft, ChevronDown, ChevronRight, MessageCircle, TicketCheck } from 'lucide-react';
+
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const COMM_API = `${BACKEND_URL}/api`;
 
 // Hindi translations for nav labels
 const hiLabels = {
@@ -88,6 +92,80 @@ const AdminReturnBanner = () => {
         <ArrowLeft className="h-4 w-4 mr-1" /> Exit Impersonation
       </Button>
     </div>
+  );
+};
+
+/**
+ * Phase 21 Slice 4 Sub-Slice B — Communication header buttons.
+ * Chat icon with live unread badge (polls every 15s, pauses on /chat page)
+ * and quick Tickets jump. Internal staff only — silently hides if API returns 4xx.
+ */
+const HeaderCommButtons = ({ user }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [unread, setUnread] = useState(0);
+  const [hidden, setHidden] = useState(false);
+
+  const onChatPage = location.pathname.startsWith('/portal/chat') || location.pathname.startsWith('/admin/chat');
+  const isClient = user?.user_type === 'client';
+
+  useEffect(() => {
+    if (!user || isClient || hidden) return undefined;
+    const token = localStorage.getItem('token');
+    if (!token) return undefined;
+    const auth = { headers: { Authorization: `Bearer ${token}` } };
+
+    const fetchCount = async () => {
+      try {
+        const { data } = await axios.get(`${COMM_API}/internal-chat/unread-count`, auth);
+        setUnread(onChatPage ? 0 : (data?.total || 0));
+      } catch (err) {
+        const status = err?.response?.status;
+        if (status === 401 || status === 403 || status === 404) setHidden(true);
+      }
+    };
+
+    fetchCount();
+    const tid = setInterval(fetchCount, 15000);
+    return () => clearInterval(tid);
+  }, [user, isClient, hidden, onChatPage]);
+
+  // On chat page, force-reset visual badge to 0 (real read happens server-side)
+  useEffect(() => { if (onChatPage) setUnread(0); }, [onChatPage]);
+
+  if (!user || isClient || hidden) return null;
+
+  return (
+    <>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="relative h-8 w-8 p-0 hover:bg-leamss-teal-50 dark:hover:bg-leamss-teal-900/20"
+        onClick={() => navigate('/portal/chat')}
+        data-testid="header-chat-icon"
+        title="Chat"
+      >
+        <MessageCircle className="h-4 w-4 text-leamss-teal-600 dark:text-leamss-teal-400" />
+        {unread > 0 && (
+          <Badge
+            className="absolute -top-1 -right-1 h-4 min-w-[16px] px-1 bg-leamss-red-500 text-white text-[9px] font-bold flex items-center justify-center rounded-full border border-white"
+            data-testid="header-chat-unread-badge"
+          >
+            {unread > 99 ? '99+' : unread}
+          </Badge>
+        )}
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-8 w-8 p-0 hover:bg-leamss-orange-50 dark:hover:bg-leamss-orange-900/20"
+        onClick={() => navigate('/portal/tickets')}
+        data-testid="header-tickets-link"
+        title="Tickets"
+      >
+        <TicketCheck className="h-4 w-4 text-leamss-orange-600 dark:text-leamss-orange-400" />
+      </Button>
+    </>
   );
 };
 
@@ -243,6 +321,7 @@ const DashboardShell = ({
               </div>
               <div className="flex items-center gap-2">
                 {headerActions}
+                <HeaderCommButtons user={user} />
                 <ThemeToggle />
                 <LanguageToggle />
                 <NotificationBell onNotificationClick={onNotificationClick} />

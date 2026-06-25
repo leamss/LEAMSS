@@ -11,6 +11,7 @@ import {
   Megaphone, Target, Mail, Gift, BarChart3, MessageCircleQuestion, Bot,
   Server, Globe, Search,
   User, CheckSquare, Coffee, Receipt, BookOpen, Clock, ArrowRight, Wallet,
+  MessageCircle, TicketCheck,
 } from 'lucide-react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -36,6 +37,16 @@ const Fallback = () => <div className="p-12 text-center text-slate-400">Loading�
 
 // ─────────────────── Group definitions (cards on Hub Home) ───────────────────
 const GROUP_CARDS = {
+  communication: {
+    label: 'Communication',
+    accent: 'leamss-red',
+    icon: MessageCircle,
+    description: 'Internal team chat aur cross-department helpdesk tickets — daily high-frequency tools.',
+    cards: [
+      { id: 'comm-chat', icon: MessageCircle, title: 'Chat', desc: 'DMs aur group threads with employees', route: '/portal/chat' },
+      { id: 'comm-tickets', icon: TicketCheck, title: 'Tickets', desc: 'Raise / track HR · IT · Finance · Marketing · Ops requests', route: '/portal/tickets' },
+    ],
+  },
   employees: {
     label: 'Employees',
     accent: 'leamss-teal',
@@ -117,6 +128,7 @@ const GROUP_CARDS = {
 const ACCENT_MAP = {
   'leamss-teal': { ring: 'ring-leamss-teal-200', bg: 'bg-leamss-teal-50', text: 'text-leamss-teal-700', border: 'border-leamss-teal-300', solid: 'bg-leamss-teal-600', hover: 'hover:border-leamss-teal-400' },
   'leamss-orange': { ring: 'ring-leamss-orange-200', bg: 'bg-leamss-orange-50', text: 'text-leamss-orange-700', border: 'border-leamss-orange-300', solid: 'bg-leamss-orange-600', hover: 'hover:border-leamss-orange-400' },
+  'leamss-red': { ring: 'ring-leamss-red-200', bg: 'bg-leamss-red-50', text: 'text-leamss-red-700', border: 'border-leamss-red-300', solid: 'bg-leamss-red-600', hover: 'hover:border-leamss-red-400' },
   sky: { ring: 'ring-sky-200', bg: 'bg-sky-50', text: 'text-sky-700', border: 'border-sky-300', solid: 'bg-sky-600', hover: 'hover:border-sky-400' },
   slate: { ring: 'ring-slate-200', bg: 'bg-slate-50', text: 'text-slate-600', border: 'border-slate-300', solid: 'bg-slate-600', hover: 'hover:border-slate-400' },
   emerald: { ring: 'ring-emerald-200', bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-300', solid: 'bg-emerald-600', hover: 'hover:border-emerald-400' },
@@ -131,7 +143,7 @@ export default function EmployeesPortal() {
   const [user, setUser] = useState(null);
   const [stats, setStats] = useState(null);
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'hub-home');
-  const [activeGroup, setActiveGroup] = useState('employees');
+  const [activeGroup, setActiveGroup] = useState('communication');
   const [empListFilter, setEmpListFilter] = useState(null);
 
   useEffect(() => {

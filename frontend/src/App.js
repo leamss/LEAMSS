@@ -30,6 +30,8 @@ import GEOToolsHub from '@/pages/admin/GEOToolsHub';
 import Reimbursements from '@/pages/portal/Reimbursements';
 import SiteAuditHub from '@/pages/it/SiteAuditHub';
 import DevTrackerHub from '@/pages/it/DevTrackerHub';
+import ChatHub from '@/pages/chat/ChatHub';
+import TicketsHub from '@/pages/tickets/TicketsHub';
 import PortalWelcome from '@/pages/PortalWelcome';
 import ForgotPassword from '@/pages/ForgotPassword';
 import ResetPasswordWithToken from '@/pages/ResetPasswordWithToken';
@@ -272,6 +274,11 @@ function App() {
               <DevTrackerHub />
             </RequirePermission>
           } />
+          {/* Phase 21 Slice 4 Sub-Slice B — Internal Chat + Tickets (no extra RBAC; staff JWT required) */}
+          <Route path="/portal/chat" element={<ChatHub />} />
+          <Route path="/admin/chat" element={<ChatHub />} />
+          <Route path="/portal/tickets" element={<TicketsHub />} />
+          <Route path="/admin/tickets" element={<TicketsHub />} />
           {/* Phase 21 Slice 3 — Reimbursements */}
           <Route path="/portal/my-reimbursements" element={<Reimbursements view="me" />} />
           <Route path="/admin/reimbursements/pending" element={<Reimbursements view="team" />} />

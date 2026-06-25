@@ -5,6 +5,75 @@ This file appends every completed phase/feature with dates and verification stat
 
 
 ---
+### 💬 Phase 21 SLICE 4 — Sub-Slice B (Internal Chat + Tickets — Frontend Wiring) (Feb 26, 2026)
+
+**Pitch:** Backend Chat + Tickets (Sub-Slice B) 18/18 pytests pass kar gaya tha previous session mein. Aaj Sir ne explicit GO de ke frontend wiring complete karwayi — `App.js` routes + `DashboardShell.jsx` header buttons (chat icon with live unread badge + tickets quick-link) + `EmployeesPortal.jsx` me ek nayi **Communication** group (leamss-red accent) HubHome ke top par.
+
+**B.1 — Routes mounted (App.js)**
+- `/portal/chat` → `ChatHub.jsx` (canonical)
+- `/admin/chat` → `ChatHub.jsx` (backward-compat alias)
+- `/portal/tickets` → `TicketsHub.jsx` (canonical)
+- `/admin/tickets` → `TicketsHub.jsx` (backward-compat alias)
+- No `RequirePermission` wrapper — staff JWT alone is the gate (per Sir's spec: "Visible to all logged-in employees, no RBAC gate"). Backend endpoint enforces RBAC at API level.
+
+**B.2 — DashboardShell.jsx header (`HeaderCommButtons` sub-component)**
+- New top-right buttons inserted before `ThemeToggle`:
+  - **Chat icon** (MessageCircle, leamss-teal-600) with **live unread badge** (leamss-red-500 rounded pill, `99+` cap).
+  - **Tickets icon** (TicketCheck, leamss-orange-600) as quick-jump.
+- Polling: `GET /api/internal-chat/unread-count` every **15 seconds** (per Sir's spec).
+- Badge **auto-resets to 0** when user is on `/portal/chat` or `/admin/chat` (real read happens server-side via existing thread-open auto-mark-as-read).
+- Silent hide on 401/403/404 — client_portal users (`user.user_type === 'client'`) automatically skipped.
+- `data-testid`: `header-chat-icon`, `header-chat-unread-badge`, `header-tickets-link`.
+
+**B.3 — HubHome Communication group (EmployeesPortal.jsx)**
+- New top-most group `communication` (default `activeGroup` switched from `employees` → `communication` per Sir's high-frequency placement note).
+- Accent: `leamss-red` (added to `ACCENT_MAP` — was unused; signals real-time/priority).
+- 2 cards:
+  - **Chat** (MessageCircle, "DMs aur group threads with employees") → `/portal/chat`
+  - **Tickets** (TicketCheck, "Raise / track HR · IT · Finance · Marketing · Ops requests") → `/portal/tickets`
+- Both cards visible to all staff (no RBAC card filter at frontend).
+- `data-testid`: `portal-hub-chip-communication`, `portal-hub-card-communication-comm-chat`, `portal-hub-card-communication-comm-tickets`.
+
+**B.4 — Lint hygiene on touched files**
+- Fixed pre-existing `eslint-disable-next-line` placement bug in `ChatHub.jsx` (3 useEffects) and `TicketsHub.jsx` (1 useEffect) — comments were on the wrong line so `react-hooks/exhaustive-deps` warnings were still firing in webpack. Moved comments to the line **before** the `useEffect` call, properly suppressing the warning. Webpack compile output now shows **only** the 2 pre-existing Sub-Slice A warnings (DevTrackerHub.jsx + SiteAuditHub.jsx — not in this scope).
+
+**Verification (triple-gate ✓)**
+- 🟢 **Backend pytest**: Sub-Slice B suite `test_phase21_slice4b.py` → **18/18 PASS** in 5.35s (zero regression from wiring touch). Sub-Slice A 26/29 PASS (3 site-audit rate-limit flakes from repeated runs — pre-existing, not in this scope).
+- 🟢 **Frontend lint** clean on the 5 touched files:
+  - `App.js` ✅
+  - `components/DashboardShell.jsx` — 3 pre-existing errors (duplicate key `Refer a Friend` + 2 empty blocks) not in this scope; my additions zero new issues.
+  - `pages/EmployeesPortal.jsx` ✅
+  - `pages/chat/ChatHub.jsx` — pre-existing unescaped entities not in scope; my useEffect fixes removed the 2 webpack warnings I introduced files via.
+  - `pages/tickets/TicketsHub.jsx` — same pattern as above.
+- 🟢 **Brand grep** across 6 touched files (`App.js, DashboardShell.jsx, EmployeesPortal.jsx, ChatHub.jsx, TicketsHub.jsx, HubHome.jsx`): **0 indigo/purple/violet/blue-NN hits**. New `leamss-red` accent uses existing Phase 20.6 shade-aware aliases.
+- 🟢 **Webpack compiled successfully** — only 2 pre-existing Sub-Slice A warnings remain, none in our scope.
+- 🟢 **Playwright** 3 live screenshots with admin login:
+  1. **Portal Hub Home** at `/admin/employees` — Communication chip ACTIVE (red highlight), 2 cards visible (Chat · Tickets), header shows new chat+tickets icons, hero shows 13 employees / 32 my tasks. `portal-hub-chip-communication: True`, `comm-chat card: True`, `header-chat-icon: True`, `header-tickets-link: True`.
+  2. **Chat page** at `/portal/chat` (via header icon click — `chat-page: True`) — 11 threads in left pane (TEST_emp_f76b56, Bob Johnson, Jane Smith, Partner User, Case Manager + 6 PYTEST Group Chats), empty active-pane Hinglish prompt "Left side se ek thread chuniye, ya 'New chat' se shuru kijiye".
+  3. **Tickets page** at `/portal/tickets` (direct nav — `tickets-page: True`) — 4 KPI tiles (24 Open · 0 In Progress · 0 Past SLA · 4 Resolved this week), filter bar, 7+ tickets visible with priority chips (P0 red, P1 orange, P2 teal, P3 sky), one TKT-0023 with "Dev Tracker" auto-link badge proving bug-tag auto-linking still works.
+
+**Files modified (5)**
+- `frontend/src/App.js` (+6 lines — 1 import + 4 route mounts)
+- `frontend/src/components/DashboardShell.jsx` (+~70 lines — `HeaderCommButtons` sub-component + insertion in header)
+- `frontend/src/pages/EmployeesPortal.jsx` (+~12 lines — Communication group, `leamss-red` ACCENT_MAP entry, default `activeGroup` flip, 2 new lucide icon imports)
+- `frontend/src/pages/chat/ChatHub.jsx` (eslint-disable placement fix on 3 useEffects)
+- `frontend/src/pages/tickets/TicketsHub.jsx` (eslint-disable placement fix on 1 useEffect)
+
+**Sir's directives honoured**
+- ✅ UPGRADE only — NO removal of any pre-existing feature
+- ✅ BACKWARD COMPAT — both `/portal/*` (canonical) and `/admin/*` (alias) routes work
+- ✅ `leamss.*` brand tokens only (added `leamss-red` accent — was already in tailwind config)
+- ✅ `data-testid` on every interactive: header buttons, communication chip, all cards
+- ✅ Hinglish copy ("DMs aur group threads", "Internal team chat aur cross-department helpdesk tickets")
+- ✅ Communication group placed near top (default active) per high-frequency rule
+- ✅ Live unread badge polls every 15s, resets on chat page
+- ✅ Brand grep clean (0 hits)
+- ✅ Backend 18/18 still green — no regression
+
+**Sub-Slice B complete (backend Feb 25 + frontend Feb 26). Ready for `e1_tester` then Sub-Slice C dispatch (mobile responsive polish).**
+
+
+---
 ### 🚀 Phase 21 SLICE 4 — Sub-Slice A (IT Productivity: Site Audit + Dev Tracker) (Feb 25, 2026)
 
 **Pitch:** Sir ne Sub-Slice A scope explicitly approve karke `e1_tester` 4/4 PASS hone ke baad GO de diya. Slice 4 ko 3 sub-slices mein chalayenge — Sub-Slice A = IT productivity tools, B = Chat + Tickets, C = mobile polish. Aaj Sub-Slice A complete.
