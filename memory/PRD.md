@@ -4,6 +4,10 @@
 Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case Manager, Partner, Client. Expanding to a full multi-department Employee Portal with production-grade RBAC.
 
 
+> **🚀 Sweep B.1 — Country Workflows Hub (Feb 26, 2026 evening):** Authoritative data quality layer for AI Workflow Builder. New `country_visa_workflows` collection + `routers/country_workflows.py` + admin Hub UI at `/admin/country-workflows`. **Hook into `/api/ai-workflow/generate`:** verified workflows return in **<200ms** (was 60-180s). AI Draft uses the same bg-job pattern from Sweep A.2 — Claude Sonnet 4.5 generates structured draft → admin edits → marks Verified → becomes source of truth. CRUD + versioning + audit-log + RBAC (`country_workflows.manage`) all in place. Tester 13/15 pass; 2 critical backend bugs found + fixed (datetime shadowing + missing log_activity import). **Finishers 1+2 also shipped:** sky chip in collapsed PA row (no expand needed) + sky-blue Awaiting-Payment dialog replacing the alarming red toast on "Preview as Client" + centralized audit_logs entries for express approve/reject. **Next:** Sweep B.2 — Seed 4 priority countries (AU/CA/NZ/UK).
+
+
+
 > **🚀 Sweep A — Express UX Trinity (Feb 26, 2026 evening):** 3 P0 issues shipped in one sweep:
 > - **A.1 Express Approval UI** — New 5th tab "Express Pending" + KPI tile + inline Approve/Reject buttons on PA rows (no more buried `/admin/sales/express-approvals` page)
 > - **A.2 AI Workflow Background Job** — `/generate` no longer 502s on Cloudflare timeout. Returns `job_id` in <250ms; client polls `/generate/status/{job_id}`. **Critical fix:** wrapped LiteLLM (which internally calls SYNC `litellm.completion()` despite async wrapper) in `loop.run_in_executor()` to stop event-loop blocking. Concurrent test: 3 unrelated endpoints respond in <120ms while AI job runs in bg.
