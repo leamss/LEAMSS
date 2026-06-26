@@ -33,6 +33,7 @@ import DevTrackerHub from '@/pages/it/DevTrackerHub';
 import ChatHub from '@/pages/chat/ChatHub';
 import TicketsHub from '@/pages/tickets/TicketsHub';
 import AdminRbacHub from '@/pages/admin/AdminRbacHub';
+import CountryWorkflowsHub from '@/pages/admin/CountryWorkflowsHub';  // Sweep B.1
 import PayrollAdminHub from '@/pages/admin/PayrollAdminHub';
 import PortalWelcome from '@/pages/PortalWelcome';
 import ForgotPassword from '@/pages/ForgotPassword';
@@ -300,6 +301,17 @@ function App() {
           <Route path="/portal/admin/payroll" element={
             <RequirePermission anyOf={['payroll.manage', 'system.update.any']} allowRoles={['admin_owner', 'admin', 'hr', 'accounts']}>
               <PayrollAdminHub />
+            </RequirePermission>
+          } />
+          {/* Sweep B.1 — Country Workflows Hub (authoritative data quality layer) */}
+          <Route path="/admin/country-workflows" element={
+            <RequirePermission anyOf={['country_workflows.manage', 'system.update.any']} allowRoles={['admin_owner', 'admin']}>
+              <CountryWorkflowsHub />
+            </RequirePermission>
+          } />
+          <Route path="/portal/admin/country-workflows" element={
+            <RequirePermission anyOf={['country_workflows.manage', 'system.update.any']} allowRoles={['admin_owner', 'admin']}>
+              <CountryWorkflowsHub />
             </RequirePermission>
           } />
           {/* Phase 21 Slice 3 — Reimbursements */}

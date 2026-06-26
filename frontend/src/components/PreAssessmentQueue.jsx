@@ -62,6 +62,9 @@ const PreAssessmentQueue = ({ initialFilter = null }) => {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  // Sweep B finisher 1 — Sky-toned dialog when "Preview as Client" hits "account not linked yet"
+  const [awaitingPaymentDialog, setAwaitingPaymentDialog] = useState({ open: false, pa: null });
+
   // Admin "Preview as Client" — opens public payment page for unpaid PAs OR MiniPortal preview for paid ones
   const handlePreviewAsClient = async (pa) => {
     try {
@@ -86,7 +89,13 @@ const PreAssessmentQueue = ({ initialFilter = null }) => {
         toast.success('Opening client portal preview in new tab');
       }
     } catch (e) {
-      toast.error(e?.response?.data?.detail || 'Preview failed');
+      const detail = e?.response?.data?.detail || 'Preview failed';
+      // Sweep B finisher 1 — sky-toned dialog instead of alarming red toast
+      if (typeof detail === 'string' && detail.toLowerCase().includes('account not linked')) {
+        setAwaitingPaymentDialog({ open: true, pa });
+        return;
+      }
+      toast.error(detail);
     }
   };
 
@@ -334,6 +343,16 @@ const PreAssessmentQueue = ({ initialFilter = null }) => {
                       pa.stage === 'case_created' ? 'bg-green-100 text-green-700' :
                       'bg-slate-100 text-slate-700'
                     }>{pa.stage?.replace(/_/g, ' ').toUpperCase()}</Badge>
+                    {/* Sweep B finisher 1 — sky chip visible in collapsed row when approved-but-unpaid */}
+                    {['approved', 'proposal_sent'].includes(pa.stage) && pa.fee_payment_status !== 'paid' && (
+                      <span
+                        title="Client must complete payment to activate account. Expand the row + click 'Send Payment Link to Client' to remind."
+                        className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-leamss-sky-100 text-leamss-sky-800 border border-leamss-sky-300"
+                        data-testid={`pa-awaiting-payment-chip-collapsed-${pa.id}`}
+                      >
+                        <Hourglass className="h-3 w-3" /> Awaiting Payment
+                      </span>
+                    )}
                     {pa.documents?.length > 0 && (
                       <Badge variant="outline" className="text-xs">{pa.documents.length} docs</Badge>
                     )}
@@ -629,6 +648,59 @@ const PreAssessmentQueue = ({ initialFilter = null }) => {
           })}
         </div>
       )}
+
+      {/* Sweep B finisher 1 — Awaiting Payment dialog (replaces alarming red toast on Preview as Client) */}
+      <Dialog open={awaitingPaymentDialog.open} onOpenChange={(o) => { if (!o) setAwaitingPaymentDialog({ open: false, pa: null }); }}>
+        <DialogContent data-testid="awaiting-payment-dialog">
+          <DialogHeader>
+            <DialogTitle className="text-leamss-sky-800 flex items-center gap-2">
+              <Hourglass className="h-5 w-5" /> Awaiting Client Payment
+            </DialogTitle>
+            <DialogDescription className="text-slate-600">
+              {awaitingPaymentDialog.pa ? (
+                <>
+                  <span className="font-semibold">{awaitingPaymentDialog.pa.client_name}</span>{' '}
+                  <span className="text-slate-400">·</span>{' '}
+                  <span className="font-mono text-xs">{awaitingPaymentDialog.pa.pa_number}</span>
+                </>
+              ) : null}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="bg-leamss-sky-50 border border-leamss-sky-200 rounded-lg p-3">
+              <p className="text-sm text-slate-700 leading-relaxed">
+                Aap client ke view se preview tab kar paayenge jab woh payment complete kar le. Abhi <span className="font-semibold text-leamss-sky-800">&lsquo;Send Payment Link to Client&rsquo;</span> button se reminder bhej sakte hain — niche ek click me kar dijiye 🙏
+              </p>
+            </div>
+            {awaitingPaymentDialog.pa?.client_email && (
+              <p className="text-xs text-slate-500">
+                Payment link will be sent to <span className="font-medium text-slate-700">{awaitingPaymentDialog.pa.client_email}</span>
+              </p>
+            )}
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setAwaitingPaymentDialog({ open: false, pa: null })} data-testid="awaiting-payment-close">
+              Close
+            </Button>
+            <Button
+              className="bg-leamss-teal-600 hover:bg-leamss-teal-700 text-white"
+              disabled={sendingPaymentLinkId === awaitingPaymentDialog.pa?.id}
+              onClick={async () => {
+                const pa = awaitingPaymentDialog.pa;
+                setAwaitingPaymentDialog({ open: false, pa: null });
+                if (pa) await handleSendPaymentLink(pa);
+              }}
+              data-testid="awaiting-payment-send-link-btn"
+            >
+              {sendingPaymentLinkId === awaitingPaymentDialog.pa?.id ? (
+                <><RefreshCw className="h-4 w-4 mr-1.5 animate-spin" /> Sending…</>
+              ) : (
+                <><Send className="h-4 w-4 mr-1.5" /> Send Payment Link to Client</>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Sweep A.1 — Express approval/reject confirmation dialog */}
       <Dialog open={expressDialog.open} onOpenChange={(o) => { if (!o) { setExpressDialog({ open: false, pa: null, action: null }); setExpressRemarks(''); } }}>

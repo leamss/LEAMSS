@@ -654,6 +654,62 @@ async def generate_workflow(
     user_id = current_user["id"]
     user_name = current_user.get("name", "")
 
+    # Sweep B.1 — Check for VERIFIED seeded workflow first; skips AI entirely if found
+    try:
+        from routers.country_workflows import find_verified_workflow
+        verified = await find_verified_workflow(country, service_type)
+        if verified:
+            # Format into the same response shape as a complete job
+            return {
+                "job_id": f"seeded-{verified.get('workflow_id', 'unknown')[:8]}",
+                "status": "complete",
+                "progress": 100,
+                "current_step": "done",
+                "cached": False,
+                "source": "seeded_verified",
+                "model_used": "verified_seed",
+                "completed_at": datetime.now(timezone.utc).isoformat(),
+                "result": {
+                    "product_name": f"{verified.get('country_name')} - {verified.get('subclass_name') or verified.get('subclass_id')}",
+                    "description": verified.get("description", ""),
+                    "category": verified.get("category", "immigration"),
+                    "estimated_total_duration_days": verified.get("processing_time_days_max", 0),
+                    "estimated_government_fees": (
+                        f"{verified.get('fees_local_currency_code', '')} {verified.get('fees_local_currency_amount', 0)} "
+                        f"(~₹{int(verified.get('fees_inr_approx', 0)):,} INR)"
+                    ),
+                    "success_tips": verified.get("success_tips", []),
+                    "common_rejection_reasons": verified.get("common_rejection_reasons", []),
+                    "steps": [
+                        {
+                            "step_name": s.get("title", ""),
+                            "step_order": s.get("step_number", i + 1),
+                            "description": s.get("description", ""),
+                            "duration_days": s.get("estimated_days", 0),
+                            "required_documents": [
+                                {"name": d, "description": "", "mandatory": True}
+                                for d in (s.get("documents_needed", []) or [])
+                            ],
+                            "important_notes": "; ".join(s.get("tips", []) or []),
+                            "government_fees": "",
+                            "official_source_url": verified.get("official_url", ""),
+                            "vfsglobal_url": verified.get("vfs_url", ""),
+                        }
+                        for i, s in enumerate(verified.get("step_by_step", []) or [])
+                    ],
+                    "_meta": {
+                        "model_used": "verified_seed",
+                        "source": "country_visa_workflows",
+                        "workflow_id": verified.get("workflow_id"),
+                        "verified_by": verified.get("verified_by_name"),
+                        "verified_at": verified.get("verified_at"),
+                        "version": verified.get("version"),
+                    },
+                },
+            }
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"Seeded-workflow lookup failed (non-fatal): {e}")
+
     # Cache lookup: most recent successful job for same country+service in last hour
     cache_cutoff = datetime.now(timezone.utc) - timedelta(minutes=JOB_CACHE_TTL_MINUTES)
     cached = await ai_workflow_jobs_col.find_one(

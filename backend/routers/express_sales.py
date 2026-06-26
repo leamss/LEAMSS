@@ -16,6 +16,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from core.auth import get_current_user
 from core.database import db, users_col, pre_assessments_col, notifications_col
+from core.services import log_activity
 from core.express_logic import (
     get_express_settings,
     update_express_settings,
@@ -320,6 +321,13 @@ async def approve_express(pa_id: str, req: Optional[ExpressApprovalRequest] = No
             "created_at": now,
         })
 
+    # Sweep B finisher 2 — central audit_logs entry (was missing per tester WARN)
+    await log_activity(
+        current_user["id"], current_user.get("name", ""), "express_approved",
+        "pre_assessment", pa_id,
+        f"Express Sale approved for {pa.get('client_name', '')} (PA {pa.get('pa_number', pa_id)}). Remarks: {remarks or 'n/a'}",
+    )
+
     return {"ok": True, "stage": "approved", "express_sale_approval_status": "approved"}
 
 
@@ -367,6 +375,13 @@ async def reject_express(pa_id: str, req: ExpressRejectRequest, current_user: di
             "metadata": {"pa_id": pa_id, "reason": req.remarks},
             "created_at": now,
         })
+
+    # Sweep B finisher 2 — central audit_logs entry (was missing per tester WARN)
+    await log_activity(
+        current_user["id"], current_user.get("name", ""), "express_rejected",
+        "pre_assessment", pa_id,
+        f"Express Sale rejected for {pa.get('client_name', '')} (PA {pa.get('pa_number', pa_id)}). Reason: {req.remarks}",
+    )
 
     return {"ok": True, "stage": "express_rejected", "express_sale_approval_status": "rejected"}
 

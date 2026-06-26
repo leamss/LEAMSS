@@ -157,6 +157,7 @@ from routers.dev_tracker import router as dev_tracker_router
 from routers.internal_chat import router as internal_chat_router
 from routers.support_tickets import router as support_tickets_router
 from routers.rbac_v2 import router as rbac_v2_router
+from routers.country_workflows import router as country_workflows_router  # Sweep B.1
 # Phase 19 — SEO SSG generator
 from routers.seo_ssg import router as seo_ssg_router, regenerate_all as ssg_regenerate_all
 # Phase 18.7 — Notification channels + digest scheduler
@@ -594,7 +595,7 @@ for r in [targets_router, cost_structures_router, auth_router, users_router, pro
           onboarding_assets_router, payroll_router,
           reimbursements_router, hr_analytics_router, content_studio_router,
           site_audit_router, dev_tracker_router,
-          internal_chat_router, support_tickets_router, rbac_v2_router]:
+          internal_chat_router, support_tickets_router, rbac_v2_router, country_workflows_router]:
     app.include_router(r, prefix="/api")
 
 

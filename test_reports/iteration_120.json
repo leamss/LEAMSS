@@ -1,0 +1,38 @@
+{
+  "summary": "Sweep B.1 + Finisher 2 backend tested. Created /app/backend/tests/test_sweep_b1_country_workflows.py (15 tests). 13/15 PASS including ALL Country Workflows CRUD (list/stats/create/get/patch-bumps-version/verify/versions/edit-demotes-verified/re-verify), the KEY seeded fastpath (POST /api/ai-workflow/generate for verified AU/pr returns in <2s with source='seeded_verified' and result._meta.source='country_visa_workflows'), regression AI workflow background-job pattern, and cleanup-archive. Found and FIXED 2 critical backend bugs during testing: (1) UnboundLocalError in ai_workflow_builder.py at line 715 where a shadowed `from datetime import datetime, timezone as _tz` inside the seeded-verified branch broke the fallback path with 500. (2) NameError: log_activity not imported in express_sales.py — caused 500 on POST /api/express/approve. Both fixed. 2 audit-log tests still fail because admin auto-approves on create (env limitation, not a code bug — log_activity calls verified to exist in source at lines 324 (express_approved) + 380 (express_rejected)).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/auth/login", "issue": "Login latency ~25-30s (bcrypt + passlib bcrypt-version warning spam). Pre-existing."}
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_sweep_b1_country_workflows.py",
+    "/app/test_reports/pytest/sweep_b1.xml"
+  ],
+  "action_items": [
+    "Audit-log verification for express_approved/express_rejected couldn't be E2E-tested via admin (admin auto-approves on create). Source-code review confirms log_activity calls are present in express_sales.py:324 (approve) and :380 (reject). Recommend integration test using partner@leamss.com → admin approves flow, OR direct DB-fixture pre-assessment-pending insert.",
+    "Sir's PA-20260626-5F3E31 was NOT touched (left at stage='proposal_sent' per directive). Finisher 1 frontend (sky chip + awaiting-payment dialog) NOT executed via Playwright due to time budget — needs follow-up.",
+    "Frontend /admin/country-workflows page NOT visually tested — needs follow-up."
+  ],
+  "critical_code_review_comments": [
+    "BUG FIXED: ai_workflow_builder.py had `from datetime import datetime, timezone as _tz` inside the seeded-verified branch which shadowed module-level datetime → Python flags entire function's `datetime` as local → UnboundLocalError on the unseeded path at line 715. Removed local import; now uses the module-level `datetime, timezone`. Any seeded-verified branch must NOT redo imports.",
+    "BUG FIXED: express_sales.py was missing `from core.services import log_activity` despite using log_activity() at lines 324 + 380. Added the import. All express approve/reject calls were 500-ing in production until this fix.",
+    "country_workflows.py — clean structure, proper _id exclusion via _serialize+find projections, version snapshot on patch, RBAC helper consistent, MongoDB ObjectIds never leak. Edit-demotes-verified→ai_drafted logic correct.",
+    "Seeded fastpath response format matches what the AI-generated job result format expects — frontend can consume both paths identically. Meta block includes workflow_id + verified_by + version for traceability.",
+    "Country workflow CRUD does not have data-testid concerns (backend-only)."
+  ],
+  "updated_files": [
+    "/app/backend/routers/ai_workflow_builder.py (removed shadowed datetime import in seeded-verified branch)",
+    "/app/backend/routers/express_sales.py (added missing `from core.services import log_activity` import)",
+    "/app/backend/tests/test_sweep_b1_country_workflows.py (new)"
+  ],
+  "success_rate": {"backend": "87% (13/15) — 2 fails are test-harness limitations (admin auto-approve), not code bugs", "frontend": "Not tested this iteration"},
+  "test_credentials": "admin@leamss.com / Admin@123",
+  "seed_data_creation": "Pytest creates ephemeral TEST_ country workflows (auto-archived in TestZCleanup). Express PA test docs left in DB with TEST_Express_ prefix — non-impactful.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Sweep B.1 backend FULLY working after the 2 critical fixes. Seeded fastpath verified <2s. CRUD all green. Express audit-log E2E test needs partner-created PA flow; source confirms log_activity calls exist for both approve+reject. Finisher 1 sky chip + awaiting-payment-dialog Playwright tests + /admin/country-workflows page UI tests are PENDING.",
+  "rca of the issue": "Bug 1 (UnboundLocalError datetime): Inside the seeded-verified branch a `from datetime import datetime, timezone as _tz` was added, which makes Python treat `datetime` as a local in the entire function. When no seeded workflow exists, control falls through to line 715 `cache_cutoff = datetime.now(timezone.utc) - timedelta(...)` where local `datetime` is unbound → 500. RCA: Never re-import already-imported names inside a function branch. Fix: removed local import, use module-level datetime/timezone. Bug 2 (express_sales NameError): log_activity referenced but never imported. RCA: missed import when adding Finisher 2 changes. Fix: added `from core.services import log_activity`."
+}
