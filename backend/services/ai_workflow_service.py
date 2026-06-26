@@ -91,32 +91,39 @@ def _sync_chat_call(api_key: str, session_id: str, system_msg: str, provider: st
 
 async def call_ai_with_fallback(
     prompt: str, system_msg: str = "", session_prefix: str = "workflow",
+    primary_timeout: float = 90, fallback_timeout: float = 45,
 ) -> Tuple[str, str]:
-    """Call Claude Sonnet 4.5 first. On exception, retry with GPT-5.2.
+    """Call Claude Sonnet 4.5 first (90s budget). On timeout/error → jump to Haiku (45s budget — faster model).
 
     Returns: (response_text, model_used_label)
-    Raises: RuntimeError if BOTH fail.
+    Raises: RuntimeError if BOTH fail. Exception message carries the last-seen real error.
 
     Sweep A.2 — Offloads the BLOCKING LiteLLM call to a thread-pool executor.
+    Sweep B.1 hotfix — Per-model timeouts to bound total worst-case at ~135s.
     """
     session_id = f"{session_prefix}-{uuid.uuid4().hex[:8]}"
     last_err: Optional[Exception] = None
     loop = asyncio.get_event_loop()
 
-    for provider, model in (PRIMARY_MODEL, FALLBACK_MODEL):
+    attempts = [(PRIMARY_MODEL, primary_timeout), (FALLBACK_MODEL, fallback_timeout)]
+    for (provider, model), budget in attempts:
         try:
-            result = await loop.run_in_executor(
-                None,
-                _sync_chat_call,
+            future = loop.run_in_executor(
+                None, _sync_chat_call,
                 EMERGENT_LLM_KEY, session_id, system_msg, provider, model, prompt,
             )
-            logger.info("AI workflow generated via %s/%s (session=%s)", provider, model, session_id)
+            result = await asyncio.wait_for(future, timeout=budget)
+            logger.info("AI workflow generated via %s/%s (session=%s, budget=%ss)", provider, model, session_id, budget)
             return result, f"{provider}/{model}"
-        except Exception as e:  # noqa: BLE001
-            logger.warning("AI call failed (%s/%s): %s — trying next model", provider, model, e)
-            last_err = e
+        except asyncio.TimeoutError:
+            last_err = TimeoutError(f"{provider}/{model} exceeded {budget}s budget")
+            logger.warning("AI call timeout (%s/%s after %ss) — trying next model", provider, model, budget)
             continue
-    raise RuntimeError(f"All AI providers failed. Last error: {last_err}")
+        except Exception as e:  # noqa: BLE001
+            last_err = e
+            logger.warning("AI call failed (%s/%s): %s — trying next model", provider, model, e)
+            continue
+    raise RuntimeError(f"All AI providers failed. Last error: {type(last_err).__name__}: {last_err}")
 
 
 # ── JSON extraction (handles markdown-wrapped responses) ──────────────────────

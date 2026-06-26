@@ -405,20 +405,43 @@ Be comprehensive. At least 5 steps. At least 6 documents in checklist. At least 
 
         await _update({"progress": 35, "current_step": "generating"})
 
-        for attempt in range(2):
+        # Sweep B.1 hotfix — single-pass with extended budget:
+        # call_ai_with_fallback now caps Sonnet at 90s + Haiku at 45s = ~135s worst case.
+        # Our outer asyncio.wait_for adds 45s safety margin for the JSON parse + post-processing.
+        parsed: Dict[str, Any] = {}
+        model_used: str = "unknown"
+        last_exc: Optional[Exception] = None
+        try:
+            response, model_used = await asyncio.wait_for(
+                ai_svc.call_ai_with_fallback(prompt, system_msg, session_prefix="country_draft"),
+                timeout=180,
+            )
             try:
-                response, model_used = await asyncio.wait_for(
-                    ai_svc.call_ai_with_fallback(prompt, system_msg, session_prefix="country_draft"),
-                    timeout=90,
-                )
-                parsed = ai_svc.parse_json_response(response)
-                break
-            except Exception as e:  # noqa: BLE001
-                if attempt == 1:
-                    raise
-                logger.warning("AI draft attempt %d failed: %s", attempt + 1, e)
-                await _update({"progress": 50, "current_step": "regenerating"})
-                continue
+                parsed = ai_svc.parse_json_response(response) or {}
+            except Exception as parse_e:  # noqa: BLE001
+                # Sweep B.1 hotfix Fix 4 — Save partial output even if JSON didn't parse cleanly
+                logger.warning("AI draft JSON parse failed for job %s: %s — saving partial", job_id, parse_e)
+                parsed = {"description": (response or "")[:1500], "_partial_raw": True}
+                last_exc = parse_e
+        except asyncio.TimeoutError:
+            last_exc = TimeoutError("Outer 180s job budget exceeded (Sonnet+Haiku combined)")
+            logger.exception("AI draft job %s outer timeout", job_id)
+        except Exception as e:  # noqa: BLE001
+            last_exc = e
+            logger.exception("AI draft job %s AI-call failed", job_id)
+
+        # If both attempts failed AND no parsed content → mark failed with meaningful message
+        if not parsed:
+            err_msg = f"{type(last_exc).__name__}: {str(last_exc)[:400]}" if last_exc else "AI generation failed (no result)"
+            await _update({
+                "status": "failed", "progress": 100, "current_step": "failed",
+                "error": err_msg, "completed_at": _now_iso(),
+                "model_used": model_used if model_used != "unknown" else None,
+            })
+            await log_activity(user_id, user_name, "country_workflow_ai_draft_failed",
+                               "country_workflow", job_id,
+                               f"{req.country_code} {req.subclass_id} · {err_msg}")
+            return
 
         await _update({"progress": 85, "current_step": "formatting"})
 
