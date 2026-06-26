@@ -143,7 +143,9 @@ export default function EmployeesPortal() {
   const [user, setUser] = useState(null);
   const [stats, setStats] = useState(null);
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'hub-home');
-  const [activeGroup, setActiveGroup] = useState('communication');
+  // Phase 22 Slice 22.1 — default to "me" group so user lands on personal workspace
+  // (includes My Payslips, My Tasks, My Profile, etc.) instead of communication-only chat/tickets.
+  const [activeGroup, setActiveGroup] = useState('me');
   const [empListFilter, setEmpListFilter] = useState(null);
 
   useEffect(() => {
