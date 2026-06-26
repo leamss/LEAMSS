@@ -2,7 +2,9 @@
 import os
 import uuid
 import json
-from datetime import datetime, timezone
+import asyncio
+import logging
+from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional, List
@@ -10,12 +12,22 @@ from core.database import db
 from routers.auth import get_current_user
 from core.services import log_activity
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/ai-workflow", tags=["AI Workflow Builder"])
 
 products_col = db["products"]
 workflow_steps_col = db["workflow_steps"]
+# Sweep A.2 — Background job collection for AI workflow generation
+ai_workflow_jobs_col = db["ai_workflow_jobs"]
 
 EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
+
+# Sweep A.2 — Job config
+JOB_CACHE_TTL_MINUTES = 60  # Reuse successful job within last 60 min for same country+service
+MAX_CONCURRENT_JOBS_PER_USER = 3
+AI_CALL_TIMEOUT_SECONDS = 90  # Per-AI-call timeout (longer than ingress because we're in bg)
+JOB_OVERALL_TIMEOUT_SECONDS = 240  # 4 min hard ceiling for whole job
 
 
 class WorkflowGenerateRequest(BaseModel):
@@ -387,16 +399,414 @@ async def get_visa_categories(data: VisaCategoriesRequest, current_user: dict = 
     return {"country": data.country, "categories": categories}
 
 
+# ──────────────────────────────────────────────────────────────────────────
+# Sweep A.2 — AI Workflow Background Job pattern
+# Eliminates Cloudflare 60s ingress timeout by running generation in bg task.
+# Client polls /generate/status/{job_id} until status=complete|failed.
+# ──────────────────────────────────────────────────────────────────────────
+
+
+async def _execute_workflow_generation(
+    job_id: str,
+    country: str,
+    service_type: str,
+    custom_instructions: str,
+    user_id: str,
+    user_name: str,
+):
+    """Background coroutine that runs the actual AI workflow generation.
+
+    Updates the job doc throughout its lifecycle with progress + current_step.
+    """
+    from services import ai_workflow_service as ai_svc
+
+    now_iso = lambda: datetime.now(timezone.utc).isoformat()  # noqa: E731
+
+    async def _update(patch: dict):
+        patch["updated_at"] = now_iso()
+        await ai_workflow_jobs_col.update_one({"job_id": job_id}, {"$set": patch})
+
+    started_at = datetime.now(timezone.utc)
+    await _update({"status": "running", "started_at": started_at.isoformat(), "progress": 10, "current_step": "analyzing"})
+
+    try:
+        country_key = country.lower().replace(" ", "_")
+        service_key = service_type.lower().replace(" ", "_")
+
+        ref_info = ""
+        if country_key in COUNTRY_REFERENCES:
+            ref_info = COUNTRY_REFERENCES[country_key].get(service_key, "")
+            if not ref_info:
+                for k, v in COUNTRY_REFERENCES[country_key].items():
+                    ref_info += f"\n{k}: {v}"
+
+        # Template context
+        from routers.step_documents import _find_best_template
+        template = _find_best_template(f"{country} {service_type}")
+        template_context = ""
+        if template:
+            template_context = f"\nVerified template reference ({template.get('label','')}):\n"
+            template_context += f"Fees: {template.get('fees_info','')}\n"
+            template_context += f"Assessment bodies: {', '.join(template.get('assessment_bodies', []))}\n"
+            for step_name, docs in template.get("steps", {}).items():
+                doc_names = [d["doc_name"] for d in docs]
+                template_context += f"Step '{step_name}': {', '.join(doc_names)}\n"
+
+        vfs_url = ai_svc.vfsglobal_url(country_key)
+        sa_url = await ai_svc.resolve_au_nz_skill_assessment_url(db, country_key, service_key)
+        enrichment_block = ai_svc.build_enrichment_context(
+            country_key, service_key, ref_info, vfs_url, sa_url, template_context,
+        )
+
+        system_msg = (
+            "You are an expert immigration consultant AI with deep knowledge of global immigration processes. "
+            "You generate accurate, step-by-step immigration workflows based on OFFICIAL government requirements "
+            "and VFSglobal application centre procedures (for Indian applicants). "
+            "You must return ONLY valid JSON, no markdown, no extra text. "
+            "Every step MUST have at least 3 required documents. Include all documents that an applicant would need."
+        )
+
+        base_prompt = f"""Generate a COMPREHENSIVE immigration workflow for: {country} - {service_type}
+
+{enrichment_block}
+{f"Additional Instructions: {custom_instructions}" if custom_instructions else ""}
+
+CRITICAL RULES:
+1. At least 5 steps. Every step MUST have at least 3 required_documents.
+2. Include specific document names as used by the government (e.g., "Form 80 - Personal Particulars")
+3. Include ALL fees in local currency based on current official government fee schedules
+4. Reference only official government websites (.gov / official portals) AND VFSglobal for application submission step
+5. Be thorough — passport, photos, police clearances, medical exams, financial evidence, biometrics, etc.
+6. For AU/NZ PR ONLY: include "Skills Assessment" as first or second step (mandatory). For all OTHER workflows, DO NOT include a skills assessment step.
+
+Return a JSON object with this EXACT structure:
+{{
+  "product_name": "Country - Visa Type with Subclass Number",
+  "description": "Brief description of this immigration pathway",
+  "category": "immigration",
+  "estimated_total_duration_days": 180,
+  "estimated_government_fees": "Complete fee breakdown in local currency (application fee + biometrics + medical + skills assessment + language test)",
+  "success_tips": ["tip1", "tip2", "tip3"],
+  "common_rejection_reasons": ["reason1", "reason2"],
+  "steps": [
+    {{
+      "step_name": "Step Name",
+      "step_order": 1,
+      "description": "Detailed description of what happens in this step",
+      "duration_days": 30,
+      "official_source_url": "https://...gov... (specific page URL)",
+      "vfsglobal_url": "https://visa.vfsglobal.com/... (if applicable to this step)",
+      "required_documents": [
+        {{
+          "name": "Official Document Name",
+          "description": "What this document is, where to get it, and any specific requirements",
+          "mandatory": true,
+          "typical_validity_days": 365
+        }}
+      ],
+      "important_notes": "Critical information for this step",
+      "government_fees": "Specific fees for this step in local currency"
+    }}
+  ]
+}}
+
+Include 5-8 steps covering: preparation, assessment/testing, application submission, documentation, biometrics/medical, processing, and grant.
+EVERY step must have 3-6 required_documents with detailed descriptions."""
+
+        await _update({"progress": 30, "current_step": "generating"})
+
+        workflow_data: Optional[dict] = None
+        model_used = "unknown"
+        last_quality_issues: List[str] = []
+        prompt = base_prompt
+
+        for attempt in range(ai_svc.MAX_QUALITY_RETRIES + 1):
+            try:
+                response, model_used = await asyncio.wait_for(
+                    ai_svc.call_ai_with_fallback(prompt, system_msg),
+                    timeout=AI_CALL_TIMEOUT_SECONDS,
+                )
+                workflow_data = ai_svc.parse_json_response(response)
+            except asyncio.TimeoutError:
+                workflow_data = None
+                last_quality_issues = [f"ai_call_timeout_attempt_{attempt+1}_after_{AI_CALL_TIMEOUT_SECONDS}s"]
+                logger.warning(f"AI workflow job {job_id} attempt {attempt+1} timed out after {AI_CALL_TIMEOUT_SECONDS}s")
+                continue
+            except Exception as e:  # noqa: BLE001
+                workflow_data = None
+                last_quality_issues = [f"ai_call_error_{str(e)[:120]}"]
+                logger.exception(f"AI workflow job {job_id} attempt {attempt+1} errored")
+                break  # don't retry on hard non-timeout failure
+
+            passed, issues = ai_svc.validate_workflow_quality(workflow_data)
+            if passed:
+                break
+            last_quality_issues = issues
+            if attempt < ai_svc.MAX_QUALITY_RETRIES:
+                prompt = ai_svc.build_stricter_retry_prompt(base_prompt, issues)
+                await _update({"progress": 30 + (attempt + 1) * 20, "current_step": "regenerating"})
+
+        await _update({"progress": 80, "current_step": "formatting"})
+
+        # Template fallback if AI fully failed
+        if not workflow_data and template:
+            steps = []
+            for i, (step_name, docs) in enumerate(template.get("steps", {}).items(), 1):
+                steps.append({
+                    "step_name": step_name, "step_order": i, "description": "", "duration_days": 14,
+                    "required_documents": [
+                        {"name": d["doc_name"], "description": d.get("description", ""),
+                         "mandatory": d.get("is_mandatory", True)} for d in docs],
+                    "important_notes": "", "government_fees": "",
+                    "official_source_url": "", "vfsglobal_url": vfs_url or "",
+                })
+            workflow_data = {
+                "product_name": f"{country} - {service_type}",
+                "description": template.get("label", ""),
+                "category": "immigration",
+                "estimated_government_fees": template.get("fees_info", ""),
+                "steps": steps, "success_tips": [], "common_rejection_reasons": [],
+                "_degraded_mode": "template_fallback",
+            }
+            model_used = "template_fallback"
+        elif not workflow_data:
+            # Hard failure — mark job as failed
+            await _update({
+                "status": "failed",
+                "progress": 100,
+                "current_step": "failed",
+                "error": "AI providers exhausted and no verified template available for this country/visa combo. Try a different category or retry shortly.",
+                "completed_at": now_iso(),
+            })
+            await log_activity(user_id, user_name, "workflow_generate_failed", "ai_workflow",
+                               details=f"{country}-{service_type} · job={job_id} · {';'.join(last_quality_issues)[:200]}")
+            return
+
+        # Attach metadata
+        workflow_data["_meta"] = {
+            "model_used": model_used,
+            "country_key": country_key,
+            "service_key": service_key,
+            "vfsglobal_url": vfs_url,
+            "skill_assessment_url": sa_url,
+            "is_skill_assessment_required": (country_key in ("australia", "new_zealand") and service_key == "pr"),
+            "quality_issues": last_quality_issues,
+            "generated_at": now_iso(),
+            "generated_by": user_id,
+            "job_id": job_id,
+        }
+
+        completed_at = datetime.now(timezone.utc)
+        duration_ms = int((completed_at - started_at).total_seconds() * 1000)
+        await _update({
+            "status": "complete",
+            "progress": 100,
+            "current_step": "done",
+            "result": workflow_data,
+            "completed_at": completed_at.isoformat(),
+            "duration_ms": duration_ms,
+            "model_used": model_used,
+        })
+
+        await log_activity(user_id, user_name, "generated_workflow", "ai_workflow",
+                           details=f"{country}-{service_type} via {model_used} · {len(workflow_data.get('steps', []))} steps · job={job_id} · {duration_ms}ms")
+    except asyncio.CancelledError:
+        await _update({"status": "failed", "error": "Cancelled by user", "completed_at": now_iso(), "current_step": "cancelled"})
+        raise
+    except Exception as e:  # noqa: BLE001
+        logger.exception(f"AI workflow job {job_id} crashed")
+        await _update({
+            "status": "failed",
+            "progress": 100,
+            "current_step": "failed",
+            "error": f"Unexpected error: {str(e)[:200]}",
+            "completed_at": now_iso(),
+        })
+
+
+def _serialize_job(job: dict) -> dict:
+    """Strip Mongo internals before returning to client."""
+    if not job:
+        return {}
+    job.pop("_id", None)
+    return job
+
+
 @router.post("/generate")
 async def generate_workflow(
     request: WorkflowGenerateRequest,
     current_user: dict = Depends(get_current_user)
 ):
-    """Generate a complete immigration workflow using AI (Phase 20.1).
+    """Kick off AI workflow generation as a background job. Returns instantly.
 
-    Wires Claude Sonnet 4.5 primary with GPT-5.2 silent fallback.
-    Enforces quality bar (≥5 steps, ≥3 docs per step) with auto-retry.
-    Injects VFSglobal URL + AU/NZ skill-assessment authority URL into context.
+    Client must poll GET /api/ai-workflow/generate/status/{job_id} until status=complete|failed.
+    Cache: if a recent successful job (<60min old) exists for same country+service_type
+    by this user, returns it immediately with cached=true.
+    """
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    country = request.country.strip()
+    service_type = request.service_type.strip()
+    if not country or not service_type:
+        raise HTTPException(status_code=400, detail="country + service_type required")
+
+    user_id = current_user["id"]
+    user_name = current_user.get("name", "")
+
+    # Cache lookup: most recent successful job for same country+service in last hour
+    cache_cutoff = datetime.now(timezone.utc) - timedelta(minutes=JOB_CACHE_TTL_MINUTES)
+    cached = await ai_workflow_jobs_col.find_one(
+        {
+            "user_id": user_id,
+            "country": country,
+            "service_type": service_type,
+            "status": "complete",
+            "completed_at": {"$gte": cache_cutoff.isoformat()},
+        },
+        sort=[("completed_at", -1)],
+    )
+    if cached and cached.get("result"):
+        cached_job = _serialize_job(cached)
+        return {
+            "job_id": cached_job["job_id"],
+            "status": "complete",
+            "progress": 100,
+            "current_step": "done",
+            "result": cached_job.get("result"),
+            "cached": True,
+            "model_used": cached_job.get("model_used"),
+            "completed_at": cached_job.get("completed_at"),
+        }
+
+    # Concurrency cap: max N simultaneous jobs per user
+    active_count = await ai_workflow_jobs_col.count_documents({
+        "user_id": user_id,
+        "status": {"$in": ["queued", "running"]},
+    })
+    if active_count >= MAX_CONCURRENT_JOBS_PER_USER:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Maximum {MAX_CONCURRENT_JOBS_PER_USER} concurrent workflow jobs per user. Please wait for an existing one to finish or cancel it.",
+        )
+
+    job_id = str(uuid.uuid4())
+    now_iso = datetime.now(timezone.utc).isoformat()
+    await ai_workflow_jobs_col.insert_one({
+        "job_id": job_id,
+        "user_id": user_id,
+        "user_name": user_name,
+        "country": country,
+        "service_type": service_type,
+        "custom_instructions": request.custom_instructions or "",
+        "status": "queued",
+        "progress": 0,
+        "current_step": "queued",
+        "result": None,
+        "error": None,
+        "model_used": None,
+        "created_at": now_iso,
+        "updated_at": now_iso,
+        "started_at": None,
+        "completed_at": None,
+        "duration_ms": None,
+    })
+
+    # Kick off background generation. We DO NOT await it — return immediately.
+    async def _runner():
+        try:
+            await asyncio.wait_for(
+                _execute_workflow_generation(
+                    job_id, country, service_type, request.custom_instructions or "", user_id, user_name,
+                ),
+                timeout=JOB_OVERALL_TIMEOUT_SECONDS,
+            )
+        except asyncio.TimeoutError:
+            await ai_workflow_jobs_col.update_one(
+                {"job_id": job_id},
+                {"$set": {
+                    "status": "failed",
+                    "current_step": "timeout",
+                    "error": f"Job exceeded {JOB_OVERALL_TIMEOUT_SECONDS}s overall timeout",
+                    "completed_at": datetime.now(timezone.utc).isoformat(),
+                }},
+            )
+
+    asyncio.create_task(_runner())
+
+    return {
+        "job_id": job_id,
+        "status": "queued",
+        "progress": 0,
+        "current_step": "queued",
+        "cached": False,
+        "poll_url": f"/api/ai-workflow/generate/status/{job_id}",
+    }
+
+
+@router.get("/generate/status/{job_id}")
+async def get_workflow_job_status(job_id: str, current_user: dict = Depends(get_current_user)):
+    """Poll endpoint — returns current state of a generation job."""
+    job = await ai_workflow_jobs_col.find_one({"job_id": job_id}, {"_id": 0})
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    # Authz: owner OR admin
+    if job.get("user_id") != current_user["id"] and current_user.get("role") not in ("admin", "admin_owner"):
+        raise HTTPException(status_code=403, detail="Not authorized for this job")
+    return job
+
+
+@router.delete("/generate/{job_id}")
+async def cancel_workflow_job(job_id: str, current_user: dict = Depends(get_current_user)):
+    """Cancel a queued or running job (best-effort — marks status=failed/cancelled).
+
+    Note: the underlying asyncio task may still finish briefly after cancel because
+    we don't track task handles across requests; the next status poll will reflect
+    the cancellation state we wrote.
+    """
+    job = await ai_workflow_jobs_col.find_one({"job_id": job_id}, {"_id": 0})
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job.get("user_id") != current_user["id"] and current_user.get("role") not in ("admin", "admin_owner"):
+        raise HTTPException(status_code=403, detail="Not authorized for this job")
+    if job.get("status") in ("complete", "failed"):
+        return {"job_id": job_id, "status": job["status"], "already_terminal": True}
+    await ai_workflow_jobs_col.update_one(
+        {"job_id": job_id},
+        {"$set": {
+            "status": "failed",
+            "current_step": "cancelled",
+            "error": "Cancelled by user",
+            "completed_at": datetime.now(timezone.utc).isoformat(),
+        }},
+    )
+    return {"job_id": job_id, "status": "failed", "cancelled": True}
+
+
+@router.get("/generate/recent")
+async def list_recent_workflow_jobs(
+    country: Optional[str] = None,
+    limit: int = 10,
+    current_user: dict = Depends(get_current_user),
+):
+    """List user's most recent generation jobs (for cache hit detection client-side)."""
+    q: dict = {"user_id": current_user["id"]}
+    if country:
+        q["country"] = country
+    cursor = ai_workflow_jobs_col.find(q, {"_id": 0, "result": 0}).sort("created_at", -1).limit(min(limit, 50))
+    items = await cursor.to_list(length=limit)
+    return {"items": items, "count": len(items)}
+
+
+@router.post("/generate-sync")
+async def generate_workflow_sync_legacy(
+    request: WorkflowGenerateRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """DEPRECATED — Legacy synchronous endpoint kept for backward compat.
+
+    Generation may exceed Cloudflare's 60s ingress timeout, causing 502 errors.
+    Always prefer POST /generate (returns job_id) + polling /generate/status/{job_id}.
     """
     if current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Admin only")

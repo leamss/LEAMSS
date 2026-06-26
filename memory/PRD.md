@@ -4,6 +4,14 @@
 Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case Manager, Partner, Client. Expanding to a full multi-department Employee Portal with production-grade RBAC.
 
 
+> **🚀 Sweep A — Express UX Trinity (Feb 26, 2026 evening):** 3 P0 issues shipped in one sweep:
+> - **A.1 Express Approval UI** — New 5th tab "Express Pending" + KPI tile + inline Approve/Reject buttons on PA rows (no more buried `/admin/sales/express-approvals` page)
+> - **A.2 AI Workflow Background Job** — `/generate` no longer 502s on Cloudflare timeout. Returns `job_id` in <250ms; client polls `/generate/status/{job_id}`. **Critical fix:** wrapped LiteLLM (which internally calls SYNC `litellm.completion()` despite async wrapper) in `loop.run_in_executor()` to stop event-loop blocking. Concurrent test: 3 unrelated endpoints respond in <120ms while AI job runs in bg.
+> - **A.3 Post-approval UX** — Replaced alarming "Client account not linked yet" red toast with calm `leamss-sky` "Awaiting Payment" chip + Hinglish tooltip + prominent leamss-teal "Send Payment Link to Client" button calling new `POST /remind-payment` endpoint (idempotent, audit-logged).
+> All 3 verified live (screenshots + concurrent curl tests). Ready for `e1_tester` E2E run.
+
+
+
 > **🚑 Hotfix v2 (Feb 26, 2026 evening) — Phase 22 P0 Regressions GREEN:** Sir ne 3 P0 regressions raise kiye (Coming Soon labels on built features · old Change Role dialog still showing · payroll mark-paid missing audit fields). Previous agent ne code apply karke truncate kar diya tha. **This session validated end-to-end** and found 2 deeper regressions: (1) RBAC v2 migration silently switched `ui_modules` to URL paths breaking ALL "Your Access" tile clicks + labels, (2) `EmployeeDetailModal.jsx` was missing `useNavigate` import causing `navigate is not defined` runtime error. **Both fixed.** Final state: `PortalWelcome.jsx` supports dual-format ui_modules (snake_case + URL paths), `EmployeeDetailModal.jsx` deep-links to new `/admin/rbac?user_id=X` with proper navigate hook, `payroll.py mark-paid` populates `paid_at/paid_by/paid_by_name/payment_reference` + enriched audit log. Verified via curl + 3 Playwright screenshots (PortalWelcome friendly labels, Role tab with "Manage Roles & Capabilities" button, RBAC builder landing). All 5 P0 items GREEN. Ready for `e1_tester` full e2e.
 
 

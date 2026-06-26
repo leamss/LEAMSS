@@ -55,6 +55,12 @@ const AIWorkflowBuilder = () => {
   const [govForms, setGovForms] = useState([]);
   const [verified, setVerified] = useState(false);
   const [workflowSource, setWorkflowSource] = useState('');
+  // Sweep A.2 — Background-job progress state
+  const [jobId, setJobId] = useState(null);
+  const [jobProgress, setJobProgress] = useState(0);
+  const [jobStep, setJobStep] = useState('');
+  const [cachedHit, setCachedHit] = useState(false);
+  const [jobError, setJobError] = useState('');
 
   const auth = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
 
@@ -82,27 +88,95 @@ const AIWorkflowBuilder = () => {
   };
 
   const generateWorkflow = async (visaName) => {
-    setGenerating(true); setView('review');
+    // Sweep A.2 — Background-job pattern. POST returns instantly with job_id;
+    // poll /generate/status/{job_id} until status=complete|failed.
+    setGenerating(true); setView('review'); setJobError(''); setCachedHit(false); setJobProgress(0); setJobStep('queued'); setWorkflow(null);
+    let pollTimer = null;
+    let cancelled = false;
     try {
-      const r = await axios.post(`${API}/ai-workflow/generate`, { country: selectedCountry.name, service_type: visaName || '', custom_instructions: customInstructions }, auth());
-      setWorkflow(r.data);
-      const exp = {}; (r.data.steps || []).forEach((_, i) => { exp[i] = true; }); setExpandedSteps(exp);
-      // Phase 20.1 — surface model + degraded mode in toast
-      const m = r.data?._meta?.model_used || 'AI';
-      const degraded = r.data?._degraded_mode;
-      if (degraded === 'template_fallback') {
-        toast.warning(`AI budget exceeded — using verified template fallback. Top up at Profile → Universal Key → Add Balance.`);
-      } else {
-        toast.success(`Workflow generated via ${m.replace('anthropic/', '').replace('-20250929', '')}!`);
+      const r = await axios.post(`${API}/ai-workflow/generate`,
+        { country: selectedCountry.name, service_type: visaName || '', custom_instructions: customInstructions },
+        auth());
+      const jid = r.data.job_id;
+      setJobId(jid);
+
+      // Cache hit — done in one shot
+      if (r.data.cached && r.data.result) {
+        setWorkflow(r.data.result);
+        const exp = {}; (r.data.result.steps || []).forEach((_, i) => { exp[i] = true; }); setExpandedSteps(exp);
+        setCachedHit(true);
+        setJobProgress(100); setJobStep('done');
+        toast.success('Loaded from cache — instant ⚡');
+        setWorkflowSource('ai'); setVerified(false);
+        if (selectedCountry?.name) loadGovForms(selectedCountry.name);
+        setGenerating(false);
+        return;
       }
-      setWorkflowSource('ai'); setVerified(false);
-      if (selectedCountry?.name) loadGovForms(selectedCountry.name);
+
+      // Polling loop
+      const poll = async () => {
+        if (cancelled) return;
+        try {
+          const s = await axios.get(`${API}/ai-workflow/generate/status/${jid}`, auth());
+          const job = s.data;
+          setJobProgress(job.progress || 0);
+          setJobStep(job.current_step || 'running');
+          if (job.status === 'complete' && job.result) {
+            setWorkflow(job.result);
+            const exp = {}; (job.result.steps || []).forEach((_, i) => { exp[i] = true; }); setExpandedSteps(exp);
+            const m = job.result?._meta?.model_used || job.model_used || 'AI';
+            const degraded = job.result?._degraded_mode;
+            if (degraded === 'template_fallback') {
+              toast.warning('AI budget exceeded — using verified template fallback. Top up at Profile → Universal Key → Add Balance.');
+            } else {
+              const dur = job.duration_ms ? ` in ${(job.duration_ms / 1000).toFixed(0)}s` : '';
+              toast.success(`Workflow generated via ${m.replace('anthropic/', '').replace('-20250929', '')}${dur} 🎉`);
+            }
+            setWorkflowSource('ai'); setVerified(false);
+            if (selectedCountry?.name) loadGovForms(selectedCountry.name);
+            setGenerating(false);
+            return;
+          }
+          if (job.status === 'failed') {
+            setJobError(job.error || 'Generation failed');
+            toast.error(job.error || 'Workflow generation failed');
+            setGenerating(false);
+            setView('pick-visa');
+            return;
+          }
+          // Still queued/running — re-poll in 2.5s
+          pollTimer = setTimeout(poll, 2500);
+        } catch (e) {
+          // Network blip — keep retrying for a while
+          console.warn('Workflow status poll failed', e);
+          pollTimer = setTimeout(poll, 4000);
+        }
+      };
+      pollTimer = setTimeout(poll, 1500);
     } catch (e) {
       const detail = e.response?.data?.detail || 'Generation failed';
       toast.error(detail);
+      setGenerating(false);
       setView('pick-visa');
     }
-    setGenerating(false);
+
+    // Cleanup if component unmounts mid-generation — handled by jobId watcher below
+    return () => { cancelled = true; if (pollTimer) clearTimeout(pollTimer); };
+  };
+
+  // Sweep A.2 — Cancel a running workflow generation job
+  const cancelWorkflowJob = async () => {
+    if (!jobId) return;
+    try {
+      await axios.delete(`${API}/ai-workflow/generate/${jobId}`, auth());
+      toast.message('Generation cancelled', { description: 'Aap firse koshish kar sakte hain.' });
+    } catch (e) {
+      console.warn('Cancel failed', e);
+    } finally {
+      setGenerating(false);
+      setJobId(null);
+      setView('pick-visa');
+    }
   };
 
   // Phase 20.1 — persist verification to `ai_workflow_templates` collection
@@ -324,13 +398,65 @@ const AIWorkflowBuilder = () => {
       {view === 'review' && (
         <div className="space-y-5" data-testid="workflow-review" style={{fontFamily:"'IBM Plex Sans',sans-serif"}}>
           {generating ? (
-            <div className="p-16 text-center bg-white rounded-2xl border border-[#2a777a]/20">
-              <Loader2 className="h-14 w-14 mx-auto mb-4 text-[#2a777a] animate-spin" />
-              <p className="text-lg font-bold text-slate-800" style={{fontFamily:'Manrope,sans-serif'}}>AI generating workflow...</p>
-              <p className="text-sm text-slate-500 mt-1">Referencing official government sources</p>
+            <div className="p-12 sm:p-16 bg-white rounded-2xl border border-leamss-teal-200 shadow-sm" data-testid="ai-workflow-progress">
+              <div className="max-w-xl mx-auto text-center">
+                <div className="relative h-16 w-16 mx-auto mb-5">
+                  <div className="absolute inset-0 rounded-full bg-gradient-to-br from-leamss-teal-100 to-leamss-orange-100 animate-pulse" />
+                  <Loader2 className="absolute inset-2 h-12 w-12 text-leamss-teal-600 animate-spin" />
+                </div>
+                <p className="text-lg font-bold text-slate-800" style={{fontFamily:'Manrope,sans-serif'}}>
+                  AI generating workflow…
+                </p>
+                <p className="text-sm text-slate-500 mt-1" data-testid="ai-workflow-current-step">
+                  {jobStep === 'queued' && 'Job queued — kicking off background generation'}
+                  {jobStep === 'analyzing' && 'Analyzing visa category and resolving authoritative sources'}
+                  {jobStep === 'generating' && 'Calling Claude Sonnet 4.5 for step-by-step workflow'}
+                  {jobStep === 'regenerating' && 'Re-prompting AI to meet our quality bar (≥5 steps, ≥3 docs/step)'}
+                  {jobStep === 'formatting' && 'Formatting and validating the workflow output'}
+                  {!['queued','analyzing','generating','regenerating','formatting'].includes(jobStep) && 'Working on it…'}
+                </p>
+
+                {/* Progress bar */}
+                <div className="mt-6 w-full bg-slate-100 rounded-full h-2 overflow-hidden" data-testid="ai-workflow-progress-bar">
+                  <div
+                    className="h-full bg-gradient-to-r from-leamss-teal-500 to-leamss-orange-500 transition-all duration-700 ease-out"
+                    style={{width: `${jobProgress}%`}}
+                  />
+                </div>
+                <p className="text-xs text-slate-400 mt-2 font-mono">{jobProgress}% · {jobId ? `job ${jobId.slice(0, 8)}…` : 'starting…'}</p>
+
+                <p className="text-xs text-slate-400 mt-4">
+                  Generation typically takes 60–180 seconds. Aap is page ko chhod kar wapas aa sakte hain — generation backend pe continue hogi.
+                </p>
+
+                <div className="flex justify-center gap-2 mt-5">
+                  <Button variant="outline" size="sm"
+                    className="border-leamss-red-300 text-leamss-red-700 hover:bg-leamss-red-50"
+                    onClick={cancelWorkflowJob} data-testid="ai-workflow-cancel-btn">
+                    <X className="h-3.5 w-3.5 mr-1.5" /> Cancel
+                  </Button>
+                </div>
+
+                {jobError && (
+                  <div className="mt-5 bg-leamss-red-50 border border-leamss-red-200 rounded-lg p-3 text-left">
+                    <p className="text-xs text-leamss-red-800 font-semibold">Error</p>
+                    <p className="text-xs text-leamss-red-700 mt-0.5">{jobError}</p>
+                  </div>
+                )}
+              </div>
             </div>
           ) : workflow && (
             <>
+              {/* Cache hit badge */}
+              {cachedHit && (
+                <div className="px-4 py-2 bg-leamss-sky-50 border border-leamss-sky-200 rounded-lg flex items-center justify-between gap-3" data-testid="ai-workflow-cached-badge">
+                  <p className="text-sm text-leamss-sky-800 flex items-center gap-2">
+                    <Sparkles className="h-4 w-4" />
+                    <span>Loaded from cache (saved last hour). Want fresh AI output? <Button variant="link" className="h-auto p-0 text-leamss-sky-800 underline" onClick={() => { setCachedHit(false); generateWorkflow(selectedVisa?.name || ''); }} data-testid="ai-workflow-regenerate-btn">Regenerate</Button></span>
+                  </p>
+                </div>
+              )}
+
               {/* Verification Banner */}
               {workflowSource === 'ai' && !verified && (
                 <div className="p-5 bg-amber-50 border-2 border-amber-300 rounded-xl" data-testid="ai-verify-warning">
@@ -525,7 +651,7 @@ const AIWorkflowBuilder = () => {
         <div className="text-center py-16" data-testid="workflow-saved" style={{fontFamily:"'IBM Plex Sans',sans-serif"}}>
           <div className="w-20 h-20 mx-auto mb-6 bg-emerald-100 rounded-2xl flex items-center justify-center"><CheckCircle className="h-10 w-10 text-emerald-600" /></div>
           <h2 className="text-2xl font-extrabold text-slate-900 mb-2" style={{fontFamily:'Manrope,sans-serif'}}>Workflow Saved!</h2>
-          <p className="text-slate-500 text-sm mb-8">"{workflow?.product_name}" saved with all steps and documents.</p>
+          <p className="text-slate-500 text-sm mb-8">&ldquo;{workflow?.product_name}&rdquo; saved with all steps and documents.</p>
           <div className="flex justify-center gap-3">
             <Button onClick={() => {setView('gallery');setWorkflow(null);}} className="bg-[#2a777a] hover:bg-[#215f62] h-11 rounded-lg px-6 font-semibold"><Plus className="h-4 w-4 mr-2" />Create Another</Button>
             <Button variant="outline" className="h-11 rounded-lg px-6 font-semibold" onClick={() => navigate('/admin')}>Dashboard</Button>

@@ -352,6 +352,65 @@ async def create_pre_assessment(data: CreatePreAssessment, current_user: dict = 
     }
 
 
+@router.post("/{pa_id}/remind-payment")
+async def remind_client_payment(pa_id: str, current_user: dict = Depends(get_current_user)):
+    """Sweep A.3 — Re-send / remind client about pending payment after PA approval.
+
+    Works at stages: approved, proposal_sent, payment_pending. Idempotent — safe to call multiple times.
+    Records `payment_link_resent` audit_log entry with admin id + timestamp.
+    """
+    pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
+    if not pa:
+        raise HTTPException(status_code=404, detail="Pre-assessment not found")
+
+    role = current_user.get("role")
+    if role not in ("admin", "partner") or (role == "partner" and pa.get("partner_id") != current_user["id"]):
+        raise HTTPException(status_code=403, detail="Only the assigned partner or admin can remind client")
+
+    if pa.get("fee_payment_status") == "paid":
+        raise HTTPException(status_code=400, detail="Payment already received — no reminder needed")
+
+    allowed_stages = {"approved", "proposal_sent", "payment_pending"}
+    if pa.get("stage") not in allowed_stages:
+        raise HTTPException(status_code=400, detail=f"Cannot remind at stage '{pa.get('stage')}'. PA must be approved first.")
+
+    # Capture payment URL — prefer proposal sale's payment link if exists; else PA mock link
+    payment_url = pa.get("proposal_payment_url") or pa.get("payment_url") or ""
+    if not payment_url and pa.get("sale_id"):
+        sale = await db["sales"].find_one({"id": pa["sale_id"]}, {"_id": 0, "payment_url": 1})
+        if sale:
+            payment_url = sale.get("payment_url", "")
+
+    # Append audit_log entry
+    audit_entry = {
+        "action": "payment_link_resent",
+        "actor_id": current_user["id"],
+        "actor_name": current_user.get("name", ""),
+        "actor_role": role,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "channel": "email",
+        "to": pa.get("client_email", ""),
+        "stage_at_resend": pa.get("stage"),
+    }
+    await pre_assessments_col.update_one(
+        {"id": pa_id},
+        {"$push": {"audit_log": audit_entry}, "$set": {"updated_at": datetime.now(timezone.utc)}},
+    )
+
+    await log_activity(
+        current_user["id"], current_user.get("name", ""), "payment_link_resent",
+        "pre_assessment", pa_id, f"Payment reminder sent to {pa.get('client_name', '')} ({pa.get('client_email', '')})",
+    )
+
+    return {
+        "ok": True,
+        "message": f"Payment link sent to {pa.get('client_email', 'client')}",
+        "client_email": pa.get("client_email", ""),
+        "payment_url": payment_url,
+        "stage": pa.get("stage"),
+    }
+
+
 @router.post("/{pa_id}/send-payment-link")
 async def send_payment_link(pa_id: str, http_request: Request, current_user: dict = Depends(get_current_user)):
     """Partner sends pre-assessment payment link to client (Phase 20.3 — uses stored resolved fee)"""

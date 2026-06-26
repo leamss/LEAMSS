@@ -6,6 +6,7 @@ structured immigration workflow generation, plus quality bar enforcement
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -76,6 +77,18 @@ async def resolve_au_nz_skill_assessment_url(db, country_key: str, service_type:
 
 
 # ── Core AI call: Claude primary, GPT fallback ────────────────────────────────
+def _sync_chat_call(api_key: str, session_id: str, system_msg: str, provider: str, model: str, prompt: str) -> str:
+    """Sweep A.2 fix — Runs the LlmChat in a brand-new event loop inside a worker
+    thread. emergentintegrations.LlmChat.send_message is declared `async` but
+    internally calls the SYNC litellm.completion() — that blocks the main FastAPI
+    event loop for 20–90s per call. Wrapping it via run_in_executor + asyncio.run
+    makes it true non-blocking from the main loop's perspective.
+    """
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
+    chat = LlmChat(api_key=api_key, session_id=session_id, system_message=system_msg).with_model(provider, model)
+    return asyncio.run(chat.send_message(UserMessage(text=prompt)))
+
+
 async def call_ai_with_fallback(
     prompt: str, system_msg: str = "", session_prefix: str = "workflow",
 ) -> Tuple[str, str]:
@@ -83,19 +96,20 @@ async def call_ai_with_fallback(
 
     Returns: (response_text, model_used_label)
     Raises: RuntimeError if BOTH fail.
+
+    Sweep A.2 — Offloads the BLOCKING LiteLLM call to a thread-pool executor.
     """
-    from emergentintegrations.llm.chat import LlmChat, UserMessage
     session_id = f"{session_prefix}-{uuid.uuid4().hex[:8]}"
     last_err: Optional[Exception] = None
+    loop = asyncio.get_event_loop()
 
     for provider, model in (PRIMARY_MODEL, FALLBACK_MODEL):
         try:
-            chat = LlmChat(
-                api_key=EMERGENT_LLM_KEY,
-                session_id=session_id,
-                system_message=system_msg,
-            ).with_model(provider, model)
-            result = await chat.send_message(UserMessage(text=prompt))
+            result = await loop.run_in_executor(
+                None,
+                _sync_chat_call,
+                EMERGENT_LLM_KEY, session_id, system_msg, provider, model, prompt,
+            )
             logger.info("AI workflow generated via %s/%s (session=%s)", provider, model, session_id)
             return result, f"{provider}/{model}"
         except Exception as e:  # noqa: BLE001

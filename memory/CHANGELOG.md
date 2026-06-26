@@ -5,6 +5,104 @@ This file appends every completed phase/feature with dates and verification stat
 
 
 ---
+### 🚀 Sweep A — Express UX Trinity (A.1 + A.2 + A.3) — Feb 26, 2026 (evening)
+
+Sir reported 3 P0 issues post-Phase-22 mega-sweep. All 3 shipped end-to-end and verified live.
+
+---
+#### A.1 — Express Approval UI (inline Approve/Reject in PA Queue)
+**Problem:** Sir created PA-20260626-5F3E31 as express sale, status badge said "EXPRESS PENDING APPROVAL", but Sir couldn't approve from PreAssessmentQueue page. The dedicated `/admin/sales/express-approvals` page existed but was hidden behind admin nav with no discoverability link from PA hub.
+
+**Fix in `PreAssessmentQueue.jsx`:**
+- Added **5th tab** "⚡ Express Pending ({n})" between "2nd Approval" and "All", with `leamss-red` accent + Zap icon. Filters by `stage === 'express_pending_approval' || express_sale_approval_status === 'pending'` (deduped across active queue + history)
+- Added 4th **KPI tile** "Express Pending" with `leamss-red` gradient (clickable, switches to tab)
+- Added inline **Approve Express** (filled leamss-red, Zap icon) + **Reject** (outlined leamss-red) buttons on each express PA row
+- Confirmation **dialog** with optional remarks (approve) / required 5+ char reason (reject), calls `POST /api/express/{approve|reject}/{pa_id}`
+- **Banner CTAs** on both tabs: "Express Pending" tab → link to dedicated view; "All" tab → switch-to-Express button
+- All new buttons / chips have `data-testid` (`pa-tab-express-pending`, `kpi-express-pending`, `pa-approve-express-{id}`, `pa-reject-express-{id}`, `express-banner-cta`, `express-switch-banner`, `express-decision-dialog`, `express-confirm-btn`, `express-cancel-btn`)
+
+**Verified live:** Sir's PA-20260626-5F3E31 was approved via the new inline button in screenshot, then progressed to `proposal_sent`.
+
+---
+#### A.2 — AI Workflow Builder Background Job (Cloudflare 502 fix)
+**Problem:** `POST /api/ai-workflow/generate` blocked synchronously for 60–230 seconds. Cloudflare ingress timeout is 60s → Sir got HTTP 502 Bad Gateway every time. Backend logs showed the job DID finish (230s), but the browser never got the response.
+
+**Root cause discovery:** Initial `asyncio.create_task` background pattern was implemented, but Sir still saw the backend become **completely unresponsive** during generation. Forensic: `emergentintegrations.LlmChat.send_message` is declared `async` but **internally calls `litellm.completion()` (sync)** — this BLOCKS the entire FastAPI event loop for 20–90s per AI call. Every other endpoint (auth, polling, even healthcheck) timed out.
+
+**Fix:**
+- **`services/ai_workflow_service.py`** — Wrapped the LiteLLM call in `loop.run_in_executor()` via a `_sync_chat_call()` helper that runs `asyncio.run(chat.send_message(...))` in a **worker thread**. Main event loop stays fully responsive during 60-180s generation.
+- **`routers/ai_workflow_builder.py`** — New collection `ai_workflow_jobs`; refactored `POST /generate` into background-job pattern:
+  - **`POST /generate`** → creates job doc, kicks off `asyncio.create_task(_runner())`, returns `{job_id, status:"queued"}` in **<250ms**
+  - **`GET /generate/status/{job_id}`** → polling endpoint (instant). Returns `{status, progress 0-100, current_step: queued/analyzing/generating/regenerating/formatting/done, result, error, duration_ms}`
+  - **`DELETE /generate/{job_id}`** → best-effort cancel
+  - **`GET /generate/recent`** → list user's recent jobs (for cache hit detection)
+  - **`POST /generate-sync`** → legacy synchronous endpoint kept as deprecated fallback
+- **Cache layer:** Job marked `complete` for same `country+service_type` within last 60min returns instantly with `cached: true` (saves AI cost + sub-second response)
+- **Concurrency cap:** Max 3 simultaneous jobs per user → 429 if exceeded
+- **Timeouts:** Per AI call = 90s (was 45s; longer because we're now in bg); overall job = 240s
+- **Retries:** Inherits existing `MAX_QUALITY_RETRIES = 2` from quality enforcer
+
+**Frontend `AIWorkflowBuilder.jsx`:**
+- `generateWorkflow()` rewritten — POST → set jobId → poll `/status/{jobId}` every 2.5s
+- **Progress UI**: animated spinner + step description ("Analyzing visa category...", "Calling Claude...", "Regenerating to meet quality bar...", "Formatting") + gradient progress bar 0-100% + job_id badge
+- **Cancel** button → DELETE endpoint
+- **Cached** sky-blue badge with "Regenerate" link when cache hit
+- All `data-testid`: `ai-workflow-progress`, `ai-workflow-progress-bar`, `ai-workflow-current-step`, `ai-workflow-cancel-btn`, `ai-workflow-cached-badge`, `ai-workflow-regenerate-btn`
+
+**Verified live (concurrent test while AI job runs):**
+```
+POST /ai-workflow/generate Germany+work → 250ms → job_id=01b92875
+   GET /auth/me           → HTTP 200 in 112ms   (no blocking!)
+   POST /remind-payment   → HTTP 200 in  91ms   (no blocking!)
+   GET /generate/status/X → HTTP 200 in  96ms   status=running/generating/30%
+```
+**Cache hit verified:** `Australia+pr` second call returned `cached:true` with full 8-step workflow instantly.
+
+---
+#### A.3 — Post-approval "Awaiting Payment" UX (replaces red toast with calm chip + actionable CTA)
+**Problem:** After approving an express PA, Sir saw alarming red toast "Client account not linked yet — wait for client to complete payment". This was by design (client must pay before account links), but UX was poor — no clear next-step affordance.
+
+**Fix:**
+- **NEW backend endpoint** `POST /api/pre-assessment/{pa_id}/remind-payment` — works at stages `approved | proposal_sent | payment_pending`; idempotent (safe to call multiple times); appends `payment_link_resent` entry to `audit_log` with admin id + timestamp + actor_role + client_email + stage_at_resend; logs activity feed too
+- **`PreAssessmentQueue.jsx`** — On any approved-but-unpaid PA row (stage in `['approved', 'proposal_sent']` AND `fee_payment_status !== 'paid'`):
+  - **Sky-blue inline block** with Hourglass icon, "Awaiting Client Payment" header, and inline `leamss-sky` **chip** "⏳ Awaiting Payment" (with explanatory tooltip)
+  - Hinglish message: *"PA approved. Client ko payment complete karna hai — account abhi link nahi hua hai. Reminder bhejne ke liye {client_email} pe payment link bhejein."*
+  - **Prominent leamss-teal "Send Payment Link to Client" button** with Send icon → calls `/remind-payment` → success toast "Payment link sent to {email} ✓"
+  - All `data-testid`: `pa-awaiting-payment-block-{id}`, `pa-awaiting-payment-chip-{id}`, `pa-send-payment-link-btn-{id}`
+
+**Verified live:** Backend curl returned `{ok:true, message:"Payment link sent to branchlead4@gmail.com", payment_url, stage:"proposal_sent"}`. Frontend screenshot showed block rendered correctly with sky chip + teal CTA on Sir's PA-20260626-5F3E31.
+
+---
+#### Sweep A — Self-test summary
+
+| Test | Result |
+|---|---|
+| A.1 Express tab visible | ✅ Screenshot — 5 tabs incl "⚡ Express Pending (1)", 6 KPIs incl red "Express Pending" tile |
+| A.1 Inline approve buttons | ✅ Screenshot — "Approve Express" + "Reject" CTAs on Sir's PA-20260626-5F3E31 |
+| A.1 Approve E2E backend | ✅ `POST /api/express/approve/{id}` → 200, `stage=approved`, audit_log entry |
+| A.2 New POST /generate fast | ✅ 250ms return with job_id (was 60s+ 502) |
+| A.2 Status polling | ✅ Returns progress 0→100, current_step transitions |
+| A.2 Cache hit | ✅ Australia+pr 2nd call → `cached:true`, instant |
+| A.2 Cancel | ✅ `DELETE /generate/{id}` → status=failed, cancelled=true |
+| A.2 List recent | ✅ Returns user's jobs sorted desc |
+| A.2 **Event loop unblocked** | ✅ Concurrent test: 3 requests during AI job all returned in <120ms |
+| A.3 Sky chip + teal button visible | ✅ Screenshot — Sir's approved-but-unpaid PA shows the new block |
+| A.3 Backend remind-payment | ✅ 200 OK with client_email + payment_url; audit_log appended |
+| Brand grep | ✅ No indigo/violet/purple/blue-NN in my edits; only `leamss-*` + neutrals |
+| Lint | ✅ JS + Python both clean; only 2 pre-existing useEffect-dep warnings unchanged |
+| Pytest critical paths | ✅ `test_iteration64_ai_workflow.py` 7+ tests passing; express tests have pre-existing fixture errors (not caused by my changes) |
+
+**Files modified (4 new helpers + 2 endpoints + 1 frontend page + 1 frontend component):**
+- `backend/services/ai_workflow_service.py` — added `_sync_chat_call()` + rewrote `call_ai_with_fallback()` to use `run_in_executor`
+- `backend/routers/ai_workflow_builder.py` — new collection + 4 new endpoints + renamed old to `/generate-sync`
+- `backend/routers/pre_assessment.py` — new `POST /{pa_id}/remind-payment` endpoint
+- `frontend/src/components/PreAssessmentQueue.jsx` — 5th tab, KPI tile, banners, inline buttons, A.3 block, dialog
+- `frontend/src/pages/AIWorkflowBuilder.jsx` — polling pattern, progress UI, cancel, cached badge
+
+**Backward compat:** Old `/generate-sync` route preserved for legacy callers (deprecated).
+
+
+---
 ### 🚑 P0 Hotfix v2 — RBAC v2 URL-Path UI Regression + Modal navigate Bug (Feb 26, 2026 evening)
 
 **Trigger:** Sir reported 2 P0 regressions after the Phase 22 mega-sweep:
