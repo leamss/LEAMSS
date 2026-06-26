@@ -406,14 +406,18 @@ Be comprehensive. At least 5 steps. At least 6 documents in checklist. At least 
         await _update({"progress": 35, "current_step": "generating"})
 
         # Sweep B.1 hotfix — single-pass with extended budget:
-        # call_ai_with_fallback now caps Sonnet at 90s + Haiku at 45s = ~135s worst case.
-        # Our outer asyncio.wait_for adds 45s safety margin for the JSON parse + post-processing.
+        # call_ai_with_fallback now caps Sonnet at 120s + Haiku at 50s = ~170s worst case.
+        # Country drafts have larger schemas than ai-workflow generate, so Sonnet needs more headroom.
+        # Our outer asyncio.wait_for adds 10s safety margin.
         parsed: Dict[str, Any] = {}
         model_used: str = "unknown"
         last_exc: Optional[Exception] = None
         try:
             response, model_used = await asyncio.wait_for(
-                ai_svc.call_ai_with_fallback(prompt, system_msg, session_prefix="country_draft"),
+                ai_svc.call_ai_with_fallback(
+                    prompt, system_msg, session_prefix="country_draft",
+                    primary_timeout=120, fallback_timeout=50,
+                ),
                 timeout=180,
             )
             try:
@@ -506,11 +510,13 @@ Be comprehensive. At least 5 steps. At least 6 documents in checklist. At least 
                            f"{req.country_code} {req.subclass_id} via {model_used}")
     except Exception as e:  # noqa: BLE001
         logger.exception(f"AI draft job {job_id} crashed")
+        # Sweep B.1 hotfix — consistent error formatting with type prefix (matches inner branch)
+        err_msg = f"{type(e).__name__}: {str(e)[:400]}"
         await _update({
             "status": "failed",
             "progress": 100,
             "current_step": "failed",
-            "error": str(e)[:300],
+            "error": err_msg,
             "completed_at": _now_iso(),
         })
 

@@ -5,6 +5,38 @@ This file appends every completed phase/feature with dates and verification stat
 
 
 ---
+### 🩹 Sweep B.1 TC4 Hotfix — Empty Error Bug FIXED (Feb 26, 2026 late evening)
+
+Tester iteration_120 caught TC4 FAIL: AI Draft jobs from Country Workflows Hub timed out after ~3 min with `error=""` (empty string), `workflow_id=None`. Admin had no idea what went wrong.
+
+**Root cause:** `country_workflows.py` wrapped `call_ai_with_fallback` in an INNER `asyncio.wait_for(timeout=90)` then ran a retry loop. When the outer wait_for tripped, Python's `asyncio.TimeoutError()` carries no message — `str(exc)` returns empty string. Result: admin saw `error=''` and never knew the real cause.
+
+**Fix (4-part):**
+
+1. **`services/ai_workflow_service.py call_ai_with_fallback()`** — Per-model timeouts pushed INSIDE the function (configurable via kwargs `primary_timeout` + `fallback_timeout`). Sonnet caps at 90s default (120s for country drafts), Haiku at 45s default (50s for country drafts). On timeout, immediately jumps to the next model (no retry on same one). `last_err` preserved across attempts. Final RuntimeError carries `f"{type(last_err).__name__}: {last_err}"` — ALWAYS non-empty.
+
+2. **`routers/country_workflows.py _execute_ai_draft()`** — Removed the inner retry loop. Single pass through `call_ai_with_fallback`. Outer wait_for raised from 90→180s (10s margin over 170s worst case). Error string formatted as `f"{type(exc).__name__}: {str(exc)[:400]}"` — ALWAYS non-empty. Outer catch-all also uses consistent format.
+
+3. **Resilience — partial output fallback** — If `parse_json_response()` fails on a successful AI response, the raw text (first 1500 chars) is saved as `description` with `_partial_raw=True` flag, instead of throwing away. Admin can manually complete the workflow from the partial draft.
+
+4. **Audit log** — Failed AI drafts now write to `audit_logs` collection with action `country_workflow_ai_draft_failed` + the meaningful error message.
+
+**Verified live (tester iteration_121, 9/9 PASS):**
+- NZ/CA/SG AI draft jobs all surfaced meaningful error: `"RuntimeError: All AI providers failed. Last error: TimeoutError: anthropic/claude-haiku-4-5-20251001 exceeded 45s budget"` (or similar) within ~138s budget
+- TC5 seeded fastpath still works (<200ms)
+- No 5xx errors in backend logs
+- Sweep A AI workflow generate (background job pattern) still works for unseeded countries
+
+**Secondary observation (not a hotfix regression — pre-existing env limitation):** Live AI completion did NOT succeed for any test country in this environment. Both Sonnet 4.5 + Haiku 4.5 timed out repeatedly. Possible causes: (a) Emergent LLM proxy latency, (b) prompt size too large for Haiku 45s budget, (c) concurrent_request_limit on EMERGENT_LLM_KEY (test ran 3 jobs back-to-back). **The hotfix did its primary job — surface failures cleanly** — but Sir should investigate AI throughput before B.2 dispatch (which needs ~30 successful AI drafts).
+
+**Files modified (2):**
+- `backend/services/ai_workflow_service.py` — per-model timeouts in `call_ai_with_fallback`
+- `backend/routers/country_workflows.py` — outer wait_for + error formatting + partial fallback
+
+**Pytest:** `backend/tests/test_sweep_b1_tc4_hotfix.py` — 9/9 PASS (tester-authored)
+
+
+---
 ### 🚀 Sweep B Phase A (B.1) — Country Workflows Hub + 2 Finishers — Feb 26, 2026 (evening)
 
 Two finishers from Sweep A, plus B.1 (the schema + backend + admin UI for authoritative country-visa workflow data). B.2/B.3 (seeding actual AU/CA/NZ/UK/USA/Germany/Schengen data) is the next dispatch.
