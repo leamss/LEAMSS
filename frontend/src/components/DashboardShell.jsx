@@ -208,7 +208,7 @@ const NavItem = ({ icon: Icon, label, active, badge, badgeColor = 'bg-[#f7620b]'
 const DashboardShell = ({
   user,
   roleLabel,
-  navGroups,
+  navGroups = [],
   activeTab,
   pageTitle,
   headerActions,

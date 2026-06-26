@@ -32,6 +32,8 @@ import SiteAuditHub from '@/pages/it/SiteAuditHub';
 import DevTrackerHub from '@/pages/it/DevTrackerHub';
 import ChatHub from '@/pages/chat/ChatHub';
 import TicketsHub from '@/pages/tickets/TicketsHub';
+import AdminRbacHub from '@/pages/admin/AdminRbacHub';
+import PayrollAdminHub from '@/pages/admin/PayrollAdminHub';
 import PortalWelcome from '@/pages/PortalWelcome';
 import ForgotPassword from '@/pages/ForgotPassword';
 import ResetPasswordWithToken from '@/pages/ResetPasswordWithToken';
@@ -279,6 +281,27 @@ function App() {
           <Route path="/admin/chat" element={<ChatHub />} />
           <Route path="/portal/tickets" element={<TicketsHub />} />
           <Route path="/admin/tickets" element={<TicketsHub />} />
+          {/* Phase 22 — RBAC v2 Capability Builder + Payroll Admin */}
+          <Route path="/admin/rbac" element={
+            <RequirePermission anyOf={['system.update.any', 'user.update.any']} allowRoles={['admin_owner', 'admin']}>
+              <AdminRbacHub />
+            </RequirePermission>
+          } />
+          <Route path="/admin/payroll" element={
+            <RequirePermission anyOf={['payroll.manage', 'system.update.any']} allowRoles={['admin_owner', 'admin', 'hr', 'accounts']}>
+              <PayrollAdminHub />
+            </RequirePermission>
+          } />
+          <Route path="/portal/admin/rbac" element={
+            <RequirePermission anyOf={['system.update.any', 'user.update.any']} allowRoles={['admin_owner', 'admin']}>
+              <AdminRbacHub />
+            </RequirePermission>
+          } />
+          <Route path="/portal/admin/payroll" element={
+            <RequirePermission anyOf={['payroll.manage', 'system.update.any']} allowRoles={['admin_owner', 'admin', 'hr', 'accounts']}>
+              <PayrollAdminHub />
+            </RequirePermission>
+          } />
           {/* Phase 21 Slice 3 — Reimbursements */}
           <Route path="/portal/my-reimbursements" element={<Reimbursements view="me" />} />
           <Route path="/admin/reimbursements/pending" element={<Reimbursements view="team" />} />

@@ -9,7 +9,7 @@
 
 ---
 
-## 🎯 8 Capability Packs (Sir's confirmed list)
+## 🎯 9 Capability Packs (Sir's confirmed list — updated Feb 26 with `ai_power_tools` as 9th pack)
 
 | Pack ID | Display Name | Color Accent | Auto-granted to | Notes |
 |---------|-------------|--------------|-----------------|-------|
@@ -18,7 +18,8 @@
 | `it` | IT | slate | dept=IT | Site audit, dev tracker, scrapers |
 | `accounts` | Accounts | sky | dept=Accounts/Finance | Finance, payments, commission admin |
 | `hr` | HR | leamss-red | dept=HR | People, payroll, leave/attendance policies |
-| `operations` | Operations | emerald | dept=Operations / Sales / Case Mgmt | Sales + CM + cases + ops tools |
+| `operations` | Operations | emerald | dept=Operations / Sales / Case Mgmt | Sales + CM + cases + ops tools + Atlas + KB |
+| `ai_power_tools` | AI Power Tools | leamss-orange (gradient) | _(none — admin assigns to selected users)_ | AI Workflow Builder + AI Proposal + AI Verify + Doc Extraction + Intelligence Engine. Sir's mental model: "Case Manager + Sales ko AI Workflow Builder do" |
 | `manager_elevation` | Manager Elevation | leamss-teal (dark) | Anyone with direct reports | Approval-type actions overlay |
 | `admin_elevation` | Admin Elevation | leamss-red (dark) | rbac_role=admin / admin_owner only | Super-overlay: RBAC, system, bulk ops |
 
@@ -204,19 +205,19 @@
 | `kb.legal_archive` | Legal Archive | `/api/legal-archive/*` (7 ep) | (within KB) | operations, admin_elevation |
 | `kb.knowledge_base_legacy` | Knowledge Base (legacy) | `/api/knowledge-base/*` (6 ep) | `/admin/knowledge-base` | operations |
 
-### Category 12: AI / Power Tools (Cross-functional — assignable to anyone via override)
+### Category 12: AI / Power Tools (assigned via `ai_power_tools` pack — Sir's 9th pack confirmed)
 
-> Sir's directive: "AI Workflow Builder = cross-functional power tool (assignable to anyone)" — these features are NOT in any default pack; admin grants via Layer-2 override.
+> Sir's directive: "Case Manager + Sales ko AI Workflow Builder do" — these features now live in a dedicated `ai_power_tools` pack which admin explicitly toggles per user. Default-granted to **no one**; admin selectively assigns.
 
 | feature_id | Name | Backend | Frontend | Default packs |
 |------------|------|---------|----------|---------------|
-| `ai.workflow_builder` | AI Workflow Builder (Claude) | `/api/ai-workflow-builder/*` (7 ep) | `/admin/ai-workflow` | _(none — override only)_ |
-| `ai.workflows_legacy` | Workflow Builder (legacy) | `/api/workflows/*` (4 ep) | `/admin/workflows` | _(none — override only)_ |
-| `ai.ai_intelligence` | AI Intelligence | `/api/ai-intelligence/*` (9 ep) | (inline in dashboards) | _(none — override only)_ |
-| `ai.ai_proposal` | AI Proposal Generator | `/api/ai-proposal/*` (1 ep) | (inline in proposal builder) | _(none — override only)_ |
-| `ai.ai_verification` | AI Verification | `/api/ai-verification/*` (2 ep) | (within VerificationHub) | _(none — override only)_ |
-| `ai.doc_extraction` | Document Extraction (OCR) | `/api/doc-extraction/*` (9 ep) | (inline in document upload) | _(none — override only)_ |
-| `ai.intelligence_engine` | Intelligence Engine | `/api/intelligence/*` (4 ep), `/api/audit-insights/*` (2 ep) | `/admin/audit-insights` | _(none — override only)_ |
+| `ai.workflow_builder` | AI Workflow Builder (Claude) | `/api/ai-workflow-builder/*` (7 ep) | `/admin/ai-workflow` | ai_power_tools |
+| `ai.workflows_legacy` | Workflow Builder (legacy) | `/api/workflows/*` (4 ep) | `/admin/workflows` | ai_power_tools |
+| `ai.ai_intelligence` | AI Intelligence | `/api/ai-intelligence/*` (9 ep) | (inline in dashboards) | ai_power_tools |
+| `ai.ai_proposal` | AI Proposal Generator | `/api/ai-proposal/*` (1 ep) | (inline in proposal builder) | ai_power_tools |
+| `ai.ai_verification` | AI Verification | `/api/ai-verification/*` (2 ep) | (within VerificationHub) | ai_power_tools |
+| `ai.doc_extraction` | Document Extraction (OCR) | `/api/doc-extraction/*` (9 ep) | (inline in document upload) | ai_power_tools |
+| `ai.intelligence_engine` | Intelligence Engine | `/api/intelligence/*` (4 ep), `/api/audit-insights/*` (2 ep) | `/admin/audit-insights` | ai_power_tools |
 
 ### Category 13: System & Admin Elevation (10 features — admin_owner / admin only)
 

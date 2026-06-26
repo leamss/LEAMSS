@@ -72,6 +72,8 @@ const GROUP_CARDS = {
       { id: 'hr-leave-types', icon: FileText, title: 'Leave Types', desc: 'Policies, quotas, carry-forward', route: '/admin/hr/leave-types' },
       { id: 'hr-approvers', icon: UsersRound, title: 'Approver Config', desc: 'L1, Final, department-wise', route: '/admin/hr/approvers' },
       { id: 'hr-reimbursements', icon: Receipt, title: 'Reimbursements (HR)', desc: 'Approve & merge into payslip', route: '/admin/reimbursements/all' },
+      { id: 'hr-payroll', icon: Wallet, title: 'Payroll Admin', desc: 'Bulk generate · approve · mark-paid · salary structures', route: '/admin/payroll' },
+      { id: 'hr-rbac', icon: ShieldCheck, title: 'RBAC v2 — Capability Builder', desc: 'Manage 9 packs + 140 features per user (admin only)', route: '/admin/rbac' },
       { id: 'hr-audit', icon: History, title: 'Audit Log', desc: 'Policy changes trail', route: '/admin/hr/audit' },
     ],
   },

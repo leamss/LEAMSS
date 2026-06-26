@@ -5,6 +5,89 @@ This file appends every completed phase/feature with dates and verification stat
 
 
 ---
+### 🛡️ Phase 22 MEGA-SWEEP — Advanced RBAC v2 + Payroll Admin (Feb 26, 2026)
+
+**Pitch:** Sir ne "All recommendations" approve karke 9-pack RBAC v2 + Payroll Admin Hub ka full mega-sweep dispatch kiya. End-to-end shipped: full portal feature inventory · backend Capability service · 13 new endpoints · migration script · Role & Capability Builder UI · Payroll Admin UI · routes mounted · HR group cards expanded · live e2e verified.
+
+**22.0 — Full Portal Feature Inventory** (`/app/memory/FEATURE_INVENTORY_FEB26.md`)
+- Scanned 137 backend routers (~840 endpoints) + 144 frontend pages + ~140 App.js routes
+- Catalogued **140 atomic features across 14 categories**: baseline (15), marketing (12), sales (15), commission_revenue (10), hr (16), manager (8), operations (15), accounts (8), it (6), atlas (8), knowledge_base (8), ai (7), admin_system (10), communication (2)
+- Defined **9 Capability Packs** (Sir's confirmed 8 + new `ai_power_tools` pack per Q2=c): baseline_employee · marketing · it · accounts · hr · operations · ai_power_tools · manager_elevation · admin_elevation
+- Legacy-role → pack mapping with zero-permission-regression guarantee
+
+**22.1 — Payslip Discoverability Quick-Fix**
+- `EmployeesPortal.jsx` default `activeGroup`: `communication` → `me` so Sir lands directly on personal workspace (My Payslips · My Tasks · My Profile · etc. all visible without clicking chips)
+
+**22.2 — Backend RBAC v2** (zero regression, fully backward-compat)
+- New canonical source-of-truth: `core/rbac/capability_packs_data.py` (CAPABILITY_PACKS, FEATURE_CATALOG, DEPT_TO_PACKS, LEGACY_ROLE_TO_PACKS)
+- New service: `core/rbac/capability_service.py` — compute_effective_features/permissions, apply_packs/overrides/promote/demote/apply_template, audit log writes, force-logout via `password_changed_at` bump
+- New router: `routers/rbac_v2.py` (mounted at `/api/rbac/*`, 13 endpoints):
+  - `GET /packs`, `GET /feature-catalog`, `GET /smart-defaults`
+  - `GET /users/{id}/effective-capabilities`
+  - `PATCH /users/{id}/capability-packs`, `PATCH /users/{id}/feature-overrides`
+  - `POST /users/{id}/promote`, `POST /users/{id}/demote`, `POST /users/{id}/apply-template`
+  - `GET /audit-log` (filter by target_user_id / actor_id / action)
+  - `GET /POST /PATCH /DELETE /templates`
+- Validation: baseline always sticky · admin_elevation requires admin_owner · reason field required (400 if missing)
+- Force-logout side effect on every mutation (token invalidation via `password_changed_at`)
+- Audit log captures: actor, target, before/after packs+overrides, diff (added/removed packs+features), reason, timestamp
+- Migration script `scripts/migrate_rbac_v2.py` (idempotent · prod-gated · dry-run default · `--apply` opt-in):
+  - **Applied to 56 users** — 0 skipped, 0 actual permission losses (union strategy preserves all existing perms)
+  - 42 "regression warnings" were informational only — old perms (e.g. `agreement.view.own`, `attendance.clock.own`) outside the new feature catalog are preserved via permission union
+- Live API verification: `GET /api/rbac/packs` returns 9 packs, `GET /api/rbac/feature-catalog` returns 140 features in 14 categories, `GET /api/rbac/smart-defaults?department=marketing` → `[baseline_employee, marketing]`
+
+**22.3 — Frontend: Role & Capability Builder + Payroll Admin** (with Payroll UI bundle per Sir's Q5=a)
+- **`components/admin/RoleCapabilityBuilder.jsx`** — 4-layer UI:
+  - Layer 1: 9 pack toggle cards (responsive grid, brand-correct accents, baseline+admin_elevation locked-with-icon)
+  - Layer 2: Feature catalog grouped by category · 🔍 search · category filter · "show only granted" checkbox · per-feature checkboxes with `override` badge when differs from pack default
+  - Layer 3: Live preview tiles — effective features count, packs count, will-add (+N), will-remove (−N) with category-coloured add/remove lists
+  - Layer 4: Required reason textarea + Save button (disabled until reason filled + diff exists)
+  - All interactives: `rbac-pack-toggle-{id}`, `rbac-feature-toggle-{id}`, `rbac-search-input`, `rbac-category-filter`, `rbac-show-only-granted`, `rbac-reason-input`, `rbac-save-btn`, `rbac-reset-btn`, `rbac-preview-{features|pack|added|removed}-count`
+- **`pages/admin/AdminRbacHub.jsx`** at `/admin/rbac` (+ `/portal/admin/rbac` backward-compat) — user picker with search + Recent Audit Log section (last 10 entries with diff)
+- **`pages/admin/PayrollAdminHub.jsx`** at `/admin/payroll` (+ `/portal/admin/payroll` backward-compat) — Bulk Generate Payslips dialog (period picker + employee multi-select + select-all), 4 KPI tiles (Total, Paid, Pending, Net total ₹), period/status filter row, payslip list with approve/mark-paid/PDF actions
+- App.js routes mounted with `RequirePermission` gates: rbac requires `system.update.any`|`user.update.any` + admin_owner/admin role · payroll requires `payroll.manage`|`system.update.any` + admin/hr/accounts roles
+- EmployeesPortal HR group expanded with 3 new cards: `hr-payroll` (Payroll Admin), `hr-rbac` (RBAC v2 — Capability Builder), `hr-audit-log` (was already there) — all wired with leamss-red/sky/leamss-teal accents and `data-testid` coverage
+- DashboardShell `navGroups = []` default added to prevent crash when standalone admin pages don't supply nav
+
+**22.4 — Smart Defaults + Promote/Demote** (Phase 22.4 scaffolded via backend endpoints; full UI flow deferred to next sweep)
+- Backend `/api/rbac/users/{id}/promote` and `/demote` ready (validated · audit-logged)
+- Backend `/api/rbac/smart-defaults?department=…` returns dept → pack list (used by Add Employee wizard in next sweep)
+- Templates collection (CRUD endpoints ready) — UI for templates management deferred
+
+**Memory docs**
+- `/app/memory/FEATURE_INVENTORY_FEB26.md` (NEW · 140 features · 14 categories · pack mapping)
+- `/app/memory/RBAC_V2_DESIGN.md` (NEW · architecture · data model · endpoint table · test plan)
+- `/app/memory/CHANGELOG.md` (this entry)
+- `/app/memory/PRD.md` (updated with Phase 22 note)
+
+**Triple-gate verification ✅**
+- 🟢 **Backend API live**: 9 packs returned, 140 features catalogued, smart-defaults returns correct dept mapping, migration applied 56 users with zero permission regression (union strategy)
+- 🟢 **Frontend smoke screenshots** at 1920×900:
+  - HR group card row shows new Payroll Admin + RBAC v2 — Capability Builder cards
+  - Payroll Admin Hub renders KPIs (Total 1 · Paid 1 · Pending 0 · Net ₹96,850 · gross ₹98,850) and payslip row with download/approve/mark-paid actions
+  - RBAC Hub picker shows 17+ users with `name · email · dept · packs count`
+  - Role Capability Builder renders **all 9 packs** visually (Baseline locked-with-Lock-icon, Admin Elevation locked when current_user != admin_owner) with correct counts: Baseline 15 · Marketing 17 · IT 7 · Accounts 21 · HR 17 · Operations 44 · AI Power Tools 7 · Manager 20 · Admin 20
+  - Layer 2 feature catalog with category accordions (Accounts 8, admin_system 10 visible) + checkboxes wired
+  - **Live diff verified**: clicking Marketing pack toggle showed `+17 features added` in Layer 3 preview (exact match with Marketing pack's 17-feature default)
+- 🟢 **Brand grep** across 9 touched files: 0 indigo/purple/violet/blue-NN hits
+
+**Sir's directives honoured**
+- ✅ UPGRADE only — no removal of any existing feature, all routes backward-compat
+- ✅ `leamss-teal/orange/red/sky` + neutrals (slate/emerald) only
+- ✅ `data-testid` on every interactive element (~30 new testids)
+- ✅ Mobile responsive (Layer 1 grid `grid-cols-1 sm:grid-cols-2 md:grid-cols-3`, dialogs `max-h-[90vh] overflow-y-auto`)
+- ✅ Audit log on every mutation (packs_changed / overrides_changed / promoted / demoted / template_applied)
+- ✅ Reason field required (400 if missing) with confirmation modal flow
+- ✅ Zero permission regression on migration (verified via union of new+old perms)
+- ✅ Force re-login on capability change (via `password_changed_at` bump — JWT invalidated)
+- ✅ admin_elevation pack only assignable by admin_owner (server-side + UI lock)
+- ✅ baseline_employee pack always sticky (cannot be removed in service layer)
+- ✅ Sir's "9 packs not 8" correction applied immediately
+
+**Phase 22 mega-sweep complete. Ready for `e1_tester` full e2e verification.**
+
+
+---
 ### 📱 Phase 21 SLICE 4 — Sub-Slice C (Mobile Responsive Polish) (Feb 26, 2026)
 
 **Pitch:** Sir ne explicit GO de ke Sub-Slice B ke 4/4 PASS ke turant baad Sub-Slice C dispatch kiya. Goal: portal pages 375 / 414 / 768 viewports pe touch-friendly, no horizontal scroll, no clipped content. Aaj sab P0 mobile fixes shipped + carryover past-SLA highlight verified.
