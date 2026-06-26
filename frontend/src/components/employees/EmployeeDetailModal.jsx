@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -23,6 +24,7 @@ const TABS = [
 ];
 
 export default function EmployeeDetailModal({ employeeId, onClose, onUpdated }) {
+  const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [history, setHistory] = useState([]);
   const [activity, setActivity] = useState([]);
@@ -270,8 +272,14 @@ export default function EmployeeDetailModal({ employeeId, onClose, onUpdated }) 
             <div className="space-y-4" data-testid="role-tab">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold">Role & Permissions</h3>
-                <Button size="sm" variant="outline" onClick={() => setRoleChange({ open: true, new_role: '', reason: '' })} data-testid="change-role-btn">
-                  Change Role <ArrowRight className="h-3.5 w-3.5 ml-1" />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => { onClose(); navigate(`/admin/rbac?user_id=${user.id}`); }}
+                  data-testid="change-role-btn"
+                  className="border-leamss-teal-400 text-leamss-teal-700 hover:bg-leamss-teal-50"
+                >
+                  Manage Roles & Capabilities <ArrowRight className="h-3.5 w-3.5 ml-1" />
                 </Button>
               </div>
 

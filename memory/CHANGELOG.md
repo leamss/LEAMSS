@@ -5,6 +5,59 @@ This file appends every completed phase/feature with dates and verification stat
 
 
 ---
+### 🚑 P0 Hotfix v2 — RBAC v2 URL-Path UI Regression + Modal navigate Bug (Feb 26, 2026 evening)
+
+**Trigger:** Sir reported 2 P0 regressions after the Phase 22 mega-sweep:
+1. "Coming Soon" labels appearing on already-built features in HR Head dashboard
+2. Old single-dropdown "Change Role" dialog opening instead of the new `RoleCapabilityBuilder`
+
+A previous agent attempted the fix but truncated before validation. This session validated, found a deeper regression, and shipped the complete fix.
+
+**Issues Found & Fixed:**
+
+1. **`PortalWelcome.jsx` (HR Head + all dept dashboards)** —
+   - StatCards (My Tasks / Notifications / Attendance / Modules) now show live data, no "Coming soon"
+   - Module routing rewritten to support **dual format**: legacy snake_case keys (`hr_dashboard`) AND new RBAC v2 URL paths (`/admin/payroll`) — RBAC v2 migration silently switched `ui_modules` to URL paths which broke every tile click (every click triggered fallback "roadmap" toast)
+   - Label derivation now generates friendly Title Case from URL paths: `/admin/ai-workflow` → "Ai Workflow", `/admin/marketing/content-studio` → "Content Studio"
+   - Profile + Password header buttons wired to `/portal/my-profile` and `/portal/my-profile?tab=security`
+
+2. **`EmployeeDetailModal.jsx`** —
+   - "Change Role" button replaced with **"Manage Roles & Capabilities"** that deep-links to `/admin/rbac?user_id={id}` (new 4-layer `RoleCapabilityBuilder`)
+   - **BUG FIXED:** `navigate is not defined` runtime error — `useNavigate` hook was missing despite `navigate()` being called. Added `import { useNavigate } from 'react-router-dom'` + `const navigate = useNavigate()` inside component
+   - Legacy dialog code retained as dead code (per audit doc) for next cleanup sweep
+
+3. **`payroll.py` — `PATCH /api/payslips/{id}/mark-paid`** —
+   - Now populates: `paid_at` (ISO timestamp), `paid_on` (legacy backward-compat), `paid_by` (user id), `paid_by_name` (display name), `payment_reference`
+   - Audit log entry enriched with `actor_name` + `payment_reference`
+   - **Verified via curl:** PATCH → 200 with `paid_at + paid_by` in response · GET payslip → all 5 fields populated · marked_paid audit entry has actor_name
+
+**Verification (this session):**
+
+🟢 **Backend curl** — `mark-paid` end-to-end on payslip `ce686c64-dd34-4d43-ae00-5703af9d859e`:
+```json
+{
+  "status": "paid",
+  "paid_at": "2026-06-26T09:18:42.916333+00:00",
+  "paid_on": "2026-06-26T09:18:42.916333+00:00",
+  "paid_by": "3918d774-d353-460b-88d6-9c8a2a959c72",
+  "paid_by_name": "Admin User",
+  "payment_reference": "FEB26-HOTFIX-VERIFY-001"
+}
+```
+
+🟢 **Playwright screenshots** —
+- `/tmp/portal_welcome_v2.png` — HR Head dashboard StatCards (Tasks: 33 / Notifs: 18 / Attendance: View / Modules: 101); Your Access tiles with friendly labels ("Admin", "Activity", "Marketing", "Holidays", "Site Audit", "Content Studio") — **0 "Coming Soon" anywhere**
+- `/tmp/p0_2_role_tab.png` — Pranali Patkar (HR Head) modal showing Role & Permissions tab with **"Manage Roles & Capabilities"** button (NEW), Current Role `hr_head`, 32 permissions, **14 UI modules** (exactly the HR Head context Sir was investigating)
+- `/tmp/p0_2_rbac_builder.png` — `/admin/rbac?user_id=def0e9ee-...` landed correctly: "RBAC v2 — Capability Builder", "Phase 22 · 9 packs · 140 features", "Editing capabilities for Pranali Patkar", Layer 1 = 9 packs (Baseline 15 / Marketing 17 / IT 7 / Accounts 21 / HR 17 / Operations 44 / AI Power Tools 7 / Manager Elevation 20 / Admin Elevation 20), Layer 2 = Feature Catalog (140) with search + category filter
+
+**Files modified (3):** `frontend/src/pages/PortalWelcome.jsx`, `frontend/src/components/employees/EmployeeDetailModal.jsx`, `backend/routers/payroll.py` (already fixed by previous agent, verified live).
+
+**Memory docs updated:** `/app/memory/COMING_SOON_AUDIT.md` (v2 with URL-path regression + Modal navigate-import bug appended).
+
+**Sir's directives honoured:** brand tokens preserved (leamss-teal accent on new button), data-testid on `change-role-btn`, backward-compat for snake_case ui_modules + URL-path ui_modules both, Hinglish toast for roadmap-only features. **All 3 P0 items GREEN — ready for `e1_tester` full e2e.**
+
+
+---
 ### 🛡️ Phase 22 MEGA-SWEEP — Advanced RBAC v2 + Payroll Admin (Feb 26, 2026)
 
 **Pitch:** Sir ne "All recommendations" approve karke 9-pack RBAC v2 + Payroll Admin Hub ka full mega-sweep dispatch kiya. End-to-end shipped: full portal feature inventory · backend Capability service · 13 new endpoints · migration script · Role & Capability Builder UI · Payroll Admin UI · routes mounted · HR group cards expanded · live e2e verified.

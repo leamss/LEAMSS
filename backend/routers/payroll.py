@@ -558,14 +558,18 @@ class MarkPaid(BaseModel):
 async def mark_payslip_paid(payslip_id: str, payload: MarkPaid, current_user: dict = Depends(get_current_user)):
     if not _is_manager_or_admin(current_user):
         raise HTTPException(status_code=403, detail="HR/admin only")
+    now_iso = datetime.now(timezone.utc).isoformat()
     res = await payslips_col.update_one(
         {"id": payslip_id, "status": "approved"},
         {"$set": {
             "status": "paid",
-            "paid_on": datetime.now(timezone.utc),
+            "paid_at": now_iso,
+            "paid_on": now_iso,  # legacy field for backward-compat
+            "paid_by": current_user.get("id"),
+            "paid_by_name": current_user.get("name") or current_user.get("email"),
             "payment_reference": payload.payment_reference.strip(),
-        }, "$push": {"audit_log": {"action": "marked_paid", "actor_id": current_user["id"], "timestamp": datetime.now(timezone.utc).isoformat()}}},
+        }, "$push": {"audit_log": {"action": "marked_paid", "actor_id": current_user["id"], "actor_name": current_user.get("name"), "payment_reference": payload.payment_reference.strip(), "timestamp": now_iso}}},
     )
     if res.matched_count == 0:
         raise HTTPException(status_code=404, detail="Approved payslip not found")
-    return {"message": "Marked paid"}
+    return {"message": "Marked paid", "paid_at": now_iso, "paid_by": current_user.get("id")}

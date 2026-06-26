@@ -119,22 +119,31 @@ export default function PortalWelcome() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [notifCount, setNotifCount] = useState(0);
+  const [taskCount, setTaskCount] = useState(null);
   const [now, setNow] = useState(new Date());
 
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) { navigate('/'); return; }
-    axios.get(`${API}/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
+    const auth = { headers: { Authorization: `Bearer ${token}` } };
+    axios.get(`${API}/auth/me`, auth)
       .then(r => setUser(r.data))
       .catch(() => navigate('/'));
 
-    // Notification count (uses existing /notifications endpoint, filter unread client-side)
-    axios.get(`${API}/notifications`, { headers: { Authorization: `Bearer ${token}` } })
+    axios.get(`${API}/notifications`, auth)
       .then(r => {
         const items = Array.isArray(r.data) ? r.data : (r.data?.items || []);
         setNotifCount(items.filter(n => !n.read).length);
       })
       .catch(() => setNotifCount(0));
+
+    // Phase 22 hotfix — fetch real task count for "My Tasks" tile
+    axios.get(`${API}/tasks?mode=me`, auth)
+      .then(r => {
+        const items = Array.isArray(r.data) ? r.data : (r.data?.items || []);
+        setTaskCount(items.filter(t => t.status !== 'done' && t.status !== 'completed').length);
+      })
+      .catch(() => setTaskCount(0));
 
     const t = setInterval(() => setNow(new Date()), 60000);
     return () => clearInterval(t);
@@ -147,20 +156,63 @@ export default function PortalWelcome() {
   };
 
   const handleModuleClick = (moduleKey) => {
+    // Feb 26 hotfix v2 — RBAC v2 stores ui_modules as URL paths (e.g. "/admin/payroll").
+    // If moduleKey already looks like a path, navigate to it directly.
+    if (typeof moduleKey === 'string' && moduleKey.startsWith('/')) {
+      navigate(moduleKey);
+      return;
+    }
+    // Phase 22 hotfix — comprehensive routing for all built Phase 21+22 features (legacy snake_case)
     const routes = {
+      // Self-service (everyone)
       attendance_self: '/portal/attendance',
       attendance_view: '/portal/attendance',
       attendance_admin: '/portal/attendance',
       leave_self: '/portal/leaves',
       leave_approvals: '/portal/leave-approvals',
       leave_admin: '/portal/leave-approvals',
+      profile_self: '/portal/my-profile',
+      notifications: '/notifications',
+      my_tasks: '/portal/my-tasks',
+      // Phase 21 Slice 4 + 22
+      support_tickets: '/portal/tickets',
+      support_tickets_admin: '/portal/tickets',
+      // HR
+      hr_dashboard: '/admin/employees',
+      employee_directory: '/admin/employees?tab=all',
+      payroll: '/admin/payroll',
+      onboarding: '/portal/my-onboarding',
+      // Sales
+      sales_dashboard: '/sales/dashboard',
+      my_targets: '/sales/my-targets',
+      my_incentives: '/sales/my-commission',
+      my_commissions: '/sales/my-commission',
+      lead_pool: '/admin/marketing',
+      // Marketing
+      marketing_dashboard: '/admin/marketing',
+      campaigns_all: '/admin/marketing',
+      my_campaigns: '/admin/marketing',
+      content_library: '/portal/marketing/content-studio',
+      public_pages: '/admin/public-pages',
+      public_pages_view: '/admin/public-pages',
+      // Operations
+      ops_dashboard: '/case-manager',
+      cases_all: '/admin/employees',
+      my_cases: '/case-manager',
+      cm_dashboard: '/case-manager',
+      // IT
+      it_dashboard: '/portal/it/site-audit',
+      // Accounts
+      accounts_dashboard: '/admin/payroll',
+      commissions: '/admin/sales/commissions',
+      commissions_view: '/admin/sales/commissions',
+      // Compliance
+      audit_log: '/admin/hr/audit',
+      activity_log: '/admin/activity',
     };
     const target = routes[moduleKey];
-    if (target) {
-      navigate(target);
-      return;
-    }
-    toast.info(`🚧 "${MODULE_META[moduleKey]?.label || moduleKey}" coming soon in a future phase.`);
+    if (target) { navigate(target); return; }
+    toast.info(`Ye module abhi roadmap me hai — agle phase me aayega: "${MODULE_META[moduleKey]?.label || moduleKey}"`);
   };
 
   if (!user) {
@@ -186,10 +238,10 @@ export default function PortalWelcome() {
         </div>
         <div className="flex items-center gap-3">
           <Badge variant="outline" className="text-xs">{user.employee_id || user.partner_code || '—'}</Badge>
-          <Button variant="outline" size="sm" onClick={() => toast.info('🚧 Profile editor coming soon.')} data-testid="profile-btn">
+          <Button variant="outline" size="sm" onClick={() => navigate('/portal/my-profile')} data-testid="profile-btn">
             <User className="h-4 w-4 mr-1.5" /> Profile
           </Button>
-          <Button variant="outline" size="sm" onClick={() => toast.info('🚧 Change password coming in next phase.')} data-testid="pwd-btn">
+          <Button variant="outline" size="sm" onClick={() => navigate('/portal/my-profile?tab=security')} data-testid="pwd-btn">
             <KeyRound className="h-4 w-4 mr-1.5" /> Password
           </Button>
           <Button variant="outline" size="sm" onClick={handleLogout} className="text-rose-600 border-rose-200" data-testid="logout-btn">
@@ -225,12 +277,18 @@ export default function PortalWelcome() {
         {/* Punch widget */}
         {user.user_type === 'internal' && <PunchWidget />}
 
-        {/* Stats cards */}
+        {/* Stats cards (Phase 22 hotfix — wired to real data + clickable) */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <StatCard icon={CheckSquare} label="My Tasks" value="—" hint="Coming soon" color="text-leamss-teal-600" testid="stat-tasks" />
-          <StatCard icon={Bell} label="Notifications" value={notifCount} hint={notifCount > 0 ? 'unread' : 'all caught up'} color="text-amber-600" testid="stat-notifs" />
-          <StatCard icon={Clock} label="This Month Attendance" value="—" hint="Phase 3" color="text-emerald-600" testid="stat-attendance" />
-          <StatCard icon={Sparkles} label="Quick Action" value={`${modules.length}`} hint="modules available" color="text-leamss-red-600" testid="stat-modules" />
+          <button onClick={() => navigate('/portal/my-tasks')} className="text-left hover:scale-[1.02] transition-transform" data-testid="stat-tasks-link">
+            <StatCard icon={CheckSquare} label="My Tasks" value={taskCount === null ? '—' : taskCount} hint={taskCount > 0 ? 'open tasks' : 'all done!'} color="text-leamss-teal-600" testid="stat-tasks" />
+          </button>
+          <button onClick={() => navigate('/notifications')} className="text-left hover:scale-[1.02] transition-transform" data-testid="stat-notifs-link">
+            <StatCard icon={Bell} label="Notifications" value={notifCount} hint={notifCount > 0 ? 'unread' : 'all caught up'} color="text-amber-600" testid="stat-notifs" />
+          </button>
+          <button onClick={() => navigate('/portal/attendance')} className="text-left hover:scale-[1.02] transition-transform" data-testid="stat-attendance-link">
+            <StatCard icon={Clock} label="Attendance" value="View" hint="Punch & monthly" color="text-emerald-600" testid="stat-attendance" />
+          </button>
+          <StatCard icon={Sparkles} label="Modules" value={`${modules.length}`} hint="available to you" color="text-leamss-red-600" testid="stat-modules" />
         </div>
 
         {/* Your Access */}
@@ -249,7 +307,16 @@ export default function PortalWelcome() {
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
               {modules.map((m) => {
-                const meta = MODULE_META[m] || { label: m.replace(/_/g, ' '), icon: ChevronRight };
+                // Feb 26 hotfix v2 — derive friendly label for URL-path style RBAC v2 ui_modules
+                let metaFromPath = null;
+                if (typeof m === 'string' && m.startsWith('/')) {
+                  const last = m.split('/').filter(Boolean).pop() || m;
+                  metaFromPath = {
+                    label: last.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+                    icon: ChevronRight,
+                  };
+                }
+                const meta = MODULE_META[m] || metaFromPath || { label: m.replace(/_/g, ' '), icon: ChevronRight };
                 const Icon = meta.icon;
                 return (
                   <button
