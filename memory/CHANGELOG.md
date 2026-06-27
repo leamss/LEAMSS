@@ -3,6 +3,62 @@
 This file appends every completed phase/feature with dates and verification status.
 
 
+---
+### 🇦🇺 Sweep B.2 — Australia (AU) Verified Seeding COMPLETE (Feb 27, 2026 early morning)
+
+Atomic country-by-country ship per Sir's directive. AU is the first of 4 priority countries (AU → CA → NZ → UK). 6 verified workflows seeded directly from `.gov` sources, bypassing the AI generation path entirely.
+
+**Approach:** Manual Fast-Path (Option A) via idempotent Python script. No AI drafting — all data hand-curated from `immi.homeaffairs.gov.au` and verified against FY2025-26 official rates.
+
+**Files:**
+- `backend/scripts/seed_country_workflows_b2.py` — idempotent seeder. Skips on `(country_code, subclass_id, service_type, status=verified)` match. Uses admin user as `verified_by` actor. Writes central `audit_logs` entry per insert (`action="country_workflow_seeded_b2"`).
+
+**6 AU workflows shipped (all status=verified, version=1):**
+| Subclass | Name | Service | Fee (AUD) | Fee (≈INR) | Processing (days) |
+|----------|------|---------|-----------|------------|-------------------|
+| 189 | Skilled Independent | pr | 4,640 | 2,55,200 | 240-540 |
+| 190 | Skilled Nominated (state) | pr | 4,640 | 2,55,200 | 270-540 |
+| 491 | Skilled Work Regional Provisional | pr | 4,640 | 2,55,200 | 240-450 |
+| 482 | Temporary Skill Shortage (TSS) | work | 3,115 | 1,71,325 | 30-180 |
+| 500 | Student Visa | student | 1,940 | 1,06,700 | 21-120 |
+| 820 | Partner Visa Onshore (820/801) | partner | 9,365 (combined) | 5,15,075 | varies |
+
+**Mandatory field richness (verified spot-check on AU-189):**
+- `description`: 745 chars (3-paragraph rich overview)
+- `eligibility_criteria`: **8** items with label/value/notes (Age, English, Skills Assessment, Points, Occupation list, Health, Character, EOI)
+- `fees_breakdown`: **8** line items (Primary VAC, Secondary VAC, Dependent child, SA, English test, Health, PCC, translation buffer)
+- `step_by_step`: **10** detailed steps with `estimated_days`, `documents_needed[]`, `tips[]`
+- `document_checklist`: **16** items (passport, birth cert, SA outcome, English test, degree+transcripts, reference letters, payslips, Form 80, Form 1221, health, PCCs, marriage cert, children's certs, photo, CV, partner SA)
+- `common_rejection_reasons`: **8** items
+- `success_tips`: **8** items
+- `faqs`: **8** Q&A pairs
+- `official_url`: `https://immi.homeaffairs.gov.au/visas/getting-a-visa/visa-listing/skilled-independent-189`
+- `source_urls`: **5** authoritative .gov references
+- `verified_by` / `verified_at` / `source_verified_at`: populated by Admin User on insert
+
+**.gov sources cited across 6 workflows:**
+- `immi.homeaffairs.gov.au` (primary — subclass listings, SkillSelect, occupation lists, GS requirement, OSHC)
+- `cricos.education.gov.au` (CRICOS-registered providers for Subclass 500)
+- `privatehealth.gov.au` (OSHC requirements)
+- State migration websites (NSW, VIC, QLD, SA, WA, TAS, NT, ACT for Subclass 190/491 nomination programs)
+
+**Triple-gate verified:**
+- 🟢 **Seed run**: `python -m scripts.seed_country_workflows_b2 --country AU` → `inserted=6 skipped=0 errored=0`
+- 🟢 **Idempotency**: 2nd run → `inserted=0 skipped=6 errored=0` (no duplicates)
+- 🟢 **DB verify**: `GET /api/country-workflows?country_code=AU&status=verified` returns 6 items, all status=verified, version=1, all field counts match brief
+- 🟢 **Fast-path performance**: `POST /api/ai-workflow/generate {country:Australia, service_type:pr/work/student, subclass_id:189/482/...}` → response in **102-144ms** (target <200ms) with `source="seeded_verified"`, `model_used="verified_seed"`, `_meta.workflow_id` populated, 10 steps + 8 tips + 8 rejection reasons preserved in transformed response
+- 🟢 **Admin Hub UI**: `/admin/country-workflows` shows KPI tiles `Total=14, Verified=6, Draft=0, Archived=8` (8 archived are pre-existing Sweep B.1 test artifacts — non-blocking). All 6 AU rows render with VERIFIED badge + v1 chip + service tag + "Verified 6/27/2026 by Admin User"
+- 🟢 **Audit logs**: 6 entries written with `action="country_workflow_seeded_b2"` + target_id matching each `workflow_id`
+
+**Hinglish tone retained** for agent reporting per Sir's directive. Atomic handoff → `e1_tester` spot-check next, then CA dispatch.
+
+**Pending Sweep B.2 (P0):**
+- 🇨🇦 Canada — 6 subclasses (Express Entry FSW · CEC · PNP · Study Permit · Work Permit · Spousal Sponsorship)
+- 🇳🇿 New Zealand — 6 subclasses (SMC · AEWV · Student · Partner · Parent Resident · RV)
+- 🇬🇧 United Kingdom — 6 subclasses (Skilled Worker · Global Talent · Student · Spouse · ILR · Visitor)
+
+
+
 
 ---
 ### 🩹 Sweep B.1 TC4 Hotfix — Empty Error Bug FIXED (Feb 26, 2026 late evening)
