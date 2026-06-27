@@ -4,6 +4,63 @@ This file appends every completed phase/feature with dates and verification stat
 
 
 ---
+### 🟢 Sweep B.4.5 — New Zealand EXPANSION (4 New Verified Workflows) (Feb 27, 2026)
+
+**Atomic Ship — Sub-Slice B.4.5 of MEGA DISPATCH Sweep B.4.**
+
+Seeded **4 new New Zealand visa workflows** with research-corrected subclass selection — Sir's original brief listed two visas that DON'T EXIST in current INZ policy (Investor 2 closed, Skilled Refugee never existed). Research-driven corrections applied to seed CURRENT (Feb 2026) NZ visa landscape.
+
+**Workflows seeded (4) — research-corrected:**
+
+1. **NZ-AIP** ✅ OPEN — Active Investor Plus Visa (replaces Investor 1/2 closed Apr 2025; Growth NZD 5M / 3yr + Balanced NZD 10M / 5yr; **Jun 2026 reforms**: English removed, residency reduced 21d/105d, DIMS excluded Dec 2025, philanthropy 20% allowed in Growth Jun 2026; **2026 property exemption** for NZD 5M+ residential purchase)
+2. **NZ-Entrepreneur** ⚠️ MIXED-STATUS — Combined entry covering: EWV CLOSED to new + ERV still open for existing EWV holders (fee jumped to NZD 27,470 from ~NZD 7,900) + **new BIWV** launched 2026 (NZD 12,380 + $1M/$2M invest + $500k reserve)
+3. **NZ-Parent-Resident** ✅ OPEN — Parent Resident Visa (Queue + Ballot, NO Tier 1/Tier 2 in official policy; **30 Apr 2026 income thresholds**: NZD 72,800 single / 109,200 joint for 1 parent; 2,500 annual cap; quarterly Ballot draws)
+4. **NZ-Refugee-Family** ✅ OPEN (Tier 1 only) — Refugee Family Support Resident Visa (600/yr quota; sponsor must be recognised refugee + NZ resident; Tier 1 open / Tier 2 closed; closest equivalent to Sir's "Skilled-Refugee" query)
+
+**Research-driven corrections to Sir's brief documented in `verified_notes`:**
+- 🔧 Sir said "NZ-Investor-2" → corrected to **NZ-AIP** (Investor 1/2 CLOSED Apr 2025; AIP is current visa)
+- 🔧 Sir said "Entrepreneur Work Visa + Resident Visa" → corrected to **combined entry covering EWV CLOSURE + BIWV NEW + ERV legacy pathway**
+- 🔧 Sir said "Tier 1 ballot / Tier 2 EOI" for Parent → corrected to **Queue (legacy pre-Oct 2022) + Ballot (new EOIs)** per official INZ policy (no Tier 1/2 terminology used)
+- 🔧 Sir said "NZ-Skilled-Refugee" → corrected to **NZ-Refugee-Family Support** (no Skilled Refugee visa exists in INZ; closest match is Refugee Family Support Resident Visa with 600/yr quota; distinct from Refugee Quota Programme 1,500/yr overseas resettlement)
+
+**Sources verified (Feb 27, 2026):**
+- `immigration.govt.nz` — all 4 official program pages + income thresholds page
+- `nzte.govt.nz` — Investor Migrants page (AIP)
+- `fragomen.com` — AIP relaxation + BIWV launch notices
+- `dlapiper.com` — Dec 2025 AIP refinement analysis
+- `eiglaw.com` — 30 Apr 2026 income threshold update
+- `communitylaw.org.nz` — Refugee Family Support manual
+- `imidaily.com` — NZ investor/entrepreneur fee tripling notice
+
+**Reforms / current status accurately captured:**
+- ✅ AIP Apr 2025 launch + Jun 2026 refinements + DIMS exclusion (Dec 2025) + philanthropy expansion + 2026 property exemption
+- ✅ EWV closure + BIWV launch + ERV fee jump to NZD 27,470
+- ✅ Parent Visa 30 Apr 2026 income table (NZD 72,800 single / NZD 109,200 joint × scale) + 2,500 cap + quarterly Ballot
+- ✅ Refugee Family Support Tier 1 open / Tier 2 closed + 600/yr quota
+
+**Triple-gate verification:**
+- 🟢 Seed `inserted=4 skipped=0 errored=0`; idempotency `inserted=0 skipped=4`
+- 🟢 NZ-AIP deep-check: Fee NZD 27,470 · 8 steps · 15 documents (`NZ-AIP-DOC-01..15`) · Growth + Balanced categories present
+- 🟢 NZ-Entrepreneur: BIWV + ERV both documented in description (combined entry)
+- 🟢 NZ-Parent: 30 Apr 2026 thresholds + Ballot/Queue model both present in DB
+- 🟢 NZ-Refugee-Family: 600/yr quota documented
+- 🟢 4/4 audit logs created with action `country_workflow_seeded_b4` (canonical schema)
+- 🟢 **DB total verified workflows: 56** (AU=16, CA=12, IN=12, NZ=10, UK=6)
+- 🟢 **Audit log counts: _b4=32 (12 IN + 10 AU + 6 CA + 4 NZ), _b2=24** (B.2 originals preserved)
+- 🟢 Lint clean
+
+**Files modified (1):**
+- 📝 `backend/scripts/seed_country_workflows_b4.py` — `NEW_ZEALAND_NEW_WORKFLOWS` list (4 dicts) added + `ALL_WORKFLOWS` extended · file now ~3700 lines (B.4.2-5 combined)
+
+**Highlighted observations:**
+- This is the **first sub-slice where Sir's brief required substantial research-driven corrections** to match current INZ visa landscape (Feb 2026). All deviations documented transparently in `verified_notes` so Sir can validate.
+- 2 of 4 NZ visas have status nuances (Entrepreneur mixed-status; Refugee-Family Tier 2 closed). Workflows clearly document current accessibility per Sir's standard pattern (mirrors CA's PAUSED workflow handling).
+- Fast-path canonical mappings (pr/business/partner) covered all 4 NZ service_types without new SERVICE_TYPE_CANONICAL_MAP entries.
+
+**Next:** B.4.6 — UK EXPANSION (6 new + 6 existing).
+
+
+---
 ### 🟢 Sweep B.4.4 — Canada EXPANSION (6 New Verified Workflows) + Audit Log Naming Fix (Feb 27, 2026)
 
 **Atomic Ship — Sub-Slice B.4.4 of MEGA DISPATCH Sweep B.4 + critical audit-log naming fix.**

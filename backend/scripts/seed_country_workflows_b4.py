@@ -2941,10 +2941,464 @@ CANADA_NEW_WORKFLOWS: List[Dict[str, Any]] = [
 ]
 
 
+# ──────────────────────────────────────────────────────────────────────────────
+# NEW ZEALAND EXPANSION (B.4.5) — 4 new subclasses adding to B.2's existing 6
+# Sources: immigration.govt.nz · 30 Apr 2026 income thresholds · Apr 2025 AIP launch
+# · Jun 2026 AIP refinements · BIWV launched 2026 replacing EWV
+# FX: 1 NZD ≈ 50 INR (Feb 2026)
+# ──────────────────────────────────────────────────────────────────────────────
+# NOTE: Sir's original brief listed NZ-Investor-2 + NZ-Skilled-Refugee — these
+# do NOT exist as current INZ visa categories in Feb 2026. Research-corrected:
+#   - Investor 1/2 CLOSED 2022 → replaced by Active Investor Plus (AIP)
+#   - "Skilled Refugee" does not exist → closest active visa is Refugee Family
+#     Support Resident Visa (600/year quota)
+# NEW_ZEALAND_NEW_WORKFLOWS reflects current Feb 2026 visa landscape.
+# ──────────────────────────────────────────────────────────────────────────────
+NEW_ZEALAND_NEW_WORKFLOWS: List[Dict[str, Any]] = [
+    # ── 1. NZ-AIP — Active Investor Plus Visa ──────────────────────────────────
+    {
+        "country_code": "NZ", "country_name": "New Zealand",
+        "subclass_id": "AIP",
+        "subclass_name": "Active Investor Plus Visa (replaces Investor 1/2)",
+        "service_type": "pr", "category": "immigration",
+        "description": (
+            "The Active Investor Plus (AIP) visa is New Zealand's premier residence-by-investment "
+            "pathway, launched **April 2025** to replace the closed Investor 1 (NZD 10M) and "
+            "Investor 2 (NZD 15M) categories. AIP simplifies into two streams: **Growth (NZD 5M "
+            "over 3 years — active/higher-risk)** and **Balanced (NZD 10M over 5 years — mixed/"
+            "lower-risk)**.\n\n"
+            "Reforms (Jun 2026): English language requirement REMOVED; significantly reduced "
+            "minimum NZ residency (Growth: 21 days over 3 yrs; Balanced: 105 days over 5 yrs). "
+            "DIMS (Discretionary Investment Management Services) excluded from Growth category "
+            "from 4 Dec 2025. From 1 Jun 2026, up to 20% of Growth investment can be philanthropy. "
+            "**2026 Property Exemption:** AIP holders + former Investor 1/2 PR holders can "
+            "purchase or build ONE residential property valued NZD 5M+ with LINZ consent."
+        ),
+        "eligibility_summary": (
+            "Foreign investor with NZD 5M+ (Growth) OR NZD 10M+ (Balanced); transferable funds; "
+            "good character; no English language requirement; willing to meet minimum residency "
+            "in NZ. Apply via Expression of Interest → Invitation to Apply."
+        ),
+        "eligibility_criteria": [
+            {"label": "Growth Category (NEW)", "value": "NZD 5M+ invested for 3 years in higher-risk active investments", "notes": "Direct business investments + approved managed funds. DIMS EXCLUDED from 4 Dec 2025"},
+            {"label": "Balanced Category (NEW)", "value": "NZD 10M+ invested for 5 years in mixed assets", "notes": "Listed equities + bonds + property development + philanthropy + Growth-category assets"},
+            {"label": "Minimum NZ Residency — Growth", "value": "21 days over 3-year investment period", "notes": ""},
+            {"label": "Minimum NZ Residency — Balanced", "value": "105 days over 5-year investment period", "notes": "Reduced by 14 days per NZD 1M invested ABOVE NZD 10M into Growth-category assets (max 42 days reduction)"},
+            {"label": "English language", "value": "NOT REQUIRED (removed in 2025 reform)", "notes": "Major simplification"},
+            {"label": "Transferable funds", "value": "Funds must be legally acquired + transferable to NZ", "notes": "Source-of-funds documentation"},
+            {"label": "Good character", "value": "Standard PR character requirements", "notes": ""},
+            {"label": "Philanthropy (NEW Jun 2026)", "value": "Up to 20% of Growth investment can be philanthropic contributions to approved NZ charities", "notes": "Previously limited to Balanced category"},
+            {"label": "Property Exemption (NEW 2026)", "value": "AIP holders + legacy Investor 1/2 PR holders can purchase / build ONE residential property NZD 5M+", "notes": "LINZ consent required"},
+        ],
+        "fees_local_currency_code": "NZD", "fees_local_currency_amount": 27470, "fees_inr_approx": 1373500,
+        "fees_breakdown": [
+            {"component": "AIP application fee (Principal) — Growth + Balanced", "amount": 27470, "currency": "NZD"},
+            {"component": "Includes immigration levy", "amount": 3570, "currency": "NZD"},
+            {"component": "Secondary applicant 18+ (partner)", "amount": 9070, "currency": "NZD"},
+            {"component": "Dependent child", "amount": 4290, "currency": "NZD"},
+            {"component": "Investment — Growth Category (NZD 5M minimum)", "amount": 5000000, "currency": "NZD"},
+            {"component": "Investment — Balanced Category (NZD 10M minimum)", "amount": 10000000, "currency": "NZD"},
+            {"component": "NZ Trade & Enterprise Investment Migrant Service", "amount": 0, "currency": "NZD"},
+            {"component": "Legal + tax + investment advisory (estimate)", "amount": 50000, "currency": "NZD"},
+            {"component": "Property purchase LINZ consent + legal", "amount": 25000, "currency": "NZD"},
+        ],
+        "processing_time_days_min": 60, "processing_time_days_max": 180,
+        "step_by_step": [
+            {"step_number": 1, "title": "Choose Category + Investment Plan", "description": "Decide between Growth (NZD 5M / 3 yrs / higher-risk) and Balanced (NZD 10M / 5 yrs / lower-risk).", "estimated_days": 30, "documents_needed": ["Source-of-funds documentation"], "tips": ["Growth = faster + cheaper; Balanced = lower risk + larger commitment"]},
+            {"step_number": 2, "title": "Submit Expression of Interest (EOI)", "description": "Lodge EOI online via INZ portal. NZ Trade & Enterprise (NZTE) coordinates onboarding.", "estimated_days": 7, "documents_needed": ["Investment plan", "Funds source evidence"], "tips": ["Strong EOI accelerates Invitation to Apply"]},
+            {"step_number": 3, "title": "Receive Invitation to Apply (ITA)", "description": "INZ reviews EOI + issues ITA. Typically 30-60 days.", "estimated_days": 45, "documents_needed": [], "tips": ["ITA window: 4 months to lodge full application"]},
+            {"step_number": 4, "title": "Approval in Principle (AIP-AIP)", "description": "Lodge full visa application. INZ grants Approval in Principle within ~2 months on average.", "estimated_days": 60, "documents_needed": ["Full investment plan", "Character + health docs", "Source-of-funds documentation"], "tips": []},
+            {"step_number": 5, "title": "Transfer + Deploy Investment Funds", "description": "Transfer funds to NZ; deploy into qualifying investments per chosen category within 6 months.", "estimated_days": 180, "documents_needed": ["Bank transfer records", "Investment confirmations"], "tips": ["Work with NZTE-approved investment advisors"]},
+            {"step_number": 6, "title": "Resident Visa Granted", "description": "Once investment confirmed deployed, AIP Resident Visa issued. Begin meeting minimum residency days.", "estimated_days": 30, "documents_needed": [], "tips": ["Growth: 21 days/3yrs ; Balanced: 105 days/5yrs"]},
+            {"step_number": 7, "title": "Hold Investment + Meet Residency", "description": "Maintain investment for category duration (3 / 5 yrs). Meet minimum residency days.", "estimated_days": 1825, "documents_needed": ["Investment maintenance evidence", "Travel records"], "tips": ["Can apply for permanent resident visa after meeting investment + residency"]},
+            {"step_number": 8, "title": "Optional: Property Purchase via 2026 Exemption", "description": "Once AIP, eligible to purchase / build ONE residential property NZD 5M+ via LINZ consent.", "estimated_days": 90, "documents_needed": ["LINZ consent application"], "tips": []},
+        ],
+        "document_checklist": [
+            {"name": "Passport (bio + visa pages, 12+ months validity)", "mandatory": True, "notes": ""},
+            {"name": "Investment plan (Growth or Balanced)", "mandatory": True, "notes": "Detailed allocation across qualifying assets"},
+            {"name": "Source-of-funds documentation", "mandatory": True, "notes": "Comprehensive provenance — 5+ years"},
+            {"name": "Bank statements + financial records", "mandatory": True, "notes": ""},
+            {"name": "Tax returns (last 3 years)", "mandatory": True, "notes": ""},
+            {"name": "Business ownership / employment evidence (source of wealth)", "mandatory": True, "notes": ""},
+            {"name": "Investment advisor / fund manager letters", "mandatory": True, "notes": ""},
+            {"name": "Police Clearance Certificates", "mandatory": True, "notes": "From all 5+ year countries of residence"},
+            {"name": "Medical exam (panel physician)", "mandatory": True, "notes": ""},
+            {"name": "Photo (per INZ specs)", "mandatory": True, "notes": ""},
+            {"name": "NZTE Investment Migrant Service engagement", "mandatory": False, "notes": "Recommended"},
+            {"name": "Legal / tax advisor engagement", "mandatory": True, "notes": "Strongly recommended"},
+            {"name": "Partner / spouse passport + relationship cert (if applicable)", "mandatory": True, "notes": ""},
+            {"name": "Children's birth certs (if applicable)", "mandatory": True, "notes": ""},
+            {"name": "Property purchase LINZ consent application (if exemption used)", "mandatory": False, "notes": "After visa grant"},
+        ],
+        "common_rejection_reasons": [
+            "Source-of-funds documentation incomplete or unclear",
+            "Investment plan doesn't meet category-specific requirements",
+            "DIMS-based investments attempted for Growth category (excluded since 4 Dec 2025)",
+            "Funds not transferable due to source country restrictions",
+            "Character / health admissibility issues",
+            "Failure to deploy investment within 6 months of AIP-AIP",
+        ],
+        "success_tips": [
+            "Engage NZTE Investment Migrant Service early — they coordinate end-to-end",
+            "Comprehensive source-of-funds dossier is the #1 success factor",
+            "Growth category is FASTER + CHEAPER but requires active investment expertise",
+            "Balanced category suits passive investors with NZD 10M+ committable",
+            "Use legal counsel familiar with AIP — recent reforms have nuances",
+            "Plan for minimum residency days realistically — Balanced 105 days non-trivial",
+            "2026 property exemption is significant — own family residence possible",
+        ],
+        "faqs": [
+            {"q": "Can I still apply for Investor 1 or Investor 2?", "a": "NO — both closed. Active Investor Plus is the only investor pathway. Legacy holders retain certain benefits including 2026 property exemption."},
+            {"q": "What's better: Growth or Balanced?", "a": "Growth: NZD 5M for 3 years, faster path, but active/higher-risk investments only. Balanced: NZD 10M for 5 years, includes lower-risk assets (bonds, listed equities). Choice depends on risk profile + capital availability."},
+            {"q": "Why is English no longer required?", "a": "INZ removed the English language requirement in the 2025 reforms to make NZ more competitive vs Singapore + Caribbean investment programs. Significantly simplifies for non-English-speaking investors."},
+            {"q": "Can I bring family?", "a": "Yes — partner + dependent children under 24 can be included. Partner gets full work + study rights upon AIP grant."},
+            {"q": "What about the property exemption?", "a": "Effective 2026, AIP holders + legacy Investor 1/2 PR holders can purchase or build ONE residential property valued NZD 5M+ via LINZ consent process. Significant family settlement benefit."},
+            {"q": "Can up to 20% of Growth be philanthropy?", "a": "YES from 1 Jun 2026 — up to 20% of Growth Category investment can be allocated to philanthropic contributions to approved NZ charities. Previously only Balanced allowed philanthropy."},
+        ],
+        "official_url": "https://www.immigration.govt.nz/visas/active-investor-plus",
+        "vfs_url": "https://visa.vfsglobal.com/ind/en/nzl/",
+        "source_urls": [
+            "https://www.immigration.govt.nz/visas/active-investor-plus",
+            "https://www.nzte.govt.nz/page/investor-migrants",
+            "https://www.fragomen.com/insights/new-zealand-rules-on-investor-visa-relaxed.html",
+            "https://www.dlapiper.com/en-us/insights/publications/2025/12/active-investor-plus-visa-explained",
+        ],
+        "verified_notes": "Manual Fast-Path B.4.5 seed — verified against immigration.govt.nz + NZTE + DLA Piper analysis on 2026-02-27. Apr 2025 launch + Jun 2026 refinements + DIMS exclusion (Dec 2025) + property exemption (2026) all reflected. NOTE: Sir's brief listed 'NZ-Investor-2' — that visa CLOSED; this entry seeded as NZ-AIP per current visa landscape.",
+    },
+
+    # ── 2. NZ-Entrepreneur — Entrepreneur Resident Visa + Business Investor WV ──
+    {
+        "country_code": "NZ", "country_name": "New Zealand",
+        "subclass_id": "Entrepreneur",
+        "subclass_name": "Entrepreneur Pathway (EWV CLOSED → ERV for existing + new BIWV for new applicants)",
+        "service_type": "business", "category": "immigration",
+        "description": (
+            "Two-tier entrepreneur pathway in 2026:\n\n"
+            "**LEGACY (for existing EWV holders only):** Entrepreneur Work Visa (EWV) is **CLOSED "
+            "to new applications**. Existing EWV holders can still progress to **Entrepreneur "
+            "Resident Visa (ERV)** for PR after meeting business success metrics: Standard "
+            "Pathway = 2 years operation + NZD 100k+ capital; Fast-Track = 6 months + NZD 500k + "
+            "3 NZ employees.\n\n"
+            "**NEW (for new applicants):** **Business Investor Work Visa (BIWV)** introduced "
+            "2026. Two tracks: (a) Standard — NZD 1M investment in 5+ year existing business → "
+            "Residence after 3 years; (b) Fast-Track — NZD 2M investment → Residence after 12 "
+            "months. Must hold NZD 500k reserve funds. Visa valid up to 4 years.\n\n"
+            "ERV fee dramatically increased to **NZD 27,470** (was ~NZD 7,900) in 2026 reforms."
+        ),
+        "eligibility_summary": (
+            "EXISTING EWV HOLDERS: 2+ years business operation + NZD 100k+ capital (or 6mo "
+            "fast-track + NZD 500k + 3 NZ employees). NEW APPLICANTS: NZD 1M/2M investment + "
+            "NZD 500k reserves + business plan dated within 3 months."
+        ),
+        "eligibility_criteria": [
+            {"label": "EWV STATUS", "value": "CLOSED to new applications (late 2025 / early 2026)", "notes": "New applicants must use BIWV"},
+            {"label": "ERV — Standard Pathway", "value": "EWV holder with 2+ years business operation + NZD 100k+ capital", "notes": "Minimum capital waivable for Science/ICT/high-value export sectors"},
+            {"label": "ERV — Fast-Track Pathway", "value": "EWV holder with 6 months operation + NZD 500k+ + 3 NZ employees", "notes": ""},
+            {"label": "BIWV — Standard Pathway", "value": "NZD 1M investment in 5+ year existing NZ business + 3-year operation → Residence", "notes": "NEW pathway"},
+            {"label": "BIWV — Fast-Track Pathway", "value": "NZD 2M investment + 12-month operation → Residence", "notes": "NEW pathway"},
+            {"label": "Reserve Funds (BIWV)", "value": "NZD 500k held in reserve to support self + family", "notes": ""},
+            {"label": "Business Plan", "value": "Detailed plan dated within 3 months of application", "notes": "Market analysis + financials + NZ benefits (jobs/innovation/exports)"},
+            {"label": "Good character + health", "value": "Standard requirements", "notes": ""},
+        ],
+        "fees_local_currency_code": "NZD", "fees_local_currency_amount": 27470, "fees_inr_approx": 1373500,
+        "fees_breakdown": [
+            {"component": "Entrepreneur Resident Visa (ERV) — Principal (legacy EWV holders only)", "amount": 27470, "currency": "NZD"},
+            {"component": "ERV — includes immigration levy", "amount": 3570, "currency": "NZD"},
+            {"component": "Business Investor Work Visa (BIWV) — Principal (NEW applicants)", "amount": 12380, "currency": "NZD"},
+            {"component": "BIWV includes immigration levy", "amount": 1500, "currency": "NZD"},
+            {"component": "Investment — BIWV Standard", "amount": 1000000, "currency": "NZD"},
+            {"component": "Investment — BIWV Fast-Track", "amount": 2000000, "currency": "NZD"},
+            {"component": "ERV capital (legacy EWV)", "amount": 100000, "currency": "NZD"},
+            {"component": "ERV Fast-Track capital", "amount": 500000, "currency": "NZD"},
+            {"component": "Reserve funds (BIWV)", "amount": 500000, "currency": "NZD"},
+            {"component": "Legal + tax + business advisor", "amount": 25000, "currency": "NZD"},
+        ],
+        "processing_time_days_min": 90, "processing_time_days_max": 360,
+        "step_by_step": [
+            {"step_number": 1, "title": "Determine Pathway: ERV (legacy) OR BIWV (new)", "description": "Confirm whether you hold an existing EWV (proceed to ERV) OR are a new applicant (proceed to BIWV).", "estimated_days": 1, "documents_needed": ["Existing EWV if applicable"], "tips": ["BIWV is the only path for new applicants"]},
+            {"step_number": 2, "title": "Business Plan", "description": "Develop detailed plan dated within 3 months: market analysis, financials, NZ benefit, projected outcomes.", "estimated_days": 30, "documents_needed": [], "tips": ["NZ benefit narrative critical: jobs + innovation + exports"]},
+            {"step_number": 3, "title": "Capital + Reserve Setup", "description": "Demonstrate capital + (for BIWV) reserve funds via bank statements + investment advisor letters.", "estimated_days": 21, "documents_needed": [], "tips": ["Source-of-funds documentation comprehensive"]},
+            {"step_number": 4, "title": "Lodge Application Online", "description": "Submit application via INZ portal. Choose ERV or BIWV.", "estimated_days": 14, "documents_needed": [], "tips": []},
+            {"step_number": 5, "title": "Establish or Continue NZ Business", "description": "ERV: continue existing EWV business. BIWV: invest in existing 5+ year NZ business + commence operations.", "estimated_days": 90, "documents_needed": ["Business registration", "Investment confirmation"], "tips": []},
+            {"step_number": 6, "title": "Build Success Metrics", "description": "ERV Standard: 2 years operation. ERV Fast-Track: 6mo + 3 jobs. BIWV: 3-year operation (Standard) OR 12-mo (Fast-Track).", "estimated_days": 730, "documents_needed": ["Tax returns", "Employment records", "Financial statements"], "tips": []},
+            {"step_number": 7, "title": "Apply for PR (ERV completion or BIWV → Residence)", "description": "Submit residence application demonstrating success metrics met.", "estimated_days": 90, "documents_needed": [], "tips": []},
+            {"step_number": 8, "title": "Residence Grant", "description": "PR granted. Full work / study / family / Medicare-equivalent (public health) rights.", "estimated_days": 60, "documents_needed": [], "tips": []},
+        ],
+        "document_checklist": [
+            {"name": "Passport (bio + visa pages)", "mandatory": True, "notes": ""},
+            {"name": "Existing EWV grant notice (if ERV pathway)", "mandatory": False, "notes": "Required for ERV applicants only"},
+            {"name": "Detailed business plan (dated within 3 months)", "mandatory": True, "notes": ""},
+            {"name": "Investment / capital evidence", "mandatory": True, "notes": "Bank statements + transfers"},
+            {"name": "Reserve funds evidence (BIWV: NZD 500k)", "mandatory": True, "notes": "BIWV only"},
+            {"name": "Source-of-funds documentation", "mandatory": True, "notes": ""},
+            {"name": "Tax returns (last 3 years)", "mandatory": True, "notes": ""},
+            {"name": "Business registration (NZ company)", "mandatory": True, "notes": ""},
+            {"name": "Employment records (jobs created)", "mandatory": True, "notes": "Critical for ERV Fast-Track + BIWV"},
+            {"name": "Financial statements (NZ business)", "mandatory": True, "notes": ""},
+            {"name": "Police Clearance Certificates", "mandatory": True, "notes": ""},
+            {"name": "Medical exam (panel physician)", "mandatory": True, "notes": ""},
+            {"name": "Partner / spouse passport + relationship cert (if applicable)", "mandatory": True, "notes": ""},
+            {"name": "Children's birth certs (if applicable)", "mandatory": True, "notes": ""},
+            {"name": "Photo", "mandatory": True, "notes": ""},
+        ],
+        "common_rejection_reasons": [
+            "New applicant attempting EWV (closed); must use BIWV",
+            "Business plan generic or undated",
+            "Insufficient NZ business genuineness (sham operations)",
+            "Investment in business younger than 5 years (BIWV Standard)",
+            "Success metrics not met (jobs / turnover / duration)",
+            "Reserve funds inadequate (BIWV)",
+            "Source-of-funds questions unresolved",
+        ],
+        "success_tips": [
+            "If new applicant: skip EWV entirely; apply BIWV — much clearer pathway",
+            "ERV pathway is ONLY for existing EWV holders; otherwise BIWV",
+            "Business plan is judged on NZ-specific benefit: jobs / innovation / exports",
+            "Science/ICT/high-value sectors get capital waivers — leverage if applicable",
+            "Build employment records meticulously — Fast-Track requires 3 NZ jobs",
+            "Engage NZ chartered accountant for financials review BEFORE submitting",
+            "ERV fee jump to NZD 27,470 is significant — budget accordingly",
+        ],
+        "faqs": [
+            {"q": "Can I apply for EWV in 2026?", "a": "NO — Entrepreneur Work Visa (EWV) is CLOSED to new applications. New applicants must use the Business Investor Work Visa (BIWV) launched 2026."},
+            {"q": "Why did the ERV fee jump from ~$7,900 to $27,470?", "a": "2026 reforms removed the lower-cost processing tier + added higher immigration levy ($3,570). Reflects INZ shift toward higher-value applicants."},
+            {"q": "What if I'm in Science / ICT / high-value sector?", "a": "ERV minimum capital (NZD 100k) is WAIVABLE if your business is in Science, ICT, or high-value export sector with demonstrated innovation. Document the case carefully."},
+            {"q": "How long until PR via BIWV?", "a": "Standard: 3 years post-investment. Fast-Track: 12 months post-investment with NZD 2M+. Either way, residence is the end goal."},
+            {"q": "Can I include family?", "a": "Yes — partner + dependent children included. Partner has work + study rights."},
+        ],
+        "official_url": "https://www.immigration.govt.nz/visas/entrepreneur-resident-visa",
+        "vfs_url": "https://visa.vfsglobal.com/ind/en/nzl/",
+        "source_urls": [
+            "https://www.immigration.govt.nz/visas/entrepreneur-resident-visa/",
+            "https://www.immigration.govt.nz/visas/business-investor-work-visa/",
+            "https://www.fragomen.com/insights/new-zealand-new-business-investor-visa-introduced-entrepreneur-work-visa-closed.html",
+            "https://newlandchase.com/new-zealand-launches-business-investor-work-visa-with-pathway-to-residence/",
+        ],
+        "verified_notes": "Manual Fast-Path B.4.5 seed — verified against immigration.govt.nz + Fragomen + Newland Chase on 2026-02-27. EWV closure + BIWV launch + ERV fee increase to NZD 27,470 all reflected. Combined entry covers both legacy EWV→ERV pathway + new BIWV→Residence pathway.",
+    },
+
+    # ── 3. NZ-Parent-Resident — Parent Resident Visa (Queue + Ballot) ──────────
+    {
+        "country_code": "NZ", "country_name": "New Zealand",
+        "subclass_id": "Parent-Resident",
+        "subclass_name": "Parent Resident Visa (Queue + Ballot pathways)",
+        "service_type": "partner", "category": "immigration",
+        "description": (
+            "The Parent Resident Visa allows New Zealand citizens or permanent residents to "
+            "sponsor their parents for residence. Annual cap **2,500 visas per year** "
+            "(significantly increased July 2025 from ~500). Two pathways:\n\n"
+            "**Queue:** Legacy EOIs submitted BEFORE 12 Oct 2022 — selected in order received "
+            "(oldest first). Backlog being cleared via increased intake.\n\n"
+            "**Ballot:** New EOIs (post-Oct 2022) entered into quarterly RANDOM ballot draws "
+            "(Feb / May / Aug / Nov). EOI stays in pool 2 years. Equal chance regardless of "
+            "submission date.\n\n"
+            "**Critical 30 Apr 2026 update:** Sponsor income thresholds dramatically increased "
+            "(based on Jun 2025 median wage NZD 35/hr). Single sponsor for 1 parent now needs "
+            "**NZD 72,800/yr** (was lower); joint sponsors need **NZD 109,200/yr**. Scales with "
+            "number of parents + sponsor count. **Pre-30-Apr-2026 applications NOT affected.**"
+        ),
+        "eligibility_summary": (
+            "Sponsor: NZ citizen / permanent resident aged 18+ resident in NZ; meets income "
+            "threshold for 2 of preceding 3 NZ tax years; commits to 10-year support undertaking. "
+            "Applicant: parent / step-parent of sponsor; intent to live in NZ; good character + "
+            "health. Pathway: Queue (legacy) OR Ballot (new EOI quarterly)."
+        ),
+        "eligibility_criteria": [
+            {"label": "Sponsor relationship", "value": "Adult NZ citizen / permanent resident (aged 18+)", "notes": "Resident in NZ for 3 of preceding years"},
+            {"label": "Sponsor income (Single sponsor, 30 Apr 2026)", "value": "NZD 72,800/yr (1 parent); +NZD 36,400 per additional parent (up to 6 parents at NZD 254,800)", "notes": "1.5× median wage base"},
+            {"label": "Sponsor income (Joint sponsors, 30 Apr 2026)", "value": "NZD 109,200/yr (1 parent); +NZD 36,400 per additional parent (up to 6 parents at NZD 291,200)", "notes": "2× median wage base"},
+            {"label": "Income duration", "value": "Meet income threshold for 2 of preceding 3 NZ tax years (1 Apr–31 Mar)", "notes": ""},
+            {"label": "10-year support undertaking", "value": "Sponsor commits to living costs + healthcare + deportation costs for 10 years post-grant", "notes": "Legally binding"},
+            {"label": "Queue pathway (legacy)", "value": "EOI submitted BEFORE 12 Oct 2022 — selected oldest first", "notes": "Backlog clearing via 2,500/year cap"},
+            {"label": "Ballot pathway (new)", "value": "EOI submitted AFTER 12 Oct 2022 → quarterly random draws (Feb/May/Aug/Nov)", "notes": "EOI valid 2 years"},
+            {"label": "Annual cap", "value": "2,500 visas/year (Queue + Ballot combined)", "notes": "Increased from ~500 in July 2025"},
+        ],
+        "fees_local_currency_code": "NZD", "fees_local_currency_amount": 3990, "fees_inr_approx": 199500,
+        "fees_breakdown": [
+            {"component": "Parent Resident Visa application — Principal", "amount": 3990, "currency": "NZD"},
+            {"component": "Immigration levy", "amount": 380, "currency": "NZD"},
+            {"component": "EOI submission fee (Ballot)", "amount": 0, "currency": "NZD"},
+            {"component": "Secondary applicant (spouse/partner)", "amount": 1860, "currency": "NZD"},
+            {"component": "Medical exam (per applicant)", "amount": 9000, "currency": "INR"},
+            {"component": "Police Clearance Certificate", "amount": 500, "currency": "INR"},
+            {"component": "Sponsorship form lodgement", "amount": 0, "currency": "NZD"},
+        ],
+        "processing_time_days_min": 365, "processing_time_days_max": 1095,
+        "step_by_step": [
+            {"step_number": 1, "title": "Sponsor Eligibility Check", "description": "Sponsor confirms: NZ citizen/PR + 3+ years NZ residence + income threshold met for 2 of preceding 3 tax years.", "estimated_days": 7, "documents_needed": ["Sponsor's tax records (IRD)", "Income evidence"], "tips": ["Pre-30-Apr-2026 EOIs use OLD income tables"]},
+            {"step_number": 2, "title": "Submit Expression of Interest (EOI)", "description": "Sponsor lodges EOI for parent. EOI enters Ballot pool (if post-Oct 2022) OR Queue (if pre-Oct 2022).", "estimated_days": 7, "documents_needed": ["EOI form", "Relationship evidence"], "tips": ["EOI valid 2 years in Ballot pool"]},
+            {"step_number": 3, "title": "Quarterly Ballot Selection (Ballot only)", "description": "INZ runs quarterly random draws. Selection chances depend on annual cap allocation.", "estimated_days": 90, "documents_needed": [], "tips": ["EQUAL chance regardless of EOI submission date within 2-year window"]},
+            {"step_number": 4, "title": "Invitation to Apply (ITA) Received", "description": "Selected EOI receives ITA. 4-month window to lodge full application.", "estimated_days": 1, "documents_needed": [], "tips": []},
+            {"step_number": 5, "title": "Lodge Full Visa Application", "description": "Parent + sponsor submit comprehensive application package.", "estimated_days": 30, "documents_needed": ["Sponsor income/tax docs", "Relationship evidence", "Character + health"], "tips": []},
+            {"step_number": 6, "title": "Health + PCC", "description": "Parent completes medical + PCCs.", "estimated_days": 60, "documents_needed": [], "tips": []},
+            {"step_number": 7, "title": "INZ Decision", "description": "12-36 months typical. PR granted on approval.", "estimated_days": 540, "documents_needed": [], "tips": []},
+            {"step_number": 8, "title": "Parent Settles in NZ + Sponsor's 10-Year Undertaking Begins", "description": "Parent lands as PR. Sponsor's 10-year support undertaking active.", "estimated_days": 30, "documents_needed": [], "tips": ["Living costs + healthcare + deportation costs covered by sponsor"]},
+        ],
+        "document_checklist": [
+            {"name": "Parent's passport (bio + visa pages)", "mandatory": True, "notes": ""},
+            {"name": "Sponsor's NZ passport / PR card", "mandatory": True, "notes": ""},
+            {"name": "Birth certificate (linking parent to sponsor)", "mandatory": True, "notes": "Apostilled if foreign"},
+            {"name": "Sponsor's IRD records / tax returns (3 years)", "mandatory": True, "notes": "Income evidence"},
+            {"name": "Sponsor's employer letter + payslips", "mandatory": True, "notes": ""},
+            {"name": "Sponsor's 10-year support undertaking", "mandatory": True, "notes": "Signed declaration"},
+            {"name": "Parent's medical examination", "mandatory": True, "notes": "Panel physician"},
+            {"name": "Parent's Police Clearance Certificates", "mandatory": True, "notes": "From all 10+ year countries of residence"},
+            {"name": "Parent's evidence of intent (financial / relationship)", "mandatory": True, "notes": ""},
+            {"name": "Photo (per INZ specs)", "mandatory": True, "notes": ""},
+            {"name": "EOI confirmation / ITA letter", "mandatory": True, "notes": ""},
+            {"name": "Marriage cert (if spouse/partner accompanying)", "mandatory": False, "notes": ""},
+            {"name": "Other children's family details (if multiple sponsors)", "mandatory": False, "notes": ""},
+        ],
+        "common_rejection_reasons": [
+            "Sponsor's income below 30 Apr 2026 threshold for the number of parents + sponsor type",
+            "Income not meeting threshold for 2 of preceding 3 NZ tax years",
+            "Sponsor's NZ residency not yet 3 years",
+            "Insufficient sponsor commitment evidence (10-year support undertaking)",
+            "Parent has serious health condition (admissibility)",
+            "Adverse character finding",
+            "Annual cap reached (rare with 2,500 quota)",
+        ],
+        "success_tips": [
+            "Sponsor should LOCK IN income above threshold for 2 full tax years BEFORE EOI submission",
+            "Joint sponsorship (2 sponsors) raises income threshold but provides safety margin",
+            "30 Apr 2026 income tables are SIGNIFICANTLY higher — plan accordingly if EOI close to deadline",
+            "Pre-30-Apr-2026 EOIs use OLD tables — leverage if submitting urgently",
+            "Multiple parents reduces per-parent threshold proportion but raises absolute amount",
+            "Queue applicants: 2,500 annual cap is clearing backlog faster than ever",
+            "EOI in Ballot pool stays 2 years — be patient; equal chance with weekly draws",
+            "Build sponsor's IRD records meticulously — primary evidence of income threshold compliance",
+        ],
+        "faqs": [
+            {"q": "Are there Tier 1 / Tier 2 pathways?", "a": "NO — INZ official policy does NOT use Tier 1/Tier 2 terminology. Pathways are: Queue (legacy pre-12 Oct 2022 EOIs, selected oldest first) and Ballot (new EOIs, quarterly random draws). Some third-party sources mislabel this — refer to INZ official site."},
+            {"q": "How long does the Ballot take?", "a": "EOI valid 2 years in pool. Quarterly draws (Feb/May/Aug/Nov). Equal chance regardless of how long you've been in pool. After ITA, 4 months to lodge + 12-36 months processing."},
+            {"q": "What about the annual cap?", "a": "2,500 visas/year (Jul 2025 increase from ~500). Includes both Queue + Ballot. Significantly accelerates clearance."},
+            {"q": "What if my income just dipped?", "a": "Must meet threshold for 2 of preceding 3 NZ tax years (not all 3). Some flexibility for transient dips."},
+            {"q": "Can both my parents apply together?", "a": "YES — joint application reduces per-parent income threshold proportionally but raises absolute amount. NZD 72,800 (single sponsor, 1 parent) vs NZD 109,200 (single sponsor, 2 parents)."},
+            {"q": "What's the 10-year support undertaking?", "a": "Legal commitment by sponsor to cover all parent's living costs + healthcare + deportation costs for 10 years post-grant. Significant financial responsibility."},
+        ],
+        "official_url": "https://www.immigration.govt.nz/visas/parent-resident-visa",
+        "vfs_url": "https://visa.vfsglobal.com/ind/en/nzl/",
+        "source_urls": [
+            "https://www.immigration.govt.nz/visas/parent-resident-visa/",
+            "https://www.immigration.govt.nz/income-thresholds-to-30-april-2026",
+            "https://eiglaw.com/new-zealand-increases-income-thresholds-for-pacific-and-parent-visa-categories/",
+            "https://www.workingin-newzealand.com/news/inz-update-april-2026-nz-parent-visa-income-thresholds/",
+        ],
+        "verified_notes": "Manual Fast-Path B.4.5 seed — verified against immigration.govt.nz on 2026-02-27. 30 Apr 2026 income thresholds + 2,500 annual cap + Ballot/Queue model accurately documented. NOTE: Sir's brief used 'Tier 1 / Tier 2' terminology — INZ official policy uses Queue/Ballot instead; entry corrected accordingly.",
+    },
+
+    # ── 4. NZ-Refugee-Family — Refugee Family Support Resident Visa ────────────
+    {
+        "country_code": "NZ", "country_name": "New Zealand",
+        "subclass_id": "Refugee-Family",
+        "subclass_name": "Refugee Family Support Resident Visa",
+        "service_type": "partner", "category": "immigration",
+        "description": (
+            "The Refugee Family Support Resident Visa allows recognised refugees + protected "
+            "persons settled in New Zealand to sponsor close family members for residence. "
+            "Quota-based with **600 visas per year** allocated. Sponsor must be a recognised "
+            "refugee + meet residence-class visa eligibility.\n\n"
+            "**Two-tier structure (currently active):**\n"
+            "- **Tier 1:** Sponsor has NO immediate family in NZ — applies first to bring family.\n"
+            "- **Tier 2:** Sponsor has SOME immediate family in NZ — applies to bring additional. "
+            "Tier 2 is currently CLOSED to new applications.\n\n"
+            "This is distinct from the **general Refugee Quota Programme** (1,500/yr overseas "
+            "resettlement) and the **Skilled Migrant Category** (any skilled workers including "
+            "those with refugee backgrounds). Sir's original brief mentioned 'NZ-Skilled-Refugee' "
+            "— that specific visa doesn't exist; this entry covers the closest current pathway."
+        ),
+        "eligibility_summary": (
+            "Sponsor: recognised refugee + protected person settled in NZ + meets residence-"
+            "class eligibility. Applicant: close family member (parent / partner / dependent "
+            "child / sibling depending on Tier) of sponsor. Tier 1: sponsor has no immediate "
+            "family in NZ (currently open). Tier 2: sponsor has some family in NZ (currently "
+            "closed)."
+        ),
+        "eligibility_criteria": [
+            {"label": "Sponsor status", "value": "Recognised refugee / protected person / convention refugee with NZ residence", "notes": ""},
+            {"label": "Tier 1 (currently OPEN)", "value": "Sponsor has NO immediate family in NZ; can bring eligible family", "notes": "Priority allocation"},
+            {"label": "Tier 2 (currently CLOSED)", "value": "Sponsor has SOME immediate family in NZ already; additional family limited", "notes": "Not accepting new applications"},
+            {"label": "Annual quota", "value": "600 places per year (Tier 1 + Tier 2 combined)", "notes": "Strict limit"},
+            {"label": "Relationship category (Tier 1)", "value": "Parents / siblings / dependent children of sponsor", "notes": "Specific definitions per INZ"},
+            {"label": "Relationship category (Tier 2)", "value": "Specific extended-family relationships", "notes": "Currently closed"},
+            {"label": "Applicant location", "value": "Outside NZ at time of application", "notes": ""},
+            {"label": "Health + Character", "value": "Standard requirements with some flexibility for refugee-context applicants", "notes": ""},
+        ],
+        "fees_local_currency_code": "NZD", "fees_local_currency_amount": 0, "fees_inr_approx": 0,
+        "fees_breakdown": [
+            {"component": "Application fee (Refugee Family Support — typically waived or reduced)", "amount": 0, "currency": "NZD"},
+            {"component": "Medical exam (panel physician)", "amount": 9000, "currency": "INR"},
+            {"component": "Police Clearance Certificate (if available)", "amount": 500, "currency": "INR"},
+            {"component": "Translation services (if applicable)", "amount": 5000, "currency": "INR"},
+            {"component": "NGO / settlement service support (typically free for refugees)", "amount": 0, "currency": "NZD"},
+        ],
+        "processing_time_days_min": 365, "processing_time_days_max": 1095,
+        "step_by_step": [
+            {"step_number": 1, "title": "Confirm Sponsor Refugee Status", "description": "Sponsor confirms recognised refugee / protected person status + NZ residence-class visa.", "estimated_days": 7, "documents_needed": ["Sponsor's NZ refugee status documentation", "Sponsor's NZ residence visa"], "tips": []},
+            {"step_number": 2, "title": "Identify Eligible Family + Tier", "description": "Determine which family members qualify under Tier 1 (currently open) — typically parents / siblings / dependent children.", "estimated_days": 7, "documents_needed": ["Family tree", "Relationship evidence"], "tips": ["Tier 2 is currently CLOSED"]},
+            {"step_number": 3, "title": "Engage NZ Refugee Settlement Service", "description": "Connect with INZ-recognised settlement service provider for application support.", "estimated_days": 30, "documents_needed": [], "tips": ["NGOs offer free advisory + translation"]},
+            {"step_number": 4, "title": "Lodge Application", "description": "Submit Refugee Family Support Resident Visa application via INZ portal.", "estimated_days": 21, "documents_needed": ["Sponsor's refugee documentation", "Relationship docs", "Applicant's identity docs"], "tips": []},
+            {"step_number": 5, "title": "Health + Character Checks", "description": "Standard requirements with refugee-context flexibility (e.g., where PCC unavailable from country of origin).", "estimated_days": 90, "documents_needed": [], "tips": []},
+            {"step_number": 6, "title": "INZ Review + Quota Allocation", "description": "INZ reviews + allocates against 600/year quota. Tier 1 priority.", "estimated_days": 365, "documents_needed": [], "tips": ["Quota allocation may impact timing"]},
+            {"step_number": 7, "title": "Visa Grant + Family Reunification", "description": "Granted family member can travel to NZ. Settlement support continues.", "estimated_days": 60, "documents_needed": [], "tips": ["Sponsor + settlement service coordinate arrival"]},
+        ],
+        "document_checklist": [
+            {"name": "Sponsor's NZ refugee status documentation", "mandatory": True, "notes": "Convention refugee certificate or protected person certificate"},
+            {"name": "Sponsor's NZ residence-class visa evidence", "mandatory": True, "notes": ""},
+            {"name": "Applicant's passport / identity documents", "mandatory": True, "notes": "May include UNHCR documents if no passport"},
+            {"name": "Relationship evidence (birth/marriage/family certificates)", "mandatory": True, "notes": "Translation if foreign-language"},
+            {"name": "Family tree document", "mandatory": True, "notes": ""},
+            {"name": "Tier 1 eligibility evidence", "mandatory": True, "notes": "Sponsor has no immediate family in NZ"},
+            {"name": "Applicant's medical examination", "mandatory": True, "notes": "Panel physician"},
+            {"name": "Police Clearance Certificate (if available)", "mandatory": False, "notes": "Waived where unavailable due to refugee context"},
+            {"name": "Sponsor's NZ address + accommodation plan", "mandatory": True, "notes": ""},
+            {"name": "NZ settlement service engagement letter", "mandatory": False, "notes": "Recommended"},
+            {"name": "Photo", "mandatory": True, "notes": ""},
+            {"name": "Statutory declarations (if documents partially unavailable)", "mandatory": False, "notes": ""},
+        ],
+        "common_rejection_reasons": [
+            "Sponsor not recognised refugee under NZ law",
+            "Tier 2 application during closure period (no new Tier 2 applications)",
+            "Relationship category not on eligible list",
+            "Applicant has immediate family already in NZ (changes Tier eligibility)",
+            "Quota exhausted for fiscal year",
+            "Adverse character findings (limited flexibility)",
+            "Sponsor not maintained NZ residence",
+        ],
+        "success_tips": [
+            "Engage NZ refugee settlement service EARLY — free advisory + advocacy",
+            "Document relationship via multiple corroborating sources (statutory declarations help)",
+            "Tier 1 applicants prioritise — sponsor with no NZ family",
+            "Health/character flexibility for refugee context — disclose challenges upfront",
+            "Plan for 1-3 year processing — quota allocation is the bottleneck",
+            "Lawyer / advocate with refugee experience strongly recommended",
+            "Settlement service can support arrival logistics + initial settlement",
+        ],
+        "faqs": [
+            {"q": "Is there a 'Skilled Refugee' visa?", "a": "NO — INZ does NOT have a specific 'Skilled Refugee' visa category. Refugees seeking PR can use: (a) Refugee Family Support (this visa, if sponsor in NZ); (b) general Skilled Migrant Category (any skilled worker); (c) Refugee Quota Programme (overseas resettlement, 1,500/yr)."},
+            {"q": "What's the difference vs Refugee Quota Programme?", "a": "Refugee Quota Programme (1,500/yr) resettles refugees from overseas via UNHCR. Refugee Family Support (600/yr, this visa) allows already-settled NZ refugees to sponsor family members."},
+            {"q": "Why is Tier 2 closed?", "a": "INZ closed Tier 2 (sponsors with existing NZ family) to prioritise Tier 1 (no immediate family in NZ) within the 600/year quota. Reopening date uncertain."},
+            {"q": "Can sponsor bring grandparents / extended family?", "a": "Tier 1 covers parents, siblings, dependent children. Extended family typically not eligible under Refugee Family Support — would need other pathways."},
+            {"q": "What fees apply?", "a": "Application fees typically WAIVED or significantly REDUCED for refugee-context applications. NGOs provide free legal support."},
+            {"q": "How long is processing?", "a": "1-3 years typical. Quota allocation cycle + refugee documentation complexity affects timeline."},
+        ],
+        "official_url": "https://www.immigration.govt.nz/visas/refugee-family-support-residence-category",
+        "vfs_url": "https://visa.vfsglobal.com/ind/en/nzl/",
+        "source_urls": [
+            "https://www.immigration.govt.nz/visas/refugee-family-support-residence-category/",
+            "https://communitylaw.org.nz/community-law-manual/test/family-of-refugees-special-visa-categories/",
+            "https://www.govt.nz/browse/immigration-and-visas/refugees-in-new-zealand/",
+        ],
+        "verified_notes": "Manual Fast-Path B.4.5 seed — verified against immigration.govt.nz + Community Law Manual on 2026-02-27. NOTE: Sir's brief listed 'NZ-Skilled-Refugee' — that visa DOES NOT EXIST in INZ policy. Closest active pathway is Refugee Family Support Resident Visa, seeded here. Distinct from general Refugee Quota Programme (1,500/yr overseas resettlement).",
+    },
+]
+
+
 ALL_WORKFLOWS: Dict[str, List[Dict[str, Any]]] = {
     "IN": INDIA_WORKFLOWS,
     "AU": AUSTRALIA_NEW_WORKFLOWS,
     "CA": CANADA_NEW_WORKFLOWS,
+    "NZ": NEW_ZEALAND_NEW_WORKFLOWS,
 }
 
 
