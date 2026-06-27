@@ -4,6 +4,91 @@ This file appends every completed phase/feature with dates and verification stat
 
 
 ---
+### 🟢 Sweep B.4.2 — India NEW (12 Verified Workflows) (Feb 27, 2026)
+
+**Atomic Ship — Sub-Slice B.4.2 of MEGA DISPATCH Sweep B.4 + B.3.**
+
+Seeded 12 verified India immigration workflows via new idempotent Python script `backend/scripts/seed_country_workflows_b4.py`. All 12 cleared 14-mandatory-field schema, doc_id pattern `IN-{SID}-DOC-NN`, canonical audit_logs (`action=country_workflow_seeded_b2`, `entity_id=workflow_id`).
+
+**Workflows seeded:**
+1. **IN-OCI** — Overseas Citizen of India Card (USD 275, lifelong, includes spouse pathway + minor children + age-20 re-issuance + lost-card route)
+2. **IN-PIO** — Person of Indian Origin Card — legacy converter to OCI (free, 21-60 days)
+3. **IN-EMP** — Employment Visa E (USD 100-250 per duration tier, USD 25k salary threshold, FRRO-tied)
+4. **IN-BUS** — Business Visa B (USD 160 across 1/5/10-year tiers, multi-entry, 180-day stay cap)
+5. **IN-STU** — Student Visa S (USD 100, UGC/AICTE/NMC bonafide, FRRO-tied)
+6. **IN-ETV** — e-Tourist Visa (USD 25 peak / USD 10 lean / USD 40 1-yr / USD 80 5-yr, 100% online)
+7. **IN-MED** — Medical Visa MED + Medical Attendant MED-X (USD 100, JCI/NABH hospital ref, up to 2 attendants)
+8. **IN-CONF** — Conference Visa C (USD 100, MEA political clearance route for sensitive events)
+9. **IN-JRN** — Journalist Visa J (USD 100, MEA/XPD clearance, RAP/PAP for restricted areas, ATA Carnet equipment)
+10. **IN-RES** — Research Visa R (USD 100 short / USD 190 long, MEA/MHA clearance, host institution sponsorship)
+11. **IN-EX** — Entry X Visa for spouse/children of Indian citizens/OCI (USD 250 general / fee-waived for citizen-spouses, dependents X-E/S/M/R)
+12. **IN-TRN** — Transit Visa T (USD 10 single / USD 20 double, 72-hour max, 15-day validity)
+
+**Sources verified (Feb 27, 2026):**
+- `indianvisaonline.gov.in/visa/visa-fee.html` + `/evisa/`
+- `ociservices.gov.in` (OCI portal)
+- `mha.gov.in/PDF_Other/AnnexIII_01022018.pdf` (official fee schedule)
+- `indianembassyusa.gov.in/extra?id=90` (US Mission fee table)
+- `cgimilan.gov.in/page/fee-schedule-visa/` + `hcikl.gov.in/.../Visa-Fees` (EU + Asia mission rates)
+- `mea.gov.in/xpd-foreign-press.htm` + `mea.gov.in/research-visa.htm`
+- `indianfrro.gov.in/eservices` (FRRO portal)
+- OCI fee USD 275 effective April 2026 hike per multiple consular notices
+
+**FX assumption documented in verified_notes:** 1 USD ≈ 83 INR (Feb 2026 indicative).
+
+**Backend infra changes (defence-in-depth for India service_types):**
+- `backend/routers/ai_workflow_builder.py` — `COUNTRY_REFERENCES["india"]` expanded from 4 → 12 service categories
+- `backend/routers/country_workflows.py` — `COUNTRY_ALIAS_MAP` added `india / in / ind / bharat → IN`; `SERVICE_TYPE_CANONICAL_MAP` added 9 new tokens (oci, pio, business, medical, conference, journalist, research, entry_x, transit) with synonyms
+
+**Idempotency verified (re-run):** `inserted=0 skipped=12 errored=0` ✓
+**Total verified workflows in DB now: 36** (24 prior + 12 IN)
+
+**Self-test matrix (5 curl combinations — ALL PASS):**
+- 🟢 India + oci → `seeded_verified` · model_used=`verified_seed` · product "India - Overseas Citizen of India Card (OCI)" · 7 steps · 14 documents · `doc_id="IN-OCI-DOC-01"`
+- 🟢 India + work → fast-path hit
+- 🟢 India + Transit (mixed-case) → fast-path hit, product "India - Transit Visa (T)"
+- 🟢 India + CONFERENCE (uppercase) → fast-path hit (case-insensitive canonical map)
+- 🟢 Australia + pr (regression) → fast-path still hits
+
+**Files added/changed:**
+- ✨ NEW · `backend/scripts/seed_country_workflows_b4.py` (1378 lines · 12 India workflows + main runner)
+- 📝 EDIT · `backend/routers/ai_workflow_builder.py` (`COUNTRY_REFERENCES["india"]` 4→12 categories)
+- 📝 EDIT · `backend/routers/country_workflows.py` (`COUNTRY_ALIAS_MAP` + `SERVICE_TYPE_CANONICAL_MAP` extended for India service types)
+
+**Files NOT touched (out of scope):**
+- Sweep B.2 seed file `seed_country_workflows_b2.py` — preserved as-is for AU/CA/NZ/UK
+- Frontend — no changes needed; UI consumes canonical service_types as-is
+
+**Highlighted limitations:** None. All 12 visas seeded with full document detail + step-by-step + eligibility + FAQs + rejection reasons. Some India consular fees vary minutely by mission location (US/EU/Asia rates differ ±5 USD) — workflows document USA Mission baseline rates with breakdown noting variations.
+
+**Next:** B.4.3 — Australia EXPANSION (10 new subclasses + 6 existing — includes subclass 485 PSW per Sir's priority).
+
+
+---
+### 🟢 Sweep B.4.1 — Perplexity Sonar Pro Tertiary Fallback (Feb 27, 2026)
+
+**Atomic Ship — Sub-Slice B.4.1 of MEGA DISPATCH Sweep B.4.**
+
+Added Perplexity Sonar Pro as a 3rd-tier AI fallback after Claude Sonnet 4.5 → Claude Haiku 4.5 in the workflow generation chain. Provides web-search-augmented responses with citations when both Claude tiers fail.
+
+**Architecture:**
+- ✨ NEW · `backend/services/perplexity_service.py` — `call_perplexity_sonar_pro()` using OpenAI-compatible `AsyncOpenAI` client pointed at `https://api.perplexity.ai` (model: `sonar-pro`); `is_perplexity_configured()` env-driven gate
+- 📝 EDIT · `backend/services/ai_workflow_service.py` — `call_ai_with_fallback()` extended with Tier 3 perplexity branch (60s timeout); graceful skip if `PERPLEXITY_API_KEY` env var missing
+
+**Graceful skip verified (no key configured currently):**
+- ✅ Unit test (mocked Claude failures): both tiers fail → "Perplexity Sonar Pro skipped — PERPLEXITY_API_KEY not configured (Sir to set env var to enable)" log → final `RuntimeError: All AI providers failed`
+- ✅ Real-world capture from production logs: `WARNING AI call failed (anthropic/claude-haiku-4-5-20251001): Failed to generate chat completion: litellm.APIError: APIError: OpenAIException - Daily spend limit reached — trying next model` → `INFO Perplexity Sonar Pro skipped — PERPLEXITY_API_KEY not configured` → fallback chain exhaustion handled cleanly
+
+**Sir's choice locked (option b):** Code in place; `PERPLEXITY_API_KEY` env var detection + graceful skip logic verified. Future zero-code activation just by adding the key to `backend/.env`. Emergent Universal Key does NOT proxy Perplexity — separate key from `perplexity.ai/settings/api` required if Sir wishes to activate.
+
+**Files changed:**
+- ✨ NEW · `backend/services/perplexity_service.py` (94 lines)
+- 📝 EDIT · `backend/services/ai_workflow_service.py` (call_ai_with_fallback extended with Tier 3 branch)
+
+**Next:** B.4.2 (India) — see entry above.
+
+
+---
 ### 🔴 CRITICAL HOTFIX — Fastpath Miss Bug Resolved (Feb 27, 2026 — Sir's reported bug)
 
 **Honest acknowledgment:** Despite Sweep B.2 shipping 24 verified workflows, Sir's actual UI click on AU/Subclass-485 (and 24 other seeded combinations) was missing the fastpath because of **case-sensitive `service_type` matching** in `find_verified_workflow()`. Frontend was sending `"Pr"` (title-cased via `.title()` in `/visa-categories`) while seed had `"pr"` (lowercase). Backend logs confirmed Sir's job `f3e67ae4` hit Daily spend limit on both Claude Sonnet 4.5 + Haiku 4.5 because fastpath missed and fell through to AI generation. **Diagnosis written first to `/app/memory/AI_WORKFLOW_FASTPATH_DIAGNOSIS.md` — 5 smoking guns documented before any code change.**

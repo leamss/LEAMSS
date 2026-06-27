@@ -595,6 +595,8 @@ COUNTRY_ALIAS_MAP: Dict[str, str] = {
     # United Kingdom
     "united kingdom": "UK", "uk": "UK", "gb": "UK", "gbr": "UK",
     "great britain": "UK", "britain": "UK", "england": "UK",
+    # India (Sweep B.4.2 — Feb 27, 2026)
+    "india": "IN", "in": "IN", "ind": "IN", "bharat": "IN",
 }
 
 SERVICE_TYPE_CANONICAL_MAP: Dict[str, str] = {
@@ -609,6 +611,16 @@ SERVICE_TYPE_CANONICAL_MAP: Dict[str, str] = {
     "tourist": "visitor", "visit": "visitor", "tourism": "visitor", "business visit": "visitor",
     "family": "partner", "spouse": "partner", "spousal": "partner",
     "marriage": "partner", "spouse/family": "partner", "family/partner": "partner",
+    # Sweep B.4.2 — India-specific canonical tokens (Feb 27, 2026)
+    "oci": "oci", "overseas citizen of india": "oci", "overseas citizen": "oci",
+    "pio": "pio", "person of indian origin": "pio",
+    "business": "business", "business visa": "business",
+    "medical": "medical", "medical visa": "medical", "medical attendant": "medical",
+    "conference": "conference", "conference visa": "conference",
+    "journalist": "journalist", "journalist visa": "journalist", "media": "journalist",
+    "research": "research", "research visa": "research",
+    "entry_x": "entry_x", "entry x": "entry_x", "entry-x": "entry_x", "x visa": "entry_x", "x-visa": "entry_x",
+    "transit": "transit", "transit visa": "transit",
 }
 
 

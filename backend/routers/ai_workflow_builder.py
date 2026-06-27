@@ -187,10 +187,18 @@ COUNTRY_REFERENCES = {
         "pr": "Permanent Resident Visa. Reference: gob.mx/inm."
     },
     "india": {
-        "work": "Employment Visa. Reference: indianvisaonline.gov.in.",
-        "business": "Business Visa. Reference: indianvisaonline.gov.in.",
-        "student": "Student Visa. Reference: indianvisaonline.gov.in.",
-        "oci": "Overseas Citizen of India (OCI) Card. Reference: indianvisaonline.gov.in."
+        "work": "Employment Visa (E). Reference: indianvisaonline.gov.in.",
+        "business": "Business Visa (B). Reference: indianvisaonline.gov.in.",
+        "student": "Student Visa (S). Reference: indianvisaonline.gov.in.",
+        "oci": "Overseas Citizen of India (OCI) Card. Reference: ociservices.gov.in.",
+        "pio": "Person of Indian Origin (PIO) Card — legacy / converts to OCI. Reference: ociservices.gov.in.",
+        "visitor": "e-Tourist Visa (e-TV). Reference: indianvisaonline.gov.in/evisa/.",
+        "medical": "Medical Visa (MED) + Medical Attendant (MED-X). Reference: indianvisaonline.gov.in.",
+        "conference": "Conference Visa (C). Reference: indianvisaonline.gov.in.",
+        "journalist": "Journalist Visa (J). Reference: indianvisaonline.gov.in. Requires MEA/XPD clearance.",
+        "research": "Research Visa (R). Reference: indianvisaonline.gov.in. Requires MEA/MHA clearance.",
+        "entry_x": "Entry (X) Visa — spouse/children of Indian citizens/OCI holders. Reference: indianvisaonline.gov.in.",
+        "transit": "Transit Visa (T) — up to 72 hours. Reference: indianvisaonline.gov.in.",
     },
     "china": {
         "work": "Z Visa (Work Permit). Reference: visaforchina.cn.",
