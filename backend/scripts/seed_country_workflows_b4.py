@@ -2294,9 +2294,657 @@ AUSTRALIA_NEW_WORKFLOWS: List[Dict[str, Any]] = [
 ]
 
 
+# ──────────────────────────────────────────────────────────────────────────────
+# CANADA EXPANSION (B.4.4) — 6 new subclasses adding to B.2's existing 6
+# Sources: ircc.canada.ca · cicnews.com · provincial portals · Feb 2026 status
+# FX: 1 CAD ≈ 60 INR (Feb 2026)
+# ──────────────────────────────────────────────────────────────────────────────
+CANADA_NEW_WORKFLOWS: List[Dict[str, Any]] = [
+    # ── 1. CA-AIP — Atlantic Immigration Program ────────────────────────────────
+    {
+        "country_code": "CA", "country_name": "Canada",
+        "subclass_id": "AIP",
+        "subclass_name": "Atlantic Immigration Program (AIP)",
+        "service_type": "pr", "category": "immigration",
+        "description": (
+            "The Atlantic Immigration Program (AIP) is an employer-driven permanent residence "
+            "pathway for skilled workers and international graduates wishing to settle in one of "
+            "the four Atlantic provinces: **New Brunswick (NB), Newfoundland and Labrador (NL), "
+            "Nova Scotia (NS), or Prince Edward Island (PE)**.\n\n"
+            "Unlike Express Entry (federal CRS-based), AIP requires: (a) a job offer from a "
+            "**provincially-designated employer**, (b) a Provincial Endorsement Certificate (PEC), "
+            "and (c) a personalized **Settlement Plan** for the principal applicant + family. Made "
+            "permanent in March 2022 (succeeding the AIPP pilot). Two streams: International "
+            "Graduate (no work experience required) and High-Skilled Worker / Intermediate-Skilled "
+            "Worker. Current processing time **26 months** (Jun 2026 IRCC data, down from 38 mo)."
+        ),
+        "eligibility_summary": (
+            "Job offer from a designated Atlantic employer; Provincial Endorsement Certificate; "
+            "completed Settlement Plan; meet education + work-experience + language requirements "
+            "for the stream; demonstrate intent to settle in nominated Atlantic province."
+        ),
+        "eligibility_criteria": [
+            {"label": "Job offer (designated employer)", "value": "Full-time, non-seasonal offer from provincially-designated Atlantic employer (NB / NL / NS / PE)", "notes": "Employer must have operated 2+ years in the province + settlement-services commitment"},
+            {"label": "Provincial Endorsement Certificate", "value": "Province issues PEC valid 12 months", "notes": "After designation review"},
+            {"label": "Education", "value": "Canadian secondary school OR equivalent foreign credential (ECA)", "notes": "Recent Atlantic graduates exempt if studying in the province"},
+            {"label": "Work experience", "value": "1+ years (1,560 hrs) full-time in past 5 years (NOC TEER 0/1/2/3/4)", "notes": "International Graduates from designated Atlantic institutions exempt"},
+            {"label": "Language", "value": "CLB 4 (Intermediate-Skilled), CLB 5 (High-Skilled + International Graduate)", "notes": "IELTS / CELPIP / TEF / TCF"},
+            {"label": "Settlement Plan", "value": "Personalized plan from designated settlement service provider (PNB / ANC / NS / IRCC-approved)", "notes": "Mandatory before PR application"},
+            {"label": "Funds (settlement)", "value": "Minimum settlement funds (varies by family size) unless currently working in Canada", "notes": "Same as Express Entry table"},
+            {"label": "Health + Character", "value": "Standard PR requirements", "notes": ""},
+        ],
+        "fees_local_currency_code": "CAD", "fees_local_currency_amount": 1525, "fees_inr_approx": 91500,
+        "fees_breakdown": [
+            {"component": "PR processing fee — Principal Applicant", "amount": 1525, "currency": "CAD"},
+            {"component": "Right of Permanent Residence Fee (RPRF) — payable on approval", "amount": 575, "currency": "CAD"},
+            {"component": "Biometrics (single)", "amount": 85, "currency": "CAD"},
+            {"component": "Biometrics (family max)", "amount": 170, "currency": "CAD"},
+            {"component": "Spouse / common-law partner processing", "amount": 1525, "currency": "CAD"},
+            {"component": "Spouse / partner RPRF", "amount": 575, "currency": "CAD"},
+            {"component": "Dependent child", "amount": 260, "currency": "CAD"},
+            {"component": "Employer Compliance Fee (IRCC, employer-paid for bridging WP)", "amount": 230, "currency": "CAD"},
+            {"component": "Educational Credential Assessment (WES/IQAS)", "amount": 240, "currency": "CAD"},
+            {"component": "Language test (IELTS/CELPIP)", "amount": 325, "currency": "CAD"},
+            {"component": "Medical exam (per person)", "amount": 8500, "currency": "INR"},
+            {"component": "Police Clearance Certificates", "amount": 1500, "currency": "INR"},
+        ],
+        "processing_time_days_min": 540, "processing_time_days_max": 810,
+        "step_by_step": [
+            {"step_number": 1, "title": "Identify Designated Atlantic Employer", "description": "Search provincial designation lists (PNB, ANC, NS, PEI). Apply for relevant job openings; secure full-time, non-seasonal offer.", "estimated_days": 60, "documents_needed": ["CV", "Cover letter"], "tips": ["NS has largest designation list", "Healthcare + IT + Trades + Hospitality most active"]},
+            {"step_number": 2, "title": "Provincial Endorsement Application", "description": "Employer submits endorsement application to province. Province reviews and issues PEC (valid 12 months).", "estimated_days": 56, "documents_needed": ["Job offer", "Employer designation evidence"], "tips": ["4-8 weeks typical; NS slower"]},
+            {"step_number": 3, "title": "Settlement Plan", "description": "Connect with provincial settlement service provider. Complete personalized Settlement Plan for principal + family.", "estimated_days": 21, "documents_needed": ["PEC", "Family details"], "tips": ["Mandatory before PR application"]},
+            {"step_number": 4, "title": "Lodge PR Application via IRCC Permanent Residence Portal", "description": "Submit comprehensive application including PEC + Settlement Plan + supporting documents.", "estimated_days": 14, "documents_needed": ["PEC", "Settlement Plan", "ECA", "Language test", "Funds proof", "Forms"], "tips": []},
+            {"step_number": 5, "title": "Biometrics + Medical + PCC", "description": "Complete biometrics at VAC; medical at panel physician; PCCs from all 6+ month countries.", "estimated_days": 60, "documents_needed": [], "tips": []},
+            {"step_number": 6, "title": "Optional: Bridging Work Permit", "description": "If urgent start needed, employer obtains Employer Compliance Fee + applicant gets bridging work permit while PR processes.", "estimated_days": 90, "documents_needed": ["PEC", "Employer letter"], "tips": ["Optional — speeds entry to job"]},
+            {"step_number": 7, "title": "IRCC Decision (~26 months)", "description": "IRCC reviews PR application. Pay RPRF on approval. Receive COPR (Confirmation of Permanent Residence).", "estimated_days": 720, "documents_needed": [], "tips": ["Backlog inventory — 12,900+ apps as of Jun 2026"]},
+            {"step_number": 8, "title": "Landing + Settlement", "description": "Land at Atlantic port of entry; PR card issued; settle in nominated province.", "estimated_days": 30, "documents_needed": ["COPR", "Passport"], "tips": ["Settlement Plan provider continues post-arrival support"]},
+        ],
+        "document_checklist": [
+            {"name": "Passport (bio + visa pages)", "mandatory": True, "notes": ""},
+            {"name": "Job offer letter (designated Atlantic employer)", "mandatory": True, "notes": "Specifies NOC + salary + hours"},
+            {"name": "Provincial Endorsement Certificate (PEC)", "mandatory": True, "notes": "Valid 12 months"},
+            {"name": "Settlement Plan (provincial settlement service provider)", "mandatory": True, "notes": ""},
+            {"name": "Educational Credential Assessment (WES / IQAS)", "mandatory": True, "notes": "Foreign credentials only"},
+            {"name": "Language test (IELTS General / CELPIP / TEF / TCF)", "mandatory": True, "notes": "CLB 4 or 5 depending on stream"},
+            {"name": "Employment reference letters (past 5 years)", "mandatory": True, "notes": ""},
+            {"name": "Settlement funds proof (bank statements)", "mandatory": True, "notes": "Unless already working in Canada"},
+            {"name": "Medical exam confirmation", "mandatory": True, "notes": "Panel physician"},
+            {"name": "Police Clearance Certificates", "mandatory": True, "notes": "From 6+ month countries"},
+            {"name": "Marriage certificate / common-law evidence (if applicable)", "mandatory": True, "notes": ""},
+            {"name": "Children's birth certificates (if applicable)", "mandatory": True, "notes": ""},
+            {"name": "Digital photo (per IRCC specs)", "mandatory": True, "notes": ""},
+            {"name": "Biometrics confirmation (VAC)", "mandatory": True, "notes": ""},
+            {"name": "IMM forms (5669, 5406, 5476 as applicable)", "mandatory": True, "notes": ""},
+        ],
+        "common_rejection_reasons": [
+            "Employer designation expired or revoked",
+            "PEC expiry before PR lodgement",
+            "Settlement Plan missing or incomplete",
+            "Education credential assessment for incorrect NOC",
+            "Language scores below stream-specific CLB",
+            "Insufficient settlement funds",
+            "Job offer NOC mismatch with experience",
+            "Health/criminal admissibility issues",
+        ],
+        "success_tips": [
+            "Target designated employers EARLY — apply directly via provincial designation portals",
+            "Atlantic Canada Opportunities Agency (ACOA) + employer-specific recruitment events",
+            "Choose province strategically — NS has most designations; NB + PE smaller but faster",
+            "International graduates from Atlantic institutions get streamlined eligibility",
+            "Commit to Atlantic settlement long-term — applications evaluated on intent",
+            "Lodge PEC + PR application together to avoid 12-month PEC expiry risk",
+            "Optional bridging WP if employer needs you to start before PR grant (90-day process)",
+            "Backlog reality: plan for 26-month wait from PR submission",
+        ],
+        "faqs": [
+            {"q": "Can I apply directly to AIP without a job?", "a": "NO — job offer from designated Atlantic employer + Provincial Endorsement Certificate are mandatory entry points. International Graduates from Atlantic institutions can be matched via campus recruitment with designated employers."},
+            {"q": "Is AIP a pilot?", "a": "NO — AIP became a PERMANENT federal-provincial program in March 2022, replacing the Atlantic Immigration Pilot Program (AIPP) which ran 2017-2021."},
+            {"q": "Which Atlantic province should I target?", "a": "Depends on industry: NS (largest designated employer pool), NB (manufacturing + bilingual), NL (oil + gas + fisheries), PE (tourism + IT). All four offer same PR pathway."},
+            {"q": "Can I work while PR processes?", "a": "Yes — via bridging Employer-Specific Work Permit. Employer pays Compliance Fee ($230) to IRCC; you get work permit linked to that designated job."},
+            {"q": "What about my family?", "a": "Spouse + dependent children included in PR application. Spouse gets Open Work Permit on bridging visa; children get Study Permits for K-12 + post-secondary."},
+            {"q": "How long is processing in 2026?", "a": "Approximately 26 months as of June 2026 (down 12 months from 38-month wait in May 2026). Backlog of 12,900+ applications. Provincial endorsement adds 4-8 weeks."},
+        ],
+        "official_url": "https://www.canada.ca/en/immigration-refugees-citizenship/services/immigrate-canada/atlantic-immigration.html",
+        "vfs_url": "https://visa.vfsglobal.com/ind/en/can/",
+        "source_urls": [
+            "https://www.canada.ca/en/immigration-refugees-citizenship/services/immigrate-canada/atlantic-immigration/how-to-immigrate.html",
+            "https://www.canada.ca/en/immigration-refugees-citizenship/services/immigrate-canada/atlantic-immigration.html",
+            "https://welcomenb.ca/content/wel-bien/en/Streams/AIP.html",
+            "https://liveinnovascotia.com/atlantic-immigration-program",
+            "https://www.princeedwardisland.ca/en/service/atlantic-immigration-program-endorsement-application",
+        ],
+        "verified_notes": "Manual Fast-Path B.4.4 seed — verified against ircc.canada.ca + provincial portals on 2026-02-27. Processing time 26mo per June 2026 CIC News update. Fees per IRCC FY2025-26 schedule.",
+    },
+
+    # ── 2. CA-Caregiver — Home Care Worker Pilots (PAUSED) ─────────────────────
+    {
+        "country_code": "CA", "country_name": "Canada",
+        "subclass_id": "Caregiver",
+        "subclass_name": "Home Care Worker Pilots (PAUSED — Child Care + Home Support streams)",
+        "service_type": "work", "category": "immigration",
+        "description": (
+            "⚠️ **STATUS: PAUSED.** The Home Child Care Provider Pilot + Home Support Worker Pilot "
+            "(original 5-year programs) **CLOSED to new applications on 17 June 2024**. The "
+            "replacement **Home Care Worker Immigration Pilots (HCWIP)** launched 31 March 2025 "
+            "with two streams (Child Care + Home Support) — both filled their 2,350 application "
+            "caps within hours. IRCC officially **paused intake on 22 December 2025** with no new "
+            "applications accepted **31 March 2026 through 30 March 2030**.\n\n"
+            "This entry documents the PAUSED status + redirects new applicants to active "
+            "alternatives: Express Entry Healthcare Category (NOC 33102 Nurse Aides), Provincial "
+            "Nominee Programs (ON OINP / BC PNP / Atlantic AIP / MB MPNP), or LMIA-based work "
+            "permit → CEC PR transition."
+        ),
+        "eligibility_summary": (
+            "PAUSED PROGRAM. Reference for transitional applicants already in process. New "
+            "caregiver applicants must use Express Entry Healthcare Category, Provincial Nominee "
+            "Programs, or LMIA → CEC pathway."
+        ),
+        "eligibility_criteria": [
+            {"label": "STATUS", "value": "PAUSED 22 Dec 2025; no new intake until 30 Mar 2030", "notes": "Use alternative pathways"},
+            {"label": "Job offer (if still possible under reactivation)", "value": "Full-time non-seasonal job in home care / child care", "notes": ""},
+            {"label": "Experience / Training", "value": "6 months recent relevant experience OR 6-month relevant training credential", "notes": ""},
+            {"label": "Language", "value": "CLB 4 minimum (HCWIP — lower than original CLB 5)", "notes": ""},
+            {"label": "Education", "value": "Canadian high school equivalent minimum", "notes": ""},
+            {"label": "Workers in Canada Stream", "value": "Currently living + working in Canada with valid status", "notes": ""},
+            {"label": "Applicants Outside Canada", "value": "Paused (not opened under HCWIP)", "notes": ""},
+            {"label": "Alternative pathways", "value": "EE Healthcare Category (NOC 33102), PNP (ON/BC/Atlantic/MB), LMIA → CEC", "notes": "Recommended for new applicants"},
+        ],
+        "fees_local_currency_code": "CAD", "fees_local_currency_amount": 600, "fees_inr_approx": 36000,
+        "fees_breakdown": [
+            {"component": "HCWIP PR Application Fee — Principal (if reactivated)", "amount": 600, "currency": "CAD"},
+            {"component": "RPRF (recommended upfront)", "amount": 575, "currency": "CAD"},
+            {"component": "Spouse / partner processing", "amount": 570, "currency": "CAD"},
+            {"component": "Dependent child", "amount": 270, "currency": "CAD"},
+            {"component": "Work Permit Fee (legacy pilots)", "amount": 155, "currency": "CAD"},
+            {"component": "Biometrics (per person)", "amount": 85, "currency": "CAD"},
+            {"component": "Alternative: EE Healthcare Category — Principal", "amount": 1525, "currency": "CAD"},
+            {"component": "Alternative: LMIA + Employer Compliance", "amount": 1230, "currency": "CAD"},
+        ],
+        "processing_time_days_min": 365, "processing_time_days_max": 1095,
+        "step_by_step": [
+            {"step_number": 1, "title": "Verify Status: PAUSED", "description": "Confirm HCWIP intake remains paused. As of Feb 2026, no new applications until 30 Mar 2030.", "estimated_days": 1, "documents_needed": [], "tips": ["Check ircc.canada.ca for any reactivation announcement"]},
+            {"step_number": 2, "title": "Choose Active Alternative", "description": "Pivot to: (a) Express Entry Healthcare Category, (b) Provincial Nominee Program targeting caregivers, OR (c) LMIA-based temporary WP → CEC PR.", "estimated_days": 30, "documents_needed": [], "tips": ["EE Healthcare CRS cut-offs typically lower (~470 vs general 500+)"]},
+            {"step_number": 3, "title": "Build Caregiver Credentials", "description": "Language test (CLB 7+), ECA (foreign credentials), 6+ months experience documentation.", "estimated_days": 90, "documents_needed": ["IELTS/CELPIP", "ECA", "Reference letters"], "tips": []},
+            {"step_number": 4, "title": "Apply via Chosen Pathway", "description": "Submit EE profile / PNP application / LMIA + WP application per chosen pathway.", "estimated_days": 30, "documents_needed": [], "tips": []},
+            {"step_number": 5, "title": "Build 24+ Months Canadian Caregiver Experience (LMIA path)", "description": "If on LMIA-based work permit, build experience for CEC transition (typically 12+ months minimum).", "estimated_days": 730, "documents_needed": [], "tips": ["Each month of Canadian work experience strengthens CRS"]},
+            {"step_number": 6, "title": "Transition to PR via EE/CEC", "description": "Apply for PR via Canadian Experience Class once experience threshold met.", "estimated_days": 180, "documents_needed": [], "tips": []},
+        ],
+        "document_checklist": [
+            {"name": "Passport (bio + visa pages)", "mandatory": True, "notes": ""},
+            {"name": "Job offer (if applicable for LMIA path)", "mandatory": False, "notes": "LMIA-based work permit"},
+            {"name": "ECA (Educational Credential Assessment)", "mandatory": True, "notes": "For foreign credentials"},
+            {"name": "Language test (IELTS / CELPIP)", "mandatory": True, "notes": "CLB 7+ for EE Healthcare"},
+            {"name": "Reference letters (caregiver experience)", "mandatory": True, "notes": "6+ months minimum"},
+            {"name": "Resume / CV", "mandatory": True, "notes": "Detailed caregiver experience"},
+            {"name": "Police Clearance Certificates", "mandatory": True, "notes": ""},
+            {"name": "Medical exam", "mandatory": True, "notes": ""},
+            {"name": "Settlement funds proof", "mandatory": True, "notes": "Per family size"},
+            {"name": "Marriage / partner cert (if applicable)", "mandatory": True, "notes": ""},
+            {"name": "Children's birth certs (if applicable)", "mandatory": True, "notes": ""},
+            {"name": "Photo", "mandatory": True, "notes": ""},
+        ],
+        "common_rejection_reasons": [
+            "Applying for paused HCWIP rather than active alternatives",
+            "Language scores below threshold for chosen pathway",
+            "Insufficient caregiver experience documentation",
+            "ECA for wrong field / outdated",
+            "Workers Outside Canada stream attempted (not opened)",
+            "Standard PR criteria not met (funds / health / character)",
+        ],
+        "success_tips": [
+            "DO NOT apply for HCWIP in 2026 — wait for reactivation announcement OR pivot now",
+            "EE Healthcare Category is fastest active pathway — lower CRS cut-offs",
+            "PNP targeting caregivers adds 600 EE points = near-guaranteed PR",
+            "LMIA + Canadian experience builds CEC eligibility within 12-24 months",
+            "Monitor cicnews.com + ircc.canada.ca for HCWIP reactivation news",
+            "Some provinces (ON OINP) specifically target Personal Support Workers (PSWs)",
+        ],
+        "faqs": [
+            {"q": "Can I still apply for the caregiver pilot?", "a": "NO — both legacy (Home Child Care Provider + Home Support Worker) AND replacement (HCWIP) are CLOSED to new applications. No intake until 30 Mar 2030 per IRCC announcement."},
+            {"q": "What's the best alternative?", "a": "Express Entry Healthcare Category (NOC 33102 Nurse Aides) — active, lower CRS cut-offs (~470), familial to caregiver work. OR Provincial Nominee Programs targeting PSWs."},
+            {"q": "Can I still work as a caregiver on a temporary work permit?", "a": "YES — LMIA-based caregiver work permits remain available. After 12-24 months Canadian experience, apply for PR via Canadian Experience Class (CEC)."},
+            {"q": "Will the pilots reopen?", "a": "Not in 2026. IRCC has not announced a reopening date. Monitor official channels for any update beyond Mar 2030 horizon."},
+            {"q": "What about applications already submitted?", "a": "In-process applications continue per existing timelines. No new submissions accepted."},
+        ],
+        "official_url": "https://www.canada.ca/en/immigration-refugees-citizenship/services/immigrate-canada/caregivers.html",
+        "vfs_url": "https://visa.vfsglobal.com/ind/en/can/",
+        "source_urls": [
+            "https://www.canada.ca/en/immigration-refugees-citizenship/services/immigrate-canada/caregivers/home-care-worker-immigration-pilots.html",
+            "https://www.canada.ca/en/immigration-refugees-citizenship/news/notices/pausing-home-care-worker-immigration-pilots-application-intake.html",
+            "https://www.cicnews.com/2025/12/change-home-care-worker-pilots-will-not-return-in-2026-1263765.html",
+        ],
+        "verified_notes": "Manual Fast-Path B.4.4 seed — verified PAUSED status per IRCC official notice + CIC News (Dec 2025). Sir's directive: maintain workflow with clear PAUSED status + redirect to active alternatives (similar to AU-187 closed pattern).",
+    },
+
+    # ── 3. CA-Start-up-Visa (PAUSED) ────────────────────────────────────────────
+    {
+        "country_code": "CA", "country_name": "Canada",
+        "subclass_id": "Start-up-Visa",
+        "subclass_name": "Start-up Visa Program (PAUSED — replacement entrepreneur pilot expected)",
+        "service_type": "business", "category": "immigration",
+        "description": (
+            "⚠️ **STATUS: PAUSED.** The Canada Start-up Visa (SUV) program **suspended new "
+            "applications on 1 January 2026** due to overwhelming backlog (waiting times exceeding "
+            "10 years on inventory). Government is designing a replacement entrepreneur pilot "
+            "program expected to launch in 2026.\n\n"
+            "SUV granted permanent residence to immigrant entrepreneurs with innovative business "
+            "ideas backed by designated Canadian organizations (venture capital funds, angel "
+            "investor groups, or business incubators). Original quota 2,500/year for the entire "
+            "program; deeply oversubscribed. **Exception:** Applicants with valid commitment "
+            "certificates issued in 2025 by designated organizations can still submit applications "
+            "**until 30 June 2026**."
+        ),
+        "eligibility_summary": (
+            "PAUSED PROGRAM. Reference for transitional applicants with 2025 commitment "
+            "certificates (must lodge by 30 Jun 2026). New entrepreneur applicants must await "
+            "the replacement pilot OR pivot to provincial Entrepreneur PNP streams (BC / MB / SK / "
+            "PE Entrepreneur)."
+        ),
+        "eligibility_criteria": [
+            {"label": "STATUS", "value": "PAUSED 1 Jan 2026; lodge by 30 Jun 2026 if 2025 commitment certificate held", "notes": "Replacement entrepreneur pilot expected 2026"},
+            {"label": "Innovative business idea", "value": "Scalable + globally competitive business concept", "notes": "Tech / cleantech / biotech / fintech preferred"},
+            {"label": "Commitment from designated organization", "value": "VC fund (min $200K CAD) / Angel investor group ($75K CAD) / Business incubator", "notes": "Sole entry pathway"},
+            {"label": "Language", "value": "CLB 5 (IELTS 5.0 / CELPIP 5)", "notes": "All 4 abilities"},
+            {"label": "Education", "value": "Completed at least 1 year of post-secondary", "notes": "ECA for foreign credentials"},
+            {"label": "Settlement funds", "value": "Per family size (e.g., $13,757 CAD for 1 person, scaling up)", "notes": ""},
+            {"label": "Ownership stake", "value": "10%+ voting rights AND together with designated organization 50%+ voting rights", "notes": "Up to 5 essential persons can apply together"},
+            {"label": "Health + Character", "value": "Standard PR requirements", "notes": ""},
+        ],
+        "fees_local_currency_code": "CAD", "fees_local_currency_amount": 2210, "fees_inr_approx": 132600,
+        "fees_breakdown": [
+            {"component": "PR Application Fee — Principal (if reactivated/transitional)", "amount": 1810, "currency": "CAD"},
+            {"component": "Right of Permanent Residence Fee (RPRF)", "amount": 575, "currency": "CAD"},
+            {"component": "Biometrics", "amount": 85, "currency": "CAD"},
+            {"component": "Spouse / partner processing", "amount": 825, "currency": "CAD"},
+            {"component": "Dependent child", "amount": 230, "currency": "CAD"},
+            {"component": "Designated org commitment evaluation (varies)", "amount": 5000, "currency": "CAD"},
+            {"component": "Language test", "amount": 325, "currency": "CAD"},
+            {"component": "Legal / consultant fees", "amount": 15000, "currency": "CAD"},
+            {"component": "Business validation costs", "amount": 50000, "currency": "CAD"},
+        ],
+        "processing_time_days_min": 1095, "processing_time_days_max": 3650,
+        "step_by_step": [
+            {"step_number": 1, "title": "Verify Status + Eligibility", "description": "Confirm whether you hold a 2025 commitment certificate (eligible to lodge by 30 Jun 2026) OR if PAUSED applies.", "estimated_days": 1, "documents_needed": ["Commitment certificate if any"], "tips": ["Without 2025 certificate, await new entrepreneur pilot"]},
+            {"step_number": 2, "title": "Pitch to Designated Organization (transitional)", "description": "If pursuing transitional pathway, ensure commitment certificate is valid + designated org is on IRCC's list.", "estimated_days": 90, "documents_needed": ["Business plan", "Pitch deck"], "tips": []},
+            {"step_number": 3, "title": "Letter of Support + Commitment Certificate", "description": "Designated org issues Letter of Support (LoS) — sent directly to IRCC + Commitment Certificate copy to applicant.", "estimated_days": 30, "documents_needed": ["LoS"], "tips": ["LoS expires after 6 months — lodge PR within window"]},
+            {"step_number": 4, "title": "Optional: Work Permit (Owner-Operator)", "description": "Apply for optional owner-operator work permit to start operating business in Canada before PR grant.", "estimated_days": 60, "documents_needed": ["LoS"], "tips": []},
+            {"step_number": 5, "title": "Lodge PR Application", "description": "Submit comprehensive PR application via IRCC portal.", "estimated_days": 14, "documents_needed": ["LoS", "Business docs", "Language test", "Education", "Funds proof"], "tips": []},
+            {"step_number": 6, "title": "Biometrics + Medical + PCC", "description": "Standard.", "estimated_days": 90, "documents_needed": [], "tips": []},
+            {"step_number": 7, "title": "IRCC Review (10+ years backlog)", "description": "Highly variable — 3-10+ years in current backlog. Track status via IRCC portal.", "estimated_days": 2555, "documents_needed": [], "tips": ["Lengthy processing — plan business operations independently"]},
+            {"step_number": 8, "title": "PR Grant + Business Operation", "description": "On approval, receive COPR. Land + commence Canadian business operations.", "estimated_days": 90, "documents_needed": [], "tips": []},
+        ],
+        "document_checklist": [
+            {"name": "Passport (bio + visa pages)", "mandatory": True, "notes": ""},
+            {"name": "Letter of Support (designated organization)", "mandatory": True, "notes": "6-month validity"},
+            {"name": "Commitment Certificate", "mandatory": True, "notes": ""},
+            {"name": "Detailed business plan", "mandatory": True, "notes": "Market analysis + financials + timeline"},
+            {"name": "Pitch deck", "mandatory": True, "notes": ""},
+            {"name": "Educational Credential Assessment", "mandatory": True, "notes": "If foreign credentials"},
+            {"name": "Language test (IELTS / CELPIP)", "mandatory": True, "notes": "CLB 5+"},
+            {"name": "Settlement funds proof", "mandatory": True, "notes": ""},
+            {"name": "Founder team agreement (if 2+ persons)", "mandatory": True, "notes": "Up to 5 essential persons"},
+            {"name": "Ownership structure documentation", "mandatory": True, "notes": "10%+ voting rights"},
+            {"name": "Medical exam", "mandatory": True, "notes": ""},
+            {"name": "Police Clearance Certificates", "mandatory": True, "notes": ""},
+            {"name": "Marriage / partner cert (if applicable)", "mandatory": True, "notes": ""},
+            {"name": "Children's birth certs (if applicable)", "mandatory": True, "notes": ""},
+            {"name": "Photo", "mandatory": True, "notes": ""},
+        ],
+        "common_rejection_reasons": [
+            "Attempting new application after 1 Jan 2026 (without 2025 commitment certificate)",
+            "Designated organization not on current IRCC list",
+            "Commitment Certificate expired (>6 months)",
+            "Business idea not deemed innovative / scalable",
+            "Insufficient ownership structure compliance (10%/50% rules)",
+            "Language scores below CLB 5",
+            "Settlement funds inadequate for family size",
+            "Health/character admissibility issues",
+        ],
+        "success_tips": [
+            "DO NOT apply for SUV in 2026 unless transitional commitment held",
+            "Provincial Entrepreneur PNPs (BC / MB / SK / PE Entrepreneur) remain active alternatives",
+            "Monitor ircc.canada.ca + cicnews.com for new entrepreneur pilot announcement",
+            "Build strong business validation BEFORE engaging designated organizations",
+            "Tech-focused VCs in BC + ON have highest acceptance rates historically",
+            "Plan for 5-10 year wait if pursuing transitional path",
+            "Owner-Operator work permit can build Canadian presence + experience independently",
+        ],
+        "faqs": [
+            {"q": "Can I still apply for SUV?", "a": "Only if you hold a Letter of Support / Commitment Certificate issued by a designated organization in 2025 — must lodge by 30 June 2026. Otherwise, intake is PAUSED."},
+            {"q": "What about new entrepreneurs?", "a": "Await the replacement entrepreneur pilot program expected to launch in 2026. Details + eligibility unannounced as of Feb 2026."},
+            {"q": "Are there alternatives?", "a": "YES — Provincial Entrepreneur PNPs in BC, MB, SK, PE specifically target entrepreneurs. Lower waiting times (12-18 months typical)."},
+            {"q": "What about SUV's 10+ year backlog?", "a": "IRCC paused intake specifically to manage this backlog. Existing applications continue processing per their submission date."},
+            {"q": "Can I work in Canada while waiting?", "a": "YES — apply for Owner-Operator Work Permit linked to your business + Letter of Support. Validity matches LoS (6 months) but extendable."},
+        ],
+        "official_url": "https://www.canada.ca/en/immigration-refugees-citizenship/services/immigrate-canada/start-visa.html",
+        "vfs_url": "https://visa.vfsglobal.com/ind/en/can/",
+        "source_urls": [
+            "https://www.canada.ca/en/immigration-refugees-citizenship/services/immigrate-canada/start-visa.html",
+            "https://www.imidaily.com/north-america/canada-suspends-start-up-visa-hints-at-new-replacement-in-2026/",
+            "https://www.fragomen.com/insights/canada-two-entrepreneurial-programs-paused-new-entrepreneur-pilot-expected.html",
+        ],
+        "verified_notes": "Manual Fast-Path B.4.4 seed — verified PAUSED status (1 Jan 2026) per IRCC announcement + Fragomen + IMI Daily. Transitional pathway (2025 commitment certificates lodgeable until 30 Jun 2026) documented.",
+    },
+
+    # ── 4. CA-Self-Employed Persons Program (PAUSED) ────────────────────────────
+    {
+        "country_code": "CA", "country_name": "Canada",
+        "subclass_id": "Self-Employed",
+        "subclass_name": "Self-Employed Persons Program (PAUSED)",
+        "service_type": "business", "category": "immigration",
+        "description": (
+            "⚠️ **STATUS: PAUSED.** The Self-Employed Persons Program **suspended new applications "
+            "on 1 January 2026** alongside the Start-up Visa, due to backlogs exceeding 10 years. "
+            "Government is designing replacement entrepreneur pathways.\n\n"
+            "The original program granted PR to applicants with relevant international experience "
+            "in **cultural activities** (arts, music, writing, athletics) or **farm management** "
+            "(operating a farm in Canada). The program was niche but valuable for specific "
+            "self-employed professionals not fitting SUV criteria. **Exception:** Applicants who "
+            "submitted complete applications before 1 January 2026 continue processing per "
+            "existing timelines."
+        ),
+        "eligibility_summary": (
+            "PAUSED PROGRAM. Pre-1 Jan 2026 applications continue. New applicants must await "
+            "replacement entrepreneur pilot OR pivot to Provincial Entrepreneur PNPs OR pursue "
+            "Express Entry Federal Self-Employed (if launched as replacement)."
+        ),
+        "eligibility_criteria": [
+            {"label": "STATUS", "value": "PAUSED 1 Jan 2026 for new applications; in-process apps continue", "notes": "Replacement pathway TBD"},
+            {"label": "Self-employed experience", "value": "Relevant 2+ years' self-employed experience in: cultural activities, athletics, OR farm management", "notes": "Within 5 years of application"},
+            {"label": "Intent + ability to be self-employed in Canada", "value": "Detailed business plan + Canadian market entry strategy", "notes": ""},
+            {"label": "Selection points", "value": "Minimum 35 / 100 selection points (age + education + experience + language + adaptability)", "notes": ""},
+            {"label": "Language", "value": "No fixed minimum — but contributes to selection points (CLB 5+ recommended)", "notes": ""},
+            {"label": "Settlement funds", "value": "No fixed minimum — but must demonstrate ability to support self + family", "notes": "Self-funded business establishment"},
+            {"label": "Cultural activities scope", "value": "Authors / artists / musicians / writers / coaches / athletes etc.", "notes": "World-class or 'self-employed' at international level"},
+            {"label": "Farm management scope", "value": "Operating / owning a farm in Canada", "notes": "Stricter requirements"},
+        ],
+        "fees_local_currency_code": "CAD", "fees_local_currency_amount": 2210, "fees_inr_approx": 132600,
+        "fees_breakdown": [
+            {"component": "PR Application Fee — Principal (if reactivated/transitional)", "amount": 1810, "currency": "CAD"},
+            {"component": "RPRF", "amount": 575, "currency": "CAD"},
+            {"component": "Spouse / partner processing", "amount": 825, "currency": "CAD"},
+            {"component": "Dependent child", "amount": 230, "currency": "CAD"},
+            {"component": "Biometrics", "amount": 85, "currency": "CAD"},
+            {"component": "Language test", "amount": 325, "currency": "CAD"},
+            {"component": "ECA (if foreign credentials)", "amount": 240, "currency": "CAD"},
+        ],
+        "processing_time_days_min": 1095, "processing_time_days_max": 3650,
+        "step_by_step": [
+            {"step_number": 1, "title": "Verify Status: PAUSED", "description": "Confirm no new applications accepted post 1 Jan 2026.", "estimated_days": 1, "documents_needed": [], "tips": []},
+            {"step_number": 2, "title": "Choose Alternative", "description": "Provincial Entrepreneur PNPs (BC / MB / SK / PE) OR pursue Express Entry under federal skilled categories OR await replacement entrepreneur pilot.", "estimated_days": 30, "documents_needed": [], "tips": []},
+            {"step_number": 3, "title": "Build Documentation", "description": "Comprehensive portfolio: self-employed experience evidence, business plan, financial records.", "estimated_days": 90, "documents_needed": [], "tips": []},
+            {"step_number": 4, "title": "Apply via Chosen Pathway", "description": "Submit to chosen alternative.", "estimated_days": 30, "documents_needed": [], "tips": []},
+            {"step_number": 5, "title": "Long Processing (in-process apps)", "description": "3-10 year wait for pre-2026 applications.", "estimated_days": 2555, "documents_needed": [], "tips": []},
+        ],
+        "document_checklist": [
+            {"name": "Passport (bio + visa pages)", "mandatory": True, "notes": ""},
+            {"name": "Detailed CV with cultural / athletic / farm experience", "mandatory": True, "notes": ""},
+            {"name": "Portfolio of work (cultural activities)", "mandatory": True, "notes": "Publications, performances, awards"},
+            {"name": "Business plan for Canadian self-employment", "mandatory": True, "notes": ""},
+            {"name": "Financial records (tax returns, income evidence)", "mandatory": True, "notes": "5 years"},
+            {"name": "Educational Credential Assessment", "mandatory": True, "notes": "If foreign"},
+            {"name": "Language test", "mandatory": True, "notes": ""},
+            {"name": "References / Letters of recommendation", "mandatory": True, "notes": ""},
+            {"name": "Medical exam", "mandatory": True, "notes": ""},
+            {"name": "Police Clearance Certificates", "mandatory": True, "notes": ""},
+            {"name": "Marriage / partner cert (if applicable)", "mandatory": True, "notes": ""},
+            {"name": "Children's birth certs (if applicable)", "mandatory": True, "notes": ""},
+            {"name": "Photo", "mandatory": True, "notes": ""},
+        ],
+        "common_rejection_reasons": [
+            "Attempting new application post 1 Jan 2026",
+            "Self-employed experience outside qualifying categories",
+            "Insufficient evidence of intent to be self-employed in Canada",
+            "Selection points below 35 / 100",
+            "Vague business plan",
+            "Standard PR criteria not met",
+        ],
+        "success_tips": [
+            "DO NOT apply for Self-Employed Program in 2026 — paused indefinitely",
+            "Provincial Entrepreneur PNPs are active alternatives for entrepreneurs",
+            "Express Entry remains open for general skilled categories",
+            "Build STRONG portfolio + Canadian market validation BEFORE applying when reactivated",
+            "Niche programs may emerge for arts/athletics via new entrepreneur pilot",
+            "Monitor IRCC announcements for replacement program",
+        ],
+        "faqs": [
+            {"q": "Why was Self-Employed paused?", "a": "Backlogs of 10+ years made the program unviable. IRCC paused intake to design improved replacement entrepreneur pathways."},
+            {"q": "Can artists / musicians still immigrate?", "a": "Yes — via Provincial Nominee Programs, Express Entry general skilled categories, or future replacement program. Cultural achievements may also qualify for NIV-equivalent recognition if pursuing PR via accomplishment-based pathways."},
+            {"q": "What about athletes?", "a": "Athletics-focused immigration is being reviewed. Coaches + sport-development professionals may qualify via Express Entry (NOC-specific) OR Federal Sports Pilot if introduced."},
+            {"q": "What about farm management?", "a": "Provincial farm-specific streams in MB, SK exist. Federal Self-Employed farm pathway paused — pivot to provincial."},
+        ],
+        "official_url": "https://www.canada.ca/en/immigration-refugees-citizenship/services/immigrate-canada/self-employed.html",
+        "vfs_url": "https://visa.vfsglobal.com/ind/en/can/",
+        "source_urls": [
+            "https://www.canada.ca/en/immigration-refugees-citizenship/services/immigrate-canada/self-employed.html",
+            "https://www.fragomen.com/insights/canada-two-entrepreneurial-programs-paused-new-entrepreneur-pilot-expected.html",
+        ],
+        "verified_notes": "Manual Fast-Path B.4.4 seed — verified PAUSED status (1 Jan 2026) per IRCC + Fragomen. Maintained for legacy reference + redirect to active alternatives.",
+    },
+
+    # ── 5. CA-IEC — International Experience Canada ─────────────────────────────
+    {
+        "country_code": "CA", "country_name": "Canada",
+        "subclass_id": "IEC",
+        "subclass_name": "International Experience Canada (IEC) — Young Professionals + International Co-op",
+        "service_type": "work", "category": "immigration",
+        "description": (
+            "International Experience Canada (IEC) is a temporary work permit program for foreign "
+            "youth (typically 18-35) to gain Canadian work experience. India is a participating "
+            "country, primarily through **Young Professionals** (TEER 0-3 job-specific) and "
+            "**International Co-op (Internship)** (student work placements) streams. The Working "
+            "Holiday stream (open work permit) is generally NOT available to Indian nationals "
+            "(restricted to countries with Youth Mobility Agreements).\n\n"
+            "Quota-based, per-country, per-category. 2026 IEC pools opened in December 2025. "
+            "Invitations issued in weekly rounds throughout the year. Successful applicants get "
+            "work permits valid up to 12-24 months (varies by category). Excellent stepping stone "
+            "to Canadian Experience Class (CEC) PR after sufficient Canadian work experience."
+        ),
+        "eligibility_summary": (
+            "Indian national aged 18-35; valid passport (12+ months); CAD 2,500+ settlement funds; "
+            "valid health insurance for entire stay; no criminal record; for Young Professionals — "
+            "Canadian job offer (TEER 0-3); for International Co-op — academic internship "
+            "placement."
+        ),
+        "eligibility_criteria": [
+            {"label": "Nationality + age", "value": "Indian national (or other participating country); aged 18-35 at application", "notes": "Upper age 30 for some streams"},
+            {"label": "Passport validity", "value": "Valid for entire intended stay + 6 months", "notes": ""},
+            {"label": "Settlement funds", "value": "CAD 2,500 minimum (proof at port)", "notes": ""},
+            {"label": "Health insurance", "value": "Coverage for entire stay (medical + repatriation)", "notes": "Mandatory at port of entry"},
+            {"label": "Young Professionals stream", "value": "Canadian employer job offer for TEER 0-3 occupation + labour-market specific exemption", "notes": "Employer Compliance Fee (CAD 230) employer-paid"},
+            {"label": "International Co-op (Internship)", "value": "Active enrollment in foreign post-secondary; required internship at Canadian employer", "notes": "Maximum 12 months"},
+            {"label": "Working Holiday stream", "value": "NOT available to India (Working Holiday quota restricted to countries with Youth Mobility Agreements)", "notes": ""},
+            {"label": "Quota + ITA", "value": "Apply via 'Come to Canada' pool; weekly invitation rounds; 60 days to lodge work permit after ITA", "notes": "Check IEC site for current pool status"},
+        ],
+        "fees_local_currency_code": "CAD", "fees_local_currency_amount": 270, "fees_inr_approx": 16200,
+        "fees_breakdown": [
+            {"component": "IEC Participation Fee — Young Professionals / International Co-op", "amount": 184.75, "currency": "CAD"},
+            {"component": "Open Work Permit Holder Fee — Working Holiday only", "amount": 100, "currency": "CAD"},
+            {"component": "Biometrics (per person)", "amount": 85, "currency": "CAD"},
+            {"component": "Employer Compliance Fee (Young Professionals — employer-paid)", "amount": 230, "currency": "CAD"},
+            {"component": "Total — Young Professionals / Co-op (applicant)", "amount": 269.75, "currency": "CAD"},
+            {"component": "Total — Working Holiday (where eligible)", "amount": 369.75, "currency": "CAD"},
+            {"component": "Health insurance (per year)", "amount": 600, "currency": "CAD"},
+        ],
+        "processing_time_days_min": 30, "processing_time_days_max": 90,
+        "step_by_step": [
+            {"step_number": 1, "title": "Create 'Come to Canada' Profile + Determine Eligibility", "description": "Check IEC eligibility at canada.ca/iec. Get reference code if eligible.", "estimated_days": 1, "documents_needed": ["Passport", "Education details"], "tips": ["Use 'Come to Canada' tool"]},
+            {"step_number": 2, "title": "Enter IEC Pool (Young Professionals OR International Co-op)", "description": "Create IEC profile linked to reference code. Select category. Enter pool.", "estimated_days": 1, "documents_needed": [], "tips": ["Pool reopens annually in December"]},
+            {"step_number": 3, "title": "Receive Invitation to Apply (ITA)", "description": "Wait for ITA — invitations issued in weekly rounds based on pool + quotas.", "estimated_days": 60, "documents_needed": [], "tips": ["Check email + IRCC portal regularly", "60 days to lodge work permit"]},
+            {"step_number": 4, "title": "Secure Job Offer (Young Professionals) / Internship (Co-op)", "description": "Find Canadian employer; obtain offer letter. Employer pays Compliance Fee.", "estimated_days": 30, "documents_needed": ["Job offer", "Employer details"], "tips": ["Search jobbank.gc.ca + LinkedIn"]},
+            {"step_number": 5, "title": "Lodge Work Permit Application", "description": "Submit application within 60 days of ITA. Pay fees.", "estimated_days": 14, "documents_needed": ["ITA", "Job offer", "Passport", "Funds proof", "Insurance"], "tips": []},
+            {"step_number": 6, "title": "Biometrics + Background Check", "description": "Complete biometrics at VAC. Police check + medical (if needed).", "estimated_days": 30, "documents_needed": [], "tips": []},
+            {"step_number": 7, "title": "Receive Port of Entry Letter (POE)", "description": "POE letter issued — present at Canadian port of entry to receive physical work permit.", "estimated_days": 14, "documents_needed": ["POE letter"], "tips": []},
+            {"step_number": 8, "title": "Travel to Canada + Begin Work", "description": "Present POE letter, passport, funds, insurance at port. Receive work permit. Commence employment.", "estimated_days": 7, "documents_needed": ["All POE docs"], "tips": ["Carry health insurance proof"]},
+            {"step_number": 9, "title": "Build Canadian Experience → CEC PR Pathway", "description": "After 12 months Canadian work experience, eligible for Express Entry CEC + provincial PNP.", "estimated_days": 365, "documents_needed": ["T4 + reference letters"], "tips": ["IEC is best youth pathway to PR"]},
+        ],
+        "document_checklist": [
+            {"name": "Passport (bio + visa pages, valid 6+ months beyond stay)", "mandatory": True, "notes": ""},
+            {"name": "Photo (per IRCC specs)", "mandatory": True, "notes": ""},
+            {"name": "Canadian job offer (Young Professionals)", "mandatory": True, "notes": "TEER 0-3 occupation"},
+            {"name": "Academic enrollment + internship letter (Co-op)", "mandatory": True, "notes": "Foreign post-secondary"},
+            {"name": "Employer Compliance Fee receipt", "mandatory": True, "notes": "Employer-paid"},
+            {"name": "Resume / CV", "mandatory": True, "notes": ""},
+            {"name": "Settlement funds proof (CAD 2,500+)", "mandatory": True, "notes": ""},
+            {"name": "Health insurance policy (entire stay)", "mandatory": True, "notes": "Mandatory at port"},
+            {"name": "Police Clearance Certificate (India + others)", "mandatory": True, "notes": "If 6+ months stay"},
+            {"name": "Medical exam (if requested)", "mandatory": False, "notes": ""},
+            {"name": "Educational transcripts / certificates", "mandatory": True, "notes": ""},
+            {"name": "Biometrics confirmation", "mandatory": True, "notes": ""},
+            {"name": "Application Form (IMM 5710 / 5707)", "mandatory": True, "notes": ""},
+        ],
+        "common_rejection_reasons": [
+            "Age above 35 at application",
+            "Working Holiday application from India (not eligible)",
+            "Insufficient settlement funds at port",
+            "No valid Canadian job offer (Young Professionals)",
+            "Internship not at credible Canadian employer (Co-op)",
+            "Missing health insurance",
+            "Prior visa overstays",
+        ],
+        "success_tips": [
+            "Enter pool EARLY in December — invitations issued throughout year on quota",
+            "Network with Canadian employers BEFORE ITA — secure offers ahead of work permit lodgement",
+            "Health insurance must cover ENTIRE stay — port officers check",
+            "Use IEC year to build Canadian experience for CEC PR (12-month minimum)",
+            "Co-op stream: maintain enrollment in foreign post-secondary during placement",
+            "Track IEC pool status weekly at canada.ca/iec for India-specific updates",
+            "If Working Holiday is needed, consider New Zealand or UK Youth Mobility programs instead",
+        ],
+        "faqs": [
+            {"q": "Can Indian nationals do Working Holiday in Canada?", "a": "Generally NO — India does not have a Youth Mobility Agreement with Canada providing the Working Holiday open work permit. Indians can use Young Professionals or International Co-op streams (employer/internship-tied)."},
+            {"q": "How long is IEC work permit valid?", "a": "Young Professionals: up to 24 months. International Co-op: up to 12 months. Working Holiday (other countries): up to 12-24 months."},
+            {"q": "Can I bring my family?", "a": "Spouse can apply for spouse open work permit; minor children can study on study permit. Apply concurrently."},
+            {"q": "Can IEC lead to PR?", "a": "YES — IEC is one of the BEST pathways to Canadian PR for youth. After 12 months Canadian work experience (skilled/TEER 0-3), eligible for Express Entry Canadian Experience Class. Many provinces also have PNP streams targeting IEC holders."},
+            {"q": "What if I miss the ITA window (60 days)?", "a": "Profile expires; must re-enter pool in next season. Don't miss the 60-day work permit lodgement deadline."},
+            {"q": "Are quotas published?", "a": "Yes — IEC website updates per-country per-category quotas weekly. India quotas for YP + Co-op streams specifically tracked."},
+        ],
+        "official_url": "https://www.canada.ca/en/immigration-refugees-citizenship/services/work-canada/iec.html",
+        "vfs_url": "https://visa.vfsglobal.com/ind/en/can/",
+        "source_urls": [
+            "https://www.canada.ca/en/immigration-refugees-citizenship/services/work-canada/iec.html",
+            "https://www.cicnews.com/2025/12/international-experience-canada-pools-are-now-open-for-the-2026-season-1263843.html",
+            "https://www.canadavisa.com/international-experience-canada-program.html",
+        ],
+        "verified_notes": "Manual Fast-Path B.4.4 seed — verified against canada.ca/iec + CIC News (Dec 2025 IEC pool opening). 2026 fees confirmed: YP/Co-op CAD 269.75, Working Holiday CAD 369.75. India eligible for YP + Co-op only, not Working Holiday.",
+    },
+
+    # ── 6. CA-Super-Visa — Parent & Grandparent Super Visa ──────────────────────
+    {
+        "country_code": "CA", "country_name": "Canada",
+        "subclass_id": "Super-Visa",
+        "subclass_name": "Parent and Grandparent Super Visa",
+        "service_type": "visitor", "category": "immigration",
+        "description": (
+            "The Super Visa is a **10-year multi-entry visa** specifically for parents and "
+            "grandparents of Canadian citizens or permanent residents. Allows stays of up to **5 "
+            "years per visit** (extendable by 2 years onshore). Far superior alternative to "
+            "regular Visitor Visa (typically max 6 months per visit) for families wanting "
+            "extended parental visits without the multi-year backlog of the Parent and Grandparent "
+            "Program (PGP) PR sponsorship.\n\n"
+            "Key requirements: (a) Host (Canadian citizen/PR child or grandchild) meets minimum "
+            "income (LICO + size), (b) Applicant has **$100,000 CAD+ medical insurance** from "
+            "approved insurer covering 1+ year, (c) Standard health + character checks. **New "
+            "flexibility from 31 Mar 2026:** Host's income calculation now allows adding visitor's "
+            "income for hosts meeting minimum income percentage."
+        ),
+        "eligibility_summary": (
+            "Parent or grandparent of Canadian citizen / PR aged 18+; mandatory $100,000 CAD "
+            "medical insurance (Canadian or OSFI-authorized foreign insurer); host meets LICO+N "
+            "minimum income across 2 preceding tax years; intent to visit (not immigrate); health "
+            "exam + character clearance."
+        ),
+        "eligibility_criteria": [
+            {"label": "Relationship", "value": "Parent / grandparent of Canadian citizen or permanent resident", "notes": "Sponsor must be 18+"},
+            {"label": "Host minimum income (LICO + N)", "value": "Per 2025/2026 table — e.g., 1 person $30,526; 4 persons $56,724; +$8,224 per additional", "notes": "Across PAST 2 TAX YEARS (updated calculation rule)"},
+            {"label": "Income flexibility (NEW Mar 2026)", "value": "Host can add visitor's income if meeting minimum % of required income", "notes": "Effective 31 Mar 2026"},
+            {"label": "Medical insurance", "value": "$100,000 CAD+ coverage (medical + hospitalization + repatriation) valid 1+ year, fully paid", "notes": "From Canadian insurer OR OSFI-authorized foreign insurer (NEW)"},
+            {"label": "Medical exam", "value": "Immigration medical exam required (panel physician)", "notes": ""},
+            {"label": "Intent to visit (not immigrate)", "value": "Strong ties to home country + travel history + bank statements", "notes": ""},
+            {"label": "Maximum stay per visit", "value": "5 years (extendable +2 years onshore)", "notes": "Within visa 10-year validity"},
+            {"label": "Multiple entry", "value": "Multi-entry over 10 years (capped at passport validity if shorter)", "notes": ""},
+        ],
+        "fees_local_currency_code": "CAD", "fees_local_currency_amount": 185, "fees_inr_approx": 11100,
+        "fees_breakdown": [
+            {"component": "Visitor Visa Application Fee", "amount": 100, "currency": "CAD"},
+            {"component": "Biometrics", "amount": 85, "currency": "CAD"},
+            {"component": "Family biometrics (max)", "amount": 170, "currency": "CAD"},
+            {"component": "Medical exam (India panel physician)", "amount": 8500, "currency": "INR"},
+            {"component": "Medical insurance (annual, $100K coverage — varies by age)", "amount": 2500, "currency": "CAD"},
+            {"component": "Police Clearance Certificate", "amount": 500, "currency": "INR"},
+        ],
+        "processing_time_days_min": 60, "processing_time_days_max": 180,
+        "step_by_step": [
+            {"step_number": 1, "title": "Confirm Host Income (LICO + N)", "description": "Host calculates total family size + verifies income meets LICO threshold across 2 preceding tax years (NEW: also can include visitor's income from 31 Mar 2026).", "estimated_days": 7, "documents_needed": ["Notices of Assessment (CRA) — last 2 years", "T4 slips", "Employment letter"], "tips": ["2-year income window stricter than old 1-year rule"]},
+            {"step_number": 2, "title": "Purchase Medical Insurance", "description": "Buy $100K+ CAD coverage from Canadian OR OSFI-authorized foreign insurer. Fully paid, 1+ year validity, medical + hospital + repatriation.", "estimated_days": 14, "documents_needed": ["Insurance policy (fully paid)"], "tips": ["Don't buy quote-only policies — paid status mandatory", "Compare Sun Life, Manulife, GMS, BMO Insurance, etc."]},
+            {"step_number": 3, "title": "Host Invitation Letter", "description": "Host writes detailed invitation letter: purpose, duration, accommodation, financial support undertaking.", "estimated_days": 3, "documents_needed": ["Invitation letter"], "tips": ["Reference relationship + LICO + insurance details"]},
+            {"step_number": 4, "title": "Online Application via IRCC Portal", "description": "Applicant lodges Super Visa application offshore. Upload all supporting docs + photo + biometrics fee receipt.", "estimated_days": 7, "documents_needed": ["Passport", "Invitation letter", "Host income docs", "Insurance proof", "Relationship docs"], "tips": []},
+            {"step_number": 5, "title": "Biometrics at VAC", "description": "Visit Visa Application Centre (Delhi/Mumbai/Bangalore/Chennai/Chandigarh).", "estimated_days": 14, "documents_needed": ["Biometrics fee receipt"], "tips": []},
+            {"step_number": 6, "title": "Immigration Medical Exam (IME)", "description": "Complete medical at IRCC-approved panel physician in India.", "estimated_days": 14, "documents_needed": [], "tips": ["Medical valid 12 months"]},
+            {"step_number": 7, "title": "Decision (60-180 days)", "description": "IRCC reviews. Approval issues 10-year multi-entry visa stamp.", "estimated_days": 90, "documents_needed": [], "tips": []},
+            {"step_number": 8, "title": "Travel + Stay up to 5 Years per Visit", "description": "Enter Canada via designated port. Carry insurance + return ticket + relationship docs.", "estimated_days": 1825, "documents_needed": ["Passport", "Visa", "Insurance"], "tips": ["Extension onshore: +2 years possible via apply-to-stay-longer"]},
+        ],
+        "document_checklist": [
+            {"name": "Applicant passport (bio + visa pages, valid 6+ months)", "mandatory": True, "notes": ""},
+            {"name": "Photo (per IRCC specs)", "mandatory": True, "notes": ""},
+            {"name": "Host's invitation letter (detailed)", "mandatory": True, "notes": ""},
+            {"name": "Host's proof of citizenship / PR card", "mandatory": True, "notes": ""},
+            {"name": "Host's Notice of Assessment (last 2 tax years)", "mandatory": True, "notes": "CRA-issued"},
+            {"name": "Host's employment letter + pay stubs", "mandatory": True, "notes": ""},
+            {"name": "Host's bank statements", "mandatory": False, "notes": "Supplementary"},
+            {"name": "Medical insurance policy ($100K+ CAD, fully paid)", "mandatory": True, "notes": "Canadian or OSFI-authorized insurer"},
+            {"name": "Relationship proof (birth certs, marriage cert linking applicant to host)", "mandatory": True, "notes": ""},
+            {"name": "Immigration Medical Exam (IME)", "mandatory": True, "notes": "Panel physician"},
+            {"name": "Police Clearance Certificate (India)", "mandatory": True, "notes": ""},
+            {"name": "Applicant's bank statements", "mandatory": True, "notes": "Financial means + ties to home"},
+            {"name": "Applicant's property documents / pension", "mandatory": False, "notes": "Ties to home country"},
+            {"name": "Travel itinerary (initial visit)", "mandatory": True, "notes": ""},
+            {"name": "Biometrics confirmation", "mandatory": True, "notes": ""},
+        ],
+        "common_rejection_reasons": [
+            "Host income below LICO + N threshold",
+            "Medical insurance coverage <$100K CAD OR not fully paid",
+            "Insurance from non-Canadian + non-OSFI-authorized insurer",
+            "Weak ties to home country (immigration intent suspected)",
+            "Relationship documents inconsistent or incomplete",
+            "Prior visa overstay or violation by applicant",
+            "Insufficient host invitation detail",
+        ],
+        "success_tips": [
+            "Apply 4-6 months ahead of intended travel for processing buffer",
+            "Insurance is the #1 rejection cause — fully-paid policy from approved insurer is non-negotiable",
+            "Host should clearly establish 2-year LICO compliance via official CRA Notices of Assessment",
+            "New flexibility (31 Mar 2026) allows host + visitor income combination — leverage if applicable",
+            "Ties to home: property, pension, business, dependent family — document comprehensively",
+            "Don't book non-refundable travel until visa stamped",
+            "Renew insurance annually during long stays — extensions require valid insurance",
+            "Onshore extension (+2 years) possible — apply 60+ days before stay limit",
+        ],
+        "faqs": [
+            {"q": "How is Super Visa different from Visitor Visa (TRV)?", "a": "Super Visa: 10-year multi-entry, up to 5 years per visit, specifically for parents/grandparents, REQUIRES $100K insurance + LICO income. Regular Visitor Visa: max 10-year multi-entry but typically 6 months per visit, no insurance/income requirements."},
+            {"q": "What about the Parent and Grandparent Program (PGP)?", "a": "PGP grants PR (not just visiting visa) but has multi-year quota backlogs (5-10+ year waits). Super Visa is faster alternative when PR isn't immediate priority. Apply for both — Super Visa now for immediate stays, PGP for eventual PR."},
+            {"q": "Can I work or study on Super Visa?", "a": "NO — Super Visa is strictly for visiting. Work or study requires separate permits. Some grandparents help with childcare (not for hire) — that's permitted as it's not employment."},
+            {"q": "Can I extend my stay beyond 5 years?", "a": "YES — onshore extension of +2 years possible by applying before stay limit. Beyond that, exit Canada + re-enter on remaining visa validity."},
+            {"q": "What if my host's income temporarily dipped?", "a": "Income calculation now (Jul 2025 rule) uses past 2 tax years average. From 31 Mar 2026, can also add visitor's income if host meets minimum %. Flexibility helps gig-economy hosts."},
+            {"q": "Can both parents apply together?", "a": "Yes — concurrent applications encouraged for couples. Each parent submits own Super Visa application; host LICO must accommodate both visitors in family size."},
+        ],
+        "official_url": "https://www.canada.ca/en/immigration-refugees-citizenship/services/visit-canada/parent-grandparent-super-visa.html",
+        "vfs_url": "https://visa.vfsglobal.com/ind/en/can/",
+        "source_urls": [
+            "https://www.canada.ca/en/immigration-refugees-citizenship/services/visit-canada/parent-grandparent-super-visa.html",
+            "https://www.canada.ca/en/immigration-refugees-citizenship/services/visit-canada/parent-grandparent-super-visa/forms-documents/host-financial-support.html",
+            "https://www.cicnews.com/2026/03/canada-eases-income-requirement-for-hosting-parents-and-grandparents-on-super-visa-0373315.html",
+            "https://www.bal.com/immigration-news/canada-change-to-super-visa-health-insurance-requirement/",
+        ],
+        "verified_notes": "Manual Fast-Path B.4.4 seed — verified against ircc.canada.ca + CIC News (Mar 2026 income flexibility rule). LICO + N table updated 29 Jul 2025 (3.9% inflation). OSFI-authorized foreign insurer acceptance per BAL/IRCC update.",
+    },
+]
+
+
 ALL_WORKFLOWS: Dict[str, List[Dict[str, Any]]] = {
     "IN": INDIA_WORKFLOWS,
     "AU": AUSTRALIA_NEW_WORKFLOWS,
+    "CA": CANADA_NEW_WORKFLOWS,
 }
 
 
@@ -2308,6 +2956,7 @@ async def main():
     parser.add_argument("--country", type=str, default=None, help="ISO-2 country code to seed (e.g. IN)")
     parser.add_argument("--all", action="store_true", help="Seed all B.4 countries currently defined")
     parser.add_argument("--backfill", type=str, default=None, help="One-shot backfill: add doc_id + rewrite legacy audit_logs for given ISO-2 code")
+    parser.add_argument("--relabel-action", action="store_true", help="Rewrite audit_logs for B.4-seeded workflows: action _b2 → _b4 (one-shot fix)")
     args = parser.parse_args()
 
     load_dotenv()
@@ -2323,6 +2972,39 @@ async def main():
         return
     seeded_by_id = admin["id"]
     seeded_by_name = admin.get("name", "Admin User")
+
+    # ── ONE-SHOT RELABEL MODE (Sub-Slice B.4.3 audit-log naming fix) ─────────
+    if args.relabel_action:
+        # Determine the set of workflow_ids that came from B.4 sub-slices (IN + AU expansion ids).
+        b4_workflow_ids: List[str] = []
+        for cc, wfs in ALL_WORKFLOWS.items():
+            for wf in wfs:
+                w = await db.country_visa_workflows.find_one(
+                    {"country_code": cc, "subclass_id": wf["subclass_id"], "service_type": wf["service_type"], "status": "verified"},
+                    {"_id": 0, "workflow_id": 1},
+                )
+                if w and w.get("workflow_id"):
+                    b4_workflow_ids.append(w["workflow_id"])
+
+        print(f"Identified {len(b4_workflow_ids)} B.4-seeded workflows for action relabel.")
+        result = await db.audit_logs.update_many(
+            {
+                "action": "country_workflow_seeded_b2",
+                "entity_id": {"$in": b4_workflow_ids},
+            },
+            [
+                {"$set": {
+                    "action": "country_workflow_seeded_b4",
+                    "details": {"$replaceOne": {"input": "$details", "find": "Manual Fast-Path B.2", "replacement": "Manual Fast-Path B.4"}},
+                }},
+            ],
+        )
+        print(f"Relabel complete: matched={result.matched_count} modified={result.modified_count}")
+        # Verify
+        n_b4 = await db.audit_logs.count_documents({"action": "country_workflow_seeded_b4"})
+        n_b2 = await db.audit_logs.count_documents({"action": "country_workflow_seeded_b2"})
+        print(f"After relabel — _b4 count: {n_b4} · _b2 count: {n_b2}")
+        return
 
     # ── BACKFILL MODE ─────────────────────────────────────────────────────────
     if args.backfill:
@@ -2355,7 +3037,7 @@ async def main():
         print("\n══════════════════════════════════════════════")
         print(f"  SEEDING {cc} (B.4) — {len(ALL_WORKFLOWS.get(cc, []))} workflows")
         print("══════════════════════════════════════════════")
-        res = await seed_country(db, cc, seeded_by_id, seeded_by_name)
+        res = await seed_country(db, cc, seeded_by_id, seeded_by_name, sweep_label="b4")
         totals["inserted"] += res["inserted"]
         totals["skipped"] += res["skipped"]
         totals["errored"] += res["errored"]

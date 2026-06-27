@@ -2808,11 +2808,15 @@ ALL_WORKFLOWS: Dict[str, List[Dict[str, Any]]] = {
 # ──────────────────────────────────────────────────────────────────────────────
 # Seeder
 # ──────────────────────────────────────────────────────────────────────────────
-async def seed_country(db, country_code: str, seeded_by_id: str, seeded_by_name: str, verbose: bool = True) -> Dict[str, int]:
+async def seed_country(db, country_code: str, seeded_by_id: str, seeded_by_name: str, verbose: bool = True, sweep_label: str = "b2") -> Dict[str, int]:
     """Idempotent seeder for a single country.
 
     Skips workflows where (country_code, subclass_id, service_type) already exists
     in `verified` state. Inserts new workflows directly with status='verified'.
+
+    Args:
+        sweep_label: Audit log action suffix. Defaults to 'b2' (used by Sweep B.2 AU/CA/NZ/UK).
+                     Pass 'b4' for B.4 sub-slices (India + AU expansion + future).
     """
     workflows = ALL_WORKFLOWS.get(country_code.upper(), [])
     if not workflows:
@@ -2875,10 +2879,10 @@ async def seed_country(db, country_code: str, seeded_by_id: str, seeded_by_name:
                 "id": str(uuid.uuid4()),
                 "user_id": seeded_by_id,
                 "user_name": seeded_by_name,
-                "action": "country_workflow_seeded_b2",
+                "action": f"country_workflow_seeded_{sweep_label}",
                 "entity_type": "country_visa_workflow",
                 "entity_id": workflow_id,
-                "details": f"{cc} {sid} {svc} — {wf['subclass_name']} (Manual Fast-Path B.2)",
+                "details": f"{cc} {sid} {svc} — {wf['subclass_name']} (Manual Fast-Path {sweep_label.upper()})",
                 "old_value": None,
                 "new_value": None,
                 "case_id": None,
