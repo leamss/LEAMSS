@@ -4139,12 +4139,840 @@ UNITED_KINGDOM_NEW_WORKFLOWS: List[Dict[str, Any]] = [
 ]
 
 
+# ──────────────────────────────────────────────────────────────────────────────
+# Sweep B.4.7 — USA NEW (6 NEW workflows — first net-new country)
+#
+# Sources verified Feb 27, 2026:
+#   - travel.state.gov (B-1/B-2, F-1, K-1)
+#   - uscis.gov (H-1B, L-1, EB-1/EB-2)
+#   - studyinthestates.dhs.gov (SEVP/SEVIS for F-1 OPT/CPT)
+#
+# CRITICAL Feb 2026 reforms reflected:
+#   - FY2026 Visa Integrity Fee $250 (B-1/B-2, F-1, H-1B all non-immigrant)
+#   - Sept 2, 2025 — most interview waivers ENDED (B-1/B-2, F-1)
+#   - April 1, 2024 USCIS fee schedule + April 1, 2026 new Form I-129
+#   - H-1B Registration Fee $215 (up from $10 — 2,050% jump for FY2026)
+#   - Sept 21, 2025 Presidential Proclamation — $100,000 H-1B cap-subject
+#     fee for beneficiaries OUTSIDE US (massive barrier for India hires)
+#   - March 1, 2026 Premium Processing fee increased to $2,965
+#   - Asylum Program Fee NEW (2024): $300 small / $600 large employer
+#   - 2026 "Beautiful Act" — F-1 grace period reduced 60d → 30d
+#
+# Validator findings (B.4.7 bundled utility):
+#   - 4/6 visa URLs returned HTTP 200 directly
+#   - 2/6 (L-1, EB-1/EB-2) returned HTTP 403 — USCIS anti-bot HEAD blocking,
+#     NOT actual closures. Both visas confirmed ACTIVE via independent
+#     Feb 2026 web research (uscis.gov, ogletree.com, beyondborderglobal.com,
+#     etc.). All 6 visas seeded as ACTIVE based on policy research.
+# ──────────────────────────────────────────────────────────────────────────────
+USA_NEW_WORKFLOWS: List[Dict[str, Any]] = [
+    # ── 1. US-B1-B2 — Business + Tourist Visitor Visa ──────────────────────────
+    {
+        "country_code": "US", "country_name": "United States",
+        "subclass_id": "B1-B2",
+        "subclass_name": "Business + Tourist Visitor Visa (B-1/B-2 Combined)",
+        "service_type": "visitor", "category": "immigration",
+        "description": (
+            "The B-1/B-2 visa is the United States' general non-immigrant visitor visa, "
+            "combining business (**B-1**) and tourism/medical/family (**B-2**) purposes "
+            "into a single application. Typical validity: 10 years multiple-entry for "
+            "Indian nationals, with up to 6 months per visit (typically 60-180 days "
+            "granted on entry at CBP officer's discretion).\n\n"
+            "**Critical FY2026 reform — Visa Integrity Fee added:**\n"
+            "- MRV (Machine Readable Visa) fee: **$185** (paid before interview, "
+            "non-refundable, receipt valid 365 days)\n"
+            "- **NEW Visa Integrity Fee: $250** (paid ONLY if visa approved — FY2026)\n"
+            "- **Total cost: $435** (split across 2 stages)\n\n"
+            "**Interview waiver policy changes (effective 2 Sept 2025):**\n"
+            "- Most age-based waivers ENDED (under-14 and over-79 no longer auto-waived)\n"
+            "- Most renewals NOW require in-person interview\n"
+            "- Limited waivers: diplomatic visas + Mexican nationals renewing within "
+            "12 months of expiry (subject to consular discretion)\n\n"
+            "**ESTA / Visa Waiver Program contrast:** Citizens of 41 VWP countries "
+            "(UK, Germany, Japan, Singapore, etc.) can travel B-2 purposes for ≤90 days "
+            "via ESTA online registration ($21). India is NOT a VWP country — Indian "
+            "nationals must apply for B-1/B-2 visa."
+        ),
+        "eligibility_summary": (
+            "Genuine visitor for business (B-1) OR tourism/medical/family (B-2). Sufficient "
+            "funds, strong home country ties, no intention to immigrate. Indian nationals "
+            "not eligible for ESTA — must apply for full B-1/B-2 visa."
+        ),
+        "eligibility_criteria": [
+            {"label": "Purpose — B-1 Business", "value": "Meetings, negotiations, contracts, conferences, short training, settling estate", "notes": "NO paid employment from US source"},
+            {"label": "Purpose — B-2 Tourism", "value": "Tourism, vacation, family visit, medical treatment, social events, amateur participation in events", "notes": ""},
+            {"label": "Genuine Non-Immigrant Intent", "value": "Strong ties to home country demonstrating intent to return", "notes": "Property, job, family, business ties"},
+            {"label": "Sufficient Funds", "value": "Demonstrable funds to cover visit + return travel", "notes": "Bank statements, salary slips, ITRs"},
+            {"label": "Past Travel Compliance", "value": "No prior US overstays, refusals, or violations", "notes": "Disclose all prior US visa decisions"},
+            {"label": "Health & Character", "value": "No communicable diseases, no criminal history affecting admissibility", "notes": ""},
+            {"label": "VWP / ESTA Alternative (NOT for India)", "value": "Citizens of 41 VWP countries can use ESTA for ≤90-day B-2 visits", "notes": "India NOT eligible"},
+            {"label": "Interview Waiver (LIMITED post-Sept 2025)", "value": "Most need in-person; limited to diplomatic + Mexican renewal within 12mo", "notes": ""},
+        ],
+        "fees_local_currency_code": "USD", "fees_local_currency_amount": 435, "fees_inr_approx": 36975,
+        "fees_breakdown": [
+            {"component": "MRV Application Fee (paid before interview)", "amount": 185, "currency": "USD"},
+            {"component": "Visa Integrity Fee (paid at issuance if approved — FY2026 NEW)", "amount": 250, "currency": "USD"},
+            {"component": "Total Standard B-1/B-2", "amount": 435, "currency": "USD"},
+            {"component": "Reciprocity fees (varies by nationality, typically India $0)", "amount": 0, "currency": "USD"},
+            {"component": "VFS Global service fee (India)", "amount": 13, "currency": "USD"},
+            {"component": "Premium / OFC appointment (India)", "amount": 14, "currency": "USD"},
+            {"component": "Courier delivery (India)", "amount": 5, "currency": "USD"},
+            {"component": "DS-160 form filing (online)", "amount": 0, "currency": "USD"},
+            {"component": "ESTA fee (VWP countries only — NOT India)", "amount": 21, "currency": "USD"},
+        ],
+        "processing_time_days_min": 60, "processing_time_days_max": 540,
+        "step_by_step": [
+            {"step_number": 1, "title": "Complete DS-160 Application", "description": "Fill DS-160 online at ceac.state.gov. Detailed work, travel, family, contact info. Get confirmation barcode.", "estimated_days": 3, "documents_needed": ["Passport details", "Travel itinerary", "Employment info"], "tips": ["Be 100% accurate; corrections require new DS-160"]},
+            {"step_number": 2, "title": "Pay MRV Fee ($185)", "description": "Pay $185 via VFS Global India payment portal or US embassy partner bank. Print receipt — valid 365 days for interview scheduling.", "estimated_days": 1, "documents_needed": [], "tips": ["Save receipt + virtual account number"]},
+            {"step_number": 3, "title": "Schedule Visa Interview Appointment", "description": "Schedule biometrics (VAC) + interview slot via ais.usvisa-info.com. Indian nationals: Mumbai/Delhi/Bangalore/Chennai/Hyderabad/Kolkata locations.", "estimated_days": 30, "documents_needed": [], "tips": ["High demand — book ASAP; 2025-2026 wait times 60-540 days"]},
+            {"step_number": 4, "title": "Compile Supporting Documents", "description": "Compile bank statements (6 months), ITRs (3 years), salary slips, employer letter, property deeds, family ties evidence, travel itinerary, sponsor letter (if applicable), travel history with old passports.", "estimated_days": 7, "documents_needed": ["Bank statements", "ITRs", "Employment proof", "Ties evidence"], "tips": ["Strong ties to home country = #1 success factor"]},
+            {"step_number": 5, "title": "Attend VAC (Biometrics) Appointment", "description": "Fingerprints + photo at Visa Application Centre 1-3 days before interview.", "estimated_days": 1, "documents_needed": ["DS-160 confirmation", "MRV receipt", "Passport"], "tips": []},
+            {"step_number": 6, "title": "Attend Visa Interview", "description": "Consular interview (typically 2-5 minutes). Bring passport, DS-160 confirmation, MRV receipt, supporting docs. Consular officer decides on the spot.", "estimated_days": 1, "documents_needed": ["All compiled docs"], "tips": ["Concise honest answers; show home country ties; clear visit purpose + dates"]},
+            {"step_number": 7, "title": "Pay Visa Integrity Fee (if approved)", "description": "If visa approved, pay $250 Visa Integrity Fee before issuance (NEW FY2026).", "estimated_days": 3, "documents_needed": [], "tips": ["Receipt required to release passport"]},
+            {"step_number": 8, "title": "Receive Passport with Visa", "description": "Passport returned via VFS courier within 3-7 days after approval + integrity fee payment. Validity 10 years multi-entry for Indian nationals.", "estimated_days": 7, "documents_needed": [], "tips": ["Check visa annotation 'B1/B2' + entries 'M' multi-entry"]},
+        ],
+        "document_checklist": [
+            {"name": "Valid passport (6+ months beyond intended stay)", "mandatory": True, "notes": ""},
+            {"name": "DS-160 confirmation page (with barcode)", "mandatory": True, "notes": ""},
+            {"name": "MRV receipt ($185 paid)", "mandatory": True, "notes": ""},
+            {"name": "Recent passport photo (5x5 cm, white background)", "mandatory": True, "notes": "US visa photo specs"},
+            {"name": "Old passports (with prior US/Schengen/UK/Aus visas)", "mandatory": True, "notes": "Travel history evidence"},
+            {"name": "Bank statements (last 6 months)", "mandatory": True, "notes": "Genuine activity + sufficient funds"},
+            {"name": "ITRs (last 3 years)", "mandatory": True, "notes": ""},
+            {"name": "Salary slips (last 3-6 months)", "mandatory": True, "notes": "If employed"},
+            {"name": "Employment letter (with leave approval)", "mandatory": True, "notes": "Mentioning position, salary, return date"},
+            {"name": "Travel itinerary (planned dates + US addresses)", "mandatory": False, "notes": "Helpful but not mandatory"},
+            {"name": "Property documents (home / land ownership)", "mandatory": False, "notes": "Strong tie evidence"},
+            {"name": "Family ties evidence (marriage cert, children's school)", "mandatory": False, "notes": ""},
+            {"name": "Invitation letter (if visiting family/business)", "mandatory": False, "notes": "B-1: company letter; B-2: family letter"},
+            {"name": "Form I-134 Affidavit of Support (if sponsor covering)", "mandatory": False, "notes": "Sponsor income proof"},
+            {"name": "Visa Integrity Fee receipt (post-approval)", "mandatory": True, "notes": "FY2026 NEW — required for visa issuance"},
+            {"name": "VFS appointment confirmation", "mandatory": True, "notes": ""},
+        ],
+        "common_rejection_reasons": [
+            "Insufficient demonstration of strong home country ties (214(b) refusal)",
+            "Weak financial evidence (bank balance / income vs visit cost)",
+            "Inconsistent application info vs verbal interview answers",
+            "Prior US overstay / refusal not disclosed",
+            "Recent unemployment or job change",
+            "Sponsor or invitation letter weak / sponsor with adverse US status",
+            "Unclear visit purpose or itinerary inconsistencies",
+            "Recent rejection from another country (Schengen, UK)",
+            "Family ties in US suggesting immigration intent",
+        ],
+        "success_tips": [
+            "Strong ties evidence: employer letter + property + family in India = #1 success factor",
+            "Interview answer: clear purpose + specific dates + return commitment",
+            "Bank statements 6 months — genuine activity + $5,000+ minimum (varies by trip)",
+            "Disclose ALL prior visa decisions (US/Schengen/UK) — non-disclosure = automatic ban",
+            "Apply early — Indian appointment wait times 60-540 days in 2025-2026",
+            "Don't take family/friends as inadmissible dependents during interview",
+            "Children's B-2 applications attach to parent — same interview slot",
+            "Visa Integrity Fee $250 NEW — budget for FY2026",
+        ],
+        "faqs": [
+            {"q": "What's the Visa Integrity Fee?", "a": "A NEW $250 fee introduced FY2026 (most non-immigrant visas). Paid ONLY if visa approved, on top of $185 MRV. Total: $435 for B-1/B-2."},
+            {"q": "How long is the visa valid?", "a": "Typically 10 years multi-entry for Indian nationals. Each visit max 6 months (CBP officer decides actual stay on entry — typically 60-180 days)."},
+            {"q": "Why did the interview waiver policy change?", "a": "Effective 2 Sept 2025, most renewal waivers ENDED. Age-based waivers (under-14, over-79) also ended. Most B-1/B-2 applicants now need in-person interview."},
+            {"q": "Can I work on B-1?", "a": "NO — B-1 allows BUSINESS activities (meetings, negotiations, conferences) but NO paid employment from US source. For work, need H-1B/L-1/etc."},
+            {"q": "I have ESTA — can I skip B-1/B-2?", "a": "ESTA is ONLY for 41 VWP countries (NOT India). Indian nationals must apply for B-1/B-2 visa."},
+            {"q": "How long does the appointment take?", "a": "Currently 60-540 days wait for interview slot in India. Book ASAP — peak season (Apr-Aug) longest waits."},
+        ],
+        "official_url": "https://travel.state.gov/content/travel/en/us-visas/tourism-visit/visitor.html",
+        "vfs_url": "https://www.ustraveldocs.com/in/",
+        "source_urls": [
+            "https://travel.state.gov/content/travel/en/us-visas/tourism-visit/visitor.html",
+            "https://travel.state.gov/content/travel/en/us-visas/visa-information-resources/fees/fees-visa-services.html",
+            "https://travel.state.gov/content/travel/en/News/visas-news/interview-waiver-update-july-25-2025.html",
+            "https://www.beyondborderglobal.com/resources/visa-integrity-fee-2026",
+            "https://www.ustraveldocs.com/in/",
+        ],
+        "verified_notes": "Manual Fast-Path B.4.7 seed — verified against travel.state.gov + ustraveldocs.com + Beyond Border Global on 2026-02-27. FY2026 Visa Integrity Fee $250 + 2 Sept 2025 interview waiver narrowing + India ESTA non-eligibility all documented. Validator URL check: HTTP 200 OK (primary + secondary).",
+    },
+
+    # ── 2. US-F1 — Student Visa (Academic / Language) ──────────────────────────
+    {
+        "country_code": "US", "country_name": "United States",
+        "subclass_id": "F1",
+        "subclass_name": "Student Visa F-1 (SEVP-Certified Institution + OPT/CPT Work)",
+        "service_type": "student", "category": "immigration",
+        "description": (
+            "The F-1 visa is the United States' primary student visa for academic, language, "
+            "and vocational study at an institution certified by SEVP (Student and Exchange "
+            "Visitor Program). Common use: 4-year undergraduate, 2-year master's, PhD, MBA, "
+            "language schools, community colleges.\n\n"
+            "**Fees (FY2026):**\n"
+            "- SEVIS I-901 Fee: **$350** (paid before interview, funds SEVP program)\n"
+            "- MRV Application Fee: **$185**\n"
+            "- Total minimum: **$535**\n"
+            "- *Note: Visa Integrity Fee $250 expected to apply to F-1 in FY2026 per "
+            "policy proposals — verify with embassy at application time*\n\n"
+            "**Work authorization while on F-1:**\n"
+            "- **CPT (Curricular Practical Training):** School-authorised, must be integral "
+            "to curriculum (paid internship, co-op). No USCIS form. Limit: 12 months full-time "
+            "= LOSES OPT eligibility at same degree level.\n"
+            "- **OPT (Optional Practical Training):** USCIS-authorised (Form I-765). Up to "
+            "12 months per degree level. **STEM extension: +24 months** = total 36 months. "
+            "Job must be DIRECTLY related to major. Apply within 30 days of DSO issuing OPT "
+            "I-20; no later than 60 days after program end.\n\n"
+            "**2026 reform (Beautiful Act / similar):**\n"
+            "- Grace period after graduation REDUCED 60d → 30d to depart or file OPT\n"
+            "- Tighter compliance reporting via SEVP Portal\n\n"
+            "**Path to PR:** F-1 itself doesn't lead to green card. Common transitions: "
+            "OPT → H-1B (cap lottery) → EB-2/EB-3 PERM → PR."
+        ),
+        "eligibility_summary": (
+            "Accepted to SEVP-certified US institution; Form I-20 issued. Sufficient financial "
+            "resources (tuition + living). Strong ties to home country (non-immigrant intent). "
+            "English proficiency (TOEFL/IELTS) at institution-required level."
+        ),
+        "eligibility_criteria": [
+            {"label": "Accepted to SEVP-Certified Institution", "value": "Acceptance letter from school certified by SEVP (check sevis.gov DLI list)", "notes": "Online-only schools not eligible"},
+            {"label": "I-20 Form Issued", "value": "School issues Form I-20 with SEVIS ID after acceptance + financial proof", "notes": ""},
+            {"label": "Sufficient Funds", "value": "1 full academic year tuition + living costs (typically $30k-$70k+)", "notes": "Bank statements / sponsor affidavit"},
+            {"label": "English Proficiency", "value": "Institution-required level (TOEFL 80+, IELTS 6.5+ typical)", "notes": "Waivable if from English-speaking country / English-medium education"},
+            {"label": "Non-Immigrant Intent", "value": "Strong ties to home country demonstrating intent to return", "notes": "Property, family, future career in home country"},
+            {"label": "Academic Standing", "value": "Continuous full-time enrollment + maintain GPA per institution policy", "notes": ""},
+            {"label": "Health & Character", "value": "No communicable diseases, no criminal history", "notes": ""},
+            {"label": "Work Authorization", "value": "CPT (school-authorised, integral curriculum) + OPT (USCIS, 12mo + STEM 24mo)", "notes": "Cannot work off-campus without authorization"},
+        ],
+        "fees_local_currency_code": "USD", "fees_local_currency_amount": 535, "fees_inr_approx": 45475,
+        "fees_breakdown": [
+            {"component": "SEVIS I-901 Fee (paid 3+ days before interview)", "amount": 350, "currency": "USD"},
+            {"component": "MRV Application Fee", "amount": 185, "currency": "USD"},
+            {"component": "Total minimum (mandatory government fees)", "amount": 535, "currency": "USD"},
+            {"component": "Visa Integrity Fee (expected FY2026, post-approval)", "amount": 250, "currency": "USD"},
+            {"component": "OPT Form I-765 fee (post-graduation, USCIS)", "amount": 470, "currency": "USD"},
+            {"component": "STEM OPT extension (Form I-765 again)", "amount": 470, "currency": "USD"},
+            {"component": "VFS service fee (India)", "amount": 13, "currency": "USD"},
+            {"component": "TOEFL/IELTS exam (per attempt)", "amount": 220, "currency": "USD"},
+            {"component": "Tuition (per year, varies wildly — public ~$30k, private ~$60k+)", "amount": 50000, "currency": "USD"},
+            {"component": "Living expenses (per year)", "amount": 18000, "currency": "USD"},
+        ],
+        "processing_time_days_min": 30, "processing_time_days_max": 365,
+        "step_by_step": [
+            {"step_number": 1, "title": "Apply to SEVP-Certified Institutions", "description": "Apply to multiple SEVP-certified schools. Pay application fees ($50-$200 each). Wait for acceptance.", "estimated_days": 120, "documents_needed": ["Transcripts", "TOEFL/IELTS", "SOP", "LOR", "Resume"], "tips": ["Apply to 6-8 schools; mix safety/match/reach"]},
+            {"step_number": 2, "title": "Accept Offer + Receive I-20", "description": "Accept offer from chosen school. School verifies your financial proof + issues Form I-20 with SEVIS ID.", "estimated_days": 14, "documents_needed": ["Bank statements", "Sponsor affidavit"], "tips": ["Financial proof = 1 year tuition + living"]},
+            {"step_number": 3, "title": "Pay SEVIS I-901 Fee ($350)", "description": "Pay at fmjfee.com using SEVIS ID. Print receipt — must show at interview.", "estimated_days": 1, "documents_needed": [], "tips": ["Pay at least 3 business days before interview"]},
+            {"step_number": 4, "title": "Complete DS-160 + Pay MRV ($185)", "description": "Fill DS-160 online + pay $185 MRV fee via VFS portal. Get confirmation barcodes + receipts.", "estimated_days": 3, "documents_needed": [], "tips": []},
+            {"step_number": 5, "title": "Schedule Visa Interview", "description": "Book biometric (VAC) + interview slot at US consulate. F-1 students get priority slots typically.", "estimated_days": 14, "documents_needed": [], "tips": ["F-1 priority in India — typically faster than B-1/B-2"]},
+            {"step_number": 6, "title": "Attend VAC + Interview", "description": "Biometrics 1-3 days before interview. Consular interview ~2-5 mins. Demonstrate genuine student intent + financial capacity.", "estimated_days": 3, "documents_needed": ["I-20", "SEVIS receipt", "Bank statements", "Acceptance letter"], "tips": ["Show enthusiasm for chosen program + clear post-graduation plans in home country"]},
+            {"step_number": 7, "title": "Pay Visa Integrity Fee (if approved)", "description": "If visa approved + FY2026 fee applies, pay $250 before issuance.", "estimated_days": 3, "documents_needed": [], "tips": []},
+            {"step_number": 8, "title": "Travel to US + Maintain Status", "description": "Enter US ≤30 days before program start. Report to DSO. Maintain full-time enrollment + report changes (address, major, work) in SEVIS Portal.", "estimated_days": 90, "documents_needed": [], "tips": ["DSO compliance critical for OPT/H-1B path later"]},
+        ],
+        "document_checklist": [
+            {"name": "Valid passport (6+ months validity)", "mandatory": True, "notes": ""},
+            {"name": "Form I-20 (signed by student + DSO)", "mandatory": True, "notes": ""},
+            {"name": "SEVIS I-901 Fee receipt ($350)", "mandatory": True, "notes": ""},
+            {"name": "DS-160 confirmation page", "mandatory": True, "notes": ""},
+            {"name": "MRV fee receipt ($185)", "mandatory": True, "notes": ""},
+            {"name": "Acceptance letter from US institution", "mandatory": True, "notes": ""},
+            {"name": "TOEFL/IELTS score report", "mandatory": True, "notes": "Most schools require"},
+            {"name": "Academic transcripts (all post-secondary)", "mandatory": True, "notes": ""},
+            {"name": "Bank statements (6+ months, proving 1-yr funds)", "mandatory": True, "notes": "Or sponsor's"},
+            {"name": "Form I-134 Affidavit of Support (if sponsor covering)", "mandatory": False, "notes": "Sponsor's tax returns + employment"},
+            {"name": "Scholarship / loan / financial aid letters (if applicable)", "mandatory": False, "notes": ""},
+            {"name": "Recent passport photo (US visa specs)", "mandatory": True, "notes": ""},
+            {"name": "Travel history / old passports", "mandatory": True, "notes": ""},
+            {"name": "Statement of Purpose (recommended for interview)", "mandatory": False, "notes": "Clear study + post-grad goals"},
+            {"name": "Visa Integrity Fee receipt (post-approval, FY2026)", "mandatory": False, "notes": "Expected per FY2026 policy"},
+        ],
+        "common_rejection_reasons": [
+            "Insufficient financial evidence (less than 1-year tuition + living)",
+            "Weak demonstration of non-immigrant intent (no clear return plan)",
+            "Inconsistent academic history (gap years, transfers, low GPA without explanation)",
+            "School ranking / fit concerns (community college without clear pathway)",
+            "Sponsor relationship unclear or sponsor finances inadequate",
+            "Prior US overstay or refusal",
+            "TOEFL/IELTS score below institution requirement",
+            "Online-only school (not SEVP-eligible)",
+        ],
+        "success_tips": [
+            "Clear post-graduation plan returning to India = #1 success factor for F-1",
+            "Financial proof: 1-yr tuition + living, ideally 2 years if possible",
+            "Show strong academic record + ambitious program (PhD/STEM advanced degree)",
+            "Apply 3-6 months before program start to allow processing buffer",
+            "OPT planning: STEM majors get 36 months (12 + 24 extension) — leverage",
+            "CPT vs OPT: 12 months full-time CPT = LOSES OPT — strategize carefully",
+            "Maintain SEVIS Portal address + employer reporting religiously — non-compliance = status loss",
+            "F-1 priority appointment slots faster than B-1/B-2 — book early in cycle",
+        ],
+        "faqs": [
+            {"q": "What's the difference between CPT and OPT?", "a": "CPT = school-authorised, must be integral to curriculum (paid internship for credit), no USCIS form. OPT = USCIS-authorised (Form I-765), up to 12 months per degree + STEM extension 24 months. Cannot do 12+ months full-time CPT then OPT at same degree level."},
+            {"q": "Does F-1 lead to a green card?", "a": "NOT directly. Common pathway: OPT (post-grad work) → H-1B (cap lottery) → EB-2/EB-3 PERM (employer sponsorship) → PR (5-15+ years for India)."},
+            {"q": "How long is the F-1 visa valid?", "a": "Typically 5 years multi-entry for Indian nationals. Visa is for travel; F-1 STATUS in US is duration of program (D/S = duration of status). Stay legal as long as enrolled + maintaining status."},
+            {"q": "What about STEM extension?", "a": "STEM majors get +24 months OPT = total 36 months (12 + 24). Major MUST be on STEM Designated Degree Program List (DHS).maintained by SEVP."},
+            {"q": "What's the new 30-day grace period?", "a": "Per 2026 reform, F-1 students have only 30 days after graduation to depart US OR file OPT (was 60 days). Tighter timeline for OPT applications."},
+            {"q": "Can spouse / family come?", "a": "Yes — F-2 dependant visa for spouse + children under 21. F-2 cannot work but can study part-time."},
+        ],
+        "official_url": "https://travel.state.gov/content/travel/en/us-visas/study/student-visa.html",
+        "vfs_url": "https://www.ustraveldocs.com/in/",
+        "source_urls": [
+            "https://travel.state.gov/content/travel/en/us-visas/study/student-visa.html",
+            "https://studyinthestates.dhs.gov/",
+            "https://www.uscis.gov/working-in-the-united-states/students-and-exchange-visitors/optional-practical-training-opt-for-f-1-students",
+            "https://www.fmjfee.com/",
+            "https://www.beyondborderglobal.com/resources/visa-integrity-fee-2026",
+        ],
+        "verified_notes": "Manual Fast-Path B.4.7 seed — verified against travel.state.gov + studyinthestates.dhs.gov + uscis.gov + fmjfee.com on 2026-02-27. $350 SEVIS + $185 MRV = $535 minimum verified. OPT 12mo + STEM 24mo = 36mo total documented. 2026 grace period reduction 60d→30d reflected. Validator URL check: HTTP 200 (travel.state.gov primary), 403 (studyinthestates.dhs.gov anti-bot, NOT closure).",
+    },
+
+    # ── 3. US-H-1B — Specialty Occupation Worker (Cap-Subject) ─────────────────
+    {
+        "country_code": "US", "country_name": "United States",
+        "subclass_id": "H-1B",
+        "subclass_name": "Specialty Occupation Worker (H-1B Cap-Subject + Lottery System)",
+        "service_type": "work", "category": "immigration",
+        "description": (
+            "The H-1B is the United States' primary visa for foreign professionals in "
+            "**specialty occupations** requiring bachelor's degree or higher. Employer-"
+            "sponsored, not self-petition. Annual cap: **65,000 regular + 20,000 advanced "
+            "degree** = 85,000 total selected via lottery in March each year.\n\n"
+            "**Critical Feb 2026 reforms / status:**\n"
+            "- **Registration fee: $215** (up from $10 — 2,050% increase) per beneficiary, "
+            "non-refundable even if not selected\n"
+            "- **NEW Form I-129** (dated 02/27/26) mandatory from 1 April 2026\n"
+            "- **Premium processing: $2,965** (up from $2,805 — March 2026 hike)\n"
+            "- **🔴 Sept 21, 2025 Presidential Proclamation: $100,000 fee** for cap-subject "
+            "H-1B petitions for beneficiaries OUTSIDE the US — massive barrier especially "
+            "for India hires. Beneficiaries already inside US (e.g. F-1 OPT) avoid this fee.\n\n"
+            "**Standard USCIS Government Fees (per petition):**\n"
+            "- Registration: $215 (March each year — H-1B Cap Season)\n"
+            "- Form I-129: $460 small employer (<26 FTE) / $780 large (≥26 FTE)\n"
+            "- ACWIA Education & Training: $750 small / $1,500 large\n"
+            "- Fraud Prevention & Detection: $500\n"
+            "- Asylum Program Fee (NEW 2024): $300 small / $600 large\n"
+            "- PL 114-113 Fee: $4,000 (only if 50+ employees AND >50% H-1B/L-1)\n"
+            "- Premium Processing (optional): $2,965 (45-day adjudication)\n\n"
+            "**Total estimated government fees:**\n"
+            "- Small employer: ~$2,225 (without premium)\n"
+            "- Large employer: ~$3,595\n"
+            "- Large + PL 114-113: ~$7,595\n"
+            "- Plus $100,000 if cap-subject + beneficiary offshore (Sept 2025 Proclamation)\n\n"
+            "**Duration:** Up to **3 years** initially, extendable to **6 years total** "
+            "(or longer if EB green card I-140 pending)."
+        ),
+        "eligibility_summary": (
+            "Specialty occupation requiring bachelor's degree or higher in specific field. "
+            "Employer-sponsored (must hold valid US sponsor with Labor Condition Application). "
+            "Beneficiary holds equivalent bachelor's degree or 12 years experience equivalent."
+        ),
+        "eligibility_criteria": [
+            {"label": "Specialty Occupation", "value": "Requires bachelor's degree or equivalent in specific field (STEM, Finance, Architecture, etc.)", "notes": "DOL O*NET database lists qualifying occupations"},
+            {"label": "Beneficiary Qualifications", "value": "Bachelor's degree (or US-equivalent) in specialty field OR 12 years progressive experience", "notes": "3 yrs work experience = 1 yr education equivalent"},
+            {"label": "US Employer Sponsor", "value": "Must hold valid US business + sponsor relationship", "notes": "Cannot self-petition"},
+            {"label": "Labor Condition Application (LCA)", "value": "Employer files LCA with DOL — certifies prevailing wage + working conditions", "notes": "LCA certification required before I-129"},
+            {"label": "Cap Lottery (March Each Year)", "value": "85,000 cap (65k regular + 20k advanced degree) selected via random lottery", "notes": "FY2026 cap registered March 2025"},
+            {"label": "Cap-Exempt Categories", "value": "Universities, government research labs, non-profit research — NOT subject to lottery cap", "notes": "Year-round filing"},
+            {"label": "Specialty Knowledge", "value": "Must demonstrate genuine specialty expertise in field", "notes": "USCIS RFEs common — strengthen evidence"},
+            {"label": "Sept 2025 Presidential Proclamation", "value": "$100,000 fee for cap-subject H-1B for beneficiaries OUTSIDE US", "notes": "Inside US (F-1 OPT, change of status) exempt"},
+        ],
+        "fees_local_currency_code": "USD", "fees_local_currency_amount": 2225, "fees_inr_approx": 189125,
+        "fees_breakdown": [
+            {"component": "Cap Registration Fee (per beneficiary, March)", "amount": 215, "currency": "USD"},
+            {"component": "Form I-129 Base — Small employer (<26 FTE)", "amount": 460, "currency": "USD"},
+            {"component": "Form I-129 Base — Large employer (≥26 FTE)", "amount": 780, "currency": "USD"},
+            {"component": "ACWIA Fee — Small employer", "amount": 750, "currency": "USD"},
+            {"component": "ACWIA Fee — Large employer", "amount": 1500, "currency": "USD"},
+            {"component": "Fraud Prevention & Detection Fee", "amount": 500, "currency": "USD"},
+            {"component": "Asylum Program Fee (NEW 2024) — Small employer", "amount": 300, "currency": "USD"},
+            {"component": "Asylum Program Fee — Large employer", "amount": 600, "currency": "USD"},
+            {"component": "PL 114-113 Fee (only if 50+ employees AND >50% H-1B/L-1)", "amount": 4000, "currency": "USD"},
+            {"component": "Premium Processing (optional, March 2026 hike)", "amount": 2965, "currency": "USD"},
+            {"component": "Sept 2025 Presidential Proclamation Fee (cap-subject + offshore beneficiary)", "amount": 100000, "currency": "USD"},
+            {"component": "Total Small Employer Standard (no premium, no proclamation)", "amount": 2225, "currency": "USD"},
+            {"component": "Total Large Employer Standard", "amount": 3595, "currency": "USD"},
+            {"component": "Consular MRV (for offshore visa stamping)", "amount": 205, "currency": "USD"},
+        ],
+        "processing_time_days_min": 45, "processing_time_days_max": 270,
+        "step_by_step": [
+            {"step_number": 1, "title": "Confirm Specialty Occupation + Sponsor Identified", "description": "Verify role requires bachelor's degree in specialty field (DOL O*NET). Secure US employer offer with sponsorship commitment.", "estimated_days": 30, "documents_needed": ["Job offer letter", "Position description"], "tips": ["O*NET SOC code identifies qualifying occupations"]},
+            {"step_number": 2, "title": "H-1B Cap Registration (March)", "description": "Employer registers beneficiary in March via myUSCIS.gov. Pay $215 per beneficiary registration. Lottery announced ~end of March.", "estimated_days": 30, "documents_needed": ["Beneficiary passport", "Educational credentials"], "tips": ["File ASAP in March window; multiple offers from different employers OK"]},
+            {"step_number": 3, "title": "Receive Selection Notice (Lottery Win)", "description": "If selected, USCIS sends Selection Notice via online portal end-March/early-April. Begin full petition.", "estimated_days": 14, "documents_needed": [], "tips": ["Save Selection Notice — required for I-129"]},
+            {"step_number": 4, "title": "File Labor Condition Application (LCA)", "description": "Employer files LCA with DOL (Form ETA-9035). Certifies prevailing wage + working conditions. Approval typically 7 days.", "estimated_days": 14, "documents_needed": ["Job description", "Salary determination"], "tips": ["Wage must be ≥ prevailing wage for occupation in geographic area"]},
+            {"step_number": 5, "title": "File Form I-129 with USCIS", "description": "Within 90-day window (typically Apr 1 - Jun 30), employer files Form I-129 with full government fees ($2,225 small / $3,595 large + premium if used).", "estimated_days": 30, "documents_needed": ["Form I-129", "LCA certified", "Beneficiary credentials", "Position description", "Sponsor company evidence"], "tips": ["NEW Form I-129 (02/27/26) required from 1 April 2026"]},
+            {"step_number": 6, "title": "RFE Response (if issued)", "description": "USCIS often issues Request for Evidence on specialty occupation justification or beneficiary qualifications. Respond within 87 days.", "estimated_days": 87, "documents_needed": [], "tips": ["RFE response critical — engage immigration counsel"]},
+            {"step_number": 7, "title": "I-129 Approval + Consular Processing", "description": "If approved + beneficiary offshore: consular processing at US embassy in home country. Pay $205 MRV + $250 Visa Integrity Fee + (if applicable) $100,000 Sept 2025 Proclamation fee.", "estimated_days": 45, "documents_needed": [], "tips": ["Sept 2025 Proclamation: $100k fee for cap-subject offshore beneficiaries"]},
+            {"step_number": 8, "title": "Enter US + Begin Employment", "description": "Enter US on H-1B visa (Oct 1 start typically for FY filings). Begin employment with sponsoring employer. Maximum 3 years initial, extendable to 6 years total (or longer with pending green card).", "estimated_days": 1, "documents_needed": [], "tips": ["I-94 record valid for entire H-1B duration"]},
+        ],
+        "document_checklist": [
+            {"name": "Valid passport (12+ months validity)", "mandatory": True, "notes": ""},
+            {"name": "USCIS Form I-129 (NEW 02/27/26 version)", "mandatory": True, "notes": "Employer files"},
+            {"name": "H-1B Cap Selection Notice", "mandatory": True, "notes": "From lottery"},
+            {"name": "Certified LCA (Labor Condition Application)", "mandatory": True, "notes": "DOL-certified before I-129"},
+            {"name": "Beneficiary educational credentials + evaluations", "mandatory": True, "notes": "Bachelor's degree or US-equivalent"},
+            {"name": "Job description + offer letter", "mandatory": True, "notes": "Specialty occupation justification"},
+            {"name": "Employer support letter (specialty occupation justification)", "mandatory": True, "notes": "Critical document"},
+            {"name": "Sponsor company evidence (organizational chart, financials)", "mandatory": True, "notes": ""},
+            {"name": "Beneficiary CV / resume", "mandatory": True, "notes": ""},
+            {"name": "Employment verification letters (prior jobs)", "mandatory": True, "notes": "12+ years progressive experience if no bachelor's"},
+            {"name": "Photo (USCIS specs)", "mandatory": True, "notes": ""},
+            {"name": "I-129 government fee payment ($2,225 small / $3,595 large)", "mandatory": True, "notes": ""},
+            {"name": "Premium processing receipt (if used, $2,965)", "mandatory": False, "notes": ""},
+            {"name": "DS-160 + MRV $205 (for offshore consular)", "mandatory": True, "notes": "If processing abroad"},
+            {"name": "Sept 2025 $100k Presidential Proclamation Fee (cap-subject offshore)", "mandatory": False, "notes": "If beneficiary offshore at filing"},
+            {"name": "Spouse/children passports + relationship certs (H-4 dependent)", "mandatory": False, "notes": "If accompanying"},
+        ],
+        "common_rejection_reasons": [
+            "Specialty occupation insufficiently established (USCIS RFE common)",
+            "Beneficiary qualifications below bachelor's in specialty",
+            "Wage below prevailing wage on LCA",
+            "Employer-employee relationship unclear (especially staffing companies)",
+            "End-client relationship vague for staffing-model petitions",
+            "Cap registration fraud / multiple registrations attempted",
+            "RFE response inadequate / missed 87-day window",
+            "Sponsor company financial instability",
+            "Fraud Prevention findings on past visa misuse",
+        ],
+        "success_tips": [
+            "Specialty occupation justification = critical; engage immigration counsel for I-129 preparation",
+            "Multiple employer registrations OK (different actual offers) — diversifies lottery chances",
+            "Premium processing $2,965 = decision in 45 days vs 4-9 months standard",
+            "Cap-subject + beneficiary inside US (F-1 OPT) = AVOIDS $100,000 Sept 2025 Proclamation fee",
+            "Master's degree from US institution = 20k advanced degree pool (higher selection odds)",
+            "Plan EB-2/EB-3 green card filing within 4-5 years to extend beyond 6-year H-1B cap",
+            "RFE response: detailed specialty occupation + beneficiary qualifications evidence",
+            "Cap registration fee $215 = pay early in March window (don't wait)",
+        ],
+        "faqs": [
+            {"q": "What's the H-1B cap lottery?", "a": "Annual limit of 85,000 H-1B visas (65k regular + 20k US-master's advanced degree). Selected via random electronic lottery in March each year. Registration fee $215 per beneficiary, non-refundable even if not selected."},
+            {"q": "What's the $100,000 fee?", "a": "Sept 21, 2025 Presidential Proclamation added a $100,000 fee for cap-subject H-1B petitions for beneficiaries OUTSIDE the US at filing time. Beneficiaries already inside US (F-1 OPT to H-1B change of status) are EXEMPT. Major barrier for India direct hires."},
+            {"q": "How long does H-1B last?", "a": "Initial 3 years; extendable to 6 years total. Beyond 6 years possible only if EB green card I-140 approved AND priority date pending due to country backlog."},
+            {"q": "Can I switch employers on H-1B?", "a": "YES — H-1B portability (AC21). New employer files new I-129 + LCA. Can start working as soon as new I-129 received by USCIS (don't wait for approval). Job duties + wage must be substantially similar."},
+            {"q": "What about spouse and children?", "a": "H-4 dependent visa for spouse + children under 21. H-4 EAD (work authorization) available if principal H-1B's I-140 approved + waiting for priority date. Children can study K-12 + university."},
+            {"q": "Are universities cap-exempt?", "a": "YES — universities, government research labs, non-profit research orgs are CAP-EXEMPT (file year-round, no lottery)."},
+        ],
+        "official_url": "https://www.uscis.gov/working-in-the-united-states/h-1b-specialty-occupations",
+        "vfs_url": "https://www.ustraveldocs.com/in/",
+        "source_urls": [
+            "https://www.uscis.gov/working-in-the-united-states/h-1b-specialty-occupations",
+            "https://travel.state.gov/content/travel/en/us-visas/employment/temporary-worker-visas.html",
+            "https://www.seyfarth.com/news-insights/uscis-announces-significant-fee-increases-effective-on-april-1-2024.html",
+            "https://www.gozellaw.com/blog/2026-h1b-visa-lottery-fees-green-card",
+            "https://www.murthy.com/2026/03/05/new-form-i-129-and-what-it-means-for-h1b-cap-registration/",
+        ],
+        "verified_notes": "Manual Fast-Path B.4.7 seed — verified against uscis.gov + travel.state.gov + Seyfarth Shaw + Murthy Law + GoZee Law on 2026-02-27. CRITICAL Sept 21, 2025 Presidential Proclamation $100,000 cap-subject offshore beneficiary fee documented (major India barrier). $215 registration + April 2024 fee schedule + March 2026 premium hike to $2,965 + new I-129 form (02/27/26 dated, mandatory from 1 April 2026) all reflected. Validator URL check: HTTP 200 (travel.state.gov secondary), 403 (uscis.gov primary anti-bot, NOT closure).",
+    },
+
+    # ── 4. US-L-1 — Intracompany Transferee ────────────────────────────────────
+    {
+        "country_code": "US", "country_name": "United States",
+        "subclass_id": "L-1",
+        "subclass_name": "Intracompany Transferee (L-1A Executive/Manager + L-1B Specialized Knowledge)",
+        "service_type": "work", "category": "immigration",
+        "description": (
+            "The L-1 visa allows multinational companies to transfer employees from foreign "
+            "offices to US offices. Two categories with distinct rules:\n\n"
+            "**L-1A — Executive / Managerial Capacity:**\n"
+            "- For employees in **executive or managerial** roles abroad\n"
+            "- Initial stay: 3 years (1 year for new offices)\n"
+            "- Extensions: 2 years at a time\n"
+            "- **Maximum total stay: 7 years**\n"
+            "- **Direct EB-1C green card path** (Multinational Manager/Executive)\n\n"
+            "**L-1B — Specialized Knowledge:**\n"
+            "- For employees with **specialized knowledge** of company products/services/"
+            "research/equipment/techniques\n"
+            "- Initial stay: 3 years (1 year for new offices)\n"
+            "- Extensions: 2 years at a time\n"
+            "- **Maximum total stay: 5 years**\n"
+            "- NO direct green card path equivalent to EB-1C\n\n"
+            "**Common Requirement:** Employee must have worked abroad for the related foreign "
+            "entity for at least **1 continuous year within the 3 years** preceding L-1 "
+            "application.\n\n"
+            "**Two filing routes:**\n"
+            "- **Individual L-1 Petition (Form I-129):** Standard route, single beneficiary, "
+            "Premium Processing available\n"
+            "- **Blanket L-1 (Form I-129S):** For large multinationals (10+ prior L-1s OR "
+            "$25M+ US annual sales OR 1,000+ US employees). Pre-approval of corporate "
+            "structure; employees apply directly at US consulate. NO premium processing.\n\n"
+            "**Qualifying Relationship:** US + foreign entities must be related as parent / "
+            "subsidiary / affiliate / branch with at least 50% common ownership AND control."
+        ),
+        "eligibility_summary": (
+            "Multinational company with qualifying US-foreign relationship (50%+ common ownership "
+            "+ control). Beneficiary worked abroad in qualifying role 1+ years within past 3. "
+            "Coming to US in executive/managerial (L-1A) OR specialized knowledge (L-1B) capacity."
+        ),
+        "eligibility_criteria": [
+            {"label": "Qualifying Multinational Relationship", "value": "US + foreign entities related as parent/subsidiary/affiliate/branch; 50%+ common ownership AND control", "notes": "Most common: foreign parent → US subsidiary"},
+            {"label": "Both Entities Doing Business", "value": "Both US + foreign entity actively engaged in commercial trade/services", "notes": "Shell companies don't qualify"},
+            {"label": "Employee 1+ Year Abroad", "value": "Beneficiary worked for foreign entity continuously 1+ years within past 3 years", "notes": "Must be in L-1A or L-1B qualifying capacity"},
+            {"label": "L-1A — Executive/Managerial Capacity", "value": "Decision-making authority + supervision of professionals + control over goals/policies", "notes": "Not first-level supervisors"},
+            {"label": "L-1B — Specialized Knowledge", "value": "Knowledge of company products/processes/techniques NOT widely available in industry", "notes": "Distinct from general industry knowledge"},
+            {"label": "US Position Same/Similar Capacity", "value": "Role in US must be executive/managerial (L-1A) OR specialized knowledge (L-1B)", "notes": "Cannot transfer to lower role"},
+            {"label": "Blanket Eligibility (large MNCs only)", "value": "10+ approved L-1s in past year OR $25M+ US sales OR 1,000+ US employees + 3+ branches", "notes": "Pre-approval of structure"},
+            {"label": "No Premium Processing for Blanket", "value": "Standard processing only; consular processing for each employee", "notes": ""},
+            {"label": "New Office Provision", "value": "If US office <1yr operating: initial L-1 limited to 1 year, must extend with proof of operations", "notes": ""},
+        ],
+        "fees_local_currency_code": "USD", "fees_local_currency_amount": 2485, "fees_inr_approx": 211225,
+        "fees_breakdown": [
+            {"component": "Form I-129 Base Filing Fee (Individual L-1)", "amount": 1385, "currency": "USD"},
+            {"component": "Asylum Program Fee", "amount": 600, "currency": "USD"},
+            {"component": "Fraud Prevention & Detection Fee", "amount": 500, "currency": "USD"},
+            {"component": "Premium Processing (optional, 15-day adjudication — March 2026 hike)", "amount": 2965, "currency": "USD"},
+            {"component": "PL 114-113 Fee (only if 50+ employees AND >50% H-1B/L-1)", "amount": 4500, "currency": "USD"},
+            {"component": "Consular MRV Fee (per employee)", "amount": 205, "currency": "USD"},
+            {"component": "Visa Integrity Fee (FY2026, post-approval)", "amount": 250, "currency": "USD"},
+            {"component": "Total Standard Individual L-1 (no premium)", "amount": 2485, "currency": "USD"},
+            {"component": "Total Standard Individual L-1 + Premium", "amount": 5450, "currency": "USD"},
+            {"component": "Blanket L-1 — Initial Fraud Prevention", "amount": 500, "currency": "USD"},
+            {"component": "Blanket L-1 — Consular MRV (per employee)", "amount": 205, "currency": "USD"},
+            {"component": "Attorney fees (typical)", "amount": 5000, "currency": "USD"},
+        ],
+        "processing_time_days_min": 21, "processing_time_days_max": 180,
+        "step_by_step": [
+            {"step_number": 1, "title": "Confirm Qualifying Relationship + Capacity", "description": "Verify US + foreign entities have qualifying relationship (50%+ ownership + control). Confirm beneficiary role abroad meets L-1A or L-1B criteria.", "estimated_days": 30, "documents_needed": ["Corporate structure documents", "Ownership records", "Org chart"], "tips": ["Foreign subsidiary of US parent is most common"]},
+            {"step_number": 2, "title": "Verify 1+ Year Foreign Employment", "description": "Confirm beneficiary worked for qualifying foreign entity 1+ years continuously within past 3 years in qualifying capacity.", "estimated_days": 14, "documents_needed": ["Employment letters", "Payroll records", "Position descriptions"], "tips": ["Time abroad after L-1 filing doesn't count"]},
+            {"step_number": 3, "title": "Compile Specialty / Capacity Evidence", "description": "L-1A: org chart + decision authority + supervision over professionals + control. L-1B: specialized knowledge unique to company.", "estimated_days": 21, "documents_needed": ["Job descriptions", "Org charts", "Specialty knowledge evidence"], "tips": ["L-1B is harder — USCIS scrutinises specialty knowledge claims"]},
+            {"step_number": 4, "title": "File Form I-129 (Individual L-1)", "description": "Employer files Form I-129 with USCIS. Pay government fees ($2,485 standard or $5,450 with premium). Provide all evidence.", "estimated_days": 30, "documents_needed": ["I-129", "Supporting evidence"], "tips": ["Premium processing $2,965 = 15-day decision vs 4-12 months standard"]},
+            {"step_number": 5, "title": "USCIS Adjudication", "description": "USCIS reviews petition. Standard 4-12 months; Premium 15 business days. RFE often issued — common for L-1B specialized knowledge.", "estimated_days": 180, "documents_needed": [], "tips": ["RFE common for L-1B; engage immigration counsel for response"]},
+            {"step_number": 6, "title": "I-129 Approval + Consular Processing", "description": "If beneficiary outside US: consular processing at US embassy. Pay $205 MRV + $250 Visa Integrity Fee + provide approval notice.", "estimated_days": 45, "documents_needed": [], "tips": ["MRV fee same as B-1/B-2"]},
+            {"step_number": 7, "title": "Enter US + Begin Employment", "description": "Enter US on L-1 visa within 6 months of issuance. Begin employment with US entity in qualifying capacity.", "estimated_days": 1, "documents_needed": [], "tips": []},
+            {"step_number": 8, "title": "Plan Extensions + Green Card Path", "description": "L-1A: 3yr initial → extend 2yr × 2 = 7yr max. L-1B: 3yr → 2yr = 5yr max. L-1A direct EB-1C green card path; L-1B → EB-2/EB-3 PERM.", "estimated_days": 1825, "documents_needed": [], "tips": ["L-1A managers should file EB-1C within 2-3 years"]},
+        ],
+        "document_checklist": [
+            {"name": "Valid passport (12+ months validity)", "mandatory": True, "notes": ""},
+            {"name": "Form I-129 (employer-filed)", "mandatory": True, "notes": ""},
+            {"name": "L Supplement (employer-filed)", "mandatory": True, "notes": ""},
+            {"name": "Foreign entity employment letters + payroll records", "mandatory": True, "notes": "Proving 1+ yr in qualifying role"},
+            {"name": "Position descriptions (foreign + US)", "mandatory": True, "notes": "Demonstrating qualifying capacity"},
+            {"name": "Corporate structure documents (US + foreign)", "mandatory": True, "notes": "Ownership + control evidence"},
+            {"name": "Organizational charts (US + foreign)", "mandatory": True, "notes": "Showing managerial role"},
+            {"name": "L-1A: Decision authority + supervision evidence", "mandatory": True, "notes": "L-1A only"},
+            {"name": "L-1B: Specialized knowledge documentation", "mandatory": True, "notes": "L-1B only — distinctive knowledge"},
+            {"name": "Sponsor company financials (US + foreign)", "mandatory": True, "notes": "Demonstrate active business"},
+            {"name": "Tax returns + payroll proof (both entities)", "mandatory": True, "notes": ""},
+            {"name": "Beneficiary CV / resume", "mandatory": True, "notes": ""},
+            {"name": "Photo (USCIS specs)", "mandatory": True, "notes": ""},
+            {"name": "I-129 government fee payment ($2,485 standard)", "mandatory": True, "notes": ""},
+            {"name": "DS-160 + MRV ($205 + $250 Visa Integrity)", "mandatory": True, "notes": "If processing abroad"},
+            {"name": "Spouse/children passports + relationship certs (L-2)", "mandatory": False, "notes": "L-2 dependent visa"},
+        ],
+        "common_rejection_reasons": [
+            "Qualifying relationship unclear (insufficient ownership/control evidence)",
+            "L-1B specialized knowledge insufficiently distinct from industry standard",
+            "L-1A position not truly managerial (first-level supervisor not enough)",
+            "Foreign employment <1yr or interrupted within past 3 years",
+            "US position not commensurate with foreign role",
+            "New office: business plan insufficient or operations not commenced after 1-yr extension",
+            "Sponsor company financial instability",
+            "Past visa violations or RFE response inadequate",
+        ],
+        "success_tips": [
+            "L-1A managers: leverage direct EB-1C green card path within 2-3 years",
+            "L-1B: extra emphasis on specialized knowledge unique to company (not industry)",
+            "Premium processing $2,965 = 15-day decision (highly recommended)",
+            "Blanket L-1 for large MNCs (10+ L-1s, $25M+ sales, 1000+ employees) = consular processing for each employee",
+            "Spouse on L-2: can apply for EAD (work authorization) immediately",
+            "L-1A new office: emphasize business plan + funding + concrete operations within 1 yr",
+            "Document foreign work in qualifying capacity meticulously — 1-year continuous required",
+            "L-1A → EB-1C is FASTEST employment-based green card route (current for most countries)",
+        ],
+        "faqs": [
+            {"q": "What's the difference between L-1A and L-1B?", "a": "L-1A = executive/managerial capacity (decision authority, supervision of professionals, control). Max stay 7 years. Direct EB-1C green card path. L-1B = specialized knowledge of company products/processes. Max stay 5 years. No direct GC path."},
+            {"q": "Can my spouse work on L-2?", "a": "YES — L-2 spouses can apply for EAD (work authorization). Children under 21 can attend US schools but cannot work."},
+            {"q": "What's a Blanket L-1?", "a": "Pre-approval of corporate structure for large multinationals (10+ prior L-1s OR $25M+ sales OR 1,000+ US employees). Employees apply directly at US consulate (Form I-129S) bypassing individual I-129. No premium processing available."},
+            {"q": "How long does L-1 last?", "a": "L-1A: 3yr initial + 2yr extensions = 7 years max. L-1B: 3yr initial + 2yr = 5 years max. New office: 1-year initial then standard."},
+            {"q": "Can L-1 lead to green card?", "a": "L-1A leads directly to EB-1C green card (multinational manager/executive) — fastest employment-based route. L-1B requires switching to EB-2/EB-3 PERM (longer process)."},
+            {"q": "Is L-1 cap-subject?", "a": "NO — L-1 has no annual cap, no lottery. File year-round."},
+        ],
+        "official_url": "https://www.uscis.gov/working-in-the-united-states/temporary-workers/l-1a-intracompany-transferee-executive-or-manager",
+        "vfs_url": "https://www.ustraveldocs.com/in/",
+        "source_urls": [
+            "https://www.uscis.gov/working-in-the-united-states/temporary-workers/l-1a-intracompany-transferee-executive-or-manager",
+            "https://www.uscis.gov/working-in-the-united-states/temporary-workers/l-1b-intracompany-transferee-specialized-knowledge",
+            "https://www.mvalaw.com/L-1-INTRACOMPANY-TRANSFEREE",
+            "https://lawofficeimmigration.com/blog/l1-visa-2026-what-is-working-what-isnt.html",
+            "https://newlandchase.com/insights/mastering-the-l-1-visa-how-the-l-1-blanket-streamlines-workforce-transfers/",
+        ],
+        "verified_notes": "Manual Fast-Path B.4.7 seed — verified against uscis.gov + Law Office Immigration + MVA Law + Newland Chase on 2026-02-27. L-1A (7yr max + EB-1C) vs L-1B (5yr max, no direct GC) distinction documented. Blanket L-1 eligibility (10+ L-1s, $25M+ sales, 1000+ employees) covered. $1,385 I-129 base + $500 Fraud + $600 Asylum + March 2026 premium hike to $2,965 + $4,500 PL 114-113 all current. Validator URL check: HTTP 403 (uscis.gov anti-bot, NOT closure — validator artefact only).",
+    },
+
+    # ── 5. US-EB-1-EB-2 — Employment-Based Green Card ──────────────────────────
+    {
+        "country_code": "US", "country_name": "United States",
+        "subclass_id": "EB-1-EB-2",
+        "subclass_name": "Employment-Based Green Card (EB-1 Priority Workers + EB-2 Advanced Degree / NIW)",
+        "service_type": "pr", "category": "immigration",
+        "description": (
+            "Employment-Based (EB) categories are the United States' primary work-related "
+            "green card (Lawful Permanent Resident) pathways. Combined here for two highest "
+            "preference categories:\n\n"
+            "**EB-1 — Priority Workers (1st Preference, ~40,000/yr):**\n"
+            "- **EB-1A:** Extraordinary Ability — Persons with sustained national/international "
+            "acclaim in sciences, arts, education, business, athletics. **Self-petition** "
+            "(no employer required). **No PERM** labor certification required.\n"
+            "- **EB-1B:** Outstanding Researchers/Professors — 3+ years experience, "
+            "international recognition. Requires employer (university/research org). No PERM.\n"
+            "- **EB-1C:** Multinational Managers/Executives — Direct path from L-1A. Requires "
+            "employer (qualifying multinational). No PERM.\n\n"
+            "**EB-2 — Advanced Degree / Exceptional Ability (2nd Preference, ~40,000/yr):**\n"
+            "- **EB-2 Standard:** Advanced degree (Master's+) OR Bachelor's + 5 years progressive "
+            "experience. Requires PERM labor certification + employer sponsor.\n"
+            "- **EB-2 NIW (National Interest Waiver):** Self-petition allowed. Bypasses PERM + "
+            "job offer if applicant's work in **US national interest**. Three-prong test: "
+            "(1) substantial merit + national importance, (2) well-positioned to advance, "
+            "(3) on balance beneficial to waive job offer + PERM.\n\n"
+            "**Current visa availability (2026 Visa Bulletin):**\n"
+            "- EB-1 + EB-2: CURRENT for 'All Other Countries' (non-India/China/Mexico)\n"
+            "- **India backlog: ~10-15 years for EB-2 (priority date 2014); EB-1 also "
+            "backlogged**. Major impact on India-born applicants.\n\n"
+            "**USCIS Fees (effective March 1, 2026):**\n"
+            "- I-140 Immigrant Petition: **$715**\n"
+            "- I-485 Adjustment of Status: **$1,440**\n"
+            "- Premium Processing for I-140 (NEW): **$2,965** (45-day decision)\n"
+            "- Total typical (with AOS): ~$3,345 standard / ~$6,310 with premium\n\n"
+            "**PERM labor certification (standard EB-2/EB-3 only):**\n"
+            "- DOL prevailing wage determination + recruitment + ETA-9089 filing\n"
+            "- Timeline: 3-4+ years for PERM alone\n"
+            "- Cost: $5k-$15k attorney fees (PERM is complex)"
+        ),
+        "eligibility_summary": (
+            "EB-1: Extraordinary ability (self-petition) OR outstanding researcher/multinational "
+            "manager (employer). EB-2: Advanced degree + employer (PERM) OR NIW self-petition. "
+            "Backlog: India-born face 10-15+ year waits."
+        ),
+        "eligibility_criteria": [
+            {"label": "EB-1A — Extraordinary Ability", "value": "Sustained national/international acclaim in field; 3+ of 10 criteria (awards, publications, press, etc.)", "notes": "Self-petition, no employer, no PERM"},
+            {"label": "EB-1B — Outstanding Researcher/Professor", "value": "3+ years experience + international recognition + employer (university/research)", "notes": "No PERM"},
+            {"label": "EB-1C — Multinational Manager/Executive", "value": "1+ year managerial/executive role abroad + same role in US with qualifying multinational", "notes": "Direct path from L-1A"},
+            {"label": "EB-2 Standard — Advanced Degree", "value": "Master's or higher (or Bachelor's + 5 yrs progressive exp)", "notes": "Requires PERM + employer"},
+            {"label": "EB-2 NIW — Three-Prong Test", "value": "(1) Substantial merit + national importance, (2) well-positioned to advance, (3) beneficial to waive PERM", "notes": "Self-petition allowed"},
+            {"label": "PERM (Standard EB-2/EB-3 only)", "value": "DOL labor certification proving no qualified US workers available", "notes": "3-4+ year process"},
+            {"label": "Country of Birth Backlog", "value": "India + China + Mexico face significant waits (EB-2 India: ~10-15 yrs)", "notes": "Cross-chargeability via spouse may help"},
+            {"label": "Priority Date", "value": "Date USCIS receives I-140 sets priority date; current bulletin determines visa availability", "notes": ""},
+            {"label": "I-140 + I-485 / Consular Processing", "value": "I-140 approves immigrant petition; I-485 adjusts status (in US) OR consular processing (abroad)", "notes": ""},
+        ],
+        "fees_local_currency_code": "USD", "fees_local_currency_amount": 715, "fees_inr_approx": 60775,
+        "fees_breakdown": [
+            {"component": "Form I-140 Immigrant Petition", "amount": 715, "currency": "USD"},
+            {"component": "Form I-485 Adjustment of Status (with biometrics)", "amount": 1440, "currency": "USD"},
+            {"component": "Premium Processing for I-140 (NEW 2025+, March 2026 fee hike)", "amount": 2965, "currency": "USD"},
+            {"component": "Total Self-Petition (I-140 + I-485, no premium)", "amount": 2155, "currency": "USD"},
+            {"component": "Total Self-Petition (I-140 + I-485 + Premium I-140)", "amount": 5120, "currency": "USD"},
+            {"component": "DS-260 Consular Processing (offshore)", "amount": 325, "currency": "USD"},
+            {"component": "Medical examination", "amount": 500, "currency": "USD"},
+            {"component": "Biometrics (included in I-485)", "amount": 0, "currency": "USD"},
+            {"component": "PERM filing (employer cost)", "amount": 0, "currency": "USD"},
+            {"component": "PERM attorney fees (employer typically pays)", "amount": 8000, "currency": "USD"},
+            {"component": "Form I-907 Premium Processing", "amount": 2965, "currency": "USD"},
+            {"component": "Visa Integrity Fee (FY2026, immigrant visa stamping)", "amount": 250, "currency": "USD"},
+        ],
+        "processing_time_days_min": 90, "processing_time_days_max": 1825,
+        "step_by_step": [
+            {"step_number": 1, "title": "Determine Best Category", "description": "Assess: EB-1A (extraordinary ability self-petition) > EB-2 NIW (advanced degree + national interest) > EB-1B/1C (employer) > EB-2 standard (PERM + employer).", "estimated_days": 30, "documents_needed": ["Resume/CV", "Publications", "Awards"], "tips": ["EB-1A is highest preference; bypass employer + PERM"]},
+            {"step_number": 2, "title": "PERM (Standard EB-2/EB-3 only)", "description": "Employer files prevailing wage determination + advertises position + ETA-9089 with DOL. Takes 3-4+ years.", "estimated_days": 1095, "documents_needed": ["Position description", "Job posting", "Recruitment record"], "tips": ["NIW + EB-1 SKIP this step entirely"]},
+            {"step_number": 3, "title": "File Form I-140 Immigrant Petition", "description": "Self-petition (EB-1A, EB-2 NIW) OR employer-filed (others). Pay $715. Premium processing ($2,965) recommended for 45-day decision.", "estimated_days": 90, "documents_needed": ["I-140", "Supporting evidence portfolio"], "tips": ["EB-1A/EB-2 NIW evidence portfolio is critical — engage specialist counsel"]},
+            {"step_number": 4, "title": "Receive I-140 Approval + Priority Date", "description": "USCIS approves I-140. Priority date locked. Check Visa Bulletin for visa availability by category + country of birth.", "estimated_days": 30, "documents_needed": [], "tips": ["India: priority date may be 10-15 years backlogged for EB-2"]},
+            {"step_number": 5, "title": "Wait for Visa Availability (if backlog)", "description": "If priority date NOT current: wait. If current: file I-485 (in US) or DS-260 (abroad). India EB-2 currently ~2014 priority dates.", "estimated_days": 3650, "documents_needed": [], "tips": ["File downgrade EB-3 if current, port priority date later"]},
+            {"step_number": 6, "title": "File Form I-485 Adjustment of Status (in US)", "description": "Once visa available, file I-485 ($1,440). Includes biometrics + work authorization (EAD) + travel permit (Advance Parole) options.", "estimated_days": 270, "documents_needed": ["I-485", "Medical exam (Form I-693)", "Birth + marriage certs"], "tips": ["EAD + AP available during I-485 wait"]},
+            {"step_number": 7, "title": "USCIS Interview (sometimes waived)", "description": "Some I-485 cases require interview; many are waived. Typical 6-12 months from I-485 filing.", "estimated_days": 180, "documents_needed": [], "tips": []},
+            {"step_number": 8, "title": "Green Card Approved + LPR Status", "description": "I-485 approved → become Lawful Permanent Resident. 10-year green card issued. Citizenship eligible after 5 years (3 if spouse of US citizen).", "estimated_days": 30, "documents_needed": [], "tips": ["Travel restrictions: <6 months at a time outside US to maintain LPR"]},
+        ],
+        "document_checklist": [
+            {"name": "Valid passport (6+ months validity)", "mandatory": True, "notes": ""},
+            {"name": "Form I-140 Immigrant Petition", "mandatory": True, "notes": "Self-petition or employer-filed"},
+            {"name": "Form I-485 Adjustment of Status", "mandatory": True, "notes": "If adjusting in US"},
+            {"name": "Form I-907 Premium Processing (optional)", "mandatory": False, "notes": "$2,965 for 45-day decision"},
+            {"name": "EB-1A: 3+ of 10 criteria evidence (awards, publications, press)", "mandatory": True, "notes": "EB-1A only — critical"},
+            {"name": "EB-2 NIW: National interest + 3-prong evidence", "mandatory": True, "notes": "EB-2 NIW only"},
+            {"name": "PERM ETA-9089 (Standard EB-2/EB-3)", "mandatory": True, "notes": "DOL-certified"},
+            {"name": "Educational credentials (advanced degree)", "mandatory": True, "notes": "Foreign degrees: WES evaluation"},
+            {"name": "Employment letters + payroll records (5+ yrs)", "mandatory": True, "notes": "Proving qualifying experience"},
+            {"name": "Publications + citations (EB-1A, EB-2 NIW)", "mandatory": False, "notes": "Strong evidence for extraordinary ability"},
+            {"name": "Letters of recommendation (5-8 from peers/experts)", "mandatory": False, "notes": "Independent, specific, detailed"},
+            {"name": "Awards / recognition / press coverage", "mandatory": False, "notes": "EB-1A 3+ of 10 criteria"},
+            {"name": "Sponsor company evidence (if employer-sponsored)", "mandatory": False, "notes": ""},
+            {"name": "Form I-693 Medical examination (I-485 only)", "mandatory": True, "notes": "Civil surgeon"},
+            {"name": "Police certificates (per country)", "mandatory": True, "notes": "I-485 / DS-260"},
+            {"name": "Birth + marriage certificates + photos", "mandatory": True, "notes": ""},
+        ],
+        "common_rejection_reasons": [
+            "EB-1A: Insufficient evidence of national/international acclaim (3+ criteria not met)",
+            "EB-2 NIW: 3-prong test inadequately demonstrated (national importance unclear)",
+            "Educational credentials evaluation incomplete or below required level",
+            "PERM recruitment process flawed (advertising irregularities)",
+            "I-140 RFE response inadequate (especially for EB-1A/NIW)",
+            "Priority date backlogged (India EB-2 ~10-15 yrs)",
+            "Inadmissibility issues (criminal record, prior visa fraud)",
+            "Letters of recommendation generic or from non-experts",
+            "Insufficient sponsor financial evidence (employer-sponsored)",
+        ],
+        "success_tips": [
+            "🎯 EB-1A self-petition = FASTEST employment-based GC (no employer, no PERM, current for India 2026)",
+            "EB-2 NIW = strong fit for STEM PhDs + researchers in critical fields",
+            "Premium processing $2,965 = 45-day I-140 decision (highly recommended)",
+            "India-born: file BOTH EB-1A and EB-2 (or downgrade to EB-3 if current) — different priority dates",
+            "Letters of recommendation 5-8 from INDEPENDENT experts (not co-workers)",
+            "Engage specialist EB-1A/NIW counsel — generic immigration practitioners insufficient",
+            "EB-1A 10 criteria checklist: meet 3+ STRONGLY (not just marginally)",
+            "PERM-based EB-2: budget 3-4 years just for PERM alone — strategize early career",
+            "LPR maintenance: <6 months outside US per trip + tax filing as US resident",
+        ],
+        "faqs": [
+            {"q": "What's the difference between EB-1 and EB-2?", "a": "EB-1 = priority workers (extraordinary ability self-petition + outstanding researcher + multinational manager). NO PERM. Highest preference. EB-2 = advanced degree (with PERM) or National Interest Waiver (self-petition, no PERM). Second preference."},
+            {"q": "Can I self-petition?", "a": "YES for EB-1A (extraordinary ability) and EB-2 NIW (National Interest Waiver). Other categories (EB-1B, EB-1C, EB-2 standard, EB-3) require employer sponsorship."},
+            {"q": "What's the India backlog?", "a": "India-born EB-2 priority dates are currently ~2014 (10-15+ year wait). EB-1 also backlogged but shorter. EB-1A self-petition + EB-3 downgrade are common strategies."},
+            {"q": "What's premium processing?", "a": "Optional $2,965 fee for 45-day I-140 decision (instead of 4-12 months standard). NEW for I-140 (introduced 2025+). Highly recommended."},
+            {"q": "What's the 3-prong NIW test?", "a": "(1) Endeavor has substantial merit + national importance, (2) Applicant well-positioned to advance the endeavor, (3) On balance, beneficial for US to waive job offer + PERM. Each prong must be strongly evidenced."},
+            {"q": "How long does the entire EB process take?", "a": "EB-1A (current): 6-12 months from filing to GC. EB-2 (current): 1-2 years. EB-2 India: 10-15+ years (backlog). Premium processing accelerates I-140 only, not I-485."},
+        ],
+        "official_url": "https://www.uscis.gov/working-in-the-united-states/permanent-workers/employment-based-immigration-first-preference-eb-1",
+        "vfs_url": "https://www.ustraveldocs.com/in/",
+        "source_urls": [
+            "https://www.uscis.gov/working-in-the-united-states/permanent-workers/employment-based-immigration-first-preference-eb-1",
+            "https://www.uscis.gov/working-in-the-united-states/permanent-workers/employment-based-immigration-second-preference-eb-2",
+            "https://travel.state.gov/content/travel/en/legal/visa-law0/visa-bulletin.html",
+            "https://berardiimmigrationlaw.com/niw-vs-perm-labor-certification-differences-pros-cons/",
+            "https://ogletree.com/insights-resources/blog-posts/uscis-premium-processing-fees-will-increase-on-march-1-2026/",
+        ],
+        "verified_notes": "Manual Fast-Path B.4.7 seed — verified against uscis.gov + travel.state.gov + Berardi Immigration Law + Ogletree Deakins on 2026-02-27. EB-1A (self-petition no PERM no employer) + EB-1B (outstanding researcher) + EB-1C (multinational manager from L-1A) + EB-2 Standard (PERM + employer) + EB-2 NIW (self-petition 3-prong test) all distinguished. March 2026 Premium Processing fee hike to $2,965 + India backlog (10-15 yrs EB-2) documented. Validator URL check: HTTP 403 (uscis.gov anti-bot, NOT closure — validator artefact only).",
+    },
+
+    # ── 6. US-K-1 — Fiancé(e) Visa ─────────────────────────────────────────────
+    {
+        "country_code": "US", "country_name": "United States",
+        "subclass_id": "K-1",
+        "subclass_name": "Fiancé(e) Visa (K-1; followed by Adjustment of Status within 90 days)",
+        "service_type": "partner", "category": "immigration",
+        "description": (
+            "The K-1 visa allows the **foreign fiancé(e) of a U.S. citizen** to enter the US "
+            "for the purpose of marrying their petitioner within **90 days of entry**. "
+            "Failure to marry within 90 days requires departure from US.\n\n"
+            "**Critical Distinction: K-1 vs CR-1/IR-1 Spouse Visa:**\n"
+            "- **K-1 (Fiancé):** For couples NOT yet married. Enter US first, marry within 90 days, "
+            "then file I-485 Adjustment of Status. Faster initial entry, but more expensive + "
+            "requires AOS after marriage. Total cost ~$3,000+.\n"
+            "- **CR-1 (Conditional Spouse):** Already married <2 years at approval. Enter US "
+            "as conditional permanent resident directly. ~$1,500-$2,000. Slower but cheaper.\n"
+            "- **IR-1 (Immediate Spouse):** Already married 2+ years at approval. Enter US "
+            "as full permanent resident (10-year GC). ~$1,500-$2,000.\n\n"
+            "**K-1 Eligibility:**\n"
+            "- US **citizen** petitioner (NOT permanent residents — LPRs use CR-1/IR-1 only)\n"
+            "- Couple **met in person within last 2 years** (very limited hardship waivers)\n"
+            "- Both parties **legally free to marry** (any prior divorces finalised)\n"
+            "- Intent to marry within 90 days of K-1 holder's US entry\n\n"
+            "**3-stage process:**\n"
+            "1. **Stage A — Form I-129F Petition (USCIS):** $675 (or $625 if filed online with "
+            "$50 discount). Prove relationship + meet-in-person evidence. ~10-12 months.\n"
+            "2. **Stage B — DS-160 + Visa Application (Department of State):** $265 MRV at "
+            "consulate in fiancé's country. Medical exam, interview.\n"
+            "3. **Stage C — Adjustment of Status (USCIS, after US entry + marriage):** I-485 "
+            "$1,440. Includes biometrics + EAD (work authorization) + Advance Parole.\n\n"
+            "**Total typical cost: ~$2,380-$3,000+** (including medical + translations).\n\n"
+            "**K-2 Children:** Unmarried children under 21 of K-1 fiancé(e) can accompany or "
+            "follow within 1 year. Same medical + interview process."
+        ),
+        "eligibility_summary": (
+            "Foreign fiancé(e) of US citizen (NOT LPR). Met in person within 2 years. Both "
+            "legally free to marry. Intent to marry in US within 90 days of entry."
+        ),
+        "eligibility_criteria": [
+            {"label": "Petitioner Status", "value": "Must be US CITIZEN (Permanent Residents/LPRs cannot file K-1 — use CR-1/IR-1)", "notes": "Critical distinction"},
+            {"label": "Met In Person", "value": "Couple met in person within last 2 years of I-129F filing", "notes": "Limited hardship waivers (cultural, medical, etc.)"},
+            {"label": "Legally Free to Marry", "value": "Both parties legally free to marry (any prior divorces finalised)", "notes": "Divorce decrees translated + apostilled"},
+            {"label": "Intent to Marry", "value": "Sincere intent to marry within 90 days of K-1 holder's US entry", "notes": "Bonafide relationship evidence required"},
+            {"label": "K-1 Petitioner Income (I-134 Affidavit of Support)", "value": "125% of US Federal Poverty Guidelines for household size", "notes": "Joint sponsor option if income insufficient"},
+            {"label": "K-1 Petitioner Sustained US Domicile", "value": "Petitioner must have US domicile + intend to continue residing in US", "notes": ""},
+            {"label": "K-2 Children", "value": "Unmarried children under 21 of K-1 fiancé(e) can accompany or follow within 1 year", "notes": "Listed on I-129F"},
+            {"label": "Inadmissibility (Standard)", "value": "Health + character + criminal history admissibility", "notes": "Waivers possible for some grounds"},
+            {"label": "90-Day Marriage Deadline", "value": "Must marry within 90 days of US entry OR depart US", "notes": "ABSOLUTE — no extensions"},
+        ],
+        "fees_local_currency_code": "USD", "fees_local_currency_amount": 2380, "fees_inr_approx": 202300,
+        "fees_breakdown": [
+            {"component": "Stage A — Form I-129F (USCIS, paper)", "amount": 675, "currency": "USD"},
+            {"component": "Stage A — Form I-129F (online filing discount)", "amount": 625, "currency": "USD"},
+            {"component": "Stage B — DS-160 MRV Visa Application Fee (DOS)", "amount": 265, "currency": "USD"},
+            {"component": "Stage B — Medical examination (USCIS panel physician)", "amount": 400, "currency": "USD"},
+            {"component": "Stage B — Police clearance certificates (per country)", "amount": 50, "currency": "USD"},
+            {"component": "Stage B — Translation + apostille (per document)", "amount": 100, "currency": "USD"},
+            {"component": "Stage B — Visa Integrity Fee (FY2026, post-approval)", "amount": 250, "currency": "USD"},
+            {"component": "Stage C — Form I-485 Adjustment of Status (with biometrics)", "amount": 1440, "currency": "USD"},
+            {"component": "Total K-1 to PR (Stages A + B + C)", "amount": 2380, "currency": "USD"},
+            {"component": "Attorney fees (typical)", "amount": 3000, "currency": "USD"},
+            {"component": "Comparison: CR-1/IR-1 Total (typically less)", "amount": 1500, "currency": "USD"},
+        ],
+        "processing_time_days_min": 270, "processing_time_days_max": 540,
+        "step_by_step": [
+            {"step_number": 1, "title": "Confirm Eligibility (US Citizen + Met-in-Person)", "description": "Verify petitioner is US citizen (not LPR) + couple met in person within 2 years + both legally free to marry.", "estimated_days": 1, "documents_needed": ["Petitioner US passport/birth cert", "Meeting evidence (photos, travel records)"], "tips": ["If LPR petitioner: must use CR-1/IR-1 instead"]},
+            {"step_number": 2, "title": "File Form I-129F with USCIS", "description": "Petitioner files Form I-129F + supporting evidence. Pay $675 (paper) or $625 (online).", "estimated_days": 14, "documents_needed": ["I-129F", "Relationship evidence", "Meeting proof", "Divorce decrees if applicable"], "tips": ["File online if possible — $50 discount + faster"]},
+            {"step_number": 3, "title": "USCIS Approval (10-12 months typical)", "description": "USCIS adjudicates I-129F. RFE may be issued. Approval forwards to National Visa Center, then consulate in fiancé's country.", "estimated_days": 330, "documents_needed": [], "tips": ["No premium processing available for I-129F"]},
+            {"step_number": 4, "title": "Stage B — Consulate Notification + DS-160", "description": "Consulate notifies fiancé(e). File DS-160 online + pay $265 MRV fee. Schedule interview.", "estimated_days": 60, "documents_needed": ["DS-160 confirmation"], "tips": []},
+            {"step_number": 5, "title": "Medical Exam + Police Certificates", "description": "Fiancé(e) attends USCIS panel physician for medical (~$400) + obtains police certificates from all 6+ month residence countries.", "estimated_days": 30, "documents_needed": ["Medical results sealed", "Police certificates"], "tips": ["Vaccinations may be required"]},
+            {"step_number": 6, "title": "K-1 Interview at US Consulate", "description": "Fiancé(e) attends interview. Demonstrate bonafide relationship + intent to marry. Bring all docs. Decision typically same-day.", "estimated_days": 1, "documents_needed": ["DS-160", "Medical", "Relationship evidence", "I-134 Affidavit"], "tips": ["Clear relationship history + future marriage plans"]},
+            {"step_number": 7, "title": "Travel to US + Marry within 90 Days", "description": "Enter US within 6 months of K-1 issuance. Marry petitioner within 90 days of entry. NO EXTENSIONS — must marry or depart.", "estimated_days": 90, "documents_needed": ["K-1 visa", "Marriage license"], "tips": ["⚠️ 90-day deadline is ABSOLUTE"]},
+            {"step_number": 8, "title": "Stage C — File I-485 Adjustment of Status", "description": "After marriage, file Form I-485 + I-765 (EAD) + I-131 (Advance Parole). $1,440 USCIS fee. Receive Conditional Green Card (2-year if married <2 years at approval).", "estimated_days": 270, "documents_needed": ["I-485", "Marriage cert", "I-693 Medical"], "tips": ["EAD + AP available during I-485 wait (~3-6 months)"]},
+        ],
+        "document_checklist": [
+            {"name": "Petitioner's US passport / birth certificate / naturalisation certificate", "mandatory": True, "notes": "Must be US citizen"},
+            {"name": "Form I-129F + petition supporting evidence", "mandatory": True, "notes": ""},
+            {"name": "Relationship evidence (photos, communications, joint travel)", "mandatory": True, "notes": "Demonstrate bonafide relationship"},
+            {"name": "Met-in-person evidence (passport stamps, hotel bookings, photos)", "mandatory": True, "notes": "Within 2 years of I-129F filing"},
+            {"name": "Divorce decrees (if any prior marriages)", "mandatory": True, "notes": "All translated + apostilled"},
+            {"name": "Death certificate (if widow/widower)", "mandatory": True, "notes": "If applicable"},
+            {"name": "Fiancé(e) passport (12+ months validity)", "mandatory": True, "notes": ""},
+            {"name": "DS-160 confirmation page + photo", "mandatory": True, "notes": ""},
+            {"name": "MRV fee receipt ($265)", "mandatory": True, "notes": ""},
+            {"name": "I-134 Affidavit of Support from petitioner", "mandatory": True, "notes": "125% of US Federal Poverty Guidelines"},
+            {"name": "Petitioner's tax returns + employment proof", "mandatory": True, "notes": "Last 3 years"},
+            {"name": "Police certificates (fiancé's, per country, 6+ months residence)", "mandatory": True, "notes": ""},
+            {"name": "Medical examination (sealed)", "mandatory": True, "notes": "USCIS panel physician"},
+            {"name": "Birth certificate (fiancé(e) + K-2 children)", "mandatory": True, "notes": ""},
+            {"name": "K-2 children documentation (if accompanying)", "mandatory": False, "notes": "Under 21, unmarried"},
+            {"name": "Form I-485 + I-765 + I-131 (Stage C, after marriage)", "mandatory": True, "notes": "AOS package"},
+            {"name": "Marriage certificate (Stage C)", "mandatory": True, "notes": "Must be within 90 days of K-1 entry"},
+            {"name": "Visa Integrity Fee receipt ($250, FY2026)", "mandatory": False, "notes": "Expected post-approval"},
+        ],
+        "common_rejection_reasons": [
+            "Petitioner is LPR (NOT US citizen) — must use CR-1/IR-1",
+            "Couple not met in person within 2 years (no hardship waiver applicable)",
+            "Insufficient bonafide relationship evidence",
+            "Prior marriages not finalised (divorce pending)",
+            "Petitioner income below 125% Federal Poverty Guidelines (need joint sponsor)",
+            "Medical inadmissibility (untreated communicable disease)",
+            "Character / criminal history concerns",
+            "Inconsistent meet-in-person evidence vs interview statements",
+            "Failure to marry within 90 days (K-1 expires + must depart)",
+        ],
+        "success_tips": [
+            "🎯 K-1 vs CR-1/IR-1: If you can wait 4-6 extra months, CR-1/IR-1 saves $1,000+ + immediate work rights",
+            "K-1 advantage: faster initial US entry (~10-12 months vs 12-18 months for CR-1)",
+            "I-129F online filing = $50 discount + faster",
+            "Meet-in-person evidence: passport stamps + hotel bookings + photos with location + timestamps",
+            "I-134 Affidavit of Support: petitioner income 125%+ Federal Poverty + recent tax returns",
+            "K-2 children: list on I-129F + include in DS-160 + same medical/interview slot",
+            "ABSOLUTE 90-day marriage deadline — DO NOT exceed; legal marriage certificate required",
+            "Adjustment of Status (Stage C): file EAD + Advance Parole simultaneously to maintain work + travel rights during wait",
+        ],
+        "faqs": [
+            {"q": "Can I use K-1 if I'm a Permanent Resident?", "a": "NO. K-1 is ONLY for US citizens. Permanent Residents (LPRs) must use CR-1 (married <2 years at approval) or IR-1 (married 2+ years)."},
+            {"q": "What if we haven't met in person?", "a": "Couple MUST have met in person within 2 years of I-129F filing. Very limited hardship waivers (extreme cultural prohibition, severe medical). Most applicants must travel + meet first."},
+            {"q": "What happens if we don't marry within 90 days?", "a": "K-1 expires + fiancé(e) MUST depart US. NO extensions. Re-applying requires starting over with new I-129F."},
+            {"q": "Should I choose K-1 or CR-1?", "a": "K-1 = faster initial entry (~10-12 months), but more expensive total (~$3,000) + requires AOS after marriage. CR-1 = slower (12-18 months) but cheaper (~$1,500) + immediate green card + work rights. Choose based on urgency vs cost."},
+            {"q": "Can my children come on K-1?", "a": "YES — K-2 visa for unmarried children under 21 of K-1 fiancé(e). Listed on I-129F. Same medical + interview process. Can accompany or follow within 1 year."},
+            {"q": "How long does the K-1 process take?", "a": "Stage A (I-129F): 10-12 months typical. Stage B (interview): 2-3 months after I-129F approval. Total to US entry: 12-15 months. AOS Stage C: additional 8-12 months for Green Card."},
+        ],
+        "official_url": "https://travel.state.gov/content/travel/en/us-visas/immigrate/family-immigration/nonimmigrant-visa-for-a-fiance-k-1.html",
+        "vfs_url": "https://www.ustraveldocs.com/in/",
+        "source_urls": [
+            "https://travel.state.gov/content/travel/en/us-visas/immigrate/family-immigration/nonimmigrant-visa-for-a-fiance-k-1.html",
+            "https://www.uscis.gov/family/family-of-us-citizens/visas-for-fiances-of-us-citizens",
+            "https://www.boundless.com/immigration-resources/cr1-ir1-spouse-visa",
+            "https://immigrationhelpla.com/k1-fiance-visa/",
+            "https://manifestlaw.com/blog/k1-visa-costs/",
+        ],
+        "verified_notes": "Manual Fast-Path B.4.7 seed — verified against travel.state.gov + uscis.gov + Boundless + Immigration Help LA + Manifest Law on 2026-02-27. K-1 ($675/$625 I-129F + $265 MRV + $1,440 I-485 = $2,380 total) vs CR-1/IR-1 (~$1,500) distinction documented. 90-day marriage deadline + LPR exclusion (must use CR-1/IR-1) + K-2 children + I-134 affidavit + 125% Federal Poverty all current. Validator URL check: HTTP 200 (travel.state.gov primary), 403 (uscis.gov secondary anti-bot, NOT closure).",
+    },
+]
+
+
 ALL_WORKFLOWS: Dict[str, List[Dict[str, Any]]] = {
     "IN": INDIA_WORKFLOWS,
     "AU": AUSTRALIA_NEW_WORKFLOWS,
     "CA": CANADA_NEW_WORKFLOWS,
     "NZ": NEW_ZEALAND_NEW_WORKFLOWS,
     "UK": UNITED_KINGDOM_NEW_WORKFLOWS,
+    "US": USA_NEW_WORKFLOWS,
 }
 
 

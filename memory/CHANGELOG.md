@@ -4,6 +4,87 @@ This file appends every completed phase/feature with dates and verification stat
 
 
 ---
+### 🟢 Sweep B.4.7 — United States NEW (6 Net-New Verified Workflows) + Visa-Name Validator Utility (Feb 27, 2026)
+
+**Atomic Ship — Sub-Slice B.4.7 of MEGA DISPATCH Sweep B.4. FIRST NET-NEW COUNTRY.**
+
+Seeded **6 new United States visa workflows** (no existing B.2 USA workflows). All cleared 14-mandatory-field schema, doc_id pattern `US-{SID}-DOC-NN`, canonical `_b4` audit logs. Plus bundled **`validate_visa_names.py`** utility per Sir's earlier suggestion.
+
+**Workflows seeded (6):**
+
+1. **US-B1-B2** ✅ ACTIVE — Business + Tourist Visitor Visa (combined B-1/B-2). **Fee FY2026: $185 MRV + $250 Visa Integrity Fee = $435 total.** 2 Sept 2025 interview waiver narrowed (age exemptions ended, most renewals need in-person interview). India ESTA non-eligibility documented.
+2. **US-F1** ✅ ACTIVE — Student Visa F-1 (SEVP-certified institution). **$350 SEVIS I-901 + $185 MRV = $535 minimum.** OPT 12mo + STEM 24mo extension (= 36mo total). **2026 reform:** grace period reduced 60d → 30d post-graduation. UK universities & online-only schools excluded from SEVP.
+3. **US-H-1B** ⚠️ REFORM-HEAVY — Specialty Occupation Worker (Cap-Subject + Lottery). **$215 registration (up from $10 — 2,050% jump) + $2,225 small employer / $3,595 large + $2,965 premium.** **🔴 Sept 21, 2025 Presidential Proclamation: $100,000 fee for cap-subject H-1B for beneficiaries OUTSIDE US** — massive barrier for India direct hires (F-1 OPT change-of-status EXEMPT). NEW Form I-129 (02/27/26 dated) mandatory from 1 April 2026. 85,000 annual cap (65k regular + 20k advanced degree) via March lottery.
+4. **US-L-1** ✅ ACTIVE — Intracompany Transferee (L-1A Executive/Managerial 7-yr + L-1B Specialized Knowledge 5-yr). **$1,385 I-129 base + $500 Fraud + $600 Asylum + $2,965 premium = $5,450 total with premium.** L-1A direct EB-1C green card path; L-1B requires EB-2/EB-3 PERM. Blanket L-1 eligibility for large MNCs (10+ L-1s / $25M+ sales / 1,000+ employees) documented.
+5. **US-EB-1-EB-2** ✅ ACTIVE — Employment-Based Green Card (EB-1 Priority Workers + EB-2 Advanced Degree / NIW combined). **$715 I-140 + $1,440 I-485 + $2,965 premium (NEW for I-140 in 2025+).** EB-1A self-petition (no PERM, no employer) + EB-2 NIW (self-petition with 3-prong test) distinguished from EB-1B/EB-1C/EB-2-standard (PERM-based). **India backlog: ~10-15 years EB-2** documented. March 1, 2026 Premium Processing fee hike to $2,965 reflected.
+6. **US-K-1** ✅ ACTIVE — Fiancé(e) Visa (US Citizen petitioner only). **$675 paper / $625 online I-129F + $265 MRV + $1,440 I-485 = $2,380 total to GC.** 90-day marriage deadline (absolute). LPR petitioners EXCLUDED (must use CR-1/IR-1). K-2 children attached. CR-1/IR-1 (~$1,500) vs K-1 (~$3,000) cost comparison documented.
+
+**🔧 Visa-Name Validator Utility (`backend/scripts/validate_visa_names.py`):**
+- New 180-line utility for pre-seed URL validation against official .gov sites
+- Inspired by NZ B.4.5 (4 corrections) + UK B.4.6 (Tech Nation status) — makes corrections discoverable BEFORE seed time
+- Supports inline USA visa list + arbitrary country JSON files
+- HTTP HEAD with GET fallback (handles .gov anti-bot 403/405)
+- Best-of primary + secondary URL check
+- Exit-non-zero on WARN/ERR for CI gating
+
+**Validator Run Results on 6 USA Visa Names:**
+- ✅ 4/6 HTTP 200 OK directly (B-1/B-2, F-1, K-1 primary travel.state.gov, plus H-1B secondary)
+- ⚠️ 2/6 HTTP 403 on uscis.gov primary URLs (L-1, EB-1/EB-2) — **uscis.gov anti-bot HEAD blocking, NOT actual closure**
+- Both flagged visas confirmed ACTIVE via independent Feb 2026 web research from authoritative immigration counsel sources (Berardi Immigration Law, Ogletree Deakins, MVA Law, Law Office Immigration, Newland Chase, Seyfarth Shaw, Murthy Law, GoZee Law)
+- All 6 visas seeded as ACTIVE based on policy research; validator artefact (403) documented transparently in `verified_notes` for L-1 + EB-1/EB-2
+
+**Sources verified (Feb 27, 2026):**
+- `travel.state.gov` — B-1/B-2, F-1 visa info, K-1 nonimmigrant, employment-temporary, visa fees page, interview waiver July 2025 update, Visa Bulletin April/May 2026
+- `uscis.gov` — H-1B specialty, L-1A managerial, L-1B specialized, EB-1 priority workers, EB-2 advanced degree, K-1 family, OPT/F-1 students
+- `studyinthestates.dhs.gov` — SEVP/SEVIS portal
+- `fmjfee.com` — SEVIS payment portal
+- Specialist counsel: Beyond Border Global (Visa Integrity Fee + EB-1 costs), Seyfarth Shaw (USCIS April 2024 fees), Murthy Law (new Form I-129), GoZee Law (FY2026 H-1B + green card), Ogletree Deakins (Premium Processing hike March 2026), Manifest Law, Berardi Immigration, Davidson Morris, EIG Law
+
+**Reforms / current status accurately captured:**
+- ✅ FY2026 Visa Integrity Fee $250 (B-1/B-2 confirmed; F-1 expected; H-1B applies)
+- ✅ 2 Sept 2025 — most interview waivers ENDED (age exemptions + most renewals)
+- ✅ April 2024 USCIS fee schedule + 1 April 2026 new Form I-129 (02/27/26 version)
+- ✅ March 1, 2026 Premium Processing $2,805 → $2,965 (all categories including new I-140 premium)
+- ✅ H-1B Registration $10 → $215 (2,050% jump for FY2026 cap season)
+- ✅ Sept 21, 2025 Presidential Proclamation $100,000 cap-subject offshore beneficiary fee
+- ✅ Asylum Program Fee NEW 2024: $300 small / $600 large employer
+- ✅ 2026 "Beautiful Act" — F-1 grace period 60d → 30d post-graduation
+- ✅ OPT 12mo + STEM 24mo extension (36mo total)
+- ✅ India backlog EB-2 ~10-15 yrs documented
+- ✅ March 2026 Visa Bulletin acceleration stopped May 2026 (EB-1/EB-2 current for all other countries)
+
+**Backend infra changes (US country aliases + service types):**
+- 📝 `backend/routers/country_workflows.py` — `COUNTRY_ALIAS_MAP` extended with US entries: "united states", "us", "usa", "u.s.", "u.s.a.", "united states of america", "america" → US
+- 📝 `backend/routers/ai_workflow_builder.py` — `COUNTRY_REFERENCES["usa"]` enhanced with Feb 2026 fees + Sept 2025 Proclamation context. Added `COUNTRY_REFERENCES["united_states"]` + `COUNTRY_REFERENCES["us"]` (same content). All US service_types covered: visitor / student / work / pr / partner / immigrant / family
+
+**Triple-gate verification:**
+- 🟢 Seed `inserted=6 skipped=0 errored=0`; idempotency `inserted=0 skipped=6`
+- 🟢 **ALL 6 integrity-checked:** 14 mandatory fields present · 97 docs (16+15+16+16+16+18) all with `US-{SID}-DOC-NN` doc_id · 6/6 canonical `_b4` audit logs
+- 🟢 Fast-path live curl (parallel 4 calls): US/visitor → US-B1-B2 (138ms) · US/student → US-F1 (138ms) · US/pr → US-EB-1-EB-2 (203ms) · USA/partner → US-K-1 (137ms) — all unique service_types resolve correctly · "USA" alias (uppercase) also works
+- 🟢 **DB total verified workflows: 68** (AU=16, CA=12, IN=12, NZ=10, UK=12, US=6) — increased from 62
+- 🟢 **Audit log counts: `_b4`=44 (12 IN + 10 AU + 6 CA + 4 NZ + 6 UK + 6 US), `_b2`=24** (B.2 originals preserved unchanged)
+- 🟢 Validator utility integrated + run results documented (4 OK / 2 anti-bot 403 acknowledged as artefact)
+
+**Files modified/created (3):**
+- 📝 `backend/scripts/seed_country_workflows_b4.py` — `USA_NEW_WORKFLOWS` list (6 dicts, ~1,600 lines) added + `ALL_WORKFLOWS["US"]` mapping. File now ~6,400 lines (B.4.2-7 combined).
+- 📝 `backend/routers/country_workflows.py` — `COUNTRY_ALIAS_MAP` extended with 7 US aliases
+- 📝 `backend/routers/ai_workflow_builder.py` — `COUNTRY_REFERENCES["usa"]` enhanced + added "united_states" + "us" entries with Feb 2026 fee context
+- 🆕 `backend/scripts/validate_visa_names.py` — NEW visa-name validation utility (~180 lines, async httpx-based)
+
+**Highlighted observations:**
+- **First fully net-new country in MEGA DISPATCH B.4** — no prior B.2 USA seeds existed; 6/6 fresh
+- **Most complex fee structure** of any country in the dataset (H-1B alone has 7 distinct fee components + Sept 2025 Proclamation $100k variant)
+- **Sept 2025 Presidential Proclamation $100,000 fee** flagged prominently as major barrier for India direct H-1B hires — most consequential 2026 policy change in the dataset
+- **EB-1/EB-2 combined workflow** correctly documents 5 sub-categories (EB-1A self-petition + EB-1B research + EB-1C multinational + EB-2 standard PERM + EB-2 NIW self-petition) with clear distinctions
+- **Validator utility (`validate_visa_names.py`)** establishes future pattern — Sir can use for B.4.8 Germany + B.4.9 Schengen pre-seed validation
+- **DOS vs USCIS fee split** transparently documented in fees_breakdown (e.g. H-1B: $215 reg + $2,225 USCIS gov fees + $205 DOS consular MRV + $250 DOS Visa Integrity Fee)
+
+**Pending Sweep B.4 (P0 next):**
+- 🇩🇪 B.4.8 — Germany NEW (6 visas — first EU country)
+- 🇪🇺 B.4.9 — Schengen NEW (6 visas — multi-country Schengen Area visa types)
+
+
+---
 ### 🟢 Sweep B.4.6 — United Kingdom EXPANSION (6 New Verified Workflows) (Feb 27, 2026)
 
 **Atomic Ship — Sub-Slice B.4.6 of MEGA DISPATCH Sweep B.4.**

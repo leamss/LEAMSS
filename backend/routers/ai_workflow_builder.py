@@ -85,11 +85,31 @@ COUNTRY_REFERENCES = {
         "partner": "Partner of a New Zealander Resident Visa. Reference: immigration.govt.nz. Genuine and stable relationship, 12+ months cohabitation evidence."
     },
     "usa": {
-        "visitor": "B-1/B-2 Visitor Visa. Reference: travel.state.gov.",
-        "student": "F-1 Student Visa. Reference: studyinthestates.dhs.gov.",
-        "work": "H-1B Specialty Occupation. Reference: uscis.gov.",
+        "visitor": "B-1/B-2 Visitor Visa. Reference: travel.state.gov. MRV $185 + Visa Integrity Fee $250 (FY2026) = $435 total. Interview waiver narrowed 2 Sept 2025.",
+        "student": "F-1 Student Visa. Reference: studyinthestates.dhs.gov. SEVIS $350 + MRV $185 = $535. OPT 12mo + STEM 24mo extension. Grace period 30d post-2026 reform.",
+        "work": "H-1B Specialty Occupation / L-1 Intracompany Transferee. Reference: uscis.gov. H-1B: $215 reg + $2,225 small employer / $3,595 large + 85k cap lottery March. Sept 2025 Proclamation $100k fee for cap-subject offshore. L-1A 7yr + EB-1C path; L-1B 5yr.",
+        "pr": "EB-1 (Priority Workers — self-petition for EB-1A) / EB-2 NIW (self-petition with national interest) / EB-1B (researcher) / EB-1C (multinational manager from L-1A) / EB-2 Standard (PERM + employer). Reference: uscis.gov. I-140 $715 + I-485 $1,440 + Premium $2,965. India backlog 10-15+ yrs EB-2.",
+        "partner": "K-1 Fiancé Visa (US Citizen petitioner only) followed by AOS within 90 days. Reference: travel.state.gov. $675 I-129F + $265 MRV + $1,440 I-485. Compare CR-1/IR-1 for already-married couples.",
         "immigrant": "EB-1/EB-2/EB-3 Employment-Based Green Card. Reference: uscis.gov.",
-        "family": "Family-Based Immigration. Reference: uscis.gov."
+        "family": "Family-Based Immigration (K-1, CR-1, IR-1, F1, F2A, F2B, F3, F4). Reference: uscis.gov."
+    },
+    "united_states": {
+        "visitor": "B-1/B-2 Visitor Visa. Reference: travel.state.gov. MRV $185 + Visa Integrity Fee $250 (FY2026) = $435 total. Interview waiver narrowed 2 Sept 2025.",
+        "student": "F-1 Student Visa. Reference: studyinthestates.dhs.gov. SEVIS $350 + MRV $185 = $535. OPT 12mo + STEM 24mo extension. Grace period 30d post-2026 reform.",
+        "work": "H-1B Specialty Occupation / L-1 Intracompany Transferee. Reference: uscis.gov. H-1B: $215 reg + $2,225 small employer / $3,595 large + 85k cap lottery March. Sept 2025 Proclamation $100k fee for cap-subject offshore. L-1A 7yr + EB-1C path; L-1B 5yr.",
+        "pr": "EB-1 (Priority Workers — self-petition for EB-1A) / EB-2 NIW (self-petition with national interest) / EB-1B (researcher) / EB-1C (multinational manager from L-1A) / EB-2 Standard (PERM + employer). Reference: uscis.gov. I-140 $715 + I-485 $1,440 + Premium $2,965. India backlog 10-15+ yrs EB-2.",
+        "partner": "K-1 Fiancé Visa (US Citizen petitioner only) followed by AOS within 90 days. Reference: travel.state.gov. $675 I-129F + $265 MRV + $1,440 I-485. Compare CR-1/IR-1 for already-married couples.",
+        "immigrant": "EB-1/EB-2/EB-3 Employment-Based Green Card. Reference: uscis.gov.",
+        "family": "Family-Based Immigration (K-1, CR-1, IR-1, F1, F2A, F2B, F3, F4). Reference: uscis.gov."
+    },
+    "us": {
+        "visitor": "B-1/B-2 Visitor Visa. Reference: travel.state.gov. MRV $185 + Visa Integrity Fee $250 (FY2026) = $435 total. Interview waiver narrowed 2 Sept 2025.",
+        "student": "F-1 Student Visa. Reference: studyinthestates.dhs.gov. SEVIS $350 + MRV $185 = $535. OPT 12mo + STEM 24mo extension. Grace period 30d post-2026 reform.",
+        "work": "H-1B Specialty Occupation / L-1 Intracompany Transferee. Reference: uscis.gov. H-1B: $215 reg + $2,225 small employer / $3,595 large + 85k cap lottery March. Sept 2025 Proclamation $100k fee for cap-subject offshore. L-1A 7yr + EB-1C path; L-1B 5yr.",
+        "pr": "EB-1 (Priority Workers — self-petition for EB-1A) / EB-2 NIW (self-petition with national interest) / EB-1B (researcher) / EB-1C (multinational manager from L-1A) / EB-2 Standard (PERM + employer). Reference: uscis.gov. I-140 $715 + I-485 $1,440 + Premium $2,965. India backlog 10-15+ yrs EB-2.",
+        "partner": "K-1 Fiancé Visa (US Citizen petitioner only) followed by AOS within 90 days. Reference: travel.state.gov. $675 I-129F + $265 MRV + $1,440 I-485. Compare CR-1/IR-1 for already-married couples.",
+        "immigrant": "EB-1/EB-2/EB-3 Employment-Based Green Card. Reference: uscis.gov.",
+        "family": "Family-Based Immigration (K-1, CR-1, IR-1, F1, F2A, F2B, F3, F4). Reference: uscis.gov."
     },
     "singapore": {
         "visitor": "Tourist Visa. Reference: ica.gov.sg.",
