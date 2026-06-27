@@ -63,13 +63,22 @@ COUNTRY_REFERENCES = {
         "visitor": "Standard Visitor Visa. Reference: gov.uk.",
         "work": "Skilled Worker Visa. Reference: gov.uk. CoS from licensed employer, minimum salary, English requirement.",
         "student": "Student Visa. Reference: gov.uk. CAS from licensed sponsor, financial requirement.",
-        "family": "Family Visa. Reference: gov.uk. Spouse/partner/parent route, financial requirement £18,600+."
+        "partner": "Family / Spouse Visa (Appendix FM). Reference: gov.uk. Sponsor income requirement, relationship evidence, English at A1/A2/B1 stages.",
+        "family": "Family / Spouse Visa (Appendix FM). Reference: gov.uk. Sponsor income requirement, relationship evidence, English at A1/A2/B1 stages."
+    },
+    "united_kingdom": {
+        "visitor": "Standard Visitor Visa. Reference: gov.uk.",
+        "work": "Skilled Worker Visa. Reference: gov.uk. CoS from licensed employer, minimum salary, English requirement.",
+        "student": "Student Visa. Reference: gov.uk. CAS from licensed sponsor, financial requirement.",
+        "partner": "Family / Spouse Visa (Appendix FM). Reference: gov.uk. Sponsor income requirement, relationship evidence, English at A1/A2/B1 stages.",
+        "family": "Family / Spouse Visa (Appendix FM). Reference: gov.uk. Sponsor income requirement, relationship evidence, English at A1/A2/B1 stages."
     },
     "new_zealand": {
         "visitor": "Visitor Visa. Reference: immigration.govt.nz.",
         "pr": "Skilled Migrant Category. Reference: immigration.govt.nz. EOI, points-based.",
-        "work": "Essential Skills Work Visa. Reference: immigration.govt.nz.",
-        "student": "Fee Paying Student Visa. Reference: immigration.govt.nz."
+        "work": "Essential Skills Work Visa / Accredited Employer Work Visa. Reference: immigration.govt.nz.",
+        "student": "Fee Paying Student Visa. Reference: immigration.govt.nz.",
+        "partner": "Partner of a New Zealander Resident Visa. Reference: immigration.govt.nz. Genuine and stable relationship, 12+ months cohabitation evidence."
     },
     "usa": {
         "visitor": "B-1/B-2 Visitor Visa. Reference: travel.state.gov.",
@@ -368,6 +377,7 @@ async def get_visa_categories(data: VisaCategoriesRequest, current_user: dict = 
                 "name": svc_key.replace("_", " ").title(),
                 "description": ref_info.split(". ")[0] if ". " in ref_info else ref_info,
                 "category": svc_key,
+                "service_type": svc_key,  # B.2 HOTFIX — canonical token for /generate
                 "official_url": url,
                 "estimated_fees": "",
                 "reference": ref_info,
@@ -375,13 +385,15 @@ async def get_visa_categories(data: VisaCategoriesRequest, current_user: dict = 
 
     # Try AI enrichment (optional - won't fail if budget exceeded)
     try:
-        example = '[{"id":"subclass_189","name":"Subclass 189 - Skilled Independent","description":"Points-based visa for skilled workers","category":"skilled_migration","official_url":"https://homeaffairs.gov.au/...","estimated_fees":"AUD $4,910"}]'
+        example = '[{"id":"subclass_189","name":"Subclass 189 - Skilled Independent","description":"Points-based visa for skilled workers","category":"skilled_migration","service_type":"pr","official_url":"https://homeaffairs.gov.au/...","estimated_fees":"AUD $4,910"}]'
         prompt = (
             f'List ALL visa categories and subclasses for {data.country} with subclass numbers where applicable. '
-            f'Include official government page URLs and current application fees. '
+            f'Include official government page URLs and current application fees. For each item include a '
+            f'"service_type" field with one of: "pr" (permanent residence/skilled migration), "work" (work permits), '
+            f'"student" (study visas), "visitor" (tourist/business visit), "partner" (spouse/family). '
             f'Return ONLY a JSON array. Example: {example}'
         )
-        system_msg = "Immigration visa expert. List ALL visa subclasses with official URLs and fees. Return ONLY valid JSON."
+        system_msg = "Immigration visa expert. List ALL visa subclasses with official URLs and fees. Each item MUST have a canonical service_type from {pr,work,student,visitor,partner}. Return ONLY valid JSON."
         response = await _call_gpt(prompt, system_msg)
         cleaned = response.strip()
         if cleaned.startswith("```"):
@@ -392,6 +404,27 @@ async def get_visa_categories(data: VisaCategoriesRequest, current_user: dict = 
         if start >= 0 and end > start:
             ai_cats = json.loads(cleaned[start:end])
             if isinstance(ai_cats, list) and len(ai_cats) > 0:
+                # B.2 HOTFIX — ensure each AI item has canonical service_type
+                # If AI omitted it, infer from name/category via keyword scan
+                _SERVICE_KEYWORD_INFER = (
+                    ("pr", ["skilled", "permanent", "express entry", "smc", "pnp", "innovator", "subclass 189", "subclass 190", "subclass 491", "global talent", "green list"]),
+                    ("work", ["work", "worker", "tss", "h-1b", "lmia", "aewv", "employment"]),
+                    ("student", ["student", "study", "tier 4", "f-1", "d-2", "cas"]),
+                    ("visitor", ["visit", "tourist", "trv", "b-1", "b-2", "working holiday"]),
+                    ("partner", ["partner", "spouse", "family", "marriage", "appendix fm"]),
+                )
+                for item in ai_cats:
+                    if not isinstance(item, dict):
+                        continue
+                    if item.get("service_type"):
+                        item["service_type"] = str(item["service_type"]).lower().strip()
+                        continue
+                    # Infer from name/category
+                    text_blob = f"{item.get('name','')} {item.get('category','')} {item.get('description','')}".lower()
+                    for canonical, keywords in _SERVICE_KEYWORD_INFER:
+                        if any(kw in text_blob for kw in keywords):
+                            item["service_type"] = canonical
+                            break
                 categories = ai_cats  # AI gave better data, use it
     except Exception:
         pass  # AI failed (budget, timeout etc) - use hardcoded data

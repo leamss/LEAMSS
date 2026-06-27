@@ -87,20 +87,45 @@ const AIWorkflowBuilder = () => {
     setLoadingVisa(false);
   };
 
-  const generateWorkflow = async (visaName) => {
+  const generateWorkflow = async (visaSelection) => {
     // Sweep A.2 — Background-job pattern. POST returns instantly with job_id;
     // poll /generate/status/{job_id} until status=complete|failed.
+    // B.2 HOTFIX (Feb 27) — visaSelection may be an object (preferred, from visa card)
+    // OR a string (legacy / custom instruction path). Prefer canonical service_type.
+    const visaName = (visaSelection && typeof visaSelection === 'object')
+      ? (visaSelection.service_type || visaSelection.category || visaSelection.name || '')
+      : (visaSelection || '');
+    const visaSubclassId = (visaSelection && typeof visaSelection === 'object') ? (visaSelection.subclass_id || '') : '';
     setGenerating(true); setView('review'); setJobError(''); setCachedHit(false); setJobProgress(0); setJobStep('queued'); setWorkflow(null);
     let pollTimer = null;
     let cancelled = false;
     try {
       const r = await axios.post(`${API}/ai-workflow/generate`,
-        { country: selectedCountry.name, service_type: visaName || '', custom_instructions: customInstructions },
+        { country: selectedCountry.name, service_type: visaName, subclass_id: visaSubclassId, custom_instructions: customInstructions },
         auth());
       const jid = r.data.job_id;
       setJobId(jid);
 
-      // Cache hit — done in one shot
+      // B.2 HOTFIX — Seeded fastpath: response is already complete (no polling needed)
+      if (r.data.status === 'complete' && r.data.result) {
+        setWorkflow(r.data.result);
+        const exp = {}; (r.data.result.steps || []).forEach((_, i) => { exp[i] = true; }); setExpandedSteps(exp);
+        setJobProgress(100); setJobStep('done');
+        const isSeeded = r.data.source === 'seeded_verified';
+        if (isSeeded) {
+          toast.success('Loaded verified template — instant ⚡');
+          setWorkflowSource('verified'); setVerified(true);
+        } else {
+          toast.success('Loaded from cache — instant ⚡');
+          setWorkflowSource('ai'); setVerified(false);
+        }
+        setCachedHit(!isSeeded);
+        if (selectedCountry?.name) loadGovForms(selectedCountry.name);
+        setGenerating(false);
+        return;
+      }
+
+      // Cache hit (legacy code path)
       if (r.data.cached && r.data.result) {
         setWorkflow(r.data.result);
         const exp = {}; (r.data.result.steps || []).forEach((_, i) => { exp[i] = true; }); setExpandedSteps(exp);
@@ -353,7 +378,7 @@ const AIWorkflowBuilder = () => {
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {visaCategories.map((vc, i) => (
-                  <div key={vc.id || i} onClick={() => { setSelectedVisa(vc); generateWorkflow(vc.name); }}
+                  <div key={vc.id || i} onClick={() => { setSelectedVisa(vc); generateWorkflow(vc); }}
                        className="p-5 bg-white rounded-xl border border-slate-200 hover:border-[#2a777a]/40 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer group"
                        data-testid={`visa-${vc.id}`}>
                     <div className="flex items-start justify-between gap-3">

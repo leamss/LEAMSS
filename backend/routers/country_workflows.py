@@ -18,6 +18,7 @@ Endpoints (all `/api/country-workflows` prefix):
 import asyncio
 import json
 import logging
+import re
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -576,22 +577,95 @@ async def ai_draft_status(job_id: str, current_user: dict = Depends(get_current_
 
 
 # ── Public helper: lookup verified workflow (used by /api/ai-workflow/generate) ─
-async def find_verified_workflow(country_name: str, service_type: str, subclass_id: Optional[str] = None) -> Optional[dict]:
-    """Returns first verified workflow matching country_name (case-insensitive) + service_type.
+#
+# B.2 HOTFIX (Feb 27, 2026) — Liberal input acceptance to prevent fastpath misses
+# Frontend may send country as full name ("Australia"), ISO code ("AU"), or alias.
+# service_type may arrive title-cased ("Pr"), as a phrase ("Permanent Residency"),
+# or as a known synonym ("family", "spouse"). Conservative canonical mapping below
+# normalises both inputs before MongoDB lookup. NO aggressive keyword fallback —
+# unrecognised tokens cleanly fall through to the AI generation path.
 
-    If subclass_id given, prefers an exact match; otherwise returns any verified for that country+service.
-    Returns None if no verified entry exists.
+COUNTRY_ALIAS_MAP: Dict[str, str] = {
+    # Australia
+    "australia": "AU", "au": "AU", "aus": "AU",
+    # Canada
+    "canada": "CA", "ca": "CA", "can": "CA",
+    # New Zealand
+    "new zealand": "NZ", "nz": "NZ", "newzealand": "NZ", "aotearoa": "NZ",
+    # United Kingdom
+    "united kingdom": "UK", "uk": "UK", "gb": "UK", "gbr": "UK",
+    "great britain": "UK", "britain": "UK", "england": "UK",
+}
+
+SERVICE_TYPE_CANONICAL_MAP: Dict[str, str] = {
+    # Canonical (already lowercased — pass-through)
+    "pr": "pr", "work": "work", "student": "student", "visitor": "visitor", "partner": "partner",
+    # Common variants/phrases (lowercased keys)
+    "permanent residency": "pr", "permanent residence": "pr",
+    "permanent resident": "pr", "residency": "pr", "immigration": "pr",
+    "skilled migration": "pr", "skilled migrant": "pr",
+    "work permit": "work", "work visa": "work", "employment": "work",
+    "study": "student", "study permit": "student", "study visa": "student", "education": "student",
+    "tourist": "visitor", "visit": "visitor", "tourism": "visitor", "business visit": "visitor",
+    "family": "partner", "spouse": "partner", "spousal": "partner",
+    "marriage": "partner", "spouse/family": "partner", "family/partner": "partner",
+}
+
+
+def _normalise_country(country: str) -> Dict[str, Optional[str]]:
+    """Resolve country input to (country_code, country_name_pattern).
+
+    Returns dict with keys 'code' (if alias matched) and 'name_regex' (always).
     """
-    q: Dict[str, Any] = {
+    raw = (country or "").strip()
+    lowered = raw.lower()
+    code = COUNTRY_ALIAS_MAP.get(lowered)
+    return {"code": code, "name_regex": re.escape(raw)}
+
+
+def _normalise_service_type(service_type: str) -> Optional[str]:
+    """Resolve service_type input to canonical token (pr|work|student|visitor|partner).
+
+    Conservative — only exact matches against canonical map (case-insensitive).
+    Returns None if no canonical match (caller should fall through to AI path).
+    """
+    raw = (service_type or "").strip().lower()
+    return SERVICE_TYPE_CANONICAL_MAP.get(raw)
+
+
+async def find_verified_workflow(country_name: str, service_type: str, subclass_id: Optional[str] = None) -> Optional[dict]:
+    """Returns first verified workflow matching country + service_type.
+
+    Liberal input acceptance:
+      - country: full name ("Australia"), ISO code ("AU"), or common alias ("UK"/"GB")
+      - service_type: canonical token ("pr") OR title-cased ("Pr") OR synonym ("family"→"partner")
+
+    If subclass_id given, prefers exact match; otherwise returns any verified for
+    country+service. Returns None if no verified entry exists OR if service_type
+    isn't a canonical immigration category (AI path will handle).
+    """
+    country_resolved = _normalise_country(country_name)
+    canonical_svc = _normalise_service_type(service_type)
+
+    if not canonical_svc:
+        # Unrecognised service_type — let AI path handle it
+        return None
+
+    base_q: Dict[str, Any] = {
         "status": "verified",
-        "country_name": {"$regex": f"^{country_name}$", "$options": "i"},
-        "service_type": service_type,
+        "service_type": canonical_svc,
     }
+    if country_resolved["code"]:
+        # Strong match via ISO code (canonical)
+        base_q["country_code"] = country_resolved["code"]
+    else:
+        # Fallback: case-insensitive country_name regex
+        base_q["country_name"] = {"$regex": f"^{country_resolved['name_regex']}$", "$options": "i"}
+
     if subclass_id:
-        q["subclass_id"] = subclass_id
-    doc = await workflows_col.find_one(q, {"_id": 0})
-    if not doc and subclass_id:
-        # Fallback: drop subclass filter
-        del q["subclass_id"]
+        q = {**base_q, "subclass_id": subclass_id}
         doc = await workflows_col.find_one(q, {"_id": 0})
-    return doc
+        if doc:
+            return doc
+        # Fallback: drop subclass filter to return any verified for country+service
+    return await workflows_col.find_one(base_q, {"_id": 0})
