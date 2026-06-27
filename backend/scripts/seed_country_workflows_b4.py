@@ -1299,8 +1299,1004 @@ INDIA_WORKFLOWS: List[Dict[str, Any]] = [
 ]
 
 
+# ──────────────────────────────────────────────────────────────────────────────
+# AUSTRALIA EXPANSION (B.4.3) — 10 new subclasses adding to B.2's existing 6
+# Sources: immi.homeaffairs.gov.au · FY2025-26 rates · 1 Mar 2026 + 1 Jul 2025
+# updates incorporated. FX: 1 AUD ≈ 55 INR (Feb 2026).
+# ──────────────────────────────────────────────────────────────────────────────
+AUSTRALIA_NEW_WORKFLOWS: List[Dict[str, Any]] = [
+    # ── 1. AU-485 — Temporary Graduate (Sir's priority subclass) ────────────────
+    {
+        "country_code": "AU", "country_name": "Australia",
+        "subclass_id": "485",
+        "subclass_name": "Temporary Graduate (Subclass 485)",
+        "service_type": "work", "category": "immigration",
+        "description": (
+            "The Subclass 485 Temporary Graduate visa allows international students who recently "
+            "completed an Australian qualification to live, study, and work in Australia "
+            "temporarily — a stepping stone visa to professional experience, skilled migration "
+            "pathways (189/190/491/186), or further study.\n\n"
+            "Two MAIN streams (renamed 2024): (a) Post-Higher Education Work Stream (formerly "
+            "Post-Study Work — for Bachelor's/Master's/PhD graduates from CRICOS providers); "
+            "(b) Post-Vocational Education Work Stream (formerly Graduate Work — for VET/Diploma "
+            "graduates, requires skills assessment + MLTSSL occupation). Third stream: Second "
+            "Post-Higher Education Work Stream — regional 1-2yr extension.\n\n"
+            "CRITICAL 2026 CHANGES (Mar 2026): Visa Application Charge DOUBLED to AUD 4,600 "
+            "(from AUD 2,300); Age cap reduced to 35 (was 50) — PhD/Masters by Research and "
+            "HK/BNO holders retain under-50 limit; English IELTS 6.5 overall + 5.5 each band "
+            "(within 12 months); Replacement Stream CLOSED to new applications since 1 Jul 2024; "
+            "Onshore Student visa switch barred."
+        ),
+        "eligibility_summary": (
+            "Recent graduate of CRICOS-registered Australian institution with 92+ weeks of "
+            "registered study delivered in English over 16+ calendar months; under 35 at "
+            "application (PhD/Research Masters/HK/BNO under 50); valid Student visa at "
+            "completion; lodge within 6 months of course completion; meet English IELTS 6.5+ "
+            "overall + 5.5 each band (within 12 months)."
+        ),
+        "eligibility_criteria": [
+            {"label": "Age", "value": "Under 35 at time of application (general); Under 50 for Master's by Research / PhD / HK / BNO passport holders", "notes": "Tightened from 50 to 35 — 1 Mar 2026 reform"},
+            {"label": "Australian Study Requirement", "value": "Min 92 weeks of registered study completed in English over 16 calendar months", "notes": "Mandatory; verified via CoE history"},
+            {"label": "Course recency", "value": "Apply within 6 months of course completion date", "notes": "Strict; refusals on lateness"},
+            {"label": "Visa history", "value": "Held valid Student visa during the qualifying study", "notes": "Other temp visas in interim are OK"},
+            {"label": "English (NEW)", "value": "IELTS 6.5 overall + 5.5 each band (or PTE/TOEFL/OET/CAE equivalent)", "notes": "Within 12 months of application (was 3 years)"},
+            {"label": "Skills Assessment (VET stream)", "value": "Required for Post-Vocational Education Work stream", "notes": "Occupation must be on MLTSSL"},
+            {"label": "Health + Character", "value": "Standard requirements; HAP ID + PCCs from 12+ month countries", "notes": ""},
+            {"label": "Health insurance", "value": "Continuous health cover for visa duration", "notes": "Often OSHC continuation or private cover"},
+        ],
+        "fees_local_currency_code": "AUD", "fees_local_currency_amount": 4600, "fees_inr_approx": 253000,
+        "fees_breakdown": [
+            {"component": "Post-Higher Education / Post-Vocational Education streams — Primary (Mar 2026 reform)", "amount": 4600, "currency": "AUD"},
+            {"component": "Second Post-Higher Education Work Stream — Primary", "amount": 1810, "currency": "AUD"},
+            {"component": "Secondary applicant 18+ (main streams)", "amount": 2300, "currency": "AUD"},
+            {"component": "Secondary applicant under 18 (main streams)", "amount": 1160, "currency": "AUD"},
+            {"component": "Reduced fee for Pacific Islands & Timor-Leste passport holders — Primary", "amount": 2300, "currency": "AUD"},
+            {"component": "English test (IELTS/PTE in India)", "amount": 16800, "currency": "INR"},
+            {"component": "Health exam (BUPA panel)", "amount": 6000, "currency": "INR"},
+            {"component": "India PCC", "amount": 500, "currency": "INR"},
+            {"component": "Health insurance (annual)", "amount": 700, "currency": "AUD"},
+        ],
+        "processing_time_days_min": 60, "processing_time_days_max": 180,
+        "step_by_step": [
+            {"step_number": 1, "title": "Confirm Stream + Eligibility", "description": "Identify which stream you qualify for (Post-Higher Education for Bachelor's+; Post-Vocational for VET; Second stream for regional extension).", "estimated_days": 7, "documents_needed": ["Course completion letter", "Academic transcripts"], "tips": ["Cross-check 92-week Australian Study Requirement", "Verify under-35 age cap (or exemption)"]},
+            {"step_number": 2, "title": "English Test (IELTS 6.5+ within 12 months)", "description": "Take IELTS UKVI / PTE Academic / TOEFL iBT / OET / CAE meeting new threshold: 6.5 overall + 5.5 each band.", "estimated_days": 21, "documents_needed": ["Passport"], "tips": ["12-month validity (NEW — was 3 years); plan timing", "PTE faster for retakes"]},
+            {"step_number": 3, "title": "Skills Assessment (Post-Vocational stream only)", "description": "Apply through relevant authority for MLTSSL occupation matching VET qualification.", "estimated_days": 60, "documents_needed": ["VET certificate", "Trade certificate", "Reference letters"], "tips": ["Required ONLY for Post-Vocational stream"]},
+            {"step_number": 4, "title": "Health Insurance Setup", "description": "Arrange continuous health insurance for visa duration (continuation of OSHC or private policy).", "estimated_days": 3, "documents_needed": ["Health insurance policy"], "tips": []},
+            {"step_number": 5, "title": "Lodge Online Application", "description": "Submit via ImmiAccount within 6 months of course completion. Upload all evidence.", "estimated_days": 7, "documents_needed": ["Passport", "Academic completion docs", "English test", "Skills assessment (if VET)", "Insurance policy", "Photo"], "tips": ["Apply ONSHORE preferred — instant bridging visa coverage"]},
+            {"step_number": 6, "title": "Health + PCC", "description": "Complete BUPA health exam + India PCC + PCC from other 12+ month countries.", "estimated_days": 30, "documents_needed": ["HAP ID"], "tips": []},
+            {"step_number": 7, "title": "Visa Grant", "description": "Decision in 2-6 months. Visa duration: Bachelor's/Master's Coursework = 2yr; Master's Research/PhD = 3yr; VET = 18m; HK/BNO = 5yr.", "estimated_days": 120, "documents_needed": [], "tips": ["Bridging visa keeps you onshore during processing"]},
+            {"step_number": 8, "title": "Use as PR Stepping Stone OR Second 485", "description": "Build Australian work experience for points-tested PR pathways (189/190/491) OR apply for Second Post-Higher Ed Work Stream (regional extension 1-2 years).", "estimated_days": 730, "documents_needed": [], "tips": ["Aim for skilled employment in your field — needed for SA + work experience points", "Regional Second 485 if you studied + lived regionally"]},
+        ],
+        "document_checklist": [
+            {"name": "Valid passport (bio + visa pages, 6+ months)", "mandatory": True, "notes": ""},
+            {"name": "Academic completion letter from CRICOS institution", "mandatory": True, "notes": "Confirms course finished"},
+            {"name": "Academic transcripts (full)", "mandatory": True, "notes": ""},
+            {"name": "Confirmation of Enrolment history (CoE)", "mandatory": True, "notes": "Demonstrates 92-week Study Requirement"},
+            {"name": "English test (IELTS 6.5+ / equivalent, within 12 months)", "mandatory": True, "notes": "NEW: 12-month validity"},
+            {"name": "Skills Assessment outcome (Post-Vocational stream)", "mandatory": True, "notes": "MLTSSL only"},
+            {"name": "Health insurance policy (continuous)", "mandatory": True, "notes": ""},
+            {"name": "Form 80 (each adult applicant)", "mandatory": True, "notes": ""},
+            {"name": "Form 1221 (if requested)", "mandatory": False, "notes": ""},
+            {"name": "Health exam (HAP ID via BUPA)", "mandatory": True, "notes": ""},
+            {"name": "Police Clearance Certificates", "mandatory": True, "notes": "India + other 12+ month countries"},
+            {"name": "Passport-size photograph (recent)", "mandatory": True, "notes": ""},
+            {"name": "Marriage / relationship certificate (if including partner)", "mandatory": True, "notes": ""},
+            {"name": "Children's birth certificates (if applicable)", "mandatory": True, "notes": ""},
+            {"name": "Evidence of regional study (Second Post-Higher Ed stream)", "mandatory": False, "notes": ""},
+        ],
+        "common_rejection_reasons": [
+            "Application lodged more than 6 months after course completion",
+            "Age above 35 without qualifying exemption (PhD/Research Masters/HK/BNO)",
+            "English test outside 12-month validity window",
+            "Insufficient evidence of 92-week Australian Study Requirement",
+            "Course not delivered in English",
+            "Skills assessment missing for Post-Vocational stream",
+            "Onshore Student visa held — attempting to switch to 485 onshore (now barred)",
+            "Health insurance gaps during visa duration",
+        ],
+        "success_tips": [
+            "PRIORITISE: Apply onshore before Student visa expiry — bridging visa keeps you in Australia during processing",
+            "Stay aware of 6-month completion-to-lodgement window — strict cap",
+            "Plan English test within 12 months — schedule strategically",
+            "VET applicants: start skills assessment EARLY — 60-90 days backlogs common",
+            "Build Australian work experience during 485 — boosts 189/190/491 EOI points significantly",
+            "Regional study/residence → Second Post-Higher Ed Work stream = 1-2 extra years",
+            "Maintain health insurance gap-free — refusals on missing coverage common",
+            "Lodge complete Form 80 — most-rejected form for adult applicants",
+        ],
+        "faqs": [
+            {"q": "Why did the fee jump to AUD 4,600?", "a": "Effective 1 March 2026, the Visa Application Charge for Post-Higher Education + Post-Vocational Education streams doubled from AUD 2,300. This is part of the broader Migration Strategy reforms. Second stream remains at AUD 1,810."},
+            {"q": "I'm 38 — am I still eligible?", "a": "General age cap was tightened to 35 in 2026. Exemptions: Masters by Research, PhD graduates, Hong Kong (HK) and British National Overseas (BNO) passport holders retain under-50 limit. Otherwise, ineligible."},
+            {"q": "Can I include my partner and children?", "a": "Yes — partner + dependent children can be included. Partner has 48 hours/fortnight work rights (unlimited if you're on Master's by Research or PhD)."},
+            {"q": "How long is the visa valid?", "a": "Post-Higher Ed: 2yr (Bachelor's/Master's Coursework), 3yr (Master's Research/PhD), 5yr (HK/BNO). Post-Vocational: 18 months. Regional Second stream: +1-2 years."},
+            {"q": "Can I switch to Student visa onshore later?", "a": "NO. Onshore Student visa applications by 485 holders are barred since the 2024 reforms. You must exit Australia and apply offshore if returning to study."},
+            {"q": "What about the 2-year extension for skill-shortage degrees?", "a": "ENDED. The temporary 2-year extension (July 2023) for selected degrees in skill shortage areas is no longer available. Only Regional Second stream remains as an extension pathway."},
+        ],
+        "official_url": "https://immi.homeaffairs.gov.au/visas/getting-a-visa/visa-listing/temporary-graduate-485",
+        "vfs_url": "https://visa.vfsglobal.com/ind/en/aus/",
+        "source_urls": [
+            "https://immi.homeaffairs.gov.au/visas/getting-a-visa/visa-listing/temporary-graduate-485",
+            "https://immi.homeaffairs.gov.au/visas/getting-a-visa/visa-listing/temporary-graduate-485/post-higher-education-work",
+            "https://immi.homeaffairs.gov.au/visas/getting-a-visa/visa-listing/temporary-graduate-485/post-vocational-education-work",
+            "https://www.studyaustralia.gov.au/en/Agent-Hub/agent-news-index/changes-to-the-temporary-graduate-subclass-485-visa",
+        ],
+        "verified_notes": "Manual Fast-Path B.4.3 seed — verified against immi.homeaffairs.gov.au + studyaustralia.gov.au on 2026-02-27. Mar 2026 fee doubling + age 35 cap + IELTS 6.5/12-month validity all reflected. Replacement stream closure (1 Jul 2024) + onshore Student barred + 2-year skill-shortage extension ended documented.",
+    },
+
+    # ── 2. AU-186 — Employer Nomination Scheme (ENS PR) ────────────────────────
+    {
+        "country_code": "AU", "country_name": "Australia",
+        "subclass_id": "186",
+        "subclass_name": "Employer Nomination Scheme (Subclass 186)",
+        "service_type": "pr", "category": "immigration",
+        "description": (
+            "The Subclass 186 Employer Nomination Scheme (ENS) visa is a permanent residence visa "
+            "for skilled workers nominated by their Australian employer. Three streams: (a) Direct "
+            "Entry — skilled workers offshore or onshore who have NOT held 482/457; (b) Temporary "
+            "Residence Transition (TRT) — 482/457 holders with 2+ years working for the same "
+            "employer; (c) Labour Agreement — under specific industry agreements.\n\n"
+            "Full PR rights from day one (work + study + Medicare + citizenship pathway). The "
+            "TRT stream is the most common pathway for 482 holders. Employer must be approved "
+            "Standard Business Sponsor + pay SAF Levy (one-off ENS: AUD 3,000 small / AUD 5,000 large)."
+        ),
+        "eligibility_summary": (
+            "Under 45 at application (with limited exemptions); positive skills assessment + "
+            "3+ years relevant experience (Direct Entry); OR 2+ years on 482/457 with the "
+            "nominating employer (TRT); Competent English (IELTS 6.0 each band); occupation on "
+            "MLTSSL; health + character."
+        ),
+        "eligibility_criteria": [
+            {"label": "Age", "value": "Under 45 at application (general); some exemptions for high-income, academic + medical workers", "notes": ""},
+            {"label": "English", "value": "Competent English (IELTS 6.0 each band, or equivalent)", "notes": "Some exemptions for UK/USA/Can/NZ/Ireland passport holders"},
+            {"label": "Skills Assessment + experience (Direct Entry)", "value": "Positive SA + 3+ years' full-time experience in nominated occupation", "notes": "Occupation must be on MLTSSL"},
+            {"label": "Visa history (TRT)", "value": "Held 482 / 457 / bridging visa for 2+ years with nominating employer", "notes": "Same role + same employer"},
+            {"label": "Employer", "value": "Approved Standard Business Sponsor (SBS); nominates position + you", "notes": "Employer pays SAF levy + nomination fee"},
+            {"label": "Occupation", "value": "On Medium and Long-term Strategic Skills List (MLTSSL)", "notes": "Or Labour Agreement-specific list"},
+            {"label": "Salary", "value": "Meet Annual Market Salary Rate (AMSR) for the position", "notes": "Minimum ~AUD 73,150 (TSMIT) often a floor"},
+            {"label": "Health + Character", "value": "Standard requirements", "notes": ""},
+        ],
+        "fees_local_currency_code": "AUD", "fees_local_currency_amount": 4770, "fees_inr_approx": 262350,
+        "fees_breakdown": [
+            {"component": "Visa Application Charge — Primary (FY2025-26, before 1 Jul 2026 hike)", "amount": 4770, "currency": "AUD"},
+            {"component": "Visa Application Charge — Primary (effective 1 Jul 2026, NEW)", "amount": 5045, "currency": "AUD"},
+            {"component": "Secondary applicant 18+", "amount": 2385, "currency": "AUD"},
+            {"component": "Dependent child <18", "amount": 1195, "currency": "AUD"},
+            {"component": "Second instalment (Functional English not met)", "amount": 4885, "currency": "AUD"},
+            {"component": "Nomination Application (employer-paid)", "amount": 540, "currency": "AUD"},
+            {"component": "SAF Levy (small business <AUD 10M turnover — one-off ENS)", "amount": 3000, "currency": "AUD"},
+            {"component": "SAF Levy (large business >AUD 10M turnover — one-off ENS)", "amount": 5000, "currency": "AUD"},
+            {"component": "Skills assessment", "amount": 800, "currency": "AUD"},
+            {"component": "English test", "amount": 16800, "currency": "INR"},
+            {"component": "Health + PCC", "amount": 6500, "currency": "INR"},
+        ],
+        "processing_time_days_min": 180, "processing_time_days_max": 540,
+        "step_by_step": [
+            {"step_number": 1, "title": "Confirm Employer SBS Status + Stream", "description": "Verify employer is currently approved as Standard Business Sponsor. Determine: Direct Entry vs TRT.", "estimated_days": 14, "documents_needed": ["SBS confirmation"], "tips": ["TRT is faster + less documentation if you're already on 482"]},
+            {"step_number": 2, "title": "Skills Assessment (Direct Entry)", "description": "Apply through relevant authority for MLTSSL occupation. Skip if TRT.", "estimated_days": 60, "documents_needed": ["Degree", "Reference letters"], "tips": []},
+            {"step_number": 3, "title": "English Test", "description": "Competent English (IELTS 6.0 each band) unless passport exempt.", "estimated_days": 21, "documents_needed": ["Passport"], "tips": []},
+            {"step_number": 4, "title": "Employer Nomination", "description": "Employer lodges nomination with DoHA, pays nomination fee + SAF levy.", "estimated_days": 30, "documents_needed": ["Position description", "Employment contract", "SAF levy paid"], "tips": ["Nomination approval needed before visa lodgement"]},
+            {"step_number": 5, "title": "Lodge Visa Application", "description": "Submit electronic application within 6 months of nomination approval.", "estimated_days": 14, "documents_needed": ["Standard 189-equivalent doc set", "Nomination ID"], "tips": []},
+            {"step_number": 6, "title": "Health + PCC", "description": "BUPA panel exam + PCCs.", "estimated_days": 30, "documents_needed": [], "tips": []},
+            {"step_number": 7, "title": "Decision + Visa Grant", "description": "6-18 months typical. PR granted on approval.", "estimated_days": 365, "documents_needed": [], "tips": ["RFI response within 28 days"]},
+            {"step_number": 8, "title": "Settle as Permanent Resident", "description": "Full work + study + Medicare rights. After 4 years total residence (12 months as PR), eligible for citizenship.", "estimated_days": 1095, "documents_needed": [], "tips": []},
+        ],
+        "document_checklist": [
+            {"name": "Passport (bio + visa pages)", "mandatory": True, "notes": ""},
+            {"name": "Employer's SBS approval evidence", "mandatory": True, "notes": ""},
+            {"name": "Nomination approval ID", "mandatory": True, "notes": "Issued after nomination phase"},
+            {"name": "Employment contract (with nominating employer)", "mandatory": True, "notes": ""},
+            {"name": "Skills assessment (Direct Entry)", "mandatory": False, "notes": "Required for DE stream"},
+            {"name": "Pay slips + tax records (TRT — covering 2+ years)", "mandatory": False, "notes": "TRT stream"},
+            {"name": "English test (Competent)", "mandatory": True, "notes": "Or passport exemption"},
+            {"name": "Degree + transcripts (notarised)", "mandatory": True, "notes": ""},
+            {"name": "Employment reference letters", "mandatory": True, "notes": ""},
+            {"name": "Form 80 (each adult)", "mandatory": True, "notes": ""},
+            {"name": "Health exam (HAP ID)", "mandatory": True, "notes": ""},
+            {"name": "PCCs", "mandatory": True, "notes": ""},
+            {"name": "Marriage/relationship cert (if including partner)", "mandatory": True, "notes": ""},
+            {"name": "Children's birth certs (if applicable)", "mandatory": True, "notes": ""},
+            {"name": "Photo", "mandatory": True, "notes": ""},
+        ],
+        "common_rejection_reasons": [
+            "Employer's SBS status lapsed or revoked",
+            "Position genuineness questioned (e.g., created for the candidate)",
+            "Salary below Annual Market Salary Rate",
+            "TRT: 2-year requirement not strictly met (e.g., gaps, role changes)",
+            "Direct Entry: insufficient 3-year experience documented",
+            "Health requirement not met (undisclosed medical condition)",
+            "Skills assessment for wrong/expired ANZSCO",
+        ],
+        "success_tips": [
+            "TRT applicants: keep 2-year employment continuous + role-consistent — gaps complicate",
+            "Direct Entry: build strong reference letters covering ALL 3 years' duties",
+            "Employer absorbs SAF Levy + nomination fee — standard practice",
+            "Salary in nomination should match offered + reviewed annually to Annual Market Salary Rate",
+            "Lodge visa application close to nomination approval — 6-month window",
+            "Plan for 12-18 month wait — current backlog significant",
+        ],
+        "faqs": [
+            {"q": "What's the difference between Direct Entry and TRT?", "a": "Direct Entry needs skills assessment + 3 years' experience (typically offshore applicants). TRT is for 482/457 holders who've worked 2+ years with the nominating employer (typically onshore)."},
+            {"q": "Can I change employer after 186 grant?", "a": "YES — 186 is permanent residence, no employer ties post-grant. You can change jobs immediately."},
+            {"q": "When can I apply for citizenship?", "a": "After 4 years total residence (including 12 months as PR), subject to character + residency requirements."},
+            {"q": "What if my employer's SBS lapses?", "a": "Employer must renew SBS to nominate. If nomination is approved before lapse, visa application typically proceeds. If lapse during visa processing, case officer may RFI."},
+            {"q": "Fee will go up — should I rush?", "a": "Yes — fee increases from AUD 4,770 to AUD 5,045 on 1 Jul 2026. Lodge before that date to lock in lower rate."},
+        ],
+        "official_url": "https://immi.homeaffairs.gov.au/visas/getting-a-visa/visa-listing/employer-nomination-scheme-186",
+        "vfs_url": "https://visa.vfsglobal.com/ind/en/aus/",
+        "source_urls": [
+            "https://immi.homeaffairs.gov.au/visas/getting-a-visa/visa-listing/employer-nomination-scheme-186",
+            "https://immi.homeaffairs.gov.au/visas/getting-a-visa/visa-listing/employer-nomination-scheme-186/direct-entry-stream",
+            "https://immi.homeaffairs.gov.au/visas/getting-a-visa/visa-listing/employer-nomination-scheme-186/temporary-residence-transition-stream",
+        ],
+        "verified_notes": "Manual Fast-Path B.4.3 seed — verified against immi.homeaffairs.gov.au on 2026-02-27. FY2025-26 fees current (AUD 4,770); 1 Jul 2026 hike to AUD 5,045 documented. SAF levy + nomination fees per current policy.",
+    },
+
+    # ── 3. AU-187 — RSMS (CLOSED to new — renewals only) ────────────────────────
+    {
+        "country_code": "AU", "country_name": "Australia",
+        "subclass_id": "187",
+        "subclass_name": "Regional Sponsored Migration Scheme (Subclass 187 — CLOSED to new applications)",
+        "service_type": "pr", "category": "immigration",
+        "description": (
+            "⚠️ STATUS: CLOSED to new primary applications since 16 November 2019. The Subclass "
+            "187 Regional Sponsored Migration Scheme has been REPLACED by Subclass 494 (Skilled "
+            "Employer Sponsored Regional - Provisional) for new regional employer sponsorship.\n\n"
+            "This entry exists for: (a) transitional cases — applicants whose nomination was "
+            "approved before 16 Nov 2019 retain 187 pathway; (b) secondary applicants (partner/"
+            "child additions) on existing 187 grants; (c) historical reference for clients with "
+            "older nominations. Genuine regional employer sponsorship for new applicants — direct "
+            "them to Subclass 494."
+        ),
+        "eligibility_summary": (
+            "Transitional / legacy applicants only. Must hold a Regional Certifying Body (RCB)-"
+            "certified nomination approved prior to 16 Nov 2019. New applicants → redirect to "
+            "Subclass 494 (provisional, 5-year pathway to PR via Subclass 191)."
+        ),
+        "eligibility_criteria": [
+            {"label": "STATUS", "value": "CLOSED to new applications since 16 Nov 2019", "notes": "Use Subclass 494 for new regional employer sponsorship"},
+            {"label": "Legacy applicants", "value": "Nomination approved before 16 Nov 2019", "notes": "Transitional cases only"},
+            {"label": "Age", "value": "Under 45 at time of application (legacy rules)", "notes": ""},
+            {"label": "English", "value": "Competent English (IELTS 6.0 each band)", "notes": ""},
+            {"label": "Skills + experience", "value": "Per legacy rules (RCB-certified nomination)", "notes": ""},
+            {"label": "Regional commitment", "value": "Live + work in regional area for 2 years from grant", "notes": "Legacy condition"},
+            {"label": "Secondary applicants", "value": "Partners/children can still be added to existing 187 grants", "notes": "Subject to relationship continuation"},
+        ],
+        "fees_local_currency_code": "AUD", "fees_local_currency_amount": 4770, "fees_inr_approx": 262350,
+        "fees_breakdown": [
+            {"component": "Visa Application Charge — Primary (legacy rate)", "amount": 4770, "currency": "AUD"},
+            {"component": "Secondary applicant 18+", "amount": 2385, "currency": "AUD"},
+            {"component": "Dependent child <18", "amount": 1195, "currency": "AUD"},
+            {"component": "NOTE: New applicants must use Subclass 494 (AUD 4,910)", "amount": 4910, "currency": "AUD"},
+        ],
+        "processing_time_days_min": 60, "processing_time_days_max": 240,
+        "step_by_step": [
+            {"step_number": 1, "title": "Verify Legacy Eligibility", "description": "Confirm nomination was approved before 16 Nov 2019. If not, redirect to Subclass 494 application.", "estimated_days": 1, "documents_needed": ["Nomination approval letter"], "tips": ["MOST applicants should not be applying for 187 — use 494"]},
+            {"step_number": 2, "title": "Lodge Application within Approved Window", "description": "Submit visa application within validity window of legacy nomination (typically 6 months).", "estimated_days": 14, "documents_needed": ["Nomination ID", "Standard doc set"], "tips": []},
+            {"step_number": 3, "title": "Health + PCC", "description": "Standard requirements.", "estimated_days": 30, "documents_needed": [], "tips": []},
+            {"step_number": 4, "title": "Decision + Grant", "description": "Processed per legacy timelines.", "estimated_days": 180, "documents_needed": [], "tips": []},
+            {"step_number": 5, "title": "Regional Settlement (2-year commitment)", "description": "Live + work in nominated regional area for 2 years post-grant.", "estimated_days": 730, "documents_needed": [], "tips": ["After 2 years, full PR mobility"]},
+        ],
+        "document_checklist": [
+            {"name": "Passport (bio + visa pages)", "mandatory": True, "notes": ""},
+            {"name": "Legacy RCB nomination approval letter", "mandatory": True, "notes": "Pre-16 Nov 2019"},
+            {"name": "Employment contract with regional employer", "mandatory": True, "notes": ""},
+            {"name": "Skills assessment (where applicable)", "mandatory": True, "notes": "Per legacy rules"},
+            {"name": "English test (Competent)", "mandatory": True, "notes": ""},
+            {"name": "Reference letters", "mandatory": True, "notes": ""},
+            {"name": "Form 80 (each adult)", "mandatory": True, "notes": ""},
+            {"name": "Health exam", "mandatory": True, "notes": ""},
+            {"name": "PCCs", "mandatory": True, "notes": ""},
+            {"name": "Marriage / relationship cert", "mandatory": False, "notes": "If applicable"},
+            {"name": "Photo", "mandatory": True, "notes": ""},
+        ],
+        "common_rejection_reasons": [
+            "Application from new applicant (post 16 Nov 2019 nomination) — should use Subclass 494",
+            "Nomination validity period lapsed",
+            "Regional area / employer no longer qualifies",
+            "Same as 186: documentation gaps + health + character issues",
+        ],
+        "success_tips": [
+            "If you're a NEW applicant in regional area — use Subclass 494 instead",
+            "If you have a legacy nomination — lodge promptly within its validity window",
+            "Maintain regional employer + role consistency through processing",
+            "Document the legacy nomination's pre-16 Nov 2019 approval clearly",
+        ],
+        "faqs": [
+            {"q": "Can I still apply for 187?", "a": "No — closed to new primary applications since 16 Nov 2019. New regional employer-sponsored applicants must use Subclass 494."},
+            {"q": "I'm a legacy applicant — what now?", "a": "If your nomination was approved pre-16 Nov 2019, you can still lodge the visa application within its validity window. Speak to a registered migration agent immediately."},
+            {"q": "Can my partner be added to my existing 187 grant?", "a": "Yes — secondary applicants can still be added to existing 187 grants subject to relationship continuation."},
+            {"q": "What replaced 187?", "a": "Subclass 494 (Skilled Employer Sponsored Regional - Provisional) for the regional employer-sponsored pathway, with 5-year validity and PR transition via Subclass 191."},
+        ],
+        "official_url": "https://immi.homeaffairs.gov.au/visas/getting-a-visa/visa-listing/repealed-visas",
+        "vfs_url": "https://visa.vfsglobal.com/ind/en/aus/",
+        "source_urls": [
+            "https://immi.homeaffairs.gov.au/visas/getting-a-visa/visa-listing/repealed-visas",
+            "https://immi.homeaffairs.gov.au/visas/getting-a-visa/visa-listing/skilled-employer-sponsored-regional-494",
+        ],
+        "verified_notes": "Manual Fast-Path B.4.3 seed — verified CLOSED status as of 16 Nov 2019. Entry maintained for legacy/transitional reference + secondary applicants. Sir's directive: explicitly document closure + redirect to 494.",
+    },
+
+    # ── 4. AU-494 — Skilled Employer Sponsored Regional (Provisional) ──────────
+    {
+        "country_code": "AU", "country_name": "Australia",
+        "subclass_id": "494",
+        "subclass_name": "Skilled Employer Sponsored Regional - Provisional (Subclass 494)",
+        "service_type": "pr", "category": "immigration",
+        "description": (
+            "The Subclass 494 visa is a 5-year provisional visa for skilled workers sponsored by "
+            "an Australian regional employer. Replaces Subclass 187 (closed Nov 2019). After 3 "
+            "years working + earning minimum income in regional area, holders can transition to "
+            "Subclass 191 Permanent Residence (Skilled Regional).\n\n"
+            "Two streams: (a) Employer Sponsored — regional employer nominates skilled worker; "
+            "(b) Labour Agreement — under specific industry agreements. Open to broader "
+            "occupation list than 482/186; ~700 occupations available in regional areas. Full "
+            "work + study + family inclusion rights for 5 years."
+        ),
+        "eligibility_summary": (
+            "Under 45 at application; positive skills assessment in occupation on Regional "
+            "Occupation List; 3+ years' relevant work experience; sponsored by regional "
+            "employer; meet TSMIT salary; Competent English; commit to regional residence "
+            "for 191 PR pathway."
+        ),
+        "eligibility_criteria": [
+            {"label": "Age", "value": "Under 45 at time of application", "notes": ""},
+            {"label": "Occupation", "value": "On Regional Occupation List (broader than MLTSSL — ~700 occupations)", "notes": ""},
+            {"label": "Skills Assessment", "value": "Positive SA in nominated occupation", "notes": ""},
+            {"label": "Experience", "value": "3+ years' full-time relevant experience", "notes": ""},
+            {"label": "Employer", "value": "Regional employer with approved nomination", "notes": "Designated regional area (~99% of Australia except Sydney/Melbourne/Brisbane CBDs)"},
+            {"label": "English", "value": "Competent English (IELTS 6.0 each band)", "notes": ""},
+            {"label": "Salary", "value": "Meet TSMIT (AUD 73,150+) + Annual Market Salary Rate", "notes": ""},
+            {"label": "Regional commitment", "value": "Live + work in regional Australia for entire visa duration (5 years)", "notes": "Required for 191 PR pathway after 3 years"},
+        ],
+        "fees_local_currency_code": "AUD", "fees_local_currency_amount": 4910, "fees_inr_approx": 270050,
+        "fees_breakdown": [
+            {"component": "Visa Application Charge — Primary", "amount": 4910, "currency": "AUD"},
+            {"component": "Secondary applicant 18+", "amount": 2455, "currency": "AUD"},
+            {"component": "Dependent child <18", "amount": 1230, "currency": "AUD"},
+            {"component": "Nomination Application (employer-paid)", "amount": 540, "currency": "AUD"},
+            {"component": "SAF Levy small business per year of visa", "amount": 1200, "currency": "AUD"},
+            {"component": "SAF Levy large business per year of visa", "amount": 1800, "currency": "AUD"},
+            {"component": "Skills assessment", "amount": 800, "currency": "AUD"},
+            {"component": "Future Subclass 191 PR fee", "amount": 535, "currency": "AUD"},
+        ],
+        "processing_time_days_min": 120, "processing_time_days_max": 360,
+        "step_by_step": [
+            {"step_number": 1, "title": "Identify Regional Employer + Position", "description": "Confirm employer is in designated regional area + position is on Regional Occupation List.", "estimated_days": 14, "documents_needed": [], "tips": ["Regional postcodes broader than CBDs — most of Australia qualifies"]},
+            {"step_number": 2, "title": "Skills Assessment + English", "description": "Apply for SA + take English test.", "estimated_days": 60, "documents_needed": [], "tips": []},
+            {"step_number": 3, "title": "Employer Nomination", "description": "Employer lodges nomination, pays nomination fee + SAF Levy.", "estimated_days": 30, "documents_needed": [], "tips": []},
+            {"step_number": 4, "title": "Lodge Visa Application", "description": "Submit within 6 months of nomination approval.", "estimated_days": 14, "documents_needed": [], "tips": []},
+            {"step_number": 5, "title": "Health + PCC", "description": "Standard.", "estimated_days": 30, "documents_needed": [], "tips": []},
+            {"step_number": 6, "title": "Grant + Move to Regional Area", "description": "5-year visa granted. Move to nominated regional employer location.", "estimated_days": 90, "documents_needed": [], "tips": []},
+            {"step_number": 7, "title": "Build 191 PR Pathway (3 years)", "description": "Live + work + earn min AUD 53,900 in regional area for 3 income years. Then apply for 191 PR.", "estimated_days": 1095, "documents_needed": ["Tax returns", "Employment evidence"], "tips": ["Save ALL pay slips + PAYG summaries for 191"]},
+        ],
+        "document_checklist": [
+            {"name": "Passport (bio + visa pages)", "mandatory": True, "notes": ""},
+            {"name": "Skills assessment outcome (Regional Occupation List)", "mandatory": True, "notes": ""},
+            {"name": "Employment contract with regional employer", "mandatory": True, "notes": ""},
+            {"name": "Nomination approval", "mandatory": True, "notes": ""},
+            {"name": "English test (Competent)", "mandatory": True, "notes": ""},
+            {"name": "CV + 3-year reference letters", "mandatory": True, "notes": ""},
+            {"name": "Form 80 (each adult)", "mandatory": True, "notes": ""},
+            {"name": "Health exam", "mandatory": True, "notes": ""},
+            {"name": "PCCs", "mandatory": True, "notes": ""},
+            {"name": "Marriage / relationship cert (if applicable)", "mandatory": True, "notes": ""},
+            {"name": "Children's birth certs (if applicable)", "mandatory": True, "notes": ""},
+            {"name": "Photo", "mandatory": True, "notes": ""},
+        ],
+        "common_rejection_reasons": [
+            "Position not on Regional Occupation List for the area",
+            "Employer not in designated regional postcode",
+            "Salary below TSMIT or Annual Market Salary Rate",
+            "Insufficient 3-year experience documented",
+            "Same as 482/186: incomplete docs, health/character issues",
+        ],
+        "success_tips": [
+            "Choose regional employer carefully — must remain compliant for 191 pathway",
+            "Maintain salary + role consistency through 5-year visa duration",
+            "Save ALL tax + employment records — needed for 191 PR application",
+            "Family on 494 has full work + study rights — partner can pursue own career",
+        ],
+        "faqs": [
+            {"q": "When can I apply for PR?", "a": "After 3 years living + working in regional area + meeting income threshold (AUD 53,900 / year for 3 years), via Subclass 191 PR application."},
+            {"q": "What is 'regional Australia'?", "a": "~99% of Australia EXCEPT Sydney, Melbourne, and Brisbane CBDs. Adelaide, Perth, Hobart, Canberra, Darwin, regional towns all qualify."},
+            {"q": "Can I change employers?", "a": "Yes, but new employer must sponsor + nominate you in a regional position. 60 days to find new sponsor if you cease employment."},
+            {"q": "Can my partner work?", "a": "Yes — partner has full work + study rights for entire 5-year visa duration."},
+        ],
+        "official_url": "https://immi.homeaffairs.gov.au/visas/getting-a-visa/visa-listing/skilled-employer-sponsored-regional-494",
+        "vfs_url": "https://visa.vfsglobal.com/ind/en/aus/",
+        "source_urls": [
+            "https://immi.homeaffairs.gov.au/visas/getting-a-visa/visa-listing/skilled-employer-sponsored-regional-494",
+            "https://immi.homeaffairs.gov.au/visas/getting-a-visa/visa-listing/skilled-regional-191",
+        ],
+        "verified_notes": "Manual Fast-Path B.4.3 seed — verified against immi.homeaffairs.gov.au on 2026-02-27. 5-year provisional + 191 PR pathway documented.",
+    },
+
+    # ── 5. AU-858 — National Innovation Visa (formerly Global Talent) ──────────
+    {
+        "country_code": "AU", "country_name": "Australia",
+        "subclass_id": "858",
+        "subclass_name": "National Innovation Visa (Subclass 858 — formerly Global Talent)",
+        "service_type": "pr", "category": "immigration",
+        "description": (
+            "The Subclass 858 National Innovation Visa (NIV) is a permanent residence visa for "
+            "individuals with internationally recognised, outstanding records of exceptional and "
+            "innovative achievement.\n\n"
+            "REFORM ALERT (6 Dec 2024): The original Global Talent Visa programme was CLOSED to "
+            "new applications and replaced by the National Innovation Visa retaining Subclass "
+            "858. Key changes: INVITATION-ONLY (Expression of Interest required first); focus "
+            "narrowed to Tier-1 priority sectors (Critical Technologies, Health Industries, "
+            "Renewables, Low-Emission Tech) + Tier-2 (AgriTech, FinTech, MedTech, Cyber Security, "
+            "Quantum, Advanced Digital/Data Science, ICT); high-income threshold ~AUD 183,100 "
+            "(FY2025-26); under 45 with exemptions; nomination via Form 1000 from eligible "
+            "Australian entity/expert."
+        ),
+        "eligibility_summary": (
+            "Internationally recognised record of exceptional + outstanding achievement in a "
+            "Tier-1 or Tier-2 priority sector. Invitation-only via EOI. Under 45 (with high-"
+            "income / academic / government nomination exemptions). Form 1000 nomination from "
+            "eligible Australian entity/expert. Functional English."
+        ),
+        "eligibility_criteria": [
+            {"label": "Achievement record", "value": "Internationally recognised record of EXCEPTIONAL achievement in research, technology, arts, sports, entrepreneurship", "notes": "Nobel Prizes, Olympic medals, top-tier patents, Nature/Lancet publications, significant entrepreneurial exits"},
+            {"label": "Priority sector (Tier 1)", "value": "Critical Tech / Health Industries / Renewables / Low-Emission Tech", "notes": "Top priority for invitation"},
+            {"label": "Priority sector (Tier 2)", "value": "AgriTech / FinTech / MedTech / Cyber Security / Quantum / Advanced Digital / Data Science / ICT", "notes": ""},
+            {"label": "Age", "value": "Under 45 (with exemptions: exceptional talent, govt nomination, high income)", "notes": ""},
+            {"label": "High Income Threshold (HIT)", "value": "AUD 183,100 (FY2025-26, excluding super)", "notes": "If meeting HIT in last 3 years — age exemption applies"},
+            {"label": "Nomination", "value": "Form 1000 nomination from eligible Australian entity / recognised expert / govt agency", "notes": "Mandatory"},
+            {"label": "EOI", "value": "Submit Expression of Interest — invitation-only system; EOI valid 2 years", "notes": "Reformed Dec 2024"},
+            {"label": "English", "value": "Functional English minimum", "notes": "Second VAC applies if not met"},
+        ],
+        "fees_local_currency_code": "AUD", "fees_local_currency_amount": 4000, "fees_inr_approx": 220000,
+        "fees_breakdown": [
+            {"component": "Visa Application Charge — Primary", "amount": 4000, "currency": "AUD"},
+            {"component": "Secondary applicant 18+", "amount": 2000, "currency": "AUD"},
+            {"component": "Dependent child <18", "amount": 1000, "currency": "AUD"},
+            {"component": "Second VAC (Functional English not met)", "amount": 4885, "currency": "AUD"},
+            {"component": "Health exam", "amount": 6000, "currency": "INR"},
+            {"component": "PCCs", "amount": 1500, "currency": "INR"},
+        ],
+        "processing_time_days_min": 90, "processing_time_days_max": 365,
+        "step_by_step": [
+            {"step_number": 1, "title": "Build / Confirm Exceptional Achievement Profile", "description": "Document internationally recognised record: peer-reviewed publications, patents, awards, salary history, significant projects.", "estimated_days": 30, "documents_needed": ["Detailed CV", "Publications/patents", "Award certificates", "Salary/contract history"], "tips": ["Sector recognition matters — Tier 1 priority"]},
+            {"step_number": 2, "title": "Secure Form 1000 Nomination", "description": "Obtain nomination from eligible Australian entity (recognised expert, govt agency, recognised organisation).", "estimated_days": 60, "documents_needed": ["Nominator CV", "Nominator's standing in field"], "tips": ["Strong nominator from Tier 1 sector accelerates invitation"]},
+            {"step_number": 3, "title": "Submit Expression of Interest (EOI)", "description": "Lodge EOI through DoHA portal. EOI valid 2 years.", "estimated_days": 1, "documents_needed": ["CV", "Achievements summary", "Nominator details"], "tips": []},
+            {"step_number": 4, "title": "Receive Invitation to Apply (ITA)", "description": "DoHA reviews EOIs against priorities and issues invitations selectively. 60 days from invitation to lodge.", "estimated_days": 180, "documents_needed": [], "tips": ["No fixed timeline — invitation depends on global pool + priorities"]},
+            {"step_number": 5, "title": "Lodge Visa Application + Evidence", "description": "Submit comprehensive evidence package within 60 days.", "estimated_days": 7, "documents_needed": ["Full evidence dossier"], "tips": ["Lawyer/migration agent often advised — case-strength critical"]},
+            {"step_number": 6, "title": "Health + PCC + Character Checks", "description": "Standard requirements.", "estimated_days": 30, "documents_needed": [], "tips": []},
+            {"step_number": 7, "title": "Visa Grant — Permanent Resident from Day 1", "description": "Full PR rights: work + study + Medicare + family inclusion + citizenship pathway.", "estimated_days": 90, "documents_needed": [], "tips": ["No regional commitment", "No employer ties"]},
+        ],
+        "document_checklist": [
+            {"name": "Passport (bio + visa pages)", "mandatory": True, "notes": ""},
+            {"name": "Form 1000 nomination (signed by eligible Australian nominator)", "mandatory": True, "notes": ""},
+            {"name": "Detailed CV emphasising priority-sector achievements", "mandatory": True, "notes": ""},
+            {"name": "Evidence of exceptional achievement (publications/patents/awards)", "mandatory": True, "notes": ""},
+            {"name": "Salary/contract history demonstrating high-income (if claiming HIT exemption)", "mandatory": False, "notes": ""},
+            {"name": "International recognition evidence (media coverage, citations, h-index, etc)", "mandatory": True, "notes": ""},
+            {"name": "Educational qualifications (PhD/Masters/equivalent)", "mandatory": True, "notes": "Apostilled if foreign"},
+            {"name": "Form 80 (each adult)", "mandatory": True, "notes": ""},
+            {"name": "English test (Functional or higher)", "mandatory": False, "notes": "Second VAC if not met"},
+            {"name": "Health exam (HAP ID)", "mandatory": True, "notes": ""},
+            {"name": "PCCs", "mandatory": True, "notes": ""},
+            {"name": "Marriage / relationship cert (if applicable)", "mandatory": True, "notes": ""},
+            {"name": "Children's birth certs (if applicable)", "mandatory": True, "notes": ""},
+            {"name": "Photo", "mandatory": True, "notes": ""},
+        ],
+        "common_rejection_reasons": [
+            "Achievement record not deemed exceptional at international level",
+            "Sector not on Tier 1/Tier 2 priority list",
+            "Form 1000 nominator lacks recognised standing",
+            "EOI weak — generic achievements without sector-specific impact",
+            "Health/character issues",
+            "Failure to lodge within 60 days of invitation",
+        ],
+        "success_tips": [
+            "Target Tier 1 sectors for fastest invitation (Critical Tech, Health, Renewables, Low-Emission)",
+            "Secure HIGH-PROFILE Form 1000 nominator — preferably from priority sector",
+            "Quantify impact in EOI: citations, market valuations, lives saved, IP revenue, etc.",
+            "Build measurable international recognition trail — media + peer recognition",
+            "Engage migration agent experienced with NIV — invitation rate is selective",
+            "Maintain 'living legend' narrative throughout — generic CVs fail",
+        ],
+        "faqs": [
+            {"q": "Is this the same as Global Talent Visa?", "a": "NO — Global Talent (Subclass 858) was closed on 6 Dec 2024 and REPLACED by National Innovation Visa (still Subclass 858). Same visa number, different programme + criteria + invitation-only system."},
+            {"q": "How do I get invited?", "a": "Submit EOI through DoHA portal with Form 1000 nomination. DoHA reviews against priorities + invites selectively. No fixed timeline — depends on global candidate pool + sector priorities."},
+            {"q": "What if I don't meet under-45 age cap?", "a": "Exemptions: (a) exceptional talent at international level, (b) government agency nomination, (c) meeting High Income Threshold (~AUD 183,100) in last 3 years. Document the exemption claim clearly."},
+            {"q": "Is this PR or temporary?", "a": "Permanent Residence from day one — full PR rights including work, study, Medicare, family inclusion, and pathway to citizenship after 4 years."},
+            {"q": "Do I need a job offer in Australia?", "a": "NO — no employer sponsorship required. Just nomination via Form 1000 from eligible Australian entity/expert in your field."},
+        ],
+        "official_url": "https://immi.homeaffairs.gov.au/visas/getting-a-visa/visa-listing/national-innovation-visa-858",
+        "vfs_url": "https://visa.vfsglobal.com/ind/en/aus/",
+        "source_urls": [
+            "https://immi.homeaffairs.gov.au/visas/getting-a-visa/visa-listing/national-innovation-visa-858",
+            "https://www.bal.com/immigration-news/australia-national-innovation-visa-introduced/",
+        ],
+        "verified_notes": "Manual Fast-Path B.4.3 seed — verified against immi.homeaffairs.gov.au on 2026-02-27. NIV reform (6 Dec 2024) replacing Global Talent fully reflected. Tier 1/Tier 2 sectors + EOI invitation system + Form 1000 nomination + HIT FY2025-26 AUD 183,100 documented.",
+    },
+
+    # ── 6. AU-600 — Visitor Visa ────────────────────────────────────────────────
+    {
+        "country_code": "AU", "country_name": "Australia",
+        "subclass_id": "600",
+        "subclass_name": "Visitor Visa (Subclass 600)",
+        "service_type": "visitor", "category": "immigration",
+        "description": (
+            "The Subclass 600 Visitor visa is the primary visitor visa for Indian and other non-"
+            "ETA-eligible nationalities visiting Australia. Four streams: (a) Tourist (leisure, "
+            "family visit); (b) Business Visitor (meetings, conferences — short-term, no Aussie "
+            "employment); (c) Sponsored Family (relative in Australia sponsors); (d) Approved "
+            "Destination Status (group tours from China).\n\n"
+            "Validity 3/6/12 months single/multiple entry. Stay per visit up to 3, 6, or 12 "
+            "months. Frequent Traveller route (10-year multi-entry) available for selected "
+            "nationalities (India eligible since 2023). Strictly no work + no extended study (<3 "
+            "months only)."
+        ),
+        "eligibility_summary": (
+            "Genuine temporary visit purpose, sufficient funds, intent to depart, health + "
+            "character. Sponsored Family stream: Australian sponsor (citizen/PR aged 18+) commits "
+            "to undertaking responsibility + may need security bond."
+        ),
+        "eligibility_criteria": [
+            {"label": "Purpose", "value": "Tourism / family visit / business visit / approved tour group", "notes": "Stream-specific"},
+            {"label": "Genuine visitor", "value": "Demonstrate intent to depart Australia + ties to home", "notes": "Bank statements, employment, family at home"},
+            {"label": "Funds", "value": "Sufficient for stay + return ticket", "notes": "~AUD 5,000+ for tourism; more for longer stays"},
+            {"label": "Health", "value": "Standard requirement; medical for stays 6+ months", "notes": ""},
+            {"label": "Character", "value": "PCC for stays 12+ months", "notes": ""},
+            {"label": "Sponsor (Sponsored Family stream)", "value": "Australian citizen/PR aged 18+, financial undertaking", "notes": "May need security bond AUD 5,000-15,000"},
+            {"label": "Frequent Traveller (India eligible)", "value": "10-year multiple-entry, max 3 months per visit", "notes": "AUD 1,065 fee; introduced for India 2023"},
+            {"label": "No work permitted", "value": "Cannot accept paid Australian employment", "notes": "Business meetings + conferences OK"},
+        ],
+        "fees_local_currency_code": "AUD", "fees_local_currency_amount": 200, "fees_inr_approx": 11000,
+        "fees_breakdown": [
+            {"component": "Tourist stream — Offshore application", "amount": 200, "currency": "AUD"},
+            {"component": "Tourist stream — Onshore application (extension)", "amount": 500, "currency": "AUD"},
+            {"component": "Business Visitor — Offshore", "amount": 200, "currency": "AUD"},
+            {"component": "Sponsored Family stream", "amount": 200, "currency": "AUD"},
+            {"component": "Frequent Traveller (10-year multi-entry, India eligible)", "amount": 1065, "currency": "AUD"},
+            {"component": "Service charge (VAC2 conversion)", "amount": 0, "currency": "AUD"},
+            {"component": "Medical (if required)", "amount": 6000, "currency": "INR"},
+            {"component": "PCC (if 12+ months)", "amount": 500, "currency": "INR"},
+        ],
+        "processing_time_days_min": 7, "processing_time_days_max": 60,
+        "step_by_step": [
+            {"step_number": 1, "title": "Determine Stream + Validity", "description": "Choose Tourist / Business / Sponsored Family / Frequent Traveller; decide validity (3/6/12 months or 10 years).", "estimated_days": 1, "documents_needed": [], "tips": ["Frequent Traveller route — best value for repeat Indian visitors"]},
+            {"step_number": 2, "title": "Prepare Supporting Evidence", "description": "Gather financial + employment + family + travel documents.", "estimated_days": 7, "documents_needed": ["Bank statements", "Employment letter", "Property/business proof", "Itinerary"], "tips": ["Strong ties to home country = strongest signal"]},
+            {"step_number": 3, "title": "Online Application via ImmiAccount", "description": "Apply offshore; pay fee.", "estimated_days": 1, "documents_needed": ["Passport scan", "Photo", "All supporting docs"], "tips": []},
+            {"step_number": 4, "title": "Biometrics (if required)", "description": "Some Indian applicants need biometrics at VFS — DoHA notifies.", "estimated_days": 7, "documents_needed": [], "tips": []},
+            {"step_number": 5, "title": "Decision", "description": "7-60 days typical. Approval grants electronic visa.", "estimated_days": 21, "documents_needed": [], "tips": []},
+            {"step_number": 6, "title": "Travel + Comply with Conditions", "description": "Enter Australia within visa validity. Comply with no-work + stay-limit conditions.", "estimated_days": 90, "documents_needed": ["Passport", "Return ticket"], "tips": ["Carry funds + accommodation evidence at port"]},
+        ],
+        "document_checklist": [
+            {"name": "Passport (bio + visa pages, valid 6+ months)", "mandatory": True, "notes": ""},
+            {"name": "Recent photo (passport-style)", "mandatory": True, "notes": ""},
+            {"name": "Bank statements (6 months) showing funds", "mandatory": True, "notes": "~AUD 5,000+"},
+            {"name": "Employment letter + leave approval", "mandatory": True, "notes": "Shows ties to home"},
+            {"name": "ITR / Tax returns (last 2 years)", "mandatory": True, "notes": "Financial credibility"},
+            {"name": "Property documents / business registration (if applicable)", "mandatory": False, "notes": "Strengthens ties"},
+            {"name": "Confirmed travel itinerary + accommodation", "mandatory": True, "notes": ""},
+            {"name": "Return ticket", "mandatory": False, "notes": "Recommended"},
+            {"name": "Family in Australia: invitation letter + sponsor's PR/citizenship", "mandatory": False, "notes": "If family visit"},
+            {"name": "Conference / business invitation (Business stream)", "mandatory": False, "notes": ""},
+            {"name": "Form 1149 (Sponsored Family stream)", "mandatory": False, "notes": "Sponsor's commitment"},
+            {"name": "Medical exam (stays 6+ months)", "mandatory": False, "notes": ""},
+            {"name": "PCC (stays 12+ months)", "mandatory": False, "notes": ""},
+        ],
+        "common_rejection_reasons": [
+            "Insufficient ties to home country (genuine visitor test)",
+            "Weak financial position",
+            "Vague travel itinerary or purpose",
+            "Prior visa overstay / cancellation",
+            "Sponsor's financial standing weak (Sponsored Family stream)",
+            "Activities suggesting work intent",
+        ],
+        "success_tips": [
+            "Build STRONG ties-to-home narrative: stable job + property + family + savings",
+            "Provide DETAILED itinerary with bookings — vague plans get refused",
+            "Frequent Traveller route ideal for visiting family/business 2-3x/year",
+            "Apply 4-6 weeks before travel — buffer for processing",
+            "Don't push 12-month validity if 3-month stay is realistic — sets pattern for future",
+            "Honest history declaration — past refusals/overstays disclosed = better than discovered",
+        ],
+        "faqs": [
+            {"q": "Can I work on Subclass 600?", "a": "NO — strictly no paid Australian employment. Business meetings, conferences, training (non-employed) are OK. Violations = visa cancellation + future refusals."},
+            {"q": "How long can I stay?", "a": "Up to 3, 6, or 12 months per visit depending on visa grant. Multiple-entry visas allow exit/re-entry within validity. Frequent Traveller route: max 3 months per visit over 10 years."},
+            {"q": "Can I study?", "a": "Short-term study only (less than 3 months). For longer education, apply for Student Visa Subclass 500."},
+            {"q": "What is Frequent Traveller route?", "a": "10-year multiple-entry visa introduced for selected nationalities (including India since 2023), AUD 1,065. Max 3 months per visit. Excellent for frequent business/family travellers."},
+            {"q": "Can I extend onshore?", "a": "Yes — apply for further Subclass 600 onshore (AUD 500 vs AUD 200 offshore). Must apply before existing visa expires."},
+        ],
+        "official_url": "https://immi.homeaffairs.gov.au/visas/getting-a-visa/visa-listing/visitor-600",
+        "vfs_url": "https://visa.vfsglobal.com/ind/en/aus/",
+        "source_urls": [
+            "https://immi.homeaffairs.gov.au/visas/getting-a-visa/visa-listing/visitor-600",
+            "https://immi.homeaffairs.gov.au/visas/getting-a-visa/visa-listing/visitor-600/tourist-stream-overseas",
+            "https://immi.homeaffairs.gov.au/visas/getting-a-visa/visa-listing/visitor-600/frequent-traveller-stream",
+        ],
+        "verified_notes": "Manual Fast-Path B.4.3 seed — verified against immi.homeaffairs.gov.au on 2026-02-27. Fee AUD 200 offshore + AUD 500 onshore per 1 Jul 2025 update. Frequent Traveller AUD 1,065 (India eligible since 2023).",
+    },
+
+    # ── 7. AU-407 — Training Visa ───────────────────────────────────────────────
+    {
+        "country_code": "AU", "country_name": "Australia",
+        "subclass_id": "407",
+        "subclass_name": "Training Visa (Subclass 407)",
+        "service_type": "work", "category": "immigration",
+        "description": (
+            "The Subclass 407 Training visa allows foreign nationals to undertake workplace-based "
+            "occupational training in Australia. Three streams: (a) Occupational training "
+            "required for registration (e.g., medical residency); (b) Capacity-building training "
+            "for foreign government employees, professional development workshops; (c) Training "
+            "for an occupation on the relevant skills list.\n\n"
+            "Validity up to 2 years (renewable per training plan). Employer sponsor (Australian "
+            "company or training provider) required. Distinct from Employment Visa 482 — focus "
+            "on STRUCTURED TRAINING rather than ongoing employment."
+        ),
+        "eligibility_summary": (
+            "Sponsored by approved Australian training provider / company; specific training plan; "
+            "minimum age 18; relevant background; English (Vocational); health + character. Plan "
+            "must lead to specific skill/registration outcome."
+        ),
+        "eligibility_criteria": [
+            {"label": "Sponsorship", "value": "Approved Australian sponsor (Standard Business Sponsor OR Temporary Activities Sponsor)", "notes": ""},
+            {"label": "Training plan", "value": "Structured training plan with specific outcomes (skills + duration + sequence)", "notes": "Plan reviewed by DoHA"},
+            {"label": "Background", "value": "Relevant prior knowledge / role for the training", "notes": ""},
+            {"label": "Age", "value": "Minimum 18 at application", "notes": ""},
+            {"label": "English", "value": "Vocational English (IELTS 4.5 each band)", "notes": "Some exemptions"},
+            {"label": "Duration", "value": "Up to 2 years (matching training plan)", "notes": "Renewable based on continuing plan"},
+            {"label": "No general employment", "value": "Cannot replace Employment Visa for ongoing work", "notes": "Training-specific"},
+            {"label": "Health + Character", "value": "Standard requirements", "notes": ""},
+        ],
+        "fees_local_currency_code": "AUD", "fees_local_currency_amount": 430, "fees_inr_approx": 23650,
+        "fees_breakdown": [
+            {"component": "Visa Application Charge — Primary", "amount": 430, "currency": "AUD"},
+            {"component": "Secondary applicant 18+", "amount": 430, "currency": "AUD"},
+            {"component": "Dependent child <18", "amount": 110, "currency": "AUD"},
+            {"component": "Nomination + Sponsor fees (sponsor-paid)", "amount": 420, "currency": "AUD"},
+            {"component": "English test (if not exempt)", "amount": 16800, "currency": "INR"},
+            {"component": "Health exam", "amount": 6000, "currency": "INR"},
+            {"component": "PCC", "amount": 500, "currency": "INR"},
+        ],
+        "processing_time_days_min": 30, "processing_time_days_max": 90,
+        "step_by_step": [
+            {"step_number": 1, "title": "Sponsor + Training Plan", "description": "Australian sponsor identifies you, develops structured training plan with specific outcomes.", "estimated_days": 30, "documents_needed": ["Training plan", "Sponsor approval"], "tips": ["Strong outcomes-focused plan accelerates approval"]},
+            {"step_number": 2, "title": "Nomination Application", "description": "Sponsor lodges nomination + training plan with DoHA.", "estimated_days": 14, "documents_needed": [], "tips": []},
+            {"step_number": 3, "title": "Visa Application", "description": "Lodge visa application after nomination approval.", "estimated_days": 7, "documents_needed": ["Sponsor letter", "Training plan", "Background docs"], "tips": []},
+            {"step_number": 4, "title": "English + Health + PCC", "description": "Complete vocational English test, health, PCCs.", "estimated_days": 30, "documents_needed": [], "tips": []},
+            {"step_number": 5, "title": "Grant + Training Commencement", "description": "Visa typically 30-90 days. Begin training as per plan.", "estimated_days": 60, "documents_needed": [], "tips": ["Maintain training compliance — central to renewal"]},
+        ],
+        "document_checklist": [
+            {"name": "Passport", "mandatory": True, "notes": ""},
+            {"name": "Sponsor letter (Australian sponsor)", "mandatory": True, "notes": ""},
+            {"name": "Detailed training plan", "mandatory": True, "notes": "Outcomes + duration + sequence"},
+            {"name": "Background qualifications (degree / experience)", "mandatory": True, "notes": ""},
+            {"name": "CV with relevant experience", "mandatory": True, "notes": ""},
+            {"name": "English test (Vocational)", "mandatory": True, "notes": ""},
+            {"name": "Form 80 (each adult)", "mandatory": True, "notes": ""},
+            {"name": "Health exam", "mandatory": True, "notes": ""},
+            {"name": "PCC", "mandatory": True, "notes": ""},
+            {"name": "Photo", "mandatory": True, "notes": ""},
+            {"name": "Marriage / relationship cert (if applicable)", "mandatory": True, "notes": ""},
+        ],
+        "common_rejection_reasons": [
+            "Training plan vague or generic",
+            "Background mismatch with training (e.g., no relevant prior experience)",
+            "Plan appears to disguise general employment as training",
+            "Sponsor not approved or financially unstable",
+            "English below Vocational level (where required)",
+        ],
+        "success_tips": [
+            "Make training plan OUTCOMES-FOCUSED with specific milestones",
+            "Sponsor should be established + with clear training history",
+            "Background CV must show DIRECT relevance to training subject",
+            "Plan duration realistically — DoHA suspicious of indefinite/vague training",
+            "For medical/professional registration training, link plan to specific registration outcome",
+        ],
+        "faqs": [
+            {"q": "How is 407 different from 482?", "a": "407 = structured training with defined outcomes (no general employment); 482 = ongoing employment. Use 407 if your purpose is acquiring specific skills/registration, NOT routine work."},
+            {"q": "Can my family come with me?", "a": "Yes — partner + dependent children can be included. Partner has work rights."},
+            {"q": "Can I extend the visa?", "a": "Yes — subject to continued training plan validity + sponsor commitment. Total stay can extend to 4 years across renewals."},
+            {"q": "Can 407 lead to PR?", "a": "Not directly — but training history + relationships built can support future skilled visa applications (189/190/482/186)."},
+        ],
+        "official_url": "https://immi.homeaffairs.gov.au/visas/getting-a-visa/visa-listing/training-407",
+        "vfs_url": "https://visa.vfsglobal.com/ind/en/aus/",
+        "source_urls": [
+            "https://immi.homeaffairs.gov.au/visas/getting-a-visa/visa-listing/training-407",
+        ],
+        "verified_notes": "Manual Fast-Path B.4.3 seed — verified against immi.homeaffairs.gov.au on 2026-02-27. Fee AUD 430 per current schedule.",
+    },
+
+    # ── 8. AU-309-100 — Partner Offshore Combined (Provisional 309 + PR 100) ────
+    {
+        "country_code": "AU", "country_name": "Australia",
+        "subclass_id": "309-100",
+        "subclass_name": "Partner Offshore Combined (Subclass 309 Provisional + Subclass 100 Permanent)",
+        "service_type": "partner", "category": "immigration",
+        "description": (
+            "The Subclass 309/100 is the offshore equivalent of 820/801 — a two-stage partner "
+            "visa for spouses/de facto partners of Australian citizens, PRs, or eligible NZ "
+            "citizens. Combined application + single fee (AUD 9,365) covers BOTH the temporary "
+            "309 (granted first, typically 12-24 months) and the permanent 100 (typically "
+            "granted ~2 years after 309).\n\n"
+            "Applied OFFSHORE — applicant must be outside Australia at time of 309 application "
+            "+ grant. For onshore applications, use 820/801. De facto relationships require 12+ "
+            "months cohabitation (waived for registered relationships in Australian states/"
+            "territories)."
+        ),
+        "eligibility_summary": (
+            "Spouse / de facto partner of Australian citizen / PR / eligible NZ citizen aged "
+            "18+; genuine + continuing relationship; offshore at 309 application + grant; "
+            "relationship financial + social + household + emotional commitment evidence."
+        ),
+        "eligibility_criteria": [
+            {"label": "Sponsor", "value": "Australian citizen / PR / eligible NZ citizen aged 18+", "notes": "Limit 2 sponsorships in lifetime, 5-year gap"},
+            {"label": "Relationship type", "value": "Married OR de facto OR registered relationship", "notes": "De facto needs 12+ months cohabitation; registered relationship in AU state/territory waives this"},
+            {"label": "Offshore at 309 application + grant", "value": "Applicant outside Australia at both points", "notes": "Even brief Australian visit could complicate"},
+            {"label": "Genuine + continuing relationship", "value": "Comprehensive evidence: financial + social + household + emotional commitment", "notes": "Statutory declarations from 2 Australian witnesses on Form 888"},
+            {"label": "Age", "value": "Both 18+", "notes": "Under-18 marriages void in Australian law"},
+            {"label": "Health + Character", "value": "Standard requirements for both applicant + dependent children", "notes": ""},
+            {"label": "Two-stage progression", "value": "309 (Provisional) → 100 (PR) typically 2 years later", "notes": "Continue providing relationship evidence at 100 stage"},
+            {"label": "Children", "value": "Dependent children can be included in same application", "notes": ""},
+        ],
+        "fees_local_currency_code": "AUD", "fees_local_currency_amount": 9365, "fees_inr_approx": 515075,
+        "fees_breakdown": [
+            {"component": "Combined Visa Application Charge — Primary (covers both 309 + 100)", "amount": 9365, "currency": "AUD"},
+            {"component": "Secondary applicant 18+", "amount": 4685, "currency": "AUD"},
+            {"component": "Dependent child <18", "amount": 2345, "currency": "AUD"},
+            {"component": "100 stage — NO additional fee", "amount": 0, "currency": "AUD"},
+            {"component": "Health exam (BUPA)", "amount": 6000, "currency": "INR"},
+            {"component": "PCCs", "amount": 1500, "currency": "INR"},
+            {"component": "Form 888 statutory declarations (notarised)", "amount": 2000, "currency": "INR"},
+            {"component": "Translation services (Hindi → English)", "amount": 5000, "currency": "INR"},
+        ],
+        "processing_time_days_min": 240, "processing_time_days_max": 720,
+        "step_by_step": [
+            {"step_number": 1, "title": "Gather Relationship Evidence", "description": "Compile comprehensive evidence: financial (joint accounts, bills), social (photos, witnesses), household (shared address), emotional (communication history, future plans).", "estimated_days": 60, "documents_needed": ["Marriage cert", "Joint bank statements", "Shared bills", "Photos", "Communication history"], "tips": ["Quality > quantity; tell the relationship's true story"]},
+            {"step_number": 2, "title": "Sponsor Application + Form 40SP", "description": "Sponsor lodges sponsorship application + completes Form 40SP with commitment + financial undertaking.", "estimated_days": 30, "documents_needed": ["Sponsor's passport/citizenship", "Form 40SP", "Financial proof"], "tips": ["Sponsor needs to be approved before visa decision"]},
+            {"step_number": 3, "title": "Lodge Visa Application (Offshore)", "description": "Applicant submits combined 309/100 visa application from outside Australia. Single fee for both stages.", "estimated_days": 14, "documents_needed": ["Comprehensive evidence dossier", "Form 47SP", "Photo"], "tips": []},
+            {"step_number": 4, "title": "Form 888 Statutory Declarations", "description": "Two Australian citizens/PRs aged 18+ provide written declarations of relationship genuineness.", "estimated_days": 14, "documents_needed": ["Form 888 × 2"], "tips": ["Witnesses must know couple personally"]},
+            {"step_number": 5, "title": "Health + PCC", "description": "Standard.", "estimated_days": 30, "documents_needed": [], "tips": []},
+            {"step_number": 6, "title": "309 Provisional Grant", "description": "After 12-24 months processing, 309 granted. Move to Australia.", "estimated_days": 540, "documents_needed": [], "tips": ["Travel before 309 'must enter by' date"]},
+            {"step_number": 7, "title": "Lodge 100 Stage Evidence (2 years later)", "description": "Approximately 2 years after 309 lodgement, DoHA reviews for 100 PR grant. Provide updated relationship evidence + any character/health updates.", "estimated_days": 365, "documents_needed": ["Updated relationship evidence", "Updated PCC if requested"], "tips": ["Continuing relationship — keep documenting throughout"]},
+            {"step_number": 8, "title": "100 PR Grant", "description": "Full PR rights granted upon 100 approval.", "estimated_days": 90, "documents_needed": [], "tips": ["Citizenship pathway opens after 4 years total residence including 12 months as PR"]},
+        ],
+        "document_checklist": [
+            {"name": "Applicant passport (bio + visa pages)", "mandatory": True, "notes": ""},
+            {"name": "Sponsor's Australian citizenship/PR/NZ evidence", "mandatory": True, "notes": ""},
+            {"name": "Marriage certificate (if married)", "mandatory": True, "notes": "Apostilled if foreign"},
+            {"name": "Form 47SP (Application for migration to Australia by a partner)", "mandatory": True, "notes": ""},
+            {"name": "Form 40SP (Sponsorship for partner)", "mandatory": True, "notes": "Sponsor"},
+            {"name": "Form 888 statutory declarations × 2 (Australian witnesses)", "mandatory": True, "notes": ""},
+            {"name": "Joint bank statements / financial commingling evidence", "mandatory": True, "notes": "Strong financial signal"},
+            {"name": "Shared accommodation evidence (lease / utility bills)", "mandatory": True, "notes": ""},
+            {"name": "Photos throughout relationship (with dates + context)", "mandatory": True, "notes": ""},
+            {"name": "Communication history (WhatsApp, emails, social media)", "mandatory": True, "notes": "Demonstrates continuity"},
+            {"name": "Travel together (boarding passes, accommodation)", "mandatory": False, "notes": "Strong signal"},
+            {"name": "Health exam (HAP ID)", "mandatory": True, "notes": ""},
+            {"name": "PCCs (applicant)", "mandatory": True, "notes": ""},
+            {"name": "Children's birth certs (if applicable)", "mandatory": True, "notes": ""},
+            {"name": "Form 80 (applicant + adult sponsor)", "mandatory": True, "notes": ""},
+            {"name": "Photo", "mandatory": True, "notes": ""},
+        ],
+        "common_rejection_reasons": [
+            "Insufficient relationship evidence (especially financial commingling)",
+            "Applicant inside Australia at 309 application or grant (offshore requirement)",
+            "De facto relationship under 12 months cohabitation without registration",
+            "Sponsor's prior sponsorships > 2 or within 5-year gap",
+            "Form 888 declarations from witnesses who don't know couple personally",
+            "Health/character issues",
+            "Contradictions in application narrative",
+        ],
+        "success_tips": [
+            "Build evidence trail FROM DAY 1 of relationship — easier than retroactive compilation",
+            "Joint bank account, shared bills, mutual will/insurance = STRONG signals",
+            "Photos with dates + context across multiple events + years",
+            "Statutory declaration witnesses should articulate SPECIFIC observations, not generic praise",
+            "Apostille marriage cert at source — Indian Sub-Divisional Magistrate / Apostille via MEA",
+            "Don't apply onshore if you're physically in Australia — bridges visa won't issue, must exit",
+            "Continue building evidence DURING 309 hold — needed at 100 stage 2 years later",
+        ],
+        "faqs": [
+            {"q": "Why single fee for both 309 and 100?", "a": "DoHA charges combined fee at 309 lodgement (AUD 9,365) covering both stages. No separate fee at 100 grant — significant cost saving vs other 2-stage visas."},
+            {"q": "Can I apply onshore?", "a": "NO — 309/100 is offshore only. Onshore applicants must use 820/801 (different visa, same combined-fee structure)."},
+            {"q": "How long until I get PR?", "a": "Approximately 2-3 years from initial 309 application: 12-24 months for 309 grant, then ~2 years before 100 PR review and grant."},
+            {"q": "Can I work on 309?", "a": "YES — Subclass 309 provisional visa has full work + study rights once granted."},
+            {"q": "What if my relationship breaks down?", "a": "Visa may be cancelled. Specific provisions for: (a) sponsor's death (visa continues), (b) family violence (provisional visa can lead to 100 even if relationship ends), (c) shared parental responsibility for sponsor's child."},
+            {"q": "Do registered relationships count as de facto?", "a": "Yes — relationships registered with an Australian state/territory registry are deemed equivalent to 12+ months cohabitation. Check state-specific registration process."},
+        ],
+        "official_url": "https://immi.homeaffairs.gov.au/visas/getting-a-visa/visa-listing/partner-offshore-309-100",
+        "vfs_url": "https://visa.vfsglobal.com/ind/en/aus/",
+        "source_urls": [
+            "https://immi.homeaffairs.gov.au/visas/getting-a-visa/visa-listing/partner-offshore-309-100",
+            "https://immi.homeaffairs.gov.au/visas/getting-a-visa/visa-listing/partner-migrant-100",
+        ],
+        "verified_notes": "Manual Fast-Path B.4.3 seed — verified against immi.homeaffairs.gov.au on 2026-02-27. Combined fee AUD 9,365 per current schedule. Sir's decision (documented): single combined entry for 309-100 (mirrors B.2's 820/801 combined pattern + reflects DoHA's single-fee structure).",
+    },
+
+    # ── 9. AU-801 — Partner Onshore Permanent Stage ────────────────────────────
+    {
+        "country_code": "AU", "country_name": "Australia",
+        "subclass_id": "801",
+        "subclass_name": "Partner Onshore Permanent — Stage 2 (Subclass 801)",
+        "service_type": "partner", "category": "immigration",
+        "description": (
+            "The Subclass 801 is the PERMANENT RESIDENCE stage of the onshore partner visa, "
+            "automatically reviewed approximately 2 years after the Subclass 820 (Provisional) "
+            "application was lodged. NO new application or fee at this stage — DoHA reaches out "
+            "to confirm continuing relationship + updated documentation.\n\n"
+            "This entry is for clients APPROACHING the 801 review or recently transitioned to "
+            "801. The combined 820/801 visa workflow (initial application + 820 provisional "
+            "phase) is documented separately in B.2 under Subclass 820. This entry guides the "
+            "PR transition phase."
+        ),
+        "eligibility_summary": (
+            "Existing 820 provisional visa holder approaching 2-year mark from initial lodgement. "
+            "Relationship continuing + genuine. Updated supporting evidence required. No new fee."
+        ),
+        "eligibility_criteria": [
+            {"label": "Existing 820 holder", "value": "Must be on Subclass 820 Provisional visa", "notes": "Granted at initial 820/801 lodgement"},
+            {"label": "Continuing relationship", "value": "Relationship with sponsor must be continuing + genuine at time of 801 review", "notes": "Updated evidence required"},
+            {"label": "Time elapsed", "value": "Approximately 2 years from initial 820/801 lodgement", "notes": "DoHA initiates 801 review automatically"},
+            {"label": "No new fee", "value": "801 is the PR stage — covered by initial combined 820/801 fee", "notes": ""},
+            {"label": "Updated evidence", "value": "Provide updated relationship + financial + household + character", "notes": ""},
+            {"label": "Special pathways", "value": "Family violence / sponsor death / shared parental responsibility can lead to 801 if relationship ends", "notes": ""},
+            {"label": "Children", "value": "Children added under 820 transition with primary", "notes": ""},
+            {"label": "Health + Character", "value": "Updated PCC may be requested", "notes": ""},
+        ],
+        "fees_local_currency_code": "AUD", "fees_local_currency_amount": 0, "fees_inr_approx": 0,
+        "fees_breakdown": [
+            {"component": "Visa Application Charge — 801 STAGE (covered by 820 lodgement)", "amount": 0, "currency": "AUD"},
+            {"component": "Updated PCC (if requested)", "amount": 500, "currency": "INR"},
+            {"component": "Updated medical (rarely requested)", "amount": 6000, "currency": "INR"},
+            {"component": "Document notarisation / translations", "amount": 2000, "currency": "INR"},
+        ],
+        "processing_time_days_min": 90, "processing_time_days_max": 540,
+        "step_by_step": [
+            {"step_number": 1, "title": "Approaching 2-Year Mark on 820", "description": "Track timeline from initial 820/801 lodgement. DoHA contacts ~2 years later for 801 review.", "estimated_days": 1, "documents_needed": [], "tips": ["Document relationship throughout 820 period — needed at 801"]},
+            {"step_number": 2, "title": "DoHA Issues 801 Request", "description": "DoHA sends request via ImmiAccount asking for updated evidence within timeline (typically 28-42 days).", "estimated_days": 1, "documents_needed": [], "tips": ["Don't miss the email — check ImmiAccount weekly"]},
+            {"step_number": 3, "title": "Compile Updated Evidence", "description": "Updated relationship evidence covering the 820 period: joint accounts, bills, photos, travel, communication.", "estimated_days": 21, "documents_needed": ["Updated bank statements", "Continuing bills", "Recent photos", "Communication", "Updated witnesses (Form 888 if requested)"], "tips": ["Show CONTINUITY + DEEPENING — not just snapshot"]},
+            {"step_number": 4, "title": "Submit Response to DoHA", "description": "Lodge updated evidence pack via ImmiAccount within deadline.", "estimated_days": 7, "documents_needed": ["Complete evidence dossier"], "tips": ["Don't miss the 28-42 day deadline — extensions hard to obtain"]},
+            {"step_number": 5, "title": "Review + Possible RFI", "description": "DoHA reviews. May request further information.", "estimated_days": 90, "documents_needed": [], "tips": ["Respond to RFIs within stated timeline"]},
+            {"step_number": 6, "title": "801 PR Grant", "description": "Full PR rights granted: work + study + Medicare + citizenship pathway. No further partner visa actions needed.", "estimated_days": 30, "documents_needed": [], "tips": ["Citizenship after 4 years total residence (12 months as PR)"]},
+        ],
+        "document_checklist": [
+            {"name": "ImmiAccount login credentials", "mandatory": True, "notes": "Track 801 request"},
+            {"name": "Updated joint bank statements", "mandatory": True, "notes": "Continuity from 820 period"},
+            {"name": "Continuing shared bills / utilities", "mandatory": True, "notes": ""},
+            {"name": "Lease / property co-ownership documents (updated)", "mandatory": True, "notes": ""},
+            {"name": "Recent photographs (with dates)", "mandatory": True, "notes": ""},
+            {"name": "Communication history (recent)", "mandatory": True, "notes": "Updated WhatsApp/email"},
+            {"name": "Travel together (recent)", "mandatory": False, "notes": "Strong signal"},
+            {"name": "Updated Form 888 statutory declarations (if requested)", "mandatory": False, "notes": ""},
+            {"name": "Updated PCC (if requested)", "mandatory": False, "notes": ""},
+            {"name": "Updated medical (if requested)", "mandatory": False, "notes": ""},
+            {"name": "Statutory declaration from applicant + sponsor on continuing relationship", "mandatory": True, "notes": ""},
+            {"name": "Photo", "mandatory": True, "notes": ""},
+        ],
+        "common_rejection_reasons": [
+            "Failure to respond within DoHA's 28-42 day deadline",
+            "Relationship breakdown without qualifying special provisions",
+            "Insufficient continuing-relationship evidence",
+            "Adverse character finding (criminal record discovery)",
+            "Marriage of convenience evidence surfaces",
+            "Sponsor sponsorship limits exceeded",
+        ],
+        "success_tips": [
+            "Set CALENDAR REMINDER 22 months after 820 lodgement — start gathering 801 evidence",
+            "MAINTAIN joint financial + household structures throughout 820 period",
+            "Document RELATIONSHIP MILESTONES + EVENTS — anniversaries, family events, etc.",
+            "Stay in regular communication with sponsor — physical separation can complicate",
+            "Check ImmiAccount weekly — 801 request emails sometimes filtered as spam",
+            "If relationship breaks down, IMMEDIATELY consult migration agent re: special provisions",
+            "Build PR / citizenship plan early — 4 years to citizenship from PR",
+        ],
+        "faqs": [
+            {"q": "Do I need to apply for 801 separately?", "a": "NO — DoHA automatically initiates 801 review ~2 years after initial 820/801 lodgement. You respond to their request; no new application or fee."},
+            {"q": "What if my relationship ends?", "a": "Special provisions may apply: (a) family violence — provisional visa holder can proceed to 801 even if relationship ends, (b) sponsor's death, (c) shared parental responsibility for sponsor's child. Consult migration agent immediately."},
+            {"q": "How long does 801 take?", "a": "3-18 months after 801 evidence submission. Total journey: ~2.5-4 years from initial 820/801 lodgement to 801 PR grant."},
+            {"q": "Can I leave Australia during 801 review?", "a": "Yes — your 820 visa continues with multiple-entry rights during the review period."},
+            {"q": "Why is there a fee but it shows AUD 0?", "a": "801 stage is covered by the initial combined 820/801 fee paid at lodgement. No new fee for the PR transition stage."},
+        ],
+        "official_url": "https://immi.homeaffairs.gov.au/visas/getting-a-visa/visa-listing/partner-onshore-820-801",
+        "vfs_url": "https://visa.vfsglobal.com/ind/en/aus/",
+        "source_urls": [
+            "https://immi.homeaffairs.gov.au/visas/getting-a-visa/visa-listing/partner-onshore-820-801",
+            "https://immi.homeaffairs.gov.au/visas/getting-a-visa/visa-listing/partner-permanent-801",
+        ],
+        "verified_notes": "Manual Fast-Path B.4.3 seed — verified against immi.homeaffairs.gov.au on 2026-02-27. PR transition stage (no new fee). Sir's directive: 801 added as separate workflow distinct from B.2's 820 to guide clients in 801 review phase.",
+    },
+
+    # ── 10. AU-887 — Skilled Regional PR ────────────────────────────────────────
+    {
+        "country_code": "AU", "country_name": "Australia",
+        "subclass_id": "887",
+        "subclass_name": "Skilled Regional Permanent Residence (Subclass 887)",
+        "service_type": "pr", "category": "immigration",
+        "description": (
+            "The Subclass 887 Skilled Regional visa is a permanent residence visa for holders of "
+            "specified provisional skilled regional visas (Subclass 475, 487, 489 'first "
+            "provisional', or 886) who have met regional residence + work requirements.\n\n"
+            "NOTE: For new applicants from Subclass 491 or 494 provisional visas, the PR "
+            "pathway is via Subclass 191 (NOT 887). 887 specifically supports holders of older "
+            "/repealed regional visas transitioning to PR. Requirements: lived in regional "
+            "Australia for 2+ years; worked full-time for 12+ months in regional area."
+        ),
+        "eligibility_summary": (
+            "Held one of: Subclass 475 / 487 / 489 'first provisional' / 886 visa. Lived in "
+            "designated regional area for 2+ years. Worked full-time (35+ hrs/week) in regional "
+            "area for 12+ months. Compliance with provisional visa conditions."
+        ),
+        "eligibility_criteria": [
+            {"label": "Provisional visa held", "value": "Subclass 475 / 487 / 489 (first provisional) / 886 (legacy)", "notes": "For 491/494 holders, use Subclass 191"},
+            {"label": "Regional residence", "value": "Lived in designated regional area for 2+ years", "notes": ""},
+            {"label": "Regional work", "value": "Worked full-time (35+ hrs/week) in regional area for 12+ months", "notes": "Documented via PAYG summaries + employment records"},
+            {"label": "Compliance with provisional conditions", "value": "Maintained terms of original provisional visa", "notes": ""},
+            {"label": "Health + Character", "value": "Standard requirements", "notes": ""},
+            {"label": "Family inclusion", "value": "Partner + dependent children can be included", "notes": ""},
+            {"label": "Age", "value": "Generally under 45 at provisional grant (legacy rules)", "notes": ""},
+            {"label": "No additional skills assessment", "value": "SA from provisional visa application carries through", "notes": ""},
+        ],
+        "fees_local_currency_code": "AUD", "fees_local_currency_amount": 1920, "fees_inr_approx": 105600,
+        "fees_breakdown": [
+            {"component": "Visa Application Charge — Primary", "amount": 1920, "currency": "AUD"},
+            {"component": "Secondary applicant 18+", "amount": 960, "currency": "AUD"},
+            {"component": "Dependent child <18", "amount": 480, "currency": "AUD"},
+            {"component": "Health exam (if updated)", "amount": 6000, "currency": "INR"},
+            {"component": "PCC (if updated)", "amount": 500, "currency": "INR"},
+        ],
+        "processing_time_days_min": 60, "processing_time_days_max": 240,
+        "step_by_step": [
+            {"step_number": 1, "title": "Confirm 2-Year Regional Residence + 12-Month Regional Work", "description": "Document continuous regional residence + full-time regional employment.", "estimated_days": 14, "documents_needed": ["Lease + utility bills", "PAYG summaries", "Employment evidence"], "tips": ["Postcode-level evidence — keep all bills with regional addresses"]},
+            {"step_number": 2, "title": "Lodge Visa Application Online", "description": "Submit application via ImmiAccount with full evidence.", "estimated_days": 7, "documents_needed": ["Residence + work evidence"], "tips": []},
+            {"step_number": 3, "title": "Health + PCC (if updated)", "description": "Update health + PCCs if requested.", "estimated_days": 30, "documents_needed": [], "tips": []},
+            {"step_number": 4, "title": "Decision + Grant", "description": "2-8 months. PR granted on approval.", "estimated_days": 120, "documents_needed": [], "tips": []},
+            {"step_number": 5, "title": "Settle as PR Anywhere in Australia", "description": "Full PR mobility — no further regional commitment. Family + work + study + Medicare.", "estimated_days": 30, "documents_needed": [], "tips": ["Citizenship after 4 years total residence"]},
+        ],
+        "document_checklist": [
+            {"name": "Passport (bio + visa pages)", "mandatory": True, "notes": ""},
+            {"name": "Provisional visa grant notice (475/487/489/886)", "mandatory": True, "notes": ""},
+            {"name": "Evidence of 2-year regional residence (lease, utility bills, council rates)", "mandatory": True, "notes": ""},
+            {"name": "Evidence of 12-month regional full-time work (PAYG summaries, employment letters)", "mandatory": True, "notes": ""},
+            {"name": "Tax returns (Notice of Assessment) covering work period", "mandatory": True, "notes": ""},
+            {"name": "Form 80 (each adult)", "mandatory": True, "notes": ""},
+            {"name": "Updated health exam (if requested)", "mandatory": False, "notes": ""},
+            {"name": "Updated PCC (if requested)", "mandatory": False, "notes": ""},
+            {"name": "Marriage / relationship cert (if applicable)", "mandatory": True, "notes": ""},
+            {"name": "Children's birth certs (if applicable)", "mandatory": True, "notes": ""},
+            {"name": "Photo", "mandatory": True, "notes": ""},
+        ],
+        "common_rejection_reasons": [
+            "Residence outside designated regional area (full or partial period)",
+            "Less than 35 hrs/week work classification (not full-time)",
+            "Work period below 12 months (gaps not adequately bridged)",
+            "Provisional visa compliance issues during qualifying period",
+            "Health/character issues",
+        ],
+        "success_tips": [
+            "Track REGIONAL POSTCODE residence throughout — every utility bill, council rate, lease counts",
+            "Maintain CONTINUOUS full-time work — gaps complicate 12-month threshold",
+            "Save EVERY PAYG summary + tax return — central to 887 evidence",
+            "If on 491/494, plan PR via Subclass 191 (NOT 887)",
+            "For 887 eligibility, regional area definition is per the provisional visa's regulations — different from current 491/494 list",
+        ],
+        "faqs": [
+            {"q": "Can 491 / 494 holders apply for 887?", "a": "NO — for 491 / 494 holders, the PR pathway is via Subclass 191 (Skilled Regional PR), not 887. 887 specifically supports legacy 475/487/489/886 holders."},
+            {"q": "What counts as 'regional Australia' for 887?", "a": "Per the regulations applicable to your original provisional visa — may differ from current 491/494 regional area definitions. Verify against original visa's conditions."},
+            {"q": "Can my partner work?", "a": "Yes — secondary applicants under 887 PR have full work + study rights upon grant."},
+            {"q": "When can I apply for citizenship after 887?", "a": "After 4 years total residence (typically counted from provisional visa grant, including 12 months as PR)."},
+            {"q": "Do I need a fresh skills assessment?", "a": "NO — SA from the original provisional visa carries through to 887."},
+        ],
+        "official_url": "https://immi.homeaffairs.gov.au/visas/getting-a-visa/visa-listing/skilled-regional-887",
+        "vfs_url": "https://visa.vfsglobal.com/ind/en/aus/",
+        "source_urls": [
+            "https://immi.homeaffairs.gov.au/visas/getting-a-visa/visa-listing/skilled-regional-887",
+            "https://immi.homeaffairs.gov.au/visas/getting-a-visa/visa-listing/skilled-regional-191",
+        ],
+        "verified_notes": "Manual Fast-Path B.4.3 seed — verified against immi.homeaffairs.gov.au on 2026-02-27. Fee AUD 1,920 per current schedule. 491/494 holders explicitly directed to 191 instead.",
+    },
+]
+
+
 ALL_WORKFLOWS: Dict[str, List[Dict[str, Any]]] = {
     "IN": INDIA_WORKFLOWS,
+    "AU": AUSTRALIA_NEW_WORKFLOWS,
 }
 
 

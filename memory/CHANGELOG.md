@@ -4,6 +4,73 @@ This file appends every completed phase/feature with dates and verification stat
 
 
 ---
+### 🟢 Sweep B.4.3 — Australia EXPANSION (10 New Verified Workflows) (Feb 27, 2026)
+
+**Atomic Ship — Sub-Slice B.4.3 of MEGA DISPATCH Sweep B.4.**
+
+Seeded **10 new Australia visa workflows** into existing `seed_country_workflows_b4.py` (now hosts both INDIA_WORKFLOWS + AUSTRALIA_NEW_WORKFLOWS). All 10 cleared 14-mandatory-field schema, doc_id pattern `AU-{SID}-DOC-NN`, canonical audit_logs.
+
+**Workflows seeded (10):**
+1. **AU-485** ⭐ (Sir's trigger subclass) — Temporary Graduate; Mar 2026 reform: fee DOUBLED to AUD 4,600; age cap 35; IELTS 6.5/12-mo validity; streams renamed; Replacement Stream CLOSED 1 Jul 2024
+2. **AU-186** — Employer Nomination Scheme PR (Direct Entry + TRT + Labour Agreement); AUD 4,770 (FY2025-26 base, AUD 5,045 from 1 Jul 2026); SAF Levy 3k/5k
+3. **AU-187** — RSMS (CLOSED to new applications since 16 Nov 2019); maintained for legacy/transitional + secondary applicants; redirect to 494 documented
+4. **AU-494** — Skilled Employer Sponsored Regional Provisional; 5-year visa → Subclass 191 PR pathway; AUD 4,910
+5. **AU-858** — National Innovation Visa (formerly Global Talent); REFORMED 6 Dec 2024 to invitation-only EOI system; Tier 1/Tier 2 priority sectors; Form 1000 nomination; AUD 4,000; HIT AUD 183,100
+6. **AU-600** — Visitor Visa (4 streams: Tourist/Business/Sponsored Family/ADS); AUD 200 offshore / AUD 500 onshore; **Frequent Traveller route AUD 1,065 (India eligible since 2023)**
+7. **AU-407** — Training Visa (3 streams: Registration/Capacity-building/Skills-list); AUD 430; structured training plan required
+8. **AU-309-100** — Partner Offshore Combined (Provisional 309 + Permanent 100); AUD 9,365 combined fee; ~2-3 year journey to PR; Form 47SP + 40SP + 888×2
+9. **AU-801** — Partner Onshore Permanent Stage 2; AUD 0 (covered by 820 lodgement); auto-initiated by DoHA ~2 years post-820
+10. **AU-887** — Skilled Regional PR (for legacy 475/487/489/886 holders, NOT 491/494); AUD 1,920; 2yr regional residence + 12mo regional work
+
+**Sources verified (Feb 27, 2026):**
+- `immi.homeaffairs.gov.au/visas/getting-a-visa/visa-listing/` — official subclass pages for all 10
+- `immi.homeaffairs.gov.au/.../national-innovation-visa-858` (NIV reform page)
+- `immi.homeaffairs.gov.au/.../temporary-graduate-485/post-higher-education-work` + `/post-vocational-education-work` (renamed streams)
+- `immi.homeaffairs.gov.au/.../repealed-visas` (187 closure context)
+- `studyaustralia.gov.au/.../changes-to-the-temporary-graduate-subclass-485-visa` (Mar 2026 fee doubling, age cap, IELTS)
+- `bal.com/immigration-news/australia-national-innovation-visa-introduced` (NIV announcement)
+
+**Reforms accurately captured:**
+- ✅ AU-485 fee AUD 4,600 (DOUBLED from AUD 2,300 effective 1 Mar 2026)
+- ✅ AU-485 age cap 35 (was 50; PhD/Research Masters/HK/BNO retain under-50)
+- ✅ AU-485 English IELTS 6.5 + 5.5 each band within 12 months (was 3 years)
+- ✅ AU-485 stream renames + Replacement Stream closure + 2-yr skill-shortage extension ended
+- ✅ AU-485 onshore Student switch BARRED
+- ✅ AU-186 FY2025-26 AUD 4,770 + 1 Jul 2026 AUD 5,045 hike noted
+- ✅ AU-187 closure since 16 Nov 2019 + redirect to 494
+- ✅ AU-858 NIV reform (6 Dec 2024) + Tier 1/Tier 2 sectors + Form 1000 + EOI invitation-only + HIT AUD 183,100
+- ✅ AU-600 Frequent Traveller route AUD 1,065 (India eligible 2023+)
+- ✅ AU-309-100 combined fee AUD 9,365 + offshore-only requirement
+- ✅ AU-801 auto-initiated by DoHA (no new fee)
+- ✅ AU-887 vs 191 distinction (legacy holders only on 887)
+
+**Idempotency verified (re-run):** `inserted=0 skipped=10 errored=0` ✓
+**Total verified workflows in DB now: 46** (24 prior + 12 IN from B.4.2 + 10 AU from B.4.3)
+**Per-country breakdown:** AU=16, CA=6, NZ=6, UK=6, IN=12
+
+**Triple-gate verification:**
+- 🟢 Seed `inserted=10 skipped=0 errored=0`; idempotency `inserted=0 skipped=10`
+- 🟢 Fast-path: `AU+work` → `seeded_verified` (returns first-inserted match — AU-482; both 485 + 407 also queryable by subclass_id)
+- 🟢 AU-485 deep-check: Fee AUD 4,600 ✓ · 8 steps · 15 documents (`AU-485-DOC-01` through `AU-485-DOC-15`) · 8 eligibility · 6 FAQs · 8 rejection reasons
+- 🟢 AU-858 NIV reform verified in DB: "National Innovation Visa" + "Dec 2024 reform" present in description
+- 🟢 10 audit logs created with canonical schema: `action=country_workflow_seeded_b2`, `user_id=3918d774-d353-460b-88d6-9c8a2a959c72`, `user_name="Admin User"`, `entity_id=<workflow_id>` for all 10 new AU workflows
+
+**Files modified (1):**
+- 📝 `backend/scripts/seed_country_workflows_b4.py` — added `AUSTRALIA_NEW_WORKFLOWS` list (10 dictionaries) + extended `ALL_WORKFLOWS = {"IN": ..., "AU": ...}`. File now ~3170 lines covering B.4.2 + B.4.3.
+
+**Files NOT touched (out of scope per Sir's directive):**
+- Backend routers (no canonical mapping changes needed — work/pr/partner/visitor already supported from B.2)
+- AI fallback config (B.4.1 working — verified during this session via live log capture: Sonnet daily-limit → Haiku daily-limit → Perplexity skip → graceful RuntimeError)
+- All other countries, Phase 22.4 / 23, Resend, Stripe
+
+**Highlighted caveats:**
+- AU has multiple subclasses sharing same `service_type` (e.g., 482/485/407 all use "work"; 820/309-100/801 all use "partner"). Fast-path with bare `service_type` returns first-inserted match. UI should pass `subclass_id` for specificity (existing `/generate` endpoint supports this; AdminHub UI already does this via subclass cards).
+- **AI generation chain** (`/ai-workflow/generate` for unseeded cases) currently hitting `Daily spend limit` on both Claude Sonnet + Haiku — Sir's Universal Key top-up may be daily-capped or exhausted. **This does NOT affect seeded fast-paths** (which all return <200ms verified data).
+
+**Next:** B.4.4 — Canada EXPANSION (6 new + 6 existing).
+
+
+---
 ### 🟢 Sweep B.4.2 — India NEW (12 Verified Workflows) (Feb 27, 2026)
 
 **Atomic Ship — Sub-Slice B.4.2 of MEGA DISPATCH Sweep B.4 + B.3.**
