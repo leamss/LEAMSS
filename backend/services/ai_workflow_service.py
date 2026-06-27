@@ -92,19 +92,28 @@ def _sync_chat_call(api_key: str, session_id: str, system_msg: str, provider: st
 async def call_ai_with_fallback(
     prompt: str, system_msg: str = "", session_prefix: str = "workflow",
     primary_timeout: float = 90, fallback_timeout: float = 45,
+    perplexity_timeout: float = 60,
 ) -> Tuple[str, str]:
-    """Call Claude Sonnet 4.5 first (90s budget). On timeout/error → jump to Haiku (45s budget — faster model).
+    """Call Claude Sonnet 4.5 → Claude Haiku 4.5 → Perplexity Sonar Pro (tertiary).
 
     Returns: (response_text, model_used_label)
-    Raises: RuntimeError if BOTH fail. Exception message carries the last-seen real error.
+    Raises: RuntimeError if ALL providers fail. Exception message carries last error.
 
-    Sweep A.2 — Offloads the BLOCKING LiteLLM call to a thread-pool executor.
-    Sweep B.1 hotfix — Per-model timeouts to bound total worst-case at ~135s.
+    Chain (per B.4.1 dispatch — Feb 27, 2026):
+      1. Claude Sonnet 4.5 (90s) — primary, structured reasoning
+      2. Claude Haiku 4.5 (45s) — cheaper/faster secondary
+      3. Perplexity Sonar Pro (60s) — web-search-augmented tertiary
+         · Skipped silently if PERPLEXITY_API_KEY env var not configured
+         · Provides fresh fees + current policy info + citations when available
+
+    Sweep A.2 — Offloads BLOCKING LiteLLM call (Claude) to thread-pool executor.
+    Sweep B.1 hotfix — Per-model timeouts bound worst-case total at ~135s + 60s.
     """
     session_id = f"{session_prefix}-{uuid.uuid4().hex[:8]}"
     last_err: Optional[Exception] = None
     loop = asyncio.get_event_loop()
 
+    # ── Tier 1 + Tier 2: Claude Sonnet 4.5 + Claude Haiku 4.5 ─────────────────
     attempts = [(PRIMARY_MODEL, primary_timeout), (FALLBACK_MODEL, fallback_timeout)]
     for (provider, model), budget in attempts:
         try:
@@ -123,6 +132,21 @@ async def call_ai_with_fallback(
             last_err = e
             logger.warning("AI call failed (%s/%s): %s — trying next model", provider, model, e)
             continue
+
+    # ── Tier 3: Perplexity Sonar Pro (B.4.1) ──────────────────────────────────
+    from services.perplexity_service import call_perplexity_sonar_pro, is_perplexity_configured
+    if is_perplexity_configured():
+        try:
+            logger.info("Both Claude tiers failed — attempting Perplexity Sonar Pro tertiary fallback")
+            result, label = await call_perplexity_sonar_pro(prompt, system_msg, timeout_seconds=perplexity_timeout)
+            logger.info("AI workflow generated via %s (Perplexity tertiary fallback succeeded)", label)
+            return result, label
+        except Exception as e:  # noqa: BLE001
+            last_err = e
+            logger.warning("Perplexity Sonar Pro fallback failed: %s", e)
+    else:
+        logger.info("Perplexity Sonar Pro skipped — PERPLEXITY_API_KEY not configured (Sir to set env var to enable)")
+
     raise RuntimeError(f"All AI providers failed. Last error: {type(last_err).__name__}: {last_err}")
 
 
