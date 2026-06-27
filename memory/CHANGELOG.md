@@ -4,6 +4,83 @@ This file appends every completed phase/feature with dates and verification stat
 
 
 ---
+### 🟢 Sweep B.4.8 — Germany NEW (6 Net-New Verified Workflows) + Validator extended to DE (Feb 27, 2026)
+
+**Atomic Ship — Sub-Slice B.4.8 of MEGA DISPATCH Sweep B.4. SECOND NET-NEW COUNTRY (first EU).**
+
+Seeded **6 new Germany visa workflows** (no existing B.2 Germany seeds). All cleared 14-mandatory-field schema, doc_id pattern `DE-{SID}-DOC-NN`, canonical `_b4` audit logs. Plus extended `validate_visa_names.py` to support inline DE validation.
+
+**Workflows seeded (6):**
+
+1. **DE-EU-Blue-Card** ✅ ACTIVE — EU Blue Card (Highly-Skilled Worker). **Jan 1, 2026 salary thresholds (BGBl. 2025 I Nr. 278): €50,700/yr general · €45,934.20/yr shortage/graduate/IT** (50% / 45.3% of €101,400 pension ceiling). €100 application fee + €1,035 IHS equivalent. **21-month PR via B1 German vs 27-month standard.** Spouses EXEMPT from A1 German.
+2. **DE-Job-Seeker** ✅ ACTIVE — Job Seeker Visa (6-month non-extendable). **€6,162 Sperrkonto for 2026** (€1,027/mo × 6). €75 fee. NO full-time work; 2-week trial work permitted. Convert to Skilled Worker / EU Blue Card if job found.
+3. **DE-Student** ✅ ACTIVE — Student Visa (Aufenthaltserlaubnis zum Studium). **€11,904 Sperrkonto for 2026** (€992/mo BAföG rate). €75 visa + €100 residence permit. Public universities mostly FREE (€150-€350 semester fees). 120 days/yr work limit. **18-month post-graduation job seeker permit** (major Germany advantage).
+4. **DE-Skilled-Worker** ✅ ACTIVE — Skilled Worker + Chancenkarte (Fachkräfteeinwanderungsgesetz). **3 pathways:** Standard (job offer) · Recognition Partnership (enter without recognition, A2 German) · Chancenkarte / Opportunity Card (6+ points system, €13,092/yr, 20hr/wk part-time work allowed). **Launched June 1, 2024 — CONFIRMED ACTIVE Feb 2026.** A2 German + €75 fee.
+5. **DE-Family-Reunion** ✅ ACTIVE — Family Reunion (Familiennachzug). **€75 adults / €37.50 minors / FREE for EU citizen family.** A1 German for spouses **EXEMPT** if sponsor holds EU Blue Card / Skilled Worker / ICT / German citizenship (major advantage list). Sponsor income: ~€563+€506+€312/child (2026 standard rates).
+6. **DE-Self-Employment** ✅ ACTIVE — Self-Employment (Selbständige Tätigkeit). **Two streams: Freiberufler (liberal professions, 2+ client letters, no chamber) + Gewerbe (entrepreneur, business plan, IHK/HWK viability assessment).** €250k minimum investment rule ABOLISHED. Age 45+: €1,612.53/mo pension × 12yr OR €232,204 assets. Berlin LEA online-only from March 2026.
+
+**🔧 Validator utility extended (B.4.8):**
+- `validate_visa_names.py` now supports `--inline DE` (in addition to `--inline US`)
+- Pre-seed validation on 6 DE visa names: **6/6 PASS** (all primary URLs HTTP 200 on make-it-in-germany.com)
+- Some secondary bamf.de URLs returned HTTP 400 (server policy on specific paths) — NOT closures
+- Validator pattern now generalizes for future B.4.9 Schengen + beyond
+
+**🔧 Research-driven correction vs Sir's brief (NZ/UK/USA precedent):**
+- Sir's brief listed EU Blue Card thresholds **~€48,300 general / €43,759 shortage** (outdated)
+- **Actual Jan 1, 2026 thresholds: €50,700 / €45,934.20** (published BGBl. 2025 I Nr. 278 dated Nov 26, 2025, based on 50%/45.3% of €101,400 pension ceiling for 2026)
+- Correction documented transparently in DE-EU-Blue-Card `verified_notes`
+- All other Sir's stated values (€11,904 Sperrkonto, Chancenkarte launch, Recognition Partnership) **confirmed accurate**
+
+**Sources verified (Feb 27, 2026):**
+- `make-it-in-germany.com` (Federal Ministry for Economic Affairs portal — primary)
+- `auswaertiges-amt.de` (Federal Foreign Office — Sperrkonto official page)
+- `bamf.de` (Federal Office for Migration and Refugees)
+- `anerkennung-in-deutschland.de` (Recognition portal)
+- `chancenkarte.com/en/` (Opportunity Card official)
+- Specialist counsel: Tands Law, Move2Europe, EU Immigration Portal, Fragomen, Find English Germany (Blue Card 2026), Studying-in-Germany, Expatrio (Sperrkonto), Fintiba, How-to-Germany, AXA Schengen, Davidson Morris, L&E Global, Jobbatical, Total Law, Kanzlei Wottke, Handbook Germany, Feather Insurance
+
+**Reforms / current status accurately captured:**
+- ✅ EU Blue Card Jan 1, 2026 thresholds €50,700 / €45,934.20 (BGBl. 2025 I Nr. 278)
+- ✅ Chancenkarte (Opportunity Card) launched June 1, 2024 — ACTIVE Feb 2026
+- ✅ Recognition Partnership (Anerkennungspartnerschaft) — 2024 reform active
+- ✅ Sperrkonto 2026 amounts: Student €11,904 (BAföG €992/mo) · Job Seeker €6,162 (€1,027/mo × 6) · Chancenkarte €13,092 (€1,091/mo)
+- ✅ A1 German exemptions for EU Blue Card / Skilled Worker / ICT spouses
+- ✅ €250k self-employment minimum rule abolished
+- ✅ Berlin LEA online-only submission for self-employment from March 2026
+- ✅ EU Blue Card 21-month PR via B1 German vs 27-month A1
+- ✅ 18-month post-graduation job seeker permit (Student → Skilled Worker pathway)
+- ✅ Skilled Worker 5-yr PR (4-yr with B1 German + civic integration)
+
+**Backend infra changes (DE country aliases + service types):**
+- 📝 `backend/routers/country_workflows.py` — `COUNTRY_ALIAS_MAP` extended with DE entries: "germany", "de", "deutschland", "german", "federal republic of germany", "brd" → DE
+- 📝 `backend/routers/ai_workflow_builder.py` — `COUNTRY_REFERENCES["germany"]` enhanced with Feb 2026 fees + Chancenkarte/Recognition Partnership context. Added `COUNTRY_REFERENCES["de"]` + `COUNTRY_REFERENCES["deutschland"]`. All DE service_types covered: work / student / jobseeker / partner / family / business
+
+**Triple-gate verification:**
+- 🟢 Seed `inserted=6 skipped=0 errored=0`; idempotency `inserted=0 skipped=6`
+- 🟢 **ALL 6 integrity-checked:** 14 mandatory fields present · 95 docs (16+15+15+16+15+18) all with `DE-{SID}-DOC-NN` doc_id · 6/6 canonical `_b4` audit logs
+- 🟢 Fast-path live curl (4 parallel): DE/work → DE-EU-Blue-Card (142ms) · Germany/student → DE-Student (136ms) · Deutschland/business → DE-Self-Employment (139ms) · DE/partner → DE-Family-Reunion (100ms) — all unique service_types resolve correctly + Germany/Deutschland aliases work
+- 🟢 **DB total verified workflows: 74** (AU=16, CA=12, IN=12, NZ=10, UK=12, US=6, DE=6) — increased from 68
+- 🟢 **Audit log counts: `_b4`=50 (12 IN + 10 AU + 6 CA + 4 NZ + 6 UK + 6 US + 6 DE), `_b2`=24** (B.2 originals preserved unchanged)
+- 🟢 Validator pre-seed inline DE run: 6/6 OK on primary URLs
+
+**Files modified (3):**
+- 📝 `backend/scripts/seed_country_workflows_b4.py` — `GERMANY_NEW_WORKFLOWS` list (6 dicts, ~1,800 lines) added + `ALL_WORKFLOWS["DE"]` mapping. File now ~8,200 lines (B.4.2-8 combined).
+- 📝 `backend/routers/country_workflows.py` — `COUNTRY_ALIAS_MAP` extended with 6 DE aliases
+- 📝 `backend/routers/ai_workflow_builder.py` — `COUNTRY_REFERENCES["germany"]` enhanced + added "de" + "deutschland" entries with Feb 2026 fee + reform context
+- 📝 `backend/scripts/validate_visa_names.py` — Extended with GERMANY_VISA_NAMES + `--inline DE` flag (now supports both US + DE)
+
+**Highlighted observations:**
+- **First EU country** in MEGA DISPATCH B.4 — establishes Schengen Area workflow patterns for B.4.9
+- **Three-stream Skilled Worker** workflow (Standard / Recognition Partnership / Chancenkarte) is the most pathway-rich workflow in dataset — captures Germany's 2024-2026 immigration reform comprehensively
+- **A1 German spouse exemption list** for Family Reunion = competitive recruitment advantage for EU Blue Card holders, documented prominently
+- **€11,904 Sperrkonto for 2026** confirmed (Sir was correct) — student visa most predictable cost structure
+- **Tech Nation precedent applied** — EU Blue Card threshold correction handled with same transparent NZ/UK/USA pattern
+
+**Pending Sweep B.4 (P0 LAST sub-slice):**
+- 🇪🇺 B.4.9 — Schengen NEW (6 visas — multi-country Schengen Area visa types) — **FINAL sub-slice of MEGA DISPATCH** (~80 total workflows)
+
+
+---
 ### 🟢 Sweep B.4.7 — United States NEW (6 Net-New Verified Workflows) + Visa-Name Validator Utility (Feb 27, 2026)
 
 **Atomic Ship — Sub-Slice B.4.7 of MEGA DISPATCH Sweep B.4. FIRST NET-NEW COUNTRY.**

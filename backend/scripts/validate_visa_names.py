@@ -76,6 +76,49 @@ USA_VISA_NAMES: List[Dict[str, str]] = [
 ]
 
 
+# ──────────────────────────────────────────────────────────────────────────────
+# Germany visa name reference list for B.4.8 inline validation
+# ──────────────────────────────────────────────────────────────────────────────
+GERMANY_VISA_NAMES: List[Dict[str, str]] = [
+    {
+        "subclass_id": "EU-Blue-Card",
+        "subclass_name": "EU Blue Card (Highly-Skilled Non-EU; 2026 €50,700 / €45,934 shortage)",
+        "official_url": "https://www.make-it-in-germany.com/en/visa-residence/types/eu-blue-card",
+        "secondary_url": "https://www.bamf.de/EN/Themen/MigrationAufenthalt/ZuwandererDrittstaaten/Migrathek/BlaueKarteEU/blauekarteeu-node.html",
+    },
+    {
+        "subclass_id": "Job-Seeker",
+        "subclass_name": "Job Seeker Visa (6-month visa, €6,162 blocked account)",
+        "official_url": "https://www.make-it-in-germany.com/en/visa-residence/types/job-search",
+        "secondary_url": "https://www.germany.info/us-en/service/visa/visa-for-jobseekers/2469848",
+    },
+    {
+        "subclass_id": "Student",
+        "subclass_name": "Student Visa (Aufenthaltserlaubnis zum Studium; €11,904 Sperrkonto)",
+        "official_url": "https://www.make-it-in-germany.com/en/study-training/studying/visa",
+        "secondary_url": "https://www.auswaertiges-amt.de/en/sperrkonto-388600",
+    },
+    {
+        "subclass_id": "Skilled-Worker",
+        "subclass_name": "Skilled Worker Visa (Fachkräfteeinwanderungsgesetz + Anerkennungspartnerschaft + Chancenkarte)",
+        "official_url": "https://www.make-it-in-germany.com/en/visa-residence/types/skilled-workers",
+        "secondary_url": "https://www.make-it-in-germany.com/en/visa-residence/types/opportunity-card",
+    },
+    {
+        "subclass_id": "Family-Reunion",
+        "subclass_name": "Family Reunion Visa (Familiennachzug; A1 German for spouses, exemptions for Blue Card/Skilled Worker)",
+        "official_url": "https://www.make-it-in-germany.com/en/visa-residence/types/family-reunification",
+        "secondary_url": "https://www.bamf.de/SharedDocs/Anlagen/DE/MigrationAufenthalt/Ehegattennachzug/ehegattennachzug-en.pdf",
+    },
+    {
+        "subclass_id": "Self-Employment",
+        "subclass_name": "Self-Employment Visa (Selbständige Tätigkeit + Freiberufler/freelancer)",
+        "official_url": "https://www.make-it-in-germany.com/en/visa-residence/types/self-employment",
+        "secondary_url": "https://www.bamf.de/EN/Themen/MigrationAufenthalt/ZuwandererDrittstaaten/Arbeit/SelbstaendigeTaetigkeit/selbstaendigetaetigkeit-node.html",
+    },
+]
+
+
 async def check_url(client: httpx.AsyncClient, url: str) -> Dict[str, Any]:
     """HTTP HEAD with GET fallback. Returns {status, http_code, error}."""
     try:
@@ -136,14 +179,25 @@ async def main() -> None:
     parser = argparse.ArgumentParser(description="Validate visa subclass names against official .gov URLs")
     parser.add_argument("--country", type=str, default="US", help="ISO-2 country code (for display)")
     parser.add_argument("--visas", type=str, default=None, help="Path to JSON file with visa entries")
-    parser.add_argument("--inline", action="store_true", help="Use hardcoded USA visa list (B.4.7)")
+    parser.add_argument("--inline", type=str, nargs="?", const="US", default=None,
+                        help="Use hardcoded inline visa list. Pass country code (US|DE). Default: US")
     args = parser.parse_args()
 
     if args.inline:
-        visas = USA_VISA_NAMES
-        country_code = "US"
+        inline_choice = args.inline.upper()
+        if inline_choice == "US":
+            visas = USA_VISA_NAMES
+            country_code = "US"
+            slice_label = "B.4.7 INLINE"
+        elif inline_choice == "DE":
+            visas = GERMANY_VISA_NAMES
+            country_code = "DE"
+            slice_label = "B.4.8 INLINE"
+        else:
+            print(f"⚠  Unknown inline country code '{inline_choice}'. Supported: US, DE")
+            sys.exit(1)
         print(f"\n══════════════════════════════════════════════")
-        print(f"  VALIDATING {country_code} (B.4.7 INLINE) — {len(visas)} visas")
+        print(f"  VALIDATING {country_code} ({slice_label}) — {len(visas)} visas")
         print(f"══════════════════════════════════════════════\n")
     elif args.visas:
         with open(args.visas, "r", encoding="utf-8") as f:

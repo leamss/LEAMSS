@@ -600,6 +600,9 @@ COUNTRY_ALIAS_MAP: Dict[str, str] = {
     # United States (Sweep B.4.7 — Feb 27, 2026)
     "united states": "US", "us": "US", "usa": "US", "u.s.": "US", "u.s.a.": "US",
     "united states of america": "US", "america": "US",
+    # Germany (Sweep B.4.8 — Feb 27, 2026)
+    "germany": "DE", "de": "DE", "deutschland": "DE", "german": "DE",
+    "federal republic of germany": "DE", "brd": "DE",
 }
 
 SERVICE_TYPE_CANONICAL_MAP: Dict[str, str] = {

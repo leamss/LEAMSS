@@ -124,9 +124,28 @@ COUNTRY_REFERENCES = {
         "student": "UAE Student Visa. Reference: icp.gov.ae."
     },
     "germany": {
-        "work": "EU Blue Card / Work Visa. Reference: make-it-in-germany.com, auswaertiges-amt.de.",
-        "student": "Student Visa. Reference: auswaertiges-amt.de.",
-        "jobseeker": "Job Seeker Visa. Reference: auswaertiges-amt.de."
+        "work": "EU Blue Card / Skilled Worker / Recognition Partnership / Chancenkarte (Opportunity Card). Reference: make-it-in-germany.com, auswaertiges-amt.de. EU Blue Card 2026: €50,700 general / €45,934.20 shortage/grad/IT (Jan 1, 2026 thresholds). Chancenkarte 6-point system, €13,092/yr financial. Recognition Partnership: enter without recognition + A2 German.",
+        "student": "Student Visa (Aufenthaltserlaubnis zum Studium). Reference: auswaertiges-amt.de. Sperrkonto 2026: €11,904/yr (€992/mo BAföG rate). €75 visa fee. Public universities free for non-EU. 18-month post-grad job seeker.",
+        "jobseeker": "Job Seeker Visa (6-month non-extendable). Reference: auswaertiges-amt.de. €6,162 Sperrkonto for 2026 (€1,027/mo × 6). NO full-time work; 2-week trial only.",
+        "partner": "Family Reunion Visa (Familiennachzug). Reference: make-it-in-germany.com. A1 German for spouses EXEMPT if sponsor holds EU Blue Card / Skilled Worker / ICT / German citizenship. €75 adults / €37.50 minors / FREE for EU citizen family.",
+        "family": "Family Reunion Visa (Familiennachzug). Reference: make-it-in-germany.com. A1 German for spouses EXEMPT if sponsor holds EU Blue Card / Skilled Worker / ICT / German citizenship. €75 adults / €37.50 minors / FREE for EU citizen family.",
+        "business": "Self-Employment Visa (Selbständige Tätigkeit). Reference: make-it-in-germany.com. Two streams: Freiberufler (liberal professions, 2+ client letters) + Gewerbe (entrepreneur, business plan + IHK assessment). €250k rule abolished. Age 45+: €1,612.53/mo pension OR €232,204 assets."
+    },
+    "de": {
+        "work": "EU Blue Card / Skilled Worker / Recognition Partnership / Chancenkarte (Opportunity Card). Reference: make-it-in-germany.com, auswaertiges-amt.de. EU Blue Card 2026: €50,700 general / €45,934.20 shortage/grad/IT. Chancenkarte 6-point system, €13,092/yr.",
+        "student": "Student Visa (Aufenthaltserlaubnis zum Studium). Reference: auswaertiges-amt.de. Sperrkonto 2026: €11,904/yr. €75 visa fee. Public universities free.",
+        "jobseeker": "Job Seeker Visa (6-month). Reference: auswaertiges-amt.de. €6,162 Sperrkonto.",
+        "partner": "Family Reunion Visa (Familiennachzug). A1 German + sponsor exemptions documented.",
+        "family": "Family Reunion Visa (Familiennachzug). A1 German + sponsor exemptions documented.",
+        "business": "Self-Employment Visa (Selbständige Tätigkeit). Freiberufler + Gewerbe streams."
+    },
+    "deutschland": {
+        "work": "EU Blue Card / Skilled Worker / Recognition Partnership / Chancenkarte (Opportunity Card). Reference: make-it-in-germany.com, auswaertiges-amt.de.",
+        "student": "Student Visa (Aufenthaltserlaubnis zum Studium). Reference: auswaertiges-amt.de.",
+        "jobseeker": "Job Seeker Visa (6-month). Reference: auswaertiges-amt.de.",
+        "partner": "Family Reunion Visa (Familiennachzug).",
+        "family": "Family Reunion Visa (Familiennachzug).",
+        "business": "Self-Employment Visa (Selbständige Tätigkeit)."
     },
     "japan": {
         "work": "Work Visa (Engineer/Specialist/Humanities). Reference: mofa.go.jp, moj.go.jp.",

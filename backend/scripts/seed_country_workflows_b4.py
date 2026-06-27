@@ -4966,6 +4966,836 @@ USA_NEW_WORKFLOWS: List[Dict[str, Any]] = [
 ]
 
 
+# ──────────────────────────────────────────────────────────────────────────────
+# Sweep B.4.8 — Germany NEW (6 NEW workflows — second net-new country, first EU)
+#
+# Sources verified Feb 27, 2026:
+#   - make-it-in-germany.com (official Federal Ministry for Economic Affairs portal)
+#   - auswaertiges-amt.de (Federal Foreign Office)
+#   - bamf.de (Federal Office for Migration and Refugees)
+#   - anerkennung-in-deutschland.de (Recognition portal)
+#
+# CRITICAL Feb 2026 reforms reflected:
+#   - EU Blue Card Jan 1, 2026 thresholds: €50,700 general / €45,934.20 shortage
+#     (based on 50% / 45.3% of €101,400 pension ceiling for 2026)
+#   - Chancenkarte (Opportunity Card) — launched June 1, 2024, ACTIVE for 2026
+#     6+ points + €13,092/yr financial; €1,091/mo; 1-yr validity; part-time work allowed
+#   - Recognition Partnership (Anerkennungspartnerschaft) — 2024 reform; A2 German
+#   - Sperrkonto 2026: €11,904 / €992/mo (BAföG rate); student visa
+#   - Job Seeker Sperrkonto 2026: €6,162 / €1,027/mo × 6 months
+#   - Self-Employment 250k rule ABOLISHED; freelancer + entrepreneur streams
+#   - Berlin LEA online-only submission from March 2026 (self-employment)
+#
+# Validator findings (B.4.8 bundled utility):
+#   - 6/6 visa URLs returned HTTP 200 on make-it-in-germany.com (primary)
+#   - Some secondary bamf.de URLs returned 400 (server policy on specific paths)
+#     — NOT closures; all 6 visas confirmed ACTIVE
+#
+# Research-driven correction vs Sir's brief:
+#   - Sir said EU Blue Card threshold ~€48,300 / €43,759 (outdated)
+#   - Actual Jan 1, 2026: €50,700 / €45,934.20 (corrected via Make-it-in-Germany
+#     + Find English + Tands Law + Fragomen + Move2Europe + BGBl. 2025 I Nr. 278)
+# ──────────────────────────────────────────────────────────────────────────────
+GERMANY_NEW_WORKFLOWS: List[Dict[str, Any]] = [
+    # ── 1. DE-EU-Blue-Card — EU Blue Card (Highly-Skilled Non-EU) ──────────────
+    {
+        "country_code": "DE", "country_name": "Germany",
+        "subclass_id": "EU-Blue-Card",
+        "subclass_name": "EU Blue Card (Highly-Skilled Worker; 2026 thresholds €50,700 / €45,934.20 shortage)",
+        "service_type": "work", "category": "immigration",
+        "description": (
+            "The EU Blue Card (Blaue Karte EU) is Germany's premier work visa for **highly-"
+            "qualified non-EU professionals**. It offers fast-track permanent residency, "
+            "EU-wide mobility, and family reunification rights superior to standard skilled "
+            "worker visas.\n\n"
+            "**CRITICAL Jan 1, 2026 salary thresholds (Bundesanzeiger BGBl. 2025 I Nr. 278):**\n"
+            "- **General occupations: €50,700/year** (€4,225/month) — 50% of €101,400 pension ceiling\n"
+            "- **Shortage occupations: €45,934.20/year** (€3,827.85/month) — 45.3% of pension ceiling\n"
+            "- Recent graduates (degree < 3 yrs): €45,934.20\n"
+            "- IT specialists (no degree, 3+ yrs experience): €45,934.20\n\n"
+            "**Shortage occupations:** IT (software developers, data analysts), Engineering "
+            "(mechanical, electrical, civil), Natural Sciences (chemistry, physics), Healthcare "
+            "(doctors, nurses), Mathematics/Statistics, Teachers.\n\n"
+            "**Fast-track Permanent Residency (Niederlassungserlaubnis):**\n"
+            "- **21 months** with B1 German language proficiency\n"
+            "- **27 months** with standard A1 German language\n"
+            "- Major advantage vs standard 5-year German PR pathway\n\n"
+            "**Validity:** Contract duration + 3 months, **maximum 4 years**. Family reunion "
+            "spouses EXEMPT from A1 German requirement (vs standard Family Reunion visa).\n\n"
+            "**Note:** Bonuses, commissions, variable pay DO NOT count toward salary threshold "
+            "— only fixed gross annual salary on contract. Federal Employment Agency approval "
+            "required ONLY if applying under reduced threshold (Shortage/Graduates/IT)."
+        ),
+        "eligibility_summary": (
+            "University degree or comparable qualification + job offer/employment contract with "
+            "Germany-based employer at salary threshold (€50,700 general / €45,934.20 shortage "
+            "or graduate/IT). No upper age limit. Federal Employment Agency approval needed for "
+            "reduced threshold only."
+        ),
+        "eligibility_criteria": [
+            {"label": "Qualification", "value": "Recognized university degree (Bachelor's, Master's, PhD) or comparable qualification", "notes": "Foreign degrees: ZAB statement of comparison required for non-EU degrees"},
+            {"label": "Salary — General Occupations", "value": "€50,700/year (€4,225/month) gross fixed contract salary", "notes": "Bonuses + commissions excluded"},
+            {"label": "Salary — Shortage Occupations", "value": "€45,934.20/year (€3,827.85/month)", "notes": "IT, Engineering, Healthcare, Natural Sciences, Math"},
+            {"label": "Salary — Recent Graduates", "value": "€45,934.20/year if degree obtained < 3 years before application", "notes": ""},
+            {"label": "Salary — IT Specialists (No Degree)", "value": "€45,934.20/year with 3+ years relevant experience", "notes": "Self-acquired knowledge route"},
+            {"label": "Job Offer / Employment Contract", "value": "Valid binding employment contract with German employer", "notes": "Minimum 6 months duration"},
+            {"label": "Federal Employment Agency Approval", "value": "Required for reduced-threshold applications (Shortage/Graduates/IT); NOT required for general threshold", "notes": ""},
+            {"label": "Age", "value": "No upper or lower age limit", "notes": "Subject to standard health/character"},
+            {"label": "Health Insurance", "value": "Adequate health insurance for first day in Germany", "notes": "Statutory (GKV) or comprehensive private"},
+        ],
+        "fees_local_currency_code": "EUR", "fees_local_currency_amount": 100, "fees_inr_approx": 9500,
+        "fees_breakdown": [
+            {"component": "Visa application fee (national visa, embassy)", "amount": 75, "currency": "EUR"},
+            {"component": "Residence permit issuance fee (eAT — electronic Aufenthaltstitel)", "amount": 100, "currency": "EUR"},
+            {"component": "EU Blue Card initial application fee (Federal Ministry)", "amount": 100, "currency": "EUR"},
+            {"component": "Renewal fee (up to 3 months)", "amount": 96, "currency": "EUR"},
+            {"component": "Renewal fee (> 3 months)", "amount": 93, "currency": "EUR"},
+            {"component": "Express issuance fee (optional)", "amount": 35, "currency": "EUR"},
+            {"component": "ZAB qualification recognition (for non-EU degrees)", "amount": 485, "currency": "EUR"},
+            {"component": "VFS service fee (India)", "amount": 30, "currency": "EUR"},
+            {"component": "Document translation + apostille", "amount": 200, "currency": "EUR", "per": "estimate"},
+            {"component": "B1 German test (for 21-month PR pathway)", "amount": 200, "currency": "EUR"},
+        ],
+        "processing_time_days_min": 28, "processing_time_days_max": 90,
+        "step_by_step": [
+            {"step_number": 1, "title": "Verify Qualification + Secure Job Offer", "description": "Confirm degree is recognized (use anabin.kmk.org database). If not in anabin H+/equivalent list, obtain ZAB Statement of Comparison (€485). Secure German employer offer at €50,700+ (or €45,934.20 shortage).", "estimated_days": 60, "documents_needed": ["Degree certificate", "Transcripts", "Employment contract"], "tips": ["Check anabin first — saves ZAB fee if degree H+/equivalent rated"]},
+            {"step_number": 2, "title": "Federal Employment Agency Approval (if reduced threshold)", "description": "Employer applies to Bundesagentur für Arbeit (BA) for approval if salary below general threshold. NOT required for general threshold.", "estimated_days": 30, "documents_needed": ["Contract", "Salary justification"], "tips": ["Skip if salary ≥ €50,700"]},
+            {"step_number": 3, "title": "Book Embassy Appointment", "description": "Book appointment at German Embassy/Consulate in country of residence. Indian applicants: New Delhi/Mumbai/Bangalore/Chennai/Kolkata.", "estimated_days": 30, "documents_needed": [], "tips": ["VFS often handles document drop-off"]},
+            {"step_number": 4, "title": "Prepare Application Documents", "description": "Compile passport, photos, employment contract, qualification certificates + ZAB (if needed), CV, cover letter, health insurance proof, A1 German (if available; not mandatory for Blue Card).", "estimated_days": 14, "documents_needed": ["All compiled docs"], "tips": ["A1 German not mandatory but helps Family Reunion exemption"]},
+            {"step_number": 5, "title": "Embassy Interview + Document Submission", "description": "Attend embassy appointment. Submit documents + biometrics + €75 visa fee. Some embassies require in-person interview.", "estimated_days": 1, "documents_needed": [], "tips": ["Bring originals + 2 photocopies of each"]},
+            {"step_number": 6, "title": "Receive Visa Decision (4-12 weeks)", "description": "Initial decision typically 4-8 weeks. National D-visa issued for 90 days entry. Travel to Germany.", "estimated_days": 56, "documents_needed": [], "tips": ["Some Indian applicants report 8-12 weeks"]},
+            {"step_number": 7, "title": "Register in Germany (Anmeldung)", "description": "Within 14 days of arrival, register address at local Bürgeramt. Required for residence permit appointment.", "estimated_days": 14, "documents_needed": ["Lease agreement", "Landlord confirmation"], "tips": ["Book Anmeldung appointment BEFORE arriving — months-long waits in Berlin"]},
+            {"step_number": 8, "title": "Apply for EU Blue Card at Ausländerbehörde", "description": "Apply for actual EU Blue Card at local Ausländerbehörde. Pay €100 fee. Receive eAT (electronic residence permit). Plan B1 German for 21-mo PR fast-track.", "estimated_days": 30, "documents_needed": ["Anmeldung", "Contract", "Visa"], "tips": ["B1 German = 21mo to PR vs 27mo standard A1"]},
+        ],
+        "document_checklist": [
+            {"name": "Valid passport (12+ months validity)", "mandatory": True, "notes": ""},
+            {"name": "Recent biometric photos (35x45mm, white background)", "mandatory": True, "notes": "Per German embassy specs"},
+            {"name": "Completed national visa application form", "mandatory": True, "notes": ""},
+            {"name": "Employment contract / binding job offer", "mandatory": True, "notes": "Minimum 6 months, German employer"},
+            {"name": "Salary statement (gross annual €50,700+ or €45,934.20 shortage)", "mandatory": True, "notes": "Variable pay excluded"},
+            {"name": "University degree certificate + transcripts", "mandatory": True, "notes": "Apostilled + translated to German"},
+            {"name": "ZAB Statement of Comparison (for non-EU degrees if not in anabin H+)", "mandatory": False, "notes": "€485 — check anabin first"},
+            {"name": "CV / résumé in German or English", "mandatory": True, "notes": ""},
+            {"name": "Cover letter outlining qualifications + role", "mandatory": True, "notes": ""},
+            {"name": "Health insurance certificate (effective from arrival)", "mandatory": True, "notes": "Statutory GKV via employer common"},
+            {"name": "Federal Employment Agency approval letter (if reduced threshold)", "mandatory": False, "notes": "General threshold exempt"},
+            {"name": "Travel insurance for initial 30 days", "mandatory": False, "notes": ""},
+            {"name": "Birth certificate (apostilled + translated)", "mandatory": True, "notes": ""},
+            {"name": "Marriage certificate (if accompanying spouse)", "mandatory": False, "notes": ""},
+            {"name": "Proof of accommodation in Germany (lease/landlord letter)", "mandatory": False, "notes": "Helpful at consulate"},
+            {"name": "Visa fee €75 (cash, exact change) + €100 residence permit fee", "mandatory": True, "notes": ""},
+        ],
+        "common_rejection_reasons": [
+            "Salary below €50,700 (general) or €45,934.20 (shortage) threshold",
+            "Variable pay / bonuses counted toward threshold (not allowed — fixed only)",
+            "Degree not recognized by anabin / no ZAB statement",
+            "Federal Employment Agency approval missing (for reduced threshold)",
+            "Health insurance insufficient or not effective from arrival",
+            "Inadequate qualifying experience for IT specialist route (need 3+ yrs)",
+            "Employment contract duration < 6 months",
+            "Inconsistent application documents",
+            "ZAB recognition rated H+ but degree institution flagged",
+        ],
+        "success_tips": [
+            "Salary calculation: ONLY fixed gross annual — exclude all bonuses + variable pay",
+            "Check anabin.kmk.org BEFORE applying — saves €485 ZAB if H+/equivalent",
+            "Use shortage occupation pathway if eligible (IT/Engineering/Healthcare): lower threshold + reduced approval",
+            "21-month PR via B1 German = massive incentive — start learning early",
+            "Spouses on EU Blue Card EXEMPT from A1 German (unlike Family Reunion)",
+            "Express issuance €35 add-on speeds processing 2-3 weeks",
+            "Book Anmeldung appointment 4+ weeks BEFORE arrival (Berlin queues 8+ weeks)",
+            "IT specialists without degree: 3+ years self-acquired experience eligible at reduced threshold",
+        ],
+        "faqs": [
+            {"q": "What are the 2026 salary thresholds?", "a": "€50,700/year general (€4,225/month) and €45,934.20/year shortage/graduate/IT (€3,827.85/month). Calculated as 50% and 45.3% of €101,400 pension ceiling for 2026."},
+            {"q": "Do bonuses count toward the salary?", "a": "NO. ONLY fixed gross annual contract salary counts. Bonuses, commissions, variable pay, stock options excluded."},
+            {"q": "How long is the EU Blue Card valid?", "a": "Contract duration + 3 months, maximum 4 years. Renewable for further 4-year periods."},
+            {"q": "When can I apply for PR?", "a": "After 21 months with B1 German proficiency, OR 27 months with standard A1 German. Major advantage vs 5-year standard German PR."},
+            {"q": "Can my family come with me?", "a": "Yes — spouses + minor children. Spouses on EU Blue Card EXEMPT from A1 German requirement (unique advantage). Spouses can work immediately."},
+            {"q": "Do IT specialists need a degree?", "a": "NO — IT specialists with 3+ years relevant experience can apply at reduced threshold (€45,934.20) without degree. Self-acquired knowledge route."},
+        ],
+        "official_url": "https://www.make-it-in-germany.com/en/visa-residence/types/eu-blue-card",
+        "vfs_url": "https://visa.vfsglobal.com/ind/en/deu/",
+        "source_urls": [
+            "https://www.make-it-in-germany.com/en/visa-residence/types/eu-blue-card",
+            "https://www.bamf.de/EN/Themen/MigrationAufenthalt/ZuwandererDrittstaaten/Migrathek/BlaueKarteEU/blauekarteeu-node.html",
+            "https://tandslaw.com/germany-updated-eu-blue-card-salary-thresholds-effective-1-january-2026/",
+            "https://move2europe.eu/blog/eu-blue-card-germany-2026-work-visa-guide-for-us-professionals/",
+            "https://home-affairs.ec.europa.eu/policies/migration-and-asylum/eu-immigration-portal/eu-blue-card/eu-blue-card-germany_en",
+            "https://www.fragomen.com/insights/deutscher-anwaltspiegel-die-blaue-karte-eu-2026.html",
+        ],
+        "verified_notes": "Manual Fast-Path B.4.8 seed — verified against make-it-in-germany.com + BAMF + Tands Law + Move2Europe + EU Immigration Portal + Fragomen on 2026-02-27. **CORRECTION TO SIR'S BRIEF:** Sir's brief listed ~€48,300 general / €43,759 shortage — research confirms ACTUAL Jan 1, 2026 thresholds are €50,700 / €45,934.20 (published BGBl. 2025 I Nr. 278 dated Nov 26, 2025, based on 50%/45.3% of €101,400 pension ceiling). 21mo PR via B1 German + EU Blue Card spouse A1 exemption documented. Validator URL check: HTTP 200 (primary make-it-in-germany.com), HTTP 400 (BAMF secondary — server policy on specific paths, NOT closure).",
+    },
+
+    # ── 2. DE-Job-Seeker — Job Seeker Visa ─────────────────────────────────────
+    {
+        "country_code": "DE", "country_name": "Germany",
+        "subclass_id": "Job-Seeker",
+        "subclass_name": "Job Seeker Visa (6-month non-extendable; €6,162 Sperrkonto for 2026)",
+        "service_type": "work", "category": "immigration",
+        "description": (
+            "The Job Seeker Visa allows highly-qualified non-EU professionals to enter Germany "
+            "for **6 months to actively search for employment**. Non-extendable — must find "
+            "qualifying job within 6 months OR depart Germany.\n\n"
+            "**Critical 2026 financial proof (higher than Student Sperrkonto):**\n"
+            "- **€1,027/month × 6 months = €6,162** blocked account (Sperrkonto)\n"
+            "- Higher than student rate (€992/mo) reflecting higher cost-of-living for adults\n"
+            "- Plus proof of return travel funds\n\n"
+            "**Work restrictions during search:**\n"
+            "- ❌ NO full-time employment during search\n"
+            "- ✅ **Trial work permitted up to 2 weeks** to test job suitability\n"
+            "- ❌ Cannot register as self-employed\n\n"
+            "**Conversion pathway (if job found):**\n"
+            "- Switch directly to Skilled Worker Visa or EU Blue Card from Germany — "
+            "no need to return home country\n"
+            "- Apply at local Ausländerbehörde with new employer contract\n"
+            "- Maintain continuous legal status during transition\n\n"
+            "**Note:** Job Seeker Visa is DIFFERENT from **Chancenkarte (Opportunity Card)** — "
+            "Chancenkarte allows part-time work (up to 20hrs/week) during search, requires "
+            "points system, and has higher financial proof (€13,092/year). Job Seeker is "
+            "simpler but more restrictive on work."
+        ),
+        "eligibility_summary": (
+            "Recognized degree or equivalent qualification. Financial proof €6,162 (€1,027/mo × "
+            "6mo). Genuine intent to find qualified employment in Germany. Non-extendable beyond "
+            "6 months."
+        ),
+        "eligibility_criteria": [
+            {"label": "Qualification", "value": "Recognized university degree OR equivalent vocational qualification + 2+ years training", "notes": "Foreign degrees: anabin H+/equivalent or ZAB recognition"},
+            {"label": "Financial Proof", "value": "€6,162 blocked account (Sperrkonto) for 6 months stay (€1,027/month)", "notes": "OR Verpflichtungserklärung (declaration of commitment from German sponsor)"},
+            {"label": "Work Restrictions", "value": "NO full-time work; trial work up to 2 weeks per employer permitted", "notes": "Self-employment NOT allowed"},
+            {"label": "Health Insurance", "value": "Adequate health insurance for entire 6-month stay", "notes": "Travel insurance or German private health insurance"},
+            {"label": "Return Funds", "value": "Proof of funds for return travel", "notes": "Roughly €500-€1,000"},
+            {"label": "Visa Validity", "value": "6 months from date of entry — NON-EXTENDABLE", "notes": ""},
+            {"label": "Conversion to Work Visa", "value": "If job found: switch directly to Skilled Worker / EU Blue Card from Germany", "notes": "Apply at Ausländerbehörde"},
+            {"label": "Genuine Search Intent", "value": "Documented evidence of job applications + interviews", "notes": "May be requested at extension/switch"},
+        ],
+        "fees_local_currency_code": "EUR", "fees_local_currency_amount": 75, "fees_inr_approx": 7125,
+        "fees_breakdown": [
+            {"component": "Visa application fee (national visa)", "amount": 75, "currency": "EUR"},
+            {"component": "Sperrkonto deposit (6 months blocked, €1,027/mo)", "amount": 6162, "currency": "EUR"},
+            {"component": "Sperrkonto setup fee (Expatrio cheapest)", "amount": 49, "currency": "EUR"},
+            {"component": "Sperrkonto setup fee (Fintiba)", "amount": 89, "currency": "EUR"},
+            {"component": "Sperrkonto setup fee (Coracle / Edubao mid-range)", "amount": 100, "currency": "EUR"},
+            {"component": "Health insurance (6 months travel/private)", "amount": 300, "currency": "EUR"},
+            {"component": "Document translation + apostille", "amount": 150, "currency": "EUR"},
+            {"component": "Return travel funds", "amount": 800, "currency": "EUR"},
+            {"component": "VFS service fee (India)", "amount": 30, "currency": "EUR"},
+        ],
+        "processing_time_days_min": 21, "processing_time_days_max": 90,
+        "step_by_step": [
+            {"step_number": 1, "title": "Verify Qualification Recognition", "description": "Check degree on anabin.kmk.org. If not H+/equivalent: obtain ZAB Statement of Comparison (€485, 8-12 weeks).", "estimated_days": 60, "documents_needed": ["Degree", "Transcripts"], "tips": ["Anabin H+ rating saves ZAB step"]},
+            {"step_number": 2, "title": "Open Sperrkonto + Deposit €6,162", "description": "Open blocked account with Expatrio (€49) / Fintiba (€89) / Coracle / Edubao. Deposit €6,162 (€1,027/mo × 6). Receive confirmation letter.", "estimated_days": 14, "documents_needed": ["Passport"], "tips": ["Expatrio cheapest setup"]},
+            {"step_number": 3, "title": "Get Health Insurance", "description": "Purchase travel/private health insurance covering full 6-month stay (~€50-€100/month). Standard providers: Coracle, Mawista, Care Concept.", "estimated_days": 3, "documents_needed": [], "tips": []},
+            {"step_number": 4, "title": "Book Embassy Appointment", "description": "Book at German Embassy in country of residence. Wait times 4-12 weeks in India.", "estimated_days": 30, "documents_needed": [], "tips": ["Apply via VFS Global in India"]},
+            {"step_number": 5, "title": "Submit Application", "description": "Submit national visa application + €75 fee + all documents (Sperrkonto confirmation, health insurance, qualification, CV, motivation letter, return funds proof).", "estimated_days": 1, "documents_needed": ["All compiled docs"], "tips": ["Cover letter detailing job search plan strengthens"]},
+            {"step_number": 6, "title": "Receive Visa (3-12 weeks)", "description": "Visa issued for 6 months from arrival. Travel to Germany.", "estimated_days": 60, "documents_needed": [], "tips": []},
+            {"step_number": 7, "title": "Anmeldung + Active Job Search", "description": "Register address within 14 days. Apply to jobs via Make-it-in-Germany portal, LinkedIn, StepStone, XING, employer career sites. Trial work up to 2 weeks per role permitted.", "estimated_days": 14, "documents_needed": ["Anmeldung"], "tips": ["Use trial work to test fit before committing"]},
+            {"step_number": 8, "title": "Convert to Work Visa OR Depart", "description": "If qualified job offer: switch to Skilled Worker / EU Blue Card at local Ausländerbehörde (do not need to return home). If no offer: must depart at 6 months end.", "estimated_days": 30, "documents_needed": [], "tips": ["⚠️ Non-extendable — plan deadline strictly"]},
+        ],
+        "document_checklist": [
+            {"name": "Valid passport (12+ months validity)", "mandatory": True, "notes": ""},
+            {"name": "Recent biometric photos (35x45mm, white background)", "mandatory": True, "notes": ""},
+            {"name": "Completed national visa application form", "mandatory": True, "notes": ""},
+            {"name": "University degree certificate + transcripts", "mandatory": True, "notes": "Apostilled + translated"},
+            {"name": "ZAB Statement of Comparison (if degree not H+ on anabin)", "mandatory": False, "notes": ""},
+            {"name": "CV / résumé (German or English, last 10 years)", "mandatory": True, "notes": ""},
+            {"name": "Motivation letter (job search strategy + target sectors)", "mandatory": True, "notes": ""},
+            {"name": "Sperrkonto confirmation letter (€6,162 deposited)", "mandatory": True, "notes": ""},
+            {"name": "Health insurance certificate (full 6 months coverage)", "mandatory": True, "notes": ""},
+            {"name": "Proof of return travel funds (~€500-€1,000)", "mandatory": True, "notes": ""},
+            {"name": "Travel itinerary / accommodation plan (initial weeks)", "mandatory": False, "notes": ""},
+            {"name": "Verpflichtungserklärung (alternative to Sperrkonto)", "mandatory": False, "notes": "If German sponsor"},
+            {"name": "Police clearance certificate (some embassies)", "mandatory": False, "notes": ""},
+            {"name": "Birth certificate (apostilled)", "mandatory": True, "notes": ""},
+            {"name": "Visa fee €75 (cash)", "mandatory": True, "notes": ""},
+        ],
+        "common_rejection_reasons": [
+            "Insufficient Sperrkonto balance (less than €6,162)",
+            "Qualification not recognized OR not at degree level + 2-yr training equivalent",
+            "Weak motivation letter / unclear job search strategy",
+            "Health insurance gaps or inadequate coverage",
+            "Past visa violations (overstays, refusals)",
+            "Genuine non-immigrant intent questioned by consular officer",
+            "Documents not properly translated/apostilled",
+            "Sperrkonto setup with non-recognized provider",
+        ],
+        "success_tips": [
+            "Sperrkonto €6,162 — Expatrio cheapest setup (€49); deposit BEFORE applying",
+            "Anabin H+ degree rating saves €485 ZAB recognition fee",
+            "Motivation letter: specific target roles + companies + timeline = strong",
+            "Use trial work (2 weeks) strategically to test 2-3 employer fits",
+            "Apply 3 months before intended Germany entry for best timing",
+            "If unsuccessful at 6 months: cannot extend OR re-apply soon — wait 12+ months",
+            "Convert to Skilled Worker / EU Blue Card BEFORE 6-month expiry — at Ausländerbehörde",
+            "Consider Chancenkarte (Opportunity Card) alternative if eligible — allows 20hr/wk work",
+        ],
+        "faqs": [
+            {"q": "What's the Sperrkonto amount for 2026?", "a": "€6,162 total (€1,027/month × 6 months). Higher than student Sperrkonto (€992/mo) reflecting adult cost-of-living. Plus proof of return travel funds (~€500-€1,000)."},
+            {"q": "Can I work during job search?", "a": "NO full-time work. Trial work up to 2 weeks per employer to test suitability. NO self-employment. If you want to work part-time during search, consider Chancenkarte instead."},
+            {"q": "Can I extend the 6 months?", "a": "NO — strictly non-extendable. Must find qualifying job within 6 months OR depart Germany. Re-application typically requires 12+ month wait."},
+            {"q": "Difference between Job Seeker and Chancenkarte?", "a": "Job Seeker: 6mo, €6,162, NO part-time work, simpler eligibility. Chancenkarte: 1 year, €13,092, part-time work up to 20hrs/wk allowed, requires 6+ points system."},
+            {"q": "Can I find a job from outside Germany?", "a": "YES — but if you already have an offer, apply DIRECTLY for Skilled Worker / EU Blue Card. Job Seeker is for active in-country search."},
+            {"q": "What if I find a job in month 5?", "a": "Excellent — switch to Skilled Worker / EU Blue Card at local Ausländerbehörde with employment contract. No need to return home country."},
+        ],
+        "official_url": "https://www.make-it-in-germany.com/en/visa-residence/types/job-search",
+        "vfs_url": "https://visa.vfsglobal.com/ind/en/deu/",
+        "source_urls": [
+            "https://www.make-it-in-germany.com/en/visa-residence/types/job-search",
+            "https://www.germany-visa.org/job-seeker-visa/",
+            "https://total.law/de/work/job-seeker-visa/",
+            "https://winnyglobal.co/blog/germany-blocked-account-explained-simply",
+            "https://www.fintiba.com/germany/visa/job-seeker",
+        ],
+        "verified_notes": "Manual Fast-Path B.4.8 seed — verified against make-it-in-germany.com + germany-visa.org + Total Law + Winny Global + Fintiba on 2026-02-27. €6,162 Sperrkonto (€1,027/mo × 6) confirmed for 2026. Non-extendable + 2-week trial work + direct conversion to Skilled Worker/EU Blue Card documented. Chancenkarte alternative explicitly distinguished. Validator URL check: HTTP 200 (primary).",
+    },
+
+    # ── 3. DE-Student — Student Visa ───────────────────────────────────────────
+    {
+        "country_code": "DE", "country_name": "Germany",
+        "subclass_id": "Student",
+        "subclass_name": "Student Visa (Aufenthaltserlaubnis zum Studium; €11,904 Sperrkonto 2026)",
+        "service_type": "student", "category": "immigration",
+        "description": (
+            "The German Student Visa allows non-EU students to study at a recognized German "
+            "higher education institution. Germany is one of the world's most affordable "
+            "study destinations — most public universities charge **€0 or minimal "
+            "semester fees** (€150-€350/semester) for international students.\n\n"
+            "**2026 Sperrkonto (Blocked Account) — financial proof:**\n"
+            "- **Required annual amount: €11,904** (BAföG rate)\n"
+            "- **Monthly release: €992** for living expenses\n"
+            "- Must be deposited BEFORE visa application\n\n"
+            "**Alternative financial proofs:**\n"
+            "- Scholarship letter (DAAD or others) covering €992+/month\n"
+            "- Verpflichtungserklärung (Declaration of Commitment) from German sponsor\n"
+            "- Bank guarantee from recognized German bank\n"
+            "- Parental income evidence (less common — additional docs)\n\n"
+            "**Work rights while studying:**\n"
+            "- **120 full days OR 240 half days per year** part-time work\n"
+            "- Self-employment generally NOT permitted\n"
+            "- Internships related to studies don't count toward 120-day limit\n\n"
+            "**Validity:** Initial visa 3-6 months entry; convert to Aufenthaltserlaubnis "
+            "(student residence permit) at Ausländerbehörde for full program duration "
+            "(typically 2 years initial, renewable).\n\n"
+            "**Post-graduation:** **18-month job seeker permit** to find qualified employment "
+            "in Germany — major advantage. Switch to Skilled Worker / EU Blue Card if job found."
+        ),
+        "eligibility_summary": (
+            "Admission to recognized German higher education institution (Zulassungsbescheid). "
+            "Financial proof €11,904/year (Sperrkonto / scholarship / sponsor). Language "
+            "proficiency German B2 or English B2 per program. Adequate health insurance."
+        ),
+        "eligibility_criteria": [
+            {"label": "University Admission", "value": "Acceptance letter (Zulassungsbescheid) from recognized German institution", "notes": "Hochschulkompass database lists recognized universities"},
+            {"label": "Qualification", "value": "School-leaving certificate (Higher Secondary / equivalent) for Bachelor; Bachelor's for Master; Master's for PhD", "notes": "uni-assist.de evaluates foreign qualifications"},
+            {"label": "Financial Proof", "value": "€11,904/year Sperrkonto OR scholarship OR Verpflichtungserklärung OR bank guarantee", "notes": "Sperrkonto most common"},
+            {"label": "Language Proficiency", "value": "German B2/C1 (German-taught) OR English B2 (English-taught programs)", "notes": "TestDaF / DSH for German; IELTS 6.5+ / TOEFL 80+ for English"},
+            {"label": "Health Insurance", "value": "Adequate German health insurance from arrival day", "notes": "Public statutory (~€110/mo for students <30) or private"},
+            {"label": "Visa Validity", "value": "3-6 months entry visa; convertible to Aufenthaltserlaubnis at Ausländerbehörde", "notes": ""},
+            {"label": "Work Rights", "value": "120 full days OR 240 half days per year part-time work", "notes": "Internships related to studies excluded from limit"},
+            {"label": "Post-Graduation Job Seeker", "value": "18-month residence permit to find qualified employment after graduation", "notes": "Major advantage over other countries"},
+        ],
+        "fees_local_currency_code": "EUR", "fees_local_currency_amount": 75, "fees_inr_approx": 7125,
+        "fees_breakdown": [
+            {"component": "Visa application fee (national visa)", "amount": 75, "currency": "EUR"},
+            {"component": "Residence permit (Aufenthaltserlaubnis) issuance fee", "amount": 100, "currency": "EUR"},
+            {"component": "Aufenthaltserlaubnis extension fee", "amount": 93, "currency": "EUR"},
+            {"component": "Sperrkonto deposit (annual, blocked)", "amount": 11904, "currency": "EUR"},
+            {"component": "Sperrkonto setup fee — Expatrio (cheapest)", "amount": 49, "currency": "EUR"},
+            {"component": "Sperrkonto setup fee — Fintiba (popular)", "amount": 89, "currency": "EUR"},
+            {"component": "Sperrkonto setup fee — Coracle / Edubao mid", "amount": 100, "currency": "EUR"},
+            {"component": "Public health insurance (students under 30, monthly)", "amount": 110, "currency": "EUR", "per": "month"},
+            {"component": "TestDaF / IELTS / TOEFL exam (per attempt)", "amount": 220, "currency": "EUR"},
+            {"component": "Uni-assist evaluation (per program application)", "amount": 75, "currency": "EUR"},
+            {"component": "Semester fees (public universities, varies)", "amount": 250, "currency": "EUR", "per": "semester"},
+            {"component": "Document translation + apostille", "amount": 200, "currency": "EUR"},
+        ],
+        "processing_time_days_min": 21, "processing_time_days_max": 90,
+        "step_by_step": [
+            {"step_number": 1, "title": "Apply to Universities + Receive Zulassungsbescheid", "description": "Apply to recognized German universities via uni-assist.de or direct. Receive Zulassungsbescheid (admission letter). Pay semester fees if required.", "estimated_days": 120, "documents_needed": ["Transcripts", "Language test", "SOP", "LOR"], "tips": ["Public universities mostly free; semester fees €150-€350"]},
+            {"step_number": 2, "title": "Take Language Test (TestDaF / IELTS / TOEFL)", "description": "TestDaF for German-taught programs (B2/C1); IELTS 6.5+ or TOEFL 80+ for English-taught.", "estimated_days": 60, "documents_needed": [], "tips": []},
+            {"step_number": 3, "title": "Open Sperrkonto + Deposit €11,904", "description": "Open with Expatrio / Fintiba / Coracle / Edubao. Deposit €11,904 (= €992/mo × 12). Bank issues confirmation letter.", "estimated_days": 14, "documents_needed": ["Passport", "Admission letter"], "tips": ["Expatrio €49 cheapest; Fintiba popular but €89"]},
+            {"step_number": 4, "title": "Get Health Insurance", "description": "Sign up with public statutory insurance (TK, AOK, Barmer) ~€110/mo for students under 30. Or private (Care Concept etc.).", "estimated_days": 7, "documents_needed": [], "tips": []},
+            {"step_number": 5, "title": "Book Embassy Appointment", "description": "Book at German Embassy in country of residence. Indian applicants: VFS Global appointment.", "estimated_days": 30, "documents_needed": [], "tips": ["High demand season (Jun-Aug) — apply 3+ months early"]},
+            {"step_number": 6, "title": "Submit Application + Interview", "description": "Submit national visa application + €75 fee + all documents. Some embassies require in-person interview.", "estimated_days": 1, "documents_needed": ["All compiled docs"], "tips": []},
+            {"step_number": 7, "title": "Receive Visa + Travel to Germany", "description": "Visa issued 4-12 weeks. Travel to Germany. Activate Sperrkonto release (€992/mo).", "estimated_days": 60, "documents_needed": [], "tips": []},
+            {"step_number": 8, "title": "Anmeldung + Residence Permit", "description": "Register address within 14 days at Bürgeramt. Then apply for Aufenthaltserlaubnis zum Studium at Ausländerbehörde (€100). Valid for program duration.", "estimated_days": 30, "documents_needed": ["Anmeldung", "Sperrkonto active"], "tips": ["Berlin Anmeldung queues 8+ weeks — book before arrival"]},
+        ],
+        "document_checklist": [
+            {"name": "Valid passport (12+ months validity)", "mandatory": True, "notes": ""},
+            {"name": "Biometric photos (35x45mm, white background)", "mandatory": True, "notes": ""},
+            {"name": "Completed national visa application form", "mandatory": True, "notes": ""},
+            {"name": "Zulassungsbescheid (university admission letter)", "mandatory": True, "notes": ""},
+            {"name": "School-leaving / Bachelor's / Master's certificates", "mandatory": True, "notes": "Apostilled + translated"},
+            {"name": "Academic transcripts (all post-secondary)", "mandatory": True, "notes": ""},
+            {"name": "Language proficiency test (TestDaF/DSH/IELTS/TOEFL)", "mandatory": True, "notes": ""},
+            {"name": "Sperrkonto confirmation letter (€11,904 deposited)", "mandatory": True, "notes": "OR scholarship/Verpflichtungserklärung/bank guarantee"},
+            {"name": "Health insurance certificate (German coverage from arrival)", "mandatory": True, "notes": ""},
+            {"name": "Motivation letter / Statement of Purpose", "mandatory": True, "notes": ""},
+            {"name": "CV / résumé", "mandatory": True, "notes": ""},
+            {"name": "Birth certificate (apostilled + translated)", "mandatory": True, "notes": ""},
+            {"name": "Uni-assist evaluation report (for some programs)", "mandatory": False, "notes": ""},
+            {"name": "Visa fee €75 (cash) + €100 residence permit fee", "mandatory": True, "notes": ""},
+            {"name": "Travel insurance (initial 30 days)", "mandatory": False, "notes": ""},
+        ],
+        "common_rejection_reasons": [
+            "Sperrkonto less than €11,904 OR not from recognized provider",
+            "Admission letter not from recognized institution (Hochschulkompass list)",
+            "Language proficiency below program requirement",
+            "Health insurance inadequate or not effective from arrival",
+            "Academic qualifications below program level",
+            "Genuine student intent unclear (unrealistic program choice vs background)",
+            "Motivation letter weak / unclear post-graduation plan",
+            "Past visa overstays or refusals from any country",
+        ],
+        "success_tips": [
+            "Sperrkonto €11,904 — Expatrio cheapest setup at €49; deposit 2+ months before visa",
+            "Public German universities mostly FREE — €150-€350 semester fees only",
+            "Use uni-assist.de for centralized application to multiple universities",
+            "TestDaF (German B2/C1) accepted at ALL universities — most reliable",
+            "Public statutory insurance (TK/AOK/Barmer) cheapest at ~€110/mo for students under 30",
+            "120-day work limit: plan part-time job around studies; internships exempt",
+            "Post-graduation 18-month job seeker permit = major Germany advantage",
+            "Berlin Anmeldung 8+ week queue — book BEFORE arrival",
+        ],
+        "faqs": [
+            {"q": "What's the Sperrkonto amount for 2026?", "a": "€11,904/year (€992/month, BAföG rate). Must be deposited BEFORE visa application. Alternative: scholarship, Verpflichtungserklärung, or bank guarantee."},
+            {"q": "Are German universities really free?", "a": "Yes for most public universities for non-EU students (with notable exception: Baden-Württemberg charges €1,500/semester for non-EU). Semester fees €150-€350 standard. Private universities charge tuition."},
+            {"q": "Can I work while studying?", "a": "Yes — 120 full days OR 240 half days per year. Internships related to studies don't count. Self-employment generally not allowed."},
+            {"q": "What language proficiency do I need?", "a": "TestDaF / DSH (German B2/C1) for German-taught programs. IELTS 6.5+ / TOEFL 80+ for English-taught. Check program-specific requirements."},
+            {"q": "What happens after graduation?", "a": "18-month job seeker residence permit to find qualified employment in Germany. Switch to Skilled Worker / EU Blue Card if job found."},
+            {"q": "Can my family come with me?", "a": "Spouse + minor children CAN join, but financial requirement increases significantly. Most students wait until conversion to Skilled Worker / Blue Card."},
+        ],
+        "official_url": "https://www.make-it-in-germany.com/en/study-training/studying/visa",
+        "vfs_url": "https://visa.vfsglobal.com/ind/en/deu/",
+        "source_urls": [
+            "https://www.make-it-in-germany.com/en/study-training/studying/visa",
+            "https://www.auswaertiges-amt.de/en/sperrkonto-388600",
+            "https://www.studying-in-germany.org/german-student-visa/",
+            "https://digital.diplo.de/studium",
+            "https://www.expatrio.com/about-germany/blocked-amount-2025",
+        ],
+        "verified_notes": "Manual Fast-Path B.4.8 seed — verified against make-it-in-germany.com + auswaertiges-amt.de + Studying-in-Germany + Digital Diplo + Expatrio on 2026-02-27. €11,904 Sperrkonto (€992/mo BAföG rate) confirmed for 2026. 120-day work limit + 18-month post-graduation job seeker permit + public university free tuition documented. Validator URL check: HTTP 200 (primary + secondary).",
+    },
+
+    # ── 4. DE-Skilled-Worker — Skilled Worker Visa + Chancenkarte ──────────────
+    {
+        "country_code": "DE", "country_name": "Germany",
+        "subclass_id": "Skilled-Worker",
+        "subclass_name": "Skilled Worker Visa + Chancenkarte / Opportunity Card (Fachkräfteeinwanderungsgesetz)",
+        "service_type": "work", "category": "immigration",
+        "description": (
+            "The Skilled Worker Visa (Fachkräfteeinwanderungsgesetz) is Germany's primary work "
+            "visa for qualified non-EU workers WITHOUT meeting the EU Blue Card salary threshold. "
+            "**Major Nov 2023 reform** simplified pathways for skilled workers with vocational "
+            "training or recognized qualifications.\n\n"
+            "**Three pathways:**\n\n"
+            "**1. Standard Skilled Worker Visa:**\n"
+            "- Recognized university degree OR 2+ year vocational qualification\n"
+            "- Binding job offer from German employer\n"
+            "- €75 visa fee + €100 residence permit\n"
+            "- Salary: at or above industry standard (no specific minimum for general)\n\n"
+            "**2. Recognition Partnership (Anerkennungspartnerschaft) — 2024 reform:**\n"
+            "- Enter Germany WITHOUT formal qualification recognition\n"
+            "- Begin work immediately while completing recognition in Germany\n"
+            "- Written contract with employer committing to fast-track recognition\n"
+            "- A2 German required (lower than standard)\n"
+            "- Foreign qualification must be recognized by state in home country\n\n"
+            "**3. Chancenkarte (Opportunity Card) — Launched June 2024:**\n"
+            "- Points-based system (need **6+ points**) without specific job offer\n"
+            "- 1-year validity, **part-time work up to 20 hours/week allowed** during search\n"
+            "- Basic requirements (no points): A1 German OR B2 English + vocational/uni training\n"
+            "- Financial proof: **€13,092/year** (€1,091/mo)\n"
+            "- €75 fee\n\n"
+            "**Points system (need 6+ to qualify) — 2026:**\n"
+            "- Partial qualification recognition: **4 points**\n"
+            "- 2+ years experience in last 5 yrs: 2 pts; 5+ yrs: 3 pts\n"
+            "- German A2: 1 pt; B1: 2 pts; B2+: 3 pts\n"
+            "- English C1: +1 pt\n"
+            "- Age ≤35: 2 pts; 35-40: 1 pt\n"
+            "- Shortage occupation: 1 pt\n"
+            "- 6+ months prior legal stay in Germany: 1 pt\n"
+            "- Partner co-applies: 1 pt"
+        ),
+        "eligibility_summary": (
+            "Standard: recognized degree/vocational + job offer at industry-standard salary. "
+            "Recognition Partnership: enter without recognition, A2 German, employer commitment. "
+            "Chancenkarte: 6+ points OR fully recognized qualification + €13,092/year proof."
+        ),
+        "eligibility_criteria": [
+            {"label": "Standard Skilled Worker — Qualification", "value": "Recognized university degree OR 2+ year vocational qualification", "notes": "anabin H+ rated OR ZAB Statement of Comparison"},
+            {"label": "Standard Skilled Worker — Job Offer", "value": "Binding job offer from German employer at industry-standard salary", "notes": "No specific minimum threshold for general; reduced for shortage occupations"},
+            {"label": "Recognition Partnership", "value": "Foreign qualification recognized in home country + employer commitment + A2 German", "notes": "Enter Germany while completing recognition"},
+            {"label": "Chancenkarte — Basic Requirements", "value": "Vocational/university qualification + A1 German OR B2 English", "notes": "Mandatory; no points awarded"},
+            {"label": "Chancenkarte — 6+ Points", "value": "Partial recognition (4pts) + experience (2-3pts) + language + age + shortage + prior stay + partner", "notes": "Need 6+ to qualify without points-skipping recognition"},
+            {"label": "Chancenkarte — Fully Recognized", "value": "If qualification fully recognized in Germany: SKIP points, only need financial proof", "notes": "Treated as 'VIP' skilled worker"},
+            {"label": "Financial Proof (Chancenkarte)", "value": "€13,092/year (€1,091/month) — blocked account or sponsorship", "notes": ""},
+            {"label": "Validity", "value": "Skilled Worker: contract duration (typically 2-4 yrs initial). Chancenkarte: max 1 year (non-renewable)", "notes": "Convert Chancenkarte to Skilled Worker if job found"},
+            {"label": "Path to PR", "value": "Standard Skilled Worker: 5 years (4 yrs with B1 German + integration). Recognition Partnership: 5 years after recognition complete.", "notes": "EU Blue Card faster at 21-27 months"},
+        ],
+        "fees_local_currency_code": "EUR", "fees_local_currency_amount": 75, "fees_inr_approx": 7125,
+        "fees_breakdown": [
+            {"component": "Visa application fee (Skilled Worker / Recognition Partnership / Chancenkarte)", "amount": 75, "currency": "EUR"},
+            {"component": "Residence permit (eAT) issuance fee", "amount": 100, "currency": "EUR"},
+            {"component": "ZAB Statement of Comparison (university degree)", "amount": 485, "currency": "EUR"},
+            {"component": "Vocational qualification recognition (per state, varies)", "amount": 400, "currency": "EUR", "per": "estimate"},
+            {"component": "Fast-track procedure (LZF) fee — optional", "amount": 411, "currency": "EUR"},
+            {"component": "Chancenkarte financial proof Sperrkonto deposit", "amount": 13092, "currency": "EUR"},
+            {"component": "A2 German test (Goethe-Zertifikat A2)", "amount": 200, "currency": "EUR"},
+            {"component": "Health insurance (first 6 months estimate)", "amount": 600, "currency": "EUR"},
+            {"component": "Document translation + apostille", "amount": 250, "currency": "EUR"},
+            {"component": "Total Skilled Worker minimum (visa + residence permit)", "amount": 175, "currency": "EUR"},
+            {"component": "Total Chancenkarte minimum (incl. Sperrkonto)", "amount": 13267, "currency": "EUR"},
+        ],
+        "processing_time_days_min": 21, "processing_time_days_max": 180,
+        "step_by_step": [
+            {"step_number": 1, "title": "Determine Pathway", "description": "Decide: Standard Skilled Worker (with job offer) vs Recognition Partnership (enter without recognition) vs Chancenkarte (search for job). Each has different reqs.", "estimated_days": 7, "documents_needed": [], "tips": ["Standard fastest if you have offer; Chancenkarte if no offer"]},
+            {"step_number": 2, "title": "Verify Qualification Recognition", "description": "Check anabin.kmk.org. Get ZAB statement (€485) or vocational recognition (€100-€600) if needed.", "estimated_days": 60, "documents_needed": ["Degree certificate", "Transcripts"], "tips": ["LZF fast-track €411 cuts ZAB time 50%"]},
+            {"step_number": 3, "title": "Standard Path: Secure Job Offer", "description": "Apply to German employers. Get binding job offer at industry-standard salary. Bundesagentur für Arbeit approval if salary below standard.", "estimated_days": 60, "documents_needed": ["Employment contract"], "tips": ["Make-it-in-Germany job portal + LinkedIn + StepStone"]},
+            {"step_number": 4, "title": "Recognition Partnership Path (if applicable)", "description": "Sign written partnership agreement with employer. Commit to completing recognition while in Germany. Need A2 German.", "estimated_days": 30, "documents_needed": ["Partnership contract"], "tips": ["Reduces upfront recognition burden"]},
+            {"step_number": 5, "title": "Chancenkarte Path: Score 6+ Points", "description": "Self-assess on points system. Open €13,092 Sperrkonto. No job offer needed but plan job search strategy.", "estimated_days": 14, "documents_needed": ["Sperrkonto setup"], "tips": ["Use Make-it-in-Germany self-check tool"]},
+            {"step_number": 6, "title": "Book Embassy Appointment + Submit", "description": "Book at German Embassy. Submit visa application + €75 fee + all required documents (varies by pathway).", "estimated_days": 30, "documents_needed": ["All docs per pathway"], "tips": []},
+            {"step_number": 7, "title": "Receive Visa + Travel to Germany", "description": "Visa issued 3-12 weeks. Standard: full work authorization. Recognition Partnership: work permitted with restrictions until recognition complete. Chancenkarte: search + 20hr/wk part-time work.", "estimated_days": 60, "documents_needed": [], "tips": []},
+            {"step_number": 8, "title": "Anmeldung + Residence Permit + Recognition (if applicable)", "description": "Register within 14 days. Apply for residence permit at Ausländerbehörde. Complete qualification recognition (Recognition Partnership) or find job (Chancenkarte).", "estimated_days": 90, "documents_needed": [], "tips": ["Plan PR pathway: 5 yrs standard, 4 yrs with B1 + integration"]},
+        ],
+        "document_checklist": [
+            {"name": "Valid passport (12+ months validity)", "mandatory": True, "notes": ""},
+            {"name": "Recent biometric photos (35x45mm, white background)", "mandatory": True, "notes": ""},
+            {"name": "Completed national visa application form", "mandatory": True, "notes": ""},
+            {"name": "Employment contract / Recognition Partnership agreement", "mandatory": False, "notes": "Standard Skilled Worker / Recognition Partnership only"},
+            {"name": "Qualification certificate (degree / vocational) + transcripts", "mandatory": True, "notes": "Apostilled + translated"},
+            {"name": "ZAB Statement of Comparison (degree, if not anabin H+)", "mandatory": False, "notes": "€485"},
+            {"name": "Vocational qualification recognition (state authority)", "mandatory": False, "notes": "€100-€600"},
+            {"name": "A1/A2/B1 German language certificate (per pathway)", "mandatory": True, "notes": "Goethe / telc / ÖSD"},
+            {"name": "Health insurance certificate (effective from arrival)", "mandatory": True, "notes": ""},
+            {"name": "Sperrkonto confirmation €13,092 (Chancenkarte only)", "mandatory": False, "notes": "Chancenkarte requirement"},
+            {"name": "Federal Employment Agency approval (some pathways)", "mandatory": False, "notes": ""},
+            {"name": "CV / résumé (German or English)", "mandatory": True, "notes": ""},
+            {"name": "Cover letter outlining qualification + role + plan", "mandatory": True, "notes": ""},
+            {"name": "Birth certificate (apostilled + translated)", "mandatory": True, "notes": ""},
+            {"name": "Visa fee €75 + €100 residence permit fee", "mandatory": True, "notes": ""},
+            {"name": "Points self-assessment (Chancenkarte)", "mandatory": False, "notes": "Make-it-in-Germany self-check tool"},
+        ],
+        "common_rejection_reasons": [
+            "Qualification not recognized by anabin OR ZAB / state authority",
+            "Job offer below industry-standard salary (Standard Skilled Worker)",
+            "A2 German missing (Recognition Partnership) or A1/B2 English (Chancenkarte basic)",
+            "Chancenkarte: fewer than 6 points + qualification not fully recognized",
+            "Recognition Partnership: foreign qualification not recognized by home country state",
+            "Sperrkonto less than €13,092 (Chancenkarte)",
+            "Health insurance inadequate from arrival",
+            "Past visa violations or character concerns",
+        ],
+        "success_tips": [
+            "Chancenkarte points: maximize via partial recognition (4 pts) + experience + language + age",
+            "Recognition Partnership reduces upfront burden — recognise IN Germany while working",
+            "Anabin H+ degree = no ZAB needed = €485 saved",
+            "Standard Skilled Worker is fastest if you have job offer + recognized qualification",
+            "B1 German accelerates PR to 4 years vs 5 years standard",
+            "LZF fast-track €411 reduces recognition time 50%",
+            "Chancenkarte allows 20hr/wk part-time work — start earning while searching",
+            "If switching Chancenkarte → Standard Skilled Worker: no need to leave Germany",
+        ],
+        "faqs": [
+            {"q": "What's Chancenkarte (Opportunity Card)?", "a": "1-year visa launched June 2024 for skilled non-EU workers WITHOUT a specific job offer. Points-based (6+ pts) OR fully recognized qualification. Allows 20hr/wk part-time work during job search. €75 fee + €13,092 financial proof."},
+            {"q": "What's Recognition Partnership (Anerkennungspartnerschaft)?", "a": "2024 reform allowing entry Germany WITHOUT formal qualification recognition. Written contract with employer committing to fast-track recognition while working in Germany. A2 German required."},
+            {"q": "How are Chancenkarte points calculated?", "a": "Partial recognition (4 pts) + experience (2-3 pts) + German (1-3 pts) + English C1 (1 pt) + age (1-2 pts) + shortage occupation (1 pt) + prior Germany stay (1 pt) + partner (1 pt). Need 6+ total."},
+            {"q": "Can I bring family on Skilled Worker?", "a": "Yes — spouse + minor children. Spouse usually needs A1 German UNLESS sponsor holds EU Blue Card or specific Skilled Worker exemption."},
+            {"q": "When can I apply for PR?", "a": "Standard Skilled Worker: 5 years (4 yrs with B1 German + civic integration). Recognition Partnership: 5 years AFTER recognition completed. EU Blue Card faster at 21-27 months."},
+            {"q": "What's the difference vs EU Blue Card?", "a": "EU Blue Card requires HIGH salary (€50,700/€45,934.20) + university degree. Skilled Worker has lower salary requirements + accepts vocational qualifications. EU Blue Card has faster PR (21-27 mo) and family exemptions."},
+        ],
+        "official_url": "https://www.make-it-in-germany.com/en/visa-residence/types/skilled-workers",
+        "vfs_url": "https://visa.vfsglobal.com/ind/en/deu/",
+        "source_urls": [
+            "https://www.make-it-in-germany.com/en/visa-residence/types/skilled-workers",
+            "https://www.make-it-in-germany.com/en/visa-residence/types/opportunity-card",
+            "https://chancenkarte.com/en/",
+            "https://www.anerkennung-in-deutschland.de/html/en/pro/immigration-skilled-workers.php",
+            "https://leglobal.law/2024/03/22/germany-changes-to-the-german-immigration-act-for-skilled-workers-have-come-into-force/",
+        ],
+        "verified_notes": "Manual Fast-Path B.4.8 seed — verified against make-it-in-germany.com + Chancenkarte.com + Anerkennung-in-Deutschland + L&E Global on 2026-02-27. Three pathways (Standard / Recognition Partnership / Chancenkarte) all documented with distinct requirements. Chancenkarte launched June 1, 2024 + €13,092 financial + 6-point system + 20hr/wk part-time work confirmed for 2026. LZF fast-track + ZAB pricing reflected. Validator URL check: HTTP 200 (primary + secondary).",
+    },
+
+    # ── 5. DE-Family-Reunion — Family Reunion Visa ─────────────────────────────
+    {
+        "country_code": "DE", "country_name": "Germany",
+        "subclass_id": "Family-Reunion",
+        "subclass_name": "Family Reunion Visa (Familiennachzug; A1 German for spouses + multiple exemptions)",
+        "service_type": "partner", "category": "immigration",
+        "description": (
+            "The Family Reunion Visa (Familiennachzug) allows non-EU family members of "
+            "German residents/citizens to join them in Germany. Covers **spouses, registered "
+            "partners, and minor children** under 18.\n\n"
+            "**A1 German requirement for spouses — IMPORTANT EXEMPTIONS:**\n\n"
+            "Non-EU spouses generally must prove A1 German before applying. BUT exempt if "
+            "the sponsor holds:\n"
+            "- ✅ **EU Blue Card** (major exemption — recruit elite talent advantage)\n"
+            "- ✅ **Skilled Worker permit** (specifically for recognized professionals)\n"
+            "- ✅ **ICT Card** (Intra-Company Transfer)\n"
+            "- ✅ **Researchers** or **Highly Qualified Specialists**\n"
+            "- ✅ Specific §31, §38, §19a, §20, §21, §31a residence permit holders\n"
+            "- ✅ **Spouses of German citizens** (unconditional)\n"
+            "- ✅ **Recognized refugees**\n\n"
+            "**Fee structure (2026):**\n"
+            "- Adults (spouse / parent): €75 visa + €100 residence permit = €175 total\n"
+            "- Minor children (<18): €37.50 visa + €50 residence permit = €87.50 total (half price)\n"
+            "- Family members of EU citizens: **FREE**\n\n"
+            "**Sponsor requirements (must be met):**\n"
+            "- Valid residence permit allowing family reunification (typically 2+ years if not "
+            "permanent settlement)\n"
+            "- Sufficient income WITHOUT public assistance (Bürgergeld)\n"
+            "- Adequate housing: 12 m² per person aged 6+ / 10 m² per child under 6\n"
+            "- Health insurance for all family members from day 1\n\n"
+            "**Minor children:**\n"
+            "- Under 16: Standard requirements, NO language proof\n"
+            "- Ages 16-17: C1 German OR demonstrate integration ability (waived if parent is "
+            "gainfully employed skilled worker)\n"
+            "- Over 18: Generally NOT eligible — must apply own residence title (student/worker)\n\n"
+            "**Processing time:** 3-9 months typical from embassy submission."
+        ),
+        "eligibility_summary": (
+            "Non-EU family member of German resident/citizen. Spouse: legal marriage + age 18+ + "
+            "A1 German (unless exempt). Minor child: under 18 + custody proof + financial/housing "
+            "support from sponsor. EU citizen sponsor: FREE."
+        ),
+        "eligibility_criteria": [
+            {"label": "Sponsor Status (in Germany)", "value": "German citizen OR holder of valid residence permit allowing family reunification (2+ years if not PR/citizen)", "notes": "EU Blue Card, Skilled Worker, etc."},
+            {"label": "Marriage / Registered Partnership", "value": "Legally married (recognized in Germany) or registered partnership", "notes": "Both parties 18+ years"},
+            {"label": "A1 German (Spouse)", "value": "Goethe Start Deutsch 1 / telc A1 / ÖSD A1 certificate", "notes": "EXEMPT if sponsor holds EU Blue Card, Skilled Worker, ICT, German citizenship, etc."},
+            {"label": "Minor Child Eligibility", "value": "Under 18 + unmarried + birth certificate proving sponsor's child", "notes": "Custody proof if one parent applying"},
+            {"label": "Children 16-17 Language", "value": "C1 German OR integration ability — WAIVED if parent is gainfully employed skilled worker", "notes": ""},
+            {"label": "Sponsor Income Requirement", "value": "Sufficient income WITHOUT public assistance (Bürgergeld). 2026: ~€563/mo single + ~€506/mo spouse + ~€312/mo per child", "notes": ""},
+            {"label": "Adequate Housing", "value": "12 m² per person aged 6+ / 10 m² per child under 6", "notes": "Lease + landlord confirmation required"},
+            {"label": "Health Insurance", "value": "Adequate German health insurance for all family members from arrival", "notes": ""},
+            {"label": "Children Over 18", "value": "Generally NOT eligible — must apply own residence title", "notes": "Exceptional humanitarian only"},
+        ],
+        "fees_local_currency_code": "EUR", "fees_local_currency_amount": 175, "fees_inr_approx": 16625,
+        "fees_breakdown": [
+            {"component": "Visa application fee — adult (spouse/parent)", "amount": 75, "currency": "EUR"},
+            {"component": "Visa application fee — minor child (<18)", "amount": 37.50, "currency": "EUR"},
+            {"component": "Residence permit fee — adult", "amount": 100, "currency": "EUR"},
+            {"component": "Residence permit fee — minor child (<18)", "amount": 50, "currency": "EUR"},
+            {"component": "Family member of EU citizen — FREE", "amount": 0, "currency": "EUR"},
+            {"component": "A1 German test (Goethe-Zertifikat A1)", "amount": 130, "currency": "EUR"},
+            {"component": "Document translation + apostille", "amount": 300, "currency": "EUR", "per": "estimate"},
+            {"component": "Health insurance (per family member, monthly)", "amount": 200, "currency": "EUR", "per": "month"},
+            {"component": "VFS service fee (India, per applicant)", "amount": 30, "currency": "EUR"},
+            {"component": "Total adult applicant (visa + permit)", "amount": 175, "currency": "EUR"},
+            {"component": "Total minor child applicant (visa + permit)", "amount": 87.50, "currency": "EUR"},
+        ],
+        "processing_time_days_min": 90, "processing_time_days_max": 270,
+        "step_by_step": [
+            {"step_number": 1, "title": "Verify Sponsor Eligibility", "description": "Confirm sponsor in Germany has valid permit allowing family reunification (typically 2+ years if not PR). Check exemptions for A1 German waiver.", "estimated_days": 7, "documents_needed": ["Sponsor's residence permit"], "tips": ["EU Blue Card sponsors: A1 EXEMPT — major advantage"]},
+            {"step_number": 2, "title": "Take A1 German Test (if needed)", "description": "Book Goethe-Zertifikat A1 / telc A1 / ÖSD A1. Pass test (~€130, 60% pass). Skip if exempt.", "estimated_days": 60, "documents_needed": [], "tips": ["Goethe most widely recognized"]},
+            {"step_number": 3, "title": "Compile Marriage / Birth Documents", "description": "Marriage certificate (spouse) or birth certificate + custody proof (children). Apostille + translate to German.", "estimated_days": 30, "documents_needed": ["Marriage/birth certs"], "tips": ["Apostille critical — embassy will reject otherwise"]},
+            {"step_number": 4, "title": "Sponsor Prepares Income + Housing Evidence", "description": "Sponsor gathers tax returns, payslips, lease, landlord confirmation, health insurance for family. Submit to embassy as part of application.", "estimated_days": 14, "documents_needed": ["Tax returns", "Lease", "Insurance"], "tips": ["12 m² per person rule strict — verify housing"]},
+            {"step_number": 5, "title": "Book Embassy Appointment + Submit", "description": "Apply at German Embassy in family member's country. Submit €75 + €37.50 (kids) fees + all documents.", "estimated_days": 30, "documents_needed": ["All compiled docs"], "tips": ["India: VFS Global"]},
+            {"step_number": 6, "title": "Embassy Interview + Decision", "description": "Some embassies require in-person interview. Decision typically 3-9 months — family reunification longer than work visas.", "estimated_days": 180, "documents_needed": [], "tips": ["Be patient; provide additional docs promptly if requested"]},
+            {"step_number": 7, "title": "Travel to Germany + Anmeldung", "description": "Family member travels on visa. Register at Bürgeramt within 14 days.", "estimated_days": 14, "documents_needed": [], "tips": []},
+            {"step_number": 8, "title": "Apply for Aufenthaltserlaubnis at Ausländerbehörde", "description": "Family member applies for residence permit linked to sponsor's status. Adult €100 / Minor €50. Valid for same duration as sponsor's permit.", "estimated_days": 30, "documents_needed": ["Anmeldung", "Sponsor permit"], "tips": []},
+        ],
+        "document_checklist": [
+            {"name": "Valid passport (12+ months validity)", "mandatory": True, "notes": "All applicants"},
+            {"name": "Biometric photos (35x45mm, white background)", "mandatory": True, "notes": "All applicants"},
+            {"name": "Completed national visa application form", "mandatory": True, "notes": ""},
+            {"name": "Marriage certificate (spouse) / Birth certificate (child)", "mandatory": True, "notes": "Apostilled + translated"},
+            {"name": "A1 German certificate (Goethe / telc / ÖSD)", "mandatory": True, "notes": "EXEMPT if sponsor EU Blue Card / Skilled Worker etc."},
+            {"name": "Custody proof (if single parent or one parent applying)", "mandatory": False, "notes": "Court orders, agreements"},
+            {"name": "Sponsor's residence permit (apostilled copy)", "mandatory": True, "notes": "Or German passport"},
+            {"name": "Sponsor's employment contract + last 6 months payslips", "mandatory": True, "notes": ""},
+            {"name": "Sponsor's tax returns (last 2 years)", "mandatory": True, "notes": ""},
+            {"name": "Sponsor's apartment lease + landlord confirmation", "mandatory": True, "notes": "12 m² per person rule"},
+            {"name": "Health insurance certificates (for all family members)", "mandatory": True, "notes": "From arrival"},
+            {"name": "Birth certificate of applicant (for sponsor verification)", "mandatory": True, "notes": "Apostilled"},
+            {"name": "Police clearance certificate (some cases)", "mandatory": False, "notes": ""},
+            {"name": "Children 16-17: C1 German OR integration evidence", "mandatory": False, "notes": "Or parent skilled-worker exemption"},
+            {"name": "Visa fee €75 (adults) / €37.50 (minors) + residence permit fee", "mandatory": True, "notes": ""},
+        ],
+        "common_rejection_reasons": [
+            "A1 German missing for spouse (and no sponsor exemption)",
+            "Sponsor income insufficient (Bürgergeld dependency risk)",
+            "Inadequate housing (less than 12 m² per person)",
+            "Sponsor's residence permit doesn't allow family reunification",
+            "Sponsor permit duration too short (less than 2 years remaining)",
+            "Marriage certificate not legally recognized in Germany",
+            "Children 16-17: C1 German missing AND no parent skilled-worker exemption",
+            "Documents not properly apostilled OR translated to German",
+            "Past visa violations or character concerns",
+        ],
+        "success_tips": [
+            "EU Blue Card sponsor = A1 German EXEMPT for spouse — major advantage",
+            "Sponsor income should be 30%+ ABOVE standard rate to demonstrate buffer",
+            "12 m² per person — verify housing BEFORE family reunification application",
+            "Apostille + German translation on EVERY foreign document — no exceptions",
+            "Family reunification timeline 3-9 months — apply early, be patient",
+            "Children apply at SAME time as one parent for fastest processing",
+            "Children 16-17: emphasize parent's skilled worker status to waive C1 German",
+            "Spouse of EU citizen / German citizen = FEES FREE — significant savings",
+        ],
+        "faqs": [
+            {"q": "Does my spouse need A1 German?", "a": "Generally yes — but EXEMPT if sponsor holds EU Blue Card, Skilled Worker permit, ICT, researcher status, German citizenship, refugee status, or specific other categories. Verify your sponsor's permit type."},
+            {"q": "How much does it cost?", "a": "Adults €175 total (€75 visa + €100 residence permit). Minor children €87.50 total (€37.50 + €50, half-price). Family of EU citizen: FREE. Health insurance + translations additional."},
+            {"q": "Can my parents come?", "a": "Generally NOT eligible — only spouses + minor children + dependent partners. Exceptions for severe humanitarian need OR if sponsor is German citizen + parents are elderly + provided care."},
+            {"q": "What's the minimum sponsor income?", "a": "Sufficient to support family WITHOUT Bürgergeld (public assistance). Approximately €563 single + €506 spouse + €312 per child standard rate (2026). Plus housing + insurance buffer."},
+            {"q": "How long does it take?", "a": "Typically 3-9 months from embassy submission. Slower than work visas due to relationship + financial verification."},
+            {"q": "Can children over 18 join?", "a": "Generally NOT eligible for family reunification. Must apply separately (Student / Skilled Worker / Job Seeker). Exceptional humanitarian only."},
+        ],
+        "official_url": "https://www.make-it-in-germany.com/en/visa-residence/types/family-reunification",
+        "vfs_url": "https://visa.vfsglobal.com/ind/en/deu/",
+        "source_urls": [
+            "https://www.make-it-in-germany.com/en/visa-residence/types/family-reunification",
+            "https://www.how-to-germany.com/visa/long-stay/spouse/",
+            "https://www.axa-schengen.com/en/visa/types/family-reunification-visa-germany",
+            "https://www.bamf.de/SharedDocs/Anlagen/DE/MigrationAufenthalt/Ehegattennachzug/ehegattennachzug-en.pdf",
+            "https://feather-insurance.com/blog/family-reunion-visa",
+        ],
+        "verified_notes": "Manual Fast-Path B.4.8 seed — verified against make-it-in-germany.com + How-to-Germany + AXA Schengen + BAMF + Feather Insurance on 2026-02-27. €75 / €37.50 / FREE fee tier confirmed. A1 German exemptions for EU Blue Card / Skilled Worker / etc. explicitly documented. 12 m² housing rule + sponsor income standard rates (€563/€506/€312) for 2026 reflected. Validator URL check: HTTP 200 (primary).",
+    },
+
+    # ── 6. DE-Self-Employment — Self-Employment Visa ───────────────────────────
+    {
+        "country_code": "DE", "country_name": "Germany",
+        "subclass_id": "Self-Employment",
+        "subclass_name": "Self-Employment Visa (Selbständige Tätigkeit + Freiberufler/Freelancer streams)",
+        "service_type": "business", "category": "immigration",
+        "description": (
+            "The Self-Employment Visa (Aufenthaltserlaubnis zur Ausübung einer selbständigen "
+            "Tätigkeit) allows non-EU professionals to relocate to Germany to **establish their "
+            "own business** or work as a **freelancer in liberal professions**.\n\n"
+            "**Two distinct streams (different requirements):**\n\n"
+            "**1. Freiberufler (Liberal Professions / Freelancer):**\n"
+            "- Doctors, lawyers, architects, artists, writers, teachers, IT consultants, "
+            "translators, engineers (self-employed)\n"
+            "- NO German Trade Register (Handelsregister) registration\n"
+            "- Pay income tax ONLY (no trade tax / Gewerbesteuer)\n"
+            "- NO chamber approval (IHK/HWK) needed for visa\n"
+            "- Professional licenses (medical, legal) needed to practice but not for visa\n"
+            "- Evidence: **2+ letters of intent from German clients**\n\n"
+            "**2. Gewerbetreibende / Selbständige (Entrepreneurs / Trade Business):**\n"
+            "- Retailers, restaurant owners, manufacturers, commercial service providers\n"
+            "- MUST register in German Trade Register (Handelsregister)\n"
+            "- Pay BOTH income tax AND trade tax (Gewerbesteuer)\n"
+            "- IHK (Chamber of Industry & Commerce) or HWK (Chamber of Crafts) often "
+            "assesses business viability — NOT a formal approval but critical influence\n"
+            "- **€250,000 minimum investment rule ABOLISHED** — but authorities still look "
+            "for 'sufficient' capital relative to business plan\n"
+            "- Required: detailed business plan + economic interest + positive regional impact\n\n"
+            "**Age 45+ Pension Requirement (BOTH streams):**\n"
+            "- Monthly pension of **€1,612.53** for 12 years OR\n"
+            "- Assets of **€232,204** (2026 regulations)\n\n"
+            "**Berlin LEA Online-Only (from March 2026):**\n"
+            "- Self-employment/freelance applications in Berlin MUST submit online\n"
+            "- Paper applications + walk-in appointments NO LONGER ACCEPTED\n"
+            "- Other German states retain hybrid process\n\n"
+            "**Validity:** Initial visa up to 3 years; convertible to settlement permit "
+            "(Niederlassungserlaubnis) after 3 years if business successful."
+        ),
+        "eligibility_summary": (
+            "Liberal profession with 2+ client letters of intent (Freiberufler) OR detailed "
+            "business plan with sufficient capital + economic interest (Gewerbe). Age 45+ "
+            "additional pension/asset requirement. Berlin: online-only from March 2026."
+        ),
+        "eligibility_criteria": [
+            {"label": "Freiberufler — Profession Type", "value": "Doctor, lawyer, architect, artist, writer, teacher, IT consultant, engineer, translator, etc.", "notes": "Listed in §18 EStG (German Income Tax Act)"},
+            {"label": "Freiberufler — Professional Qualification", "value": "Degree, diploma, or vocational training proving qualification", "notes": "ZAB recognition may be needed"},
+            {"label": "Freiberufler — Client Evidence", "value": "Minimum 2 letters of intent from German clients", "notes": "Concrete contracts strongest"},
+            {"label": "Freiberufler — Earnings Preview (Ertragsvorschau)", "value": "Projected monthly earnings vs expenses spreadsheet", "notes": "Demonstrating financial viability"},
+            {"label": "Gewerbe — Detailed Business Plan", "value": "Business concept + market analysis + financial plan (equity, loans, projected revenue)", "notes": ""},
+            {"label": "Gewerbe — Economic Interest", "value": "Regional need OR positive economic impact (job creation, innovation)", "notes": "IHK/HWK viability assessment critical"},
+            {"label": "Gewerbe — Capital Investment", "value": "Sufficient capital relative to business idea (€250k rule ABOLISHED but minimum varies)", "notes": "Authorities look for credibility"},
+            {"label": "Pension Plan (Age 45+)", "value": "€1,612.53/month for 12 years OR assets of €232,204 (2026)", "notes": "Statutory requirement"},
+            {"label": "Health Insurance", "value": "Adequate German health insurance from arrival", "notes": "Private mostly for self-employed"},
+            {"label": "Berlin Online-Only (from March 2026)", "value": "LEA Berlin: online-only submission for self-employment/freelance permits", "notes": "Other states retain hybrid"},
+        ],
+        "fees_local_currency_code": "EUR", "fees_local_currency_amount": 175, "fees_inr_approx": 16625,
+        "fees_breakdown": [
+            {"component": "Visa application fee (ex-territory)", "amount": 75, "currency": "EUR"},
+            {"component": "Residence permit (eAT — electronic) issuance fee", "amount": 100, "currency": "EUR"},
+            {"component": "Residence permit (Sticker label)", "amount": 56, "currency": "EUR"},
+            {"component": "ZAB qualification recognition (if needed)", "amount": 485, "currency": "EUR"},
+            {"component": "Professional licensing (regulated professions — varies)", "amount": 300, "currency": "EUR", "per": "estimate"},
+            {"component": "IHK / HWK consultation (if Gewerbe — no formal fee)", "amount": 0, "currency": "EUR"},
+            {"component": "Business plan preparation (specialist consultant)", "amount": 2000, "currency": "EUR", "per": "estimate"},
+            {"component": "Document translation + apostille", "amount": 300, "currency": "EUR"},
+            {"component": "Health insurance (private monthly)", "amount": 400, "currency": "EUR", "per": "month"},
+            {"component": "Pension contribution (age 45+, monthly)", "amount": 1612.53, "currency": "EUR", "per": "month"},
+            {"component": "VFS service fee (India)", "amount": 30, "currency": "EUR"},
+            {"component": "Total minimum (visa + permit)", "amount": 175, "currency": "EUR"},
+        ],
+        "processing_time_days_min": 180, "processing_time_days_max": 270,
+        "step_by_step": [
+            {"step_number": 1, "title": "Determine Stream: Freiberufler vs Gewerbe", "description": "Freiberufler if liberal profession (doctor, lawyer, IT consultant, etc.). Gewerbe if commercial business (retail, restaurant, manufacturing).", "estimated_days": 7, "documents_needed": [], "tips": ["§18 EStG lists Freiberufler professions"]},
+            {"step_number": 2, "title": "Freiberufler: Secure 2+ Client Letters", "description": "Network with German clients, get formal letters of intent / contracts. 2+ minimum, more strengthens application.", "estimated_days": 60, "documents_needed": ["Client letters of intent"], "tips": ["Concrete contracts > letters of intent"]},
+            {"step_number": 3, "title": "Gewerbe: Develop Business Plan + IHK Consultation", "description": "Write detailed business plan (concept, market, finance). Consult IHK/HWK for viability assessment (no fee but informal).", "estimated_days": 90, "documents_needed": ["Business plan"], "tips": ["IHK assessment letter highly influential"]},
+            {"step_number": 4, "title": "Verify Qualification + Professional License", "description": "If regulated profession (doctor, lawyer): obtain German license. ZAB recognition if needed.", "estimated_days": 60, "documents_needed": ["Qualification cert", "License"], "tips": []},
+            {"step_number": 5, "title": "Age 45+: Pension/Asset Evidence", "description": "Demonstrate €1,612.53/mo pension for 12yr OR €232,204 assets. Provide statements.", "estimated_days": 14, "documents_needed": ["Pension/asset proof"], "tips": ["Skip if under 45"]},
+            {"step_number": 6, "title": "Submit Visa Application at Embassy", "description": "Submit at German Embassy. €75 fee + all documents (Freiberufler) or business plan (Gewerbe).", "estimated_days": 1, "documents_needed": ["All docs per stream"], "tips": ["India: VFS Global"]},
+            {"step_number": 7, "title": "Receive Visa + Travel to Germany", "description": "Visa typically issued 6-9 months. Travel to Germany + register Anmeldung within 14 days.", "estimated_days": 180, "documents_needed": [], "tips": ["Longest processing of all German visa types"]},
+            {"step_number": 8, "title": "Register Business + Apply for Residence Permit", "description": "Freiberufler: register with tax office (Finanzamt) as freelancer. Gewerbe: register Handelsregister + IHK membership. Apply for residence permit at Ausländerbehörde / Berlin LEA online.", "estimated_days": 30, "documents_needed": ["Registration confirmations"], "tips": ["Berlin from March 2026: online ONLY at LEA portal"]},
+        ],
+        "document_checklist": [
+            {"name": "Valid passport (12+ months validity)", "mandatory": True, "notes": ""},
+            {"name": "Recent biometric photos (35x45mm, white background)", "mandatory": True, "notes": ""},
+            {"name": "Completed national visa application form", "mandatory": True, "notes": ""},
+            {"name": "Professional qualification + transcripts", "mandatory": True, "notes": "Apostilled + translated"},
+            {"name": "ZAB Statement of Comparison (for non-EU degrees, if needed)", "mandatory": False, "notes": ""},
+            {"name": "Freiberufler: 2+ client letters of intent / contracts", "mandatory": False, "notes": "Liberal professions only"},
+            {"name": "Freiberufler: Earnings Preview (Ertragsvorschau)", "mandatory": False, "notes": "Liberal professions only"},
+            {"name": "Gewerbe: Detailed Business Plan", "mandatory": False, "notes": "Entrepreneurs only"},
+            {"name": "Gewerbe: IHK/HWK viability opinion (if obtained)", "mandatory": False, "notes": "Highly influential"},
+            {"name": "Gewerbe: Capital evidence (equity, loans, funding commitment)", "mandatory": False, "notes": ""},
+            {"name": "Age 45+: Pension/asset evidence", "mandatory": False, "notes": "€1,612.53/mo × 12yr OR €232,204"},
+            {"name": "Professional license (regulated professions)", "mandatory": False, "notes": "Doctor, lawyer, architect, etc."},
+            {"name": "CV / résumé in German or English", "mandatory": True, "notes": ""},
+            {"name": "Cover letter explaining business / freelance plan", "mandatory": True, "notes": ""},
+            {"name": "Health insurance certificate (effective from arrival)", "mandatory": True, "notes": "Private mostly for self-employed"},
+            {"name": "Birth certificate (apostilled + translated)", "mandatory": True, "notes": ""},
+            {"name": "Visa fee €75 + €100 residence permit fee", "mandatory": True, "notes": ""},
+            {"name": "Berlin: Online submission via LEA portal (from March 2026)", "mandatory": False, "notes": "Berlin applications only"},
+        ],
+        "common_rejection_reasons": [
+            "Freiberufler: insufficient client evidence (fewer than 2 letters of intent)",
+            "Gewerbe: business plan weak / no economic interest demonstrated",
+            "Gewerbe: insufficient capital relative to business idea",
+            "IHK/HWK viability assessment negative",
+            "Age 45+ pension/asset requirements not met",
+            "Professional license missing (regulated professions)",
+            "Health insurance inadequate (private required for self-employed)",
+            "Berlin: paper submission attempted from March 2026 (online-only)",
+            "Past visa violations or character concerns",
+        ],
+        "success_tips": [
+            "Freiberufler: 3-5 strong client letters > 2 weak letters",
+            "Gewerbe: IHK/HWK informal consultation = critical (often determines outcome)",
+            "Age 45+ pension/asset requirement strict — gather evidence early",
+            "Business plan template: BMWK Existenzgründungsportal provides guidance",
+            "Specialist business plan consultant (€2,000) often pays for itself in approval",
+            "Berlin online-only from March 2026 — others retain hybrid (consider state strategically)",
+            "Earnings Preview (Ertragsvorschau) spreadsheet — be realistic + ambitious",
+            "After 3 years successful business: convert to Niederlassungserlaubnis (PR)",
+        ],
+        "faqs": [
+            {"q": "What's the difference between Freiberufler and Gewerbe?", "a": "Freiberufler: liberal profession (doctor, lawyer, IT consultant, artist). NO trade register, income tax only, no chamber approval. Gewerbe: commercial business (retail, restaurant, manufacturing). Trade register required, income tax + trade tax, IHK/HWK assessment."},
+            {"q": "Is the €250,000 minimum investment rule still in effect?", "a": "NO — abolished. Authorities now look for 'sufficient' capital relative to business plan. No specific minimum, but plan must be financially credible."},
+            {"q": "Do I need a chamber approval?", "a": "Freiberufler: NO chamber approval needed for visa. Gewerbe: IHK (industry) or HWK (crafts) often consulted for business viability — not a formal approval but highly influential."},
+            {"q": "What's the age 45+ requirement?", "a": "Pension of €1,612.53/month for 12 years OR assets of €232,204 (2026). Designed to ensure self-employed applicants can support themselves in retirement."},
+            {"q": "Can I switch from Freelancer to Skilled Worker?", "a": "Yes — if you find employer offering qualified position, can convert at Ausländerbehörde. Most freelancers stay self-employed for tax + flexibility."},
+            {"q": "What's the Berlin online-only change?", "a": "From March 2026, Berlin Landesamt für Einwanderung (LEA) requires ALL self-employment/freelance residence permit applications to be submitted online via LEA portal. Paper applications + walk-ins NO LONGER accepted. Other German states retain hybrid process."},
+        ],
+        "official_url": "https://www.make-it-in-germany.com/en/visa-residence/types/self-employment",
+        "vfs_url": "https://visa.vfsglobal.com/ind/en/deu/",
+        "source_urls": [
+            "https://www.make-it-in-germany.com/en/visa-residence/types/self-employment",
+            "https://www.germany-visa.org/freelance-visa/",
+            "https://www.kanzlei-wottke.eu/en/business-visa-germany/",
+            "https://handbookgermany.de/en/self-employment",
+            "https://www.bamf.de/EN/Themen/MigrationAufenthalt/ZuwandererDrittstaaten/Arbeit/SelbstaendigeTaetigkeit/selbstaendigetaetigkeit-node.html",
+        ],
+        "verified_notes": "Manual Fast-Path B.4.8 seed — verified against make-it-in-germany.com + Germany-Visa + Kanzlei Wottke + Handbook Germany + BAMF on 2026-02-27. Freiberufler vs Gewerbe distinction documented. €250k rule abolished noted. Age 45+ €1,612.53/mo × 12yr OR €232,204 assets confirmed. Berlin LEA online-only from March 2026 documented. Validator URL check: HTTP 200 (primary), HTTP 400 (BAMF secondary — server policy on specific paths, NOT closure).",
+    },
+]
+
+
 ALL_WORKFLOWS: Dict[str, List[Dict[str, Any]]] = {
     "IN": INDIA_WORKFLOWS,
     "AU": AUSTRALIA_NEW_WORKFLOWS,
@@ -4973,6 +5803,7 @@ ALL_WORKFLOWS: Dict[str, List[Dict[str, Any]]] = {
     "NZ": NEW_ZEALAND_NEW_WORKFLOWS,
     "UK": UNITED_KINGDOM_NEW_WORKFLOWS,
     "US": USA_NEW_WORKFLOWS,
+    "DE": GERMANY_NEW_WORKFLOWS,
 }
 
 
