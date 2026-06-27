@@ -2082,10 +2082,726 @@ NEW_ZEALAND_WORKFLOWS: List[Dict[str, Any]] = [
 ]
 
 
+# ──────────────────────────────────────────────────────────────────────────────
+# UNITED KINGDOM (UK) — 6 verified subclasses
+# Source: gov.uk + UKVI · Feb 2026 fee schedule · FX: 1 GBP ≈ 105 INR
+# ──────────────────────────────────────────────────────────────────────────────
+UNITED_KINGDOM_WORKFLOWS: List[Dict[str, Any]] = [
+    # ── 1. Skilled Worker Visa ────────────────────────────────────────────────
+    {
+        "country_code": "UK",
+        "country_name": "United Kingdom",
+        "subclass_id": "Skilled-Worker",
+        "subclass_name": "Skilled Worker Visa (Post-Brexit Tier 2 Replacement)",
+        "service_type": "work",
+        "category": "immigration",
+        "description": (
+            "The Skilled Worker Visa is the UK's primary employer-sponsored work visa, replacing the old "
+            "Tier 2 (General) Visa post-Brexit. It enables non-UK nationals (including Indians) to work for "
+            "a UK-licensed sponsor employer in an eligible skilled occupation. It is the standard pathway "
+            "to long-term settlement (ILR) after 5 years.\n\n"
+            "Following the April 2024 reform, the minimum salary threshold was raised significantly to "
+            "£38,700/year (or going-rate for the specific occupation, whichever is higher). Eligible "
+            "occupations span RQF Level 3+ roles across healthcare, IT, engineering, finance, education, "
+            "and skilled trades. The visa is sponsor-specific — workers cannot switch employers without "
+            "new Certificate of Sponsorship (CoS) and visa application. Visa duration: up to 5 years per "
+            "application, with extensions and ILR route built in."
+        ),
+        "eligibility_summary": (
+            "Job offer from a UK-licensed sponsor with valid Certificate of Sponsorship (CoS), role at "
+            "RQF Level 3+ in eligible occupation code, salary ≥£38,700/year (post-April 2024) OR going "
+            "rate for occupation, English at B1 level (CEFR), maintenance funds (or sponsor certifies)."
+        ),
+        "eligibility_criteria": [
+            {"label": "Licensed sponsor + CoS", "value": "Valid Certificate of Sponsorship from a UK-licensed sponsor", "notes": "Sponsor must hold a 'Worker' sponsor licence; CoS valid 3 months from assignment"},
+            {"label": "Eligible occupation", "value": "Role on the UK Skilled Occupation List at RQF Level 3+", "notes": "SOC 2020 codes; new shortage occupation list (Immigration Salary List) replaced old SOL"},
+            {"label": "Minimum salary", "value": "£38,700/year OR occupation going-rate, whichever is higher (post-April 2024)", "notes": "Some exceptions: new entrants, STEM PhD holders, Immigration Salary List = 80%, healthcare = £23,200 minimum"},
+            {"label": "English language", "value": "CEFR B1 (intermediate) in all 4 skills — reading, writing, listening, speaking", "notes": "Approved tests: IELTS for UKVI (4.0+ each), Trinity ISE, PTE Academic UKVI, OET; or recognised qualification taught in English"},
+            {"label": "Maintenance funds", "value": "£1,270 held in bank account for 28+ consecutive days", "notes": "OR sponsor certifies maintenance on CoS (A-rated sponsors)"},
+            {"label": "TB test certificate (India)", "value": "Required for visa applications from India", "notes": "From a UKVI-approved clinic in India (IOM)"},
+            {"label": "Genuine intent", "value": "Genuine work offer + intent to fulfil the role", "notes": "UKVI may interview"},
+            {"label": "No criminal disqualification", "value": "Past 12-month+ prison sentences = bar; some other criminality flags", "notes": "Standard criminality + immigration history check"},
+        ],
+        "fees_local_currency_code": "GBP",
+        "fees_local_currency_amount": 6694,
+        "fees_inr_approx": 702870,
+        "fees_breakdown": [
+            {"component": "Skilled Worker Visa application — up to 3 years (out of UK)", "amount": 719, "currency": "GBP"},
+            {"component": "Skilled Worker Visa application — over 3 years (out of UK)", "amount": 1500, "currency": "GBP"},
+            {"component": "Immigration Health Surcharge (IHS) — £1,035/year × 5 years", "amount": 5175, "currency": "GBP"},
+            {"component": "Priority Service (next working day decision)", "amount": 500, "currency": "GBP"},
+            {"component": "Super-Priority Service (same/next working day)", "amount": 1000, "currency": "GBP"},
+            {"component": "Biometric Enrolment fee (UKVI partner in India)", "amount": 19, "currency": "GBP"},
+            {"component": "TB test (IOM India)", "amount": 6500, "currency": "INR"},
+            {"component": "English test (IELTS UKVI)", "amount": 18800, "currency": "INR"},
+            {"component": "Translation fees (if non-English docs)", "amount": 5000, "currency": "INR"},
+        ],
+        "processing_time_days_min": 15,
+        "processing_time_days_max": 60,
+        "step_by_step": [
+            {"step_number": 1, "title": "Secure Job Offer from Licensed Sponsor", "description": "Find a UK employer with a valid sponsor licence (Worker tier). Negotiate offer at or above £38,700/year (or going rate). Employer assigns Certificate of Sponsorship (CoS).", "estimated_days": 90, "documents_needed": ["Job offer letter", "Employment contract"], "tips": ["Verify sponsor licence on UKVI's public Sponsor Register before accepting offer", "Going-rate for SOC code may exceed £38,700 — check at gov.uk/government/publications/skilled-worker-visa-going-rates", "CoS reference is the visa application's anchor"]},
+            {"step_number": 2, "title": "Receive Certificate of Sponsorship", "description": "Employer assigns a CoS in the UKVI system. You receive a unique reference number (CoS number). Valid 3 months from assignment.", "estimated_days": 14, "documents_needed": ["CoS reference number"], "tips": ["Apply for visa within 3 months of CoS issue", "Defined CoS (out-of-country) vs Undefined CoS (in-country switch) — confirm correct type"]},
+            {"step_number": 3, "title": "English Language Test (if no exemption)", "description": "Take an approved test at CEFR B1 minimum: IELTS UKVI (4.0 each band), Trinity ISE, PTE Academic UKVI, OET (healthcare). Or rely on degree taught in English.", "estimated_days": 21, "documents_needed": ["Passport"], "tips": ["UKVI version of IELTS is mandatory — not General Training or Academic", "Indian university degrees taught in English qualify with NARIC equivalency"]},
+            {"step_number": 4, "title": "TB Test (IOM India)", "description": "Visit a UKVI-approved TB testing clinic (IOM in Delhi, Mumbai, Chennai). Test valid 6 months.", "estimated_days": 7, "documents_needed": ["Passport"], "tips": ["Mandatory for India applicants staying 6+ months in UK", "Get appointment in advance — IOM clinics get booked up"]},
+            {"step_number": 5, "title": "Maintenance Funds Proof", "description": "Hold £1,270 in your bank account for 28+ consecutive days within 31 days of application. OR sponsor certifies maintenance on CoS (A-rated sponsors only).", "estimated_days": 28, "documents_needed": ["Bank statements (28+ days)"], "tips": ["Funds must be in your name only", "Joint accounts allowed if both names on it for full 28 days", "Don't dip below £1,270 even once during 28 days"]},
+            {"step_number": 6, "title": "Submit Online Application", "description": "Apply at gov.uk via the Skilled Worker route. Pay application fee + IHS. Upload documents.", "estimated_days": 3, "documents_needed": ["CoS reference", "Passport", "English test", "TB test", "Maintenance proof", "Qualifications", "Application form"], "tips": ["Choose Priority/Super-Priority service for faster decision", "Pay IHS in full upfront (5 years × £1,035 = £5,175)"]},
+            {"step_number": 7, "title": "Biometric Enrolment", "description": "Visit UKVI partner (VFS in India). Submit fingerprints + photo. Upload documents.", "estimated_days": 14, "documents_needed": ["Application reference", "Passport"], "tips": ["Book biometric appointment after submitting application", "Can do priority biometric for faster processing"]},
+            {"step_number": 8, "title": "Decision + Travel to UK", "description": "Receive decision (3 weeks standard, 5 days priority, 24 hr super-priority). On approval, get visa vignette in passport. Travel to UK before vignette expires (90 days), collect BRP within 10 days of arrival.", "estimated_days": 21, "documents_needed": ["Vignette in passport"], "tips": ["BRP collection within 10 days of arrival is critical", "Bring CoS reference + employment contract to airport"]},
+        ],
+        "document_checklist": [
+            {"name": "Valid passport (with min 1 blank page)", "mandatory": True, "notes": ""},
+            {"name": "Certificate of Sponsorship (CoS) reference number", "mandatory": True, "notes": "From licensed sponsor"},
+            {"name": "Job offer letter + employment contract", "mandatory": True, "notes": "On company letterhead; specifies salary, hours, role, SOC code"},
+            {"name": "English language test result (IELTS UKVI / PTE UKVI / OET / Trinity ISE)", "mandatory": True, "notes": "Min CEFR B1 in all skills"},
+            {"name": "Tuberculosis (TB) test certificate (from IOM India)", "mandatory": True, "notes": "Valid 6 months"},
+            {"name": "Maintenance funds — bank statements (28 days)", "mandatory": True, "notes": "£1,270 minimum; OR sponsor A-rated certifies on CoS"},
+            {"name": "Educational qualifications (degree, transcripts)", "mandatory": False, "notes": "Required if claiming skilled occupation via qualification"},
+            {"name": "UK NARIC / Ecctis Statement of Comparability (if non-UK degree)", "mandatory": False, "notes": "For qualification-based skilled status claims"},
+            {"name": "PhD certificate (if claiming PhD bonus for tradable points)", "mandatory": False, "notes": "STEM PhD reduces salary threshold"},
+            {"name": "Police certificate (specific sectors: education, healthcare, social services)", "mandatory": False, "notes": "From each country lived 12+ months in past 10 years"},
+            {"name": "Marriage cert + children's birth certs (if dependents applying together)", "mandatory": False, "notes": ""},
+            {"name": "Biometric Residence Permit (BRP) collection details", "mandatory": True, "notes": "Issued post-arrival"},
+            {"name": "Recent passport-style photos (UKVI specs)", "mandatory": True, "notes": ""},
+            {"name": "Application form printout (from gov.uk)", "mandatory": True, "notes": ""},
+        ],
+        "common_rejection_reasons": [
+            "Salary below £38,700 OR occupation going-rate (whichever is higher)",
+            "Sponsor licence not valid or sponsor on UKVI 'A-rated' downgrade list",
+            "CoS expired (3-month validity from issue)",
+            "English test below CEFR B1 on any one skill",
+            "Maintenance funds dipped below £1,270 during 28-day period",
+            "Occupation code not at RQF Level 3+ or not on Skilled Occupation List",
+            "Genuine vacancy concerns — UKVI suspects role created just for visa sponsorship",
+            "TB test missing or from non-UKVI-approved clinic",
+        ],
+        "success_tips": [
+            "Verify sponsor licence + A-rating BEFORE accepting offer",
+            "Check occupation going-rate against your offered salary — going-rate often exceeds £38,700",
+            "Get sponsor to certify maintenance on CoS if you can — saves the 28-day bank requirement",
+            "Take IELTS UKVI early — score above B1 minimum gives buffer",
+            "Apply within first month of CoS issue — leaves buffer if any document issue",
+            "Use Priority Service (£500) if joining date is tight — 5-day decision",
+            "Bundle BRP collection details with hotel booking near collection centre",
+            "Keep digital + hard copies of every document submitted",
+        ],
+        "faqs": [
+            {"q": "What's the difference between Skilled Worker and old Tier 2 General?", "a": "Skilled Worker replaced Tier 2 General in Dec 2020 post-Brexit. Key changes: occupation list expanded to RQF Level 3 (was RQF Level 6), Resident Labour Market Test scrapped, broader sectors eligible. Salary thresholds raised significantly in April 2024."},
+            {"q": "Can I switch employers on Skilled Worker?", "a": "No — visa is sponsor-specific. To switch, you need new CoS from new sponsor and new visa application (in-country switch possible)."},
+            {"q": "Can my family join me?", "a": "Yes — spouse/partner and children under 18 can apply as dependants. Same IHS, separate application fees. Spouse can work in UK without restriction."},
+            {"q": "When can I apply for ILR?", "a": "After 5 continuous years on Skilled Worker (or combined eligible routes). Need: continuous residence, salary still meets threshold at ILR application, KOL (Knowledge of Life in UK) test + English B1 maintained."},
+            {"q": "What is IHS and can I get a refund?", "a": "Immigration Health Surcharge: £1,035/year, paid upfront for full visa length. Gives access to NHS. Refunded if visa rejected. Not refunded if visa granted but you leave early."},
+            {"q": "What's the going rate?", "a": "Each SOC occupation has a minimum 'going rate' published by UKVI. You must be paid the higher of £38,700 OR your SOC's going rate. Some SOCs (e.g. senior medical) exceed £60,000."},
+        ],
+        "official_url": "https://www.gov.uk/skilled-worker-visa",
+        "vfs_url": "https://visa.vfsglobal.com/ind/en/gbr/",
+        "source_urls": [
+            "https://www.gov.uk/skilled-worker-visa",
+            "https://www.gov.uk/government/publications/skilled-worker-visa-going-rates-for-eligible-occupations",
+            "https://www.gov.uk/government/publications/immigration-rules/immigration-rules-appendix-skilled-worker",
+            "https://www.gov.uk/government/publications/skilled-worker-visa-eligible-occupations-and-codes",
+            "https://www.gov.uk/healthcare-immigration-application/who-needs-pay",
+        ],
+        "verified_notes": "Manual Fast-Path B.2 seed — verified against gov.uk on 2026-02-27. Salary threshold £38,700 per April 2024 reform. IHS £1,035/year per current rate.",
+    },
+
+    # ── 2. Health and Care Worker Visa ────────────────────────────────────────
+    {
+        "country_code": "UK",
+        "country_name": "United Kingdom",
+        "subclass_id": "Health-Care-Worker",
+        "subclass_name": "Health and Care Worker Visa (Skilled Worker subset)",
+        "service_type": "work",
+        "category": "immigration",
+        "description": (
+            "The Health and Care Worker Visa is a special category within the Skilled Worker route, "
+            "designed for qualified medical professionals coming to work for the NHS, NHS suppliers, "
+            "or eligible care providers. It offers two huge benefits over the standard Skilled Worker "
+            "Visa: (1) **Significantly reduced application fees** (£304 instead of £719 for 3-year visas), "
+            "and (2) **Exemption from the Immigration Health Surcharge (IHS)** — saving £5,175+ over a "
+            "5-year visa.\n\n"
+            "Eligible occupations include doctors (NHS or eligible private), nurses, midwives, paramedics, "
+            "social care workers (added Aug 2023, though some restrictions apply post-Mar 2024), pharmacists, "
+            "psychologists, and allied health professionals. Sponsor must be CQC-regulated or NHS-affiliated. "
+            "Note: From April 2024 the salary threshold for healthcare roles was set at £23,200 minimum "
+            "(lower than the £38,700 general Skilled Worker threshold), making this route accessible."
+        ),
+        "eligibility_summary": (
+            "Job offer from NHS or CQC-regulated/NHS-affiliated employer with valid CoS, eligible "
+            "healthcare occupation code (SOC 2020 list), salary ≥£23,200/year OR going rate (whichever "
+            "is higher), English at CEFR B1 (often via OET for clinical roles), professional registration "
+            "with relevant UK body (GMC for doctors, NMC for nurses, GPhC for pharmacists)."
+        ),
+        "eligibility_criteria": [
+            {"label": "Eligible employer", "value": "NHS, NHS supplier, OR CQC-regulated care provider", "notes": "Sponsor must hold a 'Health and Care Worker' sponsor licence"},
+            {"label": "Eligible occupation code", "value": "Specific SOC 2020 codes for healthcare roles (doctors, nurses, paramedics, care workers etc.)", "notes": "List published at gov.uk; care worker eligibility narrowed Mar 2024 but doctors/nurses unaffected"},
+            {"label": "Certificate of Sponsorship (CoS)", "value": "Defined CoS for out-of-country; Undefined for in-country switch", "notes": "Valid 3 months"},
+            {"label": "Salary threshold", "value": "£23,200/year OR occupation going-rate, whichever is higher", "notes": "Lower than standard Skilled Worker £38,700; care worker minimum also £23,200"},
+            {"label": "English language", "value": "CEFR B1 minimum; OET (Occupational English Test) preferred for clinical roles", "notes": "GMC/NMC may have higher requirements (e.g. OET B for nursing)"},
+            {"label": "Professional registration", "value": "Required for regulated roles — GMC (doctors), NMC (nurses + midwives), GPhC (pharmacists), HCPC (allied health)", "notes": "Get registration BEFORE visa application for cleaner approval"},
+            {"label": "Maintenance funds", "value": "£1,270 held in bank for 28+ consecutive days, OR sponsor certifies on CoS", "notes": ""},
+            {"label": "TB test (India)", "value": "Required from UKVI-approved IOM clinic", "notes": ""},
+        ],
+        "fees_local_currency_code": "GBP",
+        "fees_local_currency_amount": 304,
+        "fees_inr_approx": 31920,
+        "fees_breakdown": [
+            {"component": "Health and Care Worker Visa — up to 3 years (out of UK)", "amount": 304, "currency": "GBP"},
+            {"component": "Health and Care Worker Visa — over 3 years (out of UK)", "amount": 590, "currency": "GBP"},
+            {"component": "IHS — EXEMPT for Health and Care Worker (savings of £5,175 over 5 years)", "amount": 0, "currency": "GBP"},
+            {"component": "Priority Service", "amount": 500, "currency": "GBP"},
+            {"component": "Biometric Enrolment fee", "amount": 19, "currency": "GBP"},
+            {"component": "Professional registration (GMC ~£420, NMC ~£153 + £140 fee)", "amount": 420, "currency": "GBP"},
+            {"component": "OET test (clinical)", "amount": 17500, "currency": "INR"},
+            {"component": "TB test (IOM India)", "amount": 6500, "currency": "INR"},
+            {"component": "ECCTIS qualification evaluation (if foreign degree)", "amount": 19000, "currency": "INR"},
+        ],
+        "processing_time_days_min": 15,
+        "processing_time_days_max": 45,
+        "step_by_step": [
+            {"step_number": 1, "title": "Apply for UK Professional Registration", "description": "Doctors: GMC (General Medical Council). Nurses: NMC (Nursing and Midwifery Council). Pharmacists: GPhC. Allied health: HCPC. Each has profession-specific exams + assessments (e.g. PLAB for doctors, OSCE for nurses).", "estimated_days": 180, "documents_needed": ["Medical/Nursing degree", "Transcripts", "Identity proof", "Professional refs"], "tips": ["GMC PLAB Part 1 + Part 2 for International Medical Graduates", "NMC OSCE + CBT for nurses outside EU/UK education", "Get registration BEFORE visa application — strengthens approval"]},
+            {"step_number": 2, "title": "Secure NHS/Eligible Job Offer + CoS", "description": "Apply for jobs via NHS Jobs portal or directly with CQC-regulated providers. On offer, employer issues CoS via Health and Care Worker Visa route.", "estimated_days": 90, "documents_needed": ["Job offer", "Employment contract", "CoS reference"], "tips": ["NHS Trusts are the largest sponsors", "Private hospitals + care providers must be CQC-regulated", "Care worker route added Aug 2023 but tightened Mar 2024 — verify current"]},
+            {"step_number": 3, "title": "English Language (OET preferred for clinical)", "description": "OET grade B+ (for nursing/medical), or IELTS UKVI 4.0 each band minimum B1. Some applicants exempt if education was in English.", "estimated_days": 21, "documents_needed": ["Passport"], "tips": ["OET tests medical English — easier for clinicians", "NMC requires OET grade B in Reading, Writing, Listening; B-/C+ in Speaking acceptable"]},
+            {"step_number": 4, "title": "TB Test + Maintenance Funds", "description": "Standard for India applicants. Maintenance £1,270 for 28 days, or sponsor certifies on CoS.", "estimated_days": 28, "documents_needed": ["TB cert", "Bank statements"], "tips": ["Most NHS Trusts (A-rated) certify maintenance — saves bank requirement"]},
+            {"step_number": 5, "title": "Submit Online Application", "description": "Apply at gov.uk via Health and Care Worker route (not standard Skilled Worker). Pay £304 fee. IHS automatically waived.", "estimated_days": 3, "documents_needed": ["CoS reference", "Passport", "English test", "TB test", "Professional registration", "Maintenance proof"], "tips": ["Confirm 'Health and Care Worker' route selected — IHS exemption depends on it", "Total cost savings vs general Skilled Worker: ~£5,500+ over 5 years"]},
+            {"step_number": 6, "title": "Biometric Enrolment (VFS India)", "description": "Submit fingerprints + photo.", "estimated_days": 14, "documents_needed": [], "tips": []},
+            {"step_number": 7, "title": "Decision + Travel to UK", "description": "3-week standard processing. Priority service available £500.", "estimated_days": 21, "documents_needed": [], "tips": ["Collect BRP within 10 days of arrival", "Start NHS induction promptly"]},
+            {"step_number": 8, "title": "ILR after 5 years", "description": "5 continuous years on Health and Care Worker route → ILR eligible. Salary at ILR must still meet threshold + KOL + English B1.", "estimated_days": 90, "documents_needed": [], "tips": ["Keep employment continuous", "Document any breaks (max 180 days/year)"]},
+        ],
+        "document_checklist": [
+            {"name": "Valid passport", "mandatory": True, "notes": ""},
+            {"name": "Certificate of Sponsorship from NHS/CQC-regulated employer", "mandatory": True, "notes": "Health and Care Worker tier CoS specifically"},
+            {"name": "Job offer letter on NHS/healthcare letterhead", "mandatory": True, "notes": "Specifies role, salary, SOC code, location"},
+            {"name": "Professional registration (GMC/NMC/GPhC/HCPC)", "mandatory": True, "notes": "For regulated roles; get before visa application"},
+            {"name": "English language test (OET / IELTS UKVI)", "mandatory": True, "notes": "OET preferred for clinical roles"},
+            {"name": "TB test certificate (IOM India)", "mandatory": True, "notes": ""},
+            {"name": "Maintenance funds — bank statements (28 days) OR sponsor certification on CoS", "mandatory": True, "notes": ""},
+            {"name": "Medical/Nursing degree + transcripts", "mandatory": True, "notes": "Sealed transcripts from issuing institution"},
+            {"name": "ECCTIS Statement of Comparability (foreign degree equivalency)", "mandatory": False, "notes": "Often required by professional bodies"},
+            {"name": "Professional references (last 2-3 employers)", "mandatory": True, "notes": "Reference checks part of clinical roles"},
+            {"name": "Identity documents + photos", "mandatory": True, "notes": ""},
+            {"name": "Marriage cert + children's birth certs (if dependents)", "mandatory": False, "notes": ""},
+            {"name": "Police clearance certificates", "mandatory": False, "notes": "Required for many healthcare roles; from each country 12+ months past 10 years"},
+        ],
+        "common_rejection_reasons": [
+            "Sponsor not CQC-regulated or not eligible health employer",
+            "Professional registration missing or not yet granted at application",
+            "Salary below £23,200 OR going-rate (whichever higher)",
+            "English language below required level (OET B for clinical typically)",
+            "Care worker role under tightened post-Mar 2024 eligibility (some private domiciliary care excluded)",
+            "Misrepresentation of qualifications or registration status",
+            "Health/character inadmissibility (criminal history affecting fitness to practice)",
+            "CoS expired (3-month validity)",
+        ],
+        "success_tips": [
+            "Get UK professional registration BEFORE applying for visa — strengthens approval significantly",
+            "NHS Trusts are A-rated sponsors — they certify maintenance on CoS, saving bank requirement",
+            "OET is profession-specific and easier than IELTS for clinical English",
+            "Apply via Health and Care Worker route specifically — confirms IHS exemption",
+            "PLAB / OSCE / CBT preparation takes 3-6 months — start early",
+            "Save £5,500+ vs general Skilled Worker — make sure all paperwork shows 'Health and Care Worker' route",
+            "Sponsorship is health-employer-specific — can't switch to non-health employer without route change",
+            "Apply 3-4 months before intended start date — leaves buffer",
+        ],
+        "faqs": [
+            {"q": "Am I exempt from IHS?", "a": "YES — Health and Care Worker Visa holders are EXEMPT from Immigration Health Surcharge for entire visa duration. Dependants are also exempt. Massive savings (£5,175+ over 5 years for principal alone)."},
+            {"q": "Is care worker still eligible?", "a": "Yes, with restrictions tightened from March 2024. Eligible: care workers in CQC-regulated services. NOT eligible: private domestic care, certain agency roles, supported living without CQC regulation. Verify with sponsor."},
+            {"q": "Can I switch employers within healthcare?", "a": "Yes — within healthcare sector, you can switch to another CQC-regulated employer with new CoS. Switch outside healthcare requires standard Skilled Worker route (higher fee + IHS)."},
+            {"q": "Do my family get IHS exemption too?", "a": "Yes — your spouse + children dependants on your visa also get IHS exemption. Family savings can exceed £15,000 over 5 years."},
+            {"q": "What's PLAB and OSCE?", "a": "PLAB (Professional and Linguistic Assessments Board) — 2-part exam for International Medical Graduates seeking GMC registration. OSCE (Objective Structured Clinical Examination) — for nurses post-CBT to get NMC registration. Both take 3-6 months to prepare."},
+            {"q": "When can I apply for ILR?", "a": "After 5 continuous years on Health and Care Worker route. Need: continuous employment, salary meeting threshold at ILR application, KOL test, English B1 maintained."},
+        ],
+        "official_url": "https://www.gov.uk/health-care-worker-visa",
+        "vfs_url": "https://visa.vfsglobal.com/ind/en/gbr/",
+        "source_urls": [
+            "https://www.gov.uk/health-care-worker-visa",
+            "https://www.gov.uk/government/publications/health-and-care-worker-visa-eligible-occupations",
+            "https://www.gov.uk/healthcare-immigration-application/who-needs-pay",
+            "https://www.gmc-uk.org/registration-and-licensing/join-the-register/registration-applications/specialist-application-guides",
+            "https://www.nmc.org.uk/registration/joining-the-register/trained-outside-the-eu-eea-and-switzerland/",
+        ],
+        "verified_notes": "Manual Fast-Path B.2 seed — verified against gov.uk on 2026-02-27. IHS exemption + reduced fee per current Health and Care Worker route policy. Care worker eligibility narrowed Mar 2024.",
+    },
+
+    # ── 3. Student Visa ────────────────────────────────────────────────────────
+    {
+        "country_code": "UK",
+        "country_name": "United Kingdom",
+        "subclass_id": "Student",
+        "subclass_name": "Student Visa (formerly Tier 4)",
+        "service_type": "student",
+        "category": "immigration",
+        "description": (
+            "The UK Student Visa (renamed from Tier 4 in October 2020) allows international students to "
+            "pursue full-time education at licensed sponsor educational institutions in the UK. It covers "
+            "undergraduate, postgraduate, PhD, and pre-sessional language programmes. Crucially, on "
+            "completion of a UK degree (Bachelor's, Master's, or PhD), graduates can apply for the **Graduate "
+            "Route** — a 2-year (or 3-year for PhDs) open work visa enabling work for any UK employer "
+            "without sponsorship.\n\n"
+            "Key student visa requirements: CAS (Confirmation of Acceptance for Studies) from a licensed "
+            "sponsor (university/college), proof of finances covering tuition + maintenance (London: "
+            "£1,334/month, outside London: £1,023/month), English proficiency, and genuine student "
+            "intent. Working rights: 20 hours/week during term-time, full-time during scheduled breaks."
+        ),
+        "eligibility_summary": (
+            "Unconditional offer + CAS from licensed Student sponsor (university/college), proof of "
+            "tuition payment or deposit, maintenance funds (£1,334/month London or £1,023/month outside "
+            "London for up to 9 months), English language proficiency per course requirement, intent to "
+            "leave UK at end of studies (or continue via Graduate Route)."
+        ),
+        "eligibility_criteria": [
+            {"label": "Confirmation of Acceptance for Studies (CAS)", "value": "From a UKVI-licensed Student sponsor", "notes": "CAS reference valid 6 months from issue"},
+            {"label": "Licensed sponsor on Student Sponsor Register", "value": "University/college on UKVI Student Sponsor list", "notes": "Verify at gov.uk register-of-licensed-sponsors-students"},
+            {"label": "Tuition fee proof", "value": "1st year tuition paid OR deposit per CAS terms", "notes": "Some universities require full tuition before CAS issue"},
+            {"label": "Maintenance funds", "value": "£1,334/month London OR £1,023/month outside London for up to 9 months", "notes": "Held in bank for 28+ days within 31 days of application"},
+            {"label": "English language", "value": "Per course requirements — typically IELTS UKVI 6.0+ (UG) to 6.5+ (PG)", "notes": "Pre-sessional English programmes have lower thresholds"},
+            {"label": "Academic background", "value": "Meets entry requirements for chosen course", "notes": "Sponsor verifies; UCAS for UG"},
+            {"label": "Genuine student intent", "value": "Coherent study + career narrative", "notes": "Replaces old credibility interview in many cases; still possible"},
+            {"label": "Health surcharge", "value": "IHS at £776/year (student rate, reduced from £1,035)", "notes": "Paid upfront for visa duration"},
+            {"label": "TB test (India)", "value": "Required for stay 6+ months", "notes": "IOM-approved clinic"},
+        ],
+        "fees_local_currency_code": "GBP",
+        "fees_local_currency_amount": 3082,
+        "fees_inr_approx": 323610,
+        "fees_breakdown": [
+            {"component": "Student Visa application (out of UK)", "amount": 524, "currency": "GBP"},
+            {"component": "Student Visa application (in-country extension)", "amount": 624, "currency": "GBP"},
+            {"component": "IHS — Student rate £776/year × 3.3 years (UG average)", "amount": 2558, "currency": "GBP"},
+            {"component": "Priority Service", "amount": 500, "currency": "GBP"},
+            {"component": "Tuition deposit (Bachelor's 1st year average UK)", "amount": 18000, "currency": "GBP"},
+            {"component": "Maintenance proof (9 months × £1,023 outside London)", "amount": 9207, "currency": "GBP"},
+            {"component": "Maintenance proof (9 months × £1,334 London)", "amount": 12006, "currency": "GBP"},
+            {"component": "TB test (IOM India)", "amount": 6500, "currency": "INR"},
+            {"component": "English test (IELTS UKVI Academic)", "amount": 18800, "currency": "INR"},
+        ],
+        "processing_time_days_min": 21,
+        "processing_time_days_max": 60,
+        "step_by_step": [
+            {"step_number": 1, "title": "Choose Course + University on Sponsor Register", "description": "Research courses at UKVI-licensed Student sponsors. Apply via UCAS (UG) or direct (PG).", "estimated_days": 60, "documents_needed": ["Transcripts", "Degree certificates (if PG)", "IELTS UKVI", "Personal statement"], "tips": ["Top Russell Group: Oxford, Cambridge, Imperial, UCL, KCL, Edinburgh, Manchester, Bristol, Warwick, LSE", "Check sponsor's Student rating before applying — Track Record A1 best", "Apply 6-12 months before intake"]},
+            {"step_number": 2, "title": "Receive Unconditional Offer + CAS", "description": "On meeting offer conditions, university issues CAS reference number.", "estimated_days": 21, "documents_needed": ["University offer letter"], "tips": ["CAS valid 6 months", "Verify all CAS details match supporting docs"]},
+            {"step_number": 3, "title": "Pay Tuition Deposit or Full Tuition", "description": "Per CAS conditions. Receipt becomes part of application.", "estimated_days": 7, "documents_needed": ["Tuition payment receipt"], "tips": ["Some universities require full 1st year tuition; others accept deposit", "Bank transfer with reference matching CAS"]},
+            {"step_number": 4, "title": "English Language Test", "description": "IELTS UKVI Academic, PTE Academic UKVI, or accepted equivalents. Score per course requirement.", "estimated_days": 21, "documents_needed": ["Passport"], "tips": ["UKVI version of IELTS for Pre-sessional + lower-level programmes", "Most degrees accept standard IELTS Academic"]},
+            {"step_number": 5, "title": "TB Test + Maintenance Funds", "description": "TB at IOM India if 6+ months stay. Hold maintenance funds for 28+ consecutive days in own name.", "estimated_days": 28, "documents_needed": ["TB certificate", "Bank statements"], "tips": ["Sponsor/parent letter + tax returns for sponsor funds", "Maintenance amount per CAS specifies exact figure to show"]},
+            {"step_number": 6, "title": "Submit Online Application", "description": "Apply at gov.uk via Student Route. Pay application fee + IHS. Choose Priority Service if needed.", "estimated_days": 3, "documents_needed": ["CAS reference", "Passport", "Tuition receipt", "Maintenance proof", "English test", "TB test", "Qualifications"], "tips": ["IHS at £776/year (lower than other routes)", "Apply 3-6 months before course start"]},
+            {"step_number": 7, "title": "Biometric Enrolment", "description": "Visit VFS India. Submit fingerprints, photo, documents.", "estimated_days": 14, "documents_needed": [], "tips": []},
+            {"step_number": 8, "title": "Decision + Travel to UK", "description": "3-week standard. Travel on vignette within 90 days. Collect BRP within 10 days of arrival.", "estimated_days": 21, "documents_needed": [], "tips": ["Can enter UK up to 1 month before course start (longer courses)", "Apply for Graduate Route in final 6 weeks of course"]},
+        ],
+        "document_checklist": [
+            {"name": "Valid passport (with min 1 blank page)", "mandatory": True, "notes": ""},
+            {"name": "Confirmation of Acceptance for Studies (CAS) reference", "mandatory": True, "notes": "From licensed Student sponsor"},
+            {"name": "Tuition payment receipt", "mandatory": True, "notes": "Per CAS terms"},
+            {"name": "Maintenance funds — bank statements (28 days)", "mandatory": True, "notes": "£1,334/month London or £1,023/month outside × 9 months"},
+            {"name": "English language test (IELTS UKVI / PTE UKVI)", "mandatory": True, "notes": "Per course requirement"},
+            {"name": "TB test certificate (IOM India)", "mandatory": True, "notes": "For stay 6+ months"},
+            {"name": "Academic transcripts (10th, 12th, Bachelor's)", "mandatory": True, "notes": ""},
+            {"name": "Degree certificates (if postgraduate)", "mandatory": True, "notes": "Sealed"},
+            {"name": "Personal statement / Study plan", "mandatory": False, "notes": "Often required by university; useful for UKVI"},
+            {"name": "Sponsor's tax returns / income proof (if sponsor funds)", "mandatory": False, "notes": "Last 2-3 years ITR"},
+            {"name": "Parental consent + custodian letter (if under 18)", "mandatory": False, "notes": "For minors"},
+            {"name": "ATAS certificate (specific STEM/research courses)", "mandatory": False, "notes": "Academic Technology Approval Scheme for sensitive subjects"},
+            {"name": "Passport-style photos (UKVI specs)", "mandatory": True, "notes": ""},
+            {"name": "Translation of non-English docs", "mandatory": False, "notes": "Certified translator"},
+        ],
+        "common_rejection_reasons": [
+            "Maintenance funds dipped below threshold during 28-day period",
+            "Funds in non-applicant's name (parent's funds need full evidence trail)",
+            "CAS expired (6-month validity from issue)",
+            "Inconsistent course choice vs prior academic background (raises 'visa shopping' concern)",
+            "English language below course requirement",
+            "Prior visa refusals (any country) undeclared",
+            "Insufficient credibility — vague answers about course, university, career link",
+            "Tuition not paid per CAS terms",
+        ],
+        "success_tips": [
+            "Choose Russell Group or top-ranked universities — higher visa success rates",
+            "Maintain stable 28+ days of maintenance funds; document parent transfers clearly",
+            "Write a tailored personal statement aligning course to career goals",
+            "Apply via Graduate Route in your final 6 weeks — opens 2-year work without sponsorship",
+            "PhD applicants get Graduate Route extension (3 years) + can apply for Global Talent later",
+            "Pay full year tuition where possible — strongest financial proof",
+            "Take IELTS UKVI Academic (not General Training) — required for Pre-sessional",
+            "Apply 3-4 months before course intake for buffer",
+        ],
+        "faqs": [
+            {"q": "What is the Graduate Route?", "a": "2-year open work visa (3 years for PhDs) after completing UK degree at Bachelor's+ level. No sponsorship needed. Work in any role, any employer. Cannot extend or convert to ILR directly — but bridges to Skilled Worker/Global Talent."},
+            {"q": "Can I work during studies?", "a": "Yes — 20 hours/week during term, full-time during scheduled breaks. PhD/research Master's: unlimited hours."},
+            {"q": "Can my family come with me?", "a": "Yes — but with restrictions. Spouse/partner can come for PhD/Master's by Research/Government-sponsored courses 6+ months. NOT for taught Master's under 9 months. Children under 18 can come."},
+            {"q": "What's CAS?", "a": "Confirmation of Acceptance for Studies — UKVI-issued reference confirming unconditional offer from licensed sponsor. Required for visa application. Valid 6 months."},
+            {"q": "How much does UK study cost overall?", "a": "Tuition: £15,000-£45,000/year UG, £18,000-£50,000/year PG. Living costs (London): £14,000-£18,000/year. Total: ₹30-70 lakh/year for full-time UG; PG similar."},
+            {"q": "Can I switch to Skilled Worker after Graduate Route?", "a": "Yes — Graduate Route is designed to bridge to Skilled Worker. Find employer with sponsor licence, get CoS, apply for Skilled Worker switch (in-country)."},
+        ],
+        "official_url": "https://www.gov.uk/student-visa",
+        "vfs_url": "https://visa.vfsglobal.com/ind/en/gbr/",
+        "source_urls": [
+            "https://www.gov.uk/student-visa",
+            "https://www.gov.uk/student-visa/money",
+            "https://www.gov.uk/government/publications/register-of-licensed-sponsors-students",
+            "https://www.gov.uk/graduate-visa",
+            "https://www.gov.uk/healthcare-immigration-application/who-needs-pay",
+        ],
+        "verified_notes": "Manual Fast-Path B.2 seed — verified against gov.uk on 2026-02-27. Maintenance threshold £1,334 London / £1,023 outside London per Jan 2025 update. IHS Student rate £776/year.",
+    },
+
+    # ── 4. Standard Visitor Visa ──────────────────────────────────────────────
+    {
+        "country_code": "UK",
+        "country_name": "United Kingdom",
+        "subclass_id": "Visitor",
+        "subclass_name": "Standard Visitor Visa (Tourism / Business / Family / Short Study)",
+        "service_type": "visitor",
+        "category": "immigration",
+        "description": (
+            "The Standard Visitor Visa is the UK's main short-term visa for non-visa-national tourists, "
+            "business visitors, family visitors, and short-term students. Indian nationals require a "
+            "Visitor Visa to enter the UK for any reason (UK is visa-required for India). Standard maximum "
+            "stay per visit: **6 months**. Visa types include single-entry, multi-entry, and Long-Term "
+            "Visitor Visa (2/5/10 years validity, with 6-month max per visit still applying).\n\n"
+            "Allowed activities: tourism, visiting family/friends, business meetings + conferences, "
+            "negotiating contracts, attending interviews, short-term study (up to 6 months at accredited "
+            "institution), receiving private medical treatment, marriage as Marriage Visitor (different "
+            "route required). PROHIBITED: paid employment, public funds, marriage at UK Civil Registry "
+            "without separate Marriage Visitor Visa, frequent + long stays equivalent to UK residency."
+        ),
+        "eligibility_summary": (
+            "Demonstrate intent to leave UK at end of authorised stay, sufficient funds for visit + return, "
+            "specific purpose (tourism/family/business/short study), no criminal/security concerns. "
+            "Visiting family: invitation letter + family member's UK status. Business: company invite + "
+            "purpose. Frequent visits flagged if pattern looks residency-like."
+        ),
+        "eligibility_criteria": [
+            {"label": "Genuine visitor intent", "value": "Will leave UK at end of authorised stay", "notes": "Strong ties to home country: family, employment, property"},
+            {"label": "Sufficient funds", "value": "Demonstrate ability to fund visit + return", "notes": "No fixed minimum but typically £80-£150/day for stay duration + return ticket"},
+            {"label": "Specific purpose", "value": "Tourism / family visit / business meetings / conference / short study / private medical / marriage (Marriage Visitor)", "notes": "Vague itinerary = refusal risk"},
+            {"label": "No prohibited activity intent", "value": "No paid work, no public funds, no marriage at Civil Registry without Marriage Visitor Visa", "notes": "Short unpaid academic engagements allowed"},
+            {"label": "Frequency check", "value": "Not making UK the main home via frequent + long visits", "notes": "Pattern of 6 months in, short out, 6 months back = high refusal"},
+            {"label": "Admissibility", "value": "No criminal record affecting Good Character, no immigration violations", "notes": "Past refusals (any country) must be declared"},
+            {"label": "Biometrics", "value": "Mandatory for Indian nationals", "notes": "Valid 5 years from collection"},
+            {"label": "TB test (long-term Visitor Visa)", "value": "Only if applying for visa allowing 6+ month single stays", "notes": "Standard 6-month Visitor doesn't require"},
+        ],
+        "fees_local_currency_code": "GBP",
+        "fees_local_currency_amount": 127,
+        "fees_inr_approx": 13335,
+        "fees_breakdown": [
+            {"component": "Standard Visitor Visa (6 months single/multi)", "amount": 127, "currency": "GBP"},
+            {"component": "Long-Term Visitor Visa (2 years)", "amount": 475, "currency": "GBP"},
+            {"component": "Long-Term Visitor Visa (5 years)", "amount": 848, "currency": "GBP"},
+            {"component": "Long-Term Visitor Visa (10 years)", "amount": 1059, "currency": "GBP"},
+            {"component": "Priority Service (3-5 working days)", "amount": 250, "currency": "GBP"},
+            {"component": "Super-Priority Service (24 hr decision)", "amount": 1000, "currency": "GBP"},
+            {"component": "Biometric Enrolment fee", "amount": 19, "currency": "GBP"},
+            {"component": "TB test (long-term Visitor only)", "amount": 6500, "currency": "INR"},
+        ],
+        "processing_time_days_min": 15,
+        "processing_time_days_max": 21,
+        "step_by_step": [
+            {"step_number": 1, "title": "Determine Visa Type", "description": "Standard 6-month single/multi-entry visa is most common. Long-term variants (2/5/10 years) for frequent business or family visitors with 6-month max stay per visit still.", "estimated_days": 3, "documents_needed": [], "tips": ["Multi-entry default for tourist + business", "Long-term variants worth it for frequent family visitors"]},
+            {"step_number": 2, "title": "Gather Purpose-Specific Documents", "description": "Tourism: itinerary + hotel bookings. Family visit: invitation letter + family's UK status. Business: company invite + purpose. Short study: institution invite.", "estimated_days": 14, "documents_needed": ["Itinerary / hotel bookings (tourism)", "Family member's BRP/Passport copy (family visit)", "Letter of Invitation", "Business meeting invite (business)"], "tips": ["Itinerary doesn't need 100% bookings — outline + tentative dates fine", "LOI from UK host should include relationship + duration + financial commitment"]},
+            {"step_number": 3, "title": "Prepare Financial Evidence", "description": "Show funds to support visit + return.", "estimated_days": 14, "documents_needed": ["6 months bank statements", "ITRs (last 2-3 years)", "Salary slips / business income proof", "Property documents"], "tips": ["£3,000+ for 2-week trip (incl. return ticket) is comfortable", "Stable balance over 6 months > sudden lump sum"]},
+            {"step_number": 4, "title": "Complete Online Application", "description": "Apply at gov.uk/standard-visitor-visa. Fill VAF (Visa Application Form) online.", "estimated_days": 3, "documents_needed": ["Passport scan", "Photo", "Form completion", "Supporting docs upload"], "tips": ["Declare prior refusals from ANY country (Schengen, US, AU, NZ etc.)", "List all family in UK — concealment = refusal"]},
+            {"step_number": 5, "title": "Pay Fees + Book Biometric Appointment", "description": "Pay online. VFS UK in India for biometrics.", "estimated_days": 7, "documents_needed": ["Application reference"], "tips": ["Biometrics in 14 days of paying; choose Priority service if rushed"]},
+            {"step_number": 6, "title": "Biometric Enrolment + Submit Docs", "description": "Visit VFS UK centre. Fingerprints + photo + document upload.", "estimated_days": 7, "documents_needed": ["Application form", "All supporting docs", "Passport"], "tips": ["Carry digital + printed copies of everything", "Re-use biometrics from any UK visa in last 5 years"]},
+            {"step_number": 7, "title": "Decision + Visa Sticker", "description": "Standard 15-day processing. Priority 3-5 days. Super-Priority 24 hours.", "estimated_days": 21, "documents_needed": [], "tips": ["Receive passport with visa sticker via courier/collection", "Visa sticker shows entry validity"]},
+            {"step_number": 8, "title": "Travel to UK + Border Crossing", "description": "Travel during visa validity. UK Border Force officer at airport decides entry + any conditions.", "estimated_days": 1, "documents_needed": ["Passport with visa sticker", "Itinerary", "Return ticket", "Funds proof"], "tips": ["Carry copy of LOI + family member status if visiting family", "Don't bring excessive cash undeclared (>£10,000 must be declared)", "Be honest about purpose — different from visa application invites refusal"]},
+        ],
+        "document_checklist": [
+            {"name": "Valid passport (min 6 months validity)", "mandatory": True, "notes": ""},
+            {"name": "Visa Application Form (printout from gov.uk)", "mandatory": True, "notes": ""},
+            {"name": "Photos (UKVI specs)", "mandatory": True, "notes": ""},
+            {"name": "Bank statements (last 6 months)", "mandatory": True, "notes": "Stable funds + transaction history"},
+            {"name": "Income Tax Returns (last 2-3 years)", "mandatory": True, "notes": "Economic ties to India"},
+            {"name": "Salary slips OR business income proof", "mandatory": True, "notes": "Last 3-6 months"},
+            {"name": "Property documents (home ownership / rental)", "mandatory": False, "notes": "Strengthens home ties"},
+            {"name": "Itinerary / Hotel bookings (if tourism)", "mandatory": False, "notes": "Tentative acceptable"},
+            {"name": "Letter of Invitation from UK host (if family visit)", "mandatory": False, "notes": "Includes relationship, address, financial commitment"},
+            {"name": "Host's BRP/Passport/Citizenship proof (if LOI)", "mandatory": False, "notes": ""},
+            {"name": "Conference / Business meeting invitation (if business)", "mandatory": False, "notes": ""},
+            {"name": "Travel insurance (recommended)", "mandatory": False, "notes": "Not mandatory but strongly advised"},
+            {"name": "Leave letter from employer (if employed)", "mandatory": False, "notes": "Shows return to job"},
+            {"name": "Marriage certificate + children's birth certs (if family travel)", "mandatory": False, "notes": ""},
+            {"name": "Prior travel history / passport stamps copy", "mandatory": False, "notes": "Helps demonstrate compliance pattern"},
+        ],
+        "common_rejection_reasons": [
+            "Insufficient ties to India — UKVI believes you won't return",
+            "Insufficient funds for trip + return",
+            "Inconsistent itinerary / purpose / sponsor info",
+            "Prior visa refusal (any country) undeclared",
+            "Family member in UK on temporary status raising 'overstay' concern",
+            "Frequent prior UK visits forming residency pattern",
+            "Vague answers to credibility questions about purpose, accommodation, return plans",
+            "Misrepresentation in any document",
+        ],
+        "success_tips": [
+            "Build a clear story: PURPOSE + DURATION + ACCOMMODATION + FUNDS + RETURN",
+            "Apply 4-8 weeks before intended travel — gives buffer for delays/queries",
+            "For family visits: detailed LOI with host's commitment is the strongest evidence",
+            "For business: company invitation on letterhead with meeting itinerary",
+            "Show stable employment + salary credits + ITRs going back 2 years",
+            "Don't apply for first-time UK visa with US/Schengen refusals in last 12 months",
+            "Consider Long-Term Visitor (2 years) if visiting family frequently",
+            "Avoid showing intent to study/work — those need different visas",
+        ],
+        "faqs": [
+            {"q": "How long can I stay on a Standard Visitor Visa?", "a": "Maximum 6 months per visit. UK Border officer at airport decides actual stay. Long-Term Visitor variants (2/5/10 years) allow MULTIPLE visits but still 6-month max per visit."},
+            {"q": "Can I work on Visitor Visa?", "a": "NO paid work allowed. Permitted: business meetings, negotiating contracts, attending conferences. NOT permitted: providing services to UK employer (even unpaid), filling local positions, freelancing for UK clients."},
+            {"q": "What's the difference between Standard Visitor and other visit visas?", "a": "Standard Visitor covers most short visits. Separate Marriage Visitor Visa for ceremony at UK Civil Registry. Permitted Paid Engagement Visa for specific paid activities (academics, sportspeople). Transit Visa for stopovers."},
+            {"q": "Can I study on a Visitor Visa?", "a": "Yes — short courses up to 6 months at accredited institution. NOT for degree programs. For degree courses, need Student Visa."},
+            {"q": "Can I extend my Visitor Visa in UK?", "a": "Generally no. Total stay capped at 6 months. Limited extension possible for serious reasons (medical, exam dates) up to maximum 6 months total."},
+            {"q": "What's a frequent visitor pattern?", "a": "UKVI flags pattern of 5+ visits or 180+ days in last 12 months as making UK your main home. Pattern visitors should look at Long-Term Visitor or proper residence routes."},
+        ],
+        "official_url": "https://www.gov.uk/standard-visitor",
+        "vfs_url": "https://visa.vfsglobal.com/ind/en/gbr/",
+        "source_urls": [
+            "https://www.gov.uk/standard-visitor",
+            "https://www.gov.uk/government/publications/visit-uk-guide-for-visitors",
+            "https://www.gov.uk/standard-visitor/eligibility",
+            "https://www.gov.uk/government/publications/visit-uk-immigration-rules-appendix-visitor-permitted-activities",
+        ],
+        "verified_notes": "Manual Fast-Path B.2 seed — verified against gov.uk on 2026-02-27. Standard Visitor fees per current UKVI schedule. Long-Term variants priced per gov.uk fee schedule.",
+    },
+
+    # ── 5. Family / Spouse Visa (Appendix FM) ─────────────────────────────────
+    {
+        "country_code": "UK",
+        "country_name": "United Kingdom",
+        "subclass_id": "Spouse-Family",
+        "subclass_name": "Spouse / Partner Visa (Appendix FM)",
+        "service_type": "partner",
+        "category": "immigration",
+        "description": (
+            "The Spouse/Partner Visa (under Immigration Rules Appendix FM) is for spouses, civil partners, "
+            "and unmarried partners (with 2+ years cohabitation) of British citizens, persons settled in "
+            "the UK (ILR), or refugees/humanitarian protection holders. It is the primary route for "
+            "Indians married to or partnered with UK citizens/settled persons.\n\n"
+            "**Key change April 2024:** Minimum income requirement raised from £18,600 to **£29,000/year** "
+            "(rising in phases to £38,700 in early 2025). This is the most significant recent reform. "
+            "Visa is granted 33 months initially (out-of-country) or 30 months (in-country). At 2.5 years, "
+            "extension for further 2.5 years. After 5 years total continuous residence, eligible for ILR. "
+            "English language requirements: A1 (initial), A2 (extension), B1 (ILR + KOL test)."
+        ),
+        "eligibility_summary": (
+            "Sponsor (British citizen, ILR holder, refugee, or humanitarian protection) must be 18+ + meet "
+            "minimum income £29,000/year (subject to phased rises) OR have £88,500 cash savings. Relationship "
+            "must be genuine + subsisting. Couple must intend to live together permanently. Applicant must "
+            "meet English A1 at entry, A2 at extension, B1 at ILR. Adequate accommodation in UK."
+        ),
+        "eligibility_criteria": [
+            {"label": "Sponsor status", "value": "British citizen, ILR holder, refugee, or person with humanitarian protection", "notes": "Sponsor must be 18+"},
+            {"label": "Genuine + subsisting relationship", "value": "Marriage/civil partnership recognised in UK OR 2+ years cohabitation as unmarried partners", "notes": "Marriage abroad recognised if legal in country of celebration"},
+            {"label": "Minimum income (Financial Requirement)", "value": "£29,000/year from sponsor (post-April 2024); rising to £38,700 in stages; OR £88,500 cash savings; OR combination", "notes": "Some routes use applicant's income too; refugees exempt; pre-Apr 2024 applications grandfathered at £18,600"},
+            {"label": "English language", "value": "CEFR A1 (entry/initial), A2 (extension at 2.5yr), B1 (ILR after 5yr)", "notes": "Approved tests: IELTS Life Skills, Trinity ISE, others; some nationalities exempt"},
+            {"label": "Adequate accommodation", "value": "Sufficient + appropriate housing in UK without recourse to public funds", "notes": "Cannot be overcrowded; usually shown via tenancy / property documents"},
+            {"label": "TB test (India)", "value": "Required from IOM-approved clinic", "notes": ""},
+            {"label": "No criminal history affecting Good Character", "value": "Past offences may disqualify", "notes": "Standard checks"},
+            {"label": "Intention to live together permanently", "value": "Strong evidence required", "notes": "Photos, communications, joint accounts, shared property"},
+        ],
+        "fees_local_currency_code": "GBP",
+        "fees_local_currency_amount": 7113,
+        "fees_inr_approx": 746865,
+        "fees_breakdown": [
+            {"component": "Spouse Visa application (out of UK, initial entry clearance)", "amount": 1938, "currency": "GBP"},
+            {"component": "Spouse Visa application (in-country switch/extension)", "amount": 1048, "currency": "GBP"},
+            {"component": "IHS — £1,035/year × 5 years (initial 2.5 + ext 2.5)", "amount": 5175, "currency": "GBP"},
+            {"component": "Priority Service (decision in 30 working days)", "amount": 573, "currency": "GBP"},
+            {"component": "Super-Priority (5 working days)", "amount": 1000, "currency": "GBP"},
+            {"component": "TB test (IOM India)", "amount": 6500, "currency": "INR"},
+            {"component": "English test (IELTS Life Skills A1)", "amount": 10500, "currency": "INR"},
+            {"component": "Translation of marriage cert / documents", "amount": 4000, "currency": "INR"},
+        ],
+        "processing_time_days_min": 90,
+        "processing_time_days_max": 180,
+        "step_by_step": [
+            {"step_number": 1, "title": "Verify Sponsor + Financial Requirement", "description": "Confirm sponsor status. Calculate £29,000/year income via salaried employment, self-employment, savings, or combination. Sponsor's job must be ongoing (6+ months) at time of application.", "estimated_days": 14, "documents_needed": ["Sponsor passport/BRP", "Sponsor's payslips (6 months)", "Employer letter", "Tax returns (SA302 forms)"], "tips": ["Salaried sponsors: 6 months consistent payslips at £29,000+", "Self-employed: 1-2 years SA302 (Self Assessment) tax calculations + business accounts", "Cash savings: £88,500 held 6 months in sponsor's name"]},
+            {"step_number": 2, "title": "Marriage/Relationship Evidence", "description": "Build strong evidence of genuine + subsisting relationship.", "estimated_days": 30, "documents_needed": ["Marriage certificate (apostilled if Indian)", "Joint bank accounts", "Photos across timeline", "Communications (WhatsApp/email logs)", "Travel together", "Statutory declarations from family/friends"], "tips": ["Cover entire relationship — early courtship to current", "Include family + cultural events (wedding photos with both sides' family)", "Joint accounts opened well before application strengthen genuineness"]},
+            {"step_number": 3, "title": "English Language Test (A1 Level)", "description": "Take IELTS Life Skills A1 or approved equivalent. Score Pass/Fail in Speaking + Listening.", "estimated_days": 14, "documents_needed": ["Passport"], "tips": ["IELTS Life Skills A1 is short + focused", "Some nationalities (UK-born majority English-speaking countries) exempt; Indians NOT exempt"]},
+            {"step_number": 4, "title": "TB Test + Maintenance Documentation", "description": "TB at IOM India. Compile accommodation proof + maintenance.", "estimated_days": 21, "documents_needed": ["TB cert", "Sponsor's accommodation (tenancy/mortgage)", "Council tax bill"], "tips": ["Maintenance shown via sponsor's commitment + accommodation suitability", "If applicant has UK income, can contribute"]},
+            {"step_number": 5, "title": "Submit Online Application", "description": "Apply at gov.uk via Spouse Route. Pay application fee + IHS. Upload all supporting docs.", "estimated_days": 7, "documents_needed": ["Marriage cert", "Sponsor docs", "Financial docs", "Relationship evidence", "English test", "TB test", "Photos"], "tips": ["Use Priority Service for faster decision", "Bundle docs by category — Sponsor's Finance, Relationship Evidence, etc."]},
+            {"step_number": 6, "title": "Biometric Enrolment", "description": "Visit VFS UK in India. Submit fingerprints + photo + scanned documents.", "estimated_days": 14, "documents_needed": [], "tips": []},
+            {"step_number": 7, "title": "Decision + Travel", "description": "Standard 12 weeks. Priority 30 days. Visa vignette in passport on approval. Travel to UK within 30 days, collect BRP within 10 days of arrival.", "estimated_days": 90, "documents_needed": [], "tips": ["Vignette valid 30 days for travel", "If interview requested, attend with all originals"]},
+            {"step_number": 8, "title": "Extension (2.5 years) + ILR (5 years)", "description": "After 2.5 years initial visa, apply for extension (same financial requirement + A2 English). After 5 years total, apply for ILR (B1 English + KOL test + still meeting income requirement).", "estimated_days": 90, "documents_needed": [], "tips": ["Apply 28 days before current visa expires", "Maintain continuous residence — max 180 days outside UK in any 12-month period during the 5 years"]},
+        ],
+        "document_checklist": [
+            {"name": "Valid passport (applicant)", "mandatory": True, "notes": ""},
+            {"name": "Sponsor's passport (British citizen) / BRP (ILR holder)", "mandatory": True, "notes": ""},
+            {"name": "Marriage certificate (apostilled if Indian)", "mandatory": True, "notes": "Official translation if not in English"},
+            {"name": "Sponsor's recent payslips (6 months)", "mandatory": True, "notes": "Salaried route"},
+            {"name": "Sponsor's employer letter (confirming role + salary + 6+ months ongoing)", "mandatory": True, "notes": ""},
+            {"name": "Sponsor's bank statements (6 months matching payslips)", "mandatory": True, "notes": ""},
+            {"name": "Sponsor's P60 / Self Assessment SA302 (self-employed)", "mandatory": False, "notes": "For self-employed sponsors"},
+            {"name": "Joint bank account statements", "mandatory": False, "notes": "Strengthens financial entanglement evidence"},
+            {"name": "Photos throughout relationship", "mandatory": True, "notes": "Engagement, wedding, daily life — varied"},
+            {"name": "Communication logs (WhatsApp/email — including pre-marriage period)", "mandatory": True, "notes": "Cover the relationship arc"},
+            {"name": "Joint tenancy / mortgage / utility bills (if lived together)", "mandatory": False, "notes": ""},
+            {"name": "Statutory declarations from 2-4 family/friends", "mandatory": True, "notes": "Confirming genuineness of relationship"},
+            {"name": "Sponsor's UK accommodation (tenancy / mortgage / council tax)", "mandatory": True, "notes": "Proves adequate housing"},
+            {"name": "English language test certificate (A1 minimum)", "mandatory": True, "notes": "IELTS Life Skills, Trinity ISE"},
+            {"name": "TB test certificate (IOM India)", "mandatory": True, "notes": ""},
+            {"name": "Children's birth certificates (if children applying together)", "mandatory": False, "notes": ""},
+        ],
+        "common_rejection_reasons": [
+            "Sponsor doesn't meet £29,000 minimum income (post-Apr 2024 rule)",
+            "Documents don't match income claim (gaps in payslips, inconsistent SA302)",
+            "Relationship evidence thin or arranged-marriage-only with no daily-life evidence",
+            "English language test below A1 OR not from approved provider",
+            "Accommodation inadequate (overcrowded or insecure)",
+            "Sponsor's prior immigration violations or undisclosed criminality",
+            "Misrepresentation of income, relationship origin, or accommodation",
+            "Couple has not lived together (for unmarried partner route, need 2+ years cohabitation)",
+        ],
+        "success_tips": [
+            "Verify sponsor's income meets post-Apr 2024 threshold (£29k, rising to £38.7k)",
+            "Build relationship evidence ACROSS timeline — not just wedding photos",
+            "Sponsor's employer letter should confirm role + salary + 'ongoing employment'",
+            "Joint bank account opened pre-application strengthens genuineness significantly",
+            "For arranged marriages: photos with extended family from both sides + post-wedding daily life",
+            "Maintain communication logs (WhatsApp, video calls) across distance period",
+            "Use Priority Service if family separation is stressful",
+            "Plan for 5-year journey: initial 2.5yr + extension 2.5yr + ILR — total cost ~£10,000+ over the route",
+        ],
+        "faqs": [
+            {"q": "What's the minimum income requirement?", "a": "£29,000/year as of April 2024 (raised from £18,600). Government has indicated further phased rise to £38,700. Sponsor's salaried employment, self-employment income, or £88,500 cash savings (held 6 months) can meet this."},
+            {"q": "Can I include my children?", "a": "Yes — dependent children of either partner can apply with you. Same English (if 18+), TB test, accommodation requirements apply per child."},
+            {"q": "How long is the visa initially?", "a": "33 months for out-of-country first application, 30 months for in-country switch. Extension granted 2.5 years if requirements still met."},
+            {"q": "When can I apply for ILR (settlement)?", "a": "After 5 continuous years on Spouse/Family route. Need: continuous residence (max 180 days/12 months outside UK), still meeting financial requirement, English at B1, pass KOL (Life in UK) test."},
+            {"q": "What if sponsor's income is below £29k?", "a": "Options: (a) Sponsor's salaried income + applicant's income combined, (b) Sponsor's cash savings £88,500 held 6 months, (c) Combination of income + savings (proportional), (d) Apply on basis of refugee/asylum status if sponsor qualifies (exemption applies)."},
+            {"q": "Are joint accounts mandatory?", "a": "Not mandatory but VERY strong evidence. Even small joint accounts with regular usage demonstrate financial entanglement and relationship genuineness."},
+        ],
+        "official_url": "https://www.gov.uk/uk-family-visa/partner-spouse",
+        "vfs_url": "https://visa.vfsglobal.com/ind/en/gbr/",
+        "source_urls": [
+            "https://www.gov.uk/uk-family-visa/partner-spouse",
+            "https://www.gov.uk/government/publications/chapter-8-family-members",
+            "https://www.gov.uk/government/publications/immigration-rules/immigration-rules-appendix-fm-family-members",
+            "https://www.gov.uk/government/publications/family-life-as-a-partner-or-parent-private-life-and-exceptional-circumstance",
+            "https://www.gov.uk/healthcare-immigration-application/who-needs-pay",
+        ],
+        "verified_notes": "Manual Fast-Path B.2 seed — verified against gov.uk on 2026-02-27. Minimum income £29,000 per April 2024 reform; further rises planned. Appendix FM rules per current Immigration Rules.",
+    },
+
+    # ── 6. Innovator Founder Visa ──────────────────────────────────────────────
+    {
+        "country_code": "UK",
+        "country_name": "United Kingdom",
+        "subclass_id": "Innovator-Founder",
+        "subclass_name": "Innovator Founder Visa",
+        "service_type": "work",
+        "category": "immigration",
+        "description": (
+            "The Innovator Founder Visa, launched in April 2023, replaced the previous Innovator Visa and "
+            "Start-up Visa routes. It enables non-UK nationals to establish an innovative, viable, and "
+            "scalable business in the UK. The most significant change from the old Innovator Visa: the "
+            "**£50,000 minimum investment requirement was REMOVED**. There is now NO MINIMUM INVESTMENT — "
+            "the focus shifts entirely to the business being genuinely innovative and endorsed by a "
+            "recognised endorsing body.\n\n"
+            "Endorsing bodies (e.g. UK Tech Cluster body, accelerators like Tech Nation alumni, specific "
+            "innovation incubators) assess the business plan for: innovation (genuinely new or significant "
+            "differentiation), viability (realistic + achievable), scalability (growth potential + job "
+            "creation). Initial visa: 3 years. After 3 years, eligible for ILR if business meets growth "
+            "milestones. Alternative: continue on visa extensions if business needs more time. English at "
+            "B2 level required."
+        ),
+        "eligibility_summary": (
+            "Endorsement from UKVI-approved endorsing body for a NEW innovative, viable, scalable business "
+            "(or already established business meeting criteria), £1,270 maintenance funds, English at "
+            "CEFR B2, age 18+, sole/significant founder role in the business, intent to operate the "
+            "business in UK."
+        ),
+        "eligibility_criteria": [
+            {"label": "Endorsement from approved endorsing body", "value": "Endorsement letter from UKVI-listed endorsing body confirming innovation, viability, scalability", "notes": "Endorsing bodies: Tech Nation Alumni Network (Endeavor), Founders Forum Group, Envestors, RKK Innovation Centre, etc. — list at gov.uk"},
+            {"label": "Innovative business", "value": "Genuinely new business OR significant difference from existing offerings", "notes": "Not just opening another restaurant or shop; must demonstrate IP, novel approach, or market gap addressed"},
+            {"label": "Viable business", "value": "Realistic + achievable plan with reasonable assumptions", "notes": "Endorsing body assesses financial projections, market research, founder capability"},
+            {"label": "Scalable business", "value": "Growth potential + job creation in UK over 3+ years", "notes": "Plan should show roadmap to revenue + UK employment"},
+            {"label": "Founder role", "value": "Sole founder OR significant role in a founding team", "notes": "Not a passive investor; active operational involvement"},
+            {"label": "No minimum investment", "value": "ZERO minimum financial investment required (changed April 2023)", "notes": "Old £50,000 requirement removed; endorsing body discretion on funding adequacy"},
+            {"label": "Maintenance funds", "value": "£1,270 held in own bank account 28+ consecutive days", "notes": "Standard for non-Skilled Worker routes"},
+            {"label": "English language", "value": "CEFR B2 (Upper-Intermediate) in all 4 skills", "notes": "IELTS UKVI 5.5+ each band, or degree taught in English (NARIC equivalency)"},
+            {"label": "TB test (India)", "value": "Required", "notes": ""},
+        ],
+        "fees_local_currency_code": "GBP",
+        "fees_local_currency_amount": 4296,
+        "fees_inr_approx": 451080,
+        "fees_breakdown": [
+            {"component": "Innovator Founder Visa application (out of UK)", "amount": 1191, "currency": "GBP"},
+            {"component": "Innovator Founder Visa application (in-country switch)", "amount": 1486, "currency": "GBP"},
+            {"component": "IHS — £1,035/year × 3 years", "amount": 3105, "currency": "GBP"},
+            {"component": "Priority Service", "amount": 500, "currency": "GBP"},
+            {"component": "Biometric Enrolment fee", "amount": 19, "currency": "GBP"},
+            {"component": "Endorsing body fee (varies; ~£3,000-£10,000 typical)", "amount": 5000, "currency": "GBP"},
+            {"component": "TB test (IOM India)", "amount": 6500, "currency": "INR"},
+            {"component": "English test (IELTS UKVI)", "amount": 18800, "currency": "INR"},
+            {"component": "Business plan + legal advisory (recommended)", "amount": 100000, "currency": "INR"},
+        ],
+        "processing_time_days_min": 21,
+        "processing_time_days_max": 90,
+        "step_by_step": [
+            {"step_number": 1, "title": "Develop Innovative Business Idea + Plan", "description": "Research UK market gap. Develop business plan emphasising innovation, viability, scalability. Document IP, market research, financial projections, team plan.", "estimated_days": 90, "documents_needed": ["Business plan", "Market research", "Financial projections", "Team CVs", "IP documentation"], "tips": ["Innovation must be GENUINE — not just convenience or location-based differentiation", "Scalability roadmap: revenue + UK headcount over 3-5 years", "Investor pitch decks help demonstrate viability"]},
+            {"step_number": 2, "title": "Engage Endorsing Body", "description": "Approach UKVI-approved endorsing body (Tech Nation Alumni, Founders Forum, Envestors etc.) with business plan + founder profile. Pay endorsing body fee. Pitch + iterate.", "estimated_days": 60, "documents_needed": ["Pitch deck", "Business plan", "Founder CV", "Team CVs"], "tips": ["Different endorsing bodies have different focus areas (tech, social enterprise, deep tech)", "Some require physical interview", "Endorsement fee non-refundable"]},
+            {"step_number": 3, "title": "Receive Endorsement Letter", "description": "Endorsing body issues formal letter confirming innovation + viability + scalability assessment. Valid 3 months for visa application.", "estimated_days": 14, "documents_needed": ["Endorsement letter"], "tips": ["Letter must explicitly confirm 3 criteria met", "Apply for visa within 3 months"]},
+            {"step_number": 4, "title": "English Language + TB Test + Maintenance", "description": "Take IELTS UKVI B2. TB test at IOM India. Hold £1,270 for 28+ days.", "estimated_days": 28, "documents_needed": ["IELTS UKVI", "TB cert", "Bank statements"], "tips": ["B2 in IELTS UKVI = 5.5 each band", "Maintenance kept stable, not zero-balance days"]},
+            {"step_number": 5, "title": "Submit Online Application", "description": "Apply at gov.uk via Innovator Founder route. Pay application fee + IHS.", "estimated_days": 7, "documents_needed": ["Endorsement letter", "Passport", "English test", "TB test", "Maintenance proof", "Business plan summary", "Photos"], "tips": ["Reference endorsing body + endorsement number", "Provide business plan summary in application"]},
+            {"step_number": 6, "title": "Biometric Enrolment", "description": "Visit VFS UK in India.", "estimated_days": 14, "documents_needed": [], "tips": []},
+            {"step_number": 7, "title": "Decision + Travel to UK + Start Business", "description": "3-week standard processing. On approval, travel to UK, register business at Companies House, open business bank account.", "estimated_days": 30, "documents_needed": [], "tips": ["Companies House registration: ~£12 online", "Open business account at Tide, Starling, Wise Business, or traditional banks"]},
+            {"step_number": 8, "title": "Contact Point Check + ILR after 3 years", "description": "Endorsing body conducts contact point check at 12 and 24 months. After 3 years, eligible for ILR if business meeting growth milestones (revenue, jobs created, investment received).", "estimated_days": 1095, "documents_needed": [], "tips": ["Keep endorsing body informed of progress", "Document EVERY hire, investment, contract for ILR application", "Failed milestone = visa extension required (not ILR)"]},
+        ],
+        "document_checklist": [
+            {"name": "Valid passport", "mandatory": True, "notes": ""},
+            {"name": "Endorsement letter from UKVI-approved endorsing body", "mandatory": True, "notes": "Includes innovation/viability/scalability confirmation"},
+            {"name": "Business plan (executive summary + full document)", "mandatory": True, "notes": "Submitted to endorsing body"},
+            {"name": "Founder CV + LinkedIn", "mandatory": True, "notes": "Track record + relevant experience"},
+            {"name": "Team CVs (if applicable)", "mandatory": False, "notes": "For founding team applications"},
+            {"name": "Market research / IP documentation", "mandatory": False, "notes": "Supports innovation claim"},
+            {"name": "Financial projections (3-5 years)", "mandatory": True, "notes": "Revenue + cost + employment + investment"},
+            {"name": "English language test (IELTS UKVI B2+)", "mandatory": True, "notes": "All 4 skills"},
+            {"name": "TB test certificate (IOM India)", "mandatory": True, "notes": ""},
+            {"name": "Maintenance funds — bank statements (28 days, £1,270)", "mandatory": True, "notes": "Own name; consecutive days"},
+            {"name": "Passport-style photos (UKVI specs)", "mandatory": True, "notes": ""},
+            {"name": "Educational qualifications", "mandatory": False, "notes": "Backs founder credibility"},
+            {"name": "Prior business achievements / investments / IP", "mandatory": False, "notes": "Strengthens application"},
+        ],
+        "common_rejection_reasons": [
+            "Endorsing body issues at endorsement stage (innovation not genuine, viability concerns)",
+            "Business plan not aligned with endorsement claims",
+            "English language below B2 in any skill",
+            "Maintenance funds dipped below £1,270 during 28 days",
+            "Misrepresentation of founder role / team composition / IP ownership",
+            "Sector concerns (some sectors face heightened scrutiny — e.g. property, restaurants without unique IP)",
+            "Endorsement expired (3-month validity)",
+            "TB test missing or non-IOM clinic",
+        ],
+        "success_tips": [
+            "Innovation must be GENUINE — endorsing bodies reject generic businesses (cafés, salons, generic e-commerce)",
+            "Choose endorsing body matching your sector (tech, social enterprise, deep tech, fintech)",
+            "Develop business plan to investor-grade quality — pitch deck + financial model + market research",
+            "Demonstrate strong founder track record relevant to the business",
+            "B2 English ahead of time — don't wait till visa application",
+            "Document EVERY milestone — endorsement body's 12 + 24 month checks rely on growth evidence",
+            "Plan for 3-year journey: visa → business establishment → milestones → ILR",
+            "Endorsing body fees vary £3,000-£10,000 — budget upfront",
+        ],
+        "faqs": [
+            {"q": "What's changed from old Innovator Visa?", "a": "April 2023 reform: (a) NO minimum £50,000 investment requirement, (b) Focus shifted from financial threshold to genuine innovation, (c) Endorsing bodies have more discretion, (d) Single Innovator Founder route replaces previous Innovator + Start-up split."},
+            {"q": "Do I need investors?", "a": "No — there's NO minimum investment requirement. However, endorsing body may consider funding adequacy as part of viability assessment. Self-funded + endorsed is fully acceptable."},
+            {"q": "How do I find an endorsing body?", "a": "Full list at gov.uk/innovator-founder-visa. Major ones: Tech Nation Alumni (Endeavor), Founders Forum Group, Envestors, Innovation Norway, RKK Innovation Centre, Coadec. Each has specific focus areas + fees."},
+            {"q": "Can my family come with me?", "a": "Yes — spouse + dependent children can come as dependants. Spouse gets open work rights (full employment freedom). Children attend UK schools."},
+            {"q": "What if my business fails or pivots?", "a": "Endorsing body conducts 12 + 24 month checks. Significant pivot OR failure may trigger withdrawal of endorsement, ending visa. Communicate proactively with endorsing body about changes."},
+            {"q": "When can I apply for ILR?", "a": "After 3 years if business meets growth milestones (revenue, jobs, investment etc.). If milestones not met, can apply for visa extension instead — keeps you in UK while business develops."},
+        ],
+        "official_url": "https://www.gov.uk/innovator-founder-visa",
+        "vfs_url": "https://visa.vfsglobal.com/ind/en/gbr/",
+        "source_urls": [
+            "https://www.gov.uk/innovator-founder-visa",
+            "https://www.gov.uk/government/publications/innovator-founder-and-scale-up-visa-endorsing-bodies",
+            "https://www.gov.uk/government/publications/immigration-rules/immigration-rules-appendix-innovator-founder",
+            "https://www.gov.uk/innovator-founder-visa/eligibility",
+        ],
+        "verified_notes": "Manual Fast-Path B.2 seed — verified against gov.uk on 2026-02-27. £0 minimum investment per April 2023 reform replacing old Innovator Visa £50,000 threshold. Endorsing body list per current UKVI publication.",
+    },
+]
+
+
 ALL_WORKFLOWS: Dict[str, List[Dict[str, Any]]] = {
     "AU": AUSTRALIA_WORKFLOWS,
     "CA": CANADA_WORKFLOWS,
     "NZ": NEW_ZEALAND_WORKFLOWS,
+    "UK": UNITED_KINGDOM_WORKFLOWS,
 }
 
 

@@ -4,6 +4,75 @@ This file appends every completed phase/feature with dates and verification stat
 
 
 ---
+### 🇬🇧🎉 Sweep B.2 — United Kingdom (UK) — FINAL SHIP — **B.2 FULLY COMPLETE (24/24)** (Feb 27, 2026 morning)
+
+Final atomic ship for Sweep B.2 (AU done → CA done → NZ done → **UK done** = 24/24 = 100%). All 24 verified workflows live across 4 priority countries with fastpath instant-serve.
+
+**6 UK workflows shipped (all status=verified, version=1):**
+| Subclass | Name | Service | Fee Principal (GBP) | Fee (≈INR) | Processing (days) |
+|----------|------|---------|---------------------|------------|-------------------|
+| Skilled-Worker | Skilled Worker Visa (Post-Brexit) | work | 6,694 (fee+IHS 5yr) | 7,02,870 | 15-60 |
+| Health-Care-Worker | Health and Care Worker Visa (IHS-exempt) | work | 304 (fee only, IHS exempt) | 31,920 | 15-45 |
+| Student | Student Visa (formerly Tier 4) | student | 3,082 (fee+IHS 3.3yr) | 3,23,610 | 21-60 |
+| Visitor | Standard Visitor Visa (6-month / Long-term variants) | visitor | 127 (6mo standard) | 13,335 | 15-21 |
+| Spouse-Family | Spouse/Partner Visa (Appendix FM) | partner | 7,113 (fee+IHS 5yr) | 7,46,865 | 90-180 |
+| Innovator-Founder | Innovator Founder Visa (£0 reform) | work | 4,296 (fee+IHS 3yr) | 4,51,080 | 21-90 |
+
+**Critical Reform Reflections in UK Data:**
+- **Skilled Worker:** Salary threshold £38,700 per April 2024 reform (up from £26,200). IHS £1,035/year. Going-rate may exceed threshold.
+- **Health and Care Worker:** IHS-EXEMPT (saves £5,175+ over 5 years) + reduced application fee £304. Eligibility narrowed Mar 2024 for care workers but doctors/nurses unaffected.
+- **Student:** Maintenance £1,334/month London or £1,023/month outside London. IHS £776/year (Student rate).
+- **Spouse-Family:** Minimum income **£29,000/year** post-April 2024 (up from £18,600), phased rise to £38,700 planned.
+- **Innovator-Founder:** **£0 minimum investment** per April 2023 reform (was £50,000). Focus on endorsement from approved bodies (Tech Nation Alumni, Founders Forum, Envestors). B2 English required.
+
+**Files:**
+- `backend/scripts/seed_country_workflows_b2.py` — Added `UNITED_KINGDOM_WORKFLOWS` list (~1,500 lines of factual UKVI-verified data). Updated `ALL_WORKFLOWS` dict with `"UK": UNITED_KINGDOM_WORKFLOWS`.
+
+**Triple-gate verified:**
+- 🟢 UK seed `inserted=6 skipped=0 errored=0` · Idempotent re-run `inserted=0 skipped=6`
+- 🟢 UK-Skilled-Worker spot-check: all 14 mandatory fields rich (831-char desc · 8 eligibility · 9 fees · 8 steps · 14 docs with `UK-Skilled-Worker-DOC-NN` doc_id · 8 rejections · 8 tips · 6 FAQs · 5 sources)
+- 🟢 **UK-Innovator-Founder reform verification:** Description explicitly states `NO MINIMUM INVESTMENT`, mentions `2023` reform, eligibility criteria contains `ZERO minimum investment`, FAQs explain the April 2023 reform context
+- 🟢 Fast-path performance UK across 6 service types: **103-150ms** (target <500ms) with `source="seeded_verified"`, all `flat_docs[].doc_id` and `steps[].required_documents[].doc_id` populated
+- 🟢 6 UK canonical audit_logs entries (entity_id, user_id, user_name, entity_type, created_at)
+- 🟢 **TOTAL B.2 audit log count: 24 entries** (6 AU + 6 CA + 6 NZ + 6 UK) — perfect match to 24/24 workflows shipped
+- 🟢 Admin Hub `/admin/country-workflows` shows KPI tiles `Total=32, Verified=24 (6 AU + 6 CA + 6 NZ + 6 UK), Draft=0, Archived=8`. All 24 verified rows render leamss-teal brand-compliantly.
+- 🟢 Backend logs clean, frontend compiled successfully
+
+**.gov sources cited across 6 UK workflows:**
+- `gov.uk/skilled-worker-visa` + `gov.uk/government/publications/skilled-worker-visa-going-rates-for-eligible-occupations` (Skilled Worker)
+- `gov.uk/health-care-worker-visa` + `gov.uk/government/publications/health-and-care-worker-visa-eligible-occupations` (Health and Care Worker)
+- `gov.uk/student-visa` + `gov.uk/graduate-visa` (Student + Graduate Route)
+- `gov.uk/standard-visitor` + Appendix Visitor: Permitted Activities (Visitor)
+- `gov.uk/uk-family-visa/partner-spouse` + Appendix FM Immigration Rules (Spouse-Family)
+- `gov.uk/innovator-founder-visa` + endorsing bodies list (Innovator-Founder)
+- `gov.uk/healthcare-immigration-application/who-needs-pay` (IHS rules)
+- GMC, NMC registration pages (healthcare workers)
+
+---
+
+## 🎊 **SWEEP B.2 — FULLY COMPLETE — 24/24 (100%)** 🎊
+
+**Cumulative achievement across 3 sessions of atomic ships:**
+
+| Country | Subclasses Shipped | Total Documents | Fast-path Latency Range |
+|---------|---------------------|------------------|--------------------------|
+| 🇦🇺 Australia | 6 (189, 190, 491, 482, 500, 820) | 90 docs (with doc_id) | 100-145ms |
+| 🇨🇦 Canada | 6 (EE-FSW, EE-CEC, PNP, Study-Permit, Work-Permit-Open, Visitor-Visa) | 84 docs | 101-136ms |
+| 🇳🇿 New Zealand | 6 (SMC, Green-List-T1, AEWV, Student, Partner-Resident, Working-Holiday) | 84 docs | 100-112ms |
+| 🇬🇧 United Kingdom | 6 (Skilled-Worker, Health-Care-Worker, Student, Visitor, Spouse-Family, Innovator-Founder) | 87 docs | 103-150ms |
+| **TOTAL** | **24** | **345 documents** | **100-150ms** |
+
+**Quality bar maintained throughout:**
+- Every workflow has 14 mandatory fields populated substantively
+- Every document has deterministic `doc_id` ({CC}-{SID}-DOC-{NN})
+- Every workflow cites 3-7 .gov source URLs
+- Honest disclosure (e.g., NZ Working Holiday India exclusion)
+- Recent reforms reflected accurately (UK 2024 income threshold, UK 2023 Innovator £0, AU 2024 SMC reform, CA 2024 PGWP narrowing, NZ 2023 SMC 6-point system)
+- All triple-gate verified — seed run, idempotency, DB query, fastpath performance, doc_id preservation, audit canonical, Admin Hub UI brand compliance
+
+
+
+---
 ### 🇳🇿 Sweep B.2 — New Zealand (NZ) Verified Seeding + Fastpath doc_id Fix COMPLETE (Feb 27, 2026 morning)
 
 Third atomic ship in Sweep B.2 (AU done → CA done → **NZ done** → UK next). Includes 1 surgical fastpath fix from e1_tester TC2 FAIL + 6 NZ verified workflows. All triple-gate verified.
