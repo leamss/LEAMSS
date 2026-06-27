@@ -1400,9 +1400,692 @@ CANADA_WORKFLOWS: List[Dict[str, Any]] = [
 ]
 
 
+# ──────────────────────────────────────────────────────────────────────────────
+# NEW ZEALAND (NZ) — 6 verified subclasses
+# Source: immigration.govt.nz · Feb 2026 fee schedule · FX: 1 NZD ≈ 50 INR
+# ──────────────────────────────────────────────────────────────────────────────
+NEW_ZEALAND_WORKFLOWS: List[Dict[str, Any]] = [
+    # ── 1. Skilled Migrant Category (SMC) Resident Visa ───────────────────────
+    {
+        "country_code": "NZ",
+        "country_name": "New Zealand",
+        "subclass_id": "SMC",
+        "subclass_name": "Skilled Migrant Category (SMC) Resident Visa — 6-Point System",
+        "service_type": "pr",
+        "category": "immigration",
+        "description": (
+            "The Skilled Migrant Category (SMC) Resident Visa is New Zealand's primary skilled migration "
+            "pathway, granting direct permanent residence to skilled workers. Following the September 2023 "
+            "reform, SMC moved from a complex points-based system to a streamlined **6-point system** where "
+            "applicants must score a minimum of 6 points across three categories: occupational registration, "
+            "qualifications, and skilled work experience or income.\n\n"
+            "Candidates submit an Expression of Interest (EOI), and those meeting the threshold are invited to "
+            "apply for residence directly. The system rewards candidates with NZ-recognised registration "
+            "(medical, engineering, teaching), high-level qualifications, or strong income above multiples of "
+            "the median wage. Successful applicants receive a Resident Visa with no conditions on travel and "
+            "with the right to apply for Permanent Resident Visa after 2 years."
+        ),
+        "eligibility_summary": (
+            "Minimum 6 points across: (a) occupational registration (3-6 pts), (b) qualifications "
+            "(3-5 pts), (c) NZ income at multiples of median wage (3-6 pts). Plus: under 56 years, "
+            "good health and character, IELTS 6.5 overall (or equivalent), and a skilled job offer "
+            "from accredited employer paying ≥ median wage (NZD 33.56/hour as of 2025 update)."
+        ),
+        "eligibility_criteria": [
+            {"label": "Age", "value": "Under 56 years at time of application", "notes": "Strict — no waiver"},
+            {"label": "Health + Character", "value": "Acceptable health (medical exam) + good character (PCCs)", "notes": "Medical exam by INZ panel physician; PCCs from each country lived 12+ months"},
+            {"label": "English", "value": "IELTS 6.5 overall OR equivalent (PTE 58, TOEFL iBT 79, OET grade B average)", "notes": "Both Principal + partner if Partner included in application"},
+            {"label": "6 Points (minimum)", "value": "Across occupational registration + qualifications + income/experience", "notes": "Reg: NZ Medical Council/Engineering NZ etc. = 3-6 pts; Qual: Bachelor's = 3, Master's = 4, Doctorate = 5; Income: 1.5× median wage = 3 pts, 3× = 6 pts"},
+            {"label": "Skilled employment", "value": "Job offer from accredited employer at or above NZ median wage", "notes": "NZD 33.56/hour as of 2025 update — verify current rate"},
+            {"label": "Submitted EOI selected", "value": "EOI must meet 6 points and be selected from pool", "notes": "Selection typically every 2 weeks if meeting threshold"},
+            {"label": "Settlement intent", "value": "Genuine intent to live and work in NZ long-term", "notes": "Demonstrated via family, ties, employment commitment"},
+        ],
+        "fees_local_currency_code": "NZD",
+        "fees_local_currency_amount": 6280,
+        "fees_inr_approx": 314000,
+        "fees_breakdown": [
+            {"component": "EOI submission fee", "amount": 530, "currency": "NZD"},
+            {"component": "Resident Visa application — Principal applicant", "amount": 5860, "currency": "NZD"},
+            {"component": "Resident Visa application — Partner (if included)", "amount": 5860, "currency": "NZD"},
+            {"component": "Dependent child (each)", "amount": 530, "currency": "NZD"},
+            {"component": "Migrant Levy (varies by country, India ~NZD 280)", "amount": 280, "currency": "NZD"},
+            {"component": "IELTS Academic test (India)", "amount": 16800, "currency": "INR"},
+            {"component": "Medical exam (INZ panel physician)", "amount": 7500, "currency": "INR"},
+            {"component": "Police Clearance (India + each country 12+ months)", "amount": 1000, "currency": "INR"},
+            {"component": "Qualification assessment (NZQA IQA — if non-NZ qualification)", "amount": 985, "currency": "NZD"},
+        ],
+        "processing_time_days_min": 180,
+        "processing_time_days_max": 540,
+        "step_by_step": [
+            {"step_number": 1, "title": "NZQA International Qualifications Assessment (IQA)", "description": "Submit your foreign qualifications to NZQA for assessment. NZQA IQA confirms NZ equivalency of your degree. Validity: lifetime once issued.", "estimated_days": 30, "documents_needed": ["Degree certificates", "Final transcripts (sealed)", "Identity proof"], "tips": ["NZQA IQA is mandatory for non-NZ qualifications", "Order sealed transcripts directly from university", "Processing 4-6 weeks typically"]},
+            {"step_number": 2, "title": "Language Test (IELTS / PTE / TOEFL / OET)", "description": "Take an approved English language test. Minimum IELTS 6.5 overall (no band below 6.0 in most cases).", "estimated_days": 21, "documents_needed": ["Passport"], "tips": ["IELTS results valid 2 years", "Aim for higher overall band for adaptability points"]},
+            {"step_number": 3, "title": "Secure Job Offer from Accredited Employer", "description": "Job must be from an INZ-accredited employer at or above the NZ median wage. Employer accreditation can be verified via INZ employer list.", "estimated_days": 90, "documents_needed": ["Job offer letter (with hours, salary, role)", "Employer accreditation number"], "tips": ["Verify employer accreditation BEFORE accepting job", "Salary must be ≥ NZD 33.56/hour median (FY2025 update)", "Role must require Level 4+ qualification or 3+ years experience"]},
+            {"step_number": 4, "title": "Submit Expression of Interest (EOI)", "description": "Complete EOI online via Immigration NZ portal. EOI captures qualifications, registration, income, work experience. System auto-calculates points.", "estimated_days": 3, "documents_needed": ["NZQA IQA result", "Language test", "Job offer details", "Registration certificate (if applicable)"], "tips": ["EOI valid 6 months in pool", "Selection happens fortnightly for those meeting 6 points"]},
+            {"step_number": 5, "title": "Receive Invitation to Apply (ITA)", "description": "If EOI is selected, INZ issues ITA. You have 4 months from ITA to submit full Residence application.", "estimated_days": 60, "documents_needed": [], "tips": ["Start gathering documents during EOI wait", "Don't miss 4-month deadline"]},
+            {"step_number": 6, "title": "Submit Full Residence Application", "description": "Complete online application with all documents, pay fees, declare any criminal/medical history.", "estimated_days": 14, "documents_needed": ["Passport", "Birth/marriage certs", "Children's birth certs", "Job offer + employer accreditation", "NZQA IQA", "Language test", "Registration cert (if applicable)", "Medical exam", "PCCs", "Income proof (payslips, IRD)", "Photos"], "tips": ["Use INZ-approved checklist", "Pay Migrant Levy along with application fee"]},
+            {"step_number": 7, "title": "INZ Decision + Medical/Character Review", "description": "INZ reviews application, may request additional documents (Section 27). Processing 6-12 months typical.", "estimated_days": 270, "documents_needed": [], "tips": ["Respond to S27 requests within 14 days", "Keep employer informed if job offer expires"]},
+            {"step_number": 8, "title": "Resident Visa Granted + Activation", "description": "Receive Resident Visa label in passport. Must enter NZ before 'first entry date' (usually 12 months). Can apply for Permanent Resident Visa after 2 years.", "estimated_days": 60, "documents_needed": [], "tips": ["Enter NZ before first-entry expiry", "Apply for IRD number + NZ bank account post-arrival"]},
+        ],
+        "document_checklist": [
+            {"name": "Valid passport (all family members)", "mandatory": True, "notes": "Min 6 months validity"},
+            {"name": "Birth certificates (all applicants)", "mandatory": True, "notes": "Apostilled/notarised if not in English"},
+            {"name": "Marriage certificate (if partner included)", "mandatory": True, "notes": ""},
+            {"name": "Children's birth certificates (if dependents)", "mandatory": True, "notes": ""},
+            {"name": "NZQA International Qualifications Assessment (IQA)", "mandatory": True, "notes": "Required for non-NZ qualifications"},
+            {"name": "Degree certificates + sealed transcripts", "mandatory": True, "notes": "Submitted to NZQA"},
+            {"name": "IELTS/PTE/TOEFL/OET language test result", "mandatory": True, "notes": "Min IELTS 6.5 overall"},
+            {"name": "Job offer letter from accredited employer", "mandatory": True, "notes": "Including pay, hours, role description, employer accreditation number"},
+            {"name": "Employer accreditation evidence", "mandatory": True, "notes": "Verifiable via INZ portal"},
+            {"name": "Occupational registration certificate (if claiming points)", "mandatory": False, "notes": "NZ Medical Council, Engineering NZ, NZ Teaching Council, etc."},
+            {"name": "Work experience reference letters", "mandatory": True, "notes": "From past employers — duties, hours, dates"},
+            {"name": "Income proof (recent payslips, IRD/tax records)", "mandatory": True, "notes": "Demonstrating role + remuneration claims"},
+            {"name": "Medical exam (INZ panel physician)", "mandatory": True, "notes": "eMedical link from INZ"},
+            {"name": "Police Clearance Certificates", "mandatory": True, "notes": "From each country lived 12+ months in past 10 years"},
+            {"name": "Photos (INZ specifications)", "mandatory": True, "notes": ""},
+            {"name": "Personal History form INZ 1027", "mandatory": True, "notes": "10-year address/employment timeline"},
+        ],
+        "common_rejection_reasons": [
+            "Insufficient points — less than 6 across the 3 categories",
+            "Job offer not from accredited employer or below median wage threshold",
+            "NZQA IQA showing qualification below Bachelor's equivalency (when claiming qual points)",
+            "Misrepresentation on income claims (claimed not matched by payslips/IRD records)",
+            "Health inadmissibility — undisclosed serious condition raising acceptable threshold concerns",
+            "Character issues — undisclosed prior visa refusals (any country) or criminal record",
+            "Age over 56 at application (strict, no waiver)",
+            "Insufficient English (IELTS below 6.5 overall)",
+        ],
+        "success_tips": [
+            "Stack registration + qualifications + income to comfortably exceed 6 points",
+            "Occupational registration in NZ before applying is a strong boost (e.g. NZ Medical Council)",
+            "Salary at 1.5× median wage = 3 pts; aim for 2× or 3× for higher points",
+            "Job offer must be GENUINE skilled employment matching ANZSCO Level 1-3",
+            "Pre-verify employer accreditation status (INZ publishes accredited employer list)",
+            "Get NZQA IQA done EARLY — it's a lifetime certificate worth obtaining anyway",
+            "Partner's language and qualifications can add adaptability points",
+            "Apply 6-12 months before age 56 cutoff if approaching",
+        ],
+        "faqs": [
+            {"q": "How is the new 6-point system different from old?", "a": "Pre-2023 SMC used 160-point system with many small contributors. Post-2023 simplified to 3 categories with min 6 points: registration (3-6), qualifications (3-5), income (3-6) OR skilled work experience (3-6)."},
+            {"q": "What is NZ's current median wage?", "a": "NZD 33.56/hour as of Feb 2025 update — INZ updates annually. Verify current rate at immigration.govt.nz before applying."},
+            {"q": "Can I get SMC PR without a job offer?", "a": "Generally NO under new system — job offer from accredited employer at or above median wage is required for the income points. Exception: high-point income from non-NZ employment may suffice in rare cases."},
+            {"q": "What if my qualification isn't on NZ skill shortage list?", "a": "SMC doesn't have a specific shortage list (different from Green List). Qualification just needs NZQA IQA equivalency at Bachelor's+ to score points."},
+            {"q": "Difference between SMC and Green List?", "a": "Green List = priority occupations with direct-to-residence at Tier 1 (no points calculation, just qualifying occupation + job offer). SMC = points-based, broader occupational scope."},
+            {"q": "How does Partner of Worker contribute?", "a": "Partner can be added to your Residence application. Partner with Bachelor's + good English does NOT add SMC points (post-2023 reform), but they get PR alongside you."},
+        ],
+        "official_url": "https://www.immigration.govt.nz/new-zealand-visas/apply-for-a-visa/about-visa/skilled-migrant-category-resident-visa",
+        "vfs_url": "https://visa.vfsglobal.com/ind/en/nzl/",
+        "source_urls": [
+            "https://www.immigration.govt.nz/new-zealand-visas/apply-for-a-visa/about-visa/skilled-migrant-category-resident-visa",
+            "https://www.immigration.govt.nz/new-zealand-visas/preparing-a-visa-application/the-application-process/expressions-of-interest",
+            "https://www.nzqa.govt.nz/qualifications-standards/international-qualifications/get-an-international-qualification-assessed/",
+            "https://www.immigration.govt.nz/employ-migrants/employer-accreditation-and-the-accredited-employer-work-visa",
+            "https://www.immigration.govt.nz/about-us/policy-and-law/how-the-immigration-system-operates/fees-and-levies",
+        ],
+        "verified_notes": "Manual Fast-Path B.2 seed — verified against immigration.govt.nz on 2026-02-27. 6-point system per Sep 2023 reform. Median wage NZD 33.56/hour per 2025 update; check current at INZ.",
+    },
+
+    # ── 2. Green List — Tier 1 Straight to Residence ──────────────────────────
+    {
+        "country_code": "NZ",
+        "country_name": "New Zealand",
+        "subclass_id": "Green-List-T1",
+        "subclass_name": "Green List Tier 1 — Straight to Residence Visa",
+        "service_type": "pr",
+        "category": "immigration",
+        "description": (
+            "The Green List Tier 1 Visa provides a fast-tracked, **direct-to-Residence** pathway for highly "
+            "skilled workers in occupations that NZ has identified as in critical, ongoing shortage. Unlike "
+            "the points-based SMC, Tier 1 applicants do NOT need to accumulate 6 points — they simply need a "
+            "qualifying Green List Tier 1 occupation, a job offer from an accredited NZ employer at or above "
+            "median wage (or other remuneration threshold for specific roles), and standard health/character "
+            "checks.\n\n"
+            "Green List Tier 1 occupations include doctors (general practitioners + specialists), "
+            "registered nurses, midwives, engineers (electrical, civil, mechanical, environmental, "
+            "structural, telecommunications), ICT professionals (network/systems analysts, security "
+            "specialists, multimedia specialists), construction project managers, surveyors, secondary "
+            "school teachers (specific subjects), audiologists, dentists, and veterinarians, among others. "
+            "Tier 2 (Work-to-Residence) is for less critical-shortage Green List roles requiring 24 months "
+            "Work Visa before Residence."
+        ),
+        "eligibility_summary": (
+            "Job offer in a Green List Tier 1 occupation from an accredited NZ employer at or above median "
+            "wage (or specific remuneration threshold), occupational registration if required for role, "
+            "IELTS 6.5 overall, age under 56, health and character compliance."
+        ),
+        "eligibility_criteria": [
+            {"label": "Tier 1 Green List occupation", "value": "Job in INZ's published Green List Tier 1 occupations", "notes": "List published at immigration.govt.nz/green-list — updated periodically"},
+            {"label": "Accredited employer + job offer", "value": "Job offer from INZ-accredited employer at or above median wage", "notes": "Median wage NZD 33.56/hour (Feb 2025); some roles have specific remuneration thresholds"},
+            {"label": "Occupational registration (if applicable)", "value": "Required for medical, engineering, teaching, surveying, dentistry roles", "notes": "Examples: NZ Medical Council registration, Engineering NZ membership, NZ Teaching Council, etc."},
+            {"label": "Qualifications", "value": "Meet qualification requirements for the specific Green List role", "notes": "Some roles require NZ-recognised degree, others accept overseas equivalent via NZQA IQA"},
+            {"label": "Age", "value": "Under 56 years at time of application", "notes": ""},
+            {"label": "English", "value": "IELTS 6.5 overall (or equivalent)", "notes": ""},
+            {"label": "Health + Character", "value": "Acceptable health + clean criminal record", "notes": "Standard INZ medical + PCCs"},
+        ],
+        "fees_local_currency_code": "NZD",
+        "fees_local_currency_amount": 4570,
+        "fees_inr_approx": 228500,
+        "fees_breakdown": [
+            {"component": "Straight to Residence Visa application — Principal", "amount": 4290, "currency": "NZD"},
+            {"component": "Resident Visa — Partner (if included)", "amount": 4290, "currency": "NZD"},
+            {"component": "Dependent child (each)", "amount": 530, "currency": "NZD"},
+            {"component": "Migrant Levy", "amount": 280, "currency": "NZD"},
+            {"component": "IELTS Academic test", "amount": 16800, "currency": "INR"},
+            {"component": "Medical exam", "amount": 7500, "currency": "INR"},
+            {"component": "PCCs", "amount": 1000, "currency": "INR"},
+            {"component": "NZQA IQA (if needed)", "amount": 985, "currency": "NZD"},
+            {"component": "Occupational registration fees (varies; NZMC ~NZD 1,500)", "amount": 1500, "currency": "NZD"},
+        ],
+        "processing_time_days_min": 60,
+        "processing_time_days_max": 180,
+        "step_by_step": [
+            {"step_number": 1, "title": "Confirm Green List Tier 1 Occupation", "description": "Verify your occupation is on the current Green List Tier 1 at immigration.govt.nz. Note: list updated periodically; check at time of application.", "estimated_days": 7, "documents_needed": [], "tips": ["Tier 1 = straight to PR; Tier 2 = 24 months work first then PR", "If your role isn't Tier 1, consider AEWV + Tier 2 pathway"]},
+            {"step_number": 2, "title": "Obtain Occupational Registration (if required)", "description": "If role requires NZ registration (medical, engineering, teaching, surveying), apply to the relevant NZ body before visa application.", "estimated_days": 90, "documents_needed": ["Degree + transcripts", "Reference letters", "Profession-specific exams (e.g. NZ Medical Council OET, IELTS Academic)"], "tips": ["NZMC for doctors — 3-6 month process", "Engineering NZ for engineers — 2-3 month process", "Get registration BEFORE applying for the visa for cleaner approval"]},
+            {"step_number": 3, "title": "Secure Job Offer from Accredited Employer", "description": "Accept job offer from INZ-accredited employer at or above median wage (or role-specific remuneration threshold).", "estimated_days": 60, "documents_needed": ["Job offer letter", "Employer accreditation number"], "tips": ["Many large NZ healthcare providers, IT firms, infrastructure companies are accredited", "Verify accreditation status via INZ portal"]},
+            {"step_number": 4, "title": "Language Test (if needed)", "description": "Take IELTS / OET / TOEFL / PTE. Some Tier 1 roles + registration requires specific tests (e.g. OET for medical).", "estimated_days": 21, "documents_needed": ["Passport"], "tips": ["OET preferred for medical/nursing", "Min IELTS 6.5 overall for Resident Visa"]},
+            {"step_number": 5, "title": "NZQA IQA (if needed)", "description": "For non-NZ qualifications. Some Green List roles waive IQA if registration is granted.", "estimated_days": 30, "documents_needed": ["Degree certificates", "Sealed transcripts"], "tips": ["Lifetime validity once issued"]},
+            {"step_number": 6, "title": "Submit Straight to Residence Visa Application", "description": "Apply directly for Resident Visa via Immigration Online. No EOI/ITA needed — apply directly.", "estimated_days": 14, "documents_needed": ["Passport", "Birth/marriage certs", "Children's birth certs", "Job offer + accreditation", "Registration cert", "NZQA IQA (or exemption)", "Language test", "Income proof", "Medical exam", "PCCs"], "tips": ["No selection wait — submit when ready", "Use Immigration Online portal"]},
+            {"step_number": 7, "title": "INZ Processing + Decision", "description": "Typically 3-6 months for Tier 1. INZ may request additional info (Section 27).", "estimated_days": 120, "documents_needed": [], "tips": ["Respond to S27 promptly", "Faster than SMC (no EOI/ITA steps)"]},
+            {"step_number": 8, "title": "Resident Visa + Activation", "description": "Receive Resident Visa. Enter NZ before first-entry date.", "estimated_days": 60, "documents_needed": [], "tips": ["Apply for IRD number + NZ bank post-arrival", "Permanent Resident Visa available after 2 years"]},
+        ],
+        "document_checklist": [
+            {"name": "Valid passport (all family members)", "mandatory": True, "notes": ""},
+            {"name": "Birth + marriage + children's birth certificates", "mandatory": True, "notes": ""},
+            {"name": "Job offer letter from accredited employer", "mandatory": True, "notes": "On letterhead with pay, hours, role"},
+            {"name": "Employer accreditation evidence (INZ verification)", "mandatory": True, "notes": ""},
+            {"name": "Occupational registration certificate", "mandatory": False, "notes": "Mandatory for medical/engineering/teaching roles"},
+            {"name": "NZQA IQA result (or exemption)", "mandatory": False, "notes": "May be waived if NZ registration granted"},
+            {"name": "Degree certificates + sealed transcripts", "mandatory": True, "notes": ""},
+            {"name": "Language test result (IELTS/OET/PTE)", "mandatory": True, "notes": "Min IELTS 6.5 overall"},
+            {"name": "Income/payslip proof of current employment", "mandatory": True, "notes": "If transferring from current job"},
+            {"name": "Work experience reference letters", "mandatory": True, "notes": "All relevant past employment"},
+            {"name": "Medical exam (INZ panel physician)", "mandatory": True, "notes": ""},
+            {"name": "Police Clearance Certificates", "mandatory": True, "notes": "Each country lived 12+ months past 10 years"},
+            {"name": "Photos (INZ specifications)", "mandatory": True, "notes": ""},
+            {"name": "Personal History form INZ 1027", "mandatory": True, "notes": ""},
+            {"name": "Family Information form", "mandatory": True, "notes": ""},
+        ],
+        "common_rejection_reasons": [
+            "Occupation not on current Green List Tier 1 (changes periodically)",
+            "Job offer not from INZ-accredited employer",
+            "Pay below median wage threshold (or role-specific minimum)",
+            "Occupational registration not in place when required (e.g. doctor without NZMC)",
+            "Misrepresentation of qualifications or experience",
+            "Health/character inadmissibility",
+            "Age over 56 (no waiver)",
+            "Insufficient English (below IELTS 6.5)",
+        ],
+        "success_tips": [
+            "Get NZ occupational registration BEFORE applying for visa — strengthens approval significantly",
+            "Choose employers known for accreditation + strong INZ track record",
+            "Pay attention to role-specific remuneration thresholds (some Tier 1 roles have higher)",
+            "Keep documents bundled before applying — INZ Section 27 requests slow processing",
+            "Maintain English proficiency above IELTS 6.5 for adaptability",
+            "Consider IQA early — lifetime validity, often required regardless",
+            "Get strong reference letters from current employer covering NZ-relevant skills",
+            "If applying with partner — partner's qualifications + language strengthen overall case",
+        ],
+        "faqs": [
+            {"q": "What's the Green List?", "a": "INZ-published list of priority occupations divided into Tier 1 (straight to residence) and Tier 2 (work-to-residence after 24 months). Updated periodically based on labour market data."},
+            {"q": "Do I need to be in NZ to apply for Tier 1?", "a": "No — you can apply from outside NZ. Some employers may prefer to interview in person but visa application is fully online."},
+            {"q": "How long does Tier 1 take vs SMC?", "a": "Tier 1 typically 3-6 months (no EOI/ITA). SMC takes 6-12 months including EOI selection wait."},
+            {"q": "Can I bring my family?", "a": "Yes — partner + dependent children up to 24 years (full-time student) can be included on Resident Visa. Same fees as Principal."},
+            {"q": "Difference between Resident Visa and PR Visa?", "a": "Resident Visa = limited travel rights, granted first. After 2 years, eligible for Permanent Resident Visa (PRV) with unlimited travel rights. Both confer same residence in NZ."},
+            {"q": "What if my Tier 1 role becomes Tier 2 between application stages?", "a": "Application is assessed at date of receipt. If role was Tier 1 when you applied, you continue under Tier 1 rules even if list changes after."},
+        ],
+        "official_url": "https://www.immigration.govt.nz/new-zealand-visas/apply-for-a-visa/about-visa/straight-to-residence-visa",
+        "vfs_url": "https://visa.vfsglobal.com/ind/en/nzl/",
+        "source_urls": [
+            "https://www.immigration.govt.nz/new-zealand-visas/apply-for-a-visa/about-visa/straight-to-residence-visa",
+            "https://www.immigration.govt.nz/employ-migrants/recruit-overseas/green-list-skilled-jobs",
+            "https://www.immigration.govt.nz/new-zealand-visas/preparing-a-visa-application/jobs/the-green-list",
+            "https://www.nzqa.govt.nz/qualifications-standards/international-qualifications/",
+        ],
+        "verified_notes": "Manual Fast-Path B.2 seed — verified against immigration.govt.nz on 2026-02-27. Green List Tier 1 + Tier 2 occupational divisions per current INZ policy.",
+    },
+
+    # ── 3. Accredited Employer Work Visa (AEWV) ───────────────────────────────
+    {
+        "country_code": "NZ",
+        "country_name": "New Zealand",
+        "subclass_id": "AEWV",
+        "subclass_name": "Accredited Employer Work Visa (AEWV)",
+        "service_type": "work",
+        "category": "immigration",
+        "description": (
+            "The Accredited Employer Work Visa (AEWV) is New Zealand's primary employer-sponsored temporary "
+            "work visa, replacing the old Essential Skills Work Visa in mid-2022. It is a 3-step process "
+            "from the employer + worker side: (1) **Employer accreditation** with INZ, (2) **Job check** "
+            "(verifying the role can't be filled by NZ workers), (3) **Worker visa application** by the "
+            "migrant.\n\n"
+            "AEWV duration depends on the role's median wage band: roles paying at or above median wage = up "
+            "to **3 years**; roles below median wage in approved sectors = up to **2 years** with no pathway "
+            "to residence directly. AEWV holders working in Green List Tier 2 occupations can transition to "
+            "Resident Visa after 24 months continuous work."
+        ),
+        "eligibility_summary": (
+            "Job offer from INZ-accredited employer that passed Job Check, role pays at or above median wage "
+            "(or sector-specific minimum), worker meets relevant qualifications/experience for the role, "
+            "language proficiency where needed (IELTS 4.0 for low-skilled, 5.0+ for medium), good health "
+            "and character."
+        ),
+        "eligibility_criteria": [
+            {"label": "Accredited employer", "value": "Job offer must be from INZ-accredited employer (visible on INZ accredited employer list)", "notes": "Employer accreditation tiers: Standard (1-5 workers), High-Volume (6+ workers), Franchisee, Triangular"},
+            {"label": "Job Check passed", "value": "Employer must have submitted + had approved a Job Check for the specific role", "notes": "Job Check valid 6 months; proves no NZ worker available"},
+            {"label": "Skilled employment", "value": "Role must match ANZSCO Level 1-3 OR be on Green List", "notes": "Some sector-specific lower-skilled roles allowed at reduced thresholds"},
+            {"label": "Pay threshold", "value": "Median wage (NZD 33.56/hour Feb 2025) OR sector-specific minimum", "notes": "Below median = 2-year max visa; at/above median = 3-year visa"},
+            {"label": "Worker qualifications", "value": "Relevant qualifications + work experience for the role", "notes": "Specific to role; some require trade certificate, some degree, some experience only"},
+            {"label": "Age", "value": "No specific age limit", "notes": "Standard 'genuine intention' assessment applies"},
+            {"label": "Language", "value": "IELTS overall 4.0 minimum (or equivalent) for some sectors; not required for higher-skilled", "notes": "Higher language often improves approval odds"},
+            {"label": "Health + Character", "value": "Medical (if 6+ month stay) + PCCs if requested", "notes": ""},
+        ],
+        "fees_local_currency_code": "NZD",
+        "fees_local_currency_amount": 805,
+        "fees_inr_approx": 40250,
+        "fees_breakdown": [
+            {"component": "AEWV application fee", "amount": 750, "currency": "NZD"},
+            {"component": "Immigration Levy", "amount": 55, "currency": "NZD"},
+            {"component": "Medical exam (if 6+ month stay)", "amount": 7500, "currency": "INR"},
+            {"component": "PCC (India)", "amount": 500, "currency": "INR"},
+            {"component": "IELTS test (if required)", "amount": 16800, "currency": "INR"},
+        ],
+        "processing_time_days_min": 14,
+        "processing_time_days_max": 60,
+        "step_by_step": [
+            {"step_number": 1, "title": "Employer Accreditation + Job Check (by Employer)", "description": "Before worker can apply, employer must be INZ-accredited and the specific role must have passed a Job Check. Worker doesn't drive these steps but should verify both before accepting job.", "estimated_days": 60, "documents_needed": [], "tips": ["Verify employer accreditation via INZ public list", "Ask for Job Check approval reference number"]},
+            {"step_number": 2, "title": "Accept Job Offer", "description": "Worker accepts written job offer from accredited employer. Offer must specify role, hours (≥30/week typically), pay, location, duration.", "estimated_days": 7, "documents_needed": ["Signed employment agreement", "Job offer letter"], "tips": ["Agreement must comply with NZ Employment Relations Act", "Pay must meet declared threshold"]},
+            {"step_number": 3, "title": "Gather Qualifications + Experience Evidence", "description": "Compile proof of qualifications, work experience, and language test (if applicable).", "estimated_days": 14, "documents_needed": ["Degree certificates", "Transcripts", "Work reference letters", "Language test (if required)"], "tips": ["NZQA IQA not required for AEWV (unlike SMC/Tier 1)", "Reference letters with hours/duties strengthen application"]},
+            {"step_number": 4, "title": "Medical Exam (if 6+ month visa)", "description": "Visit INZ panel physician in India.", "estimated_days": 14, "documents_needed": ["eMedical link"], "tips": ["Valid 36 months", "Required for visas >6 months OR working in healthcare/childcare"]},
+            {"step_number": 5, "title": "Police Clearance Certificate", "description": "Apply at India PSK; required if applicant has lived in any country 5+ years OR for some sectors.", "estimated_days": 21, "documents_needed": ["PCC application"], "tips": ["Apostille if requested"]},
+            {"step_number": 6, "title": "Submit AEWV Application Online", "description": "Complete application via Immigration Online portal. Upload all documents.", "estimated_days": 3, "documents_needed": ["Passport", "Job offer + employment agreement", "Accreditation + Job Check refs", "Qualifications", "Work experience", "Medical", "PCC", "Photos"], "tips": ["Pay application fee + Immigration Levy together", "Accredited employer can sometimes initiate the application on worker's behalf"]},
+            {"step_number": 7, "title": "INZ Decision", "description": "Processing 2-4 weeks for accredited employer workers. Faster than non-AEWV visas.", "estimated_days": 21, "documents_needed": [], "tips": ["AEWV processing prioritised for accredited employer applications"]},
+            {"step_number": 8, "title": "Visa Granted + Travel to NZ", "description": "Receive Work Visa electronically. Travel to NZ within visa validity (typically multi-entry). Start work upon arrival.", "estimated_days": 30, "documents_needed": [], "tips": ["AEWV is employer-specific — can't switch employers without new visa", "Must work full-time minimum hours specified"]},
+        ],
+        "document_checklist": [
+            {"name": "Valid passport (min 3 months beyond intended stay)", "mandatory": True, "notes": ""},
+            {"name": "Signed employment agreement (NZ Employment Act compliant)", "mandatory": True, "notes": ""},
+            {"name": "Job offer letter (role, pay, hours, duration)", "mandatory": True, "notes": ""},
+            {"name": "Employer accreditation reference (INZ)", "mandatory": True, "notes": "Verify via INZ portal"},
+            {"name": "Job Check approval reference", "mandatory": True, "notes": "Provided by employer"},
+            {"name": "Qualifications relevant to role (degree/trade certificate)", "mandatory": True, "notes": "Translation if not English"},
+            {"name": "Work experience reference letters", "mandatory": True, "notes": "Past relevant employment"},
+            {"name": "Language test (if sector-required, e.g. care, transport)", "mandatory": False, "notes": "Min IELTS 4.0 for some sectors"},
+            {"name": "Medical exam (if 6+ month stay)", "mandatory": False, "notes": "INZ panel physician"},
+            {"name": "Police Clearance Certificate", "mandatory": False, "notes": "India PSK; required if lived in any country 5+ years"},
+            {"name": "Passport-style photos", "mandatory": True, "notes": "INZ specifications"},
+            {"name": "Personal History form INZ 1027 (if requested)", "mandatory": False, "notes": ""},
+        ],
+        "common_rejection_reasons": [
+            "Employer not accredited or accreditation expired",
+            "Job Check not approved or expired (6-month validity)",
+            "Pay below applicable threshold (median wage or sector minimum)",
+            "Worker doesn't meet qualifications/experience requirements for role",
+            "ANZSCO level mismatch — role classified as lower than claimed",
+            "Misrepresentation of qualifications or work history",
+            "Health/character concerns",
+            "Insufficient English when sector requires it",
+        ],
+        "success_tips": [
+            "Verify employer accreditation + Job Check status BEFORE accepting job",
+            "Get pay at or above median wage for 3-year visa (vs. 2-year below)",
+            "Match ANZSCO description carefully — your role should match Level 1-3 duties",
+            "Compile reference letters with explicit hours/duties early",
+            "Don't job-hop — AEWV is employer-specific; new employer = new visa application",
+            "Consider Green List Tier 2 occupations — pathway to PR after 24 months",
+            "Keep employment continuous and full-time during AEWV duration",
+        ],
+        "faqs": [
+            {"q": "Can I switch employers on AEWV?", "a": "No — AEWV is employer-specific. To switch, you need a new AEWV with new employer (who must also be accredited)."},
+            {"q": "What is median wage threshold?", "a": "NZD 33.56/hour as of Feb 2025 update. INZ revises annually. Roles at/above this get 3-year visa; below get 2-year (in approved sectors only)."},
+            {"q": "Can AEWV lead to PR?", "a": "Indirectly. AEWV roles in Green List Tier 2 occupations can transition to Resident Visa after 24 months continuous work. AEWV roles meeting SMC points criteria can also apply for SMC PR."},
+            {"q": "Can family come with me?", "a": "Yes — partner and dependent children. Partner of AEWV holder paying median wage+ can get Open Work Visa. Children can attend NZ schools."},
+            {"q": "What's employer accreditation?", "a": "INZ certifies that employers are stable, compliant with employment law, and committed to upskilling NZ workers. Without accreditation, employer cannot sponsor AEWVs."},
+            {"q": "What is a Job Check?", "a": "Process where INZ verifies the specific role can't be filled by NZ workers (labour market test). Employer advertises, demonstrates no suitable NZ candidates, then Job Check approved. Valid 6 months."},
+        ],
+        "official_url": "https://www.immigration.govt.nz/new-zealand-visas/apply-for-a-visa/about-visa/accredited-employer-work-visa",
+        "vfs_url": "https://visa.vfsglobal.com/ind/en/nzl/",
+        "source_urls": [
+            "https://www.immigration.govt.nz/new-zealand-visas/apply-for-a-visa/about-visa/accredited-employer-work-visa",
+            "https://www.immigration.govt.nz/employ-migrants/employer-accreditation-and-the-accredited-employer-work-visa",
+            "https://www.immigration.govt.nz/employ-migrants/get-a-job-check",
+            "https://www.immigration.govt.nz/about-us/policy-and-law/how-the-immigration-system-operates/fees-and-levies",
+        ],
+        "verified_notes": "Manual Fast-Path B.2 seed — verified against immigration.govt.nz on 2026-02-27. AEWV introduced mid-2022 replacing Essential Skills Work Visa.",
+    },
+
+    # ── 4. Student Visa ────────────────────────────────────────────────────────
+    {
+        "country_code": "NZ",
+        "country_name": "New Zealand",
+        "subclass_id": "Student",
+        "subclass_name": "Fee-paying Student Visa (Long-term)",
+        "service_type": "student",
+        "category": "immigration",
+        "description": (
+            "The Fee-paying Student Visa allows international students to study full-time at a NZQA-approved "
+            "educational provider in NZ. It's the standard student visa for university bachelor's, master's, "
+            "PhD; polytechnic diplomas; and English language schools.\n\n"
+            "Critically, NZ allows graduates of Level 7+ (Bachelor's and above) qualifications to qualify "
+            "for a **Post-Study Work Visa (PSWV)** of 1-3 years, opening pathways to AEWV and eventually "
+            "SMC/Green List PR. Working rights on Student Visa: up to **20 hours/week during term**, full-"
+            "time during scheduled breaks. PhD + research master's students can work UNLIMITED hours."
+        ),
+        "eligibility_summary": (
+            "Offer of Place from NZQA-approved educational provider (university, polytechnic, PTE), proof "
+            "of funds (tuition + NZD 17,000/year for ≥36 month programs or NZD 1,667/month for ≤36 month "
+            "programs for cost of living), IELTS Academic 5.5+ (varies by program), genuine student intent."
+        ),
+        "eligibility_criteria": [
+            {"label": "Offer of Place (OoP)", "value": "From NZQA-approved educational provider", "notes": "Check NZQA register before paying any deposits"},
+            {"label": "Tuition paid (1st year or full)", "value": "Receipt of payment to educational provider", "notes": "Some providers accept partial; most prefer 1 year"},
+            {"label": "Proof of funds for living costs", "value": "NZD 17,000/year (full-year programs) OR NZD 1,667/month (shorter programs)", "notes": "Per dependent: additional NZD 7,000-9,000/year"},
+            {"label": "English language", "value": "IELTS Academic 5.5 (Diploma) to 6.5 (Master's/PhD) — varies by program + provider", "notes": "PhD programs may accept lower IELTS if previous education in English"},
+            {"label": "Acceptance from NZQA-approved provider", "value": "DLI must be Code of Practice-signatory provider", "notes": "Public universities + most polytechnics are auto-approved; PTEs vary"},
+            {"label": "Medical (if 12+ month stay from India)", "value": "INZ panel physician exam", "notes": "Mandatory for stay >12 months from India"},
+            {"label": "Genuine student intent", "value": "Statement of Purpose + program alignment with career goals", "notes": "Critical — vague intent = refusal"},
+            {"label": "Health insurance (mandatory)", "value": "International student insurance covering NZ", "notes": "Most universities arrange via approved providers"},
+        ],
+        "fees_local_currency_code": "NZD",
+        "fees_local_currency_amount": 375,
+        "fees_inr_approx": 18750,
+        "fees_breakdown": [
+            {"component": "Student Visa application fee", "amount": 375, "currency": "NZD"},
+            {"component": "Tuition deposit (1st year average Bachelor)", "amount": 28000, "currency": "NZD"},
+            {"component": "Living cost proof (12 months)", "amount": 17000, "currency": "NZD"},
+            {"component": "International student health insurance", "amount": 600, "currency": "NZD"},
+            {"component": "IELTS Academic test", "amount": 16800, "currency": "INR"},
+            {"component": "Medical exam (if 12+ month visa)", "amount": 7500, "currency": "INR"},
+            {"component": "PCC (India)", "amount": 500, "currency": "INR"},
+        ],
+        "processing_time_days_min": 28,
+        "processing_time_days_max": 84,
+        "step_by_step": [
+            {"step_number": 1, "title": "Choose NZQA-Approved Provider + Apply", "description": "Research universities/polytechnics. Submit application directly to provider with required documents.", "estimated_days": 60, "documents_needed": ["Transcripts", "Degree certificates", "IELTS Academic", "Statement of Purpose"], "tips": ["Universities: Auckland, Otago, Canterbury, Victoria, Massey, Waikato, AUT, Lincoln — all NZQA-approved", "Public providers have higher visa success rates than private", "Apply 8-12 months before intake"]},
+            {"step_number": 2, "title": "Receive Offer of Place (OoP)", "description": "Provider issues OoP with program details, tuition fees, start/end dates.", "estimated_days": 21, "documents_needed": [], "tips": ["OoP must specify NZQA approval", "Conditional OoP — fulfill conditions before applying for visa"]},
+            {"step_number": 3, "title": "Pay Tuition + Arrange Living Cost Proof", "description": "Pay tuition deposit to provider. Show NZD 17,000 for living costs via bank statement, sponsor letter, or scholarship letter.", "estimated_days": 14, "documents_needed": ["Tuition payment receipt", "6 months bank statements", "Sponsor's ITR/income proof (if applicable)"], "tips": ["Funds shown must be stable 3+ months", "Sudden deposits raise red flags"]},
+            {"step_number": 4, "title": "International Student Health Insurance", "description": "Required for all international students. Most providers arrange via approved insurers (Studentsafe, Uni-Care, Southern Cross).", "estimated_days": 7, "documents_needed": ["Insurance certificate"], "tips": ["Cost ~NZD 500-700/year", "Coverage must include medical + repatriation"]},
+            {"step_number": 5, "title": "IELTS Academic Test", "description": "Min 5.5 (Diploma) to 6.5 (Master's/PhD). Some PhD programs accept lower if previous English-medium education.", "estimated_days": 21, "documents_needed": ["Passport"], "tips": ["IELTS Academic, NOT General Training", "PTE Academic also accepted by most NZ universities"]},
+            {"step_number": 6, "title": "Medical Exam + PCC", "description": "Medical required if stay 12+ months from India. PCC required if applicant 17+ years.", "estimated_days": 21, "documents_needed": ["eMedical referral", "PCC application"], "tips": ["Medical valid 36 months", "PCC apostilled if requested"]},
+            {"step_number": 7, "title": "Submit Student Visa Application Online", "description": "Apply via Immigration Online portal with all docs.", "estimated_days": 7, "documents_needed": ["Passport", "OoP", "Tuition receipt", "Living cost proof", "Health insurance", "IELTS", "Medical", "PCC", "SoP", "Photos"], "tips": ["Apply 3-4 months before intake", "Pay application fee on submission"]},
+            {"step_number": 8, "title": "Visa Granted + Travel to NZ", "description": "Receive Student Visa electronically. Travel to NZ. Can enter up to 4 weeks before program start.", "estimated_days": 30, "documents_needed": [], "tips": ["Carry all originals to NZ", "Apply for IRD number if planning to work part-time"]},
+        ],
+        "document_checklist": [
+            {"name": "Valid passport (min program duration + 3 months)", "mandatory": True, "notes": ""},
+            {"name": "Offer of Place from NZQA-approved provider", "mandatory": True, "notes": "Includes program, tuition, duration"},
+            {"name": "Tuition payment receipt (1st year or full)", "mandatory": True, "notes": ""},
+            {"name": "Proof of living cost funds (NZD 17,000+/year)", "mandatory": True, "notes": "Bank statements, sponsor letter + ITR, scholarship"},
+            {"name": "International student health insurance certificate", "mandatory": True, "notes": "Covers NZ stay"},
+            {"name": "IELTS Academic / PTE Academic result", "mandatory": True, "notes": "Per program requirements"},
+            {"name": "Statement of Purpose / Study Plan", "mandatory": True, "notes": "Detailed — program choice + career link"},
+            {"name": "Academic transcripts (10th, 12th, Bachelor's if applicable)", "mandatory": True, "notes": ""},
+            {"name": "Degree certificates (if previous education)", "mandatory": True, "notes": ""},
+            {"name": "Medical exam (12+ month stay from India)", "mandatory": False, "notes": "INZ panel physician"},
+            {"name": "Police Clearance Certificate (17+ years)", "mandatory": True, "notes": "India PSK"},
+            {"name": "Photos (INZ specifications)", "mandatory": True, "notes": ""},
+            {"name": "Sponsor's tax returns (if funds via sponsor)", "mandatory": False, "notes": "Last 2-3 years ITR"},
+            {"name": "Custodian declaration (if minor)", "mandatory": False, "notes": "Students under 18"},
+        ],
+        "common_rejection_reasons": [
+            "Insufficient or unstable living cost funds",
+            "Provider not on NZQA-approved list",
+            "Statement of Purpose generic / doesn't justify program choice",
+            "Course choice doesn't align with previous education or career",
+            "Genuine student intent doubts — INZ believes immigration motive",
+            "Prior visa refusals (any country) undeclared",
+            "Inadequate English (below program threshold)",
+            "Misrepresentation in academic documents or sponsor info",
+        ],
+        "success_tips": [
+            "Choose Level 7+ programs (Bachelor's, Master's, PhD) — opens PSWV pathway",
+            "Pay 1 year tuition + show full living costs = strongest financial proof",
+            "Write a UNIQUE Statement of Purpose tied to your career trajectory",
+            "Choose public universities/polytechnics over private PTEs for higher approval",
+            "Show clear post-graduation plan (return to home OR PSWV intent)",
+            "If post-graduation work + PR is your goal, choose Level 7+ in NZ skill shortage area",
+            "PhD students get unlimited work rights — strong long-term path",
+            "Apply 4 months before intake start to allow buffer for delays",
+        ],
+        "faqs": [
+            {"q": "Can I work on Student Visa?", "a": "Up to 20 hours/week during term (Level 7+ programs); full-time during scheduled breaks (summer, winter). PhD + research Master's students can work unlimited hours."},
+            {"q": "What is Post-Study Work Visa (PSWV)?", "a": "Visa for Level 7+ graduates from NZ providers. Duration: 1-3 years based on qualification level and study location (regional locations get longer PSWV). Open work rights."},
+            {"q": "Can my partner come with me?", "a": "Yes — partner can apply for Partner of Student Work Visa (open work rights) if you're studying Level 7+ at Bachelor's Honours or above. Children can attend NZ schools."},
+            {"q": "Difference between NZQA-approved and Code of Practice signatory?", "a": "NZQA approval = quality assurance. Code of Practice signatory = additional commitment to international student welfare. Both required for student visa eligibility."},
+            {"q": "How much does NZ study cost overall?", "a": "Tuition: NZD 25,000-50,000/year (Bachelor's), NZD 28,000-50,000/year (Master's), NZD 6,500-10,000/year (PhD — many fully funded). Living costs: NZD 17,000/year minimum. Total ≈ ₹25-45 lakh/year all-in."},
+            {"q": "Can I extend my visa?", "a": "Yes — apply for extension before current visa expires. Same documents + updated proof of funds + continued enrollment."},
+        ],
+        "official_url": "https://www.immigration.govt.nz/new-zealand-visas/apply-for-a-visa/about-visa/fee-paying-student-visa",
+        "vfs_url": "https://visa.vfsglobal.com/ind/en/nzl/",
+        "source_urls": [
+            "https://www.immigration.govt.nz/new-zealand-visas/apply-for-a-visa/about-visa/fee-paying-student-visa",
+            "https://www.immigration.govt.nz/new-zealand-visas/preparing-a-visa-application/study-in-nz",
+            "https://www.nzqa.govt.nz/providers-partners/approval-accreditation-and-registration/",
+            "https://www.immigration.govt.nz/new-zealand-visas/apply-for-a-visa/about-visa/post-study-work-visa",
+        ],
+        "verified_notes": "Manual Fast-Path B.2 seed — verified against immigration.govt.nz on 2026-02-27. Living cost threshold NZD 17,000/year for 36+ month programs per current policy.",
+    },
+
+    # ── 5. Partner of NZ Resident/Citizen — Resident Visa ─────────────────────
+    {
+        "country_code": "NZ",
+        "country_name": "New Zealand",
+        "subclass_id": "Partner-Resident",
+        "subclass_name": "Partner of a New Zealander — Resident Visa",
+        "service_type": "partner",
+        "category": "immigration",
+        "description": (
+            "The Partner of a New Zealander Resident Visa is for spouses, civil union partners, and de facto "
+            "partners (including same-sex partners) of NZ citizens or residents. There are two main streams: "
+            "**Partnership-based Resident Visa** (direct PR if relationship has been ongoing 12+ months in a "
+            "shared household) and **Partnership-based Work Visa** (open work visa to live in NZ while building "
+            "the 12 months of cohabitation evidence).\n\n"
+            "Key concept: **Partnership must be GENUINE AND STABLE** with strong evidence of mutual commitment, "
+            "shared finances, shared social life, and intent to continue living together. Arranged marriages "
+            "where couple hasn't yet built shared life history may need to use Work Visa first to accumulate "
+            "evidence, then transition to Resident Visa."
+        ),
+        "eligibility_summary": (
+            "Sponsoring partner must be NZ citizen or resident (in NZ for 184+ days in last 12 months). "
+            "Genuine and stable partnership, ideally 12+ months cohabitation. Sponsor income/support capability. "
+            "Worker meets standard character + health requirements. IELTS not always required but recommended."
+        ),
+        "eligibility_criteria": [
+            {"label": "Sponsoring partner status", "value": "Must be NZ citizen or NZ resident", "notes": "Resident sponsor must be in NZ 184+ days in past 12 months OR have valid residence and demonstrated intent to remain"},
+            {"label": "Genuine and stable relationship", "value": "Marriage/civil union/de facto with 12+ months cohabitation evidence", "notes": "If less than 12 months — Work Visa first, then Resident later"},
+            {"label": "Mutual commitment evidence", "value": "Shared finances, social life, household, communication history", "notes": "Photos, joint accounts, joint lease, family/friends statements"},
+            {"label": "Living together", "value": "Currently living together OR demonstrable plan to do so", "notes": "If long-distance — Work Visa permits joining"},
+            {"label": "Age", "value": "Both 18+", "notes": "Under 18 with strict conditions"},
+            {"label": "Sponsor's support capability", "value": "Sponsor commits to supporting partner; no specific income threshold but reasonable means expected", "notes": "Sponsor signs Sponsorship Form"},
+            {"label": "Health + Character", "value": "Standard INZ requirements", "notes": "Medical (if 12+ month stay), PCCs"},
+            {"label": "English (recommended)", "value": "IELTS 4.0 useful, not always mandatory for partner visa", "notes": "Demonstrates ability to settle"},
+        ],
+        "fees_local_currency_code": "NZD",
+        "fees_local_currency_amount": 3070,
+        "fees_inr_approx": 153500,
+        "fees_breakdown": [
+            {"component": "Partner Resident Visa application", "amount": 3070, "currency": "NZD"},
+            {"component": "Dependent child (each)", "amount": 530, "currency": "NZD"},
+            {"component": "Migrant Levy", "amount": 280, "currency": "NZD"},
+            {"component": "Medical exam (12+ month stay)", "amount": 7500, "currency": "INR"},
+            {"component": "PCCs", "amount": 1000, "currency": "INR"},
+            {"component": "Translation of marriage cert / evidence (if needed)", "amount": 3000, "currency": "INR"},
+        ],
+        "processing_time_days_min": 180,
+        "processing_time_days_max": 450,
+        "step_by_step": [
+            {"step_number": 1, "title": "Confirm Sponsoring Partner's Eligibility", "description": "Sponsor must be NZ citizen or resident with 184+ days in NZ in past 12 months. Verify status via sponsor's NZ documents.", "estimated_days": 7, "documents_needed": ["Sponsor's NZ passport / Resident Visa label", "Proof of NZ residency days"], "tips": ["Sponsor must not have sponsored 2+ partners in last 5 years", "Sponsor must not have any active sponsorship of another partner"]},
+            {"step_number": 2, "title": "Build Relationship Evidence (12+ months cohabitation ideal)", "description": "Gather extensive evidence of genuine + stable partnership: photos across time, joint bank accounts, lease/property docs, communications, witness statements.", "estimated_days": 90, "documents_needed": ["Marriage/civil union certificate", "Photos (dated, varied locations + occasions)", "Joint bank account statements", "Joint lease/property docs", "Travel together itineraries", "Communication logs (WhatsApp/email screenshots)"], "tips": ["Build a STORY arc across timeline showing relationship growth", "Statutory declarations from family/friends who know couple", "Avoid only formal documents — include daily life"]},
+            {"step_number": 3, "title": "Sponsor Form + Statement", "description": "Sponsor completes Sponsorship form (INZ 1146) committing to support, declaring marital status, prior sponsorships. Provides ID + status proof.", "estimated_days": 7, "documents_needed": ["Sponsor INZ 1146 form", "Sponsor passport/Resident Visa", "Sponsor address proof"], "tips": ["Sponsor signs declaration of support", "Sponsor must not have outstanding INZ debts"]},
+            {"step_number": 4, "title": "Worker's Documents", "description": "Worker gathers personal documents: passport, birth certificate, PCCs, medical exam, photos.", "estimated_days": 30, "documents_needed": ["Passport", "Birth certificate", "Medical exam", "PCCs"], "tips": ["PCCs from each country lived 12+ months in past 10 years"]},
+            {"step_number": 5, "title": "Submit Partner Resident Visa Application", "description": "Apply via Immigration Online portal. Upload all relationship evidence + sponsor + worker docs.", "estimated_days": 14, "documents_needed": ["All evidence + sponsor + worker docs", "Application fee + Migrant Levy"], "tips": ["Relationship evidence section is the heart of the application", "INZ scrutinises authenticity carefully"]},
+            {"step_number": 6, "title": "INZ Interview (sometimes)", "description": "INZ may invite couple for interview to verify relationship genuineness. Common for newer relationships.", "estimated_days": 60, "documents_needed": ["Bring all originals to interview"], "tips": ["Be honest + consistent", "Each partner interviewed separately"]},
+            {"step_number": 7, "title": "INZ Decision + Section 27 (if needed)", "description": "INZ reviews. May issue Section 27 request for additional evidence. Processing 8-18 months typical.", "estimated_days": 270, "documents_needed": [], "tips": ["Respond to S27 within 14 days", "Provide additional evidence proactively if relationship has evolved"]},
+            {"step_number": 8, "title": "Resident Visa Granted", "description": "Receive Resident Visa label. Enter NZ before first-entry date. After 2 years, eligible for Permanent Resident Visa.", "estimated_days": 30, "documents_needed": [], "tips": ["Live with sponsor on arrival", "Apply for IRD + bank account"]},
+        ],
+        "document_checklist": [
+            {"name": "Worker's passport (all family members)", "mandatory": True, "notes": ""},
+            {"name": "Sponsor's NZ passport / Resident Visa label", "mandatory": True, "notes": ""},
+            {"name": "Sponsor INZ 1146 Sponsorship Form", "mandatory": True, "notes": "Signed by sponsor"},
+            {"name": "Marriage / Civil Union / De facto declaration certificate", "mandatory": True, "notes": "Apostilled if foreign"},
+            {"name": "Joint bank account statements (6+ months)", "mandatory": True, "notes": "Strong evidence of shared finances"},
+            {"name": "Joint lease / property ownership documents", "mandatory": True, "notes": "Shared household evidence"},
+            {"name": "Photos (dated, varied occasions, with family + friends)", "mandatory": True, "notes": "Cover entire relationship timeline"},
+            {"name": "Communication logs (WhatsApp/email screenshots, calls)", "mandatory": True, "notes": "Especially for long-distance phases"},
+            {"name": "Travel together itineraries / boarding passes", "mandatory": False, "notes": ""},
+            {"name": "Statutory declarations from family/friends (2-4)", "mandatory": True, "notes": "Witness statements supporting genuineness"},
+            {"name": "Sponsor's income proof / tax records (last 2 years)", "mandatory": False, "notes": "Demonstrates support capability"},
+            {"name": "Children's birth certificates (if applicable)", "mandatory": True, "notes": "Establishing parent-child relationship"},
+            {"name": "Medical exam (12+ month stay)", "mandatory": True, "notes": "INZ panel physician"},
+            {"name": "Police Clearance Certificates", "mandatory": True, "notes": "Each country lived 12+ months past 10 years"},
+            {"name": "Worker's birth certificate", "mandatory": True, "notes": ""},
+            {"name": "Translation of non-English documents", "mandatory": False, "notes": "Certified translator"},
+        ],
+        "common_rejection_reasons": [
+            "Relationship not 'genuine and stable' — INZ doubts authenticity",
+            "Insufficient cohabitation evidence (less than 12 months OR thin evidence)",
+            "Sponsor doesn't meet eligibility (not in NZ 184+ days, multiple prior sponsorships)",
+            "Inconsistencies between partners' statements at interview",
+            "Misrepresentation of relationship origin or current status",
+            "Sponsor has outstanding INZ debts or compliance issues",
+            "Health or character inadmissibility",
+            "Cultural/family arrangement raising 'arranged for visa' suspicion (more scrutiny for arranged marriages)",
+        ],
+        "success_tips": [
+            "Build evidence ACROSS timeline — early relationship, daily life, recent",
+            "Include candid photos with family + friends, not just couple selfies",
+            "Joint accounts with consistent activity > one-time deposits",
+            "If newly married — consider Partnership Work Visa first to accumulate evidence",
+            "Statutory declarations from 2-4 people who know couple well are very strong",
+            "Maintain communication logs across distance (WhatsApp/Skype/Zoom)",
+            "Sponsor should write a detailed statement of how relationship developed",
+            "Avoid only formal/legal docs — INZ wants daily life evidence too",
+        ],
+        "faqs": [
+            {"q": "Do I need to be married for partner visa?", "a": "No — civil unions and de facto partnerships (same-sex or different-sex) qualify equally. Key is genuine + stable relationship with 12+ months cohabitation evidence."},
+            {"q": "What if we've been married less than 12 months?", "a": "Apply for Partnership Work Visa first to live in NZ. Accumulate 12 months cohabitation evidence. Then apply for Resident Visa from inside NZ."},
+            {"q": "Can my sponsor be in NZ on a temporary visa?", "a": "No — sponsor must be NZ citizen or NZ resident (Resident Visa). Temporary visa holders cannot sponsor partners for residence."},
+            {"q": "What about arranged marriages?", "a": "INZ assesses genuineness equally — but arranged marriages face more scrutiny. Build strong post-marriage cohabitation + communication evidence. Photos with extended family help."},
+            {"q": "Can children come with me?", "a": "Yes — dependent children of either partner can be included on the Resident Visa application. Same INZ fees as adults."},
+            {"q": "Difference between Partner Resident Visa and Work Visa?", "a": "Resident Visa = direct PR (need 12+ months cohabitation evidence). Work Visa = open work rights while you build the evidence; convert to Resident later."},
+        ],
+        "official_url": "https://www.immigration.govt.nz/new-zealand-visas/apply-for-a-visa/about-visa/partner-of-a-new-zealander-resident-visa",
+        "vfs_url": "https://visa.vfsglobal.com/ind/en/nzl/",
+        "source_urls": [
+            "https://www.immigration.govt.nz/new-zealand-visas/apply-for-a-visa/about-visa/partner-of-a-new-zealander-resident-visa",
+            "https://www.immigration.govt.nz/new-zealand-visas/apply-for-a-visa/about-visa/partner-of-a-new-zealander-work-visa",
+            "https://www.immigration.govt.nz/new-zealand-visas/preparing-a-visa-application/your-partner/about-partner-visas",
+        ],
+        "verified_notes": "Manual Fast-Path B.2 seed — verified against immigration.govt.nz on 2026-02-27. Partnership evidence requirements per current INZ Operational Manual.",
+    },
+
+    # ── 6. Working Holiday Visa ────────────────────────────────────────────────
+    {
+        "country_code": "NZ",
+        "country_name": "New Zealand",
+        "subclass_id": "Working-Holiday",
+        "subclass_name": "Working Holiday Visa",
+        "service_type": "visitor",
+        "category": "immigration",
+        "description": (
+            "The Working Holiday Visa allows young people (typically 18-30 or 18-35 depending on country) "
+            "to live, travel, and work in New Zealand for up to 12 months (some countries 23 months). It's a "
+            "bilateral scheme where NZ has reciprocal arrangements with about 45 partner countries.\n\n"
+            "**IMPORTANT for Indian applicants:** India is **NOT currently a Working Holiday Scheme partner "
+            "country with NZ**. Indian nationals cannot apply for this visa. Eligible nationals include: UK, "
+            "Germany, France, Japan, USA, Canada, Ireland, Netherlands, Norway, Sweden, Singapore, South Korea, "
+            "Chile, Argentina, Brazil, Uruguay, Mexico, and others. This workflow is documented for clients "
+            "with dual nationality or eligible passport holders."
+        ),
+        "eligibility_summary": (
+            "Citizen of a NZ Working Holiday Scheme partner country (India NOT included as of 2026), aged "
+            "18-30 (or 18-35 for some countries), no dependent children accompanying, sufficient funds "
+            "(typically NZD 4,200 + return ticket evidence), valid passport, no prior NZ Working Holiday Visa, "
+            "good health and character."
+        ),
+        "eligibility_criteria": [
+            {"label": "Citizenship", "value": "Citizen of a partner country (UK, Germany, France, Japan, USA, Canada, etc. — India NOT included)", "notes": "Full list at immigration.govt.nz/working-holiday"},
+            {"label": "Age", "value": "18-30 years (or 18-35 for some countries: UK, Canada, Czech Republic, etc.)", "notes": "Apply BEFORE turning the upper age limit; visa can extend past that"},
+            {"label": "Funds", "value": "NZD 4,200 minimum + return ticket evidence OR NZD 4,200 + NZD 2,500 for return", "notes": "Bank statements showing personal funds; sponsorship not accepted"},
+            {"label": "Valid passport", "value": "Min 3 months beyond intended stay", "notes": ""},
+            {"label": "No dependent children accompanying", "value": "Children cannot be on Working Holiday Visa", "notes": "Children must apply separately or stay home"},
+            {"label": "First-time", "value": "Cannot have held a NZ Working Holiday Visa previously", "notes": "Once-in-a-lifetime opportunity for most countries"},
+            {"label": "Health + Character", "value": "Standard checks; medical if working in healthcare/agriculture/childcare", "notes": ""},
+            {"label": "No marketing services as primary purpose", "value": "Visa is for holiday + incidental work — not specific job arrangements", "notes": ""},
+        ],
+        "fees_local_currency_code": "NZD",
+        "fees_local_currency_amount": 280,
+        "fees_inr_approx": 14000,
+        "fees_breakdown": [
+            {"component": "Working Holiday Visa application fee", "amount": 280, "currency": "NZD"},
+            {"component": "Immigration Levy (if applicable)", "amount": 55, "currency": "NZD"},
+            {"component": "Funds proof required (NZD 4,200 + return)", "amount": 4200, "currency": "NZD"},
+            {"component": "Medical exam (if healthcare/agriculture role anticipated)", "amount": 7500, "currency": "INR"},
+        ],
+        "processing_time_days_min": 7,
+        "processing_time_days_max": 30,
+        "step_by_step": [
+            {"step_number": 1, "title": "Verify Country Eligibility + Quota", "description": "Confirm your country is a NZ Working Holiday Scheme partner. Check current annual quota — some have caps (UK, Germany unlimited; others may have quotas).", "estimated_days": 1, "documents_needed": [], "tips": ["India is NOT a partner — Indian-only passport holders cannot apply", "Check immigration.govt.nz for current quota status"]},
+            {"step_number": 2, "title": "Demonstrate Sufficient Funds", "description": "Show NZD 4,200 (or NZD 4,200 + return ticket OR NZD 4,200 + NZD 2,500 for return) via bank statements in your own name.", "estimated_days": 7, "documents_needed": ["3 months bank statements", "Return ticket booking (recommended)"], "tips": ["Funds must be personal — gifts/loans not accepted", "Stable balance over 3 months > sudden lump sum"]},
+            {"step_number": 3, "title": "Take Medical Exam (if anticipated)", "description": "Required only if working in healthcare/agriculture/childcare. Most Working Holiday makers don't need it.", "estimated_days": 14, "documents_needed": ["eMedical referral if needed"], "tips": ["Skip if not in those sectors"]},
+            {"step_number": 4, "title": "Online Application", "description": "Apply via Immigration Online portal. Pay application fee. Upload passport scan, bank statements, photo.", "estimated_days": 3, "documents_needed": ["Passport scan", "Bank statements", "Photo", "Return ticket (if applicable)"], "tips": ["Fast online process — typically 7-14 days approval", "No biometrics required for most partner countries"]},
+            {"step_number": 5, "title": "Visa Approval", "description": "Receive electronic Working Holiday Visa. Valid for 12 months from arrival (some countries 23 months).", "estimated_days": 14, "documents_needed": [], "tips": ["Carry approval email to airport"]},
+            {"step_number": 6, "title": "Travel to NZ + Activation", "description": "Travel to NZ within visa validity period (typically 12 months from issue date). Visa activates on arrival.", "estimated_days": 30, "documents_needed": ["Passport", "Funds proof at POE"], "tips": ["Customs officer may ask for funds + return plan", "Carry copy of visa approval"]},
+            {"step_number": 7, "title": "Work + Travel in NZ", "description": "Work for any employer (subject to standard NZ employment law), travel freely. Some restrictions on permanent positions (>12 months with same employer).", "estimated_days": 365, "documents_needed": ["IRD number application post-arrival"], "tips": ["Apply for IRD number to work legally", "Common Working Holiday jobs: hospitality, retail, farm work, ski resorts, tourism", "Some Working Holiday makers extend to AEWV if employer sponsors"]},
+            {"step_number": 8, "title": "Optional Extensions / Conversions", "description": "Working Holiday Visa generally not extendable. UK + Canada eligible for 12-month extension on Working Holiday. May convert to AEWV/Student Visa with appropriate offer.", "estimated_days": 30, "documents_needed": [], "tips": ["Plan early if extending or converting", "AEWV pathway requires accredited employer + Job Check"]},
+        ],
+        "document_checklist": [
+            {"name": "Valid passport (partner country citizenship)", "mandatory": True, "notes": "India NOT eligible"},
+            {"name": "Photo (INZ specifications)", "mandatory": True, "notes": ""},
+            {"name": "Bank statements showing NZD 4,200+", "mandatory": True, "notes": "3 months minimum"},
+            {"name": "Return flight booking (recommended)", "mandatory": False, "notes": "Alternative: extra NZD 2,500 funds"},
+            {"name": "Medical exam (if healthcare/agriculture/childcare anticipated)", "mandatory": False, "notes": "Most don't need"},
+            {"name": "Police Clearance Certificate (if requested)", "mandatory": False, "notes": "Usually not required for Working Holiday"},
+            {"name": "Travel insurance certificate (recommended)", "mandatory": False, "notes": "Not mandatory but strongly advised"},
+            {"name": "Itinerary / travel plan (informal)", "mandatory": False, "notes": "Helps demonstrate genuine holiday intent"},
+            {"name": "Travel CV / list of past Working Holidays in other countries", "mandatory": False, "notes": "If applicable"},
+            {"name": "Application form (online portal completes this)", "mandatory": True, "notes": ""},
+        ],
+        "common_rejection_reasons": [
+            "Citizenship not on Working Holiday partner country list (India is NOT — common refusal cause for Indian-only passport holders)",
+            "Insufficient funds (less than NZD 4,200 + return)",
+            "Prior NZ Working Holiday Visa held (once-in-lifetime restriction)",
+            "Age above eligible range at time of application",
+            "Funds sponsored by parents (must be personal funds in own name)",
+            "Outstanding debts to NZ government from prior visits",
+            "Health/character concerns",
+        ],
+        "success_tips": [
+            "For Indian-only passport holders — consider Student Visa or AEWV pathway instead (India NOT partner country)",
+            "Maintain NZD 4,200+ stable in bank account for 3+ months before applying",
+            "Book a one-way ticket only if showing NZD 2,500 extra funds for return",
+            "Apply BEFORE turning upper age limit — visa can extend past birthday once issued",
+            "Plan flexible itinerary — INZ wants to see holiday intent, not just work plan",
+            "Once in NZ, network for AEWV conversion via accredited employer",
+            "UK + Canada nationals: take advantage of 12-month extension after first 12 months",
+            "Get IRD number first thing after arrival — required for legal work",
+        ],
+        "faqs": [
+            {"q": "Can Indian nationals apply for NZ Working Holiday?", "a": "NO — India is NOT a partner country in NZ's Working Holiday Scheme as of 2026. Eligible nationals include UK, Germany, France, USA, Canada, Japan, and ~40 others. Dual nationals with eligible passport can apply."},
+            {"q": "How long can I stay on Working Holiday Visa?", "a": "12 months for most countries; some (UK, Canada, Czech Republic, France, Germany, Ireland) get 23 months or 12 + 12 month extensions."},
+            {"q": "Can I work full-time on this visa?", "a": "Yes — but restrictions on permanent positions with same employer (12 months max). Can work multiple jobs. Cannot study more than 6 months."},
+            {"q": "Can I bring children?", "a": "No — dependent children cannot be on a Working Holiday Visa. They'd need separate visas (Student Visa, Visitor Visa) and must be supported separately."},
+            {"q": "Can I convert to PR from Working Holiday?", "a": "Not directly. But Working Holiday makers often find accredited employer + sponsor for AEWV → Green List/SMC pathway to PR."},
+            {"q": "What if I overstay?", "a": "Overstaying creates an immigration violation. May be banned from future NZ visas. Always extend or transition before visa expires."},
+        ],
+        "official_url": "https://www.immigration.govt.nz/new-zealand-visas/apply-for-a-visa/about-visa/working-holiday-visa-for-citizens-of-countries-other-than-the-uk",
+        "vfs_url": "https://visa.vfsglobal.com/ind/en/nzl/",
+        "source_urls": [
+            "https://www.immigration.govt.nz/new-zealand-visas/preparing-a-visa-application/working-holiday-visas",
+            "https://www.immigration.govt.nz/new-zealand-visas/apply-for-a-visa/about-visa/working-holiday-visa-for-citizens-of-countries-other-than-the-uk",
+            "https://www.immigration.govt.nz/new-zealand-visas/options/work",
+        ],
+        "verified_notes": "Manual Fast-Path B.2 seed — verified against immigration.govt.nz on 2026-02-27. CRITICAL NOTE: India is NOT a Working Holiday Scheme partner country with NZ — Indian-only passport holders cannot apply. Documented for clients with eligible second nationality or general consultancy reference.",
+    },
+]
+
+
 ALL_WORKFLOWS: Dict[str, List[Dict[str, Any]]] = {
     "AU": AUSTRALIA_WORKFLOWS,
     "CA": CANADA_WORKFLOWS,
+    "NZ": NEW_ZEALAND_WORKFLOWS,
 }
 
 

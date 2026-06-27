@@ -7,7 +7,7 @@ import logging
 from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from core.database import db
 from routers.auth import get_current_user
 from core.services import log_activity
@@ -659,6 +659,44 @@ async def generate_workflow(
         from routers.country_workflows import find_verified_workflow
         verified = await find_verified_workflow(country, service_type)
         if verified:
+            # Build a flat document_checklist (with doc_id) and a lookup map for nested step docs
+            flat_doc_checklist = verified.get("document_checklist", []) or []
+            # Lookup by lowercased document name for matching against step.documents_needed strings
+            doc_lookup_by_name: Dict[str, Dict[str, Any]] = {}
+            for d in flat_doc_checklist:
+                if isinstance(d, dict) and d.get("name"):
+                    doc_lookup_by_name[d["name"].lower().strip()] = d
+
+            def _resolve_step_doc(doc_ref: Any, fallback_id: str) -> Dict[str, Any]:
+                """Resolve a step.documents_needed entry to a full doc object with doc_id."""
+                if isinstance(doc_ref, dict):
+                    # Already a dict — pass through, ensure doc_id present
+                    out = {**doc_ref}
+                    if not out.get("doc_id"):
+                        out["doc_id"] = fallback_id
+                    return out
+                # It's a string — try to match against flat checklist by exact / substring
+                name_str = str(doc_ref).strip()
+                key = name_str.lower()
+                # Exact match first
+                match = doc_lookup_by_name.get(key)
+                # Substring match fallback (step doc may be shorter / abbreviated)
+                if not match:
+                    for ck, cv in doc_lookup_by_name.items():
+                        if key and (key in ck or ck in key):
+                            match = cv
+                            break
+                if match:
+                    return {
+                        "doc_id": match.get("doc_id", fallback_id),
+                        "name": match.get("name", name_str),
+                        "mandatory": match.get("mandatory", True),
+                        "notes": match.get("notes", ""),
+                        "description": match.get("notes", ""),
+                    }
+                # No match — return as-is with fallback doc_id (so downstream can still reference)
+                return {"doc_id": fallback_id, "name": name_str, "mandatory": True, "notes": "", "description": ""}
+
             # Format into the same response shape as a complete job
             return {
                 "job_id": f"seeded-{verified.get('workflow_id', 'unknown')[:8]}",
@@ -680,6 +718,8 @@ async def generate_workflow(
                     ),
                     "success_tips": verified.get("success_tips", []),
                     "common_rejection_reasons": verified.get("common_rejection_reasons", []),
+                    # Sweep B.2 — Surface flat document_checklist with doc_id for downstream consumers
+                    "document_checklist": flat_doc_checklist,
                     "steps": [
                         {
                             "step_name": s.get("title", ""),
@@ -687,8 +727,11 @@ async def generate_workflow(
                             "description": s.get("description", ""),
                             "duration_days": s.get("estimated_days", 0),
                             "required_documents": [
-                                {"name": d, "description": "", "mandatory": True}
-                                for d in (s.get("documents_needed", []) or [])
+                                _resolve_step_doc(
+                                    d,
+                                    fallback_id=f"{verified.get('country_code','??')}-{verified.get('subclass_id','??')}-STEP{s.get('step_number', i+1):02d}-DOC-{di+1:02d}",
+                                )
+                                for di, d in enumerate(s.get("documents_needed", []) or [])
                             ],
                             "important_notes": "; ".join(s.get("tips", []) or []),
                             "government_fees": "",

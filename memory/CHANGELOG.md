@@ -4,6 +4,61 @@ This file appends every completed phase/feature with dates and verification stat
 
 
 ---
+### 🇳🇿 Sweep B.2 — New Zealand (NZ) Verified Seeding + Fastpath doc_id Fix COMPLETE (Feb 27, 2026 morning)
+
+Third atomic ship in Sweep B.2 (AU done → CA done → **NZ done** → UK next). Includes 1 surgical fastpath fix from e1_tester TC2 FAIL + 6 NZ verified workflows. All triple-gate verified.
+
+**6 NZ workflows shipped (all status=verified, version=1):**
+| Subclass | Name | Service | Fee Principal (NZD) | Fee (≈INR) | Processing (days) |
+|----------|------|---------|---------------------|------------|-------------------|
+| SMC | Skilled Migrant Category Resident — 6-Point System | pr | 6,280 (EOI+RV+ML) | 3,14,000 | 180-540 |
+| Green-List-T1 | Green List Tier 1 — Straight to Residence | pr | 4,570 (RV+ML) | 2,28,500 | 60-180 |
+| AEWV | Accredited Employer Work Visa | work | 805 (WV+Levy) | 40,250 | 14-60 |
+| Student | Fee-paying Student Visa (Long-term) | student | 375 (SV) | 18,750 | 28-84 |
+| Partner-Resident | Partner of a New Zealander Resident Visa | partner | 3,070 (RV+ML) | 1,53,500 | 180-450 |
+| Working-Holiday | Working Holiday Visa | visitor | 280 (WH) | 14,000 | 7-30 |
+
+**⚠ Honest note in NZ-Working-Holiday workflow:** India is NOT a Working Holiday Scheme partner country with NZ. Documented for clients with dual nationality/eligible second passport, and as general consultancy reference. Workflow description, FAQs, and rejection_reasons all explicitly flag this so client-facing surfaces won't mislead Indian-only passport holders.
+
+**Files:**
+- `backend/scripts/seed_country_workflows_b2.py` — Added `NEW_ZEALAND_WORKFLOWS` list (~1,100 lines of factual INZ-verified data). Updated `ALL_WORKFLOWS` dict to include `"NZ": NEW_ZEALAND_WORKFLOWS`.
+- `backend/routers/ai_workflow_builder.py` — Fastpath converter rewrite (Fix below).
+
+**Fix Applied (from e1_tester CA spot-check TC2 FAIL):**
+
+🔧 **Fastpath Converter: doc_id Preservation** (`ai_workflow_builder.py`)
+- **Problem identified:** When fastpath converted `country_visa_workflow.document_checklist[]` to `steps[].required_documents[]`, it was mapping each string in `step.documents_needed[]` to a `{name: string, description: "", mandatory: True}` dict — **dropping doc_id entirely**. Top-level flat list was also never surfaced.
+- **Fix implemented (3 layers):**
+  1. **Surfaced flat top-level `document_checklist[]` in result** — full doc objects with `doc_id`, `name`, `mandatory`, `notes`. Direct pass-through from verified workflow.
+  2. **Smart matching in nested `steps[].required_documents[]`** — Built `doc_lookup_by_name` map from flat checklist, then for each step doc string attempts exact + substring matching to enrich with `doc_id`, `mandatory`, `notes`. On match: real doc_id (e.g. `CA-EE-FSW-DOC-01`). On no match: deterministic fallback (`CA-EE-FSW-STEP02-DOC-01`) so downstream consumers always have a queryable id.
+  3. **Imported `Dict, Any`** typing additions for the helper.
+
+**Triple-gate verified (NZ + Fastpath fix combined):**
+- 🟢 Seed `inserted=6 skipped=0 errored=0` · Idempotent re-run `inserted=0 skipped=6`
+- 🟢 NZ-SMC spot-check: 882-char desc · 7 eligibility · 9 fees · 8 steps · 16 docs (all with `NZ-SMC-DOC-NN` doc_id) · 8 rejections · 8 tips · 6 FAQs · 5 sources · all 14 mandatory fields populated substantively
+- 🟢 **Fastpath fix verified on CA + AU + NZ** — All 14 service-type combinations tested (`CA/pr/EE-FSW`, `CA/visitor/Visitor-Visa`, `AU/pr/189`, `AU/student/500`, `NZ/pr/SMC`, `NZ/pr/Green-List-T1`, `NZ/work/AEWV`, `NZ/student/Student`, `NZ/partner/Partner-Resident`, `NZ/visitor/Working-Holiday`): each returns `flat_docs=10-16, all_flat_with_id=True, all_step_required_docs_with_doc_id=True`
+- 🟢 Fast-path performance NZ: **100-112ms** across all 6 NZ subclasses (target <500ms; well under)
+- 🟢 6 NZ canonical audit_logs entries with `entity_id`, `user_id`, `user_name`, `entity_type`, `created_at` (no legacy keys)
+- 🟢 Admin Hub `/admin/country-workflows` shows KPI tiles `Total=26, Verified=18 (6 AU + 6 CA + 6 NZ), Draft=0, Archived=8` (legacy test data + one SG hotfix from prior testing). All 18 verified rows render leamss-teal brand-compliantly.
+- 🟢 Backend logs clean, frontend compiled successfully
+
+**.gov sources cited across 6 NZ workflows:**
+- `immigration.govt.nz` (primary INZ — SMC, Green List, AEWV, Student Visa, Partner Visa, Working Holiday)
+- `immigration.govt.nz/about-us/policy-and-law/how-the-immigration-system-operates/fees-and-levies` (current fee schedule)
+- `immigration.govt.nz/employ-migrants/employer-accreditation-and-the-accredited-employer-work-visa` (AEWV employer accreditation)
+- `immigration.govt.nz/employ-migrants/get-a-job-check` (Job Check process)
+- `nzqa.govt.nz/qualifications-standards/international-qualifications/` (NZQA IQA)
+- `immigration.govt.nz/new-zealand-visas/apply-for-a-visa/about-visa/post-study-work-visa` (PSWV pathway)
+- INZ Green List skilled jobs catalogue
+
+**Pending Sweep B.2 (P0):**
+- 🇬🇧 United Kingdom — 6 subclasses (Skilled Worker · Global Talent · Student · Spouse · ILR · Visitor)
+
+**Cumulative Sweep B.2 progress:** 18/24 workflows shipped (75% done). UK is the final atomic ship for B.2.
+
+
+
+---
 ### 🇨🇦 Sweep B.2 — Canada (CA) Verified Seeding + 3 Fixes COMPLETE (Feb 27, 2026)
 
 Second atomic ship in Sweep B.2 (AU → **CA** → NZ → UK). Includes 3 small fixes from e1_tester WARN findings + 6 CA verified workflows. All triple-gate verified.
