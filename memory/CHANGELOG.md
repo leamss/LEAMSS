@@ -4,6 +4,163 @@ This file appends every completed phase/feature with dates and verification stat
 
 
 ---
+# 🎉🎉🎉 MEGA DISPATCH SWEEP B.4 COMPLETE — 80 Verified Workflows Across 8 Country/Region Groups (Feb 27, 2026) 🎉🎉🎉
+
+**The complete Country Workflow Seeding Initiative is now finished.** Across 9 atomic sub-slices (B.4.1-9), Sweep B.4 added **56 verified workflows** to the original B.2 baseline of 24, bringing the verified Country Workflows Hub to **80 total workflows**.
+
+### Final cumulative numbers
+| Country / Region | B.2 (orig) | B.4 (new) | Total Verified |
+|---|---|---|---|
+| 🇦🇺 Australia (AU) | 6 | 10 | **16** |
+| 🇨🇦 Canada (CA) | 6 | 6 | **12** |
+| 🇮🇳 India (IN) | 0 | 12 | **12** |
+| 🇳🇿 New Zealand (NZ) | 6 | 4 | **10** |
+| 🇬🇧 United Kingdom (UK) | 6 | 6 | **12** |
+| 🇺🇸 United States (US) | 0 | 6 | **6** |
+| 🇩🇪 Germany (DE) | 0 | 6 | **6** |
+| 🇪🇺 Schengen Area (EU) | 0 | 6 | **6** |
+| **TOTAL** | **24** | **56** | **80** |
+
+### Audit log integrity
+- `_b2` canonical: **24 entries** (original baseline preserved unchanged)
+- `_b4` canonical: **56 entries** (12 IN + 10 AU + 6 CA + 4 NZ + 6 UK + 6 US + 6 DE + 6 EU)
+- **Total audit entries: 80** — 100% coverage, 1:1 mapping with verified workflows
+- Audit naming bug from earlier in sweep (some `_b4` entries incorrectly labeled `_b2`) was fixed mid-sweep and retroactively backfilled
+
+### Sub-slices delivered (chronological)
+1. **B.4.1** — Perplexity AI Tertiary Fallback integration (graceful key-absent skip)
+2. **B.4.2** — India NEW (12 visas — first net-new country in B.4)
+3. **B.4.3** — Australia EXPANSION (10 new, cumulative 16)
+4. **B.4.4** — Canada EXPANSION (6 new, cumulative 12) + Audit log canonical naming bugfix + retro-backfill
+5. **B.4.5** — New Zealand EXPANSION (4 new, cumulative 10) + 4 research corrections vs Sir's brief
+6. **B.4.6** — UK EXPANSION (6 new, cumulative 12) + Tech Nation status correction
+7. **B.4.7** — USA NEW (6 visas) + **`validate_visa_names.py` utility CREATED**
+8. **B.4.8** — Germany NEW (6 visas) + EU Blue Card 2026 threshold correction + validator extended to DE
+9. **B.4.9** — Schengen NEW (6 visas) + 3 corrections (€90 fee + ETIAS postponed + EES status) + validator extended to EU **← FINAL**
+
+### Documentation quality across all 80 workflows
+- **14 mandatory fields** present in every workflow (country/subclass_id/service_type/description/eligibility/fees/processing/steps/docs/rejections/tips/FAQs/URLs/sources)
+- **doc_id pattern `{COUNTRY}-{SID}-DOC-NN`** on every document across **1,290+ total docs**
+- **Feb 2026 fee accuracy** verified against official .gov / official agency portals
+- **Research-driven corrections** transparently documented in `verified_notes` for every divergence from input brief (NZ 4, UK 1, USA 0, Germany 1, Schengen 3 = 9 total)
+- **Idempotent seeding** — re-running script always produces inserted=0 skipped=N
+- **Fast-path latency**: All curl tests <200ms (typical 100-150ms) — sub-LLM target achieved
+- **Audit log canonical naming** — all entries use `country_workflow_seeded_b4` action, no `_b2` mislabeling
+
+### Infrastructure delivered
+- 📝 `backend/scripts/seed_country_workflows_b4.py` — Master seed script (~10,000 lines, all 7 country/region lists + ALL_WORKFLOWS dict + idempotent insert logic)
+- 🆕 `backend/scripts/validate_visa_names.py` — Pre-seed URL validator (180 lines, async httpx, supports US/DE/EU inline + JSON file mode)
+- 📝 `backend/routers/country_workflows.py` — `COUNTRY_ALIAS_MAP` extended with ~25 new aliases across IN/UK/US/DE/EU
+- 📝 `backend/routers/ai_workflow_builder.py` — `COUNTRY_REFERENCES` enhanced for all 8 country/region groups with Feb 2026 fees + reform context
+- 📊 8 distinct service_type canonical mappings (visitor / work / student / pr / partner / family / business / transit)
+
+### Acknowledged research corrections (NZ/UK/USA/DE/EU precedent — same transparent pattern across all 9 sub-slices)
+| Sub-slice | Sir's Brief Said | Research Confirmed (Feb 2026) |
+|---|---|---|
+| B.4.5 NZ | Investor 2 still active | CLOSED Sept 2022 → AIP (Active Investor Plus) since Apr 2023 |
+| B.4.5 NZ | Skilled Migrant points-based | Reform to 6-point Green List system 2023 |
+| B.4.5 NZ | Skilled Refugee category | DOES NOT EXIST — replaced with Refugee Family Support |
+| B.4.5 NZ | Specific Purpose Visa | Reformed to Specific Purpose / Event visa category |
+| B.4.6 UK | Tech Nation CLOSED | ACTIVE — acquired by Founders Forum + £11M Govt contract May 2025 |
+| B.4.8 DE | EU Blue Card €48,300 / €43,759 | €50,700 / €45,934.20 (BGBl. 2025 I Nr. 278, Jan 1, 2026) |
+| B.4.9 EU | Schengen C €80 | €90 (June 11, 2024 raise was €60 → €90, NOT €80) |
+| B.4.9 EU | ETIAS scheduled mid-2025 | POSTPONED to Q4 2026 (Oct-Dec launch) |
+| B.4.9 EU | EES Oct 2024 delayed | PHASED ROLLOUT Oct 12, 2025 → FULL April 10, 2026 |
+
+**Pattern proven across 9 ships:** Honest correction with `verified_notes` trace > silent passthrough of outdated brief.
+
+### Next Action Items (Sir to direct)
+- 🔴 P0 (recommended): Sir validates B.4.9 + entire MEGA DISPATCH via `e1_tester` (cumulative 80 verified spot-check across all 8 countries)
+- ⚪ Post-MEGA-DISPATCH backlog (Sir's choice — all parked during B.4):
+  - Phase 22.4 (AI templates)
+  - Phase 23 (Performance Reviews, Offboarding, Training, OKRs, Central AI Jobs Dashboard)
+  - Resend API key integration
+  - Stripe payments integration
+  - Parked enhancements: status_flag field + active-only filter, per-country verified badge, "Critical Deadlines Dashboard" widget, "Visa Strategy Advisor" wizard, "DE Pathway Selector" wizard
+
+
+---
+### 🟢 Sweep B.4.9 — Schengen NEW (6 Net-New Verified Workflows; MEGA DISPATCH FINAL) (Feb 27, 2026)
+
+**Atomic Ship — FINAL Sub-Slice B.4.9. THIRD NET-NEW COUNTRY/REGION GROUP.**
+
+Seeded **6 new Schengen Area visa workflows** (no existing B.2 EU seeds). All cleared 14-mandatory-field schema, doc_id pattern `EU-{SID}-DOC-NN`, canonical `_b4` audit logs. Plus extended `validate_visa_names.py` to support `--inline EU`.
+
+**Workflows seeded (6):**
+
+1. **EU-C-Tourist** ✅ — Schengen Short-Stay Type C Tourist (**€90 adult** raised from €60 on June 11, 2024 — NOT €80 as some sources state · €45 child 6-12 · FREE under 6 · 90/180 rule · biometrics + EES rolling out). India fully visa-required.
+2. **EU-C-Business** ✅ — Schengen Short-Stay Type C Business (same €90 fee + EU host invitation letter + Indian employer letter + business activity proof). Multi-entry common for repeat applicants.
+3. **EU-D-Long-Stay** ✅ — Schengen Long-Stay National Type D (country-specific issuance: Italy €116 · Germany €75 · France €99 · Spain €80+€16 TIE · Netherlands €228 · Austria €150 · Portugal €90). Gateway to national residence permit. **ETIAS exempt for Type D holders.**
+4. **EU-A-Transit** ✅ — Schengen Airport Transit Type A (specific nationalities only — **India NOT typically required**). For non-airside transit: Type C tourist instead. EES exempt (no border crossing).
+5. **EU-C-Family-Visit** ✅ — Schengen Short-Stay Family Visit Type C (invitation from EU resident family + **Verpflichtungserklärung (DE/CH) / Garanti d'accueil (FR)** for sponsor financial commitment + relationship proof apostilled).
+6. **EU-Study** ✅ — Schengen Study Visa (Type C €90 for <90 days short courses; Type D country-specific €75-€228 for full programs). Country-specific financial proof + post-grad job seeker permit (DE 18mo · NL 1yr · FR 1yr · IT 12mo).
+
+**🔧 Research-driven corrections vs Sir's brief (3 — most in any single sub-slice):**
+
+| Sir's Brief | Research Confirmed (Feb 27, 2026) | Source |
+|---|---|---|
+| Schengen C "uniform €80" + "2024 raise from €60" | **€90 adult / €45 child 6-12 / FREE under 6** (June 11, 2024 raise was €60 → €90, NOT €80) | European Commission + AXA Schengen + Atlys + Economic Times + Mfa.ee + Tripcabinet |
+| ETIAS "scheduled mid-2025" | **POSTPONED to Q4 2026** (Oct-Dec 2026 launch window). NOT operational. European Council confirmed March 5, 2025 | EU Travel Portal + Fragomen + Council communications |
+| EES "Oct 2024 launch was delayed; verify Feb 2026 status" | **CONFIRMED PHASED ROLLOUT** (Oct 12, 2025 start; FULL MANDATORY April 10, 2026). As of Feb 27, 2026 = mid-rollout | French Diplomatie + EU Commission Press Release |
+
+All 3 corrections documented transparently in EU-C-Tourist `verified_notes`.
+
+**🔧 Validator utility extended (B.4.9 — generalization complete):**
+- `validate_visa_names.py` now supports `--inline EU` (in addition to US + DE)
+- Pre-seed validation on 6 EU visa names: **6/6 PASS** on primary home-affairs.ec.europa.eu URLs
+- 2 secondary schengenvisainfo.com URLs returned HTTP 404 (path changes — NOT closures; EU Commission primary URLs are authoritative)
+- **Pattern proven:** Validator now generalizes for any country code passed via inline (US/DE/EU all tested)
+
+**Sources verified (Feb 27, 2026):**
+- `home-affairs.ec.europa.eu` (European Commission — primary)
+- `travel-europe.europa.eu` (EU travel portal — ETIAS + EES official)
+- `axa-schengen.com` (specialist reference)
+- `schengenvisainfo.com` (broad coverage)
+- `atlys.com/blog/schengen-visa-fees-2026` (fee analysis)
+- Economic Times (fee analysis India)
+- Fragomen (ETIAS postponement)
+- French Diplomatie (EES April 10, 2026 confirmation)
+
+**Reforms / current status accurately captured:**
+- ✅ Schengen Type C fee €90 adult (June 11, 2024 raise from €60 — NOT €80)
+- ✅ ETIAS POSTPONED to Q4 2026 (Oct-Dec launch window) — confirmed March 5, 2025 European Council
+- ✅ EES PHASED ROLLOUT (Oct 12, 2025 → April 10, 2026 full mandatory)
+- ✅ Biometric data retention: 3 years normal entries, 5 years for overstayers
+- ✅ Country-specific Type D fees: IT €116 · DE €75 · FR €99 · ES €80 + €16 TIE · NL €228 · AT €150 · PT €90
+- ✅ India = visa-required for ALL Schengen (no waiver)
+- ✅ Type D holders EXEMPT from ETIAS (major perk)
+- ✅ Type A NOT required for Indian passport holders (airside transit only)
+- ✅ Type C Family Visit: Verpflichtungserklärung (DE/CH) / Garanti d'accueil (FR)
+- ✅ Study: Type C vs Type D distinction by duration
+- ✅ Post-grad job seeker permits: DE 18mo · NL 1yr (Zoekjaar) · FR 1yr (APS) · IT 12mo
+
+**Backend infra changes (EU country aliases + service types):**
+- 📝 `backend/routers/country_workflows.py` — `COUNTRY_ALIAS_MAP` extended with EU aliases: "schengen", "schengen area", "eu", "europe", "european union", "schengen zone" → EU
+- 📝 `backend/routers/ai_workflow_builder.py` — Added `COUNTRY_REFERENCES["schengen"]` + `COUNTRY_REFERENCES["eu"]` with Feb 2026 fees + ETIAS/EES status + country-specific Type D fees. Service_types covered: visitor / business / student / pr / partner / transit
+
+**Triple-gate verification:**
+- 🟢 Seed `inserted=6 skipped=0 errored=0`; idempotency `inserted=0 skipped=6`
+- 🟢 **ALL 6 integrity-checked:** 14 mandatory fields present · 93 docs (17+16+16+12+16+16) all with `EU-{SID}-DOC-NN` doc_id · 6/6 canonical `_b4` audit logs
+- 🟢 Fast-path live curl (4 parallel): EU/visitor → EU-C-Tourist (149ms) · Schengen/pr → EU-D-Long-Stay (144ms) · Europe/transit → EU-A-Transit (139ms) · EU/business → EU-C-Business (102ms) — all unique service_types resolve correctly + Schengen/Europe aliases work
+- 🟢 **DB total verified workflows: 80** (AU=16, CA=12, IN=12, NZ=10, UK=12, US=6, DE=6, EU=6) — **MEGA DISPATCH COMPLETE**
+- 🟢 **Audit log counts: `_b4`=56 (12 IN + 10 AU + 6 CA + 4 NZ + 6 UK + 6 US + 6 DE + 6 EU), `_b2`=24** unchanged
+- 🟢 Validator pre-seed inline EU run: 6/6 OK on primary URLs
+
+**Files modified (3) + extended (1):**
+- 📝 `backend/scripts/seed_country_workflows_b4.py` — `SCHENGEN_NEW_WORKFLOWS` list (6 dicts, ~1,900 lines) added + `ALL_WORKFLOWS["EU"]` mapping. File now ~10,000 lines (B.4.2-9 combined).
+- 📝 `backend/routers/country_workflows.py` — `COUNTRY_ALIAS_MAP` extended with 6 EU aliases
+- 📝 `backend/routers/ai_workflow_builder.py` — Added "schengen" + "eu" entries with Feb 2026 fees + reform context
+- 📝 `backend/scripts/validate_visa_names.py` — Extended with SCHENGEN_VISA_NAMES + `--inline EU` flag (now supports US + DE + EU)
+
+**Highlighted observations:**
+- **First multi-country regional workflow group** — Schengen treats 29 countries as unified visa area
+- **Most timely 2026 reforms documented** of any sub-slice — ETIAS postponement + EES rollout + Schengen fee correction all happening simultaneously
+- **Validator generalization complete** — pattern now works for any country/region code (US/DE/EU all tested) and ready for arbitrary JSON file mode for future expansions
+- **Type D country-specific fee table** is the most detailed multi-country fee comparison in the dataset — covers 7 major destinations
+- **Family Visit + Verpflichtungserklärung** sets pattern for future EU member state Family Reunion (Type D) workflows
+
+
+---
 ### 🟢 Sweep B.4.8 — Germany NEW (6 Net-New Verified Workflows) + Validator extended to DE (Feb 27, 2026)
 
 **Atomic Ship — Sub-Slice B.4.8 of MEGA DISPATCH Sweep B.4. SECOND NET-NEW COUNTRY (first EU).**

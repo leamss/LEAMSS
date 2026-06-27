@@ -119,6 +119,49 @@ GERMANY_VISA_NAMES: List[Dict[str, str]] = [
 ]
 
 
+# ──────────────────────────────────────────────────────────────────────────────
+# Schengen visa name reference list for B.4.9 inline validation
+# ──────────────────────────────────────────────────────────────────────────────
+SCHENGEN_VISA_NAMES: List[Dict[str, str]] = [
+    {
+        "subclass_id": "C-Tourist",
+        "subclass_name": "Schengen Short-Stay Type C Tourist (€90 fee; 90 days in 180; biometrics)",
+        "official_url": "https://home-affairs.ec.europa.eu/policies/schengen/visa-policy/applying-schengen-visa_en",
+        "secondary_url": "https://www.axa-schengen.com/en/visa/types/schengen-visa-type-c",
+    },
+    {
+        "subclass_id": "C-Business",
+        "subclass_name": "Schengen Short-Stay Type C Business (90/180; invitation letter required)",
+        "official_url": "https://home-affairs.ec.europa.eu/policies/schengen/visa-policy_en",
+        "secondary_url": "https://www.schengenvisainfo.com/business-schengen-visa/",
+    },
+    {
+        "subclass_id": "D-Long-Stay",
+        "subclass_name": "Schengen Long-Stay National Visa Type D (>90 days; country-specific issuance)",
+        "official_url": "https://home-affairs.ec.europa.eu/policies/schengen/visa-policy_en",
+        "secondary_url": "https://www.axa-schengen.com/en/visa/types/schengen-visa-type-d",
+    },
+    {
+        "subclass_id": "A-Transit",
+        "subclass_name": "Schengen Airport Transit Visa Type A (specific nationalities — India NOT typically required)",
+        "official_url": "https://home-affairs.ec.europa.eu/policies/schengen/visa-policy_en",
+        "secondary_url": "https://www.schengenvisainfo.com/airport-transit-schengen-visa/",
+    },
+    {
+        "subclass_id": "C-Family-Visit",
+        "subclass_name": "Schengen Short-Stay Family Visit (Type C; invitation letter from EU resident family)",
+        "official_url": "https://home-affairs.ec.europa.eu/policies/schengen/visa-policy_en",
+        "secondary_url": "https://www.schengenvisainfo.com/family-schengen-visa/",
+    },
+    {
+        "subclass_id": "Study",
+        "subclass_name": "Schengen Study Visa (Type C for <90 days; Type D for full programs — country-specific)",
+        "official_url": "https://home-affairs.ec.europa.eu/policies/schengen/visa-policy_en",
+        "secondary_url": "https://www.schengenvisainfo.com/student-schengen-visa/",
+    },
+]
+
+
 async def check_url(client: httpx.AsyncClient, url: str) -> Dict[str, Any]:
     """HTTP HEAD with GET fallback. Returns {status, http_code, error}."""
     try:
@@ -193,8 +236,12 @@ async def main() -> None:
             visas = GERMANY_VISA_NAMES
             country_code = "DE"
             slice_label = "B.4.8 INLINE"
+        elif inline_choice == "EU":
+            visas = SCHENGEN_VISA_NAMES
+            country_code = "EU"
+            slice_label = "B.4.9 INLINE (Schengen)"
         else:
-            print(f"⚠  Unknown inline country code '{inline_choice}'. Supported: US, DE")
+            print(f"⚠  Unknown inline country code '{inline_choice}'. Supported: US, DE, EU")
             sys.exit(1)
         print(f"\n══════════════════════════════════════════════")
         print(f"  VALIDATING {country_code} ({slice_label}) — {len(visas)} visas")

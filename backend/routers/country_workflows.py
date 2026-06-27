@@ -603,6 +603,9 @@ COUNTRY_ALIAS_MAP: Dict[str, str] = {
     # Germany (Sweep B.4.8 — Feb 27, 2026)
     "germany": "DE", "de": "DE", "deutschland": "DE", "german": "DE",
     "federal republic of germany": "DE", "brd": "DE",
+    # Schengen Area (Sweep B.4.9 — Feb 27, 2026 — MEGA DISPATCH FINAL)
+    "schengen": "EU", "schengen area": "EU", "eu": "EU", "europe": "EU",
+    "european union": "EU", "schengen zone": "EU",
 }
 
 SERVICE_TYPE_CANONICAL_MAP: Dict[str, str] = {

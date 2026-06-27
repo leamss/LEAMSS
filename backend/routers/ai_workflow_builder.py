@@ -147,6 +147,22 @@ COUNTRY_REFERENCES = {
         "family": "Family Reunion Visa (Familiennachzug).",
         "business": "Self-Employment Visa (Selbständige Tätigkeit)."
     },
+    "schengen": {
+        "visitor": "Schengen Short-Stay Type C Tourist (€90 adult, raised from €60 on Jun 11, 2024; €45 child 6-12; FREE under 6). Reference: home-affairs.ec.europa.eu. Max 90 days in any 180-day rolling window. EES biometric border (full April 10, 2026). ETIAS irrelevant for India (postponed Q4 2026, only for visa-exempt nationalities).",
+        "business": "Schengen Short-Stay Type C Business (same €90 fee). Invitation letter from EU host company + Indian employer letter required. Multi-entry common for repeat travelers.",
+        "student": "Schengen Study Visa — Type C for <90 days uniform €90; Type D for full programs country-specific (€75-€228). Country-specific financial proof (DE €11,904 Sperrkonto / FR €7,928/yr / IT €500/mo / ES €7,200/yr / AT €1,200-€1,500/mo).",
+        "pr": "Schengen Long-Stay National Visa Type D (>90 days). Country-specific issuance (IT €116 · DE €75 · FR €99 · ES €80+€16 TIE · NL €228 · AT €150 · PT €90). Gateway to national residence permit. ETIAS exempt for Type D holders.",
+        "partner": "Schengen Short-Stay Family Visit Type C. Invitation letter from EU resident family + Verpflichtungserklärung (DE/CH) / Garanti d'accueil (FR) / relationship proof apostilled.",
+        "transit": "Schengen Airport Transit Visa Type A. India NOT typically required. Required for specific nationalities (Afghanistan, Bangladesh, DR Congo, Eritrea, Ethiopia, Ghana, Iran, Iraq, Nigeria, Pakistan, Somalia, Sri Lanka, Syria + state-specific additions)."
+    },
+    "eu": {
+        "visitor": "Schengen Short-Stay Type C Tourist (€90 adult). Reference: home-affairs.ec.europa.eu.",
+        "business": "Schengen Short-Stay Type C Business (€90 adult, invitation letter required).",
+        "student": "Schengen Study Visa — Type C (<90 days, €90) or Type D (country-specific).",
+        "pr": "Schengen Long-Stay National Visa Type D (country-specific issuance).",
+        "partner": "Schengen Short-Stay Family Visit Type C.",
+        "transit": "Schengen Airport Transit Visa Type A (specific nationalities only)."
+    },
     "japan": {
         "work": "Work Visa (Engineer/Specialist/Humanities). Reference: mofa.go.jp, moj.go.jp.",
         "student": "Student Visa (College of Japanese Language). Reference: mofa.go.jp.",

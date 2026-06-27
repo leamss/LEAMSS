@@ -5796,6 +5796,825 @@ GERMANY_NEW_WORKFLOWS: List[Dict[str, Any]] = [
 ]
 
 
+# ──────────────────────────────────────────────────────────────────────────────
+# Sweep B.4.9 — Schengen NEW (6 NEW workflows — FINAL sub-slice of MEGA DISPATCH)
+#
+# Sources verified Feb 27, 2026:
+#   - home-affairs.ec.europa.eu (European Commission — primary authoritative)
+#   - travel-europe.europa.eu (EU travel portal — ETIAS + EES official)
+#   - axa-schengen.com (specialist reference)
+#   - schengenvisainfo.com (broad coverage)
+#
+# CRITICAL Feb 2026 reforms/status reflected:
+#   - Schengen Type C fee: €90 adult (raised from €60 on Jun 11, 2024) ·
+#     €45 child 6-12 · FREE under 6
+#   - ETIAS (European Travel Information & Authorisation System): POSTPONED to
+#     Q4 2026 (Oct-Dec 2026 launch window). NOT operational as of Feb 2026.
+#     European Council confirmed March 5, 2025. Transitional + grace periods follow.
+#   - EES (Entry/Exit System): PHASED ROLLOUT started Oct 12, 2025.
+#     FULL MANDATORY April 10, 2026. As of Feb 2026 = mid-rollout, biometric
+#     border control progressively replacing manual passport stamping.
+#   - Biometric data retention: 3 years for normal entries, 5 years for overstayers
+#   - Type D country-specific fees: Italy €116 · Germany €75 · France €99 ·
+#     Spain €80 + €16 TIE · Netherlands €228 · Austria €150 · Portugal €90
+#   - India = visa-required for ALL Schengen (no waiver)
+#
+# Research-driven corrections vs Sir's brief (NZ/UK/USA/DE precedent):
+#   - Sir said "uniform €80 fee since 2024 raise from €60" → ACTUAL raise was
+#     €60 → €90 (NOT €80) effective Jun 11, 2024. Confirmed by European
+#     Commission + AXA Schengen + Atlys + Economic Times + Mfa.ee + Tripcabinet.
+#   - Sir said "ETIAS scheduled mid-2025" → POSTPONED to Q4 2026 (Oct-Dec window).
+#   - Sir said "EES Oct 2024 delayed; verify Feb 2026 status" → CONFIRMED:
+#     phased start Oct 12, 2025; full mandatory April 10, 2026 (mid-rollout now).
+#
+# Validator findings (B.4.9):
+#   - 6/6 visa URLs returned HTTP 200 on home-affairs.ec.europa.eu (primary)
+#   - 2/6 secondary URLs returned 404 (schengenvisainfo.com path changes — NOT
+#     closures; primary EU Commission URLs are the authoritative source)
+#
+# This is the FINAL sub-slice of MEGA DISPATCH Sweep B.4. After this seed,
+# total verified workflows = 80 across 8 country/region groups.
+# ──────────────────────────────────────────────────────────────────────────────
+SCHENGEN_NEW_WORKFLOWS: List[Dict[str, Any]] = [
+    # ── 1. EU-C-Tourist — Schengen Short-Stay Type C Tourist ───────────────────
+    {
+        "country_code": "EU", "country_name": "Schengen Area (29 countries)",
+        "subclass_id": "C-Tourist",
+        "subclass_name": "Schengen Short-Stay Type C Tourist Visa (90 days in 180; €90 standard fee)",
+        "service_type": "visitor", "category": "immigration",
+        "description": (
+            "The Schengen Short-Stay Type C visa is the **uniform short-stay visa** allowing "
+            "travel to any of the **29 Schengen Area countries** (26 EU + 4 non-EU: Norway, "
+            "Iceland, Switzerland, Liechtenstein). Max stay: **90 days within any 180-day "
+            "period**, calculated as a rolling window across the entire Schengen Area.\n\n"
+            "**CRITICAL Feb 2026 status:**\n"
+            "- **Standard adult fee: €90** (raised from €60 on June 11, 2024 — NOT €80 as "
+            "widely circulated)\n"
+            "- **Children 6-12: €45** (half-price)\n"
+            "- **Children under 6: FREE**\n"
+            "- **India IS visa-required** for all Schengen (no waiver)\n\n"
+            "**Biometrics (EES rollout in progress):**\n"
+            "- Fingerprints + facial image MANDATORY for first-time applicants\n"
+            "- Valid **59 months** (~5 years) for repeat applications\n"
+            "- **EES Entry/Exit System: PHASED ROLLOUT** (started Oct 12, 2025; FULL "
+            "MANDATORY April 10, 2026). Manual passport stamping progressively replaced.\n"
+            "- EES retains biometric + travel data for 3 years (5 yrs for overstayers)\n\n"
+            "**Apply at country of MAIN destination** (longest stay) — embassy or visa center "
+            "(VFS / TLScontact / BLS / GVCWorld depending on country). For India: VFS / "
+            "BLS / similar handle most. Application window: **6 months before** travel; "
+            "**latest 15 days before** travel.\n\n"
+            "**Travel insurance MANDATORY:** Minimum €30,000 medical coverage valid in all "
+            "Schengen countries.\n\n"
+            "**ETIAS Future Reform:** POSTPONED to Q4 2026 (Oct-Dec window). ETIAS will apply "
+            "ONLY to visa-exempt nationalities (not India). Indian travelers continue to "
+            "need full Schengen visa — ETIAS is irrelevant for India."
+        ),
+        "eligibility_summary": (
+            "Genuine tourist / family visit / short business purpose. Sufficient funds, "
+            "return travel intent, valid travel insurance (€30,000+ medical), strong home "
+            "country ties. India: full Schengen visa required (no ETIAS waiver)."
+        ),
+        "eligibility_criteria": [
+            {"label": "Purpose", "value": "Tourism, sightseeing, family visit, short business meetings, medical treatment, cultural events", "notes": "Must be temporary; no work or long-term study"},
+            {"label": "Maximum Stay", "value": "90 days within any 180-day rolling window across ENTIRE Schengen Area", "notes": "Track via EES from April 2026 fully"},
+            {"label": "Genuine Visit Intent", "value": "Strong evidence of return — job, family, property in home country", "notes": "Most critical refusal mitigation"},
+            {"label": "Sufficient Funds", "value": "Country-specific daily minimums (e.g. €50-€100/day) + accommodation + travel costs", "notes": "Bank statements 3-6 months"},
+            {"label": "Travel Insurance", "value": "MANDATORY: minimum €30,000 medical coverage valid in all Schengen states", "notes": "Trip duration coverage"},
+            {"label": "Country of Application", "value": "Apply at country of MAIN destination (longest stay) — single-entry / multi-entry options", "notes": "If equal stay: country of first entry"},
+            {"label": "Biometrics", "value": "Fingerprints + facial image MANDATORY (first-time + every 59 months)", "notes": "EES rollout in progress"},
+            {"label": "EES Mid-Rollout (Feb 2026)", "value": "Border control progressively biometric (full April 10, 2026); manual stamping being phased out", "notes": "Be prepared for longer first-entry processing"},
+        ],
+        "fees_local_currency_code": "EUR", "fees_local_currency_amount": 90, "fees_inr_approx": 8550,
+        "fees_breakdown": [
+            {"component": "Schengen Type C visa fee — adult (12+)", "amount": 90, "currency": "EUR"},
+            {"component": "Schengen Type C visa fee — child 6-12", "amount": 45, "currency": "EUR"},
+            {"component": "Schengen Type C visa fee — child under 6", "amount": 0, "currency": "EUR"},
+            {"component": "Visa Application Centre service fee (India, varies by country)", "amount": 30, "currency": "EUR", "per": "estimate"},
+            {"component": "Biometric enrolment (often included in VAC fee)", "amount": 12, "currency": "EUR", "per": "estimate"},
+            {"component": "Travel insurance (€30,000+ medical, per week)", "amount": 30, "currency": "EUR", "per": "estimate"},
+            {"component": "Courier delivery (passport return)", "amount": 8, "currency": "EUR"},
+            {"component": "Premium / OFC service (optional, faster appointment)", "amount": 30, "currency": "EUR"},
+            {"component": "Total estimated for adult Indian applicant (10-day trip)", "amount": 200, "currency": "EUR", "per": "estimate"},
+            {"component": "ETIAS (FUTURE Q4 2026 — for VISA-EXEMPT travelers only, NOT India)", "amount": 7, "currency": "EUR"},
+        ],
+        "processing_time_days_min": 15, "processing_time_days_max": 45,
+        "step_by_step": [
+            {"step_number": 1, "title": "Identify Main Destination Country", "description": "Determine where you'll spend the MOST time during the trip. Apply at that country's embassy or VAC. If equal stays: country of first entry.", "estimated_days": 7, "documents_needed": ["Travel itinerary draft"], "tips": ["Main destination rule is strict — wrong embassy = refusal"]},
+            {"step_number": 2, "title": "Book VAC Appointment", "description": "Book biometric + submission appointment at VAC (VFS / BLS / TLScontact). High demand season (Apr-Aug) = 4-12 week waits in India.", "estimated_days": 21, "documents_needed": [], "tips": ["Book early; premium appointments €30 extra"]},
+            {"step_number": 3, "title": "Complete Application Form (country-specific)", "description": "Each Schengen country has own application form. Fill online via VAC portal. Be 100% accurate.", "estimated_days": 3, "documents_needed": [], "tips": ["Errors require new form — careful entry"]},
+            {"step_number": 4, "title": "Compile Supporting Documents", "description": "Passport, photos, bank statements (3-6mo), ITRs, employment letter, travel insurance (€30,000+), accommodation bookings, return tickets (or reservations), itinerary, prior travel history.", "estimated_days": 14, "documents_needed": ["All compiled docs"], "tips": ["Strong ties evidence = #1 success factor"]},
+            {"step_number": 5, "title": "Buy Travel Insurance (€30,000+)", "description": "Mandatory medical coverage minimum €30,000, valid in all Schengen states. Providers: AXA, Mawista, Care Concept, Allianz, Bharti AXA.", "estimated_days": 1, "documents_needed": [], "tips": ["~€30/week typical"]},
+            {"step_number": 6, "title": "Attend VAC Appointment + Biometrics", "description": "Submit documents, biometric scan (fingerprints + photo), pay €90 fee + VAC service fees. Brief interview at some embassies.", "estimated_days": 1, "documents_needed": [], "tips": []},
+            {"step_number": 7, "title": "Wait for Decision (15-45 days)", "description": "Standard processing 15-45 days. Decision communicated via VAC portal / SMS. Some countries faster (Belgium ~5-10d), others slower (Italy 20-30d).", "estimated_days": 30, "documents_needed": [], "tips": ["Track via VFS/VAC portal"]},
+            {"step_number": 8, "title": "Collect Passport + Plan Trip", "description": "Collect via courier or in person at VAC. Check visa annotation: validity, number of entries, max stay. Travel within visa validity period.", "estimated_days": 5, "documents_needed": [], "tips": ["EES biometric border check on arrival (Apr 2026+)"]},
+        ],
+        "document_checklist": [
+            {"name": "Valid passport (3+ months beyond intended stay, 2 blank pages)", "mandatory": True, "notes": "Issued within last 10 years"},
+            {"name": "Schengen visa application form (country-specific)", "mandatory": True, "notes": ""},
+            {"name": "Recent biometric photos (35x45mm, white background, 6 months max)", "mandatory": True, "notes": "Per ICAO specs"},
+            {"name": "Bank statements (last 3-6 months)", "mandatory": True, "notes": "Genuine activity + sufficient funds"},
+            {"name": "Salary slips (last 3-6 months)", "mandatory": True, "notes": "If employed"},
+            {"name": "ITRs (last 2-3 years)", "mandatory": True, "notes": ""},
+            {"name": "Employment letter (with leave approval)", "mandatory": True, "notes": "Position, salary, return date"},
+            {"name": "Travel itinerary (flights + hotels + ground transport)", "mandatory": True, "notes": "Reservations sufficient — don't buy refundable tickets early"},
+            {"name": "Accommodation bookings (hotels / Airbnb / family invitation)", "mandatory": True, "notes": "All nights in Schengen covered"},
+            {"name": "Return flight reservation / itinerary", "mandatory": True, "notes": ""},
+            {"name": "Travel insurance €30,000+ medical (all Schengen states)", "mandatory": True, "notes": "Trip duration coverage"},
+            {"name": "Old passports with prior visa stamps", "mandatory": True, "notes": "Travel history evidence"},
+            {"name": "Property documents (home / land ownership — strong tie)", "mandatory": False, "notes": "Strengthens application"},
+            {"name": "Family ties evidence (marriage cert, children's school)", "mandatory": False, "notes": ""},
+            {"name": "Cover letter explaining trip purpose", "mandatory": True, "notes": "Concise, specific dates, return commitment"},
+            {"name": "Visa fee €90 (cash via VAC or online)", "mandatory": True, "notes": ""},
+            {"name": "Biometric appointment confirmation", "mandatory": True, "notes": ""},
+        ],
+        "common_rejection_reasons": [
+            "Insufficient bank balance / funds vs trip cost",
+            "Weak ties to home country (no job / property / family)",
+            "Travel insurance below €30,000 OR not valid all Schengen states",
+            "Inconsistent application info vs supporting documents",
+            "Applied at wrong embassy (not main destination country)",
+            "Pattern suggesting overstay risk (consecutive maximum stays, no home anchor)",
+            "Prior Schengen overstay or refusal not disclosed",
+            "Cover letter generic / missing specific purpose + return intention",
+            "Travel itinerary missing or inconsistent across dates",
+        ],
+        "success_tips": [
+            "Apply at MAIN destination country embassy — wrong embassy = automatic refusal",
+            "Strong ties evidence #1: employer letter + property + family + ITRs",
+            "Travel insurance: AXA / Bharti AXA / Allianz / Mawista €30,000+ — verified providers",
+            "Bank statement 6 months — genuine activity + 3-4× trip cost cushion",
+            "Cover letter: clear purpose + specific dates + accommodation + return intention",
+            "Don't apply > 6 months before trip (rejected) or < 15 days (risky)",
+            "EES biometric mid-rollout — expect longer first-entry processing Apr 2026+",
+            "Multi-entry visas issued more often for repeat compliant travelers (5-yr+ history)",
+        ],
+        "faqs": [
+            {"q": "What's the Schengen visa fee for 2026?", "a": "€90 standard adult (raised from €60 on June 11, 2024 — NOT €80 as some sources state). €45 children 6-12. FREE under 6. India IS visa-required (no waiver, no ETIAS for India)."},
+            {"q": "Do I need ETIAS as an Indian?", "a": "NO — ETIAS applies ONLY to visa-exempt nationalities (US, UK, Japan, etc.). Indian passport holders continue to need full Schengen visa application. ETIAS launch postponed to Q4 2026 anyway."},
+            {"q": "What's the EES?", "a": "Entry/Exit System — biometric border control replacing manual passport stamping. PHASED ROLLOUT (Oct 12, 2025) → FULL MANDATORY April 10, 2026. Fingerprint + facial image captured on first entry; faster on subsequent. India: subject to biometric registration on arrival."},
+            {"q": "What's the 90/180 rule?", "a": "Maximum 90 days in any rolling 180-day period across ENTIRE Schengen Area. Tracked automatically via EES from April 2026. Overstay = bans + future refusals."},
+            {"q": "Which country should I apply to?", "a": "Country where you'll spend MOST time (main destination). If equal stays: country of first entry. Wrong embassy = automatic refusal."},
+            {"q": "How long does the visa last?", "a": "Validity varies — first-time applicants often single-entry for trip duration; repeat travelers may receive multi-entry 1/3/5-year visas. Always max 90/180 stay rule applies."},
+        ],
+        "official_url": "https://home-affairs.ec.europa.eu/policies/schengen/visa-policy/applying-schengen-visa_en",
+        "vfs_url": "https://www.vfsglobal.com/",
+        "source_urls": [
+            "https://home-affairs.ec.europa.eu/policies/schengen/visa-policy/applying-schengen-visa_en",
+            "https://travel-europe.europa.eu/ees",
+            "https://travel-europe.europa.eu/en/etias",
+            "https://www.axa-schengen.com/en/visa/types/schengen-visa-type-c",
+            "https://www.atlys.com/blog/schengen-visa-fees-2026",
+            "https://home-affairs.ec.europa.eu/news/entryexit-system-ees-fully-operational-2026-04-10_en",
+        ],
+        "verified_notes": "Manual Fast-Path B.4.9 seed — verified against home-affairs.ec.europa.eu + EU Travel Portal + AXA Schengen + Atlys + Economic Times + Tripcabinet on 2026-02-27. **CORRECTION TO SIR'S BRIEF #1:** Sir's brief stated 'uniform €80 fee since 2024 raise from €60' — actual raise was €60 → €90 (NOT €80) effective June 11, 2024. **CORRECTION TO SIR'S BRIEF #2:** ETIAS POSTPONED to Q4 2026 (Oct-Dec 2026 launch window, NOT mid-2025). **CORRECTION TO SIR'S BRIEF #3:** EES status PHASED ROLLOUT (Oct 12, 2025 phased start; FULL MANDATORY April 10, 2026). All three corrections documented transparently here. Validator URL check: HTTP 200 (primary + secondary).",
+    },
+
+    # ── 2. EU-C-Business — Schengen Short-Stay Type C Business ─────────────────
+    {
+        "country_code": "EU", "country_name": "Schengen Area (29 countries)",
+        "subclass_id": "C-Business",
+        "subclass_name": "Schengen Short-Stay Type C Business Visa (90/180; conference/meeting/training)",
+        "service_type": "business", "category": "immigration",
+        "description": (
+            "The Schengen Type C Business visa is a short-stay (max 90/180 days) visa for "
+            "**business activities**: meetings, conferences, negotiations, training programs, "
+            "trade fair attendance, contract signings, and short business consultations.\n\n"
+            "**Same uniform fee + biometrics as Tourist Type C** but DISTINCT documentation:\n"
+            "- Adult fee: **€90** · Child 6-12: €45 · under 6: FREE\n"
+            "- Biometrics + EES applies (same as Tourist)\n"
+            "- Travel insurance €30,000+ MANDATORY\n\n"
+            "**Critical Business-Specific Documentation:**\n"
+            "- **Invitation letter from EU host company** (formal letterhead, signed by "
+            "authorized signatory, specifying purpose + dates + agenda)\n"
+            "- **Indian employer letter** confirming role + leave + sponsorship\n"
+            "- **Business activity proof:** conference registration / training enrollment / "
+            "trade fair confirmation\n"
+            "- **Hotel + transport** typically arranged via host or Indian employer\n\n"
+            "**Permitted activities:** Meetings, negotiations, short training (≤90 days), "
+            "conferences, trade fairs, contract signings, technical / market consultations.\n\n"
+            "**NOT permitted:** Paid employment from EU source, long-term work, self-"
+            "employment activities. For these: Type D Long-Stay required.\n\n"
+            "**Often applied as multi-entry** for repeat business travelers with strong "
+            "history — 1, 3, or 5-year multi-entry visas common for proven applicants."
+        ),
+        "eligibility_summary": (
+            "Genuine business purpose at EU company. Invitation letter from EU host + Indian "
+            "employer support. Sufficient funds, insurance €30,000+, return travel intent. "
+            "India: full Schengen visa required."
+        ),
+        "eligibility_criteria": [
+            {"label": "Business Purpose", "value": "Meetings, conferences, negotiations, training (≤90 days), trade fairs, contract signings", "notes": "Temporary only"},
+            {"label": "Maximum Stay", "value": "90 days within any 180-day rolling window across Schengen", "notes": ""},
+            {"label": "Host Invitation Letter", "value": "Formal letterhead from EU company; authorized signatory; specifies purpose + dates + agenda", "notes": "Critical document"},
+            {"label": "Indian Employer Letter", "value": "Confirms role + leave + sponsorship + return commitment", "notes": ""},
+            {"label": "Business Activity Proof", "value": "Conference registration / training enrollment / trade fair confirmation / contract drafts", "notes": ""},
+            {"label": "Sufficient Funds", "value": "Salary slips + bank statements + employer sponsorship details (who pays trip)", "notes": "Typically employer-funded"},
+            {"label": "Travel Insurance", "value": "MANDATORY €30,000+ medical coverage all Schengen states", "notes": ""},
+            {"label": "Multi-Entry Eligibility", "value": "Strong applicants (3+ prior compliant Schengen) often get 1/3/5-year multi-entry", "notes": "Same fee as single-entry"},
+            {"label": "EES Biometric Border", "value": "Mid-rollout Feb 2026 → full April 10, 2026", "notes": "First-entry biometric capture"},
+        ],
+        "fees_local_currency_code": "EUR", "fees_local_currency_amount": 90, "fees_inr_approx": 8550,
+        "fees_breakdown": [
+            {"component": "Schengen Type C visa fee — adult", "amount": 90, "currency": "EUR"},
+            {"component": "VAC service fee (India, varies)", "amount": 30, "currency": "EUR"},
+            {"component": "Biometric enrolment", "amount": 12, "currency": "EUR"},
+            {"component": "Travel insurance (€30,000+ medical, per week)", "amount": 30, "currency": "EUR"},
+            {"component": "Courier passport return", "amount": 8, "currency": "EUR"},
+            {"component": "Translation + apostille (invitation letter)", "amount": 50, "currency": "EUR"},
+            {"component": "Premium / OFC service (optional)", "amount": 30, "currency": "EUR"},
+            {"component": "Total typical adult Indian applicant (1-week trip)", "amount": 220, "currency": "EUR"},
+            {"component": "Standard fee identical for multi-entry (1/3/5-year)", "amount": 90, "currency": "EUR"},
+        ],
+        "processing_time_days_min": 10, "processing_time_days_max": 30,
+        "step_by_step": [
+            {"step_number": 1, "title": "Confirm Host Country + Invitation Letter", "description": "Identify EU host company. Request formal invitation letter on letterhead specifying purpose, dates, agenda, accommodation arrangements, and sponsorship details.", "estimated_days": 14, "documents_needed": ["Invitation letter draft"], "tips": ["Invitation letter quality = success factor"]},
+            {"step_number": 2, "title": "Indian Employer Letter", "description": "Get formal letter from Indian employer: role, salary, leave dates, sponsorship details, return commitment. Should mention business purpose alignment.", "estimated_days": 7, "documents_needed": ["Employer letter"], "tips": ["Senior signatory strengthens"]},
+            {"step_number": 3, "title": "Book VAC Appointment", "description": "Book at VAC of host country (main destination). Business visas often have priority slots — book early.", "estimated_days": 14, "documents_needed": [], "tips": []},
+            {"step_number": 4, "title": "Compile Documents", "description": "Compile invitation letter, employer letter, conference/training registration, hotel bookings, flight reservations, insurance, bank statements, ITRs.", "estimated_days": 7, "documents_needed": ["All compiled docs"], "tips": []},
+            {"step_number": 5, "title": "Travel Insurance", "description": "Buy €30,000+ medical insurance covering entire trip in all Schengen states.", "estimated_days": 1, "documents_needed": [], "tips": []},
+            {"step_number": 6, "title": "Attend VAC Submission + Biometrics", "description": "Submit documents + biometric scan + €90 fee. Brief interview may apply.", "estimated_days": 1, "documents_needed": [], "tips": []},
+            {"step_number": 7, "title": "Receive Decision (10-30 days)", "description": "Business visas often faster than tourist (10-20 days typical). Multi-entry option granted often for senior business roles.", "estimated_days": 21, "documents_needed": [], "tips": ["Multi-entry common for repeat applicants"]},
+            {"step_number": 8, "title": "Travel + Comply with 90/180 Rule", "description": "Travel within visa validity. Track cumulative days across Schengen. Multi-entry: plan repeat trips within visa validity.", "estimated_days": 1, "documents_needed": [], "tips": ["EES tracks automatically Apr 2026+"]},
+        ],
+        "document_checklist": [
+            {"name": "Valid passport (3+ months beyond stay, 2 blank pages)", "mandatory": True, "notes": ""},
+            {"name": "Schengen visa application form (country-specific)", "mandatory": True, "notes": ""},
+            {"name": "Recent biometric photos (35x45mm)", "mandatory": True, "notes": ""},
+            {"name": "Invitation letter from EU host company (LETTERHEAD, authorized signatory)", "mandatory": True, "notes": "Specifies purpose + dates + agenda + accommodation"},
+            {"name": "Indian employer letter (role, salary, leave, sponsorship)", "mandatory": True, "notes": ""},
+            {"name": "Business activity proof (conference / training / trade fair registration)", "mandatory": True, "notes": ""},
+            {"name": "Bank statements (last 3-6 months)", "mandatory": True, "notes": ""},
+            {"name": "Salary slips (last 3 months)", "mandatory": True, "notes": ""},
+            {"name": "ITRs (last 2-3 years)", "mandatory": True, "notes": ""},
+            {"name": "Hotel bookings / accommodation arrangements", "mandatory": True, "notes": "Often host-arranged"},
+            {"name": "Flight reservations (return ticket)", "mandatory": True, "notes": ""},
+            {"name": "Travel insurance €30,000+ medical", "mandatory": True, "notes": ""},
+            {"name": "Old passports with prior visa stamps", "mandatory": True, "notes": "Travel history"},
+            {"name": "Cover letter explaining business purpose + dates", "mandatory": True, "notes": ""},
+            {"name": "Visa fee €90 + VAC service fees", "mandatory": True, "notes": ""},
+            {"name": "Translation + apostille of invitation letter (if needed)", "mandatory": False, "notes": "Country-specific"},
+        ],
+        "common_rejection_reasons": [
+            "Invitation letter weak (unclear purpose / not on letterhead / unsigned)",
+            "Indian employer letter generic or junior signatory",
+            "Business activity proof missing or inconsistent",
+            "Insufficient funds / employer sponsorship details unclear",
+            "Travel insurance below €30,000 OR not valid Schengen",
+            "Applied at wrong embassy (not main destination)",
+            "Pattern suggesting employment intent (not just meetings)",
+            "Prior Schengen overstay or refusal",
+        ],
+        "success_tips": [
+            "Invitation letter on LETTERHEAD with senior signatory + agenda = critical",
+            "Multi-entry visa for repeat business travelers — request explicitly with strong history",
+            "Indian employer signatory: Director / VP / Senior Manager preferred",
+            "Specific agenda + meeting list strengthens",
+            "Apply 4-6 weeks before trip — business visas often faster than tourist",
+            "Host company often provides letter template + handles via local lawyer",
+            "Multi-entry visa same fee as single-entry — strategic for frequent travelers",
+            "EES Apr 2026+ tracks all trips — plan cumulative days carefully",
+        ],
+        "faqs": [
+            {"q": "What's the difference vs Tourist Type C?", "a": "Same uniform €90 fee + biometrics + 90/180 rule. DIFFERENT documentation: Tourist needs accommodation/itinerary evidence; Business needs invitation letter + Indian employer letter + business activity proof."},
+            {"q": "Can I work on Business Type C?", "a": "NO paid employment from EU source. Permitted: meetings, conferences, training (≤90 days), trade fairs, contract signings, technical consultations. For paid work: Type D Long-Stay required."},
+            {"q": "Can I get multi-entry?", "a": "Yes — common for repeat applicants with strong compliant Schengen history. Same €90 fee. Multi-entry validity 1/3/5 years possible based on travel history."},
+            {"q": "Do I need translation of the invitation letter?", "a": "Country-specific. France often accepts English; Germany may require German translation. Check embassy requirements."},
+            {"q": "Can my family come?", "a": "Family typically NOT allowed under business invitation. They apply separately for Tourist Type C."},
+            {"q": "What if I overstay 90 days?", "a": "Schengen overstay = entry bans + EES flagged + future visa refusals. EES automatically tracks from April 2026. STRICT compliance critical."},
+        ],
+        "official_url": "https://home-affairs.ec.europa.eu/policies/schengen/visa-policy_en",
+        "vfs_url": "https://www.vfsglobal.com/",
+        "source_urls": [
+            "https://home-affairs.ec.europa.eu/policies/schengen/visa-policy_en",
+            "https://www.schengenvisainfo.com/business-schengen-visa/",
+            "https://travel-europe.europa.eu/ees",
+            "https://www.axa-schengen.com/en/visa/types/schengen-visa-type-c",
+        ],
+        "verified_notes": "Manual Fast-Path B.4.9 seed — verified against home-affairs.ec.europa.eu + Schengen Visa Info + EU Travel Portal + AXA Schengen on 2026-02-27. Same €90 fee + biometrics + EES as Tourist Type C documented. Distinct Business documentation (invitation letter + employer letter + activity proof) detailed. Multi-entry option for repeat business travelers explained. Validator URL check: HTTP 200 (primary + secondary).",
+    },
+
+    # ── 3. EU-D-Long-Stay — Schengen Long-Stay National Visa Type D ────────────
+    {
+        "country_code": "EU", "country_name": "Schengen Area (29 countries)",
+        "subclass_id": "D-Long-Stay",
+        "subclass_name": "Schengen Long-Stay National Visa Type D (>90 days; country-specific issuance)",
+        "service_type": "pr", "category": "immigration",
+        "description": (
+            "The Schengen Type D Long-Stay (National) Visa allows stays **exceeding 90 days** "
+            "and is **country-specific** — each Schengen Member State issues its own Type D "
+            "visa under national law. It is NOT a uniform Schengen visa.\n\n"
+            "**Common purposes:** Work, study (full semester+), family reunification, "
+            "elective residence, research, investment, retirement.\n\n"
+            "**Critical distinction from Type C:**\n"
+            "- **Type C:** Uniform Schengen short-stay (≤90 days), €90 standard fee\n"
+            "- **Type D:** Country-specific long-stay (>90 days), country-specific fees + "
+            "requirements; gateway to residence permit\n\n"
+            "**Schengen travel rights granted by Type D:**\n"
+            "- Travel to OTHER Schengen countries up to **90 days within any 180-day period**\n"
+            "- Time spent in ISSUING country does NOT count toward 90/180 limit elsewhere\n"
+            "- ETIAS exemption applies (Type D holders skip ETIAS when launched Q4 2026)\n\n"
+            "**Country-Specific Fees + Residence Permits (2026):**\n"
+            "- 🇮🇹 Italy: **€116** → Permesso di soggiorno (apply within 8 working days)\n"
+            "- 🇩🇪 Germany: **€75** → Aufenthaltstitel (register Bürgeramt within 90 days)\n"
+            "- 🇫🇷 France: **€99** → Titre de séjour (VLS-TS étudiant or carte de séjour)\n"
+            "- 🇪🇸 Spain: **€80 + €16 TIE** → Tarjeta de Identidad de Extranjero (within 30 days)\n"
+            "- 🇳🇱 Netherlands: **€228** (MVV + VVR combined) → Verblijfsvergunning\n"
+            "- 🇦🇹 Austria: **€150** → Aufenthaltsbewilligung (proof ~€1,200-€1,500/mo)\n"
+            "- 🇵🇹 Portugal: **€90** → Título de residência (NIF tax number required)\n\n"
+            "**CRITICAL:** Type D visa is for ENTRY only. Must apply for national residence "
+            "permit (Permesso di soggiorno / Aufenthaltstitel / Titre de séjour etc.) within "
+            "first 90 days of arrival. Failure = deportation."
+        ),
+        "eligibility_summary": (
+            "Long-term purpose: work / study / family reunion / investment / retirement. "
+            "Country-specific eligibility (varies). Sufficient funds, health insurance, "
+            "purpose proof (employment contract, university admission, marriage cert, etc.)."
+        ),
+        "eligibility_criteria": [
+            {"label": "Purpose Categories", "value": "Work, full-program study, family reunion, research, investment, retirement, elective residence", "notes": "Each requires distinct documentation"},
+            {"label": "Issuing Country", "value": "Apply at embassy/consulate of country where you'll STAY (not transit)", "notes": "Country-specific issuance"},
+            {"label": "Validity Period", "value": "Typically 3-12 months entry visa; convert to Residence Permit (Permesso/Titre/Aufenthaltstitel) within 90 days", "notes": ""},
+            {"label": "Schengen Travel Rights", "value": "Type D allows 90/180 travel to OTHER Schengen countries (issuing country time excluded)", "notes": ""},
+            {"label": "ETIAS Exemption", "value": "Type D holders skip ETIAS (when launched Q4 2026)", "notes": "Major perk"},
+            {"label": "Health Insurance", "value": "Mandatory €30,000+ Schengen-valid; or country-specific (e.g. Spain requires Spanish provider)", "notes": ""},
+            {"label": "Purpose Proof", "value": "Employment contract / Nulla Osta / university admission / marriage cert / investment evidence", "notes": "Country-specific"},
+            {"label": "Sufficient Funds (Country-Specific)", "value": "Italy €500/mo · France €7,928/yr · Spain €7,200/yr · Germany €11,904/yr Sperrkonto · Austria €1,200-€1,500/mo", "notes": ""},
+            {"label": "Biometrics + Apostille", "value": "Fingerprints + photo; all foreign documents apostilled + translated", "notes": "EES biometric registration Apr 2026+"},
+        ],
+        "fees_local_currency_code": "EUR", "fees_local_currency_amount": 116, "fees_inr_approx": 11020,
+        "fees_breakdown": [
+            {"component": "Italy Type D visa fee", "amount": 116, "currency": "EUR"},
+            {"component": "Germany Type D visa fee", "amount": 75, "currency": "EUR"},
+            {"component": "France Type D visa fee (VLS-TS)", "amount": 99, "currency": "EUR"},
+            {"component": "Spain Type D visa fee + €16 TIE card", "amount": 96, "currency": "EUR"},
+            {"component": "Netherlands MVV + VVR combined", "amount": 228, "currency": "EUR"},
+            {"component": "Austria Type D visa fee (Aufenthaltsbewilligung)", "amount": 150, "currency": "EUR"},
+            {"component": "Portugal Type D visa fee", "amount": 90, "currency": "EUR"},
+            {"component": "VAC service fee (varies by country, India)", "amount": 30, "currency": "EUR"},
+            {"component": "Biometric enrolment", "amount": 12, "currency": "EUR"},
+            {"component": "Document translation + apostille (typical)", "amount": 300, "currency": "EUR"},
+            {"component": "Residence permit fees (post-arrival, country-specific)", "amount": 100, "currency": "EUR"},
+            {"component": "Travel insurance (initial 30 days)", "amount": 100, "currency": "EUR"},
+        ],
+        "processing_time_days_min": 15, "processing_time_days_max": 90,
+        "step_by_step": [
+            {"step_number": 1, "title": "Determine Issuing Country + Purpose", "description": "Confirm country where you'll STAY long-term. Identify purpose category (work / study / family / investment). Each country has distinct requirements.", "estimated_days": 7, "documents_needed": [], "tips": ["Cannot apply Type D in country you'll only visit briefly"]},
+            {"step_number": 2, "title": "Compile Purpose-Specific Documents", "description": "Work: contract + Nulla Osta. Study: admission + Sperrkonto/€-proof. Family: marriage cert + sponsor permit. Investment: capital + business plan.", "estimated_days": 60, "documents_needed": ["Per purpose category"], "tips": ["Country-specific guide on embassy website"]},
+            {"step_number": 3, "title": "Apostille + Translate Foreign Documents", "description": "All Indian documents (birth/marriage cert, degrees, etc.) MUST be apostilled by MEA + translated to country language (Italian / German / French / Spanish / Dutch / Portuguese).", "estimated_days": 21, "documents_needed": ["Apostilled docs"], "tips": ["Translation: certified translator only"]},
+            {"step_number": 4, "title": "Book Embassy Appointment", "description": "Book at country embassy in India (not VAC for most Type D). High demand — apply 3+ months before intended travel.", "estimated_days": 30, "documents_needed": [], "tips": []},
+            {"step_number": 5, "title": "Submit Application + Biometrics", "description": "Submit at embassy. Country-specific fees + biometric scan. Some embassies require in-person interview.", "estimated_days": 1, "documents_needed": ["All compiled docs"], "tips": []},
+            {"step_number": 6, "title": "Receive Visa Decision (15-90 days)", "description": "Standard 15-60 days; complex cases up to 90 days. Type D visa typically valid 3-12 months entry window.", "estimated_days": 45, "documents_needed": [], "tips": []},
+            {"step_number": 7, "title": "Travel to Country + Register", "description": "Enter country on Type D visa. Within country-specific deadline (Italy 8 working days / Spain 30 / Germany/Portugal 90), register at local authority.", "estimated_days": 14, "documents_needed": [], "tips": ["Registration deadline strict"]},
+            {"step_number": 8, "title": "Apply for Residence Permit (Critical!)", "description": "Apply for national residence permit (Permesso/Aufenthaltstitel/Titre/etc.) within first 90 days. THIS is what allows long-term stay. Visa is just for entry.", "estimated_days": 60, "documents_needed": [], "tips": ["⚠️ Failure = deportation"]},
+        ],
+        "document_checklist": [
+            {"name": "Valid passport (3+ months beyond stay, 2 blank pages, last 10 yrs)", "mandatory": True, "notes": ""},
+            {"name": "Country-specific Type D application form", "mandatory": True, "notes": ""},
+            {"name": "Recent biometric photos (35x45mm)", "mandatory": True, "notes": "2 copies"},
+            {"name": "Purpose proof — Work: employment contract + Nulla Osta", "mandatory": False, "notes": "Work category"},
+            {"name": "Purpose proof — Study: university admission + Sperrkonto/€-proof", "mandatory": False, "notes": "Study category"},
+            {"name": "Purpose proof — Family: marriage cert + sponsor residence permit", "mandatory": False, "notes": "Family category"},
+            {"name": "Purpose proof — Investment: capital + business plan + investor permit", "mandatory": False, "notes": "Investment category"},
+            {"name": "Bank statements (3-6 months) + sufficient funds proof", "mandatory": True, "notes": ""},
+            {"name": "Accommodation proof (lease / host invitation / university housing)", "mandatory": True, "notes": ""},
+            {"name": "Health insurance (€30,000+ Schengen OR country-specific)", "mandatory": True, "notes": ""},
+            {"name": "Travel insurance (initial 30 days)", "mandatory": False, "notes": ""},
+            {"name": "Apostilled documents (birth/marriage cert + degrees) + translation", "mandatory": True, "notes": "Country language"},
+            {"name": "Police clearance certificate (some categories)", "mandatory": False, "notes": ""},
+            {"name": "CV / résumé", "mandatory": True, "notes": ""},
+            {"name": "Cover letter explaining purpose + duration", "mandatory": True, "notes": ""},
+            {"name": "Visa fee (country-specific: €75-€228)", "mandatory": True, "notes": ""},
+        ],
+        "common_rejection_reasons": [
+            "Purpose proof insufficient (contract / admission / marriage cert weak)",
+            "Sufficient funds below country-specific threshold",
+            "Documents not apostilled OR not translated to country language",
+            "Health insurance inadequate / not valid in target country",
+            "Country-specific requirements missed (e.g. Italy 8-day registration plan)",
+            "Sponsor unable to support family reunion application",
+            "Investment / business plan unconvincing",
+            "Past Schengen overstay or refusal",
+        ],
+        "success_tips": [
+            "Apply 3-4 months before intended entry — Type D much slower than Type C",
+            "Apostille EARLY — MEA process 2-3 weeks in India",
+            "Certified translation by recognized translator (not auto/Google)",
+            "Country-specific funds thresholds — verify exact 2026 amounts on embassy site",
+            "Plan residence permit appointment BEFORE arrival (some cities 8+ week queues)",
+            "Type D allows 90/180 travel to OTHER Schengen — major mobility advantage",
+            "ETIAS exemption (when launched Q4 2026) — Type D holders skip authorization",
+            "Italy 8 working days, Spain 30, Germany/Portugal 90 — registration deadlines strict",
+        ],
+        "faqs": [
+            {"q": "What's the difference between Type C and Type D?", "a": "Type C: uniform Schengen short-stay (≤90 days), €90 standard fee, all 29 countries. Type D: COUNTRY-SPECIFIC long-stay (>90 days), country-specific fees (€75-€228), gateway to residence permit."},
+            {"q": "Can I travel Schengen on Type D?", "a": "Yes — Type D allows 90/180 travel to OTHER Schengen countries. Time spent in ISSUING country doesn't count toward 90/180 limit elsewhere."},
+            {"q": "Do I need ETIAS with Type D?", "a": "NO — Type D holders are EXEMPT from ETIAS (when launched Q4 2026). Major perk."},
+            {"q": "Why are Netherlands fees so high (€228)?", "a": "MVV (entry visa) + VVR (residence permit) combined in Netherlands. Process is intricate — apply via TLScontact."},
+            {"q": "How long does the visa last?", "a": "Type D visa typically 3-12 months entry window. After entry: convert to national residence permit (validity 1-5 years renewable) within first 90 days."},
+            {"q": "What if I don't get residence permit in time?", "a": "DEPORTATION risk. Italy 8 working days, Spain 30 days, Germany/Portugal 90 days deadlines vary STRICTLY. Plan permit appointment BEFORE arrival."},
+        ],
+        "official_url": "https://home-affairs.ec.europa.eu/policies/schengen/visa-policy_en",
+        "vfs_url": "https://www.vfsglobal.com/",
+        "source_urls": [
+            "https://home-affairs.ec.europa.eu/policies/schengen/visa-policy_en",
+            "https://www.axa-schengen.com/en/visa/types/schengen-visa-type-d",
+            "https://travel-europe.europa.eu/en/etias",
+            "https://www.study-abroad.org/blog/schengen-visa-guide/",
+            "https://home-affairs.ec.europa.eu/news/entryexit-system-ees-fully-operational-2026-04-10_en",
+        ],
+        "verified_notes": "Manual Fast-Path B.4.9 seed — verified against home-affairs.ec.europa.eu + AXA Schengen + EU Travel Portal + Study Abroad on 2026-02-27. Country-specific fees for 7 major destinations (IT/DE/FR/ES/NL/AT/PT) documented. Schengen travel rights + ETIAS exemption for Type D holders covered. Critical 90-day residence permit registration deadlines flagged. Validator URL check: HTTP 200 (primary + secondary).",
+    },
+
+    # ── 4. EU-A-Transit — Schengen Airport Transit Visa Type A ─────────────────
+    {
+        "country_code": "EU", "country_name": "Schengen Area (29 countries)",
+        "subclass_id": "A-Transit",
+        "subclass_name": "Schengen Airport Transit Visa Type A (specific nationalities; India NOT typically required)",
+        "service_type": "transit", "category": "immigration",
+        "description": (
+            "The Schengen Airport Transit Visa (Type A) is required for citizens of **certain "
+            "specific nationalities** transiting through a Schengen airport's international "
+            "transit zone WITHOUT entering the Schengen Area territory.\n\n"
+            "**India IS NOT typically required to hold Type A** for airport transit — Indian "
+            "passport holders can transit Schengen airports without Type A.\n\n"
+            "**Nationalities currently REQUIRED to hold Type A include:**\n"
+            "- Afghanistan, Bangladesh, Democratic Republic of Congo, Eritrea, Ethiopia, "
+            "Ghana, Iran, Iraq, Nigeria, Pakistan, Somalia, Sri Lanka, Syria\n"
+            "- Plus individual country exceptions (some Schengen states require Type A "
+            "from additional nationalities — e.g. France requires for additional list)\n\n"
+            "**India context:** Indian passport holders transiting via Frankfurt, Paris CDG, "
+            "Amsterdam Schiphol, Vienna, Munich, etc. **do NOT need Type A** — they remain "
+            "in international transit zone without entering Schengen.\n\n"
+            "**HOWEVER:** If Indian traveler exits transit zone (e.g. needs overnight in EU "
+            "country, has long layover requiring change of terminal at non-connected airport, "
+            "or wants to leave airport), then **Type C tourist visa required**.\n\n"
+            "**Fee for Type A:** Same as Type C — **€90 adult / €45 child 6-12 / FREE under 6**.\n\n"
+            "**This workflow exists** primarily to (a) clarify that Indian travelers do NOT "
+            "need Type A in most cases, (b) provide reference for the listed nationalities "
+            "above who DO need Type A, and (c) flag when Type C tourist visa becomes necessary "
+            "for non-airside transit.\n\n"
+            "**EES does NOT apply to Type A transit-only travelers** (no border entry recorded)."
+        ),
+        "eligibility_summary": (
+            "Citizen of specific listed nationality transiting Schengen airport WITHOUT exiting "
+            "international transit zone. India NOT typically required to hold Type A. For "
+            "non-airside transit / overnight: Type C tourist visa needed instead."
+        ),
+        "eligibility_criteria": [
+            {"label": "India NOT Required (Most Common Case)", "value": "Indian passport holders transiting Schengen airports WITHOUT exiting international transit zone do NOT need Type A", "notes": "Most common Indian scenario"},
+            {"label": "Required Nationalities (Common List)", "value": "Afghanistan, Bangladesh, DR Congo, Eritrea, Ethiopia, Ghana, Iran, Iraq, Nigeria, Pakistan, Somalia, Sri Lanka, Syria", "notes": "Plus state-specific additions"},
+            {"label": "Transit-Only Restriction", "value": "Visa allows international transit zone ONLY — CANNOT enter Schengen territory", "notes": ""},
+            {"label": "Onward Flight Booking", "value": "Confirmed connecting flight + valid destination visa (if needed)", "notes": ""},
+            {"label": "Validity", "value": "Specific travel dates; not multi-entry (typically single-use)", "notes": ""},
+            {"label": "When Type C Required Instead", "value": "Overnight stay required, long layover requiring exit, terminal change at non-connected airports, sightseeing during stopover", "notes": "Use Type C tourist"},
+            {"label": "Fee", "value": "Same as Type C: €90 adult / €45 child / FREE under 6", "notes": ""},
+            {"label": "EES Exemption", "value": "Type A airside transit travelers NOT recorded in EES (no border crossing)", "notes": ""},
+        ],
+        "fees_local_currency_code": "EUR", "fees_local_currency_amount": 90, "fees_inr_approx": 8550,
+        "fees_breakdown": [
+            {"component": "Schengen Type A visa fee — adult", "amount": 90, "currency": "EUR"},
+            {"component": "Schengen Type A visa fee — child 6-12", "amount": 45, "currency": "EUR"},
+            {"component": "Schengen Type A visa fee — child under 6", "amount": 0, "currency": "EUR"},
+            {"component": "VAC service fee (India context only — Indians rarely need)", "amount": 30, "currency": "EUR"},
+            {"component": "Biometric enrolment", "amount": 12, "currency": "EUR"},
+            {"component": "Travel insurance (not always required for transit-only)", "amount": 0, "currency": "EUR", "per": "varies"},
+            {"component": "Alternative if Type A insufficient: Type C tourist visa", "amount": 90, "currency": "EUR"},
+        ],
+        "processing_time_days_min": 10, "processing_time_days_max": 30,
+        "step_by_step": [
+            {"step_number": 1, "title": "Verify Whether You Need Type A", "description": "Indian passport: Type A NOT required for airside transit. Check listed nationalities. If NOT on list, skip this visa entirely.", "estimated_days": 1, "documents_needed": ["Passport"], "tips": ["Indian travelers can skip"]},
+            {"step_number": 2, "title": "Confirm Airside-Only Transit", "description": "Does your itinerary involve staying entirely in international transit zone? If YES → Type A. If NEEDS overnight/exit → Type C tourist instead.", "estimated_days": 1, "documents_needed": ["Flight tickets", "Itinerary"], "tips": []},
+            {"step_number": 3, "title": "Apply at Country of First Schengen Entry", "description": "Apply at country where your first Schengen airport transit occurs. Submit at embassy/VAC.", "estimated_days": 14, "documents_needed": [], "tips": []},
+            {"step_number": 4, "title": "Compile Documents", "description": "Passport, photos, flight tickets confirming transit, destination visa (if needed), proof of onward journey, employment letter.", "estimated_days": 7, "documents_needed": [], "tips": []},
+            {"step_number": 5, "title": "Submit Application + Biometric", "description": "Submit + €90 fee + biometric scan.", "estimated_days": 1, "documents_needed": [], "tips": []},
+            {"step_number": 6, "title": "Decision (10-30 days)", "description": "Visa issued for specific transit dates.", "estimated_days": 21, "documents_needed": [], "tips": []},
+            {"step_number": 7, "title": "Transit Schengen Airport", "description": "Remain ENTIRELY in international transit zone. Do NOT attempt to exit — would violate Type A.", "estimated_days": 1, "documents_needed": [], "tips": []},
+            {"step_number": 8, "title": "Continue to Final Destination", "description": "Board onward flight to non-Schengen destination.", "estimated_days": 1, "documents_needed": [], "tips": []},
+        ],
+        "document_checklist": [
+            {"name": "Valid passport (6+ months validity)", "mandatory": True, "notes": ""},
+            {"name": "Schengen visa application form (Type A specified)", "mandatory": True, "notes": ""},
+            {"name": "Recent biometric photos (35x45mm)", "mandatory": True, "notes": ""},
+            {"name": "Flight tickets confirming airside transit + onward journey", "mandatory": True, "notes": ""},
+            {"name": "Final destination visa (if visa-required country)", "mandatory": True, "notes": ""},
+            {"name": "Bank statements (proof of financial means)", "mandatory": False, "notes": ""},
+            {"name": "Employment letter (proof of home country ties)", "mandatory": False, "notes": ""},
+            {"name": "Travel insurance (some embassies require)", "mandatory": False, "notes": ""},
+            {"name": "Old passports with prior travel history", "mandatory": False, "notes": ""},
+            {"name": "Cover letter explaining transit purpose", "mandatory": False, "notes": ""},
+            {"name": "Visa fee €90", "mandatory": True, "notes": ""},
+            {"name": "Biometric appointment confirmation", "mandatory": True, "notes": ""},
+        ],
+        "common_rejection_reasons": [
+            "Itinerary suggests non-airside transit (overnight / terminal change requiring exit)",
+            "Final destination visa missing (if required)",
+            "Onward flight booking unclear",
+            "Past Schengen overstay or refusal",
+            "Applied for Type A when actually need Type C (most common error)",
+            "Weak ties to home country",
+        ],
+        "success_tips": [
+            "Indians: SKIP this visa — you don't need it for airside transit",
+            "If overnight in Schengen needed: apply Type C tourist instead",
+            "Terminal change at non-connected airports requires Type C (not Type A)",
+            "Final destination visa MUST be confirmed before applying for Type A",
+            "EES does NOT apply to airside Type A — no border crossing",
+            "France has expanded Type A required nationality list — verify",
+            "If unsure: ASK embassy directly which visa applies to your specific case",
+            "Schengen visa applicants from listed nationalities should plan extra time",
+        ],
+        "faqs": [
+            {"q": "Do Indian passport holders need Schengen Type A?", "a": "NO — Indian passport holders do NOT typically need Type A. They can transit Schengen airports' international zone without visa. For non-airside transit (overnight / exit / terminal change requiring entry): need Type C tourist visa instead."},
+            {"q": "Which nationalities need Type A?", "a": "Afghanistan, Bangladesh, DR Congo, Eritrea, Ethiopia, Ghana, Iran, Iraq, Nigeria, Pakistan, Somalia, Sri Lanka, Syria (common Annex IV list). Some Schengen states require Type A from additional nationalities (e.g. France adds more)."},
+            {"q": "What if I want to leave the airport during layover?", "a": "Type A does NOT permit leaving the international transit zone. If you want to exit airport (sightseeing / overnight / etc.) you need Type C tourist visa instead."},
+            {"q": "What's the fee?", "a": "Same as Type C: €90 adult / €45 child 6-12 / FREE under 6."},
+            {"q": "Does EES apply to Type A?", "a": "NO — airside Type A transit doesn't involve border crossing into Schengen. EES applies only to actual entries."},
+            {"q": "Will ETIAS replace Type A?", "a": "NO — ETIAS applies only to visa-exempt nationalities. Type A applies to specific visa-required nationalities. These are different systems."},
+        ],
+        "official_url": "https://home-affairs.ec.europa.eu/policies/schengen/visa-policy_en",
+        "vfs_url": "https://www.vfsglobal.com/",
+        "source_urls": [
+            "https://home-affairs.ec.europa.eu/policies/schengen/visa-policy_en",
+            "https://www.schengenvisainfo.com/airport-transit-schengen-visa/",
+            "https://travel-europe.europa.eu/ees",
+            "https://www.axa-schengen.com/en/visa/types/schengen-visa-type-c",
+        ],
+        "verified_notes": "Manual Fast-Path B.4.9 seed — verified against home-affairs.ec.europa.eu + Schengen Visa Info + EU Travel Portal on 2026-02-27. India non-requirement for Type A explicitly documented. Annex IV listed nationalities covered. Critical distinction with Type C (for non-airside transit) flagged. EES exemption for airside transit noted. Validator URL check: HTTP 200 primary; HTTP 404 schengenvisainfo.com secondary (path changes — NOT closure, primary EU Commission source authoritative).",
+    },
+
+    # ── 5. EU-C-Family-Visit — Schengen Short-Stay Family Visit ───────────────
+    {
+        "country_code": "EU", "country_name": "Schengen Area (29 countries)",
+        "subclass_id": "C-Family-Visit",
+        "subclass_name": "Schengen Short-Stay Family Visit Type C (invitation from EU resident family)",
+        "service_type": "partner", "category": "immigration",
+        "description": (
+            "The Schengen Short-Stay Family Visit visa is a **Type C variant** for visiting "
+            "family members residing legally in the Schengen Area. Same uniform fee + "
+            "biometrics + 90/180 rule as Tourist/Business Type C, but with **invitation-based "
+            "documentation** from the EU resident family member.\n\n"
+            "**Standard short-stay rules (Type C):**\n"
+            "- Max 90 days within any 180-day window\n"
+            "- €90 adult / €45 child 6-12 / FREE under 6\n"
+            "- Biometrics + EES (mid-rollout Feb 2026 → April 10, 2026 full)\n"
+            "- Travel insurance €30,000+ mandatory\n\n"
+            "**Distinct Family-Visit documentation:**\n"
+            "- **Formal invitation letter from EU resident family member** "
+            "(parent / sibling / spouse / child / fiancé)\n"
+            "- **Sponsor's residence permit / EU citizenship documentation**\n"
+            "- **Proof of family relationship** (birth/marriage certificates, apostilled)\n"
+            "- **Sponsor's financial commitment** (Verpflichtungserklärung in Germany, "
+            "Garanti d'accueil in France) — often replaces tourist financial proof\n"
+            "- **Sponsor's accommodation evidence** (lease + landlord confirmation)\n\n"
+            "**Sponsor's Declaration of Commitment / Verpflichtungserklärung:**\n"
+            "- Germany / France / Switzerland: Formal financial liability assumption by "
+            "sponsor at local authority (Ausländerbehörde / Mairie). Sponsor commits to cover "
+            "applicant's living + medical + return travel costs.\n"
+            "- Other countries: Less formal but invitation letter must show financial intent.\n\n"
+            "**Often easier than Tourist** for first-time applicants with EU family — sponsor's "
+            "commitment + family relationship documentation = strong tie evidence.\n\n"
+            "**NOT family reunion (long-term)** — for permanent relocation to live with family, "
+            "use Type D country-specific Family Reunion visa instead."
+        ),
+        "eligibility_summary": (
+            "Visiting EU resident family member (parent/child/sibling/spouse/fiancé). "
+            "Invitation letter + sponsor's residence + relationship proof + financial commitment "
+            "or independent funds. India: full visa required (no waiver)."
+        ),
+        "eligibility_criteria": [
+            {"label": "Family Relationship", "value": "Parent, child, sibling, spouse, fiancé, grandparent — recognized close family", "notes": "More distant relatives may use Tourist instead"},
+            {"label": "Maximum Stay", "value": "90 days within any 180-day rolling window across Schengen", "notes": "Same as Tourist/Business Type C"},
+            {"label": "Sponsor Eligibility (in EU)", "value": "EU citizen OR holder of valid residence permit in Schengen country", "notes": "Sponsor must be legal resident"},
+            {"label": "Invitation Letter", "value": "Formal letter on sponsor's letterhead or notarized — purpose, duration, accommodation, return commitment", "notes": "Critical document"},
+            {"label": "Relationship Proof", "value": "Birth certificates / marriage certificates / passport copies showing relationship (apostilled)", "notes": ""},
+            {"label": "Sponsor Declaration of Commitment", "value": "Verpflichtungserklärung (DE/CH) / Garanti d'accueil (FR) — formal financial liability", "notes": "Some countries strict"},
+            {"label": "Financial Proof", "value": "Sponsor's commitment OR applicant's independent funds (bank statements 3-6mo)", "notes": "Either route accepted"},
+            {"label": "Travel Insurance", "value": "MANDATORY €30,000+ medical coverage all Schengen", "notes": ""},
+            {"label": "Country of Application", "value": "Country where the family member resides", "notes": "Apply at that country's embassy"},
+        ],
+        "fees_local_currency_code": "EUR", "fees_local_currency_amount": 90, "fees_inr_approx": 8550,
+        "fees_breakdown": [
+            {"component": "Schengen Type C visa fee — adult", "amount": 90, "currency": "EUR"},
+            {"component": "Schengen Type C visa fee — child 6-12", "amount": 45, "currency": "EUR"},
+            {"component": "Schengen Type C visa fee — child under 6", "amount": 0, "currency": "EUR"},
+            {"component": "VAC service fee (India, varies)", "amount": 30, "currency": "EUR"},
+            {"component": "Biometric enrolment", "amount": 12, "currency": "EUR"},
+            {"component": "Travel insurance (€30,000+)", "amount": 30, "currency": "EUR", "per": "week"},
+            {"component": "Translation + apostille of relationship documents", "amount": 200, "currency": "EUR"},
+            {"component": "Verpflichtungserklärung / Garanti d'accueil (where applicable)", "amount": 30, "currency": "EUR"},
+            {"component": "Total typical adult Indian applicant (2-week trip)", "amount": 250, "currency": "EUR"},
+        ],
+        "processing_time_days_min": 15, "processing_time_days_max": 45,
+        "step_by_step": [
+            {"step_number": 1, "title": "Confirm Sponsor Status in EU", "description": "Verify family member's legal residence in Schengen country. Sponsor's residence permit / EU citizenship must be valid.", "estimated_days": 7, "documents_needed": ["Sponsor's residence permit copy"], "tips": []},
+            {"step_number": 2, "title": "Sponsor Prepares Invitation Letter", "description": "Sponsor writes formal invitation: purpose, duration, accommodation, financial commitment (if applicable), relationship to applicant.", "estimated_days": 7, "documents_needed": ["Invitation letter"], "tips": ["Notarized invitation strengthens"]},
+            {"step_number": 3, "title": "Sponsor Submits Declaration of Commitment (if required)", "description": "Germany / France / Switzerland: Sponsor visits local Ausländerbehörde / Mairie to formally assume financial liability. Provides documents to applicant.", "estimated_days": 14, "documents_needed": ["Verpflichtungserklärung / Garanti d'accueil"], "tips": ["Most strict in Germany"]},
+            {"step_number": 4, "title": "Applicant Compiles Documents", "description": "Compile: invitation letter, relationship proof (birth/marriage certs apostilled), sponsor's permit, applicant's funds, travel insurance, accommodation evidence, employment letter.", "estimated_days": 14, "documents_needed": ["All compiled docs"], "tips": []},
+            {"step_number": 5, "title": "Book VAC Appointment", "description": "Apply at country embassy where family resides. Book biometric appointment.", "estimated_days": 21, "documents_needed": [], "tips": []},
+            {"step_number": 6, "title": "Submit Application + Biometrics", "description": "Submit at VAC + €90 fee + biometric scan.", "estimated_days": 1, "documents_needed": [], "tips": []},
+            {"step_number": 7, "title": "Receive Decision (15-45 days)", "description": "Standard processing. Family visit visas often faster than tourist if invitation strong.", "estimated_days": 30, "documents_needed": [], "tips": []},
+            {"step_number": 8, "title": "Travel + 90/180 Compliance", "description": "Travel within visa validity. Stay max 90 days. Track across Schengen.", "estimated_days": 1, "documents_needed": [], "tips": ["EES tracking Apr 2026+"]},
+        ],
+        "document_checklist": [
+            {"name": "Valid passport (3+ months beyond stay, 2 blank pages)", "mandatory": True, "notes": ""},
+            {"name": "Schengen visa application form (Family Visit specified)", "mandatory": True, "notes": ""},
+            {"name": "Recent biometric photos (35x45mm)", "mandatory": True, "notes": ""},
+            {"name": "Formal invitation letter from EU resident family member", "mandatory": True, "notes": "On letterhead / notarized"},
+            {"name": "Sponsor's residence permit / EU citizenship document copy", "mandatory": True, "notes": ""},
+            {"name": "Relationship proof (birth / marriage certificates, apostilled + translated)", "mandatory": True, "notes": ""},
+            {"name": "Verpflichtungserklärung (DE/CH) / Garanti d'accueil (FR) / similar", "mandatory": False, "notes": "Country-specific; often replaces tourist financial proof"},
+            {"name": "Sponsor's accommodation evidence (lease + landlord confirmation)", "mandatory": True, "notes": ""},
+            {"name": "Applicant's bank statements (3-6 months)", "mandatory": True, "notes": "Or sponsor commitment"},
+            {"name": "Salary slips + employment letter (Indian)", "mandatory": True, "notes": ""},
+            {"name": "ITRs (last 2-3 years)", "mandatory": True, "notes": ""},
+            {"name": "Travel insurance €30,000+ medical", "mandatory": True, "notes": ""},
+            {"name": "Flight reservations (return ticket)", "mandatory": True, "notes": ""},
+            {"name": "Cover letter explaining family visit purpose", "mandatory": True, "notes": ""},
+            {"name": "Old passports with prior visa stamps", "mandatory": True, "notes": ""},
+            {"name": "Visa fee €90", "mandatory": True, "notes": ""},
+        ],
+        "common_rejection_reasons": [
+            "Invitation letter weak / unclear / not on letterhead",
+            "Sponsor's residence permit invalid / expired",
+            "Relationship proof missing OR not apostilled",
+            "Verpflichtungserklärung missing (where required by country)",
+            "Sponsor's accommodation insufficient",
+            "Applicant has no independent funds AND no sponsor commitment",
+            "Travel insurance below €30,000 OR not valid Schengen",
+            "Pattern suggesting overstay intent or undeclared work plans",
+        ],
+        "success_tips": [
+            "Notarized invitation letter MUCH stronger than informal — request from sponsor",
+            "Verpflichtungserklärung (DE/CH/FR): sponsor commitment formalized = very strong",
+            "Birth/marriage certificates: apostille via MEA + translate to country language",
+            "Relationship documentation is #1 success factor — clear lineage proof",
+            "Sponsor's letter on company / official letterhead strengthens (if employed)",
+            "First-time family visit applicants can build to multi-entry visas later",
+            "Family visit visas often APPROVED FASTER than tourist when documentation strong",
+            "EES Apr 2026+: track cumulative days across multiple family visits",
+        ],
+        "faqs": [
+            {"q": "Same fee as Tourist Type C?", "a": "YES — €90 adult / €45 child 6-12 / FREE under 6. Same biometrics + 90/180 rule. Different documentation only."},
+            {"q": "What's a Verpflichtungserklärung?", "a": "Germany / Switzerland (similar France's Garanti d'accueil): Sponsor formally assumes financial liability for applicant via local authority appointment. Often replaces applicant's independent financial proof. Strong evidence for visa."},
+            {"q": "Which countries require notarized invitation?", "a": "Varies. Germany / France / Switzerland often require formal Verpflichtungserklärung. Italy / Spain / Portugal accept signed invitation letter. Check embassy specifics."},
+            {"q": "What if sponsor is on student visa?", "a": "Sponsor's residence permit type matters. Student visa holders can sometimes invite but less strongly. EU citizens + EU Blue Card holders strongest sponsors."},
+            {"q": "Can I extend in Schengen if I want to stay longer?", "a": "Generally NO — Type C is non-extendable beyond 90/180 rule. For longer stay: must depart + reapply, OR apply for Type D Family Reunion (long-term)."},
+            {"q": "Different from Family Reunion (Type D)?", "a": "YES. Family Visit (Type C): ≤90 days visit. Family Reunion (Type D): permanent relocation to LIVE with family, country-specific national visa, residence permit after entry."},
+        ],
+        "official_url": "https://home-affairs.ec.europa.eu/policies/schengen/visa-policy_en",
+        "vfs_url": "https://www.vfsglobal.com/",
+        "source_urls": [
+            "https://home-affairs.ec.europa.eu/policies/schengen/visa-policy_en",
+            "https://www.schengenvisainfo.com/family-schengen-visa/",
+            "https://travel-europe.europa.eu/ees",
+            "https://www.axa-schengen.com/en/visa/types/schengen-visa-type-c",
+        ],
+        "verified_notes": "Manual Fast-Path B.4.9 seed — verified against home-affairs.ec.europa.eu + Schengen Visa Info + EU Travel Portal + AXA Schengen on 2026-02-27. Verpflichtungserklärung (Germany/Switzerland) and Garanti d'accueil (France) explicitly documented. Distinction with Type D Family Reunion (long-term) clearly drawn. Validator URL check: HTTP 200 primary; HTTP 404 schengenvisainfo.com secondary (path changes — NOT closure).",
+    },
+
+    # ── 6. EU-Study — Schengen Study Visa (Type C / Type D depending on duration) ─
+    {
+        "country_code": "EU", "country_name": "Schengen Area (29 countries)",
+        "subclass_id": "Study",
+        "subclass_name": "Schengen Study Visa (Type C for <90 days; Type D for full programs — country-specific)",
+        "service_type": "student", "category": "immigration",
+        "description": (
+            "The Schengen Study visa accommodates academic stays in Schengen Area countries, "
+            "with **TWO distinct routes depending on duration:**\n\n"
+            "**Type C — Short-Term Study (under 90 days):**\n"
+            "- Language courses (3-month intensive)\n"
+            "- Summer schools / Erasmus short exchanges\n"
+            "- Short professional training programs\n"
+            "- **Fee: €90 adult / €45 child / FREE under 6** (uniform Schengen)\n"
+            "- Same biometrics + 90/180 + travel insurance as Tourist Type C\n"
+            "- Documentation: course acceptance + financial proof (~€500-€1,000/mo)\n\n"
+            "**Type D — Long-Term Study (full programs, >90 days):**\n"
+            "- Bachelor / Master / PhD full programs\n"
+            "- Multi-semester language courses\n"
+            "- Research positions\n"
+            "- **Fee: country-specific** (Italy €116 · Germany €75 · France €99 · Spain €80 + "
+            "€16 TIE · Netherlands €228 · Austria €150 · Portugal €90)\n"
+            "- Gateway to national residence permit (Permesso di soggiorno / Aufenthaltstitel "
+            "/ Titre de séjour etc.)\n"
+            "- Country-specific financial proof:\n"
+            "  - 🇮🇹 Italy: ~€500/mo · 🇩🇪 Germany: €11,904 Sperrkonto · 🇫🇷 France: €7,928/yr\n"
+            "  - 🇪🇸 Spain: €7,200/yr · 🇦🇹 Austria: €1,200-€1,500/mo\n\n"
+            "**Common across both routes:**\n"
+            "- Acceptance letter from EU institution (Hochschulkompass / Italian Università / "
+            "French Campus France / etc.)\n"
+            "- Language proficiency (program-specific: A1 → C1 in country language OR "
+            "English B2+ for English-taught)\n"
+            "- Health insurance (Schengen €30,000+ for Type C; country-specific for Type D)\n"
+            "- Apostilled academic credentials\n\n"
+            "**Top student destinations from India (2026):**\n"
+            "Germany (public uni free, €11,904 Sperrkonto, 18-mo post-grad job seeker) · "
+            "France (Campus France process, €7,928/yr proof) · Italy (€500/mo proof, low "
+            "tuition) · Netherlands (English-taught popular) · Spain (€7,200/yr proof)."
+        ),
+        "eligibility_summary": (
+            "Acceptance to EU institution. Type C (≤90 days): short course + financial proof. "
+            "Type D (>90 days): full program + country-specific financial + language + apostilled "
+            "credentials. Gateway to national residence permit (Type D only)."
+        ),
+        "eligibility_criteria": [
+            {"label": "Type C — Duration", "value": "Under 90 days: language course, summer school, short training", "notes": "Uniform Schengen visa"},
+            {"label": "Type D — Duration", "value": "Over 90 days: Bachelor / Master / PhD full programs", "notes": "Country-specific national visa"},
+            {"label": "Institution Recognition", "value": "Type C: Recognized course provider. Type D: Recognized higher education institution (Hochschulkompass DE / Università IT / etc.)", "notes": ""},
+            {"label": "Type D Country-Specific Fees", "value": "Italy €116 · Germany €75 · France €99 · Spain €80 + €16 TIE · Netherlands €228 · Austria €150 · Portugal €90", "notes": ""},
+            {"label": "Type C Fee (Uniform)", "value": "€90 adult / €45 child 6-12 / FREE under 6", "notes": ""},
+            {"label": "Financial Proof (Type D)", "value": "Germany €11,904 Sperrkonto/yr · France €7,928/yr · Italy €500/mo · Spain €7,200/yr · Austria €1,200-€1,500/mo", "notes": "Country-specific"},
+            {"label": "Language Proficiency", "value": "Program-specific: A1-C1 country language OR English B2+ for English-taught", "notes": "TestDaF / DELF / CILS / IELTS / TOEFL"},
+            {"label": "Health Insurance", "value": "Type C: €30,000+ Schengen. Type D: country-specific (often €30,000+ Schengen-valid)", "notes": ""},
+            {"label": "Post-Graduation Job Seeker (Type D countries)", "value": "Germany 18 months · Netherlands 1 year (Zoekjaar) · France 1 year (APS) · Italy 12 months", "notes": "Major destination advantage"},
+        ],
+        "fees_local_currency_code": "EUR", "fees_local_currency_amount": 90, "fees_inr_approx": 8550,
+        "fees_breakdown": [
+            {"component": "Type C Study visa fee — adult (under 90 days)", "amount": 90, "currency": "EUR"},
+            {"component": "Type D Italy visa fee", "amount": 116, "currency": "EUR"},
+            {"component": "Type D Germany visa fee", "amount": 75, "currency": "EUR"},
+            {"component": "Type D France visa fee (VLS-TS étudiant)", "amount": 99, "currency": "EUR"},
+            {"component": "Type D Spain visa fee + €16 TIE card", "amount": 96, "currency": "EUR"},
+            {"component": "Type D Netherlands MVV + VVR combined", "amount": 228, "currency": "EUR"},
+            {"component": "Type D Austria visa fee", "amount": 150, "currency": "EUR"},
+            {"component": "Type D Portugal visa fee", "amount": 90, "currency": "EUR"},
+            {"component": "VAC service fee (India)", "amount": 30, "currency": "EUR"},
+            {"component": "Biometric enrolment", "amount": 12, "currency": "EUR"},
+            {"component": "Health insurance (Type C: Schengen; Type D: country-specific)", "amount": 30, "currency": "EUR", "per": "week"},
+            {"component": "Sperrkonto deposit Germany (€11,904 blocked)", "amount": 11904, "currency": "EUR"},
+            {"component": "Apostille + translation of academic credentials", "amount": 300, "currency": "EUR"},
+            {"component": "Tuition (varies; Germany public uni mostly FREE)", "amount": 5000, "currency": "EUR", "per": "year"},
+        ],
+        "processing_time_days_min": 21, "processing_time_days_max": 90,
+        "step_by_step": [
+            {"step_number": 1, "title": "Apply to EU Institution + Receive Acceptance", "description": "Apply to recognized universities. Receive acceptance letter (Zulassungsbescheid DE / Lettera di Accettazione IT / etc.).", "estimated_days": 120, "documents_needed": ["Transcripts", "Language test"], "tips": ["Apply 6-8 months before intended start"]},
+            {"step_number": 2, "title": "Determine Type C or Type D", "description": "If course <90 days: Type C. If full program >90 days: Type D country-specific.", "estimated_days": 1, "documents_needed": [], "tips": []},
+            {"step_number": 3, "title": "Compile Financial Proof", "description": "Type D Germany: open Sperrkonto €11,904. France: €7,928/yr proof. Italy: €500/mo. Spain: €7,200/yr. Country-specific.", "estimated_days": 14, "documents_needed": ["Bank statements / Sperrkonto / Scholarship letter"], "tips": ["Sperrkonto easiest for Germany"]},
+            {"step_number": 4, "title": "Get Health Insurance", "description": "Type C: Schengen €30,000+. Type D: country-specific (Germany public TK/AOK €110/mo for students <30; Spain Spanish provider).", "estimated_days": 7, "documents_needed": [], "tips": []},
+            {"step_number": 5, "title": "Apostille + Translate Academic Credentials", "description": "MEA apostille + certified translation to country language for school-leaving cert + degrees + transcripts.", "estimated_days": 21, "documents_needed": ["Apostilled credentials"], "tips": []},
+            {"step_number": 6, "title": "Book Embassy Appointment + Submit", "description": "Book at country embassy (Type D) or VAC (Type C). Submit all documents + fee + biometric scan.", "estimated_days": 30, "documents_needed": ["All compiled"], "tips": ["Embassy faster than VAC for Type D in some countries"]},
+            {"step_number": 7, "title": "Receive Decision (21-90 days)", "description": "Type C: 15-45 days. Type D: 30-90 days.", "estimated_days": 60, "documents_needed": [], "tips": []},
+            {"step_number": 8, "title": "Travel + Register + Residence Permit (Type D only)", "description": "Type C: travel + complete course + depart. Type D: travel + register at local authority within 8 working days (IT) / 90 days (DE/PT) / etc. + apply for residence permit. Plan 18-mo post-grad job seeker (DE/NL/FR/IT).", "estimated_days": 90, "documents_needed": [], "tips": []},
+        ],
+        "document_checklist": [
+            {"name": "Valid passport (validity beyond course/program)", "mandatory": True, "notes": ""},
+            {"name": "Country-specific application form (Type D) or Schengen form (Type C)", "mandatory": True, "notes": ""},
+            {"name": "Recent biometric photos (35x45mm)", "mandatory": True, "notes": ""},
+            {"name": "Acceptance letter from EU institution", "mandatory": True, "notes": "Zulassungsbescheid / Lettera di Accettazione / etc."},
+            {"name": "Academic transcripts + school-leaving certificate", "mandatory": True, "notes": "Apostilled + translated"},
+            {"name": "Bachelor's / Master's degrees (for postgraduate programs)", "mandatory": False, "notes": "If applicable"},
+            {"name": "Language proficiency certificate (TestDaF / DELF / IELTS / TOEFL)", "mandatory": True, "notes": ""},
+            {"name": "Financial proof (Sperrkonto DE / bank statements / scholarship)", "mandatory": True, "notes": "Country-specific amount"},
+            {"name": "Health insurance certificate", "mandatory": True, "notes": "Type C: €30,000+ Schengen; Type D: country-specific"},
+            {"name": "Cover letter / Statement of Purpose", "mandatory": True, "notes": ""},
+            {"name": "CV / résumé", "mandatory": True, "notes": ""},
+            {"name": "Travel itinerary (Type C only)", "mandatory": False, "notes": "Type C only"},
+            {"name": "Accommodation proof (lease / student housing)", "mandatory": True, "notes": ""},
+            {"name": "Birth certificate (apostilled + translated)", "mandatory": True, "notes": ""},
+            {"name": "Visa fee (country-specific: €75-€228)", "mandatory": True, "notes": ""},
+            {"name": "Biometric appointment confirmation", "mandatory": True, "notes": ""},
+        ],
+        "common_rejection_reasons": [
+            "Acceptance letter from non-recognized institution",
+            "Financial proof below country threshold (Sperrkonto / scholarship / bank)",
+            "Language proficiency below program requirement",
+            "Academic credentials not apostilled OR not translated",
+            "Health insurance inadequate / not valid country/Schengen",
+            "Course duration mismatch with visa type (Type C course actually >90 days, etc.)",
+            "Past Schengen overstay or refusal",
+            "Unclear post-graduation plan (genuine student intent)",
+        ],
+        "success_tips": [
+            "Germany: public university free + €11,904 Sperrkonto = best value destination",
+            "Apply 6-8 months before program start for safe timing",
+            "Apostille + certified translation via MEA + recognized translator",
+            "Sperrkonto: Expatrio €49 cheapest setup",
+            "18-month post-grad job seeker (DE) = major Germany advantage",
+            "Type D: plan residence permit appointment BEFORE arrival (Berlin queues 8+ wk)",
+            "Verify Type C vs Type D based on EXACT course duration — mismatch = refusal",
+            "Multi-country English-taught programs increasingly accept IELTS / TOEFL only",
+        ],
+        "faqs": [
+            {"q": "Type C or Type D for study?", "a": "Under 90 days (language course, summer school, short training): Type C uniform Schengen €90. Over 90 days (full Bachelor/Master/PhD): Type D country-specific (€75-€228) with residence permit after arrival."},
+            {"q": "Cheapest Type D destination?", "a": "Germany (€75 visa + free public university + €11,904 Sperrkonto). Portugal (€90 + low living costs). France (€99 + €7,928/yr proof). Italy (€116 + €500/mo proof, low tuition)."},
+            {"q": "Can I work while studying?", "a": "Yes per country: Germany 120 full days/yr · France 964 hrs/yr · Italy 1,040 hrs/yr · Spain 30hr/wk · Austria 20hr/wk (Bachelor's). Self-employment generally restricted."},
+            {"q": "What's the post-graduation job seeker permit?", "a": "Germany 18 months · Netherlands 1 year (Zoekjaar) · France 1 year (APS Autorisation Provisoire de Séjour) · Italy 12 months. Major Schengen advantage for finding qualified employment."},
+            {"q": "Schengen travel rights on Type D Study?", "a": "YES — Type D allows 90/180 travel to OTHER Schengen countries. Time in issuing country doesn't count. Major advantage for inter-country travel."},
+            {"q": "ETIAS impact on students?", "a": "NONE — ETIAS applies to visa-exempt nationalities (NOT India). Indian students continue with full visa application."},
+        ],
+        "official_url": "https://home-affairs.ec.europa.eu/policies/schengen/visa-policy_en",
+        "vfs_url": "https://www.vfsglobal.com/",
+        "source_urls": [
+            "https://home-affairs.ec.europa.eu/policies/schengen/visa-policy_en",
+            "https://www.schengenvisainfo.com/student-schengen-visa/",
+            "https://www.study-abroad.org/blog/schengen-visa-guide/",
+            "https://www.axa-schengen.com/en/visa/types/schengen-visa-type-d",
+            "https://travel-europe.europa.eu/en/etias",
+        ],
+        "verified_notes": "Manual Fast-Path B.4.9 seed — verified against home-affairs.ec.europa.eu + Schengen Visa Info + Study Abroad + AXA Schengen + EU Travel Portal on 2026-02-27. Type C (≤90 days, €90) vs Type D (>90 days, country-specific €75-€228) distinction documented. Country-specific financial requirements for Italy/Germany/France/Spain/Austria/Portugal/Netherlands captured. Post-graduation job seeker permit comparisons across countries provided. Validator URL check: HTTP 200 (primary + secondary).",
+    },
+]
+
+
 ALL_WORKFLOWS: Dict[str, List[Dict[str, Any]]] = {
     "IN": INDIA_WORKFLOWS,
     "AU": AUSTRALIA_NEW_WORKFLOWS,
@@ -5804,6 +6623,7 @@ ALL_WORKFLOWS: Dict[str, List[Dict[str, Any]]] = {
     "UK": UNITED_KINGDOM_NEW_WORKFLOWS,
     "US": USA_NEW_WORKFLOWS,
     "DE": GERMANY_NEW_WORKFLOWS,
+    "EU": SCHENGEN_NEW_WORKFLOWS,
 }
 
 

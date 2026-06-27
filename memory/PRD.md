@@ -4,6 +4,34 @@
 Multi-role immigration portal with React + FastAPI + MongoDB. Roles: Admin, Case Manager, Partner, Client. Expanding to a full multi-department Employee Portal with production-grade RBAC.
 
 
+# 🎉🎉🎉 MEGA DISPATCH SWEEP B.4 COMPLETE — 80 Verified Workflows Across 8 Country/Region Groups (Feb 27, 2026) 🎉🎉🎉
+
+**The complete Country Workflow Seeding Initiative is now finished.** Across **9 atomic sub-slices (B.4.1-9)**, Sweep B.4 added **56 verified workflows** to the original B.2 baseline of 24, bringing the **verified Country Workflows Hub to 80 total workflows**.
+
+| Country / Region | Total Verified Workflows |
+|---|---|
+| 🇦🇺 Australia | 16 |
+| 🇨🇦 Canada | 12 |
+| 🇮🇳 India | 12 |
+| 🇳🇿 New Zealand | 10 |
+| 🇬🇧 United Kingdom | 12 |
+| 🇺🇸 United States | 6 |
+| 🇩🇪 Germany | 6 |
+| 🇪🇺 Schengen Area | 6 |
+| **TOTAL** | **80** |
+
+**Audit logs:** `_b2`=24 (preserved unchanged) + `_b4`=56 (canonical) = 80 (100% coverage, 1:1 mapping).
+**Total documents:** 1,290+ across 80 workflows, all with `{COUNTRY}-{SID}-DOC-NN` doc_id pattern.
+**Honest research corrections:** 9 transparent corrections across 5 sub-slices, all documented in `verified_notes`.
+**Fast-path latency:** All curl tests <200ms (typical 100-150ms).
+**Infrastructure:** `seed_country_workflows_b4.py` (~10,000 lines) + `validate_visa_names.py` (180 lines, supports US/DE/EU inline + JSON file mode).
+
+
+
+> **🇪🇺 Update (Feb 27, 2026 — Sweep B.4.9 Schengen NEW COMPLETE; MEGA DISPATCH FINAL):** Atomic Ship — **6 NET-NEW Schengen verified workflows** (third net-new country/region group, first multi-country regional). **Subclasses:** EU-C-Tourist ✅ (**€90 adult / €45 child / FREE under 6** — June 11, 2024 raise was €60 → €90, NOT €80; 90/180 rule; biometrics + EES mid-rollout) · EU-C-Business ✅ (same €90 + EU host invitation + Indian employer letter; multi-entry common) · EU-D-Long-Stay ✅ (country-specific issuance: **IT €116 · DE €75 · FR €99 · ES €80+€16 TIE · NL €228 · AT €150 · PT €90**; gateway to residence permit; **ETIAS exempt**) · EU-A-Transit ✅ (specific nationalities only — **India NOT typically required**; EES exempt) · EU-C-Family-Visit ✅ (Type C + **Verpflichtungserklärung (DE/CH) / Garanti d'accueil (FR)** sponsor commitment; relationship proof apostilled) · EU-Study ✅ (Type C €90 <90 days OR Type D country-specific >90 days; post-grad job seeker DE 18mo / NL 1yr / FR 1yr / IT 12mo). **🔧 Validator utility extended (`--inline EU` supported, generalization complete)** — 6/6 EU visa names HTTP 200 OK on home-affairs.ec.europa.eu. **🔧 3 RESEARCH CORRECTIONS vs Sir's brief (most in single sub-slice):** (1) Schengen fee **€90 NOT €80** (June 11, 2024 raise was €60 → €90); (2) **ETIAS POSTPONED to Q4 2026** (Oct-Dec launch, NOT mid-2025); (3) **EES PHASED ROLLOUT** (Oct 12, 2025 start → April 10, 2026 full mandatory). All corrections in EU-C-Tourist verified_notes. **Triple-gate verified:** 🟢 Seed `inserted=6 skipped=0`; idempotency `inserted=0 skipped=6`. 🟢 Integrity: 14 mandatory fields all 6 · 93 docs (17+16+16+12+16+16) all with `EU-{SID}-DOC-NN` doc_id · 6/6 canonical `_b4` audit logs. 🟢 Fast-path live curl (4 parallel): EU/visitor → EU-C-Tourist (149ms), Schengen/pr → EU-D-Long-Stay (144ms), Europe/transit → EU-A-Transit (139ms), EU/business → EU-C-Business (102ms) — all unique service_types resolve correctly + Schengen/Europe aliases work. 🟢 **DB total verified workflows: 80 — MEGA DISPATCH COMPLETE** (AU=16, CA=12, IN=12, NZ=10, UK=12, US=6, DE=6, EU=6). 🟢 **Audit log counts: `_b4`=56, `_b2`=24**. **Files modified (3) + extended (1):** `backend/scripts/seed_country_workflows_b4.py` (~10,000 lines), `backend/routers/country_workflows.py` (6 EU aliases), `backend/routers/ai_workflow_builder.py` (schengen/eu COUNTRY_REFERENCES added). **EXTENDED:** `backend/scripts/validate_visa_names.py` (now supports US + DE + EU). **Next:** Post-MEGA-DISPATCH backlog — Sir directs (Phase 22.4 / Phase 23 / Resend / Stripe / parked enhancements).
+
+
+
 > **🇩🇪 Update (Feb 27, 2026 — Sweep B.4.8 Germany NEW COMPLETE + Validator extended to DE):** Atomic Ship — **6 NET-NEW Germany verified workflows** (second net-new country, first EU; no prior B.2 Germany seeds). **Subclasses:** DE-EU-Blue-Card ✅ (**€50,700 general / €45,934.20 shortage Jan 1, 2026 thresholds** — BGBl. 2025 I Nr. 278; €100 fee; 21-mo PR via B1 German; spouses A1 EXEMPT) · DE-Job-Seeker ✅ (6-month non-extendable; **€6,162 Sperrkonto for 2026** = €1,027/mo × 6; 2-week trial work only) · DE-Student ✅ (**€11,904 Sperrkonto** = €992/mo BAföG; €75 visa; public universities FREE; 120 days/yr work; **18-month post-grad job seeker permit**) · DE-Skilled-Worker ✅ (3 pathways: Standard / Recognition Partnership 2024 reform / **Chancenkarte (Opportunity Card) launched June 2024 — CONFIRMED ACTIVE Feb 2026**; 6-point system; €13,092/yr; 20hr/wk part-time work) · DE-Family-Reunion ✅ (€75/€37.50/FREE EU citizen; **A1 German EXEMPT for spouses of EU Blue Card / Skilled Worker / ICT / German citizens**) · DE-Self-Employment ✅ (Freiberufler 2+ client letters / Gewerbe business plan + IHK assessment; €250k rule ABOLISHED; Age 45+: €1,612.53/mo × 12yr or €232,204 assets; **Berlin LEA online-only from March 2026**). **🔧 Validator utility extended (`--inline DE` supported)** — 6/6 DE visa names HTTP 200 OK on make-it-in-germany.com. **🔧 Research correction:** Sir's brief listed EU Blue Card €48,300/€43,759 (outdated) → **actual Jan 1, 2026 €50,700/€45,934.20** (50%/45.3% of €101,400 pension ceiling); correction in DE-EU-Blue-Card verified_notes; all other Sir's values confirmed accurate (€11,904 Sperrkonto, Chancenkarte launch, Recognition Partnership). **Triple-gate verified:** 🟢 Seed `inserted=6 skipped=0`; idempotency `inserted=0 skipped=6`. 🟢 Integrity: 14 mandatory fields all 6 · 95 docs (16+15+15+16+15+18) all with `DE-{SID}-DOC-NN` doc_id · 6/6 canonical `_b4` audit logs. 🟢 Fast-path live curl (4 parallel): DE/work → DE-EU-Blue-Card (142ms), Germany/student → DE-Student (136ms), Deutschland/business → DE-Self-Employment (139ms), DE/partner → DE-Family-Reunion (100ms) — all unique service_types resolve correctly + Germany/Deutschland aliases work. 🟢 **DB total verified workflows: 74** (AU=16, CA=12, IN=12, NZ=10, UK=12, US=6, DE=6). 🟢 **Audit log counts: `_b4`=50, `_b2`=24**. **Files modified (3 + extended 1):** `backend/scripts/seed_country_workflows_b4.py` (~8,200 lines), `backend/routers/country_workflows.py` (6 DE aliases), `backend/routers/ai_workflow_builder.py` (germany/de/deutschland COUNTRY_REFERENCES enhanced). **EXTENDED:** `backend/scripts/validate_visa_names.py` (now supports US + DE). **Next:** B.4.9 Schengen NEW (FINAL sub-slice — ~80 total workflows).
 
 
