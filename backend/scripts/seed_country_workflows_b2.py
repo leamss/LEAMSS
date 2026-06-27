@@ -701,8 +701,708 @@ AUSTRALIA_WORKFLOWS: List[Dict[str, Any]] = [
 ]
 
 
+# ──────────────────────────────────────────────────────────────────────────────
+# CANADA (CA) — 6 verified subclasses
+# Source: ircc.canada.ca · Feb 2026 fee schedule · FX: 1 CAD ≈ 60 INR
+# ──────────────────────────────────────────────────────────────────────────────
+CANADA_WORKFLOWS: List[Dict[str, Any]] = [
+    # ── 1. Express Entry: Federal Skilled Worker (FSW) ─────────────────────────
+    {
+        "country_code": "CA",
+        "country_name": "Canada",
+        "subclass_id": "EE-FSW",
+        "subclass_name": "Express Entry — Federal Skilled Worker (FSW)",
+        "service_type": "pr",
+        "category": "immigration",
+        "description": (
+            "The Federal Skilled Worker (FSW) program is one of three economic streams within Canada's "
+            "Express Entry system (alongside CEC and FSTP). It targets skilled workers with foreign work "
+            "experience who want to immigrate as Canadian permanent residents. Candidates submit an Expression "
+            "of Interest profile to the Express Entry pool, where they are ranked against all other candidates "
+            "using the Comprehensive Ranking System (CRS) — a points-based assessment of age, education, "
+            "language, work experience, adaptability, and arranged employment.\n\n"
+            "IRCC conducts regular draws (general, program-specific, and category-based) where the highest-"
+            "ranked candidates above the CRS cutoff receive an Invitation to Apply (ITA). Once invited, "
+            "applicants have 60 days to submit a complete electronic Application for Permanent Residence "
+            "(e-APR). Processing standard service is 6 months from complete application. Successful applicants "
+            "receive Confirmation of Permanent Residence (COPR) and become PRs upon landing in Canada."
+        ),
+        "eligibility_summary": (
+            "Minimum 1 year continuous full-time skilled work experience (NOC TEER 0/1/2/3) in past 10 years, "
+            "Canadian Language Benchmark (CLB) 7 in all four English or French skills, education equivalent to "
+            "Canadian secondary school (verified via ECA), minimum 67/100 on FSW eligibility grid, and proof "
+            "of settlement funds (~CAD 14,690 for 1 person)."
+        ),
+        "eligibility_criteria": [
+            {"label": "Work experience", "value": "≥1 year continuous full-time (or equivalent part-time) skilled work in past 10 years", "notes": "NOC TEER 0, 1, 2, or 3 only; paid work; in same NOC for the year"},
+            {"label": "Language", "value": "CLB 7 (minimum) in English OR French — listening/reading/writing/speaking", "notes": "IELTS General Training 6.0 each band, or CELPIP 7 each, or TEF/TCF for French"},
+            {"label": "Education", "value": "Canadian secondary school OR equivalent (with ECA from designated org)", "notes": "ECA providers: WES, ICAS, IQAS, ICES, CES (uOttawa), MCC (medical), PEBC (pharmacy)"},
+            {"label": "FSW Selection grid", "value": "≥67 out of 100 points (separate from CRS)", "notes": "Age, education, language, experience, arranged employment, adaptability"},
+            {"label": "CRS score", "value": "Competitive cutoff varies by draw (485-500+ for general, lower for category-based)", "notes": "Express Entry pool ranking — top scorers invited"},
+            {"label": "Settlement funds", "value": "CAD 14,690 (1 person), scaling up to CAD 38,875 (7+ family)", "notes": "Updated annually; not required if you have a valid job offer + Canadian work permit"},
+            {"label": "Admissibility", "value": "Pass medical and criminal background checks", "notes": "Includes medical exam by IRCC panel physician + PCC from every country lived in 6+ months since 18"},
+        ],
+        "fees_local_currency_code": "CAD",
+        "fees_local_currency_amount": 1525,
+        "fees_inr_approx": 91500,
+        "fees_breakdown": [
+            {"component": "Permanent Residence application fee — Principal applicant", "amount": 950, "currency": "CAD"},
+            {"component": "Right of Permanent Residence Fee (RPRF) — Principal applicant", "amount": 575, "currency": "CAD"},
+            {"component": "PR fee — Spouse/Partner", "amount": 950, "currency": "CAD"},
+            {"component": "RPRF — Spouse/Partner", "amount": 575, "currency": "CAD"},
+            {"component": "PR fee — Dependent child (each)", "amount": 260, "currency": "CAD"},
+            {"component": "Biometrics — individual", "amount": 85, "currency": "CAD"},
+            {"component": "Biometrics — family (2+ members)", "amount": 170, "currency": "CAD"},
+            {"component": "Educational Credential Assessment (WES/ICAS/IQAS)", "amount": 250, "currency": "CAD"},
+            {"component": "IELTS General Training (India)", "amount": 16800, "currency": "INR"},
+            {"component": "Medical exam (IRCC panel physician in India)", "amount": 7500, "currency": "INR"},
+            {"component": "Police Clearance Certificate (India PSK)", "amount": 500, "currency": "INR"},
+        ],
+        "processing_time_days_min": 150,
+        "processing_time_days_max": 240,
+        "step_by_step": [
+            {"step_number": 1, "title": "Educational Credential Assessment (ECA)", "description": "Apply to a designated ECA organisation (WES is most common for India) to verify your foreign degree is equivalent to a Canadian credential. ECA report is valid 5 years.", "estimated_days": 35, "documents_needed": ["Degree certificates (notarised)", "Final transcripts (sealed by university)", "Marks memos", "Identity proof (passport)"], "tips": ["WES gives degree-by-degree equivalency", "Order sealed transcript directly from university — must be unopened", "ECA usually takes 20-35 days; rush options exist"]},
+            {"step_number": 2, "title": "Language Testing (IELTS-G / CELPIP / TEF)", "description": "Take an approved English (or French) test. Minimum CLB 7 needed; higher = more CRS points.", "estimated_days": 21, "documents_needed": ["Passport"], "tips": ["IELTS General Training (NOT Academic) for immigration", "Aim CLB 9+ for substantially higher CRS points", "Test result valid 2 years"]},
+            {"step_number": 3, "title": "Submit Express Entry Profile", "description": "Create a profile online at canada.ca/IRCC. Enter education, work history, language scores, family details. System calculates CRS score and places you in the pool.", "estimated_days": 1, "documents_needed": ["ECA report number", "Language test report", "NOC code for primary occupation", "Job reference letters (digital)"], "tips": ["Profile valid 12 months in pool", "Update profile if anything changes (new test score, work anniversary, marriage)", "CRS calculator on IRCC website helps estimate"]},
+            {"step_number": 4, "title": "Receive Invitation to Apply (ITA)", "description": "If your CRS score meets/exceeds the draw cutoff, you receive an ITA in your account. You have 60 days from ITA to submit complete e-APR.", "estimated_days": 60, "documents_needed": [], "tips": ["Watch IRCC draw history — draws happen every 1-2 weeks", "Category-based draws (healthcare, STEM, French speakers, trades, transport, agriculture) have lower cutoffs", "Start gathering documents BEFORE ITA"]},
+            {"step_number": 5, "title": "Submit Electronic Application for Permanent Residence (e-APR)", "description": "Upload all documents, complete forms (IMM 0008, Schedule A, additional family info), pay fees within 60 days of ITA.", "estimated_days": 14, "documents_needed": ["Passport", "Birth certificates", "Marriage certificate (if applicable)", "Children's birth certs (if applicable)", "Police clearances (all countries 6+ months since 18)", "Proof of work experience (reference letters, payslips, T4s/Form 16s)", "ECA report", "Language test results", "Proof of settlement funds (6 months bank statements)", "Photos", "Digital signed forms"], "tips": ["Upload documents in correct categories", "Use IRCC document checklist — it's the source of truth", "Form must match info in profile exactly"]},
+            {"step_number": 6, "title": "Biometrics + Medical + PCC", "description": "Submit biometrics at VFS Canada within 30 days of biometric instruction letter. Medical exam at panel physician. PCC from each country.", "estimated_days": 21, "documents_needed": ["Biometric letter (BIL)", "Medical exam form (eMedical link)", "PCC application docs"], "tips": ["BIL valid 30 days — book early", "Medical valid 12 months", "Indian PCC must be apostilled if applying via mail"]},
+            {"step_number": 7, "title": "Decision and COPR", "description": "IRCC reviews. May request additional documents (ADR). On approval, receive Confirmation of Permanent Residence (COPR) + PR Visa stamped in passport (visa-required nationals).", "estimated_days": 120, "documents_needed": [], "tips": ["Respond to ADR within deadline", "COPR has expiry — must land in Canada before"]},
+            {"step_number": 8, "title": "Landing in Canada", "description": "Travel to Canada within COPR validity. CBSA officer at port of entry validates documents and grants PR status. Receive PR Card by mail within 60 days.", "estimated_days": 30, "documents_needed": ["Passport with PR Visa", "COPR (printed)", "Goods Accompanying / Goods To Follow lists", "Proof of funds"], "tips": ["Land before COPR expiry", "Bring goods-to-follow inventory if shipping later", "Apply for SIN, health card, driver's license post-landing"]},
+        ],
+        "document_checklist": [
+            {"name": "Valid passport (all family members)", "mandatory": True, "notes": "Min 6 months validity at time of e-APR"},
+            {"name": "Birth certificates (all applicants)", "mandatory": True, "notes": "Notarised English translation if not in English"},
+            {"name": "Marriage certificate (if applicable)", "mandatory": True, "notes": "Including common-law evidence if applicable"},
+            {"name": "Children's birth certificates (if dependents)", "mandatory": True, "notes": "Establishing parent-child relationship"},
+            {"name": "Educational Credential Assessment (ECA) report", "mandatory": True, "notes": "From IRCC-designated organisation"},
+            {"name": "Degree certificates + transcripts (sealed)", "mandatory": True, "notes": "Submitted to ECA org"},
+            {"name": "Language test results (IELTS-G / CELPIP / TEF / TCF)", "mandatory": True, "notes": "Valid 2 years; must be approved test type"},
+            {"name": "Work experience reference letters (on company letterhead)", "mandatory": True, "notes": "Must include: position, duties, dates, hours/week, salary, supervisor signature, company contact"},
+            {"name": "Payslips / Tax documents (T4s, Form 16, ITR)", "mandatory": True, "notes": "Supporting work experience claim"},
+            {"name": "Police Clearance Certificates", "mandatory": True, "notes": "From every country lived 6+ months since age 18"},
+            {"name": "Medical exam results (IRCC eMedical)", "mandatory": True, "notes": "Panel physician only"},
+            {"name": "Biometrics (fingerprints + photo)", "mandatory": True, "notes": "VFS Canada in India"},
+            {"name": "Proof of settlement funds (6-month bank statements)", "mandatory": True, "notes": "CAD 14,690+ depending on family size"},
+            {"name": "Digital photos (passport-style)", "mandatory": True, "notes": "Per IRCC specifications"},
+            {"name": "Personal History (Schedule A)", "mandatory": True, "notes": "Last 10 years address + employment + education timeline"},
+            {"name": "Additional Family Info (IMM 5406)", "mandatory": True, "notes": "All family members listed even if not migrating"},
+        ],
+        "common_rejection_reasons": [
+            "Insufficient or inconsistent work experience evidence (vague reference letters, missing duties)",
+            "NOC mismatch — claimed occupation doesn't match actual duties performed",
+            "Below minimum language threshold (CLB 7) on any one of the four skills",
+            "Insufficient settlement funds (must be liquid + accessible, not gifts or borrowed)",
+            "Misrepresentation — undisclosed prior visa refusals, criminal record, or family members",
+            "Educational equivalency below Canadian secondary school",
+            "Document not submitted within 60-day ITA window",
+            "Medical inadmissibility — undiagnosed condition that would cause excessive demand on Canadian healthcare",
+        ],
+        "success_tips": [
+            "Maximise CRS through second official language (French = +50 points)",
+            "Get Canadian job offer with LMIA = +50 or +200 CRS points (worth chasing)",
+            "Spouse education + language = up to 40 additional CRS points",
+            "Consider Provincial Nominee Program if CRS too low for federal draws — adds +600 CRS",
+            "Use NOC TEER 0/1/2/3 reference letters with EXACTLY matching duties to NOC profile",
+            "Build 6 months bank statements showing stable funds — sudden deposits raise red flags",
+            "Apply for ECA + language test 4-6 months before profile submission",
+            "Watch for category-based draws — healthcare, STEM, French speakers have much lower cutoffs",
+        ],
+        "faqs": [
+            {"q": "What is the minimum CRS score?", "a": "There's no fixed minimum — it varies per draw. General draws in 2025-26 have cutoffs of 485-500+. Category-based draws can be as low as 379 (French speakers). Check IRCC draw history."},
+            {"q": "Do I need a Canadian job offer?", "a": "No — FSW is for foreign workers without Canadian experience. Job offer + LMIA gives bonus CRS points (50-200) but is NOT mandatory."},
+            {"q": "How long does FSW take?", "a": "IRCC standard service: 6 months from complete application receipt. But ITA wait in pool can range from days (high CRS) to never (low CRS, profile expires at 12 months)."},
+            {"q": "Can I include my family?", "a": "Yes — spouse/common-law partner and dependent children under 22 can be on same application. Each pays separate fees."},
+            {"q": "What's the difference between FSW, CEC, and FSTP?", "a": "FSW = foreign skilled workers (no Canadian experience needed). CEC = Canadian Experience Class (need 1+ year Canadian work in NOC 0/1/2/3). FSTP = Federal Skilled Trades (for trades NOC 72/73/82/83 + job offer or certification)."},
+            {"q": "Is FSW closed sometimes?", "a": "FSW general draws were paused in 2020-22 during COVID. As of 2025-26, regular FSW general draws are happening. Category-based draws also include FSW eligible candidates."},
+        ],
+        "official_url": "https://www.canada.ca/en/immigration-refugees-citizenship/services/immigrate-canada/express-entry/eligibility/federal-skilled-workers.html",
+        "vfs_url": "https://visa.vfsglobal.com/ind/en/can/",
+        "source_urls": [
+            "https://www.canada.ca/en/immigration-refugees-citizenship/services/immigrate-canada/express-entry.html",
+            "https://www.canada.ca/en/immigration-refugees-citizenship/services/immigrate-canada/express-entry/eligibility/federal-skilled-workers.html",
+            "https://www.canada.ca/en/immigration-refugees-citizenship/services/immigrate-canada/express-entry/eligibility/criteria-comprehensive-ranking-system.html",
+            "https://www.canada.ca/en/immigration-refugees-citizenship/services/immigrate-canada/express-entry/submit-profile/express-entry-rounds-invitations.html",
+            "https://www.canada.ca/en/immigration-refugees-citizenship/corporate/publications-manuals/operational-bulletins-manuals/permanent-residence/economic-classes/federal-skilled-workers.html",
+        ],
+        "verified_notes": "Manual Fast-Path B.2 seed — verified against ircc.canada.ca on 2026-02-27. Fees per IRCC current schedule. Settlement funds per latest annual update.",
+    },
+
+    # ── 2. Express Entry: Canadian Experience Class (CEC) ──────────────────────
+    {
+        "country_code": "CA",
+        "country_name": "Canada",
+        "subclass_id": "EE-CEC",
+        "subclass_name": "Express Entry — Canadian Experience Class (CEC)",
+        "service_type": "pr",
+        "category": "immigration",
+        "description": (
+            "The Canadian Experience Class (CEC) is designed for skilled workers who have ALREADY worked in "
+            "Canada legally and want to become permanent residents. It is the most-used Express Entry stream "
+            "for international students who completed Canadian education + obtained Canadian work experience "
+            "via a Post-Graduation Work Permit (PGWP), and for temporary foreign workers transitioning from "
+            "work permits to PR.\n\n"
+            "Compared to FSW, CEC has lower language requirements (CLB 7 for NOC 0/1, CLB 5 for NOC 2/3), "
+            "no settlement funds requirement (since you're already in Canada with employment), and faster "
+            "average processing. CEC draws historically have lower CRS cutoffs than general draws — making it "
+            "the fastest realistic path to PR for those already in Canada."
+        ),
+        "eligibility_summary": (
+            "Minimum 1 year (1,560 hours) skilled work experience in Canada in past 3 years on a valid work "
+            "permit. Language: CLB 7 (NOC TEER 0/1) or CLB 5 (NOC TEER 2/3). Must intend to live outside "
+            "Quebec. No settlement funds required if currently working in Canada."
+        ),
+        "eligibility_criteria": [
+            {"label": "Canadian work experience", "value": "≥1 year (1,560 hrs full-time or equivalent part-time) in past 3 years", "notes": "On a valid work permit; self-employment, student work, or co-op do NOT count"},
+            {"label": "NOC code", "value": "TEER 0, 1, 2, or 3", "notes": "Same NOC for the full year of experience"},
+            {"label": "Language", "value": "CLB 7 (NOC TEER 0/1) or CLB 5 (NOC TEER 2/3)", "notes": "All 4 skills must meet the minimum"},
+            {"label": "Residence intent", "value": "Must intend to reside outside Quebec", "notes": "Quebec has its own program (PEQ)"},
+            {"label": "Status in Canada", "value": "Can apply from inside or outside Canada, but the Canadian work must be on valid permit", "notes": "Off-status work does NOT count"},
+            {"label": "Admissibility", "value": "Pass medical + criminal background checks", "notes": "Standard requirements"},
+        ],
+        "fees_local_currency_code": "CAD",
+        "fees_local_currency_amount": 1525,
+        "fees_inr_approx": 91500,
+        "fees_breakdown": [
+            {"component": "PR application fee — Principal applicant", "amount": 950, "currency": "CAD"},
+            {"component": "Right of Permanent Residence Fee (RPRF)", "amount": 575, "currency": "CAD"},
+            {"component": "PR fee — Spouse/Partner", "amount": 950, "currency": "CAD"},
+            {"component": "RPRF — Spouse/Partner", "amount": 575, "currency": "CAD"},
+            {"component": "PR fee — Dependent child (each)", "amount": 260, "currency": "CAD"},
+            {"component": "Biometrics — individual", "amount": 85, "currency": "CAD"},
+            {"component": "Biometrics — family (2+)", "amount": 170, "currency": "CAD"},
+            {"component": "Language test (IELTS-G in India OR CELPIP in Canada)", "amount": 16800, "currency": "INR"},
+            {"component": "Medical exam (IRCC panel physician)", "amount": 7500, "currency": "INR"},
+            {"component": "PCCs (India + other countries lived in 6+ mo since 18)", "amount": 1000, "currency": "INR"},
+        ],
+        "processing_time_days_min": 120,
+        "processing_time_days_max": 210,
+        "step_by_step": [
+            {"step_number": 1, "title": "Accumulate Canadian Work Experience", "description": "Work full-time (≥30 hrs/week) in Canada on a valid work permit (typically PGWP for ex-students, or LMIA-based work permit) for 12 months in NOC TEER 0/1/2/3.", "estimated_days": 365, "documents_needed": ["Work permit (valid)", "T4 slips", "Pay statements"], "tips": ["Track exact hours weekly", "Get reference letter on company letterhead with full role details", "Stay in same NOC throughout"]},
+            {"step_number": 2, "title": "Language Test", "description": "Take CELPIP General or IELTS General Training in Canada (or India before relocation).", "estimated_days": 21, "documents_needed": ["Passport"], "tips": ["CELPIP is Canadian-designed, may be easier than IELTS for some", "Aim CLB 9+ for max points"]},
+            {"step_number": 3, "title": "Submit Express Entry Profile", "description": "Create EE profile. CRS calculated based on Canadian work + age + language + education.", "estimated_days": 1, "documents_needed": ["Language test result", "NOC for Canadian job", "Work permit details"], "tips": ["Profile valid 12 months", "Update if anything changes (new job, anniversary)"]},
+            {"step_number": 4, "title": "Receive ITA in CEC Draw", "description": "CEC-specific draws or general draws can issue your ITA. CEC draw cutoffs are typically lower than FSW general.", "estimated_days": 30, "documents_needed": [], "tips": ["CEC draws happen frequently", "Watch IRCC for CEC-specific announcements"]},
+            {"step_number": 5, "title": "Submit e-APR", "description": "Upload all docs within 60 days of ITA. CEC-specific: emphasis on Canadian work proof.", "estimated_days": 14, "documents_needed": ["Canadian work reference letter", "T4 slips", "Pay statements", "Work permits (all versions)", "Same as FSW for other docs"], "tips": ["Reference letter MUST contain hours/week, duties matching NOC, dates, salary, supervisor signature", "T4s are mandatory — proves real employment"]},
+            {"step_number": 6, "title": "Biometrics + Medical + PCC", "description": "Standard process.", "estimated_days": 21, "documents_needed": ["BIL", "Medical referral"], "tips": ["Faster in Canada than India"]},
+            {"step_number": 7, "title": "Decision + COPR", "description": "Standard processing.", "estimated_days": 120, "documents_needed": [], "tips": ["May need to do 'soft landing' if outside Canada"]},
+            {"step_number": 8, "title": "Activate PR Status", "description": "If in Canada, status activates upon receipt of COPR. If outside, land at port of entry.", "estimated_days": 30, "documents_needed": ["COPR"], "tips": ["Apply for PR card and update SIN immediately"]},
+        ],
+        "document_checklist": [
+            {"name": "Passport (valid, all family members)", "mandatory": True, "notes": ""},
+            {"name": "All Canadian work permits (current + past)", "mandatory": True, "notes": "Critical for CEC"},
+            {"name": "Canadian work reference letter", "mandatory": True, "notes": "Detailed: hours, duties matching NOC, supervisor signature"},
+            {"name": "T4 slips (each tax year)", "mandatory": True, "notes": "Proves actual Canadian employment"},
+            {"name": "Pay statements (last 6 months)", "mandatory": True, "notes": ""},
+            {"name": "ECA report (if education claimed for CRS points)", "mandatory": False, "notes": "Not mandatory but boosts CRS"},
+            {"name": "Language test results (CELPIP/IELTS-G/TEF)", "mandatory": True, "notes": "CLB 7 (NOC 0/1) or CLB 5 (NOC 2/3)"},
+            {"name": "PCCs (every country lived 6+ months since 18)", "mandatory": True, "notes": ""},
+            {"name": "Medical exam", "mandatory": True, "notes": "IRCC panel physician"},
+            {"name": "Biometrics", "mandatory": True, "notes": "Within 30 days of BIL"},
+            {"name": "Marriage cert + children's birth certs (if applicable)", "mandatory": True, "notes": ""},
+            {"name": "Schedule A — Background Declaration", "mandatory": True, "notes": "10 years address/employment/education"},
+            {"name": "IMM 5406 — Additional Family Info", "mandatory": True, "notes": "All family members"},
+            {"name": "Digital photos (passport-style)", "mandatory": True, "notes": ""},
+        ],
+        "common_rejection_reasons": [
+            "Self-employment, co-op, or part-time-during-study work claimed (not eligible)",
+            "Off-status work — even ONE day off-status invalidates the entire experience period",
+            "Language test below CLB 7 (NOC 0/1) or CLB 5 (NOC 2/3) on any skill",
+            "Reference letter missing critical fields (hours/duties/supervisor signature)",
+            "NOC mismatch — duties don't align with claimed NOC code",
+            "Intent to reside in Quebec (CEC requires intent to live outside Quebec)",
+            "Misrepresentation of work hours or employer relationship",
+        ],
+        "success_tips": [
+            "Track every work hour from day 1 of work permit — 1,560 hrs over 12 months is the threshold",
+            "Get reference letter BEFORE leaving the employer — much harder later",
+            "Use exact NOC duty language from Government of Canada NOC website in your reference letter",
+            "If on PGWP — apply for PR before PGWP expires; bridging open work permit (BOWP) keeps you working",
+            "CLB 9+ in English/French boosts CRS by 30+ points — worth retaking the test",
+            "Check CEC-specific draw history — much lower CRS cutoffs than general FSW",
+            "Don't switch NOCs mid-year — accumulate 12 months in SAME NOC",
+        ],
+        "faqs": [
+            {"q": "Does PGWP work count for CEC?", "a": "YES — Post-Graduation Work Permit work is the most common path to CEC, as long as it's in NOC TEER 0/1/2/3 and you have at least 1 year accumulated."},
+            {"q": "Can I claim part-time work?", "a": "Yes — 1,560 hours over 36 months from multiple part-time jobs counts. Full-time = 30 hrs/week."},
+            {"q": "What's a Bridging Open Work Permit (BOWP)?", "a": "If you've submitted your PR e-APR and your current work permit will expire before PR decision, you can apply for BOWP to continue working with any employer until PR decision."},
+            {"q": "Can I include spouse with CEC?", "a": "Yes — same as FSW. Spouse's language + education + work experience adds CRS points."},
+            {"q": "How is CEC faster than FSW?", "a": "CEC has lower CRS draws (more frequent ITAs), already-verified Canadian work means fewer questions from IRCC, and processing is often faster."},
+            {"q": "What if I leave Canada during PR processing?", "a": "You can be outside Canada during processing — but you must enter Canada to activate PR status."},
+        ],
+        "official_url": "https://www.canada.ca/en/immigration-refugees-citizenship/services/immigrate-canada/express-entry/eligibility/canadian-experience-class.html",
+        "vfs_url": "https://visa.vfsglobal.com/ind/en/can/",
+        "source_urls": [
+            "https://www.canada.ca/en/immigration-refugees-citizenship/services/immigrate-canada/express-entry/eligibility/canadian-experience-class.html",
+            "https://www.canada.ca/en/immigration-refugees-citizenship/services/immigrate-canada/express-entry.html",
+            "https://www.canada.ca/en/immigration-refugees-citizenship/services/work-canada/permit/post-graduation-work-permit-program.html",
+            "https://www.canada.ca/en/immigration-refugees-citizenship/services/work-canada/permit/temporary/bridging-open-work-permit.html",
+        ],
+        "verified_notes": "Manual Fast-Path B.2 seed — verified against ircc.canada.ca on 2026-02-27. CEC fee structure same as other PR streams.",
+    },
+
+    # ── 3. Provincial Nominee Program (PNP) ───────────────────────────────────
+    {
+        "country_code": "CA",
+        "country_name": "Canada",
+        "subclass_id": "PNP",
+        "subclass_name": "Provincial Nominee Program (PNP)",
+        "service_type": "pr",
+        "category": "immigration",
+        "description": (
+            "The Provincial Nominee Program (PNP) allows Canadian provinces and territories (except Quebec, "
+            "which has PEQ) to nominate foreign nationals for permanent residence based on their specific "
+            "labour market needs. Each province operates its own PNP streams with distinct criteria — "
+            "Ontario (OINP), British Columbia (BC PNP), Alberta (AAIP), Saskatchewan (SINP), Manitoba (MPNP), "
+            "Nova Scotia (NSNP), New Brunswick (NBPNP), PEI (PEI PNP), Newfoundland (NLPNP), and territories "
+            "Yukon, NWT, Nunavut.\n\n"
+            "PNPs have two pathways: (1) **Enhanced** (Express Entry-aligned) — provincial nomination adds "
+            "+600 CRS points, virtually guaranteeing an ITA in the next federal draw; (2) **Base** (paper-based, "
+            "non-EE) — direct to province, no CRS requirement but slower (11-21 months). PNP is the most "
+            "effective path for candidates with lower CRS scores or those targeting specific provinces with "
+            "labour shortages in their occupation."
+        ),
+        "eligibility_summary": (
+            "Varies dramatically by province + stream. Most require: an in-demand occupation, valid job offer "
+            "or Canadian work/study experience in the province, language proficiency, education, ties to the "
+            "province (intention to live there). Express Entry-aligned streams also require an active Express "
+            "Entry profile."
+        ),
+        "eligibility_criteria": [
+            {"label": "Provincial occupation match", "value": "Occupation must be on the province's target list", "notes": "Each province publishes its own occupation list, often demand-driven"},
+            {"label": "Job offer (varies by stream)", "value": "Some streams require valid job offer from provincial employer; others don't", "notes": "Employer-driven streams: job offer mandatory. International graduate streams: graduate from provincial institution"},
+            {"label": "Language", "value": "CLB 5-7 minimum (varies by stream/NOC)", "notes": "Higher CLB earns more provincial points"},
+            {"label": "Education", "value": "Secondary minimum; many streams require post-secondary or ECA", "notes": "Some have specific Canadian education requirements"},
+            {"label": "Work experience", "value": "1-3 years in target occupation (varies)", "notes": "Some streams accept any experience; others target-specific"},
+            {"label": "Intent to reside in nominating province", "value": "Required across all PNP streams", "notes": "Demonstrate via cover letter, family ties, job offer, prior residence"},
+            {"label": "Settlement funds", "value": "Varies by province (CAD 10,000 - 15,000 typical)", "notes": "Not always required if job offer in place"},
+            {"label": "Express Entry profile (Enhanced streams only)", "value": "Required for EE-aligned PNP nominations", "notes": "Base streams don't need EE profile"},
+        ],
+        "fees_local_currency_code": "CAD",
+        "fees_local_currency_amount": 1875,
+        "fees_inr_approx": 112500,
+        "fees_breakdown": [
+            {"component": "Provincial Nomination application fee (varies — Ontario CAD 1,500-2,000; BC CAD 1,150; SK CAD 350)", "amount": 350, "currency": "CAD"},
+            {"component": "PR application fee — Principal applicant", "amount": 950, "currency": "CAD"},
+            {"component": "RPRF — Principal", "amount": 575, "currency": "CAD"},
+            {"component": "PR fee — Spouse/Partner", "amount": 950, "currency": "CAD"},
+            {"component": "RPRF — Spouse/Partner", "amount": 575, "currency": "CAD"},
+            {"component": "PR fee — Dependent child (each)", "amount": 260, "currency": "CAD"},
+            {"component": "Biometrics — family", "amount": 170, "currency": "CAD"},
+            {"component": "ECA", "amount": 250, "currency": "CAD"},
+            {"component": "Language test", "amount": 16800, "currency": "INR"},
+            {"component": "Medical exam + PCCs", "amount": 8500, "currency": "INR"},
+        ],
+        "processing_time_days_min": 210,
+        "processing_time_days_max": 540,
+        "step_by_step": [
+            {"step_number": 1, "title": "Research Provincial Programs", "description": "Each province has multiple PNP streams. Identify which province matches your occupation, work history, language profile, and family situation.", "estimated_days": 30, "documents_needed": [], "tips": ["Check provincial occupation lists regularly — they change", "Some provinces (SK, MB, NB, NL) have lower CRS thresholds", "Tech-occupation streams (Ontario, BC, Alberta) are competitive"]},
+            {"step_number": 2, "title": "Decide: Enhanced (EE) or Base (Paper)", "description": "Enhanced is EE-aligned — needs active EE profile; nomination = +600 CRS. Base is paper-based — slower but no EE needed.", "estimated_days": 7, "documents_needed": [], "tips": ["Enhanced = 6-8 months typically", "Base = 11-21 months but no CRS competition"]},
+            {"step_number": 3, "title": "Submit EOI to Province (if required)", "description": "Most PNPs use an Expression of Interest system. You create a profile in the province's system, get scored, wait for invitation to apply to PNP.", "estimated_days": 30, "documents_needed": ["Language test", "ECA", "Resume", "Reference letters"], "tips": ["Some streams open/close based on quotas", "Higher provincial score = faster invitation"]},
+            {"step_number": 4, "title": "Submit PNP Application", "description": "Once invited by province, submit full application to PNP with all evidence.", "estimated_days": 14, "documents_needed": ["EOI invitation", "Job offer (if applicable)", "Education docs", "Language results", "Work reference letters", "Settlement funds proof", "Intent letter explaining ties to province"], "tips": ["Tailor intent letter to specific province", "Include specific local labour market research"]},
+            {"step_number": 5, "title": "Receive Provincial Nomination", "description": "Province reviews and either issues a Nomination Certificate (Enhanced) or sends Nomination Letter (Base).", "estimated_days": 90, "documents_needed": [], "tips": ["Nomination is valid 6 months", "If Enhanced, +600 CRS auto-added to your EE profile"]},
+            {"step_number": 6, "title": "(Enhanced only) Receive ITA from IRCC", "description": "With +600 CRS, you'll receive an ITA in the next applicable EE draw.", "estimated_days": 14, "documents_needed": [], "tips": ["Almost certain ITA"]},
+            {"step_number": 7, "title": "Submit Federal PR Application (e-APR or paper)", "description": "Enhanced: e-APR via Express Entry within 60 days. Base: paper APR to provincial Centralized Intake Office.", "estimated_days": 14, "documents_needed": ["Same as FSW/CEC: passport, education, language, PCCs, medical, biometrics, work proof, settlement funds"], "tips": ["Enhanced is faster — uses EE infrastructure"]},
+            {"step_number": 8, "title": "Decision + COPR + Land in Province", "description": "Federal decision typically 6-12 months. COPR issued. Land at port of entry and settle in nominating province.", "estimated_days": 270, "documents_needed": [], "tips": ["Intent to reside in province is a CONTINUING obligation — don't relocate immediately"]},
+        ],
+        "document_checklist": [
+            {"name": "Passport (all family members)", "mandatory": True, "notes": ""},
+            {"name": "Provincial nomination certificate / letter", "mandatory": True, "notes": "The cornerstone document"},
+            {"name": "Language test results", "mandatory": True, "notes": "Provincial minimum varies"},
+            {"name": "ECA report (most streams)", "mandatory": True, "notes": "If non-Canadian education"},
+            {"name": "Job offer letter (employer-driven streams)", "mandatory": False, "notes": "Required for streams like Ontario Employer Job Offer, BC Skilled Worker"},
+            {"name": "Work reference letters (all employment)", "mandatory": True, "notes": "On letterhead with full details"},
+            {"name": "Settlement funds proof (6 months)", "mandatory": False, "notes": "Required by some provinces; CAD 10,000-15,000 typical"},
+            {"name": "Intent to reside letter / Affidavit", "mandatory": True, "notes": "Province-specific — tailored explanation"},
+            {"name": "PCCs (every country lived 6+ months since 18)", "mandatory": True, "notes": ""},
+            {"name": "Medical exam", "mandatory": True, "notes": "IRCC panel physician"},
+            {"name": "Biometrics", "mandatory": True, "notes": ""},
+            {"name": "Marriage cert + children's birth certs (if applicable)", "mandatory": True, "notes": ""},
+            {"name": "Schedule A + IMM 5406", "mandatory": True, "notes": ""},
+            {"name": "Photos", "mandatory": True, "notes": ""},
+        ],
+        "common_rejection_reasons": [
+            "Insufficient evidence of intent to reside in nominating province",
+            "Occupation not on provincial target list at time of application",
+            "Job offer not LMIA-supported or not from designated employer (some streams)",
+            "Provincial language threshold not met (varies by stream)",
+            "Settlement funds insufficient or unstable",
+            "Misrepresentation about prior nominations from other provinces (each PNP scrutinizes)",
+            "Federal stage: same as other PR streams (PCC issues, medical, misrepresentation)",
+        ],
+        "success_tips": [
+            "Choose province based on demand for YOUR occupation + ease of nomination, not just convenience",
+            "If applying to Enhanced stream — keep EE profile updated continuously",
+            "Demonstrate concrete provincial ties: family there, prior visit, job market research, savings allocated",
+            "Saskatchewan, Manitoba, New Brunswick are historically easier — fewer EE-stream competitors",
+            "International graduate streams (Ontario PNP, BC PNP, MPNP) reward graduates of provincial institutions",
+            "Apply to ONE province at a time — multiple nominations create issues",
+            "Read every line of province's program guide — minor disqualifiers are common",
+        ],
+        "faqs": [
+            {"q": "Which province is the easiest for PNP?", "a": "Depends on occupation. Generally SK, MB, NB, NL have less competition. Ontario + BC are most competitive due to popularity but have very specific occupation streams (tech, healthcare)."},
+            {"q": "Enhanced vs Base PNP — which is better?", "a": "Enhanced if your CRS is decent (300+) and your occupation has Enhanced stream open. Base if Enhanced isn't open, or CRS is very low (250-).  Enhanced is faster + uses EE infrastructure."},
+            {"q": "Do I need a job offer for PNP?", "a": "Some streams yes (employer-driven), some no (international graduate, in-demand occupation). Read each stream's requirements."},
+            {"q": "Can I switch province after PR?", "a": "Legally yes — PR is national. But moral commitment to nominating province matters; some provinces audit residence."},
+            {"q": "How long does PNP take overall?", "a": "Enhanced: provincial 2-6 months + federal 6 months = ~12 months total. Base: provincial 6-12 months + federal 11-21 months = up to 33 months."},
+            {"q": "What's the +600 CRS bonus?", "a": "When a province nominates you through an Enhanced (EE-aligned) stream, IRCC automatically adds 600 to your CRS score. This essentially guarantees an ITA in the next draw."},
+        ],
+        "official_url": "https://www.canada.ca/en/immigration-refugees-citizenship/services/immigrate-canada/provincial-nominees.html",
+        "vfs_url": "https://visa.vfsglobal.com/ind/en/can/",
+        "source_urls": [
+            "https://www.canada.ca/en/immigration-refugees-citizenship/services/immigrate-canada/provincial-nominees.html",
+            "https://www.canada.ca/en/immigration-refugees-citizenship/services/immigrate-canada/provincial-nominees/apply.html",
+            "https://www.ontario.ca/page/oinp-application-update-employer-job-offer-streams",
+            "https://www.welcomebc.ca/Immigrate-to-B-C/B-C-Provincial-Nominee-Program",
+            "https://www.alberta.ca/alberta-advantage-immigration-program.aspx",
+            "https://www.canada.ca/en/immigration-refugees-citizenship/services/immigrate-canada/provincial-nominees/eligibility/process.html",
+        ],
+        "verified_notes": "Manual Fast-Path B.2 seed — verified against ircc.canada.ca + multiple provincial sites on 2026-02-27. Provincial fees vary; example shows SK base fee; Ontario reaches up to CAD 1,500-2,000.",
+    },
+
+    # ── 4. Study Permit ────────────────────────────────────────────────────────
+    {
+        "country_code": "CA",
+        "country_name": "Canada",
+        "subclass_id": "Study-Permit",
+        "subclass_name": "Study Permit (Post-Secondary at DLI)",
+        "service_type": "student",
+        "category": "immigration",
+        "description": (
+            "The Canada Study Permit allows international students to study at a Designated Learning Institution "
+            "(DLI). It's the most popular pathway to long-term Canadian immigration: Indian students pursuing "
+            "post-secondary education on a Study Permit can transition to PGWP (work permit) → 1+ years Canadian "
+            "work experience → CEC/PNP PR.\n\n"
+            "Since 2024 IRCC introduced a Provincial Attestation Letter (PAL) requirement for most undergraduate "
+            "Study Permits — provinces vet applications to manage intake caps. Genuine Student factor (replaced "
+            "GTE in some contexts) and Statement of Purpose remain critical. Financial proof is rigorous: tuition "
+            "+ CAD 20,635/year living costs (effective 2024, up from CAD 10,000) for self; +CAD 4,000 spouse, "
+            "+CAD 3,000 each child."
+        ),
+        "eligibility_summary": (
+            "Acceptance letter from a Designated Learning Institution (DLI), Provincial Attestation Letter "
+            "(PAL) for most undergraduate programs, proof of financial capacity (tuition + CAD 20,635/year "
+            "living for principal), Statement of Purpose, language proficiency, intent to leave Canada at end "
+            "of study (or transition to work permit/PR per IRCC's revised framework)."
+        ),
+        "eligibility_criteria": [
+            {"label": "DLI acceptance", "value": "Acceptance letter from a Designated Learning Institution", "notes": "List published at canada.ca/study-permit DLI list"},
+            {"label": "Provincial Attestation Letter (PAL)", "value": "Required for most undergraduate and college programs since Jan 2024", "notes": "Exemptions: master's, PhD, primary/secondary school, designated programs"},
+            {"label": "Financial capacity", "value": "Tuition + CAD 20,635/year living for principal applicant + CAD 4,000 for first family member + CAD 3,000 each subsequent", "notes": "Effective Jan 2024, up from CAD 10,000/year"},
+            {"label": "Language", "value": "Generally not a federal requirement but most DLIs require IELTS Academic 6.0/6.5 or TOEFL", "notes": "Provincial Attestation may add language thresholds"},
+            {"label": "Statement of Purpose", "value": "Comprehensive intent letter", "notes": "Replaces simplistic 'why Canada' answer — must justify program choice + career goals"},
+            {"label": "Medical exam (if studying healthcare/childcare/agriculture, or from designated countries)", "value": "Required for India applicants going to such programs OR studying >6 months", "notes": "Panel physician only"},
+            {"label": "Working rights", "value": "20 hours/week off-campus during studies, full-time during scheduled breaks", "notes": "Effective Nov 2024 — increased from 20 hrs to ongoing assessment"},
+        ],
+        "fees_local_currency_code": "CAD",
+        "fees_local_currency_amount": 235,
+        "fees_inr_approx": 14100,
+        "fees_breakdown": [
+            {"component": "Study Permit application fee", "amount": 150, "currency": "CAD"},
+            {"component": "Biometrics — individual", "amount": 85, "currency": "CAD"},
+            {"component": "Biometrics — family (2+)", "amount": 170, "currency": "CAD"},
+            {"component": "Tuition deposit (varies; Bachelor's avg)", "amount": 20000, "currency": "CAD"},
+            {"component": "Living cost proof (1 year + tuition combined)", "amount": 20635, "currency": "CAD"},
+            {"component": "GIC (Guaranteed Investment Certificate — SDS stream)", "amount": 20635, "currency": "CAD"},
+            {"component": "IELTS Academic test (India)", "amount": 16800, "currency": "INR"},
+            {"component": "Medical exam (if required)", "amount": 7500, "currency": "INR"},
+            {"component": "PCC (India)", "amount": 500, "currency": "INR"},
+        ],
+        "processing_time_days_min": 21,
+        "processing_time_days_max": 90,
+        "step_by_step": [
+            {"step_number": 1, "title": "Choose DLI + Apply", "description": "Research Designated Learning Institutions. Submit application to chosen program. Pay first-year tuition or deposit on acceptance.", "estimated_days": 60, "documents_needed": ["Transcripts", "Degree certificates", "IELTS Academic / TOEFL", "Statement of Purpose"], "tips": ["Top DLIs: University of Toronto, UBC, McGill, Waterloo, McMaster, Queen's, Western, Alberta", "Public colleges + universities have higher visa success", "Apply 8-10 months before intake"]},
+            {"step_number": 2, "title": "Receive Acceptance Letter", "description": "DLI issues an official Letter of Acceptance (LOA).", "estimated_days": 14, "documents_needed": [], "tips": ["LOA must include: program name, duration, tuition, DLI number", "If conditional, fulfill condition (language score, transcripts) before applying"]},
+            {"step_number": 3, "title": "Get Provincial Attestation Letter (PAL) — if applicable", "description": "Provincial Attestation Letter required for most undergraduate/college programs since Jan 2024. Applied for through the DLI.", "estimated_days": 21, "documents_needed": ["Acceptance letter"], "tips": ["DLI handles PAL — you don't apply directly", "Some grad programs + designated programs are exempt"]},
+            {"step_number": 4, "title": "Arrange Financial Proof", "description": "GIC (CAD 20,635) is common for India via SDS. Or bank statements + sponsor letter + tax returns.", "estimated_days": 14, "documents_needed": ["GIC certificate (Scotiabank/CIBC/ICICI/SBI)", "Tuition payment receipt", "Loan letter (if applicable)", "Sponsor's ITR (last 3 years)"], "tips": ["GIC is faster for processing under SDS (Student Direct Stream)", "SDS available for Indian nationals — IELTS Academic 6.0+ each band + GIC + 1-year tuition paid"]},
+            {"step_number": 5, "title": "Take Language Test", "description": "IELTS Academic, TOEFL iBT, or PTE Academic (some DLIs).", "estimated_days": 21, "documents_needed": ["Passport"], "tips": ["IELTS 6.0+ each band for SDS"]},
+            {"step_number": 6, "title": "Submit Study Permit Application Online", "description": "Apply via canada.ca/IRCC online portal with all docs.", "estimated_days": 7, "documents_needed": ["LOA", "PAL (if applicable)", "Financial proof (GIC + tuition + bank statements)", "Statement of Purpose", "Passport", "Photos", "Language test", "Past academic transcripts"], "tips": ["SDS is faster (20-30 days)", "Regular Study Permit can take 60-90 days"]},
+            {"step_number": 7, "title": "Biometrics + Medical (if required)", "description": "Biometrics at VFS Canada in India. Medical if program is healthcare/childcare or duration >6 months from India.", "estimated_days": 21, "documents_needed": ["BIL", "Medical referral"], "tips": ["Book biometrics in 30 days of BIL", "Medical valid 1 year"]},
+            {"step_number": 8, "title": "Decision + Port of Entry", "description": "Receive Port of Entry letter. Travel to Canada with all docs, complete final immigration interview at airport — actual Study Permit issued there.", "estimated_days": 60, "documents_needed": ["POE letter", "LOA", "Financial proof", "Passport"], "tips": ["You can enter Canada up to 4 weeks before program start", "Bring originals of all submitted docs to POE"]},
+        ],
+        "document_checklist": [
+            {"name": "Passport (valid, all pages)", "mandatory": True, "notes": "Min 6 months validity"},
+            {"name": "Letter of Acceptance from DLI", "mandatory": True, "notes": "Must include DLI number, program, duration, tuition"},
+            {"name": "Provincial Attestation Letter (PAL) — if applicable", "mandatory": True, "notes": "DLI handles issuance; required for most undergrad/college"},
+            {"name": "Proof of financial support", "mandatory": True, "notes": "GIC + tuition receipt OR bank statements + sponsor docs"},
+            {"name": "GIC certificate (Scotiabank/CIBC/ICICI/SBI — for SDS)", "mandatory": False, "notes": "Required if applying via SDS"},
+            {"name": "Tuition payment receipt (1st year or full)", "mandatory": True, "notes": ""},
+            {"name": "Statement of Purpose (SOP) / Study Plan", "mandatory": True, "notes": "Detailed explanation of program choice + career link"},
+            {"name": "Language test results (IELTS Academic/TOEFL/PTE)", "mandatory": True, "notes": "Per program + SDS requirements"},
+            {"name": "Academic transcripts (10th, 12th, Bachelor's if applicable)", "mandatory": True, "notes": ""},
+            {"name": "Degree certificates (sealed by university)", "mandatory": True, "notes": ""},
+            {"name": "Medical exam (if program healthcare/childcare OR India-origin with 6+ month duration)", "mandatory": True, "notes": "Panel physician"},
+            {"name": "Biometrics (VFS Canada in India)", "mandatory": True, "notes": "Within 30 days of BIL"},
+            {"name": "Police Clearance Certificate (India PSK)", "mandatory": False, "notes": "May be requested"},
+            {"name": "Sponsor's tax returns / Form 16 (last 3 years)", "mandatory": False, "notes": "Backs up financial proof"},
+            {"name": "Photos (passport-style, IRCC specs)", "mandatory": True, "notes": ""},
+            {"name": "Custodian declaration (if minor)", "mandatory": False, "notes": "For students under 18"},
+        ],
+        "common_rejection_reasons": [
+            "Insufficient financial capacity — fund source unclear or sudden deposits",
+            "Statement of Purpose generic / doesn't justify program choice for career",
+            "Course choice doesn't align with previous education (random switch flagged)",
+            "Past visa refusals from Canada, USA, UK, Schengen, Australia not declared",
+            "Family ties to Canada with PR/citizen status (immigration intent concern)",
+            "Weak ties to home country — IRCC believes you won't return",
+            "Misrepresentation in IELTS / academic documents",
+            "DLI of low reputation in cities with high refusal rates",
+        ],
+        "success_tips": [
+            "Apply via SDS (Student Direct Stream) if Indian — much faster + higher approval rate",
+            "Choose program directly related to your past education + career goals",
+            "Write a UNIQUE Statement of Purpose — explain program choice, DLI choice, post-graduation plan",
+            "Pay 1 year tuition + show GIC = strong financial proof",
+            "Apply 4-6 months before program start date",
+            "Choose public DLIs (universities + community colleges) over private institutes",
+            "Demonstrate ties to home: family, property, return-after-study plan",
+            "Don't apply to multiple unrelated programs — looks like 'visa fishing'",
+        ],
+        "faqs": [
+            {"q": "What is SDS (Student Direct Stream)?", "a": "SDS is a fast-track Study Permit program for Indian nationals (plus 13 other countries). Requirements: GIC CAD 20,635, IELTS Academic 6.0+ each band, full 1-year tuition paid, medical+biometrics done. Processing: 20-30 days."},
+            {"q": "Can I work while on Study Permit?", "a": "Yes — 20 hours/week off-campus during study terms; full-time during scheduled breaks (summer, winter). Some on-campus work has no hour limit."},
+            {"q": "What's PGWP?", "a": "Post-Graduation Work Permit — issued after graduation from a DLI. Length: 1-3 years based on program length. Enables transition to CEC PR after 1+ year Canadian work."},
+            {"q": "Can I bring my spouse?", "a": "Yes — spouse can come on Open Work Permit (full work rights) if you're at master's, PhD, professional program, or some bachelor's. Children can attend Canadian K-12 schools for free."},
+            {"q": "What if I'm rejected?", "a": "You can reapply with stronger evidence (more funds, better SOP, different DLI). Or appeal in Federal Court (judicial review). Reapplication is usually faster."},
+            {"q": "How much does it cost overall?", "a": "Application fee CAD 150 + biometrics CAD 85 + GIC CAD 20,635 (refunded over year) + tuition CAD 15,000-50,000 (varies by program) + IELTS ₹16,800 + medical ₹7,500 = approximately ₹15-25 lakh for first year all-in."},
+        ],
+        "official_url": "https://www.canada.ca/en/immigration-refugees-citizenship/services/study-canada/study-permit.html",
+        "vfs_url": "https://visa.vfsglobal.com/ind/en/can/",
+        "source_urls": [
+            "https://www.canada.ca/en/immigration-refugees-citizenship/services/study-canada/study-permit.html",
+            "https://www.canada.ca/en/immigration-refugees-citizenship/services/study-canada/study-permit/student-direct-stream.html",
+            "https://www.canada.ca/en/immigration-refugees-citizenship/services/study-canada/study-permit/eligibility.html",
+            "https://www.canada.ca/en/immigration-refugees-citizenship/services/study-canada/study-permit/get-documents.html",
+            "https://www.canada.ca/en/immigration-refugees-citizenship/news/2024/01/canada-to-stabilize-growth-and-decrease-number-of-new-international-student-permits-issued-to-approximately-360000-for-2024.html",
+        ],
+        "verified_notes": "Manual Fast-Path B.2 seed — verified against ircc.canada.ca on 2026-02-27. Living cost minimum (CAD 20,635) per Jan 2024 update. PAL requirement per Jan 2024 IRCC policy.",
+    },
+
+    # ── 5. Open Work Permit ────────────────────────────────────────────────────
+    {
+        "country_code": "CA",
+        "country_name": "Canada",
+        "subclass_id": "Work-Permit-Open",
+        "subclass_name": "Open Work Permit (PGWP / Spousal / IEC)",
+        "service_type": "work",
+        "category": "immigration",
+        "description": (
+            "An Open Work Permit (OWP) is a work permit that is NOT job-specific — it allows the holder to work "
+            "for any Canadian employer (except those listed as ineligible). The most common OWP categories for "
+            "Indian applicants are:\n\n"
+            "1. **Post-Graduation Work Permit (PGWP)** — for graduates of Canadian DLIs (1-3 years validity, "
+            "based on program length).\n"
+            "2. **Spousal Open Work Permit (SOWP)** — for spouses/common-law partners of Canadian Study Permit "
+            "holders (in graduate/professional programs) or skilled work permit holders.\n"
+            "3. **International Experience Canada (IEC)** — Working Holiday for citizens of certain countries "
+            "(India NOT currently a partner — not applicable).\n"
+            "4. **Bridging Open Work Permit (BOWP)** — for those who applied for PR and need to continue working "
+            "while waiting for decision.\n\n"
+            "OWPs do NOT require an LMIA (Labour Market Impact Assessment) and are issued for varied periods."
+        ),
+        "eligibility_summary": (
+            "Varies by category: PGWP needs DLI graduation + Study Permit history. SOWP needs spouse on eligible "
+            "Study/Work Permit. BOWP needs pending PR application + valid current work permit. All OWPs require "
+            "valid status in Canada (or be applying from abroad)."
+        ),
+        "eligibility_criteria": [
+            {"label": "Category (PGWP)", "value": "Graduated from a DLI in an eligible program ≥8 months long", "notes": "Must apply within 180 days of getting final transcript; only ONE PGWP per lifetime"},
+            {"label": "Category (SOWP)", "value": "Spouse/common-law partner of: (a) Study Permit holder in master's/PhD/professional/certain bachelor's programs, OR (b) Skilled Work Permit holder NOC TEER 0/1", "notes": "Tightened criteria since 2024; not all spouses qualify anymore"},
+            {"label": "Category (BOWP)", "value": "PR e-APR submitted + accepted as eligible + current work permit valid", "notes": "Issued automatically when applying for BOWP in CEC stream"},
+            {"label": "Status", "value": "If applying from inside Canada — must have valid temporary status", "notes": "Can apply from outside Canada in most cases"},
+            {"label": "Admissibility", "value": "Pass medical (if applicable) + criminal checks", "notes": "Medical needed if working in healthcare/childcare/agriculture or from designated countries with 6+ month duration"},
+            {"label": "Biometrics", "value": "Mandatory for Indian nationals", "notes": "Valid 10 years"},
+        ],
+        "fees_local_currency_code": "CAD",
+        "fees_local_currency_amount": 340,
+        "fees_inr_approx": 20400,
+        "fees_breakdown": [
+            {"component": "Work Permit application fee", "amount": 155, "currency": "CAD"},
+            {"component": "Open Work Permit Holder fee", "amount": 100, "currency": "CAD"},
+            {"component": "Biometrics — individual", "amount": 85, "currency": "CAD"},
+            {"component": "Biometrics — family", "amount": 170, "currency": "CAD"},
+            {"component": "Medical exam (if required)", "amount": 7500, "currency": "INR"},
+            {"component": "PCC (if requested)", "amount": 500, "currency": "INR"},
+        ],
+        "processing_time_days_min": 30,
+        "processing_time_days_max": 180,
+        "step_by_step": [
+            {"step_number": 1, "title": "Confirm Eligibility for Specific Category", "description": "Determine which OWP category applies: PGWP, SOWP, BOWP. Check current IRCC eligibility (rules tightened in 2024).", "estimated_days": 7, "documents_needed": [], "tips": ["PGWP eligibility narrowed in 2024 — verify your program qualifies", "SOWP for spouses of bachelor's students mostly eliminated except specific programs"]},
+            {"step_number": 2, "title": "Gather Category-Specific Documents", "description": "PGWP: final transcript + letter of completion. SOWP: spouse's Study/Work Permit + marriage cert + spouse's enrollment letter. BOWP: PR application acknowledgment.", "estimated_days": 14, "documents_needed": ["Category-specific docs"], "tips": ["PGWP transcript must be FINAL — partial transcripts rejected"]},
+            {"step_number": 3, "title": "Complete Application Form", "description": "Form IMM 5710 (in Canada) or IMM 1295 (outside Canada). Open Work Permit checkbox.", "estimated_days": 3, "documents_needed": ["Application form (digitally signed)"], "tips": ["List 'Open Work Permit' specifically — don't tie to one employer"]},
+            {"step_number": 4, "title": "Submit Application", "description": "Online via IRCC portal. Pay fees.", "estimated_days": 1, "documents_needed": ["Passport scan", "Photos", "Form IMM 5645 (Family Info)", "Category-specific docs"], "tips": ["Apply 30-60 days before current permit expiry (if in Canada)", "Maintained status applies if applied before expiry"]},
+            {"step_number": 5, "title": "Biometrics", "description": "If within 10 years of previous biometrics, may be exempt. Else visit VFS Canada.", "estimated_days": 14, "documents_needed": ["BIL"], "tips": ["Re-use prior biometrics if within 10 years"]},
+            {"step_number": 6, "title": "Medical (if required)", "description": "For healthcare/childcare/agriculture or from designated countries.", "estimated_days": 21, "documents_needed": ["Medical referral"], "tips": []},
+            {"step_number": 7, "title": "Decision + Permit Issuance", "description": "If applying from in Canada, permit issued to mailing address. If outside Canada, Port of Entry Letter — work permit issued at POE.", "estimated_days": 90, "documents_needed": [], "tips": ["Apply for SIN (Social Insurance Number) immediately after receiving permit", "Bring permit to employer to start work legally"]},
+        ],
+        "document_checklist": [
+            {"name": "Passport (valid)", "mandatory": True, "notes": ""},
+            {"name": "Application form (IMM 5710 or IMM 1295)", "mandatory": True, "notes": "Digitally signed"},
+            {"name": "Photos", "mandatory": True, "notes": "IRCC specs"},
+            {"name": "PGWP-specific: Final transcript from DLI", "mandatory": True, "notes": "If applying for PGWP"},
+            {"name": "PGWP-specific: Letter of program completion", "mandatory": True, "notes": "From DLI"},
+            {"name": "SOWP-specific: Spouse's Study/Work Permit", "mandatory": True, "notes": "Copy"},
+            {"name": "SOWP-specific: Marriage certificate / Common-law evidence", "mandatory": True, "notes": ""},
+            {"name": "SOWP-specific: Spouse's enrollment / employment letter", "mandatory": True, "notes": "Confirming eligible program/job"},
+            {"name": "BOWP-specific: PR application acknowledgment", "mandatory": True, "notes": "AOR letter"},
+            {"name": "Form IMM 5645 — Family Information", "mandatory": True, "notes": ""},
+            {"name": "Biometrics receipt", "mandatory": True, "notes": "If prior biometrics expired/never taken"},
+            {"name": "Medical exam (if required)", "mandatory": False, "notes": "For specific occupations/durations"},
+            {"name": "Police certificate (if requested)", "mandatory": False, "notes": "Not always asked for OWPs"},
+            {"name": "Current work/study permit (if in Canada)", "mandatory": True, "notes": ""},
+        ],
+        "common_rejection_reasons": [
+            "PGWP: Program duration <8 months, or not in PGWP-eligible institution",
+            "PGWP: Applied >180 days after final transcript",
+            "PGWP: Online/distance learning beyond IRCC's tolerance",
+            "SOWP: Spouse's program/job not eligible (changed criteria 2024)",
+            "BOWP: PR application not yet 'accepted as eligible' (just submitted isn't enough)",
+            "Misrepresentation in PGWP transcript / completion letter",
+            "Inadmissibility (criminal record, medical condition)",
+            "Insufficient evidence of relationship for SOWP",
+        ],
+        "success_tips": [
+            "PGWP: Apply within 90 days of final transcript — much safer than waiting",
+            "PGWP: Online study beyond 50% of program disqualifies you — keep records",
+            "SOWP: Confirm your spouse's program is in the current eligible list (2024 changes excluded many)",
+            "BOWP: File application 4-6 months before current permit expires — provides cushion",
+            "Keep biometrics + medical valid — re-use within validity to skip steps",
+            "Apply for SIN within 1 week of receiving permit",
+        ],
+        "faqs": [
+            {"q": "How long is a PGWP valid?", "a": "Equal to program length: 8-23 months program = matching duration; 2+ years program = 3-year PGWP. Note: Master's <2yr = 3-year PGWP."},
+            {"q": "Can I extend my PGWP?", "a": "No — PGWP is once-per-lifetime, non-extendable. After it expires, you must transition to LMIA-based work permit or other status."},
+            {"q": "Can my spouse work on SOWP?", "a": "Yes — SOWP is OPEN, full work rights with any employer (except ineligible list). No LMIA needed."},
+            {"q": "What's the eligible DLI list for PGWP?", "a": "Different from Study Permit DLI list. Many private colleges Study-Permit eligible are NOT PGWP eligible. Check IRCC's PGWP-eligible DLI list before enrolling."},
+            {"q": "What if I'm waiting for PGWP — can I work?", "a": "If you applied for PGWP before your Study Permit expired, you can work full-time while waiting (implied status). After approval, switch to PGWP."},
+            {"q": "Can I apply for OWP from outside Canada?", "a": "Yes for some categories (PGWP can be applied from inside or outside). SOWP often applied inside Canada. BOWP requires you to be in Canada."},
+        ],
+        "official_url": "https://www.canada.ca/en/immigration-refugees-citizenship/services/work-canada/permit/temporary/open-work-permit.html",
+        "vfs_url": "https://visa.vfsglobal.com/ind/en/can/",
+        "source_urls": [
+            "https://www.canada.ca/en/immigration-refugees-citizenship/services/work-canada/permit/temporary/open-work-permit.html",
+            "https://www.canada.ca/en/immigration-refugees-citizenship/services/work-canada/permit/post-graduation-work-permit-program.html",
+            "https://www.canada.ca/en/immigration-refugees-citizenship/services/work-canada/permit/temporary/work-permit-pgwp-eligibility.html",
+            "https://www.canada.ca/en/immigration-refugees-citizenship/services/work-canada/permit/temporary/bridging-open-work-permit.html",
+        ],
+        "verified_notes": "Manual Fast-Path B.2 seed — verified against ircc.canada.ca on 2026-02-27. PGWP eligibility tightened Sep 2024 (program field restrictions). SOWP eligibility narrowed for spouses of undergraduate students.",
+    },
+
+    # ── 6. Visitor Visa (Temporary Resident Visa) ──────────────────────────────
+    {
+        "country_code": "CA",
+        "country_name": "Canada",
+        "subclass_id": "Visitor-Visa",
+        "subclass_name": "Visitor Visa (Temporary Resident Visa)",
+        "service_type": "visitor",
+        "category": "immigration",
+        "description": (
+            "The Canada Visitor Visa, officially called a Temporary Resident Visa (TRV), is required for "
+            "Indian nationals visiting Canada for tourism, business, family visits, or short-term study/work "
+            "exempted activities. It is a counterfoil placed in the passport authorising the holder to seek "
+            "entry at a Canadian port of entry (POE). The actual permitted stay is determined by the CBSA "
+            "officer at POE (typically 6 months for tourists).\n\n"
+            "Canada also offers a **Super Visa** for parents/grandparents of Canadian citizens or PRs — a "
+            "multi-entry visa valid up to 10 years with each visit allowing up to 5 years stay. Super Visa "
+            "requires private health insurance (CAD 100,000+ coverage) and Letter of Invitation from sponsoring "
+            "child/grandchild with income above LICO threshold."
+        ),
+        "eligibility_summary": (
+            "Demonstrate intent to leave Canada at end of authorized stay, sufficient funds for visit + return, "
+            "no criminal/security concerns, in good health (medical exam may be required for stays >6 months), "
+            "and clear purpose (tourism, family visit, business, conference)."
+        ),
+        "eligibility_criteria": [
+            {"label": "Intent to leave Canada", "value": "Must demonstrate strong ties to home country", "notes": "Family, property, employment, financial obligations"},
+            {"label": "Sufficient funds", "value": "Demonstrate ability to pay for stay + return trip", "notes": "Typically CAD 1,500-2,500/month + return ticket"},
+            {"label": "Admissibility", "value": "No criminal record, no security concerns, medically admissible", "notes": "Medical only if stay >6 months or working in healthcare/childcare/agriculture"},
+            {"label": "Purpose", "value": "Clear, specific reason for visit (tourism/family/business/conference)", "notes": "Vague itinerary = high refusal risk"},
+            {"label": "Biometrics", "value": "Mandatory for Indian nationals", "notes": "Valid 10 years"},
+            {"label": "Super Visa specifics", "value": "Parent/grandparent of Canadian citizen/PR + child's income above LICO + medical insurance ≥CAD 100,000", "notes": "Multi-entry, 10-year validity, 5-year stay each visit"},
+        ],
+        "fees_local_currency_code": "CAD",
+        "fees_local_currency_amount": 185,
+        "fees_inr_approx": 11100,
+        "fees_breakdown": [
+            {"component": "Visitor Visa (single/multi-entry) — per person", "amount": 100, "currency": "CAD"},
+            {"component": "Family rate (max 5 family members)", "amount": 500, "currency": "CAD"},
+            {"component": "Biometrics — individual", "amount": 85, "currency": "CAD"},
+            {"component": "Biometrics — family (2+)", "amount": 170, "currency": "CAD"},
+            {"component": "Super Visa medical insurance (1 year coverage, CAD 100k+)", "amount": 1500, "currency": "CAD"},
+            {"component": "Medical exam (if required for >6 month stay)", "amount": 7500, "currency": "INR"},
+        ],
+        "processing_time_days_min": 14,
+        "processing_time_days_max": 60,
+        "step_by_step": [
+            {"step_number": 1, "title": "Determine Visa Type", "description": "Standard Visitor Visa (up to 10 years multi-entry, 6 month stay each) OR Super Visa (parents/grandparents, 5 year stay).", "estimated_days": 3, "documents_needed": [], "tips": ["Multi-entry is standard now for most approvals", "Super Visa if parent/grandparent of Canadian citizen/PR"]},
+            {"step_number": 2, "title": "Gather Supporting Documents", "description": "Purpose-specific docs: invitation letter (family visit), conference registration (business), tour itinerary (tourism).", "estimated_days": 14, "documents_needed": ["Letter of Invitation (if visiting family)", "Travel itinerary", "Hotel bookings (if tourism)", "Conference invitation (if business)"], "tips": ["LOI must include host's status, address, relationship, financial commitment", "Conference invitation should mention registration paid"]},
+            {"step_number": 3, "title": "Prepare Financial Proof", "description": "Show ability to fund the trip + return.", "estimated_days": 14, "documents_needed": ["6 months bank statements", "ITRs (last 2-3 years)", "Salary slips / business income proof", "Property documents (showing ties)"], "tips": ["CAD 2,000-3,000/month is comfortable", "Don't show sudden deposits — gradual healthy balance is best"]},
+            {"step_number": 4, "title": "Complete Online Application", "description": "Apply via canada.ca/IRCC online with eAPP for TRV.", "estimated_days": 3, "documents_needed": ["Passport scan", "Photos", "Form IMM 5257 (Application for TRV)", "Form IMM 5645 (Family Info)", "Supporting docs"], "tips": ["Be honest about prior visa refusals (any country)", "List ALL family in Canada — concealment = refusal"]},
+            {"step_number": 5, "title": "Pay Fees + Submit Biometrics", "description": "Pay online. Visit VFS Canada in India for biometrics within 30 days of BIL.", "estimated_days": 14, "documents_needed": ["BIL"], "tips": ["Re-use biometrics if within 10 years of prior"]},
+            {"step_number": 6, "title": "Medical (Super Visa or >6 month stays)", "description": "Panel physician exam.", "estimated_days": 14, "documents_needed": ["Medical referral"], "tips": []},
+            {"step_number": 7, "title": "Decision + Visa Counterfoil", "description": "Receive decision letter. If approved, mail passport to VFS for visa counterfoil. Standard processing: 14-30 days for Indian nationals.", "estimated_days": 30, "documents_needed": ["Passport"], "tips": ["Multi-entry valid up to passport expiry or 10 years (whichever first)"]},
+            {"step_number": 8, "title": "Travel + POE", "description": "Travel within visa validity. CBSA officer at airport decides actual stay duration.", "estimated_days": 1, "documents_needed": ["Passport", "Itinerary", "Invitation letter", "Return ticket"], "tips": ["Carry proof of ties to home country", "Carry funds for entire stay", "Don't bring large cash (>CAD 10,000 must be declared)"]},
+        ],
+        "document_checklist": [
+            {"name": "Passport (valid, min 6 months beyond intended stay)", "mandatory": True, "notes": ""},
+            {"name": "Application form IMM 5257", "mandatory": True, "notes": "Digitally signed"},
+            {"name": "Form IMM 5645 — Family Information", "mandatory": True, "notes": "ALL family members listed"},
+            {"name": "Photos", "mandatory": True, "notes": "IRCC specs"},
+            {"name": "Letter of Invitation (if family visit)", "mandatory": False, "notes": "From Canadian host with relationship + commitment"},
+            {"name": "Host's PR card / citizenship + ITR copy (if LOI)", "mandatory": False, "notes": "Establishes host status"},
+            {"name": "Travel itinerary / Hotel bookings (if tourism)", "mandatory": False, "notes": "Tentative is acceptable"},
+            {"name": "Conference invitation + registration (if business)", "mandatory": False, "notes": ""},
+            {"name": "Bank statements (last 6 months)", "mandatory": True, "notes": "Demonstrate funds"},
+            {"name": "Income Tax Returns (last 2-3 years)", "mandatory": True, "notes": "Demonstrates economic ties"},
+            {"name": "Salary slips / Business income proof", "mandatory": True, "notes": "Last 3-6 months"},
+            {"name": "Property documents (home ownership / rental)", "mandatory": False, "notes": "Demonstrates ties to home"},
+            {"name": "Biometrics (VFS Canada)", "mandatory": True, "notes": "Within 30 days of BIL"},
+            {"name": "Super Visa medical insurance certificate (if Super Visa)", "mandatory": False, "notes": "Min CAD 100,000 coverage, 1 year"},
+            {"name": "Leave letter from employer (if employed)", "mandatory": False, "notes": "Shows return to job"},
+            {"name": "Marriage cert + children's birth certs (if family travel)", "mandatory": False, "notes": ""},
+        ],
+        "common_rejection_reasons": [
+            "Insufficient ties to home country — IRCC believes you won't return",
+            "Insufficient funds for stay + return",
+            "Vague or implausible purpose / itinerary",
+            "Prior visa refusal (any country) not declared",
+            "Family member already in Canada with PR/citizenship raises immigration intent concern",
+            "Misrepresentation of finances or relationship to host",
+            "Long stays (>30 days) without strong reason raises suspicion",
+            "Lack of return ticket booking",
+        ],
+        "success_tips": [
+            "Apply 2-3 months before intended travel — gives buffer for delays",
+            "Multi-entry is now the default in approvals — apply with that intent",
+            "If first-time Canada visitor: shorter stay (2-3 weeks) + strong return proof = highest approval rate",
+            "Family visit applications: LOI from host + clear relationship docs + host's financial stability",
+            "Super Visa: research insurance providers (Manulife, Sun Life, GMS) before application",
+            "Don't bundle Canada with USA application — handle separately",
+            "Have a clear itinerary even if not booked — purpose, places, return date",
+        ],
+        "faqs": [
+            {"q": "How long can I stay on a Visitor Visa?", "a": "Decided by CBSA officer at port of entry — typically 6 months. Multi-entry visa allows multiple trips within visa validity period (up to 10 years)."},
+            {"q": "What's the difference between Visitor Visa and eTA?", "a": "Visitor Visa is required for Indian nationals (and many other visa-required countries). eTA (Electronic Travel Authorization) is for visa-exempt nationalities (UK, USA, Australia, EU). Indians need Visitor Visa, not eTA."},
+            {"q": "Can I extend my stay?", "a": "Yes — apply for a Visitor Record before current authorized stay expires. Allow 30+ days lead time."},
+            {"q": "Can I work or study on Visitor Visa?", "a": "Generally NO — work requires Work Permit (with some exceptions for business visitors). Short courses (<6 months, non-credit) allowed without Study Permit."},
+            {"q": "What is Super Visa?", "a": "Special visa for parents/grandparents of Canadian citizens/PRs. Multi-entry, valid up to 10 years, each visit can be up to 5 years. Requires CAD 100k+ medical insurance + sponsoring child's income above LICO."},
+            {"q": "Can my Visitor Visa be cancelled at the airport?", "a": "Yes — CBSA officer has final discretion. They can refuse entry, grant shorter stay, or cancel visa. Carry strong evidence of purpose + ties to home."},
+        ],
+        "official_url": "https://www.canada.ca/en/immigration-refugees-citizenship/services/visit-canada.html",
+        "vfs_url": "https://visa.vfsglobal.com/ind/en/can/",
+        "source_urls": [
+            "https://www.canada.ca/en/immigration-refugees-citizenship/services/visit-canada.html",
+            "https://www.canada.ca/en/immigration-refugees-citizenship/services/visit-canada/apply-visitor-visa.html",
+            "https://www.canada.ca/en/immigration-refugees-citizenship/services/visit-canada/parent-grandparent-super-visa.html",
+            "https://www.canada.ca/en/immigration-refugees-citizenship/services/visit-canada/apply-visitor-visa/eligibility.html",
+        ],
+        "verified_notes": "Manual Fast-Path B.2 seed — verified against ircc.canada.ca on 2026-02-27. Super Visa insurance threshold (CAD 100k) per 2022 update.",
+    },
+]
+
+
 ALL_WORKFLOWS: Dict[str, List[Dict[str, Any]]] = {
     "AU": AUSTRALIA_WORKFLOWS,
+    "CA": CANADA_WORKFLOWS,
 }
 
 
@@ -746,6 +1446,15 @@ async def seed_country(db, country_code: str, seeded_by_id: str, seeded_by_name:
             workflow_id = str(uuid.uuid4())
             now = now_iso()
             doc = {**wf}
+            # Fix 3 — Enrich document_checklist with stable doc_id per item
+            enriched_docs = []
+            for idx, d in enumerate(doc.get("document_checklist", []) or [], start=1):
+                d_copy = {**d}
+                if not d_copy.get("doc_id"):
+                    d_copy["doc_id"] = f"{cc}-{sid}-DOC-{idx:02d}"
+                enriched_docs.append(d_copy)
+            doc["document_checklist"] = enriched_docs
+
             doc.update({
                 "workflow_id": workflow_id,
                 "version": 1,
@@ -762,16 +1471,20 @@ async def seed_country(db, country_code: str, seeded_by_id: str, seeded_by_name:
                 "updated_by_name": seeded_by_name,
             })
             await workflows_col.insert_one(doc)
-            # Central audit log
+            # Fix 1 — Central audit log using CANONICAL schema (matches core.services.log_activity)
             await audit_logs_col.insert_one({
                 "id": str(uuid.uuid4()),
-                "actor_id": seeded_by_id,
-                "actor_name": seeded_by_name,
+                "user_id": seeded_by_id,
+                "user_name": seeded_by_name,
                 "action": "country_workflow_seeded_b2",
-                "target_type": "country_workflow",
-                "target_id": workflow_id,
+                "entity_type": "country_visa_workflow",
+                "entity_id": workflow_id,
                 "details": f"{cc} {sid} {svc} — {wf['subclass_name']} (Manual Fast-Path B.2)",
-                "timestamp": now,
+                "old_value": None,
+                "new_value": None,
+                "case_id": None,
+                "client_name": None,
+                "created_at": datetime.now(timezone.utc),
             })
             inserted += 1
             if verbose:
@@ -783,10 +1496,109 @@ async def seed_country(db, country_code: str, seeded_by_id: str, seeded_by_name:
     return {"inserted": inserted, "skipped": skipped, "errored": errored}
 
 
+async def backfill_country(db, country_code: str, seeded_by_id: str, seeded_by_name: str) -> Dict[str, int]:
+    """One-shot backfill for already-seeded workflows.
+
+    1. For each existing verified workflow in country, add `doc_id` field on
+       every document_checklist entry that is missing it.
+    2. Find audit_logs entries with `action="country_workflow_seeded_b2"` that
+       use the OLD divergent schema (target_id / actor_id / timestamp) and
+       rewrite them to the canonical schema (entity_id / user_id / created_at).
+    """
+    cc = country_code.upper()
+    workflows_col = db["country_visa_workflows"]
+    audit_logs_col = db["audit_logs"]
+
+    docs_patched = 0
+    audit_patched = 0
+
+    # 1. Patch document_checklist[].doc_id on existing workflows
+    cursor = workflows_col.find({"country_code": cc, "status": "verified"}, {"_id": 0})
+    async for wf in cursor:
+        sid = wf.get("subclass_id")
+        docs = wf.get("document_checklist", []) or []
+        changed = False
+        enriched = []
+        for idx, d in enumerate(docs, start=1):
+            d_copy = {**d}
+            if not d_copy.get("doc_id"):
+                d_copy["doc_id"] = f"{cc}-{sid}-DOC-{idx:02d}"
+                changed = True
+            enriched.append(d_copy)
+        if changed:
+            await workflows_col.update_one(
+                {"workflow_id": wf["workflow_id"]},
+                {"$set": {"document_checklist": enriched, "updated_at": now_iso()}},
+            )
+            docs_patched += 1
+            print(f"[{cc}] 📎 doc_id added to {len(enriched)} docs on {sid} ({wf['workflow_id'][:8]}..)")
+
+    # 2. Rewrite legacy audit_logs entries to canonical schema
+    legacy_cursor = audit_logs_col.find({
+        "action": "country_workflow_seeded_b2",
+        "$or": [{"entity_id": {"$exists": False}}, {"entity_id": None}],
+    })
+    async for entry in legacy_cursor:
+        details_text = entry.get("details", "") or ""
+        # details format: "AU 189 pr — ..."
+        parts = details_text.split(maxsplit=3)
+        if len(parts) < 3 or parts[0].upper() != cc:
+            continue
+        wf_cc = parts[0].upper()
+        wf_sid = parts[1]
+        wf_svc = parts[2]
+        # Find matching workflow
+        wf = await workflows_col.find_one(
+            {"country_code": wf_cc, "subclass_id": wf_sid, "service_type": wf_svc, "status": "verified"},
+            {"_id": 0, "workflow_id": 1},
+        )
+        if not wf:
+            continue
+        # Build canonical fields, preserve timestamp if available
+        legacy_ts = entry.get("timestamp")
+        created_at_val: Any
+        if isinstance(legacy_ts, str):
+            try:
+                created_at_val = datetime.fromisoformat(legacy_ts.replace("Z", "+00:00"))
+            except Exception:
+                created_at_val = datetime.now(timezone.utc)
+        elif isinstance(legacy_ts, datetime):
+            created_at_val = legacy_ts
+        else:
+            created_at_val = datetime.now(timezone.utc)
+
+        # Pull legacy actor fields with fallback
+        legacy_actor_id = entry.get("actor_id") or seeded_by_id
+        legacy_actor_name = entry.get("actor_name") or seeded_by_name
+
+        await audit_logs_col.update_one(
+            {"id": entry["id"]} if entry.get("id") else {"_id": entry["_id"]},
+            {
+                "$set": {
+                    "user_id": legacy_actor_id,
+                    "user_name": legacy_actor_name,
+                    "entity_type": "country_visa_workflow",
+                    "entity_id": wf["workflow_id"],
+                    "created_at": created_at_val,
+                    "old_value": None,
+                    "new_value": None,
+                    "case_id": None,
+                    "client_name": None,
+                },
+                "$unset": {"actor_id": "", "actor_name": "", "target_id": "", "target_type": "", "timestamp": ""},
+            },
+        )
+        audit_patched += 1
+        print(f"[{cc}] 🧾 audit_log rewritten for {wf_sid} → entity_id={wf['workflow_id'][:8]}..")
+
+    return {"docs_patched": docs_patched, "audit_patched": audit_patched}
+
+
 async def main():
     parser = argparse.ArgumentParser(description="Sweep B.2 Manual Fast-Path country workflow seeder")
     parser.add_argument("--country", type=str, default=None, help="ISO-2 country code to seed (e.g. AU). Omit for --all")
     parser.add_argument("--all", action="store_true", help="Seed all countries currently defined")
+    parser.add_argument("--backfill", type=str, default=None, help="One-shot backfill: add doc_id + rewrite legacy audit_logs for given ISO-2 code")
     args = parser.parse_args()
 
     load_dotenv()
@@ -804,13 +1616,24 @@ async def main():
     seeded_by_id = admin["id"]
     seeded_by_name = admin.get("name", "Admin User")
 
+    # ── BACKFILL MODE ─────────────────────────────────────────────────────────
+    if args.backfill:
+        cc = args.backfill.upper()
+        print(f"\n══════════════════════════════════════════════")
+        print(f"  BACKFILL {cc} — doc_id + canonical audit_logs")
+        print(f"══════════════════════════════════════════════")
+        res = await backfill_country(db, cc, seeded_by_id, seeded_by_name)
+        print(f"[{cc}] Backfill summary: docs_patched={res['docs_patched']} audit_patched={res['audit_patched']}")
+        return
+
+    # ── SEED MODE ─────────────────────────────────────────────────────────────
     targets: List[str] = []
     if args.country:
         targets = [args.country.upper()]
     elif args.all:
         targets = list(ALL_WORKFLOWS.keys())
     else:
-        print("⚠  Specify --country <ISO2> or --all.")
+        print("⚠  Specify --country <ISO2> or --all (or --backfill <ISO2>).")
         return
 
     totals = {"inserted": 0, "skipped": 0, "errored": 0}

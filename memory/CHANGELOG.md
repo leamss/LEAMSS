@@ -4,6 +4,67 @@ This file appends every completed phase/feature with dates and verification stat
 
 
 ---
+### 🇨🇦 Sweep B.2 — Canada (CA) Verified Seeding + 3 Fixes COMPLETE (Feb 27, 2026)
+
+Second atomic ship in Sweep B.2 (AU → **CA** → NZ → UK). Includes 3 small fixes from e1_tester WARN findings + 6 CA verified workflows. All triple-gate verified.
+
+**6 CA workflows shipped (all status=verified, version=1):**
+| Subclass | Name | Service | Fee Principal (CAD) | Fee (≈INR) | Processing (days) |
+|----------|------|---------|---------------------|------------|-------------------|
+| EE-FSW | Express Entry — Federal Skilled Worker | pr | 1,525 (PR+RPRF) | 91,500 | 150-240 |
+| EE-CEC | Express Entry — Canadian Experience Class | pr | 1,525 (PR+RPRF) | 91,500 | 120-210 |
+| PNP | Provincial Nominee Program | pr | 1,875 (PNP+PR+RPRF) | 1,12,500 | 210-540 |
+| Study-Permit | Study Permit (DLI Post-Secondary) | student | 235 (SP+biom) | 14,100 | 21-90 |
+| Work-Permit-Open | Open Work Permit (PGWP/Spousal/BOWP) | work | 340 (WP+OWP+biom) | 20,400 | 30-180 |
+| Visitor-Visa | Visitor Visa (Temporary Resident Visa) | visitor | 185 (TRV+biom) | 11,100 | 14-60 |
+
+**Files:**
+- `backend/scripts/seed_country_workflows_b2.py` — Added `CANADA_WORKFLOWS` list (~1,000 lines of factual IRCC-verified data). Updated `ALL_WORKFLOWS` dict to include `"CA": CANADA_WORKFLOWS`.
+
+**3 Fixes Applied (from e1_tester AU spot-check WARNs):**
+
+🔧 **Fix 1 — Canonical Audit Log Schema** (`seed_country_workflows_b2.py`)
+- Changed audit_log writes from divergent schema (`actor_id`/`actor_name`/`target_id`/`target_type`/`timestamp`) to canonical schema matching `core.services.log_activity`: `user_id`/`user_name`/`entity_type="country_visa_workflow"`/`entity_id=workflow_id`/`created_at` as `datetime.now(timezone.utc)`. Added `old_value`/`new_value`/`case_id`/`client_name` as `None` for full canonical compat.
+- **Retroactive backfill** via `--backfill AU` flag: Found 6 existing AU audit entries with legacy schema, looked up matching `workflow_id` by parsing `details` field, rewrote with canonical fields + unset legacy keys. **Result: 6/6 AU audit logs now have `entity_id` populated and are queryable by workflow_id.**
+- New CA writes use canonical schema directly. **Net result: All 12 `country_workflow_seeded_b2` audit entries (6 AU + 6 CA) are queryable + attributable to Admin User.**
+
+🔧 **Fix 2 — Brand Token: emerald → leamss-teal** (`frontend/src/pages/admin/CountryWorkflowsHub.jsx`)
+- Line 51: `verified` status badge — `bg-emerald-100 text-emerald-800 border-emerald-200` → `bg-leamss-teal-100 text-leamss-teal-800 border-leamss-teal-200`
+- Line 228: KPI tile gradient for "Verified" — `from-emerald-500 to-emerald-600` → `from-leamss-teal-500 to-leamss-teal-600`
+- Confirmed via screenshot: VERIFIED badges + "Verified" KPI tile now render in brand teal (`#0D9488` family) — fully brand-compliant.
+
+🔧 **Fix 3 — Document `doc_id` Forward-Compat** (`seed_country_workflows_b2.py`)
+- Added `doc_id` enrichment in main seed loop: `f"{country_code}-{subclass_id}-DOC-{index:02d}"` (e.g. `CA-EE-FSW-DOC-03`, `AU-189-DOC-07`)
+- **Retroactive backfill** via `--backfill AU`: Added doc_id to 90 documents across 6 AU workflows (16+14+14+14+16+16). All CA workflow document_checklist entries also have doc_id from initial seed.
+- **Net result: Every document on every CA + AU workflow has a stable, deterministic doc_id.**
+
+**Triple-gate verified:**
+- 🟢 **Seed run**: `python -m scripts.seed_country_workflows_b2 --country CA` → `inserted=6 skipped=0 errored=0`
+- 🟢 **Idempotency**: 2nd run → `inserted=0 skipped=6 errored=0`
+- 🟢 **Backfill run**: `--backfill AU` → `docs_patched=6 audit_patched=6` (90 docs got doc_id, 6 audit logs rewritten)
+- 🟢 **DB verify**: `GET /api/country-workflows?country_code=CA&status=verified` returns 6 items
+- 🟢 **CA-EE-FSW spot-check**: description=1001 chars · eligibility_criteria=7 · fees_breakdown=11 · step_by_step=8 · document_checklist=16 (all with doc_id) · common_rejection_reasons=8 · success_tips=8 · faqs=6 · source_urls=5 · all 14 mandatory fields present + populated substantively
+- 🟢 **Fast-path performance** across 5 CA service types: 101ms, 107ms, 106ms, 105ms, 136ms → all <200ms target ✅ with `source="seeded_verified"`, `model_used="verified_seed"`
+- 🟢 **Audit log canonical check**: Mongo query confirms 12 entries (6 AU + 6 CA), all have `user_id="3918d774..."` + `user_name="Admin User"` + `entity_type="country_visa_workflow"` + `entity_id=<workflow_id>` + `created_at=<datetime>`. No legacy keys remain on backfilled entries.
+- 🟢 **Brand fix screenshot**: `/admin/country-workflows` shows leamss-teal Verified KPI tile + VERIFIED badges on all 12 rows (vs. previous emerald)
+- 🟢 **Admin Hub UI**: KPI tiles `Total=20, Verified=12 (6 AU + 6 CA), Draft=0, Archived=8 (legacy test data)`. All 12 verified rows render brand-compliantly with `Verified 6/27/2026 by Admin User` attribution.
+
+**.gov sources cited across 6 CA workflows:**
+- `canada.ca/en/immigration-refugees-citizenship` (primary IRCC — Express Entry, PNP, Study, Work, Visitor)
+- `canada.ca/en/immigration-refugees-citizenship/services/immigrate-canada/express-entry/eligibility/criteria-comprehensive-ranking-system.html` (CRS scoring)
+- `ontario.ca/page/oinp-application-update-employer-job-offer-streams` (Ontario PNP)
+- `welcomebc.ca/Immigrate-to-B-C/B-C-Provincial-Nominee-Program` (BC PNP)
+- `alberta.ca/alberta-advantage-immigration-program.aspx` (Alberta AAIP)
+- IRCC Study Permit + PGWP + SDS official pages
+- Super Visa policy + LICO threshold pages
+
+**Pending Sweep B.2 (P0):**
+- 🇳🇿 New Zealand — 6 subclasses (SMC · AEWV · Student · Partner · Parent Resident · RV)
+- 🇬🇧 United Kingdom — 6 subclasses (Skilled Worker · Global Talent · Student · Spouse · ILR · Visitor)
+
+
+
+---
 ### 🇦🇺 Sweep B.2 — Australia (AU) Verified Seeding COMPLETE (Feb 27, 2026 early morning)
 
 Atomic country-by-country ship per Sir's directive. AU is the first of 4 priority countries (AU → CA → NZ → UK). 6 verified workflows seeded directly from `.gov` sources, bypassing the AI generation path entirely.

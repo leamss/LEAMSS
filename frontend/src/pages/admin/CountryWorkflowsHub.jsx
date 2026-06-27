@@ -48,7 +48,7 @@ const SERVICE_TYPES = [
 const STATUS_COLORS = {
   draft: 'bg-slate-100 text-slate-700 border-slate-200',
   ai_drafted: 'bg-leamss-orange-100 text-leamss-orange-800 border-leamss-orange-200',
-  verified: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+  verified: 'bg-leamss-teal-100 text-leamss-teal-800 border-leamss-teal-200',
   archived: 'bg-slate-100 text-slate-500 border-slate-200',
 };
 
@@ -225,7 +225,7 @@ export default function CountryWorkflowsHub() {
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         {[
           { label: 'Total', value: stats.totals?.total || 0, color: 'from-slate-500 to-slate-600' },
-          { label: 'Verified', value: stats.totals?.verified || 0, color: 'from-emerald-500 to-emerald-600' },
+          { label: 'Verified', value: stats.totals?.verified || 0, color: 'from-leamss-teal-500 to-leamss-teal-600' },
           { label: 'AI Drafted', value: stats.totals?.ai_drafted || 0, color: 'from-leamss-orange-500 to-leamss-orange-600' },
           { label: 'Draft', value: stats.totals?.draft || 0, color: 'from-slate-400 to-slate-500' },
           { label: 'Archived', value: stats.totals?.archived || 0, color: 'from-slate-300 to-slate-400' },
