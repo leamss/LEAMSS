@@ -4,6 +4,72 @@ This file appends every completed phase/feature with dates and verification stat
 
 
 ---
+### 🟢 Sweep B.4.6 — United Kingdom EXPANSION (6 New Verified Workflows) (Feb 27, 2026)
+
+**Atomic Ship — Sub-Slice B.4.6 of MEGA DISPATCH Sweep B.4.**
+
+Seeded **6 new United Kingdom visa workflows** into existing `seed_country_workflows_b4.py` — cumulative UK total = **12** (6 existing B.2 + 6 new B.4.6). All cleared 14-mandatory-field schema, doc_id pattern `UK-{SID}-DOC-NN`, canonical `_b4` audit logs.
+
+**Workflows seeded (6) — research-corrected per Sir's brief:**
+
+1. **UK-Global-Talent** ✅ OPEN — Global Talent Visa (Endorsement + Prestigious Prize routes; £561 endorsement + £205 visa = £766 total + IHS £1,035/yr; 3-yr ILR for Exceptional Talent + endorsed-fellowship Research, 5-yr for Exceptional Promise)
+2. **UK-HPI** ✅ OPEN — High Potential Individual Visa (Top-80 university graduates; £880 fee + £252 Ecctis (£210 offshore) + £1,270 maintenance; 2yr Bachelor/Master, 3yr PhD; **list expanded 50→80 universities Nov 2025-Oct 2026**; NOT extendable; UK universities EXCLUDED)
+3. **UK-Graduate-Route** ✅ OPEN (with 2027 reform) — Post-Study Graduate Visa (£937; **2yr if applied ≤ 31 Dec 2026, 18 months from 1 Jan 2027 reform (Bachelor/Master)**; PhD 3yr unchanged; NOT extendable; in-UK only)
+4. **UK-ILR** ⚠️ REFORM-PENDING — Indefinite Leave to Remain (£3,226; **White Paper consultation closed 12 Feb 2026; Earned Settlement reform expected April 2026** — 10-yr baseline + High Earner -5yr / Top Earner -7yr / NHS/Education -5yr / C1 English -1yr reductions; current 5/3-yr rules apply until reform)
+5. **UK-Tier-1-Investor-Closed** ⚠️ CLOSED — Tier 1 Investor Legacy Pathway (**Route CLOSED to new applications 17 Feb 2022; Extension deadline 17 Feb 2026 — PASSED**; ILR deadline 17 Feb 2028 still open; £2M=5yr, £5M=3yr, £10M=2yr ILR; alternatives Innovator Founder / Global Talent)
+6. **UK-Visit-Long-Term** ✅ OPEN — Standard Visitor Long-Term Multi-Entry (**8 Apr 2026 fee schedule:** 2yr £506 / 5yr £903 / 10yr £1,128; max 6 months per visit; first-timers typically refused at 10-yr tier)
+
+**Research-driven correction to Sir's brief (NZ precedent followed) — Tech Nation status:**
+- 🔧 Sir's brief implied "Tech Nation closed" → research confirms Tech Nation was **acquired by Founders Forum** and **secured £11M UK Government contract in May 2025** to remain sole endorsing body for digital tech for next 3 years. Process simplified Aug 2025 (single GOV.UK Stage 1 form, Tech Nation's separate website form withdrawn). Correction documented transparently in Global-Talent `verified_notes`.
+
+**Sources verified (Feb 27, 2026):**
+- `gov.uk` — all 6 official program pages
+- `gov.uk/government/publications/high-potential-individual-visa-global-universities-list` (80-univ list Nov 2025-Oct 2026)
+- `gov.uk/government/publications/restoring-control-over-the-immigration-system-white-paper` (Earned Settlement model)
+- `gov.uk/government/publications/guidance-on-application-for-uk-visa-as-tier-1-investor` (closure + deadlines)
+- `technation.io/global-talent-visa/` (Tech Nation £11M contract confirmation)
+- `migrationobservatory.ox.ac.uk` (ILR reform analysis)
+- `davidsonmorris.com`, `vanessaganguin.com`, `fragomen.com`, `ein.org.uk`, `chambers.com`, `findamasters.com`, `eiglaw.com`, `workpermitcloud.co.uk`, `abroadroutes.com` (specialist immigration counsel sites)
+- `visa-fees.homeoffice.gov.uk` (8 Apr 2026 fee schedule)
+
+**Reforms / current status accurately captured:**
+- ✅ Tech Nation £11M contract May 2025 + Aug 2025 single GOV.UK Stage 1 form simplification
+- ✅ HPI universities Nov 2025-Oct 2026 list expanded 50→80; UK universities excluded
+- ✅ Graduate Route 18-month reform from 1 Jan 2027 (Bachelor/Master only; PhD unchanged)
+- ✅ ILR White Paper consultation closed 12 Feb 2026 + Earned Settlement model expected April 2026 + High Earner/Top Earner/Public Service/Advanced English reductions
+- ✅ Tier 1 Investor closure 17 Feb 2022 + Extension deadline 17 Feb 2026 (PASSED) + ILR deadline 17 Feb 2028 (active)
+- ✅ Visit Long-Term 8 Apr 2026 fee schedule (£506 / £903 / £1,128 for 2/5/10-yr)
+
+**Backend infra changes (UK service_type extensions):**
+- 📝 `backend/routers/ai_workflow_builder.py` — `COUNTRY_REFERENCES["uk"]` + `COUNTRY_REFERENCES["united_kingdom"]` extended with `pr` (ILR with Earned Settlement reform context) + `business` (Tier 1 Investor legacy) entries. `work` description enhanced to cover Skilled Worker + Global Talent + HPI + Graduate Route.
+
+**Triple-gate verification:**
+- 🟢 Seed `inserted=6 skipped=0 errored=0`; idempotency `inserted=0 skipped=6`
+- 🟢 **ALL 6 integrity-checked:** 14 mandatory fields present · 91 docs (15+14+14+16+16+16) all with correct `UK-{SID}-DOC-NN` doc_id · 6/6 canonical `_b4` audit logs
+- 🟢 UK-HPI deep-check: Fee GBP 880 + £252 Ecctis + £1,270 maintenance + 8 steps + 14 docs · Description 955 chars
+- 🟢 UK-Global-Talent: Tech Nation correction explicitly documented in verified_notes
+- 🟢 UK-ILR White Paper reform context (12 Feb 2026 consultation deadline, April 2026 expected implementation) present in description
+- 🟢 UK-Tier-1-Investor-Closed CLOSURE status (17 Feb 2022) + 17 Feb 2028 ILR deadline explicitly stated
+- 🟢 Fast-path live curl: UK/pr → UK-ILR (140ms), UK/business → UK-Tier-1-Investor-Closed (135ms) — both unique service_types resolve correctly with `source=seeded_verified`
+- 🟢 **DB total verified workflows: 62** (AU=16, CA=12, IN=12, NZ=10, UK=12) — increased from 56
+- 🟢 **Audit log counts: `_b4`=38 (12 IN + 10 AU + 6 CA + 4 NZ + 6 UK), `_b2`=24** (B.2 originals preserved unchanged)
+
+**Files modified (2):**
+- 📝 `backend/scripts/seed_country_workflows_b4.py` — `UNITED_KINGDOM_NEW_WORKFLOWS` list (6 dicts, ~1,250 lines) added + `ALL_WORKFLOWS["UK"]` mapping. File now ~4,750 lines (B.4.2-6 combined).
+- 📝 `backend/routers/ai_workflow_builder.py` — UK/united_kingdom `COUNTRY_REFERENCES` extended with `pr` + `business` keys + enhanced `work` description.
+
+**Highlighted observations:**
+- This is the **second sub-slice with research-driven correction to Sir's brief** (NZ B.4.5 had 4 corrections; UK B.4.6 has 1 — Tech Nation status). Honest correction pattern reinforced.
+- 3 of 6 UK visas have CRITICAL TIMING flags (ILR pre-April 2026 lock-in opportunity, Graduate Route pre-31 Dec 2026 2-yr lock-in, Tier 1 Investor 17 Feb 2028 ILR deadline). Workflows clearly document deadlines to enable Sir's team to advise clients on urgency.
+- Fast-path canonical mappings (work/pr/business/visitor) all working without new SERVICE_TYPE_CANONICAL_MAP entries needed. UK now first country with `business` service_type (Tier 1 legacy).
+
+**Pending Sweep B.4 (P0 next):**
+- 🇺🇸 B.4.7 — USA NEW (6 visas; net-new country — Sir will bundle visa-name validator script per his suggestion)
+- 🇩🇪 B.4.8 — Germany NEW (6 visas)
+- 🇪🇺 B.4.9 — Schengen NEW (6 visas)
+
+
+---
 ### 🟢 Sweep B.4.5 — New Zealand EXPANSION (4 New Verified Workflows) (Feb 27, 2026)
 
 **Atomic Ship — Sub-Slice B.4.5 of MEGA DISPATCH Sweep B.4.**

@@ -61,17 +61,21 @@ COUNTRY_REFERENCES = {
     },
     "uk": {
         "visitor": "Standard Visitor Visa. Reference: gov.uk.",
-        "work": "Skilled Worker Visa. Reference: gov.uk. CoS from licensed employer, minimum salary, English requirement.",
+        "work": "Skilled Worker / Global Talent / HPI / Graduate Route. Reference: gov.uk. CoS from licensed employer (Skilled Worker); endorsement (Global Talent); Top-80 university degree (HPI); UK student visa pathway (Graduate Route).",
         "student": "Student Visa. Reference: gov.uk. CAS from licensed sponsor, financial requirement.",
         "partner": "Family / Spouse Visa (Appendix FM). Reference: gov.uk. Sponsor income requirement, relationship evidence, English at A1/A2/B1 stages.",
-        "family": "Family / Spouse Visa (Appendix FM). Reference: gov.uk. Sponsor income requirement, relationship evidence, English at A1/A2/B1 stages."
+        "family": "Family / Spouse Visa (Appendix FM). Reference: gov.uk. Sponsor income requirement, relationship evidence, English at A1/A2/B1 stages.",
+        "pr": "Indefinite Leave to Remain (ILR / Settlement). Reference: gov.uk. 5-yr (Skilled Worker, Spouse) / 3-yr (Global Talent, Innovator Founder) / 10-yr (Long Residence). Earned Settlement reform proposed April 2026 — 10-yr baseline + reductions for high earners / public service.",
+        "business": "Tier 1 Investor (CLOSED to new applications since 17 Feb 2022 — legacy ILR pathway). Reference: gov.uk. Investment-linked qualifying periods: £2M=5yr, £5M=3yr, £10M=2yr. Final ILR deadline 17 Feb 2028. Alternatives: Innovator Founder Visa."
     },
     "united_kingdom": {
         "visitor": "Standard Visitor Visa. Reference: gov.uk.",
-        "work": "Skilled Worker Visa. Reference: gov.uk. CoS from licensed employer, minimum salary, English requirement.",
+        "work": "Skilled Worker / Global Talent / HPI / Graduate Route. Reference: gov.uk. CoS from licensed employer (Skilled Worker); endorsement (Global Talent); Top-80 university degree (HPI); UK student visa pathway (Graduate Route).",
         "student": "Student Visa. Reference: gov.uk. CAS from licensed sponsor, financial requirement.",
         "partner": "Family / Spouse Visa (Appendix FM). Reference: gov.uk. Sponsor income requirement, relationship evidence, English at A1/A2/B1 stages.",
-        "family": "Family / Spouse Visa (Appendix FM). Reference: gov.uk. Sponsor income requirement, relationship evidence, English at A1/A2/B1 stages."
+        "family": "Family / Spouse Visa (Appendix FM). Reference: gov.uk. Sponsor income requirement, relationship evidence, English at A1/A2/B1 stages.",
+        "pr": "Indefinite Leave to Remain (ILR / Settlement). Reference: gov.uk. 5-yr (Skilled Worker, Spouse) / 3-yr (Global Talent, Innovator Founder) / 10-yr (Long Residence). Earned Settlement reform proposed April 2026 — 10-yr baseline + reductions for high earners / public service.",
+        "business": "Tier 1 Investor (CLOSED to new applications since 17 Feb 2022 — legacy ILR pathway). Reference: gov.uk. Investment-linked qualifying periods: £2M=5yr, £5M=3yr, £10M=2yr. Final ILR deadline 17 Feb 2028. Alternatives: Innovator Founder Visa."
     },
     "new_zealand": {
         "visitor": "Visitor Visa. Reference: immigration.govt.nz.",

@@ -3394,11 +3394,757 @@ NEW_ZEALAND_NEW_WORKFLOWS: List[Dict[str, Any]] = [
 ]
 
 
+# ──────────────────────────────────────────────────────────────────────────────
+# Sweep B.4.6 — United Kingdom EXPANSION (6 NEW workflows)
+# Adds to existing 6 UK workflows from B.2 (Skilled-Worker, Health-Care-Worker,
+# Student, Visitor, Spouse-Family, Innovator-Founder) → cumulative UK total = 12.
+#
+# Sources verified Feb 27, 2026:
+#   - gov.uk/global-talent (+ technation.io)
+#   - gov.uk/high-potential-individual-visa
+#   - gov.uk/graduate-visa (+ workpermitcloud.co.uk Dec 2026 reform)
+#   - gov.uk/indefinite-leave-to-remain (+ White Paper May 2025)
+#   - gov.uk/tier-1-investor-migrant
+#   - gov.uk/standard-visitor (long-term routes)
+#
+# Research-driven correction vs Sir's brief (NZ precedent followed):
+#   - Sir said "Tech Nation CLOSED" → Tech Nation was acquired by Founders Forum,
+#     secured £11M UK Government contract May 2025, REMAINS sole digital tech
+#     endorsing body. Process simplified Aug 2025 (single GOV.UK Stage 1 form).
+#     This correction is documented transparently in verified_notes for Global-Talent.
+# ──────────────────────────────────────────────────────────────────────────────
+UNITED_KINGDOM_NEW_WORKFLOWS: List[Dict[str, Any]] = [
+    # ── 1. UK-Global-Talent — Global Talent Visa (Tech / Arts / Academia) ────
+    {
+        "country_code": "UK", "country_name": "United Kingdom",
+        "subclass_id": "Global-Talent",
+        "subclass_name": "Global Talent Visa (Endorsement + Prestigious Prize routes)",
+        "service_type": "work", "category": "immigration",
+        "description": (
+            "The Global Talent visa is the UK's premier route for **exceptional talent or "
+            "exceptional promise** in Digital Technology, Arts & Culture, or Academia & "
+            "Research. No job offer, no employer sponsorship, and **no minimum salary** "
+            "required. Holders enjoy full work flexibility (employed / self-employed / "
+            "founder), can switch jobs without restriction, and bring dependants.\n\n"
+            "**Two routes:** (a) **Endorsement** — apply to designated body (Tech Nation for "
+            "digital tech, Royal Society / UKRI for research, Arts Council England for arts) "
+            "for exceptional-talent (proven leader) or exceptional-promise (rising leader) "
+            "status, then apply for the visa. (b) **Prestigious Prize** — applicants holding "
+            "an eligible award from the Home Office list (e.g. certain Nobel Prizes, Academy "
+            "Awards, major industry awards) bypass endorsement entirely.\n\n"
+            "**Critical Aug 2025 process simplification:** Tech Nation applicants now use a "
+            "single GOV.UK Stage 1 form (Tech Nation's separate website form withdrawn). "
+            "ILR available after **3 years** for exceptional talent + Endorsing-Body Research "
+            "fellowships, or 5 years standard. Visa duration: up to 5 years per grant."
+        ),
+        "eligibility_summary": (
+            "Demonstrable exceptional talent (proven leader) OR exceptional promise (rising "
+            "leader) in Digital Technology, Arts & Culture, or Academia & Research. "
+            "Endorsement from designated body OR holder of eligible Prestigious Prize. "
+            "No job offer required."
+        ),
+        "eligibility_criteria": [
+            {"label": "Field of expertise", "value": "Digital Technology, Arts & Culture, or Academia & Research", "notes": "Each field has its own endorsing body"},
+            {"label": "Exceptional Talent", "value": "Proven leader in your field with established track record", "notes": "Senior career achievements, awards, recognition"},
+            {"label": "Exceptional Promise", "value": "Rising leader with strong potential to become future leader", "notes": "Early/mid career; lower bar than exceptional talent"},
+            {"label": "Digital Tech endorsement (Tech Nation)", "value": "2 letters from recognised UK/global tech orgs + 10-page CV/portfolio with technical/commercial achievements", "notes": "Tech Nation confirmed sole body via £11M contract May 2025"},
+            {"label": "Academia endorsement", "value": "Royal Society, British Academy, Royal Academy of Engineering, UKRI Fellowship/Senior position", "notes": "Often peer-reviewed"},
+            {"label": "Arts endorsement", "value": "Arts Council England — exceptional contribution to literature/film/music/visual arts/dance/theatre", "notes": ""},
+            {"label": "Prestigious Prize route", "value": "Holder of award from Home Office eligible-prizes list (no endorsement needed)", "notes": "Nobel Prizes (selected), Academy Awards, Turner Prize, etc."},
+            {"label": "English language", "value": "Required at B1 ONLY for settlement (ILR) — NOT for initial visa", "notes": ""},
+        ],
+        "fees_local_currency_code": "GBP", "fees_local_currency_amount": 766, "fees_inr_approx": 80430,
+        "fees_breakdown": [
+            {"component": "Endorsement application fee (Part 1)", "amount": 561, "currency": "GBP"},
+            {"component": "Visa application fee (Part 2 — after endorsement)", "amount": 205, "currency": "GBP"},
+            {"component": "Total via Endorsement route", "amount": 766, "currency": "GBP"},
+            {"component": "Prestigious Prize route (single fee at visa stage)", "amount": 766, "currency": "GBP"},
+            {"component": "Immigration Health Surcharge (IHS)", "amount": 1035, "currency": "GBP", "per": "year"},
+            {"component": "IHS — 5 years total", "amount": 5175, "currency": "GBP"},
+            {"component": "Biometrics enrolment", "amount": 19, "currency": "GBP"},
+            {"component": "Dependant — per dependant (same fee structure)", "amount": 766, "currency": "GBP"},
+            {"component": "Priority service (optional)", "amount": 500, "currency": "GBP"},
+            {"component": "Super priority service (optional, next working day)", "amount": 1000, "currency": "GBP"},
+        ],
+        "processing_time_days_min": 21, "processing_time_days_max": 56,
+        "step_by_step": [
+            {"step_number": 1, "title": "Identify your field + route", "description": "Decide field (Digital Tech / Arts / Academia) + route (Endorsement vs Prestigious Prize). Check the Home Office prestigious-prizes list first — if eligible, skip endorsement.", "estimated_days": 7, "documents_needed": ["Awards / prizes documentation"], "tips": ["Prestigious Prize route is faster + cheaper if eligible"]},
+            {"step_number": 2, "title": "Prepare evidence portfolio", "description": "Compile CV, recommendation letters (2-3 from recognised orgs), achievement evidence, press coverage, salary documentation. Tech Nation requires 10-page max portfolio.", "estimated_days": 30, "documents_needed": ["CV (10 pages max for Tech Nation)", "Recommendation letters", "Achievement evidence"], "tips": ["Quality > quantity; demonstrate impact + recognition"]},
+            {"step_number": 3, "title": "Submit Stage 1 Endorsement Application (GOV.UK)", "description": "Submit single GOV.UK Stage 1 endorsement form. Pay £561. Endorsing body reviews. Aug 2025 simplification: no separate Tech Nation form needed.", "estimated_days": 30, "documents_needed": ["Stage 1 form", "Portfolio", "ID"], "tips": ["GOV.UK single-form is standard since Aug 2025"]},
+            {"step_number": 4, "title": "Receive Endorsement Decision", "description": "Endorsing body issues endorsement letter (Exceptional Talent OR Exceptional Promise) within 8 weeks typically.", "estimated_days": 56, "documents_needed": [], "tips": ["If refused, can request reconsideration once"]},
+            {"step_number": 5, "title": "Apply for Visa (Stage 2)", "description": "Within 3 months of endorsement, submit visa application. Pay £205 + IHS. Biometrics appointment.", "estimated_days": 21, "documents_needed": ["Endorsement letter", "Passport", "TB test (if applicable)"], "tips": ["Apply within 3 months of endorsement or it expires"]},
+            {"step_number": 6, "title": "Biometric Enrolment", "description": "VFS / TLS biometrics appointment if outside UK. UK applicants use UKVCAS.", "estimated_days": 7, "documents_needed": [], "tips": []},
+            {"step_number": 7, "title": "Visa Decision + Activation", "description": "Receive decision (visa or BRP). Travel to UK if outside. Begin 5-year residence period.", "estimated_days": 21, "documents_needed": [], "tips": ["Standard processing: 3 weeks (outside UK) / 8 weeks (UK)"]},
+            {"step_number": 8, "title": "Plan ILR Pathway", "description": "Exceptional Talent + endorsed-fellowship Research → ILR after 3 years. Exceptional Promise + others → ILR after 5 years. Build absences record (max 180 days/yr).", "estimated_days": 1825, "documents_needed": ["Continuous residence evidence"], "tips": ["Sub-180-day absences critical"]},
+        ],
+        "document_checklist": [
+            {"name": "Valid passport (bio + visa pages)", "mandatory": True, "notes": ""},
+            {"name": "CV / Resume (10-page max for Tech Nation)", "mandatory": True, "notes": ""},
+            {"name": "Recommendation letters (2-3 from recognised UK/global orgs)", "mandatory": True, "notes": "Tech Nation requires from established tech entities"},
+            {"name": "Achievement evidence (awards, patents, products, publications)", "mandatory": True, "notes": ""},
+            {"name": "Press coverage / media mentions", "mandatory": False, "notes": "Strengthens application"},
+            {"name": "Salary / financial documentation", "mandatory": False, "notes": "Demonstrates senior position for Tech Nation"},
+            {"name": "Portfolio (10 pages — Tech Nation specific)", "mandatory": True, "notes": "Digital tech route only"},
+            {"name": "Prestigious Prize award documentation (if Prize route)", "mandatory": False, "notes": "Skips endorsement if eligible"},
+            {"name": "Endorsement letter (Stage 2 only)", "mandatory": True, "notes": "After Stage 1 endorsement granted"},
+            {"name": "TB test certificate (from listed countries)", "mandatory": False, "notes": "Required from certain countries including India, Bangladesh"},
+            {"name": "Photo (per UKVI specs)", "mandatory": True, "notes": ""},
+            {"name": "Dependant passports + relationship certs (if applicable)", "mandatory": True, "notes": "Separate £766 each"},
+            {"name": "Police clearance certificates (none required for Global Talent typically)", "mandatory": False, "notes": ""},
+            {"name": "Biometrics consent + appointment confirmation", "mandatory": True, "notes": ""},
+            {"name": "Tuberculosis screening (India, Pakistan, etc.)", "mandatory": True, "notes": "Mandatory from listed countries"},
+        ],
+        "common_rejection_reasons": [
+            "Insufficient evidence of exceptional talent / promise in field",
+            "Recommendation letters from non-recognised or generic sources",
+            "Portfolio doesn't demonstrate sufficient impact / recognition (Tech Nation)",
+            "Prestigious Prize claimed but not on Home Office eligible-prizes list",
+            "Visa application lodged > 3 months after endorsement (expired)",
+            "Biometrics appointment missed / incomplete",
+            "TB certificate missing for applicants from listed countries",
+            "Insufficient documentary evidence of claimed achievements",
+        ],
+        "success_tips": [
+            "Check Prestigious Prize route first — faster + cheaper if eligible",
+            "Tech Nation: 2 strong letters from established tech entities >> 5 weak ones",
+            "10-page Tech Nation portfolio: focus on top 5-7 achievements with impact",
+            "Apply for visa within 3 months of endorsement — endorsement EXPIRES otherwise",
+            "Exceptional Talent (3-yr ILR) preferred over Exceptional Promise (5-yr ILR) where possible",
+            "Maintain sub-180-day absences during 3-5 year qualifying period for ILR",
+            "Aug 2025 process: use single GOV.UK Stage 1 form (no separate Tech Nation form)",
+            "Family included separately — each dependant pays own £766",
+        ],
+        "faqs": [
+            {"q": "Is Tech Nation still operating?", "a": "YES — Tech Nation was acquired by Founders Forum and secured an £11M UK Government contract in May 2025 to remain the sole endorsing body for digital technology for the next 3 years. The 2023 closure rumours were resolved positively."},
+            {"q": "What's the difference between Exceptional Talent and Exceptional Promise?", "a": "Exceptional Talent = proven leader with established track record (senior). Exceptional Promise = rising leader with potential (early/mid career). Talent has 3-yr ILR; Promise has 5-yr ILR."},
+            {"q": "Do I need a job offer?", "a": "NO. Global Talent is one of the few UK visas with NO job offer requirement. You can be employed, self-employed, freelance, or a founder."},
+            {"q": "How do I check if my award is a Prestigious Prize?", "a": "Home Office publishes an eligible-prizes list (gov.uk). Includes selected Nobel Prizes, Academy Awards, Turner Prize, certain industry awards. Update periodically."},
+            {"q": "Can I switch jobs?", "a": "YES — no restriction. Switch employers, become self-employed, found a company — all permitted."},
+            {"q": "When can I apply for ILR?", "a": "Exceptional Talent + endorsed-fellowship Research: 3 years. Exceptional Promise + most others: 5 years. Must meet continuous residence + absences criteria."},
+        ],
+        "official_url": "https://www.gov.uk/global-talent",
+        "vfs_url": "https://www.gov.uk/government/world-location-news/biometrics-services-india",
+        "source_urls": [
+            "https://www.gov.uk/global-talent",
+            "https://technation.io/global-talent-visa/",
+            "https://eiglaw.com/uk-updates-global-talent-visa-endorsement-process-with-tech-nation-from-august-4-2025/",
+            "https://www.davidsonmorris.com/global-talent-visa/",
+        ],
+        "verified_notes": "Manual Fast-Path B.4.6 seed — verified against gov.uk + Tech Nation + Davidson Morris + EIG Law on 2026-02-27. CORRECTION TO SIR'S BRIEF: Sir's brief listed 'Tech Nation closed' — research confirms Tech Nation was acquired by Founders Forum and secured £11M UK Government contract May 2025 to remain sole endorsing body for digital tech. Process simplified Aug 2025 (single GOV.UK Stage 1 form, Tech Nation's separate form withdrawn). All other details (fees £766, IHS £1,035/yr, 3-yr ILR for Exceptional Talent) verified.",
+    },
+
+    # ── 2. UK-HPI — High Potential Individual Visa ──────────────────────────────
+    {
+        "country_code": "UK", "country_name": "United Kingdom",
+        "subclass_id": "HPI",
+        "subclass_name": "High Potential Individual Visa (Top-80 University Graduates)",
+        "service_type": "work", "category": "immigration",
+        "description": (
+            "The High Potential Individual (HPI) visa lets recent graduates from the world's "
+            "top universities work in the UK **without a job offer or employer sponsorship**. "
+            "Designed for high-skilled global talent — focus on STEM, tech, finance, and "
+            "research graduates.\n\n"
+            "**2025-2026 update — University list EXPANDED from 50 to 80 institutions** (1 Nov "
+            "2025 - 31 Oct 2026 list). Eligible universities must rank in Top 50 of at least 2 "
+            "of these global rankings for the qualification year: Times Higher Education (THE), "
+            "QS World University Rankings, or Academic Ranking of World Universities (ARWU).\n\n"
+            "**Visa duration:** 2 years (Bachelor / Master's graduates) OR 3 years (PhD/Doctoral "
+            "graduates). NOT extendable — must switch to Skilled Worker / Innovator Founder / "
+            "Global Talent for further stay. Qualification must be awarded within last 5 years.\n\n"
+            "**Critical: UK universities are NOT eligible.** Graduates of British universities "
+            "should use the Graduate Route instead."
+        ),
+        "eligibility_summary": (
+            "Hold a degree (Bachelor / Master / PhD) from an eligible global Top-80 university "
+            "awarded within last 5 years. Pass UK Ecctis qualification check + English B1 + "
+            "£1,270 maintenance funds (held 28 days)."
+        ),
+        "eligibility_criteria": [
+            {"label": "Eligible University", "value": "Top-80 list (1 Nov 2025 - 31 Oct 2026 list) per gov.uk publication", "notes": "USA 33 unis, Europe 20, Asia + Oceania 21+, China 7, Hong Kong 5 — UK universities EXCLUDED"},
+            {"label": "Degree Level", "value": "Bachelor, Master's, or PhD (UK NARIC/Ecctis equivalent)", "notes": "Online degrees not eligible"},
+            {"label": "Qualification Recency", "value": "Awarded within last 5 years from application", "notes": "Year of conferral must be in eligible list year"},
+            {"label": "Ecctis Verification", "value": "£252 (UK) / £210 (outside UK) qualification check", "notes": "Mandatory step BEFORE visa application"},
+            {"label": "English language", "value": "B1 CEFR (Listening, Reading, Writing, Speaking)", "notes": "SELT or degree-taught-in-English exemption"},
+            {"label": "Financial maintenance", "value": "£1,270 held for 28 consecutive days", "notes": "Must show evidence within 31 days of application"},
+            {"label": "Age", "value": "No upper or lower age limit", "notes": "Recent graduate framing only"},
+            {"label": "Cannot extend", "value": "Visa is NON-extendable", "notes": "Must switch route to remain (Skilled Worker / Innovator Founder / Global Talent)"},
+        ],
+        "fees_local_currency_code": "GBP", "fees_local_currency_amount": 880, "fees_inr_approx": 92400,
+        "fees_breakdown": [
+            {"component": "Visa application fee (Principal)", "amount": 880, "currency": "GBP"},
+            {"component": "Ecctis qualification check (UK)", "amount": 252, "currency": "GBP"},
+            {"component": "Ecctis qualification check (outside UK)", "amount": 210, "currency": "GBP"},
+            {"component": "Immigration Health Surcharge (IHS)", "amount": 1035, "currency": "GBP", "per": "year"},
+            {"component": "IHS — 2 years (Bachelor / Master)", "amount": 2070, "currency": "GBP"},
+            {"component": "IHS — 3 years (PhD)", "amount": 3105, "currency": "GBP"},
+            {"component": "Maintenance funds (cash held 28 days)", "amount": 1270, "currency": "GBP"},
+            {"component": "Biometrics enrolment", "amount": 19, "currency": "GBP"},
+            {"component": "Dependant — partner / child (each)", "amount": 880, "currency": "GBP"},
+            {"component": "English test (if needed)", "amount": 170, "currency": "GBP"},
+        ],
+        "processing_time_days_min": 21, "processing_time_days_max": 56,
+        "step_by_step": [
+            {"step_number": 1, "title": "Check University Eligibility", "description": "Verify your degree-awarding university is on gov.uk's 'High Potential Individual visa: global universities list' for your conferral year (Nov 2025-Oct 2026 list = 80 universities).", "estimated_days": 1, "documents_needed": ["Degree certificate"], "tips": ["Check the list for YOUR qualification year specifically — list updates annually"]},
+            {"step_number": 2, "title": "Get Ecctis Qualification Check", "description": "Submit qualification to Ecctis (UK NARIC) for verification. £252 UK / £210 outside UK. Receive Ecctis statement.", "estimated_days": 14, "documents_needed": ["Degree certificate", "Transcripts"], "tips": ["Allow 10-15 working days for Ecctis report"]},
+            {"step_number": 3, "title": "Take English Test (if needed)", "description": "B1 SELT (IELTS for UKVI, Trinity ISE, LanguageCert SELT). Skip if degree was taught in English in eligible English-speaking country.", "estimated_days": 21, "documents_needed": ["Test booking"], "tips": ["IELTS for UKVI is the most accepted"]},
+            {"step_number": 4, "title": "Build Financial Maintenance", "description": "Hold £1,270 in personal account for 28 consecutive days. Statements must be within 31 days of application.", "estimated_days": 31, "documents_needed": ["Bank statements"], "tips": ["Daily balance must not dip below £1,270"]},
+            {"step_number": 5, "title": "Apply for HPI Visa (online)", "description": "Submit application via gov.uk. Pay £880 + IHS. Schedule biometrics. Upload supporting documents.", "estimated_days": 7, "documents_needed": ["Passport", "Degree cert", "Ecctis statement", "Bank statements", "English evidence"], "tips": ["Apply within 5 years of degree award date"]},
+            {"step_number": 6, "title": "Biometrics + Document Upload", "description": "Attend VFS/TLS biometric appointment. Upload remaining documents via portal.", "estimated_days": 7, "documents_needed": [], "tips": []},
+            {"step_number": 7, "title": "Decision + Travel to UK", "description": "Receive decision in 3 weeks (typical). Travel to UK on entry vignette; collect BRP within 10 days of arrival.", "estimated_days": 21, "documents_needed": [], "tips": ["BRP collection address set during application"]},
+            {"step_number": 8, "title": "Plan Switch BEFORE Expiry", "description": "HPI is NOT extendable. Plan switch to Skilled Worker / Innovator Founder / Global Talent / Graduate Route 6+ months before expiry.", "estimated_days": 180, "documents_needed": [], "tips": ["Skilled Worker job offer is the most common switch path"]},
+        ],
+        "document_checklist": [
+            {"name": "Valid passport (bio + visa pages)", "mandatory": True, "notes": ""},
+            {"name": "Degree certificate (official, not provisional)", "mandatory": True, "notes": ""},
+            {"name": "Academic transcripts", "mandatory": True, "notes": ""},
+            {"name": "Ecctis qualification statement", "mandatory": True, "notes": "Must be obtained BEFORE visa application"},
+            {"name": "English language test certificate (B1)", "mandatory": True, "notes": "Or degree-taught-in-English exemption letter"},
+            {"name": "Bank statements (28 consecutive days, £1,270+ minimum)", "mandatory": True, "notes": "Personal account in applicant's name"},
+            {"name": "Statement of personal finances cover letter", "mandatory": False, "notes": "Recommended"},
+            {"name": "TB test certificate (from listed countries)", "mandatory": True, "notes": "India, Pakistan, Bangladesh, Nepal etc."},
+            {"name": "Photo (per UKVI specs)", "mandatory": True, "notes": ""},
+            {"name": "Travel history (last 10 years)", "mandatory": False, "notes": "If requested"},
+            {"name": "Visa refusals / immigration history (if any)", "mandatory": False, "notes": "Disclose all prior UK/Schengen visa decisions"},
+            {"name": "Dependant passports + relationship certs (if applicable)", "mandatory": False, "notes": "Each dependant £880 + IHS"},
+            {"name": "Biometrics appointment confirmation", "mandatory": True, "notes": ""},
+            {"name": "Application fee + IHS payment receipt", "mandatory": True, "notes": ""},
+        ],
+        "common_rejection_reasons": [
+            "Degree from university NOT on eligible Top-80 list for that conferral year",
+            "Qualification awarded > 5 years ago",
+            "Ecctis statement missing or invalid",
+            "Maintenance funds dipped below £1,270 during 28-day period",
+            "Bank statements > 31 days old at submission",
+            "English language evidence weak / from non-recognised provider",
+            "UK university degree used (not eligible — Graduate Route applies instead)",
+            "Online degree (only campus-based degrees accepted)",
+        ],
+        "success_tips": [
+            "Check the Nov 2025-Oct 2026 list specifically for your conferral year (changes annually)",
+            "Get Ecctis statement FIRST before any other step — it's the gate",
+            "Maintain bank balance above £1,270 daily for 28 days — even a 1-day dip can refuse",
+            "Apply within 5 years of degree award date — late = refusal",
+            "Plan switch path BEFORE arriving — HPI NOT extendable, ideally line up Skilled Worker offer",
+            "TB test mandatory for India / Pakistan / Bangladesh / Nepal applicants",
+            "Dependants come on separate £880 each (not £766 like Global Talent)",
+            "Degree-taught-in-English exemption from listed countries skips SELT",
+        ],
+        "faqs": [
+            {"q": "How many universities are eligible in 2026?", "a": "80 universities for Nov 2025 - Oct 2026 list (expanded from 50). USA has 33, China 7, Europe 20, Hong Kong 5, Australia/NZ 6. UK universities are NOT eligible — use Graduate Route instead."},
+            {"q": "Can I extend HPI?", "a": "NO. The HPI visa is strictly non-extendable. You must switch to Skilled Worker / Innovator Founder / Global Talent / Graduate Route to continue staying in the UK."},
+            {"q": "Does my UK Master's count?", "a": "NO — UK universities are explicitly excluded from HPI. If you graduated from a UK university, use the Graduate Route (2 years for Bachelor/Master, 3 years for PhD)."},
+            {"q": "How long is HPI valid?", "a": "2 years for Bachelor/Master graduates, 3 years for PhD/Doctoral graduates. NOT extendable. Visa starts on grant date."},
+            {"q": "Can I bring family?", "a": "Yes — partner and dependent children can be included. Each dependant pays £880 + IHS separately."},
+            {"q": "What if my degree was awarded 6 years ago?", "a": "INELIGIBLE — qualification must be awarded within last 5 years of HPI application. Consider other routes."},
+        ],
+        "official_url": "https://www.gov.uk/high-potential-individual-visa",
+        "vfs_url": "https://www.gov.uk/government/world-location-news/biometrics-services-india",
+        "source_urls": [
+            "https://www.gov.uk/high-potential-individual-visa",
+            "https://www.gov.uk/government/publications/high-potential-individual-visa-global-universities-list",
+            "https://www.findamasters.com/guides/masters-study-in-uk/high-potential-individual-visa",
+            "https://chambers.com/articles/latest-eligible-universities-to-apply-for-uk-s-high-potential-individual-visa",
+            "https://vanessaganguin.com/personal-immigration/students-graduates-high-potential-individuals/the-high-potential-individual-visa-is-expanded-which-universities-may-qualify-you/",
+        ],
+        "verified_notes": "Manual Fast-Path B.4.6 seed — verified against gov.uk + Vanessa Ganguin + Chambers + Findamasters on 2026-02-27. Nov 2025-Oct 2026 university list expansion 50→80 reflected. Ecctis fee £252 UK / £210 offshore, £880 visa fee, £1,270 maintenance, £1,035/yr IHS all verified. UK university exclusion explicitly documented.",
+    },
+
+    # ── 3. UK-Graduate-Route — Post-Study Graduate Visa ────────────────────────
+    {
+        "country_code": "UK", "country_name": "United Kingdom",
+        "subclass_id": "Graduate-Route",
+        "subclass_name": "Graduate Route Visa (Post-Study Work — UK Graduates)",
+        "service_type": "work", "category": "immigration",
+        "description": (
+            "The Graduate Route lets international students who completed a UK degree stay in "
+            "the UK to work or look for work **without employer sponsorship**. Replacement for "
+            "the old Tier 1 Post-Study Work visa.\n\n"
+            "**Duration (critical 2026 reform):**\n"
+            "- Bachelor / Master's graduates: **2 years** if applied on/before **31 Dec 2026**; "
+            "**18 months** if applied **on/after 1 Jan 2027** (per UK Immigration White Paper).\n"
+            "- PhD / Doctoral graduates: **3 years** (unchanged across all dates).\n\n"
+            "**NOT extendable** — must switch to Skilled Worker / Innovator Founder / Global "
+            "Talent for further stay. Cannot lead to settlement directly.\n\n"
+            "**Must be applied from inside UK** while holding valid Student visa, BEFORE Student "
+            "visa expires. UK education provider must notify Home Office of successful course "
+            "completion before application."
+        ),
+        "eligibility_summary": (
+            "Hold a valid UK Student visa at time of application. Successfully complete UK "
+            "bachelor's / master's / PhD with notification from your sponsoring institution. "
+            "Apply from inside UK before Student visa expires."
+        ),
+        "eligibility_criteria": [
+            {"label": "Valid Student visa", "value": "Must hold valid UK Student visa (or Tier 4 General) at application", "notes": "Must apply BEFORE Student visa expires"},
+            {"label": "UK qualification", "value": "Bachelor / Master / PhD / Doctoral degree from licensed UK education provider", "notes": "Track record of Student-Sponsor compliance required"},
+            {"label": "Successful Completion", "value": "Education provider notifies Home Office of successful course completion", "notes": "Cannot apply before notification"},
+            {"label": "In-UK requirement", "value": "Must be physically inside UK at time of application", "notes": "Cannot apply from overseas"},
+            {"label": "Duration (Bachelor/Master)", "value": "2 years if applied ≤ 31 Dec 2026; 18 months if applied from 1 Jan 2027", "notes": "White Paper reform reducing post-study work"},
+            {"label": "Duration (PhD/Doctoral)", "value": "3 years — unchanged across all dates", "notes": "PhD exempt from 2026 reform"},
+            {"label": "English language", "value": "Automatically met via completion of UK degree", "notes": "No separate SELT required"},
+            {"label": "Financial maintenance", "value": "No specific cash threshold — student visa funds suffice", "notes": ""},
+        ],
+        "fees_local_currency_code": "GBP", "fees_local_currency_amount": 937, "fees_inr_approx": 98385,
+        "fees_breakdown": [
+            {"component": "Graduate Route application fee (Principal)", "amount": 937, "currency": "GBP"},
+            {"component": "Dependant — partner / child (each)", "amount": 937, "currency": "GBP"},
+            {"component": "Immigration Health Surcharge (IHS)", "amount": 1035, "currency": "GBP", "per": "year"},
+            {"component": "IHS — 2 years (Bachelor/Master if applied ≤ 31 Dec 2026)", "amount": 2070, "currency": "GBP"},
+            {"component": "IHS — 18 months (Bachelor/Master if applied ≥ 1 Jan 2027)", "amount": 1553, "currency": "GBP"},
+            {"component": "IHS — 3 years (PhD)", "amount": 3105, "currency": "GBP"},
+            {"component": "Biometrics (UK applicants — UKVCAS)", "amount": 19, "currency": "GBP"},
+            {"component": "Priority service (optional)", "amount": 500, "currency": "GBP"},
+            {"component": "Super priority service (next working day)", "amount": 1000, "currency": "GBP"},
+        ],
+        "processing_time_days_min": 14, "processing_time_days_max": 56,
+        "step_by_step": [
+            {"step_number": 1, "title": "Complete UK Degree", "description": "Successfully complete bachelor / master / PhD from licensed UK education provider. Provider notifies UKVI of completion via SBC reporting.", "estimated_days": 30, "documents_needed": ["Degree certificate / award letter"], "tips": ["Sponsor must report completion BEFORE you apply"]},
+            {"step_number": 2, "title": "Confirm Student Visa Validity", "description": "Verify your Student visa is still valid. Application must be BEFORE Student visa expiry. Most students apply 1-3 months before expiry.", "estimated_days": 1, "documents_needed": ["Current Student visa (BRP)"], "tips": ["Apply at least 60 days before expiry"]},
+            {"step_number": 3, "title": "Prepare Documents", "description": "Compile passport, BRP, degree/award letter, CAS reference (if needed). No SELT, no maintenance evidence.", "estimated_days": 7, "documents_needed": ["Passport", "BRP", "Degree letter"], "tips": ["Lighter documents than most UK visas"]},
+            {"step_number": 4, "title": "Apply Online (gov.uk)", "description": "Submit Graduate Route application on gov.uk. Pay £937 + IHS. Apply from inside UK.", "estimated_days": 1, "documents_needed": [], "tips": ["Pay IHS based on duration (2 yr / 18 mo / 3 yr)"]},
+            {"step_number": 5, "title": "Biometric Enrolment (UKVCAS)", "description": "Book UKVCAS appointment. Provide fingerprints + photo. Upload digital documents.", "estimated_days": 14, "documents_needed": [], "tips": []},
+            {"step_number": 6, "title": "Receive Decision", "description": "Standard processing 8 weeks (often faster). Priority 5 working days. Super priority 1 working day.", "estimated_days": 56, "documents_needed": [], "tips": ["Track via UKVCAS portal"]},
+            {"step_number": 7, "title": "Activate Visa + Plan Next Steps", "description": "Visa starts on grant. Begin work / job search. Plan switch to Skilled Worker / Innovator Founder / Global Talent before expiry.", "estimated_days": 1, "documents_needed": [], "tips": ["Skilled Worker switch is the most common next step"]},
+            {"step_number": 8, "title": "Switch BEFORE Expiry", "description": "Graduate Route is NOT extendable. Switch to long-term route (Skilled Worker £38,700 threshold etc.) before expiry.", "estimated_days": 60, "documents_needed": [], "tips": ["Start job search 4-6 months before expiry"]},
+        ],
+        "document_checklist": [
+            {"name": "Valid passport (bio + visa pages)", "mandatory": True, "notes": ""},
+            {"name": "Biometric Residence Permit (BRP — current Student visa)", "mandatory": True, "notes": ""},
+            {"name": "Degree / Award letter from UK education provider", "mandatory": True, "notes": "Or transcripts if degree not yet issued"},
+            {"name": "CAS reference number (Student visa)", "mandatory": False, "notes": "If university uses CAS for completion confirmation"},
+            {"name": "Confirmation of Course Completion (university notification)", "mandatory": True, "notes": "University reports to UKVI via SBC system"},
+            {"name": "Photo (per UKVI specs)", "mandatory": True, "notes": ""},
+            {"name": "TB test certificate", "mandatory": False, "notes": "Not required if you've been in UK 6+ months continuously"},
+            {"name": "Visa fee + IHS payment receipt", "mandatory": True, "notes": ""},
+            {"name": "Dependant passports + relationship certs (if applicable)", "mandatory": False, "notes": "Each dependant £937 + IHS separately"},
+            {"name": "Biometric appointment confirmation", "mandatory": True, "notes": ""},
+            {"name": "Immigration history disclosure", "mandatory": True, "notes": ""},
+            {"name": "Address evidence (UK address)", "mandatory": False, "notes": ""},
+            {"name": "ATAS certificate (research-sensitive subjects)", "mandatory": False, "notes": "If holding sensitive research subject visa"},
+            {"name": "Sponsor licence number (university)", "mandatory": True, "notes": "From CAS/SBC"},
+        ],
+        "common_rejection_reasons": [
+            "Applied AFTER Student visa expired (must apply inside UK while valid)",
+            "Education provider not licensed sponsor",
+            "Completion not yet reported to Home Office",
+            "Applied from outside UK (in-UK requirement)",
+            "Degree not eligible level (e.g. short-term certificate, not full degree)",
+            "Sponsor licence revoked for the institution",
+            "Online-only degree without UK campus attendance",
+            "Failed to maintain Student visa conditions during studies (work breach, etc.)",
+        ],
+        "success_tips": [
+            "Apply IMMEDIATELY after course completion notification — don't wait",
+            "If Bachelor/Master: lodge by 31 Dec 2026 to secure 2 years (vs 18 months from 2027)",
+            "PhD graduates safe — 3-year duration unchanged across all dates",
+            "Don't let Student visa expire — apply 60-90 days before expiry safest",
+            "Don't need maintenance funds or SELT — lightest UK work visa documentation",
+            "Use Graduate Route as bridge to Skilled Worker (£38,700 threshold) within 2 years",
+            "Switch to Skilled Worker before Graduate Route expires — overlap permitted",
+            "Health & Care Worker switch from Graduate Route gets reduced IHS exemption",
+        ],
+        "faqs": [
+            {"q": "How long is the Graduate Route in 2026?", "a": "Apply on/before 31 Dec 2026: 2 years (Bachelor/Master), 3 years (PhD). Apply on/after 1 Jan 2027: 18 months (Bachelor/Master), 3 years (PhD unchanged). PhD is exempt from the 2026 reform."},
+            {"q": "Can I extend the Graduate Route?", "a": "NO. Strictly non-extendable. Switch to Skilled Worker / Innovator Founder / Global Talent / Health & Care Worker for further stay."},
+            {"q": "Can I apply from India?", "a": "NO — Graduate Route is IN-UK only. You must be physically in UK on a valid Student visa at time of application."},
+            {"q": "What if my Student visa expires before I get the degree result?", "a": "Apply for Graduate Route as soon as university reports successful completion to UKVI, even if formal certificate not yet issued. Don't let Student visa expire."},
+            {"q": "Can my partner/children come?", "a": "Yes if they were already in UK as dependants. Each pays own £937 + IHS. New dependants from overseas typically not permitted under Graduate Route."},
+            {"q": "Does Graduate Route lead to PR/ILR?", "a": "NOT directly. Use it as bridge to Skilled Worker (5-year ILR) or other settlement route."},
+        ],
+        "official_url": "https://www.gov.uk/graduate-visa",
+        "vfs_url": "https://www.ukvcas.co.uk/",
+        "source_urls": [
+            "https://www.gov.uk/graduate-visa",
+            "https://www.ukcisa.org.uk/news/student-update-changes-to-the-student-and-graduate-rules/",
+            "https://www.workpermitcloud.co.uk/blog/uk-graduate-visa-reduced-to-18-months-from-january-2027-what-you-need-to-know",
+            "https://www.davidsonmorris.com/uk-visa-fees/",
+        ],
+        "verified_notes": "Manual Fast-Path B.4.6 seed — verified against gov.uk + UKCISA + Workpermit Cloud on 2026-02-27. 2026 White Paper reform reducing Bachelor/Master duration to 18 months from 1 Jan 2027 documented. PhD unaffected. £937 fee + £1,035/yr IHS confirmed.",
+    },
+
+    # ── 4. UK-ILR — Indefinite Leave to Remain ──────────────────────────────────
+    {
+        "country_code": "UK", "country_name": "United Kingdom",
+        "subclass_id": "ILR",
+        "subclass_name": "Indefinite Leave to Remain (Settlement — Earned Settlement reform pending)",
+        "service_type": "pr", "category": "immigration",
+        "description": (
+            "Indefinite Leave to Remain (ILR) is UK permanent settlement — no time limit on stay, "
+            "right to work without sponsorship, right to public funds, gateway to British "
+            "citizenship after 12 more months.\n\n"
+            "**CRITICAL STATUS (Feb 2026):** White Paper consultation ('Restoring Control over "
+            "the Immigration System') closed **12 Feb 2026**. **Earned Settlement model** "
+            "(extending baseline qualifying period from 5 → 10 years with reductions for "
+            "high earners / public service) expected to come into force around **April 2026**.\n\n"
+            "**Until reform takes effect (current rules):**\n"
+            "- Most work routes (Skilled Worker, Scale-up, UK Ancestry): **5 years**\n"
+            "- Spouse / Partner of British citizen: **5 years** (and exempt from new reform)\n"
+            "- Global Talent (Exceptional Talent + endorsed-fellowship Research): **3 years**\n"
+            "- Innovator Founder: **3 years**\n"
+            "- Long Residence (10 years lawful UK residence in any combination): **10 years**\n\n"
+            "**Post-Apr 2026 (Earned Settlement proposed):**\n"
+            "- New baseline: **10 years** for most work routes\n"
+            "- Reductions: High Earner (£50,270+ × 3 yrs) -5 yrs → 5 yrs · Top Earner (£125,140+ × 3 yrs) -7 yrs → 3 yrs · NHS/Education public service -5 yrs · Advanced English (C1) -1 yr\n"
+            "- Negative factors: Public funds claim +5 to 10 yrs · Past overstay/illegal entry up to +20 yrs (capped at 30 yrs)\n\n"
+            "**Lock-in tip:** If currently eligible under 5-year rules, apply IMMEDIATELY before "
+            "April 2026 to secure under current law. Submitted applications are decided under "
+            "rules in force at submission."
+        ),
+        "eligibility_summary": (
+            "Continuous lawful UK residence under qualifying visa route for required period "
+            "(3 / 5 / 10 years depending on visa). Pass Life in the UK test + B1 English + "
+            "absences ≤180 days per rolling 12 months."
+        ),
+        "eligibility_criteria": [
+            {"label": "Qualifying Period (current)", "value": "5 years (most work routes) / 3 years (Global Talent + Innovator Founder) / 10 years (Long Residence)", "notes": "Spouse of British citizen: 5 years"},
+            {"label": "Qualifying Period (post-Apr 2026 — proposed)", "value": "10 years baseline with reductions for high earnings / public service", "notes": "Earned Settlement model"},
+            {"label": "Continuous Residence", "value": "Maximum 180 days outside UK per rolling 12-month period", "notes": "Across entire qualifying period"},
+            {"label": "Life in the UK Test", "value": "Pass 24-question multiple-choice test (£50 fee, 75% pass mark)", "notes": "Exempt: <18 or >65"},
+            {"label": "English Language", "value": "B1 CEFR (Listening + Speaking) — SELT or equivalent", "notes": "Exempt if degree taught in English from majority-English country"},
+            {"label": "Lawful Residence", "value": "No breach of visa conditions throughout qualifying period", "notes": "No criminal record, no public funds claim"},
+            {"label": "Current Valid Visa", "value": "Must be on qualifying route at time of application", "notes": ""},
+            {"label": "Income / Financial (if applicable)", "value": "Post-Apr 2026: £50,270+ for High Earner reduction, £125,140+ for Top Earner", "notes": "Current 5-yr rules: no income threshold for ILR itself"},
+        ],
+        "fees_local_currency_code": "GBP", "fees_local_currency_amount": 3226, "fees_inr_approx": 338730,
+        "fees_breakdown": [
+            {"component": "ILR application fee (Principal)", "amount": 3226, "currency": "GBP"},
+            {"component": "Dependant — partner / child (each)", "amount": 3226, "currency": "GBP"},
+            {"component": "Biometric enrolment (UKVCAS)", "amount": 19, "currency": "GBP"},
+            {"component": "Life in the UK Test", "amount": 50, "currency": "GBP"},
+            {"component": "English language test (B1 SELT, if needed)", "amount": 170, "currency": "GBP"},
+            {"component": "Priority service (5 working days)", "amount": 500, "currency": "GBP"},
+            {"component": "Super priority service (next working day)", "amount": 1000, "currency": "GBP"},
+            {"component": "Legal/representation fees (typical)", "amount": 1500, "currency": "GBP", "per": "estimate"},
+            {"component": "Total typical cost (Principal + Super Priority + legal)", "amount": 5726, "currency": "GBP"},
+            {"component": "IHS — N/A (paid via prior visa route)", "amount": 0, "currency": "GBP"},
+        ],
+        "processing_time_days_min": 60, "processing_time_days_max": 180,
+        "step_by_step": [
+            {"step_number": 1, "title": "Confirm Qualifying Route + Period", "description": "Verify which route you qualify under (Skilled Worker 5yr / Global Talent 3yr / Long Residence 10yr / Spouse 5yr). Count continuous residence + absences.", "estimated_days": 7, "documents_needed": ["Visa history (BRP records)", "Travel record (passport stamps + airline records)"], "tips": ["Track 180-day rule absences carefully across entire period"]},
+            {"step_number": 2, "title": "Take Life in the UK Test", "description": "Book Life in the UK test (£50). Study handbook. 24 questions, 75% pass mark. Most candidates pass first attempt.", "estimated_days": 30, "documents_needed": ["Test booking confirmation"], "tips": ["Use official Stationery Office handbook + practice apps"]},
+            {"step_number": 3, "title": "Confirm/Take B1 English Test", "description": "If degree was NOT in English: SELT (IELTS for UKVI / Trinity ISE) for B1. Most Skilled Worker holders already meet via CoS.", "estimated_days": 21, "documents_needed": ["English test results"], "tips": ["IELTS for UKVI Life Skills B1 is the most accepted"]},
+            {"step_number": 4, "title": "Compile Continuous Residence Evidence", "description": "Bank statements, council tax bills, utility bills, employer letters, payslips — covering entire qualifying period (3/5/10 years).", "estimated_days": 14, "documents_needed": ["Residence evidence dossier"], "tips": ["3-4 documents per year minimum across qualifying period"]},
+            {"step_number": 5, "title": "Submit ILR Application (Form SET(M) or relevant SET form)", "description": "Submit application via gov.uk. Pay £3,226 + Super Priority (£1,000) if urgent. Book UKVCAS biometrics.", "estimated_days": 1, "documents_needed": [], "tips": ["Super Priority recommended if travelling soon — decision in 1 working day"]},
+            {"step_number": 6, "title": "Biometric Enrolment", "description": "Attend UKVCAS appointment. Fingerprints + photo + document scan upload.", "estimated_days": 14, "documents_needed": [], "tips": []},
+            {"step_number": 7, "title": "Receive ILR Decision", "description": "Standard 6 months; Priority 5 working days; Super Priority 1 working day. ILR BRP issued.", "estimated_days": 180, "documents_needed": [], "tips": ["Track via UKVCAS portal"]},
+            {"step_number": 8, "title": "Naturalisation (Optional — 12 months later)", "description": "After 12 months on ILR, apply for British Citizenship (Naturalisation). Spouse of British citizen: apply on ILR grant.", "estimated_days": 365, "documents_needed": [], "tips": ["£1,500+ naturalisation fee — separate process"]},
+        ],
+        "document_checklist": [
+            {"name": "Valid passport(s) — current + all previous covering qualifying period", "mandatory": True, "notes": ""},
+            {"name": "Biometric Residence Permits (all BRPs covering qualifying period)", "mandatory": True, "notes": ""},
+            {"name": "Life in the UK test certificate", "mandatory": True, "notes": "Exempt: <18 or >65"},
+            {"name": "B1 English test certificate", "mandatory": True, "notes": "Or majority-English-country degree exemption"},
+            {"name": "Travel record / absences declaration (180-day rule)", "mandatory": True, "notes": "Detailed list of all UK departures/entries"},
+            {"name": "Employer letters + payslips (qualifying period)", "mandatory": True, "notes": "Skilled Worker route"},
+            {"name": "P60s / SA302s (tax records)", "mandatory": True, "notes": "Skilled Worker route"},
+            {"name": "Bank statements (residence evidence)", "mandatory": True, "notes": ""},
+            {"name": "Council tax / utility bills (qualifying period)", "mandatory": True, "notes": "Continuous residence evidence"},
+            {"name": "GP / medical records (residence evidence)", "mandatory": False, "notes": "Recommended"},
+            {"name": "Photo (per UKVI specs)", "mandatory": True, "notes": ""},
+            {"name": "Sponsor licence number + CoS (Skilled Worker route)", "mandatory": True, "notes": ""},
+            {"name": "Marriage / civil partnership certificate (Spouse route)", "mandatory": True, "notes": "Spouse-of-British route"},
+            {"name": "Children's birth certificates (if dependants applying)", "mandatory": True, "notes": ""},
+            {"name": "Police certificates (if required by route)", "mandatory": False, "notes": "Some routes require"},
+            {"name": "Income evidence (£50,270+ / £125,140+ if post-Apr 2026)", "mandatory": False, "notes": "Earned Settlement reductions"},
+        ],
+        "common_rejection_reasons": [
+            "Absences > 180 days in any rolling 12-month period during qualifying years",
+            "Gap in lawful immigration status (overstay) during qualifying period",
+            "Failed Life in the UK test (less than 75%)",
+            "B1 English not met (and no exemption)",
+            "Continuous residence evidence inadequate (less than 3-4 documents/year)",
+            "Public funds claimed during qualifying period",
+            "Criminal record / civil judgment / character issues",
+            "Salary below sponsor route threshold (Skilled Worker — minimum salary breach)",
+            "Sponsor licence revoked during qualifying period",
+        ],
+        "success_tips": [
+            "⚠️ CRITICAL TIMING: If currently eligible under 5-yr rules, apply BEFORE April 2026 to lock in",
+            "Submitted applications decided under rules at submission date — submission = lock-in",
+            "Track 180-day absences across rolling 12-mo windows, not calendar years",
+            "Use Super Priority (£1,000 add-on) for 1-working-day decision — recommended for time-sensitive cases",
+            "Life in the UK test — study official handbook + practice apps; 75% pass mark",
+            "B1 SELT — IELTS for UKVI Life Skills B1 is the most widely accepted",
+            "If high earner (£50,270+ / £125,140+), Earned Settlement reductions favourable in 2026+",
+            "Spouse of British citizen: EXEMPT from Earned Settlement reform (stays 5 years)",
+            "Post-Apr 2026 Long Residence route may be ABOLISHED per White Paper — apply ASAP if eligible",
+        ],
+        "faqs": [
+            {"q": "When does the 10-year ILR rule kick in?", "a": "White Paper consultation closed 12 Feb 2026. Earned Settlement model (10-year baseline) expected around April 2026. Until then, current rules (5-yr most routes, 3-yr Global Talent/Innovator) remain. Apply BEFORE April 2026 to lock in current rules."},
+            {"q": "Will I have to wait 10 years if I'm on Skilled Worker?", "a": "POSSIBLY. Post-April 2026, baseline 10 years. BUT: High Earner (£50,270+ taxable income for 3+ years) gets -5 yr reduction → 5 years (same as current). Top Earner (£125,140+) gets -7 yr → 3 years. Public service workers (NHS, education) get -5 yr → 5 years."},
+            {"q": "Is my Spouse Visa affected?", "a": "NO — partners of British citizens are EXEMPT from Earned Settlement reform. Stays at 5 years."},
+            {"q": "What about Global Talent + Innovator Founder?", "a": "Both remain at 3 years even post-reform. Major advantage."},
+            {"q": "What if I'm on the 10-year Long Residence route?", "a": "White Paper proposes ABOLISHING this route. Apply ASAP if you're eligible NOW (10+ years continuous lawful UK residence)."},
+            {"q": "Can I naturalize as British citizen after ILR?", "a": "After 12 months on ILR (or immediately on ILR if spouse of British citizen). Separate £1,500+ fee + ceremony."},
+        ],
+        "official_url": "https://www.gov.uk/indefinite-leave-to-remain",
+        "vfs_url": "https://www.ukvcas.co.uk/",
+        "source_urls": [
+            "https://www.gov.uk/indefinite-leave-to-remain",
+            "https://www.gov.uk/government/publications/restoring-control-over-the-immigration-system-white-paper",
+            "https://migrationobservatory.ox.ac.uk/resources/commentaries/changes-to-settlement-what-do-they-mean/",
+            "https://www.davidsonmorris.com/ilr-10-years/",
+            "https://immigrationbarrister.co.uk/uk-immigration-rules-2025-white-paper-summary/",
+        ],
+        "verified_notes": "Manual Fast-Path B.4.6 seed — verified against gov.uk + Migration Observatory + Davidson Morris + Immigration Barrister + UK Government White Paper on 2026-02-27. CRITICAL TIMING NOTE: White Paper consultation closed 12 Feb 2026; Earned Settlement model (10-yr baseline + earner/public-service reductions) expected April 2026. Current 5/3-yr rules apply until reform takes effect. Submitted applications decided under rules at submission. £3,226 fee + Life in the UK test £50 + B1 SELT all verified.",
+    },
+
+    # ── 5. UK-Tier-1-Investor-Closed — Tier 1 Investor (Closed; Legacy Pathway) ─
+    {
+        "country_code": "UK", "country_name": "United Kingdom",
+        "subclass_id": "Tier-1-Investor-Closed",
+        "subclass_name": "Tier 1 Investor Visa (CLOSED to new applications since 17 Feb 2022 — Legacy Extension + ILR pathway only)",
+        "service_type": "business", "category": "immigration",
+        "description": (
+            "**STATUS: CLOSED to new applications since 17 February 2022.** This entry exists "
+            "to support **legacy Tier 1 (Investor) visa holders** who retain transitional rights "
+            "to extend and apply for Indefinite Leave to Remain (ILR) under strict deadlines.\n\n"
+            "**CRITICAL DEADLINES:**\n"
+            "- **Extension deadline: 17 February 2026** — FINAL DATE for legacy holders to apply "
+            "for visa extension. **THIS DEADLINE HAS NOW PASSED** as of Feb 27, 2026. No "
+            "further extension applications accepted.\n"
+            "- **ILR (Settlement) deadline: 17 February 2028** — FINAL DATE for legacy holders "
+            "to apply for ILR under this route. After this, Tier 1 Investor permanently closes "
+            "for settlement.\n\n"
+            "**Investment-Linked ILR Qualifying Periods (current legacy holders):**\n"
+            "- £2 million invested: 5 years to ILR\n"
+            "- £5 million invested: 3 years to ILR\n"
+            "- £10 million invested: 2 years to ILR\n\n"
+            "**Replacement routes for new investors:** UK has NOT introduced direct successor. "
+            "Alternatives: Innovator Founder Visa (£0 minimum investment, endorsement-based) · "
+            "Global Talent (no investment requirement) · Skilled Worker (employment-based)."
+        ),
+        "eligibility_summary": (
+            "Existing Tier 1 (Investor) visa holders ONLY. Must maintain £2M+ qualifying UK "
+            "investments. Apply for ILR by 17 Feb 2028 (extension window closed 17 Feb 2026)."
+        ),
+        "eligibility_criteria": [
+            {"label": "New Applications", "value": "CLOSED since 17 February 2022", "notes": "No new applicants accepted under any circumstances"},
+            {"label": "Extension Deadline (CLOSED)", "value": "17 February 2026 — DEADLINE PASSED", "notes": "No further extension applications"},
+            {"label": "ILR Deadline (active)", "value": "17 February 2028 — last date for legacy ILR applications", "notes": ""},
+            {"label": "Minimum Investment Maintained", "value": "£2 million in qualifying UK investments", "notes": "UK government bonds, share capital, loan capital in active/trading UK companies"},
+            {"label": "Investment-Linked ILR Timeline", "value": "£2M → 5 yrs · £5M → 3 yrs · £10M → 2 yrs", "notes": "Only time at £2M+ counts (if visa granted after 6 Nov 2014)"},
+            {"label": "Continuous Residence", "value": "Maximum 180 days outside UK per rolling 12-month period", "notes": ""},
+            {"label": "Life in the UK Test", "value": "Pass mandatory", "notes": "Exempt: <18 or >65"},
+            {"label": "English Language", "value": "B1 CEFR — SELT or majority-English-country degree exemption", "notes": ""},
+            {"label": "Source of Funds", "value": "Comprehensive provenance evidence — 5+ years", "notes": "Particularly important if funds from sanctioned jurisdictions"},
+        ],
+        "fees_local_currency_code": "GBP", "fees_local_currency_amount": 3226, "fees_inr_approx": 338730,
+        "fees_breakdown": [
+            {"component": "ILR application fee (Principal — same as standard ILR)", "amount": 3226, "currency": "GBP"},
+            {"component": "Dependant — partner / child (each)", "amount": 3226, "currency": "GBP"},
+            {"component": "Biometric enrolment (UKVCAS)", "amount": 19, "currency": "GBP"},
+            {"component": "Life in the UK Test", "amount": 50, "currency": "GBP"},
+            {"component": "Investment maintained (£2M / £5M / £10M)", "amount": 2000000, "currency": "GBP", "per": "minimum"},
+            {"component": "Source-of-funds legal review (typical)", "amount": 5000, "currency": "GBP", "per": "estimate"},
+            {"component": "Immigration counsel + portfolio reviewer", "amount": 10000, "currency": "GBP", "per": "estimate"},
+            {"component": "Super priority service (1 working day decision)", "amount": 1000, "currency": "GBP"},
+            {"component": "Investment maintenance cost (advisory fees)", "amount": 25000, "currency": "GBP", "per": "year"},
+        ],
+        "processing_time_days_min": 60, "processing_time_days_max": 180,
+        "step_by_step": [
+            {"step_number": 1, "title": "Verify Status: Legacy Holder?", "description": "Confirm you hold (or held with continuous status) a valid Tier 1 (Investor) visa. New applicants CANNOT use this route — see alternatives.", "estimated_days": 1, "documents_needed": ["Current/expired BRP", "Original Tier 1 Investor grant letter"], "tips": ["If no prior Tier 1 Investor visa: consider Innovator Founder or Global Talent instead"]},
+            {"step_number": 2, "title": "Check Extension Status", "description": "If your extension is still valid (granted before 17 Feb 2026 deadline), proceed. If your visa expired and you missed extension deadline, ILR application may still be possible if within qualifying period.", "estimated_days": 1, "documents_needed": [], "tips": ["Extension grants typically gave additional 2 years"]},
+            {"step_number": 3, "title": "Confirm Investment Maintenance", "description": "Obtain certified evidence from UK-regulated financial institution showing £2M+ maintained continuously throughout qualifying period.", "estimated_days": 30, "documents_needed": ["Portfolio reports", "Investment confirmations", "Bank statements"], "tips": ["FSA-regulated firm certification required"]},
+            {"step_number": 4, "title": "Track Continuous Residence", "description": "Calculate absences across qualifying period (2/3/5 years depending on investment level). Stay within 180 days per rolling 12-mo window.", "estimated_days": 7, "documents_needed": ["Travel records", "Passport stamps"], "tips": ["Detailed UK departures/entries log"]},
+            {"step_number": 5, "title": "Take Life in the UK Test + B1 English", "description": "Book Life in the UK test (£50). Confirm B1 English (SELT or exemption).", "estimated_days": 45, "documents_needed": [], "tips": []},
+            {"step_number": 6, "title": "Lodge ILR Application BEFORE 17 Feb 2028", "description": "Submit ILR application via gov.uk. Pay £3,226 + Super Priority (£1,000) recommended. Book UKVCAS biometrics.", "estimated_days": 1, "documents_needed": ["All accumulated docs"], "tips": ["⚠️ ABSOLUTE DEADLINE: 17 Feb 2028 — no extensions"]},
+            {"step_number": 7, "title": "Biometric + Document Submission", "description": "Attend UKVCAS appointment. Submit comprehensive document portfolio including source-of-funds dossier.", "estimated_days": 14, "documents_needed": [], "tips": ["Investor route requires more documentation than standard ILR"]},
+            {"step_number": 8, "title": "Decision + Path to British Citizenship", "description": "ILR granted. After 12 months on ILR, eligible for British Citizenship via Naturalisation.", "estimated_days": 180, "documents_needed": [], "tips": ["£1,500+ naturalisation separate process"]},
+        ],
+        "document_checklist": [
+            {"name": "Current / most recent Biometric Residence Permit", "mandatory": True, "notes": ""},
+            {"name": "Original Tier 1 (Investor) grant letter + extension grant", "mandatory": True, "notes": ""},
+            {"name": "Portfolio reports from FSA/FCA-regulated firm", "mandatory": True, "notes": "Covering entire investment period"},
+            {"name": "Investment certificates / share registers", "mandatory": True, "notes": ""},
+            {"name": "Bank statements + financial records (qualifying period)", "mandatory": True, "notes": ""},
+            {"name": "Source-of-funds dossier (5+ years provenance)", "mandatory": True, "notes": "Comprehensive for current standards"},
+            {"name": "Travel records / absences declaration (180-day rule)", "mandatory": True, "notes": "Detailed list of all UK departures/entries"},
+            {"name": "Life in the UK test certificate", "mandatory": True, "notes": ""},
+            {"name": "B1 English test certificate", "mandatory": True, "notes": "Or exemption documentation"},
+            {"name": "Passport(s) covering qualifying period", "mandatory": True, "notes": ""},
+            {"name": "Investment review letters from advisors / fund managers", "mandatory": True, "notes": ""},
+            {"name": "UK tax filings (HMRC SA302s, P60s)", "mandatory": True, "notes": "Throughout investment period"},
+            {"name": "Compliance + character documentation", "mandatory": True, "notes": "Including ECDD where applicable"},
+            {"name": "Photo (per UKVI specs)", "mandatory": True, "notes": ""},
+            {"name": "Dependant passports + relationship certs (if applicable)", "mandatory": True, "notes": ""},
+            {"name": "Naturalisation application (separate, optional, 12 months post-ILR)", "mandatory": False, "notes": ""},
+        ],
+        "common_rejection_reasons": [
+            "Investment dropped below £2M at any point during qualifying period",
+            "Source-of-funds dossier inadequate (especially post-2019 enhanced due diligence)",
+            "Investment in non-qualifying assets (cash deposits, residential property, etc.)",
+            "Absences > 180 days in rolling 12-mo window during qualifying period",
+            "Investment portfolio mismanaged (no longer 'maintained' per rules)",
+            "Sanctioned jurisdiction funds without clear provenance",
+            "Failed Life in the UK test (less than 75%)",
+            "B1 English not met (and no exemption)",
+            "Application lodged AFTER 17 Feb 2028 deadline (route permanently closes)",
+        ],
+        "success_tips": [
+            "⚠️ ABSOLUTE DEADLINE 17 FEB 2028 — apply at least 12 months before to allow processing",
+            "Source-of-funds dossier is the #1 success/refusal factor — engage specialist counsel",
+            "Use Super Priority (£1,000) for 1-working-day decision — recommended given high stakes",
+            "Track £2M+ continuously — even temporary dips count as breach",
+            "If extension wasn't granted before 17 Feb 2026 deadline, ILR may still be possible if within qualifying period — consult immigration counsel",
+            "Naturalisation immediately at 12 months ILR — fastest UK citizenship route for investor families",
+            "Children born in UK during ILR period may have automatic British citizenship — verify with counsel",
+            "For NEW investors: this route CLOSED — consider Innovator Founder (£0 min) or Global Talent",
+        ],
+        "faqs": [
+            {"q": "Can I still apply for Tier 1 Investor as a new applicant?", "a": "NO. The route CLOSED to new applications on 17 February 2022. No exceptions. Alternatives: Innovator Founder Visa, Global Talent, or Skilled Worker."},
+            {"q": "I missed the 17 Feb 2026 extension deadline — can I still apply for ILR?", "a": "POSSIBLY — depends on whether you're still within qualifying period and your visa hasn't expired. Consult immigration counsel urgently. If visa expired and no extension, route may not be available."},
+            {"q": "What's the difference between £2M / £5M / £10M ILR timelines?", "a": "Investment level determines qualifying period: £2M = 5 yrs to ILR · £5M = 3 yrs · £10M = 2 yrs. Only time at £2M+ counts (if visa granted on/after 6 Nov 2014)."},
+            {"q": "Will there be a replacement investor visa?", "a": "UK Government has not announced a direct successor as of Feb 2026. Innovator Founder Visa (£0 minimum investment, endorsement-based) is positioned as a partial replacement. Watch for future announcements."},
+            {"q": "Can my dependants apply for ILR with me?", "a": "Yes — spouse / partner + children under 18 included. Each pays own £3,226 fee + Life in the UK test (over 18s) + B1 English (over 18s)."},
+            {"q": "After ILR, when can I apply for British Citizenship?", "a": "12 months after ILR grant (or immediately if spouse of British citizen). Naturalisation fee approximately £1,500+ separate process."},
+        ],
+        "official_url": "https://www.gov.uk/tier-1-investor",
+        "vfs_url": "https://www.ukvcas.co.uk/",
+        "source_urls": [
+            "https://www.gov.uk/tier-1-investor",
+            "https://www.gov.uk/government/publications/guidance-on-application-for-uk-visa-as-tier-1-investor/tier-1-investor-guidance-accessible-version",
+            "https://www.fragomen.com/insights/tier-1-investor-visa-extension-deadline-or-february-2026-uk-update.html",
+            "https://www.ein.org.uk/blog/tier-1-investor-visa-extensions",
+            "https://www.davidsonmorris.com/uk-investor-visa/",
+        ],
+        "verified_notes": "Manual Fast-Path B.4.6 seed — verified against gov.uk + Fragomen + EIN + Davidson Morris on 2026-02-27. CRITICAL STATUS: Tier 1 Investor route CLOSED 17 Feb 2022 to new applicants. Extension deadline 17 Feb 2026 — PASSED as of seeding date (Feb 27, 2026). ILR deadline 17 Feb 2028 still active for legacy holders. Investment-linked ILR timelines (£2M=5yr, £5M=3yr, £10M=2yr) verified. This workflow exists specifically to guide LEGACY HOLDERS — Sir's brief acknowledged this as 'Tier 1 Investor Closed' visa.",
+    },
+
+    # ── 6. UK-Visit-Long-Term — Standard Visitor (Long-Term 2/5/10-year) ──────
+    {
+        "country_code": "UK", "country_name": "United Kingdom",
+        "subclass_id": "Visit-Long-Term",
+        "subclass_name": "Standard Visitor Visa — Long-Term (2-year / 5-year / 10-year Multiple Entry)",
+        "service_type": "visitor", "category": "immigration",
+        "description": (
+            "The Long-Term Standard Visitor visa allows multiple entries to the UK over a "
+            "**2 / 5 / 10-year validity period**, with each visit up to **6 months maximum**. "
+            "Designed for frequent business travellers, parents visiting UK-settled adult "
+            "children, and individuals with ongoing UK ties.\n\n"
+            "**Key point:** The visa validity is 2/5/10 years, but you can only STAY in the UK "
+            "for up to 6 months per visit. Cannot live in UK continuously — visits must be "
+            "genuine + temporary.\n\n"
+            "**8 April 2026 fee schedule:**\n"
+            "- 2-year long-term: **£506** (was ~£476)\n"
+            "- 5-year long-term: **£903** (was ~£848)\n"
+            "- 10-year long-term: **£1,128** (was ~£1,059)\n"
+            "- Standard 6-month visitor (for comparison): £135\n\n"
+            "**Best-fit applicant profiles:**\n"
+            "- 2-year: First-time long-term applicants, 1-2 prior compliant UK visits\n"
+            "- 5-year: 3-4 prior visits, established frequent travel pattern, parents of UK adults\n"
+            "- 10-year: 5+ prior visits, stable ties (retirement age, business owner with UK ops, "
+            "parents of British citizens with strong family ties)\n\n"
+            "**Caveat:** First-time applicants rarely succeed at 10-year tier. Build travel "
+            "history with 6-month or 2-year first."
+        ),
+        "eligibility_summary": (
+            "Genuine visitor purpose (tourism / business / family / short study / medical). "
+            "Sufficient funds to support visit. No intention to live in UK. Will leave UK at "
+            "end of each visit. Strong ties to home country. Travel history demonstrating "
+            "compliance with prior visa conditions."
+        ),
+        "eligibility_criteria": [
+            {"label": "Genuine Visitor Purpose", "value": "Tourism / Business / Family / Short Study (≤6 months) / Medical Treatment", "notes": "Each visit must be genuine + temporary"},
+            {"label": "Maximum Stay Per Visit", "value": "6 months per visit (regardless of 2/5/10-year validity)", "notes": "Cannot stay continuously"},
+            {"label": "Sufficient Funds", "value": "Demonstrate funds to support visit + accommodation + return travel", "notes": "No specific £ threshold but typically £1,500-3,000+"},
+            {"label": "No Intention to Live in UK", "value": "Cannot use visits to live in UK / work / study long-term", "notes": "Pattern of consecutive 6-mo stays raises refusal risk"},
+            {"label": "Return Intention", "value": "Strong ties to home country (job, family, property) demonstrating return", "notes": "Critical for first-time applicants"},
+            {"label": "Travel History", "value": "Compliance with prior UK / Schengen / US / Australia / NZ visas + visits", "notes": "Build history for higher validity tiers"},
+            {"label": "Visit Frequency Caveats", "value": "If under 18: long-term visa valid only until 6 months after 18th birthday", "notes": ""},
+            {"label": "Work Restrictions", "value": "No paid work in UK during visits (some business activities permitted)", "notes": "Appendix Visitor: Permitted Activities lists what's allowed"},
+        ],
+        "fees_local_currency_code": "GBP", "fees_local_currency_amount": 506, "fees_inr_approx": 53130,
+        "fees_breakdown": [
+            {"component": "2-year long-term visitor visa", "amount": 506, "currency": "GBP"},
+            {"component": "5-year long-term visitor visa", "amount": 903, "currency": "GBP"},
+            {"component": "10-year long-term visitor visa", "amount": 1128, "currency": "GBP"},
+            {"component": "Standard 6-month visitor (for comparison)", "amount": 135, "currency": "GBP"},
+            {"component": "Priority service (5-day decision)", "amount": 500, "currency": "GBP"},
+            {"component": "Super priority service (next-working-day decision)", "amount": 1000, "currency": "GBP"},
+            {"component": "Biometric enrolment (VFS)", "amount": 19, "currency": "GBP"},
+            {"component": "Optional courier / SMS / photo services", "amount": 30, "currency": "GBP", "per": "estimate"},
+            {"component": "IHS / NHS surcharge — N/A for visitors", "amount": 0, "currency": "GBP"},
+        ],
+        "processing_time_days_min": 15, "processing_time_days_max": 28,
+        "step_by_step": [
+            {"step_number": 1, "title": "Choose Visa Duration", "description": "Decide between 2-year (£506), 5-year (£903), or 10-year (£1,128) based on planned visit frequency + travel history. First-timers: start with 2-year.", "estimated_days": 1, "documents_needed": [], "tips": ["Build travel history with 6-month or 2-year first; jump to 10-year rarely succeeds"]},
+            {"step_number": 2, "title": "Complete Online Application (gov.uk)", "description": "Submit Standard Visitor application via gov.uk. Select multi-entry + chosen duration. Pay fee.", "estimated_days": 1, "documents_needed": [], "tips": ["Apply from country of habitual residence"]},
+            {"step_number": 3, "title": "Compile Financial Evidence", "description": "Bank statements (last 6 months), salary slips, employer letter, ITRs / tax returns. Demonstrate funds + ties to home country.", "estimated_days": 7, "documents_needed": ["Bank statements", "Salary slips", "ITRs"], "tips": ["3-6 months bank statements showing genuine activity"]},
+            {"step_number": 4, "title": "Prepare Travel History + Ties Evidence", "description": "Compile prior UK / Schengen / US / Australia / NZ visa pages + entry/exit stamps. Property documents, family tie evidence (children's school, parents in home country), employment contract.", "estimated_days": 7, "documents_needed": ["Old passports", "Travel history", "Ties evidence"], "tips": ["Strong ties = strongest refusal mitigation"]},
+            {"step_number": 5, "title": "Cover Letter + Itinerary", "description": "Write detailed cover letter explaining purpose, planned dates, accommodation, prior visits, and commitment to return. Include detailed itinerary if applicable.", "estimated_days": 3, "documents_needed": ["Cover letter", "Itinerary draft"], "tips": ["Specific dates + UK addresses + return tickets strengthen application"]},
+            {"step_number": 6, "title": "Biometric Appointment (VFS Global)", "description": "Book VFS Global appointment. Provide fingerprints + photo. Submit physical documents.", "estimated_days": 7, "documents_needed": ["All accumulated docs"], "tips": ["Mumbai/Delhi/Bangalore/Chennai/Hyderabad/Kolkata VFS centres"]},
+            {"step_number": 7, "title": "Wait for Decision", "description": "Standard processing 3 weeks. Priority 5 working days. Super priority 1 working day. Check VFS portal for updates.", "estimated_days": 21, "documents_needed": [], "tips": []},
+            {"step_number": 8, "title": "Collect Visa + Plan Visits", "description": "Collect passport with visa vignette. Plan visits respecting 6-month-per-visit + general overstay rules.", "estimated_days": 7, "documents_needed": [], "tips": ["Track 6-mo per visit + avoid back-to-back consecutive maximum stays"]},
+        ],
+        "document_checklist": [
+            {"name": "Valid passport (bio + visa pages, 12+ months validity)", "mandatory": True, "notes": ""},
+            {"name": "Recent photo (per UKVI specs)", "mandatory": True, "notes": ""},
+            {"name": "Cover letter explaining purpose + duration choice", "mandatory": True, "notes": ""},
+            {"name": "Travel itinerary (planned dates + UK addresses)", "mandatory": False, "notes": "Helpful but not always mandatory"},
+            {"name": "Bank statements (last 6 months)", "mandatory": True, "notes": "Should show genuine savings + transactions"},
+            {"name": "Salary slips (last 3-6 months)", "mandatory": True, "notes": "If employed"},
+            {"name": "Income Tax Returns (last 2-3 years)", "mandatory": True, "notes": ""},
+            {"name": "Employment letter / business proof (self-employed)", "mandatory": True, "notes": ""},
+            {"name": "Property documents (home ownership = strong tie)", "mandatory": False, "notes": "Strengthens application"},
+            {"name": "Old passports with prior visa stamps", "mandatory": True, "notes": "Travel history evidence"},
+            {"name": "Family ties evidence (marriage cert, children's school)", "mandatory": False, "notes": "If applicable"},
+            {"name": "Return travel ticket (recommended for first visit)", "mandatory": False, "notes": "Strengthens return intention"},
+            {"name": "UK accommodation evidence (hotel bookings / family letter)", "mandatory": False, "notes": ""},
+            {"name": "Sponsor letter (if visiting family)", "mandatory": False, "notes": "Should include sponsor's UK status + invitation"},
+            {"name": "Visa refusals / immigration history (if any)", "mandatory": True, "notes": "Disclose all prior UK / Schengen / US / Australia / NZ visa decisions"},
+            {"name": "Biometric appointment confirmation (VFS)", "mandatory": True, "notes": ""},
+        ],
+        "common_rejection_reasons": [
+            "Insufficient funds (bank statements don't support visit costs)",
+            "Weak ties to home country (no job / property / family responsibility)",
+            "Travel history concerns (prior overstays / refusals undisclosed)",
+            "Inconsistent application information vs supporting documents",
+            "Pattern suggesting intent to live in UK (consecutive 6-mo stays, no home anchor)",
+            "10-year applied without sufficient prior compliant travel history (typical refusal)",
+            "Cover letter generic / missing specific purpose + return intention",
+            "Sponsor letter from UK family weak or sponsor with adverse immigration status",
+            "Failure to disclose prior visa refusals (automatic refusal + ban risk)",
+        ],
+        "success_tips": [
+            "Build travel history: 2-yr first → renew to 5-yr → 10-yr after strong compliance",
+            "Bank statements 6 months — genuine activity + sufficient cushion (£3,000+ recommended)",
+            "Strong ties evidence is #1 refusal mitigator — employer letter + property + family",
+            "Cover letter MUST address: purpose, dates, accommodation, return intention",
+            "Disclose ALL prior visa refusals (UK / Schengen / US etc.) — non-disclosure = ban",
+            "Track 6-month-per-visit + avoid suspicion of de-facto residence",
+            "10-year visa best for retirement-age parents of British citizens + frequent business travellers",
+            "Use Priority (£500) if VFS appointment delay risk — saves week",
+            "Pre-2026 fees were lower — current 6-7% hike effective 8 April 2026",
+        ],
+        "faqs": [
+            {"q": "What's the difference between 2 / 5 / 10-year visas?", "a": "VALIDITY differs but stay-per-visit is ALWAYS max 6 months. 2-year £506 (first-time). 5-year £903 (sweet spot for established travellers). 10-year £1,128 (best per-year value but rarely granted to first-timers)."},
+            {"q": "Can I work during visits?", "a": "NO paid work in UK. Limited business activities permitted under Appendix Visitor (meetings, negotiations, attending conferences, short-term training)."},
+            {"q": "Can I stay 6 months continuously?", "a": "Each VISIT can be up to 6 months. But consecutive 6-month stays raise refusal risk on next entry — suggests intent to live in UK."},
+            {"q": "What if I'm refused for 10-year first time?", "a": "Common outcome. Start with 2-year or 5-year, build compliance, then apply for 10-year on subsequent application."},
+            {"q": "Does the visa cover EU travel?", "a": "NO — UK and EU/Schengen are separate. For EU travel, apply for Schengen visa separately."},
+            {"q": "Can I bring family?", "a": "Each person needs own visa. Children under 18: long-term visa valid only until 6 months after 18th birthday."},
+        ],
+        "official_url": "https://www.gov.uk/standard-visitor",
+        "vfs_url": "https://visa.vfsglobal.com/ind/en/gbr/",
+        "source_urls": [
+            "https://www.gov.uk/standard-visitor",
+            "https://www.gov.uk/standard-visitor/apply-standard-visitor-visa",
+            "https://visa-fees.homeoffice.gov.uk/y/usa/usd/visit/all",
+            "https://www.davidsonmorris.com/long-term-visitor-visa-uk/",
+            "https://abroadroutes.com/blogs/uk-10-year-multiple-entry-visa-guide/",
+        ],
+        "verified_notes": "Manual Fast-Path B.4.6 seed — verified against gov.uk + Home Office Fee Schedule + Davidson Morris + Abroad Routes on 2026-02-27. 8 April 2026 fee schedule confirmed (£506 / £903 / £1,128 for 2/5/10-yr). 6-month-per-visit maximum stay stays unchanged. Standard 6-month visitor £135 for comparison.",
+    },
+]
+
+
 ALL_WORKFLOWS: Dict[str, List[Dict[str, Any]]] = {
     "IN": INDIA_WORKFLOWS,
     "AU": AUSTRALIA_NEW_WORKFLOWS,
     "CA": CANADA_NEW_WORKFLOWS,
     "NZ": NEW_ZEALAND_NEW_WORKFLOWS,
+    "UK": UNITED_KINGDOM_NEW_WORKFLOWS,
 }
 
 
