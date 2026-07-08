@@ -9,6 +9,14 @@ import {
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
+// const KANBAN_STAGES = [
+//   { key: 'new', label: 'New Leads', color: 'bg-slate-500', borderColor: 'border-slate-300', headerBg: 'bg-slate-50', icon: Plus },
+//   { key: 'payment_pending', label: 'Payment Pending', color: 'bg-amber-500', borderColor: 'border-amber-300', headerBg: 'bg-amber-50', icon: Clock },
+//   { key: 'payment_received', label: 'Paid', color: 'bg-blue-500', borderColor: 'border-blue-300', headerBg: 'bg-blue-50', icon: CreditCard },
+//   { key: 'under_review', label: 'Under Review', color: 'bg-leamss-orange-500', borderColor: 'border-leamss-orange-300', headerBg: 'bg-leamss-orange-50', icon: Eye },
+//   { key: 'approved', label: 'Approved', color: 'bg-emerald-500', borderColor: 'border-emerald-300', headerBg: 'bg-emerald-50', icon: CheckCircle },
+//   { key: 'proposal_sent', label: 'Proposal Sent', color: 'bg-teal-500', borderColor: 'border-teal-300', headerBg: 'bg-teal-50', icon: Send },
+// ];
 const KANBAN_STAGES = [
   { key: 'new', label: 'New Leads', color: 'bg-slate-500', borderColor: 'border-slate-300', headerBg: 'bg-slate-50', icon: Plus },
   { key: 'payment_pending', label: 'Payment Pending', color: 'bg-amber-500', borderColor: 'border-amber-300', headerBg: 'bg-amber-50', icon: Clock },
@@ -16,6 +24,11 @@ const KANBAN_STAGES = [
   { key: 'under_review', label: 'Under Review', color: 'bg-leamss-orange-500', borderColor: 'border-leamss-orange-300', headerBg: 'bg-leamss-orange-50', icon: Eye },
   { key: 'approved', label: 'Approved', color: 'bg-emerald-500', borderColor: 'border-emerald-300', headerBg: 'bg-emerald-50', icon: CheckCircle },
   { key: 'proposal_sent', label: 'Proposal Sent', color: 'bg-teal-500', borderColor: 'border-teal-300', headerBg: 'bg-teal-50', icon: Send },
+  { key: 'proposal_paid', label: 'Proposal Paid', color: 'bg-cyan-500', borderColor: 'border-cyan-300', headerBg: 'bg-cyan-50', icon: CreditCard },
+  { key: 'awaiting_final_approval', label: 'Awaiting Final Approval', color: 'bg-indigo-500', borderColor: 'border-indigo-300', headerBg: 'bg-indigo-50', icon: Clock },
+  { key: 'case_created', label: 'Case Created', color: 'bg-green-600', borderColor: 'border-green-300', headerBg: 'bg-green-50', icon: CheckCircle },
+  { key: 'rejected', label: 'Rejected', color: 'bg-rose-500', borderColor: 'border-rose-300', headerBg: 'bg-rose-50', icon: XCircle },
+  { key: 'refunded', label: 'Refunded', color: 'bg-gray-500', borderColor: 'border-gray-300', headerBg: 'bg-gray-50', icon: XCircle },
 ];
 
 const LeadPipeline = () => {
@@ -52,7 +65,8 @@ const LeadPipeline = () => {
       </div>
 
       {/* Kanban Board */}
-      <div className="flex gap-3 overflow-x-auto pb-4" style={{ minHeight: '400px' }}>
+      <div className="flex gap-3 overflow-x-auto pb-4" style={{ minHeight: '900px' }}>
+  
         {KANBAN_STAGES.map(stage => {
           const StageIcon = stage.icon;
           const stageData = pipeline[stage.key] || { count: 0, items: [] };
@@ -74,7 +88,7 @@ const LeadPipeline = () => {
               </div>
 
               {/* Column Body */}
-              <div className={`border ${stage.borderColor} border-t-0 rounded-b-xl bg-white p-2 space-y-2 min-h-[350px]`}>
+              <div className={`border ${stage.borderColor} border-t-0 rounded-b-xl bg-white p-2 space-y-2 min-h-[850px]`}>
                 {items.length === 0 ? (
                   <div className="flex items-center justify-center h-32 text-slate-300">
                     <p className="text-xs">No leads</p>
