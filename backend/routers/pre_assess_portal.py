@@ -640,8 +640,145 @@ async def partner_forward_to_admin(pa_id: str, data: PartnerForwardRequest, curr
 
     await _log(current_user["id"], pa_id, "partner_forwarded_to_admin", {"remarks": data.remarks or ""})
     return {"ok": True, "stage": "documents_submitted"}
+@router.post("/partner/resend-approval/{pa_id}")
+async def partner_resend_approval(
+    pa_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Partner resubmits a rejected Pre-Assessment / Express Sale for approval."""
 
+    is_admin = (
+        current_user.get("role") in ("admin", "admin_owner")
+        or current_user.get("rbac_role") in ("admin", "admin_owner")
+    )
 
+    if not is_admin and current_user.get("role") not in (
+        "partner",
+        "sales_executive",
+        "sr_sales_executive",
+        "sales_manager",
+        "sales_head",
+    ):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
+    if not pa:
+        raise HTTPException(status_code=404, detail="Pre-assessment not found")
+
+    if not is_admin:
+        owns = (
+            pa.get("partner_id") == current_user["id"]
+            or pa.get("created_by_user_id") == current_user["id"]
+        )
+        if not owns:
+            raise HTTPException(status_code=403, detail="Not your pre-assessment")
+
+    # -------------------------
+    # EXPRESS SALE
+    # -------------------------
+    if pa.get("sale_type") == "express":
+
+        if pa.get("express_sale_approval_status") != "rejected":
+            raise HTTPException(
+                status_code=400,
+                detail="Only rejected Express Sales can be resent."
+            )
+
+        await pre_assessments_col.update_one(
+            {"id": pa_id},
+            {
+                "$set": {
+                    "express_sale_approval_status": "pending",
+                    "express_sale_approval_remarks": "",
+                    "updated_at": _now(),
+                }
+            }
+        )
+
+        admins = await users_col.find(
+            {"role": "admin", "status": "active"},
+            {"_id": 0, "id": 1}
+        ).to_list(50)
+
+        for admin in admins:
+            await notifications_col.insert_one({
+                "id": str(uuid.uuid4()),
+                "user_id": admin["id"],
+                "title": "Express Sale Resubmitted",
+                "message": f"{pa.get('client_name')} has resubmitted an Express Sale for approval.",
+                "type": "express_sale_review",
+                "read": False,
+                "link": "/admin/express-approvals",
+                "created_at": _now(),
+            })
+
+        await _log(
+            current_user["id"],
+            pa_id,
+            "partner_resent_express_sale",
+            {}
+        )
+
+        return {
+            "ok": True,
+            "message": "Express Sale resubmitted successfully.",
+            "express_sale_approval_status": "pending"
+        }
+
+    # -------------------------
+    # STANDARD PRE-ASSESSMENT
+    # -------------------------
+
+    if pa.get("admin_decision") != "rejected":
+        raise HTTPException(
+            status_code=400,
+            detail="Only rejected Pre-Assessments can be resent."
+        )
+
+    await pre_assessments_col.update_one(
+        {"id": pa_id},
+        {
+            "$set": {
+                "stage": "documents_submitted",
+                "admin_decision": None,
+                "admin_reason": "",
+                "admin_notes": "",
+                "admin_reviewed_by": None,
+                "admin_reviewed_at": None,
+                "updated_at": _now(),
+            }
+        }
+    )
+
+    admins = await users_col.find(
+        {"role": "admin", "status": "active"},
+        {"_id": 0, "id": 1}
+    ).to_list(50)
+
+    for admin in admins:
+        await notifications_col.insert_one({
+            "id": str(uuid.uuid4()),
+            "user_id": admin["id"],
+            "title": "Pre-Assessment Resubmitted",
+            "message": f"{pa.get('client_name')} has been resubmitted for approval.",
+            "type": "pre_assessment_review",
+            "read": False,
+            "link": "/admin?tab=pre-assessments",
+            "created_at": _now(),
+        })
+
+    await _log(
+        current_user["id"],
+        pa_id,
+        "partner_resent_for_approval",
+        {}
+    )
+
+    return {
+        "ok": True,
+        "message": "Pre-assessment resubmitted successfully.",
+        "stage": "documents_submitted"
+    }
 @router.get("/client/portal-access/{pa_id}")
 async def client_portal_access(pa_id: str, current_user: dict = Depends(get_current_user)):
     """Returns current portal access level for a pre-assessment (mini/expanded/full)."""

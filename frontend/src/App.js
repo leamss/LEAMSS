@@ -53,6 +53,7 @@ import MyTargets from '@/pages/MyTargets';
 import SalesTargetsAdmin from '@/pages/admin/SalesTargetsAdmin';
 import TargetTemplatesManager from '@/pages/admin/TargetTemplatesManager';
 import ExpressApprovalsAdmin from '@/pages/admin/ExpressApprovalsAdmin';
+import StandardApprovalsAdmin from '@/pages/admin/StandardApprovalsAdmin';
 import ExpressSalesSettings from '@/pages/admin/ExpressSalesSettings';
 import EligibilityKnowledgeBase from '@/pages/admin/EligibilityKnowledgeBase';
 import OccupationMasterAdmin from '@/pages/admin/OccupationMasterAdmin';
@@ -175,6 +176,7 @@ function App() {
               </div>
             </RequirePermission>
           } />
+         
           <Route path="/admin/workflows" element={<WorkflowBuilder />} />
           <Route path="/admin/ai-workflow" element={<AIWorkflowBuilder />} />
           <Route path="/admin/marketing" element={<MarketingDashboard />} />
@@ -370,6 +372,11 @@ function App() {
           <Route path="/admin/sales/express-approvals" element={
             <RequirePermission anyOf={['pa.approve.express', 'system.user_manage.any']}>
               <ExpressApprovalsAdmin />
+            </RequirePermission>
+          } />
+           <Route path="/admin/sales/standard-approvals" element={
+            <RequirePermission anyOf={['pa.approve.express', 'system.user_manage.any']}>
+              <StandardApprovalsAdmin />
             </RequirePermission>
           } />
           <Route path="/admin/sales/express-settings" element={
