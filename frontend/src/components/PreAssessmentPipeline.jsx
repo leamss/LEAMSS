@@ -1245,6 +1245,20 @@ const PreAssessmentPipeline = ({ initialFilter = null, initialPaId = null }) => 
       toast.error((e.response?.data?.detail || 'Failed') + ' — reverted');
     }
   };
+  const handleResendApproval = async (paId) => {
+  try {
+    await axios.post(
+      `${API}/pre-assess-portal/partner/resend-approval/${paId}`,
+      {},
+      getAuthHeader()
+    );
+
+    toast.success("Approval request sent again.");
+    loadData();
+  } catch (e) {
+    toast.error(e.response?.data?.detail || "Failed to resend approval");
+  }
+};
 
   const loadDocsAndActivity = async (paId) => {
     // Single bundled call — replaces 2+ parallel calls (docs + activity)
@@ -1654,14 +1668,30 @@ const PreAssessmentPipeline = ({ initialFilter = null, initialPaId = null }) => 
                     )}
 
                     {/* Action Buttons — always show Copy Link + Preview as Client, show nextAction if exists */}
-                    {showProposal !== pa.id && forwardingId !== pa.id && finalSubmittingId !== pa.id && (
-                      <PaActionBar
-                        pa={pa}
-                        nextAction={nextAction}
-                        handleCopyPublicLink={handleCopyPublicLink}
-                        handlePreviewAsClient={handlePreviewAsClient}
-                      />
-                    )}
+                    {showProposal !== pa.id &&
+  forwardingId !== pa.id &&
+  finalSubmittingId !== pa.id && (
+    <>
+      <PaActionBar
+        pa={pa}
+        nextAction={nextAction}
+        handleCopyPublicLink={handleCopyPublicLink}
+        handlePreviewAsClient={handlePreviewAsClient}
+      />
+
+      {pa.admin_decision === "rejected" && (
+        <div className="mt-3 flex justify-end">
+          <Button
+            onClick={() => handleResendApproval(pa.id)}
+            className="bg-[#2a777a] hover:bg-[#236466]"
+          >
+            <Send className="h-4 w-4 mr-2" />
+            Resend for Approval
+          </Button>
+        </div>
+      )}
+    </>
+)}
 
                     {/* Stage Progress Indicator */}
                     <PaStageProgress stage={pa.stage} />

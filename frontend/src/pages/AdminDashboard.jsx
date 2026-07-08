@@ -200,6 +200,7 @@ const AdminDashboard = () => {
       const authHeader = getAuthHeader();
       const [statsRes, pendingSalesRes, casesRes, productsRes, usersRes, allSalesRes, commissionsRes, ticketsRes, ticketStatsRes, settingsRes] = await Promise.all([
         axios.get(`${API}/stats/dashboard`, authHeader),
+        
         axios.get(`${API}/sales/pending`, authHeader),
         axios.get(`${API}/cases`, authHeader),
         axios.get(`${API}/products`, authHeader),
@@ -211,6 +212,8 @@ const AdminDashboard = () => {
         axios.get(`${API}/settings`, authHeader).catch(() => ({ data: { allow_case_manager_workflow_customization: false } }))
       ]);
       setStats(statsRes.data);
+      
+
       setPendingSales(pendingSalesRes.data);
       setCases(casesRes.data);
       setProducts(productsRes.data);
@@ -1192,7 +1195,15 @@ const AdminDashboard = () => {
   const adminNavGroups = [
     { id: 'home', icon: Home, label: 'Home', onClick: () => { setActiveTab('home'); resetSelections(); } },
     { id: 'dashboard', icon: LayoutDashboard, label: 'Classic Dashboard', onClick: () => { setActiveTab('dashboard'); resetSelections(); } },
-    { id: 'approval-center', icon: CheckCircle, label: 'Approval Center', badge: (stats.pending_sales || 0) + (unassignedCases?.length || 0), badgeColor: 'bg-red-500', onClick: () => { setActiveTab('approval-center'); resetSelections(); } },
+    { id: 'approval-center',
+  icon: CheckCircle,
+  label: 'Approval Center',
+  badge: (stats.pending_sales || 0) + (unassignedCases?.length || 0),
+  badgeColor: 'bg-red-500',
+  onClick: () => {
+    setActiveTab('pre-assessments');
+    resetSelections();
+  } },
     { id: 'pipeline-cockpit', icon: Zap, label: '⚡ Pipeline Cockpit', onClick: () => navigate('/admin/cockpit') },
     { id: 'atlas-search-top', icon: Globe, label: '🇦🇺 Migration Atlas', onClick: () => navigate('/admin/atlas/search') },
     { id: 'atlas-audit-top', icon: BarChart3, label: '📊 Atlas — Coverage Audit', onClick: () => navigate('/admin/anz-intel/audit') },
@@ -1345,6 +1356,7 @@ const AdminDashboard = () => {
     };
     return titles[activeTab] || 'Dashboard';
   };
+  
 
   return (
     <DashboardShell
@@ -2892,7 +2904,11 @@ const AdminDashboard = () => {
           {activeTab === 'pre-assessments' && <PreAssessmentQueue initialFilter={preAssessFilter} />}
           {activeTab === 'legal-archive' && <LegalArchive />}
           {activeTab === 'agreement-templates' && <AgreementTemplatesManager />}
-          {activeTab === 'approval-center' && <ApprovalCenter token={localStorage.getItem('token')} onNavigate={(tab) => setActiveTab(tab)} />}
+         {activeTab === 'approval-center' && (
+    <PreAssessmentQueue
+        initialFilter={preAssessFilter}
+    />
+)}
           {activeTab === 'refund-manager' && <RefundManager token={localStorage.getItem('token')} />}
           {activeTab === 'revenue-dashboard' && <RevenueDashboard token={localStorage.getItem('token')} />}
           {activeTab === 'report-builder' && <ReportBuilder token={localStorage.getItem('token')} />}
