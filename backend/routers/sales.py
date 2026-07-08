@@ -232,7 +232,15 @@ async def create_sale(
         elif product.get("commission_rate") is not None and product.get("commission_rate", 0) > 0:
             rate = product["commission_rate"]
         else:
-            rate = current_user.get("commission_rate", 0)
+            # Fallback: check the newer Cost Allocations structure for a "Sales Commission" row
+            sales_comm_alloc = next(
+                (a for a in (product.get("cost_allocations") or []) if a.get("vendor_category") == "sales_commission"),
+                None
+            )
+            if sales_comm_alloc and sales_comm_alloc.get("payment_type") == "percentage" and float(sales_comm_alloc.get("rate") or 0) > 0:
+                rate = float(sales_comm_alloc["rate"])
+            else:
+                rate = current_user.get("commission_rate", 0)
     
     # --- Currency conversion to INR ---
     original_currency = currency.upper() if currency else "INR"

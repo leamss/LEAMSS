@@ -56,6 +56,7 @@ payment_transactions_col = db["payment_transactions"]
 notifications_col = db["notifications"]
 users_col = db["users"]
 products_col = db["products"]
+partner_product_commissions_col = db["partner_product_commissions"]
 sales_col = db["sales"]
 
 PRE_ASSESSMENT_FEE = 5100  # Phase 20.3 — DEPRECATED hardcoded fallback only; use resolver below
@@ -955,6 +956,26 @@ async def send_proposal(pa_id: str, proposal: ProposalData, http_request: Reques
     total_discount = round(promo_discount + additional_discount, 2)
     final_amount = round(max(0.0, base_fee - total_discount + upsell_total), 2)
 
+    # --- Resolve commission rate (same logic as the direct-sale flow in sales.py) ---
+    product = await products_col.find_one({"id": pa.get("product_id", "")}, {"_id": 0}) or {}
+    custom = await partner_product_commissions_col.find_one(
+        {"partner_id": current_user["id"], "product_id": pa.get("product_id", "")}, {"_id": 0}
+    )
+    if custom:
+        commission_rate = custom["commission_rate"]
+    elif product.get("commission_rate") is not None and product.get("commission_rate", 0) > 0:
+        commission_rate = product["commission_rate"]
+    else:
+        sales_comm_alloc = next(
+            (a for a in (product.get("cost_allocations") or []) if a.get("vendor_category") == "sales_commission"),
+            None
+        )
+        if sales_comm_alloc and sales_comm_alloc.get("payment_type") == "percentage" and float(sales_comm_alloc.get("rate") or 0) > 0:
+            commission_rate = float(sales_comm_alloc["rate"])
+        else:
+            commission_rate = current_user.get("commission_rate", 0)
+    commission_amount = round(0 * (commission_rate / 100), 2) if commission_rate else 0  # amount_received starts at 0
+
     # Create a sale record
     sale_id = str(uuid.uuid4())
     sale = {
@@ -982,6 +1003,8 @@ async def send_proposal(pa_id: str, proposal: ProposalData, http_request: Reques
         "payment_method": proposal.payment_method,
         "currency": proposal.currency,
         "status": "approved",
+        "commission_rate": commission_rate,
+        "commission_amount": commission_amount,
         "pre_assessment_id": pa_id,
         "notes": proposal.notes,
         "ai_proposal_text": proposal.ai_proposal_text or "",
