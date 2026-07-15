@@ -10,6 +10,7 @@ from typing import Optional, List
 import uuid, os
 from datetime import datetime, timezone
 
+
 router = APIRouter(prefix="/documents", tags=["Documents"])
 
 UPLOAD_DIR = os.environ.get("UPLOAD_DIR", "./uploads")
@@ -147,7 +148,40 @@ async def download_document(file_id: str, current_user: dict = Depends(get_curre
         media_type=doc.get("content_type", "application/octet-stream")
     )
 
+@router.get("/view/{file_id}")
+async def view_document(
+    file_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    doc = await documents_col.find_one(
+        {"id": file_id},
+        {"_id": 0}
+    )
 
+    if not doc:
+        raise HTTPException(
+            status_code=404,
+            detail="Document not found"
+        )
+
+    if not os.path.exists(doc["file_path"]):
+        raise HTTPException(
+            status_code=404,
+            detail="File not found on server"
+        )
+
+    return FileResponse(
+        doc["file_path"],
+        media_type=doc.get(
+            "content_type",
+            "application/octet-stream"
+        ),
+        headers={
+            "Content-Disposition": (
+                f'inline; filename="{doc["filename"]}"'
+            )
+        }
+    )
 @router.post("/review")
 async def review_document(request: DocumentReview, current_user: dict = Depends(get_current_user)):
     if current_user["role"] not in ["admin", "case_manager"]:

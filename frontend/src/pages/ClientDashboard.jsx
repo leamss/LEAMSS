@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -1045,64 +1045,158 @@ const ClientDashboard = () => {
                           </tr>
                         </thead>
                         <tbody>
-                          {documents.map((doc) => {
-                            const expiryInfo = expiryDocs.find(e => e.id === doc.id);
-                            return (
-                            <tr key={doc.id} className="border-b border-slate-100 hover:bg-slate-50">
-                              <td className="py-3 px-4">
-                                <div className="flex items-center gap-2">
-                                  <FileText className="h-4 w-4 text-[#2a777a]" />
-                                  <div>
-                                    <span className="font-medium text-slate-800">{doc.filename}</span>
-                                    <p className="text-xs text-slate-400">{doc.step_name || doc.document_type}</p>
-                                  </div>
-                                </div>
-                              </td>
-                              <td className="py-3 px-4 text-sm text-slate-600 capitalize">{doc.document_type.replace('_', ' ')}</td>
-                              <td className="py-3 px-4">
-                                {expiryInfo?.expiry_date ? (
-                                  <Badge className={`text-xs cursor-pointer ${getUrgencyStyle(expiryInfo.urgency)}`}
-                                    onClick={() => {
-                                      setExpiryModal(expiryInfo);
-                                      setExpiryDate(expiryInfo.expiry_date.split('T')[0]);
-                                      setExpiryNotes(expiryInfo.expiry_notes || '');
-                                    }}
-                                    data-testid={`expiry-badge-${doc.id}`}
-                                  >
-                                    {expiryInfo.urgency === 'expired' ? `Expired` :
-                                     expiryInfo.urgency === 'critical' ? `${expiryInfo.days_remaining}d left!` :
-                                     new Date(expiryInfo.expiry_date).toLocaleDateString()}
-                                  </Badge>
-                                ) : (
-                                  <button
-                                    className="text-xs text-[#2a777a] hover:underline flex items-center gap-1"
-                                    onClick={() => { setExpiryModal(doc); setExpiryDate(''); setExpiryNotes(''); }}
-                                    data-testid={`set-expiry-btn-${doc.id}`}
-                                  >
-                                    <Calendar className="h-3 w-3" /> Set Expiry
-                                  </button>
-                                )}
-                              </td>
-                              <td className="py-3 px-4">
-                                <Badge className={`text-xs ${
-                                  doc.status === 'approved' ? 'bg-green-100 text-green-700' :
-                                  doc.status === 'rejected' ? 'bg-red-100 text-red-700' :
-                                  'bg-amber-100 text-amber-700'
-                                }`}>
-                                  {doc.status === 'pending_review' ? 'Under Review' : doc.status}
-                                </Badge>
-                              </td>
-                              <td className="py-3 px-4 text-right">
-                                <div className="flex items-center justify-end gap-2">
-                                  <Button size="sm" variant="outline" onClick={() => downloadDocument(doc.id, doc.filename)} data-testid={`download-doc-table-${doc.id}`}>
-                                    <Download className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              </td>
-                            </tr>
-                            );
-                          })}
-                        </tbody>
+  {Object.entries(
+    documents.reduce((groups, doc) => {
+      const stepName = doc.step_name || 'Other Documents';
+
+      if (!groups[stepName]) {
+        groups[stepName] = [];
+      }
+
+      groups[stepName].push(doc);
+
+      return groups;
+    }, {})
+  ).map(([stepName, stepDocuments]) => {
+    const matchingStep = caseData?.steps?.find(
+      (step) =>
+        step.step_name?.trim().toLowerCase() ===
+        stepName?.trim().toLowerCase()
+    );
+
+    const stepIndex = caseData?.steps?.findIndex(
+      (step) =>
+        step.step_name?.trim().toLowerCase() ===
+        stepName?.trim().toLowerCase()
+    );
+
+    const stepNumber =
+      matchingStep?.step_order ||
+      matchingStep?.order ||
+      (stepIndex >= 0 ? stepIndex + 1 : null);
+
+    return (
+      <Fragment key={stepName}>
+        <tr className="bg-slate-50 border-b border-slate-200">
+          <td
+            colSpan={5}
+            className="py-3 px-4"
+          >
+            <div className="flex items-center gap-2">
+              <FolderOpen className="h-4 w-4 text-[#2a777a]" />
+
+              <span className="font-semibold text-slate-800">
+                {stepNumber
+                  ? `Step ${stepNumber}: ${stepName}`
+                  : stepName}
+              </span>
+
+              <Badge className="bg-[#2a777a]/10 text-[#2a777a]">
+                {stepDocuments.length} document(s)
+              </Badge>
+            </div>
+          </td>
+        </tr>
+
+        {stepDocuments.map((doc) => {
+          const expiryInfo = expiryDocs.find(
+            (e) => e.id === doc.id
+          );
+
+          return (
+            <tr
+              key={doc.id}
+              className="border-b border-slate-100 hover:bg-slate-50"
+            >
+              <td className="py-3 px-4">
+                <div className="flex items-center gap-2 pl-6">
+                  <FileText className="h-4 w-4 text-[#2a777a]" />
+
+                  <span className="font-medium text-slate-800">
+                    {doc.filename}
+                  </span>
+                </div>
+              </td>
+
+              <td className="py-3 px-4 text-sm text-slate-600 capitalize">
+                {doc.document_type?.replace(/_/g, ' ')}
+              </td>
+
+              <td className="py-3 px-4">
+                {expiryInfo?.expiry_date ? (
+                  <Badge
+                    className={`text-xs cursor-pointer ${getUrgencyStyle(
+                      expiryInfo.urgency
+                    )}`}
+                    onClick={() => {
+                      setExpiryModal(expiryInfo);
+                      setExpiryDate(
+                        expiryInfo.expiry_date.split('T')[0]
+                      );
+                      setExpiryNotes(
+                        expiryInfo.expiry_notes || ''
+                      );
+                    }}
+                  >
+                    {expiryInfo.urgency === 'expired'
+                      ? 'Expired'
+                      : expiryInfo.urgency === 'critical'
+                      ? `${expiryInfo.days_remaining}d left!`
+                      : new Date(
+                          expiryInfo.expiry_date
+                        ).toLocaleDateString()}
+                  </Badge>
+                ) : (
+                  <button
+                    className="text-xs text-[#2a777a] hover:underline flex items-center gap-1"
+                    onClick={() => {
+                      setExpiryModal(doc);
+                      setExpiryDate('');
+                      setExpiryNotes('');
+                    }}
+                  >
+                    <Calendar className="h-3 w-3" />
+                    Set Expiry
+                  </button>
+                )}
+              </td>
+
+              <td className="py-3 px-4">
+                <Badge
+                  className={`text-xs ${
+                    doc.status === 'approved'
+                      ? 'bg-green-100 text-green-700'
+                      : doc.status === 'rejected'
+                      ? 'bg-red-100 text-red-700'
+                      : 'bg-amber-100 text-amber-700'
+                  }`}
+                >
+                  {doc.status === 'pending_review'
+                    ? 'Under Review'
+                    : doc.status}
+                </Badge>
+              </td>
+
+              <td className="py-3 px-4 text-right">
+                <div className="flex items-center justify-end gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      downloadDocument(doc.id, doc.filename)
+                    }
+                  >
+                    <Download className="h-4 w-4" />
+                  </Button>
+                </div>
+              </td>
+            </tr>
+          );
+        })}
+      </Fragment>
+    );
+  })}
+</tbody>
                       </table>
                     </div>
                   )}

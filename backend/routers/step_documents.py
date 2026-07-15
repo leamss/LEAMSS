@@ -177,12 +177,50 @@ async def get_stepwise_documents(case_id: str, current_user: dict = Depends(get_
         ).sort("step_order", 1).to_list(50)
 
     # Build lookup: step_name -> admin default required_documents
+        # Build lookup of client-visible intake document fields by step
+        # Build step-wise documents from Workflow Builder intake form
     admin_docs_by_step = {}
+
     for aws in admin_wf_steps:
         step_name = aws.get("step_name", "")
-        admin_docs_by_step[step_name] = aws.get("required_documents", [])
+        intake_documents = []
 
-    # Get all uploaded documents for this case
+        for section in aws.get("sections", []):
+            for field in section.get("fields", []):
+
+                # Only file upload fields are documents
+                # if field.get("field_type") != "file":
+                #     continue
+
+                filled_by = field.get("filled_by", "client")
+
+                # Hide CM-only fields from client
+                if (
+                    current_user["role"] == "client"
+                    and filled_by not in ("client", "both")
+                ):
+                    continue
+
+                intake_documents.append({
+                    "key": field.get("key", ""),
+                    "doc_name": field.get("label", ""),
+                    "label": field.get("label", ""),
+                    "field_type": field.get("field_type", "text"),
+                    "options": field.get("options", []),
+                    "is_mandatory": field.get("required", False),
+                    "mandatory": field.get("required", False),
+                    "tag": (
+                        "mandatory"
+                        if field.get("required", False)
+                        else "optional"
+                    ),
+                    "notes": field.get("help_text", ""),
+                    "description": field.get("help_text", ""),
+                    "source": "intake_form",
+                    "filled_by": filled_by,
+                })
+
+        admin_docs_by_step[step_name] = intake_documents
     uploaded_docs = await documents_col.find(
         {"case_id": case_id}, {"_id": 0, "file_path": 0}
     ).to_list(500)
@@ -234,36 +272,80 @@ async def get_stepwise_documents(case_id: str, current_user: dict = Depends(get_
         # Get latest admin default docs for this step
         admin_defaults = admin_docs_by_step.get(step_name, [])
 
-        # Build a set of doc names already in case_steps (CM-added or previously synced)
-        existing_names = set()
-        for rd in case_req_docs:
-            existing_names.add(_get_doc_name(rd).lower())
+#         # Build a set of doc names already in case_steps (CM-added or previously synced)
+#         existing_names = set()
+#         for rd in case_req_docs:
+#             existing_names.add(_get_doc_name(rd).lower())
 
-        # Merge: start with case_step docs, then add any NEW admin defaults not yet in case_steps
-        merged_docs = list(case_req_docs)
-        new_admin_docs = []
-        for ad in admin_defaults:
-            ad_name = _get_doc_name(ad)
-            if ad_name and ad_name.lower() not in existing_names:
-                merged_docs.append({
-                    "doc_name": ad_name,
-                    "description": ad.get("description", ""),
-                    "is_mandatory": ad.get("is_mandatory", ad.get("mandatory", True)),
-                    "tag": ad.get("tag", "mandatory"),
-                    "notes": ad.get("notes", ""),
-                    "source": "admin_default",
-                    "added_by_name": "Admin",
-                })
-                new_admin_docs.append(ad_name)
+#         # Merge: start with case_step docs, then add any NEW admin defaults not yet in case_steps
+#         # Merge client-visible case documents only
+#         merged_docs = []
+
+#         for rd in case_req_docs:
+#             filled_by = rd.get("filled_by")
+
+#             # Hide CM-only intake fields from client
+#             if (
+#                 current_user["role"] == "client"
+#                 and filled_by == "cm"
+#             ):
+#                 continue
+
+#             merged_docs.append(rd)
+
+#         new_admin_docs = []
+#         for ad in admin_defaults:
+#             ad_name = _get_doc_name(ad)
+#             if ad_name and ad_name.lower() not in existing_names:
+#                 merged_docs.append({
+#     "doc_name": ad_name,
+#     "description": ad.get("description", ""),
+#     "is_mandatory": ad.get(
+#         "is_mandatory",
+#         ad.get("mandatory", True)
+#     ),
+#     "tag": ad.get("tag", "mandatory"),
+#     "notes": ad.get("notes", ""),
+#     "source": "intake_form",
+#     "added_by_name": "Admin",
+#     "filled_by": ad.get("filled_by", "client"),
+# })
+#                 new_admin_docs.append(ad_name)
 
         # Sync new admin docs to case_steps in DB (so they persist)
-        if new_admin_docs:
-            await case_steps_col.update_one(
-                {"case_id": case_id, "step_name": step_name},
-                {"$set": {"required_documents": merged_docs}}
-            )
+        # if new_admin_docs:
+        #     await case_steps_col.update_one(
+        #         {"case_id": case_id, "step_name": step_name},
+        #         {"$set": {"required_documents": merged_docs}}
+        #     )
 
         # Build doc items for response
+                # CLIENT:
+        # Show ONLY Workflow Builder intake file fields
+        # where filled_by is client or both
+        if current_user["role"] == "client":
+            merged_docs = list(admin_defaults)
+
+        # CASE MANAGER / ADMIN:
+        # Show case required documents + workflow intake documents
+        else:
+            merged_docs = list(case_req_docs)
+
+            existing_names = {
+                _get_doc_name(rd).lower()
+                for rd in merged_docs
+                if _get_doc_name(rd)
+            }
+
+            for ad in admin_defaults:
+                ad_name = _get_doc_name(ad)
+
+                if (
+                    ad_name
+                    and ad_name.lower() not in existing_names
+                ):
+                    merged_docs.append(ad)
+                    existing_names.add(ad_name.lower())
         doc_items = []
         for rd in merged_docs:
             doc_name = _get_doc_name(rd)
@@ -276,17 +358,41 @@ async def get_stepwise_documents(case_id: str, current_user: dict = Depends(get_
                 None
             )
             doc_items.append({
+                "key": rd.get("key", ""),
                 "doc_name": doc_name,
-                "is_mandatory": rd.get("is_mandatory", rd.get("mandatory", True)),
-                "tag": rd.get("tag", "mandatory"),
-                "notes": rd.get("notes", rd.get("description", "")),
-                "source": rd.get("source", "admin_default"),
+                "label": rd.get("label", doc_name),
+                "field_type": rd.get("field_type", "file"),
+                "options": rd.get("options", []),
+                "placeholder": rd.get("placeholder", ""),
+                "help_text": rd.get("help_text", ""),
+                "filled_by": rd.get(
+    "filled_by",
+    "cm" if rd.get("source") == "cm_request" else "client"
+),
+                "is_mandatory": rd.get(
+                    "is_mandatory",
+                    rd.get("mandatory", False)
+                ),
+                "required": rd.get(
+                    "required",
+                    rd.get("mandatory", False)
+                ),
+                "tag": rd.get("tag", "optional"),
+                "notes": rd.get(
+                    "notes",
+                    rd.get("description", "")
+                ),
+                "source": rd.get("source", "intake_form"),
                 "added_by_name": rd.get("added_by_name", "Admin"),
+
                 "uploaded": matching is not None,
                 "uploaded_doc": matching,
-                "status": matching.get("status", "pending") if matching else "not_uploaded",
+                "status": (
+                    matching.get("status", "pending")
+                    if matching
+                    else "not_uploaded"
+                ),
             })
-
         step_docs.append({
             "step_name": step_name,
             "step_order": cs.get("step_order", 0),

@@ -19,30 +19,132 @@ const UnifiedDocumentView = ({ token, caseId, caseData, onDocumentUploaded }) =>
   const [loading, setLoading] = useState(true);
   const [expandedSteps, setExpandedSteps] = useState({});
   const [uploading, setUploading] = useState(null);
-  const [uploadFiles, setUploadFiles] = useState({});
+  const [fieldValues, setFieldValues] = useState({});
+const [uploadFiles, setUploadFiles] = useState({});
+const [submittingField, setSubmittingField] = useState(null);
+const [submittedFields, setSubmittedFields] = useState({});
 
   const headers = { Authorization: `Bearer ${token}` };
 
-  const loadData = useCallback(async () => {
-    if (!caseId) { setLoading(false); return; }
-    try {
-      const res = await axios.get(`${API}/step-documents/case/${caseId}`, { headers });
-      setData(res.data);
-      const firstIncomplete = res.data.steps?.find(s => s.uploaded_count < s.required_count && s.status !== 'completed');
-      if (firstIncomplete && Object.keys(expandedSteps).length === 0) {
-        setExpandedSteps({ [firstIncomplete.step_name]: true });
-      }
-    } catch (e) {
-      console.error('Failed to load documents', e);
-    }
+const loadData = useCallback(async () => {
+  if (!caseId) {
     setLoading(false);
-  }, [caseId]);
+    return;
+  }
+
+  try {
+    const [documentsRes, intakeRes] = await Promise.all([
+      axios.get(
+        `${API}/step-documents/case/${caseId}`,
+        { headers }
+      ),
+
+      axios.get(
+        `${API}/intake-forms/case/${caseId}`,
+        { headers }
+      )
+    ]);
+
+    setData(documentsRes.data);
+
+    const savedValues = {};
+const savedSubmittedFields = {};
+
+for (const section of intakeRes.data.sections || []) {
+  for (const field of section.fields || []) {
+    if (
+      field.value !== undefined &&
+      field.value !== null &&
+      field.value !== ''
+    ) {
+      savedValues[field.key] = field.value;
+      savedSubmittedFields[field.key] = true;
+    }
+  }
+}
+
+setFieldValues(savedValues);
+setSubmittedFields(savedSubmittedFields);
+
+// setFieldValues(savedValues);
+
+//     setFieldValues(savedValues);
+
+    const firstIncomplete = documentsRes.data.steps?.find(
+      (step) =>
+        step.uploaded_count < step.required_count &&
+        step.status !== 'completed'
+    );
+
+    if (
+      firstIncomplete &&
+      Object.keys(expandedSteps).length === 0
+    ) {
+      setExpandedSteps({
+        [firstIncomplete.step_name]: true
+      });
+    }
+  } catch (e) {
+    console.error('Failed to load documents/intake data', e);
+  }
+
+  setLoading(false);
+}, [caseId]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
   const toggleStep = (stepName) => {
     setExpandedSteps(prev => ({ ...prev, [stepName]: !prev[stepName] }));
   };
+ const handleFieldSubmit = async (field, step) => {
+  const fieldKey = field.key || field.doc_name;
+  const value = fieldValues[fieldKey];
+
+  if (
+    value === undefined ||
+    value === null ||
+    String(value).trim() === ''
+  ) {
+    toast.error('Please enter a value before submitting');
+    return;
+  }
+
+  try {
+    setSubmittingField(fieldKey);
+
+    await axios.post(
+      `${API}/intake-forms/case/save`,
+      {
+        case_id: caseId,
+        data: {
+          [fieldKey]: value
+        }
+      },
+      { headers }
+    );
+
+    setSubmittedFields((prev) => ({
+      ...prev,
+      [fieldKey]: true
+    }));
+
+    toast.success(
+      `"${field.doc_name || field.label}" submitted successfully!`
+    );
+
+    await loadData();
+
+    onDocumentUploaded?.();
+  } catch (e) {
+    console.error('Field submit failed:', e);
+
+    toast.error(
+      e.response?.data?.detail || 'Failed to submit field'
+    );
+  } finally {
+    setSubmittingField(null);
+  }
+};
 
   const handleUpload = async (stepName, docName, file) => {
     if (!file) return;
@@ -123,6 +225,7 @@ const UnifiedDocumentView = ({ token, caseId, caseData, onDocumentUploaded }) =>
     if (doc.status === 'rejected') return <XCircle className="h-5 w-5 text-red-500 flex-shrink-0" />;
     return <Clock className="h-5 w-5 text-blue-500 flex-shrink-0" />;
   };
+  
 
   const getStatusColor = (status) => {
     switch(status) {
@@ -132,6 +235,181 @@ const UnifiedDocumentView = ({ token, caseId, caseData, onDocumentUploaded }) =>
       default: return 'bg-slate-100 text-slate-600';
     }
   };
+//   const renderIntakeField = (field, step) => {
+//   const fieldKey = `${step.step_name}-${field.key || field.doc_name}`;
+
+//   const value = fieldValues[fieldKey] || '';
+
+//   const updateValue = (newValue) => {
+//     setFieldValues(prev => ({
+//       ...prev,
+//       [fieldKey]: newValue
+//     }));
+//   };
+
+//   if (field.field_type === 'textarea') {
+//     return (
+//       <textarea
+//         value={value}
+//         onChange={(e) => updateValue(e.target.value)}
+//         placeholder={field.placeholder || field.notes || ''}
+//         className="w-full min-h-[100px] border border-slate-200 rounded-lg p-3 text-sm"
+//       />
+//     );
+//   }
+
+//   if (field.field_type === 'date') {
+//     return (
+//       <Input
+//         type="date"
+//         value={value}
+//         onChange={(e) => updateValue(e.target.value)}
+//       />
+//     );
+//   }
+
+//   if (field.field_type === 'select') {
+//     return (
+//       <select
+//         value={value}
+//         onChange={(e) => updateValue(e.target.value)}
+//         className="w-full h-10 border border-slate-200 rounded-lg px-3 text-sm bg-white"
+//       >
+//         <option value="">Select option</option>
+
+//         {(field.options || []).map((option, index) => (
+//           <option key={index} value={option}>
+//             {option}
+//           </option>
+//         ))}
+//       </select>
+//     );
+//   }
+
+//   if (field.field_type === 'text') {
+//     return (
+//       <Input
+//         type="text"
+//         value={value}
+//         onChange={(e) => updateValue(e.target.value)}
+//         placeholder={field.placeholder || field.notes || ''}
+//       />
+//     );
+//   }
+
+//   return null;
+// };
+const renderIntakeField = (field, step) => {
+  
+  const fieldKey = field.key || field.doc_name;
+
+  const fieldType = (
+    field.field_type ||
+    field.type ||
+    'text'
+  ).toLowerCase();
+
+  const value = fieldValues[fieldKey] || '';
+  // const isSubmitted =
+  // value !== undefined &&
+  // value !== null &&
+  // value !== '';
+  const isSubmitted = submittedFields[fieldKey] === true;
+
+  const updateValue = (newValue) => {
+    setFieldValues((prev) => ({
+      ...prev,
+      [fieldKey]: newValue
+    }));
+  };
+
+  const isSubmitting = submittingField === fieldKey;
+  
+
+  return (
+    <div className="space-y-2">
+      {fieldType === 'textarea' && (
+        <textarea
+  value={value}
+  disabled={isSubmitted}
+  onChange={(e) => updateValue(e.target.value)}
+  placeholder={field.placeholder || field.notes || ''}
+  className="w-full min-h-[100px] border border-slate-200 rounded-lg p-3 text-sm disabled:bg-slate-100 disabled:text-slate-700"
+/>
+      )}
+
+      {fieldType === 'date' && (
+        <Input
+          type="date"
+          value={value}
+          onChange={(e) => updateValue(e.target.value)}
+        />
+      )}
+
+      {(fieldType === 'select' || fieldType === 'dropdown') && (
+        <select
+  value={value}
+  disabled={isSubmitted}
+  onChange={(e) => updateValue(e.target.value)}
+  className="w-full h-10 border border-slate-200 rounded-lg px-3 text-sm bg-white disabled:bg-slate-100"
+>
+          <option value="">Select option</option>
+
+          {(field.options || []).map((option, index) => {
+            const optionValue =
+              typeof option === 'string'
+                ? option
+                : option.value;
+
+            const optionLabel =
+              typeof option === 'string'
+                ? option
+                : option.label;
+
+            return (
+              <option key={index} value={optionValue}>
+                {optionLabel}
+              </option>
+            );
+          })}
+        </select>
+      )}
+
+      {fieldType === 'text' && (
+        <Input
+          type="text"
+          value={value}
+          onChange={(e) => updateValue(e.target.value)}
+          placeholder={field.placeholder || field.notes || ''}
+        />
+      )}
+
+    <Button
+  type="button"
+  size="sm"
+  onClick={() => handleFieldSubmit(field, step)}
+  disabled={
+    isSubmitting ||
+    isSubmitted ||
+    value === ''
+  }
+  className="bg-[#2a777a] hover:bg-[#236466] text-white"
+>
+  {isSubmitting ? (
+    <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+  ) : (
+    <FileCheck className="h-3.5 w-3.5 mr-1.5" />
+  )}
+
+  {isSubmitting
+    ? 'Submitting...'
+    : isSubmitted
+    ? 'Submitted'
+    : 'Submit'}
+</Button>
+    </div>
+  );
+};
 
   if (loading) return (
     <div className="flex items-center justify-center py-16">
@@ -328,35 +606,66 @@ const UnifiedDocumentView = ({ token, caseId, caseData, onDocumentUploaded }) =>
                               </div>
                             )}
                           </div>
-                          <div className="flex-shrink-0 flex items-center gap-2">
-                            {doc.uploaded ? (
-                              <div className="flex items-center gap-1">
-                                <Badge className={getStatusColor(doc.status)}>
-                                  {doc.status === 'pending_review' ? 'Under Review' : doc.status === 'not_uploaded' ? 'Pending' : doc.status}
-                                </Badge>
-                                {doc.uploaded_doc?.id && (
-                                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => downloadDocument(doc.uploaded_doc.id, doc.uploaded_doc.filename)}>
-                                    <Download className="h-3.5 w-3.5 text-slate-500" />
-                                  </Button>
-                                )}
-                              </div>
+                                                    <div className="flex-shrink-0 ml-3 min-w-[250px]">
+                            {(!doc.field_type || doc.field_type === 'file') ? (
+                              doc.uploaded ? (
+                                <div className="flex items-center gap-1 justify-end">
+                                  <Badge className={getStatusColor(doc.status)}>
+                                    {doc.status === 'pending_review'
+                                      ? 'Under Review'
+                                      : doc.status === 'not_uploaded'
+                                      ? 'Pending'
+                                      : doc.status}
+                                  </Badge>
+
+                                  {doc.uploaded_doc?.id && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-7 w-7 p-0"
+                                      onClick={() =>
+                                        downloadDocument(
+                                          doc.uploaded_doc.id,
+                                          doc.uploaded_doc.filename
+                                        )
+                                      }
+                                    >
+                                      <Download className="h-3.5 w-3.5 text-slate-500" />
+                                    </Button>
+                                  )}
+                                </div>
+                              ) : (
+                                <label
+                                  className="cursor-pointer flex justify-end"
+                                  data-testid={`upload-btn-${sIdx}-${dIdx}`}
+                                >
+                                  <input
+                                    type="file"
+                                    className="hidden"
+                                    accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                                    onChange={(e) => {
+                                      if (e.target.files?.[0]) {
+                                        handleUpload(
+                                          step.step_name,
+                                          doc.doc_name,
+                                          e.target.files[0]
+                                        );
+                                      }
+                                    }}
+                                  />
+
+                                  <span className="flex items-center gap-1.5 text-xs bg-[#2a777a] hover:bg-[#236466] text-white px-3 py-1.5 rounded-md transition-colors cursor-pointer">
+                                    {uploading === uploadKey ? (
+                                      <Loader2 className="h-3 w-3 animate-spin" />
+                                    ) : (
+                                      <Upload className="h-3 w-3" />
+                                    )}
+                                    Upload
+                                  </span>
+                                </label>
+                              )
                             ) : (
-                              <label className="cursor-pointer" data-testid={`upload-btn-${sIdx}-${dIdx}`}>
-                                <input
-                                  type="file"
-                                  className="hidden"
-                                  accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-                                  onChange={(e) => {
-                                    if (e.target.files[0]) {
-                                      handleUpload(step.step_name, doc.doc_name, e.target.files[0]);
-                                    }
-                                  }}
-                                />
-                                <span className="flex items-center gap-1.5 text-xs bg-[#2a777a] hover:bg-[#236466] text-white px-3 py-1.5 rounded-md transition-colors cursor-pointer">
-                                  {uploading === uploadKey ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
-                                  Upload
-                                </span>
-                              </label>
+                              renderIntakeField(doc, step)
                             )}
                           </div>
                         </div>

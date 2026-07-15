@@ -37,6 +37,11 @@ import IntakeFormFiller from '@/components/IntakeFormFiller';
 import FeeCalculator from '@/components/FeeCalculator';
 import DocumentExtractor from '@/components/DocumentExtractor';
 import CmEarningsWidget from '@/components/CmEarningsWidget';
+// import {
+//   Eye,
+//   Download,
+//   // existing icons
+// } from 'lucide-react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -48,15 +53,16 @@ const CaseManagerDashboard = () => {
   const [cases, setCases] = useState([]);
   const [selectedCase, setSelectedCase] = useState(null);
   const [caseDocuments, setCaseDocuments] = useState([]);
+  const [caseIntakeData, setCaseIntakeData] = useState(null);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [ticketFilter, setTicketFilter] = useState(null);
   const [reviewDialog, setReviewDialog] = useState({ open: false, document: null, status: '', comment: '' });
   const [aiAnalysis, setAiAnalysis] = useState({ open: false, doc: null, result: null });
-  const [additionalDocDialog, setAdditionalDocDialog] = useState({ 
-    open: false, 
-    document_name: '', 
-    description: '', 
+  const [additionalDocDialog, setAdditionalDocDialog] = useState({
+    open: false,
+    document_name: '',
+    description: '',
     due_date: '',
     expiry_date: '',
     validity_months: '',
@@ -79,7 +85,9 @@ const CaseManagerDashboard = () => {
   const [expiryEditNotes, setExpiryEditNotes] = useState('');
   const [infoSheetCaseId, setInfoSheetCaseId] = useState(null);
   const [extractingResume, setExtractingResume] = useState(false);
-
+  const [cmFieldValues, setCmFieldValues] = useState({});
+  const [cmUploading, setCmUploading] = useState(null);
+ const [stepDocuments, setStepDocuments] = useState([]);
   const getAuthHeader = () => ({
     headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
   });
@@ -95,26 +103,26 @@ const CaseManagerDashboard = () => {
       setStats(statsRes.data);
       setCases(casesRes.data);
       setCanCustomizeWorkflow(settingsRes.data?.allow_case_manager_workflow_customization || false);
-      
+
       // Load all documents across all cases to find pending reviews
       const allCases = casesRes.data;
       let allDocs = [];
       let pendingDocs = [];
-      
+
       for (const c of allCases) {
         try {
           const docsRes = await axios.get(`${API}/documents/case/${c.id}`, authHeader);
           const caseDocs = docsRes.data.map(d => ({ ...d, case_id: c.case_id, client_name: c.client_name }));
           allDocs = [...allDocs, ...caseDocs];
           // Include all statuses that need review: uploaded, pending, pending_review
-          pendingDocs = [...pendingDocs, ...caseDocs.filter(d => 
+          pendingDocs = [...pendingDocs, ...caseDocs.filter(d =>
             d.status === 'uploaded' || d.status === 'pending' || d.status === 'pending_review'
           )];
         } catch (e) {
           // Skip if can't load docs for this case
         }
       }
-      
+
       setAllDocuments(allDocs);
       setPendingReviewDocs(pendingDocs);
       setPendingReviewCount(pendingDocs.length);
@@ -138,14 +146,14 @@ const CaseManagerDashboard = () => {
       return;
     }
     setUser(userData);
-    
+
     // Check if there's a tab to open from notification click
     const storedTab = sessionStorage.getItem('activeTab');
     if (storedTab) {
       setActiveTab(storedTab);
       sessionStorage.removeItem('activeTab');
     }
-    
+
     // Check if there's a ticket to open
     const storedTicketId = sessionStorage.getItem('openTicketId');
     if (storedTicketId) {
@@ -153,7 +161,7 @@ const CaseManagerDashboard = () => {
       setInitialTicketId(storedTicketId);
       sessionStorage.removeItem('openTicketId');
     }
-    
+
     // Check if there's a case to open
     const storedCaseId = sessionStorage.getItem('openCaseId');
     if (storedCaseId) {
@@ -173,7 +181,7 @@ const CaseManagerDashboard = () => {
   const handleNotificationClick = async (notification) => {
     const type = notification.type || '';
     const relatedId = notification.related_id;
-    
+
     if (type.includes('ticket')) {
       setActiveTab('tickets');
       setInitialTicketId(relatedId);
@@ -195,16 +203,37 @@ const CaseManagerDashboard = () => {
     try {
       // Trigger step-documents sync first (merges admin defaults into case_steps)
       await axios.get(`${API}/step-documents/case/${caseId}`, getAuthHeader()).catch(() => {});
-      const [caseRes, docsRes] = await Promise.all([
+      const [caseRes, docsRes, intakeRes] = await Promise.all([
         axios.get(`${API}/cases/${caseId}`, getAuthHeader()),
-        axios.get(`${API}/documents/case/${caseId}`, getAuthHeader())
+        axios.get(`${API}/documents/case/${caseId}`, getAuthHeader()),
+        axios.get(`${API}/intake-forms/case/${caseId}`, getAuthHeader())
       ]);
+      const stepDocsRes = await axios.get(
+  `${API}/step-documents/case/${caseId}`,
+  getAuthHeader()
+);
+
+setStepDocuments(stepDocsRes.data?.steps || []);
+
       setSelectedCase(caseRes.data);
       setCaseDocuments(docsRes.data);
+      try {
+  const intakeRes = await axios.get(
+    `${API}/intake-forms/case/${caseData.id}`,
+    { headers }
+  );
+
+  setCaseIntakeData(intakeRes.data);
+} catch (error) {
+  console.error('Failed to load case intake data:', error);
+  setCaseIntakeData(null);
+}
+      setCmFieldValues(intakeRes.data?.data || {});
     } catch (error) {
       toast.error('Failed to load case details');
     }
   };
+  
 
   const handleLogout = () => {
     localStorage.clear();
@@ -245,7 +274,7 @@ const CaseManagerDashboard = () => {
       }, getAuthHeader());
       toast.success('Document reviewed!');
       setReviewDialog({ open: false, document: null, status: '', comment: '' });
-      
+
       if (selectedCase) {
         loadCaseDetails(selectedCase.id);
       }
@@ -278,7 +307,7 @@ const CaseManagerDashboard = () => {
   };
 
   const toggleDocSelection = (docId) => {
-    setSelectedDocIds(prev => 
+    setSelectedDocIds(prev =>
       prev.includes(docId) ? prev.filter(id => id !== docId) : [...prev, docId]
     );
   };
@@ -338,7 +367,7 @@ const CaseManagerDashboard = () => {
       }
 
       toast.success(isStepDoc ? `Document added to step "${additionalDocDialog.step_name}"!` : 'Additional document requested!');
-      setAdditionalDocDialog({ 
+      setAdditionalDocDialog({
         open: false, document_name: '', description: '', due_date: '',
         expiry_date: '', validity_months: '', doc_type: '', step_order: null, step_name: ''
       });
@@ -405,6 +434,74 @@ const CaseManagerDashboard = () => {
       toast.error(e.response?.data?.detail || 'AI suggestion failed');
     }
     setAiSuggesting(null);
+  };
+
+  const saveCMFieldValues = async () => {
+    if (!selectedCase) return;
+
+    try {
+      await axios.post(
+        `${API}/intake-forms/case/save`,
+        {
+          case_id: selectedCase.id,
+          data: cmFieldValues
+        },
+        getAuthHeader()
+      );
+
+      toast.success('Intake form saved!');
+      await loadCaseDetails(selectedCase.id);
+
+    } catch (error) {
+      console.error('CM intake save error:', error);
+
+      toast.error(
+        error.response?.data?.detail ||
+        'Failed to save intake form'
+      );
+    }
+  };
+
+  const handleCMFieldUpload = async (stepName, field, file) => {
+    if (!file || !selectedCase) return;
+
+    const uploadKey = `${stepName}-${field.key}`;
+    setCmUploading(uploadKey);
+
+    try {
+      const formData = new FormData();
+
+      formData.append('file', file);
+      formData.append('case_id', selectedCase.id);
+      formData.append('document_type', field.label);
+      formData.append('step_name', stepName);
+
+      await axios.post(
+        `${API}/documents/upload`,
+        formData,
+        {
+          ...getAuthHeader(),
+          headers: {
+            ...getAuthHeader().headers,
+            'Content-Type': 'multipart/form-data'
+          }
+        }
+      );
+
+      toast.success(`${field.label} uploaded!`);
+
+      await loadCaseDetails(selectedCase.id);
+      await loadData();
+
+    } catch (error) {
+      console.error('CM upload error:', error);
+
+      toast.error(
+        error.response?.data?.detail || 'Failed to upload document'
+      );
+    } finally {
+      setCmUploading(null);
+    }
   };
 
   const downloadDocument = async (docId, filename) => {
@@ -486,12 +583,12 @@ const CaseManagerDashboard = () => {
         ...getAuthHeader(),
         responseType: 'blob'
       });
-      
+
       // Get the content type from response or guess from filename
       const contentType = response.headers['content-type'] || 'application/pdf';
       const blob = new Blob([response.data], { type: contentType });
       const blobUrl = window.URL.createObjectURL(blob);
-      
+
       // Open in new tab
       window.open(blobUrl, '_blank');
     } catch (error) {
@@ -612,811 +709,1396 @@ const CaseManagerDashboard = () => {
       onNotificationClick={handleNotificationClick}
       onLogout={handleLogout}
     >
-          {activeTab === 'dashboard' && (
-            <div>
-              {/* Phase 4C.5 — CM Earnings Widget (read-only, auto-hides when no earnings) */}
-              <CmEarningsWidget />
-              {/* Smart Workload Dashboard */}
-              <WorkloadDashboard
-                onNavigateToCase={(caseId) => { loadCaseDetails(caseId); setActiveTab('cases'); }}
-                onNavigateToTab={(tab) => setActiveTab(tab)}
-              />
-            </div>
-          )}
+      {activeTab === 'dashboard' && (
+        <div>
+          {/* Phase 4C.5 — CM Earnings Widget (read-only, auto-hides when no earnings) */}
+          <CmEarningsWidget />
+          {/* Smart Workload Dashboard */}
+          <WorkloadDashboard
+            onNavigateToCase={(caseId) => { loadCaseDetails(caseId); setActiveTab('cases'); }}
+            onNavigateToTab={(tab) => setActiveTab(tab)}
+          />
+        </div>
+      )}
 
-          {activeTab === 'cases' && !selectedCase && (
-            <div className="space-y-4" data-testid="cases-list">
-              {cases.map((caseItem) => (
-                <Card
-                  key={caseItem.id}
-                  className="p-6 cursor-pointer hover:shadow-md transition-shadow"
-                  onClick={() => loadCaseDetails(caseItem.id)}
-                  data-testid={`case-card-${caseItem.id}`}
+      {activeTab === 'cases' && !selectedCase && (
+        <div className="space-y-4" data-testid="cases-list">
+          {cases.map((caseItem) => (
+            <Card
+              key={caseItem.id}
+              className="p-6 cursor-pointer hover:shadow-md transition-shadow"
+              onClick={() => loadCaseDetails(caseItem.id)}
+              data-testid={`case-card-${caseItem.id}`}
+            >
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">{caseItem.case_id}</h3>
+                  <p className="text-sm text-slate-600 mt-1">Client: {caseItem.client_name}</p>
+                  <p className="text-sm text-slate-600">{caseItem.client_email}</p>
+                  <p className="text-sm text-slate-600 mt-2">Product: {caseItem.product_name}</p>
+                  <p className="text-sm text-slate-500">Partner: {caseItem.partner_name}</p>
+                </div>
+                <div className="text-right">
+                  {getStatusBadge('in_progress')}
+                  <p className="text-sm text-slate-600 mt-2">{caseItem.current_step}</p>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {selectedCase && (
+        <div className="space-y-6">
+          <Card className="p-6">
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Case Information</h3>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => { setInfoSheetCaseId(selectedCase.id); setActiveTab('info-sheets'); }}
+                  size="sm"
+                  variant="outline"
+                  data-testid="info-sheet-btn"
                 >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900">{caseItem.case_id}</h3>
-                      <p className="text-sm text-slate-600 mt-1">Client: {caseItem.client_name}</p>
-                      <p className="text-sm text-slate-600">{caseItem.client_email}</p>
-                      <p className="text-sm text-slate-600 mt-2">Product: {caseItem.product_name}</p>
-                      <p className="text-sm text-slate-500">Partner: {caseItem.partner_name}</p>
-                    </div>
-                    <div className="text-right">
-                      {getStatusBadge('in_progress')}
-                      <p className="text-sm text-slate-600 mt-2">{caseItem.current_step}</p>
-                    </div>
-                  </div>
-                </Card>
-              ))}
+                  <FileText className="mr-2 h-4 w-4" />
+                  View/Edit Info Sheet
+                </Button>
+                <Button
+                  onClick={async () => {
+                    const msg = window.prompt('Enter a message for the client:',
+                      'Please fill your information sheet with complete details. All fields marked as required must be filled before your case can proceed.');
+                    if (msg) {
+                      try {
+                        const required_fields = [
+                          "full_name", "date_of_birth", "gender", "nationality",
+                          "passport_number", "passport_expiry", "address", "phone", "email",
+                          "education_level", "occupation", "employer", "marital_status",
+                          "work_experience_years"
+                        ];
+                        await axios.post(`${API}/cases/${selectedCase.id}/request-info-sheet`, { message: msg, required_fields }, getAuthHeader());
+                        toast.success('Information sheet request sent! Client will be notified to fill all required fields.');
+                      } catch (e) { toast.error('Failed to send request'); }
+                    }
+                  }}
+                  size="sm"
+                  variant="outline"
+                  className="text-amber-600 border-amber-300 hover:bg-amber-50"
+                  data-testid="request-info-sheet-btn"
+                >
+                  <Send className="mr-2 h-4 w-4" />
+                  Request Info Sheet
+                </Button>
+                <Button
+                  onClick={() => setAdditionalDocDialog({ ...additionalDocDialog, open: true, step_order: null, step_name: '' })}
+                  size="sm"
+                  className="bg-[#2a777a] hover:bg-[#236466]"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Request Additional Document
+                </Button>
+              </div>
             </div>
-          )}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-slate-600">Client Name</p>
+                <p className="font-medium text-gray-900">{selectedCase.client_name}</p>
+              </div>
+              <div>
+                <p className="text-sm text-slate-600">Email</p>
+                <p className="font-medium text-gray-900">{selectedCase.client_email}</p>
+              </div>
+              <div>
+                <p className="text-sm text-slate-600">Product</p>
+                <p className="font-medium text-gray-900">{selectedCase.product_name}</p>
+              </div>
+              <div>
+                <p className="text-sm text-slate-600">Partner</p>
+                <p className="font-medium text-gray-900">{selectedCase.partner_name}</p>
+              </div>
+            </div>
+          </Card>
 
-          {selectedCase && (
-            <div className="space-y-6">
-              <Card className="p-6">
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">Case Information</h3>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={() => { setInfoSheetCaseId(selectedCase.id); setActiveTab('info-sheets'); }}
-                      size="sm"
-                      variant="outline"
-                      data-testid="info-sheet-btn"
-                    >
-                      <FileText className="mr-2 h-4 w-4" />
-                      View/Edit Info Sheet
-                    </Button>
-                    <Button
-                      onClick={async () => {
-                        const msg = window.prompt('Enter a message for the client:',
-                          'Please fill your information sheet with complete details. All fields marked as required must be filled before your case can proceed.');
-                        if (msg) {
-                          try {
-                            const required_fields = [
-                              "full_name", "date_of_birth", "gender", "nationality",
-                              "passport_number", "passport_expiry", "address", "phone", "email",
-                              "education_level", "occupation", "employer", "marital_status",
-                              "work_experience_years"
-                            ];
-                            await axios.post(`${API}/cases/${selectedCase.id}/request-info-sheet`, { message: msg, required_fields }, getAuthHeader());
-                            toast.success('Information sheet request sent! Client will be notified to fill all required fields.');
-                          } catch (e) { toast.error('Failed to send request'); }
+          <Card className="p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Workflow Steps</h3>
+              {canCustomizeWorkflow && (
+                <Badge className="bg-green-100 text-green-700">Customization Enabled</Badge>
+              )}
+            </div>
+            <div className="space-y-4" data-testid="workflow-steps">
+              {selectedCase.steps && selectedCase.steps.map((step, index) => {
+                const stepDocData = stepDocuments.find(
+  (item) =>
+    item.step_name?.trim().toLowerCase() ===
+    step.step_name?.trim().toLowerCase()
+);
+
+const workflowDocuments = stepDocData?.documents || [];
+                const prevCompleted = index === 0 || selectedCase.steps.slice(0, index).every(s => s.status === 'completed');
+                const isLocked = !prevCompleted && index > 0;
+                const isCompleted = step.status === 'completed';
+
+                return (
+                  <div key={index} className={`border rounded-lg p-4 ${isLocked ? 'opacity-50 bg-slate-50' : ''} ${isCompleted ? 'border-emerald-200 bg-emerald-50/30' : ''}`}>
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-gray-900 flex items-center gap-2">
+                          {isLocked && <Lock className="h-4 w-4 text-slate-400" />}
+                          {isCompleted && <CheckCircle className="h-4 w-4 text-emerald-500" />}
+                          {step.step_order}. {step.step_name}
+                        </h4>
+                        {isLocked && <p className="text-xs text-red-500 mt-1">Complete previous step first</p>}
+                        {step.notes && <p className="text-sm text-slate-600 mt-1">{step.notes}</p>}
+
+                        {/* STEP DOCUMENTS FROM WORKFLOW BUILDER */}
+                        {/* STEP DOCUMENTS FROM WORKFLOW BUILDER */}
+{workflowDocuments.length  > 0 && (
+  <div className="mt-4 space-y-2">
+    <p className="text-sm font-semibold text-slate-700">
+      Required Documents
+    </p>
+
+    {workflowDocuments.map((doc, docIndex) => {
+      const docName =
+        typeof doc === 'string'
+          ? doc
+          : doc.doc_name ||
+            doc.name ||
+            doc.document_name ||
+            'Document';
+
+      const matchingField = (step.sections || [])
+        .flatMap((section) => section.fields || [])
+        .find((field) => {
+          const fieldLabel = (field.label || '')
+            .trim()
+            .toLowerCase();
+
+          return fieldLabel === docName.trim().toLowerCase();
+        });
+
+      const filledBy = (
+        matchingField?.filled_by ||
+        doc?.filled_by ||
+        'client'
+      ).toLowerCase();
+
+      const canCMFill =
+        filledBy === 'cm' ||
+        filledBy === 'both';
+        const fieldType = (
+  doc.field_type ||
+  doc.type ||
+  'file'
+).toLowerCase();
+
+const fieldKey = doc.key || `document-${step.id}-${docIndex}`;
+
+      const uploadedDoc = (caseDocuments || []).find((caseDoc) => {
+        const documentType = (
+          caseDoc.document_type || ''
+        ).trim().toLowerCase();
+
+        return documentType === docName.trim().toLowerCase();
+      });
+
+      return (
+        <div
+          key={doc.id || docIndex}
+          className="flex items-center justify-between border border-slate-200 rounded-lg p-3 bg-white"
+        >
+          <div>
+            <p className="text-sm font-medium text-slate-800">
+              {docName}
+            </p>
+
+            {typeof doc !== 'string' && doc.description && (
+              <p className="text-xs text-slate-500 mt-1">
+                {doc.description}
+              </p>
+            )}
+
+            <div className="flex items-center gap-2 mt-2">
+              {filledBy === 'client' && (
+                <Badge
+                  variant="outline"
+                  className="text-xs text-blue-600 border-blue-200 bg-blue-50"
+                >
+                  Filled by Client
+                </Badge>
+              )}
+
+              {filledBy === 'cm' && (
+                <Badge
+                  variant="outline"
+                  className="text-xs text-purple-600 border-purple-200 bg-purple-50"
+                >
+                  CM Only
+                </Badge>
+              )}
+
+              {filledBy === 'both' && (
+                <Badge
+                  variant="outline"
+                  className="text-xs text-emerald-600 border-emerald-200 bg-emerald-50"
+                >
+                  Client or CM
+                </Badge>
+              )}
+            </div>
+          </div>
+
+          <div>
+            {uploadedDoc ? (
+              <Badge className="bg-emerald-600">
+                Uploaded
+              </Badge>
+                      ) : canCMFill ? (
+              <div className="w-72">
+                {(fieldType === 'file' || fieldType === 'file_upload') && (
+                  <label className="cursor-pointer">
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+
+                        if (file) {
+                          handleCMFieldUpload(
+                            step.step_name,
+                            doc,
+                            file
+                          );
                         }
+
+                        e.target.value = '';
                       }}
-                      size="sm"
-                      variant="outline"
-                      className="text-amber-600 border-amber-300 hover:bg-amber-50"
-                      data-testid="request-info-sheet-btn"
-                    >
-                      <Send className="mr-2 h-4 w-4" />
-                      Request Info Sheet
-                    </Button>
-                    <Button
-                      onClick={() => setAdditionalDocDialog({ ...additionalDocDialog, open: true, step_order: null, step_name: '' })}
-                      size="sm"
-                      className="bg-[#2a777a] hover:bg-[#236466]"
-                    >
-                      <Plus className="mr-2 h-4 w-4" />
-                      Request Additional Document
-                    </Button>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-slate-600">Client Name</p>
-                    <p className="font-medium text-gray-900">{selectedCase.client_name}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-slate-600">Email</p>
-                    <p className="font-medium text-gray-900">{selectedCase.client_email}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-slate-600">Product</p>
-                    <p className="font-medium text-gray-900">{selectedCase.product_name}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-slate-600">Partner</p>
-                    <p className="font-medium text-gray-900">{selectedCase.partner_name}</p>
-                  </div>
-                </div>
-              </Card>
+                    />
 
-              <Card className="p-6">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">Workflow Steps</h3>
-                  {canCustomizeWorkflow && (
-                    <Badge className="bg-green-100 text-green-700">Customization Enabled</Badge>
-                  )}
-                </div>
-                <div className="space-y-4" data-testid="workflow-steps">
-                  {selectedCase.steps && selectedCase.steps.map((step, index) => {
-                    const prevCompleted = index === 0 || selectedCase.steps.slice(0, index).every(s => s.status === 'completed');
-                    const isLocked = !prevCompleted && index > 0;
-                    const isCompleted = step.status === 'completed';
+                    <span className="inline-flex items-center gap-2 bg-[#2a777a] hover:bg-[#236466] text-white text-xs px-3 py-2 rounded-md">
+                      {cmUploading === `${step.step_name}-${doc.key}` ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Plus className="h-4 w-4" />
+                      )}
 
-                    return (
-                    <div key={index} className={`border rounded-lg p-4 ${isLocked ? 'opacity-50 bg-slate-50' : ''} ${isCompleted ? 'border-emerald-200 bg-emerald-50/30' : ''}`}>
-                      <div className="flex justify-between items-start mb-3">
-                        <div className="flex-1">
-                          <h4 className="font-semibold text-gray-900 flex items-center gap-2">
-                            {isLocked && <Lock className="h-4 w-4 text-slate-400" />}
-                            {isCompleted && <CheckCircle className="h-4 w-4 text-emerald-500" />}
-                            {step.step_order}. {step.step_name}
-                          </h4>
-                          {isLocked && <p className="text-xs text-red-500 mt-1">Complete previous step first</p>}
-                          {step.notes && <p className="text-sm text-slate-600 mt-1">{step.notes}</p>}
-                          {step.required_documents && step.required_documents.length > 0 && (
-                            <div className="mt-2 flex flex-wrap gap-1">
-                              {step.required_documents.map((d, di) => {
-                                const docName = d.doc_name || d.name || '';
-                                if (!docName) return null;
-                                const uploaded = (caseDocuments || []).some(cd => 
-                                  cd.document_type?.toLowerCase().includes(docName.toLowerCase()) || 
-                                  docName.toLowerCase().includes(cd.document_type?.toLowerCase())
-                                );
-                                const canRemove = canCustomizeWorkflow && d.source === 'cm_request' && !uploaded;
-                                return (
-                                  <span key={di} className={`text-xs px-2 py-0.5 rounded-full border inline-flex items-center gap-1 ${uploaded ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-600 border-red-200'}`}>
-                                    {docName} {uploaded ? '\u2713' : '\u2717'}
-                                    {d.is_mandatory && !uploaded && <span className="text-red-500 ml-0.5">*</span>}
-                                    {canRemove && (
-                                      <button
-                                        className="ml-1 text-red-400 hover:text-red-600"
-                                        title={`Remove "${docName}"`}
-                                        onClick={async (e) => {
-                                          e.stopPropagation();
-                                          if (!window.confirm(`Remove "${docName}" from "${step.step_name}"?`)) return;
-                                          try {
-                                            await axios.post(`${API}/step-documents/remove-step-doc`, {
-                                              case_id: selectedCase.id, step_name: step.step_name, doc_name: docName
-                                            }, getAuthHeader());
-                                            toast.success(`Removed "${docName}"`);
-                                            loadCaseDetails(selectedCase.id);
-                                          } catch (err) {
-                                            toast.error(err.response?.data?.detail || 'Cannot remove');
-                                          }
-                                        }}
-                                        data-testid={`remove-doc-${index}-${di}`}
-                                      >
-                                        <XCircle className="h-3 w-3" />
-                                      </button>
-                                    )}
-                                  </span>
-                                );
-                              })}
+                      Upload
+                    </span>
+                  </label>
+                )}
+
+                {fieldType === 'text' && (
+                  <Input
+                    value={cmFieldValues[fieldKey] || ''}
+                    placeholder={doc.placeholder || docName}
+                    onChange={(e) =>
+                      setCmFieldValues((prev) => ({
+                        ...prev,
+                        [fieldKey]: e.target.value
+                      }))
+                    }
+                  />
+                )}
+
+                {(fieldType === 'textarea' ||
+                  fieldType === 'long_text') && (
+                  <Textarea
+                    value={cmFieldValues[fieldKey] || ''}
+                    placeholder={doc.placeholder || docName}
+                    onChange={(e) =>
+                      setCmFieldValues((prev) => ({
+                        ...prev,
+                        [fieldKey]: e.target.value
+                      }))
+                    }
+                  />
+                )}
+
+                {fieldType === 'date' && (
+                  <Input
+                    type="date"
+                    value={cmFieldValues[fieldKey] || ''}
+                    onChange={(e) =>
+                      setCmFieldValues((prev) => ({
+                        ...prev,
+                        [fieldKey]: e.target.value
+                      }))
+                    }
+                  />
+                )}
+
+                {(fieldType === 'select' ||
+                  fieldType === 'dropdown') && (
+                  <Select
+                    value={cmFieldValues[fieldKey] || ''}
+                    onValueChange={(value) =>
+                      setCmFieldValues((prev) => ({
+                        ...prev,
+                        [fieldKey]: value
+                      }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select option" />
+                    </SelectTrigger>
+
+                    <SelectContent>
+                      {(doc.options || []).map(
+                        (option, optionIndex) => {
+                          const value =
+                            typeof option === 'string'
+                              ? option
+                              : option.value;
+
+                          const label =
+                            typeof option === 'string'
+                              ? option
+                              : option.label;
+
+                          return (
+                            <SelectItem
+                              key={optionIndex}
+                              value={value}
+                            >
+                              {label}
+                            </SelectItem>
+                          );
+                        }
+                      )}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+            ) : (
+              <span className="text-xs text-slate-500 font-medium">
+                Filled by Client
+              </span>
+            )}
+          </div>
+        </div>
+      );
+    })}
+  </div>
+)}
+
+
+                        {/* STEP INTAKE FORM */}
+                        {(step.sections || []).map((section, sectionIndex) => {
+                          const intakeFields = section.fields || [];
+
+                          if (intakeFields.length === 0) return null;
+
+                          return (
+                            <div
+                              key={section.id || sectionIndex}
+                              className="mt-4 border border-slate-200 rounded-lg p-4 bg-white"
+                            >
+                              <h5 className="font-medium text-slate-800 mb-3">
+                                {section.title}
+                              </h5>
+
+                              <div className="space-y-3">
+                                {intakeFields.map((field, fieldIndex) => {
+                                  const fieldType = (
+                                    field.field_type ||
+                                    field.type ||
+                                    'text'
+                                  ).toLowerCase();
+
+                                 const fieldKey = field.key;
+                                 const filledBy = (
+  field.filled_by || 'client'
+).toLowerCase();
+
+const isClientOnly = filledBy === 'client';
+
+const fieldValue = cmFieldValues[fieldKey] || '';
+
+                                  return (
+                                    <div
+                                      key={field.key || fieldIndex}
+                                      className="border border-slate-100 rounded-lg p-3"
+                                    >
+                                      <Label className="text-sm font-medium">
+                                        {field.label}
+
+                                        {field.required && (
+                                          <span className="text-red-500 ml-1">*</span>
+                                        )}
+                                      </Label>
+
+                                      {field.help_text && (
+                                        <p className="text-xs text-slate-500 mt-1 mb-2">
+                                          {field.help_text}
+                                        </p>
+                                      )}
+
+                                     <div className="mt-2">
+  {isClientOnly ? (
+    <div className="p-2.5 bg-slate-100 rounded-lg min-h-[40px]">
+      {fieldValue !== '' ? (
+        <span className="text-sm text-slate-800">
+          {String(fieldValue)}
+        </span>
+      ) : (
+        <span className="text-sm text-slate-400 italic">
+          Not filled by client yet
+        </span>
+      )}
+    </div>
+  ) : (
+    <>
+      {fieldType === 'text' && (
+        <Input
+          value={cmFieldValues[fieldKey] || ''}
+          placeholder={field.placeholder || field.label}
+          onChange={(e) =>
+            setCmFieldValues((prev) => ({
+              ...prev,
+              [fieldKey]: e.target.value
+            }))
+          }
+        />
+      )}
+
+      {fieldType === 'textarea' && (
+        <Textarea
+          value={cmFieldValues[fieldKey] || ''}
+          placeholder={field.placeholder || field.label}
+          onChange={(e) =>
+            setCmFieldValues((prev) => ({
+              ...prev,
+              [fieldKey]: e.target.value
+            }))
+          }
+        />
+      )}
+
+      {fieldType === 'date' && (
+        <Input
+          type="date"
+          value={cmFieldValues[fieldKey] || ''}
+          onChange={(e) =>
+            setCmFieldValues((prev) => ({
+              ...prev,
+              [fieldKey]: e.target.value
+            }))
+          }
+        />
+      )}
+
+      {(fieldType === 'select' ||
+        fieldType === 'dropdown') && (
+        <Select
+          value={cmFieldValues[fieldKey] || ''}
+          onValueChange={(value) =>
+            setCmFieldValues((prev) => ({
+              ...prev,
+              [fieldKey]: value
+            }))
+          }
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select option" />
+          </SelectTrigger>
+
+          <SelectContent>
+            {(field.options || []).map(
+              (option, optionIndex) => {
+                const optionValue =
+                  typeof option === 'string'
+                    ? option
+                    : option.value;
+
+                const optionLabel =
+                  typeof option === 'string'
+                    ? option
+                    : option.label;
+
+                return (
+                  <SelectItem
+                    key={optionIndex}
+                    value={optionValue}
+                  >
+                    {optionLabel}
+                  </SelectItem>
+                );
+              }
+            )}
+          </SelectContent>
+        </Select>
+      )}
+
+      {fieldType === 'file' && (
+        <label className="cursor-pointer">
+          <input
+            type="file"
+            className="hidden"
+            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+
+              if (file) {
+                handleCMFieldUpload(
+                  step.step_name,
+                  field,
+                  file
+                );
+              }
+
+              e.target.value = '';
+            }}
+          />
+
+          <span className="inline-flex items-center gap-2 bg-[#2a777a] hover:bg-[#236466] text-white text-xs px-3 py-2 rounded-md">
+            {cmUploading ===
+            `${step.step_name}-${field.key}` ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Plus className="h-4 w-4" />
+            )}
+
+            Upload
+          </span>
+        </label>
+      )}
+    </>
+  )}
+</div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
                             </div>
-                          )}
-                        </div>
-                        {getStatusBadge(step.status)}
+                          );
+                        })}
+
+                        {(step.sections || []).some((section) =>
+                          (section.fields || []).some((field) => {
+                            const filledBy = (field.filled_by || '').toLowerCase();
+
+                            return filledBy === 'cm' || filledBy === 'both';
+                          })
+                        ) && (
+                          <div className="mt-4">
+                            <Button
+                              size="sm"
+                              onClick={saveCMFieldValues}
+                              className="bg-[#2a777a] hover:bg-[#236466]"
+                            >
+                              <CheckCircle className="h-4 w-4 mr-2" />
+                              Save Intake Fields
+                            </Button>
+                          </div>
+                        )}
                       </div>
                       {!isLocked && !isCompleted && (
-                      <div className="flex gap-2">
-                        <Select onValueChange={(value) => handleUpdateStep(step.step_name, value, step.notes)}>
-                          <SelectTrigger className="w-40" data-testid={`update-step-${index}`}>
-                            <SelectValue placeholder="Update status" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="in_progress">In Progress</SelectItem>
-                            <SelectItem value="completed">Mark Complete</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        {canCustomizeWorkflow && (
-                          <>
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => openCustomDocDialog(step.step_order, step.step_name)}
-                            data-testid={`add-doc-step-${index}`}
-                          >
-                            <Plus className="h-4 w-4 mr-1" />Add Doc
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="border-leamss-orange-300 text-leamss-orange-700 hover:bg-leamss-orange-50"
-                            disabled={aiSuggesting === step.step_name}
-                            onClick={() => cmAiSuggestDocs(step.step_name, step.description)}
-                            data-testid={`ai-suggest-step-${index}`}
-                          >
-                            {aiSuggesting === step.step_name ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Sparkles className="h-4 w-4 mr-1" />}AI Suggest
-                          </Button>
-                          </>
-                        )}
-                      </div>
+                        <div className="flex gap-2">
+                          <Select onValueChange={(value) => handleUpdateStep(step.step_name, value, step.notes)}>
+                            <SelectTrigger className="w-40" data-testid={`update-step-${index}`}>
+                              <SelectValue placeholder="Update status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="in_progress">In Progress</SelectItem>
+                              <SelectItem value="completed">Mark Complete</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          {canCustomizeWorkflow && (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => openCustomDocDialog(step.step_order, step.step_name)}
+                                data-testid={`add-doc-step-${index}`}
+                              >
+                                <Plus className="h-4 w-4 mr-1" />Add Doc
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="border-leamss-orange-300 text-leamss-orange-700 hover:bg-leamss-orange-50"
+                                disabled={aiSuggesting === step.step_name}
+                                onClick={() => cmAiSuggestDocs(step.step_name, step.description)}
+                                data-testid={`ai-suggest-step-${index}`}
+                              >
+                                {aiSuggesting === step.step_name ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Sparkles className="h-4 w-4 mr-1" />}AI Suggest
+                              </Button>
+                            </>
+                          )}
+                        </div>
                       )}
                     </div>
-                    );
-                  })}
-                </div>
-              </Card>
-
-              <Card className="p-6">
-                <h3 className="text-lg font-semibold mb-4 text-gray-900">Documents</h3>
-                <div className="space-y-3" data-testid="case-documents">
-                  {caseDocuments.map((doc) => (
-                    <div key={doc.id} className="flex justify-between items-center p-3 border rounded-lg hover:bg-slate-50">
-                      <div className="flex-1">
-                        <p className="font-medium text-gray-900">{doc.filename}</p>
-                        <div className="flex flex-wrap gap-3 text-sm text-slate-600">
-                          {doc.step_name && <span>Step: {doc.step_name}</span>}
-                          {doc.document_type && <span className="capitalize">Type: {doc.document_type.replace(/_/g, ' ')}</span>}
-                          <span>By: {doc.uploader_name || 'Unknown'}</span>
-                          <span>{formatDate(doc.uploaded_at)}</span>
-                        </div>
-                        {doc.review_comment && (
-                          <div className="mt-1 text-sm">
-                            <span className="text-slate-500">Review ({doc.reviewer_name || 'CM'}): </span>
-                            <span className={doc.status === 'approved' ? 'text-green-600' : doc.status === 'rejected' ? 'text-red-600' : 'text-amber-600'}>{doc.review_comment}</span>
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-3">
-                        {getStatusBadge(doc.status)}
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => downloadDocument(doc.id, doc.filename)}
-                          data-testid={`download-case-doc-${doc.id}`}
-                        >
-                          <Download className="h-4 w-4" />
-                        </Button>
-                        {['pending', 'pending_review', 'uploaded', 'revision_required'].includes(doc.status) && (
-                          <Button
-                            size="sm"
-                            onClick={() => setReviewDialog({ open: true, document: doc, status: '', comment: '' })}
-                            data-testid={`review-doc-${doc.id}`}
-                            className="bg-[#2a777a] hover:bg-[#236466]"
-                          >
-                            Review
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                  {caseDocuments.length === 0 && (
-                    <p className="text-center text-slate-500 py-8">No documents uploaded yet</p>
-                  )}
-                </div>
-              </Card>
-
-              {selectedCase.additional_doc_requests && selectedCase.additional_doc_requests.length > 0 && (
-                <Card className="p-6">
-                  <h3 className="text-lg font-semibold mb-4 text-gray-900">Additional Document Requests</h3>
-                  <div className="space-y-3">
-                    {selectedCase.additional_doc_requests.map((req) => (
-                      <div key={req.id} className="p-3 border rounded-lg bg-blue-50">
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            <p className="font-medium text-gray-900">{req.doc_name || req.document_name}</p>
-                            <p className="text-sm text-slate-600">{req.description}</p>
-                            {req.step_name && (
-                              <p className="text-xs text-blue-600 mt-1">Step: {req.step_name}</p>
-                            )}
-                            <div className="flex flex-wrap gap-2 mt-2">
-                              {req.doc_type && (
-                                <Badge variant="outline" className="text-xs">Type: {req.doc_type}</Badge>
-                              )}
-                              {req.due_date && (
-                                <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700">Due: {new Date(req.due_date).toLocaleDateString()}</Badge>
-                              )}
-                              {req.expiry_date && (
-                                <Badge variant="outline" className="text-xs bg-red-50 text-red-700">Expiry: {new Date(req.expiry_date).toLocaleDateString()}</Badge>
-                              )}
-                              {req.validity_months && (
-                                <Badge variant="outline" className="text-xs bg-leamss-orange-50 text-leamss-orange-700">Valid: {req.validity_months} months</Badge>
-                              )}
-                            </div>
-                            <p className="text-xs text-slate-500 mt-1">
-                              Requested by {req.requested_by_name || 'Unknown'}{req.requested_at ? ` on ${new Date(req.requested_at).toLocaleDateString()}` : ''}
-                            </p>
-                          </div>
-                          {getStatusBadge(req.status)}
-                        </div>
-                      </div>
-                    ))}
                   </div>
-                </Card>
-              )}
-              {/* Case Notes & Tags */}
-              <CaseNotesAndTags caseId={selectedCase.id} token={localStorage.getItem('token')} />
-
-              {/* Case Timeline */}
-              <Card className="p-6">
-                <h3 className="text-lg font-semibold mb-4 text-gray-900">Case Timeline</h3>
-                <CaseTimeline caseId={selectedCase.id} token={localStorage.getItem('token')} />
-              </Card>
+                );
+              })}
             </div>
-          )}
+          </Card>
 
-          {/* Tickets Section */}
-          {activeTab === 'tickets' && (
-            <TicketSection initialTicketId={initialTicketId} initialFilter={ticketFilter} />
-          )}
+          <Card className="p-6">
+            <h3 className="text-lg font-semibold mb-4 text-gray-900">Documents</h3>
+            <div className="space-y-3" data-testid="case-documents">
+ {Object.entries(
+  caseDocuments.reduce((groups, doc) => {
+    const stepName = doc.step_name || 'Other Documents';
 
-          {/* Expiry Alerts Tab */}
-          {activeTab === 'expiry-alerts' && (
-            <div className="space-y-6" data-testid="expiry-alerts-section">
-              {/* Summary Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                {[
-                  { label: 'Expired', count: expiringDocs.filter(d => d.urgency === 'expired').length, style: 'bg-red-50 border-red-200 text-red-700' },
-                  { label: 'Critical (<30 days)', count: expiringDocs.filter(d => d.urgency === 'critical').length, style: 'bg-orange-50 border-orange-200 text-orange-700' },
-                  { label: 'Warning (<60 days)', count: expiringDocs.filter(d => d.urgency === 'warning').length, style: 'bg-amber-50 border-amber-200 text-amber-700' },
-                  { label: 'Attention (<90 days)', count: expiringDocs.filter(d => d.urgency === 'attention').length, style: 'bg-yellow-50 border-yellow-200 text-yellow-700' },
-                ].map((s, i) => (
-                  <Card key={i} className={`p-4 border ${s.style}`}>
-                    <p className="text-2xl font-bold">{s.count}</p>
-                    <p className="text-sm font-medium">{s.label}</p>
-                  </Card>
-                ))}
+    if (!groups[stepName]) {
+      groups[stepName] = [];
+    }
+
+    groups[stepName].push(doc);
+
+    return groups;
+  }, {})
+).map(([stepName, documents]) => {
+  const matchingStep = selectedCase.steps?.find(
+    (step) =>
+      step.step_name?.trim().toLowerCase() ===
+      stepName.trim().toLowerCase()
+  );
+
+  const stepIndex = selectedCase.steps?.findIndex(
+    (step) =>
+      step.step_name?.trim().toLowerCase() ===
+      stepName.trim().toLowerCase()
+  );
+
+  const stepNumber =
+    matchingStep?.step_order ||
+    matchingStep?.order ||
+    (stepIndex >= 0 ? stepIndex + 1 : null);
+
+  return (
+    <div
+      key={stepName}
+      className="border border-slate-200 rounded-lg overflow-hidden"
+    >
+      <div className="bg-slate-50 px-4 py-3 border-b">
+        <h4 className="font-semibold text-gray-900">
+          {stepNumber
+            ? `Step ${stepNumber}: ${stepName}`
+            : stepName}
+        </h4>
+
+        <p className="text-xs text-slate-500 mt-1">
+          {documents.length} document
+          {documents.length > 1 ? 's' : ''}
+        </p>
+      </div>
+
+      <div className="divide-y divide-slate-100">
+        {documents.map((doc) => (
+          <div
+            key={doc.id}
+            className="flex justify-between items-center p-4 hover:bg-slate-50"
+          >
+            <div className="flex-1">
+              <p className="font-medium text-gray-900">
+                {doc.filename}
+              </p>
+
+              <div className="flex flex-wrap gap-3 text-sm text-slate-600 mt-1">
+                {doc.document_type && (
+                  <span className="capitalize">
+                    Type: {doc.document_type.replace(/_/g, ' ')}
+                  </span>
+                )}
+
+                <span>
+                  By: {doc.uploader_name || 'Unknown'}
+                </span>
+
+                <span>
+                  {formatDate(doc.uploaded_at)}
+                </span>
               </div>
 
-              {expiringDocs.length === 0 ? (
-                <Card className="p-12 text-center bg-white shadow-md border-0">
-                  <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-3" />
-                  <h3 className="text-lg font-bold text-slate-800">No Expiry Alerts</h3>
-                  <p className="text-sm text-slate-500 mt-1">No documents have expiry dates set. Set expiry dates from the case documents view.</p>
-                </Card>
-              ) : (
-                <Card className="p-6 bg-white shadow-md border-0">
-                  <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                    <Calendar className="h-5 w-5 text-[#f7620b]" />
-                    All Expiring Documents ({expiringDocs.length})
-                  </h3>
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b border-slate-200">
-                          <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600">Document</th>
-                          <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600">Client</th>
-                          <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600">Case</th>
-                          <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600">Expiry Date</th>
-                          <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600">Status</th>
-                          <th className="text-right py-3 px-4 text-sm font-semibold text-slate-600">Action</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {expiringDocs.map((doc) => (
-                          <tr key={doc.id} className="border-b border-slate-100 hover:bg-slate-50" data-testid={`expiry-row-${doc.id}`}>
-                            <td className="py-3 px-4">
-                              <div className="flex items-center gap-2">
-                                <FileText className="h-4 w-4 text-[#2a777a]" />
-                                <div>
-                                  <p className="font-medium text-slate-800 text-sm">{doc.filename}</p>
-                                  <p className="text-xs text-slate-400 capitalize">{doc.document_type.replace('_', ' ')}</p>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="py-3 px-4 text-sm text-slate-600">{doc.client_name || '-'}</td>
-                            <td className="py-3 px-4 text-sm text-slate-600">{doc.case_number || '-'}</td>
-                            <td className="py-3 px-4 text-sm">
-                              {doc.expiry_date ? new Date(doc.expiry_date).toLocaleDateString() : '-'}
-                            </td>
-                            <td className="py-3 px-4">
-                              <Badge className={`text-xs ${getUrgencyStyle(doc.urgency)}`}>
-                                {doc.urgency === 'expired' ? `Expired ${Math.abs(doc.days_remaining)}d ago` :
-                                 `${doc.days_remaining} days left`}
-                              </Badge>
-                            </td>
-                            <td className="py-3 px-4 text-right">
-                              <Button size="sm" variant="outline" onClick={() => {
-                                setExpiryEditModal(doc);
-                                setExpiryEditDate(doc.expiry_date ? doc.expiry_date.split('T')[0] : '');
-                                setExpiryEditNotes(doc.expiry_notes || '');
-                              }} data-testid={`cm-edit-expiry-${doc.id}`}>
-                                <Calendar className="h-4 w-4 mr-1" /> Edit
-                              </Button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </Card>
+              {doc.review_comment && (
+                <div className="mt-1 text-sm">
+                  <span className="text-slate-500">
+                    Review ({doc.reviewer_name || 'CM'}):{' '}
+                  </span>
+
+                  <span
+                    className={
+                      doc.status === 'approved'
+                        ? 'text-green-600'
+                        : doc.status === 'rejected'
+                        ? 'text-red-600'
+                        : 'text-amber-600'
+                    }
+                  >
+                    {doc.review_comment}
+                  </span>
+                </div>
               )}
             </div>
+
+            <div className="flex items-center gap-3">
+              {getStatusBadge(doc.status)}
+
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() =>
+                  downloadDocument(doc.id, doc.filename)
+                }
+                data-testid={`download-case-doc-${doc.id}`}
+              >
+                <Download className="h-4 w-4" />
+              </Button>
+
+              {[
+                'pending',
+                'pending_review',
+                'uploaded',
+                'revision_required'
+              ].includes(doc.status) && (
+                <Button
+                  size="sm"
+                  onClick={() =>
+                    setReviewDialog({
+                      open: true,
+                      document: doc,
+                      status: '',
+                      comment: ''
+                    })
+                  }
+                  data-testid={`review-doc-${doc.id}`}
+                  className="bg-[#2a777a] hover:bg-[#236466]"
+                >
+                  Review
+                </Button>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+})}
+{(caseIntakeData?.sections || []).map((section, sectionIndex) => {
+  const submittedFields = (section.fields || []).filter((field) => {
+    const value = caseIntakeData?.data?.[field.key];
+
+    return (
+      value !== undefined &&
+      value !== null &&
+      value !== '' &&
+      field.field_type !== 'file'
+    );
+  });
+
+  if (submittedFields.length === 0) {
+    return null;
+  }
+
+  return (
+    <div
+      key={`intake-${sectionIndex}`}
+      className="border rounded-lg overflow-hidden"
+    >
+      <div className="bg-slate-50 px-4 py-3 border-b">
+        <p className="font-semibold text-gray-900">
+          {section.step_name
+            ? section.step_name
+            : section.title || `Submitted Fields`}
+        </p>
+
+        <p className="text-xs text-slate-500 mt-1">
+          {submittedFields.length}{' '}
+          {submittedFields.length === 1 ? 'field' : 'fields'} submitted
+        </p>
+      </div>
+
+      <div className="divide-y">
+        {submittedFields.map((field) => {
+          const value = caseIntakeData?.data?.[field.key];
+
+          return (
+            <div
+              key={field.key}
+              className="flex justify-between items-center p-4 hover:bg-slate-50"
+            >
+              <div className="flex-1">
+                <p className="font-medium text-gray-900">
+                  {field.label || field.doc_name}
+                </p>
+
+                <div className="flex flex-wrap gap-3 text-sm text-slate-600 mt-1">
+                  <span>
+                    Value: {String(value)}
+                  </span>
+
+                  <span className="capitalize">
+                    Type:{' '}
+                    {(
+                      field.field_type ||
+                      field.type ||
+                      'text'
+                    ).replace(/_/g, ' ')}
+                  </span>
+
+                  <span>
+                    Filled by Client
+                  </span>
+                </div>
+              </div>
+
+              <Badge className="bg-blue-100 text-blue-700">
+                Submitted
+              </Badge>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+})}
+              {caseDocuments.length === 0 && (
+                <p className="text-center text-slate-500 py-8">No documents uploaded yet</p>
+              )}
+            </div>
+          </Card>
+
+          {selectedCase.additional_doc_requests && selectedCase.additional_doc_requests.length > 0 && (
+            <Card className="p-6">
+              <h3 className="text-lg font-semibold mb-4 text-gray-900">Additional Document Requests</h3>
+              <div className="space-y-3">
+                {selectedCase.additional_doc_requests.map((req) => (
+                  <div key={req.id} className="p-3 border rounded-lg bg-blue-50">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <p className="font-medium text-gray-900">{req.doc_name || req.document_name}</p>
+                        <p className="text-sm text-slate-600">{req.description}</p>
+                        {req.step_name && (
+                          <p className="text-xs text-blue-600 mt-1">Step: {req.step_name}</p>
+                        )}
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {req.doc_type && (
+                            <Badge variant="outline" className="text-xs">Type: {req.doc_type}</Badge>
+                          )}
+                          {req.due_date && (
+                            <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700">Due: {new Date(req.due_date).toLocaleDateString()}</Badge>
+                          )}
+                          {req.expiry_date && (
+                            <Badge variant="outline" className="text-xs bg-red-50 text-red-700">Expiry: {new Date(req.expiry_date).toLocaleDateString()}</Badge>
+                          )}
+                          {req.validity_months && (
+                            <Badge variant="outline" className="text-xs bg-leamss-orange-50 text-leamss-orange-700">Valid: {req.validity_months} months</Badge>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-500 mt-1">
+                          Requested by {req.requested_by_name || 'Unknown'}{req.requested_at ? ` on ${new Date(req.requested_at).toLocaleDateString()}` : ''}
+                        </p>
+                      </div>
+                      {getStatusBadge(req.status)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+          {/* Case Notes & Tags */}
+          <CaseNotesAndTags caseId={selectedCase.id} token={localStorage.getItem('token')} />
+
+          {/* Case Timeline */}
+          <Card className="p-6">
+            <h3 className="text-lg font-semibold mb-4 text-gray-900">Case Timeline</h3>
+            <CaseTimeline caseId={selectedCase.id} token={localStorage.getItem('token')} />
+          </Card>
+        </div>
+      )}
+
+      {/* Tickets Section */}
+      {activeTab === 'tickets' && (
+        <TicketSection initialTicketId={initialTicketId} initialFilter={ticketFilter} />
+      )}
+
+      {/* Expiry Alerts Tab */}
+      {activeTab === 'expiry-alerts' && (
+        <div className="space-y-6" data-testid="expiry-alerts-section">
+          {/* Summary Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {[
+              { label: 'Expired', count: expiringDocs.filter(d => d.urgency === 'expired').length, style: 'bg-red-50 border-red-200 text-red-700' },
+              { label: 'Critical (<30 days)', count: expiringDocs.filter(d => d.urgency === 'critical').length, style: 'bg-orange-50 border-orange-200 text-orange-700' },
+              { label: 'Warning (<60 days)', count: expiringDocs.filter(d => d.urgency === 'warning').length, style: 'bg-amber-50 border-amber-200 text-amber-700' },
+              { label: 'Attention (<90 days)', count: expiringDocs.filter(d => d.urgency === 'attention').length, style: 'bg-yellow-50 border-yellow-200 text-yellow-700' },
+            ].map((s, i) => (
+              <Card key={i} className={`p-4 border ${s.style}`}>
+                <p className="text-2xl font-bold">{s.count}</p>
+                <p className="text-sm font-medium">{s.label}</p>
+              </Card>
+            ))}
+          </div>
+
+          {expiringDocs.length === 0 ? (
+            <Card className="p-12 text-center bg-white shadow-md border-0">
+              <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-3" />
+              <h3 className="text-lg font-bold text-slate-800">No Expiry Alerts</h3>
+              <p className="text-sm text-slate-500 mt-1">No documents have expiry dates set. Set expiry dates from the case documents view.</p>
+            </Card>
+          ) : (
+            <Card className="p-6 bg-white shadow-md border-0">
+              <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-[#f7620b]" />
+                All Expiring Documents ({expiringDocs.length})
+              </h3>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-slate-200">
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600">Document</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600">Client</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600">Case</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600">Expiry Date</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600">Status</th>
+                      <th className="text-right py-3 px-4 text-sm font-semibold text-slate-600">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {expiringDocs.map((doc) => (
+                      <tr key={doc.id} className="border-b border-slate-100 hover:bg-slate-50" data-testid={`expiry-row-${doc.id}`}>
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-2">
+                            <FileText className="h-4 w-4 text-[#2a777a]" />
+                            <div>
+                              <p className="font-medium text-slate-800 text-sm">{doc.filename}</p>
+                              <p className="text-xs text-slate-400 capitalize">{doc.document_type.replace('_', ' ')}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-sm text-slate-600">{doc.client_name || '-'}</td>
+                        <td className="py-3 px-4 text-sm text-slate-600">{doc.case_number || '-'}</td>
+                        <td className="py-3 px-4 text-sm">
+                          {doc.expiry_date ? new Date(doc.expiry_date).toLocaleDateString() : '-'}
+                        </td>
+                        <td className="py-3 px-4">
+                          <Badge className={`text-xs ${getUrgencyStyle(doc.urgency)}`}>
+                            {doc.urgency === 'expired' ? `Expired ${Math.abs(doc.days_remaining)}d ago` :
+                              `${doc.days_remaining} days left`}
+                          </Badge>
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <Button size="sm" variant="outline" onClick={() => {
+                            setExpiryEditModal(doc);
+                            setExpiryEditDate(doc.expiry_date ? doc.expiry_date.split('T')[0] : '');
+                            setExpiryEditNotes(doc.expiry_notes || '');
+                          }} data-testid={`cm-edit-expiry-${doc.id}`}>
+                            <Calendar className="h-4 w-4 mr-1" /> Edit
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {/* Pending Review Section — Grouped by Client */}
+      {activeTab === 'pending-review' && (
+        <div className="space-y-6" data-testid="pending-review-section">
+          <Card className="p-6 bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-amber-100 rounded-full">
+                <AlertCircle className="h-8 w-8 text-amber-600" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-amber-800">{pendingReviewCount} Documents Awaiting Review</h3>
+                <p className="text-sm text-amber-600">Grouped by client for easier review</p>
+              </div>
+            </div>
+          </Card>
+
+          {pendingReviewDocs.length === 0 ? (
+            <Card className="p-12 text-center">
+              <CheckCircle className="h-16 w-16 mx-auto mb-4 text-green-500" />
+              <h3 className="text-lg font-semibold text-gray-700">All Caught Up!</h3>
+              <p className="text-gray-500">No documents pending review</p>
+            </Card>
+          ) : (
+            (() => {
+              // Group pending docs by client
+              const clientGroups = {};
+              pendingReviewDocs.forEach(doc => {
+                const key = doc.client_name || 'Unknown Client';
+                if (!clientGroups[key]) clientGroups[key] = { docs: [], caseId: doc.case_id };
+                clientGroups[key].docs.push(doc);
+              });
+
+              return (
+                <div className="space-y-4">
+                  {Object.entries(clientGroups).map(([clientName, group]) => (
+                    <Card key={clientName} className="overflow-hidden border border-slate-200 hover:border-amber-300 transition-colors" data-testid={`pending-client-${clientName}`}>
+                      <details className="group" open>
+                        <summary className="flex items-center justify-between p-5 cursor-pointer bg-white hover:bg-slate-50 transition-colors list-none">
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#2a777a] to-[#236466] flex items-center justify-center text-white font-bold text-lg shadow-sm">
+                              {clientName[0]?.toUpperCase()}
+                            </div>
+                            <div>
+                              <h4 className="font-semibold text-slate-800 text-base">{clientName}</h4>
+                              <p className="text-xs text-slate-500">Case: {group.caseId}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <Badge className="bg-amber-100 text-amber-700 border-amber-200 font-semibold px-3 py-1">
+                              {group.docs.length} pending
+                            </Badge>
+                            <svg className="h-5 w-5 text-slate-400 group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                          </div>
+                        </summary>
+                        <div className="border-t border-slate-100">
+                          {group.docs.map((doc) => (
+                            <div key={doc.id} className="flex items-center justify-between p-4 border-b border-slate-50 last:border-b-0 hover:bg-slate-50/50 transition-colors" data-testid={`pending-doc-${doc.id}`}>
+                              <div className="flex items-center gap-3 flex-1 min-w-0">
+                                <div className="p-2 bg-amber-50 rounded-lg shrink-0">
+                                  <FileText className="h-4 w-4 text-amber-600" />
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="font-medium text-slate-800 truncate">{doc.filename || doc.document_type}</p>
+                                  <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
+                                    <span className="capitalize">{doc.document_type?.replace(/_/g, ' ')}</span>
+                                    <span>&middot;</span>
+                                    <Clock className="h-3 w-3" />
+                                    <span>{formatDate(doc.uploaded_at || doc.created_at)}</span>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                {doc.file_id && (
+                                  <>
+                                    <Button size="sm" variant="outline" onClick={() => viewDocument(doc.file_id, doc.filename || `${doc.document_type}.pdf`)} data-testid={`view-doc-${doc.id}`}>
+                                      <Eye className="h-4 w-4 mr-1" />View
+                                    </Button>
+                                    <Button size="sm" variant="outline" onClick={() => downloadDocument(doc.file_id, doc.filename || `${doc.document_type}.pdf`)} data-testid={`download-doc-${doc.id}`}>
+                                      <Download className="h-4 w-4" />
+                                    </Button>
+                                  </>
+                                )}
+                                <Button
+                                  size="sm"
+                                  className="bg-[#2a777a] hover:bg-[#236466] text-white"
+                                  onClick={() => {
+                                    const caseInfo = cases.find(c => c.case_id === doc.case_id);
+                                    if (caseInfo) {
+                                      loadCaseDetails(caseInfo.id);
+                                      setActiveTab('cases');
+                                      setReviewDialog({ open: true, document: doc, status: '', comment: '' });
+                                    }
+                                  }}
+                                  data-testid={`review-btn-${doc.id}`}
+                                >
+                                  Review
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </details>
+                    </Card>
+                  ))}
+                </div>
+              );
+            })()
+          )}
+        </div>
+      )}
+
+      {activeTab === 'documents' && (
+        <div className="space-y-6" data-testid="documents-section">
+          {/* Search & Filter Bar */}
+          <Card className="p-4">
+            <div className="flex items-center gap-2 mb-4">
+              <Filter className="h-4 w-4 text-slate-500" />
+              <span className="text-sm font-medium text-slate-700">Search & Filter Documents</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="relative md:col-span-2">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Input
+                  placeholder="Search by document name, type, or client..."
+                  value={documentSearch.query}
+                  onChange={(e) => setDocumentSearch({ ...documentSearch, query: e.target.value })}
+                  className="pl-10"
+                  data-testid="document-search-input"
+                />
+              </div>
+              <Select value={documentSearch.type} onValueChange={(v) => setDocumentSearch({ ...documentSearch, type: v })}>
+                <SelectTrigger data-testid="document-type-filter">
+                  <SelectValue placeholder="Document Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="passport">Passport</SelectItem>
+                  <SelectItem value="visa">Visa</SelectItem>
+                  <SelectItem value="bank_statement">Bank Statement</SelectItem>
+                  <SelectItem value="educational">Educational</SelectItem>
+                  <SelectItem value="employment">Employment</SelectItem>
+                  <SelectItem value="financial">Financial</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={documentSearch.status} onValueChange={(v) => setDocumentSearch({ ...documentSearch, status: v })}>
+                <SelectTrigger data-testid="document-status-filter">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="uploaded">Uploaded/Pending</SelectItem>
+                  <SelectItem value="approved">Approved</SelectItem>
+                  <SelectItem value="rejected">Rejected</SelectItem>
+                  <SelectItem value="revision_required">Revision Required</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </Card>
+
+          {/* Batch Actions Bar */}
+          {selectedDocIds.length > 0 && (
+            <Card className="p-3 bg-[#2a777a]/10 border-[#2a777a]/30">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-[#2a777a]">{selectedDocIds.length} document(s) selected</span>
+                <div className="flex gap-2">
+                  <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => handleBatchReview('approved')} data-testid="batch-approve-btn">
+                    <CheckCircle className="h-4 w-4 mr-1" />Approve All
+                  </Button>
+                  <Button size="sm" variant="destructive" onClick={() => handleBatchReview('rejected')} data-testid="batch-reject-btn">
+                    Reject All
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setSelectedDocIds([])}>Clear</Button>
+                </div>
+              </div>
+            </Card>
           )}
 
-          {/* Pending Review Section — Grouped by Client */}
-          {activeTab === 'pending-review' && (
-            <div className="space-y-6" data-testid="pending-review-section">
-              <Card className="p-6 bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 bg-amber-100 rounded-full">
-                    <AlertCircle className="h-8 w-8 text-amber-600" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-amber-800">{pendingReviewCount} Documents Awaiting Review</h3>
-                    <p className="text-sm text-amber-600">Grouped by client for easier review</p>
-                  </div>
-                </div>
-              </Card>
+          {(() => {
+            const filteredDocs = allDocuments.filter(d => {
+              const matchesQuery = !documentSearch.query ||
+                d.filename?.toLowerCase().includes(documentSearch.query.toLowerCase()) ||
+                d.document_type?.toLowerCase().includes(documentSearch.query.toLowerCase()) ||
+                d.client_name?.toLowerCase().includes(documentSearch.query.toLowerCase());
+              const matchesType = documentSearch.type === 'all' || d.document_type === documentSearch.type;
+              const matchesStatus = documentSearch.status === 'all' ||
+                (documentSearch.status === 'uploaded' ? ['uploaded', 'pending'].includes(d.status) : d.status === documentSearch.status);
+              return matchesQuery && matchesType && matchesStatus;
+            });
 
-              {pendingReviewDocs.length === 0 ? (
-                <Card className="p-12 text-center">
-                  <CheckCircle className="h-16 w-16 mx-auto mb-4 text-green-500" />
-                  <h3 className="text-lg font-semibold text-gray-700">All Caught Up!</h3>
-                  <p className="text-gray-500">No documents pending review</p>
-                </Card>
-              ) : (
-                (() => {
-                  // Group pending docs by client
-                  const clientGroups = {};
-                  pendingReviewDocs.forEach(doc => {
-                    const key = doc.client_name || 'Unknown Client';
-                    if (!clientGroups[key]) clientGroups[key] = { docs: [], caseId: doc.case_id };
-                    clientGroups[key].docs.push(doc);
-                  });
-                  
-                  return (
-                    <div className="space-y-4">
-                      {Object.entries(clientGroups).map(([clientName, group]) => (
-                        <Card key={clientName} className="overflow-hidden border border-slate-200 hover:border-amber-300 transition-colors" data-testid={`pending-client-${clientName}`}>
-                          <details className="group" open>
+            // Group by client
+            const clientDocGroups = {};
+            filteredDocs.forEach(doc => {
+              const key = doc.client_name || 'Unknown Client';
+              if (!clientDocGroups[key]) clientDocGroups[key] = { docs: [], caseId: doc.case_id };
+              clientDocGroups[key].docs.push(doc);
+            });
+            const clientNames = Object.keys(clientDocGroups).sort();
+
+            return (
+              <>
+                <div className="text-sm text-slate-500">
+                  Showing {filteredDocs.length} of {allDocuments.length} documents across {clientNames.length} clients
+                </div>
+
+                {clientNames.length === 0 ? (
+                  <Card className="p-8 text-center">
+                    <p className="text-slate-500">No documents match your filters</p>
+                  </Card>
+                ) : (
+                  <div className="space-y-4">
+                    {clientNames.map(clientName => {
+                      const group = clientDocGroups[clientName];
+                      const pendingCount = group.docs.filter(d => ['uploaded', 'pending', 'pending_review'].includes(d.status)).length;
+                      const approvedCount = group.docs.filter(d => d.status === 'approved').length;
+
+                      return (
+                        <Card key={clientName} className="overflow-hidden border border-slate-200" data-testid={`docs-client-${clientName}`}>
+                          <details className="group">
                             <summary className="flex items-center justify-between p-5 cursor-pointer bg-white hover:bg-slate-50 transition-colors list-none">
                               <div className="flex items-center gap-4">
                                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#2a777a] to-[#236466] flex items-center justify-center text-white font-bold text-lg shadow-sm">
                                   {clientName[0]?.toUpperCase()}
                                 </div>
                                 <div>
-                                  <h4 className="font-semibold text-slate-800 text-base">{clientName}</h4>
-                                  <p className="text-xs text-slate-500">Case: {group.caseId}</p>
+                                  <h4 className="font-semibold text-slate-800">{clientName}</h4>
+                                  <p className="text-xs text-slate-500">Case: {group.caseId} &middot; {group.docs.length} documents</p>
                                 </div>
                               </div>
-                              <div className="flex items-center gap-3">
-                                <Badge className="bg-amber-100 text-amber-700 border-amber-200 font-semibold px-3 py-1">
-                                  {group.docs.length} pending
-                                </Badge>
+                              <div className="flex items-center gap-2">
+                                {pendingCount > 0 && <Badge className="bg-amber-100 text-amber-700 border-amber-200">{pendingCount} pending</Badge>}
+                                {approvedCount > 0 && <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">{approvedCount} approved</Badge>}
                                 <svg className="h-5 w-5 text-slate-400 group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                               </div>
                             </summary>
                             <div className="border-t border-slate-100">
-                              {group.docs.map((doc) => (
-                                <div key={doc.id} className="flex items-center justify-between p-4 border-b border-slate-50 last:border-b-0 hover:bg-slate-50/50 transition-colors" data-testid={`pending-doc-${doc.id}`}>
-                                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                                    <div className="p-2 bg-amber-50 rounded-lg shrink-0">
-                                      <FileText className="h-4 w-4 text-amber-600" />
-                                    </div>
-                                    <div className="min-w-0">
-                                      <p className="font-medium text-slate-800 truncate">{doc.filename || doc.document_type}</p>
-                                      <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
-                                        <span className="capitalize">{doc.document_type?.replace(/_/g, ' ')}</span>
-                                        <span>&middot;</span>
-                                        <Clock className="h-3 w-3" />
-                                        <span>{formatDate(doc.uploaded_at || doc.created_at)}</span>
-                                      </div>
-                                    </div>
-                                  </div>
-                                  <div className="flex items-center gap-2 shrink-0">
-                                    {doc.file_id && (
-                                      <>
-                                        <Button size="sm" variant="outline" onClick={() => viewDocument(doc.file_id, doc.filename || `${doc.document_type}.pdf`)} data-testid={`view-doc-${doc.id}`}>
-                                          <Eye className="h-4 w-4 mr-1" />View
-                                        </Button>
-                                        <Button size="sm" variant="outline" onClick={() => downloadDocument(doc.file_id, doc.filename || `${doc.document_type}.pdf`)} data-testid={`download-doc-${doc.id}`}>
-                                          <Download className="h-4 w-4" />
-                                        </Button>
-                                      </>
-                                    )}
-                                    <Button 
-                                      size="sm" 
-                                      className="bg-[#2a777a] hover:bg-[#236466] text-white"
-                                      onClick={() => {
-                                        const caseInfo = cases.find(c => c.case_id === doc.case_id);
-                                        if (caseInfo) {
-                                          loadCaseDetails(caseInfo.id);
-                                          setActiveTab('cases');
-                                          setReviewDialog({ open: true, document: doc, status: '', comment: '' });
-                                        }
-                                      }}
-                                      data-testid={`review-btn-${doc.id}`}
-                                    >
-                                      Review
-                                    </Button>
-                                  </div>
-                                </div>
-                              ))}
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-sm">
+                                  <thead>
+                                    <tr className="bg-slate-50 text-slate-600">
+                                      <th className="p-3 w-10">
+                                        <input
+                                          type="checkbox"
+                                          checked={group.docs.filter(d => ['uploaded', 'pending'].includes(d.status)).every(d => selectedDocIds.includes(d.id))}
+                                          onChange={() => {
+                                            const reviewable = group.docs.filter(d => ['uploaded', 'pending'].includes(d.status));
+                                            const allSelected = reviewable.every(d => selectedDocIds.includes(d.id));
+                                            if (allSelected) setSelectedDocIds(prev => prev.filter(id => !reviewable.map(d => d.id).includes(id)));
+                                            else setSelectedDocIds(prev => [...new Set([...prev, ...reviewable.map(d => d.id)])]);
+                                          }}
+                                          className="rounded"
+                                        />
+                                      </th>
+                                      <th className="text-left p-3">Document</th>
+                                      <th className="text-left p-3">Type</th>
+                                      <th className="text-center p-3">Status</th>
+                                      <th className="text-left p-3">Uploaded</th>
+                                      <th className="text-center p-3">Actions</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {group.docs.map((doc) => (
+                                      <tr key={doc.id} className={`border-b border-slate-50 hover:bg-slate-50/50 ${selectedDocIds.includes(doc.id) ? 'bg-teal-50/50' : ''}`}>
+                                        <td className="p-3">
+                                          {['uploaded', 'pending'].includes(doc.status) && (
+                                            <input type="checkbox" checked={selectedDocIds.includes(doc.id)} onChange={() => toggleDocSelection(doc.id)} className="rounded" />
+                                          )}
+                                        </td>
+                                        <td className="p-3 font-medium text-slate-800">{doc.filename || 'Unknown'}</td>
+                                        <td className="p-3 text-slate-600 capitalize">{doc.document_type?.replace(/_/g, ' ')}</td>
+                                        <td className="p-3 text-center">{getStatusBadge(doc.status)}</td>
+                                        <td className="p-3 text-slate-500 text-xs">{formatDate(doc.uploaded_at || doc.created_at)}</td>
+                                        <td className="p-3">
+                                          <div className="flex items-center justify-center gap-1">
+                                            <Button size="sm" variant="ghost" onClick={() => downloadDocument(doc.id || doc.file_id, doc.filename)} data-testid={`dl-doc-${doc.id}`}>
+                                              <Download className="h-4 w-4" />
+                                            </Button>
+                                            {['uploaded', 'pending', 'pending_review'].includes(doc.status) && (
+                                              <Button
+                                                size="sm"
+                                                className="bg-[#2a777a] hover:bg-[#236466] text-white"
+                                                onClick={() => {
+                                                  const caseInfo = cases.find(c => c.case_id === doc.case_id);
+                                                  if (caseInfo) { loadCaseDetails(caseInfo.id); setActiveTab('cases'); }
+                                                  setReviewDialog({ open: true, document: doc, status: '', comment: '' });
+                                                }}
+                                              >
+                                                Review
+                                              </Button>
+                                            )}
+                                            <Button
+                                              size="sm" variant="outline" className="text-leamss-orange-600 border-leamss-orange-200"
+                                              onClick={async () => {
+                                                try {
+                                                  toast.info('Running AI analysis...');
+                                                  const res = await axios.post(`${API}/ai/verify-document/${doc.id}`, {}, getAuthHeader());
+                                                  toast.success('AI analysis complete!');
+                                                  setAiAnalysis({ open: true, doc: doc, result: res.data });
+                                                } catch (e) { toast.error('AI analysis failed'); }
+                                              }}
+                                              data-testid={`ai-verify-${doc.id}`}
+                                            >
+                                              AI
+                                            </Button>
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
                             </div>
                           </details>
                         </Card>
-                      ))}
-                    </div>
-                  );
-                })()
-              )}
-            </div>
-          )}
-
-          {activeTab === 'documents' && (
-            <div className="space-y-6" data-testid="documents-section">
-              {/* Search & Filter Bar */}
-              <Card className="p-4">
-                <div className="flex items-center gap-2 mb-4">
-                  <Filter className="h-4 w-4 text-slate-500" />
-                  <span className="text-sm font-medium text-slate-700">Search & Filter Documents</span>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div className="relative md:col-span-2">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
-                    <Input
-                      placeholder="Search by document name, type, or client..."
-                      value={documentSearch.query}
-                      onChange={(e) => setDocumentSearch({ ...documentSearch, query: e.target.value })}
-                      className="pl-10"
-                      data-testid="document-search-input"
-                    />
+                      );
+                    })}
                   </div>
-                  <Select value={documentSearch.type} onValueChange={(v) => setDocumentSearch({ ...documentSearch, type: v })}>
-                    <SelectTrigger data-testid="document-type-filter">
-                      <SelectValue placeholder="Document Type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Types</SelectItem>
-                      <SelectItem value="passport">Passport</SelectItem>
-                      <SelectItem value="visa">Visa</SelectItem>
-                      <SelectItem value="bank_statement">Bank Statement</SelectItem>
-                      <SelectItem value="educational">Educational</SelectItem>
-                      <SelectItem value="employment">Employment</SelectItem>
-                      <SelectItem value="financial">Financial</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Select value={documentSearch.status} onValueChange={(v) => setDocumentSearch({ ...documentSearch, status: v })}>
-                    <SelectTrigger data-testid="document-status-filter">
-                      <SelectValue placeholder="Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Status</SelectItem>
-                      <SelectItem value="uploaded">Uploaded/Pending</SelectItem>
-                      <SelectItem value="approved">Approved</SelectItem>
-                      <SelectItem value="rejected">Rejected</SelectItem>
-                      <SelectItem value="revision_required">Revision Required</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </Card>
+                )}
+              </>
+            );
+          })()}
+        </div>
+      )}
 
-              {/* Batch Actions Bar */}
-              {selectedDocIds.length > 0 && (
-                <Card className="p-3 bg-[#2a777a]/10 border-[#2a777a]/30">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-[#2a777a]">{selectedDocIds.length} document(s) selected</span>
-                    <div className="flex gap-2">
-                      <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => handleBatchReview('approved')} data-testid="batch-approve-btn">
-                        <CheckCircle className="h-4 w-4 mr-1" />Approve All
-                      </Button>
-                      <Button size="sm" variant="destructive" onClick={() => handleBatchReview('rejected')} data-testid="batch-reject-btn">
-                        Reject All
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => setSelectedDocIds([])}>Clear</Button>
+      {/* Info Sheets Tab - Case Manager can view/edit client info sheets */}
+      {activeTab === 'info-sheets' && !infoSheetCaseId && (
+        <div className="space-y-4" data-testid="info-sheets-list">
+          <Card className="p-5 bg-[#2a777a]/5 border border-[#2a777a]/20">
+            <div className="flex items-center gap-3">
+              <ClipboardList className="h-6 w-6 text-[#2a777a]" />
+              <div>
+                <h3 className="font-semibold text-gray-900">Client Information Sheets</h3>
+                <p className="text-sm text-gray-500">Select a case to view or edit the client's information sheet</p>
+              </div>
+            </div>
+          </Card>
+          {cases.length === 0 ? (
+            <Card className="p-12 text-center">
+              <ClipboardList className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+              <p className="text-gray-500">No cases assigned yet</p>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {cases.map((c) => (
+                <Card
+                  key={c.id}
+                  className="p-5 cursor-pointer hover:border-[#2a777a]/40 hover:shadow-md transition-all border border-gray-200"
+                  onClick={() => setInfoSheetCaseId(c.id)}
+                  data-testid={`info-sheet-case-${c.id}`}
+                >
+                  <div className="flex items-start gap-4">
+                    <div className="h-10 w-10 rounded-full bg-[#2a777a]/10 flex items-center justify-center flex-shrink-0">
+                      <User className="h-5 w-5 text-[#2a777a]" />
                     </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-semibold text-gray-900">{c.client_name}</h4>
+                      <p className="text-xs text-gray-500 mt-0.5">{c.client_email}</p>
+                      <div className="flex items-center gap-2 mt-2">
+                        <Badge variant="outline" className="text-xs">{c.case_id}</Badge>
+                        <Badge variant="outline" className="text-xs text-[#2a777a] border-[#2a777a]/30">{c.product_name}</Badge>
+                      </div>
+                    </div>
+                    <FileText className="h-5 w-5 text-gray-300 flex-shrink-0" />
                   </div>
                 </Card>
-              )}
-
-              {(() => {
-                const filteredDocs = allDocuments.filter(d => {
-                  const matchesQuery = !documentSearch.query || 
-                    d.filename?.toLowerCase().includes(documentSearch.query.toLowerCase()) ||
-                    d.document_type?.toLowerCase().includes(documentSearch.query.toLowerCase()) ||
-                    d.client_name?.toLowerCase().includes(documentSearch.query.toLowerCase());
-                  const matchesType = documentSearch.type === 'all' || d.document_type === documentSearch.type;
-                  const matchesStatus = documentSearch.status === 'all' || 
-                    (documentSearch.status === 'uploaded' ? ['uploaded', 'pending'].includes(d.status) : d.status === documentSearch.status);
-                  return matchesQuery && matchesType && matchesStatus;
-                });
-                
-                // Group by client
-                const clientDocGroups = {};
-                filteredDocs.forEach(doc => {
-                  const key = doc.client_name || 'Unknown Client';
-                  if (!clientDocGroups[key]) clientDocGroups[key] = { docs: [], caseId: doc.case_id };
-                  clientDocGroups[key].docs.push(doc);
-                });
-                const clientNames = Object.keys(clientDocGroups).sort();
-                
-                return (
-                  <>
-                    <div className="text-sm text-slate-500">
-                      Showing {filteredDocs.length} of {allDocuments.length} documents across {clientNames.length} clients
-                    </div>
-                    
-                    {clientNames.length === 0 ? (
-                      <Card className="p-8 text-center">
-                        <p className="text-slate-500">No documents match your filters</p>
-                      </Card>
-                    ) : (
-                      <div className="space-y-4">
-                        {clientNames.map(clientName => {
-                          const group = clientDocGroups[clientName];
-                          const pendingCount = group.docs.filter(d => ['uploaded', 'pending', 'pending_review'].includes(d.status)).length;
-                          const approvedCount = group.docs.filter(d => d.status === 'approved').length;
-                          
-                          return (
-                            <Card key={clientName} className="overflow-hidden border border-slate-200" data-testid={`docs-client-${clientName}`}>
-                              <details className="group">
-                                <summary className="flex items-center justify-between p-5 cursor-pointer bg-white hover:bg-slate-50 transition-colors list-none">
-                                  <div className="flex items-center gap-4">
-                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#2a777a] to-[#236466] flex items-center justify-center text-white font-bold text-lg shadow-sm">
-                                      {clientName[0]?.toUpperCase()}
-                                    </div>
-                                    <div>
-                                      <h4 className="font-semibold text-slate-800">{clientName}</h4>
-                                      <p className="text-xs text-slate-500">Case: {group.caseId} &middot; {group.docs.length} documents</p>
-                                    </div>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    {pendingCount > 0 && <Badge className="bg-amber-100 text-amber-700 border-amber-200">{pendingCount} pending</Badge>}
-                                    {approvedCount > 0 && <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">{approvedCount} approved</Badge>}
-                                    <svg className="h-5 w-5 text-slate-400 group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                                  </div>
-                                </summary>
-                                <div className="border-t border-slate-100">
-                                  <div className="overflow-x-auto">
-                                    <table className="w-full text-sm">
-                                      <thead>
-                                        <tr className="bg-slate-50 text-slate-600">
-                                          <th className="p-3 w-10">
-                                            <input
-                                              type="checkbox"
-                                              checked={group.docs.filter(d => ['uploaded','pending'].includes(d.status)).every(d => selectedDocIds.includes(d.id))}
-                                              onChange={() => {
-                                                const reviewable = group.docs.filter(d => ['uploaded','pending'].includes(d.status));
-                                                const allSelected = reviewable.every(d => selectedDocIds.includes(d.id));
-                                                if (allSelected) setSelectedDocIds(prev => prev.filter(id => !reviewable.map(d=>d.id).includes(id)));
-                                                else setSelectedDocIds(prev => [...new Set([...prev, ...reviewable.map(d=>d.id)])]);
-                                              }}
-                                              className="rounded"
-                                            />
-                                          </th>
-                                          <th className="text-left p-3">Document</th>
-                                          <th className="text-left p-3">Type</th>
-                                          <th className="text-center p-3">Status</th>
-                                          <th className="text-left p-3">Uploaded</th>
-                                          <th className="text-center p-3">Actions</th>
-                                        </tr>
-                                      </thead>
-                                      <tbody>
-                                        {group.docs.map((doc) => (
-                                          <tr key={doc.id} className={`border-b border-slate-50 hover:bg-slate-50/50 ${selectedDocIds.includes(doc.id) ? 'bg-teal-50/50' : ''}`}>
-                                            <td className="p-3">
-                                              {['uploaded', 'pending'].includes(doc.status) && (
-                                                <input type="checkbox" checked={selectedDocIds.includes(doc.id)} onChange={() => toggleDocSelection(doc.id)} className="rounded" />
-                                              )}
-                                            </td>
-                                            <td className="p-3 font-medium text-slate-800">{doc.filename || 'Unknown'}</td>
-                                            <td className="p-3 text-slate-600 capitalize">{doc.document_type?.replace(/_/g, ' ')}</td>
-                                            <td className="p-3 text-center">{getStatusBadge(doc.status)}</td>
-                                            <td className="p-3 text-slate-500 text-xs">{formatDate(doc.uploaded_at || doc.created_at)}</td>
-                                            <td className="p-3">
-                                              <div className="flex items-center justify-center gap-1">
-                                                <Button size="sm" variant="ghost" onClick={() => downloadDocument(doc.id || doc.file_id, doc.filename)} data-testid={`dl-doc-${doc.id}`}>
-                                                  <Download className="h-4 w-4" />
-                                                </Button>
-                                                {['uploaded', 'pending', 'pending_review'].includes(doc.status) && (
-                                                  <Button 
-                                                    size="sm" 
-                                                    className="bg-[#2a777a] hover:bg-[#236466] text-white"
-                                                    onClick={() => {
-                                                      const caseInfo = cases.find(c => c.case_id === doc.case_id);
-                                                      if (caseInfo) { loadCaseDetails(caseInfo.id); setActiveTab('cases'); }
-                                                      setReviewDialog({ open: true, document: doc, status: '', comment: '' });
-                                                    }}
-                                                  >
-                                                    Review
-                                                  </Button>
-                                                )}
-                                                <Button 
-                                                  size="sm" variant="outline" className="text-leamss-orange-600 border-leamss-orange-200"
-                                                  onClick={async () => {
-                                                    try {
-                                                      toast.info('Running AI analysis...');
-                                                      const res = await axios.post(`${API}/ai/verify-document/${doc.id}`, {}, getAuthHeader());
-                                                      toast.success('AI analysis complete!');
-                                                      setAiAnalysis({ open: true, doc: doc, result: res.data });
-                                                    } catch (e) { toast.error('AI analysis failed'); }
-                                                  }}
-                                                  data-testid={`ai-verify-${doc.id}`}
-                                                >
-                                                  AI
-                                                </Button>
-                                              </div>
-                                            </td>
-                                          </tr>
-                                        ))}
-                                      </tbody>
-                                    </table>
-                                  </div>
-                                </div>
-                              </details>
-                            </Card>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </>
-                );
-              })()}
+              ))}
             </div>
           )}
+        </div>
+      )}
 
-          {/* Info Sheets Tab - Case Manager can view/edit client info sheets */}
-          {activeTab === 'info-sheets' && !infoSheetCaseId && (
-            <div className="space-y-4" data-testid="info-sheets-list">
-              <Card className="p-5 bg-[#2a777a]/5 border border-[#2a777a]/20">
-                <div className="flex items-center gap-3">
-                  <ClipboardList className="h-6 w-6 text-[#2a777a]" />
-                  <div>
-                    <h3 className="font-semibold text-gray-900">Client Information Sheets</h3>
-                    <p className="text-sm text-gray-500">Select a case to view or edit the client's information sheet</p>
-                  </div>
-                </div>
-              </Card>
-              {cases.length === 0 ? (
-                <Card className="p-12 text-center">
-                  <ClipboardList className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                  <p className="text-gray-500">No cases assigned yet</p>
-                </Card>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {cases.map((c) => (
-                    <Card
-                      key={c.id}
-                      className="p-5 cursor-pointer hover:border-[#2a777a]/40 hover:shadow-md transition-all border border-gray-200"
-                      onClick={() => setInfoSheetCaseId(c.id)}
-                      data-testid={`info-sheet-case-${c.id}`}
-                    >
-                      <div className="flex items-start gap-4">
-                        <div className="h-10 w-10 rounded-full bg-[#2a777a]/10 flex items-center justify-center flex-shrink-0">
-                          <User className="h-5 w-5 text-[#2a777a]" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-semibold text-gray-900">{c.client_name}</h4>
-                          <p className="text-xs text-gray-500 mt-0.5">{c.client_email}</p>
-                          <div className="flex items-center gap-2 mt-2">
-                            <Badge variant="outline" className="text-xs">{c.case_id}</Badge>
-                            <Badge variant="outline" className="text-xs text-[#2a777a] border-[#2a777a]/30">{c.product_name}</Badge>
-                          </div>
-                        </div>
-                        <FileText className="h-5 w-5 text-gray-300 flex-shrink-0" />
-                      </div>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+      {activeTab === 'info-sheets' && infoSheetCaseId && (
+        <div data-testid="info-sheet-editor-wrapper">
+          <InfoSheetEditor
+            caseData={{ id: infoSheetCaseId, case_id: cases.find(c => c.id === infoSheetCaseId)?.case_id }}
+            API={API}
+            getAuthHeader={() => getAuthHeader()}
+            onRefresh={() => loadData()}
+            extractingResume={extractingResume}
+            setExtractingResume={setExtractingResume}
+          />
+        </div>
+      )}
 
-          {activeTab === 'info-sheets' && infoSheetCaseId && (
-            <div data-testid="info-sheet-editor-wrapper">
-              <InfoSheetEditor
-                caseData={{ id: infoSheetCaseId, case_id: cases.find(c => c.id === infoSheetCaseId)?.case_id }}
-                API={API}
-                getAuthHeader={() => getAuthHeader()}
-                onRefresh={() => loadData()}
-                extractingResume={extractingResume}
-                setExtractingResume={setExtractingResume}
-              />
-            </div>
-          )}
-
-          {activeTab === 'bulk-ops' && <BulkOperations token={localStorage.getItem('token')} role="case_manager" />}
-          {activeTab === 'sla-tracker' && <SLATracker token={localStorage.getItem('token')} role="case_manager" />}
-          {activeTab === 'case-transfer' && <CaseTransfer token={localStorage.getItem('token')} role="case_manager" />}
-          {activeTab === 'knowledge-base' && <KnowledgeBase token={localStorage.getItem('token')} role="case_manager" />}
-          {activeTab === 'surveys' && <SatisfactionSurvey token={localStorage.getItem('token')} role="case_manager" />}
-          {activeTab === 'appointments' && <Appointments token={localStorage.getItem('token')} role="case_manager" />}
-          {activeTab === 'canned-responses' && <CannedResponses token={localStorage.getItem('token')} />}
-          {activeTab === 'smart-workload' && <SmartWorkload token={localStorage.getItem('token')} onSelectCase={(caseId) => { loadCaseDetails(caseId); setActiveTab('cases'); }} />}
-          {activeTab === 'communication-hub' && <CommunicationHub token={localStorage.getItem('token')} cases={cases} />}
-          {activeTab === 'batch-ops' && <BatchCaseOps token={localStorage.getItem('token')} />}
-          {activeTab === 'step-docs' && <CMDocManager token={localStorage.getItem('token')} caseId={selectedCase?.id} caseName={selectedCase?.case_id} />}
-          {activeTab === 'deadlines' && <DeadlineTracker token={localStorage.getItem('token')} caseId={selectedCase?.id} role="case_manager" caseName={selectedCase?.case_id} />}
-          {activeTab === 'case-intake' && <IntakeFormFiller token={localStorage.getItem('token')} caseId={selectedCase?.id} role="case_manager" caseName={selectedCase?.case_id} />}
-          {activeTab === 'fee-calculator' && <FeeCalculator token={localStorage.getItem('token')} role="case_manager" caseId={selectedCase?.id} /> }
-          {activeTab === 'doc-scanner' && <DocumentExtractor token={localStorage.getItem('token')} role="case_manager" caseId={selectedCase?.id} /> }
+      {activeTab === 'bulk-ops' && <BulkOperations token={localStorage.getItem('token')} role="case_manager" />}
+      {activeTab === 'sla-tracker' && <SLATracker token={localStorage.getItem('token')} role="case_manager" />}
+      {activeTab === 'case-transfer' && <CaseTransfer token={localStorage.getItem('token')} role="case_manager" />}
+      {activeTab === 'knowledge-base' && <KnowledgeBase token={localStorage.getItem('token')} role="case_manager" />}
+      {activeTab === 'surveys' && <SatisfactionSurvey token={localStorage.getItem('token')} role="case_manager" />}
+      {activeTab === 'appointments' && <Appointments token={localStorage.getItem('token')} role="case_manager" />}
+      {activeTab === 'canned-responses' && <CannedResponses token={localStorage.getItem('token')} />}
+      {activeTab === 'smart-workload' && <SmartWorkload token={localStorage.getItem('token')} onSelectCase={(caseId) => { loadCaseDetails(caseId); setActiveTab('cases'); }} />}
+      {activeTab === 'communication-hub' && <CommunicationHub token={localStorage.getItem('token')} cases={cases} />}
+      {activeTab === 'batch-ops' && <BatchCaseOps token={localStorage.getItem('token')} />}
+      {activeTab === 'step-docs' && <CMDocManager token={localStorage.getItem('token')} caseId={selectedCase?.id} caseName={selectedCase?.case_id} />}
+      {activeTab === 'deadlines' && <DeadlineTracker token={localStorage.getItem('token')} caseId={selectedCase?.id} role="case_manager" caseName={selectedCase?.case_id} />}
+      {activeTab === 'case-intake' && <IntakeFormFiller token={localStorage.getItem('token')} caseId={selectedCase?.id} role="case_manager" caseName={selectedCase?.case_id} />}
+      {activeTab === 'fee-calculator' && <FeeCalculator token={localStorage.getItem('token')} role="case_manager" caseId={selectedCase?.id} />}
+      {activeTab === 'doc-scanner' && <DocumentExtractor token={localStorage.getItem('token')} role="case_manager" caseId={selectedCase?.id} />}
 
       {/* Review Document Dialog */}
       <Dialog open={reviewDialog.open} onOpenChange={(open) => setReviewDialog({ ...reviewDialog, open })}>
@@ -1452,8 +2134,8 @@ const CaseManagerDashboard = () => {
                 onChange={(e) => setReviewDialog({ ...reviewDialog, comment: e.target.value })}
                 placeholder={
                   reviewDialog.status === 'rejected' ? 'Explain why this document is rejected (min 5 chars)...' :
-                  reviewDialog.status === 'revision_required' ? 'Explain what revisions are needed (min 5 chars)...' :
-                  'Add review comments (optional)...'
+                    reviewDialog.status === 'revision_required' ? 'Explain what revisions are needed (min 5 chars)...' :
+                      'Add review comments (optional)...'
                 }
                 rows={4}
                 data-testid="review-comment-textarea"
@@ -1463,18 +2145,37 @@ const CaseManagerDashboard = () => {
               )}
             </div>
             <div className="flex gap-3">
-              <Button 
-                onClick={() => {
-                  downloadDocument(reviewDialog.document?.id || reviewDialog.document?.file_id, reviewDialog.document?.filename);
-                }}
-                variant="outline" 
-                className="flex-1"
-                data-testid="review-download-btn"
-              >
-                <Download className="h-4 w-4 mr-1" />View File
-              </Button>
-              <Button 
-                onClick={handleReviewDocument} 
+   <div className="flex gap-2">
+  <Button
+    variant="outline"
+    className="flex-1"
+    onClick={() =>
+      viewDocument(
+        reviewDialog.document?.id,
+        reviewDialog.document?.filename
+      )
+    }
+  >
+    <Eye className="h-4 w-4 mr-2" />
+    Preview File
+  </Button>
+
+  <Button
+    variant="outline"
+    className="flex-1"
+    onClick={() =>
+      downloadDocument(
+        reviewDialog.document?.id,
+        reviewDialog.document?.filename
+      )
+    }
+  >
+    <Download className="h-4 w-4 mr-2" />
+    Download File
+  </Button>
+</div>
+              <Button
+                onClick={handleReviewDocument}
                 className={`flex-1 ${reviewDialog.status === 'approved' ? 'bg-emerald-600 hover:bg-emerald-700' : reviewDialog.status === 'rejected' ? 'bg-red-600 hover:bg-red-700' : 'bg-[#2a777a] hover:bg-[#236466]'}`}
                 disabled={!reviewDialog.status || ((reviewDialog.status === 'rejected' || reviewDialog.status === 'revision_required') && reviewDialog.comment.trim().length < 5)}
                 data-testid="submit-review-button"
@@ -1491,8 +2192,8 @@ const CaseManagerDashboard = () => {
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {additionalDocDialog.step_name 
-                ? `Add Document to Step: ${additionalDocDialog.step_name}` 
+              {additionalDocDialog.step_name
+                ? `Add Document to Step: ${additionalDocDialog.step_name}`
                 : 'Request Additional Document'}
             </DialogTitle>
           </DialogHeader>
