@@ -15,16 +15,24 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+from anthropic import AsyncAnthropic
+from openai import AsyncOpenAI
 
 logger = logging.getLogger(__name__)
 
 EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
-
+# anthropic_client = AsyncAnthropic(
+#     api_key=os.getenv("ANTHROPIC_API_KEY")
+# )
+perplexity_client = AsyncOpenAI(
+    api_key=os.getenv("PERPLEXITY_API_KEY"),
+    base_url="https://api.perplexity.ai"
+)
 # Per Phase 20.1 directive #1 & #2 — Sir requested GPT-5.2 fallback, but Emergent
 # Universal Key is ANTHROPIC-ONLY (not allowed to access OpenAI models per key policy).
 # We silently use Claude Haiku 4.5 as the cheap-and-fast fallback (3-5x cheaper than Sonnet).
-PRIMARY_MODEL = ("anthropic", "claude-sonnet-4-5-20250929")
-FALLBACK_MODEL = ("anthropic", "claude-haiku-4-5-20251001")
+PRIMARY_MODEL = ("perplexity", "sonar-pro")
+FALLBACK_MODEL = ("perplexity", "sonar")
 
 # Phase 20.1 quality bar (Sir's directive)
 MIN_STEPS = 5
@@ -77,18 +85,40 @@ async def resolve_au_nz_skill_assessment_url(db, country_key: str, service_type:
 
 
 # ── Core AI call: Claude primary, GPT fallback ────────────────────────────────
-def _sync_chat_call(api_key: str, session_id: str, system_msg: str, provider: str, model: str, prompt: str) -> str:
-    """Sweep A.2 fix — Runs the LlmChat in a brand-new event loop inside a worker
-    thread. emergentintegrations.LlmChat.send_message is declared `async` but
-    internally calls the SYNC litellm.completion() — that blocks the main FastAPI
-    event loop for 20–90s per call. Wrapping it via run_in_executor + asyncio.run
-    makes it true non-blocking from the main loop's perspective.
-    """
-    from emergentintegrations.llm.chat import LlmChat, UserMessage
-    chat = LlmChat(api_key=api_key, session_id=session_id, system_message=system_msg).with_model(provider, model)
-    return asyncio.run(chat.send_message(UserMessage(text=prompt)))
+async def _sync_chat_call(
+    api_key,
+    session_id,
+    system_msg,
+    provider,
+    model,
+    prompt,
+):
 
+    print("========== PERPLEXITY START ==========")
+    print("Model:", model)
 
+    response = await perplexity_client.chat.completions.create(
+        model=model,
+        temperature=0.2,
+        max_tokens=8000,
+        search_mode="web",
+        messages=[
+            {
+                "role": "system",
+                "content": system_msg
+            },
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ]
+    )
+
+    print("========== PERPLEXITY RESPONSE ==========")
+    print(response.choices[0].message.content[:1000])
+    print(response.usage)
+
+    return response.choices[0].message.content
 async def call_ai_with_fallback(
     prompt: str, system_msg: str = "", session_prefix: str = "workflow",
     primary_timeout: float = 90, fallback_timeout: float = 45,
@@ -111,43 +141,79 @@ async def call_ai_with_fallback(
     """
     session_id = f"{session_prefix}-{uuid.uuid4().hex[:8]}"
     last_err: Optional[Exception] = None
-    loop = asyncio.get_event_loop()
+    # loop = asyncio.get_event_loop()
 
-    # ── Tier 1 + Tier 2: Claude Sonnet 4.5 + Claude Haiku 4.5 ─────────────────
-    attempts = [(PRIMARY_MODEL, primary_timeout), (FALLBACK_MODEL, fallback_timeout)]
+   
+
+       # ── Tier 1 + Tier 2: Claude Sonnet 4.5 + Claude Haiku 4.5 ─────────────────
+    attempts = [
+        (PRIMARY_MODEL, primary_timeout),
+        (FALLBACK_MODEL, fallback_timeout),
+    ]
+
     for (provider, model), budget in attempts:
         try:
-            future = loop.run_in_executor(
-                None, _sync_chat_call,
-                EMERGENT_LLM_KEY, session_id, system_msg, provider, model, prompt,
+            result = await asyncio.wait_for(
+                _sync_chat_call(
+                    "",  # api_key no longer used
+                    session_id,
+                    system_msg,
+                    provider,
+                    model,
+                    prompt,
+                ),
+                timeout=budget,
             )
-            result = await asyncio.wait_for(future, timeout=budget)
-            logger.info("AI workflow generated via %s/%s (session=%s, budget=%ss)", provider, model, session_id, budget)
+
+            logger.info(
+                "AI workflow generated via %s/%s (session=%s, budget=%ss)",
+                provider,
+                model,
+                session_id,
+                budget,
+            )
+
             return result, f"{provider}/{model}"
+
         except asyncio.TimeoutError:
-            last_err = TimeoutError(f"{provider}/{model} exceeded {budget}s budget")
-            logger.warning("AI call timeout (%s/%s after %ss) — trying next model", provider, model, budget)
+            last_err = TimeoutError(
+                f"{provider}/{model} exceeded {budget}s budget"
+            )
+
+            logger.warning(
+                "AI call timeout (%s/%s after %ss) — trying next model",
+                provider,
+                model,
+                budget,
+            )
             continue
-        except Exception as e:  # noqa: BLE001
+
+        except Exception as e:
             last_err = e
-            logger.warning("AI call failed (%s/%s): %s — trying next model", provider, model, e)
+
+            logger.warning(
+                "AI call failed (%s/%s): %s — trying next model",
+                provider,
+                model,
+                e,
+            )
             continue
 
     # ── Tier 3: Perplexity Sonar Pro (B.4.1) ──────────────────────────────────
-    from services.perplexity_service import call_perplexity_sonar_pro, is_perplexity_configured
-    if is_perplexity_configured():
-        try:
-            logger.info("Both Claude tiers failed — attempting Perplexity Sonar Pro tertiary fallback")
-            result, label = await call_perplexity_sonar_pro(prompt, system_msg, timeout_seconds=perplexity_timeout)
-            logger.info("AI workflow generated via %s (Perplexity tertiary fallback succeeded)", label)
-            return result, label
-        except Exception as e:  # noqa: BLE001
-            last_err = e
-            logger.warning("Perplexity Sonar Pro fallback failed: %s", e)
-    else:
-        logger.info("Perplexity Sonar Pro skipped — PERPLEXITY_API_KEY not configured (Sir to set env var to enable)")
+    # from services.perplexity_service import call_perplexity_sonar_pro, is_perplexity_configured
+    # if is_perplexity_configured():
+    #     try:
+    #         logger.info("Both Claude tiers failed — attempting Perplexity Sonar Pro tertiary fallback")
+    #         result, label = await call_perplexity_sonar_pro(prompt, system_msg, timeout_seconds=perplexity_timeout)
+    #         logger.info("AI workflow generated via %s (Perplexity tertiary fallback succeeded)", label)
+    #         return result, label
+    #     except Exception as e:  # noqa: BLE001
+    #         last_err = e
+    #         logger.warning("Perplexity Sonar Pro fallback failed: %s", e)
+    # else:
+    #     logger.info("Perplexity Sonar Pro skipped — PERPLEXITY_API_KEY not configured (Sir to set env var to enable)")
 
-    raise RuntimeError(f"All AI providers failed. Last error: {type(last_err).__name__}: {last_err}")
+    # raise RuntimeError(f"All AI providers failed. Last error: {type(last_err).__name__}: {last_err}")
 
 
 # ── JSON extraction (handles markdown-wrapped responses) ──────────────────────

@@ -54,6 +54,7 @@ async def update_workflow(product_id: str, data: dict, current_user: dict = Depe
             "description": step.get("description", ""),
             "duration_days": step.get("duration_days", 7),
             "required_documents": step.get("required_documents", []),
+            "sections": step.get("sections", []),
             "is_active": step.get("is_active", True),
             "created_at": datetime.now(timezone.utc)
         }
@@ -84,6 +85,7 @@ async def add_step(product_id: str, data: dict, current_user: dict = Depends(get
         "description": data.get("description", ""),
         "order": next_order,
         "required_documents": data.get("required_documents", []),
+        "sections": [],
         "is_active": True,
         "created_at": datetime.now(timezone.utc)
     }

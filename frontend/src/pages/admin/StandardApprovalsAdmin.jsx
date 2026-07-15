@@ -165,7 +165,7 @@ export default function ExpressApprovalsAdmin() {
       const token = localStorage.getItem('token');
       const headers = { Authorization: `Bearer ${token}` };
       const [p, h] = await Promise.all([
-        axios.get(`${API}/pre-assessment/admin/queue`, { headers }),
+        axios.get(`${API}/pre-assessment/admin/standard-approvals`, { headers }),
         
   axios.get(`${API}/pre-assessment/admin/history`, { headers }), 
       ]);

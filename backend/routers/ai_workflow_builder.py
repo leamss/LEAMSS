@@ -26,7 +26,7 @@ EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
 # Sweep A.2 — Job config
 JOB_CACHE_TTL_MINUTES = 60  # Reuse successful job within last 60 min for same country+service
 MAX_CONCURRENT_JOBS_PER_USER = 3
-AI_CALL_TIMEOUT_SECONDS = 90  # Per-AI-call timeout (longer than ingress because we're in bg)
+AI_CALL_TIMEOUT_SECONDS = 300  # Per-AI-call timeout (longer than ingress because we're in bg)
 JOB_OVERALL_TIMEOUT_SECONDS = 240  # 4 min hard ceiling for whole job
 
 
@@ -1194,21 +1194,89 @@ async def save_workflow_as_product(
     }
     await products_col.insert_one(product)
     
+    # saved_steps = []
+    # for step_data in request.steps:
+    #     step = {
+    #         "id": str(uuid.uuid4()),
+    #         "product_id": product["id"],
+    #         "step_name": step_data.get("step_name", ""),
+    #         "step_order": step_data.get("step_order", 0),
+    #         "description": step_data.get("description", ""),
+    #         "duration_days": step_data.get("duration_days", 7),
+    #         "required_documents": step_data.get("required_documents", []),
+    #         "important_notes": step_data.get("important_notes", ""),
+    #         "government_fees": step_data.get("government_fees", "")
+    #     }
+    #     await workflow_steps_col.insert_one(step)
+    #     saved_steps.append({"id": step["id"], "step_name": step["step_name"]})
     saved_steps = []
+
     for step_data in request.steps:
+        required_documents = step_data.get("required_documents", [])
+
+        document_fields = []
+
+        for doc_index, doc in enumerate(required_documents):
+            if isinstance(doc, dict):
+                doc_name = doc.get("name", f"Document {doc_index + 1}")
+                doc_description = doc.get("description", "")
+                is_required = doc.get("mandatory", True)
+            else:
+                doc_name = str(doc)
+                doc_description = ""
+                is_required = True
+
+            field_key = (
+                doc_name.lower()
+                .replace(" ", "_")
+                .replace("-", "_")
+                .replace("/", "_")
+                .replace("&", "and")
+            )
+
+            document_fields.append({
+                "key": f"document_{field_key}_{doc_index}",
+                "label": doc_name,
+                "field_type": "file",
+                "options": [],
+                "required": is_required,
+                "filled_by": "client",
+                "placeholder": "",
+                "help_text": doc_description or f"Upload {doc_name}"
+            })
+
+        sections = []
+
+        if document_fields:
+            sections.append({
+                "id": f"section_documents_{uuid.uuid4()}",
+                "title": "Required Documents",
+                "fields": document_fields
+            })
+
         step = {
             "id": str(uuid.uuid4()),
             "product_id": product["id"],
             "step_name": step_data.get("step_name", ""),
+            "name": step_data.get("step_name", ""),
             "step_order": step_data.get("step_order", 0),
+            "order": step_data.get("step_order", 0),
             "description": step_data.get("description", ""),
             "duration_days": step_data.get("duration_days", 7),
-            "required_documents": step_data.get("required_documents", []),
+            "required_documents": required_documents,
+            "sections": sections,
             "important_notes": step_data.get("important_notes", ""),
-            "government_fees": step_data.get("government_fees", "")
+            "government_fees": step_data.get("government_fees", ""),
+            "is_active": True,
+            "created_at": datetime.now(timezone.utc)
         }
+
         await workflow_steps_col.insert_one(step)
-        saved_steps.append({"id": step["id"], "step_name": step["step_name"]})
+
+        saved_steps.append({
+            "id": step["id"],
+            "step_name": step["step_name"]
+        })
     
     await log_activity(current_user["id"], current_user["name"], "saved_ai_workflow", "product",
                        product["id"], f"Saved AI workflow as product: {request.product_name} with {len(saved_steps)} steps")
