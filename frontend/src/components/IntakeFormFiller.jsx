@@ -55,6 +55,36 @@ const IntakeFormFiller = ({ token, caseId, role = 'client', caseName = '' }) => 
     setFormValues(prev => ({ ...prev, [key]: val }));
     setDirty(true);
   };
+  const handleFieldSubmit = async (key) => {
+  try {
+    setSaving(true);
+
+    const res = await axios.post(
+      `${API}/intake-forms/case/save`,
+      {
+        case_id: caseId,
+        data: {
+          [key]: formValues[key]
+        }
+      },
+      { headers }
+    );
+
+    toast.success('Field submitted successfully!');
+
+    setDirty(false);
+
+    await loadData();
+  } catch (e) {
+    console.error('Field submit failed:', e);
+
+    toast.error(
+      e.response?.data?.detail || 'Failed to submit field'
+    );
+  } finally {
+    setSaving(false);
+  }
+};
 
   const handleSave = async () => {
     setSaving(true);
@@ -66,6 +96,7 @@ const IntakeFormFiller = ({ token, caseId, role = 'client', caseName = '' }) => 
     } catch (e) { toast.error(e.response?.data?.detail || 'Save failed'); }
     setSaving(false);
   };
+  
 
   const toggleSection = (id) => setExpanded(p => ({ ...p, [id]: !p[id] }));
 
@@ -84,7 +115,20 @@ const IntakeFormFiller = ({ token, caseId, role = 'client', caseName = '' }) => 
   const sections = data.sections || [];
   const totalFields = sections.reduce((a, s) => a + s.fields.length, 0);
   const filledFields = sections.reduce((a, s) => a + s.fields.filter(f => formValues[f.key]).length, 0);
-  const myEditableFields = sections.reduce((a, s) => a + s.fields.filter(f => f.editable).length, 0);
+  const myEditableFields = sections.reduce(
+  (count, section) =>
+    count +
+    section.fields.filter((field) => {
+      const filledBy = (
+        field.filled_by || 'client'
+      ).toLowerCase();
+
+      return role === 'client'
+        ? filledBy === 'client' || filledBy === 'both'
+        : filledBy === 'cm' || filledBy === 'both';
+    }).length,
+  0
+);
   const completionPct = totalFields > 0 ? Math.round((filledFields / totalFields) * 100) : 0;
 
   return (
@@ -154,7 +198,17 @@ const IntakeFormFiller = ({ token, caseId, role = 'client', caseName = '' }) => 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
                   {section.fields.map((field, fIdx) => {
                     const roleBadge = ROLE_BADGE[field.filled_by] || ROLE_BADGE.client;
-                    const isEditable = field.editable;
+                    const filledBy = (field.filled_by || 'client').toLowerCase();
+                    const fieldType = (
+  field.field_type ||
+  field.type ||
+  'text'
+).toLowerCase();
+
+const isEditable =
+  role === 'client'
+    ? filledBy === 'client' || filledBy === 'both'
+    : filledBy === 'cm' || filledBy === 'both';
                     const isFilled = formValues[field.key];
                     const filledByOther = field.filled_by_user && field.filled_by_role && field.filled_by_role !== role;
 
@@ -175,39 +229,127 @@ const IntakeFormFiller = ({ token, caseId, role = 'client', caseName = '' }) => 
                         {field.help_text && <p className="text-[10px] text-slate-400 flex items-center gap-1"><Info className="h-3 w-3" />{field.help_text}</p>}
 
                         {/* Field Input */}
-                        {isEditable ? (
-                          <>
-                            {field.field_type === 'text' && (
-                              <Input value={formValues[field.key] || ''} onChange={e => handleChange(field.key, e.target.value)}
-                                     placeholder={field.placeholder || field.label} className="h-9 text-sm rounded-lg" />
-                            )}
-                            {field.field_type === 'textarea' && (
-                              <Textarea value={formValues[field.key] || ''} onChange={e => handleChange(field.key, e.target.value)}
-                                        placeholder={field.placeholder || field.label} rows={2} className="text-sm rounded-lg" />
-                            )}
-                            {field.field_type === 'date' && (
-                              <Input type="date" value={formValues[field.key] || ''} onChange={e => handleChange(field.key, e.target.value)}
-                                     className="h-9 text-sm rounded-lg" />
-                            )}
-                            {field.field_type === 'select' && (
-                              <Select value={formValues[field.key] || ''} onValueChange={v => handleChange(field.key, v)}>
-                                <SelectTrigger className="h-9 text-sm rounded-lg"><SelectValue placeholder="Select..." /></SelectTrigger>
-                                <SelectContent>{(field.options || []).map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent>
-                              </Select>
-                            )}
-                            {field.field_type === 'file' && (
-                              <Input type="file" className="text-sm rounded-lg" onChange={e => handleChange(field.key, e.target.files?.[0]?.name || '')} />
-                            )}
-                          </>
-                        ) : (
-                          <div className="p-2.5 bg-slate-100 rounded-lg min-h-[36px] flex items-center">
-                            {isFilled ? (
-                              <span className="text-sm text-slate-800">{formValues[field.key]}</span>
-                            ) : (
-                              <span className="text-sm text-slate-400 italic">Not filled yet</span>
-                            )}
-                          </div>
-                        )}
+                       {/* Field Input */}
+{isEditable ? (
+  <div className="space-y-2">
+    {fieldType === 'text' && (
+      <Input
+        value={formValues[field.key] || ''}
+        onChange={(e) =>
+          handleChange(field.key, e.target.value)
+        }
+        placeholder={field.placeholder || field.label}
+        className="h-9 text-sm rounded-lg"
+      />
+    )}
+
+    {fieldType === 'textarea' && (
+      <Textarea
+        value={formValues[field.key] || ''}
+        onChange={(e) =>
+          handleChange(field.key, e.target.value)
+        }
+        placeholder={field.placeholder || field.label}
+        rows={2}
+        className="text-sm rounded-lg"
+      />
+    )}
+
+    {fieldType=== 'date' && (
+      <Input
+        type="date"
+        value={formValues[field.key] || ''}
+        onChange={(e) =>
+          handleChange(field.key, e.target.value)
+        }
+        className="h-9 text-sm rounded-lg"
+      />
+    )}
+
+    {(fieldType === 'select' ||
+      fieldType === 'dropdown') && (
+      <Select
+        value={formValues[field.key] || ''}
+        onValueChange={(value) =>
+          handleChange(field.key, value)
+        }
+      >
+        <SelectTrigger className="h-9 text-sm rounded-lg">
+          <SelectValue placeholder="Select..." />
+        </SelectTrigger>
+
+        <SelectContent>
+          {(field.options || []).map((option, optionIndex) => {
+            const optionValue =
+              typeof option === 'string'
+                ? option
+                : option.value;
+
+            const optionLabel =
+              typeof option === 'string'
+                ? option
+                : option.label;
+
+            return (
+              <SelectItem
+                key={optionIndex}
+                value={optionValue}
+              >
+                {optionLabel}
+              </SelectItem>
+            );
+          })}
+        </SelectContent>
+      </Select>
+    )}
+
+    {fieldType=== 'file' && (
+      <Input
+        type="file"
+        className="text-sm rounded-lg"
+        onChange={(e) =>
+          handleChange(
+            field.key,
+            e.target.files?.[0]?.name || ''
+          )
+        }
+      />
+    )}
+
+    {fieldType !== 'file' && (
+      <Button
+        type="button"
+        size="sm"
+        onClick={() => handleFieldSubmit(field.key)}
+        disabled={
+          saving ||
+          !formValues[field.key]
+        }
+        className="bg-[#2a777a] hover:bg-[#215f62]"
+      >
+        {saving ? (
+          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+        ) : (
+          <Save className="h-3 w-3 mr-1" />
+        )}
+
+        Submit
+      </Button>
+    )}
+  </div>
+) : (
+  <div className="p-2.5 bg-slate-100 rounded-lg min-h-[36px] flex items-center">
+    {isFilled ? (
+      <span className="text-sm text-slate-800">
+        {String(formValues[field.key])}
+      </span>
+    ) : (
+      <span className="text-sm text-slate-400 italic">
+        Not filled yet
+      </span>
+    )}
+  </div>
+)}
 
                         {/* Filled by info */}
                         {filledByOther && field.filled_by_user && (

@@ -144,6 +144,9 @@ export default function StandardApprovalsAdmin() {
       const [p, h] = await Promise.all([
         axios.get(`${API}/pre-assessment/admin/standard-queue`, getAuthHeader()),
         axios.get(`${API}/pre-assessment/admin/standard-history`, getAuthHeader()),
+        axios.get(`${API}/pre-assessment/admin/standard-approvals`, { headers }),
+        
+  axios.get(`${API}/pre-assessment/admin/history`, { headers }), 
       ]);
       setPending(p.data.items || []);
       setHistory(h.data.items || []);

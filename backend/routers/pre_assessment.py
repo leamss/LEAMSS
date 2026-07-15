@@ -1289,6 +1289,58 @@ async def get_stats(current_user: dict = Depends(get_current_user)):
     out["conversion_rate"] = round((out["case_created"] / total * 100) if total > 0 else 0, 1)
     return out
 
+@router.get("/admin/standard-approvals")
+async def standard_approvals(current_user: dict = Depends(get_current_user)):
+    """Standard Sale Approval Queue"""
+
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    query = {
+        "stage": {
+            "$in": [
+                "documents_submitted",
+                "under_review"
+            ]
+        },
+        "$or": [
+            {"sale_type": "standard"},
+            {"sale_type": {"$exists": False}},
+            {"sale_type": None}
+        ]
+    }
+
+    items = await pre_assessments_col.find(
+        query,
+        {"_id": 0}
+    ).sort("submitted_at", -1).to_list(200)
+
+    for item in items:
+
+        docs = await pre_assessment_docs_col.find(
+            {"pre_assessment_id": item["id"]},
+            {"_id": 0}
+        ).to_list(50)
+
+        item["documents"] = docs
+
+        for field in [
+            "created_at",
+            "updated_at",
+            "submitted_at",
+            "admin_reviewed_at",
+        ]:
+            if item.get(field) and hasattr(item[field], "isoformat"):
+                item[field] = item[field].isoformat()
+
+        for d in docs:
+            if d.get("created_at") and hasattr(d["created_at"], "isoformat"):
+                d["created_at"] = d["created_at"].isoformat()
+
+    return {
+        "items": items,
+        "count": len(items)
+    }
 
 @router.get("/{pa_id}/bundle")
 async def get_pa_bundle(pa_id: str, current_user: dict = Depends(get_current_user)):
