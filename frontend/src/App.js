@@ -50,6 +50,8 @@ import ApproverConfig from '@/pages/admin/ApproverConfig';
 import HRAuditLog from '@/pages/admin/HRAuditLog';
 import SalesDashboard from '@/pages/SalesDashboard';
 import MyTargets from '@/pages/MyTargets';
+import SalesLeaderboard from '@/pages/SalesLeaderboard';
+import MyCRM from '@/pages/MyCRM';
 import SalesTargetsAdmin from '@/pages/admin/SalesTargetsAdmin';
 import TargetTemplatesManager from '@/pages/admin/TargetTemplatesManager';
 import ExpressApprovalsAdmin from '@/pages/admin/ExpressApprovalsAdmin';
@@ -176,7 +178,6 @@ function App() {
               </div>
             </RequirePermission>
           } />
-         
           <Route path="/admin/workflows" element={<WorkflowBuilder />} />
           <Route path="/admin/ai-workflow" element={<AIWorkflowBuilder />} />
           <Route path="/admin/marketing" element={<MarketingDashboard />} />
@@ -359,6 +360,16 @@ function App() {
               <MyTargets />
             </RequirePermission>
           } />
+          <Route path="/sales/leaderboard" element={
+            <RequirePermission anyOf={['target.view.own', 'target.view.team', 'target.view.all']}>
+              <SalesLeaderboard />
+            </RequirePermission>
+          } />
+          <Route path="/sales/my-crm" element={
+            <RequirePermission anyOf={['lead_pool', 'pa.view.own', 'pa.create.own']}>
+              <MyCRM />
+            </RequirePermission>
+          } />
           <Route path="/admin/sales/targets" element={
             <RequirePermission anyOf={['target.view.all', 'target.view.team', 'target.view.dept', 'target.create.any']}>
               <SalesTargetsAdmin />
@@ -374,7 +385,7 @@ function App() {
               <ExpressApprovalsAdmin />
             </RequirePermission>
           } />
-           <Route path="/admin/sales/standard-approvals" element={
+              <Route path="/admin/sales/standard-approvals" element={
             <RequirePermission anyOf={['pa.approve.express', 'system.user_manage.any']}>
               <StandardApprovalsAdmin />
             </RequirePermission>

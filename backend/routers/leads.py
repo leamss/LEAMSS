@@ -11,24 +11,45 @@ leads_col = db["leads"]
 follow_ups_col = db["follow_ups"]
 
 
+async def _next_lead_number():
+    """Generate a human-friendly sequential lead number like LD006672."""
+    count = await leads_col.count_documents({})
+    return f"LD{(count + 6620):06d}"
+
+
 @router.post("/capture")
 async def capture_lead(data: dict):
-    """Public endpoint — capture a lead from landing page (no auth required)"""
+    """Create a lead — public (landing page) or authenticated (Add Lead form) use both hit this."""
+    lead_number = data.get("lead_number") or await _next_lead_number()
     lead = {
         "id": str(uuid.uuid4()),
+        "lead_number": lead_number,
         "name": data.get("name", ""),
         "email": data.get("email", ""),
         "phone": data.get("phone", ""),
+        "alternate_phone": data.get("alternate_phone", ""),
+        "address": data.get("address", ""),
+        "city": data.get("city", ""),
         "service_interested": data.get("service_interested", ""),
         "country_of_interest": data.get("country_of_interest", ""),
         "message": data.get("message", ""),
         "source": data.get("source", "website"),
+        "subsource": data.get("subsource", ""),
         "utm_source": data.get("utm_source", ""),
         "utm_medium": data.get("utm_medium", ""),
         "utm_campaign": data.get("utm_campaign", ""),
-        "stage": "new",
-        "assigned_to": None,
-        "priority": "medium",
+        "stage": data.get("stage", "new"),
+        "assigned_to": data.get("assigned_to"),
+        "assigned_to_name": data.get("assigned_to_name", ""),
+        "priority": data.get("priority", "medium"),
+        "date_of_birth": data.get("date_of_birth", ""),
+        "occupation": data.get("occupation", ""),
+        "total_work_experience": data.get("total_work_experience", ""),
+        "backlogs": data.get("backlogs", ""),
+        "lead_type": data.get("lead_type", ""),
+        "latest_qualification": data.get("latest_qualification", ""),
+        "university": data.get("university", ""),
+        "course": data.get("course", ""),
         "tags": [],
         "notes": [],
         "created_at": datetime.now(timezone.utc),
@@ -38,7 +59,7 @@ async def capture_lead(data: dict):
         "converted_sale_id": None
     }
     await leads_col.insert_one(lead)
-    return {"message": "Thank you! We will contact you shortly.", "lead_id": lead["id"]}
+    return {"message": "Lead saved successfully.", "lead_id": lead["id"], "lead_number": lead_number}
 
 
 @router.get("/")
@@ -50,7 +71,7 @@ async def get_leads(
     current_user: dict = Depends(get_current_user)
 ):
     """Get all leads (admin/partner)"""
-    if current_user["role"] not in ["admin", "partner", "case_manager"]:
+    if current_user["role"] not in ["admin", "partner", "case_manager", "sales_executive", "sr_sales_executive"]:
         raise HTTPException(status_code=403, detail="Not authorized")
     
     query = {}
@@ -60,7 +81,7 @@ async def get_leads(
         query["assigned_to"] = assigned_to
     if source:
         query["source"] = source
-    if current_user["role"] == "partner":
+    if current_user["role"] in ["partner", "sales_executive", "sr_sales_executive"]:
         query["assigned_to"] = current_user["id"]
     
     leads = await leads_col.find(query, {"_id": 0}).sort("created_at", -1).to_list(limit)
@@ -74,19 +95,19 @@ async def get_leads(
 @router.get("/pipeline-stats")
 async def get_pipeline_stats(current_user: dict = Depends(get_current_user)):
     """Get lead pipeline statistics"""
-    if current_user["role"] not in ["admin", "partner", "case_manager"]:
+    if current_user["role"] not in ["admin", "partner", "case_manager", "sales_executive", "sr_sales_executive"]:
         raise HTTPException(status_code=403, detail="Not authorized")
     
-    stages = ["new", "contacted", "qualified", "proposal", "negotiation", "won", "lost"]
+    stages = ["new", "contacted", "not_connected", "payment_done", "prospect", "not_interested", "converted"]
     stats = {}
     for stage in stages:
         query = {"stage": stage}
-        if current_user["role"] == "partner":
+        if current_user["role"] in ["partner", "sales_executive", "sr_sales_executive"]:
             query["assigned_to"] = current_user["id"]
         stats[stage] = await leads_col.count_documents(query)
     
     total = sum(stats.values())
-    conversion_rate = round((stats.get("won", 0) / total * 100) if total > 0 else 0, 1)
+    conversion_rate = round((stats.get("converted", 0) / total * 100) if total > 0 else 0, 1)
     
     return {
         "stages": stats,
@@ -98,7 +119,7 @@ async def get_pipeline_stats(current_user: dict = Depends(get_current_user)):
 
 async def _get_source_stats(user):
     query = {}
-    if user["role"] == "partner":
+    if user["role"] in ["partner", "sales_executive", "sr_sales_executive"]:
         query["assigned_to"] = user["id"]
     pipeline = [
         {"$match": query},
@@ -112,7 +133,7 @@ async def _get_source_stats(user):
 @router.put("/{lead_id}")
 async def update_lead(lead_id: str, data: dict, current_user: dict = Depends(get_current_user)):
     """Update lead details or move through pipeline"""
-    if current_user["role"] not in ["admin", "partner", "case_manager"]:
+    if current_user["role"] not in ["admin", "partner", "case_manager", "sales_executive", "sr_sales_executive"]:
         raise HTTPException(status_code=403, detail="Not authorized")
     
     lead = await leads_col.find_one({"id": lead_id}, {"_id": 0})
@@ -173,7 +194,7 @@ async def schedule_follow_up(lead_id: str, data: dict, current_user: dict = Depe
 async def get_pending_follow_ups(current_user: dict = Depends(get_current_user)):
     """Get pending follow-ups"""
     query = {"status": "pending"}
-    if current_user["role"] == "partner":
+    if current_user["role"] in ["partner", "sales_executive", "sr_sales_executive"]:
         query["created_by"] = current_user["id"]
     
     follow_ups = await follow_ups_col.find(query, {"_id": 0}).sort("scheduled_at", 1).to_list(50)
@@ -201,11 +222,11 @@ async def complete_follow_up(follow_up_id: str, data: dict, current_user: dict =
 @router.post("/{lead_id}/convert")
 async def convert_lead(lead_id: str, data: dict, current_user: dict = Depends(get_current_user)):
     """Convert a lead to a sale"""
-    if current_user["role"] not in ["admin", "partner"]:
+    if current_user["role"] not in ["admin", "partner", "sales_executive", "sr_sales_executive"]:
         raise HTTPException(status_code=403, detail="Not authorized")
     
     await leads_col.update_one({"id": lead_id}, {"$set": {
-        "stage": "won",
+        "stage": "converted",
         "converted": True,
         "converted_sale_id": data.get("sale_id"),
         "updated_at": datetime.now(timezone.utc)

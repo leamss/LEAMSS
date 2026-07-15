@@ -1,7 +1,3 @@
-/**
- * Phase 4B (Part 2) — Admin Express Approvals queue.
- * Lists pending express PAs awaiting admin decision.
- */
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -12,29 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
-import { ArrowLeft, Zap, CheckCircle2, XCircle, Clock, User, Globe, FileText, AlertTriangle, Sparkles } from 'lucide-react';
+import { ArrowLeft, ClipboardList, CheckCircle2, XCircle, Clock, User, Globe, FileText, Sparkles } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
-
-const REASON_LABELS = {
-  repeat_client: 'Repeat Client',
-  pre_qualified_referral: 'Pre-qualified Referral',
-  vip_customer: 'VIP Customer',
-  direct_walkin: 'Direct Walk-in',
-  partner_channel: 'Partner Channel',
-  renewal_upgrade: 'Renewal / Upgrade',
-  other: 'Other',
-};
-
-const REASON_COLORS = {
-  vip_customer: 'bg-amber-100 text-amber-700 border-amber-300',
-  repeat_client: 'bg-emerald-100 text-emerald-700 border-emerald-300',
-  pre_qualified_referral: 'bg-blue-100 text-blue-700 border-blue-300',
-  partner_channel: 'bg-leamss-teal-100 text-leamss-teal-700 border-leamss-teal-300',
-  renewal_upgrade: 'bg-leamss-orange-100 text-leamss-orange-700 border-leamss-orange-300',
-  direct_walkin: 'bg-sky-100 text-sky-700 border-sky-300',
-  other: 'bg-slate-100 text-slate-700 border-slate-300',
-};
 
 const formatDate = (iso) => {
   if (!iso) return '—';
@@ -60,7 +36,7 @@ const ApprovalDialog = ({ open, onClose, pa, action, onConfirm }) => {
       <DialogContent data-testid={`${action}-dialog`}>
         <DialogHeader>
           <DialogTitle className={action === 'approve' ? 'text-emerald-700' : 'text-rose-700'}>
-            {action === 'approve' ? '✅ Approve Express Sale' : '❌ Reject Express Sale'}
+            {action === 'approve' ? '✅ Approve Pre-Assessment' : '❌ Reject Pre-Assessment'}
           </DialogTitle>
           <DialogDescription>
             <strong>{pa?.client_name}</strong> · {pa?.country} {pa?.service_type} · by {pa?.partner_name}
@@ -84,20 +60,19 @@ const ApprovalDialog = ({ open, onClose, pa, action, onConfirm }) => {
   );
 };
 
-const ExpressCard = ({ pa, onAction, isPending = true }) => {
-  const reasonColor = REASON_COLORS[pa.express_sale_reason] || REASON_COLORS.other;
+const StandardCard = ({ pa, onAction, isPending = true }) => {
   const statusBadge = (() => {
     if (isPending) return <Badge className="bg-amber-100 text-amber-700 border border-amber-300 uppercase text-[10px] font-bold"><Clock className="h-3 w-3 mr-1 inline" />Pending</Badge>;
-    if (pa.express_sale_approval_status === 'approved') return <Badge className="bg-emerald-100 text-emerald-700 border border-emerald-300 uppercase text-[10px] font-bold"><CheckCircle2 className="h-3 w-3 mr-1 inline" />Approved</Badge>;
+    if (pa.admin_decision === 'approved') return <Badge className="bg-emerald-100 text-emerald-700 border border-emerald-300 uppercase text-[10px] font-bold"><CheckCircle2 className="h-3 w-3 mr-1 inline" />Approved</Badge>;
     return <Badge className="bg-rose-100 text-rose-700 border border-rose-300 uppercase text-[10px] font-bold"><XCircle className="h-3 w-3 mr-1 inline" />Rejected</Badge>;
   })();
 
   return (
-    <Card className="p-5 border-l-4 border-l-amber-500" data-testid={`express-card-${pa.id}`}>
+    <Card className="p-5 border-l-4 border-l-leamss-orange-500" data-testid={`standard-card-${pa.id}`}>
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
-            <Zap className="h-5 w-5 text-amber-600" />
+          <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center">
+            <ClipboardList className="h-5 w-5 text-leamss-orange-600" />
           </div>
           <div>
             <h3 className="font-bold text-slate-800 text-lg flex items-center gap-2">
@@ -115,26 +90,28 @@ const ExpressCard = ({ pa, onAction, isPending = true }) => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm mb-3">
         <div>
-          <p className="text-xs uppercase tracking-wider text-slate-500 font-bold">Sales Person</p>
-          <p className="font-semibold text-slate-800 flex items-center gap-1.5 mt-0.5"><User className="h-3.5 w-3.5" />{pa.partner_name}</p>
+          <p className="text-xs uppercase tracking-wider text-slate-500 font-bold">Submitted By</p>
+          <p className="font-semibold text-slate-800 flex items-center gap-1.5 mt-0.5"><User className="h-3.5 w-3.5" />{pa.partner_name || '—'}</p>
         </div>
         <div>
-          <p className="text-xs uppercase tracking-wider text-slate-500 font-bold">Reason</p>
-          <Badge className={`${reasonColor} text-xs uppercase border mt-0.5`}>{REASON_LABELS[pa.express_sale_reason] || pa.express_sale_reason}</Badge>
+          <p className="text-xs uppercase tracking-wider text-slate-500 font-bold">Stage</p>
+          <Badge className="bg-slate-100 text-slate-700 text-xs uppercase border mt-0.5">{(pa.stage || '').replace(/_/g, ' ')}</Badge>
         </div>
-        <div className="md:col-span-2">
-          <p className="text-xs uppercase tracking-wider text-slate-500 font-bold mb-0.5">Justification</p>
-          <p className="text-sm text-slate-700 bg-amber-50 border border-amber-200 rounded p-2.5">
-            <FileText className="h-3.5 w-3.5 inline mr-1 text-amber-700" />
-            {pa.express_sale_justification}
-          </p>
-        </div>
+        {(pa.education || pa.experience || pa.age) && (
+          <div className="md:col-span-2">
+            <p className="text-xs uppercase tracking-wider text-slate-500 font-bold mb-0.5">Client Profile</p>
+            <p className="text-sm text-slate-700 bg-orange-50 border border-orange-200 rounded p-2.5 flex items-center gap-1.5">
+              <FileText className="h-3.5 w-3.5 text-leamss-orange-700" />
+              {[pa.age && `Age ${pa.age}`, pa.education, pa.experience && `${pa.experience} yrs exp`].filter(Boolean).join(' · ') || '—'}
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="flex items-center justify-between text-xs text-slate-500">
-        <span>Requested {formatDate(pa.express_sale_requested_at || pa.created_at)}</span>
-        {!isPending && pa.express_sale_approval_remarks && (
-          <span className="italic">Remarks: "{pa.express_sale_approval_remarks}"</span>
+        <span>Submitted {formatDate(pa.submitted_at || pa.created_at)}</span>
+        {!isPending && pa.admin_notes && (
+          <span className="italic">Remarks: "{pa.admin_notes}"</span>
         )}
       </div>
 
@@ -152,29 +129,29 @@ const ExpressCard = ({ pa, onAction, isPending = true }) => {
   );
 };
 
-export default function ExpressApprovalsAdmin() {
+export default function StandardApprovalsAdmin() {
   const navigate = useNavigate();
   const [pending, setPending] = useState([]);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dialog, setDialog] = useState({ open: false, action: null, pa: null });
 
+  const getAuthHeader = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
+
   const load = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      const headers = { Authorization: `Bearer ${token}` };
       const [p, h] = await Promise.all([
+        axios.get(`${API}/pre-assessment/admin/standard-queue`, getAuthHeader()),
+        axios.get(`${API}/pre-assessment/admin/standard-history`, getAuthHeader()),
         axios.get(`${API}/pre-assessment/admin/standard-approvals`, { headers }),
         
   axios.get(`${API}/pre-assessment/admin/history`, { headers }), 
       ]);
-      console.log(`${API}/pre-assessment/admin/queue`);
       setPending(p.data.items || []);
-      const decided = (h.data.items || []).filter(i => i.express_sale_approval_status !== 'pending');
-      setHistory(decided);
+      setHistory(h.data.items || []);
     } catch (e) {
-      toast.error('Failed to load Express queue');
+      toast.error('Failed to load approval queue');
       console.error(e);
     } finally {
       setLoading(false);
@@ -188,19 +165,12 @@ export default function ExpressApprovalsAdmin() {
   const confirmAction = async (remarks) => {
     const { pa, action } = dialog;
     try {
-      const token = localStorage.getItem('token');
-     await axios.put(
-  `${API}/pre-assessment/${pa.id}/review`,
-  {
-    decision: action === "approve" ? "approved" : "rejected",
-    reason: remarks,
-    notes: remarks,
-  },
-  {
-    headers: { Authorization: `Bearer ${token}` }
-  }
-);
-      toast.success(`Express Sale ${action === 'approve' ? 'approved' : 'rejected'} successfully`);
+      await axios.put(
+        `${API}/pre-assessment/${pa.id}/review`,
+        { decision: action === 'approve' ? 'approved' : 'rejected', reason: remarks, notes: remarks },
+        getAuthHeader()
+      );
+      toast.success(`Pre-Assessment ${action === 'approve' ? 'approved' : 'rejected'} successfully`);
       setDialog({ open: false, action: null, pa: null });
       load();
     } catch (e) {
@@ -209,7 +179,7 @@ export default function ExpressApprovalsAdmin() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6" data-testid="express-approvals-page">
+    <div className="min-h-screen bg-slate-50 p-6" data-testid="standard-approvals-page">
       <div className="max-w-5xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
@@ -218,22 +188,20 @@ export default function ExpressApprovalsAdmin() {
             </button>
             <div>
               <h1 className="text-3xl font-extrabold text-slate-800 flex items-center gap-2">
-                <Zap className="h-7 w-7 text-amber-600" /> Express Sale Approvals
+                <ClipboardList className="h-7 w-7 text-leamss-orange-600" /> Standard Sale Approvals
               </h1>
-              <p className="text-sm text-slate-500 mt-1">Review sales bypassing the Pre-Assessment fee step</p>
+              <p className="text-sm text-slate-500 mt-1">Pre-Assessments awaiting eligibility review</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Badge className="bg-amber-100 text-amber-700 border border-amber-300 text-base px-3 py-1.5 font-bold" data-testid="pending-count-badge">
-              {pending.length} pending
-            </Badge>
-          </div>
+          <Badge className="bg-orange-100 text-leamss-orange-700 border border-orange-300 text-base px-3 py-1.5 font-bold" data-testid="pending-count-badge">
+            {pending.length} pending
+          </Badge>
         </div>
 
         {loading ? (
-          <Card className="p-12 text-center"><Sparkles className="h-8 w-8 text-amber-300 mx-auto animate-pulse mb-2" /><p className="text-slate-500">Loading…</p></Card>
+          <Card className="p-12 text-center"><Sparkles className="h-8 w-8 text-orange-300 mx-auto animate-pulse mb-2" /><p className="text-slate-500">Loading…</p></Card>
         ) : (
-          <Tabs defaultValue="pending" className="space-y-4" data-testid="express-tabs">
+          <Tabs defaultValue="pending" className="space-y-4" data-testid="standard-tabs">
             <TabsList className="grid w-full grid-cols-2 max-w-md">
               <TabsTrigger value="pending" data-testid="tab-pending">Pending ({pending.length})</TabsTrigger>
               <TabsTrigger value="history" data-testid="tab-history">History ({history.length})</TabsTrigger>
@@ -243,19 +211,19 @@ export default function ExpressApprovalsAdmin() {
               {pending.length === 0 ? (
                 <Card className="p-12 text-center" data-testid="empty-pending">
                   <CheckCircle2 className="h-12 w-12 text-emerald-300 mx-auto mb-2" />
-                  <p className="text-slate-600 font-semibold">No pending Express approvals</p>
+                  <p className="text-slate-600 font-semibold">No pending approvals</p>
                   <p className="text-sm text-slate-400 mt-1">All caught up — well done!</p>
                 </Card>
               ) : (
-                pending.map((pa) => <ExpressCard key={pa.id} pa={pa} onAction={handleAction} isPending />)
+                pending.map((pa) => <StandardCard key={pa.id} pa={pa} onAction={handleAction} isPending />)
               )}
             </TabsContent>
 
             <TabsContent value="history" className="space-y-3">
               {history.length === 0 ? (
-                <Card className="p-10 text-center text-slate-400" data-testid="empty-history">No decided Express sales yet</Card>
+                <Card className="p-10 text-center text-slate-400" data-testid="empty-history">No decided approvals yet</Card>
               ) : (
-                history.map((pa) => <ExpressCard key={pa.id} pa={pa} onAction={() => {}} isPending={false} />)
+                history.map((pa) => <StandardCard key={pa.id} pa={pa} onAction={() => {}} isPending={false} />)
               )}
             </TabsContent>
           </Tabs>

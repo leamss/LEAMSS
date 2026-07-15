@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import {
   LogOut, User, KeyRound, Bell, Calendar, CheckSquare, Sparkles,
   Building2, Briefcase, Shield, TrendingUp, Megaphone, Users, Receipt,
-  Server, ScrollText, ChevronRight, Clock,
+  Server, ScrollText, ChevronRight, Clock, Database,
 } from 'lucide-react';
 import PunchWidget from '@/components/attendance/PunchWidget';
 
@@ -37,6 +37,7 @@ const MODULE_META = {
   // Sales
   sales_dashboard:      { label: 'Sales Dashboard',     icon: TrendingUp },
   pa_pipeline_own:      { label: 'My PA Pipeline',      icon: Briefcase },
+  my_crm:                { label: 'My CRM',              icon: Database },
   pa_pipeline_team:     { label: 'Team PA Pipeline',    icon: Briefcase },
   pa_pipeline_all:      { label: 'All PA Pipeline',     icon: Briefcase },
   lead_pool:            { label: 'Lead Pool',           icon: Sparkles },
@@ -164,6 +165,7 @@ export default function PortalWelcome() {
     }
     // Phase 22 hotfix — comprehensive routing for all built Phase 21+22 features (legacy snake_case)
     const routes = {
+      pa_pipeline_own: '/sales/dashboard?tab=lead-pipeline',
       // Self-service (everyone)
       attendance_self: '/portal/attendance',
       attendance_view: '/portal/attendance',
@@ -187,6 +189,8 @@ export default function PortalWelcome() {
       my_targets: '/sales/my-targets',
       my_incentives: '/sales/my-commission',
       my_commissions: '/sales/my-commission',
+      leaderboard: '/sales/leaderboard',
+      my_crm: '/sales/my-crm',
       lead_pool: '/admin/marketing',
       // Marketing
       marketing_dashboard: '/admin/marketing',
@@ -298,7 +302,7 @@ export default function PortalWelcome() {
               <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
                 <Sparkles className={`h-5 w-5 ${theme.text}`} /> Your Access
               </h3>
-              <p className="text-xs text-slate-500">{modules.length} module{modules.length === 1 ? '' : 's'} granted via your role</p>
+              <p className="text-xs text-slate-500">{modules.filter((m) => m !== 'my_incentives' && m !== 'call_log').concat(modules.includes('my_crm') ? [] : ['my_crm']).length} module{modules.length === 1 ? '' : 's'} granted via your role</p>
             </div>
           </div>
 
@@ -306,7 +310,10 @@ export default function PortalWelcome() {
             <p className="text-slate-500 text-sm italic">No modules assigned yet. Contact your admin.</p>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-              {modules.map((m) => {
+              {modules
+                .filter((m) => m !== 'my_incentives' && m !== 'call_log')
+                .concat(modules.includes('my_crm') ? [] : ['my_crm'])
+                .map((m) => {
                 // Feb 26 hotfix v2 — derive friendly label for URL-path style RBAC v2 ui_modules
                 let metaFromPath = null;
                 if (typeof m === 'string' && m.startsWith('/')) {
@@ -330,7 +337,7 @@ export default function PortalWelcome() {
                         <Icon className="h-4 w-4" style={{ color: theme.color }} />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-slate-800 text-sm capitalize truncate">{meta.label}</p>
+                        <p className={`font-medium text-slate-800 text-sm capitalize truncate ${m === 'pa_pipeline_own' ? 'underline' : ''}`}>{meta.label}</p>
                         <p className="text-[10px] text-slate-400 truncate font-mono">{m}</p>
                       </div>
                       <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-slate-500 transition-colors flex-shrink-0" />

@@ -39,48 +39,73 @@ const ActionCard = ({ icon: Icon, title, count, description, cta, color, onClick
 
 export default function AdminHome({ user, onNavigate }) {
   const navigate = useNavigate();
+// const [data, setData] = useState({
+//     first_approval_pending: 0,
+//     second_approval_pending: 0,
+//     express_pending: 0,
+//     standard_pending: 0,
+//     unassigned_cases: 0,
+//     active_cases: 0,
+//     total_users: 0,
+//     total_partners: 0,
+//     total_revenue: 0,
+// });
 const [data, setData] = useState({
-    first_approval_pending: 0,
-    second_approval_pending: 0,
-    express_pending: 0,
-    unassigned_cases: 0,
-    active_cases: 0,
-    total_users: 0,
-    total_partners: 0,
-    total_revenue: 0,
+  first_approval_pending: 0,
+  second_approval_pending: 0,
+  express_pending: 0,
+  standard_pending: 0,
+  unassigned_cases: 0,
+  active_cases: 0,
+  total_users: 0,
+  total_partners: 0,
+  total_revenue: 0,
 });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
       try {
-        const [queueRes, casesRes, usersRes, expressRes] = await Promise.all([
-          axios.get(`${API}/pre-assessment/admin/queue`, getAuth()).catch(() => ({ data: [] })),
-          axios.get(`${API}/cases`, getAuth()).catch(() => ({ data: [] })),
-          axios.get(`${API}/users`, getAuth()).catch(() => ({ data: [] })),
-          axios.get(`${API}/express/pending`, getAuth()).catch(() => ({
+const [
+  queueRes,
+  casesRes,
+  usersRes,
+  expressRes,
+  standardRes
+] = await Promise.all([
+  axios.get(`${API}/pre-assessment/admin/queue`, getAuth()).catch(() => ({ data: [] })),
+  axios.get(`${API}/cases`, getAuth()).catch(() => ({ data: [] })),
+  axios.get(`${API}/users`, getAuth()).catch(() => ({ data: [] })),
+  axios.get(`${API}/express/pending`, getAuth()).catch(() => ({
     data: { items: [] }
-})),
-        ]);
+  })),
+ axios.get(`${API}/pre-assessment/admin/standard-queue`, getAuth()).catch(() => ({
+    data: { items: [] }
+  })),
+]);
         const queue = queueRes.data || [];
         const cases = casesRes.data || [];
         const users = usersRes.data || [];
         const expressQueue = expressRes.data?.items || [];
-const express_pending = expressQueue.length;
+        const standardQueue = standardRes.data?.items || [];
+        const express_pending = expressQueue.length;
+        const standard_pending = standardQueue.length;
         const first_approval_pending = queue.filter(p => ['documents_submitted', 'under_review'].includes(p.stage)).length;
         const second_approval_pending = queue.filter(p => p.stage === 'awaiting_final_approval').length;
         const unassigned_cases = cases.filter(c => !c.case_manager_id).length;
         const active_cases = cases.filter(c => c.status === 'active').length;
         const total_partners = users.filter(u => u.role === 'partner').length;
-       setData({
-    first_approval_pending,
-    second_approval_pending,
-    express_pending,
-    unassigned_cases,
-    active_cases,
-    total_users: users.length,
-    total_partners,
-    total_revenue: 0,
+
+setData({
+  first_approval_pending,
+  second_approval_pending,
+  express_pending,
+  standard_pending,
+  unassigned_cases,
+  active_cases,
+  total_users: users.length,
+  total_partners,
+  total_revenue: 0,
 });
       } catch (e) { /* graceful */ }
       setLoading(false);
@@ -92,10 +117,11 @@ const express_pending = expressQueue.length;
     return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
   })();
   const totalActions =
-    data.first_approval_pending +
-    data.second_approval_pending +
-    data.express_pending +
-    data.unassigned_cases;
+  data.first_approval_pending +
+  data.second_approval_pending +
+  data.express_pending +
+  data.standard_pending +
+  data.unassigned_cases;
 
   return (
     <div className="space-y-6" data-testid="admin-home">
@@ -139,9 +165,8 @@ const express_pending = expressQueue.length;
               count={data.first_approval_pending}
               description="Pre-Assessments awaiting eligibility review."
               cta="Review queue"
-              color="from-leamss-orange-500 to-leamss-orange-600"
-              onClick={() => onNavigate?.('pre-assessments', 'first_approval')}
-              testId="action-first-approval"
+              color="from-green-600 to-emerald-700"
+onClick={() => navigate('/admin/sales/standard-approvals')}              testId="action-first-approval"
               highlight
             />
           )}
@@ -158,7 +183,7 @@ const express_pending = expressQueue.length;
               highlight
             />
           )}
-          {data.express_pending > 0 && (
+          {/* {data.express_pending > 0 && (
     <ActionCard
         icon={AlertCircle}
         title="Express Sale Approval"
@@ -171,6 +196,46 @@ const express_pending = expressQueue.length;
         highlight
     />
 )}
+{data.standard_pending > 0 && (
+    <ActionCard
+        icon={ClipboardList}
+        title="Standard Sale Approval"
+        count={data.standard_pending}
+        description="Standard Sales waiting for approval."
+        cta="Review Standard Sales"
+        color="from-green-600 to-emerald-700"
+        onClick={() => onNavigate?.('pre-assessments', 'first_approval')}
+        testId="action-standard-approval"
+        highlight
+    />
+)} */}
+{data.express_pending > 0 && (
+  <ActionCard
+    icon={AlertCircle}
+    title="Express Sale Approval"
+    count={data.express_pending}
+    description="Express Sales waiting for approval."
+    cta="Review Express Sales"
+    color="from-violet-600 to-purple-700"
+    onClick={() => navigate("/admin/sales/express-approvals")}
+    testId="action-express-approval"
+    highlight
+  />
+)}
+
+{/* {data.standard_pending > 0 && (
+  <ActionCard
+    icon={ClipboardList}
+    title="Standard Sale Approval"
+    count={data.standard_pending}
+    description="Standard Sales waiting for approval."
+    cta="Review Standard Sales"
+    color="from-green-600 to-emerald-700"
+    onClick={() => navigate("/admin/sales/standard-approvals")}
+    testId="action-standard-approval"
+    highlight
+  />
+)} */}
           {data.unassigned_cases > 0 && (
             <ActionCard
               icon={UserCheck}
