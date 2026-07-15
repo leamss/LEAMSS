@@ -1278,6 +1278,8 @@ const AdminDashboard = () => {
         { id: 'sales-templates', icon: Layers, label: 'Target Templates', onClick: () => navigate('/admin/sales/target-templates') },
         { id: 'express-approvals', icon: Zap, label: 'Express Approvals', onClick: () => navigate('/admin/sales/express-approvals') },
         { id: 'express-settings', icon: Settings, label: 'Express Sale Limits', onClick: () => navigate('/admin/sales/express-settings') },
+         { id: 'standard-approvals', icon: Zap, label: 'Standard Approvals', onClick: () => navigate('/admin/sales/standard-approvals') },
+        { id: 'standard-settings', icon: Settings, label: 'Standard Sale Limits', onClick: () => navigate('/admin/sales/standard-settings') },
         { id: 'vendors', icon: Briefcase, label: 'Vendors', onClick: () => navigate('/admin/vendors') },
         { id: 'vendor-categories', icon: Layers, label: 'Vendor Categories', onClick: () => navigate('/admin/vendors/categories') },
         { id: 'allocations', icon: IndianRupee, label: 'Cost Allocations', onClick: () => navigate('/admin/allocations') },

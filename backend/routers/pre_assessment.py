@@ -93,6 +93,9 @@ STAGES = [
     # Phase 4B (Part 2) — Express Sale stages
     "express_pending_approval",     # Express PA awaiting admin approval (no fees needed)
     "express_rejected",             # Admin rejected express request (no payment was made, no refund needed)
+        "standard_pending_approval",
+    "standard_rejected",
+
 ]
 
 
@@ -119,6 +122,8 @@ class CreatePreAssessment(BaseModel):
     # express_mode = "direct" → no token, partner sends full proposal payment link directly
     express_mode: Optional[str] = "direct"  # "token" | "direct"
     express_token_amount: Optional[float] = None  # required if express_mode=="token"
+    standard_sale_reason: Optional[str] = None
+    standard_sale_justification: Optional[str] = None
 
 
 class AdminReview(BaseModel):
@@ -225,7 +230,18 @@ async def create_pre_assessment(data: CreatePreAssessment, current_user: dict = 
             "pa_fees_amount": PRE_ASSESSMENT_FEE,
         }
     else:
-        express_meta = {"sale_type": "standard", "pa_fees_skipped": False}
+        now = datetime.now(timezone.utc)
+        express_meta = {
+            "sale_type": "standard",
+            "pa_fees_skipped": False,
+            "standard_sale_reason": data.standard_sale_reason,
+            "standard_sale_justification": data.standard_sale_justification,
+            "standard_sale_requested_at": now,
+            "standard_sale_approval_status": "pending",
+            "standard_sale_approved_by": None,
+            "standard_sale_approved_at": None,
+            "standard_sale_approval_remarks": None,
+        }
 
     pa_id = str(uuid.uuid4())
     pa_number = f"PA-{datetime.now().strftime('%Y%m%d')}-{pa_id[:6].upper()}"
@@ -260,7 +276,7 @@ async def create_pre_assessment(data: CreatePreAssessment, current_user: dict = 
         else:
             starting_stage = "express_pending_approval"
     else:
-        starting_stage = "new"
+          starting_stage = "new" 
 
     pre_assessment = {
         "id": pa_id,
@@ -317,12 +333,32 @@ async def create_pre_assessment(data: CreatePreAssessment, current_user: dict = 
     await log_activity(current_user["id"], current_user.get("name", ""), action_label,
                        "pre_assessment", pa_id, detail_label)
 
+
+
     # Notify admins
-    title = "🚀 New Express Sale — Approval Needed" if sale_type == "express" and starting_stage == "express_pending_approval" else "New Pre-Assessment Created"
-    link = "/admin/sales/express-approvals" if sale_type == "express" and starting_stage == "express_pending_approval" else "/admin/pre-assessments"
-    msg = (f"{current_user.get('name', '')} created Express Sale for {data.client_name} — please review"
-           if sale_type == "express" and starting_stage == "express_pending_approval"
-           else f"{current_user.get('name', '')} created pre-assessment for {data.client_name}")
+    # title = "🚀 New Express Sale — Approval Needed" if sale_type == "express" and starting_stage == "express_pending_approval" else "New Pre-Assessment Created"
+    title = (
+    "🚀 New Express Sale — Approval Needed" if sale_type == "express" and starting_stage == "express_pending_approval"
+    else "📋 New Standard Sale — Approval Needed" if sale_type == "standard"
+    else "New Pre-Assessment Created"
+)
+
+    # link = "/admin/sales/express-approvals" if sale_type == "express" and starting_stage == "express_pending_approval" else "/admin/pre-assessments"
+    link = (
+    "/admin/sales/express-approvals" if sale_type == "express" and starting_stage == "express_pending_approval"
+    else "/admin/sales/standard-approvals" if sale_type == "standard"
+    else "/admin/pre-assessments"
+)
+    # msg = (f"{current_user.get('name', '')} created Express Sale for {data.client_name} — please review"
+    #        if sale_type == "express" and starting_stage == "express_pending_approval"
+    #        else f"{current_user.get('name', '')} created pre-assessment for {data.client_name}")
+    msg = (
+    f"{current_user.get('name', '')} created Express Sale for {data.client_name} — please review"
+    if sale_type == "express" and starting_stage == "express_pending_approval"
+    else f"{current_user.get('name', '')} created Standard Sale for {data.client_name} — please review"
+    if sale_type == "standard"
+    else f"{current_user.get('name', '')} created pre-assessment for {data.client_name}"
+)
     admins = await users_col.find({"role": "admin", "status": "active"}, {"_id": 0, "id": 1}).to_list(50)
     for admin in admins:
         await notifications_col.insert_one({
@@ -712,6 +748,50 @@ async def admin_queue(current_user: dict = Depends(get_current_user)):
 
     return items
 
+@router.get("/admin/standard-queue")
+async def admin_standard_queue(current_user: dict = Depends(get_current_user)):
+    """Admin: Standard Sales pending review — includes both the initial gate
+    (standard_pending_approval, legacy) AND the main eligibility review stage
+    (documents_submitted/under_review), so this tab shows everything currently
+    awaiting an admin decision for Standard Sales."""
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    items = await pre_assessments_col.find(
+        {
+            "sale_type": "standard",
+            "stage": {"$in": ["standard_pending_approval", "documents_submitted", "under_review"]}
+        },
+        {"_id": 0}
+    ).sort("updated_at", -1).to_list(200)
+
+    for item in items:
+        for field in ["created_at", "updated_at", "standard_sale_requested_at",
+                      "standard_sale_approved_at", "submitted_at"]:
+            if field in item and item[field] and hasattr(item[field], "isoformat"):
+                item[field] = item[field].isoformat()
+
+    return {"items": items}
+
+
+@router.get("/admin/standard-history")
+async def admin_standard_history(current_user: dict = Depends(get_current_user)):
+    """Admin: Decided Standard Sale gate approvals"""
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    items = await pre_assessments_col.find(
+        {"sale_type": "standard", "standard_sale_approval_status": {"$in": ["approved", "rejected"]}},
+        {"_id": 0}
+    ).sort("standard_sale_approved_at", -1).to_list(200)
+
+    for item in items:
+        for field in ["created_at", "updated_at", "standard_sale_requested_at",
+                      "standard_sale_approved_at"]:
+            if field in item and item[field] and hasattr(item[field], "isoformat"):
+                item[field] = item[field].isoformat()
+
+    return {"items": items}
 
 class PADetailsUpdate(BaseModel):
     """Editable PA fields. Only non-financial / non-stage fields allowed here.
@@ -857,9 +937,52 @@ async def admin_review(pa_id: str, review: AdminReview, current_user: dict = Dep
     if review.decision not in ["approved", "rejected"]:
         raise HTTPException(status_code=400, detail="Decision must be 'approved' or 'rejected'")
 
+    if pa.get("stage") == "standard_pending_approval":
+        if review.decision == "approved":
+            await pre_assessments_col.update_one({"id": pa_id}, {"$set": {
+                "stage": "new",
+                "standard_sale_approval_status": "approved",
+                "standard_sale_approved_by": current_user["id"],
+                "standard_sale_approved_at": datetime.now(timezone.utc),
+                "standard_sale_approval_remarks": review.notes or review.reason or "",
+                "updated_at": datetime.now(timezone.utc),
+            }})
+            await notifications_col.insert_one({
+                "id": str(uuid.uuid4()), "user_id": pa["partner_id"],
+                "title": "Standard Sale Approved",
+                "message": f"Your Standard Sale for {pa['client_name']} was approved. You can now send the pre-assessment payment link.",
+                "type": "standard_sale_approved", "read": False,
+                "created_at": datetime.now(timezone.utc)
+            })
+            await log_activity(current_user["id"], current_user.get("name", ""), "standard_sale_approved",
+                               "pre_assessment", pa_id, f"Standard Sale approved for {pa['client_name']}")
+            return {"message": "Standard Sale approved", "stage": "new"}
+        else:
+            reason = review.reason or review.notes or ""
+            if len(reason.strip()) < 5:
+                raise HTTPException(status_code=400, detail="Rejection reason must be at least 5 characters")
+            await pre_assessments_col.update_one({"id": pa_id}, {"$set": {
+                "stage": "standard_rejected",
+                "standard_sale_approval_status": "rejected",
+                "standard_sale_approved_by": current_user["id"],
+                "standard_sale_approved_at": datetime.now(timezone.utc),
+                "standard_sale_approval_remarks": reason.strip(),
+                "updated_at": datetime.now(timezone.utc),
+            }})
+            await notifications_col.insert_one({
+                "id": str(uuid.uuid4()), "user_id": pa["partner_id"],
+                "title": "Standard Sale Rejected",
+                "message": f"Your Standard Sale for {pa['client_name']} was rejected. Reason: {reason.strip()}",
+                "type": "standard_sale_rejected", "read": False,
+                "created_at": datetime.now(timezone.utc)
+            })
+            await log_activity(current_user["id"], current_user.get("name", ""), "standard_sale_rejected",
+                               "pre_assessment", pa_id, f"Standard Sale rejected for {pa['client_name']}: {reason.strip()}")
+            return {"message": "Standard Sale rejected", "stage": "standard_rejected"}
+
     new_stage = "approved" if review.decision == "approved" else "rejected"
 
-    await pre_assessments_col.update_one({"id": pa_id}, {"$set": {
+    update_fields = {
         "stage": new_stage,
         "admin_decision": review.decision,
         "admin_reason": review.reason,
@@ -867,7 +990,17 @@ async def admin_review(pa_id: str, review: AdminReview, current_user: dict = Dep
         "admin_reviewed_by": current_user["id"],
         "admin_reviewed_at": datetime.now(timezone.utc),
         "updated_at": datetime.now(timezone.utc)
-    }})
+    }
+
+    # Mirror decision into standard_sale_* fields so it also shows in
+    # "Standard Sale Approvals" history tab (unified tracking view)
+    if pa.get("sale_type") == "standard":
+        update_fields["standard_sale_approval_status"] = review.decision
+        update_fields["standard_sale_approved_by"] = current_user["id"]
+        update_fields["standard_sale_approved_at"] = datetime.now(timezone.utc)
+        update_fields["standard_sale_approval_remarks"] = review.notes or review.reason or ""
+
+    await pre_assessments_col.update_one({"id": pa_id}, {"$set": update_fields})
 
     await log_activity(current_user["id"], current_user.get("name", ""), f"pa_{review.decision}",
                        "pre_assessment", pa_id, f"Pre-assessment {review.decision} for {pa['client_name']} - {review.reason}")

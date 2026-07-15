@@ -27,12 +27,6 @@ const EXPRESS_REASONS = [
   { value: 'other', label: 'Other (specify in justification)' },
 ];
 
-/**
- * PaCreateForm — extracted from PreAssessmentPipeline.jsx
- * Phase 4B Part 2 — Added Sale Type selector at top with Express Sale conditional fields.
- *   - Standard: existing flow (PA fees + first approval + proposal)
- *   - Express: skip PA fees, admin approval needed, then direct to proposal
- */
 export default function PaCreateForm({ form, setForm, products, onCancel, onSubmit, expressUsage }) {
   const upd = (patch) => setForm({ ...form, ...patch });
   const currentSource = LEAD_SOURCES.find(s => s.value === form.lead_source);
@@ -158,6 +152,7 @@ export default function PaCreateForm({ form, setForm, products, onCancel, onSubm
           </div>
         </div>
       )}
+
 
       {/* Phase 4A — Lead Source Tracking */}
       <div className="mb-4 p-3 bg-leamss-teal-50/50 rounded-md border border-leamss-teal-100" data-testid="lead-source-section">

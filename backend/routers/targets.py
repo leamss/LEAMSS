@@ -640,8 +640,10 @@ async def leaderboard(
     limit: int = 10,
     current_user: dict = Depends(get_current_user),
 ):
-    if not (_is_manager(current_user) or _is_head(current_user) or _is_admin(current_user)):
-        raise HTTPException(status_code=403, detail="Sales manager or higher only")
+    allowed_viewer_roles = ("sales_executive", "sr_sales_executive")
+    if not (_is_manager(current_user) or _is_head(current_user) or _is_admin(current_user)
+            or current_user.get("role") in allowed_viewer_roles):
+        raise HTTPException(status_code=403, detail="Sales team members only")
     now = datetime.now(timezone.utc)
     q = {
         "period_type": period_type,
