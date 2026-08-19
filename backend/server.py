@@ -1,12 +1,25 @@
 """LEAMSS Portal - FastAPI Backend with MongoDB"""
 import os
+import sys
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+if hasattr(sys.stderr, "reconfigure"):
+    try:
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
 from dotenv import load_dotenv
 load_dotenv()
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from core.database import init_db
-
+from services.atlas_country_service import seed_atlas_countries
+from routers.atlas_countries import router as atlas_countries_router
+from routers.atlas_country_admin import router as atlas_country_admin_router
 from routers.auth import router as auth_router
 from routers.users import router as users_router
 from routers.products import router as products_router
@@ -167,6 +180,13 @@ from routers.notification_channels import (
     maybe_seed_default_channel,
     run_digest_once,
 )
+# Merged features from collaborator branch
+from routers.eoi_backlog import router as eoi_backlog_router
+from routers.bulk_assessments import router as bulk_assessments_router
+from routers.fee_master import router as fee_master_router
+from routers.email_settings import router as email_settings_router
+from routers.email_templates import router as email_templates_router
+from routers.public_resume import router as public_resume_router
 
 app = FastAPI(title="LEAMSS Portal API", version="3.0")
 
@@ -181,8 +201,17 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def startup():
+    import asyncio
+    from core.database import client, db
+    client.get_io_loop = asyncio.get_running_loop
     await init_db()
-    
+
+    await seed_atlas_countries(db)
+    try:
+        from scripts.seed_international_banks import seed_banks
+        await seed_banks()
+    except Exception as e:
+        print(f"[Bank Seeder WARN] {e}")
     # Auto-seed if database is empty
     from core.database import users_col
     count = await users_col.count_documents({})
@@ -595,7 +624,8 @@ for r in [targets_router, cost_structures_router, auth_router, users_router, pro
           onboarding_assets_router, payroll_router,
           reimbursements_router, hr_analytics_router, content_studio_router,
           site_audit_router, dev_tracker_router,
-          internal_chat_router, support_tickets_router, rbac_v2_router, country_workflows_router]:
+          internal_chat_router, support_tickets_router, rbac_v2_router, country_workflows_router,atlas_countries_router,atlas_country_admin_router,
+          eoi_backlog_router, bulk_assessments_router, fee_master_router, email_settings_router, email_templates_router, public_resume_router]:
     app.include_router(r, prefix="/api")
 
 

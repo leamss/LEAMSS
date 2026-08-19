@@ -66,6 +66,7 @@ class SaveAssessmentRequest(BaseModel):
     client_phone: Optional[str] = None
     profile: Dict[str, Any]
     occupation: Optional[Dict[str, Any]] = None  # { country_code, code, title, assessing_body, pathway }
+    additional_occupations: List[Dict[str, Any]] = Field(default_factory=list)
     targets: List[TargetCalc] = Field(..., min_length=1)
     final_notes: Optional[str] = None
 
@@ -93,6 +94,7 @@ async def save_assessment(req: SaveAssessmentRequest, current_user: dict = Depen
         "client_phone": req.client_phone,
         "profile_snapshot": req.profile,
         "occupation": req.occupation,
+        "additional_occupations": req.additional_occupations,
         "targets": [t.model_dump() for t in req.targets],
         "results": results,
         "best_country_code": best.get("country_code") if best else None,
@@ -304,6 +306,8 @@ async def update_assessment(assessment_id: str, req: SaveAssessmentRequest, curr
         "client_phone": req.client_phone,
         "profile_snapshot": req.profile,
         "occupation": req.occupation,
+        
+        "additional_occupations": req.additional_occupations or [],
         "targets": [t.model_dump() for t in req.targets],
         "results": results,
         "best_country_code": new_best_country,

@@ -29,6 +29,8 @@ from parsers.jsa import (
     employment_projections as p_emp_proj,
     sa4_ratings as p_sa4,
     industry_data as p_industry,
+    atlas_industries as p_atlas_industry,
+    atlas_occupation_workbook as p_atlas_occ_workbook,
     vacancy_report as p_vacancy,
 )
 from services import jsa_importer
@@ -44,6 +46,8 @@ PARSER_REGISTRY = {
     "employment_projections": p_emp_proj,
     "sa4_ratings": p_sa4,
     "industry_data": p_industry,
+    "atlas_industries": p_atlas_industry,
+    "atlas_occupation_workbook": p_atlas_occ_workbook,
     "vacancy_report": p_vacancy,
 }
 
@@ -53,6 +57,8 @@ COMMITTER_REGISTRY = {
     "sa4_ratings": jsa_importer.commit_sa4_ratings,
     "industry_data": jsa_importer.commit_industry_data,
     "vacancy_report": jsa_importer.commit_vacancy_report,
+    "atlas_industries": jsa_importer.commit_atlas_industries,
+    "atlas_occupation_workbook": jsa_importer.commit_atlas_occupation_workbook,
 }
 
 
@@ -162,7 +168,7 @@ async def parse_preview(
         "detected_type": ftype,
         "row_count": summary["row_count"],
         "source": summary["source"],
-        "source_url": summary["source_url"],
+        "source_url": summary.get("source_url"),
         "sample": summary["sample"],
         "honest_note": summary.get("honest_note"),
     }
@@ -212,7 +218,18 @@ async def commit_file(
     started = datetime.now(timezone.utc)
     try:
         parsed = list(parser.parse_workbook(doc["stored_path"]))
+        print("=" * 80)
+        print("IMPORT TYPE:", ftype)
+        print("TOTAL PARSED:", len(parsed))
+
+        if parsed:
+         from pprint import pprint
+         pprint(parsed[0])
+
+        print("=" * 80)
         summary = await committer(db, parsed)
+        print("SUMMARY")
+        print(summary)
     except Exception as e:  # noqa: BLE001
         logger.exception("commit failed")
         await db["import_files"].update_one(

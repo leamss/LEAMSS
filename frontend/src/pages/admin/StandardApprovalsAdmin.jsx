@@ -60,7 +60,102 @@ const ApprovalDialog = ({ open, onClose, pa, action, onConfirm }) => {
   );
 };
 
-const StandardCard = ({ pa, onAction, isPending = true }) => {
+const UploadReportDialog = ({ open, onClose, pa, onUpload }) => {
+  const [file, setFile] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => { if (open) setFile(null); }, [open]);
+
+  const submit = async () => {
+    if (!file) { toast.error('Please choose a file first'); return; }
+    setSubmitting(true);
+    await onUpload(file);
+    setSubmitting(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent data-testid="upload-report-dialog">
+        <DialogHeader>
+          <DialogTitle className="text-emerald-700">📄 Upload Report for Client</DialogTitle>
+          <DialogDescription>
+            <strong>{pa?.client_name}</strong> · {pa?.country} {pa?.service_type} — Pre-Assessment approved. You can upload the report now or later from History.
+          </DialogDescription>
+        </DialogHeader>
+        <input
+          type="file"
+          onChange={(e) => setFile(e.target.files?.[0] || null)}
+          className="block w-full text-sm border border-slate-300 rounded p-2"
+        />
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Skip for now</Button>
+          <Button onClick={submit} disabled={submitting || !file} className="bg-emerald-600 hover:bg-emerald-700">
+            {submitting ? 'Uploading…' : 'Upload'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+const viewDocument = async (paId, docId) => {
+  try {
+    const res = await axios.get(
+      `${API}/pre-assessment/${paId}/document/${docId}/download?inline=true`,
+      { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }, responseType: 'blob' }
+    );
+    const url = window.URL.createObjectURL(new Blob([res.data]));
+    window.open(url, '_blank');
+  } catch (e) {
+    toast.error('Failed to open document');
+    console.error(e);
+  }
+};
+
+const downloadDocument = async (paId, docId, fileName) => {
+  try {
+    const res = await axios.get(
+      `${API}/pre-assessment/${paId}/document/${docId}/download`,
+      { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }, responseType: 'blob' }
+    );
+    const url = window.URL.createObjectURL(new Blob([res.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', fileName || 'document');
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  } catch (e) {
+    toast.error('Failed to download document');
+    console.error(e);
+  }
+};
+
+const uploadDocument = async (paId, file, documentType, onSuccess) => {
+  try {
+    const formData = new FormData();
+    formData.append('document_type', documentType || 'admin_report');
+    formData.append('file', file);
+    await axios.post(
+      `${API}/pre-assessment/${paId}/upload-document`,
+      formData,
+      {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+    toast.success('Document uploaded successfully');
+    if (onSuccess) onSuccess();
+  } catch (e) {
+    toast.error(e?.response?.data?.detail || 'Failed to upload document');
+    console.error(e);
+  }
+};
+
+const StandardCard = ({ pa, onAction, isPending = true, onUploaded }) => {
   const statusBadge = (() => {
     if (isPending) return <Badge className="bg-amber-100 text-amber-700 border border-amber-300 uppercase text-[10px] font-bold"><Clock className="h-3 w-3 mr-1 inline" />Pending</Badge>;
     if (pa.admin_decision === 'approved') return <Badge className="bg-emerald-100 text-emerald-700 border border-emerald-300 uppercase text-[10px] font-bold"><CheckCircle2 className="h-3 w-3 mr-1 inline" />Approved</Badge>;
@@ -97,15 +192,73 @@ const StandardCard = ({ pa, onAction, isPending = true }) => {
           <p className="text-xs uppercase tracking-wider text-slate-500 font-bold">Stage</p>
           <Badge className="bg-slate-100 text-slate-700 text-xs uppercase border mt-0.5">{(pa.stage || '').replace(/_/g, ' ')}</Badge>
         </div>
-        {(pa.education || pa.experience || pa.age) && (
-          <div className="md:col-span-2">
-            <p className="text-xs uppercase tracking-wider text-slate-500 font-bold mb-0.5">Client Profile</p>
-            <p className="text-sm text-slate-700 bg-orange-50 border border-orange-200 rounded p-2.5 flex items-center gap-1.5">
-              <FileText className="h-3.5 w-3.5 text-leamss-orange-700" />
-              {[pa.age && `Age ${pa.age}`, pa.education, pa.experience && `${pa.experience} yrs exp`].filter(Boolean).join(' · ') || '—'}
-            </p>
+       
+<div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm mb-3 bg-slate-50 rounded p-3">
+        <div><p className="text-xs text-slate-400">Email</p><p className="font-medium text-slate-700">{pa.client_email || 'N/A'}</p></div><br></br>
+        <div><p className="text-xs text-slate-400">Mobile</p><p className="font-medium text-slate-700">{pa.client_mobile || 'N/A'}</p></div>
+        <div><p className="text-xs text-slate-400">Education</p><p className="font-medium text-slate-700">{pa.education || 'N/A'}</p></div>
+        <div><p className="text-xs text-slate-400">Experience</p><p className="font-medium text-slate-700">{pa.work_experience || 'N/A'}</p></div>
+        <div><p className="text-xs text-slate-400">Age</p><p className="font-medium text-slate-700">{pa.client_age || 'N/A'}</p></div>
+        <div><p className="text-xs text-slate-400">Country</p><p className="font-medium text-slate-700">{pa.country || 'N/A'}</p></div>
+        <div><p className="text-xs text-slate-400">Pre-Assessment Fee</p><p className="font-medium text-slate-700">₹{pa.pre_assessment_fee || 0} {pa.fee_payment_status === 'paid' ? 'Paid' : 'Unpaid'}</p></div>
+        <div><p className="text-xs text-slate-400">Documents</p><p className="font-medium text-slate-700">{(pa.documents || []).length} uploaded</p></div>
+      </div>
+
+      {(pa.documents || []).length > 0 && (
+        <div className="mb-3">
+          <p className="text-xs uppercase tracking-wider text-slate-500 font-bold mb-1.5">Submitted Documents ({pa.documents.length})</p>
+          <div className="space-y-2">
+            {pa.documents.map(doc => (
+              <div key={doc.id} className="flex items-center justify-between bg-white border border-slate-200 rounded p-2.5">
+                <div className="flex items-center gap-2 min-w-0">
+                  <FileText className="h-4 w-4 text-slate-400 flex-shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-slate-700 truncate">{doc.file_name}</p>
+                    <p className="text-xs text-slate-400">
+                      {doc.document_type}
+                      {doc.uploaded_by_role === 'admin' && (
+                        <span className="ml-2 text-[10px] font-bold text-emerald-600 uppercase">· Uploaded by Admin</span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+               <div className="flex gap-2 flex-shrink-0">
+                  <Button size="sm" variant="outline" onClick={() => viewDocument(pa.id, doc.id)}>View</Button>
+                  <Button size="sm" variant="outline" onClick={() => downloadDocument(pa.id, doc.id, doc.file_name)}>Save</Button>
+                </div>
+              </div>
+            ))}
           </div>
-        )}
+        </div>
+      )}
+
+      {!isPending && pa.admin_decision === 'approved' && (
+        <div className="mb-3 border border-dashed border-slate-300 rounded p-3 bg-slate-50">
+          <label className="text-xs uppercase tracking-wider text-slate-500 font-bold block mb-2">
+            Upload Report for Client
+          </label>
+          <input
+            type="file"
+            id={`admin-upload-${pa.id}`}
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) {
+                uploadDocument(pa.id, file, 'admin_report', onUploaded);
+              }
+              e.target.value = '';
+            }}
+          />
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => document.getElementById(`admin-upload-${pa.id}`).click()}
+          >
+            <FileText className="h-4 w-4 mr-1.5" /> Choose File & Upload
+          </Button>
+        </div>
+      )}
+
       </div>
 
       <div className="flex items-center justify-between text-xs text-slate-500">
@@ -135,6 +288,7 @@ export default function StandardApprovalsAdmin() {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dialog, setDialog] = useState({ open: false, action: null, pa: null });
+  const [uploadDialog, setUploadDialog] = useState({ open: false, pa: null });
 
   const getAuthHeader = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
 
@@ -144,9 +298,9 @@ export default function StandardApprovalsAdmin() {
       const [p, h] = await Promise.all([
         axios.get(`${API}/pre-assessment/admin/standard-queue`, getAuthHeader()),
         axios.get(`${API}/pre-assessment/admin/standard-history`, getAuthHeader()),
-        axios.get(`${API}/pre-assessment/admin/standard-approvals`, { headers }),
+        // axios.get(`${API}/pre-assessment/admin/standard-approvals`, { headers }),
         
-  axios.get(`${API}/pre-assessment/admin/history`, { headers }), 
+  // axios.get(`${API}/pre-assessment/admin/history`, { headers }), 
       ]);
       setPending(p.data.items || []);
       setHistory(h.data.items || []);
@@ -173,8 +327,23 @@ export default function StandardApprovalsAdmin() {
       toast.success(`Pre-Assessment ${action === 'approve' ? 'approved' : 'rejected'} successfully`);
       setDialog({ open: false, action: null, pa: null });
       load();
+      // 👇 NEW — right after approval, open the upload-report prompt for this PA
+      if (action === 'approve') {
+        setUploadDialog({ open: true, pa });
+      }
     } catch (e) {
       toast.error(e?.response?.data?.detail || 'Action failed');
+    }
+  };
+
+  const handleReportUpload = async (file) => {
+    try {
+      await uploadDocument(uploadDialog.pa.id, file, 'admin_report');
+      toast.success('Report uploaded successfully');
+      setUploadDialog({ open: false, pa: null });
+      load();
+    } catch (e) {
+      // uploadDocument already shows a toast on failure
     }
   };
 
@@ -223,7 +392,15 @@ export default function StandardApprovalsAdmin() {
               {history.length === 0 ? (
                 <Card className="p-10 text-center text-slate-400" data-testid="empty-history">No decided approvals yet</Card>
               ) : (
-                history.map((pa) => <StandardCard key={pa.id} pa={pa} onAction={() => {}} isPending={false} />)
+                history.map((pa) => (
+                  <StandardCard
+                    key={pa.id}
+                    pa={pa}
+                    onAction={() => {}}
+                    isPending={false}
+                    onUploaded={load}
+                  />
+                ))
               )}
             </TabsContent>
           </Tabs>
@@ -236,6 +413,13 @@ export default function StandardApprovalsAdmin() {
         pa={dialog.pa}
         onClose={() => setDialog({ open: false, action: null, pa: null })}
         onConfirm={confirmAction}
+      />
+
+      <UploadReportDialog
+        open={uploadDialog.open}
+        pa={uploadDialog.pa}
+        onClose={() => setUploadDialog({ open: false, pa: null })}
+        onUpload={handleReportUpload}
       />
     </div>
   );

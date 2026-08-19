@@ -3,6 +3,7 @@
 A unified product carries both workflow-builder fields AND cost-structure fields
 (country, visa_type, service_price, cost_allocations, success_bonuses, computed margin).
 """
+import os
 from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field
@@ -11,7 +12,7 @@ from core.auth import get_current_user
 from core.services import log_activity
 import uuid
 from datetime import datetime, timezone
-
+from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form
 router = APIRouter(prefix="/products", tags=["Products"])
 
 
@@ -99,6 +100,16 @@ async def create_product(data: dict, current_user: dict = Depends(get_current_us
         "commission_type": data.get("commission_type", "percentage"),
         "cost_allocations": cost_allocations,
         "success_bonuses": success_bonuses,
+        "discount_coupons": data.get("discount_coupons") or [],  # 👈 NEW — admin-defined coupons for this product
+        "packages": data.get("packages") or [   # NEW — default 3 package template
+            {"id": str(uuid.uuid4()), "package_type": "standard", "name": "Standard Package", "price": 0, "description": "", "is_active": True,
+            "payment_methods": {"full_payment": {"enabled": True}, "split_50_50": {"enabled": False, "first_pct": 50, "trigger_condition": ""}, "installments": {"enabled": False, "max_installments": 5}}},
+            {"id": str(uuid.uuid4()), "package_type": "smart", "name": "Smart Package", "price": 0, "description": "", "is_active": True,
+            "payment_methods": {"full_payment": {"enabled": True}, "split_50_50": {"enabled": False, "first_pct": 50, "trigger_condition": ""}, "installments": {"enabled": False, "max_installments": 5}}},
+            {"id": str(uuid.uuid4()), "package_type": "premium", "name": "Premium Package", "price": 0, "description": "", "is_active": True,
+            "payment_methods": {"full_payment": {"enabled": True}, "split_50_50": {"enabled": False, "first_pct": 50, "trigger_condition": ""}, "installments": {"enabled": False, "max_installments": 5}}},
+        ],
+        "requires_partner_info": data.get("requires_partner_info", False),  
         "computed": _compute_margin(sp, cost_allocations, success_bonuses),
         "status": "active",
         "created_at": datetime.now(timezone.utc),
@@ -115,9 +126,8 @@ async def create_product(data: dict, current_user: dict = Depends(get_current_us
         }
         await workflow_steps_col.insert_one(step)
     await log_activity(current_user["id"], current_user["name"], "created", "product", product["id"],
-                       f"Created product: {data['name']}")
+                    f"Created product: {data['name']}")
     return {"id": product["id"], "message": "Product created"}
-
 
 @router.put("/{product_id}")
 @router.patch("/{product_id}")
@@ -130,11 +140,13 @@ async def update_product(product_id: str, data: dict, current_user: dict = Depen
         "country", "visa_type",
         "commission_type", "commission_rate", "commission_tiers", "commission_effective_from",
         "cost_allocations", "success_bonuses", "cost_structure_meta",
+        "packages", "discount_coupons",
         # Phase 20.2 — new fields
         "is_pre_assessment", "pre_assessment_fee_inr", "pre_assessment_fee_currency",
         "workflow_id", "workflow_steps_count",
         "visa_subclass", "assessing_body_code",
         "commissions_v2", "_category_v2",
+        "requires_partner_info",
     ]:
         if field in data:
             update[field] = data[field]
@@ -184,7 +196,7 @@ async def update_product(product_id: str, data: dict, current_user: dict = Depen
         update["updated_at"] = datetime.now(timezone.utc)
         await products_col.update_one({"id": product_id}, {"$set": update})
     await log_activity(current_user["id"], current_user["name"], "updated", "product", product_id,
-                       f"Updated product fields: {', '.join(k for k in update.keys() if k != 'updated_at')}")
+                    f"Updated product fields: {', '.join(k for k in update.keys() if k != 'updated_at')}")
     return {"message": "Product updated", "computed": update.get("computed")}
 
 
@@ -195,7 +207,7 @@ class ArchiveRequest(BaseModel):
 
 @router.post("/{product_id}/archive")
 async def archive_product(product_id: str, req: ArchiveRequest,
-                          current_user: dict = Depends(get_current_user)):
+                        current_user: dict = Depends(get_current_user)):
     if current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
     p = await products_col.find_one({"id": product_id}, {"id": 1, "name": 1, "archived_at": 1})
@@ -210,7 +222,7 @@ async def archive_product(product_id: str, req: ArchiveRequest,
         "archived_reason": req.reason,
     }})
     await log_activity(current_user["id"], current_user.get("name", ""), "archived", "product", product_id,
-                       f"Archived '{p.get('name')}' · reason: {req.reason}")
+                    f"Archived '{p.get('name')}' · reason: {req.reason}")
     return {"ok": True, "id": product_id, "archived_at": now.isoformat()}
 
 
@@ -230,7 +242,7 @@ async def restore_product(product_id: str, current_user: dict = Depends(get_curr
         "restored_by": current_user.get("id"),
     }})
     await log_activity(current_user["id"], current_user.get("name", ""), "restored", "product", product_id,
-                       f"Restored '{p.get('name')}'")
+                    f"Restored '{p.get('name')}'")
     return {"ok": True, "id": product_id}
 
 
@@ -257,7 +269,7 @@ async def link_workflow(product_id: str, req: LinkWorkflowRequest,
         "updated_at": datetime.now(timezone.utc),
     }})
     await log_activity(current_user["id"], current_user.get("name", ""), "linked_workflow", "product", product_id,
-                       f"Linked workflow {req.workflow_id} ({steps} steps)")
+                    f"Linked workflow {req.workflow_id} ({steps} steps)")
     return {"ok": True, "id": product_id, "workflow_id": req.workflow_id, "steps_count": steps}
 
 
@@ -293,7 +305,7 @@ async def delete_product(product_id: str, current_user: dict = Depends(get_curre
     await products_col.delete_one({"id": product_id})
     await workflow_steps_col.delete_many({"product_id": product_id})
     await log_activity(current_user["id"], current_user["name"], "deleted", "product", product_id,
-                       "Deleted product and workflow steps")
+                    "Deleted product and workflow steps")
     return {"message": "Product deleted"}
 
 
@@ -403,3 +415,159 @@ async def delete_workflow_step(product_id: str, step_order: int, current_user: d
     await workflow_steps_col.delete_one({"product_id": product_id, "step_order": step_order})
     return {"message": "Workflow step deleted"}
 
+# ──────────────────────────────────────────────────────────────
+# Package Info Document Upload (PDF) — admin uploads a document
+# describing a specific package (e.g. Standard/Smart/Premium/custom)
+# ──────────────────────────────────────────────────────────────
+PACKAGE_DOCS_DIR = "/app/uploads/product_packages"
+os.makedirs(PACKAGE_DOCS_DIR, exist_ok=True)
+
+
+@router.post("/packages/upload-document")
+async def upload_package_document(
+    package_id: str = Form(...),
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user),
+):
+    """Admin uploads a PDF describing a package. Returns a document_url the
+    frontend stores on the package object (saved via the normal product PUT)."""
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    pkg_dir = f"{PACKAGE_DOCS_DIR}/{package_id}"
+    os.makedirs(pkg_dir, exist_ok=True)
+    file_path = f"{pkg_dir}/{file.filename}"
+    content = await file.read()
+    with open(file_path, "wb") as f:
+        f.write(content)
+
+    document_url = f"/api/products/packages/{package_id}/document/{file.filename}"
+
+    await log_activity(current_user["id"], current_user.get("name", ""), "uploaded_package_document",
+                    "product_package", package_id, f"Uploaded '{file.filename}' for package {package_id}")
+
+    return {"document_url": document_url, "file_name": file.filename}
+
+
+@router.get("/packages/{package_id}/document/{filename}")
+async def download_package_document(package_id: str, filename: str, current_user: dict = Depends(get_current_user)):
+    """Serve the uploaded package PDF."""
+    from fastapi.responses import FileResponse
+    file_path = f"{PACKAGE_DOCS_DIR}/{package_id}/{filename}"
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Document not found")
+    return FileResponse(file_path, filename=filename, media_type="application/pdf")
+
+# ──────────────────────────────────────────────────────────────
+# Discount Coupons — admin defines per-product, partner sees active ones
+# ──────────────────────────────────────────────────────────────
+class DiscountCoupon(BaseModel):
+    id: Optional[str] = None
+    code: str
+    discount_type: str  # "percentage" | "flat"
+    discount_value: float
+    is_active: bool = True
+    notes: Optional[str] = ""
+
+
+@router.get("/{product_id}/coupons")
+async def get_product_coupons(product_id: str, active_only: bool = True, current_user: dict = Depends(get_current_user)):
+    """Returns discount coupons for a product. Partners get only active ones by default;
+    admin can pass active_only=false to see everything (for the management screen)."""
+    p = await products_col.find_one({"id": product_id}, {"_id": 0, "discount_coupons": 1, "name": 1})
+    if not p:
+        raise HTTPException(status_code=404, detail="Product not found")
+    coupons = p.get("discount_coupons") or []
+    is_admin = current_user.get("role") == "admin"
+    if active_only or not is_admin:
+        coupons = [c for c in coupons if c.get("is_active", True)]
+    return {"product_id": product_id, "product_name": p.get("name"), "coupons": coupons}
+
+
+@router.post("/{product_id}/coupons")
+async def create_product_coupon(product_id: str, coupon: DiscountCoupon, current_user: dict = Depends(get_current_user)):
+    """Admin adds a new discount coupon to a product."""
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    p = await products_col.find_one({"id": product_id}, {"_id": 0, "discount_coupons": 1})
+    if not p:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    if coupon.discount_type not in ("percentage", "flat"):
+        raise HTTPException(status_code=400, detail="discount_type must be 'percentage' or 'flat'")
+    if coupon.discount_value <= 0:
+        raise HTTPException(status_code=400, detail="discount_value must be greater than 0")
+    if coupon.discount_type == "percentage" and coupon.discount_value > 100:
+        raise HTTPException(status_code=400, detail="Percentage discount cannot exceed 100")
+
+    code_upper = coupon.code.strip().upper()
+    existing = p.get("discount_coupons") or []
+    if any((c.get("code") or "").upper() == code_upper for c in existing):
+        raise HTTPException(status_code=400, detail=f"Coupon code '{code_upper}' already exists on this product")
+
+    new_coupon = {
+        "id": str(uuid.uuid4()),
+        "code": code_upper,
+        "discount_type": coupon.discount_type,
+        "discount_value": coupon.discount_value,
+        "is_active": coupon.is_active,
+        "notes": coupon.notes or "",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_by": current_user["id"],
+    }
+    existing.append(new_coupon)
+    await products_col.update_one({"id": product_id}, {"$set": {
+        "discount_coupons": existing, "updated_at": datetime.now(timezone.utc),
+    }})
+    await log_activity(current_user["id"], current_user.get("name", ""), "created_coupon", "product", product_id,
+                    f"Added coupon '{code_upper}' ({coupon.discount_type} {coupon.discount_value})")
+    return {"ok": True, "coupon": new_coupon}
+
+
+@router.put("/{product_id}/coupons/{coupon_id}")
+async def update_product_coupon(product_id: str, coupon_id: str, data: dict, current_user: dict = Depends(get_current_user)):
+    """Admin edits/toggles a coupon (e.g. deactivate it)."""
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    p = await products_col.find_one({"id": product_id}, {"_id": 0, "discount_coupons": 1})
+    if not p:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    coupons = p.get("discount_coupons") or []
+    found = False
+    for c in coupons:
+        if c.get("id") == coupon_id:
+            for field in ("code", "discount_type", "discount_value", "is_active", "notes"):
+                if field in data:
+                    c[field] = data[field]
+            if "code" in data:
+                c["code"] = str(data["code"]).strip().upper()
+            found = True
+            break
+    if not found:
+        raise HTTPException(status_code=404, detail="Coupon not found")
+
+    await products_col.update_one({"id": product_id}, {"$set": {
+        "discount_coupons": coupons, "updated_at": datetime.now(timezone.utc),
+    }})
+    await log_activity(current_user["id"], current_user.get("name", ""), "updated_coupon", "product", product_id,
+                    f"Updated coupon {coupon_id}")
+    return {"ok": True}
+
+
+@router.delete("/{product_id}/coupons/{coupon_id}")
+async def delete_product_coupon(product_id: str, coupon_id: str, current_user: dict = Depends(get_current_user)):
+    """Admin removes a coupon entirely."""
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    p = await products_col.find_one({"id": product_id}, {"_id": 0, "discount_coupons": 1})
+    if not p:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    coupons = [c for c in (p.get("discount_coupons") or []) if c.get("id") != coupon_id]
+    await products_col.update_one({"id": product_id}, {"$set": {
+        "discount_coupons": coupons, "updated_at": datetime.now(timezone.utc),
+    }})
+    await log_activity(current_user["id"], current_user.get("name", ""), "deleted_coupon", "product", product_id,
+                    f"Deleted coupon {coupon_id}")
+    return {"ok": True}

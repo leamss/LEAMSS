@@ -858,6 +858,23 @@ async def get_single_occupation(country: str, code: str):
     )
     if not d:
         raise HTTPException(404, "Occupation not found or not yet verified")
+        # ---------------------------------------------------------
+    # Load Industry Information
+    # ---------------------------------------------------------
+    industry_data = None
+
+    if d.get("industries_ranked"):
+
+        primary_industry = d["industries_ranked"][0]
+
+        industry_data = await db["industry_master"].find_one(
+            {
+                "industry_name": primary_industry
+            },
+            {
+                "_id": 0
+            }
+        )
 
     # Phase 19.7 — resolve assessing_authority via FK + overrides (back-compat shape)
     from services.authority_resolver import resolve_authority
@@ -865,6 +882,7 @@ async def get_single_occupation(country: str, code: str):
 
     cm = _country_meta(country)
     safe = _safe_doc(d)
+    safe["industry_data"] = industry_data
     faqs = _build_occupation_faqs(country, d, cm)
 
     # Similar codes — same minor_group (3 chars) or major_group (1-2 chars)

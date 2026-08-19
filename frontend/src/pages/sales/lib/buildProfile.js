@@ -174,6 +174,8 @@ export function dataFromAssessment(a, baseDefaults = {}) {
     occupation_title: occ.title || '',
     occupation_body: occ.assessing_body || '',
     occupation_pathway: occ.pathway || '',
+    additional_occupations: a?.additional_occupations || [],
+    show_eoi_backlog: !!a?.show_eoi_backlog,
     country_mode,
     specific_country,
     visa_subclass,

@@ -26,6 +26,7 @@ import PaActionBar from '@/components/pa/PaActionBar';
 import PaEditDetailsModal from '@/components/pa/PaEditDetailsModal';
 import AgreementGenerator from '@/components/AgreementGenerator';
 import AgreementViewerModal from '@/components/AgreementViewerModal';
+import PaFinalizePaymentForm from '@/components/pa/PaFinalizePaymentForm';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -37,8 +38,11 @@ const STAGE_CONFIG = {
   documents_submitted: { label: 'Sent to Admin', color: 'bg-leamss-teal-500', textColor: 'text-leamss-teal-700', bgColor: 'bg-leamss-teal-50', icon: FileText },
   under_review: { label: 'Under Review', color: 'bg-leamss-orange-500', textColor: 'text-leamss-orange-700', bgColor: 'bg-leamss-orange-50', icon: Eye },
   approved: { label: 'Approved', color: 'bg-emerald-500', textColor: 'text-emerald-700', bgColor: 'bg-emerald-50', icon: CheckCircle },
+  awaiting_package_selection: { label: 'Client Choosing Package', color: 'bg-purple-500', textColor: 'text-purple-700', bgColor: 'bg-purple-50', icon: Clock },
+  package_selected: { label: 'Set Payment Method', color: 'bg-fuchsia-500', textColor: 'text-fuchsia-700', bgColor: 'bg-fuchsia-50', icon: CreditCard },
   rejected: { label: 'Rejected', color: 'bg-red-500', textColor: 'text-red-700', bgColor: 'bg-red-50', icon: XCircle },
   proposal_sent: { label: 'Waiting for Client Payment', color: 'bg-amber-500', textColor: 'text-amber-700', bgColor: 'bg-amber-50', icon: Clock },
+  installment_pending_approval: { label: 'Installment Plan — Awaiting Admin Approval', color: 'bg-amber-600', textColor: 'text-amber-800', bgColor: 'bg-amber-50', icon: Clock },
   proposal_paid: { label: 'Action: Upload Receipt + Agreement', color: 'bg-[#f7620b]', textColor: 'text-orange-700', bgColor: 'bg-orange-50', icon: Upload },
   awaiting_final_approval: { label: 'Awaiting Admin Final Approval', color: 'bg-leamss-teal-600', textColor: 'text-leamss-teal-700', bgColor: 'bg-leamss-teal-50', icon: Clock },
   case_created: { label: 'Case Created', color: 'bg-green-600', textColor: 'text-green-800', bgColor: 'bg-green-50', icon: CheckCircle },
@@ -57,6 +61,8 @@ const PreAssessmentPipeline = ({ initialFilter = null, initialPaId = null }) => 
   const [search, setSearch] = useState('');
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [sendPaymentModalPa, setSendPaymentModalPa] = useState(null); // PA object
+  const [sendPaymentGst, setSendPaymentGst] = useState(false);
 
   // Apply initial filter when provided
   useEffect(() => {
@@ -101,7 +107,10 @@ const PreAssessmentPipeline = ({ initialFilter = null, initialPaId = null }) => 
       .then(d => { if (d) setExpressUsage(d); })
       .catch(() => {});
   }, []);
-  const [proposalForm, setProposalForm] = useState({ fee_amount: '', notes: '', promo_code: '', promo_applied: null, additional_discount: '', upsell_ids: [], ai_text: '' });
+  const [proposalForm, setProposalForm] = useState({
+    fee_amount: '', notes: '', promo_code: '', promo_applied: null, additional_discount: '', upsell_ids: [], ai_text: '',
+    product_package_id: null, payment_method_type: 'full_payment', installment_schedule: null,
+  });
   const [showProposal, setShowProposal] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [upsellCatalog, setUpsellCatalog] = useState([]);
@@ -119,6 +128,11 @@ const PreAssessmentPipeline = ({ initialFilter = null, initialPaId = null }) => 
   const [sendingInvoice, setSendingInvoice] = useState(null);
   const [generatingAgreementFor, setGeneratingAgreementFor] = useState(null);
   const [viewingAgreementFor, setViewingAgreementFor] = useState(null);
+  const [finalizingPaymentId, setFinalizingPaymentId] = useState(null);
+  const [paymentMethodForm, setPaymentMethodForm] = useState({
+    payment_method_type: 'full_payment',
+    installment_schedule: null,
+  });
 
   const downloadPdf = async (paId, kind) => {
     try {
@@ -198,6 +212,30 @@ const PreAssessmentPipeline = ({ initialFilter = null, initialPaId = null }) => 
       toast.error(e.response?.data?.detail || 'Failed to generate link');
     }
   };
+
+  const openSendPaymentModal = (pa) => {
+  setSendPaymentModalPa(pa);
+  setSendPaymentGst(false);
+};
+
+const confirmSendPayment = async () => {
+  if (!sendPaymentModalPa) return;
+  const paId = sendPaymentModalPa.id;
+  try {
+    const res = await axios.post(`${API}/pre-assess-portal/generate-public-link`, {
+      pa_id: paId,
+      include_gst: sendPaymentGst,     // 👈 नवीन
+    }, getAuthHeader());
+    const publicUrl = res.data.public_url?.startsWith('http') ? res.data.public_url : `${window.location.origin}${res.data.public_url}`;
+    try { await navigator.clipboard.writeText(publicUrl); } catch (_) {}
+    toast.success(`Payment link generated (${res.data.amount_label}) & copied`);
+    window.open(publicUrl, '_blank');
+    setSendPaymentModalPa(null);
+    loadData();
+  } catch (e) {
+    toast.error(e.response?.data?.detail || 'Failed to generate link');
+  }
+};
 
   const handleCopyPublicLink = async (paId) => {
     try {
@@ -283,46 +321,43 @@ const PreAssessmentPipeline = ({ initialFilter = null, initialPaId = null }) => 
     const entry = pendingUpload[paId];
     if (!entry || !entry.file) { toast.error('Select a file first'); return; }
     await handleUploadDoc(paId, entry.file, entry.docType);
-    clearPendingFile(paId);
+    clearPendingFile(paId);     
     await loadDocsAndActivity(paId);
   };
 
-  const handleSendProposal = async (paId) => {
-    if (!proposalForm.fee_amount || parseFloat(proposalForm.fee_amount) <= 0) {
-      toast.error('Enter valid fee amount'); return;
-    }
-    // Optimistic UI: immediately move stage to proposal_sent + close form
-    const snapshot = [...assessments];
-    setAssessments(p => p.map(x => x.id === paId ? { ...x, stage: 'proposal_sent', proposal_status: 'sent', proposal_fee: parseFloat(proposalForm.fee_amount) } : x));
-    setShowProposal(null);
-    const formCopy = { ...proposalForm };
-    setProposalForm({ fee_amount: '', notes: '', promo_code: '', promo_applied: null, additional_discount: '', upsell_ids: [], ai_text: '' });
-    try {
-      const res = await axios.post(`${API}/pre-assessment/${paId}/send-proposal`, {
-        fee_amount: parseFloat(formCopy.fee_amount),
-        payment_method: 'online',
-        notes: formCopy.notes,
-        currency: 'INR',
-        promo_code: formCopy.promo_code || null,
-        additional_discount: parseFloat(formCopy.additional_discount) || 0,
-        upsell_bundle_ids: formCopy.upsell_ids || [],
-        ai_proposal_text: formCopy.ai_text || null,
-      }, getAuthHeader());
-      toast.success(`${res.data.message} — Final ₹${res.data.breakdown?.final_amount?.toLocaleString('en-IN')}`);
-      loadData();
-    } catch (e) {
-      // Rollback on failure
-      setAssessments(snapshot);
-      const status = e.response?.status;
-      const detail = e.response?.data?.detail || 'Failed to send proposal';
-      if (status === 401) {
-        toast.error('Session expired. Please log in again.');
-      } else {
-        toast.error(`${detail}${status ? ` (HTTP ${status})` : ''} — reverted`);
-      }
-      console.error('Send proposal failed:', status, detail);
-    }
-  };
+const handleSendProposal = async (paId) => {
+  const selectedIds = proposalForm.selected_package_ids || [];
+  if (selectedIds.length === 0) {
+    toast.error('Select at least one package to send'); return;
+  }
+
+  // Optimistic UI: move stage + close form
+  const snapshot = [...assessments];
+  setAssessments(p => p.map(x => x.id === paId ? { ...x, stage: 'awaiting_package_selection' } : x));
+  setShowProposal(null);
+  const formCopy = { ...proposalForm };
+  setProposalForm({
+    fee_amount: '', notes: '', promo_code: '', promo_applied: null, additional_discount: '', upsell_ids: [], ai_text: '',
+    product_package_id: null, payment_method_type: 'full_payment', installment_schedule: null,
+    selected_package_ids: [],
+  });
+
+  try {
+    const res = await axios.post(`${API}/pre-assessment/${paId}/forward-packages`, {
+      package_ids: selectedIds,
+      notes: formCopy.notes,
+      ai_proposal_text: formCopy.ai_text || null,
+    }, getAuthHeader());
+    toast.success(res.data.message || 'Packages sent to client!');
+    loadData();
+  } catch (e) {
+    setAssessments(snapshot);
+    const status = e.response?.status;
+    const detail = e.response?.data?.detail || 'Failed to send packages';
+    toast.error(`${detail}${status ? ` (HTTP ${status})` : ''} — reverted`);
+    console.error('Send packages failed:', status, detail);
+  }
+};
 
   const openProposalForm = async (pa) => {
     setShowProposal(pa.id);
@@ -339,18 +374,61 @@ const PreAssessmentPipeline = ({ initialFilter = null, initialPaId = null }) => 
         }
       } catch (e) { /* fallback to free input */ }
     }
-    setProposalForm({
+  setProposalForm({
       fee_amount: lockedPrice,
       product_locked_price: lockedPrice,
       product_name: productName,
       price_overridden: false,
       notes: '', promo_code: '', promo_applied: null, additional_discount: '', upsell_ids: [], ai_text: '',
+      product_package_id: null, payment_method_type: 'full_payment', installment_schedule: null,
+      selected_package_ids: [],
     });
     if (upsellCatalog.length === 0) {
       try {
         const r = await axios.get(`${API}/upsell-bundles`, getAuthHeader());
         setUpsellCatalog(r.data || []);
       } catch (e) { /* ignore */ }
+    }
+  };
+
+const openFinalizePaymentForm = (pa) => {
+    setFinalizingPaymentId(pa.id);
+    setPaymentMethodForm({
+      payment_method_type: 'full_payment',
+      installment_schedule: null,
+      include_gst: false,
+    });
+};
+
+  const handleFinalizePaymentMethod = async (paId) => {
+    const isInstallments = paymentMethodForm.payment_method_type === 'installments';
+    if (isInstallments) {
+      const sched = paymentMethodForm.installment_schedule || [];
+      if (sched.length < 2) { toast.error('Add at least 2 installments'); return; }
+      if (sched.some(r => !parseFloat(r.amount) || !r.due_date)) { toast.error('Every installment needs an amount and a due date'); return; }
+    }
+
+    const snapshot = [...assessments];
+    const optimisticStage = isInstallments ? 'installment_pending_approval' : 'proposal_sent';
+    setAssessments(p => p.map(x => x.id === paId ? { ...x, stage: optimisticStage } : x));
+    setFinalizingPaymentId(null);
+    const formCopy = { ...paymentMethodForm };
+
+    try {
+      const res = await axios.post(`${API}/pre-assessment/${paId}/finalize-payment-method`, {
+        payment_method_type: formCopy.payment_method_type,
+        installment_schedule: formCopy.installment_schedule || null,
+        include_gst: formCopy.include_gst || false,
+        coupon_code: formCopy.coupon_code || null,
+      }, getAuthHeader());
+      toast.success(res.data.message || 'Payment method set — client can now pay');
+      loadData();
+    } catch (e) {
+      setAssessments(snapshot);
+      const status = e.response?.status;
+      const detail = e.response?.data?.detail || 'Failed to set payment method';
+      toast.error(`${detail}${status ? ` (HTTP ${status})` : ''} — reverted`);
+      console.error('Finalize payment method failed:', status, detail);
     }
   };
 
@@ -401,6 +479,41 @@ const PreAssessmentPipeline = ({ initialFilter = null, initialPaId = null }) => 
       toast.error((e.response?.data?.detail || 'Failed') + ' — reverted');
     }
   };
+  const handleConfirmInstallment = async (paId) => {
+    const snapshot = [...assessments];
+    try {
+      const res = await axios.post(
+        `${API}/pre-assess-portal/partner/proposal/confirm-installment/${paId}`,
+        {},
+        getAuthHeader()
+      );
+      toast.success(
+        res.data.fully_paid
+          ? 'Installment confirmed — main fee fully paid!'
+          : `${res.data.part_confirmed} confirmed`
+      );
+      loadData();
+    } catch (e) {
+      setAssessments(snapshot);
+      toast.error(e.response?.data?.detail || 'Failed to confirm installment');
+    }
+  };
+  const handleResendApproval = async (paId) => {
+  try {
+    await axios.post(
+      `${API}/pre-assess-portal/partner/resend-approval/${paId}`,
+      {},
+      getAuthHeader()
+    );
+
+    toast.success("Resent to Admin for Approval");
+    loadData();
+  } catch (e) {
+    toast.error(
+      e.response?.data?.detail || "Failed to resend for approval"
+    );
+  }
+};
 
   const loadDocsAndActivity = async (paId) => {
     // Single bundled call — replaces 2+ parallel calls (docs + activity)
@@ -475,18 +588,96 @@ const PreAssessmentPipeline = ({ initialFilter = null, initialPaId = null }) => 
 
   const getStageInfo = (stage) => STAGE_CONFIG[stage] || STAGE_CONFIG.new;
 
-  const getNextAction = (pa) => {
-    switch (pa.stage) {
-      case 'new': return { label: 'Send Payment Link (₹5,100)', action: () => handleSendPayment(pa.id), color: 'bg-amber-500 hover:bg-amber-600' };
-      case 'payment_pending': return { label: 'Confirm Payment Received', action: () => handleConfirmPayment(pa.id), color: 'bg-blue-500 hover:bg-blue-600' };
-      case 'payment_received': return { label: 'Waiting for client to upload', action: null, color: 'bg-slate-400 cursor-not-allowed' };
-      case 'partner_review': return { label: 'Review Docs & Forward to Admin', action: () => openForwardForm(pa.id), color: 'bg-pink-500 hover:bg-pink-600' };
-      case 'proposal_sent': return { label: 'Waiting for client payment…', action: null, color: 'bg-slate-400 cursor-not-allowed' };
-      case 'approved': return { label: 'Send Proposal to Client', action: () => openProposalForm(pa), color: 'bg-emerald-500 hover:bg-emerald-600' };
-      case 'proposal_paid': return { label: 'Upload Receipt + Submit Final', action: () => openFinalForm(pa.id), color: 'bg-[#f7620b] hover:bg-[#e55a09]' };
-      default: return null;
-    }
-  };
+const getNextAction = (pa) => {
+  // Show resend button when rejected by admin
+  if (
+    pa.admin_decision === "rejected" ||
+    pa.stage === "rejected"
+  ) {
+    return {
+      label: "Resend for Approval",
+      action: () => handleResendApproval(pa.id),
+      color: "bg-red-500 hover:bg-red-600",
+      icon: Send,
+    };
+  }
+
+  switch (pa.stage) {
+    case "new":
+      return {
+        label: "Send Payment Link (₹5,100)",
+        action: () => openSendPaymentModal(pa),
+        // action: () => handleSendPayment(pa.id),
+        color: "bg-amber-500 hover:bg-amber-600",
+      };
+
+    case "payment_pending":
+      return {
+        label: "Confirm Payment Received",
+        action: () => handleConfirmPayment(pa.id),
+        color: "bg-blue-500 hover:bg-blue-600",
+      };
+
+    case "payment_received":
+      return {
+        label: "Waiting for client to upload",
+        action: null,
+        color: "bg-slate-400 cursor-not-allowed",
+      };
+
+    case "partner_review":
+      return {
+        label: "Review Docs & Forward to Admin",
+        action: () => openForwardForm(pa.id),
+        color: "bg-pink-500 hover:bg-pink-600",
+      };
+
+  case "approved":
+      return {
+        label: "Send Packages to Client",
+        action: () => openProposalForm(pa),
+        color: "bg-emerald-500 hover:bg-emerald-600",
+      };
+
+    case "awaiting_package_selection":
+      return {
+        label: "Waiting for client to pick a package…",
+        action: null,
+        color: "bg-slate-400 cursor-not-allowed",
+      };
+
+    case "package_selected":
+      return {
+        label: `Set Payment Method — ${pa.selected_package_snapshot?.name || 'Selected Package'}`,
+        action: () => openFinalizePaymentForm(pa),
+        color: "bg-fuchsia-500 hover:bg-fuchsia-600",
+      };
+
+    case "proposal_sent":
+      return {
+        label: "Waiting for client payment…",
+        action: null,
+        color: "bg-slate-400 cursor-not-allowed",
+      };
+
+      case "installment_pending_approval":
+      return {
+        label: "Waiting for Admin to approve installment plan…",
+        action: null,
+        color: "bg-amber-500 cursor-not-allowed",
+      };
+
+    case "proposal_paid":
+      return {
+        label: "Upload Receipt + Submit Final",
+        action: () => openFinalForm(pa.id),
+        color: "bg-[#f7620b] hover:bg-[#e55a09]",
+      };
+
+    default:
+      return null;
+  }
+};
 
   if (loading) return <div className="flex items-center justify-center h-64"><RefreshCw className="h-8 w-8 text-[#2a777a] animate-spin" /></div>;
 
@@ -739,6 +930,55 @@ const PreAssessmentPipeline = ({ initialFilter = null, initialPaId = null }) => 
                       </div>
                     )}
 
+{/* Installment payment received — needs partner review before forwarding to admin */}
+                    {pa.pending_installment_unlock && !pa.installment_forwarded_at && (
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                        <div>
+                          <p className="font-semibold text-blue-900">Installment Payment Received — Review Needed</p>
+                          <p className="text-xs text-blue-700 mt-0.5">
+                            {pa.client_name} paid ₹{(pa.proposal_amount_paid || 0).toLocaleString('en-IN')} so far. Review this payment and forward to admin to unlock the next installment.
+                          </p>
+                        </div>
+                        <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white shrink-0"
+                          onClick={async () => {
+                            try {
+                              await axios.post(`${API}/pre-assessment/${pa.id}/forward-installment-review`, {}, getAuthHeader());
+                              toast.success('Forwarded to admin');
+                              loadData();
+                            } catch (e) { toast.error(e?.response?.data?.detail || 'Failed'); }
+                          }}
+                          data-testid={`forward-installment-${pa.id}`}>
+                          Forward to Admin
+                        </Button>
+                      </div>
+                    )}
+
+                    {/* Already forwarded — waiting on admin */}
+                    {pa.pending_installment_unlock && pa.installment_forwarded_at && (
+                      <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 flex items-center gap-3">
+                        <Clock className="h-5 w-5 text-slate-400 shrink-0" />
+                        <p className="text-sm text-slate-600">Installment review forwarded to admin — waiting for approval to unlock next installment.</p>
+                      </div>
+                    )}
+{/* International wire-transfer installment claimed — needs partner confirmation */}
+                    {(pa.proposal_payment_parts || []).some(p => p.status === 'pending_verification') && (
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                        <div>
+                          <p className="font-semibold text-blue-900">International Payment Claimed — Verify &amp; Confirm</p>
+                          <p className="text-xs text-blue-700 mt-0.5">
+                            {pa.client_name} says they've wire-transferred{' '}
+                            {pa.proposal_payment_parts.find(p => p.status === 'pending_verification')?.label}{' '}
+                            (₹{(pa.proposal_payment_parts.find(p => p.status === 'pending_verification')?.amount || 0).toLocaleString('en-IN')}).
+                            Check your bank statement, then confirm to forward to Admin.
+                          </p>
+                        </div>
+                        <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white shrink-0"
+                          onClick={() => handleConfirmInstallment(pa.id)}
+                          data-testid={`confirm-installment-${pa.id}`}>
+                          Confirm Payment
+                        </Button>
+                      </div>
+                    )}
                     {/* Waiting banner for awaiting_final_approval stage */}
                     {pa.stage === 'awaiting_final_approval' && (
                       <div className="bg-gradient-to-r from-leamss-teal-50 to-blue-50 border border-leamss-teal-200 rounded-lg p-4 flex items-center gap-3">
@@ -826,8 +1066,21 @@ const PreAssessmentPipeline = ({ initialFilter = null, initialPaId = null }) => 
                       />
                     )}
 
+{finalizingPaymentId === pa.id && (
+                      <PaFinalizePaymentForm
+                        pa={pa}
+                        paymentMethodForm={paymentMethodForm}
+                        setPaymentMethodForm={setPaymentMethodForm}
+                        handleFinalizePaymentMethod={handleFinalizePaymentMethod}
+                        onCancel={() => setFinalizingPaymentId(null)}
+                        requiresPartnerInfo={pa.selected_package_snapshot?.requires_partner_info}
+                        getAuthHeader={getAuthHeader}
+                        onSpouseSaved={loadData}
+                      />
+                    )}
+
                     {/* Action Buttons — always show Copy Link + Preview as Client, show nextAction if exists */}
-                    {showProposal !== pa.id && forwardingId !== pa.id && finalSubmittingId !== pa.id && (
+                    {showProposal !== pa.id && forwardingId !== pa.id && finalSubmittingId !== pa.id && finalizingPaymentId !== pa.id && (
                       <PaActionBar
                         pa={pa}
                         nextAction={nextAction}
@@ -875,6 +1128,35 @@ const PreAssessmentPipeline = ({ initialFilter = null, initialPaId = null }) => 
           loadData();
         }}
       />
+{sendPaymentModalPa && (
+  <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+      <h3 className="text-lg font-bold text-slate-800">
+        Send Payment Link — {sendPaymentModalPa.client_name}
+      </h3>
+      <div className="bg-slate-50 rounded-lg p-3 text-sm">
+        <div className="flex justify-between"><span>Pre-Assessment Fee</span><span>₹5,100</span></div>
+        {sendPaymentGst && (
+          <div className="flex justify-between text-emerald-700"><span>GST (18%)</span><span>₹918</span></div>
+        )}
+        <div className="flex justify-between font-bold border-t pt-1 mt-1">
+          <span>Total</span><span>₹{sendPaymentGst ? '6,018' : '5,100'}</span>
+        </div>
+      </div>
+      <label className="flex items-center gap-2 cursor-pointer">
+        <input type="checkbox" checked={sendPaymentGst}
+          onChange={e => setSendPaymentGst(e.target.checked)} className="h-4 w-4" />
+        <span className="text-sm font-semibold text-slate-700">Add GST (18%)</span>
+      </label>
+      <div className="flex gap-2 justify-end">
+        <Button variant="outline" onClick={() => setSendPaymentModalPa(null)}>Cancel</Button>
+        <Button className="bg-[#2a777a] hover:bg-[#236466]" onClick={confirmSendPayment}>
+          Generate & Send Link
+        </Button>
+      </div>
+    </div>
+  </div>
+)}
     </div>
   );
 };

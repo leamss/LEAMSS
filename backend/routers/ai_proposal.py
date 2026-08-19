@@ -1,4 +1,4 @@
-"""AI Proposal Generator — GPT-5 powered personalised proposal writer.
+""""AI Proposal Generator — Perplexity Sonar powered personalised proposal writer.
 
 Used by Partners to generate a professional proposal narrative for a client
 based on the pre-assessment profile. Output is editable before sending.
@@ -13,13 +13,15 @@ from pydantic import BaseModel
 
 from core.auth import get_current_user
 from core.database import db
+import httpx
+from openai import AsyncOpenAI
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/ai-proposal", tags=["AI Proposal"])
 
 pre_assessments_col = db["pre_assessments"]
-EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
+PERPLEXITY_API_KEY = os.getenv("PERPLEXITY_API_KEY")
 
 SYSTEM_PROMPT = (
     "You are an expert immigration consultant writing a professional, warm, and "
@@ -47,7 +49,8 @@ class AIGenerateRequest(BaseModel):
 async def generate_proposal(data: AIGenerateRequest, current_user: dict = Depends(get_current_user)):
     """Generate a personalised proposal draft for a pre-assessment.
 
-    Allowed roles: partner (owner of PA), admin, case_manager. Uses Emergent LLM key with Claude Sonnet.
+    Allowed roles: partner (owner of PA), admin, case_manager.
+Uses Perplexity Sonar models.
     """
     role = current_user.get("role")
     if role not in ("partner", "admin", "case_manager"):
@@ -60,7 +63,7 @@ async def generate_proposal(data: AIGenerateRequest, current_user: dict = Depend
     if role in ("partner", "sales_executive", "sr_sales_executive") and pa.get("partner_id") != current_user["id"]:
         raise HTTPException(status_code=403, detail="This pre-assessment belongs to another partner. You can only generate proposals for your own leads.")
 
-    if not EMERGENT_LLM_KEY:
+    if not PERPLEXITY_API_KEY:
         raise HTTPException(status_code=500, detail="Emergent LLM key not configured")
 
     # Build client profile brief
@@ -97,30 +100,47 @@ async def generate_proposal(data: AIGenerateRequest, current_user: dict = Depend
     if data.custom_instructions:
         user_prompt += f"\nAdditional instructions from the partner: {data.custom_instructions}\n"
 
+        if not PERPLEXITY_API_KEY:
+         raise HTTPException(
+            status_code=500,
+            detail="PERPLEXITY_API_KEY not configured"
+        )
+
+    client = AsyncOpenAI(
+        api_key=PERPLEXITY_API_KEY,
+        base_url="https://api.perplexity.ai",
+        http_client=httpx.AsyncClient(verify=False, timeout=60)
+    )
+
+    # Standard AI -> Sonar
+    # Premium AI -> Sonar Reasoning Pro
+    model = "sonar-reasoning-pro" if data.premium else "sonar"
+
     try:
-        from emergentintegrations.llm.chat import LlmChat, UserMessage
-    except ImportError as e:
-        logger.error(f"emergentintegrations not installed: {e}")
-        raise HTTPException(status_code=500, detail="LLM library not installed")
+        response = await client.chat.completions.create(
+            model=model,
+            messages=[
+                {
+                    "role": "system",
+                    "content": SYSTEM_PROMPT,
+                },
+                {
+                    "role": "user",
+                    "content": user_prompt,
+                },
+            ],
+            temperature=0.7,
+            max_tokens=900,
+        )
 
-    # Premium toggle uses Claude Opus 4.6 (deeper reasoning, best for ₹5L+ proposals).
-    # Default uses Claude Sonnet 4.6 (30-50% faster than 4.5, same price, excellent quality).
-    model_id = "claude-opus-4-6" if data.premium else "claude-sonnet-4-6"
-    model_label = f"anthropic/{model_id}"
+        text = response.choices[0].message.content.strip()
 
-    chat = LlmChat(
-        api_key=EMERGENT_LLM_KEY,
-        session_id=f"propose-{uuid.uuid4()}",
-        system_message=SYSTEM_PROMPT,
-    ).with_model("anthropic", model_id)
-
-    try:
-        response = await chat.send_message(UserMessage(text=user_prompt))
     except Exception as e:
-        logger.error(f"AI proposal generation failed: {e}")
-        raise HTTPException(status_code=502, detail=f"AI generation failed: {str(e)[:200]}")
-
-    text = str(response).strip()
+        logger.exception(e)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Perplexity Error: {str(e)}"
+        )
     # Strip stray fences if present
     if text.startswith("```"):
         text = text.strip("`").strip()
@@ -134,6 +154,6 @@ async def generate_proposal(data: AIGenerateRequest, current_user: dict = Depend
         "proposal_text": text,
         "tone": data.tone,
         "word_count": len(text.split()),
-        "model": model_label,
+        "model": model,
         "premium": bool(data.premium),
     }

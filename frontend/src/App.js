@@ -70,6 +70,7 @@ import Cockpit from '@/pages/admin/Cockpit';
 import AnzIntelAudit from '@/pages/admin/AnzIntelAudit';
 import CalculatorRulesEditor from '@/pages/admin/CalculatorRulesEditor';
 import AtlasSearch from '@/pages/admin/AtlasSearch';
+import AtlasCountryManager from '@/pages/admin/AtlasCountryManager';
 import PublicCountryGuide from '@/pages/PublicCountryGuide';
 import PublicCountryIndex from '@/pages/PublicCountryIndex';
 import EligibilityProfileWizard from '@/pages/eligibility/EligibilityProfileWizard';
@@ -117,6 +118,11 @@ import AppErrorBoundary from '@/components/AppErrorBoundary';
 import ClientErrorsDashboard from '@/pages/admin/ClientErrorsDashboard';
 import CouponsAdmin from '@/pages/admin/CouponsAdmin';
 import FunnelDashboard from '@/pages/admin/FunnelDashboard';
+import ResumeUpload from '@/pages/ResumeUpload';
+import EOIBacklogAdmin from '@/pages/admin/EOIBacklogAdmin';
+import BulkPreAssessment from '@/pages/sales/BulkPreAssessment';
+import EmailTemplatesManager from '@/pages/sales/EmailTemplatesManager';
+import FeeMaster from '@/pages/sales/FeeMaster';
 import ProposalBuilder from '@/pages/sales/ProposalBuilder';
 import ClientPortalLogin from '@/pages/client-portal/ClientPortalLogin';
 import ClientPortalDashboard from '@/pages/client-portal/ClientPortalDashboard';
@@ -457,6 +463,14 @@ function App() {
               <AnzIntelAudit />
             </RequirePermission>
           } />
+          <Route
+  path="/admin/atlas/countries"
+  element={
+    <RequirePermission allowRoles={['admin_owner', 'admin']}>
+      <AtlasCountryManager />
+    </RequirePermission>
+  }
+/>
           <Route path="/admin/calculator-rules" element={
             <RequirePermission allowRoles={['admin_owner', 'admin']}>
               <CalculatorRulesEditor />
@@ -541,6 +555,27 @@ function App() {
               <MyAssessments />
             </RequirePermission>
           } />
+          <Route path="/admin/kb/eoi-backlog" element={
+            <RequirePermission allowRoles={['admin_owner', 'admin']}>
+              <EOIBacklogAdmin />
+            </RequirePermission>
+          } />
+          <Route path="/sales/bulk-assessment" element={
+            <RequirePermission allowRoles={['admin_owner', 'admin', 'sales_executive', 'sr_sales_executive', 'sales_manager', 'sales_head', 'partner', 'case_manager']}>
+              <BulkPreAssessment />
+            </RequirePermission>
+          } />
+          <Route path="/sales/email-templates" element={
+            <RequirePermission allowRoles={['admin_owner', 'admin', 'sales_executive', 'sr_sales_executive', 'sales_manager', 'sales_head', 'partner', 'case_manager']}>
+              <EmailTemplatesManager />
+            </RequirePermission>
+          } />
+          <Route path="/sales/fee-master" element={
+            <RequirePermission allowRoles={['admin_owner', 'admin', 'sales_executive', 'sr_sales_executive', 'sales_manager', 'sales_head', 'partner', 'case_manager']}>
+              <FeeMaster />
+            </RequirePermission>
+          } />
+          <Route path="/upload-resume" element={<ResumeUpload />} />
           {/* Public Sales Report — Phase 6.5 Save & Share (NO LOGIN) */}
           <Route path="/sales/report/:token" element={<PublicAssessmentReport />} />
           <Route path="/reports/view/:token" element={<PublicReportView />} />

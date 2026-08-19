@@ -1,0 +1,221 @@
+{# LEAMSS SERVICE PACKAGES — side-by-side comparison of selected packages #}
+{% set ce = snap.cost_estimator or {} %}
+{% set all_pkgs = ce.get('service_packages') or ce.get('packages') or [] %}
+{% set pkgs = [] %}
+{% for p in all_pkgs %}
+  {% if p.get('show', p.get('show_in_report', True)) %}{% set _ = pkgs.append(p) %}{% endif %}
+{% endfor %}
+
+{% macro sym(ccy) %}{% if ccy == 'INR' %}₹{% elif ccy == 'GBP' %}£{% else %}${% endif %}{% endmacro %}
+
+{% if pkgs %}
+<div class="page">
+
+  <div class="section-header">
+    <span class="eyebrow">Your Investment Options</span>
+    <h1>LEAMSS Service Packages</h1>
+    <span class="rule"></span>
+    <p class="lead">Choose the level of financial protection that suits you. Every package includes
+       professional processing support, a dedicated case manager and full documentation assistance.
+       Government &amp; third-party fees are payable separately (see the breakdown above).</p>
+  </div>
+
+  <table class="pkg-compare">
+    <thead>
+      <tr>
+        <th class="feat-col">&nbsp;</th>
+        {% for p in pkgs %}
+          {% set is_hi = p.get('highlight', p.get('recommended', False)) %}
+          <th class="{{ 'pkg-hi' if is_hi }}">
+            {% if is_hi %}<div class="pkg-ribbon">★ Recommended</div>{% endif %}
+            <div class="pkg-name">{{ p.name }}</div>
+            <div class="pkg-level">{{ (p.get('protection_level') or 'Basic')|title }} Protection</div>
+          </th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {# Total payable (with optional add-on) #}
+      <tr class="total-row">
+        <td class="feat-col">Total Payable <span class="tiny">(incl. GST)</span></td>
+        {% for p in pkgs %}
+          {% set is_hi = p.get('highlight', p.get('recommended', False)) %}
+          {% set base = p.total or p.total_payable or ((p.professional_fee or 0) - (p.discount or 0) + (p.gst or 0)) %}
+          {% set ao = p.addon %}
+          {% set gt = base + ((ao.amount or 0) if (ao and ao.enabled) else 0) %}
+          <td class="{{ 'pkg-hi' if is_hi }}">
+            <span class="big-amt">{{ sym(p.currency or 'INR') }}{{ '{:,.0f}'.format(gt) }}</span>
+          </td>
+        {% endfor %}
+      </tr>
+
+      <tr>
+        <td class="feat-col">Professional / Policy Fee</td>
+        {% for p in pkgs %}
+          {% set is_hi = p.get('highlight', p.get('recommended', False)) %}
+          <td class="{{ 'pkg-hi' if is_hi }}">{{ sym(p.currency or 'INR') }}{{ '{:,.0f}'.format(p.professional_fee or 0) }}</td>
+        {% endfor %}
+      </tr>
+
+      <tr>
+        <td class="feat-col">Lump-sum Discount</td>
+        {% for p in pkgs %}
+          {% set is_hi = p.get('highlight', p.get('recommended', False)) %}
+          <td class="{{ 'pkg-hi' if is_hi }}">{% if (p.discount or 0) > 0 %}− {{ sym(p.currency or 'INR') }}{{ '{:,.0f}'.format(p.discount) }}{% else %}—{% endif %}</td>
+        {% endfor %}
+      </tr>
+
+      <tr>
+        <td class="feat-col">GST @ 18%</td>
+        {% for p in pkgs %}
+          {% set is_hi = p.get('highlight', p.get('recommended', False)) %}
+          <td class="{{ 'pkg-hi' if is_hi }}">{{ sym(p.currency or 'INR') }}{{ '{:,.0f}'.format(p.gst or 0) }}</td>
+        {% endfor %}
+      </tr>
+
+      <tr>
+        <td class="feat-col">100% Professional Fee Refund on Refusal</td>
+        {% for p in pkgs %}
+          {% set is_hi = p.get('highlight', p.get('recommended', False)) %}
+          <td class="{{ 'pkg-hi' if is_hi }}">{% if p.professional_fee_refund or p.refund_professional_fee %}<span class="yes">✓</span>{% else %}<span class="no">✗</span>{% endif %}</td>
+        {% endfor %}
+      </tr>
+
+      <tr>
+        <td class="feat-col">100% Government Fee Refund on Refusal</td>
+        {% for p in pkgs %}
+          {% set is_hi = p.get('highlight', p.get('recommended', False)) %}
+          <td class="{{ 'pkg-hi' if is_hi }}">{% if p.govt_fee_refund or p.refund_government_fee %}<span class="yes">✓</span>{% else %}<span class="no">✗</span>{% endif %}</td>
+        {% endfor %}
+      </tr>
+
+      <tr>
+        <td class="feat-col">Financial Protection Level</td>
+        {% for p in pkgs %}
+          {% set is_hi = p.get('highlight', p.get('recommended', False)) %}
+          <td class="{{ 'pkg-hi' if is_hi }}"><span class="pill teal">{{ (p.get('protection_level') or 'Basic')|title }}</span></td>
+        {% endfor %}
+      </tr>
+
+      {% set has_addon = pkgs | selectattr('addon') | list %}
+      {% if has_addon %}
+      <tr>
+        <td class="feat-col">Optional Partner Skill Assessment</td>
+        {% for p in pkgs %}
+          {% set ao = p.addon %}
+          <td class="{{ 'pkg-hi' if p.get('highlight') }}">
+            {% if ao and ao.enabled %}+ {{ sym(ao.currency or p.currency or 'INR') }}{{ '{:,.0f}'.format(ao.amount or 0) }}{% elif ao %}<span class="tiny">Available on request</span>{% else %}—{% endif %}
+          </td>
+        {% endfor %}
+      </tr>
+      {% endif %}
+
+      <tr>
+        <td class="feat-col">What's included</td>
+        {% for p in pkgs %}
+          <td class="{{ 'pkg-hi' if p.get('highlight') }}" style="text-align:left;">
+            <ul class="incl">
+              {% for inc in (p.inclusions or []) %}<li>{{ inc }}</li>{% endfor %}
+            </ul>
+          </td>
+        {% endfor %}
+      </tr>
+    </tbody>
+  </table>
+
+  {# ── Total Estimated Investment per package (LEAMSS fee + official/govt fees) ── #}
+  {% set excluded = ['LEAMSS Professional Fees', 'Protection Policy Coverage'] %}
+  {% set official = {} %}
+  {% for it in (ce.get('items') or []) %}
+    {% if it.category not in excluded %}
+      {% set c = it.currency or 'INR' %}
+      {% set _ = official.update({c: official.get(c, 0) + (it.amount or 0)}) %}
+    {% endif %}
+  {% endfor %}
+
+  <div class="grand-wrap">
+    <div class="eyebrow" style="color:var(--teal-700);">Total Estimated Investment</div>
+    <div class="grand-grid">
+      {% for p in pkgs %}
+        {% set ao = p.addon %}
+        {% set pkg_total = (p.total or 0) + ((ao.amount or 0) if (ao and ao.enabled) else 0) %}
+        {% set ccys = official.keys() | list %}
+        {% if 'INR' not in ccys %}{% set ccys = ccys + ['INR'] %}{% endif %}
+        <div class="grand-card {{ 'grand-hi' if p.get('highlight') }}">
+          <div class="grand-name">{{ p.name }}</div>
+          <table class="grand-kv">
+            <tr><td>LEAMSS Package Fee</td><td>{{ sym(p.currency or 'INR') }}{{ '{:,.0f}'.format(pkg_total) }}</td></tr>
+            {% for ccy in ccys %}
+              {% if (official.get(ccy, 0) or 0) > 0 %}
+              <tr><td>Govt / third-party ({{ ccy }})</td><td>{{ sym(ccy) }}{{ '{:,.0f}'.format(official.get(ccy, 0)) }}</td></tr>
+              {% endif %}
+            {% endfor %}
+          </table>
+          <div class="grand-total-line">
+            <span>Total estimated</span>
+            <span class="grand-amt">
+              {% for ccy in ccys %}{% set amt = official.get(ccy, 0) + (pkg_total if ccy == 'INR' else 0) %}{% if amt > 0 %}{% if not loop.first %} + {% endif %}{{ sym(ccy) }}{{ '{:,.0f}'.format(amt) }}{% endif %}{% endfor %}
+            </span>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+    <div class="tiny" style="margin-top:4pt;color:var(--slate-500);">
+      Government &amp; third-party fees are identical across packages and payable separately to the respective authorities.
+      Figures are indicative estimates and confirmed in your personalised proposal.
+    </div>
+  </div>
+
+  <div class="spacer-sm"></div>
+  <div class="note">
+    <b>🛡 Financial protection you can trust.</b> LEAMSS professional consultation and processing services are
+    covered by the package fee. Australian Government visa charges, skill-assessment authority fees, IELTS/PTE,
+    medical, PCC and any other statutory charges are payable separately to the respective authorities.
+  </div>
+
+  <style>
+    table.pkg-compare { width:100%; border-collapse:separate; border-spacing:0; margin-top:8pt; font-size:8.5pt; }
+    table.pkg-compare th, table.pkg-compare td {
+      border-bottom:0.75pt solid var(--border); padding:6pt 7pt; text-align:center; vertical-align:top;
+    }
+    table.pkg-compare thead th {
+      background:var(--teal-100); color:var(--teal-800); border-bottom:1.5pt solid var(--teal-700);
+      border-top-left-radius:6pt; border-top-right-radius:6pt; position:relative;
+    }
+    table.pkg-compare th.pkg-hi, table.pkg-compare td.pkg-hi { background:rgba(212,99,63,0.06); }
+    table.pkg-compare thead th.pkg-hi { background:var(--teal-700); color:var(--white); }
+    .feat-col { text-align:left !important; width:30%; font-weight:600; color:var(--slate-500); background:transparent !important; }
+    .pkg-name { font-family:'Playfair Display',serif; font-size:10.5pt; font-weight:800; line-height:1.15; }
+    .pkg-level { font-size:7.5pt; text-transform:uppercase; letter-spacing:0.5pt; opacity:0.8; margin-top:2pt; }
+    .pkg-ribbon {
+      display:inline-block; background:var(--gold-500); color:#3a2a00; font-size:7pt; font-weight:800;
+      padding:1pt 6pt; border-radius:8pt; margin-bottom:3pt; letter-spacing:0.5pt;
+    }
+    .total-row td { padding-top:8pt; padding-bottom:8pt; }
+    .big-amt { font-family:'Playfair Display',serif; font-size:14pt; font-weight:800; color:var(--teal-700); }
+    td.pkg-hi .big-amt { color:var(--teal-800); }
+    .yes { color:#0b8457; font-weight:800; font-size:11pt; }
+    .no { color:#c0392b; font-weight:800; font-size:11pt; }
+    ul.incl { margin:0; padding-left:12pt; text-align:left; }
+    ul.incl li { margin:1pt 0; font-size:8pt; color:var(--slate-500); }
+
+    .grand-wrap { margin-top:12pt; }
+    .grand-grid { display:flex; gap:8pt; margin-top:5pt; }
+    .grand-card {
+      flex:1; border:0.75pt solid var(--border); border-radius:7pt; padding:8pt 9pt; background:#fafafa;
+    }
+    .grand-card.grand-hi { border:1.5pt solid var(--teal-700); background:rgba(17,94,89,0.04); }
+    .grand-name { font-size:8.5pt; font-weight:800; color:var(--teal-800); margin-bottom:4pt; }
+    table.grand-kv { width:100%; border-collapse:collapse; }
+    table.grand-kv td { font-size:8pt; color:var(--slate-500); padding:1.5pt 0; border:none; }
+    table.grand-kv td:last-child { text-align:right; font-weight:600; color:#333; }
+    .grand-total-line {
+      display:flex; align-items:baseline; justify-content:space-between;
+      border-top:1pt solid var(--teal-700); margin-top:5pt; padding-top:5pt;
+      font-size:8pt; text-transform:uppercase; letter-spacing:0.4pt; color:var(--slate-500); font-weight:700;
+    }
+    .grand-amt { font-family:'Playfair Display',serif; font-size:11.5pt; font-weight:800; color:var(--teal-700); letter-spacing:0; text-transform:none; }
+  </style>
+
+</div>
+{% endif %}

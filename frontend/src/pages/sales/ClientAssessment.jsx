@@ -60,6 +60,8 @@ const INITIAL_DATA = {
   occupation_title: '',
   occupation_body: '',
   occupation_pathway: '',
+  additional_occupations: [],
+  show_eoi_backlog: false,
   // Country selection
   country_mode: 'specific',
   specific_country: 'AU',
@@ -205,7 +207,7 @@ export default function ClientAssessment() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, data.country_mode, data.specific_country, data.visa_subclass, data.custom_countries.join(','), factorHash, headers]);
 
-  const saveAssessment = async () => {
+  const saveAssessment = async ({ advance = true } = {}) => {
     try {
       const payload = {
         client_name: data.client_name || 'Unnamed client',
@@ -219,6 +221,8 @@ export default function ClientAssessment() {
           assessing_body: data.occupation_body,
           pathway: data.occupation_pathway,
         } : null,
+        additional_occupations: data.additional_occupations || [],
+        show_eoi_backlog: !!data.show_eoi_backlog,
         targets: buildTargets(data),
       };
       let r;
@@ -231,7 +235,7 @@ export default function ClientAssessment() {
             `Assessment updated · PA ${sync.pa_number || sync.pa_id?.slice(0, 8)} synced (${sync.old_score} → ${sync.new_score})`,
             { duration: 7000 },
           );
-        } else {
+        } else if (advance) {
           toast.success('Assessment updated');
         }
       } else {
@@ -239,12 +243,14 @@ export default function ClientAssessment() {
         // ─── Phase 6.8.6 Bug Fix #1 ─── lock the id so subsequent Saves in the
         // same wizard session become PUTs (no duplicate SAH-... ids).
         if (r.data?.id) setEditingId(r.data.id);
-        toast.success('Assessment saved');
+        if (advance) toast.success('Assessment saved');
       }
       setSaved(r.data);
-      setStep(8);
+      if (advance) setStep(8);
+      return r.data;
     } catch (e) {
       toast.error(formatApiError(e, 'Save failed'));
+      throw e;
     }
   };
 
@@ -296,7 +302,7 @@ export default function ClientAssessment() {
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
-              <Sparkles className="h-7 w-7 text-leamss-teal-600" />Smart Client Assessment
+              <Sparkles className="h-7 w-7 text-indigo-600" />Smart Client Assessment
               {editingId && (
                 <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-semibold" data-testid="editing-badge">
                   Editing · {editingId}
@@ -321,13 +327,13 @@ export default function ClientAssessment() {
               return (
                 <div key={s.id} className="flex items-center flex-1">
                   <div
-                    className={`flex flex-col items-center cursor-pointer ${done ? 'text-emerald-600' : active ? 'text-leamss-teal-700' : 'text-slate-300'}`}
+                    className={`flex flex-col items-center cursor-pointer ${done ? 'text-emerald-600' : active ? 'text-indigo-700' : 'text-slate-300'}`}
                     onClick={() => done && setStep(s.id)}
                     data-testid={`step-indicator-${s.id}`}
                   >
                     <div className={`w-7 h-7 rounded-full border-2 flex items-center justify-center ${
                       done ? 'bg-emerald-100 border-emerald-500'
-                      : active ? 'bg-leamss-teal-100 border-leamss-teal-500'
+                      : active ? 'bg-indigo-100 border-indigo-500'
                       : 'bg-white border-slate-200'
                     }`}>
                       {done ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Icon className="h-3.5 w-3.5" />}
@@ -350,7 +356,7 @@ export default function ClientAssessment() {
           {step === 3 && <Step3Profile data={data} update={update} setData={setData} headers={headers} />}
           {step === 4 && <Step4Countries data={data} update={update} />}
           {step === 5 && <Step5Calculator results={calcResults} calculating={calculating} data={data} update={update} headers={headers} />}
-          {step === 6 && <Step6CostEstimator data={data} setData={setData} saved={saved} headers={headers} />}
+          {step === 6 && <Step6CostEstimator data={data} setData={setData} saved={saved} headers={headers} onSaveAssessment={saveAssessment} />}
           {step === 7 && <Step6Review data={data} results={calcResults} />}
           {step === 8 && <Step7Done saved={saved} createPA={createPA} navigate={navigate} headers={headers} creatingPA={creatingPA} />}
         </Card>
@@ -362,7 +368,7 @@ export default function ClientAssessment() {
               <ChevronLeft className="h-4 w-4 mr-1" />Back
             </Button>
             {step < 7 ? (
-              <Button onClick={goNext} className="bg-leamss-teal-600 hover:bg-leamss-teal-700" disabled={!canAdvance(step, data)} data-testid="next-btn">
+              <Button onClick={goNext} className="bg-indigo-600 hover:bg-indigo-700" disabled={!canAdvance(step, data)} data-testid="next-btn">
                 Next<ChevronRight className="h-4 w-4 ml-1" />
               </Button>
             ) : (

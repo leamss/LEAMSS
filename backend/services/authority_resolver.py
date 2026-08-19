@@ -106,7 +106,12 @@ def _merge_authority_into_occupation_shape(
     if override_msa is not None:
         eff_fees["msa_fee_aud"] = override_msa
         eff_fees["_override_msa"] = True
-
+    print("=" * 60)
+    print("MERGED FEES")
+    print(eff_fees)
+    print("MERGED PROCESSING")
+    print(eff_processing)
+    print("=" * 60)
     return {
         # Back-compat trio
         "short_name": short,

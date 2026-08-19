@@ -15,6 +15,8 @@ from typing import Any, Dict, Iterable, List
 
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pymongo import UpdateOne
+from pprint import pformat
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -187,6 +189,54 @@ async def ensure_state_nom_indexes(db: AsyncIOMotorDatabase) -> None:
     await db[STATE_NOM_COLLECTION].create_index(
         [("state", 1), ("list_type", 1)], unique=True,
     )
+async def commit_atlas_industries(
+    db: AsyncIOMotorDatabase,
+    parsed: Iterable[Dict[str, Any]]
+) -> Dict[str, Any]:
+    """
+    Upsert Atlas Industry documents into industry_master.
+    One Atlas workbook = one industry document.
+    """
+    import uuid
+
+    parsed_list = list(parsed)
+
+    if not parsed_list:
+        return {
+            "parsed_records": 0,
+            "industries_upserted": 0,
+        }
+
+    await ensure_industry_indexes(db)
+
+    ops = []
+
+    for rec in parsed_list:
+        ops.append(
+            UpdateOne(
+                {
+                    "anzsic_code": rec["anzsic_code"]
+                },
+                {
+                    "$set": rec,
+                    "$setOnInsert": {
+                        "id": str(uuid.uuid4())
+                    }
+                },
+                upsert=True,
+            )
+        )
+
+    result = await db[INDUSTRY_COLLECTION].bulk_write(
+        ops,
+        ordered=False,
+    )
+
+    return {
+        "parsed_records": len(parsed_list),
+        "industries_upserted": result.upserted_count,
+        "industries_modified": result.modified_count,
+    }
 
 
 async def commit_state_nominations(
@@ -261,6 +311,27 @@ def detect_file_type(sheet_names: List[str], first_sheet_data: List[Any]) -> str
         return "sa4_ratings"
     if any("industry data" in (str(c) or "").lower() for row in first_sheet_data for c in row):
         return "industry_data"
+    sheet_set = {s.lower().strip() for s in sheet_names}
+
+    if (
+        "quarterly time series" in sheet_set
+       and "top 10 occupations" in sheet_set
+       and "industry subdivisions" in sheet_set
+     ):
+       return "atlas_industries"
+    if (
+     "contents" in sheet_set
+     and "monthly time series" in sheet_set
+     and "quarterly time series" in sheet_set
+     and "employer recruitment insights" in sheet_set
+     and "top 10s" in sheet_set
+     and "demographic data" in sheet_set
+     and "main fields of education" in sheet_set
+     and "shortage ratings" in sheet_set
+     and "projected employment" in sheet_set
+     and "occupational mobility" in sheet_set
+    ):
+     return "atlas_occupation_workbook"
     return "unknown"
 
 
@@ -277,3 +348,84 @@ async def audit_log(
         })
     except Exception as e:  # noqa: BLE001
         logger.warning("audit log write failed: %s", e)
+
+# async def commit_atlas_occupation_workbook(
+#     db,
+#     parsed,
+# ):
+#     print("=" * 80)
+#     print("TYPE:", type(parsed))
+#     print("VALUE:", parsed)
+#     print("=" * 80)
+#     meta = parsed.get("metadata", {})
+
+#     code = str(meta.get("Source URL", "")).split("/")[-2].split("-")[0]
+
+#     result = await db["occupation_master"].update_many(
+#         {
+#             "country_code": "AU",
+#             "code": {"$regex": f"^{code}"},
+#         },
+#         {
+#             "$set": {
+#                 "atlas_data.metadata": meta,
+#             }
+#         },
+#     )
+
+#     return {
+#         "occupation_group": code,
+#         "updated": result.modified_count,
+#     }
+async def commit_atlas_occupation_workbook(db, parsed):
+
+    if not parsed:
+        return {
+            "updated": 0
+        }
+
+    workbook = parsed[0]
+
+    metadata = workbook.get("metadata", {})
+
+    source_url = metadata.get("Source URL", "")
+
+    match = re.search(r"/occupation/(\d{4})", source_url)
+
+    if not match:
+        return {
+            "error": "Unable to extract ANZSCO code",
+            "source_url": source_url
+        }
+
+    code4 = match.group(1)
+
+    filter_query = {
+        "country_code": "AU",
+        "code": {
+            "$regex": f"^{code4}"
+        }
+    }
+
+    update_data = {
+        "$set": {
+            "atlas_workbook": workbook,
+            "atlas_workbook_source": "JSA Atlas Occupation Workbook",
+"atlas_workbook_source_url": "https://www.jobsandskills.gov.au/data/occupation-and-industry-profiles",
+            "atlas_workbook_imported_at": datetime.now(timezone.utc)
+        }
+    }
+
+    count = await db["occupation_master"].count_documents(filter_query)
+
+    result = await db["occupation_master"].update_many(
+        filter_query,
+        update_data
+    )
+
+    return {
+        "code4": code4,
+        "matched": result.matched_count,
+        "modified": result.modified_count,
+        "count_before_update": count
+    }

@@ -134,8 +134,8 @@ async def create_checkout(request: PaymentRequest, http_request: Request, curren
     await payment_transactions_col.insert_one(transaction)
 
     await log_activity(current_user["id"], current_user.get("name", ""), "initiated_payment", "payment",
-                       transaction["id"], f"Payment of ₹{amount_float} initiated for {sale.get('client_name', '')}",
-                       case_id=sale.get("case_id"), client_name=sale.get("client_name"))
+                    transaction["id"], f"Payment of ₹{amount_float} initiated for {sale.get('client_name', '')}",
+                    case_id=sale.get("case_id"), client_name=sale.get("client_name"))
 
     return {"url": session.url, "session_id": session.session_id}
 
@@ -318,9 +318,9 @@ def _generate_receipt_pdf(sale: dict, transaction: dict, filename: str):
 
     meta_data = [
         [Paragraph('Receipt No:', label_style), Paragraph(receipt_no, value_style),
-         Paragraph('Date:', label_style), Paragraph(txn_date_str, value_style)],
+        Paragraph('Date:', label_style), Paragraph(txn_date_str, value_style)],
         [Paragraph('Payment Method:', label_style), Paragraph('Online (Stripe)', value_style),
-         Paragraph('Transaction ID:', label_style), Paragraph(transaction.get('session_id', 'N/A')[:20] + '...', value_style)],
+        Paragraph('Transaction ID:', label_style), Paragraph(transaction.get('session_id', 'N/A')[:20] + '...', value_style)],
     ]
     meta_table = Table(meta_data, colWidths=[90, 170, 90, 170])
     meta_table.setStyle(TableStyle([
@@ -349,10 +349,12 @@ def _generate_receipt_pdf(sale: dict, transaction: dict, filename: str):
     elements.append(Spacer(1, 15))
 
     # Fee Breakdown
+    # Fee Breakdown
     elements.append(Paragraph("Fee Breakdown", ParagraphStyle('SectionHead', parent=styles['Heading3'], fontSize=12, textColor=brand_color, spaceAfter=6)))
 
     fee_rows = []
     has_discount = (sale.get('total_discount_amount', 0) or 0) > 0
+    has_gst = bool(sale.get('gst_included')) and (sale.get('gst_amount', 0) or 0) > 0
     original_fee = sale.get('fee_before_discount', sale.get('fee_amount', 0)) or sale.get('fee_amount', 0)
 
     if has_discount:
@@ -362,6 +364,10 @@ def _generate_receipt_pdf(sale: dict, transaction: dict, filename: str):
         if (sale.get('additional_discount_percentage', 0) or 0) > 0:
             fee_rows.append([f"Special Discount ({sale['additional_discount_percentage']}%)", f"- INR {sale.get('additional_discount_amount', 0):,.2f}"])
         fee_rows.append(['', ''])  # separator
+    if has_gst:
+        base_fee_amt = float(sale.get('base_fee') or 0) or round(float(sale.get('fee_amount', 0) or 0) - float(sale.get('gst_amount', 0) or 0), 2)
+        fee_rows.append(['Base Service Fee', f"INR {base_fee_amt:,.2f}"])
+        fee_rows.append([f"GST ({int(round((sale.get('gst_amount', 0) or 0) / base_fee_amt * 100)) if base_fee_amt else 18}%)", f"INR {sale.get('gst_amount', 0):,.2f}"])
     fee_rows.append(['Net Service Fee', f"INR {sale.get('fee_amount', 0):,.2f}"])
 
     fee_table = Table(fee_rows, colWidths=[320, 200])

@@ -329,23 +329,37 @@ async def get_stepwise_documents(case_id: str, current_user: dict = Depends(get_
         # CASE MANAGER / ADMIN:
         # Show case required documents + workflow intake documents
         else:
-            merged_docs = list(case_req_docs)
-
-            existing_names = {
-                _get_doc_name(rd).lower()
-                for rd in merged_docs
-                if _get_doc_name(rd)
+            # CM/Admin: merge case documents with latest Workflow Builder fields
+            # Workflow Builder values like filled_by and field_type take priority
+            admin_lookup = {
+                _get_doc_name(ad).strip().lower(): ad
+                for ad in admin_defaults
+                if _get_doc_name(ad)
             }
 
-            for ad in admin_defaults:
-                ad_name = _get_doc_name(ad)
+            merged_docs = []
 
-                if (
-                    ad_name
-                    and ad_name.lower() not in existing_names
-                ):
-                    merged_docs.append(ad)
-                    existing_names.add(ad_name.lower())
+            for rd in case_req_docs:
+                doc_name = _get_doc_name(rd)
+                doc_key = doc_name.strip().lower()
+
+                workflow_doc = admin_lookup.get(doc_key)
+
+                if workflow_doc:
+                    merged_doc = {
+                        **rd,
+                        **workflow_doc,
+                        "doc_name": doc_name,
+                    }
+
+                    merged_docs.append(merged_doc)
+                    admin_lookup.pop(doc_key, None)
+
+                else:
+                    merged_docs.append(rd)
+
+            # Add new Workflow Builder documents
+            merged_docs.extend(admin_lookup.values())
         doc_items = []
         for rd in merged_docs:
             doc_name = _get_doc_name(rd)

@@ -1,0 +1,31 @@
+RAJESH KUMAR
+Email: rajesh.kumar@example.com
+Phone: +91 98765 43210
+Location: Pune, Maharashtra, India
+Marital Status: Married
+
+PROFESSIONAL SUMMARY
+Senior Software Engineer with 8 years of experience designing, developing and
+deploying enterprise web applications. Strong background in backend systems,
+cloud architecture and team leadership within the Information Technology industry.
+
+WORK EXPERIENCE
+
+Senior Software Engineer — Infosys Ltd, Pune (2019 - Present)
+- Lead a team of 6 engineers building microservices in Python and Java.
+- Designed REST APIs, CI/CD pipelines and AWS cloud deployments.
+- Managerial responsibilities including sprint planning and code reviews.
+
+Software Engineer — TCS, Mumbai (2016 - 2019)
+- Developed full-stack features for banking clients using Java and Angular.
+- Optimised SQL queries and improved application performance by 30%.
+
+EDUCATION
+Bachelor of Technology (B.Tech) in Computer Science
+Savitribai Phule Pune University, India — 2015
+
+LANGUAGE / ENGLISH TEST
+IELTS (Academic): Overall 7.5 — Listening 8.0, Reading 7.5, Writing 7.0, Speaking 7.5
+
+SKILLS
+Python, Java, AWS, Docker, Kubernetes, REST APIs, Microservices, SQL, Team Leadership

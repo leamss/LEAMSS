@@ -218,3 +218,7 @@ frontend/node_modules/.cache/default-development/8.pack
 backend/storage/
 /app/backend/storage/
 
+
+backend/uploads/
+*.log
+backend/test_*.py

@@ -426,9 +426,8 @@ const ClientDashboard = () => {
   };
 
   // Determine active pre-assessment (most-recent not-expired)
-  const activePA = preAssessments.find(p => ['payment_received', 'partner_review', 'documents_submitted', 'under_review', 'approved', 'proposal_sent', 'proposal_paid', 'awaiting_final_approval', 'rejected', 'refund_initiated', 'refunded'].includes(p.stage));
-  const isMiniMode = !caseData && !!activePA;
-  const isExpandedMode = isMiniMode && ['approved', 'proposal_sent', 'proposal_paid'].includes(activePA?.stage);
+const activePA = preAssessments.find(p => ['payment_received', 'partner_review', 'documents_submitted', 'under_review', 'approved', 'awaiting_package_selection', 'package_selected', 'proposal_sent', 'proposal_paid', 'awaiting_final_approval', 'rejected', 'refund_initiated', 'refunded', 'international_payment_pending'].includes(p.stage));  const isMiniMode = !caseData && !!activePA;
+  const isExpandedMode = isMiniMode && ['approved', 'awaiting_package_selection', 'package_selected', 'proposal_sent', 'proposal_paid'].includes(activePA?.stage);
 
   const clientNavGroups = isMiniMode ? [
     { id: 'overview', icon: LayoutDashboard, label: 'My Pre-Assessment', onClick: () => setActiveTab('overview') },
@@ -816,8 +815,8 @@ const ClientDashboard = () => {
                         <div key={doc.id} className={`flex items-center gap-3 p-3 rounded-lg border ${getUrgencyStyle(doc.urgency)}`} data-testid={`expiry-alert-${doc.id}`}>
                           <div className="flex-shrink-0">
                             {doc.urgency === 'expired' ? <AlertCircle className="h-5 w-5" /> :
-                             doc.urgency === 'critical' ? <AlertTriangle className="h-5 w-5" /> :
-                             <Clock className="h-5 w-5" />}
+                            doc.urgency === 'critical' ? <AlertTriangle className="h-5 w-5" /> :
+                            <Clock className="h-5 w-5" />}
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="font-semibold text-sm truncate">{doc.filename}</p>
@@ -859,8 +858,8 @@ const ClientDashboard = () => {
                           step.is_locked ? 'bg-slate-300' : 'bg-amber-500'
                         }`}>
                           {step.status === 'completed' ? <CheckCircle className="h-5 w-5 text-white" /> :
-                           step.is_locked ? <Lock className="h-5 w-5 text-white" /> :
-                           <Clock className="h-5 w-5 text-white" />}
+                          step.is_locked ? <Lock className="h-5 w-5 text-white" /> :
+                          <Clock className="h-5 w-5 text-white" />}
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
@@ -1294,13 +1293,58 @@ const ClientDashboard = () => {
                                     <span className="text-emerald-600">Paid</span>
                                     <span className="text-emerald-600 font-medium">₹{(proposal.amount_received || 0).toLocaleString()}</span>
                                   </div>
-                                  {hasPendingAmount && (
+                                {hasPendingAmount && (
                                     <div className="flex justify-between text-sm font-semibold">
                                       <span className="text-[#f7620b]">Pending Amount</span>
                                       <span className="text-[#f7620b]">₹{(proposal.pending_amount || 0).toLocaleString()}</span>
                                     </div>
                                   )}
                                 </div>
+
+                                {/* Installment Schedule — shows each installment's date/amount/status */}
+                                {(proposal.payment_parts || []).length > 0 && (
+                                  <div className="mt-3">
+                                    <p className="text-xs font-semibold text-slate-500 mb-1.5">Payment Schedule</p>
+                                    <div className="space-y-1.5">
+                                      {proposal.payment_parts.map((part, idx) => {
+                                        const partStatus = part.status; // 'paid' | 'pending' | 'locked'
+                                        const badgeStyle =
+                                          partStatus === 'paid' ? 'bg-emerald-100 text-emerald-700' :
+                                          partStatus === 'pending' ? 'bg-amber-100 text-amber-700' :
+                                          'bg-slate-100 text-slate-500';
+                                        const rowStyle =
+                                          partStatus === 'paid' ? 'bg-emerald-50/60 border-emerald-200' :
+                                          partStatus === 'pending' ? 'bg-amber-50/60 border-amber-200' :
+                                          'bg-slate-50 border-slate-200';
+                                        return (
+                                          <div key={idx} className={`flex items-center justify-between p-2.5 rounded-lg border ${rowStyle}`}>
+                                            <div className="flex items-center gap-2 min-w-0">
+                                              {partStatus === 'paid' ? (
+                                                <CheckCircle className="h-4 w-4 text-emerald-600 flex-shrink-0" />
+                                              ) : partStatus === 'locked' ? (
+                                                <Lock className="h-4 w-4 text-slate-400 flex-shrink-0" />
+                                              ) : (
+                                                <Clock className="h-4 w-4 text-amber-500 flex-shrink-0" />
+                                              )}
+                                              <div className="min-w-0">
+                                                <p className="text-sm font-medium text-slate-700 truncate">{part.label}</p>
+                                                {part.due_date && (
+                                                  <p className="text-xs text-slate-400">Due: {part.due_date}</p>
+                                                )}
+                                              </div>
+                                            </div>
+                                            <div className="flex items-center gap-2 flex-shrink-0">
+                                              <span className="text-sm font-semibold text-slate-700">₹{Number(part.amount || 0).toLocaleString()}</span>
+                                              <Badge className={`text-[10px] capitalize ${badgeStyle}`}>{partStatus}</Badge>
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Payment History */}
 
                                 {/* Payment History */}
                                 {(proposal.payment_history || []).length > 0 && (

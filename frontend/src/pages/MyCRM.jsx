@@ -1,7 +1,8 @@
 /**
  * My CRM — full lead management page.
- * Kanban board + searchable table + rich Add Lead form + lead detail panel
- * with remarks timeline, stage changes, and quick WhatsApp/Call actions.
+ * Left sidebar navigation (Maple CRM style) + Kanban board + searchable table
+ * + rich Add Lead form + lead detail panel with remarks timeline, stage
+ * changes, and quick WhatsApp/Call actions.
  */
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -17,8 +18,8 @@ import { toast } from 'sonner';
 import {
   ArrowLeft, Plus, Search, RefreshCw, LayoutGrid, List as ListIcon,
   Phone, Mail, MessageCircle, X, Clock, User, MapPin, GraduationCap,
-  Briefcase, ChevronRight, Send, Sparkles, CheckCircle2, LayoutDashboard,
-  CalendarClock, TrendingUp, Users,
+  Briefcase, ChevronRight, ChevronDown, Send, Sparkles, CheckCircle2, LayoutDashboard,
+  CalendarClock, TrendingUp, Users, Menu, UserPlus, ListChecks, CheckCheck,
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
@@ -59,6 +60,24 @@ const waLink = (phone) => {
   return `https://wa.me/${digits}`;
 };
 
+// ---- Sidebar navigation config -------------------------------------------
+// `view` maps to the same view-switch that used to live in the top pills.
+// Extra views (`today`, `converted`) reuse the table renderer with a
+// pre-applied filter.
+const NAV_ITEMS = [
+  { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  {
+    key: 'leads', label: 'Leads', icon: Sparkles, group: true,
+    children: [
+      { key: 'addlead', label: 'Add Lead', icon: UserPlus },
+      { key: 'table', label: 'All Leads', icon: ListChecks },
+      { key: 'kanban', label: 'My Leads (Board)', icon: LayoutGrid },
+      { key: 'today', label: "Today's Lead Update", icon: CalendarClock },
+      { key: 'converted', label: 'Converted Leads', icon: CheckCheck },
+    ],
+  },
+];
+
 const MyCRM = () => {
   const navigate = useNavigate();
   const [leads, setLeads] = useState([]);
@@ -73,6 +92,10 @@ const MyCRM = () => {
   const [selectedLead, setSelectedLead] = useState(null);
   const [newRemark, setNewRemark] = useState('');
   const [addingRemark, setAddingRemark] = useState(false);
+
+  // sidebar state
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [leadsMenuOpen, setLeadsMenuOpen] = useState(true);
 
   const getAuthHeader = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
 
@@ -95,6 +118,28 @@ const MyCRM = () => {
 
   useEffect(() => { loadLeads(); }, [loadLeads]);
 
+  // handle sidebar nav clicks
+  const handleNavClick = (key) => {
+    if (key === 'addlead') {
+      setShowAddLead(true);
+      return;
+    }
+    if (key === 'today') {
+      setStageFilter('all');
+      setSearch('');
+      setView('today');
+      return;
+    }
+    if (key === 'converted') {
+      setStageFilter('converted');
+      setSearch('');
+      setView('table');
+      return;
+    }
+    if (key === 'table') setStageFilter('all');
+    setView(key);
+  };
+
   const filtered = useMemo(() => {
     return leads.filter(l => {
       if (stageFilter !== 'all' && l.stage !== stageFilter) return false;
@@ -106,6 +151,12 @@ const MyCRM = () => {
       return true;
     });
   }, [leads, stageFilter, search]);
+
+  // "Today's Lead Update" = leads updated today (mirrors Maple CRM's tab)
+  const todaysUpdatedLeads = useMemo(() => {
+    const todayStr = new Date().toDateString();
+    return filtered.filter(l => l.updated_at && new Date(l.updated_at).toDateString() === todayStr);
+  }, [filtered]);
 
   const latestRemark = (lead) => {
     const notes = lead.notes || [];
@@ -200,287 +251,392 @@ const MyCRM = () => {
   }, [leads]);
   const maxSourceCount = sourceBreakdown.length > 0 ? sourceBreakdown[0][1] : 1;
 
+  // which table-driven view are we rendering with which rows + heading
+  const tableConfig = view === 'today'
+    ? { rows: todaysUpdatedLeads, heading: "Today's Lead Update" }
+    : { rows: filtered, heading: stageFilter === 'converted' ? 'Converted Leads' : 'All Leads' };
+
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <div className="bg-white border-b border-slate-200 px-4 sm:px-8 py-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/portal/welcome')} className="p-2 rounded-lg hover:bg-slate-100 transition" data-testid="back-to-portal">
-            <ArrowLeft className="h-5 w-5 text-slate-700" />
-          </button>
-          <div>
-            <h1 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-[#2a777a]" /> My CRM
-            </h1>
-            <p className="text-xs text-slate-500">{leads.length} total leads</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center bg-slate-100 rounded-lg p-1">
-            <button onClick={() => setView('dashboard')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${view === 'dashboard' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500'}`} data-testid="view-dashboard-btn">
-              <LayoutDashboard className="h-3.5 w-3.5" /> Dashboard
-            </button>
-            <button onClick={() => setView('kanban')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${view === 'kanban' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500'}`} data-testid="view-kanban-btn">
-              <LayoutGrid className="h-3.5 w-3.5" /> Board
-            </button>
-            <button onClick={() => setView('table')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${view === 'table' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500'}`} data-testid="view-table-btn">
-              <ListIcon className="h-3.5 w-3.5" /> Table
-            </button>
-          </div>
-          <Button variant="ghost" size="sm" onClick={loadLeads}><RefreshCw className="h-3.5 w-3.5 mr-1" /> Refresh</Button>
-          <Button className="bg-[#2a777a] hover:bg-[#236466]" size="sm" onClick={() => setShowAddLead(true)} data-testid="add-lead-btn">
-            <Plus className="h-4 w-4 mr-1" /> Add Lead
-          </Button>
-        </div>
-      </div>
+    <div className="min-h-screen bg-slate-50 flex">
 
-      <div className="p-4 sm:p-8 space-y-4">
-        {view === 'dashboard' ? (
-          /* DASHBOARD VIEW */
-          <div className="space-y-4">
-            {/* Stat cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              <Card className="p-4 bg-gradient-to-br from-slate-600 to-slate-700 text-white border-0">
-                <p className="text-xs text-white/70 uppercase tracking-wide">Total Leads</p>
-                <p className="text-2xl font-bold mt-1">{leads.length}</p>
-              </Card>
-              <Card className="p-4 bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0">
-                <p className="text-xs text-white/70 uppercase tracking-wide">Today's Leads</p>
-                <p className="text-2xl font-bold mt-1">{todaysLeads.length}</p>
-              </Card>
-              <Card className="p-4 bg-gradient-to-br from-amber-500 to-amber-600 text-white border-0">
-                <p className="text-xs text-white/70 uppercase tracking-wide">Pending Follow-ups</p>
-                <p className="text-2xl font-bold mt-1">{followUps.length}</p>
-              </Card>
-              <Card className="p-4 bg-gradient-to-br from-emerald-500 to-emerald-600 text-white border-0">
-                <p className="text-xs text-white/70 uppercase tracking-wide">Conversion Rate</p>
-                <p className="text-2xl font-bold mt-1">{conversionRate}%</p>
-              </Card>
+      {/* ============================= LEFT SIDEBAR ============================= */}
+      <aside className={`${sidebarOpen ? 'w-64' : 'w-16'} flex-shrink-0 bg-white border-r border-slate-200 transition-all duration-200 flex flex-col`}>
+        <div className="h-16 flex items-center justify-between px-3 border-b border-slate-200">
+          {sidebarOpen && (
+            <div className="flex items-center gap-2 min-w-0">
+              <Sparkles className="h-5 w-5 text-[#2a777a] flex-shrink-0" />
+              <span className="font-bold text-slate-800 text-sm truncate">My CRM</span>
             </div>
+          )}
+          <button onClick={() => setSidebarOpen(o => !o)} className="p-1.5 rounded-lg hover:bg-slate-100 transition flex-shrink-0" data-testid="sidebar-toggle-btn">
+            <Menu className="h-4 w-4 text-slate-500" />
+          </button>
+        </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              {/* Left column: Today's Leads + Recent Updates */}
-              <div className="lg:col-span-1 space-y-4">
-                <Card className="p-4">
-                  <p className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2"><Sparkles className="h-4 w-4 text-blue-500" /> Today's Leads</p>
-                  {todaysLeads.length === 0 ? (
-                    <p className="text-xs text-slate-400 italic">No leads added today yet</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {todaysLeads.map(l => (
-                        <button key={l.id} onClick={() => setSelectedLead(l)} className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-slate-50 text-left transition-colors" data-testid={`today-lead-${l.id}`}>
-                          <div className="w-7 h-7 bg-gradient-to-br from-[#2a777a] to-[#236466] rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                            {(l.name || '?')[0]?.toUpperCase()}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-medium text-slate-800 truncate">{l.name}</p>
-                            <p className="text-xs text-slate-400">{timeAgo(l.created_at)}</p>
-                          </div>
-                          <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </Card>
-
-                <Card className="p-4">
-                  <p className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2"><Clock className="h-4 w-4 text-purple-500" /> Last Updated</p>
-                  {recentUpdates.length === 0 ? (
-                    <p className="text-xs text-slate-400 italic">No updates yet</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {recentUpdates.map(l => {
-                        const stage = STAGE_MAP[l.stage] || STAGES[0];
+        <nav className="flex-1 overflow-y-auto py-2">
+          {NAV_ITEMS.map(item => {
+            const Icon = item.icon;
+            if (item.group) {
+              const isActiveGroup = item.children.some(c => c.key === view || (c.key === 'table' && view === 'table') || (c.key === 'converted' && stageFilter === 'converted'));
+              return (
+                <div key={item.key} className="px-2">
+                  <button
+                    onClick={() => sidebarOpen ? setLeadsMenuOpen(o => !o) : setSidebarOpen(true)}
+                    className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${isActiveGroup ? 'text-[#2a777a] bg-[#2a777a]/5' : 'text-slate-600 hover:bg-slate-50'}`}
+                    data-testid="sidebar-leads-group"
+                  >
+                    <span className="flex items-center gap-2.5 min-w-0">
+                      <Icon className="h-4 w-4 flex-shrink-0" />
+                      {sidebarOpen && <span className="truncate">{item.label}</span>}
+                    </span>
+                    {sidebarOpen && <ChevronDown className={`h-3.5 w-3.5 flex-shrink-0 transition-transform ${leadsMenuOpen ? 'rotate-180' : ''}`} />}
+                  </button>
+                  {sidebarOpen && leadsMenuOpen && (
+                    <div className="mt-0.5 ml-3 pl-3 border-l border-slate-200 space-y-0.5">
+                      {item.children.map(child => {
+                        const CIcon = child.icon;
+                        const isActive = child.key === 'converted' ? (view === 'table' && stageFilter === 'converted') : (view === child.key);
                         return (
-                          <button key={l.id} onClick={() => setSelectedLead(l)} className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-slate-50 text-left transition-colors" data-testid={`recent-update-${l.id}`}>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-sm font-medium text-slate-800 truncate">{l.name}</p>
-                              <p className="text-xs text-slate-400">{timeAgo(l.updated_at)}</p>
-                            </div>
-                            <Badge className={`${stage.bg} ${stage.text} border-0 text-[10px]`}>{stage.label}</Badge>
+                          <button
+                            key={child.key}
+                            onClick={() => handleNavClick(child.key)}
+                            className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${isActive ? 'bg-[#2a777a] text-white' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'}`}
+                            data-testid={`sidebar-nav-${child.key}`}
+                          >
+                            <CIcon className="h-3.5 w-3.5 flex-shrink-0" />
+                            <span className="truncate">{child.label}</span>
                           </button>
                         );
                       })}
                     </div>
                   )}
-                </Card>
+                </div>
+              );
+            }
+            const isActive = view === item.key;
+            return (
+              <div key={item.key} className="px-2">
+                <button
+                  onClick={() => handleNavClick(item.key)}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${isActive ? 'bg-[#2a777a] text-white' : 'text-slate-600 hover:bg-slate-50'}`}
+                  data-testid={`sidebar-nav-${item.key}`}
+                >
+                  <Icon className="h-4 w-4 flex-shrink-0" />
+                  {sidebarOpen && <span className="truncate">{item.label}</span>}
+                </button>
               </div>
+            );
+          })}
+        </nav>
 
-              {/* Middle: chart */}
-              <div className="lg:col-span-1">
-                <Card className="p-4 h-full">
-                  <p className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2"><TrendingUp className="h-4 w-4 text-teal-500" /> Leads by Stage</p>
-                  <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 30 }}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                        <XAxis dataKey="name" tick={{ fontSize: 10 }} angle={-30} textAnchor="end" interval={0} />
-                        <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
-                        <Tooltip />
-                        <Bar dataKey="count" fill="#2a777a" radius={[4, 4, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </Card>
-              </div>
-
-              {/* Right: follow-ups + sources */}
-              <div className="lg:col-span-1 space-y-4">
-                <Card className="p-4">
-                  <p className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2"><CalendarClock className="h-4 w-4 text-amber-500" /> Pending Follow-ups</p>
-                  {followUps.length === 0 ? (
-                    <p className="text-xs text-slate-400 italic">No pending follow-ups</p>
-                  ) : (
-                    <div className="space-y-2 max-h-64 overflow-y-auto">
-                      {followUps.map(fu => (
-                        <div key={fu.id} className="p-2.5 rounded-lg bg-amber-50 border border-amber-100">
-                          <p className="text-sm font-medium text-slate-800">{fu.lead_name}</p>
-                          <p className="text-xs text-slate-500 capitalize">{fu.type} · {fu.message || 'No note'}</p>
-                          <p className="text-[10px] text-slate-400 mt-1">{fu.scheduled_at ? new Date(fu.scheduled_at).toLocaleString() : ''}</p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </Card>
-
-                <Card className="p-4">
-                  <p className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2"><Users className="h-4 w-4 text-indigo-500" /> Lead Sources</p>
-                  {sourceBreakdown.length === 0 ? (
-                    <p className="text-xs text-slate-400 italic">No source data yet</p>
-                  ) : (
-                    <div className="space-y-2.5">
-                      {sourceBreakdown.map(([src, count]) => (
-                        <div key={src}>
-                          <div className="flex items-center justify-between text-xs mb-1">
-                            <span className="text-slate-600 font-medium">{src}</span>
-                            <span className="text-slate-400">{count}</span>
-                          </div>
-                          <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                            <div className="h-full bg-[#2a777a] rounded-full" style={{ width: `${(count / maxSourceCount) * 100}%` }} />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </Card>
-              </div>
-            </div>
-          </div>
-        ) : (
-        <>
-        {/* Stage filter pills */}
-        <div className="flex flex-wrap items-center gap-2">
-          <button onClick={() => setStageFilter('all')} className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${stageFilter === 'all' ? 'bg-[#2a777a] text-white border-[#2a777a]' : 'bg-white text-slate-600 border-slate-200'}`}>
-            All ({leads.length})
-          </button>
-          {STAGES.map(s => (
-            <button
-              key={s.key}
-              onClick={() => setStageFilter(stageFilter === s.key ? 'all' : s.key)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${stageFilter === s.key ? `${s.color} text-white border-transparent` : `bg-white ${s.text} ${s.border}`}`}
-              data-testid={`stage-filter-${s.key}`}
-            >
-              <span className={`w-1.5 h-1.5 rounded-full ${stageFilter === s.key ? 'bg-white' : s.color}`} />
-              {s.label} ({stageCounts[s.key] || 0})
+        {sidebarOpen && (
+          <div className="p-3 border-t border-slate-200">
+            <button onClick={() => navigate('/portal/welcome')} className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-slate-500 hover:bg-slate-50 transition-colors" data-testid="back-to-portal">
+              <ArrowLeft className="h-3.5 w-3.5" /> Back to Portal
             </button>
-          ))}
-          <div className="relative ml-auto w-full sm:w-64">
-            <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
-            <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search name, phone, email..." className="pl-8 h-8 text-xs" data-testid="crm-search" />
+          </div>
+        )}
+      </aside>
+
+      {/* ============================= MAIN CONTENT ============================= */}
+      <div className="flex-1 min-w-0">
+        {/* Header */}
+        <div className="bg-white border-b border-slate-200 px-4 sm:px-8 py-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="text-lg font-bold text-slate-800">
+              {view === 'dashboard' && 'Dashboard'}
+              {view === 'kanban' && 'My Leads — Board'}
+              {(view === 'table' && stageFilter !== 'converted') && 'All Leads'}
+              {(view === 'table' && stageFilter === 'converted') && 'Converted Leads'}
+              {view === 'today' && "Today's Lead Update"}
+            </h1>
+            <p className="text-xs text-slate-500">{leads.length} total leads</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center bg-slate-100 rounded-lg p-1">
+              <button onClick={() => handleNavClick('dashboard')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${view === 'dashboard' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500'}`} data-testid="view-dashboard-btn">
+                <LayoutDashboard className="h-3.5 w-3.5" /> Dashboard
+              </button>
+              <button onClick={() => handleNavClick('kanban')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${view === 'kanban' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500'}`} data-testid="view-kanban-btn">
+                <LayoutGrid className="h-3.5 w-3.5" /> Board
+              </button>
+              <button onClick={() => handleNavClick('table')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${view === 'table' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500'}`} data-testid="view-table-btn">
+                <ListIcon className="h-3.5 w-3.5" /> Table
+              </button>
+            </div>
+            <Button variant="ghost" size="sm" onClick={loadLeads}><RefreshCw className="h-3.5 w-3.5 mr-1" /> Refresh</Button>
+            <Button className="bg-[#2a777a] hover:bg-[#236466]" size="sm" onClick={() => setShowAddLead(true)} data-testid="add-lead-btn">
+              <Plus className="h-4 w-4 mr-1" /> Add Lead
+            </Button>
           </div>
         </div>
 
-        {loading ? (
-          <div className="flex items-center justify-center h-40"><RefreshCw className="h-6 w-6 text-[#2a777a] animate-spin" /></div>
-        ) : filtered.length === 0 ? (
-          <Card className="p-12 text-center text-slate-500">
-            <User className="h-10 w-10 mx-auto mb-3 opacity-20" />
-            <p className="text-sm font-medium">No leads found</p>
-            <p className="text-xs mt-1">Click "Add Lead" to create your first one.</p>
-          </Card>
-        ) : view === 'kanban' ? (
-          /* KANBAN VIEW */
-          <div className="flex items-start gap-3 overflow-x-auto pb-4">
-            {STAGES.map(stage => {
-              const items = filtered.filter(l => l.stage === stage.key);
-              return (
-                <div key={stage.key} className="flex-shrink-0 w-72">
-                  <div className={`${stage.bg} rounded-t-xl p-3 border ${stage.border} border-b-0 flex items-center justify-between`}>
-                    <span className={`font-semibold text-sm ${stage.text}`}>{stage.label}</span>
-                    <Badge variant="outline" className="text-xs h-5">{items.length}</Badge>
-                  </div>
-                  <div className={`border ${stage.border} border-t-0 rounded-b-xl bg-slate-50/50 p-2 space-y-2 min-h-[200px] max-h-[560px] overflow-y-auto`}>
-                    {items.length === 0 ? (
-                      <p className="text-center text-xs text-slate-300 py-8">No leads</p>
-                    ) : items.map(lead => (
-                      <div
-                        key={lead.id}
-                        onClick={() => setSelectedLead(lead)}
-                        className="bg-white rounded-lg border border-slate-200 p-3 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-                        data-testid={`lead-card-${lead.id}`}
-                      >
-                        <div className="flex items-center gap-2 mb-1.5">
-                          <div className="w-7 h-7 bg-gradient-to-br from-[#2a777a] to-[#236466] rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                            {(lead.name || '?')[0]?.toUpperCase()}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="font-semibold text-sm text-slate-800 truncate">{lead.name || 'Unnamed'}</p>
-                            <p className="text-[10px] text-slate-400 flex items-center gap-1"><Clock className="h-2.5 w-2.5" /> {timeAgo(lead.updated_at || lead.created_at)}</p>
-                          </div>
-                          {waLink(lead.phone) && (
-                            <a href={waLink(lead.phone)} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="p-1.5 bg-green-500 rounded-full hover:bg-green-600 transition-colors flex-shrink-0">
-                              <MessageCircle className="h-3 w-3 text-white" />
-                            </a>
-                          )}
-                        </div>
-                        <p className="text-xs text-slate-500 truncate flex items-center gap-1"><Phone className="h-3 w-3" /> {lead.phone || '—'}</p>
-                        {lead.email && <p className="text-xs text-slate-400 truncate flex items-center gap-1 mt-0.5"><Mail className="h-3 w-3" /> {lead.email}</p>}
+        <div className="p-4 sm:p-8 space-y-4">
+          {view === 'dashboard' ? (
+            /* DASHBOARD VIEW */
+            <div className="space-y-4">
+              {/* Stat cards */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <Card className="p-4 bg-gradient-to-br from-slate-600 to-slate-700 text-white border-0">
+                  <p className="text-xs text-white/70 uppercase tracking-wide">Total Leads</p>
+                  <p className="text-2xl font-bold mt-1">{leads.length}</p>
+                </Card>
+                <Card className="p-4 bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0">
+                  <p className="text-xs text-white/70 uppercase tracking-wide">Today's Leads</p>
+                  <p className="text-2xl font-bold mt-1">{todaysLeads.length}</p>
+                </Card>
+                <Card className="p-4 bg-gradient-to-br from-amber-500 to-amber-600 text-white border-0">
+                  <p className="text-xs text-white/70 uppercase tracking-wide">Pending Follow-ups</p>
+                  <p className="text-2xl font-bold mt-1">{followUps.length}</p>
+                </Card>
+                <Card className="p-4 bg-gradient-to-br from-emerald-500 to-emerald-600 text-white border-0">
+                  <p className="text-xs text-white/70 uppercase tracking-wide">Conversion Rate</p>
+                  <p className="text-2xl font-bold mt-1">{conversionRate}%</p>
+                </Card>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                {/* Left column: Today's Leads + Recent Updates */}
+                <div className="lg:col-span-1 space-y-4">
+                  <Card className="p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-sm font-semibold text-slate-700 flex items-center gap-2"><Sparkles className="h-4 w-4 text-blue-500" /> Today's Leads</p>
+                      <button onClick={() => handleNavClick('today')} className="text-[11px] text-[#2a777a] font-medium hover:underline">View all</button>
+                    </div>
+                    {todaysLeads.length === 0 ? (
+                      <p className="text-xs text-slate-400 italic">No leads added today yet</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {todaysLeads.map(l => (
+                          <button key={l.id} onClick={() => setSelectedLead(l)} className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-slate-50 text-left transition-colors" data-testid={`today-lead-${l.id}`}>
+                            <div className="w-7 h-7 bg-gradient-to-br from-[#2a777a] to-[#236466] rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                              {(l.name || '?')[0]?.toUpperCase()}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium text-slate-800 truncate">{l.name}</p>
+                              <p className="text-xs text-slate-400">{timeAgo(l.created_at)}</p>
+                            </div>
+                            <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
+                          </button>
+                        ))}
                       </div>
-                    ))}
-                  </div>
+                    )}
+                  </Card>
+
+                  <Card className="p-4">
+                    <p className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2"><Clock className="h-4 w-4 text-purple-500" /> Last Updated</p>
+                    {recentUpdates.length === 0 ? (
+                      <p className="text-xs text-slate-400 italic">No updates yet</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {recentUpdates.map(l => {
+                          const stage = STAGE_MAP[l.stage] || STAGES[0];
+                          return (
+                            <button key={l.id} onClick={() => setSelectedLead(l)} className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-slate-50 text-left transition-colors" data-testid={`recent-update-${l.id}`}>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-medium text-slate-800 truncate">{l.name}</p>
+                                <p className="text-xs text-slate-400">{timeAgo(l.updated_at)}</p>
+                              </div>
+                              <Badge className={`${stage.bg} ${stage.text} border-0 text-[10px]`}>{stage.label}</Badge>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </Card>
                 </div>
-              );
-            })}
+
+                {/* Middle: chart */}
+                <div className="lg:col-span-1">
+                  <Card className="p-4 h-full">
+                    <p className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2"><TrendingUp className="h-4 w-4 text-teal-500" /> Leads by Stage</p>
+                    <div className="h-64">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 30 }}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                          <XAxis dataKey="name" tick={{ fontSize: 10 }} angle={-30} textAnchor="end" interval={0} />
+                          <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
+                          <Tooltip />
+                          <Bar dataKey="count" fill="#2a777a" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </Card>
+                </div>
+
+                {/* Right: follow-ups + sources */}
+                <div className="lg:col-span-1 space-y-4">
+                  <Card className="p-4">
+                    <p className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2"><CalendarClock className="h-4 w-4 text-amber-500" /> Pending Follow-ups</p>
+                    {followUps.length === 0 ? (
+                      <p className="text-xs text-slate-400 italic">No pending follow-ups</p>
+                    ) : (
+                      <div className="space-y-2 max-h-64 overflow-y-auto">
+                        {followUps.map(fu => (
+                          <div key={fu.id} className="p-2.5 rounded-lg bg-amber-50 border border-amber-100">
+                            <p className="text-sm font-medium text-slate-800">{fu.lead_name}</p>
+                            <p className="text-xs text-slate-500 capitalize">{fu.type} · {fu.message || 'No note'}</p>
+                            <p className="text-[10px] text-slate-400 mt-1">{fu.scheduled_at ? new Date(fu.scheduled_at).toLocaleString() : ''}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </Card>
+
+                  <Card className="p-4">
+                    <p className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2"><Users className="h-4 w-4 text-indigo-500" /> Lead Sources</p>
+                    {sourceBreakdown.length === 0 ? (
+                      <p className="text-xs text-slate-400 italic">No source data yet</p>
+                    ) : (
+                      <div className="space-y-2.5">
+                        {sourceBreakdown.map(([src, count]) => (
+                          <div key={src}>
+                            <div className="flex items-center justify-between text-xs mb-1">
+                              <span className="text-slate-600 font-medium">{src}</span>
+                              <span className="text-slate-400">{count}</span>
+                            </div>
+                            <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                              <div className="h-full bg-[#2a777a] rounded-full" style={{ width: `${(count / maxSourceCount) * 100}%` }} />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </Card>
+                </div>
+              </div>
+            </div>
+          ) : (
+          <>
+          {/* Stage filter pills */}
+          <div className="flex flex-wrap items-center gap-2">
+            <button onClick={() => setStageFilter('all')} className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${stageFilter === 'all' ? 'bg-[#2a777a] text-white border-[#2a777a]' : 'bg-white text-slate-600 border-slate-200'}`}>
+              All ({leads.length})
+            </button>
+            {STAGES.map(s => (
+              <button
+                key={s.key}
+                onClick={() => setStageFilter(stageFilter === s.key ? 'all' : s.key)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${stageFilter === s.key ? `${s.color} text-white border-transparent` : `bg-white ${s.text} ${s.border}`}`}
+                data-testid={`stage-filter-${s.key}`}
+              >
+                <span className={`w-1.5 h-1.5 rounded-full ${stageFilter === s.key ? 'bg-white' : s.color}`} />
+                {s.label} ({stageCounts[s.key] || 0})
+              </button>
+            ))}
+            <div className="relative ml-auto w-full sm:w-64">
+              <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+              <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search name, phone, email..." className="pl-8 h-8 text-xs" data-testid="crm-search" />
+            </div>
           </div>
-        ) : (
-          /* TABLE VIEW */
-          <div className="border border-slate-200 rounded-xl bg-white overflow-hidden overflow-x-auto">
-            <table className="w-full text-sm min-w-[900px]">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                  <th className="text-left px-4 py-2.5">Lead #</th>
-                  <th className="text-left px-4 py-2.5">Name</th>
-                  <th className="text-left px-4 py-2.5">Contact</th>
-                  <th className="text-left px-4 py-2.5">Source</th>
-                  <th className="text-left px-4 py-2.5">Status</th>
-                  <th className="text-left px-4 py-2.5">Latest Remark</th>
-                  <th className="text-left px-4 py-2.5">Updated</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filtered.map(lead => {
-                  const stage = STAGE_MAP[lead.stage] || STAGES[0];
-                  return (
-                    <tr key={lead.id} onClick={() => setSelectedLead(lead)} className="hover:bg-slate-50 cursor-pointer" data-testid={`lead-row-${lead.id}`}>
-                      <td className="px-4 py-3 font-mono text-xs text-slate-500">{lead.lead_number}</td>
-                      <td className="px-4 py-3 font-medium text-slate-800">{lead.name}</td>
-                      <td className="px-4 py-3 text-xs text-slate-500">
-                        <p>{lead.phone}</p>
-                        <p className="text-slate-400">{lead.email}</p>
-                      </td>
-                      <td className="px-4 py-3 text-xs text-slate-500">{lead.source}</td>
-                      <td className="px-4 py-3"><Badge className={`${stage.bg} ${stage.text} border-0 text-xs`}>{stage.label}</Badge></td>
-                      <td className="px-4 py-3 text-xs text-slate-500 max-w-[220px] truncate">{latestRemark(lead)}</td>
-                      <td className="px-4 py-3 text-xs text-slate-400">{timeAgo(lead.updated_at)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-        </>
-        )}
+
+          {loading ? (
+            <div className="flex items-center justify-center h-40"><RefreshCw className="h-6 w-6 text-[#2a777a] animate-spin" /></div>
+          ) : view === 'kanban' ? (
+            filtered.length === 0 ? (
+              <Card className="p-12 text-center text-slate-500">
+                <User className="h-10 w-10 mx-auto mb-3 opacity-20" />
+                <p className="text-sm font-medium">No leads found</p>
+                <p className="text-xs mt-1">Click "Add Lead" to create your first one.</p>
+              </Card>
+            ) : (
+            /* KANBAN VIEW */
+            <div className="flex items-start gap-3 overflow-x-auto pb-4">
+              {STAGES.map(stage => {
+                const items = filtered.filter(l => l.stage === stage.key);
+                return (
+                  <div key={stage.key} className="flex-shrink-0 w-72">
+                    <div className={`${stage.bg} rounded-t-xl p-3 border ${stage.border} border-b-0 flex items-center justify-between`}>
+                      <span className={`font-semibold text-sm ${stage.text}`}>{stage.label}</span>
+                      <Badge variant="outline" className="text-xs h-5">{items.length}</Badge>
+                    </div>
+                    <div className={`border ${stage.border} border-t-0 rounded-b-xl bg-slate-50/50 p-2 space-y-2 min-h-[200px] max-h-[560px] overflow-y-auto`}>
+                      {items.length === 0 ? (
+                        <p className="text-center text-xs text-slate-300 py-8">No leads</p>
+                      ) : items.map(lead => (
+                        <div
+                          key={lead.id}
+                          onClick={() => setSelectedLead(lead)}
+                          className="bg-white rounded-lg border border-slate-200 p-3 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                          data-testid={`lead-card-${lead.id}`}
+                        >
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <div className="w-7 h-7 bg-gradient-to-br from-[#2a777a] to-[#236466] rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                              {(lead.name || '?')[0]?.toUpperCase()}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="font-semibold text-sm text-slate-800 truncate">{lead.name || 'Unnamed'}</p>
+                              <p className="text-[10px] text-slate-400 flex items-center gap-1"><Clock className="h-2.5 w-2.5" /> {timeAgo(lead.updated_at || lead.created_at)}</p>
+                            </div>
+                            {waLink(lead.phone) && (
+                              <a href={waLink(lead.phone)} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="p-1.5 bg-green-500 rounded-full hover:bg-green-600 transition-colors flex-shrink-0">
+                                <MessageCircle className="h-3 w-3 text-white" />
+                              </a>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-500 truncate flex items-center gap-1"><Phone className="h-3 w-3" /> {lead.phone || '—'}</p>
+                          {lead.email && <p className="text-xs text-slate-400 truncate flex items-center gap-1 mt-0.5"><Mail className="h-3 w-3" /> {lead.email}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            )
+          ) : (
+            /* TABLE VIEW — used for 'table' AND 'today' (Today's Lead Update) */
+            tableConfig.rows.length === 0 ? (
+              <Card className="p-12 text-center text-slate-500">
+                <User className="h-10 w-10 mx-auto mb-3 opacity-20" />
+                <p className="text-sm font-medium">No leads found</p>
+                <p className="text-xs mt-1">
+                  {view === 'today' ? 'No leads have been updated today yet.' : 'Click "Add Lead" to create your first one.'}
+                </p>
+              </Card>
+            ) : (
+            <div className="border border-slate-200 rounded-xl bg-white overflow-hidden overflow-x-auto">
+              <div className="px-4 py-2.5 border-b border-slate-100 bg-slate-50/60 text-xs font-semibold text-slate-500">
+                {tableConfig.heading} · {tableConfig.rows.length} record{tableConfig.rows.length !== 1 ? 's' : ''}
+              </div>
+              <table className="w-full text-sm min-w-[900px]">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                    <th className="text-left px-4 py-2.5">Lead #</th>
+                    <th className="text-left px-4 py-2.5">Name</th>
+                    <th className="text-left px-4 py-2.5">Contact</th>
+                    <th className="text-left px-4 py-2.5">Source</th>
+                    <th className="text-left px-4 py-2.5">Status</th>
+                    <th className="text-left px-4 py-2.5">Latest Remark</th>
+                    <th className="text-left px-4 py-2.5">Updated</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {tableConfig.rows.map(lead => {
+                    const stage = STAGE_MAP[lead.stage] || STAGES[0];
+                    return (
+                      <tr key={lead.id} onClick={() => setSelectedLead(lead)} className="hover:bg-slate-50 cursor-pointer" data-testid={`lead-row-${lead.id}`}>
+                        <td className="px-4 py-3 font-mono text-xs text-slate-500">{lead.lead_number}</td>
+                        <td className="px-4 py-3 font-medium text-slate-800">{lead.name}</td>
+                        <td className="px-4 py-3 text-xs text-slate-500">
+                          <p>{lead.phone}</p>
+                          <p className="text-slate-400">{lead.email}</p>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-slate-500">{lead.source}</td>
+                        <td className="px-4 py-3"><Badge className={`${stage.bg} ${stage.text} border-0 text-xs`}>{stage.label}</Badge></td>
+                        <td className="px-4 py-3 text-xs text-slate-500 max-w-[220px] truncate">{latestRemark(lead)}</td>
+                        <td className="px-4 py-3 text-xs text-slate-400">{timeAgo(lead.updated_at)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            )
+          )}
+          </>
+          )}
+        </div>
       </div>
 
       {/* ADD LEAD MODAL */}

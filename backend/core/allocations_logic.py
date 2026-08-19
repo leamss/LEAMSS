@@ -69,7 +69,7 @@ async def find_matching_structure(pa: Dict[str, Any]) -> Optional[Dict[str, Any]
         import re
         prod = await db["products"].find_one(
             {"country": country, "visa_type": {"$regex": f"^{re.escape(str(visa))}$", "$options": "i"},
-             "cost_allocations": {"$exists": True, "$ne": []}},
+            "cost_allocations": {"$exists": True, "$ne": []}},
             {"_id": 0},
         )
         if prod:
@@ -190,7 +190,9 @@ async def build_allocations_for_pa(pa: Dict[str, Any], revenue: Optional[float] 
     for spec in structure.get("cost_allocations") or []:
         if not spec.get("is_active", True):
             continue
-        calc = _calc_allocation(spec.get("amount", 0), spec.get("payment_type", "flat"), total_revenue)
+        raw_rate = spec.get("rate") if spec.get("rate") is not None else spec.get("amount", 0)
+        calc = _calc_allocation(raw_rate or 0, spec.get("payment_type", "flat"), total_revenue)
+        
 
         # Preserve existing assignment/status if present
         prev = existing_map.get(spec["vendor_category"]) or {}
@@ -216,8 +218,8 @@ async def build_allocations_for_pa(pa: Dict[str, Any], revenue: Optional[float] 
             "vendor_category": spec["vendor_category"],
             "label": spec.get("label") or spec["vendor_category"],
             "payment_type": spec.get("payment_type", "flat"),
-            "base_amount": float(spec.get("amount", 0)),
-            "rate": float(spec.get("amount", 0)) if spec.get("payment_type") == "percentage" else None,
+            "base_amount": float(raw_rate or 0),
+            "rate": float(raw_rate or 0) if spec.get("payment_type") == "percentage" else None,
             "calculated_amount": calc,
             "bonus_amount": bonus_amount,
             "total_amount": total_amount,

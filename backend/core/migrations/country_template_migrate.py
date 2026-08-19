@@ -261,25 +261,25 @@ async def ensure_indexes():
 async def main(dry_run: bool):
     await ensure_indexes()
     planned, summary = await collect_plan()
-    print("\n" + "═" * 70)
-    print(" Phase 6.9.5 — Country Template Migration", "(DRY RUN)" if dry_run else "(COMMIT)")
-    print("═" * 70)
+    print("\n" + "=" * 70)
+    print(" Phase 6.9.5 -- Country Template Migration", "(DRY RUN)" if dry_run else "(COMMIT)")
+    print("=" * 70)
     print(f" Templates to insert: {summary['templates_new']} new, {summary['templates_skip']} already-exists (skipped)")
     for c in summary["countries"]:
-        print(f"   · {c}")
+        print(f"   * {c}")
     if summary["warnings"]:
-        print(f" ⚠️  Warnings ({len(summary['warnings'])}):")
+        print(f" [WARN] Warnings ({len(summary['warnings'])}):")
         for w in summary["warnings"]:
-            print(f"   · {w}")
+            print(f"   * {w}")
     print(f" Status default      : 'draft' (admin must verify factor values against official sources)")
     print(f" CA + NZ flagged in notes for full admin rebuild (Sir's directive).")
-    print("═" * 70)
+    print("=" * 70)
     if dry_run:
-        print(" Dry run only — nothing written.")
+        print(" Dry run only -- nothing written.")
         return
     if planned:
         await COUNTRY_TEMPLATES.insert_many(planned, ordered=False)
-    print(f" ✓ COMMITTED {len(planned)} templates")
+    print(f" [OK] COMMITTED {len(planned)} templates")
 
 
 if __name__ == "__main__":

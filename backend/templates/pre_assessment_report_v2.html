@@ -42,6 +42,110 @@
   .pagebreak { page-break-before: always; }
   .pill-row { margin: 4pt 0; }
   .pill-row > * { margin-right: 4pt; }
+
+
+  .occupation-comparison {
+    margin-top: 30px;
+    page-break-inside: avoid;
+}
+
+.occupation-comparison .section-header {
+    margin-bottom: 14px;
+}
+
+.occupation-comparison .eyebrow {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: #1F4D44;
+}
+
+.occupation-comparison h2 {
+    margin: 4px 0;
+    font-size: 20px;
+}
+
+.occupation-comparison .section-header p {
+    margin: 0;
+    font-size: 10px;
+    color: #64748b;
+}
+
+.occupation-comparison-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    margin-top: 12px;
+}
+
+.occupation-comparison-table th,
+.occupation-comparison-table td {
+    border: 1px solid #dbe3e8;
+    padding: 9px;
+    vertical-align: top;
+    font-size: 9px;
+}
+
+.occupation-comparison-table thead th {
+    color: #ffffff;
+}
+
+.occupation-comparison-table .feature-column {
+    width: 20%;
+    background: #f8fafc;
+    color: #334155;
+    font-weight: 700;
+}
+
+.occupation-comparison-table th.feature-column {
+    background: #f1f5f9;
+    color: #334155;
+}
+
+.occupation-comparison-table .primary-column {
+    background: #1F4D44;
+}
+
+.occupation-comparison-table .alternative-column {
+    background: #315f56;
+}
+
+.occupation-status {
+    display: inline-block;
+    padding: 3px 6px;
+    border-radius: 4px;
+    font-size: 7px;
+    font-weight: 700;
+    letter-spacing: .5px;
+    margin-bottom: 5px;
+}
+
+.primary-status {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.alternative-status {
+    background: #e0e7ff;
+    color: #3730a3;
+}
+
+.occupation-code {
+    font-size: 11px;
+    font-weight: 800;
+}
+
+.occupation-name {
+    margin-top: 4px;
+    font-size: 9px;
+    font-weight: 600;
+}
+
+.occupation-body {
+    margin-top: 5px;
+    font-size: 7px;
+    opacity: .85;
+}
 </style>
 </head>
 <body>
@@ -95,6 +199,123 @@
 {% if occupation.alternative_titles %}
 <h3>Also Known As</h3>
 <p class="small">{{ occupation.alternative_titles[:10] | join(" · ") }}</p>
+{% endif %}
+{% if occupations and occupations|length >= 2 %}
+
+<section class="occupation-comparison">
+
+  <div class="section-header">
+    <div class="eyebrow">OCCUPATION OPTIONS</div>
+    <h2>Occupation Pathways Comparison</h2>
+    <p>
+      Comparison of the primary occupation and alternative occupations
+      identified for this applicant.
+    </p>
+  </div>
+
+  <table class="occupation-comparison-table">
+
+    <thead>
+      <tr>
+
+        <th class="feature-column">
+          Feature
+        </th>
+
+        {% for o in occupations %}
+
+        <th class="{% if o.is_primary %}primary-column{% else %}alternative-column{% endif %}">
+
+          {% if o.is_primary %}
+            <span class="occupation-status primary-status">
+              PRIMARY
+            </span>
+          {% else %}
+            <span class="occupation-status alternative-status">
+              ALTERNATIVE
+            </span>
+          {% endif %}
+
+          <div class="occupation-code">
+            {{ o.code }}
+          </div>
+
+          <div class="occupation-name">
+            {{ o.title }}
+          </div>
+
+          {% if o.assessing_body %}
+            <div class="occupation-body">
+              {{ o.assessing_body }}
+            </div>
+          {% endif %}
+
+        </th>
+
+        {% endfor %}
+
+      </tr>
+    </thead>
+
+    <tbody>
+
+      <tr>
+        <td class="feature-column">
+          Occupation Code
+        </td>
+
+        {% for o in occupations %}
+        <td>
+          <strong>{{ o.code or '—' }}</strong>
+        </td>
+        {% endfor %}
+      </tr>
+
+
+      <tr>
+        <td class="feature-column">
+          Occupation Title
+        </td>
+
+        {% for o in occupations %}
+        <td>
+          {{ o.title or '—' }}
+        </td>
+        {% endfor %}
+      </tr>
+
+
+      <tr>
+        <td class="feature-column">
+          Assessing Body
+        </td>
+
+        {% for o in occupations %}
+        <td>
+          {{ o.assessing_body or '—' }}
+        </td>
+        {% endfor %}
+      </tr>
+
+
+      <tr>
+        <td class="feature-column">
+          Description
+        </td>
+
+        {% for o in occupations %}
+        <td>
+          {{ o.description or '—' }}
+        </td>
+        {% endfor %}
+      </tr>
+
+    </tbody>
+
+  </table>
+
+</section>
+
 {% endif %}
 
 <!-- ─── 3. ASSESSING BODY (Phase 20.7 — AU/NZ only) ─── -->

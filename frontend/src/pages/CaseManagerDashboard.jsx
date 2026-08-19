@@ -164,18 +164,32 @@ const CaseManagerDashboard = () => {
 
     // Check if there's a case to open
     const storedCaseId = sessionStorage.getItem('openCaseId');
-    if (storedCaseId) {
-      setActiveTab('cases');
-      // We'll load case details after data is loaded
-    }
-  }, [navigate]);
+if (storedCaseId) {
+  setActiveTab('cases');
+}
+}, [navigate]);
 
-  useEffect(() => {
-    if (user) {
-      loadData();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+useEffect(() => {
+  if (user) {
+    loadData();
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [user]);
+
+// Open case from notification/session storage
+useEffect(() => {
+  if (!user) return;
+
+  const storedCaseId = sessionStorage.getItem('openCaseId');
+
+  if (storedCaseId) {
+    setActiveTab('cases');
+    loadCaseDetails(storedCaseId);
+    sessionStorage.removeItem('openCaseId');
+  }
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [user]);
 
   // Handle notification click - navigate to correct tab/item
   const handleNotificationClick = async (notification) => {
@@ -199,40 +213,33 @@ const CaseManagerDashboard = () => {
     }
   };
 
-  const loadCaseDetails = async (caseId) => {
-    try {
-      // Trigger step-documents sync first (merges admin defaults into case_steps)
-      await axios.get(`${API}/step-documents/case/${caseId}`, getAuthHeader()).catch(() => {});
-      const [caseRes, docsRes, intakeRes] = await Promise.all([
-        axios.get(`${API}/cases/${caseId}`, getAuthHeader()),
-        axios.get(`${API}/documents/case/${caseId}`, getAuthHeader()),
-        axios.get(`${API}/intake-forms/case/${caseId}`, getAuthHeader())
-      ]);
-      const stepDocsRes = await axios.get(
-  `${API}/step-documents/case/${caseId}`,
-  getAuthHeader()
-);
+const loadCaseDetails = async (caseId) => {
+  try {
+    await axios
+      .get(`${API}/step-documents/case/${caseId}`, getAuthHeader())
+      .catch(() => {});
 
-setStepDocuments(stepDocsRes.data?.steps || []);
+    const [caseRes, docsRes, intakeRes] = await Promise.all([
+      axios.get(`${API}/cases/${caseId}`, getAuthHeader()),
+      axios.get(`${API}/documents/case/${caseId}`, getAuthHeader()),
+      axios.get(`${API}/intake-forms/case/${caseId}`, getAuthHeader())
+    ]);
 
-      setSelectedCase(caseRes.data);
-      setCaseDocuments(docsRes.data);
-      try {
-  const intakeRes = await axios.get(
-    `${API}/intake-forms/case/${caseData.id}`,
-    { headers }
-  );
+    const stepDocsRes = await axios.get(
+      `${API}/step-documents/case/${caseId}`,
+      getAuthHeader()
+    );
 
-  setCaseIntakeData(intakeRes.data);
-} catch (error) {
-  console.error('Failed to load case intake data:', error);
-  setCaseIntakeData(null);
-}
-      setCmFieldValues(intakeRes.data?.data || {});
-    } catch (error) {
-      toast.error('Failed to load case details');
-    }
-  };
+    setStepDocuments(stepDocsRes.data?.steps || []);
+    setSelectedCase(caseRes.data);
+    setCaseDocuments(docsRes.data);
+    setCaseIntakeData(intakeRes.data);
+    setCmFieldValues(intakeRes.data?.data || {});
+  } catch (error) {
+    console.error('Failed to load case details:', error);
+    toast.error('Failed to load case details');
+  }
+};
   
 
   const handleLogout = () => {
@@ -907,7 +914,8 @@ const fieldKey = doc.key || `document-${step.id}-${docIndex}`;
       return (
         <div
           key={doc.id || docIndex}
-          className="flex items-center justify-between border border-slate-200 rounded-lg p-3 bg-white"
+          className="flex items-center justify-between gap-4 border border-slate-200 rounded-lg p-4 bg-white"
+
         >
           <div>
             <p className="text-sm font-medium text-slate-800">
@@ -956,7 +964,7 @@ const fieldKey = doc.key || `document-${step.id}-${docIndex}`;
                 Uploaded
               </Badge>
                       ) : canCMFill ? (
-              <div className="w-72">
+              <div className="flex justify-end items-center min-w-[160px]">
                 {(fieldType === 'file' || fieldType === 'file_upload') && (
                   <label className="cursor-pointer">
                     <input
