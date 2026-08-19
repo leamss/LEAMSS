@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: leamss-api
+    env: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: starter
+    region: singapore
+    autoDeploy: true
+    healthCheckPath: /api/health
+    envVars:
+      - key: DB_NAME
+        value: leamss
+      - key: MONGO_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: PERPLEXITY_API_KEY
+        sync: false
