@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: always
+    environment:
+      - PORT=8001
+      - DB_NAME=leamss
+      - MONGO_URL=      - JWT_SECRET=      - RAZORPAY_KEY_ID=      - RAZORPAY_KEY_SECRET=      - PERPLEXITY_API_KEY=    ports:
+      - "8001:8001"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - REACT_APP_BACKEND_URL=https://api.leamss.com
+    restart: always
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
