@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import { Plus, Download, Copy, Trash2, Pencil, X, Sparkles } from 'lucide-react';
 import HRSettingsLayout from '@/components/hr/HRSettingsLayout';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || (typeof window !== undefined && window.location.hostname.includes(leamss.com) ? https://api.leamss.com : http://localhost:8001);
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || (typeof window !== 'undefined' && window.location.hostname.includes('leamss.com') ? 'https://api.leamss.com' : 'http://localhost:8001');
 const API = `${BACKEND_URL}/api`;
 
 const TYPE_COLOR = {

@@ -51,7 +51,7 @@ export default function SuggesterModal({ onClose, onSelect, onSelectMultiple, he
     try {
       const r = await axios.post(`${API}/sales/ai/suggest-occupation`, {
         description, country_codes: cc === 'ALL' ? null : [cc], max_suggestions: 5,
-      }, { headers, timeout: 60000 });
+      }, { headers, timeout: 120000 });
       setSuggestions(r.data);
       setSearchedCountry(cc);
     } catch (e) {

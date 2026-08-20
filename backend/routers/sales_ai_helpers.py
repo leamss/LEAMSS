@@ -165,19 +165,19 @@ async def suggest_occupation(
     client = AsyncOpenAI(
         api_key=PERPLEXITY_API_KEY,
         base_url="https://api.perplexity.ai",
-        http_client=httpx.AsyncClient(verify=False, timeout=60)
+        http_client=httpx.AsyncClient(verify=False, timeout=90)
     )
 
     try:
-        print("Before API call")
         response = await client.chat.completions.create(
-    model="sonar-reasoning-pro",
-    messages=[
-        {"role": "system", "content": SUGGESTER_SYSTEM_PROMPT},
-        {"role": "user", "content": user_prompt},
-    ],
-    temperature=0,
-)
+            model="sonar",
+            messages=[
+                {"role": "system", "content": SUGGESTER_SYSTEM_PROMPT},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=0,
+            max_tokens=2000,
+        )
 
         raw = response.choices[0].message.content.strip()
         print("=" * 100)
