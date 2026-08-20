@@ -4,7 +4,8 @@ COPY package*.json ./
 RUN npm ci --legacy-peer-deps
 COPY . .
 ARG REACT_APP_BACKEND_URL
-ENV REACT_APP_BACKEND_URL=RUN npm run build
+ENV REACT_APP_BACKEND_URL=https://api.leamss.com
+RUN npm run build
 
 FROM nginx:alpine
 COPY --from=builder /app/build /usr/share/nginx/html
