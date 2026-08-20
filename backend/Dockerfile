@@ -19,5 +19,5 @@ COPY . .
 # Expose backend port
 EXPOSE 8001
 
-# Run Uvicorn server using dynamic environment PORT
-CMD uvicorn server:app --host 0.0.0.0 --port 
+# Run Uvicorn
+CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8001"]
