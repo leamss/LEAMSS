@@ -180,15 +180,15 @@ async def suggest_occupation(
         return score
 
     scored_candidates = sorted(available_slim, key=_score_candidate, reverse=True)
-    # Take top 35 candidates (or all if fewer)
-    top_candidates = scored_candidates[:35] if len(scored_candidates) > 35 else scored_candidates
+    # Take top 20 candidates (or all if fewer) for ultra-fast < 2.5s generation
+    top_candidates = scored_candidates[:20] if len(scored_candidates) > 20 else scored_candidates
 
     user_prompt = (
-        "## CANDIDATE DESCRIPTION (sales consultant's words)\n"
+        "## CANDIDATE DESCRIPTION\n"
         + req.description.strip()
-        + "\n\n## AVAILABLE_CODES (select best matches from this list)\n```json\n"
+        + "\n\n## CANDIDATES LIST\n```json\n"
         + json.dumps(top_candidates, ensure_ascii=False)
-        + f"\n```\n\nSuggest the top {req.max_suggestions} matching codes. Return JSON only."
+        + f"\n```\n\nSuggest the top {req.max_suggestions} matching codes. Return concise JSON only with code, title, confidence, reasoning, assessing_body, pathway."
     )
 
     client = AsyncOpenAI(
@@ -198,15 +198,14 @@ async def suggest_occupation(
     )
 
     try:
-        print("Before API call")
         response = await client.chat.completions.create(
             model="sonar",
             messages=[
-                {"role": "system", "content": SUGGESTER_SYSTEM_PROMPT},
+                {"role": "system", "content": "You are an Australian immigration assistant. Return concise JSON only."},
                 {"role": "user", "content": user_prompt},
             ],
             temperature=0,
-            max_tokens=1500,
+            max_tokens=600,
         )
 
         raw = response.choices[0].message.content.strip()
