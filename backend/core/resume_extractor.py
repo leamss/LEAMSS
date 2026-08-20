@@ -20,7 +20,7 @@ import re
 logger = logging.getLogger(__name__)
 
 PERPLEXITY_API_KEY = os.environ.get("PERPLEXITY_API_KEY", "")
-PERPLEXITY_MODEL = "sonar-pro"
+PERPLEXITY_MODEL = "sonar"
 
 MAX_TEXT_CHARS = 24_000  # safe Claude input budget
 

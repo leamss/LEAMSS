@@ -61,7 +61,7 @@ Workbook:
 """
 
     response = await client.chat.completions.create(
-        model="sonar-reasoning-pro",
+        model="sonar",
         messages=[
             {
                 "role": "system",

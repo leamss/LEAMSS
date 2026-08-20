@@ -29,7 +29,7 @@ from openai import AsyncOpenAI
 logger = logging.getLogger(__name__)
 
 PERPLEXITY_BASE_URL = "https://api.perplexity.ai"
-DEFAULT_MODEL = "sonar-pro"
+DEFAULT_MODEL = "sonar"
 FALLBACK_MODEL = "sonar"
 
 

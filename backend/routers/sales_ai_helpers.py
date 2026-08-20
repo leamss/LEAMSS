@@ -171,13 +171,14 @@ async def suggest_occupation(
     try:
         print("Before API call")
         response = await client.chat.completions.create(
-    model="sonar-reasoning-pro",
-    messages=[
-        {"role": "system", "content": SUGGESTER_SYSTEM_PROMPT},
-        {"role": "user", "content": user_prompt},
-    ],
-    temperature=0,
-)
+            model="sonar",
+            messages=[
+                {"role": "system", "content": SUGGESTER_SYSTEM_PROMPT},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=0,
+            max_tokens=1500,
+        )
 
         raw = response.choices[0].message.content.strip()
         print("=" * 100)
@@ -216,7 +217,7 @@ async def suggest_occupation(
             s["_verified"] = (cc, code) in valid_set
 
         parsed["_ai_status"] = "ok"
-        parsed["_ai_model"] = "sonar-reasoning-pro"
+        parsed["_ai_model"] = "sonar"
 
         return parsed
     
@@ -387,7 +388,7 @@ async def atlas_auto_suggest(req: AtlasAutoSuggestRequest, current_user: dict = 
 
         try:
             response = await client.chat.completions.create(
-                model="sonar-reasoning-pro",
+                model="sonar",
                 messages=[
                     {
                         "role": "system",
@@ -424,7 +425,6 @@ async def atlas_auto_suggest(req: AtlasAutoSuggestRequest, current_user: dict = 
             parsed = json.loads(raw[first:last + 1])
 
             # Cross-check that suggested codes actually exist
-                        # Cross-check that suggested codes actually exist
             valid_codes = {a["code"] for a in available}
 
             for s in parsed.get("suggestions", []):
@@ -432,7 +432,7 @@ async def atlas_auto_suggest(req: AtlasAutoSuggestRequest, current_user: dict = 
                 s["_verified"] = code in valid_codes
 
             parsed["_ai_status"] = "ok"
-            parsed["_ai_model"] = "sonar-reasoning-pro"
+            parsed["_ai_model"] = "sonar"
 
             # DON'T return here
             # Continue to the Atlas enrichment section below
