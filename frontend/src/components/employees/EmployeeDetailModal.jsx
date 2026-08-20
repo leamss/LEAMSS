@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 import { User, Shield, Activity, Edit, X, UserCheck, UserX, KeyRound, ArrowRight, Eye, History, Mail, Link2, Copy } from 'lucide-react';
 import DashboardPreviewModal from './DashboardPreviewModal';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || (typeof window !== undefined && window.location.hostname.includes(leamss.com) ? https://api.leamss.com : http://localhost:8001);
 const API = `${BACKEND_URL}/api`;
 
 const TABS = [

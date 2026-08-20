@@ -16,7 +16,8 @@ import {
   Calendar, CheckCircle, XCircle, Eye, ChevronRight, FileText, Download, UserPlus
 } from 'lucide-react';
 
-const API = process.env.REACT_APP_BACKEND_URL + '/api';
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || (typeof window !== undefined && window.location.hostname.includes(leamss.com) ? https://api.leamss.com : http://localhost:8001);
+const API = ${BACKEND_URL}/api;
 const getAuthHeader = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
 
 const MarketingDashboard = () => {

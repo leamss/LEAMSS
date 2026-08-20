@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'sonner';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || (typeof window !== undefined && window.location.hostname.includes(leamss.com) ? https://api.leamss.com : http://localhost:8001);
 const API = `${BACKEND_URL}/api`;
 
 /**

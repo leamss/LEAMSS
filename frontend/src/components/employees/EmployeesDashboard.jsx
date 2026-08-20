@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Users, UserCheck, Coffee, UserPlus, TrendingUp, Building2, Network, Plus, ArrowRight } from 'lucide-react';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || (typeof window !== undefined && window.location.hostname.includes(leamss.com) ? https://api.leamss.com : http://localhost:8001);
 const API = `${BACKEND_URL}/api`;
 
 const StatCard = ({ icon: Icon, label, value, color, accent, testid }) => (

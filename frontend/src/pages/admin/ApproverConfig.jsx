@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import { Save, ArrowRight, User, Users, ShieldCheck, AlertCircle } from 'lucide-react';
 import HRSettingsLayout from '@/components/hr/HRSettingsLayout';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || (typeof window !== undefined && window.location.hostname.includes(leamss.com) ? https://api.leamss.com : http://localhost:8001);
 const API = `${BACKEND_URL}/api`;
 
 const DEPARTMENTS = ['sales', 'marketing', 'operations', 'hr', 'accounts', 'it', 'admin', 'compliance'];

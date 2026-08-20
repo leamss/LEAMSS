@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Checkbox } from '@/components/ui/checkbox';
 import { MessageSquarePlus, Users, User } from 'lucide-react';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || (typeof window !== undefined && window.location.hostname.includes(leamss.com) ? https://api.leamss.com : http://localhost:8001);
 const API = `${BACKEND_URL}/api`;
 
 const CreateTicket = ({ caseId = null, onTicketCreated, assignedCaseManagerId = null, clientId = null, clientName = null, restrictToClient = false }) => {

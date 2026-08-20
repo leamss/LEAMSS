@@ -5,7 +5,8 @@ import { Input } from '@/components/ui/input';
 import { MessageSquare, Send, X, Loader2, Bot, User, Minimize2 } from 'lucide-react';
 import axios from 'axios';
 
-const API = process.env.REACT_APP_BACKEND_URL + '/api';
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || (typeof window !== undefined && window.location.hostname.includes(leamss.com) ? https://api.leamss.com : http://localhost:8001);
+const API = ${BACKEND_URL}/api;
 
 const AIChatWidget = () => {
   const [isOpen, setIsOpen] = useState(false);

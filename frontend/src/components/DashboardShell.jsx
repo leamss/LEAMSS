@@ -9,7 +9,7 @@ import { LanguageToggle, useLanguage } from '@/components/LanguageProvider';
 import { ThemeToggle } from '@/components/ThemeProvider';
 import { LogOut, Menu, ArrowLeft, ChevronDown, ChevronRight, MessageCircle, TicketCheck } from 'lucide-react';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || (typeof window !== undefined && window.location.hostname.includes(leamss.com) ? https://api.leamss.com : http://localhost:8001);
 const COMM_API = `${BACKEND_URL}/api`;
 
 // Hindi translations for nav labels
