@@ -5,6 +5,8 @@ RUN npm install --legacy-peer-deps
 COPY . .
 ARG REACT_APP_BACKEND_URL
 ENV REACT_APP_BACKEND_URL=https://api.leamss.com
+ENV GENERATE_SOURCEMAP=false
+ENV NODE_OPTIONS="--max-old-space-size=2048"
 RUN npm run build
 
 FROM nginx:alpine
