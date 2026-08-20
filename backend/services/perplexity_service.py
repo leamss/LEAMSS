@@ -16,7 +16,7 @@ from typing import Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
-PERPLEXITY_MODEL = "sonar"
+PERPLEXITY_MODEL = "sonar-pro"
 PERPLEXITY_BASE_URL = "https://api.perplexity.ai"
 
 

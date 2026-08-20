@@ -9,7 +9,6 @@ Endpoints:
 import json
 import logging
 import os
-import re
 from typing import Optional, List, Dict, Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -155,40 +154,12 @@ async def suggest_occupation(
         for a in available_codes
     ]
 
-    # Smart Pre-Filtering: Rank and select top 35 most relevant candidates
-    # Reduces prompt from 150KB (40k tokens) to 3KB (500 tokens) -> 10x faster response time!
-    desc_clean = req.description.strip().lower()
-    desc_tokens = set(re.findall(r'\b[a-z]{3,}\b', desc_clean))
-
-    def _score_candidate(a: dict) -> int:
-        score = 0
-        t_low = (a.get("title") or "").lower()
-        g_low = (a.get("group") or "").lower()
-        alts = [x.lower() for x in (a.get("alt") or [])]
-
-        if t_low and t_low in desc_clean:
-            score += 60
-        for alt_title in alts:
-            if alt_title and alt_title in desc_clean:
-                score += 50
-        for tok in re.findall(r'\b[a-z]{3,}\b', t_low):
-            if tok in desc_tokens:
-                score += 15
-        for tok in re.findall(r'\b[a-z]{3,}\b', g_low):
-            if tok in desc_tokens:
-                score += 5
-        return score
-
-    scored_candidates = sorted(available_slim, key=_score_candidate, reverse=True)
-    # Take top 20 candidates (or all if fewer) for ultra-fast < 2.5s generation
-    top_candidates = scored_candidates[:20] if len(scored_candidates) > 20 else scored_candidates
-
     user_prompt = (
-        "## CANDIDATE DESCRIPTION\n"
+        "## CANDIDATE DESCRIPTION (sales consultant's words)\n"
         + req.description.strip()
-        + "\n\n## CANDIDATES LIST\n```json\n"
-        + json.dumps(top_candidates, ensure_ascii=False)
-        + f"\n```\n\nSuggest the top {req.max_suggestions} matching codes. Return concise JSON only with code, title, confidence, reasoning, assessing_body, pathway."
+        + "\n\n## AVAILABLE_CODES (only suggest from this list)\n```json\n"
+        + json.dumps(available_slim, ensure_ascii=False)
+        + f"\n```\n\nSuggest the top {req.max_suggestions} codes. Return JSON only."
     )
 
     client = AsyncOpenAI(
@@ -198,15 +169,15 @@ async def suggest_occupation(
     )
 
     try:
+        print("Before API call")
         response = await client.chat.completions.create(
-            model="sonar",
-            messages=[
-                {"role": "system", "content": "You are an Australian immigration assistant. Return concise JSON only."},
-                {"role": "user", "content": user_prompt},
-            ],
-            temperature=0,
-            max_tokens=600,
-        )
+    model="sonar-reasoning-pro",
+    messages=[
+        {"role": "system", "content": SUGGESTER_SYSTEM_PROMPT},
+        {"role": "user", "content": user_prompt},
+    ],
+    temperature=0,
+)
 
         raw = response.choices[0].message.content.strip()
         print("=" * 100)
@@ -245,7 +216,7 @@ async def suggest_occupation(
             s["_verified"] = (cc, code) in valid_set
 
         parsed["_ai_status"] = "ok"
-        parsed["_ai_model"] = "sonar"
+        parsed["_ai_model"] = "sonar-reasoning-pro"
 
         return parsed
     
@@ -416,7 +387,7 @@ async def atlas_auto_suggest(req: AtlasAutoSuggestRequest, current_user: dict = 
 
         try:
             response = await client.chat.completions.create(
-                model="sonar",
+                model="sonar-reasoning-pro",
                 messages=[
                     {
                         "role": "system",
@@ -453,6 +424,7 @@ async def atlas_auto_suggest(req: AtlasAutoSuggestRequest, current_user: dict = 
             parsed = json.loads(raw[first:last + 1])
 
             # Cross-check that suggested codes actually exist
+                        # Cross-check that suggested codes actually exist
             valid_codes = {a["code"] for a in available}
 
             for s in parsed.get("suggestions", []):
@@ -460,7 +432,7 @@ async def atlas_auto_suggest(req: AtlasAutoSuggestRequest, current_user: dict = 
                 s["_verified"] = code in valid_codes
 
             parsed["_ai_status"] = "ok"
-            parsed["_ai_model"] = "sonar"
+            parsed["_ai_model"] = "sonar-reasoning-pro"
 
             # DON'T return here
             # Continue to the Atlas enrichment section below

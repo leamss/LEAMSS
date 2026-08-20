@@ -1879,7 +1879,7 @@ async def ai_extract_preview(
     )
     try:
         response = await client.chat.completions.create(
-            model="sonar",
+            model="sonar-reasoning-pro",
             messages=[
                 {
                     "role": "system",
@@ -2250,7 +2250,7 @@ Return JSON only.
 
     try:
         response = await client.chat.completions.create(
-            model="sonar",
+            model="sonar-reasoning-pro",
             messages=[
                 {
                     "role": "system",
