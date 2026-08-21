@@ -186,7 +186,7 @@ async def suggest_occupation(
         return s
 
     available_codes.sort(key=_occ_relevance, reverse=True)
-    top_candidates = available_codes[:150] if len(available_codes) > 150 else available_codes
+    top_candidates = available_codes[:80] if len(available_codes) > 80 else available_codes
 
     available_slim = [
         {
