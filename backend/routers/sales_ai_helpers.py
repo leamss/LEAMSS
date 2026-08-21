@@ -41,6 +41,33 @@ def _can_access(user: dict) -> bool:
     return _user_role(user) in ROLE_SALES or "*" in (user.get("permissions") or [])
 
 
+def _safe_json_loads(raw: str) -> dict:
+    clean = raw.strip()
+    if clean.startswith("```"):
+        clean = clean.strip("`").lstrip("json").strip()
+    first = clean.find("{")
+    last = clean.rfind("}")
+    if first == -1:
+        raise ValueError(f"No JSON object found in AI response")
+    sub = clean[first:last + 1]
+    try:
+        return json.loads(sub)
+    except Exception:
+        pass
+    for tail in ['\n  ]\n}', '\n}', '"\n  ]\n}', '"}\n  ]\n}', '}\n  ]\n}']:
+        try:
+            return json.loads(sub + tail)
+        except Exception:
+            pass
+    last_obj = sub.rfind("},")
+    if last_obj != -1:
+        try:
+            return json.loads(sub[:last_obj + 1] + "\n  ]\n}")
+        except Exception:
+            pass
+    return json.loads(sub)
+
+
 # ════════════════════════════════════════════════════════════════
 # OCCUPATION SUGGESTER — natural-language → top 3-5 codes
 # ════════════════════════════════════════════════════════════════
@@ -197,7 +224,7 @@ async def suggest_occupation(
                 {"role": "user", "content": user_prompt},
             ],
             temperature=0,
-            max_tokens=850,
+            max_tokens=2500,
         )
 
         raw = response.choices[0].message.content.strip()
@@ -205,23 +232,7 @@ async def suggest_occupation(
         print(repr(raw))
         print("=" * 100)
 
-        if raw.startswith("```"):
-            raw = raw.strip("`").lstrip("json").strip()
-
-        try:
-            parsed = json.loads(raw)
-
-        except json.JSONDecodeError:
-            first = raw.find("{")
-            last = raw.rfind("}")
-
-            if first == -1 or last == -1:
-                raise HTTPException(
-                    status_code=502,
-                    detail=f"AI returned non-JSON:\n{raw}",
-                )
-
-            parsed = json.loads(raw[first:last + 1])
+        parsed = _safe_json_loads(raw)
 
         # Verify returned codes exist
         valid_set = {
@@ -237,28 +248,13 @@ async def suggest_occupation(
             s["_verified"] = (cc, code) in valid_set
 
         parsed["_ai_status"] = "ok"
-        parsed["_ai_model"] = "sonar-reasoning-pro"
-
+        parsed["_ai_model"] = "sonar-pro"
         return parsed
-    
-    except Exception as e:
-      import traceback
-
-      traceback.print_exc()
-
-      logger.exception("Perplexity Error")
-
-      raise HTTPException(
-        status_code=500,
-        detail=str(e)
-    )
 
     except HTTPException:
         raise
-
     except Exception as e:
         logger.error(f"Occupation suggester error: {e}")
-
         raise HTTPException(
             status_code=502,
             detail=f"AI call failed: {type(e).__name__}: {str(e)[:150]}",
