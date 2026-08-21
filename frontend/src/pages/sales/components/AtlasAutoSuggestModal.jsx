@@ -76,7 +76,7 @@ export default function AtlasAutoSuggestModal({
         country_code: country,
         region_code: regionCode || null,
         max_suggestions: 5,
-      }, { headers });
+      }, { headers, timeout: 120000 });
       setResult(r.data);
     } catch (e) {
       setError(e.response?.data?.detail || 'AI call failed');

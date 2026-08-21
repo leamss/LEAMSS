@@ -171,13 +171,13 @@ async def suggest_occupation(
     try:
         print("Before API call")
         response = await client.chat.completions.create(
-    model="sonar-reasoning-pro",
-    messages=[
-        {"role": "system", "content": SUGGESTER_SYSTEM_PROMPT},
-        {"role": "user", "content": user_prompt},
-    ],
-    temperature=0,
-)
+            model="sonar-pro",
+            messages=[
+                {"role": "system", "content": SUGGESTER_SYSTEM_PROMPT},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=0,
+        )
 
         raw = response.choices[0].message.content.strip()
         print("=" * 100)
@@ -387,7 +387,7 @@ async def atlas_auto_suggest(req: AtlasAutoSuggestRequest, current_user: dict = 
 
         try:
             response = await client.chat.completions.create(
-                model="sonar-reasoning-pro",
+                model="sonar-pro",
                 messages=[
                     {
                         "role": "system",
