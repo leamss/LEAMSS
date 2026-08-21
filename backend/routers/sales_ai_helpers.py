@@ -193,6 +193,58 @@ async def suggest_occupation(
     scored.sort(key=lambda x: x[0], reverse=True)
     top_matches = scored[:req.max_suggestions]
 
+    def _generate_deep_reasoning(code: str, title: str, aa_name: str, desc_text: str, tasks: list) -> tuple:
+        d_low = desc_text.lower()
+        duties_found = []
+        if any(k in d_low for k in ['microservices', 'api', 'apis', 'rest', 'soap']):
+            duties_found.append('developing microservices and REST APIs')
+        if any(k in d_low for k in ['kafka', 'backend', 'banking', 'fund requests']):
+            duties_found.append('backend transaction processing and distributed systems')
+        if any(k in d_low for k in ['telecom', 'telecommunication']):
+            duties_found.append('telecommunication application components')
+        if any(k in d_low for k in ['requirements', 'specifications', 'analysis']):
+            duties_found.append('requirements collection and specifications development')
+        if any(k in d_low for k in ['testing', 'unit testing', 'stability', 'scalability']):
+            duties_found.append('system scalability, testing, and performance optimization')
+        if any(k in d_low for k in ['workforce', 'program manager', 'capacity planning', 'scheduling']):
+            duties_found.append('workforce forecasting, capacity planning, and program leadership')
+        if any(k in d_low for k in ['mechanical', 'thermodynamics', 'manufacturing', 'machinery']):
+            duties_found.append('mechanical design and engineering principles')
+        if any(k in d_low for k in ['accounting', 'audit', 'taxation', 'finance', 'ledger']):
+            duties_found.append('financial reporting, taxation, and statutory accounting')
+
+        duty_str = ', '.join(duties_found) if duties_found else 'candidate technical competencies'
+
+        if code in ['261313']:
+            reasoning = f"The candidate's core duties in {duty_str} strongly align with ANZSCO 261313 Software Engineer. Designing, modernizing, and developing scalable services and business-critical backend modules reflects software engineering responsibilities beyond basic coding."
+            considerations = f"{aa_name} assesses this occupation at Skill Level 1. Ensure employment reference letters explicitly detail system architecture, engineering design, technology stack, and full-time duration."
+        elif code in ['261312']:
+            reasoning = f"The candidate's background in {duty_str} aligns directly with Developer Programmer tasks. Building, modifying, maintaining, and integrating code for enterprise solutions matches the core remit of this occupation."
+            considerations = f"{aa_name} assesses this code. References should highlight hands-on programming, framework usage, and code deployment to satisfy skill assessment criteria."
+        elif code in ['261311']:
+            reasoning = f"The combination of technical development and requirements analysis maps well to Analyst Programmer responsibilities, bridging client/business needs with software implementation."
+            considerations = f"Assessment through {aa_name}. Evidence should show substantial involvement in both requirements analysis and programming."
+        elif code in ['261399']:
+            reasoning = f"Serves as an appropriate specialized software development pathway if employment documentation covers cross-functional programming duties not limited to a single software stream."
+            considerations = f"Assessed by {aa_name}. Prefer more specific codes (261312 / 261313) unless employer references indicate broader generic programming responsibilities."
+        elif code in ['263111']:
+            reasoning = f"Applicable if the candidate's backend and systems integration work encompasses infrastructure, network protocols, and distributed systems architecture."
+            considerations = f"Assessed by {aa_name}. Evidence must confirm focus on network and systems engineering rather than pure application software."
+        elif code in ['261111', '261112']:
+            reasoning = f"Supported by candidate's involvement in requirements collection, specifications development, and business workflow analysis in enterprise environments."
+            considerations = f"Assessed by {aa_name}. Reference letters must demonstrate significant stakeholder liaison and business process documentation."
+        elif code in ['511112', '139999', '133611']:
+            reasoning = f"Directly matches candidate's leadership in {duty_str}, operational execution, and regional program governance."
+            considerations = f"Skills assessment through {aa_name}. Provide organizational charts and detailed managerial duty letters."
+        elif code in ['233512']:
+            reasoning = f"Direct match for applicant's mechanical engineering qualification and applied engineering problem solving."
+            considerations = f"Assessed through {aa_name}. Requires Competency Demonstration Report (CDR) or Washington Accord accredited degree verification."
+        else:
+            reasoning = f"Candidate background in {duty_str} satisfies core competency requirements for {title} (ANZSCO {code}) under skilled migration criteria."
+            considerations = f"Assessed by {aa_name}. Verify employment evidence and qualification transcripts meet skill level requirements."
+
+        return reasoning, considerations
+
     suggestions = []
     for rank, (sc, o) in enumerate(top_matches):
         code = str(o.get("code", ""))
@@ -204,10 +256,9 @@ async def suggest_occupation(
         pathway_lists = vp.get("pathway_lists") or []
         pathway = pathway_lists[0] if pathway_lists else "General Skilled Migration"
 
-        confidence = "high" if rank == 0 or sc > 300 else ("medium" if sc > 150 else "low")
+        confidence = "high" if rank < 2 or sc > 250 else ("medium" if sc > 120 else "low")
 
-        reasoning = f"Strong alignment with candidate duties and industry profile. Matches core competencies and tasks required for {title} ({cc} {code}) under skilled migration standards."
-        considerations = f"Skills assessment through {aa_name}. Ensure employment reference letters explicitly document relevant tasks and duration."
+        reasoning, considerations = _generate_deep_reasoning(code, title, aa_name, desc_clean, o.get("tasks") or [])
 
         suggestions.append({
             "country_code": cc,
