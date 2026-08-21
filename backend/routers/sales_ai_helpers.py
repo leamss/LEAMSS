@@ -1,10 +1,10 @@
-"""Smart Sales Helper — Phase 6 v2 Part 3: AI Helpers (Resume Parser + Occupation Suggester).
+"""Smart Sales Helper -- Phase 6 v2 Part 3: AI Helpers (Resume Parser + Occupation Suggester).
 
 LLM-only suggestions, never auto-decisions. Sales person reviews and selects.
 
 Endpoints:
-  POST /api/sales/ai/suggest-occupation — free-text description → top 3-5 code suggestions
-  (Resume parser already lives at /api/eligibility/profiles/resume-extract — reused.)
+  POST /api/sales/ai/suggest-occupation -- free-text description -> top 3-5 code suggestions
+  (Resume parser already lives at /api/eligibility/profiles/resume-extract -- reused.)
 """
 import json
 import logging
@@ -24,7 +24,7 @@ router = APIRouter(prefix="/sales/ai", tags=["Smart Sales Helper - AI Helpers"])
 logger = logging.getLogger(__name__)
 
 PERPLEXITY_API_KEY = os.getenv("PERPLEXITY_API_KEY")
-# Phase 9.3 — Haiku 4.5 for high-frequency, low-stakes typeahead suggestions
+# Phase 9.3 -- Haiku 4.5 for high-frequency, low-stakes typeahead suggestions
 # CLAUDE_MODEL = model_for("occupation_suggester")
 
 
@@ -43,7 +43,7 @@ def _can_access(user: dict) -> bool:
 
 
 # ════════════════════════════════════════════════════════════════
-# OCCUPATION SUGGESTER — natural-language → top 3-5 codes
+# OCCUPATION SUGGESTER -- natural-language -> top 3-5 codes
 # ════════════════════════════════════════════════════════════════
 SUGGESTER_SYSTEM_PROMPT = """You are an immigration occupation-code expert.
 
@@ -55,19 +55,19 @@ best match the candidate's CURRENT job and duties.
 ABSOLUTE RULES
 ═══════════════════════════════════════════════════════════════════
 
-🔴 RULE 1 — Suggest, DO NOT decide. The sales consultant verifies and picks.
-🔴 RULE 2 — Match based on the candidate's CURRENT job, duties and industry.
+🔴 RULE 1 -- Suggest, DO NOT decide. The sales consultant verifies and picks.
+🔴 RULE 2 -- Match based on the candidate's CURRENT job, duties and industry.
    IGNORE education unless the current job is clearly NEW (e.g., degree unrelated
    to current work).
-🔴 RULE 3 — Only suggest codes from the AVAILABLE_CODES list. Do NOT invent codes.
-🔴 RULE 4 — Be honest about confidence: HIGH (clear duty/title match),
+🔴 RULE 3 -- Only suggest codes from the AVAILABLE_CODES list. Do NOT invent codes.
+🔴 RULE 4 -- Be honest about confidence: HIGH (clear duty/title match),
    MEDIUM (related but adjacent), LOW (loose match).
-🔴 RULE 5 — When relevant, mention concerns or considerations the consultant should
+🔴 RULE 5 -- When relevant, mention concerns or considerations the consultant should
    discuss with the client (e.g., "this code requires 2 years post-qualification work
    experience", "VETASSESS Skills Assessment can take 10-12 weeks").
 
 ═══════════════════════════════════════════════════════════════════
-OUTPUT FORMAT — return ONLY this JSON, no markdown, no prose:
+OUTPUT FORMAT -- return ONLY this JSON, no markdown, no prose:
 ═══════════════════════════════════════════════════════════════════
 {
   "suggestions": [
@@ -228,21 +228,21 @@ async def suggest_occupation(
         "_ai_model": "instant-ai-engine",
     }
 # ════════════════════════════════════════════════════════════════
-# Phase 10.3 — ATLAS AUTO-SUGGEST (free-text → NOC + PNP + EE intel)
+# Phase 10.3 -- ATLAS AUTO-SUGGEST (free-text -> NOC + PNP + EE intel)
 # ════════════════════════════════════════════════════════════════
-ATLAS_AUTO_SUGGEST_SYSTEM_PROMPT = """You are an immigration occupation matching expert.
+ATLAS_AUTO_SUGGEST_SYSTEM_PROMPT = "You are an immigration occupation matching expert."
 
 
 class AtlasAutoSuggestRequest(BaseModel):
     description: str = Field(..., min_length=15, max_length=2000)
-    country_code: str = Field("CA", description="AU / CA / NZ — the destination country")
+    country_code: str = Field("CA", description="AU / CA / NZ -- the destination country")
     region_code: Optional[str] = Field(None, description="Optional state/province: NSW/VIC/BC/ON/etc")
     max_suggestions: int = Field(5, ge=1, le=8)
 
 
 @router.post("/atlas-auto-suggest")
 async def atlas_auto_suggest(req: AtlasAutoSuggestRequest, current_user: dict = Depends(get_current_user)):
-    """Phase 10.3 → 10.7 — Multi-country Instant Atlas Auto-Suggest (< 50ms)."""
+    """Phase 10.3 -> 10.7 -- Multi-country Instant Atlas Auto-Suggest (< 50ms)."""
     if not _can_access(current_user):
         raise HTTPException(status_code=403, detail="Not authorised")
 
