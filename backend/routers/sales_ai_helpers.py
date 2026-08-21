@@ -141,6 +141,26 @@ async def suggest_occupation(
             detail="No occupation codes loaded in the knowledge base",
         )
 
+    # Re-order and select top 150 most relevant candidate occupations to reduce prompt latency (< 10s)
+    desc_clean = req.description.strip()
+    desc_lower = desc_clean.lower()
+    import re
+    tokens = set(re.findall(r'\b[a-z]{3,}\b', desc_lower))
+
+    def _occ_relevance(a: dict) -> int:
+        t = (a.get("title") or "").lower()
+        alts = [x.lower() for x in (a.get("alternative_titles") or []) if isinstance(x, str)]
+        s = 0
+        if any(w in t for w in tokens):
+            s += 20
+        for alt in alts:
+            if any(w in alt for w in tokens):
+                s += 10
+        return s
+
+    available_codes.sort(key=_occ_relevance, reverse=True)
+    top_candidates = available_codes[:150] if len(available_codes) > 150 else available_codes
+
     available_slim = [
         {
             "country_code": a["country_code"],
@@ -149,14 +169,14 @@ async def suggest_occupation(
             "group": a["group"],
             "assessing_body": a.get("assessing_body"),
             "pathway": a.get("pathway"),
-            "alt": a.get("alternative_titles")[:3],
+            "alt": a.get("alternative_titles")[:2],
         }
-        for a in available_codes
+        for a in top_candidates
     ]
 
     user_prompt = (
         "## CANDIDATE DESCRIPTION (sales consultant's words)\n"
-        + req.description.strip()
+        + desc_clean
         + "\n\n## AVAILABLE_CODES (only suggest from this list)\n```json\n"
         + json.dumps(available_slim, ensure_ascii=False)
         + f"\n```\n\nSuggest the top {req.max_suggestions} codes. Return JSON only."
@@ -177,6 +197,7 @@ async def suggest_occupation(
                 {"role": "user", "content": user_prompt},
             ],
             temperature=0,
+            max_tokens=850,
         )
 
         raw = response.choices[0].message.content.strip()
