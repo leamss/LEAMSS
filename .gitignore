@@ -28,6 +28,8 @@ next-env.d.ts
 # Production builds
 /build
 dist/
+!frontend/build
+!frontend/build/**
 dist
 
 # Environment files (comprehensive coverage)
