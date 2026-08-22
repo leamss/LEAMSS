@@ -2082,11 +2082,27 @@ async def get_my_assessments(
     current_user: dict = Depends(get_current_user),
 ):
     """Partner gets all their pre-assessments. Admin sees all. Optional ?stage= filter."""
-    query = {"partner_id": current_user["id"]}
-    if current_user["role"] == "admin":
-        query = {}  # Admin sees all
+    is_admin = current_user.get("role") in ("admin", "admin_owner") or current_user.get("rbac_role") in ("admin", "admin_owner")
+    query = {} if is_admin else {"$or": [{"partner_id": current_user["id"]}, {"created_by_user_id": current_user["id"]}]}
+    
     if stage:
-        query["stage"] = stage
+        if stage == "case_created":
+            stage_cond = {
+                "$or": [
+                    {"stage": "case_created"},
+                    {"case_id": {"$exists": True, "$ne": None}},
+                    {"case_manager_id": {"$exists": True, "$ne": None}},
+                ]
+            }
+            if query:
+                query = {"$and": [query, stage_cond]}
+            else:
+                query = stage_cond
+        else:
+            if query:
+                query["stage"] = stage
+            else:
+                query = {"stage": stage}
 
     items = await pre_assessments_col.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
     for item in items:

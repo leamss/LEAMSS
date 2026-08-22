@@ -132,19 +132,27 @@ def _calc_allocation(rate_or_amount: float, payment_type: str, revenue: float) -
 
 async def _auto_assign_vendor(category: str, pa: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Returns {vendor_id, vendor_name, vendor_type} or None."""
-    # sales_commission → PA creator
+    # sales_commission → PA creator / partner
     if category == "sales_commission":
         uid = pa.get("created_by_user_id") or pa.get("partner_id")
         if uid:
-            u = await users_col.find_one({"id": uid}, {"_id": 0, "id": 1, "name": 1, "user_type": 1})
+            u = await users_col.find_one({"id": uid}, {"_id": 0, "id": 1, "name": 1, "user_type": 1, "role": 1})
             if u:
-                return {"vendor_id": u["id"], "vendor_name": u.get("name"), "vendor_type": u.get("user_type", "internal")}
+                vtype = "external" if (u.get("role") == "partner" or u.get("user_type") == "external") else "internal"
+                return {"vendor_id": u["id"], "vendor_name": u.get("name"), "vendor_type": vtype}
 
-    # case_manager → PA's assigned case manager
+    # case_manager → PA's assigned case manager or linked case manager
     if category == "case_manager":
         cm_id = pa.get("case_manager_id") or pa.get("assigned_case_manager_id")
+        if not cm_id and pa.get("id"):
+            linked = await db["cases"].find_one(
+                {"$or": [{"pre_assessment_id": pa["id"]}, {"pa_id": pa["id"]}, {"id": pa.get("case_id")}]},
+                {"_id": 0, "case_manager_id": 1}
+            )
+            if linked:
+                cm_id = linked.get("case_manager_id")
         if cm_id:
-            u = await users_col.find_one({"id": cm_id}, {"_id": 0, "id": 1, "name": 1, "user_type": 1})
+            u = await users_col.find_one({"id": cm_id}, {"_id": 0, "id": 1, "name": 1, "user_type": 1, "role": 1})
             if u:
                 return {"vendor_id": u["id"], "vendor_name": u.get("name"), "vendor_type": "internal"}
 
@@ -190,11 +198,22 @@ async def build_allocations_for_pa(pa: Dict[str, Any], revenue: Optional[float] 
     for spec in structure.get("cost_allocations") or []:
         if not spec.get("is_active", True):
             continue
-        raw_rate = spec.get("rate") if spec.get("rate") is not None else spec.get("amount", 0)
-        calc = _calc_allocation(raw_rate or 0, spec.get("payment_type", "flat"), total_revenue)
         
+        # Correctly distinguish percentage rate vs flat amount
+        ptype = spec.get("payment_type", "flat")
+        if ptype == "percentage":
+            raw_rate = spec.get("rate") if (spec.get("rate") is not None and str(spec.get("rate")) != "") else spec.get("amount", 0)
+        else:
+            raw_rate = spec.get("amount") if (spec.get("amount") is not None and str(spec.get("amount")) != "") else spec.get("rate", 0)
+        
+        try:
+            raw_rate = float(raw_rate or 0)
+        except (ValueError, TypeError):
+            raw_rate = 0.0
 
-        # Preserve existing assignment/status if present
+        calc = _calc_allocation(raw_rate, ptype, total_revenue)
+
+        # Preserve existing assignment/status if present, otherwise auto-assign
         prev = existing_map.get(spec["vendor_category"]) or {}
         assignment = {
             "vendor_id": prev.get("vendor_id"),
@@ -202,7 +221,7 @@ async def build_allocations_for_pa(pa: Dict[str, Any], revenue: Optional[float] 
             "vendor_type": prev.get("vendor_type"),
         }
         if not assignment["vendor_id"]:
-            # Try auto-assign on first run
+            # Try auto-assign on first run or when newly assigned
             auto = await _auto_assign_vendor(spec["vendor_category"], pa)
             if auto:
                 assignment = auto
@@ -210,16 +229,16 @@ async def build_allocations_for_pa(pa: Dict[str, Any], revenue: Optional[float] 
         bonus_amount = float(prev.get("bonus_amount") or 0)
         total_amount = round(calc + bonus_amount, 2)
         status = prev.get("status")
-        if not status:
+        if not status or status == "unassigned":
             status = "unassigned" if not assignment.get("vendor_id") else "pending"
 
         new_allocations.append({
             "allocation_id": spec.get("allocation_id") or str(uuid.uuid4()),
             "vendor_category": spec["vendor_category"],
             "label": spec.get("label") or spec["vendor_category"],
-            "payment_type": spec.get("payment_type", "flat"),
-            "base_amount": float(raw_rate or 0),
-            "rate": float(raw_rate or 0) if spec.get("payment_type") == "percentage" else None,
+            "payment_type": ptype,
+            "base_amount": raw_rate,
+            "rate": raw_rate if ptype == "percentage" else None,
             "calculated_amount": calc,
             "bonus_amount": bonus_amount,
             "total_amount": total_amount,

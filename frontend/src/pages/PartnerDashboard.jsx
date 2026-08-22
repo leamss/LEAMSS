@@ -18,6 +18,7 @@ import LeadPipeline from '@/components/LeadPipeline';
 import FeeCalculator from '@/components/FeeCalculator';
 import PartnerHome from '@/components/PartnerHome';
 import SalesWidgetsRow from '@/components/sales/SalesWidgets';
+import PartnerEarningsWidget from '@/components/PartnerEarningsWidget';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || (typeof window !== 'undefined' && window.location.hostname.includes('leamss.com') ? 'https://api.leamss.com' : 'http://localhost:8001');
 const API = `${BACKEND_URL}/api`;
@@ -582,6 +583,7 @@ const PartnerDashboard = ({ mode = "partner" }) => {
 
           {activeTab === 'home' && (
             <>
+              <PartnerEarningsWidget />
               {mode === "sales" && (
                 <div className="mb-6" data-testid="sales-widgets-banner">
                   <SalesWidgetsRow />
@@ -593,6 +595,7 @@ const PartnerDashboard = ({ mode = "partner" }) => {
 
           {activeTab === 'dashboard' && (
             <div>
+              <PartnerEarningsWidget />
               {/* Quick Actions Widget */}
               <div className="mb-6">
                 <QuickActions 
@@ -767,6 +770,7 @@ const PartnerDashboard = ({ mode = "partner" }) => {
 
           {activeTab === 'commission' && (
             <div className="space-y-6" data-testid="commission-list">
+              <PartnerEarningsWidget />
               {/* Filters */}
               <Card className="p-4">
                 <div className="flex items-center gap-2 mb-4">
