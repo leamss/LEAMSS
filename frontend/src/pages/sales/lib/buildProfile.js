@@ -213,5 +213,7 @@ export function dataFromAssessment(a, baseDefaults = {}) {
     nz_skilled_employment_current: !!nzEx.nz_skilled_employment_current,
     nz_job_offer: !!nzEx.nz_job_offer,
     regional_employment_nz: !!nzEx.regional_employment_nz,
+    // Cost estimator & packages
+    cost_estimator: a.cost_estimator || null,
   };
 }

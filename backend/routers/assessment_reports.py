@@ -393,20 +393,27 @@ async def _build_snapshot(
             "currency": "INR",
             "items": [],
             "packages": DEFAULT_PACKAGES,
+            "service_packages": DEFAULT_PACKAGES,
             "total_by_currency": {"INR": 0},
             "notes": "",
         }
     else:
-        pkgs = cost_estimator.get("packages") or cost_estimator.get("service_packages")
+        pkgs = cost_estimator.get("service_packages") or cost_estimator.get("packages")
         if not pkgs:
-            cost_estimator["packages"] = DEFAULT_PACKAGES
-        else:
-            for p in pkgs:
-                fee = p.get("professional_fee") or 0
-                disc = p.get("discount") or 0
-                gst = p.get("gst") or 0
-                p["total_payable"] = fee - disc + gst
+            pkgs = DEFAULT_PACKAGES
+        for p in pkgs:
+            fee = float(p.get("professional_fee") or 0)
+            disc = float(p.get("discount") or 0)
+            gst = float(p.get("gst") or 0)
+            calc_total = max(0, fee - disc + gst)
+            p["total_payable"] = float(p.get("total") if p.get("total") is not None else (p.get("total_payable") if p.get("total_payable") is not None else calc_total))
+            p["total"] = p["total_payable"]
+            if "show" in p:
+                p["show_in_report"] = bool(p["show"])
+            else:
                 p.setdefault("show_in_report", True)
+        cost_estimator["packages"] = pkgs
+        cost_estimator["service_packages"] = pkgs
 
 
     # 2b) Occupation side-by-side comparison (primary + additional codes)
@@ -520,6 +527,7 @@ async def generate_report(req: GenerateRequest, current_user: dict = Depends(get
         "client_name": a.get("client_name"),
         "persona": req.persona,
         "mode": req.mode,
+        "render_tier": "full",
         "include_unverified": req.include_unverified,
         "data": snap_data,
         "warnings": snap_data.get("warnings") or [],
@@ -735,8 +743,8 @@ async def public_pdf(share_token: str):
         raise HTTPException(status_code=404, detail="Report not found")
     snap_data = d.get("data") or {}
     snap_data["snapshot_id"] = d.get("snapshot_id")
-    # Phase 7.3 — public link respects the snapshot's stored tier (or teaser default)
-    snap_data["render_tier"] = d.get("render_tier") or "teaser"
+    # Public link respects snapshot tier or defaults to full
+    snap_data["render_tier"] = d.get("render_tier") or "full"
     pdf_bytes = render_pdf(snap_data)
     filename = f"LEAMSS_Report_{(d.get('client_name') or 'client').replace(' ', '_')}.pdf"
     return Response(

@@ -75,10 +75,11 @@ class ServicePackage(BaseModel):
     name: str
     show: bool = True
     professional_fee: float = 0
-    professional_fee_label: str = "Professional Fee"
+    professional_fee_label: Optional[str] = "Professional Fee"
     discount: float = 0
     gst: float = 0
     total: float = 0
+    total_payable: Optional[float] = None
     currency: str = "INR"
     protection_level: str = "Basic"
     professional_fee_refund: bool = False
@@ -86,7 +87,10 @@ class ServicePackage(BaseModel):
     inclusions: List[str] = Field(default_factory=list)
     addon: Optional[ServicePackageAddon] = None
     highlight: bool = False
+    recommended: Optional[bool] = None
     note: Optional[str] = None
+    tagline: Optional[str] = None
+    show_in_report: Optional[bool] = None
 
 
 class SaveCostEstimatorRequest(BaseModel):
@@ -389,6 +393,7 @@ async def save_cost_estimator(
         "currency": req.currency,
         "items": items_serializable,
         "service_packages": [p.model_dump() for p in req.service_packages] if req.service_packages else [],
+        "packages": [p.model_dump() for p in req.service_packages] if req.service_packages else [],
         "total_by_currency": total_by_currency,
         "notes": req.notes,
         "updated_at": __import__("datetime").datetime.now(__import__("datetime").timezone.utc),
