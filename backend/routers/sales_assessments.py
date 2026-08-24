@@ -66,8 +66,10 @@ class SaveAssessmentRequest(BaseModel):
     client_phone: Optional[str] = None
     profile: Dict[str, Any]
     occupation: Optional[Dict[str, Any]] = None  # { country_code, code, title, assessing_body, pathway }
+    additional_occupations: List[Dict[str, Any]] = Field(default_factory=list)
     targets: List[TargetCalc] = Field(..., min_length=1)
     final_notes: Optional[str] = None
+    cost_estimator: Optional[Dict[str, Any]] = None
 
 
 @router.post("")
@@ -93,12 +95,14 @@ async def save_assessment(req: SaveAssessmentRequest, current_user: dict = Depen
         "client_phone": req.client_phone,
         "profile_snapshot": req.profile,
         "occupation": req.occupation,
+        "additional_occupations": req.additional_occupations,
         "targets": [t.model_dump() for t in req.targets],
         "results": results,
         "best_country_code": best.get("country_code") if best else None,
         "best_total": best.get("total") if best else None,
         "best_recommendation": best.get("recommendation") if best else None,
         "final_notes": req.final_notes,
+        "cost_estimator": req.cost_estimator,
         "linked_pa_id": None,
         "created_by": current_user["id"],
         "created_by_name": current_user.get("name"),
@@ -304,6 +308,7 @@ async def update_assessment(assessment_id: str, req: SaveAssessmentRequest, curr
         "client_phone": req.client_phone,
         "profile_snapshot": req.profile,
         "occupation": req.occupation,
+        "additional_occupations": req.additional_occupations or [],
         "targets": [t.model_dump() for t in req.targets],
         "results": results,
         "best_country_code": new_best_country,
@@ -312,6 +317,8 @@ async def update_assessment(assessment_id: str, req: SaveAssessmentRequest, curr
         "final_notes": req.final_notes,
         "updated_at": now,
     }
+    if req.cost_estimator is not None:
+        update_doc["cost_estimator"] = req.cost_estimator
     await assessments_col.update_one({"id": assessment_id}, {"$set": update_doc})
 
     # ─── Phase 6.8.6: Sync the linked PA so partner dashboard reflects the new

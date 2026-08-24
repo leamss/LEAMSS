@@ -98,7 +98,7 @@ function AssignVendorDialog({ open, onClose, paId, allocation, onAssigned }) {
 }
 
 
-function AllocationRow({ paId, allocation, onChanged }) {
+function AllocationRow({ paId, allocation, onChanged, isAdmin = true }) {
   const [assignOpen, setAssignOpen] = useState(false);
   const meta = STATUS_BADGE[allocation.status] || STATUS_BADGE.pending;
   const StatusIcon = meta.icon;
@@ -132,25 +132,32 @@ function AllocationRow({ paId, allocation, onChanged }) {
       </div>
       <div className="col-span-2">
         <Badge className={`${meta.color} text-[10px] flex items-center gap-1 w-fit`}><StatusIcon className="h-3 w-3" />{meta.label}</Badge>
+        {allocation.status === 'paid' && allocation.payment_reference && (
+          <p className="text-[10px] text-slate-400 mt-0.5 font-mono">Ref: {allocation.payment_reference}</p>
+        )}
       </div>
       <div className="col-span-2 flex gap-1 justify-end">
-        {!allocation.vendor_id && (
-          <Button size="sm" variant="outline" onClick={() => setAssignOpen(true)} className="h-7 text-[11px] px-2" data-testid={`assign-${allocation.allocation_id}`}>Assign</Button>
-        )}
-        {allocation.vendor_id && allocation.status === 'pending' && (
-          <Button size="sm" variant="outline" onClick={() => action('approve')} className="h-7 text-[11px] px-2" data-testid={`approve-${allocation.allocation_id}`}>Approve</Button>
-        )}
-        {allocation.vendor_id && allocation.status === 'approved' && (
-          <Button size="sm" onClick={() => action('mark-paid', { payment_reference: prompt('Payment reference (NEFT/UPI/cheque):') || '' })} className="h-7 text-[11px] px-2 bg-emerald-600 hover:bg-emerald-700" data-testid={`pay-${allocation.allocation_id}`}>Pay</Button>
+        {isAdmin && (
+          <>
+            {!allocation.vendor_id && (
+              <Button size="sm" variant="outline" onClick={() => setAssignOpen(true)} className="h-7 text-[11px] px-2" data-testid={`assign-${allocation.allocation_id}`}>Assign</Button>
+            )}
+            {allocation.vendor_id && allocation.status === 'pending' && (
+              <Button size="sm" variant="outline" onClick={() => action('approve')} className="h-7 text-[11px] px-2" data-testid={`approve-${allocation.allocation_id}`}>Approve</Button>
+            )}
+            {allocation.vendor_id && allocation.status === 'approved' && (
+              <Button size="sm" onClick={() => action('mark-paid', { payment_reference: prompt('Payment reference (NEFT/UPI/cheque):') || '' })} className="h-7 text-[11px] px-2 bg-emerald-600 hover:bg-emerald-700" data-testid={`pay-${allocation.allocation_id}`}>Pay</Button>
+            )}
+          </>
         )}
       </div>
-      <AssignVendorDialog open={assignOpen} onClose={() => setAssignOpen(false)} paId={paId} allocation={allocation} onAssigned={onChanged} />
+      {isAdmin && <AssignVendorDialog open={assignOpen} onClose={() => setAssignOpen(false)} paId={paId} allocation={allocation} onAssigned={onChanged} />}
     </div>
   );
 }
 
 
-function PaAllocationCard({ pa, onChanged }) {
+function PaAllocationCard({ pa, onChanged, isAdmin = true }) {
   const [expanded, setExpanded] = useState(false);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -214,7 +221,7 @@ function PaAllocationCard({ pa, onChanged }) {
             !data?.has_allocations ? (
               <div className="text-center p-4 text-sm">
                 <p className="text-slate-500 mb-2">{data?.message || 'No allocations yet'}</p>
-                <Button size="sm" onClick={handleRecalc} variant="outline" data-testid={`build-allocs-${pa.id}`}>Build Allocations</Button>
+                {isAdmin && <Button size="sm" onClick={handleRecalc} variant="outline" data-testid={`build-allocs-${pa.id}`}>Build Allocations</Button>}
               </div>
             ) : (
               <>
@@ -229,15 +236,17 @@ function PaAllocationCard({ pa, onChanged }) {
                   <div className="col-span-3">Vendor</div>
                   <div className="col-span-2 text-right">Amount</div>
                   <div className="col-span-2">Status</div>
-                  <div className="col-span-2 text-right">Action</div>
+                  <div className="col-span-2 text-right">{isAdmin ? 'Action' : ''}</div>
                 </div>
-                {allocs.map(a => <AllocationRow key={a.allocation_id} paId={pa.id} allocation={a} onChanged={() => { load(); onChanged(); }} />)}
-                <div className="flex gap-2 mt-3 justify-end">
-                  <Button size="sm" variant="outline" onClick={handleRecalc} className="text-xs h-8" data-testid={`recalc-${pa.id}`}><RefreshCw className="h-3 w-3 mr-1" />Recalc</Button>
-                  {!data?.allocations?.milestones?.visa_approved && (
-                    <Button size="sm" onClick={handleVisaApproved} className="text-xs h-8 bg-amber-600 hover:bg-amber-700" data-testid={`visa-approved-${pa.id}`}><Trophy className="h-3 w-3 mr-1" />Visa Approved (Apply Bonuses)</Button>
-                  )}
-                </div>
+                {allocs.map(a => <AllocationRow key={a.allocation_id} paId={pa.id} allocation={a} isAdmin={isAdmin} onChanged={() => { load(); onChanged(); }} />)}
+                {isAdmin && (
+                  <div className="flex gap-2 mt-3 justify-end">
+                    <Button size="sm" variant="outline" onClick={handleRecalc} className="text-xs h-8" data-testid={`recalc-${pa.id}`}><RefreshCw className="h-3 w-3 mr-1" />Recalc</Button>
+                    {!data?.allocations?.milestones?.visa_approved && (
+                      <Button size="sm" onClick={handleVisaApproved} className="text-xs h-8 bg-amber-600 hover:bg-amber-700" data-testid={`visa-approved-${pa.id}`}><Trophy className="h-3 w-3 mr-1" />Visa Approved (Apply Bonuses)</Button>
+                    )}
+                  </div>
+                )}
               </>
             )
           }
@@ -254,14 +263,22 @@ export default function AdminAllocations() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statsRefresh, setStatsRefresh] = useState(0);
+  
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const isAdmin = user?.role === 'admin' || user?.rbac_role === 'admin' || user?.role === 'admin_owner';
 
   const load = async () => {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      // Phase 4C.3 — Fetch PAs at case_created stage (admin)
+      // Phase 4C.3 — Fetch PAs at case_created stage or active cases
       const r = await axios.get(`${API}/pre-assessment/my-assessments?stage=case_created`, { headers: { Authorization: `Bearer ${token}` } });
-      const list = Array.isArray(r.data) ? r.data : (r.data.pre_assessments || r.data.items || []);
+      let list = Array.isArray(r.data) ? r.data : (r.data.pre_assessments || r.data.items || []);
+      if (!list || list.length === 0) {
+        const r2 = await axios.get(`${API}/pre-assessment/my-assessments`, { headers: { Authorization: `Bearer ${token}` } });
+        const allList = Array.isArray(r2.data) ? r2.data : (r2.data.pre_assessments || r2.data.items || []);
+        list = allList.filter(p => p.stage === 'case_created' || p.case_id || p.case_manager_id || ['proposal_sent', 'proposal_paid', 'awaiting_final_approval', 'under_review', 'approved', 'documents_submitted'].includes(p.stage));
+      }
       setPas(list);
     } catch (e) { toast.error('Failed to load PAs'); }
     finally { setLoading(false); }
@@ -279,10 +296,10 @@ export default function AdminAllocations() {
       <div className="max-w-6xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-            <button onClick={() => navigate('/admin')} className="p-2 rounded-lg hover:bg-slate-200" data-testid="back-to-admin"><ArrowLeft className="h-5 w-5 text-slate-700" /></button>
+            <button onClick={() => navigate(-1)} className="p-2 rounded-lg hover:bg-slate-200" data-testid="back-to-admin"><ArrowLeft className="h-5 w-5 text-slate-700" /></button>
             <div>
               <h1 className="text-3xl font-extrabold text-slate-800 flex items-center gap-2"><IndianRupee className="h-7 w-7 text-leamss-teal-600" />Vendor Cost Allocations</h1>
-              <p className="text-sm text-slate-500 mt-1">Auto-generated when PA reaches <strong>case_created</strong>. Assign vendors → approve → mark paid.</p>
+              <p className="text-sm text-slate-500 mt-1">Cost breakdown and vendor payout tracking for active client cases.</p>
             </div>
           </div>
           <div className="relative">
@@ -296,11 +313,11 @@ export default function AdminAllocations() {
         ) : filtered.length === 0 ? (
           <Card className="p-12 text-center">
             <IndianRupee className="h-10 w-10 text-slate-300 mx-auto mb-3" />
-            <p className="text-slate-500">No active cases yet. Allocations are created when a PA reaches <strong>case_created</strong> stage.</p>
+            <p className="text-slate-500">No active cases yet. Allocations are generated for client cases in progress.</p>
           </Card>
         ) : (
           <div data-testid="allocations-list">
-            {filtered.map(pa => <PaAllocationCard key={pa.id} pa={pa} onChanged={() => setStatsRefresh(x => x + 1)} />)}
+            {filtered.map(pa => <PaAllocationCard key={pa.id} pa={pa} isAdmin={isAdmin} onChanged={() => setStatsRefresh(x => x + 1)} />)}
           </div>
         )}
       </div>

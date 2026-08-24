@@ -1,0 +1,159 @@
+{# OCCUPATION PATHWAYS COMPARISON — side-by-side of primary + alternative codes #}
+{% set occs = (snap.occupation_comparison or {}).get('occupations') or [] %}
+
+{% macro fee_str(f) %}
+  {%- if f and f.amount is not none -%}
+    {{ f.currency or '' }} {{ '{:,.0f}'.format(f.amount) }}{% if f.inr %} · ₹{{ '{:,.0f}'.format(f.inr) }}{% endif %}
+  {%- elif f and f.inr -%}
+    ₹{{ '{:,.0f}'.format(f.inr) }}
+  {%- else -%}
+    Refer to authority
+  {%- endif -%}
+{% endmacro %}
+
+{% if occs|length >= 2 %}
+<div class="page">
+
+  <div class="section-header">
+    <span class="eyebrow">Occupation Options</span>
+    <h1>Occupation Pathways Comparison</h1>
+    <span class="rule"></span>
+    <p class="lead">Your profile may qualify under more than one occupation code. Below is a side-by-side
+       comparison of each eligible pathway — assessing authority, skill-assessment cost, eligible visa
+       subclasses and how your points stack up. Your primary pathway drives the detailed plan; the
+       alternatives give you flexibility.</p>
+  </div>
+
+  <table class="occ-compare">
+    <thead>
+      <tr>
+        <th class="feat-col">&nbsp;</th>
+        {% for o in occs %}
+          <th class="{{ 'occ-hi' if o.is_primary }}">
+            {% if o.is_primary %}<div class="occ-ribbon">★ Primary</div>{% else %}<div class="occ-alt">Alternative</div>{% endif %}
+            <div class="occ-code">{{ o.code }}</div>
+            <div class="occ-title">{{ o.title or '—' }}</div>
+            <div class="occ-flag">{{ o.country_code }}</div>
+          </th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="feat-col">Assessing Authority</td>
+        {% for o in occs %}
+          <td class="{{ 'occ-hi' if o.is_primary }}">{{ o.assessing_authority_name or o.assessing_body or '—' }}</td>
+        {% endfor %}
+      </tr>
+
+      <tr>
+        <td class="feat-col">Skill Assessment Fee</td>
+        {% for o in occs %}
+          <td class="{{ 'occ-hi' if o.is_primary }}">{{ fee_str(o.skill_assessment_fee) }}</td>
+        {% endfor %}
+      </tr>
+
+      <tr>
+        <td class="feat-col">Eligible Visa Subclasses</td>
+        {% for o in occs %}
+          <td class="{{ 'occ-hi' if o.is_primary }}">
+            {% if o.visa_subclasses %}
+              {% for v in o.visa_subclasses %}<span class="pill teal">{{ v }}</span> {% endfor %}
+            {% else %}—{% endif %}
+          </td>
+        {% endfor %}
+      </tr>
+
+      {% set has_mip = occs | selectattr('min_invitation_points') | list %}
+      {% if has_mip %}
+      <tr>
+        <td class="feat-col">Min Invitation Points <span class="tiny">(subclass 189)</span></td>
+        {% for o in occs %}
+          <td class="{{ 'occ-hi' if o.is_primary }}">{{ o.min_invitation_points if o.min_invitation_points is not none else '—' }}</td>
+        {% endfor %}
+      </tr>
+      {% endif %}
+
+      {% set has_tier = occs | selectattr('skillselect_tier') | list %}
+      {% if has_tier %}
+      <tr>
+        <td class="feat-col">SkillSelect Tier</td>
+        {% for o in occs %}
+          <td class="{{ 'occ-hi' if o.is_primary }}">{% if o.skillselect_tier %}{{ o.skillselect_tier|replace('_',' ')|title }}{% else %}—{% endif %}</td>
+        {% endfor %}
+      </tr>
+      {% endif %}
+
+      {% set has_eoi = occs | selectattr('eoi_189') | list %}
+      {% if has_eoi %}
+      <tr>
+        <td class="feat-col">EOIs in Pool <span class="tiny">(189, SUBMITTED)</span></td>
+        {% for o in occs %}
+          <td class="{{ 'occ-hi' if o.is_primary }}">{% if o.eoi_189 %}{{ '{:,}'.format(o.eoi_189.total) }}{% if o.eoi_189.suppressed %}+{% endif %}{% else %}—{% endif %}</td>
+        {% endfor %}
+      </tr>
+      {% endif %}
+
+      <tr class="pts-row">
+        <td class="feat-col">Your Points Score</td>
+        {% for o in occs %}
+          <td class="{{ 'occ-hi' if o.is_primary }}">
+            <span class="big-pts">{{ o.points if o.points is not none else '—' }}</span>
+            {% if o.pass_mark is not none %}<span class="tiny"> / pass {{ o.pass_mark }}</span>{% endif %}
+          </td>
+        {% endfor %}
+      </tr>
+
+      <tr>
+        <td class="feat-col">Eligibility</td>
+        {% for o in occs %}
+          <td class="{{ 'occ-hi' if o.is_primary }}">
+            {% if o.eligible is none %}<span class="tiny">Under review</span>
+            {% elif o.eligible %}<span class="yes">✓ Meets pass mark</span>
+            {% else %}<span class="no">Below pass mark</span>{% endif %}
+          </td>
+        {% endfor %}
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="spacer-sm"></div>
+  <div class="note">
+    <b>How to read this:</b> Points scores reflect your personal profile (age, education, English,
+    experience) and are the same across occupations in a country — what changes per code is the
+    assessing authority, the assessment cost, and which visa subclasses accept the occupation.
+    Confirm each occupation's current status with your consultant before lodging.
+  </div>
+
+  <style>
+    table.occ-compare { width:100%; border-collapse:separate; border-spacing:0; margin-top:8pt; font-size:8.5pt; }
+    table.occ-compare th, table.occ-compare td {
+      border-bottom:0.75pt solid var(--border); padding:6pt 7pt; text-align:center; vertical-align:top;
+    }
+    table.occ-compare thead th {
+      background:var(--teal-100); color:var(--teal-800); border-bottom:1.5pt solid var(--teal-700);
+      border-top-left-radius:6pt; border-top-right-radius:6pt;
+    }
+    table.occ-compare th.occ-hi, table.occ-compare td.occ-hi { background:rgba(212,99,63,0.06); }
+    table.occ-compare thead th.occ-hi { background:var(--teal-700); color:var(--white); }
+    .feat-col { text-align:left !important; width:26%; font-weight:600; color:var(--slate-500); background:transparent !important; }
+    .occ-code { font-family:'Playfair Display',serif; font-size:12pt; font-weight:800; line-height:1.1; }
+    .occ-title { font-size:8pt; line-height:1.2; margin-top:2pt; }
+    .occ-flag { font-size:7.5pt; opacity:0.75; margin-top:2pt; }
+    .occ-ribbon {
+      display:inline-block; background:var(--gold-500); color:#3a2a00; font-size:7pt; font-weight:800;
+      padding:1pt 6pt; border-radius:8pt; margin-bottom:3pt; letter-spacing:0.5pt;
+    }
+    .occ-alt {
+      display:inline-block; background:#e2e8f0; color:#475569; font-size:7pt; font-weight:700;
+      padding:1pt 6pt; border-radius:8pt; margin-bottom:3pt; letter-spacing:0.5pt;
+    }
+    .pts-row td { padding-top:8pt; padding-bottom:8pt; }
+    .big-pts { font-family:'Playfair Display',serif; font-size:15pt; font-weight:800; color:var(--teal-700); }
+    td.occ-hi .big-pts { color:var(--teal-800); }
+    .yes { color:#0b8457; font-weight:700; }
+    .no { color:#c0392b; font-weight:700; }
+  </style>
+
+</div>
+{% endif %}

@@ -621,6 +621,48 @@ def _section_cost_estimator(snap, styles):
     return flow
 
 
+def _section_service_packages(snap, styles):
+    """LEAMSS Service Packages comparison table (V1 ReportLab fallback)."""
+    ce = snap.get("cost_estimator") or {}
+    all_pkgs = ce.get("service_packages") or ce.get("packages") or []
+    pkgs = [p for p in all_pkgs if (p.get("show") if p.get("show") is not None else p.get("show_in_report", True))]
+    if not pkgs:
+        return []
+    flow = [Paragraph("LEAMSS SERVICE PACKAGES", styles["h1"])]
+    flow.append(Paragraph(
+        "Choose the level of financial protection and processing support that suits your needs.",
+        styles["body"]))
+    flow.append(Spacer(1, 6))
+
+    rows = [["Feature / Package"] + [p.get("name", "Package") for p in pkgs]]
+    # Professional fee
+    rows.append(["Professional Fee"] + [f"INR {p.get('professional_fee', 0):,.0f}" for p in pkgs])
+    # Discount
+    rows.append(["Discount"] + [f"− INR {p.get('discount', 0):,.0f}" if p.get('discount') else "—" for p in pkgs])
+    # GST
+    rows.append(["GST (18%)"] + [f"INR {p.get('gst', 0):,.0f}" for p in pkgs])
+    # Total
+    rows.append(["Total Payable"] + [f"INR {p.get('total', 0):,.0f}" for p in pkgs])
+    # Protection level
+    rows.append(["Protection Level"] + [p.get("protection_level", "Basic") for p in pkgs])
+    # Refund guarantees
+    rows.append(["100% Prof Fee Refund"] + ["✓ Yes" if p.get("professional_fee_refund") else "✗ No" for p in pkgs])
+    rows.append(["100% Govt Fee Refund"] + ["✓ Yes" if p.get("govt_fee_refund") else "✗ No" for p in pkgs])
+    # Addon
+    rows.append(["Optional Add-on"] + [
+        f"+ INR {p.get('addon', {}).get('amount', 0):,.0f} (Enabled)" if p.get("addon", {}).get("enabled")
+        else ("Available on request" if p.get("addon") else "—")
+        for p in pkgs
+    ])
+
+    t = Table(rows)
+    t.setStyle(_table_style(highlight_last=False))
+    flow.append(t)
+    flow.append(Spacer(1, 6))
+    flow.append(PageBreak())
+    return flow
+
+
 def _section_protection_policy(snap, styles):
     """Phase 7.3 — LEAMSS Protection Policy (Sir's USP).
 
@@ -818,6 +860,8 @@ def render_pdf(snapshot: Dict[str, Any]) -> bytes:
         story.extend(_section_process_and_cost(snapshot, styles))
         # Cost Estimator (Phase 7.3) — only when admin populated
         story.extend(_section_cost_estimator(snapshot, styles))
+        # Service Packages (custom + default packages with add-ons)
+        story.extend(_section_service_packages(snapshot, styles))
         # Country guide
         story.extend(_section_country_guide(snapshot, styles))
         # Detailed checklist

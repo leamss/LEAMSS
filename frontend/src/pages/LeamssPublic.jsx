@@ -642,19 +642,349 @@ const TIER_META = {
 };
 const tierMeta = (t) => TIER_META[t] || TIER_META.unlikely;
 
+// Canada Express Entry CRS uses a 1,200-point scale.
+// Other LEAMSS pathway-fit cards continue to use the existing 0–100 scale.
+function isCanadaPathway(p) {
+  const haystack = [p?.country, p?.country_code, p?.countryCode, p?.slug, p?.name, p?.pathway]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+  return haystack.includes('canada') || haystack.includes('can_') || haystack.includes('ca-');
+}
+
+function getPathwayScore(p) {
+  if (isCanadaPathway(p)) {
+    // Prefer an explicit CRS field when the API provides it.
+    // Fall back to score because the current API may already return CRS in score.
+    return Number(p?.crs_score ?? p?.score ?? 0);
+  }
+  return Number(p?.score ?? 0);
+}
+
+function getPathwayScoreMax(p) {
+  if (isCanadaPathway(p)) {
+    return Number(p?.crs_score_max ?? 1200);
+  }
+  return Number(p?.score_max ?? 100);
+}
+
+function getPathwayScorePercent(p) {
+  const score = getPathwayScore(p);
+  const max = getPathwayScoreMax(p);
+  return max > 0 ? Math.min(100, Math.max(0, (score / max) * 100)) : 0;
+}
+
 function FactorBar({ b }) {
-  const pct = b.max > 0 ? Math.round((b.earned / b.max) * 100) : 0;
+  const earned = Number(b?.earned ?? b?.score ?? 0);
+  const max = Number(b?.max ?? b?.maximum ?? 0);
+  const pct = max > 0 ? Math.round((earned / max) * 100) : 0;
   const color = pct >= 80 ? BRAND.success : pct >= 50 ? BRAND.primary : BRAND.accent;
+
   return (
-    <div className="py-1.5" data-testid={`factor-${b.factor}`}>
+    <div className="py-1.5" data-testid={`factor-${b?.factor || b?.label || 'item'}`}>
       <div className="flex items-center justify-between text-xs mb-1">
-        <span className="font-semibold" style={{ color: BRAND.ink }}>{b.label}</span>
-        <span className="font-bold tabular-nums" style={{ color }}>{b.earned}<span style={{ color: BRAND.muted }}>/{b.max}</span></span>
+        <span className="font-semibold" style={{ color: BRAND.ink }}>
+          {b?.label || b?.factor || 'Factor'}
+        </span>
+        <span className="font-bold tabular-nums" style={{ color }}>
+          {earned}
+          <span style={{ color: BRAND.muted }}>/{max}</span>
+        </span>
       </div>
       <div className="h-1.5 rounded-full overflow-hidden" style={{ background: BRAND.border }}>
-        <div style={{ width: `${pct}%`, background: color, height: '100%' }} />
+        <div style={{ width: `${Math.min(100, Math.max(0, pct))}%`, background: color, height: '100%' }} />
       </div>
-      <p className="text-[11px] mt-1" style={{ color: BRAND.muted }}>{b.reason}</p>
+      {b?.reason && (
+        <p className="text-[11px] mt-1" style={{ color: BRAND.muted }}>
+          {b.reason}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/*
+ * Canada CRS breakdown renderer.
+ *
+ * The Canada API uses `crs_breakdown`, while the other pathway cards use
+ * `breakdown`.  The renderer below intentionally supports both the current
+ * section-based API shape and small variations in nested CRS data so the
+ * frontend does not silently render an empty "CRS breakdown" heading.
+ */
+const CRS_SECTION_TITLES = {
+  core_human_capital: 'Core / Human Capital',
+  core_human_capital_factors: 'Core / Human Capital',
+  second_official_language: 'Second Official Language',
+  second_official_language_ability: 'Second Official Language',
+  spouse_factors: 'Spouse / Common-Law Partner Factors',
+  spouse_common_law_partner: 'Spouse / Common-Law Partner Factors',
+  skill_transferability: 'Skill Transferability',
+  additional_points: 'Additional Points',
+};
+
+function humanizeCRSKey(value) {
+  if (!value) return 'CRS Factor';
+  return String(value)
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function getCRSSectionTitle(section, index) {
+  const key = section?.section || section?.key || section?.id || section?.name;
+  return (
+    CRS_SECTION_TITLES[key] ||
+    section?.label ||
+    section?.title ||
+    humanizeCRSKey(key) ||
+    `CRS Factor ${index + 1}`
+  );
+}
+
+function normalizeCRSBreakdown(raw) {
+  if (!raw) return [];
+
+  if (Array.isArray(raw)) {
+    return raw;
+  }
+
+  if (typeof raw === 'object') {
+    return Object.entries(raw).map(([key, value]) => {
+      if (value && typeof value === 'object' && !Array.isArray(value)) {
+        return {
+          ...value,
+          section: value.section || key,
+          label: value.label || value.title || CRS_SECTION_TITLES[key] || humanizeCRSKey(key),
+        };
+      }
+
+      return {
+        section: key,
+        label: CRS_SECTION_TITLES[key] || humanizeCRSKey(key),
+        earned: Number(value || 0),
+        max: 0,
+      };
+    });
+  }
+
+  return [];
+}
+
+function CRSValue({ value }) {
+  if (value === null || value === undefined || value === '') return null;
+  return <span>{String(value)}</span>;
+}
+
+function CRSNestedRows({ items }) {
+  if (!Array.isArray(items) || items.length === 0) return null;
+
+  return (
+    <div className="mt-3 pt-3 border-t space-y-2" style={{ borderColor: BRAND.border }}>
+      {items.map((item, index) => {
+        const earned = item?.earned ?? item?.score ?? item?.points ?? 0;
+        const max = item?.max ?? item?.maximum ?? item?.max_points ?? 0;
+        const label =
+          item?.label ||
+          item?.name ||
+          item?.factor ||
+          item?.ability ||
+          `Factor ${index + 1}`;
+
+        return (
+          <div key={`${label}-${index}`} className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[11px] font-medium" style={{ color: BRAND.body }}>
+                {label}
+              </p>
+
+              {item?.reason && (
+                <p className="text-[10px] mt-0.5" style={{ color: BRAND.muted }}>
+                  {item.reason}
+                </p>
+              )}
+
+              {item?.clb !== undefined && item?.clb !== null && (
+                <p className="text-[10px] mt-0.5" style={{ color: BRAND.muted }}>
+                  CLB {item.clb}
+                </p>
+              )}
+            </div>
+
+            {(item?.earned !== undefined ||
+              item?.score !== undefined ||
+              item?.points !== undefined) && (
+              <span
+                className="text-[11px] font-bold tabular-nums whitespace-nowrap"
+                style={{ color: BRAND.primary }}
+              >
+                {earned}
+                {max ? `/${max}` : ''}
+              </span>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function CanadaCRSBreakdown({ p, tm, displayScore, scoreMax }) {
+  const sections = normalizeCRSBreakdown(p?.crs_breakdown);
+
+  return (
+    <div data-testid="crs-breakdown">
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <p
+          className="text-[11px] font-bold uppercase tracking-wider"
+          style={{ color: BRAND.muted }}
+        >
+          CRS Breakdown
+        </p>
+
+        <span
+          className="text-xs font-bold"
+          style={{ color: tm.color }}
+        >
+          {displayScore}/{scoreMax}
+        </span>
+      </div>
+
+      {sections.length > 0 ? (
+        <div className="space-y-3">
+          {sections.map((section, index) => {
+            const earned = Number(section?.earned ?? section?.score ?? section?.points ?? 0);
+            const max = Number(section?.max ?? section?.maximum ?? section?.max_points ?? 0);
+            const pct = max > 0 ? Math.min(100, Math.max(0, (earned / max) * 100)) : 0;
+
+            const nestedItems =
+              section?.breakdown ||
+              section?.factors ||
+              section?.items ||
+              section?.abilities ||
+              [];
+
+            const sectionColor =
+              pct >= 80
+                ? BRAND.success
+                : pct >= 50
+                  ? BRAND.primary
+                  : BRAND.accent;
+
+            return (
+              <div
+                key={`${section?.section || section?.key || index}`}
+                className="rounded-lg p-3"
+                style={{
+                  background: '#FFFFFF',
+                  border: `1px solid ${BRAND.border}`,
+                }}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p
+                      className="text-xs font-bold"
+                      style={{ color: BRAND.ink }}
+                    >
+                      {getCRSSectionTitle(section, index)}
+                    </p>
+
+                    {section?.reason && (
+                      <p
+                        className="text-[10px] mt-1"
+                        style={{ color: BRAND.muted }}
+                      >
+                        {section.reason}
+                      </p>
+                    )}
+                  </div>
+
+                  {(section?.earned !== undefined ||
+                    section?.score !== undefined ||
+                    section?.points !== undefined ||
+                    section?.max !== undefined ||
+                    section?.maximum !== undefined) && (
+                    <span
+                      className="text-xs font-bold tabular-nums whitespace-nowrap"
+                      style={{ color: sectionColor }}
+                    >
+                      {earned}/{max}
+                    </span>
+                  )}
+                </div>
+
+                {max > 0 && (
+                  <div
+                    className="h-1.5 rounded-full overflow-hidden mt-2"
+                    style={{ background: BRAND.border }}
+                  >
+                    <div
+                      style={{
+                        width: `${pct}%`,
+                        background: sectionColor,
+                        height: '100%',
+                      }}
+                    />
+                  </div>
+                )}
+
+                <CRSNestedRows items={nestedItems} />
+
+                {section?.details &&
+                  typeof section.details === 'object' &&
+                  !Array.isArray(section.details) && (
+                    <div
+                      className="mt-3 pt-3 border-t space-y-1.5"
+                      style={{ borderColor: BRAND.border }}
+                    >
+                      {Object.entries(section.details).map(([key, value]) => (
+                        <div
+                          key={key}
+                          className="flex items-center justify-between gap-3"
+                        >
+                          <span
+                            className="text-[10px]"
+                            style={{ color: BRAND.muted }}
+                          >
+                            {humanizeCRSKey(key)}
+                          </span>
+                          <span
+                            className="text-[10px] font-semibold text-right"
+                            style={{ color: BRAND.body }}
+                          >
+                            <CRSValue value={value} />
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div
+          className="rounded-lg p-3"
+          style={{
+            background: '#FFFFFF',
+            border: `1px solid ${BRAND.border}`,
+          }}
+        >
+          <p className="text-xs" style={{ color: BRAND.muted }}>
+            CRS details are not available for this score yet.
+          </p>
+        </div>
+      )}
+
+      <div
+        className="mt-4 pt-3 border-t flex items-center justify-between"
+        style={{ borderColor: BRAND.border }}
+      >
+        <span className="text-xs font-bold" style={{ color: BRAND.ink }}>
+          Total CRS Score
+        </span>
+        <span className="text-sm font-bold" style={{ color: tm.color }}>
+          {displayScore}/{scoreMax} CRS
+        </span>
+      </div>
     </div>
   );
 }
@@ -662,32 +992,118 @@ function FactorBar({ b }) {
 function PathwayResultCard({ p, isBest }) {
   const [open, setOpen] = useState(isBest);
   const tm = tierMeta(p.tier);
+  const canada = isCanadaPathway(p);
+  const displayScore = getPathwayScore(p);
+  const scoreMax = getPathwayScoreMax(p);
+  const scorePercent = getPathwayScorePercent(p);
+
   return (
-    <div className="rounded-xl border overflow-hidden bg-white" style={{ borderColor: isBest ? BRAND.accent : BRAND.border, borderWidth: isBest ? 2 : 1 }} data-testid={`pathway-card-${p.score}`}>
+    <div
+      className="rounded-xl border overflow-hidden bg-white"
+      style={{
+        borderColor: isBest ? BRAND.accent : BRAND.border,
+        borderWidth: isBest ? 2 : 1,
+      }}
+      data-testid={`pathway-card-${p.slug || displayScore}`}
+    >
       <div className="p-5">
         <div className="flex items-start justify-between gap-2 mb-2">
           <div>
             {isBest && <Pill color={BRAND.accent}>★ Best Match</Pill>}
-            <p className="text-sm font-bold mt-1" style={{ color: BRAND.ink }}>{p.name}</p>
-            {p.estimated_timeline && <p className="text-[11px] mt-0.5" style={{ color: BRAND.muted }}>⏱ {p.estimated_timeline}</p>}
+            <p
+              className="text-sm font-bold mt-1"
+              style={{ color: BRAND.ink }}
+            >
+              {p.name}
+            </p>
+            {p.estimated_timeline && (
+              <p
+                className="text-[11px] mt-0.5"
+                style={{ color: BRAND.muted }}
+              >
+                ⏱ {p.estimated_timeline}
+              </p>
+            )}
           </div>
-          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap" style={{ background: tm.bg, color: tm.color }}>{tm.label}</span>
+
+          <span
+            className="text-[11px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap"
+            style={{ background: tm.bg, color: tm.color }}
+          >
+            {tm.label}
+          </span>
         </div>
+
         <div className="flex items-baseline gap-1">
-          <span className="text-4xl font-bold font-serif-leamss" style={{ color: tm.color }}>{p.score}</span>
-          <span className="text-sm" style={{ color: BRAND.muted }}>/ 100</span>
+          <span
+            className="text-4xl font-bold font-serif-leamss"
+            style={{ color: tm.color }}
+          >
+            {displayScore}
+          </span>
+          <span className="text-sm" style={{ color: BRAND.muted }}>
+            / {scoreMax}
+          </span>
+
+          {canada && (
+            <span
+              className="ml-1 text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
+              style={{
+                background: `${BRAND.primary}10`,
+                color: BRAND.primary,
+              }}
+            >
+              CRS
+            </span>
+          )}
         </div>
-        <div className="h-2 rounded-full overflow-hidden mt-2" style={{ background: BRAND.border }}>
-          <div style={{ width: `${p.score}%`, background: tm.color, height: '100%' }} />
+
+        <div
+          className="h-2 rounded-full overflow-hidden mt-2"
+          style={{ background: BRAND.border }}
+        >
+          <div
+            style={{
+              width: `${scorePercent}%`,
+              background: tm.color,
+              height: '100%',
+            }}
+          />
         </div>
-        {p.notes && <p className="text-xs mt-3" style={{ color: BRAND.body }}>{p.notes}</p>}
-        {(p.strengths?.length > 0) && (
+
+        {canada && (
+          <p
+            className="text-[11px] mt-2"
+            style={{ color: BRAND.muted }}
+          >
+            Canada Express Entry Comprehensive Ranking System score. Maximum:
+            1,200 points.
+          </p>
+        )}
+
+        {p.notes && (
+          <p className="text-xs mt-3" style={{ color: BRAND.body }}>
+            {p.notes}
+          </p>
+        )}
+
+        {p.strengths?.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-1.5">
             {p.strengths.slice(0, 3).map((s, i) => (
-              <span key={i} className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: '#E8F3E9', color: BRAND.success }}>✓ {s}</span>
+              <span
+                key={i}
+                className="text-[10px] px-2 py-0.5 rounded-full"
+                style={{
+                  background: '#E8F3E9',
+                  color: BRAND.success,
+                }}
+              >
+                ✓ {s}
+              </span>
             ))}
           </div>
         )}
+
         <button
           onClick={() => setOpen(!open)}
           className="mt-3 inline-flex items-center gap-1 text-xs font-semibold"
@@ -695,41 +1111,140 @@ function PathwayResultCard({ p, isBest }) {
           data-testid="toggle-breakdown"
         >
           {open ? 'Hide' : 'How is this calculated?'}
-          <ChevronDown className="w-3.5 h-3.5 transition-transform" style={{ transform: open ? 'rotate(180deg)' : 'none' }} />
+          <ChevronDown
+            className="w-3.5 h-3.5 transition-transform"
+            style={{
+              transform: open ? 'rotate(180deg)' : 'none',
+            }}
+          />
         </button>
       </div>
+
       <AnimatePresence initial={false}>
         {open && (
           <motion.div
-            initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.25 }} style={{ overflow: 'hidden', background: BRAND.bgSoft }}
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            style={{
+              overflow: 'hidden',
+              background: BRAND.bgSoft,
+            }}
           >
-            <div className="px-5 py-4 border-t" style={{ borderColor: BRAND.border }}>
-              <p className="text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: BRAND.muted }}>Profile strength {typeof p.raw_score === 'number' ? `· ${p.raw_score}/100` : ''}</p>
-              {(p.breakdown || []).map((b, i) => <FactorBar key={i} b={b} />)}
+            <div
+              className="px-5 py-4 border-t"
+              style={{ borderColor: BRAND.border }}
+            >
+              {canada ? (
+                <CanadaCRSBreakdown
+                  p={p}
+                  tm={tm}
+                  displayScore={displayScore}
+                  scoreMax={scoreMax}
+                />
+              ) : (
+                <>
+                  <p
+                    className="text-[11px] font-bold uppercase tracking-wider mb-2"
+                    style={{ color: BRAND.muted }}
+                  >
+                    Profile strength
+                    {typeof p.raw_score === 'number'
+                      ? ` · ${p.raw_score}/100`
+                      : ''}
+                  </p>
+
+                  {(p.breakdown || []).map((b, i) => (
+                    <FactorBar key={i} b={b} />
+                  ))}
+                </>
+              )}
+
               {(p.adjustments?.length > 0) && (
-                <div className="mt-3 pt-3 border-t" style={{ borderColor: BRAND.border }}>
-                  <p className="text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: BRAND.muted }}>Pathway adjustments</p>
+                <div
+                  className="mt-3 pt-3 border-t"
+                  style={{ borderColor: BRAND.border }}
+                >
+                  <p
+                    className="text-[11px] font-bold uppercase tracking-wider mb-2"
+                    style={{ color: BRAND.muted }}
+                  >
+                    Pathway adjustments
+                  </p>
+
                   {p.adjustments.map((a, i) => (
-                    <div key={i} className="flex items-start justify-between gap-2 py-1" data-testid="adjustment-row">
+                    <div
+                      key={i}
+                      className="flex items-start justify-between gap-2 py-1"
+                      data-testid="adjustment-row"
+                    >
                       <div className="flex-1">
-                        <span className="text-xs font-semibold" style={{ color: BRAND.ink }}>{a.label}</span>
-                        <p className="text-[11px]" style={{ color: BRAND.muted }}>{a.reason}</p>
+                        <span
+                          className="text-xs font-semibold"
+                          style={{ color: BRAND.ink }}
+                        >
+                          {a.label}
+                        </span>
+                        <p
+                          className="text-[11px]"
+                          style={{ color: BRAND.muted }}
+                        >
+                          {a.reason}
+                        </p>
                       </div>
-                      <span className="text-xs font-bold tabular-nums whitespace-nowrap" style={{ color: BRAND.accent }}>{a.delta}</span>
+
+                      <span
+                        className="text-xs font-bold tabular-nums whitespace-nowrap"
+                        style={{ color: BRAND.accent }}
+                      >
+                        {a.delta}
+                      </span>
                     </div>
                   ))}
-                  <div className="flex items-center justify-between mt-2 pt-2 border-t" style={{ borderColor: BRAND.border }}>
-                    <span className="text-xs font-bold" style={{ color: BRAND.ink }}>Final score</span>
-                    <span className="text-sm font-bold" style={{ color: tm.color }}>{p.score}/100</span>
+
+                  <div
+                    className="flex items-center justify-between mt-2 pt-2 border-t"
+                    style={{ borderColor: BRAND.border }}
+                  >
+                    <span
+                      className="text-xs font-bold"
+                      style={{ color: BRAND.ink }}
+                    >
+                      Final score
+                    </span>
+                    <span
+                      className="text-sm font-bold"
+                      style={{ color: tm.color }}
+                    >
+                      {displayScore}/{scoreMax}
+                      {canada ? ' CRS' : ''}
+                    </span>
                   </div>
                 </div>
               )}
+
               {p.gaps_to_fix?.length > 0 && (
-                <div className="mt-3 pt-3 border-t" style={{ borderColor: BRAND.border }}>
-                  <p className="text-[11px] font-bold mb-1" style={{ color: BRAND.accent }}>To improve your score:</p>
-                  <ul className="text-[11px] space-y-0.5 ml-4" style={{ color: BRAND.body }}>
-                    {p.gaps_to_fix.map((g, i) => <li key={i} className="list-disc">{g}</li>)}
+                <div
+                  className="mt-3 pt-3 border-t"
+                  style={{ borderColor: BRAND.border }}
+                >
+                  <p
+                    className="text-[11px] font-bold mb-1"
+                    style={{ color: BRAND.accent }}
+                  >
+                    To improve your score:
+                  </p>
+
+                  <ul
+                    className="text-[11px] space-y-0.5 ml-4"
+                    style={{ color: BRAND.body }}
+                  >
+                    {p.gaps_to_fix.map((g, i) => (
+                      <li key={i} className="list-disc">
+                        {g}
+                      </li>
+                    ))}
                   </ul>
                 </div>
               )}
@@ -797,7 +1312,7 @@ function ScorecardActions({ scoreId, topName, topScore, country }) {
   const shareUrl = `${window.location.origin}/scorecard/${scoreId}`;
   const waText = encodeURIComponent(
     `I just found my best-fit visa pathway on LEAMSS! 🌍\n\n` +
-    `✅ Best fit: ${topName || 'My pathway'} — ${topScore ?? ''}/100\n\n` +
+    `✅ Best fit: ${topName || 'My pathway'} — ${topScore ?? ''}${country === 'Canada' ? '/1200 CRS' : '/100'}\n\n` +
     `Check your free pathway-fit score in 60 seconds 👇\n${shareUrl}`
   );
   const waUrl = `https://wa.me/?text=${waText}`;
@@ -886,7 +1401,9 @@ function QuizResult({ result, onReset }) {
   }
   const pathways = Object.entries(result.pathways || {})
     .map(([slug, p]) => ({ slug, ...p }))
-    .sort((a, b) => (b.score || 0) - (a.score || 0));
+    // Compare pathways by percentage, not raw points. Canada CRS is /1200
+    // while the other pathway-fit scores are /100.
+    .sort((a, b) => getPathwayScorePercent(b) - getPathwayScorePercent(a));
   const top = result.top_recommendation;
   return (
     <div className="p-8 lg:p-12" data-testid="quiz-result">
@@ -923,8 +1440,8 @@ function QuizResult({ result, onReset }) {
         <ScorecardActions
           scoreId={result.score_id}
           topName={pathways[0]?.name}
-          topScore={pathways[0]?.score}
-          country={result._country}
+          topScore={pathways[0] ? getPathwayScore(pathways[0]) : undefined}
+          country={result._country || (pathways[0] && isCanadaPathway(pathways[0]) ? 'Canada' : null)}
         />
       )}
 

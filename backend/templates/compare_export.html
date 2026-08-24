@@ -166,104 +166,217 @@
       </tr>
     </thead>
     <tbody>
-      <tr>
-        <td class="label-col">Verification</td>
-        {% for o in occupations %}
-        <td>
-          {% if o.verification_meta and o.verification_meta.is_verified %}
-            <span class="verified">Verified</span>
-            {% if o.verification_meta.verified_by_name %}<br>by <strong>{{ o.verification_meta.verified_by_name }}</strong>{% endif %}
-            {% if o.verification_meta.days_since_verified is not none %}<br><span class="muted">{{ o.verification_meta.days_since_verified }}d ago</span>{% endif %}
-          {% else %}
-            <span class="unverified">Not verified</span>
-          {% endif %}
-        </td>
-        {% endfor %}
-      </tr>
 
-      <tr>
-        <td class="label-col">Skill Body</td>
-        {% for o in occupations %}
-        <td>
-          {% if o.skill_body and o.skill_body.name %}
-            <strong>{{ o.skill_body.name }}</strong>
-            {% if o.skill_body.processing_time_weeks %}<br><span class="muted">{{ o.skill_body.processing_time_weeks }} weeks</span>{% endif %}
-            {% if o.skill_body.fee_native %}<br><span class="muted">{{ o.skill_body.fee_native }}{% if o.skill_body.fee_currency %} {{ o.skill_body.fee_currency }}{% endif %}</span>{% endif %}
-          {% else %}—{% endif %}
-        </td>
-        {% endfor %}
-      </tr>
+  <tr>
+    <td class="label-col">Assessing Body</td>
 
-      <tr>
-        <td class="label-col">Recommended Visa</td>
-        {% for o in occupations %}
-        <td>
-          {% if o.recommended_visa and o.recommended_visa.subclass %}
-            <span class="pill pill-amber pill-mono">{{ o.recommended_visa.subclass }}</span>
-            {% if o.recommended_visa.name and o.recommended_visa.name != o.recommended_visa.subclass %}<br><span class="muted">{{ o.recommended_visa.name }}</span>{% endif %}
-          {% else %}—{% endif %}
-        </td>
-        {% endfor %}
-      </tr>
+    {% for o in occupations %}
+    <td>
+      {% if o.assessing_body %}
+        <strong>{{ o.assessing_body }}</strong>
+      {% else %}
+        —
+      {% endif %}
+    </td>
+    {% endfor %}
+  </tr>
 
-      <tr>
-        <td class="label-col">Eligible Visas</td>
-        {% for o in occupations %}
-        <td>
-          {% if o.eligible_visas %}
-            {% for v in o.eligible_visas %}<span class="pill pill-slate pill-mono">{{ v }}</span>{% endfor %}
-          {% else %}—{% endif %}
-        </td>
-        {% endfor %}
-      </tr>
 
-      <tr>
-        <td class="label-col">Documents</td>
-        {% for o in occupations %}
-        <td>
-          <strong>{{ o.required_documents_total or 0 }}</strong> required
-          {% if o.doc_categories_top3 %}
-          <br>{% for c in o.doc_categories_top3 %}<span class="pill pill-slate">{{ c }}</span>{% endfor %}
-          {% endif %}
-        </td>
-        {% endfor %}
-      </tr>
+  <tr>
+    <td class="label-col">Skill Assessment Fee</td>
 
-      <tr>
-        <td class="label-col">Similar Codes</td>
-        {% for o in occupations %}
-        <td>
-          {% if o.similar_count and o.similar_count > 0 %}
-            <strong>{{ o.similar_count }}</strong>
-            {% if o.similar_top2 %}<br>{% for s in o.similar_top2 %}<span class="pill pill-slate pill-mono">{{ s }}</span>{% endfor %}{% endif %}
-          {% else %}—{% endif %}
-        </td>
-        {% endfor %}
-      </tr>
+    {% for o in occupations %}
+    <td>
+      {% if o.body_fee_native %}
+        <strong>{{ o.body_fee_native }}</strong>
 
-      <tr>
-        <td class="label-col">Sample Cases</td>
-        {% for o in occupations %}
-        <td><strong>{{ o.sample_cases_count or 0 }}</strong></td>
-        {% endfor %}
-      </tr>
+        {% if o.atlas and o.atlas.assessing_authority %}
+          <br>
+          <span class="muted">
+            {{ o.atlas.assessing_authority }}
+          </span>
+        {% endif %}
 
-      <tr>
-        <td class="label-col">Outcomes</td>
-        {% for o in occupations %}
-        <td>
-          {% set od = o.outcome_distribution or {} %}
-          {% set total = (od.approved or 0) + (od.refused or 0) + (od.withdrawn or 0) + (od.pending or 0) %}
-          {% if total == 0 %}—{% else %}
-            {% if od.approved %}<span class="pill pill-emerald">✓ {{ od.approved }}</span>{% endif %}
-            {% if od.refused %}<span class="pill pill-rose">✗ {{ od.refused }}</span>{% endif %}
-            {% if od.withdrawn %}<span class="pill pill-slate">↩ {{ od.withdrawn }}</span>{% endif %}
-            {% if od.pending %}<span class="pill pill-amber">⋯ {{ od.pending }}</span>{% endif %}
-          {% endif %}
-        </td>
+      {% else %}
+        Refer to authority
+      {% endif %}
+    </td>
+    {% endfor %}
+  </tr>
+
+
+  <tr>
+    <td class="label-col">Processing Time</td>
+
+    {% for o in occupations %}
+    <td>
+      {% if o.body_processing_weeks %}
+        {{ o.body_processing_weeks }} weeks
+      {% else %}
+        —
+      {% endif %}
+    </td>
+    {% endfor %}
+  </tr>
+
+
+  <tr>
+    <td class="label-col">Eligible Visa Subclasses</td>
+
+    {% for o in occupations %}
+    <td>
+
+      {% if o.atlas and o.atlas.visa_pathways %}
+
+        {% for v in o.atlas.visa_pathways %}
+          <span class="pill pill-slate pill-mono">
+            {{ v }}
+          </span>
         {% endfor %}
-      </tr>
-    </tbody>
+
+      {% elif o.eligible_visas_count %}
+        <strong>{{ o.eligible_visas_count }}</strong> eligible visas
+
+      {% else %}
+        —
+      {% endif %}
+
+    </td>
+    {% endfor %}
+  </tr>
+
+
+  <tr>
+    <td class="label-col">Minimum Invitation Points</td>
+
+    {% for o in occupations %}
+    <td>
+
+      {% if o.min_points_required is not none %}
+        <strong>{{ o.min_points_required }}</strong>
+      {% elif o.atlas and o.atlas.min_invitation_points is not none %}
+        <strong>{{ o.atlas.min_invitation_points }}</strong>
+      {% else %}
+        —
+      {% endif %}
+
+    </td>
+    {% endfor %}
+  </tr>
+
+
+  <tr>
+    <td class="label-col">SkillSelect Tier</td>
+
+    {% for o in occupations %}
+    <td>
+
+      {% if o.atlas and o.atlas.skillselect_tier %}
+        {{ o.atlas.skillselect_tier
+           |replace('_', ' ')
+           |title }}
+      {% else %}
+        —
+      {% endif %}
+
+    </td>
+    {% endfor %}
+  </tr>
+
+
+  <tr>
+    <td class="label-col">Visa Pathways</td>
+
+    {% for o in occupations %}
+    <td>
+
+      {% if o.atlas and o.atlas.visa_pathways %}
+
+        {% for pathway in o.atlas.visa_pathways %}
+          <span class="pill pill-slate">
+            {{ pathway }}
+          </span>
+        {% endfor %}
+
+      {% else %}
+        —
+      {% endif %}
+
+    </td>
+    {% endfor %}
+  </tr>
+
+
+  <tr>
+    <td class="label-col">State / Territory Nomination</td>
+
+    {% for o in occupations %}
+    <td>
+
+      {% if o.atlas and o.atlas.state_nomination %}
+        <span class="pill pill-emerald">
+          Available
+        </span>
+      {% else %}
+        —
+      {% endif %}
+
+    </td>
+    {% endfor %}
+  </tr>
+
+
+  <tr>
+    <td class="label-col">In Demand</td>
+
+    {% for o in occupations %}
+    <td>
+
+      {% if o.in_demand %}
+        <span class="pill pill-emerald">✓ In Demand</span>
+      {% else %}
+        <span class="pill pill-slate">Not marked</span>
+      {% endif %}
+
+    </td>
+    {% endfor %}
+  </tr>
+
+
+  <tr>
+    <td class="label-col">Best Fit</td>
+
+    {% for o in occupations %}
+    <td>
+
+      {% if o.best_fit %}
+        <span class="pill pill-emerald">
+          ✓ Best Match
+        </span>
+      {% else %}
+        —
+      {% endif %}
+
+    </td>
+    {% endfor %}
+  </tr>
+
+
+  <tr>
+    <td class="label-col">Age Limit</td>
+
+    {% for o in occupations %}
+    <td>
+      {% if o.age_limit %}
+        {{ o.age_limit }} years
+      {% else %}
+        —
+      {% endif %}
+    </td>
+    {% endfor %}
+  </tr>
+
+</tbody>
   </table>
 
   <div class="footer-note">

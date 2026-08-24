@@ -506,6 +506,31 @@ async def assign_case_manager(case_id: str = "", case_manager_id: str = "", curr
         "status": "active",
     }})
 
+    # Sync to linked Pre-Assessment and trigger auto-allocation
+    pa_id = case.get("pre_assessment_id") or case.get("pa_id")
+    if not pa_id and case.get("client_id"):
+        pa_found = await pre_assessments_col.find_one({"$or": [{"case_id": case_id}, {"client_id": case["client_id"]}]}, {"_id": 0, "id": 1})
+        if pa_found:
+            pa_id = pa_found["id"]
+
+    if pa_id:
+        await pre_assessments_col.update_one(
+            {"id": pa_id},
+            {"$set": {
+                "case_manager_id": case_manager_id,
+                "case_manager_name": cm["name"],
+                "case_id": case_id,
+                "stage": "case_created",
+            }}
+        )
+        try:
+            from core.allocations_logic import build_allocations_for_pa
+            fresh_pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
+            if fresh_pa:
+                await build_allocations_for_pa(fresh_pa)
+        except Exception as _e:
+            pass
+
     await notifications_col.insert_one({
         "id": str(uuid.uuid4()), "user_id": case_manager_id,
         "title": "New Case Assigned", "message": f"Case {case.get('case_id', '')} assigned to you",

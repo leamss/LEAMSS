@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 from anthropic import AsyncAnthropic
 from openai import AsyncOpenAI
+import httpx
 
 logger = logging.getLogger(__name__)
 
@@ -24,9 +25,11 @@ EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
 # anthropic_client = AsyncAnthropic(
 #     api_key=os.getenv("ANTHROPIC_API_KEY")
 # )
+_pplx_http = httpx.AsyncClient(verify=False, timeout=120)
 perplexity_client = AsyncOpenAI(
     api_key=os.getenv("PERPLEXITY_API_KEY"),
-    base_url="https://api.perplexity.ai"
+    base_url="https://api.perplexity.ai",
+    http_client=_pplx_http,
 )
 # Per Phase 20.1 directive #1 & #2 — Sir requested GPT-5.2 fallback, but Emergent
 # Universal Key is ANTHROPIC-ONLY (not allowed to access OpenAI models per key policy).
@@ -94,14 +97,12 @@ async def _sync_chat_call(
     prompt,
 ):
 
-    print("========== PERPLEXITY START ==========")
-    print("Model:", model)
+    logger.info("Perplexity call starting with model: %s", model)
 
     response = await perplexity_client.chat.completions.create(
         model=model,
         temperature=0.2,
         max_tokens=8000,
-        search_mode="web",
         messages=[
             {
                 "role": "system",
@@ -114,10 +115,7 @@ async def _sync_chat_call(
         ]
     )
 
-    print("========== PERPLEXITY RESPONSE ==========")
-    print(response.choices[0].message.content[:1000])
-    print(response.usage)
-
+    logger.info("Perplexity response received for model: %s", model)
     return response.choices[0].message.content
 async def call_ai_with_fallback(
     prompt: str, system_msg: str = "", session_prefix: str = "workflow",
@@ -213,8 +211,9 @@ async def call_ai_with_fallback(
     # else:
     #     logger.info("Perplexity Sonar Pro skipped — PERPLEXITY_API_KEY not configured (Sir to set env var to enable)")
 
-    # raise RuntimeError(f"All AI providers failed. Last error: {type(last_err).__name__}: {last_err}")
-
+    raise RuntimeError(
+    f"All AI providers failed. Last error: {type(last_err).__name__}: {last_err}"
+)
 
 # ── JSON extraction (handles markdown-wrapped responses) ──────────────────────
 def parse_json_response(text: str) -> Dict[str, Any]:

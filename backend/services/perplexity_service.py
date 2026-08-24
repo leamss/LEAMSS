@@ -50,11 +50,13 @@ async def call_perplexity_sonar_pro(
 
     # Import here to avoid forcing openai client init at module load
     from openai import AsyncOpenAI
+    import httpx as _httpx
 
+    _http = _httpx.AsyncClient(verify=False, timeout=timeout_seconds)
     client = AsyncOpenAI(
         api_key=api_key,
         base_url=PERPLEXITY_BASE_URL,
-        timeout=timeout_seconds,
+        http_client=_http,
     )
 
     messages = []

@@ -218,3 +218,9 @@ frontend/node_modules/.cache/default-development/8.pack
 backend/storage/
 /app/backend/storage/
 
+
+backend/uploads/
+uploads/
+*.pdf
+backend/test_output_report.pdf
+backend/perplexity_invalid_output.json

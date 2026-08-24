@@ -33,6 +33,16 @@ const PreAssessmentQueue = ({ initialFilter = null }) => {
   const [expressSubmitting, setExpressSubmitting] = useState(false);
   // Sweep A.3 — Post-approval Send Payment Link
   const [sendingPaymentLinkId, setSendingPaymentLinkId] = useState(null);
+  // Installment approval state
+  const [installmentDialog, setInstallmentDialog] = useState({ open: false, pa: null, action: null }); // action: 'approved' | 'rejected'
+  const [installmentReason, setInstallmentReason] = useState('');
+  const [installmentSubmitting, setInstallmentSubmitting] = useState(false);
+  // Installment unlock + early case activation state
+  const [unlockingId, setUnlockingId] = useState(null);
+  const [unlockCmId, setUnlockCmId] = useState('');
+  const [unlockSubmitting, setUnlockSubmitting] = useState(false);
+  const [selectedSpouseCmId, setSelectedSpouseCmId] = useState('');  
+  const [paDocs, setPaDocs] = useState({}); // { pa_id: [docs] } — fetched on expand (mirrors Partner Portal) 
 
   // Apply initialFilter on mount or when it changes
   useEffect(() => {
@@ -60,8 +70,17 @@ const PreAssessmentQueue = ({ initialFilter = null }) => {
     setLoading(false);
   }, []);
 
-  useEffect(() => { loadData(); }, [loadData]);
+useEffect(() => { loadData(); }, [loadData]);
 
+  const loadPaDocs = async (paId) => {
+    if (paDocs[paId] !== undefined) return; // already loaded
+    try {
+      const r = await axios.get(`${API}/pre-assessment/${paId}/documents`, getAuthHeader());
+      setPaDocs(prev => ({ ...prev, [paId]: r.data || [] }));
+    } catch (e) {
+      setPaDocs(prev => ({ ...prev, [paId]: [] }));
+    }
+  };
   // Sweep B finisher 1 — Sky-toned dialog when "Preview as Client" hits "account not linked yet"
   const [awaitingPaymentDialog, setAwaitingPaymentDialog] = useState({ open: false, pa: null });
 
@@ -164,6 +183,56 @@ const PreAssessmentQueue = ({ initialFilter = null }) => {
     }
   };
 
+const handleUnlockInstallment = async (pa, cmId, spouseCmId) => {
+    setUnlockSubmitting(true);
+    try {
+      const payload = {};
+      if (cmId) payload.case_manager_id = cmId;
+      if (spouseCmId) payload.spouse_case_manager_id = spouseCmId;
+      const r = await axios.post(
+        `${API}/pre-assessment/${pa.id}/approve-installment-and-activate-case`,
+        payload,
+        getAuthHeader()
+      );
+      const caseMsg = r.data.case_code
+        ? ` — Case ${r.data.case_code} activated${r.data.case_manager_id ? ` & assigned to ${r.data.case_manager_name}` : ''}!`
+        : '';
+      toast.success(`${r.data.unlocked_part ? `Unlocked: ${r.data.unlocked_part}.` : ''}${caseMsg}`);
+      setUnlockingId(null);
+      setUnlockCmId('');
+      setSelectedSpouseCmId('');
+      loadData();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || 'Approval failed');
+    } finally {
+      setUnlockSubmitting(false);
+    }
+  };
+
+const handleInstallmentDecision = async () => {
+    if (!installmentDialog.pa || !installmentDialog.action) return;
+    const { pa, action } = installmentDialog;
+    if (action === 'rejected' && (installmentReason || '').trim().length < 5) {
+      toast.error('Rejection 5');
+      return;
+    }
+    setInstallmentSubmitting(true);
+    try {
+      const r = await axios.put(`${API}/pre-assessment/${pa.id}/review-installments`,
+        { decision: action, reason: installmentReason || '' }, getAuthHeader());
+      toast.success(action === 'approved'
+        ? `Installment plan approved for ${pa.client_name}${r.data.payment_url ? ' — payment link generated' : ''}`
+        : `Installment plan rejected for ${pa.client_name}`);
+      setInstallmentDialog({ open: false, pa: null, action: null });
+      setInstallmentReason('');
+      loadData();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || 'Installment decision failed');
+    } finally {
+      setInstallmentSubmitting(false);
+    }
+  };
+
   const handleApproveFinal = async (paId) => {
     // Optimistic: stage → case_created
     const snapshot = { queue: [...queue], allAssessments: [...allAssessments] };
@@ -172,11 +241,19 @@ const PreAssessmentQueue = ({ initialFilter = null }) => {
     setAllAssessments(updateLocally);
     setFinalizingId(null);
     const cmId = selectedCmId;
+    const spouseCmId = selectedSpouseCmId;
     setSelectedCmId('');
+    setSelectedSpouseCmId('');
     try {
-      const payload = cmId ? { case_manager_id: cmId } : {};
+      const payload = {};
+      if (cmId) payload.case_manager_id = cmId;
+      if (spouseCmId) payload.spouse_case_manager_id = spouseCmId;
       const res = await axios.post(`${API}/pre-assess-portal/admin/approve-final/${paId}`, payload, getAuthHeader());
-      toast.success(`Case ${res.data.case_code} created${res.data.case_manager_id ? ` & assigned to ${res.data.case_manager_name}` : ''}!`);
+      toast.success(
+        `Case ${res.data.case_code} created` +
+        (res.data.case_manager_id ? ` & assigned to ${res.data.case_manager_name}` : '') +
+        (res.data.spouse_case_code ? ` | Partner case ${res.data.spouse_case_code} created` : '')
+      );
       loadData();
     } catch (e) {
       setQueue(snapshot.queue);
@@ -196,11 +273,20 @@ const PreAssessmentQueue = ({ initialFilter = null }) => {
     ...queue.filter(p => p.sale_type === 'express' && (p.stage === 'express_pending_approval' || p.express_sale_approval_status === 'pending')),
     ...allAssessments.filter(p => p.sale_type === 'express' && (p.stage === 'express_pending_approval' || p.express_sale_approval_status === 'pending')),
   ].filter((p, i, arr) => arr.findIndex(x => x.id === p.id) === i); // dedupe by id
+  const installmentPendingItems = [
+    ...queue.filter(p => p.stage === 'installment_pending_approval'),
+    ...allAssessments.filter(p => p.stage === 'installment_pending_approval'),
+  ].filter((p, i, arr) => arr.findIndex(x => x.id === p.id) === i); // dedupe by id
+  const installmentUnlockItems = [
+    ...queue.filter(p => p.pending_installment_unlock === true),
+    ...allAssessments.filter(p => p.pending_installment_unlock === true),
+  ].filter((p, i, arr) => arr.findIndex(x => x.id === p.id) === i);
   const items = (
     activeView === 'queue' ? queue :
     activeView === 'under_review' ? underReviewItems :
     activeView === 'proposal_paid' ? proposalPaidItems :
     activeView === 'express' ? expressPendingItems :
+    activeView === 'installments' ? installmentPendingItems :
     allAssessments
   );
 
@@ -228,6 +314,7 @@ const PreAssessmentQueue = ({ initialFilter = null }) => {
           { label: '1st Review', value: stats.under_review || 0, color: 'from-leamss-orange-500 to-leamss-orange-600', click: () => setActiveView('under_review') },
           { label: 'Approved', value: stats.approved || 0, color: 'from-emerald-500 to-emerald-600', click: () => setActiveView('all') },
           { label: 'Express Pending', value: expressPendingItems.length || 0, color: 'from-leamss-red-500 to-leamss-red-600', click: () => setActiveView('express'), testId: 'kpi-express-pending', icon: Zap },
+          { label: 'Installments Pending', value: installmentPendingItems.length || 0, color: 'from-amber-500 to-amber-600', click: () => setActiveView('installments'), testId: 'kpi-installment-pending', icon: Hourglass },
           { label: 'Awaiting Case', value: proposalPaidItems.length || 0, color: 'from-[#f7620b] to-[#e55a09]', click: () => setActiveView('proposal_paid') },
           { label: 'Conversion', value: `${stats.conversion_rate || 0}%`, color: 'from-[#2a777a] to-[#236466]' },
         ].map((s, i) => (
@@ -259,6 +346,11 @@ const PreAssessmentQueue = ({ initialFilter = null }) => {
           className={activeView === 'express' ? 'bg-leamss-red-600 hover:bg-leamss-red-700 text-white' : 'border-leamss-red-300 text-leamss-red-700 hover:bg-leamss-red-50'}
           data-testid="pa-tab-express-pending">
           <Zap className="h-4 w-4 mr-1.5" /> Express Pending ({expressPendingItems.length})
+        </Button>
+        <Button variant={activeView === 'installments' ? 'default' : 'outline'} onClick={() => setActiveView('installments')}
+          className={activeView === 'installments' ? 'bg-amber-600 hover:bg-amber-700 text-white' : 'border-amber-300 text-amber-700 hover:bg-amber-50'}
+          data-testid="pa-tab-installment-pending">
+          <Hourglass className="h-4 w-4 mr-1.5" /> Installments Pending ({installmentPendingItems.length})
         </Button>
         <Button variant={activeView === 'all' ? 'default' : 'outline'} onClick={() => setActiveView('all')}
           className={activeView === 'all' ? 'bg-[#2a777a]' : ''} data-testid="view-all">
@@ -311,6 +403,7 @@ const PreAssessmentQueue = ({ initialFilter = null }) => {
               approved: 'border-l-emerald-500 bg-emerald-50/30',
               rejected: 'border-l-red-500 bg-red-50/30',
               proposal_sent: 'border-l-teal-500 bg-teal-50/30',
+              installment_pending_approval: 'border-l-amber-500 bg-amber-50/30',
               proposal_paid: 'border-l-[#f7620b] bg-orange-50/30',
               awaiting_final_approval: 'border-l-leamss-teal-600 bg-leamss-teal-50/30',
               case_created: 'border-l-green-600 bg-green-50/30',
@@ -318,8 +411,11 @@ const PreAssessmentQueue = ({ initialFilter = null }) => {
 
             return (
               <Card key={pa.id} className={`border-0 shadow-md overflow-hidden border-l-4 ${stageColors[pa.stage] || 'border-l-slate-300'}`} data-testid={`queue-item-${pa.id}`}>
-                <div className="flex items-center gap-4 p-4 cursor-pointer" onClick={() => setExpandedId(isExpanded ? null : pa.id)}>
-                  <div className="w-12 h-12 bg-gradient-to-br from-[#2a777a] to-[#236466] rounded-full flex items-center justify-center text-white text-lg font-bold flex-shrink-0">
+<div className="flex items-center gap-4 p-4 cursor-pointer" onClick={() => {
+                  const newExpanded = isExpanded ? null : pa.id;
+                  setExpandedId(newExpanded);
+                  if (newExpanded) loadPaDocs(pa.id);
+                }}>                  <div className="w-12 h-12 bg-gradient-to-br from-[#2a777a] to-[#236466] rounded-full flex items-center justify-center text-white text-lg font-bold flex-shrink-0">
                     {(pa.client_name || 'C')[0]}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -333,11 +429,12 @@ const PreAssessmentQueue = ({ initialFilter = null }) => {
                     <p className="text-xs text-slate-400">Partner: {pa.partner_name} | {pa.created_at ? new Date(pa.created_at).toLocaleDateString() : ''}</p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge className={
+                   <Badge className={
                       pa.stage === 'under_review' ? 'bg-leamss-orange-100 text-leamss-orange-700' :
                       pa.stage === 'approved' ? 'bg-emerald-100 text-emerald-700' :
                       pa.stage === 'rejected' ? 'bg-red-100 text-red-700' :
                       pa.stage === 'proposal_sent' ? 'bg-teal-100 text-teal-700' :
+                      pa.stage === 'installment_pending_approval' ? 'bg-amber-100 text-amber-800' :
                       pa.stage === 'proposal_paid' ? 'bg-orange-100 text-orange-700' :
                       pa.stage === 'awaiting_final_approval' ? 'bg-leamss-teal-100 text-leamss-teal-700' :
                       pa.stage === 'case_created' ? 'bg-green-100 text-green-700' :
@@ -390,13 +487,29 @@ const PreAssessmentQueue = ({ initialFilter = null }) => {
                         <p className="text-sm text-slate-700">{pa.notes}</p>
                       </div>
                     )}
+                    {pa.spouse_info && (
+                      <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3">
+                        <p className="text-xs font-semibold text-indigo-700 mb-2">Spouse/Partner Details</p>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
+                          <div><span className="text-slate-500">Name:</span> <span className="font-medium">{pa.spouse_info.name}</span></div>
+                          <div><span className="text-slate-500">Email:</span> <span className="font-medium">{pa.spouse_info.email}</span></div>
+                          <div><span className="text-slate-500">Mobile:</span> <span className="font-medium">{pa.spouse_info.mobile || 'N/A'}</span></div>
+                          <div><span className="text-slate-500">Age:</span> <span className="font-medium">{pa.spouse_info.age || 'N/A'}</span></div>
+                          <div><span className="text-slate-500">Education:</span> <span className="font-medium">{pa.spouse_info.education || 'N/A'}</span></div>
+                          <div><span className="text-slate-500">Experience:</span> <span className="font-medium">{pa.spouse_info.work_experience || 'N/A'}</span></div>
+                        </div>
+                        {pa.spouse_info.notes && (
+                          <p className="text-xs text-slate-600 mt-2 italic">"{pa.spouse_info.notes}"</p>
+                        )}
+                      </div>
+                    )}
 
-                    {/* Documents List with View/Download */}
-                    {pa.documents?.length > 0 && (
+                   {/* Documents List with View/Download — fetched separately on expand (Sweep: fixes empty docs for admin) */}
+                    {(paDocs[pa.id] || []).length > 0 && (
                       <div>
-                        <p className="text-sm font-semibold text-slate-700 mb-2">Submitted Documents ({pa.documents.length}):</p>
+                        <p className="text-sm font-semibold text-slate-700 mb-2">Submitted Documents ({paDocs[pa.id].length}):</p>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                          {pa.documents.map((doc, di) => {
+                          {paDocs[pa.id].map((doc, di) => {
                             const dlUrl = `${API}/pre-assessment/${pa.id}/document/${doc.id}/download`;
                             const tok = localStorage.getItem('token');
                             const handleView = async () => {
@@ -575,6 +688,161 @@ const PreAssessmentQueue = ({ initialFilter = null }) => {
                       </div>
                     )}
 
+                    {/* Installment Plan — Details + Approve/Reject */}
+                    {pa.stage === 'installment_pending_approval' && (
+                      <div className="rounded-lg p-4 border bg-gradient-to-br from-amber-50 to-orange-50/40 border-amber-200">
+                        <div className="flex items-start gap-3 mb-3">
+                          <div className="w-10 h-10 bg-amber-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <Hourglass className="h-5 w-5 text-white" />
+                          </div>
+                          <div className="flex-1">
+                            <h4 className="font-bold text-slate-800">Installment Plan — Approval Pending</h4>
+                            <p className="text-sm text-slate-600 mt-0.5">
+                              Package: <span className="font-semibold">{pa.product_package_name || '—'}</span> ·
+                              Total: <span className="font-semibold">₹{(pa.proposal_fee || 0).toLocaleString('en-IN')}</span>
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Installment schedule table */}
+                        {(pa.proposal_installment_schedule || []).length > 0 && (
+                          <div className="bg-white rounded-lg border border-amber-200 overflow-hidden mb-3">
+                            <table className="w-full text-sm">
+                              <thead className="bg-amber-100 text-amber-800">
+                                <tr>
+                                  <th className="text-left px-3 py-1.5 font-semibold text-xs">#</th>
+                                  <th className="text-left px-3 py-1.5 font-semibold text-xs">Amount</th>
+                                  <th className="text-left px-3 py-1.5 font-semibold text-xs">Due Date</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {pa.proposal_installment_schedule.map((inst, idx) => (
+                                  <tr key={idx} className="border-t border-amber-100">
+                                    <td className="px-3 py-1.5 text-slate-500">{idx + 1}</td>
+                                    <td className="px-3 py-1.5 font-medium text-slate-700">₹{Number(inst.amount || 0).toLocaleString('en-IN')}</td>
+                                    <td className="px-3 py-1.5 text-slate-600">{inst.due_date}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+
+                        <div className="flex justify-end gap-2">
+                          <Button size="sm" variant="outline"
+                            className="border-red-300 text-red-600 hover:bg-red-50"
+                            onClick={() => { setInstallmentDialog({ open: true, pa, action: 'rejected' }); setInstallmentReason(''); }}
+                            data-testid={`pa-reject-installment-${pa.id}`}>
+                            <XCircle className="h-4 w-4 mr-1.5" /> Reject
+                          </Button>
+                          <Button size="sm"
+                            className="bg-amber-600 hover:bg-amber-700 text-white"
+                            onClick={() => { setInstallmentDialog({ open: true, pa, action: 'approved' }); setInstallmentReason(''); }}
+                            data-testid={`pa-approve-installment-${pa.id}`}>
+                            <CheckCircle className="h-4 w-4 mr-1.5" /> Approve Installment Plan
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+{/* Installment Unlock — client paid an installment, needs admin approval + case activation */}
+                    {pa.pending_installment_unlock && (
+                      <div className="rounded-lg p-4 border bg-gradient-to-br from-blue-50 to-cyan-50/40 border-blue-200">
+                        <div className="flex items-start gap-3 mb-3">
+                          <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <CreditCard className="h-5 w-5 text-white" />
+                          </div>
+                          <div className="flex-1">
+                            <h4 className="font-bold text-slate-800">
+                              Installment Payment Received{pa.case_id ? '' : ' — Activate Case'}
+                            </h4>
+                            <p className="text-sm text-slate-600 mt-0.5">
+                              Client paid ₹{(pa.proposal_amount_paid || 0).toLocaleString('en-IN')} so far
+                              {pa.proposal_fee ? ` of ₹${pa.proposal_fee.toLocaleString('en-IN')} total` : ''}.
+                              {pa.case_id
+                                ? ' Approve to unlock the next installment for the client.'
+                                : ' Approve to unlock the next installment AND activate the case now.'}
+                            </p>
+                          </div>
+                        </div>
+
+                        {unlockingId !== pa.id ? (
+                          <div className="flex justify-end">
+                            <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white"
+                              onClick={() => { setUnlockingId(pa.id); setUnlockCmId(''); }}
+                              data-testid={`unlock-installment-${pa.id}`}>
+                              <CheckCircle className="h-4 w-4 mr-1.5" />
+                              {pa.case_id ? 'Approve — Unlock Next Installment' : 'Approve — Unlock & Activate Case'}
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            {/* {!pa.case_id && (
+                              <div>
+                                <label className="text-sm font-medium text-slate-700 flex items-center gap-1.5 mb-1">
+                                  <UserCog className="h-4 w-4" /> Assign Case Manager (optional)
+                                </label>
+                                <select value={unlockCmId} onChange={e => setUnlockCmId(e.target.value)}
+                                  className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm bg-white"
+                                  data-testid="unlock-cm-select">
+                                  <option value="">— Leave unassigned (assign later) —</option>
+                                  {caseManagers.map(cm => (
+                                    <option key={cm.id} value={cm.id}>{cm.name} ({cm.email})</option>
+                                  ))}
+                                </select>
+                              </div>
+                            )} */}
+                            {!pa.case_id && (
+  <div>
+    <label className="text-sm font-medium text-slate-700 flex items-center gap-1.5 mb-1">
+      <UserCog className="h-4 w-4" /> Assign Case Manager (optional)
+    </label>
+    <select value={unlockCmId} onChange={e => setUnlockCmId(e.target.value)}
+      className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm bg-white"
+      data-testid="unlock-cm-select">
+      <option value="">— Leave unassigned (assign later) —</option>
+      {caseManagers.map(cm => (
+        <option key={cm.id} value={cm.id}>{cm.name} ({cm.email})</option>
+      ))}
+    </select>
+    {pa.spouse_info && (
+      <div className="mt-3">
+        <label className="text-sm font-medium text-slate-700 flex items-center gap-1.5 mb-1">
+          <UserCog className="h-4 w-4" /> Assign Case Manager — Partner/Spouse ({pa.spouse_info.name})
+        </label>
+        <select value={selectedSpouseCmId} onChange={e => setSelectedSpouseCmId(e.target.value)}
+          className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm bg-white"
+          data-testid="unlock-spouse-cm-select">
+          <option value="">— Leave unassigned (assign later) —</option>
+          {caseManagers.map(cm => (
+            <option key={cm.id} value={cm.id}>{cm.name} ({cm.email})</option>
+          ))}
+        </select>
+      </div>
+    )}
+  </div>
+)}
+                            <div className="flex justify-end gap-2">
+                      <Button variant="outline" size="sm"
+  onClick={() => { setUnlockingId(null); setUnlockCmId(''); setSelectedSpouseCmId(''); }}>
+  Cancel
+</Button>
+                              <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white"
+                                disabled={unlockSubmitting}
+                                onClick={() => handleUnlockInstallment(pa, unlockCmId, selectedSpouseCmId)}
+                                data-testid={`confirm-unlock-installment-${pa.id}`}>
+                                {unlockSubmitting ? (
+                                  <><RefreshCw className="h-4 w-4 mr-1.5 animate-spin" /> Processing...</>
+                                ) : (
+                                  <><CheckCircle className="h-4 w-4 mr-1.5" /> Confirm</>
+                                )}
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     {/* 2ND APPROVAL: Create Case & Assign CM (for awaiting_final_approval / proposal_paid stage) */}
                     {['awaiting_final_approval', 'proposal_paid'].includes(pa.stage) && (
                       <div className="rounded-lg p-4 border bg-gradient-to-br from-[#f7620b]/10 to-[#2a777a]/5 border-[#f7620b]/30">
@@ -613,6 +881,20 @@ const PreAssessmentQueue = ({ initialFilter = null }) => {
                                 <p className="text-xs text-amber-600 mt-1">No case managers found — add one from Users admin first.</p>
                               )}
                             </div>
+                            {pa.spouse_info && (
+  <div className="mt-3">
+    <label className="text-sm font-medium text-slate-700 flex items-center gap-1.5 mb-1">
+      <UserCog className="h-4 w-4" /> Assign Case Manager — Partner/Spouse ({pa.spouse_info.name})
+    </label>
+    <select value={selectedSpouseCmId} onChange={e => setSelectedSpouseCmId(e.target.value)}
+      className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm bg-white" data-testid="spouse-cm-select-final">
+      <option value="">— Leave unassigned (assign later) —</option>
+      {caseManagers.map(cm => (
+        <option key={cm.id} value={cm.id}>{cm.name} ({cm.email})</option>
+      ))}
+    </select>
+  </div>
+)}
                             <div className="flex justify-end gap-2">
                               <Button variant="outline" size="sm" onClick={() => { setFinalizingId(null); setSelectedCmId(''); }}>Cancel</Button>
                               <Button size="sm" onClick={() => handleApproveFinal(pa.id)}
@@ -696,6 +978,67 @@ const PreAssessmentQueue = ({ initialFilter = null }) => {
                 <><RefreshCw className="h-4 w-4 mr-1.5 animate-spin" /> Sending…</>
               ) : (
                 <><Send className="h-4 w-4 mr-1.5" /> Send Payment Link to Client</>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+{/* Installment Plan — Approve/Reject confirmation dialog */}
+      <Dialog open={installmentDialog.open} onOpenChange={(o) => { if (!o) { setInstallmentDialog({ open: false, pa: null, action: null }); setInstallmentReason(''); } }}>
+        <DialogContent data-testid="installment-decision-dialog">
+          <DialogHeader>
+            <DialogTitle className={installmentDialog.action === 'approved' ? 'text-amber-700' : 'text-red-700'}>
+              {installmentDialog.action === 'approved' ? (
+                <span className="flex items-center gap-2"><CheckCircle className="h-5 w-5" /> Approve Installment Plan</span>
+              ) : (
+                <span className="flex items-center gap-2"><XCircle className="h-5 w-5" /> Reject Installment Plan</span>
+              )}
+            </DialogTitle>
+            <DialogDescription className="text-slate-600">
+              {installmentDialog.pa ? (
+                <>
+                  <span className="font-semibold">{installmentDialog.pa.client_name}</span>{' '}
+                  <span className="text-slate-400">·</span>{' '}
+                  <span className="font-mono text-xs">{installmentDialog.pa.pa_number}</span>
+                  <br />
+                  {installmentDialog.action === 'approved'
+                    ? 'PA "proposal_sent" stage 1 installment payment link.'
+                    : 'PA "approved" stage — partner proposal.'}
+                </>
+              ) : null}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-slate-700">
+              {installmentDialog.action === 'approved' ? 'Remarks (optional)' : 'Rejection reason *'}
+            </label>
+            <Textarea
+              value={installmentReason}
+              onChange={(e) => setInstallmentReason(e.target.value)}
+              placeholder={installmentDialog.action === 'approved' ? 'e.g. Plan looks fine' : '5'}
+              className="min-h-[88px]"
+              data-testid="installment-remarks-input"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setInstallmentDialog({ open: false, pa: null, action: null }); setInstallmentReason(''); }} data-testid="installment-cancel-btn">
+              Cancel
+            </Button>
+            <Button
+              onClick={handleInstallmentDecision}
+              disabled={installmentSubmitting}
+              className={installmentDialog.action === 'approved'
+                ? 'bg-amber-600 hover:bg-amber-700 text-white'
+                : 'bg-red-600 hover:bg-red-700 text-white'}
+              data-testid="installment-confirm-btn"
+            >
+              {installmentSubmitting ? (
+                <><RefreshCw className="h-4 w-4 mr-2 animate-spin" /> Processing...</>
+              ) : installmentDialog.action === 'approved' ? (
+                <><CheckCircle className="h-4 w-4 mr-2" /> Confirm Approval</>
+              ) : (
+                <><XCircle className="h-4 w-4 mr-2" /> Confirm Rejection</>
               )}
             </Button>
           </DialogFooter>

@@ -174,6 +174,8 @@ export function dataFromAssessment(a, baseDefaults = {}) {
     occupation_title: occ.title || '',
     occupation_body: occ.assessing_body || '',
     occupation_pathway: occ.pathway || '',
+    additional_occupations: a?.additional_occupations || [],
+    show_eoi_backlog: !!a?.show_eoi_backlog,
     country_mode,
     specific_country,
     visa_subclass,
@@ -211,5 +213,7 @@ export function dataFromAssessment(a, baseDefaults = {}) {
     nz_skilled_employment_current: !!nzEx.nz_skilled_employment_current,
     nz_job_offer: !!nzEx.nz_job_offer,
     regional_employment_nz: !!nzEx.regional_employment_nz,
+    // Cost estimator & packages
+    cost_estimator: a.cost_estimator || null,
   };
 }

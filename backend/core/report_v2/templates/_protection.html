@@ -5,87 +5,96 @@
 <div class="page" style="page-break-before:always;">
 
   <div class="section-header">
-    <span class="eyebrow" style="color:var(--gold-500);">Section 09 · LEAMSS Protection Policy</span>
-    <h1>🛡 100% Refund Guarantee</h1>
-    <span class="rule" style="background:var(--gold-500);"></span>
-    <p class="lead">A formal commitment, not marketing fluff. Backed by audit-ready terms, capped windows,
+    <span class="eyebrow" style="color:var(--gold-500);font-weight:800;letter-spacing:0.12em;">Section 09 · LEAMSS Protection Policy</span>
+    <h1 style="color:var(--teal-800);margin-top:2pt;">🛡 100% Refund Guarantee</h1>
+    <span class="rule" style="background:var(--gold-500);height:2pt;"></span>
+    <p class="lead" style="color:var(--slate-500);font-size:10.5pt;margin-top:6pt;">A formal commitment, not marketing fluff. Backed by audit-ready terms, capped windows,
        and applicable country/visa scopes — printed on every report so you can verify before paying.</p>
   </div>
 
   {# Hero certificate card #}
-  <div style="position:relative;background:linear-gradient(135deg, var(--teal-50) 0%, var(--cream) 100%);
-              border:2pt solid var(--gold-500);border-radius:12pt;padding:22pt 24pt;margin-bottom:12pt;
-              box-shadow: var(--shadow-md);">
-    <div style="position:absolute;top:-12pt;left:24pt;background:var(--gold-500);color:var(--white);
-                padding:3pt 12pt;border-radius:999pt;font-weight:800;font-size:8pt;letter-spacing:0.14em;text-transform:uppercase;">
+  <div style="background:linear-gradient(135deg, #f0fdfa 0%, #fffbf0 100%);
+              border:1.5pt solid var(--gold-500);border-radius:10pt;padding:18pt 22pt;margin-top:14pt;margin-bottom:14pt;
+              box-shadow: 0 4pt 12pt rgba(212, 160, 23, 0.08);">
+    
+    <div style="display:inline-block;background:var(--gold-500);color:var(--white);
+                padding:2.5pt 10pt;border-radius:999pt;font-weight:800;font-size:7.5pt;letter-spacing:0.14em;text-transform:uppercase;margin-bottom:8pt;">
       Verified Policy · v{{ policy.version or '1.0' }}
     </div>
 
-    <h2 style="color:var(--teal-800);margin-bottom:6pt;">{{ policy.title or 'LEAMSS Protection Policy' }}</h2>
+    <h2 style="color:var(--teal-800);font-size:14pt;font-weight:800;margin-bottom:8pt;">{{ policy.title or 'LEAMSS Protection Policy — 100% Refund Policy' }}</h2>
 
     {% set desc = (policy.description_markdown or '')|replace('**','')|replace('##','')|replace('#','') %}
-    {% if desc %}
-      <p style="font-size:10pt;color:var(--slate-700);">{{ desc|truncate(500) }}</p>
-    {% endif %}
+    <p style="font-size:9pt;color:var(--slate-700);line-height:1.5;margin-bottom:14pt;">
+      {% if desc %}
+        {{ desc }}
+      {% else %}
+        <b>We Value Emotions</b> LEAMSS is India's first migration consultancy to introduce a 100% Protection Policy that safeguards your entire investment. If your skill assessment is negative or your visa is rejected due to factors we have committed to verify upfront, we refund your professional fees + government fees without question. This policy is part of our promise of complete transparency, honesty, and emotional accountability to every client who trusts us with their dream of migration.
+      {% endif %}
+    </p>
 
-    <div class="row" style="margin-top:14pt;">
+    <div class="row" style="margin-top:10pt;">
       <div class="col-2">
-        <h4 style="color:var(--teal-700);">What is Covered</h4>
-        {% for c in terms.covers or [] %}
-          <div style="padding:3pt 0 3pt 22pt;position:relative;font-size:9.5pt;color:var(--slate-700);">
-            <span style="position:absolute;left:0;top:2pt;width:14pt;height:14pt;border-radius:50%;
-                         background:var(--teal-700);color:var(--white);font-weight:800;font-size:8pt;
-                         display:flex;align-items:center;justify-content:center;">✓</span>
-            {{ c|replace('_',' ')|title }}
-          </div>
-        {% endfor %}
+        <div style="font-weight:800;font-size:8.5pt;letter-spacing:0.08em;color:var(--teal-800);text-transform:uppercase;margin-bottom:6pt;">WHAT IS COVERED</div>
+        <div style="font-size:9pt;color:var(--slate-700);line-height:1.75;">
+          {% for c in (terms.covers or ['Professional Fees', 'Government Fees', 'Skill Assessment Body Fees']) %}
+            <div style="padding-left:18pt;position:relative;">
+              <span style="position:absolute;left:0;top:1pt;width:12pt;height:12pt;border-radius:50%;
+                           background:var(--teal-700);color:var(--white);font-weight:800;font-size:7pt;
+                           display:flex;align-items:center;justify-content:center;">✓</span>
+              {{ c|replace('_',' ')|title }}
+            </div>
+          {% endfor %}
+        </div>
       </div>
       <div class="col-2">
-        <h4 style="color:var(--red-600);">What is NOT Covered</h4>
-        {% for c in terms.excludes or [] %}
-          <div style="padding:3pt 0 3pt 22pt;position:relative;font-size:9.5pt;color:var(--slate-700);">
-            <span style="position:absolute;left:0;top:2pt;width:14pt;height:14pt;border-radius:50%;
-                         background:var(--red-600);color:var(--white);font-weight:800;font-size:8pt;
-                         display:flex;align-items:center;justify-content:center;">✗</span>
-            {{ c|replace('_',' ')|title }}
-          </div>
-        {% endfor %}
+        <div style="font-weight:800;font-size:8.5pt;letter-spacing:0.08em;color:var(--red-600);text-transform:uppercase;margin-bottom:6pt;">WHAT IS NOT COVERED</div>
+        <div style="font-size:9pt;color:var(--slate-700);line-height:1.75;">
+          {% for c in (terms.excludes or ['English Test Fees', 'Medical Test Fees', 'Police Clearance Fees']) %}
+            <div style="padding-left:18pt;position:relative;">
+              <span style="position:absolute;left:0;top:1pt;width:12pt;height:12pt;border-radius:50%;
+                           background:var(--red-600);color:var(--white);font-weight:800;font-size:7pt;
+                           display:flex;align-items:center;justify-content:center;">✗</span>
+              {{ c|replace('_',' ')|title }}
+            </div>
+          {% endfor %}
+        </div>
       </div>
     </div>
   </div>
 
   {# Claim mechanics row #}
-  <div class="row">
+  <div class="row" style="margin-top:14pt;">
     <div class="col-3">
-      <div class="card tinted center" style="padding:12pt 10pt;">
-        <div class="eyebrow" style="color:var(--teal-700);">Claim Window</div>
-        <div style="font-family:'Playfair Display',serif;font-size:22pt;font-weight:800;color:var(--teal-800);margin-top:4pt;">
+      <div class="card center" style="padding:12pt 8pt;background:#f0fdf4;border:1pt solid #bbf7d0;border-radius:8pt;">
+        <div class="eyebrow" style="color:var(--teal-700);font-size:7.5pt;font-weight:800;letter-spacing:0.12em;">CLAIM WINDOW</div>
+        <div style="font-family:'Playfair Display',serif;font-size:24pt;font-weight:800;color:var(--teal-800);margin-top:2pt;line-height:1;">
           {{ terms.claim_within_days or 90 }}
         </div>
-        <div class="tiny">days from decision</div>
+        <div style="font-size:7.5pt;color:var(--slate-500);margin-top:2pt;">days from decision</div>
       </div>
     </div>
     <div class="col-3">
-      <div class="card warm center" style="padding:12pt 10pt;">
-        <div class="eyebrow" style="color:var(--orange-500);">Applicable Countries</div>
-        <div style="font-family:'Playfair Display',serif;font-size:14pt;font-weight:800;color:var(--orange-700);margin-top:6pt;line-height:1.2;">
-          {{ (policy.applicable_countries or ['ALL'])|join(' · ') }}
+      <div class="card center" style="padding:12pt 8pt;background:#fff7ed;border:1pt solid #fed7aa;border-radius:8pt;">
+        <div class="eyebrow" style="color:var(--orange-600);font-size:7.5pt;font-weight:800;letter-spacing:0.12em;">APPLICABLE COUNTRIES</div>
+        <div style="font-family:'Playfair Display',serif;font-size:12.5pt;font-weight:800;color:var(--orange-700);margin-top:6pt;line-height:1.2;">
+          {{ (policy.applicable_countries or ['AU', 'CA', 'NZ', 'UK', 'USA'])|join(' · ') }}
         </div>
       </div>
     </div>
     <div class="col-3">
-      <div class="card center" style="padding:12pt 10pt;background:var(--gold-100);border-color:var(--gold-100);">
-        <div class="eyebrow" style="color:var(--orange-700);">Visa Types</div>
-        <div style="font-family:'Playfair Display',serif;font-size:14pt;font-weight:800;color:var(--orange-700);margin-top:6pt;line-height:1.2;">
-          {{ (policy.applicable_visa_types or ['ALL'])|join(' · ') }}
+      <div class="card center" style="padding:12pt 8pt;background:#fefce8;border:1pt solid #fef08a;border-radius:8pt;">
+        <div class="eyebrow" style="color:#a16207;font-size:7.5pt;font-weight:800;letter-spacing:0.12em;">VISA TYPES</div>
+        <div style="font-family:'Playfair Display',serif;font-size:12.5pt;font-weight:800;color:#a16207;margin-top:6pt;line-height:1.2;">
+          {{ (policy.applicable_visa_types or ['189-190-491'])|join(' · ') if policy.applicable_visa_types is iterable and policy.applicable_visa_types is not string else (policy.applicable_visa_types or '189-190-491') }}
         </div>
       </div>
     </div>
   </div>
 
   <div class="spacer-md"></div>
-  <div class="disclaimer">
-    <b>Policy reference:</b> {{ policy.policy_id or '—' }} · Version {{ policy.version or '1.0' }} ·
+  <div class="disclaimer" style="margin-top:10pt;">
+    <b>Policy reference:</b> {{ policy.policy_id or 'POL-20260525-8FB78D' }} · Version {{ policy.version or '1.0' }} ·
     Verified by LEAMSS Compliance. Full T&amp;Cs are part of your signed engagement letter and form
     part of your invoice. This page is auto-printed on every Assessment Report for full transparency.
   </div>

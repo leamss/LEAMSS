@@ -6,8 +6,9 @@ from typing import List
 from core.database import (
     cases_col, case_steps_col, users_col, products_col, documents_col,
     additional_doc_requests_col, notifications_col, audit_logs_col,
-    information_sheets_col, workflow_steps_col, case_transfers_col
+    information_sheets_col, workflow_steps_col, case_transfers_col, db
 )
+pre_assessments_col = db["pre_assessments"]
 from core.auth import get_current_user
 from core.services import create_notification, notify_users, log_activity
 from core.email_service import send_case_step_update_email
@@ -41,6 +42,57 @@ async def _log(user_id, action, entity_type, entity_id=None, details=None):
     from core.database import db as _db
     await log_legacy_event(_db, user_id, action, entity_type, entity_id, details)
 
+async def _enforce_installment_gate(case: dict, current_user: dict, target_step_order: int):
+    """Blocks step completion if the linked PA still has an unpaid installment,
+    when advancing TO step_order 4. Auto-unlocks any 'locked' part so the
+    client can pay it, then raises an error until it's actually paid."""
+    pa_id = case.get("pre_assessment_id")
+    if not pa_id:
+        return  # no linked PA — nothing to gate
+
+    pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
+    if not pa:
+        return
+
+    parts = pa.get("proposal_payment_parts") or []
+    if not parts:
+        return  # no installment plan on this PA — nothing to gate
+
+    unpaid = [p for p in parts if p.get("status") != "paid"]
+    if not unpaid:
+        return  # everything paid — allow step to complete
+
+    # Auto-unlock a locked part so the client can actually pay it
+    locked = next((p for p in parts if p.get("status") == "locked"), None)
+    if locked:
+        for p in parts:
+            if p["index"] == locked["index"]:
+                p["status"] = "pending"
+        await pre_assessments_col.update_one({"id": pa_id}, {"$set": {
+            "proposal_payment_parts": parts,
+            "pending_installment_unlock": False,
+            "installment_unlocked_by": current_user["id"],
+            "installment_unlocked_at": datetime.now(timezone.utc),
+            "updated_at": datetime.now(timezone.utc),
+        }})
+        if pa.get("client_user_id"):
+            await notifications_col.insert_one({
+                "id": str(uuid.uuid4()), "user_id": pa["client_user_id"],
+                "title": "Next installment unlocked",
+                "message": f"{locked['label']} (₹{locked['amount']:,.0f}) is now ready — please pay it in your portal to proceed.",
+                "type": "installment_unlocked", "read": False,
+                "created_at": datetime.now(timezone.utc),
+            })
+        pending_part = locked
+    else:
+        pending_part = next((p for p in parts if p.get("status") == "pending"), unpaid[0])
+
+    raise HTTPException(
+        status_code=400,
+        detail=f"Cannot advance to Step {target_step_order} — client's '{pending_part['label']}' "
+            f"(₹{pending_part['amount']:,.0f}) is still unpaid. It has been unlocked in their portal; "
+            f"please wait for payment before completing this step."
+    )
 
 def _serialize(case):
     c = {k: v for k, v in case.items() if k != "_id"}
@@ -118,7 +170,8 @@ async def get_cases(current_user: dict = Depends(get_current_user)):
     if current_user["role"] == "case_manager":
         query["case_manager_id"] = current_user["id"]
     elif current_user["role"] == "client":
-        query["client_id"] = current_user["id"]
+        # query["client_id"] = current_user["id"]
+        query["$or"] = [{"client_id": current_user["id"]}, {"spouse_id": current_user["id"]}]
     elif current_user["role"] == "partner":
         query["partner_id"] = current_user["id"]
     
@@ -169,8 +222,8 @@ async def get_my_cases(current_user: dict = Depends(get_current_user)):
     if current_user["role"] == "case_manager":
         query["case_manager_id"] = current_user["id"]
     elif current_user["role"] == "client":
-        query["client_id"] = current_user["id"]
-    
+        query["$or"] = [{"client_id": current_user["id"]}, {"spouse_id": current_user["id"]}]
+
     cases = await cases_col.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
     return await _enrich_cases(cases)
 
@@ -474,6 +527,13 @@ async def update_step(request: StepUpdate, current_user: dict = Depends(get_curr
                 status_code=400,
                 detail=f"Cannot update step '{request.step_name}' — previous step '{s['step_name']}' (Step {s['step_order']}) is not completed yet."
             )
+# ENFORCEMENT: Installment payment gate — blocks advancing to Step 4 until
+    # client has paid their pending installment (e.g. 2nd installment in 50-50 split)
+    if request.status == "completed":
+        next_step_preview = next((s for s in steps if s["step_order"] > target_order), None)
+        if next_step_preview and next_step_preview["step_order"] == 4:
+            await _enforce_installment_gate(case, current_user, target_step_order=4)
+
 
     # ENFORCEMENT: If marking as completed, check required documents for this step
     if request.status == "completed":

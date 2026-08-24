@@ -14,6 +14,8 @@ from typing import Optional, List
 from core.database import db
 from routers.auth import get_current_user
 from core.services import log_activity
+import secrets
+from core.auth import get_current_user, get_password_hash
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +24,6 @@ router = APIRouter(prefix="/pre-assessment", tags=["Pre-Assessment"])
 # Phase 4A — Centralized scope constants & ownership helper
 PA_CREATOR_ROLES = ("partner", "admin", "sales_executive", "sr_sales_executive", "sales_manager", "sales_head")
 OWN_SCOPED_ROLES = ("partner", "sales_executive", "sr_sales_executive")  # see their own PAs only
-
 
 def _assert_pa_owner(pa: dict, current_user: dict):
     """Raise 403 if current_user is not allowed to access the given PA.
@@ -49,7 +50,6 @@ def _assert_pa_owner(pa: dict, current_user: dict):
         return
     raise HTTPException(status_code=403, detail="You don't have permission to access this pre-assessment")
 
-
 pre_assessments_col = db["pre_assessments"]
 pre_assessment_docs_col = db["pre_assessment_documents"]
 payment_transactions_col = db["payment_transactions"]
@@ -61,7 +61,6 @@ sales_col = db["sales"]
 
 PRE_ASSESSMENT_FEE = 5100  # Phase 20.3 — DEPRECATED hardcoded fallback only; use resolver below
 PRE_ASSESSMENT_SAFETY_NET_INR = 5100
-
 
 async def _resolve_pa_fee(pa: dict) -> dict:
     """Phase 20.3 — Resolve PA fee using 3-tier policy resolver.
@@ -86,6 +85,7 @@ STAGES = [
     "approved",                     # Admin approved → Partner can send proposal (also reused by Express after admin approve)
     "rejected",                     # Admin rejected → Refund initiated
     "proposal_sent",                # Partner sent sales proposal to client
+    "installment_pending_approval", # Partner sent an installment-plan proposal — awaiting admin approval
     "proposal_paid",                # Client paid service fee
     "case_created",                 # Case auto-created, process started
     "refund_initiated",             # Refund in progress
@@ -93,12 +93,9 @@ STAGES = [
     # Phase 4B (Part 2) — Express Sale stages
     "express_pending_approval",     # Express PA awaiting admin approval (no fees needed)
     "express_rejected",             # Admin rejected express request (no payment was made, no refund needed)
-        "standard_pending_approval",
+    "standard_pending_approval",
     "standard_rejected",
-
 ]
-
-
 class CreatePreAssessment(BaseModel):
     client_name: str
     client_email: str
@@ -125,24 +122,47 @@ class CreatePreAssessment(BaseModel):
     standard_sale_reason: Optional[str] = None
     standard_sale_justification: Optional[str] = None
 
-
 class AdminReview(BaseModel):
     decision: str  # "approved" or "rejected"
     reason: str = ""
     notes: str = ""
 
+# ─── Phase: Packages & Payment Methods on Proposal ──────────────────────────
+class InstallmentItem(BaseModel):
+    amount: float
+    due_date: str  # ISO date e.g. "2026-08-15"
 
 class ProposalData(BaseModel):
-    fee_amount: float  # base fee (before discounts/upsells)
+    fee_amount: float
     payment_method: str = "online"
     notes: str = ""
     currency: str = "INR"
-    # New v2 fields (backward compatible)
     promo_code: Optional[str] = None
-    additional_discount: Optional[float] = 0.0  # flat ₹ off
+    additional_discount: Optional[float] = 0.0
     upsell_bundle_ids: Optional[List[str]] = []
     ai_proposal_text: Optional[str] = None
+    product_package_id: Optional[str] = None
+    payment_method_type: str = "full_payment"
+    installment_schedule: Optional[List[InstallmentItem]] = None
 
+#  ADD THIS — was missing
+class ProposalDraftData(BaseModel):
+    fee_amount: float
+    notes: str = ""
+    currency: str = "INR"
+    promo_code: Optional[str] = None
+    additional_discount: Optional[float] = 0.0
+    upsell_bundle_ids: Optional[List[str]] = []
+    ai_proposal_text: Optional[str] = None
+class ForwardPackagesData(BaseModel):
+    package_ids: List[str]
+    notes: str = ""
+    ai_proposal_text: Optional[str] = None
+class FinalizePaymentMethodData(BaseModel):
+    payment_method_type: str  # full_payment | split_50_50 | installments
+    installment_schedule: Optional[List[InstallmentItem]] = None
+    include_gst: bool = False  # partner toggles this for domestic (India) clients
+    coupon_code: Optional[str] = None  # 👈 NEW — admin-defined product coupon
 
 # ===================== PARTNER ENDPOINTS =====================
 
@@ -276,7 +296,7 @@ async def create_pre_assessment(data: CreatePreAssessment, current_user: dict = 
         else:
             starting_stage = "express_pending_approval"
     else:
-          starting_stage = "new" 
+        starting_stage = "new" 
 
     pre_assessment = {
         "id": pa_id,
@@ -331,27 +351,20 @@ async def create_pre_assessment(data: CreatePreAssessment, current_user: dict = 
         else f"Pre-assessment created for {data.client_name} - {data.country} {data.service_type}"
     )
     await log_activity(current_user["id"], current_user.get("name", ""), action_label,
-                       "pre_assessment", pa_id, detail_label)
-
-
+                    "pre_assessment", pa_id, detail_label)
 
     # Notify admins
-    # title = "🚀 New Express Sale — Approval Needed" if sale_type == "express" and starting_stage == "express_pending_approval" else "New Pre-Assessment Created"
     title = (
     "🚀 New Express Sale — Approval Needed" if sale_type == "express" and starting_stage == "express_pending_approval"
     else "📋 New Standard Sale — Approval Needed" if sale_type == "standard"
     else "New Pre-Assessment Created"
 )
 
-    # link = "/admin/sales/express-approvals" if sale_type == "express" and starting_stage == "express_pending_approval" else "/admin/pre-assessments"
     link = (
     "/admin/sales/express-approvals" if sale_type == "express" and starting_stage == "express_pending_approval"
     else "/admin/sales/standard-approvals" if sale_type == "standard"
     else "/admin/pre-assessments"
 )
-    # msg = (f"{current_user.get('name', '')} created Express Sale for {data.client_name} — please review"
-    #        if sale_type == "express" and starting_stage == "express_pending_approval"
-    #        else f"{current_user.get('name', '')} created pre-assessment for {data.client_name}")
     msg = (
     f"{current_user.get('name', '')} created Express Sale for {data.client_name} — please review"
     if sale_type == "express" and starting_stage == "express_pending_approval"
@@ -387,7 +400,6 @@ async def create_pre_assessment(data: CreatePreAssessment, current_user: dict = 
             )
         ),
     }
-
 
 @router.post("/{pa_id}/remind-payment")
 async def remind_client_payment(pa_id: str, current_user: dict = Depends(get_current_user)):
@@ -447,7 +459,6 @@ async def remind_client_payment(pa_id: str, current_user: dict = Depends(get_cur
         "stage": pa.get("stage"),
     }
 
-
 @router.post("/{pa_id}/send-payment-link")
 async def send_payment_link(pa_id: str, http_request: Request, current_user: dict = Depends(get_current_user)):
     """Partner sends pre-assessment payment link to client (Phase 20.3 — uses stored resolved fee)"""
@@ -471,7 +482,7 @@ async def send_payment_link(pa_id: str, http_request: Request, current_user: dic
             "stage": "payment_pending", "updated_at": datetime.now(timezone.utc)
         }})
         await log_activity(current_user["id"], current_user.get("name", ""), "send_payment_link",
-                           "pre_assessment", pa_id, f"Payment link sent to {pa['client_name']} (₹{pa_fee})")
+                        "pre_assessment", pa_id, f"Payment link sent to {pa['client_name']} (₹{pa_fee})")
         return {"message": f"Payment link sent to {pa['client_email']}", "payment_url": mock_link, "mode": "mock"}
 
     from emergentintegrations.payments.stripe.checkout import StripeCheckout, CheckoutSessionRequest
@@ -516,10 +527,9 @@ async def send_payment_link(pa_id: str, http_request: Request, current_user: dic
     }})
 
     await log_activity(current_user["id"], current_user.get("name", ""), "send_payment_link",
-                       "pre_assessment", pa_id, f"₹{pa_fee} payment link sent to {pa['client_name']} (source: {pa.get('pre_assessment_fee_source', 'legacy')})")
+                    "pre_assessment", pa_id, f"₹{pa_fee} payment link sent to {pa['client_name']} (source: {pa.get('pre_assessment_fee_source', 'legacy')})")
 
     return {"message": f"Payment link sent to {pa['client_email']}", "payment_url": session.url, "session_id": session.session_id}
-
 
 @router.post("/{pa_id}/mock-payment")
 async def mock_payment_received(pa_id: str):
@@ -581,10 +591,9 @@ async def confirm_payment(pa_id: str, current_user: dict = Depends(get_current_u
         logger.error(f"[Phase20.5] confirm_payment mini-portal provisioning failed: {e}")
 
     await log_activity(current_user["id"], current_user.get("name", ""), "confirm_pa_payment",
-                       "pre_assessment", pa_id, f"₹{pa_fee} payment confirmed for {pa['client_name']}")
+                    "pre_assessment", pa_id, f"₹{pa_fee} payment confirmed for {pa['client_name']}")
 
     return {"message": "Payment confirmed"}
-
 
 @router.post("/{pa_id}/submit-documents")
 async def submit_to_admin(pa_id: str, remarks: str = Form(""), current_user: dict = Depends(get_current_user)):
@@ -609,7 +618,7 @@ async def submit_to_admin(pa_id: str, remarks: str = Form(""), current_user: dic
     }})
 
     await log_activity(current_user["id"], current_user.get("name", ""), "submit_pa_for_review",
-                       "pre_assessment", pa_id, f"Documents submitted for review - {pa['client_name']}")
+                    "pre_assessment", pa_id, f"Documents submitted for review - {pa['client_name']}")
 
     # Notify admins
     admins = await users_col.find({"role": "admin", "status": "active"}, {"_id": 0, "id": 1}).to_list(50)
@@ -624,7 +633,6 @@ async def submit_to_admin(pa_id: str, remarks: str = Form(""), current_user: dic
         })
 
     return {"message": "Documents submitted for admin review"}
-
 
 @router.post("/{pa_id}/upload-document")
 async def upload_pa_document(
@@ -654,13 +662,25 @@ async def upload_pa_document(
         "file_size": len(content),
         "uploaded_by": current_user["id"],
         "uploaded_by_name": current_user.get("name", ""),
+        "uploaded_by_role": current_user.get("role", ""),   # 👈 NEW
         "created_at": datetime.now(timezone.utc)
     }
     await pre_assessment_docs_col.insert_one(doc)
     doc.pop("_id", None)
 
-    return {"id": doc["id"], "message": "Document uploaded", "file_name": file.filename}
+    #  NEW — Notify partner when ADMIN uploads a document
+    if current_user.get("role") == "admin" and pa.get("partner_id"):
+        await notifications_col.insert_one({
+            "id": str(uuid.uuid4()),
+            "user_id": pa["partner_id"],
+            "title": "Admin uploaded a document",
+            "message": f"Admin uploaded '{file.filename}' for {pa.get('client_name')}'s pre-assessment.",
+            "type": "admin_document_uploaded", "read": False,
+            "link": "/partner?tab=pre-assessment",
+            "created_at": datetime.now(timezone.utc)
+        })
 
+    return {"id": doc["id"], "message": "Document uploaded", "file_name": file.filename}
 
 @router.get("/{pa_id}/documents")
 async def get_pa_documents(pa_id: str, current_user: dict = Depends(get_current_user)):
@@ -672,7 +692,6 @@ async def get_pa_documents(pa_id: str, current_user: dict = Depends(get_current_
         if hasattr(d.get("created_at"), "isoformat"):
             d["created_at"] = d["created_at"].isoformat()
     return docs
-
 
 @router.get("/{pa_id}/document/{doc_id}/download")
 async def download_pa_document(pa_id: str, doc_id: str, inline: bool = False, current_user: dict = Depends(get_current_user)):
@@ -691,7 +710,6 @@ async def download_pa_document(pa_id: str, doc_id: str, inline: bool = False, cu
         mime = "application/pdf" if fname.lower().endswith(".pdf") else "application/octet-stream"
     disp = "inline" if inline else "attachment"
     return FileResponse(path, filename=fname, media_type=mime, content_disposition_type=disp)
-
 
 @router.delete("/{pa_id}/document/{doc_id}")
 async def delete_pa_document(pa_id: str, doc_id: str, current_user: dict = Depends(get_current_user)):
@@ -721,7 +739,6 @@ async def delete_pa_document(pa_id: str, doc_id: str, current_user: dict = Depen
     await pre_assessment_docs_col.delete_one({"id": doc_id, "pre_assessment_id": pa_id})
     return {"ok": True}
 
-
 # ===================== ADMIN ENDPOINTS =====================
 
 @router.get("/admin/queue")
@@ -731,7 +748,7 @@ async def admin_queue(current_user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=403, detail="Admin only")
 
     items = await pre_assessments_col.find(
-        {"stage": {"$in": ["under_review", "documents_submitted", "awaiting_final_approval"]}}, {"_id": 0}
+        {"stage": {"$in": ["under_review", "documents_submitted", "awaiting_final_approval", "installment_pending_approval"]}}, {"_id": 0}
     ).sort("submitted_at", -1).to_list(200)
 
     for item in items:
@@ -750,10 +767,6 @@ async def admin_queue(current_user: dict = Depends(get_current_user)):
 
 @router.get("/admin/standard-queue")
 async def admin_standard_queue(current_user: dict = Depends(get_current_user)):
-    """Admin: Standard Sales pending review — includes both the initial gate
-    (standard_pending_approval, legacy) AND the main eligibility review stage
-    (documents_submitted/under_review), so this tab shows everything currently
-    awaiting an admin decision for Standard Sales."""
     if current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
 
@@ -766,13 +779,19 @@ async def admin_standard_queue(current_user: dict = Depends(get_current_user)):
     ).sort("updated_at", -1).to_list(200)
 
     for item in items:
+        docs = await pre_assessment_docs_col.find(
+            {"pre_assessment_id": item["id"]}, {"_id": 0}
+        ).to_list(50)
+        item["documents"] = docs
         for field in ["created_at", "updated_at", "standard_sale_requested_at",
-                      "standard_sale_approved_at", "submitted_at"]:
-            if field in item and item[field] and hasattr(item[field], "isoformat"):
+                    "standard_sale_approved_at", "submitted_at"]:
+            if item.get(field) and hasattr(item[field], "isoformat"):
                 item[field] = item[field].isoformat()
+        for d in docs:
+            if hasattr(d.get("created_at"), "isoformat"):
+                d["created_at"] = d["created_at"].isoformat()
 
     return {"items": items}
-
 
 @router.get("/admin/standard-history")
 async def admin_standard_history(current_user: dict = Depends(get_current_user)):
@@ -786,13 +805,20 @@ async def admin_standard_history(current_user: dict = Depends(get_current_user))
     ).sort("standard_sale_approved_at", -1).to_list(200)
 
     for item in items:
+        docs = await pre_assessment_docs_col.find(
+            {"pre_assessment_id": item["id"]}, {"_id": 0}
+        ).to_list(50)
+        item["documents"] = docs
+
         for field in ["created_at", "updated_at", "standard_sale_requested_at",
-                      "standard_sale_approved_at"]:
+                    "standard_sale_approved_at"]:
             if field in item and item[field] and hasattr(item[field], "isoformat"):
                 item[field] = item[field].isoformat()
+        for d in docs:
+            if hasattr(d.get("created_at"), "isoformat"):
+                d["created_at"] = d["created_at"].isoformat()
 
     return {"items": items}
-
 class PADetailsUpdate(BaseModel):
     """Editable PA fields. Only non-financial / non-stage fields allowed here.
     Stage transitions go through their dedicated endpoints (review, send-proposal, etc.)
@@ -806,7 +832,6 @@ class PADetailsUpdate(BaseModel):
     country: Optional[str] = None
     service_type: Optional[str] = None
     notes: Optional[str] = None
-
 
 @router.put("/{pa_id}/details")
 async def update_pa_details(pa_id: str, body: PADetailsUpdate, current_user: dict = Depends(get_current_user)):
@@ -862,7 +887,6 @@ async def update_pa_details(pa_id: str, body: PADetailsUpdate, current_user: dic
     )
     return {"ok": True, "updated_fields": list(upd.keys()), "changes": changes}
 
-
 # ─── Phase 9.9 — Edit History tab (audit trail per PA) ──────────────────────
 @router.get("/{pa_id}/edit-history")
 async def get_pa_edit_history(pa_id: str, current_user: dict = Depends(get_current_user)):
@@ -888,7 +912,7 @@ async def get_pa_edit_history(pa_id: str, current_user: dict = Depends(get_curre
     sig_cur = db["pa_signatures"].find(
         {"pre_assessment_id": pa_id},
         {"_id": 0, "signed_at": 1, "user_email": 1, "typed_name": 1, "ip_address": 1,
-         "agreement_id": 1, "id": 1, "biometric_packet": 1},
+        "agreement_id": 1, "id": 1, "biometric_packet": 1},
     ).sort("signed_at", -1)
     async for sig in sig_cur:
         signed = sig.get("signed_at")
@@ -923,7 +947,6 @@ async def get_pa_edit_history(pa_id: str, current_user: dict = Depends(get_curre
         "entries": entries,
     }
 
-
 @router.put("/{pa_id}/review")
 async def admin_review(pa_id: str, review: AdminReview, current_user: dict = Depends(get_current_user)):
     """Admin approves or rejects pre-assessment"""
@@ -955,7 +978,7 @@ async def admin_review(pa_id: str, review: AdminReview, current_user: dict = Dep
                 "created_at": datetime.now(timezone.utc)
             })
             await log_activity(current_user["id"], current_user.get("name", ""), "standard_sale_approved",
-                               "pre_assessment", pa_id, f"Standard Sale approved for {pa['client_name']}")
+                            "pre_assessment", pa_id, f"Standard Sale approved for {pa['client_name']}")
             return {"message": "Standard Sale approved", "stage": "new"}
         else:
             reason = review.reason or review.notes or ""
@@ -977,7 +1000,7 @@ async def admin_review(pa_id: str, review: AdminReview, current_user: dict = Dep
                 "created_at": datetime.now(timezone.utc)
             })
             await log_activity(current_user["id"], current_user.get("name", ""), "standard_sale_rejected",
-                               "pre_assessment", pa_id, f"Standard Sale rejected for {pa['client_name']}: {reason.strip()}")
+                            "pre_assessment", pa_id, f"Standard Sale rejected for {pa['client_name']}: {reason.strip()}")
             return {"message": "Standard Sale rejected", "stage": "standard_rejected"}
 
     new_stage = "approved" if review.decision == "approved" else "rejected"
@@ -1003,7 +1026,7 @@ async def admin_review(pa_id: str, review: AdminReview, current_user: dict = Dep
     await pre_assessments_col.update_one({"id": pa_id}, {"$set": update_fields})
 
     await log_activity(current_user["id"], current_user.get("name", ""), f"pa_{review.decision}",
-                       "pre_assessment", pa_id, f"Pre-assessment {review.decision} for {pa['client_name']} - {review.reason}")
+                    "pre_assessment", pa_id, f"Pre-assessment {review.decision} for {pa['client_name']} - {review.reason}")
 
     # Notify partner
     await notifications_col.insert_one({
@@ -1027,13 +1050,373 @@ async def admin_review(pa_id: str, review: AdminReview, current_user: dict = Dep
 
     return {"message": f"Pre-assessment {review.decision}", "stage": new_stage}
 
-
 # ===================== PARTNER PROPOSAL ENDPOINTS =====================
+@router.post("/{pa_id}/send-proposal-draft")
+async def send_proposal_draft(pa_id: str, data: ProposalDraftData, current_user: dict = Depends(get_current_user)):
+    """Partner sends base proposal terms WITHOUT picking a package.
+    Client then picks the package from their portal; partner finalizes payment method after."""
+    pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
+    if not pa:
+        raise HTTPException(status_code=404, detail="Pre-assessment not found")
+    if pa["stage"] != "approved":
+        raise HTTPException(status_code=400, detail=f"Must be at 'approved' stage. Current: {pa['stage']}")
+    role = current_user.get("role")
+    if role in ("partner", "sales_executive", "sr_sales_executive") and pa["partner_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Not your pre-assessment")
+
+    product = await products_col.find_one({"id": pa.get("product_id", "")}, {"_id": 0, "packages": 1, "name": 1})
+    packages = [p for p in (product.get("packages") or []) if p.get("is_active", True)] if product else []
+    if not packages:
+        raise HTTPException(status_code=400, detail="This product has no active packages configured. Ask admin to set up packages first.")
+
+    await pre_assessments_col.update_one({"id": pa_id}, {"$set": {
+        "stage": "awaiting_package_selection",
+        "proposal_draft_fee": float(data.fee_amount),
+        "proposal_draft_notes": data.notes,
+        "proposal_draft_currency": data.currency,
+        "proposal_draft_promo_code": data.promo_code,
+        "proposal_draft_additional_discount": data.additional_discount,
+        "proposal_draft_upsell_bundle_ids": data.upsell_bundle_ids,
+        "proposal_draft_ai_text": data.ai_proposal_text,
+        "available_packages_snapshot": packages,  # frozen at send time
+        "selected_package_id": None,
+        "updated_at": datetime.now(timezone.utc),
+    }})
+
+    await log_activity(current_user["id"], current_user.get("name", ""), "send_proposal_draft",
+                    "pre_assessment", pa_id, f"Proposal draft sent to {pa['client_name']} — awaiting client package selection")
+
+    return {"message": "Sent to client for package selection", "stage": "awaiting_package_selection", "packages": packages}
+
+@router.post("/{pa_id}/forward-packages")
+async def forward_packages(pa_id: str, data: ForwardPackagesData, current_user: dict = Depends(get_current_user)):
+    """Partner selects specific packages (from the product's configured packages) and
+    forwards ONLY those to the client. Client picks one from their portal;
+    partner finalizes the payment method after (see /finalize-payment-method)."""
+    pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
+    if not pa:
+        raise HTTPException(status_code=404, detail="Pre-assessment not found")
+    if pa["stage"] != "approved":
+        raise HTTPException(status_code=400, detail=f"Must be at 'approved' stage. Current: {pa['stage']}")
+    role = current_user.get("role")
+    if role in ("partner", "sales_executive", "sr_sales_executive") and pa["partner_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Not your pre-assessment")
+
+    if not data.package_ids:
+        raise HTTPException(status_code=400, detail="Select at least one package")
+
+    product = await products_col.find_one({"id": pa.get("product_id", "")}, {"_id": 0, "packages": 1, "name": 1})
+    if not product:
+        raise HTTPException(status_code=400, detail="This pre-assessment isn't linked to a product. Ask admin to link a product first.")
+
+    all_packages = product.get("packages") or []
+    selected = [p for p in all_packages if p.get("id") in data.package_ids and p.get("is_active", True)]
+    if not selected:
+        raise HTTPException(status_code=400, detail="None of the selected packages are valid/active")
+
+    await pre_assessments_col.update_one({"id": pa_id}, {"$set": {
+        "stage": "awaiting_package_selection",
+        "proposal_draft_notes": data.notes,
+        "proposal_draft_ai_text": data.ai_proposal_text,
+        "available_packages_snapshot": selected,
+        "selected_package_id": None,
+        "updated_at": datetime.now(timezone.utc),
+    }})
+
+    await log_activity(current_user["id"], current_user.get("name", ""), "forward_packages",
+                    "pre_assessment", pa_id, f"{len(selected)} package(s) forwarded to {pa['client_name']} for selection")
+
+    if pa.get("client_user_id"):
+        await notifications_col.insert_one({
+            "id": str(uuid.uuid4()), "user_id": pa["client_user_id"],
+            "title": "Choose your package",
+            "message": f"Your partner sent you {len(selected)} package option(s) to choose from.",
+            "type": "package_selection_pending", "read": False,
+            "created_at": datetime.now(timezone.utc)
+        })
+
+    return {"message": "Packages sent to client for selection", "stage": "awaiting_package_selection", "packages": selected}
+
+@router.post("/{pa_id}/finalize-payment-method")
+async def finalize_payment_method(pa_id: str, data: FinalizePaymentMethodData, current_user: dict = Depends(get_current_user)):
+    """Partner sets the payment method (full / 50-50 / installments) AFTER the client
+    has already picked a package. Creates the sale record + payment_parts schedule,
+    same shape as /send-proposal, but using the client-selected package's price."""
+    pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
+    if not pa:
+        raise HTTPException(status_code=404, detail="Pre-assessment not found")
+    if pa["stage"] != "package_selected":
+        raise HTTPException(status_code=400, detail=f"Must be at 'package_selected' stage. Current: {pa['stage']}")
+    role = current_user.get("role")
+    if role in ("partner", "sales_executive", "sr_sales_executive") and pa["partner_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Not your pre-assessment")
+
+    selected_package = pa.get("selected_package_snapshot")
+    if not selected_package:
+        raise HTTPException(status_code=400, detail="No package selected by client")
+
+    base_fee = float(selected_package.get("price") or 0)
+    if base_fee <= 0:
+        raise HTTPException(status_code=400, detail="Selected package has no valid price")
+
+    # 👇 NEW — Validate + apply coupon (server-side truth, never trust frontend amount)
+    coupon_applied = None
+    discount_amount = 0.0
+    if data.coupon_code:
+        product_doc = await products_col.find_one({"id": pa.get("product_id", "")}, {"_id": 0, "discount_coupons": 1})
+        all_coupons = (product_doc or {}).get("discount_coupons") or []
+        code_upper = data.coupon_code.strip().upper()
+        coupon_applied = next(
+            (c for c in all_coupons if (c.get("code") or "").upper() == code_upper and c.get("is_active", True)),
+            None
+        )
+        if not coupon_applied:
+            raise HTTPException(status_code=400, detail=f"Invalid or inactive coupon code: {code_upper}")
+        if coupon_applied["discount_type"] == "percentage":
+            discount_amount = round(base_fee * float(coupon_applied["discount_value"]) / 100, 2)
+        else:
+            discount_amount = round(float(coupon_applied["discount_value"]), 2)
+        discount_amount = min(discount_amount, base_fee)
+
+    discounted_fee = round(base_fee - discount_amount, 2)
+
+    include_gst = bool(data.include_gst)
+    gst_amount = round(discounted_fee * 0.18, 2) if include_gst else 0.0
+    final_amount = round(discounted_fee + gst_amount, 2)
+
+    payment_method_type = data.payment_method_type
+
+    if payment_method_type not in ("full_payment", "split_50_50", "installments"):
+        raise HTTPException(status_code=400, detail="Invalid payment_method_type")
+
+    pm_config = (selected_package.get("payment_methods") or {}).get(payment_method_type)
+    if not pm_config or not pm_config.get("enabled"):
+        raise HTTPException(status_code=400, detail=f"Payment method '{payment_method_type}' is not enabled for this package")
+
+    is_installments = payment_method_type == "installments"
+    installment_total = None
+    if is_installments:
+        if not data.installment_schedule or len(data.installment_schedule) < 2:
+            raise HTTPException(status_code=400, detail="Installment schedule must have at least 2 entries")
+        max_allowed = (pm_config or {}).get("max_installments", 5)
+        if len(data.installment_schedule) > max_allowed:
+            raise HTTPException(status_code=400, detail=f"Max {max_allowed} installments allowed for this package")
+        installment_total = round(sum(i.amount for i in data.installment_schedule), 2)
+        if abs(installment_total - final_amount) > 1:
+            raise HTTPException(status_code=400, detail=f"Installment total (₹{installment_total:,.0f}) must equal package price (₹{final_amount:,.0f})")
+
+    # Build payment_parts
+    payment_parts = []
+    if payment_method_type == "split_50_50":
+        first_pct = float(pm_config.get("first_pct") or 50)
+        trigger = pm_config.get("trigger_condition") or ""
+        part1 = round(final_amount * first_pct / 100, 2)
+        part2 = round(final_amount - part1, 2)
+        payment_parts = [
+            {"index": 0, "label": f"1st Installment ({first_pct:.0f}%)", "amount": part1,
+            "status": "pending", "due_date": None, "trigger_condition": None},
+            {"index": 1, "label": f"2nd Installment ({100-first_pct:.0f}%)", "amount": part2,
+            "status": "locked", "due_date": None, "trigger_condition": trigger or "Admin unlock required"},
+        ]
+    elif is_installments:
+        payment_parts = [
+            {"index": idx, "label": f"Installment {idx+1}", "amount": round(inst.amount, 2),
+            "status": "pending" if idx == 0 else "locked",
+            "due_date": inst.due_date, "trigger_condition": None}
+            for idx, inst in enumerate(data.installment_schedule)
+        ]
+    else:  # full_payment
+        payment_parts = [
+            {"index": 0, "label": "Full Payment", "amount": final_amount,
+            "status": "pending", "due_date": None, "trigger_condition": None},
+        ]
+
+    # Resolve commission rate (same logic as send_proposal)
+    product = await products_col.find_one({"id": pa.get("product_id", "")}, {"_id": 0}) or {}
+    custom = await partner_product_commissions_col.find_one(
+        {"partner_id": current_user["id"], "product_id": pa.get("product_id", "")}, {"_id": 0}
+    )
+    if custom:
+        commission_rate = custom["commission_rate"]
+    elif product.get("commission_rate") is not None and product.get("commission_rate", 0) > 0:
+        commission_rate = product["commission_rate"]
+    else:
+        sales_comm_alloc = next(
+            (a for a in (product.get("cost_allocations") or []) if a.get("vendor_category") == "sales_commission"),
+            None
+        )
+        if sales_comm_alloc and sales_comm_alloc.get("payment_type") == "percentage" and float(sales_comm_alloc.get("rate") or 0) > 0:
+            commission_rate = float(sales_comm_alloc["rate"])
+        else:
+            commission_rate = current_user.get("commission_rate", 0)
+    commission_amount = 0  # amount_received starts at 0
+
+    sale_id = str(uuid.uuid4())
+    sale = {
+        "id": sale_id,
+        "partner_id": current_user["id"],
+        "partner_name": current_user.get("name", ""),
+        "client_name": pa["client_name"],
+        "client_email": pa["client_email"],
+        "client_mobile": pa.get("client_mobile", ""),
+        "product_id": pa.get("product_id", ""),
+        "product_name": pa.get("product_name", ""),
+        "country": pa["country"],
+        "service_type": pa["service_type"],
+        "fee_amount": final_amount,
+        "fee_before_discount": base_fee,
+        "base_fee": base_fee,
+        "coupon_code": coupon_applied["code"] if coupon_applied else None,
+        "coupon_discount_type": coupon_applied["discount_type"] if coupon_applied else None,
+        "coupon_discount_value": coupon_applied["discount_value"] if coupon_applied else None,
+        "coupon_discount_amount": discount_amount,
+        "discounted_fee": discounted_fee,
+        "gst_included": include_gst,
+        "gst_amount": gst_amount,
+        "upsell_items": [],
+        "upsell_total": 0,
+        "promo_code": None,
+        "promo_discount_amount": 0,
+        "additional_discount_amount": 0,
+        "total_discount_amount": 0,
+        "amount_received": 0,
+        "pending_amount": final_amount,
+        "payment_method": "online",
+        "currency": "INR",
+        "status": "pending_installment_approval" if is_installments else "approved",
+        "commission_rate": commission_rate,
+        "commission_amount": commission_amount,
+        "pre_assessment_id": pa_id,
+        "notes": pa.get("proposal_draft_notes", ""),
+        "ai_proposal_text": pa.get("proposal_draft_ai_text", ""),
+        "product_package_id": selected_package.get("id"),
+        "product_package_name": selected_package.get("name"),
+        "payment_method_type": payment_method_type,
+        "installment_schedule": [i.dict() for i in data.installment_schedule] if data.installment_schedule else None,
+        "payment_parts": payment_parts,
+        "amount_paid_so_far": 0,
+        "created_at": datetime.now(timezone.utc),
+        "approved_at": datetime.now(timezone.utc),
+    }
+    await sales_col.insert_one(sale)
+
+    new_stage = "installment_pending_approval" if is_installments else "proposal_sent"
+
+    await pre_assessments_col.update_one({"id": pa_id}, {"$set": {
+        "stage": new_stage,
+        "proposal_fee": final_amount,
+        "proposal_base_fee": base_fee,
+        "proposal_coupon_code": coupon_applied["code"] if coupon_applied else None,
+        "proposal_coupon_discount_amount": discount_amount,
+        "proposal_discounted_fee": discounted_fee,
+        "proposal_gst_included": include_gst,
+        "proposal_gst_amount": gst_amount,
+        "proposal_upsells": [],
+        "proposal_upsell_total": 0,
+        "proposal_promo_code": None,
+        "proposal_promo_discount": 0,
+        "proposal_additional_discount": 0,
+        "proposal_total_discount": 0,
+        "proposal_notes": pa.get("proposal_draft_notes", ""),
+        "proposal_ai_text": pa.get("proposal_draft_ai_text", ""),
+        "proposal_status": "pending_installment_approval" if is_installments else "sent",
+        "sale_id": sale_id,
+        "product_package_id": selected_package.get("id"),
+        "product_package_name": selected_package.get("name"),
+        "proposal_payment_method_type": payment_method_type,
+        "proposal_installment_schedule": [i.dict() for i in data.installment_schedule] if data.installment_schedule else None,
+        "proposal_payment_parts": payment_parts,
+        "proposal_amount_paid": 0,
+        "proposal_amount_pending": final_amount,
+        "updated_at": datetime.now(timezone.utc),
+    }})
+
+    await log_activity(current_user["id"], current_user.get("name", ""), "finalize_payment_method",
+                    "pre_assessment", pa_id, f"Payment method '{payment_method_type}' set for {pa['client_name']} — ₹{final_amount}")
+
+    if pa.get("client_user_id"):
+        await notifications_col.insert_one({
+            "id": str(uuid.uuid4()), "user_id": pa["client_user_id"],
+            "title": "Payment ready" if not is_installments else "Installment plan submitted",
+            "message": (
+                f"Your payment plan is ready — ₹{final_amount:,.0f} ({payment_method_type})"
+                if not is_installments else
+                f"Installment plan for ₹{final_amount:,.0f} submitted for admin approval"
+            ),
+            "type": "payment_ready", "read": False,
+            "created_at": datetime.now(timezone.utc)
+        })
+
+    if is_installments:
+        admins = await users_col.find({"role": "admin", "status": "active"}, {"_id": 0, "id": 1}).to_list(50)
+        for admin in admins:
+            await notifications_col.insert_one({
+                "id": str(uuid.uuid4()), "user_id": admin["id"],
+                "title": "Installment Approval Needed",
+                "message": f"{current_user.get('name', '')} sent an installment plan (₹{final_amount:,.0f}) for {pa['client_name']} — needs your approval",
+                "type": "installment_pending", "read": False,
+                "link": "/admin/pre-assessments",
+                "created_at": datetime.now(timezone.utc)
+            })
+
+    return {
+        "message": (
+            f"Installment plan for {pa['client_name']} sent for admin approval"
+            if is_installments else
+            f"Payment method set — {pa['client_name']} can now pay"
+        ),
+        "stage": new_stage,
+        "sale_id": sale_id,
+    }
+
+class SpouseInfoData(BaseModel):
+    name: str
+    mobile: str = ""
+    email: str = ""
+    age: Optional[int] = None
+    education: str = ""
+    work_experience: str = ""
+    notes: str = ""
+
+@router.post("/{pa_id}/spouse-info")
+async def save_spouse_info(pa_id: str, data: SpouseInfoData, current_user: dict = Depends(get_current_user)):
+    pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
+    if not pa:
+        raise HTTPException(status_code=404, detail="Pre-assessment not found")
+    role = current_user.get("role")
+    if role in ("partner", "sales_executive", "sr_sales_executive") and pa.get("partner_id") != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Not your pre-assessment")
+    if pa.get("stage") != "package_selected":
+        raise HTTPException(status_code=400, detail=f"Cannot add spouse info at stage: {pa.get('stage')}")
+
+    await pre_assessments_col.update_one({"id": pa_id}, {"$set": {
+        "spouse_info": data.dict(),
+        "updated_at": datetime.now(timezone.utc),
+    }})
+    await log_activity(current_user["id"], current_user.get("name", ""), "spouse_info_saved",
+                        "pre_assessment", pa_id, f"Spouse/partner info recorded for {pa['client_name']}")
+
+    # 👇 NEW — notify admins right away so they know a 2nd person (sponsor/spouse)
+    # will also need a case + case manager once the case is created.
+    admins = await users_col.find({"role": "admin", "status": "active"}, {"_id": 0, "id": 1}).to_list(50)
+    for admin in admins:
+        await notifications_col.insert_one({
+            "id": str(uuid.uuid4()), "user_id": admin["id"],
+            "title": "Partner/Spouse details added",
+            "message": f"{pa['client_name']}'s partner/spouse '{data.name}' added — this case will need a 2nd case manager assignment too.",
+            "type": "spouse_info_added", "read": False,
+            "link": "/admin?tab=pre-assessments",
+            "created_at": datetime.now(timezone.utc),
+        })
+
+    return {"ok": True, "spouse_info": data.dict()}
 
 @router.post("/{pa_id}/send-proposal")
 async def send_proposal(pa_id: str, proposal: ProposalData, http_request: Request, current_user: dict = Depends(get_current_user)):
     """After approval, partner sends sales proposal with payment link to client.
-    Supports promo_code, additional_discount (flat ₹), and upsell_bundle_ids.
+    Supports promo_code, additional_discount (flat ₹), upsell_bundle_ids, and now
+    Package + Payment Method selection (full_payment / split_50_50 / installments).
+    Installments require a subsequent admin approval (see /review-installments).
     """
     pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
     if not pa:
@@ -1048,9 +1431,43 @@ async def send_proposal(pa_id: str, proposal: ProposalData, http_request: Reques
     if role in ("partner", "sales_executive", "sr_sales_executive") and pa["partner_id"] != current_user["id"]:
         raise HTTPException(status_code=403, detail="This pre-assessment belongs to another partner. You can only send proposals for your own leads.")
 
-    base_fee = float(proposal.fee_amount or 0)
+    # ─── Resolve selected package (overrides manual fee_amount) ────────────
+    selected_package = None
+    if proposal.product_package_id:
+        product_full = await products_col.find_one({"id": pa.get("product_id", "")}, {"_id": 0, "packages": 1})
+        if not product_full:
+            raise HTTPException(status_code=400, detail="Product not found for this pre-assessment")
+        selected_package = next(
+            (p for p in (product_full.get("packages") or []) if p.get("id") == proposal.product_package_id),
+            None
+        )
+        if not selected_package:
+            raise HTTPException(status_code=400, detail="Selected package not found on this product")
+        if not selected_package.get("is_active", True):
+            raise HTTPException(status_code=400, detail=f"Package '{selected_package.get('name')}' is not active")
+
+        pm_config = (selected_package.get("payment_methods") or {}).get(proposal.payment_method_type)
+        if not pm_config or not pm_config.get("enabled"):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Payment method '{proposal.payment_method_type}' is not enabled for package '{selected_package.get('name')}'"
+            )
+
+    base_fee = float(selected_package["price"]) if selected_package else float(proposal.fee_amount or 0)
     if base_fee <= 0:
         raise HTTPException(status_code=400, detail="Base fee must be greater than 0")
+
+    is_installments = proposal.payment_method_type == "installments"
+
+    # ─── Validate installment schedule if that payment method chosen ───────
+    installment_total = None
+    if is_installments:
+        if not proposal.installment_schedule or len(proposal.installment_schedule) < 2:
+            raise HTTPException(status_code=400, detail="Installment schedule must have at least 2 entries")
+        max_allowed = ((selected_package or {}).get("payment_methods", {}).get("installments", {}) or {}).get("max_installments", 5)
+        if len(proposal.installment_schedule) > max_allowed:
+            raise HTTPException(status_code=400, detail=f"Max {max_allowed} installments allowed for this package")
+        installment_total = round(sum(i.amount for i in proposal.installment_schedule), 2)
 
     # Resolve upsells
     upsell_items: List[dict] = []
@@ -1088,6 +1505,40 @@ async def send_proposal(pa_id: str, proposal: ProposalData, http_request: Reques
     additional_discount = max(0.0, float(proposal.additional_discount or 0))
     total_discount = round(promo_discount + additional_discount, 2)
     final_amount = round(max(0.0, base_fee - total_discount + upsell_total), 2)
+
+    if is_installments and installment_total is not None:
+        if abs(installment_total - final_amount) > 1:  # ₹1 rounding tolerance
+            raise HTTPException(
+                status_code=400,
+                detail=f"Installment total (₹{installment_total:,.0f}) must equal final amount (₹{final_amount:,.0f})"
+            )
+
+# ─── Build payment_parts — the actual schedule the client will pay against ──
+    payment_parts = []
+    if proposal.payment_method_type == "split_50_50":
+        pm = (selected_package.get("payment_methods", {}).get("split_50_50") or {}) if selected_package else {}
+        first_pct = float(pm.get("first_pct") or 50)
+        trigger = pm.get("trigger_condition") or ""
+        part1 = round(final_amount * first_pct / 100, 2)
+        part2 = round(final_amount - part1, 2)
+        payment_parts = [
+            {"index": 0, "label": f"1st Installment ({first_pct:.0f}%)", "amount": part1,
+             "status": "pending", "due_date": None, "trigger_condition": None},
+            {"index": 1, "label": f"2nd Installment ({100-first_pct:.0f}%)", "amount": part2,
+             "status": "locked", "due_date": None, "trigger_condition": trigger or "Admin unlock required"},
+        ]
+    elif is_installments and proposal.installment_schedule:
+        payment_parts = [
+            {"index": idx, "label": f"Installment {idx+1}", "amount": round(inst.amount, 2),
+             "status": "pending" if idx == 0 else "locked",
+             "due_date": inst.due_date, "trigger_condition": None}
+            for idx, inst in enumerate(proposal.installment_schedule)
+        ]
+    else:  # full_payment
+        payment_parts = [
+            {"index": 0, "label": "Full Payment", "amount": final_amount,
+             "status": "pending", "due_date": None, "trigger_condition": None},
+        ]
 
     # --- Resolve commission rate (same logic as the direct-sale flow in sales.py) ---
     product = await products_col.find_one({"id": pa.get("product_id", "")}, {"_id": 0}) or {}
@@ -1135,21 +1586,29 @@ async def send_proposal(pa_id: str, proposal: ProposalData, http_request: Reques
         "pending_amount": final_amount,
         "payment_method": proposal.payment_method,
         "currency": proposal.currency,
-        "status": "approved",
+        "status": "pending_installment_approval" if is_installments else "approved",
         "commission_rate": commission_rate,
         "commission_amount": commission_amount,
         "pre_assessment_id": pa_id,
         "notes": proposal.notes,
         "ai_proposal_text": proposal.ai_proposal_text or "",
+        # 👇 Package + Payment method tracking
+        "product_package_id": proposal.product_package_id,
+        "product_package_name": selected_package.get("name") if selected_package else None,
+        "payment_method_type": proposal.payment_method_type,
+        "installment_schedule": [i.dict() for i in proposal.installment_schedule] if proposal.installment_schedule else None,
+        "payment_parts": payment_parts,
+        "amount_paid_so_far": 0,
         "created_at": datetime.now(timezone.utc),
         "approved_at": datetime.now(timezone.utc),
     }
     await sales_col.insert_one(sale)
     sale.pop("_id", None)
 
-    # Generate payment link if Stripe available (uses final_amount)
+    # Generate payment link if Stripe available (uses final_amount) — SKIPPED for installments,
+    # since the first-installment link is only generated after admin approves the plan.
     payment_url = None
-    if STRIPE_API_KEY and final_amount > 0:
+    if STRIPE_API_KEY and final_amount > 0 and not is_installments:
         try:
             from emergentintegrations.payments.stripe.checkout import StripeCheckout, CheckoutSessionRequest
             origin = str(http_request.headers.get("origin", http_request.base_url)).rstrip("/")
@@ -1161,15 +1620,17 @@ async def send_proposal(pa_id: str, proposal: ProposalData, http_request: Reques
                 amount=float(final_amount), currency="inr",
                 success_url=success_url, cancel_url=cancel_url,
                 metadata={"type": "proposal", "pa_id": pa_id, "sale_id": sale_id,
-                           "client_email": pa["client_email"], "client_name": pa["client_name"]}
+                        "client_email": pa["client_email"], "client_name": pa["client_name"]}
             ))
             payment_url = session.url
             await pre_assessments_col.update_one({"id": pa_id}, {"$set": {"proposal_session_id": session.session_id}})
         except Exception as e:
             print(f"Stripe error: {e}")
 
+    new_stage = "installment_pending_approval" if is_installments else "proposal_sent"
+
     await pre_assessments_col.update_one({"id": pa_id}, {"$set": {
-        "stage": "proposal_sent",
+        "stage": new_stage,
         "proposal_fee": final_amount,
         "proposal_base_fee": base_fee,
         "proposal_upsells": upsell_items,
@@ -1180,26 +1641,46 @@ async def send_proposal(pa_id: str, proposal: ProposalData, http_request: Reques
         "proposal_total_discount": total_discount,
         "proposal_notes": proposal.notes,
         "proposal_ai_text": proposal.ai_proposal_text or "",
-        "proposal_status": "sent", "sale_id": sale_id,
+        "proposal_status": "pending_installment_approval" if is_installments else "sent",
+        "sale_id": sale_id,
+        #  Package + Payment method tracking
+        "product_package_id": proposal.product_package_id,
+        "product_package_name": selected_package.get("name") if selected_package else None,
+        "proposal_payment_method_type": proposal.payment_method_type,
+        "proposal_installment_schedule": [i.dict() for i in proposal.installment_schedule] if proposal.installment_schedule else None,
+        #  NEW — the actual part-by-part payment schedule used by client_mock_pay_proposal()
+        "proposal_payment_parts": payment_parts,
+        "proposal_amount_paid": 0,
+        "proposal_amount_pending": final_amount,
         "updated_at": datetime.now(timezone.utc)
     }})
 
     await log_activity(current_user["id"], current_user.get("name", ""), "send_proposal",
-                       "pre_assessment", pa_id, f"Proposal sent to {pa['client_name']} - ₹{final_amount}")
+                    "pre_assessment", pa_id, f"Proposal sent to {pa['client_name']} - ₹{final_amount} ({proposal.payment_method_type})")
 
     # Notify admins
     admins = await users_col.find({"role": "admin", "status": "active"}, {"_id": 0, "id": 1}).to_list(50)
     for admin in admins:
         await notifications_col.insert_one({
             "id": str(uuid.uuid4()), "user_id": admin["id"],
-            "title": "Proposal Sent",
-            "message": f"{current_user.get('name', '')} sent ₹{final_amount:,.0f} proposal to {pa['client_name']}",
-            "type": "proposal", "read": False,
+            "title": "Installment Approval Needed" if is_installments else "Proposal Sent",
+            "message": (
+                f"{current_user.get('name', '')} sent an installment proposal (₹{final_amount:,.0f}) for {pa['client_name']} — needs your approval"
+                if is_installments else
+                f"{current_user.get('name', '')} sent ₹{final_amount:,.0f} proposal to {pa['client_name']}"
+            ),
+            "type": "installment_pending" if is_installments else "proposal", "read": False,
+            "link": "/admin/pre-assessments",
             "created_at": datetime.now(timezone.utc)
         })
 
     return {
-        "message": f"Proposal sent to {pa['client_name']}",
+        "message": (
+            f"Installment proposal for {pa['client_name']} sent for admin approval"
+            if is_installments else
+            f"Proposal sent to {pa['client_name']}"
+        ),
+        "stage": new_stage,
         "sale_id": sale_id,
         "payment_url": payment_url,
         "breakdown": {
@@ -1213,7 +1694,386 @@ async def send_proposal(pa_id: str, proposal: ProposalData, http_request: Reques
         }
     }
 
+# ─── Admin — Approve / Reject Installment Plan ──────────────────────────────
+class InstallmentReview(BaseModel):
+    decision: str  # "approved" or "rejected"
+    reason: str = ""
 
+
+@router.put("/{pa_id}/review-installments")
+async def review_installment_proposal(pa_id: str, review: InstallmentReview, http_request: Request,
+                                    current_user: dict = Depends(get_current_user)):
+    """Admin approves/rejects the partner-proposed installment payment plan.
+
+    On approval: generates a Stripe payment link for the FIRST installment only
+    and moves the PA to 'proposal_sent' so the partner can share it with the client.
+    On rejection: bounces the PA back to 'approved' so the partner can resend a
+    revised proposal (e.g. different payment method).
+    """
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
+    if not pa:
+        raise HTTPException(status_code=404, detail="Pre-assessment not found")
+    if pa.get("stage") != "installment_pending_approval":
+        raise HTTPException(status_code=400, detail=f"PA is at stage '{pa.get('stage')}', not awaiting installment approval")
+
+    if review.decision not in ("approved", "rejected"):
+        raise HTTPException(status_code=400, detail="Decision must be 'approved' or 'rejected'")
+
+    if review.decision == "rejected":
+        await pre_assessments_col.update_one({"id": pa_id}, {"$set": {
+            "stage": "approved",  # bounce back so partner can re-send proposal
+            "updated_at": datetime.now(timezone.utc),
+        }})
+        if pa.get("sale_id"):
+            await sales_col.update_one({"id": pa["sale_id"]}, {"$set": {"status": "rejected"}})
+        await notifications_col.insert_one({
+            "id": str(uuid.uuid4()), "user_id": pa["partner_id"],
+            "title": "Installment Plan Rejected",
+            "message": f"Installment plan for {pa['client_name']} was rejected: {review.reason}. Please resend the proposal.",
+            "type": "installment_rejected", "read": False,
+            "created_at": datetime.now(timezone.utc)
+        })
+        await log_activity(current_user["id"], current_user.get("name", ""), "installment_rejected",
+                        "pre_assessment", pa_id, f"Installment plan rejected for {pa['client_name']}: {review.reason}")
+        return {"message": "Installment plan rejected", "stage": "approved"}
+
+    # Approved — generate payment link for FIRST installment only
+    schedule = pa.get("proposal_installment_schedule") or []
+    first_amount = float(schedule[0]["amount"]) if schedule else float(pa.get("proposal_fee") or 0)
+
+    payment_url = None
+    if STRIPE_API_KEY and first_amount > 0:
+        try:
+            from emergentintegrations.payments.stripe.checkout import StripeCheckout, CheckoutSessionRequest
+            origin = str(http_request.headers.get("origin", http_request.base_url)).rstrip("/")
+            success_url = f"{origin}/payment-success?session_id={{CHECKOUT_SESSION_ID}}&type=installment&pa_id={pa_id}&idx=0"
+            cancel_url = f"{origin}/payment-cancel?type=installment&pa_id={pa_id}"
+            host_url = str(http_request.base_url)
+            stripe_checkout = StripeCheckout(api_key=STRIPE_API_KEY, webhook_url=f"{host_url}api/webhook/stripe")
+            session = await stripe_checkout.create_checkout_session(CheckoutSessionRequest(
+                amount=float(first_amount), currency="inr",
+                success_url=success_url, cancel_url=cancel_url,
+                metadata={"type": "installment", "pa_id": pa_id, "installment_index": "0"}
+            ))
+            payment_url = session.url
+        except Exception as e:
+            print(f"Stripe error (installment): {e}")
+
+    await pre_assessments_col.update_one({"id": pa_id}, {"$set": {
+        "stage": "proposal_sent",
+        "proposal_status": "sent",
+        "installment_approved_by": current_user["id"],
+        "installment_approved_at": datetime.now(timezone.utc),
+        "updated_at": datetime.now(timezone.utc),
+    }})
+    if pa.get("sale_id"):
+        await sales_col.update_one({"id": pa["sale_id"]}, {"$set": {"status": "approved"}})
+
+    await notifications_col.insert_one({
+        "id": str(uuid.uuid4()), "user_id": pa["partner_id"],
+        "title": "Installment Plan Approved",
+        "message": f"Installment plan for {pa['client_name']} approved. First installment link is ready to share.",
+        "type": "installment_approved", "read": False,
+        "created_at": datetime.now(timezone.utc)
+    })
+    await log_activity(current_user["id"], current_user.get("name", ""), "installment_approved",
+                    "pre_assessment", pa_id, f"Installment plan approved for {pa['client_name']}")
+
+    return {"message": "Installment plan approved", "stage": "proposal_sent", "payment_url": payment_url}
+
+
+# ─── Partner: forward an installment payment for admin unlock ──────────────
+@router.post("/{pa_id}/forward-installment-review")
+async def forward_installment_review(pa_id: str, current_user: dict = Depends(get_current_user)):
+    """Partner reviews a just-paid installment and forwards it to admin so the
+    NEXT installment can be unlocked for the client."""
+    pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
+    if not pa:
+        raise HTTPException(status_code=404, detail="Pre-assessment not found")
+
+    role = current_user.get("role")
+    if role in ("partner", "sales_executive", "sr_sales_executive") and pa.get("partner_id") != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Not your pre-assessment")
+    if role not in ("admin", "partner", "sales_executive", "sr_sales_executive"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    if not pa.get("pending_installment_unlock"):
+        raise HTTPException(status_code=400, detail="No installment is currently awaiting admin unlock")
+
+    await pre_assessments_col.update_one({"id": pa_id}, {"$set": {
+        "installment_forwarded_by": current_user["id"],
+        "installment_forwarded_at": datetime.now(timezone.utc),
+        "updated_at": datetime.now(timezone.utc),
+    }})
+
+    admins = await users_col.find({"role": "admin", "status": "active"}, {"_id": 0, "id": 1}).to_list(50)
+    for admin in admins:
+        await notifications_col.insert_one({
+            "id": str(uuid.uuid4()), "user_id": admin["id"],
+            "title": "Installment payment — unlock next?",
+            "message": f"{pa['client_name']}'s installment payment was reviewed by {current_user.get('name','')}. Approve to unlock next installment.",
+            "type": "installment_unlock_pending", "read": False,
+            "link": "/admin/pre-assessments",
+            "created_at": datetime.now(timezone.utc)
+        })
+
+    await log_activity(current_user["id"], current_user.get("name", ""), "forward_installment_review",
+                    "pre_assessment", pa_id, f"Installment reviewed and forwarded to admin for {pa['client_name']}")
+    return {"ok": True, "message": "Forwarded to admin"}
+
+# ─── Admin: unlock the next installment for the client ──────────────────────
+@router.post("/{pa_id}/unlock-next-installment")
+async def unlock_next_installment(pa_id: str, current_user: dict = Depends(get_current_user)):
+    """Admin approves and unlocks the next locked payment part so the client can pay it."""
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
+    if not pa:
+        raise HTTPException(status_code=404, detail="Pre-assessment not found")
+
+    parts = pa.get("proposal_payment_parts") or []
+    next_locked = next((p for p in parts if p.get("status") == "locked"), None)
+    if not next_locked:
+        raise HTTPException(status_code=400, detail="No locked installment to unlock")
+
+    for p in parts:
+        if p["index"] == next_locked["index"]:
+            p["status"] = "pending"
+
+    await pre_assessments_col.update_one({"id": pa_id}, {"$set": {
+        "proposal_payment_parts": parts,
+        "pending_installment_unlock": False,
+        "installment_unlocked_by": current_user["id"],
+        "installment_unlocked_at": datetime.now(timezone.utc),
+        "updated_at": datetime.now(timezone.utc),
+    }})
+
+    if pa.get("client_user_id"):
+        await notifications_col.insert_one({
+            "id": str(uuid.uuid4()), "user_id": pa["client_user_id"],
+            "title": "Next installment unlocked",
+            "message": f"{next_locked['label']} (₹{next_locked['amount']:,.0f}) is now ready — you can pay it in your portal.",
+            "type": "installment_unlocked", "read": False,
+            "created_at": datetime.now(timezone.utc)
+        })
+    if pa.get("partner_id"):
+        await notifications_col.insert_one({
+            "id": str(uuid.uuid4()), "user_id": pa["partner_id"],
+            "title": "Installment unlocked by admin",
+            "message": f"{next_locked['label']} unlocked for {pa['client_name']}.",
+            "type": "installment_unlocked", "read": False,
+            "created_at": datetime.now(timezone.utc)
+        })
+
+    await log_activity(current_user["id"], current_user.get("name", ""), "unlock_next_installment",
+                    "pre_assessment", pa_id, f"Unlocked {next_locked['label']} for {pa['client_name']}")
+    return {"ok": True, "unlocked_part": next_locked["label"]}
+
+# ═══════════════════════════════════════════════════════════════════════
+# PATCH FOR: pre_assessment.py
+# GOAL: When admin approves the 1st installment (forwarded by partner),
+#       activate the Case + assign a Case Manager RIGHT THEN — instead of
+#       waiting for the client to pay 100% of the fee.
+#
+# WHERE TO ADD:
+#   Add this AFTER the existing `unlock_next_installment` endpoint in
+#   pre_assessment.py (you can keep the old endpoint too, for pure
+#   "unlock without activating" cases if you ever need it — but the
+#   Forward-to-Admin banner in the frontend should now call THIS one).
+# ═══════════════════════════════════════════════════════════════════════
+
+from pydantic import BaseModel
+from typing import Optional
+
+class ApproveInstallmentActivateRequest(BaseModel):
+    case_manager_id: Optional[str] = None  # optional — admin can assign later too
+    spouse_case_manager_id: Optional[str] = None 
+
+@router.post("/{pa_id}/approve-installment-and-activate-case")
+async def approve_installment_and_activate_case(
+    pa_id: str,
+    data: Optional[ApproveInstallmentActivateRequest] = None,
+    current_user: dict = Depends(get_current_user),
+):
+    """Admin approves a partner-forwarded installment payment.
+    Does TWO/THREE things in one shot:
+    1. Unlocks the next payment part (so client can pay installment #2 later)
+    2. Activates the main applicant's Case + (optionally) assigns a Case Manager
+    3. If this PA has spouse_info, creates a SEPARATE case + own login for the
+        spouse/partner too — with its own optional Case Manager assignment.
+
+    Safe to call more than once — if the main case already exists it is skipped,
+    and if the spouse case already exists it is skipped too (idempotent).
+    """
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
+    if not pa:
+        raise HTTPException(status_code=404, detail="Pre-assessment not found")
+
+    if not pa.get("pending_installment_unlock"):
+        raise HTTPException(status_code=400, detail="No installment is currently awaiting admin approval")
+
+    now = datetime.now(timezone.utc)
+
+    # ── Step 1: Unlock the next locked payment part ────────────────────────
+    parts = pa.get("proposal_payment_parts") or []
+    next_locked = next((p for p in parts if p.get("status") == "locked"), None)
+    if next_locked:
+        for p in parts:
+            if p["index"] == next_locked["index"]:
+                p["status"] = "pending"
+
+    update_fields = {
+        "proposal_payment_parts": parts,
+        "pending_installment_unlock": False,
+        "installment_unlocked_by": current_user["id"],
+        "installment_unlocked_at": now,
+        "updated_at": now,
+    }
+
+    # ── Step 2: Activate the main applicant's Case (only if not already created) ──
+    case_id = pa.get("case_id")
+    case_code = None
+    cm_id = (data.case_manager_id if data else None)
+    cm_name = "Pending assignment"
+
+    if not case_id:
+        cases_col = db["cases"]
+        case_steps_col = db["case_steps"]
+        workflow_steps_col = db["workflow_steps"]
+
+        count = await cases_col.count_documents({})
+        case_code = f"LEAMSS-{now.year}-{(count + 1):04d}"
+
+        client_user = await users_col.find_one(
+            {"$or": [{"id": pa.get("client_user_id")}, {"email": (pa.get("client_email") or "").lower()}]},
+            {"_id": 0}
+        )
+        client_id = client_user["id"] if client_user else pa.get("client_user_id")
+
+        if cm_id:
+            cm = await users_col.find_one({"id": cm_id, "role": "case_manager"}, {"_id": 0, "name": 1})
+            if not cm:
+                raise HTTPException(status_code=400, detail="Invalid case_manager_id")
+            cm_name = cm.get("name", "Case Manager")
+
+        case_id = str(uuid.uuid4())
+        case = {
+            "id": case_id,
+            "case_id": case_code,
+            "sale_id": pa.get("sale_id"),
+            "client_id": client_id,
+            "client_name": pa.get("client_name"),
+            "client_email": pa.get("client_email"),
+            "product_id": pa.get("product_id", ""),
+            "product_name": pa.get("product_name") or f"{pa.get('country')} - {pa.get('service_type')}",
+            "partner_id": pa.get("partner_id"),
+            "case_manager_id": cm_id,
+            "case_manager_name": cm_name,
+            "status": "active",
+            "current_step": "Profile Creation",
+            "current_step_order": 1,
+            "pre_assessment_id": pa_id,
+            "created_at": now,
+            "updated_at": now,
+        }
+        await cases_col.insert_one(case)
+
+        if pa.get("product_id"):
+            steps = await workflow_steps_col.find(
+                {"product_id": pa["product_id"]}, {"_id": 0}
+            ).sort("step_order", 1).to_list(100)
+            for step in steps:
+                cs = {
+                    "id": str(uuid.uuid4()),
+                    "case_id": case_id,
+                    "step_name": step.get("step_name"),
+                    "step_order": step.get("step_order"),
+                    "status": "pending",
+                    "description": step.get("description", ""),
+                    "required_documents": step.get("required_documents", []),
+                    "created_at": now,
+                }
+                await case_steps_col.insert_one(cs)
+
+        update_fields.update({
+            "case_id": case_id,
+            "case_activated_early": True,
+            "case_activated_at": now,
+            "final_approved_by": current_user["id"],
+            "final_approved_at": now,
+        })
+
+        if client_id:
+            await notifications_col.insert_one({
+                "id": str(uuid.uuid4()), "user_id": client_id,
+                "title": f"Case activated: {case_code}",
+                "message": "Your case is now live! Remaining installment(s) can still be paid from your portal.",
+                "type": "case_created", "read": False,
+                "related_id": pa_id, "link": "/client",
+                "created_at": now,
+            })
+        if pa.get("partner_id"):
+            await notifications_col.insert_one({
+                "id": str(uuid.uuid4()), "user_id": pa["partner_id"],
+                "title": f"Case created: {case_code}",
+                "message": f"Case for {pa.get('client_name')} is now active (1st installment approved).",
+                "type": "case_created", "read": False,
+                "related_id": pa_id,
+                "created_at": now,
+            })
+        if cm_id:
+            await notifications_col.insert_one({
+                "id": str(uuid.uuid4()), "user_id": cm_id,
+                "title": f"New case assigned: {case_code}",
+                "message": f"{pa.get('client_name')} - {pa.get('country')} {pa.get('service_type')} (2nd installment pending)",
+                "type": "case_assigned", "read": False,
+                "link": f"/cm?case={case_id}",
+                "created_at": now,
+            })
+
+    # ── Step 3: Spouse/partner gets a SEPARATE case + own login (idempotent) ──
+    spouse_case_id = pa.get("spouse_case_id")
+    spouse_case_code = None
+    spouse_info = pa.get("spouse_info")
+
+    if spouse_info and spouse_info.get("email") and not spouse_case_id:
+        from routers.pre_assess_portal import _create_spouse_case
+        # _create_spouse_case needs pa["case_id"] to set linked_case_id — make sure
+        # it has the just-created (or pre-existing) case_id available.
+        pa_for_spouse = {**pa, "case_id": case_id}
+        spouse_case_id, spouse_case_code = await _create_spouse_case(
+            pa_for_spouse,
+            data.spouse_case_manager_id if data else None,
+        )
+        if spouse_case_id:
+            update_fields["spouse_case_id"] = spouse_case_id
+
+    await pre_assessments_col.update_one({"id": pa_id}, {"$set": update_fields})
+
+    await log_activity(
+        current_user["id"], current_user.get("name", ""), "approve_installment_activate_case",
+        "pre_assessment", pa_id,
+        f"Installment approved + case {'created' if case_code else 'already existed'} for {pa['client_name']}"
+        + (f" | spouse case {spouse_case_code}" if spouse_case_code else "")
+    )
+
+    return {
+        "ok": True,
+        "unlocked_part": next_locked["label"] if next_locked else None,
+        "case_id": case_id,
+        "case_code": case_code,
+        "case_manager_id": cm_id,
+        "case_manager_name": cm_name,
+        "spouse_case_id": spouse_case_id,
+        "spouse_case_code": spouse_case_code,
+    }
 # ===================== SHARED ENDPOINTS =====================
 
 @router.get("/my-assessments")
@@ -1222,11 +2082,27 @@ async def get_my_assessments(
     current_user: dict = Depends(get_current_user),
 ):
     """Partner gets all their pre-assessments. Admin sees all. Optional ?stage= filter."""
-    query = {"partner_id": current_user["id"]}
-    if current_user["role"] == "admin":
-        query = {}  # Admin sees all
+    is_admin = current_user.get("role") in ("admin", "admin_owner") or current_user.get("rbac_role") in ("admin", "admin_owner")
+    query = {} if is_admin else {"$or": [{"partner_id": current_user["id"]}, {"created_by_user_id": current_user["id"]}]}
+    
     if stage:
-        query["stage"] = stage
+        if stage == "case_created":
+            stage_cond = {
+                "$or": [
+                    {"stage": "case_created"},
+                    {"case_id": {"$exists": True, "$ne": None}},
+                    {"case_manager_id": {"$exists": True, "$ne": None}},
+                ]
+            }
+            if query:
+                query = {"$and": [query, stage_cond]}
+            else:
+                query = stage_cond
+        else:
+            if query:
+                query["stage"] = stage
+            else:
+                query = {"stage": stage}
 
     items = await pre_assessments_col.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
     for item in items:
@@ -1381,28 +2257,59 @@ async def get_pa_bundle(pa_id: str, current_user: dict = Depends(get_current_use
     # ============= Payment history events =============
     events = []
     if pa.get("fee_payment_status") == "paid":
+        step1_amount = float(pa.get("fee_amount_paid") or pa.get("pre_assessment_fee") or 5100)
+        step1_label = "Pre-Assessment Fee Paid"
+        step1_meta = {"reference": pa.get("pa_number")}
+        if pa.get("fee_gst_included"):
+            step1_label = "Pre-Assessment Fee Paid (incl. 18% GST)"
+            step1_meta["base_amount"] = float(pa.get("fee_base_amount") or 5100)
+            step1_meta["gst_amount"] = float(pa.get("fee_gst_amount") or 0)
         events.append({"ts": pa.get("updated_at"), "kind": "pre_assessment_fee",
-                       "label": "Pre-Assessment Fee Paid", "amount": float(pa.get("pre_assessment_fee") or 5100),
-                       "direction": "in", "meta": {"reference": pa.get("pa_number")}})
-    if pa.get("proposal_status") == "sent":
+                        "label": step1_label, "amount": step1_amount,
+                        "direction": "in", "meta": step1_meta})
+    if pa.get("proposal_status") in ("sent", "pending_installment_approval"):
         events.append({"ts": pa.get("updated_at"), "kind": "proposal_sent",
-                       "label": "Proposal Sent to Client", "amount": float(pa.get("proposal_fee") or 0),
-                       "direction": "pending", "meta": {"promo_code": pa.get("proposal_promo_code")}})
+                        "label": "Proposal Sent to Client", "amount": float(pa.get("proposal_fee") or 0),
+                        "direction": "pending", "meta": {"promo_code": pa.get("proposal_promo_code")}})
+
+    #  NEW — Installment / part payments (client paid 1 or more parts but not full amount yet)
+    parts = pa.get("proposal_payment_parts") or []
+    for p in parts:
+        if p.get("status") == "paid" and p.get("paid_at"):
+            events.append({
+                "ts": p.get("paid_at"),
+                "kind": "installment_paid",
+                "label": f"{p.get('label', 'Installment')} Paid",
+                "amount": float(p.get("amount") or 0),
+                "direction": "in",
+                "meta": {"reference": p.get("payment_ref"), "part_index": p.get("index")},
+            })
+
     if pa.get("stage") in ("proposal_paid", "awaiting_final_approval", "case_created"):
         events.append({"ts": pa.get("updated_at"), "kind": "main_fee_paid",
-                       "label": "Main Service Fee Paid", "amount": float(pa.get("proposal_fee") or 0),
-                       "direction": "in", "meta": {}})
+                    "label": "Main Service Fee Paid", "amount": float(pa.get("proposal_fee") or 0),
+                    "direction": "in", "meta": {}})
     for i in invoices:
         events.append({"ts": i.get("sent_at"), "kind": "invoice",
-                       "label": f"Invoice {i.get('reference_id')} sent",
-                       "amount": float(i.get("amount_received_total") or 0),
-                       "direction": "info", "meta": {"reference": i.get("reference_id")}})
+                    "label": f"Invoice {i.get('reference_id')} sent",
+                    "amount": float(i.get("amount_received_total") or 0),
+                    "direction": "info", "meta": {"reference": i.get("reference_id")}})
     events.sort(key=lambda e: (e.get("ts") or ""), reverse=True)
-    totals = {
-        "received": sum(e["amount"] for e in events if e["direction"] == "in"),
-        "pending": sum(e["amount"] for e in events if e["direction"] == "pending"),
-    }
 
+    # FIX — totals should reflect actual amount_paid/pending on the proposal
+    # (not just static proposal_fee), so partial installments show correctly.
+    if pa.get("proposal_status") in ("sent", "pending_installment_approval") and parts:
+        proposal_received = float(pa.get("proposal_amount_paid") or 0)
+        proposal_pending = float(pa.get("proposal_amount_pending") or pa.get("proposal_fee") or 0)
+    else:
+        proposal_received = sum(e["amount"] for e in events if e["direction"] == "in" and e["kind"] in ("main_fee_paid", "installment_paid"))
+        proposal_pending = sum(e["amount"] for e in events if e["direction"] == "pending")
+
+    totals = {
+        "received": (sum(e["amount"] for e in events if e["direction"] == "in" and e["kind"] not in ("main_fee_paid", "installment_paid"))
+                    + proposal_received),
+        "pending": proposal_pending,
+    }
     # ============= Smart checklist =============
     tpl_key = _pick_template(pa)
     items = [dict(it) for it in _CHECKLIST_TEMPLATES[tpl_key]]
@@ -1472,3 +2379,4 @@ async def get_pa_bundle(pa_id: str, current_user: dict = Depends(get_current_use
         "checklist": checklist,
         "risk": risk,
     }
+

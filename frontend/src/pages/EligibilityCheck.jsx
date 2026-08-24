@@ -198,7 +198,12 @@ export default function EligibilityCheck() {
                 <div>
                   <p className="text-emerald-100 text-sm">Your top recommendation</p>
                   <h2 className="text-2xl sm:text-3xl font-bold mt-1">
-                    {result.pathways?.[result.top_recommendation]?.score && `${result.pathways[result.top_recommendation].score}% — `}
+                    {result.top_recommendation === 'canada_pnp'
+                      ? `${result.pathways?.[result.top_recommendation]?.crs_score ?? result.pathways?.[result.top_recommendation]?.score ?? 0} / ${result.pathways?.[result.top_recommendation]?.crs_score_max ?? result.pathways?.[result.top_recommendation]?.score_max ?? 1200} CRS — `
+                      : result.pathways?.[result.top_recommendation]?.score
+                        ? `${result.pathways[result.top_recommendation].score}% — `
+                        : ''
+                    }
                     {result.top_recommendation?.replace(/_/g, ' ').toUpperCase()}
                   </h2>
                   <p className="text-emerald-50 text-sm mt-2 max-w-2xl">{result.overall_summary}</p>
@@ -218,23 +223,81 @@ export default function EligibilityCheck() {
 
             <div className="grid sm:grid-cols-2 gap-3">
               {Object.entries(result.pathways || {})
-                .sort(([, a], [, b]) => (b.score || 0) - (a.score || 0))
-                .map(([slug, p]) => (
-                  <Card key={slug} className="p-4 border-l-4" style={{ borderLeftColor: ({strong:'#10b981',moderate:'#3b82f6',weak:'#f59e0b',unlikely:'#f43f5e'}[p.tier]) || '#94a3b8' }} data-testid={`elig-pathway-${slug}`}>
+                .sort(([, a], [, b]) => {
+                  const scoreA = a?.crs_score ?? a?.score ?? 0;
+                  const scoreB = b?.crs_score ?? b?.score ?? 0;
+                  return scoreB - scoreA;
+                })
+                .map(([slug, p]) => {
+                  const isCanadaPNP = slug === 'canada_pnp';
+                  const displayScore = p?.crs_score ?? p?.score ?? 0;
+                  const displayMax = p?.crs_score_max ?? p?.score_max ?? (isCanadaPNP ? 1200 : 100);
+                  const scorePercentage = isCanadaPNP
+                    ? Math.min((displayScore / displayMax) * 100, 100)
+                    : Math.min(displayScore, 100);
+
+                  return (
+                  <Card key={slug} className="p-4 border-l-4" style={{ borderLeftColor: ({strong:'#10b981',moderate:'#3b82f6',weak:'#f59e0b',unlikely:'#f43f5e'}[p.tier]) || (isCanadaPNP ? '#2a777a' : '#94a3b8') }} data-testid={`elig-pathway-${slug}`}>
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <div>
                         <p className="font-semibold text-slate-800 text-sm leading-tight">{slug.replace(/_/g, ' ').toUpperCase()}</p>
                         <p className="text-[11px] text-slate-500 mt-0.5">Timeline: {p.estimated_timeline}</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-3xl font-bold text-slate-800">{p.score}<span className="text-sm text-slate-400">%</span></p>
-                        <Badge className={`${TIER_TEXT[p.tier] || ''} text-[10px] capitalize`}>{p.tier}</Badge>
+                        {isCanadaPNP ? (
+                          <>
+                            <p className="text-3xl font-bold text-slate-800">
+                              {displayScore}
+                              <span className="text-sm text-slate-400"> / {displayMax}</span>
+                            </p>
+                            <p className="text-[10px] text-slate-500 font-medium">
+                              CRS Score
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-3xl font-bold text-slate-800">
+                              {displayScore}
+                              <span className="text-sm text-slate-400">%</span>
+                            </p>
+                            <Badge className={`${TIER_TEXT[p.tier] || ''} text-[10px] capitalize`}>{p.tier}</Badge>
+                          </>
+                        )}
                       </div>
                     </div>
                     {/* Score bar */}
                     <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden mb-3">
-                      <div className={`h-full ${TIER_COLOR[p.tier] || 'bg-slate-400'}`} style={{ width: `${p.score}%` }}></div>
+                      <div
+                        className={`h-full ${TIER_COLOR[p.tier] || (isCanadaPNP ? 'bg-teal-500' : 'bg-slate-400')}`}
+                        style={{ width: `${scorePercentage}%` }}
+                      ></div>
                     </div>
+
+                    {isCanadaPNP && p.crs_breakdown?.length > 0 && (
+                      <div className="mt-4 pt-4 border-t border-slate-100">
+                        <p className="text-xs font-bold text-slate-700 mb-3">
+                          CRS Breakdown
+                        </p>
+
+                        <div className="space-y-2">
+                          {p.crs_breakdown.map((factor, index) => (
+                            <div
+                              key={factor.factor || index}
+                              className="flex items-center justify-between gap-3 text-[11px]"
+                            >
+                              <span className="text-slate-600">
+                                {factor.label || factor.factor}
+                              </span>
+
+                              <span className="font-semibold text-slate-800 whitespace-nowrap">
+                                {factor.earned ?? 0} / {factor.max ?? 0}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     {p.key_strengths?.length > 0 && (
                       <div className="mb-2">
                         <p className="text-[11px] font-semibold text-emerald-700 mb-1">✓ Strengths</p>
@@ -253,7 +316,8 @@ export default function EligibilityCheck() {
                     )}
                     {p.notes && <p className="text-[11px] text-slate-500 italic mt-2 pt-2 border-t border-slate-100">{p.notes}</p>}
                   </Card>
-                ))}
+                  );
+                })}
             </div>
 
             <Card className="p-5 bg-amber-50 border-amber-200">

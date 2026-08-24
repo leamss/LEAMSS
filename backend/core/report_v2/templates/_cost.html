@@ -2,6 +2,8 @@
 {% set ce = snap.cost_estimator or {} %}
 {% set items = ce.get('items') or [] %}
 {% set totals = ce.get('total_by_currency') or {} %}
+{% set packages = ce.get('packages') or [] %}
+{% set visible_packages = packages|selectattr('show_in_report')|list %}
 
 {% set by_cat = {} %}
 {% for it in items %}
@@ -18,6 +20,17 @@
   'Protection Policy Coverage': '🛡',
   'Other': '◉',
 } %}
+
+{% set pkg_currency_symbol = {'INR': '₹', 'GBP': '£', 'AUD': '$', 'CAD': '$', 'NZD': '$', 'USD': '$'} %}
+
+<style>
+  /* Phase 7.4 — scoped highlight class for the "recommended" package column.
+     Using a class here (instead of inline style="...{{ var }}") avoids the
+     editor's CSS parser tripping over Jinja braces inside style attributes. */
+  .pkg-hl { background: var(--teal-100); }
+  .pkg-hl-strong { background: var(--teal-100); color: var(--teal-700); }
+  .pkg-card-hl { border-color: var(--teal-700); background: var(--teal-100); }
+</style>
 
 <div class="page">
 

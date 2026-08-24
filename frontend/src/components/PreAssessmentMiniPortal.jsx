@@ -28,11 +28,11 @@ const DOC_TYPES = [
 
 // 6 pipeline stages the client sees (maps to backend stages)
 const STAGE_STEPS = [
-  { key: 'paid', label: 'Payment Done', stages: ['payment_received', 'partner_review', 'documents_submitted', 'under_review', 'approved', 'proposal_sent', 'proposal_paid', 'awaiting_final_approval', 'case_created'] },
-  { key: 'uploading', label: 'Upload Documents', stages: ['partner_review', 'documents_submitted', 'under_review', 'approved', 'proposal_sent', 'proposal_paid', 'awaiting_final_approval', 'case_created'] },
-  { key: 'reviewing', label: 'Under Review', stages: ['documents_submitted', 'under_review', 'approved', 'proposal_sent', 'proposal_paid', 'awaiting_final_approval', 'case_created'] },
-  { key: 'approved', label: 'Approved', stages: ['approved', 'proposal_sent', 'proposal_paid', 'awaiting_final_approval', 'case_created'] },
-  { key: 'proposal', label: 'Proposal & Signing', stages: ['proposal_sent', 'proposal_paid', 'awaiting_final_approval', 'case_created'] },
+  { key: 'paid', label: 'Payment Done', stages: ['payment_received', 'partner_review', 'documents_submitted', 'under_review', 'approved', 'awaiting_package_selection', 'package_selected', 'proposal_sent', 'proposal_paid', 'awaiting_final_approval', 'case_created'] },
+  { key: 'uploading', label: 'Upload Documents', stages: ['partner_review', 'documents_submitted', 'under_review', 'approved', 'awaiting_package_selection', 'package_selected', 'proposal_sent', 'proposal_paid', 'awaiting_final_approval', 'case_created'] },
+  { key: 'reviewing', label: 'Under Review', stages: ['documents_submitted', 'under_review', 'approved', 'awaiting_package_selection', 'package_selected', 'proposal_sent', 'proposal_paid', 'awaiting_final_approval', 'case_created'] },
+  { key: 'approved', label: 'Approved', stages: ['approved', 'awaiting_package_selection', 'package_selected', 'proposal_sent', 'proposal_paid', 'awaiting_final_approval', 'case_created'] },
+  { key: 'proposal', label: 'Proposal & Signing', stages: ['awaiting_package_selection', 'package_selected', 'proposal_sent', 'proposal_paid', 'awaiting_final_approval', 'case_created'] },
   { key: 'case', label: 'Case Active', stages: ['case_created'] },
 ];
 
@@ -51,6 +51,21 @@ export default function PreAssessmentMiniPortal({ pa, onRefresh, onOpenScanner }
   const [consentSummary, setConsentSummary] = useState(null);
   const [esignRec, setEsignRec] = useState(null);
   const [savingSig, setSavingSig] = useState(false);
+  const [proposalPayTab, setProposalPayTab] = useState('domestic'); // 'domestic' | 'international'
+  const [proposalBankDetails, setProposalBankDetails] = useState(null);
+  const [proposalBankLoading, setProposalBankLoading] = useState(false);
+  const [proposalTransferRef, setProposalTransferRef] = useState('');
+  const [proposalClaiming, setProposalClaiming] = useState(false);
+  const [proposalProofFile, setProposalProofFile] = useState(null);
+  const [proposalSelectedCountry, setProposalSelectedCountry] = useState('Australia');
+
+  const INTL_COUNTRIES = [
+    { code: 'Australia', label: '🇦🇺 AUS' },
+    { code: 'Canada', label: '🇨🇦 Canada' },
+    { code: 'USA', label: '🇺🇸 USA' },
+    { code: 'UK', label: '🇬🇧 UK' },
+    { code: 'New Zealand', label: '🇳🇿 NZ' },
+  ];
 
   const load = useCallback(async () => {
     try {
@@ -174,17 +189,156 @@ export default function PreAssessmentMiniPortal({ pa, onRefresh, onOpenScanner }
     } catch { toast.error(`${kind} PDF failed`); }
   };
 
+const viewPaDocument = async (docId, inline = true) => {
+  try {
+    const r = await fetch(`${API}/pre-assessment/${pa.id}/document/${docId}/download?inline=${inline}`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+    });
+    if (!r.ok) throw new Error();
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch {
+    toast.error('Could not open document');
+  }
+};
+
+const downloadPaDocument = async (docId, fileName) => {
+  try {
+    const r = await fetch(`${API}/pre-assessment/${pa.id}/document/${docId}/download?inline=false`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+    });
+    if (!r.ok) throw new Error();
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName || 'document';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch {
+    toast.error('Download failed');
+  }
+};
+
+const [selectingPkg, setSelectingPkg] = useState(null);
+
+  const handleSelectPackage = async (packageId) => {
+    setSelectingPkg(packageId);
+    try {
+      await axios.post(`${API}/pre-assess-portal/client/select-package/${pa.id}`, { package_id: packageId }, getAuth());
+      toast.success('Package selected! Your partner will set up the payment plan.');
+      onRefresh?.();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || 'Failed to select package');
+    } finally {
+      setSelectingPkg(null);
+    }
+  };
+
+  const viewPackageDoc = async (documentUrl) => {
+    if (!documentUrl) return;
+    try {
+      const r = await fetch(`${process.env.REACT_APP_BACKEND_URL}${documentUrl}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      });
+      if (!r.ok) throw new Error();
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+    } catch {
+      toast.error('Could not open document');
+    }
+  };
+
+useEffect(() => {
+    if (proposalPayTab !== 'international') return;
+    setProposalBankLoading(true);
+    setProposalBankDetails(null);
+    axios.get(`${API}/pre-assess-portal/client/proposal/bank-details/${pa.id}`, {
+      ...getAuth(), params: { country: proposalSelectedCountry },
+    })
+      .then(r => setProposalBankDetails(r.data))
+      .catch(e => toast.error(e?.response?.data?.detail || 'Could not load bank details'))
+      .finally(() => setProposalBankLoading(false));
+  }, [proposalPayTab, proposalSelectedCountry, pa.id]);
+
   const handlePayProposal = async () => {
     setPaying(true);
     try {
-      await axios.post(`${API}/pre-assess-portal/client/mock-pay-proposal/${pa.id}`, {}, getAuth());
-      toast.success('Main fee paid (MOCK). Admin will activate your case shortly.');
+      // Step 1: Backend कडून Razorpay order तयार करून घे
+      const orderRes = await axios.post(`${API}/pre-assess-portal/client/proposal/create-order/${pa.id}`, {}, getAuth());
+      const { order_id, amount, currency, key_id, client_name, client_email, client_mobile } = orderRes.data;
+
+      // Step 2: Razorpay Checkout Popup उघड
+      const options = {
+        key: key_id,
+        amount: amount,
+        currency: currency,
+        name: 'LEAMSS Immigration',
+        description: 'Service Fee Installment',
+        order_id: order_id,
+        prefill: { name: client_name || '', email: client_email || '', contact: client_mobile || '' },
+        theme: { color: '#f7620b' },
+        handler: async function (response) {
+          try {
+            const verifyRes = await axios.post(`${API}/pre-assess-portal/client/proposal/verify-payment/${pa.id}`, {
+              order_id: response.razorpay_order_id,
+              payment_id: response.razorpay_payment_id,
+              signature: response.razorpay_signature,
+            }, getAuth());
+            if (verifyRes.data.fully_paid) {
+              toast.success('Full payment complete! Admin will activate your case shortly.');
+            } else {
+              toast.success(`${verifyRes.data.part_paid} paid — ₹${Number(verifyRes.data.amount_paid_now).toLocaleString('en-IN')}. Remaining: ₹${Number(verifyRes.data.amount_pending).toLocaleString('en-IN')}`);
+            }
+            await load();
+            onRefresh?.();
+          } catch (e) {
+            toast.error(e?.response?.data?.detail || 'Payment verification failed');
+          } finally {
+            setPaying(false);
+          }
+        },
+        modal: { ondismiss: function () { setPaying(false); } },
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.open();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || 'Unable to start payment');
+      setPaying(false);
+    }
+  };
+
+  const handleProposalInternationalClaim = async () => {
+    setProposalClaiming(true);
+    try {
+      const r = await axios.post(`${API}/pre-assess-portal/client/proposal/international-claim/${pa.id}`,
+        { reference_note: proposalTransferRef }, getAuth());
+
+      // Upload payment proof file (if attached) using existing document-upload endpoint
+      if (proposalProofFile) {
+        const fd = new FormData();
+        fd.append('document_type', 'payment_proof');
+        fd.append('file', proposalProofFile);
+        await axios.post(`${API}/pre-assessment/${pa.id}/upload-document`, fd, {
+          ...getAuth(), headers: { ...getAuth().headers, 'Content-Type': 'multipart/form-data' },
+        });
+      }
+
+      toast.success(`${r.data.part_claimed} claim submitted! Your partner will verify and confirm.`);
+      setProposalTransferRef('');
+      setProposalProofFile(null);
       await load();
       onRefresh?.();
     } catch (e) {
-      toast.error(e?.response?.data?.detail || 'Payment failed');
+      toast.error(e?.response?.data?.detail || 'Something went wrong');
     } finally {
-      setPaying(false);
+      setProposalClaiming(false);
     }
   };
 
@@ -245,8 +399,90 @@ export default function PreAssessmentMiniPortal({ pa, onRefresh, onOpenScanner }
         </Card>
       )}
 
+      {/* STAGE: International wire transfer — pending partner verification, but client can upload proof */}
+      {stage === 'international_payment_pending' && (
+        <>
+          <Card className="p-5 bg-blue-50 border-blue-200">
+            <div className="flex items-start gap-3">
+              <Clock className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
+              <div>
+                <h3 className="font-bold text-slate-800">International Payment — Verification Pending</h3>
+                <p className="text-sm text-slate-600 mt-1">
+                  We've received your transfer claim. Please upload your payment receipt/screenshot below so your partner can verify it (usually within 1-2 business days).
+                </p>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-5 border-slate-200">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="w-10 h-10 bg-gradient-to-br from-[#f7620b] to-[#e55a09] rounded-lg flex items-center justify-center shrink-0">
+                <Upload className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-800">Upload Payment Proof & Documents</h3>
+                <p className="text-sm text-slate-500">Upload your payment receipt/screenshot and eligibility documents.</p>
+              </div>
+            </div>
+            <div className="flex gap-2 flex-wrap items-center bg-slate-50 border border-slate-200 rounded-lg p-3">
+              <select value={docType} onChange={e => setDocType(e.target.value)}
+                className="text-sm border border-slate-300 rounded px-2 py-1.5 bg-white" data-testid="mini-doc-type-intl">
+                <option value="payment_proof">Payment Receipt / Screenshot *</option>
+                {DOC_TYPES.map(d => <option key={d.id} value={d.id}>{d.label}{d.required ? ' *' : ''}</option>)}
+              </select>
+              <label className="cursor-pointer">
+                <input type="file" className="hidden" onChange={handleFile} disabled={uploading} data-testid="mini-upload-input-intl" />
+                <span className="inline-flex items-center gap-1.5 bg-[#2a777a] hover:bg-[#236466] text-white text-sm font-medium px-3 py-1.5 rounded transition">
+                  {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                  {uploading ? 'Uploading…' : 'Upload Document'}
+                </span>
+              </label>
+              <Button variant="outline" size="sm" onClick={onOpenScanner} className="text-xs">
+                <Scan className="h-3.5 w-3.5 mr-1" /> AI Scan a document first
+              </Button>
+            </div>
+
+            {docs.length > 0 ? (
+              <div className="mt-4 space-y-2">
+                <p className="text-xs uppercase tracking-wider font-semibold text-slate-500">Uploaded ({docs.length})</p>
+                {docs.map((d) => (
+                  <div key={d.id} className="flex items-center gap-3 p-2.5 bg-emerald-50 border border-emerald-100 rounded">
+                    <FileCheck className="h-4 w-4 text-emerald-600" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-700 truncate">{d.file_name}</p>
+                      <p className="text-xs text-slate-500">{d.document_type} · {(d.file_size / 1024).toFixed(1)} KB</p>
+                    </div>
+                    <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">Uploaded</Badge>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-4 text-xs text-slate-400 italic">No documents uploaded yet.</p>
+            )}
+          </Card>
+
+          <Card className="p-5 bg-gradient-to-br from-emerald-50 to-white border-emerald-200">
+            <div className="flex items-start gap-3">
+              <Sparkles className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <h3 className="font-semibold text-slate-800">Ready to submit?</h3>
+                <p className="text-sm text-slate-600 mt-1">
+                  Once you've uploaded your payment proof and documents, click Submit for Review. Your partner will verify your transfer and documents together.
+                </p>
+                <Button onClick={handleSubmitForReview} disabled={submitting || docs.length === 0}
+                  className="mt-3 bg-emerald-600 hover:bg-emerald-700 text-white" data-testid="mini-submit-review-intl">
+                  {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
+                  Submit for Review
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </>
+      )}
+
       {/* STAGE: Upload documents (payment_received) */}
       {stage === 'payment_received' && (
+
         <>
           <Card className="p-5 border-slate-200">
             <div className="flex items-start gap-3 mb-4">
@@ -377,6 +613,112 @@ export default function PreAssessmentMiniPortal({ pa, onRefresh, onOpenScanner }
         </Card>
       )}
 
+{/* STAGE: Client picks a package */}
+      {stage === 'awaiting_package_selection' && (
+        <Card className="p-6 border-[#2a777a]/20 space-y-5">
+           {/* NEW — Pre-Assessment Report (uploaded by admin/partner) */}
+    {docs.filter(d => d.uploaded_by_role === 'admin').length > 0 && (
+      <div className="bg-teal-50 border border-teal-200 rounded-lg p-4">
+        <p className="text-xs font-semibold text-teal-800 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+          <FileText className="h-3.5 w-3.5" /> Your Pre-Assessment Report
+        </p>
+        <div className="space-y-2">
+        {docs.filter(d => d.uploaded_by_role === 'admin').map(d => (
+  <div
+    key={d.id}
+    className="w-full flex items-center gap-3 p-2.5 bg-white border border-teal-200 rounded-lg"
+    data-testid={`report-row-${d.id}`}
+  >
+    <FileCheck className="h-4 w-4 text-[#2a777a] shrink-0" />
+    <button
+      onClick={() => viewPaDocument(d.id)}
+      className="flex-1 min-w-0 text-left"
+      data-testid={`view-report-${d.id}`}
+    >
+      <p className="text-sm font-medium text-slate-700 truncate">{d.file_name}</p>
+      <p className="text-xs text-slate-500 capitalize">{(d.document_type || '').replace(/_/g, ' ')}</p>
+    </button>
+    <button
+      onClick={() => viewPaDocument(d.id)}
+      className="text-xs text-[#2a777a] font-semibold shrink-0 hover:underline"
+      data-testid={`view-btn-${d.id}`}
+    >
+      View
+    </button>
+    <button
+      onClick={() => downloadPaDocument(d.id, d.file_name)}
+      className="flex items-center gap-1 text-xs text-slate-600 font-semibold shrink-0 border border-slate-300 rounded px-2 py-1 hover:bg-slate-50"
+      data-testid={`download-btn-${d.id}`}
+    >
+      <Download className="h-3 w-3" /> Download
+    </button>
+  </div>
+))}
+        </div>
+      </div>
+    )}
+
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 bg-[#2a777a] rounded-full flex items-center justify-center shrink-0">
+              <FileText className="h-6 w-6 text-white" />
+            </div>
+            <div>
+              <h3 className="font-bold text-slate-800 text-lg">Choose Your Package</h3>
+              <p className="text-sm text-slate-600 mt-1">
+                Review your pre-assessment report and pick the package that fits you best. Your partner will set up the payment plan once you select.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+            {(pa.available_packages_snapshot || []).map((pkg) => (
+              <Card key={pkg.id} className="p-4 border-2 border-slate-200 hover:border-[#2a777a] transition flex flex-col">
+                <h4 className="font-bold text-slate-800">{pkg.name}</h4>
+                <p className="text-2xl font-bold text-[#2a777a] mt-1">₹{Number(pkg.price || 0).toLocaleString('en-IN')}</p>
+                {pkg.description && <p className="text-xs text-slate-500 mt-2">{pkg.description}</p>}
+                {pkg.info_notes && (
+                  <p className="text-xs text-slate-600 mt-2 bg-slate-50 rounded p-2 flex-1">{pkg.info_notes}</p>
+                )}
+                {pkg.document_name && (
+                  <button
+                    onClick={() => viewPackageDoc(pkg.document_url)}
+                    className="text-xs text-[#2a777a] underline mt-2 text-left"
+                  >
+                    📄 View {pkg.document_name}
+                  </button>
+                )}
+                <Button
+                  onClick={() => handleSelectPackage(pkg.id)}
+                  disabled={selectingPkg === pkg.id}
+                  className="mt-4 bg-[#f7620b] hover:bg-[#e55a09] text-white"
+                  data-testid={`select-package-${pkg.id}`}
+                >
+                  {selectingPkg === pkg.id ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+                  Select this Package
+                </Button>
+              </Card>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* STAGE: Package selected — waiting for partner to set payment method */}
+      {stage === 'package_selected' && (
+        <Card className="p-6 bg-gradient-to-br from-emerald-50 to-white border-emerald-200">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center shrink-0">
+              <CheckCircle2 className="h-6 w-6 text-emerald-600" />
+            </div>
+            <div>
+              <h3 className="font-bold text-slate-800 text-lg">Package Selected: {pa.selected_package_snapshot?.name}</h3>
+              <p className="text-sm text-slate-600 mt-1">
+                Your partner is now setting up the payment plan for this package. You'll be able to pay shortly.
+              </p>
+            </div>
+          </div>
+        </Card>
+      )}
+
       {/* STAGE: Proposal received — full details + consent + pay */}
       {stage === 'proposal_sent' && (
         <Card className="p-6 bg-gradient-to-br from-[#f7620b]/5 to-[#2a777a]/5 border-[#2a777a]/20 space-y-5">
@@ -407,6 +749,18 @@ export default function PreAssessmentMiniPortal({ pa, onRefresh, onOpenScanner }
                 <span className="text-slate-600">Base Service Fee</span>
                 <span className="font-semibold text-slate-800">₹{(pa.proposal_base_fee ?? pa.proposal_fee ?? 0).toLocaleString('en-IN')}</span>
               </div>
+              {(pa.proposal_coupon_discount_amount || 0) > 0 && (
+                <div className="flex justify-between text-emerald-700">
+                  <span>Coupon Discount{pa.proposal_coupon_code ? ` (${pa.proposal_coupon_code})` : ''}</span>
+                  <span>-₹{(pa.proposal_coupon_discount_amount || 0).toLocaleString('en-IN')}</span>
+                </div>
+              )}
+              {(pa.proposal_gst_amount || 0) > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-slate-600">GST (18%)</span>
+                  <span className="font-semibold text-slate-800">₹{(pa.proposal_gst_amount || 0).toLocaleString('en-IN')}</span>
+                </div>
+              )}
               {(pa.proposal_promo_discount || 0) > 0 && (
                 <div className="flex justify-between text-emerald-700">
                   <span>Promo applied{pa.proposal_promo_code ? ` (${pa.proposal_promo_code})` : ''}</span>
@@ -435,6 +789,59 @@ export default function PreAssessmentMiniPortal({ pa, onRefresh, onOpenScanner }
                 <span className="text-2xl font-bold text-[#2a777a]" data-testid="client-total">₹{(pa.proposal_fee || 0).toLocaleString('en-IN')}</span>
               </div>
             </div>
+
+            {/* Payment Method + Parts Schedule */}
+            {(pa.proposal_payment_parts || []).length > 1 && (
+              <div className="bg-white rounded-lg border border-slate-200 p-4" data-testid="client-payment-parts">
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
+                  Payment Plan — {pa.proposal_payment_method_type === 'split_50_50' ? '50-50 Split' : 'Installments'}
+                </p>
+                <div className="space-y-2">
+                  {pa.proposal_payment_parts.map((part) => (
+                    <div key={part.index} className={`flex items-center justify-between p-2.5 rounded-lg border ${
+                      part.status === 'paid' ? 'bg-emerald-50 border-emerald-200' :
+                      part.status === 'pending' ? 'bg-amber-50 border-amber-200' :
+                      'bg-slate-50 border-slate-200'
+                    }`}>
+                      <div className="flex items-center gap-2">
+                        {part.status === 'paid' ? <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" /> :
+                        part.status === 'pending' ? <Clock className="h-4 w-4 text-amber-600 shrink-0" /> :
+                        part.status === 'pending_verification' ? <Clock className="h-4 w-4 text-blue-500 shrink-0" /> :
+                        <AlertTriangle className="h-4 w-4 text-slate-400 shrink-0" />}
+                        <div>
+                          <p className="text-sm font-medium text-slate-700">{part.label}</p>
+                          {part.due_date && <p className="text-[10px] text-slate-500">Due: {part.due_date}</p>}
+                          {part.status === 'locked' && part.trigger_condition && (
+                            <p className="text-[10px] text-slate-400 italic">Unlocks: {part.trigger_condition}</p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-bold text-slate-800">₹{Number(part.amount).toLocaleString('en-IN')}</p>
+                        <Badge className={`text-[9px] ${
+                          part.status === 'paid' ? 'bg-emerald-100 text-emerald-700' :
+                          part.status === 'pending' ? 'bg-amber-100 text-amber-700' :
+                          part.status === 'pending_verification' ? 'bg-blue-100 text-blue-700' :
+                          'bg-slate-100 text-slate-500'
+                        }`}>
+                          {part.status === 'paid' ? 'Paid' : part.status === 'pending' ? 'Pay Now' :
+                          part.status === 'pending_verification' ? 'Verifying' : 'Locked'}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex justify-between mt-3 pt-3 border-t border-slate-100 text-sm">
+                  <span className="text-slate-500">Paid so far</span>
+                  <span className="font-semibold text-emerald-700">₹{Number(pa.proposal_amount_paid || 0).toLocaleString('en-IN')}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">Remaining</span>
+                  <span className="font-semibold text-[#f7620b]">₹{Number(pa.proposal_amount_pending ?? pa.proposal_fee ?? 0).toLocaleString('en-IN')}</span>
+                </div>
+              </div>
+            )}
+
             {pa.proposal_notes && (
               <div className="mt-3 pt-3 border-t border-slate-100">
                 <p className="text-xs font-semibold text-slate-500 mb-1">Partner Note:</p>
@@ -480,12 +887,144 @@ export default function PreAssessmentMiniPortal({ pa, onRefresh, onOpenScanner }
                   <p className="text-[11px] text-emerald-700">Reference ID: <span className="font-mono font-bold">{consentSummary?.reference_id || pa.proposal_consent_reference_id}</span> · A summary has been emailed to you (mock).</p>
                 )}
               </div>
-              <Button onClick={handlePayProposal} disabled={paying}
-                className="w-full bg-[#f7620b] hover:bg-[#e55a09] text-white text-base py-6" data-testid="mini-pay-proposal">
-                {paying ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <CreditCard className="h-5 w-5 mr-2" />}
-                Pay ₹{(pa.proposal_fee || 0).toLocaleString('en-IN')} (MOCK Payment)
-              </Button>
-              <p className="text-[10px] text-slate-400 text-center">🔒 MOCK payment mode. Real Razorpay/Stripe coming soon.</p>
+              {(() => {
+                const parts = pa.proposal_payment_parts || [];
+                const nextPart = parts.find(p => p.status === 'pending');
+                const lockedPart = parts.find(p => p.status === 'locked');
+                const verifyingPart = parts.find(p => p.status === 'pending_verification');
+                const payAmount = nextPart ? nextPart.amount : (pa.proposal_amount_pending ?? pa.proposal_fee ?? 0);
+                const isMultiPart = parts.length > 1;
+
+                // International wire transfer claimed but not yet confirmed by partner
+                if (verifyingPart) {
+                  return (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
+                      <Clock className="h-6 w-6 text-blue-500 mx-auto mb-1" />
+                      <p className="text-sm text-slate-700 font-medium">
+                        {verifyingPart.label} — Payment claim submitted
+                      </p>
+                      <p className="text-xs text-slate-500 mt-1">
+                        Your consultant is verifying your international transfer. This usually takes 1-2 business days.
+                      </p>
+                    </div>
+                  );
+                }
+
+                if (!nextPart && lockedPart) {
+                  return (
+                    <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 text-center">
+                      <Clock className="h-6 w-6 text-slate-400 mx-auto mb-1" />
+                      <p className="text-sm text-slate-600">Next installment ({lockedPart.label}) is locked.</p>
+                      <p className="text-xs text-slate-400 mt-1">Waiting on: {lockedPart.trigger_condition || 'admin approval'}</p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="bg-white border border-slate-200 rounded-lg p-4">
+                    {/* ── Domestic / International Tabs ── */}
+                    <div className="flex gap-2 mb-4 p-1 bg-slate-100 rounded-lg">
+                      <button
+                        onClick={() => setProposalPayTab('domestic')}
+                        className={`flex-1 py-2 rounded-md text-sm font-semibold transition ${
+                          proposalPayTab === 'domestic' ? 'bg-white text-[#2a777a] shadow' : 'text-slate-500'
+                        }`}
+                      >
+                        🇮🇳 Pay from India
+                      </button>
+                      <button
+                        onClick={() => setProposalPayTab('international')}
+                        className={`flex-1 py-2 rounded-md text-sm font-semibold transition ${
+                          proposalPayTab === 'international' ? 'bg-white text-[#2a777a] shadow' : 'text-slate-500'
+                        }`}
+                      >
+                        🌍 Pay from Outside India
+                      </button>
+                    </div>
+
+                    {proposalPayTab === 'domestic' ? (
+                      <>
+                        <Button onClick={handlePayProposal} disabled={paying}
+                          className="w-full bg-[#f7620b] hover:bg-[#e55a09] text-white text-base py-6" data-testid="mini-pay-proposal">
+                          {paying ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <CreditCard className="h-5 w-5 mr-2" />}
+                          {isMultiPart && nextPart
+                            ? `Pay ${nextPart.label} — ₹${Number(payAmount).toLocaleString('en-IN')}`
+                            : `Pay ₹${Number(payAmount).toLocaleString('en-IN')}`}
+                        </Button>
+                        <p className="text-[10px] text-slate-400 text-center mt-2">🔒 Secured by Razorpay — Cards, UPI, Netbanking & Wallets accepted.</p>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex gap-1.5 mb-3 flex-wrap">
+                          {INTL_COUNTRIES.map((c) => (
+                            <button
+                              key={c.code}
+                              onClick={() => setProposalSelectedCountry(c.code)}
+                              className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition ${
+                                proposalSelectedCountry === c.code
+                                  ? 'bg-[#2a777a] text-white border-[#2a777a]'
+                                  : 'bg-white text-slate-600 border-slate-300 hover:border-[#2a777a]'
+                              }`}
+                            >
+                              {c.label}
+                            </button>
+                          ))}
+                        </div>
+
+                        {proposalBankLoading ? (
+                          <div className="text-center py-6">
+                            <Loader2 className="h-6 w-6 animate-spin text-[#2a777a] mx-auto mb-2" />
+                            <p className="text-sm text-slate-500">Loading bank details…</p>
+                          </div>
+                        ) : proposalBankDetails ? (
+                          <>
+                            <p className="text-sm text-slate-700 mb-3">
+                              Please transfer <strong>₹{Number(payAmount).toLocaleString('en-IN')}</strong>
+                              {isMultiPart && nextPart ? ` (${nextPart.label})` : ''} via bank wire, then confirm below.
+                            </p>
+                            <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-1.5 text-sm mb-3">
+                              <div className="flex justify-between"><span className="text-slate-500">Account Name</span><span className="font-medium">{proposalBankDetails.account_name}</span></div>
+                              <div className="flex justify-between"><span className="text-slate-500">Account Number</span><span className="font-medium">{proposalBankDetails.account_number}</span></div>
+                              <div className="flex justify-between"><span className="text-slate-500">IFSC / SWIFT</span><span className="font-medium">{proposalBankDetails.ifsc_or_swift}</span></div>
+                              <div className="flex justify-between"><span className="text-slate-500">Bank Name</span><span className="font-medium">{proposalBankDetails.bank_name}</span></div>
+                              <div className="flex justify-between"><span className="text-slate-500">Bank Address</span><span className="font-medium">{proposalBankDetails.bank_address}</span></div>
+                            </div>
+                            <input
+                              type="text"
+                              placeholder="Transaction Reference / UTR (optional)"
+                              value={proposalTransferRef}
+                              onChange={(e) => setProposalTransferRef(e.target.value)}
+                              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-[#2a777a]"
+                            />
+                            <label className="block mb-3">
+                              <span className="text-xs text-slate-500 mb-1 block">Attach Payment Screenshot / Receipt (optional)</span>
+                              <input
+                                type="file"
+                                accept="image/*,.pdf"
+                                onChange={(e) => setProposalProofFile(e.target.files?.[0] || null)}
+                                className="w-full text-sm border border-slate-300 rounded-lg px-2 py-1.5 bg-white"
+                              />
+                              {proposalProofFile && (
+                                <span className="text-xs text-emerald-600 mt-1 block">✓ {proposalProofFile.name}</span>
+                              )}
+                            </label>
+                            <Button onClick={handleProposalInternationalClaim} disabled={proposalClaiming}
+                              className="w-full bg-[#2a777a] hover:bg-[#1d5658] text-white font-semibold py-6">
+                              {proposalClaiming ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : null}
+                              I've Made the Transfer
+                            </Button>
+                            <p className="text-[10px] text-slate-400 text-center mt-2">
+                              Your consultant will manually verify this transfer and confirm within 1-2 business days.
+                            </p>
+                          </>
+                        ) : (
+                          <p className="text-sm text-slate-500 text-center py-6">Unable to load bank details.</p>
+                        )}
+                      </>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           )}
         </Card>
@@ -546,7 +1085,9 @@ export default function PreAssessmentMiniPortal({ pa, onRefresh, onOpenScanner }
       )}
 
       {/* Payment history + Doc downloads (post-payment) */}
-      {['proposal_paid', 'awaiting_final_approval', 'case_created'].includes(stage) && (
+     {/* Payment history + Doc downloads — also show once at least 1 installment is paid */}
+      {(['proposal_paid', 'awaiting_final_approval', 'case_created'].includes(stage)
+        || (pa.proposal_amount_paid || 0) > 0) && (
         <Card className="p-5 border-slate-200" data-testid="client-payment-history">
           <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
             <h3 className="text-sm font-semibold text-slate-800">Your Payment Records</h3>

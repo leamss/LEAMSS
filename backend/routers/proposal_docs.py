@@ -140,34 +140,83 @@ def _build_proposal_pdf(pa: dict, out_path: str, doc_kind: str = "proposal"):
                 elems.append(Spacer(1, 4))
         elems.append(Spacer(1, 10))
 
-    # Fee breakdown
     elems.append(Paragraph("Fee Breakdown", h2))
     rows = [["Item", "Amount"]]
-    rows.append(["Pre-Assessment Fee (Step 1)", _fmt_inr(pa.get("pre_assessment_fee") or 5100)])
+
+    # Step-1 pre-assessment fee — show base separately, then its own GST line if applicable
+    step1_base = float(pa.get("fee_base_amount") or pa.get("pre_assessment_fee") or 5100)
+    step1_gst = float(pa.get("fee_gst_amount") or 0) if pa.get("fee_gst_included") else 0.0
+    step1_total = float(pa.get("fee_amount_paid") or (step1_base + step1_gst))
+
+    rows.append(["Pre-Assessment Fee (Step 1)", _fmt_inr(step1_base)])
+    if step1_gst > 0:
+        rows.append(["GST on Pre-Assessment Fee (18%)", _fmt_inr(step1_gst)])
+
     if pa.get("proposal_base_fee"):
         rows.append(["Base Service Fee", _fmt_inr(pa.get("proposal_base_fee"))])
+    if pa.get("proposal_coupon_code") and (pa.get("proposal_coupon_discount_amount") or 0) > 0:
+        rows.append([f"Coupon Discount ({pa['proposal_coupon_code']})", f"- {_fmt_inr(pa.get('proposal_coupon_discount_amount'))}"])
     if pa.get("proposal_promo_code"):
         rows.append([f"Promo ({pa['proposal_promo_code']})", f"- {_fmt_inr(pa.get('proposal_promo_discount'))}"])
     if (pa.get("proposal_additional_discount") or 0) > 0:
         rows.append(["Custom Discount", f"- {_fmt_inr(pa.get('proposal_additional_discount'))}"])
     for u in (pa.get("proposal_upsells") or []):
         rows.append([f"Upsell: {u.get('name', '')}", f"+ {_fmt_inr(u.get('amount'))}"])
-    total_received = float(pa.get("pre_assessment_fee") or 0) + float(pa.get("proposal_fee") or 0)
+    if pa.get("proposal_gst_included") and (pa.get("proposal_gst_amount") or 0) > 0:
+        rows.append(["GST on Service Fee (18%)", _fmt_inr(pa.get("proposal_gst_amount"))])
+
     rows.append(["Main Service Final Amount", _fmt_inr(pa.get("proposal_fee"))])
+
+    # 👇 FIX — use ACTUAL amount paid on the service fee (not the full final amount),
+    # so partial (50-50 / installment) payments show correctly.
+    proposal_fee_total = float(pa.get("proposal_fee") or 0)
+    parts = pa.get("proposal_payment_parts") or []
+    if parts:
+        # Sum only the parts actually marked "paid"
+        service_fee_paid = sum(float(p.get("amount") or 0) for p in parts if p.get("status") == "paid")
+    else:
+        # Fallback for legacy PAs with no parts array
+        service_fee_paid = float(pa.get("proposal_amount_paid") or 0)
+        if pa.get("stage") in ("proposal_paid", "awaiting_final_approval", "case_created"):
+            service_fee_paid = proposal_fee_total  # fully paid stages
+
+    service_fee_pending = max(0.0, round(proposal_fee_total - service_fee_paid, 2))
+
+    total_received = step1_total + service_fee_paid
     rows.append(["TOTAL RECEIVED", _fmt_inr(total_received)])
+    if service_fee_pending > 0:
+        rows.append(["PENDING AMOUNT (Service Fee)", _fmt_inr(service_fee_pending)])
+
+    is_pending_row_last = rows[-1][0].startswith("PENDING AMOUNT")
+    last_row_bg = colors.HexColor("#fff7ed") if is_pending_row_last else colors.HexColor("#ecfdf5")
+    last_row_text = colors.HexColor("#c2410c") if is_pending_row_last else colors.HexColor("#047857")
 
     ft = Table(rows, colWidths=[360, 160])
-    ft.setStyle(TableStyle([
+    ft_style = [
         ("BACKGROUND", (0, 0), (-1, 0), brand),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#ecfdf5")),
-        ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
-        ("TEXTCOLOR", (0, -1), (-1, -1), colors.HexColor("#047857")),
         ("GRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#cbd5e1")),
         ("ALIGN", (1, 0), (1, -1), "RIGHT"),
         ("PADDING", (0, 0), (-1, -1), 6),
-    ]))
+    ]
+    if is_pending_row_last:
+        # "TOTAL RECEIVED" is now the second-last row — style it green
+        ft_style += [
+            ("BACKGROUND", (0, -2), (-1, -2), colors.HexColor("#ecfdf5")),
+            ("FONTNAME", (0, -2), (-1, -2), "Helvetica-Bold"),
+            ("TEXTCOLOR", (0, -2), (-1, -2), colors.HexColor("#047857")),
+            ("BACKGROUND", (0, -1), (-1, -1), last_row_bg),
+            ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+            ("TEXTCOLOR", (0, -1), (-1, -1), last_row_text),
+        ]
+    else:
+        ft_style += [
+            ("BACKGROUND", (0, -1), (-1, -1), last_row_bg),
+            ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+            ("TEXTCOLOR", (0, -1), (-1, -1), last_row_text),
+        ]
+    ft.setStyle(TableStyle(ft_style))
     elems.append(ft)
     elems.append(Spacer(1, 14))
 

@@ -13,6 +13,7 @@ NO existing function is rewritten — zero regression risk.
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -62,10 +63,41 @@ class CostEstimatorItem(BaseModel):
     notes: Optional[str] = None
 
 
+class ServicePackageAddon(BaseModel):
+    label: str = "Optional Partner Skill Assessment"
+    amount: float = 0
+    currency: str = "INR"
+    enabled: bool = False
+
+
+class ServicePackage(BaseModel):
+    key: str
+    name: str
+    show: bool = True
+    professional_fee: float = 0
+    professional_fee_label: Optional[str] = "Professional Fee"
+    discount: float = 0
+    gst: float = 0
+    total: float = 0
+    total_payable: Optional[float] = None
+    currency: str = "INR"
+    protection_level: str = "Basic"
+    professional_fee_refund: bool = False
+    govt_fee_refund: bool = False
+    inclusions: List[str] = Field(default_factory=list)
+    addon: Optional[ServicePackageAddon] = None
+    highlight: bool = False
+    recommended: Optional[bool] = None
+    note: Optional[str] = None
+    tagline: Optional[str] = None
+    show_in_report: Optional[bool] = None
+
+
 class SaveCostEstimatorRequest(BaseModel):
     assessment_id: str
     currency: str = "INR"
     items: List[CostEstimatorItem]
+    service_packages: Optional[List[ServicePackage]] = None
     notes: Optional[str] = None
 
 
@@ -132,10 +164,106 @@ async def calculate_parallel(req: ParallelCalcRequest, current_user: dict = Depe
 # ════════════════════════════════════════════════════════════════
 # Cost Estimator
 # ════════════════════════════════════════════════════════════════
+def _leamss_service_packages(country_code: str) -> List[Dict[str, Any]]:
+    """LEAMSS Service Packages (Smart / Standard PR / PR Protection Policy).
+
+    Defaults sourced from the official LEAMSS Australia offshore flowchart 2026.
+    All amounts are editable per client in the wizard. Only shown for AU.
+    """
+    if country_code.upper() != "AU":
+        return []
+
+    common_inclusions = [
+        "Professional Processing Support",
+        "Dedicated Case Manager",
+        "Documentation Assistance",
+    ]
+    return [
+        {
+            "key": "smart",
+            "name": "LEAMSS Smart Package",
+            "show": True,
+            "professional_fee": 100000,
+            "professional_fee_label": "Professional Fee",
+            "discount": 20000,
+            "gst": 14400,
+            "total": 94400,
+            "currency": "INR",
+            "protection_level": "Basic",
+            "professional_fee_refund": False,
+            "govt_fee_refund": False,
+            "inclusions": common_inclusions,
+            "addon": {
+                "label": "Optional Partner Skill Assessment",
+                "amount": 53100,
+                "currency": "INR",
+                "enabled": False,
+            },
+            "highlight": False,
+            "note": "Lump-sum payment (20% discount applied). GST @18% included.",
+        },
+        {
+            "key": "standard",
+            "name": "Standard PR Package",
+            "show": True,
+            "professional_fee": 155000,
+            "professional_fee_label": "Professional Fee",
+            "discount": 31000,
+            "gst": 22320,
+            "total": 146320,
+            "currency": "INR",
+            "protection_level": "High",
+            "professional_fee_refund": True,
+            "govt_fee_refund": False,
+            "inclusions": common_inclusions + ["100% Professional Fee refund on refusal"],
+            "addon": {
+                "label": "Optional Partner Skill Assessment",
+                "amount": 76700,
+                "currency": "INR",
+                "enabled": False,
+            },
+            "highlight": False,
+            "note": "Lump-sum payment (20% discount applied). GST @18% included.",
+        },
+        {
+            "key": "protection",
+            "name": "PR Protection Policy Package",
+            "show": True,
+            "professional_fee": 211000,
+            "professional_fee_label": "Protection Policy Fee",
+            "discount": 0,
+            "gst": 37980,
+            "total": 248980,
+            "currency": "INR",
+            "protection_level": "Maximum",
+            "professional_fee_refund": True,
+            "govt_fee_refund": True,
+            "inclusions": common_inclusions + [
+                "100% refund of Professional Fees + Government / Assessing Authority Fees on a negative outcome (T&C apply)",
+            ],
+            "addon": None,
+            "highlight": True,
+            "note": "One-time Protection Policy fee. GST @18% included.",
+        },
+    ]
+
+
+DEFAULT_PACKAGES: List[Dict[str, Any]] = _leamss_service_packages("AU")
+
+
 async def _kb_cost_defaults(country_code: str, visa_subclass: str, assessing_body: Optional[str] = None) -> List[Dict[str, Any]]:
     """Pulls cost defaults from verified KB entities (templates, skill bodies, policies)."""
     items: List[Dict[str, Any]] = []
     cc = country_code.upper()
+
+    # Country-aware label + currency for the government fee row.
+    _GOV = {
+        "AU": ("Visa Application Fee", "Subclass", "AUD"),
+        "CA": ("PR Application + RPRF", "Program", "CAD"),
+        "NZ": ("Residence Application Fee", "Category", "NZD"),
+    }
+    gov_label, gov_qual, gov_currency = _GOV.get(cc, ("Visa Application Fee", "Subclass", "AUD"))
+    gov_row_label = f"{gov_label} — {gov_qual} {visa_subclass}"
 
     # Government visa fee — from country_template fees block (if defined)
     template = await COUNTRY_TEMPLATES.find_one({"country_code": cc}, {"_id": 0})
@@ -144,9 +272,9 @@ async def _kb_cost_defaults(country_code: str, visa_subclass: str, assessing_bod
     if visa_fee is not None:
         items.append({
             "category": "Government Fees",
-            "label": f"Visa Application Fee — Subclass {visa_subclass}",
+            "label": gov_row_label,
             "amount": float(visa_fee),
-            "currency": template_fees.get("currency") or "AUD",
+            "currency": template_fees.get("currency") or gov_currency,
             "is_estimated": True,
             "is_editable": True,
             "kb_source": f"country_template:{cc}:fees:{visa_subclass}",
@@ -155,9 +283,9 @@ async def _kb_cost_defaults(country_code: str, visa_subclass: str, assessing_bod
         # Fallback estimate — admin to update
         items.append({
             "category": "Government Fees",
-            "label": f"Visa Application Fee — Subclass {visa_subclass}",
+            "label": gov_row_label,
             "amount": 0,
-            "currency": "AUD" if cc == "AU" else ("CAD" if cc == "CA" else "NZD"),
+            "currency": gov_currency,
             "is_estimated": True,
             "is_editable": True,
             "notes": "Admin to update — pending verified KB fee data",
@@ -233,6 +361,7 @@ async def cost_estimator_defaults(
         total_by_currency[cur] = total_by_currency.get(cur, 0) + (it.get("amount") or 0)
     return {
         "items": items,
+        "service_packages": _leamss_service_packages(country_code),
         "total_by_currency": total_by_currency,
         "notes": "Defaults pulled from verified Knowledge Base. Edit per client.",
     }
@@ -263,6 +392,8 @@ async def save_cost_estimator(
     cost_estimator = {
         "currency": req.currency,
         "items": items_serializable,
+        "service_packages": [p.model_dump() for p in req.service_packages] if req.service_packages else [],
+        "packages": [p.model_dump() for p in req.service_packages] if req.service_packages else [],
         "total_by_currency": total_by_currency,
         "notes": req.notes,
         "updated_at": __import__("datetime").datetime.now(__import__("datetime").timezone.utc),
