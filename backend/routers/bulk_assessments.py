@@ -126,26 +126,12 @@ def _map_columns(cols: List[str]) -> Dict[str, str]:
     return out
 
 
-<<<<<<< HEAD
-=======
-QUAL_MAP = [
-    (["phd", "doctor", "doctoral"], "doctorate"),
-    (["master", "mba", "msc", "m.tech", "mtech", "m.a", "postgrad", "pg", "mca", "m.com", "m.e"], "master"),
-    (["bachelor", "b.tech", "btech", "b.e", "be ", "bsc", "b.sc", "b.a", "ba ", "b.com", "bcom", "bca", "engineering", "graduat", "degree", "ug", "undergrad"], "bachelor"),
-    (["advanceddiploma", "advanced diploma"], "diploma"),
-    (["diploma"], "diploma"),
-    (["trade", "certificate", "iti"], "trade"),
-]
-
-
->>>>>>> origin/main
 def _norm_qualification(raw: Any) -> Optional[str]:
     if raw is None:
         return None
     s = str(raw).strip().lower()
     if not s or s == "nan":
         return None
-<<<<<<< HEAD
 
     # Clean punctuation for token checks
     clean = re.sub(r"[\.\-\/\_]", "", s)
@@ -190,12 +176,6 @@ def _norm_qualification(raw: Any) -> Optional[str]:
     if tokens & hs_tokens or "high school" in s or "higher secondary" in s or "+2" in s:
         return "high_school"
 
-=======
-    for keys, val in QUAL_MAP:
-        for k in keys:
-            if k in s:
-                return val
->>>>>>> origin/main
     return None
 
 

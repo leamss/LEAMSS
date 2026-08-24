@@ -222,12 +222,7 @@ backend/storage/
 
 
 backend/uploads/
-<<<<<<< HEAD
 uploads/
 *.pdf
 backend/test_output_report.pdf
 backend/perplexity_invalid_output.json
-=======
-*.log
-backend/test_*.py
->>>>>>> origin/main
