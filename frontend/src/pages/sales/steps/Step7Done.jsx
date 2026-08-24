@@ -627,7 +627,9 @@ function IndividualEmailDialog({ assessment, headers, onClose, onSent }) {
       onSent?.();
       onClose();
     } catch (e) {
-      toast.error(formatApiError(e, 'Failed to send email'));
+      console.error('Send email error:', e, e.response?.data);
+      const detail = e?.response?.data?.detail || e?.response?.data?.message || e?.message || 'Failed to send email';
+      toast.error(typeof detail === 'string' ? detail : JSON.stringify(detail));
     } finally {
       setSending(false);
     }

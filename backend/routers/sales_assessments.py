@@ -1027,9 +1027,9 @@ async def send_assessment_email(id: str, req: SendSingleEmailRequest, current_us
     sender_email = (req.sender_email or s.get("default_sender") or gmail_default_sender() or "").strip().lower()
     sender_name = s.get("sender_name") or "Ladhani Education & Migration Services"
 
-    # Generate 23-page PDF Report Bytes
+    # Generate 23-page PDF Report Bytes asynchronously in thread pool
     snap_data = await _build_snapshot(doc, persona="client", mode="combined", include_unverified=False)
-    pdf_bytes = render_pdf_v2(snap_data)
+    pdf_bytes = await asyncio.to_thread(render_pdf_v2, snap_data)
 
     occ = doc.get("occupation") or {}
     results = doc.get("results") or []

@@ -13,6 +13,8 @@ if hasattr(sys.stderr, "reconfigure"):
         pass
 from dotenv import load_dotenv
 load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
