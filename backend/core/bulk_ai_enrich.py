@@ -21,6 +21,11 @@ from typing import Any, Dict, List, Optional, Tuple
 import httpx
 from openai import AsyncOpenAI
 
+logger = logging.getLogger(__name__)
+
+BULK_PARSE_MODEL = "sonar-pro"
+AI_MATCH_MODEL = "sonar-pro"
+
 _UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                      "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
 
