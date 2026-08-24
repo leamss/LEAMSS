@@ -48,7 +48,13 @@ def _sa_info() -> Optional[dict]:
 
 
 def is_configured() -> bool:
-    return _sa_info() is not None and bool(default_sender())
+    if _sa_info() is not None and bool(default_sender()):
+        return True
+    if (os.environ.get("GMAIL_EMAIL") or os.environ.get("SMTP_USER")) and (os.environ.get("GMAIL_APP_PASSWORD") or os.environ.get("SMTP_PASS") or os.environ.get("SMTP_PASSWORD")):
+        return True
+    if os.environ.get("RESEND_API_KEY") and os.environ.get("RESEND_API_KEY") != "re_your_api_key_here":
+        return True
+    return False
 
 
 def sa_client_id() -> Optional[str]:
@@ -95,27 +101,13 @@ async def send(
     sender_name: Optional[str] = None, attachments: Optional[List[Any]] = None,
     bcc: Optional[str] = None,
 ) -> None:
-    if not is_configured():
-        raise RuntimeError(
-            "Gmail (domain-wide delegation) is not configured. Add GMAIL_SA_JSON_B64 in "
-            "backend/.env and complete the Google Admin console authorization."
-        )
-    sender_email = (sender_email or default_sender()).strip().lower()
-    dom = delegated_domain()
-    if dom and not sender_email.endswith("@" + dom):
-        raise RuntimeError(f"Sender {sender_email} is not on the delegated domain @{dom}.")
+    sender_email = (sender_email or default_sender() or os.environ.get("GMAIL_EMAIL") or os.environ.get("SMTP_USER") or "info@leamss.com").strip().lower()
 
-    from core.database import db
-    key = _quota_key(sender_email)
-    doc = await db["email_quota"].find_one({"_id": key}, {"count": 1})
-    if (doc or {}).get("count", 0) >= DAILY_BUDGET:
-        raise RuntimeError(f"Daily limit ({DAILY_BUDGET}) reached for {sender_email}. Continue tomorrow.")
-
+    # Build standard email message
     msg = EmailMessage()
-    # Header values must not contain CR/LF — collapse any newlines/tabs to single spaces.
     def _hdr(v):
         return " ".join(str(v or "").replace("\r", " ").replace("\n", " ").split())
-    from_name = _hdr(sender_name)
+    from_name = _hdr(sender_name or os.environ.get("SENDER_NAME") or "LEAMSS")
     msg["From"] = f"{from_name} <{sender_email}>" if from_name else sender_email
     msg["To"] = _hdr(recipient)
     msg["Subject"] = _hdr(subject)
@@ -134,33 +126,39 @@ async def send(
             filename=att.get("filename", "attachment"),
         )
 
-    try:
-        await asyncio.to_thread(_send_sync, sender_email, msg.as_bytes())
-    except Exception as e:  # noqa: BLE001
+    # 1. Try Google Workspace DWD Service Account if configured
+    if _sa_info() is not None:
         try:
-            from googleapiclient.errors import HttpError
-        except Exception:
-            HttpError = tuple()
-        if HttpError and isinstance(e, HttpError):
-            code = getattr(getattr(e, "resp", None), "status", "?")
-            reason = getattr(e, "_get_reason", lambda: "")() or "send failed"
-            logger.error("Gmail API HttpError %s: %s", code, reason)
-            raise RuntimeError(
-                f"Gmail API error {code}: {reason}. Verify the sender {sender_email} exists and "
-                "that the service account is authorized for gmail.send in the Admin console."
-            ) from e
-        low = str(e).lower()
-        if "unauthorized_client" in low or "access_denied" in low or "delegation" in low:
-            raise RuntimeError(
-                "Delegation denied. In Google Admin console → Security → API controls → "
-                "Domain-wide delegation, authorize the service account Client ID with scope "
-                "https://www.googleapis.com/auth/gmail.send."
-            ) from e
-        logger.exception("Gmail DWD send failed")
-        raise RuntimeError(f"Email send failed ({type(e).__name__}). Please try again shortly.") from e
+            await asyncio.to_thread(_send_sync, sender_email, msg.as_bytes())
+            logger.info("Email sent via Google Workspace DWD to %s", recipient)
+            return
+        except Exception as e:
+            logger.warning("DWD send failed, attempting SMTP fallback: %s", e)
 
-    await db["email_quota"].update_one(
-        {"_id": key},
-        {"$inc": {"count": 1}, "$set": {"updated_at": datetime.now(timezone.utc), "sender": sender_email}},
-        upsert=True,
+    # 2. Try SMTP with Gmail App Password or SMTP credentials
+    smtp_user = os.environ.get("GMAIL_EMAIL") or os.environ.get("SMTP_USER") or sender_email
+    smtp_pass = os.environ.get("GMAIL_APP_PASSWORD") or os.environ.get("SMTP_PASS") or os.environ.get("SMTP_PASSWORD")
+    smtp_host = os.environ.get("SMTP_HOST", "smtp.gmail.com")
+    smtp_port = int(os.environ.get("SMTP_PORT", "587"))
+
+    if smtp_user and smtp_pass:
+        import aiosmtplib
+        recipients = [recipient]
+        if bcc:
+            recipients.append(bcc)
+        try:
+            async with aiosmtplib.SMTP(hostname=smtp_host, port=smtp_port, start_tls=True, timeout=30) as smtp:
+                await smtp.login(smtp_user, smtp_pass.replace(" ", "").strip())
+                await smtp.send_message(msg, sender=smtp_user, recipients=recipients)
+            logger.info("Email sent via SMTP (%s) to %s", smtp_host, recipient)
+            return
+        except Exception as e:
+            logger.warning("SMTP send failed: %s", e)
+            raise RuntimeError(f"SMTP send failed: {e}") from e
+
+    # 3. If neither is configured, raise clear setup message
+    raise RuntimeError(
+        "No email service credentials configured. Please provide your Gmail App Password "
+        "(GMAIL_EMAIL & GMAIL_APP_PASSWORD) or Google Workspace Service Account JSON (GMAIL_SA_JSON_B64) in backend/.env."
     )
+
