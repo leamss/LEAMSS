@@ -19,15 +19,26 @@ import re
 from typing import Any, Dict, List, Optional, Tuple
 
 import httpx
+<<<<<<< HEAD
 from openai import AsyncOpenAI
+=======
+>>>>>>> origin/main
 
 from core.resume_extractor import extract_text, extract_text_smart, parse_resume_with_ai
 
 logger = logging.getLogger(__name__)
 
+<<<<<<< HEAD
 PERPLEXITY_API_KEY = os.environ.get("PERPLEXITY_API_KEY", "")
 AI_MATCH_MODEL = "sonar-pro"
 BULK_PARSE_MODEL = "sonar-pro"
+=======
+EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
+# Bulk enrichment runs across hundreds of clients — use the fast Haiku model for both
+# resume parsing and ANZSCO matching (accurate enough for retrieve-then-rank, ~3x faster).
+MATCH_MODEL = "claude-haiku-4-5-20251001"
+BULK_PARSE_MODEL = "claude-haiku-4-5-20251001"
+>>>>>>> origin/main
 
 _UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                      "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
@@ -35,10 +46,17 @@ _UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.
 # Many resume hosts (e.g. LiteSpeed on leamss.com) DROP connections under a concurrent
 # burst from one IP ("Server disconnected without sending a response"). A single request
 # works fine, so we throttle downloads to a small, polite concurrency across the whole batch.
+<<<<<<< HEAD
 _FETCH_SEM = asyncio.Semaphore(4)
 # PDF/DOCX text extraction (pdfplumber/python-docx) is GIL-bound CPU work; even in a thread
 # it contends with the event loop. Cap simultaneous extractions so the API stays responsive.
 _EXTRACT_SEM = asyncio.Semaphore(4)
+=======
+_FETCH_SEM = asyncio.Semaphore(2)
+# PDF/DOCX text extraction (pdfplumber/python-docx) is GIL-bound CPU work; even in a thread
+# it contends with the event loop. Cap simultaneous extractions so the API stays responsive.
+_EXTRACT_SEM = asyncio.Semaphore(2)
+>>>>>>> origin/main
 
 
 # ── Resume link → text ────────────────────────────────────────────
@@ -103,7 +121,10 @@ async def fetch_resume_text(url: str) -> Tuple[Optional[str], Optional[str]]:
                     follow_redirects=True,
                     timeout=httpx.Timeout(45.0, connect=15.0),
                     headers=_UA,
+<<<<<<< HEAD
                     verify=False,
+=======
+>>>>>>> origin/main
                     limits=httpx.Limits(max_connections=4, max_keepalive_connections=0),
                 ) as client:
                     resp = await client.get(fetch_url)
@@ -127,12 +148,21 @@ async def fetch_resume_text(url: str) -> Tuple[Optional[str], Optional[str]]:
                         if "text/html" in ct.lower():
                             return None, "Link opened an HTML page, not a file. Share it as 'Anyone with the link' (Viewer)."
 
+<<<<<<< HEAD
                 fname = _guess_filename(fetch_url, ct, cd)
                 # Smart extraction: handles PDF/DOCX/TXT and OCRs scanned PDFs & image resumes.
                 text, oerr = await extract_text_smart(fname, content)
                 if oerr:
                     return None, oerr
                 return text, None
+=======
+            fname = _guess_filename(fetch_url, ct, cd)
+            # Smart extraction: handles PDF/DOCX/TXT and OCRs scanned PDFs & image resumes.
+            text, oerr = await extract_text_smart(fname, content)
+            if oerr:
+                return None, oerr
+            return text, None
+>>>>>>> origin/main
         except httpx.HTTPStatusError as e:
             return None, f"Download failed (HTTP {e.response.status_code}). Is the link public?"
         except ValueError as e:
@@ -169,7 +199,10 @@ async def fetch_resume_bytes(url: str) -> Tuple[Optional[bytes], Optional[str], 
                     follow_redirects=True,
                     timeout=httpx.Timeout(45.0, connect=15.0),
                     headers=_UA,
+<<<<<<< HEAD
                     verify=False,
+=======
+>>>>>>> origin/main
                     limits=httpx.Limits(max_connections=4, max_keepalive_connections=0),
                 ) as client:
                     resp = await client.get(fetch_url)
@@ -212,12 +245,20 @@ If nothing fits, return {"best": null, "alternatives": []}.
 
 
 async def match_anzsco(db, description: str, max_candidates: int = 120) -> Dict[str, Any]:
+<<<<<<< HEAD
     """Retrieve-then-rank: shrink AU codes with $text, then let AI pick the best."""
     api_key = os.environ.get("PERPLEXITY_API_KEY", "").strip()
     if not api_key:
         return {"_error": "PERPLEXITY_API_KEY not configured"}
 
     # Only pull the few fields we actually send to the LLM
+=======
+    """Retrieve-then-rank: shrink AU codes with $text, then let Claude pick the best."""
+    if not EMERGENT_LLM_KEY:
+        return {"_error": "EMERGENT_LLM_KEY not configured"}
+    # Only pull the few fields we actually send to the LLM — avoids loading 120 full
+    # occupation docs (with big tasks/description arrays) per row, which was blocking the loop.
+>>>>>>> origin/main
     proj = {
         "_id": 0, "code": 1, "title": 1,
         "hierarchy.unit_group_name": 1, "assessing_authority.name": 1, "alternative_titles": 1,
@@ -229,12 +270,18 @@ async def match_anzsco(db, description: str, max_candidates: int = 120) -> Dict[
         tq["$text"] = {"$search": description}
         tproj = dict(proj)
         tproj["score"] = {"$meta": "textScore"}
+<<<<<<< HEAD
         try:
             docs = [o async for o in db["occupation_master"].find(
                 tq, tproj,
             ).sort([("score", {"$meta": "textScore"})]).limit(max_candidates)]
         except Exception:
             docs = []
+=======
+        docs = [o async for o in db["occupation_master"].find(
+            tq, tproj,
+        ).sort([("score", {"$meta": "textScore"})]).limit(max_candidates)]
+>>>>>>> origin/main
     if not docs:
         docs = [o async for o in db["occupation_master"].find(query, proj).limit(max_candidates)]
     if not docs:
@@ -255,6 +302,7 @@ async def match_anzsco(db, description: str, max_candidates: int = 120) -> Dict[
         + json.dumps(available, ensure_ascii=False)
         + "\n```\n\nReturn the best code + alternatives as JSON."
     )
+<<<<<<< HEAD
 
     try:
         _http = httpx.AsyncClient(verify=False, timeout=60)
@@ -299,6 +347,27 @@ async def match_anzsco(db, description: str, max_candidates: int = 120) -> Dict[
         json_str = re.sub(r"[\x00-\x1F\x7F]", "", json_str)
         json_str = re.sub(r",(\s*[}\]])", r"\1", json_str)
         parsed = json.loads(json_str)
+=======
+    try:
+        from emergentintegrations.llm.chat import LlmChat, UserMessage  # type: ignore
+    except ImportError as e:  # pragma: no cover
+        return {"_error": f"emergentintegrations missing: {e}"}
+    try:
+        chat = LlmChat(api_key=EMERGENT_LLM_KEY, session_id=f"anzsco-{os.urandom(3).hex()}",
+                       system_message=_MATCH_SYSTEM).with_model("anthropic", MATCH_MODEL)
+        # emergentintegrations runs the BLOCKING litellm.completion() on the event loop.
+        # Run it in a worker thread (own loop) so concurrent bulk jobs don't freeze the API.
+        resp = await asyncio.to_thread(
+            lambda: asyncio.run(chat.send_message(UserMessage(text=prompt)))
+        )
+        raw = (str(resp) if resp is not None else "").strip()
+        if raw.startswith("```"):
+            raw = raw.strip("`").lstrip("json").strip()
+        i, j = raw.find("{"), raw.rfind("}")
+        if i == -1 or j == -1:
+            return {"_error": "AI returned non-JSON", "_raw": raw[:200]}
+        parsed = json.loads(raw[i:j + 1])
+>>>>>>> origin/main
         best = parsed.get("best") or None
         if best and best.get("code") not in valid_codes:
             best = None  # hallucinated code — drop

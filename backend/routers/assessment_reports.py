@@ -424,6 +424,7 @@ async def _build_snapshot(
     # 2b-ii) Points across all AU subclasses (189/190/491) + occupation open per subclass
     au_subclass_points = await _build_au_subclass_points(assessment, results)
 
+<<<<<<< HEAD
     # 2c) EOI Backlog (SkillSelect pool) for the primary AU occupation + each alternate pathway
     eoi_backlog = None
     eoi_backlog_alts: List[Dict[str, Any]] = []
@@ -473,6 +474,23 @@ async def _build_snapshot(
             else:
                 continue
             if not acode or acode in seen_alt:
+=======
+    # 2c) EOI Backlog (SkillSelect pool) for the primary AU occupation + each alternate
+    # pathway — only when the consultant has opted to show it for this client.
+    eoi_backlog = None
+    eoi_backlog_alts: List[Dict[str, Any]] = []
+    primary_occ = assessment.get("occupation") or {}
+    if assessment.get("show_eoi_backlog") and (primary_occ.get("country_code") or "").upper() == "AU":
+        au_res = next((r for r in results if (r.get("country_code") or "").upper() == "AU"), None)
+        client_points = au_res.get("total") if au_res else None
+        if primary_occ.get("code"):
+            eoi_backlog = await build_eoi_for_occupation(primary_occ["code"], client_points)
+        primary_code = str(primary_occ.get("code") or "")
+        seen_alt = {primary_code}
+        for ao in (assessment.get("additional_occupations") or []):
+            acode = str((ao or {}).get("code") or "")
+            if not acode or acode in seen_alt or (ao.get("country_code") or "").upper() != "AU":
+>>>>>>> origin/main
                 continue
             seen_alt.add(acode)
             alt_eoi = await build_eoi_for_occupation(acode, client_points)
@@ -488,12 +506,15 @@ async def _build_snapshot(
             {"status": "verified"}, {"_id": 0},
         )
     if not protection_policy:
+<<<<<<< HEAD
         protection_policy = await PROTECTION_POLICIES.find_one(
             {"is_default_leamss": True}, {"_id": 0},
         )
     if not protection_policy:
         protection_policy = await PROTECTION_POLICIES.find_one({}, {"_id": 0})
     if not protection_policy:
+=======
+>>>>>>> origin/main
         # Guaranteed fallback — the Protection Policy (Sir's USP) must print on EVERY
         # report, independent of the cost/investment breakdown or DB seed state.
         protection_policy = dict(DEFAULT_PROTECTION_POLICY)

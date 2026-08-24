@@ -145,8 +145,26 @@ _OCR_SYS = ("You are an OCR engine. Transcribe ALL text from the document image(
 
 
 async def ocr_images_to_text(images_b64: List[str], model: Optional[str] = None) -> str:
+<<<<<<< HEAD
     """Transcribe text from one or more images using vision LLM. Returns plain text ('' on failure)."""
     return ""
+=======
+    """Transcribe text from one or more images using a vision LLM. Returns plain text ('' on failure)."""
+    emergent_key = os.environ.get("EMERGENT_LLM_KEY") or os.environ.get("PERPLEXITY_API_KEY")
+    if not emergent_key or not images_b64:
+        return ""
+    try:
+        from emergentintegrations.llm.chat import LlmChat, UserMessage, ImageContent
+        chat = LlmChat(api_key=emergent_key, session_id=f"ocr-{os.urandom(4).hex()}",
+                       system_message=_OCR_SYS).with_model("gemini", model or OCR_MODEL)
+        msg = UserMessage(text="Transcribe all text from this resume/document image verbatim.",
+                          file_contents=[ImageContent(image_base64=b) for b in images_b64])
+        resp = await asyncio.to_thread(lambda: asyncio.run(chat.send_message(msg)))
+        return (str(resp) if resp is not None else "").strip()
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"OCR failed: {e}")
+        return ""
+>>>>>>> origin/main
 
 
 def _render_pdf_to_pngs(file_bytes: bytes, max_pages: int = OCR_MAX_PAGES, dpi: int = 150) -> List[str]:
@@ -190,7 +208,11 @@ async def extract_text_smart(filename: str, file_bytes: bytes) -> Tuple[Optional
         text = await ocr_image_bytes(file_bytes)
         if text and len(text.strip()) >= 30:
             return text, None
+<<<<<<< HEAD
         return None, "Could not read text from image."
+=======
+        return None, "Could not read text from image (OCR found nothing)."
+>>>>>>> origin/main
 
     try:
         text, _meta = await asyncio.to_thread(extract_text, filename, file_bytes)
@@ -206,6 +228,7 @@ async def extract_text_smart(filename: str, file_bytes: bytes) -> Tuple[Optional
         if ocr and len(ocr.strip()) >= 30:
             return ocr, None
     if not text or len(text.strip()) < 30:
+<<<<<<< HEAD
         return None, "Resume text was empty (scanned image or unreadable file)."
     return text, None
 
@@ -222,6 +245,18 @@ async def parse_resume_with_ai(
     key = os.environ.get("PERPLEXITY_API_KEY", "").strip()
     if not key:
         return {"_error": "PERPLEXITY_API_KEY not configured"}
+=======
+        return None, "Resume text was empty (scanned image or unreadable file — OCR found no text)."
+    return text, None
+
+
+async def parse_resume_with_ai(resume_text: str, session_id: Optional[str] = None) -> Dict[str, Any]:
+    """Send resume text to Claude AI for structured extraction.
+    Returns the parsed JSON (Phase 6.7 ProfileCreate shape) or a fallback empty shell.
+    """
+    if not PERPLEXITY_API_KEY:
+     return {"_error": "PERPLEXITY_API_KEY not configured"}
+>>>>>>> origin/main
     if not resume_text or len(resume_text.strip()) < 50:
         return {"_error": "Resume text is too short to extract anything meaningful"}
 
@@ -244,11 +279,16 @@ async def parse_resume_with_ai(
         import httpx as _httpx
         _http = _httpx.AsyncClient(verify=False, timeout=60)
         client = AsyncOpenAI(
+<<<<<<< HEAD
             api_key=key,
+=======
+            api_key=PERPLEXITY_API_KEY,
+>>>>>>> origin/main
             base_url="https://api.perplexity.ai",
             http_client=_http,
         )
 
+<<<<<<< HEAD
         response = None
         for attempt in range(5):
             try:
@@ -279,6 +319,23 @@ async def parse_resume_with_ai(
 
         if not response:
             return {"_error": "No response from AI"}
+=======
+        response = await client.chat.completions.create(
+    model=PERPLEXITY_MODEL,
+    temperature=0,
+    max_tokens=2500,
+    messages=[
+        {
+            "role": "system",
+            "content": EXTRACTION_PROMPT,
+        },
+        {
+            "role": "user",
+            "content": user_prompt,
+        },
+    ],
+)
+>>>>>>> origin/main
 
         message = response.choices[0].message
         raw = message.content or ""

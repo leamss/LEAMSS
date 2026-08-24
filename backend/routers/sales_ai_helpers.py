@@ -41,6 +41,33 @@ def _can_access(user: dict) -> bool:
     return _user_role(user) in ROLE_SALES or "*" in (user.get("permissions") or [])
 
 
+def _safe_json_loads(raw: str) -> dict:
+    clean = raw.strip()
+    if clean.startswith("```"):
+        clean = clean.strip("`").lstrip("json").strip()
+    first = clean.find("{")
+    last = clean.rfind("}")
+    if first == -1:
+        raise ValueError(f"No JSON object found in AI response")
+    sub = clean[first:last + 1]
+    try:
+        return json.loads(sub)
+    except Exception:
+        pass
+    for tail in ['\n  ]\n}', '\n}', '"\n  ]\n}', '"}\n  ]\n}', '}\n  ]\n}']:
+        try:
+            return json.loads(sub + tail)
+        except Exception:
+            pass
+    last_obj = sub.rfind("},")
+    if last_obj != -1:
+        try:
+            return json.loads(sub[:last_obj + 1] + "\n  ]\n}")
+        except Exception:
+            pass
+    return json.loads(sub)
+
+
 # ════════════════════════════════════════════════════════════════
 # OCCUPATION SUGGESTER — natural-language → top 3-5 codes
 # ════════════════════════════════════════════════════════════════
@@ -171,6 +198,7 @@ async def suggest_occupation(
     try:
         print("Before API call")
         response = await client.chat.completions.create(
+<<<<<<< HEAD
     model="sonar-reasoning-pro",
     messages=[
         {"role": "system", "content": SUGGESTER_SYSTEM_PROMPT},
@@ -178,12 +206,23 @@ async def suggest_occupation(
     ],
     temperature=0,
 )
+=======
+            model="sonar-pro",
+            messages=[
+                {"role": "system", "content": SUGGESTER_SYSTEM_PROMPT},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=0,
+            max_tokens=2500,
+        )
+>>>>>>> origin/main
 
         raw = response.choices[0].message.content.strip()
         print("=" * 100)
         print(repr(raw))
         print("=" * 100)
 
+<<<<<<< HEAD
         if raw.startswith("```"):
             raw = raw.strip("`").lstrip("json").strip()
 
@@ -201,6 +240,9 @@ async def suggest_occupation(
                 )
 
             parsed = json.loads(raw[first:last + 1])
+=======
+        parsed = _safe_json_loads(raw)
+>>>>>>> origin/main
 
         # Verify returned codes exist
         valid_set = {
@@ -216,6 +258,7 @@ async def suggest_occupation(
             s["_verified"] = (cc, code) in valid_set
 
         parsed["_ai_status"] = "ok"
+<<<<<<< HEAD
         parsed["_ai_model"] = "sonar-reasoning-pro"
 
         return parsed
@@ -231,13 +274,20 @@ async def suggest_occupation(
         status_code=500,
         detail=str(e)
     )
+=======
+        parsed["_ai_model"] = "sonar-pro"
+        return parsed
+>>>>>>> origin/main
 
     except HTTPException:
         raise
 
     except Exception as e:
         logger.error(f"Occupation suggester error: {e}")
+<<<<<<< HEAD
 
+=======
+>>>>>>> origin/main
         raise HTTPException(
             status_code=502,
             detail=f"AI call failed: {type(e).__name__}: {str(e)[:150]}",
@@ -387,7 +437,11 @@ async def atlas_auto_suggest(req: AtlasAutoSuggestRequest, current_user: dict = 
 
         try:
             response = await client.chat.completions.create(
+<<<<<<< HEAD
                 model="sonar-reasoning-pro",
+=======
+                model="sonar-pro",
+>>>>>>> origin/main
                 messages=[
                     {
                         "role": "system",

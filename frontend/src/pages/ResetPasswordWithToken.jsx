@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import { KeyRound, CheckCircle2, XCircle } from 'lucide-react';
 import PasswordStrengthMeter from '@/components/PasswordStrengthMeter';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || (typeof window !== 'undefined' && window.location.hostname.includes('leamss.com') ? 'https://api.leamss.com' : 'http://localhost:8001');
 const API = `${BACKEND_URL}/api`;
 
 export default function ResetPasswordWithToken() {
