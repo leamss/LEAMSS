@@ -949,3 +949,173 @@ async def public_share_view(token: str, request: Request):
     payload["checklist"] = checklist
     payload["expires_at"] = expires_at.isoformat() if isinstance(expires_at, datetime) else expires_at
     return payload
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# Individual Assessment Email Send (matches bulk email engine & templates)
+# ────────────────────────────────────────────────────────────────────────────
+
+@router.get("/{id}/email-preview")
+async def get_assessment_email_preview(id: str, current_user: dict = Depends(get_current_user)):
+    from routers.bulk_assessments import gmail_is_configured, gmail_default_sender
+    from routers.email_settings import get_settings
+    from routers.email_templates import list_templates_for_category
+
+    doc = await assessments_col.find_one({"id": id})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Assessment not found")
+
+    settings = await get_settings()
+    is_configured = gmail_is_configured()
+    default_sender = gmail_default_sender()
+
+    # Consultant mailboxes
+    mailboxes = settings.get("mailboxes") or []
+    if not mailboxes and default_sender:
+        mailboxes = [{"email": default_sender, "name": "LEAMSS Consultation", "is_default": True}]
+
+    # Templates
+    templates = await list_templates_for_category("eligible")
+
+    return {
+        "assessment_id": id,
+        "client_name": doc.get("client_name"),
+        "client_email": doc.get("client_email"),
+        "is_configured": is_configured,
+        "default_sender": default_sender,
+        "mailboxes": mailboxes,
+        "templates": templates,
+        "attach_report": settings.get("attach_report", True),
+        "attach_sla": bool(settings.get("attach_sla") and settings.get("sla_file_id")),
+        "attach_qr": bool(settings.get("qr_file_id")),
+        "attach_resume": bool(settings.get("attach_resume")),
+    }
+
+
+class SendSingleEmailRequest(BaseModel):
+    recipient_email: Optional[str] = None
+    sender_email: Optional[str] = None
+    template_id: Optional[str] = None
+    bcc_self: bool = True
+
+
+@router.post("/{id}/email")
+async def send_assessment_email(id: str, req: SendSingleEmailRequest, current_user: dict = Depends(get_current_user)):
+    from routers.bulk_assessments import gmail_is_configured, gmail_default_sender, gmail_send, _report_filename
+    from routers.email_settings import get_settings, read_asset_bytes, build_report_email
+    from routers.email_templates import render_template
+    from routers.assessment_reports import _build_snapshot
+    from core.report_v2.renderer import render_pdf_v2
+
+    if not _can_access(current_user):
+        raise HTTPException(status_code=403, detail="Not authorised")
+    if not gmail_is_configured():
+        raise HTTPException(status_code=503, detail="Gmail/SMTP is not configured. Configure email settings under Email Settings.")
+
+    doc = await assessments_col.find_one({"id": id})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Assessment not found")
+
+    to = (req.recipient_email or doc.get("client_email") or "").strip()
+    if not to or "@" not in to:
+        raise HTTPException(status_code=400, detail="Client has no valid email address.")
+
+    s = await get_settings()
+    sender_email = (req.sender_email or s.get("default_sender") or gmail_default_sender() or "").strip().lower()
+    sender_name = s.get("sender_name") or "Ladhani Education & Migration Services"
+
+    # Generate 23-page PDF Report Bytes
+    snap_data = await _build_snapshot(doc, persona="client", mode="combined", include_unverified=False)
+    pdf_bytes = render_pdf_v2(snap_data)
+
+    occ = doc.get("occupation") or {}
+    results = doc.get("results") or []
+    best_res = max(results, key=lambda r: r.get("total", 0)) if results else {}
+
+    # Email Subject and Body (Template or Built-in)
+    if req.template_id:
+        tmpl = await db["email_templates"].find_one({"id": req.template_id}, {"_id": 0})
+        if tmpl:
+            ctx = {
+                "client_name": doc.get("client_name") or "Applicant",
+                "occupation": occ.get("title") or "Professional",
+                "anzsco_code": occ.get("code") or "",
+                "points": best_res.get("total", 0),
+                "sender_name": sender_name,
+                "portal_link": os.environ.get("FRONTEND_URL", "https://app.leamss.com"),
+            }
+            subject = render_template(tmpl.get("subject", ""), ctx)
+            html = render_template(tmpl.get("body_html", ""), ctx)
+            plain = render_template(tmpl.get("body_plain", ""), ctx)
+        else:
+            subject, html, plain = build_report_email(
+                s, client_name=doc.get("client_name") or "Applicant",
+                occupation=occ.get("title"), code=occ.get("code"),
+                points=best_res.get("breakdown") or {}, sender_name=sender_name,
+                backend_url=os.environ.get("PUBLIC_BASE_URL", ""),
+            )
+    else:
+        subject, html, plain = build_report_email(
+            s, client_name=doc.get("client_name") or "Applicant",
+            occupation=occ.get("title"), code=occ.get("code"),
+            points=best_res.get("breakdown") or {}, sender_name=sender_name,
+            backend_url=os.environ.get("PUBLIC_BASE_URL", ""),
+        )
+
+    attachments: List[Dict[str, Any]] = []
+    # 1. Report PDF
+    if pdf_bytes:
+        attachments.append({
+            "bytes": pdf_bytes,
+            "filename": _report_filename(doc.get("client_name"), id),
+            "maintype": "application",
+            "subtype": "pdf",
+        })
+    # 2. SLA
+    if s.get("attach_sla") and s.get("sla_file_id"):
+        sla = await read_asset_bytes(s["sla_file_id"])
+        if sla:
+            attachments.append({
+                "bytes": sla,
+                "filename": s.get("sla_filename") or "LEAMSS-Service-Level-Agreement.pdf",
+                "maintype": "application",
+                "subtype": "pdf",
+            })
+    # 3. QR
+    if s.get("qr_file_id"):
+        qr = await read_asset_bytes(s["qr_file_id"])
+        if qr:
+            attachments.append({
+                "bytes": qr,
+                "filename": "LEAMSS-Payment-QR.png",
+                "maintype": "image",
+                "subtype": "png",
+            })
+
+    await gmail_send(
+        sender_email=sender_email,
+        sender_name=sender_name,
+        recipient=to,
+        subject=subject,
+        html=html,
+        plain=plain,
+        attachments=attachments,
+        bcc=(sender_email if req.bcc_self else None),
+    )
+
+    # Log in assessment history
+    now = datetime.now(timezone.utc)
+    await assessments_col.update_one({"id": id}, {"$set": {
+        "email_status": "sent",
+        "email_to": to,
+        "email_from": sender_email,
+        "email_sent_at": now,
+    }})
+
+    return {
+        "ok": True,
+        "sent_to": to,
+        "sender_email": sender_email,
+        "sent_at": now.isoformat(),
+    }
+

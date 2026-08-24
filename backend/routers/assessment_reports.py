@@ -140,11 +140,63 @@ async def _build_occupation_comparison(
     """
     occ_list: List[Dict[str, Any]] = []
     primary = assessment.get("occupation")
+    if not primary and assessment.get("occupations"):
+        first_occ = assessment["occupations"][0]
+        if isinstance(first_occ, dict):
+            primary = first_occ
     if primary and primary.get("code"):
         occ_list.append({**primary, "is_primary": True})
-    for ao in (assessment.get("additional_occupations") or []):
-        if ao and ao.get("code"):
-            occ_list.append({**ao, "is_primary": False})
+
+    seen_codes = {str(primary.get("code")).strip()} if primary and primary.get("code") else set()
+
+    for key in ("additional_occupations", "alternative_occupations", "ai_alternatives", "occupations", "alternatives"):
+        for ao in (assessment.get(key) or []):
+            if isinstance(ao, dict) and ao.get("code"):
+                c_str = str(ao.get("code")).strip()
+                if c_str and c_str not in seen_codes:
+                    seen_codes.add(c_str)
+                    occ_list.append({**ao, "is_primary": False})
+            elif isinstance(ao, str) and ao.strip():
+                c_str = ao.strip()
+                if c_str not in seen_codes:
+                    seen_codes.add(c_str)
+                    occ_list.append({"code": c_str, "country_code": "AU", "is_primary": False})
+
+    # If fewer than 3 occupations and primary is AU, auto-fill related AU occupations to produce standard 3-pathway 23-page report
+    if len(occ_list) < 3 and primary and (primary.get("country_code") or "AU").upper() == "AU":
+        p_code = str(primary.get("code") or "").strip()
+        if p_code:
+            unit_prefix = p_code[:4]
+            alts_from_db = await OCCUPATION_MASTER.find(
+                {"country_code": "AU", "code": {"$nin": list(seen_codes), "$regex": f"^{unit_prefix}"}},
+                {"_id": 0}
+            ).limit(3 - len(occ_list)).to_list(10)
+            for db_occ in alts_from_db:
+                c_str = str(db_occ.get("code") or "").strip()
+                if c_str and c_str not in seen_codes:
+                    seen_codes.add(c_str)
+                    occ_list.append({
+                        "country_code": "AU",
+                        "code": c_str,
+                        "title": db_occ.get("title"),
+                        "is_primary": False,
+                    })
+            if len(occ_list) < 3 and len(p_code) >= 2:
+                minor_prefix = p_code[:2]
+                more_alts = await OCCUPATION_MASTER.find(
+                    {"country_code": "AU", "code": {"$nin": list(seen_codes), "$regex": f"^{minor_prefix}"}},
+                    {"_id": 0}
+                ).limit(3 - len(occ_list)).to_list(10)
+                for db_occ in more_alts:
+                    c_str = str(db_occ.get("code") or "").strip()
+                    if c_str and c_str not in seen_codes:
+                        seen_codes.add(c_str)
+                        occ_list.append({
+                            "country_code": "AU",
+                            "code": c_str,
+                            "title": db_occ.get("title"),
+                            "is_primary": False,
+                        })
 
     if len(occ_list) < 2:
         return None
@@ -456,8 +508,19 @@ async def _build_snapshot(
         primary_code_str = str(primary_code)
         seen_alt = {primary_code_str}
 
+        # Pull alternatives from occupation_comparison so all 3 pathways have EOI Backlogs (23 pages total)
+        if occupation_comparison and occupation_comparison.get("occupations"):
+            for comp_occ in occupation_comparison["occupations"]:
+                if not comp_occ.get("is_primary"):
+                    acode = str(comp_occ.get("code") or "").strip()
+                    if acode and acode not in seen_alt:
+                        seen_alt.add(acode)
+                        alt_eoi = await build_eoi_for_occupation(acode, client_points)
+                        if alt_eoi and (alt_eoi.get("unified") or {}).get("rows"):
+                            eoi_backlog_alts.append(alt_eoi)
+
         alt_candidates = []
-        for key in ("additional_occupations", "alternative_occupations", "ai_alternatives", "occupations"):
+        for key in ("additional_occupations", "alternative_occupations", "ai_alternatives", "occupations", "alternatives"):
             val = assessment.get(key)
             if isinstance(val, list):
                 alt_candidates.extend(val)

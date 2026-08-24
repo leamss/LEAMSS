@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   ArrowRight, FileText, Loader2, MessageSquare, Search, Send, Trophy, UserCheck,
-  FileBadge, Link2, Mail, Copy, Lock, CheckCircle2, Circle, Clock,
+  FileBadge, Link2, Mail, Copy, Lock, CheckCircle2, Circle, Clock, Paperclip,
 } from 'lucide-react';
 import { formatApiError } from '@/lib/apiErrors';
 import { API } from '../lib/constants';
@@ -27,6 +27,8 @@ export default function Step7Done({ saved, createPA, navigate, headers, creating
   const [lifecycle, setLifecycle] = useState(null);
   const [loadingLifecycle, setLoadingLifecycle] = useState(false);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [emailSent, setEmailSent] = useState(Boolean(saved?.email_status === 'sent'));
   const [shareInfo, setShareInfo] = useState(null);
   const [shareLoading, setShareLoading] = useState(false);
   const [expiryDays, setExpiryDays] = useState(30);
@@ -136,7 +138,7 @@ export default function Step7Done({ saved, createPA, navigate, headers, creating
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-2">
         {saved?.linked_pa_id ? (
           <Button
             size="default"
@@ -165,11 +167,21 @@ export default function Step7Done({ saved, createPA, navigate, headers, creating
           </Button>
         )}
         <ReportActions saved={saved} data-testid="report-actions" />
+        <Button
+          size="default"
+          variant="outline"
+          onClick={() => setEmailDialogOpen(true)}
+          data-testid="email-client-btn"
+          className={emailSent ? "border-teal-400 bg-teal-50 text-teal-800 hover:bg-teal-100 font-medium" : "border-indigo-300 text-indigo-700 hover:bg-indigo-50 font-medium"}
+        >
+          <Mail className="h-4 w-4 mr-1 text-indigo-600" />
+          {emailSent ? 'Email Sent ✓' : 'Send Email'}
+        </Button>
         <Button size="default" variant="outline" onClick={() => setShareDialogOpen(true)} data-testid="save-share-btn" className="border-emerald-300 text-emerald-700 hover:bg-emerald-50">
-          <Send className="h-4 w-4 mr-1" />Save &amp; Share Report
+          <Send className="h-4 w-4 mr-1" />Save &amp; Share
         </Button>
         <Button size="default" variant="outline" onClick={() => window.print()} data-testid="export-pdf">
-          <FileText className="h-4 w-4 mr-1" />Print / Export PDF
+          <FileText className="h-4 w-4 mr-1" />Print / PDF
         </Button>
       </div>
 
@@ -427,6 +439,16 @@ export default function Step7Done({ saved, createPA, navigate, headers, creating
           </Card>
         </div>
       )}
+
+      {/* Send Email Modal — Same templates & engine as bulk pre-assessment */}
+      {emailDialogOpen && (
+        <IndividualEmailDialog
+          assessment={saved}
+          headers={headers}
+          onClose={() => setEmailDialogOpen(false)}
+          onSent={() => setEmailSent(true)}
+        />
+      )}
     </div>
   );
 }
@@ -555,3 +577,178 @@ function ReportActions({ saved }) {
     </>
   );
 }
+
+
+// ════════════════════════════════════════════════════════════════
+// Individual Assessment Email Dialog (Matches Bulk Pre-Assessment)
+// ════════════════════════════════════════════════════════════════
+function IndividualEmailDialog({ assessment, headers, onClose, onSent }) {
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState(null);
+  const [recipientEmail, setRecipientEmail] = useState(assessment?.client_email || '');
+  const [selectedMailbox, setSelectedMailbox] = useState('');
+  const [selectedTemplate, setSelectedTemplate] = useState('');
+  const [bccSelf, setBccSelf] = useState(true);
+  const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    if (!assessment?.id) return;
+    (async () => {
+      try {
+        const r = await axios.get(`${API}/sales/assessments/${assessment.id}/email-preview`, { headers });
+        setData(r.data);
+        if (r.data.client_email) setRecipientEmail(r.data.client_email);
+        if (r.data.default_sender) setSelectedMailbox(r.data.default_sender);
+        else if (r.data.mailboxes?.length) setSelectedMailbox(r.data.mailboxes[0].email);
+      } catch (e) {
+        toast.error(formatApiError(e, 'Could not load email configuration'));
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [assessment?.id, headers]);
+
+  const handleSend = async () => {
+    if (!recipientEmail || !recipientEmail.includes('@')) {
+      toast.error('Please enter a valid recipient email address');
+      return;
+    }
+    setSending(true);
+    try {
+      const r = await axios.post(`${API}/sales/assessments/${assessment.id}/email`, {
+        recipient_email: recipientEmail,
+        sender_email: selectedMailbox,
+        template_id: selectedTemplate || null,
+        bcc_self: bccSelf,
+      }, { headers });
+      toast.success(`Report emailed to ${r.data.sent_to}!`, {
+        description: `Sent from ${r.data.sender_email}`,
+      });
+      onSent?.();
+      onClose();
+    } catch (e) {
+      toast.error(formatApiError(e, 'Failed to send email'));
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose} data-testid="individual-email-dialog">
+      <Card className="max-w-lg w-full bg-white p-5 space-y-4 shadow-xl border-slate-200" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b pb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="h-9 w-9 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600">
+              <Mail className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-slate-900">Email Assessment Report</h3>
+              <p className="text-xs text-slate-500">Send 23-page branded PDF, SLA &amp; payment link directly to candidate</p>
+            </div>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="py-8 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-slate-400" /></div>
+        ) : (
+          <div className="space-y-3">
+            <div>
+              <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 block">Recipient Email *</label>
+              <input
+                type="email"
+                value={recipientEmail}
+                onChange={e => setRecipientEmail(e.target.value)}
+                placeholder="client@example.com"
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                data-testid="email-recipient-input"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 block">Send From (Mailbox)</label>
+                <select
+                  value={selectedMailbox}
+                  onChange={e => setSelectedMailbox(e.target.value)}
+                  className="w-full border border-slate-200 rounded-lg px-2.5 py-2 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  data-testid="email-mailbox-select"
+                >
+                  {(data?.mailboxes || []).map(m => (
+                    <option key={m.email} value={m.email}>{m.name ? `${m.name} (${m.email})` : m.email}</option>
+                  ))}
+                  {!data?.mailboxes?.length && (
+                    <option value={data?.default_sender || 'info@leamss.com'}>{data?.default_sender || 'info@leamss.com'}</option>
+                  )}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 block">Template</label>
+                <select
+                  value={selectedTemplate}
+                  onChange={e => setSelectedTemplate(e.target.value)}
+                  className="w-full border border-slate-200 rounded-lg px-2.5 py-2 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  data-testid="email-template-select"
+                >
+                  <option value="">Default Eligible Template</option>
+                  {(data?.templates || []).map(t => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="rounded-lg border bg-slate-50/50 p-2.5 space-y-1.5">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 block">Included Attachments</span>
+              <div className="flex flex-wrap gap-1.5">
+                <span className="text-[11px] px-2.5 py-1 rounded-full bg-teal-50 text-teal-800 border border-teal-200 flex items-center gap-1 font-medium">
+                  <FileText className="h-3 w-3" />23-Page Assessment Report PDF
+                </span>
+                {data?.attach_sla && (
+                  <span className="text-[11px] px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-800 border border-indigo-200 flex items-center gap-1 font-medium">
+                    <Paperclip className="h-3 w-3" />Service Agreement (SLA)
+                  </span>
+                )}
+                {data?.attach_qr && (
+                  <span className="text-[11px] px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1 font-medium">
+                    Payment QR
+                  </span>
+                )}
+                {data?.attach_resume && (
+                  <span className="text-[11px] px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1 font-medium">
+                    Candidate Resume
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <label className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer pt-1">
+              <input
+                type="checkbox"
+                checked={bccSelf}
+                onChange={e => setBccSelf(e.target.checked)}
+                className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              <span>Send a BCC copy to sender mailbox ({selectedMailbox || 'default'})</span>
+            </label>
+          </div>
+        )}
+
+        <div className="flex gap-2 justify-end pt-2 border-t">
+          <Button variant="outline" size="sm" onClick={onClose} disabled={sending}>Cancel</Button>
+          <Button
+            size="sm"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white"
+            onClick={handleSend}
+            disabled={sending || loading}
+            data-testid="confirm-send-email-btn"
+          >
+            {sending ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Send className="h-3.5 w-3.5 mr-1.5" />}
+            {sending ? 'Sending…' : 'Send Email to Client'}
+          </Button>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
