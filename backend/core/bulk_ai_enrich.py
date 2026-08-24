@@ -74,43 +74,16 @@ def _guess_filename(url: str, content_type: str, content_disposition: str) -> st
     return "resume.pdf"
 
 
-async def fetch_resume_text(url: str) -> Tuple[Optional[str], Optional[str]]:
-    """Download a resume from a public link and return (text, error).
-
-    Retries transient network failures (many hosts, e.g. leamss.com, intermittently
-    drop the connection under concurrent load — 'Server disconnected without response').
-    """
-    if not url:
-        return None, "No resume link provided"
-    fetch_url = _normalize_resume_url(url)
-    transient = (
-        httpx.RemoteProtocolError, httpx.ConnectError, httpx.ReadError,
-        httpx.ConnectTimeout, httpx.ReadTimeout, httpx.PoolTimeout, httpx.WriteError,
-    )
-    last_err: Optional[str] = None
-    for attempt in range(4):  # up to 4 tries with jittered backoff
+def _extract_text_from_bytes(file_bytes: bytes, filename: str) -> str:
+    from core.resume_extractor import extract_text
+    try:
+        text, _ = extract_text(filename, file_bytes)
+        return text or ""
+    except Exception as e:
         try:
-            async with _FETCH_SEM:  # polite, throttled downloads (avoid host rate-limit drops)
-                async with httpx.AsyncClient(
-                    follow_redirects=True,
-                    timeout=httpx.Timeout(45.0, connect=15.0),
-                    headers=_UA,
-                    verify=False,
-        except httpx.HTTPStatusError as e:
-            return None, f"Download failed (HTTP {e.response.status_code}). Is the link public?"
-        except ValueError as e:
-            return None, str(e)
-        except transient as e:  # noqa: PERF203 — retryable network failure
-            last_err = f"{type(e).__name__}: {str(e) or 'connection dropped'}"
-            if attempt < 3:
-                await asyncio.sleep(0.8 * (attempt + 1) + random.uniform(0, 0.7))
-                continue
-            logger.warning(f"resume fetch failed after retries for {url}: {last_err}")
-            return None, "Could not fetch resume (host dropped the connection after 4 tries). Check the link is publicly reachable."
-        except Exception as e:  # noqa: BLE001
-            logger.warning(f"resume fetch error for {url}: {e}")
-            return None, f"Could not fetch resume: {type(e).__name__}"
-    return None, last_err or "Could not fetch resume"
+            return file_bytes.decode("utf-8", errors="ignore")
+        except Exception:
+            return ""
 
 
 async def fetch_resume_bytes(url: str) -> Tuple[Optional[bytes], Optional[str], Optional[str]]:
@@ -133,6 +106,69 @@ async def fetch_resume_bytes(url: str) -> Tuple[Optional[bytes], Optional[str], 
                     timeout=httpx.Timeout(45.0, connect=15.0),
                     headers=_UA,
                     verify=False,
+                    limits=httpx.Limits(max_connections=4, max_keepalive_connections=0),
+                ) as client:
+                    resp = await client.get(fetch_url)
+                    resp.raise_for_status()
+                    content = resp.content
+                    ct = resp.headers.get("content-type", "")
+                    cd = resp.headers.get("content-disposition", "")
+                    if "text/html" in ct.lower() and content[:2000].lower().find(b"<html") != -1:
+                        return None, None, "Link opened an HTML page, not a direct file (private/expired link?)."
+            return content, _guess_filename(fetch_url, ct, cd), None
+        except httpx.HTTPStatusError as e:
+            return None, None, f"Download failed (HTTP {e.response.status_code}). Is the link public?"
+        except transient as e:
+            if attempt < 2:
+                await asyncio.sleep(0.8 * (attempt + 1) + random.uniform(0, 0.7))
+                continue
+            return None, None, "Host dropped the connection after retries."
+        except Exception as e:
+            return None, None, f"Could not fetch resume: {type(e).__name__}"
+    return None, None, "Could not fetch resume"
+
+
+async def fetch_resume_text(url: str) -> Tuple[Optional[str], Optional[str]]:
+    """Download a resume from a public link and extract text → (text, error)."""
+    file_bytes, filename, err = await fetch_resume_bytes(url)
+    if err or not file_bytes:
+        return None, err or "Could not fetch resume"
+    try:
+        async with _EXTRACT_SEM:
+            text = await asyncio.to_thread(_extract_text_from_bytes, file_bytes, filename or "resume.pdf")
+            if not text.strip():
+                return None, "Resume document was empty or unreadable"
+            return text[:20000], None
+    except Exception as e:
+        return None, f"Text extraction failed: {e}"
+
+
+# ── Occupation text → best ANZSCO code ────────────────────────────
+_MATCH_SYSTEM = """You are an Australian immigration ANZSCO occupation-code expert.
+
+Given a candidate's profile (from their resume) and a list of AVAILABLE_CODES,
+pick the SINGLE best-matching ANZSCO code for their CURRENT occupation, plus up to
+3 alternatives. Match on the candidate's most recent job title + duties + industry.
+Ignore education unless the current job is clearly a new field.
+
+Only choose codes from AVAILABLE_CODES — never invent a code.
+
+Return ONLY this JSON (no markdown):
+{
+  "best": {"code": "261313", "title": "Software Engineer", "confidence": "high|medium|low", "reasoning": "1-2 sentences"},
+  "alternatives": [{"code": "261312", "title": "Developer Programmer", "confidence": "medium"}]
+}
+If nothing fits, return {"best": null, "alternatives": []}.
+"""
+
+
+async def match_anzsco(db, description: str, max_candidates: int = 120) -> Dict[str, Any]:
+    """Retrieve-then-rank: shrink AU codes with $text, then let AI pick the best."""
+    api_key = os.environ.get("PERPLEXITY_API_KEY", "").strip()
+    if not api_key:
+        return {"_error": "PERPLEXITY_API_KEY not configured"}
+
+    # Only pull the few fields we actually send to the LLM
     proj = {
         "_id": 0, "code": 1, "title": 1,
         "hierarchy.unit_group_name": 1, "assessing_authority.name": 1, "alternative_titles": 1,
