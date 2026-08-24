@@ -1010,7 +1010,10 @@ async def send_assessment_email(id: str, req: SendSingleEmailRequest, current_us
     if not _can_access(current_user):
         raise HTTPException(status_code=403, detail="Not authorised")
     if not gmail_is_configured():
-        raise HTTPException(status_code=503, detail="Gmail/SMTP is not configured. Configure email settings under Email Settings.")
+        raise HTTPException(
+            status_code=400,
+            detail="Email delivery is not configured. Please configure Gmail Workspace or email settings under Email Settings."
+        )
 
     doc = await assessments_col.find_one({"id": id})
     if not doc:
@@ -1092,16 +1095,20 @@ async def send_assessment_email(id: str, req: SendSingleEmailRequest, current_us
                 "subtype": "png",
             })
 
-    await gmail_send(
-        sender_email=sender_email,
-        sender_name=sender_name,
-        recipient=to,
-        subject=subject,
-        html=html,
-        plain=plain,
-        attachments=attachments,
-        bcc=(sender_email if req.bcc_self else None),
-    )
+    try:
+        await gmail_send(
+            sender_email=sender_email,
+            sender_name=sender_name,
+            recipient=to,
+            subject=subject,
+            html=html,
+            plain=plain,
+            attachments=attachments,
+            bcc=(sender_email if req.bcc_self else None),
+        )
+    except Exception as e:
+        logger.exception("Error dispatching email via gmail_send")
+        raise HTTPException(status_code=400, detail=f"Email delivery failed: {e}")
 
     # Log in assessment history
     now = datetime.now(timezone.utc)

@@ -620,7 +620,7 @@ function IndividualEmailDialog({ assessment, headers, onClose, onSent }) {
         sender_email: selectedMailbox,
         template_id: selectedTemplate || null,
         bcc_self: bccSelf,
-      }, { headers });
+      }, { headers, timeout: 120000 });
       toast.success(`Report emailed to ${r.data.sent_to}!`, {
         description: `Sent from ${r.data.sender_email}`,
       });

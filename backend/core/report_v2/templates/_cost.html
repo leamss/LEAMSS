@@ -33,7 +33,6 @@
 </style>
 
 <div class="page">
-
   <div class="section-header">
     <span class="eyebrow">Section 06</span>
     <h1>Cost &amp; Investment Breakdown</h1>
@@ -84,7 +83,7 @@
 
   {# Grand total card #}
   {% if totals %}
-  <div class="card" style="background:linear-gradient(135deg,var(--teal-700),var(--teal-800));color:var(--white);border:none;padding:16pt 18pt;">
+  <div class="card" style="background:linear-gradient(135deg,var(--teal-700),var(--teal-800));color:var(--white);border:none;padding:16pt 18pt;margin-bottom:14pt;">
     <div style="display:flex;align-items:flex-end;justify-content:space-between;">
       <div>
         <div class="eyebrow" style="color:var(--gold-500);">Total Investment</div>
@@ -102,10 +101,15 @@
   </div>
   {% endif %}
 
-  <div class="spacer-sm"></div>
-  <div class="note">
-    <b>🛡 Protected by LEAMSS Protection Policy</b> — see the next section. Government and authority
-    fees are subject to change without notice and are confirmed in your personalised proposal.
+  <div class="card" style="padding:14pt 16pt;margin-bottom:14pt;border-left:4pt solid var(--teal-700);">
+    <h3 style="color:var(--teal-800);margin-bottom:6pt;">Transparent Fee Guarantee</h3>
+    <p style="font-size:9.5pt;color:var(--slate-700);line-height:1.6;">
+      All costs outlined above represent the comprehensive estimated expenditure for your application.
+      LEAMSS maintains a strict zero-hidden-fee policy. Third-party disbursements (such as official assessment bodies, medical clinics, and English examination centers) are payable directly to the respective authorities.
+    </p>
   </div>
 
+  <div class="note">
+    <b>🛡 Protected by LEAMSS Protection Policy</b> — see Section 09. Professional fees are covered under the 100% refund guarantee if eligibility criteria are satisfied.
+  </div>
 </div>

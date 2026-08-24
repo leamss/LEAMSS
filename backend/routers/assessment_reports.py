@@ -542,7 +542,50 @@ async def _build_snapshot(
             if alt_eoi and (alt_eoi.get("unified") or {}).get("rows"):
                 eoi_backlog_alts.append(alt_eoi)
 
-    # 3) Protection Policy (default verified LEAMSS policy)
+    # 3) Eligibility Verdict (Page 3 of 23-page report)
+    eligibility_verdict = assessment.get("eligibility_verdict") or assessment.get("eligibility")
+    if not eligibility_verdict:
+        best_pts = (best.get("total") if best else (assessment.get("best_total") or assessment.get("points") or 65))
+        pass_mark = (best.get("pass_mark") if best else 65) or 65
+        profile = assessment.get("profile_snapshot") or {}
+        age = profile.get("age") or 25
+        best_sub = (best.get("visa_subclass") if best else "491") or "491"
+        if isinstance(best_pts, dict):
+            best_pts = max([v for v in best_pts.values() if isinstance(v, (int, float))] or [65])
+        best_pts = int(best_pts or 65)
+
+        if age >= 45:
+            eligibility_verdict = {
+                "verdict": "ineligible",
+                "headline": "Age Criteria Exceeded",
+                "sub": "Australian GSM visas require applicants to be under 45 years of age at time of invitation.",
+                "best_subclass": best_sub,
+                "best_points": best_pts,
+                "pass_mark": pass_mark,
+                "reasons": ["Age is 45 or older at assessment time."],
+                "alternatives": ["Subclass 186 Employer Nomination exemptions", "Global Talent / National Innovation Visa"],
+            }
+        elif best_pts >= pass_mark:
+            eligibility_verdict = {
+                "verdict": "eligible",
+                "headline": "You Meet the Eligibility Threshold",
+                "sub": f"{best_pts} points on your best pathway (Subclass {best_sub}) — at or above the {pass_mark}-point pass mark",
+                "best_subclass": best_sub,
+                "best_points": best_pts,
+                "pass_mark": pass_mark,
+            }
+        else:
+            eligibility_verdict = {
+                "verdict": "improvable",
+                "headline": "Points Below Current Threshold — Pathway Improvable",
+                "sub": f"{best_pts} points on current calculation vs {pass_mark}-point pass mark",
+                "best_subclass": best_sub,
+                "best_points": best_pts,
+                "pass_mark": pass_mark,
+                "improvements": ["Upgrade English proficiency to Superior (IELTS 8.0 / PTE 79+)", "Gain additional skilled experience"],
+            }
+
+    # 4) Protection Policy (default verified LEAMSS policy)
     protection_policy = await PROTECTION_POLICIES.find_one(
         {"is_default_leamss": True, "status": "verified"}, {"_id": 0},
     )
@@ -557,8 +600,6 @@ async def _build_snapshot(
     if not protection_policy:
         protection_policy = await PROTECTION_POLICIES.find_one({}, {"_id": 0})
     if not protection_policy:
-        # Guaranteed fallback — the Protection Policy (Sir's USP) must print on EVERY
-        # report, independent of the cost/investment breakdown or DB seed state.
         protection_policy = dict(DEFAULT_PROTECTION_POLICY)
 
     snap_data = {
@@ -573,8 +614,9 @@ async def _build_snapshot(
         },
         "profile_snapshot": assessment.get("profile_snapshot") or {},
         "countries": countries_data,
-        "country_guides": country_guides_data,
+        "country_guides": [],
         "best_country": best,
+        "eligibility_verdict": eligibility_verdict,
         # Phase 7.3 — new snapshot fields
         "anzsco_profile": anzsco_profile,
         "cost_estimator": cost_estimator,

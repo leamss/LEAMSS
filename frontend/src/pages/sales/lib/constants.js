@@ -44,5 +44,5 @@ export const COUNTRIES = [
   { code: 'NZ', name: 'New Zealand', flag: '🇳🇿' },
 ];
 
-export const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || (typeof window !== 'undefined' && window.location.hostname.includes('leamss.com') ? 'https://api.leamss.com' : 'http://localhost:8001');
+export const BACKEND_URL = (typeof window !== 'undefined' && window.location.hostname.includes('leamss.com')) ? 'https://api.leamss.com' : (process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001');
 export const API = `${BACKEND_URL}/api`;
