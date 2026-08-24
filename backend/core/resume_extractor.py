@@ -145,29 +145,81 @@ _OCR_SYS = ("You are an OCR engine. Transcribe ALL text from the document image(
 
 
 async def ocr_images_to_text(images_b64: List[str], model: Optional[str] = None) -> str:
-    """Transcribe text from one or more images using vision LLM. Returns plain text ('' on failure)."""
+    """Transcribe text from one or more images using Anthropic Claude Vision."""
+    import httpx
+    anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+    if not anthropic_key or not images_b64:
+        return ""
+
+    content: List[Dict[str, Any]] = []
+    for b64 in images_b64[:OCR_MAX_PAGES]:
+        content.append({
+            "type": "image",
+            "source": {
+                "type": "base64",
+                "media_type": "image/png",
+                "data": b64,
+            },
+        })
+    content.append({
+        "type": "text",
+        "text": _OCR_SYS,
+    })
+
+    try:
+        async with httpx.AsyncClient(verify=False, timeout=60) as client:
+            resp = await client.post(
+                "https://api.anthropic.com/v1/messages",
+                headers={
+                    "x-api-key": anthropic_key,
+                    "anthropic-version": "2023-06-01",
+                    "content-type": "application/json",
+                },
+                json={
+                    "model": "claude-3-5-haiku-20241022",
+                    "max_tokens": 4000,
+                    "messages": [
+                        {"role": "user", "content": content}
+                    ],
+                },
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                text_blocks = [b.get("text", "") for b in data.get("content", []) if b.get("type") == "text"]
+                return "\n\n".join(text_blocks).strip()
+            else:
+                logger.warning(f"Claude OCR error {resp.status_code}: {resp.text[:200]}")
+    except Exception as e:
+        logger.warning(f"OCR request failed: {e}")
     return ""
 
 
 def _render_pdf_to_pngs(file_bytes: bytes, max_pages: int = OCR_MAX_PAGES, dpi: int = 150) -> List[str]:
-    """Render the first N PDF pages to base64 PNGs (CPU-bound; call via to_thread)."""
+    """Render the first N PDF pages to base64 PNGs using pypdfium2."""
     import base64
-    import pymupdf
+    import io
+    import pypdfium2
     out: List[str] = []
-    doc = pymupdf.open(stream=file_bytes, filetype="pdf")
+    pdf = pypdfium2.PdfDocument(file_bytes)
     try:
-        for i in range(min(max_pages, doc.page_count)):
-            pix = doc[i].get_pixmap(dpi=dpi)
-            out.append(base64.b64encode(pix.tobytes("png")).decode())
+        n_pages = min(len(pdf), max_pages)
+        for i in range(n_pages):
+            page = pdf[i]
+            image = page.render(scale=1.5).to_pil()
+            buf = io.BytesIO()
+            image.save(buf, format="PNG")
+            out.append(base64.b64encode(buf.getvalue()).decode())
+    except Exception as e:
+        logger.warning(f"Error rendering PDF to PNGs: {e}")
     finally:
-        doc.close()
+        pdf.close()
     return out
 
 
 async def ocr_pdf_bytes(file_bytes: bytes, model: Optional[str] = None) -> str:
     try:
         pngs = await asyncio.to_thread(_render_pdf_to_pngs, file_bytes)
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         logger.warning(f"PDF render for OCR failed: {e}")
         return ""
     return await ocr_images_to_text(pngs, model=model) if pngs else ""

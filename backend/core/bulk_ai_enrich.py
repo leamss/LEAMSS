@@ -139,10 +139,11 @@ async def fetch_resume_text(url: str) -> Tuple[Optional[str], Optional[str]]:
     if err or not file_bytes:
         return None, err or "Could not fetch resume"
     try:
+        from core.resume_extractor import extract_text_smart
         async with _EXTRACT_SEM:
-            text = await asyncio.to_thread(_extract_text_from_bytes, file_bytes, filename or "resume.pdf")
-            if not text.strip():
-                return None, "Resume document was empty or unreadable"
+            text, err_msg = await extract_text_smart(filename or "resume.pdf", file_bytes)
+            if err_msg or not text or not text.strip():
+                return None, err_msg or "Resume document was empty or unreadable"
             return text[:20000], None
     except Exception as e:
         return None, f"Text extraction failed: {e}"
