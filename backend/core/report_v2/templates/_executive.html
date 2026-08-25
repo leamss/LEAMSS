@@ -24,10 +24,11 @@
         </h2>
         <div class="muted" style="font-size:9.5pt;">
           {{ best.visa_subclass and ('Visa ' ~ best.visa_subclass) or 'Skilled Migration Stream' }}
-          {% if best.template_status %}
+          {% set display_status = (snap.status or best.status or best.template_status or 'verified')|lower %}
+          {% if display_status %}
             &nbsp;·&nbsp;
-            <span class="pill {% if best.template_status == 'verified' %}teal{% else %}orange{% endif %}">
-              {{ best.template_status }}
+            <span class="pill {% if display_status in ['verified', 'approved', 'active', 'ready'] %}teal{% else %}orange{% endif %}">
+              {{ display_status|upper }}
             </span>
           {% endif %}
         </div>

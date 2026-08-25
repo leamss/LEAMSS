@@ -205,7 +205,7 @@ function GuideEditor({ guide, headers, onSaved }) {
   };
 
   const generateAIDraft = async () => {
-    if (!window.confirm('Generate AI draft via Claude Sonnet 4.6? Output goes to AI Draft tab — your manual edits stay intact.')) return;
+    if (!window.confirm('Generate AI draft via Perplexity Sonar Pro? Output goes to AI Draft tab — your manual edits stay intact.')) return;
     setDrafting(true);
     try {
       const r = await axios.post(`${API}/country-guides/${doc.country_code}/ai-draft`, {}, { headers });
@@ -279,7 +279,7 @@ function GuideEditor({ guide, headers, onSaved }) {
           <Button size="sm" variant="outline" onClick={generateAIDraft} disabled={drafting}
                   className="border-leamss-red-400 text-leamss-red-700 hover:bg-leamss-red-50" data-testid="ai-draft-btn">
             {drafting ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Wand2 className="h-3 w-3 mr-1" />}
-            {drafting ? 'Drafting…' : 'AI Draft (Claude)'}
+            {drafting ? 'Drafting…' : 'AI Draft (Perplexity)'}
           </Button>
           <Button size="sm" onClick={save} disabled={saving} className="bg-leamss-teal-600 hover:bg-leamss-teal-700" data-testid="save-guide-btn">
             {saving ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Save className="h-3 w-3 mr-1" />}

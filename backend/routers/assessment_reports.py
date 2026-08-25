@@ -162,42 +162,6 @@ async def _build_occupation_comparison(
                     seen_codes.add(c_str)
                     occ_list.append({"code": c_str, "country_code": "AU", "is_primary": False})
 
-    # If fewer than 3 occupations and primary is AU, auto-fill related AU occupations to produce standard 3-pathway 23-page report
-    if len(occ_list) < 3 and primary and (primary.get("country_code") or "AU").upper() == "AU":
-        p_code = str(primary.get("code") or "").strip()
-        if p_code:
-            unit_prefix = p_code[:4]
-            alts_from_db = await OCCUPATION_MASTER.find(
-                {"country_code": "AU", "code": {"$nin": list(seen_codes), "$regex": f"^{unit_prefix}"}},
-                {"_id": 0}
-            ).limit(3 - len(occ_list)).to_list(10)
-            for db_occ in alts_from_db:
-                c_str = str(db_occ.get("code") or "").strip()
-                if c_str and c_str not in seen_codes:
-                    seen_codes.add(c_str)
-                    occ_list.append({
-                        "country_code": "AU",
-                        "code": c_str,
-                        "title": db_occ.get("title"),
-                        "is_primary": False,
-                    })
-            if len(occ_list) < 3 and len(p_code) >= 2:
-                minor_prefix = p_code[:2]
-                more_alts = await OCCUPATION_MASTER.find(
-                    {"country_code": "AU", "code": {"$nin": list(seen_codes), "$regex": f"^{minor_prefix}"}},
-                    {"_id": 0}
-                ).limit(3 - len(occ_list)).to_list(10)
-                for db_occ in more_alts:
-                    c_str = str(db_occ.get("code") or "").strip()
-                    if c_str and c_str not in seen_codes:
-                        seen_codes.add(c_str)
-                        occ_list.append({
-                            "country_code": "AU",
-                            "code": c_str,
-                            "title": db_occ.get("title"),
-                            "is_primary": False,
-                        })
-
     if len(occ_list) < 2:
         return None
 
@@ -602,10 +566,14 @@ async def _build_snapshot(
     if not protection_policy:
         protection_policy = dict(DEFAULT_PROTECTION_POLICY)
 
+    if best:
+        best["status"] = assessment.get("status") or "verified"
+
     snap_data = {
         "assessment_id": assessment.get("id"),
         "persona": persona,
         "mode": mode,
+        "status": assessment.get("status") or "verified",
         "render_tier": "full",
         "client": {
             "name": assessment.get("client_name"),
@@ -614,7 +582,7 @@ async def _build_snapshot(
         },
         "profile_snapshot": assessment.get("profile_snapshot") or {},
         "countries": countries_data,
-        "country_guides": [],
+        "country_guides": country_guides_data,
         "best_country": best,
         "eligibility_verdict": eligibility_verdict,
         # Phase 7.3 — new snapshot fields

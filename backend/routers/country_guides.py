@@ -300,10 +300,12 @@ async def archive_guide(code: str, current_user: dict = Depends(get_current_user
 # AI Draft
 # ─────────────────────────────────────────────────────────────────────────────
 import json as _json
+import re as _re
+from core.perplexity_client import call_perplexity
 
 
 async def _draft_country_guide(country_name: str, country_code: str) -> Dict[str, Any]:
-    """Generate AI baseline for sections + FAQ. Strict no-invented-numbers rules."""
+    """Generate AI baseline for sections + FAQ. Strict no-invented-numbers rules using Perplexity."""
     system = (
         "You are an immigration knowledge-base drafting assistant for a migration consultancy. "
         "Draft factual baseline content about a country's immigration landscape for an ADMIN to verify "
@@ -323,29 +325,43 @@ async def _draft_country_guide(country_name: str, country_code: str) -> Dict[str
         f'    "overview": "2-3 paragraphs (200-350 words) on the country\'s migration landscape, who it is for, demand outlook.",\n'
         f'    "pr_pathways": "Markdown list of major PR pathways with 1-2 line description each. Examples: skilled, employer-sponsored, family, business.",\n'
         f'    "eligibility": "2-3 paragraphs (150-250 words) on broad eligibility levers — age, English, education, work experience, points-based note.",\n'
-        f'    "fees": "Markdown note on approximate cost categories (gov fees, body fees, settlement funds, professional fees). NEVER quote precise figures — say \'admin to update from official source\'.",\n'
+        f'    "fees": "Markdown note on approximate cost categories (gov fees, body fees, settlement funds, professional fees).",\n'
         f'    "timeline": "Approximate stages and rough duration ranges. No exact dates.",\n'
         f'    "pros_cons": "Markdown ## Pros and ## Cons headings each with 3-5 bullets.",\n'
         f'    "settlement": "1-2 paragraphs on life after PR — citizenship pathway, healthcare, schooling, common cities."\n'
         f'  }},\n'
         f'  "faq": [\n'
-        f'    {{"question": "Q1", "answer": "A1 (1-2 sentences)"}},\n'
-        f'    ...8 short Q&A pairs spanning eligibility, fees, timeline, family, work-rights, citizenship.\n'
+        f'    {{"question": "Q1", "answer": "A1 (1-2 sentences)"}}\n'
         f'  ],\n'
         f'  "admin_verify_note": "One line guidance on what an admin must specifically verify against official sources."\n'
         f"}}"
     )
-    raw = await _call_claude(system, user_prompt, session_prefix="country-guide-draft")
+    try:
+        raw, model_used = await call_perplexity(
+            prompt=user_prompt,
+            system_msg=system,
+            model="sonar-pro",
+            max_tokens=3500,
+            temperature=0.2,
+        )
+    except Exception as e:
+        logger.warning("Perplexity call failed, retrying with fallback: %s", e)
+        raw, model_used = await call_perplexity(
+            prompt=user_prompt,
+            system_msg=system,
+            model="sonar",
+            max_tokens=3500,
+            temperature=0.2,
+        )
     raw = _strip_json_fences(raw)
     try:
         data = _json.loads(raw)
     except _json.JSONDecodeError:
-        raw2 = await _call_claude(
-            system + "\nIMPORTANT: Your last response was not valid JSON. Return ONLY raw JSON.",
-            user_prompt,
-            session_prefix="country-guide-retry",
-        )
-        data = _json.loads(_strip_json_fences(raw2))
+        m = _re.search(r"(\{.*\})", raw, _re.DOTALL)
+        if m:
+            data = _json.loads(m.group(1))
+        else:
+            raise
     data.setdefault("hero_subtitle", "")
     data.setdefault("sections", {})
     data.setdefault("faq", [])
@@ -368,7 +384,7 @@ async def generate_ai_draft(code: str, current_user: dict = Depends(get_current_
         raise HTTPException(500, f"AI draft failed: {e}")
     ai_draft = {
         "generated_at": now_utc(),
-        "model": "claude-sonnet-4-6",
+        "model": "sonar-pro",
         "hero_subtitle": data.get("hero_subtitle"),
         "sections": data.get("sections", {}),
         "faq": data.get("faq", []),
