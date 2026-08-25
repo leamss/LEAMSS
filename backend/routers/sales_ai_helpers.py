@@ -127,7 +127,8 @@ async def suggest_occupation(
     if not _can_access(current_user):
         raise HTTPException(status_code=403, detail="Not authorised")
 
-    if not PERPLEXITY_API_KEY:
+    api_key = (os.getenv("PERPLEXITY_API_KEY") or PERPLEXITY_API_KEY or "").strip()
+    if not api_key:
         raise HTTPException(
             status_code=500,
             detail="PERPLEXITY_API_KEY not configured"
@@ -168,6 +169,31 @@ async def suggest_occupation(
             detail="No occupation codes loaded in the knowledge base",
         )
 
+    import re
+    desc_words = set(re.findall(r'\b[a-zA-Z]{3,}\b', req.description.lower()))
+
+    def _score_occ(a: dict) -> int:
+        title_lower = (a.get("title") or "").lower()
+        group_lower = (a.get("group") or "").lower()
+        alts = [str(x).lower() for x in (a.get("alternative_titles") or [])]
+        code = str(a.get("code") or "")
+
+        score = 0
+        for w in desc_words:
+            if w in title_lower:
+                score += 15
+            elif any(w in alt for alt in alts):
+                score += 10
+            elif w in group_lower:
+                score += 5
+            elif w == code:
+                score += 25
+        return score
+
+    # Sort available codes by relevance score
+    scored_codes = sorted(available_codes, key=_score_occ, reverse=True)
+    top_codes = scored_codes[:45] if len(scored_codes) > 45 else scored_codes
+
     available_slim = [
         {
             "country_code": a["country_code"],
@@ -176,9 +202,9 @@ async def suggest_occupation(
             "group": a["group"],
             "assessing_body": a.get("assessing_body"),
             "pathway": a.get("pathway"),
-            "alt": a.get("alternative_titles")[:3],
+            "alt": a.get("alternative_titles")[:2],
         }
-        for a in available_codes
+        for a in top_codes
     ]
 
     user_prompt = (
@@ -190,43 +216,37 @@ async def suggest_occupation(
     )
 
     client = AsyncOpenAI(
-        api_key=PERPLEXITY_API_KEY,
+        api_key=api_key,
         base_url="https://api.perplexity.ai",
-        http_client=httpx.AsyncClient(verify=False, timeout=60)
+        http_client=httpx.AsyncClient(verify=False, timeout=25)
     )
 
     try:
-        print("Before API call")
         response = await client.chat.completions.create(
-    model="sonar-reasoning-pro",
-    messages=[
-        {"role": "system", "content": SUGGESTER_SYSTEM_PROMPT},
-        {"role": "user", "content": user_prompt},
-    ],
-    temperature=0,
-)
+            model="sonar-pro",
+            temperature=0,
+            max_tokens=900,
+            messages=[
+                {"role": "system", "content": SUGGESTER_SYSTEM_PROMPT},
+                {"role": "user", "content": user_prompt},
+            ],
+        )
 
         raw = response.choices[0].message.content.strip()
-        print("=" * 100)
-        print(repr(raw))
-        print("=" * 100)
 
         if raw.startswith("```"):
             raw = raw.strip("`").lstrip("json").strip()
 
         try:
             parsed = json.loads(raw)
-
         except json.JSONDecodeError:
             first = raw.find("{")
             last = raw.rfind("}")
-
             if first == -1 or last == -1:
                 raise HTTPException(
                     status_code=502,
                     detail=f"AI returned non-JSON:\n{raw}",
                 )
-
             parsed = json.loads(raw[first:last + 1])
 
         # Verify returned codes exist
@@ -238,12 +258,11 @@ async def suggest_occupation(
         for s in parsed.get("suggestions", []):
             cc = s.get("country_code", "").upper()
             code = str(s.get("code", ""))
-
             s["country_code"] = cc
             s["_verified"] = (cc, code) in valid_set
 
         parsed["_ai_status"] = "ok"
-        parsed["_ai_model"] = "sonar-reasoning-pro"
+        parsed["_ai_model"] = "sonar-pro"
 
         return parsed
     

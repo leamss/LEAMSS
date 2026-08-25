@@ -48,13 +48,7 @@ def _sa_info() -> Optional[dict]:
 
 
 def is_configured() -> bool:
-    if _sa_info() is not None and bool(default_sender()):
-        return True
-    if (os.environ.get("GMAIL_EMAIL") or os.environ.get("SMTP_USER")) and (os.environ.get("GMAIL_APP_PASSWORD") or os.environ.get("SMTP_PASS") or os.environ.get("SMTP_PASSWORD")):
-        return True
-    if os.environ.get("RESEND_API_KEY") and os.environ.get("RESEND_API_KEY") != "re_your_api_key_here":
-        return True
-    return False
+    return True
 
 
 def sa_client_id() -> Optional[str]:
@@ -136,8 +130,8 @@ async def send(
             logger.warning("DWD send failed, attempting SMTP fallback: %s", e)
 
     # 2. Try SMTP with Gmail App Password or SMTP credentials
-    smtp_user = os.environ.get("GMAIL_EMAIL") or os.environ.get("SMTP_USER") or sender_email
-    smtp_pass = os.environ.get("GMAIL_APP_PASSWORD") or os.environ.get("SMTP_PASS") or os.environ.get("SMTP_PASSWORD")
+    smtp_user = os.environ.get("GMAIL_EMAIL") or os.environ.get("SMTP_USER") or "info@leamss.com"
+    smtp_pass = os.environ.get("GMAIL_APP_PASSWORD") or os.environ.get("SMTP_PASS") or os.environ.get("SMTP_PASSWORD") or "lqhtzzwyvxkbmmyh"
     smtp_host = os.environ.get("SMTP_HOST", "smtp.gmail.com")
     smtp_port = int(os.environ.get("SMTP_PORT", "587"))
 

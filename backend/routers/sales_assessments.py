@@ -15,6 +15,7 @@ Endpoints:
 import os
 import uuid
 import secrets
+import asyncio
 from datetime import datetime, timezone, timedelta
 from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -1002,8 +1003,8 @@ class SendSingleEmailRequest(BaseModel):
 @router.post("/{id}/email")
 async def send_assessment_email(id: str, req: SendSingleEmailRequest, current_user: dict = Depends(get_current_user)):
     from routers.bulk_assessments import gmail_is_configured, gmail_default_sender, gmail_send, _report_filename
-    from routers.email_settings import get_settings, read_asset_bytes, build_report_email
-    from routers.email_templates import render_template
+    from routers.email_settings import get_settings, read_asset_bytes
+    from core.report_email import build_report_email, render_custom_email
     from routers.assessment_reports import _build_snapshot
     from core.report_v2.renderer import render_pdf_v2
 
@@ -1039,17 +1040,15 @@ async def send_assessment_email(id: str, req: SendSingleEmailRequest, current_us
     if req.template_id:
         tmpl = await db["email_templates"].find_one({"id": req.template_id}, {"_id": 0})
         if tmpl:
-            ctx = {
-                "client_name": doc.get("client_name") or "Applicant",
-                "occupation": occ.get("title") or "Professional",
-                "anzsco_code": occ.get("code") or "",
-                "points": best_res.get("total", 0),
-                "sender_name": sender_name,
-                "portal_link": os.environ.get("FRONTEND_URL", "https://app.leamss.com"),
-            }
-            subject = render_template(tmpl.get("subject", ""), ctx)
-            html = render_template(tmpl.get("body_html", ""), ctx)
-            plain = render_template(tmpl.get("body_plain", ""), ctx)
+            subject, html, plain = render_custom_email(
+                tmpl,
+                client_name=doc.get("client_name") or "Applicant",
+                occupation=occ.get("title") or "Professional",
+                code=occ.get("code") or "",
+                points={"total": best_res.get("total", 0), "189": best_res.get("total", 0)},
+                sender_name=sender_name,
+                portal_link=os.environ.get("FRONTEND_URL", "https://app.leamss.com"),
+            )
         else:
             subject, html, plain = build_report_email(
                 s, client_name=doc.get("client_name") or "Applicant",
