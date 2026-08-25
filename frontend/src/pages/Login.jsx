@@ -131,14 +131,6 @@ const Login = () => {
             </a>
           </div>
 
-          <div className="mt-8 p-4 bg-[#2a777a]/10 border border-[#2a777a]/30 rounded-lg">
-            <p className="text-sm text-slate-600 font-medium mb-2">Demo Credentials:</p>
-            <p className="text-xs text-slate-500">Admin: admin@leamss.com / Admin@123</p>
-            <p className="text-xs text-slate-500">Partner: partner@leamss.com / Partner@123</p>
-            <p className="text-xs text-slate-500">Case Manager: manager@leamss.com / Manager@123</p>
-            <p className="text-xs text-slate-500">Client: client@leamss.com / Client@123</p>
-          </div>
-
           <div className="mt-4 grid grid-cols-2 gap-2 text-center">
             <a href="/eligibility" className="block bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-lg p-3 hover:shadow-md transition" data-testid="public-eligibility-link">
               <p className="text-xs font-bold text-amber-800">✨ AI Eligibility Score</p>
