@@ -389,6 +389,13 @@ async def startup():
         await ensure_client_errors_indexes()
         await ensure_channels_indexes()
         await maybe_seed_default_channel()
+
+        # Auto-seed Fee Master with official rates for all 39 Australian assessing authorities
+        try:
+            from scripts.seed_fee_master import seed_fee_master
+            await seed_fee_master()
+        except Exception as e:
+            print(f"[Fee Master auto-seed ERROR — non-fatal] {e}")
         # Start APScheduler (every 30 min). Disabled in tests via LEAMSS_DISABLE_SCHEDULER env.
         if not os.environ.get("LEAMSS_DISABLE_SCHEDULER"):
             try:

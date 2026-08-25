@@ -64,13 +64,14 @@ DEFAULT_ENGLISH = {"overall": 8, "listening": 8, "reading": 8, "writing": 8, "sp
 # Canonical assessing-authority key aliases (occupation_master uses full legal names /
 # varying body_ids; we fold them into one stable key per authority).
 _AUTH_KEY_ALIASES = {
-    "cpa_australia": "cpa", "cpa_au": "cpa", "cpaaustralia": "cpa", "cpaaustralialtd": "cpa",
+    "cpa_australia": "cpa", "cpa_au": "cpa", "cpaaustralia": "cpa", "cpaaustralialtd": "cpa", "cpaa": "cpa",
     "caanz": "cpa",
     "trades_tra": "tra", "tradesrecognitionaustralia": "tra",
     "aitsl_0a45": "aitsl", "australianinstituteforteachingandschoolleadershiplimited": "aitsl",
     "engineersaustralia": "ea", "theinstitutionofengineersaustralia": "ea",
     "australiancomputersociety": "acs", "australiancomputersocietyincorporated": "acs",
     "vocationaleducationandtrainingassessmentservices": "vetassess",
+    "vetassessnontrades": "vetassess", "vetassess_non_trades": "vetassess", "vetassesstrades": "vetassess",
     "australiannursingmidwiferyaccreditationcouncillimited": "anmac",
     "australianhealthpractitionerregulationagency": "ahpra",
     "medicalboardofaustralia": "ahpra",
