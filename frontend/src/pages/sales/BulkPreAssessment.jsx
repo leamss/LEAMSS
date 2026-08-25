@@ -41,7 +41,7 @@ import {
   ArrowLeft, Upload, Download, FileSpreadsheet, Loader2, RefreshCw, Play,
   CheckCircle2, XCircle, AlertTriangle, Edit3, FileText, Users, Package, Sparkles,
   Info, Check, ClipboardCheck, FileUser, ExternalLink, Search, Star, Mail, Send,
-  MoreVertical, Ban, RotateCcw, LayoutTemplate,
+  MoreVertical, Ban, RotateCcw, LayoutTemplate, Trash2,
 } from 'lucide-react';
 
 // Open a client's resume link (from the uploaded Excel) in a new tab
@@ -119,6 +119,18 @@ export default function BulkPreAssessment() {
       return r.data.batch;
     } catch (e) { toast.error(formatApiError(e, 'Failed to load batch')); }
   }, [headers]);
+
+  const deleteBatch = async (e, id) => {
+    e.stopPropagation();
+    if (!window.confirm('Are you sure you want to delete this batch history?')) return;
+    try {
+      await axios.delete(`${API}/bulk-assessments/${id}`, { headers });
+      toast.success('Batch deleted');
+      await loadBatches();
+    } catch (err) {
+      toast.error(formatApiError(err, 'Failed to delete batch'));
+    }
+  };
 
   useEffect(() => { loadBatches(); }, [loadBatches]);
 
@@ -845,10 +857,30 @@ export default function BulkPreAssessment() {
             <h2 className="text-base font-bold mb-2">Recent Batches</h2>
             <div className="space-y-1">
               {batches.map((b) => (
-                <button key={b.id} onClick={() => loadBatch(b.id)} className="w-full flex items-center justify-between p-2 rounded hover:bg-slate-50 text-left" data-testid={`batch-${b.id}`}>
-                  <span className="text-sm font-medium">{b.name}</span>
-                  <span className="text-[11px] text-slate-500">{b.generated}/{b.valid} generated · {b.status}</span>
-                </button>
+                <div
+                  key={b.id}
+                  onClick={() => loadBatch(b.id)}
+                  className="w-full flex items-center justify-between p-2.5 rounded-lg hover:bg-slate-50 border border-transparent hover:border-slate-200 cursor-pointer text-left group transition-all"
+                  data-testid={`batch-${b.id}`}
+                >
+                  <div className="min-w-0 flex-1">
+                    <span className="text-sm font-medium text-slate-900 block truncate">{b.name}</span>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      {b.generated}/{b.valid} generated · <span className="capitalize">{b.status}</span>
+                      {b.created_by_name ? ` · by ${b.created_by_name}` : ''}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+                    <button
+                      onClick={(e) => deleteBatch(e, b.id)}
+                      className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-opacity"
+                      title="Delete batch history"
+                      data-testid={`delete-batch-${b.id}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
               ))}
             </div>
           </Card>

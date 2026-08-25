@@ -85,6 +85,32 @@ def _can(user: dict) -> bool:
     )
 
 
+def _can_access_batch(batch: dict, user: dict) -> bool:
+    if not batch:
+        return False
+    role = user.get("rbac_role") or user.get("role") or ""
+    if role in ADMIN_ROLES or "*" in (user.get("permissions") or []):
+        return True
+    uid = str(user.get("id") or "")
+    uemail = str(user.get("email") or "").lower()
+    partner_id = str(user.get("partner_id") or "")
+
+    cb = str(batch.get("created_by") or "")
+    cbe = str(batch.get("created_by_email") or "").lower()
+    pid = str(batch.get("partner_id") or "")
+    at = str(batch.get("assigned_to") or "")
+
+    if cb and cb in (uid, uemail):
+        return True
+    if cbe and cbe == uemail:
+        return True
+    if pid and (pid == uid or (partner_id and pid == partner_id)):
+        return True
+    if at and at in (uid, uemail):
+        return True
+    return False
+
+
 # ─────────────────────────────────────────────────────────────
 # Column mapping + normalisers
 # ─────────────────────────────────────────────────────────────
@@ -482,7 +508,9 @@ async def validate_upload(
         "failed": 0,
         "show_eoi_backlog": True,  # per user's choice for these bulk reports
         "created_by": current_user["id"],
+        "created_by_email": current_user.get("email"),
         "created_by_name": current_user.get("name") or current_user.get("email"),
+        "partner_id": current_user.get("partner_id") or (current_user["id"] if (current_user.get("role") == "partner" or current_user.get("rbac_role") == "partner") else None),
         "created_at": now,
     }
     await BATCHES.insert_one(batch)
@@ -1301,7 +1329,26 @@ async def start_generate(batch_id: str, current_user: dict = Depends(get_current
 async def list_batches(current_user: dict = Depends(get_current_user)):
     if not _can(current_user):
         raise HTTPException(status_code=403, detail="Not authorised")
-    items = await BATCHES.find({}, {"_id": 0}).sort("created_at", -1).limit(50).to_list(50)
+    role = current_user.get("rbac_role") or current_user.get("role") or ""
+    is_admin = role in ADMIN_ROLES or "*" in (current_user.get("permissions") or [])
+
+    if is_admin:
+        query: Dict[str, Any] = {}
+    else:
+        uid = str(current_user.get("id") or "")
+        uemail = str(current_user.get("email") or "").lower()
+        pid = current_user.get("partner_id") or (uid if role == "partner" else None)
+        criteria = [{"created_by": uid}]
+        if uemail:
+            criteria.append({"created_by": uemail})
+            criteria.append({"created_by_email": uemail})
+            criteria.append({"assigned_to": uemail})
+        if pid:
+            criteria.append({"partner_id": pid})
+        criteria.append({"assigned_to": uid})
+        query = {"$or": criteria}
+
+    items = await BATCHES.find(query, {"_id": 0}).sort("created_at", -1).limit(100).to_list(100)
     return {"batches": items}
 
 
@@ -1390,8 +1437,24 @@ async def get_batch(batch_id: str, current_user: dict = Depends(get_current_user
     batch = await BATCHES.find_one({"id": batch_id}, {"_id": 0})
     if not batch:
         raise HTTPException(status_code=404, detail="Batch not found")
+    if not _can_access_batch(batch, current_user):
+        raise HTTPException(status_code=403, detail="Not authorised to view this batch")
     rows = await ROWS.find({"batch_id": batch_id}, {"_id": 0}).sort("row_index", 1).to_list(100000)
     return {"batch": batch, "rows": rows}
+
+
+@router.delete("/{batch_id}")
+async def delete_batch(batch_id: str, current_user: dict = Depends(get_current_user)):
+    if not _can(current_user):
+        raise HTTPException(status_code=403, detail="Not authorised")
+    batch = await BATCHES.find_one({"id": batch_id}, {"_id": 0})
+    if not batch:
+        raise HTTPException(status_code=404, detail="Batch not found")
+    if not _can_access_batch(batch, current_user):
+        raise HTTPException(status_code=403, detail="Not authorised to delete this batch")
+    await BATCHES.delete_one({"id": batch_id})
+    await ROWS.delete_many({"batch_id": batch_id})
+    return {"ok": True, "deleted": batch_id}
 
 
 # ─────────────────────────────────────────────────────────────
