@@ -1993,7 +1993,7 @@ async def _load_template(template_id: Optional[str], category: Optional[str]) ->
 async def _send_row_with_template(row: Dict[str, Any], to: str, template: Dict[str, Any],
                                   bcc_self: bool, upload_url: Optional[str] = None) -> Dict[str, Any]:
     from routers.email_settings import get_settings
-    from core.report_email import render_custom_email
+    from core.report_email import render_custom_email, get_resume_attachment
     s = await get_settings()
     p = row.get("parsed") or {}
     sender_email = (p.get("consultant_email") or gmail_default_sender() or "").strip().lower()
@@ -2007,10 +2007,20 @@ async def _send_row_with_template(row: Dict[str, Any], to: str, template: Dict[s
             "filename": _report_filename(p.get("name"), row.get("assessment_id")),
             "maintype": "application", "subtype": "pdf",
         })
+    # Resume attachment (uploaded file or link)
+    resume_att = await get_resume_attachment(
+        file_id=p.get("resume_file_id") or row.get("resume_file_id"),
+        link=p.get("resume_link") or row.get("resume_link"),
+        filename=p.get("resume_filename") or row.get("resume_filename"),
+        client_name=p.get("name"),
+    )
+    if resume_att:
+        attachments.append(resume_att)
+
     await gmail_send(sender_email=sender_email, sender_name=sender_name, recipient=to,
                      subject=subject, html=html, plain=plain, attachments=attachments,
                      bcc=(sender_email if bcc_self else None))
-    return {"sender_email": sender_email, "template": template.get("name")}
+    return {"sender_email": sender_email, "template": template.get("name"), "resume_attached": bool(resume_att)}
 
 
 async def _send_row_auto(row: Dict[str, Any], to: str, bcc_self: bool,
@@ -2048,6 +2058,7 @@ async def _send_row_auto(row: Dict[str, Any], to: str, bcc_self: bool,
 
 async def _email_one_row(row: Dict[str, Any], to: str, bcc_self: bool) -> Dict[str, Any]:
     from routers.email_settings import get_settings, read_asset_bytes
+    from core.report_email import get_resume_attachment
     s = await get_settings()
     p = row.get("parsed") or {}
     sender_email = (p.get("consultant_email") or gmail_default_sender() or "").strip().lower()
@@ -2076,21 +2087,18 @@ async def _email_one_row(row: Dict[str, Any], to: str, bcc_self: bool) -> Dict[s
             attachments.append({"bytes": qr, "filename": "LEAMSS-Payment-QR.png", "maintype": "image", "subtype": "png"})
     resume_attached = False
     resume_error = None
-    if s.get("attach_resume"):
-        if p.get("resume_link"):
-            rb, rfname, rerr = await fetch_resume_bytes(p["resume_link"])
-            if rb:
-                ext = os.path.splitext(rfname or "")[1].lower() or ".pdf"
-                subtype = {".pdf": "pdf", ".docx": "vnd.openxmlformats-officedocument.wordprocessingml.document",
-                           ".doc": "msword", ".txt": "plain"}.get(ext, "octet-stream")
-                maintype = "text" if ext == ".txt" else "application"
-                cname = (p.get("name") or "Client").replace(" ", "_")
-                attachments.append({"bytes": rb, "filename": f"{cname}_Resume{ext}", "maintype": maintype, "subtype": subtype})
-                resume_attached = True
-            else:
-                resume_error = rerr or "Could not fetch resume"
-        else:
-            resume_error = "No resume link on file"
+    resume_att = await get_resume_attachment(
+        file_id=p.get("resume_file_id") or row.get("resume_file_id"),
+        link=p.get("resume_link") or row.get("resume_link"),
+        filename=p.get("resume_filename") or row.get("resume_filename"),
+        client_name=p.get("name"),
+    )
+    if resume_att:
+        attachments.append(resume_att)
+        resume_attached = True
+    elif s.get("attach_resume") and not p.get("resume_link") and not p.get("resume_file_id"):
+        resume_error = "No resume on file"
+
     await gmail_send(
         sender_email=sender_email, sender_name=sender_name, recipient=to,
         subject=subject, html=html, plain=plain, attachments=attachments,
@@ -2245,6 +2253,7 @@ def _resume_upload_url(token: str) -> str:
 
 async def _email_not_eligible_row(row: Dict[str, Any], to: str, bcc_self: bool) -> Dict[str, Any]:
     from routers.email_settings import get_settings
+    from core.report_email import get_resume_attachment
     s = await get_settings()
     p = row.get("parsed") or {}
     sender_email = (p.get("consultant_email") or gmail_default_sender() or "").strip().lower()
@@ -2262,10 +2271,19 @@ async def _email_not_eligible_row(row: Dict[str, Any], to: str, bcc_self: bool) 
             "filename": _report_filename(p.get("name"), row.get("assessment_id")),
             "maintype": "application", "subtype": "pdf",
         })
+    resume_att = await get_resume_attachment(
+        file_id=p.get("resume_file_id") or row.get("resume_file_id"),
+        link=p.get("resume_link") or row.get("resume_link"),
+        filename=p.get("resume_filename") or row.get("resume_filename"),
+        client_name=p.get("name"),
+    )
+    if resume_att:
+        attachments.append(resume_att)
+
     await gmail_send(sender_email=sender_email, sender_name=sender_name, recipient=to,
                      subject=subject, html=html, plain=plain, attachments=attachments,
                      bcc=(sender_email if bcc_self else None))
-    return {"sender_email": sender_email, "verdict": verdict.get("verdict")}
+    return {"sender_email": sender_email, "verdict": verdict.get("verdict"), "resume_attached": bool(resume_att)}
 
 
 async def _email_resume_request_row(row: Dict[str, Any], to: str, bcc_self: bool) -> Dict[str, Any]:

@@ -71,6 +71,9 @@ class SaveAssessmentRequest(BaseModel):
     targets: List[TargetCalc] = Field(..., min_length=1)
     final_notes: Optional[str] = None
     cost_estimator: Optional[Dict[str, Any]] = None
+    resume_file_id: Optional[str] = None
+    resume_filename: Optional[str] = None
+    resume_url: Optional[str] = None
 
 
 @router.post("")
@@ -89,6 +92,10 @@ async def save_assessment(req: SaveAssessmentRequest, current_user: dict = Depen
     # Pick best target by points (or by recommendation language if scoring metric differs)
     best = max(results, key=lambda r: r.get("total", 0)) if results else None
 
+    resume_fid = req.resume_file_id or (req.profile or {}).get("resume_file_id") or (req.profile or {}).get("primary_applicant", {}).get("resume_file_id")
+    resume_fname = req.resume_filename or (req.profile or {}).get("resume_filename") or (req.profile or {}).get("primary_applicant", {}).get("resume_filename")
+    resume_u = req.resume_url or (req.profile or {}).get("resume_url") or (req.profile or {}).get("resume_link")
+
     doc = {
         "id": assessment_id,
         "client_name": req.client_name,
@@ -104,6 +111,9 @@ async def save_assessment(req: SaveAssessmentRequest, current_user: dict = Depen
         "best_recommendation": best.get("recommendation") if best else None,
         "final_notes": req.final_notes,
         "cost_estimator": req.cost_estimator,
+        "resume_file_id": resume_fid,
+        "resume_filename": resume_fname,
+        "resume_url": resume_u,
         "linked_pa_id": None,
         "created_by": current_user["id"],
         "created_by_name": current_user.get("name"),
@@ -320,6 +330,12 @@ async def update_assessment(assessment_id: str, req: SaveAssessmentRequest, curr
     }
     if req.cost_estimator is not None:
         update_doc["cost_estimator"] = req.cost_estimator
+    if req.resume_file_id is not None or (req.profile or {}).get("resume_file_id"):
+        update_doc["resume_file_id"] = req.resume_file_id or (req.profile or {}).get("resume_file_id")
+    if req.resume_filename is not None or (req.profile or {}).get("resume_filename"):
+        update_doc["resume_filename"] = req.resume_filename or (req.profile or {}).get("resume_filename")
+    if req.resume_url is not None or (req.profile or {}).get("resume_url") or (req.profile or {}).get("resume_link"):
+        update_doc["resume_url"] = req.resume_url or (req.profile or {}).get("resume_url") or (req.profile or {}).get("resume_link")
     await assessments_col.update_one({"id": assessment_id}, {"$set": update_doc})
 
     # ─── Phase 6.8.6: Sync the linked PA so partner dashboard reflects the new
@@ -978,6 +994,16 @@ async def get_assessment_email_preview(id: str, current_user: dict = Depends(get
     # Templates
     templates = await list_templates_for_category("eligible")
 
+    has_res = bool(
+        doc.get("resume_file_id")
+        or doc.get("resume_url")
+        or doc.get("resume_link")
+        or (doc.get("profile_snapshot") or {}).get("resume_file_id")
+        or (doc.get("profile_snapshot") or {}).get("resume_url")
+        or (doc.get("profile_snapshot") or {}).get("resume_link")
+    )
+    res_fname = doc.get("resume_filename") or (doc.get("profile_snapshot") or {}).get("resume_filename") or (doc.get("profile_snapshot") or {}).get("primary_applicant", {}).get("resume_filename")
+
     return {
         "assessment_id": id,
         "client_name": doc.get("client_name"),
@@ -989,7 +1015,9 @@ async def get_assessment_email_preview(id: str, current_user: dict = Depends(get
         "attach_report": settings.get("attach_report", True),
         "attach_sla": bool(settings.get("attach_sla") and settings.get("sla_file_id")),
         "attach_qr": bool(settings.get("qr_file_id")),
-        "attach_resume": bool(settings.get("attach_resume")),
+        "attach_resume": has_res or bool(settings.get("attach_resume")),
+        "has_resume": has_res,
+        "resume_filename": res_fname,
     }
 
 
@@ -1004,7 +1032,7 @@ class SendSingleEmailRequest(BaseModel):
 async def send_assessment_email(id: str, req: SendSingleEmailRequest, current_user: dict = Depends(get_current_user)):
     from routers.bulk_assessments import gmail_is_configured, gmail_default_sender, gmail_send, _report_filename
     from routers.email_settings import get_settings, read_asset_bytes
-    from core.report_email import build_report_email, render_custom_email
+    from core.report_email import build_report_email, render_custom_email, get_resume_attachment
     from routers.assessment_reports import _build_snapshot
     from core.report_v2.renderer import render_pdf_v2
 
@@ -1093,6 +1121,32 @@ async def send_assessment_email(id: str, req: SendSingleEmailRequest, current_us
                 "maintype": "image",
                 "subtype": "png",
             })
+    # 4. Candidate Resume Attachment (uploaded or linked)
+    resume_fid = (
+        doc.get("resume_file_id")
+        or (doc.get("profile_snapshot") or {}).get("resume_file_id")
+        or (doc.get("profile_snapshot") or {}).get("primary_applicant", {}).get("resume_file_id")
+    )
+    resume_link = (
+        doc.get("resume_url")
+        or doc.get("resume_link")
+        or (doc.get("profile_snapshot") or {}).get("resume_url")
+        or (doc.get("profile_snapshot") or {}).get("resume_link")
+        or (doc.get("profile_snapshot") or {}).get("primary_applicant", {}).get("resume_url")
+    )
+    resume_fname = (
+        doc.get("resume_filename")
+        or (doc.get("profile_snapshot") or {}).get("resume_filename")
+        or (doc.get("profile_snapshot") or {}).get("primary_applicant", {}).get("resume_filename")
+    )
+    resume_att = await get_resume_attachment(
+        file_id=resume_fid,
+        link=resume_link,
+        filename=resume_fname,
+        client_name=doc.get("client_name"),
+    )
+    if resume_att:
+        attachments.append(resume_att)
 
     try:
         await gmail_send(
@@ -1116,6 +1170,7 @@ async def send_assessment_email(id: str, req: SendSingleEmailRequest, current_us
         "email_to": to,
         "email_from": sender_email,
         "email_sent_at": now,
+        "email_resume_attached": bool(resume_att),
     }})
 
     return {
@@ -1123,5 +1178,37 @@ async def send_assessment_email(id: str, req: SendSingleEmailRequest, current_us
         "sent_to": to,
         "sender_email": sender_email,
         "sent_at": now.isoformat(),
+        "resume_attached": bool(resume_att),
     }
+
+
+@router.post("/{id}/upload-resume")
+async def upload_assessment_resume(
+    id: str,
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user),
+):
+    """Upload or replace resume for a Client Assessment."""
+    import io
+    from motor.motor_asyncio import AsyncIOMotorGridFSBucket
+    if not _can_access(current_user):
+        raise HTTPException(status_code=403, detail="Not authorised")
+    doc = await assessments_col.find_one({"id": id})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Assessment not found")
+    raw = await file.read()
+    if len(raw) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="File too large — max 10 MB")
+    gridfs = AsyncIOMotorGridFSBucket(db, bucket_name="bulk_resumes")
+    file_id = await gridfs.upload_from_stream(
+        file.filename or f"resume-{id}",
+        io.BytesIO(raw),
+        metadata={"assessment_id": id, "user_id": current_user.get("id"), "uploaded_at": datetime.now(timezone.utc).isoformat()}
+    )
+    now = datetime.now(timezone.utc)
+    await assessments_col.update_one(
+        {"id": id},
+        {"$set": {"resume_file_id": str(file_id), "resume_filename": file.filename, "updated_at": now}}
+    )
+    return {"ok": True, "resume_file_id": str(file_id), "resume_filename": file.filename}
 

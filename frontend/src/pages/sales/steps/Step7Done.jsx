@@ -716,9 +716,9 @@ function IndividualEmailDialog({ assessment, headers, onClose, onSent }) {
                     Payment QR
                   </span>
                 )}
-                {data?.attach_resume && (
+                {(data?.attach_resume || data?.has_resume) && (
                   <span className="text-[11px] px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1 font-medium">
-                    Candidate Resume
+                    📄 Candidate Resume {data?.resume_filename ? `(${data.resume_filename})` : ''}
                   </span>
                 )}
               </div>

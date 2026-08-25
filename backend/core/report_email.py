@@ -651,3 +651,76 @@ def render_custom_email(template: Dict[str, Any], ctx: Dict[str, Any], *,
     html = _brand_shell(inner, sender_name, settings)
     plain = body_raw
     return subject, html, plain
+
+
+async def get_resume_attachment(
+    file_id: Optional[str] = None,
+    link: Optional[str] = None,
+    filename: Optional[str] = None,
+    client_name: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    """Retrieve resume bytes from GridFS or public URL and format as an email attachment."""
+    import os
+    import logging
+    from bson import ObjectId
+    from motor.motor_asyncio import AsyncIOMotorGridFSBucket
+    from core.database import db
+    from core.bulk_ai_enrich import fetch_resume_bytes
+
+    _log = logging.getLogger(__name__)
+    cname = (client_name or "Client").replace(" ", "_").strip()
+
+    # 1. From GridFS (uploaded file)
+    if file_id:
+        for bucket in ("bulk_resumes", "resume_files"):
+            try:
+                gridfs = AsyncIOMotorGridFSBucket(db, bucket_name=bucket)
+                stream = await gridfs.open_download_stream(ObjectId(file_id))
+                rb = await stream.read()
+                if rb:
+                    fname = filename or getattr(stream, "filename", None) or f"{cname}_Resume.pdf"
+                    ext = os.path.splitext(fname)[1].lower() or ".pdf"
+                    subtype = {
+                        ".pdf": "pdf",
+                        ".docx": "vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        ".doc": "msword",
+                        ".txt": "plain",
+                        ".png": "png",
+                        ".jpg": "jpeg",
+                        ".jpeg": "jpeg",
+                    }.get(ext, "octet-stream")
+                    maintype = "text" if ext == ".txt" else ("image" if ext in (".png", ".jpg", ".jpeg") else "application")
+                    clean_fname = fname if (fname and not fname.startswith("resume-")) else f"{cname}_Resume{ext}"
+                    return {
+                        "bytes": rb,
+                        "filename": clean_fname,
+                        "maintype": maintype,
+                        "subtype": subtype,
+                    }
+            except Exception as e:
+                _log.debug("GridFS download attempt for file %s in bucket %s: %s", file_id, bucket, e)
+
+    # 2. From public link (Google Drive / Dropbox / URL)
+    if link:
+        try:
+            rb, rfname, _ = await fetch_resume_bytes(link)
+            if rb:
+                fname = rfname or filename or f"{cname}_Resume.pdf"
+                ext = os.path.splitext(fname)[1].lower() or ".pdf"
+                subtype = {
+                    ".pdf": "pdf",
+                    ".docx": "vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    ".doc": "msword",
+                    ".txt": "plain",
+                }.get(ext, "octet-stream")
+                maintype = "text" if ext == ".txt" else "application"
+                return {
+                    "bytes": rb,
+                    "filename": f"{cname}_Resume{ext}",
+                    "maintype": maintype,
+                    "subtype": subtype,
+                }
+        except Exception as e:
+            _log.warning("Failed to fetch resume from link %s: %s", link, e)
+
+    return None
