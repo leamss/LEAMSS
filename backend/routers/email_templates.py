@@ -45,6 +45,7 @@ class TemplateIn(BaseModel):
     body: str = ""
     is_default: bool = False
     attach_report: bool = False
+    attach_resume: bool = True
 
 
 # ── Seed built-in starter templates once, so the manager is never empty ──────
@@ -63,6 +64,7 @@ _STARTERS = [
                  "Warm Regards,\n{consultant_name}"),
         "is_default": False,
         "attach_report": True,
+        "attach_resume": True,
     },
     {
         "name": "Not-Eligible — With Action Plan",
@@ -77,6 +79,7 @@ _STARTERS = [
                  "Warm Regards,\n{consultant_name}"),
         "is_default": False,
         "attach_report": True,
+        "attach_resume": True,
     },
     {
         "name": "Reminder — Report Sent (Warm Follow-up)",
@@ -99,6 +102,7 @@ _STARTERS = [
                  "Warm Regards,\n{consultant_name}"),
         "is_default": False,
         "attach_report": True,
+        "attach_resume": True,
     },
     {
         "name": "Offer Extended — Good News",
@@ -197,6 +201,7 @@ async def _ensure_seeded():
         await TEMPLATES.insert_one({
             "id": uuid.uuid4().hex, **t, "created_at": now, "updated_at": now,
         })
+    await TEMPLATES.update_many({"attach_resume": {"$exists": False}}, {"$set": {"attach_resume": True}})
 
 
 @router.get("/placeholders")
@@ -223,6 +228,7 @@ async def create_template(payload: TemplateIn, current_user: dict = Depends(get_
         "id": uuid.uuid4().hex, "name": payload.name.strip() or "Untitled template",
         "category": cat, "subject": payload.subject, "body": payload.body,
         "is_default": bool(payload.is_default), "attach_report": bool(payload.attach_report),
+        "attach_resume": bool(payload.attach_resume),
         "created_at": now, "updated_at": now,
     }
     if doc["is_default"]:
@@ -243,6 +249,7 @@ async def update_template(template_id: str, payload: TemplateIn, current_user: d
         "name": payload.name.strip() or "Untitled template", "category": cat,
         "subject": payload.subject, "body": payload.body,
         "is_default": bool(payload.is_default), "attach_report": bool(payload.attach_report),
+        "attach_resume": bool(payload.attach_resume),
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
     if updates["is_default"]:

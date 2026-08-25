@@ -675,28 +675,40 @@ async def get_resume_attachment(
         for bucket in ("bulk_resumes", "resume_files"):
             try:
                 gridfs = AsyncIOMotorGridFSBucket(db, bucket_name=bucket)
-                stream = await gridfs.open_download_stream(ObjectId(file_id))
-                rb = await stream.read()
-                if rb:
-                    fname = filename or getattr(stream, "filename", None) or f"{cname}_Resume.pdf"
-                    ext = os.path.splitext(fname)[1].lower() or ".pdf"
-                    subtype = {
-                        ".pdf": "pdf",
-                        ".docx": "vnd.openxmlformats-officedocument.wordprocessingml.document",
-                        ".doc": "msword",
-                        ".txt": "plain",
-                        ".png": "png",
-                        ".jpg": "jpeg",
-                        ".jpeg": "jpeg",
-                    }.get(ext, "octet-stream")
-                    maintype = "text" if ext == ".txt" else ("image" if ext in (".png", ".jpg", ".jpeg") else "application")
-                    clean_fname = fname if (fname and not fname.startswith("resume-")) else f"{cname}_Resume{ext}"
-                    return {
-                        "bytes": rb,
-                        "filename": clean_fname,
-                        "maintype": maintype,
-                        "subtype": subtype,
-                    }
+                stream = None
+                if ObjectId.is_valid(str(file_id)):
+                    try:
+                        stream = await gridfs.open_download_stream(ObjectId(str(file_id)))
+                    except Exception:
+                        stream = None
+                if stream is None:
+                    try:
+                        stream = await gridfs.open_download_stream_by_name(str(file_id))
+                    except Exception:
+                        stream = None
+                if stream:
+                    rb = await stream.read()
+                    if rb:
+                        fname = filename or getattr(stream, "filename", None) or f"{cname}_Resume.pdf"
+                        ext = os.path.splitext(fname)[1].lower() or ".pdf"
+                        subtype = {
+                            ".pdf": "pdf",
+                            ".docx": "vnd.openxmlformats-officedocument.wordprocessingml.document",
+                            ".doc": "msword",
+                            ".txt": "plain",
+                            ".png": "png",
+                            ".jpg": "jpeg",
+                            ".jpeg": "jpeg",
+                        }.get(ext, "octet-stream")
+                        maintype = "text" if ext == ".txt" else ("image" if ext in (".png", ".jpg", ".jpeg") else "application")
+                        clean_fname = fname if (fname and not fname.startswith("resume-")) else f"{cname}_Resume{ext}"
+                        _log.info("Attached resume from GridFS %s (%d bytes) as %s", file_id, len(rb), clean_fname)
+                        return {
+                            "bytes": rb,
+                            "filename": clean_fname,
+                            "maintype": maintype,
+                            "subtype": subtype,
+                        }
             except Exception as e:
                 _log.debug("GridFS download attempt for file %s in bucket %s: %s", file_id, bucket, e)
 

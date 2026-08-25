@@ -35,7 +35,7 @@ const CATEGORY_COLORS = {
   general: 'bg-slate-100 text-slate-700',
 };
 
-const BLANK = { name: '', category: 'general', subject: '', body: '', is_default: false, attach_report: false };
+const BLANK = { name: '', category: 'general', subject: '', body: '', is_default: false, attach_report: true, attach_resume: true };
 
 export default function EmailTemplatesManager() {
   const navigate = useNavigate();
@@ -104,7 +104,15 @@ export default function EmailTemplatesManager() {
 
   const selectTemplate = (t) => {
     setSelectedId(t.id);
-    setForm({ name: t.name, category: t.category, subject: t.subject, body: t.body, is_default: t.is_default, attach_report: t.attach_report });
+    setForm({
+      name: t.name,
+      category: t.category,
+      subject: t.subject,
+      body: t.body,
+      is_default: t.is_default,
+      attach_report: t.attach_report,
+      attach_resume: t.attach_resume ?? true,
+    });
     setDirty(false);
   };
   const newTemplate = () => { setSelectedId(null); setForm(BLANK); setDirty(false); };
@@ -179,9 +187,10 @@ export default function EmailTemplatesManager() {
                   <span className="text-sm font-medium truncate">{t.name}</span>
                   {t.is_default && <Star className="h-3.5 w-3.5 text-amber-500 shrink-0" fill="currentColor" />}
                 </div>
-                <div className="flex items-center gap-1.5 mt-1">
+                <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                   <Badge className={`text-[9px] px-1.5 py-0 ${CATEGORY_COLORS[t.category]}`}>{CATEGORY_LABELS[t.category]}</Badge>
                   {t.attach_report && <span className="text-[9px] text-slate-400">📎 report</span>}
+                  {t.attach_resume !== false && <span className="text-[9px] text-indigo-500">📎 resume</span>}
                 </div>
               </button>
             ))}
@@ -265,7 +274,7 @@ export default function EmailTemplatesManager() {
             </div>
 
             <div className="flex items-center justify-between pt-2 border-t">
-              <div className="flex items-center gap-4">
+              <div className="flex flex-wrap items-center gap-4">
                 <label className="flex items-center gap-2 text-xs cursor-pointer">
                   <Switch checked={form.is_default} onCheckedChange={(v) => upd({ is_default: v })} data-testid="tpl-default" />
                   Default for category
@@ -273,6 +282,10 @@ export default function EmailTemplatesManager() {
                 <label className="flex items-center gap-2 text-xs cursor-pointer">
                   <Switch checked={form.attach_report} onCheckedChange={(v) => upd({ attach_report: v })} data-testid="tpl-attach" />
                   Attach PDF report
+                </label>
+                <label className="flex items-center gap-2 text-xs cursor-pointer">
+                  <Switch checked={form.attach_resume ?? true} onCheckedChange={(v) => upd({ attach_resume: v })} data-testid="tpl-attach-resume" />
+                  Attach Candidate Resume
                 </label>
               </div>
             </div>

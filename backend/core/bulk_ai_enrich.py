@@ -41,17 +41,18 @@ _EXTRACT_SEM = asyncio.Semaphore(4)
 # ── Resume link → text ────────────────────────────────────────────
 def _normalize_resume_url(url: str) -> str:
     u = (url or "").strip()
+    # Google Docs
+    m_doc = re.search(r"docs\.google\.com/document/d/([A-Za-z0-9_-]+)", u)
+    if m_doc:
+        return f"https://docs.google.com/document/d/{m_doc.group(1)}/export?format=pdf"
+
     # Google Drive share links → direct download
-    m = re.search(r"drive\.google\.com/file/d/([A-Za-z0-9_-]+)", u)
-    if m:
-        return f"https://drive.google.com/uc?export=download&id={m.group(1)}"
-    m = re.search(r"drive\.google\.com/open\?id=([A-Za-z0-9_-]+)", u)
-    if m:
-        return f"https://drive.google.com/uc?export=download&id={m.group(1)}"
-    if "drive.google.com" in u:
+    m = re.search(r"drive\.google\.com/(?:file/d/|open\?id=|uc\?id=|uc\?export=download&id=)([A-Za-z0-9_-]+)", u)
+    if not m and "drive.google.com" in u:
         m = re.search(r"[?&]id=([A-Za-z0-9_-]+)", u)
-        if m:
-            return f"https://drive.google.com/uc?export=download&id={m.group(1)}"
+    if m:
+        return f"https://drive.usercontent.google.com/download?id={m.group(1)}&export=download&authuser=0&confirm=t"
+
     # Dropbox → force direct download
     if "dropbox.com" in u:
         if "dl=0" in u:
@@ -67,7 +68,7 @@ def _guess_filename(url: str, content_type: str, content_disposition: str) -> st
         if m:
             return m.group(1)
     path = url.split("?")[0]
-    if path.lower().endswith((".pdf", ".docx", ".doc", ".txt")):
+    if path.lower().endswith((".pdf", ".docx", ".doc", ".txt", ".png", ".jpg", ".jpeg")):
         return path.rsplit("/", 1)[-1]
     ct = (content_type or "").lower()
     if "pdf" in ct:
@@ -98,39 +99,65 @@ async def fetch_resume_bytes(url: str) -> Tuple[Optional[bytes], Optional[str], 
     """
     if not url:
         return None, None, "No resume link provided"
-    fetch_url = _normalize_resume_url(url)
+    
+    # Extract Google Drive ID if present
+    gdrive_id = None
+    m_gd = re.search(r"drive\.google\.com/(?:file/d/|open\?id=|uc\?id=|uc\?export=download&id=)([A-Za-z0-9_-]+)", url)
+    if not m_gd and "drive.google.com" in url:
+        m_gd = re.search(r"[?&]id=([A-Za-z0-9_-]+)", url)
+    if m_gd:
+        gdrive_id = m_gd.group(1)
+
+    urls_to_try = [_normalize_resume_url(url)]
+    if gdrive_id:
+        urls_to_try.extend([
+            f"https://drive.google.com/uc?export=download&id={gdrive_id}&confirm=t",
+            f"https://lh3.googleusercontent.com/d/{gdrive_id}",
+            f"https://docs.google.com/uc?export=download&id={gdrive_id}",
+        ])
+
     transient = (
         httpx.RemoteProtocolError, httpx.ConnectError, httpx.ReadError,
         httpx.ConnectTimeout, httpx.ReadTimeout, httpx.PoolTimeout, httpx.WriteError,
     )
-    for attempt in range(3):
-        try:
-            async with _FETCH_SEM:
-                async with httpx.AsyncClient(
-                    follow_redirects=True,
-                    timeout=httpx.Timeout(45.0, connect=15.0),
-                    headers=_UA,
-                    verify=False,
-                    limits=httpx.Limits(max_connections=4, max_keepalive_connections=0),
-                ) as client:
-                    resp = await client.get(fetch_url)
-                    resp.raise_for_status()
-                    content = resp.content
-                    ct = resp.headers.get("content-type", "")
-                    cd = resp.headers.get("content-disposition", "")
-                    if "text/html" in ct.lower() and content[:2000].lower().find(b"<html") != -1:
-                        return None, None, "Link opened an HTML page, not a direct file (private/expired link?)."
-            return content, _guess_filename(fetch_url, ct, cd), None
-        except httpx.HTTPStatusError as e:
-            return None, None, f"Download failed (HTTP {e.response.status_code}). Is the link public?"
-        except transient as e:
-            if attempt < 2:
-                await asyncio.sleep(0.8 * (attempt + 1) + random.uniform(0, 0.7))
-                continue
-            return None, None, "Host dropped the connection after retries."
-        except Exception as e:
-            return None, None, f"Could not fetch resume: {type(e).__name__}"
-    return None, None, "Could not fetch resume"
+
+    for fetch_url in urls_to_try:
+        for attempt in range(2):
+            try:
+                async with _FETCH_SEM:
+                    async with httpx.AsyncClient(
+                        follow_redirects=True,
+                        timeout=httpx.Timeout(45.0, connect=15.0),
+                        headers=_UA,
+                        verify=False,
+                        limits=httpx.Limits(max_connections=4, max_keepalive_connections=0),
+                    ) as client:
+                        resp = await client.get(fetch_url)
+                        resp.raise_for_status()
+                        content = resp.content
+                        ct = resp.headers.get("content-type", "")
+                        cd = resp.headers.get("content-disposition", "")
+                        if "text/html" in ct.lower() and content[:2000].lower().find(b"<html") != -1:
+                            # Check for direct download link inside HTML (e.g. Google Drive virus scan warning)
+                            html_str = content[:8000].decode("utf-8", errors="ignore")
+                            m_confirm = re.search(r'href="(/uc\?export=download[^"]+)"', html_str)
+                            if m_confirm:
+                                confirm_url = f"https://drive.google.com{m_confirm.group(1).replace('&amp;', '&')}"
+                                resp2 = await client.get(confirm_url)
+                                if resp2.status_code == 200 and not ("text/html" in resp2.headers.get("content-type", "").lower() and resp2.content[:2000].lower().find(b"<html") != -1):
+                                    return resp2.content, _guess_filename(confirm_url, resp2.headers.get("content-type", ""), resp2.headers.get("content-disposition", "")), None
+                            continue
+                        return content, _guess_filename(fetch_url, ct, cd), None
+            except httpx.HTTPStatusError:
+                break
+            except transient:
+                if attempt < 1:
+                    await asyncio.sleep(0.5)
+                    continue
+            except Exception:
+                break
+
+    return None, None, "Could not download resume from the provided link."
 
 
 async def fetch_resume_text(url: str) -> Tuple[Optional[str], Optional[str]]:
