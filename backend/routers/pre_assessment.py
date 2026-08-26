@@ -677,6 +677,9 @@ async def upload_pa_document(
             "message": f"Admin uploaded '{file.filename}' for {pa.get('client_name')}'s pre-assessment.",
             "type": "admin_document_uploaded", "read": False,
             "link": "/partner?tab=pre-assessment",
+            "created_at": datetime.now(timezone.utc)
+        })
+
     return {"id": doc["id"], "message": "Document uploaded", "file_name": file.filename}
 
 class SetOccupationPayload(BaseModel):
