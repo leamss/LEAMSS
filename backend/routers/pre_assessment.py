@@ -677,10 +677,61 @@ async def upload_pa_document(
             "message": f"Admin uploaded '{file.filename}' for {pa.get('client_name')}'s pre-assessment.",
             "type": "admin_document_uploaded", "read": False,
             "link": "/partner?tab=pre-assessment",
-            "created_at": datetime.now(timezone.utc)
-        })
-
     return {"id": doc["id"], "message": "Document uploaded", "file_name": file.filename}
+
+class SetOccupationPayload(BaseModel):
+    occupation_code: str
+    occupation_title: Optional[str] = None
+    assessing_authority_code: Optional[str] = None
+
+@router.patch("/{pa_id}/occupation")
+@router.post("/{pa_id}/set-occupation")
+async def set_pa_occupation(
+    pa_id: str,
+    payload: SetOccupationPayload,
+    current_user: dict = Depends(get_current_user)
+):
+    """Partner or Admin selects/updates the Occupation Code and Assessing Authority for a Pre-Assessment"""
+    pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
+    if not pa:
+        raise HTTPException(status_code=404, detail="Pre-assessment not found")
+
+    occ_code = payload.occupation_code.strip()
+    occ_title = payload.occupation_title.strip() if payload.occupation_title else None
+    auth_code = payload.assessing_authority_code.strip() if payload.assessing_authority_code else None
+
+    # Lookup occupation details if needed
+    if not occ_title or not auth_code:
+        occ = await db_client.get_database()["occupation_master"].find_one(
+            {"$or": [{"code": occ_code}, {"anzsco_code": occ_code}]},
+            {"_id": 0}
+        )
+        if occ:
+            if not occ_title:
+                occ_title = occ.get("title") or occ.get("name")
+            if not auth_code:
+                auth = occ.get("assessing_authority")
+                if isinstance(auth, dict):
+                    auth_code = auth.get("short_name") or auth.get("code")
+                elif isinstance(auth, str):
+                    auth_code = auth
+
+    update_fields = {
+        "occupation_code": occ_code,
+        "occupation_title": occ_title or occ_code,
+        "updated_at": datetime.now(timezone.utc)
+    }
+    if auth_code:
+        update_fields["assessing_authority_code"] = auth_code
+
+    await pre_assessments_col.update_one({"id": pa_id}, {"$set": update_fields})
+    return {
+        "message": "Occupation code saved",
+        "occupation_code": occ_code,
+        "occupation_title": occ_title,
+        "assessing_authority_code": auth_code
+    }
+
 
 @router.get("/{pa_id}/documents")
 async def get_pa_documents(pa_id: str, current_user: dict = Depends(get_current_user)):

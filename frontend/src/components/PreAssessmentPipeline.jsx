@@ -27,6 +27,7 @@ import PaEditDetailsModal from '@/components/pa/PaEditDetailsModal';
 import AgreementGenerator from '@/components/AgreementGenerator';
 import AgreementViewerModal from '@/components/AgreementViewerModal';
 import PaFinalizePaymentForm from '@/components/pa/PaFinalizePaymentForm';
+import PaOccupationSelector from '@/components/pa/PaOccupationSelector';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -890,13 +891,19 @@ const getNextAction = (pa) => {
 
                     {/* Uploaded Docs + Activity (always visible when expanded) */}
                     {['payment_received', 'partner_review', 'documents_submitted', 'under_review', 'approved', 'proposal_sent', 'proposal_paid', 'case_created'].includes(pa.stage) && (
-                      <div className="grid md:grid-cols-2 gap-3">
-                        <PaDocumentsList
+                      <div className="space-y-3">
+                        <PaOccupationSelector
                           pa={pa}
-                          docs={paDocs[pa.id]}
-                          onRefresh={() => loadDocsAndActivity(pa.id)}
+                          onSaved={loadData}
                           getAuthHeader={getAuthHeader}
                         />
+                        <div className="grid md:grid-cols-2 gap-3">
+                          <PaDocumentsList
+                            pa={pa}
+                            docs={paDocs[pa.id]}
+                            onRefresh={() => loadDocsAndActivity(pa.id)}
+                            getAuthHeader={getAuthHeader}
+                          />
                         <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
                           <p className="text-xs font-semibold text-slate-700 mb-2 flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> Client Activity</p>
                           {(paActivity[pa.id] === undefined) ? (
@@ -915,7 +922,8 @@ const getNextAction = (pa) => {
                           )}
                         </div>
                       </div>
-                    )}
+                    </div>
+                  )}
 
                     {/* Waiting banner for proposal_sent stage */}
                     {pa.stage === 'proposal_sent' && (
