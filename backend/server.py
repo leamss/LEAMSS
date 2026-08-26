@@ -211,9 +211,9 @@ async def startup():
 
     await seed_atlas_countries(db)
     try:
-        from migrations.m20260619_authority_refactor import run_migration as run_auth_migration
-        auth_rep = await run_auth_migration(db)
-        print(f"[Assessing Authorities] Migration {auth_rep.get('status')}: {auth_rep.get('seed_summary')} | top: {auth_rep.get('top_5_by_count')}")
+        from seeds.assessing_authorities_au import ensure_seeded_in_db
+        await ensure_seeded_in_db(db)
+        print("[Assessing Authorities] Fast seed check completed.")
     except Exception as e:
         print(f"[Assessing Authorities WARN] {e}")
 
