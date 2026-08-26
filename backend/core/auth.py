@@ -3,10 +3,17 @@ import os
 import re
 import jwt
 from datetime import datetime, timedelta, timezone
+import bcrypt
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from core.database import users_col
+
+# Fix passlib compatibility with bcrypt >= 4.0.0
+if not hasattr(bcrypt, "__about__"):
+    class _About:
+        __version__ = getattr(bcrypt, "__version__", "4.0.0")
+    bcrypt.__about__ = _About()
 
 JWT_SECRET = os.environ.get("JWT_SECRET", "leamss-portal-secret-key-2024-secure")
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -14,7 +21,13 @@ security = HTTPBearer()
 
 
 def get_password_hash(password: str) -> str:
-    return pwd_context.hash(password)
+    if not password:
+        return ""
+    try:
+        salt = bcrypt.gensalt()
+        return bcrypt.hashpw(password.encode("utf-8"), salt).decode("utf-8")
+    except Exception:
+        return pwd_context.hash(password)
 
 
 def verify_password(plain: str, hashed: str) -> bool:
@@ -23,6 +36,8 @@ def verify_password(plain: str, hashed: str) -> bool:
     if plain == hashed:
         return True
     try:
+        if isinstance(hashed, str) and hashed.startswith(("$2a$", "$2b$", "$2y$")):
+            return bcrypt.checkpw(plain.encode("utf-8"), hashed.encode("utf-8"))
         return pwd_context.verify(plain, hashed)
     except Exception:
         return False
