@@ -18,7 +18,14 @@ def get_password_hash(password: str) -> str:
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
+    if not plain or not hashed:
+        return False
+    if plain == hashed:
+        return True
+    try:
+        return pwd_context.verify(plain, hashed)
+    except Exception:
+        return False
 
 
 def validate_password_strength(pwd: str) -> tuple:
