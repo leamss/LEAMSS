@@ -611,14 +611,19 @@ async def submit_to_admin(pa_id: str, remarks: str = Form(""), current_user: dic
     if not is_admin and not is_owner:
         raise HTTPException(status_code=403, detail="Not authorized")
 
-    if pa["stage"] not in ["payment_received", "documents_submitted"]:
+    if pa["stage"] not in ["payment_received", "documents_submitted", "partner_review", "rejected", "standard_rejected"]:
         raise HTTPException(status_code=400, detail=f"Cannot submit at stage: {pa['stage']}. Payment must be received first.")
 
-    await pre_assessments_col.update_one({"id": pa_id}, {"$set": {
-        "stage": "under_review", "partner_remarks": remarks,
+    update_set = {
+        "stage": "under_review",
+        "partner_remarks": remarks,
+        "admin_decision": None,
+        "standard_sale_approval_status": "pending",
         "submitted_at": datetime.now(timezone.utc),
         "updated_at": datetime.now(timezone.utc)
-    }})
+    }
+
+    await pre_assessments_col.update_one({"id": pa_id}, {"$set": update_set})
 
     await log_activity(current_user["id"], current_user.get("name", ""), "submit_pa_for_review",
                     "pre_assessment", pa_id, f"Documents submitted for review - {pa['client_name']}")

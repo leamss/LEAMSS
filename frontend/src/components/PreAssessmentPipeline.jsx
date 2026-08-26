@@ -890,7 +890,7 @@ const getNextAction = (pa) => {
                     )}
 
                     {/* Uploaded Docs + Activity (always visible when expanded) */}
-                    {['payment_received', 'partner_review', 'documents_submitted', 'under_review', 'approved', 'proposal_sent', 'proposal_paid', 'case_created'].includes(pa.stage) && (
+                    {['payment_received', 'partner_review', 'documents_submitted', 'under_review', 'approved', 'rejected', 'standard_rejected', 'refund_initiated', 'refunded', 'proposal_sent', 'proposal_paid', 'case_created'].includes(pa.stage) && (
                       <div className="space-y-3">
                         <PaOccupationSelector
                           pa={pa}
