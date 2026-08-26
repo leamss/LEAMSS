@@ -57,8 +57,10 @@ export default function AuthoritiesAdmin() {
   useEffect(() => { load(); }, [load]);
 
   const filtered = useMemo(() => items.filter(b => {
-    if (statusFilter !== 'all' && b.status !== statusFilter) return false;
-    if (statusFilter === 'placeholder' && b._seed_quality !== 'placeholder') return false;
+    if (statusFilter === 'active' && (b.status !== 'active' || !b.fees?.msa_fee_aud || b._seed_quality === 'placeholder')) return false;
+    if (statusFilter === 'draft' && !(b.status === 'draft' || b._seed_quality === 'placeholder' || !b.fees?.msa_fee_aud)) return false;
+    if (statusFilter === 'deprecated' && b.status !== 'deprecated') return false;
+    if (statusFilter === 'placeholder' && !(b._seed_quality === 'placeholder' || !b.fees?.msa_fee_aud)) return false;
     if (search && !((b.code || '').toLowerCase().includes(search.toLowerCase()) ||
                      (b.full_name || '').toLowerCase().includes(search.toLowerCase()))) return false;
     return true;
@@ -66,10 +68,10 @@ export default function AuthoritiesAdmin() {
 
   const stats = useMemo(() => ({
     total: items.length,
-    active: items.filter(b => b.status === 'active').length,
-    draft: items.filter(b => b.status === 'draft').length,
+    active: items.filter(b => b.status === 'active' && b.fees?.msa_fee_aud && b._seed_quality !== 'placeholder').length,
+    draft: items.filter(b => b.status === 'draft' || b._seed_quality === 'placeholder' || !b.fees?.msa_fee_aud).length,
     deprecated: items.filter(b => b.status === 'deprecated').length,
-    placeholder: items.filter(b => b._seed_quality === 'placeholder').length,
+    placeholder: items.filter(b => b._seed_quality === 'placeholder' || !b.fees?.msa_fee_aud).length,
     total_linked: items.reduce((sum, b) => sum + (b.occupation_count || 0), 0),
   }), [items]);
 
@@ -327,7 +329,7 @@ export default function AuthoritiesAdmin() {
       {/* Verify Wizard Modal */}
       {wizardOpen && (
         <VerifyWizardModal
-          items={items.filter(b => b.status === 'draft')}
+          items={items.filter(b => b.status === 'draft' || b._seed_quality === 'placeholder' || !b.fees?.msa_fee_aud)}
           idx={wizardIdx}
           setIdx={setWizardIdx}
           onClose={() => { setWizardOpen(false); load(); }}

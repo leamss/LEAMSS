@@ -20,8 +20,12 @@ from core.database import db
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/assessing-authorities", tags=["assessing-authorities"])
 
-READ_ROLES = {"admin", "admin_owner", "super_admin", "sales", "partner"}
-ADMIN_ROLES = {"admin", "admin_owner", "super_admin"}
+READ_ROLES = {
+    "admin", "admin_owner", "super_admin", "sales", "partner",
+    "sales_executive", "sr_sales_executive", "sales_manager", "sales_head",
+    "case_manager", "hr_manager", "finance_manager",
+}
+ADMIN_ROLES = {"admin", "admin_owner", "super_admin", "sales_manager", "sales_head"}
 
 
 def _is_admin(user: Dict[str, Any]) -> bool:
@@ -41,19 +45,21 @@ def _strip_mongo(doc: Dict[str, Any]) -> Dict[str, Any]:
 
 @router.get("")
 async def list_authorities(
-    country: str = Query("AU"),
+    country: Optional[str] = Query("AU"),
     status: Optional[str] = Query(None, description="active | draft | deprecated"),
-    include_drafts: bool = Query(False, description="(admin only) include draft bodies"),
+    include_drafts: bool = Query(True, description="include draft bodies"),
     current_user: Dict[str, Any] = Depends(get_current_user),
 ):
     if not _can_read(current_user):
         raise HTTPException(status_code=403, detail="Forbidden")
-    q: Dict[str, Any] = {"country": country.upper()}
+    q: Dict[str, Any] = {}
+    if country:
+        c = country.strip().upper()
+        q["$or"] = [{"country": c}, {"country_code": c}]
     if status:
         q["status"] = status
     elif not include_drafts and not _is_admin(current_user):
-        # Non-admins: only see active by default
-        q["status"] = {"$ne": "deprecated"}
+        q["status"] = "active"
     cursor = db["assessing_authorities"].find(q).sort("occupation_count", -1)
     items = [_strip_mongo(doc) async for doc in cursor]
     return {"items": items, "count": len(items)}
