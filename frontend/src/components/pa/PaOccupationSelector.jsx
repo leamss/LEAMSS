@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Briefcase, Search, Check, Building2, Edit2, X, Loader2 } from 'lucide-react';
+import { Briefcase, Search, Check, Building2, Edit2, X, Loader2, Sparkles, Plus } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -16,7 +16,7 @@ export default function PaOccupationSelector({ pa, onSaved, getAuthHeader }) {
   const [saving, setSaving] = useState(false);
   const searchRef = useRef(null);
 
-  // Search occupations from master table
+  // Search occupations from master table (supports code, profession name, keywords, typos)
   useEffect(() => {
     if (!isEditing || !searchQuery || searchQuery.trim().length < 2) {
       setResults([]);
@@ -31,13 +31,16 @@ export default function PaOccupationSelector({ pa, onSaved, getAuthHeader }) {
           ...getAuthHeader(),
           params: { q: searchQuery.trim(), country }
         });
-        setResults(res.data?.results || res.data || []);
+        
+        // Extract array from response (items or results or array)
+        const items = res.data?.items || res.data?.results || (Array.isArray(res.data) ? res.data : []);
+        setResults(items);
       } catch (err) {
         console.error('Occupation search error:', err);
       } finally {
         setLoading(false);
       }
-    }, 300);
+    }, 200);
 
     return () => clearTimeout(timer);
   }, [searchQuery, isEditing, pa.country]);
@@ -45,9 +48,11 @@ export default function PaOccupationSelector({ pa, onSaved, getAuthHeader }) {
   const handleSelect = async (occ) => {
     const occCode = occ.code || occ.anzsco_code;
     const occTitle = occ.title || occ.name;
-    const authCode = typeof occ.assessing_authority === 'object'
+    const authCode = typeof occ.assessing_body === 'string'
+      ? occ.assessing_body
+      : typeof occ.assessing_authority === 'object'
       ? occ.assessing_authority?.short_name || occ.assessing_authority?.code
-      : occ.assessing_authority;
+      : (occ.assessing_authority || occ.skill_body || 'Assessing Body');
 
     setSaving(true);
     try {
@@ -57,12 +62,41 @@ export default function PaOccupationSelector({ pa, onSaved, getAuthHeader }) {
         assessing_authority_code: authCode
       }, getAuthHeader());
 
-      toast.success(`Occupation saved: ${occCode} - ${occTitle}`);
+      toast.success(`Occupation selected: ${occCode} - ${occTitle}`);
       setIsEditing(false);
       setSearchQuery('');
       if (onSaved) onSaved();
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Failed to update occupation');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Direct manual save if user typed a specific code
+  const handleDirectAdd = async () => {
+    const query = searchQuery.trim();
+    if (!query) return;
+
+    // Check if matching first result or treat as custom code
+    if (results.length > 0) {
+      handleSelect(results[0]);
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await axios.patch(`${API}/pre-assessment/${pa.id}/occupation`, {
+        occupation_code: query,
+        occupation_title: `ANZSCO ${query}`,
+      }, getAuthHeader());
+
+      toast.success(`Occupation code added: ${query}`);
+      setIsEditing(false);
+      setSearchQuery('');
+      if (onSaved) onSaved();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to save occupation code');
     } finally {
       setSaving(false);
     }
@@ -107,7 +141,7 @@ export default function PaOccupationSelector({ pa, onSaved, getAuthHeader }) {
               )}
             </>
           ) : (
-            <p className="text-xs text-slate-400 italic">No occupation code selected yet. Click to choose.</p>
+            <p className="text-xs text-slate-400 italic">No occupation code selected yet. Click to choose or search by profession.</p>
           )}
         </div>
       ) : (
@@ -120,10 +154,25 @@ export default function PaOccupationSelector({ pa, onSaved, getAuthHeader }) {
                 autoFocus
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search occupation code or title (e.g. 261313 or Software)..."
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleDirectAdd();
+                  }
+                }}
+                placeholder="Type profession or ANZSCO code (e.g. 261313, Software Engineer, Nurse, Chef)..."
                 className="h-8 text-xs pl-8 pr-2 bg-white"
               />
             </div>
+            <Button
+              size="sm"
+              className="h-8 px-3 text-xs bg-[#2a777a] hover:bg-[#236466] text-white font-medium"
+              disabled={saving || !searchQuery.trim()}
+              onClick={handleDirectAdd}
+            >
+              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5 mr-1" />}
+              {saving ? 'Saving...' : 'Add'}
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -139,19 +188,21 @@ export default function PaOccupationSelector({ pa, onSaved, getAuthHeader }) {
 
           {/* Search Dropdown Results */}
           {loading && (
-            <div className="p-2 text-center text-xs text-slate-400 bg-white rounded border border-slate-200">
-              <Loader2 className="h-3.5 w-3.5 animate-spin mx-auto inline mr-1 text-[#2a777a]" /> Searching...
+            <div className="p-2 text-center text-xs text-slate-400 bg-white rounded border border-slate-200 shadow-sm">
+              <Loader2 className="h-3.5 w-3.5 animate-spin mx-auto inline mr-1 text-[#2a777a]" /> Searching occupations with AI match...
             </div>
           )}
 
           {!loading && results.length > 0 && (
-            <div className="max-h-48 overflow-y-auto bg-white border border-slate-200 rounded-md shadow-lg divide-y divide-slate-100 z-10">
-              {results.map((occ, idx) => {
+            <div className="max-h-56 overflow-y-auto bg-white border border-slate-200 rounded-md shadow-lg divide-y divide-slate-100 z-20">
+              {results.slice(0, 10).map((occ, idx) => {
                 const code = occ.code || occ.anzsco_code;
                 const title = occ.title || occ.name;
-                const auth = typeof occ.assessing_authority === 'object'
+                const auth = typeof occ.assessing_body === 'string'
+                  ? occ.assessing_body
+                  : typeof occ.assessing_authority === 'object'
                   ? occ.assessing_authority?.short_name || occ.assessing_authority?.code
-                  : occ.assessing_authority;
+                  : (occ.assessing_authority || occ.skill_body);
 
                 return (
                   <button
@@ -159,14 +210,23 @@ export default function PaOccupationSelector({ pa, onSaved, getAuthHeader }) {
                     type="button"
                     disabled={saving}
                     onClick={() => handleSelect(occ)}
-                    className="w-full text-left p-2 hover:bg-teal-50 transition-colors flex items-center justify-between gap-2"
+                    className="w-full text-left p-2.5 hover:bg-teal-50 transition-colors flex items-center justify-between gap-2 group"
                   >
                     <div className="min-w-0">
-                      <span className="font-bold text-xs text-slate-900">{code}</span>
-                      <span className="text-xs text-slate-700 ml-1.5 truncate">{title}</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-xs text-slate-900 bg-slate-100 px-1.5 py-0.5 rounded group-hover:bg-teal-100 group-hover:text-teal-900">
+                          {code}
+                        </span>
+                        <span className="text-xs font-semibold text-slate-800 truncate">{title}</span>
+                      </div>
+                      {occ.pathway && (
+                        <p className="text-[10px] text-slate-400 mt-0.5 pl-0.5 truncate">
+                          Visa Pathway: {occ.pathway}
+                        </p>
+                      )}
                     </div>
                     {auth && (
-                      <Badge className="bg-teal-100 text-teal-800 border-teal-200 text-[10px] shrink-0">
+                      <Badge className="bg-teal-100 text-teal-800 border-teal-200 text-[10px] shrink-0 font-medium">
                         {auth}
                       </Badge>
                     )}
@@ -180,3 +240,4 @@ export default function PaOccupationSelector({ pa, onSaved, getAuthHeader }) {
     </div>
   );
 }
+
