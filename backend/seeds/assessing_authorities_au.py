@@ -28,6 +28,16 @@ AU_AUTHORITIES: List[Dict[str, Any]] = [
         "fees": {"msa_fee_aud": 1188, "rpl_fee_aud": 800, "skill_review_fee_aud": 350, "appeal_fee_aud": 700, "additional_fees": [{"name": "Priority Processing", "amount_aud": 814}], "payment_methods": ["credit_card", "bank_transfer"], "currency": "AUD"},
         "validity_period_months": 36,
         "methodology_summary": "VETASSESS is the largest assessing authority for professional and trade occupations in Australia. Evaluates qualifications + employment for migration purposes.",
+        "documents_required_common": [
+            "Passport bio-data page (colour scan)",
+            "Official Degree / Diploma Certificate",
+            "Full Academic Transcripts for all completed qualifications",
+            "Formal Statement of Service on company letterhead (with duties, hours & dates)",
+            "Payment evidence (payslips, tax returns, bank statements for all claimed periods)",
+            "Organisational Chart on company letterhead (for Managerial / Group A occupations)",
+            "Detailed Professional CV / Résumé",
+            "Official English translations for any non-English documents",
+        ],
     },
     {
         "code": "TRA",
@@ -38,6 +48,14 @@ AU_AUTHORITIES: List[Dict[str, Any]] = [
         "fees": {"msa_fee_aud": 1107, "rpl_fee_aud": 1107, "skill_review_fee_aud": 350, "appeal_fee_aud": 350, "additional_fees": [], "payment_methods": ["credit_card"], "currency": "AUD"},
         "validity_period_months": 36,
         "methodology_summary": "TRA is the federal government body responsible for skills assessment in 600+ trade occupations.",
+        "documents_required_common": [
+            "Passport bio-data page (colour copy)",
+            "Trade Qualification / Apprenticeship Certificate or equivalent",
+            "Detailed Statement of Service from employers listing specific trade tasks & tools used",
+            "Proof of paid employment (minimum 3 pieces of pay evidence per year claimed)",
+            "Workplace logbook / Job descriptions / Tool checklists",
+            "Current resume / CV with detailed trade history",
+        ],
     },
     {
         "code": "ACS",
@@ -48,6 +66,15 @@ AU_AUTHORITIES: List[Dict[str, Any]] = [
         "fees": {"msa_fee_aud": 625, "rpl_fee_aud": 625, "skill_review_fee_aud": 423, "appeal_fee_aud": 423, "additional_fees": [{"name": "Fast-Track Processing", "amount_aud": 1200}], "payment_methods": ["credit_card"], "currency": "AUD"},
         "validity_period_months": 24,
         "methodology_summary": "ACS is the assessing authority for ICT occupations under 26 ANZSCO codes. Evaluates degree + ICT employment.",
+        "documents_required_common": [
+            "Passport bio-data page",
+            "Degree / Diploma Certificate & Transcripts with detailed ICT subject syllabus",
+            "Employer Reference Letters with at least 65% relevant ICT duties and project tasks",
+            "Evidence of paid employment (tax assessment notices, payslips, bank statements)",
+            "Statutory Declaration or Affidavit (if employer reference cannot be obtained)",
+            "Vendor certifications (e.g. Microsoft, Cisco, AWS if applicable for RPL)",
+            "Detailed CV / Résumé",
+        ],
     },
     {
         "code": "MedBA",
@@ -58,6 +85,15 @@ AU_AUTHORITIES: List[Dict[str, Any]] = [
         "fees": {"msa_fee_aud": 1200, "rpl_fee_aud": None, "skill_review_fee_aud": None, "appeal_fee_aud": None, "additional_fees": [{"name": "AMC MCQ Exam", "amount_aud": 2880}, {"name": "AMC Clinical Exam", "amount_aud": 3950}], "payment_methods": ["credit_card", "bank_transfer"], "currency": "AUD"},
         "validity_period_months": 24,
         "methodology_summary": "MedBA registers medical practitioners. Migration applicants typically need AMC assessment + specialty college approval.",
+        "documents_required_common": [
+            "Passport bio-data page",
+            "Primary Medical Degree (MBBS / MD / equivalent)",
+            "EPIC Primary Source Verification (ECFMG / AMC portfolio)",
+            "Internship Completion Certificate",
+            "Certificate of Good Standing from home country medical council",
+            "AMC MCQ and Clinical Examination score reports (if applicable)",
+            "English language test scorecard (IELTS 7.0 / OET B / PTE 65)",
+        ],
     },
     {
         "code": "EA",
@@ -68,6 +104,16 @@ AU_AUTHORITIES: List[Dict[str, Any]] = [
         "fees": {"msa_fee_aud": 720, "rpl_fee_aud": 720, "skill_review_fee_aud": 480, "appeal_fee_aud": 480, "additional_fees": [{"name": "Fast-Track Processing", "amount_aud": 1000}], "payment_methods": ["credit_card", "bank_transfer"], "currency": "AUD"},
         "validity_period_months": 36,
         "methodology_summary": "EA assesses engineering qualifications via CDR (Competency Demonstration Report) or accredited pathway. Categories: Professional Engineer, Engineering Technologist, Engineering Associate.",
+        "documents_required_common": [
+            "Passport bio-data page (colour copy)",
+            "Engineering Degree Certificate & Academic Transcripts",
+            "Competency Demonstration Report (CDR) — 3 distinct Career Episodes",
+            "Summary Statement cross-referencing CDR episodes to EA competency units",
+            "Continuing Professional Development (CPD) statement list",
+            "English language test result (IELTS 6.0 in all bands or PTE 50 in each)",
+            "Official Reference Letters on company letterhead & Proof of paid employment",
+            "Comprehensive CV / Résumé",
+        ],
     },
     {
         "code": "ANMAC",
@@ -78,6 +124,14 @@ AU_AUTHORITIES: List[Dict[str, Any]] = [
         "fees": {"msa_fee_aud": 525, "rpl_fee_aud": 525, "skill_review_fee_aud": 250, "appeal_fee_aud": 700, "additional_fees": [], "payment_methods": ["credit_card", "bank_transfer"], "currency": "AUD"},
         "validity_period_months": 36,
         "methodology_summary": "ANMAC is the migration assessing authority for nursing and midwifery occupations. Different from NMBA (registration).",
+        "documents_required_common": [
+            "Passport bio-data page (colour scan)",
+            "Nursing / Midwifery Degree / Diploma Certificate & Transcripts",
+            "Current Professional Nursing Registration / Practicing Certificate from home country",
+            "Verification of Registration Certificate directly sent from regulatory council",
+            "English language test report (IELTS 7.0 all bands / OET B all bands / PTE 65 all bands)",
+            "Professional Reference Letters from nurse unit managers verifying 3+ months practice",
+        ],
     },
     # ───── TIER 2: Mid-volume (5-20 occupations) ─────
     {
@@ -89,6 +143,14 @@ AU_AUTHORITIES: List[Dict[str, Any]] = [
         "fees": {**_DEFAULT_FEES, "msa_fee_aud": 870},
         "validity_period_months": 36,
         "methodology_summary": "IML assesses management occupations under ANZSCO Major Group 1.",
+        "documents_required_common": [
+            "Passport bio-data page",
+            "Higher education degree certificates & transcripts",
+            "Company Organisational Chart showing your managerial position and subordinate staff",
+            "Detailed Statement of Service on letterhead outlining senior management responsibilities",
+            "Budget management and strategic KPI achievement records",
+            "Comprehensive Executive CV / Résumé",
+        ],
     },
     {
         "code": "AITSL",
@@ -99,6 +161,14 @@ AU_AUTHORITIES: List[Dict[str, Any]] = [
         "fees": {**_DEFAULT_FEES, "msa_fee_aud": 815, "skill_review_fee_aud": 200},
         "validity_period_months": 36,
         "methodology_summary": "AITSL is the migration assessing authority for primary/secondary teacher occupations.",
+        "documents_required_common": [
+            "Passport bio-data page",
+            "Teaching Degree Certificate (minimum 4 years full-time higher education)",
+            "Academic Transcripts showing at least 45 days of supervised teaching practice",
+            "Official letter from university confirming completion of supervised teaching practicum",
+            "Academic IELTS test report (Listening 8.0, Speaking 8.0, Reading 7.0, Writing 7.0)",
+            "Teaching Registration from home jurisdiction (if applicable)",
+        ],
     },
     {
         "code": "CWA",
@@ -109,6 +179,13 @@ AU_AUTHORITIES: List[Dict[str, Any]] = [
         "fees": {**_DEFAULT_FEES, "msa_fee_aud": 950},
         "validity_period_months": 36,
         "methodology_summary": "CWA (formerly AASW) assesses social work and community service occupations.",
+        "documents_required_common": [
+            "Passport bio-data page",
+            "Community work / Human services degree certificate and transcripts",
+            "Evidence of 500+ hours of direct fieldwork placement during study",
+            "Employer reference letters verifying paid community service experience",
+            "Detailed CV / Résumé",
+        ],
     },
     {
         "code": "CAANZ",
@@ -119,6 +196,13 @@ AU_AUTHORITIES: List[Dict[str, Any]] = [
         "fees": {**_DEFAULT_FEES, "msa_fee_aud": 555},
         "validity_period_months": 36,
         "methodology_summary": "CAANZ is one of three assessing authorities for accountant migration (with CPA Australia and IPA).",
+        "documents_required_common": [
+            "Passport bio-data page",
+            "University Degree / Master's Certificate & Complete Transcripts",
+            "Syllabus / Course descriptor of all accounting and finance subjects studied",
+            "English language proficiency test report (Academic IELTS 7.0 each or PTE 65 each)",
+            "Detailed Statement of Service & payslips (for Skilled Employment Assessment)",
+        ],
     },
     # ───── TIER 3: Specialty bodies (1-4 occupations each) ─────
     {"code": "AMSA", "full_name": "Australian Maritime Safety Authority",
@@ -327,14 +411,14 @@ async def ensure_seeded_in_db(db):
             "source_url": "https://immi.homeaffairs.gov.au/visas/working-in-australia/skills-assessment/assessing-authorities",
             "last_updated_at": now,
             "occupation_count": occ_count,
-            "documents_required_common": [
-                "Passport bio page",
-                "Birth certificate (translated)",
-                "Academic transcripts (certified)",
-                "Degree/diploma certificates (certified)",
-                "Detailed CV / résumé",
-                "Statement of Service / Reference letters (employer)",
-                "English-language test results (IELTS / PTE / TOEFL)",
+            "documents_required_common": body.get("documents_required_common") or (existing.get("documents_required_common") if existing else None) or [
+                "Passport bio-data page (colour copy)",
+                "Official Degree / Diploma certificates",
+                "Full Academic Transcripts for all years",
+                "Detailed CV / Résumé",
+                "Statement of Service / Employer Reference Letters on official letterhead",
+                "Proof of paid employment (payslips, tax documents, bank statements)",
+                "English language test report (IELTS / PTE / TOEFL)",
             ],
         }
         if existing:

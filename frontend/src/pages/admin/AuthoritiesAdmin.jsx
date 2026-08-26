@@ -9,7 +9,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'sonner';
 import {
-  ArrowLeft, CheckCircle, Edit3, Lock, RefreshCw, Search, Shield, Split, X, Eye, AlertTriangle,
+  ArrowLeft, CheckCircle, Edit3, Lock, RefreshCw, Search, Shield, Split, X, Eye, AlertTriangle, Plus, Trash2, FileText, CheckSquare, ListChecks,
 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -37,6 +37,7 @@ export default function AuthoritiesAdmin() {
   const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || 'all');
   const [selected, setSelected] = useState(null);
   const [edit, setEdit] = useState({});
+  const [newDocItem, setNewDocItem] = useState('');
   const [busy, setBusy] = useState(false);
   // Modals
   const [diff, setDiff] = useState(null);
@@ -78,6 +79,7 @@ export default function AuthoritiesAdmin() {
   // Click body → load detail + start editing
   const selectBody = (b) => {
     setSelected(b);
+    setNewDocItem('');
     setEdit({
       full_name: b.full_name || '',
       website: b.website || '',
@@ -85,6 +87,7 @@ export default function AuthoritiesAdmin() {
       standard_days_min: b.processing?.standard_days_min || 0,
       standard_days_max: b.processing?.standard_days_max || 0,
       methodology_summary: b.methodology_summary || '',
+      documents_required_common: Array.isArray(b.documents_required_common) ? [...b.documents_required_common] : [],
     });
   };
 
@@ -101,6 +104,11 @@ export default function AuthoritiesAdmin() {
     if (+edit.standard_days_max !== (selected.processing?.standard_days_max || 0)) procPatch.standard_days_max = +edit.standard_days_max;
     if (Object.keys(procPatch).length) changes.processing = procPatch;
     if (edit.methodology_summary !== (selected.methodology_summary || '')) changes.methodology_summary = edit.methodology_summary;
+    const origDocs = selected.documents_required_common || [];
+    const currDocs = edit.documents_required_common || [];
+    if (JSON.stringify(origDocs) !== JSON.stringify(currDocs)) {
+      changes.documents_required_common = currDocs;
+    }
     return changes;
   };
 
@@ -267,9 +275,117 @@ export default function AuthoritiesAdmin() {
                 </div>
                 <div>
                   <label className="text-[10px] font-semibold text-slate-700 uppercase">Methodology Summary</label>
-                  <textarea className="w-full border border-slate-300 rounded p-1.5 text-xs h-20" value={edit.methodology_summary} onChange={e => setEdit({...edit, methodology_summary: e.target.value})} data-testid="edit-methodology" />
+                  <textarea className="w-full border border-slate-300 rounded p-1.5 text-xs h-16" value={edit.methodology_summary} onChange={e => setEdit({...edit, methodology_summary: e.target.value})} data-testid="edit-methodology" />
                 </div>
-                <Button size="sm" onClick={onSave} disabled={busy} className="w-full" data-testid="auth-save-btn">
+
+                {/* Document Checklist Section */}
+                <div className="border-t border-slate-200 pt-3 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-bold text-slate-800 uppercase flex items-center gap-1.5">
+                      <FileText className="h-3.5 w-3.5 text-blue-600" />
+                      Document Checklist
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-blue-50 text-blue-700 border-blue-200 font-semibold">
+                        {(edit.documents_required_common || []).length} required
+                      </Badge>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const standard = [
+                          "Passport bio-data page (colour copy)",
+                          "Official Degree / Diploma Certificate",
+                          "Full Academic Transcripts for all qualifications",
+                          "Formal Statement of Service on official letterhead",
+                          "Payment evidence (payslips, tax documents, bank statements)",
+                          "Detailed Professional CV / Résumé",
+                          "English language test result (IELTS / PTE / TOEFL)",
+                        ];
+                        setEdit(prev => ({ ...prev, documents_required_common: standard }));
+                        toast.info('Standard document checklist template loaded');
+                      }}
+                      className="text-[10px] text-blue-600 hover:text-blue-800 underline cursor-pointer"
+                    >
+                      Reset to standard set
+                    </button>
+                  </div>
+
+                  {/* Add new document input row */}
+                  <div className="flex gap-1.5">
+                    <Input
+                      placeholder="Add document item (e.g. CDR, Transcripts, Payslips)..."
+                      value={newDocItem}
+                      onChange={e => setNewDocItem(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          if (newDocItem.trim()) {
+                            setEdit(prev => ({
+                              ...prev,
+                              documents_required_common: [...(prev.documents_required_common || []), newDocItem.trim()]
+                            }));
+                            setNewDocItem('');
+                          }
+                        }
+                      }}
+                      className="text-xs h-8"
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-8 px-2.5 text-xs text-blue-700 bg-blue-50 border-blue-200 hover:bg-blue-100 flex-shrink-0"
+                      onClick={() => {
+                        if (newDocItem.trim()) {
+                          setEdit(prev => ({
+                            ...prev,
+                            documents_required_common: [...(prev.documents_required_common || []), newDocItem.trim()]
+                          }));
+                          setNewDocItem('');
+                        }
+                      }}
+                    >
+                      <Plus className="h-3.5 w-3.5 mr-1" /> Add
+                    </Button>
+                  </div>
+
+                  {/* Checklist items list */}
+                  <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
+                    {(edit.documents_required_common || []).length === 0 ? (
+                      <div className="p-3 text-center bg-slate-50 border border-dashed border-slate-200 rounded text-xs text-slate-400">
+                        No documents configured for this authority yet. Add items above or click "Reset to standard set".
+                      </div>
+                    ) : (
+                      edit.documents_required_common.map((doc, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-center justify-between gap-2 p-1.5 bg-slate-50 border border-slate-200 rounded text-xs text-slate-700 hover:bg-slate-100 transition-colors"
+                        >
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <span className="flex-shrink-0 w-4 h-4 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold flex items-center justify-center">
+                              {idx + 1}
+                            </span>
+                            <span className="truncate text-slate-800 font-medium">{doc}</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEdit(prev => ({
+                                ...prev,
+                                documents_required_common: prev.documents_required_common.filter((_, i) => i !== idx)
+                              }));
+                            }}
+                            className="text-slate-400 hover:text-rose-600 p-0.5 rounded cursor-pointer transition-colors"
+                            title="Remove document"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                <Button size="sm" onClick={onSave} disabled={busy} className="w-full mt-2" data-testid="auth-save-btn">
                   <Eye className="h-3 w-3 mr-1" />Preview Diff Audit & Save
                 </Button>
                 <p className="text-[10px] text-slate-400 italic">Changes will preview before committing. Mandatory diff audit shows downstream impact on Atlas + Sales pages.</p>
@@ -403,13 +519,28 @@ function VerifyWizardModal({ items, idx, setIdx, onClose, onVerify }) {
           <h3 className="text-lg font-bold">Verify Wizard · Step {idx + 1} of {items.length}</h3>
           <Button variant="ghost" size="sm" onClick={onClose}><X className="h-4 w-4" /></Button>
         </div>
-        <div className="bg-slate-50 border rounded p-3 mb-3 space-y-1 text-xs" data-testid={`verify-wizard-step-${idx + 1}`}>
+        <div className="bg-slate-50 border rounded p-3 mb-3 space-y-1.5 text-xs" data-testid={`verify-wizard-step-${idx + 1}`}>
           <p><strong>Code:</strong> {body.code}</p>
           <p><strong>Full name:</strong> {body.full_name}</p>
           <p><strong>Linked occupations:</strong> {body.occupation_count || 0}</p>
           <p><strong>MSA fee:</strong> AUD ${body.fees?.msa_fee_aud || '—'}</p>
           <p><strong>Processing:</strong> {body.processing?.standard_days_min || '?'}-{body.processing?.standard_days_max || '?'} days</p>
           {body._seed_quality === 'placeholder' && <Badge className="bg-rose-100 text-rose-700 text-[9px]">PLACEHOLDER — Needs review before verifying</Badge>}
+
+          {/* Document Checklist in Wizard */}
+          {Array.isArray(body.documents_required_common) && body.documents_required_common.length > 0 && (
+            <div className="mt-2 pt-2 border-t border-slate-200">
+              <p className="font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                <FileText className="h-3 w-3 text-blue-600" />
+                Required Documents ({body.documents_required_common.length}):
+              </p>
+              <ul className="list-disc list-inside space-y-0.5 text-[11px] text-slate-600 max-h-28 overflow-y-auto pl-1">
+                {body.documents_required_common.map((d, i) => (
+                  <li key={i} className="truncate">{d}</li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
         <div className="flex justify-between items-center pt-3 border-t">
           <Button size="sm" variant="ghost" onClick={() => setIdx(Math.max(0, idx - 1))} disabled={idx === 0} data-testid="verify-wizard-prev">‹ Previous</Button>
