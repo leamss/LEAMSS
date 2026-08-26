@@ -37,7 +37,6 @@ async def login(request: LoginRequest):
         
         # If admin user not found in DB at all, auto-create it
         if not user and email_clean == "admin@leamss.com" and request.password in ["Admin@123", "admin@123"]:
-            from core.database import users_col, db
             admin_doc = {
                 "id": str(uuid.uuid4()),
                 "email": "admin@leamss.com",
