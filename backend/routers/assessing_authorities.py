@@ -45,18 +45,28 @@ def _strip_mongo(doc: Dict[str, Any]) -> Dict[str, Any]:
 
 @router.get("")
 async def list_authorities(
-    country: Optional[str] = Query("AU"),
+    country: Optional[str] = Query(None),
     status: Optional[str] = Query(None, description="active | draft | deprecated"),
     include_drafts: bool = Query(True, description="include draft bodies"),
     current_user: Dict[str, Any] = Depends(get_current_user),
 ):
     if not _can_read(current_user):
         raise HTTPException(status_code=403, detail="Forbidden")
+
+    # Auto-seed if empty
+    cnt = await db["assessing_authorities"].count_documents({})
+    if cnt == 0:
+        try:
+            from seeds.assessing_authorities_au import ensure_seeded_in_db
+            await ensure_seeded_in_db(db)
+        except Exception as e:
+            logger.error("Auto-seed assessing_authorities error: %s", e)
+
     q: Dict[str, Any] = {}
-    if country:
+    if country and country.upper() not in ("ALL", ""):
         c = country.strip().upper()
         q["$or"] = [{"country": c}, {"country_code": c}]
-    if status:
+    if status and status.lower() not in ("all", ""):
         q["status"] = status
     elif not include_drafts and not _is_admin(current_user):
         q["status"] = "active"

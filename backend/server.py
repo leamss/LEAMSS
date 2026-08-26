@@ -211,6 +211,13 @@ async def startup():
 
     await seed_atlas_countries(db)
     try:
+        from seeds.assessing_authorities_au import ensure_seeded_in_db
+        await ensure_seeded_in_db(db)
+        print("[Assessing Authorities] Seeded/verified successfully")
+    except Exception as e:
+        print(f"[Assessing Authorities WARN] {e}")
+
+    try:
         from scripts.seed_international_banks import seed_banks
         await seed_banks()
     except Exception as e:
