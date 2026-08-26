@@ -127,21 +127,51 @@ export default function PaOccupationSelector({ pa, onSaved, getAuthHeader }) {
       </div>
 
       {!isEditing ? (
-        <div className="mt-1.5 flex items-center gap-2 flex-wrap">
-          {hasOccupation ? (
-            <>
-              <Badge variant="outline" className="bg-white border-slate-300 text-slate-800 text-xs font-semibold">
-                {pa.occupation_code} · {pa.occupation_title || 'Assigned Occupation'}
-              </Badge>
-              {pa.assessing_authority_code && (
-                <Badge className="bg-teal-100 text-teal-800 border-teal-300 text-[11px] font-semibold flex items-center gap-1">
-                  <Building2 className="h-3 w-3 text-teal-600" />
-                  Assessing Body: {pa.assessing_authority_code}
+        <div className="mt-1.5 space-y-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            {hasOccupation ? (
+              <>
+                <Badge variant="outline" className="bg-white border-slate-300 text-slate-800 text-xs font-semibold">
+                  {pa.occupation_code} · {pa.occupation_title || 'Assigned Occupation'}
                 </Badge>
-              )}
-            </>
-          ) : (
-            <p className="text-xs text-slate-400 italic">No occupation code selected yet. Click to choose or search by profession.</p>
+                {pa.assessing_authority_code && (
+                  <Badge className="bg-teal-100 text-teal-800 border-teal-300 text-[11px] font-semibold flex items-center gap-1">
+                    <Building2 className="h-3 w-3 text-teal-600" />
+                    Assessing Body: {pa.assessing_authority_code}
+                  </Badge>
+                )}
+              </>
+            ) : (
+              <p className="text-xs text-slate-400 italic">No occupation code selected yet. Click to choose or search by profession.</p>
+            )}
+          </div>
+
+          {/* Admin Suggested Occupation Alert */}
+          {pa.suggested_occupation_code && pa.suggested_occupation_code !== pa.occupation_code && (
+            <div className="p-2.5 bg-amber-50 border border-amber-300 rounded-md text-xs flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-1.5">
+                <span className="font-bold text-amber-900">💡 Admin Suggested:</span>
+                <span className="font-bold text-slate-900">{pa.suggested_occupation_code}</span>
+                <span className="text-slate-700">· {pa.suggested_occupation_title}</span>
+                {pa.suggested_assessing_authority_code && (
+                  <Badge variant="outline" className="bg-white text-amber-800 border-amber-300 text-[10px]">
+                    {pa.suggested_assessing_authority_code}
+                  </Badge>
+                )}
+              </div>
+              <Button
+                size="sm"
+                className="h-6 text-[11px] px-2 bg-amber-600 hover:bg-amber-700 text-white font-medium shadow-none"
+                disabled={saving}
+                onClick={() => handleSelect({
+                  code: pa.suggested_occupation_code,
+                  title: pa.suggested_occupation_title,
+                  assessing_body: pa.suggested_assessing_authority_code
+                })}
+              >
+                Apply Suggested Code
+              </Button>
+            </div>
           )}
         </div>
       ) : (

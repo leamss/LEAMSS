@@ -126,6 +126,9 @@ class AdminReview(BaseModel):
     decision: str  # "approved" or "rejected"
     reason: str = ""
     notes: str = ""
+    suggested_occupation_code: Optional[str] = None
+    suggested_occupation_title: Optional[str] = None
+    suggested_assessing_authority_code: Optional[str] = None
 
 # ─── Phase: Packages & Payment Methods on Proposal ──────────────────────────
 class InstallmentItem(BaseModel):
@@ -1069,6 +1072,11 @@ async def admin_review(pa_id: str, review: AdminReview, current_user: dict = Dep
         "updated_at": datetime.now(timezone.utc)
     }
 
+    if review.suggested_occupation_code:
+        update_fields["suggested_occupation_code"] = review.suggested_occupation_code.strip()
+        update_fields["suggested_occupation_title"] = (review.suggested_occupation_title or "").strip()
+        update_fields["suggested_assessing_authority_code"] = (review.suggested_assessing_authority_code or "").strip()
+
     # Mirror decision into standard_sale_* fields so it also shows in
     # "Standard Sale Approvals" history tab (unified tracking view)
     if pa.get("sale_type") == "standard":
@@ -1082,11 +1090,12 @@ async def admin_review(pa_id: str, review: AdminReview, current_user: dict = Dep
     await log_activity(current_user["id"], current_user.get("name", ""), f"pa_{review.decision}",
                     "pre_assessment", pa_id, f"Pre-assessment {review.decision} for {pa['client_name']} - {review.reason}")
 
-    # Notify partner
+    # Notify partner with suggestion if present
+    suggested_text = f" Suggested code: {review.suggested_occupation_code} - {review.suggested_occupation_title}" if review.suggested_occupation_code else ""
     await notifications_col.insert_one({
         "id": str(uuid.uuid4()), "user_id": pa["partner_id"],
         "title": f"Pre-Assessment {review.decision.title()}",
-        "message": f"{pa['client_name']} eligibility: {review.decision.upper()}. {review.reason}",
+        "message": f"{pa['client_name']} eligibility: {review.decision.upper()}. {review.reason}{suggested_text}",
         "type": "pre_assessment_decision", "read": False,
         "created_at": datetime.now(timezone.utc)
     })

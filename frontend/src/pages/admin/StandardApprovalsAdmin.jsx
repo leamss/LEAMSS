@@ -1,14 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
-import { ArrowLeft, ClipboardList, CheckCircle2, XCircle, Clock, User, Globe, FileText, Sparkles } from 'lucide-react';
+import { ArrowLeft, ClipboardList, CheckCircle2, XCircle, Clock, User, Globe, FileText, Sparkles, Briefcase, Building2, Search, Loader2, X, Lightbulb } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -21,19 +22,58 @@ const formatDate = (iso) => {
 const ApprovalDialog = ({ open, onClose, pa, action, onConfirm }) => {
   const [remarks, setRemarks] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [suggestedOcc, setSuggestedOcc] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searching, setSearching] = useState(false);
 
-  useEffect(() => { if (open) setRemarks(''); }, [open]);
+  useEffect(() => {
+    if (open) {
+      setRemarks('');
+      setSuggestedOcc(null);
+      setSearchQuery('');
+      setSearchResults([]);
+    }
+  }, [open]);
+
+  // AI & Master search for suggested occupation
+  useEffect(() => {
+    if (!open || action !== 'reject' || !searchQuery || searchQuery.trim().length < 2) {
+      setSearchResults([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const country = pa?.country || 'AU';
+        const res = await axios.get(`${API}/sales/occupations/search`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+          params: { q: searchQuery.trim(), country }
+        });
+        const items = res.data?.items || res.data?.results || (Array.isArray(res.data) ? res.data : []);
+        setSearchResults(items);
+      } catch (err) {
+        console.error('Occupation search error:', err);
+      } finally {
+        setSearching(false);
+      }
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [searchQuery, open, action, pa?.country]);
 
   const submit = async () => {
-    if (action === 'reject' && remarks.trim().length < 5) { toast.error('Rejection reason must be at least 5 characters'); return; }
+    if (action === 'reject' && remarks.trim().length < 5) {
+      toast.error('Rejection reason must be at least 5 characters');
+      return;
+    }
     setSubmitting(true);
-    await onConfirm(remarks);
+    await onConfirm({ remarks, suggestedOcc });
     setSubmitting(false);
   };
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent data-testid={`${action}-dialog`}>
+      <DialogContent className="max-w-lg" data-testid={`${action}-dialog`}>
         <DialogHeader>
           <DialogTitle className={action === 'approve' ? 'text-emerald-700' : 'text-rose-700'}>
             {action === 'approve' ? '✅ Approve Pre-Assessment' : '❌ Reject Pre-Assessment'}
@@ -42,13 +82,111 @@ const ApprovalDialog = ({ open, onClose, pa, action, onConfirm }) => {
             <strong>{pa?.client_name}</strong> · {pa?.country} {pa?.service_type} · by {pa?.partner_name}
           </DialogDescription>
         </DialogHeader>
-        <Textarea
-          value={remarks}
-          onChange={(e) => setRemarks(e.target.value)}
-          placeholder={action === 'approve' ? 'Optional remarks…' : 'Reason for rejection (required, min 5 chars)'}
-          rows={3}
-          data-testid={`${action}-remarks`}
-        />
+
+        {/* Selected Occupation Info */}
+        {pa?.occupation_code && (
+          <div className="bg-slate-100 p-2.5 rounded text-xs flex items-center justify-between gap-2 border border-slate-200">
+            <span className="text-slate-500 font-medium">Partner Selected Code:</span>
+            <span className="font-bold text-slate-800">{pa.occupation_code} · {pa.occupation_title || 'Assigned'} ({pa.assessing_authority_code || 'N/A'})</span>
+          </div>
+        )}
+
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-semibold text-slate-600 block mb-1">
+              {action === 'approve' ? 'Remarks (Optional)' : 'Rejection Reason (Required, min 5 chars)'}
+            </label>
+            <Textarea
+              value={remarks}
+              onChange={(e) => setRemarks(e.target.value)}
+              placeholder={action === 'approve' ? 'Optional approval remarks…' : 'Explain why this pre-assessment / occupation code is rejected…'}
+              rows={3}
+              data-testid={`${action}-remarks`}
+            />
+          </div>
+
+          {/* If Rejecting: Option to suggest correct occupation code */}
+          {action === 'reject' && (
+            <div className="border border-amber-200 bg-amber-50/60 rounded-lg p-3 space-y-2">
+              <p className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                <Lightbulb className="h-3.5 w-3.5 text-amber-600" />
+                Suggest Correct Occupation Code (Optional)
+              </p>
+              <p className="text-[11px] text-amber-700">
+                Partner will see this suggested occupation code directly in their portal.
+              </p>
+
+              {suggestedOcc ? (
+                <div className="flex items-center justify-between bg-white border border-amber-300 rounded p-2 text-xs">
+                  <div className="flex items-center gap-1.5">
+                    <Badge className="bg-teal-600 text-white font-bold">{suggestedOcc.code}</Badge>
+                    <span className="font-semibold text-slate-800">{suggestedOcc.title}</span>
+                    {suggestedOcc.assessing_body && (
+                      <span className="text-slate-500">({suggestedOcc.assessing_body})</span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSuggestedOcc(null)}
+                    className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-1.5 relative">
+                  <div className="relative">
+                    <Search className="h-3.5 w-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                    <Input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search profession name or code (e.g. 261312, Developer, Accountant)..."
+                      className="h-8 text-xs pl-8 pr-2 bg-white"
+                    />
+                  </div>
+
+                  {searching && (
+                    <p className="text-[11px] text-slate-400 italic">
+                      <Loader2 className="h-3 w-3 animate-spin inline mr-1" /> Searching occupations...
+                    </p>
+                  )}
+
+                  {searchResults.length > 0 && (
+                    <div className="max-h-40 overflow-y-auto bg-white border border-slate-200 rounded shadow divide-y divide-slate-100">
+                      {searchResults.slice(0, 8).map((occ, idx) => {
+                        const code = occ.code || occ.anzsco_code;
+                        const title = occ.title || occ.name;
+                        const auth = typeof occ.assessing_body === 'string'
+                          ? occ.assessing_body
+                          : typeof occ.assessing_authority === 'object'
+                          ? occ.assessing_authority?.short_name || occ.assessing_authority?.code
+                          : occ.assessing_authority;
+
+                        return (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => {
+                              setSuggestedOcc({ code, title, assessing_body: auth });
+                              setSearchQuery('');
+                              setSearchResults([]);
+                            }}
+                            className="w-full text-left p-2 hover:bg-amber-50 text-xs flex items-center justify-between gap-1.5"
+                          >
+                            <span className="font-bold text-slate-900">{code} · <span className="font-normal text-slate-700">{title}</span></span>
+                            {auth && <Badge variant="outline" className="text-[10px] shrink-0">{auth}</Badge>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
           <Button onClick={submit} disabled={submitting} className={action === 'approve' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'} data-testid={`confirm-${action}`}>
@@ -192,9 +330,59 @@ const StandardCard = ({ pa, onAction, isPending = true, onUploaded }) => {
           <p className="text-xs uppercase tracking-wider text-slate-500 font-bold">Stage</p>
           <Badge className="bg-slate-100 text-slate-700 text-xs uppercase border mt-0.5">{(pa.stage || '').replace(/_/g, ' ')}</Badge>
         </div>
-       
-<div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm mb-3 bg-slate-50 rounded p-3">
-        <div><p className="text-xs text-slate-400">Email</p><p className="font-medium text-slate-700">{pa.client_email || 'N/A'}</p></div><br></br>
+      </div>
+
+      {/* Selected Occupation Code by Partner */}
+      <div className="mb-3">
+        {pa.occupation_code ? (
+          <div className="p-3 bg-teal-50 border border-teal-200 rounded-lg flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded bg-teal-100 flex items-center justify-center text-[#2a777a]">
+                <Briefcase className="h-4 w-4" />
+              </div>
+              <div>
+                <p className="text-[11px] uppercase tracking-wide text-teal-800 font-bold">Selected Occupation (ANZSCO)</p>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <Badge className="bg-[#2a777a] text-white font-bold text-xs">
+                    {pa.occupation_code}
+                  </Badge>
+                  <span className="text-xs font-semibold text-slate-800">
+                    {pa.occupation_title || 'ANZSCO Occupation'}
+                  </span>
+                </div>
+              </div>
+            </div>
+            {pa.assessing_authority_code && (
+              <Badge variant="outline" className="bg-white border-teal-300 text-teal-800 text-xs font-semibold flex items-center gap-1">
+                <Building2 className="h-3 w-3 text-teal-600" />
+                Assessing Body: {pa.assessing_authority_code}
+              </Badge>
+            )}
+          </div>
+        ) : (
+          <div className="p-2.5 bg-slate-50 border border-dashed border-slate-200 rounded-lg text-xs text-slate-400 flex items-center gap-1.5 italic">
+            <Briefcase className="h-3.5 w-3.5" />
+            No occupation code was selected by the partner.
+          </div>
+        )}
+      </div>
+
+      {/* Admin Suggested Occupation (if present) */}
+      {pa.suggested_occupation_code && (
+        <div className="mb-3 p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-xs flex items-center gap-2 flex-wrap">
+          <span className="font-bold text-amber-900 flex items-center gap-1">
+            <Lightbulb className="h-3.5 w-3.5 text-amber-600" /> Admin Suggested Code:
+          </span>
+          <Badge className="bg-amber-600 text-white font-bold">{pa.suggested_occupation_code}</Badge>
+          <span className="font-semibold text-slate-800">{pa.suggested_occupation_title}</span>
+          {pa.suggested_assessing_authority_code && (
+            <span className="text-slate-500">({pa.suggested_assessing_authority_code})</span>
+          )}
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm mb-3 bg-slate-50 rounded p-3">
+        <div><p className="text-xs text-slate-400">Email</p><p className="font-medium text-slate-700">{pa.client_email || 'N/A'}</p></div>
         <div><p className="text-xs text-slate-400">Mobile</p><p className="font-medium text-slate-700">{pa.client_mobile || 'N/A'}</p></div>
         <div><p className="text-xs text-slate-400">Education</p><p className="font-medium text-slate-700">{pa.education || 'N/A'}</p></div>
         <div><p className="text-xs text-slate-400">Experience</p><p className="font-medium text-slate-700">{pa.work_experience || 'N/A'}</p></div>
@@ -259,9 +447,7 @@ const StandardCard = ({ pa, onAction, isPending = true, onUploaded }) => {
         </div>
       )}
 
-      </div>
-
-      <div className="flex items-center justify-between text-xs text-slate-500">
+      <div className="flex items-center justify-between text-xs text-slate-500 mt-2">
         <span>Submitted {formatDate(pa.submitted_at || pa.created_at)}</span>
         {!isPending && pa.admin_notes && (
           <span className="italic">Remarks: "{pa.admin_notes}"</span>
@@ -298,9 +484,6 @@ export default function StandardApprovalsAdmin() {
       const [p, h] = await Promise.all([
         axios.get(`${API}/pre-assessment/admin/standard-queue`, getAuthHeader()),
         axios.get(`${API}/pre-assessment/admin/standard-history`, getAuthHeader()),
-        // axios.get(`${API}/pre-assessment/admin/standard-approvals`, { headers }),
-        
-  // axios.get(`${API}/pre-assessment/admin/history`, { headers }), 
       ]);
       setPending(p.data.items || []);
       setHistory(h.data.items || []);
@@ -316,18 +499,29 @@ export default function StandardApprovalsAdmin() {
 
   const handleAction = (pa, action) => setDialog({ open: true, action, pa });
 
-  const confirmAction = async (remarks) => {
+  const confirmAction = async ({ remarks, suggestedOcc }) => {
     const { pa, action } = dialog;
     try {
+      const payload = {
+        decision: action === 'approve' ? 'approved' : 'rejected',
+        reason: remarks,
+        notes: remarks,
+      };
+      if (suggestedOcc) {
+        payload.suggested_occupation_code = suggestedOcc.code;
+        payload.suggested_occupation_title = suggestedOcc.title;
+        payload.suggested_assessing_authority_code = suggestedOcc.assessing_body;
+      }
+
       await axios.put(
         `${API}/pre-assessment/${pa.id}/review`,
-        { decision: action === 'approve' ? 'approved' : 'rejected', reason: remarks, notes: remarks },
+        payload,
         getAuthHeader()
       );
       toast.success(`Pre-Assessment ${action === 'approve' ? 'approved' : 'rejected'} successfully`);
       setDialog({ open: false, action: null, pa: null });
       load();
-      // 👇 NEW — right after approval, open the upload-report prompt for this PA
+      // Right after approval, open the upload-report prompt for this PA
       if (action === 'approve') {
         setUploadDialog({ open: true, pa });
       }
