@@ -38,6 +38,7 @@ export default function AuthoritiesAdmin() {
   const [selected, setSelected] = useState(null);
   const [edit, setEdit] = useState({});
   const [newDocItem, setNewDocItem] = useState('');
+  const [activeTab, setActiveTab] = useState('general');
   const [busy, setBusy] = useState(false);
   // Modals
   const [diff, setDiff] = useState(null);
@@ -77,8 +78,9 @@ export default function AuthoritiesAdmin() {
   }), [items]);
 
   // Click body → load detail + start editing
-  const selectBody = (b) => {
+  const selectBody = (b, tab = 'general') => {
     setSelected(b);
+    if (tab) setActiveTab(tab);
     setNewDocItem('');
     setEdit({
       full_name: b.full_name || '',
@@ -230,19 +232,38 @@ export default function AuthoritiesAdmin() {
 
         <div className="grid grid-cols-12 gap-4">
           {/* Body list */}
-          <Card className="col-span-7 p-3 max-h-[70vh] overflow-y-auto" data-testid="auth-body-list">
+          {/* Body list */}
+          <Card className="col-span-6 p-3 max-h-[75vh] overflow-y-auto" data-testid="auth-body-list">
             <table className="w-full text-xs">
-              <thead className="text-slate-500 sticky top-0 bg-white">
-                <tr><th className="text-left p-2">Code</th><th className="text-left p-2">Full name</th><th className="text-left p-2">Status</th><th className="text-right p-2">Occ</th></tr>
+              <thead className="text-slate-500 sticky top-0 bg-white shadow-xs">
+                <tr>
+                  <th className="text-left p-2">Code</th>
+                  <th className="text-left p-2">Full name</th>
+                  <th className="text-left p-2">Status</th>
+                  <th className="text-center p-2">Doc Checklist</th>
+                  <th className="text-right p-2">Occ</th>
+                </tr>
               </thead>
               <tbody>
                 {filtered.map(b => (
-                  <tr key={b.code} className={`border-b hover:bg-slate-50 cursor-pointer ${selected?.code === b.code ? 'bg-leamss-teal_50' : ''}`}
-                      onClick={() => selectBody(b)} data-testid={`auth-row-${b.code}`}>
-                    <td className="p-2 font-mono font-bold">{b.code}</td>
-                    <td className="p-2">{b.full_name?.substring(0, 50)}{b._seed_quality === 'placeholder' && <Badge className="ml-1 text-[9px] bg-rose-100 text-rose-700">PLACEHOLDER</Badge>}</td>
+                  <tr
+                    key={b.code}
+                    className={`border-b hover:bg-slate-50 cursor-pointer transition-colors ${selected?.code === b.code ? 'bg-leamss-teal_50' : ''}`}
+                    onClick={() => selectBody(b, 'general')}
+                    data-testid={`auth-row-${b.code}`}
+                  >
+                    <td className="p-2 font-mono font-bold text-leamss-teal">{b.code}</td>
+                    <td className="p-2 font-medium">
+                      {b.full_name?.substring(0, 45)}
+                      {b._seed_quality === 'placeholder' && <Badge className="ml-1 text-[9px] bg-rose-100 text-rose-700">PLACEHOLDER</Badge>}
+                    </td>
                     <td className="p-2"><Badge className={`text-[9px] border ${STATUS_COLORS[b.status] || ''}`}>{b.status}</Badge></td>
-                    <td className="p-2 text-right">{b.occupation_count || 0}</td>
+                    <td className="p-2 text-center" onClick={(e) => { e.stopPropagation(); selectBody(b, 'checklist'); }}>
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-[11px] font-semibold hover:bg-blue-100 transition-colors shadow-2xs cursor-pointer">
+                        <FileText className="h-3 w-3 text-blue-600" /> {(b.documents_required_common || []).length} Docs
+                      </span>
+                    </td>
+                    <td className="p-2 text-right font-semibold text-slate-700">{b.occupation_count || 0}</td>
                   </tr>
                 ))}
               </tbody>
@@ -250,74 +271,115 @@ export default function AuthoritiesAdmin() {
           </Card>
 
           {/* Detail editor */}
-          <Card className="col-span-5 p-4 max-h-[70vh] overflow-y-auto" data-testid="auth-detail-editor">
+          <Card className="col-span-6 p-4 max-h-[75vh] flex flex-col" data-testid="auth-detail-editor">
             {!selected ? (
-              <p className="text-slate-500 text-sm italic">Select a body from the list to edit</p>
+              <div className="flex flex-col items-center justify-center h-64 text-center p-6 border border-dashed rounded-lg bg-slate-50 text-slate-400">
+                <FileText className="h-10 w-10 text-slate-300 mb-2" />
+                <p className="font-semibold text-slate-600 text-sm">No Assessing Body Selected</p>
+                <p className="text-xs text-slate-400 mt-1">Click any assessing authority on the left to view details or manage its Document Checklist.</p>
+              </div>
             ) : (
-              <div className="space-y-3 text-sm">
-                <div className="flex items-center justify-between">
+              <div className="flex flex-col h-full space-y-3 text-sm">
+                {/* Header with Title & Verification Button */}
+                <div className="flex items-center justify-between pb-2 border-b">
                   <div>
-                    <h3 className="font-bold text-slate-900">{selected.code}</h3>
-                    <p className="text-xs text-slate-500">{selected.occupation_count || 0} linked occupations</p>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-bold text-base text-slate-900">{selected.code}</h3>
+                      <Badge className={`text-[10px] border ${STATUS_COLORS[selected.status] || ''}`}>{selected.status}</Badge>
+                    </div>
+                    <p className="text-xs text-slate-500 truncate max-w-[320px]">{selected.full_name}</p>
                   </div>
                   {selected.status === 'draft' && (
-                    <Button size="sm" onClick={() => onVerify(selected.code)} className="bg-emerald-600 hover:bg-emerald-700" disabled={busy} data-testid={`auth-verify-${selected.code}`}>
+                    <Button size="sm" onClick={() => onVerify(selected.code)} className="bg-emerald-600 hover:bg-emerald-700 text-xs h-7 px-2.5" disabled={busy} data-testid={`auth-verify-${selected.code}`}>
                       <CheckCircle className="h-3 w-3 mr-1" />Verify Now
                     </Button>
                   )}
                 </div>
-                <Field label="Full name" value={edit.full_name} onChange={v => setEdit({...edit, full_name: v})} testid="edit-full-name" />
-                <Field label="Website" value={edit.website} onChange={v => setEdit({...edit, website: v})} testid="edit-website" />
-                <Field label="MSA Fee (AUD)" type="number" value={edit.msa_fee_aud} onChange={v => setEdit({...edit, msa_fee_aud: v})} testid="edit-msa-fee" />
-                <div className="grid grid-cols-2 gap-2">
-                  <Field label="Processing min days" type="number" value={edit.standard_days_min} onChange={v => setEdit({...edit, standard_days_min: v})} testid="edit-proc-min" />
-                  <Field label="Processing max days" type="number" value={edit.standard_days_max} onChange={v => setEdit({...edit, standard_days_max: v})} testid="edit-proc-max" />
-                </div>
-                <div>
-                  <label className="text-[10px] font-semibold text-slate-700 uppercase">Methodology Summary</label>
-                  <textarea className="w-full border border-slate-300 rounded p-1.5 text-xs h-16" value={edit.methodology_summary} onChange={e => setEdit({...edit, methodology_summary: e.target.value})} data-testid="edit-methodology" />
+
+                {/* Prominent Navigation Tabs */}
+                <div className="flex border-b border-slate-200 gap-1.5 bg-slate-100/90 p-1 rounded-lg">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('checklist')}
+                    className={`flex-1 py-1.5 px-2.5 text-xs font-bold rounded-md flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                      activeTab === 'checklist'
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'text-blue-700 hover:bg-blue-50'
+                    }`}
+                  >
+                    <ListChecks className="h-4 w-4" />
+                    📋 Document Checklist ({(edit.documents_required_common || []).length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('general')}
+                    className={`flex-1 py-1.5 px-2.5 text-xs font-semibold rounded-md transition-all cursor-pointer ${
+                      activeTab === 'general'
+                        ? 'bg-white text-slate-900 shadow-sm font-bold'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    General & Fees
+                  </button>
                 </div>
 
-                {/* Document Checklist Section */}
-                <div className="border-t border-slate-200 pt-3 space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <label className="text-[11px] font-bold text-slate-800 uppercase flex items-center gap-1.5">
-                      <FileText className="h-3.5 w-3.5 text-blue-600" />
-                      Document Checklist
-                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-blue-50 text-blue-700 border-blue-200 font-semibold">
-                        {(edit.documents_required_common || []).length} required
-                      </Badge>
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const standard = [
-                          "Passport bio-data page (colour copy)",
-                          "Official Degree / Diploma Certificate",
-                          "Full Academic Transcripts for all qualifications",
-                          "Formal Statement of Service on official letterhead",
-                          "Payment evidence (payslips, tax documents, bank statements)",
-                          "Detailed Professional CV / Résumé",
-                          "English language test result (IELTS / PTE / TOEFL)",
-                        ];
-                        setEdit(prev => ({ ...prev, documents_required_common: standard }));
-                        toast.info('Standard document checklist template loaded');
-                      }}
-                      className="text-[10px] text-blue-600 hover:text-blue-800 underline cursor-pointer"
-                    >
-                      Reset to standard set
-                    </button>
-                  </div>
+                {/* Tab: Document Checklist (Prominent) */}
+                {activeTab === 'checklist' && (
+                  <div className="space-y-3 overflow-y-auto pr-1 flex-1">
+                    <div className="flex items-center justify-between bg-blue-50 p-2.5 rounded-lg border border-blue-200">
+                      <div>
+                        <h4 className="text-xs font-bold text-blue-950 flex items-center gap-1.5">
+                          <FileText className="h-4 w-4 text-blue-600" />
+                          Required Documents ({selected.code})
+                        </h4>
+                        <p className="text-[11px] text-blue-800">Checklist of documents needed for skills assessment</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const standard = [
+                            "Passport bio-data page (colour copy)",
+                            "Official Degree / Diploma Certificate",
+                            "Full Academic Transcripts for all qualifications",
+                            "Formal Statement of Service on official letterhead",
+                            "Payment evidence (payslips, tax documents, bank statements)",
+                            "Detailed Professional CV / Résumé",
+                            "English language test result (IELTS / PTE / TOEFL)",
+                          ];
+                          setEdit(prev => ({ ...prev, documents_required_common: standard }));
+                          toast.info('Standard document checklist template loaded');
+                        }}
+                        className="text-[10px] font-semibold text-blue-700 bg-white hover:bg-blue-100 px-2 py-1 rounded border border-blue-200 shadow-xs cursor-pointer"
+                      >
+                        Reset to standard set
+                      </button>
+                    </div>
 
-                  {/* Add new document input row */}
-                  <div className="flex gap-1.5">
-                    <Input
-                      placeholder="Add document item (e.g. CDR, Transcripts, Payslips)..."
-                      value={newDocItem}
-                      onChange={e => setNewDocItem(e.target.value)}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
+                    {/* Add new document input row */}
+                    <div className="flex gap-1.5">
+                      <Input
+                        placeholder="Type new document name (e.g. CDR, Transcripts, Payslips)..."
+                        value={newDocItem}
+                        onChange={e => setNewDocItem(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            if (newDocItem.trim()) {
+                              setEdit(prev => ({
+                                ...prev,
+                                documents_required_common: [...(prev.documents_required_common || []), newDocItem.trim()]
+                              }));
+                              setNewDocItem('');
+                            }
+                          }
+                        }}
+                        className="text-xs h-8"
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="h-8 px-3 text-xs bg-blue-600 hover:bg-blue-700 text-white flex-shrink-0"
+                        onClick={() => {
                           if (newDocItem.trim()) {
                             setEdit(prev => ({
                               ...prev,
@@ -325,70 +387,74 @@ export default function AuthoritiesAdmin() {
                             }));
                             setNewDocItem('');
                           }
-                        }
-                      }}
-                      className="text-xs h-8"
-                    />
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      className="h-8 px-2.5 text-xs text-blue-700 bg-blue-50 border-blue-200 hover:bg-blue-100 flex-shrink-0"
-                      onClick={() => {
-                        if (newDocItem.trim()) {
-                          setEdit(prev => ({
-                            ...prev,
-                            documents_required_common: [...(prev.documents_required_common || []), newDocItem.trim()]
-                          }));
-                          setNewDocItem('');
-                        }
-                      }}
-                    >
-                      <Plus className="h-3.5 w-3.5 mr-1" /> Add
-                    </Button>
-                  </div>
+                        }}
+                      >
+                        <Plus className="h-3.5 w-3.5 mr-1" /> Add
+                      </Button>
+                    </div>
 
-                  {/* Checklist items list */}
-                  <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
-                    {(edit.documents_required_common || []).length === 0 ? (
-                      <div className="p-3 text-center bg-slate-50 border border-dashed border-slate-200 rounded text-xs text-slate-400">
-                        No documents configured for this authority yet. Add items above or click "Reset to standard set".
-                      </div>
-                    ) : (
-                      edit.documents_required_common.map((doc, idx) => (
-                        <div
-                          key={idx}
-                          className="flex items-center justify-between gap-2 p-1.5 bg-slate-50 border border-slate-200 rounded text-xs text-slate-700 hover:bg-slate-100 transition-colors"
-                        >
-                          <div className="flex items-center gap-2 min-w-0 flex-1">
-                            <span className="flex-shrink-0 w-4 h-4 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold flex items-center justify-center">
-                              {idx + 1}
-                            </span>
-                            <span className="truncate text-slate-800 font-medium">{doc}</span>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEdit(prev => ({
-                                ...prev,
-                                documents_required_common: prev.documents_required_common.filter((_, i) => i !== idx)
-                              }));
-                            }}
-                            className="text-slate-400 hover:text-rose-600 p-0.5 rounded cursor-pointer transition-colors"
-                            title="Remove document"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
+                    {/* Checklist items list */}
+                    <div className="space-y-1.5">
+                      {(edit.documents_required_common || []).length === 0 ? (
+                        <div className="p-4 text-center bg-slate-50 border border-dashed border-slate-200 rounded-lg text-xs text-slate-400">
+                          No documents configured for this authority yet. Type a document title above or click "Reset to standard set".
                         </div>
-                      ))
-                    )}
+                      ) : (
+                        edit.documents_required_common.map((doc, idx) => (
+                          <div
+                            key={idx}
+                            className="flex items-center justify-between gap-2 p-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-700 shadow-2xs hover:border-blue-300 transition-colors"
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                              <span className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-[11px] font-bold flex items-center justify-center">
+                                {idx + 1}
+                              </span>
+                              <span className="text-slate-900 font-medium">{doc}</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEdit(prev => ({
+                                  ...prev,
+                                  documents_required_common: prev.documents_required_common.filter((_, i) => i !== idx)
+                                }));
+                              }}
+                              className="text-slate-400 hover:text-rose-600 p-1 rounded cursor-pointer transition-colors"
+                              title="Remove document"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
 
-                <Button size="sm" onClick={onSave} disabled={busy} className="w-full mt-2" data-testid="auth-save-btn">
-                  <Eye className="h-3 w-3 mr-1" />Preview Diff Audit & Save
-                </Button>
-                <p className="text-[10px] text-slate-400 italic">Changes will preview before committing. Mandatory diff audit shows downstream impact on Atlas + Sales pages.</p>
+                {/* Tab: General & Fees */}
+                {activeTab === 'general' && (
+                  <div className="space-y-3 overflow-y-auto pr-1 flex-1">
+                    <Field label="Full name" value={edit.full_name} onChange={v => setEdit({...edit, full_name: v})} testid="edit-full-name" />
+                    <Field label="Website" value={edit.website} onChange={v => setEdit({...edit, website: v})} testid="edit-website" />
+                    <Field label="MSA Fee (AUD)" type="number" value={edit.msa_fee_aud} onChange={v => setEdit({...edit, msa_fee_aud: v})} testid="edit-msa-fee" />
+                    <div className="grid grid-cols-2 gap-2">
+                      <Field label="Processing min days" type="number" value={edit.standard_days_min} onChange={v => setEdit({...edit, standard_days_min: v})} testid="edit-proc-min" />
+                      <Field label="Processing max days" type="number" value={edit.standard_days_max} onChange={v => setEdit({...edit, standard_days_max: v})} testid="edit-proc-max" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-semibold text-slate-700 uppercase">Methodology Summary</label>
+                      <textarea className="w-full border border-slate-300 rounded p-1.5 text-xs h-16" value={edit.methodology_summary} onChange={e => setEdit({...edit, methodology_summary: e.target.value})} data-testid="edit-methodology" />
+                    </div>
+                  </div>
+                )}
+
+                {/* Persistent Save Bar */}
+                <div className="pt-2 border-t mt-auto">
+                  <Button size="sm" onClick={onSave} disabled={busy} className="w-full bg-leamss-teal hover:bg-leamss-teal_dark text-white font-medium" data-testid="auth-save-btn">
+                    <Eye className="h-3 w-3 mr-1" />Preview Diff Audit & Save
+                  </Button>
+                  <p className="text-[10px] text-slate-400 italic text-center mt-1">Changes preview before committing with downstream audit.</p>
+                </div>
               </div>
             )}
           </Card>
