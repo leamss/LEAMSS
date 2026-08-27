@@ -448,7 +448,9 @@ async def get_stepwise_documents(case_id: str, current_user: dict = Depends(get_
 
     # Build step-wise structure by merging admin defaults + case-specific docs
     step_docs = []
-    for cs in case_steps:
+    prev_step_complete = True
+
+    for idx, cs in enumerate(case_steps):
         step_name = cs.get("step_name", "")
         case_req_docs = cs.get("required_documents", [])
         step_uploaded = [d for d in uploaded_docs if d.get("step_name") == step_name]
@@ -545,23 +547,45 @@ async def get_stepwise_documents(case_id: str, current_user: dict = Depends(get_
             # Add new Workflow Builder documents
             merged_docs.extend(admin_lookup.values())
 
-        # Dynamic assessing authority document checklist for Step 2
+        # Sequential step locking & Dynamic assessing authority document checklist for Step 2
         is_step_2 = (step_name.lower().strip() in ["document collection", "documents collection", "document gathering", "documents"] or cs.get("step_order") == 2)
         occ_review_status = case.get("client_occupation_review_status") or "pending_client_review"
+        step_status = (cs.get("status") or "pending").lower()
+        is_current_completed = step_status in ("completed", "complete", "done", "approved", "verified")
+
+        is_locked = False
+        lock_reason = ""
+
+        # Sequential locking: Any step after Step 1 requires previous step to be marked complete
+        if idx > 0 and not prev_step_complete:
+            is_locked = True
+            prev_name = case_steps[idx - 1].get("step_name", f"Step {idx}")
+            lock_reason = f"This step is locked. It will unlock once '{prev_name}' is marked complete by your Case Manager."
 
         if is_step_2:
-            if occ_review_status == "accepted":
-                assessing_checklist = get_assessing_body_documents(
-                    case.get("occupation_code", ""),
-                    case.get("assessing_authority_code", ""),
-                    case.get("country", "AU")
-                )
-                existing_names = {_get_doc_name(d).strip().lower() for d in merged_docs}
-                for adoc in assessing_checklist:
-                    if adoc["doc_name"].strip().lower() not in existing_names:
-                        merged_docs.append(adoc)
-            elif current_user["role"] == "client":
-                merged_docs = []
+            if not prev_step_complete:
+                is_locked = True
+                prev_name = case_steps[idx - 1].get("step_name", "Step 1 (Profile Creation)") if idx > 0 else "Step 1"
+                lock_reason = f"Step 2 is locked. It will unlock once '{prev_name}' is marked complete by your Case Manager and your Occupation Code is accepted."
+            elif occ_review_status != "accepted":
+                is_locked = True
+                if occ_review_status == "rejected_by_client":
+                    lock_reason = "You requested an occupation code change. Partner/Admin review is in progress."
+                else:
+                    lock_reason = "Please review and accept your assigned ANZSCO Occupation Code to view and upload the required document checklist for this step."
+
+        if is_locked and current_user["role"] == "client":
+            merged_docs = []
+        elif is_step_2 and occ_review_status == "accepted":
+            assessing_checklist = get_assessing_body_documents(
+                case.get("occupation_code", ""),
+                case.get("assessing_authority_code", ""),
+                case.get("country", "AU")
+            )
+            existing_names = {_get_doc_name(d).strip().lower() for d in merged_docs}
+            for adoc in assessing_checklist:
+                if adoc["doc_name"].strip().lower() not in existing_names:
+                    merged_docs.append(adoc)
 
         doc_items = []
         for rd in merged_docs:
@@ -583,9 +607,9 @@ async def get_stepwise_documents(case_id: str, current_user: dict = Depends(get_
                 "placeholder": rd.get("placeholder", ""),
                 "help_text": rd.get("help_text", ""),
                 "filled_by": rd.get(
-    "filled_by",
-    "cm" if rd.get("source") == "cm_request" else "client"
-),
+                    "filled_by",
+                    "cm" if rd.get("source") == "cm_request" else "client"
+                ),
                 "is_mandatory": rd.get(
                     "is_mandatory",
                     rd.get("mandatory", False)
@@ -611,18 +635,12 @@ async def get_stepwise_documents(case_id: str, current_user: dict = Depends(get_
                 ),
             })
 
-        is_locked = False
-        lock_reason = ""
-        if is_step_2 and occ_review_status != "accepted":
-            is_locked = True
-            if occ_review_status == "rejected_by_client":
-                lock_reason = "You requested an occupation code change. Partner/Admin review is in progress."
-            else:
-                lock_reason = "Please review and accept your assigned ANZSCO Occupation Code to view and upload the required document checklist for this step."
+        # Update prev_step_complete for next iteration
+        prev_step_complete = is_current_completed
 
         step_docs.append({
             "step_name": step_name,
-            "step_order": cs.get("step_order", 0),
+            "step_order": cs.get("step_order", idx + 1),
             "description": cs.get("description", ""),
             "status": cs.get("status", "pending"),
             "is_locked": is_locked,

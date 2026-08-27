@@ -523,23 +523,33 @@ const renderIntakeField = (field, step) => {
               <div className="flex items-center gap-3">
                 {isExpanded ? <ChevronDown className="h-4 w-4 text-slate-400 flex-shrink-0" /> : <ChevronRight className="h-4 w-4 text-slate-400 flex-shrink-0" />}
                 <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                  step.is_locked ? 'bg-amber-500 shadow-sm' :
                   stepComplete ? 'bg-emerald-500' :
                   step.status === 'completed' ? 'bg-emerald-500' :
                   step.status === 'in_progress' ? 'bg-[#2a777a]' : 'bg-slate-300'
                 }`}>
-                  {stepComplete || step.status === 'completed' ?
-                    <CheckCircle className="h-5 w-5 text-white" /> :
+                  {step.is_locked ? (
+                    <Lock className="h-4 w-4 text-white" />
+                  ) : stepComplete || step.status === 'completed' ? (
+                    <CheckCircle className="h-5 w-5 text-white" />
+                  ) : (
                     <span className="text-white font-bold text-sm">{step.step_order}</span>
-                  }
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <h4 className="font-semibold text-slate-800 dark:text-white text-sm">{step.step_name}</h4>
                     {isCurrentStep && <Badge className="bg-[#2a777a]/10 text-[#2a777a] text-[10px] border border-[#2a777a]/20">Current Step</Badge>}
-                    <Badge className={`text-[10px] ${
-                      step.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
-                      step.status === 'in_progress' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'
-                    }`}>{step.status === 'in_progress' ? 'In Progress' : step.status === 'completed' ? 'Complete' : 'Pending'}</Badge>
+                    {step.is_locked ? (
+                      <Badge className="bg-amber-100 text-amber-800 border border-amber-300 text-[10px] flex items-center gap-1 font-semibold">
+                        <Lock className="h-2.5 w-2.5" /> Locked
+                      </Badge>
+                    ) : (
+                      <Badge className={`text-[10px] ${
+                        step.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
+                        step.status === 'in_progress' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'
+                      }`}>{step.status === 'in_progress' ? 'In Progress' : step.status === 'completed' ? 'Complete' : 'Pending'}</Badge>
+                    )}
                   </div>
                   {step.description && <p className="text-xs text-slate-500 mt-0.5 truncate">{step.description}</p>}
                 </div>
