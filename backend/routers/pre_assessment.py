@@ -1090,7 +1090,21 @@ async def admin_review(pa_id: str, review: AdminReview, current_user: dict = Dep
         update_fields["standard_sale_approved_at"] = datetime.now(timezone.utc)
         update_fields["standard_sale_approval_remarks"] = review.notes or review.reason or ""
 
+    if review.decision == "approved":
+        update_fields["client_occupation_review_status"] = "pending_client_review"
+
     await pre_assessments_col.update_one({"id": pa_id}, {"$set": update_fields})
+
+    # Sync to linked case if exists
+    if pa.get("case_id"):
+        case_up = {
+            "occupation_code": pa.get("occupation_code") or review.suggested_occupation_code or "",
+            "occupation_title": pa.get("occupation_title") or review.suggested_occupation_title or "",
+            "assessing_authority_code": pa.get("assessing_authority_code") or review.suggested_assessing_authority_code or "",
+            "client_occupation_review_status": "pending_client_review",
+            "updated_at": datetime.now(timezone.utc),
+        }
+        await cases_col.update_one({"id": pa["case_id"]}, {"$set": case_up})
 
     await log_activity(current_user["id"], current_user.get("name", ""), f"pa_{review.decision}",
                     "pre_assessment", pa_id, f"Pre-assessment {review.decision} for {pa['client_name']} - {review.reason}")
@@ -1105,6 +1119,19 @@ async def admin_review(pa_id: str, review: AdminReview, current_user: dict = Dep
         "created_at": datetime.now(timezone.utc)
     })
 
+    # Notify client if approved
+    if review.decision == "approved" and (pa.get("client_user_id") or pa.get("client_id")):
+        client_uid = pa.get("client_user_id") or pa.get("client_id")
+        occ_desc = f"{pa.get('occupation_code')} - {pa.get('occupation_title')}"
+        await notifications_col.insert_one({
+            "id": str(uuid.uuid4()), "user_id": client_uid,
+            "title": "Occupation Profile Approved",
+            "message": f"Admin has approved your occupation code: {occ_desc}. Please review and accept in your client portal.",
+            "type": "occupation_approved", "read": False,
+            "link": "/client",
+            "created_at": datetime.now(timezone.utc)
+        })
+
     if review.decision == "rejected":
         # Initiate refund
         await pre_assessments_col.update_one({"id": pa_id}, {"$set": {"stage": "refund_initiated"}})
@@ -1117,6 +1144,58 @@ async def admin_review(pa_id: str, review: AdminReview, current_user: dict = Dep
         })
 
     return {"message": f"Pre-assessment {review.decision}", "stage": new_stage}
+
+
+@router.post("/{pa_id}/submit-client-suggestion-to-admin")
+async def submit_client_suggestion_to_admin(
+    pa_id: str,
+    remarks: str = Form(""),
+    current_user: dict = Depends(get_current_user)
+):
+    """Partner submits client's requested occupation code change to Admin for approval"""
+    pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
+    if not pa:
+        raise HTTPException(status_code=404, detail="Pre-assessment not found")
+
+    now = datetime.now(timezone.utc)
+    suggested_code = pa.get("client_suggested_occupation_code") or pa.get("occupation_code")
+    suggested_title = pa.get("client_suggested_occupation_title") or pa.get("occupation_title") or f"ANZSCO {suggested_code}"
+    notes = pa.get("client_suggested_occupation_notes") or remarks
+
+    update_doc = {
+        "stage": "under_review",
+        "standard_sale_approval_status": "pending",
+        "admin_decision": None,
+        "occupation_code": suggested_code,
+        "occupation_title": suggested_title,
+        "client_occupation_review_status": "pending_admin_approval",
+        "partner_remarks": f"Client requested occupation change: {suggested_code} - {suggested_title}. Note: {notes}",
+        "submitted_at": now,
+        "updated_at": now,
+    }
+    await pre_assessments_col.update_one({"id": pa_id}, {"$set": update_doc})
+
+    if pa.get("case_id"):
+        await cases_col.update_one({"id": pa["case_id"]}, {"$set": {
+            "occupation_code": suggested_code,
+            "occupation_title": suggested_title,
+            "client_occupation_review_status": "pending_admin_approval",
+            "updated_at": now,
+        }})
+
+    admins = await users_col.find({"role": "admin", "status": "active"}, {"_id": 0, "id": 1}).to_list(50)
+    for admin in admins:
+        await notifications_col.insert_one({
+            "id": str(uuid.uuid4()), "user_id": admin["id"],
+            "title": "Client Requested Occupation Change",
+            "message": f"{pa['client_name']} requested occupation change to {suggested_code} - {suggested_title}. Submitted by Partner {pa.get('partner_name')} for Admin Approval.",
+            "type": "occupation_change_approval", "read": False,
+            "link": "/admin/standard-approvals",
+            "created_at": now,
+        })
+
+    return {"message": "Client suggestion submitted to Admin for approval"}
+
 
 # ===================== PARTNER PROPOSAL ENDPOINTS =====================
 @router.post("/{pa_id}/send-proposal-draft")

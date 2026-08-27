@@ -381,6 +381,20 @@ const StandardCard = ({ pa, onAction, isPending = true, onUploaded }) => {
         </div>
       )}
 
+      {/* Client Requested Code Change (if present) */}
+      {pa.client_suggested_occupation_code && (
+        <div className="mb-3 p-2.5 bg-rose-50 border border-rose-200 rounded-lg text-xs flex items-center gap-2 flex-wrap">
+          <span className="font-bold text-rose-900 flex items-center gap-1">
+            <AlertTriangle className="h-3.5 w-3.5 text-rose-600" /> Client Requested Code:
+          </span>
+          <Badge className="bg-rose-600 text-white font-bold">{pa.client_suggested_occupation_code}</Badge>
+          <span className="font-semibold text-slate-800">{pa.client_suggested_occupation_title || ''}</span>
+          {pa.client_suggested_occupation_notes && (
+            <span className="text-rose-700 italic">("{pa.client_suggested_occupation_notes}")</span>
+          )}
+        </div>
+      )}
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm mb-3 bg-slate-50 rounded p-3">
         <div><p className="text-xs text-slate-400">Email</p><p className="font-medium text-slate-700">{pa.client_email || 'N/A'}</p></div>
         <div><p className="text-xs text-slate-400">Mobile</p><p className="font-medium text-slate-700">{pa.client_mobile || 'N/A'}</p></div>

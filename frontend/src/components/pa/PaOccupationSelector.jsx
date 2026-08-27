@@ -176,27 +176,58 @@ export default function PaOccupationSelector({ pa, onSaved, getAuthHeader }) {
 
           {/* Client Suggested Occupation Alert */}
           {pa.client_occupation_review_status === 'rejected_by_client' && (
-            <div className="p-2.5 bg-rose-50 border border-rose-300 rounded-md text-xs flex items-center justify-between gap-2 flex-wrap">
-              <div className="flex items-center gap-1.5">
-                <span className="font-bold text-rose-900">🚨 Client Requested Code Change:</span>
-                <span className="font-bold text-slate-900">{pa.client_suggested_occupation_code || 'Custom'}</span>
-                {pa.client_suggested_occupation_title && <span className="text-slate-700">· {pa.client_suggested_occupation_title}</span>}
-                {pa.client_suggested_occupation_notes && (
-                  <span className="text-rose-700 italic ml-1">("{pa.client_suggested_occupation_notes}")</span>
-                )}
+            <div className="p-3 bg-rose-50 border-2 border-rose-300 rounded-lg text-xs space-y-2">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="font-bold text-rose-900">🚨 Client Requested Code Change:</span>
+                  <span className="font-mono font-bold text-rose-950 bg-rose-100 px-2 py-0.5 rounded border border-rose-300">
+                    {pa.client_suggested_occupation_code || 'Custom'}
+                  </span>
+                  {pa.client_suggested_occupation_title && (
+                    <span className="font-semibold text-slate-900">· {pa.client_suggested_occupation_title}</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    className="h-7 text-xs px-3 bg-[#f7620b] hover:bg-[#e55a09] text-white font-bold shadow-sm flex items-center gap-1"
+                    disabled={saving}
+                    onClick={async () => {
+                      setSaving(true);
+                      try {
+                        await axios.post(`${API}/pre-assessment/${pa.id}/submit-client-suggestion-to-admin`, {}, getAuthHeader());
+                        toast.success('Submitted client suggested code to Admin for approval!');
+                        if (onSaved) onSaved();
+                      } catch (err) {
+                        toast.error(err.response?.data?.detail || 'Failed to submit to Admin');
+                      } finally {
+                        setSaving(false);
+                      }
+                    }}
+                    data-testid="submit-client-suggestion-to-admin-btn"
+                  >
+                    <Send className="h-3.5 w-3.5" /> Submit to Admin for Approval
+                  </Button>
+                  {pa.client_suggested_occupation_code && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs px-2.5 border-rose-300 text-rose-800 hover:bg-rose-100"
+                      disabled={saving}
+                      onClick={() => handleSelect({
+                        code: pa.client_suggested_occupation_code,
+                        title: pa.client_suggested_occupation_title || `ANZSCO ${pa.client_suggested_occupation_code}`,
+                      })}
+                    >
+                      Apply Directly
+                    </Button>
+                  )}
+                </div>
               </div>
-              {pa.client_suggested_occupation_code && (
-                <Button
-                  size="sm"
-                  className="h-6 text-[11px] px-2 bg-rose-600 hover:bg-rose-700 text-white font-medium shadow-none"
-                  disabled={saving}
-                  onClick={() => handleSelect({
-                    code: pa.client_suggested_occupation_code,
-                    title: pa.client_suggested_occupation_title || `ANZSCO ${pa.client_suggested_occupation_code}`,
-                  })}
-                >
-                  Apply Client Suggestion
-                </Button>
+              {pa.client_suggested_occupation_notes && (
+                <p className="text-rose-800 bg-rose-100/70 p-2 rounded border border-rose-200 italic">
+                  "{pa.client_suggested_occupation_notes}"
+                </p>
               )}
             </div>
           )}

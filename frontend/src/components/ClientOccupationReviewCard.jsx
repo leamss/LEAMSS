@@ -50,19 +50,22 @@ export default function ClientOccupationReviewCard({ caseData, onUpdated, getAut
 
   const handleSearchOcc = async (query) => {
     setSearchQuery(query);
-    if (!query || query.trim().length < 2) {
+    if (!query || query.trim().length < 1) {
       setSearchResults([]);
       return;
     }
     setSearching(true);
     try {
+      const countryRaw = caseData.country || (caseData.product_name?.includes('Canada') ? 'CA' : 'AU');
+      const countryCode = countryRaw.length === 2 ? countryRaw.toUpperCase() : (countryRaw.toUpperCase().includes('CA') ? 'CA' : 'AU');
       const res = await axios.get(
-        `${API}/sales/occupations/search?q=${encodeURIComponent(query.trim())}&country=${caseData.country || 'AU'}`,
+        `${API}/sales/occupations/search?q=${encodeURIComponent(query.trim())}&country=${countryCode}`,
         getAuthHeader()
       );
-      const items = res.data?.items || res.data?.results || [];
-      setSearchResults(items.slice(0, 8));
+      const items = res.data?.items || res.data?.results || (Array.isArray(res.data) ? res.data : []);
+      setSearchResults(items.slice(0, 10));
     } catch (e) {
+      console.error('Occupation search error:', e);
       setSearchResults([]);
     }
     setSearching(false);
