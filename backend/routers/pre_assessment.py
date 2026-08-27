@@ -124,8 +124,8 @@ class CreatePreAssessment(BaseModel):
 
 class AdminReview(BaseModel):
     decision: str  # "approved" or "rejected"
-    reason: str = ""
-    notes: str = ""
+    reason: Optional[str] = ""
+    notes: Optional[str] = ""
     suggested_occupation_code: Optional[str] = None
     suggested_occupation_title: Optional[str] = None
     suggested_assessing_authority_code: Optional[str] = None
@@ -1012,7 +1012,8 @@ async def get_pa_edit_history(pa_id: str, current_user: dict = Depends(get_curre
 @router.put("/{pa_id}/review")
 async def admin_review(pa_id: str, review: AdminReview, current_user: dict = Depends(get_current_user)):
     """Admin approves or rejects pre-assessment"""
-    if current_user["role"] != "admin":
+    role = (current_user.get("role") or current_user.get("rbac_role") or "").lower()
+    if role not in ("admin", "admin_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
 
     pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
