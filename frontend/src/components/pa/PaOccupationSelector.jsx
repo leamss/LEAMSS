@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Briefcase, Search, Check, Building2, Edit2, X, Loader2, Sparkles, Plus } from 'lucide-react';
+import { Briefcase, Search, Check, Building2, Edit2, X, Loader2, Sparkles, Plus, Send } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
