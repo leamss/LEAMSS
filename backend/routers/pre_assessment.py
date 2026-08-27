@@ -1097,19 +1097,40 @@ async def admin_review(pa_id: str, review: AdminReview, current_user: dict = Dep
 
     if review.decision == "approved":
         update_fields["client_occupation_review_status"] = "pending_client_review"
+        update_fields["client_suggested_occupation_code"] = None
+        update_fields["client_suggested_occupation_title"] = None
+        update_fields["client_suggested_occupation_notes"] = None
+        update_fields["suggested_occupation_code"] = None
+        update_fields["suggested_occupation_title"] = None
+        update_fields["suggested_assessing_authority_code"] = None
 
     await pre_assessments_col.update_one({"id": pa_id}, {"$set": update_fields})
 
-    # Sync to linked case if exists
-    if pa.get("case_id"):
+    # Sync to linked case(s)
+    if review.decision == "approved":
+        approved_code = pa.get("occupation_code") or review.suggested_occupation_code or ""
+        approved_title = pa.get("occupation_title") or review.suggested_occupation_title or ""
+        approved_auth = pa.get("assessing_authority_code") or review.suggested_assessing_authority_code or ""
         case_up = {
-            "occupation_code": pa.get("occupation_code") or review.suggested_occupation_code or "",
-            "occupation_title": pa.get("occupation_title") or review.suggested_occupation_title or "",
-            "assessing_authority_code": pa.get("assessing_authority_code") or review.suggested_assessing_authority_code or "",
+            "occupation_code": approved_code,
+            "occupation_title": approved_title,
+            "assessing_authority_code": approved_auth,
             "client_occupation_review_status": "pending_client_review",
+            "client_suggested_occupation_code": None,
+            "client_suggested_occupation_title": None,
+            "client_suggested_occupation_notes": None,
+            "suggested_occupation_code": None,
             "updated_at": datetime.now(timezone.utc),
         }
-        await cases_col.update_one({"id": pa["case_id"]}, {"$set": case_up})
+        await cases_col.update_many(
+            {"$or": [
+                {"pre_assessment_id": pa_id},
+                {"id": pa.get("case_id") or "____"},
+                {"client_email": (pa.get("client_email") or "____").lower()},
+                {"client_id": pa.get("client_user_id") or "____"},
+            ]},
+            {"$set": case_up}
+        )
 
     await log_activity(current_user["id"], current_user.get("name", ""), f"pa_{review.decision}",
                     "pre_assessment", pa_id, f"Pre-assessment {review.decision} for {pa['client_name']} - {review.reason}")

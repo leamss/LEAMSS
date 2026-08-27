@@ -150,15 +150,27 @@ async def _enrich_cases(cases):
         case_steps.sort(key=lambda x: x.get("step_order", 0))
         case["steps"] = case_steps
         
-        # Fallback if case doesn't have occupation_code stored directly
-        if not case.get("occupation_code") and case.get("pre_assessment_id"):
-            pa_obj = await pre_assessments_col.find_one({"id": case["pre_assessment_id"]}, {"_id": 0})
+        # Sync occupation fields from linked pre-assessment
+        pa_filter = None
+        if case.get("pre_assessment_id"):
+            pa_filter = {"id": case["pre_assessment_id"]}
+        elif case.get("client_email"):
+            pa_filter = {"client_email": case["client_email"].lower()}
+
+        if pa_filter:
+            pa_obj = await pre_assessments_col.find_one(pa_filter, {"_id": 0})
             if pa_obj:
-                case["occupation_code"] = pa_obj.get("occupation_code") or pa_obj.get("suggested_occupation_code") or ""
-                case["occupation_title"] = pa_obj.get("occupation_title") or pa_obj.get("suggested_occupation_title") or ""
-                case["assessing_authority_code"] = pa_obj.get("assessing_authority_code") or pa_obj.get("suggested_assessing_authority_code") or ""
-                if not case.get("client_occupation_review_status"):
-                    case["client_occupation_review_status"] = pa_obj.get("client_occupation_review_status") or "pending_client_review"
+                if pa_obj.get("occupation_code"):
+                    case["occupation_code"] = pa_obj.get("occupation_code")
+                if pa_obj.get("occupation_title"):
+                    case["occupation_title"] = pa_obj.get("occupation_title")
+                if pa_obj.get("assessing_authority_code"):
+                    case["assessing_authority_code"] = pa_obj.get("assessing_authority_code")
+                if pa_obj.get("client_occupation_review_status"):
+                    case["client_occupation_review_status"] = pa_obj.get("client_occupation_review_status")
+                case["client_suggested_occupation_code"] = pa_obj.get("client_suggested_occupation_code")
+                case["client_suggested_occupation_title"] = pa_obj.get("client_suggested_occupation_title")
+                case["client_suggested_occupation_notes"] = pa_obj.get("client_suggested_occupation_notes")
 
         additional_docs = docs_map.get(case["id"], [])
         for doc in additional_docs:
