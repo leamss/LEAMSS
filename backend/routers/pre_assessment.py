@@ -1146,10 +1146,14 @@ async def admin_review(pa_id: str, review: AdminReview, current_user: dict = Dep
     return {"message": f"Pre-assessment {review.decision}", "stage": new_stage}
 
 
+class ClientSuggestionPayload(BaseModel):
+    remarks: Optional[str] = ""
+
+
 @router.post("/{pa_id}/submit-client-suggestion-to-admin")
 async def submit_client_suggestion_to_admin(
     pa_id: str,
-    remarks: str = Form(""),
+    payload: Optional[ClientSuggestionPayload] = None,
     current_user: dict = Depends(get_current_user)
 ):
     """Partner submits client's requested occupation code change to Admin for approval"""
@@ -1160,7 +1164,7 @@ async def submit_client_suggestion_to_admin(
     now = datetime.now(timezone.utc)
     suggested_code = pa.get("client_suggested_occupation_code") or pa.get("occupation_code")
     suggested_title = pa.get("client_suggested_occupation_title") or pa.get("occupation_title") or f"ANZSCO {suggested_code}"
-    notes = pa.get("client_suggested_occupation_notes") or remarks
+    notes = pa.get("client_suggested_occupation_notes") or (payload.remarks if payload else "")
 
     update_doc = {
         "stage": "under_review",
