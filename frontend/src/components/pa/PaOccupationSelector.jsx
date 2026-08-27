@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Briefcase, Search, Check, Building2, Edit2, X, Loader2, Sparkles, Plus, Send } from 'lucide-react';
+import { Briefcase, Search, Check, Building2, Edit2, X, Loader2, Sparkles, Plus, Send, Clock } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -146,8 +146,23 @@ export default function PaOccupationSelector({ pa, onSaved, getAuthHeader }) {
             )}
           </div>
 
+          {/* Awaiting Admin Approval Banner */}
+          {pa.client_occupation_review_status === 'pending_admin_approval' && (
+            <div className="p-2.5 bg-amber-50 border border-amber-300 rounded-md text-xs flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-1.5">
+                <Clock className="h-4 w-4 text-amber-600 animate-spin shrink-0" />
+                <div>
+                  <span className="font-bold text-amber-950">Awaiting Admin Approval:</span>
+                  <span className="font-mono font-bold text-slate-900 ml-1.5">{pa.occupation_code}</span>
+                  {pa.occupation_title && <span className="text-slate-700 ml-1">· {pa.occupation_title}</span>}
+                </div>
+              </div>
+              <Badge className="bg-amber-600 text-white text-[10px] font-semibold">Under Admin Review</Badge>
+            </div>
+          )}
+
           {/* Admin Suggested Occupation Alert */}
-          {pa.suggested_occupation_code && pa.suggested_occupation_code !== pa.occupation_code && (
+          {pa.client_occupation_review_status !== 'pending_admin_approval' && pa.suggested_occupation_code && pa.suggested_occupation_code !== pa.occupation_code && (
             <div className="p-2.5 bg-amber-50 border border-amber-300 rounded-md text-xs flex items-center justify-between gap-2 flex-wrap">
               <div className="flex items-center gap-1.5">
                 <span className="font-bold text-amber-900">💡 Admin Suggested:</span>

@@ -1065,7 +1065,7 @@ async def admin_review(pa_id: str, review: AdminReview, current_user: dict = Dep
                             "pre_assessment", pa_id, f"Standard Sale rejected for {pa['client_name']}: {reason.strip()}")
             return {"message": "Standard Sale rejected", "stage": "standard_rejected"}
 
-    new_stage = "approved" if review.decision == "approved" else "rejected"
+    new_stage = ("case_created" if pa.get("case_id") or pa.get("stage") == "case_created" else "approved") if review.decision == "approved" else "rejected"
 
     update_fields = {
         "stage": new_stage,
@@ -1081,6 +1081,10 @@ async def admin_review(pa_id: str, review: AdminReview, current_user: dict = Dep
         update_fields["suggested_occupation_code"] = review.suggested_occupation_code.strip()
         update_fields["suggested_occupation_title"] = (review.suggested_occupation_title or "").strip()
         update_fields["suggested_assessing_authority_code"] = (review.suggested_assessing_authority_code or "").strip()
+    elif review.decision == "approved":
+        update_fields["suggested_occupation_code"] = None
+        update_fields["suggested_occupation_title"] = None
+        update_fields["suggested_assessing_authority_code"] = None
 
     # Mirror decision into standard_sale_* fields so it also shows in
     # "Standard Sale Approvals" history tab (unified tracking view)
@@ -1172,6 +1176,9 @@ async def submit_client_suggestion_to_admin(
         "admin_decision": None,
         "occupation_code": suggested_code,
         "occupation_title": suggested_title,
+        "suggested_occupation_code": None,
+        "suggested_occupation_title": None,
+        "suggested_assessing_authority_code": None,
         "client_occupation_review_status": "pending_admin_approval",
         "partner_remarks": f"Client requested occupation change: {suggested_code} - {suggested_title}. Note: {notes}",
         "submitted_at": now,
