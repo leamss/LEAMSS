@@ -148,6 +148,180 @@ def _get_doc_name(rd: dict) -> str:
     return rd.get("doc_name") or rd.get("name") or ""
 
 
+def get_assessing_body_documents(occupation_code: str, assessing_authority: str, country: str = "AU") -> list:
+    """Generate official dynamic document checklist tailored to the assessing authority and occupation code"""
+    auth = (assessing_authority or "").upper().strip()
+    occ_str = f" for ANZSCO {occupation_code}" if occupation_code else ""
+    
+    docs = [
+        {
+            "doc_name": "International Passport (Bio & Address Pages)",
+            "key": "passport_bio",
+            "field_type": "file",
+            "is_mandatory": True,
+            "mandatory": True,
+            "tag": "mandatory",
+            "notes": "Clear color copy of passport bio page valid for at least 6 months.",
+            "description": "Clear color copy of passport bio page valid for at least 6 months.",
+            "source": "assessing_body_checklist"
+        },
+        {
+            "doc_name": "Educational Degree / Qualification Certificate",
+            "key": "degree_certificate",
+            "field_type": "file",
+            "is_mandatory": True,
+            "mandatory": True,
+            "tag": "mandatory",
+            "notes": f"Final degree / diploma certificate awarded by recognized university{occ_str}.",
+            "description": f"Final degree / diploma certificate awarded by recognized university{occ_str}.",
+            "source": "assessing_body_checklist"
+        },
+        {
+            "doc_name": "Academic Transcripts & Marksheets",
+            "key": "academic_transcripts",
+            "field_type": "file",
+            "is_mandatory": True,
+            "mandatory": True,
+            "tag": "mandatory",
+            "notes": "Semester-wise official mark sheets / transcripts showing all subjects and grades.",
+            "description": "Semester-wise official mark sheets / transcripts showing all subjects and grades.",
+            "source": "assessing_body_checklist"
+        },
+        {
+            "doc_name": f"Employment Reference Letter ({auth or 'Assessing Body'} format)",
+            "key": "employment_reference_letters",
+            "field_type": "file",
+            "is_mandatory": True,
+            "mandatory": True,
+            "tag": "mandatory",
+            "notes": f"Official letterhead service certificate signed by HR/Manager stating exact job title, dates, hours/week, and 5+ core ANZSCO responsibilities.",
+            "description": f"Official letterhead service certificate signed by HR/Manager stating exact job title, dates, hours/week, and 5+ core ANZSCO responsibilities.",
+            "source": "assessing_body_checklist"
+        },
+        {
+            "doc_name": "Salary Payslips / Payment Evidence",
+            "key": "salary_payslips",
+            "field_type": "file",
+            "is_mandatory": True,
+            "mandatory": True,
+            "tag": "mandatory",
+            "notes": "First and last 3 payslips for each declared employment period.",
+            "description": "First and last 3 payslips for each declared employment period.",
+            "source": "assessing_body_checklist"
+        },
+        {
+            "doc_name": "Bank Statements (Showing Regular Salary Credits)",
+            "key": "bank_statements_salary",
+            "field_type": "file",
+            "is_mandatory": True,
+            "mandatory": True,
+            "tag": "mandatory",
+            "notes": "Official stamped bank statements verifying consistent salary deposit from employer.",
+            "description": "Official stamped bank statements verifying consistent salary deposit from employer.",
+            "source": "assessing_body_checklist"
+        },
+        {
+            "doc_name": "Comprehensive CV / Resume",
+            "key": "comprehensive_cv",
+            "field_type": "file",
+            "is_mandatory": True,
+            "mandatory": True,
+            "tag": "mandatory",
+            "notes": "Detailed chronological resume covering full work history and technical competencies.",
+            "description": "Detailed chronological resume covering full work history and technical competencies.",
+            "source": "assessing_body_checklist"
+        },
+        {
+            "doc_name": "Income Tax Returns / Form 16 / Tax Summary",
+            "key": "tax_returns_form16",
+            "field_type": "file",
+            "is_mandatory": False,
+            "mandatory": False,
+            "tag": "optional",
+            "notes": "Annual income tax returns or official government tax assessment summary.",
+            "description": "Annual income tax returns or official government tax assessment summary.",
+            "source": "assessing_body_checklist"
+        }
+    ]
+
+    # Specific Assessing Body Additions
+    if "ACS" in auth:
+        docs.append({
+            "doc_name": "ACS ICT Roles & Technologies Breakdown",
+            "key": "acs_ict_roles",
+            "field_type": "file",
+            "is_mandatory": True,
+            "mandatory": True,
+            "tag": "mandatory",
+            "notes": "Detailed statement of programming languages, architectures, and ICT skills applied in projects.",
+            "description": "Detailed statement of programming languages, architectures, and ICT skills applied in projects.",
+            "source": "assessing_body_checklist"
+        })
+    elif "VETASSESS" in auth:
+        docs.append({
+            "doc_name": "Organizational Hierarchy Chart",
+            "key": "vetassess_org_chart",
+            "field_type": "file",
+            "is_mandatory": False,
+            "mandatory": False,
+            "tag": "conditional",
+            "notes": "Company organization structure chart highlighting applicant's position and reporting hierarchy.",
+            "description": "Company organization structure chart highlighting applicant's position and reporting hierarchy.",
+            "source": "assessing_body_checklist"
+        })
+    elif "ENGINEER" in auth or "EA" == auth:
+        docs.extend([
+            {
+                "doc_name": "Career Episode Reports (3 CDR Episodes)",
+                "key": "ea_cdr_episodes",
+                "field_type": "file",
+                "is_mandatory": True,
+                "mandatory": True,
+                "tag": "mandatory",
+                "notes": "Three career episodes demonstrating application of engineering knowledge.",
+                "description": "Three career episodes demonstrating application of engineering knowledge.",
+                "source": "assessing_body_checklist"
+            },
+            {
+                "doc_name": "Continuous Professional Development (CPD) Statement",
+                "key": "ea_cpd_statement",
+                "field_type": "file",
+                "is_mandatory": True,
+                "mandatory": True,
+                "tag": "mandatory",
+                "notes": "List of post-graduation professional courses, workshops, and technical training.",
+                "description": "List of post-graduation professional courses, workshops, and technical training.",
+                "source": "assessing_body_checklist"
+            }
+        ])
+    elif "TRA" in auth:
+        docs.append({
+            "doc_name": "Trade Certificate & Apprenticeship Logbook",
+            "key": "tra_logbook",
+            "field_type": "file",
+            "is_mandatory": True,
+            "mandatory": True,
+            "tag": "mandatory",
+            "notes": "Official trade certificate, apprenticeship deed or practical workplace logbook.",
+            "description": "Official trade certificate, apprenticeship deed or practical workplace logbook.",
+            "source": "assessing_body_checklist"
+        })
+    elif "ANMAC" in auth:
+        docs.append({
+            "doc_name": "Nursing Council Registration License",
+            "key": "anmac_license",
+            "field_type": "file",
+            "is_mandatory": True,
+            "mandatory": True,
+            "tag": "mandatory",
+            "notes": "Current valid nursing registration/license certificate from official nursing council.",
+            "description": "Current valid nursing registration/license certificate from official nursing council.",
+            "source": "assessing_body_checklist"
+        })
+
+    return docs
+
+
 # ============ GET STEP-WISE DOCUMENT VIEW (CLIENT + CM) ============
 
 @router.get("/case/{case_id}")
@@ -159,8 +333,18 @@ async def get_stepwise_documents(case_id: str, current_user: dict = Depends(get_
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
 
+    # Fallback to linked pre-assessment if case lacks occupation details
+    if not case.get("occupation_code") and case.get("pre_assessment_id"):
+        pa_obj = await db["pre_assessments"].find_one({"id": case["pre_assessment_id"]}, {"_id": 0})
+        if pa_obj:
+            case["occupation_code"] = pa_obj.get("occupation_code") or pa_obj.get("suggested_occupation_code") or ""
+            case["occupation_title"] = pa_obj.get("occupation_title") or pa_obj.get("suggested_occupation_title") or ""
+            case["assessing_authority_code"] = pa_obj.get("assessing_authority_code") or pa_obj.get("suggested_assessing_authority_code") or ""
+            if not case.get("client_occupation_review_status"):
+                case["client_occupation_review_status"] = pa_obj.get("client_occupation_review_status") or "pending_client_review"
+
     # Access check
-    if current_user["role"] == "client" and current_user["id"] != case.get("client_id"):
+    if current_user["role"] == "client" and current_user["id"] != case.get("client_id") and current_user["id"] != case.get("spouse_id"):
         raise HTTPException(status_code=403, detail="Access denied")
 
     # Get case steps
@@ -360,6 +544,25 @@ async def get_stepwise_documents(case_id: str, current_user: dict = Depends(get_
 
             # Add new Workflow Builder documents
             merged_docs.extend(admin_lookup.values())
+
+        # Dynamic assessing authority document checklist for Step 2
+        is_step_2 = (step_name.lower().strip() in ["document collection", "documents collection", "document gathering", "documents"] or cs.get("step_order") == 2)
+        occ_review_status = case.get("client_occupation_review_status") or "pending_client_review"
+
+        if is_step_2:
+            if occ_review_status == "accepted":
+                assessing_checklist = get_assessing_body_documents(
+                    case.get("occupation_code", ""),
+                    case.get("assessing_authority_code", ""),
+                    case.get("country", "AU")
+                )
+                existing_names = {_get_doc_name(d).strip().lower() for d in merged_docs}
+                for adoc in assessing_checklist:
+                    if adoc["doc_name"].strip().lower() not in existing_names:
+                        merged_docs.append(adoc)
+            elif current_user["role"] == "client":
+                merged_docs = []
+
         doc_items = []
         for rd in merged_docs:
             doc_name = _get_doc_name(rd)
@@ -407,11 +610,23 @@ async def get_stepwise_documents(case_id: str, current_user: dict = Depends(get_
                     else "not_uploaded"
                 ),
             })
+
+        is_locked = False
+        lock_reason = ""
+        if is_step_2 and occ_review_status != "accepted":
+            is_locked = True
+            if occ_review_status == "rejected_by_client":
+                lock_reason = "You requested an occupation code change. Partner/Admin review is in progress."
+            else:
+                lock_reason = "Please review and accept your assigned ANZSCO Occupation Code to view and upload the required document checklist for this step."
+
         step_docs.append({
             "step_name": step_name,
             "step_order": cs.get("step_order", 0),
             "description": cs.get("description", ""),
             "status": cs.get("status", "pending"),
+            "is_locked": is_locked,
+            "lock_reason": lock_reason,
             "required_count": len(doc_items),
             "uploaded_count": sum(1 for d in doc_items if d["uploaded"]),
             "verified_count": sum(1 for d in doc_items if d["status"] == "approved"),

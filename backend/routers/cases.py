@@ -150,6 +150,16 @@ async def _enrich_cases(cases):
         case_steps.sort(key=lambda x: x.get("step_order", 0))
         case["steps"] = case_steps
         
+        # Fallback if case doesn't have occupation_code stored directly
+        if not case.get("occupation_code") and case.get("pre_assessment_id"):
+            pa_obj = await pre_assessments_col.find_one({"id": case["pre_assessment_id"]}, {"_id": 0})
+            if pa_obj:
+                case["occupation_code"] = pa_obj.get("occupation_code") or pa_obj.get("suggested_occupation_code") or ""
+                case["occupation_title"] = pa_obj.get("occupation_title") or pa_obj.get("suggested_occupation_title") or ""
+                case["assessing_authority_code"] = pa_obj.get("assessing_authority_code") or pa_obj.get("suggested_assessing_authority_code") or ""
+                if not case.get("client_occupation_review_status"):
+                    case["client_occupation_review_status"] = pa_obj.get("client_occupation_review_status") or "pending_client_review"
+
         additional_docs = docs_map.get(case["id"], [])
         for doc in additional_docs:
             for f in ["created_at", "due_date", "expiry_date"]:
@@ -157,7 +167,7 @@ async def _enrich_cases(cases):
                     doc[f] = doc[f].isoformat()
         case["additional_doc_requests"] = additional_docs
         
-        for f in ["created_at", "updated_at"]:
+        for f in ["created_at", "updated_at", "client_occupation_accepted_at", "client_occupation_rejected_at"]:
             if isinstance(case.get(f), datetime):
                 case[f] = case[f].isoformat()
     
@@ -1165,6 +1175,170 @@ async def transfer_case(request: CaseTransferRequest, current_user: dict = Depen
         await create_notification(from_cm_id, "Case Transferred", f"Case {case.get('case_id','')} transferred to {to_cm['name']}", "case_transfer", request.case_id)
     await log_activity(current_user["id"], current_user["name"], "transfer_case", "case", request.case_id, {"from": from_cm["name"] if from_cm else "None", "to": to_cm["name"]})
     return {"message": f"Case transferred to {to_cm['name']}", "transfer_id": transfer["id"]}
+
+
+# ============ CLIENT OCCUPATION DECISION & PARTNER UPDATE ============
+
+class ClientOccupationDecisionRequest(BaseModel):
+    decision: str  # "accepted" | "rejected"
+    suggested_code: Optional[str] = None
+    suggested_title: Optional[str] = None
+    suggested_assessing_body: Optional[str] = None
+    notes: Optional[str] = None
+
+
+@router.post("/{case_id}/client-occupation-decision")
+async def handle_client_occupation_decision(
+    case_id: str,
+    payload: ClientOccupationDecisionRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """Client accepts or rejects/suggests alternate occupation code for skills assessment"""
+    case = await cases_col.find_one({"id": case_id}, {"_id": 0})
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+
+    if current_user["role"] == "client" and current_user["id"] != case.get("client_id") and current_user["id"] != case.get("spouse_id"):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    now = datetime.now(timezone.utc)
+    if payload.decision == "accepted":
+        update_doc = {
+            "client_occupation_review_status": "accepted",
+            "client_occupation_accepted_at": now,
+            "updated_at": now,
+        }
+        await cases_col.update_one({"id": case_id}, {"$set": update_doc})
+
+        if case.get("pre_assessment_id"):
+            await pre_assessments_col.update_one(
+                {"id": case["pre_assessment_id"]},
+                {"$set": {"client_occupation_review_status": "accepted", "updated_at": now}}
+            )
+
+        occ_desc = f"{case.get('occupation_code')} - {case.get('occupation_title')} ({case.get('assessing_authority_code')})"
+        if case.get("partner_id"):
+            await notifications_col.insert_one({
+                "id": str(uuid.uuid4()),
+                "user_id": case["partner_id"],
+                "title": "Client Accepted Occupation Code",
+                "message": f"{case.get('client_name')} accepted occupation: {occ_desc}. Step 2 document checklist is now active.",
+                "type": "client_accepted_occupation",
+                "read": False,
+                "created_at": now,
+            })
+        if case.get("case_manager_id"):
+            await notifications_col.insert_one({
+                "id": str(uuid.uuid4()),
+                "user_id": case["case_manager_id"],
+                "title": "Client Accepted Occupation Code",
+                "message": f"{case.get('client_name')} accepted occupation: {occ_desc}. Step 2 document collection started.",
+                "type": "client_accepted_occupation",
+                "read": False,
+                "created_at": now,
+            })
+
+        return {"message": "Occupation code accepted successfully", "status": "accepted"}
+
+    elif payload.decision == "rejected":
+        update_doc = {
+            "client_occupation_review_status": "rejected_by_client",
+            "client_suggested_occupation_code": payload.suggested_code or "",
+            "client_suggested_occupation_title": payload.suggested_title or "",
+            "client_suggested_occupation_notes": payload.notes or "",
+            "client_occupation_rejected_at": now,
+            "updated_at": now,
+        }
+        await cases_col.update_one({"id": case_id}, {"$set": update_doc})
+
+        if case.get("pre_assessment_id"):
+            await pre_assessments_col.update_one(
+                {"id": case["pre_assessment_id"]},
+                {"$set": {
+                    "client_occupation_review_status": "rejected_by_client",
+                    "client_suggested_occupation_code": payload.suggested_code or "",
+                    "client_suggested_occupation_title": payload.suggested_title or "",
+                    "client_suggested_occupation_notes": payload.notes or "",
+                    "updated_at": now
+                }}
+            )
+
+        suggested_info = f" Suggested: {payload.suggested_code} - {payload.suggested_title}." if payload.suggested_code else ""
+        notes_info = f" Client notes: {payload.notes}" if payload.notes else ""
+        if case.get("partner_id"):
+            await notifications_col.insert_one({
+                "id": str(uuid.uuid4()),
+                "user_id": case["partner_id"],
+                "title": "Client Requested Occupation Code Change",
+                "message": f"{case.get('client_name')} requested to change occupation code.{suggested_info}{notes_info}",
+                "type": "client_rejected_occupation",
+                "read": False,
+                "created_at": now,
+            })
+        if case.get("case_manager_id"):
+            await notifications_col.insert_one({
+                "id": str(uuid.uuid4()),
+                "user_id": case["case_manager_id"],
+                "title": "Client Requested Occupation Code Change",
+                "message": f"{case.get('client_name')} requested to change occupation code.{suggested_info}{notes_info}",
+                "type": "client_rejected_occupation",
+                "read": False,
+                "created_at": now,
+            })
+
+        return {"message": "Occupation suggestion submitted to partner", "status": "rejected_by_client"}
+
+
+class PartnerUpdateCaseOccupationRequest(BaseModel):
+    occupation_code: str
+    occupation_title: Optional[str] = None
+    assessing_authority_code: Optional[str] = None
+    notes: Optional[str] = None
+
+
+@router.post("/{case_id}/partner-update-occupation")
+async def partner_update_case_occupation(
+    case_id: str,
+    payload: PartnerUpdateCaseOccupationRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """Partner updates case occupation (e.g. following client suggestion) and resets review status for client"""
+    case = await cases_col.find_one({"id": case_id}, {"_id": 0})
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+
+    now = datetime.now(timezone.utc)
+    update_data = {
+        "occupation_code": payload.occupation_code,
+        "occupation_title": payload.occupation_title or "",
+        "assessing_authority_code": payload.assessing_authority_code or "",
+        "client_occupation_review_status": "pending_client_review",
+        "client_suggested_occupation_code": None,
+        "client_suggested_occupation_title": None,
+        "client_suggested_occupation_notes": None,
+        "updated_at": now,
+    }
+    await cases_col.update_one({"id": case_id}, {"$set": update_data})
+
+    if case.get("pre_assessment_id"):
+        await pre_assessments_col.update_one(
+            {"id": case["pre_assessment_id"]},
+            {"$set": update_data}
+        )
+
+    if case.get("client_id"):
+        await notifications_col.insert_one({
+            "id": str(uuid.uuid4()),
+            "user_id": case["client_id"],
+            "title": "Occupation Code Updated",
+            "message": f"Your occupation code has been updated to {payload.occupation_code} - {payload.occupation_title} ({payload.assessing_authority_code}). Please review and accept in your portal.",
+            "type": "occupation_updated",
+            "read": False,
+            "created_at": now,
+        })
+
+    return {"message": "Occupation code updated successfully"}
+
 
 
 @router.get("/transfer-history/{case_id}")

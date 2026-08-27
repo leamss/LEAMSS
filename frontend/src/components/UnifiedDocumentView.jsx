@@ -565,7 +565,17 @@ const renderIntakeField = (field, step) => {
             {/* Expanded: Documents */}
             {isExpanded && (
               <div className="border-t divide-y">
-                {step.documents.length === 0 ? (
+                {step.is_locked ? (
+                  <div className="p-6 text-center bg-amber-50/60">
+                    <div className="w-10 h-10 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center mx-auto mb-2 shadow-sm">
+                      <Lock className="h-5 w-5" />
+                    </div>
+                    <p className="text-sm font-bold text-amber-950">Step Locked</p>
+                    <p className="text-xs text-amber-800 max-w-md mx-auto mt-1 leading-relaxed">
+                      {step.lock_reason || 'Please review and accept your assigned ANZSCO Occupation Code to view and upload the required document checklist.'}
+                    </p>
+                  </div>
+                ) : step.documents.length === 0 ? (
                   <div className="p-6 text-center">
                     <FileText className="h-8 w-8 text-slate-200 mx-auto mb-2" />
                     <p className="text-sm text-slate-400">No documents required for this step</p>

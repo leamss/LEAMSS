@@ -173,6 +173,33 @@ export default function PaOccupationSelector({ pa, onSaved, getAuthHeader }) {
               </Button>
             </div>
           )}
+
+          {/* Client Suggested Occupation Alert */}
+          {pa.client_occupation_review_status === 'rejected_by_client' && (
+            <div className="p-2.5 bg-rose-50 border border-rose-300 rounded-md text-xs flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-1.5">
+                <span className="font-bold text-rose-900">🚨 Client Requested Code Change:</span>
+                <span className="font-bold text-slate-900">{pa.client_suggested_occupation_code || 'Custom'}</span>
+                {pa.client_suggested_occupation_title && <span className="text-slate-700">· {pa.client_suggested_occupation_title}</span>}
+                {pa.client_suggested_occupation_notes && (
+                  <span className="text-rose-700 italic ml-1">("{pa.client_suggested_occupation_notes}")</span>
+                )}
+              </div>
+              {pa.client_suggested_occupation_code && (
+                <Button
+                  size="sm"
+                  className="h-6 text-[11px] px-2 bg-rose-600 hover:bg-rose-700 text-white font-medium shadow-none"
+                  disabled={saving}
+                  onClick={() => handleSelect({
+                    code: pa.client_suggested_occupation_code,
+                    title: pa.client_suggested_occupation_title || `ANZSCO ${pa.client_suggested_occupation_code}`,
+                  })}
+                >
+                  Apply Client Suggestion
+                </Button>
+              )}
+            </div>
+          )}
         </div>
       ) : (
         <div className="mt-2 space-y-2 relative" ref={searchRef}>

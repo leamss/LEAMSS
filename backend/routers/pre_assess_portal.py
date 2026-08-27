@@ -1936,6 +1936,12 @@ async def admin_approve_final(pa_id: str, data: Optional[AdminApproveFinalReques
         "current_step": "Profile Creation",
         "current_step_order": 1,
         "pre_assessment_id": pa_id,
+        "occupation_code": pa.get("occupation_code") or pa.get("suggested_occupation_code") or "",
+        "occupation_title": pa.get("occupation_title") or pa.get("suggested_occupation_title") or "",
+        "assessing_authority_code": pa.get("assessing_authority_code") or pa.get("suggested_assessing_authority_code") or "",
+        "country": pa.get("country") or "AU",
+        "service_type": pa.get("service_type") or "PR",
+        "client_occupation_review_status": "pending_client_review",
         "created_at": _now(),
         "updated_at": _now(),
     }

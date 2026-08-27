@@ -42,6 +42,7 @@ import EMITracker from '@/components/EMITracker';
 import FamilyManager from '@/components/FamilyManager';
 import WhatsAppButton from '@/components/WhatsAppButton';
 import PreAssessmentMiniPortal from '@/components/PreAssessmentMiniPortal';
+import ClientOccupationReviewCard from '@/components/ClientOccupationReviewCard';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || (typeof window !== 'undefined' && window.location.hostname.includes('leamss.com') ? 'https://api.leamss.com' : 'http://localhost:8001');
 const API = `${BACKEND_URL}/api`;
@@ -596,6 +597,13 @@ const activePA = preAssessments.find(p => ['payment_received', 'partner_review',
                 </div>
               </div>
             </div>
+
+            {/* Client Occupation Code Review & Acceptance Card */}
+            <ClientOccupationReviewCard
+              caseData={caseData}
+              onUpdated={loadData}
+              getAuthHeader={getAuthHeader}
+            />
 
             {/* Quick Actions Widget */}
             <div className="mb-6">
