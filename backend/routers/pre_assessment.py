@@ -829,7 +829,8 @@ async def admin_queue(current_user: dict = Depends(get_current_user)):
 
 @router.get("/admin/standard-queue")
 async def admin_standard_queue(current_user: dict = Depends(get_current_user)):
-    if current_user["role"] != "admin":
+    role = (current_user.get("role") or current_user.get("rbac_role") or "").lower()
+    if role not in ("admin", "admin_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
 
     items = await pre_assessments_col.find(
@@ -858,7 +859,8 @@ async def admin_standard_queue(current_user: dict = Depends(get_current_user)):
 @router.get("/admin/standard-history")
 async def admin_standard_history(current_user: dict = Depends(get_current_user)):
     """Admin: Decided Standard Sale gate approvals"""
-    if current_user["role"] != "admin":
+    role = (current_user.get("role") or current_user.get("rbac_role") or "").lower()
+    if role not in ("admin", "admin_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
 
     items = await pre_assessments_col.find(
@@ -2354,8 +2356,8 @@ async def get_stats(current_user: dict = Depends(get_current_user)):
 @router.get("/admin/standard-approvals")
 async def standard_approvals(current_user: dict = Depends(get_current_user)):
     """Standard Sale Approval Queue"""
-
-    if current_user["role"] != "admin":
+    role = (current_user.get("role") or current_user.get("rbac_role") or "").lower()
+    if role not in ("admin", "admin_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
 
     query = {

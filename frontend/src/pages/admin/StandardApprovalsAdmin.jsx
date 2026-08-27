@@ -515,11 +515,13 @@ export default function StandardApprovalsAdmin() {
 
   const confirmAction = async ({ remarks, suggestedOcc }) => {
     const { pa, action } = dialog;
+    if (!pa) return;
+
     try {
       const payload = {
         decision: action === 'approve' ? 'approved' : 'rejected',
-        reason: remarks,
-        notes: remarks,
+        reason: remarks || '',
+        notes: remarks || '',
       };
       if (suggestedOcc) {
         payload.suggested_occupation_code = suggestedOcc.code;
@@ -533,8 +535,14 @@ export default function StandardApprovalsAdmin() {
         getAuthHeader()
       );
       toast.success(`Pre-Assessment ${action === 'approve' ? 'approved' : 'rejected'} successfully`);
+
+      // Instantly remove card from pending queue
+      setPending(prev => prev.filter(item => item.id !== pa.id));
       setDialog({ open: false, action: null, pa: null });
+
+      // Refresh data
       load();
+
       // Right after approval, open the upload-report prompt for this PA
       if (action === 'approve') {
         setUploadDialog({ open: true, pa });
