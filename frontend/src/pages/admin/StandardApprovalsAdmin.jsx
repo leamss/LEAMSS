@@ -11,7 +11,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { ArrowLeft, ClipboardList, CheckCircle2, XCircle, Clock, User, Globe, FileText, Sparkles, Briefcase, Building2, Search, Loader2, X, Lightbulb, AlertTriangle } from 'lucide-react';
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || (typeof window !== 'undefined' && window.location.hostname.includes('leamss.com') ? 'https://api.leamss.com' : 'http://localhost:8001');
+const API = `${BACKEND_URL}/api`;
 
 const formatDate = (iso) => {
   if (!iso) return '—';
@@ -529,15 +530,16 @@ export default function StandardApprovalsAdmin() {
         payload.suggested_assessing_authority_code = suggestedOcc.assessing_body;
       }
 
+      const targetId = pa.id || pa.pre_assessment_number || pa.custom_id || pa._id;
       await axios.put(
-        `${API}/pre-assessment/${pa.id}/review`,
+        `${API}/pre-assessment/${targetId}/review`,
         payload,
         getAuthHeader()
       );
       toast.success(`Pre-Assessment ${action === 'approve' ? 'approved' : 'rejected'} successfully`);
 
       // Instantly remove card from pending queue
-      setPending(prev => prev.filter(item => item.id !== pa.id));
+      setPending(prev => prev.filter(item => (item.id || item.pre_assessment_number) !== targetId));
       setDialog({ open: false, action: null, pa: null });
 
       // Refresh data

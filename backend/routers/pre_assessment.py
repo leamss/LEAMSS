@@ -842,8 +842,10 @@ async def admin_standard_queue(current_user: dict = Depends(get_current_user)):
     ).sort("updated_at", -1).to_list(200)
 
     for item in items:
+        if not item.get("id"):
+            item["id"] = item.get("pre_assessment_number") or item.get("custom_id") or ""
         docs = await pre_assessment_docs_col.find(
-            {"pre_assessment_id": item["id"]}, {"_id": 0}
+            {"pre_assessment_id": {"$in": [item.get("id"), item.get("pre_assessment_number"), item.get("custom_id")]}}, {"_id": 0}
         ).to_list(50)
         item["documents"] = docs
         for field in ["created_at", "updated_at", "standard_sale_requested_at",
@@ -869,8 +871,10 @@ async def admin_standard_history(current_user: dict = Depends(get_current_user))
     ).sort("standard_sale_approved_at", -1).to_list(200)
 
     for item in items:
+        if not item.get("id"):
+            item["id"] = item.get("pre_assessment_number") or item.get("custom_id") or ""
         docs = await pre_assessment_docs_col.find(
-            {"pre_assessment_id": item["id"]}, {"_id": 0}
+            {"pre_assessment_id": {"$in": [item.get("id"), item.get("pre_assessment_number"), item.get("custom_id")]}}, {"_id": 0}
         ).to_list(50)
         item["documents"] = docs
 
@@ -1011,6 +1015,7 @@ async def get_pa_edit_history(pa_id: str, current_user: dict = Depends(get_curre
         "entries": entries,
     }
 
+@router.post("/{pa_id}/review")
 @router.put("/{pa_id}/review")
 async def admin_review(pa_id: str, review: AdminReview, current_user: dict = Depends(get_current_user)):
     """Admin approves or rejects pre-assessment"""
