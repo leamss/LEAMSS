@@ -360,6 +360,22 @@ async def get_stepwise_documents(case_id: str, current_user: dict = Depends(get_
             {"product_id": product_id}, {"_id": 0}
         ).sort("step_order", 1).to_list(50)
 
+    if not case_steps:
+        if case.get("steps"):
+            case_steps = case["steps"]
+        elif admin_wf_steps:
+            case_steps = [
+                {
+                    "case_id": case_id,
+                    "step_name": aws.get("step_name"),
+                    "step_order": aws.get("step_order", i + 1),
+                    "description": aws.get("description", ""),
+                    "status": "in_progress" if i == 0 else "pending",
+                    "required_documents": aws.get("required_documents", [])
+                }
+                for i, aws in enumerate(admin_wf_steps)
+            ]
+
     # Build lookup: step_name -> admin default required_documents
         # Build lookup of client-visible intake document fields by step
         # Build step-wise documents from Workflow Builder intake form

@@ -1018,16 +1018,27 @@ async def admin_review(pa_id: str, review: AdminReview, current_user: dict = Dep
     if role not in ("admin", "admin_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
 
-    pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
+    pa = await pre_assessments_col.find_one(
+        {"$or": [
+            {"id": pa_id},
+            {"pre_assessment_number": pa_id},
+            {"custom_id": pa_id}
+        ]},
+        {"_id": 0}
+    )
     if not pa:
         raise HTTPException(status_code=404, detail="Pre-assessment not found")
+
+    real_pa_id = pa.get("id") or pa_id
+    partner_id = pa.get("partner_id") or pa.get("created_by") or ""
+    client_name = pa.get("client_name") or "Client"
 
     if review.decision not in ["approved", "rejected"]:
         raise HTTPException(status_code=400, detail="Decision must be 'approved' or 'rejected'")
 
     if pa.get("stage") == "standard_pending_approval":
         if review.decision == "approved":
-            await pre_assessments_col.update_one({"id": pa_id}, {"$set": {
+            await pre_assessments_col.update_one({"id": real_pa_id}, {"$set": {
                 "stage": "new",
                 "standard_sale_approval_status": "approved",
                 "standard_sale_approved_by": current_user["id"],
@@ -1035,21 +1046,25 @@ async def admin_review(pa_id: str, review: AdminReview, current_user: dict = Dep
                 "standard_sale_approval_remarks": review.notes or review.reason or "",
                 "updated_at": datetime.now(timezone.utc),
             }})
-            await notifications_col.insert_one({
-                "id": str(uuid.uuid4()), "user_id": pa["partner_id"],
-                "title": "Standard Sale Approved",
-                "message": f"Your Standard Sale for {pa['client_name']} was approved. You can now send the pre-assessment payment link.",
-                "type": "standard_sale_approved", "read": False,
-                "created_at": datetime.now(timezone.utc)
-            })
+            if partner_id:
+                try:
+                    await notifications_col.insert_one({
+                        "id": str(uuid.uuid4()), "user_id": partner_id,
+                        "title": "Standard Sale Approved",
+                        "message": f"Your Standard Sale for {client_name} was approved. You can now send the pre-assessment payment link.",
+                        "type": "standard_sale_approved", "read": False,
+                        "created_at": datetime.now(timezone.utc)
+                    })
+                except Exception:
+                    pass
             await log_activity(current_user["id"], current_user.get("name", ""), "standard_sale_approved",
-                            "pre_assessment", pa_id, f"Standard Sale approved for {pa['client_name']}")
+                            "pre_assessment", real_pa_id, f"Standard Sale approved for {client_name}")
             return {"message": "Standard Sale approved", "stage": "new"}
         else:
             reason = review.reason or review.notes or ""
             if len(reason.strip()) < 5:
                 raise HTTPException(status_code=400, detail="Rejection reason must be at least 5 characters")
-            await pre_assessments_col.update_one({"id": pa_id}, {"$set": {
+            await pre_assessments_col.update_one({"id": real_pa_id}, {"$set": {
                 "stage": "standard_rejected",
                 "standard_sale_approval_status": "rejected",
                 "standard_sale_approved_by": current_user["id"],
@@ -1057,15 +1072,19 @@ async def admin_review(pa_id: str, review: AdminReview, current_user: dict = Dep
                 "standard_sale_approval_remarks": reason.strip(),
                 "updated_at": datetime.now(timezone.utc),
             }})
-            await notifications_col.insert_one({
-                "id": str(uuid.uuid4()), "user_id": pa["partner_id"],
-                "title": "Standard Sale Rejected",
-                "message": f"Your Standard Sale for {pa['client_name']} was rejected. Reason: {reason.strip()}",
-                "type": "standard_sale_rejected", "read": False,
-                "created_at": datetime.now(timezone.utc)
-            })
+            if partner_id:
+                try:
+                    await notifications_col.insert_one({
+                        "id": str(uuid.uuid4()), "user_id": partner_id,
+                        "title": "Standard Sale Rejected",
+                        "message": f"Your Standard Sale for {client_name} was rejected. Reason: {reason.strip()}",
+                        "type": "standard_sale_rejected", "read": False,
+                        "created_at": datetime.now(timezone.utc)
+                    })
+                except Exception:
+                    pass
             await log_activity(current_user["id"], current_user.get("name", ""), "standard_sale_rejected",
-                            "pre_assessment", pa_id, f"Standard Sale rejected for {pa['client_name']}: {reason.strip()}")
+                            "pre_assessment", real_pa_id, f"Standard Sale rejected for {client_name}: {reason.strip()}")
             return {"message": "Standard Sale rejected", "stage": "standard_rejected"}
 
     new_stage = ("case_created" if pa.get("case_id") or pa.get("stage") == "case_created" else "approved") if review.decision == "approved" else "rejected"
@@ -1073,8 +1092,8 @@ async def admin_review(pa_id: str, review: AdminReview, current_user: dict = Dep
     update_fields = {
         "stage": new_stage,
         "admin_decision": review.decision,
-        "admin_reason": review.reason,
-        "admin_notes": review.notes,
+        "admin_reason": review.reason or "",
+        "admin_notes": review.notes or "",
         "admin_reviewed_by": current_user["id"],
         "admin_reviewed_at": datetime.now(timezone.utc),
         "updated_at": datetime.now(timezone.utc)
@@ -1106,7 +1125,7 @@ async def admin_review(pa_id: str, review: AdminReview, current_user: dict = Dep
         update_fields["suggested_occupation_title"] = None
         update_fields["suggested_assessing_authority_code"] = None
 
-    await pre_assessments_col.update_one({"id": pa_id}, {"$set": update_fields})
+    await pre_assessments_col.update_one({"id": real_pa_id}, {"$set": update_fields})
 
     # Sync to linked case(s)
     if review.decision == "approved":
@@ -1126,7 +1145,7 @@ async def admin_review(pa_id: str, review: AdminReview, current_user: dict = Dep
         }
         await cases_col.update_many(
             {"$or": [
-                {"pre_assessment_id": pa_id},
+                {"pre_assessment_id": real_pa_id},
                 {"id": pa.get("case_id") or "____"},
                 {"client_email": (pa.get("client_email") or "____").lower()},
                 {"client_id": pa.get("client_user_id") or "____"},
@@ -1135,41 +1154,52 @@ async def admin_review(pa_id: str, review: AdminReview, current_user: dict = Dep
         )
 
     await log_activity(current_user["id"], current_user.get("name", ""), f"pa_{review.decision}",
-                    "pre_assessment", pa_id, f"Pre-assessment {review.decision} for {pa['client_name']} - {review.reason}")
+                    "pre_assessment", real_pa_id, f"Pre-assessment {review.decision} for {client_name} - {review.reason}")
 
     # Notify partner with suggestion if present
-    suggested_text = f" Suggested code: {review.suggested_occupation_code} - {review.suggested_occupation_title}" if review.suggested_occupation_code else ""
-    await notifications_col.insert_one({
-        "id": str(uuid.uuid4()), "user_id": pa["partner_id"],
-        "title": f"Pre-Assessment {review.decision.title()}",
-        "message": f"{pa['client_name']} eligibility: {review.decision.upper()}. {review.reason}{suggested_text}",
-        "type": "pre_assessment_decision", "read": False,
-        "created_at": datetime.now(timezone.utc)
-    })
+    if partner_id:
+        try:
+            suggested_text = f" Suggested code: {review.suggested_occupation_code} - {review.suggested_occupation_title}" if review.suggested_occupation_code else ""
+            await notifications_col.insert_one({
+                "id": str(uuid.uuid4()), "user_id": partner_id,
+                "title": f"Pre-Assessment {review.decision.title()}",
+                "message": f"{client_name} eligibility: {review.decision.upper()}. {review.reason or ''}{suggested_text}",
+                "type": "pre_assessment_decision", "read": False,
+                "created_at": datetime.now(timezone.utc)
+            })
+        except Exception:
+            pass
 
     # Notify client if approved
     if review.decision == "approved" and (pa.get("client_user_id") or pa.get("client_id")):
-        client_uid = pa.get("client_user_id") or pa.get("client_id")
-        occ_desc = f"{pa.get('occupation_code')} - {pa.get('occupation_title')}"
-        await notifications_col.insert_one({
-            "id": str(uuid.uuid4()), "user_id": client_uid,
-            "title": "Occupation Profile Approved",
-            "message": f"Admin has approved your occupation code: {occ_desc}. Please review and accept in your client portal.",
-            "type": "occupation_approved", "read": False,
-            "link": "/client",
-            "created_at": datetime.now(timezone.utc)
-        })
+        try:
+            client_uid = pa.get("client_user_id") or pa.get("client_id")
+            occ_desc = f"{pa.get('occupation_code')} - {pa.get('occupation_title')}"
+            await notifications_col.insert_one({
+                "id": str(uuid.uuid4()), "user_id": client_uid,
+                "title": "Occupation Profile Approved",
+                "message": f"Admin has approved your occupation code: {occ_desc}. Please review and accept in your client portal.",
+                "type": "occupation_approved", "read": False,
+                "link": "/client",
+                "created_at": datetime.now(timezone.utc)
+            })
+        except Exception:
+            pass
 
     if review.decision == "rejected":
         # Initiate refund
-        await pre_assessments_col.update_one({"id": pa_id}, {"$set": {"stage": "refund_initiated"}})
-        await notifications_col.insert_one({
-            "id": str(uuid.uuid4()), "user_id": pa["partner_id"],
-            "title": "Refund Initiated",
-            "message": f"₹{PRE_ASSESSMENT_FEE} refund initiated for {pa['client_name']}",
-            "type": "refund", "read": False,
-            "created_at": datetime.now(timezone.utc)
-        })
+        await pre_assessments_col.update_one({"id": real_pa_id}, {"$set": {"stage": "refund_initiated"}})
+        if partner_id:
+            try:
+                await notifications_col.insert_one({
+                    "id": str(uuid.uuid4()), "user_id": partner_id,
+                    "title": "Refund Initiated",
+                    "message": f"₹{PRE_ASSESSMENT_FEE} refund initiated for {client_name}",
+                    "type": "refund", "read": False,
+                    "created_at": datetime.now(timezone.utc)
+                })
+            except Exception:
+                pass
 
     return {"message": f"Pre-assessment {review.decision}", "stage": new_stage}
 
