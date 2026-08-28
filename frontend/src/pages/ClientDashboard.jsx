@@ -393,12 +393,14 @@ const ClientDashboard = () => {
     caseData.steps.forEach(step => {
       if (!step.is_locked) {
         step.required_documents?.forEach(doc => {
+          const docName = typeof doc === 'string' ? doc : (doc?.doc_name || doc?.name || '');
+          if (!docName) return;
           const uploaded = documents.find(d => 
             d.step_name === step.step_name && 
-            (d.document_type === doc.doc_name || d.document_type === 'workflow')
+            (d.document_type === docName || d.document_type === 'workflow')
           );
           if (!uploaded) {
-            pending.push({ ...doc, step_name: step.step_name, step_order: step.step_order });
+            pending.push({ ...(typeof doc === 'object' ? doc : { doc_name: docName }), doc_name: docName, step_name: step.step_name, step_order: step.step_order });
           }
         });
       }
@@ -828,7 +830,7 @@ const activePA = preAssessments.find(p => ['payment_received', 'partner_review',
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="font-semibold text-sm truncate">{doc.filename}</p>
-                            <p className="text-xs capitalize">{doc.document_type.replace('_', ' ')}</p>
+                            <p className="text-xs capitalize">{(doc.document_type || 'document').replace(/_/g, ' ')}</p>
                           </div>
                           <div className="text-right flex-shrink-0">
                             <p className="text-sm font-bold">{getUrgencyLabel(doc.urgency, doc.days_remaining)}</p>
