@@ -371,9 +371,10 @@ const ClientDashboard = () => {
   };
 
   const getProgressPercentage = () => {
-    if (!caseData || !caseData.steps) return 0;
+    if (!caseData || !caseData.steps || !caseData.steps.length) return 0;
     const completed = caseData.steps.filter(s => s.status === 'completed').length;
-    return (completed / caseData.steps.length) * 100;
+    const pct = Math.round((completed / caseData.steps.length) * 100);
+    return isNaN(pct) ? 0 : pct;
   };
 
   // Get additional document requests

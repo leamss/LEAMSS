@@ -32,13 +32,21 @@ export default function ClientOccupationReviewCard({ caseData, onUpdated, getAut
   const assessingBody = caseData.assessing_authority_code || (caseData.country === 'AU' ? 'VETASSESS / ACS' : 'WES / ECA');
   const reviewStatus = caseData.client_occupation_review_status || 'pending_client_review';
 
+  const getAuth = () => {
+    if (typeof getAuthHeader === 'function') {
+      try { return getAuthHeader(); } catch (e) {}
+    }
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
+    return { headers: { Authorization: `Bearer ${token}` } };
+  };
+
   const handleAccept = async () => {
     setSubmitting(true);
     try {
       await axios.post(
         `${API}/cases/${caseData.id}/client-occupation-decision`,
         { decision: 'accepted' },
-        getAuthHeader()
+        getAuth()
       );
       toast.success('Occupation profile confirmed! Step 2 Document Checklist is now unlocked.');
       if (onUpdated) onUpdated();
@@ -56,11 +64,11 @@ export default function ClientOccupationReviewCard({ caseData, onUpdated, getAut
     }
     setSearching(true);
     try {
-      const countryRaw = caseData.country || (caseData.product_name?.includes('Canada') ? 'CA' : 'AU');
+      const countryRaw = String(caseData.country || (caseData.product_name?.includes('Canada') ? 'CA' : 'AU'));
       const countryCode = countryRaw.length === 2 ? countryRaw.toUpperCase() : (countryRaw.toUpperCase().includes('CA') ? 'CA' : 'AU');
       const res = await axios.get(
         `${API}/sales/occupations/search?q=${encodeURIComponent(query.trim())}&country=${countryCode}`,
-        getAuthHeader()
+        getAuth()
       );
       const items = res.data?.items || res.data?.results || (Array.isArray(res.data) ? res.data : []);
       setSearchResults(items.slice(0, 10));
@@ -100,7 +108,7 @@ export default function ClientOccupationReviewCard({ caseData, onUpdated, getAut
           suggested_assessing_body: body,
           notes: notes.trim()
         },
-        getAuthHeader()
+        getAuth()
       );
       toast.success('Your suggestion has been submitted to your Migration Partner & Case Manager.');
       setShowSuggestModal(false);
