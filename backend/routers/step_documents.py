@@ -664,6 +664,8 @@ async def get_stepwise_documents(case_id: str, current_user: dict = Depends(get_
             })
 
         # Update prev_step_complete for next iteration
+        step_status = (cs.get("status") or "pending").lower()
+        is_current_completed = step_status in ("completed", "complete", "done", "approved", "verified")
         prev_step_complete = is_current_completed
 
         step_docs.append({
