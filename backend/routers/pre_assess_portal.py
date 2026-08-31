@@ -923,29 +923,44 @@ async def client_my_assessments(current_user: dict = Depends(get_current_user)):
     return {"assessments": items, "total": len(items)}
 
 
+def _can_access_pa_portal(pa: dict, current_user: dict) -> bool:
+    if not pa:
+        return False
+    role = current_user.get("role")
+    if role in ("admin", "super_admin"):
+        return True
+    if role in ("partner", "sales_executive", "sr_sales_executive"):
+        return True
+    user_id = current_user.get("id")
+    user_email = (current_user.get("email") or "").lower()
+    if pa.get("client_user_id") == user_id or (pa.get("client_email") or "").lower() == user_email:
+        return True
+    return False
+
+
 @router.post("/client/submit/{pa_id}")
 async def client_submit_for_review(pa_id: str, current_user: dict = Depends(get_current_user)):
     """Client marks their uploaded documents as ready for partner review.
     Transitions stage: payment_received -> documents_submitted.
     """
-    if current_user.get("role") != "client":
-        raise HTTPException(status_code=403, detail="Client only")
-
-    pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
-    if not pa or (pa.get("client_email", "").lower() != current_user.get("email", "").lower()
-                and pa.get("client_user_id") != current_user["id"]):
+    pa = await pre_assessments_col.find_one({"$or": [{"id": pa_id}, {"pa_number": pa_id}]}, {"_id": 0})
+    if not pa or not _can_access_pa_portal(pa, current_user):
         raise HTTPException(status_code=404, detail="Pre-assessment not found")
+
+    real_pa_id = pa.get("id") or pa_id
 
     if pa.get("stage") not in ("payment_received", "international_payment_pending"):
         raise HTTPException(status_code=400, detail=f"Cannot submit at stage: {pa.get('stage')}")
 
     # Verify at least 1 doc uploaded
-    docs_count = await db["pre_assessment_documents"].count_documents({"pre_assessment_id": pa_id})
+    docs_count = await db["pre_assessment_documents"].count_documents({
+        "$or": [{"pre_assessment_id": real_pa_id}, {"pre_assessment_id": pa_id}]
+    })
     if docs_count == 0:
         raise HTTPException(status_code=400, detail="Please upload at least one document before submitting")
 
     # NEW FLOW: Client submits → Partner reviews → Partner forwards → Admin reviews
-    await pre_assessments_col.update_one({"id": pa_id}, {"$set": {
+    await pre_assessments_col.update_one({"$or": [{"id": real_pa_id}, {"pa_number": real_pa_id}]}, {"$set": {
         "stage": "partner_review",
         "client_submitted_at": _now(),
         "updated_at": _now(),
@@ -1162,13 +1177,11 @@ async def partner_resend_approval(
 @router.get("/client/portal-access/{pa_id}")
 async def client_portal_access(pa_id: str, current_user: dict = Depends(get_current_user)):
     """Returns current portal access level for a pre-assessment (mini/expanded/full)."""
-    if current_user.get("role") != "client":
-        raise HTTPException(status_code=403, detail="Client only")
-    pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0, "partner_id": 0})
-    if not pa or (pa.get("client_email", "").lower() != current_user.get("email", "").lower()
-                and pa.get("client_user_id") != current_user["id"]):
+    pa = await pre_assessments_col.find_one({"$or": [{"id": pa_id}, {"pa_number": pa_id}]}, {"_id": 0})
+    if not pa or not _can_access_pa_portal(pa, current_user):
         raise HTTPException(status_code=404, detail="Not found")
 
+    real_pa_id = pa.get("id") or pa_id
     stage = pa.get("stage", "new")
     access_level = "none"
     if stage in ("payment_received", "partner_review", "documents_submitted", "under_review",
@@ -1180,7 +1193,7 @@ async def client_portal_access(pa_id: str, current_user: dict = Depends(get_curr
         access_level = "full"
 
     return {
-        "pa_id": pa_id,
+        "pa_id": real_pa_id,
         "stage": stage,
         "access_level": access_level,
         "can_upload_docs": stage in ("payment_received", "international_payment_pending"),
@@ -1196,12 +1209,11 @@ class SelectPackageRequest(BaseModel):
 @router.post("/client/select-package/{pa_id}")
 async def client_select_package(pa_id: str, data: SelectPackageRequest, current_user: dict = Depends(get_current_user)):
     """Client picks a package from the ones admin configured on the product."""
-    if current_user.get("role") != "client":
-        raise HTTPException(status_code=403, detail="Client only")
-    pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
-    if not pa or (pa.get("client_email", "").lower() != current_user.get("email", "").lower()
-                and pa.get("client_user_id") != current_user["id"]):
+    pa = await pre_assessments_col.find_one({"$or": [{"id": pa_id}, {"pa_number": pa_id}]}, {"_id": 0})
+    if not pa or not _can_access_pa_portal(pa, current_user):
         raise HTTPException(status_code=404, detail="Not found")
+
+    real_pa_id = pa.get("id") or pa_id
     if pa.get("stage") != "awaiting_package_selection":
         raise HTTPException(status_code=400, detail=f"Cannot select package at stage: {pa.get('stage')}")
 
@@ -1210,7 +1222,7 @@ async def client_select_package(pa_id: str, data: SelectPackageRequest, current_
     if not selected:
         raise HTTPException(status_code=400, detail="Invalid package_id")
 
-    await pre_assessments_col.update_one({"id": pa_id}, {"$set": {
+    await pre_assessments_col.update_one({"$or": [{"id": real_pa_id}, {"pa_number": real_pa_id}]}, {"$set": {
         "stage": "package_selected",
         "selected_package_id": data.package_id,
         "selected_package_snapshot": selected,

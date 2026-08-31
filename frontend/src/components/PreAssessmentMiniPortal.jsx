@@ -72,20 +72,21 @@ export default function PreAssessmentMiniPortal({ pa, onRefresh, onOpenScanner }
   ];
 
   const load = useCallback(async () => {
-    if (!pa?.id) return;
+    const targetId = pa?.id || pa?.pa_number;
+    if (!targetId) return;
     try {
       const [d, a, paDetail] = await Promise.all([
-        axios.get(`${API}/pre-assessment/${pa.id}/documents`, getAuth()),
-        axios.get(`${API}/pre-assess-portal/client/portal-access/${pa.id}`, getAuth()),
-        axios.get(`${API}/pre-assessment/${pa.id}`, getAuth()).catch(() => null),
+        axios.get(`${API}/pre-assessment/${targetId}/documents`, getAuth()).catch(() => ({ data: [] })),
+        axios.get(`${API}/pre-assess-portal/client/portal-access/${targetId}`, getAuth()).catch(() => ({ data: null })),
+        axios.get(`${API}/pre-assessment/${targetId}`, getAuth()).catch(() => null),
       ]);
-      setDocs(d.data || []);
-      setAccess(a.data);
+      setDocs(d?.data || []);
+      if (a?.data) setAccess(a.data);
       if (paDetail?.data) {
         setLocalPa(paDetail.data);
       }
-    } catch (e) { console.error(e); }
-  }, [pa?.id]);
+    } catch (e) { console.error('Error loading PA portal data:', e); }
+  }, [pa?.id, pa?.pa_number]);
 
   useEffect(() => {
     if (pa) setLocalPa(pa);
@@ -96,18 +97,20 @@ export default function PreAssessmentMiniPortal({ pa, onRefresh, onOpenScanner }
   const handleFile = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const targetId = currentPa?.id || currentPa?.pa_number || pa?.id || pa?.pa_number;
     setUploading(true);
     try {
       const fd = new FormData();
       fd.append('document_type', docType);
       fd.append('file', file);
-      await axios.post(`${API}/pre-assessment/${pa.id}/upload-document`, fd, {
+      await axios.post(`${API}/pre-assessment/${targetId}/upload-document`, fd, {
         ...getAuth(),
         headers: { ...getAuth().headers, 'Content-Type': 'multipart/form-data' },
       });
-      toast.success(`${file.name} uploaded`);
+      toast.success(`${file.name} uploaded successfully`);
       e.target.value = '';
       await load();
+      onRefresh?.();
     } catch (err) {
       toast.error(err?.response?.data?.detail || 'Upload failed');
     } finally {
@@ -116,9 +119,10 @@ export default function PreAssessmentMiniPortal({ pa, onRefresh, onOpenScanner }
   };
 
   const handleSubmitForReview = async () => {
+    const targetId = currentPa?.id || currentPa?.pa_number || pa?.id || pa?.pa_number;
     setSubmitting(true);
     try {
-      await axios.post(`${API}/pre-assess-portal/client/submit/${pa.id}`, {}, getAuth());
+      await axios.post(`${API}/pre-assess-portal/client/submit/${targetId}`, {}, getAuth());
       toast.success('Submitted! Your partner will review and forward to admin.');
       await load();
       onRefresh?.();
