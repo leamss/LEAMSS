@@ -1232,6 +1232,113 @@ async def client_select_package(pa_id: str, data: SelectPackageRequest, current_
 
     return {"ok": True, "stage": "package_selected", "selected_package": selected}
 
+
+class ClientOccupationDecisionPortalRequest(BaseModel):
+    decision: str  # "accepted" | "rejected"
+    suggested_code: Optional[str] = ""
+    suggested_title: Optional[str] = ""
+    suggested_assessing_body: Optional[str] = ""
+    notes: Optional[str] = ""
+
+
+@router.post("/client/occupation-decision/{pa_id}")
+@router.post("/client/{pa_id}/occupation-decision")
+async def client_portal_occupation_decision(
+    pa_id: str,
+    data: ClientOccupationDecisionPortalRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """Client accepts or suggests alternate occupation code from the portal."""
+    if current_user.get("role") != "client":
+        raise HTTPException(status_code=403, detail="Client only")
+    pa = await pre_assessments_col.find_one(
+        {"$or": [
+            {"id": pa_id},
+            {"pre_assessment_number": pa_id},
+            {"custom_id": pa_id}
+        ]},
+        {"_id": 0}
+    )
+    if not pa or (pa.get("client_email", "").lower() != current_user.get("email", "").lower()
+                and pa.get("client_user_id") != current_user["id"]):
+        raise HTTPException(status_code=404, detail="Not found")
+
+    real_pa_id = pa.get("id") or pa_id
+    now = _now()
+    if data.decision == "accepted":
+        update_doc = {
+            "client_occupation_review_status": "accepted",
+            "client_occupation_accepted_at": now,
+            "updated_at": now,
+        }
+        await pre_assessments_col.update_one({"id": real_pa_id}, {"$set": update_doc})
+
+        if pa.get("case_id"):
+            await cases_col.update_one(
+                {"id": pa["case_id"]},
+                {"$set": {"client_occupation_review_status": "accepted", "client_occupation_accepted_at": now, "updated_at": now}}
+            )
+
+        occ_desc = f"{pa.get('occupation_code')} - {pa.get('occupation_title')} ({pa.get('assessing_authority_code')})"
+        if pa.get("partner_id"):
+            try:
+                await notifications_col.insert_one({
+                    "id": str(uuid.uuid4()),
+                    "user_id": pa["partner_id"],
+                    "title": "Client Accepted Occupation Code",
+                    "message": f"{pa.get('client_name')} confirmed and accepted occupation profile: {occ_desc}.",
+                    "type": "client_accepted_occupation",
+                    "read": False,
+                    "created_at": now,
+                })
+            except Exception:
+                pass
+
+        await _log(current_user["id"], real_pa_id, "client_accepted_occupation", {"occupation": occ_desc})
+        return {"ok": True, "status": "accepted", "message": "Occupation code accepted successfully"}
+
+    elif data.decision == "rejected":
+        update_doc = {
+            "client_occupation_review_status": "rejected_by_client",
+            "client_suggested_occupation_code": data.suggested_code or "",
+            "client_suggested_occupation_title": data.suggested_title or "",
+            "client_suggested_assessing_body": data.suggested_assessing_body or "",
+            "client_suggested_occupation_notes": data.notes or "",
+            "client_occupation_rejected_at": now,
+            "updated_at": now,
+        }
+        await pre_assessments_col.update_one({"id": real_pa_id}, {"$set": update_doc})
+
+        if pa.get("case_id"):
+            await cases_col.update_one(
+                {"id": pa["case_id"]},
+                {"$set": {
+                    "client_occupation_review_status": "rejected_by_client",
+                    "client_suggested_occupation_code": data.suggested_code or "",
+                    "client_suggested_occupation_title": data.suggested_title or "",
+                    "client_suggested_occupation_notes": data.notes or "",
+                    "client_occupation_rejected_at": now,
+                    "updated_at": now,
+                }}
+            )
+
+        if pa.get("partner_id"):
+            try:
+                await notifications_col.insert_one({
+                    "id": str(uuid.uuid4()),
+                    "user_id": pa["partner_id"],
+                    "title": "Client Requested Occupation Code Change",
+                    "message": f"{pa.get('client_name')} requested alternate occupation: {data.suggested_code} - {data.suggested_title}. Notes: {data.notes}",
+                    "type": "client_rejected_occupation",
+                    "read": False,
+                    "created_at": now,
+                })
+            except Exception:
+                pass
+
+        await _log(current_user["id"], real_pa_id, "client_suggested_occupation", {"code": data.suggested_code, "notes": data.notes})
+        return {"ok": True, "status": "rejected_by_client", "message": "Occupation suggestion submitted successfully"}
+
 # ======================== CLIENT: PROPOSAL ACCEPT + MAIN FEE MOCK PAY ========================
 @router.post("/client/accept-proposal/{pa_id}")
 async def client_accept_proposal(pa_id: str, current_user: dict = Depends(get_current_user)):

@@ -12,6 +12,7 @@ import {
 import SignatureCanvas from '@/components/SignatureCanvas';
 import PaymentHistoryTimeline from '@/components/PaymentHistoryTimeline';
 import ClientAgreementSigning from '@/components/ClientAgreementSigning';
+import ClientOccupationReviewCard from '@/components/ClientOccupationReviewCard';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -39,6 +40,8 @@ const STAGE_STEPS = [
 const getAuth = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
 
 export default function PreAssessmentMiniPortal({ pa, onRefresh, onOpenScanner }) {
+  const [localPa, setLocalPa] = useState(null);
+  const currentPa = localPa || pa;
   const [docs, setDocs] = useState([]);
   const [access, setAccess] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -68,15 +71,24 @@ export default function PreAssessmentMiniPortal({ pa, onRefresh, onOpenScanner }
   ];
 
   const load = useCallback(async () => {
+    if (!pa?.id) return;
     try {
-      const [d, a] = await Promise.all([
+      const [d, a, paDetail] = await Promise.all([
         axios.get(`${API}/pre-assessment/${pa.id}/documents`, getAuth()),
         axios.get(`${API}/pre-assess-portal/client/portal-access/${pa.id}`, getAuth()),
+        axios.get(`${API}/pre-assessment/${pa.id}`, getAuth()).catch(() => null),
       ]);
       setDocs(d.data || []);
       setAccess(a.data);
+      if (paDetail?.data) {
+        setLocalPa(paDetail.data);
+      }
     } catch (e) { console.error(e); }
-  }, [pa.id]);
+  }, [pa?.id]);
+
+  useEffect(() => {
+    if (pa) setLocalPa(pa);
+  }, [pa]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -227,10 +239,22 @@ const downloadPaDocument = async (docId, fileName) => {
 const [selectingPkg, setSelectingPkg] = useState(null);
 
   const handleSelectPackage = async (packageId) => {
+    const occReviewStatus = currentPa?.client_occupation_review_status || 'pending_client_review';
+    const hasOccupation = Boolean(currentPa?.occupation_code || currentPa?.suggested_occupation_code);
+
+    if (hasOccupation && occReviewStatus === 'rejected_by_client') {
+      toast.error('You requested an occupation code change. Please wait for partner & admin review before selecting a package.');
+      return;
+    }
+    if (hasOccupation && occReviewStatus !== 'accepted') {
+      toast.warning('Please confirm and accept your assigned Occupation Code Profile above first!');
+      return;
+    }
     setSelectingPkg(packageId);
     try {
-      await axios.post(`${API}/pre-assess-portal/client/select-package/${pa.id}`, { package_id: packageId }, getAuth());
+      await axios.post(`${API}/pre-assess-portal/client/select-package/${currentPa.id}`, { package_id: packageId }, getAuth());
       toast.success('Package selected! Your partner will set up the payment plan.');
+      await load();
       onRefresh?.();
     } catch (e) {
       toast.error(e?.response?.data?.detail || 'Failed to select package');
@@ -342,7 +366,7 @@ useEffect(() => {
     }
   };
 
-  const stage = pa.stage;
+  const stage = currentPa?.stage || pa?.stage;
   const currentStepIdx = STAGE_STEPS.findIndex(s => !s.stages.includes(stage));
   const activeIdx = currentStepIdx === -1 ? STAGE_STEPS.length - 1 : currentStepIdx - 1;
   const progressPct = ((activeIdx + 1) / STAGE_STEPS.length) * 100;
@@ -358,14 +382,14 @@ useEffect(() => {
               <Badge className="bg-white/20 text-white border-white/30 mb-2">
                 <ShieldCheck className="h-3 w-3 mr-1" /> Pre-Assessment Active
               </Badge>
-              <h2 className="text-2xl sm:text-3xl font-bold">Welcome, {pa.client_name}!</h2>
+              <h2 className="text-2xl sm:text-3xl font-bold">Welcome, {currentPa?.client_name || pa?.client_name}!</h2>
               <p className="text-sm opacity-80 mt-1">
-                Your <span className="font-semibold">{pa.service_type}</span> journey to <span className="font-semibold">{pa.country}</span> has begun.
+                Your <span className="font-semibold">{currentPa?.service_type || pa?.service_type}</span> journey to <span className="font-semibold">{currentPa?.country || pa?.country}</span> has begun.
               </p>
             </div>
             <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 px-4 text-right">
               <p className="text-xs opacity-70">Pre-assessment #</p>
-              <p className="font-mono text-sm font-semibold">{pa.pa_number}</p>
+              <p className="font-mono text-sm font-semibold">{currentPa?.pa_number || pa?.pa_number}</p>
             </div>
           </div>
           {/* Pipeline */}
@@ -615,135 +639,165 @@ useEffect(() => {
 
 {/* STAGE: Client picks a package */}
       {stage === 'awaiting_package_selection' && (
-        <Card className="p-6 border-[#2a777a]/20 space-y-5">
-           {/* NEW — Pre-Assessment Report (uploaded by admin/partner) */}
-    {docs.filter(d => d.uploaded_by_role === 'admin').length > 0 && (
-      <div className="bg-teal-50 border border-teal-200 rounded-lg p-4">
-        <p className="text-xs font-semibold text-teal-800 uppercase tracking-wide mb-2 flex items-center gap-1.5">
-          <FileText className="h-3.5 w-3.5" /> Your Pre-Assessment Report
-        </p>
-        <div className="space-y-2">
-        {docs.filter(d => d.uploaded_by_role === 'admin').map(d => (
-  <div
-    key={d.id}
-    className="w-full flex items-center gap-3 p-2.5 bg-white border border-teal-200 rounded-lg"
-    data-testid={`report-row-${d.id}`}
-  >
-    <FileCheck className="h-4 w-4 text-[#2a777a] shrink-0" />
-    <button
-      onClick={() => viewPaDocument(d.id)}
-      className="flex-1 min-w-0 text-left"
-      data-testid={`view-report-${d.id}`}
-    >
-      <p className="text-sm font-medium text-slate-700 truncate">{d.file_name}</p>
-      <p className="text-xs text-slate-500 capitalize">{(d.document_type || '').replace(/_/g, ' ')}</p>
-    </button>
-    <button
-      onClick={() => viewPaDocument(d.id)}
-      className="text-xs text-[#2a777a] font-semibold shrink-0 hover:underline"
-      data-testid={`view-btn-${d.id}`}
-    >
-      View
-    </button>
-    <button
-      onClick={() => downloadPaDocument(d.id, d.file_name)}
-      className="flex items-center gap-1 text-xs text-slate-600 font-semibold shrink-0 border border-slate-300 rounded px-2 py-1 hover:bg-slate-50"
-      data-testid={`download-btn-${d.id}`}
-    >
-      <Download className="h-3 w-3" /> Download
-    </button>
-  </div>
-))}
-        </div>
-      </div>
-    )}
+        <div className="space-y-6">
+          <ClientOccupationReviewCard
+            caseData={currentPa}
+            onUpdated={async () => {
+              await load();
+              onRefresh?.();
+            }}
+            getAuthHeader={getAuth}
+          />
 
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 bg-[#2a777a] rounded-full flex items-center justify-center shrink-0">
-              <FileText className="h-6 w-6 text-white" />
-            </div>
-            <div>
-              <h3 className="font-bold text-slate-800 text-lg">Choose Your Package</h3>
-              <p className="text-sm text-slate-600 mt-1">
-                Review your pre-assessment report and pick the package that fits you best. Your partner will set up the payment plan once you select.
-              </p>
-            </div>
-          </div>
+          <Card className="p-6 border-[#2a777a]/20 space-y-5">
+            {/* NEW — Pre-Assessment Report (uploaded by admin/partner) */}
+            {docs.filter(d => d.uploaded_by_role === 'admin').length > 0 && (
+              <div className="bg-teal-50 border border-teal-200 rounded-lg p-4">
+                <p className="text-xs font-semibold text-teal-800 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                  <FileText className="h-3.5 w-3.5" /> Your Pre-Assessment Report
+                </p>
+                <div className="space-y-2">
+                  {docs.filter(d => d.uploaded_by_role === 'admin').map(d => (
+                    <div
+                      key={d.id}
+                      className="w-full flex items-center gap-3 p-2.5 bg-white border border-teal-200 rounded-lg"
+                      data-testid={`report-row-${d.id}`}
+                    >
+                      <FileCheck className="h-4 w-4 text-[#2a777a] shrink-0" />
+                      <button
+                        onClick={() => viewPaDocument(d.id)}
+                        className="flex-1 min-w-0 text-left"
+                        data-testid={`view-report-${d.id}`}
+                      >
+                        <p className="text-sm font-medium text-slate-700 truncate">{d.file_name}</p>
+                        <p className="text-xs text-slate-500 capitalize">{(d.document_type || '').replace(/_/g, ' ')}</p>
+                      </button>
+                      <button
+                        onClick={() => viewPaDocument(d.id)}
+                        className="text-xs text-[#2a777a] font-semibold shrink-0 hover:underline"
+                        data-testid={`view-btn-${d.id}`}
+                      >
+                        View
+                      </button>
+                      <button
+                        onClick={() => downloadPaDocument(d.id, d.file_name)}
+                        className="flex items-center gap-1 text-xs text-slate-600 font-semibold shrink-0 border border-slate-300 rounded px-2 py-1 hover:bg-slate-50"
+                        data-testid={`download-btn-${d.id}`}
+                      >
+                        <Download className="h-3 w-3" /> Download
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
-          <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-            {(pa.available_packages_snapshot || []).map((pkg) => (
-              <Card key={pkg.id} className="p-4 border-2 border-slate-200 hover:border-[#2a777a] transition flex flex-col">
-                <h4 className="font-bold text-slate-800">{pkg.name}</h4>
-                <p className="text-2xl font-bold text-[#2a777a] mt-1">₹{Number(pkg.price || 0).toLocaleString('en-IN')}</p>
-                {pkg.description && <p className="text-xs text-slate-500 mt-2">{pkg.description}</p>}
-                {pkg.info_notes && (
-                  <p className="text-xs text-slate-600 mt-2 bg-slate-50 rounded p-2 flex-1">{pkg.info_notes}</p>
-                )}
-                {pkg.document_name && (
-                  <button
-                    onClick={() => viewPackageDoc(pkg.document_url)}
-                    className="text-xs text-[#2a777a] underline mt-2 text-left"
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 bg-[#2a777a] rounded-full flex items-center justify-center shrink-0">
+                <FileText className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-800 text-lg">Choose Your Package</h3>
+                <p className="text-sm text-slate-600 mt-1">
+                  Review your pre-assessment report and pick the package that fits you best. Your partner will set up the payment plan once you select.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+              {(currentPa?.available_packages_snapshot || pa?.available_packages_snapshot || []).map((pkg) => (
+                <Card key={pkg.id} className="p-4 border-2 border-slate-200 hover:border-[#2a777a] transition flex flex-col">
+                  <h4 className="font-bold text-slate-800">{pkg.name}</h4>
+                  <p className="text-2xl font-bold text-[#2a777a] mt-1">₹{Number(pkg.price || 0).toLocaleString('en-IN')}</p>
+                  {pkg.description && <p className="text-xs text-slate-500 mt-2">{pkg.description}</p>}
+                  {pkg.info_notes && (
+                    <p className="text-xs text-slate-600 mt-2 bg-slate-50 rounded p-2 flex-1">{pkg.info_notes}</p>
+                  )}
+                  {pkg.document_name && (
+                    <button
+                      onClick={() => viewPackageDoc(pkg.document_url)}
+                      className="text-xs text-[#2a777a] underline mt-2 text-left"
+                    >
+                      📄 View {pkg.document_name}
+                    </button>
+                  )}
+                  <Button
+                    onClick={() => handleSelectPackage(pkg.id)}
+                    disabled={selectingPkg === pkg.id}
+                    className="mt-4 bg-[#f7620b] hover:bg-[#e55a09] text-white"
+                    data-testid={`select-package-${pkg.id}`}
                   >
-                    📄 View {pkg.document_name}
-                  </button>
-                )}
-                <Button
-                  onClick={() => handleSelectPackage(pkg.id)}
-                  disabled={selectingPkg === pkg.id}
-                  className="mt-4 bg-[#f7620b] hover:bg-[#e55a09] text-white"
-                  data-testid={`select-package-${pkg.id}`}
-                >
-                  {selectingPkg === pkg.id ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
-                  Select this Package
-                </Button>
-              </Card>
-            ))}
-          </div>
-        </Card>
+                    {selectingPkg === pkg.id ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+                    Select this Package
+                  </Button>
+                </Card>
+              ))}
+            </div>
+          </Card>
+        </div>
       )}
 
       {/* STAGE: Package selected — waiting for partner to set payment method */}
       {stage === 'package_selected' && (
-        <Card className="p-6 bg-gradient-to-br from-emerald-50 to-white border-emerald-200">
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center shrink-0">
-              <CheckCircle2 className="h-6 w-6 text-emerald-600" />
+        <div className="space-y-6">
+          <ClientOccupationReviewCard
+            caseData={currentPa}
+            onUpdated={async () => {
+              await load();
+              onRefresh?.();
+            }}
+            getAuthHeader={getAuth}
+          />
+          <Card className="p-6 bg-gradient-to-br from-emerald-50 to-white border-emerald-200">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center shrink-0">
+                <CheckCircle2 className="h-6 w-6 text-emerald-600" />
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-800 text-lg">Package Selected: {currentPa?.selected_package_snapshot?.name || pa?.selected_package_snapshot?.name}</h3>
+                <p className="text-sm text-slate-600 mt-1">
+                  Your partner is now setting up the payment plan for this package. You'll be able to pay shortly.
+                </p>
+              </div>
             </div>
-            <div>
-              <h3 className="font-bold text-slate-800 text-lg">Package Selected: {pa.selected_package_snapshot?.name}</h3>
-              <p className="text-sm text-slate-600 mt-1">
-                Your partner is now setting up the payment plan for this package. You'll be able to pay shortly.
-              </p>
-            </div>
-          </div>
-        </Card>
+          </Card>
+        </div>
       )}
 
       {/* STAGE: Proposal received — full details + consent + pay */}
       {stage === 'proposal_sent' && (
-        <Card className="p-6 bg-gradient-to-br from-[#f7620b]/5 to-[#2a777a]/5 border-[#2a777a]/20 space-y-5">
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 bg-[#f7620b] rounded-full flex items-center justify-center shrink-0">
-              <FileText className="h-6 w-6 text-white" />
+        <div className="space-y-6">
+          <ClientOccupationReviewCard
+            caseData={currentPa}
+            onUpdated={async () => {
+              await load();
+              onRefresh?.();
+            }}
+            getAuthHeader={getAuth}
+          />
+          <Card className="p-6 bg-gradient-to-br from-[#f7620b]/5 to-[#2a777a]/5 border-[#2a777a]/20 space-y-5">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 bg-[#f7620b] rounded-full flex items-center justify-center shrink-0">
+                <FileText className="h-6 w-6 text-white" />
+              </div>
+              <div className="flex-1">
+                <Badge className="bg-[#f7620b] text-white mb-2">Service Proposal — Please Review Carefully</Badge>
+                <h3 className="font-bold text-slate-800 text-xl">Your Personalised Proposal</h3>
+                <p className="text-xs text-slate-500 mt-1">Please review the proposal, pricing breakdown and terms before giving consent to pay.</p>
+              </div>
             </div>
-            <div className="flex-1">
-              <Badge className="bg-[#f7620b] text-white mb-2">Service Proposal — Please Review Carefully</Badge>
-              <h3 className="font-bold text-slate-800 text-xl">Your Personalised Proposal</h3>
-              <p className="text-xs text-slate-500 mt-1">Please review the proposal, pricing breakdown and terms before giving consent to pay.</p>
-            </div>
-          </div>
 
-          {/* AI / partner-written proposal text */}
-          {pa.proposal_ai_text && (
+            {/* AI / partner-written proposal text */}
+            {(currentPa?.proposal_ai_text || pa?.proposal_ai_text) && (
+              <div className="bg-white rounded-lg border border-slate-200 p-4">
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Proposal Details</p>
+                <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{currentPa?.proposal_ai_text || pa?.proposal_ai_text}</p>
+              </div>
+            )}
+
+            {/* Pricing breakdown */}
             <div className="bg-white rounded-lg border border-slate-200 p-4">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Proposal Details</p>
-              <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{pa.proposal_ai_text}</p>
-            </div>
-          )}
-
-          {/* Pricing breakdown */}
-          <div className="bg-white rounded-lg border border-slate-200 p-4">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Pricing Breakdown</p>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Pricing Breakdown</p>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-slate-600">Base Service Fee</span>
@@ -1028,7 +1082,8 @@ useEffect(() => {
             </div>
           )}
         </Card>
-      )}
+      </div>
+    )}
 
       {/* STAGE: proposal_paid — awaiting partner to upload receipt */}
       {stage === 'proposal_paid' && (

@@ -27,9 +27,9 @@ export default function ClientOccupationReviewCard({ caseData, onUpdated, getAut
 
   if (!caseData) return null;
 
-  const occCode = caseData.occupation_code || 'Not Set';
-  const occTitle = caseData.occupation_title || caseData.product_name || 'General Skilled Profile';
-  const assessingBody = caseData.assessing_authority_code || (caseData.country === 'AU' ? 'VETASSESS / ACS' : 'WES / ECA');
+  const occCode = caseData.occupation_code || caseData.suggested_occupation_code || 'Not Set';
+  const occTitle = caseData.occupation_title || caseData.suggested_occupation_title || caseData.product_name || caseData.service_type || 'General Skilled Profile';
+  const assessingBody = caseData.assessing_authority_code || caseData.suggested_assessing_authority_code || caseData.assessing_body || (caseData.country === 'AU' ? 'VETASSESS / ACS' : (caseData.country === 'CA' ? 'WES / ECA' : 'Skills Authority'));
   const reviewStatus = caseData.client_occupation_review_status || 'pending_client_review';
 
   const getAuth = () => {
@@ -42,13 +42,30 @@ export default function ClientOccupationReviewCard({ caseData, onUpdated, getAut
 
   const handleAccept = async () => {
     setSubmitting(true);
+    const targetId = caseData.id || caseData.pre_assessment_number || caseData.custom_id;
     try {
-      await axios.post(
-        `${API}/cases/${caseData.id}/client-occupation-decision`,
-        { decision: 'accepted' },
-        getAuth()
-      );
-      toast.success('Occupation profile confirmed! Step 2 Document Checklist is now unlocked.');
+      try {
+        await axios.post(
+          `${API}/pre-assessment/${targetId}/client-occupation-decision`,
+          { decision: 'accepted' },
+          getAuth()
+        );
+      } catch (err1) {
+        try {
+          await axios.post(
+            `${API}/pre-assess-portal/client/occupation-decision/${targetId}`,
+            { decision: 'accepted' },
+            getAuth()
+          );
+        } catch (err2) {
+          await axios.post(
+            `${API}/cases/${targetId}/client-occupation-decision`,
+            { decision: 'accepted' },
+            getAuth()
+          );
+        }
+      }
+      toast.success('Occupation profile confirmed! Profile and document checklist unlocked.');
       if (onUpdated) onUpdated();
     } catch (e) {
       toast.error(e.response?.data?.detail || 'Failed to accept occupation code');
@@ -98,18 +115,36 @@ export default function ClientOccupationReviewCard({ caseData, onUpdated, getAut
     }
 
     setSubmitting(true);
+    const targetId = caseData.id || caseData.pre_assessment_number || caseData.custom_id;
+    const payload = {
+      decision: 'rejected',
+      suggested_code: code,
+      suggested_title: title,
+      suggested_assessing_body: body,
+      notes: notes.trim()
+    };
     try {
-      await axios.post(
-        `${API}/cases/${caseData.id}/client-occupation-decision`,
-        {
-          decision: 'rejected',
-          suggested_code: code,
-          suggested_title: title,
-          suggested_assessing_body: body,
-          notes: notes.trim()
-        },
-        getAuth()
-      );
+      try {
+        await axios.post(
+          `${API}/pre-assessment/${targetId}/client-occupation-decision`,
+          payload,
+          getAuth()
+        );
+      } catch (err1) {
+        try {
+          await axios.post(
+            `${API}/pre-assess-portal/client/occupation-decision/${targetId}`,
+            payload,
+            getAuth()
+          );
+        } catch (err2) {
+          await axios.post(
+            `${API}/cases/${targetId}/client-occupation-decision`,
+            payload,
+            getAuth()
+          );
+        }
+      }
       toast.success('Your suggestion has been submitted to your Migration Partner & Case Manager.');
       setShowSuggestModal(false);
       if (onUpdated) onUpdated();
@@ -139,7 +174,7 @@ export default function ClientOccupationReviewCard({ caseData, onUpdated, getAut
                 </Badge>
               </div>
               <p className="text-xs text-emerald-800 font-medium mt-0.5">
-                {occTitle} · Step 2 Document Checklist Unlocked
+                {occTitle} · Confirmed for your migration application
               </p>
             </div>
           </div>
@@ -176,7 +211,7 @@ export default function ClientOccupationReviewCard({ caseData, onUpdated, getAut
               </p>
             )}
             <p className="text-[11px] text-amber-700 mt-2">
-              Your Partner is preparing the updated assessment details for Admin approval. Step 2 Document Checklist will unlock once the approved code is accepted.
+              Your Partner is preparing the updated assessment details for Admin approval. Package selection and next steps will unlock once the approved code is confirmed.
             </p>
           </div>
         </div>
@@ -196,7 +231,7 @@ export default function ClientOccupationReviewCard({ caseData, onUpdated, getAut
             <div className="space-y-2 max-w-2xl">
               <div className="flex items-center gap-2">
                 <Badge className="bg-[#f7620b] text-white font-semibold text-xs px-2.5 py-0.5 uppercase tracking-wide">
-                  Step 1 Action Required
+                  Action Required
                 </Badge>
                 <span className="text-xs text-teal-200 flex items-center gap-1 font-medium">
                   <Sparkles className="h-3.5 w-3.5 text-amber-400" /> Confirm Assigned Skills Assessment Profile
@@ -209,7 +244,7 @@ export default function ClientOccupationReviewCard({ caseData, onUpdated, getAut
 
               <p className="text-xs text-teal-100/90 leading-relaxed">
                 Your Case Manager and Partner have mapped your qualifications and experience to the following official ANZSCO occupation profile. 
-                Please accept to unlock the official <strong>Step 2 Document Collection Checklist</strong>.
+                Please accept to confirm your profile and proceed with your package selection.
               </p>
 
               {/* Code Box */}

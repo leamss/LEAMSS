@@ -1210,6 +1210,107 @@ async def admin_review(pa_id: str, review: AdminReview, current_user: dict = Dep
     return {"message": f"Pre-assessment {review.decision}", "stage": new_stage}
 
 
+class ClientOccupationDecisionPayload(BaseModel):
+    decision: str  # "accepted" | "rejected"
+    suggested_code: Optional[str] = ""
+    suggested_title: Optional[str] = ""
+    suggested_assessing_body: Optional[str] = ""
+    notes: Optional[str] = ""
+
+
+@router.post("/{pa_id}/client-occupation-decision")
+async def pa_client_occupation_decision(
+    pa_id: str,
+    payload: ClientOccupationDecisionPayload,
+    current_user: dict = Depends(get_current_user)
+):
+    """Client accepts or rejects/suggests alternate occupation code on Pre-Assessment"""
+    pa = await pre_assessments_col.find_one(
+        {"$or": [
+            {"id": pa_id},
+            {"pre_assessment_number": pa_id},
+            {"custom_id": pa_id}
+        ]},
+        {"_id": 0}
+    )
+    if not pa:
+        raise HTTPException(status_code=404, detail="Pre-assessment not found")
+
+    real_pa_id = pa.get("id") or pa_id
+    now = datetime.now(timezone.utc)
+    if payload.decision == "accepted":
+        update_doc = {
+            "client_occupation_review_status": "accepted",
+            "client_occupation_accepted_at": now,
+            "updated_at": now,
+        }
+        await pre_assessments_col.update_one({"id": real_pa_id}, {"$set": update_doc})
+
+        if pa.get("case_id"):
+            await cases_col.update_one(
+                {"id": pa["case_id"]},
+                {"$set": {"client_occupation_review_status": "accepted", "client_occupation_accepted_at": now, "updated_at": now}}
+            )
+
+        occ_desc = f"{pa.get('occupation_code')} - {pa.get('occupation_title')} ({pa.get('assessing_authority_code')})"
+        if pa.get("partner_id"):
+            try:
+                await notifications_col.insert_one({
+                    "id": str(uuid.uuid4()),
+                    "user_id": pa["partner_id"],
+                    "title": "Client Accepted Occupation Code",
+                    "message": f"{pa.get('client_name')} confirmed and accepted occupation profile: {occ_desc}.",
+                    "type": "client_accepted_occupation",
+                    "read": False,
+                    "created_at": now,
+                })
+            except Exception:
+                pass
+
+        return {"message": "Occupation code accepted successfully", "status": "accepted"}
+
+    elif payload.decision == "rejected":
+        update_doc = {
+            "client_occupation_review_status": "rejected_by_client",
+            "client_suggested_occupation_code": payload.suggested_code or "",
+            "client_suggested_occupation_title": payload.suggested_title or "",
+            "client_suggested_assessing_body": payload.suggested_assessing_body or "",
+            "client_suggested_occupation_notes": payload.notes or "",
+            "client_occupation_rejected_at": now,
+            "updated_at": now,
+        }
+        await pre_assessments_col.update_one({"id": real_pa_id}, {"$set": update_doc})
+
+        if pa.get("case_id"):
+            await cases_col.update_one(
+                {"id": pa["case_id"]},
+                {"$set": {
+                    "client_occupation_review_status": "rejected_by_client",
+                    "client_suggested_occupation_code": payload.suggested_code or "",
+                    "client_suggested_occupation_title": payload.suggested_title or "",
+                    "client_suggested_occupation_notes": payload.notes or "",
+                    "client_occupation_rejected_at": now,
+                    "updated_at": now,
+                }}
+            )
+
+        if pa.get("partner_id"):
+            try:
+                await notifications_col.insert_one({
+                    "id": str(uuid.uuid4()),
+                    "user_id": pa["partner_id"],
+                    "title": "Client Requested Occupation Code Change",
+                    "message": f"{pa.get('client_name')} requested alternate occupation: {payload.suggested_code} - {payload.suggested_title}. Notes: {payload.notes}",
+                    "type": "client_rejected_occupation",
+                    "read": False,
+                    "created_at": now,
+                })
+            except Exception:
+                pass
+
+        return {"message": "Occupation suggestion submitted successfully", "status": "rejected_by_client"}
+
+
 class ClientSuggestionPayload(BaseModel):
     remarks: Optional[str] = ""
 
