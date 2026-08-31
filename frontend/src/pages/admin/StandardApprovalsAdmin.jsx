@@ -87,8 +87,28 @@ const ApprovalDialog = ({ open, onClose, pa, action, onConfirm }) => {
         {/* Selected Occupation Info */}
         {pa?.occupation_code && (
           <div className="bg-slate-100 p-2.5 rounded text-xs flex items-center justify-between gap-2 border border-slate-200">
-            <span className="text-slate-500 font-medium">Partner Selected Code:</span>
+            <span className="text-slate-500 font-medium">Assigned Code:</span>
             <span className="font-bold text-slate-800">{pa.occupation_code} · {pa.occupation_title || 'Assigned'} ({pa.assessing_authority_code || 'N/A'})</span>
+          </div>
+        )}
+
+        {/* Client Requested Occupation Info */}
+        {(pa?.client_suggested_occupation_code || pa?.client_occupation_review_status === 'pending_admin_approval') && (
+          <div className="bg-rose-50 border border-rose-300 p-2.5 rounded text-xs space-y-1">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-rose-900 font-bold flex items-center gap-1">
+                <AlertTriangle className="h-3.5 w-3.5 text-rose-600" /> Client Requested Code:
+              </span>
+              <Badge className="bg-rose-600 text-white font-bold">{pa.client_suggested_occupation_code || pa.occupation_code}</Badge>
+            </div>
+            {pa.client_suggested_occupation_title && (
+              <p className="text-slate-800 font-medium">{pa.client_suggested_occupation_title}</p>
+            )}
+            {pa.client_suggested_occupation_notes && (
+              <p className="text-rose-800 italic bg-white/70 p-1.5 rounded border border-rose-200">
+                "{pa.client_suggested_occupation_notes}"
+              </p>
+            )}
           </div>
         )}
 

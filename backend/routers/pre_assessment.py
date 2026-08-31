@@ -1093,7 +1093,15 @@ async def admin_review(pa_id: str, review: AdminReview, current_user: dict = Dep
                             "pre_assessment", real_pa_id, f"Standard Sale rejected for {client_name}: {reason.strip()}")
             return {"message": "Standard Sale rejected", "stage": "standard_rejected"}
 
-    new_stage = ("case_created" if pa.get("case_id") or pa.get("stage") == "case_created" else "approved") if review.decision == "approved" else "rejected"
+    if review.decision == "approved":
+        if pa.get("available_packages_snapshot") and len(pa.get("available_packages_snapshot", [])) > 0:
+            new_stage = "awaiting_package_selection"
+        elif pa.get("case_id") or pa.get("stage") == "case_created":
+            new_stage = "case_created"
+        else:
+            new_stage = "approved"
+    else:
+        new_stage = "rejected"
 
     update_fields = {
         "stage": new_stage,
@@ -1106,6 +1114,9 @@ async def admin_review(pa_id: str, review: AdminReview, current_user: dict = Dep
     }
 
     if review.suggested_occupation_code:
+        update_fields["occupation_code"] = review.suggested_occupation_code.strip()
+        update_fields["occupation_title"] = (review.suggested_occupation_title or "").strip()
+        update_fields["assessing_authority_code"] = (review.suggested_assessing_authority_code or "").strip()
         update_fields["suggested_occupation_code"] = review.suggested_occupation_code.strip()
         update_fields["suggested_occupation_title"] = (review.suggested_occupation_title or "").strip()
         update_fields["suggested_assessing_authority_code"] = (review.suggested_assessing_authority_code or "").strip()
@@ -1130,14 +1141,16 @@ async def admin_review(pa_id: str, review: AdminReview, current_user: dict = Dep
         update_fields["suggested_occupation_code"] = None
         update_fields["suggested_occupation_title"] = None
         update_fields["suggested_assessing_authority_code"] = None
+    else:
+        update_fields["client_occupation_review_status"] = "rejected_by_admin"
 
     await pre_assessments_col.update_one({"id": real_pa_id}, {"$set": update_fields})
 
     # Sync to linked case(s)
     if review.decision == "approved":
-        approved_code = pa.get("occupation_code") or review.suggested_occupation_code or ""
-        approved_title = pa.get("occupation_title") or review.suggested_occupation_title or ""
-        approved_auth = pa.get("assessing_authority_code") or review.suggested_assessing_authority_code or ""
+        approved_code = review.suggested_occupation_code or pa.get("occupation_code") or ""
+        approved_title = review.suggested_occupation_title or pa.get("occupation_title") or ""
+        approved_auth = review.suggested_assessing_authority_code or pa.get("assessing_authority_code") or ""
         case_up = {
             "occupation_code": approved_code,
             "occupation_title": approved_title,
@@ -1329,6 +1342,7 @@ async def submit_client_suggestion_to_admin(
     now = datetime.now(timezone.utc)
     suggested_code = pa.get("client_suggested_occupation_code") or pa.get("occupation_code")
     suggested_title = pa.get("client_suggested_occupation_title") or pa.get("occupation_title") or f"ANZSCO {suggested_code}"
+    suggested_auth = pa.get("client_suggested_assessing_body") or pa.get("assessing_authority_code") or ""
     notes = pa.get("client_suggested_occupation_notes") or (payload.remarks if payload else "")
 
     update_doc = {
@@ -1337,6 +1351,7 @@ async def submit_client_suggestion_to_admin(
         "admin_decision": None,
         "occupation_code": suggested_code,
         "occupation_title": suggested_title,
+        "assessing_authority_code": suggested_auth,
         "suggested_occupation_code": None,
         "suggested_occupation_title": None,
         "suggested_assessing_authority_code": None,
@@ -1351,6 +1366,7 @@ async def submit_client_suggestion_to_admin(
         await cases_col.update_one({"id": pa["case_id"]}, {"$set": {
             "occupation_code": suggested_code,
             "occupation_title": suggested_title,
+            "assessing_authority_code": suggested_auth,
             "client_occupation_review_status": "pending_admin_approval",
             "updated_at": now,
         }})

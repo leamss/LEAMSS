@@ -590,6 +590,33 @@ const openFinalizePaymentForm = (pa) => {
   const getStageInfo = (stage) => STAGE_CONFIG[stage] || STAGE_CONFIG.new;
 
 const getNextAction = (pa) => {
+  // If client requested alternate occupation code change
+  if (pa.client_occupation_review_status === "rejected_by_client") {
+    return {
+      label: `Submit Client Code (${pa.client_suggested_occupation_code || 'Change'}) to Admin`,
+      action: async () => {
+        try {
+          await axios.post(`${API}/pre-assessment/${pa.id}/submit-client-suggestion-to-admin`, {}, getAuthHeader());
+          toast.success('Submitted client suggested code to Admin for approval!');
+          loadData();
+        } catch (err) {
+          toast.error(err.response?.data?.detail || 'Failed to submit to Admin');
+        }
+      },
+      color: "bg-[#f7620b] hover:bg-[#e55a09]",
+      icon: Send,
+    };
+  }
+
+  if (pa.client_occupation_review_status === "pending_admin_approval") {
+    return {
+      label: "Awaiting Admin Approval (Code Change)",
+      action: null,
+      color: "bg-amber-500 cursor-not-allowed",
+      icon: Clock,
+    };
+  }
+
   // Show resend button when rejected by admin
   if (
     pa.admin_decision === "rejected" ||
@@ -798,6 +825,16 @@ const getNextAction = (pa) => {
                           Awaiting Approval
                         </Badge>
                       )}
+                      {pa.client_occupation_review_status === 'rejected_by_client' && (
+                        <Badge className="bg-rose-100 text-rose-800 border border-rose-300 text-[10px] font-bold uppercase animate-pulse">
+                          🚨 Client Requested Code: {pa.client_suggested_occupation_code || 'Change'}
+                        </Badge>
+                      )}
+                      {pa.client_occupation_review_status === 'pending_admin_approval' && (
+                        <Badge className="bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-bold uppercase">
+                          ⏳ Code Under Admin Review
+                        </Badge>
+                      )}
                     </div>
                     <p className="text-sm text-slate-500">{pa.country} — {pa.service_type} {pa.product_name ? `(${pa.product_name})` : ''}</p>
                   </div>
@@ -890,7 +927,7 @@ const getNextAction = (pa) => {
                     )}
 
                     {/* Uploaded Docs + Activity (always visible when expanded) */}
-                    {['payment_received', 'partner_review', 'documents_submitted', 'under_review', 'approved', 'rejected', 'standard_rejected', 'refund_initiated', 'refunded', 'proposal_sent', 'proposal_paid', 'case_created'].includes(pa.stage) && (
+                    {['payment_received', 'partner_review', 'documents_submitted', 'under_review', 'approved', 'awaiting_package_selection', 'package_selected', 'proposal_sent', 'installment_pending_approval', 'proposal_paid', 'awaiting_final_approval', 'case_created', 'rejected', 'standard_rejected', 'refund_initiated', 'refunded'].includes(pa.stage) && (
                       <div className="space-y-3">
                         <PaOccupationSelector
                           pa={pa}
