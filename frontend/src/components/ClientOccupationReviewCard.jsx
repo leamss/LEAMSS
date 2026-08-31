@@ -154,68 +154,256 @@ export default function ClientOccupationReviewCard({ caseData, onUpdated, getAut
     setSubmitting(false);
   };
 
+  // Shared Suggestion Modal
+  const renderSuggestModal = () => {
+    if (!showSuggestModal) return null;
+    return (
+      <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <Card className="w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden border-0 animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-gradient-to-r from-teal-800 to-slate-900 text-white p-5 flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-bold">Suggest Alternate Occupation Code</h3>
+              <p className="text-xs text-teal-200 mt-0.5">
+                Assigned: <span className="font-mono text-amber-300">{occCode}</span> ({occTitle})
+              </p>
+            </div>
+            <button
+              onClick={() => setShowSuggestModal(false)}
+              className="p-1 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          <div className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+            {/* Search Box */}
+            <div>
+              <label className="text-xs font-bold text-slate-700 uppercase tracking-wide block mb-1">
+                Search Desired Profession / Code
+              </label>
+              <div className="relative">
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                <Input
+                  placeholder="Type title or code (e.g. 261312, Nurse, Chef, Developer)..."
+                  value={searchQuery}
+                  onChange={(e) => handleSearchOcc(e.target.value)}
+                  className="pl-9 text-sm rounded-xl border-slate-200 h-10"
+                  data-testid="client-occ-search-input"
+                />
+                {searching && (
+                  <div className="absolute right-3 top-2.5 text-xs text-slate-400">
+                    Searching...
+                  </div>
+                )}
+              </div>
+
+              {/* Search Results Dropdown */}
+              {searchResults.length > 0 && (
+                <div className="mt-2 bg-slate-50 border border-slate-200 rounded-xl max-h-48 overflow-y-auto divide-y shadow-inner">
+                  {searchResults.map((item, idx) => (
+                    <div
+                      key={idx}
+                      onClick={() => selectItem(item)}
+                      className="p-2.5 hover:bg-teal-50 cursor-pointer flex items-center justify-between text-xs transition"
+                    >
+                      <div>
+                        <span className="font-mono font-bold text-teal-700 mr-2">{item.code}</span>
+                        <span className="font-medium text-slate-800">{item.title}</span>
+                      </div>
+                      {item.assessing_body && (
+                        <Badge variant="outline" className="text-[10px] text-slate-600 bg-white">
+                          {item.assessing_body}
+                        </Badge>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Selected Suggestion Box */}
+            {selectedSuggestion ? (
+              <div className="p-3 bg-teal-50 border border-teal-200 rounded-xl flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] uppercase font-bold text-teal-600">Selected Suggestion</p>
+                  <p className="text-sm font-bold text-teal-900">
+                    {selectedSuggestion.code} · {selectedSuggestion.title}
+                  </p>
+                  {selectedSuggestion.assessing_body && (
+                    <p className="text-xs text-teal-700">Authority: {selectedSuggestion.assessing_body}</p>
+                  )}
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => { setSelectedSuggestion(null); setCustomCode(''); setCustomTitle(''); }}
+                  className="text-xs text-teal-700 hover:bg-teal-100"
+                >
+                  Change
+                </Button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-600 block mb-1">Direct Code (Optional)</label>
+                  <Input
+                    placeholder="e.g. 261312"
+                    value={customCode}
+                    onChange={(e) => setCustomCode(e.target.value)}
+                    className="text-xs rounded-lg h-9 font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-600 block mb-1">Occupation Title (Optional)</label>
+                  <Input
+                    placeholder="e.g. Developer Programmer"
+                    value={customTitle}
+                    onChange={(e) => setCustomTitle(e.target.value)}
+                    className="text-xs rounded-lg h-9"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Reason / Notes */}
+            <div>
+              <label className="text-xs font-bold text-slate-700 uppercase tracking-wide block mb-1">
+                Reason for Request (Why this fits better?)
+              </label>
+              <textarea
+                rows={3}
+                placeholder="Explain why you feel this code fits your qualification and work experience..."
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                className="w-full p-3 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-teal-500 outline-none resize-none"
+                data-testid="client-occ-notes"
+              />
+            </div>
+
+            <div className="pt-2 flex justify-end gap-2.5">
+              <Button
+                variant="outline"
+                onClick={() => setShowSuggestModal(false)}
+                className="rounded-xl text-xs h-9"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSubmitSuggestion}
+                disabled={submitting}
+                className="bg-[#f7620b] hover:bg-[#e55a09] text-white font-semibold text-xs h-9 px-4 rounded-xl flex items-center gap-1.5"
+                data-testid="submit-client-occ-suggestion-btn"
+              >
+                <Send className="h-3.5 w-3.5" />
+                {submitting ? 'Submitting...' : 'Submit Suggestion'}
+              </Button>
+            </div>
+          </div>
+        </Card>
+      </div>
+    );
+  };
+
   // State: Accepted
   if (reviewStatus === 'accepted') {
     return (
-      <Card className="p-4 bg-emerald-50/80 border border-emerald-200 shadow-sm rounded-xl mb-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow">
-              <ShieldCheck className="h-5 w-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-bold text-emerald-950 text-base">Confirmed Occupation Profile</span>
-                <Badge className="bg-emerald-600 text-white text-xs px-2.5 py-0.5 font-semibold">
-                  {occCode}
-                </Badge>
-                <Badge variant="outline" className="border-emerald-600 text-emerald-800 text-xs font-semibold bg-white">
-                  {assessingBody}
-                </Badge>
+      <>
+        <Card className="p-4 bg-emerald-50/90 border-2 border-emerald-300 shadow-sm rounded-2xl mb-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-md">
+                <ShieldCheck className="h-6 w-6" />
               </div>
-              <p className="text-xs text-emerald-800 font-medium mt-0.5">
-                {occTitle} · Confirmed for your migration application
-              </p>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-bold text-emerald-950 text-base">Confirmed Occupation Profile</span>
+                  <Badge className="bg-emerald-600 text-white text-xs px-2.5 py-0.5 font-bold font-mono">
+                    {occCode}
+                  </Badge>
+                  <Badge variant="outline" className="border-emerald-600 text-emerald-800 text-xs font-semibold bg-white">
+                    {assessingBody}
+                  </Badge>
+                </div>
+                <p className="text-xs text-emerald-800 font-medium mt-0.5">
+                  {occTitle} · Confirmed for your migration application
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-100 px-3 py-1.5 rounded-lg border border-emerald-300 shadow-sm">
+                <CheckCircle2 className="h-4 w-4" /> Verified by You
+              </div>
+              <Button
+                onClick={() => setShowSuggestModal(true)}
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs font-semibold border-emerald-400 text-emerald-900 bg-white hover:bg-emerald-100/70 shadow-sm flex items-center gap-1.5"
+                data-testid="suggest-different-code-accepted-btn"
+              >
+                <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
+                Suggest Different Code
+              </Button>
             </div>
           </div>
-          <div className="flex items-center gap-2 text-xs font-semibold text-emerald-700 bg-emerald-100/60 px-3 py-1.5 rounded-lg shrink-0">
-            <CheckCircle2 className="h-4 w-4" /> Verified by You
-          </div>
-        </div>
-      </Card>
+        </Card>
+        {renderSuggestModal()}
+      </>
     );
   }
 
   // State: Rejected by client / Change requested
   if (reviewStatus === 'rejected_by_client') {
     return (
-      <Card className="p-5 bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 shadow-md rounded-xl mb-6">
-        <div className="flex items-start gap-3.5">
-          <div className="w-11 h-11 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow">
-            <Clock className="h-6 w-6" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="font-bold text-amber-950 text-base">Occupation Change Request In Progress</h3>
-              <Badge className="bg-amber-600 text-white text-xs">Under Review</Badge>
+      <>
+        <Card className="p-5 bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 shadow-md rounded-2xl mb-6">
+          <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+            <div className="flex items-start gap-3.5">
+              <div className="w-11 h-11 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow">
+                <Clock className="h-6 w-6" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="font-bold text-amber-950 text-base">Occupation Change Request In Progress</h3>
+                  <Badge className="bg-amber-600 text-white text-xs font-semibold">Under Review</Badge>
+                </div>
+                <p className="text-xs text-amber-900 mt-1">
+                  You requested a change from <strong>{occCode} ({occTitle})</strong> to:{' '}
+                  <strong className="text-amber-950">
+                    {caseData.client_suggested_occupation_code ? `${caseData.client_suggested_occupation_code} · ${caseData.client_suggested_occupation_title || ''}` : 'Custom Suggestion'}
+                  </strong>
+                </p>
+                {caseData.client_suggested_occupation_notes && (
+                  <p className="text-xs text-amber-800 bg-amber-100/80 p-2.5 rounded-lg border border-amber-200 mt-2 italic">
+                    "{caseData.client_suggested_occupation_notes}"
+                  </p>
+                )}
+                <p className="text-[11px] text-amber-700 mt-2">
+                  Your Migration Partner & Admin are reviewing your requested occupation change. You will be notified once confirmed.
+                </p>
+              </div>
             </div>
-            <p className="text-xs text-amber-900 mt-1">
-              You requested a change from <strong>{occCode} ({occTitle})</strong> to:{' '}
-              <strong className="text-amber-950">
-                {caseData.client_suggested_occupation_code ? `${caseData.client_suggested_occupation_code} · ${caseData.client_suggested_occupation_title || ''}` : 'Custom Suggestion'}
-              </strong>
-            </p>
-            {caseData.client_suggested_occupation_notes && (
-              <p className="text-xs text-amber-800 bg-amber-100/80 p-2.5 rounded-lg border border-amber-200 mt-2 italic">
-                "{caseData.client_suggested_occupation_notes}"
-              </p>
-            )}
-            <p className="text-[11px] text-amber-700 mt-2">
-              Your Partner is preparing the updated assessment details for Admin approval. Package selection and next steps will unlock once the approved code is confirmed.
-            </p>
+            <div className="flex items-center gap-2 shrink-0 flex-wrap">
+              <Button
+                onClick={() => setShowSuggestModal(true)}
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs font-semibold border-amber-400 text-amber-900 bg-white hover:bg-amber-100"
+              >
+                Modify Suggestion
+              </Button>
+              <Button
+                onClick={handleAccept}
+                disabled={submitting}
+                size="sm"
+                className="h-8 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+              >
+                Accept Assigned Code
+              </Button>
+            </div>
           </div>
-        </div>
-      </Card>
+        </Card>
+        {renderSuggestModal()}
+      </>
     );
   }
 
@@ -294,153 +482,7 @@ export default function ClientOccupationReviewCard({ caseData, onUpdated, getAut
           </div>
         </div>
       </Card>
-
-      {/* Suggestion Modal */}
-      {showSuggestModal && (
-        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <Card className="w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden border-0 animate-in fade-in zoom-in-95 duration-200">
-            <div className="bg-gradient-to-r from-teal-800 to-slate-900 text-white p-5 flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-bold">Suggest Alternate Occupation Code</h3>
-                <p className="text-xs text-teal-200 mt-0.5">
-                  Assigned: <span className="font-mono text-amber-300">{occCode}</span> ({occTitle})
-                </p>
-              </div>
-              <button
-                onClick={() => setShowSuggestModal(false)}
-                className="p-1 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
-              {/* Search Box */}
-              <div>
-                <label className="text-xs font-bold text-slate-700 uppercase tracking-wide block mb-1">
-                  Search Desired Profession / Code
-                </label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-                  <Input
-                    placeholder="Type title or code (e.g. 261312, Nurse, Chef, Developer)..."
-                    value={searchQuery}
-                    onChange={(e) => handleSearchOcc(e.target.value)}
-                    className="pl-9 text-sm rounded-xl border-slate-200 h-10"
-                    data-testid="client-occ-search-input"
-                  />
-                  {searching && (
-                    <div className="absolute right-3 top-2.5 text-xs text-slate-400">
-                      Searching...
-                    </div>
-                  )}
-                </div>
-
-                {/* Search Results Dropdown */}
-                {searchResults.length > 0 && (
-                  <div className="mt-2 bg-slate-50 border border-slate-200 rounded-xl max-h-48 overflow-y-auto divide-y shadow-inner">
-                    {searchResults.map((item, idx) => (
-                      <div
-                        key={idx}
-                        onClick={() => selectItem(item)}
-                        className="p-2.5 hover:bg-teal-50 cursor-pointer flex items-center justify-between text-xs transition"
-                      >
-                        <div>
-                          <span className="font-mono font-bold text-teal-700 mr-2">{item.code}</span>
-                          <span className="font-medium text-slate-800">{item.title}</span>
-                        </div>
-                        {item.assessing_body && (
-                          <Badge variant="outline" className="text-[10px] text-slate-600 bg-white">
-                            {item.assessing_body}
-                          </Badge>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Selected Suggestion Box */}
-              {selectedSuggestion ? (
-                <div className="p-3 bg-teal-50 border border-teal-200 rounded-xl flex items-center justify-between">
-                  <div>
-                    <p className="text-[10px] uppercase font-bold text-teal-600">Selected Suggestion</p>
-                    <p className="text-sm font-bold text-teal-900">
-                      {selectedSuggestion.code} · {selectedSuggestion.title}
-                    </p>
-                    {selectedSuggestion.assessing_body && (
-                      <p className="text-xs text-teal-700">Authority: {selectedSuggestion.assessing_body}</p>
-                    )}
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => { setSelectedSuggestion(null); setCustomCode(''); setCustomTitle(''); }}
-                    className="text-xs text-teal-700 hover:bg-teal-100"
-                  >
-                    Change
-                  </Button>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 gap-3 pt-1">
-                  <div>
-                    <label className="text-[11px] font-semibold text-slate-600 block mb-1">Direct Code (Optional)</label>
-                    <Input
-                      placeholder="e.g. 261312"
-                      value={customCode}
-                      onChange={(e) => setCustomCode(e.target.value)}
-                      className="text-xs rounded-lg h-9 font-mono"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[11px] font-semibold text-slate-600 block mb-1">Occupation Title (Optional)</label>
-                    <Input
-                      placeholder="e.g. Developer Programmer"
-                      value={customTitle}
-                      onChange={(e) => setCustomTitle(e.target.value)}
-                      className="text-xs rounded-lg h-9"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Reason / Notes */}
-              <div>
-                <label className="text-xs font-bold text-slate-700 uppercase tracking-wide block mb-1">
-                  Reason for Request (Why this fits better?)
-                </label>
-                <textarea
-                  rows={3}
-                  placeholder="Explain why you feel this code fits your qualification and work experience..."
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  className="w-full p-3 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-teal-500 outline-none resize-none"
-                  data-testid="client-occ-notes"
-                />
-              </div>
-
-              <div className="pt-2 flex justify-end gap-2.5">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowSuggestModal(false)}
-                  className="rounded-xl text-xs h-9"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleSubmitSuggestion}
-                  disabled={submitting}
-                  className="bg-[#f7620b] hover:bg-[#e55a09] text-white font-semibold text-xs h-9 px-4 rounded-xl flex items-center gap-1.5"
-                  data-testid="submit-client-occ-suggestion-btn"
-                >
-                  <Send className="h-3.5 w-3.5" />
-                  {submitting ? 'Submitting...' : 'Submit Suggestion'}
-                </Button>
-              </div>
-            </div>
-          </Card>
-        </div>
-      )}
+      {renderSuggestModal()}
     </>
   );
 }
