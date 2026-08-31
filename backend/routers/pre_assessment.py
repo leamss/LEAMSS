@@ -58,6 +58,7 @@ users_col = db["users"]
 products_col = db["products"]
 partner_product_commissions_col = db["partner_product_commissions"]
 sales_col = db["sales"]
+cases_col = db["cases"]
 
 PRE_ASSESSMENT_FEE = 5100  # Phase 20.3 — DEPRECATED hardcoded fallback only; use resolver below
 PRE_ASSESSMENT_SAFETY_NET_INR = 5100
