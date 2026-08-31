@@ -160,28 +160,34 @@ export default function PreAssessmentMiniPortal({ pa, onRefresh, onOpenScanner }
   };
 
   const loadConsentSummary = useCallback(async () => {
+    const targetId = pa?.id || pa?.pa_number;
+    if (!targetId) return;
     try {
-      const r = await axios.get(`${API}/pre-assess-portal/client/consent-summary/${pa.id}`, getAuth());
+      const r = await axios.get(`${API}/pre-assess-portal/client/consent-summary/${targetId}`, getAuth());
       if (r.data.exists) setConsentSummary(r.data.record);
     } catch (e) { /* silent */ }
-  }, [pa.id]);
+  }, [pa?.id, pa?.pa_number]);
 
   const loadEsign = useCallback(async () => {
+    const targetId = pa?.id || pa?.pa_number;
+    if (!targetId) return;
     try {
-      const r = await axios.get(`${API}/proposal-docs/${pa.id}/esign`, getAuth());
+      const r = await axios.get(`${API}/proposal-docs/${targetId}/esign`, getAuth());
       if (r.data.signed) setEsignRec(r.data.record);
     } catch (e) { /* silent */ }
-  }, [pa.id]);
+  }, [pa?.id, pa?.pa_number]);
 
   useEffect(() => {
-    if (pa.proposal_consent_given) loadConsentSummary();
-    if (['proposal_paid', 'awaiting_final_approval', 'case_created'].includes(pa.stage)) loadEsign();
-  }, [pa.proposal_consent_given, pa.stage, loadConsentSummary, loadEsign]);
+    if (pa?.proposal_consent_given) loadConsentSummary();
+    if (['proposal_paid', 'awaiting_final_approval', 'case_created'].includes(pa?.stage)) loadEsign();
+  }, [pa?.proposal_consent_given, pa?.stage, loadConsentSummary, loadEsign]);
 
   const handleSaveSignature = async (dataUrl, meta) => {
+    const targetId = currentPa?.id || currentPa?.pa_number || pa?.id || pa?.pa_number;
+    if (!targetId) return;
     setSavingSig(true);
     try {
-      const r = await axios.post(`${API}/proposal-docs/${pa.id}/esign`, {
+      const r = await axios.post(`${API}/proposal-docs/${targetId}/esign`, {
         signature_data_url: dataUrl,
         typed_name: meta.typed_name,
         consent_text: 'I electronically sign this service agreement',
@@ -189,13 +195,17 @@ export default function PreAssessmentMiniPortal({ pa, onRefresh, onOpenScanner }
       }, getAuth());
       toast.success('Agreement e-signed · ' + new Date(r.data.signed_at).toLocaleString());
       await loadEsign();
+      await load();
+      onRefresh?.();
     } catch (e) { toast.error(e?.response?.data?.detail || 'Sign failed'); }
     setSavingSig(false);
   };
 
   const downloadDoc = async (kind) => {
+    const targetId = currentPa?.id || currentPa?.pa_number || pa?.id || pa?.pa_number;
+    if (!targetId) return;
     try {
-      const r = await fetch(`${API}/proposal-docs/${pa.id}/${kind}.pdf`, {
+      const r = await fetch(`${API}/proposal-docs/${targetId}/${kind}.pdf`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       if (!r.ok) throw new Error();

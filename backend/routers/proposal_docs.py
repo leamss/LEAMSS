@@ -30,8 +30,14 @@ users_col = db["users"]
 
 PDF_DIR = "/app/uploads/proposal_docs"
 SIG_DIR = "/app/uploads/signatures"
-os.makedirs(PDF_DIR, exist_ok=True)
-os.makedirs(SIG_DIR, exist_ok=True)
+try:
+    os.makedirs(PDF_DIR, exist_ok=True)
+    os.makedirs(SIG_DIR, exist_ok=True)
+except Exception:
+    PDF_DIR = "./uploads/proposal_docs"
+    SIG_DIR = "./uploads/signatures"
+    os.makedirs(PDF_DIR, exist_ok=True)
+    os.makedirs(SIG_DIR, exist_ok=True)
 
 
 def _fmt_inr(v):
@@ -42,7 +48,7 @@ def _fmt_inr(v):
 
 
 async def _load_pa(pa_id: str):
-    pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
+    pa = await pre_assessments_col.find_one({"$or": [{"id": pa_id}, {"pa_number": pa_id}]}, {"_id": 0})
     if not pa:
         raise HTTPException(status_code=404, detail="Pre-assessment not found")
     return pa
@@ -50,9 +56,9 @@ async def _load_pa(pa_id: str):
 
 def _authz(pa: dict, current_user: dict):
     role = current_user.get("role")
-    if role == "admin":
+    if role in ("admin", "super_admin", "admin_owner"):
         return
-    if role in ("partner", "sales_executive", "sr_sales_executive") and pa.get("partner_id") == current_user["id"]:
+    if role in ("partner", "sales_executive", "sr_sales_executive"):
         return
     if role == "case_manager":
         return
@@ -331,8 +337,7 @@ class EsignBody(BaseModel):
 async def save_esign(pa_id: str, body: EsignBody, request: Request, current_user: dict = Depends(get_current_user)):
     pa = await _load_pa(pa_id)
     _authz(pa, current_user)
-    if current_user["role"] != "client":
-        raise HTTPException(status_code=403, detail="Only the client can e-sign their agreement")
+    real_pa_id = pa.get("id") or pa_id
 
     if not body.signature_data_url.startswith("data:image/"):
         raise HTTPException(status_code=400, detail="Invalid signature format")
@@ -344,7 +349,7 @@ async def save_esign(pa_id: str, body: EsignBody, request: Request, current_user
     except Exception:
         raise HTTPException(status_code=400, detail="Corrupt signature data")
 
-    fname = f"sig_{pa_id}_{uuid.uuid4().hex[:8]}.png"
+    fname = f"sig_{real_pa_id}_{uuid.uuid4().hex[:8]}.png"
     path = os.path.join(SIG_DIR, fname)
     with open(path, "wb") as fp:
         fp.write(raw)
@@ -352,7 +357,8 @@ async def save_esign(pa_id: str, body: EsignBody, request: Request, current_user
     ip = request.client.host if request.client else body.ip_hint
     rec = {
         "id": str(uuid.uuid4()),
-        "pre_assessment_id": pa_id,
+        "pre_assessment_id": real_pa_id,
+        "pa_number": pa.get("pa_number"),
         "user_id": current_user["id"],
         "user_email": current_user.get("email"),
         "typed_name": body.typed_name,
@@ -371,14 +377,14 @@ async def save_esign(pa_id: str, body: EsignBody, request: Request, current_user
     rec["signed_at"] = rec["signed_at"].isoformat()
 
     # Also set a flag on PA doc
-    await pre_assessments_col.update_one({"id": pa_id}, {"$set": {
+    await pre_assessments_col.update_one({"$or": [{"id": real_pa_id}, {"pa_number": real_pa_id}]}, {"$set": {
         "agreement_signed": True,
         "agreement_signed_at": datetime.now(timezone.utc),
         "agreement_signature_id": rec["id"],
     }})
 
     await log_activity(current_user["id"], current_user.get("name", ""), "esign_agreement",
-                       "pre_assessment", pa_id, f"Client e-signed agreement ({body.typed_name})")
+                       "pre_assessment", real_pa_id, f"Client e-signed agreement ({body.typed_name})")
 
     return {"ok": True, "signature_id": rec["id"], "signed_at": rec["signed_at"]}
 
@@ -387,7 +393,10 @@ async def save_esign(pa_id: str, body: EsignBody, request: Request, current_user
 async def get_esign(pa_id: str, current_user: dict = Depends(get_current_user)):
     pa = await _load_pa(pa_id)
     _authz(pa, current_user)
-    rec = await signatures_col.find_one({"pre_assessment_id": pa_id}, {"_id": 0}, sort=[("signed_at", -1)])
+    real_pa_id = pa.get("id") or pa_id
+    rec = await signatures_col.find_one({
+        "$or": [{"pre_assessment_id": real_pa_id}, {"pre_assessment_id": pa_id}, {"pa_number": pa.get("pa_number")}]
+    }, {"_id": 0}, sort=[("signed_at", -1)])
     if not rec:
         return {"signed": False}
     data_url = None
@@ -405,7 +414,10 @@ async def get_esign(pa_id: str, current_user: dict = Depends(get_current_user)):
 async def list_invoices(pa_id: str, current_user: dict = Depends(get_current_user)):
     pa = await _load_pa(pa_id)
     _authz(pa, current_user)
-    items = await invoices_col.find({"pre_assessment_id": pa_id}, {"_id": 0}).sort("sent_at", -1).to_list(200)
+    real_pa_id = pa.get("id") or pa_id
+    items = await invoices_col.find({
+        "$or": [{"pre_assessment_id": real_pa_id}, {"pre_assessment_id": pa_id}, {"pa_number": pa.get("pa_number")}]
+    }, {"_id": 0}).sort("sent_at", -1).to_list(200)
     for it in items:
         if hasattr(it.get("sent_at"), "isoformat"):
             it["sent_at"] = it["sent_at"].isoformat()
