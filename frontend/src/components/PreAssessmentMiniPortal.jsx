@@ -14,7 +14,8 @@ import PaymentHistoryTimeline from '@/components/PaymentHistoryTimeline';
 import ClientAgreementSigning from '@/components/ClientAgreementSigning';
 import ClientOccupationReviewCard from '@/components/ClientOccupationReviewCard';
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || (typeof window !== 'undefined' && window.location.hostname.includes('leamss.com') ? 'https://api.leamss.com' : 'http://localhost:8001');
+const API = `${BACKEND_URL}/api`;
 
 const DOC_TYPES = [
   { id: 'passport', label: 'Passport', required: true },
@@ -266,7 +267,7 @@ const [selectingPkg, setSelectingPkg] = useState(null);
   const viewPackageDoc = async (documentUrl) => {
     if (!documentUrl) return;
     try {
-      const r = await fetch(`${process.env.REACT_APP_BACKEND_URL}${documentUrl}`, {
+      const r = await fetch(`${BACKEND_URL}${documentUrl}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
       });
       if (!r.ok) throw new Error();

@@ -651,20 +651,32 @@ async def upload_pa_document(
     current_user: dict = Depends(get_current_user)
 ):
     """Upload a document for pre-assessment"""
-    pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
+    pa = await pre_assessments_col.find_one({"$or": [{"id": pa_id}, {"pa_number": pa_id}]}, {"_id": 0})
     if not pa:
         raise HTTPException(status_code=404, detail="Pre-assessment not found")
 
-    # Save file
-    os.makedirs(f"/app/uploads/pre_assessments/{pa_id}", exist_ok=True)
-    file_path = f"/app/uploads/pre_assessments/{pa_id}/{file.filename}"
-    with open(file_path, "wb") as f:
-        content = await file.read()
-        f.write(content)
+    real_pa_id = pa.get("id") or pa_id
+
+    # Read content
+    content = await file.read()
+
+    # Save file to upload directory
+    upload_dir = f"/app/uploads/pre_assessments/{real_pa_id}"
+    try:
+        os.makedirs(upload_dir, exist_ok=True)
+        file_path = f"{upload_dir}/{file.filename}"
+        with open(file_path, "wb") as f:
+            f.write(content)
+    except Exception:
+        local_dir = f"./uploads/pre_assessments/{real_pa_id}"
+        os.makedirs(local_dir, exist_ok=True)
+        file_path = f"{local_dir}/{file.filename}"
+        with open(file_path, "wb") as f:
+            f.write(content)
 
     doc = {
         "id": str(uuid.uuid4()),
-        "pre_assessment_id": pa_id,
+        "pre_assessment_id": real_pa_id,
         "document_type": document_type,
         "file_name": file.filename,
         "file_path": file_path,
@@ -748,8 +760,11 @@ async def set_pa_occupation(
 @router.get("/{pa_id}/documents")
 async def get_pa_documents(pa_id: str, current_user: dict = Depends(get_current_user)):
     """Get all documents for a pre-assessment"""
+    pa = await pre_assessments_col.find_one({"$or": [{"id": pa_id}, {"pa_number": pa_id}]}, {"_id": 0})
+    real_pa_id = pa.get("id") if pa else pa_id
+
     docs = await pre_assessment_docs_col.find(
-        {"pre_assessment_id": pa_id}, {"_id": 0}
+        {"$or": [{"pre_assessment_id": real_pa_id}, {"pre_assessment_id": pa_id}]}, {"_id": 0}
     ).sort("created_at", -1).to_list(100)
     for d in docs:
         if hasattr(d.get("created_at"), "isoformat"):

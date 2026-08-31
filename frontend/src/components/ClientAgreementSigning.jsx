@@ -8,7 +8,8 @@ import { FileCheck, CheckCircle2, Download } from 'lucide-react';
 import SignatureCanvas from '@/components/SignatureCanvas';
 import './agreement-doc.css';
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || (typeof window !== 'undefined' && window.location.hostname.includes('leamss.com') ? 'https://api.leamss.com' : 'http://localhost:8001');
+const API = `${BACKEND_URL}/api`;
 
 /**
  * ClientAgreementSigning — shows the latest agreement for a PA, full body preview,
