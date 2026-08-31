@@ -430,7 +430,8 @@ const ClientDashboard = () => {
   };
 
   // Determine active pre-assessment (most-recent not-expired)
-const activePA = preAssessments.find(p => ['payment_received', 'partner_review', 'documents_submitted', 'under_review', 'approved', 'awaiting_package_selection', 'package_selected', 'proposal_sent', 'proposal_paid', 'awaiting_final_approval', 'rejected', 'refund_initiated', 'refunded', 'international_payment_pending'].includes(p.stage));  const isMiniMode = !caseData && !!activePA;
+  const activePA = preAssessments.find(p => ['payment_received', 'partner_review', 'documents_submitted', 'under_review', 'approved', 'awaiting_package_selection', 'package_selected', 'proposal_sent', 'proposal_paid', 'awaiting_final_approval', 'rejected', 'refund_initiated', 'refunded', 'international_payment_pending'].includes(p.stage));
+  const isMiniMode = !!activePA && activePA.stage !== 'case_created';
   const isExpandedMode = isMiniMode && ['approved', 'awaiting_package_selection', 'package_selected', 'proposal_sent', 'proposal_paid'].includes(activePA?.stage);
 
   const clientNavGroups = isMiniMode ? [
@@ -528,47 +529,35 @@ const activePA = preAssessments.find(p => ['payment_received', 'partner_review',
       onLogout={handleLogout}
     >
       <main>
-        {!caseData ? (
-          isMiniMode ? (
-            <>
-              {activeTab === 'overview' && (
-                <PreAssessmentMiniPortal
-                  pa={activePA}
-                  onRefresh={loadData}
-                  onOpenScanner={() => setActiveTab('doc-scanner')}
-                />
-              )}
-              {activeTab === 'doc-scanner' && (
-                <DocumentExtractor />
-              )}
-              {activeTab === 'cost-estimate' && isExpandedMode && (
-                <FeeCalculator />
-              )}
-              {activeTab === 'eligibility' && isExpandedMode && (
-                <EligibilityChecker token={localStorage.getItem('token')} />
-              )}
-              {activeTab === 'messages' && (
-                <MessageCenter />
-              )}
-              {activeTab === 'tickets' && (
-                <TicketSection caseId={null} initialTicketId={initialTicketId} filter={ticketFilter} onClearFilter={() => setTicketFilter(null)} />
-              )}
-              {activeTab === 'profile' && (
-                <ClientProfile user={user} onUpdate={setUser} />
-              )}
-            </>
-          ) : (
-            <Card className="p-12 text-center bg-white shadow-xl rounded-2xl border-0">
-              <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-slate-100 to-slate-200 rounded-full flex items-center justify-center">
-                <FileText className="h-10 w-10 text-slate-400" />
-              </div>
-              <h2 className="text-2xl font-bold text-slate-800 mb-2">No Active Case</h2>
-              <p className="text-slate-500 max-w-md mx-auto">
-                You don&apos;t have any active cases yet. Please contact your case manager or partner for assistance.
-              </p>
-            </Card>
-          )
-        ) : (
+        {isMiniMode ? (
+          <>
+            {activeTab === 'overview' && (
+              <PreAssessmentMiniPortal
+                pa={activePA}
+                onRefresh={loadData}
+                onOpenScanner={() => setActiveTab('doc-scanner')}
+              />
+            )}
+            {activeTab === 'doc-scanner' && (
+              <DocumentExtractor />
+            )}
+            {activeTab === 'cost-estimate' && isExpandedMode && (
+              <FeeCalculator />
+            )}
+            {activeTab === 'eligibility' && isExpandedMode && (
+              <EligibilityChecker token={localStorage.getItem('token')} />
+            )}
+            {activeTab === 'messages' && (
+              <MessageCenter />
+            )}
+            {activeTab === 'tickets' && (
+              <TicketSection caseId={null} initialTicketId={initialTicketId} filter={ticketFilter} onClearFilter={() => setTicketFilter(null)} />
+            )}
+            {activeTab === 'profile' && (
+              <ClientProfile user={user} onUpdate={setUser} />
+            )}
+          </>
+        ) : caseData ? (
           <>
             {/* Case Overview Header - Only show on dashboard-like tabs */}
             {!['messages', 'profile', 'journey', 'timeline', 'eligibility', 'emi-plans', 'family', 'documents', 'deadlines', 'cost-estimate', 'doc-scanner'].includes(activeTab) && (
@@ -1476,9 +1465,18 @@ const activePA = preAssessments.find(p => ['payment_received', 'partner_review',
               {/* Phase 12 Tabs */}
               {activeTab === 'eligibility' && <EligibilityChecker token={localStorage.getItem('token')} />}
               {activeTab === 'emi-plans' && <EMITracker token={localStorage.getItem('token')} />}
-              {activeTab === 'family' && <FamilyManager token={localStorage.getItem('token')} />}
             </div>
           </>
+        ) : (
+          <Card className="p-12 text-center bg-white shadow-xl rounded-2xl border-0">
+            <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-slate-100 to-slate-200 rounded-full flex items-center justify-center">
+              <FileText className="h-10 w-10 text-slate-400" />
+            </div>
+            <h2 className="text-2xl font-bold text-slate-800 mb-2">No Active Case</h2>
+            <p className="text-slate-500 max-w-md mx-auto">
+              You don&apos;t have any active cases yet. Please contact your case manager or partner for assistance.
+            </p>
+          </Card>
         )}
       </main>
       {/* AI Chat Widget - floating */}

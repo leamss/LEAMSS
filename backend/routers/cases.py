@@ -240,11 +240,24 @@ async def get_unassigned_cases(current_user: dict = Depends(get_current_user)):
 
 @router.get("/my-cases")
 async def get_my_cases(current_user: dict = Depends(get_current_user)):
-    query = {}
-    if current_user["role"] == "case_manager":
-        query["case_manager_id"] = current_user["id"]
-    elif current_user["role"] == "client":
-        query["$or"] = [{"client_id": current_user["id"]}, {"spouse_id": current_user["id"]}]
+    user_id = current_user.get("id")
+    user_email = (current_user.get("email") or "").lower()
+    role = current_user.get("role")
+
+    if role == "case_manager":
+        query = {"case_manager_id": user_id}
+    elif role in ("partner", "sales_executive", "sr_sales_executive"):
+        query = {"partner_id": user_id}
+    else:
+        # Default to strictly matching client ID or email
+        query = {
+            "$or": [
+                {"client_id": user_id},
+                {"spouse_id": user_id},
+                {"client_email": user_email},
+                {"spouse_email": user_email},
+            ]
+        }
 
     cases = await cases_col.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
     return await _enrich_cases(cases)

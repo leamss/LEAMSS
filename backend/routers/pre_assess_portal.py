@@ -907,12 +907,13 @@ async def otp_verify(data: OTPVerify):
 # ======================== CLIENT PORTAL VIEWS ========================
 @router.get("/client/my-assessments")
 async def client_my_assessments(current_user: dict = Depends(get_current_user)):
-    if current_user.get("role") != "client":
-        raise HTTPException(status_code=403, detail="Client only")
+    user_email = (current_user.get("email") or "").lower()
+    user_id = current_user.get("id")
+
     # Match by either email OR explicit client_user_id
     q = {"$or": [
-        {"client_email": current_user.get("email", "").lower()},
-        {"client_user_id": current_user["id"]},
+        {"client_email": user_email},
+        {"client_user_id": user_id},
     ]}
     items = await pre_assessments_col.find(q, {"_id": 0, "partner_id": 0}).sort("created_at", -1).to_list(50)
     for it in items:
