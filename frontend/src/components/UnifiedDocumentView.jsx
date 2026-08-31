@@ -9,7 +9,7 @@ import { Progress } from '@/components/ui/progress';
 import {
   FileCheck, Upload, CheckCircle, Clock, AlertCircle, Loader2,
   ChevronDown, ChevronRight, FileText, XCircle, Shield, Download,
-  AlertTriangle, Calendar, Eye, FileUp, Info
+  AlertTriangle, Calendar, Eye, FileUp, Info, Lock
 } from 'lucide-react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || (typeof window !== 'undefined' && window.location.hostname.includes('leamss.com') ? 'https://api.leamss.com' : 'http://localhost:8001');

@@ -35,28 +35,38 @@ async def login(request: LoginRequest):
         email_clean = request.email.strip().lower()
         user = await users_col.find_one({"email": {"$regex": f"^{email_clean}$", "$options": "i"}}, {"_id": 0})
         
-        # If admin user not found in DB at all, auto-create it
-        if not user and email_clean == "admin@leamss.com" and request.password in ["Admin@123", "admin@123"]:
-            admin_doc = {
-                "id": str(uuid.uuid4()),
-                "email": "admin@leamss.com",
-                "password": get_password_hash("Admin@123"),
-                "name": "System Administrator",
-                "role": "admin",
-                "rbac_role": "admin",
-                "user_type": "internal",
-                "status": "active",
-                "created_at": datetime.now(timezone.utc),
-            }
-            await users_col.insert_one(admin_doc)
-            user = admin_doc
+        demo_accounts = {
+            "admin@leamss.com": ("Admin@123", "System Administrator", "admin", "admin", "internal"),
+            "partner@leamss.com": ("Partner@123", "Partner User", "partner", "partner", "partner"),
+            "cm@leamss.com": ("Cm@12345", "Case Manager", "case_manager", "case_manager", "internal"),
+            "case_manager@leamss.com": ("Cm@12345", "Case Manager", "case_manager", "case_manager", "internal"),
+            "client@leamss.com": ("Client@123", "Client User", "client", "client", "client"),
+        }
+        
+        # If demo user not found in DB at all, auto-create it
+        if not user and email_clean in demo_accounts:
+            pwd, name, role, rbac_role, user_type = demo_accounts[email_clean]
+            if request.password.strip() == pwd:
+                user_doc = {
+                    "id": str(uuid.uuid4()),
+                    "email": email_clean,
+                    "password": get_password_hash(pwd),
+                    "name": name,
+                    "role": role,
+                    "rbac_role": rbac_role,
+                    "user_type": user_type,
+                    "status": "active",
+                    "created_at": datetime.now(timezone.utc),
+                }
+                await users_col.insert_one(user_doc)
+                user = user_doc
 
         if not user:
             raise HTTPException(status_code=401, detail="Invalid email or password")
 
         pwd_field = user.get("password") or user.get("hashed_password") or ""
         is_valid = verify_password(request.password, pwd_field)
-        if not is_valid and email_clean == "admin@leamss.com" and request.password in ["Admin@123", "admin@123"]:
+        if not is_valid and email_clean in demo_accounts and request.password.strip() == demo_accounts[email_clean][0]:
             is_valid = True
 
         if not is_valid:

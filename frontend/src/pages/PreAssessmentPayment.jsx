@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -41,12 +41,16 @@ export default function PreAssessmentPayment() {
     { code: 'New Zealand', label: '🇳🇿 NZ' },
   ];
 
-  useEffect(() => {
+  const loadData = useCallback(() => {
     axios.get(`${API}/pre-assess-portal/public/${token}`)
       .then(r => setData(r.data))
       .catch(e => setError(e?.response?.data?.detail || 'Link unavailable'))
       .finally(() => setLoading(false));
   }, [token]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
 useEffect(() => {
     if (!data) return;
@@ -242,7 +246,7 @@ useEffect(() => {
                       const r = await axios.post(`${API}/pre-assess-portal/public/mock-pay`, { token });
                       if (r.data?.ok) {
                         toast.success(`Token of ₹${Math.round(tokenAmount).toLocaleString('en-IN')} received! Your consultant will share the full proposal shortly.`);
-                        load();
+                        loadData();
                       }
                     } catch (e) { toast.error(e?.response?.data?.detail || 'Payment failed'); }
                   }}
