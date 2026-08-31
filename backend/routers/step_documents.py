@@ -377,21 +377,37 @@ async def get_stepwise_documents(case_id: str, current_user: dict = Depends(get_
             ]
 
     # Build lookup: step_name -> admin default required_documents
-        # Build lookup of client-visible intake document fields by step
-        # Build step-wise documents from Workflow Builder intake form
     admin_docs_by_step = {}
 
     for aws in admin_wf_steps:
         step_name = aws.get("step_name", "")
         intake_documents = []
 
+        # 1. Include default required_documents on workflow step (e.g. Passport, Education Certs, etc.)
+        for rd in aws.get("required_documents", []):
+            d_name = _get_doc_name(rd)
+            if not d_name:
+                continue
+            is_mand = rd.get("is_mandatory", rd.get("mandatory", True)) if isinstance(rd, dict) else True
+            tag = rd.get("tag", "mandatory" if is_mand else "optional") if isinstance(rd, dict) else "mandatory"
+            notes = rd.get("notes", rd.get("description", "")) if isinstance(rd, dict) else ""
+            intake_documents.append({
+                "key": d_name.lower().replace(" ", "_"),
+                "doc_name": d_name,
+                "label": d_name,
+                "field_type": "file",
+                "is_mandatory": is_mand,
+                "mandatory": is_mand,
+                "tag": tag,
+                "notes": notes,
+                "description": notes,
+                "source": "admin_default",
+                "filled_by": "client",
+            })
+
+        # 2. Include intake form sections & fields from Workflow Builder
         for section in aws.get("sections", []):
             for field in section.get("fields", []):
-
-                # Only file upload fields are documents
-                # if field.get("field_type") != "file":
-                #     continue
-
                 filled_by = field.get("filled_by", "client")
 
                 # Hide CM-only fields from client
@@ -401,10 +417,18 @@ async def get_stepwise_documents(case_id: str, current_user: dict = Depends(get_
                 ):
                     continue
 
+                f_label = field.get("label") or field.get("doc_name") or field.get("key", "")
+                if not f_label:
+                    continue
+
+                # Avoid duplicate if already added
+                if any(d["doc_name"].lower() == f_label.lower() for d in intake_documents):
+                    continue
+
                 intake_documents.append({
                     "key": field.get("key", ""),
-                    "doc_name": field.get("label", ""),
-                    "label": field.get("label", ""),
+                    "doc_name": f_label,
+                    "label": f_label,
                     "field_type": field.get("field_type", "text"),
                     "options": field.get("options", []),
                     "is_mandatory": field.get("required", False),
@@ -522,86 +546,74 @@ async def get_stepwise_documents(case_id: str, current_user: dict = Depends(get_
         #     )
 
         # Build doc items for response
-                # CLIENT:
-        # Show ONLY Workflow Builder intake file fields
-        # where filled_by is client or both
-        if current_user["role"] == "client":
-            merged_docs = list(admin_defaults)
+        admin_lookup = {
+            _get_doc_name(ad).strip().lower(): ad
+            for ad in admin_defaults
+            if _get_doc_name(ad)
+        }
 
-        # CASE MANAGER / ADMIN:
-        # Show case required documents + workflow intake documents
-        else:
-            # CM/Admin: merge case documents with latest Workflow Builder fields
-            # Workflow Builder values like filled_by and field_type take priority
-            admin_lookup = {
-                _get_doc_name(ad).strip().lower(): ad
-                for ad in admin_defaults
-                if _get_doc_name(ad)
-            }
+        merged_docs = []
 
-            merged_docs = []
+        # 1. Merge case_req_docs (case step specific documents or CM requests)
+        for rd in case_req_docs:
+            doc_name = _get_doc_name(rd)
+            if not doc_name:
+                continue
+            doc_key = doc_name.strip().lower()
+            filled_by = rd.get("filled_by", "client") if isinstance(rd, dict) else "client"
 
-            for rd in case_req_docs:
-                doc_name = _get_doc_name(rd)
-                doc_key = doc_name.strip().lower()
+            if current_user["role"] == "client" and filled_by == "cm":
+                continue
 
-                workflow_doc = admin_lookup.get(doc_key)
+            workflow_doc = admin_lookup.get(doc_key)
+            if workflow_doc:
+                merged_doc = {
+                    **(rd if isinstance(rd, dict) else {"doc_name": doc_name}),
+                    **workflow_doc,
+                    "doc_name": doc_name,
+                }
+                merged_docs.append(merged_doc)
+                admin_lookup.pop(doc_key, None)
+            else:
+                merged_docs.append(rd if isinstance(rd, dict) else {
+                    "doc_name": doc_name,
+                    "label": doc_name,
+                    "field_type": "file",
+                    "is_mandatory": True,
+                    "tag": "mandatory",
+                    "source": "case_step",
+                    "filled_by": filled_by,
+                })
 
-                if workflow_doc:
-                    merged_doc = {
-                        **rd,
-                        **workflow_doc,
-                        "doc_name": doc_name,
-                    }
+        # 2. Add remaining workflow default docs
+        for ad in admin_lookup.values():
+            if current_user["role"] == "client" and ad.get("filled_by") == "cm":
+                continue
+            merged_docs.append(ad)
 
-                    merged_docs.append(merged_doc)
-                    admin_lookup.pop(doc_key, None)
-
-                else:
-                    merged_docs.append(rd)
-
-            # Add new Workflow Builder documents
-            merged_docs.extend(admin_lookup.values())
-
-        # Sequential step locking & Dynamic assessing authority document checklist for Step 2
+        # Dynamic assessing authority document checklist for Step 2 or Document Collection step
         is_step_2 = (step_name.lower().strip() in ["document collection", "documents collection", "document gathering", "documents"] or cs.get("step_order") == 2)
         occ_review_status = case.get("client_occupation_review_status") or "pending_client_review"
-        step_status = (cs.get("status") or "pending").lower()
-        is_current_completed = step_status in ("completed", "complete", "done", "approved", "verified")
 
         is_locked = False
         lock_reason = ""
 
-        # Sequential locking: Any step after Step 1 requires previous step to be marked complete
-        if idx > 0 and not prev_step_complete:
+        # Only lock if occupation review was explicitly rejected by client and partner review is in progress
+        if is_step_2 and occ_review_status == "rejected_by_client":
             is_locked = True
-            prev_name = case_steps[idx - 1].get("step_name", f"Step {idx}")
-            lock_reason = f"This step is locked. It will unlock once '{prev_name}' is marked complete by your Case Manager."
+            lock_reason = "You requested an occupation code change. Partner/Admin review is in progress."
 
-        if is_step_2:
-            if not prev_step_complete:
-                is_locked = True
-                prev_name = case_steps[idx - 1].get("step_name", "Step 1 (Profile Creation)") if idx > 0 else "Step 1"
-                lock_reason = f"Step 2 is locked. It will unlock once '{prev_name}' is marked complete by your Case Manager and your Occupation Code is accepted."
-            elif occ_review_status != "accepted":
-                is_locked = True
-                if occ_review_status == "rejected_by_client":
-                    lock_reason = "You requested an occupation code change. Partner/Admin review is in progress."
-                else:
-                    lock_reason = "Please review and accept your assigned ANZSCO Occupation Code to view and upload the required document checklist for this step."
-
-        if is_locked and current_user["role"] == "client":
-            merged_docs = []
-        elif is_step_2 and occ_review_status == "accepted":
-            assessing_checklist = get_assessing_body_documents(
-                case.get("occupation_code", ""),
-                case.get("assessing_authority_code", ""),
-                case.get("country", "AU")
-            )
-            existing_names = {_get_doc_name(d).strip().lower() for d in merged_docs}
-            for adoc in assessing_checklist:
-                if adoc["doc_name"].strip().lower() not in existing_names:
-                    merged_docs.append(adoc)
+        if is_step_2 or "document" in step_name.lower():
+            if case.get("occupation_code"):
+                assessing_checklist = get_assessing_body_documents(
+                    case.get("occupation_code", ""),
+                    case.get("assessing_authority_code", ""),
+                    case.get("country", "AU")
+                )
+                existing_names = {_get_doc_name(d).strip().lower() for d in merged_docs}
+                for adoc in assessing_checklist:
+                    if adoc["doc_name"].strip().lower() not in existing_names:
+                        merged_docs.append(adoc)
 
         doc_items = []
         for rd in merged_docs:
