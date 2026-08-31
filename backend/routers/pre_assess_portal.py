@@ -1262,18 +1262,16 @@ async def client_portal_occupation_decision(
     current_user: dict = Depends(get_current_user)
 ):
     """Client accepts or suggests alternate occupation code from the portal."""
-    if current_user.get("role") != "client":
-        raise HTTPException(status_code=403, detail="Client only")
     pa = await pre_assessments_col.find_one(
         {"$or": [
             {"id": pa_id},
+            {"pa_number": pa_id},
             {"pre_assessment_number": pa_id},
             {"custom_id": pa_id}
         ]},
         {"_id": 0}
     )
-    if not pa or (pa.get("client_email", "").lower() != current_user.get("email", "").lower()
-                and pa.get("client_user_id") != current_user["id"]):
+    if not pa or not _can_access_pa_portal(pa, current_user):
         raise HTTPException(status_code=404, detail="Not found")
 
     real_pa_id = pa.get("id") or pa_id
@@ -1356,21 +1354,20 @@ async def client_portal_occupation_decision(
 @router.post("/client/accept-proposal/{pa_id}")
 async def client_accept_proposal(pa_id: str, current_user: dict = Depends(get_current_user)):
     """Client accepts the sales proposal. Marks proposal as accepted (ready for main payment)."""
-    if current_user.get("role") != "client":
-        raise HTTPException(status_code=403, detail="Client only")
-    pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
-    if not pa or (pa.get("client_email", "").lower() != current_user.get("email", "").lower()
-                and pa.get("client_user_id") != current_user["id"]):
+    pa = await pre_assessments_col.find_one({"$or": [{"id": pa_id}, {"pa_number": pa_id}]}, {"_id": 0})
+    if not pa or not _can_access_pa_portal(pa, current_user):
         raise HTTPException(status_code=404, detail="Not found")
+
+    real_pa_id = pa.get("id") or pa_id
     if pa.get("stage") != "proposal_sent":
         raise HTTPException(status_code=400, detail=f"Cannot accept at stage: {pa.get('stage')}")
 
-    await pre_assessments_col.update_one({"id": pa_id}, {"$set": {
+    await pre_assessments_col.update_one({"$or": [{"id": real_pa_id}, {"pa_number": real_pa_id}]}, {"$set": {
         "proposal_status": "accepted",
         "proposal_accepted_at": _now(),
         "updated_at": _now(),
     }})
-    await _log(current_user["id"], pa_id, "proposal_accepted", {})
+    await _log(current_user["id"], real_pa_id, "proposal_accepted", {})
     return {"ok": True, "proposal_status": "accepted"}
 
 
@@ -1378,25 +1375,24 @@ async def client_accept_proposal(pa_id: str, current_user: dict = Depends(get_cu
 async def client_proposal_consent(pa_id: str, current_user: dict = Depends(get_current_user)):
     """Client confirms they've reviewed the proposal + T&C before payment. Records timestamp
     AND triggers a (MOCK) consent-summary email with a legal Reference ID for paper-trail."""
-    if current_user.get("role") != "client":
-        raise HTTPException(status_code=403, detail="Client only")
-    pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
-    if not pa or (pa.get("client_email", "").lower() != current_user.get("email", "").lower()
-                and pa.get("client_user_id") != current_user["id"]):
+    pa = await pre_assessments_col.find_one({"$or": [{"id": pa_id}, {"pa_number": pa_id}]}, {"_id": 0})
+    if not pa or not _can_access_pa_portal(pa, current_user):
         raise HTTPException(status_code=404, detail="Not found")
+
+    real_pa_id = pa.get("id") or pa_id
     if pa.get("stage") != "proposal_sent":
         raise HTTPException(status_code=400, detail=f"Cannot give consent at stage: {pa.get('stage')}")
 
     now = _now()
-    reference_id = f"CON-{(pa.get('pa_number') or pa_id[:8]).upper()}-{now.strftime('%y%m%d%H%M')}"
+    reference_id = f"CON-{(pa.get('pa_number') or real_pa_id[:8]).upper()}-{now.strftime('%y%m%d%H%M')}"
 
-    await pre_assessments_col.update_one({"id": pa_id}, {"$set": {
+    await pre_assessments_col.update_one({"$or": [{"id": real_pa_id}, {"pa_number": real_pa_id}]}, {"$set": {
         "proposal_consent_given": True,
         "proposal_consent_at": now,
         "proposal_consent_reference_id": reference_id,
         "updated_at": now,
     }})
-    await _log(current_user["id"], pa_id, "proposal_consent_given", {"reference_id": reference_id})
+    await _log(current_user["id"], real_pa_id, "proposal_consent_given", {"reference_id": reference_id})
 
     # Build consent summary payload (MOCK email persisted for records)
     upsells = pa.get("proposal_upsells") or []
@@ -1454,19 +1450,15 @@ async def client_proposal_consent(pa_id: str, current_user: dict = Depends(get_c
 @router.get("/client/consent-summary/{pa_id}")
 async def get_consent_summary(pa_id: str, current_user: dict = Depends(get_current_user)):
     """Fetch the archived consent summary (for both client + partner + admin)."""
-    pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
+    pa = await pre_assessments_col.find_one({"$or": [{"id": pa_id}, {"pa_number": pa_id}]}, {"_id": 0})
     if not pa:
         raise HTTPException(status_code=404, detail="Not found")
-    role = current_user.get("role")
-    if role == "client":
-        if (pa.get("client_email") or "").lower() != (current_user.get("email") or "").lower() and pa.get("client_user_id") != current_user["id"]:
-            raise HTTPException(status_code=403, detail="Not authorized")
-    elif role in ("partner", "sales_executive", "sr_sales_executive"):
-        if pa.get("partner_id") != current_user["id"]:
-            raise HTTPException(status_code=403, detail="Not authorized")
-    elif role not in ("admin", "case_manager"):
+    if not _can_access_pa_portal(pa, current_user):
         raise HTTPException(status_code=403, detail="Not authorized")
-    rec = await db["proposal_consent_emails"].find_one({"pre_assessment_id": pa_id}, {"_id": 0}, sort=[("created_at", -1)])
+    real_pa_id = pa.get("id") or pa_id
+    rec = await db["proposal_consent_emails"].find_one({
+        "$or": [{"pre_assessment_id": real_pa_id}, {"pre_assessment_id": pa_id}, {"pa_number": pa.get("pa_number")}]
+    }, {"_id": 0}, sort=[("created_at", -1)])
     if not rec:
         return {"exists": False}
     if hasattr(rec.get("created_at"), "isoformat"):
@@ -1486,12 +1478,11 @@ def _get_next_proposal_part(pa: dict):
 @router.post("/client/proposal/create-order/{pa_id}")
 async def proposal_create_order(pa_id: str, current_user: dict = Depends(get_current_user)):
     """Creates a real Razorpay order for the NEXT pending proposal installment (domestic tab)."""
-    if current_user.get("role") != "client":
-        raise HTTPException(status_code=403, detail="Client only")
-    pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
-    if not pa or (pa.get("client_email", "").lower() != current_user.get("email", "").lower()
-                and pa.get("client_user_id") != current_user["id"]):
+    pa = await pre_assessments_col.find_one({"$or": [{"id": pa_id}, {"pa_number": pa_id}]}, {"_id": 0})
+    if not pa or not _can_access_pa_portal(pa, current_user):
         raise HTTPException(status_code=404, detail="Not found")
+
+    real_pa_id = pa.get("id") or pa_id
     if pa.get("stage") != "proposal_sent":
         raise HTTPException(status_code=400, detail=f"Cannot pay at stage: {pa.get('stage')}")
     if not pa.get("proposal_consent_given"):
@@ -1511,10 +1502,10 @@ async def proposal_create_order(pa_id: str, current_user: dict = Depends(get_cur
         "amount": amount_paise,
         "currency": "INR",
         "payment_capture": 1,
-        "notes": {"pa_id": pa_id, "part_index": str(next_part["index"]), "purpose": "proposal_installment"},
+        "notes": {"pa_id": real_pa_id, "part_index": str(next_part["index"]), "purpose": "proposal_installment"},
     })
 
-    await _log(current_user["id"], pa_id, "razorpay_proposal_order_created",
+    await _log(current_user["id"], real_pa_id, "razorpay_proposal_order_created",
                {"order_id": order["id"], "amount": amount_rupees, "part": next_part["label"]})
 
     return {
@@ -1534,9 +1525,11 @@ async def proposal_create_order(pa_id: str, current_user: dict = Depends(get_cur
 async def proposal_verify_payment(pa_id: str, data: ProposalVerifyPaymentRequest, current_user: dict = Depends(get_current_user)):
     """Verifies Razorpay signature, then reuses the SAME logic as client_mock_pay_proposal
     to mark the installment paid (avoids duplicating the part-tracking/sales-sync logic)."""
-    if current_user.get("role") != "client":
-        raise HTTPException(status_code=403, detail="Client only")
+    pa = await pre_assessments_col.find_one({"$or": [{"id": pa_id}, {"pa_number": pa_id}]}, {"_id": 0})
+    if not pa or not _can_access_pa_portal(pa, current_user):
+        raise HTTPException(status_code=404, detail="Not found")
 
+    real_pa_id = pa.get("id") or pa_id
     if not razorpay_client or not razorpay:
         raise HTTPException(status_code=500, detail="Razorpay is not configured on this server")
 
@@ -1549,7 +1542,7 @@ async def proposal_verify_payment(pa_id: str, data: ProposalVerifyPaymentRequest
     except getattr(getattr(razorpay, "errors", None), "SignatureVerificationError", Exception):
         raise HTTPException(status_code=400, detail="Payment verification failed — signature mismatch")
 
-    await pre_assessments_col.update_one({"id": pa_id}, {"$set": {
+    await pre_assessments_col.update_one({"$or": [{"id": real_pa_id}, {"pa_number": real_pa_id}]}, {"$set": {
         "proposal_last_razorpay_order_id": data.order_id,
         "proposal_last_razorpay_payment_id": data.payment_id,
         "proposal_payment_method": "razorpay_live",
@@ -1557,19 +1550,18 @@ async def proposal_verify_payment(pa_id: str, data: ProposalVerifyPaymentRequest
     }})
 
     # Reuse the existing part-marking logic (this returns the same response shape frontend expects)
-    return await client_mock_pay_proposal(pa_id, current_user)
+    return await client_mock_pay_proposal(real_pa_id, current_user)
 
 
 @router.post("/client/proposal/international-claim/{pa_id}")
 async def proposal_international_claim(pa_id: str, data: ProposalInternationalClaimRequest, current_user: dict = Depends(get_current_user)):
     """International wire transfer claim for a proposal installment. Marks the part as
     'pending_verification' (not fully paid) — partner must confirm before it counts as paid."""
-    if current_user.get("role") != "client":
-        raise HTTPException(status_code=403, detail="Client only")
-    pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
-    if not pa or (pa.get("client_email", "").lower() != current_user.get("email", "").lower()
-                and pa.get("client_user_id") != current_user["id"]):
+    pa = await pre_assessments_col.find_one({"$or": [{"id": pa_id}, {"pa_number": pa_id}]}, {"_id": 0})
+    if not pa or not _can_access_pa_portal(pa, current_user):
         raise HTTPException(status_code=404, detail="Not found")
+
+    real_pa_id = pa.get("id") or pa_id
     if pa.get("stage") != "proposal_sent":
         raise HTTPException(status_code=400, detail=f"Cannot pay at stage: {pa.get('stage')}")
     if not pa.get("proposal_consent_given"):
@@ -1585,7 +1577,7 @@ async def proposal_international_claim(pa_id: str, data: ProposalInternationalCl
             p["claimed_at"] = _now().isoformat()
             p["reference_note"] = data.reference_note or ""
 
-    await pre_assessments_col.update_one({"id": pa_id}, {"$set": {
+    await pre_assessments_col.update_one({"$or": [{"id": real_pa_id}, {"pa_number": real_pa_id}]}, {"$set": {
         "proposal_payment_parts": parts,
         "proposal_payment_method": "international_wire_transfer",
         "updated_at": _now(),
@@ -1602,7 +1594,7 @@ async def proposal_international_claim(pa_id: str, data: ProposalInternationalCl
             "created_at": _now(),
         })
 
-    await _log(current_user["id"], pa_id, "proposal_international_claimed",
+    await _log(current_user["id"], real_pa_id, "proposal_international_claimed",
                {"part": next_part["label"], "reference_note": data.reference_note or ""})
 
     return {"ok": True, "part_claimed": next_part["label"], "status": "pending_verification"}
@@ -1711,11 +1703,8 @@ async def partner_confirm_proposal_installment(pa_id: str, current_user: dict = 
 @router.get("/client/proposal/bank-details/{pa_id}")
 async def proposal_bank_details(pa_id: str, current_user: dict = Depends(get_current_user), country: Optional[str] = None):
     """Bank details for proposal-installment international payments (reuses same collection)."""
-    if current_user.get("role") != "client":
-        raise HTTPException(status_code=403, detail="Client only")
-    pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
-    if not pa or (pa.get("client_email", "").lower() != current_user.get("email", "").lower()
-                and pa.get("client_user_id") != current_user["id"]):
+    pa = await pre_assessments_col.find_one({"$or": [{"id": pa_id}, {"pa_number": pa_id}]}, {"_id": 0})
+    if not pa or not _can_access_pa_portal(pa, current_user):
         raise HTTPException(status_code=404, detail="Not found")
 
     bank_col = db["international_bank_accounts"]
@@ -1732,12 +1721,10 @@ async def client_mock_pay_proposal(pa_id: str, current_user: dict = Depends(get_
     """MOCK main-fee payment — pays the NEXT pending payment part (full / 50-50 / installment).
     Only moves to 'proposal_paid' once ALL parts are paid.
     """
-    if current_user.get("role") != "client":
-        raise HTTPException(status_code=403, detail="Client only")
-    pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
-    if not pa or (pa.get("client_email", "").lower() != current_user.get("email", "").lower()
-                and pa.get("client_user_id") != current_user["id"]):
+    pa = await pre_assessments_col.find_one({"$or": [{"id": pa_id}, {"pa_number": pa_id}]}, {"_id": 0})
+    if not pa or not _can_access_pa_portal(pa, current_user):
         raise HTTPException(status_code=404, detail="Not found")
+    real_pa_id = pa.get("id") or pa_id
     if pa.get("stage") != "proposal_sent":
         raise HTTPException(status_code=400, detail=f"Cannot pay at stage: {pa.get('stage')}")
     if not pa.get("proposal_consent_given"):
@@ -1794,13 +1781,9 @@ async def client_mock_pay_proposal(pa_id: str, current_user: dict = Depends(get_
             "proposal_payment_ref": f"MOCK-{secrets.token_hex(8)}",
         })
 
-    # 👇 THIS LINE WAS MISSING — actually save the update to the database
-    await pre_assessments_col.update_one({"id": pa_id}, {"$set": update})
+    await pre_assessments_col.update_one({"$or": [{"id": real_pa_id}, {"pa_number": real_pa_id}]}, {"$set": update})
 
-
-    
-
-# ── Sync sales_col so the Client "Payments" dashboard reflects this too ──
+    # ── Sync sales_col so the Client "Payments" dashboard reflects this too ──
     if pa.get("sale_id"):
         sale = await db["sales"].find_one({"id": pa["sale_id"]}, {"_id": 0})
         if sale:
@@ -1840,11 +1823,11 @@ async def client_mock_pay_proposal(pa_id: str, current_user: dict = Depends(get_
         try:
             from core.report_tier_hook import auto_upgrade_report_tiers_for_pa
             upgrade_result = await auto_upgrade_report_tiers_for_pa(
-                pa_id, "proposal_paid", payment_ref=f"MAIN_FEE_{pa_id}",
+                real_pa_id, "proposal_paid", payment_ref=f"MAIN_FEE_{real_pa_id}",
             )
-            await _log(current_user["id"], pa_id, "report_tier_auto_upgrade", upgrade_result)
+            await _log(current_user["id"], real_pa_id, "report_tier_auto_upgrade", upgrade_result)
         except Exception as e:
-            logger.exception("Tier auto-upgrade failed for PA %s: %s", pa_id, e)
+            logger.exception("Tier auto-upgrade failed for PA %s: %s", real_pa_id, e)
 
         # Notify partner — PARTNER ACTION NEEDED (upload receipt + agreement)
         if pa.get("partner_id"):
@@ -1870,7 +1853,7 @@ async def client_mock_pay_proposal(pa_id: str, current_user: dict = Depends(get_
                 "created_at": now,
             })
 
-    await _log(current_user["id"], pa_id, "installment_paid" if not all_paid else "main_fee_paid",
+    await _log(current_user["id"], real_pa_id, "installment_paid" if not all_paid else "main_fee_paid",
             {"amount": amount_just_paid, "part": next_part["label"], "all_paid": all_paid})
 
     return {
@@ -1896,9 +1879,10 @@ async def partner_submit_final(pa_id: str, data: PartnerSubmitFinalRequest, curr
     if not is_admin and current_user.get("role") not in ("partner", "sales_executive", "sr_sales_executive", "sales_manager", "sales_head"):
         raise HTTPException(status_code=403, detail="Sales / partners / admins only")
 
-    pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
+    pa = await pre_assessments_col.find_one({"$or": [{"id": pa_id}, {"pa_number": pa_id}]}, {"_id": 0})
     if not pa:
         raise HTTPException(status_code=404, detail="Pre-assessment not found")
+    real_pa_id = pa.get("id") or pa_id
     if not is_admin:
         owns = pa.get("partner_id") == current_user["id"] or pa.get("created_by_user_id") == current_user["id"]
         if not owns:
@@ -1907,12 +1891,14 @@ async def partner_submit_final(pa_id: str, data: PartnerSubmitFinalRequest, curr
         raise HTTPException(status_code=400, detail=f"Cannot submit-final at stage: {pa.get('stage')}")
 
     # Require at least 1 doc (receipt / agreement)
-    final_docs_count = await db["pre_assessment_documents"].count_documents({"pre_assessment_id": pa_id})
+    final_docs_count = await db["pre_assessment_documents"].count_documents({
+        "$or": [{"pre_assessment_id": real_pa_id}, {"pre_assessment_id": pa_id}]
+    })
     # Count includes earlier client docs — that's OK. We just ensure something exists.
     if final_docs_count == 0:
         raise HTTPException(status_code=400, detail="Upload receipt/agreement before submitting")
 
-    await pre_assessments_col.update_one({"id": pa_id}, {"$set": {
+    await pre_assessments_col.update_one({"$or": [{"id": real_pa_id}, {"pa_number": real_pa_id}]}, {"$set": {
         "stage": "awaiting_final_approval",
         "partner_final_notes": data.notes or "",
         "partner_final_submitted_at": _now(),
