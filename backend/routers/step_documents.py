@@ -5,6 +5,7 @@
 """
 import uuid
 import json
+import re
 from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
@@ -322,6 +323,80 @@ def get_assessing_body_documents(occupation_code: str, assessing_authority: str,
     return docs
 
 
+def extract_auth_code_or_name(val):
+    if not val:
+        return ""
+    if isinstance(val, dict):
+        return val.get("code") or val.get("short_name") or val.get("name") or val.get("full_name") or ""
+    if isinstance(val, list):
+        for item in val:
+            extracted = extract_auth_code_or_name(item)
+            if extracted:
+                return extracted
+        return ""
+    return str(val).strip()
+
+
+async def get_assessing_body_documents_db(occupation_code: str = "", assessing_authority_code: str = "", country: str = "AU") -> list:
+    """Fetch assessing body checklist dynamically from DB (matching AuthoritiesAdmin / documents_required_common), with fallback."""
+    auth_name = extract_auth_code_or_name(assessing_authority_code)
+    if not auth_name and occupation_code:
+        occ = await db["occupation_master"].find_one({"code": occupation_code, "country_code": country}, {"_id": 0})
+        if occ:
+            auth_name = extract_auth_code_or_name(occ.get("assessing_authority") or occ.get("assessing_body"))
+
+    auth_doc = None
+    if auth_name:
+        query = {
+            "$or": [
+                {"code": {"$regex": f"^{re.escape(auth_name)}$", "$options": "i"}},
+                {"short_name": {"$regex": f"^{re.escape(auth_name)}$", "$options": "i"}},
+                {"full_name": {"$regex": f"^{re.escape(auth_name)}$", "$options": "i"}},
+                {"name": {"$regex": f"^{re.escape(auth_name)}$", "$options": "i"}},
+                {"aliases": {"$regex": f"^{re.escape(auth_name)}$", "$options": "i"}}
+            ]
+        }
+        auth_doc = await db["assessing_authorities"].find_one(query, {"_id": 0})
+        if not auth_doc and " " in auth_name:
+            first_word = auth_name.split()[0]
+            auth_doc = await db["assessing_authorities"].find_one({
+                "$or": [
+                    {"code": {"$regex": f"^{re.escape(first_word)}$", "$options": "i"}},
+                    {"aliases": {"$regex": f"{re.escape(first_word)}", "$options": "i"}}
+                ]
+            }, {"_id": 0})
+
+    if auth_doc:
+        raw_docs = auth_doc.get("documents_required_common") or auth_doc.get("documents_required") or auth_doc.get("document_checklist") or []
+        if raw_docs:
+            formatted_docs = []
+            auth_code_display = auth_doc.get("code") or auth_doc.get("short_name") or auth_name
+            for doc_item in raw_docs:
+                d_name = doc_item.get("name") or doc_item.get("doc_name") if isinstance(doc_item, dict) else str(doc_item).strip()
+                if not d_name:
+                    continue
+                is_mand = doc_item.get("is_mandatory", True) if isinstance(doc_item, dict) else True
+                tag = doc_item.get("tag", "mandatory" if is_mand else "optional") if isinstance(doc_item, dict) else "mandatory"
+                notes = doc_item.get("notes") or doc_item.get("description") or f"Required by {auth_code_display} for skills assessment." if isinstance(doc_item, dict) else f"Required by {auth_code_display} for skills assessment."
+                formatted_docs.append({
+                    "doc_name": d_name,
+                    "key": re.sub(r'[^a-zA-Z0-9_]', '', d_name.lower().replace(" ", "_")),
+                    "label": d_name,
+                    "field_type": "file",
+                    "is_mandatory": is_mand,
+                    "mandatory": is_mand,
+                    "tag": tag,
+                    "notes": notes,
+                    "description": notes,
+                    "source": "assessing_body_checklist",
+                    "filled_by": "client"
+                })
+            if formatted_docs:
+                return formatted_docs
+
+    return get_assessing_body_documents(occupation_code, assessing_authority_code, country)
+
+
 # ============ GET STEP-WISE DOCUMENT VIEW (CLIENT + CM) ============
 
 @router.get("/case/{case_id}")
@@ -604,16 +679,20 @@ async def get_stepwise_documents(case_id: str, current_user: dict = Depends(get_
             lock_reason = "You requested an occupation code change. Partner/Admin review is in progress."
 
         if is_step_2 or "document" in step_name.lower():
-            if case.get("occupation_code"):
-                assessing_checklist = get_assessing_body_documents(
+            if case.get("occupation_code") or case.get("assessing_authority_code"):
+                assessing_checklist = await get_assessing_body_documents_db(
                     case.get("occupation_code", ""),
                     case.get("assessing_authority_code", ""),
                     case.get("country", "AU")
                 )
-                existing_names = {_get_doc_name(d).strip().lower() for d in merged_docs}
-                for adoc in assessing_checklist:
-                    if adoc["doc_name"].strip().lower() not in existing_names:
-                        merged_docs.append(adoc)
+                if assessing_checklist:
+                    # In Step 2 (Document Collection), use the assessing authority checklist as the canonical required list
+                    # Keep any custom CM-requested documents, but replace generic workflow placeholders
+                    custom_cm_docs = [
+                        d for d in merged_docs 
+                        if (isinstance(d, dict) and d.get("source") in ("cm_request", "additional_request", "custom"))
+                    ]
+                    merged_docs = list(assessing_checklist) + custom_cm_docs
 
         doc_items = []
         for rd in merged_docs:
