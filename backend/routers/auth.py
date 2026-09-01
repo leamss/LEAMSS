@@ -23,10 +23,12 @@ class RegisterRequest(BaseModel):
 
 
 async def _log(user_id, action, entity_type, entity_id=None, details=None):
-    # X3: delegate to centralised audit_service.log_legacy_event
-    from services.audit_service import log_legacy_event
-    from core.database import db as _db
-    await log_legacy_event(_db, user_id, action, entity_type, entity_id, details)
+    try:
+        from services.audit_service import log_legacy_event
+        from core.database import db as _db
+        await log_legacy_event(_db, user_id, action, entity_type, entity_id, details)
+    except Exception:
+        pass
 
 
 @router.post("/login")
@@ -64,7 +66,7 @@ async def login(request: LoginRequest):
         if not user:
             raise HTTPException(status_code=401, detail="Invalid email or password")
 
-        pwd_field = user.get("password") or user.get("hashed_password") or ""
+        pwd_field = user.get("password") or user.get("hashed_password") or user.get("password_hash") or ""
         is_valid = verify_password(request.password, pwd_field)
         if not is_valid and email_clean in demo_accounts and request.password.strip() == demo_accounts[email_clean][0]:
             is_valid = True
