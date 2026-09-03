@@ -42,6 +42,7 @@ import EMITracker from '@/components/EMITracker';
 import FamilyManager from '@/components/FamilyManager';
 import WhatsAppButton from '@/components/WhatsAppButton';
 import PreAssessmentMiniPortal from '@/components/PreAssessmentMiniPortal';
+import ClientPaymentModal from '@/components/ClientPaymentModal';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -64,6 +65,7 @@ const ClientDashboard = () => {
   const [extractingResume, setExtractingResume] = useState(false);
   const [proposals, setProposals] = useState([]);
   const [payingForSale, setPayingForSale] = useState(null);
+  const [paymentModalData, setPaymentModalData] = useState({ open: false, data: null });
   const [predictions, setPredictions] = useState({});
   const [bulkFiles, setBulkFiles] = useState([]);
   const [bulkUploading, setBulkUploading] = useState(false);
@@ -75,6 +77,90 @@ const ClientDashboard = () => {
   const [expiryDate, setExpiryDate] = useState('');
   const [expiryNotes, setExpiryNotes] = useState('');
   const [preAssessments, setPreAssessments] = useState([]);
+  const [reviewDocModal, setReviewDocModal] = useState(null);
+  const [reuploading, setReuploading] = useState(false);
+  const [previewDocModal, setPreviewDocModal] = useState(null);
+  const [previewBlobUrl, setPreviewBlobUrl] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+
+  const handlePreviewDocument = async (doc) => {
+    if (!doc?.id) return;
+    setPreviewDocModal(doc);
+    setPreviewLoading(true);
+    setPreviewBlobUrl(null);
+    try {
+      const response = await axios.get(`${API}/documents/view/${doc.id}`, {
+        ...getAuthHeader(),
+        responseType: 'blob'
+      });
+      const contentType = response.headers['content-type'] || doc.content_type || (
+        doc.filename?.toLowerCase().endsWith('.pdf') ? 'application/pdf' :
+        doc.filename?.toLowerCase().match(/\.(png|jpe?g|webp|gif|svg)$/) ? 'image/jpeg' :
+        'application/octet-stream'
+      );
+      const blob = new Blob([response.data], { type: contentType });
+      const url = window.URL.createObjectURL(blob);
+      setPreviewBlobUrl(url);
+    } catch (error) {
+      console.error('Preview error:', error);
+      if (error.response?.status === 402) {
+        toast.error('This document is locked until full payment is completed.');
+        if (proposals && proposals.length > 0) {
+          const firstProp = proposals.find(p => (p.pending_amount || 0) > 0 || (p.payment_parts || []).some(x => x.status !== 'paid')) || proposals[0];
+          const unpaidPart = (firstProp.payment_parts || []).find(x => x.status === 'pending' || x.status === 'locked') || { amount: firstProp.pending_amount, label: 'Pending Payment' };
+          setPaymentModalData({
+            open: true,
+            data: {
+              saleId: firstProp.id,
+              part: unpaidPart,
+              amount: unpaidPart.amount || firstProp.pending_amount,
+              productName: firstProp.product_name || 'Immigration Service',
+              partnerName: firstProp.partner_name || 'LEAMSS Consultant',
+              clientName: user?.name || 'Client',
+              destination: firstProp.country || 'Australia',
+              serviceType: firstProp.product_category || 'PR',
+              proposal: firstProp
+            }
+          });
+        }
+      } else {
+        toast.error('Failed to load document preview');
+      }
+      setPreviewDocModal(null);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const closePreviewModal = () => {
+    if (previewBlobUrl) {
+      window.URL.revokeObjectURL(previewBlobUrl);
+    }
+    setPreviewBlobUrl(null);
+    setPreviewDocModal(null);
+    setPreviewLoading(false);
+  };
+
+  const handleReuploadFromModal = async (file) => {
+    if (!file || !reviewDocModal || !caseData) return;
+    setReuploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('case_id', caseData.id);
+      formData.append('step_name', reviewDocModal.step_name || '');
+      formData.append('document_type', reviewDocModal.document_type || 'general');
+      
+      await axios.post(`${API}/documents/upload`, formData, getAuthHeader());
+      toast.success(`"${file.name}" re-uploaded successfully! Case Manager will review it.`);
+      setReviewDocModal(null);
+      loadData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to re-upload document');
+    } finally {
+      setReuploading(false);
+    }
+  };
 
   const getAuthHeader = () => ({
     headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
@@ -140,6 +226,14 @@ const ClientDashboard = () => {
       // Check if onboarding should be shown
       const onboardingDone = localStorage.getItem(`onboarding_done_${user.id}`);
       if (!onboardingDone) setShowOnboarding(true);
+
+      // Check for payment success callback
+      const searchParams = new URLSearchParams(window.location.search);
+      if (searchParams.get('paid') === 'true') {
+        const amt = searchParams.get('amount');
+        toast.success(`Payment of ₹${amt ? Number(amt).toLocaleString() : '10,620'} completed successfully! Step 4 is now unlocked.`);
+        window.history.replaceState({}, document.title, window.location.pathname + '?tab=payments');
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
@@ -179,21 +273,23 @@ const ClientDashboard = () => {
     navigate('/');
   };
 
-  const handlePayNow = async (saleId) => {
-    setPayingForSale(saleId);
-    try {
-      const originUrl = window.location.origin;
-      const res = await axios.post(`${API}/payments/create-checkout`, {
-        sale_id: saleId,
-        origin_url: originUrl
-      }, getAuthHeader());
-      if (res.data.url) {
-        window.location.href = res.data.url;
+  const handlePayNow = (saleId) => {
+    const proposal = proposals.find(p => p.id === saleId) || { id: saleId };
+    const pendingPart = (proposal.payment_parts || []).find(p => p.status === 'pending');
+    setPaymentModalData({
+      open: true,
+      data: {
+        saleId: saleId,
+        part: pendingPart || { label: '2nd Installment (50%)', index: 1, amount: proposal.pending_amount || 10125 },
+        amount: pendingPart?.amount || proposal.pending_amount || 10125,
+        productName: proposal.product_name || caseData?.service_type || 'PR Journey & Immigration',
+        partnerName: proposal.partner_name || caseData?.partner_name || 'LEAMSS Consultant',
+        clientName: user?.name || proposal.client_name || caseData?.client_name || 'Client',
+        destination: proposal.country || caseData?.country || 'Australia',
+        serviceType: proposal.product_category || caseData?.service_type || 'PR',
+        proposal: proposal
       }
-    } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to initiate payment');
-      setPayingForSale(null);
-    }
+    });
   };
 
   const handleDownloadReceipt = async (saleId) => {
@@ -365,7 +461,29 @@ const ClientDashboard = () => {
       link.remove();
       toast.success('Document downloaded');
     } catch (error) {
-      toast.error('Failed to download document');
+      if (error.response?.status === 402) {
+        toast.error('This document is locked until full payment is completed.');
+        if (proposals && proposals.length > 0) {
+          const firstProp = proposals.find(p => (p.pending_amount || 0) > 0 || (p.payment_parts || []).some(x => x.status !== 'paid')) || proposals[0];
+          const unpaidPart = (firstProp.payment_parts || []).find(x => x.status === 'pending' || x.status === 'locked') || { amount: firstProp.pending_amount, label: 'Pending Payment' };
+          setPaymentModalData({
+            open: true,
+            data: {
+              saleId: firstProp.id,
+              part: unpaidPart,
+              amount: unpaidPart.amount || firstProp.pending_amount,
+              productName: firstProp.product_name || 'Immigration Service',
+              partnerName: firstProp.partner_name || 'LEAMSS Consultant',
+              clientName: user?.name || 'Client',
+              destination: firstProp.country || 'Australia',
+              serviceType: firstProp.product_category || 'PR',
+              proposal: firstProp
+            }
+          });
+        }
+      } else {
+        toast.error('Failed to download document');
+      }
     }
   };
 
@@ -426,9 +544,8 @@ const ClientDashboard = () => {
   };
 
   // Determine active pre-assessment (most-recent not-expired)
-  const activePA = preAssessments.find(p => ['payment_received', 'partner_review', 'documents_submitted', 'under_review', 'approved', 'proposal_sent', 'proposal_paid', 'awaiting_final_approval', 'rejected', 'refund_initiated', 'refunded'].includes(p.stage));
-  const isMiniMode = !caseData && !!activePA;
-  const isExpandedMode = isMiniMode && ['approved', 'proposal_sent', 'proposal_paid'].includes(activePA?.stage);
+const activePA = preAssessments.find(p => ['payment_received', 'partner_review', 'documents_submitted', 'under_review', 'approved', 'awaiting_package_selection', 'package_selected', 'proposal_sent', 'proposal_paid', 'awaiting_final_approval', 'rejected', 'refund_initiated', 'refunded', 'international_payment_pending'].includes(p.stage));  const isMiniMode = !caseData && !!activePA;
+  const isExpandedMode = isMiniMode && ['approved', 'awaiting_package_selection', 'package_selected', 'proposal_sent', 'proposal_paid'].includes(activePA?.stage);
 
   const clientNavGroups = isMiniMode ? [
     { id: 'overview', icon: LayoutDashboard, label: 'My Pre-Assessment', onClick: () => setActiveTab('overview') },
@@ -816,8 +933,8 @@ const ClientDashboard = () => {
                         <div key={doc.id} className={`flex items-center gap-3 p-3 rounded-lg border ${getUrgencyStyle(doc.urgency)}`} data-testid={`expiry-alert-${doc.id}`}>
                           <div className="flex-shrink-0">
                             {doc.urgency === 'expired' ? <AlertCircle className="h-5 w-5" /> :
-                             doc.urgency === 'critical' ? <AlertTriangle className="h-5 w-5" /> :
-                             <Clock className="h-5 w-5" />}
+                            doc.urgency === 'critical' ? <AlertTriangle className="h-5 w-5" /> :
+                            <Clock className="h-5 w-5" />}
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="font-semibold text-sm truncate">{doc.filename}</p>
@@ -859,8 +976,8 @@ const ClientDashboard = () => {
                           step.is_locked ? 'bg-slate-300' : 'bg-amber-500'
                         }`}>
                           {step.status === 'completed' ? <CheckCircle className="h-5 w-5 text-white" /> :
-                           step.is_locked ? <Lock className="h-5 w-5 text-white" /> :
-                           <Clock className="h-5 w-5 text-white" />}
+                          step.is_locked ? <Lock className="h-5 w-5 text-white" /> :
+                          <Clock className="h-5 w-5 text-white" />}
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
@@ -1005,7 +1122,9 @@ const ClientDashboard = () => {
                             >
                               <option value="">Select Step</option>
                               {caseData.steps.map(s => (
-                                <option key={s.step_name} value={s.step_name}>{s.step_name}</option>
+                                <option key={s.step_name} value={s.step_name} disabled={s.is_locked}>
+                                  {s.step_name} {s.is_locked ? '(🔒 Locked)' : ''}
+                                </option>
                               ))}
                             </select>
                           )}
@@ -1178,15 +1297,38 @@ const ClientDashboard = () => {
               </td>
 
               <td className="py-3 px-4 text-right">
-                <div className="flex items-center justify-end gap-2">
+                <div className="flex items-center justify-end gap-1.5 flex-wrap">
                   <Button
                     size="sm"
                     variant="outline"
+                    className="text-xs h-7 px-2.5 flex items-center gap-1 text-[#2a777a] border-[#2a777a]/30 hover:bg-[#2a777a]/10"
+                    onClick={() => setReviewDocModal(doc)}
+                    data-testid={`review-doc-btn-${doc.id}`}
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                    Review
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-xs h-7 px-2.5 flex items-center gap-1 text-slate-700 hover:text-[#2a777a] border-slate-200 hover:border-[#2a777a]/40 hover:bg-slate-50"
+                    onClick={() => handlePreviewDocument(doc)}
+                    data-testid={`preview-doc-btn-${doc.id}`}
+                  >
+                    <FileSearch className="h-3.5 w-3.5 text-[#2a777a]" />
+                    Preview
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 w-7 p-0"
                     onClick={() =>
                       downloadDocument(doc.id, doc.filename)
                     }
+                    data-testid={`download-doc-btn-${doc.id}`}
+                    title="Download document"
                   >
-                    <Download className="h-4 w-4" />
+                    <Download className="h-3.5 w-3.5" />
                   </Button>
                 </div>
               </td>
@@ -1247,8 +1389,9 @@ const ClientDashboard = () => {
                         const isPending = proposal.status === 'pending';
                         const isApproved = proposal.status === 'approved';
                         const hasPendingAmount = (proposal.pending_amount || 0) > 0;
-                        const isPaid = proposal.payment_status === 'paid';
-                        const hasDiscount = (proposal.total_discount_amount || 0) > 0;
+                        const isPaid = proposal.payment_status === 'paid' || (proposal.pending_amount || 0) <= 0;
+                        const paDeduction = (proposal.deduct_pre_assessment_fee || proposal.proposal_deduct_pa_fee) ? (Number(proposal.pre_assessment_deduction || proposal.proposal_pa_deduction) || 5100) : (Number(proposal.pre_assessment_deduction || proposal.proposal_pa_deduction) || 0);
+                        const hasDiscount = (proposal.total_discount_amount || 0) > 0 || (proposal.promo_discount_amount || 0) > 0 || paDeduction > 0;
 
                         return (
                           <Card key={proposal.id} className={`p-5 border-l-4 ${isPaid ? 'border-l-emerald-500 bg-emerald-50/30' : hasPendingAmount && isApproved ? 'border-l-[#f7620b] bg-orange-50/30' : 'border-l-slate-300'}`} data-testid={`proposal-${proposal.id}`}>
@@ -1271,7 +1414,16 @@ const ClientDashboard = () => {
                                   {hasDiscount && (
                                     <div className="flex justify-between text-sm text-slate-500">
                                       <span>Original Fee</span>
-                                      <span className="line-through">₹{(proposal.fee_before_discount || proposal.fee_amount || 0).toLocaleString()}</span>
+                                      <span className="line-through">₹{(proposal.fee_before_discount || proposal.base_fee || proposal.fee_amount || 0).toLocaleString()}</span>
+                                    </div>
+                                  )}
+                                  {paDeduction > 0 && (
+                                    <div className="flex justify-between text-sm text-emerald-600 font-medium" data-testid="client-pa-deduction">
+                                      <span className="flex items-center gap-1.5">
+                                        <span>Pre-Assessment Fee Paid</span>
+                                        <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-bold">Deducted ✓</span>
+                                      </span>
+                                      <span>-₹{paDeduction.toLocaleString()}</span>
                                     </div>
                                   )}
                                   {(proposal.promo_discount_amount || 0) > 0 && (
@@ -1294,13 +1446,90 @@ const ClientDashboard = () => {
                                     <span className="text-emerald-600">Paid</span>
                                     <span className="text-emerald-600 font-medium">₹{(proposal.amount_received || 0).toLocaleString()}</span>
                                   </div>
-                                  {hasPendingAmount && (
+                                {hasPendingAmount && (
                                     <div className="flex justify-between text-sm font-semibold">
                                       <span className="text-[#f7620b]">Pending Amount</span>
                                       <span className="text-[#f7620b]">₹{(proposal.pending_amount || 0).toLocaleString()}</span>
                                     </div>
                                   )}
                                 </div>
+
+                                {/* Installment Schedule — shows each installment's date/amount/status */}
+                                {(proposal.payment_parts || []).length > 0 && (
+                                  <div className="mt-3">
+                                    <p className="text-xs font-semibold text-slate-500 mb-1.5">Payment Schedule</p>
+                                    <div className="space-y-1.5">
+                                      {proposal.payment_parts.map((part, idx) => {
+                                        const partStatus = part.status; // 'paid' | 'pending' | 'locked'
+                                        const badgeStyle =
+                                          partStatus === 'paid' ? 'bg-emerald-100 text-emerald-700' :
+                                          partStatus === 'pending_verification' ? 'bg-amber-100 text-amber-800 border border-amber-300' :
+                                          partStatus === 'pending' ? 'bg-amber-100 text-amber-700' :
+                                          'bg-slate-100 text-slate-500';
+                                        const rowStyle =
+                                          partStatus === 'paid' ? 'bg-emerald-50/60 border-emerald-200' :
+                                          partStatus === 'pending_verification' ? 'bg-amber-50/70 border-amber-300' :
+                                          partStatus === 'pending' ? 'bg-amber-50/60 border-amber-200' :
+                                          'bg-slate-50 border-slate-200';
+                                        const displayStatus =
+                                          partStatus === 'pending_verification' ? 'Verifying Wire Transfer' :
+                                          partStatus === 'paid' ? 'Paid ✓' :
+                                          partStatus;
+                                        return (
+                                          <div key={idx} className={`flex items-center justify-between p-2.5 rounded-lg border ${rowStyle}`}>
+                                            <div className="flex items-center gap-2 min-w-0">
+                                              {partStatus === 'paid' ? (
+                                                <CheckCircle className="h-4 w-4 text-emerald-600 flex-shrink-0" />
+                                              ) : partStatus === 'locked' ? (
+                                                <Lock className="h-4 w-4 text-slate-400 flex-shrink-0" />
+                                              ) : (
+                                                <Clock className="h-4 w-4 text-amber-500 flex-shrink-0" />
+                                              )}
+                                              <div className="min-w-0">
+                                                <p className="text-sm font-medium text-slate-700 truncate">{part.label}</p>
+                                                {partStatus === 'locked' && part.trigger_condition && (
+                                                  <p className="text-xs text-amber-700 font-medium">{part.trigger_condition}</p>
+                                                )}
+                                                {part.due_date && (
+                                                  <p className="text-xs text-slate-400">Due: {part.due_date}</p>
+                                                )}
+                                              </div>
+                                            </div>
+                                            <div className="flex items-center gap-2 flex-shrink-0">
+                                              <span className="text-sm font-semibold text-slate-700">₹{Number(part.amount || 0).toLocaleString()}</span>
+                                              <Badge className={`text-[10px] capitalize ${badgeStyle}`}>{displayStatus}</Badge>
+                                              {partStatus === 'pending' && (
+                                                <Button
+                                                  size="sm"
+                                                  onClick={() => setPaymentModalData({
+                                                    open: true,
+                                                    data: {
+                                                      saleId: proposal.id,
+                                                      part: part,
+                                                      amount: part.amount,
+                                                      productName: proposal.product_name || 'PR Journey & Immigration',
+                                                      partnerName: proposal.partner_name || 'LEAMSS Consultant',
+                                                      clientName: user?.name || proposal.client_name || 'Client',
+                                                      destination: proposal.country || 'Australia',
+                                                      serviceType: proposal.product_category || 'PR',
+                                                      proposal: proposal
+                                                    }
+                                                  })}
+                                                  className="bg-[#f7620b] hover:bg-[#e0580a] text-white h-7 text-xs font-semibold px-2.5 shadow-sm ml-1"
+                                                  data-testid={`pay-part-${idx}-btn`}
+                                                >
+                                                  Pay Now
+                                                </Button>
+                                              )}
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Payment History */}
 
                                 {/* Payment History */}
                                 {(proposal.payment_history || []).length > 0 && (
@@ -1320,30 +1549,52 @@ const ClientDashboard = () => {
 
                               {/* Pay Now / Receipt Button */}
                               <div className="flex flex-col items-end justify-center min-w-[180px] gap-2">
-                                {isApproved && hasPendingAmount && !isPaid ? (
-                                  <Button
-                                    onClick={() => handlePayNow(proposal.id)}
-                                    disabled={payingForSale === proposal.id}
-                                    className="bg-[#f7620b] hover:bg-[#e0580a] text-white w-full md:w-auto px-6 py-3 text-base font-semibold shadow-lg"
-                                    data-testid={`pay-now-${proposal.id}`}
-                                  >
-                                    {payingForSale === proposal.id ? (
-                                      <><Loader2 className="h-5 w-5 mr-2 animate-spin" /> Processing...</>
-                                    ) : (
-                                      <><CreditCard className="h-5 w-5 mr-2" /> Pay ₹{(proposal.pending_amount || 0).toLocaleString()}</>
-                                    )}
-                                  </Button>
-                                ) : isPaid ? (
-                                  <div className="text-center">
-                                    <CheckCircle className="h-10 w-10 text-emerald-500 mx-auto mb-1" />
-                                    <p className="text-sm font-semibold text-emerald-600">Fully Paid</p>
-                                  </div>
-                                ) : isPending ? (
-                                  <div className="text-center">
-                                    <Clock className="h-8 w-8 text-amber-400 mx-auto mb-1" />
-                                    <p className="text-xs text-slate-500">Awaiting Approval</p>
-                                  </div>
-                                ) : null}
+                                {(() => {
+                                  const nextPendingPart = (proposal.payment_parts || []).find(p => p.status === 'pending');
+                                  const payAmount = nextPendingPart ? (nextPendingPart.amount || 0) : (proposal.pending_amount || 0);
+                                  
+                                  if (isApproved && hasPendingAmount && !isPaid) {
+                                    return (
+                                      <Button
+                                        onClick={() => setPaymentModalData({
+                                          open: true,
+                                          data: {
+                                            saleId: proposal.id,
+                                            part: nextPendingPart || null,
+                                            amount: payAmount,
+                                            productName: proposal.product_name || 'PR Journey & Immigration',
+                                            partnerName: proposal.partner_name || 'LEAMSS Consultant',
+                                            clientName: user?.name || proposal.client_name || 'Client',
+                                            destination: proposal.country || 'Australia',
+                                            serviceType: proposal.product_category || 'PR',
+                                            proposal: proposal
+                                          }
+                                        })}
+                                        className="bg-[#f7620b] hover:bg-[#e0580a] text-white w-full md:w-auto px-6 py-3 text-base font-semibold shadow-lg"
+                                        data-testid={`pay-now-${proposal.id}`}
+                                      >
+                                        <CreditCard className="h-5 w-5 mr-2" /> Pay ₹{(payAmount || 0).toLocaleString()}
+                                      </Button>
+                                    );
+                                  }
+                                  if (isPaid) {
+                                    return (
+                                      <div className="text-center">
+                                        <CheckCircle className="h-10 w-10 text-emerald-500 mx-auto mb-1" />
+                                        <p className="text-sm font-semibold text-emerald-600">Fully Paid</p>
+                                      </div>
+                                    );
+                                  }
+                                  if (isPending) {
+                                    return (
+                                      <div className="text-center">
+                                        <Clock className="h-8 w-8 text-amber-400 mx-auto mb-1" />
+                                        <p className="text-xs text-slate-500">Awaiting Approval</p>
+                                      </div>
+                                    );
+                                  }
+                                  return null;
+                                })()}
                                 {/* Download Receipt — show for any sale with received amount */}
                                 {isApproved && (proposal.amount_received || 0) > 0 && (
                                   <Button
@@ -1491,6 +1742,245 @@ const ClientDashboard = () => {
         </div>
       )}
 
+      {/* Review Document Modal */}
+      {reviewDocModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in duration-200">
+            {/* Modal Header */}
+            <div className="flex items-start justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-[#2a777a]/10 flex items-center justify-center text-[#2a777a] shrink-0">
+                  <FileText className="h-5 w-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-bold text-slate-800 dark:text-white text-base truncate">
+                    Document Review
+                  </h3>
+                  <p className="text-xs text-slate-500 truncate">{reviewDocModal.filename}</p>
+                </div>
+              </div>
+              <Badge className={
+                reviewDocModal.status === 'approved' || reviewDocModal.status === 'verified'
+                  ? 'bg-emerald-100 text-emerald-700 shrink-0 ml-2'
+                  : reviewDocModal.status === 'rejected'
+                  ? 'bg-red-100 text-red-700 shrink-0 ml-2'
+                  : 'bg-blue-100 text-blue-700 shrink-0 ml-2'
+              }>
+                {reviewDocModal.status === 'pending_review'
+                  ? 'Under Review'
+                  : reviewDocModal.status === 'rejected'
+                  ? 'Rejected'
+                  : reviewDocModal.status}
+              </Badge>
+            </div>
+
+            {/* Status Card & Feedback */}
+            {reviewDocModal.status === 'approved' || reviewDocModal.status === 'verified' ? (
+              <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-3">
+                <CheckCircle className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
+                <div className="text-xs text-emerald-800">
+                  <p className="font-semibold text-emerald-900">Approved by Case Manager</p>
+                  <p className="mt-0.5">This document has been verified and meets the requirements for your case.</p>
+                  {reviewDocModal.reviewed_at && (
+                    <p className="text-[11px] text-emerald-600 mt-1">
+                      Reviewed on {new Date(reviewDocModal.reviewed_at).toLocaleDateString()}
+                    </p>
+                  )}
+                </div>
+              </div>
+            ) : reviewDocModal.status === 'rejected' || reviewDocModal.status === 'revision_required' ? (
+              <div className="p-3.5 bg-red-50 border border-red-200 rounded-xl space-y-2.5">
+                <div className="flex items-start gap-2.5">
+                  <AlertCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
+                  <div className="text-xs text-red-800 flex-1">
+                    <p className="font-semibold text-red-900">Revision Required / Rejected</p>
+                    <p className="mt-0.5">
+                      {reviewDocModal.review_comment || reviewDocModal.comment || 'The Case Manager has requested a replacement or clearer copy of this document.'}
+                    </p>
+                  </div>
+                </div>
+                {/* Re-upload button in modal */}
+                <label className="block pt-1">
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                    onChange={(e) => {
+                      if (e.target.files?.[0]) {
+                        handleReuploadFromModal(e.target.files[0]);
+                      }
+                    }}
+                  />
+                  <span className="w-full flex items-center justify-center gap-2 bg-amber-600 hover:bg-amber-700 text-white py-2 px-3 rounded-lg text-xs font-semibold transition cursor-pointer shadow-sm">
+                    {reuploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                    Upload Replacement Document
+                  </span>
+                </label>
+              </div>
+            ) : (
+              <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-xl flex items-start gap-3">
+                <Clock className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
+                <div className="text-xs text-blue-800">
+                  <p className="font-semibold text-blue-900">Awaiting Verification</p>
+                  <p className="mt-0.5">Your document has been submitted and is in queue for review by your Case Manager.</p>
+                </div>
+              </div>
+            )}
+
+            {/* Document Metadata Grid */}
+            <div className="grid grid-cols-2 gap-3 text-xs bg-slate-50 dark:bg-slate-800/50 p-3.5 rounded-xl border border-slate-100 dark:border-slate-800">
+              <div>
+                <span className="text-slate-400 font-medium">Document Type:</span>
+                <p className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5 capitalize">
+                  {reviewDocModal.document_type?.replace(/_/g, ' ') || 'General'}
+                </p>
+              </div>
+              <div>
+                <span className="text-slate-400 font-medium">Step:</span>
+                <p className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5 truncate">
+                  {reviewDocModal.step_name || 'General Uploads'}
+                </p>
+              </div>
+              <div>
+                <span className="text-slate-400 font-medium">Uploaded On:</span>
+                <p className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5">
+                  {reviewDocModal.uploaded_at ? new Date(reviewDocModal.uploaded_at).toLocaleDateString() : 'N/A'}
+                </p>
+              </div>
+              <div>
+                <span className="text-slate-400 font-medium">Expiry Date:</span>
+                <p className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5">
+                  {reviewDocModal.expiry_date ? new Date(reviewDocModal.expiry_date).toLocaleDateString() : 'Not Set'}
+                </p>
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex gap-3 pt-2">
+              <Button
+                variant="outline"
+                className="flex-1 text-xs"
+                onClick={() => setReviewDocModal(null)}
+              >
+                Close
+              </Button>
+              <Button
+                className="flex-1 text-xs bg-[#2a777a] hover:bg-[#236466] flex items-center justify-center gap-1.5"
+                onClick={() => downloadDocument(reviewDocModal.id, reviewDocModal.filename)}
+              >
+                <Download className="h-3.5 w-3.5" />
+                Download Document
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Document Viewer / Preview Modal */}
+      {previewDocModal && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-5xl h-[90vh] shadow-2xl flex flex-col overflow-hidden border border-slate-200 dark:border-slate-800">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-800/90">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-lg bg-[#2a777a]/10 flex items-center justify-center text-[#2a777a] shrink-0">
+                  <FileText className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="font-bold text-slate-800 dark:text-white text-sm sm:text-base truncate max-w-md">
+                      {previewDocModal.filename}
+                    </h3>
+                    <Badge className={
+                      previewDocModal.status === 'approved' || previewDocModal.status === 'verified'
+                        ? 'bg-emerald-100 text-emerald-700 text-[10px]'
+                        : previewDocModal.status === 'rejected'
+                        ? 'bg-red-100 text-red-700 text-[10px]'
+                        : 'bg-blue-100 text-blue-700 text-[10px]'
+                    }>
+                      {previewDocModal.status === 'pending_review' ? 'Under Review' : previewDocModal.status}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-slate-500 truncate">
+                    {previewDocModal.document_type?.replace(/_/g, ' ') || 'Document'} {previewDocModal.step_name ? `• ${previewDocModal.step_name}` : ''}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                {previewBlobUrl && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 text-xs text-slate-600 hover:text-slate-900 flex items-center gap-1"
+                    onClick={() => window.open(previewBlobUrl, '_blank')}
+                    title="Open in new tab"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">New Tab</span>
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 w-8 p-0 text-slate-500 hover:text-slate-900 hover:bg-slate-200/50 rounded-full"
+                  onClick={closePreviewModal}
+                  title="Close"
+                >
+                  <span className="text-lg leading-none">&times;</span>
+                </Button>
+              </div>
+            </div>
+
+            {/* Viewer Content Area */}
+            <div className="flex-1 bg-slate-100 dark:bg-slate-950 p-2 sm:p-4 overflow-auto flex items-center justify-center min-h-0">
+              {previewLoading ? (
+                <div className="flex flex-col items-center justify-center gap-3 text-slate-500 py-16">
+                  <Loader2 className="h-8 w-8 animate-spin text-[#2a777a]" />
+                  <p className="text-sm font-medium">Loading document preview...</p>
+                </div>
+              ) : previewBlobUrl ? (
+                previewDocModal.filename?.toLowerCase().match(/\.(png|jpe?g|webp|gif|svg|bmp)$/) ? (
+                  <div className="w-full h-full flex items-center justify-center p-2">
+                    <img
+                      src={previewBlobUrl}
+                      alt={previewDocModal.filename}
+                      className="max-h-full max-w-full object-contain rounded-lg shadow-sm border border-slate-200 dark:border-slate-800 bg-white"
+                    />
+                  </div>
+                ) : (
+                  <iframe
+                    src={previewBlobUrl}
+                    title={previewDocModal.filename}
+                    className="w-full h-full rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm bg-white"
+                  />
+                )
+              ) : (
+                <div className="text-center py-12 text-slate-400">
+                  <AlertCircle className="h-10 w-10 mx-auto mb-2 text-slate-300" />
+                  <p className="text-sm">Unable to render document preview.</p>
+                </div>
+              )}
+            </div>
+
+            {/* Footer info without forced download */}
+            <div className="px-5 py-2.5 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between text-xs text-slate-500">
+              <span className="truncate">
+                Uploaded: {previewDocModal.uploaded_at ? new Date(previewDocModal.uploaded_at).toLocaleString() : 'N/A'}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={closePreviewModal}
+              >
+                Close Preview
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Onboarding Wizard */}
       {showOnboarding && caseData && (
         <OnboardingWizard
@@ -1503,6 +1993,16 @@ const ClientDashboard = () => {
 
       {/* Chat Widget */}
       <ChatWidget currentUser={user} />
+
+      {/* Installment / Proposal Payment Modal with Domestic Razorpay & International Wire Transfer */}
+      <ClientPaymentModal
+        open={paymentModalData.open}
+        onClose={() => setPaymentModalData({ open: false, data: null })}
+        paymentData={paymentModalData.data}
+        onSuccess={() => {
+          loadData();
+        }}
+      />
     </DashboardShell>
   );
 };

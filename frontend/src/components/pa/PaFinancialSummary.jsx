@@ -1,29 +1,68 @@
+import { useState, useEffect } from 'react';
+import axios from 'axios';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { IndianRupee, Download, Send, FilePlus } from 'lucide-react';
+import { IndianRupee, Download, Send, FilePlus, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
+
+const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+const STATUS_BADGE = {
+  unassigned: { color: 'bg-slate-100 text-slate-700', icon: AlertTriangle, label: 'Unassigned' },
+  pending: { color: 'bg-amber-100 text-amber-700', icon: Clock, label: 'Pending' },
+  approved: { color: 'bg-leamss-teal-100 text-leamss-teal-700', icon: CheckCircle, label: 'Approved' },
+  paid: { color: 'bg-emerald-100 text-emerald-700', icon: CheckCircle, label: 'Paid' },
+  disputed: { color: 'bg-rose-100 text-rose-700', icon: AlertTriangle, label: 'Disputed' },
+};
+
+const formatINR = (n) => {
+  if (n == null) return '₹0';
+  const num = Math.round(Number(n) || 0);
+  if (num >= 10000000) return `₹${(num / 10000000).toFixed(2)}Cr`;
+  if (num >= 100000) return `₹${(num / 100000).toFixed(2)}L`;
+  return `₹${num.toLocaleString('en-IN')}`;
+};
 
 /**
  * Financial Summary block for Partner pipeline view.
  * Shown at proposal_paid / awaiting_final_approval / case_created stages.
- *
- * Props:
- *  - pa            current pre-assessment object
- *  - onDownload    (paId, kind: 'proposal'|'invoice') -> void
- *  - onSendInvoice (paId) -> void
- *  - onGenerateAgreement (pa) -> void  (opens AgreementGenerator modal)
- *  - sendingInvoice  paId currently sending, or null
  */
 export default function PaFinancialSummary({ pa, onDownload, onSendInvoice, onGenerateAgreement, sendingInvoice }) {
-  if (!['proposal_paid', 'awaiting_final_approval', 'case_created'].includes(pa.stage)) return null;
+  const [allocData, setAllocData] = useState(null);
+  const [allocLoading, setAllocLoading] = useState(false);
 
-  const totalReceived = (pa.pre_assessment_fee || 0) + (pa.proposal_fee || 0);
+  useEffect(() => {
+    if (!pa?.id) return;
+    let isMounted = true;
+    (async () => {
+      setAllocLoading(true);
+      try {
+        const token = localStorage.getItem('token');
+        const r = await axios.get(`${API}/pa/${pa.id}/allocations`, { headers: { Authorization: `Bearer ${token}` } });
+        if (isMounted) setAllocData(r.data);
+      } catch (e) {
+        // graceful
+      } finally {
+        if (isMounted) setAllocLoading(false);
+      }
+    })();
+    return () => { isMounted = false; };
+  }, [pa?.id]);
+
+  if (!['proposal_sent', 'proposal_paid', 'awaiting_final_approval', 'case_created', 'in_progress', 'approved', 'documents_submitted'].includes(pa.stage)) return null;
+
+  const finalAgreedProposalFee = pa.proposal_discounted_total || (pa.proposal_payment_parts && pa.proposal_payment_parts.length > 0 ? pa.proposal_payment_parts.reduce((s, p) => s + (p.amount || 0), 0) : (pa.proposal_fee || 0));
+  const paPaidAmount = pa.fee_payment_status === 'paid' ? (pa.pre_assessment_fee || 5100) : 0;
+  const proposalPaidAmount = pa.proposal_amount_paid || (['proposal_paid', 'awaiting_final_approval', 'case_created'].includes(pa.stage) ? finalAgreedProposalFee : 0);
+  const totalReceived = paPaidAmount + proposalPaidAmount;
   const upsells = pa.proposal_upsells || [];
+  const allocs = allocData?.allocations?.allocations || [];
+  const summary = allocData?.allocations?.summary || {};
 
   return (
     <div className="bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 rounded-xl p-4 border border-emerald-200" data-testid={`fin-summary-${pa.id}`}>
       <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
         <p className="text-sm font-bold text-emerald-900 flex items-center gap-2">
-          <IndianRupee className="h-4 w-4" /> Financial Summary
+          <IndianRupee className="h-4 w-4" /> Financial Summary & Cost Allocation
         </p>
         <Badge className="bg-emerald-600 text-white">
           Total Received: ₹{totalReceived.toLocaleString('en-IN')}
@@ -34,6 +73,9 @@ export default function PaFinancialSummary({ pa, onDownload, onSendInvoice, onGe
         <div className="bg-white/70 rounded-lg p-3 border border-emerald-100">
           <p className="font-semibold text-slate-700 mb-1.5">Step 1 · Pre-Assessment Fee</p>
           <div className="flex justify-between"><span className="text-slate-500">Amount:</span> <span className="font-semibold">₹{(pa.pre_assessment_fee || 5100).toLocaleString('en-IN')}</span></div>
+          {pa.promo_code_used && (
+            <div className="flex justify-between text-emerald-700"><span>Promo Code:</span> <span className="font-semibold font-mono">{pa.promo_code_used}</span></div>
+          )}
           <div className="flex justify-between"><span className="text-slate-500">Status:</span> <Badge className="h-4 text-[10px] bg-emerald-100 text-emerald-700 px-1.5">PAID</Badge></div>
         </div>
         {/* Main Fee Breakdown */}
@@ -41,6 +83,11 @@ export default function PaFinancialSummary({ pa, onDownload, onSendInvoice, onGe
           <p className="font-semibold text-slate-700 mb-1.5">Step 2 · Main Service Fee</p>
           {pa.proposal_base_fee != null && (
             <div className="flex justify-between"><span className="text-slate-500">Base Fee:</span> <span>₹{(pa.proposal_base_fee || 0).toLocaleString('en-IN')}</span></div>
+          )}
+          {(pa.proposal_pa_deduction > 0 || pa.proposal_deduct_pa_fee) && (
+            <div className="flex justify-between text-emerald-700 font-medium">
+              <span>PA Fee Paid Deduction:</span> <span>- ₹{(pa.proposal_pa_deduction || 5100).toLocaleString('en-IN')}</span>
+            </div>
           )}
           {pa.proposal_promo_code && (
             <div className="flex justify-between text-red-600"><span>Promo ({pa.proposal_promo_code}):</span> <span>- ₹{(pa.proposal_promo_discount || 0).toLocaleString('en-IN')}</span></div>
@@ -52,10 +99,66 @@ export default function PaFinancialSummary({ pa, onDownload, onSendInvoice, onGe
             <div className="flex justify-between text-leamss-teal-600"><span>Upsells ({upsells.length}):</span> <span>+ ₹{(pa.proposal_upsell_total || 0).toLocaleString('en-IN')}</span></div>
           )}
           <div className="border-t border-dashed border-emerald-300 mt-1.5 pt-1.5 flex justify-between font-bold text-emerald-800">
-            <span>Final Paid:</span><span>₹{(pa.proposal_fee || 0).toLocaleString('en-IN')}</span>
+            <span>Final Paid / Agreed:</span><span>₹{(finalAgreedProposalFee || 0).toLocaleString('en-IN')}</span>
           </div>
         </div>
       </div>
+
+      {/* Cost Allocations & Payment Status for Partner */}
+      {allocs.length > 0 && (
+        <div className="mt-3 bg-white/80 rounded-lg p-3 border border-emerald-100">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+              <IndianRupee className="h-3.5 w-3.5 text-leamss-teal-600" /> Cost Allocations & Vendor Payment Status
+            </p>
+            <div className="flex items-center gap-2 text-[10px]">
+              <span className="text-slate-500">Allocated: <strong className="text-slate-800">{formatINR(summary.total_allocated)}</strong></span>
+              <span className="text-emerald-700">Paid: <strong>{formatINR(summary.total_paid)}</strong></span>
+              <span className="text-amber-700">Pending: <strong>{formatINR(summary.total_pending)}</strong></span>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            {allocs.map((a) => {
+              const meta = STATUS_BADGE[a.status] || STATUS_BADGE.pending;
+              const StatusIcon = meta.icon;
+              return (
+                <div key={a.allocation_id} className="flex items-center justify-between py-1.5 px-2 bg-slate-50/70 rounded text-xs">
+                  <div className="flex-1">
+                    <p className="font-medium text-slate-800">
+                      {a.label}
+                      {a.payment_type === 'percentage' && (
+                        <span className="ml-1 text-leamss-teal-700 font-semibold bg-leamss-teal-50 px-1 py-0.2 rounded border border-leamss-teal-200 text-[10px]">
+                          {a.rate !== undefined && a.rate !== null ? a.rate : a.base_amount}%
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-[10px] text-slate-500">{a.vendor_name ? `${a.vendor_name} (${a.vendor_type || 'assigned'})` : '— unassigned —'}</p>
+                  </div>
+                  <div className="text-right mr-3">
+                    <p className="font-bold text-slate-800">{formatINR(a.total_amount)}</p>
+                    {a.payment_type === 'percentage' && (
+                      <p className="text-[9px] text-slate-500">
+                        {a.rate !== undefined && a.rate !== null ? a.rate : a.base_amount}% of revenue
+                      </p>
+                    )}
+                    {a.bonus_amount > 0 && <p className="text-[9px] text-amber-600">incl. bonus</p>}
+                  </div>
+                  <div className="flex flex-col items-end">
+                    <Badge className={`${meta.color} text-[10px] flex items-center gap-1 h-5 px-1.5`}>
+                      <StatusIcon className="h-2.5 w-2.5" />
+                      {meta.label}
+                    </Badge>
+                    {a.status === 'paid' && a.payment_reference && (
+                      <span className="text-[9px] text-slate-400 font-mono mt-0.5">Ref: {a.payment_reference}</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {upsells.length > 0 && (
         <div className="mt-3 bg-white/70 rounded-lg p-3 border border-emerald-100">
           <p className="text-[11px] font-semibold text-slate-700 mb-1">Upsell Add-ons:</p>

@@ -47,6 +47,8 @@ class EligibilityRequest(BaseModel):
     full_name: str = "Website Visitor"
     email: Optional[EmailStr] = None
     mobile: Optional[str] = None
+
+    # ── Common eligibility fields ─────────────────────────────────────────
     age: int = Field(..., ge=16, le=80)
     education: str  # "Bachelor", "Master", "PhD", "Diploma"
     work_experience_years: float = Field(0, ge=0, le=60)
@@ -55,9 +57,56 @@ class EligibilityRequest(BaseModel):
     family_savings_inr: Optional[float] = None
     has_job_offer: bool = False
     spouse_education: Optional[str] = None
-    children_count: int = 0
+    children_count: int = Field(0, ge=0, le=20)
     preferred_countries: Optional[List[str]] = None
     consent_to_contact: bool = False
+
+    # ── Canada CRS: work experience ──────────────────────────────────────
+    # Keep Canadian and foreign experience separate. The Canada CRS engine
+    # uses these fields independently for the relevant factors.
+    canadian_work_experience_years: float = Field(0, ge=0, le=60)
+    foreign_work_experience_years: float = Field(0, ge=0, le=60)
+
+    # ── Canada CRS: first official language ───────────────────────────────
+    # CLB values for English (or the first official language represented
+    # by these fields).
+    english_reading_clb: Optional[int] = Field(None, ge=0, le=10)
+    english_writing_clb: Optional[int] = Field(None, ge=0, le=10)
+    english_speaking_clb: Optional[int] = Field(None, ge=0, le=10)
+    english_listening_clb: Optional[int] = Field(None, ge=0, le=10)
+
+    # ── Canada CRS: second official language ──────────────────────────────
+    second_language_reading_clb: Optional[int] = Field(None, ge=0, le=10)
+    second_language_writing_clb: Optional[int] = Field(None, ge=0, le=10)
+    second_language_speaking_clb: Optional[int] = Field(None, ge=0, le=10)
+    second_language_listening_clb: Optional[int] = Field(None, ge=0, le=10)
+
+    # ── Canada CRS: spouse / common-law partner ───────────────────────────
+    has_spouse: bool = False
+    marital_status: Optional[str] = None
+
+    spouse_reading_clb: Optional[int] = Field(None, ge=0, le=10)
+    spouse_writing_clb: Optional[int] = Field(None, ge=0, le=10)
+    spouse_speaking_clb: Optional[int] = Field(None, ge=0, le=10)
+    spouse_listening_clb: Optional[int] = Field(None, ge=0, le=10)
+    spouse_canadian_work_experience_years: float = Field(0, ge=0, le=60)
+
+    # ── Canada CRS: additional points ────────────────────────────────────
+    has_sibling_in_canada: bool = False
+
+    has_canadian_education: bool = False
+    canadian_education_years: float = Field(0, ge=0, le=20)
+
+    has_provincial_nomination: bool = False
+    has_certificate_of_qualification: bool = False
+
+    # ── Canada CRS: French language ───────────────────────────────────────
+    # NCLC values. The scoring engine also accepts these as second-language
+    # aliases, but keeping them explicit makes Swagger testing easier.
+    french_reading_nclc: Optional[int] = Field(None, ge=0, le=10)
+    french_writing_nclc: Optional[int] = Field(None, ge=0, le=10)
+    french_speaking_nclc: Optional[int] = Field(None, ge=0, le=10)
+    french_listening_nclc: Optional[int] = Field(None, ge=0, le=10)
 
 
 async def _ensure_pathways() -> List[Dict[str, Any]]:

@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 from core.database import (
     db, cases_col, users_col, documents_col, notifications_col,
-    audit_logs_col, workflow_steps_col, case_steps_col, additional_doc_requests_col
+    audit_logs_col, workflow_steps_col, case_steps_col, additional_doc_requests_col, pre_assessments_col, sales_col
 )
 from core.auth import get_current_user
 
@@ -187,17 +187,14 @@ async def get_stepwise_documents(case_id: str, current_user: dict = Depends(get_
 
         for section in aws.get("sections", []):
             for field in section.get("fields", []):
-
-                # Only file upload fields are documents
-                # if field.get("field_type") != "file":
-                #     continue
-
                 filled_by = field.get("filled_by", "client")
 
-                # Hide CM-only fields from client
+                # Non-file CM-only text fields stay hidden from client
                 if (
                     current_user["role"] == "client"
                     and filled_by not in ("client", "both")
+                    and field.get("field_type") != "file"
+                    and not field.get("is_locked_until_paid")
                 ):
                     continue
 
@@ -218,12 +215,34 @@ async def get_stepwise_documents(case_id: str, current_user: dict = Depends(get_
                     "description": field.get("help_text", ""),
                     "source": "intake_form",
                     "filled_by": filled_by,
+                    "is_locked_until_paid": bool(field.get("is_locked_until_paid") or field.get("payment_locked")),
+                })
+
+        # Also merge from required_documents if not already in intake_documents
+        existing_doc_names = {d["doc_name"].lower().strip() for d in intake_documents if d.get("doc_name")}
+        for req_doc in aws.get("required_documents", []):
+            req_name = _get_doc_name(req_doc)
+            if req_name and req_name.lower().strip() not in existing_doc_names:
+                intake_documents.append({
+                    "key": f"doc_{req_name.lower().replace(' ', '_')}",
+                    "doc_name": req_name,
+                    "label": req_name,
+                    "field_type": "file",
+                    "options": [],
+                    "is_mandatory": req_doc.get("mandatory", req_doc.get("is_mandatory", True)),
+                    "mandatory": req_doc.get("mandatory", req_doc.get("is_mandatory", True)),
+                    "tag": "mandatory" if req_doc.get("mandatory", req_doc.get("is_mandatory", True)) else "optional",
+                    "notes": req_doc.get("description", req_doc.get("notes", "")),
+                    "description": req_doc.get("description", req_doc.get("notes", "")),
+                    "source": "workflow_req_doc",
+                    "filled_by": "client",
+                    "is_locked_until_paid": bool(req_doc.get("is_locked_until_paid") or req_doc.get("payment_locked")),
                 })
 
         admin_docs_by_step[step_name] = intake_documents
     uploaded_docs = await documents_col.find(
         {"case_id": case_id}, {"_id": 0, "file_path": 0}
-    ).to_list(500)
+    ).sort("uploaded_at", -1).to_list(500)
 
     for d in uploaded_docs:
         for f in ["uploaded_at", "reviewed_at", "expiry_date"]:
@@ -256,107 +275,164 @@ async def get_stepwise_documents(case_id: str, current_user: dict = Depends(get_
     for r in additional_requests:
         if isinstance(r.get("created_at"), datetime):
             r["created_at"] = r["created_at"].isoformat()
-        matching_doc = next(
-            (d for d in uploaded_docs if d.get("additional_request_id") == r.get("id")),
-            None
-        )
-        r["uploaded_doc"] = matching_doc
+        matching_additional_docs = [
+            d for d in uploaded_docs
+            if d.get("additional_request_id") == r.get("id")
+            or (d.get("document_type") or "").strip().lower() == (r.get("doc_name") or "").strip().lower()
+        ]
+        r["uploaded_docs"] = matching_additional_docs
+        r["uploaded_doc"] = matching_additional_docs[0] if matching_additional_docs else None
 
     # Build step-wise structure by merging admin defaults + case-specific docs
+    sorted_case_steps = sorted(case_steps, key=lambda x: x.get("step_order", 0))
+    current_step_order = case.get("current_step_order") or 1
+
+    # Check linked PA payment parts for installment gates and full payment status
+    pa = None
+    if case.get("pre_assessment_id"):
+        pa = await pre_assessments_col.find_one({"id": case["pre_assessment_id"]}, {"_id": 0})
+    sale = None
+    if case.get("sale_id"):
+        sale = await sales_col.find_one({"id": case["sale_id"]}, {"_id": 0})
+    elif case.get("client_id"):
+        sale = await sales_col.find_one({"client_id": case["client_id"]}, {"_id": 0})
+
+    pa_unpaid_part = None
+    target_unlock_step = 4
+    if pa:
+        target_unlock_step = int(pa.get("second_installment_step_order") or 4)
+        if pa.get("proposal_payment_parts"):
+            unpaid_parts = [p for p in pa["proposal_payment_parts"] if p.get("status") != "paid"]
+            if unpaid_parts:
+                pa_unpaid_part = unpaid_parts[0]
+            if not pa.get("second_installment_step_order"):
+                target_unlock_step = int(next((p.get("trigger_step_order") for p in pa["proposal_payment_parts"] if p.get("trigger_step_order")), 4))
+
+    # Overall full payment check for locked documents
+    is_case_fully_paid = True
+    pending_payment_amount = 0.0
+    sale_id_for_pay = (sale and sale.get("id")) or case.get("sale_id") or (pa and pa.get("sale_id"))
+
+    if sale:
+        sale_status = sale.get("payment_status")
+        pending_amt = float(sale.get("pending_amount", 0))
+        unpaid_parts = [p for p in sale.get("payment_parts", []) if p.get("status") != "paid"]
+        if sale_status != "paid" or pending_amt > 0 or len(unpaid_parts) > 0:
+            is_case_fully_paid = False
+            unpaid_sum = sum(float(p.get("amount", 0)) for p in unpaid_parts) if unpaid_parts else pending_amt
+            pending_payment_amount = max(pending_amt, unpaid_sum)
+        else:
+            is_case_fully_paid = True
+            pending_payment_amount = 0.0
+    elif pa:
+        unpaid_parts = [p for p in pa.get("proposal_payment_parts", []) if p.get("status") != "paid"]
+        pending_amt = float(pa.get("proposal_amount_pending", 0))
+        if pa.get("stage") not in ("proposal_paid", "paid") and (pending_amt > 0 or len(unpaid_parts) > 0):
+            is_case_fully_paid = False
+            unpaid_sum = sum(float(p.get("amount", 0)) for p in unpaid_parts) if unpaid_parts else pending_amt
+            pending_payment_amount = max(pending_amt, unpaid_sum)
+        else:
+            is_case_fully_paid = True
+            pending_payment_amount = 0.0
+
     step_docs = []
-    for cs in case_steps:
+    for cs in sorted_case_steps:
         step_name = cs.get("step_name", "")
+        step_order = cs.get("step_order", 0)
         case_req_docs = cs.get("required_documents", [])
-        step_uploaded = [d for d in uploaded_docs if d.get("step_name") == step_name]
+        step_name_clean = (step_name or "").strip().lower()
+        step_uploaded = [
+            d for d in uploaded_docs
+            if (d.get("step_name") or "").strip().lower() == step_name_clean
+            or (d.get("step_order") is not None and int(d.get("step_order")) == step_order)
+            or (d.get("step_id") and d.get("step_id") == cs.get("id"))
+        ]
+
+        # Calculate lock status:
+        # Step 1 is always unlocked.
+        # Step N (N > 1) is unlocked if all previous steps (order < N) are completed,
+        # OR if step N itself has status in ("in_progress", "completed"),
+        # OR if step_order <= current_step_order.
+        payment_required = False
+        payment_amount = 0.0
+        sale_id_val = None
+
+        if step_order <= 1:
+            is_locked = False
+            locked_reason = None
+        else:
+            prev_steps = [s for s in sorted_case_steps if s.get("step_order", 0) < step_order]
+            prev_uncompleted = next((s for s in prev_steps if s.get("status") != "completed"), None)
+            is_active = cs.get("status") in ("in_progress", "completed") or step_order <= current_step_order
+
+            # Check if step is gated by unpaid 2nd installment
+            if step_order >= target_unlock_step and pa_unpaid_part:
+                is_locked = True
+                payment_required = True
+                payment_amount = float(pa_unpaid_part.get("amount", 0))
+                sale_id_val = pa.get("sale_id")
+                locked_reason = f"Step {step_order} ({step_name}) is locked pending {pa_unpaid_part.get('label', '2nd Installment')} (₹{payment_amount:,.0f}). Please complete payment to unlock this step."
+            elif prev_uncompleted is not None and not is_active:
+                is_locked = True
+                prev_order = prev_uncompleted.get("step_order", step_order - 1)
+                prev_name = prev_uncompleted.get("step_name", "")
+                locked_reason = f"Step {step_order} is locked. It will automatically unlock once your Case Manager completes Step {prev_order} ({prev_name})."
+            else:
+                is_locked = False
+                locked_reason = None
 
         # Get latest admin default docs for this step
         admin_defaults = admin_docs_by_step.get(step_name, [])
 
-#         # Build a set of doc names already in case_steps (CM-added or previously synced)
-#         existing_names = set()
-#         for rd in case_req_docs:
-#             existing_names.add(_get_doc_name(rd).lower())
-
-#         # Merge: start with case_step docs, then add any NEW admin defaults not yet in case_steps
-#         # Merge client-visible case documents only
-#         merged_docs = []
-
-#         for rd in case_req_docs:
-#             filled_by = rd.get("filled_by")
-
-#             # Hide CM-only intake fields from client
-#             if (
-#                 current_user["role"] == "client"
-#                 and filled_by == "cm"
-#             ):
-#                 continue
-
-#             merged_docs.append(rd)
-
-#         new_admin_docs = []
-#         for ad in admin_defaults:
-#             ad_name = _get_doc_name(ad)
-#             if ad_name and ad_name.lower() not in existing_names:
-#                 merged_docs.append({
-#     "doc_name": ad_name,
-#     "description": ad.get("description", ""),
-#     "is_mandatory": ad.get(
-#         "is_mandatory",
-#         ad.get("mandatory", True)
-#     ),
-#     "tag": ad.get("tag", "mandatory"),
-#     "notes": ad.get("notes", ""),
-#     "source": "intake_form",
-#     "added_by_name": "Admin",
-#     "filled_by": ad.get("filled_by", "client"),
-# })
-#                 new_admin_docs.append(ad_name)
-
-        # Sync new admin docs to case_steps in DB (so they persist)
-        # if new_admin_docs:
-        #     await case_steps_col.update_one(
-        #         {"case_id": case_id, "step_name": step_name},
-        #         {"$set": {"required_documents": merged_docs}}
-        #     )
-
-        # Build doc items for response
-                # CLIENT:
-        # Show ONLY Workflow Builder intake file fields
-        # where filled_by is client or both
-        if current_user["role"] == "client":
-            merged_docs = list(admin_defaults)
-
-        # CASE MANAGER / ADMIN:
-        # Show case required documents + workflow intake documents
-        else:
+        # CLIENT:
+        # Merge admin_defaults + any CM-added custom requests
+        cm_custom_docs = [rd for rd in case_req_docs if rd.get("source") == "cm_request"]
+        merged_docs = list(admin_defaults) + cm_custom_docs
+        if not merged_docs:
             merged_docs = list(case_req_docs)
 
-            existing_names = {
-                _get_doc_name(rd).lower()
-                for rd in merged_docs
-                if _get_doc_name(rd)
-            }
-
-            for ad in admin_defaults:
-                ad_name = _get_doc_name(ad)
-
-                if (
-                    ad_name
-                    and ad_name.lower() not in existing_names
-                ):
-                    merged_docs.append(ad)
-                    existing_names.add(ad_name.lower())
         doc_items = []
+        matched_uploaded_ids = set()
+
         for rd in merged_docs:
             doc_name = _get_doc_name(rd)
             if not doc_name:
                 continue
-            matching = next(
-                (d for d in step_uploaded
-                 if d.get("document_type", "").lower() == doc_name.lower()
-                 or d.get("filename", "").lower().startswith(doc_name.lower()[:5])),
-                None
-            )
+            doc_n_clean = doc_name.strip().lower()
+            matching_list = [
+                d for d in step_uploaded
+                if (d.get("document_type") or "").strip().lower() == doc_n_clean
+                or (d.get("filename") or "").strip().lower().startswith(doc_n_clean[:4])
+                or doc_n_clean in (d.get("document_type") or "").strip().lower()
+                or (d.get("document_type") or "").strip().lower() in doc_n_clean
+            ]
+            for m in matching_list:
+                if m.get("id"):
+                    matched_uploaded_ids.add(m["id"])
+
+            matching = matching_list[0] if matching_list else None
+
+            # Calculate overall status for the requirement
+            if not matching_list:
+                computed_status = "not_uploaded"
+            elif any(d.get("status") == "rejected" for d in matching_list):
+                computed_status = "rejected"
+            elif any(d.get("status") == "revision_required" for d in matching_list):
+                computed_status = "revision_required"
+            elif any(d.get("status") in ("pending", "pending_review") for d in matching_list):
+                computed_status = "pending"
+            elif all(d.get("status") in ("approved", "verified") for d in matching_list):
+                computed_status = "approved"
+            else:
+                computed_status = matching.get("status", "pending")
+
+            is_doc_locked_until_paid = bool(rd.get("is_locked_until_paid") or rd.get("payment_locked"))
+            is_payment_locked = False
+            doc_payment_locked_reason = None
+            if current_user["role"] == "client" and is_doc_locked_until_paid and not is_case_fully_paid and pending_payment_amount > 0:
+                is_payment_locked = True
+                doc_payment_locked_reason = f"This document is locked until full payment is completed (₹{pending_payment_amount:,.0f} pending). Please complete payment to view or download."
+
             doc_items.append({
                 "key": rd.get("key", ""),
                 "doc_name": doc_name,
@@ -366,9 +442,9 @@ async def get_stepwise_documents(case_id: str, current_user: dict = Depends(get_
                 "placeholder": rd.get("placeholder", ""),
                 "help_text": rd.get("help_text", ""),
                 "filled_by": rd.get(
-    "filled_by",
-    "cm" if rd.get("source") == "cm_request" else "client"
-),
+                    "filled_by",
+                    "cm" if rd.get("source") == "cm_request" else "client"
+                ),
                 "is_mandatory": rd.get(
                     "is_mandatory",
                     rd.get("mandatory", False)
@@ -384,20 +460,88 @@ async def get_stepwise_documents(case_id: str, current_user: dict = Depends(get_
                 ),
                 "source": rd.get("source", "intake_form"),
                 "added_by_name": rd.get("added_by_name", "Admin"),
+                "is_locked_until_paid": is_doc_locked_until_paid,
+                "is_payment_locked": is_payment_locked,
+                "payment_pending_amount": pending_payment_amount if is_payment_locked else 0,
+                "sale_id": sale_id_for_pay,
 
-                "uploaded": matching is not None,
+                "uploaded": len(matching_list) > 0,
+                "uploaded_count": len(matching_list),
                 "uploaded_doc": matching,
-                "status": (
-                    matching.get("status", "pending")
-                    if matching
-                    else "not_uploaded"
-                ),
+                "uploaded_docs": matching_list,
+                "status": computed_status,
+                "is_locked": is_locked or is_payment_locked,
+                "locked_reason": doc_payment_locked_reason or locked_reason,
             })
+
+        # Also add any documents uploaded for this step that were not in merged_docs
+        for up_doc in step_uploaded:
+            if up_doc.get("id") and up_doc["id"] not in matched_uploaded_ids:
+                matched_uploaded_ids.add(up_doc["id"])
+                doc_name = up_doc.get("document_type") or up_doc.get("filename") or "Document"
+                is_doc_locked = bool(up_doc.get("is_locked_until_paid") or up_doc.get("payment_locked"))
+
+                # Check if matches any locked rule in workflow step
+                if not is_doc_locked:
+                    for rd in admin_defaults:
+                        rd_n = _get_doc_name(rd).lower()
+                        if rd_n == doc_name.lower() or doc_name.lower().startswith(rd_n[:5]):
+                            if rd.get("is_locked_until_paid") or rd.get("payment_locked"):
+                                is_doc_locked = True
+                                break
+
+                is_payment_locked = False
+                doc_payment_locked_reason = None
+                if current_user["role"] == "client" and is_doc_locked and not is_case_fully_paid and pending_payment_amount > 0:
+                    is_payment_locked = True
+                    doc_payment_locked_reason = f"This document is locked until full payment is completed (₹{pending_payment_amount:,.0f} pending). Please complete payment to view or download."
+
+                doc_items.append({
+                    "key": f"uploaded_{up_doc.get('id')}",
+                    "doc_name": doc_name,
+                    "label": doc_name,
+                    "field_type": "file",
+                    "options": [],
+                    "placeholder": "",
+                    "help_text": "",
+                    "filled_by": "cm",
+                    "is_mandatory": False,
+                    "required": False,
+                    "tag": "uploaded",
+                    "notes": up_doc.get("notes", "Uploaded by Case Manager"),
+                    "source": "cm_upload",
+                    "added_by_name": up_doc.get("uploaded_by_name", "Case Manager"),
+                    "is_locked_until_paid": is_doc_locked,
+                    "is_payment_locked": is_payment_locked,
+                    "payment_pending_amount": pending_payment_amount if is_payment_locked else 0,
+                    "sale_id": sale_id_for_pay,
+                    "uploaded": True,
+                    "uploaded_count": 1,
+                    "uploaded_doc": up_doc,
+                    "uploaded_docs": [up_doc],
+                    "status": up_doc.get("status", "approved"),
+                    "is_locked": is_locked or is_payment_locked,
+                    "locked_reason": doc_payment_locked_reason or locked_reason,
+                })
+
+        # Sort doc_items so that locked documents (especially those uploaded by CM or marked locked) are at the TOP of the step
+        doc_items.sort(key=lambda d: (
+            0 if (d.get("is_locked_until_paid") and d.get("uploaded")) else
+            1 if d.get("is_locked_until_paid") else
+            2 if (d.get("source") == "cm_upload" and d.get("uploaded")) else
+            3 if d.get("uploaded") else 4
+        ))
+
         step_docs.append({
             "step_name": step_name,
-            "step_order": cs.get("step_order", 0),
+            "step_order": step_order,
             "description": cs.get("description", ""),
             "status": cs.get("status", "pending"),
+            "is_locked": is_locked,
+            "locked_reason": locked_reason,
+            "payment_required": payment_required,
+            "payment_amount": payment_amount,
+            "sale_id": sale_id_val,
             "required_count": len(doc_items),
             "uploaded_count": sum(1 for d in doc_items if d["uploaded"]),
             "verified_count": sum(1 for d in doc_items if d["status"] == "approved"),
@@ -408,10 +552,18 @@ async def get_stepwise_documents(case_id: str, current_user: dict = Depends(get_
     matched_doc_ids = set()
     for sd in step_docs:
         for d in sd["documents"]:
-            if d["uploaded_doc"]:
+            if d.get("uploaded_docs"):
+                for ud in d["uploaded_docs"]:
+                    if ud.get("id"):
+                        matched_doc_ids.add(ud["id"])
+            elif d.get("uploaded_doc"):
                 matched_doc_ids.add(d["uploaded_doc"]["id"])
     for r in additional_requests:
-        if r.get("uploaded_doc"):
+        if r.get("uploaded_docs"):
+            for ud in r["uploaded_docs"]:
+                if ud.get("id"):
+                    matched_doc_ids.add(ud["id"])
+        elif r.get("uploaded_doc"):
             matched_doc_ids.add(r["uploaded_doc"]["id"])
 
     other_uploads = [d for d in uploaded_docs if d.get("id") not in matched_doc_ids and not d.get("additional_request_id")]

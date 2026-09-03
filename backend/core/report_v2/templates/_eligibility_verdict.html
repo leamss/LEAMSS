@@ -1,0 +1,96 @@
+{# ELIGIBILITY VERDICT — clear, honest outcome page (eligible / improvable / age-blocked) #}
+{% set ev = snap.eligibility_verdict or {} %}
+{% set verdict = ev.get('verdict') %}
+
+{% if ev %}
+<div class="page">
+
+  <div class="section-header">
+    <span class="eyebrow">Eligibility Outcome</span>
+    <h1>{{ ev.get('headline') or 'Your Eligibility Outcome' }}</h1>
+    <span class="rule"></span>
+    <p class="lead">{{ ev.get('sub') or '' }}</p>
+  </div>
+
+  {# Verdict banner #}
+  {% if verdict == 'eligible' %}
+    {% set bg = 'var(--teal-700)' %}{% set label = '✓ ELIGIBLE — Threshold Met' %}
+  {% elif verdict == 'improvable' %}
+    {% set bg = '#B7791F' %}{% set label = '⚠ NOT ELIGIBLE YET — Improvable' %}
+  {% else %}
+    {% set bg = '#B44A3A' %}{% set label = '✗ NOT ELIGIBLE — Age Criteria' %}
+  {% endif %}
+
+  <div class="card" style="background:{{ bg }};color:#fff;border:none;padding:16pt 18pt;">
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <div>
+        <div style="font-family:'Manrope',sans-serif;font-weight:800;font-size:13pt;letter-spacing:0.03em;">{{ label }}</div>
+        <div style="opacity:0.9;font-size:9.5pt;margin-top:3pt;">
+          Best pathway: Subclass {{ ev.get('best_subclass') or '—' }} ·
+          Indicative score {{ ev.get('best_points') or 0 }} / pass mark {{ ev.get('pass_mark') or 65 }}
+        </div>
+      </div>
+      <div style="font-family:'Playfair Display',serif;font-size:34pt;font-weight:800;line-height:1;">
+        {{ ev.get('best_points') or 0 }}
+      </div>
+    </div>
+  </div>
+
+  {# Reasons #}
+  {% if ev.get('reasons') %}
+  <div class="spacer-sm"></div>
+  <h3 style="color:var(--orange-500);text-transform:uppercase;letter-spacing:0.08em;font-size:10pt;font-family:'Manrope',sans-serif;font-weight:800;">
+    {% if verdict == 'eligible' %}Why You Qualify{% else %}Why You Are Not Eligible Right Now{% endif %}
+  </h3>
+  <div class="spacer-sm"></div>
+  {% for r in ev.get('reasons') %}
+    <div class="card" style="border-left:4pt solid {{ bg }};padding:10pt 14pt;margin-bottom:6pt;">
+      <div style="font-size:9.5pt;color:var(--charcoal);line-height:1.55;">{{ r }}</div>
+    </div>
+  {% endfor %}
+  {% endif %}
+
+  {# Improvement steps (improvable only) #}
+  {% if ev.get('improvements') %}
+  <div class="spacer-md"></div>
+  <h3 style="color:var(--teal-700);text-transform:uppercase;letter-spacing:0.08em;font-size:10pt;font-family:'Manrope',sans-serif;font-weight:800;">
+    How To Become Eligible — Your Action Plan
+  </h3>
+  <div class="spacer-sm"></div>
+  <table class="kv" style="margin-bottom:0;">
+    <tbody>
+      {% for tip in ev.get('improvements') %}
+      <tr>
+        <td style="width:26pt;vertical-align:top;">
+          <div style="width:20pt;height:20pt;border-radius:50%;background:var(--teal-100);color:var(--teal-700);font-weight:800;font-size:10pt;text-align:center;line-height:20pt;">{{ loop.index }}</div>
+        </td>
+        <td style="font-size:9.5pt;color:var(--charcoal);line-height:1.55;">{{ tip }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  {# Alternatives (age-blocked) #}
+  {% if ev.get('alternatives') %}
+  <div class="spacer-md"></div>
+  <h3 style="color:var(--teal-700);text-transform:uppercase;letter-spacing:0.08em;font-size:10pt;font-family:'Manrope',sans-serif;font-weight:800;">
+    Alternative Pathways Worth Exploring
+  </h3>
+  <div class="spacer-sm"></div>
+  {% for alt in ev.get('alternatives') %}
+    <div class="card" style="border-left:4pt solid var(--teal-700);padding:10pt 14pt;margin-bottom:6pt;">
+      <div style="font-size:9.5pt;color:var(--charcoal);line-height:1.55;">{{ alt }}</div>
+    </div>
+  {% endfor %}
+  {% endif %}
+
+  <div class="spacer-sm"></div>
+  <div class="note teal">
+    <b>We're here to help.</b> This outcome is indicative and based on the information provided. Our licensed migration
+    team will gladly review your profile in detail and map the best possible route for you — simply reply to the email
+    accompanying this report or call us on the numbers in the contact section.
+  </div>
+
+</div>
+{% endif %}

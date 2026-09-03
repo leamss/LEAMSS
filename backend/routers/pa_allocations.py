@@ -22,11 +22,20 @@ def _is_admin(u: dict) -> bool:
     return u.get("role") in ("admin", "admin_owner") or u.get("rbac_role") in ("admin", "admin_owner")
 
 
-def _can_view_allocations(u: dict) -> bool:
+def _can_view_allocations(u: dict, pa: Optional[dict] = None) -> bool:
     if _is_admin(u):
         return True
     perms = u.get("permissions") or []
-    return any(p in perms for p in ["allocation.view.all", "allocation.view.team", "vendor.view.all", "pa.view.all"])
+    if any(p in perms for p in ["allocation.view.all", "allocation.view.team", "vendor.view.all", "pa.view.all"]):
+        return True
+    if pa:
+        # Partner / creator ownership
+        if pa.get("partner_id") == u.get("id") or pa.get("created_by_user_id") == u.get("id"):
+            return True
+        # Assigned case manager
+        if pa.get("case_manager_id") == u.get("id"):
+            return True
+    return False
 
 
 def _can_manage_allocations(u: dict) -> bool:
@@ -57,18 +66,23 @@ def _clean(d):
 
 @router.get("/{pa_id}/allocations")
 async def get_allocations(pa_id: str, current_user: dict = Depends(get_current_user)):
-    if not _can_view_allocations(current_user):
-        raise HTTPException(status_code=403, detail="Not authorized")
     pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
     if not pa:
         raise HTTPException(status_code=404, detail="PA not found")
+    if not _can_view_allocations(current_user, pa):
+        raise HTTPException(status_code=403, detail="Not authorized")
     doc = await get_allocations_for_pa(pa_id)
+    
+    current_revenue = float(pa.get("proposal_fee") or pa.get("final_amount") or pa.get("fee_amount") or 0)
     if not doc:
-        # Auto-build on first access if PA has reached case_created
-        if pa.get("stage") == "case_created":
-            doc = await build_allocations_for_pa(pa)
-        else:
-            return {"pa_id": pa_id, "has_allocations": False, "message": "Allocations are created when PA reaches case_created stage"}
+        # Auto-build if structure exists
+        doc = await build_allocations_for_pa(pa, revenue=current_revenue if current_revenue > 0 else None)
+    elif current_revenue > 0 and float(doc.get("total_revenue") or 0) != current_revenue:
+        # Auto-recalculate if revenue was updated after initial creation
+        doc = await build_allocations_for_pa(pa, revenue=current_revenue)
+
+    if not doc:
+        return {"pa_id": pa_id, "has_allocations": False, "message": "No cost structure matched or allocations not generated yet"}
     return {"pa_id": pa_id, "has_allocations": True, "allocations": _clean(doc)}
 
 

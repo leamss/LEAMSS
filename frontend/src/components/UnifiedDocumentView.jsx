@@ -7,10 +7,11 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import {
-  FileCheck, Upload, CheckCircle, Clock, AlertCircle, Loader2,
+  FileCheck, Upload, CheckCircle, CheckCircle2, Clock, AlertCircle, Loader2,
   ChevronDown, ChevronRight, FileText, XCircle, Shield, Download,
-  AlertTriangle, Calendar, Eye, FileUp, Info
+  AlertTriangle, Calendar, Eye, FileUp, Info, Lock, CreditCard
 } from 'lucide-react';
+import ClientPaymentModal from './ClientPaymentModal';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -20,11 +21,29 @@ const UnifiedDocumentView = ({ token, caseId, caseData, onDocumentUploaded }) =>
   const [expandedSteps, setExpandedSteps] = useState({});
   const [uploading, setUploading] = useState(null);
   const [fieldValues, setFieldValues] = useState({});
-const [uploadFiles, setUploadFiles] = useState({});
-const [submittingField, setSubmittingField] = useState(null);
-const [submittedFields, setSubmittedFields] = useState({});
+  const [uploadFiles, setUploadFiles] = useState({});
+  const [submittingField, setSubmittingField] = useState(null);
+  const [submittedFields, setSubmittedFields] = useState({});
+  const [stepPaymentModalData, setStepPaymentModalData] = useState({ open: false, data: null });
 
   const headers = { Authorization: `Bearer ${token}` };
+
+  const handleStepPayment = (saleId, step) => {
+    const payAmt = Number(step?.payment_amount || 10125);
+    setStepPaymentModalData({
+      open: true,
+      data: {
+        saleId: saleId || caseData?.sale_id,
+        amount: payAmt,
+        part: { label: '2nd Installment (50%)', index: 1, amount: payAmt },
+        productName: caseData?.service_type ? `${caseData.service_type} Application` : (caseData?.product_name || 'PR Journey & Immigration'),
+        partnerName: caseData?.partner_name || 'LEAMSS Consultant',
+        clientName: caseData?.client_name || 'Client',
+        destination: caseData?.country || 'Australia',
+        serviceType: caseData?.service_type || 'PR',
+      }
+    });
+  };
 
 const loadData = useCallback(async () => {
   if (!caseId) {
@@ -89,6 +108,7 @@ setSubmittedFields(savedSubmittedFields);
   }
 
   setLoading(false);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
 }, [caseId]);
 
   useEffect(() => { loadData(); }, [loadData]);
@@ -146,20 +166,35 @@ setSubmittedFields(savedSubmittedFields);
   }
 };
 
-  const handleUpload = async (stepName, docName, file) => {
-    if (!file) return;
-    setUploading(`${stepName}-${docName}`);
+  const handleUpload = async (stepName, docName, filesInput) => {
+    if (!filesInput) return;
+    const files = filesInput instanceof FileList || Array.isArray(filesInput)
+      ? Array.from(filesInput)
+      : [filesInput];
+    if (files.length === 0) return;
+
+    const uploadKey = `${stepName}-${docName}`;
+    setUploading(uploadKey);
     const formData = new FormData();
-    formData.append('file', file);
+    files.forEach((f) => formData.append('files', f));
     formData.append('case_id', caseId);
     formData.append('step_name', stepName);
     formData.append('document_type', docName);
+
     try {
       await axios.post(`${API}/documents/upload`, formData, {
         headers: { ...headers, 'Content-Type': 'multipart/form-data' },
       });
-      toast.success(`"${docName}" uploaded successfully!`);
-      setUploadFiles(prev => { const n = {...prev}; delete n[`${stepName}-${docName}`]; return n; });
+      toast.success(
+        files.length > 1
+          ? `${files.length} documents uploaded for "${docName}"!`
+          : `"${docName}" uploaded successfully!`
+      );
+      setUploadFiles((prev) => {
+        const n = { ...prev };
+        delete n[uploadKey];
+        return n;
+      });
       loadData();
       onDocumentUploaded?.();
     } catch (e) {
@@ -168,26 +203,52 @@ setSubmittedFields(savedSubmittedFields);
     setUploading(null);
   };
 
-  const handleAdditionalUpload = async (requestId, docName, file) => {
-    if (!file) return;
+  const handleAdditionalUpload = async (requestId, docName, filesInput) => {
+    if (!filesInput) return;
+    const files = filesInput instanceof FileList || Array.isArray(filesInput)
+      ? Array.from(filesInput)
+      : [filesInput];
+    if (files.length === 0) return;
+
     setUploading(requestId);
     const formData = new FormData();
-    formData.append('file', file);
+    files.forEach((f) => formData.append('files', f));
     formData.append('case_id', caseId);
     formData.append('document_type', docName);
     formData.append('additional_request_id', requestId);
+
     try {
       await axios.post(`${API}/documents/upload`, formData, {
         headers: { ...headers, 'Content-Type': 'multipart/form-data' },
       });
-      toast.success(`"${docName}" uploaded!`);
-      setUploadFiles(prev => { const n = {...prev}; delete n[requestId]; return n; });
+      toast.success(
+        files.length > 1
+          ? `${files.length} documents uploaded for "${docName}"!`
+          : `"${docName}" uploaded successfully!`
+      );
+      setUploadFiles((prev) => {
+        const n = { ...prev };
+        delete n[requestId];
+        return n;
+      });
       loadData();
       onDocumentUploaded?.();
     } catch (e) {
       toast.error(e.response?.data?.detail || 'Upload failed');
     }
     setUploading(null);
+  };
+
+  const handleDeleteDoc = async (docId, filename) => {
+    if (!window.confirm(`Are you sure you want to remove "${filename}"?`)) return;
+    try {
+      await axios.delete(`${API}/documents/${docId}`, { headers });
+      toast.success(`"${filename}" removed successfully`);
+      loadData();
+      onDocumentUploaded?.();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Failed to delete document');
+    }
   };
 
   const downloadDocument = async (docId, filename) => {
@@ -324,36 +385,37 @@ const renderIntakeField = (field, step) => {
   };
 
   const isSubmitting = submittingField === fieldKey;
-  
+  const isLocked = step?.is_locked === true;
 
   return (
     <div className="space-y-2">
       {fieldType === 'textarea' && (
         <textarea
-  value={value}
-  disabled={isSubmitted}
-  onChange={(e) => updateValue(e.target.value)}
-  placeholder={field.placeholder || field.notes || ''}
-  className="w-full min-h-[100px] border border-slate-200 rounded-lg p-3 text-sm disabled:bg-slate-100 disabled:text-slate-700"
-/>
+          value={value}
+          disabled={isSubmitted || isLocked}
+          onChange={(e) => updateValue(e.target.value)}
+          placeholder={isLocked ? 'Locked until Case Manager completes previous step' : (field.placeholder || field.notes || '')}
+          className="w-full min-h-[100px] border border-slate-200 rounded-lg p-3 text-sm disabled:bg-slate-100 disabled:text-slate-700"
+        />
       )}
 
       {fieldType === 'date' && (
         <Input
           type="date"
           value={value}
+          disabled={isSubmitted || isLocked}
           onChange={(e) => updateValue(e.target.value)}
         />
       )}
 
       {(fieldType === 'select' || fieldType === 'dropdown') && (
         <select
-  value={value}
-  disabled={isSubmitted}
-  onChange={(e) => updateValue(e.target.value)}
-  className="w-full h-10 border border-slate-200 rounded-lg px-3 text-sm bg-white disabled:bg-slate-100"
->
-          <option value="">Select option</option>
+          value={value}
+          disabled={isSubmitted || isLocked}
+          onChange={(e) => updateValue(e.target.value)}
+          className="w-full h-10 border border-slate-200 rounded-lg px-3 text-sm bg-white disabled:bg-slate-100"
+        >
+          <option value="">{isLocked ? 'Locked' : 'Select option'}</option>
 
           {(field.options || []).map((option, index) => {
             const optionValue =
@@ -379,34 +441,42 @@ const renderIntakeField = (field, step) => {
         <Input
           type="text"
           value={value}
+          disabled={isSubmitted || isLocked}
           onChange={(e) => updateValue(e.target.value)}
-          placeholder={field.placeholder || field.notes || ''}
+          placeholder={isLocked ? 'Locked until Case Manager completes previous step' : (field.placeholder || field.notes || '')}
         />
       )}
 
-    <Button
-  type="button"
-  size="sm"
-  onClick={() => handleFieldSubmit(field, step)}
-  disabled={
-    isSubmitting ||
-    isSubmitted ||
-    value === ''
-  }
-  className="bg-[#2a777a] hover:bg-[#236466] text-white"
->
-  {isSubmitting ? (
-    <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-  ) : (
-    <FileCheck className="h-3.5 w-3.5 mr-1.5" />
-  )}
+      <Button
+        type="button"
+        size="sm"
+        onClick={() => handleFieldSubmit(field, step)}
+        disabled={
+          isLocked ||
+          isSubmitting ||
+          isSubmitted ||
+          value === ''
+        }
+        className="bg-[#2a777a] hover:bg-[#236466] text-white disabled:opacity-60"
+      >
+        {isLocked ? (
+          <>
+            <Lock className="h-3.5 w-3.5 mr-1.5" /> Locked
+          </>
+        ) : isSubmitting ? (
+          <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+        ) : (
+          <FileCheck className="h-3.5 w-3.5 mr-1.5" />
+        )}
 
-  {isSubmitting
-    ? 'Submitting...'
-    : isSubmitted
-    ? 'Submitted'
-    : 'Submit'}
-</Button>
+        {isLocked
+          ? ''
+          : isSubmitting
+          ? 'Submitting...'
+          : isSubmitted
+          ? 'Submitted'
+          : 'Submit'}
+      </Button>
     </div>
   );
 };
@@ -500,6 +570,7 @@ const renderIntakeField = (field, step) => {
       {/* Step-wise Document Cards */}
       {steps.map((step, sIdx) => {
         const isExpanded = expandedSteps[step.step_name];
+        const isLocked = step.is_locked === true;
         const stepComplete = step.required_count > 0 && step.uploaded_count >= step.required_count;
         const hasDocuments = step.required_count > 0;
         const isCurrentStep = caseData?.current_step === step.step_name;
@@ -508,6 +579,7 @@ const renderIntakeField = (field, step) => {
           <Card
             key={step.step_name}
             className={`overflow-hidden transition-all border-0 shadow-md ${
+              isLocked ? 'opacity-90 bg-slate-50/60 ring-1 ring-slate-200' :
               stepComplete ? 'ring-1 ring-emerald-200' :
               isCurrentStep ? 'ring-2 ring-[#2a777a]/40' : ''
             }`}
@@ -523,25 +595,48 @@ const renderIntakeField = (field, step) => {
               <div className="flex items-center gap-3">
                 {isExpanded ? <ChevronDown className="h-4 w-4 text-slate-400 flex-shrink-0" /> : <ChevronRight className="h-4 w-4 text-slate-400 flex-shrink-0" />}
                 <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                  isLocked ? 'bg-slate-400' :
                   stepComplete ? 'bg-emerald-500' :
                   step.status === 'completed' ? 'bg-emerald-500' :
                   step.status === 'in_progress' ? 'bg-[#2a777a]' : 'bg-slate-300'
                 }`}>
-                  {stepComplete || step.status === 'completed' ?
-                    <CheckCircle className="h-5 w-5 text-white" /> :
+                  {isLocked ? (
+                    <Lock className="h-4 w-4 text-white" />
+                  ) : stepComplete || step.status === 'completed' ? (
+                    <CheckCircle className="h-5 w-5 text-white" />
+                  ) : (
                     <span className="text-white font-bold text-sm">{step.step_order}</span>
-                  }
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <h4 className="font-semibold text-slate-800 dark:text-white text-sm">{step.step_name}</h4>
-                    {isCurrentStep && <Badge className="bg-[#2a777a]/10 text-[#2a777a] text-[10px] border border-[#2a777a]/20">Current Step</Badge>}
-                    <Badge className={`text-[10px] ${
-                      step.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
-                      step.status === 'in_progress' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'
-                    }`}>{step.status === 'in_progress' ? 'In Progress' : step.status === 'completed' ? 'Complete' : 'Pending'}</Badge>
+                    {isLocked ? (
+                      <Badge className="bg-amber-50 text-amber-800 border border-amber-300 text-[10px] gap-1 flex items-center">
+                        <Lock className="h-2.5 w-2.5 text-amber-600" /> Locked
+                      </Badge>
+                    ) : isCurrentStep ? (
+                      <Badge className="bg-[#2a777a]/10 text-[#2a777a] text-[10px] border border-[#2a777a]/20">Current Step</Badge>
+                    ) : null}
+                    {step.uploaded_count > 0 && (
+                      <Badge className="bg-blue-50 text-blue-800 border border-blue-200 text-[10px] gap-1 font-semibold flex items-center">
+                        📄 {step.uploaded_count} Uploaded
+                      </Badge>
+                    )}
+                    {!isLocked && (
+                      <Badge className={`text-[10px] ${
+                        step.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
+                        step.status === 'in_progress' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'
+                      }`}>{step.status === 'in_progress' ? 'In Progress' : step.status === 'completed' ? 'Complete' : 'Pending'}</Badge>
+                    )}
                   </div>
-                  {step.description && <p className="text-xs text-slate-500 mt-0.5 truncate">{step.description}</p>}
+                  {isLocked ? (
+                    <p className="text-xs text-amber-700 font-medium mt-0.5 flex items-center gap-1">
+                      <Lock className="h-3 w-3 inline text-amber-600 shrink-0" /> {step.locked_reason || 'Locked until Case Manager completes previous step'}
+                    </p>
+                  ) : step.description ? (
+                    <p className="text-xs text-slate-500 mt-0.5 truncate">{step.description}</p>
+                  ) : null}
                 </div>
                 <div className="text-right flex-shrink-0">
                   {hasDocuments ? (
@@ -565,191 +660,469 @@ const renderIntakeField = (field, step) => {
             {/* Expanded: Documents */}
             {isExpanded && (
               <div className="border-t divide-y">
+                {/* Locked Banner inside step */}
+                {isLocked && (
+                  <div className={`p-4 border-b flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${
+                    step.payment_required || step.locked_reason?.includes('Installment')
+                      ? 'bg-amber-50/90 border-amber-300'
+                      : 'bg-amber-50/80 border-amber-200/80'
+                  }`}>
+                    <div className="flex items-start gap-3 flex-1 min-w-0">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
+                        step.payment_required || step.locked_reason?.includes('Installment')
+                          ? 'bg-amber-200 text-amber-900'
+                          : 'bg-amber-100 text-amber-700'
+                      }`}>
+                        {step.payment_required || step.locked_reason?.includes('Installment') ? (
+                          <CreditCard className="h-4 w-4 text-amber-900" />
+                        ) : (
+                          <Lock className="h-4 w-4 text-amber-700" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h5 className="text-xs font-bold text-amber-900">
+                          {step.payment_required || step.locked_reason?.includes('Installment')
+                            ? `Step ${step.step_order}: ${step.step_name} — 2nd Installment Payment Required`
+                            : `Step ${step.step_order}: ${step.step_name} is Locked`}
+                        </h5>
+                        <p className="text-xs text-amber-800 mt-0.5">
+                          {step.locked_reason || 'This step and its documents will automatically unlock once your Case Manager completes the previous step.'}
+                        </p>
+                        <p className="text-[11px] text-amber-600 mt-1 font-medium">
+                          {step.payment_required || step.locked_reason?.includes('Installment')
+                            ? '💳 Complete your 2nd installment payment to immediately unlock this step and document uploads.'
+                            : '🔒 Document uploads and requirements for this step are not open yet.'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {(step.payment_required || step.locked_reason?.includes('Installment')) && (
+                      <div className="shrink-0 mt-2 sm:mt-0">
+                        <Button
+                          onClick={() => handleStepPayment(step.sale_id, step)}
+                          className="bg-[#f7620b] hover:bg-[#e0580a] text-white shadow-md text-xs font-semibold px-4 py-2 flex items-center gap-1.5 rounded-lg"
+                          data-testid={`pay-step-${step.step_order}-btn`}
+                        >
+                          <CreditCard className="h-3.5 w-3.5" />
+                          Pay ₹{Number(step.payment_amount || 10125).toLocaleString()} Now
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {step.documents.length === 0 ? (
                   <div className="p-6 text-center">
                     <FileText className="h-8 w-8 text-slate-200 mx-auto mb-2" />
                     <p className="text-sm text-slate-400">No documents required for this step</p>
                   </div>
                 ) : (
-                  step.documents.map((doc, dIdx) => {
-                    const expiry = getExpiryWarning(doc);
-                    const uploadKey = `${step.step_name}-${doc.doc_name}`;
-                    return (
-                      <div key={dIdx} className={`p-4 ${
-                        doc.status === 'approved' || doc.status === 'verified' ? 'bg-emerald-50/50' :
-                        doc.uploaded ? 'bg-blue-50/30' :
-                        doc.status === 'rejected' ? 'bg-red-50/50' : 'bg-white'
-                      }`} data-testid={`doc-${sIdx}-${dIdx}`}>
-                        <div className="flex items-start gap-3">
-                          {getStatusIcon(doc)}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-medium text-sm text-slate-800 dark:text-white">{doc.doc_name}</span>
-                              <Badge className={`text-[9px] ${doc.is_mandatory ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600'}`}>
-                                {doc.tag || (doc.is_mandatory ? 'Mandatory' : 'Optional')}
-                              </Badge>
-                              {doc.source === 'cm_request' && (
-                                <Badge className="text-[9px] bg-leamss-orange-100 text-leamss-orange-700">CM Requested</Badge>
-                              )}
-                            </div>
-                            {doc.notes && (
-                              <p className="text-xs text-slate-500 mt-1 flex items-start gap-1">
-                                <Info className="h-3 w-3 mt-0.5 flex-shrink-0" /> {doc.notes}
-                              </p>
-                            )}
-                            {doc.uploaded && doc.uploaded_doc && (
-                              <p className="text-xs text-emerald-600 mt-1">{doc.uploaded_doc.filename || 'Uploaded'}</p>
-                            )}
-                            {expiry && (
-                              <div className={`inline-flex items-center gap-1 text-[10px] mt-1 px-2 py-0.5 rounded-full border ${expiry.color}`}>
-                                <AlertTriangle className="h-3 w-3" /> {expiry.text}
-                              </div>
-                            )}
-                          </div>
-                                                    <div className="flex-shrink-0 ml-3 min-w-[250px]">
-                            {(!doc.field_type || doc.field_type === 'file') ? (
-                              doc.uploaded ? (
-                                <div className="flex items-center gap-1 justify-end">
-                                  <Badge className={getStatusColor(doc.status)}>
-                                    {doc.status === 'pending_review'
-                                      ? 'Under Review'
-                                      : doc.status === 'not_uploaded'
-                                      ? 'Pending'
-                                      : doc.status}
-                                  </Badge>
+                  [...step.documents].sort((a, b) => {
+                    const aRank = (a.is_locked_until_paid && a.uploaded) ? 0 : a.is_locked_until_paid ? 1 : a.uploaded ? 2 : 3;
+                    const bRank = (b.is_locked_until_paid && b.uploaded) ? 0 : b.is_locked_until_paid ? 1 : b.uploaded ? 2 : 3;
+                    return aRank - bRank;
+                  }).map((doc, dIdx) => {
+                      const expiry = getExpiryWarning(doc);
+                      const uploadKey = `${step.step_name}-${doc.doc_name}`;
+                      const isCmLockedDoc = doc.is_locked_until_paid && doc.uploaded;
+                      const uploadedList = (doc.uploaded_docs && doc.uploaded_docs.length > 0)
+                        ? doc.uploaded_docs
+                        : (doc.uploaded_doc ? [doc.uploaded_doc] : []);
 
-                                  {doc.uploaded_doc?.id && (
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-7 w-7 p-0"
-                                      onClick={() =>
-                                        downloadDocument(
-                                          doc.uploaded_doc.id,
-                                          doc.uploaded_doc.filename
-                                        )
-                                      }
-                                    >
-                                      <Download className="h-3.5 w-3.5 text-slate-500" />
-                                    </Button>
-                                  )}
+                      return (
+                        <div
+                          key={dIdx}
+                          className={`p-4 border-b last:border-b-0 ${
+                            doc.is_payment_locked
+                              ? 'bg-gradient-to-r from-amber-50/90 to-orange-50/50 border-amber-200'
+                              : isCmLockedDoc && !doc.is_payment_locked
+                              ? 'bg-gradient-to-r from-emerald-50/80 to-teal-50/40 border-emerald-200'
+                              : isLocked
+                              ? 'bg-slate-50/50 opacity-75'
+                              : doc.status === 'approved' || doc.status === 'verified'
+                              ? 'bg-emerald-50/30'
+                              : doc.uploaded
+                              ? 'bg-blue-50/30'
+                              : doc.status === 'rejected'
+                              ? 'bg-red-50/40'
+                              : 'bg-white'
+                          }`}
+                          data-testid={`doc-${sIdx}-${dIdx}`}
+                        >
+                          <div className="flex flex-col sm:flex-row items-start justify-between gap-3">
+                            <div className="flex items-start gap-3 flex-1 min-w-0">
+                              {doc.is_payment_locked ? (
+                                <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 shrink-0 mt-0.5 shadow-xs">
+                                  <Lock className="h-4 w-4 text-amber-700" />
                                 </div>
+                              ) : isCmLockedDoc && !doc.is_payment_locked ? (
+                                <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 shrink-0 mt-0.5 shadow-xs">
+                                  <CheckCircle2 className="h-4 w-4 text-emerald-700" />
+                                </div>
+                              ) : isLocked ? (
+                                <Lock className="h-5 w-5 text-slate-300 flex-shrink-0 mt-0.5" />
                               ) : (
+                                getStatusIcon(doc)
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span
+                                    className={`font-medium text-sm ${
+                                      doc.is_payment_locked
+                                        ? 'text-amber-950 font-semibold'
+                                        : 'text-slate-800 dark:text-white'
+                                    }`}
+                                  >
+                                    {doc.doc_name}
+                                  </span>
+                                  <Badge
+                                    className={`text-[9px] ${
+                                      doc.is_mandatory ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600'
+                                    }`}
+                                  >
+                                    {doc.tag || (doc.is_mandatory ? 'Mandatory' : 'Optional')}
+                                  </Badge>
+                                  {uploadedList.length > 0 && (
+                                    <Badge className="text-[10px] bg-blue-50 text-blue-800 border border-blue-200 font-semibold">
+                                      📄 {uploadedList.length} {uploadedList.length === 1 ? 'File' : 'Files'} Uploaded
+                                    </Badge>
+                                  )}
+                                  {doc.source === 'cm_request' && (
+                                    <Badge className="text-[9px] bg-leamss-orange-100 text-leamss-orange-700">
+                                      CM Requested
+                                    </Badge>
+                                  )}
+                                  {doc.is_payment_locked ? (
+                                    <Badge className="text-[10px] bg-amber-100 text-amber-800 border border-amber-300 font-semibold flex items-center gap-1">
+                                      🔒 Case Manager Uploaded · Locked Until Full Payment
+                                    </Badge>
+                                  ) : isCmLockedDoc && !doc.is_payment_locked ? (
+                                    <Badge className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-300 font-semibold flex items-center gap-1">
+                                      🔓 Unlocked · Full Payment Completed
+                                    </Badge>
+                                  ) : isLocked ? (
+                                    <Badge className="text-[9px] bg-amber-100 text-amber-800 border border-amber-200">
+                                      Locked
+                                    </Badge>
+                                  ) : null}
+                                </div>
+
+                                {doc.notes && (
+                                  <p className="text-xs text-slate-500 mt-1 flex items-start gap-1">
+                                    <Info className="h-3 w-3 mt-0.5 flex-shrink-0" /> {doc.notes}
+                                  </p>
+                                )}
+
+                                {doc.is_payment_locked && (
+                                  <p className="text-xs text-amber-800 font-medium mt-1">
+                                    Your Case Manager has uploaded document(s). Locked until pending payment (₹{Number(doc.payment_pending_amount).toLocaleString()}) is completed.
+                                  </p>
+                                )}
+
+                                {/* LIST OF ALL UPLOADED FILES UNDER THIS STEP / REQUIREMENT */}
+                                {uploadedList.length > 0 && (
+                                  <div className="mt-2.5 space-y-1.5 w-full">
+                                    {uploadedList.map((uDoc, uIdx) => {
+                                      const uExpiry = getExpiryWarning({ uploaded_doc: uDoc });
+                                      return (
+                                        <div
+                                          key={uDoc.id || uIdx}
+                                          className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50/90 dark:bg-slate-800/60 border border-slate-200/90 hover:bg-slate-100/80 transition-colors gap-2"
+                                        >
+                                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                                            <FileText className="h-4 w-4 text-[#2a777a] shrink-0" />
+                                            <span
+                                              className="text-xs font-semibold text-slate-700 dark:text-slate-200 truncate"
+                                              title={uDoc.filename}
+                                            >
+                                              {uDoc.filename}
+                                            </span>
+                                            {uDoc.file_size && (
+                                              <span className="text-[10px] text-slate-400 shrink-0">
+                                                ({(uDoc.file_size / 1024).toFixed(0)} KB)
+                                              </span>
+                                            )}
+                                            <Badge
+                                              className={`text-[9px] px-1.5 py-0 h-4 ${getStatusColor(
+                                                uDoc.status
+                                              )}`}
+                                            >
+                                              {uDoc.status === 'pending_review'
+                                                ? 'Under Review'
+                                                : uDoc.status === 'not_uploaded'
+                                                ? 'Pending'
+                                                : uDoc.status}
+                                            </Badge>
+                                            {uExpiry && (
+                                              <span
+                                                className={`text-[9px] px-1.5 py-0.5 rounded border ${uExpiry.color}`}
+                                              >
+                                                {uExpiry.text}
+                                              </span>
+                                            )}
+                                          </div>
+
+                                          <div className="flex items-center gap-1.5 shrink-0">
+                                            <Button
+                                              variant="outline"
+                                              size="sm"
+                                              className="h-7 px-2 text-xs flex items-center gap-1 border-slate-300 text-slate-700 hover:bg-white shadow-2xs"
+                                              title="Download file"
+                                              onClick={() => downloadDocument(uDoc.id, uDoc.filename)}
+                                            >
+                                              <Download className="h-3.5 w-3.5 text-slate-600" />
+                                              <span className="hidden sm:inline">Download</span>
+                                            </Button>
+
+                                            {!isLocked && (
+                                              <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-7 w-7 p-0 text-red-400 hover:text-red-600 hover:bg-red-50"
+                                                title="Delete file"
+                                                onClick={() => handleDeleteDoc(uDoc.id, uDoc.filename)}
+                                              >
+                                                <XCircle className="h-3.5 w-3.5" />
+                                              </Button>
+                                            )}
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+
+                                {(doc.status === 'rejected' || doc.status === 'revision_required') &&
+                                  (doc.uploaded_doc?.review_comment || doc.uploaded_doc?.comment) && (
+                                    <div className="mt-1.5 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700 flex items-start gap-1.5">
+                                      <AlertCircle className="h-3.5 w-3.5 text-red-500 shrink-0 mt-0.5" />
+                                      <div>
+                                        <span className="font-semibold">Reason: </span>
+                                        <span>
+                                          {doc.uploaded_doc.review_comment || doc.uploaded_doc.comment}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  )}
+                              </div>
+                            </div>
+
+                            {/* RIGHT-HAND ACTIONS */}
+                            <div className="shrink-0 flex items-center justify-end flex-wrap gap-2 w-full sm:w-auto mt-2 sm:mt-0">
+                              {doc.is_payment_locked ? (
+                                <Button
+                                  size="sm"
+                                  onClick={() =>
+                                    handleStepPayment(doc.sale_id || step.sale_id, {
+                                      step_order: step.step_order,
+                                      payment_amount: doc.payment_pending_amount || step.payment_amount,
+                                      label: 'Full Payment',
+                                    })
+                                  }
+                                  className="bg-[#f7620b] hover:bg-[#e0580a] text-white text-xs h-8 px-3.5 font-bold shadow-xs flex items-center gap-1.5 rounded-md"
+                                  data-testid={`pay-locked-doc-${sIdx}-${dIdx}-btn`}
+                                >
+                                  <CreditCard className="h-3.5 w-3.5" />
+                                  Pay ₹{Number(doc.payment_pending_amount || step.payment_amount || 0).toLocaleString()} to Unlock
+                                </Button>
+                              ) : isLocked ? (
+                                <Button
+                                  disabled
+                                  variant="outline"
+                                  size="sm"
+                                  className="opacity-60 cursor-not-allowed bg-slate-100 text-slate-500 border-slate-200 text-xs h-8 px-3"
+                                >
+                                  <Lock className="h-3.5 w-3.5 mr-1 text-slate-400" /> Locked
+                                </Button>
+                              ) : !doc.field_type || doc.field_type === 'file' ? (
                                 <label
-                                  className="cursor-pointer flex justify-end"
+                                  className="cursor-pointer flex items-center"
                                   data-testid={`upload-btn-${sIdx}-${dIdx}`}
                                 >
                                   <input
                                     type="file"
+                                    multiple
                                     className="hidden"
                                     accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
                                     onChange={(e) => {
-                                      if (e.target.files?.[0]) {
-                                        handleUpload(
-                                          step.step_name,
-                                          doc.doc_name,
-                                          e.target.files[0]
-                                        );
+                                      if (e.target.files && e.target.files.length > 0) {
+                                        handleUpload(step.step_name, doc.doc_name, e.target.files);
+                                        e.target.value = '';
                                       }
                                     }}
                                   />
-
-                                  <span className="flex items-center gap-1.5 text-xs bg-[#2a777a] hover:bg-[#236466] text-white px-3 py-1.5 rounded-md transition-colors cursor-pointer">
+                                  <span
+                                    className={`inline-flex items-center gap-1.5 text-xs px-3 py-2 rounded-md font-semibold transition-colors cursor-pointer shadow-xs ${
+                                      uploadedList.length > 0
+                                        ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300'
+                                        : 'bg-[#2a777a] hover:bg-[#236466] text-white'
+                                    }`}
+                                  >
                                     {uploading === uploadKey ? (
-                                      <Loader2 className="h-3 w-3 animate-spin" />
+                                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
                                     ) : (
-                                      <Upload className="h-3 w-3" />
+                                      <Upload className="h-3.5 w-3.5" />
                                     )}
-                                    Upload
+                                    {uploadedList.length > 0 ? '+ Upload More' : '+ Upload File(s)'}
                                   </span>
                                 </label>
-                              )
-                            ) : (
-                              renderIntakeField(doc, step)
+                              ) : (
+                                  renderIntakeField(doc, step)
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
+              </Card>
+            );
+          })}
+
+          {/* Additional Documents Section */}
+          {additionalRequests.length > 0 && (
+            <div id="additional-docs-section" className="space-y-4" data-testid="additional-docs-section">
+              <div className="flex items-center gap-2 pt-2">
+                <FileText className="h-5 w-5 text-leamss-orange-500" />
+                <h3 className="font-semibold text-slate-800 dark:text-white">Additional Requested Documents</h3>
+                <Badge className="bg-leamss-orange-100 text-leamss-orange-700 text-xs">
+                  {additionalRequests.length}
+                </Badge>
+              </div>
+
+              {additionalRequests.map((req, rIdx) => {
+                const reqUploadList = (req.uploaded_docs && req.uploaded_docs.length > 0)
+                  ? req.uploaded_docs
+                  : (req.uploaded_doc ? [req.uploaded_doc] : []);
+                const isComplete = reqUploadList.length > 0;
+
+                return (
+                  <Card
+                    key={req.id || rIdx}
+                    className={`overflow-hidden shadow-sm border-l-4 ${
+                      isComplete ? 'border-l-emerald-500 bg-emerald-50/20' : 'border-l-leamss-orange-400'
+                    }`}
+                    data-testid={`additional-doc-${rIdx}`}
+                  >
+                    <div className="p-4">
+                      <div className="flex flex-col sm:flex-row items-start justify-between gap-3">
+                        <div className="flex items-start gap-3 flex-1 min-w-0">
+                          {isComplete ? (
+                            <CheckCircle className="h-5 w-5 text-emerald-500 flex-shrink-0 mt-0.5" />
+                          ) : (
+                            <AlertCircle className="h-5 w-5 text-leamss-orange-400 flex-shrink-0 mt-0.5" />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-medium text-sm text-slate-800 dark:text-white">
+                                {req.doc_name}
+                              </span>
+                              <Badge className="text-[9px] bg-leamss-orange-100 text-leamss-orange-700">
+                                Additional
+                              </Badge>
+                              <Badge
+                                className={`text-[9px] ${
+                                  req.is_mandatory ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600'
+                                }`}
+                              >
+                                {req.tag || (req.is_mandatory ? 'Required' : 'Optional')}
+                              </Badge>
+                              {isComplete && (
+                                <Badge className="text-[9px] bg-emerald-100 text-emerald-700 font-semibold">
+                                  📄 {reqUploadList.length} {reqUploadList.length === 1 ? 'File' : 'Files'} Uploaded
+                                </Badge>
+                              )}
+                            </div>
+                            {req.notes && <p className="text-xs text-slate-500 mt-1">{req.notes}</p>}
+                            <p className="text-[10px] text-slate-400 mt-1">
+                              Requested by {req.requested_by_name || 'Case Manager'}{' '}
+                              {req.created_at ? `on ${new Date(req.created_at).toLocaleDateString()}` : ''}
+                            </p>
+
+                            {/* LIST OF UPLOADED FILES UNDER ADDITIONAL REQUEST */}
+                            {reqUploadList.length > 0 && (
+                              <div className="mt-2.5 space-y-1.5">
+                                {reqUploadList.map((uDoc, uIdx) => (
+                                  <div
+                                    key={uDoc.id || uIdx}
+                                    className="flex items-center justify-between p-2 rounded-lg bg-white border border-emerald-200 gap-2"
+                                  >
+                                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                                      <FileText className="h-4 w-4 text-emerald-600 shrink-0" />
+                                      <span className="text-xs font-semibold text-slate-700 truncate">
+                                        {uDoc.filename}
+                                      </span>
+                                      <Badge className="text-[9px] bg-emerald-100 text-emerald-700 px-1.5 py-0 h-4">
+                                        {uDoc.status || 'Uploaded'}
+                                      </Badge>
+                                    </div>
+                                    <div className="flex items-center gap-1 shrink-0">
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-6 px-2 text-xs flex items-center gap-1 border-slate-200"
+                                        onClick={() => downloadDocument(uDoc.id, uDoc.filename)}
+                                      >
+                                        <Download className="h-3 w-3 text-slate-600" />
+                                        <span className="hidden sm:inline">Download</span>
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-6 w-6 p-0 text-red-400 hover:text-red-600 hover:bg-red-50"
+                                        title="Delete file"
+                                        onClick={() => handleDeleteDoc(uDoc.id, uDoc.filename)}
+                                      >
+                                        <XCircle className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
                             )}
                           </div>
                         </div>
+
+                        <label
+                          className="cursor-pointer flex-shrink-0 mt-2 sm:mt-0"
+                          data-testid={`upload-additional-${rIdx}`}
+                        >
+                          <input
+                            type="file"
+                            multiple
+                            className="hidden"
+                            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                            onChange={(e) => {
+                              if (e.target.files && e.target.files.length > 0) {
+                                handleAdditionalUpload(req.id, req.doc_name, e.target.files);
+                                e.target.value = '';
+                              }
+                            }}
+                          />
+                          <span
+                            className={`inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md font-semibold transition-colors cursor-pointer shadow-xs ${
+                              isComplete
+                                ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300'
+                                : 'bg-leamss-orange-600 hover:bg-leamss-orange-700 text-white'
+                            }`}
+                          >
+                            {uploading === req.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Upload className="h-3.5 w-3.5" />
+                            )}
+                            {isComplete ? '+ Upload More' : '+ Upload File(s)'}
+                          </span>
+                        </label>
                       </div>
-                    );
-                  })
-                )}
-              </div>
-            )}
-          </Card>
-        );
-      })}
-
-      {/* Additional Documents Section */}
-      {additionalRequests.length > 0 && (
-        <div id="additional-docs-section" className="space-y-4" data-testid="additional-docs-section">
-          <div className="flex items-center gap-2 pt-2">
-            <FileText className="h-5 w-5 text-leamss-orange-500" />
-            <h3 className="font-semibold text-slate-800 dark:text-white">Additional Requested Documents</h3>
-            <Badge className="bg-leamss-orange-100 text-leamss-orange-700 text-xs">{additionalRequests.length}</Badge>
-          </div>
-
-          {/* Pending additional docs */}
-          {pendingAdditional.map((req, rIdx) => (
-            <Card key={req.id} className="border-l-4 border-l-leamss-orange-400 overflow-hidden shadow-sm" data-testid={`additional-doc-${rIdx}`}>
-              <div className="p-4">
-                <div className="flex items-start gap-3">
-                  <AlertCircle className="h-5 w-5 text-leamss-orange-400 flex-shrink-0 mt-0.5" />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-medium text-sm text-slate-800 dark:text-white">{req.doc_name}</span>
-                      <Badge className="text-[9px] bg-leamss-orange-100 text-leamss-orange-700">Additional</Badge>
-                      <Badge className={`text-[9px] ${req.is_mandatory ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600'}`}>
-                        {req.tag || 'Required'}
-                      </Badge>
                     </div>
-                    {req.notes && <p className="text-xs text-slate-500 mt-1">{req.notes}</p>}
-                    <p className="text-[10px] text-slate-400 mt-1">
-                      Requested by {req.requested_by_name} {req.created_at ? `on ${new Date(req.created_at).toLocaleDateString()}` : ''}
-                    </p>
-                  </div>
-                  <label className="cursor-pointer flex-shrink-0" data-testid={`upload-additional-${rIdx}`}>
-                    <input
-                      type="file"
-                      className="hidden"
-                      accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-                      onChange={(e) => {
-                        if (e.target.files[0]) {
-                          handleAdditionalUpload(req.id, req.doc_name, e.target.files[0]);
-                        }
-                      }}
-                    />
-                    <span className="flex items-center gap-1.5 text-xs bg-leamss-orange-600 hover:bg-leamss-orange-700 text-white px-3 py-1.5 rounded-md transition-colors cursor-pointer">
-                      {uploading === req.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
-                      Upload
-                    </span>
-                  </label>
-                </div>
-              </div>
-            </Card>
-          ))}
-
-          {/* Completed additional docs */}
-          {completedAdditional.map((req, rIdx) => (
-            <Card key={req.id} className="border-l-4 border-l-emerald-400 overflow-hidden shadow-sm bg-emerald-50/30">
-              <div className="p-4 flex items-center gap-3">
-                <CheckCircle className="h-5 w-5 text-emerald-500 flex-shrink-0" />
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-sm text-slate-800">{req.doc_name}</span>
-                    <Badge className="text-[9px] bg-emerald-100 text-emerald-700">Uploaded</Badge>
-                  </div>
-                  <p className="text-[10px] text-slate-400">{req.uploaded_doc?.filename || 'Submitted'}</p>
-                </div>
-                {req.uploaded_doc?.id && (
-                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => downloadDocument(req.uploaded_doc.id, req.uploaded_doc.filename)}>
-                    <Download className="h-3.5 w-3.5 text-slate-500" />
-                  </Button>
-                )}
-              </div>
-            </Card>
-          ))}
-        </div>
-      )}
+                  </Card>
+                );
+              })}
+            </div>
+          )}
 
       {/* Other/Unmatched Uploads */}
       {(data.other_uploads || []).length > 0 && (
@@ -777,6 +1150,17 @@ const renderIntakeField = (field, step) => {
           </div>
         </Card>
       )}
+
+      {/* Installment Payment Modal with exact First Payment UI */}
+      <ClientPaymentModal
+        open={stepPaymentModalData.open}
+        onClose={() => setStepPaymentModalData({ open: false, data: null })}
+        paymentData={stepPaymentModalData.data}
+        onSuccess={() => {
+          loadData();
+          onDocumentUploaded?.();
+        }}
+      />
     </div>
   );
 };

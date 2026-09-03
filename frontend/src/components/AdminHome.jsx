@@ -190,7 +190,7 @@ onClick={() => navigate('/admin/sales/standard-approvals')}              testId=
         count={data.express_pending}
         description="Express Sales waiting for approval."
         cta="Review Express Sales"
-        color="from-violet-600 to-purple-700"
+        color="from-sky-500 to-sky-600"
         onClick={() => navigate("/admin/sales/express-approvals")}
         testId="action-express-approval"
         highlight
@@ -216,7 +216,7 @@ onClick={() => navigate('/admin/sales/standard-approvals')}              testId=
     count={data.express_pending}
     description="Express Sales waiting for approval."
     cta="Review Express Sales"
-    color="from-violet-600 to-purple-700"
+    color="from-sky-500 to-sky-600"
     onClick={() => navigate("/admin/sales/express-approvals")}
     testId="action-express-approval"
     highlight

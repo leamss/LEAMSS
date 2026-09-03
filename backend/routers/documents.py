@@ -1,7 +1,7 @@
 """Documents Router"""
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form
 from fastapi.responses import FileResponse
-from core.database import documents_col, cases_col, notifications_col, audit_logs_col, users_col
+from core.database import documents_col, cases_col, notifications_col, audit_logs_col, users_col, case_steps_col
 from core.auth import get_current_user
 from core.services import create_notification, notify_role, log_activity
 from core.email_service import send_document_review_email
@@ -52,7 +52,7 @@ async def _log(user_id, action, entity_type, entity_id=None, details=None):
 
 @router.get("/case/{case_id}")
 async def get_case_documents(case_id: str, current_user: dict = Depends(get_current_user)):
-    docs = await documents_col.find({"case_id": case_id}, {"_id": 0}).to_list(500)
+    docs = await documents_col.find({"case_id": case_id}, {"_id": 0}).sort("uploaded_at", -1).to_list(500)
     if docs:
         user_ids = set()
         for d in docs:
@@ -73,64 +73,250 @@ async def get_case_documents(case_id: str, current_user: dict = Depends(get_curr
 
 @router.post("/upload")
 async def upload_document(
-    file: UploadFile = File(...),
+    files: List[UploadFile] = File(default=[]),
+    file: Optional[UploadFile] = File(default=None),
     case_id: str = Form(...),
     step_name: str = Form(""),
     document_type: str = Form("general"),
     expiry_date: str = Form(""),
+    additional_request_id: Optional[str] = Form(None),
+    additional_doc_id: Optional[str] = Form(None),
     current_user: dict = Depends(get_current_user)
 ):
     case = await cases_col.find_one({"id": case_id})
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
-    
-    file_id = str(uuid.uuid4())
-    file_ext = os.path.splitext(file.filename)[1]
-    file_path = os.path.join(UPLOAD_DIR, f"{file_id}{file_ext}")
-    
-    content = await file.read()
-    with open(file_path, "wb") as f:
-        f.write(content)
-    
-    doc = {
-        "id": file_id, "case_id": case_id, "step_name": step_name,
-        "document_type": document_type, "filename": file.filename,
-        "file_path": file_path, "file_size": len(content),
-        "content_type": file.content_type,
-        "status": "pending", "uploaded_by": current_user["id"],
-        "uploaded_at": datetime.now(timezone.utc)
-    }
-    # Add expiry date if provided
-    if expiry_date:
-        try:
-            doc["expiry_date"] = datetime.fromisoformat(expiry_date.replace("Z", "+00:00"))
-            doc["expiry_set_by"] = current_user["id"]
-            doc["expiry_set_at"] = datetime.now(timezone.utc)
-        except ValueError:
-            pass
-    # Auto-suggest expiry for known doc types
-    elif document_type in DOCUMENT_VALIDITY:
-        from datetime import timedelta
-        doc["expiry_date"] = datetime.now(timezone.utc) + timedelta(days=DOCUMENT_VALIDITY[document_type])
-        doc["expiry_notes"] = "Auto-set based on standard validity"
-        doc["expiry_set_by"] = "system"
-        doc["expiry_set_at"] = datetime.now(timezone.utc)
 
-    await documents_col.insert_one(doc)
-    
-    await _log(current_user["id"], "upload_document", "document", file_id, {"filename": file.filename, "case_id": case_id})
-    
-    # Notify case manager
-    if case.get("case_manager_id"):
+    # Collect all files uploaded
+    all_files: List[UploadFile] = []
+    if files:
+        all_files.extend(files)
+    if file and file not in all_files:
+        all_files.append(file)
+
+    if not all_files:
+        raise HTTPException(status_code=400, detail="No file(s) provided for upload")
+
+    # ENFORCEMENT: If client is uploading to a specific step, check if it is locked
+    if current_user["role"] == "client" and step_name:
+        case_steps = await case_steps_col.find({"case_id": case_id}).sort("step_order", 1).to_list(100)
+        target_step = next((s for s in case_steps if s.get("step_name") == step_name), None)
+        if target_step:
+            target_order = target_step.get("step_order", 1)
+            if target_order > 1:
+                current_order = case.get("current_step_order") or 1
+                prev_steps = [s for s in case_steps if s.get("step_order", 0) < target_order]
+                prev_uncompleted = next((s for s in prev_steps if s.get("status") != "completed"), None)
+                is_active = target_step.get("status") in ("in_progress", "completed") or target_order <= current_order
+                if prev_uncompleted is not None and not is_active:
+                    prev_order = prev_uncompleted.get("step_order", target_order - 1)
+                    prev_name = prev_uncompleted.get("step_name", "")
+                    raise HTTPException(
+                        status_code=403,
+                        detail=f"Step '{step_name}' is locked. Please wait until your Case Manager completes Step {prev_order} ({prev_name})."
+                    )
+
+    saved_docs = []
+    target_req_id = additional_request_id or additional_doc_id
+
+    for single_file in all_files:
+        file_id = str(uuid.uuid4())
+        file_ext = os.path.splitext(single_file.filename)[1]
+        file_path = os.path.join(UPLOAD_DIR, f"{file_id}{file_ext}")
+        
+        content = await single_file.read()
+        with open(file_path, "wb") as f:
+            f.write(content)
+        
+        doc = {
+            "id": file_id,
+            "case_id": case_id,
+            "step_name": step_name,
+            "document_type": document_type,
+            "filename": single_file.filename,
+            "file_path": file_path,
+            "file_size": len(content),
+            "content_type": single_file.content_type,
+            "status": "pending",
+            "uploaded_by": current_user["id"],
+            "uploader_name": current_user.get("name", ""),
+            "uploaded_at": datetime.now(timezone.utc)
+        }
+        if target_req_id:
+            doc["additional_request_id"] = target_req_id
+
+        # Add expiry date if provided
+        if expiry_date:
+            try:
+                doc["expiry_date"] = datetime.fromisoformat(expiry_date.replace("Z", "+00:00"))
+                doc["expiry_set_by"] = current_user["id"]
+                doc["expiry_set_at"] = datetime.now(timezone.utc)
+            except ValueError:
+                pass
+        # Auto-suggest expiry for known doc types
+        elif document_type in DOCUMENT_VALIDITY:
+            from datetime import timedelta
+            doc["expiry_date"] = datetime.now(timezone.utc) + timedelta(days=DOCUMENT_VALIDITY[document_type])
+            doc["expiry_notes"] = "Auto-set based on standard validity"
+            doc["expiry_set_by"] = "system"
+            doc["expiry_set_at"] = datetime.now(timezone.utc)
+
+        await documents_col.insert_one(doc)
+        await _log(current_user["id"], "upload_document", "document", file_id, {"filename": single_file.filename, "case_id": case_id, "document_type": document_type})
+        
+        # Clean up mongo _id for response
+        doc.pop("_id", None)
+        saved_docs.append(doc)
+
+    # Notify case manager or client
+    filenames_str = ", ".join([f.filename for f in all_files])
+    if current_user["role"] == "client" and case.get("case_manager_id"):
         await notifications_col.insert_one({
-            "id": str(uuid.uuid4()), "user_id": case["case_manager_id"],
-            "title": "Document Uploaded",
-            "message": f"New document '{file.filename}' uploaded for case {case.get('case_id', '')}",
-            "type": "document_upload", "related_id": case_id,
-            "read": False, "created_at": datetime.now(timezone.utc)
+            "id": str(uuid.uuid4()),
+            "user_id": case["case_manager_id"],
+            "title": "Document(s) Uploaded",
+            "message": f"{len(all_files)} document(s) uploaded for step '{step_name or document_type}': {filenames_str} (Case: {case.get('case_id', '')})",
+            "type": "document_upload",
+            "related_id": case_id,
+            "read": False,
+            "created_at": datetime.now(timezone.utc)
+        })
+    elif current_user["role"] in ["case_manager", "admin"] and case.get("client_id"):
+        await notifications_col.insert_one({
+            "id": str(uuid.uuid4()),
+            "user_id": case["client_id"],
+            "title": "Document(s) Uploaded by Case Manager",
+            "message": f"Case Manager uploaded {len(all_files)} document(s) for step '{step_name or document_type}': {filenames_str}",
+            "type": "document_upload",
+            "related_id": case_id,
+            "read": False,
+            "created_at": datetime.now(timezone.utc)
         })
     
-    return {"id": doc["id"], "message": "Document uploaded successfully"}
+    first_id = saved_docs[0]["id"] if saved_docs else None
+    return {
+        "id": first_id,
+        "ids": [d["id"] for d in saved_docs],
+        "count": len(saved_docs),
+        "documents": saved_docs,
+        "message": f"{len(saved_docs)} document(s) uploaded successfully"
+    }
+
+
+@router.delete("/{doc_id}")
+async def delete_document(doc_id: str, current_user: dict = Depends(get_current_user)):
+    """Delete an uploaded document"""
+    doc = await documents_col.find_one({"id": doc_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    
+    case = await cases_col.find_one({"id": doc.get("case_id")}, {"_id": 0})
+    is_admin = current_user.get("role") == "admin"
+    is_cm = current_user.get("role") == "case_manager" and (case and case.get("case_manager_id") == current_user.get("id"))
+    is_uploader = doc.get("uploaded_by") == current_user.get("id")
+    
+    if not (is_admin or is_cm or is_uploader):
+        raise HTTPException(status_code=403, detail="Not authorized to delete this document")
+    
+    await documents_col.delete_one({"id": doc_id})
+    if doc.get("file_path") and os.path.exists(doc["file_path"]):
+        try:
+            os.remove(doc["file_path"])
+        except Exception:
+            pass
+    
+    await _log(current_user["id"], "delete_document", "document", doc_id, {"filename": doc.get("filename"), "case_id": doc.get("case_id")})
+    return {"message": "Document deleted successfully"}
+
+
+
+from core.database import documents_col, cases_col, notifications_col, audit_logs_col, users_col, case_steps_col, workflow_steps_col, sales_col, pre_assessments_col
+
+
+async def _is_doc_payment_locked_for_user(doc: dict, current_user: dict) -> tuple[bool, float, Optional[str]]:
+    """Checks if a document is locked due to pending payment for client user"""
+    if current_user.get("role") != "client":
+        return False, 0.0, None
+    
+    case_id = doc.get("case_id")
+    if not case_id:
+        return False, 0.0, None
+    
+    case = await cases_col.find_one({"id": case_id}, {"_id": 0})
+    if not case:
+        return False, 0.0, None
+    
+    # Check if doc requirement is marked is_locked_until_paid
+    is_locked_rule = False
+    doc_type = (doc.get("document_type") or "").lower().strip()
+    product_id = case.get("product_id")
+    if product_id:
+        wf_steps = await workflow_steps_col.find({"product_id": product_id}, {"_id": 0}).to_list(100)
+        for ws in wf_steps:
+            # Check sections[].fields[]
+            for sec in ws.get("sections", []):
+                for f in sec.get("fields", []):
+                    f_label = (f.get("label") or f.get("name") or f.get("key") or "").lower().strip()
+                    if f_label == doc_type or doc_type in f_label or f_label in doc_type:
+                        if f.get("is_locked_until_paid") or f.get("payment_locked"):
+                            is_locked_rule = True
+                            break
+            # Check required_documents[]
+            for req in ws.get("required_documents", []):
+                req_name = (req.get("name") or req.get("doc_name") or "").lower().strip()
+                if req_name == doc_type or doc_type in req_name or req_name in doc_type:
+                    if req.get("is_locked_until_paid") or req.get("payment_locked"):
+                        is_locked_rule = True
+                        break
+            if is_locked_rule:
+                break
+    
+    if not is_locked_rule and (doc.get("is_locked_until_paid") or doc.get("payment_locked")):
+        is_locked_rule = True
+        
+    if not is_locked_rule:
+        return False, 0.0, None
+    
+    # Now check if case has pending payment
+    pa = None
+    if case.get("pre_assessment_id"):
+        pa = await pre_assessments_col.find_one({"id": case["pre_assessment_id"]}, {"_id": 0})
+    sale = None
+    if case.get("sale_id"):
+        sale = await sales_col.find_one({"id": case["sale_id"]}, {"_id": 0})
+    elif case.get("client_id"):
+        sale = await sales_col.find_one({"client_id": case["client_id"]}, {"_id": 0})
+
+    is_fully_paid = True
+    pending_amount = 0.0
+    sale_id = (sale and sale.get("id")) or case.get("sale_id") or (pa and pa.get("sale_id"))
+
+    if sale:
+        sale_status = sale.get("payment_status")
+        pending_amt = float(sale.get("pending_amount", 0))
+        unpaid_parts = [p for p in sale.get("payment_parts", []) if p.get("status") != "paid"]
+        if sale_status != "paid" or pending_amt > 0 or len(unpaid_parts) > 0:
+            is_fully_paid = False
+            unpaid_sum = sum(float(p.get("amount", 0)) for p in unpaid_parts) if unpaid_parts else pending_amt
+            pending_amount = max(pending_amt, unpaid_sum)
+        else:
+            is_fully_paid = True
+            pending_amount = 0.0
+    elif pa:
+        unpaid_parts = [p for p in pa.get("proposal_payment_parts", []) if p.get("status") != "paid"]
+        pending_amt = float(pa.get("proposal_amount_pending", 0))
+        if pa.get("stage") not in ("proposal_paid", "paid") and (pending_amt > 0 or len(unpaid_parts) > 0):
+            is_fully_paid = False
+            unpaid_sum = sum(float(p.get("amount", 0)) for p in unpaid_parts) if unpaid_parts else pending_amt
+            pending_amount = max(pending_amt, unpaid_sum)
+        else:
+            is_fully_paid = True
+            pending_amount = 0.0
+
+    if not is_fully_paid and pending_amount > 0:
+        return True, pending_amount, sale_id
+    
+    return False, 0.0, sale_id
 
 
 @router.get("/download/{file_id}")
@@ -139,6 +325,14 @@ async def download_document(file_id: str, current_user: dict = Depends(get_curre
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
     
+    # ENFORCEMENT: Check if document is locked due to pending payment
+    is_locked, pending_amt, sale_id = await _is_doc_payment_locked_for_user(doc, current_user)
+    if is_locked:
+        raise HTTPException(
+            status_code=402,
+            detail=f"This document is locked until full payment is completed (₹{pending_amt:,.0f} pending). Please complete payment to download."
+        )
+
     if not os.path.exists(doc["file_path"]):
         raise HTTPException(status_code=404, detail="File not found on server")
     
@@ -162,6 +356,14 @@ async def view_document(
         raise HTTPException(
             status_code=404,
             detail="Document not found"
+        )
+
+    # ENFORCEMENT: Check if document is locked due to pending payment
+    is_locked, pending_amt, sale_id = await _is_doc_payment_locked_for_user(doc, current_user)
+    if is_locked:
+        raise HTTPException(
+            status_code=402,
+            detail=f"This document is locked until full payment is completed (₹{pending_amt:,.0f} pending). Please complete payment to view."
         )
 
     if not os.path.exists(doc["file_path"]):
@@ -309,6 +511,21 @@ async def bulk_upload_documents(
             doc_type = type_list[i] if i < len(type_list) else document_type
             step_name = step_list[i] if i < len(step_list) else ""
             expiry_str = expiry_list[i] if i < len(expiry_list) else ""
+
+            # Check if step is locked for client
+            if current_user["role"] == "client" and step_name:
+                case_steps = await case_steps_col.find({"case_id": case_id}).sort("step_order", 1).to_list(100)
+                target_step = next((s for s in case_steps if s.get("step_name") == step_name), None)
+                if target_step:
+                    target_order = target_step.get("step_order", 1)
+                    if target_order > 1:
+                        current_order = (await cases_col.find_one({"id": case_id}, {"_id": 0, "current_step_order": 1}) or {}).get("current_step_order", 1)
+                        prev_steps = [s for s in case_steps if s.get("step_order", 0) < target_order]
+                        prev_uncompleted = next((s for s in prev_steps if s.get("status") != "completed"), None)
+                        is_active = target_step.get("status") in ("in_progress", "completed") or target_order <= current_order
+                        if prev_uncompleted is not None and not is_active:
+                            errors.append({"file": file.filename, "error": f"Step '{step_name}' is locked until previous steps are completed"})
+                            continue
 
             doc = {
                 "id": file_id, "case_id": case_id, "document_type": doc_type,

@@ -1264,6 +1264,10 @@ const AdminDashboard = () => {
         { id: 'sales-calculator', icon: Calculator, label: 'Eligibility Calculator', onClick: () => navigate('/sales/calculator') },
         { id: 'sales-client-assessment', icon: Wand2, label: 'Client Assessment (Workflow)', onClick: () => navigate('/sales/client-assessment') },
         { id: 'sales-my-assessments', icon: FileText, label: 'Saved Assessments', onClick: () => navigate('/sales/my-assessments') },
+        { id: 'sales-bulk-assessment', icon: Users, label: 'Bulk Pre-Assessment', onClick: () => navigate('/sales/bulk-assessment') },
+        { id: 'sales-fee-master', icon: Calculator, label: 'Skill Fee Master', onClick: () => navigate('/sales/fee-master') },
+        { id: 'sales-email-templates', icon: Mail, label: 'Email Templates', onClick: () => navigate('/sales/email-templates') },
+        { id: 'admin-eoi-backlog', icon: BarChart3, label: 'EOI Backlog Admin', onClick: () => navigate('/admin/kb/eoi-backlog') },
         { id: 'eligibility-kb', icon: Globe, label: 'Knowledge Base (Admin)', onClick: () => navigate('/admin/eligibility/knowledge-base') },
         // Phase 7.4 — hidden per Sir's directive (consolidated into Client Assessment wizard)
         // { id: 'eligibility-profiles', icon: User, label: 'Client Profiles', onClick: () => navigate('/eligibility/profiles') },

@@ -1,129 +1,129 @@
+import { useState, useEffect } from 'react';
+import axios from 'axios';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { IndianRupee, Send, RefreshCw, Lock, Unlock, Package } from 'lucide-react';
+import { Send, RefreshCw, Package, FileText, CheckCircle2 } from 'lucide-react';
+
+const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const getAuth = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
 
 /**
- * PaProposalForm — Send Service Proposal form (extracted from PreAssessmentPipeline.jsx).
- * Pure presentation; all callbacks supplied by parent.
+ * PaProposalForm — Package Forwarding form.
  *
- * Phase 4C Unification — fee_amount is locked to product.service_price when PA is
- * linked to a product. Admin can override by toggling unlock. Partners cannot change.
+ * NEW FLOW (per partner request — amount input removed):
+ * Partner does NOT type any fee amount. Instead, this form loads the
+ * product's admin-configured packages (Standard/Smart/Premium…) and lets
+ * the partner check off which ones to forward to the client. The client
+ * then picks ONE of the forwarded packages from their portal
+ * (`awaiting_package_selection` stage → `available_packages_snapshot`).
+ * Partner sets up the payment method afterward, once the client has chosen.
  */
 export default function PaProposalForm({
-  pa, proposalForm, setProposalForm, upsellCatalog,
-  validatingPromo, handleValidatePromo,
+  pa, proposalForm, setProposalForm,
   aiGenerating, handleGenerateAI, handleSendProposal,
-  breakdown, onCancel, currentUserRole,
+  onCancel,
 }) {
-  const bd = breakdown;
-  const hasLockedPrice = !!proposalForm.product_locked_price;
-  const isAdmin = currentUserRole === 'admin';
-  const isLocked = hasLockedPrice && !proposalForm.price_overridden;
+  const [packages, setPackages] = useState([]);
+  const [loadingPkgs, setLoadingPkgs] = useState(true);
+
+  useEffect(() => {
+    const load = async () => {
+      if (!pa.product_id) { setLoadingPkgs(false); return; }
+      try {
+        const r = await axios.get(`${API}/products/${pa.product_id}`, getAuth());
+        setPackages((r.data.packages || []).filter(p => p.is_active));
+      } catch (e) { console.error(e); }
+      finally { setLoadingPkgs(false); }
+    };
+    load();
+  }, [pa.product_id]);
+
+  const selectedIds = proposalForm.selected_package_ids || [];
+
+  const togglePackage = (pkgId) => {
+    setProposalForm(p => ({
+      ...p,
+      selected_package_ids: (p.selected_package_ids || []).includes(pkgId)
+        ? p.selected_package_ids.filter(id => id !== pkgId)
+        : [...(p.selected_package_ids || []), pkgId],
+    }));
+  };
+
+  const viewPackageDoc = async (documentUrl) => {
+    if (!documentUrl) return;
+    try {
+      const r = await fetch(`${process.env.REACT_APP_BACKEND_URL}${documentUrl}`, getAuth());
+      if (!r.ok) throw new Error();
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+    } catch { /* ignore */ }
+  };
+
+  const canSubmit = selectedIds.length > 0;
 
   return (
     <div className="bg-emerald-50 rounded-lg p-4 border border-emerald-200 space-y-4">
       <p className="text-sm font-semibold text-emerald-800 mb-1 flex items-center gap-2">
-        <IndianRupee className="h-4 w-4" /> Send Service Proposal to {pa.client_name}
+        <Package className="h-4 w-4" /> Send Packages to {pa.client_name}
       </p>
-      {/* Phase 4C — Product price lock indicator */}
-      {hasLockedPrice && (
-        <div className={`text-xs rounded p-2 flex items-center justify-between ${isLocked ? 'bg-leamss-teal-50 border border-leamss-teal-200 text-leamss-teal-800' : 'bg-amber-50 border border-amber-200 text-amber-800'}`}>
-          <span className="flex items-center gap-1.5">
-            <Package className="h-3.5 w-3.5" />
-            <span>Linked to product: <strong>{proposalForm.product_name}</strong> · Base price <strong>₹{parseFloat(proposalForm.product_locked_price).toLocaleString('en-IN')}</strong></span>
-          </span>
-          {isAdmin && (
-            <button
-              type="button"
-              onClick={() => setProposalForm({ ...proposalForm, price_overridden: !proposalForm.price_overridden })}
-              className="flex items-center gap-1 text-[11px] font-bold underline hover:no-underline"
-              data-testid="toggle-price-lock"
-            >
-              {isLocked ? <><Unlock className="h-3 w-3" />Override (admin)</> : <><Lock className="h-3 w-3" />Re-lock to product price</>}
-            </button>
-          )}
-        </div>
-      )}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <div>
-          <label className="text-xs font-medium text-slate-600 block mb-1">
-            Base Service Fee (₹) *
-            {isLocked && <span className="ml-2 text-[10px] text-leamss-teal-600 font-bold inline-flex items-center gap-1"><Lock className="h-2.5 w-2.5" />Locked to product</span>}
-          </label>
-          <Input
-            type="number"
-            value={proposalForm.fee_amount}
-            onChange={e => !isLocked && setProposalForm({ ...proposalForm, fee_amount: e.target.value })}
-            placeholder="150000"
-            readOnly={isLocked}
-            className={isLocked ? 'bg-slate-100 cursor-not-allowed' : ''}
-            data-testid="proposal-fee"
-          />
-          {hasLockedPrice && !isAdmin && (
-            <p className="text-[10px] text-slate-500 mt-1">💡 Price is locked to product. Only admins can override. Use discount/coupon below to reduce final amount.</p>
-          )}
-        </div>
-        <div>
-          <label className="text-xs font-medium text-slate-600 block mb-1">Promo Code (optional)</label>
-          <div className="flex gap-1">
-            <Input value={proposalForm.promo_code}
-              onChange={e => setProposalForm({ ...proposalForm, promo_code: e.target.value.toUpperCase(), promo_applied: null })}
-              placeholder="SAVE10" className="uppercase" data-testid="proposal-promo" />
-            <Button size="sm" variant="outline" onClick={handleValidatePromo}
-              disabled={validatingPromo || !proposalForm.promo_code}
-              data-testid="apply-promo">
-              {validatingPromo ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : 'Apply'}
-            </Button>
-          </div>
-          {proposalForm.promo_applied && (
-            <p className="text-[11px] text-emerald-600 mt-1">✓ {proposalForm.promo_applied.code} applied</p>
-          )}
-        </div>
-        <div>
-          <label className="text-xs font-medium text-slate-600 block mb-1">Additional Discount (₹ flat)</label>
-          <Input type="number" value={proposalForm.additional_discount}
-            onChange={e => setProposalForm({ ...proposalForm, additional_discount: e.target.value })}
-            placeholder="0" data-testid="proposal-add-discount" />
-        </div>
-        <div>
-          <label className="text-xs font-medium text-slate-600 block mb-1">Proposal Notes</label>
-          <Input value={proposalForm.notes}
-            onChange={e => setProposalForm({ ...proposalForm, notes: e.target.value })}
-            placeholder="e.g. Canada PR Express Entry..." />
-        </div>
-      </div>
+      <p className="text-xs text-slate-500 -mt-2">
+        Select the package(s) you want your client to see. They'll pick one from their portal — you'll set up the payment method after they choose.
+      </p>
 
-      {upsellCatalog.length > 0 && (
-        <div>
-          <label className="text-xs font-medium text-slate-600 block mb-1.5">Upsell Bundles (optional — increase deal size)</label>
-          <div className="grid md:grid-cols-2 gap-2">
-            {upsellCatalog.map(b => {
-              const checked = proposalForm.upsell_ids.includes(b.id);
-              return (
-                <label key={b.id} className={`flex items-start gap-2 p-2 rounded border cursor-pointer text-xs ${checked ? 'bg-white border-emerald-300' : 'bg-white border-slate-200 hover:border-slate-300'}`}>
-                  <input type="checkbox" checked={checked}
-                    onChange={() => setProposalForm(p => ({
-                      ...p,
-                      upsell_ids: checked ? p.upsell_ids.filter(x => x !== b.id) : [...p.upsell_ids, b.id]
-                    }))}
-                    className="mt-0.5" data-testid={`upsell-${b.id}`} />
-                  <div className="flex-1">
-                    <div className="flex justify-between">
-                      <span className="font-semibold text-slate-700">{b.name}</span>
-                      <span className="font-bold text-emerald-700">₹{b.amount.toLocaleString('en-IN')}</span>
-                    </div>
-                    <p className="text-slate-500 text-[11px] mt-0.5">{b.description}</p>
-                  </div>
-                </label>
-              );
-            })}
-          </div>
+      {loadingPkgs ? (
+        <p className="text-xs text-slate-400 flex items-center gap-1">
+          <RefreshCw className="h-3 w-3 animate-spin" /> Loading packages…
+        </p>
+      ) : !pa.product_id ? (
+        <p className="text-xs text-rose-600">This pre-assessment isn't linked to a product, so no packages are available. Ask admin to link a product first.</p>
+      ) : packages.length === 0 ? (
+        <p className="text-xs text-rose-600">No active packages found on the linked product. Ask admin to configure packages for this product.</p>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-1 md:grid-cols-3">
+          {packages.map(pkg => {
+            const checked = selectedIds.includes(pkg.id);
+            return (
+              <label key={pkg.id}
+                className={`p-3 rounded-lg border-2 cursor-pointer flex flex-col transition ${checked ? 'border-emerald-500 bg-white ring-1 ring-emerald-300' : 'border-slate-200 bg-white hover:border-slate-300'}`}
+                data-testid={`fwd-pkg-${pkg.package_type || pkg.id}`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <p className="font-bold text-slate-800 text-sm">{pkg.name}</p>
+                  <input type="checkbox" checked={checked} onChange={() => togglePackage(pkg.id)} className="mt-0.5 shrink-0" />
+                </div>
+                <p className="text-xl font-extrabold text-emerald-700 mt-1">
+                  ₹{Number(pkg.price || 0).toLocaleString('en-IN')}
+                </p>
+                {pkg.description && <p className="text-xs text-slate-500 mt-1">{pkg.description}</p>}
+                {pkg.document_name && (
+                  <button type="button" onClick={() => viewPackageDoc(pkg.document_url)}
+                    className="text-xs text-emerald-700 underline mt-2 text-left flex items-center gap-1 w-fit"
+                    data-testid={`fwd-pkg-doc-${pkg.id}`}>
+                    <FileText className="h-3 w-3" /> View {pkg.document_name}
+                  </button>
+                )}
+                {checked && (
+                  <span className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700">
+                    <CheckCircle2 className="h-3.5 w-3.5" /> Will be sent to client
+                  </span>
+                )}
+              </label>
+            );
+          })}
         </div>
       )}
 
       <div>
+        <label className="text-xs font-medium text-slate-600 block mb-1">Proposal Notes (optional)</label>
+        <Input value={proposalForm.notes || ''}
+          onChange={e => setProposalForm({ ...proposalForm, notes: e.target.value })}
+          placeholder="e.g. Canada PR Express Entry..." data-testid="proposal-notes" />
+      </div>
+
+      <div>
         <div className="flex items-center justify-between mb-1 gap-2 flex-wrap">
-          <label className="text-xs font-medium text-slate-600">Proposal Body (personalised)</label>
+          <label className="text-xs font-medium text-slate-600">Proposal Body (personalised, optional)</label>
           <div className="flex gap-1.5">
             <Button size="sm" variant="outline" onClick={() => handleGenerateAI(pa.id, false)}
               disabled={!!aiGenerating}
@@ -140,28 +140,20 @@ export default function PaProposalForm({
             </Button>
           </div>
         </div>
-        <textarea value={proposalForm.ai_text}
+        <textarea value={proposalForm.ai_text || ''}
           onChange={e => setProposalForm({ ...proposalForm, ai_text: e.target.value })}
-          className="w-full border rounded-md px-3 py-2 text-sm h-28"
-          placeholder="Click 'Generate with AI' (Sonnet 4.6) for a quick draft, or 'Premium AI' (Opus 4.6) for high-value clients…"
+          className="w-full border rounded-md px-3 py-2 text-sm h-24"
+          placeholder="Optional personalised note to accompany the packages…"
           data-testid="proposal-ai-text" />
-      </div>
-
-      <div className="bg-white rounded p-3 border border-emerald-200 text-sm font-mono">
-        <div className="flex justify-between"><span className="text-slate-500">Base fee</span><span>₹{bd.base.toLocaleString('en-IN')}</span></div>
-        {bd.promoDiscount > 0 && <div className="flex justify-between text-emerald-600"><span>Promo ({proposalForm.promo_applied?.code})</span><span>-₹{bd.promoDiscount.toLocaleString('en-IN')}</span></div>}
-        {bd.addDisc > 0 && <div className="flex justify-between text-emerald-600"><span>Additional discount</span><span>-₹{bd.addDisc.toLocaleString('en-IN')}</span></div>}
-        {bd.upsellTotal > 0 && <div className="flex justify-between text-[#f7620b]"><span>Upsells ({proposalForm.upsell_ids.length})</span><span>+₹{bd.upsellTotal.toLocaleString('en-IN')}</span></div>}
-        <div className="border-t border-slate-200 mt-1.5 pt-1.5 flex justify-between font-bold text-emerald-800 text-base">
-          <span>Final Amount</span><span data-testid="proposal-final">₹{bd.final.toLocaleString('en-IN')}</span>
-        </div>
       </div>
 
       <div className="flex justify-end gap-2">
         <Button variant="outline" size="sm" onClick={onCancel}>Cancel</Button>
         <Button size="sm" onClick={() => handleSendProposal(pa.id)}
-          className="bg-emerald-600 hover:bg-emerald-700" data-testid="submit-proposal">
-          <Send className="h-4 w-4 mr-1" /> Send Proposal to Client
+          disabled={!canSubmit}
+          className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          data-testid="submit-proposal">
+          <Send className="h-4 w-4 mr-1" /> Send to Client for Package Selection
         </Button>
       </div>
     </div>

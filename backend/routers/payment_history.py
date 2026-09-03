@@ -91,24 +91,51 @@ def _pa_events(pa: dict) -> list:
             "direction": "in",
             "meta": {"reference": pa.get("pa_number")},
         })
-    if pa.get("proposal_status") == "sent":
-        events.append({
-            "ts": _iso(pa.get("updated_at")),
-            "kind": "proposal_sent",
-            "label": "Proposal Sent to Client",
-            "amount": float(pa.get("proposal_fee") or 0),
-            "direction": "pending",
-            "meta": {"promo_code": pa.get("proposal_promo_code"), "upsells": len(pa.get("proposal_upsells") or [])},
-        })
-    if pa.get("stage") in ("proposal_paid", "awaiting_final_approval", "case_created"):
-        events.append({
-            "ts": _iso(pa.get("updated_at")),
-            "kind": "main_fee_paid",
-            "label": "Main Service Fee Paid",
-            "amount": float(pa.get("proposal_fee") or 0),
-            "direction": "in",
-            "meta": {"final_amount": float(pa.get("proposal_fee") or 0)},
-        })
+    
+    parts = pa.get("proposal_payment_parts") or []
+    effective_proposal_total = float(pa.get("proposal_discounted_total") or pa.get("proposal_fee") or 0)
+    
+    if parts:
+        for p in parts:
+            p_amt = float(p.get("amount") or 0)
+            p_status = p.get("status")
+            if p_status == "paid":
+                events.append({
+                    "ts": _iso(p.get("paid_at") or pa.get("updated_at")),
+                    "kind": "main_fee_paid",
+                    "label": f"{p.get('label', 'Installment')} Paid",
+                    "amount": p_amt,
+                    "direction": "in",
+                    "meta": {"reference": p.get("payment_ref"), "part_index": p.get("index")},
+                })
+            else:
+                events.append({
+                    "ts": _iso(pa.get("updated_at")),
+                    "kind": "proposal_sent",
+                    "label": f"{p.get('label', 'Installment')} (Pending)",
+                    "amount": p_amt,
+                    "direction": "pending",
+                    "meta": {"promo_code": pa.get("proposal_promo_code"), "part_index": p.get("index")},
+                })
+    else:
+        if pa.get("proposal_status") == "sent" and pa.get("stage") != "proposal_paid":
+            events.append({
+                "ts": _iso(pa.get("updated_at")),
+                "kind": "proposal_sent",
+                "label": "Proposal Sent to Client",
+                "amount": effective_proposal_total,
+                "direction": "pending",
+                "meta": {"promo_code": pa.get("proposal_promo_code"), "upsells": len(pa.get("proposal_upsells") or [])},
+            })
+        if pa.get("stage") in ("proposal_paid", "awaiting_final_approval", "case_created"):
+            events.append({
+                "ts": _iso(pa.get("updated_at")),
+                "kind": "main_fee_paid",
+                "label": "Main Service Fee Paid",
+                "amount": effective_proposal_total,
+                "direction": "in",
+                "meta": {"final_amount": effective_proposal_total},
+            })
     return events
 
 

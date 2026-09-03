@@ -57,9 +57,15 @@ class ClientProfile(BaseModel):
 
 class ReportRequest(BaseModel):
     client: ClientProfile
+
+    # Primary occupation
     country_code: str = Field(..., min_length=2, max_length=3)
     occupation_code: str = Field(..., min_length=4, max_length=20)
-    preview_html: bool = False  # if true, return HTML body instead of PDF
+
+    # Additional occupations selected by the user
+    additional_occupations: List[Dict[str, Any]] = Field(default_factory=list)
+
+    preview_html: bool = False
 
 
 def _client_hash(c: ClientProfile) -> str:
@@ -82,13 +88,43 @@ def _fmt_currency(amount: Optional[float], currency: str) -> Optional[str]:
 async def _build_context(req: ReportRequest, user: Dict[str, Any]) -> Dict[str, Any]:
     """Assemble all data needed by the WeasyPrint template."""
     cc = req.country_code.upper()
-    occ = await db["occupation_master"].find_one(
-        {"country_code": cc, "code": req.occupation_code, "status": {"$ne": "superseded"}},
+    occupation_refs = [
+    {
+        "country_code": cc,
+        "code": req.occupation_code,
+    }
+]
+    for item in req.additional_occupations:
+     code = item.get("code")
+     country_code = (item.get("country_code") or cc).upper()
+
+     if code and code != req.occupation_code:
+        occupation_refs.append({
+            "country_code": country_code,
+            "code": code,
+        })
+
+    occupations = []
+    for ref_item in occupation_refs:
+     occupation_doc = await db["occupation_master"].find_one(
+        {
+            "country_code": ref_item["country_code"],
+            "code": ref_item["code"],
+            "status": {"$ne": "superseded"},
+        },
         {"_id": 0},
     )
-    if not occ:
-        raise HTTPException(status_code=404,
-                            detail=f"Occupation {req.occupation_code} not found in {cc} atlas")
+
+    if occupation_doc:
+        occupations.append(occupation_doc)
+    if not occupations:
+     raise HTTPException(
+        status_code=404,
+        detail=f"Occupation {req.occupation_code} not found in {cc} atlas",
+    )
+
+# First occupation is always primary
+    occ = occupations[0]
 
     # Resolve authority
     aa = await resolve_authority(db, occ)
@@ -197,6 +233,18 @@ async def _build_context(req: ReportRequest, user: Dict[str, Any]) -> Dict[str, 
     return {
         "client": req.client.dict(),
         "country": {"code": cc, "name": {"AU": "Australia", "CA": "Canada", "NZ": "New Zealand"}.get(cc, cc)},
+                "occupations": [
+            {
+                "code": o.get("code"),
+                "title": o.get("title") or "",
+                "country_code": o.get("country_code") or cc,
+                "description": o.get("description") or "",
+                "assessing_body": o.get("assessing_body") or "",
+                "visa_pathways": o.get("visa_pathways") or {},
+                "is_primary": index == 0,
+            }
+            for index, o in enumerate(occupations)
+        ],
         "occupation": {
             "code": occ.get("code"),
             "title": occ.get("title") or "",

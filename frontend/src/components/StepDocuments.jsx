@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import {
   FileCheck, Upload, CheckCircle, Clock, AlertCircle, Loader2,
-  ChevronDown, ChevronRight, FileText, XCircle
+  ChevronDown, ChevronRight, FileText, XCircle, Lock
 } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -112,28 +112,49 @@ const StepDocuments = ({ token, caseId }) => {
       {/* Step-wise Documents */}
       {(data.steps || []).map((step, sIdx) => {
         const isExpanded = expandedStep === step.step_name;
+        const isLocked = step.is_locked === true;
         const stepComplete = step.required_count > 0 && step.uploaded_count >= step.required_count;
         return (
-          <Card key={step.step_name} className={`overflow-hidden ${stepComplete ? 'border-emerald-200' : step.required_count > 0 ? 'border-amber-200' : ''}`} data-testid={`step-card-${sIdx}`}>
+          <Card key={step.step_name} className={`overflow-hidden ${isLocked ? 'border-slate-200 bg-slate-50/50 opacity-90' : stepComplete ? 'border-emerald-200' : step.required_count > 0 ? 'border-amber-200' : ''}`} data-testid={`step-card-${sIdx}`}>
             {/* Step Header */}
             <div className="p-4 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors" onClick={() => setExpandedStep(isExpanded ? null : step.step_name)}>
               <div className="flex items-center gap-3">
                 {isExpanded ? <ChevronDown className="h-4 w-4 text-slate-400" /> : <ChevronRight className="h-4 w-4 text-slate-400" />}
-                <span className="w-7 h-7 rounded-full bg-[#2a777a] text-white text-xs flex items-center justify-center font-bold">{step.step_order}</span>
+                <span className={`w-7 h-7 rounded-full text-white text-xs flex items-center justify-center font-bold ${isLocked ? 'bg-slate-400' : 'bg-[#2a777a]'}`}>
+                  {isLocked ? <Lock className="h-3.5 w-3.5" /> : step.step_order}
+                </span>
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <h4 className="font-semibold text-slate-800 dark:text-white">{step.step_name}</h4>
-                    {stepComplete && <CheckCircle className="h-4 w-4 text-emerald-500" />}
-                    <Badge variant="outline" className="text-xs">{step.status}</Badge>
+                    {isLocked ? (
+                      <Badge className="text-xs bg-slate-100 text-slate-600 border border-slate-200 flex items-center gap-1">
+                        <Lock className="h-2.5 w-2.5 text-amber-600" /> Locked
+                      </Badge>
+                    ) : (
+                      <>
+                        {stepComplete && <CheckCircle className="h-4 w-4 text-emerald-500" />}
+                        <Badge variant="outline" className="text-xs">{step.status}</Badge>
+                      </>
+                    )}
                   </div>
-                  {step.description && <p className="text-xs text-slate-500 mt-0.5">{step.description}</p>}
+                  {isLocked ? (
+                    <p className="text-xs text-amber-700 font-medium mt-0.5">{step.locked_reason || 'Locked until Case Manager completes previous step'}</p>
+                  ) : step.description ? (
+                    <p className="text-xs text-slate-500 mt-0.5">{step.description}</p>
+                  ) : null}
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-medium text-slate-800 dark:text-white">{step.uploaded_count}/{step.required_count}</p>
-                  <p className="text-xs text-slate-500">documents</p>
+                  {isLocked ? (
+                    <span className="text-xs text-slate-400 italic">Locked</span>
+                  ) : (
+                    <>
+                      <p className="text-sm font-medium text-slate-800 dark:text-white">{step.uploaded_count}/{step.required_count}</p>
+                      <p className="text-xs text-slate-500">documents</p>
+                    </>
+                  )}
                 </div>
               </div>
-              {step.required_count > 0 && (
+              {!isLocked && step.required_count > 0 && (
                 <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5 mt-3 ml-11">
                   <div className={`h-1.5 rounded-full ${stepComplete ? 'bg-emerald-500' : step.uploaded_count > 0 ? 'bg-blue-500' : 'bg-slate-200'}`} style={{ width: `${step.required_count > 0 ? (step.uploaded_count / step.required_count) * 100 : 0}%` }} />
                 </div>
@@ -143,18 +164,30 @@ const StepDocuments = ({ token, caseId }) => {
             {/* Expanded: Documents */}
             {isExpanded && (
               <div className="border-t p-4 space-y-3 bg-slate-50/50 dark:bg-slate-800/30">
+                {isLocked && (
+                  <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 flex items-start gap-2.5">
+                    <Lock className="h-4 w-4 text-amber-700 mt-0.5 shrink-0" />
+                    <div className="text-xs text-amber-800">
+                      <p className="font-semibold text-amber-900">Step {step.step_order} is Locked</p>
+                      <p className="mt-0.5">{step.locked_reason || 'This step will automatically unlock once the previous step is completed by your Case Manager.'}</p>
+                    </div>
+                  </div>
+                )}
                 {step.documents.length === 0 ? (
                   <p className="text-sm text-slate-400 text-center py-3">No documents required for this step</p>
                 ) : (
                   step.documents.map((doc, dIdx) => (
                     <div key={dIdx} className={`flex items-center justify-between p-3 rounded-lg border ${
+                      isLocked ? 'bg-slate-50 opacity-75 border-slate-200' :
                       doc.status === 'approved' || doc.status === 'verified' ? 'bg-emerald-50 border-emerald-200 dark:bg-emerald-900/20' :
                       doc.uploaded ? 'bg-blue-50 border-blue-200 dark:bg-blue-900/20' :
                       doc.status === 'rejected' ? 'bg-red-50 border-red-200 dark:bg-red-900/20' :
                       'bg-white border-slate-200 dark:bg-slate-800'
                     }`} data-testid={`doc-${sIdx}-${dIdx}`}>
                       <div className="flex items-center gap-3 flex-1 min-w-0">
-                        {doc.uploaded ? (
+                        {isLocked ? (
+                          <Lock className="h-5 w-5 text-slate-300 flex-shrink-0" />
+                        ) : doc.uploaded ? (
                           doc.status === 'approved' || doc.status === 'verified' ? <CheckCircle className="h-5 w-5 text-emerald-500 flex-shrink-0" /> :
                           doc.status === 'rejected' ? <XCircle className="h-5 w-5 text-red-500 flex-shrink-0" /> :
                           <Clock className="h-5 w-5 text-blue-500 flex-shrink-0" />
@@ -168,19 +201,38 @@ const StepDocuments = ({ token, caseId }) => {
                               {doc.tag || (doc.is_mandatory ? 'Mandatory' : 'Optional')}
                             </Badge>
                             {doc.source === 'cm_request' && <Badge className="text-[10px] bg-leamss-orange-100 text-leamss-orange-700">CM Requested</Badge>}
+                            {isLocked && <Badge className="text-[9px] bg-amber-100 text-amber-800 border border-amber-200">Locked</Badge>}
                           </div>
                           {doc.notes && <p className="text-xs text-slate-500 mt-0.5">{doc.notes}</p>}
                           {doc.uploaded && doc.uploaded_doc && (
-                            <p className="text-xs text-emerald-600 mt-0.5">{doc.uploaded_doc.filename || 'Uploaded'} — {doc.status}</p>
+                          {(doc.status === 'rejected' || doc.status === 'revision_required') && (doc.uploaded_doc?.review_comment || doc.uploaded_doc?.comment) && (
+                            <p className="text-xs text-red-600 mt-1 font-medium bg-red-50 p-1.5 rounded border border-red-200">
+                              Reason: {doc.uploaded_doc.review_comment || doc.uploaded_doc.comment}
+                            </p>
                           )}
                         </div>
                       </div>
                       <div className="flex-shrink-0 ml-3">
-                        {doc.uploaded ? (
-                          <Badge className={
-                            doc.status === 'approved' || doc.status === 'verified' ? 'bg-emerald-100 text-emerald-700' :
-                            doc.status === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'
-                          }>{doc.status}</Badge>
+                        {isLocked ? (
+                          <Button disabled variant="outline" size="sm" className="opacity-60 cursor-not-allowed bg-slate-100 text-slate-500 text-xs h-7">
+                            <Lock className="h-3 w-3 mr-1 text-slate-400" /> Locked
+                          </Button>
+                        ) : doc.uploaded ? (
+                          <div className="flex items-center gap-2">
+                            <Badge className={
+                              doc.status === 'approved' || doc.status === 'verified' ? 'bg-emerald-100 text-emerald-700' :
+                              doc.status === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'
+                            }>{doc.status}</Badge>
+                            {(doc.status === 'rejected' || doc.status === 'revision_required') && (
+                              <label className="cursor-pointer">
+                                <input type="file" className="hidden" onChange={(e) => handleUpload(step.step_name, doc.doc_name, e.target.files[0])} />
+                                <span className="flex items-center gap-1 text-xs bg-amber-600 hover:bg-amber-700 text-white px-2.5 py-1 rounded-md transition-colors font-medium">
+                                  {uploading === `${step.step_name}-${doc.doc_name}` ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+                                  Re-upload
+                                </span>
+                              </label>
+                            )}
+                          </div>
                         ) : (
                           <label className="cursor-pointer">
                             <input type="file" className="hidden" onChange={(e) => handleUpload(step.step_name, doc.doc_name, e.target.files[0])} />

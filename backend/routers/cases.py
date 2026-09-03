@@ -6,8 +6,9 @@ from typing import List
 from core.database import (
     cases_col, case_steps_col, users_col, products_col, documents_col,
     additional_doc_requests_col, notifications_col, audit_logs_col,
-    information_sheets_col, workflow_steps_col, case_transfers_col
+    information_sheets_col, workflow_steps_col, case_transfers_col, db
 )
+pre_assessments_col = db["pre_assessments"]
 from core.auth import get_current_user
 from core.services import create_notification, notify_users, log_activity
 from core.email_service import send_case_step_update_email
@@ -41,6 +42,73 @@ async def _log(user_id, action, entity_type, entity_id=None, details=None):
     from core.database import db as _db
     await log_legacy_event(_db, user_id, action, entity_type, entity_id, details)
 
+async def _unlock_and_check_installment_gate(case: dict, current_user: dict, target_step_order: Optional[int] = None):
+    """Checks the linked PA installment plan for advancing to the designated trigger step (e.g. Step 3 or 4).
+    Auto-unlocks any 'locked' 2nd installment in both pre_assessments_col and sales_col
+    so the client can pay it.
+    Returns: {"has_installment_plan": bool, "is_paid": bool, "target_unlock_step": int, "pending_part": dict, "sale_id": str}
+    """
+    pa_id = case.get("pre_assessment_id")
+    if not pa_id:
+        return {"has_installment_plan": False, "is_paid": True, "target_unlock_step": 4}
+
+    pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
+    if not pa:
+        return {"has_installment_plan": False, "is_paid": True, "target_unlock_step": 4}
+
+    parts = pa.get("proposal_payment_parts") or []
+    if not parts:
+        return {"has_installment_plan": False, "is_paid": True, "target_unlock_step": 4}
+
+    target_unlock_step = int(pa.get("second_installment_step_order") or next((p.get("trigger_step_order") for p in parts if p.get("trigger_step_order")), 4))
+
+    unpaid = [p for p in parts if p.get("status") != "paid"]
+    if not unpaid:
+        return {"has_installment_plan": True, "is_paid": True, "target_unlock_step": target_unlock_step, "parts": parts, "sale_id": pa.get("sale_id")}
+
+    # Auto-unlock a locked part if target_step_order reached or when unlocking
+    locked = next((p for p in parts if p.get("status") == "locked"), None)
+    if locked and (target_step_order is None or target_step_order >= target_unlock_step):
+        for p in parts:
+            if p["index"] == locked["index"]:
+                p["status"] = "pending"
+        await pre_assessments_col.update_one({"id": pa_id}, {"$set": {
+            "proposal_payment_parts": parts,
+            "pending_installment_unlock": False,
+            "installment_unlocked_by": current_user.get("id", "system"),
+            "installment_unlocked_at": datetime.now(timezone.utc),
+            "updated_at": datetime.now(timezone.utc),
+        }})
+        if pa.get("sale_id"):
+            await db["sales"].update_one(
+                {"id": pa["sale_id"]},
+                {"$set": {"payment_parts": parts}}
+            )
+        if pa.get("client_user_id"):
+            await notifications_col.insert_one({
+                "id": str(uuid.uuid4()), "user_id": pa["client_user_id"],
+                "title": "2nd Installment Unlocked",
+                "message": f"{locked['label']} (₹{locked['amount']:,.0f}) is now ready for payment — please complete payment to proceed to Step {target_unlock_step}.",
+                "type": "installment_unlocked", "read": False,
+                "created_at": datetime.now(timezone.utc),
+            })
+        pending_part = locked
+    else:
+        pending_part = next((p for p in parts if p.get("status") == "pending"), unpaid[0])
+        if pa.get("sale_id"):
+            await db["sales"].update_one(
+                {"id": pa["sale_id"]},
+                {"$set": {"payment_parts": parts}}
+            )
+
+    return {
+        "has_installment_plan": True,
+        "is_paid": False,
+        "target_unlock_step": target_unlock_step,
+        "pending_part": pending_part,
+        "parts": parts,
+        "sale_id": pa.get("sale_id")
+    }
 
 def _serialize(case):
     c = {k: v for k, v in case.items() if k != "_id"}
@@ -94,8 +162,49 @@ async def _enrich_cases(cases):
         case["case_manager_name"] = manager["name"] if manager else "Not Assigned"
         case["partner_name"] = partner["name"] if partner else "N/A"
         
+        # Check linked PA payment parts for installment gates
+        pa = None
+        if case.get("pre_assessment_id"):
+            pa = await pre_assessments_col.find_one({"id": case["pre_assessment_id"]}, {"_id": 0, "proposal_payment_parts": 1, "sale_id": 1, "second_installment_step_order": 1})
+        pa_unpaid_part = None
+        target_unlock_step = 4
+        if pa:
+            target_unlock_step = int(pa.get("second_installment_step_order") or 4)
+            if pa.get("proposal_payment_parts"):
+                unpaid_parts = [p for p in pa["proposal_payment_parts"] if p.get("status") != "paid"]
+                if unpaid_parts:
+                    pa_unpaid_part = unpaid_parts[0]
+                if not pa.get("second_installment_step_order"):
+                    target_unlock_step = int(next((p.get("trigger_step_order") for p in pa["proposal_payment_parts"] if p.get("trigger_step_order")), 4))
+
         case_steps = steps_map.get(case["id"], [])
         case_steps.sort(key=lambda x: x.get("step_order", 0))
+        current_step_order = case.get("current_step_order") or 1
+        for s in case_steps:
+            s_order = s.get("step_order", 1)
+            if s_order <= 1:
+                s["is_locked"] = False
+                s["locked_reason"] = None
+            else:
+                prev_steps = [ps for ps in case_steps if ps.get("step_order", 0) < s_order]
+                prev_uncompleted = next((ps for ps in prev_steps if ps.get("status") != "completed"), None)
+                is_active = s.get("status") in ("in_progress", "completed") or s_order <= current_step_order
+                
+                # Check if step is gated by unpaid 2nd installment
+                if s_order >= target_unlock_step and pa_unpaid_part:
+                    s["is_locked"] = True
+                    s["payment_required"] = True
+                    s["payment_amount"] = pa_unpaid_part.get("amount", 0)
+                    s["sale_id"] = pa.get("sale_id")
+                    s["locked_reason"] = f"Step {s_order} ({s.get('step_name')}) is locked pending {pa_unpaid_part.get('label', '2nd Installment')} (₹{pa_unpaid_part.get('amount', 0):,.0f}). Please complete payment to unlock this step."
+                elif prev_uncompleted is not None and not is_active:
+                    s["is_locked"] = True
+                    prev_order = prev_uncompleted.get("step_order", s_order - 1)
+                    prev_name = prev_uncompleted.get("step_name", "")
+                    s["locked_reason"] = f"Step {s_order} is locked. It will automatically unlock once Case Manager completes Step {prev_order} ({prev_name})."
+                else:
+                    s["is_locked"] = False
+                    s["locked_reason"] = None
         case["steps"] = case_steps
         
         additional_docs = docs_map.get(case["id"], [])
@@ -118,7 +227,8 @@ async def get_cases(current_user: dict = Depends(get_current_user)):
     if current_user["role"] == "case_manager":
         query["case_manager_id"] = current_user["id"]
     elif current_user["role"] == "client":
-        query["client_id"] = current_user["id"]
+        # query["client_id"] = current_user["id"]
+        query["$or"] = [{"client_id": current_user["id"]}, {"spouse_id": current_user["id"]}]
     elif current_user["role"] == "partner":
         query["partner_id"] = current_user["id"]
     
@@ -169,8 +279,8 @@ async def get_my_cases(current_user: dict = Depends(get_current_user)):
     if current_user["role"] == "case_manager":
         query["case_manager_id"] = current_user["id"]
     elif current_user["role"] == "client":
-        query["client_id"] = current_user["id"]
-    
+        query["$or"] = [{"client_id": current_user["id"]}, {"spouse_id": current_user["id"]}]
+
     cases = await cases_col.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
     return await _enrich_cases(cases)
 
@@ -434,6 +544,48 @@ async def get_case(case_id: str, current_user: dict = Depends(get_current_user))
     case["partner_name"] = partner["name"] if partner else "N/A"
     
     steps = await case_steps_col.find({"case_id": case["id"]}, {"_id": 0}).sort("step_order", 1).to_list(100)
+    current_order = case.get("current_step_order") or 1
+    
+    # Check linked PA payment parts for installment gates
+    pa = None
+    if case.get("pre_assessment_id"):
+        pa = await pre_assessments_col.find_one({"id": case["pre_assessment_id"]}, {"_id": 0, "proposal_payment_parts": 1, "sale_id": 1, "second_installment_step_order": 1})
+    pa_unpaid_part = None
+    target_unlock_step = 4
+    if pa:
+        target_unlock_step = int(pa.get("second_installment_step_order") or 4)
+        if pa.get("proposal_payment_parts"):
+            unpaid_parts = [p for p in pa["proposal_payment_parts"] if p.get("status") != "paid"]
+            if unpaid_parts:
+                pa_unpaid_part = unpaid_parts[0]
+            if not pa.get("second_installment_step_order"):
+                target_unlock_step = int(next((p.get("trigger_step_order") for p in pa["proposal_payment_parts"] if p.get("trigger_step_order")), 4))
+
+    for s in steps:
+        s_order = s.get("step_order", 1)
+        if s_order <= 1:
+            s["is_locked"] = False
+            s["locked_reason"] = None
+        else:
+            prev_steps = [ps for ps in steps if ps.get("step_order", 0) < s_order]
+            prev_uncompleted = next((ps for ps in prev_steps if ps.get("status") != "completed"), None)
+            is_active = s.get("status") in ("in_progress", "completed") or s_order <= current_order
+            
+            # Check if step is gated by unpaid 2nd installment
+            if s_order >= target_unlock_step and pa_unpaid_part:
+                s["is_locked"] = True
+                s["payment_required"] = True
+                s["payment_amount"] = pa_unpaid_part.get("amount", 0)
+                s["sale_id"] = pa.get("sale_id")
+                s["locked_reason"] = f"Step {s_order} ({s.get('step_name')}) is locked pending {pa_unpaid_part.get('label', '2nd Installment')} (₹{pa_unpaid_part.get('amount', 0):,.0f}). Please complete payment to unlock this step."
+            elif prev_uncompleted is not None and not is_active:
+                s["is_locked"] = True
+                prev_order = prev_uncompleted.get("step_order", s_order - 1)
+                prev_name = prev_uncompleted.get("step_name", "")
+                s["locked_reason"] = f"Step {s_order} is locked. It will automatically unlock once Case Manager completes Step {prev_order} ({prev_name})."
+            else:
+                s["is_locked"] = False
+                s["locked_reason"] = None
     case["steps"] = steps
     
     additional_docs = await additional_doc_requests_col.find({"case_id": case["id"]}, {"_id": 0}).to_list(100)
@@ -475,19 +627,47 @@ async def update_step(request: StepUpdate, current_user: dict = Depends(get_curr
                 detail=f"Cannot update step '{request.step_name}' — previous step '{s['step_name']}' (Step {s['step_order']}) is not completed yet."
             )
 
+    # ENFORCEMENT: If attempting to start or update a step at or beyond target_unlock_step, ensure 2nd installment is paid
+    gate_info = await _unlock_and_check_installment_gate(case, current_user, target_step_order=target_order)
+    target_unlock_step = gate_info.get("target_unlock_step", 4)
+    if target_order >= target_unlock_step and request.status in ["in_progress", "completed"]:
+        if gate_info["has_installment_plan"] and not gate_info["is_paid"]:
+            pending_part = gate_info.get("pending_part", {})
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot advance to Step {target_order} — client's '{pending_part.get('label', '2nd Installment')}' (₹{pending_part.get('amount', 0):,.0f}) is still unpaid. Please wait for payment before proceeding."
+            )
+
     # ENFORCEMENT: If marking as completed, check required documents for this step
     if request.status == "completed":
         workflow_steps = await workflow_steps_col.find(
             {"product_id": case.get("product_id"), "step_name": request.step_name}, {"_id": 0}
         ).to_list(1)
         if workflow_steps:
-            required_docs = workflow_steps[0].get("required_documents", [])
-            mandatory_docs = [d for d in required_docs if d.get("is_mandatory", True)]
+            ws = workflow_steps[0]
+            # Check if workflow has active sections/fields configured
+            intake_file_fields = [
+                f for s in ws.get("sections", [])
+                for f in s.get("fields", [])
+                if (f.get("field_type") == "file" or f.get("type") == "file")
+            ]
+            if intake_file_fields:
+                mandatory_docs = [
+                    {"doc_name": f.get("label") or f.get("name") or f.get("key", "")}
+                    for f in intake_file_fields
+                    if f.get("required", False) or f.get("is_mandatory", False)
+                ]
+            else:
+                required_docs = ws.get("required_documents", [])
+                mandatory_docs = [d for d in required_docs if d.get("is_mandatory", True)]
+
             if mandatory_docs:
                 case_docs = await documents_col.find({"case_id": request.case_id}, {"_id": 0}).to_list(200)
                 uploaded_names = [d.get("document_type", "").lower().strip() for d in case_docs]
                 for req in mandatory_docs:
                     doc_name = req.get("doc_name", "").lower().strip()
+                    if not doc_name:
+                        continue
                     found = any(doc_name in ut or ut in doc_name for ut in uploaded_names)
                     if not found:
                         raise HTTPException(
@@ -500,6 +680,7 @@ async def update_step(request: StepUpdate, current_user: dict = Depends(get_curr
         {"$set": {"status": request.status, "notes": request.notes, "updated_at": datetime.now(timezone.utc)}}
     )
 
+    next_step = None
     if request.status == "completed":
         current_order = target_order
         next_step = next((s for s in steps if s["step_order"] > current_order), None)
@@ -509,6 +690,20 @@ async def update_step(request: StepUpdate, current_user: dict = Depends(get_curr
                 "current_step": next_step["step_name"],
                 "current_step_order": next_step["step_order"]
             }})
+            
+            next_order = next_step.get("step_order", 1)
+            next_gate = await _unlock_and_check_installment_gate(case, current_user, target_step_order=next_order)
+            next_unlock_step = next_gate.get("target_unlock_step", 4)
+            if next_order >= next_unlock_step and next_gate["has_installment_plan"] and not next_gate["is_paid"]:
+                # Installment is unlocked for client, but not paid yet. Keep next step pending until payment is made!
+                pass
+            else:
+                # Paid or no installment plan — automatically start next step
+                if next_step.get("status") == "pending":
+                    await case_steps_col.update_one(
+                        {"case_id": request.case_id, "step_name": next_step["step_name"]},
+                        {"$set": {"status": "in_progress", "started_at": datetime.now(timezone.utc)}}
+                    )
         else:
             all_completed = all(s["status"] == "completed" for s in steps if s["step_name"] != request.step_name)
             if all_completed:
@@ -516,13 +711,17 @@ async def update_step(request: StepUpdate, current_user: dict = Depends(get_curr
 
     await _log(current_user["id"], "update_step", "case", request.case_id, {"step_name": request.step_name, "status": request.status})
 
-    # Milestone notification to client about step update
+    # Milestone notification to client about step update & unlock
     if case.get("client_id"):
         client = await users_col.find_one({"id": case["client_id"]}, {"_id": 0})
         if client:
-            milestone_msg = f"Step '{request.step_name}' has been marked as {request.status.replace('_', ' ')}."
-            if request.status == "completed":
-                milestone_msg = f"Milestone achieved! Step '{request.step_name}' is now complete."
+            if request.status == "completed" and next_step:
+                milestone_msg = f"🎉 Milestone achieved! Step '{request.step_name}' is complete. Step '{next_step['step_name']}' is now unlocked for you!"
+            elif request.status == "completed":
+                milestone_msg = f"🎉 Final milestone achieved! Step '{request.step_name}' is complete."
+            else:
+                milestone_msg = f"Step '{request.step_name}' has been updated to {request.status.replace('_', ' ')}."
+
             await create_notification(
                 case["client_id"],
                 f"Case Update: {case.get('case_id', '')}",

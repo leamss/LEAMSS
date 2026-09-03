@@ -75,11 +75,51 @@ h1.occ-h1{font-family:'Playfair Display',Georgia,serif;font-size:clamp(34px,4.5v
 .card h2.card-title{font-family:'Playfair Display',Georgia,serif;font-size:22px;font-weight:700;color:var(--ink);line-height:1.2;margin-bottom:14px}
 .card p{color:var(--body);font-size:14px;line-height:1.65;margin:0}
 /* Metric grid */
-.metric-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
-.metric{background:var(--cream);border:1px solid var(--border);border-radius:10px;padding:14px 16px}
-.metric .ml{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:6px}
-.metric .mv{font-family:'Playfair Display',Georgia,serif;font-size:22px;font-weight:700;color:var(--forest);line-height:1.15}
-.metric .ms{font-size:12px;color:var(--muted);margin-top:3px}
+.metric-grid{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:14px;
+    margin-top:12px;
+}
+
+.metric{
+    background:#F8F5EF;
+    border:1px solid #E6DED3;
+    border-radius:12px;
+
+    padding:18px;
+
+    min-height:112px;
+    max-height:112px;
+
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+}
+
+.metric .ml{
+    font-size:11px;
+    letter-spacing:.18em;
+    text-transform:uppercase;
+    color:#66798A;
+    font-weight:700;
+    margin-bottom:10px;
+}
+
+.metric .mv{
+    font-family:'Playfair Display',serif;
+    font-size:20px;
+    font-weight:700;
+    color:var(--forest);
+    line-height:1.1;
+}
+
+.metric .ms{
+    margin-top:8px;
+    font-size:13px;
+    color:#66798A;
+    line-height:1.3;
+}
 /* Visa pathway chips */
 .visa-row{display:flex;flex-wrap:wrap;gap:8px}
 .visa-chip{display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:8px;font-family:'Courier New',monospace;font-size:13px;font-weight:700;border:1.5px solid}
@@ -185,6 +225,7 @@ footer a{color:var(--muted)}footer a:hover{color:var(--burnt)}
           <span class="pill pill-glass">TEER {{ occ.teer_category }}</span>
         {% endif %}
       </div>
+      
       <h1 id="occ-h1" class="occ-h1">{{ occ.title }}</h1>
       <p class="occ-meta">{{ country.flag }} {{ country.name }} &middot; {{ country.classification }} {{ occ.code }} &middot; India&rsquo;s Trusted Immigration Experts &mdash; We Value Emotions</p>
     </div>
@@ -206,28 +247,96 @@ footer a{color:var(--muted)}footer a:hover{color:var(--burnt)}
             <div class="metric"><div class="ml">TEER Category</div><div class="mv">TEER {{ occ.teer_category }}</div><div class="ms">NOC 2021</div></div>
           {% endif %}
           {% if (occ.assessing_authority or {}).get('name') %}
-            <div class="metric"><div class="ml">Assessing Body</div><div class="mv" style="font-size:15px;line-height:1.3">{{ (occ.assessing_authority or {}).get('short_name') or (occ.assessing_authority or {}).get('name') }}</div>
-              {% if (occ.assessing_authority or {}).get('processing_time_weeks') %}
-                <div class="ms">~{{ occ.assessing_authority.processing_time_weeks }} weeks typical</div>
-              {% endif %}
-            </div>
-          {% endif %}
-          {% if (occ.assessing_authority or {}).get('fee_native') %}
-            {% set aa2 = occ.assessing_authority %}
-            <div class="metric"><div class="ml">Skills Assessment Fee</div><div class="mv">{{ aa2.fee_currency }} ${{ '%.0f' % aa2.fee_native if (aa2.fee_native|float) == (aa2.fee_native|int) else '%.2f' % aa2.fee_native }}</div><div class="ms">
-              {% if aa2.data_quality == 'fallback_published_rate' %}📋 Published rate &middot; live fees may vary{% else %}live · {{ (aa2.short_name or aa2.name)|truncate(28, true, '…') }}{% endif %}
-            </div></div>
-          {% endif %}
-          <div class="metric"><div class="ml">Required Documents</div><div class="mv">{{ (occ.required_documents or [])|length }}</div><div class="ms">items in checklist</div></div>
-        </div>
-        {% set aa = occ.assessing_authority or {} %}
-        {% if aa.get('full_name') or aa.get('url') %}
-          <p style="font-size:13px;margin-top:14px;color:var(--muted);font-style:italic">
-            {% if aa.get('full_name') %}Full assessing body: <strong style="color:var(--ink);font-style:normal">{{ aa.full_name }}</strong>{% endif %}
-            {% if aa.get('url') %} &middot; <a href="{{ aa.url if aa.url.startswith('http') else 'https://' ~ aa.url }}" rel="noopener nofollow" target="_blank" style="color:var(--forest);font-weight:600">Official site ↗</a>{% endif %}
-          </p>
+<div class="metric">
+    <div class="ml">Assessing Body</div>
+
+    <div class="mv" style="font-size:15px;line-height:1.3">
+        {{ (occ.assessing_authority or {}).get('short_name')
+            or (occ.assessing_authority or {}).get('name') }}
+    </div>
+
+    {% if (occ.assessing_authority or {}).get("processing") %}
+    <div class="ms">
+        {{ (occ.assessing_authority.processing).get("standard_days_min") }}
+        –
+        {{ (occ.assessing_authority.processing).get("standard_days_max") }}
+        days
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+
+{% set aa = occ.assessing_authority or {} %}
+{% set fees = aa.get("fees") or {} %}
+{% set processing = aa.get("processing") or {} %}
+
+{% if fees.get("msa_fee_aud") %}
+<div class="metric">
+    <div class="ml">Skills Assessment Fee</div>
+
+    <div class="mv">
+        {{ fees.get("currency","AUD") }}
+        ${{ "{:,}".format(fees.get("msa_fee_aud")) }}
+    </div>
+
+    {% if processing %}
+    <div class="ms">
+        {{ processing.get("standard_days_min") }}
+        –
+        {{ processing.get("standard_days_max") }}
+        days
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+
+<div class="metric">
+    <div class="ml">Required Documents</div>
+
+    <div class="mv">
+        {{ (occ.required_documents or [])|length }}
+    </div>
+
+    <div class="ms">
+        items in checklist
+    </div>
+</div>
+
+
+{% set aa = occ.assessing_authority or {} %}
+
+{% if aa.get('full_name') or aa.get('website') or aa.get('url') %}
+<div style="margin-top:16px;text-align:left;">
+
+    <div style="font-size:13px;color:var(--muted);font-style:italic;line-height:1.6;">
+
+        {% if aa.get('full_name') %}
+            Full assessing body:
+            <span style="color:var(--ink);font-style:normal;font-weight:600;">
+                {{ aa.full_name }}
+            </span>
         {% endif %}
-      </article>
+
+        {% set site = aa.get("website") or aa.get("url") %}
+
+        {% if site %}
+            &nbsp;·&nbsp;
+            <a href="{{ site if site.startswith('http') else 'https://' ~ site }}"
+               target="_blank"
+               rel="noopener noreferrer nofollow"
+               style="color:var(--forest);font-weight:600;text-decoration:none;">
+                Official Website ↗
+            </a>
+        {% endif %}
+
+    </div>
+
+</div>
+{% endif %}
+
+</article>
 
       {# 2) About this occupation #}
       {% if occ.description %}
@@ -294,6 +403,1530 @@ footer a{color:var(--muted)}footer a:hover{color:var(--burnt)}
         </p>
       </article>
       {% endif %}
+      {% if occ.atlas_workbook %}
+
+<article class="card">
+    <span class="card-eyebrow">
+        Jobs and Skills Australia
+    </span>
+
+    <h2 class="card-title">
+        Official Labour Market Data
+    </h2>
+    {% if occ.atlas_workbook.monthly_time_series %}
+
+{% set monthly = occ.atlas_workbook.monthly_time_series %}
+
+<details class="atlas-card" open>
+
+    <summary>
+        📈 Monthly Job Advertisements
+    </summary>
+
+    <div class="atlas-summary-grid">
+
+        <div class="atlas-summary-box">
+            <div class="atlas-label">Latest Month</div>
+            <div class="atlas-value">{{ monthly[0].jobAds_date }}</div>
+        </div>
+
+        <div class="atlas-summary-box">
+            <div class="atlas-label">Occupation Job Ads</div>
+            <div class="atlas-value">{{ monthly[0].jobAds_anzsco4 }}</div>
+        </div>
+
+        <div class="atlas-summary-box">
+            <div class="atlas-label">National Job Ads</div>
+            <div class="atlas-value">{{ monthly[0].jobAds_anzsco1 }}</div>
+        </div>
+
+    </div>
+
+    <div class="atlas-chart-wrapper">
+        <canvas id="monthlyJobAdsChart" height="90"></canvas>
+    </div>
+
+    <!-- <table class="table table-striped table-bordered mt-4">
+
+        <thead class="table-light">
+
+            <tr>
+                <th>Date</th>
+                <th>Occupation Job Ads</th>
+                <th>National Job Ads</th>
+            </tr>
+
+        </thead>
+
+        <tbody>
+
+        {% for row in monthly %}
+
+            <tr>
+
+                <td>{{ row.jobAds_date }}</td>
+
+                <td>{{ row.jobAds_anzsco4 }}</td>
+
+                <td>{{ row.jobAds_anzsco1 }}</td>
+
+            </tr>
+
+        {% endfor %}
+
+        </tbody>
+
+    </table> -->
+
+</details>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+
+const monthlyData = {{ monthly|tojson }};
+
+const labels = monthlyData
+    .map(x => x.jobAds_date)
+    .reverse();
+
+const values = monthlyData
+    .map(x => Number(x.jobAds_anzsco4))
+    .reverse();
+
+new Chart(document.getElementById("monthlyJobAdsChart"), {
+
+    type: "line",
+
+    data: {
+
+        labels: labels,
+
+        datasets: [{
+
+            label: "Monthly Job Advertisements",
+
+            data: values,
+
+            borderColor: "#ff6b35",
+
+            backgroundColor: "rgba(255,107,53,0.15)",
+
+            fill: true,
+
+            borderWidth: 3,
+
+            tension: 0.3,
+
+            pointRadius: 3
+
+        }]
+
+    },
+
+    options: {
+
+        responsive: true,
+
+        maintainAspectRatio: true,
+
+        plugins: {
+
+            legend: {
+
+                display: false
+
+            }
+
+        },
+
+        scales: {
+
+            y: {
+
+                beginAtZero: false
+
+            }
+
+        }
+
+    }
+
+});
+
+</script>
+
+<style>
+
+.atlas-card{
+
+    border:1px solid #e5e5e5;
+
+    border-radius:12px;
+
+    padding:20px;
+
+    margin:20px 0;
+
+    background:#fff;
+
+}
+
+.atlas-card summary{
+
+    font-size:22px;
+
+    font-weight:600;
+
+    cursor:pointer;
+
+    margin-bottom:20px;
+
+}
+
+.atlas-summary-grid{
+
+    display:flex;
+
+    gap:20px;
+
+    margin-bottom:25px;
+
+    flex-wrap:wrap;
+
+}
+
+.atlas-summary-box{
+
+    flex:1;
+
+    min-width:220px;
+
+    background:#f8f9fa;
+
+    border-radius:10px;
+
+    padding:18px;
+
+    border-left:5px solid #ff6b35;
+
+}
+
+.atlas-label{
+
+    color:#666;
+
+    font-size:14px;
+
+}
+
+.atlas-value{
+
+    font-size:26px;
+
+    font-weight:bold;
+
+    margin-top:8px;
+
+}
+
+.atlas-chart-wrapper{
+
+    margin:25px 0;
+
+}
+
+</style>
+
+{% endif %}
+{% if occ.atlas_workbook.quarterly_time_series %}
+
+<style>
+
+.quarterly-count{
+    color:#666;
+    font-size:14px;
+    margin-bottom:18px;
+}
+
+.quarterly-table{
+    width:100%;
+    border-collapse:collapse;
+}
+
+.quarterly-table thead{
+    background:#f8f9fa;
+}
+
+.quarterly-table th{
+    padding:15px;
+    text-align:left;
+    font-size:15px;
+    font-weight:600;
+    color:#132238;
+}
+
+.quarterly-table td{
+    padding:15px;
+    border-top:1px solid #ececec;
+    font-size:15px;
+}
+
+.quarterly-table tbody tr:hover{
+    background:#fafafa;
+}
+
+.emp{
+    color:#2563eb;
+    font-weight:700;
+}
+
+.major{
+    font-weight:600;
+    color:#374151;
+}
+
+.rate{
+    color:#16a34a;
+    font-weight:700;
+}
+
+@media(max-width:768px){
+
+.quarterly-table{
+    display:block;
+    overflow-x:auto;
+    white-space:nowrap;
+}
+
+}
+
+</style>
+
+<details class="atlas-card">
+
+<summary>
+
+📈 Quarterly Employment
+
+</summary>
+
+<div class="quarterly-count">
+
+Showing latest <strong>5</strong> quarterly records
+
+</div>
+
+<table class="quarterly-table">
+
+<thead>
+
+<tr>
+
+<th>Quarter</th>
+
+<th>Employment (Occupation)</th>
+
+<th>Employment (Major Group)</th>
+
+<th>Vacancy Rate</th>
+
+</tr>
+
+</thead>
+
+<tbody>
+
+{% for row in occ.atlas_workbook.quarterly_time_series[:5] %}
+
+<tr>
+
+<td>{{ row.quarter }}</td>
+
+<td class="emp">
+
+{{ "{:,}".format(row.employment_anzsco4|int) }}
+
+</td>
+
+<td class="major">
+
+{{ "{:,}".format(row.employment_anzsco1|int) }}
+
+</td>
+
+<td class="rate">
+
+{{ "%.2f"|format((row.vacancy_rate_anzsco4|float)*100) }}%
+
+</td>
+
+</tr>
+
+{% endfor %}
+
+</tbody>
+
+</table>
+
+</details>
+
+{% endif %}
+<!-- {% if occ.atlas_workbook.quarterly_time_series %}
+
+<details>
+
+<summary>
+
+Quarterly Employment
+
+</summary>
+
+<pre>
+
+{{ occ.atlas_workbook.quarterly_time_series|tojson(indent=2) }}
+
+</pre>
+
+</details>
+
+{% endif %} -->
+
+
+{% if occ.atlas_workbook.employer_recruitment_insights %}
+
+<style>
+
+.recruit-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+    gap:18px;
+}
+
+.recruit-item{
+    background:#f8f9fa;
+    border-radius:10px;
+    padding:18px;
+    border-left:5px solid #ff6b35;
+}
+
+.recruit-label{
+    color:#666;
+    font-size:14px;
+    margin-bottom:8px;
+}
+
+.recruit-value{
+    font-size:30px;
+    font-weight:700;
+    color:#132238;
+    margin-bottom:8px;
+}
+
+.recruit-note{
+    font-size:13px;
+    color:#777;
+    line-height:1.5;
+}
+
+@media(max-width:768px){
+
+.recruit-grid{
+
+grid-template-columns:1fr;
+
+}
+
+}
+
+</style>
+
+<details class="atlas-card">
+
+<summary>
+
+👥 Employer Recruitment Insights
+
+</summary>
+
+{% set r = occ.atlas_workbook.employer_recruitment_insights[0] %}
+
+<div class="recruit-grid">
+
+<div class="recruit-item">
+
+<div class="recruit-label">
+Average Applicants / Vacancy
+</div>
+
+<div class="recruit-value">
+{{ r.average_applicants_per_vacancy }}
+</div>
+
+<div class="recruit-note">
+Applicants competing for each vacancy
+</div>
+
+</div>
+
+<div class="recruit-item">
+
+<div class="recruit-label">
+Qualified Applicants
+</div>
+
+<div class="recruit-value">
+{{ r.average_qualified_applicants_per_vacancy }}
+</div>
+
+<div class="recruit-note">
+Qualified candidates per vacancy
+</div>
+
+</div>
+
+<div class="recruit-item">
+
+<div class="recruit-label">
+Suitable Applicants
+</div>
+
+<div class="recruit-value">
+{{ r.average_suitable_applicants_per_vacancy }}
+</div>
+
+<div class="recruit-note">
+Suitable candidates per vacancy
+</div>
+
+</div>
+
+<div class="recruit-item">
+
+<div class="recruit-label">
+Average Experience
+</div>
+
+<div class="recruit-value">
+{{ r.average_years_of_experience }} yrs
+</div>
+
+<div class="recruit-note">
+Average years of experience
+</div>
+
+</div>
+
+<div class="recruit-item">
+
+<div class="recruit-label">
+Employers Requiring Experience
+</div>
+
+<div class="recruit-value">
+{{ "%.0f"|format(r.employers_requiring_experience*100) }}%
+</div>
+
+<div class="recruit-note">
+Share of employers requesting experience
+</div>
+
+</div>
+
+<div class="recruit-item">
+
+<div class="recruit-label">
+Vacancies Filled
+</div>
+
+<div class="recruit-value">
+{{ "%.0f"|format(r.filled_vacancies*100) }}%
+</div>
+
+<div class="recruit-note">
+Successfully filled positions
+</div>
+
+</div>
+
+</div>
+
+</details>
+
+{% endif %}
+{% if occ.atlas_workbook.top10s %}
+
+<style>
+
+.top10-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+    gap:18px;
+}
+
+.top10-card{
+    background:#f8f9fa;
+    border-left:5px solid #ff6b35;
+    border-radius:10px;
+    padding:18px;
+    transition:.25s;
+}
+
+.top10-card:hover{
+    transform:translateY(-2px);
+    box-shadow:0 8px 18px rgba(0,0,0,.08);
+}
+
+.top10-rank{
+    width:34px;
+    height:34px;
+    border-radius:50%;
+    background:#ff6b35;
+    color:#fff;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:700;
+    font-size:15px;
+    margin-bottom:14px;
+}
+
+.top10-title{
+    font-size:17px;
+    font-weight:700;
+    color:#132238;
+    margin-bottom:12px;
+    line-height:1.4;
+}
+
+.top10-meta{
+    display:flex;
+    justify-content:space-between;
+    font-size:14px;
+    margin-top:8px;
+}
+
+.top10-label{
+    color:#666;
+}
+
+.top10-value{
+    font-weight:700;
+    color:#ff6b35;
+}
+
+</style>
+
+<details class="atlas-card">
+
+<summary>
+
+🏆 Top 10 Statistics
+
+</summary>
+
+<div class="top10-grid">
+
+{% for row in occ.atlas_workbook.top10s %}
+
+<div class="top10-card">
+
+<div class="top10-rank">
+#{{ row.rank_position }}
+</div>
+
+<div class="top10-title">
+{{ row.top_sa4_region_name }}
+</div>
+
+<div class="top10-meta">
+<span class="top10-label">Category</span>
+<span class="top10-value">{{ row.rank_category }}</span>
+</div>
+
+<div class="top10-meta">
+<span class="top10-label">Employment</span>
+<span class="top10-value">{{ "{:,}".format(row.category_value|int) }}</span>
+</div>
+
+<!-- {% if row.category_date %}
+<div class="top10-meta">
+<span class="top10-label">Date</span>
+<span class="top10-value">{{ row.category_date }}</span>
+</div>
+{% endif %} -->
+
+</div>
+
+{% endfor %}
+
+</div>
+
+</details>
+
+{% endif %}
+{% if occ.atlas_workbook.demographic_data %}
+
+<style>
+
+.demo-section{
+    display:flex;
+    flex-direction:column;
+    gap:30px;
+}
+
+.demo-group{
+    background:#f8f9fa;
+    border-left:5px solid #ff6b35;
+    border-radius:12px;
+    padding:20px;
+}
+
+.demo-group-title{
+    font-size:20px;
+    font-weight:700;
+    color:#132238;
+    margin-bottom:18px;
+}
+
+.demo-row{
+    display:grid;
+    grid-template-columns:170px 1fr 70px;
+    gap:18px;
+    align-items:center;
+    margin-bottom:14px;
+}
+
+.demo-label{
+    font-size:15px;
+    color:#374151;
+    font-weight:600;
+}
+
+.demo-bar{
+    width:100%;
+    height:12px;
+    background:#e5e7eb;
+    border-radius:999px;
+    overflow:hidden;
+}
+
+.demo-fill{
+    height:100%;
+    background:linear-gradient(90deg,#ff6b35,#f97316);
+    border-radius:999px;
+}
+
+.demo-value{
+    text-align:right;
+    font-weight:700;
+    color:#132238;
+}
+
+</style>
+
+<details class="atlas-card">
+
+<summary>
+
+👥 Demographics
+
+</summary>
+
+<div class="demo-section">
+
+{% for category, rows in occ.atlas_workbook.demographic_data|groupby("category") %}
+
+<div class="demo-group">
+
+<div class="demo-group-title">
+{{ category }}
+</div>
+
+{% for row in rows %}
+
+{% set pct = (row.category_segment_share_anzsco4|float * 100) %}
+
+<div class="demo-row">
+
+<div class="demo-label">
+{{ row.category_segment }}
+</div>
+
+<div class="demo-bar">
+<div class="demo-fill" style="width:{{ pct }}%"></div>
+</div>
+
+<div class="demo-value">
+{{ "%.1f"|format(pct) }}%
+</div>
+
+</div>
+
+{% endfor %}
+
+</div>
+
+{% endfor %}
+
+</div>
+
+</details>
+
+{% endif %}
+{% if occ.atlas_workbook.main_fields_of_education %}
+
+<style>
+
+.edu-section{
+    display:flex;
+    flex-direction:column;
+    gap:24px;
+}
+
+.edu-group{
+    background:#f8f9fa;
+    border-left:5px solid #ff6b35;
+    border-radius:10px;
+    padding:20px;
+}
+
+.edu-title{
+    font-size:20px;
+    font-weight:700;
+    color:#132238;
+    margin-bottom:18px;
+}
+
+.edu-row{
+    display:grid;
+    grid-template-columns:280px 1fr 70px;
+    gap:18px;
+    align-items:center;
+    margin-bottom:14px;
+}
+
+.edu-label{
+    font-size:15px;
+    color:#374151;
+    font-weight:600;
+}
+
+.edu-bar{
+    width:100%;
+    height:10px;
+    background:#e5e7eb;
+    border-radius:999px;
+    overflow:hidden;
+}
+
+.edu-fill{
+    height:100%;
+    background:linear-gradient(90deg,#ff6b35,#f59e0b);
+    border-radius:999px;
+}
+
+.edu-value{
+    text-align:right;
+    font-weight:700;
+    color:#132238;
+}
+
+@media(max-width:768px){
+
+.edu-row{
+    grid-template-columns:1fr;
+    gap:8px;
+}
+
+.edu-value{
+    text-align:left;
+}
+
+}
+
+</style>
+
+<details class="atlas-card">
+
+<summary>
+
+🎓 Main Fields of Education
+
+</summary>
+
+<div class="edu-section">
+
+{% for level, rows in occ.atlas_workbook.main_fields_of_education|groupby("level_of_education") %}
+
+<div class="edu-group">
+
+<div class="edu-title">
+
+{{ level }}
+
+</div>
+
+{% for row in rows %}
+
+{% set pct = (row.level_of_education_share|float * 100) %}
+
+<div class="edu-row">
+
+<div class="edu-label">
+
+{{ row.top5_fields_of_education }}
+
+</div>
+
+<div class="edu-bar">
+
+<div class="edu-fill"
+style="width:{{ pct }}%">
+</div>
+
+</div>
+
+<div class="edu-value">
+
+{{ "%.1f"|format(pct) }}%
+
+</div>
+
+</div>
+
+{% endfor %}
+
+</div>
+
+{% endfor %}
+
+</div>
+
+</details>
+
+{% endif %}
+{% if occ.atlas_workbook.shortage_ratings %}
+
+<style>
+
+.shortage-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(320px,1fr));
+    gap:18px;
+}
+
+.shortage-card{
+    background:#f8f9fa;
+    border-left:5px solid #ff6b35;
+    border-radius:10px;
+    padding:18px;
+    transition:.25s;
+}
+
+.shortage-card:hover{
+    box-shadow:0 8px 18px rgba(0,0,0,.08);
+}
+
+.shortage-title{
+    font-size:18px;
+    font-weight:700;
+    color:#132238;
+    margin-bottom:15px;
+}
+
+.shortage-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin:10px 0;
+}
+
+.shortage-label{
+    color:#666;
+    font-size:14px;
+}
+
+.shortage-value{
+    font-weight:600;
+    color:#132238;
+}
+
+.shortage-badge{
+    padding:6px 14px;
+    border-radius:30px;
+    color:#fff;
+    font-weight:700;
+    font-size:13px;
+}
+
+.badge-shortage{
+    background:#dc2626;
+}
+
+.badge-none{
+    background:#64748b;
+}
+
+.badge-medium{
+    background:#f59e0b;
+}
+
+.badge-high{
+    background:#16a34a;
+}
+
+</style>
+
+<details class="atlas-card">
+
+<summary>
+
+⚠️ Shortage Ratings
+
+</summary>
+
+<div class="shortage-grid">
+
+{% for row in occ.atlas_workbook.shortage_ratings %}
+
+{% set rating = row.shortage_rating %}
+
+<div class="shortage-card">
+
+<div class="shortage-title">
+{{ row.anzsco_name }}
+</div>
+
+<div class="shortage-row">
+<span class="shortage-label">ANZSCO</span>
+<span class="shortage-value">{{ row.anzsco_code }}</span>
+</div>
+
+<div class="shortage-row">
+<span class="shortage-label">Level</span>
+<span class="shortage-value">{{ row.anzsco_level }}</span>
+</div>
+
+<div class="shortage-row">
+
+<span class="shortage-label">
+Shortage Rating
+</span>
+
+<span class="shortage-badge
+{% if rating == 'S' %}
+badge-shortage
+{% elif rating == 'M' %}
+badge-medium
+{% elif rating == 'H' %}
+badge-high
+{% else %}
+badge-none
+{% endif %}
+">
+
+{{ rating }}
+
+</span>
+
+</div>
+
+<!-- <div class="shortage-row">
+<span class="shortage-label">
+Shortage Driver
+</span>
+
+<span class="shortage-value">
+{{ row.shortage_driver or "Not Available" }}
+</span>
+</div> -->
+
+</div>
+
+{% endfor %}
+
+</div>
+
+</details>
+
+{% endif %}
+{% if occ.atlas_workbook.projected_employment %}
+
+<style>
+
+.proj-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(320px,1fr));
+    gap:20px;
+}
+
+.proj-card{
+    background:#f8f9fa;
+    border-left:5px solid #ff6b35;
+    border-radius:10px;
+    padding:20px;
+    transition:.25s;
+}
+
+.proj-card:hover{
+    transform:translateY(-2px);
+    box-shadow:0 10px 18px rgba(0,0,0,.08);
+}
+
+.proj-year{
+    font-size:28px;
+    font-weight:700;
+    color:#132238;
+    margin-bottom:18px;
+}
+
+.proj-row{
+    margin-bottom:18px;
+}
+
+.proj-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:8px;
+}
+
+.proj-label{
+    font-size:15px;
+    font-weight:600;
+    color:#555;
+}
+
+.proj-value{
+    font-size:16px;
+    font-weight:700;
+    color:#16a34a;
+}
+
+.proj-bar{
+    width:100%;
+    height:10px;
+    background:#e5e7eb;
+    border-radius:20px;
+    overflow:hidden;
+}
+
+.proj-fill{
+    height:100%;
+    background:linear-gradient(90deg,#ff6b35,#f97316);
+}
+
+.proj-footer{
+    margin-top:15px;
+    padding-top:12px;
+    border-top:1px solid #ececec;
+    font-size:14px;
+    color:#666;
+}
+
+</style>
+
+<details class="atlas-card">
+
+<summary>
+
+📈 Projected Employment
+
+</summary>
+
+<div class="proj-grid">
+
+{% for row in occ.atlas_workbook.projected_employment %}
+
+{% set occ_growth = row.projected_change_anzsco4|replace('%','')|float %}
+{% set major_growth = row.projected_change_anzsco1|replace('%','')|float %}
+
+<div class="proj-card">
+
+<div class="proj-year">
+
+{{ row.projected_year }}
+
+</div>
+
+<div class="proj-row">
+
+<div class="proj-head">
+
+<span class="proj-label">
+Occupation Growth
+</span>
+
+<span class="proj-value">
+{{ row.projected_change_anzsco4 }}
+</span>
+
+</div>
+
+<div class="proj-bar">
+<div class="proj-fill" style="width:{{ occ_growth }}%;"></div>
+</div>
+
+</div>
+
+<div class="proj-row">
+
+<div class="proj-head">
+
+<span class="proj-label">
+Major Group Growth
+</span>
+
+<span class="proj-value">
+{{ row.projected_change_anzsco1 }}
+</span>
+
+</div>
+
+<div class="proj-bar">
+<div class="proj-fill" style="width:{{ major_growth }}%;"></div>
+</div>
+
+</div>
+
+<div class="proj-footer">
+
+<strong>Occupation Group:</strong>
+
+{{ row["occupation_group(anzsco1)"] }}
+
+</div>
+
+</div>
+
+{% endfor %}
+
+</div>
+
+</details>
+
+{% endif %}
+{% if occ.atlas_workbook.apprentice_trainee_time_series %}
+
+<style>
+
+.apprentice-table{
+    width:100%;
+    border-collapse:collapse;
+    margin-top:20px;
+}
+
+.apprentice-table thead{
+    background:#f8f9fa;
+}
+
+.apprentice-table th{
+    padding:15px;
+    text-align:left;
+    font-size:15px;
+    color:#132238;
+    font-weight:700;
+}
+
+.apprentice-table td{
+    padding:15px;
+    border-top:1px solid #ececec;
+    font-size:15px;
+}
+
+.apprentice-table tbody tr:hover{
+    background:#fafafa;
+}
+
+.apprentice-value{
+    font-weight:700;
+    color:#1d4ed8;
+}
+
+.apprentice-empty{
+    color:#9ca3af;
+}
+
+</style>
+
+<details class="atlas-card">
+
+<summary>
+
+🎓 Apprentice & Trainee
+
+</summary>
+
+<div class="quarterly-content">
+
+<div class="quarterly-count">
+
+Showing latest
+<strong>5</strong>
+quarters
+
+</div>
+
+<table class="apprentice-table">
+
+<thead>
+
+<tr>
+
+<th>Quarter</th>
+
+<th>Commencements</th>
+
+<th>Completions</th>
+
+<th>In Training</th>
+
+</tr>
+
+</thead>
+
+<tbody>
+
+{% for row in occ.atlas_workbook.apprentice_trainee_time_series[:5] %}
+
+<tr>
+
+<td>
+
+{{ row.quarter }}
+
+</td>
+
+<td class="apprentice-value">
+
+{% if row.commencements is not none %}
+{{ "{:,}".format(row.commencements|int) }}
+{% else %}
+<span class="apprentice-empty">—</span>
+{% endif %}
+
+</td>
+
+<td class="apprentice-value">
+
+{% if row.completions is not none %}
+{{ "{:,}".format(row.completions|int) }}
+{% else %}
+<span class="apprentice-empty">—</span>
+{% endif %}
+
+</td>
+
+<td class="apprentice-value">
+
+{% if row["in-training"] is not none %}
+{{ "{:,}".format(row["in-training"]|int) }}
+{% else %}
+<span class="apprentice-empty">—</span>
+{% endif %}
+
+</td>
+
+</tr>
+
+{% endfor %}
+
+</tbody>
+
+</table>
+
+</div>
+
+</details>
+
+{% endif %}
+{% if occ.atlas_workbook.occupational_mobility %}
+
+<style>
+
+.mobility-table{
+    width:100%;
+    border-collapse:collapse;
+    margin-top:20px;
+}
+
+.mobility-table thead{
+    background:#f8f9fa;
+}
+
+.mobility-table th{
+    padding:15px;
+    text-align:left;
+    font-size:15px;
+    font-weight:700;
+    color:#132238;
+}
+
+.mobility-table td{
+    padding:15px;
+    border-top:1px solid #ececec;
+    font-size:15px;
+    vertical-align:middle;
+}
+
+.mobility-table tbody tr:hover{
+    background:#fafafa;
+}
+
+.mobility-type{
+    display:inline-block;
+    padding:5px 12px;
+    border-radius:30px;
+    font-size:13px;
+    font-weight:700;
+}
+
+.type-stayed{
+    background:#dcfce7;
+    color:#15803d;
+}
+
+.type-in{
+    background:#dbeafe;
+    color:#1d4ed8;
+}
+
+.type-out{
+    background:#fee2e2;
+    color:#dc2626;
+}
+
+.move-count{
+    font-weight:700;
+    color:#1d4ed8;
+}
+
+.origin{
+    color:#374151;
+}
+
+.destination{
+    font-weight:600;
+    color:#132238;
+}
+
+</style>
+
+<details class="atlas-card">
+
+<summary>
+
+🔄 Occupational Mobility
+
+</summary>
+
+<div class="quarterly-content">
+
+<div class="quarterly-count">
+
+Showing latest
+<strong>10</strong>
+occupational movements
+
+</div>
+
+<table class="mobility-table">
+
+<thead>
+
+<tr>
+
+<th>Movement</th>
+
+<th>From</th>
+
+<th>To</th>
+
+<th>People</th>
+
+<th>Period</th>
+
+</tr>
+
+</thead>
+
+<tbody>
+
+{% for row in occ.atlas_workbook.occupational_mobility[:10] %}
+
+<tr>
+
+<td>
+
+{% if "stayed" in row.Occupational_mobility|lower %}
+
+<span class="mobility-type type-stayed">
+
+Stayed
+
+</span>
+
+{% elif "moving in" in row.Occupational_mobility|lower %}
+
+<span class="mobility-type type-in">
+
+Moving In
+
+</span>
+
+{% else %}
+
+<span class="mobility-type type-out">
+
+Moving Out
+
+</span>
+
+{% endif %}
+
+</td>
+
+<td class="origin">
+
+{{ row.anzsco_name_origin }}
+
+</td>
+
+<td class="destination">
+
+{{ row.anzsco_name_destination }}
+
+</td>
+
+<td class="move-count">
+
+{{ "{:,}".format(row.people_movement|int) }}
+
+</td>
+
+<td>
+
+{{ row.year_origin }} → {{ row.year_destination }}
+
+</td>
+
+</tr>
+
+{% endfor %}
+
+</tbody>
+
+</table>
+
+</div>
+
+</details>
+
+{% endif %}
+</article>
+
+{% endif %}
 
       {# Top Industries mini-chart #}
       {% if abs_d.top_industries %}
@@ -301,17 +1934,34 @@ footer a{color:var(--muted)}footer a:hover{color:var(--burnt)}
         <span class="card-eyebrow">Where workers go</span>
         <h2 class="card-title">🏭 Top employing industries</h2>
         <ul style="list-style:none;display:flex;flex-direction:column;gap:8px">
-          {% for ind in abs_d.top_industries[:5] %}
-          {% set ind_slug = industry_slug_map.get(ind.name) if industry_slug_map else None %}
-          <li style="display:flex;align-items:center;gap:10px">
-            <span style="width:20px;height:20px;border-radius:6px;background:var(--burnt);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">{{ loop.index }}</span>
-            {% if ind_slug %}
-              <a href="/atlas/au/industry/{{ ind_slug }}/" style="font-size:14px;color:var(--burnt);text-decoration:none;font-weight:600" data-testid="occ-industry-link-{{ ind_slug }}">{{ ind.name }} →</a>
-            {% else %}
-              <span style="font-size:14px;color:var(--ink)">{{ ind.name }}</span>
-            {% endif %}
-          </li>
-          {% endfor %}
+        {% for ind in abs_d.top_industries[:5] %}
+
+    {% if ind is string %}
+        {% set ind_name = ind %}
+    {% else %}
+        {% set ind_name = ind.name %}
+    {% endif %}
+
+    {% set ind_slug = industry_slug_map.get(ind_name) if industry_slug_map else None %}
+
+    <li style="display:flex;align-items:center;gap:10px">
+        <span style="width:20px;height:20px;border-radius:6px;background:var(--burnt);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">
+            {{ loop.index }}
+        </span>
+
+        {% if ind_slug %}
+            <a href="/atlas/au/industry/{{ ind_slug }}/"
+               style="font-size:14px;color:var(--burnt);font-weight:600;text-decoration:none">
+                {{ ind_name }} →
+            </a>
+        {% else %}
+            <span style="font-size:14px;color:var(--ink)">
+                {{ ind_name }}
+            </span>
+        {% endif %}
+    </li>
+
+{% endfor %}
         </ul>
         <p style="font-size:11px;color:var(--muted);margin-top:12px">Source: ABS via JSA Feb 2026 (ranked by share of employment){% if industry_slug_map %} &middot; <em>Click any industry for hub page</em>{% endif %}</p>
       </article>
@@ -513,22 +2163,90 @@ footer a{color:var(--muted)}footer a:hover{color:var(--burnt)}
         </div>
       </article>
       {% endif %}
+      {% if occ.industry_data %}
+<article class="card">
+    <span class="card-eyebrow">Industry Insights</span>
+    <h2 class="card-title">🏭 {{ occ.industry_data.industry_name }}</h2>
+
+    <div class="metric-grid">
+
+        <div class="metric">
+            <div class="ml">Industry Code</div>
+            <div class="mv">{{ occ.industry_data.anzsic_code }}</div>
+        </div>
+
+        {% if occ.industry_data.quarterly_time_series %}
+        <div class="metric">
+            <div class="ml">Current Workers</div>
+            <div class="mv">
+                {{ "{:,}".format(occ.industry_data.quarterly_time_series[-1].headcount|int) }}
+            </div>
+        </div>
+
+        <div class="metric">
+            <div class="ml">Current Vacancies</div>
+            <div class="mv">
+                {{ "{:,}".format(occ.industry_data.quarterly_time_series[-1].vacancies|int) }}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if occ.industry_data.median_weekly_earnings %}
+        <div class="metric">
+            <div class="ml">Median Weekly Salary</div>
+            <div class="mv">
+                AUD ${{ "{:,}".format(occ.industry_data.median_weekly_earnings[1].median_weekly_earnings|int) }}
+            </div>
+        </div>
+        {% endif %}
+
+    </div>
+
+    {% if occ.industry_data.top_occupations %}
+    <h3 style="margin-top:25px">Top Occupations</h3>
+
+    <ul class="docs-list">
+        {% for item in occ.industry_data.top_occupations[:5] %}
+        <li>
+            {{ item.occupation_name }}
+        </li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+
+    {% if occ.industry_data.top_regions %}
+    <h3 style="margin-top:25px">Top Regions</h3>
+
+    <ul class="docs-list">
+        {% for region in occ.industry_data.top_regions[:10] %}
+        <li>
+            {{ region.region_name }}
+        </li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+
+</article>
+{% endif %}
 
       {# 10b) Phase 19.4d — Top States (AU only) #}
-      {% if country_code == 'AU' and top_states %}
-      <article class="card">
-        <span class="card-eyebrow">State opportunity map</span>
-        <h2 class="card-title">Top 3 states hiring {{ occ.title }}</h2>
-        <div class="sim-grid">
-          {% for st in top_states %}
-            <a class="sim-card" href="/atlas/au/state/{{ st.slug }}/">
-              <div class="sc-code">{{ st.state_code }} · {{ st.capital_city }}</div>
-              <div class="sc-title">{{ st.state_name }} — {{ st.state_share_pct }}% national share</div>
-            </a>
-          {% endfor %}
+      {% set states = occ.abs_data.state_distribution or occ.state_distribution %}
+
+{% if country_code == 'AU' and states %}
+<article class="card">
+    <span class="card-eyebrow">State opportunity map</span>
+    <h2 class="card-title">State hiring distribution</h2>
+
+    <div class="sim-grid">
+        {% for state, pct in states.items() %}
+        <div class="sim-card">
+            <div class="sc-code">{{ state }}</div>
+            <div class="sc-title">{{ pct }}% national share</div>
         </div>
-      </article>
-      {% endif %}
+        {% endfor %}
+    </div>
+</article>
+{% endif %}
 
       {# Bottom CTA #}
       <div class="bottom-cta">
@@ -605,5 +2323,18 @@ footer a{color:var(--muted)}footer a:hover{color:var(--burnt)}
 </footer>
 
 <div id="root"></div>
+{% if occ.industry_data %}
+<div class="card">
+    <h2>Industry Test</h2>
+
+    <p>
+        {{ occ.industry_data.industry_name }}
+    </p>
+
+    <p>
+        {{ occ.industry_data.anzsic_code }}
+    </p>
+</div>
+{% endif %}
 </body>
 </html>

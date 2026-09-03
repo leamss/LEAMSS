@@ -1,0 +1,75 @@
+{# ALL AU SUBCLASS POINTS — 189 / 190 / 491 side-by-side with occupation open/closed #}
+{% set sp = snap.au_subclass_points or {} %}
+{% set rows = sp.get('rows') or [] %}
+
+{% if rows %}
+<div class="page">
+
+  <div class="section-header">
+    <span class="eyebrow">Points Across All Pathways</span>
+    <h1>Your Points — 189 · 190 · 491</h1>
+    <span class="rule"></span>
+    <p class="lead">Your points are shown for all three General Skilled Migration pathways, not just one —
+       so you can see every option at a glance. The 190 and 491 totals include the state / regional
+       nomination points these visas offer. "Occupation open" shows whether
+       {% if sp.occupation_code %}<b>{{ sp.occupation_code }} {{ sp.occupation_title }}</b>{% else %}your occupation{% endif %}
+       is currently accepted for each pathway.</p>
+  </div>
+
+  <table class="sp-table">
+    <thead>
+      <tr>
+        <th class="sp-sc-col">Visa Pathway</th>
+        <th>Your Points</th>
+        <th>Meets Minimum (65)</th>
+        <th>Occupation Open</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+        <tr>
+          <td class="sp-sc-col">
+            <span class="sp-code">Subclass {{ r.subclass }}</span>
+            <span class="sp-label">{{ r.label }}</span>
+          </td>
+          <td>
+            <span class="sp-pts">{{ r.points }}</span>
+            {% if r.nomination %}<span class="sp-nom">incl. +{{ r.nomination }} nomination</span>{% endif %}
+          </td>
+          <td>{% if r.meets_pass %}<span class="yes">✓</span>{% else %}<span class="no">✗</span>{% endif %}</td>
+          <td>
+            {% if r.occupation_open is none %}<span class="tiny">—</span>
+            {% elif r.occupation_open %}<span class="yes">✓ Open</span>
+            {% else %}<span class="no">✗ Closed</span>{% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="spacer-sm"></div>
+  <div class="note">
+    <b>How to read this:</b> Subclass 190 adds <b>+5</b> state-nomination points and subclass 491 adds
+    <b>+15</b> regional / family-sponsorship points — these require a nomination or sponsorship invitation.
+    Even where an occupation is not currently open for a pathway, your points are shown so you can plan
+    for future list changes. Minimum eligibility is 65 points; higher points improve invitation chances.
+  </div>
+
+  <style>
+    table.sp-table { width:100%; border-collapse:separate; border-spacing:0; margin-top:8pt; font-size:9pt; }
+    table.sp-table th, table.sp-table td { border-bottom:0.75pt solid var(--border); padding:8pt 10pt; text-align:center; vertical-align:middle; }
+    table.sp-table thead th { background:var(--teal-700); color:var(--white); font-size:8.5pt; }
+    table.sp-table thead th:first-child { border-top-left-radius:6pt; text-align:left; }
+    table.sp-table thead th:last-child { border-top-right-radius:6pt; }
+    .sp-sc-col { text-align:left !important; width:34%; }
+    .sp-code { display:block; font-family:'Playfair Display',serif; font-size:11pt; font-weight:800; color:var(--teal-800); }
+    .sp-label { display:block; font-size:8pt; color:var(--slate-500); }
+    .sp-pts { font-family:'Playfair Display',serif; font-size:16pt; font-weight:800; color:var(--teal-700); }
+    .sp-nom { display:block; font-size:7pt; color:var(--gold-600, #b8860b); font-weight:700; }
+    table.sp-table .yes { color:#0b8457; font-weight:800; }
+    table.sp-table .no { color:#c0392b; font-weight:800; }
+    table.sp-table tbody tr:nth-child(3) td { border-bottom:none; }
+  </style>
+
+</div>
+{% endif %}

@@ -46,7 +46,7 @@ const MarketingDashboard = () => {
   
   // Promos
   const [promos, setPromos] = useState([]);
-  const [promoDialog, setPromoDialog] = useState({ open: false, data: {} });
+  const [promoDialog, setPromoDialog] = useState({ open: false, data: {}, mode: 'create' });
 
   // Scorecards (eligibility leads)
   const [scorecardLeads, setScorecardLeads] = useState([]);
@@ -206,11 +206,18 @@ const MarketingDashboard = () => {
 
   const handleSavePromo = async () => {
     try {
-      await axios.post(`${API}/marketing/promo`, promoDialog.data, getAuthHeader());
-      toast.success('Promo code created!');
-      setPromoDialog({ open: false, data: {} });
+      if (promoDialog.mode === 'edit' && promoDialog.data?.id) {
+        await axios.put(`${API}/marketing/promo/${promoDialog.data.id}`, promoDialog.data, getAuthHeader());
+        toast.success(`Promo code ${promoDialog.data.code} updated successfully!`);
+      } else {
+        await axios.post(`${API}/marketing/promo`, promoDialog.data, getAuthHeader());
+        toast.success('Promo code created successfully!');
+      }
+      setPromoDialog({ open: false, data: {}, mode: 'create' });
       loadData();
-    } catch (e) { toast.error('Failed'); }
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || 'Failed to save promo code');
+    }
   };
 
   const stageColors = {
@@ -716,26 +723,87 @@ const MarketingDashboard = () => {
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold">Promo Codes</h3>
-              <Button className="bg-[#2a777a] hover:bg-[#236466] text-white" onClick={() => setPromoDialog({ open: true, data: { discount_type: 'percentage', discount_value: 10, max_uses: 100 } })} data-testid="create-promo-btn">
+              <Button
+                className="bg-[#2a777a] hover:bg-[#236466] text-white"
+                onClick={() => setPromoDialog({ open: true, mode: 'create', data: { discount_type: 'percentage', discount_value: 10, max_uses: 100, is_active: true, active: true } })}
+                data-testid="create-promo-btn"
+              >
                 <Plus className="h-4 w-4 mr-2" />Create Promo
               </Button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {promos.map(p => (
-                <Card key={p.id} className={`p-5 ${p.active ? '' : 'opacity-60'}`} data-testid={`promo-${p.code}`}>
-                  <div className="flex items-center justify-between mb-2">
-                    <code className="text-lg font-bold text-[#2a777a] bg-teal-50 px-3 py-1 rounded">{p.code}</code>
-                    <Badge className={p.active ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}>{p.active ? 'Active' : 'Inactive'}</Badge>
-                  </div>
-                  <p className="text-sm text-slate-600">{p.discount_type === 'percentage' ? `${p.discount_value}% off` : `Flat ${p.discount_value} off`}</p>
-                  <p className="text-xs text-slate-500 mt-1">Used: {p.used_count || 0} / {p.max_uses || 'Unlimited'}</p>
-                  <div className="flex gap-2 mt-3">
-                    <Button size="sm" variant="ghost" className="text-red-500" onClick={async () => { await axios.delete(`${API}/marketing/promo/${p.id}`, getAuthHeader()); loadData(); }}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </Card>
-              ))}
+              {promos.map(p => {
+                const used = p.current_uses ?? p.used_count ?? 0;
+                const max = p.max_uses;
+                const isLimitReached = Boolean(max && max > 0 && used >= max);
+                const isExplicitActive = p.is_active !== undefined ? p.is_active : (p.active !== undefined ? p.active : true);
+                const isActive = isExplicitActive && !isLimitReached;
+
+                return (
+                  <Card key={p.id} className={`p-5 transition-all ${isActive ? 'bg-white hover:shadow-md' : 'bg-slate-50/80 border-dashed opacity-80'}`} data-testid={`promo-${p.code}`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <code className="text-lg font-bold text-[#2a777a] bg-teal-50 px-3 py-1 rounded">{p.code}</code>
+                      <Badge className={
+                        isActive ? 'bg-emerald-100 text-emerald-800 border-emerald-200' :
+                        isLimitReached ? 'bg-amber-100 text-amber-900 border border-amber-300 font-semibold' :
+                        'bg-rose-100 text-rose-800 border-rose-200'
+                      }>
+                        {isActive ? 'Active' : isLimitReached ? 'Limit Reached' : 'Inactive'}
+                      </Badge>
+                    </div>
+                    <p className="text-sm font-semibold text-slate-700">{p.discount_type === 'percentage' ? `${p.discount_value}% off` : `Flat ₹${p.discount_value} off`}</p>
+                    <p className="text-xs text-slate-500 mt-1 font-medium">
+                      Used: <strong className={isLimitReached ? 'text-amber-700' : 'text-slate-700'}>{used}</strong> / {max || 'Unlimited'}
+                    </p>
+                    {p.notes && <p className="text-xs text-slate-400 mt-1 italic line-clamp-1">{p.notes}</p>}
+                    
+                    <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-100">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 text-xs font-medium text-slate-700 hover:text-[#2a777a] hover:border-[#2a777a] flex items-center gap-1.5"
+                        onClick={() => setPromoDialog({
+                          open: true,
+                          mode: 'edit',
+                          data: {
+                            id: p.id,
+                            code: p.code,
+                            discount_type: p.discount_type || 'percentage',
+                            discount_value: p.discount_value ?? 10,
+                            max_uses: p.max_uses ?? 100,
+                            is_active: p.is_active !== undefined ? p.is_active : (p.active !== undefined ? p.active : true),
+                            active: p.is_active !== undefined ? p.is_active : (p.active !== undefined ? p.active : true),
+                            current_uses: used,
+                            notes: p.notes || ''
+                          }
+                        })}
+                        data-testid={`edit-promo-${p.code}`}
+                      >
+                        <Edit className="h-3.5 w-3.5" />
+                        Edit Details
+                      </Button>
+
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 text-xs text-red-500 hover:text-red-700 hover:bg-red-50"
+                        title="Deactivate / Delete"
+                        onClick={async () => {
+                          if (window.confirm(`Deactivate promo code ${p.code}?`)) {
+                            await axios.delete(`${API}/marketing/promo/${p.id}`, getAuthHeader());
+                            toast.success(`Promo code ${p.code} deactivated`);
+                            loadData();
+                          }
+                        }}
+                        data-testid={`delete-promo-${p.code}`}
+                      >
+                        <Trash2 className="h-3.5 w-3.5 mr-1" />
+                        Deactivate
+                      </Button>
+                    </div>
+                  </Card>
+                );
+              })}
             </div>
           </div>
         )}
@@ -834,21 +902,101 @@ const MarketingDashboard = () => {
 
       {/* Promo Dialog */}
       <Dialog open={promoDialog.open} onOpenChange={(o) => setPromoDialog({ ...promoDialog, open: o })}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Create Promo Code</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <div><Label>Code *</Label><Input placeholder="e.g., SUMMER2026" value={promoDialog.data?.code || ''} onChange={(e) => setPromoDialog({ ...promoDialog, data: { ...promoDialog.data, code: e.target.value.toUpperCase() } })} /></div>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold text-slate-800">
+              {promoDialog.mode === 'edit' ? 'Edit Promo Code Details' : 'Create New Promo Code'}
+            </DialogTitle>
+          </DialogHeader>
+
+          {promoDialog.mode === 'edit' && (
+            <div className="bg-teal-50 border border-teal-200 rounded-lg p-3 text-xs text-teal-800 flex items-center justify-between">
+              <div>
+                <span className="font-semibold">Current Usage:</span> {promoDialog.data?.current_uses ?? 0} successful client payments
+              </div>
+              <Badge variant="outline" className="bg-white border-teal-300 text-teal-700">
+                {promoDialog.data?.current_uses ?? 0} / {promoDialog.data?.max_uses || '∞'}
+              </Badge>
+            </div>
+          )}
+
+          <div className="space-y-3.5 pt-1">
+            <div>
+              <Label className="text-xs font-semibold text-slate-700">Promo Code *</Label>
+              <Input
+                placeholder="e.g., SUMMER2026"
+                className="font-mono uppercase font-bold tracking-wider"
+                value={promoDialog.data?.code || ''}
+                onChange={(e) => setPromoDialog({ ...promoDialog, data: { ...promoDialog.data, code: e.target.value.toUpperCase() } })}
+              />
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
-              <div><Label>Discount Type</Label>
-                <Select value={promoDialog.data?.discount_type || 'percentage'} onValueChange={(v) => setPromoDialog({ ...promoDialog, data: { ...promoDialog.data, discount_type: v } })}>
+              <div>
+                <Label className="text-xs font-semibold text-slate-700">Discount Type</Label>
+                <Select
+                  value={promoDialog.data?.discount_type || 'percentage'}
+                  onValueChange={(v) => setPromoDialog({ ...promoDialog, data: { ...promoDialog.data, discount_type: v } })}
+                >
                   <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent><SelectItem value="percentage">Percentage (%)</SelectItem><SelectItem value="flat">Flat Amount</SelectItem></SelectContent>
+                  <SelectContent>
+                    <SelectItem value="percentage">Percentage (%)</SelectItem>
+                    <SelectItem value="flat">Flat Amount (₹)</SelectItem>
+                  </SelectContent>
                 </Select>
               </div>
-              <div><Label>Discount Value</Label><Input type="number" value={promoDialog.data?.discount_value || 10} onChange={(e) => setPromoDialog({ ...promoDialog, data: { ...promoDialog.data, discount_value: parseFloat(e.target.value) } })} /></div>
+              <div>
+                <Label className="text-xs font-semibold text-slate-700">
+                  {promoDialog.data?.discount_type === 'percentage' ? 'Discount Percentage (%)' : 'Discount Amount (₹)'}
+                </Label>
+                <Input
+                  type="number"
+                  value={promoDialog.data?.discount_value ?? 10}
+                  onChange={(e) => setPromoDialog({ ...promoDialog, data: { ...promoDialog.data, discount_value: parseFloat(e.target.value) || 0 } })}
+                />
+              </div>
             </div>
-            <div><Label>Max Uses</Label><Input type="number" value={promoDialog.data?.max_uses || 100} onChange={(e) => setPromoDialog({ ...promoDialog, data: { ...promoDialog.data, max_uses: parseInt(e.target.value) } })} /></div>
-            <Button onClick={handleSavePromo} className="w-full bg-[#2a777a] hover:bg-[#236466] text-white">Create Promo Code</Button>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs font-semibold text-slate-700">Status</Label>
+                <Select
+                  value={promoDialog.data?.is_active !== false && promoDialog.data?.active !== false ? 'active' : 'inactive'}
+                  onValueChange={(v) => setPromoDialog({ ...promoDialog, data: { ...promoDialog.data, is_active: v === 'active', active: v === 'active' } })}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="inactive">Inactive</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs font-semibold text-slate-700">Max User Limit (Uses)</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  placeholder="e.g. 2, 5, 50"
+                  value={promoDialog.data?.max_uses ?? 100}
+                  onChange={(e) => setPromoDialog({ ...promoDialog, data: { ...promoDialog.data, max_uses: parseInt(e.target.value) || 1 } })}
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-xs font-semibold text-slate-700">Internal Description / Notes</Label>
+              <Input
+                placeholder="e.g., Summer 2026 Special Campaign"
+                value={promoDialog.data?.notes || ''}
+                onChange={(e) => setPromoDialog({ ...promoDialog, data: { ...promoDialog.data, notes: e.target.value } })}
+              />
+            </div>
+
+            <div className="pt-2">
+              <Button onClick={handleSavePromo} className="w-full bg-[#2a777a] hover:bg-[#236466] text-white font-medium">
+                {promoDialog.mode === 'edit' ? 'Save & Update Promo Code' : 'Create Promo Code'}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

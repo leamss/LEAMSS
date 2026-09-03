@@ -53,7 +53,6 @@ const VENDOR_CATS = [
 
 const catColor = (key) => (VENDOR_CATS.find(c => c.key === key) || {}).color || 'slate';
 
-
 // ═══════════════════════════════════════════════════════════════════════
 // MASTER LIST (left pane)
 // ═══════════════════════════════════════════════════════════════════════
@@ -104,7 +103,6 @@ function ProductCard({ product, selected, onSelect }) {
   );
 }
 
-
 // ═══════════════════════════════════════════════════════════════════════
 // EDIT: Cost Allocations tab
 // ═══════════════════════════════════════════════════════════════════════
@@ -113,8 +111,9 @@ function AllocationsEditor({ product, allocations, onChange }) {
     const sp = parseFloat(product?.service_price || product?.base_fee || 0);
     return allocations.reduce((acc, a) => {
       if (a.is_optional) return acc;
-      if (a.payment_type === 'percentage') return acc + (sp * (parseFloat(a.rate) || 0) / 100);
-      return acc + (parseFloat(a.amount) || 0);
+      const rateVal = parseFloat(a.rate !== undefined && a.rate !== null && a.rate !== '' ? a.rate : a.amount) || 0;
+      if (a.payment_type === 'percentage') return acc + (sp * rateVal / 100);
+      return acc + (parseFloat(a.amount !== undefined && a.amount !== null && a.amount !== '' ? a.amount : a.rate) || 0);
     }, 0);
   }, [allocations, product]);
 
@@ -152,6 +151,14 @@ function AllocationsEditor({ product, allocations, onChange }) {
         <div className="space-y-2">
           {allocations.map((a, i) => {
             const c = catColor(a.vendor_category);
+            const currentVal = a.payment_type === 'percentage'
+              ? (a.rate !== undefined && a.rate !== null ? a.rate : (a.amount !== undefined ? a.amount : ''))
+              : (a.amount !== undefined && a.amount !== null ? a.amount : (a.rate !== undefined ? a.rate : ''));
+            const sp = parseFloat(product?.service_price || product?.base_fee || 0);
+            const estCalc = a.payment_type === 'percentage' && sp > 0
+              ? (sp * (parseFloat(currentVal) || 0) / 100)
+              : null;
+
             return (
               <Card key={i} className={`p-3 border-l-4 border-${c}-400`} data-testid={`alloc-row-${i}`}>
                 <div className="grid grid-cols-12 gap-2 items-center">
@@ -162,7 +169,9 @@ function AllocationsEditor({ product, allocations, onChange }) {
                       {VENDOR_CATS.map(c => <SelectItem key={c.key} value={c.key}>{c.label}</SelectItem>)}
                     </SelectContent>
                   </Select>
-                  <Select value={a.payment_type || 'flat'} onValueChange={v => updateRow(i, { payment_type: v })}>
+                  <Select value={a.payment_type || 'flat'} onValueChange={v => {
+                    updateRow(i, { payment_type: v, rate: currentVal, amount: currentVal });
+                  }}>
                     <SelectTrigger className="col-span-2 h-8 text-xs" data-testid={`alloc-type-${i}`}><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="flat">Flat ₹</SelectItem>
@@ -170,9 +179,26 @@ function AllocationsEditor({ product, allocations, onChange }) {
                     </SelectContent>
                   </Select>
                   {a.payment_type === 'percentage' ? (
-                    <Input type="number" className="col-span-2 h-8" value={a.rate || ''} onChange={e => updateRow(i, { rate: e.target.value })} placeholder="%" data-testid={`alloc-rate-${i}`} />
+                    <div className="col-span-2 relative flex items-center">
+                      <Input
+                        type="number"
+                        className="h-8 pr-6 text-xs font-semibold"
+                        value={currentVal}
+                        onChange={e => updateRow(i, { rate: e.target.value, amount: e.target.value })}
+                        placeholder="%"
+                        data-testid={`alloc-rate-${i}`}
+                      />
+                      <span className="absolute right-2 text-xs font-bold text-slate-400 pointer-events-none">%</span>
+                    </div>
                   ) : (
-                    <Input type="number" className="col-span-2 h-8" value={a.amount || ''} onChange={e => updateRow(i, { amount: e.target.value })} placeholder="₹" data-testid={`alloc-amount-${i}`} />
+                    <Input
+                      type="number"
+                      className="col-span-2 h-8 text-xs font-semibold"
+                      value={currentVal}
+                      onChange={e => updateRow(i, { amount: e.target.value, rate: e.target.value })}
+                      placeholder="₹"
+                      data-testid={`alloc-amount-${i}`}
+                    />
                   )}
                   <div className="col-span-2 flex items-center gap-1 text-[11px]">
                     <input type="checkbox" checked={!!a.is_optional} onChange={e => updateRow(i, { is_optional: e.target.checked })} data-testid={`alloc-optional-${i}`} />
@@ -180,6 +206,11 @@ function AllocationsEditor({ product, allocations, onChange }) {
                   </div>
                   <Button size="sm" variant="ghost" className="col-span-1 text-rose-500 hover:bg-rose-50 h-8" onClick={() => removeRow(i)} data-testid={`alloc-del-${i}`}><Trash2 className="h-3.5 w-3.5" /></Button>
                 </div>
+                {estCalc !== null && (
+                  <p className="text-[10px] text-slate-500 mt-1 text-right font-medium">
+                    {currentVal}% of {formatINR(sp)} = <strong className="text-emerald-700">{formatINR(estCalc)}</strong>
+                  </p>
+                )}
               </Card>
             );
           })}
@@ -204,7 +235,6 @@ function AllocationsEditor({ product, allocations, onChange }) {
     </div>
   );
 }
-
 
 // ═══════════════════════════════════════════════════════════════════════
 // EDIT: Success Bonuses tab
@@ -250,6 +280,523 @@ function BonusesEditor({ bonuses, onChange }) {
               </Card>
             );
           })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// const PKG_TYPES = [
+//   { key: 'standard', label: 'Standard Package' },
+//   { key: 'smart',    label: 'Smart Package' },
+//   { key: 'premium',  label: 'Premium Package' },
+// ];
+
+// function PackagesEditor({ packages, onChange }) {
+//   const updatePkg = (i, patch) => {
+//     const next = [...packages];
+//     next[i] = { ...next[i], ...patch };
+//     onChange(next);
+//   };
+//   const updatePM = (i, method, patch) => {
+//     const next = [...packages];
+//     next[i] = {
+//       ...next[i],
+//       payment_methods: {
+//         ...next[i].payment_methods,
+//         [method]: { ...next[i].payment_methods[method], ...patch }
+//       }
+//     };
+//     onChange(next);
+//   };
+//   const addPkg = () => {
+//     onChange([...packages, {
+//       id: crypto.randomUUID(), package_type: 'standard', name: 'New Package',
+//       price: 0, description: '', is_active: true,
+//       payment_methods: {
+//         full_payment: { enabled: true },
+//         split_50_50: { enabled: false, first_pct: 50, trigger_condition: '' },
+//         installments: { enabled: false, max_installments: 5 },
+//       },
+//     }]);
+//   };
+//   const removePkg = (i) => onChange(packages.filter((_, idx) => idx !== i));
+
+//   return (
+//     <div className="space-y-4">
+//       <div className="flex items-center justify-between">
+//         <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2">
+//           <Package className="h-4 w-4 text-leamss-teal" />Packages & Payment Methods
+//         </h3>
+//         <Button size="sm" onClick={addPkg} variant="outline" data-testid="add-package">
+//           <Plus className="h-3.5 w-3.5 mr-1" />Add Package
+//         </Button>
+//       </div>
+
+//       {packages.length === 0 ? (
+//         <Card className="p-8 text-center bg-slate-50">
+//           <Package className="h-8 w-8 text-slate-300 mx-auto mb-2" />
+//           <p className="text-sm text-slate-500">No packages configured yet.</p>
+//         </Card>
+//       ) : (
+//         packages.map((pkg, i) => (
+//           <Card key={pkg.id || i} className="p-4 border-l-4 border-leamss-teal" data-testid={`package-row-${i}`}>
+//             {/* Package basic info */}
+//             <div className="grid grid-cols-12 gap-2 items-end mb-3">
+//               <div className="col-span-3">
+//                 <Label className="text-[10px] font-bold">Package Type</Label>
+//                 <Select value={pkg.package_type} onValueChange={v => updatePkg(i, { package_type: v, name: PKG_TYPES.find(p => p.key === v)?.label || v })}>
+//                   <SelectTrigger className="h-8 text-xs" data-testid={`pkg-type-${i}`}><SelectValue /></SelectTrigger>
+//                   <SelectContent>
+//                     {PKG_TYPES.map(t => <SelectItem key={t.key} value={t.key}>{t.label}</SelectItem>)}
+//                   </SelectContent>
+//                 </Select>
+//               </div>
+//               <div className="col-span-4">
+//                 <Label className="text-[10px] font-bold">Display Name</Label>
+//                 <Input className="h-8" value={pkg.name} onChange={e => updatePkg(i, { name: e.target.value })} data-testid={`pkg-name-${i}`} />
+//               </div>
+//               <div className="col-span-3">
+//                 <Label className="text-[10px] font-bold">Price (₹)</Label>
+//                 <Input type="number" className="h-8" value={pkg.price} onChange={e => updatePkg(i, { price: parseFloat(e.target.value) || 0 })} data-testid={`pkg-price-${i}`} />
+//               </div>
+//               <div className="col-span-1 flex items-center gap-1 text-[10px]">
+//                 <input type="checkbox" checked={!!pkg.is_active} onChange={e => updatePkg(i, { is_active: e.target.checked })} />
+//                 Active
+//               </div>
+//               <Button size="sm" variant="ghost" className="col-span-1 text-rose-500 hover:bg-rose-50 h-8" onClick={() => removePkg(i)} data-testid={`pkg-del-${i}`}>
+//                 <Trash2 className="h-3.5 w-3.5" />
+//               </Button>
+//             </div>
+//             <Input className="h-8 mb-3" placeholder="Short description (optional)" value={pkg.description || ''} onChange={e => updatePkg(i, { description: e.target.value })} />
+
+//             {/* Payment methods for this package */}
+//             <div className="bg-slate-50 rounded-lg p-3 space-y-2">
+//               <p className="text-[10px] uppercase font-bold text-slate-500">Payment Methods Available</p>
+
+//               {/* Full payment */}
+//               <div className="flex items-center gap-2 bg-white rounded p-2 border">
+//                 <input type="checkbox" checked={pkg.payment_methods?.full_payment?.enabled}
+//                   onChange={e => updatePM(i, 'full_payment', { enabled: e.target.checked })} />
+//                 <span className="text-xs font-semibold flex-1">Full Payment — client pays 100% at once</span>
+//               </div>
+
+//               {/* 50-50 split */}
+//               <div className="bg-white rounded p-2 border">
+//                 <div className="flex items-center gap-2">
+//                   <input type="checkbox" checked={pkg.payment_methods?.split_50_50?.enabled}
+//                     onChange={e => updatePM(i, 'split_50_50', { enabled: e.target.checked })} />
+//                   <span className="text-xs font-semibold flex-1">50-50 Split Payment</span>
+//                 </div>
+//                 {pkg.payment_methods?.split_50_50?.enabled && (
+//                   <div className="grid grid-cols-2 gap-2 mt-2 pl-6">
+//                     <div>
+//                       <Label className="text-[10px]">1st Installment %</Label>
+//                       <Input type="number" className="h-7 text-xs" value={pkg.payment_methods.split_50_50.first_pct || 50}
+//                         onChange={e => updatePM(i, 'split_50_50', { first_pct: parseFloat(e.target.value) || 50 })} />
+//                     </div>
+//                     <div>
+//                       <Label className="text-[10px]">2nd Installment Trigger</Label>
+//                       <Input className="h-7 text-xs" placeholder="e.g. After positive skill assessment"
+//                         value={pkg.payment_methods.split_50_50.trigger_condition || ''}
+//                         onChange={e => updatePM(i, 'split_50_50', { trigger_condition: e.target.value })} />
+//                     </div>
+//                   </div>
+//                 )}
+//               </div>
+
+//               {/* Installments */}
+//               <div className="bg-white rounded p-2 border">
+//                 <div className="flex items-center gap-2">
+//                   <input type="checkbox" checked={pkg.payment_methods?.installments?.enabled}
+//                     onChange={e => updatePM(i, 'installments', { enabled: e.target.checked })} />
+//                   <span className="text-xs font-semibold flex-1">Custom Installments — requires admin approval</span>
+//                 </div>
+//                 {pkg.payment_methods?.installments?.enabled && (
+//                   <div className="pl-6 mt-2">
+//                     <Label className="text-[10px]">Max Installments Allowed</Label>
+//                     <Input type="number" className="h-7 text-xs w-24" min={2} max={5}
+//                       value={pkg.payment_methods.installments.max_installments || 5}
+//                       onChange={e => updatePM(i, 'installments', { max_installments: Math.min(5, Math.max(2, parseInt(e.target.value) || 5)) })} />
+//                     <p className="text-[10px] text-slate-400 mt-1">Exact amounts & due dates set by partner/admin at assessment time.</p>
+//                   </div>
+//                 )}
+//               </div>
+//             </div>
+//           </Card>
+//         ))
+//       )}
+//     </div>
+//   );
+// }
+
+const PKG_TYPES_DEFAULT = [
+  { key: 'standard', label: 'Standard Package' },
+  { key: 'smart',    label: 'Smart Package' },
+  { key: 'premium',  label: 'Premium Package' },
+];
+
+const CUSTOM_TYPE_VALUE = '__create_new__';
+
+function PackagesEditor({ packages, onChange }) {
+  //  NEW — combine default types with any custom types already used in existing packages
+  const [customTypes, setCustomTypes] = useState([]);
+  const allTypes = useMemo(() => {
+    const usedCustom = packages
+      .filter(p => !PKG_TYPES_DEFAULT.find(t => t.key === p.package_type))
+      .map(p => ({ key: p.package_type, label: p.package_type_label || p.name }));
+    const merged = [...PKG_TYPES_DEFAULT, ...customTypes, ...usedCustom];
+    // de-dupe by key
+    const seen = new Set();
+    return merged.filter(t => {
+      if (seen.has(t.key)) return false;
+      seen.add(t.key);
+      return true;
+    });
+  }, [packages, customTypes]);
+
+  const [newTypeDialog, setNewTypeDialog] = useState({ open: false, pkgIndex: null, label: '' });
+
+  const updatePkg = (i, patch) => {
+    const next = [...packages];
+    next[i] = { ...next[i], ...patch };
+    onChange(next);
+  };
+  const updatePM = (i, method, patch) => {
+    const next = [...packages];
+    next[i] = {
+      ...next[i],
+      payment_methods: {
+        ...next[i].payment_methods,
+        [method]: { ...next[i].payment_methods[method], ...patch }
+      }
+    };
+    onChange(next);
+  };
+  const addPkg = () => {
+    onChange([...packages, {
+      id: crypto.randomUUID(), package_type: 'standard', name: 'New Package',
+      price: 0, description: '', is_active: true,
+      document_url: null, document_name: null,   // 👈 NEW
+      payment_methods: {
+        full_payment: { enabled: true },
+        split_50_50: { enabled: false, first_pct: 50, trigger_condition: '' },
+        installments: { enabled: false, max_installments: 5 },
+      },
+    }]);
+  };
+  const removePkg = (i) => onChange(packages.filter((_, idx) => idx !== i));
+
+  //  NEW — handle Package Type select, including the "+ Create New Type" option
+  const handleTypeChange = (i, v) => {
+    if (v === CUSTOM_TYPE_VALUE) {
+      setNewTypeDialog({ open: true, pkgIndex: i, label: '' });
+      return;
+    }
+    const t = allTypes.find(t => t.key === v);
+    updatePkg(i, { package_type: v, name: t?.label || v, package_type_label: t?.label || v });
+  };
+
+  const confirmNewType = () => {
+    const label = newTypeDialog.label.trim();
+    if (!label) { toast.error('Type name required'); return; }
+    const key = label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    setCustomTypes(prev => [...prev, { key, label }]);
+    updatePkg(newTypeDialog.pkgIndex, { package_type: key, name: label, package_type_label: label });
+    setNewTypeDialog({ open: false, pkgIndex: null, label: '' });
+  };
+
+  //  NEW — upload PDF for a package's info document
+  const uploadPkgDocument = async (i, file) => {
+    const pkg = packages[i];
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('package_id', pkg.id);
+    try {
+      const token = localStorage.getItem('token');
+      const r = await axios.post(`${API}/products/packages/upload-document`, formData, {
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' },
+      });
+      updatePkg(i, { document_url: r.data.document_url, document_name: r.data.file_name });
+      toast.success('Package document uploaded');
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || 'Upload failed');
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2">
+          <Package className="h-4 w-4 text-leamss-teal" />Packages & Payment Methods
+        </h3>
+        <Button size="sm" onClick={addPkg} variant="outline" data-testid="add-package">
+          <Plus className="h-3.5 w-3.5 mr-1" />Add Package
+        </Button>
+      </div>
+
+      {packages.length === 0 ? (
+        <Card className="p-8 text-center bg-slate-50">
+          <Package className="h-8 w-8 text-slate-300 mx-auto mb-2" />
+          <p className="text-sm text-slate-500">No packages configured yet.</p>
+        </Card>
+      ) : (
+        packages.map((pkg, i) => (
+          <Card key={pkg.id || i} className="p-4 border-l-4 border-leamss-teal" data-testid={`package-row-${i}`}>
+            {/* Package basic info */}
+            <div className="grid grid-cols-12 gap-2 items-end mb-3">
+              <div className="col-span-3">
+                <Label className="text-[10px] font-bold">Package Type</Label>
+                <Select value={pkg.package_type} onValueChange={v => handleTypeChange(i, v)}>
+                  <SelectTrigger className="h-8 text-xs" data-testid={`pkg-type-${i}`}><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {allTypes.map(t => <SelectItem key={t.key} value={t.key}>{t.label}</SelectItem>)}
+                    <SelectItem value={CUSTOM_TYPE_VALUE} className="text-leamss-teal font-semibold">+ Create New Type</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="col-span-4">
+                <Label className="text-[10px] font-bold">Display Name</Label>
+                <Input className="h-8" value={pkg.name} onChange={e => updatePkg(i, { name: e.target.value })} data-testid={`pkg-name-${i}`} />
+              </div>
+              <div className="col-span-3">
+                <Label className="text-[10px] font-bold">Price (₹)</Label>
+                <Input type="number" className="h-8" value={pkg.price} onChange={e => updatePkg(i, { price: parseFloat(e.target.value) || 0 })} data-testid={`pkg-price-${i}`} />
+              </div>
+              <div className="col-span-1 flex items-center gap-1 text-[10px]">
+                <input type="checkbox" checked={!!pkg.is_active} onChange={e => updatePkg(i, { is_active: e.target.checked })} />
+                Active
+              </div>
+              <Button size="sm" variant="ghost" className="col-span-1 text-rose-500 hover:bg-rose-50 h-8" onClick={() => removePkg(i)} data-testid={`pkg-del-${i}`}>
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+            <Input className="h-8 mb-3" placeholder="Short description (optional)" value={pkg.description || ''} onChange={e => updatePkg(i, { description: e.target.value })} />
+
+            {/*  NEW — Package info document (PDF) + admin notes */}
+            <div className="bg-blue-50 rounded-lg p-3 mb-3 border border-blue-100">
+              <p className="text-[10px] uppercase font-bold text-blue-700 mb-2">Package Information Document</p>
+              <div className="flex items-center gap-2 mb-3 bg-indigo-50 border border-indigo-200 rounded p-2">
+              <input
+                type="checkbox"
+                id={`pkg-partner-info-${i}`}
+                checked={!!pkg.requires_partner_info}
+                onChange={e => updatePkg(i, { requires_partner_info: e.target.checked })}
+              />
+              <label htmlFor={`pkg-partner-info-${i}`} className="text-xs font-semibold text-indigo-800 cursor-pointer">
+                Requires Spouse/Partner Info? (asked before payment method setup)
+              </label>
+            </div>
+              <div className="flex items-center gap-2 mb-2">
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  id={`pkg-doc-${i}`}
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) uploadPkgDocument(i, file);
+                    e.target.value = '';
+                  }}
+                />
+                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => document.getElementById(`pkg-doc-${i}`).click()}>
+                  Upload PDF
+                </Button>
+               {pkg.document_name && (
+  <button
+    type="button"
+    onClick={async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const r = await fetch(`${process.env.REACT_APP_BACKEND_URL}${pkg.document_url}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!r.ok) throw new Error('Fetch failed');
+        const blob = await r.blob();
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank');
+      } catch (e) {
+        toast.error('Failed to open document');
+      }
+    }}
+    className="text-xs text-blue-700 underline truncate max-w-[200px] bg-transparent border-0 cursor-pointer p-0"
+  >
+    {pkg.document_name}
+  </button>
+)}
+              </div>
+              <Textarea
+                className="text-xs"
+                rows={2}
+                placeholder="Basic information about this package (what's included, key points, etc.)"
+                value={pkg.info_notes || ''}
+                onChange={e => updatePkg(i, { info_notes: e.target.value })}
+                data-testid={`pkg-info-notes-${i}`}
+              />
+            </div>
+
+            {/* Payment methods for this package */}
+            <div className="bg-slate-50 rounded-lg p-3 space-y-2">
+              <p className="text-[10px] uppercase font-bold text-slate-500">Payment Methods Available</p>
+
+              {/* Full payment */}
+              <div className="flex items-center gap-2 bg-white rounded p-2 border">
+                <input type="checkbox" checked={pkg.payment_methods?.full_payment?.enabled}
+                  onChange={e => updatePM(i, 'full_payment', { enabled: e.target.checked })} />
+                <span className="text-xs font-semibold flex-1">Full Payment — client pays 100% at once</span>
+              </div>
+
+              {/* 50-50 split */}
+              <div className="bg-white rounded p-2 border">
+                <div className="flex items-center gap-2">
+                  <input type="checkbox" checked={pkg.payment_methods?.split_50_50?.enabled}
+                    onChange={e => updatePM(i, 'split_50_50', { enabled: e.target.checked })} />
+                  <span className="text-xs font-semibold flex-1">50-50 Split Payment</span>
+                </div>
+                {pkg.payment_methods?.split_50_50?.enabled && (
+                  <div className="grid grid-cols-2 gap-2 mt-2 pl-6">
+                    <div>
+                      <Label className="text-[10px]">1st Installment %</Label>
+                      <Input type="number" className="h-7 text-xs" value={pkg.payment_methods.split_50_50.first_pct || 50}
+                        onChange={e => updatePM(i, 'split_50_50', { first_pct: parseFloat(e.target.value) || 50 })} />
+                    </div>
+                    <div>
+                      <Label className="text-[10px]">2nd Installment Trigger</Label>
+                      <Input className="h-7 text-xs" placeholder="e.g. After positive skill assessment"
+                        value={pkg.payment_methods.split_50_50.trigger_condition || ''}
+                        onChange={e => updatePM(i, 'split_50_50', { trigger_condition: e.target.value })} />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Installments */}
+              <div className="bg-white rounded p-2 border">
+                <div className="flex items-center gap-2">
+                  <input type="checkbox" checked={pkg.payment_methods?.installments?.enabled}
+                    onChange={e => updatePM(i, 'installments', { enabled: e.target.checked })} />
+                  <span className="text-xs font-semibold flex-1">Custom Installments — requires admin approval</span>
+                </div>
+                {pkg.payment_methods?.installments?.enabled && (
+                  <div className="pl-6 mt-2">
+                    <Label className="text-[10px]">Max Installments Allowed</Label>
+                    <Input type="number" className="h-7 text-xs w-24" min={2} max={5}
+                      value={pkg.payment_methods.installments.max_installments || 5}
+                      onChange={e => updatePM(i, 'installments', { max_installments: Math.min(5, Math.max(2, parseInt(e.target.value) || 5)) })} />
+                    <p className="text-[10px] text-slate-400 mt-1">Exact amounts & due dates set by partner/admin at assessment time.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </Card>
+        ))
+      )}
+
+      {/*  NEW — "Create New Package Type" mini dialog */}
+      <Dialog open={newTypeDialog.open} onOpenChange={(o) => !o && setNewTypeDialog({ open: false, pkgIndex: null, label: '' })}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Create New Package Type</DialogTitle></DialogHeader>
+          <Input
+            placeholder="e.g. Gold Package"
+            value={newTypeDialog.label}
+            onChange={e => setNewTypeDialog({ ...newTypeDialog, label: e.target.value })}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNewTypeDialog({ open: false, pkgIndex: null, label: '' })}>Cancel</Button>
+            <Button onClick={confirmNewType} className="bg-leamss-teal hover:bg-leamss-teal">Create</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════
+// EDIT: Discount Coupons tab
+// ═══════════════════════════════════════════════════════════════════════
+function CouponsEditor({ productId, coupons, onChange }) {
+  const addRow = () => {
+    onChange([...coupons, {
+      id: crypto.randomUUID(),
+      code: '',
+      discount_type: 'percentage',
+      discount_value: 0,
+      is_active: true,
+      notes: '',
+    }]);
+  };
+  const updateRow = (i, patch) => {
+    const next = [...coupons];
+    next[i] = { ...next[i], ...patch };
+    onChange(next);
+  };
+  const removeRow = (i) => onChange(coupons.filter((_, idx) => idx !== i));
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2">
+          <IndianRupee className="h-4 w-4 text-fuchsia-600" />Discount Coupons
+        </h3>
+        <Button size="sm" onClick={addRow} variant="outline" data-testid="add-coupon">
+          <Plus className="h-3.5 w-3.5 mr-1" />Add Coupon
+        </Button>
+      </div>
+      <p className="text-xs text-slate-500 italic">
+        Partners will see these as a dropdown when finalizing payment method for a package the client has selected.
+        Discount is applied to the base package price BEFORE GST.
+      </p>
+
+      {coupons.length === 0 ? (
+        <Card className="p-8 text-center bg-slate-50">
+          <IndianRupee className="h-8 w-8 text-slate-300 mx-auto mb-2" />
+          <p className="text-sm text-slate-500">No discount coupons configured for this product.</p>
+        </Card>
+      ) : (
+        <div className="space-y-2">
+          {coupons.map((c, i) => (
+            <Card key={c.id || i} className="p-3 border-l-4 border-fuchsia-400" data-testid={`coupon-row-${i}`}>
+              <div className="grid grid-cols-12 gap-2 items-center">
+                <Input
+                  className="col-span-3 h-8 uppercase"
+                  value={c.code || ''}
+                  onChange={e => updateRow(i, { code: e.target.value.toUpperCase() })}
+                  placeholder="CODE (e.g. DIWALI10)"
+                  data-testid={`coupon-code-${i}`}
+                />
+                <Select value={c.discount_type || 'percentage'} onValueChange={v => updateRow(i, { discount_type: v })}>
+                  <SelectTrigger className="col-span-2 h-8 text-xs" data-testid={`coupon-type-${i}`}><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="percentage">% Percentage</SelectItem>
+                    <SelectItem value="flat">₹ Flat Amount</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Input
+                  type="number"
+                  className="col-span-2 h-8"
+                  value={c.discount_value || ''}
+                  onChange={e => updateRow(i, { discount_value: parseFloat(e.target.value) || 0 })}
+                  placeholder={c.discount_type === 'percentage' ? '% e.g. 10' : '₹ e.g. 2000'}
+                  data-testid={`coupon-value-${i}`}
+                />
+                <Input
+                  className="col-span-3 h-8"
+                  value={c.notes || ''}
+                  onChange={e => updateRow(i, { notes: e.target.value })}
+                  placeholder="Notes (optional) — e.g. Referral offer"
+                  data-testid={`coupon-notes-${i}`}
+                />
+                <div className="col-span-1 flex items-center gap-1 text-[11px]">
+                  <input type="checkbox" checked={!!c.is_active} onChange={e => updateRow(i, { is_active: e.target.checked })} data-testid={`coupon-active-${i}`} />
+                  Active
+                </div>
+                <Button size="sm" variant="ghost" className="col-span-1 text-rose-500 hover:bg-rose-50 h-8" onClick={() => removeRow(i)} data-testid={`coupon-del-${i}`}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </Card>
+          ))}
         </div>
       )}
     </div>
@@ -334,7 +881,6 @@ function PreviewCalculator({ product }) {
   );
 }
 
-
 // ═══════════════════════════════════════════════════════════════════════
 // PRODUCT DETAIL (right pane)
 // ═══════════════════════════════════════════════════════════════════════
@@ -356,6 +902,9 @@ function ProductDetail({ product, onSaved, onDeleted }) {
       status: product.status || 'active',
       cost_allocations: product.cost_allocations || [],
       success_bonuses: product.success_bonuses || [],
+      packages: product.packages || [],
+      discount_coupons: product.discount_coupons || [],   // 👈 NEW
+      requires_partner_info: product.requires_partner_info || false,
     });
     setDirty(false);
     setActiveTab('overview');
@@ -407,12 +956,22 @@ function ProductDetail({ product, onSaved, onDeleted }) {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid grid-cols-4 mb-4">
+         <TabsList className="grid grid-cols-6 mb-4">
           <TabsTrigger value="overview" data-testid="tab-overview"><Edit className="h-3.5 w-3.5 mr-1" />Overview</TabsTrigger>
           <TabsTrigger value="cost" data-testid="tab-cost"><Layers className="h-3.5 w-3.5 mr-1" />Cost ({form.cost_allocations.length})</TabsTrigger>
           <TabsTrigger value="bonus" data-testid="tab-bonus"><Trophy className="h-3.5 w-3.5 mr-1" />Bonuses ({form.success_bonuses.length})</TabsTrigger>
+          <TabsTrigger value="packages" data-testid="tab-packages"><Package className="h-3.5 w-3.5 mr-1" />Packages ({form.packages.length})</TabsTrigger>
+          <TabsTrigger value="coupons" data-testid="tab-coupons"><IndianRupee className="h-3.5 w-3.5 mr-1" />Coupons ({form.discount_coupons.length})</TabsTrigger>
           <TabsTrigger value="preview" data-testid="tab-preview"><Calculator className="h-3.5 w-3.5 mr-1" />Calculator</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="packages">
+         <PackagesEditor packages={form.packages} onChange={(arr) => patch({ packages: arr })} />
+        </TabsContent>
+
+        <TabsContent value="coupons">
+          <CouponsEditor productId={product.id} coupons={form.discount_coupons} onChange={(arr) => patch({ discount_coupons: arr })} />
+        </TabsContent>
 
         <TabsContent value="overview" className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
@@ -472,6 +1031,18 @@ function ProductDetail({ product, onSaved, onDeleted }) {
                 </label>
                 <span className="text-[10px] text-slate-500 ml-auto">Toggle ON for products needing PA before sale</span>
               </div>
+              <div className="col-span-2 flex items-center gap-2 bg-white rounded p-2 border border-leamss-orange/20">
+  <input
+    type="checkbox" id={`partner-info-${product.id}`}
+    checked={!!form.requires_partner_info}
+    onChange={e => patch({ requires_partner_info: e.target.checked })}
+    className="h-4 w-4"
+  />
+  <label htmlFor={`partner-info-${product.id}`} className="text-xs font-semibold text-slate-700 cursor-pointer">
+    Requires Spouse/Partner Info?
+  </label>
+  <span className="text-[10px] text-slate-500 ml-auto">Toggle ON for "Partner Skill Assessment" type products</span>
+</div>
               {form.is_pre_assessment && (
                 <div className="col-span-2 grid grid-cols-2 gap-2">
                   <div>
@@ -571,7 +1142,6 @@ function ProductDetail({ product, onSaved, onDeleted }) {
   );
 }
 
-
 // ═══════════════════════════════════════════════════════════════════════
 // PAGE
 // ═══════════════════════════════════════════════════════════════════════
@@ -617,7 +1187,6 @@ function NewProductDialog({ open, onClose, onCreated }) {
     </Dialog>
   );
 }
-
 
 export default function ProductsManager() {
   const navigate = useNavigate();

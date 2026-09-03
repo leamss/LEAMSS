@@ -16,13 +16,21 @@ ZERO mutations — purely diagnostic.
 from __future__ import annotations
 
 import os
+import openpyxl
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
+import traceback
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query,UploadFile, File, Form
 
 from core.auth import get_current_user
 from core.database import db
+from openai import AsyncOpenAI
+from openpyxl import load_workbook
+from io import BytesIO
+
+from services.state_nomination_ai import extract_state_nomination_excel
+
 
 router = APIRouter(prefix="/anz-intel", tags=["anz-intel"])
 
@@ -550,6 +558,7 @@ async def occupation_detail(
 
 @router.get("/occupation/{code}/infosheet.pdf")
 async def occupation_infosheet_pdf(
+    
     code: str, current_user: dict = Depends(get_current_user),
 ):
     """Phase 9 · Option 5 — One-click LEAMSS-branded ANZSCO Infosheet PDF.
@@ -563,6 +572,9 @@ async def occupation_infosheet_pdf(
     from pathlib import Path
     from jinja2 import Environment, FileSystemLoader, select_autoescape
     from weasyprint import HTML
+   
+
+    print("===== PDF ROUTE HIT =====")
 
     d = await db["occupation_master"].find_one(
         {"country_code": "AU", "code": code}, {"_id": 0}
@@ -578,9 +590,15 @@ async def occupation_infosheet_pdf(
     )
 
     # Render via WeasyPrint
-    HERE = Path("/app/backend/core/report_v2")
+    HERE = Path(__file__).resolve().parent.parent / "core" / "report_v2"
     css_text = (HERE / "css" / "theme.css").read_text(encoding="utf-8")
-    logo_path = Path("/app/backend/assets/leamss-logo.png")
+    print("HERE:", HERE)
+    print("Exists:", HERE.exists())
+    print("CSS:", (HERE / "css" / "theme.css").exists())
+    print("Template:", (HERE / "templates" / "infosheet.html").exists())
+    
+    logo_path = Path(__file__).resolve().parent.parent / "assets" / "leamss-logo.png"
+    print("Logo:", logo_path.exists())
     logo_uri = None
     if logo_path.exists():
         mime = mimetypes.guess_type(str(logo_path))[0] or "image/png"
@@ -600,8 +618,17 @@ async def occupation_infosheet_pdf(
         generated_on_human=datetime.now().strftime("%d %B %Y · %I:%M %p"),
     )
     full_html = f"<!DOCTYPE html><html><head><meta charset='utf-8'><style>{css_text}</style></head><body>{inner}</body></html>"
+    print("1. DB fetched")
 
+    print("2. CSS loaded")
+
+    print("3. Template loaded")
+
+    print("4. HTML rendered")
+
+    print("5. Starting PDF generation")
     pdf_bytes = HTML(string=full_html, base_url=str(HERE)).write_pdf()
+    print("6. PDF generated")
     return StreamingResponse(
         io.BytesIO(pdf_bytes),
         media_type="application/pdf",
@@ -1565,9 +1592,203 @@ async def bulk_upload_csv_template(current_user: dict = Depends(get_current_user
         media_type="text/csv",
         headers={"Content-Disposition": 'attachment; filename="leamss_atlas_vetassess_template.csv"'},
     )
+from io import BytesIO
+from openpyxl import load_workbook
+import traceback
 
 
-# ─── AI-Extract tool (Claude via Emergent LLM Key) ──────────────────────────
+@router.post("/state-excel/preview")
+async def preview_state_excel(
+    state: str = Form(...),
+    file: UploadFile = File(...),
+):
+    try:
+        print("========== ENTERED PREVIEW ==========")
+
+        contents = await file.read()
+
+        print("openpyxl version:", openpyxl.__version__)
+        print("openpyxl path:", openpyxl.__file__)
+
+        workbook = load_workbook(
+            filename=BytesIO(contents),
+            data_only=True,
+        )
+
+        print("Workbook loaded")
+
+        workbook_data = {}
+
+        # Read every sheet
+        for sheet in workbook.sheetnames:
+            ws = workbook[sheet]
+
+            rows = []
+
+            for row in ws.iter_rows(values_only=True):
+                rows.append(
+                    [
+                        "" if cell is None else str(cell)
+                        for cell in row
+                    ]
+                )
+
+            workbook_data[sheet] = rows
+
+        # Convert workbook into text for AI
+        excel_text = ""
+
+        for sheet, rows in workbook_data.items():
+
+            excel_text += f"\n\n===== SHEET: {sheet} =====\n"
+
+            for row in rows:
+                excel_text += " | ".join(row)
+                excel_text += "\n"
+
+               # Send workbook to AI
+                # Send workbook to AI
+        ai_result = await extract_state_nomination_excel(
+            state=state,
+            excel_text=excel_text,
+        )
+
+        occupations = ai_result.get("occupations", [])
+
+        matched = []
+        unmatched = []
+
+        for occ in occupations:
+
+            anzsco = str(occ.get("anzsco", "")).strip()
+
+            if not anzsco:
+                unmatched.append(occ)
+                continue
+
+            existing = await db["occupation_master"].find_one(
+                {
+                    "country_code": "AU",
+                    "code": anzsco,
+                },
+                {
+                    "_id": 0,
+                    "code": 1,
+                    "title": 1,
+                },
+            )
+
+            if existing:
+
+                matched.append({
+                    **occ,
+                    "matched_code": existing["code"],
+                    "matched_title": existing["title"],
+                    "match_type": "6_digit_exact",
+                })
+
+            else:
+
+                unmatched.append({
+                    **occ,
+                    "reason": "Occupation not found in DB",
+                })
+
+        return {
+            "state": state,
+            "filename": file.filename,
+            "sheet_count": len(workbook.sheetnames),
+
+            "total_extracted": len(occupations),
+            "matched_count": len(matched),
+            "unmatched_count": len(unmatched),
+            "unit_group_expansions": [],
+
+            "records": matched,
+            "unmatched": unmatched,
+        }
+    except Exception as e:
+        traceback.print_exc()
+
+        return {
+            "error": str(e)
+        }
+@router.post("/state-excel/commit")
+async def commit_state_excel(
+    payload: Dict[str, Any] = Body(...),
+    current_user: dict = Depends(get_current_user),
+):
+    if not _is_admin(current_user):
+        raise HTTPException(403, "Admin only")
+
+    occupations = payload.get("records", [])
+
+    updated = 0
+    created = 0
+
+    now = _now()
+    actor = current_user.get("id") or "admin"
+
+    for occ in occupations:
+
+        anzsco = str(occ.get("anzsco", "")).strip()
+
+        if not anzsco:
+            continue
+
+        existing = await db["occupation_master"].find_one(
+            {
+                "country_code": "AU",
+                "code": anzsco,
+            }
+        )
+
+        nomination = {
+            "state": payload.get("state"),
+            "minimum_points": occ.get("minimum_points"),
+            "visa_190": occ.get("visa_190"),
+            "visa_491": occ.get("visa_491"),
+            "priority": occ.get("priority"),
+            "status": occ.get("status"),
+            "notes": occ.get("notes"),
+            "updated_at": now,
+        }
+
+        if existing:
+
+            await db["occupation_master"].update_one(
+                {"_id": existing["_id"]},
+                {
+                    "$set": {
+                        "state_nomination": nomination,
+                        "updated_at": now,
+                        "updated_by": actor,
+                    }
+                },
+            )
+
+            updated += 1
+
+        else:
+
+            await db["occupation_master"].insert_one(
+                {
+                    "country_code": "AU",
+                    "code": anzsco,
+                    "title": occ.get("occupation"),
+                    "state_nomination": nomination,
+                    "created_at": now,
+                    "created_by": actor,
+                }
+            )
+
+            created += 1
+
+    return {
+        "updated": updated,
+        "created": created,
+        "total": updated + created,
+    }
 @router.post("/ai-extract/preview")
 async def ai_extract_preview(
     payload: Dict[str, Any] = Body(...),
@@ -1585,16 +1806,24 @@ async def ai_extract_preview(
 
     code = (payload.get("code") or "").strip()
     raw_text = (payload.get("raw_text") or "").strip()
+    source_url = (payload.get("source_url") or "").strip()
     intent = (payload.get("intent") or "vetassess_group").strip()
 
-    if not code or not raw_text:
-        raise HTTPException(400, "code and raw_text are required")
+    if not code:
+     raise HTTPException(400, "code is required")
+
+    if not source_url and not raw_text:
+      raise HTTPException(
+        400,
+        "Either source_url or raw_text is required"
+    )
     if not (code.isdigit() and len(code) == 6):
         raise HTTPException(400, "code must be 6-digit ANZSCO")
 
-    EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
-    if not EMERGENT_LLM_KEY:
-        raise HTTPException(500, "EMERGENT_LLM_KEY not configured")
+    PERPLEXITY_API_KEY = os.getenv("PERPLEXITY_API_KEY")
+
+    if not PERPLEXITY_API_KEY:
+        raise HTTPException(500, "PERPLEXITY_API_KEY not configured")
 
     from emergentintegrations.llm.chat import LlmChat, UserMessage
     import uuid, json as _json
@@ -1631,35 +1860,100 @@ async def ai_extract_preview(
         "Return JSON only."
     )
 
-    chat = LlmChat(
-        api_key=EMERGENT_LLM_KEY,
-        session_id=f"atlas-extract-{uuid.uuid4().hex[:8]}",
-        system_message=system,
-    ).with_model("anthropic", "claude-sonnet-4-6")
+    PERPLEXITY_API_KEY = os.getenv("PERPLEXITY_API_KEY")
 
-    try:
-        response = await chat.send_message(UserMessage(text=prompt))
-    except Exception as e:
-        raise HTTPException(502, f"AI extraction failed: {str(e)[:200]}")
+    if not PERPLEXITY_API_KEY:
+        raise HTTPException(
+            status_code=500,
+            detail="PERPLEXITY_API_KEY not configured"
+        )
 
-    text = str(response).strip()
-    # Strip code fences if present
-    if text.startswith("```"):
-        text = text.strip("`")
-        # remove possible "json\n" prefix
-        if text.lower().startswith("json"):
-            text = text.split("\n", 1)[1] if "\n" in text else text[4:]
+    import json as _json
+    import httpx as _httpx
+    _http = _httpx.AsyncClient(verify=False, timeout=60)
+
+    client = AsyncOpenAI(
+        api_key=PERPLEXITY_API_KEY,
+        base_url="https://api.perplexity.ai",
+        http_client=_http,
+    )
     try:
+        response = await client.chat.completions.create(
+            model="sonar-reasoning-pro",
+            messages=[
+                {
+                    "role": "system",
+                    "content": system,
+                },
+                {
+                    "role": "user",
+                    "content": prompt,
+                },
+            ],
+            temperature=0.2,
+            max_tokens=4000,
+        )
+
+        text = response.choices[0].message.content.strip()
         extracted = _json.loads(text)
-    except _json.JSONDecodeError:
-        raise HTTPException(502, f"AI returned non-JSON: {text[:400]}")
 
-    return {
-        "code": code,
-        "intent": intent,
-        "extracted": extracted,
-        "raw_ai_response": text[:1500],
-    }
+        return {
+    "success": True,
+    "code": code,
+    "intent": intent,
+    "extracted": extracted,
+    "raw_ai_response": text,
+}
+    except Exception as e:
+   
+
+     traceback.print_exc()
+
+    raise HTTPException(
+        status_code=500,
+        detail={
+            "type": type(e).__name__,
+            "error": str(e),
+        },
+    )
+
+    # Strip code fences if present
+    # if text.startswith("```"):
+    #     text = text.strip("`")
+    #     if text.lower().startswith("json"):
+    #         text = text.split("\n", 1)[1] if "\n" in text else text[4:]
+
+    # try:
+    #     extracted = _json.loads(text)
+    # except _json.JSONDecodeError:
+    #     raise HTTPException(
+    #         status_code=502,
+    #         detail=f"AI returned non-JSON: {text[:400]}"
+    #     )
+
+    # return {
+    #     "code": code,
+    #     "intent": intent,
+    #     "extracted": extracted,
+    #     "raw_ai_response": text[:1500],
+    # }
+    # Strip code fences if present
+    # if text.startswith("```"):
+    #     text = text.strip("`")
+    #     # remove possible "json\n" prefix
+    #     if text.lower().startswith("json"):
+    #         text = text.split("\n", 1)[1] if "\n" in text else text[4:]
+    # try:
+    #     extracted = _json.loads(text)
+    # except _json.JSONDecodeError:
+    #     raise HTTPException(502, f"AI returned non-JSON: {text[:400]}")
+
+    # return {
+    #     "code": code,
+    #     "intent": intent,
+    #     "extracted": extracted,
+    #     "raw_ai_response": text[:1500],
+    # }
 
 
 @router.post("/ai-extract/commit")
@@ -1867,16 +2161,35 @@ async def ai_extract_state_bulk_preview(
     raw_text = (payload.get("raw_text") or "").strip()
     source_url = (payload.get("source_url") or "").strip()
 
-    if not state or not raw_text:
-        raise HTTPException(400, "state and raw_text are required")
+    if not state:
+        raise HTTPException(
+            status_code=400,
+            detail="state is required"
+        )
+
+    if not source_url and not raw_text:
+        raise HTTPException(
+            status_code=400,
+            detail="Either source_url or raw_text is required"
+        )
+
     if len(state) not in (2, 3) or not state.isalpha():
-        raise HTTPException(400, "state must be a 2-3 letter code (NSW/VIC/QLD/SA/WA/TAS/NT/ACT)")
+        raise HTTPException(
+            status_code=400,
+            detail="state must be a 2-3 letter code (NSW/VIC/QLD/SA/WA/TAS/NT/ACT)"
+        )
 
-    EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
-    if not EMERGENT_LLM_KEY:
-        raise HTTPException(500, "EMERGENT_LLM_KEY not configured")
+    PERPLEXITY_API_KEY = os.getenv("PERPLEXITY_API_KEY")
 
-    from emergentintegrations.llm.chat import LlmChat, UserMessage
+    if not PERPLEXITY_API_KEY:
+     raise HTTPException(
+        status_code=500,
+        detail="PERPLEXITY_API_KEY not configured"
+    )
+
+
+    
+
     import uuid
     import json as _json
 
@@ -1887,29 +2200,82 @@ async def ai_extract_state_bulk_preview(
         "If 'code' is 4-digit ANZSCO unit-group, set field 'unit_group_match' instead of 'code'. "
         "Strictly valid JSON, no markdown fences, no commentary."
     )
-    prompt = (
-        f"State: {state}\nSource URL: {source_url or '(not provided)'}\n\n"
-        "Extract ALL occupations referenced in the text. Return JSON of this shape:\n"
-        "{ \"records\": [ "
-        "{ \"code\": \"261313\" | null, \"unit_group_match\": \"2613\" | null, "
-        "\"title\": \"Software Engineer\", \"sc190\": true|false, \"sc491\": true|false, "
-        "\"demand\": \"high\"|\"medium\"|\"low\"|null, \"caveats\": \"any notes\"|null } ] }\n\n"
-        f"Raw text:\n---\n{raw_text[:12000]}\n---\n\n"
-        "Return JSON only."
+    prompt = f"""
+State: {state}
+
+Official URL:
+{source_url}
+
+Read the official webpage from this URL.
+
+If you cannot access the webpage, use the pasted text below instead.
+
+Pasted Text:
+{raw_text[:12000]}
+
+Extract ALL occupations.
+
+Return ONLY valid JSON in this format:
+
+{{
+  "records": [
+    {{
+      "code": "261313",
+      "unit_group_match": null,
+      "title": "Software Engineer",
+      "sc190": true,
+      "sc491": true,
+      "demand": "high",
+      "caveats": null
+    }}
+  ]
+}}
+
+If only a 4-digit ANZSCO unit group is mentioned, return:
+
+"code": null
+"unit_group_match": "2613"
+
+Do not return markdown.
+Do not explain anything.
+Return JSON only.
+"""
+    import httpx as _httpx
+    _http = _httpx.AsyncClient(verify=False, timeout=60)
+    client = AsyncOpenAI(
+        api_key=PERPLEXITY_API_KEY,
+        base_url="https://api.perplexity.ai",
+        http_client=_http,
     )
 
-    chat = LlmChat(
-        api_key=EMERGENT_LLM_KEY,
-        session_id=f"atlas-state-bulk-{uuid.uuid4().hex[:8]}",
-        system_message=system,
-    ).with_model("anthropic", "claude-sonnet-4-6")
-
     try:
-        response = await chat.send_message(UserMessage(text=prompt))
-    except Exception as e:
-        raise HTTPException(502, f"AI extraction failed: {str(e)[:200]}")
+        response = await client.chat.completions.create(
+            model="sonar-reasoning-pro",
+            messages=[
+                {
+                    "role": "system",
+                    "content": system,
+                },
+                {
+                    "role": "user",
+                    "content": prompt,
+                },
+            ],
+            temperature=0.2,
+            max_tokens=4000,
+            
+        )
 
-    text = str(response).strip()
+        text = response.choices[0].message.content.strip()
+
+    except Exception as e:
+     traceback.print_exc()
+
+     return {
+        "success": False,
+        "error": str(e),
+        "type": type(e).__name__,
+     }
     if text.startswith("```"):
         text = text.strip("`")
         if text.lower().startswith("json"):

@@ -164,18 +164,32 @@ const CaseManagerDashboard = () => {
 
     // Check if there's a case to open
     const storedCaseId = sessionStorage.getItem('openCaseId');
-    if (storedCaseId) {
-      setActiveTab('cases');
-      // We'll load case details after data is loaded
-    }
-  }, [navigate]);
+if (storedCaseId) {
+  setActiveTab('cases');
+}
+}, [navigate]);
 
-  useEffect(() => {
-    if (user) {
-      loadData();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+useEffect(() => {
+  if (user) {
+    loadData();
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [user]);
+
+// Open case from notification/session storage
+useEffect(() => {
+  if (!user) return;
+
+  const storedCaseId = sessionStorage.getItem('openCaseId');
+
+  if (storedCaseId) {
+    setActiveTab('cases');
+    loadCaseDetails(storedCaseId);
+    sessionStorage.removeItem('openCaseId');
+  }
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [user]);
 
   // Handle notification click - navigate to correct tab/item
   const handleNotificationClick = async (notification) => {
@@ -199,40 +213,33 @@ const CaseManagerDashboard = () => {
     }
   };
 
-  const loadCaseDetails = async (caseId) => {
-    try {
-      // Trigger step-documents sync first (merges admin defaults into case_steps)
-      await axios.get(`${API}/step-documents/case/${caseId}`, getAuthHeader()).catch(() => {});
-      const [caseRes, docsRes, intakeRes] = await Promise.all([
-        axios.get(`${API}/cases/${caseId}`, getAuthHeader()),
-        axios.get(`${API}/documents/case/${caseId}`, getAuthHeader()),
-        axios.get(`${API}/intake-forms/case/${caseId}`, getAuthHeader())
-      ]);
-      const stepDocsRes = await axios.get(
-  `${API}/step-documents/case/${caseId}`,
-  getAuthHeader()
-);
+const loadCaseDetails = async (caseId) => {
+  try {
+    await axios
+      .get(`${API}/step-documents/case/${caseId}`, getAuthHeader())
+      .catch(() => {});
 
-setStepDocuments(stepDocsRes.data?.steps || []);
+    const [caseRes, docsRes, intakeRes] = await Promise.all([
+      axios.get(`${API}/cases/${caseId}`, getAuthHeader()),
+      axios.get(`${API}/documents/case/${caseId}`, getAuthHeader()),
+      axios.get(`${API}/intake-forms/case/${caseId}`, getAuthHeader())
+    ]);
 
-      setSelectedCase(caseRes.data);
-      setCaseDocuments(docsRes.data);
-      try {
-  const intakeRes = await axios.get(
-    `${API}/intake-forms/case/${caseData.id}`,
-    { headers }
-  );
+    const stepDocsRes = await axios.get(
+      `${API}/step-documents/case/${caseId}`,
+      getAuthHeader()
+    );
 
-  setCaseIntakeData(intakeRes.data);
-} catch (error) {
-  console.error('Failed to load case intake data:', error);
-  setCaseIntakeData(null);
-}
-      setCmFieldValues(intakeRes.data?.data || {});
-    } catch (error) {
-      toast.error('Failed to load case details');
-    }
-  };
+    setStepDocuments(stepDocsRes.data?.steps || []);
+    setSelectedCase(caseRes.data);
+    setCaseDocuments(docsRes.data);
+    setCaseIntakeData(intakeRes.data);
+    setCmFieldValues(intakeRes.data?.data || {});
+  } catch (error) {
+    console.error('Failed to load case details:', error);
+    toast.error('Failed to load case details');
+  }
+};
   
 
   const handleLogout = () => {
@@ -248,7 +255,11 @@ setStepDocuments(stepDocsRes.data?.steps || []);
         status,
         notes
       }, getAuthHeader());
-      toast.success('Step updated!');
+      if (status === 'completed') {
+        toast.success(`🎉 Step "${stepName}" marked complete! Next step is now unlocked for the client.`);
+      } else {
+        toast.success('Step updated!');
+      }
       loadCaseDetails(selectedCase.id);
       loadData();
     } catch (error) {
@@ -462,18 +473,22 @@ setStepDocuments(stepDocsRes.data?.steps || []);
     }
   };
 
-  const handleCMFieldUpload = async (stepName, field, file) => {
-    if (!file || !selectedCase) return;
+  const handleCMFieldUpload = async (stepName, field, filesInput) => {
+    if (!filesInput || !selectedCase) return;
+    const files = filesInput instanceof FileList || Array.isArray(filesInput)
+      ? Array.from(filesInput)
+      : [filesInput];
+    if (files.length === 0) return;
 
-    const uploadKey = `${stepName}-${field.key}`;
+    const docLabel = field.label || field.doc_name || field.name || 'Document';
+    const uploadKey = `${stepName}-${field.key || docLabel}`;
     setCmUploading(uploadKey);
 
     try {
       const formData = new FormData();
-
-      formData.append('file', file);
+      files.forEach((f) => formData.append('files', f));
       formData.append('case_id', selectedCase.id);
-      formData.append('document_type', field.label);
+      formData.append('document_type', docLabel);
       formData.append('step_name', stepName);
 
       await axios.post(
@@ -488,16 +503,19 @@ setStepDocuments(stepDocsRes.data?.steps || []);
         }
       );
 
-      toast.success(`${field.label} uploaded!`);
+      toast.success(
+        files.length > 1
+          ? `${files.length} files uploaded for ${docLabel}!`
+          : `${docLabel} uploaded!`
+      );
 
       await loadCaseDetails(selectedCase.id);
       await loadData();
 
     } catch (error) {
       console.error('CM upload error:', error);
-
       toast.error(
-        error.response?.data?.detail || 'Failed to upload document'
+        error.response?.data?.detail || 'Failed to upload document(s)'
       );
     } finally {
       setCmUploading(null);
@@ -837,19 +855,30 @@ setStepDocuments(stepDocsRes.data?.steps || []);
 
 const workflowDocuments = stepDocData?.documents || [];
                 const prevCompleted = index === 0 || selectedCase.steps.slice(0, index).every(s => s.status === 'completed');
-                const isLocked = !prevCompleted && index > 0;
+                const isLocked = step.is_locked !== undefined ? step.is_locked : (!prevCompleted && index > 0);
                 const isCompleted = step.status === 'completed';
 
                 return (
-                  <div key={index} className={`border rounded-lg p-4 ${isLocked ? 'opacity-50 bg-slate-50' : ''} ${isCompleted ? 'border-emerald-200 bg-emerald-50/30' : ''}`}>
+                  <div key={index} className={`border rounded-lg p-4 ${isLocked ? 'opacity-70 bg-slate-50' : ''} ${isCompleted ? 'border-emerald-200 bg-emerald-50/30' : ''}`}>
                     <div className="flex justify-between items-start mb-3">
                       <div className="flex-1">
-                        <h4 className="font-semibold text-gray-900 flex items-center gap-2">
-                          {isLocked && <Lock className="h-4 w-4 text-slate-400" />}
-                          {isCompleted && <CheckCircle className="h-4 w-4 text-emerald-500" />}
-                          {step.step_order}. {step.step_name}
-                        </h4>
-                        {isLocked && <p className="text-xs text-red-500 mt-1">Complete previous step first</p>}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="font-semibold text-gray-900 flex items-center gap-2">
+                            {isLocked && <Lock className="h-4 w-4 text-amber-600" />}
+                            {isCompleted && <CheckCircle className="h-4 w-4 text-emerald-500" />}
+                            {step.step_order}. {step.step_name}
+                          </h4>
+                          {isLocked ? (
+                            <Badge className="text-[10px] bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1">
+                              <Lock className="h-2.5 w-2.5 text-amber-600" /> Client: Locked
+                            </Badge>
+                          ) : (
+                            <Badge className="text-[10px] bg-emerald-50 text-emerald-800 border border-emerald-200">
+                              Client: Unlocked
+                            </Badge>
+                          )}
+                        </div>
+                        {isLocked && <p className="text-xs text-amber-700 mt-1">Locked for client until previous step is completed</p>}
                         {step.notes && <p className="text-sm text-slate-600 mt-1">{step.notes}</p>}
 
                         {/* STEP DOCUMENTS FROM WORKFLOW BUILDER */}
@@ -889,197 +918,284 @@ const workflowDocuments = stepDocData?.documents || [];
         filledBy === 'cm' ||
         filledBy === 'both';
         const fieldType = (
-  doc.field_type ||
-  doc.type ||
-  'file'
-).toLowerCase();
+          doc.field_type ||
+          doc.type ||
+          'file'
+        ).toLowerCase();
 
-const fieldKey = doc.key || `document-${step.id}-${docIndex}`;
+        const fieldKey = doc.key || `document-${step.id}-${docIndex}`;
 
-      const uploadedDoc = (caseDocuments || []).find((caseDoc) => {
-        const documentType = (
-          caseDoc.document_type || ''
-        ).trim().toLowerCase();
+        const matchingDocs = (caseDocuments || []).filter((caseDoc) => {
+          const documentType = (
+            caseDoc.document_type || ''
+          ).trim().toLowerCase();
+          const docNameClean = docName.trim().toLowerCase();
+          const stepMatch =
+            !caseDoc.step_name ||
+            caseDoc.step_name.trim().toLowerCase() ===
+              (step.step_name || '').trim().toLowerCase();
 
-        return documentType === docName.trim().toLowerCase();
-      });
+          return (
+            documentType === docNameClean ||
+            (stepMatch &&
+              (documentType.includes(docNameClean) ||
+                docNameClean.includes(documentType)))
+          );
+        });
 
-      return (
-        <div
-          key={doc.id || docIndex}
-          className="flex items-center justify-between border border-slate-200 rounded-lg p-3 bg-white"
-        >
-          <div>
-            <p className="text-sm font-medium text-slate-800">
-              {docName}
-            </p>
+        const hasUploaded = matchingDocs.length > 0;
 
-            {typeof doc !== 'string' && doc.description && (
-              <p className="text-xs text-slate-500 mt-1">
-                {doc.description}
-              </p>
-            )}
+        return (
+          <div
+            key={doc.id || docIndex}
+            className={`border rounded-lg p-4 transition-colors ${
+              hasUploaded
+                ? matchingDocs.every((d) => d.status === 'approved')
+                  ? 'bg-emerald-50/40 border-emerald-200'
+                  : matchingDocs.some((d) => d.status === 'rejected')
+                  ? 'bg-red-50/40 border-red-200'
+                  : matchingDocs.some((d) => d.status === 'revision_required')
+                  ? 'bg-amber-50/40 border-amber-200'
+                  : 'bg-blue-50/30 border-blue-200'
+                : 'border-slate-200 bg-white'
+            }`}
+          >
+            <div className="flex flex-col sm:flex-row items-start justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-sm font-semibold text-slate-800">
+                    {docName}
+                  </p>
+                  {typeof doc !== 'string' && (doc.is_mandatory || doc.required) && (
+                    <Badge className="text-[9px] bg-red-100 text-red-700">
+                      Required
+                    </Badge>
+                  )}
+                  {hasUploaded && (
+                    <Badge className="text-[10px] bg-blue-50 text-blue-800 border border-blue-200 font-semibold">
+                      📄 {matchingDocs.length} {matchingDocs.length === 1 ? 'File' : 'Files'} Uploaded
+                    </Badge>
+                  )}
+                  {filledBy === 'client' && (
+                    <Badge
+                      variant="outline"
+                      className="text-xs text-blue-600 border-blue-200 bg-blue-50"
+                    >
+                      Filled by Client
+                    </Badge>
+                  )}
+                  {filledBy === 'cm' && (
+                    <Badge
+                      variant="outline"
+                      className="text-xs text-purple-600 border-purple-200 bg-purple-50"
+                    >
+                      CM Only
+                    </Badge>
+                  )}
+                  {filledBy === 'both' && (
+                    <Badge
+                      variant="outline"
+                      className="text-xs text-emerald-600 border-emerald-200 bg-emerald-50"
+                    >
+                      Client or CM
+                    </Badge>
+                  )}
+                </div>
 
-            <div className="flex items-center gap-2 mt-2">
-              {filledBy === 'client' && (
-                <Badge
-                  variant="outline"
-                  className="text-xs text-blue-600 border-blue-200 bg-blue-50"
-                >
-                  Filled by Client
-                </Badge>
-              )}
+                {/* LIST OF ALL UPLOADED FILES FOR THIS REQUIREMENT */}
+                {hasUploaded ? (
+                  <div className="mt-2.5 space-y-2">
+                    {matchingDocs.map((uDoc, uIdx) => (
+                      <div
+                        key={uDoc.id || uIdx}
+                        className="flex flex-col sm:flex-row sm:items-center justify-between p-2.5 rounded-md bg-white border border-slate-200 hover:border-slate-300 gap-2"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs text-slate-800 font-medium flex items-center gap-1.5 truncate">
+                            <FileText className="h-3.5 w-3.5 text-[#2a777a] shrink-0" />
+                            <span className="truncate font-semibold">{uDoc.filename}</span>
+                          </p>
+                          <p className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
+                            <Clock className="h-3 w-3 shrink-0" />
+                            Uploaded by {uDoc.uploader_name || 'Client'} on {formatDate(uDoc.uploaded_at)}
+                          </p>
+                          {uDoc.review_comment && (
+                            <p className="text-xs mt-1 text-slate-600 bg-slate-50 p-1.5 rounded border border-slate-200">
+                              <span className="font-medium">Review note ({uDoc.reviewer_name || 'CM'}):</span> {uDoc.review_comment}
+                            </p>
+                          )}
+                        </div>
 
-              {filledBy === 'cm' && (
-                <Badge
-                  variant="outline"
-                  className="text-xs text-purple-600 border-purple-200 bg-purple-50"
-                >
-                  CM Only
-                </Badge>
-              )}
+                        <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center">
+                          {getStatusBadge(uDoc.status || 'pending')}
 
-              {filledBy === 'both' && (
-                <Badge
-                  variant="outline"
-                  className="text-xs text-emerald-600 border-emerald-200 bg-emerald-50"
-                >
-                  Client or CM
-                </Badge>
-              )}
-            </div>
-          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs flex items-center gap-1 px-2 border-slate-300 hover:bg-slate-50"
+                            onClick={() => viewDocument(uDoc.id || uDoc.file_id, uDoc.filename)}
+                            data-testid={`view-case-doc-${uDoc.id}`}
+                          >
+                            <Eye className="h-3.5 w-3.5 text-slate-500" />
+                            <span className="hidden md:inline">View</span>
+                          </Button>
 
-          <div>
-            {uploadedDoc ? (
-              <Badge className="bg-emerald-600">
-                Uploaded
-              </Badge>
-                      ) : canCMFill ? (
-              <div className="w-72">
-                {(fieldType === 'file' || fieldType === 'file_upload') && (
-                  <label className="cursor-pointer">
-                    <input
-                      type="file"
-                      className="hidden"
-                      accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 w-7 p-0 border-slate-300 hover:bg-slate-50"
+                            onClick={() => downloadDocument(uDoc.id || uDoc.file_id, uDoc.filename)}
+                            data-testid={`download-case-doc-${uDoc.id}`}
+                            title="Download"
+                          >
+                            <Download className="h-3.5 w-3.5 text-slate-500" />
+                          </Button>
 
-                        if (file) {
-                          handleCMFieldUpload(
-                            step.step_name,
-                            doc,
-                            file
-                          );
-                        }
+                          <Button
+                            size="sm"
+                            className="h-7 text-xs bg-[#2a777a] hover:bg-[#236466] text-white flex items-center gap-1 px-2.5 shadow-2xs"
+                            onClick={() =>
+                              setReviewDialog({
+                                open: true,
+                                document: uDoc,
+                                status: uDoc.status || '',
+                                comment: uDoc.review_comment || ''
+                              })
+                            }
+                            data-testid={`review-doc-${uDoc.id}`}
+                          >
+                            Review
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  typeof doc !== 'string' && doc.description && (
+                    <p className="text-xs text-slate-500 mt-1">
+                      {doc.description}
+                    </p>
+                  )
+                )}
+              </div>
 
-                        e.target.value = '';
-                      }}
+              {/* CM Upload Button (single or multiple files) */}
+              {(canCMFill || fieldType === 'file' || fieldType === 'file_upload') ? (
+                <div className="shrink-0 flex items-center justify-end">
+                  {(fieldType === 'file' || fieldType === 'file_upload') && (
+                    <label className="cursor-pointer">
+                      <input
+                        type="file"
+                        multiple
+                        className="hidden"
+                        accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files.length > 0) {
+                            handleCMFieldUpload(
+                              step.step_name,
+                              doc,
+                              e.target.files
+                            );
+                          }
+                          e.target.value = '';
+                        }}
+                      />
+
+                      <span
+                        className={`inline-flex items-center gap-1.5 text-xs px-3 py-2 rounded-md font-semibold transition-colors cursor-pointer shadow-xs ${
+                          hasUploaded
+                            ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300'
+                            : 'bg-[#2a777a] hover:bg-[#236466] text-white'
+                        }`}
+                      >
+                        {cmUploading === `${step.step_name}-${doc.key || docName}` ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Plus className="h-3.5 w-3.5" />
+                        )}
+                        {hasUploaded ? '+ Upload More' : '+ Upload File(s)'}
+                      </span>
+                    </label>
+                  )}
+
+                  {fieldType === 'text' && (
+                    <Input
+                      value={cmFieldValues[fieldKey] || ''}
+                      placeholder={doc.placeholder || docName}
+                      onChange={(e) =>
+                        setCmFieldValues((prev) => ({
+                          ...prev,
+                          [fieldKey]: e.target.value,
+                        }))
+                      }
                     />
+                  )}
 
-                    <span className="inline-flex items-center gap-2 bg-[#2a777a] hover:bg-[#236466] text-white text-xs px-3 py-2 rounded-md">
-                      {cmUploading === `${step.step_name}-${doc.key}` ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Plus className="h-4 w-4" />
-                      )}
+                  {(fieldType === 'textarea' || fieldType === 'long_text') && (
+                    <Textarea
+                      value={cmFieldValues[fieldKey] || ''}
+                      placeholder={doc.placeholder || docName}
+                      onChange={(e) =>
+                        setCmFieldValues((prev) => ({
+                          ...prev,
+                          [fieldKey]: e.target.value,
+                        }))
+                      }
+                    />
+                  )}
 
-                      Upload
-                    </span>
-                  </label>
-                )}
+                  {fieldType === 'date' && (
+                    <Input
+                      type="date"
+                      value={cmFieldValues[fieldKey] || ''}
+                      onChange={(e) =>
+                        setCmFieldValues((prev) => ({
+                          ...prev,
+                          [fieldKey]: e.target.value,
+                        }))
+                      }
+                    />
+                  )}
 
-                {fieldType === 'text' && (
-                  <Input
-                    value={cmFieldValues[fieldKey] || ''}
-                    placeholder={doc.placeholder || docName}
-                    onChange={(e) =>
-                      setCmFieldValues((prev) => ({
-                        ...prev,
-                        [fieldKey]: e.target.value
-                      }))
-                    }
-                  />
-                )}
+                  {(fieldType === 'select' || fieldType === 'dropdown') && (
+                    <Select
+                      value={cmFieldValues[fieldKey] || ''}
+                      onValueChange={(value) =>
+                        setCmFieldValues((prev) => ({
+                          ...prev,
+                          [fieldKey]: value,
+                        }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select option" />
+                      </SelectTrigger>
 
-                {(fieldType === 'textarea' ||
-                  fieldType === 'long_text') && (
-                  <Textarea
-                    value={cmFieldValues[fieldKey] || ''}
-                    placeholder={doc.placeholder || docName}
-                    onChange={(e) =>
-                      setCmFieldValues((prev) => ({
-                        ...prev,
-                        [fieldKey]: e.target.value
-                      }))
-                    }
-                  />
-                )}
-
-                {fieldType === 'date' && (
-                  <Input
-                    type="date"
-                    value={cmFieldValues[fieldKey] || ''}
-                    onChange={(e) =>
-                      setCmFieldValues((prev) => ({
-                        ...prev,
-                        [fieldKey]: e.target.value
-                      }))
-                    }
-                  />
-                )}
-
-                {(fieldType === 'select' ||
-                  fieldType === 'dropdown') && (
-                  <Select
-                    value={cmFieldValues[fieldKey] || ''}
-                    onValueChange={(value) =>
-                      setCmFieldValues((prev) => ({
-                        ...prev,
-                        [fieldKey]: value
-                      }))
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select option" />
-                    </SelectTrigger>
-
-                    <SelectContent>
-                      {(doc.options || []).map(
-                        (option, optionIndex) => {
+                      <SelectContent>
+                        {(doc.options || []).map((option, optionIndex) => {
                           const value =
-                            typeof option === 'string'
-                              ? option
-                              : option.value;
-
+                            typeof option === 'string' ? option : option.value;
                           const label =
-                            typeof option === 'string'
-                              ? option
-                              : option.label;
+                            typeof option === 'string' ? option : option.label;
 
                           return (
-                            <SelectItem
-                              key={optionIndex}
-                              value={value}
-                            >
+                            <SelectItem key={optionIndex} value={value}>
                               {label}
                             </SelectItem>
                           );
-                        }
-                      )}
-                    </SelectContent>
-                  </Select>
-                )}
-              </div>
-            ) : (
-              <span className="text-xs text-slate-500 font-medium">
-                Filled by Client
-              </span>
-            )}
+                        })}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+              ) : (
+                <span className="text-xs text-slate-500 font-medium shrink-0">
+                  Filled by Client
+                </span>
+              )}
+            </div>
           </div>
-        </div>
-      );
+        );
     })}
   </div>
 )}
@@ -1236,32 +1352,29 @@ const fieldValue = cmFieldValues[fieldKey] || '';
         <label className="cursor-pointer">
           <input
             type="file"
+            multiple
             className="hidden"
             accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
             onChange={(e) => {
-              const file = e.target.files?.[0];
-
-              if (file) {
+              if (e.target.files && e.target.files.length > 0) {
                 handleCMFieldUpload(
                   step.step_name,
                   field,
-                  file
+                  e.target.files
                 );
               }
-
               e.target.value = '';
             }}
           />
 
-          <span className="inline-flex items-center gap-2 bg-[#2a777a] hover:bg-[#236466] text-white text-xs px-3 py-2 rounded-md">
+          <span className="inline-flex items-center gap-2 bg-[#2a777a] hover:bg-[#236466] text-white text-xs px-3 py-2 rounded-md font-semibold">
             {cmUploading ===
             `${step.step_name}-${field.key}` ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <Plus className="h-4 w-4" />
             )}
-
-            Upload
+            Upload File(s)
           </span>
         </label>
       )}

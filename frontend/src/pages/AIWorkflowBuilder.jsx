@@ -51,7 +51,7 @@ const AIWorkflowBuilder = () => {
   const [saving, setSaving] = useState(false);
   const [applyingTemplate, setApplyingTemplate] = useState(false);
   const [editingDoc, setEditingDoc] = useState(null);
-  const [newDocForm, setNewDocForm] = useState({ stepIdx: null, name: '', description: '', mandatory: true });
+  const [newDocForm, setNewDocForm] = useState({ stepIdx: null, name: '', description: '', mandatory: true, is_locked_until_paid: false });
   const [govForms, setGovForms] = useState([]);
   const [verified, setVerified] = useState(false);
   const [workflowSource, setWorkflowSource] = useState('');
@@ -253,7 +253,7 @@ const AIWorkflowBuilder = () => {
   const updateStep = (i, f, v) => { const w = { ...workflow }; w.steps[i][f] = v; setWorkflow(w); };
   const addStep = () => { const w = { ...workflow }; const n = (w.steps?.length||0)+1; w.steps = [...(w.steps||[]), {step_name:`New Step ${n}`,step_order:n,description:'',duration_days:7,required_documents:[]}]; setWorkflow(w); setExpandedSteps({...expandedSteps,[w.steps.length-1]:true}); };
   const removeStep = (i) => { const w = { ...workflow }; w.steps.splice(i,1); w.steps.forEach((s,j) => {s.step_order=j+1;}); setWorkflow(w); };
-  const addDoc = (si) => { if(!newDocForm.name.trim()){toast.error('Enter name');return;} const w={...workflow}; w.steps[si].required_documents.push({name:newDocForm.name,description:newDocForm.description,mandatory:newDocForm.mandatory}); setWorkflow(w); setNewDocForm({stepIdx:null,name:'',description:'',mandatory:true}); };
+  const addDoc = (si) => { if(!newDocForm.name.trim()){toast.error('Enter name');return;} const w={...workflow}; w.steps[si].required_documents.push({name:newDocForm.name,description:newDocForm.description,mandatory:newDocForm.mandatory,is_locked_until_paid:Boolean(newDocForm.is_locked_until_paid)}); setWorkflow(w); setNewDocForm({stepIdx:null,name:'',description:'',mandatory:true,is_locked_until_paid:false}); };
   const removeDoc = (si,di) => { const w={...workflow}; w.steps[si].required_documents.splice(di,1); setWorkflow(w); };
   const updateDoc = (si,di,f,v) => { const w={...workflow}; w.steps[si].required_documents[di][f]=v; setWorkflow(w); };
   const toggleStep = (i) => setExpandedSteps(p => ({...p,[i]:!p[i]}));
@@ -615,8 +615,12 @@ const AIWorkflowBuilder = () => {
                                   {editingDoc?.stepIdx===si && editingDoc?.docIdx===di ? (
                                     <><Input value={doc.name||doc.doc_name||''} onChange={e => updateDoc(si,di,doc.name!==undefined?'name':'doc_name',e.target.value)} className="h-7 text-xs rounded-lg font-semibold" />
                                     <Input value={doc.description||''} onChange={e => updateDoc(si,di,'description',e.target.value)} className="h-7 text-[10px] rounded-lg" placeholder="Description" />
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-3 flex-wrap pt-0.5">
                                       <label className="flex items-center gap-1 text-[10px]"><input type="checkbox" checked={doc.mandatory||doc.is_mandatory} onChange={e => updateDoc(si,di,doc.mandatory!==undefined?'mandatory':'is_mandatory',e.target.checked)} className="rounded h-3 w-3" />Mandatory</label>
+                                      <label className="flex items-center gap-1 text-[10px] font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 cursor-pointer">
+                                        <input type="checkbox" checked={Boolean(doc.is_locked_until_paid)} onChange={e => updateDoc(si,di,'is_locked_until_paid',e.target.checked)} className="rounded h-3 w-3 text-amber-600" />
+                                        🔒 Locked until full payment
+                                      </label>
                                       <Button size="sm" variant="ghost" className="h-5 text-[10px] text-emerald-600" onClick={() => setEditingDoc(null)}>Done</Button>
                                     </div></>
                                   ) : (
@@ -625,6 +629,9 @@ const AIWorkflowBuilder = () => {
                                   )}
                                 </div>
                                 <div className="flex items-center gap-1 flex-shrink-0">
+                                  {doc.is_locked_until_paid && (
+                                    <Badge className="text-[8px] bg-amber-100 text-amber-800 border border-amber-200">🔒 Locked</Badge>
+                                  )}
                                   <Badge className={`text-[8px] ${(doc.mandatory||doc.is_mandatory)?'bg-red-100 text-red-700':'bg-slate-100 text-slate-500'}`}>{(doc.mandatory||doc.is_mandatory)?'Required':'Optional'}</Badge>
                                   <Button variant="ghost" size="sm" className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 rounded-lg" onClick={() => setEditingDoc({stepIdx:si,docIdx:di})}><Edit3 className="h-3 w-3 text-slate-400" /></Button>
                                   <Button variant="ghost" size="sm" className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 rounded-lg" onClick={() => removeDoc(si,di)}><X className="h-3 w-3 text-red-400" /></Button>
@@ -636,13 +643,19 @@ const AIWorkflowBuilder = () => {
                             <div className="mt-2 p-3 border-2 border-dashed border-slate-300 rounded-lg space-y-2 bg-white">
                               <Input value={newDocForm.name} onChange={e => setNewDocForm({...newDocForm,name:e.target.value})} className="h-8 text-xs rounded-lg" placeholder="Document name" />
                               <Input value={newDocForm.description} onChange={e => setNewDocForm({...newDocForm,description:e.target.value})} className="h-8 text-xs rounded-lg" placeholder="Description (optional)" />
-                              <div className="flex items-center justify-between">
-                                <label className="flex items-center gap-1 text-[10px]"><input type="checkbox" checked={newDocForm.mandatory} onChange={e => setNewDocForm({...newDocForm,mandatory:e.target.checked})} className="rounded h-3 w-3" />Mandatory</label>
-                                <div className="flex gap-1"><Button size="sm" className="h-7 text-[10px] bg-[#2a777a] rounded-lg" onClick={() => addDoc(si)}>Add</Button><Button size="sm" variant="ghost" className="h-7 text-[10px]" onClick={() => setNewDocForm({stepIdx:null,name:'',description:'',mandatory:true})}>Cancel</Button></div>
+                              <div className="flex items-center justify-between flex-wrap gap-2">
+                                <div className="flex items-center gap-3">
+                                  <label className="flex items-center gap-1 text-[10px]"><input type="checkbox" checked={newDocForm.mandatory} onChange={e => setNewDocForm({...newDocForm,mandatory:e.target.checked})} className="rounded h-3 w-3" />Mandatory</label>
+                                  <label className="flex items-center gap-1 text-[10px] font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 cursor-pointer">
+                                    <input type="checkbox" checked={Boolean(newDocForm.is_locked_until_paid)} onChange={e => setNewDocForm({...newDocForm,is_locked_until_paid:e.target.checked})} className="rounded h-3 w-3 text-amber-600" />
+                                    🔒 Locked until full payment
+                                  </label>
+                                </div>
+                                <div className="flex gap-1"><Button size="sm" className="h-7 text-[10px] bg-[#2a777a] rounded-lg" onClick={() => addDoc(si)}>Add</Button><Button size="sm" variant="ghost" className="h-7 text-[10px]" onClick={() => setNewDocForm({stepIdx:null,name:'',description:'',mandatory:true,is_locked_until_paid:false})}>Cancel</Button></div>
                               </div>
                             </div>
                           ) : (
-                            <Button size="sm" variant="outline" className="mt-2 h-8 text-xs border-dashed w-full rounded-lg" onClick={() => setNewDocForm({stepIdx:si,name:'',description:'',mandatory:true})}>
+                            <Button size="sm" variant="outline" className="mt-2 h-8 text-xs border-dashed w-full rounded-lg" onClick={() => setNewDocForm({stepIdx:si,name:'',description:'',mandatory:true,is_locked_until_paid:false})}>
                               <Plus className="h-3 w-3 mr-1" />Add Document
                             </Button>
                           )}

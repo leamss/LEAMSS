@@ -1,0 +1,120 @@
+{# SKILLSELECT EOI BACKLOG — pool competition for the primary or an alternate occupation #}
+{% set eoi = (eoi_ctx if eoi_ctx is defined and eoi_ctx else snap.eoi_backlog) or {} %}
+{% set is_alt = eoi_is_alt if eoi_is_alt is defined else false %}
+{% set uni = eoi.get('unified') or {} %}
+{% set subs = uni.get('subclasses') or [] %}
+{% set rows = uni.get('rows') or [] %}
+{% set sc_summary = {} %}
+{% for s in (eoi.get('subclasses') or []) %}{% set _ = sc_summary.update({s.subclass: s}) %}{% endfor %}
+
+{% set SC_LABEL = {'189':'189 · Skilled Independent','190':'190 · State Nominated','491':'491 · Regional'} %}
+
+{% if rows %}
+<div class="page">
+
+  <div class="section-header">
+    <span class="eyebrow">SkillSelect Competition{% if is_alt %} · Alternate Pathway{% endif %}</span>
+    <h1>EOI Backlog &amp; Your Position{% if is_alt %} <span style="font-size:0.55em;color:var(--slate-500);">(Alternate · {{ eoi.occupation_code }})</span>{% endif %}</h1>
+    <span class="rule"></span>
+    <p class="lead">For <b>{{ eoi.occupation_code }} {{ eoi.occupation_title }}</b>, this is the number of
+       Expressions of Interest currently sitting in the SkillSelect pool ("SUBMITTED"), by points score
+       and visa subclass. It shows how competitive your points are and how many candidates are ahead of you.</p>
+  </div>
+
+  {% if eoi.client_points is not none %}
+  <div class="eoi-you">
+    <div class="eoi-you-pts">
+      <span class="lbl">Your indicative points</span>
+      <span class="val">{{ eoi.client_points }}</span>
+    </div>
+    <div class="eoi-you-note">
+      Rows at or above your points band ({{ eoi.client_bracket }}) are your direct competition.
+      The highlighted row below is your band.
+    </div>
+  </div>
+  {% endif %}
+
+  {# "Ahead of you" callouts per subclass #}
+  <div class="eoi-callouts">
+    {% for sc in subs %}
+      {% set s = sc_summary.get(sc) %}
+      {% if s %}
+      <div class="eoi-callout">
+        <div class="eoi-callout-sc">Subclass {{ sc }}</div>
+        <div class="eoi-callout-num">{{ '{:,}'.format(s.total) }}{% if s.total_suppressed %}+{% endif %}</div>
+        <div class="eoi-callout-lbl">EOIs in pool</div>
+        {% if eoi.client_points is not none %}
+        <div class="eoi-callout-ahead">{{ '{:,}'.format(s.ahead_of_client) }}{% if s.ahead_suppressed %}+{% endif %} at your level or higher</div>
+        {% endif %}
+      </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+
+  <table class="eoi-table">
+    <thead>
+      <tr>
+        <th class="pts-col">Points</th>
+        {% for sc in subs %}<th>{{ SC_LABEL.get(sc, sc) }}</th>{% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+        <tr class="{{ 'eoi-you-row' if row.is_client_bracket }}">
+          <td class="pts-col">{{ row.points }}{% if row.is_client_bracket %} <span class="you-tag">YOU</span>{% endif %}</td>
+          {% for sc in subs %}
+            {% set c = row.cells.get(sc) or {} %}
+            <td class="{{ 'zero' if c.raw in ['0','—'] }}">{{ c.raw }}</td>
+          {% endfor %}
+        </tr>
+      {% endfor %}
+      <tr class="eoi-total">
+        <td class="pts-col">Total in pool</td>
+        {% for sc in subs %}
+          {% set s = sc_summary.get(sc) %}
+          <td>{{ '{:,}'.format(s.total) if s else '—' }}{% if s and s.total_suppressed %}+{% endif %}</td>
+        {% endfor %}
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="spacer-sm"></div>
+  <div class="note">
+    <b>How to read this:</b> Higher points sit at the top and are invited first. "&lt;20" means the
+    official source suppresses small counts (fewer than 20) for privacy, so the real number may be
+    slightly higher. Data source: <b>DHA SkillSelect EOI Data</b>{% if eoi.as_at_month %}, as at {{ eoi.as_at_month }}{% endif %}.
+    SkillSelect data is refreshed monthly — figures are indicative and change with each invitation round.
+  </div>
+
+  <style>
+    .eoi-you {
+      display:flex; align-items:center; gap:12pt; margin-top:6pt;
+      background:var(--teal-100); border-radius:8pt; padding:8pt 12pt;
+    }
+    .eoi-you-pts { text-align:center; }
+    .eoi-you-pts .lbl { display:block; font-size:7pt; text-transform:uppercase; letter-spacing:0.5pt; color:var(--teal-800); }
+    .eoi-you-pts .val { font-family:'Playfair Display',serif; font-size:22pt; font-weight:800; color:var(--teal-700); line-height:1; }
+    .eoi-you-note { font-size:8pt; color:var(--slate-500); }
+
+    .eoi-callouts { display:flex; gap:8pt; margin-top:8pt; }
+    .eoi-callout { flex:1; border:0.75pt solid var(--border); border-radius:7pt; padding:7pt 8pt; text-align:center; background:#fafafa; }
+    .eoi-callout-sc { font-size:7.5pt; text-transform:uppercase; letter-spacing:0.5pt; color:var(--slate-500); font-weight:700; }
+    .eoi-callout-num { font-family:'Playfair Display',serif; font-size:16pt; font-weight:800; color:var(--teal-700); line-height:1.1; }
+    .eoi-callout-lbl { font-size:7.5pt; color:var(--slate-500); }
+    .eoi-callout-ahead { font-size:7.5pt; color:var(--gold-600, #b8860b); margin-top:3pt; font-weight:700; }
+
+    table.eoi-table { width:100%; border-collapse:collapse; margin-top:8pt; font-size:8.5pt; }
+    table.eoi-table th, table.eoi-table td { border-bottom:0.5pt solid var(--border); padding:3.5pt 7pt; text-align:center; }
+    table.eoi-table thead th { background:var(--teal-700); color:var(--white); font-size:8pt; }
+    table.eoi-table thead th:first-child { border-top-left-radius:6pt; }
+    table.eoi-table thead th:last-child { border-top-right-radius:6pt; }
+    .pts-col { text-align:left !important; font-weight:700; color:var(--teal-800); width:24%; }
+    td.zero { color:#cbd5e1; }
+    tr.eoi-you-row { background:rgba(212,99,63,0.10); }
+    tr.eoi-you-row td { font-weight:800; color:var(--teal-800); border-top:1pt solid var(--gold-500); border-bottom:1pt solid var(--gold-500); }
+    .you-tag { background:var(--gold-500); color:#3a2a00; font-size:6.5pt; font-weight:800; padding:0.5pt 4pt; border-radius:6pt; margin-left:3pt; letter-spacing:0.5pt; }
+    tr.eoi-total td { font-weight:800; color:var(--teal-700); border-top:1.5pt solid var(--teal-700); background:var(--teal-100); }
+  </style>
+
+</div>
+{% endif %}

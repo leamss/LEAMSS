@@ -1243,7 +1243,12 @@ function ManualToolsTab({ headers, onAfterCommit }) {
       </div>
 
       <CsvUploadCard headers={headers} onAfterCommit={onAfterCommit} />
+     
       <AiExtractCard headers={headers} onAfterCommit={onAfterCommit} />
+       <StateNominationExcelCard
+    headers={headers}
+    onAfterCommit={onAfterCommit}
+/>
       <BulkStateExtractCard headers={headers} onAfterCommit={onAfterCommit} />
       <DamaIlaPdfCard headers={headers} onAfterCommit={onAfterCommit} />
     </div>
@@ -1273,6 +1278,7 @@ function CsvUploadCard({ headers, onAfterCommit }) {
       alert('Failed to download template: ' + (e.response?.data?.detail || e.message));
     }
   };
+  
 
   const onFileChange = (e) => {
     setFile(e.target.files?.[0] || null);
@@ -1587,7 +1593,7 @@ function BulkStateExtractCard({ headers, onAfterCommit }) {
   const [commitResult, setCommitResult] = useState(null);
 
   const runPreview = async () => {
-    if (!state || !rawText) return;
+    if (!state || (!sourceUrl && !rawText)) return;
     setPreviewing(true); setPreview(null); setCommitResult(null);
     try {
       const r = await axios.post(`${API}/anz-intel/ai-extract-state-bulk/preview`, {
@@ -1623,10 +1629,10 @@ function BulkStateExtractCard({ headers, onAfterCommit }) {
           <Sparkles className="h-4 w-4" style={{ color: C.gold }} />
           Bulk State Nomination AI Extract (VIC · SA · ACT · NT · TAS · WA)
         </h3>
-        <p className="text-xs mt-1" style={{ color: C.body }}>
-          Aap official state migration site (VIC / SA / ACT / NT / TAS / WA) ka content paste karein.
-          AI saare occupations + 190/491 eligibility extract karke matched records par tag kar dega — including 4-digit unit-group expansion.
-        </p>
+        <p className="text-xs mt-1">
+  Enter the official migration URL. AI will try to read the webpage directly.
+  If the page cannot be accessed, you can paste the content as a fallback.
+</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
@@ -1639,7 +1645,7 @@ function BulkStateExtractCard({ headers, onAfterCommit }) {
             style={{ borderColor: C.border }}
             data-testid="bulk-state-select"
           >
-            {['VIC', 'SA', 'ACT', 'NT', 'TAS', 'WA', 'NSW', 'QLD'].map(s => <option key={s} value={s}>{s}</option>)}
+            {['VIC', 'SA', 'ACT', 'NT', 'TAS', 'WA', 'NSW', 'QLD','WA'].map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         </div>
         <div className="md:col-span-2">
@@ -1661,7 +1667,7 @@ function BulkStateExtractCard({ headers, onAfterCommit }) {
         <textarea
           value={rawText}
           onChange={(e) => setRawText(e.target.value)}
-          placeholder="Paste the full occupation list page content here (e.g., 'Software Engineer 261313 - eligible for 190 and 491 - high demand...')"
+          placeholder="Optional: Paste the page content only if AI cannot access the URL."
           className="w-full px-3 py-2 rounded border text-xs font-mono"
           style={{ borderColor: C.border, minHeight: 160 }}
           data-testid="bulk-state-raw"
@@ -1671,7 +1677,7 @@ function BulkStateExtractCard({ headers, onAfterCommit }) {
 
       <button
         onClick={runPreview}
-        disabled={!rawText || previewing}
+        disabled={(!sourceUrl && !rawText) || previewing}
         className="px-4 py-2 rounded-md text-xs font-bold flex items-center gap-2 disabled:opacity-50"
         style={{ background: C.teal, color: '#fff' }}
         data-testid="bulk-state-preview-btn"
@@ -1811,6 +1817,7 @@ function DamaIlaPdfCard({ headers, onAfterCommit }) {
     }
     setCommitting(false);
   };
+  
 
   return (
     <div className="rounded-xl border bg-white p-4" style={{ borderColor: C.border }} data-testid="dama-ila-pdf-card">
@@ -1935,5 +1942,307 @@ function DamaIlaPdfCard({ headers, onAfterCommit }) {
         </div>
       )}
     </div>
+    
   );
+  
+  
+}
+function StateNominationExcelCard({ headers, onAfterCommit }) {
+  const [state, setState] = useState("WA");
+  const [file, setFile] = useState(null);
+  const [preview, setPreview] = useState(null);
+  const [loadingPreview, setLoadingPreview] = useState(false);
+  const [committing, setCommitting] = useState(false);
+  const [commitResult, setCommitResult] = useState(null);
+  const runPreview = async () => {
+     console.log("Preview clicked", file, state);
+
+  if (!file) return;
+
+  setLoadingPreview(true);
+  setPreview(null);
+  setCommitResult(null);
+
+  try {
+    const fd = new FormData();
+
+    fd.append("state", state);
+    fd.append("file", file);
+
+    const r = await axios.post(
+      `${API}/anz-intel/state-excel/preview`,
+      fd,
+      {
+        headers: {
+          ...headers,
+          "Content-Type": "multipart/form-data",
+        },
+      }
+    );
+    console.log(r.data);
+
+    setPreview(r.data);
+
+  } catch (e) {
+
+    setPreview({
+      error: e.response?.data?.detail || String(e),
+    });
+
+  }
+
+  setLoadingPreview(false);
+};
+const runCommit = async () => {
+  if (!preview?.records?.length) return;
+
+  if (
+    !window.confirm(
+      `Sir, confirm — ${preview.matched_count} records will be updated. Proceed?`
+    )
+  ) {
+    return;
+  }
+
+  setCommitting(true);
+  setCommitResult(null);
+
+  try {
+    const r = await axios.post(
+      `${API}/anz-intel/state-excel/commit`,
+      {
+        state,
+        records: preview.records,
+      },
+      { headers }
+    );
+
+    setCommitResult(r.data);
+
+    if (onAfterCommit) {
+      await onAfterCommit();
+    }
+  } catch (e) {
+    setCommitResult({
+      error: e.response?.data?.detail || String(e),
+    });
+  }
+
+  setCommitting(false);
+};
+    return (
+        <>
+    <h3
+        className="text-base font-bold mb-3"
+        style={{ color: C.ink }}
+    >
+        State Nomination Excel Upload
+    </h3>
+
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+
+        <div>
+            <label
+                className="text-[10px] uppercase font-bold"
+                style={{ color: C.muted }}
+            >
+                State
+            </label>
+
+            <select
+                value={state}
+                onChange={(e) => setState(e.target.value)}
+                className="w-full px-3 py-2 rounded border"
+                style={{ borderColor: C.border }}
+            >
+                <option value="WA">WA</option>
+                <option value="VIC">VIC</option>
+                <option value="SA">SA</option>
+                <option value="ACT">ACT</option>
+                <option value="NT">NT</option>
+                <option value="TAS">TAS</option>
+            </select>
+        </div>
+
+        <div className="flex items-center gap-3 flex-wrap mt-4">
+
+  <input
+    type="file"
+    accept=".xlsx,.xls"
+    onChange={(e) => {
+      setFile(e.target.files?.[0] || null);
+      setPreview(null);
+      setCommitResult(null);
+    }}
+    className="text-xs"
+    data-testid="state-excel-file-input"
+  />
+
+  {file && (
+    <span
+      className="text-xs px-2 py-1 rounded"
+      style={{
+        background: C.tealWash,
+        color: C.tealDeep,
+        border: `1px solid ${C.tealWash2}`,
+      }}
+    >
+      {file.name}
+    </span>
+  )}
+
+</div>
+<div className="mt-4">
+
+  <button
+    onClick={runPreview}
+    
+    disabled={!file || loadingPreview}
+    className="px-4 py-2 rounded-md text-xs font-bold flex items-center gap-2 disabled:opacity-50"
+    style={{
+      background: C.teal,
+      color: "#fff",
+    }}
+  >
+    {loadingPreview ? (
+      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+    ) : (
+      <Sparkles className="h-3.5 w-3.5" />
+    )}
+
+    Preview Excel
+  </button>
+
+</div>
+{preview && !preview.error && (
+  <div
+    className="mt-4 p-3 rounded-md"
+    style={{
+      background: C.bg,
+      border: `1px solid ${C.tealWash2}`,
+    }}
+  >
+    <p
+      className="text-xs font-bold uppercase mb-2"
+      style={{ color: C.tealDeep }}
+    >
+      BULK EXTRACT PREVIEW · {preview.state}
+    </p>
+
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+      <PreviewStat
+        icon={Database}
+        label="Total Extracted"
+        value={preview.total_extracted}
+        tone="teal"
+      />
+
+      <PreviewStat
+        icon={CheckCircle2}
+        label="Matched in DB"
+        value={preview.matched_count}
+        tone="gold"
+      />
+
+      <PreviewStat
+        icon={AlertTriangle}
+        label="Unmatched"
+        value={preview.unmatched_count}
+        tone="orange"
+      />
+
+      <PreviewStat
+        icon={ArrowRight}
+        label="4-digit Expansions"
+        value={preview.unit_group_expansions?.length || 0}
+        tone="teal"
+      />
+    </div>
+
+    {preview.records?.length > 0 && (
+      <>
+        <p
+          className="text-xs font-bold mb-2"
+          style={{ color: C.tealDeep }}
+        >
+          Matched records (first 10):
+        </p>
+
+        {preview.records.slice(0, 10).map((r, i) => (
+          <div
+            key={i}
+            className="text-xs flex flex-wrap gap-2 items-baseline"
+          >
+            <span
+              className="font-mono font-bold"
+              style={{ color: C.tealDeep }}
+            >
+              {r.matched_code}
+            </span>
+
+            <span>{r.matched_title}</span>
+
+            {r.sc190 && (
+              <Badge
+                style={{
+                  background: C.tealWash2,
+                  color: C.tealDeep,
+                  fontSize: 9,
+                }}
+              >
+                190
+              </Badge>
+            )}
+
+            {r.sc491 && (
+              <Badge
+                style={{
+                  background: C.goldWash,
+                  color: C.orangeDeep,
+                  fontSize: 9,
+                }}
+              >
+                491
+              </Badge>
+            )}
+
+            {r.demand && (
+              <span
+                style={{
+                  color: C.muted,
+                  fontSize: 10,
+                }}
+              >
+                · {r.demand}
+              </span>
+            )}
+          </div>
+        ))}
+    </>
+    )}
+
+    <button
+      onClick={runCommit}
+      disabled={committing || preview.matched_count === 0}
+      className="mt-3 px-4 py-2 rounded-md text-xs font-bold flex items-center gap-2 disabled:opacity-50"
+      style={{
+        background: C.teal,
+        color: "#fff",
+      }}
+    >
+      {committing ? (
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+      ) : (
+        <Sparkles className="h-3.5 w-3.5" />
+      )}
+
+      Commit — Tag {preview.matched_count} records
+    </button>
+  </div>
+)}
+
+    </div>
+</>
+
+    );
 }

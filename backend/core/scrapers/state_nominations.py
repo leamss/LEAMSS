@@ -52,8 +52,11 @@ def _scrape_nsw() -> List[Dict[str, Any]]:
         rows = table.find_all("tr")[1:]  # skip header
         for row in rows:
             cells = [c.get_text(strip=True) for c in row.find_all(["th", "td"])]
-            if len(cells) >= 2 and cells[0].isdigit() and len(cells[0]) == 4:
-                out[cells[0]] = cells[1]
+            print(cells)
+            m = re.search(r"\b(\d{4})\b", cells[0])
+            if m:
+                out[m.group(1)] = cells[1]
+                
         return out
 
     list_190 = parse(tables[0])
@@ -132,8 +135,9 @@ def _scrape_wa() -> List[Dict[str, Any]]:
         # so we sniff cells for digit-only ANZSCO codes
         for row in rows:
             cells = [c.get_text(strip=True) for c in row.find_all(["td", "th"])]
+            print("WA ROW:", cells)
             for ci, val in enumerate(cells):
-                m = re.match(r"^([1-8]\d{5})$", val)
+                m = re.search(r"\b([1-8]\d{5})\b", val)
                 if m:
                     code = m.group(1)
                     # Name is usually the next non-numeric cell
@@ -203,6 +207,10 @@ async def apply_to_db(db, dry_run: bool = True, actor: str = "admin") -> Dict[st
 
     # ─ NSW: expand 4-digit unit_group → all 6-digit children ────────────────
     nsw_4digit = {r["unit_group"]: r for r in nsw_records}
+    print("NSW unit groups:", list(nsw_4digit.keys())[:20])
+    print("NSW count:", len(nsw_4digit))
+   
+   
     nsw_6digit_targets: List[tuple] = []  # (code, payload)
     if nsw_4digit:
         async for d in db["occupation_master"].find(
@@ -211,8 +219,8 @@ async def apply_to_db(db, dry_run: bool = True, actor: str = "admin") -> Dict[st
         ):
             parent = d["code"][:4]
             if parent in nsw_4digit:
-                if d.get("status") == "verified":
-                    continue
+                # Allow updating verified records
+                pass
                 rec = nsw_4digit[parent]
                 payload = {
                     "state": "NSW",
@@ -228,6 +236,8 @@ async def apply_to_db(db, dry_run: bool = True, actor: str = "admin") -> Dict[st
     # ─ QLD / WA: direct 6-digit match ────────────────────────────────────────
     qld_by_code = {r["code"]: r for r in qld_records}
     wa_by_code  = {r["code"]: r for r in wa_records}
+    print("QLD codes:", list(qld_by_code.keys())[:20])
+    print("QLD count:", len(qld_by_code))
 
     direct_targets: List[tuple] = []  # (existing_doc, payload, state)
     all_direct_codes = set(qld_by_code.keys()) | set(wa_by_code.keys())
@@ -236,8 +246,7 @@ async def apply_to_db(db, dry_run: bool = True, actor: str = "admin") -> Dict[st
             {"country_code": "AU", "code": {"$in": list(all_direct_codes)}},
             {"_id": 1, "code": 1, "title": 1, "state_territory_eligibility": 1, "status": 1},
         ):
-            if d.get("status") == "verified":
-                continue
+            
             if d["code"] in qld_by_code:
                 r = qld_by_code[d["code"]]
                 direct_targets.append((d, {

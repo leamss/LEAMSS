@@ -34,7 +34,7 @@ export default function ResumeUploadModal({ onClose, onExtracted, headers }) {
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose} data-testid="resume-modal">
       <Card className="max-w-xl w-full bg-white p-5 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <h3 className="text-base font-bold flex items-center gap-2 mb-3">
-          <Upload className="h-5 w-5 text-leamss-teal-600" />Upload Resume
+          <Upload className="h-5 w-5 text-indigo-600" />Upload Resume
         </h3>
         {!extracted ? (
           <>
@@ -54,28 +54,87 @@ export default function ResumeUploadModal({ onClose, onExtracted, headers }) {
             )}
             <div className="flex gap-2 justify-end mt-3">
               <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
-              <Button size="sm" className="bg-leamss-teal-600 hover:bg-leamss-teal-700" onClick={submit} disabled={!file || loading} data-testid="resume-submit">
+              <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700" onClick={submit} disabled={!file || loading} data-testid="resume-submit">
                 {loading ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Bot className="h-3 w-3 mr-1" />}
                 {loading ? 'Extracting…' : 'Parse Resume with AI'}
               </Button>
             </div>
           </>
         ) : (
-          <>
-            <p className="text-[11px] text-emerald-700 bg-emerald-50 p-2 rounded mb-3">✅ Resume parsed. Review the data and use it.</p>
-            <pre className="bg-slate-50 p-2 rounded text-[10px] max-h-72 overflow-auto">
-              {JSON.stringify({
-                name: extracted.name,
-                primary_applicant: extracted.primary_applicant,
-              }, null, 2)}
-            </pre>
-            <div className="flex gap-2 justify-end mt-3">
-              <Button variant="outline" size="sm" onClick={() => setExtracted(null)}>Re-parse</Button>
-              <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => onExtracted(extracted)} data-testid="use-extracted-data">
-                <CheckCircle2 className="h-3 w-3 mr-1" />Use This Data
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 p-2.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg text-xs font-semibold">
+              <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+              <span>Resume extracted successfully! Review the extracted details below:</span>
+            </div>
+
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3 text-xs max-h-80 overflow-y-auto">
+              {/* Candidate Info */}
+              <div className="grid grid-cols-2 gap-2 border-b pb-2.5">
+                <div>
+                  <span className="text-slate-400 block text-[10px] uppercase font-bold">Candidate Name</span>
+                  <span className="font-semibold text-slate-800">{extracted.name || extracted.client_name || '—'}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[10px] uppercase font-bold">Email</span>
+                  <span className="font-semibold text-slate-800 truncate block">{extracted.email || extracted.client_email || '—'}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[10px] uppercase font-bold">Phone</span>
+                  <span className="font-semibold text-slate-800">{extracted.phone || extracted.client_phone || '—'}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[10px] uppercase font-bold">Age / DOB</span>
+                  <span className="font-semibold text-slate-800">
+                    {extracted.primary_applicant?.age ? `${extracted.primary_applicant.age} yrs` : (extracted.primary_applicant?.dob || '—')}
+                  </span>
+                </div>
+              </div>
+
+              {/* Education & Experience */}
+              <div className="grid grid-cols-2 gap-2 border-b pb-2.5">
+                <div>
+                  <span className="text-slate-400 block text-[10px] uppercase font-bold">Highest Qualification</span>
+                  <span className="font-semibold text-slate-800 capitalize">{extracted.primary_applicant?.highest_qualification || '—'}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[10px] uppercase font-bold">Field of Study</span>
+                  <span className="font-semibold text-slate-800">{extracted.primary_applicant?.field_of_study || '—'}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[10px] uppercase font-bold">Current Profession</span>
+                  <span className="font-semibold text-slate-800">{extracted.primary_applicant?.current_profession || extracted.primary_applicant?.nominated_occupation_title || '—'}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[10px] uppercase font-bold">Experience</span>
+                  <span className="font-semibold text-slate-800">
+                    {extracted.primary_applicant?.experience_years_overall != null ? `${extracted.primary_applicant.experience_years_overall} years` : '—'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Language & Marital */}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <span className="text-slate-400 block text-[10px] uppercase font-bold">Language Test</span>
+                  <span className="font-semibold text-slate-800">
+                    {extracted.primary_applicant?.primary_language_test || 'IELTS'} 
+                    {extracted.primary_applicant?.test_completed ? ' (Completed)' : ' (Planned)'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[10px] uppercase font-bold">Marital Status</span>
+                  <span className="font-semibold text-slate-800 capitalize">{extracted.primary_applicant?.marital_status || 'Never Married / Single'}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-2 justify-end pt-2">
+              <Button variant="outline" size="sm" onClick={() => setExtracted(null)}>Upload Different Resume</Button>
+              <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium" onClick={() => onExtracted(extracted)} data-testid="use-extracted-data">
+                <CheckCircle2 className="h-4 w-4 mr-1.5" />Use Extracted Details
               </Button>
             </div>
-          </>
+          </div>
         )}
       </Card>
     </div>

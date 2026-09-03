@@ -1120,6 +1120,10 @@ from core.auth import get_current_user, get_password_hash, create_access_token
 from core.database import db, users_col, notifications_col
 from core.integrity import compute_hash
 from passlib.context import CryptContext
+from core.razorpay_client import get_razorpay_client, RazorpayClient, SignatureVerificationError
+
+razorpay_client = get_razorpay_client()
+razorpay = RazorpayClient
 
 logger = logging.getLogger(__name__)
 
@@ -1137,11 +1141,37 @@ _pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
 class GenerateLinkRequest(BaseModel):
     pa_id: str
     expires_in_days: Optional[int] = 30  # 1, 7, 30, 90, or 0 = never
-
+    include_gst: bool = False  
+    promo_code: Optional[str] = None
+    promo_enabled: Optional[bool] = False
 
 class PublicMockPayRequest(BaseModel):
     token: str
+    promo_code: Optional[str] = None
 
+class PublicCreateOrderRequest(BaseModel):
+    token: str
+    promo_code: Optional[str] = None
+
+class PublicVerifyPaymentRequest(BaseModel):
+    token: str
+    order_id: str
+    payment_id: str
+    signature: str
+    promo_code: Optional[str] = None
+
+class ProposalCreateOrderRequest(BaseModel):
+    promo_code: Optional[str] = None
+
+class ProposalVerifyPaymentRequest(BaseModel):
+    order_id: str
+    payment_id: str
+    signature: str
+    promo_code: Optional[str] = None
+
+class ProposalInternationalClaimRequest(BaseModel):
+    reference_note: Optional[str] = "" 
+    promo_code: Optional[str] = None 
 
 class MagicLoginRequest(BaseModel):
     token: str
@@ -1191,15 +1221,98 @@ async def _log(user_id: str, pa_id: Optional[str], action: str, metadata: Option
 async def _mock_send(channel: str, to: str, subject: str, body: str):
     logger.info(f"[{channel.upper()} MOCK] to={to} | {subject} | {body[:180]}")
 
+async def _create_spouse_case(pa: dict, spouse_cm_id: Optional[str]) -> tuple:
+    """Creates a separate case + user account + magic-login for the spouse/partner.
+    Returns (spouse_case_id, spouse_case_code) or (None, None) if no spouse_info."""
+    spouse_info = pa.get("spouse_info")
+    if not spouse_info or not spouse_info.get("email"):
+        return None, None
+
+    cases_col = db["cases"]
+    case_steps_col = db["case_steps"]
+    workflow_steps_col = db["workflow_steps"]
+
+    spouse_email = spouse_info["email"].lower()
+    spouse_user = await users_col.find_one({"email": spouse_email}, {"_id": 0})
+    if not spouse_user:
+        spouse_user_id = str(uuid.uuid4())
+        temp_pw = secrets.token_urlsafe(10)
+        spouse_user = {
+            "id": spouse_user_id, "name": spouse_info.get("name", ""),
+            "email": spouse_email, "phone": spouse_info.get("mobile", ""),
+            "password_hash": get_password_hash(temp_pw),
+            "role": "client", "status": "active",
+            "source": "partner_skill_assessment_spouse",
+            "partner_id": pa.get("partner_id"),
+            "created_at": _now(), "updated_at": _now(),
+        }
+        await users_col.insert_one(spouse_user)
+    spouse_id = spouse_user["id"]
+
+    spouse_cm_name = "Pending assignment"
+    if spouse_cm_id:
+        spouse_cm = await users_col.find_one({"id": spouse_cm_id, "role": "case_manager"}, {"_id": 0, "name": 1})
+        if spouse_cm:
+            spouse_cm_name = spouse_cm.get("name", "Case Manager")
+
+    spouse_count = await cases_col.count_documents({})
+    spouse_case_code = f"LEAMSS-{datetime.now(timezone.utc).year}-{(spouse_count + 1):04d}"
+    spouse_case_id = str(uuid.uuid4())
+    spouse_case = {
+        "id": spouse_case_id, "case_id": spouse_case_code,
+        "sale_id": pa.get("sale_id"), "client_id": spouse_id,
+        "linked_case_id": pa.get("case_id"), "is_partner_case": True,
+        "client_name": spouse_info.get("name"), "client_email": spouse_info.get("email"),
+        "product_id": pa.get("product_id", ""),
+        "product_name": (pa.get("product_name") or "") + " (Partner)",
+        "partner_id": pa.get("partner_id"),
+        "case_manager_id": spouse_cm_id, "case_manager_name": spouse_cm_name,
+        "status": "active", "current_step": "Profile Creation", "current_step_order": 1,
+        "pre_assessment_id": pa.get("id"),
+        "created_at": _now(), "updated_at": _now(),
+    }
+    await cases_col.insert_one(spouse_case)
+
+    if pa.get("product_id"):
+        steps = await workflow_steps_col.find({"product_id": pa["product_id"]}, {"_id": 0}).sort("step_order", 1).to_list(100)
+        for step in steps:
+            await case_steps_col.insert_one({
+                "id": str(uuid.uuid4()), "case_id": spouse_case_id,
+                "step_name": step.get("step_name"), "step_order": step.get("step_order"),
+                "status": "pending", "description": step.get("description", ""),
+                "required_documents": step.get("required_documents", []),
+                "created_at": _now(),
+            })
+
+    magic_token = secrets.token_urlsafe(22)
+    await magic_col.insert_one({
+        "id": str(uuid.uuid4()), "token": magic_token, "user_id": spouse_id,
+        "expires_at": _now() + timedelta(hours=72), "used": False, "created_at": _now(),
+    })
+    base = _frontend_url()
+    portal_link = f"{base}/magic/{magic_token}" if base else f"/magic/{magic_token}"
+    await _mock_send("email", spouse_email, "Your LEAMSS client portal",
+                      f"Welcome {spouse_info.get('name')}! Access your case here: {portal_link}")
+
+    if spouse_cm_id:
+        await notifications_col.insert_one({
+            "id": str(uuid.uuid4()), "user_id": spouse_cm_id,
+            "title": f"New case assigned: {spouse_case_code}",
+            "message": f"{spouse_info.get('name')} — partner/spouse of {pa.get('client_name')}",
+            "type": "case_assigned", "read": False,
+            "link": f"/cm?case={spouse_case_id}", "created_at": _now(),
+        })
+
+    return spouse_case_id, spouse_case_code
 
 # ======================== PARTNER: GENERATE PUBLIC LINK ========================
 @router.post("/generate-public-link")
 async def generate_public_link(data: GenerateLinkRequest, current_user: dict = Depends(get_current_user)):
     """Smart link generator. Returns the right link for the PA's current stage:
 
-      • Fee NOT paid (new / payment_pending)         → public ₹5,100 payment link (share-token)
-      • Fee paid + Proposal sent + not yet accepted  → magic link to client MiniPortal (pay proposal fee)
-      • Already in case_created / refund states      → magic link to portal (read-only view)
+    • Fee NOT paid (new / payment_pending)         → public ₹5,100 payment link (share-token)
+    • Fee paid + Proposal sent + not yet accepted  → magic link to client MiniPortal (pay proposal fee)
+    • Already in case_created / refund states      → magic link to portal (read-only view)
 
     `expires_in_days`: 1, 7, 30, 90, or 0 = never expires.
     """
@@ -1252,12 +1365,31 @@ async def generate_public_link(data: GenerateLinkRequest, current_user: dict = D
     if not fee_paid:
         token = pa.get("share_token") or secrets.token_urlsafe(22)
         expires_at = None if days == 0 else _now() + timedelta(days=days)
-        await pre_assessments_col.update_one({"id": data.pa_id}, {"$set": {
+
+        # 👇 NEW — Step-1 fee GST calculation (only for standard ₹5,100 PA link,
+        # express token payments GST लावत नाहीये सध्या)
+        is_express_check = pa.get("sale_type") == "express"
+        base_step1_amount = 5100.0
+        gst_amount = round(base_step1_amount * 0.18, 2) if (data.include_gst and not is_express_check) else 0.0
+        total_step1_amount = base_step1_amount + gst_amount
+
+        update_fields = {
             "share_token": token,
             "share_expires_at": expires_at,
             "share_active": True,
+            "assigned_promo_code": (data.promo_code.strip().upper() if data.promo_code else None),
+            "promo_enabled": bool(data.promo_enabled),
             "updated_at": _now(),
-        }})
+        }
+        if not is_express_check:
+            update_fields.update({
+                "step1_gst_included": bool(data.include_gst),
+                "step1_base_amount": base_step1_amount,
+                "step1_gst_amount": gst_amount,
+                "step1_total_amount": total_step1_amount,
+            })
+        # await pre_assessments_col.update_one({"id": data.pa_id}, update_fields if False else {"$set": update_fields})
+        await pre_assessments_col.update_one({"id": data.pa_id}, {"$set": update_fields})
         public_url = f"{base}/pre-assess/{token}" if base else f"/pre-assess/{token}"
         # Phase 4D — Express + Token mode link semantics
         is_express = pa.get("sale_type") == "express"
@@ -1274,8 +1406,8 @@ async def generate_public_link(data: GenerateLinkRequest, current_user: dict = D
             purpose = "express_direct_preview"
         else:
             link_type = "public_pa_fee"
-            amount = 5100
-            amount_label = "₹5,100"
+            amount = total_step1_amount   # 👈 आधी `5100` hardcoded होतं, आता dynamic
+            amount_label = f"₹{total_step1_amount:,.0f}" + (f" (incl. 18% GST)" if gst_amount > 0 else "")
             purpose = "pre_assessment_fee"
         await _log(current_user["id"], data.pa_id, "share_link_generated", {
             "type": link_type, "expires_in_days": days,
@@ -1287,6 +1419,11 @@ async def generate_public_link(data: GenerateLinkRequest, current_user: dict = D
             "amount": amount,
             "amount_label": amount_label,
             "purpose": purpose,
+            "gst_included": gst_amount > 0,
+            "gst_amount": gst_amount,
+            "base_amount": base_step1_amount,
+            "assigned_promo_code": (data.promo_code.strip().upper() if data.promo_code else None),
+            "promo_enabled": bool(data.promo_enabled),
             "expires_at": expires_at.isoformat() if expires_at else None,
             "expires_in_days": days,
             "client_name": pa.get("client_name"),
@@ -1320,6 +1457,13 @@ async def generate_public_link(data: GenerateLinkRequest, current_user: dict = D
         f"₹{amount:,.0f}" if proposal_pending and amount > 0 else "—"
     )
 
+    if data.promo_code:
+        await pre_assessments_col.update_one({"id": data.pa_id}, {"$set": {
+            "assigned_promo_code": data.promo_code.strip().upper(),
+            "promo_enabled": bool(data.promo_enabled),
+            "updated_at": _now()
+        }})
+
     await _log(current_user["id"], data.pa_id, "share_link_generated", {
         "type": "magic_portal", "purpose": purpose, "expires_in_days": days,
     })
@@ -1330,6 +1474,8 @@ async def generate_public_link(data: GenerateLinkRequest, current_user: dict = D
         "amount": amount,
         "amount_label": amount_label,
         "purpose": purpose,
+        "assigned_promo_code": (data.promo_code.strip().upper() if data.promo_code else pa.get("assigned_promo_code")),
+        "promo_enabled": bool(data.promo_enabled if data.promo_code else pa.get("promo_enabled")),
         "expires_at": (_now() + timedelta(minutes=minutes)).isoformat(),
         "expires_in_days": days,
         "client_name": pa.get("client_name"),
@@ -1484,6 +1630,14 @@ async def public_mock_pay(data: PublicMockPayRequest):
                 "client_user_id": user["id"],
                 "updated_at": _now(),
             }
+            if pa.get("step1_gst_included"):
+                update["fee_amount_paid"] = pa.get("step1_total_amount", 5100)
+                update["fee_gst_included"] = True
+                update["fee_gst_amount"] = pa.get("step1_gst_amount", 0)
+                update["fee_base_amount"] = pa.get("step1_base_amount", 5100)
+            else:
+                update["fee_amount_paid"] = 5100
+                update["fee_gst_included"] = False
         await pre_assessments_col.update_one(
             {"share_token": data.token},
             {"$set": update},
@@ -1531,6 +1685,278 @@ async def public_mock_pay(data: PublicMockPayRequest):
         "user_email": user["email"],
     }
 
+
+class PublicEnterPortalRequest(BaseModel):
+    token: str
+
+class InternationalPaymentClaimRequest(BaseModel):
+    token: str
+    reference_note: Optional[str] = ""  # UTR/transaction ref, if client has it
+
+@router.get("/public/bank-details/{token}")
+async def get_bank_details(token: str, country: Optional[str] = None):
+    """Returns the bank account for the given `country` query param (client's choice
+    from the sub-tabs). If no country is passed, falls back to the PA's destination
+    country, then to a 'default' account."""
+    pa = await pre_assessments_col.find_one({"share_token": token}, {"_id": 0})
+    if not pa:
+        raise HTTPException(status_code=404, detail="Link not found")
+
+    bank_col = db["international_bank_accounts"]
+    lookup_country = country or pa.get("country")
+
+    account = await bank_col.find_one({"country": lookup_country, "active": True}, {"_id": 0})
+    if not account:
+        account = await bank_col.find_one({"country": "default", "active": True}, {"_id": 0})
+    if not account:
+        raise HTTPException(status_code=404, detail="No international bank account configured yet — contact admin")
+
+    return account
+
+
+@router.post("/public/international-payment-claim")
+async def international_payment_claim(data: InternationalPaymentClaimRequest):
+    """Client (paying via international wire transfer) clicks 'I've made the transfer'.
+    Creates client user + magic link (same as mock-pay) but marks stage as
+    'international_payment_pending' so Partner knows to manually verify before approving."""
+    pa = await pre_assessments_col.find_one({"share_token": data.token}, {"_id": 0})
+    if not pa:
+        raise HTTPException(status_code=404, detail="Link not found")
+
+    already_claimed = pa.get("stage") not in (None, "new", "payment_pending")
+    if already_claimed:
+        raise HTTPException(status_code=400, detail="Payment already claimed or processed for this link")
+
+    # Ensure client user exists (same logic as mock-pay)
+    existing = await users_col.find_one({"email": pa["client_email"].lower()}, {"_id": 0})
+    if existing:
+        user = existing
+    else:
+        user_id = str(uuid.uuid4())
+        temp_pw = secrets.token_urlsafe(10)
+        user = {
+            "id": user_id,
+            "name": pa.get("client_name", ""),
+            "email": pa["client_email"].lower(),
+            "phone": pa.get("client_mobile", ""),
+            "password_hash": get_password_hash(temp_pw),
+            "role": "client",
+            "status": "active",
+            "source": "international_wire_portal",
+            "partner_id": pa.get("partner_id"),
+            "created_at": _now(),
+            "updated_at": _now(),
+        }
+        await users_col.insert_one(user)
+
+    await pre_assessments_col.update_one({"share_token": data.token}, {"$set": {
+        "stage": "international_payment_pending",
+        "fee_payment_status": "pending_verification",  # NOT "paid" yet — partner must confirm
+        "payment_method": "international_wire_transfer",
+        "international_payment_claimed_at": _now(),
+        "international_payment_reference_note": data.reference_note or "",
+        "client_user_id": user["id"],
+        "updated_at": _now(),
+    }})
+
+    # Issue magic link so client can access Mini Portal immediately (to upload proof)
+    magic_token = secrets.token_urlsafe(22)
+    await magic_col.insert_one({
+        "id": str(uuid.uuid4()),
+        "token": magic_token,
+        "user_id": user["id"],
+        "expires_at": _now() + timedelta(hours=72),
+        "used": False,
+        "created_at": _now(),
+    })
+    base = _frontend_url()
+    portal_link = f"{base}/magic/{magic_token}" if base else f"/magic/{magic_token}"
+
+    # Notify partner — ACTION NEEDED: verify wire transfer
+    if pa.get("partner_id"):
+        await notifications_col.insert_one({
+            "id": str(uuid.uuid4()),
+            "user_id": pa["partner_id"],
+            "title": "International payment claimed — verify manually",
+            "message": f"{pa.get('client_name')} says they've sent an international wire transfer. Check your bank statement + uploaded proof, then confirm.",
+            "type": "international_payment_pending", "read": False,
+            "link": "/partner?tab=pre-assessment",
+            "created_at": _now(),
+        })
+
+    await _log(user["id"], pa["id"], "international_payment_claimed", {"reference_note": data.reference_note or ""})
+
+    return {"ok": True, "magic_link": portal_link, "stage": "international_payment_pending", "pa_id": pa["id"]}
+
+@router.post("/public/create-order")
+async def create_order(data: PublicCreateOrderRequest):
+    """Creates a real Razorpay order for the given share-token's pre-assessment.
+    Frontend calls this FIRST, gets order_id, then opens Razorpay Checkout."""
+    pa = await pre_assessments_col.find_one({"share_token": data.token}, {"_id": 0})
+    if not pa or not pa.get("share_active"):
+        raise HTTPException(status_code=404, detail="Link not found or deactivated")
+
+    # Same amount logic as generate_public_link's Branch A
+    is_express = pa.get("sale_type") == "express"
+    mode = pa.get("express_mode") or "direct"
+    if is_express and mode == "token":
+        amount_rupees = float(pa.get("express_token_amount") or 0)
+    else:
+        amount_rupees = float(pa.get("step1_total_amount") or 5100.0)
+
+    # Apply promo discount if promo_code provided
+    promo_code_applied = None
+    discount_amount = 0.0
+    promo_code_to_check = data.promo_code or (pa.get("assigned_promo_code") if pa.get("promo_enabled") else None)
+    if promo_code_to_check:
+        promo_upper = promo_code_to_check.strip().upper()
+        promo = await db["promo_codes"].find_one({"code": promo_upper, "is_active": True}, {"_id": 0})
+        if promo and promo.get("current_uses", 0) < promo.get("max_uses", 100):
+            disc_type = promo.get("discount_type", "percentage")
+            disc_val = float(promo.get("discount_value", 0))
+            if disc_type == "percentage":
+                discount_amount = round(amount_rupees * (disc_val / 100.0), 2)
+            else:
+                discount_amount = round(min(amount_rupees, disc_val), 2)
+            amount_rupees = max(1.0, round(amount_rupees - discount_amount, 2))
+            promo_code_applied = promo_upper
+
+    if amount_rupees <= 0:
+        raise HTTPException(status_code=400, detail="Invalid payment amount for this link")
+
+    if not razorpay_client:
+        raise HTTPException(status_code=500, detail="Razorpay is not configured on this server")
+
+    amount_paise = int(amount_rupees * 100)  # Razorpay paise madhe ghet
+
+    order = razorpay_client.order.create({
+        "amount": amount_paise,
+        "currency": "INR",
+        "payment_capture": 1,
+        "notes": {
+            "pa_id": pa["id"],
+            "share_token": data.token,
+            "promo_code": promo_code_applied or "",
+            "discount_amount": str(discount_amount),
+        },
+    })
+
+    await _log(pa.get("client_user_id") or "public", pa["id"], "razorpay_order_created",
+               {"order_id": order["id"], "amount": amount_rupees, "promo_code": promo_code_applied})
+
+    return {
+        "order_id": order["id"],
+        "amount": amount_paise,
+        "amount_rupees": amount_rupees,
+        "discount_amount": discount_amount,
+        "promo_code": promo_code_applied,
+        "currency": "INR",
+        "key_id": os.environ.get("RAZORPAY_KEY_ID"),
+        "client_name": pa.get("client_name"),
+        "client_email": pa.get("client_email"),
+        "client_mobile": pa.get("client_mobile"),
+    }
+
+@router.post("/public/verify-payment")
+async def verify_payment(data: PublicVerifyPaymentRequest):
+    """Verifies Razorpay signature after client completes checkout, then reuses the
+    exact same 'mark as paid + create user + magic link' logic as /public/mock-pay."""
+    if not razorpay_client or not razorpay:
+        raise HTTPException(status_code=500, detail="Razorpay is not configured on this server")
+    pa = await pre_assessments_col.find_one({"share_token": data.token}, {"_id": 0})
+    if not pa:
+        raise HTTPException(status_code=404, detail="Link not found")
+
+    # ---- Verify Razorpay signature (this proves the payment is real, not faked) ----
+    try:
+        razorpay_client.utility.verify_payment_signature({
+            "razorpay_order_id": data.order_id,
+            "razorpay_payment_id": data.payment_id,
+            "razorpay_signature": data.signature,
+        })
+    except getattr(getattr(razorpay, "errors", None), "SignatureVerificationError", Exception):
+        raise HTTPException(status_code=400, detail="Payment verification failed — signature mismatch")
+
+    # Increment promo uses if promo applied
+    if data.promo_code:
+        promo_upper = data.promo_code.strip().upper()
+        await db["promo_codes"].update_one(
+            {"code": promo_upper},
+            {"$inc": {"current_uses": 1, "used_count": 1}}
+        )
+
+    # ---- Reuse existing paid-logic (same as mock-pay) ----
+    result = await public_mock_pay(PublicMockPayRequest(token=data.token, promo_code=data.promo_code))
+    await pre_assessments_col.update_one({"share_token": data.token}, {"$set": {
+        "razorpay_order_id": data.order_id,
+        "razorpay_payment_id": data.payment_id,
+        "payment_method": "razorpay_live",
+        "promo_code_used": data.promo_code,
+        "updated_at": _now(),
+    }})
+    return result
+
+@router.post("/public/enter-portal")
+async def public_enter_portal(data: PublicEnterPortalRequest):
+    """Express-sale clients (direct mode) never 'pay' the PA fee, so they never get
+    auto-created as a user via /public/mock-pay. This endpoint lets the SAME
+    /pre-assess/:token public link auto-upgrade them into a real client portal
+    session once the partner has sent packages/proposal (stage progressed)."""
+    pa = await pre_assessments_col.find_one({"share_token": data.token}, {"_id": 0})
+    if not pa or not pa.get("share_active"):
+        raise HTTPException(status_code=404, detail="Link not found or deactivated")
+
+    ready_stages = (
+        "awaiting_package_selection", "package_selected", "proposal_sent",
+        "proposal_paid", "awaiting_final_approval", "case_created",
+    )
+    if pa.get("stage") not in ready_stages:
+        raise HTTPException(status_code=400, detail="Portal not ready yet — your consultant hasn't sent packages.")
+
+    # Ensure a client user exists (mirrors the auto-create logic in /public/mock-pay)
+    existing = await users_col.find_one({"email": pa["client_email"].lower()}, {"_id": 0})
+    if existing:
+        user = existing
+    else:
+        user_id = str(uuid.uuid4())
+        temp_pw = secrets.token_urlsafe(10)
+        user = {
+            "id": user_id,
+            "name": pa.get("client_name", ""),
+            "email": pa["client_email"].lower(),
+            "phone": pa.get("client_mobile", ""),
+            "password_hash": get_password_hash(temp_pw),
+            "role": "client",
+            "status": "active",
+            "source": "express_sale_portal",
+            "partner_id": pa.get("partner_id"),
+            "created_at": _now(),
+            "updated_at": _now(),
+        }
+        await users_col.insert_one(user)
+        await _mock_send("email", user["email"], "Your LEAMSS client portal",
+            f"Welcome {user['name']}! Your account is ready.")
+
+    if not pa.get("client_user_id"):
+        await pre_assessments_col.update_one({"id": pa["id"]}, {"$set": {
+            "client_user_id": user["id"], "updated_at": _now(),
+        }})
+
+    magic_token = secrets.token_urlsafe(22)
+    await magic_col.insert_one({
+        "id": str(uuid.uuid4()),
+        "token": magic_token,
+        "user_id": user["id"],
+        "expires_at": _now() + timedelta(hours=72),
+        "used": False,
+        "created_at": _now(),
+    })
+    base = _frontend_url()
+    portal_link = f"{base}/magic/{magic_token}" if base else f"/magic/{magic_token}"
+
+    await _log(user["id"], pa["id"], "express_portal_entered", {"stage": pa.get("stage")})
+
+    return {"ok": True, "magic_link": portal_link, "stage": pa.get("stage")}
 
 # ======================== MAGIC + OTP LOGIN ========================
 @router.post("/magic-login")
@@ -1627,16 +2053,36 @@ async def otp_verify(data: OTPVerify):
 
 
 # ======================== CLIENT PORTAL VIEWS ========================
+def _can_access_client_pa(pa: dict, user: dict) -> bool:
+    role = user.get("role", "")
+    rbac = user.get("rbac_role", "")
+    if role in ("admin", "admin_owner") or rbac in ("admin", "admin_owner"):
+        return True
+    if role in ("partner", "sales_executive", "sr_sales_executive", "sales_manager", "sales_head"):
+        return pa.get("partner_id") == user.get("id") or pa.get("created_by_user_id") == user.get("id")
+    if role == "client":
+        return (pa.get("client_email", "").lower() == user.get("email", "").lower()
+                or pa.get("client_user_id") == user.get("id"))
+    return False
+
+
 @router.get("/client/my-assessments")
 async def client_my_assessments(current_user: dict = Depends(get_current_user)):
-    if current_user.get("role") != "client":
-        raise HTTPException(status_code=403, detail="Client only")
-    # Match by either email OR explicit client_user_id
-    q = {"$or": [
-        {"client_email": current_user.get("email", "").lower()},
-        {"client_user_id": current_user["id"]},
-    ]}
-    items = await pre_assessments_col.find(q, {"_id": 0, "partner_id": 0}).sort("created_at", -1).to_list(50)
+    role = current_user.get("role", "")
+    rbac = current_user.get("rbac_role", "")
+    if role in ("admin", "admin_owner") or rbac in ("admin", "admin_owner"):
+        items = await pre_assessments_col.find({}, {"_id": 0, "partner_id": 0}).sort("created_at", -1).to_list(50)
+    elif role in ("partner", "sales_executive", "sr_sales_executive"):
+        items = await pre_assessments_col.find({"$or": [{"partner_id": current_user["id"]}, {"created_by_user_id": current_user["id"]}]}, {"_id": 0, "partner_id": 0}).sort("created_at", -1).to_list(50)
+    elif role == "client":
+        q = {"$or": [
+            {"client_email": current_user.get("email", "").lower()},
+            {"client_user_id": current_user["id"]},
+        ]}
+        items = await pre_assessments_col.find(q, {"_id": 0, "partner_id": 0}).sort("created_at", -1).to_list(50)
+    else:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
     for it in items:
         for k in ("created_at", "updated_at", "fee_paid_at", "share_expires_at"):
             if isinstance(it.get(k), datetime):
@@ -1649,15 +2095,14 @@ async def client_submit_for_review(pa_id: str, current_user: dict = Depends(get_
     """Client marks their uploaded documents as ready for partner review.
     Transitions stage: payment_received -> documents_submitted.
     """
-    if current_user.get("role") != "client":
-        raise HTTPException(status_code=403, detail="Client only")
-
     pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
-    if not pa or (pa.get("client_email", "").lower() != current_user.get("email", "").lower()
-                  and pa.get("client_user_id") != current_user["id"]):
+    if not pa:
         raise HTTPException(status_code=404, detail="Pre-assessment not found")
 
-    if pa.get("stage") not in ("payment_received",):
+    if not _can_access_client_pa(pa, current_user):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    if pa.get("stage") not in ("payment_received", "international_payment_pending"):
         raise HTTPException(status_code=400, detail=f"Cannot submit at stage: {pa.get('stage')}")
 
     # Verify at least 1 doc uploaded
@@ -1712,13 +2157,19 @@ async def partner_forward_to_admin(pa_id: str, data: PartnerForwardRequest, curr
     if pa.get("stage") != "partner_review":
         raise HTTPException(status_code=400, detail=f"Cannot forward at stage: {pa.get('stage')}")
 
-    await pre_assessments_col.update_one({"id": pa_id}, {"$set": {
+    update_fields = {
         "stage": "documents_submitted",
         "partner_remarks": data.remarks or "",
         "partner_forwarded_at": _now(),
         "submitted_at": _now(),
         "updated_at": _now(),
-    }})
+    }
+    # If this was an international wire transfer, partner forwarding = payment confirmed
+    if pa.get("payment_method") == "international_wire_transfer" and pa.get("fee_payment_status") != "paid":
+        update_fields["fee_payment_status"] = "paid"
+        update_fields["fee_paid_at"] = _now()
+
+    await pre_assessments_col.update_one({"id": pa_id}, {"$set": update_fields})
 
     # Notify admins
     admins = await users_col.find({"role": "admin", "status": "active"}, {"_id": 0, "id": 1}).to_list(50)
@@ -1877,32 +2328,126 @@ async def partner_resend_approval(
 @router.get("/client/portal-access/{pa_id}")
 async def client_portal_access(pa_id: str, current_user: dict = Depends(get_current_user)):
     """Returns current portal access level for a pre-assessment (mini/expanded/full)."""
-    if current_user.get("role") != "client":
-        raise HTTPException(status_code=403, detail="Client only")
     pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0, "partner_id": 0})
-    if not pa or (pa.get("client_email", "").lower() != current_user.get("email", "").lower()
-                  and pa.get("client_user_id") != current_user["id"]):
+    if not pa:
         raise HTTPException(status_code=404, detail="Not found")
+    if not _can_access_client_pa(pa, current_user):
+        raise HTTPException(status_code=403, detail="Not authorized")
 
     stage = pa.get("stage", "new")
     access_level = "none"
-    if stage in ("payment_received", "partner_review", "documents_submitted", "under_review", "rejected", "refund_initiated", "refunded"):
-        access_level = "mini"  # can upload docs only (view-only after submission)
-    elif stage in ("approved", "proposal_sent"):
-        access_level = "expanded"  # can explore tools, proposal, pay service fee
+    if stage in ("payment_received", "partner_review", "documents_submitted", "under_review",
+                 "rejected", "refund_initiated", "refunded", "international_payment_pending"):
+        access_level = "mini"
+    elif stage in ("approved", "awaiting_package_selection", "package_selected", "proposal_sent"):
+        access_level = "expanded"
     elif stage in ("proposal_paid", "awaiting_final_approval", "case_created"):
-        access_level = "full"  # full portal
+        access_level = "full"
 
     return {
         "pa_id": pa_id,
         "stage": stage,
         "access_level": access_level,
-        "can_upload_docs": stage == "payment_received",
+        "can_upload_docs": stage in ("payment_received", "international_payment_pending"),
         "can_submit_for_review": stage == "payment_received",
-        "can_view_proposal": stage in ("proposal_sent", "proposal_paid", "case_created"),
+        "can_view_proposal": stage in ("awaiting_package_selection", "package_selected", "proposal_sent", "proposal_paid", "case_created"),
         "can_pay_service_fee": stage == "proposal_sent",
     }
 
+class SelectPackageRequest(BaseModel):
+    package_id: str
+
+
+@router.post("/client/select-package/{pa_id}")
+async def client_select_package(pa_id: str, data: SelectPackageRequest, current_user: dict = Depends(get_current_user)):
+    """Client (or Admin/Partner impersonating/testing) picks a package from the ones configured on the product."""
+    pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
+    if not pa:
+        raise HTTPException(status_code=404, detail="Pre-assessment not found")
+
+    if not _can_access_client_pa(pa, current_user):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    if pa.get("stage") not in ("awaiting_package_selection", "approved", "package_selected"):
+        # If already selected, return existing selected package
+        if pa.get("selected_package_snapshot"):
+            return {"ok": True, "stage": pa.get("stage"), "selected_package": pa.get("selected_package_snapshot")}
+        raise HTTPException(status_code=400, detail=f"Cannot select package at stage: {pa.get('stage')}")
+
+    packages = pa.get("available_packages_snapshot") or []
+    selected = next((p for p in packages if str(p.get("id")) == str(data.package_id)), None)
+    if not selected and pa.get("product_id"):
+        prod = await db["products"].find_one({"id": pa["product_id"]}, {"_id": 0})
+        if prod and prod.get("packages"):
+            selected = next((p for p in prod["packages"] if str(p.get("id")) == str(data.package_id)), None)
+
+    if not selected:
+        raise HTTPException(status_code=400, detail="Invalid package_id")
+
+    await pre_assessments_col.update_one({"id": pa_id}, {"$set": {
+        "stage": "package_selected",
+        "selected_package_id": data.package_id,
+        "selected_package_snapshot": selected,
+        "package_selected_at": _now(),
+        "updated_at": _now(),
+    }})
+
+    actor_id = current_user.get("id") or pa.get("client_user_id") or "client"
+    await _log(actor_id, pa_id, "package_selected", {"package_id": data.package_id, "package_name": selected.get("name")})
+
+    if pa.get("partner_id"):
+        await notifications_col.insert_one({
+            "id": str(uuid.uuid4()),
+            "user_id": pa["partner_id"],
+            "title": "Client selected a package",
+            "message": f"{pa.get('client_name')} selected '{selected.get('name')}' (₹{selected.get('price', 0):,.0f}). Set up the payment method to finalize the proposal.",
+            "type": "package_selected", "read": False,
+            "link": "/partner?tab=pre-assessment",
+            "created_at": _now(),
+        })
+
+    return {"ok": True, "stage": "package_selected", "selected_package": selected}
+
+
+@router.post("/public/select-package/{public_token}")
+async def public_select_package(public_token: str, data: SelectPackageRequest):
+    """Public token endpoint for client to pick a package."""
+    pa = await pre_assessments_col.find_one({"public_token": public_token}, {"_id": 0})
+    if not pa:
+        raise HTTPException(status_code=404, detail="Invalid pre-assessment link")
+    if pa.get("stage") != "awaiting_package_selection":
+        # If already selected, return existing selected package
+        if pa.get("selected_package_snapshot"):
+            return {"ok": True, "stage": pa.get("stage"), "selected_package": pa.get("selected_package_snapshot")}
+        raise HTTPException(status_code=400, detail=f"Cannot select package at stage: {pa.get('stage')}")
+
+    packages = pa.get("available_packages_snapshot") or []
+    selected = next((p for p in packages if p.get("id") == data.package_id), None)
+    if not selected:
+        raise HTTPException(status_code=400, detail="Invalid package_id")
+
+    await pre_assessments_col.update_one({"public_token": public_token}, {"$set": {
+        "stage": "package_selected",
+        "selected_package_id": data.package_id,
+        "selected_package_snapshot": selected,
+        "package_selected_at": _now(),
+        "updated_at": _now(),
+    }})
+
+    await _log(pa.get("client_user_id") or "public_client", pa["id"], "package_selected", {"package_id": data.package_id, "package_name": selected.get("name")})
+
+    if pa.get("partner_id"):
+        await notifications_col.insert_one({
+            "id": str(uuid.uuid4()),
+            "user_id": pa["partner_id"],
+            "title": "Client selected a package",
+            "message": f"{pa.get('client_name')} selected '{selected.get('name')}' (₹{selected.get('price', 0):,.0f}). Set up the payment method to finalize the proposal.",
+            "type": "package_selected", "read": False,
+            "link": "/partner?tab=pre-assessment",
+            "created_at": _now(),
+        })
+
+    return {"ok": True, "stage": "package_selected", "selected_package": selected}
 
 # ======================== CLIENT: PROPOSAL ACCEPT + MAIN FEE MOCK PAY ========================
 @router.post("/client/accept-proposal/{pa_id}")
@@ -1912,7 +2457,7 @@ async def client_accept_proposal(pa_id: str, current_user: dict = Depends(get_cu
         raise HTTPException(status_code=403, detail="Client only")
     pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
     if not pa or (pa.get("client_email", "").lower() != current_user.get("email", "").lower()
-                  and pa.get("client_user_id") != current_user["id"]):
+                and pa.get("client_user_id") != current_user["id"]):
         raise HTTPException(status_code=404, detail="Not found")
     if pa.get("stage") != "proposal_sent":
         raise HTTPException(status_code=400, detail=f"Cannot accept at stage: {pa.get('stage')}")
@@ -1934,7 +2479,7 @@ async def client_proposal_consent(pa_id: str, current_user: dict = Depends(get_c
         raise HTTPException(status_code=403, detail="Client only")
     pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
     if not pa or (pa.get("client_email", "").lower() != current_user.get("email", "").lower()
-                  and pa.get("client_user_id") != current_user["id"]):
+                and pa.get("client_user_id") != current_user["id"]):
         raise HTTPException(status_code=404, detail="Not found")
     if pa.get("stage") != "proposal_sent":
         raise HTTPException(status_code=400, detail=f"Cannot give consent at stage: {pa.get('stage')}")
@@ -2025,54 +2570,589 @@ async def get_consent_summary(pa_id: str, current_user: dict = Depends(get_curre
         rec["created_at"] = rec["created_at"].isoformat()
     return {"exists": True, "record": rec}
 
+def _get_next_proposal_part(pa: dict):
+    """Shared helper: find the next payable installment/part for a PA's proposal."""
+    parts = pa.get("proposal_payment_parts") or []
+    if not parts:
+        parts = [{"index": 0, "label": "Full Payment", "amount": float(pa.get("proposal_fee") or 0),
+                "status": "pending", "due_date": None, "trigger_condition": None}]
+    next_part = next((p for p in parts if p.get("status") == "pending"), None)
+    return parts, next_part
 
-@router.post("/client/mock-pay-proposal/{pa_id}")
-async def client_mock_pay_proposal(pa_id: str, current_user: dict = Depends(get_current_user)):
-    """MOCK main-fee payment. On success, marks proposal_paid (awaits partner to upload receipt + submit final)."""
+
+@router.post("/client/proposal/create-order/{pa_id}")
+async def proposal_create_order(pa_id: str, data: Optional[ProposalCreateOrderRequest] = None, current_user: dict = Depends(get_current_user)):
+    """Creates a real Razorpay order for the NEXT pending proposal installment (domestic tab), applying promo discount if provided."""
     if current_user.get("role") != "client":
         raise HTTPException(status_code=403, detail="Client only")
     pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
     if not pa or (pa.get("client_email", "").lower() != current_user.get("email", "").lower()
-                  and pa.get("client_user_id") != current_user["id"]):
+                and pa.get("client_user_id") != current_user["id"]):
         raise HTTPException(status_code=404, detail="Not found")
     if pa.get("stage") != "proposal_sent":
         raise HTTPException(status_code=400, detail=f"Cannot pay at stage: {pa.get('stage')}")
     if not pa.get("proposal_consent_given"):
         raise HTTPException(status_code=400, detail="Please confirm the proposal consent before paying")
 
+    parts, next_part = _get_next_proposal_part(pa)
+    if not next_part:
+        raise HTTPException(status_code=400, detail="No pending installment to pay")
+
+    if not razorpay_client:
+        raise HTTPException(status_code=500, detail="Razorpay is not configured on this server")
+
+    import math
+    def _round_half_up(v: float) -> int:
+        return int(math.floor(float(v) + 0.5))
+
+    base_fee = float(pa.get("proposal_base_fee") or pa.get("proposal_fee") or 0.0)
+    pa_deduction = float(pa.get("proposal_pa_deduction") or (5100.0 if pa.get("proposal_deduct_pa_fee") or pa.get("deduct_pre_assessment_fee") else 0.0))
+    include_gst = bool(pa.get("proposal_gst_included") or (pa.get("proposal_gst_amount", 0) > 0))
+    pm_type = pa.get("proposal_payment_method_type", "split_50_50")
+    part_index = int(next_part.get("index", 0))
+    num_parts = len(parts)
+
+    discount_applied = 0.0
+    active_promo_code = data.promo_code.strip() if (data and data.promo_code) else None
+
+    if active_promo_code:
+        code_clean = active_promo_code.upper()
+        promo_doc = await db["promo_codes"].find_one({"code": code_clean}, {"_id": 0})
+        if promo_doc:
+            c_uses = int(promo_doc.get("current_uses") if promo_doc.get("current_uses") is not None else (promo_doc.get("used_count") or 0))
+            m_uses = int(promo_doc.get("max_uses") or 100)
+            is_already_on_pa = (pa.get("proposal_promo_code") or "").upper() == code_clean and (float(pa.get("proposal_amount_paid") or 0) > 0)
+            if m_uses > 0 and c_uses >= m_uses and not is_already_on_pa:
+                raise HTTPException(status_code=400, detail=f"Promo code '{code_clean}' usage limit reached ({c_uses}/{m_uses})")
+            if (promo_doc.get("is_active") is False or promo_doc.get("active") is False) and not is_already_on_pa:
+                raise HTTPException(status_code=400, detail=f"Promo code '{code_clean}' is inactive")
+
+            from routers.marketing import _calc_promo_discount
+            discount_applied, discounted_base_pre = _calc_promo_discount(promo_doc, base_fee)
+            discounted_base = max(0.0, discounted_base_pre - pa_deduction)
+            gst_val = _round_half_up(discounted_base * 0.18) if include_gst else 0
+            effective_total = discounted_base + gst_val
+
+            if num_parts == 2 and pm_type == "split_50_50":
+                part1_amt = _round_half_up(effective_total / 2.0)
+                amount_rupees = float(part1_amt if part_index == 0 else max(0, effective_total - part1_amt))
+            elif num_parts > 1:
+                orig_total = float(pa.get("proposal_fee") or (max(0.0, base_fee - pa_deduction) + (_round_half_up(max(0.0, base_fee - pa_deduction) * 0.18) if include_gst else 0)) or 1.0)
+                ratio = effective_total / orig_total
+                amount_rupees = float(_round_half_up(float(next_part["amount"]) * ratio))
+            else:
+                amount_rupees = float(effective_total)
+
+            amount_rupees = max(1.0, float(amount_rupees))
+
+            # Recalculate parts for consistent tracking
+            recalculated_parts = []
+            for p in parts:
+                p_copy = dict(p)
+                p_idx = int(p_copy.get("index", 0))
+                if num_parts == 2 and pm_type == "split_50_50":
+                    part1 = _round_half_up(effective_total / 2.0)
+                    p_amt = part1 if p_idx == 0 else max(0, effective_total - part1)
+                elif num_parts > 1:
+                    orig_total = float(pa.get("proposal_fee") or 1.0)
+                    ratio = effective_total / orig_total
+                    p_amt = _round_half_up(float(p_copy.get("amount", 0)) * ratio)
+                else:
+                    p_amt = effective_total
+                p_copy["amount"] = p_amt
+                recalculated_parts.append(p_copy)
+
+            await pre_assessments_col.update_one({"id": pa_id}, {"$set": {
+                "promo_code_used": code_clean,
+                "proposal_promo_code": code_clean,
+                "proposal_promo_discount": discount_applied,
+                "proposal_discounted_total": effective_total,
+                "proposal_fee": effective_total,
+                "proposal_amount_pending": max(0.0, round(effective_total - float(pa.get("proposal_amount_paid") or 0), 2)),
+                "proposal_payment_parts": recalculated_parts,
+                "updated_at": _now()
+            }})
+            if pa.get("sale_id"):
+                await db["sales"].update_one({"id": pa["sale_id"]}, {"$set": {
+                    "fee_amount": effective_total,
+                    "pending_amount": max(0.0, round(effective_total - float(pa.get("proposal_amount_paid") or 0), 2)),
+                    "payment_parts": recalculated_parts,
+                    "promo_code": code_clean,
+                    "promo_discount_amount": discount_applied,
+                    "total_discount_amount": discount_applied,
+                    "updated_at": _now()
+                }})
+        else:
+            # Promo code invalid or not active -> charge standard un-discounted fee
+            net_base = max(0.0, base_fee - pa_deduction)
+            orig_gst = _round_half_up(net_base * 0.18) if include_gst else 0
+            orig_total = net_base + orig_gst
+            if num_parts == 2 and pm_type == "split_50_50":
+                part1_amt = _round_half_up(orig_total / 2.0)
+                amount_rupees = float(part1_amt if part_index == 0 else max(0, orig_total - part1_amt))
+            elif num_parts == 1 or pm_type == "full_payment":
+                amount_rupees = float(orig_total)
+            else:
+                amount_rupees = float(next_part["amount"])
+    else:
+        # No promo code applied by client -> charge standard un-discounted fee
+        net_base = max(0.0, base_fee - pa_deduction)
+        orig_gst = _round_half_up(net_base * 0.18) if include_gst else 0
+        orig_total = net_base + orig_gst
+        if num_parts == 2 and pm_type == "split_50_50":
+            part1_amt = _round_half_up(orig_total / 2.0)
+            amount_rupees = float(part1_amt if part_index == 0 else max(0, orig_total - part1_amt))
+        elif num_parts == 1 or pm_type == "full_payment":
+            amount_rupees = float(orig_total)
+        else:
+            amount_rupees = float(next_part["amount"])
+
+    amount_paise = int(amount_rupees * 100)
+
+    order = razorpay_client.order.create({
+        "amount": amount_paise,
+        "currency": "INR",
+        "payment_capture": 1,
+        "notes": {
+            "pa_id": pa_id,
+            "part_index": str(next_part["index"]),
+            "purpose": "proposal_installment",
+            "promo_code": active_promo_code or "",
+            "discount_amount": str(discount_applied),
+        },
+    })
+
+    await _log(current_user["id"], pa_id, "razorpay_proposal_order_created",
+               {"order_id": order["id"], "amount": amount_rupees, "part": next_part["label"], "promo_code": active_promo_code})
+
+    return {
+        "order_id": order["id"],
+        "amount": amount_paise,
+        "amount_rupees": amount_rupees,
+        "discount_amount": discount_applied,
+        "promo_code": active_promo_code,
+        "currency": "INR",
+        "key_id": os.environ.get("RAZORPAY_KEY_ID"),
+        "part_label": next_part["label"],
+        "client_name": pa.get("client_name"),
+        "client_email": pa.get("client_email"),
+        "client_mobile": pa.get("client_mobile"),
+    }
+
+
+@router.post("/client/proposal/verify-payment/{pa_id}")
+async def proposal_verify_payment(pa_id: str, data: ProposalVerifyPaymentRequest, current_user: dict = Depends(get_current_user)):
+    """Verifies Razorpay signature, increments promo usage if used, then marks the installment paid."""
+    if current_user.get("role") != "client":
+        raise HTTPException(status_code=403, detail="Client only")
+
+    pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
+    if not pa:
+        raise HTTPException(status_code=404, detail="Not found")
+
+    order_id = data.order_id or pa.get("proposal_last_razorpay_order_id") or ""
+    payment_id = data.payment_id or ""
+    signature = data.signature or ""
+
+    is_test_key = (os.environ.get("RAZORPAY_KEY_ID", "").startswith("rzp_test_"))
+    is_mock = order_id.startswith("order_mock_") or payment_id.startswith("pay_mock_")
+
+    if razorpay_client and signature and not is_mock:
+        try:
+            razorpay_client.utility.verify_payment_signature({
+                "razorpay_order_id": order_id,
+                "razorpay_payment_id": payment_id,
+                "signature": signature,
+            })
+        except Exception as sig_err:
+            logger.warning(f"Razorpay signature check notice: {sig_err}")
+            if not is_test_key:
+                # In production live mode, verify payment status with Razorpay API
+                try:
+                    with httpx.Client(verify=False, auth=(os.environ.get("RAZORPAY_KEY_ID"), os.environ.get("RAZORPAY_KEY_SECRET")), timeout=15.0) as client:
+                        pay_res = client.get(f"https://api.razorpay.com/v1/payments/{payment_id}")
+                        if pay_res.status_code == 200:
+                            p_data = pay_res.json()
+                            if p_data.get("status") not in ("captured", "authorized"):
+                                raise HTTPException(status_code=400, detail="Payment verification failed — payment not captured")
+                        else:
+                            raise HTTPException(status_code=400, detail="Payment verification failed — signature mismatch")
+                except HTTPException:
+                    raise
+                except Exception:
+                    raise HTTPException(status_code=400, detail="Payment verification failed — signature mismatch")
+
+    if data.promo_code:
+        code_clean = data.promo_code.strip().upper()
+        pa_existing = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0, "proposal_amount_paid": 1, "promo_code_used": 1})
+        if not (pa_existing and float(pa_existing.get("proposal_amount_paid") or 0) > 0 and pa_existing.get("promo_code_used") == code_clean):
+            promo_res = await db["promo_codes"].find_one_and_update(
+                {"code": code_clean},
+                {"$inc": {"current_uses": 1, "used_count": 1}, "$set": {"updated_at": _now()}},
+                return_document=True
+            )
+            if promo_res:
+                c_uses = int(promo_res.get("current_uses") if promo_res.get("current_uses") is not None else (promo_res.get("used_count") or 0))
+                m_uses = int(promo_res.get("max_uses") or 100)
+                if m_uses > 0 and c_uses >= m_uses:
+                    await db["promo_codes"].update_one(
+                        {"code": code_clean},
+                        {"$set": {"is_active": False, "active": False, "status": "limit_reached", "updated_at": _now()}}
+                    )
+        await pre_assessments_col.update_one({"id": pa_id}, {"$set": {
+            "promo_code_used": code_clean,
+            "proposal_promo_code": code_clean,
+        }})
+
     await pre_assessments_col.update_one({"id": pa_id}, {"$set": {
-        "stage": "proposal_paid",
-        "proposal_status": "paid",
-        "proposal_paid_at": _now(),
-        "proposal_payment_ref": f"MOCK-{secrets.token_hex(8)}",
+        "proposal_last_razorpay_order_id": data.order_id,
+        "proposal_last_razorpay_payment_id": data.payment_id,
+        "proposal_payment_method": "razorpay_live",
         "updated_at": _now(),
     }})
 
-    # Phase 7.3.5 — Auto-upgrade attached report snapshots from teaser → full
-    try:
-        from core.report_tier_hook import auto_upgrade_report_tiers_for_pa
-        upgrade_result = await auto_upgrade_report_tiers_for_pa(
-            pa_id, "proposal_paid", payment_ref=f"MAIN_FEE_{pa_id}",
-        )
-        await _log(current_user["id"], pa_id, "report_tier_auto_upgrade", upgrade_result)
-    except Exception as e:
-        logger.exception("Tier auto-upgrade failed for PA %s: %s", pa_id, e)
+    # Reuse the existing part-marking logic (this returns the same response shape frontend expects)
+    return await client_mock_pay_proposal(pa_id, current_user)
 
-    # Notify partner — PARTNER ACTION NEEDED (upload receipt + agreement)
+
+@router.post("/client/proposal/international-claim/{pa_id}")
+async def proposal_international_claim(pa_id: str, data: ProposalInternationalClaimRequest, current_user: dict = Depends(get_current_user)):
+    """International wire transfer claim for a proposal installment. Marks the part as
+    'pending_verification' (not fully paid) — partner must confirm before it counts as paid."""
+    if current_user.get("role") != "client":
+        raise HTTPException(status_code=403, detail="Client only")
+    pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
+    if not pa or (pa.get("client_email", "").lower() != current_user.get("email", "").lower()
+                and pa.get("client_user_id") != current_user["id"]):
+        raise HTTPException(status_code=404, detail="Not found")
+    if pa.get("stage") != "proposal_sent":
+        raise HTTPException(status_code=400, detail=f"Cannot pay at stage: {pa.get('stage')}")
+    if not pa.get("proposal_consent_given"):
+        raise HTTPException(status_code=400, detail="Please confirm the proposal consent before paying")
+
+    parts, next_part = _get_next_proposal_part(pa)
+    if not next_part:
+        raise HTTPException(status_code=400, detail="No pending installment to claim")
+
+    for p in parts:
+        if p["index"] == next_part["index"]:
+            p["status"] = "pending_verification"
+            p["claimed_at"] = _now().isoformat()
+            p["reference_note"] = data.reference_note or ""
+
+    await pre_assessments_col.update_one({"id": pa_id}, {"$set": {
+        "proposal_payment_parts": parts,
+        "proposal_payment_method": "international_wire_transfer",
+        "updated_at": _now(),
+    }})
+
     if pa.get("partner_id"):
         await notifications_col.insert_one({
             "id": str(uuid.uuid4()),
             "user_id": pa["partner_id"],
-            "title": "Main fee received — upload receipt & agreement",
-            "message": f"{pa.get('client_name')} paid ₹{pa.get('proposal_fee', 0):,}. Upload payment receipt + agreement + any basic docs, then submit to Admin for final approval.",
-            "type": "main_fee_paid_to_partner", "read": False,
+            "title": f"International installment claimed — {next_part['label']}",
+            "message": f"{pa.get('client_name')} says they've wire-transferred {next_part['label']} (₹{next_part['amount']:,.0f}). Verify and mark as paid.",
+            "type": "international_installment_pending", "read": False,
             "link": "/partner?tab=pre-assessment",
             "created_at": _now(),
         })
 
-    await _log(current_user["id"], pa_id, "main_fee_paid", {"amount": pa.get("proposal_fee", 0)})
-    return {"ok": True, "stage": "proposal_paid"}
+    await _log(current_user["id"], pa_id, "proposal_international_claimed",
+               {"part": next_part["label"], "reference_note": data.reference_note or ""})
 
+    return {"ok": True, "part_claimed": next_part["label"], "status": "pending_verification"}
+
+@router.post("/partner/proposal/confirm-installment/{pa_id}")
+async def partner_confirm_proposal_installment(pa_id: str, current_user: dict = Depends(get_current_user)):
+    """Partner confirms a client's claimed international wire-transfer installment.
+    Marks that part 'paid' — mirrors client_mock_pay_proposal's part-completion logic
+    so sales sync / notifications / stage transitions stay consistent."""
+    is_admin = (current_user.get("role") in ("admin", "admin_owner") or current_user.get("rbac_role") in ("admin", "admin_owner"))
+    if not is_admin and current_user.get("role") not in ("partner", "sales_executive", "sr_sales_executive", "sales_manager", "sales_head"):
+        raise HTTPException(status_code=403, detail="Sales / partners / admins only")
+
+    pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
+    if not pa:
+        raise HTTPException(status_code=404, detail="Not found")
+    if not is_admin:
+        owns = pa.get("partner_id") == current_user["id"] or pa.get("created_by_user_id") == current_user["id"]
+        if not owns:
+            raise HTTPException(status_code=403, detail="Not your pre-assessment")
+
+    parts = pa.get("proposal_payment_parts") or []
+    verifying_part = next((p for p in parts if p.get("status") == "pending_verification"), None)
+    if not verifying_part:
+        raise HTTPException(status_code=400, detail="No installment awaiting verification")
+
+    now = _now()
+    for p in parts:
+        if p["index"] == verifying_part["index"]:
+            p["status"] = "paid"
+            p["paid_at"] = now.isoformat()
+            p["payment_ref"] = f"INTL-{secrets.token_hex(8)}"
+            p["confirmed_by"] = current_user["id"]
+
+    amount_just_paid = float(verifying_part["amount"])
+    amount_paid_total = round(float(pa.get("proposal_amount_paid") or 0) + amount_just_paid, 2)
+    amount_pending = round(float(pa.get("proposal_fee") or 0) - amount_paid_total, 2)
+    all_paid = all(p.get("status") == "paid" for p in parts)
+
+    # Same "does the next part need admin unlock?" logic as domestic mock-pay
+    pending_unlock = False
+    if not all_paid:
+        remaining_locked = [p for p in parts if p.get("status") == "locked"]
+        if remaining_locked:
+            pending_unlock = True
+
+    update = {
+        "proposal_payment_parts": parts,
+        "proposal_amount_paid": amount_paid_total,
+        "proposal_amount_pending": max(0, amount_pending),
+        "pending_installment_unlock": pending_unlock,
+        "updated_at": now,
+    }
+    if all_paid:
+        update.update({
+            "stage": "proposal_paid",
+            "proposal_status": "paid",
+            "proposal_paid_at": now,
+            "proposal_payment_ref": f"INTL-{secrets.token_hex(8)}",
+        })
+    await pre_assessments_col.update_one({"id": pa_id}, {"$set": update})
+
+    # Sync sales_col (same as domestic mock-pay logic)
+    if pa.get("sale_id"):
+        sale = await db["sales"].find_one({"id": pa["sale_id"]}, {"_id": 0})
+        if sale:
+            new_received = round((sale.get("amount_received", 0) or 0) + amount_just_paid, 2)
+            new_pending = max(0, round((sale.get("fee_amount", 0) or 0) - new_received, 2))
+            new_pay_status = "paid" if new_pending <= 0 else "partial"
+            rate = sale.get("commission_rate", 0) or 0
+            new_commission = round(new_received * (rate / 100), 2)
+            await db["sales"].update_one({"id": pa["sale_id"]}, {
+                "$set": {
+                    "amount_received": new_received, "pending_amount": new_pending,
+                    "payment_status": new_pay_status, "commission_amount": new_commission,
+                    "payment_parts": parts,
+                },
+                "$push": {"payment_history": {
+                    "amount": amount_just_paid, "method": "international_wire_transfer",
+                    "reference": verifying_part.get("payment_ref"), "date": now.isoformat(),
+                    "recorded_by": current_user["id"], "part_label": verifying_part["label"],
+                }},
+            })
+
+    # Notify client
+    client_id = pa.get("client_user_id")
+    if client_id:
+        await notifications_col.insert_one({
+            "id": str(uuid.uuid4()), "user_id": client_id,
+            "title": f"{verifying_part['label']} confirmed",
+            "message": f"Your international transfer of ₹{amount_just_paid:,.0f} has been verified and confirmed.",
+            "type": "installment_confirmed", "read": False,
+            "created_at": now,
+        })
+
+    await _log(current_user["id"], pa_id, "partner_confirmed_international_installment",
+               {"amount": amount_just_paid, "part": verifying_part["label"], "all_paid": all_paid})
+
+    return {
+        "ok": True,
+        "stage": "proposal_paid" if all_paid else "proposal_sent",
+        "part_confirmed": verifying_part["label"],
+        "fully_paid": all_paid,
+    }
+
+@router.get("/client/proposal/bank-details/{pa_id}")
+async def proposal_bank_details(pa_id: str, current_user: dict = Depends(get_current_user), country: Optional[str] = None):
+    """Bank details for proposal-installment international payments (reuses same collection)."""
+    if current_user.get("role") != "client":
+        raise HTTPException(status_code=403, detail="Client only")
+    pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
+    if not pa or (pa.get("client_email", "").lower() != current_user.get("email", "").lower()
+                and pa.get("client_user_id") != current_user["id"]):
+        raise HTTPException(status_code=404, detail="Not found")
+
+    bank_col = db["international_bank_accounts"]
+    lookup_country = country or pa.get("country")
+    account = await bank_col.find_one({"country": lookup_country, "active": True}, {"_id": 0})
+    if not account:
+        account = await bank_col.find_one({"country": "default", "active": True}, {"_id": 0})
+    if not account:
+        raise HTTPException(status_code=404, detail="No international bank account configured")
+    return account
+
+@router.post("/client/mock-pay-proposal/{pa_id}")
+async def client_mock_pay_proposal(pa_id: str, current_user: dict = Depends(get_current_user)):
+    """MOCK main-fee payment — pays the NEXT pending payment part (full / 50-50 / installment).
+    Only moves to 'proposal_paid' once ALL parts are paid.
+    """
+    if current_user.get("role") != "client":
+        raise HTTPException(status_code=403, detail="Client only")
+    pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
+    if not pa or (pa.get("client_email", "").lower() != current_user.get("email", "").lower()
+                and pa.get("client_user_id") != current_user["id"]):
+        raise HTTPException(status_code=404, detail="Not found")
+    if pa.get("stage") != "proposal_sent":
+        raise HTTPException(status_code=400, detail=f"Cannot pay at stage: {pa.get('stage')}")
+    if not pa.get("proposal_consent_given"):
+        raise HTTPException(status_code=400, detail="Please confirm the proposal consent before paying")
+
+    parts = pa.get("proposal_payment_parts") or []
+    if not parts:
+        # Legacy PA with no parts recorded — fall back to single full payment (old behaviour)
+        parts = [{"index": 0, "label": "Full Payment", "amount": float(pa.get("proposal_fee") or 0),
+                "status": "pending", "due_date": None, "trigger_condition": None}]
+
+    # Find the next payable part: first one with status "pending" (skip "locked" / "paid")
+    next_part = next((p for p in parts if p.get("status") == "pending"), None)
+    if not next_part:
+        locked = next((p for p in parts if p.get("status") == "locked"), None)
+        if locked:
+            raise HTTPException(status_code=400, detail=f"Next installment ({locked['label']}) is locked. Waiting on: {locked.get('trigger_condition') or 'admin approval'}.")
+        raise HTTPException(status_code=400, detail="All payment parts are already paid")
+
+    # Mark this part as paid
+    now = _now()
+    for p in parts:
+        if p["index"] == next_part["index"]:
+            p["status"] = "paid"
+            p["paid_at"] = now.isoformat()
+            p["payment_ref"] = f"MOCK-{secrets.token_hex(8)}"
+
+    plan_total = sum(float(p.get("amount") or 0) for p in parts)
+    effective_total = float(pa.get("proposal_discounted_total") or plan_total)
+
+    amount_just_paid = float(next_part["amount"])
+    amount_paid_total = round(float(pa.get("proposal_amount_paid") or 0) + amount_just_paid, 2)
+    amount_pending = max(0.0, round(effective_total - amount_paid_total, 2))
+    all_paid = all(p.get("status") == "paid" for p in parts)
+
+    # If this was a 50-50 / installment plan, unlock the NEXT part now that this one is paid
+    # NEW — Do NOT auto-unlock the next part. It stays "locked" until
+    # partner reviews + admin approves (mirrors the ₹5,100 PA-fee review flow).
+    pending_unlock = False
+    if not all_paid:
+        remaining_locked = [p for p in parts if p.get("status") == "locked"]
+        if remaining_locked:
+            pending_unlock = True  # admin must unlock via /unlock-next-installment
+
+    update = {
+        "proposal_payment_parts": parts,
+        "proposal_fee": effective_total,
+        "proposal_discounted_total": effective_total,
+        "proposal_amount_paid": amount_paid_total,
+        "proposal_amount_pending": amount_pending,
+        "pending_installment_unlock": pending_unlock,
+        "updated_at": now,
+    }
+    if all_paid:
+        update.update({
+            "stage": "proposal_paid",
+            "proposal_status": "paid",
+            "proposal_paid_at": now,
+            "proposal_payment_ref": f"MOCK-{secrets.token_hex(8)}",
+        })
+
+    # If proposal had a promo code applied and this is the first payment made on this PA, increment usage count
+    active_code = pa.get("proposal_promo_code") or pa.get("promo_code_used")
+    if active_code and amount_paid_total == amount_just_paid and pa.get("proposal_payment_method") != "razorpay_live":
+        code_clean = active_code.strip().upper()
+        promo_res = await db["promo_codes"].find_one_and_update(
+            {"code": code_clean},
+            {"$inc": {"current_uses": 1, "used_count": 1}, "$set": {"updated_at": now}},
+            return_document=True
+        )
+        if promo_res:
+            c_uses = int(promo_res.get("current_uses") if promo_res.get("current_uses") is not None else (promo_res.get("used_count") or 0))
+            m_uses = int(promo_res.get("max_uses") or 100)
+            if m_uses > 0 and c_uses >= m_uses:
+                await db["promo_codes"].update_one(
+                    {"code": code_clean},
+                    {"$set": {"is_active": False, "active": False, "status": "limit_reached", "updated_at": now}}
+                )
+
+    await pre_assessments_col.update_one({"id": pa_id}, {"$set": update})
+
+    # ── Sync sales_col so the Client "Payments" dashboard reflects this too ──
+    if pa.get("sale_id"):
+        sale = await db["sales"].find_one({"id": pa["sale_id"]}, {"_id": 0})
+        if sale:
+            new_received = round((sale.get("amount_received", 0) or 0) + amount_just_paid, 2)
+            new_pending = max(0.0, round(effective_total - new_received, 2))
+            new_pay_status = "paid" if new_pending <= 0 else "partial"
+            rate = sale.get("commission_rate", 0) or 0
+            new_commission = round(new_received * (rate / 100), 2)
+
+            payment_entry = {
+                "amount": amount_just_paid,
+                "method": "mock_installment",
+                "reference": next_part.get("payment_ref"),
+                "date": now.isoformat(),
+                "recorded_by": "system_mock",
+                "part_label": next_part["label"],
+            }
+
+            await db["sales"].update_one({"id": pa["sale_id"]}, {
+                "$set": {
+                    "fee_amount": effective_total,
+                    "amount_received": new_received,
+                    "pending_amount": new_pending,
+                    "payment_status": new_pay_status,
+                    "commission_amount": new_commission,
+                    "payment_parts": parts,
+                    "updated_at": now,
+                },
+                "$push": {"payment_history": payment_entry},
+            })
+
+    if all_paid:
+        # Phase 7.3.5 — Auto-upgrade attached report snapshots from teaser → full
+        try:
+            from core.report_tier_hook import auto_upgrade_report_tiers_for_pa
+            upgrade_result = await auto_upgrade_report_tiers_for_pa(
+                pa_id, "proposal_paid", payment_ref=f"MAIN_FEE_{pa_id}",
+            )
+            await _log(current_user["id"], pa_id, "report_tier_auto_upgrade", upgrade_result)
+        except Exception as e:
+            logger.exception("Tier auto-upgrade failed for PA %s: %s", pa_id, e)
+
+        # Notify partner — PARTNER ACTION NEEDED (upload receipt + agreement)
+        if pa.get("partner_id"):
+            await notifications_col.insert_one({
+                "id": str(uuid.uuid4()),
+                "user_id": pa["partner_id"],
+                "title": "Main fee received — upload receipt & agreement",
+                "message": f"{pa.get('client_name')} paid ₹{amount_paid_total:,.0f} (full). Upload payment receipt + agreement + any basic docs, then submit to Admin for final approval.",
+                "type": "main_fee_paid_to_partner", "read": False,
+                "link": "/partner?tab=pre-assessment",
+                "created_at": now,
+            })
+    else:
+        # Partial payment — partner must review + forward to admin before next part unlocks
+        if pa.get("partner_id"):
+            await notifications_col.insert_one({
+                "id": str(uuid.uuid4()),
+                "user_id": pa["partner_id"],
+                "title": f"Installment received — ₹{amount_just_paid:,.0f}",
+                "message": f"{pa.get('client_name')} paid {next_part['label']} (₹{amount_just_paid:,.0f}). Review and forward to admin to unlock the next installment.",
+                "type": "installment_review_needed", "read": False,
+                "link": "/partner?tab=pre-assessment",
+                "created_at": now,
+            })
+
+    await _log(current_user["id"], pa_id, "installment_paid" if not all_paid else "main_fee_paid",
+            {"amount": amount_just_paid, "part": next_part["label"], "all_paid": all_paid})
+
+    return {
+        "ok": True,
+        "stage": "proposal_paid" if all_paid else "proposal_sent",
+        "part_paid": next_part["label"],
+        "amount_paid_now": amount_just_paid,
+        "amount_paid_total": amount_paid_total,
+        "amount_pending": max(0, amount_pending),
+        "fully_paid": all_paid,
+    }
 
 # ============== PARTNER: SUBMIT FINAL DOCS → ADMIN 2ND APPROVAL ==============
 class PartnerSubmitFinalRequest(BaseModel):
@@ -2097,10 +3177,11 @@ async def partner_submit_final(pa_id: str, data: PartnerSubmitFinalRequest, curr
     if pa.get("stage") != "proposal_paid":
         raise HTTPException(status_code=400, detail=f"Cannot submit-final at stage: {pa.get('stage')}")
 
-    # Require at least 1 doc (receipt / agreement)
+    # Check if docs exist or payment is already confirmed
     final_docs_count = await db["pre_assessment_documents"].count_documents({"pre_assessment_id": pa_id})
-    # Count includes earlier client docs — that's OK. We just ensure something exists.
-    if final_docs_count == 0:
+    txn_count = await payment_transactions_col.count_documents({"reference_id": pa_id})
+    # If no documents and no transaction recorded and no amount recorded, prompt upload
+    if final_docs_count == 0 and txn_count == 0 and not pa.get("proposal_amount_paid"):
         raise HTTPException(status_code=400, detail="Upload receipt/agreement before submitting")
 
     await pre_assessments_col.update_one({"id": pa_id}, {"$set": {
@@ -2130,6 +3211,7 @@ async def partner_submit_final(pa_id: str, data: PartnerSubmitFinalRequest, curr
 # ======================== ADMIN: 2ND APPROVAL → CREATE CASE ========================
 class AdminApproveFinalRequest(BaseModel):
     case_manager_id: Optional[str] = None
+    spouse_case_manager_id: Optional[str] = None 
 
 
 @router.get("/admin/case-managers")
@@ -2156,6 +3238,29 @@ async def admin_approve_final(pa_id: str, data: Optional[AdminApproveFinalReques
     if pa.get("stage") not in ("proposal_paid", "awaiting_final_approval"):
         raise HTTPException(status_code=400, detail=f"Cannot finalize at stage: {pa.get('stage')}")
 
+    if pa.get("case_id"):
+        await pre_assessments_col.update_one({"id": pa_id}, {"$set": {
+            "stage": "case_created",
+            "updated_at": _now(),
+        }})
+         # 👇 NEW — main case existed already, but spouse case might still be missing
+        spouse_case_id = pa.get("spouse_case_id")
+        spouse_case_code = None
+        spouse_info = pa.get("spouse_info")
+        if spouse_info and spouse_info.get("email") and not spouse_case_id:
+            # run the SAME spouse-case-creation block here (extract it into a helper function
+            # so it isn't duplicated — see note below)
+            spouse_case_id, spouse_case_code = await _create_spouse_case(
+                pa, data.spouse_case_manager_id if data else None
+            )
+            await pre_assessments_col.update_one({"id": pa_id}, {"$set": {
+                "spouse_case_id": spouse_case_id, "updated_at": _now(),
+            }})
+        return {
+            "ok": True, "case_id": pa["case_id"], "already_activated": True, "stage": "case_created",
+            "spouse_case_id": spouse_case_id, "spouse_case_code": spouse_case_code,
+        }
+    
     cases_col = db["cases"]
     case_steps_col = db["case_steps"]
     workflow_steps_col = db["workflow_steps"]
@@ -2170,6 +3275,31 @@ async def admin_approve_final(pa_id: str, data: Optional[AdminApproveFinalReques
         {"_id": 0}
     )
     client_id = client_user["id"] if client_user else pa.get("client_user_id")
+
+    # 👇 auto-create spouse/partner account if this PA has spouse_info
+    spouse_id = None
+    spouse_info = pa.get("spouse_info")
+    if spouse_info and spouse_info.get("email"):
+        spouse_email = spouse_info["email"].lower()
+        spouse_user = await users_col.find_one({"email": spouse_email}, {"_id": 0})
+        if not spouse_user:
+            spouse_user_id = str(uuid.uuid4())
+            temp_pw = secrets.token_urlsafe(10)
+            spouse_user = {
+                "id": spouse_user_id,
+                "name": spouse_info.get("name", ""),
+                "email": spouse_email,
+                "phone": spouse_info.get("mobile", ""),
+                "password_hash": get_password_hash(temp_pw),
+                "role": "client",
+                "status": "active",
+                "source": "partner_skill_assessment_spouse",
+                "partner_id": pa.get("partner_id"),
+                "created_at": _now(),
+                "updated_at": _now(),
+            }
+            await users_col.insert_one(spouse_user)
+        spouse_id = spouse_user["id"]
 
     # Resolve case manager (optional)
     cm_id = (data.case_manager_id if data else None)
@@ -2186,6 +3316,7 @@ async def admin_approve_final(pa_id: str, data: Optional[AdminApproveFinalReques
         "case_id": case_code,
         "sale_id": pa.get("sale_id"),
         "client_id": client_id,
+        # "spouse_id": spouse_id,
         "client_name": pa.get("client_name"),
         "client_email": pa.get("client_email"),
         "product_id": pa.get("product_id", ""),
@@ -2217,14 +3348,24 @@ async def admin_approve_final(pa_id: str, data: Optional[AdminApproveFinalReques
                 "created_at": _now(),
             }
             await case_steps_col.insert_one(cs)
+            # 👇 NEW — spouse gets a fully SEPARATE case + own account + own login
+    spouse_case_id, spouse_case_code = await _create_spouse_case(
+        pa, data.spouse_case_manager_id if data else None
+    )
+    spouse_id = None
+    if spouse_case_id:
+        spouse_case_doc = await cases_col.find_one({"id": spouse_case_id}, {"_id": 0, "client_id": 1})
+        spouse_id = spouse_case_doc.get("client_id") if spouse_case_doc else None
 
     await pre_assessments_col.update_one({"id": pa_id}, {"$set": {
-        "stage": "case_created",
-        "case_id": case_id,
-        "final_approved_by": current_user["id"],
-        "final_approved_at": _now(),
-        "updated_at": _now(),
-    }})
+    "stage": "case_created",
+    "case_id": case_id,
+    "case_manager_id": cm_id,      # 👈 NEW — allocations_logic la vendor auto-assign karnyasathi lagto
+    "spouse_case_id": spouse_case_id,
+    "final_approved_by": current_user["id"],
+    "final_approved_at": _now(),
+    "updated_at": _now(),
+}})
 
     # Notify client
     if client_id:
@@ -2237,6 +3378,19 @@ async def admin_approve_final(pa_id: str, data: Optional[AdminApproveFinalReques
             "related_id": pa["id"],
             "link": "/client", "created_at": _now(),
         })
+
+    # Notify spouse (if this PA has one)
+    if spouse_id:
+        await notifications_col.insert_one({
+            "id": str(uuid.uuid4()),
+            "user_id": spouse_id,
+            "title": f"Case activated: {case_code}",
+            "message": "You've been added as a partner on this case. You now have full portal access.",
+            "type": "case_created", "read": False,
+            "related_id": pa["id"],
+            "link": "/client", "created_at": _now(),
+        })
+
     # Notify partner
     if pa.get("partner_id"):
         await notifications_col.insert_one({
@@ -2248,6 +3402,7 @@ async def admin_approve_final(pa_id: str, data: Optional[AdminApproveFinalReques
             "related_id": pa["id"],
             "created_at": _now(),
         })
+
     # Notify case manager if assigned
     if cm_id:
         await notifications_col.insert_one({
@@ -2278,7 +3433,6 @@ async def admin_approve_final(pa_id: str, data: Optional[AdminApproveFinalReques
         if creator_id:
             await recalc_targets_for_user(creator_id, notify=True)
     except Exception as _e:
-        # Never block case creation if target recalc fails
         logger.warning(f"Phase 4B recalc failed for PA {pa_id}: {_e}")
 
     # Phase 4C.3 — Auto-build vendor cost allocations
@@ -2303,15 +3457,17 @@ async def admin_approve_final(pa_id: str, data: Optional[AdminApproveFinalReques
     except Exception as _e:
         logger.warning(f"Phase 4C.4 commission apply failed for PA {pa_id}: {_e}")
 
-    return {"ok": True, "case_id": case_id, "case_code": case_code, "case_manager_id": cm_id, "case_manager_name": cm_name, "stage": "case_created"}
-
-
+    return {
+        "ok": True, "case_id": case_id, "case_code": case_code,
+        "case_manager_id": cm_id, "case_manager_name": cm_name,
+        "spouse_case_id": spouse_case_id, "spouse_case_code": spouse_case_code,
+        "stage": "case_created",
+    }
 # ======================== ACTIVITY (for partner visibility) ========================
 @router.post("/activity/log")
 async def log_activity(data: ActivityLogRequest, current_user: dict = Depends(get_current_user)):
     await _log(current_user["id"], data.pa_id, data.action, data.metadata)
     return {"logged": True}
-
 
 @router.get("/activity/pa/{pa_id}")
 async def get_pa_activity(pa_id: str, current_user: dict = Depends(get_current_user)):

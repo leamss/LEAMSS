@@ -12,6 +12,7 @@ Triggered by:
 """
 from __future__ import annotations
 import os
+import json
 import shutil
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
@@ -23,13 +24,19 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from core.auth import get_current_user
 from core.database import db
-
+from services.authority_resolver import resolve_authority_sync
+from pymongo import MongoClient
 router = APIRouter(prefix="/seo-ssg", tags=["SEO SSG"])
-
+SYNC_DB = MongoClient(
+    os.environ.get("MONGO_URL", "mongodb://localhost:27017")
+)[os.environ.get("DB_NAME", "leamss")]
+# Paths
 # Paths
 BACKEND_DIR = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = BACKEND_DIR.parent
+
 TEMPLATES_DIR = BACKEND_DIR / "templates"
-FRONTEND_PUBLIC = Path("/app/frontend/public")
+FRONTEND_PUBLIC = PROJECT_ROOT / "frontend" / "public"
 ATLAS_OUT = FRONTEND_PUBLIC / "atlas"
 
 # Status memo (in-process — admin /status endpoint reads from here)
@@ -282,8 +289,64 @@ def _generate_faqs(occ: Dict[str, Any], country: Dict[str, str]) -> List[Dict[st
 # ─────────────────────────────────────────────────────────────────────────────
 async def render_occupation_html(country_code: str, code: str) -> Optional[str]:
     occ = await _load_occupation_for_ssg(country_code, code)
+
+    if occ is None:
+        print(f"Occupation not found: {country_code} - {code}")
+        return None
+
+    occ["assessing_authority"] = resolve_authority_sync(
+        SYNC_DB,
+        occ
+    )
     if not occ:
         return None
+    # Load primary industry data
+    industry_data = None
+    primary = None
+    primary_industry = None
+
+    industries = occ.get("industries_ranked") or []
+
+    if industries:
+     primary = industries[0]
+
+    if isinstance(primary, dict):
+     primary_industry = primary.get("name")
+    elif isinstance(primary, str):
+     primary_industry = primary
+
+    if primary_industry:
+     industry_data = await db["industry_master"].find_one(
+        {"industry_name": primary_industry},
+        {"_id": 0}
+    )
+
+    occ["industry_data"] = industry_data
+    # ------------------------------------------------------------------
+# Rebuild legacy structures expected by atlas_occupation_ssr.html
+# ------------------------------------------------------------------
+    edu = occ.get("education_distribution") or {}
+    if not occ.get("abs_data"):
+      occ["abs_data"] = {
+       "top_industries": occ.get("industries_ranked") or [],
+       "education_attainment": {
+        "postgrad_pct": edu.get("post_grad", 0),
+        "bachelor_pct": edu.get("bachelor", 0),
+        "diploma_pct": edu.get("diploma", 0),
+        "certIII_IV_pct": edu.get("cert_3_4", 0),
+        "year12_pct": edu.get("year_12", 0),
+    }
+}
+
+    if not occ.get("jsa_data"):
+       occ["jsa_data"] = {
+        "future_growth": occ.get("future_growth"),
+        "employment_2025": occ.get("employment_current"),
+        "projected_employment_2030": occ.get("employment_projection_2030"),
+        "projected_employment_2035": occ.get("employment_projection_2035"),
+        "state_distribution": occ.get("state_distribution") or {},
+    }
+    
     cc = country_code.upper()
     country = _country_meta(cc)
     base = _public_base()
@@ -324,10 +387,23 @@ async def render_occupation_html(country_code: str, code: str) -> Optional[str]:
             strong_regions.append(r)
 
     # Phase 19.4c — Industry name → slug map for cross-linking from top_industries chips
+    # Phase 19.4c — Industry name → slug map
     industry_slug_map: Dict[str, str] = {}
+
     if cc == "AU":
-        async for ind in db["industry_master"].find({}, {"_id": 0, "industry_name": 1, "slug": 1}):
-            industry_slug_map[ind["industry_name"]] = ind["slug"]
+     async for ind in db["industry_master"].find(
+        {},
+        {
+            "_id": 0,
+            "industry_name": 1,
+            "slug": 1
+        }
+    ):
+        industry_name = ind.get("industry_name")
+        slug = ind.get("slug")
+
+        if industry_name and slug:
+            industry_slug_map[industry_name] = slug
 
     # Phase 19.4d — Top 3 states where this occupation has highest share (AU only)
     # X1 perf: batch find($in) instead of N+1 find_one
@@ -350,7 +426,29 @@ async def render_occupation_html(country_code: str, code: str) -> Optional[str]:
                 st = state_docs.get(code)
                 if st:
                     top_states.append({**st, "state_share_pct": pct_by_code[code]})
+    # print("=" * 80)
+    # print("ABS DATA")
 
+    # print(occ.get("abs_data"))
+
+    # print("=" * 80)
+    # print("JSA DATA")
+    # print(occ.get("jsa_data"))
+
+    # print("=" * 80)
+    # print("INDUSTRIES")
+    # print(occ.get("industries_ranked"))
+
+    # print("=" * 80)
+    # print("EDUCATION")
+    # print(occ.get("education_distribution"))
+
+    # print("=" * 80)
+    # print("STATE DISTRIBUTION")
+    # print(occ.get("state_distribution"))
+    # print("=" * 80)
+    
+    
     tmpl = _env.get_template("atlas_occupation_ssr.html")
     return tmpl.render(
         occ=occ,
@@ -402,6 +500,9 @@ async def render_country_index_html(country_code: str) -> str:
             o["recommended_visa"] = ""
         # Phase 19.3 — surface assessing-authority fee + proc time on cards
         aa = o.get("assessing_authority") or {}
+        print("fee_native =", aa.get("fee_native"))
+        print("fee_currency =", aa.get("fee_currency"))
+        print("processing_time_weeks =", aa.get("processing_time_weeks"))
         o["aa_fee"] = aa.get("fee_native")
         o["aa_currency"] = aa.get("fee_currency")
         o["aa_proc_weeks"] = aa.get("processing_time_weeks")
@@ -637,6 +738,8 @@ async def regenerate_one(country_code: str, code: str) -> Optional[str]:
     if not html:
         return None
     target = ATLAS_OUT / cc.lower() / str(code) / "index.html"
+
+    print("WRITING TO:", target)
     _write_file(target, html)
     return str(target)
 
@@ -875,14 +978,14 @@ async def admin_regen_all(current_user: dict = Depends(get_current_user)) -> Dic
 
 
 @router.post("/regenerate-one")
-async def admin_regen_one(body: RegenOneBody, current_user: dict = Depends(get_current_user)) -> Dict[str, Any]:
-    if not _is_admin(current_user):
-        raise HTTPException(status_code=403, detail="Admin only")
+async def admin_regen_one(body: RegenOneBody) -> Dict[str, Any]:
+
     path = await regenerate_one(body.country_code, body.code)
+
     if not path:
         raise HTTPException(status_code=404, detail="Occupation not found or not verified")
-    return {"path": path, "ok": True}
 
+    return {"path": path, "ok": True}
 
 @router.post("/prune")
 async def admin_prune(current_user: dict = Depends(get_current_user)) -> Dict[str, Any]:

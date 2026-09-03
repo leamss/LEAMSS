@@ -1221,10 +1221,12 @@ async def save_workflow_as_product(
                 doc_name = doc.get("name", f"Document {doc_index + 1}")
                 doc_description = doc.get("description", "")
                 is_required = doc.get("mandatory", True)
+                is_locked_until_paid = doc.get("is_locked_until_paid", False)
             else:
                 doc_name = str(doc)
                 doc_description = ""
                 is_required = True
+                is_locked_until_paid = False
 
             field_key = (
                 doc_name.lower()
@@ -1242,7 +1244,8 @@ async def save_workflow_as_product(
                 "required": is_required,
                 "filled_by": "client",
                 "placeholder": "",
-                "help_text": doc_description or f"Upload {doc_name}"
+                "help_text": doc_description or f"Upload {doc_name}",
+                "is_locked_until_paid": is_locked_until_paid,
             })
 
         sections = []

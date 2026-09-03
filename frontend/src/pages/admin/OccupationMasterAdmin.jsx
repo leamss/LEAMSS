@@ -25,8 +25,7 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   ArrowLeft, Search, Upload, Sparkles, Globe2, Settings2, FileText,
   CheckCircle2, AlertCircle, Loader2, Wand2, Save, RefreshCw, Trash2,
-  ExternalLink, Plus, ShieldCheck, ClipboardCopy, Eye, PencilLine,
-  History, BookOpen, Layers, Globe,
+  ExternalLink, Plus, ShieldCheck,
 } from 'lucide-react';
 
 import { formatApiError } from '@/lib/apiErrors';
@@ -49,12 +48,21 @@ export default function OccupationMasterAdmin() {
           </Button>
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
-              <Globe2 className="h-7 w-7 text-leamss-teal-600" />
+              <Globe2 className="h-7 w-7 text-indigo-600" />
               Occupation Master Admin Console
-              <Badge className="bg-leamss-teal-600 text-white text-[9px]">Phase 6.9</Badge>
+              <Badge className="bg-indigo-600 text-white text-[9px]">Phase 6.9</Badge>
             </h1>
             <p className="text-sm text-slate-500">AI drafts · Admin verifies · Sales uses verified data</p>
           </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="ml-auto border-teal-300 text-teal-700 hover:bg-teal-50"
+            onClick={() => navigate('/admin/kb/eoi-backlog')}
+            data-testid="open-eoi-backlog"
+          >
+            <FileText className="h-4 w-4 mr-1" />EOI Backlog Data
+          </Button>
         </div>
 
         <Tabs value={tab} onValueChange={(v) => setParams({ tab: v })}>
@@ -80,39 +88,15 @@ export default function OccupationMasterAdmin() {
 // ════════════════════════════════════════════════════════════════
 function BrowseAndVerify({ headers }) {
   const [list, setList] = useState([]);
-  // Phase 17.1.1 — default to "all statuses" so the Edit link from /admin/verify-hub
-  // lands on a populated list (1467 records are status=verified). URL params override.
-  // Phase 17.1.2 — defensive coercion: treat "all" / "any" / "*" sentinels as ""
-  // (no status filter) so external URLs can't trigger a 400 from the backend.
-  const _STATUS_WILDCARDS = new Set(['all', 'any', '*']);
-  const _coerceStatus = (raw) => {
-    const s = (raw || '').toString().trim().toLowerCase();
-    return _STATUS_WILDCARDS.has(s) ? '' : (raw || '');
-  };
-  const searchParams = new URLSearchParams(window.location.search);
-  const [filters, setFilters] = useState({
-    status: _coerceStatus(searchParams.get('status')),
-    country: searchParams.get('country') || '',
-    search: searchParams.get('code') || searchParams.get('search') || '',
-  });
+  const [filters, setFilters] = useState({ status: 'draft', country: '', search: '' });
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
-  // Phase 18.1 — `viewing` shows the read-only VerifiedRecordView for verified
-  // records. Distinct from `editing` (3-panel edit form). URL param ?edit=1
-  // forces edit mode for verified records (deep-link friendly).
-  const [viewing, setViewing] = useState(null);
-
-  const openItem = useCallback((it) => {
-    const forceEdit = new URLSearchParams(window.location.search).get('edit') === '1';
-    if (it.status === 'verified' && !forceEdit) setViewing(it);
-    else setEditing(it);
-  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const p = new URLSearchParams();
-      if (filters.status && !_STATUS_WILDCARDS.has(filters.status.toLowerCase())) p.append('status', filters.status);
+      if (filters.status) p.append('status', filters.status);
       if (filters.country) p.append('country', filters.country);
       if (filters.search) p.append('search', filters.search);
       p.append('limit', '200');
@@ -125,18 +109,9 @@ function BrowseAndVerify({ headers }) {
 
   useEffect(() => { load(); }, [load]);
 
-  if (viewing) {
-    return <VerifiedRecordView item={viewing} headers={headers}
-      onEditAgain={() => { setEditing(viewing); setViewing(null); }}
-      onBack={() => { setViewing(null); load(); }} />;
-  }
   if (editing) {
     return <ThreePanelEditor item={editing} headers={headers}
-      onSaved={(updated) => {
-        // Phase 18.1 — after verify, route into VIEW MODE rather than back to list
-        if (updated && updated.status === 'verified') { setViewing(updated); setEditing(null); }
-        else { setEditing(null); load(); }
-      }}
+      onSaved={() => { setEditing(null); load(); }}
       onCancel={() => setEditing(null)} />;
   }
 
@@ -178,7 +153,7 @@ function BrowseAndVerify({ headers }) {
         <Card className="p-10 text-center text-slate-400 text-sm">No codes match these filters.</Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2" data-testid="codes-grid">
-          {list.map((it) => <CodeCard key={it.occupation_id} item={it} onOpen={() => openItem(it)} />)}
+          {list.map((it) => <CodeCard key={it.occupation_id} item={it} onOpen={() => setEditing(it)} />)}
         </div>
       )}
     </div>
@@ -267,14 +242,6 @@ function ThreePanelEditor({ item, headers, onSaved, onCancel }) {
         alternative_titles: edit.alternative_titles,
         specialisations: edit.specialisations,
         skill_assessment_details: edit.skill_assessment_details,
-        // Phase 18.1 — expanded workspace fields
-        qualification_rules: edit.qualification_rules || '',
-        assessing_authority: edit.assessing_authority || {},
-        required_documents: edit.required_documents || [],
-        similar_codes_override: edit.similar_codes_override || [],
-        recommended_visa_subclass: edit.recommended_visa_subclass || {},
-        sample_cases: edit.sample_cases || [],
-        custom_sections: edit.custom_sections || [],
       };
       await axios.put(`${API}/occupation-master/${item.occupation_id}`, payload, { headers });
       toast.success('Draft saved');
@@ -288,37 +255,13 @@ function ThreePanelEditor({ item, headers, onSaved, onCancel }) {
     if (!sourceRef.trim()) { toast.error('Add an official source URL/reference first'); return; }
     setSaving(true);
     try {
-      const r = await axios.post(`${API}/occupation-master/${item.occupation_id}/verify`, {
+      await axios.post(`${API}/occupation-master/${item.occupation_id}/verify`, {
         source_reference: sourceRef, review_notes: reviewNotes,
-        // Phase 18.1 — send full payload so /verify snapshots + persists in one shot
-        title: edit.title,
-        description: edit.description,
-        typical_tasks: edit.typical_tasks,
-        qualification_rules: edit.qualification_rules || '',
-        alternative_titles: edit.alternative_titles,
-        assessing_authority: edit.assessing_authority || {},
-        required_documents: edit.required_documents || [],
-        similar_codes_override: edit.similar_codes_override || [],
-        recommended_visa_subclass: edit.recommended_visa_subclass || {},
-        sample_cases: edit.sample_cases || [],
-        custom_sections: edit.custom_sections || [],
       }, { headers });
       toast.success('✓ Verified & published', { description: 'Now visible to sales as a verified record.' });
-      onSaved(r.data);  // Phase 18.1 — pass the refreshed doc so caller can route to view mode
+      onSaved();
     } catch (e) {
       toast.error(formatApiError(e, 'Verify failed'));
-    } finally { setSaving(false); }
-  };
-
-  // Phase 18.1 — bulk-copy AI draft → top-level editable fields
-  const copyAllFromAI = async () => {
-    setSaving(true);
-    try {
-      const r = await axios.post(`${API}/occupation-master/${item.occupation_id}/copy-from-ai`, {}, { headers });
-      setEdit(r.data);
-      toast.success('AI draft copied to admin fields', { description: 'Review and Save / Verify when ready.' });
-    } catch (e) {
-      toast.error(formatApiError(e, 'Copy from AI failed'));
     } finally { setSaving(false); }
   };
 
@@ -329,7 +272,7 @@ function ThreePanelEditor({ item, headers, onSaved, onCancel }) {
           <div className="flex items-center gap-2">
             <p className="text-xs font-mono text-slate-500">{item.country_code} · {item.code}</p>
             <Badge className="text-[9px] bg-amber-100 text-amber-700">{item.status}</Badge>
-            <Badge className="text-[9px] bg-leamss-teal-100 text-leamss-teal-700">{item.classification_type}</Badge>
+            <Badge className="text-[9px] bg-indigo-100 text-indigo-700">{item.classification_type}</Badge>
           </div>
           <h2 className="text-lg font-bold">{item.title}</h2>
         </div>
@@ -347,35 +290,28 @@ function ThreePanelEditor({ item, headers, onSaved, onCancel }) {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         {/* LEFT — AI Draft (read-only) */}
-        <Card className="p-3 bg-leamss-orange-50/40 border-leamss-orange-200">
-          <div className="flex items-center justify-between mb-2 gap-1 flex-wrap">
-            <h3 className="text-xs font-bold uppercase text-leamss-orange-800">🤖 AI Draft (not verified)</h3>
-            <div className="flex gap-1">
-              <Button size="sm" variant="outline" onClick={generate} disabled={genLoading || saving} className="h-7 text-[10px] border-leamss-orange-300" data-testid="generate-ai-draft">
-                {genLoading ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Sparkles className="h-3 w-3 mr-1" />}
-                Generate
-              </Button>
-              {(aiDraft.description || aiDraft.typical_tasks?.length || aiDraft.qualification_rules) && (
-                <Button size="sm" variant="outline" onClick={copyAllFromAI} disabled={saving} className="h-7 text-[10px] border-emerald-400 text-emerald-700" data-testid="copy-all-from-ai">
-                  <ClipboardCopy className="h-3 w-3 mr-1" />Copy All
-                </Button>
-              )}
-            </div>
+        <Card className="p-3 bg-purple-50/40 border-purple-200">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-xs font-bold uppercase text-purple-800">🤖 AI Draft (not verified)</h3>
+            <Button size="sm" variant="outline" onClick={generate} disabled={genLoading} className="h-7 text-[10px] border-purple-300" data-testid="generate-ai-draft">
+              {genLoading ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Sparkles className="h-3 w-3 mr-1" />}
+              Generate
+            </Button>
           </div>
           {aiDraft.generated_at ? (
             <div className="space-y-2 text-xs">
               <div>
-                <p className="font-semibold text-leamss-orange-700">Description</p>
+                <p className="font-semibold text-purple-700">Description</p>
                 <p className="bg-white p-2 rounded border whitespace-pre-wrap">{aiDraft.description || '—'}</p>
               </div>
               <div>
-                <p className="font-semibold text-leamss-orange-700">Typical Tasks</p>
+                <p className="font-semibold text-purple-700">Typical Tasks</p>
                 <ul className="list-disc list-inside bg-white p-2 rounded border space-y-0.5">
                   {(aiDraft.typical_tasks || []).map((t, i) => <li key={i}>{t}</li>)}
                 </ul>
               </div>
               <div>
-                <p className="font-semibold text-leamss-orange-700">Qualification Rules</p>
+                <p className="font-semibold text-purple-700">Qualification Rules</p>
                 <p className="bg-white p-2 rounded border whitespace-pre-wrap">{aiDraft.qualification_rules || '—'}</p>
               </div>
               {aiDraft.ai_confidence_note && (
@@ -391,7 +327,7 @@ function ThreePanelEditor({ item, headers, onSaved, onCancel }) {
           ) : (
             <div className="text-xs text-slate-500 text-center py-8">
               <Sparkles className="h-8 w-8 mx-auto mb-2 opacity-40" />
-              Click &quot;Generate&quot; to draft baseline content with Claude Sonnet.
+              Click "Generate" to draft baseline content with Claude Sonnet.
               <br /><span className="text-[10px]">AI assistance · You verify against official sources.</span>
             </div>
           )}
@@ -400,7 +336,7 @@ function ThreePanelEditor({ item, headers, onSaved, onCancel }) {
         {/* MIDDLE — Admin Edit (editable) */}
         <Card className="p-3 bg-emerald-50/40 border-emerald-200">
           <h3 className="text-xs font-bold uppercase text-emerald-800 mb-2">✏️ Admin Edit (you verify)</h3>
-          <div className="space-y-3">
+          <div className="space-y-2">
             <Field label="Title">
               <Input value={edit.title || ''} onChange={(e) => setEdit({ ...edit, title: e.target.value })} className="h-8 text-xs" data-testid="edit-title" />
             </Field>
@@ -412,68 +348,11 @@ function ThreePanelEditor({ item, headers, onSaved, onCancel }) {
                 onChange={(e) => setEdit({ ...edit, typical_tasks: e.target.value.split('\n').filter(Boolean) })}
                 className="text-xs min-h-[120px]" data-testid="edit-tasks" />
             </Field>
-
-            {/* Phase 18.1 — Qualification Rules (with quick-copy from AI) */}
-            <Field label={<>Qualification Rules
-              <span className="flex gap-1">
-                {aiDraft.qualification_rules && (
-                  <button type="button" onClick={() => setEdit({ ...edit, qualification_rules: aiDraft.qualification_rules })}
-                    className="text-[10px] px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 hover:bg-emerald-200 inline-flex items-center gap-1"
-                    data-testid="copy-qual-from-ai">
-                    <ClipboardCopy className="h-2.5 w-2.5" />Copy from AI
-                  </button>
-                )}
-                <PolishBtn loading={polishLoading === 'qualification_rules'} onClick={() => polish('qualification_rules', 'Qualification Rules')} />
-              </span>
-            </>}>
-              <Textarea value={edit.qualification_rules || ''} onChange={(e) => setEdit({ ...edit, qualification_rules: e.target.value })}
-                placeholder="Education + work-experience requirements (no specific fees)…"
-                className="text-xs min-h-[100px]" data-testid="edit-qualification-rules" />
-            </Field>
-
             <Field label="Alternative Titles (comma-separated)">
               <Input value={(edit.alternative_titles || []).join(', ')}
                 onChange={(e) => setEdit({ ...edit, alternative_titles: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })}
                 className="h-8 text-xs" data-testid="edit-alt-titles" />
             </Field>
-
-            {/* Phase 18.1 — Assessing Authority sub-form */}
-            <AssessingAuthorityEditor
-              value={edit.assessing_authority || {}}
-              onChange={(aa) => setEdit({ ...edit, assessing_authority: aa })}
-            />
-
-            {/* Phase 18.1 — Recommended Visa Pathway per-country */}
-            <RecommendedVisaEditor
-              countryCode={item.country_code}
-              visaPathways={edit.visa_pathways}
-              value={edit.recommended_visa_subclass || {}}
-              onChange={(rvs) => setEdit({ ...edit, recommended_visa_subclass: rvs })}
-            />
-
-            {/* Phase 18.1 — Required Documents */}
-            <RequiredDocsEditor
-              items={edit.required_documents || []}
-              onChange={(docs) => setEdit({ ...edit, required_documents: docs })}
-            />
-
-            {/* Phase 18.1 — Similar Codes Override */}
-            <SimilarOverrideEditor
-              items={edit.similar_codes_override || []}
-              onChange={(arr) => setEdit({ ...edit, similar_codes_override: arr })}
-            />
-
-            {/* Phase 18.1 — Sample Cases */}
-            <SampleCasesEditor
-              items={edit.sample_cases || []}
-              onChange={(arr) => setEdit({ ...edit, sample_cases: arr })}
-            />
-
-            {/* Phase 18.1 — Custom Sections */}
-            <CustomSectionsEditor
-              items={edit.custom_sections || []}
-              onChange={(arr) => setEdit({ ...edit, custom_sections: arr })}
-            />
           </div>
         </Card>
 
@@ -529,7 +408,7 @@ function PolishBtn({ onClick, loading }) {
       type="button"
       onClick={onClick}
       disabled={loading}
-      className="text-[10px] px-2 py-0.5 rounded bg-leamss-orange-100 text-leamss-orange-700 hover:bg-leamss-orange-200 disabled:opacity-50 inline-flex items-center gap-1"
+      className="text-[10px] px-2 py-0.5 rounded bg-purple-100 text-purple-700 hover:bg-purple-200 disabled:opacity-50 inline-flex items-center gap-1"
       title="Polish text with AI (no fact changes)"
       data-testid="polish-btn"
     >
@@ -538,462 +417,6 @@ function PolishBtn({ onClick, loading }) {
     </button>
   );
 }
-
-
-// ════════════════════════════════════════════════════════════════
-// Phase 18.1 — Workspace expansion sub-editors + VerifiedRecordView
-// ════════════════════════════════════════════════════════════════
-
-const DOC_CATEGORIES = ['Identity', 'Education', 'Employment', 'Health', 'English', 'Professional', 'Character', 'Other'];
-
-function AssessingAuthorityEditor({ value, onChange }) {
-  const [open, setOpen] = useState(false);
-  const set = (k, v) => onChange({ ...(value || {}), [k]: v });
-  return (
-    <div className="bg-white border border-emerald-200 rounded p-2" data-testid="assessing-authority-editor">
-      <button type="button" onClick={() => setOpen(!open)} className="w-full flex items-center justify-between text-[11px] font-bold uppercase text-slate-700">
-        <span className="flex items-center gap-1"><ShieldCheck className="h-3 w-3 text-emerald-600" />Assessing Authority {value?.name && <span className="text-[10px] text-slate-500 normal-case font-normal">· {value.name}</span>}</span>
-        <ChevronToggle open={open} />
-      </button>
-      {open && (
-        <div className="mt-2 space-y-2">
-          <div className="grid grid-cols-2 gap-2">
-            <div><Label className="text-[10px] uppercase text-slate-500">Name</Label>
-              <Input value={value?.name || ''} onChange={(e) => set('name', e.target.value)} className="h-7 text-xs" data-testid="aa-name" /></div>
-            <div><Label className="text-[10px] uppercase text-slate-500">Full Name</Label>
-              <Input value={value?.full_name || ''} onChange={(e) => set('full_name', e.target.value)} className="h-7 text-xs" data-testid="aa-full-name" /></div>
-            <div className="col-span-2"><Label className="text-[10px] uppercase text-slate-500">URL</Label>
-              <Input value={value?.url || ''} onChange={(e) => set('url', e.target.value)} className="h-7 text-xs" placeholder="https://…" data-testid="aa-url" /></div>
-            <div><Label className="text-[10px] uppercase text-slate-500">Processing (weeks)</Label>
-              <Input type="number" value={value?.processing_time_weeks ?? ''}
-                onChange={(e) => set('processing_time_weeks', e.target.value ? Number(e.target.value) : null)}
-                className="h-7 text-xs" data-testid="aa-processing-weeks" /></div>
-            <div className="grid grid-cols-2 gap-1">
-              <div><Label className="text-[10px] uppercase text-slate-500">Fee</Label>
-                <Input type="number" step="0.01" value={value?.fee_native ?? ''}
-                  onChange={(e) => set('fee_native', e.target.value ? Number(e.target.value) : null)}
-                  className="h-7 text-xs" data-testid="aa-fee-native" /></div>
-              <div><Label className="text-[10px] uppercase text-slate-500">Cur</Label>
-                <Select value={value?.fee_currency || ''} onValueChange={(v) => set('fee_currency', v)}>
-                  <SelectTrigger className="h-7 text-xs" data-testid="aa-fee-currency"><SelectValue placeholder="—" /></SelectTrigger>
-                  <SelectContent>{['AUD', 'CAD', 'NZD', 'USD', 'INR', 'GBP', 'EUR'].map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                </Select></div>
-            </div>
-            <div className="col-span-2"><Label className="text-[10px] uppercase text-slate-500">Contact</Label>
-              <Input value={value?.contact_details || ''} onChange={(e) => set('contact_details', e.target.value)} className="h-7 text-xs" placeholder="info@example.com / +1…" data-testid="aa-contact" /></div>
-            <div className="col-span-2"><Label className="text-[10px] uppercase text-slate-500">Rules Summary</Label>
-              <Textarea value={value?.rules_summary || ''} onChange={(e) => set('rules_summary', e.target.value)} className="text-xs min-h-[60px]" data-testid="aa-rules-summary" /></div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function RecommendedVisaEditor({ countryCode, visaPathways, value, onChange }) {
-  const cc = (countryCode || '').toUpperCase();
-  const eligibleList = (visaPathways?.visa_eligibility || []).filter(v => v.eligible !== false).map(v => v.visa_subclass).filter(Boolean);
-  const current = value?.[cc] || '';
-  const set = (subclass) => onChange({ ...(value || {}), [cc]: subclass });
-  return (
-    <div className="bg-white border border-emerald-200 rounded p-2" data-testid={`recommended-visa-${cc.toLowerCase()}`}>
-      <Label className="text-[10px] uppercase font-bold text-slate-700 mb-1 flex items-center gap-1">
-        <Globe className="h-3 w-3 text-emerald-600" />Recommended Visa Pathway · {cc}
-      </Label>
-      {eligibleList.length === 0 ? (
-        <p className="text-[10px] text-slate-400 italic mt-1">No eligible visas listed yet — fill the Visa Pathways block first.</p>
-      ) : (
-        <div className="flex gap-2 items-center mt-1 flex-wrap">
-          <Select value={current || 'none'} onValueChange={(v) => set(v === 'none' ? '' : v)}>
-            <SelectTrigger className="h-7 text-xs w-44" data-testid={`recommended-visa-select-${cc.toLowerCase()}`}><SelectValue placeholder="Pick primary…" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">— No primary —</SelectItem>
-              {eligibleList.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          {current && <Badge className="bg-amber-100 text-amber-700 text-[9px]">⭐ {current} primary</Badge>}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function RequiredDocsEditor({ items, onChange }) {
-  const upd = (idx, patch) => onChange(items.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
-  const add = () => onChange([...items, { name: '', category: 'Other', required: true, country_override: null }]);
-  const rm = (idx) => onChange(items.filter((_, i) => i !== idx));
-  return (
-    <div className="bg-white border border-emerald-200 rounded p-2" data-testid="required-docs-editor">
-      <div className="flex items-center justify-between mb-1">
-        <Label className="text-[10px] uppercase font-bold text-slate-700 flex items-center gap-1"><FileText className="h-3 w-3 text-emerald-600" />Required Documents ({items.length})</Label>
-        <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={add} data-testid="add-required-doc"><Plus className="h-2.5 w-2.5 mr-1" />Add Document</Button>
-      </div>
-      {items.length === 0 && <p className="text-[10px] text-slate-400 italic">No documents yet — click &quot;Add Document&quot; to start.</p>}
-      <div className="space-y-1 max-h-72 overflow-y-auto">
-        {items.map((d, idx) => (
-          <div key={d.id || idx} className="grid grid-cols-12 gap-1 items-center text-[11px]" data-testid={`req-doc-row-${idx}`}>
-            <Input value={d.name || ''} onChange={(e) => upd(idx, { name: e.target.value })} className="h-6 text-[11px] col-span-5" placeholder="Doc name…" data-testid={`req-doc-name-${idx}`} />
-            <Select value={d.category || 'Other'} onValueChange={(v) => upd(idx, { category: v })}>
-              <SelectTrigger className="h-6 text-[10px] col-span-3" data-testid={`req-doc-category-${idx}`}><SelectValue /></SelectTrigger>
-              <SelectContent>{DOC_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-            </Select>
-            <Select value={d.country_override || 'ALL'} onValueChange={(v) => upd(idx, { country_override: v === 'ALL' ? null : v })}>
-              <SelectTrigger className="h-6 text-[10px] col-span-2" data-testid={`req-doc-country-${idx}`}><SelectValue /></SelectTrigger>
-              <SelectContent>{['ALL', 'AU', 'CA', 'NZ'].map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-            </Select>
-            <button type="button" onClick={() => upd(idx, { required: !d.required })}
-              className={`text-[9px] px-1.5 py-0.5 rounded col-span-1 ${d.required ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}
-              title={d.required ? 'Required' : 'Optional'} data-testid={`req-doc-required-${idx}`}>
-              {d.required ? 'Req' : 'Opt'}
-            </button>
-            <button type="button" onClick={() => rm(idx)} className="text-rose-500 hover:text-rose-700 col-span-1 flex justify-center" data-testid={`req-doc-remove-${idx}`}>
-              <Trash2 className="h-3 w-3" />
-            </button>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function SimilarOverrideEditor({ items, onChange }) {
-  const [draft, setDraft] = useState('');
-  const add = () => {
-    const v = draft.trim().toLowerCase();
-    if (!v || items.includes(v)) { setDraft(''); return; }
-    if (!/^[a-z]{2}-[a-z0-9]+$/.test(v)) { toast.error('Use format country-code, e.g. au-261313'); return; }
-    onChange([...items, v]); setDraft('');
-  };
-  const rm = (slug) => onChange(items.filter(s => s !== slug));
-  return (
-    <div className="bg-white border border-emerald-200 rounded p-2" data-testid="similar-override-editor">
-      <Label className="text-[10px] uppercase font-bold text-slate-700 mb-1 flex items-center gap-1"><Layers className="h-3 w-3 text-emerald-600" />Similar Codes Override ({items.length})</Label>
-      <div className="flex gap-1 mb-1">
-        <Input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="au-261313"
-          onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), add())}
-          className="h-7 text-xs" data-testid="similar-override-input" />
-        <Button size="sm" variant="outline" className="h-7 text-[10px]" onClick={add} data-testid="similar-override-add"><Plus className="h-2.5 w-2.5" /></Button>
-      </div>
-      <div className="flex flex-wrap gap-1">
-        {items.map(s => (
-          <Badge key={s} className="bg-leamss-teal-100 text-leamss-teal-700 text-[10px] font-mono pl-2 pr-1" data-testid={`similar-chip-${s}`}>
-            {s}<button type="button" onClick={() => rm(s)} className="ml-1 hover:text-rose-600"><Trash2 className="h-2.5 w-2.5" /></button>
-          </Badge>
-        ))}
-        {items.length === 0 && <span className="text-[10px] text-slate-400 italic">Auto-similarity will run when this list is empty.</span>}
-      </div>
-    </div>
-  );
-}
-
-function SampleCasesEditor({ items, onChange }) {
-  // Phase 18.3 — polished collapsible card editor.
-  const OUTCOMES = ['Approved', 'Refused', 'Withdrawn', 'Pending'];
-  const upd = (idx, patch) => onChange(items.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
-  const add = () => onChange([...items, { client_age: null, profile_summary: '', visa_subclass: '',
-    outcome: 'Pending', timeline_months: null, notes: '' }]);
-  const rm = (idx) => {
-    if (!window.confirm('Delete this sample case? This cannot be undone.')) return;
-    onChange(items.filter((_, i) => i !== idx));
-  };
-  const move = (idx, dir) => {
-    const j = idx + dir;
-    if (j < 0 || j >= items.length) return;
-    const next = [...items];
-    [next[idx], next[j]] = [next[j], next[idx]];
-    onChange(next);
-  };
-  return (
-    <div className="bg-white border border-emerald-200 rounded p-2" data-testid="sample-cases-editor">
-      <div className="flex items-center justify-between mb-1">
-        <Label className="text-[10px] uppercase font-bold text-slate-700 flex items-center gap-1"><BookOpen className="h-3 w-3 text-emerald-600" />Sample Cases ({items.length})</Label>
-        <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={add} data-testid="add-sample-case"><Plus className="h-2.5 w-2.5 mr-1" />Add Sample Case</Button>
-      </div>
-      {items.length === 0 && <p className="text-[10px] text-slate-400 italic">No sample cases yet — anonymised client success stories live here.</p>}
-      <div className="space-y-2">
-        {items.map((c, idx) => <SampleCaseCardEditor key={c.id || idx} c={c} idx={idx}
-            startOpen={items.length < 3} outcomes={OUTCOMES}
-            onUpd={(p) => upd(idx, p)} onRemove={() => rm(idx)}
-            onMove={(d) => move(idx, d)} canUp={idx > 0} canDown={idx < items.length - 1} />)}
-      </div>
-    </div>
-  );
-}
-
-function SampleCaseCardEditor({ c, idx, startOpen, outcomes, onUpd, onRemove, onMove, canUp, canDown }) {
-  const [open, setOpen] = useState(startOpen);
-  const outcomeTone = (c.outcome === 'Approved') ? 'bg-emerald-100 text-emerald-700' :
-                      (c.outcome === 'Refused')  ? 'bg-rose-100 text-rose-700' :
-                      (c.outcome === 'Pending')  ? 'bg-amber-100 text-amber-700' :
-                      'bg-slate-100 text-slate-600';
-  const ageInvalid = c.client_age != null && (c.client_age < 18 || c.client_age > 70);
-  const tlInvalid = c.timeline_months != null && (c.timeline_months < 0 || c.timeline_months > 48);
-  return (
-    <div className="border border-slate-200 rounded bg-slate-50/50" data-testid={`sample-case-card-${idx}`}>
-      <div className="flex items-center justify-between gap-1 p-2">
-        <button type="button" onClick={() => setOpen(!open)} className="flex-1 flex items-center gap-2 text-left text-[11px]" data-testid={`sample-case-toggle-${idx}`}>
-          <ChevronDownIcon open={open} />
-          <span className="font-medium text-slate-700">
-            {c.client_age ? `${c.client_age}y` : 'Age —'} · {c.visa_subclass || 'Visa —'}
-          </span>
-          {c.outcome && <Badge className={`${outcomeTone} text-[9px]`} data-testid={`sample-case-outcome-${idx}`}>{c.outcome}</Badge>}
-          {c.timeline_months != null && <span className="text-slate-400 text-[10px]">· {c.timeline_months} mo</span>}
-        </button>
-        <div className="flex gap-0.5">
-          <button type="button" onClick={() => onMove(-1)} disabled={!canUp} className="text-slate-400 hover:text-slate-700 disabled:opacity-30 px-1" data-testid={`sample-case-up-${idx}`}>▲</button>
-          <button type="button" onClick={() => onMove(1)} disabled={!canDown} className="text-slate-400 hover:text-slate-700 disabled:opacity-30 px-1" data-testid={`sample-case-down-${idx}`}>▼</button>
-          <button type="button" onClick={onRemove} className="text-rose-500 hover:text-rose-700 px-1" data-testid={`sample-case-remove-${idx}`}><Trash2 className="h-3 w-3" /></button>
-        </div>
-      </div>
-      {open && (
-        <div className="px-2 pb-2 space-y-1.5 border-t border-slate-100 pt-2">
-          <div className="grid grid-cols-3 gap-1.5">
-            <div>
-              <Label className="text-[9px] uppercase text-slate-500">Age (18–70)</Label>
-              <Input type="number" min="18" max="70" value={c.client_age ?? ''} placeholder="32"
-                onChange={(e) => onUpd({ client_age: e.target.value ? Number(e.target.value) : null })}
-                className={`h-6 text-xs ${ageInvalid ? 'border-rose-400' : ''}`}
-                data-testid={`sample-case-age-${idx}`} />
-            </div>
-            <div>
-              <Label className="text-[9px] uppercase text-slate-500">Visa Subclass</Label>
-              <Input value={c.visa_subclass || ''} placeholder="189, SMC, FSWP"
-                onChange={(e) => onUpd({ visa_subclass: e.target.value })}
-                className="h-6 text-xs" data-testid={`sample-case-visa-${idx}`} />
-            </div>
-            <div>
-              <Label className="text-[9px] uppercase text-slate-500">Outcome*</Label>
-              <Select value={c.outcome || 'Pending'} onValueChange={(v) => onUpd({ outcome: v })}>
-                <SelectTrigger className="h-6 text-xs" data-testid={`sample-case-outcome-select-${idx}`}><SelectValue /></SelectTrigger>
-                <SelectContent>{outcomes.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div>
-            <Label className="text-[9px] uppercase text-slate-500">Profile Summary (≤500)</Label>
-            <Textarea value={c.profile_summary || ''} placeholder="e.g. Backend engineer, 7 yrs exp, IELTS 7.5, AU education"
-              maxLength={500} onChange={(e) => onUpd({ profile_summary: e.target.value })}
-              className="text-xs min-h-[50px]" data-testid={`sample-case-profile-${idx}`} />
-          </div>
-          <div className="grid grid-cols-2 gap-1.5">
-            <div>
-              <Label className="text-[9px] uppercase text-slate-500">Timeline (months, 0–48)</Label>
-              <Input type="number" min="0" max="48" value={c.timeline_months ?? ''} placeholder="11"
-                onChange={(e) => onUpd({ timeline_months: e.target.value ? Number(e.target.value) : null })}
-                className={`h-6 text-xs ${tlInvalid ? 'border-rose-400' : ''}`}
-                data-testid={`sample-case-months-${idx}`} />
-            </div>
-          </div>
-          <div>
-            <Label className="text-[9px] uppercase text-slate-500">Notes (optional, ≤1000)</Label>
-            <Textarea value={c.notes || ''} maxLength={1000}
-              onChange={(e) => onUpd({ notes: e.target.value })}
-              className="text-xs min-h-[40px]" data-testid={`sample-case-notes-${idx}`} />
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ChevronDownIcon({ open }) {
-  return <span className={`text-slate-400 inline-block transition ${open ? 'rotate-90' : ''}`}>▶</span>;
-}
-
-function CustomSectionsEditor({ items, onChange }) {
-  const upd = (idx, patch) => onChange(items.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
-  const add = () => onChange([...items, { title: '', body_markdown: '', source_url: '' }]);
-  const rm = (idx) => {
-    if (!window.confirm('Delete this section? This cannot be undone.')) return;
-    onChange(items.filter((_, i) => i !== idx));
-  };
-  const move = (idx, dir) => {
-    const j = idx + dir;
-    if (j < 0 || j >= items.length) return;
-    const next = [...items];
-    [next[idx], next[j]] = [next[j], next[idx]];
-    onChange(next);
-  };
-  const urlBad = (u) => u && !/^https?:\/\/[^\s<>"']+$/i.test(u);
-  return (
-    <div className="bg-white border border-emerald-200 rounded p-2" data-testid="custom-sections-editor">
-      <div className="flex items-center justify-between mb-1">
-        <Label className="text-[10px] uppercase font-bold text-slate-700 flex items-center gap-1"><FileText className="h-3 w-3 text-emerald-600" />Custom Sections ({items.length})</Label>
-        <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={add} data-testid="add-custom-section"><Plus className="h-2.5 w-2.5 mr-1" />Add Custom Section</Button>
-      </div>
-      {items.length === 0 && <p className="text-[10px] text-slate-400 italic">No custom sections yet — free-form admin-authored blocks.</p>}
-      <div className="space-y-2">
-        {items.map((c, idx) => (
-          <div key={c.id || idx} className="border border-slate-200 rounded p-2 bg-slate-50/50 space-y-1" data-testid={`custom-section-${idx}`}>
-            <div className="flex items-center gap-1">
-              <Input value={c.title || ''} placeholder="Title (1–80 chars)" maxLength={80}
-                onChange={(e) => upd(idx, { title: e.target.value })} className="h-6 text-xs flex-1"
-                data-testid={`cs-title-${idx}`} />
-              <button type="button" onClick={() => move(idx, -1)} disabled={idx === 0}
-                className="text-slate-400 hover:text-slate-700 disabled:opacity-30 px-1" data-testid={`cs-up-${idx}`}>▲</button>
-              <button type="button" onClick={() => move(idx, 1)} disabled={idx === items.length - 1}
-                className="text-slate-400 hover:text-slate-700 disabled:opacity-30 px-1" data-testid={`cs-down-${idx}`}>▼</button>
-              <button type="button" onClick={() => rm(idx)} className="text-rose-500 hover:text-rose-700 px-1" data-testid={`cs-remove-${idx}`}><Trash2 className="h-3 w-3" /></button>
-            </div>
-            <div className="text-[9px] text-slate-400">Markdown supported (line breaks preserved; rendered raw — no scripts).</div>
-            <Textarea value={c.body_markdown || ''} placeholder="Body markdown…" maxLength={5000}
-              onChange={(e) => upd(idx, { body_markdown: e.target.value })}
-              className="text-xs min-h-[60px]" data-testid={`cs-body-${idx}`} />
-            <Input value={c.source_url || ''} placeholder="https://source.example.com"
-              onChange={(e) => upd(idx, { source_url: e.target.value })}
-              className={`h-6 text-xs ${urlBad(c.source_url) ? 'border-rose-400' : ''}`}
-              data-testid={`cs-url-${idx}`} />
-            {urlBad(c.source_url) && <p className="text-[9px] text-rose-500">Must start with http:// or https://</p>}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function ChevronToggle({ open }) {
-  return <span className="text-slate-400">{open ? '−' : '+'}</span>;
-}
-
-
-// ════════════════════════════════════════════════════════════════
-// Phase 18.1 — VerifiedRecordView (read-only view + Edit Again toggle)
-// ════════════════════════════════════════════════════════════════
-function VerifiedRecordView({ item, headers, onEditAgain, onBack }) {
-  const v = item.verification || {};
-  const sourceUrl = v.source_reference || '';
-  const isUrl = sourceUrl.startsWith('http://') || sourceUrl.startsWith('https://');
-  const history = item.verification_history || [];
-  const [historyOpen, setHistoryOpen] = useState(false);
-
-  return (
-    <Card className="p-4 space-y-3" data-testid="verified-view">
-      <div className="flex items-start justify-between flex-wrap gap-2 pb-2 border-b">
-        <div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <p className="text-xs font-mono text-slate-500">{item.country_code} · {item.code}</p>
-            <Badge className="text-[9px] bg-emerald-100 text-emerald-700"><CheckCircle2 className="h-2.5 w-2.5 mr-0.5" />Verified</Badge>
-            <Badge className="text-[9px] bg-leamss-teal-100 text-leamss-teal-700">{item.classification_type}</Badge>
-          </div>
-          <h2 className="text-lg font-bold mt-1">{item.title}</h2>
-          <p className="text-[11px] text-slate-500 mt-0.5">
-            Verified by <strong>{v.verified_by_name || v.verified_by || '—'}</strong>
-            {v.verified_at && <> · {new Date(v.verified_at).toLocaleString()}</>}
-            {isUrl && <> · <a href={sourceUrl} target="_blank" rel="noreferrer" className="text-leamss-teal-600 hover:underline inline-flex items-center gap-0.5">source <ExternalLink className="h-2.5 w-2.5" /></a></>}
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={onBack} data-testid="verified-back">Back</Button>
-          <Button size="sm" onClick={onEditAgain} className="bg-amber-600 hover:bg-amber-700" data-testid="edit-again-btn">
-            <PencilLine className="h-3 w-3 mr-1" />Edit Again
-          </Button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        <ViewBlock title="Description">{item.description || <em className="text-slate-400">Not set</em>}</ViewBlock>
-        <ViewBlock title={`Typical Tasks (${(item.typical_tasks || []).length})`}>
-          {(item.typical_tasks || []).length === 0 ? <em className="text-slate-400">No tasks</em> : (
-            <ul className="list-disc list-inside text-xs space-y-0.5">{(item.typical_tasks || []).map((t, i) => <li key={i}>{t}</li>)}</ul>
-          )}
-        </ViewBlock>
-        <ViewBlock title="Qualification Rules">{item.qualification_rules || <em className="text-slate-400">Not set</em>}</ViewBlock>
-        <ViewBlock title="Assessing Authority">
-          {!item.assessing_authority?.name ? <em className="text-slate-400">Not set</em> : (
-            <div className="text-xs space-y-0.5">
-              <p><strong>{item.assessing_authority.name}</strong>{item.assessing_authority.full_name ? ` — ${item.assessing_authority.full_name}` : ''}</p>
-              {item.assessing_authority.url && <a href={item.assessing_authority.url} target="_blank" rel="noreferrer" className="text-leamss-teal-600 text-[11px] hover:underline">{item.assessing_authority.url}</a>}
-              {item.assessing_authority.processing_time_weeks && <p className="text-[11px]">⏱ {item.assessing_authority.processing_time_weeks} weeks</p>}
-              {item.assessing_authority.fee_native && <p className="text-[11px]">💰 {item.assessing_authority.fee_currency} {item.assessing_authority.fee_native}</p>}
-              {item.assessing_authority.rules_summary && <p className="text-[11px] text-slate-600 mt-1 whitespace-pre-wrap">{item.assessing_authority.rules_summary}</p>}
-            </div>
-          )}
-        </ViewBlock>
-        <ViewBlock title="Recommended Visa">
-          {Object.keys(item.recommended_visa_subclass || {}).length === 0 ? <em className="text-slate-400">None set</em> : (
-            <div className="flex gap-1 flex-wrap">
-              {Object.entries(item.recommended_visa_subclass).map(([cc, sub]) => (
-                <Badge key={cc} className="bg-amber-100 text-amber-700 text-[10px]">⭐ {cc}: {sub}</Badge>
-              ))}
-            </div>
-          )}
-        </ViewBlock>
-        <ViewBlock title={`Required Documents (${(item.required_documents || []).length})`}>
-          {(item.required_documents || []).length === 0 ? <em className="text-slate-400">None</em> : (
-            <ul className="text-[11px] space-y-0.5 max-h-32 overflow-y-auto">
-              {(item.required_documents || []).map((d, i) => (
-                <li key={d.id || i} className="flex items-start gap-1">
-                  <CheckCircle2 className={`h-3 w-3 mt-0.5 ${d.required ? 'text-emerald-500' : 'text-slate-300'}`} />
-                  <span className="flex-1">{d.name} <span className="text-slate-400">· {d.category}{d.country_override ? ` · ${d.country_override}` : ''}</span></span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </ViewBlock>
-        <ViewBlock title={`Similar Codes Override (${(item.similar_codes_override || []).length})`}>
-          {(item.similar_codes_override || []).length === 0 ? <em className="text-slate-400">Auto-similarity active</em> : (
-            <div className="flex gap-1 flex-wrap">
-              {(item.similar_codes_override || []).map(s => <Badge key={s} className="bg-leamss-teal-100 text-leamss-teal-700 font-mono text-[10px]">{s}</Badge>)}
-            </div>
-          )}
-        </ViewBlock>
-        <ViewBlock title={`Sample Cases (${(item.sample_cases || []).length})`}>
-          {(item.sample_cases || []).length === 0 ? <em className="text-slate-400">None</em> : (
-            <ul className="text-[11px] space-y-1">
-              {(item.sample_cases || []).map((c, i) => (
-                <li key={c.id || i} className="border-l-2 border-emerald-300 pl-2">
-                  <span className="font-medium">{c.profile_summary || 'Case'}</span>{c.client_age && <> · age {c.client_age}</>}{c.visa_subclass && <> · visa {c.visa_subclass}</>}
-                  {c.outcome && <span className="text-emerald-600"> · {c.outcome}</span>}
-                  {c.timeline_months && <span className="text-slate-500"> ({c.timeline_months} mo)</span>}
-                </li>
-              ))}
-            </ul>
-          )}
-        </ViewBlock>
-      </div>
-
-      {(item.custom_sections || []).length > 0 && (
-        <div className="space-y-2 mt-2">
-          {(item.custom_sections || []).map((s, i) => (
-            <Card key={s.id || i} className="p-3 bg-blue-50/30 border-blue-200">
-              <h4 className="text-sm font-bold text-blue-900">{s.title}</h4>
-              {s.body_markdown && <p className="text-xs whitespace-pre-wrap text-slate-700 mt-1">{s.body_markdown}</p>}
-              {s.source_url && <a href={s.source_url} target="_blank" rel="noreferrer" className="text-[10px] text-leamss-teal-600 mt-1 inline-flex items-center gap-0.5">{s.source_url} <ExternalLink className="h-2.5 w-2.5" /></a>}
-            </Card>
-          ))}
-        </div>
-      )}
-
-      {/* Verification History */}
-      <div className="border-t pt-2">
-        <button type="button" onClick={() => setHistoryOpen(!historyOpen)} className="text-[11px] font-bold uppercase text-slate-700 flex items-center gap-1 hover:text-slate-900" data-testid="verification-history">
-          <History className="h-3 w-3" />Verification History ({history.length}) <ChevronToggle open={historyOpen} />
-        </button>
-        {historyOpen && (
-          <div className="mt-2 space-y-1 max-h-60 overflow-y-auto">
-            {history.length === 0 ? <p className="text-[10px] text-slate-400 italic">No history entries yet.</p> : history.slice().reverse().map((h, i) => (
-              <div key={i} className="text-[11px] bg-slate-50 border border-slate-200 rounded p-2" data-testid={`history-entry-${i}`}>
-                <p><strong>{h.verified_by_name || h.verified_by || '—'}</strong> · {h.verified_at ? new Date(h.verified_at).toLocaleString() : '—'}</p>
-                {h.source_reference && <p className="text-slate-500 break-all">📎 {h.source_reference}</p>}
-                {h.review_notes && <p className="text-slate-600 italic">{h.review_notes}</p>}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </Card>
-  );
-}
-
-function ViewBlock({ title, children }) {
-  return (
-    <Card className="p-3 bg-slate-50/40">
-      <p className="text-[10px] uppercase font-bold text-slate-600 mb-1">{title}</p>
-      <div className="text-xs text-slate-800 whitespace-pre-wrap">{children}</div>
-    </Card>
-  );
-}
-
 
 
 // ════════════════════════════════════════════════════════════════

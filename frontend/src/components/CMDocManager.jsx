@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import {
   FileCheck, Plus, Loader2, CheckCircle, Clock, AlertCircle,
-  FileText, Trash2, Upload, ChevronDown, ChevronRight
+  FileText, Trash2, Upload, ChevronDown, ChevronRight, Lock, Eye, Download
 } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -28,6 +28,41 @@ const CMDocManager = ({ token, caseId, caseName }) => {
 
   const headers = { Authorization: `Bearer ${token}` };
 
+  const viewDoc = async (fileId, filename) => {
+    try {
+      toast.info('Opening document...');
+      const response = await axios.get(`${API}/documents/view/${fileId}`, {
+        headers,
+        responseType: 'blob'
+      });
+      const contentType = response.headers['content-type'] || 'application/pdf';
+      const blob = new Blob([response.data], { type: contentType });
+      const blobUrl = window.URL.createObjectURL(blob);
+      window.open(blobUrl, '_blank');
+    } catch (error) {
+      toast.error('Failed to open document');
+    }
+  };
+
+  const downloadDoc = async (fileId, filename) => {
+    try {
+      const response = await axios.get(`${API}/documents/download/${fileId}`, {
+        headers,
+        responseType: 'blob'
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename || 'document.pdf');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      toast.success('Document downloaded');
+    } catch (error) {
+      toast.error('Failed to download document');
+    }
+  };
+
   const loadData = async () => {
     if (!caseId) { setLoading(false); return; }
     try {
@@ -37,6 +72,7 @@ const CMDocManager = ({ token, caseId, caseName }) => {
     setLoading(false);
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { loadData(); }, [caseId]);
 
   const handleRequest = async () => {
@@ -117,14 +153,24 @@ const CMDocManager = ({ token, caseId, caseName }) => {
       {/* Steps */}
       {(data.steps || []).map((step, sIdx) => {
         const isExpanded = expandedStep === step.step_name;
+        const isLocked = step.is_locked === true;
         return (
           <Card key={step.step_name} className="overflow-hidden" data-testid={`cm-step-${sIdx}`}>
             <div className="p-3 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors flex items-center gap-3" onClick={() => setExpandedStep(isExpanded ? null : step.step_name)}>
               {isExpanded ? <ChevronDown className="h-4 w-4 text-slate-400" /> : <ChevronRight className="h-4 w-4 text-slate-400" />}
-              <span className="w-6 h-6 rounded-full bg-[#2a777a] text-white text-xs flex items-center justify-center font-bold">{step.step_order}</span>
-              <div className="flex-1">
+              <span className={`w-6 h-6 rounded-full text-white text-xs flex items-center justify-center font-bold ${isLocked ? 'bg-slate-400' : 'bg-[#2a777a]'}`}>{step.step_order}</span>
+              <div className="flex-1 flex items-center flex-wrap gap-1.5">
                 <span className="font-medium text-sm text-slate-800 dark:text-white">{step.step_name}</span>
-                <Badge variant="outline" className="text-[10px] ml-2">{step.uploaded_count}/{step.required_count}</Badge>
+                <Badge variant="outline" className="text-[10px]">{step.uploaded_count}/{step.required_count}</Badge>
+                {isLocked ? (
+                  <Badge className="text-[10px] bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1">
+                    <Lock className="h-2.5 w-2.5 text-amber-600" /> Client: Locked
+                  </Badge>
+                ) : (
+                  <Badge className="text-[10px] bg-emerald-50 text-emerald-800 border border-emerald-200">
+                    Client: Unlocked
+                  </Badge>
+                )}
               </div>
               <Button size="sm" variant="ghost" className="h-7 text-xs text-[#2a777a]" onClick={(e) => {
                 e.stopPropagation();
@@ -137,20 +183,37 @@ const CMDocManager = ({ token, caseId, caseName }) => {
                 {step.documents.length === 0 ? (
                   <p className="text-xs text-slate-400 text-center py-2">No documents required</p>
                 ) : step.documents.map((doc, dIdx) => (
-                  <div key={dIdx} className="flex items-center justify-between p-2 rounded border bg-white dark:bg-slate-800 text-sm">
-                    <div className="flex items-center gap-2 flex-1">
-                      {doc.uploaded ? <CheckCircle className="h-4 w-4 text-emerald-500" /> : <AlertCircle className="h-4 w-4 text-slate-300" />}
-                      <span className="text-slate-800 dark:text-white">{doc.doc_name}</span>
-                      <Badge className={`text-[9px] ${doc.is_mandatory ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600'}`}>{doc.tag || 'mandatory'}</Badge>
-                      {doc.source === 'cm_request' && <Badge className="text-[9px] bg-leamss-orange-100 text-leamss-orange-700">You added</Badge>}
+                  <div key={dIdx} className="flex items-center justify-between p-2.5 rounded border bg-white dark:bg-slate-800 text-sm gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {doc.uploaded ? <CheckCircle className="h-4 w-4 text-emerald-500 shrink-0" /> : <AlertCircle className="h-4 w-4 text-slate-300 shrink-0" />}
+                        <span className="font-medium text-slate-800 dark:text-white truncate">{doc.doc_name}</span>
+                        <Badge className={`text-[9px] ${doc.is_mandatory ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600'}`}>{doc.tag || 'mandatory'}</Badge>
+                        {doc.source === 'cm_request' && <Badge className="text-[9px] bg-leamss-orange-100 text-leamss-orange-700">You added</Badge>}
+                      </div>
+                      {doc.uploaded && doc.uploaded_doc && (
+                        <p className="text-xs text-slate-500 mt-0.5 ml-6 truncate">
+                          {doc.uploaded_doc.filename}
+                        </p>
+                      )}
                     </div>
-                    <div className="flex items-center gap-1">
-                      <Badge className={`text-[9px] ${doc.uploaded ? (doc.status === 'approved' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700') : 'bg-slate-100 text-slate-500'}`}>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <Badge className={`text-[10px] ${doc.uploaded ? (doc.status === 'approved' ? 'bg-emerald-100 text-emerald-700' : doc.status === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700') : 'bg-slate-100 text-slate-500'}`}>
                         {doc.uploaded ? doc.status : 'Pending'}
                       </Badge>
+                      {doc.uploaded && doc.uploaded_doc && (
+                        <>
+                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-slate-500 hover:text-slate-900" onClick={() => viewDoc(doc.uploaded_doc.id || doc.uploaded_doc.file_id, doc.uploaded_doc.filename)} title="View Document">
+                            <Eye className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-slate-500 hover:text-slate-900" onClick={() => downloadDoc(doc.uploaded_doc.id || doc.uploaded_doc.file_id, doc.uploaded_doc.filename)} title="Download Document">
+                            <Download className="h-3.5 w-3.5" />
+                          </Button>
+                        </>
+                      )}
                       {doc.source === 'cm_request' && (
-                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-400 hover:text-red-600" onClick={() => handleRemove(step.step_name, doc.doc_name)}>
-                          <Trash2 className="h-3 w-3" />
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-red-400 hover:text-red-600" onClick={() => handleRemove(step.step_name, doc.doc_name)} title="Remove">
+                          <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       )}
                     </div>
