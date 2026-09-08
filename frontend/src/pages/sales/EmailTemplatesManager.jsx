@@ -35,11 +35,7 @@ const CATEGORY_COLORS = {
   general: 'bg-slate-100 text-slate-700',
 };
 
-<<<<<<< HEAD
-const BLANK = { name: '', category: 'general', subject: '', body: '', is_default: false, attach_report: false };
-=======
 const BLANK = { name: '', category: 'general', subject: '', body: '', is_default: false, attach_report: true, attach_resume: true };
->>>>>>> origin/main
 
 export default function EmailTemplatesManager() {
   const navigate = useNavigate();
@@ -108,9 +104,6 @@ export default function EmailTemplatesManager() {
 
   const selectTemplate = (t) => {
     setSelectedId(t.id);
-<<<<<<< HEAD
-    setForm({ name: t.name, category: t.category, subject: t.subject, body: t.body, is_default: t.is_default, attach_report: t.attach_report });
-=======
     setForm({
       name: t.name,
       category: t.category,
@@ -120,7 +113,6 @@ export default function EmailTemplatesManager() {
       attach_report: t.attach_report,
       attach_resume: t.attach_resume ?? true,
     });
->>>>>>> origin/main
     setDirty(false);
   };
   const newTemplate = () => { setSelectedId(null); setForm(BLANK); setDirty(false); };
@@ -195,16 +187,10 @@ export default function EmailTemplatesManager() {
                   <span className="text-sm font-medium truncate">{t.name}</span>
                   {t.is_default && <Star className="h-3.5 w-3.5 text-amber-500 shrink-0" fill="currentColor" />}
                 </div>
-<<<<<<< HEAD
-                <div className="flex items-center gap-1.5 mt-1">
-                  <Badge className={`text-[9px] px-1.5 py-0 ${CATEGORY_COLORS[t.category]}`}>{CATEGORY_LABELS[t.category]}</Badge>
-                  {t.attach_report && <span className="text-[9px] text-slate-400">📎 report</span>}
-=======
                 <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                   <Badge className={`text-[9px] px-1.5 py-0 ${CATEGORY_COLORS[t.category]}`}>{CATEGORY_LABELS[t.category]}</Badge>
                   {t.attach_report && <span className="text-[9px] text-slate-400">📎 report</span>}
                   {t.attach_resume !== false && <span className="text-[9px] text-indigo-500">📎 resume</span>}
->>>>>>> origin/main
                 </div>
               </button>
             ))}
@@ -288,11 +274,7 @@ export default function EmailTemplatesManager() {
             </div>
 
             <div className="flex items-center justify-between pt-2 border-t">
-<<<<<<< HEAD
-              <div className="flex items-center gap-4">
-=======
               <div className="flex flex-wrap items-center gap-4">
->>>>>>> origin/main
                 <label className="flex items-center gap-2 text-xs cursor-pointer">
                   <Switch checked={form.is_default} onCheckedChange={(v) => upd({ is_default: v })} data-testid="tpl-default" />
                   Default for category
@@ -301,13 +283,10 @@ export default function EmailTemplatesManager() {
                   <Switch checked={form.attach_report} onCheckedChange={(v) => upd({ attach_report: v })} data-testid="tpl-attach" />
                   Attach PDF report
                 </label>
-<<<<<<< HEAD
-=======
                 <label className="flex items-center gap-2 text-xs cursor-pointer">
                   <Switch checked={form.attach_resume ?? true} onCheckedChange={(v) => upd({ attach_resume: v })} data-testid="tpl-attach-resume" />
                   Attach Candidate Resume
                 </label>
->>>>>>> origin/main
               </div>
             </div>
 

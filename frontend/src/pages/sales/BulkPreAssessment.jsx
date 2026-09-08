@@ -41,11 +41,7 @@ import {
   ArrowLeft, Upload, Download, FileSpreadsheet, Loader2, RefreshCw, Play,
   CheckCircle2, XCircle, AlertTriangle, Edit3, FileText, Users, Package, Sparkles,
   Info, Check, ClipboardCheck, FileUser, ExternalLink, Search, Star, Mail, Send,
-<<<<<<< HEAD
-  MoreVertical, Ban, RotateCcw, LayoutTemplate,
-=======
   MoreVertical, Ban, RotateCcw, LayoutTemplate, Trash2,
->>>>>>> origin/main
 } from 'lucide-react';
 
 // Open a client's resume link (from the uploaded Excel) in a new tab
@@ -124,8 +120,6 @@ export default function BulkPreAssessment() {
     } catch (e) { toast.error(formatApiError(e, 'Failed to load batch')); }
   }, [headers]);
 
-<<<<<<< HEAD
-=======
   const deleteBatch = async (e, id) => {
     e.stopPropagation();
     if (!window.confirm('Are you sure you want to delete this batch history?')) return;
@@ -138,7 +132,6 @@ export default function BulkPreAssessment() {
     }
   };
 
->>>>>>> origin/main
   useEffect(() => { loadBatches(); }, [loadBatches]);
 
   const refreshEmailCfg = useCallback(async () => {
@@ -864,12 +857,6 @@ export default function BulkPreAssessment() {
             <h2 className="text-base font-bold mb-2">Recent Batches</h2>
             <div className="space-y-1">
               {batches.map((b) => (
-<<<<<<< HEAD
-                <button key={b.id} onClick={() => loadBatch(b.id)} className="w-full flex items-center justify-between p-2 rounded hover:bg-slate-50 text-left" data-testid={`batch-${b.id}`}>
-                  <span className="text-sm font-medium">{b.name}</span>
-                  <span className="text-[11px] text-slate-500">{b.generated}/{b.valid} generated · {b.status}</span>
-                </button>
-=======
                 <div
                   key={b.id}
                   onClick={() => loadBatch(b.id)}
@@ -894,7 +881,6 @@ export default function BulkPreAssessment() {
                     </button>
                   </div>
                 </div>
->>>>>>> origin/main
               ))}
             </div>
           </Card>

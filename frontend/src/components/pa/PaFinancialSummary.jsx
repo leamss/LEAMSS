@@ -4,12 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { IndianRupee, Download, Send, FilePlus, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
 
-<<<<<<< HEAD
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
-=======
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || (typeof window !== 'undefined' && window.location.hostname.includes('leamss.com') ? 'https://api.leamss.com' : 'http://localhost:8001');
 const API = `${BACKEND_URL}/api`;
->>>>>>> origin/main
 
 const STATUS_BADGE = {
   unassigned: { color: 'bg-slate-100 text-slate-700', icon: AlertTriangle, label: 'Unassigned' },
@@ -34,29 +30,6 @@ const formatINR = (n) => {
 export default function PaFinancialSummary({ pa, onDownload, onSendInvoice, onGenerateAgreement, sendingInvoice }) {
   const [allocData, setAllocData] = useState(null);
   const [allocLoading, setAllocLoading] = useState(false);
-<<<<<<< HEAD
-=======
-
-  useEffect(() => {
-    if (!pa?.id) return;
-    let isMounted = true;
-    (async () => {
-      setAllocLoading(true);
-      try {
-        const token = localStorage.getItem('token');
-        const r = await axios.get(`${API}/pa/${pa.id}/allocations`, { headers: { Authorization: `Bearer ${token}` } });
-        if (isMounted) setAllocData(r.data);
-      } catch (e) {
-        // graceful
-      } finally {
-        if (isMounted) setAllocLoading(false);
-      }
-    })();
-    return () => { isMounted = false; };
-  }, [pa?.id]);
-
-  if (!['proposal_sent', 'proposal_paid', 'awaiting_final_approval', 'case_created', 'in_progress', 'approved', 'documents_submitted'].includes(pa.stage)) return null;
->>>>>>> origin/main
 
   useEffect(() => {
     if (!pa?.id) return;
@@ -78,10 +51,7 @@ export default function PaFinancialSummary({ pa, onDownload, onSendInvoice, onGe
 
   if (!['proposal_sent', 'proposal_paid', 'awaiting_final_approval', 'case_created', 'in_progress', 'approved', 'documents_submitted'].includes(pa.stage)) return null;
 
-  const finalAgreedProposalFee = pa.proposal_discounted_total || (pa.proposal_payment_parts && pa.proposal_payment_parts.length > 0 ? pa.proposal_payment_parts.reduce((s, p) => s + (p.amount || 0), 0) : (pa.proposal_fee || 0));
-  const paPaidAmount = pa.fee_payment_status === 'paid' ? (pa.pre_assessment_fee || 5100) : 0;
-  const proposalPaidAmount = pa.proposal_amount_paid || (['proposal_paid', 'awaiting_final_approval', 'case_created'].includes(pa.stage) ? finalAgreedProposalFee : 0);
-  const totalReceived = paPaidAmount + proposalPaidAmount;
+  const totalReceived = (pa.pre_assessment_fee || 0) + (pa.proposal_fee || 0);
   const upsells = pa.proposal_upsells || [];
   const allocs = allocData?.allocations?.allocations || [];
   const summary = allocData?.allocations?.summary || {};
@@ -101,9 +71,6 @@ export default function PaFinancialSummary({ pa, onDownload, onSendInvoice, onGe
         <div className="bg-white/70 rounded-lg p-3 border border-emerald-100">
           <p className="font-semibold text-slate-700 mb-1.5">Step 1 · Pre-Assessment Fee</p>
           <div className="flex justify-between"><span className="text-slate-500">Amount:</span> <span className="font-semibold">₹{(pa.pre_assessment_fee || 5100).toLocaleString('en-IN')}</span></div>
-          {pa.promo_code_used && (
-            <div className="flex justify-between text-emerald-700"><span>Promo Code:</span> <span className="font-semibold font-mono">{pa.promo_code_used}</span></div>
-          )}
           <div className="flex justify-between"><span className="text-slate-500">Status:</span> <Badge className="h-4 text-[10px] bg-emerald-100 text-emerald-700 px-1.5">PAID</Badge></div>
         </div>
         {/* Main Fee Breakdown */}
@@ -111,11 +78,6 @@ export default function PaFinancialSummary({ pa, onDownload, onSendInvoice, onGe
           <p className="font-semibold text-slate-700 mb-1.5">Step 2 · Main Service Fee</p>
           {pa.proposal_base_fee != null && (
             <div className="flex justify-between"><span className="text-slate-500">Base Fee:</span> <span>₹{(pa.proposal_base_fee || 0).toLocaleString('en-IN')}</span></div>
-          )}
-          {(pa.proposal_pa_deduction > 0 || pa.proposal_deduct_pa_fee) && (
-            <div className="flex justify-between text-emerald-700 font-medium">
-              <span>PA Fee Paid Deduction:</span> <span>- ₹{(pa.proposal_pa_deduction || 5100).toLocaleString('en-IN')}</span>
-            </div>
           )}
           {pa.proposal_promo_code && (
             <div className="flex justify-between text-red-600"><span>Promo ({pa.proposal_promo_code}):</span> <span>- ₹{(pa.proposal_promo_discount || 0).toLocaleString('en-IN')}</span></div>
@@ -127,11 +89,7 @@ export default function PaFinancialSummary({ pa, onDownload, onSendInvoice, onGe
             <div className="flex justify-between text-leamss-teal-600"><span>Upsells ({upsells.length}):</span> <span>+ ₹{(pa.proposal_upsell_total || 0).toLocaleString('en-IN')}</span></div>
           )}
           <div className="border-t border-dashed border-emerald-300 mt-1.5 pt-1.5 flex justify-between font-bold text-emerald-800">
-<<<<<<< HEAD
-            <span>Final Paid / Agreed:</span><span>₹{(finalAgreedProposalFee || 0).toLocaleString('en-IN')}</span>
-=======
             <span>Final Paid / Agreed:</span><span>₹{(pa.proposal_fee || pa.final_amount || 0).toLocaleString('en-IN')}</span>
->>>>>>> origin/main
           </div>
         </div>
       </div>
@@ -156,30 +114,11 @@ export default function PaFinancialSummary({ pa, onDownload, onSendInvoice, onGe
               return (
                 <div key={a.allocation_id} className="flex items-center justify-between py-1.5 px-2 bg-slate-50/70 rounded text-xs">
                   <div className="flex-1">
-<<<<<<< HEAD
-                    <p className="font-medium text-slate-800">
-                      {a.label}
-                      {a.payment_type === 'percentage' && (
-                        <span className="ml-1 text-leamss-teal-700 font-semibold bg-leamss-teal-50 px-1 py-0.2 rounded border border-leamss-teal-200 text-[10px]">
-                          {a.rate !== undefined && a.rate !== null ? a.rate : a.base_amount}%
-                        </span>
-                      )}
-                    </p>
-=======
                     <p className="font-medium text-slate-800">{a.label}</p>
->>>>>>> origin/main
                     <p className="text-[10px] text-slate-500">{a.vendor_name ? `${a.vendor_name} (${a.vendor_type || 'assigned'})` : '— unassigned —'}</p>
                   </div>
                   <div className="text-right mr-3">
                     <p className="font-bold text-slate-800">{formatINR(a.total_amount)}</p>
-<<<<<<< HEAD
-                    {a.payment_type === 'percentage' && (
-                      <p className="text-[9px] text-slate-500">
-                        {a.rate !== undefined && a.rate !== null ? a.rate : a.base_amount}% of revenue
-                      </p>
-                    )}
-=======
->>>>>>> origin/main
                     {a.bonus_amount > 0 && <p className="text-[9px] text-amber-600">incl. bonus</p>}
                   </div>
                   <div className="flex flex-col items-end">

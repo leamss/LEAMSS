@@ -42,11 +42,8 @@ import EMITracker from '@/components/EMITracker';
 import FamilyManager from '@/components/FamilyManager';
 import WhatsAppButton from '@/components/WhatsAppButton';
 import PreAssessmentMiniPortal from '@/components/PreAssessmentMiniPortal';
-<<<<<<< HEAD
 import ClientPaymentModal from '@/components/ClientPaymentModal';
-=======
 import ClientOccupationReviewCard from '@/components/ClientOccupationReviewCard';
->>>>>>> origin/main
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || (typeof window !== 'undefined' && window.location.hostname.includes('leamss.com') ? 'https://api.leamss.com' : 'http://localhost:8001');
 const API = `${BACKEND_URL}/api`;
@@ -571,12 +568,8 @@ const ClientDashboard = () => {
   };
 
   // Determine active pre-assessment (most-recent not-expired)
-<<<<<<< HEAD
-const activePA = preAssessments.find(p => ['payment_received', 'partner_review', 'documents_submitted', 'under_review', 'approved', 'awaiting_package_selection', 'package_selected', 'proposal_sent', 'proposal_paid', 'awaiting_final_approval', 'rejected', 'refund_initiated', 'refunded', 'international_payment_pending'].includes(p.stage));  const isMiniMode = !caseData && !!activePA;
-=======
   const activePA = preAssessments.find(p => ['payment_received', 'partner_review', 'documents_submitted', 'under_review', 'approved', 'awaiting_package_selection', 'package_selected', 'proposal_sent', 'proposal_paid', 'awaiting_final_approval', 'rejected', 'refund_initiated', 'refunded', 'international_payment_pending'].includes(p.stage));
-  const isMiniMode = !!activePA && activePA.stage !== 'case_created';
->>>>>>> origin/main
+  const isMiniMode = !caseData && !!activePA && activePA.stage !== 'case_created';
   const isExpandedMode = isMiniMode && ['approved', 'awaiting_package_selection', 'package_selected', 'proposal_sent', 'proposal_paid'].includes(activePA?.stage);
 
   const clientNavGroups = isMiniMode ? [
@@ -1490,15 +1483,11 @@ const activePA = preAssessments.find(p => ['payment_received', 'partner_review',
                                         const partStatus = part.status; // 'paid' | 'pending' | 'locked'
                                         const badgeStyle =
                                           partStatus === 'paid' ? 'bg-emerald-100 text-emerald-700' :
-<<<<<<< HEAD
                                           partStatus === 'pending_verification' ? 'bg-amber-100 text-amber-800 border border-amber-300' :
-=======
->>>>>>> origin/main
                                           partStatus === 'pending' ? 'bg-amber-100 text-amber-700' :
                                           'bg-slate-100 text-slate-500';
                                         const rowStyle =
                                           partStatus === 'paid' ? 'bg-emerald-50/60 border-emerald-200' :
-<<<<<<< HEAD
                                           partStatus === 'pending_verification' ? 'bg-amber-50/70 border-amber-300' :
                                           partStatus === 'pending' ? 'bg-amber-50/60 border-amber-200' :
                                           'bg-slate-50 border-slate-200';
@@ -1506,10 +1495,6 @@ const activePA = preAssessments.find(p => ['payment_received', 'partner_review',
                                           partStatus === 'pending_verification' ? 'Verifying Wire Transfer' :
                                           partStatus === 'paid' ? 'Paid ✓' :
                                           partStatus;
-=======
-                                          partStatus === 'pending' ? 'bg-amber-50/60 border-amber-200' :
-                                          'bg-slate-50 border-slate-200';
->>>>>>> origin/main
                                         return (
                                           <div key={idx} className={`flex items-center justify-between p-2.5 rounded-lg border ${rowStyle}`}>
                                             <div className="flex items-center gap-2 min-w-0">
@@ -1522,12 +1507,9 @@ const activePA = preAssessments.find(p => ['payment_received', 'partner_review',
                                               )}
                                               <div className="min-w-0">
                                                 <p className="text-sm font-medium text-slate-700 truncate">{part.label}</p>
-<<<<<<< HEAD
                                                 {partStatus === 'locked' && part.trigger_condition && (
                                                   <p className="text-xs text-amber-700 font-medium">{part.trigger_condition}</p>
                                                 )}
-=======
->>>>>>> origin/main
                                                 {part.due_date && (
                                                   <p className="text-xs text-slate-400">Due: {part.due_date}</p>
                                                 )}
@@ -1535,7 +1517,6 @@ const activePA = preAssessments.find(p => ['payment_received', 'partner_review',
                                             </div>
                                             <div className="flex items-center gap-2 flex-shrink-0">
                                               <span className="text-sm font-semibold text-slate-700">₹{Number(part.amount || 0).toLocaleString()}</span>
-<<<<<<< HEAD
                                               <Badge className={`text-[10px] capitalize ${badgeStyle}`}>{displayStatus}</Badge>
                                               {partStatus === 'pending' && (
                                                 <Button
@@ -1560,9 +1541,6 @@ const activePA = preAssessments.find(p => ['payment_received', 'partner_review',
                                                   Pay Now
                                                 </Button>
                                               )}
-=======
-                                              <Badge className={`text-[10px] capitalize ${badgeStyle}`}>{partStatus}</Badge>
->>>>>>> origin/main
                                             </div>
                                           </div>
                                         );

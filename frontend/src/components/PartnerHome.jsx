@@ -1,21 +1,13 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
   ClipboardCheck, Send, Users, TrendingUp, ArrowRight,
-<<<<<<< HEAD
-  Sparkles, Clock, CheckCircle, AlertCircle, Plus, IndianRupee,
-  Package, ExternalLink, CreditCard
-=======
   Sparkles, Clock, CheckCircle, AlertCircle, Plus, IndianRupee, Briefcase
->>>>>>> origin/main
 } from 'lucide-react';
-import { toast } from 'sonner';
 import DropoffRecoveryWidget from '@/components/DropoffRecoveryWidget';
-import PaSelectedPackageCard from '@/components/pa/PaSelectedPackageCard';
-import PaPaymentReviewCard from '@/components/pa/PaPaymentReviewCard';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -46,11 +38,8 @@ export default function PartnerHome({ user, onNavigate }) {
   const [data, setData] = useState({
     partner_review: 0,
     approved: 0,
-    package_selected: 0,
     proposal_sent: 0,
     proposal_paid: 0,
-    payment_under_review: 0,
-    payment_forwarded_admin: 0,
     new_leads: 0,
     client_code_suggestions: 0,
     pending_admin_approval: 0,
@@ -63,49 +52,6 @@ export default function PartnerHome({ user, onNavigate }) {
   const [recentPAs, setRecentPAs] = useState([]);
   const [loading, setLoading] = useState(true);
 
-<<<<<<< HEAD
-  const loadData = useCallback(async () => {
-    try {
-      const [paRes, statsRes] = await Promise.all([
-        axios.get(`${API}/pre-assessment/my-assessments`, getAuth()),
-        axios.get(`${API}/pre-assessment/stats/overview`, getAuth()).catch(() => ({ data: {} })),
-      ]);
-      const pas = paRes.data || [];
-      const partner_review = pas.filter(p => p.stage === 'partner_review').length;
-      const approved = pas.filter(p => p.stage === 'approved').length;
-      const pkgSelected = pas.filter(p => p.stage === 'package_selected' || (p.selected_package_snapshot && p.stage === 'awaiting_package_selection'));
-      const package_selected = pkgSelected.length;
-      const proposal_sent = pas.filter(p => p.stage === 'proposal_sent').length;
-      const new_leads = pas.filter(p => ['new', 'payment_pending'].includes(p.stage)).length;
-      
-      // Payment under review (pending partner forward to Admin)
-      const payment_under_review = pas.filter(p =>
-        p.stage === 'proposal_paid' ||
-        (p.pending_installment_unlock && !p.installment_forwarded_at)
-      ).length;
-
-      // Payment under review (already forwarded to Admin, awaiting approval)
-      const payment_forwarded_admin = pas.filter(p =>
-        p.stage === 'awaiting_final_approval' ||
-        (p.pending_installment_unlock && Boolean(p.installment_forwarded_at))
-      ).length;
-
-      setRecentPAs(pas.slice(0, 5));
-      setData(d => ({
-        ...d,
-        partner_review,
-        approved,
-        package_selected,
-        proposal_sent,
-        payment_under_review,
-        payment_forwarded_admin,
-        new_leads,
-        conversion_rate: statsRes.data?.conversion_rate || 0,
-        total_clients: pas.length,
-      }));
-    } catch (e) { /* graceful */ }
-    setLoading(false);
-=======
   useEffect(() => {
     (async () => {
       try {
@@ -133,23 +79,14 @@ export default function PartnerHome({ user, onNavigate }) {
       } catch (e) { /* graceful */ }
       setLoading(false);
     })();
->>>>>>> origin/main
   }, []);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
 
   const greeting = (() => {
     const h = new Date().getHours();
     return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
   })();
 
-<<<<<<< HEAD
-  const totalActions = data.partner_review + data.approved + data.package_selected + data.payment_under_review + data.payment_forwarded_admin + data.new_leads;
-=======
   const totalActions = data.partner_review + data.approved + data.new_leads + data.proposal_paid + (data.client_code_suggestions || 0);
->>>>>>> origin/main
 
   return (
     <div className="space-y-6" data-testid="partner-home">
@@ -173,58 +110,11 @@ export default function PartnerHome({ user, onNavigate }) {
       </div>
 
       {/* Action cards */}
-      <div className="space-y-4">
-        <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+      <div>
+        <h2 className="text-lg font-bold text-slate-800 mb-3 flex items-center gap-2">
           <Sparkles className="h-5 w-5 text-[#f7620b]" /> Actions waiting for you
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-<<<<<<< HEAD
-          {/* Card 1: Payment is Under Review (Client paid, Partner needs to review & forward) */}
-          {data.payment_under_review > 0 && (
-            <ActionCard
-              icon={CreditCard}
-              title="Payment is Under Review"
-              count={data.payment_under_review}
-              description="Client made payment — review & forward to Admin for approval."
-              cta="Forward to Admin"
-              color="from-[#f7620b] to-orange-600"
-              onClick={() => onNavigate?.('pre-assessment', 'proposal_paid')}
-              testId="action-payment-under-review"
-              highlight
-            />
-          )}
-
-          {/* Card 2: Payment is Under Review – Forwarded to Admin */}
-          {data.payment_forwarded_admin > 0 && (
-            <ActionCard
-              icon={CheckCircle}
-              title="Payment is Under Review – Forwarded to Admin"
-              count={data.payment_forwarded_admin}
-              description="Forwarded to Admin — awaiting final approval & case creation."
-              cta="View status"
-              color="from-blue-600 to-indigo-700"
-              onClick={() => onNavigate?.('pre-assessment', 'awaiting_final_approval')}
-              testId="action-payment-forwarded-admin"
-            />
-          )}
-
-          {/* Card 3: Package Selected */}
-          {data.package_selected > 0 && (
-            <ActionCard
-              icon={Package}
-              title="Package selected"
-              count={data.package_selected}
-              description="Clients picked a package — set payment plan & send proposal."
-              cta="Set payment plan"
-              color="from-[#2a777a] to-[#1e585b]"
-              onClick={() => onNavigate?.('pre-assessment', 'package_selected')}
-              testId="action-package-selected"
-              highlight={data.payment_under_review === 0}
-            />
-          )}
-
-          {/* Card 4: Review Client Docs */}
-=======
           {data.client_code_suggestions > 0 && (
             <ActionCard
               icon={Briefcase}
@@ -250,22 +140,19 @@ export default function PartnerHome({ user, onNavigate }) {
               testId="action-awaiting-admin"
             />
           )}
->>>>>>> origin/main
           {data.partner_review > 0 && (
             <ActionCard
               icon={AlertCircle}
               title="Review client docs"
               count={data.partner_review}
-              description="Clients uploaded documents — review & forward to Admin."
+              description="Clients have uploaded documents — review & forward to Admin."
               cta="Review now"
               color="from-pink-500 to-pink-600"
               onClick={() => onNavigate?.('pre-assessment', 'partner_review')}
               testId="action-partner-review"
-              highlight={data.package_selected === 0 && data.payment_under_review === 0 && data.payment_forwarded_admin === 0}
+              highlight
             />
           )}
-
-          {/* Card 5: Send Proposals */}
           {data.approved > 0 && (
             <ActionCard
               icon={Send}
@@ -278,8 +165,6 @@ export default function PartnerHome({ user, onNavigate }) {
               testId="action-send-proposal"
             />
           )}
-
-          {/* Card 6: Follow-up Leads */}
           {data.new_leads > 0 && (
             <ActionCard
               icon={Users}
@@ -292,7 +177,18 @@ export default function PartnerHome({ user, onNavigate }) {
               testId="action-new-leads"
             />
           )}
-
+          {data.proposal_paid > 0 && (
+            <ActionCard
+              icon={CheckCircle}
+              title="Payments received"
+              count={data.proposal_paid}
+              description="Client paid main fee — awaiting Admin case creation."
+              cta="View progress"
+              color="from-[#f7620b] to-orange-600"
+              onClick={() => onNavigate?.('pre-assessment', 'proposal_paid')}
+              testId="action-proposal-paid"
+            />
+          )}
           {totalActions === 0 && !loading && (
             <Card className="md:col-span-4 p-8 text-center bg-gradient-to-br from-emerald-50 to-white border-emerald-200">
               <CheckCircle className="h-12 w-12 text-emerald-500 mx-auto mb-2" />

@@ -640,13 +640,7 @@ async def get_stepwise_documents(case_id: str, current_user: dict = Depends(get_
             pending_payment_amount = 0.0
 
     step_docs = []
-<<<<<<< HEAD
     for cs in sorted_case_steps:
-=======
-    prev_step_complete = True
-
-    for idx, cs in enumerate(case_steps):
->>>>>>> origin/main
         step_name = cs.get("step_name", "")
         step_order = cs.get("step_order", 0)
         case_req_docs = cs.get("required_documents", [])
@@ -694,15 +688,12 @@ async def get_stepwise_documents(case_id: str, current_user: dict = Depends(get_
         # Get latest admin default docs for this step
         admin_defaults = admin_docs_by_step.get(step_name, [])
 
-<<<<<<< HEAD
         # CLIENT:
         # Merge admin_defaults + any CM-added custom requests
         cm_custom_docs = [rd for rd in case_req_docs if rd.get("source") == "cm_request"]
         merged_docs = list(admin_defaults) + cm_custom_docs
         if not merged_docs:
             merged_docs = list(case_req_docs)
-
-=======
 #         # Build a set of doc names already in case_steps (CM-added or previously synced)
 #         existing_names = set()
 #         for rd in case_req_docs:
@@ -906,9 +897,6 @@ async def get_stepwise_documents(case_id: str, current_user: dict = Depends(get_
                 "status": computed_status,
                 "is_locked": is_locked or is_payment_locked,
                 "locked_reason": doc_payment_locked_reason or locked_reason,
-            })
-
-<<<<<<< HEAD
         # Also add any documents uploaded for this step that were not in merged_docs
         for up_doc in step_uploaded:
             if up_doc.get("id") and up_doc["id"] not in matched_uploaded_ids:
@@ -974,23 +962,10 @@ async def get_stepwise_documents(case_id: str, current_user: dict = Depends(get_
             "status": cs.get("status", "pending"),
             "is_locked": is_locked,
             "locked_reason": locked_reason,
+            "lock_reason": locked_reason,
             "payment_required": payment_required,
             "payment_amount": payment_amount,
             "sale_id": sale_id_val,
-=======
-        # Update prev_step_complete for next iteration
-        step_status = (cs.get("status") or "pending").lower()
-        is_current_completed = step_status in ("completed", "complete", "done", "approved", "verified")
-        prev_step_complete = is_current_completed
-
-        step_docs.append({
-            "step_name": step_name,
-            "step_order": cs.get("step_order", idx + 1),
-            "description": cs.get("description", ""),
-            "status": cs.get("status", "pending"),
-            "is_locked": is_locked,
-            "lock_reason": lock_reason,
->>>>>>> origin/main
             "required_count": len(doc_items),
             "uploaded_count": sum(1 for d in doc_items if d["uploaded"]),
             "verified_count": sum(1 for d in doc_items if d["status"] == "approved"),

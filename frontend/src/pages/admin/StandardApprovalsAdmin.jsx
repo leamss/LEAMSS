@@ -351,44 +351,6 @@ const StandardCard = ({ pa, onAction, isPending = true, onUploaded }) => {
           <p className="text-xs uppercase tracking-wider text-slate-500 font-bold">Stage</p>
           <Badge className="bg-slate-100 text-slate-700 text-xs uppercase border mt-0.5">{(pa.stage || '').replace(/_/g, ' ')}</Badge>
         </div>
-<<<<<<< HEAD
-       
-<div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm mb-3 bg-slate-50 rounded p-3">
-        <div><p className="text-xs text-slate-400">Email</p><p className="font-medium text-slate-700">{pa.client_email || 'N/A'}</p></div><br></br>
-        <div><p className="text-xs text-slate-400">Mobile</p><p className="font-medium text-slate-700">{pa.client_mobile || 'N/A'}</p></div>
-        <div><p className="text-xs text-slate-400">Education</p><p className="font-medium text-slate-700">{pa.education || 'N/A'}</p></div>
-        <div><p className="text-xs text-slate-400">Experience</p><p className="font-medium text-slate-700">{pa.work_experience || 'N/A'}</p></div>
-        <div><p className="text-xs text-slate-400">Age</p><p className="font-medium text-slate-700">{pa.client_age || 'N/A'}</p></div>
-        <div><p className="text-xs text-slate-400">Country</p><p className="font-medium text-slate-700">{pa.country || 'N/A'}</p></div>
-        <div><p className="text-xs text-slate-400">Pre-Assessment Fee</p><p className="font-medium text-slate-700">₹{pa.pre_assessment_fee || 0} {pa.fee_payment_status === 'paid' ? 'Paid' : 'Unpaid'}</p></div>
-        <div><p className="text-xs text-slate-400">Documents</p><p className="font-medium text-slate-700">{(pa.documents || []).length} uploaded</p></div>
-      </div>
-
-      {(pa.documents || []).length > 0 && (
-        <div className="mb-3">
-          <p className="text-xs uppercase tracking-wider text-slate-500 font-bold mb-1.5">Submitted Documents ({pa.documents.length})</p>
-          <div className="space-y-2">
-            {pa.documents.map(doc => (
-              <div key={doc.id} className="flex items-center justify-between bg-white border border-slate-200 rounded p-2.5">
-                <div className="flex items-center gap-2 min-w-0">
-                  <FileText className="h-4 w-4 text-slate-400 flex-shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-slate-700 truncate">{doc.file_name}</p>
-                    <p className="text-xs text-slate-400">
-                      {doc.document_type}
-                      {doc.uploaded_by_role === 'admin' && (
-                        <span className="ml-2 text-[10px] font-bold text-emerald-600 uppercase">· Uploaded by Admin</span>
-                      )}
-                    </p>
-                  </div>
-                </div>
-               <div className="flex gap-2 flex-shrink-0">
-                  <Button size="sm" variant="outline" onClick={() => viewDocument(pa.id, doc.id)}>View</Button>
-                  <Button size="sm" variant="outline" onClick={() => downloadDocument(pa.id, doc.id, doc.file_name)}>Save</Button>
-                </div>
-              </div>
-            ))}
-=======
       </div>
 
       {/* Selected Occupation Code by Partner */}
@@ -422,38 +384,8 @@ const StandardCard = ({ pa, onAction, isPending = true, onUploaded }) => {
           <div className="p-2.5 bg-slate-50 border border-dashed border-slate-200 rounded-lg text-xs text-slate-400 flex items-center gap-1.5 italic">
             <Briefcase className="h-3.5 w-3.5" />
             No occupation code was selected by the partner.
->>>>>>> origin/main
           </div>
-        </div>
-      )}
-
-      {!isPending && pa.admin_decision === 'approved' && (
-        <div className="mb-3 border border-dashed border-slate-300 rounded p-3 bg-slate-50">
-          <label className="text-xs uppercase tracking-wider text-slate-500 font-bold block mb-2">
-            Upload Report for Client
-          </label>
-          <input
-            type="file"
-            id={`admin-upload-${pa.id}`}
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) {
-                uploadDocument(pa.id, file, 'admin_report', onUploaded);
-              }
-              e.target.value = '';
-            }}
-          />
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => document.getElementById(`admin-upload-${pa.id}`).click()}
-          >
-            <FileText className="h-4 w-4 mr-1.5" /> Choose File & Upload
-          </Button>
-        </div>
-      )}
-
+        )}
       </div>
 
       {/* Admin Suggested Occupation (if present) */}
@@ -587,12 +519,6 @@ export default function StandardApprovalsAdmin() {
       const [p, h] = await Promise.all([
         axios.get(`${API}/pre-assessment/admin/standard-queue`, getAuthHeader()),
         axios.get(`${API}/pre-assessment/admin/standard-history`, getAuthHeader()),
-<<<<<<< HEAD
-        // axios.get(`${API}/pre-assessment/admin/standard-approvals`, { headers }),
-        
-  // axios.get(`${API}/pre-assessment/admin/history`, { headers }), 
-=======
->>>>>>> origin/main
       ]);
       setPending(p.data.items || []);
       setHistory(h.data.items || []);
@@ -638,12 +564,8 @@ export default function StandardApprovalsAdmin() {
 
       // Refresh data
       load();
-<<<<<<< HEAD
-      // 👇 NEW — right after approval, open the upload-report prompt for this PA
-=======
 
       // Right after approval, open the upload-report prompt for this PA
->>>>>>> origin/main
       if (action === 'approve') {
         setUploadDialog({ open: true, pa });
       }

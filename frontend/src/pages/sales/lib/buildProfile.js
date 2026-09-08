@@ -218,12 +218,9 @@ export function dataFromAssessment(a, baseDefaults = {}) {
     regional_employment_nz: !!nzEx.regional_employment_nz,
     // Cost estimator & packages
     cost_estimator: a.cost_estimator || null,
-<<<<<<< HEAD
-=======
     // Resume
     resume_file_id: a.resume_file_id || profile.resume_file_id || primary.resume_file_id || null,
     resume_filename: a.resume_filename || profile.resume_filename || primary.resume_filename || null,
     resume_url: a.resume_url || profile.resume_url || primary.resume_url || null,
->>>>>>> origin/main
   };
 }

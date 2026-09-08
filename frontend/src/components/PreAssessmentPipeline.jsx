@@ -27,11 +27,7 @@ import PaEditDetailsModal from '@/components/pa/PaEditDetailsModal';
 import AgreementGenerator from '@/components/AgreementGenerator';
 import AgreementViewerModal from '@/components/AgreementViewerModal';
 import PaFinalizePaymentForm from '@/components/pa/PaFinalizePaymentForm';
-<<<<<<< HEAD
-import PaSelectedPackageCard from '@/components/pa/PaSelectedPackageCard';
-=======
 import PaOccupationSelector from '@/components/pa/PaOccupationSelector';
->>>>>>> origin/main
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || (typeof window !== 'undefined' && window.location.hostname.includes('leamss.com') ? 'https://api.leamss.com' : 'http://localhost:8001');
 const API = `${BACKEND_URL}/api`;
@@ -69,12 +65,6 @@ const PreAssessmentPipeline = ({ initialFilter = null, initialPaId = null }) => 
   const [loading, setLoading] = useState(true);
   const [sendPaymentModalPa, setSendPaymentModalPa] = useState(null); // PA object
   const [sendPaymentGst, setSendPaymentGst] = useState(false);
-<<<<<<< HEAD
-  const [promoCodesList, setPromoCodesList] = useState([]);
-  const [sendPaymentPromo, setSendPaymentPromo] = useState('');
-  const [sendPaymentPromoEnabled, setSendPaymentPromoEnabled] = useState(true);
-=======
->>>>>>> origin/main
 
   // Apply initial filter when provided
   useEffect(() => {
@@ -171,16 +161,14 @@ const PreAssessmentPipeline = ({ initialFilter = null, initialPaId = null }) => 
 
   const loadData = useCallback(async () => {
     try {
-      const [aRes, sRes, pRes, promoRes] = await Promise.all([
+      const [aRes, sRes, pRes] = await Promise.all([
         axios.get(`${API}/pre-assessment/my-assessments`, getAuthHeader()),
         axios.get(`${API}/pre-assessment/stats/overview`, getAuthHeader()),
         axios.get(`${API}/products`, getAuthHeader()),
-        axios.get(`${API}/marketing/promos`, getAuthHeader()).catch(() => ({ data: [] })),
       ]);
       setAssessments(aRes.data || []);
       setStats(sRes.data || {});
       setProducts(pRes.data || []);
-      setPromoCodesList((promoRes.data || []).filter(p => p.is_active || p.active));
     } catch (e) { console.error(e); }
     setLoading(false);
   }, []);
@@ -191,30 +179,34 @@ const PreAssessmentPipeline = ({ initialFilter = null, initialPaId = null }) => 
     if (!form.client_name || !form.client_email || !form.country || !form.service_type) {
       toast.error('Please fill required fields'); return;
     }
+    if (form.sale_type === 'express') {
+      if (!form.express_sale_reason) { toast.error('Please select a reason for Express Sale'); return; }
+      if ((form.express_sale_justification || '').length < 30) { toast.error('Express justification must be at least 30 characters'); return; }
+    }
     try {
       const res = await axios.post(`${API}/pre-assessment/create`, {
         ...form, client_age: parseInt(form.client_age) || 0
       }, getAuthHeader());
       toast.success(res.data.message || 'Pre-assessment created!');
       setShowCreate(false);
-      setForm({
-        client_name: '', client_email: '', client_mobile: '', country: '',
-        service_type: '', product_id: '', notes: '', client_age: 0,
-        education: '', work_experience: '', lead_source: null, lead_source_detail: '',
-        sale_type: 'standard', express_mode: 'direct', express_token_amount: 0,
-        express_sale_reason: '', express_sale_justification: '',
-      });
+      setForm({ client_name: '', client_email: '', client_mobile: '', country: '', service_type: '', product_id: '', notes: '', client_age: 0, education: '', work_experience: '', lead_source: null, lead_source_detail: '', sale_type: 'standard', express_sale_reason: null, express_sale_justification: '', express_mode: 'direct', express_token_amount: null });
+      // Refresh express usage after creating an express PA
+      if (form.sale_type === 'express') {
+        try {
+          const u = await axios.get(`${API}/express/my-usage`, getAuthHeader());
+          setExpressUsage(u.data);
+        } catch (_) {}
+      }
       loadData();
-    } catch (e) {
-      toast.error(e.response?.data?.detail || 'Creation failed');
-    }
+    } catch (e) { toast.error(e.response?.data?.detail || 'Failed to create'); }
   };
 
   const handleSendPayment = async (paId) => {
     try {
+      // Generate public share-token link (new client-facing flow)
       const res = await axios.post(`${API}/pre-assess-portal/generate-public-link`, { pa_id: paId }, getAuthHeader());
       const publicUrl = res.data.public_url?.startsWith('http') ? res.data.public_url : `${window.location.origin}${res.data.public_url}`;
-      try { await navigator.clipboard.writeText(publicUrl); } catch (_) {}
+      try { await navigator.clipboard.writeText(publicUrl); } catch (_) { /* ignore */ }
       toast.success('Public payment link generated & copied to clipboard');
       window.open(publicUrl, '_blank');
       loadData();
@@ -224,30 +216,6 @@ const PreAssessmentPipeline = ({ initialFilter = null, initialPaId = null }) => 
   };
 
   const openSendPaymentModal = (pa) => {
-<<<<<<< HEAD
-    setSendPaymentModalPa(pa);
-    setSendPaymentGst(false);
-  };
-
-  const confirmSendPayment = async () => {
-    if (!sendPaymentModalPa) return;
-    const paId = sendPaymentModalPa.id;
-    try {
-      const res = await axios.post(`${API}/pre-assess-portal/generate-public-link`, {
-        pa_id: paId,
-        include_gst: sendPaymentGst,
-      }, getAuthHeader());
-      const publicUrl = res.data.public_url?.startsWith('http') ? res.data.public_url : `${window.location.origin}${res.data.public_url}`;
-      try { await navigator.clipboard.writeText(publicUrl); } catch (_) {}
-      toast.success(`Payment link generated (${res.data.amount_label}) & copied`);
-      window.open(publicUrl, '_blank');
-      setSendPaymentModalPa(null);
-      loadData();
-    } catch (e) {
-      toast.error(e.response?.data?.detail || 'Failed to generate link');
-    }
-  };
-=======
   setSendPaymentModalPa(pa);
   setSendPaymentGst(false);
 };
@@ -270,7 +238,6 @@ const confirmSendPayment = async () => {
     toast.error(e.response?.data?.detail || 'Failed to generate link');
   }
 };
->>>>>>> origin/main
 
   const handleCopyPublicLink = async (paId) => {
     try {
@@ -432,10 +399,6 @@ const openFinalizePaymentForm = (pa) => {
       payment_method_type: 'full_payment',
       installment_schedule: null,
       include_gst: false,
-<<<<<<< HEAD
-      deduct_pre_assessment_fee: false,
-=======
->>>>>>> origin/main
     });
 };
 
@@ -458,18 +421,7 @@ const openFinalizePaymentForm = (pa) => {
         payment_method_type: formCopy.payment_method_type,
         installment_schedule: formCopy.installment_schedule || null,
         include_gst: formCopy.include_gst || false,
-<<<<<<< HEAD
-        deduct_pre_assessment_fee: Boolean(formCopy.deduct_pre_assessment_fee),
-        coupon_code: formCopy.coupon_code || formCopy.promo_code || null,
-        promo_code: formCopy.promo_code || formCopy.coupon_code || null,
-        promo_enabled: formCopy.promo_enabled !== false,
-        second_installment_trigger_type: formCopy.second_installment_trigger_type || 'step',
-        second_installment_step_order: formCopy.second_installment_step_order || null,
-        second_installment_step_name: formCopy.second_installment_step_name || null,
-        second_installment_due_date: formCopy.second_installment_due_date || null,
-=======
         coupon_code: formCopy.coupon_code || null,
->>>>>>> origin/main
       }, getAuthHeader());
       toast.success(res.data.message || 'Payment method set — client can now pay');
       loadData();
@@ -639,8 +591,6 @@ const openFinalizePaymentForm = (pa) => {
   const getStageInfo = (stage) => STAGE_CONFIG[stage] || STAGE_CONFIG.new;
 
 const getNextAction = (pa) => {
-<<<<<<< HEAD
-=======
   // If client requested alternate occupation code change
   if (pa.client_occupation_review_status === "rejected_by_client") {
     return {
@@ -668,7 +618,6 @@ const getNextAction = (pa) => {
     };
   }
 
->>>>>>> origin/main
   // Show resend button when rejected by admin
   if (
     pa.admin_decision === "rejected" ||
@@ -877,11 +826,6 @@ const getNextAction = (pa) => {
                           Awaiting Approval
                         </Badge>
                       )}
-<<<<<<< HEAD
-                      {(pa.selected_package_snapshot || pa.selected_package) && (
-                        <Badge className="bg-emerald-50 text-emerald-800 border border-emerald-300 text-[10px] font-semibold" data-testid={`package-badge-${pa.id}`}>
-                          📦 {(pa.selected_package_snapshot || pa.selected_package).name}
-=======
                       {pa.client_occupation_review_status === 'rejected_by_client' && (
                         <Badge className="bg-rose-100 text-rose-800 border border-rose-300 text-[10px] font-bold uppercase animate-pulse">
                           🚨 Client Requested Code: {pa.client_suggested_occupation_code || 'Change'}
@@ -890,7 +834,6 @@ const getNextAction = (pa) => {
                       {pa.client_occupation_review_status === 'pending_admin_approval' && (
                         <Badge className="bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-bold uppercase">
                           ⏳ Code Under Admin Review
->>>>>>> origin/main
                         </Badge>
                       )}
                     </div>
@@ -929,14 +872,6 @@ const getNextAction = (pa) => {
                       <div><span className="text-slate-500">Docs:</span> <span className="font-medium">{pa.documents_count || 0} uploaded</span></div>
                       {pa.admin_decision && (
                         <div><span className="text-slate-500">Decision:</span> <Badge className={pa.admin_decision === 'approved' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}>{pa.admin_decision}</Badge></div>
-                      )}
-                      {(pa.selected_package_snapshot || pa.selected_package) && (
-                        <div>
-                          <span className="text-slate-500">Package:</span>{' '}
-                          <Badge className="bg-emerald-100 text-emerald-800 font-semibold text-xs">
-                            {(pa.selected_package_snapshot || pa.selected_package).name}
-                          </Badge>
-                        </div>
                       )}
                     </div>
 
@@ -993,15 +928,9 @@ const getNextAction = (pa) => {
                     )}
 
                     {/* Uploaded Docs + Activity (always visible when expanded) */}
-<<<<<<< HEAD
-                    {['payment_received', 'partner_review', 'documents_submitted', 'under_review', 'approved', 'awaiting_package_selection', 'package_selected', 'proposal_sent', 'proposal_paid', 'case_created'].includes(pa.stage) && (
-                      <div className="grid md:grid-cols-2 gap-3">
-                        <PaDocumentsList
-=======
                     {['payment_received', 'partner_review', 'documents_submitted', 'under_review', 'approved', 'awaiting_package_selection', 'package_selected', 'proposal_sent', 'installment_pending_approval', 'proposal_paid', 'awaiting_final_approval', 'case_created', 'rejected', 'standard_rejected', 'refund_initiated', 'refunded'].includes(pa.stage) && (
                       <div className="space-y-3">
                         <PaOccupationSelector
->>>>>>> origin/main
                           pa={pa}
                           onSaved={loadData}
                           getAuthHeader={getAuthHeader}
@@ -1042,7 +971,7 @@ const getNextAction = (pa) => {
                         </div>
                         <div className="flex-1">
                           <p className="font-semibold text-amber-900">Waiting for Client Payment</p>
-                          <p className="text-xs text-amber-700 mt-0.5">Proposal of ₹{(pa.proposal_discounted_total || pa.proposal_fee || 0).toLocaleString('en-IN')} sent to {pa.client_name}. Notify them via WhatsApp/Email to speed things up.</p>
+                          <p className="text-xs text-amber-700 mt-0.5">Proposal of ₹{(pa.proposal_fee || 0).toLocaleString('en-IN')} sent to {pa.client_name}. Notify them via WhatsApp/Email to speed things up.</p>
                         </div>
                       </div>
                     )}
@@ -1247,33 +1176,6 @@ const getNextAction = (pa) => {
       />
 {sendPaymentModalPa && (
   <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-<<<<<<< HEAD
-    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
-      <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-        <span>Send Payment Link</span>
-        <span className="text-sm font-normal text-slate-500">— {sendPaymentModalPa.client_name}</span>
-      </h3>
-      
-      {/* Price breakdown */}
-      <div className="bg-slate-50 rounded-xl p-3.5 text-sm space-y-1.5 border border-slate-200">
-        <div className="flex justify-between text-slate-600"><span>Pre-Assessment Fee</span><span>₹5,100</span></div>
-        {sendPaymentGst && (
-          <div className="flex justify-between text-emerald-700"><span>GST (18%)</span><span>₹918</span></div>
-        )}
-        <div className="flex justify-between font-bold text-slate-900 border-t border-slate-200 pt-2 mt-1 text-base">
-          <span>Final Client Amount</span>
-          <span>₹{(5100 + (sendPaymentGst ? 918 : 0)).toLocaleString('en-IN')}</span>
-        </div>
-      </div>
-
-      <label className="flex items-center gap-2 cursor-pointer pt-1">
-        <input type="checkbox" checked={sendPaymentGst}
-          onChange={e => setSendPaymentGst(e.target.checked)} className="h-4 w-4 text-teal-600 rounded" />
-        <span className="text-sm font-semibold text-slate-700">Add GST (18%)</span>
-      </label>
-
-      <div className="flex gap-2 justify-end pt-2">
-=======
     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
       <h3 className="text-lg font-bold text-slate-800">
         Send Payment Link — {sendPaymentModalPa.client_name}
@@ -1293,7 +1195,6 @@ const getNextAction = (pa) => {
         <span className="text-sm font-semibold text-slate-700">Add GST (18%)</span>
       </label>
       <div className="flex gap-2 justify-end">
->>>>>>> origin/main
         <Button variant="outline" onClick={() => setSendPaymentModalPa(null)}>Cancel</Button>
         <Button className="bg-[#2a777a] hover:bg-[#236466]" onClick={confirmSendPayment}>
           Generate & Send Link

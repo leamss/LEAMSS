@@ -32,17 +32,6 @@ export default function PreAssessmentPayment() {
   const [claiming, setClaiming] = useState(false);
   const [proofFile, setProofFile] = useState(null);
   const [selectedCountry, setSelectedCountry] = useState('Australia');
-<<<<<<< HEAD
-  
-  const INTL_COUNTRIES = [
-    { code: 'Australia', label: '🇦🇺 AUS' },
-    { code: 'Canada', label: '🇨🇦 Canada' },
-    { code: 'USA', label: '🇺🇸 USA' },
-    { code: 'UK', label: '🇬🇧 UK' },
-    { code: 'New Zealand', label: '🇳🇿 NZ' },
-  ];
-=======
->>>>>>> origin/main
 
   const INTL_COUNTRIES = [
     { code: 'Australia', label: '🇦🇺 AUS' },
@@ -59,13 +48,10 @@ export default function PreAssessmentPayment() {
       .finally(() => setLoading(false));
   }, [token]);
 
-<<<<<<< HEAD
-=======
   useEffect(() => {
     loadData();
   }, [loadData]);
 
->>>>>>> origin/main
 useEffect(() => {
     if (!data) return;
     const isExpress = data.sale_type === 'express';
@@ -77,13 +63,8 @@ useEffect(() => {
           toast.success('Your proposal is ready! Redirecting to your portal…');
           setTimeout(() => navigate(`/magic/${magicToken}`), 1200);
         })
-<<<<<<< HEAD
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-=======
         .catch(() => setEntering(false));
     }
->>>>>>> origin/main
   }, [data]);
 
 useEffect(() => {
@@ -144,21 +125,11 @@ useEffect(() => {
   const handlePay = async () => {
     setPaying(true);
     try {
-<<<<<<< HEAD
-      // Step 1: Backend creates Razorpay order
-      const orderRes = await axios.post(`${API}/pre-assess-portal/public/create-order`, {
-        token,
-      });
-      const { order_id, amount, currency, key_id, client_name, client_email, client_mobile } = orderRes.data;
-
-      // Step 2: Razorpay Checkout Popup
-=======
       // Step 1: Backend कडून Razorpay order तयार करून घे
       const orderRes = await axios.post(`${API}/pre-assess-portal/public/create-order`, { token });
       const { order_id, amount, currency, key_id, client_name, client_email, client_mobile } = orderRes.data;
 
       // Step 2: Razorpay Checkout Popup उघड (इथेच Card/UPI/Netbanking आपोआप दिसतं)
->>>>>>> origin/main
       const options = {
         key: key_id,
         amount: amount,
@@ -173,10 +144,7 @@ useEffect(() => {
         },
         theme: { color: '#f7620b' },
         handler: async function (response) {
-<<<<<<< HEAD
-=======
           // Step 3: Payment झाल्यावर backend वर verify साठी पाठव
->>>>>>> origin/main
           try {
             const verifyRes = await axios.post(`${API}/pre-assess-portal/public/verify-payment`, {
               token: token,
@@ -236,13 +204,8 @@ useEffect(() => {
 
   const gstIncluded = !!data.step1_gst_included;
   const baseAmount = data.step1_base_amount || data.pre_assessment_fee || 5100;
-<<<<<<< HEAD
-  const gstAmount = gstIncluded ? Math.round(baseAmount * 0.18) : 0;
-  const amount = baseAmount + gstAmount; // client pays this total
-=======
   const gstAmount = data.step1_gst_amount || 0;
   const amount = data.step1_total_amount || data.pre_assessment_fee || 5100; // client pays this total
->>>>>>> origin/main
   const isExpress = data.sale_type === 'express';
 
   // Phase 4C — For Express Sales, skip PA fee entirely
@@ -283,10 +246,7 @@ useEffect(() => {
                       const r = await axios.post(`${API}/pre-assess-portal/public/mock-pay`, { token });
                       if (r.data?.ok) {
                         toast.success(`Token of ₹${Math.round(tokenAmount).toLocaleString('en-IN')} received! Your consultant will share the full proposal shortly.`);
-<<<<<<< HEAD
-=======
                         loadData();
->>>>>>> origin/main
                       }
                     } catch (e) { toast.error(e?.response?.data?.detail || 'Payment failed'); }
                   }}
@@ -294,23 +254,15 @@ useEffect(() => {
                   Pay Token ₹{Math.round(tokenAmount).toLocaleString('en-IN')} (Mock)
                 </Button>
               </>
-<<<<<<< HEAD
-            ) : entering ? (
-=======
 ): entering ? (
               // 👇 ADD THIS NEW BRANCH
->>>>>>> origin/main
               <div className="py-4">
                 <Loader2 className="h-6 w-6 animate-spin text-emerald-600 mx-auto mb-2" />
                 <p className="text-sm text-slate-600">Your proposal is ready — taking you to your portal…</p>
               </div>
-<<<<<<< HEAD
-            ) : (
-=======
               
             
 ) : (
->>>>>>> origin/main
               <>
                 <p className="text-sm text-slate-600 leading-relaxed">
                   Your <strong>{data.service_type}</strong> case has been fast-tracked under our Express Sales process — <strong>no pre-assessment fee is required</strong>.
@@ -362,24 +314,9 @@ useEffect(() => {
             </Badge>
             <h1 className="text-2xl sm:text-3xl font-bold leading-tight">Start Your {data.service_type} Journey</h1>
             <p className="text-sm opacity-80 mt-2">Prepared by <span className="font-semibold">{data.partner_name}</span></p>
-            
-            <div className="mt-6 flex items-end gap-3 flex-wrap">
+            <div className="mt-6 flex items-end gap-3">
               <p className="text-5xl font-bold">₹{amount.toLocaleString('en-IN')}</p>
               <span className="text-sm opacity-80 mb-1.5">pre-assessment fee{gstIncluded ? ' (incl. GST)' : ''}</span>
-<<<<<<< HEAD
-            </div>
-
-            {/* Price breakdown */}
-            <div className="mt-3 bg-white/10 rounded-lg p-3 text-sm space-y-1">
-              <div className="flex justify-between"><span className="opacity-80">Base Fee</span><span>₹{baseAmount.toLocaleString('en-IN')}</span></div>
-              {gstIncluded && (
-                <div className="flex justify-between"><span className="opacity-80">GST (18%)</span><span>₹{gstAmount.toLocaleString('en-IN')}</span></div>
-              )}
-              <div className="flex justify-between font-bold border-t border-white/20 pt-1 mt-1 text-base">
-                <span>Total Payable</span><span>₹{amount.toLocaleString('en-IN')}</span>
-              </div>
-=======
->>>>>>> origin/main
             </div>
             {gstIncluded && (
               <div className="mt-3 bg-white/10 rounded-lg p-3 text-sm space-y-1">
