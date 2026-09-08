@@ -7,6 +7,8 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import {
+  FileCheck, Upload, CheckCircle, CheckCircle2, Clock, AlertCircle, Loader2,
+  ChevronDown, ChevronRight, FileText, XCircle, Shield, Download,
   AlertTriangle, Calendar, Eye, FileUp, Info, Lock, CreditCard
 } from 'lucide-react';
 import ClientPaymentModal from './ClientPaymentModal';
