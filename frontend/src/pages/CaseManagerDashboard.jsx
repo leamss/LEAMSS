@@ -941,6 +941,7 @@ const workflowDocuments = stepDocData?.documents || [];
               (documentType.includes(docNameClean) ||
                 docNameClean.includes(documentType)))
           );
+        });
         const hasUploaded = matchingDocs.length > 0;
 
         return (
