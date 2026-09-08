@@ -4,7 +4,12 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { IndianRupee, Download, Send, FilePlus, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
 
+<<<<<<< HEAD
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+=======
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || (typeof window !== 'undefined' && window.location.hostname.includes('leamss.com') ? 'https://api.leamss.com' : 'http://localhost:8001');
+const API = `${BACKEND_URL}/api`;
+>>>>>>> origin/main
 
 const STATUS_BADGE = {
   unassigned: { color: 'bg-slate-100 text-slate-700', icon: AlertTriangle, label: 'Unassigned' },
@@ -29,6 +34,29 @@ const formatINR = (n) => {
 export default function PaFinancialSummary({ pa, onDownload, onSendInvoice, onGenerateAgreement, sendingInvoice }) {
   const [allocData, setAllocData] = useState(null);
   const [allocLoading, setAllocLoading] = useState(false);
+<<<<<<< HEAD
+=======
+
+  useEffect(() => {
+    if (!pa?.id) return;
+    let isMounted = true;
+    (async () => {
+      setAllocLoading(true);
+      try {
+        const token = localStorage.getItem('token');
+        const r = await axios.get(`${API}/pa/${pa.id}/allocations`, { headers: { Authorization: `Bearer ${token}` } });
+        if (isMounted) setAllocData(r.data);
+      } catch (e) {
+        // graceful
+      } finally {
+        if (isMounted) setAllocLoading(false);
+      }
+    })();
+    return () => { isMounted = false; };
+  }, [pa?.id]);
+
+  if (!['proposal_sent', 'proposal_paid', 'awaiting_final_approval', 'case_created', 'in_progress', 'approved', 'documents_submitted'].includes(pa.stage)) return null;
+>>>>>>> origin/main
 
   useEffect(() => {
     if (!pa?.id) return;
@@ -99,7 +127,11 @@ export default function PaFinancialSummary({ pa, onDownload, onSendInvoice, onGe
             <div className="flex justify-between text-leamss-teal-600"><span>Upsells ({upsells.length}):</span> <span>+ ₹{(pa.proposal_upsell_total || 0).toLocaleString('en-IN')}</span></div>
           )}
           <div className="border-t border-dashed border-emerald-300 mt-1.5 pt-1.5 flex justify-between font-bold text-emerald-800">
+<<<<<<< HEAD
             <span>Final Paid / Agreed:</span><span>₹{(finalAgreedProposalFee || 0).toLocaleString('en-IN')}</span>
+=======
+            <span>Final Paid / Agreed:</span><span>₹{(pa.proposal_fee || pa.final_amount || 0).toLocaleString('en-IN')}</span>
+>>>>>>> origin/main
           </div>
         </div>
       </div>
@@ -124,6 +156,7 @@ export default function PaFinancialSummary({ pa, onDownload, onSendInvoice, onGe
               return (
                 <div key={a.allocation_id} className="flex items-center justify-between py-1.5 px-2 bg-slate-50/70 rounded text-xs">
                   <div className="flex-1">
+<<<<<<< HEAD
                     <p className="font-medium text-slate-800">
                       {a.label}
                       {a.payment_type === 'percentage' && (
@@ -132,15 +165,21 @@ export default function PaFinancialSummary({ pa, onDownload, onSendInvoice, onGe
                         </span>
                       )}
                     </p>
+=======
+                    <p className="font-medium text-slate-800">{a.label}</p>
+>>>>>>> origin/main
                     <p className="text-[10px] text-slate-500">{a.vendor_name ? `${a.vendor_name} (${a.vendor_type || 'assigned'})` : '— unassigned —'}</p>
                   </div>
                   <div className="text-right mr-3">
                     <p className="font-bold text-slate-800">{formatINR(a.total_amount)}</p>
+<<<<<<< HEAD
                     {a.payment_type === 'percentage' && (
                       <p className="text-[9px] text-slate-500">
                         {a.rate !== undefined && a.rate !== null ? a.rate : a.base_amount}% of revenue
                       </p>
                     )}
+=======
+>>>>>>> origin/main
                     {a.bonus_amount > 0 && <p className="text-[9px] text-amber-600">incl. bonus</p>}
                   </div>
                   <div className="flex flex-col items-end">

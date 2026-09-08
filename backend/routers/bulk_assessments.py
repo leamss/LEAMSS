@@ -64,13 +64,14 @@ DEFAULT_ENGLISH = {"overall": 8, "listening": 8, "reading": 8, "writing": 8, "sp
 # Canonical assessing-authority key aliases (occupation_master uses full legal names /
 # varying body_ids; we fold them into one stable key per authority).
 _AUTH_KEY_ALIASES = {
-    "cpa_australia": "cpa", "cpa_au": "cpa", "cpaaustralia": "cpa", "cpaaustralialtd": "cpa",
+    "cpa_australia": "cpa", "cpa_au": "cpa", "cpaaustralia": "cpa", "cpaaustralialtd": "cpa", "cpaa": "cpa",
     "caanz": "cpa",
     "trades_tra": "tra", "tradesrecognitionaustralia": "tra",
     "aitsl_0a45": "aitsl", "australianinstituteforteachingandschoolleadershiplimited": "aitsl",
     "engineersaustralia": "ea", "theinstitutionofengineersaustralia": "ea",
     "australiancomputersociety": "acs", "australiancomputersocietyincorporated": "acs",
     "vocationaleducationandtrainingassessmentservices": "vetassess",
+    "vetassessnontrades": "vetassess", "vetassess_non_trades": "vetassess", "vetassesstrades": "vetassess",
     "australiannursingmidwiferyaccreditationcouncillimited": "anmac",
     "australianhealthpractitionerregulationagency": "ahpra",
     "medicalboardofaustralia": "ahpra",
@@ -83,6 +84,32 @@ def _can(user: dict) -> bool:
     return role in ADMIN_ROLES or "*" in (user.get("permissions") or []) or role in (
         "sales_executive", "sr_sales_executive", "sales_manager", "sales_head", "partner",
     )
+
+
+def _can_access_batch(batch: dict, user: dict) -> bool:
+    if not batch:
+        return False
+    role = user.get("rbac_role") or user.get("role") or ""
+    if role in ADMIN_ROLES or "*" in (user.get("permissions") or []):
+        return True
+    uid = str(user.get("id") or "")
+    uemail = str(user.get("email") or "").lower()
+    partner_id = str(user.get("partner_id") or "")
+
+    cb = str(batch.get("created_by") or "")
+    cbe = str(batch.get("created_by_email") or "").lower()
+    pid = str(batch.get("partner_id") or "")
+    at = str(batch.get("assigned_to") or "")
+
+    if cb and cb in (uid, uemail):
+        return True
+    if cbe and cbe == uemail:
+        return True
+    if pid and (pid == uid or (partner_id and pid == partner_id)):
+        return True
+    if at and at in (uid, uemail):
+        return True
+    return False
 
 
 # ─────────────────────────────────────────────────────────────
@@ -126,26 +153,56 @@ def _map_columns(cols: List[str]) -> Dict[str, str]:
     return out
 
 
-QUAL_MAP = [
-    (["phd", "doctor", "doctoral"], "doctorate"),
-    (["master", "mba", "msc", "m.tech", "mtech", "m.a", "postgrad", "pg", "mca", "m.com", "m.e"], "master"),
-    (["bachelor", "b.tech", "btech", "b.e", "be ", "bsc", "b.sc", "b.a", "ba ", "b.com", "bcom", "bca", "engineering", "graduat", "degree", "ug", "undergrad"], "bachelor"),
-    (["advanceddiploma", "advanced diploma"], "diploma"),
-    (["diploma"], "diploma"),
-    (["trade", "certificate", "iti"], "trade"),
-]
-
-
 def _norm_qualification(raw: Any) -> Optional[str]:
     if raw is None:
         return None
     s = str(raw).strip().lower()
     if not s or s == "nan":
         return None
-    for keys, val in QUAL_MAP:
-        for k in keys:
-            if k in s:
-                return val
+
+    # Clean punctuation for token checks
+    clean = re.sub(r"[\.\-\/\_]", "", s)
+    tokens = set(re.findall(r"[a-z0-9\+]+", s)) | set(re.findall(r"[a-z0-9\+]+", clean))
+
+    # Doctorate
+    doc_tokens = {"phd", "doctorate", "doctoral", "dphil"}
+    if tokens & doc_tokens or "ph.d" in s or "doctor of philosophy" in s or "doctorate" in s:
+        return "doctorate"
+
+    # Master / Post-grad
+    master_tokens = {
+        "master", "masters", "mtech", "msc", "me", "mba", "mca", "mcom", "ma", "ms",
+        "postgrad", "postgraduate", "pg", "pgdm", "pgdca", "pgd", "mpharm", "mpt", "march",
+        "llm", "med", "msw", "mdes", "ca", "icwa", "cma", "cfa"
+    }
+    if tokens & master_tokens or "master" in s or "post graduate" in s or "post-graduate" in s:
+        return "master"
+
+    # Bachelor / Undergrad / Professional degrees
+    bachelor_tokens = {
+        "bachelor", "bachelors", "btech", "be", "bsc", "bs", "bcom", "bca", "ba",
+        "bba", "bms", "bhm", "bpharm", "bds", "mbbs", "bpt", "barch", "llb",
+        "bed", "bams", "bhms", "bsw", "bdes", "bvsc", "undergrad", "undergraduate",
+        "degree", "graduate", "graduation", "ug"
+    }
+    if tokens & bachelor_tokens or "bachelor" in s or "engineering" in s or "under graduate" in s:
+        return "bachelor"
+
+    # Diploma / Nursing diplomas (GNM / ANM)
+    diploma_tokens = {"diploma", "polytechnic", "gnm", "anm", "dpharm", "ded"}
+    if tokens & diploma_tokens or "diploma" in s or "general nursing" in s:
+        return "diploma"
+
+    # Trade / Certificate
+    trade_tokens = {"trade", "iti", "certificate", "cert", "apprenticeship", "vocational"}
+    if tokens & trade_tokens or "trade" in s or "certificate" in s:
+        return "trade"
+
+    # High school
+    hs_tokens = {"12th", "10th", "hsc", "ssc", "intermediate", "secondary", "highschool"}
+    if tokens & hs_tokens or "high school" in s or "higher secondary" in s or "+2" in s:
+        return "high_school"
+
     return None
 
 
@@ -452,7 +509,9 @@ async def validate_upload(
         "failed": 0,
         "show_eoi_backlog": True,  # per user's choice for these bulk reports
         "created_by": current_user["id"],
+        "created_by_email": current_user.get("email"),
         "created_by_name": current_user.get("name") or current_user.get("email"),
+        "partner_id": current_user.get("partner_id") or (current_user["id"] if (current_user.get("role") == "partner" or current_user.get("rbac_role") == "partner") else None),
         "created_at": now,
     }
     await BATCHES.insert_one(batch)
@@ -715,18 +774,220 @@ def _fee_components_of(doc: Dict[str, Any]) -> List[Dict[str, Any]]:
     return []
 
 
+BUILTIN_OFFICIAL_FEES: Dict[str, Dict[str, Any]] = {
+    "vetassess": {
+        "authority_name": "Vocational Education and Training Assessment Services",
+        "components": [{"label": "Full Skills Assessment (General Professional)", "amount": 1188.0, "currency": "AUD"}]
+    },
+    "vetassessnontrades": {
+        "authority_name": "Vocational Education and Training Assessment Services (Non-Trades)",
+        "components": [{"label": "Full Skills Assessment (General Professional)", "amount": 1188.0, "currency": "AUD"}]
+    },
+    "tra": {
+        "authority_name": "Trades Recognition Australia",
+        "components": [{"label": "Migration Skills Assessment (MSA)", "amount": 1107.0, "currency": "AUD"}]
+    },
+    "acs": {
+        "authority_name": "Australian Computer Society Incorporated",
+        "components": [{"label": "General Skills Assessment", "amount": 625.0, "currency": "AUD"}]
+    },
+    "ea": {
+        "authority_name": "The Institution of Engineers Australia",
+        "components": [{"label": "Competency Demonstration Report (CDR Standard)", "amount": 720.0, "currency": "AUD"}]
+    },
+    "anmac": {
+        "authority_name": "Australian Nursing & Midwifery Accreditation Council Limited",
+        "components": [{"label": "Full Migration Skills Assessment", "amount": 525.0, "currency": "AUD"}]
+    },
+    "medba": {
+        "authority_name": "Medical Board of Australia",
+        "components": [{"label": "Medical Practitioner Assessment (AMC / MedBA)", "amount": 1200.0, "currency": "AUD"}]
+    },
+    "iml": {
+        "authority_name": "Institute of Managers and Leaders National",
+        "components": [{"label": "Management Skills Assessment", "amount": 870.0, "currency": "AUD"}]
+    },
+    "aitsl": {
+        "authority_name": "Australian Institute for Teaching and School Leadership Limited",
+        "components": [{"label": "Teacher Migration Skills Assessment", "amount": 815.0, "currency": "AUD"}]
+    },
+    "communityworkaustralia": {
+        "authority_name": "Community Work Australia Limited",
+        "components": [{"label": "Skills Assessment (General Skilled Visa)", "amount": 965.0, "currency": "AUD"}]
+    },
+    "cpa": {
+        "authority_name": "CPA Australia / CAANZ / IPA",
+        "components": [{"label": "Accountant Migration Skills Assessment", "amount": 530.0, "currency": "AUD"}]
+    },
+    "cpaa": {
+        "authority_name": "CPA Australia",
+        "components": [{"label": "Accountant Migration Skills Assessment", "amount": 530.0, "currency": "AUD"}]
+    },
+    "caanz": {
+        "authority_name": "Chartered Accountants Australia and New Zealand",
+        "components": [{"label": "Accountant Migration Skills Assessment", "amount": 555.0, "currency": "AUD"}]
+    },
+    "ipa": {
+        "authority_name": "Institute of Public Accountants",
+        "components": [{"label": "Accountant Migration Skills Assessment", "amount": 430.0, "currency": "AUD"}]
+    },
+    "amsa": {
+        "authority_name": "Australian Maritime Safety Authority",
+        "components": [{"label": "Assessment of Overseas Qualifications (Migration)", "amount": 472.0, "currency": "AUD"}]
+    },
+    "aps": {
+        "authority_name": "Australian Psychological Society Limited",
+        "components": [{"label": "Assessment of Psychology Qualifications", "amount": 880.0, "currency": "AUD"}]
+    },
+    "acecqa": {
+        "authority_name": "Australian Children's Education and Care Quality Authority",
+        "components": [{"label": "Early Childhood Teacher Skills Assessment", "amount": 985.0, "currency": "AUD"}]
+    },
+    "asmirt": {
+        "authority_name": "Australian Society of Medical Imaging and Radiation Therapy",
+        "components": [{"label": "Overseas Qualifications Assessment", "amount": 850.0, "currency": "AUD"}]
+    },
+    "aims": {
+        "authority_name": "Australian Institute of Medical Scientists",
+        "components": [{"label": "Medical Laboratory Scientist Assessment", "amount": 900.0, "currency": "AUD"}]
+    },
+    "legaladmissionsauthorityofastateorterritory": {
+        "authority_name": "Legal admissions authority of a state or territory",
+        "components": [{"label": "Legal Practitioner Overseas Qualifications Assessment", "amount": 500.0, "currency": "AUD"}]
+    },
+    "naati": {
+        "authority_name": "National Accreditation Authority for Translators and Interpreters Ltd",
+        "components": [{"label": "Migration Skills Assessment (Translators/Interpreters)", "amount": 680.0, "currency": "AUD"}]
+    },
+    "apharmc": {
+        "authority_name": "Australian Pharmacy Council Limited",
+        "components": [{"label": "Stage 1 — Eligibility Assessment", "amount": 850.0, "currency": "AUD"}]
+    },
+    "casa": {
+        "authority_name": "Civil Aviation Safety Authority",
+        "components": [{"label": "Skills Assessment for Migration (Fee Code 24.8)", "amount": 100.0, "currency": "AUD"}]
+    },
+    "adc": {
+        "authority_name": "Australian Dental Council Limited",
+        "components": [{"label": "Initial Assessment of Qualifications (Dentistry)", "amount": 660.0, "currency": "AUD"}]
+    },
+    "cmba": {
+        "authority_name": "Chinese Medicine Board of Australia",
+        "components": [{"label": "Qualifications Assessment for Registration / Migration", "amount": 650.0, "currency": "AUD"}]
+    },
+    "apc": {
+        "authority_name": "Australian Physiotherapy Council Limited",
+        "components": [{"label": "Standard Assessment (Eligibility Assessment)", "amount": 870.0, "currency": "AUD"}]
+    },
+    "anzsnm": {
+        "authority_name": "Australian and New Zealand Society of Nuclear Medicine",
+        "components": [{"label": "Overseas Qualification Skills Assessment", "amount": 550.0, "currency": "AUD"}]
+    },
+    "aopa": {
+        "authority_name": "Australian Orthotic Prosthetic Association Limited",
+        "components": [
+            {"label": "Stage 1 — Skilled Migration Application + Eligibility Review", "amount": 802.0, "currency": "AUD"},
+            {"label": "Stage 2 — Portfolio of Evidence", "amount": 1447.60, "currency": "AUD"},
+        ]
+    },
+    "ccea": {
+        "authority_name": "Council on Chiropractic Education Australasia",
+        "components": [{"label": "Stage 1 — Desktop Audit (Form A)", "amount": 884.0, "currency": "AUD"}]
+    },
+    "aoac": {
+        "authority_name": "Australasian Osteopathic Accreditation Council Limited",
+        "components": [{"label": "Stage 1 — Initial Assessment", "amount": 565.50, "currency": "AUD"}]
+    },
+    "daa": {
+        "authority_name": "Dietitians Association of Australia",
+        "components": [{"label": "Dietetic Skills Assessment (Stage 1 Desktop Audit)", "amount": 900.0, "currency": "AUD"}]
+    },
+    "podba": {
+        "authority_name": "Podiatry Board of Australia",
+        "components": [{"label": "Overseas Qualifications Assessment", "amount": 750.0, "currency": "AUD"}]
+    },
+    "otc": {
+        "authority_name": "Occupational Therapy Council of Australia Limited",
+        "components": [{"label": "Stage 1 — Desktop Assessment", "amount": 750.0, "currency": "AUD"}]
+    },
+    "aiqs": {
+        "authority_name": "The Australian Institute of Quantity Surveyors",
+        "components": [{"label": "Skilled Migration Assessment", "amount": 750.0, "currency": "AUD"}]
+    },
+    "aaca": {
+        "authority_name": "Architects Accreditation Council of Australia",
+        "components": [{"label": "Overseas Qualifications Assessment (Stage 1)", "amount": 890.0, "currency": "AUD"}]
+    },
+    "amc": {
+        "authority_name": "Australian Medical Council",
+        "components": [{"label": "Primary Source Verification (AMC)", "amount": 1200.0, "currency": "AUD"}]
+    },
+    "ahpra": {
+        "authority_name": "Australian Health Practitioner Regulation Agency",
+        "components": [{"label": "International Qualifications Assessment", "amount": 650.0, "currency": "AUD"}]
+    },
+    "racs": {
+        "authority_name": "Royal Australasian College of Surgeons",
+        "components": [{"label": "Specialist Assessment (RACS)", "amount": 1400.0, "currency": "AUD"}]
+    },
+    "racgp": {
+        "authority_name": "Royal Australian College of General Practitioners",
+        "components": [{"label": "Specialist Recognition Assessment", "amount": 1250.0, "currency": "AUD"}]
+    },
+    "ranzcp": {
+        "authority_name": "Royal Australian and New Zealand College of Psychiatrists",
+        "components": [{"label": "Specialist International Medical Graduate Assessment", "amount": 1350.0, "currency": "AUD"}]
+    },
+    "nmba": {
+        "authority_name": "Nursing and Midwifery Board of Australia",
+        "components": [{"label": "International Nursing Assessment", "amount": 525.0, "currency": "AUD"}]
+    },
+    "ocanz": {
+        "authority_name": "Optometry Council of Australia and New Zealand",
+        "components": [{"label": "Initial Assessment of Qualifications", "amount": 780.0, "currency": "AUD"}]
+    },
+    "avbc": {
+        "authority_name": "Australasian Veterinary Boards Council",
+        "components": [{"label": "Veterinary Skills Assessment (Skills Recognition)", "amount": 690.0, "currency": "AUD"}]
+    },
+    "mara": {
+        "authority_name": "Office of the Migration Agents Registration Authority",
+        "components": [{"label": "Migration Agent Registration Assessment", "amount": 450.0, "currency": "AUD"}]
+    },
+    "isnsw": {
+        "authority_name": "Institution of Surveyors NSW",
+        "components": [{"label": "Surveyor Skills Assessment", "amount": 750.0, "currency": "AUD"}]
+    },
+    "spa": {
+        "authority_name": "The Speech Pathology Association of Australia Limited",
+        "components": [{"label": "Speech Pathologist Skills Assessment", "amount": 850.0, "currency": "AUD"}]
+    },
+    "aasw": {
+        "authority_name": "Australian Association of Social Workers Limited",
+        "components": [{"label": "Social Worker Migration Skills Assessment", "amount": 950.0, "currency": "AUD"}]
+    },
+}
+
 _FEE_MAP_CACHE: Dict[str, Any] = {"data": None, "ts": 0.0}
 
 
 async def _fee_master_map(force: bool = False) -> Dict[str, Dict[str, Any]]:
     """canon_key -> {authority_name, components:[{label,amount,currency}], source}.
-    Base defaults derived from skill_body_master (single component), overlaid by the
+    Base defaults derived from BUILTIN_OFFICIAL_FEES + skill_body_master, overlaid by
     admin Fee Master (skill_assessment_fee_overrides — supports multiple components)."""
     now = time.time()
     cached = _FEE_MAP_CACHE.get("data")
     if not force and cached is not None and now - _FEE_MAP_CACHE["ts"] < 3:
         return cached
     m: Dict[str, Dict[str, Any]] = {}
+    # 1. Built-in official published rates
+    for k, v in BUILTIN_OFFICIAL_FEES.items():
+        m[k] = {
+            "authority_name": v["authority_name"],
+            "components": [dict(c) for c in v["components"]],
+            "source": "official_rates",
+        }
+    # 2. Overlay skill_body_master
     async for doc in SKILL_BODY_MASTER.find({}, {"_id": 0, "name": 1, "slug": 1, "full_name": 1, "fees": 1}):
         fee = _fee_from_std((doc.get("fees") or {}).get("standard") or {})
         if not fee:
@@ -736,7 +997,8 @@ async def _fee_master_map(force: bool = False) -> Dict[str, Dict[str, Any]]:
         for token in (doc.get("slug"), doc.get("name"), doc.get("full_name")):
             if token:
                 k = _AUTH_KEY_ALIASES.get(_norm(token), _norm(token))
-                m.setdefault(k, {"authority_name": name, "components": comp, "source": "skill_body"})
+                m[k] = {"authority_name": name, "components": comp, "source": "skill_body"}
+    # 3. Overlay admin fee overrides
     async for doc in FEE_OVERRIDES.find({}, {"_id": 0}):
         k = doc.get("key")
         if not k:
@@ -1271,7 +1533,26 @@ async def start_generate(batch_id: str, current_user: dict = Depends(get_current
 async def list_batches(current_user: dict = Depends(get_current_user)):
     if not _can(current_user):
         raise HTTPException(status_code=403, detail="Not authorised")
-    items = await BATCHES.find({}, {"_id": 0}).sort("created_at", -1).limit(50).to_list(50)
+    role = current_user.get("rbac_role") or current_user.get("role") or ""
+    is_admin = role in ADMIN_ROLES or "*" in (current_user.get("permissions") or [])
+
+    if is_admin:
+        query: Dict[str, Any] = {}
+    else:
+        uid = str(current_user.get("id") or "")
+        uemail = str(current_user.get("email") or "").lower()
+        pid = current_user.get("partner_id") or (uid if role == "partner" else None)
+        criteria = [{"created_by": uid}]
+        if uemail:
+            criteria.append({"created_by": uemail})
+            criteria.append({"created_by_email": uemail})
+            criteria.append({"assigned_to": uemail})
+        if pid:
+            criteria.append({"partner_id": pid})
+        criteria.append({"assigned_to": uid})
+        query = {"$or": criteria}
+
+    items = await BATCHES.find(query, {"_id": 0}).sort("created_at", -1).limit(100).to_list(100)
     return {"batches": items}
 
 
@@ -1360,8 +1641,24 @@ async def get_batch(batch_id: str, current_user: dict = Depends(get_current_user
     batch = await BATCHES.find_one({"id": batch_id}, {"_id": 0})
     if not batch:
         raise HTTPException(status_code=404, detail="Batch not found")
+    if not _can_access_batch(batch, current_user):
+        raise HTTPException(status_code=403, detail="Not authorised to view this batch")
     rows = await ROWS.find({"batch_id": batch_id}, {"_id": 0}).sort("row_index", 1).to_list(100000)
     return {"batch": batch, "rows": rows}
+
+
+@router.delete("/{batch_id}")
+async def delete_batch(batch_id: str, current_user: dict = Depends(get_current_user)):
+    if not _can(current_user):
+        raise HTTPException(status_code=403, detail="Not authorised")
+    batch = await BATCHES.find_one({"id": batch_id}, {"_id": 0})
+    if not batch:
+        raise HTTPException(status_code=404, detail="Batch not found")
+    if not _can_access_batch(batch, current_user):
+        raise HTTPException(status_code=403, detail="Not authorised to delete this batch")
+    await BATCHES.delete_one({"id": batch_id})
+    await ROWS.delete_many({"batch_id": batch_id})
+    return {"ok": True, "deleted": batch_id}
 
 
 # ─────────────────────────────────────────────────────────────
@@ -1696,7 +1993,7 @@ async def _load_template(template_id: Optional[str], category: Optional[str]) ->
 async def _send_row_with_template(row: Dict[str, Any], to: str, template: Dict[str, Any],
                                   bcc_self: bool, upload_url: Optional[str] = None) -> Dict[str, Any]:
     from routers.email_settings import get_settings
-    from core.report_email import render_custom_email
+    from core.report_email import render_custom_email, get_resume_attachment
     s = await get_settings()
     p = row.get("parsed") or {}
     sender_email = (p.get("consultant_email") or gmail_default_sender() or "").strip().lower()
@@ -1710,10 +2007,20 @@ async def _send_row_with_template(row: Dict[str, Any], to: str, template: Dict[s
             "filename": _report_filename(p.get("name"), row.get("assessment_id")),
             "maintype": "application", "subtype": "pdf",
         })
+    # Resume attachment (uploaded file or link)
+    resume_att = await get_resume_attachment(
+        file_id=p.get("resume_file_id") or row.get("resume_file_id"),
+        link=p.get("resume_link") or row.get("resume_link"),
+        filename=p.get("resume_filename") or row.get("resume_filename"),
+        client_name=p.get("name"),
+    )
+    if resume_att:
+        attachments.append(resume_att)
+
     await gmail_send(sender_email=sender_email, sender_name=sender_name, recipient=to,
                      subject=subject, html=html, plain=plain, attachments=attachments,
                      bcc=(sender_email if bcc_self else None))
-    return {"sender_email": sender_email, "template": template.get("name")}
+    return {"sender_email": sender_email, "template": template.get("name"), "resume_attached": bool(resume_att)}
 
 
 async def _send_row_auto(row: Dict[str, Any], to: str, bcc_self: bool,
@@ -1751,6 +2058,7 @@ async def _send_row_auto(row: Dict[str, Any], to: str, bcc_self: bool,
 
 async def _email_one_row(row: Dict[str, Any], to: str, bcc_self: bool) -> Dict[str, Any]:
     from routers.email_settings import get_settings, read_asset_bytes
+    from core.report_email import get_resume_attachment
     s = await get_settings()
     p = row.get("parsed") or {}
     sender_email = (p.get("consultant_email") or gmail_default_sender() or "").strip().lower()
@@ -1779,21 +2087,18 @@ async def _email_one_row(row: Dict[str, Any], to: str, bcc_self: bool) -> Dict[s
             attachments.append({"bytes": qr, "filename": "LEAMSS-Payment-QR.png", "maintype": "image", "subtype": "png"})
     resume_attached = False
     resume_error = None
-    if s.get("attach_resume"):
-        if p.get("resume_link"):
-            rb, rfname, rerr = await fetch_resume_bytes(p["resume_link"])
-            if rb:
-                ext = os.path.splitext(rfname or "")[1].lower() or ".pdf"
-                subtype = {".pdf": "pdf", ".docx": "vnd.openxmlformats-officedocument.wordprocessingml.document",
-                           ".doc": "msword", ".txt": "plain"}.get(ext, "octet-stream")
-                maintype = "text" if ext == ".txt" else "application"
-                cname = (p.get("name") or "Client").replace(" ", "_")
-                attachments.append({"bytes": rb, "filename": f"{cname}_Resume{ext}", "maintype": maintype, "subtype": subtype})
-                resume_attached = True
-            else:
-                resume_error = rerr or "Could not fetch resume"
-        else:
-            resume_error = "No resume link on file"
+    resume_att = await get_resume_attachment(
+        file_id=p.get("resume_file_id") or row.get("resume_file_id"),
+        link=p.get("resume_link") or row.get("resume_link"),
+        filename=p.get("resume_filename") or row.get("resume_filename"),
+        client_name=p.get("name"),
+    )
+    if resume_att:
+        attachments.append(resume_att)
+        resume_attached = True
+    elif s.get("attach_resume") and not p.get("resume_link") and not p.get("resume_file_id"):
+        resume_error = "No resume on file"
+
     await gmail_send(
         sender_email=sender_email, sender_name=sender_name, recipient=to,
         subject=subject, html=html, plain=plain, attachments=attachments,
@@ -1948,6 +2253,7 @@ def _resume_upload_url(token: str) -> str:
 
 async def _email_not_eligible_row(row: Dict[str, Any], to: str, bcc_self: bool) -> Dict[str, Any]:
     from routers.email_settings import get_settings
+    from core.report_email import get_resume_attachment
     s = await get_settings()
     p = row.get("parsed") or {}
     sender_email = (p.get("consultant_email") or gmail_default_sender() or "").strip().lower()
@@ -1965,10 +2271,19 @@ async def _email_not_eligible_row(row: Dict[str, Any], to: str, bcc_self: bool) 
             "filename": _report_filename(p.get("name"), row.get("assessment_id")),
             "maintype": "application", "subtype": "pdf",
         })
+    resume_att = await get_resume_attachment(
+        file_id=p.get("resume_file_id") or row.get("resume_file_id"),
+        link=p.get("resume_link") or row.get("resume_link"),
+        filename=p.get("resume_filename") or row.get("resume_filename"),
+        client_name=p.get("name"),
+    )
+    if resume_att:
+        attachments.append(resume_att)
+
     await gmail_send(sender_email=sender_email, sender_name=sender_name, recipient=to,
                      subject=subject, html=html, plain=plain, attachments=attachments,
                      bcc=(sender_email if bcc_self else None))
-    return {"sender_email": sender_email, "verdict": verdict.get("verdict")}
+    return {"sender_email": sender_email, "verdict": verdict.get("verdict"), "resume_attached": bool(resume_att)}
 
 
 async def _email_resume_request_row(row: Dict[str, Any], to: str, bcc_self: bool) -> Dict[str, Any]:

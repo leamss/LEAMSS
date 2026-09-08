@@ -1,0 +1,20 @@
+# LEAMSS — robots.txt
+# Allow crawlers to index public marketing & atlas pages.
+
+User-agent: *
+Allow: /
+Allow: /start
+Allow: /atlas
+
+# Keep private app areas out of the index
+Disallow: /admin
+Disallow: /partner
+Disallow: /case-manager
+Disallow: /client
+Disallow: /sales
+Disallow: /login
+Disallow: /eligibility/profile
+Disallow: /info-sheet
+
+# Sitemaps
+Sitemap: https://www.leamss.com/sitemap.xml

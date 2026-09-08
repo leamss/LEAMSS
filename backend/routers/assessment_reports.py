@@ -140,11 +140,27 @@ async def _build_occupation_comparison(
     """
     occ_list: List[Dict[str, Any]] = []
     primary = assessment.get("occupation")
+    if not primary and assessment.get("occupations"):
+        first_occ = assessment["occupations"][0]
+        if isinstance(first_occ, dict):
+            primary = first_occ
     if primary and primary.get("code"):
         occ_list.append({**primary, "is_primary": True})
-    for ao in (assessment.get("additional_occupations") or []):
-        if ao and ao.get("code"):
-            occ_list.append({**ao, "is_primary": False})
+
+    seen_codes = {str(primary.get("code")).strip()} if primary and primary.get("code") else set()
+
+    for key in ("additional_occupations", "alternative_occupations", "ai_alternatives", "occupations", "alternatives"):
+        for ao in (assessment.get(key) or []):
+            if isinstance(ao, dict) and ao.get("code"):
+                c_str = str(ao.get("code")).strip()
+                if c_str and c_str not in seen_codes:
+                    seen_codes.add(c_str)
+                    occ_list.append({**ao, "is_primary": False})
+            elif isinstance(ao, str) and ao.strip():
+                c_str = ao.strip()
+                if c_str not in seen_codes:
+                    seen_codes.add(c_str)
+                    occ_list.append({"code": c_str, "country_code": "AU", "is_primary": False})
 
     if len(occ_list) < 2:
         return None
@@ -351,14 +367,16 @@ async def _build_snapshot(
                            if occ_doc else occ_doc),
         })
 
-        # Phase 6.10.3 fix — pull verified Country Guide for Section 5
+        # Pull Country Guide for Section 07
         guide = await COUNTRY_GUIDES.find_one({"country_code": cc}, {"_id": 0})
         if guide:
-            if guide.get("status") == "verified" or include_unverified:
+            has_content = bool(any((s.get("body_markdown") or "").strip() for s in (guide.get("sections") or [])))
+            if guide.get("status") == "verified" or include_unverified or has_content:
                 country_guides_data.append({
                     "country_code": cc,
                     "country_name": country_name or guide.get("name"),
                     "flag": flag or guide.get("flag"),
+                    "tagline": guide.get("tagline"),
                     "status": guide.get("status"),
                     "hero": guide.get("hero") or {},
                     "sections": guide.get("sections") or [],
@@ -422,45 +440,140 @@ async def _build_snapshot(
     # 2b-ii) Points across all AU subclasses (189/190/491) + occupation open per subclass
     au_subclass_points = await _build_au_subclass_points(assessment, results)
 
-    # 2c) EOI Backlog (SkillSelect pool) for the primary AU occupation + each alternate
-    # pathway — only when the consultant has opted to show it for this client.
+    # 2c) EOI Backlog (SkillSelect pool) for the primary AU occupation + each alternate pathway
     eoi_backlog = None
     eoi_backlog_alts: List[Dict[str, Any]] = []
     primary_occ = assessment.get("occupation") or {}
-    if assessment.get("show_eoi_backlog") and (primary_occ.get("country_code") or "").upper() == "AU":
+    primary_code = str(primary_occ.get("code") or "").strip()
+    if not primary_code and assessment.get("occupations"):
+        first_occ = assessment["occupations"][0]
+        if isinstance(first_occ, dict):
+            primary_code = str(first_occ.get("code") or "").strip()
+            if not primary_occ:
+                primary_occ = first_occ
+        elif isinstance(first_occ, str):
+            primary_code = first_occ.strip()
+
+    # Show EOI backlog by default for AU unless explicitly disabled (show_eoi_backlog is False)
+    show_eoi = assessment.get("show_eoi_backlog") is not False
+    is_au = bool(
+        (primary_occ.get("country_code") or "").upper() == "AU"
+        or (assessment.get("best_country_code") or "").upper() == "AU"
+        or (assessment.get("occupation_country") or "").upper() == "AU"
+        or any((t.get("country") or "").upper() == "AU" for t in (assessment.get("targets") or []))
+        or any((r.get("country_code") or "").upper() == "AU" for r in results)
+        or (primary_code and primary_code.isdigit() and len(primary_code) == 6)
+    )
+
+    if show_eoi and is_au and primary_code:
         au_res = next((r for r in results if (r.get("country_code") or "").upper() == "AU"), None)
-        client_points = au_res.get("total") if au_res else None
-        if primary_occ.get("code"):
-            eoi_backlog = await build_eoi_for_occupation(primary_occ["code"], client_points)
-        primary_code = str(primary_occ.get("code") or "")
-        seen_alt = {primary_code}
-        for ao in (assessment.get("additional_occupations") or []):
-            acode = str((ao or {}).get("code") or "")
-            if not acode or acode in seen_alt or (ao.get("country_code") or "").upper() != "AU":
+        client_points = au_res.get("total") if au_res else assessment.get("best_total") or assessment.get("points")
+        eoi_backlog = await build_eoi_for_occupation(primary_code, client_points)
+        primary_code_str = str(primary_code)
+        seen_alt = {primary_code_str}
+
+        # Pull alternatives from occupation_comparison so all 3 pathways have EOI Backlogs (23 pages total)
+        if occupation_comparison and occupation_comparison.get("occupations"):
+            for comp_occ in occupation_comparison["occupations"]:
+                if not comp_occ.get("is_primary"):
+                    acode = str(comp_occ.get("code") or "").strip()
+                    if acode and acode not in seen_alt:
+                        seen_alt.add(acode)
+                        alt_eoi = await build_eoi_for_occupation(acode, client_points)
+                        if alt_eoi and (alt_eoi.get("unified") or {}).get("rows"):
+                            eoi_backlog_alts.append(alt_eoi)
+
+        alt_candidates = []
+        for key in ("additional_occupations", "alternative_occupations", "ai_alternatives", "occupations", "alternatives"):
+            val = assessment.get(key)
+            if isinstance(val, list):
+                alt_candidates.extend(val)
+
+        for ao in alt_candidates:
+            if isinstance(ao, dict):
+                acode = str(ao.get("code") or "").strip()
+                acc = (ao.get("country_code") or "").upper()
+                if acc and acc != "AU":
+                    continue
+            elif isinstance(ao, str):
+                acode = ao.strip()
+            else:
+                continue
+            if not acode or acode in seen_alt:
                 continue
             seen_alt.add(acode)
             alt_eoi = await build_eoi_for_occupation(acode, client_points)
             if alt_eoi and (alt_eoi.get("unified") or {}).get("rows"):
                 eoi_backlog_alts.append(alt_eoi)
 
-    # 3) Protection Policy (default verified LEAMSS policy)
+    # 3) Eligibility Verdict (Page 3 of 23-page report)
+    eligibility_verdict = assessment.get("eligibility_verdict") or assessment.get("eligibility")
+    if not eligibility_verdict:
+        best_pts = (best.get("total") if best else (assessment.get("best_total") or assessment.get("points") or 65))
+        pass_mark = (best.get("pass_mark") if best else 65) or 65
+        profile = assessment.get("profile_snapshot") or {}
+        age = profile.get("age") or 25
+        best_sub = (best.get("visa_subclass") if best else "491") or "491"
+        if isinstance(best_pts, dict):
+            best_pts = max([v for v in best_pts.values() if isinstance(v, (int, float))] or [65])
+        best_pts = int(best_pts or 65)
+
+        if age >= 45:
+            eligibility_verdict = {
+                "verdict": "ineligible",
+                "headline": "Age Criteria Exceeded",
+                "sub": "Australian GSM visas require applicants to be under 45 years of age at time of invitation.",
+                "best_subclass": best_sub,
+                "best_points": best_pts,
+                "pass_mark": pass_mark,
+                "reasons": ["Age is 45 or older at assessment time."],
+                "alternatives": ["Subclass 186 Employer Nomination exemptions", "Global Talent / National Innovation Visa"],
+            }
+        elif best_pts >= pass_mark:
+            eligibility_verdict = {
+                "verdict": "eligible",
+                "headline": "You Meet the Eligibility Threshold",
+                "sub": f"{best_pts} points on your best pathway (Subclass {best_sub}) — at or above the {pass_mark}-point pass mark",
+                "best_subclass": best_sub,
+                "best_points": best_pts,
+                "pass_mark": pass_mark,
+            }
+        else:
+            eligibility_verdict = {
+                "verdict": "improvable",
+                "headline": "Points Below Current Threshold — Pathway Improvable",
+                "sub": f"{best_pts} points on current calculation vs {pass_mark}-point pass mark",
+                "best_subclass": best_sub,
+                "best_points": best_pts,
+                "pass_mark": pass_mark,
+                "improvements": ["Upgrade English proficiency to Superior (IELTS 8.0 / PTE 79+)", "Gain additional skilled experience"],
+            }
+
+    # 4) Protection Policy (default verified LEAMSS policy)
     protection_policy = await PROTECTION_POLICIES.find_one(
         {"is_default_leamss": True, "status": "verified"}, {"_id": 0},
     )
     if not protection_policy:
-        # Fallback: any verified policy (so PDF still shows USP)
         protection_policy = await PROTECTION_POLICIES.find_one(
             {"status": "verified"}, {"_id": 0},
         )
     if not protection_policy:
-        # Guaranteed fallback — the Protection Policy (Sir's USP) must print on EVERY
-        # report, independent of the cost/investment breakdown or DB seed state.
+        protection_policy = await PROTECTION_POLICIES.find_one(
+            {"is_default_leamss": True}, {"_id": 0},
+        )
+    if not protection_policy:
+        protection_policy = await PROTECTION_POLICIES.find_one({}, {"_id": 0})
+    if not protection_policy:
         protection_policy = dict(DEFAULT_PROTECTION_POLICY)
+
+    if best:
+        best["status"] = assessment.get("status") or "verified"
 
     snap_data = {
         "assessment_id": assessment.get("id"),
         "persona": persona,
         "mode": mode,
+        "status": assessment.get("status") or "verified",
         "render_tier": "full",
         "client": {
             "name": assessment.get("client_name"),
@@ -471,6 +584,7 @@ async def _build_snapshot(
         "countries": countries_data,
         "country_guides": country_guides_data,
         "best_country": best,
+        "eligibility_verdict": eligibility_verdict,
         # Phase 7.3 — new snapshot fields
         "anzsco_profile": anzsco_profile,
         "cost_estimator": cost_estimator,

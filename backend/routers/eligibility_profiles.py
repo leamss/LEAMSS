@@ -13,6 +13,7 @@ from datetime import datetime, timezone, date
 from typing import Optional, List, Dict, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
+from motor.motor_asyncio import AsyncIOMotorGridFSBucket
 from pydantic import BaseModel, EmailStr, Field
 
 from core.auth import get_current_user
@@ -25,6 +26,7 @@ router = APIRouter(prefix="/eligibility/profiles", tags=["Phase 6.2 - Eligibilit
 profiles_col = db["client_eligibility_profiles"]
 pa_col = db["pre_assessments"]
 users_col = db["users"]
+_resume_gridfs = AsyncIOMotorGridFSBucket(db, bucket_name="bulk_resumes")
 
 
 ROLE_VIEWERS = {"admin", "admin_owner", "sales_executive", "sr_sales_executive", "sales_manager", "sales_head", "partner", "case_manager", "hr_manager"}
@@ -807,6 +809,15 @@ async def resume_extract(
     if parsed.get("_error"):
         raise HTTPException(status_code=502, detail=parsed["_error"])
 
+    import io
+    file_id = await _resume_gridfs.upload_from_stream(
+        file.filename or "resume.pdf",
+        io.BytesIO(raw),
+        metadata={"user_id": current_user.get("id"), "uploaded_at": datetime.now(timezone.utc).isoformat()}
+    )
+    parsed["resume_file_id"] = str(file_id)
+    parsed["resume_filename"] = file.filename
+
     # Clean up: ensure schema_version=2 + status=draft for downstream wizard
     parsed.setdefault("schema_version", 2)
     parsed.setdefault("status", "draft")
@@ -814,6 +825,7 @@ async def resume_extract(
         "filename": file.filename,
         "size_bytes": len(raw),
         "extracted_chars": meta.get("char_count", 0),
+        "resume_file_id": str(file_id),
     }
     return parsed
 

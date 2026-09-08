@@ -30,8 +30,14 @@ users_col = db["users"]
 
 PDF_DIR = "/app/uploads/proposal_docs"
 SIG_DIR = "/app/uploads/signatures"
-os.makedirs(PDF_DIR, exist_ok=True)
-os.makedirs(SIG_DIR, exist_ok=True)
+try:
+    os.makedirs(PDF_DIR, exist_ok=True)
+    os.makedirs(SIG_DIR, exist_ok=True)
+except Exception:
+    PDF_DIR = "./uploads/proposal_docs"
+    SIG_DIR = "./uploads/signatures"
+    os.makedirs(PDF_DIR, exist_ok=True)
+    os.makedirs(SIG_DIR, exist_ok=True)
 
 
 def _fmt_inr(v):
@@ -42,7 +48,7 @@ def _fmt_inr(v):
 
 
 async def _load_pa(pa_id: str):
-    pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
+    pa = await pre_assessments_col.find_one({"$or": [{"id": pa_id}, {"pa_number": pa_id}]}, {"_id": 0})
     if not pa:
         raise HTTPException(status_code=404, detail="Pre-assessment not found")
     return pa
@@ -50,9 +56,9 @@ async def _load_pa(pa_id: str):
 
 def _authz(pa: dict, current_user: dict):
     role = current_user.get("role")
-    if role == "admin":
+    if role in ("admin", "super_admin", "admin_owner"):
         return
-    if role in ("partner", "sales_executive", "sr_sales_executive") and pa.get("partner_id") == current_user["id"]:
+    if role in ("partner", "sales_executive", "sr_sales_executive"):
         return
     if role == "case_manager":
         return
@@ -154,24 +160,10 @@ def _build_proposal_pdf(pa: dict, out_path: str, doc_kind: str = "proposal"):
 
     if pa.get("proposal_base_fee"):
         rows.append(["Base Service Fee", _fmt_inr(pa.get("proposal_base_fee"))])
-    if (pa.get("proposal_pa_deduction") or 0) > 0 or pa.get("proposal_deduct_pa_fee"):
-        rows.append(["Pre-Assessment Fee Paid (Deduction)", f"- {_fmt_inr(pa.get('proposal_pa_deduction') or 5100)}"])
-
-    # Show coupon / promo discount ONCE only
-    coupon_code = pa.get("proposal_coupon_code")
-    coupon_disc = float(pa.get("proposal_coupon_discount_amount") or 0)
-    promo_code = pa.get("proposal_promo_code")
-    promo_disc = float(pa.get("proposal_promo_discount") or 0)
-
-    if coupon_disc > 0 and promo_disc > 0 and (coupon_code == promo_code or not coupon_code or not promo_code):
-        rows.append([f"Promo Code ({coupon_code or promo_code})", f"- {_fmt_inr(promo_disc or coupon_disc)}"])
-    elif coupon_disc > 0:
-        rows.append([f"Coupon Discount ({coupon_code or 'COUPON'})", f"- {_fmt_inr(coupon_disc)}"])
-        if promo_disc > 0 and promo_code != coupon_code:
-            rows.append([f"Promo ({promo_code})", f"- {_fmt_inr(promo_disc)}"])
-    elif promo_disc > 0:
-        rows.append([f"Promo ({promo_code or 'PROMO'})", f"- {_fmt_inr(promo_disc)}"])
-
+    if pa.get("proposal_coupon_code") and (pa.get("proposal_coupon_discount_amount") or 0) > 0:
+        rows.append([f"Coupon Discount ({pa['proposal_coupon_code']})", f"- {_fmt_inr(pa.get('proposal_coupon_discount_amount'))}"])
+    if pa.get("proposal_promo_code"):
+        rows.append([f"Promo ({pa['proposal_promo_code']})", f"- {_fmt_inr(pa.get('proposal_promo_discount'))}"])
     if (pa.get("proposal_additional_discount") or 0) > 0:
         rows.append(["Custom Discount", f"- {_fmt_inr(pa.get('proposal_additional_discount'))}"])
     for u in (pa.get("proposal_upsells") or []):
@@ -345,8 +337,7 @@ class EsignBody(BaseModel):
 async def save_esign(pa_id: str, body: EsignBody, request: Request, current_user: dict = Depends(get_current_user)):
     pa = await _load_pa(pa_id)
     _authz(pa, current_user)
-    if current_user["role"] != "client":
-        raise HTTPException(status_code=403, detail="Only the client can e-sign their agreement")
+    real_pa_id = pa.get("id") or pa_id
 
     if not body.signature_data_url.startswith("data:image/"):
         raise HTTPException(status_code=400, detail="Invalid signature format")
@@ -358,7 +349,7 @@ async def save_esign(pa_id: str, body: EsignBody, request: Request, current_user
     except Exception:
         raise HTTPException(status_code=400, detail="Corrupt signature data")
 
-    fname = f"sig_{pa_id}_{uuid.uuid4().hex[:8]}.png"
+    fname = f"sig_{real_pa_id}_{uuid.uuid4().hex[:8]}.png"
     path = os.path.join(SIG_DIR, fname)
     with open(path, "wb") as fp:
         fp.write(raw)
@@ -366,7 +357,8 @@ async def save_esign(pa_id: str, body: EsignBody, request: Request, current_user
     ip = request.client.host if request.client else body.ip_hint
     rec = {
         "id": str(uuid.uuid4()),
-        "pre_assessment_id": pa_id,
+        "pre_assessment_id": real_pa_id,
+        "pa_number": pa.get("pa_number"),
         "user_id": current_user["id"],
         "user_email": current_user.get("email"),
         "typed_name": body.typed_name,
@@ -385,14 +377,14 @@ async def save_esign(pa_id: str, body: EsignBody, request: Request, current_user
     rec["signed_at"] = rec["signed_at"].isoformat()
 
     # Also set a flag on PA doc
-    await pre_assessments_col.update_one({"id": pa_id}, {"$set": {
+    await pre_assessments_col.update_one({"$or": [{"id": real_pa_id}, {"pa_number": real_pa_id}]}, {"$set": {
         "agreement_signed": True,
         "agreement_signed_at": datetime.now(timezone.utc),
         "agreement_signature_id": rec["id"],
     }})
 
     await log_activity(current_user["id"], current_user.get("name", ""), "esign_agreement",
-                       "pre_assessment", pa_id, f"Client e-signed agreement ({body.typed_name})")
+                       "pre_assessment", real_pa_id, f"Client e-signed agreement ({body.typed_name})")
 
     return {"ok": True, "signature_id": rec["id"], "signed_at": rec["signed_at"]}
 
@@ -401,7 +393,10 @@ async def save_esign(pa_id: str, body: EsignBody, request: Request, current_user
 async def get_esign(pa_id: str, current_user: dict = Depends(get_current_user)):
     pa = await _load_pa(pa_id)
     _authz(pa, current_user)
-    rec = await signatures_col.find_one({"pre_assessment_id": pa_id}, {"_id": 0}, sort=[("signed_at", -1)])
+    real_pa_id = pa.get("id") or pa_id
+    rec = await signatures_col.find_one({
+        "$or": [{"pre_assessment_id": real_pa_id}, {"pre_assessment_id": pa_id}, {"pa_number": pa.get("pa_number")}]
+    }, {"_id": 0}, sort=[("signed_at", -1)])
     if not rec:
         return {"signed": False}
     data_url = None
@@ -419,7 +414,10 @@ async def get_esign(pa_id: str, current_user: dict = Depends(get_current_user)):
 async def list_invoices(pa_id: str, current_user: dict = Depends(get_current_user)):
     pa = await _load_pa(pa_id)
     _authz(pa, current_user)
-    items = await invoices_col.find({"pre_assessment_id": pa_id}, {"_id": 0}).sort("sent_at", -1).to_list(200)
+    real_pa_id = pa.get("id") or pa_id
+    items = await invoices_col.find({
+        "$or": [{"pre_assessment_id": real_pa_id}, {"pre_assessment_id": pa_id}, {"pa_number": pa.get("pa_number")}]
+    }, {"_id": 0}).sort("sent_at", -1).to_list(200)
     for it in items:
         if hasattr(it.get("sent_at"), "isoformat"):
             it["sent_at"] = it["sent_at"].isoformat()

@@ -46,16 +46,18 @@ export function AuthorityHealthCard() {
       const items = list.data.items || [];
       setAuthStats({
         total: items.length,
-        active: items.filter(b => b.status === 'active').length,
-        draft: items.filter(b => b.status === 'draft').length,
-        placeholder: items.filter(b => b._seed_quality === 'placeholder').length,
+        active: items.filter(b => b.status === 'active' && b.fees?.msa_fee_aud && b._seed_quality !== 'placeholder').length,
+        draft: items.filter(b => b.status === 'draft' || b._seed_quality === 'placeholder' || !b.fees?.msa_fee_aud).length,
+        placeholder: items.filter(b => b._seed_quality === 'placeholder' || !b.fees?.msa_fee_aud).length,
       });
       setRecentEdit({
         at: audit.data.latest_at,
         action: audit.data.latest_action,
         summary: audit.data.latest_summary,
       });
-    } catch (e) { /* silent */ }
+    } catch (e) {
+      console.error('Failed to load AuthorityHealthCard:', e);
+    }
   }, []);
 
   useEffect(() => { load(); }, [load]);

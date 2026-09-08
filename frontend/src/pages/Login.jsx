@@ -7,9 +7,17 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Globe, ShieldCheck } from 'lucide-react';
 
+<<<<<<< HEAD
 // const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 // const API = `${BACKEND_URL}/api`;
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
+=======
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 
+  (typeof window !== 'undefined' && window.location.hostname.includes('leamss.com') 
+    ? 'https://api.leamss.com' 
+    : (typeof window !== 'undefined' && window.location.origin.includes('localhost') ? 'http://localhost:8001' : 'https://api.leamss.com'));
+const API = `${BACKEND_URL}/api`;
+>>>>>>> origin/main
 
 const Login = () => {
   const navigate = useNavigate();
@@ -22,7 +30,7 @@ const Login = () => {
     setLoading(true);
 
     try {
-      const response = await axios.post(`${API}/auth/login`, { email, password });
+      const response = await axios.post(`${API}/auth/login`, { email: email.trim().toLowerCase(), password });
       const { token, user } = response.data;
       
       localStorage.setItem('token', token);
@@ -130,14 +138,6 @@ const Login = () => {
             <a href="/forgot-password" className="text-xs text-slate-500 hover:text-[#2a777a] underline" data-testid="forgot-password-link">
               Forgot Password?
             </a>
-          </div>
-
-          <div className="mt-8 p-4 bg-[#2a777a]/10 border border-[#2a777a]/30 rounded-lg">
-            <p className="text-sm text-slate-600 font-medium mb-2">Demo Credentials:</p>
-            <p className="text-xs text-slate-500">Admin: admin@leamss.com / Admin@123</p>
-            <p className="text-xs text-slate-500">Partner: partner@leamss.com / Partner@123</p>
-            <p className="text-xs text-slate-500">Case Manager: manager@leamss.com / Manager@123</p>
-            <p className="text-xs text-slate-500">Client: client@leamss.com / Client@123</p>
           </div>
 
           <div className="mt-4 grid grid-cols-2 gap-2 text-center">

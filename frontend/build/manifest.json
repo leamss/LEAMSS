@@ -1,0 +1,25 @@
+{
+  "short_name": "LEAMSS",
+  "name": "LEAMSS Immigration Portal",
+  "description": "Complete immigration services management portal",
+  "icons": [
+    {
+      "src": "favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "leamss-logo.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#2a777a",
+  "background_color": "#F5F7FA",
+  "orientation": "portrait-primary",
+  "categories": ["business", "productivity"],
+  "scope": "/"
+}

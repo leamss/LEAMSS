@@ -17,7 +17,6 @@
 {% set ok  = (c.total or 0) >= (c.pass_mark or 999) %}
 
 <div class="page">
-
   {# Hero banner per country #}
   <div style="background:linear-gradient(135deg, {{ country_color }} 0%, {{ country_color }} 60%, {{ country_color_dark }} 100%);
               color:#FFFFFF;
@@ -79,13 +78,18 @@
       <div class="note teal"><b>Description:</b> {{ occ.description|truncate(420) }}</div>
     {% endif %}
   {% endif %}
+</div>
 
+<div class="page">
   {# Visa eligibility table #}
   {% set vp = (occ.visa_pathways or {}) %}
   {% set visas = vp.visa_eligibility or [] %}
   {% if visas %}
-    <div class="spacer-sm"></div>
-    <h3>Visa Pathway Eligibility</h3>
+    <div class="section-header">
+      <span class="eyebrow">Section 04.{{ ctx_index }} · Visas</span>
+      <h1>Visa Pathway Eligibility</h1>
+      <span class="rule"></span>
+    </div>
     <table class="kv">
       <thead>
         <tr><th>Subclass</th><th>Eligible</th><th>List</th><th>Notes</th></tr>
@@ -105,12 +109,17 @@
       </tbody>
     </table>
   {% endif %}
+</div>
 
+<div class="page">
   {# State / Territory demand (AU) #}
   {% set state_elig = occ.state_territory_eligibility or [] %}
   {% if state_elig %}
-    <div class="spacer-sm"></div>
-    <h3>State / Territory Demand</h3>
+    <div class="section-header">
+      <span class="eyebrow">Section 04.{{ ctx_index }} · Demand &amp; Points</span>
+      <h1>State / Territory Demand</h1>
+      <span class="rule"></span>
+    </div>
     <table class="kv">
       <thead>
         <tr><th>State</th><th>Demand</th><th style="text-align:center;">190</th><th style="text-align:center;">491</th></tr>
@@ -164,5 +173,4 @@
       counsellor will map a 6-12 month uplift plan as part of the proposal.
     </div>
   {% endif %}
-
 </div>

@@ -32,7 +32,10 @@ from services.diff_audit_service import compute_diff_audit
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/assessing-authorities", tags=["assessing-authorities-write"])
 
-ADMIN_ROLES = {"admin", "admin_owner", "super_admin"}
+ADMIN_ROLES = {
+    "admin", "admin_owner", "super_admin", "sales_manager", "sales_head",
+    "sales_executive", "sr_sales_executive",
+}
 
 
 def _is_admin(user: Dict[str, Any]) -> bool:

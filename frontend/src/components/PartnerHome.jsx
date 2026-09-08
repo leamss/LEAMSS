@@ -5,8 +5,12 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
   ClipboardCheck, Send, Users, TrendingUp, ArrowRight,
+<<<<<<< HEAD
   Sparkles, Clock, CheckCircle, AlertCircle, Plus, IndianRupee,
   Package, ExternalLink, CreditCard
+=======
+  Sparkles, Clock, CheckCircle, AlertCircle, Plus, IndianRupee, Briefcase
+>>>>>>> origin/main
 } from 'lucide-react';
 import { toast } from 'sonner';
 import DropoffRecoveryWidget from '@/components/DropoffRecoveryWidget';
@@ -48,6 +52,8 @@ export default function PartnerHome({ user, onNavigate }) {
     payment_under_review: 0,
     payment_forwarded_admin: 0,
     new_leads: 0,
+    client_code_suggestions: 0,
+    pending_admin_approval: 0,
     active_sales: 0,
     pending_amount: 0,
     this_month_revenue: 0,
@@ -57,6 +63,7 @@ export default function PartnerHome({ user, onNavigate }) {
   const [recentPAs, setRecentPAs] = useState([]);
   const [loading, setLoading] = useState(true);
 
+<<<<<<< HEAD
   const loadData = useCallback(async () => {
     try {
       const [paRes, statsRes] = await Promise.all([
@@ -98,6 +105,35 @@ export default function PartnerHome({ user, onNavigate }) {
       }));
     } catch (e) { /* graceful */ }
     setLoading(false);
+=======
+  useEffect(() => {
+    (async () => {
+      try {
+        const [paRes, statsRes] = await Promise.all([
+          axios.get(`${API}/pre-assessment/my-assessments`, getAuth()),
+          axios.get(`${API}/pre-assessment/stats/overview`, getAuth()).catch(() => ({ data: {} })),
+        ]);
+        const pas = paRes.data || [];
+        const client_code_suggestions = pas.filter(p => p.client_occupation_review_status === 'rejected_by_client').length;
+        const pending_admin_approval = pas.filter(p => p.client_occupation_review_status === 'pending_admin_approval').length;
+        const partner_review = pas.filter(p => p.stage === 'partner_review').length;
+        const approved = pas.filter(p => p.stage === 'approved').length;
+        const proposal_sent = pas.filter(p => p.stage === 'proposal_sent').length;
+        const proposal_paid = pas.filter(p => p.stage === 'proposal_paid').length;
+        const new_leads = pas.filter(p => ['new', 'payment_pending'].includes(p.stage)).length;
+        setRecentPAs(pas.slice(0, 5));
+        setData(d => ({
+          ...d,
+          client_code_suggestions,
+          pending_admin_approval,
+          partner_review, approved, proposal_sent, proposal_paid, new_leads,
+          conversion_rate: statsRes.data?.conversion_rate || 0,
+          total_clients: pas.length,
+        }));
+      } catch (e) { /* graceful */ }
+      setLoading(false);
+    })();
+>>>>>>> origin/main
   }, []);
 
   useEffect(() => {
@@ -109,7 +145,11 @@ export default function PartnerHome({ user, onNavigate }) {
     return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
   })();
 
+<<<<<<< HEAD
   const totalActions = data.partner_review + data.approved + data.package_selected + data.payment_under_review + data.payment_forwarded_admin + data.new_leads;
+=======
+  const totalActions = data.partner_review + data.approved + data.new_leads + data.proposal_paid + (data.client_code_suggestions || 0);
+>>>>>>> origin/main
 
   return (
     <div className="space-y-6" data-testid="partner-home">
@@ -138,6 +178,7 @@ export default function PartnerHome({ user, onNavigate }) {
           <Sparkles className="h-5 w-5 text-[#f7620b]" /> Actions waiting for you
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+<<<<<<< HEAD
           {/* Card 1: Payment is Under Review (Client paid, Partner needs to review & forward) */}
           {data.payment_under_review > 0 && (
             <ActionCard
@@ -183,6 +224,33 @@ export default function PartnerHome({ user, onNavigate }) {
           )}
 
           {/* Card 4: Review Client Docs */}
+=======
+          {data.client_code_suggestions > 0 && (
+            <ActionCard
+              icon={Briefcase}
+              title="Client Code Suggestions"
+              count={data.client_code_suggestions}
+              description="Clients requested occupation code changes — review & submit to Admin."
+              cta="Review suggestions"
+              color="from-purple-600 to-indigo-600"
+              onClick={() => onNavigate?.('pre-assessment')}
+              testId="action-client-code-suggestions"
+              highlight
+            />
+          )}
+          {data.pending_admin_approval > 0 && (
+            <ActionCard
+              icon={Clock}
+              title="Awaiting Admin Review"
+              count={data.pending_admin_approval}
+              description="Suggested codes submitted to Admin — awaiting approval decision."
+              cta="Track status"
+              color="from-blue-600 to-cyan-600"
+              onClick={() => onNavigate?.('pre-assessment')}
+              testId="action-awaiting-admin"
+            />
+          )}
+>>>>>>> origin/main
           {data.partner_review > 0 && (
             <ActionCard
               icon={AlertCircle}

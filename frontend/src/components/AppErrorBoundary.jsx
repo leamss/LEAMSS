@@ -101,17 +101,17 @@ class AppErrorBoundary extends React.Component {
             You can try reloading the page, or head back to the home dashboard.
           </p>
 
-          {isDev && (
-            <div className="text-left mb-6 rounded-lg border border-rose-200 bg-rose-50 p-3 max-h-44 overflow-auto" data-testid="error-boundary-dev-detail">
-              <p className="text-[10px] uppercase tracking-wider font-bold text-rose-700 mb-1">Dev detail</p>
-              <p className="text-[11px] font-mono text-rose-900 break-words">{msg}</p>
-              {this.state.componentStack && (
-                <pre className="text-[10px] font-mono text-rose-700 mt-1 whitespace-pre-wrap">
-                  {this.state.componentStack.split('\n').slice(0, 6).join('\n')}
-                </pre>
-              )}
-            </div>
-          )}
+          <details className="text-left mb-6 rounded-lg border border-rose-200 bg-rose-50 p-3 max-h-44 overflow-auto text-xs" data-testid="error-boundary-dev-detail">
+            <summary className="text-[10px] uppercase tracking-wider font-bold text-rose-700 cursor-pointer mb-1">
+              Error Details ({msg.slice(0, 40)}...)
+            </summary>
+            <p className="text-[11px] font-mono text-rose-900 break-words mt-1">{msg}</p>
+            {this.state.componentStack && (
+              <pre className="text-[10px] font-mono text-rose-700 mt-1 whitespace-pre-wrap">
+                {this.state.componentStack.split('\n').slice(0, 6).join('\n')}
+              </pre>
+            )}
+          </details>
 
           <div className="flex gap-2 justify-center flex-wrap">
             <Button

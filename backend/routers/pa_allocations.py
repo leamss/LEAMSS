@@ -72,15 +72,9 @@ async def get_allocations(pa_id: str, current_user: dict = Depends(get_current_u
     if not _can_view_allocations(current_user, pa):
         raise HTTPException(status_code=403, detail="Not authorized")
     doc = await get_allocations_for_pa(pa_id)
-    
-    current_revenue = float(pa.get("proposal_fee") or pa.get("final_amount") or pa.get("fee_amount") or 0)
     if not doc:
         # Auto-build if structure exists
-        doc = await build_allocations_for_pa(pa, revenue=current_revenue if current_revenue > 0 else None)
-    elif current_revenue > 0 and float(doc.get("total_revenue") or 0) != current_revenue:
-        # Auto-recalculate if revenue was updated after initial creation
-        doc = await build_allocations_for_pa(pa, revenue=current_revenue)
-
+        doc = await build_allocations_for_pa(pa)
     if not doc:
         return {"pa_id": pa_id, "has_allocations": False, "message": "No cost structure matched or allocations not generated yet"}
     return {"pa_id": pa_id, "has_allocations": True, "allocations": _clean(doc)}

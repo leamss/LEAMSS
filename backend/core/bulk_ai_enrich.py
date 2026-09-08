@@ -19,16 +19,12 @@ import re
 from typing import Any, Dict, List, Optional, Tuple
 
 import httpx
-
-from core.resume_extractor import extract_text, extract_text_smart, parse_resume_with_ai
+from openai import AsyncOpenAI
 
 logger = logging.getLogger(__name__)
 
-EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
-# Bulk enrichment runs across hundreds of clients — use the fast Haiku model for both
-# resume parsing and ANZSCO matching (accurate enough for retrieve-then-rank, ~3x faster).
-MATCH_MODEL = "claude-haiku-4-5-20251001"
-BULK_PARSE_MODEL = "claude-haiku-4-5-20251001"
+BULK_PARSE_MODEL = "sonar-pro"
+AI_MATCH_MODEL = "sonar-pro"
 
 _UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                      "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
@@ -36,26 +32,27 @@ _UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.
 # Many resume hosts (e.g. LiteSpeed on leamss.com) DROP connections under a concurrent
 # burst from one IP ("Server disconnected without sending a response"). A single request
 # works fine, so we throttle downloads to a small, polite concurrency across the whole batch.
-_FETCH_SEM = asyncio.Semaphore(2)
+_FETCH_SEM = asyncio.Semaphore(4)
 # PDF/DOCX text extraction (pdfplumber/python-docx) is GIL-bound CPU work; even in a thread
 # it contends with the event loop. Cap simultaneous extractions so the API stays responsive.
-_EXTRACT_SEM = asyncio.Semaphore(2)
+_EXTRACT_SEM = asyncio.Semaphore(4)
 
 
 # ── Resume link → text ────────────────────────────────────────────
 def _normalize_resume_url(url: str) -> str:
     u = (url or "").strip()
+    # Google Docs
+    m_doc = re.search(r"docs\.google\.com/document/d/([A-Za-z0-9_-]+)", u)
+    if m_doc:
+        return f"https://docs.google.com/document/d/{m_doc.group(1)}/export?format=pdf"
+
     # Google Drive share links → direct download
-    m = re.search(r"drive\.google\.com/file/d/([A-Za-z0-9_-]+)", u)
-    if m:
-        return f"https://drive.google.com/uc?export=download&id={m.group(1)}"
-    m = re.search(r"drive\.google\.com/open\?id=([A-Za-z0-9_-]+)", u)
-    if m:
-        return f"https://drive.google.com/uc?export=download&id={m.group(1)}"
-    if "drive.google.com" in u:
+    m = re.search(r"drive\.google\.com/(?:file/d/|open\?id=|uc\?id=|uc\?export=download&id=)([A-Za-z0-9_-]+)", u)
+    if not m and "drive.google.com" in u:
         m = re.search(r"[?&]id=([A-Za-z0-9_-]+)", u)
-        if m:
-            return f"https://drive.google.com/uc?export=download&id={m.group(1)}"
+    if m:
+        return f"https://drive.usercontent.google.com/download?id={m.group(1)}&export=download&authuser=0&confirm=t"
+
     # Dropbox → force direct download
     if "dropbox.com" in u:
         if "dl=0" in u:
@@ -71,7 +68,7 @@ def _guess_filename(url: str, content_type: str, content_disposition: str) -> st
         if m:
             return m.group(1)
     path = url.split("?")[0]
-    if path.lower().endswith((".pdf", ".docx", ".doc", ".txt")):
+    if path.lower().endswith((".pdf", ".docx", ".doc", ".txt", ".png", ".jpg", ".jpeg")):
         return path.rsplit("/", 1)[-1]
     ct = (content_type or "").lower()
     if "pdf" in ct:
@@ -83,71 +80,16 @@ def _guess_filename(url: str, content_type: str, content_disposition: str) -> st
     return "resume.pdf"
 
 
-async def fetch_resume_text(url: str) -> Tuple[Optional[str], Optional[str]]:
-    """Download a resume from a public link and return (text, error).
-
-    Retries transient network failures (many hosts, e.g. leamss.com, intermittently
-    drop the connection under concurrent load — 'Server disconnected without response').
-    """
-    if not url:
-        return None, "No resume link provided"
-    fetch_url = _normalize_resume_url(url)
-    transient = (
-        httpx.RemoteProtocolError, httpx.ConnectError, httpx.ReadError,
-        httpx.ConnectTimeout, httpx.ReadTimeout, httpx.PoolTimeout, httpx.WriteError,
-    )
-    last_err: Optional[str] = None
-    for attempt in range(4):  # up to 4 tries with jittered backoff
+def _extract_text_from_bytes(file_bytes: bytes, filename: str) -> str:
+    from core.resume_extractor import extract_text
+    try:
+        text, _ = extract_text(filename, file_bytes)
+        return text or ""
+    except Exception as e:
         try:
-            async with _FETCH_SEM:  # polite, throttled downloads (avoid host rate-limit drops)
-                async with httpx.AsyncClient(
-                    follow_redirects=True,
-                    timeout=httpx.Timeout(45.0, connect=15.0),
-                    headers=_UA,
-                    limits=httpx.Limits(max_connections=4, max_keepalive_connections=0),
-                ) as client:
-                    resp = await client.get(fetch_url)
-                    resp.raise_for_status()
-                    content = resp.content
-                    ct = resp.headers.get("content-type", "")
-                    cd = resp.headers.get("content-disposition", "")
-
-                    # Google Drive interstitial (large files / virus-scan confirm page)
-                    if "text/html" in ct.lower() and content[:2000].lower().find(b"<html") != -1:
-                        token = re.search(rb'confirm=([0-9A-Za-z_-]+)', content)
-                        gid = re.search(r"id=([A-Za-z0-9_-]+)", fetch_url)
-                        if token and gid:
-                            resp = await client.get(
-                                f"https://drive.google.com/uc?export=download&confirm="
-                                f"{token.group(1).decode()}&id={gid.group(1)}",
-                            )
-                            content = resp.content
-                            ct = resp.headers.get("content-type", "")
-                            cd = resp.headers.get("content-disposition", "")
-                        if "text/html" in ct.lower():
-                            return None, "Link opened an HTML page, not a file. Share it as 'Anyone with the link' (Viewer)."
-
-            fname = _guess_filename(fetch_url, ct, cd)
-            # Smart extraction: handles PDF/DOCX/TXT and OCRs scanned PDFs & image resumes.
-            text, oerr = await extract_text_smart(fname, content)
-            if oerr:
-                return None, oerr
-            return text, None
-        except httpx.HTTPStatusError as e:
-            return None, f"Download failed (HTTP {e.response.status_code}). Is the link public?"
-        except ValueError as e:
-            return None, str(e)
-        except transient as e:  # noqa: PERF203 — retryable network failure
-            last_err = f"{type(e).__name__}: {str(e) or 'connection dropped'}"
-            if attempt < 3:
-                await asyncio.sleep(0.8 * (attempt + 1) + random.uniform(0, 0.7))
-                continue
-            logger.warning(f"resume fetch failed after retries for {url}: {last_err}")
-            return None, "Could not fetch resume (host dropped the connection after 4 tries). Check the link is publicly reachable."
-        except Exception as e:  # noqa: BLE001
-            logger.warning(f"resume fetch error for {url}: {e}")
-            return None, f"Could not fetch resume: {type(e).__name__}"
-    return None, last_err or "Could not fetch resume"
+            return file_bytes.decode("utf-8", errors="ignore")
+        except Exception:
+            return ""
 
 
 async def fetch_resume_bytes(url: str) -> Tuple[Optional[bytes], Optional[str], Optional[str]]:
@@ -157,38 +99,81 @@ async def fetch_resume_bytes(url: str) -> Tuple[Optional[bytes], Optional[str], 
     """
     if not url:
         return None, None, "No resume link provided"
-    fetch_url = _normalize_resume_url(url)
+    
+    # Extract Google Drive ID if present
+    gdrive_id = None
+    m_gd = re.search(r"drive\.google\.com/(?:file/d/|open\?id=|uc\?id=|uc\?export=download&id=)([A-Za-z0-9_-]+)", url)
+    if not m_gd and "drive.google.com" in url:
+        m_gd = re.search(r"[?&]id=([A-Za-z0-9_-]+)", url)
+    if m_gd:
+        gdrive_id = m_gd.group(1)
+
+    urls_to_try = [_normalize_resume_url(url)]
+    if gdrive_id:
+        urls_to_try.extend([
+            f"https://drive.google.com/uc?export=download&id={gdrive_id}&confirm=t",
+            f"https://lh3.googleusercontent.com/d/{gdrive_id}",
+            f"https://docs.google.com/uc?export=download&id={gdrive_id}",
+        ])
+
     transient = (
         httpx.RemoteProtocolError, httpx.ConnectError, httpx.ReadError,
         httpx.ConnectTimeout, httpx.ReadTimeout, httpx.PoolTimeout, httpx.WriteError,
     )
-    for attempt in range(3):
-        try:
-            async with _FETCH_SEM:
-                async with httpx.AsyncClient(
-                    follow_redirects=True,
-                    timeout=httpx.Timeout(45.0, connect=15.0),
-                    headers=_UA,
-                    limits=httpx.Limits(max_connections=4, max_keepalive_connections=0),
-                ) as client:
-                    resp = await client.get(fetch_url)
-                    resp.raise_for_status()
-                    content = resp.content
-                    ct = resp.headers.get("content-type", "")
-                    cd = resp.headers.get("content-disposition", "")
-                    if "text/html" in ct.lower() and content[:2000].lower().find(b"<html") != -1:
-                        return None, None, "Link opened an HTML page, not a file (private/expired link?)."
-            return content, _guess_filename(fetch_url, ct, cd), None
-        except httpx.HTTPStatusError as e:
-            return None, None, f"Download failed (HTTP {e.response.status_code}). Is the link public?"
-        except transient as e:  # noqa: PERF203
-            if attempt < 2:
-                await asyncio.sleep(0.8 * (attempt + 1) + random.uniform(0, 0.7))
-                continue
-            return None, None, "Host dropped the connection after retries."
-        except Exception as e:  # noqa: BLE001
-            return None, None, f"Could not fetch resume: {type(e).__name__}"
-    return None, None, "Could not fetch resume"
+
+    for fetch_url in urls_to_try:
+        for attempt in range(2):
+            try:
+                async with _FETCH_SEM:
+                    async with httpx.AsyncClient(
+                        follow_redirects=True,
+                        timeout=httpx.Timeout(45.0, connect=15.0),
+                        headers=_UA,
+                        verify=False,
+                        limits=httpx.Limits(max_connections=4, max_keepalive_connections=0),
+                    ) as client:
+                        resp = await client.get(fetch_url)
+                        resp.raise_for_status()
+                        content = resp.content
+                        ct = resp.headers.get("content-type", "")
+                        cd = resp.headers.get("content-disposition", "")
+                        if "text/html" in ct.lower() and content[:2000].lower().find(b"<html") != -1:
+                            # Check for direct download link inside HTML (e.g. Google Drive virus scan warning)
+                            html_str = content[:8000].decode("utf-8", errors="ignore")
+                            m_confirm = re.search(r'href="(/uc\?export=download[^"]+)"', html_str)
+                            if m_confirm:
+                                confirm_url = f"https://drive.google.com{m_confirm.group(1).replace('&amp;', '&')}"
+                                resp2 = await client.get(confirm_url)
+                                if resp2.status_code == 200 and not ("text/html" in resp2.headers.get("content-type", "").lower() and resp2.content[:2000].lower().find(b"<html") != -1):
+                                    return resp2.content, _guess_filename(confirm_url, resp2.headers.get("content-type", ""), resp2.headers.get("content-disposition", "")), None
+                            continue
+                        return content, _guess_filename(fetch_url, ct, cd), None
+            except httpx.HTTPStatusError:
+                break
+            except transient:
+                if attempt < 1:
+                    await asyncio.sleep(0.5)
+                    continue
+            except Exception:
+                break
+
+    return None, None, "Could not download resume from the provided link."
+
+
+async def fetch_resume_text(url: str) -> Tuple[Optional[str], Optional[str]]:
+    """Download a resume from a public link and extract text → (text, error)."""
+    file_bytes, filename, err = await fetch_resume_bytes(url)
+    if err or not file_bytes:
+        return None, err or "Could not fetch resume"
+    try:
+        from core.resume_extractor import extract_text_smart
+        async with _EXTRACT_SEM:
+            text, err_msg = await extract_text_smart(filename or "resume.pdf", file_bytes)
+            if err_msg or not text or not text.strip():
+                return None, err_msg or "Resume document was empty or unreadable"
+            return text[:20000], None
+    except Exception as e:
+        return None, f"Text extraction failed: {e}"
 
 
 # ── Occupation text → best ANZSCO code ────────────────────────────
@@ -211,11 +196,12 @@ If nothing fits, return {"best": null, "alternatives": []}.
 
 
 async def match_anzsco(db, description: str, max_candidates: int = 120) -> Dict[str, Any]:
-    """Retrieve-then-rank: shrink AU codes with $text, then let Claude pick the best."""
-    if not EMERGENT_LLM_KEY:
-        return {"_error": "EMERGENT_LLM_KEY not configured"}
-    # Only pull the few fields we actually send to the LLM — avoids loading 120 full
-    # occupation docs (with big tasks/description arrays) per row, which was blocking the loop.
+    """Retrieve-then-rank: shrink AU codes with $text, then let AI pick the best."""
+    api_key = os.environ.get("PERPLEXITY_API_KEY", "").strip()
+    if not api_key:
+        return {"_error": "PERPLEXITY_API_KEY not configured"}
+
+    # Only pull the few fields we actually send to the LLM
     proj = {
         "_id": 0, "code": 1, "title": 1,
         "hierarchy.unit_group_name": 1, "assessing_authority.name": 1, "alternative_titles": 1,
@@ -227,9 +213,12 @@ async def match_anzsco(db, description: str, max_candidates: int = 120) -> Dict[
         tq["$text"] = {"$search": description}
         tproj = dict(proj)
         tproj["score"] = {"$meta": "textScore"}
-        docs = [o async for o in db["occupation_master"].find(
-            tq, tproj,
-        ).sort([("score", {"$meta": "textScore"})]).limit(max_candidates)]
+        try:
+            docs = [o async for o in db["occupation_master"].find(
+                tq, tproj,
+            ).sort([("score", {"$meta": "textScore"})]).limit(max_candidates)]
+        except Exception:
+            docs = []
     if not docs:
         docs = [o async for o in db["occupation_master"].find(query, proj).limit(max_candidates)]
     if not docs:
@@ -250,25 +239,50 @@ async def match_anzsco(db, description: str, max_candidates: int = 120) -> Dict[
         + json.dumps(available, ensure_ascii=False)
         + "\n```\n\nReturn the best code + alternatives as JSON."
     )
+
     try:
-        from emergentintegrations.llm.chat import LlmChat, UserMessage  # type: ignore
-    except ImportError as e:  # pragma: no cover
-        return {"_error": f"emergentintegrations missing: {e}"}
-    try:
-        chat = LlmChat(api_key=EMERGENT_LLM_KEY, session_id=f"anzsco-{os.urandom(3).hex()}",
-                       system_message=_MATCH_SYSTEM).with_model("anthropic", MATCH_MODEL)
-        # emergentintegrations runs the BLOCKING litellm.completion() on the event loop.
-        # Run it in a worker thread (own loop) so concurrent bulk jobs don't freeze the API.
-        resp = await asyncio.to_thread(
-            lambda: asyncio.run(chat.send_message(UserMessage(text=prompt)))
+        _http = httpx.AsyncClient(verify=False, timeout=60)
+        client = AsyncOpenAI(
+            api_key=api_key,
+            base_url="https://api.perplexity.ai",
+            http_client=_http,
         )
-        raw = (str(resp) if resp is not None else "").strip()
+        response = None
+        for attempt in range(5):
+            try:
+                response = await client.chat.completions.create(
+                    model=AI_MATCH_MODEL,
+                    temperature=0.1,
+                    max_tokens=1500,
+                    messages=[
+                        {"role": "system", "content": _MATCH_SYSTEM},
+                        {"role": "user", "content": prompt},
+                    ],
+                )
+                break
+            except Exception as re_err:
+                err_str = str(re_err).lower()
+                if ("429" in err_str or "rate limit" in err_str) and attempt < 4:
+                    wait_sec = 2.0 * (attempt + 1) + 0.5
+                    logger.warning(f"Perplexity rate limited on match_anzsco, retrying in {wait_sec:.1f}s...")
+                    await asyncio.sleep(wait_sec)
+                    continue
+                raise
+
+        if not response:
+            return {"_error": "No response from AI"}
+
+        raw = response.choices[0].message.content or ""
         if raw.startswith("```"):
-            raw = raw.strip("`").lstrip("json").strip()
+            raw = re.sub(r"^```(?:json)?", "", raw.strip(), flags=re.IGNORECASE)
+            raw = re.sub(r"```$", "", raw.strip())
         i, j = raw.find("{"), raw.rfind("}")
         if i == -1 or j == -1:
             return {"_error": "AI returned non-JSON", "_raw": raw[:200]}
-        parsed = json.loads(raw[i:j + 1])
+        json_str = raw[i:j + 1]
+        json_str = re.sub(r"[\x00-\x1F\x7F]", "", json_str)
+        json_str = re.sub(r",(\s*[}\]])", r"\1", json_str)
+        parsed = json.loads(json_str)
         best = parsed.get("best") or None
         if best and best.get("code") not in valid_codes:
             best = None  # hallucinated code — drop

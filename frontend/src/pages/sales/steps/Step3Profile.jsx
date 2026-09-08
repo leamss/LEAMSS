@@ -95,8 +95,13 @@ export default function Step3Profile({ data, update, setData, headers }) {
           <Sparkles className="h-3.5 w-3.5 mr-1" />AI Atlas Auto-Suggest
         </Button>
         <Button variant="outline" size="sm" onClick={() => setShowResumeUpload(true)} data-testid="open-resume-upload">
-          <Upload className="h-3.5 w-3.5 mr-1" />Upload Resume
+          <Upload className="h-3.5 w-3.5 mr-1" />{data.resume_filename ? 'Replace Resume' : 'Upload Resume'}
         </Button>
+        {data.resume_filename && (
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-medium self-center">
+            📄 {data.resume_filename} <span className="text-[10px] text-indigo-500 font-normal">· will be attached to email</span>
+          </span>
+        )}
       </div>
 
       {data.occupation_code && (
@@ -294,6 +299,8 @@ export default function Step3Profile({ data, update, setData, headers }) {
               ielts_writing: lg.writing || d.ielts_writing,
               ielts_speaking: lg.speaking || d.ielts_speaking,
               marital_status: extracted.marital_status || d.marital_status,
+              resume_file_id: extracted.resume_file_id || d.resume_file_id,
+              resume_filename: extracted.resume_filename || d.resume_filename,
             }));
             setShowResumeUpload(false);
 

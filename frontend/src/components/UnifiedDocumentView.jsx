@@ -9,11 +9,16 @@ import { Progress } from '@/components/ui/progress';
 import {
   FileCheck, Upload, CheckCircle, CheckCircle2, Clock, AlertCircle, Loader2,
   ChevronDown, ChevronRight, FileText, XCircle, Shield, Download,
+<<<<<<< HEAD
   AlertTriangle, Calendar, Eye, FileUp, Info, Lock, CreditCard
+=======
+  AlertTriangle, Calendar, Eye, FileUp, Info, Lock
+>>>>>>> origin/main
 } from 'lucide-react';
 import ClientPaymentModal from './ClientPaymentModal';
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || (typeof window !== 'undefined' && window.location.hostname.includes('leamss.com') ? 'https://api.leamss.com' : 'http://localhost:8001');
+const API = `${BACKEND_URL}/api`;
 
 const UnifiedDocumentView = ({ token, caseId, caseData, onDocumentUploaded }) => {
   const [data, setData] = useState(null);
@@ -619,12 +624,20 @@ const renderIntakeField = (field, step) => {
               <div className="flex items-center gap-3">
                 {isExpanded ? <ChevronDown className="h-4 w-4 text-slate-400 flex-shrink-0" /> : <ChevronRight className="h-4 w-4 text-slate-400 flex-shrink-0" />}
                 <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${
+<<<<<<< HEAD
                   isLocked ? 'bg-slate-400' :
+=======
+                  step.is_locked ? 'bg-amber-500 shadow-sm' :
+>>>>>>> origin/main
                   stepComplete ? 'bg-emerald-500' :
                   step.status === 'completed' ? 'bg-emerald-500' :
                   step.status === 'in_progress' ? 'bg-[#2a777a]' : 'bg-slate-300'
                 }`}>
+<<<<<<< HEAD
                   {isLocked ? (
+=======
+                  {step.is_locked ? (
+>>>>>>> origin/main
                     <Lock className="h-4 w-4 text-white" />
                   ) : stepComplete || step.status === 'completed' ? (
                     <CheckCircle className="h-5 w-5 text-white" />
@@ -635,6 +648,7 @@ const renderIntakeField = (field, step) => {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <h4 className="font-semibold text-slate-800 dark:text-white text-sm">{step.step_name}</h4>
+<<<<<<< HEAD
                     {isLocked ? (
                       <Badge className="bg-amber-50 text-amber-800 border border-amber-300 text-[10px] gap-1 flex items-center">
                         <Lock className="h-2.5 w-2.5 text-amber-600" /> Locked
@@ -648,6 +662,14 @@ const renderIntakeField = (field, step) => {
                       </Badge>
                     )}
                     {!isLocked && (
+=======
+                    {isCurrentStep && <Badge className="bg-[#2a777a]/10 text-[#2a777a] text-[10px] border border-[#2a777a]/20">Current Step</Badge>}
+                    {step.is_locked ? (
+                      <Badge className="bg-amber-100 text-amber-800 border border-amber-300 text-[10px] flex items-center gap-1 font-semibold">
+                        <Lock className="h-2.5 w-2.5" /> Locked
+                      </Badge>
+                    ) : (
+>>>>>>> origin/main
                       <Badge className={`text-[10px] ${
                         step.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
                         step.status === 'in_progress' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'
@@ -684,6 +706,7 @@ const renderIntakeField = (field, step) => {
             {/* Expanded: Documents */}
             {isExpanded && (
               <div className="border-t divide-y">
+<<<<<<< HEAD
                 {/* Locked Banner inside step */}
                 {isLocked && (
                   <div className={`p-4 border-b flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${
@@ -736,6 +759,19 @@ const renderIntakeField = (field, step) => {
                 )}
 
                 {step.documents.length === 0 ? (
+=======
+                {step.is_locked ? (
+                  <div className="p-6 text-center bg-amber-50/60">
+                    <div className="w-10 h-10 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center mx-auto mb-2 shadow-sm">
+                      <Lock className="h-5 w-5" />
+                    </div>
+                    <p className="text-sm font-bold text-amber-950">Step Locked</p>
+                    <p className="text-xs text-amber-800 max-w-md mx-auto mt-1 leading-relaxed">
+                      {step.lock_reason || 'Please review and accept your assigned ANZSCO Occupation Code to view and upload the required document checklist.'}
+                    </p>
+                  </div>
+                ) : step.documents.length === 0 ? (
+>>>>>>> origin/main
                   <div className="p-6 text-center">
                     <FileText className="h-8 w-8 text-slate-200 mx-auto mb-2" />
                     <p className="text-sm text-slate-400">No documents required for this step</p>

@@ -43,7 +43,7 @@ import CmEarningsWidget from '@/components/CmEarningsWidget';
 //   // existing icons
 // } from 'lucide-react';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || (typeof window !== 'undefined' && window.location.hostname.includes('leamss.com') ? 'https://api.leamss.com' : 'http://localhost:8001');
 const API = `${BACKEND_URL}/api`;
 
 const CaseManagerDashboard = () => {
@@ -943,7 +943,20 @@ const workflowDocuments = stepDocData?.documents || [];
           );
         });
 
+<<<<<<< HEAD
         const hasUploaded = matchingDocs.length > 0;
+=======
+      return (
+        <div
+          key={doc.id || docIndex}
+          className="flex items-center justify-between gap-4 border border-slate-200 rounded-lg p-4 bg-white"
+
+        >
+          <div>
+            <p className="text-sm font-medium text-slate-800">
+              {docName}
+            </p>
+>>>>>>> origin/main
 
         return (
           <div
@@ -1040,6 +1053,7 @@ const workflowDocuments = stepDocData?.documents || [];
                             <span className="hidden md:inline">View</span>
                           </Button>
 
+<<<<<<< HEAD
                           <Button
                             size="sm"
                             variant="outline"
@@ -1050,6 +1064,23 @@ const workflowDocuments = stepDocData?.documents || [];
                           >
                             <Download className="h-3.5 w-3.5 text-slate-500" />
                           </Button>
+=======
+          <div>
+            {uploadedDoc ? (
+              <Badge className="bg-emerald-600">
+                Uploaded
+              </Badge>
+                      ) : canCMFill ? (
+              <div className="flex justify-end items-center min-w-[160px]">
+                {(fieldType === 'file' || fieldType === 'file_upload') && (
+                  <label className="cursor-pointer">
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+>>>>>>> origin/main
 
                           <Button
                             size="sm"

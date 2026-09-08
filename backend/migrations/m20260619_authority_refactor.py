@@ -231,16 +231,17 @@ async def refresh_occupation_counts(db) -> Dict[str, int]:
     return counts
 
 
-async def main() -> None:
-    mongo = AsyncIOMotorClient(os.environ["MONGO_URL"])
-    db = mongo[os.environ["DB_NAME"]]
+async def run_migration(db_handle=None) -> Dict[str, Any]:
+    """Callable migration function that seeds authorities and links occupations."""
+    if db_handle is None:
+        from core.database import db as default_db
+        db_handle = default_db
 
-    # ─── Step 1: register migration as a Phase 19.6 import_batch ────────────
     fake_file = b"phase_19.7_migration"
     batch = await ibs.open_batch(
-        db,
+        db_handle,
         ingestion_path="phase_19.7_authority_refactor",
-        endpoint="cli: migrations/m20260619_authority_refactor.py",
+        endpoint="startup / migration: m20260619_authority_refactor.py",
         uploaded_by="system",
         uploaded_by_name="Phase 19.7 Migration",
         file_name="phase_19.7_authority_refactor",
@@ -248,30 +249,18 @@ async def main() -> None:
         file_size_bytes=len(fake_file),
         target_collection="occupation_master",
     )
-    logger.info("Migration batch opened: %s", batch["batch_id"])
 
     try:
-        # ─── Step 2: Seed authorities ─────────────────────────────────────
-        seed_summary = await seed_authorities(db)
-        logger.info("Seed summary: %s", seed_summary)
-
-        # ─── Step 3: Migrate occupations ──────────────────────────────────
-        migrate_summary = await migrate_au_occupations(db, batch=batch)
-        logger.info("Migration summary: %s", migrate_summary)
-
-        # ─── Step 4: Refresh occupation counts ────────────────────────────
-        counts = await refresh_occupation_counts(db)
+        seed_summary = await seed_authorities(db_handle)
+        migrate_summary = await migrate_au_occupations(db_handle, batch=batch)
+        counts = await refresh_occupation_counts(db_handle)
         top_5 = sorted(counts.items(), key=lambda x: -x[1])[:5]
-        logger.info("Top 5 authorities by occupation count: %s", top_5)
 
-        # ─── Step 5: Close batch ───────────────────────────────────────────
-        await ibs.close_batch(db, batch, total_rows=migrate_summary["total_au"],
+        await ibs.close_batch(db_handle, batch, total_rows=migrate_summary["total_au"],
                               status="committed")
-        # Batch is revocable (we captured pre_state for every update)
 
-        # ─── Step 6: Audit log ────────────────────────────────────────────
         await log_action(
-            db, action="occupation_master.phase_197_migration",
+            db_handle, action="occupation_master.phase_197_migration",
             user_id="system", user_name="Phase 19.7 Migration",
             severity="info",
             summary={
@@ -281,18 +270,16 @@ async def main() -> None:
                 "top_5_by_count": top_5,
             },
         )
-
-        print("\n" + "="*70)
-        print("PHASE 19.7 MIGRATION COMPLETE")
-        print("="*70)
-        print(f"Batch ID (revocable 24h): {batch['batch_id']}")
-        print(f"Seeded authorities:  {seed_summary}")
-        print(f"Migrated occupations: {migrate_summary}")
-        print(f"Top 5 by occupations: {top_5}")
-        print("="*70)
+        return {
+            "status": "success",
+            "batch_id": batch["batch_id"],
+            "seed_summary": seed_summary,
+            "migrate_summary": migrate_summary,
+            "top_5_by_count": top_5,
+        }
     except Exception as e:
         logger.exception("Migration failed: %s", e)
-        await db["import_batches"].update_one(
+        await db_handle["import_batches"].update_one(
             {"batch_id": batch["batch_id"]},
             {"$set": {"status": "failed", "is_revocable": False,
                       "non_revocable_reason": "migration_failed"}},
@@ -300,5 +287,17 @@ async def main() -> None:
         raise
 
 
+async def main() -> None:
+    mongo = AsyncIOMotorClient(os.environ.get("MONGO_URL", "mongodb://localhost:27017"))
+    db = mongo[os.environ.get("DB_NAME", "leamss_db")]
+    res = await run_migration(db)
+    print("\n" + "="*70)
+    print("PHASE 19.7 MIGRATION COMPLETE")
+    print("="*70)
+    print(f"Result: {res}")
+    print("="*70)
+
+
 if __name__ == "__main__":
     asyncio.run(main())
+

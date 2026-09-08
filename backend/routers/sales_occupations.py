@@ -30,7 +30,7 @@ skill_body_master_col = db["skill_body_master"]
 
 ROLE_SALES = {
     "admin", "admin_owner", "sales_executive", "sr_sales_executive",
-    "sales_manager", "sales_head", "partner", "case_manager",
+    "sales_manager", "sales_head", "partner", "case_manager", "client",
 }
 
 

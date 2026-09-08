@@ -541,13 +541,15 @@ class SignBody(BaseModel):
 
 @router_pa_agree.post("/{aid}/sign")
 async def sign_agreement(aid: str, body: SignBody, request: Request, current_user: dict = Depends(get_current_user)):
-    if current_user.get("role") != "client":
-        raise HTTPException(status_code=403, detail="Client only")
     a = await pa_agreements_col.find_one({"id": aid}, {"_id": 0})
     if not a:
         raise HTTPException(status_code=404, detail="Agreement not found")
-    if a.get("client_user_id") != current_user["id"] and (a.get("client_email") or "").lower() != (current_user.get("email") or "").lower():
-        raise HTTPException(status_code=403, detail="Not your agreement")
+    role = current_user.get("role")
+    is_client = (a.get("client_user_id") == current_user["id"]) or ((a.get("client_email") or "").lower() == (current_user.get("email") or "").lower())
+    is_admin = role in ("admin", "super_admin")
+    is_partner = role in ("partner", "sales_executive", "sr_sales_executive")
+    if not (is_client or is_admin or is_partner):
+        raise HTTPException(status_code=403, detail="Not authorized to sign this agreement")
     if a.get("status") == "signed":
         raise HTTPException(status_code=400, detail="Already signed")
     if not body.signature_data_url.startswith("data:image/"):

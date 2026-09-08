@@ -145,42 +145,81 @@ _OCR_SYS = ("You are an OCR engine. Transcribe ALL text from the document image(
 
 
 async def ocr_images_to_text(images_b64: List[str], model: Optional[str] = None) -> str:
-    """Transcribe text from one or more images using a vision LLM. Returns plain text ('' on failure)."""
-    emergent_key = os.environ.get("EMERGENT_LLM_KEY") or os.environ.get("PERPLEXITY_API_KEY")
-    if not emergent_key or not images_b64:
+    """Transcribe text from one or more images using Anthropic Claude Vision."""
+    import httpx
+    anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+    if not anthropic_key or not images_b64:
         return ""
+
+    content: List[Dict[str, Any]] = []
+    for b64 in images_b64[:OCR_MAX_PAGES]:
+        content.append({
+            "type": "image",
+            "source": {
+                "type": "base64",
+                "media_type": "image/png",
+                "data": b64,
+            },
+        })
+    content.append({
+        "type": "text",
+        "text": _OCR_SYS,
+    })
+
     try:
-        from emergentintegrations.llm.chat import LlmChat, UserMessage, ImageContent
-        chat = LlmChat(api_key=emergent_key, session_id=f"ocr-{os.urandom(4).hex()}",
-                       system_message=_OCR_SYS).with_model("gemini", model or OCR_MODEL)
-        msg = UserMessage(text="Transcribe all text from this resume/document image verbatim.",
-                          file_contents=[ImageContent(image_base64=b) for b in images_b64])
-        resp = await asyncio.to_thread(lambda: asyncio.run(chat.send_message(msg)))
-        return (str(resp) if resp is not None else "").strip()
-    except Exception as e:  # noqa: BLE001
-        logger.warning(f"OCR failed: {e}")
-        return ""
+        async with httpx.AsyncClient(verify=False, timeout=60) as client:
+            resp = await client.post(
+                "https://api.anthropic.com/v1/messages",
+                headers={
+                    "x-api-key": anthropic_key,
+                    "anthropic-version": "2023-06-01",
+                    "content-type": "application/json",
+                },
+                json={
+                    "model": "claude-3-5-haiku-20241022",
+                    "max_tokens": 4000,
+                    "messages": [
+                        {"role": "user", "content": content}
+                    ],
+                },
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                text_blocks = [b.get("text", "") for b in data.get("content", []) if b.get("type") == "text"]
+                return "\n\n".join(text_blocks).strip()
+            else:
+                logger.warning(f"Claude OCR error {resp.status_code}: {resp.text[:200]}")
+    except Exception as e:
+        logger.warning(f"OCR request failed: {e}")
+    return ""
 
 
 def _render_pdf_to_pngs(file_bytes: bytes, max_pages: int = OCR_MAX_PAGES, dpi: int = 150) -> List[str]:
-    """Render the first N PDF pages to base64 PNGs (CPU-bound; call via to_thread)."""
+    """Render the first N PDF pages to base64 PNGs using pypdfium2."""
     import base64
-    import pymupdf
+    import io
+    import pypdfium2
     out: List[str] = []
-    doc = pymupdf.open(stream=file_bytes, filetype="pdf")
+    pdf = pypdfium2.PdfDocument(file_bytes)
     try:
-        for i in range(min(max_pages, doc.page_count)):
-            pix = doc[i].get_pixmap(dpi=dpi)
-            out.append(base64.b64encode(pix.tobytes("png")).decode())
+        n_pages = min(len(pdf), max_pages)
+        for i in range(n_pages):
+            page = pdf[i]
+            image = page.render(scale=1.5).to_pil()
+            buf = io.BytesIO()
+            image.save(buf, format="PNG")
+            out.append(base64.b64encode(buf.getvalue()).decode())
+    except Exception as e:
+        logger.warning(f"Error rendering PDF to PNGs: {e}")
     finally:
-        doc.close()
+        pdf.close()
     return out
 
 
 async def ocr_pdf_bytes(file_bytes: bytes, model: Optional[str] = None) -> str:
     try:
         pngs = await asyncio.to_thread(_render_pdf_to_pngs, file_bytes)
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         logger.warning(f"PDF render for OCR failed: {e}")
         return ""
     return await ocr_images_to_text(pngs, model=model) if pngs else ""
@@ -203,7 +242,7 @@ async def extract_text_smart(filename: str, file_bytes: bytes) -> Tuple[Optional
         text = await ocr_image_bytes(file_bytes)
         if text and len(text.strip()) >= 30:
             return text, None
-        return None, "Could not read text from image (OCR found nothing)."
+        return None, "Could not read text from image."
 
     try:
         text, _meta = await asyncio.to_thread(extract_text, filename, file_bytes)
@@ -219,16 +258,22 @@ async def extract_text_smart(filename: str, file_bytes: bytes) -> Tuple[Optional
         if ocr and len(ocr.strip()) >= 30:
             return ocr, None
     if not text or len(text.strip()) < 30:
-        return None, "Resume text was empty (scanned image or unreadable file — OCR found no text)."
+        return None, "Resume text was empty (scanned image or unreadable file)."
     return text, None
 
 
-async def parse_resume_with_ai(resume_text: str, session_id: Optional[str] = None) -> Dict[str, Any]:
-    """Send resume text to Claude AI for structured extraction.
+async def parse_resume_with_ai(
+    resume_text: str,
+    session_id: Optional[str] = None,
+    model: Optional[str] = None,
+    **kwargs: Any,
+) -> Dict[str, Any]:
+    """Send resume text to AI for structured extraction.
     Returns the parsed JSON (Phase 6.7 ProfileCreate shape) or a fallback empty shell.
     """
-    if not PERPLEXITY_API_KEY:
-     return {"_error": "PERPLEXITY_API_KEY not configured"}
+    key = os.environ.get("PERPLEXITY_API_KEY", "").strip()
+    if not key:
+        return {"_error": "PERPLEXITY_API_KEY not configured"}
     if not resume_text or len(resume_text.strip()) < 50:
         return {"_error": "Resume text is too short to extract anything meaningful"}
 
@@ -251,26 +296,41 @@ async def parse_resume_with_ai(resume_text: str, session_id: Optional[str] = Non
         import httpx as _httpx
         _http = _httpx.AsyncClient(verify=False, timeout=60)
         client = AsyncOpenAI(
-            api_key=PERPLEXITY_API_KEY,
+            api_key=key,
             base_url="https://api.perplexity.ai",
             http_client=_http,
         )
 
-        response = await client.chat.completions.create(
-    model=PERPLEXITY_MODEL,
-    temperature=0,
-    max_tokens=2500,
-    messages=[
-        {
-            "role": "system",
-            "content": EXTRACTION_PROMPT,
-        },
-        {
-            "role": "user",
-            "content": user_prompt,
-        },
-    ],
-)
+        response = None
+        for attempt in range(5):
+            try:
+                response = await client.chat.completions.create(
+                    model=model or PERPLEXITY_MODEL,
+                    temperature=0,
+                    max_tokens=2500,
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": EXTRACTION_PROMPT,
+                        },
+                        {
+                            "role": "user",
+                            "content": user_prompt,
+                        },
+                    ],
+                )
+                break
+            except Exception as re_err:
+                err_str = str(re_err).lower()
+                if ("429" in err_str or "rate limit" in err_str) and attempt < 4:
+                    wait_sec = 2.0 * (attempt + 1) + 0.5
+                    logger.warning(f"Perplexity rate limited on resume extraction, retrying in {wait_sec:.1f}s...")
+                    await asyncio.sleep(wait_sec)
+                    continue
+                raise
+
+        if not response:
+            return {"_error": "No response from AI"}
 
         message = response.choices[0].message
         raw = message.content or ""

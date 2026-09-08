@@ -41,6 +41,33 @@ def _can_access(user: dict) -> bool:
     return _user_role(user) in ROLE_SALES or "*" in (user.get("permissions") or [])
 
 
+def _safe_json_loads(raw: str) -> dict:
+    clean = raw.strip()
+    if clean.startswith("```"):
+        clean = clean.strip("`").lstrip("json").strip()
+    first = clean.find("{")
+    last = clean.rfind("}")
+    if first == -1:
+        raise ValueError(f"No JSON object found in AI response")
+    sub = clean[first:last + 1]
+    try:
+        return json.loads(sub)
+    except Exception:
+        pass
+    for tail in ['\n  ]\n}', '\n}', '"\n  ]\n}', '"}\n  ]\n}', '}\n  ]\n}']:
+        try:
+            return json.loads(sub + tail)
+        except Exception:
+            pass
+    last_obj = sub.rfind("},")
+    if last_obj != -1:
+        try:
+            return json.loads(sub[:last_obj + 1] + "\n  ]\n}")
+        except Exception:
+            pass
+    return json.loads(sub)
+
+
 # ════════════════════════════════════════════════════════════════
 # OCCUPATION SUGGESTER — natural-language → top 3-5 codes
 # ════════════════════════════════════════════════════════════════
@@ -100,7 +127,8 @@ async def suggest_occupation(
     if not _can_access(current_user):
         raise HTTPException(status_code=403, detail="Not authorised")
 
-    if not PERPLEXITY_API_KEY:
+    api_key = (os.getenv("PERPLEXITY_API_KEY") or PERPLEXITY_API_KEY or "").strip()
+    if not api_key:
         raise HTTPException(
             status_code=500,
             detail="PERPLEXITY_API_KEY not configured"
@@ -141,6 +169,31 @@ async def suggest_occupation(
             detail="No occupation codes loaded in the knowledge base",
         )
 
+    import re
+    desc_words = set(re.findall(r'\b[a-zA-Z]{3,}\b', req.description.lower()))
+
+    def _score_occ(a: dict) -> int:
+        title_lower = (a.get("title") or "").lower()
+        group_lower = (a.get("group") or "").lower()
+        alts = [str(x).lower() for x in (a.get("alternative_titles") or [])]
+        code = str(a.get("code") or "")
+
+        score = 0
+        for w in desc_words:
+            if w in title_lower:
+                score += 15
+            elif any(w in alt for alt in alts):
+                score += 10
+            elif w in group_lower:
+                score += 5
+            elif w == code:
+                score += 25
+        return score
+
+    # Sort available codes by relevance score
+    scored_codes = sorted(available_codes, key=_score_occ, reverse=True)
+    top_codes = scored_codes[:45] if len(scored_codes) > 45 else scored_codes
+
     available_slim = [
         {
             "country_code": a["country_code"],
@@ -149,9 +202,9 @@ async def suggest_occupation(
             "group": a["group"],
             "assessing_body": a.get("assessing_body"),
             "pathway": a.get("pathway"),
-            "alt": a.get("alternative_titles")[:3],
+            "alt": a.get("alternative_titles")[:2],
         }
-        for a in available_codes
+        for a in top_codes
     ]
 
     user_prompt = (
@@ -163,43 +216,37 @@ async def suggest_occupation(
     )
 
     client = AsyncOpenAI(
-        api_key=PERPLEXITY_API_KEY,
+        api_key=api_key,
         base_url="https://api.perplexity.ai",
-        http_client=httpx.AsyncClient(verify=False, timeout=60)
+        http_client=httpx.AsyncClient(verify=False, timeout=25)
     )
 
     try:
-        print("Before API call")
         response = await client.chat.completions.create(
-    model="sonar-reasoning-pro",
-    messages=[
-        {"role": "system", "content": SUGGESTER_SYSTEM_PROMPT},
-        {"role": "user", "content": user_prompt},
-    ],
-    temperature=0,
-)
+            model="sonar-pro",
+            temperature=0,
+            max_tokens=900,
+            messages=[
+                {"role": "system", "content": SUGGESTER_SYSTEM_PROMPT},
+                {"role": "user", "content": user_prompt},
+            ],
+        )
 
         raw = response.choices[0].message.content.strip()
-        print("=" * 100)
-        print(repr(raw))
-        print("=" * 100)
 
         if raw.startswith("```"):
             raw = raw.strip("`").lstrip("json").strip()
 
         try:
             parsed = json.loads(raw)
-
         except json.JSONDecodeError:
             first = raw.find("{")
             last = raw.rfind("}")
-
             if first == -1 or last == -1:
                 raise HTTPException(
                     status_code=502,
                     detail=f"AI returned non-JSON:\n{raw}",
                 )
-
             parsed = json.loads(raw[first:last + 1])
 
         # Verify returned codes exist
@@ -211,318 +258,21 @@ async def suggest_occupation(
         for s in parsed.get("suggestions", []):
             cc = s.get("country_code", "").upper()
             code = str(s.get("code", ""))
-
             s["country_code"] = cc
             s["_verified"] = (cc, code) in valid_set
 
         parsed["_ai_status"] = "ok"
-        parsed["_ai_model"] = "sonar-reasoning-pro"
+        parsed["_ai_model"] = "sonar-pro"
 
         return parsed
     
-    except Exception as e:
-      import traceback
-
-      traceback.print_exc()
-
-      logger.exception("Perplexity Error")
-
-      raise HTTPException(
-        status_code=500,
-        detail=str(e)
-    )
-
-    except HTTPException:
-        raise
-
-    except Exception as e:
-        logger.error(f"Occupation suggester error: {e}")
-
-        raise HTTPException(
-            status_code=502,
-            detail=f"AI call failed: {type(e).__name__}: {str(e)[:150]}",
-        )
-# ════════════════════════════════════════════════════════════════
-# Phase 10.3 — ATLAS AUTO-SUGGEST (free-text → NOC + PNP + EE intel)
-# ════════════════════════════════════════════════════════════════
-ATLAS_AUTO_SUGGEST_SYSTEM_PROMPT = """You are an immigration occupation matching expert.
-
-A sales rep will describe a candidate in plain English, optionally with a destination
-country and/or sub-region (province/state). Your task: from the OCCUPATION_LIST, return
-the TOP 3-5 occupation codes that best match the candidate's CURRENT occupation.
-
-ABSOLUTE RULES
-🔴 RULE 1 — Match on the candidate's CURRENT job duties, NOT their degree.
-🔴 RULE 2 — Only suggest codes from OCCUPATION_LIST. Do NOT invent codes.
-🔴 RULE 3 — If a destination sub-region (province/state) is mentioned, prefer codes
-            that region targets.
-🔴 RULE 4 — Confidence: HIGH (clear duty match), MEDIUM (related), LOW (loose).
-🔴 RULE 5 — Output ONLY JSON, no prose, no markdown.
-
-OUTPUT FORMAT
-{
-  "suggestions": [
-    {
-      "code": "21231",
-      "title": "Software engineers and designers",
-      "confidence": "high|medium|low",
-      "reasoning": "2-3 sentence match explanation",
-      "destination_region_match": true|false
-    }
-  ],
-  "tip": "1-sentence sales advice"
-}
-"""
-
-
-class AtlasAutoSuggestRequest(BaseModel):
-    description: str = Field(..., min_length=15, max_length=2000)
-    country_code: str = Field("CA", description="AU / CA / NZ — the destination country")
-    region_code: Optional[str] = Field(None, description="Optional state/province: NSW/VIC/BC/ON/etc")
-    max_suggestions: int = Field(5, ge=1, le=8)
-
-
-@router.post("/atlas-auto-suggest")
-async def atlas_auto_suggest(req: AtlasAutoSuggestRequest, current_user: dict = Depends(get_current_user)):
-    """Phase 10.3 → 10.7 — Multi-country Atlas Auto-Suggest.
-
-    Free-text → top occupation matches enriched with country-specific Atlas data.
-    Works across AU (ANZSCO 6-digit), CA (NOC 5-digit), NZ (ANZSCO 6-digit).
-
-    Hybrid LLM router: routes to Haiku 4.5 (fast, cheap) via `atlas_auto_suggest`.
-    """
-    if not _can_access(current_user):
-        raise HTTPException(status_code=403, detail="Not authorised")
-    if not PERPLEXITY_API_KEY:
-        raise HTTPException(
-        status_code=500,
-        detail="PERPLEXITY_API_KEY not configured"
-    )
-
-    country = (req.country_code or "CA").upper()
-    if country not in {"AU", "CA", "NZ"}:
-        raise HTTPException(status_code=400, detail=f"Unsupported country: {country}")
-
-    # Country-specific priority field used for region-match enrichment
-    if country == "AU":
-        priority_match_key = "state_nomination"
-    elif country == "CA":
-        priority_match_key = "pnp_eligibility"
-    else:  # NZ
-        priority_match_key = "regional_skill_shortage"
-
-    # Slim list — cap to ~600 codes per country to keep prompt size reasonable
-    available: List[Dict[str, Any]] = []
-    async for occ in db["occupation_master"].find(
-        {"country_code": country, "status": {"$ne": "superseded"}},
-        {"_id": 0, "code": 1, "title": 1, "teer_category": 1, "skill_level": 1,
-         "alternative_titles": 1, "hierarchy": 1, priority_match_key: 1, "state_nomination": 1},
-    ):
-        # If region_code given, prefer codes targeted by that region
-        region_match = False
-        if req.region_code:
-            rc = req.region_code.upper()
-            if country == "CA":
-                for p in (occ.get("pnp_eligibility") or []):
-                    if (p.get("province_code") or "").upper() == rc:
-                        region_match = True
-                        break
-            elif country == "AU":
-                state_doc = occ.get("state_nomination") or {}
-                if rc in state_doc and state_doc.get(rc):
-                    region_match = True
-        major_group = (occ.get("hierarchy") or {}).get("major_group", {}) if isinstance(occ.get("hierarchy"), dict) else {}
-        available.append({
-            "code": occ.get("code"),
-            "title": occ.get("title"),
-            "skill_level_or_teer": occ.get("teer_category") if country == "CA" else occ.get("skill_level"),
-            "major_group": major_group.get("title") if isinstance(major_group, dict) else None,
-            "alt": (occ.get("alternative_titles") or [])[:5],
-            "_region_match": region_match,
-        })
-
-    if not available:
-        raise HTTPException(
-            status_code=400,
-            detail=f"No {country} occupation codes available in Atlas yet.",
-        )
-
-    available_slim = [{k: v for k, v in a.items() if not k.startswith("_")} for a in available]
-
-    classification_label = "NOC 2021" if country == "CA" else "ANZSCO"
-    region_hint = ""
-    if req.region_code:
-        region_label = "PROVINCE" if country == "CA" else "STATE"
-        region_hint = f"## DESTINATION {region_label} PREFERENCE\n{req.region_code.upper()}\n\n"
-
-    user_prompt = (
-        f"## DESTINATION COUNTRY\n{country} (classification: {classification_label})\n\n"
-        f"## CANDIDATE DESCRIPTION\n{req.description.strip()}\n\n"
-        f"{region_hint}"
-        + "## OCCUPATION_LIST\n```json\n"
-        + json.dumps(available_slim, ensure_ascii=False)
-        + f"\n```\n\nSuggest the top {req.max_suggestions} occupation codes. Return JSON only."
-    )
-
-    # try:
-    #     from emergentintegrations.llm.chat import LlmChat, UserMessage  # type: ignore
-    # except ImportError as e:
-    #     raise HTTPException(status_code=500, detail=f"emergentintegrations not installed: {e}")
-
-    try:
-        # chat = LlmChat(
-        #     api_key=EMERGENT_LLM_KEY,
-        #     session_id=f"atlas-suggest-{country.lower()}-{current_user.get('id','anon')[:8]}",
-        #     system_message=ATLAS_AUTO_SUGGEST_SYSTEM_PROMPT,
-        # ).with_model("anthropic", model_for("atlas_auto_suggest"))
-        # response = await chat.send_message(UserMessage(text=user_prompt))
-        # raw = (str(response) if response is not None else "").strip()
-        # if raw.startswith("```"):
-        #     raw = raw.strip("`").lstrip("json").strip()
-        client = AsyncOpenAI(
-            api_key=PERPLEXITY_API_KEY,
-            base_url="https://api.perplexity.ai",
-            http_client=httpx.AsyncClient(verify=False, timeout=60)
-        )
-
-        try:
-            response = await client.chat.completions.create(
-                model="sonar-reasoning-pro",
-                messages=[
-                    {
-                        "role": "system",
-                        "content": ATLAS_AUTO_SUGGEST_SYSTEM_PROMPT,
-                    },
-                    {
-                        "role": "user",
-                        "content": user_prompt,
-                    },
-                ],
-                temperature=0.2,
-                max_tokens=1800,
-            )
-
-            raw = response.choices[0].message.content.strip()
-            print("=" * 100)
-            print(raw)
-            print("=" * 100)
-            print("Length:", len(raw))
-            print("Ends with }:", raw.endswith("}"))
-
-            if raw.startswith("```"):
-                raw = raw.strip("`").lstrip("json").strip()
-
-            first = raw.find("{")
-            last = raw.rfind("}")
-
-            if first == -1 or last == -1:
-                raise HTTPException(
-                    status_code=502,
-                    detail=f"AI returned non-JSON: {raw[:200]}"
-                )
-
-            parsed = json.loads(raw[first:last + 1])
-
-            # Cross-check that suggested codes actually exist
-                        # Cross-check that suggested codes actually exist
-            valid_codes = {a["code"] for a in available}
-
-            for s in parsed.get("suggestions", []):
-                code = str(s.get("code", ""))
-                s["_verified"] = code in valid_codes
-
-            parsed["_ai_status"] = "ok"
-            parsed["_ai_model"] = "sonar-reasoning-pro"
-
-            # DON'T return here
-            # Continue to the Atlas enrichment section below
-          
-
-           
-
-        except json.JSONDecodeError as e:
-            raise HTTPException(
-                status_code=502,
-                detail=f"AI returned malformed JSON: {e}"
-            )
-
-        except HTTPException:
-            raise
-
-        except Exception as e:
-            logger.error(f"Occupation suggester error: {e}")
-            raise HTTPException(
-                status_code=502,
-                detail=f"AI call failed: {type(e).__name__}: {str(e)[:150]}"
-            )
-        first = raw.find("{")
-        last = raw.rfind("}")
-        if first == -1 or last == -1:
-            raise HTTPException(status_code=502, detail=f"AI returned non-JSON: {raw[:200]}")
-        parsed = json.loads(raw[first:last + 1])
-
-        # Enrich each suggestion with full country-specific Atlas data
-        valid_codes = {a["code"] for a in available}
-        enriched: List[Dict[str, Any]] = []
-        for s in parsed.get("suggestions", []):
-            code = str(s.get("code", ""))
-            if code not in valid_codes:
-                continue
-            full = await db["occupation_master"].find_one(
-                {"country_code": country, "code": code},
-                {"_id": 0, "code": 1, "title": 1, "teer_category": 1, "teer_label": 1,
-                 "skill_level": 1, "ee_eligibility": 1, "pnp_eligibility": 1,
-                 "quebec_eligibility": 1, "ircc_round_cutoffs": 1, "regional_pilot_eligibility": 1,
-                 "state_nomination": 1, "visa_pathways": 1, "skillselect_tier": 1,
-                 "hierarchy": 1, "assessing_authority": 1, "min_invitation_points": 1},
-            )
-            if not full:
-                continue
-
-            # Build country-flavoured atlas payload
-            atlas: Dict[str, Any] = {
-                "country_code": country,
-                "skill_level_or_teer": full.get("teer_category") if country == "CA" else full.get("skill_level"),
-                "major_group": (full.get("hierarchy") or {}).get("major_group", {}),
-                "classification": classification_label,
-            }
-            if country == "CA":
-                atlas["teer_category"] = full.get("teer_category")
-                atlas["teer_label"] = full.get("teer_label")
-                atlas["ee_eligibility"] = full.get("ee_eligibility") or {}
-                # Sort PNPs by region preference
-                pnps = full.get("pnp_eligibility") or []
-                if req.region_code:
-                    rc = req.region_code.upper()
-                    pnps = sorted(pnps, key=lambda p: 0 if (p.get("province_code") or "").upper() == rc else 1)
-                atlas["pnp_eligibility"] = pnps
-                atlas["ircc_round_cutoffs"] = full.get("ircc_round_cutoffs") or {}
-                atlas["regional_pilot_eligibility"] = full.get("regional_pilot_eligibility") or []
-                atlas["quebec_eligibility"] = full.get("quebec_eligibility") or {}
-            elif country == "AU":
-                atlas["assessing_authority"] = full.get("assessing_authority") or {}
-                atlas["skillselect_tier"] = full.get("skillselect_tier")
-                atlas["state_nomination"] = full.get("state_nomination") or {}
-                atlas["visa_pathways"] = full.get("visa_pathways") or []
-                atlas["min_invitation_points"] = full.get("min_invitation_points") or {}
-            else:  # NZ
-                atlas["assessing_authority"] = full.get("assessing_authority") or {}
-                atlas["visa_pathways"] = full.get("visa_pathways") or []
-
-            enriched.append({**s, "atlas": atlas})
-
-        return {
-            "suggestions": enriched,
-            "tip": parsed.get("tip", ""),
-            "_ai_model": model_for("atlas_auto_suggest"),
-            "_total_candidates_considered": len(available),
-            "_country": country,
-            "_region_filter": req.region_code,
-        }
-    except json.JSONDecodeError as e:
-        raise HTTPException(status_code=502, detail=f"AI returned malformed JSON: {e}")
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Atlas auto-suggest error: {e}")
-        raise HTTPException(status_code=502, detail=f"AI call failed: {type(e).__name__}: {str(e)[:150]}")
+        import traceback
+        traceback.print_exc()
+        logger.exception("Perplexity Error")
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )

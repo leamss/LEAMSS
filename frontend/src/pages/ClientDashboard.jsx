@@ -42,9 +42,13 @@ import EMITracker from '@/components/EMITracker';
 import FamilyManager from '@/components/FamilyManager';
 import WhatsAppButton from '@/components/WhatsAppButton';
 import PreAssessmentMiniPortal from '@/components/PreAssessmentMiniPortal';
+<<<<<<< HEAD
 import ClientPaymentModal from '@/components/ClientPaymentModal';
+=======
+import ClientOccupationReviewCard from '@/components/ClientOccupationReviewCard';
+>>>>>>> origin/main
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || (typeof window !== 'undefined' && window.location.hostname.includes('leamss.com') ? 'https://api.leamss.com' : 'http://localhost:8001');
 const API = `${BACKEND_URL}/api`;
 
 const ClientDashboard = () => {
@@ -508,9 +512,10 @@ const ClientDashboard = () => {
   };
 
   const getProgressPercentage = () => {
-    if (!caseData || !caseData.steps) return 0;
+    if (!caseData || !caseData.steps || !caseData.steps.length) return 0;
     const completed = caseData.steps.filter(s => s.status === 'completed').length;
-    return (completed / caseData.steps.length) * 100;
+    const pct = Math.round((completed / caseData.steps.length) * 100);
+    return isNaN(pct) ? 0 : pct;
   };
 
   // Get additional document requests
@@ -530,12 +535,14 @@ const ClientDashboard = () => {
     caseData.steps.forEach(step => {
       if (!step.is_locked) {
         step.required_documents?.forEach(doc => {
+          const docName = typeof doc === 'string' ? doc : (doc?.doc_name || doc?.name || '');
+          if (!docName) return;
           const uploaded = documents.find(d => 
             d.step_name === step.step_name && 
-            (d.document_type === doc.doc_name || d.document_type === 'workflow')
+            (d.document_type === docName || d.document_type === 'workflow')
           );
           if (!uploaded) {
-            pending.push({ ...doc, step_name: step.step_name, step_order: step.step_order });
+            pending.push({ ...(typeof doc === 'object' ? doc : { doc_name: docName }), doc_name: docName, step_name: step.step_name, step_order: step.step_order });
           }
         });
       }
@@ -564,7 +571,12 @@ const ClientDashboard = () => {
   };
 
   // Determine active pre-assessment (most-recent not-expired)
+<<<<<<< HEAD
 const activePA = preAssessments.find(p => ['payment_received', 'partner_review', 'documents_submitted', 'under_review', 'approved', 'awaiting_package_selection', 'package_selected', 'proposal_sent', 'proposal_paid', 'awaiting_final_approval', 'rejected', 'refund_initiated', 'refunded', 'international_payment_pending'].includes(p.stage));  const isMiniMode = !caseData && !!activePA;
+=======
+  const activePA = preAssessments.find(p => ['payment_received', 'partner_review', 'documents_submitted', 'under_review', 'approved', 'awaiting_package_selection', 'package_selected', 'proposal_sent', 'proposal_paid', 'awaiting_final_approval', 'rejected', 'refund_initiated', 'refunded', 'international_payment_pending'].includes(p.stage));
+  const isMiniMode = !!activePA && activePA.stage !== 'case_created';
+>>>>>>> origin/main
   const isExpandedMode = isMiniMode && ['approved', 'awaiting_package_selection', 'package_selected', 'proposal_sent', 'proposal_paid'].includes(activePA?.stage);
 
   const clientNavGroups = isMiniMode ? [
@@ -662,47 +674,35 @@ const activePA = preAssessments.find(p => ['payment_received', 'partner_review',
       onLogout={handleLogout}
     >
       <main>
-        {!caseData ? (
-          isMiniMode ? (
-            <>
-              {activeTab === 'overview' && (
-                <PreAssessmentMiniPortal
-                  pa={activePA}
-                  onRefresh={loadData}
-                  onOpenScanner={() => setActiveTab('doc-scanner')}
-                />
-              )}
-              {activeTab === 'doc-scanner' && (
-                <DocumentExtractor />
-              )}
-              {activeTab === 'cost-estimate' && isExpandedMode && (
-                <FeeCalculator />
-              )}
-              {activeTab === 'eligibility' && isExpandedMode && (
-                <EligibilityChecker token={localStorage.getItem('token')} />
-              )}
-              {activeTab === 'messages' && (
-                <MessageCenter />
-              )}
-              {activeTab === 'tickets' && (
-                <TicketSection caseId={null} initialTicketId={initialTicketId} filter={ticketFilter} onClearFilter={() => setTicketFilter(null)} />
-              )}
-              {activeTab === 'profile' && (
-                <ClientProfile user={user} onUpdate={setUser} />
-              )}
-            </>
-          ) : (
-            <Card className="p-12 text-center bg-white shadow-xl rounded-2xl border-0">
-              <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-slate-100 to-slate-200 rounded-full flex items-center justify-center">
-                <FileText className="h-10 w-10 text-slate-400" />
-              </div>
-              <h2 className="text-2xl font-bold text-slate-800 mb-2">No Active Case</h2>
-              <p className="text-slate-500 max-w-md mx-auto">
-                You don&apos;t have any active cases yet. Please contact your case manager or partner for assistance.
-              </p>
-            </Card>
-          )
-        ) : (
+        {isMiniMode ? (
+          <>
+            {activeTab === 'overview' && (
+              <PreAssessmentMiniPortal
+                pa={activePA}
+                onRefresh={loadData}
+                onOpenScanner={() => setActiveTab('doc-scanner')}
+              />
+            )}
+            {activeTab === 'doc-scanner' && (
+              <DocumentExtractor />
+            )}
+            {activeTab === 'cost-estimate' && isExpandedMode && (
+              <FeeCalculator />
+            )}
+            {activeTab === 'eligibility' && isExpandedMode && (
+              <EligibilityChecker token={localStorage.getItem('token')} />
+            )}
+            {activeTab === 'messages' && (
+              <MessageCenter />
+            )}
+            {activeTab === 'tickets' && (
+              <TicketSection caseId={null} initialTicketId={initialTicketId} filter={ticketFilter} onClearFilter={() => setTicketFilter(null)} />
+            )}
+            {activeTab === 'profile' && (
+              <ClientProfile user={user} onUpdate={setUser} />
+            )}
+          </>
+        ) : caseData ? (
           <>
             {/* Case Overview Header - Only show on dashboard-like tabs */}
             {!['messages', 'profile', 'journey', 'timeline', 'eligibility', 'emi-plans', 'family', 'documents', 'deadlines', 'cost-estimate', 'doc-scanner'].includes(activeTab) && (
@@ -734,6 +734,13 @@ const activePA = preAssessments.find(p => ['payment_received', 'partner_review',
                 </div>
               </div>
             </div>
+
+            {/* Client Occupation Code Review & Acceptance Card */}
+            <ClientOccupationReviewCard
+              caseData={caseData}
+              onUpdated={loadData}
+              getAuthHeader={getAuthHeader}
+            />
 
             {/* Quick Actions Widget */}
             <div className="mb-6">
@@ -958,7 +965,7 @@ const activePA = preAssessments.find(p => ['payment_received', 'partner_review',
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="font-semibold text-sm truncate">{doc.filename}</p>
-                            <p className="text-xs capitalize">{doc.document_type.replace('_', ' ')}</p>
+                            <p className="text-xs capitalize">{(doc.document_type || 'document').replace(/_/g, ' ')}</p>
                           </div>
                           <div className="text-right flex-shrink-0">
                             <p className="text-sm font-bold">{getUrgencyLabel(doc.urgency, doc.days_remaining)}</p>
@@ -1483,11 +1490,15 @@ const activePA = preAssessments.find(p => ['payment_received', 'partner_review',
                                         const partStatus = part.status; // 'paid' | 'pending' | 'locked'
                                         const badgeStyle =
                                           partStatus === 'paid' ? 'bg-emerald-100 text-emerald-700' :
+<<<<<<< HEAD
                                           partStatus === 'pending_verification' ? 'bg-amber-100 text-amber-800 border border-amber-300' :
+=======
+>>>>>>> origin/main
                                           partStatus === 'pending' ? 'bg-amber-100 text-amber-700' :
                                           'bg-slate-100 text-slate-500';
                                         const rowStyle =
                                           partStatus === 'paid' ? 'bg-emerald-50/60 border-emerald-200' :
+<<<<<<< HEAD
                                           partStatus === 'pending_verification' ? 'bg-amber-50/70 border-amber-300' :
                                           partStatus === 'pending' ? 'bg-amber-50/60 border-amber-200' :
                                           'bg-slate-50 border-slate-200';
@@ -1495,6 +1506,10 @@ const activePA = preAssessments.find(p => ['payment_received', 'partner_review',
                                           partStatus === 'pending_verification' ? 'Verifying Wire Transfer' :
                                           partStatus === 'paid' ? 'Paid ✓' :
                                           partStatus;
+=======
+                                          partStatus === 'pending' ? 'bg-amber-50/60 border-amber-200' :
+                                          'bg-slate-50 border-slate-200';
+>>>>>>> origin/main
                                         return (
                                           <div key={idx} className={`flex items-center justify-between p-2.5 rounded-lg border ${rowStyle}`}>
                                             <div className="flex items-center gap-2 min-w-0">
@@ -1507,9 +1522,12 @@ const activePA = preAssessments.find(p => ['payment_received', 'partner_review',
                                               )}
                                               <div className="min-w-0">
                                                 <p className="text-sm font-medium text-slate-700 truncate">{part.label}</p>
+<<<<<<< HEAD
                                                 {partStatus === 'locked' && part.trigger_condition && (
                                                   <p className="text-xs text-amber-700 font-medium">{part.trigger_condition}</p>
                                                 )}
+=======
+>>>>>>> origin/main
                                                 {part.due_date && (
                                                   <p className="text-xs text-slate-400">Due: {part.due_date}</p>
                                                 )}
@@ -1517,6 +1535,7 @@ const activePA = preAssessments.find(p => ['payment_received', 'partner_review',
                                             </div>
                                             <div className="flex items-center gap-2 flex-shrink-0">
                                               <span className="text-sm font-semibold text-slate-700">₹{Number(part.amount || 0).toLocaleString()}</span>
+<<<<<<< HEAD
                                               <Badge className={`text-[10px] capitalize ${badgeStyle}`}>{displayStatus}</Badge>
                                               {partStatus === 'pending' && (
                                                 <Button
@@ -1541,6 +1560,9 @@ const activePA = preAssessments.find(p => ['payment_received', 'partner_review',
                                                   Pay Now
                                                 </Button>
                                               )}
+=======
+                                              <Badge className={`text-[10px] capitalize ${badgeStyle}`}>{partStatus}</Badge>
+>>>>>>> origin/main
                                             </div>
                                           </div>
                                         );
@@ -1692,9 +1714,18 @@ const activePA = preAssessments.find(p => ['payment_received', 'partner_review',
               {/* Phase 12 Tabs */}
               {activeTab === 'eligibility' && <EligibilityChecker token={localStorage.getItem('token')} />}
               {activeTab === 'emi-plans' && <EMITracker token={localStorage.getItem('token')} />}
-              {activeTab === 'family' && <FamilyManager token={localStorage.getItem('token')} />}
             </div>
           </>
+        ) : (
+          <Card className="p-12 text-center bg-white shadow-xl rounded-2xl border-0">
+            <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-slate-100 to-slate-200 rounded-full flex items-center justify-center">
+              <FileText className="h-10 w-10 text-slate-400" />
+            </div>
+            <h2 className="text-2xl font-bold text-slate-800 mb-2">No Active Case</h2>
+            <p className="text-slate-500 max-w-md mx-auto">
+              You don&apos;t have any active cases yet. Please contact your case manager or partner for assistance.
+            </p>
+          </Card>
         )}
       </main>
       {/* AI Chat Widget - floating */}

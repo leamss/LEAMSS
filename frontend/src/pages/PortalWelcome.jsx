@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import PunchWidget from '@/components/attendance/PunchWidget';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || (typeof window !== 'undefined' && window.location.hostname.includes('leamss.com') ? 'https://api.leamss.com' : 'http://localhost:8001');
 const API = `${BACKEND_URL}/api`;
 
 const DEPT_THEMES = {

@@ -15,9 +15,10 @@ Endpoints:
 import os
 import uuid
 import secrets
+import asyncio
 from datetime import datetime, timezone, timedelta
 from typing import Optional, List, Dict, Any
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, File, UploadFile
 from pydantic import BaseModel, Field
 
 from core.auth import get_current_user
@@ -70,6 +71,9 @@ class SaveAssessmentRequest(BaseModel):
     targets: List[TargetCalc] = Field(..., min_length=1)
     final_notes: Optional[str] = None
     cost_estimator: Optional[Dict[str, Any]] = None
+    resume_file_id: Optional[str] = None
+    resume_filename: Optional[str] = None
+    resume_url: Optional[str] = None
 
 
 @router.post("")
@@ -88,6 +92,10 @@ async def save_assessment(req: SaveAssessmentRequest, current_user: dict = Depen
     # Pick best target by points (or by recommendation language if scoring metric differs)
     best = max(results, key=lambda r: r.get("total", 0)) if results else None
 
+    resume_fid = req.resume_file_id or (req.profile or {}).get("resume_file_id") or (req.profile or {}).get("primary_applicant", {}).get("resume_file_id")
+    resume_fname = req.resume_filename or (req.profile or {}).get("resume_filename") or (req.profile or {}).get("primary_applicant", {}).get("resume_filename")
+    resume_u = req.resume_url or (req.profile or {}).get("resume_url") or (req.profile or {}).get("resume_link")
+
     doc = {
         "id": assessment_id,
         "client_name": req.client_name,
@@ -103,6 +111,9 @@ async def save_assessment(req: SaveAssessmentRequest, current_user: dict = Depen
         "best_recommendation": best.get("recommendation") if best else None,
         "final_notes": req.final_notes,
         "cost_estimator": req.cost_estimator,
+        "resume_file_id": resume_fid,
+        "resume_filename": resume_fname,
+        "resume_url": resume_u,
         "linked_pa_id": None,
         "created_by": current_user["id"],
         "created_by_name": current_user.get("name"),
@@ -319,6 +330,12 @@ async def update_assessment(assessment_id: str, req: SaveAssessmentRequest, curr
     }
     if req.cost_estimator is not None:
         update_doc["cost_estimator"] = req.cost_estimator
+    if req.resume_file_id is not None or (req.profile or {}).get("resume_file_id"):
+        update_doc["resume_file_id"] = req.resume_file_id or (req.profile or {}).get("resume_file_id")
+    if req.resume_filename is not None or (req.profile or {}).get("resume_filename"):
+        update_doc["resume_filename"] = req.resume_filename or (req.profile or {}).get("resume_filename")
+    if req.resume_url is not None or (req.profile or {}).get("resume_url") or (req.profile or {}).get("resume_link"):
+        update_doc["resume_url"] = req.resume_url or (req.profile or {}).get("resume_url") or (req.profile or {}).get("resume_link")
     await assessments_col.update_one({"id": assessment_id}, {"$set": update_doc})
 
     # ─── Phase 6.8.6: Sync the linked PA so partner dashboard reflects the new
@@ -949,3 +966,249 @@ async def public_share_view(token: str, request: Request):
     payload["checklist"] = checklist
     payload["expires_at"] = expires_at.isoformat() if isinstance(expires_at, datetime) else expires_at
     return payload
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# Individual Assessment Email Send (matches bulk email engine & templates)
+# ────────────────────────────────────────────────────────────────────────────
+
+@router.get("/{id}/email-preview")
+async def get_assessment_email_preview(id: str, current_user: dict = Depends(get_current_user)):
+    from routers.bulk_assessments import gmail_is_configured, gmail_default_sender
+    from routers.email_settings import get_settings
+    from routers.email_templates import list_templates_for_category
+
+    doc = await assessments_col.find_one({"id": id})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Assessment not found")
+
+    settings = await get_settings()
+    is_configured = gmail_is_configured()
+    default_sender = gmail_default_sender()
+
+    # Consultant mailboxes
+    mailboxes = settings.get("mailboxes") or []
+    if not mailboxes and default_sender:
+        mailboxes = [{"email": default_sender, "name": "LEAMSS Consultation", "is_default": True}]
+
+    # Templates
+    templates = await list_templates_for_category("eligible")
+
+    has_res = bool(
+        doc.get("resume_file_id")
+        or doc.get("resume_url")
+        or doc.get("resume_link")
+        or (doc.get("profile_snapshot") or {}).get("resume_file_id")
+        or (doc.get("profile_snapshot") or {}).get("resume_url")
+        or (doc.get("profile_snapshot") or {}).get("resume_link")
+    )
+    res_fname = doc.get("resume_filename") or (doc.get("profile_snapshot") or {}).get("resume_filename") or (doc.get("profile_snapshot") or {}).get("primary_applicant", {}).get("resume_filename")
+
+    return {
+        "assessment_id": id,
+        "client_name": doc.get("client_name"),
+        "client_email": doc.get("client_email"),
+        "is_configured": is_configured,
+        "default_sender": default_sender,
+        "mailboxes": mailboxes,
+        "templates": templates,
+        "attach_report": settings.get("attach_report", True),
+        "attach_sla": bool(settings.get("attach_sla") and settings.get("sla_file_id")),
+        "attach_qr": bool(settings.get("qr_file_id")),
+        "attach_resume": has_res or bool(settings.get("attach_resume")),
+        "has_resume": has_res,
+        "resume_filename": res_fname,
+    }
+
+
+class SendSingleEmailRequest(BaseModel):
+    recipient_email: Optional[str] = None
+    sender_email: Optional[str] = None
+    template_id: Optional[str] = None
+    bcc_self: bool = True
+
+
+@router.post("/{id}/email")
+async def send_assessment_email(id: str, req: SendSingleEmailRequest, current_user: dict = Depends(get_current_user)):
+    from routers.bulk_assessments import gmail_is_configured, gmail_default_sender, gmail_send, _report_filename
+    from routers.email_settings import get_settings, read_asset_bytes
+    from core.report_email import build_report_email, render_custom_email, get_resume_attachment
+    from routers.assessment_reports import _build_snapshot
+    from core.report_v2.renderer import render_pdf_v2
+
+    if not _can_access(current_user):
+        raise HTTPException(status_code=403, detail="Not authorised")
+    if not gmail_is_configured():
+        raise HTTPException(
+            status_code=400,
+            detail="Email delivery is not configured. Please configure Gmail Workspace or email settings under Email Settings."
+        )
+
+    doc = await assessments_col.find_one({"id": id})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Assessment not found")
+
+    to = (req.recipient_email or doc.get("client_email") or "").strip()
+    if not to or "@" not in to:
+        raise HTTPException(status_code=400, detail="Client has no valid email address.")
+
+    s = await get_settings()
+    sender_email = (req.sender_email or s.get("default_sender") or gmail_default_sender() or "").strip().lower()
+    sender_name = s.get("sender_name") or "Ladhani Education & Migration Services"
+
+    # Generate 23-page PDF Report Bytes asynchronously in thread pool
+    snap_data = await _build_snapshot(doc, persona="client", mode="combined", include_unverified=False)
+    pdf_bytes = await asyncio.to_thread(render_pdf_v2, snap_data)
+
+    occ = doc.get("occupation") or {}
+    results = doc.get("results") or []
+    best_res = max(results, key=lambda r: r.get("total", 0)) if results else {}
+
+    # Email Subject and Body (Template or Built-in)
+    if req.template_id:
+        tmpl = await db["email_templates"].find_one({"id": req.template_id}, {"_id": 0})
+        if tmpl:
+            subject, html, plain = render_custom_email(
+                tmpl,
+                client_name=doc.get("client_name") or "Applicant",
+                occupation=occ.get("title") or "Professional",
+                code=occ.get("code") or "",
+                points={"total": best_res.get("total", 0), "189": best_res.get("total", 0)},
+                sender_name=sender_name,
+                portal_link=os.environ.get("FRONTEND_URL", "https://app.leamss.com"),
+            )
+        else:
+            subject, html, plain = build_report_email(
+                s, client_name=doc.get("client_name") or "Applicant",
+                occupation=occ.get("title"), code=occ.get("code"),
+                points=best_res.get("breakdown") or {}, sender_name=sender_name,
+                backend_url=os.environ.get("PUBLIC_BASE_URL", ""),
+            )
+    else:
+        subject, html, plain = build_report_email(
+            s, client_name=doc.get("client_name") or "Applicant",
+            occupation=occ.get("title"), code=occ.get("code"),
+            points=best_res.get("breakdown") or {}, sender_name=sender_name,
+            backend_url=os.environ.get("PUBLIC_BASE_URL", ""),
+        )
+
+    attachments: List[Dict[str, Any]] = []
+    # 1. Report PDF
+    if pdf_bytes:
+        attachments.append({
+            "bytes": pdf_bytes,
+            "filename": _report_filename(doc.get("client_name"), id),
+            "maintype": "application",
+            "subtype": "pdf",
+        })
+    # 2. SLA
+    if s.get("attach_sla") and s.get("sla_file_id"):
+        sla = await read_asset_bytes(s["sla_file_id"])
+        if sla:
+            attachments.append({
+                "bytes": sla,
+                "filename": s.get("sla_filename") or "LEAMSS-Service-Level-Agreement.pdf",
+                "maintype": "application",
+                "subtype": "pdf",
+            })
+    # 3. QR
+    if s.get("qr_file_id"):
+        qr = await read_asset_bytes(s["qr_file_id"])
+        if qr:
+            attachments.append({
+                "bytes": qr,
+                "filename": "LEAMSS-Payment-QR.png",
+                "maintype": "image",
+                "subtype": "png",
+            })
+    # 4. Candidate Resume Attachment (uploaded or linked)
+    resume_fid = (
+        doc.get("resume_file_id")
+        or (doc.get("profile_snapshot") or {}).get("resume_file_id")
+        or (doc.get("profile_snapshot") or {}).get("primary_applicant", {}).get("resume_file_id")
+    )
+    resume_link = (
+        doc.get("resume_url")
+        or doc.get("resume_link")
+        or (doc.get("profile_snapshot") or {}).get("resume_url")
+        or (doc.get("profile_snapshot") or {}).get("resume_link")
+        or (doc.get("profile_snapshot") or {}).get("primary_applicant", {}).get("resume_url")
+    )
+    resume_fname = (
+        doc.get("resume_filename")
+        or (doc.get("profile_snapshot") or {}).get("resume_filename")
+        or (doc.get("profile_snapshot") or {}).get("primary_applicant", {}).get("resume_filename")
+    )
+    resume_att = await get_resume_attachment(
+        file_id=resume_fid,
+        link=resume_link,
+        filename=resume_fname,
+        client_name=doc.get("client_name"),
+    )
+    if resume_att:
+        attachments.append(resume_att)
+
+    try:
+        await gmail_send(
+            sender_email=sender_email,
+            sender_name=sender_name,
+            recipient=to,
+            subject=subject,
+            html=html,
+            plain=plain,
+            attachments=attachments,
+            bcc=(sender_email if req.bcc_self else None),
+        )
+    except Exception as e:
+        logger.exception("Error dispatching email via gmail_send")
+        raise HTTPException(status_code=400, detail=f"Email delivery failed: {e}")
+
+    # Log in assessment history
+    now = datetime.now(timezone.utc)
+    await assessments_col.update_one({"id": id}, {"$set": {
+        "email_status": "sent",
+        "email_to": to,
+        "email_from": sender_email,
+        "email_sent_at": now,
+        "email_resume_attached": bool(resume_att),
+    }})
+
+    return {
+        "ok": True,
+        "sent_to": to,
+        "sender_email": sender_email,
+        "sent_at": now.isoformat(),
+        "resume_attached": bool(resume_att),
+    }
+
+
+@router.post("/{id}/upload-resume")
+async def upload_assessment_resume(
+    id: str,
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user),
+):
+    """Upload or replace resume for a Client Assessment."""
+    import io
+    from motor.motor_asyncio import AsyncIOMotorGridFSBucket
+    if not _can_access(current_user):
+        raise HTTPException(status_code=403, detail="Not authorised")
+    doc = await assessments_col.find_one({"id": id})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Assessment not found")
+    raw = await file.read()
+    if len(raw) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="File too large — max 10 MB")
+    gridfs = AsyncIOMotorGridFSBucket(db, bucket_name="bulk_resumes")
+    file_id = await gridfs.upload_from_stream(
+        file.filename or f"resume-{id}",
+        io.BytesIO(raw),
+        metadata={"assessment_id": id, "user_id": current_user.get("id"), "uploaded_at": datetime.now(timezone.utc).isoformat()}
+    )
+    now = datetime.now(timezone.utc)
+    await assessments_col.update_one(
+        {"id": id},
+        {"$set": {"resume_file_id": str(file_id), "resume_filename": file.filename, "updated_at": now}}
+    )
+    return {"ok": True, "resume_file_id": str(file_id), "resume_filename": file.filename}
+

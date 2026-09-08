@@ -52,6 +52,7 @@ export default function PaFinalizePaymentForm({
     const pkg = pa.selected_package_snapshot;
     const basePrice = pkg?.price ?? 0;
 
+<<<<<<< HEAD
     // 👇 Load Marketing Hub Promo Codes + Product Coupons
     const [coupons, setCoupons] = useState([]);
     const [loadingCoupons, setLoadingCoupons] = useState(true);
@@ -131,6 +132,20 @@ export default function PaFinalizePaymentForm({
     }, [pa.product_id]);
 
     const selectedCoupon = coupons.find(c => c.code?.toUpperCase() === (paymentMethodForm.coupon_code || paymentMethodForm.promo_code)?.toUpperCase()) || null;
+=======
+    // 👇 NEW — Coupon-based discount
+    const [coupons, setCoupons] = useState([]);
+    const [loadingCoupons, setLoadingCoupons] = useState(true);
+    useEffect(() => {
+        if (!pa.product_id) { setLoadingCoupons(false); return; }
+        axios.get(`${API}/products/${pa.product_id}/coupons`, getAuthHeader())
+            .then(r => setCoupons(r.data.coupons || []))
+            .catch(() => setCoupons([]))
+            .finally(() => setLoadingCoupons(false));
+    }, [pa.product_id]);
+
+    const selectedCoupon = coupons.find(c => c.code === paymentMethodForm.coupon_code) || null;
+>>>>>>> origin/main
     let discountAmount = 0;
     if (selectedCoupon) {
         discountAmount = selectedCoupon.discount_type === 'percentage'
@@ -138,6 +153,7 @@ export default function PaFinalizePaymentForm({
             : Math.round(selectedCoupon.discount_value);
         discountAmount = Math.min(discountAmount, basePrice);
     }
+<<<<<<< HEAD
     const deductPaFee = Boolean(paymentMethodForm.deduct_pre_assessment_fee);
     const paDeduction = deductPaFee ? 5100 : 0;
     const netBasePrice = Math.max(0, basePrice - discountAmount - paDeduction);
@@ -146,6 +162,13 @@ export default function PaFinalizePaymentForm({
     const includeGst = paymentMethodForm.include_gst || false;
     const gstAmount = includeGst ? Math.round(netBasePrice * 0.18) : 0;
     const totalAmount = netBasePrice + gstAmount;
+=======
+    const discountedPrice = Math.max(0, basePrice - discountAmount);
+
+    const includeGst = paymentMethodForm.include_gst || false;
+    const gstAmount = includeGst ? Math.round(discountedPrice * 0.18) : 0;
+    const totalAmount = discountedPrice + gstAmount || null;
+>>>>>>> origin/main
     const isInstallments = paymentMethodForm.payment_method_type === 'installments';
 
     // 👇 NEW — spouse info gate
@@ -221,6 +244,7 @@ return (
         </p>
     )}
 
+<<<<<<< HEAD
 {/* 👇 Discount coupon / Promo code (admin Marketing Hub + Product) */}
     <div className="bg-white border border-fuchsia-200 rounded-lg p-3 space-y-2">
         <div className="flex justify-between items-center">
@@ -254,11 +278,32 @@ return (
                 {coupons.map(c => (
                     <option key={c.id || c.code} value={c.code}>
                         🏷️ {c.code} — {c.discount_type === 'percentage' ? `${c.discount_value}% off` : `₹${c.discount_value} off`}
+=======
+{/* 👇 NEW — Discount coupon (admin-defined, per product) */}
+    <div className="bg-white border border-fuchsia-200 rounded-lg p-3 space-y-2">
+        <p className="text-xs font-semibold text-slate-700">Apply Discount Coupon (optional)</p>
+        {loadingCoupons ? (
+            <p className="text-xs text-slate-400">Loading coupons…</p>
+        ) : coupons.length === 0 ? (
+            <p className="text-xs text-slate-400 italic">No active coupons for this product. Ask admin to add one.</p>
+        ) : (
+            <select
+                value={paymentMethodForm.coupon_code || ''}
+                onChange={(e) => setPaymentMethodForm({ ...paymentMethodForm, coupon_code: e.target.value || null })}
+                className="w-full border border-fuchsia-200 rounded-md px-3 py-2 text-sm bg-white"
+                data-testid="coupon-select"
+            >
+                <option value="">— No coupon —</option>
+                {coupons.map(c => (
+                    <option key={c.id} value={c.code}>
+                        {c.code} — {c.discount_type === 'percentage' ? `${c.discount_value}% off` : `₹${c.discount_value} off`}
+>>>>>>> origin/main
                         {c.notes ? ` (${c.notes})` : ''}
                     </option>
                 ))}
             </select>
         )}
+<<<<<<< HEAD
         {selectedCoupon && (
             <div className="space-y-2 pt-1 border-t border-fuchsia-100 mt-2">
                 <label className="flex items-center gap-2 cursor-pointer">
@@ -312,18 +357,45 @@ return (
     {(includeGst || discountAmount > 0 || deductPaFee) && (
         <div className="bg-white border border-fuchsia-200 rounded-lg p-3 text-xs space-y-1">
         <div className="flex justify-between"><span className="text-slate-500">Base Package Fee</span><span className="font-semibold">₹{basePrice.toLocaleString('en-IN')}</span></div>
+=======
+        {discountAmount > 0 && (
+            <p className="text-xs font-semibold text-emerald-700">
+                ₹{discountAmount.toLocaleString('en-IN')} discount applied — New price: ₹{discountedPrice.toLocaleString('en-IN')}
+            </p>
+        )}
+    </div>
+
+    {/* GST 18% toggle — applies to ALL packages, domestic (India) clients only */}
+    <label className="flex items-center gap-2 bg-white border border-fuchsia-200 rounded-lg px-3 py-2 cursor-pointer w-fit">
+        <input
+        type="checkbox"
+        checked={includeGst}
+        onChange={(e) => setPaymentMethodForm({ ...paymentMethodForm, include_gst: e.target.checked })}
+        className="h-4 w-4"
+        data-testid="gst-toggle"
+        />
+        <span className="text-xs font-semibold text-slate-700">Add GST (18%)</span>
+    </label>
+
+    {(includeGst || discountAmount > 0) && (
+        <div className="bg-white border border-fuchsia-200 rounded-lg p-3 text-xs space-y-1">
+        <div className="flex justify-between"><span className="text-slate-500">Base Service Fee</span><span className="font-semibold">₹{basePrice.toLocaleString('en-IN')}</span></div>
+>>>>>>> origin/main
         {discountAmount > 0 && (
             <div className="flex justify-between text-emerald-700">
                 <span>Coupon {selectedCoupon?.code} ({selectedCoupon?.discount_type === 'percentage' ? `${selectedCoupon.discount_value}%` : `₹${selectedCoupon.discount_value}`})</span>
                 <span>-₹{discountAmount.toLocaleString('en-IN')}</span>
             </div>
         )}
+<<<<<<< HEAD
         {deductPaFee && (
             <div className="flex justify-between text-emerald-700 font-semibold" data-testid="pa-fee-deduction-summary">
                 <span>Pre-Assessment Fee Paid (Deduction)</span>
                 <span>-₹5,100</span>
             </div>
         )}
+=======
+>>>>>>> origin/main
         {includeGst && (
             <div className="flex justify-between"><span className="text-slate-500">GST (18%)</span><span className="font-semibold">₹{gstAmount.toLocaleString('en-IN')}</span></div>
         )}
@@ -333,11 +405,16 @@ return (
 
     <div className="flex gap-2 flex-wrap">
         <button type="button"
+<<<<<<< HEAD
         onClick={() => setPaymentMethodForm({ ...paymentMethodForm, payment_method_type: 'full_payment', installment_schedule: null })}
+=======
+        onClick={() => setPaymentMethodForm({ payment_method_type: 'full_payment', installment_schedule: null })}
+>>>>>>> origin/main
         className={`px-3 py-1.5 rounded text-xs font-semibold border ${paymentMethodForm.payment_method_type === 'full_payment' ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white border-slate-300'}`}>
         Full Payment
         </button>
         <button type="button"
+<<<<<<< HEAD
         onClick={() => {
             const firstValid = productWorkflowSteps.find(s => s.step_order >= 2) || productWorkflowSteps[0];
             setPaymentMethodForm({
@@ -355,11 +432,20 @@ return (
         </button>
         <button type="button"
         onClick={() => setPaymentMethodForm({ ...paymentMethodForm, payment_method_type: 'installments', installment_schedule: [] })}
+=======
+        onClick={() => setPaymentMethodForm({ payment_method_type: 'split_50_50', installment_schedule: null })}
+        className={`px-3 py-1.5 rounded text-xs font-semibold border ${paymentMethodForm.payment_method_type === 'split_50_50' ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white border-slate-300'}`}>
+        50-50 Split
+        </button>
+        <button type="button"
+        onClick={() => setPaymentMethodForm({ payment_method_type: 'installments', installment_schedule: [] })}
+>>>>>>> origin/main
         className={`px-3 py-1.5 rounded text-xs font-semibold border ${paymentMethodForm.payment_method_type === 'installments' ? 'bg-amber-600 text-white border-amber-600' : 'bg-white border-slate-300'}`}>
         Installments (needs admin approval)
         </button>
     </div>
 
+<<<<<<< HEAD
     {/* 👇 50-50 Split: Select Product Workflow Step or Specific Date Trigger */}
     {paymentMethodForm.payment_method_type === 'split_50_50' && (
         <div className="bg-white border border-fuchsia-200 rounded-lg p-3 space-y-3" data-testid="split-50-50-trigger-box">
@@ -531,6 +617,8 @@ return (
         </div>
     )}
 
+=======
+>>>>>>> origin/main
     {isInstallments && (
         <InstallmentEditor
         totalAmount={totalAmount}

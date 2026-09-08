@@ -13,6 +13,8 @@ if hasattr(sys.stderr, "reconfigure"):
         pass
 from dotenv import load_dotenv
 load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -209,6 +211,13 @@ async def startup():
 
     await seed_atlas_countries(db)
     try:
+        from seeds.assessing_authorities_au import ensure_seeded_in_db
+        await ensure_seeded_in_db(db)
+        print("[Assessing Authorities] Fast seed check completed.")
+    except Exception as e:
+        print(f"[Assessing Authorities WARN] {e}")
+
+    try:
         from scripts.seed_international_banks import seed_banks
         await seed_banks()
     except Exception as e:
@@ -387,6 +396,13 @@ async def startup():
         await ensure_client_errors_indexes()
         await ensure_channels_indexes()
         await maybe_seed_default_channel()
+
+        # Auto-seed Fee Master with official rates for all 39 Australian assessing authorities
+        try:
+            from scripts.seed_fee_master import seed_fee_master
+            await seed_fee_master()
+        except Exception as e:
+            print(f"[Fee Master auto-seed ERROR — non-fatal] {e}")
         # Start APScheduler (every 30 min). Disabled in tests via LEAMSS_DISABLE_SCHEDULER env.
         if not os.environ.get("LEAMSS_DISABLE_SCHEDULER"):
             try:

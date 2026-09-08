@@ -5,6 +5,7 @@
 """
 import uuid
 import json
+import re
 from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
@@ -148,6 +149,254 @@ def _get_doc_name(rd: dict) -> str:
     return rd.get("doc_name") or rd.get("name") or ""
 
 
+def get_assessing_body_documents(occupation_code: str, assessing_authority: str, country: str = "AU") -> list:
+    """Generate official dynamic document checklist tailored to the assessing authority and occupation code"""
+    auth = (assessing_authority or "").upper().strip()
+    occ_str = f" for ANZSCO {occupation_code}" if occupation_code else ""
+    
+    docs = [
+        {
+            "doc_name": "International Passport (Bio & Address Pages)",
+            "key": "passport_bio",
+            "field_type": "file",
+            "is_mandatory": True,
+            "mandatory": True,
+            "tag": "mandatory",
+            "notes": "Clear color copy of passport bio page valid for at least 6 months.",
+            "description": "Clear color copy of passport bio page valid for at least 6 months.",
+            "source": "assessing_body_checklist"
+        },
+        {
+            "doc_name": "Educational Degree / Qualification Certificate",
+            "key": "degree_certificate",
+            "field_type": "file",
+            "is_mandatory": True,
+            "mandatory": True,
+            "tag": "mandatory",
+            "notes": f"Final degree / diploma certificate awarded by recognized university{occ_str}.",
+            "description": f"Final degree / diploma certificate awarded by recognized university{occ_str}.",
+            "source": "assessing_body_checklist"
+        },
+        {
+            "doc_name": "Academic Transcripts & Marksheets",
+            "key": "academic_transcripts",
+            "field_type": "file",
+            "is_mandatory": True,
+            "mandatory": True,
+            "tag": "mandatory",
+            "notes": "Semester-wise official mark sheets / transcripts showing all subjects and grades.",
+            "description": "Semester-wise official mark sheets / transcripts showing all subjects and grades.",
+            "source": "assessing_body_checklist"
+        },
+        {
+            "doc_name": f"Employment Reference Letter ({auth or 'Assessing Body'} format)",
+            "key": "employment_reference_letters",
+            "field_type": "file",
+            "is_mandatory": True,
+            "mandatory": True,
+            "tag": "mandatory",
+            "notes": f"Official letterhead service certificate signed by HR/Manager stating exact job title, dates, hours/week, and 5+ core ANZSCO responsibilities.",
+            "description": f"Official letterhead service certificate signed by HR/Manager stating exact job title, dates, hours/week, and 5+ core ANZSCO responsibilities.",
+            "source": "assessing_body_checklist"
+        },
+        {
+            "doc_name": "Salary Payslips / Payment Evidence",
+            "key": "salary_payslips",
+            "field_type": "file",
+            "is_mandatory": True,
+            "mandatory": True,
+            "tag": "mandatory",
+            "notes": "First and last 3 payslips for each declared employment period.",
+            "description": "First and last 3 payslips for each declared employment period.",
+            "source": "assessing_body_checklist"
+        },
+        {
+            "doc_name": "Bank Statements (Showing Regular Salary Credits)",
+            "key": "bank_statements_salary",
+            "field_type": "file",
+            "is_mandatory": True,
+            "mandatory": True,
+            "tag": "mandatory",
+            "notes": "Official stamped bank statements verifying consistent salary deposit from employer.",
+            "description": "Official stamped bank statements verifying consistent salary deposit from employer.",
+            "source": "assessing_body_checklist"
+        },
+        {
+            "doc_name": "Comprehensive CV / Resume",
+            "key": "comprehensive_cv",
+            "field_type": "file",
+            "is_mandatory": True,
+            "mandatory": True,
+            "tag": "mandatory",
+            "notes": "Detailed chronological resume covering full work history and technical competencies.",
+            "description": "Detailed chronological resume covering full work history and technical competencies.",
+            "source": "assessing_body_checklist"
+        },
+        {
+            "doc_name": "Income Tax Returns / Form 16 / Tax Summary",
+            "key": "tax_returns_form16",
+            "field_type": "file",
+            "is_mandatory": False,
+            "mandatory": False,
+            "tag": "optional",
+            "notes": "Annual income tax returns or official government tax assessment summary.",
+            "description": "Annual income tax returns or official government tax assessment summary.",
+            "source": "assessing_body_checklist"
+        }
+    ]
+
+    # Specific Assessing Body Additions
+    if "ACS" in auth:
+        docs.append({
+            "doc_name": "ACS ICT Roles & Technologies Breakdown",
+            "key": "acs_ict_roles",
+            "field_type": "file",
+            "is_mandatory": True,
+            "mandatory": True,
+            "tag": "mandatory",
+            "notes": "Detailed statement of programming languages, architectures, and ICT skills applied in projects.",
+            "description": "Detailed statement of programming languages, architectures, and ICT skills applied in projects.",
+            "source": "assessing_body_checklist"
+        })
+    elif "VETASSESS" in auth:
+        docs.append({
+            "doc_name": "Organizational Hierarchy Chart",
+            "key": "vetassess_org_chart",
+            "field_type": "file",
+            "is_mandatory": False,
+            "mandatory": False,
+            "tag": "conditional",
+            "notes": "Company organization structure chart highlighting applicant's position and reporting hierarchy.",
+            "description": "Company organization structure chart highlighting applicant's position and reporting hierarchy.",
+            "source": "assessing_body_checklist"
+        })
+    elif "ENGINEER" in auth or "EA" == auth:
+        docs.extend([
+            {
+                "doc_name": "Career Episode Reports (3 CDR Episodes)",
+                "key": "ea_cdr_episodes",
+                "field_type": "file",
+                "is_mandatory": True,
+                "mandatory": True,
+                "tag": "mandatory",
+                "notes": "Three career episodes demonstrating application of engineering knowledge.",
+                "description": "Three career episodes demonstrating application of engineering knowledge.",
+                "source": "assessing_body_checklist"
+            },
+            {
+                "doc_name": "Continuous Professional Development (CPD) Statement",
+                "key": "ea_cpd_statement",
+                "field_type": "file",
+                "is_mandatory": True,
+                "mandatory": True,
+                "tag": "mandatory",
+                "notes": "List of post-graduation professional courses, workshops, and technical training.",
+                "description": "List of post-graduation professional courses, workshops, and technical training.",
+                "source": "assessing_body_checklist"
+            }
+        ])
+    elif "TRA" in auth:
+        docs.append({
+            "doc_name": "Trade Certificate & Apprenticeship Logbook",
+            "key": "tra_logbook",
+            "field_type": "file",
+            "is_mandatory": True,
+            "mandatory": True,
+            "tag": "mandatory",
+            "notes": "Official trade certificate, apprenticeship deed or practical workplace logbook.",
+            "description": "Official trade certificate, apprenticeship deed or practical workplace logbook.",
+            "source": "assessing_body_checklist"
+        })
+    elif "ANMAC" in auth:
+        docs.append({
+            "doc_name": "Nursing Council Registration License",
+            "key": "anmac_license",
+            "field_type": "file",
+            "is_mandatory": True,
+            "mandatory": True,
+            "tag": "mandatory",
+            "notes": "Current valid nursing registration/license certificate from official nursing council.",
+            "description": "Current valid nursing registration/license certificate from official nursing council.",
+            "source": "assessing_body_checklist"
+        })
+
+    return docs
+
+
+def extract_auth_code_or_name(val):
+    if not val:
+        return ""
+    if isinstance(val, dict):
+        return val.get("code") or val.get("short_name") or val.get("name") or val.get("full_name") or ""
+    if isinstance(val, list):
+        for item in val:
+            extracted = extract_auth_code_or_name(item)
+            if extracted:
+                return extracted
+        return ""
+    return str(val).strip()
+
+
+async def get_assessing_body_documents_db(occupation_code: str = "", assessing_authority_code: str = "", country: str = "AU") -> list:
+    """Fetch assessing body checklist dynamically from DB (matching AuthoritiesAdmin / documents_required_common), with fallback."""
+    auth_name = extract_auth_code_or_name(assessing_authority_code)
+    if not auth_name and occupation_code:
+        occ = await db["occupation_master"].find_one({"code": occupation_code, "country_code": country}, {"_id": 0})
+        if occ:
+            auth_name = extract_auth_code_or_name(occ.get("assessing_authority") or occ.get("assessing_body"))
+
+    auth_doc = None
+    if auth_name:
+        query = {
+            "$or": [
+                {"code": {"$regex": f"^{re.escape(auth_name)}$", "$options": "i"}},
+                {"short_name": {"$regex": f"^{re.escape(auth_name)}$", "$options": "i"}},
+                {"full_name": {"$regex": f"^{re.escape(auth_name)}$", "$options": "i"}},
+                {"name": {"$regex": f"^{re.escape(auth_name)}$", "$options": "i"}},
+                {"aliases": {"$regex": f"^{re.escape(auth_name)}$", "$options": "i"}}
+            ]
+        }
+        auth_doc = await db["assessing_authorities"].find_one(query, {"_id": 0})
+        if not auth_doc and " " in auth_name:
+            first_word = auth_name.split()[0]
+            auth_doc = await db["assessing_authorities"].find_one({
+                "$or": [
+                    {"code": {"$regex": f"^{re.escape(first_word)}$", "$options": "i"}},
+                    {"aliases": {"$regex": f"{re.escape(first_word)}", "$options": "i"}}
+                ]
+            }, {"_id": 0})
+
+    if auth_doc:
+        raw_docs = auth_doc.get("documents_required_common") or auth_doc.get("documents_required") or auth_doc.get("document_checklist") or []
+        if raw_docs:
+            formatted_docs = []
+            auth_code_display = auth_doc.get("code") or auth_doc.get("short_name") or auth_name
+            for doc_item in raw_docs:
+                d_name = doc_item.get("name") or doc_item.get("doc_name") if isinstance(doc_item, dict) else str(doc_item).strip()
+                if not d_name:
+                    continue
+                is_mand = doc_item.get("is_mandatory", True) if isinstance(doc_item, dict) else True
+                tag = doc_item.get("tag", "mandatory" if is_mand else "optional") if isinstance(doc_item, dict) else "mandatory"
+                notes = doc_item.get("notes") or doc_item.get("description") or f"Required by {auth_code_display} for skills assessment." if isinstance(doc_item, dict) else f"Required by {auth_code_display} for skills assessment."
+                formatted_docs.append({
+                    "doc_name": d_name,
+                    "key": re.sub(r'[^a-zA-Z0-9_]', '', d_name.lower().replace(" ", "_")),
+                    "label": d_name,
+                    "field_type": "file",
+                    "is_mandatory": is_mand,
+                    "mandatory": is_mand,
+                    "tag": tag,
+                    "notes": notes,
+                    "description": notes,
+                    "source": "assessing_body_checklist",
+                    "filled_by": "client"
+                })
+            if formatted_docs:
+                return formatted_docs
+
+    return get_assessing_body_documents(occupation_code, assessing_authority_code, country)
+
+
 # ============ GET STEP-WISE DOCUMENT VIEW (CLIENT + CM) ============
 
 @router.get("/case/{case_id}")
@@ -159,8 +408,18 @@ async def get_stepwise_documents(case_id: str, current_user: dict = Depends(get_
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
 
+    # Fallback to linked pre-assessment if case lacks occupation details
+    if not case.get("occupation_code") and case.get("pre_assessment_id"):
+        pa_obj = await db["pre_assessments"].find_one({"id": case["pre_assessment_id"]}, {"_id": 0})
+        if pa_obj:
+            case["occupation_code"] = pa_obj.get("occupation_code") or pa_obj.get("suggested_occupation_code") or ""
+            case["occupation_title"] = pa_obj.get("occupation_title") or pa_obj.get("suggested_occupation_title") or ""
+            case["assessing_authority_code"] = pa_obj.get("assessing_authority_code") or pa_obj.get("suggested_assessing_authority_code") or ""
+            if not case.get("client_occupation_review_status"):
+                case["client_occupation_review_status"] = pa_obj.get("client_occupation_review_status") or "pending_client_review"
+
     # Access check
-    if current_user["role"] == "client" and current_user["id"] != case.get("client_id"):
+    if current_user["role"] == "client" and current_user["id"] != case.get("client_id") and current_user["id"] != case.get("spouse_id"):
         raise HTTPException(status_code=403, detail="Access denied")
 
     # Get case steps
@@ -176,15 +435,52 @@ async def get_stepwise_documents(case_id: str, current_user: dict = Depends(get_
             {"product_id": product_id}, {"_id": 0}
         ).sort("step_order", 1).to_list(50)
 
+    if not case_steps:
+        if case.get("steps"):
+            case_steps = case["steps"]
+        elif admin_wf_steps:
+            case_steps = [
+                {
+                    "case_id": case_id,
+                    "step_name": aws.get("step_name"),
+                    "step_order": aws.get("step_order", i + 1),
+                    "description": aws.get("description", ""),
+                    "status": "in_progress" if i == 0 else "pending",
+                    "required_documents": aws.get("required_documents", [])
+                }
+                for i, aws in enumerate(admin_wf_steps)
+            ]
+
     # Build lookup: step_name -> admin default required_documents
-        # Build lookup of client-visible intake document fields by step
-        # Build step-wise documents from Workflow Builder intake form
     admin_docs_by_step = {}
 
     for aws in admin_wf_steps:
         step_name = aws.get("step_name", "")
         intake_documents = []
 
+        # 1. Include default required_documents on workflow step (e.g. Passport, Education Certs, etc.)
+        for rd in aws.get("required_documents", []):
+            d_name = _get_doc_name(rd)
+            if not d_name:
+                continue
+            is_mand = rd.get("is_mandatory", rd.get("mandatory", True)) if isinstance(rd, dict) else True
+            tag = rd.get("tag", "mandatory" if is_mand else "optional") if isinstance(rd, dict) else "mandatory"
+            notes = rd.get("notes", rd.get("description", "")) if isinstance(rd, dict) else ""
+            intake_documents.append({
+                "key": d_name.lower().replace(" ", "_"),
+                "doc_name": d_name,
+                "label": d_name,
+                "field_type": "file",
+                "is_mandatory": is_mand,
+                "mandatory": is_mand,
+                "tag": tag,
+                "notes": notes,
+                "description": notes,
+                "source": "admin_default",
+                "filled_by": "client",
+            })
+
+        # 2. Include intake form sections & fields from Workflow Builder
         for section in aws.get("sections", []):
             for field in section.get("fields", []):
                 filled_by = field.get("filled_by", "client")
@@ -198,10 +494,18 @@ async def get_stepwise_documents(case_id: str, current_user: dict = Depends(get_
                 ):
                     continue
 
+                f_label = field.get("label") or field.get("doc_name") or field.get("key", "")
+                if not f_label:
+                    continue
+
+                # Avoid duplicate if already added
+                if any(d["doc_name"].lower() == f_label.lower() for d in intake_documents):
+                    continue
+
                 intake_documents.append({
                     "key": field.get("key", ""),
-                    "doc_name": field.get("label", ""),
-                    "label": field.get("label", ""),
+                    "doc_name": f_label,
+                    "label": f_label,
                     "field_type": field.get("field_type", "text"),
                     "options": field.get("options", []),
                     "is_mandatory": field.get("required", False),
@@ -336,7 +640,13 @@ async def get_stepwise_documents(case_id: str, current_user: dict = Depends(get_
             pending_payment_amount = 0.0
 
     step_docs = []
+<<<<<<< HEAD
     for cs in sorted_case_steps:
+=======
+    prev_step_complete = True
+
+    for idx, cs in enumerate(case_steps):
+>>>>>>> origin/main
         step_name = cs.get("step_name", "")
         step_order = cs.get("step_order", 0)
         case_req_docs = cs.get("required_documents", [])
@@ -384,6 +694,7 @@ async def get_stepwise_documents(case_id: str, current_user: dict = Depends(get_
         # Get latest admin default docs for this step
         admin_defaults = admin_docs_by_step.get(step_name, [])
 
+<<<<<<< HEAD
         # CLIENT:
         # Merge admin_defaults + any CM-added custom requests
         cm_custom_docs = [rd for rd in case_req_docs if rd.get("source") == "cm_request"]
@@ -391,6 +702,129 @@ async def get_stepwise_documents(case_id: str, current_user: dict = Depends(get_
         if not merged_docs:
             merged_docs = list(case_req_docs)
 
+=======
+#         # Build a set of doc names already in case_steps (CM-added or previously synced)
+#         existing_names = set()
+#         for rd in case_req_docs:
+#             existing_names.add(_get_doc_name(rd).lower())
+
+#         # Merge: start with case_step docs, then add any NEW admin defaults not yet in case_steps
+#         # Merge client-visible case documents only
+#         merged_docs = []
+
+#         for rd in case_req_docs:
+#             filled_by = rd.get("filled_by")
+
+#             # Hide CM-only intake fields from client
+#             if (
+#                 current_user["role"] == "client"
+#                 and filled_by == "cm"
+#             ):
+#                 continue
+
+#             merged_docs.append(rd)
+
+#         new_admin_docs = []
+#         for ad in admin_defaults:
+#             ad_name = _get_doc_name(ad)
+#             if ad_name and ad_name.lower() not in existing_names:
+#                 merged_docs.append({
+#     "doc_name": ad_name,
+#     "description": ad.get("description", ""),
+#     "is_mandatory": ad.get(
+#         "is_mandatory",
+#         ad.get("mandatory", True)
+#     ),
+#     "tag": ad.get("tag", "mandatory"),
+#     "notes": ad.get("notes", ""),
+#     "source": "intake_form",
+#     "added_by_name": "Admin",
+#     "filled_by": ad.get("filled_by", "client"),
+# })
+#                 new_admin_docs.append(ad_name)
+
+        # Sync new admin docs to case_steps in DB (so they persist)
+        # if new_admin_docs:
+        #     await case_steps_col.update_one(
+        #         {"case_id": case_id, "step_name": step_name},
+        #         {"$set": {"required_documents": merged_docs}}
+        #     )
+
+        # Build doc items for response
+        admin_lookup = {
+            _get_doc_name(ad).strip().lower(): ad
+            for ad in admin_defaults
+            if _get_doc_name(ad)
+        }
+
+        merged_docs = []
+
+        # 1. Merge case_req_docs (case step specific documents or CM requests)
+        for rd in case_req_docs:
+            doc_name = _get_doc_name(rd)
+            if not doc_name:
+                continue
+            doc_key = doc_name.strip().lower()
+            filled_by = rd.get("filled_by", "client") if isinstance(rd, dict) else "client"
+
+            if current_user["role"] == "client" and filled_by == "cm":
+                continue
+
+            workflow_doc = admin_lookup.get(doc_key)
+            if workflow_doc:
+                merged_doc = {
+                    **(rd if isinstance(rd, dict) else {"doc_name": doc_name}),
+                    **workflow_doc,
+                    "doc_name": doc_name,
+                }
+                merged_docs.append(merged_doc)
+                admin_lookup.pop(doc_key, None)
+            else:
+                merged_docs.append(rd if isinstance(rd, dict) else {
+                    "doc_name": doc_name,
+                    "label": doc_name,
+                    "field_type": "file",
+                    "is_mandatory": True,
+                    "tag": "mandatory",
+                    "source": "case_step",
+                    "filled_by": filled_by,
+                })
+
+        # 2. Add remaining workflow default docs
+        for ad in admin_lookup.values():
+            if current_user["role"] == "client" and ad.get("filled_by") == "cm":
+                continue
+            merged_docs.append(ad)
+
+        # Dynamic assessing authority document checklist for Step 2 or Document Collection step
+        is_step_2 = (step_name.lower().strip() in ["document collection", "documents collection", "document gathering", "documents"] or cs.get("step_order") == 2)
+        occ_review_status = case.get("client_occupation_review_status") or "pending_client_review"
+
+        is_locked = False
+        lock_reason = ""
+
+        # Only lock if occupation review was explicitly rejected by client and partner review is in progress
+        if is_step_2 and occ_review_status == "rejected_by_client":
+            is_locked = True
+            lock_reason = "You requested an occupation code change. Partner/Admin review is in progress."
+
+        if is_step_2 or "document" in step_name.lower():
+            if case.get("occupation_code") or case.get("assessing_authority_code"):
+                assessing_checklist = await get_assessing_body_documents_db(
+                    case.get("occupation_code", ""),
+                    case.get("assessing_authority_code", ""),
+                    case.get("country", "AU")
+                )
+                if assessing_checklist:
+                    # In Step 2 (Document Collection), use the assessing authority checklist as the canonical required list
+                    # Keep any custom CM-requested documents, but replace generic workflow placeholders
+                    custom_cm_docs = [
+                        d for d in merged_docs 
+                        if (isinstance(d, dict) and d.get("source") in ("cm_request", "additional_request", "custom"))
+                    ]
+                    merged_docs = list(assessing_checklist) + custom_cm_docs
+
+>>>>>>> origin/main
         doc_items = []
         matched_uploaded_ids = set()
 
@@ -474,6 +908,7 @@ async def get_stepwise_documents(case_id: str, current_user: dict = Depends(get_
                 "locked_reason": doc_payment_locked_reason or locked_reason,
             })
 
+<<<<<<< HEAD
         # Also add any documents uploaded for this step that were not in merged_docs
         for up_doc in step_uploaded:
             if up_doc.get("id") and up_doc["id"] not in matched_uploaded_ids:
@@ -542,6 +977,20 @@ async def get_stepwise_documents(case_id: str, current_user: dict = Depends(get_
             "payment_required": payment_required,
             "payment_amount": payment_amount,
             "sale_id": sale_id_val,
+=======
+        # Update prev_step_complete for next iteration
+        step_status = (cs.get("status") or "pending").lower()
+        is_current_completed = step_status in ("completed", "complete", "done", "approved", "verified")
+        prev_step_complete = is_current_completed
+
+        step_docs.append({
+            "step_name": step_name,
+            "step_order": cs.get("step_order", idx + 1),
+            "description": cs.get("description", ""),
+            "status": cs.get("status", "pending"),
+            "is_locked": is_locked,
+            "lock_reason": lock_reason,
+>>>>>>> origin/main
             "required_count": len(doc_items),
             "uploaded_count": sum(1 for d in doc_items if d["uploaded"]),
             "verified_count": sum(1 for d in doc_items if d["status"] == "approved"),

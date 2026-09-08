@@ -14,7 +14,7 @@ import {
   PieChart, Pie, Cell, Legend,
 } from 'recharts';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || (typeof window !== 'undefined' && window.location.hostname.includes('leamss.com') ? 'https://api.leamss.com' : 'http://localhost:8001');
 const API = `${BACKEND_URL}/api`;
 
 const COLORS = ['#0d9488', '#f97316', '#dc2626', '#0ea5e9', '#10b981', '#a855f7', '#eab308'];
