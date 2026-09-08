@@ -19,7 +19,10 @@ from pathlib import Path
 from typing import Any, Dict
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
-from weasyprint import HTML, CSS
+try:
+    from weasyprint import HTML, CSS
+except Exception:
+    HTML, CSS = None, None
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +87,9 @@ def render_pdf_v2(snapshot: Dict[str, Any]) -> bytes:
     )
 
     base_url = str(_HERE)  # so relative @font-face url() resolves
+    if HTML is None:
+        logger.warning("WeasyPrint is not installed or missing native libraries. PDF rendering skipped.")
+        return b""
     pdf_bytes = HTML(string=html_str, base_url=base_url).write_pdf()
     logger.info(
         "Phase 8 PDF v2 rendered · snapshot=%s · tier=%s · size=%d bytes",

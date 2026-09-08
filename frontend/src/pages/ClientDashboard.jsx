@@ -103,8 +103,18 @@ const ClientDashboard = () => {
       setPreviewBlobUrl(url);
     } catch (error) {
       console.error('Preview error:', error);
-      if (error.response?.status === 402) {
-        toast.error('This document is locked until full payment is completed.');
+      if (error.response?.status === 402 || error.response?.status === 403) {
+        let msg = 'This document is locked until full payment is completed.';
+        if (error.response?.data instanceof Blob) {
+          try {
+            const text = await error.response.data.text();
+            const parsed = JSON.parse(text);
+            if (parsed?.detail) msg = parsed.detail;
+          } catch (_) {}
+        } else if (error.response?.data?.detail) {
+          msg = error.response.data.detail;
+        }
+        toast.error(msg);
         if (proposals && proposals.length > 0) {
           const firstProp = proposals.find(p => (p.pending_amount || 0) > 0 || (p.payment_parts || []).some(x => x.status !== 'paid')) || proposals[0];
           const unpaidPart = (firstProp.payment_parts || []).find(x => x.status === 'pending' || x.status === 'locked') || { amount: firstProp.pending_amount, label: 'Pending Payment' };
@@ -461,8 +471,18 @@ const ClientDashboard = () => {
       link.remove();
       toast.success('Document downloaded');
     } catch (error) {
-      if (error.response?.status === 402) {
-        toast.error('This document is locked until full payment is completed.');
+      if (error.response?.status === 402 || error.response?.status === 403) {
+        let msg = 'This document is locked until full payment is completed.';
+        if (error.response?.data instanceof Blob) {
+          try {
+            const text = await error.response.data.text();
+            const parsed = JSON.parse(text);
+            if (parsed?.detail) msg = parsed.detail;
+          } catch (_) {}
+        } else if (error.response?.data?.detail) {
+          msg = error.response.data.detail;
+        }
+        toast.error(msg);
         if (proposals && proposals.length > 0) {
           const firstProp = proposals.find(p => (p.pending_amount || 0) > 0 || (p.payment_parts || []).some(x => x.status !== 'paid')) || proposals[0];
           const unpaidPart = (firstProp.payment_parts || []).find(x => x.status === 'pending' || x.status === 'locked') || { amount: firstProp.pending_amount, label: 'Pending Payment' };

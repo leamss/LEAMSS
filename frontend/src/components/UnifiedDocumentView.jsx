@@ -29,13 +29,14 @@ const UnifiedDocumentView = ({ token, caseId, caseData, onDocumentUploaded }) =>
   const headers = { Authorization: `Bearer ${token}` };
 
   const handleStepPayment = (saleId, step) => {
-    const payAmt = Number(step?.payment_amount || 10125);
+    const payAmt = Number(step?.payment_amount || step?.payment_pending_amount || 10125);
+    const label = step?.label || (step?.step_order ? `Step ${step.step_order} Payment` : '2nd Installment (50%)');
     setStepPaymentModalData({
       open: true,
       data: {
         saleId: saleId || caseData?.sale_id,
         amount: payAmt,
-        part: { label: '2nd Installment (50%)', index: 1, amount: payAmt },
+        part: { label: label, index: step?.step_order || 1, amount: payAmt },
         productName: caseData?.service_type ? `${caseData.service_type} Application` : (caseData?.product_name || 'PR Journey & Immigration'),
         partnerName: caseData?.partner_name || 'LEAMSS Consultant',
         clientName: caseData?.client_name || 'Client',
@@ -251,7 +252,12 @@ setSubmittedFields(savedSubmittedFields);
     }
   };
 
-  const downloadDocument = async (docId, filename) => {
+  const downloadDocument = async (docId, filename, paymentLockInfo = null) => {
+    if (paymentLockInfo?.is_locked) {
+      toast.info('Please complete payment to unlock and download this document.');
+      handleStepPayment(paymentLockInfo.saleId, paymentLockInfo.step);
+      return;
+    }
     try {
       const response = await axios.get(`${API}/documents/download/${docId}`, {
         headers, responseType: 'blob'
@@ -263,8 +269,26 @@ setSubmittedFields(savedSubmittedFields);
       document.body.appendChild(link);
       link.click();
       link.remove();
+      toast.success('Document downloaded');
     } catch (e) {
-      toast.error('Download failed');
+      if (e.response?.status === 402 || e.response?.status === 403) {
+        let msg = 'This document is locked until payment is completed.';
+        if (e.response?.data instanceof Blob) {
+          try {
+            const text = await e.response.data.text();
+            const parsed = JSON.parse(text);
+            if (parsed?.detail) msg = parsed.detail;
+          } catch (_) {}
+        } else if (e.response?.data?.detail) {
+          msg = e.response.data.detail;
+        }
+        toast.error(msg);
+        if (paymentLockInfo?.step) {
+          handleStepPayment(paymentLockInfo.saleId, paymentLockInfo.step);
+        }
+      } else {
+        toast.error('Download failed');
+      }
     }
   };
 
@@ -863,18 +887,46 @@ const renderIntakeField = (field, step) => {
                                           </div>
 
                                           <div className="flex items-center gap-1.5 shrink-0">
-                                            <Button
-                                              variant="outline"
-                                              size="sm"
-                                              className="h-7 px-2 text-xs flex items-center gap-1 border-slate-300 text-slate-700 hover:bg-white shadow-2xs"
-                                              title="Download file"
-                                              onClick={() => downloadDocument(uDoc.id, uDoc.filename)}
-                                            >
-                                              <Download className="h-3.5 w-3.5 text-slate-600" />
-                                              <span className="hidden sm:inline">Download</span>
-                                            </Button>
+                                            {doc.is_payment_locked ? (
+                                              <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="h-7 px-2.5 text-xs flex items-center gap-1.5 border-amber-300 text-amber-800 bg-amber-50 hover:bg-amber-100 shadow-2xs font-medium cursor-pointer"
+                                                title="Locked - Complete payment to unlock and download"
+                                                onClick={() =>
+                                                  handleStepPayment(doc.sale_id || step.sale_id, {
+                                                    step_order: step.step_order,
+                                                    payment_amount: doc.payment_pending_amount || step.payment_amount,
+                                                    label: 'Full Payment',
+                                                  })
+                                                }
+                                              >
+                                                <Lock className="h-3.5 w-3.5 text-amber-600" />
+                                                <span>Unlock & Download</span>
+                                              </Button>
+                                            ) : (
+                                              <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="h-7 px-2 text-xs flex items-center gap-1 border-slate-300 text-slate-700 hover:bg-white shadow-2xs"
+                                                title="Download file"
+                                                onClick={() =>
+                                                  downloadDocument(uDoc.id, uDoc.filename, {
+                                                    is_locked: false,
+                                                    saleId: doc.sale_id || step.sale_id,
+                                                    step: {
+                                                      step_order: step.step_order,
+                                                      payment_amount: doc.payment_pending_amount || step.payment_amount,
+                                                    },
+                                                  })
+                                                }
+                                              >
+                                                <Download className="h-3.5 w-3.5 text-slate-600" />
+                                                <span className="hidden sm:inline">Download</span>
+                                              </Button>
+                                            )}
 
-                                            {!isLocked && (
+                                            {!isLocked && !doc.is_payment_locked && (
                                               <Button
                                                 variant="ghost"
                                                 size="sm"

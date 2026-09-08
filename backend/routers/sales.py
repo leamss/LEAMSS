@@ -186,7 +186,7 @@ async def create_sale(
     pre_assessment_id: Optional[str] = Form(None),
     bypass_pre_assessment: Optional[bool] = Form(False),
     bypass_reason: Optional[str] = Form(None),
-    documents: List[UploadFile] = File(None),
+    documents: List[UploadFile] = File(default=[]),
     current_user: dict = Depends(get_current_user)
 ):
     from core.database import db
