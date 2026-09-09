@@ -206,12 +206,15 @@ app = FastAPI(title="LEAMSS Portal API", version="3.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
+        "https://app.leamss.com",
+        "https://api.leamss.com",
+        "https://leamss.com",
         "http://localhost:3000",
         "http://127.0.0.1:3000",
         "http://localhost:8001",
         "http://127.0.0.1:8001",
     ],
-    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
+    allow_origin_regex=r"^https?://((localhost|127\.0\.0\.1)(:\d+)?|([a-zA-Z0-9-]+\.)?leamss\.com)$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -222,7 +225,10 @@ app.add_middleware(
 async def startup():
     import asyncio
     from core.database import client, db
-    client.get_io_loop = asyncio.get_running_loop
+    try:
+        client.get_io_loop = asyncio.get_running_loop
+    except Exception:
+        pass
     await init_db()
 
     await seed_atlas_countries(db)
