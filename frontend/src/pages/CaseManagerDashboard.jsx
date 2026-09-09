@@ -18,7 +18,7 @@ import DocumentChecklist from '@/components/DocumentChecklist';
 import CreateTicket from '@/components/CreateTicket';
 import TicketSection from '@/components/TicketSection';
 import QuickActions from '@/components/QuickActions';
-import { Briefcase, FileText, CheckCircle, AlertCircle, LogOut, Download, Plus, Send, ArrowLeft, MessageSquare, Search, Filter, Clock, Eye, Menu, X, Lock, Calendar, AlertTriangle, User, ClipboardList, Zap, BookOpen, Star, ArrowRightLeft, Sparkles, Loader2, XCircle, CalendarClock, Calculator, Scan } from 'lucide-react';
+import { Briefcase, FileText, CheckCircle, AlertCircle, LogOut, Download, Plus, Send, ArrowLeft, MessageSquare, Search, Filter, Clock, Eye, Menu, X, Lock, Calendar, AlertTriangle, User, ClipboardList, Zap, BookOpen, Star, ArrowRightLeft, Sparkles, Loader2, XCircle, CalendarClock, Calculator, Scan, IndianRupee } from 'lucide-react';
 import BulkOperations from '@/pages/BulkOperations';
 import SLATracker from '@/pages/SLATracker';
 import CaseTransfer from '@/pages/CaseTransfer';
@@ -644,10 +644,12 @@ const loadCaseDetails = async (caseId) => {
   const navGroups = [
     { id: 'dashboard', icon: Briefcase, label: 'Dashboard', onClick: () => { setActiveTab('dashboard'); setSelectedCase(null); setInfoSheetCaseId(null); } },
     {
-      groupLabel: 'Case Management',
+      groupLabel: 'Cases',
       defaultOpen: true,
       items: [
+        { id: 'dashboard', icon: Briefcase, label: 'Overview', onClick: () => { setActiveTab('dashboard'); setSelectedCase(null); setInfoSheetCaseId(null); } },
         { id: 'cases', icon: FileText, label: 'My Cases', onClick: () => { setActiveTab('cases'); setSelectedCase(null); setInfoSheetCaseId(null); } },
+        { id: 'earnings', icon: IndianRupee, label: 'My Earnings & Commission', onClick: () => { setActiveTab('earnings'); setSelectedCase(null); setInfoSheetCaseId(null); } },
         { id: 'smart-workload', icon: AlertCircle, label: 'Smart Workload', onClick: () => { setActiveTab('smart-workload'); setSelectedCase(null); setInfoSheetCaseId(null); } },
         { id: 'pending-review', icon: AlertCircle, label: 'Pending Review', badge: pendingReviewCount, onClick: () => { setActiveTab('pending-review'); setSelectedCase(null); setInfoSheetCaseId(null); } },
         { id: 'batch-ops', icon: Zap, label: 'Batch Operations', onClick: () => { setActiveTab('batch-ops'); setSelectedCase(null); setInfoSheetCaseId(null); } },
@@ -736,6 +738,12 @@ const loadCaseDetails = async (caseId) => {
             onNavigateToCase={(caseId) => { loadCaseDetails(caseId); setActiveTab('cases'); }}
             onNavigateToTab={(tab) => setActiveTab(tab)}
           />
+        </div>
+      )}
+
+      {activeTab === 'earnings' && (
+        <div className="space-y-4" data-testid="cm-earnings-tab">
+          <CmEarningsWidget />
         </div>
       )}
 

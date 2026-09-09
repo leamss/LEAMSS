@@ -5,6 +5,7 @@ If approved: Partner sends sales proposal with payment link → Client pays → 
 If rejected: ₹5,100 refunded
 """
 import os
+import re
 import uuid
 import logging
 from datetime import datetime, timezone
@@ -148,6 +149,12 @@ class ProposalData(BaseModel):
     product_package_id: Optional[str] = None
     payment_method_type: str = "full_payment"
     installment_schedule: Optional[List[InstallmentItem]] = None
+    deduct_pre_assessment_fee: Optional[bool] = False
+    deduct_pa_fee: Optional[bool] = None
+    second_installment_trigger_type: Optional[str] = "step"
+    second_installment_step_order: Optional[int] = None
+    second_installment_step_name: Optional[str] = None
+    second_installment_due_date: Optional[str] = None
 
 #  ADD THIS — was missing
 class ProposalDraftData(BaseModel):
@@ -158,6 +165,8 @@ class ProposalDraftData(BaseModel):
     additional_discount: Optional[float] = 0.0
     upsell_bundle_ids: Optional[List[str]] = []
     ai_proposal_text: Optional[str] = None
+    deduct_pre_assessment_fee: Optional[bool] = False
+    deduct_pa_fee: Optional[bool] = None
 class ForwardPackagesData(BaseModel):
     package_ids: List[str]
     notes: str = ""
@@ -166,7 +175,15 @@ class FinalizePaymentMethodData(BaseModel):
     payment_method_type: str  # full_payment | split_50_50 | installments
     installment_schedule: Optional[List[InstallmentItem]] = None
     include_gst: bool = False  # partner toggles this for domestic (India) clients
-    coupon_code: Optional[str] = None  # 👈 NEW — admin-defined product coupon
+    coupon_code: Optional[str] = None
+    promo_code: Optional[str] = None
+    promo_enabled: Optional[bool] = True
+    deduct_pre_assessment_fee: Optional[bool] = False
+    deduct_pa_fee: Optional[bool] = None
+    second_installment_trigger_type: Optional[str] = "step"
+    second_installment_step_order: Optional[int] = None
+    second_installment_step_name: Optional[str] = None
+    second_installment_due_date: Optional[str] = None
 
 # ===================== PARTNER ENDPOINTS =====================
 
@@ -1256,8 +1273,10 @@ async def pa_client_occupation_decision(
     pa = await pre_assessments_col.find_one(
         {"$or": [
             {"id": pa_id},
+            {"pa_number": pa_id},
             {"pre_assessment_number": pa_id},
-            {"custom_id": pa_id}
+            {"custom_id": pa_id},
+            {"case_id": pa_id}
         ]},
         {"_id": 0}
     )
@@ -1272,7 +1291,10 @@ async def pa_client_occupation_decision(
             "client_occupation_accepted_at": now,
             "updated_at": now,
         }
-        await pre_assessments_col.update_one({"id": real_pa_id}, {"$set": update_doc})
+        await pre_assessments_col.update_one(
+            {"$or": [{"id": real_pa_id}, {"pa_number": real_pa_id}]},
+            {"$set": update_doc}
+        )
 
         if pa.get("case_id"):
             await cases_col.update_one(
@@ -1307,7 +1329,10 @@ async def pa_client_occupation_decision(
             "client_occupation_rejected_at": now,
             "updated_at": now,
         }
-        await pre_assessments_col.update_one({"id": real_pa_id}, {"$set": update_doc})
+        await pre_assessments_col.update_one(
+            {"$or": [{"id": real_pa_id}, {"pa_number": real_pa_id}]},
+            {"$set": update_doc}
+        )
 
         if pa.get("case_id"):
             await cases_col.update_one(
@@ -1495,13 +1520,16 @@ async def finalize_payment_method(pa_id: str, data: FinalizePaymentMethodData, c
     pa = await pre_assessments_col.find_one({"id": pa_id}, {"_id": 0})
     if not pa:
         raise HTTPException(status_code=404, detail="Pre-assessment not found")
-    if pa["stage"] != "package_selected":
-        raise HTTPException(status_code=400, detail=f"Must be at 'package_selected' stage. Current: {pa['stage']}")
+    if pa["stage"] not in ("package_selected", "proposal_sent"):
+        raise HTTPException(status_code=400, detail=f"Must be at 'package_selected' or 'proposal_sent' stage. Current: {pa['stage']}")
+    if (pa.get("proposal_amount_paid") or 0) > 0 or pa.get("stage") == "proposal_paid":
+        raise HTTPException(status_code=400, detail="Cannot change payment method after payment has started")
     role = current_user.get("role")
-    if role in ("partner", "sales_executive", "sr_sales_executive") and pa["partner_id"] != current_user["id"]:
+    partner_id_on_pa = pa.get("partner_id") or pa.get("assigned_partner_id")
+    if role in ("partner", "sales_executive", "sr_sales_executive") and partner_id_on_pa != current_user["id"]:
         raise HTTPException(status_code=403, detail="Not your pre-assessment")
 
-    selected_package = pa.get("selected_package_snapshot")
+    selected_package = pa.get("selected_package_snapshot") or pa.get("selected_package")
     if not selected_package:
         raise HTTPException(status_code=400, detail="No package selected by client")
 
@@ -1509,39 +1537,95 @@ async def finalize_payment_method(pa_id: str, data: FinalizePaymentMethodData, c
     if base_fee <= 0:
         raise HTTPException(status_code=400, detail="Selected package has no valid price")
 
-    # 👇 NEW — Validate + apply coupon (server-side truth, never trust frontend amount)
+    # 👇 NEW — Validate + apply promo code / coupon (server-side truth from Marketing Hub OR Product)
     coupon_applied = None
     discount_amount = 0.0
-    if data.coupon_code:
-        product_doc = await products_col.find_one({"id": pa.get("product_id", "")}, {"_id": 0, "discount_coupons": 1})
-        all_coupons = (product_doc or {}).get("discount_coupons") or []
-        code_upper = data.coupon_code.strip().upper()
-        coupon_applied = next(
-            (c for c in all_coupons if (c.get("code") or "").upper() == code_upper and c.get("is_active", True)),
-            None
-        )
-        if not coupon_applied:
-            raise HTTPException(status_code=400, detail=f"Invalid or inactive coupon code: {code_upper}")
-        if coupon_applied["discount_type"] == "percentage":
-            discount_amount = round(base_fee * float(coupon_applied["discount_value"]) / 100, 2)
-        else:
-            discount_amount = round(float(coupon_applied["discount_value"]), 2)
-        discount_amount = min(discount_amount, base_fee)
+    code_to_check = (data.promo_code or data.coupon_code or "").strip().upper()
+    if code_to_check:
+        # Check 1: Marketing Hub promo codes
+        promo = await db["promo_codes"].find_one({"code": code_to_check}, {"_id": 0})
+        if not promo:
+            promo = await db["promo_codes"].find_one({"code": {"$regex": f"^{re.escape(code_to_check)}$", "$options": "i"}}, {"_id": 0})
+        
+        if promo:
+            c_uses = int(promo.get("current_uses") if promo.get("current_uses") is not None else (promo.get("used_count") or 0))
+            m_uses = int(promo.get("max_uses") or 100)
+            if m_uses > 0 and c_uses >= m_uses:
+                raise HTTPException(status_code=400, detail=f"Promo code '{code_to_check}' usage limit reached ({c_uses}/{m_uses})")
+            if promo.get("is_active") is False or promo.get("active") is False:
+                raise HTTPException(status_code=400, detail=f"Promo code '{code_to_check}' is inactive")
 
-    discounted_fee = round(base_fee - discount_amount, 2)
+            coupon_applied = {
+                "id": promo.get("id"),
+                "code": promo["code"].upper(),
+                "discount_type": promo.get("discount_type", "percentage"),
+                "discount_value": float(promo.get("discount_value", 0)),
+                "notes": promo.get("notes") or f"{promo.get('discount_value')}% Marketing Promo"
+            }
+            if coupon_applied["discount_type"] == "percentage":
+                discount_amount = round(base_fee * float(coupon_applied["discount_value"]) / 100, 2)
+            else:
+                discount_amount = round(float(coupon_applied["discount_value"]), 2)
+            discount_amount = min(discount_amount, base_fee)
+        else:
+            # Check 2: Product-specific coupons
+            product_doc = await products_col.find_one({"id": pa.get("product_id", "")}, {"_id": 0, "discount_coupons": 1})
+            all_coupons = (product_doc or {}).get("discount_coupons") or []
+            matched = next(
+                (c for c in all_coupons if (c.get("code") or "").upper() == code_to_check and c.get("is_active", True)),
+                None
+            )
+            if matched:
+                c_uses = int(matched.get("current_uses") if matched.get("current_uses") is not None else (matched.get("used_count") or 0))
+                m_uses = int(matched.get("max_uses") or 100)
+                if m_uses > 0 and c_uses >= m_uses:
+                    raise HTTPException(status_code=400, detail=f"Promo code '{code_to_check}' usage limit reached ({c_uses}/{m_uses})")
+                coupon_applied = matched
+                if coupon_applied["discount_type"] == "percentage":
+                    discount_amount = round(base_fee * float(coupon_applied["discount_value"]) / 100, 2)
+                else:
+                    discount_amount = round(float(coupon_applied["discount_value"]), 2)
+                discount_amount = min(discount_amount, base_fee)
+            else:
+                raise HTTPException(status_code=400, detail=f"Invalid or inactive promo code: {code_to_check}")
+
+    deduct_pa = bool(data.deduct_pre_assessment_fee or data.deduct_pa_fee)
+    pa_deduction = 5100.0 if deduct_pa else 0.0
 
     include_gst = bool(data.include_gst)
+    std_base_after_deduction = max(0.0, round(base_fee - pa_deduction, 2))
+    std_gst_amount = round(std_base_after_deduction * 0.18, 2) if include_gst else 0.0
+    standard_total = round(std_base_after_deduction + std_gst_amount, 2)
+
+    discounted_fee = max(0.0, round(base_fee - discount_amount - pa_deduction, 2))
     gst_amount = round(discounted_fee * 0.18, 2) if include_gst else 0.0
-    final_amount = round(discounted_fee + gst_amount, 2)
+    discounted_total = round(discounted_fee + gst_amount, 2)
+
+    # Initial proposal amounts shown to client start un-discounted until the client applies the shared promo code
+    initial_total = standard_total
 
     payment_method_type = data.payment_method_type
 
     if payment_method_type not in ("full_payment", "split_50_50", "installments"):
         raise HTTPException(status_code=400, detail="Invalid payment_method_type")
 
-    pm_config = (selected_package.get("payment_methods") or {}).get(payment_method_type)
-    if not pm_config or not pm_config.get("enabled"):
-        raise HTTPException(status_code=400, detail=f"Payment method '{payment_method_type}' is not enabled for this package")
+    raw_pm = selected_package.get("payment_methods") or {}
+    if isinstance(raw_pm, dict):
+        pm_config = raw_pm.get(payment_method_type)
+    elif isinstance(raw_pm, list):
+        pm_config = next((p for p in raw_pm if (p.get("type") or p.get("method_type")) == payment_method_type), None)
+    else:
+        pm_config = None
+
+    if not pm_config or pm_config.get("enabled") is False:
+        if payment_method_type == "full_payment":
+            pm_config = {"enabled": True}
+        elif payment_method_type == "split_50_50":
+            pm_config = {"enabled": True, "first_pct": 50, "trigger_condition": "Admin unlock required"}
+        elif payment_method_type == "installments":
+            pm_config = {"enabled": True, "max_installments": 5}
+        else:
+            raise HTTPException(status_code=400, detail=f"Payment method '{payment_method_type}' is not enabled for this package")
 
     is_installments = payment_method_type == "installments"
     installment_total = None
@@ -1552,32 +1636,58 @@ async def finalize_payment_method(pa_id: str, data: FinalizePaymentMethodData, c
         if len(data.installment_schedule) > max_allowed:
             raise HTTPException(status_code=400, detail=f"Max {max_allowed} installments allowed for this package")
         installment_total = round(sum(i.amount for i in data.installment_schedule), 2)
-        if abs(installment_total - final_amount) > 1:
-            raise HTTPException(status_code=400, detail=f"Installment total (₹{installment_total:,.0f}) must equal package price (₹{final_amount:,.0f})")
+        if abs(installment_total - initial_total) > 1:
+            raise HTTPException(status_code=400, detail=f"Installment total (₹{installment_total:,.0f}) must equal package price (₹{initial_total:,.0f})")
+
+    final_total = discounted_total if coupon_applied else standard_total
 
     # Build payment_parts
     payment_parts = []
     if payment_method_type == "split_50_50":
         first_pct = float(pm_config.get("first_pct") or 50)
-        trigger = pm_config.get("trigger_condition") or ""
-        part1 = round(final_amount * first_pct / 100, 2)
-        part2 = round(final_amount - part1, 2)
+        part1 = round(final_total * first_pct / 100, 2)
+        part2 = round(final_total - part1, 2)
+
+        trigger_type = data.second_installment_trigger_type or "step"
+        if trigger_type == "date" and data.second_installment_due_date:
+            trigger_condition = f"Due on {data.second_installment_due_date}"
+            trigger_step_order = None
+            trigger_step_name = None
+            due_date = data.second_installment_due_date
+        else:
+            trigger_type = "step"
+            trigger_step_order = int(data.second_installment_step_order or 4)
+            trigger_step_name = data.second_installment_step_name or f"Step {trigger_step_order}"
+            trigger_condition = f"Unlocks at Step {trigger_step_order}: {trigger_step_name}"
+            due_date = None
+
         payment_parts = [
             {"index": 0, "label": f"1st Installment ({first_pct:.0f}%)", "amount": part1,
             "status": "pending", "due_date": None, "trigger_condition": None},
             {"index": 1, "label": f"2nd Installment ({100-first_pct:.0f}%)", "amount": part2,
-            "status": "locked", "due_date": None, "trigger_condition": trigger or "Admin unlock required"},
+            "status": "locked", "due_date": due_date, "trigger_type": trigger_type,
+            "trigger_step_order": trigger_step_order, "trigger_step_name": trigger_step_name,
+            "trigger_condition": trigger_condition},
         ]
     elif is_installments:
-        payment_parts = [
-            {"index": idx, "label": f"Installment {idx+1}", "amount": round(inst.amount, 2),
-            "status": "pending" if idx == 0 else "locked",
-            "due_date": inst.due_date, "trigger_condition": None}
-            for idx, inst in enumerate(data.installment_schedule)
-        ]
+        if coupon_applied and standard_total > 0:
+            ratio = final_total / standard_total
+            payment_parts = [
+                {"index": idx, "label": f"Installment {idx+1}", "amount": round(inst.amount * ratio, 2),
+                "status": "pending" if idx == 0 else "locked",
+                "due_date": inst.due_date, "trigger_condition": None}
+                for idx, inst in enumerate(data.installment_schedule)
+            ]
+        else:
+            payment_parts = [
+                {"index": idx, "label": f"Installment {idx+1}", "amount": round(inst.amount, 2),
+                "status": "pending" if idx == 0 else "locked",
+                "due_date": inst.due_date, "trigger_condition": None}
+                for idx, inst in enumerate(data.installment_schedule)
+            ]
     else:  # full_payment
         payment_parts = [
-            {"index": 0, "label": "Full Payment", "amount": final_amount,
+            {"index": 0, "label": "Full Payment", "amount": final_total,
             "status": "pending", "due_date": None, "trigger_condition": None},
         ]
 
@@ -1601,7 +1711,8 @@ async def finalize_payment_method(pa_id: str, data: FinalizePaymentMethodData, c
             commission_rate = current_user.get("commission_rate", 0)
     commission_amount = 0  # amount_received starts at 0
 
-    sale_id = str(uuid.uuid4())
+    existing_sale = await sales_col.find_one({"pre_assessment_id": pa_id})
+    sale_id = pa.get("sale_id") or (existing_sale["id"] if existing_sale else str(uuid.uuid4()))
     sale = {
         "id": sale_id,
         "partner_id": current_user["id"],
@@ -1613,24 +1724,26 @@ async def finalize_payment_method(pa_id: str, data: FinalizePaymentMethodData, c
         "product_name": pa.get("product_name", ""),
         "country": pa["country"],
         "service_type": pa["service_type"],
-        "fee_amount": final_amount,
+        "fee_amount": final_total,
         "fee_before_discount": base_fee,
         "base_fee": base_fee,
+        "deduct_pre_assessment_fee": deduct_pa,
+        "pre_assessment_deduction": pa_deduction,
         "coupon_code": coupon_applied["code"] if coupon_applied else None,
         "coupon_discount_type": coupon_applied["discount_type"] if coupon_applied else None,
         "coupon_discount_value": coupon_applied["discount_value"] if coupon_applied else None,
         "coupon_discount_amount": discount_amount,
         "discounted_fee": discounted_fee,
         "gst_included": include_gst,
-        "gst_amount": gst_amount,
+        "gst_amount": gst_amount if coupon_applied else std_gst_amount,
         "upsell_items": [],
         "upsell_total": 0,
-        "promo_code": None,
-        "promo_discount_amount": 0,
+        "promo_code": coupon_applied["code"] if coupon_applied else None,
+        "promo_discount_amount": discount_amount,
         "additional_discount_amount": 0,
-        "total_discount_amount": 0,
+        "total_discount_amount": discount_amount,
         "amount_received": 0,
-        "pending_amount": final_amount,
+        "pending_amount": final_total,
         "payment_method": "online",
         "currency": "INR",
         "status": "pending_installment_approval" if is_installments else "approved",
@@ -1644,29 +1757,43 @@ async def finalize_payment_method(pa_id: str, data: FinalizePaymentMethodData, c
         "payment_method_type": payment_method_type,
         "installment_schedule": [i.dict() for i in data.installment_schedule] if data.installment_schedule else None,
         "payment_parts": payment_parts,
+        "second_installment_trigger_type": trigger_type if payment_method_type == "split_50_50" else None,
+        "second_installment_step_order": trigger_step_order if payment_method_type == "split_50_50" else None,
+        "second_installment_step_name": trigger_step_name if payment_method_type == "split_50_50" else None,
+        "second_installment_due_date": due_date if payment_method_type == "split_50_50" else None,
         "amount_paid_so_far": 0,
-        "created_at": datetime.now(timezone.utc),
+        "created_at": (existing_sale or {}).get("created_at") or datetime.now(timezone.utc),
         "approved_at": datetime.now(timezone.utc),
     }
-    await sales_col.insert_one(sale)
+    if existing_sale or pa.get("sale_id"):
+        await sales_col.update_one({"id": sale_id}, {"$set": sale})
+    else:
+        await sales_col.insert_one(sale)
 
     new_stage = "installment_pending_approval" if is_installments else "proposal_sent"
 
     await pre_assessments_col.update_one({"id": pa_id}, {"$set": {
         "stage": new_stage,
-        "proposal_fee": final_amount,
+        "proposal_fee": final_total,
+        "proposal_amount_pending": final_total,
         "proposal_base_fee": base_fee,
+        "proposal_deduct_pa_fee": deduct_pa,
+        "deduct_pre_assessment_fee": deduct_pa,
+        "proposal_pa_deduction": pa_deduction,
+        "proposal_discounted_total": discounted_total,
+        "assigned_promo_code": coupon_applied["code"] if coupon_applied else None,
+        "promo_enabled": bool(data.promo_enabled),
         "proposal_coupon_code": coupon_applied["code"] if coupon_applied else None,
         "proposal_coupon_discount_amount": discount_amount,
         "proposal_discounted_fee": discounted_fee,
         "proposal_gst_included": include_gst,
-        "proposal_gst_amount": gst_amount,
+        "proposal_gst_amount": gst_amount if coupon_applied else std_gst_amount,
         "proposal_upsells": [],
         "proposal_upsell_total": 0,
-        "proposal_promo_code": None,
-        "proposal_promo_discount": 0,
+        "proposal_promo_code": coupon_applied["code"] if coupon_applied else None,
+        "proposal_promo_discount": discount_amount,
         "proposal_additional_discount": 0,
-        "proposal_total_discount": 0,
+        "proposal_total_discount": discount_amount,
         "proposal_notes": pa.get("proposal_draft_notes", ""),
         "proposal_ai_text": pa.get("proposal_draft_ai_text", ""),
         "proposal_status": "pending_installment_approval" if is_installments else "sent",
@@ -1676,22 +1803,26 @@ async def finalize_payment_method(pa_id: str, data: FinalizePaymentMethodData, c
         "proposal_payment_method_type": payment_method_type,
         "proposal_installment_schedule": [i.dict() for i in data.installment_schedule] if data.installment_schedule else None,
         "proposal_payment_parts": payment_parts,
+        "second_installment_trigger_type": trigger_type if payment_method_type == "split_50_50" else None,
+        "second_installment_step_order": trigger_step_order if payment_method_type == "split_50_50" else None,
+        "second_installment_step_name": trigger_step_name if payment_method_type == "split_50_50" else None,
+        "second_installment_due_date": due_date if payment_method_type == "split_50_50" else None,
         "proposal_amount_paid": 0,
-        "proposal_amount_pending": final_amount,
+        "proposal_amount_pending": final_total,
         "updated_at": datetime.now(timezone.utc),
     }})
 
     await log_activity(current_user["id"], current_user.get("name", ""), "finalize_payment_method",
-                    "pre_assessment", pa_id, f"Payment method '{payment_method_type}' set for {pa['client_name']} — ₹{final_amount}")
+                    "pre_assessment", pa_id, f"Payment method '{payment_method_type}' set for {pa['client_name']} — ₹{final_total}")
 
     if pa.get("client_user_id"):
         await notifications_col.insert_one({
             "id": str(uuid.uuid4()), "user_id": pa["client_user_id"],
             "title": "Payment ready" if not is_installments else "Installment plan submitted",
             "message": (
-                f"Your payment plan is ready — ₹{final_amount:,.0f} ({payment_method_type})"
+                f"Your payment plan is ready — ₹{standard_total:,.0f} ({payment_method_type})"
                 if not is_installments else
-                f"Installment plan for ₹{final_amount:,.0f} submitted for admin approval"
+                f"Installment plan for ₹{standard_total:,.0f} submitted for admin approval"
             ),
             "type": "payment_ready", "read": False,
             "created_at": datetime.now(timezone.utc)
@@ -1703,7 +1834,7 @@ async def finalize_payment_method(pa_id: str, data: FinalizePaymentMethodData, c
             await notifications_col.insert_one({
                 "id": str(uuid.uuid4()), "user_id": admin["id"],
                 "title": "Installment Approval Needed",
-                "message": f"{current_user.get('name', '')} sent an installment plan (₹{final_amount:,.0f}) for {pa['client_name']} — needs your approval",
+                "message": f"{current_user.get('name', '')} sent an installment plan (₹{standard_total:,.0f}) for {pa['client_name']} — needs your approval",
                 "type": "installment_pending", "read": False,
                 "link": "/admin/pre-assessments",
                 "created_at": datetime.now(timezone.utc)

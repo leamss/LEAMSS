@@ -19,7 +19,17 @@ export function formatApiError(e, fallback = 'Request failed') {
   // Extract detail from Axios error, response object, or direct object
   const rawDetail = e?.response?.data?.detail ?? e?.data?.detail ?? e?.detail ?? e;
 
-  if (typeof rawDetail === 'string') return rawDetail;
+  if (typeof rawDetail === 'string') {
+    if (
+      rawDetail.includes("Expecting ',' delimiter") ||
+      rawDetail.includes("JSONDecodeError") ||
+      rawDetail.includes("Unterminated string") ||
+      (rawDetail.includes("line ") && rawDetail.includes("column ") && rawDetail.includes("char "))
+    ) {
+      return "AI response format was incomplete. Please try again or refine your query.";
+    }
+    return rawDetail;
+  }
 
   if (Array.isArray(rawDetail)) {
     const formatted = rawDetail

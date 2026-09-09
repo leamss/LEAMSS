@@ -396,9 +396,17 @@ const handleSendProposal = async (paId) => {
 const openFinalizePaymentForm = (pa) => {
     setFinalizingPaymentId(pa.id);
     setPaymentMethodForm({
-      payment_method_type: 'full_payment',
-      installment_schedule: null,
-      include_gst: false,
+      payment_method_type: pa.proposal_payment_method_type || 'full_payment',
+      installment_schedule: pa.proposal_installment_schedule || null,
+      include_gst: pa.proposal_gst_included ?? false,
+      deduct_pre_assessment_fee: pa.proposal_deduct_pa_fee ?? pa.deduct_pre_assessment_fee ?? false,
+      coupon_code: pa.assigned_promo_code || pa.proposal_coupon_code || pa.proposal_promo_code || null,
+      promo_code: pa.assigned_promo_code || pa.proposal_coupon_code || pa.proposal_promo_code || null,
+      promo_enabled: pa.promo_enabled !== false,
+      second_installment_trigger_type: pa.second_installment_trigger_type || 'step',
+      second_installment_step_order: pa.second_installment_step_order || null,
+      second_installment_step_name: pa.second_installment_step_name || null,
+      second_installment_due_date: pa.second_installment_due_date || null,
     });
 };
 
@@ -420,8 +428,16 @@ const openFinalizePaymentForm = (pa) => {
       const res = await axios.post(`${API}/pre-assessment/${paId}/finalize-payment-method`, {
         payment_method_type: formCopy.payment_method_type,
         installment_schedule: formCopy.installment_schedule || null,
-        include_gst: formCopy.include_gst || false,
-        coupon_code: formCopy.coupon_code || null,
+        include_gst: Boolean(formCopy.include_gst),
+        coupon_code: formCopy.coupon_code || formCopy.promo_code || null,
+        promo_code: formCopy.promo_code || formCopy.coupon_code || null,
+        promo_enabled: formCopy.promo_enabled !== false,
+        deduct_pre_assessment_fee: Boolean(formCopy.deduct_pre_assessment_fee),
+        deduct_pa_fee: Boolean(formCopy.deduct_pre_assessment_fee),
+        second_installment_trigger_type: formCopy.second_installment_trigger_type || 'step',
+        second_installment_step_order: formCopy.second_installment_step_order || null,
+        second_installment_step_name: formCopy.second_installment_step_name || null,
+        second_installment_due_date: formCopy.second_installment_due_date || null,
       }, getAuthHeader());
       toast.success(res.data.message || 'Payment method set — client can now pay');
       loadData();
@@ -683,6 +699,13 @@ const getNextAction = (pa) => {
       };
 
     case "proposal_sent":
+      if (!pa.proposal_amount_paid || pa.proposal_amount_paid === 0) {
+        return {
+          label: `Edit Payment Method (${pa.selected_package_snapshot?.name || 'Proposal'})`,
+          action: () => openFinalizePaymentForm(pa),
+          color: "bg-fuchsia-600 hover:bg-fuchsia-700",
+        };
+      }
       return {
         label: "Waiting for client payment…",
         action: null,

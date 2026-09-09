@@ -5,7 +5,8 @@ import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { Send, Eye, ArrowRight, MessageCircle, Clock, X, Copy, ExternalLink } from 'lucide-react';
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || (typeof window !== 'undefined' && window.location.hostname.includes('leamss.com') ? 'https://api.leamss.com' : 'http://localhost:8001');
+const API = `${BACKEND_URL}/api`;
 
 const EXPIRY_OPTIONS = [
   { value: 1, label: '1 day' },

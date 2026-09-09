@@ -35,6 +35,23 @@ async def my_earnings(period: Optional[str] = None, current_user: dict = Depends
         raise HTTPException(status_code=403, detail="Case manager role required")
 
     uid = current_user["id"]
+    
+    # Auto-sync any assigned cases whose allocations need building or CM assignment
+    try:
+        from core.allocations_logic import build_allocations_for_pa
+        assigned_cases = await db["cases"].find(
+            {"$or": [{"case_manager_id": uid}, {"case_manager_id": str(uid)}]},
+            {"_id": 0, "pre_assessment_id": 1, "pa_id": 1}
+        ).to_list(50)
+        for c in assigned_cases:
+            pa_id = c.get("pre_assessment_id") or c.get("pa_id")
+            if pa_id:
+                pa_doc = await db["pre_assessments"].find_one({"id": pa_id}, {"_id": 0})
+                if pa_doc:
+                    await build_allocations_for_pa(pa_doc)
+    except Exception as e:
+        pass
+
     # Aggregate all allocation docs where ANY allocation has vendor_id == this CM and category == case_manager
     cursor = allocations_col.find({
         "allocations": {"$elemMatch": {"vendor_category": "case_manager", "vendor_id": uid}}

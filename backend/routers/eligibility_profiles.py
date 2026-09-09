@@ -25,8 +25,8 @@ router = APIRouter(prefix="/eligibility/profiles", tags=["Phase 6.2 - Eligibilit
 
 profiles_col = db["client_eligibility_profiles"]
 pa_col = db["pre_assessments"]
-users_col = db["users"]
-_resume_gridfs = AsyncIOMotorGridFSBucket(db, bucket_name="bulk_resumes")
+def _get_resume_gridfs():
+    return AsyncIOMotorGridFSBucket(db, bucket_name="bulk_resumes")
 
 
 ROLE_VIEWERS = {"admin", "admin_owner", "sales_executive", "sr_sales_executive", "sales_manager", "sales_head", "partner", "case_manager", "hr_manager"}
@@ -810,7 +810,8 @@ async def resume_extract(
         raise HTTPException(status_code=502, detail=parsed["_error"])
 
     import io
-    file_id = await _resume_gridfs.upload_from_stream(
+    gridfs = _get_resume_gridfs()
+    file_id = await gridfs.upload_from_stream(
         file.filename or "resume.pdf",
         io.BytesIO(raw),
         metadata={"user_id": current_user.get("id"), "uploaded_at": datetime.now(timezone.utc).isoformat()}

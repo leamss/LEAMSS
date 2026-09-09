@@ -100,7 +100,6 @@ async def _unlock_and_check_installment_gate(case: dict, current_user: dict, tar
                 {"id": pa["sale_id"]},
                 {"$set": {"payment_parts": parts}}
             )
-            )
 
     return {
         "has_installment_plan": True,
@@ -110,15 +109,6 @@ async def _unlock_and_check_installment_gate(case: dict, current_user: dict, tar
         "parts": parts,
         "sale_id": pa.get("sale_id")
     }
-=======
-
-    raise HTTPException(
-        status_code=400,
-        detail=f"Cannot advance to Step {target_step_order} — client's '{pending_part['label']}' "
-            f"(₹{pending_part['amount']:,.0f}) is still unpaid. It has been unlocked in their portal; "
-            f"please wait for payment before completing this step."
-    )
->>>>>>> origin/main
 
 def _serialize(case):
     c = {k: v for k, v in case.items() if k != "_id"}
@@ -1375,12 +1365,54 @@ async def handle_client_occupation_decision(
     current_user: dict = Depends(get_current_user)
 ):
     """Client accepts or rejects/suggests alternate occupation code for skills assessment"""
-    case = await cases_col.find_one({"id": case_id}, {"_id": 0})
+    case = await cases_col.find_one(
+        {"$or": [
+            {"id": case_id},
+            {"case_id": case_id},
+            {"pre_assessment_id": case_id}
+        ]},
+        {"_id": 0}
+    )
     if not case:
+        # If not in cases_col, check if this ID belongs to a pre-assessment
+        pa = await pre_assessments_col.find_one(
+            {"$or": [
+                {"id": case_id},
+                {"pa_number": case_id},
+                {"pre_assessment_number": case_id},
+                {"custom_id": case_id},
+                {"case_id": case_id},
+            ]},
+            {"_id": 0}
+        )
+        if pa:
+            from routers.pre_assessment import pa_client_occupation_decision, ClientOccupationDecisionPayload
+            pa_payload = ClientOccupationDecisionPayload(
+                decision=payload.decision,
+                suggested_code=payload.suggested_code or "",
+                suggested_title=payload.suggested_title or "",
+                suggested_assessing_body=payload.suggested_assessing_body or "",
+                notes=payload.notes or "",
+            )
+            return await pa_client_occupation_decision(
+                pa_id=pa.get("id") or case_id,
+                payload=pa_payload,
+                current_user=current_user,
+            )
         raise HTTPException(status_code=404, detail="Case not found")
 
-    if current_user["role"] == "client" and current_user["id"] != case.get("client_id") and current_user["id"] != case.get("spouse_id"):
-        raise HTTPException(status_code=403, detail="Access denied")
+    real_case_id = case.get("id") or case_id
+
+    # Client role verification (match by ID, spouse_id, or email)
+    if current_user["role"] == "client":
+        user_id = current_user.get("id")
+        user_email = (current_user.get("email") or "").lower()
+        client_email = (case.get("client_email") or "").lower()
+        spouse_email = (case.get("spouse_email") or "").lower()
+        matches_id = user_id in (case.get("client_id"), case.get("spouse_id"))
+        matches_email = user_email and (user_email == client_email or user_email == spouse_email)
+        if not (matches_id or matches_email):
+            raise HTTPException(status_code=403, detail="Access denied")
 
     now = datetime.now(timezone.utc)
     if payload.decision == "accepted":
@@ -1389,7 +1421,7 @@ async def handle_client_occupation_decision(
             "client_occupation_accepted_at": now,
             "updated_at": now,
         }
-        await cases_col.update_one({"id": case_id}, {"$set": update_doc})
+        await cases_col.update_one({"id": real_case_id}, {"$set": update_doc})
 
         if case.get("pre_assessment_id"):
             await pre_assessments_col.update_one(
@@ -1430,7 +1462,7 @@ async def handle_client_occupation_decision(
             "client_occupation_rejected_at": now,
             "updated_at": now,
         }
-        await cases_col.update_one({"id": case_id}, {"$set": update_doc})
+        await cases_col.update_one({"id": real_case_id}, {"$set": update_doc})
 
         if case.get("pre_assessment_id"):
             await pre_assessments_col.update_one(

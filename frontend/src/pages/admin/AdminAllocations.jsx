@@ -226,7 +226,7 @@ function PaAllocationCard({ pa, onChanged, isAdmin = true }) {
         </div>
         <div className="text-right">
           <p className="text-xs text-slate-500">Revenue</p>
-          <p className="text-base font-bold text-emerald-700">{formatINR(pa.proposal_fee || pa.final_amount)}</p>
+          <p className="text-base font-bold text-emerald-700">{formatINR(pa.proposal_total_fee || pa.proposal_fee || pa.final_amount || pa.total_amount)}</p>
         </div>
       </div>
       {expanded && (

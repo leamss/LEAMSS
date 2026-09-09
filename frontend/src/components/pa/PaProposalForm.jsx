@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Send, RefreshCw, Package, FileText, CheckCircle2 } from 'lucide-react';
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || (typeof window !== 'undefined' && window.location.hostname.includes('leamss.com') ? 'https://api.leamss.com' : 'http://localhost:8001');
+const API = `${BACKEND_URL}/api`;
 const getAuth = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
 
 /**
@@ -52,7 +53,7 @@ export default function PaProposalForm({
   const viewPackageDoc = async (documentUrl) => {
     if (!documentUrl) return;
     try {
-      const r = await fetch(`${process.env.REACT_APP_BACKEND_URL}${documentUrl}`, getAuth());
+      const r = await fetch(`${BACKEND_URL}${documentUrl}`, getAuth());
       if (!r.ok) throw new Error();
       const blob = await r.blob();
       const url = URL.createObjectURL(blob);

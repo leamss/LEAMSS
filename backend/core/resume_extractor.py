@@ -307,7 +307,7 @@ async def parse_resume_with_ai(
                 response = await client.chat.completions.create(
                     model=model or PERPLEXITY_MODEL,
                     temperature=0,
-                    max_tokens=2500,
+                    max_tokens=4000,
                     messages=[
                         {
                             "role": "system",
@@ -335,16 +335,11 @@ async def parse_resume_with_ai(
         message = response.choices[0].message
         raw = message.content or ""
         logger.info("Perplexity resume extraction response received (length=%d)", len(raw))
-        
-
-      
 
         if raw.startswith("```"):
             raw = raw.strip("`").replace("json", "", 1).strip()
 
-
-
-                # Remove markdown fences if present
+        # Remove markdown fences if present
         raw = re.sub(
             r"^```(?:json)?",
             "",
@@ -356,10 +351,6 @@ async def parse_resume_with_ai(
             "",
             raw.strip()
         )
-
-        # Find the first JSON object
-               # Remove markdown fences if present
-        
 
         # Find the JSON object
         match = re.search(r"\{.*\}", raw, re.DOTALL)
@@ -373,23 +364,42 @@ async def parse_resume_with_ai(
 
         json_text = match.group(0)
 
-        # Remove control characters
-        json_text = re.sub(r"[\x00-\x1F\x7F]", "", json_text)
+        # Remove non-whitespace control characters
+        json_text = re.sub(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]", "", json_text)
 
         # Remove trailing commas
         json_text = re.sub(r",(\s*[}\]])", r"\1", json_text)
 
+        parsed = None
         try:
             parsed = json.loads(json_text)
+        except json.JSONDecodeError:
+            # Try closing truncated brackets
+            for tail in ['\n  }\n}', '\n}', '"\n  }\n}', '"}\n  }\n}', '}\n  }\n}', '"]}', ']}']:
+                try:
+                    parsed = json.loads(json_text + tail)
+                    break
+                except Exception:
+                    pass
+            if not parsed:
+                last_obj = json_text.rfind("},")
+                if last_obj != -1:
+                    try:
+                        parsed = json.loads(json_text[:last_obj + 1] + "\n  }\n}")
+                    except Exception:
+                        pass
 
-        except json.JSONDecodeError as e:
-            logger.warning("Resume JSON decode error: %s", e)
-            start = max(0, e.pos - 300)
-            end = min(len(json_text), e.pos + 300)
-            return {
-                "_error": f"Invalid JSON: {e}",
-                "_raw": json_text[start:end]
-            }
+        if not parsed:
+            try:
+                parsed = json.loads(json_text)
+            except json.JSONDecodeError as e:
+                logger.warning("Resume JSON decode error: %s", e)
+                start = max(0, e.pos - 300)
+                end = min(len(json_text), e.pos + 300)
+                return {
+                    "_error": "AI output could not be parsed completely. Please review resume details.",
+                    "_raw": json_text[start:end]
+                }
 
         parsed["_ai_status"] = "ok"
         parsed["_ai_model"] = PERPLEXITY_MODEL

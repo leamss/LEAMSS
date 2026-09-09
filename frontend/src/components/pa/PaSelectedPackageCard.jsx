@@ -6,6 +6,8 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || (typeof window !== 'undefined' && window.location.hostname.includes('leamss.com') ? 'https://api.leamss.com' : 'http://localhost:8001');
+
 /**
  * PaSelectedPackageCard — Displays the details of the Package selected by the Client
  * to the Partner in a clear, card layout with key specs, pricing, features, and action buttons.
@@ -22,7 +24,7 @@ export default function PaSelectedPackageCard({
   const handleViewDocument = (url) => {
     if (!url) return;
     const token = localStorage.getItem('token');
-    const fullUrl = url.startsWith('http') ? url : `${process.env.REACT_APP_BACKEND_URL}${url}`;
+    const fullUrl = url.startsWith('http') ? url : `${BACKEND_URL}${url}`;
     fetch(fullUrl, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => {
         if (!r.ok) throw new Error('Fetch failed');

@@ -650,7 +650,7 @@ def _section_service_packages(snap, styles):
     rows.append(["100% Govt Fee Refund"] + ["✓ Yes" if p.get("govt_fee_refund") else "✗ No" for p in pkgs])
     # Addon
     rows.append(["Optional Add-on"] + [
-        f"+ INR {p.get('addon', {}).get('amount', 0):,.0f} (Enabled)" if p.get("addon", {}).get("enabled")
+        f"+ INR {(p.get('addon') or {}).get('amount', 0):,.0f} (Enabled)" if (p.get("addon") or {}).get("enabled")
         else ("Available on request" if p.get("addon") else "—")
         for p in pkgs
     ])

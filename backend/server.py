@@ -11,6 +11,16 @@ if hasattr(sys.stderr, "reconfigure"):
         sys.stderr.reconfigure(encoding="utf-8", errors="replace")
     except Exception:
         pass
+
+# On Windows, register native library directories for WeasyPrint (Pango/Cairo/GLib)
+if sys.platform == "win32":
+    _dll_cand = os.path.join(os.path.dirname(__file__), "bin", "weasyprint", "onedir", "weasyprint", "_internal")
+    if os.path.exists(_dll_cand) and hasattr(os, "add_dll_directory"):
+        try:
+            os.add_dll_directory(_dll_cand)
+        except Exception:
+            pass
+
 from dotenv import load_dotenv
 load_dotenv()
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
@@ -195,7 +205,13 @@ app = FastAPI(title="LEAMSS Portal API", version="3.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:8001",
+        "http://127.0.0.1:8001",
+    ],
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

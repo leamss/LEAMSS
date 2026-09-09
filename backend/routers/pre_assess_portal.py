@@ -64,6 +64,10 @@ class ProposalVerifyPaymentRequest(BaseModel):
     order_id: str
     payment_id: str
     signature: str
+    promo_code: Optional[str] = None
+
+class ProposalCreateOrderRequest(BaseModel):
+    promo_code: Optional[str] = None
 
 class ProposalInternationalClaimRequest(BaseModel):
     reference_note: Optional[str] = "" 
@@ -1476,7 +1480,11 @@ def _get_next_proposal_part(pa: dict):
 
 
 @router.post("/client/proposal/create-order/{pa_id}")
-async def proposal_create_order(pa_id: str, current_user: dict = Depends(get_current_user)):
+async def proposal_create_order(
+    pa_id: str, 
+    data: Optional[ProposalCreateOrderRequest] = None, 
+    current_user: dict = Depends(get_current_user)
+):
     """Creates a real Razorpay order for the NEXT pending proposal installment (domestic tab)."""
     pa = await pre_assessments_col.find_one({"$or": [{"id": pa_id}, {"pa_number": pa_id}]}, {"_id": 0})
     if not pa or not _can_access_pa_portal(pa, current_user):
@@ -1498,22 +1506,48 @@ async def proposal_create_order(pa_id: str, current_user: dict = Depends(get_cur
     amount_rupees = float(next_part["amount"])
     amount_paise = int(amount_rupees * 100)
 
-    order = razorpay_client.order.create({
-        "amount": amount_paise,
-        "currency": "INR",
-        "payment_capture": 1,
-        "notes": {"pa_id": real_pa_id, "part_index": str(next_part["index"]), "purpose": "proposal_installment"},
-    })
+    key_id = os.environ.get("RAZORPAY_KEY_ID") or ""
+    order_amount_paise = amount_paise
+
+    # Razorpay test mode has a strict limit of ₹5,00,000 (50,000,000 paise).
+    # If the installment amount exceeds this limit, cap the test order amount
+    # so that Razorpay Checkout popup opens and can be tested cleanly.
+    if key_id.startswith("rzp_test_") and order_amount_paise > 50000000:
+        logger.warning(
+            f"Proposal installment ₹{amount_rupees:,.2f} exceeds Razorpay test limit (₹5,00,000). "
+            f"Capping test order to ₹50,000 for Razorpay test checkout."
+        )
+        order_amount_paise = 5000000  # ₹50,000 in paise for test checkout
+
+    try:
+        order = razorpay_client.order.create({
+            "amount": order_amount_paise,
+            "currency": "INR",
+            "payment_capture": 1,
+            "notes": {"pa_id": real_pa_id, "part_index": str(next_part["index"]), "purpose": "proposal_installment"},
+        })
+    except Exception as e:
+        logger.error(f"Razorpay order creation error: {e}")
+        if "Amount exceeds maximum amount allowed" in str(e) and key_id.startswith("rzp_test_"):
+            order_amount_paise = 5000000
+            order = razorpay_client.order.create({
+                "amount": order_amount_paise,
+                "currency": "INR",
+                "payment_capture": 1,
+                "notes": {"pa_id": real_pa_id, "part_index": str(next_part["index"]), "purpose": "proposal_installment"},
+            })
+        else:
+            raise HTTPException(status_code=400, detail=f"Razorpay order error: {str(e)}")
 
     await _log(current_user["id"], real_pa_id, "razorpay_proposal_order_created",
                {"order_id": order["id"], "amount": amount_rupees, "part": next_part["label"]})
 
     return {
         "order_id": order["id"],
-        "amount": amount_paise,
-        "amount_rupees": amount_rupees,
+        "amount": order_amount_paise,
+        "amount_rupees": order_amount_paise / 100,
         "currency": "INR",
-        "key_id": os.environ.get("RAZORPAY_KEY_ID"),
+        "key_id": key_id,
         "part_label": next_part["label"],
         "client_name": pa.get("client_name"),
         "client_email": pa.get("client_email"),

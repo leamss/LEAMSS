@@ -13,6 +13,7 @@ import SignatureCanvas from '@/components/SignatureCanvas';
 import PaymentHistoryTimeline from '@/components/PaymentHistoryTimeline';
 import ClientAgreementSigning from '@/components/ClientAgreementSigning';
 import ClientOccupationReviewCard from '@/components/ClientOccupationReviewCard';
+import ClientPaymentModal from '@/components/ClientPaymentModal';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || (typeof window !== 'undefined' && window.location.hostname.includes('leamss.com') ? 'https://api.leamss.com' : 'http://localhost:8001');
 const API = `${BACKEND_URL}/api`;
@@ -62,6 +63,57 @@ export default function PreAssessmentMiniPortal({ pa, onRefresh, onOpenScanner }
   const [proposalClaiming, setProposalClaiming] = useState(false);
   const [proposalProofFile, setProposalProofFile] = useState(null);
   const [proposalSelectedCountry, setProposalSelectedCountry] = useState('Australia');
+  const [installmentModalData, setInstallmentModalData] = useState({ open: false, data: null });
+  const [appliedPromo, setAppliedPromo] = useState(null);
+  const [promoInput, setPromoInput] = useState('');
+  const [validatingPromo, setValidatingPromo] = useState(false);
+
+  // Auto-fill assigned promo if partner forwarded it
+  useEffect(() => {
+    const defaultCode = currentPa?.assigned_promo_code || currentPa?.proposal_promo_code || currentPa?.proposal_coupon_code || pa?.assigned_promo_code || pa?.proposal_promo_code || pa?.proposal_coupon_code;
+    if (defaultCode && !promoInput) {
+      setPromoInput(defaultCode);
+    }
+  }, [currentPa?.assigned_promo_code, currentPa?.proposal_promo_code, currentPa?.proposal_coupon_code, pa?.assigned_promo_code, pa?.proposal_promo_code, pa?.proposal_coupon_code]);
+
+  const handleApplyPromo = async (codeToApply) => {
+    const activePa = currentPa || pa;
+    const code = (codeToApply || promoInput || '').trim().toUpperCase();
+    if (!code) {
+      toast.error('Please enter a promo code');
+      return;
+    }
+    setValidatingPromo(true);
+    try {
+      const baseFee = activePa?.proposal_base_fee ?? activePa?.proposal_fee ?? 0;
+      const res = await axios.post(`${API}/marketing/promo/public-validate`, {
+        code,
+        amount: baseFee,
+      });
+      if (res.data.valid) {
+        setPromoInput(code);
+        setAppliedPromo({
+          code,
+          discount_amount: res.data.discount_amount,
+          final_amount: res.data.final_amount,
+          discount_type: res.data.discount_type,
+          discount_value: res.data.discount_value,
+        });
+        toast.success(`Promo code ${code} applied! Saved ₹${Number(res.data.discount_amount).toLocaleString('en-IN')}`);
+      } else {
+        toast.error(res.data.message || 'Invalid promo code');
+      }
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || 'Invalid or expired promo code');
+    } finally {
+      setValidatingPromo(false);
+    }
+  };
+
+  const handleRemovePromo = () => {
+    setAppliedPromo(null);
+    toast.info('Promo code removed');
+  };
 
   const INTL_COUNTRIES = [
     { code: 'Australia', label: '🇦🇺 AUS' },
@@ -308,15 +360,29 @@ useEffect(() => {
   const handlePayProposal = async () => {
     setPaying(true);
     try {
-      // Step 1: Backend कडून Razorpay order तयार करून घे
-      const orderRes = await axios.post(`${API}/pre-assess-portal/client/proposal/create-order/${pa.id}`, {}, getAuth());
+      if (!window.Razorpay) {
+        await new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+          script.async = true;
+          script.onload = () => resolve(true);
+          script.onerror = () => reject(new Error('Razorpay SDK failed to load. Please check internet connection.'));
+          document.body.appendChild(script);
+        });
+      }
+
+      const activePromoCode = appliedPromo ? appliedPromo.code : null;
+      // Step 1: Backend creates Razorpay order with promo discount (only if applied)
+      const orderRes = await axios.post(`${API}/pre-assess-portal/client/proposal/create-order/${pa.id}`, {
+        promo_code: activePromoCode
+      }, getAuth());
       const { order_id, amount, currency, key_id, client_name, client_email, client_mobile } = orderRes.data;
 
-      // Step 2: Razorpay Checkout Popup उघड
+      // Step 2: Razorpay Checkout Popup
       const options = {
-        key: key_id,
+        key: key_id || 'rzp_test_TIsfNCEO8uAj3s',
         amount: amount,
-        currency: currency,
+        currency: currency || 'INR',
         name: 'LEAMSS Immigration',
         description: 'Service Fee Installment',
         order_id: order_id,
@@ -325,9 +391,10 @@ useEffect(() => {
         handler: async function (response) {
           try {
             const verifyRes = await axios.post(`${API}/pre-assess-portal/client/proposal/verify-payment/${pa.id}`, {
-              order_id: response.razorpay_order_id,
-              payment_id: response.razorpay_payment_id,
-              signature: response.razorpay_signature,
+              order_id: response.razorpay_order_id || order_id,
+              payment_id: response.razorpay_payment_id || response.payment_id || '',
+              signature: response.razorpay_signature || response.signature || '',
+              promo_code: activePromoCode
             }, getAuth());
             if (verifyRes.data.fully_paid) {
               toast.success('Full payment complete! Admin will activate your case shortly.');
@@ -348,7 +415,7 @@ useEffect(() => {
       const rzp = new window.Razorpay(options);
       rzp.open();
     } catch (e) {
-      toast.error(e?.response?.data?.detail || 'Unable to start payment');
+      toast.error(e?.response?.data?.detail || e?.message || 'Unable to start payment');
       setPaying(false);
     }
   };
@@ -780,193 +847,383 @@ useEffect(() => {
       )}
 
       {/* STAGE: Proposal received — full details + consent + pay */}
-      {stage === 'proposal_sent' && (
-        <div className="space-y-6">
-          <ClientOccupationReviewCard
-            caseData={currentPa}
-            onUpdated={async () => {
-              await load();
-              onRefresh?.();
-            }}
-            getAuthHeader={getAuth}
-          />
-          <Card className="p-6 bg-gradient-to-br from-[#f7620b]/5 to-[#2a777a]/5 border-[#2a777a]/20 space-y-5">
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 bg-[#f7620b] rounded-full flex items-center justify-center shrink-0">
-                <FileText className="h-6 w-6 text-white" />
-              </div>
-              <div className="flex-1">
-                <Badge className="bg-[#f7620b] text-white mb-2">Service Proposal — Please Review Carefully</Badge>
-                <h3 className="font-bold text-slate-800 text-xl">Your Personalised Proposal</h3>
-                <p className="text-xs text-slate-500 mt-1">Please review the proposal, pricing breakdown and terms before giving consent to pay.</p>
-              </div>
-            </div>
+      {stage === 'proposal_sent' && (() => {
+        const isAnyPartPaid = (pa?.proposal_payment_parts || []).some(p => p.status === 'paid') || (pa?.proposal_amount_paid || 0) > 0;
+        const sharedPromoCode = (pa?.assigned_promo_code || pa?.proposal_promo_code || pa?.proposal_coupon_code || '').trim();
+        const isPromoShared = Boolean(sharedPromoCode && pa?.promo_enabled !== false);
 
-            {/* AI / partner-written proposal text */}
-            {(currentPa?.proposal_ai_text || pa?.proposal_ai_text) && (
-              <div className="bg-white rounded-lg border border-slate-200 p-4">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Proposal Details</p>
-                <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{currentPa?.proposal_ai_text || pa?.proposal_ai_text}</p>
-              </div>
-            )}
+        // Promo is active ONLY IF client applied it in UI or if already paid with promo
+        const isPromoActive = Boolean(appliedPromo || (isAnyPartPaid && (pa?.promo_code_used || pa?.proposal_promo_code)));
+        const promoCodeUsed = appliedPromo ? appliedPromo.code : (isAnyPartPaid ? (pa?.promo_code_used || pa?.proposal_promo_code) : null);
 
-            {/* Pricing breakdown */}
-            <div className="bg-white rounded-lg border border-slate-200 p-4">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Pricing Breakdown</p>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-slate-600">Base Service Fee</span>
-                <span className="font-semibold text-slate-800">₹{(pa.proposal_base_fee ?? pa.proposal_fee ?? 0).toLocaleString('en-IN')}</span>
+        const baseServiceFee = pa?.proposal_base_fee ?? pa?.proposal_fee ?? 0;
+        const paDeduction = (pa?.proposal_deduct_pa_fee || pa?.deduct_pre_assessment_fee) ? (Number(pa?.proposal_pa_deduction) || 5100) : 0;
+        const isGstApplicable = Boolean(pa?.proposal_gst_included || (pa?.proposal_gst_amount || 0) > 0);
+
+        const promoDiscountVal = appliedPromo
+          ? Number(appliedPromo.discount_amount || 0)
+          : (isAnyPartPaid && (pa?.promo_code_used || pa?.proposal_promo_code) ? (pa?.proposal_promo_discount || Math.round(baseServiceFee * 0.1)) : 0);
+
+        const discountedBaseFee = Math.max(0, baseServiceFee - promoDiscountVal - paDeduction);
+        const proposalGstVal = isGstApplicable ? Math.round(discountedBaseFee * 0.18) : 0;
+        const undiscountedBaseFee = Math.max(0, baseServiceFee - paDeduction);
+        const undiscountedGstVal = isGstApplicable ? Math.round(undiscountedBaseFee * 0.18) : 0;
+        const effectiveTotalProposal = isPromoActive
+          ? (discountedBaseFee + proposalGstVal)
+          : (undiscountedBaseFee + undiscountedGstVal);
+
+        const rawPartsList = pa?.proposal_payment_parts || [];
+        const dynamicParts = isAnyPartPaid
+          ? rawPartsList
+          : rawPartsList.map((part) => {
+              if (rawPartsList.length === 1 || pa?.proposal_payment_method_type === 'full_payment') {
+                return { ...part, amount: effectiveTotalProposal };
+              }
+              if (rawPartsList.length === 2 && pa?.proposal_payment_method_type === 'split_50_50') {
+                const part1Amt = Math.round(effectiveTotalProposal / 2);
+                const partAmt = part.index === 0 ? part1Amt : Math.max(0, effectiveTotalProposal - part1Amt);
+                return { ...part, amount: partAmt };
+              }
+              if (isPromoActive && rawPartsList.length > 0) {
+                const originalTotal = (undiscountedBaseFee + undiscountedGstVal) || 1;
+                const ratio = effectiveTotalProposal / originalTotal;
+                return { ...part, amount: Math.round(part.amount * ratio) };
+              }
+              return part;
+            });
+
+        const nextPart = dynamicParts.find(p => p.status === 'pending');
+        const lockedPart = dynamicParts.find(p => p.status === 'locked');
+        const verifyingPart = dynamicParts.find(p => p.status === 'pending_verification');
+        const payAmount = nextPart ? nextPart.amount : effectiveTotalProposal;
+        const isMultiPart = dynamicParts.length > 1;
+
+        return (
+          <div className="space-y-6">
+            <ClientOccupationReviewCard
+              caseData={currentPa}
+              onUpdated={async () => {
+                await load();
+                onRefresh?.();
+              }}
+              getAuthHeader={getAuth}
+            />
+            <Card className="p-6 bg-gradient-to-br from-[#f7620b]/5 to-[#2a777a]/5 border-[#2a777a]/20 space-y-5">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 bg-[#f7620b] rounded-full flex items-center justify-center shrink-0">
+                  <FileText className="h-6 w-6 text-white" />
+                </div>
+                <div className="flex-1">
+                  <Badge className="bg-[#f7620b] text-white mb-2">Service Proposal — Please Review Carefully</Badge>
+                  <h3 className="font-bold text-slate-800 text-xl">Your Personalised Proposal</h3>
+                  <p className="text-xs text-slate-500 mt-1">Please review the proposal, pricing breakdown and terms before giving consent to pay.</p>
+                </div>
               </div>
-              {(pa.proposal_coupon_discount_amount || 0) > 0 && (
-                <div className="flex justify-between text-emerald-700">
-                  <span>Coupon Discount{pa.proposal_coupon_code ? ` (${pa.proposal_coupon_code})` : ''}</span>
-                  <span>-₹{(pa.proposal_coupon_discount_amount || 0).toLocaleString('en-IN')}</span>
+
+              {/* AI / partner-written proposal text */}
+              {(currentPa?.proposal_ai_text || pa?.proposal_ai_text) && (
+                <div className="bg-white rounded-lg border border-slate-200 p-4">
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Proposal Details</p>
+                  <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{currentPa?.proposal_ai_text || pa?.proposal_ai_text}</p>
                 </div>
               )}
-              {(pa.proposal_gst_amount || 0) > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-slate-600">GST (18%)</span>
-                  <span className="font-semibold text-slate-800">₹{(pa.proposal_gst_amount || 0).toLocaleString('en-IN')}</span>
-                </div>
-              )}
-              {(pa.proposal_promo_discount || 0) > 0 && (
-                <div className="flex justify-between text-emerald-700">
-                  <span>Promo applied{pa.proposal_promo_code ? ` (${pa.proposal_promo_code})` : ''}</span>
-                  <span>-₹{(pa.proposal_promo_discount || 0).toLocaleString('en-IN')}</span>
-                </div>
-              )}
-              {(pa.proposal_additional_discount || 0) > 0 && (
-                <div className="flex justify-between text-emerald-700">
-                  <span>Additional Discount</span>
-                  <span>-₹{(pa.proposal_additional_discount || 0).toLocaleString('en-IN')}</span>
-                </div>
-              )}
-              {(pa.proposal_upsells || []).length > 0 && (
-                <div className="border-t border-slate-100 pt-2 mt-2">
-                  <p className="text-xs text-slate-500 mb-1.5">Add-on Services:</p>
-                  {(pa.proposal_upsells || []).map(u => (
-                    <div key={u.id} className="flex justify-between text-[#f7620b]">
-                      <span>+ {u.name}</span>
-                      <span>+₹{(u.amount || 0).toLocaleString('en-IN')}</span>
+
+              {/* 🏷️ Partner Promo Banner / Client Promo Card */}
+              {isAnyPartPaid ? (
+                promoCodeUsed ? (
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-center justify-between shadow-xs">
+                    <div className="flex items-center gap-3">
+                      <span className="text-xl">🏷️</span>
+                      <div>
+                        <p className="text-sm font-bold text-emerald-950 flex items-center gap-2">
+                          <span>Promo Code Applied:</span>
+                          <span className="font-mono bg-white text-emerald-800 px-2.5 py-0.5 rounded border border-emerald-300 font-bold">
+                            {promoCodeUsed}
+                          </span>
+                        </p>
+                        <p className="text-xs text-emerald-700 mt-0.5">
+                          Discount of ₹{promoDiscountVal.toLocaleString('en-IN')} has been applied to your payment plan.
+                        </p>
+                      </div>
                     </div>
-                  ))}
-                </div>
-              )}
-              <div className="border-t-2 border-slate-200 pt-2 mt-2 flex justify-between items-center">
-                <span className="font-bold text-slate-800">Total Payable</span>
-                <span className="text-2xl font-bold text-[#2a777a]" data-testid="client-total">₹{(pa.proposal_fee || 0).toLocaleString('en-IN')}</span>
-              </div>
-            </div>
-
-            {/* Payment Method + Parts Schedule */}
-            {(pa.proposal_payment_parts || []).length > 1 && (
-              <div className="bg-white rounded-lg border border-slate-200 p-4" data-testid="client-payment-parts">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
-                  Payment Plan — {pa.proposal_payment_method_type === 'split_50_50' ? '50-50 Split' : 'Installments'}
-                </p>
-                <div className="space-y-2">
-                  {pa.proposal_payment_parts.map((part) => (
-                    <div key={part.index} className={`flex items-center justify-between p-2.5 rounded-lg border ${
-                      part.status === 'paid' ? 'bg-emerald-50 border-emerald-200' :
-                      part.status === 'pending' ? 'bg-amber-50 border-amber-200' :
-                      'bg-slate-50 border-slate-200'
-                    }`}>
+                    <Badge className="bg-emerald-600 text-white font-bold text-xs px-3 py-1">Applied & Active ✓</Badge>
+                  </div>
+                ) : null
+              ) : (
+                (isPromoShared || appliedPromo) && (
+                  <div className="bg-white rounded-xl border border-emerald-200 p-4 space-y-3 shadow-xs" data-testid="proposal-promo-section">
+                    <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        {part.status === 'paid' ? <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" /> :
-                        part.status === 'pending' ? <Clock className="h-4 w-4 text-amber-600 shrink-0" /> :
-                        part.status === 'pending_verification' ? <Clock className="h-4 w-4 text-blue-500 shrink-0" /> :
-                        <AlertTriangle className="h-4 w-4 text-slate-400 shrink-0" />}
-                        <div>
-                          <p className="text-sm font-medium text-slate-700">{part.label}</p>
-                          {part.due_date && <p className="text-[10px] text-slate-500">Due: {part.due_date}</p>}
-                          {part.status === 'locked' && part.trigger_condition && (
-                            <p className="text-[10px] text-slate-400 italic">Unlocks: {part.trigger_condition}</p>
-                          )}
-                        </div>
+                        <span className="text-lg">🏷️</span>
+                        <h4 className="text-sm font-bold text-slate-800">Promo Code & Discount Offer</h4>
                       </div>
-                      <div className="text-right">
-                        <p className="text-sm font-bold text-slate-800">₹{Number(part.amount).toLocaleString('en-IN')}</p>
-                        <Badge className={`text-[9px] ${
-                          part.status === 'paid' ? 'bg-emerald-100 text-emerald-700' :
-                          part.status === 'pending' ? 'bg-amber-100 text-amber-700' :
-                          part.status === 'pending_verification' ? 'bg-blue-100 text-blue-700' :
-                          'bg-slate-100 text-slate-500'
-                        }`}>
-                          {part.status === 'paid' ? 'Paid' : part.status === 'pending' ? 'Pay Now' :
-                          part.status === 'pending_verification' ? 'Verifying' : 'Locked'}
-                        </Badge>
-                      </div>
+                      {appliedPromo ? (
+                        <span className="text-xs bg-emerald-100 text-emerald-800 font-bold px-2.5 py-0.5 rounded-full border border-emerald-300">
+                          Active & Applied ✓
+                        </span>
+                      ) : (
+                        <span className="text-xs bg-amber-100 text-amber-800 font-bold px-2.5 py-0.5 rounded-full border border-amber-300">
+                          Partner Special Offer Available
+                        </span>
+                      )}
                     </div>
-                  ))}
-                </div>
-                <div className="flex justify-between mt-3 pt-3 border-t border-slate-100 text-sm">
-                  <span className="text-slate-500">Paid so far</span>
-                  <span className="font-semibold text-emerald-700">₹{Number(pa.proposal_amount_paid || 0).toLocaleString('en-IN')}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-500">Remaining</span>
-                  <span className="font-semibold text-[#f7620b]">₹{Number(pa.proposal_amount_pending ?? pa.proposal_fee ?? 0).toLocaleString('en-IN')}</span>
-                </div>
-              </div>
-            )}
 
-            {pa.proposal_notes && (
-              <div className="mt-3 pt-3 border-t border-slate-100">
-                <p className="text-xs font-semibold text-slate-500 mb-1">Partner Note:</p>
-                <p className="text-xs text-slate-600 italic">"{pa.proposal_notes}"</p>
-              </div>
-            )}
-          </div>
+                    {isPromoShared && !appliedPromo && (
+                      <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5">
+                        <div>
+                          <p className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
+                            <span>Special Offer from your Partner:</span>
+                            <span className="font-mono bg-white text-emerald-800 px-2 py-0.5 rounded border border-emerald-300 font-bold">
+                              {sharedPromoCode}
+                            </span>
+                          </p>
+                          <p className="text-[11px] text-emerald-700 mt-0.5">
+                            Your partner shared this promo code. Click Apply to deduct the discount from your service fee.
+                          </p>
+                        </div>
+                        <Button
+                          size="sm"
+                          onClick={() => handleApplyPromo(sharedPromoCode)}
+                          disabled={validatingPromo}
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs h-8 px-4 shrink-0 shadow-sm"
+                          data-testid="apply-partner-promo-btn"
+                        >
+                          {validatingPromo ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : null}
+                          Apply Code
+                        </Button>
+                      </div>
+                    )}
 
-          {/* Consent box — only after consent given → show Pay button */}
-          {!pa.proposal_consent_given ? (
-            <div className="bg-amber-50 border-2 border-amber-200 rounded-lg p-4">
-              <div className="flex items-start gap-3 mb-3">
-                <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
-                <div>
-                  <h4 className="font-bold text-amber-900">Before You Pay — Confirmation Required</h4>
-                  <p className="text-xs text-amber-800 mt-1">Please read and confirm the following before proceeding with payment:</p>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="Enter promo code (e.g. SUMMER2026)"
+                        value={promoInput}
+                        onChange={(e) => setPromoInput(e.target.value.toUpperCase())}
+                        className="flex-1 uppercase font-mono border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500"
+                        data-testid="proposal-promo-input"
+                      />
+                      {appliedPromo ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={handleRemovePromo}
+                          className="text-rose-600 border-rose-200 hover:bg-rose-50 text-xs font-semibold px-3"
+                        >
+                          Remove
+                        </Button>
+                      ) : (
+                        <Button
+                          type="button"
+                          onClick={() => handleApplyPromo(promoInput)}
+                          disabled={validatingPromo || !promoInput.trim()}
+                          className="bg-[#1f4d44] hover:bg-[#163832] text-white text-xs font-bold px-4"
+                          data-testid="apply-promo-btn"
+                        >
+                          {validatingPromo ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : 'Apply'}
+                        </Button>
+                      )}
+                    </div>
+
+                    {appliedPromo && (
+                      <p className="text-xs font-semibold text-emerald-700 flex items-center gap-1">
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        Promo <strong>{appliedPromo.code}</strong> applied — Saved ₹{appliedPromo.discount_amount.toLocaleString('en-IN')}!
+                      </p>
+                    )}
+                  </div>
+                )
+              )}
+
+              {/* Pricing breakdown */}
+              <div className="bg-white rounded-lg border border-slate-200 p-4">
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Pricing Breakdown</p>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Base Service Fee</span>
+                    <span className="font-semibold text-slate-800">₹{baseServiceFee.toLocaleString('en-IN')}</span>
+                  </div>
+                  {paDeduction > 0 && (
+                    <div className="flex justify-between text-emerald-700 font-semibold" data-testid="pre-assessment-deduction-row">
+                      <span className="flex items-center gap-1.5">
+                        <span>Pre-Assessment Fee Paid</span>
+                        <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-bold">Deducted ✓</span>
+                      </span>
+                      <span>-₹{paDeduction.toLocaleString('en-IN')}</span>
+                    </div>
+                  )}
+                  {promoDiscountVal > 0 && isPromoActive && (
+                    <div className="flex justify-between text-emerald-700 font-semibold">
+                      <span>Promo Discount ({promoCodeUsed || 'Applied'})</span>
+                      <span>-₹{promoDiscountVal.toLocaleString('en-IN')}</span>
+                    </div>
+                  )}
+                  {proposalGstVal > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">GST (18%)</span>
+                      <span className="font-semibold text-slate-800">₹{proposalGstVal.toLocaleString('en-IN')}</span>
+                    </div>
+                  )}
+                  {(pa?.proposal_additional_discount || 0) > 0 && (
+                    <div className="flex justify-between text-emerald-700">
+                      <span>Additional Discount</span>
+                      <span>-₹{(pa.proposal_additional_discount || 0).toLocaleString('en-IN')}</span>
+                    </div>
+                  )}
+                  {(pa?.proposal_upsells || []).length > 0 && (
+                    <div className="border-t border-slate-100 pt-2 mt-2">
+                      <p className="text-xs text-slate-500 mb-1.5">Add-on Services:</p>
+                      {(pa.proposal_upsells || []).map(u => (
+                        <div key={u.id} className="flex justify-between text-[#f7620b]">
+                          <span>+ {u.name}</span>
+                          <span>+₹{(u.amount || 0).toLocaleString('en-IN')}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className="border-t-2 border-slate-200 pt-2 mt-2 flex justify-between items-center">
+                    <span className="font-bold text-slate-800">Total Payable</span>
+                    <div className="text-right">
+                      {promoDiscountVal > 0 && isPromoActive && (
+                        <span className="text-xs text-slate-400 line-through mr-2">
+                          ₹{(undiscountedBaseFee + undiscountedGstVal).toLocaleString('en-IN')}
+                        </span>
+                      )}
+                      <span className="text-2xl font-bold text-[#2a777a]" data-testid="client-total">
+                        ₹{effectiveTotalProposal.toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <label className="flex items-start gap-2 cursor-pointer select-none">
-                <input type="checkbox" checked={consentChecked} onChange={e => setConsentChecked(e.target.checked)}
-                  className="mt-1 h-4 w-4 text-[#2a777a]" data-testid="consent-checkbox" />
-                <span className="text-xs text-slate-700 leading-relaxed">
-                  I confirm that I have <strong>read and understood</strong> the proposal details, pricing breakdown, and add-ons listed above.
-                  I have had a <strong>final discussion with my partner</strong> and clarified my doubts.
-                  I agree to the <strong>Service Level Agreement</strong> and acknowledge that the partner has NOT provided any misleading or incorrect information.
-                  I voluntarily proceed with the payment of <strong>₹{(pa.proposal_fee || 0).toLocaleString('en-IN')}</strong> for the services described.
-                </span>
-              </label>
-              <Button onClick={handleGiveConsent} disabled={!consentChecked || givingConsent}
-                className="w-full mt-4 bg-amber-600 hover:bg-amber-700 text-white" data-testid="submit-consent">
-                {givingConsent ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
-                I Agree — Unlock Payment
-              </Button>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
-                <div className="flex items-center gap-2 mb-2">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-                  <p className="text-xs font-semibold text-emerald-800">Consent recorded at {new Date(pa.proposal_consent_at).toLocaleString()}</p>
-                </div>
-                {(consentSummary?.reference_id || pa.proposal_consent_reference_id) && (
-                  <p className="text-[11px] text-emerald-700">Reference ID: <span className="font-mono font-bold">{consentSummary?.reference_id || pa.proposal_consent_reference_id}</span> · A summary has been emailed to you (mock).</p>
+
+                {/* Payment Method + Parts Schedule */}
+                {dynamicParts.length > 1 && (
+                  <div className="bg-white rounded-lg border border-slate-200 p-4 mt-4" data-testid="client-payment-parts">
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
+                      Payment Plan — {pa?.proposal_payment_method_type === 'split_50_50' ? '50-50 Split' : 'Installments'}
+                    </p>
+                    <div className="space-y-2">
+                      {dynamicParts.map((part) => (
+                        <div key={part.index}
+                          className={`p-3 rounded-lg border flex items-center justify-between ${
+                            part.status === 'paid' ? 'bg-emerald-50/50 border-emerald-200' :
+                            part.status === 'pending' ? 'bg-amber-50/50 border-amber-200' :
+                            part.status === 'pending_verification' ? 'bg-blue-50/50 border-blue-200' :
+                            'bg-slate-50 border-slate-200'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            {part.status === 'paid' ? <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" /> :
+                            part.status === 'pending' ? <Clock className="h-4 w-4 text-amber-600 shrink-0" /> :
+                            part.status === 'pending_verification' ? <Clock className="h-4 w-4 text-blue-500 shrink-0" /> :
+                            <AlertTriangle className="h-4 w-4 text-slate-400 shrink-0" />}
+                            <div>
+                              <p className="text-sm font-medium text-slate-700">{part.label}</p>
+                              {part.due_date && <p className="text-[10px] text-slate-500">Due: {part.due_date}</p>}
+                              {part.status === 'locked' && part.trigger_condition && (
+                                <p className="text-[10px] text-slate-400 italic">Unlocks: {part.trigger_condition}</p>
+                              )}
+                            </div>
+                          </div>
+                          <div className="text-right flex items-center gap-2">
+                            <p className="text-sm font-bold text-slate-800">₹{Number(part.amount).toLocaleString('en-IN')}</p>
+                            {part.status === 'pending' ? (
+                              <Button
+                                size="sm"
+                                onClick={() => setInstallmentModalData({
+                                  open: true,
+                                  data: {
+                                    paId: pa.id,
+                                    saleId: pa.sale_id,
+                                    part: part,
+                                    amount: part.amount,
+                                    promoCode: promoCodeUsed,
+                                    discountAmount: promoDiscountVal,
+                                    productName: pa.product_name || 'PR Journey & Immigration',
+                                    partnerName: pa.partner_name || 'LEAMSS Consultant',
+                                    clientName: pa.client_name || 'Client',
+                                    destination: pa.country || 'Australia',
+                                    serviceType: pa.service_type || 'PR',
+                                    pa: pa
+                                  }
+                                })}
+                                className="bg-[#f7620b] hover:bg-[#e0580a] text-white h-7 text-xs font-semibold px-2.5 shadow-sm"
+                                data-testid={`pay-part-${part.index}-btn`}
+                              >
+                                Pay Now
+                              </Button>
+                            ) : (
+                              <Badge className={`text-[9px] ${
+                                part.status === 'paid' ? 'bg-emerald-100 text-emerald-700' :
+                                part.status === 'pending_verification' ? 'bg-blue-100 text-blue-700' :
+                                'bg-slate-100 text-slate-500'
+                              }`}>
+                                {part.status === 'paid' ? 'Paid' :
+                                part.status === 'pending_verification' ? 'Verifying' : 'Locked'}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex justify-between mt-3 pt-3 border-t border-slate-100 text-sm">
+                      <span className="text-slate-500">Paid so far</span>
+                      <span className="font-semibold text-emerald-700">₹{Number(pa?.proposal_amount_paid || 0).toLocaleString('en-IN')}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-500">Remaining</span>
+                      <span className="font-semibold text-[#f7620b]">₹{Number(Math.max(0, effectiveTotalProposal - (pa?.proposal_amount_paid || 0))).toLocaleString('en-IN')}</span>
+                    </div>
+                  </div>
+                )}
+
+                {pa?.proposal_notes && (
+                  <div className="mt-3 pt-3 border-t border-slate-100">
+                    <p className="text-xs font-semibold text-slate-500 mb-1">Partner Note:</p>
+                    <p className="text-xs text-slate-600 italic">"{pa.proposal_notes}"</p>
+                  </div>
                 )}
               </div>
-              {(() => {
-                const parts = pa.proposal_payment_parts || [];
-                const nextPart = parts.find(p => p.status === 'pending');
-                const lockedPart = parts.find(p => p.status === 'locked');
-                const verifyingPart = parts.find(p => p.status === 'pending_verification');
-                const payAmount = nextPart ? nextPart.amount : (pa.proposal_amount_pending ?? pa.proposal_fee ?? 0);
-                const isMultiPart = parts.length > 1;
 
-                // International wire transfer claimed but not yet confirmed by partner
-                if (verifyingPart) {
-                  return (
+              {/* Consent box — only after consent given → show Pay button */}
+              {!pa?.proposal_consent_given ? (
+                <div className="bg-amber-50 border-2 border-amber-200 rounded-lg p-4">
+                  <div className="flex items-start gap-3 mb-3">
+                    <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+                    <div>
+                      <h4 className="font-bold text-amber-900">Before You Pay — Confirmation Required</h4>
+                      <p className="text-xs text-amber-800 mt-1">Please read and confirm the following before proceeding with payment:</p>
+                    </div>
+                  </div>
+                  <label className="flex items-start gap-2 cursor-pointer select-none">
+                    <input type="checkbox" checked={consentChecked} onChange={e => setConsentChecked(e.target.checked)}
+                      className="mt-1 h-4 w-4 text-[#2a777a]" data-testid="consent-checkbox" />
+                    <span className="text-xs text-slate-700 leading-relaxed">
+                      I confirm that I have <strong>read and understood</strong> the proposal details, pricing breakdown, and add-ons listed above.
+                      I have had a <strong>final discussion with my partner</strong> and clarified my doubts.
+                      I agree to the <strong>Service Level Agreement</strong> and acknowledge that the partner has NOT provided any misleading or incorrect information.
+                      I voluntarily proceed with the payment of <strong>₹{effectiveTotalProposal.toLocaleString('en-IN')}</strong> for the services described.
+                    </span>
+                  </label>
+                  <Button onClick={handleGiveConsent} disabled={!consentChecked || givingConsent}
+                    className="w-full mt-4 bg-amber-600 hover:bg-amber-700 text-white" data-testid="submit-consent">
+                    {givingConsent ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
+                    I Agree — Unlock Payment
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                      <p className="text-xs font-semibold text-emerald-800">Consent recorded at {new Date(pa.proposal_consent_at).toLocaleString()}</p>
+                    </div>
+                    {(consentSummary?.reference_id || pa.proposal_consent_reference_id) && (
+                      <p className="text-[11px] text-emerald-700">Reference ID: <span className="font-mono font-bold">{consentSummary?.reference_id || pa.proposal_consent_reference_id}</span> · A summary has been emailed to you (mock).</p>
+                    )}
+                  </div>
+
+                  {verifyingPart ? (
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
                       <Clock className="h-6 w-6 text-blue-500 mx-auto mb-1" />
                       <p className="text-sm text-slate-700 font-medium">
@@ -976,129 +1233,134 @@ useEffect(() => {
                         Your consultant is verifying your international transfer. This usually takes 1-2 business days.
                       </p>
                     </div>
-                  );
-                }
-
-                if (!nextPart && lockedPart) {
-                  return (
+                  ) : !nextPart && lockedPart ? (
                     <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 text-center">
                       <Clock className="h-6 w-6 text-slate-400 mx-auto mb-1" />
                       <p className="text-sm text-slate-600">Next installment ({lockedPart.label}) is locked.</p>
                       <p className="text-xs text-slate-400 mt-1">Waiting on: {lockedPart.trigger_condition || 'admin approval'}</p>
                     </div>
-                  );
-                }
+                  ) : (
+                    <div className="bg-white border border-slate-200 rounded-lg p-4">
+                      {/* ── Domestic / International Tabs ── */}
+                      <div className="flex gap-2 mb-4 p-1 bg-slate-100 rounded-lg">
+                        <button
+                          onClick={() => setProposalPayTab('domestic')}
+                          className={`flex-1 py-2 rounded-md text-sm font-semibold transition ${
+                            proposalPayTab === 'domestic' ? 'bg-white text-[#2a777a] shadow' : 'text-slate-500'
+                          }`}
+                        >
+                          🇮🇳 Pay from India
+                        </button>
+                        <button
+                          onClick={() => setProposalPayTab('international')}
+                          className={`flex-1 py-2 rounded-md text-sm font-semibold transition ${
+                            proposalPayTab === 'international' ? 'bg-white text-[#2a777a] shadow' : 'text-slate-500'
+                          }`}
+                        >
+                          🌍 Pay from Outside India
+                        </button>
+                      </div>
 
-                return (
-                  <div className="bg-white border border-slate-200 rounded-lg p-4">
-                    {/* ── Domestic / International Tabs ── */}
-                    <div className="flex gap-2 mb-4 p-1 bg-slate-100 rounded-lg">
-                      <button
-                        onClick={() => setProposalPayTab('domestic')}
-                        className={`flex-1 py-2 rounded-md text-sm font-semibold transition ${
-                          proposalPayTab === 'domestic' ? 'bg-white text-[#2a777a] shadow' : 'text-slate-500'
-                        }`}
-                      >
-                        🇮🇳 Pay from India
-                      </button>
-                      <button
-                        onClick={() => setProposalPayTab('international')}
-                        className={`flex-1 py-2 rounded-md text-sm font-semibold transition ${
-                          proposalPayTab === 'international' ? 'bg-white text-[#2a777a] shadow' : 'text-slate-500'
-                        }`}
-                      >
-                        🌍 Pay from Outside India
-                      </button>
-                    </div>
-
-                    {proposalPayTab === 'domestic' ? (
-                      <>
-                        <Button onClick={handlePayProposal} disabled={paying}
-                          className="w-full bg-[#f7620b] hover:bg-[#e55a09] text-white text-base py-6" data-testid="mini-pay-proposal">
-                          {paying ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <CreditCard className="h-5 w-5 mr-2" />}
-                          {isMultiPart && nextPart
-                            ? `Pay ${nextPart.label} — ₹${Number(payAmount).toLocaleString('en-IN')}`
-                            : `Pay ₹${Number(payAmount).toLocaleString('en-IN')}`}
-                        </Button>
-                        <p className="text-[10px] text-slate-400 text-center mt-2">🔒 Secured by Razorpay — Cards, UPI, Netbanking & Wallets accepted.</p>
-                      </>
-                    ) : (
-                      <>
-                        <div className="flex gap-1.5 mb-3 flex-wrap">
-                          {INTL_COUNTRIES.map((c) => (
-                            <button
-                              key={c.code}
-                              onClick={() => setProposalSelectedCountry(c.code)}
-                              className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition ${
-                                proposalSelectedCountry === c.code
-                                  ? 'bg-[#2a777a] text-white border-[#2a777a]'
-                                  : 'bg-white text-slate-600 border-slate-300 hover:border-[#2a777a]'
-                              }`}
-                            >
-                              {c.label}
-                            </button>
-                          ))}
-                        </div>
-
-                        {proposalBankLoading ? (
-                          <div className="text-center py-6">
-                            <Loader2 className="h-6 w-6 animate-spin text-[#2a777a] mx-auto mb-2" />
-                            <p className="text-sm text-slate-500">Loading bank details…</p>
+                      {proposalPayTab === 'domestic' ? (
+                        <>
+                          <Button onClick={handlePayProposal} disabled={paying}
+                            className="w-full bg-[#f7620b] hover:bg-[#e55a09] text-white text-base py-6" data-testid="mini-pay-proposal">
+                            {paying ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <CreditCard className="h-5 w-5 mr-2" />}
+                            {isMultiPart && nextPart
+                              ? `Pay ${nextPart.label} — ₹${Number(payAmount).toLocaleString('en-IN')}`
+                              : `Pay ₹${Number(payAmount).toLocaleString('en-IN')}`}
+                          </Button>
+                          <p className="text-[10px] text-slate-400 text-center mt-2">🔒 Secured by Razorpay — Cards, UPI, Netbanking & Wallets accepted.</p>
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex gap-1.5 mb-3 flex-wrap">
+                            {INTL_COUNTRIES.map((c) => (
+                              <button
+                                key={c.code}
+                                onClick={() => setProposalSelectedCountry(c.code)}
+                                className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition ${
+                                  proposalSelectedCountry === c.code
+                                    ? 'bg-[#2a777a] text-white border-[#2a777a]'
+                                    : 'bg-white text-slate-600 border-slate-300 hover:border-[#2a777a]'
+                                }`}
+                              >
+                                {c.label}
+                              </button>
+                            ))}
                           </div>
-                        ) : proposalBankDetails ? (
-                          <>
-                            <p className="text-sm text-slate-700 mb-3">
-                              Please transfer <strong>₹{Number(payAmount).toLocaleString('en-IN')}</strong>
-                              {isMultiPart && nextPart ? ` (${nextPart.label})` : ''} via bank wire, then confirm below.
-                            </p>
-                            <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-1.5 text-sm mb-3">
-                              <div className="flex justify-between"><span className="text-slate-500">Account Name</span><span className="font-medium">{proposalBankDetails.account_name}</span></div>
-                              <div className="flex justify-between"><span className="text-slate-500">Account Number</span><span className="font-medium">{proposalBankDetails.account_number}</span></div>
-                              <div className="flex justify-between"><span className="text-slate-500">IFSC / SWIFT</span><span className="font-medium">{proposalBankDetails.ifsc_or_swift}</span></div>
-                              <div className="flex justify-between"><span className="text-slate-500">Bank Name</span><span className="font-medium">{proposalBankDetails.bank_name}</span></div>
-                              <div className="flex justify-between"><span className="text-slate-500">Bank Address</span><span className="font-medium">{proposalBankDetails.bank_address}</span></div>
+
+                          {proposalBankLoading ? (
+                            <div className="text-center py-6">
+                              <Loader2 className="h-6 w-6 animate-spin text-[#2a777a] mx-auto mb-2" />
+                              <p className="text-xs text-slate-500">Loading bank details…</p>
                             </div>
-                            <input
-                              type="text"
-                              placeholder="Transaction Reference / UTR (optional)"
-                              value={proposalTransferRef}
-                              onChange={(e) => setProposalTransferRef(e.target.value)}
-                              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-[#2a777a]"
-                            />
-                            <label className="block mb-3">
-                              <span className="text-xs text-slate-500 mb-1 block">Attach Payment Screenshot / Receipt (optional)</span>
+                          ) : proposalBankDetails ? (
+                            <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-2 mb-4 text-xs">
+                              <p className="font-semibold text-slate-700">Bank Transfer Details ({proposalBankDetails.country}):</p>
+                              <div className="grid grid-cols-2 gap-2 text-slate-600">
+                                <div><span className="text-slate-400">Account:</span> {proposalBankDetails.account_name}</div>
+                                <div><span className="text-slate-400">Account No:</span> <strong className="font-mono">{proposalBankDetails.account_number}</strong></div>
+                                <div><span className="text-slate-400">IFSC/SWIFT:</span> <strong className="font-mono">{proposalBankDetails.ifsc_or_swift}</strong></div>
+                                <div><span className="text-slate-400">Bank:</span> {proposalBankDetails.bank_name}</div>
+                              </div>
+                              <p className="text-[11px] text-amber-700 bg-amber-50 p-2 rounded border border-amber-200">
+                                ⚠️ Please add <strong>{pa.pa_number || pa.id}</strong> in your transfer remarks/narration.
+                              </p>
+                            </div>
+                          ) : null}
+
+                          <div className="space-y-3 border-t border-slate-100 pt-3">
+                            <div>
+                              <label className="text-xs font-medium text-slate-700 block mb-1">
+                                Transfer Reference / UTR Number *
+                              </label>
+                              <input
+                                type="text"
+                                placeholder="Enter transaction reference / UTR number"
+                                value={proposalTransferRef}
+                                onChange={e => setProposalTransferRef(e.target.value)}
+                                className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#2a777a]"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="text-xs font-medium text-slate-700 block mb-1">
+                                Attach Payment Screenshot / Receipt (Optional)
+                              </label>
                               <input
                                 type="file"
                                 accept="image/*,.pdf"
-                                onChange={(e) => setProposalProofFile(e.target.files?.[0] || null)}
-                                className="w-full text-sm border border-slate-300 rounded-lg px-2 py-1.5 bg-white"
+                                onChange={e => setProposalProofFile(e.target.files[0] || null)}
+                                className="text-xs text-slate-600 file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200 cursor-pointer"
                               />
                               {proposalProofFile && (
-                                <span className="text-xs text-emerald-600 mt-1 block">✓ {proposalProofFile.name}</span>
+                                <p className="text-[11px] text-emerald-600 mt-1 flex items-center gap-1">
+                                  <FileCheck className="h-3.5 w-3.5" /> {proposalProofFile.name}
+                                </p>
                               )}
-                            </label>
-                            <Button onClick={handleProposalInternationalClaim} disabled={proposalClaiming}
-                              className="w-full bg-[#2a777a] hover:bg-[#1d5658] text-white font-semibold py-6">
-                              {proposalClaiming ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : null}
-                              I've Made the Transfer
+                            </div>
+
+                            <Button
+                              onClick={handleProposalInternationalClaim}
+                              disabled={proposalClaiming || !proposalTransferRef.trim()}
+                              className="w-full bg-[#2a777a] hover:bg-[#236466] text-white text-sm py-2.5"
+                            >
+                              {proposalClaiming ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
+                              Submit Transfer Details for Verification
                             </Button>
-                            <p className="text-[10px] text-slate-400 text-center mt-2">
-                              Your consultant will manually verify this transfer and confirm within 1-2 business days.
-                            </p>
-                          </>
-                        ) : (
-                          <p className="text-sm text-slate-500 text-center py-6">Unable to load bank details.</p>
-                        )}
-                      </>
-                    )}
-                  </div>
-                );
-              })()}
-            </div>
-          )}
-        </Card>
-      </div>
-    )}
+                            <p className="text-[11px] text-slate-400 text-center">Your consultant will review and verify your payment receipt within 1-2 business days.</p>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </Card>
+          </div>
+        );
+      })()}
 
       {/* STAGE: proposal_paid — awaiting partner to upload receipt */}
       {stage === 'proposal_paid' && (
@@ -1191,6 +1453,73 @@ useEffect(() => {
         </Card>
       )}
 
+      {/* Pending / Unlocked Installment Action Banner */}
+      {(() => {
+        const activePa = currentPa || pa;
+        const baseServiceFee = activePa?.proposal_base_fee ?? activePa?.proposal_fee ?? 0;
+        const promoDiscountVal = appliedPromo ? appliedPromo.discount_amount : 0;
+        const discountedBaseFee = Math.max(0, baseServiceFee - promoDiscountVal);
+        const isGstApplicable = Boolean(activePa?.proposal_gst_included || (activePa?.proposal_gst_amount || 0) > 0);
+        const proposalGstVal = isGstApplicable ? Math.round(discountedBaseFee * 0.18) : 0;
+        const effectiveTotalProposal = discountedBaseFee + proposalGstVal;
+
+        const rawPartsList = activePa?.proposal_payment_parts || [];
+        const dynamicParts = rawPartsList.map((part) => {
+          if (rawPartsList.length === 2 && activePa?.proposal_payment_method_type === 'split_50_50') {
+            const part1Amt = Math.round(effectiveTotalProposal / 2);
+            const partAmt = part.index === 0 ? part1Amt : Math.max(0, effectiveTotalProposal - part1Amt);
+            return { ...part, amount: partAmt };
+          }
+          if (appliedPromo && rawPartsList.length > 0) {
+            const originalTotal = (baseServiceFee + (isGstApplicable ? Math.round(baseServiceFee * 0.18) : 0)) || 1;
+            const ratio = effectiveTotalProposal / originalTotal;
+            return { ...part, amount: Math.round(part.amount * ratio) };
+          }
+          return part;
+        });
+
+        const nextPending = dynamicParts.find(p => p.status === 'pending');
+        if (stage === 'proposal_sent' || !nextPending) return null;
+        return (
+          <Card className="p-5 bg-gradient-to-r from-amber-50 to-orange-50 border-amber-300 shadow-sm" data-testid="unlocked-installment-card">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 bg-[#f7620b]/10 rounded-full flex items-center justify-center text-[#f7620b] shrink-0 font-bold">
+                  <CreditCard className="h-5 w-5" />
+                </div>
+                <div>
+                  <h4 className="text-base font-bold text-slate-800">{nextPending.label} is Ready for Payment</h4>
+                  <p className="text-xs text-slate-600">Pending Amount: <strong className="text-[#f7620b] font-bold">₹{Number(nextPending.amount).toLocaleString('en-IN')}</strong> (incl. GST)</p>
+                </div>
+              </div>
+              <Button
+                onClick={() => setInstallmentModalData({
+                  open: true,
+                  data: {
+                    paId: activePa.id,
+                    saleId: activePa.sale_id,
+                    part: nextPending,
+                    amount: nextPending.amount,
+                    promoCode: appliedPromo ? appliedPromo.code : null,
+                    discountAmount: promoDiscountVal,
+                    productName: activePa.product_name || 'PR Journey & Immigration',
+                    partnerName: activePa.partner_name || 'LEAMSS Consultant',
+                    clientName: activePa.client_name || 'Client',
+                    destination: activePa.country || 'Australia',
+                    serviceType: activePa.service_type || 'PR',
+                    pa: activePa
+                  }
+                })}
+                className="bg-[#f7620b] hover:bg-[#e0580a] text-white font-bold px-6 py-2.5 text-sm shadow-md rounded-xl"
+                data-testid="pay-unlocked-part-btn"
+              >
+                <CreditCard className="h-4 w-4 mr-1.5" /> Pay Now
+              </Button>
+            </div>
+          </Card>
+        );
+      })()}
+
       {/* Access level hint */}
       {access && (
         <p className="text-center text-xs text-slate-400">
@@ -1198,6 +1527,17 @@ useEffect(() => {
           {' · '}Current stage: <span className="font-semibold text-slate-500">{stage.replace(/_/g, ' ')}</span>
         </p>
       )}
+
+      {/* Installment Payment Modal with exact First Payment UI */}
+      <ClientPaymentModal
+        open={installmentModalData.open}
+        onClose={() => setInstallmentModalData({ open: false, data: null })}
+        paymentData={installmentModalData.data}
+        onSuccess={() => {
+          load();
+          onRefresh?.();
+        }}
+      />
     </div>
   );
 }

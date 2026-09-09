@@ -15,8 +15,23 @@ import base64
 import logging
 import mimetypes
 import os
+import sys
 from pathlib import Path
 from typing import Any, Dict
+
+# On Windows, register native library directories for Pango/Cairo/GLib
+if sys.platform == "win32":
+    _DLL_CANDIDATES = [
+        Path(__file__).resolve().parent.parent.parent / "bin" / "weasyprint" / "onedir" / "weasyprint" / "_internal",
+        Path(__file__).resolve().parent.parent.parent / "bin" / "_internal",
+    ]
+    for _cand in _DLL_CANDIDATES:
+        if _cand.exists() and hasattr(os, "add_dll_directory"):
+            try:
+                os.add_dll_directory(str(_cand))
+                break
+            except Exception:
+                pass
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 try:
@@ -86,16 +101,25 @@ def render_pdf_v2(snapshot: Dict[str, Any]) -> bytes:
         logo_data_uri=logo_uri,
     )
 
-    base_url = str(_HERE)  # so relative @font-face url() resolves
     if HTML is None:
-        logger.warning("WeasyPrint is not installed or missing native libraries. PDF rendering skipped.")
-        return b""
-    pdf_bytes = HTML(string=html_str, base_url=base_url).write_pdf()
-    logger.info(
-        "Phase 8 PDF v2 rendered · snapshot=%s · tier=%s · size=%d bytes",
-        snap.get("snapshot_id"), snap.get("render_tier"), len(pdf_bytes),
-    )
-    return pdf_bytes
+        logger.warning("WeasyPrint is not installed or missing native libraries. Falling back to ReportLab (v1) renderer.")
+        from core.report_renderer import render_pdf as render_pdf_v1
+        return render_pdf_v1(snap)
+
+    try:
+        base_url = str(_HERE)  # so relative @font-face url() resolves
+        pdf_bytes = HTML(string=html_str, base_url=base_url).write_pdf()
+        if not pdf_bytes:
+            raise ValueError("WeasyPrint returned empty PDF bytes")
+        logger.info(
+            "Phase 8 PDF v2 rendered · snapshot=%s · tier=%s · size=%d bytes",
+            snap.get("snapshot_id"), snap.get("render_tier"), len(pdf_bytes),
+        )
+        return pdf_bytes
+    except Exception as e:
+        logger.warning("WeasyPrint rendering failed (%s). Falling back to ReportLab (v1) renderer.", e)
+        from core.report_renderer import render_pdf as render_pdf_v1
+        return render_pdf_v1(snap)
 
 
 __all__ = ["render_pdf_v2"]

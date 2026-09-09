@@ -43,8 +43,7 @@ export default function CmEarningsWidget() {
     return () => { cancelled = true; };
   }, []);
 
-  if (loading || !data || data.deal_count === 0) {
-    // Hide widget if no earnings
+  if (loading || !data) {
     return null;
   }
 

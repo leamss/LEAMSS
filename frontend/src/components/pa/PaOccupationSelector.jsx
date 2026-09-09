@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Briefcase, Search, Check, Building2, Edit2, X, Loader2, Sparkles, Plus, Send, Clock } from 'lucide-react';
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || (typeof window !== 'undefined' && window.location.hostname.includes('leamss.com') ? 'https://api.leamss.com' : 'http://localhost:8001');
+const API = `${BACKEND_URL}/api`;
 
 export default function PaOccupationSelector({ pa, onSaved, getAuthHeader }) {
   const [isEditing, setIsEditing] = useState(false);

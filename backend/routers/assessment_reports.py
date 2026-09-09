@@ -35,10 +35,12 @@ from core.report_v2 import render_pdf_v2
 from routers.eoi_backlog import build_eoi_for_occupation, eoi_pool_total
 from core.sales_calculator import calculate_with_rules
 
-# Phase 8 — premium HTML→PDF renderer is the default.
-# Set USE_REPORT_V2=false in env to fall back to the legacy ReportLab engine.
+# Phase 8 — premium HTML→PDF renderer is used when WeasyPrint native libraries are present.
+# Defaults to ReportLab if WeasyPrint is unavailable or if USE_REPORT_V2=false.
 import os as _os
-_USE_V2 = _os.environ.get("USE_REPORT_V2", "true").lower() != "false"
+from core.report_v2.renderer import HTML as _WP_HTML
+_default_v2 = "true" if _WP_HTML is not None else "false"
+_USE_V2 = _os.environ.get("USE_REPORT_V2", _default_v2).lower() != "false"
 render_pdf = render_pdf_v2 if _USE_V2 else render_pdf_v1
 
 router = APIRouter(prefix="/assessment-reports", tags=["assessment-reports"])

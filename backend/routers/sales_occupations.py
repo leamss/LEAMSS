@@ -111,6 +111,25 @@ def _from_master(occ: Dict[str, Any], country_name: str) -> Dict[str, Any]:
     }
 
 
+COUNTRY_ALIAS_MAP = {
+    "AUSTRALIA": "AU",
+    "AU": "AU",
+    "CANADA": "CA",
+    "CA": "CA",
+    "NEW ZEALAND": "NZ",
+    "NEWZEALAND": "NZ",
+    "NZ": "NZ",
+    "GERMANY": "DE",
+    "DE": "DE",
+    "UNITED KINGDOM": "UK",
+    "UNITEDKINGDOM": "UK",
+    "UK": "UK",
+    "UNITED STATES": "US",
+    "USA": "US",
+    "US": "US",
+}
+
+
 async def _load_all_occupations(country_filter: Optional[List[str]] = None) -> List[Dict[str, Any]]:
     """Returns a flat list of search-row dicts. Reads from occupation_master (Phase 6.9.1).
 
@@ -122,7 +141,20 @@ async def _load_all_occupations(country_filter: Optional[List[str]] = None) -> L
     name_map = await _country_names()
     query: Dict[str, Any] = {"status": {"$ne": "superseded"}}  # always hide soft-deleted
     if country_filter:
-        query["country_code"] = {"$in": [c.upper() for c in country_filter]}
+        norm_codes = set()
+        for c in country_filter:
+            c_str = str(c or "").strip().upper()
+            if c_str in COUNTRY_ALIAS_MAP:
+                norm_codes.add(COUNTRY_ALIAS_MAP[c_str])
+            elif "AUS" in c_str:
+                norm_codes.add("AU")
+            elif "CAN" in c_str:
+                norm_codes.add("CA")
+            elif "ZEAL" in c_str:
+                norm_codes.add("NZ")
+            else:
+                norm_codes.add(c_str)
+        query["country_code"] = {"$in": list(norm_codes)}
     items: List[Dict[str, Any]] = []
     async for occ in occupation_master_col.find(query, {"_id": 0}):
         country_name = name_map.get(occ.get("country_code")) or occ.get("country_code") or ""
@@ -137,8 +169,9 @@ async def _fetch_legacy_shaped_occupation(country_code: str, code: str) -> Optio
     so the existing detail-builder logic stays unchanged. Read source is now
     `occupation_master`. Returns None if the code isn't found.
     """
+    norm_country = COUNTRY_ALIAS_MAP.get(country_code.upper(), country_code.upper())
     occ = await occupation_master_col.find_one(
-        {"country_code": country_code.upper(), "code": str(code), "status": {"$ne": "superseded"}},
+        {"country_code": norm_country, "code": str(code), "status": {"$ne": "superseded"}},
         {"_id": 0},
     )
     if not occ:

@@ -20,7 +20,7 @@ from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List
 
 from core.database import (
-    db, pre_assessments_col, users_col, notifications_col,
+    db, pre_assessments_col, users_col, notifications_col, cases_col, sales_col,
 )
 
 cost_structures_col = db["product_cost_structures"]
@@ -135,6 +135,10 @@ async def _auto_assign_vendor(category: str, pa: Dict[str, Any]) -> Optional[Dic
     # sales_commission → PA creator / partner
     if category == "sales_commission":
         uid = pa.get("created_by_user_id") or pa.get("partner_id")
+        if not uid and pa.get("id"):
+            sale = await sales_col.find_one({"pre_assessment_id": pa["id"]}, {"_id": 0, "partner_id": 1})
+            if sale:
+                uid = sale.get("partner_id")
         if uid:
             u = await users_col.find_one({"id": uid}, {"_id": 0, "id": 1, "name": 1, "user_type": 1, "role": 1})
             if u:
@@ -145,12 +149,16 @@ async def _auto_assign_vendor(category: str, pa: Dict[str, Any]) -> Optional[Dic
     if category == "case_manager":
         cm_id = pa.get("case_manager_id") or pa.get("assigned_case_manager_id")
         if not cm_id and pa.get("id"):
-            linked = await db["cases"].find_one(
+            linked = await cases_col.find_one(
                 {"$or": [{"pre_assessment_id": pa["id"]}, {"pa_id": pa["id"]}, {"id": pa.get("case_id")}]},
-                {"_id": 0, "case_manager_id": 1}
+                {"_id": 0, "case_manager_id": 1, "case_manager_name": 1}
             )
             if linked:
                 cm_id = linked.get("case_manager_id")
+        if not cm_id:
+            cm_user = await users_col.find_one({"$or": [{"role": "case_manager"}, {"rbac_role": "case_manager"}], "status": "active"}, {"_id": 0, "id": 1, "name": 1})
+            if cm_user:
+                cm_id = cm_user["id"]
         if cm_id:
             u = await users_col.find_one({"id": cm_id}, {"_id": 0, "id": 1, "name": 1, "user_type": 1, "role": 1})
             if u:
@@ -185,7 +193,25 @@ async def build_allocations_for_pa(pa: Dict[str, Any], revenue: Optional[float] 
     if not structure:
         return None
 
-    total_revenue = float(revenue if revenue is not None else (pa.get("proposal_fee") or pa.get("final_amount") or structure.get("service_price") or 0))
+    revenue_candidate = (
+        pa.get("proposal_total_fee") or 
+        pa.get("proposal_fee") or 
+        pa.get("proposal_base_fee") or 
+        pa.get("final_amount") or 
+        pa.get("final_fee") or 
+        pa.get("total_amount")
+    )
+    if not revenue_candidate and pa.get("id"):
+        sale = await sales_col.find_one(
+            {"$or": [{"pre_assessment_id": pa["id"]}, {"id": pa.get("sale_id")}]},
+            {"_id": 0, "total_amount": 1, "fee_amount": 1, "amount_received": 1, "paid_amount": 1}
+        )
+        if sale:
+            revenue_candidate = sale.get("total_amount") or sale.get("paid_amount") or sale.get("fee_amount") or sale.get("amount_received")
+    if not revenue_candidate and structure:
+        revenue_candidate = structure.get("service_price") or structure.get("base_fee") or 0
+
+    total_revenue = float(revenue if revenue is not None else (revenue_candidate or 0))
 
     existing = await allocations_col.find_one({"pa_id": pa["id"]}, {"_id": 0})
     existing_map: Dict[str, Dict[str, Any]] = {}

@@ -27,9 +27,32 @@ export default function ClientOccupationReviewCard({ caseData, onUpdated, getAut
 
   if (!caseData) return null;
 
+  const isPreAssessment = Boolean(
+    caseData.pa_number ||
+    caseData.pre_assessment_number ||
+    caseData.is_pre_assessment ||
+    caseData.entity_type === 'pre_assessment' ||
+    (caseData.stage && !caseData.steps)
+  );
+
   const occCode = caseData.occupation_code || caseData.suggested_occupation_code || 'Not Set';
   const occTitle = caseData.occupation_title || caseData.suggested_occupation_title || caseData.product_name || caseData.service_type || 'General Skilled Profile';
-  const assessingBody = caseData.assessing_authority_code || caseData.suggested_assessing_authority_code || caseData.assessing_body || (caseData.country === 'AU' ? 'VETASSESS / ACS' : (caseData.country === 'CA' ? 'WES / ECA' : 'Skills Authority'));
+  const countryStr = String(
+    caseData.country ||
+    caseData.destination_country ||
+    caseData.target_country ||
+    caseData.product_name ||
+    ''
+  ).toUpperCase();
+  const isCa = countryStr.includes('CA') || countryStr.includes('CAN') || countryStr.includes('CANADA');
+  const isAu = !isCa;
+  const assessingBody = (
+    caseData.assessing_authority_code?.trim() ||
+    caseData.suggested_assessing_authority_code?.trim() ||
+    caseData.assessing_body?.trim() ||
+    (isAu ? 'VETASSESS / ACS' : (isCa ? 'WES / ECA' : 'Skills Authority')) ||
+    'Skills Authority'
+  );
   const reviewStatus = caseData.client_occupation_review_status || 'pending_client_review';
 
   const getAuth = () => {
@@ -40,31 +63,35 @@ export default function ClientOccupationReviewCard({ caseData, onUpdated, getAut
     return { headers: { Authorization: `Bearer ${token}` } };
   };
 
+  const paId = caseData.id || caseData.pa_number || caseData.pre_assessment_number || caseData.pre_assessment_id || caseData.custom_id;
+  const caseId = caseData.case_id || (!isPreAssessment ? caseData.id : null);
+
+  const sendOccupationDecision = async (payload) => {
+    if (isPreAssessment && paId) {
+      try {
+        return await axios.post(`${API}/pre-assessment/${paId}/client-occupation-decision`, payload, getAuth());
+      } catch (err) {
+        if (err.response?.status === 404 && (caseId || caseData.id)) {
+          return await axios.post(`${API}/cases/${caseId || caseData.id}/client-occupation-decision`, payload, getAuth());
+        }
+        throw err;
+      }
+    } else {
+      try {
+        return await axios.post(`${API}/cases/${caseId || caseData.id}/client-occupation-decision`, payload, getAuth());
+      } catch (err) {
+        if (err.response?.status === 404 && paId) {
+          return await axios.post(`${API}/pre-assessment/${paId}/client-occupation-decision`, payload, getAuth());
+        }
+        throw err;
+      }
+    }
+  };
+
   const handleAccept = async () => {
     setSubmitting(true);
-    const targetId = caseData.id || caseData.pre_assessment_number || caseData.custom_id;
     try {
-      try {
-        await axios.post(
-          `${API}/pre-assessment/${targetId}/client-occupation-decision`,
-          { decision: 'accepted' },
-          getAuth()
-        );
-      } catch (err1) {
-        try {
-          await axios.post(
-            `${API}/pre-assess-portal/client/occupation-decision/${targetId}`,
-            { decision: 'accepted' },
-            getAuth()
-          );
-        } catch (err2) {
-          await axios.post(
-            `${API}/cases/${targetId}/client-occupation-decision`,
-            { decision: 'accepted' },
-            getAuth()
-          );
-        }
-      }
+      await sendOccupationDecision({ decision: 'accepted' });
       toast.success('Occupation profile confirmed! Profile and document checklist unlocked.');
       if (onUpdated) onUpdated();
     } catch (e) {
@@ -81,8 +108,7 @@ export default function ClientOccupationReviewCard({ caseData, onUpdated, getAut
     }
     setSearching(true);
     try {
-      const countryRaw = String(caseData.country || (caseData.product_name?.includes('Canada') ? 'CA' : 'AU'));
-      const countryCode = countryRaw.length === 2 ? countryRaw.toUpperCase() : (countryRaw.toUpperCase().includes('CA') ? 'CA' : 'AU');
+      const countryCode = isCa ? 'CA' : 'AU';
       const res = await axios.get(
         `${API}/sales/occupations/search?q=${encodeURIComponent(query.trim())}&country=${countryCode}`,
         getAuth()
@@ -115,7 +141,6 @@ export default function ClientOccupationReviewCard({ caseData, onUpdated, getAut
     }
 
     setSubmitting(true);
-    const targetId = caseData.id || caseData.pre_assessment_number || caseData.custom_id;
     const payload = {
       decision: 'rejected',
       suggested_code: code,
@@ -124,27 +149,7 @@ export default function ClientOccupationReviewCard({ caseData, onUpdated, getAut
       notes: notes.trim()
     };
     try {
-      try {
-        await axios.post(
-          `${API}/pre-assessment/${targetId}/client-occupation-decision`,
-          payload,
-          getAuth()
-        );
-      } catch (err1) {
-        try {
-          await axios.post(
-            `${API}/pre-assess-portal/client/occupation-decision/${targetId}`,
-            payload,
-            getAuth()
-          );
-        } catch (err2) {
-          await axios.post(
-            `${API}/cases/${targetId}/client-occupation-decision`,
-            payload,
-            getAuth()
-          );
-        }
-      }
+      await sendOccupationDecision(payload);
       toast.success('Your suggestion has been submitted to your Migration Partner & Case Manager.');
       setShowSuggestModal(false);
       if (onUpdated) onUpdated();
@@ -320,9 +325,9 @@ export default function ClientOccupationReviewCard({ caseData, onUpdated, getAut
                   <Badge className="bg-emerald-600 text-white text-xs px-2.5 py-0.5 font-bold font-mono">
                     {occCode}
                   </Badge>
-                  <Badge variant="outline" className="border-emerald-600 text-emerald-800 text-xs font-semibold bg-white">
+                  <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold border border-emerald-600 text-emerald-900 bg-white">
                     {assessingBody}
-                  </Badge>
+                  </span>
                 </div>
                 <p className="text-xs text-emerald-800 font-medium mt-0.5">
                   {occTitle} · Confirmed for your migration application
@@ -449,9 +454,9 @@ export default function ClientOccupationReviewCard({ caseData, onUpdated, getAut
                 <div className="h-8 w-px bg-white/20 hidden sm:block" />
                 <div>
                   <p className="text-[10px] text-teal-200 uppercase tracking-wider font-semibold">Assessing Authority</p>
-                  <Badge className="bg-white text-teal-900 font-bold text-xs shadow-sm mt-0.5">
+                  <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold bg-white text-teal-950 shadow-sm mt-0.5">
                     {assessingBody}
-                  </Badge>
+                  </span>
                 </div>
               </div>
             </div>

@@ -791,13 +791,10 @@ async def get_stepwise_documents(case_id: str, current_user: dict = Depends(get_
         is_step_2 = (step_name.lower().strip() in ["document collection", "documents collection", "document gathering", "documents"] or cs.get("step_order") == 2)
         occ_review_status = case.get("client_occupation_review_status") or "pending_client_review"
 
-        is_locked = False
-        lock_reason = ""
-
-        # Only lock if occupation review was explicitly rejected by client and partner review is in progress
+        # Only lock Step 2 if occupation review was explicitly rejected by client and partner review is in progress
         if is_step_2 and occ_review_status == "rejected_by_client":
             is_locked = True
-            lock_reason = "You requested an occupation code change. Partner/Admin review is in progress."
+            locked_reason = "You requested an occupation code change. Partner/Admin review is in progress."
 
         if is_step_2 or "document" in step_name.lower():
             if case.get("occupation_code") or case.get("assessing_authority_code"):
@@ -815,7 +812,6 @@ async def get_stepwise_documents(case_id: str, current_user: dict = Depends(get_
                     ]
                     merged_docs = list(assessing_checklist) + custom_cm_docs
 
->>>>>>> origin/main
         doc_items = []
         matched_uploaded_ids = set()
 
@@ -897,6 +893,7 @@ async def get_stepwise_documents(case_id: str, current_user: dict = Depends(get_
                 "status": computed_status,
                 "is_locked": is_locked or is_payment_locked,
                 "locked_reason": doc_payment_locked_reason or locked_reason,
+            })
         # Also add any documents uploaded for this step that were not in merged_docs
         for up_doc in step_uploaded:
             if up_doc.get("id") and up_doc["id"] not in matched_uploaded_ids:
