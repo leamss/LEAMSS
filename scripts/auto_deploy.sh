@@ -16,12 +16,17 @@ git fetch origin main
 LOCAL_COMMIT=$(git rev-parse HEAD)
 REMOTE_COMMIT=$(git rev-parse origin/main)
 
-if [ "$LOCAL_COMMIT" = "$REMOTE_COMMIT" ]; then
+FORCE_DEPLOY=false
+if [ "$1" = "--force" ] || [ "$1" = "-f" ]; then
+    FORCE_DEPLOY=true
+fi
+
+if [ "$LOCAL_COMMIT" = "$REMOTE_COMMIT" ] && [ "$FORCE_DEPLOY" = false ]; then
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] Everything up-to-date ($LOCAL_COMMIT). No deploy needed."
     exit 0
 fi
 
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] New updates found! Deploying ($LOCAL_COMMIT -> $REMOTE_COMMIT)..."
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] Deploying updates ($LOCAL_COMMIT -> $REMOTE_COMMIT | Force: $FORCE_DEPLOY)..."
 
 # Reset working directory cleanly to match origin/main
 git reset --hard origin/main

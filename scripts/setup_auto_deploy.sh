@@ -31,6 +31,9 @@ sudo systemctl daemon-reload
 sudo systemctl enable leamss-autodeploy.service
 sudo systemctl restart leamss-autodeploy.service
 
+echo "Triggering initial full build and deploy..."
+/home/ubuntu/LEAMSS/scripts/auto_deploy.sh --force
+
 echo "==================================================================="
 echo "✅ LEAMSS Continuous Auto-Deploy Daemon successfully installed!"
 echo "Status: Active & monitoring GitHub main branch every 30 seconds."
