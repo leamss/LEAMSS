@@ -15,12 +15,18 @@ import os
 from typing import Dict, Any, List, Optional, Tuple
 from openai import AsyncOpenAI
 import re
-
+import httpx
 
 logger = logging.getLogger(__name__)
 
 PERPLEXITY_API_KEY = os.environ.get("PERPLEXITY_API_KEY", "")
 PERPLEXITY_MODEL = "sonar-pro"
+
+_SHARED_HTTP_CLIENT = httpx.AsyncClient(
+    verify=False,
+    timeout=httpx.Timeout(45.0, connect=10.0),
+    limits=httpx.Limits(max_keepalive_connections=20, max_connections=50),
+)
 
 MAX_TEXT_CHARS = 24_000  # safe Claude input budget
 
@@ -293,12 +299,10 @@ async def parse_resume_with_ai(
     )
 
     try:
-        import httpx as _httpx
-        _http = _httpx.AsyncClient(verify=False, timeout=60)
         client = AsyncOpenAI(
             api_key=key,
             base_url="https://api.perplexity.ai",
-            http_client=_http,
+            http_client=_SHARED_HTTP_CLIENT,
         )
 
         response = None
@@ -307,7 +311,7 @@ async def parse_resume_with_ai(
                 response = await client.chat.completions.create(
                     model=model or PERPLEXITY_MODEL,
                     temperature=0,
-                    max_tokens=4000,
+                    max_tokens=1500,
                     messages=[
                         {
                             "role": "system",

@@ -2,7 +2,8 @@ import json
 import logging
 import os
 import re
-from typing import Optional, List, Dict, Any
+import time as _time
+from typing import Optional, List, Dict, Any, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -16,6 +17,57 @@ router = APIRouter(prefix="/sales/ai", tags=["Smart Sales Helper - AI Helpers"])
 logger = logging.getLogger(__name__)
 
 PERPLEXITY_API_KEY = os.getenv("PERPLEXITY_API_KEY")
+
+_SHARED_HTTP_CLIENT = httpx.AsyncClient(
+    verify=False,
+    timeout=httpx.Timeout(45.0, connect=10.0),
+    limits=httpx.Limits(max_keepalive_connections=20, max_connections=50),
+)
+
+_OCC_CACHE: Dict[str, Tuple[float, List[Dict[str, Any]]]] = {}
+_OCC_CACHE_TTL = 300.0  # 5 minutes
+
+
+async def _get_available_codes(country_codes: Optional[List[str]]) -> List[Dict[str, Any]]:
+    cache_key = ",".join(sorted(c.upper() for c in country_codes)) if country_codes else "ALL"
+    now_t = _time.time()
+    cached = _OCC_CACHE.get(cache_key)
+    if cached and (now_t - cached[0]) < _OCC_CACHE_TTL:
+        return cached[1]
+
+    query: Dict[str, Any] = {"status": {"$ne": "superseded"}}
+    if country_codes:
+        query["country_code"] = {"$in": [c.upper() for c in country_codes]}
+
+    available_codes: List[Dict[str, Any]] = []
+    async for occ in db["occupation_master"].find(
+        query,
+        {
+            "_id": 0,
+            "country_code": 1,
+            "code": 1,
+            "title": 1,
+            "hierarchy": 1,
+            "assessing_authority": 1,
+            "visa_pathways": 1,
+            "alternative_titles": 1,
+        },
+    ):
+        aa = occ.get("assessing_authority") or {}
+        hierarchy = occ.get("hierarchy") or {}
+        pathway_lists = (occ.get("visa_pathways") or {}).get("pathway_lists") or []
+        available_codes.append({
+            "country_code": occ.get("country_code"),
+            "code": occ.get("code"),
+            "title": occ.get("title"),
+            "group": hierarchy.get("unit_group_name"),
+            "assessing_body": aa.get("name"),
+            "pathway": pathway_lists[0] if pathway_lists else None,
+            "alternative_titles": occ.get("alternative_titles") or [],
+        })
+
+    _OCC_CACHE[cache_key] = (now_t, available_codes)
+    return available_codes
 
 
 ROLE_SALES = {
@@ -234,34 +286,8 @@ async def suggest_occupation(
             detail="PERPLEXITY_API_KEY not configured"
         )
 
-    # Build the available occupation list
-    query: Dict[str, Any] = {"status": {"$ne": "superseded"}}
-
-    if req.country_codes:
-        query["country_code"] = {
-            "$in": [c.upper() for c in req.country_codes]
-        }
-
-    available_codes: List[Dict[str, Any]] = []
-
-    async for occ in db["occupation_master"].find(query, {"_id": 0}):
-        aa = occ.get("assessing_authority") or {}
-        hierarchy = occ.get("hierarchy") or {}
-        pathway_lists = (
-            occ.get("visa_pathways") or {}
-        ).get("pathway_lists") or []
-
-        available_codes.append(
-            {
-                "country_code": occ.get("country_code"),
-                "code": occ.get("code"),
-                "title": occ.get("title"),
-                "group": hierarchy.get("unit_group_name"),
-                "assessing_body": aa.get("name"),
-                "pathway": pathway_lists[0] if pathway_lists else None,
-                "alternative_titles": occ.get("alternative_titles") or [],
-            }
-        )
+    # Build the available occupation list from fast in-memory cache
+    available_codes = await _get_available_codes(req.country_codes)
 
     if not available_codes:
         raise HTTPException(
@@ -318,14 +344,14 @@ async def suggest_occupation(
     client = AsyncOpenAI(
         api_key=api_key,
         base_url="https://api.perplexity.ai",
-        http_client=httpx.AsyncClient(verify=False, timeout=60.0)
+        http_client=_SHARED_HTTP_CLIENT
     )
 
     try:
         response = await client.chat.completions.create(
             model="sonar-pro",
             temperature=0.1,
-            max_tokens=4000,
+            max_tokens=1500,
             messages=[
                 {"role": "system", "content": SUGGESTER_SYSTEM_PROMPT},
                 {"role": "user", "content": user_prompt},
@@ -522,12 +548,12 @@ async def atlas_auto_suggest(req: AtlasAutoSuggestRequest, current_user: dict = 
             client = AsyncOpenAI(
                 api_key=api_key,
                 base_url="https://api.perplexity.ai",
-                http_client=httpx.AsyncClient(verify=False, timeout=60.0)
+                http_client=_SHARED_HTTP_CLIENT
             )
             response = await client.chat.completions.create(
                 model="sonar-pro",
                 temperature=0.1,
-                max_tokens=4000,
+                max_tokens=1500,
                 messages=[
                     {"role": "system", "content": ATLAS_AUTO_SUGGEST_SYSTEM_PROMPT},
                     {"role": "user", "content": user_prompt},

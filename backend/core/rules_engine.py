@@ -197,19 +197,27 @@ DEFAULTS_NZ: Dict[str, Any] = {
 
 
 _DEFAULTS_BY_COUNTRY = {"AU": DEFAULTS_AU, "CA": DEFAULTS_CA, "NZ": DEFAULTS_NZ}
+import time as _time
+_RULES_CACHE: Dict[str, Tuple[float, Dict[str, Any]]] = {}
+_RULES_CACHE_TTL = 60.0  # seconds
 
 
 # ─── Loader ──────────────────────────────────────────────────────────────────
 async def load_rules(db, country: str) -> Dict[str, Any]:
     """Returns the active rule set for the country — DB override if present,
-    else hardcoded defaults."""
+    else hardcoded defaults. Uses fast in-memory TTL cache."""
     country_u = (country or "").upper()
     if country_u not in _DEFAULTS_BY_COUNTRY:
         raise ValueError(f"Unsupported country: {country_u}")
 
+    now_t = _time.time()
+    cached = _RULES_CACHE.get(country_u)
+    if cached and (now_t - cached[0]) < _RULES_CACHE_TTL:
+        return cached[1]
+
     override = await db["kb_settings"].find_one({"_id": f"calculator_rules_{country_u.lower()}"})
     if override and override.get("tables"):
-        return {
+        res = {
             "country": country_u,
             "version": override.get("version") or _DEFAULTS_BY_COUNTRY[country_u]["version"],
             "tables": override["tables"],
@@ -217,7 +225,11 @@ async def load_rules(db, country: str) -> Dict[str, Any]:
             "updated_at": override.get("updated_at"),
             "updated_by": override.get("updated_by"),
         }
-    return {**_DEFAULTS_BY_COUNTRY[country_u], "source": "hardcoded_defaults"}
+    else:
+        res = {**_DEFAULTS_BY_COUNTRY[country_u], "source": "hardcoded_defaults"}
+
+    _RULES_CACHE[country_u] = (now_t, res)
+    return res
 
 
 async def save_rules(db, country: str, tables: Dict[str, Any], version: Optional[str], actor: str) -> Dict[str, Any]:
@@ -236,6 +248,7 @@ async def save_rules(db, country: str, tables: Dict[str, Any], version: Optional
         "updated_by": actor,
     }
     await db["kb_settings"].update_one({"_id": doc["_id"]}, {"$set": doc}, upsert=True)
+    _RULES_CACHE.pop(country_u, None)
     return {**doc, "source": "db_override"}
 
 
@@ -245,9 +258,11 @@ async def reset_rules(db, country: str, actor: str) -> Dict[str, Any]:
     if country_u not in _DEFAULTS_BY_COUNTRY:
         raise ValueError(f"Unsupported country: {country_u}")
     await db["kb_settings"].delete_one({"_id": f"calculator_rules_{country_u.lower()}"})
+    _RULES_CACHE.pop(country_u, None)
     return {**_DEFAULTS_BY_COUNTRY[country_u], "source": "hardcoded_defaults",
             "reset_at": datetime.now(timezone.utc).isoformat(), "reset_by": actor}
 
 
 def supported_countries() -> list:
     return list(_DEFAULTS_BY_COUNTRY.keys())
+

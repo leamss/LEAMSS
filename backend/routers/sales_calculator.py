@@ -57,24 +57,29 @@ class BatchCalculateRequest(BaseModel):
     targets: List[Dict[str, str]] = Field(..., description="List of {country, visa_subclass?} to calculate")
 
 
+import asyncio
+
 @router.post("/calculate-batch")
 async def calculate_batch(req: BatchCalculateRequest, current_user: dict = Depends(get_current_user)):
-    """Calculate the same profile against multiple country/visa combos in one call.
+    """Calculate the same profile against multiple country/visa combos concurrently in one call.
     Useful for the Compare Top 3 mode (AU 189 + CA EE-FSWP + NZ SMC).
     """
     if not _can_access(current_user):
         raise HTTPException(status_code=403, detail="Not authorised")
-    out = []
-    for t in req.targets:
+
+    async def _calc_target(t: Dict[str, str]):
         country = t.get("country")
         if not country:
-            continue
+            return None
         # Phase 9.7 — admin-override rules applied per country
         r = await calculate_with_rules(mongo_db, req.profile, country, t.get("visa_subclass"))
         # Phase 6.10.1 — surface template status per result
-        if "error" not in r:
+        if isinstance(r, dict) and "error" not in r:
             status = await _template_status(country)
             r["template_status"] = status
             r["template_in_use"] = status == "verified"
-        out.append(r)
+        return r
+
+    results = await asyncio.gather(*[_calc_target(t) for t in req.targets])
+    out = [r for r in results if r is not None]
     return {"results": out, "count": len(out)}

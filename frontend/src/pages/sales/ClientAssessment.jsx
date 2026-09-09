@@ -189,7 +189,7 @@ export default function ClientAssessment() {
     [data],
   );
 
-  // Run calculation on step 5. Debounced so rapid toggles don't spam the API.
+  // Run calculation on step 5. Debounced so rapid toggles update smoothly and instantly.
   useEffect(() => {
     if (step !== 5) return;
     setCalculating(true);
@@ -202,7 +202,7 @@ export default function ClientAssessment() {
         .then(r => setCalcResults(r.data.results || []))
         .catch(e => toast.error(formatApiError(e, 'Calculation failed')))
         .finally(() => setCalculating(false));
-    }, 300);
+    }, 120);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, data.country_mode, data.specific_country, data.visa_subclass, data.custom_countries.join(','), factorHash, headers]);

@@ -83,11 +83,12 @@ async def save_assessment(req: SaveAssessmentRequest, current_user: dict = Depen
     now = datetime.now(timezone.utc)
     assessment_id = f"SAH-{now.strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
 
-    # Run the calculator for each target to capture the snapshot
-    results = []
-    for t in req.targets:
-        r = await calculate_with_rules(db, req.profile, t.country, t.visa_subclass)
-        results.append(r)
+    # Run the calculator for each target to capture the snapshot concurrently
+    async def _calc_target(t):
+        return await calculate_with_rules(db, req.profile, t.country, t.visa_subclass)
+
+    results = await asyncio.gather(*[_calc_target(t) for t in req.targets])
+    results = [r for r in results if r is not None]
 
     # Pick best target by points (or by recommendation language if scoring metric differs)
     best = max(results, key=lambda r: r.get("total", 0)) if results else None

@@ -12,30 +12,47 @@ This is intentionally light-touch: structural rules (which factors exist, partne
 logic, eligibility checks) remain in code. Only POINT VALUES per factor option
 become admin-controllable for verified templates. Phase 6.10 Part 1 minimum.
 """
-from typing import Any, Dict, Optional
+import time as _time
+from typing import Any, Dict, Optional, Tuple
 
 from core.database import db
 
 _COUNTRY_TEMPLATES = db["country_templates"]
+_TEMPLATE_CACHE: Dict[str, Tuple[float, Optional[Dict[str, Any]]]] = {}
+_STATUS_CACHE: Dict[str, Tuple[float, str]] = {}
+_CACHE_TTL = 60.0  # seconds
 
 
 async def get_verified_template(country_code: str) -> Optional[Dict[str, Any]]:
     """Return the country template if it exists AND is admin-verified, else None."""
+    cc = country_code.upper()
+    now_t = _time.time()
+    cached = _TEMPLATE_CACHE.get(cc)
+    if cached and (now_t - cached[0]) < _CACHE_TTL:
+        return cached[1]
+
     doc = await _COUNTRY_TEMPLATES.find_one(
-        {"country_code": country_code.upper(), "status": "verified"},
+        {"country_code": cc, "status": "verified"},
         {"_id": 0},
     )
+    _TEMPLATE_CACHE[cc] = (now_t, doc)
     return doc
 
 
 async def template_status(country_code: str) -> str:
     """Returns 'verified' | 'draft' | 'outdated' | 'none' (no template)."""
+    cc = country_code.upper()
+    now_t = _time.time()
+    cached = _STATUS_CACHE.get(cc)
+    if cached and (now_t - cached[0]) < _CACHE_TTL:
+        return cached[1]
+
     doc = await _COUNTRY_TEMPLATES.find_one(
-        {"country_code": country_code.upper()}, {"_id": 0, "status": 1}
+        {"country_code": cc}, {"_id": 0, "status": 1}
     )
-    if not doc:
-        return "none"
-    return doc.get("status", "draft")
+    st = "none" if not doc else doc.get("status", "draft")
+    _STATUS_CACHE[cc] = (now_t, st)
+    return st
 
 
 def _options_to_lookup(options) -> Dict[str, int]:
