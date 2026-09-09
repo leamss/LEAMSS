@@ -753,9 +753,20 @@ async def set_pa_occupation(
             if not auth_code:
                 auth = occ.get("assessing_authority")
                 if isinstance(auth, dict):
-                    auth_code = auth.get("short_name") or auth.get("code")
+                    auth_code = auth.get("short_name") or auth.get("code") or auth.get("name")
                 elif isinstance(auth, str):
                     auth_code = auth
+                if not auth_code:
+                    auth_code = occ.get("assessing_body") or occ.get("skill_body")
+
+        if not auth_code:
+            c_code = str(pa.get("country_code") or pa.get("country") or pa.get("product_name") or "").upper()
+            if "CAN" in c_code or c_code == "CA":
+                auth_code = "WES"
+            elif "ZEAL" in c_code or c_code == "NZ":
+                auth_code = "NZQA"
+            elif "AUS" in c_code or c_code == "AU":
+                auth_code = "VETASSESS"
 
     update_fields = {
         "occupation_code": occ_code,
@@ -1769,6 +1780,27 @@ async def finalize_payment_method(pa_id: str, data: FinalizePaymentMethodData, c
         await sales_col.update_one({"id": sale_id}, {"$set": sale})
     else:
         await sales_col.insert_one(sale)
+
+    if coupon_applied and coupon_applied.get("code"):
+        p_code = coupon_applied["code"].strip().upper()
+        promo_doc = await db["promo_codes"].find_one({"code": p_code})
+        if promo_doc:
+            sales_count = await db["sales"].count_documents({"promo_code": p_code})
+            c_uses = max(int(promo_doc.get("current_uses") or 0) + 1, sales_count)
+            m_uses = int(promo_doc.get("max_uses") or 0)
+            is_limit_reached = bool(m_uses > 0 and c_uses >= m_uses)
+            status_val = "expired" if is_limit_reached else ("inactive" if promo_doc.get("status") == "inactive" else "active")
+            is_active_val = not is_limit_reached and promo_doc.get("status") != "inactive"
+            await db["promo_codes"].update_one(
+                {"code": p_code},
+                {"$set": {
+                    "current_uses": c_uses,
+                    "used_count": c_uses,
+                    "status": status_val,
+                    "is_active": is_active_val,
+                    "active": is_active_val
+                }}
+            )
 
     new_stage = "installment_pending_approval" if is_installments else "proposal_sent"
 

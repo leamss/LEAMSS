@@ -291,19 +291,19 @@ const WorkflowBuilder = () => {
         </div>
 
         <Button
-    variant="outline"
-    size="sm"
-    onClick={() => toggleStep(step.id)}
->
-    {expandedSteps[step.id]
-        ? "Hide Intake Form"
-        : "Configure Intake Form"}
-</Button>
+          variant="outline"
+          size="sm"
+          onClick={() => toggleStep(step.id || idx)}
+        >
+          {expandedSteps[step.id || idx]
+            ? "Hide Intake Form"
+            : "Configure Intake Form"}
+        </Button>
       </div>
 
       <div className="mt-3 rounded-lg border border-dashed bg-slate-50 p-4">
 
-{!expandedSteps[step.id] ? (
+{!expandedSteps[step.id || idx] ? (
 
   <p className="text-sm text-slate-500">
     {step.sections?.length

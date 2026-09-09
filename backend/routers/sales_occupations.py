@@ -58,7 +58,21 @@ async def _country_names() -> Dict[str, str]:
     return _COUNTRY_NAME_CACHE
 
 
-def _from_master(occ: Dict[str, Any], country_name: str) -> Dict[str, Any]:
+_CA_LEGACY_BODY_CACHE: Dict[str, str] = {}
+
+
+async def _get_ca_legacy_body_cache() -> Dict[str, str]:
+    if _CA_LEGACY_BODY_CACHE:
+        return _CA_LEGACY_BODY_CACHE
+    ca_doc = await country_rules_col.find_one({"country_code": "CA"}, {"_id": 0, "occupation_codes": 1})
+    if ca_doc:
+        for oc in ca_doc.get("occupation_codes", []):
+            if oc.get("code") and oc.get("assessing_body"):
+                _CA_LEGACY_BODY_CACHE[str(oc["code"])] = oc["assessing_body"]
+    return _CA_LEGACY_BODY_CACHE
+
+
+def _from_master(occ: Dict[str, Any], country_name: str, ca_body_cache: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
     """Phase 6.9.1 — adapter: map occupation_master document → legacy search-row shape.
 
     Output shape is intentionally identical to the pre-migration `country_rules.occupation_codes[i]`
@@ -81,13 +95,49 @@ def _from_master(occ: Dict[str, Any], country_name: str) -> Dict[str, Any]:
         for s in (occ.get("state_territory_eligibility") or [])
         if s.get("state")
     }
+
+    # Resolve assessing body cleanly (prefer short_name/code so UI displays ACS, EA, TRA, VETASSESS, etc.)
+    resolved_body = None
+    if isinstance(aa, dict):
+        resolved_body = aa.get("short_name") or aa.get("code") or aa.get("name")
+    elif isinstance(aa, str):
+        resolved_body = aa
+
+    if not resolved_body:
+        resolved_body = occ.get("assessing_body") or occ.get("skill_body")
+
+    c_code = str(occ.get("country_code") or "").upper()
+    code_str = str(occ.get("code") or "").strip()
+
+    if not resolved_body and c_code == "CA":
+        if ca_body_cache and code_str in ca_body_cache:
+            resolved_body = ca_body_cache[code_str]
+        elif code_str.startswith("3110"):
+            resolved_body = "MCC"
+        elif code_str.startswith("31300"):
+            resolved_body = "PEBC"
+        elif code_str.startswith("31301"):
+            resolved_body = "MCC / NNAS"
+        elif code_str.startswith(("72", "73")):
+            resolved_body = "Red Seal"
+        elif code_str.startswith("11100"):
+            resolved_body = "CPA Canada"
+        else:
+            resolved_body = "WES"
+    elif not resolved_body and c_code == "NZ":
+        resolved_body = "NZQA"
+    elif not resolved_body and c_code == "AU":
+        resolved_body = "VETASSESS"
+
+    aa_full_name = aa.get("name", "") if isinstance(aa, dict) else ""
     blob_parts = [
         occ.get("code", ""),
         occ.get("title", ""),
         hierarchy.get("unit_group_name", ""),
         hierarchy.get("unit_group", ""),
         " ".join(occ.get("alternative_titles") or []),
-        aa.get("name", ""),
+        resolved_body or "",
+        aa_full_name if aa_full_name != resolved_body else "",
         pathway_lists[0] if pathway_lists else "",
     ]
     return {
@@ -98,7 +148,7 @@ def _from_master(occ: Dict[str, Any], country_name: str) -> Dict[str, Any]:
         "group": hierarchy.get("unit_group_name"),
         "group_code": hierarchy.get("unit_group"),
         "skill_level": occ.get("skill_level"),
-        "assessing_body": aa.get("name"),
+        "assessing_body": resolved_body,
         "pathway": pathway_lists[0] if pathway_lists else None,
         "eligible_visas": eligible_visas,
         "alternative_titles": occ.get("alternative_titles") or [],
@@ -139,6 +189,7 @@ async def _load_all_occupations(country_filter: Optional[List[str]] = None) -> L
     reaches the configurable threshold (default 90%).
     """
     name_map = await _country_names()
+    ca_cache = await _get_ca_legacy_body_cache()
     query: Dict[str, Any] = {"status": {"$ne": "superseded"}}  # always hide soft-deleted
     if country_filter:
         norm_codes = set()
@@ -146,11 +197,11 @@ async def _load_all_occupations(country_filter: Optional[List[str]] = None) -> L
             c_str = str(c or "").strip().upper()
             if c_str in COUNTRY_ALIAS_MAP:
                 norm_codes.add(COUNTRY_ALIAS_MAP[c_str])
-            elif "AUS" in c_str:
+            elif "AUS" in c_str or c_str == "AU":
                 norm_codes.add("AU")
-            elif "CAN" in c_str:
+            elif "CAN" in c_str or c_str == "CA":
                 norm_codes.add("CA")
-            elif "ZEAL" in c_str:
+            elif "ZEAL" in c_str or c_str == "NZ":
                 norm_codes.add("NZ")
             else:
                 norm_codes.add(c_str)
@@ -158,7 +209,7 @@ async def _load_all_occupations(country_filter: Optional[List[str]] = None) -> L
     items: List[Dict[str, Any]] = []
     async for occ in occupation_master_col.find(query, {"_id": 0}):
         country_name = name_map.get(occ.get("country_code")) or occ.get("country_code") or ""
-        items.append(_from_master(occ, country_name))
+        items.append(_from_master(occ, country_name, ca_cache))
     return items
 
 
@@ -190,13 +241,28 @@ async def _fetch_legacy_shaped_occupation(country_code: str, code: str) -> Optio
         for s in (occ.get("state_territory_eligibility") or [])
         if s.get("state")
     }
+    resolved_body = None
+    if isinstance(aa, dict):
+        resolved_body = aa.get("short_name") or aa.get("code") or aa.get("name")
+    elif isinstance(aa, str):
+        resolved_body = aa
+    if not resolved_body:
+        resolved_body = occ.get("assessing_body") or occ.get("skill_body")
+    if not resolved_body and norm_country == "CA":
+        ca_cache = await _get_ca_legacy_body_cache()
+        resolved_body = ca_cache.get(str(code)) or ("MCC" if str(code).startswith("3110") else "WES")
+    elif not resolved_body and norm_country == "NZ":
+        resolved_body = "NZQA"
+    elif not resolved_body and norm_country == "AU":
+        resolved_body = "VETASSESS"
+
     return {
         "code": occ.get("code"),
         "title": occ.get("title"),
         "group": hierarchy.get("unit_group_name"),
         "group_code": hierarchy.get("unit_group"),
         "skill_level": occ.get("skill_level"),
-        "assessing_body": aa.get("name"),
+        "assessing_body": resolved_body or aa.get("name"),
         "pathway": pathway_lists[0] if pathway_lists else None,
         "alternative_titles": occ.get("alternative_titles") or [],
         "eligible_visas": eligible_visas,

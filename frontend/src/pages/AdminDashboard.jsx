@@ -114,6 +114,7 @@ const AdminDashboard = () => {
   const [cases, setCases] = useState([]);
   const [products, setProducts] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
   const [caseManagers, setCaseManagers] = useState([]);
   const [allSales, setAllSales] = useState([]);
   const [previewUserId, setPreviewUserId] = useState(null);
@@ -127,6 +128,13 @@ const AdminDashboard = () => {
     if (t && t !== activeTab) setActiveTab(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
+
+  useEffect(() => {
+    if (activeTab === 'users') {
+      loadUsers();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
   const [preAssessFilter, setPreAssessFilter] = useState(null);
   const [selectedCase, setSelectedCase] = useState(null);
   const [selectedSale, setSelectedSale] = useState(null);
@@ -195,83 +203,76 @@ const AdminDashboard = () => {
     headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
   });
 
+  const loadUsers = async () => {
+    try {
+      if (allUsers.length === 0) {
+        setLoadingUsers(true);
+      }
+      const res = await axios.get(`${API}/users`, getAuthHeader());
+      if (Array.isArray(res.data)) {
+        setAllUsers(res.data);
+        setCaseManagers(res.data.filter(u => u.role === 'case_manager'));
+      }
+    } catch (e) {
+      console.error('Failed to load users:', e);
+      toast.error('Failed to load users');
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
+
   const loadData = async () => {
     try {
       const authHeader = getAuthHeader();
       const [statsRes, pendingSalesRes, casesRes, productsRes, usersRes, allSalesRes, commissionsRes, ticketsRes, ticketStatsRes, settingsRes] = await Promise.all([
-        axios.get(`${API}/stats/dashboard`, authHeader),
-        
-        axios.get(`${API}/sales/pending`, authHeader),
-        axios.get(`${API}/cases`, authHeader),
-        axios.get(`${API}/products`, authHeader),
-        axios.get(`${API}/users`, authHeader),
+        axios.get(`${API}/stats/dashboard`, authHeader).catch(() => ({ data: {} })),
+        axios.get(`${API}/sales/pending`, authHeader).catch(() => ({ data: [] })),
+        axios.get(`${API}/cases`, authHeader).catch(() => ({ data: [] })),
+        axios.get(`${API}/products`, authHeader).catch(() => ({ data: [] })),
+        axios.get(`${API}/users`, authHeader).catch(() => ({ data: [] })),
         axios.get(`${API}/sales`, authHeader).catch(() => ({ data: [] })),
         axios.get(`${API}/reports/partner-commissions`, authHeader).catch(() => ({ data: [] })),
         axios.get(`${API}/tickets/all`, authHeader).catch(() => ({ data: [] })),
         axios.get(`${API}/tickets/stats`, authHeader).catch(() => ({ data: {} })),
         axios.get(`${API}/settings`, authHeader).catch(() => ({ data: { allow_case_manager_workflow_customization: false } }))
       ]);
-      setStats(statsRes.data);
-      
-
-      setPendingSales(pendingSalesRes.data);
-      setCases(casesRes.data);
-      setProducts(productsRes.data);
-      setAllUsers(usersRes.data);
-      setCaseManagers(usersRes.data.filter(u => u.role === 'case_manager'));
-      setAllSales(allSalesRes.data);
+      setStats(statsRes.data || {});
+      setPendingSales(pendingSalesRes.data || []);
+      setCases(casesRes.data || []);
+      setProducts(productsRes.data || []);
+      if (Array.isArray(usersRes.data) && usersRes.data.length > 0) {
+        setAllUsers(usersRes.data);
+        setCaseManagers(usersRes.data.filter(u => u.role === 'case_manager'));
+      }
+      setAllSales(allSalesRes.data || []);
       setPartnerCommissions(commissionsRes.data?.commissions || commissionsRes.data || []);
-      setAllTickets(ticketsRes.data);
-      setTicketStats(ticketStatsRes.data);
-      setSystemSettings(settingsRes.data);
+      setAllTickets(ticketsRes.data || []);
+      setTicketStats(ticketStatsRes.data || {});
+      setSystemSettings(settingsRes.data || {});
       
-      // Load expiring documents
-      try {
-        const expiringRes = await axios.get(`${API}/scheduler/expiring-documents`, getAuthHeader());
-        setExpiringDocuments(expiringRes.data.documents || []);
-      } catch (e) {
-        console.error('Failed to load expiring documents:', e);
-      }
-      
-      // Load payment tracker
-      try {
-        const trackerRes = await axios.get(`${API}/sales/tracker/payment-deadlines`, authHeader);
-        setPaymentTracker(trackerRes.data);
-      } catch (e) {
-        console.error('Failed to load payment tracker:', e);
-      }
-      
-      // Load exchange rate
-      try {
-        const rateRes = await axios.get(`${API}/settings/exchange-rate`, authHeader);
-        setExchangeRate(rateRes.data.rate || 83.50);
-        setShowINR(rateRes.data.show_dual_currency || false);
-      } catch (e) { /* use default */ }
-      
-      // Load refunds
-      try {
-        const refundsRes = await axios.get(`${API}/refunds`, authHeader);
-        setRefunds(refundsRes.data || []);
-      } catch (e) { /* no refunds yet */ }
+      // Load secondary dashboard widgets in parallel without blocking UI
+      Promise.allSettled([
+        axios.get(`${API}/scheduler/expiring-documents`, authHeader),
+        axios.get(`${API}/sales/tracker/payment-deadlines`, authHeader),
+        axios.get(`${API}/settings/exchange-rate`, authHeader),
+        axios.get(`${API}/refunds`, authHeader),
+        axios.get(`${API}/cases/unassigned`, authHeader),
+        axios.get(`${API}/reminders/pending-payments`, authHeader),
+        axios.get(`${API}/documents/expiry-summary`, authHeader)
+      ]).then(([expiring, tracker, rate, refunds, unassigned, reminders, expSummary]) => {
+        if (expiring.status === 'fulfilled') setExpiringDocuments(expiring.value.data?.documents || []);
+        if (tracker.status === 'fulfilled') setPaymentTracker(tracker.value.data || null);
+        if (rate.status === 'fulfilled') {
+          setExchangeRate(rate.value.data?.rate || 83.50);
+          setShowINR(rate.value.data?.show_dual_currency || false);
+        }
+        if (refunds.status === 'fulfilled') setRefunds(refunds.value.data || []);
+        if (unassigned.status === 'fulfilled') setUnassignedCases(unassigned.value.data || []);
+        if (reminders.status === 'fulfilled') setPendingPayments(reminders.value.data || []);
+        if (expSummary.status === 'fulfilled') setExpirySummary(expSummary.value.data || { expired: 0, critical: 0, warning: 0, attention: 0, ok: 0, total: 0 });
+      }).catch(() => {});
 
-      // Load unassigned cases
-      try {
-        const unassignedRes = await axios.get(`${API}/cases/unassigned`, authHeader);
-        setUnassignedCases(unassignedRes.data || []);
-      } catch (e) { console.error('Failed to load unassigned cases:', e); }
-
-      // Load pending payments for reminders
-      try {
-        const remindersRes = await axios.get(`${API}/reminders/pending-payments`, authHeader);
-        setPendingPayments(remindersRes.data || []);
-      } catch (e) { /* no reminders */ }
-
-      // Load expiry summary
-      try {
-        const expSummaryRes = await axios.get(`${API}/documents/expiry-summary`, authHeader);
-        setExpirySummary(expSummaryRes.data || { expired: 0, critical: 0, warning: 0, attention: 0, ok: 0, total: 0 });
-      } catch (e) { /* no expiry data */ }
-      // Auto-trigger expiry reminders
+      // Auto-trigger expiry reminders in background
       axios.post(`${API}/documents/check-expiry-reminders`, {}, authHeader).catch(() => {});
     } catch (error) {
       toast.error('Failed to load data');
@@ -1160,7 +1161,11 @@ const AdminDashboard = () => {
     const statusMatch = !caseFilter.status || c.status === caseFilter.status;
     return searchMatch && managerMatch && statusMatch;
   });
-  const filteredUsers = allUsers.filter(u => u.name?.toLowerCase().includes(userSearchTerm.toLowerCase()) || u.email?.toLowerCase().includes(userSearchTerm.toLowerCase()));
+  const filteredUsers = allUsers.filter(u => 
+    (u.name && u.name.toLowerCase().includes(userSearchTerm.toLowerCase())) ||
+    (u.email && u.email.toLowerCase().includes(userSearchTerm.toLowerCase())) ||
+    (u.role && u.role.toLowerCase().includes(userSearchTerm.toLowerCase()))
+  );
   const partners = allUsers.filter(u => u.role === 'partner');
 
   const getStatusBadge = (status) => {
@@ -2477,40 +2482,67 @@ const AdminDashboard = () => {
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
                   <Input placeholder="Search users..." value={userSearchTerm} onChange={(e) => setUserSearchTerm(e.target.value)} className="pl-10" data-testid="user-search" />
                 </div>
-                <Button onClick={() => setUserDialog({ open: true, mode: 'create', data: { email: '', name: '', password: '', role: 'partner', mobile: '' } })} className="bg-[#f7620b] hover:bg-[#e55a09] text-white" data-testid="create-user-btn">
-                  <UserPlus className="mr-2 h-4 w-4" />Create User
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button onClick={loadUsers} variant="outline" size="sm" className="cursor-pointer" title="Refresh users list">
+                    <RefreshCw className={`h-4 w-4 mr-1 ${loadingUsers ? 'animate-spin' : ''}`} />Refresh
+                  </Button>
+                  <Button onClick={() => setUserDialog({ open: true, mode: 'create', data: { email: '', name: '', password: '', role: 'partner', mobile: '' } })} className="bg-[#f7620b] hover:bg-[#e55a09] text-white cursor-pointer" data-testid="create-user-btn">
+                    <UserPlus className="mr-2 h-4 w-4" />Create User
+                  </Button>
+                </div>
               </div>
-              {['admin', 'case_manager', 'partner', 'client'].map(role => {
-                const roleUsers = filteredUsers.filter(u => u.role === role);
-                if (roleUsers.length === 0) return null;
-                return (
-                  <Card key={role} className="p-6" data-testid={`users-${role}`}>
-                    <h3 className="text-lg font-semibold mb-4 capitalize text-slate-800">
-                      {role === 'case_manager' ? 'Case Managers' : role === 'admin' ? 'Administrators' : `${role}s`}
-                      <Badge className="ml-2 bg-slate-100 text-slate-600">{roleUsers.length}</Badge>
-                    </h3>
-                    <div className="space-y-3">
-                      {roleUsers.map((usr) => (
-                        <div key={usr.id} className="flex justify-between items-center p-3 border rounded-lg hover:bg-slate-50">
-                          <div>
-                            <p className="font-medium text-slate-800">
-                              {usr.name}
-                            </p>
-                            <p className="text-sm text-slate-600">{usr.email}</p>
-                          </div>
-                          <div className="flex gap-2">
-                            {usr.role !== 'admin' && <Button onClick={() => openTicketForUser(usr)} size="sm" variant="outline" className="text-[#f7620b] border-[#f7620b] hover:bg-[#f7620b]/10" data-testid={`ticket-for-${usr.id}`}><MessageSquare className="h-4 w-4 mr-1" />Ticket</Button>}
-                            {usr.role !== 'admin' && <Button onClick={() => handleImpersonate(usr)} size="sm" className="bg-[#2a777a] hover:bg-[#236466] text-white" data-testid={`switch-user-${usr.id}`} title="Switch to this user's account (full impersonation)"><Eye className="h-4 w-4 mr-1" />Switch</Button>}
-                            <Button onClick={() => setUserDialog({ open: true, mode: 'edit', data: usr })} size="sm" variant="outline" data-testid={`edit-user-${usr.id}`}><Edit className="h-4 w-4" /></Button>
-                            {usr.role !== 'admin' && <Button onClick={() => handleDeleteUser(usr.id)} size="sm" variant="destructive" data-testid={`delete-user-${usr.id}`}><Trash2 className="h-4 w-4" /></Button>}
-                          </div>
+
+              {loadingUsers ? (
+                <div className="text-center py-12 bg-white rounded-xl border border-slate-100 shadow-sm">
+                  <Loader2 className="h-8 w-8 animate-spin mx-auto text-[#2a777a]" />
+                  <p className="text-slate-500 text-sm mt-2">Loading users...</p>
+                </div>
+              ) : filteredUsers.length === 0 ? (
+                <Card className="p-8 text-center text-slate-500 border-0 shadow-sm">
+                  <User className="h-10 w-10 mx-auto text-slate-300 mb-2" />
+                  <p className="font-medium text-slate-700">No users found</p>
+                  <p className="text-xs text-slate-400 mt-1">Try adjusting your search query or click Refresh.</p>
+                </Card>
+              ) : (
+                (() => {
+                  const standardRoles = ['admin', 'case_manager', 'partner', 'client'];
+                  const presentRoles = Array.from(new Set(filteredUsers.map(u => u.role || 'client')));
+                  const orderedRoles = [
+                    ...standardRoles.filter(r => presentRoles.includes(r)),
+                    ...presentRoles.filter(r => !standardRoles.includes(r))
+                  ];
+                  return orderedRoles.map(role => {
+                    const roleUsers = filteredUsers.filter(u => (u.role || 'client') === role);
+                    if (roleUsers.length === 0) return null;
+                    return (
+                      <Card key={role} className="p-6" data-testid={`users-${role}`}>
+                        <h3 className="text-lg font-semibold mb-4 capitalize text-slate-800">
+                          {role === 'case_manager' ? 'Case Managers' : role === 'admin' ? 'Administrators' : `${role.replace(/_/g, ' ')}s`}
+                          <Badge className="ml-2 bg-slate-100 text-slate-600">{roleUsers.length}</Badge>
+                        </h3>
+                        <div className="space-y-3">
+                          {roleUsers.map((usr) => (
+                            <div key={usr.id} className="flex justify-between items-center p-3 border rounded-lg hover:bg-slate-50">
+                              <div>
+                                <p className="font-medium text-slate-800">
+                                  {usr.name}
+                                </p>
+                                <p className="text-sm text-slate-600">{usr.email}</p>
+                              </div>
+                              <div className="flex gap-2">
+                                {usr.role !== 'admin' && <Button onClick={() => openTicketForUser(usr)} size="sm" variant="outline" className="text-[#f7620b] border-[#f7620b] hover:bg-[#f7620b]/10" data-testid={`ticket-for-${usr.id}`}><MessageSquare className="h-4 w-4 mr-1" />Ticket</Button>}
+                                {usr.role !== 'admin' && <Button onClick={() => handleImpersonate(usr)} size="sm" className="bg-[#2a777a] hover:bg-[#236466] text-white" data-testid={`switch-user-${usr.id}`} title="Switch to this user's account (full impersonation)"><Eye className="h-4 w-4 mr-1" />Switch</Button>}
+                                <Button onClick={() => setUserDialog({ open: true, mode: 'edit', data: usr })} size="sm" variant="outline" data-testid={`edit-user-${usr.id}`}><Edit className="h-4 w-4" /></Button>
+                                {usr.role !== 'admin' && <Button onClick={() => handleDeleteUser(usr.id)} size="sm" variant="destructive" data-testid={`delete-user-${usr.id}`}><Trash2 className="h-4 w-4" /></Button>}
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
-                  </Card>
-                );
-              })}
+                      </Card>
+                    );
+                  });
+                })()
+              )}
             </div>
           )}
 

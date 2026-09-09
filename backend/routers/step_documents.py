@@ -993,10 +993,37 @@ async def get_stepwise_documents(case_id: str, current_user: dict = Depends(get_
     total_uploaded = sum(s["uploaded_count"] for s in step_docs) + sum(1 for r in additional_requests if r.get("uploaded_doc"))
     overall_pct = round(total_uploaded / total_required * 100) if total_required > 0 else 0
 
+    # Attached pre-assessment reports
+    pa_id = case.get("pre_assessment_id")
+    if not pa_id and case.get("sale_id"):
+        s = await sales_col.find_one({"id": case["sale_id"]}, {"_id": 0, "pre_assessment_id": 1})
+        if s: pa_id = s.get("pre_assessment_id")
+    if not pa_id and case.get("client_id"):
+        u = await users_col.find_one({"id": case["client_id"]}, {"_id": 0, "email": 1})
+        if u and u.get("email"):
+            pa_u = await pre_assessments_col.find_one({"client_email": u["email"].lower()}, {"_id": 0, "id": 1})
+            if pa_u: pa_id = pa_u.get("id")
+
+    pre_assessment_reports = []
+    if pa_id:
+        pa_reports = await db["pre_assessment_documents"].find(
+            {"pre_assessment_id": pa_id, "$or": [{"document_type": "pre_assessment_report"}, {"document_type": "assessment_report"}, {"uploaded_by_role": "admin"}]},
+            {"_id": 0}
+        ).sort("created_at", -1).to_list(10)
+        for r in pa_reports:
+            for f in ["created_at", "uploaded_at"]:
+                if isinstance(r.get(f), datetime):
+                    r[f] = r[f].isoformat()
+            r["download_url"] = f"/api/pre-assessment/{r.get('pre_assessment_id')}/document/{r.get('id')}/download"
+            r["view_url"] = f"/api/pre-assessment/{r.get('pre_assessment_id')}/document/{r.get('id')}/download?inline=true"
+            pre_assessment_reports.append(r)
+
     return {
         "steps": step_docs,
         "additional_requests": additional_requests,
         "other_uploads": other_uploads,
+        "pre_assessment_reports": pre_assessment_reports,
+        "pre_assessment_id": pa_id,
         "summary": {
             "total_required": total_required,
             "total_uploaded": total_uploaded,

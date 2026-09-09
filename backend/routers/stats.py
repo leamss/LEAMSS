@@ -1,4 +1,5 @@
 """Stats Router"""
+import asyncio
 from fastapi import APIRouter, Depends
 from core.database import sales_col, cases_col, tickets_col, users_col, documents_col
 from core.auth import get_current_user
@@ -10,13 +11,15 @@ router = APIRouter(prefix="/stats", tags=["Stats"])
 @router.get("/dashboard")
 async def dashboard(current_user: dict = Depends(get_current_user)):
     """Alias for admin-dashboard - used by frontend"""
-    pending_sales = await sales_col.count_documents({"status": "pending"})
-    active_cases = await cases_col.count_documents({"status": "active"})
-    open_tickets = await tickets_col.count_documents({"status": "open"})
-    total_users = await users_col.count_documents({})
+    pending_sales, active_cases, open_tickets, total_users, approved = await asyncio.gather(
+        sales_col.count_documents({"status": "pending"}),
+        cases_col.count_documents({"status": "active"}),
+        tickets_col.count_documents({"status": "open"}),
+        users_col.count_documents({}),
+        sales_col.find({"status": "approved"}, {"_id": 0, "fee_amount": 1, "amount_received": 1, "commission_amount": 1}).to_list(1000)
+    )
     
-    approved = await sales_col.find({"status": "approved"}, {"_id": 0}).to_list(1000)
-    revenue = sum(s["fee_amount"] for s in approved)
+    revenue = sum(s.get("fee_amount", 0) for s in approved)
     total_received = sum(s.get("amount_received", 0) for s in approved)
     total_pending_amount = round(revenue - total_received, 2)
     commission = sum(s.get("commission_amount", 0) for s in approved)
@@ -32,34 +35,18 @@ async def dashboard(current_user: dict = Depends(get_current_user)):
 
 @router.get("/admin-dashboard")
 async def admin_dashboard(current_user: dict = Depends(get_current_user)):
-    pending_sales = await sales_col.count_documents({"status": "pending"})
-    active_cases = await cases_col.count_documents({"status": "active"})
-    open_tickets = await tickets_col.count_documents({"status": "open"})
-    total_users = await users_col.count_documents({})
-    
-    approved = await sales_col.find({"status": "approved"}, {"_id": 0}).to_list(1000)
-    revenue = sum(s["fee_amount"] for s in approved)
-    total_received = sum(s.get("amount_received", 0) for s in approved)
-    total_pending_amount = round(revenue - total_received, 2)
-    commission = sum(s.get("commission_amount", 0) for s in approved)
-    
-    return {
-        "pending_sales": pending_sales, "active_cases": active_cases,
-        "open_tickets": open_tickets, "total_users": total_users,
-        "total_revenue": revenue, "total_received": total_received,
-        "total_pending_amount": total_pending_amount,
-        "total_commission": commission
-    }
+    return await dashboard(current_user)
 
 
 @router.get("/case-manager-dashboard")
 async def case_manager_dashboard(current_user: dict = Depends(get_current_user)):
     query = {"case_manager_id": current_user["id"]}
-    total = await cases_col.count_documents(query)
-    active = await cases_col.count_documents({**query, "status": "active"})
-    completed = await cases_col.count_documents({**query, "status": "completed"})
-    
-    pending_docs = await documents_col.count_documents({"status": "pending"})
+    total, active, completed, pending_docs = await asyncio.gather(
+        cases_col.count_documents(query),
+        cases_col.count_documents({**query, "status": "active"}),
+        cases_col.count_documents({**query, "status": "completed"}),
+        documents_col.count_documents({"status": "pending"})
+    )
     
     return {
         "total_cases": total, "my_cases": total,
@@ -71,11 +58,13 @@ async def case_manager_dashboard(current_user: dict = Depends(get_current_user))
 @router.get("/partner-dashboard")
 async def partner_dashboard(current_user: dict = Depends(get_current_user)):
     query = {"partner_id": current_user["id"]}
-    total = await sales_col.count_documents(query)
-    approved = await sales_col.count_documents({**query, "status": "approved"})
-    pending = await sales_col.count_documents({**query, "status": "pending"})
+    total, approved, pending, approved_sales = await asyncio.gather(
+        sales_col.count_documents(query),
+        sales_col.count_documents({**query, "status": "approved"}),
+        sales_col.count_documents({**query, "status": "pending"}),
+        sales_col.find({**query, "status": "approved"}, {"_id": 0, "commission_amount": 1}).to_list(1000)
+    )
     
-    approved_sales = await sales_col.find({**query, "status": "approved"}, {"_id": 0}).to_list(1000)
     commission = sum(s.get("commission_amount", 0) for s in approved_sales)
     
     return {
@@ -86,9 +75,11 @@ async def partner_dashboard(current_user: dict = Depends(get_current_user)):
 
 @router.get("/client-dashboard")
 async def client_dashboard(current_user: dict = Depends(get_current_user)):
-    total = await cases_col.count_documents({"client_id": current_user["id"]})
-    active = await cases_col.count_documents({"client_id": current_user["id"], "status": "active"})
-    pending_docs = await documents_col.count_documents({"uploaded_by": current_user["id"], "status": "pending"})
+    total, active, pending_docs = await asyncio.gather(
+        cases_col.count_documents({"client_id": current_user["id"]}),
+        cases_col.count_documents({"client_id": current_user["id"], "status": "active"}),
+        documents_col.count_documents({"uploaded_by": current_user["id"], "status": "pending"})
+    )
     
     return {
         "total_cases": total, "active_cases": active,

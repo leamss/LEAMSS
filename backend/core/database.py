@@ -75,15 +75,22 @@ cost_structures_col = db["product_cost_structures"]
 async def init_db():
     """Create indexes"""
     await users_col.create_index("email", unique=True)
+    await users_col.create_index("role")
+    await users_col.create_index("status")
+    await users_col.create_index([("role", 1), ("status", 1)])
     await sales_col.create_index("partner_id")
     await sales_col.create_index("status")
     await sales_col.create_index("collection_deadline")
+    await sales_col.create_index([("status", 1), ("created_at", -1)])
     await cases_col.create_index("client_id")
     await cases_col.create_index("case_manager_id")
     await cases_col.create_index("case_id", unique=True)
+    await cases_col.create_index([("status", 1), ("created_at", -1)])
     await documents_col.create_index("case_id")
     await tickets_col.create_index("created_by")
     await tickets_col.create_index("assigned_to")
+    await tickets_col.create_index("status")
+    await tickets_col.create_index([("status", 1), ("created_at", -1)])
     await audit_logs_col.create_index("created_at")
     await notifications_col.create_index("user_id")
     # Phase 20.4 — case_id can be null for entity_type-based universal info sheets;

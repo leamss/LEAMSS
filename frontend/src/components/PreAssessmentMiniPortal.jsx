@@ -268,40 +268,94 @@ export default function PreAssessmentMiniPortal({ pa, onRefresh, onOpenScanner }
     } catch { toast.error(`${kind} PDF failed`); }
   };
 
-const viewPaDocument = async (docId, inline = true) => {
-  try {
-    const r = await fetch(`${API}/pre-assessment/${pa.id}/document/${docId}/download?inline=${inline}`, {
-      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-    });
-    if (!r.ok) throw new Error();
-    const blob = await r.blob();
-    const url = URL.createObjectURL(blob);
-    window.open(url, '_blank');
-    setTimeout(() => URL.revokeObjectURL(url), 60000);
-  } catch {
-    toast.error('Could not open document');
-  }
-};
+  const viewPaDocument = async (docId, inline = true) => {
+    const targetId = currentPa?.id || pa?.id || pa?.pa_number;
+    try {
+      const r = await fetch(`${API}/pre-assessment/${targetId}/document/${docId}/download?inline=${inline}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      if (!r.ok) throw new Error();
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch {
+      toast.error('Could not open document');
+    }
+  };
 
-const downloadPaDocument = async (docId, fileName) => {
-  try {
-    const r = await fetch(`${API}/pre-assessment/${pa.id}/document/${docId}/download?inline=false`, {
-      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-    });
-    if (!r.ok) throw new Error();
-    const blob = await r.blob();
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = fileName || 'document';
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 60000);
-  } catch {
-    toast.error('Download failed');
-  }
-};
+  const downloadPaDocument = async (docId, fileName) => {
+    const targetId = currentPa?.id || pa?.id || pa?.pa_number;
+    try {
+      const r = await fetch(`${API}/pre-assessment/${targetId}/document/${docId}/download?inline=false`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      if (!r.ok) throw new Error();
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName || 'document';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch {
+      toast.error('Download failed');
+    }
+  };
+
+  const isReportDoc = (d) =>
+    d.document_type === 'pre_assessment_report' ||
+    d.document_type === 'assessment_report' ||
+    d.uploaded_by_role === 'admin' ||
+    (d.file_name || '').toLowerCase().includes('report');
+  const reportDocs = (docs || []).filter(isReportDoc);
+
+  const renderPreAssessmentReport = (cardClass = "mb-4") => {
+    if (reportDocs.length === 0) return null;
+    return (
+      <div className={`bg-teal-50 border border-teal-200 rounded-xl p-4 ${cardClass}`} data-testid="pre-assessment-report-section">
+        <p className="text-xs font-semibold text-teal-800 uppercase tracking-wide mb-2.5 flex items-center gap-1.5">
+          <FileText className="h-4 w-4 text-teal-700" /> Attached Pre-Assessment Report
+        </p>
+        <div className="space-y-2">
+          {reportDocs.map((d) => (
+            <div
+              key={d.id}
+              className="w-full flex items-center gap-3 p-3 bg-white border border-teal-200 rounded-lg shadow-xs hover:border-teal-300 transition"
+              data-testid={`report-row-${d.id}`}
+            >
+              <FileCheck className="h-5 w-5 text-[#2a777a] shrink-0" />
+              <div className="flex-1 min-w-0 text-left">
+                <p className="text-sm font-semibold text-slate-800 truncate">{d.file_name}</p>
+                <p className="text-xs text-slate-500 capitalize">
+                  {(d.document_type || 'pre_assessment_report').replace(/_/g, ' ')}
+                  {d.uploaded_by_name ? ` · Uploaded by ${d.uploaded_by_name}` : ''}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => viewPaDocument(d.id)}
+                  className="px-3 py-1.5 text-xs font-semibold text-[#2a777a] bg-teal-50 hover:bg-teal-100 rounded-md border border-teal-200 transition cursor-pointer"
+                  data-testid={`view-btn-${d.id}`}
+                >
+                  View
+                </button>
+                <button
+                  onClick={() => downloadPaDocument(d.id, d.file_name)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 rounded-md border border-slate-300 transition cursor-pointer"
+                  data-testid={`download-btn-${d.id}`}
+                >
+                  <Download className="h-3.5 w-3.5" /> Download
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
 
 const [selectingPkg, setSelectingPkg] = useState(null);
 
@@ -699,24 +753,27 @@ useEffect(() => {
 
       {/* STAGE: Approved — waiting for proposal */}
       {stage === 'approved' && (
-        <Card className="p-6 bg-gradient-to-br from-emerald-50 to-white border-emerald-200">
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center shrink-0">
-              <CheckCircle2 className="h-6 w-6 text-emerald-600" />
-            </div>
-            <div>
-              <h3 className="font-bold text-slate-800 text-lg">Congratulations — You're Eligible!</h3>
-              <p className="text-sm text-slate-600 mt-1">
-                Your partner is preparing a personalised proposal with fees, timeline and next steps. You'll receive it shortly.
-              </p>
-              {pa.admin_reason && (
-                <p className="text-xs text-emerald-700 mt-2 bg-white rounded p-2 border border-emerald-100">
-                  <span className="font-semibold">Admin note:</span> {pa.admin_reason}
+        <div className="space-y-6">
+          {renderPreAssessmentReport()}
+          <Card className="p-6 bg-gradient-to-br from-emerald-50 to-white border-emerald-200">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center shrink-0">
+                <CheckCircle2 className="h-6 w-6 text-emerald-600" />
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-800 text-lg">Congratulations — You're Eligible!</h3>
+                <p className="text-sm text-slate-600 mt-1">
+                  Your partner is preparing a personalised proposal with fees, timeline and next steps. You'll receive it shortly.
                 </p>
-              )}
+                {pa.admin_reason && (
+                  <p className="text-xs text-emerald-700 mt-2 bg-white rounded p-2 border border-emerald-100">
+                    <span className="font-semibold">Admin note:</span> {pa.admin_reason}
+                  </p>
+                )}
+              </div>
             </div>
-          </div>
-        </Card>
+          </Card>
+        </div>
       )}
 
 {/* STAGE: Client picks a package */}
@@ -731,48 +788,9 @@ useEffect(() => {
             getAuthHeader={getAuth}
           />
 
+          {renderPreAssessmentReport()}
+
           <Card className="p-6 border-[#2a777a]/20 space-y-5">
-            {/* NEW — Pre-Assessment Report (uploaded by admin/partner) */}
-            {docs.filter(d => d.uploaded_by_role === 'admin').length > 0 && (
-              <div className="bg-teal-50 border border-teal-200 rounded-lg p-4">
-                <p className="text-xs font-semibold text-teal-800 uppercase tracking-wide mb-2 flex items-center gap-1.5">
-                  <FileText className="h-3.5 w-3.5" /> Your Pre-Assessment Report
-                </p>
-                <div className="space-y-2">
-                  {docs.filter(d => d.uploaded_by_role === 'admin').map(d => (
-                    <div
-                      key={d.id}
-                      className="w-full flex items-center gap-3 p-2.5 bg-white border border-teal-200 rounded-lg"
-                      data-testid={`report-row-${d.id}`}
-                    >
-                      <FileCheck className="h-4 w-4 text-[#2a777a] shrink-0" />
-                      <button
-                        onClick={() => viewPaDocument(d.id)}
-                        className="flex-1 min-w-0 text-left"
-                        data-testid={`view-report-${d.id}`}
-                      >
-                        <p className="text-sm font-medium text-slate-700 truncate">{d.file_name}</p>
-                        <p className="text-xs text-slate-500 capitalize">{(d.document_type || '').replace(/_/g, ' ')}</p>
-                      </button>
-                      <button
-                        onClick={() => viewPaDocument(d.id)}
-                        className="text-xs text-[#2a777a] font-semibold shrink-0 hover:underline"
-                        data-testid={`view-btn-${d.id}`}
-                      >
-                        View
-                      </button>
-                      <button
-                        onClick={() => downloadPaDocument(d.id, d.file_name)}
-                        className="flex items-center gap-1 text-xs text-slate-600 font-semibold shrink-0 border border-slate-300 rounded px-2 py-1 hover:bg-slate-50"
-                        data-testid={`download-btn-${d.id}`}
-                      >
-                        <Download className="h-3 w-3" /> Download
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
 
             <div className="flex items-start gap-4">
               <div className="w-12 h-12 bg-[#2a777a] rounded-full flex items-center justify-center shrink-0">
@@ -830,6 +848,7 @@ useEffect(() => {
             }}
             getAuthHeader={getAuth}
           />
+          {renderPreAssessmentReport()}
           <Card className="p-6 bg-gradient-to-br from-emerald-50 to-white border-emerald-200">
             <div className="flex items-start gap-4">
               <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center shrink-0">
@@ -908,6 +927,7 @@ useEffect(() => {
               }}
               getAuthHeader={getAuth}
             />
+            {renderPreAssessmentReport()}
             <Card className="p-6 bg-gradient-to-br from-[#f7620b]/5 to-[#2a777a]/5 border-[#2a777a]/20 space-y-5">
               <div className="flex items-start gap-4">
                 <div className="w-12 h-12 bg-[#f7620b] rounded-full flex items-center justify-center shrink-0">
@@ -1364,19 +1384,22 @@ useEffect(() => {
 
       {/* STAGE: proposal_paid — awaiting partner to upload receipt */}
       {stage === 'proposal_paid' && (
-        <Card className="p-6 bg-gradient-to-br from-blue-50 to-white border-blue-200">
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center shrink-0">
-              <Clock className="h-6 w-6 text-blue-600" />
+        <div className="space-y-6">
+          {renderPreAssessmentReport()}
+          <Card className="p-6 bg-gradient-to-br from-blue-50 to-white border-blue-200">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center shrink-0">
+                <Clock className="h-6 w-6 text-blue-600" />
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-800 text-lg">Payment Received 🎉</h3>
+                <p className="text-sm text-slate-600 mt-1">
+                  Thank you! Your partner is preparing the payment receipt, signed agreement, and basic onboarding documents. Once submitted, our admin team will activate your case.
+                </p>
+              </div>
             </div>
-            <div>
-              <h3 className="font-bold text-slate-800 text-lg">Payment Received 🎉</h3>
-              <p className="text-sm text-slate-600 mt-1">
-                Thank you! Your partner is preparing the payment receipt, signed agreement, and basic onboarding documents. Once submitted, our admin team will activate your case.
-              </p>
-            </div>
-          </div>
-        </Card>
+          </Card>
+        </div>
       )}
 
       {/* E-SIGN Agreement (shown once main fee paid) — uses partner-generated agreement if available, else falls back to generic canvas */}

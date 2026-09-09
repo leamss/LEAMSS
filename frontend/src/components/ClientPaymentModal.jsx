@@ -176,21 +176,38 @@ export default function ClientPaymentModal({
   // Helper to load Razorpay script
   const loadRazorpayScript = () => {
     return new Promise((resolve) => {
-      if (window.Razorpay) {
+      if (typeof window !== 'undefined' && window.Razorpay) {
         resolve(true);
         return;
       }
       const existing = document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]');
       if (existing) {
-        existing.addEventListener('load', () => resolve(true));
-        existing.addEventListener('error', () => resolve(false));
-        return;
+        existing.remove();
       }
       const script = document.createElement('script');
       script.src = 'https://checkout.razorpay.com/v1/checkout.js';
       script.async = true;
-      script.onload = () => resolve(true);
-      script.onerror = () => resolve(false);
+      let resolved = false;
+      const timeout = setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          resolve(typeof window !== 'undefined' && !!window.Razorpay);
+        }
+      }, 8000);
+      script.onload = () => {
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(timeout);
+          resolve(true);
+        }
+      };
+      script.onerror = () => {
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(timeout);
+          resolve(false);
+        }
+      };
       document.body.appendChild(script);
     });
   };
@@ -277,7 +294,14 @@ export default function ClientPaymentModal({
       };
 
       const rzp = new window.Razorpay(options);
+      rzp.on('payment.failed', function (resp) {
+        console.error('Razorpay payment failed:', resp.error);
+        toast.error(resp.error?.description || 'Payment was not completed');
+        setPaying(false);
+      });
       rzp.open();
+      // Reset loading state once checkout dialog is triggered
+      setTimeout(() => setPaying(false), 1500);
     } catch (e) {
       console.error('Razorpay payment initiation error:', e);
       toast.error(e?.response?.data?.detail || e.message || 'Unable to start payment gateway');

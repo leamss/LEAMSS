@@ -737,8 +737,9 @@ const MarketingDashboard = () => {
                 const used = p.current_uses ?? p.used_count ?? 0;
                 const max = p.max_uses;
                 const isLimitReached = Boolean(max && max > 0 && used >= max);
+                const isExpired = isLimitReached || p.status === 'expired';
                 const isExplicitActive = p.is_active !== undefined ? p.is_active : (p.active !== undefined ? p.active : true);
-                const isActive = isExplicitActive && !isLimitReached;
+                const isActive = isExplicitActive && !isExpired;
 
                 return (
                   <Card key={p.id} className={`p-5 transition-all ${isActive ? 'bg-white hover:shadow-md' : 'bg-slate-50/80 border-dashed opacity-80'}`} data-testid={`promo-${p.code}`}>
@@ -746,15 +747,15 @@ const MarketingDashboard = () => {
                       <code className="text-lg font-bold text-[#2a777a] bg-teal-50 px-3 py-1 rounded">{p.code}</code>
                       <Badge className={
                         isActive ? 'bg-emerald-100 text-emerald-800 border-emerald-200' :
-                        isLimitReached ? 'bg-amber-100 text-amber-900 border border-amber-300 font-semibold' :
-                        'bg-rose-100 text-rose-800 border-rose-200'
+                        isExpired ? 'bg-rose-100 text-rose-800 border-rose-300 font-semibold' :
+                        'bg-slate-100 text-slate-800 border-slate-200'
                       }>
-                        {isActive ? 'Active' : isLimitReached ? 'Limit Reached' : 'Inactive'}
+                        {isActive ? 'Active' : isExpired ? 'Expired' : 'Inactive'}
                       </Badge>
                     </div>
                     <p className="text-sm font-semibold text-slate-700">{p.discount_type === 'percentage' ? `${p.discount_value}% off` : `Flat ₹${p.discount_value} off`}</p>
                     <p className="text-xs text-slate-500 mt-1 font-medium">
-                      Used: <strong className={isLimitReached ? 'text-amber-700' : 'text-slate-700'}>{used}</strong> / {max || 'Unlimited'}
+                      Used: <strong className={isExpired ? 'text-rose-700 font-bold' : 'text-slate-700'}>{used}</strong> / {max || 'Unlimited'}
                     </p>
                     {p.notes && <p className="text-xs text-slate-400 mt-1 italic line-clamp-1">{p.notes}</p>}
                     

@@ -293,6 +293,46 @@ setSubmittedFields(savedSubmittedFields);
     }
   };
 
+  const viewReportDoc = async (doc) => {
+    try {
+      const downloadUrl = doc.view_url || `${API}/pre-assessment/${doc.pre_assessment_id}/document/${doc.id}/download?inline=true`;
+      const fullUrl = downloadUrl.startsWith('http') ? downloadUrl : `${BACKEND_URL}${downloadUrl}`;
+      const res = await axios.get(fullUrl, {
+        headers,
+        responseType: 'blob',
+      });
+      const blob = new Blob([res.data], { type: res.headers['content-type'] || 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch {
+      toast.error('Could not open report document');
+    }
+  };
+
+  const downloadReportDoc = async (doc) => {
+    try {
+      const downloadUrl = doc.download_url || `${API}/pre-assessment/${doc.pre_assessment_id}/document/${doc.id}/download`;
+      const fullUrl = downloadUrl.startsWith('http') ? downloadUrl : `${BACKEND_URL}${downloadUrl}`;
+      const res = await axios.get(fullUrl, {
+        headers,
+        responseType: 'blob',
+      });
+      const blob = new Blob([res.data], { type: res.headers['content-type'] || 'application/octet-stream' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = doc.file_name || 'Pre-Assessment-Report.pdf';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+      toast.success('Report downloaded');
+    } catch {
+      toast.error('Download failed');
+    }
+  };
+
   // Check document expiry
   const getExpiryWarning = (doc) => {
     if (!doc?.uploaded_doc) return null;
@@ -589,6 +629,58 @@ const renderIntakeField = (field, step) => {
           }} data-testid="scroll-to-additional">
             View
           </Button>
+        </Card>
+      )}
+
+      {/* Attached Pre-Assessment Report Card */}
+      {data?.pre_assessment_reports && data.pre_assessment_reports.length > 0 && (
+        <Card className="p-5 border border-teal-200 bg-gradient-to-r from-teal-50/80 via-white to-teal-50/40 shadow-sm rounded-xl" data-testid="pre-assessment-report-section">
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="text-sm font-bold text-teal-900 uppercase tracking-wide flex items-center gap-2">
+              <FileText className="h-4 w-4 text-teal-700" /> Attached Pre-Assessment Report
+            </h4>
+            <Badge className="bg-teal-100 text-teal-800 border-teal-200 text-xs font-semibold">
+              Official Assessment
+            </Badge>
+          </div>
+          <p className="text-xs text-slate-600 mb-3">
+            Your official Pre-Assessment evaluation report prepared during the eligibility review.
+          </p>
+          <div className="space-y-2">
+            {data.pre_assessment_reports.map((doc) => (
+              <div
+                key={doc.id}
+                className="w-full flex items-center gap-3 p-3 bg-white border border-teal-200 rounded-lg shadow-xs hover:border-teal-300 transition"
+                data-testid={`report-row-${doc.id}`}
+              >
+                <FileCheck className="h-5 w-5 text-[#2a777a] shrink-0" />
+                <div className="flex-1 min-w-0 text-left">
+                  <p className="text-sm font-semibold text-slate-800 truncate">{doc.file_name}</p>
+                  <p className="text-xs text-slate-500 capitalize">
+                    {(doc.document_type || 'pre_assessment_report').replace(/_/g, ' ')}
+                    {doc.uploaded_by_name ? ` · Uploaded by ${doc.uploaded_by_name}` : ''}
+                    {doc.created_at ? ` · ${new Date(doc.created_at).toLocaleDateString()}` : ''}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={() => viewReportDoc(doc)}
+                    className="px-3 py-1.5 text-xs font-semibold text-[#2a777a] bg-teal-50 hover:bg-teal-100 rounded-md border border-teal-200 transition cursor-pointer"
+                    data-testid={`view-report-btn-${doc.id}`}
+                  >
+                    View
+                  </button>
+                  <button
+                    onClick={() => downloadReportDoc(doc)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 rounded-md border border-slate-300 transition cursor-pointer"
+                    data-testid={`download-report-btn-${doc.id}`}
+                  >
+                    <Download className="h-3.5 w-3.5" /> Download
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
         </Card>
       )}
 

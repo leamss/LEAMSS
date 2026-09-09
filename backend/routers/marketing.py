@@ -155,22 +155,45 @@ async def create_promo(
 
 @router.get("/promos")
 async def get_promos(current_user: dict = Depends(get_current_user)):
-    """Get all promo codes (available to Admin, Partners, and authenticated users)"""
+    """Get all promo codes with real-time synchronized usage and auto-expiration"""
     promos = await promo_codes_col.find({}, {"_id": 0}).to_list(500)
     for p in promos:
-        c_uses = int(p.get("current_uses") if p.get("current_uses") is not None else (p.get("used_count") or 0))
-        m_uses = int(p.get("max_uses") or 100)
-        is_limit_reached = m_uses > 0 and c_uses >= m_uses
+        p_code = p.get("code")
+        sales_count = await db["sales"].count_documents({"promo_code": p_code}) if p_code else 0
+        c_uses = max(int(p.get("current_uses") if p.get("current_uses") is not None else (p.get("used_count") or 0)), sales_count)
+        m_uses = int(p.get("max_uses") or 0)
+        is_limit_reached = bool(m_uses > 0 and c_uses >= m_uses)
         is_explicitly_inactive = p.get("status") == "inactive"
+        is_expired = is_limit_reached or p.get("status") == "expired"
         
         # If under limit, it's active unless explicitly marked inactive by admin
-        is_effective_active = not is_limit_reached and not is_explicitly_inactive
+        is_effective_active = not is_expired and not is_explicitly_inactive
+        status_val = "expired" if is_expired else ("active" if is_effective_active else "inactive")
+        
         p["is_limit_reached"] = is_limit_reached
         p["is_active"] = is_effective_active
         p["active"] = is_effective_active
-        p["status"] = "limit_reached" if is_limit_reached else ("active" if is_effective_active else "inactive")
+        p["status"] = status_val
         p["used_count"] = c_uses
         p["current_uses"] = c_uses
+
+        # Keep DB in sync with auto-expiration status and usage count
+        if (p_code and (
+            p.get("current_uses") != c_uses or
+            p.get("status") != status_val or
+            p.get("is_active") != is_effective_active
+        )):
+            await promo_codes_col.update_one(
+                {"code": p_code},
+                {"$set": {
+                    "current_uses": c_uses,
+                    "used_count": c_uses,
+                    "status": status_val,
+                    "is_active": is_effective_active,
+                    "active": is_effective_active
+                }}
+            )
+
         if isinstance(p.get("created_at"), datetime):
             p["created_at"] = p["created_at"].isoformat()
     return promos
@@ -197,10 +220,16 @@ async def validate_promo(data: dict, current_user: dict = Depends(get_current_us
     if not promo:
         raise HTTPException(status_code=404, detail=f"Promo code '{code}' is invalid or expired")
     
-    current_uses = int(promo.get("current_uses") if promo.get("current_uses") is not None else (promo.get("used_count") or 0))
-    max_uses = int(promo.get("max_uses") or 100)
-    if max_uses > 0 and current_uses >= max_uses:
-        raise HTTPException(status_code=400, detail=f"Promo code '{code}' usage limit reached ({current_uses}/{max_uses})")
+    sales_count = await db["sales"].count_documents({"promo_code": code})
+    current_uses = max(int(promo.get("current_uses") if promo.get("current_uses") is not None else (promo.get("used_count") or 0)), sales_count)
+    max_uses = int(promo.get("max_uses") or 0)
+    if (max_uses > 0 and current_uses >= max_uses) or promo.get("status") == "expired" or not promo.get("is_active", True):
+        # Auto-expire in DB
+        await promo_codes_col.update_one(
+            {"code": code},
+            {"$set": {"status": "expired", "is_active": False, "active": False, "current_uses": current_uses}}
+        )
+        raise HTTPException(status_code=400, detail=f"Promo code '{code}' has expired (usage limit of {max_uses} reached)")
     
     if promo.get("status") == "inactive":
         raise HTTPException(status_code=400, detail=f"Promo code '{code}' is inactive")
@@ -230,10 +259,16 @@ async def public_validate_promo(data: dict):
     if not promo:
         raise HTTPException(status_code=404, detail=f"Promo code '{code}' is invalid or expired")
     
-    current_uses = int(promo.get("current_uses") if promo.get("current_uses") is not None else (promo.get("used_count") or 0))
-    max_uses = int(promo.get("max_uses") or 100)
-    if max_uses > 0 and current_uses >= max_uses:
-        raise HTTPException(status_code=400, detail=f"Promo code '{code}' usage limit reached ({current_uses}/{max_uses})")
+    sales_count = await db["sales"].count_documents({"promo_code": code})
+    current_uses = max(int(promo.get("current_uses") if promo.get("current_uses") is not None else (promo.get("used_count") or 0)), sales_count)
+    max_uses = int(promo.get("max_uses") or 0)
+    if (max_uses > 0 and current_uses >= max_uses) or promo.get("status") == "expired" or not promo.get("is_active", True):
+        # Auto-expire in DB
+        await promo_codes_col.update_one(
+            {"code": code},
+            {"$set": {"status": "expired", "is_active": False, "active": False, "current_uses": current_uses}}
+        )
+        raise HTTPException(status_code=400, detail=f"Promo code '{code}' has expired (usage limit of {max_uses} reached)")
     
     if promo.get("status") == "inactive":
         raise HTTPException(status_code=400, detail=f"Promo code '{code}' is inactive")

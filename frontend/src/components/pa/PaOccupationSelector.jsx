@@ -17,6 +17,28 @@ export default function PaOccupationSelector({ pa, onSaved, getAuthHeader }) {
   const [saving, setSaving] = useState(false);
   const searchRef = useRef(null);
 
+  const resolveTargetCountry = (paObj) => {
+    const candidates = [
+      paObj?.product_country,
+      paObj?.selected_package?.country,
+      paObj?.product_name,
+      paObj?.country,
+      paObj?.country_code,
+      paObj?.destination_country,
+    ];
+
+    for (const c of candidates) {
+      if (!c) continue;
+      const s = String(c).toUpperCase();
+      if (s.includes('CAN') || s === 'CA') return 'CA';
+      if (s.includes('ZEAL') || s === 'NZ') return 'NZ';
+      if (s.includes('AUS') || s === 'AU') return 'AU';
+      if (s.includes('GER') || s === 'DE') return 'DE';
+      if (s.includes('UK') || s.includes('BRIT')) return 'UK';
+    }
+    return 'AU';
+  };
+
   // Search occupations from master table (supports code, profession name, keywords, typos)
   useEffect(() => {
     if (!isEditing || !searchQuery || searchQuery.trim().length < 2) {
@@ -27,7 +49,7 @@ export default function PaOccupationSelector({ pa, onSaved, getAuthHeader }) {
     const timer = setTimeout(async () => {
       setLoading(true);
       try {
-        const country = pa.country || 'AU';
+        const country = resolveTargetCountry(pa);
         const res = await axios.get(`${API}/sales/occupations/search`, {
           ...getAuthHeader(),
           params: { q: searchQuery.trim(), country }
@@ -44,7 +66,7 @@ export default function PaOccupationSelector({ pa, onSaved, getAuthHeader }) {
     }, 200);
 
     return () => clearTimeout(timer);
-  }, [searchQuery, isEditing, pa.country]);
+  }, [searchQuery, isEditing, pa?.country, pa?.product_name, pa?.product_country]);
 
   const handleSelect = async (occ) => {
     const occCode = occ.code || occ.anzsco_code;
@@ -110,7 +132,7 @@ export default function PaOccupationSelector({ pa, onSaved, getAuthHeader }) {
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
           <Briefcase className="h-3.5 w-3.5 text-[#2a777a]" />
-          Occupation Code (ANZSCO)
+          Occupation Code ({resolveTargetCountry(pa) === 'CA' ? 'NOC' : resolveTargetCountry(pa) === 'NZ' ? 'ANZSCO (NZ)' : 'ANZSCO'})
         </p>
         {!isEditing && (
           <Button
@@ -264,7 +286,7 @@ export default function PaOccupationSelector({ pa, onSaved, getAuthHeader }) {
                     handleDirectAdd();
                   }
                 }}
-                placeholder="Type profession or ANZSCO code (e.g. 261313, Software Engineer, Nurse, Chef)..."
+                placeholder={`Type profession or code (e.g. ${resolveTargetCountry(pa) === 'CA' ? '21231, Software Engineer, Nurse' : '261313, Software Engineer, Nurse, Chef'})...`}
                 className="h-8 text-xs pl-8 pr-2 bg-white"
               />
             </div>

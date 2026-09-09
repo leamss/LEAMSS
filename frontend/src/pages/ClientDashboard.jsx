@@ -508,6 +508,20 @@ const ClientDashboard = () => {
     }
   };
 
+  const viewDocument = async (docId) => {
+    try {
+      const response = await axios.get(`${API}/documents/view/${docId}`, {
+        ...getAuthHeader(),
+        responseType: 'blob'
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: response.headers['content-type'] || 'application/pdf' }));
+      window.open(url, '_blank');
+      setTimeout(() => window.URL.revokeObjectURL(url), 60000);
+    } catch (error) {
+      toast.error('Failed to view document');
+    }
+  };
+
   const getProgressPercentage = () => {
     if (!caseData || !caseData.steps || !caseData.steps.length) return 0;
     const completed = caseData.steps.filter(s => s.status === 'completed').length;
@@ -971,6 +985,54 @@ const ClientDashboard = () => {
                           }} data-testid={`edit-expiry-${doc.id}`}>
                             <Calendar className="h-3 w-3 mr-1" /> Update
                           </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
+                )}
+
+                {/* Attached Pre-Assessment Report Card */}
+                {documents.filter(d => d.document_type === 'pre_assessment_report' || d.is_pre_assessment_report).length > 0 && (
+                  <Card className="p-6 bg-gradient-to-r from-teal-50/80 via-white to-teal-50/40 border border-teal-200 shadow-sm" data-testid="overview-pa-report-card">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="text-base font-bold text-teal-900 flex items-center gap-2">
+                        <FileText className="h-5 w-5 text-teal-700" />
+                        Attached Pre-Assessment Report
+                      </h3>
+                      <Badge className="bg-teal-100 text-teal-800 border-teal-200 text-xs">
+                        Official Evaluation
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-slate-600 mb-3">
+                      Your official Pre-Assessment evaluation report prepared during the eligibility review.
+                    </p>
+                    <div className="space-y-2">
+                      {documents.filter(d => d.document_type === 'pre_assessment_report' || d.is_pre_assessment_report).map((doc) => (
+                        <div key={doc.id} className="flex items-center gap-3 p-3 bg-white border border-teal-200 rounded-xl shadow-xs">
+                          <FileCheck className="h-5 w-5 text-[#2a777a] shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-sm text-slate-800 truncate">{doc.filename}</p>
+                            <p className="text-xs text-slate-500">
+                              Pre-Assessment Report {doc.uploaded_at ? ` · ${new Date(doc.uploaded_at).toLocaleDateString()}` : ''}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-[#2a777a] border-teal-300 hover:bg-teal-50 cursor-pointer"
+                              onClick={() => viewDocument(doc.id)}
+                            >
+                              View
+                            </Button>
+                            <Button
+                              size="sm"
+                              className="bg-[#2a777a] hover:bg-[#205e60] text-white cursor-pointer"
+                              onClick={() => downloadDocument(doc.id, doc.filename)}
+                            >
+                              <Download className="h-3.5 w-3.5 mr-1" /> Download
+                            </Button>
+                          </div>
                         </div>
                       ))}
                     </div>

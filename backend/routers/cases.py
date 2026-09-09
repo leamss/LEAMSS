@@ -110,6 +110,19 @@ async def _unlock_and_check_installment_gate(case: dict, current_user: dict, tar
         "sale_id": pa.get("sale_id")
     }
 
+async def _enforce_installment_gate(case: dict, current_user: dict, target_step_order: Optional[int] = 4):
+    """Enforces installment gate check for target_step_order."""
+    gate_info = await _unlock_and_check_installment_gate(case, current_user, target_step_order=target_step_order)
+    target_unlock = gate_info.get("target_unlock_step", 4)
+    if (target_step_order or 4) >= target_unlock and gate_info.get("has_installment_plan") and not gate_info.get("is_paid"):
+        pending_part = gate_info.get("pending_part", {})
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot advance to Step {target_step_order} — client's '{pending_part.get('label', '2nd Installment')}' (₹{pending_part.get('amount', 0):,.0f}) is still unpaid. Please wait for payment before proceeding."
+        )
+    return gate_info
+
+
 def _serialize(case):
     c = {k: v for k, v in case.items() if k != "_id"}
     for f in ["created_at", "updated_at"]:
@@ -140,6 +153,22 @@ async def _enrich_cases(cases):
     products_list = await products_col.find({"id": {"$in": list(product_ids)}}, {"_id": 0}).to_list(500) if product_ids else []
     all_steps = await case_steps_col.find({"case_id": {"$in": case_ids}}, {"_id": 0}).to_list(5000)
     all_docs = await additional_doc_requests_col.find({"case_id": {"$in": case_ids}}, {"_id": 0}).to_list(5000)
+
+    # Batch fetch linked pre-assessments
+    pa_ids = [c["pre_assessment_id"] for c in cases if c.get("pre_assessment_id")]
+    client_emails = [c["client_email"].lower() for c in cases if c.get("client_email")]
+    pa_or = []
+    if pa_ids:
+        pa_or.append({"id": {"$in": pa_ids}})
+    if client_emails:
+        pa_or.append({"client_email": {"$in": client_emails}})
+    
+    pa_list = []
+    if pa_or:
+        pa_list = await pre_assessments_col.find({"$or": pa_or}, {"_id": 0}).to_list(1000)
+    
+    pa_by_id = {p["id"]: p for p in pa_list if p.get("id")}
+    pa_by_email = {p["client_email"].lower(): p for p in pa_list if p.get("client_email")}
     
     users_map = {u["id"]: u for u in users_list}
     products_map = {p["id"]: p for p in products_list}
@@ -163,9 +192,7 @@ async def _enrich_cases(cases):
         case["partner_name"] = partner["name"] if partner else "N/A"
         
         # Check linked PA payment parts for installment gates
-        pa = None
-        if case.get("pre_assessment_id"):
-            pa = await pre_assessments_col.find_one({"id": case["pre_assessment_id"]}, {"_id": 0, "proposal_payment_parts": 1, "sale_id": 1, "second_installment_step_order": 1})
+        pa = pa_by_id.get(case.get("pre_assessment_id")) if case.get("pre_assessment_id") else None
         pa_unpaid_part = None
         target_unlock_step = 4
         if pa:
@@ -208,26 +235,22 @@ async def _enrich_cases(cases):
         case["steps"] = case_steps
         
         # Sync occupation fields from linked pre-assessment
-        pa_filter = None
-        if case.get("pre_assessment_id"):
-            pa_filter = {"id": case["pre_assessment_id"]}
-        elif case.get("client_email"):
-            pa_filter = {"client_email": case["client_email"].lower()}
+        pa_obj = pa
+        if not pa_obj and case.get("client_email"):
+            pa_obj = pa_by_email.get(case["client_email"].lower())
 
-        if pa_filter:
-            pa_obj = await pre_assessments_col.find_one(pa_filter, {"_id": 0})
-            if pa_obj:
-                if pa_obj.get("occupation_code"):
-                    case["occupation_code"] = pa_obj.get("occupation_code")
-                if pa_obj.get("occupation_title"):
-                    case["occupation_title"] = pa_obj.get("occupation_title")
-                if pa_obj.get("assessing_authority_code"):
-                    case["assessing_authority_code"] = pa_obj.get("assessing_authority_code")
-                if pa_obj.get("client_occupation_review_status"):
-                    case["client_occupation_review_status"] = pa_obj.get("client_occupation_review_status")
-                case["client_suggested_occupation_code"] = pa_obj.get("client_suggested_occupation_code")
-                case["client_suggested_occupation_title"] = pa_obj.get("client_suggested_occupation_title")
-                case["client_suggested_occupation_notes"] = pa_obj.get("client_suggested_occupation_notes")
+        if pa_obj:
+            if pa_obj.get("occupation_code"):
+                case["occupation_code"] = pa_obj.get("occupation_code")
+            if pa_obj.get("occupation_title"):
+                case["occupation_title"] = pa_obj.get("occupation_title")
+            if pa_obj.get("assessing_authority_code"):
+                case["assessing_authority_code"] = pa_obj.get("assessing_authority_code")
+            if pa_obj.get("client_occupation_review_status"):
+                case["client_occupation_review_status"] = pa_obj.get("client_occupation_review_status")
+            case["client_suggested_occupation_code"] = pa_obj.get("client_suggested_occupation_code")
+            case["client_suggested_occupation_title"] = pa_obj.get("client_suggested_occupation_title")
+            case["client_suggested_occupation_notes"] = pa_obj.get("client_suggested_occupation_notes")
 
         additional_docs = docs_map.get(case["id"], [])
         for doc in additional_docs:
@@ -274,18 +297,21 @@ async def get_unassigned_cases(current_user: dict = Depends(get_current_user)):
     cases = await cases_col.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
     enriched = await _enrich_cases(cases)
 
-    # Also attach sale discount info for context
+    # Also attach sale discount info for context in batch
     from core.database import db
     sales_col = db["sales"]
-    for case in enriched:
-        if case.get("sale_id"):
-            sale = await sales_col.find_one({"id": case["sale_id"]}, {
-                "_id": 0, "fee_amount": 1, "fee_before_discount": 1,
-                "total_discount_amount": 1, "promo_code": 1,
-                "additional_discount_percentage": 1, "amount_received": 1,
-                "payment_status": 1
-            })
-            if sale:
+    sale_ids = list(set(case["sale_id"] for case in enriched if case.get("sale_id")))
+    if sale_ids:
+        sales_list = await sales_col.find({"id": {"$in": sale_ids}}, {
+            "_id": 0, "id": 1, "fee_amount": 1, "fee_before_discount": 1,
+            "total_discount_amount": 1, "promo_code": 1,
+            "additional_discount_percentage": 1, "amount_received": 1,
+            "payment_status": 1
+        }).to_list(500)
+        sales_map = {s["id"]: s for s in sales_list}
+        for case in enriched:
+            if case.get("sale_id") and case["sale_id"] in sales_map:
+                sale = sales_map[case["sale_id"]]
                 case["sale_fee"] = sale.get("fee_amount", 0)
                 case["sale_discount"] = sale.get("total_discount_amount", 0)
                 case["sale_promo"] = sale.get("promo_code")
@@ -661,13 +687,6 @@ async def update_step(request: StepUpdate, current_user: dict = Depends(get_curr
                 status_code=400,
                 detail=f"Cannot update step '{request.step_name}' — previous step '{s['step_name']}' (Step {s['step_order']}) is not completed yet."
             )
-# ENFORCEMENT: Installment payment gate — blocks advancing to Step 4 until
-    # client has paid their pending installment (e.g. 2nd installment in 50-50 split)
-    if request.status == "completed":
-        next_step_preview = next((s for s in steps if s["step_order"] > target_order), None)
-        if next_step_preview and next_step_preview["step_order"] == 4:
-            await _enforce_installment_gate(case, current_user, target_step_order=4)
-
 
     # ENFORCEMENT: If attempting to start or update a step at or beyond target_unlock_step, ensure 2nd installment is paid
     gate_info = await _unlock_and_check_installment_gate(case, current_user, target_step_order=target_order)

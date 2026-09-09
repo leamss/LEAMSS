@@ -15,8 +15,9 @@ async def get_users(role: str = None, current_user: dict = Depends(get_current_u
         query["role"] = role
     users = await users_col.find(query, {"_id": 0, "password": 0}).to_list(500)
     for u in users:
-        if isinstance(u.get("created_at"), datetime):
-            u["created_at"] = u["created_at"].isoformat()
+        for k, v in list(u.items()):
+            if isinstance(v, datetime):
+                u[k] = v.isoformat()
     return users
 
 

@@ -148,49 +148,65 @@ async def create_razorpay_order(req: RazorpayOrderRequest, current_user: dict = 
 
     amount_paise = int(round(amount_rupees * 100))
     key_id = os.environ.get("RAZORPAY_KEY_ID") or RAZORPAY_KEY_ID or "rzp_test_TIsfNCEO8uAj3s"
+    key_secret = os.environ.get("RAZORPAY_KEY_SECRET") or RAZORPAY_KEY_SECRET or "44U5DyQ8wDflrot7O8VFF1b1"
     order_id = f"order_mock_{uuid.uuid4().hex[:12]}"
     order_amount_paise = amount_paise
 
     if key_id.startswith("rzp_test_") and order_amount_paise > 50000000:
         order_amount_paise = 5000000  # ₹50,000 for Razorpay test checkout
 
-    if razorpay_client:
+    # Create order via Razorpay REST API
+    if key_id and key_secret:
         try:
-            order = razorpay_client.order.create({
-                "amount": order_amount_paise,
-                "currency": "INR",
-                "payment_capture": 1,
-                "notes": {
-                    "sale_id": sale.get("id"),
-                    "purpose": "sale_installment",
-                    "user_id": current_user["id"],
-                    "promo_code": promo_code_applied or "",
-                    "discount_amount": str(discount_amount)
+            import requests
+            rz_resp = requests.post(
+                "https://api.razorpay.com/v1/orders",
+                auth=(key_id, key_secret),
+                json={
+                    "amount": order_amount_paise,
+                    "currency": "INR",
+                    "payment_capture": 1,
+                    "notes": {
+                        "sale_id": str(sale.get("id")),
+                        "purpose": "sale_installment",
+                        "user_id": str(current_user["id"]),
+                        "promo_code": str(promo_code_applied or ""),
+                        "discount_amount": str(discount_amount)
+                    }
                 },
-            })
-            order_id = order["id"]
-        except Exception as e:
-            logger.warning(f"Razorpay order creation fallback: {e}")
-            if "Amount exceeds maximum amount allowed" in str(e) and key_id.startswith("rzp_test_"):
-                try:
-                    order_amount_paise = 5000000
-                    order = razorpay_client.order.create({
+                timeout=10
+            )
+            if rz_resp.status_code == 200:
+                order_data = rz_resp.json()
+                order_id = order_data.get("id", order_id)
+            elif "Amount exceeds maximum amount allowed" in rz_resp.text and key_id.startswith("rzp_test_"):
+                order_amount_paise = 5000000
+                rz_resp_fallback = requests.post(
+                    "https://api.razorpay.com/v1/orders",
+                    auth=(key_id, key_secret),
+                    json={
                         "amount": order_amount_paise,
                         "currency": "INR",
                         "payment_capture": 1,
                         "notes": {
-                            "sale_id": sale.get("id"),
+                            "sale_id": str(sale.get("id")),
                             "purpose": "sale_installment",
-                            "user_id": current_user["id"],
-                        },
-                    })
-                    order_id = order["id"]
-                except Exception as fallback_e:
-                    logger.error(f"Fallback Razorpay test order creation failed: {fallback_e}")
+                            "user_id": str(current_user["id"])
+                        }
+                    },
+                    timeout=10
+                )
+                if rz_resp_fallback.status_code == 200:
+                    order_data = rz_resp_fallback.json()
+                    order_id = order_data.get("id", order_id)
+            else:
+                logger.warning(f"Razorpay order creation status {rz_resp.status_code}: {rz_resp.text}")
+        except Exception as e:
+            logger.error(f"Razorpay order creation error: {e}")
 
     return {
         "order_id": order_id,
-        "amount": amount_paise,
+        "amount": order_amount_paise,
         "amount_rupees": amount_rupees,
         "original_amount": original_amount,
         "discount_amount": discount_amount,
