@@ -405,7 +405,7 @@ OUTPUT FORMAT
       "title": "Software engineers and designers",
       "confidence": "high|medium|low",
       "reasoning": "2-3 sentence match explanation",
-      "destination_region_match": true|false
+      "destination_region_match": true
     }
   ],
   "tip": "1-sentence sales advice"
@@ -415,16 +415,16 @@ OUTPUT FORMAT
 
 class AtlasAutoSuggestRequest(BaseModel):
     description: str = Field(..., min_length=15, max_length=2000)
-    country_code: str = Field("CA", description="AU / CA / NZ — the destination country")
+    country_code: str = Field("CA", description="AU / CA / NZ destination country")
     region_code: Optional[str] = Field(None, description="Optional state/province: NSW/VIC/BC/ON/etc")
     max_suggestions: int = Field(5, ge=1, le=8)
 
 
 @router.post("/atlas-auto-suggest")
 async def atlas_auto_suggest(req: AtlasAutoSuggestRequest, current_user: dict = Depends(get_current_user)):
-    """Phase 10.3 → 10.7 — Multi-country Atlas Auto-Suggest.
+    """Phase 10.3 - Multi-country Atlas Auto-Suggest.
 
-    Free-text → top occupation matches enriched with country-specific Atlas data.
+    Free-text to top occupation matches enriched with country-specific Atlas data.
     Works across AU (ANZSCO 6-digit), CA (NOC 5-digit), NZ (ANZSCO 6-digit).
     """
     if not _can_access(current_user):
