@@ -65,6 +65,13 @@ const webpackConfig = {
       if (config.enableHealthCheck && healthPluginInstance) {
         webpackConfig.plugins.push(healthPluginInstance);
       }
+
+      if (!isDevServer) {
+        const buildTimestamp = Date.now();
+        webpackConfig.output.filename = `static/js/[name].[contenthash:8].${buildTimestamp}.js`;
+        webpackConfig.output.chunkFilename = `static/js/[name].[contenthash:8].${buildTimestamp}.chunk.js`;
+      }
+
       return webpackConfig;
     },
   },
