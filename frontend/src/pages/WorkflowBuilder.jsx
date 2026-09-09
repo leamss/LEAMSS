@@ -129,6 +129,8 @@ const WorkflowBuilder = () => {
         duration_days: s.duration_days || 7,
         required_documents: s.required_documents || [],
         sections: s.sections || [],
+        is_locked: Boolean(s.is_locked || s.is_locked_for_client),
+        is_locked_for_client: Boolean(s.is_locked || s.is_locked_for_client),
         is_active: s.is_active !== false
       }));
       await axios.put(`${API}/workflows/${selectedProductId}`, { steps: payload }, { headers });
@@ -236,15 +238,31 @@ const WorkflowBuilder = () => {
           />
         </div>
 
-        <div>
-          <Label className="text-xs">Description</Label>
-          <Input
-            value={step.description || ""}
-            onChange={(e) =>
-              updateStep(idx, "description", e.target.value)
-            }
-            placeholder="Brief description..."
-          />
+        <div className="flex flex-col justify-between">
+          <div>
+            <Label className="text-xs">Description</Label>
+            <Input
+              value={step.description || ""}
+              onChange={(e) =>
+                updateStep(idx, "description", e.target.value)
+              }
+              placeholder="Brief description..."
+            />
+          </div>
+          <div className="mt-2 flex items-center gap-2">
+            <label className="flex items-center gap-1.5 cursor-pointer select-none bg-amber-50 border border-amber-200 px-2 py-1 rounded text-amber-800 text-xs font-semibold">
+              <input
+                type="checkbox"
+                checked={Boolean(step.is_locked || step.is_locked_for_client)}
+                onChange={(e) => {
+                  updateStep(idx, "is_locked", e.target.checked);
+                  updateStep(idx, "is_locked_for_client", e.target.checked);
+                }}
+                className="rounded h-3.5 w-3.5 text-amber-600"
+              />
+              🔒 Locked for Client until previous step complete
+            </label>
+          </div>
         </div>
       </div>
 

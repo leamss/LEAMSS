@@ -55,6 +55,8 @@ async def update_workflow(product_id: str, data: dict, current_user: dict = Depe
             "duration_days": step.get("duration_days", 7),
             "required_documents": step.get("required_documents", []),
             "sections": step.get("sections", []),
+            "is_locked": bool(step.get("is_locked") or step.get("is_locked_for_client")),
+            "is_locked_for_client": bool(step.get("is_locked") or step.get("is_locked_for_client")),
             "is_active": step.get("is_active", True),
             "created_at": datetime.now(timezone.utc)
         }

@@ -233,12 +233,10 @@ const IntakeFormBuilder = ({ token, products = [] }) => {
                                     <input type="checkbox" checked={field.required} onChange={e => updateField(sIdx, fIdx, 'required', e.target.checked)} className="rounded h-3.5 w-3.5" />
                                     <span className="text-[10px] font-semibold text-slate-600">Required</span>
                                   </label>
-                                  {field.field_type === 'file' && (
-                                    <label className="flex items-center gap-1 cursor-pointer select-none bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded text-amber-800">
-                                      <input type="checkbox" checked={Boolean(field.is_locked_until_paid)} onChange={e => updateField(sIdx, fIdx, 'is_locked_until_paid', e.target.checked)} className="rounded h-3 w-3 text-amber-600" />
-                                      <span className="text-[9px] font-semibold">🔒 Locked</span>
-                                    </label>
-                                  )}
+                                  <label className="flex items-center gap-1 cursor-pointer select-none bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded text-amber-800" title="Lock this field for clients until unlocked">
+                                    <input type="checkbox" checked={Boolean(field.is_locked_until_paid || field.is_locked)} onChange={e => { updateField(sIdx, fIdx, 'is_locked_until_paid', e.target.checked); updateField(sIdx, fIdx, 'is_locked', e.target.checked); }} className="rounded h-3 w-3 text-amber-600" />
+                                    <span className="text-[9px] font-semibold">🔒 Locked</span>
+                                  </label>
                                   <Badge className={`text-[8px] ${roleInfo.color}`}>{roleInfo.label}</Badge>
                                   <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-400 hover:text-red-600 ml-auto"
                                           onClick={() => removeField(sIdx, fIdx)}>
