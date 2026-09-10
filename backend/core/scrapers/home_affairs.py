@@ -35,51 +35,53 @@ ANZSCO_PATTERN_2013 = re.compile(r"ANZSCO\s+2013[^']*?(\d{6})", re.IGNORECASE)
 ANZSCO_PATTERN_2022 = re.compile(r"ANZSCO\s+2022[^']*?(\d{6})", re.IGNORECASE)
 
 
+API_ENDPOINT = "https://immi.homeaffairs.gov.au/_layouts/15/api/Data.aspx/GetSkillOccupation"
+
+
 def fetch_raw_records() -> List[Dict[str, Any]]:
-    """Hit Home Affairs page and parse the embedded JSON array of all occupations.
-
-    Returns the raw records exactly as published (HTML-laced fields).
+    """Fetch official Home Affairs skilled occupations.
+    
+    1. Queries the official Home Affairs JSON API endpoint.
+    2. Falls back to parsing page HTML.
+    3. Falls back to bundled snapshot file in backend/data/.
     """
-    r = httpx.get(
-        SOURCE_URL,
-        timeout=30,
-        follow_redirects=True,
-        headers={"User-Agent": "Mozilla/5.0 (compatible; LEAMSS-Migration-Atlas/1.0)"},
-    )
-    r.raise_for_status()
-    text = r.text
+    # Strategy 1: Call official JSON API endpoint
+    try:
+        payload = {"webUrl": "/work-in-australia", "listname": "Occupations"}
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Content-Type": "application/json; charset=UTF-8",
+            "Accept": "application/json, text/plain, */*",
+        }
+        r = httpx.post(API_ENDPOINT, json=payload, headers=headers, timeout=20, follow_redirects=True)
+        if r.status_code == 200:
+            res_json = r.json()
+            if isinstance(res_json, dict) and "d" in res_json:
+                data = res_json["d"]
+                if isinstance(data, dict) and "data" in data and isinstance(data["data"], list):
+                    return data["data"]
+            if isinstance(res_json, list):
+                return res_json
+    except Exception as e:
+        pass
 
-    # Find positions of all "occupation" object starts
-    positions = [m.start() for m in re.finditer(r"\{&quot;occupation&quot;:", text)]
-    if not positions:
-        raise RuntimeError("No occupation entries found — site structure may have changed")
+    # Strategy 2: Bundled offline snapshot in backend/data/
+    candidates = [
+        Path(__file__).resolve().parents[2] / "data" / "home_affairs_skilled_occupations.json",
+        Path("/app/data/home_affairs_skilled_occupations.json"),
+        Path("/app/backend/data/home_affairs_skilled_occupations.json"),
+    ]
+    for cand in candidates:
+        if cand.exists():
+            try:
+                with open(cand, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    if isinstance(data, list) and len(data) > 0:
+                        return data
+            except Exception:
+                pass
 
-    first = positions[0]
-    arr_start = text.rfind("[", max(0, first - 4000), first)
-    if arr_start < 0:
-        raise RuntimeError("Could not locate JSON array start")
-
-    # Walk the entity-encoded JSON to find the matching closing bracket
-    depth = 0
-    in_string = False
-    i = arr_start
-    while i < len(text):
-        c = text[i]
-        if c == "&" and text[i : i + 6] == "&quot;":
-            in_string = not in_string
-            i += 6
-            continue
-        if not in_string:
-            if c == "[" or c == "{":
-                depth += 1
-            elif c == "]" or c == "}":
-                depth -= 1
-                if depth == 0:
-                    break
-        i += 1
-    arr_end = i + 1
-    blob = html.unescape(text[arr_start:arr_end])
-    return json.loads(blob)
+    raise RuntimeError("Could not fetch Home Affairs records via API or offline snapshot")
 
 
 def _strip_html(s: str) -> str:
