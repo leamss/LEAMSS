@@ -1,5 +1,5 @@
-"""Master script to populate all ANZSCO 4-digit groups, 6-digit occupations,
-assessing bodies, state nominations, and auto-verify the Atlas.
+"""Master script to populate the canonical 708 Home Affairs Skilled Occupations,
+link assessing authorities, apply official scrapers, and verify the Atlas.
 """
 import asyncio
 import os
@@ -33,7 +33,7 @@ async def main():
     except Exception as e:
         print(f"Assessing authorities note: {e}")
 
-    print("\n=== STEP 2: Migrating into Occupation Master & Skill Body Master ===")
+    print("\n=== STEP 2: Migrating Base Collections ===")
     await migrate_occ_master(dry_run=False)
 
     print("\n=== STEP 3: Importing Official ANZSCO 4-Digit Groups from Excel ===")
@@ -55,7 +55,7 @@ async def main():
     else:
         print(f"⚠️ Workbook not found at candidate paths: {candidates}")
 
-    print("\n=== STEP 4: Ingesting Official Home Affairs Skilled Occupations ===")
+    print("\n=== STEP 4: Ingesting Canonical 708 Home Affairs Skilled Occupations ===")
     ha_by_code: Dict[str, Dict[str, Any]] = {}
     try:
         from core.scrapers.home_affairs import fetch_raw_records, normalize_record
@@ -67,98 +67,25 @@ async def main():
                 if c in ha_by_code and not n.get("title"):
                     continue
                 ha_by_code[c] = n
-        print(f"✔ Home Affairs scraped: {len(ha_by_code)} official skilled occupations")
+        print(f"✔ Fetched {len(ha_by_code)} official skilled occupations from Home Affairs")
     except Exception as e:
         print(f"Home Affairs live scrape note: {e}")
 
-    print("\n=== STEP 5: Running Scrapers & Enrichments ===")
-    try:
-        from core.scrapers.vetassess_groups import apply_to_db as apply_vetassess
-        await apply_vetassess(db, dry_run=False, actor="system_auto")
-        print("✔ VETASSESS groups applied")
-    except Exception as e:
-        print(f"VETASSESS note: {e}")
+    if not ha_by_code:
+        print("⚠️ Warning: No Home Affairs records fetched; keeping existing genuine AU codes.")
+        ha_codes = set()
+    else:
+        ha_codes = set(ha_by_code.keys())
 
-    try:
-        from core.scrapers.state_nominations import apply_to_db as apply_states
-        await apply_states(db, dry_run=False, actor="system_auto")
-        print("✔ State nominations applied")
-    except Exception as e:
-        print(f"State nominations note: {e}")
+    # Purge any AU records that are not in the canonical Home Affairs skilled list
+    if ha_codes:
+        del_res = await db["occupation_master"].delete_many({
+            "country_code": "AU",
+            "code": {"$nin": list(ha_codes)}
+        })
+        print(f"✔ Cleaned {del_res.deleted_count} non-skilled / extra AU records (Retaining exactly {len(ha_codes)} canonical Home Affairs occupations)")
 
-    try:
-        from core.scrapers.skillselect_tiers import apply_to_db as apply_tiers
-        await apply_tiers(db, dry_run=False, actor="system_auto")
-        print("✔ SkillSelect tiers applied")
-    except Exception as e:
-        print(f"SkillSelect note: {e}")
-
-    try:
-        from core.scrapers.home_affairs_supplementary import apply_dama_to_db, apply_ila_to_db
-        await apply_dama_to_db(db, dry_run=False, actor="system_auto")
-        await apply_ila_to_db(db, dry_run=False, actor="system_auto")
-        print("✔ DAMA and ILA eligibility applied")
-    except Exception as e:
-        print(f"DAMA/ILA note: {e}")
-
-    print("\n=== STEP 6: Building Full Canonical 6-Digit AU Occupations ===")
-    all_4d: Dict[str, Dict[str, Any]] = {}
-    all_excel_6d: Dict[str, Dict[str, Any]] = {}
-    async for p in db["anzsco_4digit_master"].find({}):
-        code = str(p.get("code") or "").strip()
-        if len(code) == 4:
-            all_4d[code] = p
-        elif len(code) == 6:
-            all_excel_6d[code] = p
-
-    # Collect all canonical 6-digit codes:
-    # 1. 6-digit from Excel (878)
-    # 2. 6-digit from Home Affairs (708)
-    # 3. For any unit group in all_4d (358 groups) without a 6-digit child, add its canonical primary code {code_4}11
-    canonical_6d_map: Dict[str, Dict[str, Any]] = {}
-
-    # Add excel 6-digit
-    for c, doc in all_excel_6d.items():
-        canonical_6d_map[c] = {"source": "excel", "doc": doc}
-
-    # Add Home Affairs 6-digit
-    for c, doc in ha_by_code.items():
-        if c not in canonical_6d_map:
-            canonical_6d_map[c] = {"source": "home_affairs", "doc": doc}
-
-    # Ensure every unit group has at least 1 primary occupation code
-    for code_4, p in all_4d.items():
-        has_child = any(c.startswith(code_4) for c in canonical_6d_map.keys())
-        if not has_child:
-            primary_c = f"{code_4}11"
-            canonical_6d_map[primary_c] = {
-                "source": "unit_group_primary",
-                "doc": {
-                    "code": primary_c,
-                    "title": p.get("title") or f"Unit Group Specialist ({primary_c})",
-                    "anzsco_4digit_code": code_4,
-                    "anzsco_profile": p.get("anzsco_profile"),
-                    "tasks": p.get("tasks"),
-                    "industries_ranked": p.get("industries_ranked"),
-                    "state_distribution": p.get("state_distribution"),
-                }
-            }
-
-    print(f"Total canonical 6-digit AU codes to populate: {len(canonical_6d_map)} across all {len(all_4d)} unit groups.")
-
-    # Purge dummy records not in canonical map
-    purge_res = await db["occupation_master"].delete_many({
-        "country_code": "AU",
-        "$or": [
-            {"code": {"$nin": list(canonical_6d_map.keys())}},
-            {"title": {"$regex": r"^(Specialist|Senior|Consultant) \(\d+\)"}},
-            {"title": {"$regex": r"^(Specialist|Senior|Consultant) Specialist"}},
-            {"title": {"$regex": r"\(nec\)$"}, "code": {"$regex": r"(12|13|14|99)$"}, "tasks": {"$size": 4}},
-        ]
-    })
-    print(f"✔ Purged {purge_res.deleted_count} dummy/invalid AU records from occupation_master.")
-
-    # Authorities map
+    # Authorities lookup
     authorities = await db["assessing_authorities"].find({}).to_list(100)
     auth_by_code = {str(a.get("code") or "").upper(): a for a in authorities}
     auth_by_alias = {}
@@ -171,18 +98,8 @@ async def main():
                 auth_by_alias[alias.upper()] = a
                 auth_by_alias[alias.lower()] = a
                 auth_by_alias[alias.strip().upper()] = a
-    
-    default_auth = auth_by_code.get("VETASSESS") or (authorities[0] if authorities else None)
 
-    def is_val_empty(v):
-        if v is None or v == "" or v == [] or v == {}:
-            return True
-        if isinstance(v, dict):
-            if not any(v.values()):
-                return True
-            if all(val is None or val == "" for val in v.values()):
-                return True
-        return False
+    default_auth = auth_by_code.get("VETASSESS") or (authorities[0] if authorities else None)
 
     PREFIX_TO_AUTH = {
         # Exact 6-digit overrides
@@ -335,139 +252,50 @@ async def main():
             return auth_by_code.get("ISNSW") or default_auth
         return default_auth
 
-    default_state_dist = {"NSW": 32.0, "VIC": 26.0, "QLD": 20.0, "WA": 11.0, "SA": 7.0, "TAS": 2.0, "ACT": 1.5, "NT": 0.5}
-    default_industries = [
-        {"industry": "Professional, Scientific and Technical Services", "share_pct": 35.0},
-        {"industry": "Health Care and Social Assistance", "share_pct": 25.0},
-        {"industry": "Financial and Insurance Services", "share_pct": 20.0},
-        {"industry": "Education and Training", "share_pct": 20.0},
-    ]
-    default_min_points = {
-        "189": 65,
-        "190": 65,
-        "491": 65,
-        "min_points": 65,
-        "notes": "Minimum points threshold for General Skilled Migration",
-    }
+    # Fetch 4-digit unit group parent profiles
+    all_4d: Dict[str, Dict[str, Any]] = {}
+    async for p in db["anzsco_4digit_master"].find({}):
+        code = str(p.get("code") or "").strip()
+        all_4d[code] = p
 
     now_iso = datetime.now(timezone.utc).isoformat()
-    processed_count = 0
+    upserted_count = 0
 
-    for code, meta in canonical_6d_map.items():
-        ha_rec = ha_by_code.get(code) or {}
-        excel_rec = all_excel_6d.get(code) or {}
+    for code, n in ha_by_code.items():
         parent_code = code[:4]
-        parent_rec = all_4d.get(parent_code) or {}
+        parent = all_4d.get(parent_code) or {}
 
-        # Title
-        title = ha_rec.get("title") or excel_rec.get("title") or parent_rec.get("title") or f"Occupation {code}"
-
-        # Authority
-        m_auth = resolve_auth(code, title, ha_rec.get("assessing_authority"))
+        title = n.get("title") or parent.get("title") or f"Occupation {code}"
+        m_auth = resolve_auth(code, title, n.get("assessing_authority"))
         auth_id = m_auth["id"] if m_auth else None
         auth_block = {
             "id": m_auth["id"],
             "code": m_auth["code"],
             "name": m_auth["code"],
             "full_name": m_auth.get("full_name") or m_auth["code"],
-        } if m_auth else {}
-
-        # Profile — Ensure fully non-empty
-        raw_prof = excel_rec.get("anzsco_profile") or parent_rec.get("anzsco_profile") or {}
-        prof = {
-            "median_weekly_earnings_aud": raw_prof.get("median_weekly_earnings_aud") or 1850,
-            "median_salary_aud": (raw_prof.get("median_weekly_earnings_aud") or 1850) * 52,
-            "employed_count": raw_prof.get("employed_count") or 45000,
-            "female_share_pct": raw_prof.get("female_share_pct") or 42.0,
-            "part_time_share_pct": raw_prof.get("part_time_share_pct") or 20.0,
-            "median_age": raw_prof.get("median_age") or 38,
-            "annual_employment_growth": raw_prof.get("annual_employment_growth") or 2,
-            "future_growth": raw_prof.get("future_growth") or "Strong",
-            "skill_level": raw_prof.get("skill_level") or (1 if code.startswith(('1', '2')) else 2 if code.startswith('3') else 3),
-        }
-
-        # Tasks — Ensure non-empty list
-        tasks = excel_rec.get("tasks") or parent_rec.get("tasks") or [
-            f"Analysing specifications and requirements for {title}",
-            "Developing, testing and maintaining systems and operational workflows",
-            "Documenting processes and providing technical guidance and support",
-            "Ensuring compliance with relevant standards, policies and statutory requirements",
-        ]
-        if not tasks:
-            tasks = [f"Performing professional tasks and duties relating to {title}"]
-
-        # Industries — Ensure non-empty list
-        industries = excel_rec.get("industries_ranked") or parent_rec.get("industries_ranked") or default_industries
-        if not industries:
-            industries = default_industries
-
-        # State distribution — Ensure non-empty dict with valid percentages
-        raw_states = excel_rec.get("state_distribution") or parent_rec.get("state_distribution") or {}
-        state_dist = {}
-        for st, def_val in default_state_dist.items():
-            val = raw_states.get(st)
-            state_dist[st] = float(val) if val is not None and val != "" else def_val
-
-        # Visa pathways
-        visa_pathways = ha_rec.get("visa_pathways") or {
-            "visa_eligibility": ["189", "190", "491", "482", "186", "494"],
-            "pathway_list": ha_rec.get("pathway_list") or "MLTSSL",
-            "pathway_lists": [ha_rec.get("pathway_list") or "MLTSSL"],
-            "caveats": [],
-        }
-
-        # Skill Assessment Details
-        body_name = m_auth.get("code") if m_auth else "VETASSESS"
-        skill_details = {
-            "body": body_name,
-            "group": "Group B" if body_name == "VETASSESS" else "Standard Assessment",
-            "qualification_required": "Bachelor degree or higher in relevant field",
-            "experience_required_years": 1,
-            "criteria_summary": f"Full skills assessment required by {body_name} for migration purposes.",
-        }
+        } if m_auth else (n.get("assessing_authority") or {})
 
         doc = {
             "country_code": "AU",
             "code": code,
             "title": title,
-            "classification_version": ha_rec.get("classification_version") or "ANZSCO 2013",
-            "classification_dual_code": ha_rec.get("classification_dual_code") or {
+            "classification_version": n.get("classification_version") or "ANZSCO 2013",
+            "classification_dual_code": n.get("classification_dual_code") or {
                 "anzsco_v1_3": code,
                 "anzsco_v2022": code,
                 "mapped": True,
             },
-            "anzsco_ref_url": ha_rec.get("anzsco_ref_url") or "",
+            "anzsco_ref_url": n.get("anzsco_ref_url") or "",
             "anzsco_4digit_code": parent_code,
             "anzsco_major_group_code": code[0],
-            "anzsco_profile": prof,
-            "tasks": tasks,
-            "industries_ranked": industries,
-            "state_distribution": state_dist,
+            "anzsco_profile": parent.get("anzsco_profile"),
+            "tasks": parent.get("tasks"),
+            "industries_ranked": parent.get("industries_ranked"),
+            "state_distribution": parent.get("state_distribution"),
             "assessing_authority_id": auth_id,
             "assessing_authority": auth_block,
-            "skill_assessment_details": skill_details,
-            "visa_pathways": visa_pathways,
-            "pathway_list": ha_rec.get("pathway_list") or "MLTSSL",
-            "state_territory_eligibility": [
-                {"state": "NSW", "eligible": True, "stream": "General Skilled"},
-                {"state": "VIC", "eligible": True, "stream": "Targeted Sectors"},
-                {"state": "QLD", "eligible": True, "stream": "Working in Queensland"},
-                {"state": "WA", "eligible": True, "stream": "General / Graduate"},
-                {"state": "SA", "eligible": True, "stream": "Skilled Employment"},
-                {"state": "TAS", "eligible": True, "stream": "Tasmanian Skilled Graduate"},
-                {"state": "ACT", "eligible": True, "stream": "Canberra Matrix"},
-                {"state": "NT", "eligible": True, "stream": "Priority Occupations"},
-            ],
-            "skillselect_tier": "tier_2",
-            "min_invitation_points": default_min_points,
-            "dama_eligibility": [
-                {"id": "nt", "region": "Northern Territory (NT)", "state": "NT", "valid_until": "2030-06-30"},
-                {"id": "goldfields", "region": "Goldfields, WA", "state": "WA", "valid_until": "2028-06-30"},
-                {"id": "fnq", "region": "Far North Queensland", "state": "QLD", "valid_until": "2028-06-30"},
-            ],
-            "ila_eligibility": [
-                {"id": "standard_labour", "industry": "General Industry Labour Agreements", "visa_subclasses": ["482", "186", "494"]}
-            ],
+            "visa_pathways": n.get("visa_pathways") or {},
+            "pathway_list": n.get("pathway_list") or "MLTSSL",
             "status": "verified",
             "updated_at": now_iso,
         }
@@ -479,13 +307,41 @@ async def main():
             doc["created_at"] = now_iso
             await db["occupation_master"].insert_one(doc)
 
-        processed_count += 1
+        upserted_count += 1
 
-    total_au = await db["occupation_master"].count_documents({"country_code": "AU"})
-    verified_au = await db["occupation_master"].count_documents({"country_code": "AU", "status": "verified"})
-    print(f"✔ Populated & verified {processed_count} canonical AU occupations across all {len(all_4d)} unit groups. (Total AU in DB={total_au}, Verified={verified_au})")
+    print(f"✔ Upserted {upserted_count} official Home Affairs skilled occupations into occupation_master")
 
-    # Update occupation counts on assessing authorities
+    print("\n=== STEP 5: Running Official Scrapers & Real Enrichments ===")
+    try:
+        from core.scrapers.vetassess_groups import apply_to_db as apply_vetassess
+        await apply_vetassess(db, dry_run=False, actor="system_auto")
+        print("✔ VETASSESS groups applied")
+    except Exception as e:
+        print(f"VETASSESS note: {e}")
+
+    try:
+        from core.scrapers.state_nominations import apply_to_db as apply_states
+        await apply_states(db, dry_run=False, actor="system_auto")
+        print("✔ State nominations applied")
+    except Exception as e:
+        print(f"State nominations note: {e}")
+
+    try:
+        from core.scrapers.skillselect_tiers import apply_to_db as apply_tiers
+        await apply_tiers(db, dry_run=False, actor="system_auto")
+        print("✔ SkillSelect tiers applied")
+    except Exception as e:
+        print(f"SkillSelect note: {e}")
+
+    try:
+        from core.scrapers.home_affairs_supplementary import apply_dama_to_db, apply_ila_to_db
+        await apply_dama_to_db(db, dry_run=False, actor="system_auto")
+        await apply_ila_to_db(db, dry_run=False, actor="system_auto")
+        print("✔ DAMA and ILA eligibility applied")
+    except Exception as e:
+        print(f"DAMA/ILA note: {e}")
+
+    # Re-calculate authority occupation counts
     total_linked = 0
     for auth in authorities:
         cnt = await db["occupation_master"].count_documents({"country_code": "AU", "assessing_authority_id": auth["id"]})
@@ -494,9 +350,12 @@ async def main():
             {"$set": {"occupation_count": cnt, "status": "active"}}
         )
         total_linked += cnt
-    print(f"✔ Authorities updated: {len(authorities)} bodies active, total {total_linked} occupations linked")
 
-    print("\n=== STEP 7: Running Canada (NOC 2021) & New Zealand Scrapers ===")
+    total_au = await db["occupation_master"].count_documents({"country_code": "AU"})
+    verified_au = await db["occupation_master"].count_documents({"country_code": "AU", "status": "verified"})
+    print(f"✔ AU Total in DB: {total_au} (Verified: {verified_au}) · Linked to {len(authorities)} authorities: {total_linked}")
+
+    print("\n=== STEP 6: Running Canada (NOC 2021) & New Zealand Scrapers ===")
     try:
         from core.scrapers.noc_canada import apply_to_db as apply_noc
         from core.scrapers.ircc_ee_streams import apply_to_db as apply_ee
@@ -508,7 +367,7 @@ async def main():
         await apply_pnp(db, dry_run=False, actor="system_auto")
         await apply_pilots(db, dry_run=False, actor="system_auto")
         await apply_quebec(db, dry_run=False, actor="system_auto")
-        print("✔ Canada NOC 2021, Express Entry, PNP, Regional Pilots, and Quebec pathways applied")
+        print("✔ Canada scrapers applied")
     except Exception as e:
         print(f"Canada scrapers note: {e}")
 
@@ -521,11 +380,11 @@ async def main():
         await apply_nz_green(db, dry_run=False, actor="system_auto")
         await apply_nz_aewv(db, dry_run=False, actor="system_auto")
         await apply_nz_sectors(db, dry_run=False, actor="system_auto")
-        print("✔ New Zealand ANZSCO base, Green List, AEWV/SMC, and Sector Agreements applied")
+        print("✔ New Zealand scrapers applied")
     except Exception as e:
         print(f"NZ scrapers note: {e}")
 
-    print("\n=== STEP 8: Running Auto-Verification ===")
+    print("\n=== STEP 7: Running Auto-Verification ===")
     try:
         try:
             from core.auto_verify import auto_verify_all
@@ -542,9 +401,8 @@ async def main():
     except Exception as e:
         print(f"Auto-verify note: {e}")
 
-    print("\n🎉 Full Atlas data merge & verification complete!")
+    print("\n🎉 Canonical 708 Atlas sync complete!")
 
 
 if __name__ == "__main__":
     asyncio.run(main())
-
