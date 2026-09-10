@@ -496,7 +496,36 @@ async def main():
         total_linked += cnt
     print(f"✔ Authorities updated: {len(authorities)} bodies active, total {total_linked} occupations linked")
 
-    print("\n=== STEP 7: Running Auto-Verification ===")
+    print("\n=== STEP 7: Running Canada (NOC 2021) & New Zealand Scrapers ===")
+    try:
+        from core.scrapers.noc_canada import apply_to_db as apply_noc
+        from core.scrapers.ircc_ee_streams import apply_to_db as apply_ee
+        from core.scrapers.pnp_canada import apply_to_db as apply_pnp
+        from core.scrapers.ca_regional_pilots import apply_to_db as apply_pilots
+        from core.scrapers.quebec_immigration import apply_to_db as apply_quebec
+        await apply_noc(db, dry_run=False, actor="system_auto")
+        await apply_ee(db, dry_run=False, actor="system_auto")
+        await apply_pnp(db, dry_run=False, actor="system_auto")
+        await apply_pilots(db, dry_run=False, actor="system_auto")
+        await apply_quebec(db, dry_run=False, actor="system_auto")
+        print("✔ Canada NOC 2021, Express Entry, PNP, Regional Pilots, and Quebec pathways applied")
+    except Exception as e:
+        print(f"Canada scrapers note: {e}")
+
+    try:
+        from core.scrapers.nz_anzsco_seed import apply_to_db as apply_nz_seed
+        from core.scrapers.nz_green_list import apply_to_db as apply_nz_green
+        from core.scrapers.nz_aewv_smc import apply_to_db as apply_nz_aewv
+        from core.scrapers.nz_sector_agreements import apply_to_db as apply_nz_sectors
+        await apply_nz_seed(db, dry_run=False, actor="system_auto")
+        await apply_nz_green(db, dry_run=False, actor="system_auto")
+        await apply_nz_aewv(db, dry_run=False, actor="system_auto")
+        await apply_nz_sectors(db, dry_run=False, actor="system_auto")
+        print("✔ New Zealand ANZSCO base, Green List, AEWV/SMC, and Sector Agreements applied")
+    except Exception as e:
+        print(f"NZ scrapers note: {e}")
+
+    print("\n=== STEP 8: Running Auto-Verification ===")
     try:
         try:
             from core.auto_verify import auto_verify_all
@@ -518,3 +547,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
