@@ -29,6 +29,8 @@ export default function Step7Done({ saved, createPA, navigate, headers, creating
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   const [emailSent, setEmailSent] = useState(Boolean(saved?.email_status === 'sent'));
+  const [whatsappDialogOpen, setWhatsappDialogOpen] = useState(false);
+  const [whatsappSent, setWhatsappSent] = useState(Boolean(saved?.whatsapp_status === 'sent'));
   const [shareInfo, setShareInfo] = useState(null);
   const [shareLoading, setShareLoading] = useState(false);
   const [expiryDays, setExpiryDays] = useState(30);
@@ -138,7 +140,7 @@ export default function Step7Done({ saved, createPA, navigate, headers, creating
         )}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
         {saved?.linked_pa_id ? (
           <Button
             size="default"
@@ -176,6 +178,16 @@ export default function Step7Done({ saved, createPA, navigate, headers, creating
         >
           <Mail className="h-4 w-4 mr-1 text-indigo-600" />
           {emailSent ? 'Email Sent ✓' : 'Send Email'}
+        </Button>
+        <Button
+          size="default"
+          variant="outline"
+          onClick={() => setWhatsappDialogOpen(true)}
+          data-testid="whatsapp-client-btn"
+          className={whatsappSent ? "border-emerald-400 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 font-medium" : "border-emerald-400 text-emerald-700 hover:bg-emerald-50 font-medium"}
+        >
+          <MessageSquare className="h-4 w-4 mr-1 text-emerald-600" />
+          {whatsappSent ? 'WhatsApp Sent ✓' : 'Send on WhatsApp'}
         </Button>
         <Button size="default" variant="outline" onClick={() => setShareDialogOpen(true)} data-testid="save-share-btn" className="border-emerald-300 text-emerald-700 hover:bg-emerald-50">
           <Send className="h-4 w-4 mr-1" />Save &amp; Share
@@ -447,6 +459,16 @@ export default function Step7Done({ saved, createPA, navigate, headers, creating
           headers={headers}
           onClose={() => setEmailDialogOpen(false)}
           onSent={() => setEmailSent(true)}
+        />
+      )}
+
+      {/* Send WhatsApp Modal — Automated Meta WhatsApp Cloud API / Direct Link */}
+      {whatsappDialogOpen && (
+        <IndividualWhatsAppDialog
+          assessment={saved}
+          headers={headers}
+          onClose={() => setWhatsappDialogOpen(false)}
+          onSent={() => setWhatsappSent(true)}
         />
       )}
     </div>
@@ -753,4 +775,198 @@ function IndividualEmailDialog({ assessment, headers, onClose, onSent }) {
     </div>
   );
 }
+
+
+// ════════════════════════════════════════════════════════════════
+// Individual Assessment WhatsApp Dialog (Meta Cloud API + 1-Click)
+// ════════════════════════════════════════════════════════════════
+function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent }) {
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState(null);
+  const [recipientPhone, setRecipientPhone] = useState(assessment?.client_phone || '');
+  const [selectedTemplate, setSelectedTemplate] = useState('report_summary');
+  const [customMessage, setCustomMessage] = useState('');
+  const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    if (!assessment?.id) return;
+    (async () => {
+      try {
+        const r = await axios.get(`${API}/sales/assessments/${assessment.id}/whatsapp-preview`, { headers });
+        setData(r.data);
+        if (r.data.client_phone) setRecipientPhone(r.data.client_phone);
+      } catch (e) {
+        toast.error(formatApiError(e, 'Could not load WhatsApp configuration'));
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [assessment?.id, headers]);
+
+  const handleSend = async () => {
+    const cleaned = (recipientPhone || '').replace(/[^\d+]/g, '');
+    if (!cleaned || cleaned.length < 8) {
+      toast.error('Please enter a valid recipient phone number with country code (e.g. +91 9876543210)');
+      return;
+    }
+    setSending(true);
+    try {
+      const r = await axios.post(`${API}/sales/assessments/${assessment.id}/whatsapp`, {
+        recipient_phone: cleaned,
+        template_id: selectedTemplate,
+        custom_message: customMessage || null,
+        attach_report: true,
+      }, { headers, timeout: 60000 });
+
+      if (r.data.is_simulated) {
+        toast.success(`Simulated WhatsApp sent to ${r.data.sent_to}`, {
+          description: 'Configure Meta Cloud API credentials in settings for live delivery.',
+        });
+      } else {
+        toast.success(`Report shared to ${r.data.sent_to} on WhatsApp!`);
+      }
+      onSent?.();
+      onClose();
+    } catch (e) {
+      console.error('Send WhatsApp error:', e, e.response?.data);
+      const detail = e?.response?.data?.detail || e?.response?.data?.message || e?.message || 'Failed to send on WhatsApp';
+      toast.error(typeof detail === 'string' ? detail : JSON.stringify(detail));
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleDirectWebShare = () => {
+    const cleaned = (recipientPhone || '').replace(/[^\d]/g, '');
+    const clientName = assessment?.client_name || 'Client';
+    const score = assessment?.best_total || '';
+    const country = assessment?.best_country_code || '';
+    const msg = customMessage || (
+      `Hello ${clientName}!\n\n`
+      + `🎉 Your LEAMSS Migration Profile Assessment has been completed.\n`
+      + `🏆 Best Country: ${country} · Score: ${score} pts\n\n`
+      + `Reply to this message to discuss your next steps with our migration team.`
+    );
+    const url = cleaned ? `https://wa.me/${cleaned}?text=${encodeURIComponent(msg)}` : `https://wa.me/?text=${encodeURIComponent(msg)}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose} data-testid="individual-whatsapp-dialog">
+      <Card className="max-w-lg w-full bg-white p-5 space-y-4 shadow-xl border-slate-200" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b pb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="h-9 w-9 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600">
+              <MessageSquare className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-slate-900">Send on WhatsApp</h3>
+              <p className="text-xs text-slate-500">Auto-share assessment outcome, 23-page PDF link &amp; payment instructions</p>
+            </div>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="py-8 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-slate-400" /></div>
+        ) : (
+          <div className="space-y-3">
+            <div>
+              <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 block">
+                Recipient WhatsApp Number (with Country Code) *
+              </label>
+              <input
+                type="tel"
+                value={recipientPhone}
+                onChange={e => setRecipientPhone(e.target.value)}
+                placeholder="+91 98765 43210"
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
+                data-testid="whatsapp-recipient-input"
+              />
+              <p className="text-[10px] text-slate-400 mt-1">E.g. +91 9876543210 (India), +61 412345678 (Australia), +971 501234567 (UAE)</p>
+            </div>
+
+            <div>
+              <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 block">WhatsApp Template</label>
+              <select
+                value={selectedTemplate}
+                onChange={e => setSelectedTemplate(e.target.value)}
+                className="w-full border border-slate-200 rounded-lg px-2.5 py-2 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                data-testid="whatsapp-template-select"
+              >
+                {(data?.templates || []).map(t => (
+                  <option key={t.id} value={t.id}>{t.name} — {t.description}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 block">Custom Note (Optional)</label>
+              <textarea
+                value={customMessage}
+                onChange={e => setCustomMessage(e.target.value)}
+                placeholder="Leave blank to use the standard verified template message..."
+                rows={2}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+
+            <div className="rounded-lg border bg-slate-50/50 p-2.5 space-y-1.5">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 block">Included in WhatsApp Dispatch</span>
+              <div className="flex flex-wrap gap-1.5">
+                <span className="text-[11px] px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1 font-medium">
+                  <FileText className="h-3 w-3" />23-Page Assessment PDF Link
+                </span>
+                {data?.attach_sla && (
+                  <span className="text-[11px] px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-800 border border-indigo-200 flex items-center gap-1 font-medium">
+                    <Paperclip className="h-3 w-3" />Service Agreement (SLA)
+                  </span>
+                )}
+                {data?.attach_qr && (
+                  <span className="text-[11px] px-2.5 py-1 rounded-full bg-teal-50 text-teal-800 border border-teal-200 flex items-center gap-1 font-medium">
+                    💳 Payment Link &amp; QR
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {!data?.is_configured && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5 text-[11px] text-amber-800 flex items-start gap-2">
+                <span className="font-bold">ℹ️ Note:</span>
+                <span>
+                  Meta WhatsApp Cloud API credentials are not yet set in environment/settings. Clicking <strong>Auto-Send</strong> will record the event in simulation mode, or you can use <strong>Open WhatsApp Web</strong> for instant 1-click dispatch.
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="flex gap-2 justify-between items-center pt-2 border-t">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="text-emerald-700 hover:bg-emerald-50 text-xs"
+            onClick={handleDirectWebShare}
+          >
+            Open WhatsApp Web ↗
+          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={onClose} disabled={sending}>Cancel</Button>
+            <Button
+              size="sm"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              onClick={handleSend}
+              disabled={sending || loading}
+              data-testid="confirm-send-whatsapp-btn"
+            >
+              {sending ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Send className="h-3.5 w-3.5 mr-1.5" />}
+              {sending ? 'Sending…' : 'Auto-Send on WhatsApp'}
+            </Button>
+          </div>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 

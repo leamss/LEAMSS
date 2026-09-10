@@ -1183,6 +1183,216 @@ async def send_assessment_email(id: str, req: SendSingleEmailRequest, current_us
     }
 
 
+# ────────────────────────────────────────────────────────────────────────────
+# Individual Assessment WhatsApp Send (Meta WhatsApp Cloud API)
+# ────────────────────────────────────────────────────────────────────────────
+
+class SendWhatsAppRequest(BaseModel):
+    recipient_phone: Optional[str] = None
+    template_id: Optional[str] = None
+    custom_message: Optional[str] = None
+    attach_report: bool = True
+    attach_sla: bool = False
+    attach_qr: bool = False
+
+
+async def _resolve_assessment_phone(doc: dict) -> str:
+    """Extract candidate phone number from assessment fields, snapshot, or resume."""
+    phone = (
+        doc.get("client_phone")
+        or doc.get("phone")
+        or (doc.get("profile_snapshot") or {}).get("primary_applicant", {}).get("phone")
+        or (doc.get("profile_snapshot") or {}).get("phone")
+        or (doc.get("profile") or {}).get("primary_applicant", {}).get("phone")
+        or (doc.get("profile") or {}).get("phone")
+        or (doc.get("resume_profile") or {}).get("phone")
+        or (doc.get("extracted_profile") or {}).get("phone")
+        or (doc.get("resume_data") or {}).get("phone")
+    )
+    if phone:
+        return str(phone).strip()
+
+    # Try extracting phone from attached resume PDF if stored
+    resume_fid = (
+        doc.get("resume_file_id")
+        or (doc.get("profile_snapshot") or {}).get("resume_file_id")
+        or (doc.get("profile_snapshot") or {}).get("primary_applicant", {}).get("resume_file_id")
+    )
+    if resume_fid:
+        try:
+            import io
+            import re
+            import pdfplumber
+            from bson import ObjectId
+            from motor.motor_asyncio import AsyncIOMotorGridFSBucket
+            gridfs = AsyncIOMotorGridFSBucket(db, bucket_name="bulk_resumes")
+            grid_out = await gridfs.open_download_stream(ObjectId(resume_fid))
+            data = await grid_out.read()
+            if data:
+                with pdfplumber.open(io.BytesIO(data)) as pdf:
+                    text = ""
+                    for p in pdf.pages[:3]:
+                        text += (p.extract_text() or "") + "\n"
+                    # Match international phone numbers like +91 9876543210, +61 412345678, etc.
+                    m = re.search(r"(\+?\d{1,4}[-.\s]?\(?\d{1,4}\)?[-.\s]?\d{3,5}[-.\s]?\d{3,5})", text)
+                    if m:
+                        candidate = re.sub(r"[^\d+]", "", m.group(1))
+                        if len(candidate.replace("+", "")) >= 10:
+                            return candidate
+        except Exception:
+            pass
+
+    return ""
+
+
+@router.get("/{id}/whatsapp-preview")
+async def get_assessment_whatsapp_preview(id: str, current_user: dict = Depends(get_current_user)):
+    from core.whatsapp_service import get_whatsapp_config, normalize_phone_number
+    from routers.email_settings import get_settings
+
+    if not _can_access(current_user):
+        raise HTTPException(status_code=403, detail="Not authorised")
+
+    doc = await assessments_col.find_one({"id": id})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Assessment not found")
+
+    cfg = await get_whatsapp_config()
+    settings = await get_settings()
+
+    raw_phone = await _resolve_assessment_phone(doc)
+    clean_phone = normalize_phone_number(raw_phone)
+
+    # Standard default templates
+    templates = [
+        {
+            "id": "report_summary",
+            "name": "Full Assessment Outcome & Report",
+            "description": "Sends congratulations, score breakdown, and public report link",
+        },
+        {
+            "id": "sla_payment",
+            "name": "SLA & Payment Instructions",
+            "description": "Sends payment details, service agreement, and onboarding info",
+        },
+        {
+            "id": "consultation_followup",
+            "name": "Consultation Follow-up & Booking",
+            "description": "Follow-up message with link to schedule free consultation",
+        },
+    ]
+
+    return {
+        "assessment_id": id,
+        "client_name": doc.get("client_name"),
+        "client_phone": raw_phone or "",
+        "clean_phone": clean_phone or "",
+        "is_configured": cfg["is_configured"],
+        "sender_display": cfg["sender_display"],
+        "templates": templates,
+        "attach_report": True,
+        "attach_sla": bool(settings.get("attach_sla") and settings.get("sla_file_id")),
+        "attach_qr": bool(settings.get("qr_file_id")),
+    }
+
+
+@router.post("/{id}/whatsapp")
+async def send_assessment_whatsapp(
+    id: str,
+    req: SendWhatsAppRequest,
+    request: Request,
+    current_user: dict = Depends(get_current_user),
+):
+    from core.whatsapp_service import (
+        get_whatsapp_config,
+        normalize_phone_number,
+        send_whatsapp_text,
+    )
+    from routers.email_settings import get_settings
+
+    if not _can_access(current_user):
+        raise HTTPException(status_code=403, detail="Not authorised")
+
+    doc = await assessments_col.find_one({"id": id})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Assessment not found")
+
+    raw_phone = req.recipient_phone or await _resolve_assessment_phone(doc)
+    clean_phone = normalize_phone_number(raw_phone)
+    if not clean_phone or len(clean_phone) < 8:
+        raise HTTPException(status_code=400, detail="Client has no valid phone number for WhatsApp.")
+
+    # Check if a public share link exists or generate one
+    share_token = doc.get("share_token")
+    if not share_token:
+        share_token = secrets.token_urlsafe(16)
+        exp = datetime.now(timezone.utc) + timedelta(days=30)
+        await assessments_col.update_one(
+            {"id": id},
+            {"$set": {"share_token": share_token, "share_expires_at": exp}},
+        )
+
+    base_origin = os.environ.get("FRONTEND_URL") or str(request.base_url).rstrip("/")
+    public_url = f"{base_origin}/sales/assessments/share/{share_token}"
+
+    client_name = doc.get("client_name") or "Applicant"
+    best_country = doc.get("best_country_code") or "AU"
+    best_total = doc.get("best_total") or 0
+
+    s = await get_settings()
+    payment_link = s.get("payment_link") or "https://rzp.io/rzp/IndepdenceJjMJwx1"
+
+    if req.custom_message and req.custom_message.strip():
+        msg_text = req.custom_message.strip()
+    elif req.template_id == "sla_payment":
+        msg_text = (
+            f"Dear {client_name},\n\n"
+            f"Thank you for completing your migration profile assessment with LEAMSS.\n\n"
+            f"📋 *Assessment ID:* {id}\n"
+            f"🏆 *Outcome:* Positive ({best_country} · {best_total} pts)\n\n"
+            f"🔗 *View Full Report:* {public_url}\n"
+            f"💳 *Secure Payment Link:* {payment_link}\n\n"
+            f"Please reply to this WhatsApp message once payment is initiated to activate your dedicated Case Manager."
+        )
+    elif req.template_id == "consultation_followup":
+        msg_text = (
+            f"Hi {client_name}! 🌟\n\n"
+            f"Our migration experts have completed your evaluation for {best_country} with a score of {best_total} points.\n\n"
+            f"📎 *Review your report here:* {public_url}\n\n"
+            f"Would you like to schedule a quick 15-minute call with our senior migration advisor to discuss your visa pathway? Reply to this message directly."
+        )
+    else:
+        # Default report outcome template
+        msg_text = (
+            f"Hello {client_name},\n\n"
+            f"🎉 Congratulations! Your migration profile assessment from LEAMSS has been completed.\n\n"
+            f"📋 *Client:* {client_name}\n"
+            f"🆔 *Assessment ID:* {id}\n"
+            f"🏆 *Best Country:* {best_country} (Score: {best_total} pts)\n\n"
+            f"📎 *Access Your Branded 23-Page Assessment Report (Read-only):*\n{public_url}\n\n"
+            f"Our migration strategy team is available to assist with your next steps.\n"
+            f"LEAMSS — Toll-Free: 1800-210-2427 · hello@leamss.com"
+        )
+
+    res = await send_whatsapp_text(to_phone=clean_phone, text=msg_text)
+
+    now = datetime.now(timezone.utc)
+    await assessments_col.update_one({"id": id}, {"$set": {
+        "whatsapp_status": "sent",
+        "whatsapp_to": clean_phone,
+        "whatsapp_sent_at": now,
+        "whatsapp_template": req.template_id or "default",
+    }})
+
+    return {
+        "ok": True,
+        "sent_to": clean_phone,
+        "sent_at": now.isoformat(),
+        "is_simulated": res.get("status") == "simulated",
+        "public_url": public_url,
+    }
+
+
 @router.post("/{id}/upload-resume")
 async def upload_assessment_resume(
     id: str,
