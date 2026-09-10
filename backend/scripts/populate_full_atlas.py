@@ -1,5 +1,19 @@
-"""Master script to populate and fully enrich the 708 Home Affairs Skilled Occupations
-with 100% field coverage across all 13 metrics and link all 44 Assessing Authorities.
+"""Master seeder & enrichment pipeline for the 708 Home Affairs Skilled Occupations.
+Executes the official data merge and scrapers in authentic sequence:
+1. Seed country rules & ensure 44 assessing authorities in DB
+2. Import JSA/ABS 4-digit ANZSCO profiles from Excel into anzsco_4digit_master
+3. Ingest canonical 708 Home Affairs Skilled Occupations (LIN 19/051)
+4. Link each 6-digit occupation to its 4-digit parent's profile, tasks, industries, and state distribution
+5. Resolve and link assessing authority ID to assessing_authorities collection
+6. Apply official scrapers:
+   - VETASSESS Groups (A-F)
+   - State Nominations (NSW, QLD, WA)
+   - SkillSelect 4-Tier Classifier
+   - DAMA (Designated Area Migration Agreements)
+   - ILA (Industry Labour Agreements)
+   - Min Invitation Points
+7. Update linked counts for all 44 Assessing Authorities
+8. Auto-verify the dataset
 """
 import asyncio
 import os
@@ -250,25 +264,10 @@ async def main():
         code = str(p.get("code") or "").strip()
         all_4d[code] = p
 
-    default_state_dist = {"NSW": 32.0, "VIC": 26.0, "QLD": 20.0, "WA": 11.0, "SA": 7.0, "TAS": 2.0, "ACT": 1.5, "NT": 0.5}
-    default_industries = [
-        {"industry": "Professional, Scientific and Technical Services", "share_pct": 35.0},
-        {"industry": "Health Care and Social Assistance", "share_pct": 25.0},
-        {"industry": "Financial and Insurance Services", "share_pct": 20.0},
-        {"industry": "Education and Training", "share_pct": 20.0},
-    ]
-    default_min_points = {
-        "189": 65,
-        "190": 65,
-        "491": 65,
-        "min_points": 65,
-        "notes": "Minimum points threshold for General Skilled Migration",
-    }
-
     now_iso = datetime.now(timezone.utc).isoformat()
     upserted_count = 0
 
-    print("\n=== STEP 5: Enriching All 708 Occupations Across All 13 Metrics ===")
+    print("\n=== STEP 5: Linking Parent 4-Digit ANZSCO Profiles & Authorities ===")
     for code, n in ha_by_code.items():
         parent_code = code[:4]
         parent = all_4d.get(parent_code) or {}
@@ -276,62 +275,12 @@ async def main():
         title = n.get("title") or parent.get("title") or f"Occupation {code}"
         m_auth = resolve_auth(code, title, n.get("assessing_authority"))
         auth_id = m_auth["id"] if m_auth else None
-        body_name = m_auth["code"] if m_auth else "VETASSESS"
         auth_block = {
             "id": m_auth["id"],
             "code": m_auth["code"],
             "name": m_auth["code"],
             "full_name": m_auth.get("full_name") or m_auth["code"],
-        } if m_auth else {}
-
-        # 1. Profile (Salary & Workforce)
-        raw_prof = parent.get("anzsco_profile") or {}
-        prof = {
-            "median_weekly_earnings_aud": raw_prof.get("median_weekly_earnings_aud") or 1850,
-            "median_salary_aud": (raw_prof.get("median_weekly_earnings_aud") or 1850) * 52,
-            "employed_count": raw_prof.get("employed_count") or 45000,
-            "female_share_pct": raw_prof.get("female_share_pct") or 42.0,
-            "part_time_share_pct": raw_prof.get("part_time_share_pct") or 20.0,
-            "median_age": raw_prof.get("median_age") or 38,
-            "annual_employment_growth": raw_prof.get("annual_employment_growth") or 2,
-            "future_growth": raw_prof.get("future_growth") or "Strong",
-            "skill_level": raw_prof.get("skill_level") or (1 if code.startswith(('1', '2')) else 2 if code.startswith('3') else 3),
-        }
-
-        # 2. Tasks (Job Tasks)
-        tasks = parent.get("tasks") or [
-            f"Analysing specifications and requirements for {title}",
-            "Developing, testing and maintaining systems and operational workflows",
-            "Documenting processes and providing technical guidance and support",
-            "Ensuring compliance with relevant standards, policies and statutory requirements",
-        ]
-
-        # 3. Industries (Top Industries)
-        industries = parent.get("industries_ranked") or default_industries
-
-        # 4. State Distribution
-        raw_states = parent.get("state_distribution") or {}
-        state_dist = {}
-        for st, def_val in default_state_dist.items():
-            val = raw_states.get(st)
-            state_dist[st] = float(val) if val is not None and val != "" else def_val
-
-        # 5. Visa pathways
-        visa_pathways = n.get("visa_pathways") or {
-            "visa_eligibility": ["189", "190", "491", "482", "186", "494"],
-            "pathway_list": n.get("pathway_list") or "MLTSSL",
-            "pathway_lists": [n.get("pathway_list") or "MLTSSL"],
-            "caveats": [],
-        }
-
-        # 6. Skill Assessment Details (Skill Body Criteria)
-        skill_details = {
-            "body": body_name,
-            "group": "Group B" if body_name == "VETASSESS" else "Standard Assessment",
-            "qualification_required": "Bachelor degree or higher in relevant field",
-            "experience_required_years": 1,
-            "criteria_summary": f"Full skills assessment required by {body_name} for migration purposes.",
-        }
+        } if m_auth else (n.get("assessing_authority") or {})
 
         doc = {
             "country_code": "AU",
@@ -346,35 +295,14 @@ async def main():
             "anzsco_ref_url": n.get("anzsco_ref_url") or "",
             "anzsco_4digit_code": parent_code,
             "anzsco_major_group_code": code[0],
-            "anzsco_profile": prof,
-            "tasks": tasks,
-            "industries_ranked": industries,
-            "state_distribution": state_dist,
+            "anzsco_profile": parent.get("anzsco_profile"),
+            "tasks": parent.get("tasks"),
+            "industries_ranked": parent.get("industries_ranked"),
+            "state_distribution": parent.get("state_distribution"),
             "assessing_authority_id": auth_id,
             "assessing_authority": auth_block,
-            "skill_assessment_details": skill_details,
-            "visa_pathways": visa_pathways,
+            "visa_pathways": n.get("visa_pathways") or {},
             "pathway_list": n.get("pathway_list") or "MLTSSL",
-            "state_territory_eligibility": [
-                {"state": "NSW", "eligible": True, "stream": "General Skilled"},
-                {"state": "VIC", "eligible": True, "stream": "Targeted Sectors"},
-                {"state": "QLD", "eligible": True, "stream": "Working in Queensland"},
-                {"state": "WA", "eligible": True, "stream": "General / Graduate"},
-                {"state": "SA", "eligible": True, "stream": "Skilled Employment"},
-                {"state": "TAS", "eligible": True, "stream": "Tasmanian Skilled Graduate"},
-                {"state": "ACT", "eligible": True, "stream": "Canberra Matrix"},
-                {"state": "NT", "eligible": True, "stream": "Priority Occupations"},
-            ],
-            "skillselect_tier": "tier_2",
-            "min_invitation_points": default_min_points,
-            "dama_eligibility": [
-                {"id": "nt", "region": "Northern Territory (NT)", "state": "NT", "valid_until": "2030-06-30"},
-                {"id": "goldfields", "region": "Goldfields, WA", "state": "WA", "valid_until": "2028-06-30"},
-                {"id": "fnq", "region": "Far North Queensland", "state": "QLD", "valid_until": "2028-06-30"},
-            ],
-            "ila_eligibility": [
-                {"id": "standard_labour", "industry": "General Industry Labour Agreements", "visa_subclasses": ["482", "186", "494"]}
-            ],
             "status": "verified",
             "updated_at": now_iso,
         }
@@ -388,9 +316,9 @@ async def main():
 
         upserted_count += 1
 
-    print(f"✔ Populated and enriched all {upserted_count} official Home Affairs skilled occupations.")
+    print(f"✔ Linked and saved {upserted_count} official Home Affairs skilled occupations.")
 
-    print("\n=== STEP 6: Running Official Scrapers & Enrichments ===")
+    print("\n=== STEP 6: Running Official Scrapers & Real Enrichments ===")
     try:
         from core.scrapers.vetassess_groups import apply_to_db as apply_vetassess
         await apply_vetassess(db, dry_run=False, actor="system_auto")
@@ -413,12 +341,13 @@ async def main():
         print(f"SkillSelect note: {e}")
 
     try:
-        from core.scrapers.home_affairs_supplementary import apply_dama_to_db, apply_ila_to_db
+        from core.scrapers.home_affairs_supplementary import apply_dama_to_db, apply_ila_to_db, apply_invitation_points_to_db
         await apply_dama_to_db(db, dry_run=False, actor="system_auto")
         await apply_ila_to_db(db, dry_run=False, actor="system_auto")
-        print("✔ DAMA and ILA eligibility applied")
+        await apply_invitation_points_to_db(db, dry_run=False, actor="system_auto")
+        print("✔ DAMA, ILA, and Invitation Points eligibility applied")
     except Exception as e:
-        print(f"DAMA/ILA note: {e}")
+        print(f"DAMA/ILA/InvPoints note: {e}")
 
     # Re-calculate authority occupation counts
     total_linked = 0
@@ -451,7 +380,7 @@ async def main():
     except Exception as e:
         print(f"Auto-verify note: {e}")
 
-    print("\n🎉 708 Canonical Atlas population & verification complete!")
+    print("\n🎉 Canonical 708 Atlas official sync complete!")
 
 
 if __name__ == "__main__":
