@@ -122,10 +122,18 @@ async def send_whatsapp_text(
             logger.error("WhatsApp API error (%s): %s", resp.status_code, resp.text)
             try:
                 err_data = resp.json()
-                err_msg = err_data.get("error", {}).get("message", resp.text)
+                error_obj = err_data.get("error", {})
+                code = error_obj.get("code")
+                err_msg = error_obj.get("message", resp.text)
+                if code == 131030 or "not in allowed list" in err_msg.lower():
+                    err_msg = f"Recipient +{clean_phone} is not in Meta developer test list. Click 'Open WhatsApp Web' to send directly, or add this number to the test recipient list in Meta Developers."
+                elif code == 131047 or "24 hours" in err_msg.lower():
+                    err_msg = f"Cannot send direct template outside 24h window. Please click 'Open WhatsApp Web' to send directly to +{clean_phone}."
+                elif code == 200:
+                    err_msg = "Meta Cloud API Permissions error. Please use 'Open WhatsApp Web' for direct sending."
             except Exception:
                 err_msg = resp.text
-            raise RuntimeError(f"WhatsApp Cloud API Error: {err_msg}")
+            raise RuntimeError(f"{err_msg}")
         return resp.json()
 
 
