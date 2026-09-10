@@ -1390,7 +1390,12 @@ async def send_assessment_whatsapp(
             f"LEAMSS — Toll-Free: 1800-210-2427 · hello@leamss.com"
         )
 
-    res = await send_whatsapp_text(to_phone=clean_phone, text=msg_text)
+    try:
+        res = await send_whatsapp_text(to_phone=clean_phone, text=msg_text)
+    except Exception as exc:
+        logger.error("WhatsApp send error for assessment %s: %s", id, exc)
+        raise HTTPException(status_code=400, detail=str(exc))
+
     is_simulated = res.get("status") == "simulated"
 
     now = datetime.now(timezone.utc)
