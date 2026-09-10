@@ -17,7 +17,7 @@ from typing import Optional, Dict, Any, List
 
 logger = logging.getLogger("whatsapp_service")
 
-GRAPH_API_VERSION = "v19.0"
+GRAPH_API_VERSION = "v21.0"
 GRAPH_BASE_URL = f"https://graph.facebook.com/{GRAPH_API_VERSION}"
 
 
