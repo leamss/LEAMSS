@@ -6,6 +6,7 @@ import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 # Ensure backend root is on sys.path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -96,22 +97,22 @@ async def main():
 
     print("\n=== STEP 4: Running Scrapers & Enrichments ===")
     try:
-        from core.scrapers.vetassess_groups import apply_vetassess_seed
-        await apply_vetassess_seed(db)
+        from core.scrapers.vetassess_groups import apply_to_db as apply_vetassess
+        await apply_vetassess(db, dry_run=False, actor="system_auto")
         print("✔ VETASSESS groups applied")
     except Exception as e:
         print(f"VETASSESS note: {e}")
 
     try:
-        from core.scrapers.state_nominations import scrape_all_states
-        await scrape_all_states(db)
+        from core.scrapers.state_nominations import apply_to_db as apply_states
+        await apply_states(db, dry_run=False, actor="system_auto")
         print("✔ State nominations applied")
     except Exception as e:
         print(f"State nominations note: {e}")
 
     try:
-        from core.scrapers.skillselect_tiers import apply_skillselect_tiers
-        await apply_skillselect_tiers(db)
+        from core.scrapers.skillselect_tiers import apply_to_db as apply_tiers
+        await apply_tiers(db, dry_run=False, actor="system_auto")
         print("✔ SkillSelect tiers applied")
     except Exception as e:
         print(f"SkillSelect note: {e}")
