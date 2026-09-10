@@ -213,3 +213,18 @@ async def run(db, country: str, min_coverage_pct: float = 70.0, dry_run: bool = 
         "ran_at": now.isoformat(),
         "actor": actor,
     }
+
+
+async def auto_verify_all(db_inst=None, dry_run: bool = False, actor: str = "system") -> Dict[str, Any]:
+    """Helper to run auto verification across all supported countries (AU, CA, NZ)."""
+    if db_inst is None:
+        from core.database import db as default_db
+        db_inst = default_db
+    results = {}
+    for c in ["AU", "CA", "NZ"]:
+        try:
+            results[c] = await run(db_inst, country=c, min_coverage_pct=50.0, dry_run=dry_run, actor=actor)
+        except Exception as e:
+            results[c] = {"error": str(e)}
+    return results
+

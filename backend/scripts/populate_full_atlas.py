@@ -17,7 +17,6 @@ from core.anzsco_excel_importer import import_anzsco_excel
 from core.eligibility_kb_seed import seed_country_rules
 from core.eligibility_kb_bulk_seed import expand_seed
 from core.migrations.occupation_master_migrate import main as migrate_occ_master
-from core.auto_verify import auto_verify_all
 
 
 async def main():
@@ -72,7 +71,17 @@ async def main():
 
     print("\n=== STEP 5: Running Auto-Verification ===")
     try:
-        v_res = await auto_verify_all(dry_run=False)
+        try:
+            from core.auto_verify import auto_verify_all
+            v_res = await auto_verify_all(db_inst=db, dry_run=False)
+        except ImportError:
+            from core.auto_verify import run as auto_verify_run
+            v_res = {}
+            for c in ["AU", "CA", "NZ"]:
+                try:
+                    v_res[c] = await auto_verify_run(db, country=c, min_coverage_pct=50.0, dry_run=False)
+                except Exception as ex:
+                    v_res[c] = {"error": str(ex)}
         print(f"✔ Auto-verified: {v_res}")
     except Exception as e:
         print(f"Auto-verify note: {e}")
