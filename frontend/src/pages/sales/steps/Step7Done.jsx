@@ -819,13 +819,14 @@ function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent }) {
       }, { headers, timeout: 60000 });
 
       if (r.data.is_simulated) {
-        toast.success(`Simulated WhatsApp sent to ${r.data.sent_to}`, {
-          description: 'Configure Meta Cloud API credentials in settings for live delivery.',
+        toast.warning(`Simulated WhatsApp dispatch to ${r.data.sent_to}`, {
+          description: 'Meta WhatsApp Cloud API keys are not configured on server. Use "Open WhatsApp Web" below to send instantly to the client!',
+          duration: 8000,
         });
       } else {
-        toast.success(`Report shared to ${r.data.sent_to} on WhatsApp!`);
+        toast.success(`Report dispatched to ${r.data.sent_to} via WhatsApp!`);
+        onSent?.();
       }
-      onSent?.();
       onClose();
     } catch (e) {
       console.error('Send WhatsApp error:', e, e.response?.data);
@@ -838,15 +839,41 @@ function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent }) {
 
   const handleDirectWebShare = () => {
     const cleaned = (recipientPhone || '').replace(/[^\d]/g, '');
-    const clientName = assessment?.client_name || 'Client';
+    const clientName = assessment?.client_name || 'Applicant';
     const score = assessment?.best_total || '';
-    const country = assessment?.best_country_code || '';
-    const msg = customMessage || (
-      `Hello ${clientName}!\n\n`
-      + `🎉 Your LEAMSS Migration Profile Assessment has been completed.\n`
-      + `🏆 Best Country: ${country} · Score: ${score} pts\n\n`
-      + `Reply to this message to discuss your next steps with our migration team.`
-    );
+    const country = assessment?.best_country_code || 'AU';
+    const reportUrl = data?.public_url || `${window.location.origin}/sales/assessments/share/${assessment?.share_token || assessment?.id}`;
+    const paymentUrl = data?.payment_link || 'https://rzp.io/rzp/IndepdenceJjMJwx1';
+
+    let msg = customMessage;
+    if (!msg) {
+      if (selectedTemplate === 'sla_payment') {
+        msg = `Dear ${clientName},\n\n`
+          + `Thank you for completing your migration profile assessment with LEAMSS.\n\n`
+          + `📋 *Assessment ID:* ${assessment?.id}\n`
+          + `🏆 *Outcome:* Positive (${country} · ${score} pts)\n\n`
+          + `🔗 *View Full Report:* ${reportUrl}\n`
+          + `💳 *Secure Payment Link:* ${paymentUrl}\n\n`
+          + `Please reply once payment is initiated to activate your dedicated Case Manager.\n`
+          + `LEAMSS — Toll-Free: 1800-210-2427 · hello@leamss.com`;
+      } else if (selectedTemplate === 'consultation_followup') {
+        msg = `Hi ${clientName}! 🌟\n\n`
+          + `Our migration experts have completed your evaluation for ${country} with a score of ${score} points.\n\n`
+          + `📎 *Review your report here:* ${reportUrl}\n\n`
+          + `Would you like to schedule a quick 15-minute call with our senior migration advisor to discuss your visa pathway? Reply to this message directly.\n`
+          + `LEAMSS — www.leamss.com`;
+      } else {
+        msg = `Hello ${clientName},\n\n`
+          + `🎉 Congratulations! Your migration profile assessment from LEAMSS has been completed.\n\n`
+          + `📋 *Client:* ${clientName}\n`
+          + `🆔 *Assessment ID:* ${assessment?.id}\n`
+          + `🏆 *Best Country:* ${country} (Score: ${score} pts)\n\n`
+          + `📎 *Access Your Branded 23-Page Assessment Report (Read-only):*\n${reportUrl}\n\n`
+          + `Our migration strategy team is available to assist with your next steps.\n`
+          + `LEAMSS — Toll-Free: 1800-210-2427 · hello@leamss.com`;
+      }
+    }
+
     const url = cleaned ? `https://wa.me/${cleaned}?text=${encodeURIComponent(msg)}` : `https://wa.me/?text=${encodeURIComponent(msg)}`;
     window.open(url, '_blank', 'noopener,noreferrer');
   };
@@ -940,27 +967,28 @@ function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent }) {
           </div>
         )}
 
-        <div className="flex gap-2 justify-between items-center pt-2 border-t">
+        <div className="flex flex-wrap gap-2 justify-between items-center pt-2 border-t">
           <Button
             type="button"
-            variant="ghost"
+            variant="outline"
             size="sm"
-            className="text-emerald-700 hover:bg-emerald-50 text-xs"
+            className="border-emerald-500 text-emerald-700 hover:bg-emerald-50 text-xs font-semibold"
             onClick={handleDirectWebShare}
           >
-            Open WhatsApp Web ↗
+            <MessageSquare className="h-3.5 w-3.5 mr-1 text-emerald-600" />
+            Open WhatsApp Web / App ↗
           </Button>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={onClose} disabled={sending}>Cancel</Button>
             <Button
               size="sm"
-              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              className={data?.is_configured ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "bg-slate-700 hover:bg-slate-800 text-white"}
               onClick={handleSend}
               disabled={sending || loading}
               data-testid="confirm-send-whatsapp-btn"
             >
               {sending ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Send className="h-3.5 w-3.5 mr-1.5" />}
-              {sending ? 'Sending…' : 'Auto-Send on WhatsApp'}
+              {sending ? 'Sending…' : data?.is_configured ? 'Auto-Send (Cloud API)' : 'Simulate API Dispatch'}
             </Button>
           </div>
         </div>

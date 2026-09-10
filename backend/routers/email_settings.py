@@ -115,6 +115,11 @@ DEFAULTS: Dict[str, Any] = {
     "attach_resume": True,
     "qr_file_id": None,
     "offer_banner_file_id": None,
+    # WhatsApp Cloud API Settings
+    "whatsapp_phone_number_id": "",
+    "whatsapp_access_token": "",
+    "whatsapp_waba_id": "",
+    "whatsapp_sender_display": "+91 77383 52427 (LEAMSS Official)",
 }
 
 # Fields the client may PUT (assets are handled by upload endpoints).
@@ -125,6 +130,7 @@ _EDITABLE = {
     "payment_enabled", "payment_intro", "payment_link", "upi_id", "bank_domestic",
     "banks_international", "calendly_link", "indicative_note", "closing", "contact_phone",
     "contact_email", "website", "attach_report", "attach_sla", "sla_filename", "attach_resume",
+    "whatsapp_phone_number_id", "whatsapp_access_token", "whatsapp_waba_id", "whatsapp_sender_display",
 }
 
 

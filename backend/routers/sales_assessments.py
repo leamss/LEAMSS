@@ -1263,6 +1263,20 @@ async def get_assessment_whatsapp_preview(id: str, current_user: dict = Depends(
     raw_phone = await _resolve_assessment_phone(doc)
     clean_phone = normalize_phone_number(raw_phone)
 
+    # Check if a public share link exists or generate one
+    share_token = doc.get("share_token")
+    if not share_token:
+        share_token = secrets.token_urlsafe(16)
+        exp = datetime.now(timezone.utc) + timedelta(days=30)
+        await assessments_col.update_one(
+            {"id": id},
+            {"$set": {"share_token": share_token, "share_expires_at": exp}},
+        )
+
+    base_origin = os.environ.get("FRONTEND_URL") or "https://app.leamss.com"
+    public_url = f"{base_origin}/sales/assessments/share/{share_token}"
+    payment_link = settings.get("payment_link") or "https://rzp.io/rzp/IndepdenceJjMJwx1"
+
     # Standard default templates
     templates = [
         {
@@ -1289,6 +1303,8 @@ async def get_assessment_whatsapp_preview(id: str, current_user: dict = Depends(
         "clean_phone": clean_phone or "",
         "is_configured": cfg["is_configured"],
         "sender_display": cfg["sender_display"],
+        "public_url": public_url,
+        "payment_link": payment_link,
         "templates": templates,
         "attach_report": True,
         "attach_sla": bool(settings.get("attach_sla") and settings.get("sla_file_id")),
@@ -1375,21 +1391,25 @@ async def send_assessment_whatsapp(
         )
 
     res = await send_whatsapp_text(to_phone=clean_phone, text=msg_text)
+    is_simulated = res.get("status") == "simulated"
 
     now = datetime.now(timezone.utc)
+    status_str = "simulated" if is_simulated else "sent"
     await assessments_col.update_one({"id": id}, {"$set": {
-        "whatsapp_status": "sent",
+        "whatsapp_status": status_str,
         "whatsapp_to": clean_phone,
         "whatsapp_sent_at": now,
         "whatsapp_template": req.template_id or "default",
+        "whatsapp_is_simulated": is_simulated,
     }})
 
     return {
         "ok": True,
         "sent_to": clean_phone,
         "sent_at": now.isoformat(),
-        "is_simulated": res.get("status") == "simulated",
+        "is_simulated": is_simulated,
         "public_url": public_url,
+        "status": status_str,
     }
 
 
