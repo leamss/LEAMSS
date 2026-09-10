@@ -788,11 +788,17 @@ function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent }) {
   const [customMessage, setCustomMessage] = useState('');
   const [sending, setSending] = useState(false);
 
+  const authHeaders = useMemo(() => {
+    if (headers && Object.keys(headers).length > 0) return headers;
+    const token = localStorage.getItem('token');
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  }, [headers]);
+
   useEffect(() => {
     if (!assessment?.id) return;
     (async () => {
       try {
-        const r = await axios.get(`${API}/sales/assessments/${assessment.id}/whatsapp-preview`, { headers });
+        const r = await axios.get(`${API}/sales/assessments/${assessment.id}/whatsapp-preview`, { headers: authHeaders });
         setData(r.data);
         if (r.data.client_phone) setRecipientPhone(r.data.client_phone);
       } catch (e) {
@@ -801,7 +807,7 @@ function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent }) {
         setLoading(false);
       }
     })();
-  }, [assessment?.id, headers]);
+  }, [assessment?.id, authHeaders]);
 
   const handleSend = async () => {
     const cleaned = (recipientPhone || '').replace(/[^\d+]/g, '');
@@ -816,7 +822,7 @@ function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent }) {
         template_id: selectedTemplate,
         custom_message: customMessage || null,
         attach_report: true,
-      }, { headers, timeout: 60000 });
+      }, { headers: authHeaders, timeout: 60000 });
 
       if (r.data.is_simulated) {
         toast.warning(`Simulated WhatsApp dispatch to ${r.data.sent_to}`, {
@@ -830,7 +836,7 @@ function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent }) {
       onClose();
     } catch (e) {
       console.error('Send WhatsApp error:', e, e.response?.data);
-      const detail = e?.response?.data?.detail || e?.response?.data?.message || e?.message || 'Failed to send on WhatsApp';
+      const detail = e?.response?.data?.detail || e?.response?.data?.message || (typeof e?.response?.data === 'string' ? e.response.data : null) || e?.message || 'Failed to send on WhatsApp';
       toast.error(typeof detail === 'string' ? detail : JSON.stringify(detail));
     } finally {
       setSending(false);
