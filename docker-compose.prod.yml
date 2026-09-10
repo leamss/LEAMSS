@@ -4,8 +4,7 @@ services:
   mongo:
     image: mongo:latest
     restart: always
-    ports:
-      - "27017:27017"
+    network_mode: "host"
     volumes:
       - mongo_data:/data/db
 
@@ -14,15 +13,12 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     restart: always
-    ports:
-      - "8001:8001"
+    network_mode: "host"
     environment:
-      - MONGO_URL=mongodb://mongo:27017
+      - MONGO_URL=mongodb://127.0.0.1:27017
       - DB_NAME=leamss
     env_file:
       - ./backend/.env
-    depends_on:
-      - mongo
 
   frontend:
     build:
@@ -33,9 +29,8 @@ services:
     restart: always
     ports:
       - "3000:80"
-    depends_on:
-      - backend
 
 volumes:
   mongo_data:
+
 
