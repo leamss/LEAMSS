@@ -16,7 +16,7 @@ from core.database import db
 from core.anzsco_excel_importer import import_anzsco_excel
 from core.eligibility_kb_seed import seed_country_rules
 from core.eligibility_kb_bulk_seed import expand_seed
-from core.migrations.occupation_master_migrate import run_migration
+from core.migrations.occupation_master_migrate import main as migrate_occ_master
 from core.auto_verify import auto_verify_all
 
 
@@ -26,7 +26,7 @@ async def main():
     await expand_seed()
 
     print("\n=== STEP 2: Migrating into Occupation Master & Skill Body Master ===")
-    await run_migration(commit=True)
+    await migrate_occ_master(dry_run=False)
 
     print("\n=== STEP 3: Importing Official ANZSCO 4-Digit Groups from Excel ===")
     # Look for the Excel file in possible container/local paths
