@@ -130,7 +130,7 @@ async def main():
     auth_by_code = {str(a.get("code") or "").upper(): a for a in authorities}
     default_auth = auth_by_code.get("VETASSESS") or (authorities[0] if authorities else None)
 
-    def is_val_empty(v: Any) -> bool:
+    def is_val_empty(v):
         if v is None or v == "" or v == [] or v == {}:
             return True
         if isinstance(v, dict) and not any(v.values()):
