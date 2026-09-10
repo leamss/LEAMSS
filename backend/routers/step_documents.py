@@ -435,6 +435,57 @@ async def get_stepwise_documents(case_id: str, current_user: dict = Depends(get_
             {"product_id": product_id}, {"_id": 0}
         ).sort("step_order", 1).to_list(50)
 
+    # Fallback product resolution if no workflow steps found directly
+    if not admin_wf_steps:
+        # Check linked pre-assessment
+        if case.get("pre_assessment_id"):
+            pa_doc = await pre_assessments_col.find_one({"id": case["pre_assessment_id"]}, {"_id": 0})
+            if pa_doc and pa_doc.get("product_id"):
+                product_id = pa_doc["product_id"]
+                admin_wf_steps = await workflow_steps_col.find(
+                    {"product_id": product_id}, {"_id": 0}
+                ).sort("step_order", 1).to_list(50)
+
+        # Check linked sale
+        if not admin_wf_steps and case.get("sale_id"):
+            sale_doc = await sales_col.find_one({"id": case["sale_id"]}, {"_id": 0})
+            if sale_doc and sale_doc.get("product_id"):
+                product_id = sale_doc["product_id"]
+                admin_wf_steps = await workflow_steps_col.find(
+                    {"product_id": product_id}, {"_id": 0}
+                ).sort("step_order", 1).to_list(50)
+
+        # Match product by name or country
+        if not admin_wf_steps:
+            prod_name = case.get("product_name") or case.get("service_type") or ""
+            prod_country = case.get("country") or "Australia"
+            prod_match = None
+            if prod_name:
+                prod_match = await products_col.find_one({
+                    "name": {"$regex": f"^{re.escape(prod_name)}$", "$options": "i"}
+                }, {"_id": 0})
+            if not prod_match and prod_country:
+                prod_match = await products_col.find_one({
+                    "name": {"$regex": f"{re.escape(prod_country)}", "$options": "i"}
+                }, {"_id": 0})
+                if not prod_match:
+                    prod_match = await products_col.find_one({
+                        "country": {"$regex": f"^{re.escape(prod_country)}$", "$options": "i"}
+                    }, {"_id": 0})
+            if prod_match:
+                product_id = prod_match.get("id")
+                admin_wf_steps = await workflow_steps_col.find(
+                    {"product_id": product_id}, {"_id": 0}
+                ).sort("step_order", 1).to_list(50)
+
+        # Fallback to any workflow steps in DB if still empty
+        if not admin_wf_steps:
+            first_step = await workflow_steps_col.find_one({}, {"_id": 0})
+            if first_step and first_step.get("product_id"):
+                admin_wf_steps = await workflow_steps_col.find(
+                    {"product_id": first_step["product_id"]}, {"_id": 0}
+                ).sort("step_order", 1).to_list(50)
+
     if not case_steps:
         if case.get("steps"):
             case_steps = case["steps"]
@@ -442,11 +493,16 @@ async def get_stepwise_documents(case_id: str, current_user: dict = Depends(get_
             case_steps = [
                 {
                     "case_id": case_id,
-                    "step_name": aws.get("step_name"),
-                    "step_order": aws.get("step_order", i + 1),
+                    "step_name": aws.get("step_name") or aws.get("name", f"Step {i + 1}"),
+                    "name": aws.get("name") or aws.get("step_name", f"Step {i + 1}"),
+                    "step_order": aws.get("step_order", i + 1) or aws.get("order", i + 1),
+                    "order": aws.get("order", i + 1) or aws.get("step_order", i + 1),
                     "description": aws.get("description", ""),
                     "status": "in_progress" if i == 0 else "pending",
-                    "required_documents": aws.get("required_documents", [])
+                    "required_documents": aws.get("required_documents", []),
+                    "sections": aws.get("sections", []),
+                    "is_locked": bool(aws.get("is_locked") or aws.get("is_locked_for_client")),
+                    "is_locked_for_client": bool(aws.get("is_locked") or aws.get("is_locked_for_client")),
                 }
                 for i, aws in enumerate(admin_wf_steps)
             ]

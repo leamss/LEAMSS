@@ -238,31 +238,15 @@ const WorkflowBuilder = () => {
           />
         </div>
 
-        <div className="flex flex-col justify-between">
-          <div>
-            <Label className="text-xs">Description</Label>
-            <Input
-              value={step.description || ""}
-              onChange={(e) =>
-                updateStep(idx, "description", e.target.value)
-              }
-              placeholder="Brief description..."
-            />
-          </div>
-          <div className="mt-2 flex items-center gap-2">
-            <label className="flex items-center gap-1.5 cursor-pointer select-none bg-amber-50 border border-amber-200 px-2 py-1 rounded text-amber-800 text-xs font-semibold">
-              <input
-                type="checkbox"
-                checked={Boolean(step.is_locked || step.is_locked_for_client)}
-                onChange={(e) => {
-                  updateStep(idx, "is_locked", e.target.checked);
-                  updateStep(idx, "is_locked_for_client", e.target.checked);
-                }}
-                className="rounded h-3.5 w-3.5 text-amber-600"
-              />
-              🔒 Locked for Client until previous step complete
-            </label>
-          </div>
+        <div>
+          <Label className="text-xs">Description</Label>
+          <Input
+            value={step.description || ""}
+            onChange={(e) =>
+              updateStep(idx, "description", e.target.value)
+            }
+            placeholder="Brief description..."
+          />
         </div>
       </div>
 
@@ -295,6 +279,27 @@ const WorkflowBuilder = () => {
           <Trash2 className="h-4 w-4" />
         </Button>
       </div>
+    </div>
+
+    {/* Step Lock Bar */}
+    <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between">
+      <label className="flex items-center gap-2 cursor-pointer select-none bg-amber-50 hover:bg-amber-100/70 border border-amber-200 px-3 py-1.5 rounded-lg text-amber-900 text-xs font-semibold transition-colors">
+        <input
+          type="checkbox"
+          checked={Boolean(step.is_locked || step.is_locked_for_client)}
+          onChange={(e) => {
+            updateStep(idx, "is_locked", e.target.checked);
+            updateStep(idx, "is_locked_for_client", e.target.checked);
+          }}
+          className="rounded h-4 w-4 text-amber-600 focus:ring-amber-500"
+        />
+        <span>🔒 Lock this step for Client until previous step complete</span>
+      </label>
+      {Boolean(step.is_locked || step.is_locked_for_client) && (
+        <span className="text-[11px] text-amber-700 font-medium italic">
+          (Client will see step as locked until Case Manager finishes previous step)
+        </span>
+      )}
     </div>
 
     {/* ================= Intake Form ================= */}
