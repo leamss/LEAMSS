@@ -71,6 +71,7 @@ class TemplateIn(BaseModel):
     attach_report: bool = True
     attach_sla: bool = False
     attach_qr: bool = False
+    attach_resume: bool = True
 
 
 # ── Built-in Starter WhatsApp Templates ─────────────────────────────────────
@@ -93,6 +94,7 @@ _STARTERS = [
         "attach_report": True,
         "attach_sla": True,
         "attach_qr": True,
+        "attach_resume": True,
     },
     {
         "name": "SLA & Fast-Track Enrolment",
@@ -112,6 +114,7 @@ _STARTERS = [
         "attach_report": True,
         "attach_sla": True,
         "attach_qr": True,
+        "attach_resume": True,
     },
     {
         "name": "Not Eligible — Improvement Plan",
@@ -128,6 +131,7 @@ _STARTERS = [
         "attach_report": True,
         "attach_sla": False,
         "attach_qr": False,
+        "attach_resume": True,
     },
     {
         "name": "Warm Follow-Up & Limited Offer",
@@ -144,6 +148,7 @@ _STARTERS = [
         "attach_report": False,
         "attach_sla": True,
         "attach_qr": True,
+        "attach_resume": False,
     },
     {
         "name": "Resume Upload Request",
@@ -158,6 +163,7 @@ _STARTERS = [
         "attach_report": False,
         "attach_sla": False,
         "attach_qr": False,
+        "attach_resume": False,
     },
     {
         "name": "Consultation Nudge",
@@ -173,6 +179,7 @@ _STARTERS = [
         "attach_report": False,
         "attach_sla": False,
         "attach_qr": False,
+        "attach_resume": False,
     },
 ]
 
@@ -187,6 +194,7 @@ async def _ensure_seeded():
         await TEMPLATES.insert_one({
             "id": uuid.uuid4().hex, **t, "created_at": now, "updated_at": now,
         })
+    await TEMPLATES.update_many({"attach_resume": {"$exists": False}}, {"$set": {"attach_resume": True}})
 
 
 @router.get("/placeholders")
@@ -218,6 +226,7 @@ async def create_template(payload: TemplateIn, current_user: dict = Depends(get_
         "attach_report": bool(payload.attach_report),
         "attach_sla": bool(payload.attach_sla),
         "attach_qr": bool(payload.attach_qr),
+        "attach_resume": bool(payload.attach_resume),
         "created_at": now,
         "updated_at": now,
     }
@@ -243,6 +252,7 @@ async def update_template(template_id: str, payload: TemplateIn, current_user: d
         "attach_report": bool(payload.attach_report),
         "attach_sla": bool(payload.attach_sla),
         "attach_qr": bool(payload.attach_qr),
+        "attach_resume": bool(payload.attach_resume),
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
     if updates["is_default"]:

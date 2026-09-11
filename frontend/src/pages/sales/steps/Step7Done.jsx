@@ -798,6 +798,7 @@ function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent, onOpen
   const [selectedTemplate, setSelectedTemplate] = useState('report_summary');
   const [customMessage, setCustomMessage] = useState('');
   const [attachReport, setAttachReport] = useState(true);
+  const [attachResume, setAttachResume] = useState(true);
   const [attachSla, setAttachSla] = useState(true);
   const [attachQr, setAttachQr] = useState(true);
   const [sending, setSending] = useState(false);
@@ -816,6 +817,7 @@ function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent, onOpen
         setData(r.data);
         if (r.data.client_phone) setRecipientPhone(r.data.client_phone);
         if (r.data.attach_report !== undefined) setAttachReport(Boolean(r.data.attach_report));
+        if (r.data.attach_resume !== undefined) setAttachResume(Boolean(r.data.attach_resume));
         if (r.data.attach_sla !== undefined) setAttachSla(Boolean(r.data.attach_sla));
         if (r.data.attach_qr !== undefined) setAttachQr(Boolean(r.data.attach_qr));
       } catch (e) {
@@ -831,6 +833,7 @@ function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent, onOpen
     const tmpl = (data?.templates || []).find(t => t.id === tmplId);
     if (tmpl) {
       if (tmpl.attach_report !== undefined) setAttachReport(Boolean(tmpl.attach_report));
+      if (tmpl.attach_resume !== undefined) setAttachResume(Boolean(tmpl.attach_resume));
       if (tmpl.attach_sla !== undefined) setAttachSla(Boolean(tmpl.attach_sla));
       if (tmpl.attach_qr !== undefined) setAttachQr(Boolean(tmpl.attach_qr));
     }
@@ -904,6 +907,7 @@ function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent, onOpen
         template_id: selectedTemplate,
         custom_message: customMessage || null,
         attach_report: attachReport,
+        attach_resume: attachResume,
         attach_sla: attachSla,
         attach_qr: attachQr,
       }, { headers: authHeaders, timeout: 60000 });
@@ -935,7 +939,7 @@ function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent, onOpen
             </div>
             <div>
               <h3 className="text-base font-bold text-slate-900">Send on WhatsApp</h3>
-              <p className="text-xs text-slate-500">Auto-send outcome + Report PDF, SLA, and Payment QR attachments</p>
+              <p className="text-xs text-slate-500">Auto-send outcome + Report PDF, Resume, SLA, and Payment QR attachments</p>
             </div>
           </div>
           <div className="flex items-center gap-1.5">
@@ -1009,9 +1013,9 @@ function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent, onOpen
             {/* Attachments Section */}
             <div className="rounded-xl border border-emerald-200 bg-emerald-50/30 p-3 space-y-2">
               <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-900 block">
-                📎 WhatsApp Attachments to Dispatch ({[attachReport, attachSla, attachQr].filter(Boolean).length})
+                📎 WhatsApp Attachments to Dispatch ({[attachReport, data?.has_resume ? attachResume : false, attachSla, attachQr].filter(Boolean).length})
               </span>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <label className={`flex items-center gap-1.5 p-2 rounded-lg border text-xs cursor-pointer transition-colors ${attachReport ? 'bg-emerald-100/70 border-emerald-400 text-emerald-900 font-medium' : 'bg-white border-slate-200 text-slate-500'}`}>
                   <input
                     type="checkbox"
@@ -1020,7 +1024,19 @@ function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent, onOpen
                     className="rounded text-emerald-600 focus:ring-emerald-500"
                   />
                   <FileText className="h-3.5 w-3.5 text-rose-600 shrink-0" />
-                  <span className="truncate">Report PDF (23p)</span>
+                  <span className="truncate">Report (23p)</span>
+                </label>
+
+                <label className={`flex items-center gap-1.5 p-2 rounded-lg border text-xs cursor-pointer transition-colors ${attachResume && data?.has_resume ? 'bg-amber-100/70 border-amber-400 text-amber-900 font-medium' : !data?.has_resume ? 'bg-slate-50 border-slate-200 text-slate-400 cursor-not-allowed opacity-60' : 'bg-white border-slate-200 text-slate-500'}`} title={data?.resume_filename || (data?.has_resume ? 'Candidate Resume' : 'No Resume Uploaded')}>
+                  <input
+                    type="checkbox"
+                    checked={attachResume && Boolean(data?.has_resume)}
+                    disabled={!data?.has_resume}
+                    onChange={e => setAttachResume(e.target.checked)}
+                    className="rounded text-amber-600 focus:ring-amber-500"
+                  />
+                  <FileText className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                  <span className="truncate">{data?.has_resume ? 'Resume' : 'No Resume'}</span>
                 </label>
 
                 <label className={`flex items-center gap-1.5 p-2 rounded-lg border text-xs cursor-pointer transition-colors ${attachSla ? 'bg-blue-100/70 border-blue-400 text-blue-900 font-medium' : 'bg-white border-slate-200 text-slate-500'}`}>
@@ -1031,7 +1047,7 @@ function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent, onOpen
                     className="rounded text-blue-600 focus:ring-blue-500"
                   />
                   <Paperclip className="h-3.5 w-3.5 text-blue-600 shrink-0" />
-                  <span className="truncate">SLA Agreement</span>
+                  <span className="truncate">SLA</span>
                 </label>
 
                 <label className={`flex items-center gap-1.5 p-2 rounded-lg border text-xs cursor-pointer transition-colors ${attachQr ? 'bg-purple-100/70 border-purple-400 text-purple-900 font-medium' : 'bg-white border-slate-200 text-slate-500'}`}>

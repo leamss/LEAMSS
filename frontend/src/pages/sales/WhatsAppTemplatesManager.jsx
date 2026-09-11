@@ -45,6 +45,7 @@ const BLANK = {
   attach_report: true,
   attach_sla: false,
   attach_qr: false,
+  attach_resume: true,
 };
 
 export default function WhatsAppTemplatesManager() {
@@ -131,6 +132,7 @@ export default function WhatsAppTemplatesManager() {
               attach_report: Boolean(first.attach_report ?? true),
               attach_sla: Boolean(first.attach_sla),
               attach_qr: Boolean(first.attach_qr),
+              attach_resume: Boolean(first.attach_resume ?? true),
             });
             return first.id;
           }
@@ -177,6 +179,7 @@ export default function WhatsAppTemplatesManager() {
       attach_report: Boolean(t.attach_report ?? true),
       attach_sla: Boolean(t.attach_sla),
       attach_qr: Boolean(t.attach_qr),
+      attach_resume: Boolean(t.attach_resume ?? true),
     });
     setDirty(false);
   };
@@ -354,6 +357,11 @@ export default function WhatsAppTemplatesManager() {
                         📄 Report
                       </span>
                     )}
+                    {t.attach_resume !== false && (
+                      <span className="text-[9px] font-medium text-indigo-700 bg-indigo-50 px-1 rounded border border-indigo-200">
+                        📄 Resume
+                      </span>
+                    )}
                     {t.attach_sla && (
                       <span className="text-[9px] font-medium text-blue-700 bg-blue-50 px-1 rounded border border-blue-200">
                         📑 SLA
@@ -503,6 +511,15 @@ export default function WhatsAppTemplatesManager() {
 
                 <label className="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
                   <Switch
+                    checked={form.attach_resume ?? true}
+                    onCheckedChange={(v) => upd({ attach_resume: v })}
+                    data-testid="tpl-attach-resume"
+                  />
+                  <span>📄 Attach Candidate Uploaded Resume</span>
+                </label>
+
+                <label className="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
+                  <Switch
                     checked={form.attach_sla}
                     onCheckedChange={(v) => upd({ attach_sla: v })}
                     data-testid="tpl-attach-sla"
@@ -591,10 +608,10 @@ export default function WhatsAppTemplatesManager() {
                   </div>
 
                   {/* Attachment Cards Preview */}
-                  {(form.attach_report || form.attach_sla || form.attach_qr) && (
+                  {(form.attach_report || form.attach_resume || form.attach_sla || form.attach_qr) && (
                     <div className="mt-2.5 pt-2 border-t border-emerald-300/60 space-y-1.5">
                       <div className="text-[9.5px] font-bold text-emerald-900 uppercase tracking-wide">
-                        Attached Files ({[form.attach_report, form.attach_sla, form.attach_qr].filter(Boolean).length})
+                        Attached Files ({[form.attach_report, form.attach_resume, form.attach_sla, form.attach_qr].filter(Boolean).length})
                       </div>
                       {form.attach_report && (
                         <div className="flex items-center gap-2 p-1.5 bg-white rounded border border-emerald-200 text-[10.5px]">
@@ -603,6 +620,15 @@ export default function WhatsAppTemplatesManager() {
                             Rahul_Sharma_Assessment_Report.pdf
                           </div>
                           <span className="text-[9px] text-slate-400">23 pgs</span>
+                        </div>
+                      )}
+                      {form.attach_resume && (
+                        <div className="flex items-center gap-2 p-1.5 bg-white rounded border border-indigo-200 text-[10.5px]">
+                          <FileText className="h-4 w-4 text-indigo-600 shrink-0" />
+                          <div className="flex-1 truncate font-medium text-slate-800">
+                            Rahul_Sharma_Resume.pdf
+                          </div>
+                          <span className="text-[9px] text-indigo-500 font-medium">Resume</span>
                         </div>
                       )}
                       {form.attach_sla && (

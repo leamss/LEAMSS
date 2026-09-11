@@ -1194,6 +1194,7 @@ class SendWhatsAppRequest(BaseModel):
     attach_report: bool = True
     attach_sla: bool = False
     attach_qr: bool = False
+    attach_resume: bool = True
 
 
 async def _resolve_assessment_phone(doc: dict) -> str:
@@ -1354,6 +1355,17 @@ async def get_assessment_whatsapp_preview(id: str, current_user: dict = Depends(
     except Exception:
         pass
 
+    has_resume = bool(
+        doc.get("resume_file_id")
+        or doc.get("resume_url")
+        or doc.get("resume_link")
+        or (doc.get("profile_snapshot") or {}).get("resume_file_id")
+        or (doc.get("profile_snapshot") or {}).get("resume_url")
+        or (doc.get("profile_snapshot") or {}).get("resume_link")
+        or (doc.get("profile_snapshot") or {}).get("primary_applicant", {}).get("resume_file_id")
+        or (doc.get("profile_snapshot") or {}).get("primary_applicant", {}).get("resume_url")
+    )
+
     return {
         "assessment_id": id,
         "client_name": doc.get("client_name"),
@@ -1367,6 +1379,8 @@ async def get_assessment_whatsapp_preview(id: str, current_user: dict = Depends(
         "attach_report": True,
         "attach_sla": bool(settings.get("attach_sla") and settings.get("sla_file_id")),
         "attach_qr": bool(settings.get("qr_file_id")),
+        "attach_resume": has_resume,
+        "has_resume": has_resume,
     }
 
 
@@ -1385,6 +1399,7 @@ async def send_assessment_whatsapp(
         send_whatsapp_document_by_id,
         send_whatsapp_image_by_id,
     )
+    from core.report_email import get_resume_attachment
     from routers.email_settings import get_settings, read_asset_bytes
 
     if not _can_access(current_user):
@@ -1454,6 +1469,7 @@ async def send_assessment_whatsapp(
     attach_report_flag = req.attach_report
     attach_sla_flag = req.attach_sla
     attach_qr_flag = req.attach_qr
+    attach_resume_flag = req.attach_resume
 
     if req.custom_message and req.custom_message.strip():
         msg_text = _render(req.custom_message.strip())
@@ -1468,6 +1484,8 @@ async def send_assessment_whatsapp(
                 attach_sla_flag = bool(custom_t["attach_sla"])
             if "attach_qr" in custom_t:
                 attach_qr_flag = bool(custom_t["attach_qr"])
+            if "attach_resume" in custom_t:
+                attach_resume_flag = bool(custom_t["attach_resume"])
         elif req.template_id == "sla_payment":
             raw_tmpl = s.get("whatsapp_template_sla") or (
                 "Dear {name},\n\n"
@@ -1580,6 +1598,48 @@ async def send_assessment_whatsapp(
                     dispatched_attachments.append("payment_qr")
         except Exception as e:
             logger.warning("Failed to dispatch WhatsApp QR attachment: %s", e)
+
+    # 5. Attach Candidate Uploaded Resume (if available & requested)
+    if attach_resume_flag:
+        try:
+            resume_fid = (
+                doc.get("resume_file_id")
+                or (doc.get("profile_snapshot") or {}).get("resume_file_id")
+                or (doc.get("profile_snapshot") or {}).get("primary_applicant", {}).get("resume_file_id")
+            )
+            resume_link = (
+                doc.get("resume_url")
+                or doc.get("resume_link")
+                or (doc.get("profile_snapshot") or {}).get("resume_url")
+                or (doc.get("profile_snapshot") or {}).get("resume_link")
+                or (doc.get("profile_snapshot") or {}).get("primary_applicant", {}).get("resume_url")
+            )
+            resume_fname = (
+                doc.get("resume_filename")
+                or (doc.get("profile_snapshot") or {}).get("resume_filename")
+                or (doc.get("profile_snapshot") or {}).get("primary_applicant", {}).get("resume_filename")
+            )
+            resume_att = await get_resume_attachment(
+                file_id=resume_fid,
+                link=resume_link,
+                filename=resume_fname,
+                client_name=doc.get("client_name"),
+            )
+            if resume_att and resume_att.get("bytes"):
+                r_bytes = resume_att["bytes"]
+                r_name = resume_att.get("filename") or f"{client_name}_Resume.pdf"
+                r_mime = "application/pdf" if r_name.lower().endswith(".pdf") else "application/octet-stream"
+                up_res = await upload_whatsapp_media(r_bytes, mime_type=r_mime, filename=r_name)
+                if up_res.get("id"):
+                    await send_whatsapp_document_by_id(
+                        to_phone=clean_phone,
+                        media_id=up_res["id"],
+                        filename=r_name,
+                        caption=f"📄 Candidate Resume — {client_name}",
+                    )
+                    dispatched_attachments.append("resume_file")
+        except Exception as e:
+            logger.warning("Failed to dispatch WhatsApp Resume attachment: %s", e)
 
     await assessments_col.update_one({"id": id}, {"$set": {
         "whatsapp_status": "sent",
