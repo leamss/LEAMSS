@@ -1749,6 +1749,24 @@ async def send_assessment_whatsapp(
         "whatsapp_last_error": None,
     }})
 
+    # Thread sync to WhatsApp Live Chat Inbox
+    try:
+        from routers.whatsapp_chat import record_chat_message
+        await record_chat_message(
+            phone=clean_phone,
+            text=msg_text,
+            direction="outbound",
+            sender_type="staff",
+            sender_id=current_user.get("id"),
+            sender_name=current_user.get("name") or "LEAMSS Sales",
+            client_name=client_name,
+            client_email=doc.get("client_email") or doc.get("email"),
+            assessment_id=id,
+            status="simulated" if is_simulated else "sent",
+        )
+    except Exception as e:
+        logger.warning("WhatsApp thread sync error: %s", e)
+
     return {
         "ok": True,
         "sent_to": clean_phone,

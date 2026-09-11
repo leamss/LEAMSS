@@ -344,6 +344,7 @@ const PartnerDashboard = ({ mode = "partner" }) => {
         { id: 'sales-fee-master', icon: Calculator, label: 'Fee Master', onClick: () => navigate('/sales/fee-master') },
         { id: 'sales-email-templates', icon: Mail, label: 'Email Templates', onClick: () => navigate('/sales/email-templates') },
         { id: 'sales-whatsapp-templates', icon: MessageSquare, label: 'WhatsApp Templates', onClick: () => navigate('/sales/whatsapp-templates') },
+        { id: 'sales-whatsapp-chat', icon: MessageSquare, label: 'WhatsApp Live Chat', onClick: () => navigate('/sales/whatsapp-chat') },
         { id: 'fee-calculator', icon: Calculator, label: 'Fee Calculator', onClick: () => setActiveTab('fee-calculator') },
         { id: 'dashboard', icon: Briefcase, label: 'Classic Dashboard', onClick: () => setActiveTab('dashboard') },
       ]
