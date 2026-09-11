@@ -56,29 +56,12 @@ export default function PublicReportView() {
 
   const best = meta?.best_country || {};
 
-  const handleDownloadPdf = async () => {
-    setDownloading(true);
-    try {
-      const pdfUrl = `${API}/assessment-reports/public/${token}/pdf`;
-      const resp = await fetch(pdfUrl);
-      if (!resp.ok) {
-        throw new Error(`PDF download failed (${resp.status})`);
-      }
-      const blob = await resp.blob();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `LEAMSS_Assessment_Report_${meta?.client_name ? meta.client_name.replace(/\s+/g, '_') : 'Applicant'}.pdf`;
-      link.target = '_blank';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      setTimeout(() => URL.revokeObjectURL(url), 60000);
-    } catch (e) {
-      window.open(`${API}/assessment-reports/public/${token}/pdf`, '_blank');
-    } finally {
-      setDownloading(false);
-    }
+  const handleDownloadPdf = () => {
+    const liveApi = (typeof window !== 'undefined' && window.location.hostname.includes('leamss.com'))
+      ? 'https://api.leamss.com'
+      : (process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001');
+    const pdfUrl = `${liveApi}/api/assessment-reports/public/${token}/pdf`;
+    window.location.href = pdfUrl;
   };
 
   return (
