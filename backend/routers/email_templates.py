@@ -204,6 +204,12 @@ async def _ensure_seeded():
     await TEMPLATES.update_many({"attach_resume": {"$exists": False}}, {"$set": {"attach_resume": True}})
 
 
+async def list_templates_for_category(category: str = "eligible") -> List[Dict[str, Any]]:
+    await _ensure_seeded()
+    docs = await TEMPLATES.find({"$or": [{"category": category}, {"category": "general"}]}).sort("created_at", 1).to_list(500)
+    return [_clean(d) for d in docs]
+
+
 @router.get("/placeholders")
 async def list_placeholders(current_user: dict = Depends(get_current_user)):
     return {"placeholders": TEMPLATE_PLACEHOLDERS}

@@ -1,5 +1,6 @@
 // Step 7 — Done page: actions + Document Checklist + Save & Share Report dialog
 import { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { Card } from '@/components/ui/card';
@@ -663,11 +664,17 @@ export function IndividualEmailDialog({ assessment, headers, onClose, onSent }) 
   const [bccSelf, setBccSelf] = useState(true);
   const [sending, setSending] = useState(false);
 
+  const authHeaders = useMemo(() => {
+    if (headers && Object.keys(headers).length > 0) return headers;
+    const token = localStorage.getItem('token');
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  }, [headers]);
+
   useEffect(() => {
     if (!assessment?.id) return;
     (async () => {
       try {
-        const r = await axios.get(`${API}/sales/assessments/${assessment.id}/email-preview`, { headers });
+        const r = await axios.get(`${API}/sales/assessments/${assessment.id}/email-preview`, { headers: authHeaders });
         setData(r.data);
         if (r.data.client_email) setRecipientEmail(r.data.client_email);
         if (r.data.default_sender) setSelectedMailbox(r.data.default_sender);
@@ -678,7 +685,7 @@ export function IndividualEmailDialog({ assessment, headers, onClose, onSent }) 
         setLoading(false);
       }
     })();
-  }, [assessment?.id, headers]);
+  }, [assessment?.id, authHeaders]);
 
   const handleSend = async () => {
     if (!recipientEmail || !recipientEmail.includes('@')) {
@@ -693,7 +700,7 @@ export function IndividualEmailDialog({ assessment, headers, onClose, onSent }) 
         template_id: selectedTemplate || 'default',
         bcc_self: bccSelf,
         attach_report: true,
-      }, { headers, timeout: 60000 });
+      }, { headers: authHeaders, timeout: 60000 });
 
       if (r.data?.ok === false || r.data?.error) {
         toast.error(r.data.error || 'Email could not be delivered');
