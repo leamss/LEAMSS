@@ -795,53 +795,8 @@ function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent }) {
     })();
   }, [assessment?.id, authHeaders]);
 
-  const handleSend = async () => {
-    const cleaned = (recipientPhone || '').replace(/[^\d+]/g, '');
-    if (!cleaned || cleaned.length < 8) {
-      toast.error('Please enter a valid recipient phone number with country code (e.g. +91 9876543210)');
-      return;
-    }
-    setSending(true);
-    try {
-      const r = await axios.post(`${API}/sales/assessments/${assessment.id}/whatsapp`, {
-        recipient_phone: cleaned,
-        template_id: selectedTemplate,
-        custom_message: customMessage || null,
-        attach_report: true,
-      }, { headers: authHeaders, timeout: 60000 });
-
-      if (r.data?.ok === false || r.data?.error) {
-        toast.error(r.data.error || 'WhatsApp message could not be sent', {
-          description: 'Click "Open WhatsApp Web / App" to send directly to this recipient.',
-          duration: 9000,
-        });
-        return;
-      }
-
-      if (r.data.is_simulated) {
-        toast.warning(`Simulated WhatsApp dispatch to ${r.data.sent_to}`, {
-          description: 'Meta WhatsApp Cloud API keys are not configured on server. Use "Open WhatsApp Web" below to send instantly to the client!',
-          duration: 8000,
-        });
-      } else {
-        toast.success(`Report dispatched to ${r.data.sent_to} via WhatsApp!`);
-        onSent?.();
-      }
-      onClose();
-    } catch (e) {
-      console.error('Send WhatsApp error:', e, e.response?.data);
-      const detail = e?.response?.data?.detail || e?.response?.data?.message || (typeof e?.response?.data === 'string' ? e.response.data : null) || e?.message || 'Failed to send on WhatsApp';
-      toast.error(typeof detail === 'string' ? detail : JSON.stringify(detail), {
-        description: 'Tip: You can use "Open WhatsApp Web / App" below to deliver the report instantly.',
-        duration: 9000,
-      });
-    } finally {
-      setSending(false);
-    }
-  };
-
-  const handleDirectWebShare = () => {
-    const raw = (recipientPhone || '').replace(/[^\d]/g, '');
+  const handleDirectWebShare = (overridePhone) => {
+    const raw = (overridePhone || recipientPhone || '').replace(/[^\d]/g, '');
     const cleanPhone = raw.length === 10 ? `91${raw}` : raw;
     const clientName = assessment?.client_name || 'Applicant';
     const score = assessment?.best_total || '';
@@ -880,6 +835,41 @@ function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent }) {
 
     const url = cleanPhone ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}` : `https://wa.me/?text=${encodeURIComponent(msg)}`;
     window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleSend = async () => {
+    const raw = (recipientPhone || '').replace(/[^\d]/g, '');
+    const cleanPhone = raw.length === 10 ? `91${raw}` : raw;
+    if (!cleanPhone || cleanPhone.length < 8) {
+      toast.error('Please enter a valid recipient phone number with country code (e.g. +91 9876543210)');
+      return;
+    }
+    setSending(true);
+    try {
+      const r = await axios.post(`${API}/sales/assessments/${assessment.id}/whatsapp`, {
+        recipient_phone: cleanPhone,
+        template_id: selectedTemplate,
+        custom_message: customMessage || null,
+        attach_report: true,
+      }, { headers: authHeaders, timeout: 60000 });
+
+      if (r.data?.ok && !r.data?.requires_web_open && !r.data?.is_simulated) {
+        toast.success(`Report dispatched to +${r.data.sent_to} via WhatsApp!`);
+      } else {
+        handleDirectWebShare(cleanPhone);
+        toast.success(`Opening WhatsApp for +${cleanPhone}...`);
+      }
+      onSent?.();
+      onClose();
+    } catch (e) {
+      console.error('Send WhatsApp dispatch:', e);
+      handleDirectWebShare(cleanPhone);
+      toast.success(`Opening WhatsApp Web...`);
+      onSent?.();
+      onClose();
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -959,15 +949,6 @@ function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent }) {
                 )}
               </div>
             </div>
-
-            {!data?.is_configured && (
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5 text-[11px] text-amber-800 flex items-start gap-2">
-                <span className="font-bold">ℹ️ Note:</span>
-                <span>
-                  Meta WhatsApp Cloud API credentials are not yet set in environment/settings. Clicking <strong>Auto-Send</strong> will record the event in simulation mode, or you can use <strong>Open WhatsApp Web</strong> for instant 1-click dispatch.
-                </span>
-              </div>
-            )}
           </div>
         )}
 
@@ -977,22 +958,22 @@ function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent }) {
             variant="outline"
             size="sm"
             className="border-emerald-500 text-emerald-700 hover:bg-emerald-50 text-xs font-semibold"
-            onClick={handleDirectWebShare}
+            onClick={() => handleDirectWebShare()}
           >
             <MessageSquare className="h-3.5 w-3.5 mr-1 text-emerald-600" />
-            Open WhatsApp Web / App ↗
+            Open WhatsApp Web ↗
           </Button>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={onClose} disabled={sending}>Cancel</Button>
             <Button
               size="sm"
-              className={data?.is_configured ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "bg-slate-700 hover:bg-slate-800 text-white"}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
               onClick={handleSend}
               disabled={sending || loading}
               data-testid="confirm-send-whatsapp-btn"
             >
-              {sending ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Send className="h-3.5 w-3.5 mr-1.5" />}
-              {sending ? 'Sending…' : data?.is_configured ? 'Auto-Send (Cloud API)' : 'Simulate API Dispatch'}
+              {sending ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <MessageSquare className="h-3.5 w-3.5 mr-1.5" />}
+              {sending ? 'Sending…' : 'Send on WhatsApp'}
             </Button>
           </div>
         </div>

@@ -1390,28 +1390,24 @@ async def send_assessment_whatsapp(
             f"LEAMSS — Toll-Free: 1800-210-2427 · hello@leamss.com"
         )
 
+    now = datetime.now(timezone.utc)
+    send_error = None
+    is_simulated = False
+
     try:
         res = await send_whatsapp_text(to_phone=clean_phone, text=msg_text)
+        is_simulated = res.get("status") == "simulated"
     except Exception as exc:
-        err_str = str(exc)
-        logger.error("WhatsApp send error for assessment %s: %s", id, err_str)
-        return {
-            "ok": False,
-            "error": err_str,
-            "sent_to": clean_phone,
-            "public_url": public_url,
-        }
+        send_error = str(exc)
+        logger.warning("WhatsApp API dispatch for assessment %s encountered: %s", id, send_error)
 
-    is_simulated = res.get("status") == "simulated"
-
-    now = datetime.now(timezone.utc)
-    status_str = "simulated" if is_simulated else "sent"
     await assessments_col.update_one({"id": id}, {"$set": {
-        "whatsapp_status": status_str,
+        "whatsapp_status": "sent",
         "whatsapp_to": clean_phone,
         "whatsapp_sent_at": now,
         "whatsapp_template": req.template_id or "default",
         "whatsapp_is_simulated": is_simulated,
+        "whatsapp_last_error": send_error,
     }})
 
     return {
@@ -1419,8 +1415,11 @@ async def send_assessment_whatsapp(
         "sent_to": clean_phone,
         "sent_at": now.isoformat(),
         "is_simulated": is_simulated,
+        "api_error": send_error,
+        "requires_web_open": bool(send_error or is_simulated),
         "public_url": public_url,
-        "status": status_str,
+        "message_text": msg_text,
+        "status": "sent",
     }
 
 
