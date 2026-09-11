@@ -29,6 +29,8 @@ export default function EmailSettingsDialog({ headers, onClose }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testTo, setTestTo] = useState('');
+  const [testWhatsAppTo, setTestWhatsAppTo] = useState('');
+  const [testingWhatsApp, setTestingWhatsApp] = useState(false);
   const [uploading, setUploading] = useState('');
   const slaRef = useRef(null);
   const qrRef = useRef(null);
@@ -39,6 +41,7 @@ export default function EmailSettingsDialog({ headers, onClose }) {
       const r = await axios.get(`${API}/email-settings`, { headers });
       setSt(r.data);
       setTestTo(r.data?.contact_email || '');
+      setTestWhatsAppTo(r.data?.contact_phone || '+91');
     } catch (e) { toast.error('Could not load email settings'); }
     finally { setLoading(false); }
   };
@@ -57,6 +60,7 @@ export default function EmailSettingsDialog({ headers, onClose }) {
         'payment_link', 'upi_id', 'bank_domestic', 'banks_international', 'calendly_link',
         'indicative_note', 'closing', 'contact_phone', 'contact_email', 'website',
         'attach_report', 'attach_sla', 'sla_filename', 'attach_resume',
+        'whatsapp_phone_number_id', 'whatsapp_access_token', 'whatsapp_waba_id', 'whatsapp_sender_display',
       ];
       const updates = {};
       editable.forEach((k) => { if (st[k] !== undefined) updates[k] = st[k]; });
@@ -93,6 +97,29 @@ export default function EmailSettingsDialog({ headers, onClose }) {
     } catch (e) { toast.error(e?.response?.data?.detail || 'Could not send test'); }
   };
 
+  const sendWhatsAppTest = async () => {
+    if (!testWhatsAppTo || testWhatsAppTo.replace(/[^\d]/g, '').length < 8) {
+      toast.error('Enter a valid WhatsApp number with country code (e.g. +91 9876543210)');
+      return;
+    }
+    setTestingWhatsApp(true);
+    try {
+      await save();
+      const r = await axios.post(`${API}/email-settings/test-whatsapp`, { to: testWhatsAppTo }, { headers });
+      if (r.data.is_simulated) {
+        toast.warning(`Simulated WhatsApp dispatch to ${r.data.sent_to}`, {
+          description: 'Meta WhatsApp Cloud API credentials are not yet verified. Configure Phone Number ID and Access Token above.',
+        });
+      } else {
+        toast.success(`Test WhatsApp message delivered to ${r.data.sent_to}!`);
+      }
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || 'Could not send WhatsApp test');
+    } finally {
+      setTestingWhatsApp(false);
+    }
+  };
+
   // list editors
   const addBank = () => up('banks_international', [...(st.banks_international || []), { label: '', details: '' }]);
   const editBank = (i, k, v) => up('banks_international', st.banks_international.map((b, idx) => idx === i ? { ...b, [k]: v } : b));
@@ -108,19 +135,20 @@ export default function EmailSettingsDialog({ headers, onClose }) {
     <Dialog open onOpenChange={onClose}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col" data-testid="email-settings-dialog">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2"><Mail className="h-4 w-4" />Email Settings — Client Report Email</DialogTitle>
-          <DialogDescription className="text-[12px]">Yeh content har client report email mein use hota hai. Aap sab kuch yahaan edit kar sakte hain aur "Send Test" se preview kar sakte hain.</DialogDescription>
+          <DialogTitle className="flex items-center gap-2"><Mail className="h-4 w-4" />Email &amp; WhatsApp Settings</DialogTitle>
+          <DialogDescription className="text-[12px]">Configure client report emails, payment details, attachments, and Meta WhatsApp Cloud API credentials.</DialogDescription>
         </DialogHeader>
 
         {loading || !st ? (
           <div className="py-16 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-slate-400" /></div>
         ) : (
           <Tabs defaultValue="message" className="flex-1 overflow-hidden flex flex-col">
-            <TabsList className="grid grid-cols-4 shrink-0">
+            <TabsList className="grid grid-cols-5 shrink-0">
               <TabsTrigger value="message" data-testid="tab-message"><MessageSquare className="h-3.5 w-3.5 mr-1" />Message</TabsTrigger>
               <TabsTrigger value="offer" data-testid="tab-offer"><Gift className="h-3.5 w-3.5 mr-1" />Offer</TabsTrigger>
               <TabsTrigger value="payment" data-testid="tab-payment"><CreditCard className="h-3.5 w-3.5 mr-1" />Payment</TabsTrigger>
               <TabsTrigger value="attach" data-testid="tab-attach"><Paperclip className="h-3.5 w-3.5 mr-1" />Attachments</TabsTrigger>
+              <TabsTrigger value="whatsapp" data-testid="tab-whatsapp"><MessageSquare className="h-3.5 w-3.5 mr-1 text-emerald-600" />WhatsApp</TabsTrigger>
             </TabsList>
 
             <div className="overflow-y-auto flex-1 pr-1 mt-3 space-y-3">
@@ -281,6 +309,61 @@ export default function EmailSettingsDialog({ headers, onClose }) {
                   <span className="font-semibold text-slate-700">Attach Pre-Assessment Report PDF</span>
                 </label>
               </TabsContent>
+
+              {/* WHATSAPP CLOUD API */}
+              <TabsContent value="whatsapp" className="space-y-3 mt-0">
+                <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-xs text-emerald-900 space-y-1">
+                  <p className="font-bold flex items-center gap-1.5"><MessageSquare className="h-4 w-4 text-emerald-600" />Meta WhatsApp Cloud API (Automated Dispatches)</p>
+                  <p className="text-[11px] text-emerald-700">
+                    Configure your official Meta WhatsApp Business API keys to allow 1-click automated report deliveries. If left blank, the system automatically uses <strong>1-Click WhatsApp Web / App</strong> deep-linking.
+                  </p>
+                </div>
+
+                <Field label="Phone Number ID (Meta Graph API)" hint="From Meta Developer App -> WhatsApp -> API Setup">
+                  <Input placeholder="e.g. 105829472948271" value={st.whatsapp_phone_number_id || ''} onChange={(e) => up('whatsapp_phone_number_id', e.target.value)} className="text-xs font-mono" data-testid="es-whatsapp-phone-id" />
+                </Field>
+
+                <Field label="WhatsApp System User Permanent Access Token" hint="Meta Business Manager -> System Users -> WhatsApp Message Send Token">
+                  <Input type="password" placeholder="EAAG..." value={st.whatsapp_access_token || ''} onChange={(e) => up('whatsapp_access_token', e.target.value)} className="text-xs font-mono" data-testid="es-whatsapp-token" />
+                </Field>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <Field label="WhatsApp Business Account ID (WABA ID)">
+                    <Input placeholder="e.g. 109283746501928" value={st.whatsapp_waba_id || ''} onChange={(e) => up('whatsapp_waba_id', e.target.value)} className="text-xs font-mono" data-testid="es-whatsapp-waba-id" />
+                  </Field>
+                  <Field label="Official Sender Display Name / Number">
+                    <Input placeholder="+91 77383 52427 (LEAMSS Official)" value={st.whatsapp_sender_display || ''} onChange={(e) => up('whatsapp_sender_display', e.target.value)} className="text-xs" data-testid="es-whatsapp-sender" />
+                  </Field>
+                </div>
+
+                <div className="rounded-lg border bg-slate-50 p-3 space-y-2 mt-2">
+                  <p className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <Send className="h-3.5 w-3.5 text-emerald-600" />Test WhatsApp Message Dispatch
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      placeholder="+91 98765 43210"
+                      value={testWhatsAppTo}
+                      onChange={(e) => setTestWhatsAppTo(e.target.value)}
+                      className="text-xs font-mono h-8 flex-1"
+                      data-testid="es-test-whatsapp-phone"
+                    />
+                    <Button
+                      size="sm"
+                      className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-medium"
+                      onClick={sendWhatsAppTest}
+                      disabled={testingWhatsApp}
+                      data-testid="es-send-whatsapp-test"
+                    >
+                      {testingWhatsApp ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Send className="h-3.5 w-3.5 mr-1" />}
+                      {testingWhatsApp ? 'Testing…' : 'Test WhatsApp'}
+                    </Button>
+                  </div>
+                  <p className="text-[10px] text-slate-400">
+                    Sends an instant test notification to verify Cloud API connectivity.
+                  </p>
+                </div>
+              </TabsContent>
             </div>
           </Tabs>
         )}
@@ -288,7 +371,7 @@ export default function EmailSettingsDialog({ headers, onClose }) {
         <DialogFooter className="border-t pt-3 mt-1 flex-col sm:flex-row gap-2 shrink-0">
           <div className="flex items-center gap-1 flex-1 w-full">
             <Input placeholder="you@leamss.com" value={testTo} onChange={(e) => setTestTo(e.target.value)} className="h-8 text-xs max-w-[220px]" data-testid="es-test-to" />
-            <Button size="sm" variant="outline" className="h-8 text-[11px]" onClick={sendTest} data-testid="es-send-test"><Send className="h-3.5 w-3.5 mr-1" />Send Test</Button>
+            <Button size="sm" variant="outline" className="h-8 text-[11px]" onClick={sendTest} data-testid="es-send-test"><Send className="h-3.5 w-3.5 mr-1" />Send Email Test</Button>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" onClick={onClose} data-testid="es-close">Close</Button>

@@ -56,8 +56,9 @@ const timeAgo = (iso) => {
 
 const waLink = (phone) => {
   if (!phone) return null;
-  const digits = phone.replace(/[^\d]/g, '');
-  return `https://wa.me/${digits}`;
+  const digits = phone.replace(/[^\d]/g, '').replace(/^0+/, '');
+  const clean = digits.length === 10 ? `91${digits}` : digits;
+  return `https://wa.me/${clean}`;
 };
 
 // ---- Sidebar navigation config -------------------------------------------

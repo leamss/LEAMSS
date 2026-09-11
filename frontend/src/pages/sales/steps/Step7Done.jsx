@@ -111,11 +111,13 @@ export default function Step7Done({ saved, createPA, navigate, headers, creating
   const shareOnWhatsapp = () => {
     if (!shareInfo?.public_url) return;
     const msg = `Hi! Here's your eligibility report from LEAMSS:\n\n`
-      + `📋 ${saved?.client_name}\n`
-      + `🏆 Best country: ${saved?.best_country_code} · Score: ${saved?.best_total} pts\n\n`
+      + `📋 ${saved?.client_name || 'Applicant'}\n`
+      + `🏆 Best country: ${saved?.best_country_code || 'AU'} · Score: ${saved?.best_total || 0} pts\n\n`
       + `📎 Full report (read-only): ${shareInfo.public_url}\n\n`
       + `Reply to this message to schedule a free consultation.`;
-    const url = `https://wa.me/?text=${encodeURIComponent(msg)}`;
+    const cleaned = (saved?.client_phone || '').replace(/[^\d]/g, '');
+    const cleanPhone = cleaned.length === 10 ? `91${cleaned}` : cleaned;
+    const url = cleanPhone ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}` : `https://wa.me/?text=${encodeURIComponent(msg)}`;
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
@@ -602,9 +604,13 @@ function ReportActions({ saved }) {
                 onClick={() => window.open(shareUrl, '_blank', 'noopener')}>
                 Open
               </Button>
-              <Button size="sm" className="flex-1 bg-emerald-600" onClick={() => {
-                const msg = `Hello! Please find your LEAMSS Assessment Report: ${shareUrl}`;
-                window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank', 'noopener');
+              <Button size="sm" className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => {
+                const cleaned = (saved?.client_phone || '').replace(/[^\d]/g, '');
+                const cleanPhone = cleaned.length === 10 ? `91${cleaned}` : cleaned;
+                const clientName = saved?.client_name || 'Applicant';
+                const msg = `Hello ${clientName},\n\nPlease find your LEAMSS Assessment Report: ${shareUrl}\n\nReply to this message for any questions or next steps.\nLEAMSS — We Value Emotions ❤️`;
+                const waUrl = cleanPhone ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}` : `https://wa.me/?text=${encodeURIComponent(msg)}`;
+                window.open(waUrl, '_blank', 'noopener');
               }} data-testid="whatsapp-share">
                 <MessageSquare className="h-3 w-3 mr-1" />WhatsApp
               </Button>
@@ -658,19 +664,21 @@ function IndividualEmailDialog({ assessment, headers, onClose, onSent }) {
     try {
       const r = await axios.post(`${API}/sales/assessments/${assessment.id}/email`, {
         recipient_email: recipientEmail,
-        sender_email: selectedMailbox,
-        template_id: selectedTemplate || null,
+        sender_email: selectedMailbox || null,
+        template_id: selectedTemplate || 'default',
         bcc_self: bccSelf,
-      }, { headers, timeout: 120000 });
-      toast.success(`Report emailed to ${r.data.sent_to}!`, {
-        description: `Sent from ${r.data.sender_email}`,
-      });
+        attach_report: true,
+      }, { headers, timeout: 60000 });
+
+      if (r.data?.ok === false || r.data?.error) {
+        toast.error(r.data.error || 'Email could not be delivered');
+        return;
+      }
+      toast.success(`Assessment Report sent to ${r.data.sent_to}!`);
       onSent?.();
       onClose();
     } catch (e) {
-      console.error('Send email error:', e, e.response?.data);
-      const detail = e?.response?.data?.detail || e?.response?.data?.message || e?.message || 'Failed to send email';
-      toast.error(typeof detail === 'string' ? detail : JSON.stringify(detail));
+      toast.error(formatApiError(e, 'Failed to send email'));
     } finally {
       setSending(false);
     }
@@ -678,16 +686,11 @@ function IndividualEmailDialog({ assessment, headers, onClose, onSent }) {
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose} data-testid="individual-email-dialog">
-      <Card className="max-w-lg w-full bg-white p-5 space-y-4 shadow-xl border-slate-200" onClick={e => e.stopPropagation()}>
+      <Card className="max-w-md w-full bg-white p-5 space-y-4 shadow-xl border-slate-200" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b pb-3">
-          <div className="flex items-center gap-2.5">
-            <div className="h-9 w-9 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600">
-              <Mail className="h-5 w-5" />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-slate-900">Email Assessment Report</h3>
-              <p className="text-xs text-slate-500">Send 23-page branded PDF, SLA &amp; payment link directly to candidate</p>
-            </div>
+          <div className="flex items-center gap-2">
+            <Mail className="h-5 w-5 text-indigo-600" />
+            <h3 className="text-base font-bold text-slate-900">Send Assessment by Email</h3>
           </div>
         </div>
 
@@ -702,92 +705,56 @@ function IndividualEmailDialog({ assessment, headers, onClose, onSent }) {
                 value={recipientEmail}
                 onChange={e => setRecipientEmail(e.target.value)}
                 placeholder="client@example.com"
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full border border-slate-200 rounded px-2.5 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 data-testid="email-recipient-input"
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 block">Send From (Mailbox)</label>
-                <select
-                  value={selectedMailbox}
-                  onChange={e => setSelectedMailbox(e.target.value)}
-                  className="w-full border border-slate-200 rounded-lg px-2.5 py-2 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  data-testid="email-mailbox-select"
-                >
-                  {(data?.mailboxes || []).map(m => (
-                    <option key={m.email} value={m.email}>{m.name ? `${m.name} (${m.email})` : m.email}</option>
-                  ))}
-                  {!data?.mailboxes?.length && (
-                    <option value={data?.default_sender || 'info@leamss.com'}>{data?.default_sender || 'info@leamss.com'}</option>
-                  )}
-                </select>
-              </div>
-
-              <div>
-                <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 block">Template</label>
-                <select
-                  value={selectedTemplate}
-                  onChange={e => setSelectedTemplate(e.target.value)}
-                  className="w-full border border-slate-200 rounded-lg px-2.5 py-2 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  data-testid="email-template-select"
-                >
-                  <option value="">Default Eligible Template</option>
-                  {(data?.templates || []).map(t => (
-                    <option key={t.id} value={t.id}>{t.name}</option>
-                  ))}
-                </select>
-              </div>
+            <div>
+              <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 block">Sender Account</label>
+              <select
+                value={selectedMailbox}
+                onChange={e => setSelectedMailbox(e.target.value)}
+                className="w-full border border-slate-200 rounded px-2.5 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                data-testid="email-sender-select"
+              >
+                {(data?.mailboxes || []).map(m => (
+                  <option key={m.email} value={m.email}>{m.name ? `${m.name} <${m.email}>` : m.email}</option>
+                ))}
+              </select>
             </div>
 
-            <div className="rounded-lg border bg-slate-50/50 p-2.5 space-y-1.5">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 block">Included Attachments</span>
+            <div className="rounded border bg-slate-50/50 p-2.5 space-y-1.5">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 block">Attachments Included</span>
               <div className="flex flex-wrap gap-1.5">
-                <span className="text-[11px] px-2.5 py-1 rounded-full bg-teal-50 text-teal-800 border border-teal-200 flex items-center gap-1 font-medium">
-                  <FileText className="h-3 w-3" />23-Page Assessment Report PDF
+                <span className="text-[11px] px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center gap-1 font-medium">
+                  <FileText className="h-3 w-3" />23-Page PDF Report
                 </span>
                 {data?.attach_sla && (
-                  <span className="text-[11px] px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-800 border border-indigo-200 flex items-center gap-1 font-medium">
+                  <span className="text-[11px] px-2 py-0.5 rounded bg-teal-50 text-teal-700 border border-teal-200 flex items-center gap-1 font-medium">
                     <Paperclip className="h-3 w-3" />Service Agreement (SLA)
                   </span>
                 )}
                 {data?.attach_qr && (
-                  <span className="text-[11px] px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1 font-medium">
-                    Payment QR
-                  </span>
-                )}
-                {(data?.attach_resume || data?.has_resume) && (
-                  <span className="text-[11px] px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1 font-medium">
-                    📄 Candidate Resume {data?.resume_filename ? `(${data.resume_filename})` : ''}
+                  <span className="text-[11px] px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 font-medium">
+                    💳 Payment QR Code
                   </span>
                 )}
               </div>
             </div>
 
-            <label className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer pt-1">
-              <input
-                type="checkbox"
-                checked={bccSelf}
-                onChange={e => setBccSelf(e.target.checked)}
-                className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-              />
-              <span>Send a BCC copy to sender mailbox ({selectedMailbox || 'default'})</span>
+            <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer pt-1">
+              <input type="checkbox" checked={bccSelf} onChange={e => setBccSelf(e.target.checked)} className="rounded border-slate-300 text-indigo-600" />
+              <span>BCC myself for verification</span>
             </label>
           </div>
         )}
 
         <div className="flex gap-2 justify-end pt-2 border-t">
           <Button variant="outline" size="sm" onClick={onClose} disabled={sending}>Cancel</Button>
-          <Button
-            size="sm"
-            className="bg-indigo-600 hover:bg-indigo-700 text-white"
-            onClick={handleSend}
-            disabled={sending || loading}
-            data-testid="confirm-send-email-btn"
-          >
+          <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700" onClick={handleSend} disabled={sending || loading} data-testid="confirm-send-email-btn">
             {sending ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Send className="h-3.5 w-3.5 mr-1.5" />}
-            {sending ? 'Sending…' : 'Send Email to Client'}
+            {sending ? 'Sending…' : 'Send Email Now'}
           </Button>
         </div>
       </Card>
@@ -874,11 +841,12 @@ function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent }) {
   };
 
   const handleDirectWebShare = () => {
-    const cleaned = (recipientPhone || '').replace(/[^\d]/g, '');
+    const raw = (recipientPhone || '').replace(/[^\d]/g, '');
+    const cleanPhone = raw.length === 10 ? `91${raw}` : raw;
     const clientName = assessment?.client_name || 'Applicant';
     const score = assessment?.best_total || '';
     const country = assessment?.best_country_code || 'AU';
-    const reportUrl = data?.public_url || `${window.location.origin}/sales/assessments/share/${assessment?.share_token || assessment?.id}`;
+    const reportUrl = data?.public_url || `${window.location.origin}/sales/report/${assessment?.share_token || assessment?.id}`;
     const paymentUrl = data?.payment_link || 'https://rzp.io/rzp/IndepdenceJjMJwx1';
 
     let msg = customMessage;
@@ -904,13 +872,13 @@ function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent }) {
           + `📋 *Client:* ${clientName}\n`
           + `🆔 *Assessment ID:* ${assessment?.id}\n`
           + `🏆 *Best Country:* ${country} (Score: ${score} pts)\n\n`
-          + `📎 *Access Your Branded 23-Page Assessment Report (Read-only):*\n${reportUrl}\n\n`
+          + `📎 *Access Your Branded Assessment Report (Read-only):*\n${reportUrl}\n\n`
           + `Our migration strategy team is available to assist with your next steps.\n`
           + `LEAMSS — Toll-Free: 1800-210-2427 · hello@leamss.com`;
       }
     }
 
-    const url = cleaned ? `https://wa.me/${cleaned}?text=${encodeURIComponent(msg)}` : `https://wa.me/?text=${encodeURIComponent(msg)}`;
+    const url = cleanPhone ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}` : `https://wa.me/?text=${encodeURIComponent(msg)}`;
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 

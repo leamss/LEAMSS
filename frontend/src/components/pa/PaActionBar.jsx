@@ -86,7 +86,8 @@ export default function PaActionBar({ pa, nextAction, handlePreviewAsClient }) {
     const popup = window.open('about:blank', '_blank');
     const info = await callGenerate();
     if (!info) { if (popup) popup.close(); return; }
-    const cleanNum = num.startsWith('+') ? num.slice(1) : num;
+    const rawDigits = (num.startsWith('+') ? num.slice(1) : num).replace(/^0+/, '');
+    const cleanNum = rawDigits.length === 10 ? `91${rawDigits}` : rawDigits;
     const text = buildWhatsAppMessage(pa, info.full_url, info);
     const url = `https://wa.me/${cleanNum}?text=${text}`;
     if (popup) popup.location.href = url;

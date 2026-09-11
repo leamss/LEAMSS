@@ -302,3 +302,38 @@ async def send_test(req: TestEmailRequest, current_user: dict = Depends(get_curr
     except RuntimeError as e:
         raise HTTPException(status_code=503, detail=str(e))
     return {"ok": True, "sent_to": to, "from": sender}
+
+
+class TestWhatsAppRequest(BaseModel):
+    to: str
+    message: Optional[str] = None
+
+
+@router.post("/test-whatsapp")
+async def send_test_whatsapp(req: TestWhatsAppRequest, current_user: dict = Depends(get_current_user)):
+    if not _can(current_user):
+        raise HTTPException(status_code=403, detail="Not authorised")
+    from core.whatsapp_service import send_whatsapp_text, normalize_phone_number, get_whatsapp_config
+    cfg = await get_whatsapp_config()
+    clean_phone = normalize_phone_number(req.to)
+    if not clean_phone or len(clean_phone) < 8:
+        raise HTTPException(status_code=400, detail="Enter a valid recipient phone number with country code (e.g. +91 9876543210)")
+
+    test_msg = req.message or (
+        "🌟 *LEAMSS WhatsApp Integration Test*\n\n"
+        "This is a test notification confirming that Meta WhatsApp Cloud API is properly connected to your LEAMSS portal.\n\n"
+        "LEAMSS — We Value Emotions ❤️\nToll-Free: 1800-210-2427 · www.leamss.com"
+    )
+
+    try:
+        res = await send_whatsapp_text(to_phone=clean_phone, text=test_msg)
+        return {
+            "ok": True,
+            "sent_to": clean_phone,
+            "is_simulated": res.get("status") == "simulated",
+            "is_configured": cfg["is_configured"],
+            "result": res,
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+

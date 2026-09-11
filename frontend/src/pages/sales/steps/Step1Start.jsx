@@ -56,7 +56,8 @@ export default function Step1Start({ data, update }) {
     const message = encodeURIComponent(
       `Hi ${data.client_name},\n\nPlease fill your details using this secure link from LEAMSS:\n\n${url}\n\nThis helps us prepare your migration assessment accurately.\n\n— Team LEAMSS\nWe Value Emotions ❤️`,
     );
-    const phone = data.client_phone.replace(/\D/g, '');
+    const raw = data.client_phone.replace(/\D/g, '').replace(/^0+/, '');
+    const phone = raw.length === 10 ? `91${raw}` : raw;
     window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
   };
 

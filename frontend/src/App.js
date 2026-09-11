@@ -578,6 +578,7 @@ function App() {
           <Route path="/upload-resume" element={<ResumeUpload />} />
           {/* Public Sales Report — Phase 6.5 Save & Share (NO LOGIN) */}
           <Route path="/sales/report/:token" element={<PublicAssessmentReport />} />
+          <Route path="/sales/assessments/share/:token" element={<PublicAssessmentReport />} />
           <Route path="/reports/view/:token" element={<PublicReportView />} />
           <Route path="/admin/vendors" element={
             <RequirePermission anyOf={['vendor.view.all', 'vendor.create.any', 'system.user_manage.any']}>

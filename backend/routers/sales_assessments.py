@@ -1273,8 +1273,8 @@ async def get_assessment_whatsapp_preview(id: str, current_user: dict = Depends(
             {"$set": {"share_token": share_token, "share_expires_at": exp}},
         )
 
-    base_origin = os.environ.get("FRONTEND_URL") or "https://app.leamss.com"
-    public_url = f"{base_origin}/sales/assessments/share/{share_token}"
+    base_origin = (os.environ.get("FRONTEND_URL") or "https://app.leamss.com").rstrip("/")
+    public_url = f"{base_origin}/sales/report/{share_token}"
     payment_link = settings.get("payment_link") or "https://rzp.io/rzp/IndepdenceJjMJwx1"
 
     # Standard default templates
@@ -1348,8 +1348,8 @@ async def send_assessment_whatsapp(
             {"$set": {"share_token": share_token, "share_expires_at": exp}},
         )
 
-    base_origin = os.environ.get("FRONTEND_URL") or str(request.base_url).rstrip("/")
-    public_url = f"{base_origin}/sales/assessments/share/{share_token}"
+    base_origin = (os.environ.get("FRONTEND_URL") or str(request.base_url).rstrip("/")).rstrip("/")
+    public_url = f"{base_origin}/sales/report/{share_token}"
 
     client_name = doc.get("client_name") or "Applicant"
     best_country = doc.get("best_country_code") or "AU"
