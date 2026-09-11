@@ -1,11 +1,11 @@
 {# PROCESS FLOW — 12-step journey, visual cards grid #}
-<div class="page">
+<div class="page" style="page-break-inside:avoid;break-inside:avoid;">
 
-  <div class="section-header" style="margin-bottom:8pt;">
+  <div class="section-header" style="margin-bottom:5pt;">
     <span class="eyebrow">Section 05</span>
-    <h1>Process Flow</h1>
-    <span class="rule"></span>
-    <p class="lead" style="margin-bottom:0;">Twelve transparent stages — every milestone owned by a specific LEAMSS team member, no black boxes.</p>
+    <h1 style="font-size:20pt;margin:2pt 0 3pt 0;">Process Flow</h1>
+    <span class="rule" style="margin:3pt 0 5pt 0;"></span>
+    <p class="lead" style="margin-bottom:0;font-size:8.5pt;line-height:1.35;">Twelve transparent stages — every milestone owned by a specific LEAMSS team member, no black boxes.</p>
   </div>
 
   {% set steps = [
@@ -23,23 +23,23 @@
     ('Post-Landing',          'Settlement, employment, banking, accommodation.',  'CM + Partners'),
   ] %}
 
-  <div class="row" style="margin-top:4pt;">
+  <div class="row" style="margin-top:2pt;">
     {% for title, desc, owner in steps %}
     <div class="col-2">
-      <div class="card" style="margin-bottom:4pt;padding:6pt 9pt;border-left:2.5pt solid {% if loop.index <= 3 %}var(--orange-500){% elif loop.index <= 6 %}var(--teal-700){% else %}var(--slate-400){% endif %};">
-        <div style="display:flex;align-items:center;gap:6pt;margin-bottom:2pt;">
-          <div style="width:18pt;height:18pt;border-radius:50%;
+      <div class="card" style="margin-bottom:3pt;padding:4pt 7pt;border-left:2.5pt solid {% if loop.index <= 3 %}var(--orange-500){% elif loop.index <= 6 %}var(--teal-700){% else %}var(--slate-400){% endif %};">
+        <div style="display:flex;align-items:center;gap:5pt;margin-bottom:1.5pt;">
+          <div style="width:16pt;height:16pt;border-radius:50%;
                       background:{% if loop.index <= 3 %}var(--orange-500){% elif loop.index <= 6 %}var(--teal-700){% else %}var(--slate-200){% endif %};
                       color:{% if loop.index > 6 %}var(--slate-700){% else %}var(--white){% endif %};
-                      font-weight:800;font-size:7.5pt;
+                      font-weight:800;font-size:7pt;
                       display:flex;align-items:center;justify-content:center;">
             {{ '%02d' % loop.index }}
           </div>
-          <h4 style="margin:0;color:var(--teal-800);font-size:8.5pt;">{{ title }}</h4>
+          <h4 style="margin:0;color:var(--teal-800);font-size:8pt;">{{ title }}</h4>
         </div>
-        <div style="font-size:7.5pt;color:var(--slate-700);line-height:1.25;">{{ desc }}</div>
-        <div style="margin-top:2pt;font-size:6.5pt;font-weight:800;
-                    text-transform:uppercase;letter-spacing:0.05em;color:var(--orange-500);">
+        <div style="font-size:7pt;color:var(--slate-700);line-height:1.2;">{{ desc }}</div>
+        <div style="margin-top:1.5pt;font-size:6pt;font-weight:800;
+                    text-transform:uppercase;letter-spacing:0.04em;color:var(--orange-500);">
           Owner · {{ owner }}
         </div>
       </div>
@@ -47,9 +47,10 @@
     {% endfor %}
   </div>
 
-  <div class="note teal" style="margin-top:6pt;padding:6pt 10pt;font-size:7.5pt;">
+  <div class="note teal" style="margin-top:4pt;padding:4pt 8pt;font-size:7pt;line-height:1.25;">
     <b>Transparency promise:</b> At every step you receive a dated update from your Case Manager —
     along with the integrity hash you see on the cover page, so you can verify nothing has been altered.
   </div>
 
 </div>
+

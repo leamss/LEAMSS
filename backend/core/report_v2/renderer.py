@@ -87,10 +87,12 @@ def _enrich_snapshot(snap: Dict[str, Any]) -> Dict[str, Any]:
 
     # 1) Ensure Country Guides are present (Pages 15-17)
     has_valid_cg = bool(snap.get("country_guides") and any(
-        len(g.get("sections") or []) > 0 for g in snap["country_guides"]
+        any(bool((s.get("body_markdown") or "").strip()) for s in (g.get("sections") or []))
+        for g in snap["country_guides"]
     ))
     if not has_valid_cg:
         snap["country_guides"] = [get_curated_country_guide(cc)]
+
 
     # 2) Extract or fallback primary occupation
     primary_occ = snap.get("occupation")

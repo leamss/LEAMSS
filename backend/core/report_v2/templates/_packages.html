@@ -11,23 +11,40 @@
 {% macro sym(ccy) %}{% if ccy == 'INR' %}₹{% elif ccy == 'GBP' %}£{% elif ccy == 'AUD' or ccy == 'CAD' or ccy == 'NZD' or ccy == 'USD' %}${% else %}₹{% endif %}{% endmacro %}
 
 {% if pkgs %}
-<div class="page">
+{% set n_pkgs = pkgs|length %}
+{% if n_pkgs >= 3 %}
+  {% set feat_w = '22%' %}
+  {% set col_w = ((78 / n_pkgs)|round(1)|string ~ '%') %}
+  {% set table_font = '7pt' %}
+  {% set head_pad = '5pt 4pt' %}
+  {% set cell_pad = '2.5pt 4pt' %}
+  {% set big_amt_size = '10.5pt' %}
+{% else %}
+  {% set feat_w = '32%' %}
+  {% set col_w = '34%' %}
+  {% set table_font = '7.5pt' %}
+  {% set head_pad = '7pt 6pt' %}
+  {% set cell_pad = '3.5pt 6pt' %}
+  {% set big_amt_size = '12pt' %}
+{% endif %}
 
-  <div class="section-header" style="margin-bottom:6pt;">
-    <h1 style="font-size:20pt;margin:0 0 3pt 0;color:var(--teal-800);">LEAMSS Service Packages</h1>
-    <span class="rule" style="margin:3pt 0 6pt 0;"></span>
-    <p class="lead" style="font-size:8.5pt;margin-bottom:0;line-height:1.4;color:var(--slate-700);">
+<div class="page" style="page-break-inside:avoid;break-inside:avoid;">
+
+  <div class="section-header" style="margin-bottom:4pt;">
+    <h1 style="font-size:18pt;margin:0 0 2pt 0;color:var(--teal-800);">LEAMSS Service Packages</h1>
+    <span class="rule" style="margin:2pt 0 4pt 0;"></span>
+    <p class="lead" style="font-size:8pt;margin-bottom:0;line-height:1.3;color:var(--slate-700);">
       Choose the level of financial protection that suits you. Every package includes professional processing support, a dedicated case manager and full documentation assistance. Government &amp; third-party fees are payable separately (see the breakdown above).
     </p>
   </div>
 
-  <table class="pkg-compare">
+  <table class="pkg-compare" style="font-size:{{ table_font }};">
     <thead>
       <tr>
-        <th class="feat-col-head">&nbsp;</th>
+        <th class="feat-col-head" style="width:{{ feat_w }};">&nbsp;</th>
         {% for p in pkgs %}
           {% set is_hi = p.get('highlight', p.get('recommended', False)) %}
-          <th class="pkg-head-col {{ 'pkg-head-hi' if is_hi else 'pkg-head-std' }}">
+          <th class="pkg-head-col {{ 'pkg-head-hi' if is_hi else 'pkg-head-std' }}" style="width:{{ col_w }};padding:{{ head_pad }};">
             {% if is_hi %}
               <div class="pkg-ribbon">★ Recommended</div>
             {% endif %}
@@ -40,29 +57,29 @@
     <tbody>
       {# Total payable (with optional add-on) #}
       <tr class="total-row">
-        <td class="feat-col">Total Payable <span class="tiny">(incl. GST)</span></td>
+        <td class="feat-col" style="padding:{{ cell_pad }};">Total Payable <span class="tiny">(incl. GST)</span></td>
         {% for p in pkgs %}
           {% set is_hi = p.get('highlight', p.get('recommended', False)) %}
           {% set base = p.total or p.total_payable or ((p.professional_fee or 0) - (p.discount or 0) + (p.gst or 0)) %}
           {% set ao = p.addon %}
           {% set gt = base + ((ao.amount or 0) if (ao and ao.enabled) else 0) %}
-          <td class="pkg-val-col">
-            <span class="big-amt">{{ sym(p.currency or 'INR') }}{{ '{:,.0f}'.format(gt) }}</span>
+          <td class="pkg-val-col" style="padding:{{ cell_pad }};">
+            <span class="big-amt" style="font-size:{{ big_amt_size }};">{{ sym(p.currency or 'INR') }}{{ '{:,.0f}'.format(gt) }}</span>
           </td>
         {% endfor %}
       </tr>
 
       <tr>
-        <td class="feat-col">Professional / Policy Fee</td>
+        <td class="feat-col" style="padding:{{ cell_pad }};">Professional / Policy Fee</td>
         {% for p in pkgs %}
-          <td class="pkg-val-col">{{ sym(p.currency or 'INR') }}{{ '{:,.0f}'.format(p.professional_fee or 0) }}</td>
+          <td class="pkg-val-col" style="padding:{{ cell_pad }};">{{ sym(p.currency or 'INR') }}{{ '{:,.0f}'.format(p.professional_fee or 0) }}</td>
         {% endfor %}
       </tr>
 
       <tr>
-        <td class="feat-col">Lump-sum Discount</td>
+        <td class="feat-col" style="padding:{{ cell_pad }};">Lump-sum Discount</td>
         {% for p in pkgs %}
-          <td class="pkg-val-col">
+          <td class="pkg-val-col" style="padding:{{ cell_pad }};">
             {% if (p.discount or 0) > 0 %}
               − {{ sym(p.currency or 'INR') }}{{ '{:,.0f}'.format(p.discount) }}
             {% else %}
@@ -73,16 +90,16 @@
       </tr>
 
       <tr>
-        <td class="feat-col">GST @ 18%</td>
+        <td class="feat-col" style="padding:{{ cell_pad }};">GST @ 18%</td>
         {% for p in pkgs %}
-          <td class="pkg-val-col">{{ sym(p.currency or 'INR') }}{{ '{:,.0f}'.format(p.gst or 0) }}</td>
+          <td class="pkg-val-col" style="padding:{{ cell_pad }};">{{ sym(p.currency or 'INR') }}{{ '{:,.0f}'.format(p.gst or 0) }}</td>
         {% endfor %}
       </tr>
 
       <tr>
-        <td class="feat-col">100% Professional Fee Refund on Refusal</td>
+        <td class="feat-col" style="padding:{{ cell_pad }};">100% Professional Fee Refund on Refusal</td>
         {% for p in pkgs %}
-          <td class="pkg-val-col">
+          <td class="pkg-val-col" style="padding:{{ cell_pad }};">
             {% if p.professional_fee_refund or p.refund_professional_fee %}
               <span class="chk-green">✓</span>
             {% else %}
@@ -93,9 +110,9 @@
       </tr>
 
       <tr>
-        <td class="feat-col">100% Government Fee Refund on Refusal</td>
+        <td class="feat-col" style="padding:{{ cell_pad }};">100% Government Fee Refund on Refusal</td>
         {% for p in pkgs %}
-          <td class="pkg-val-col">
+          <td class="pkg-val-col" style="padding:{{ cell_pad }};">
             {% if p.govt_fee_refund or p.refund_government_fee %}
               <span class="chk-green">✓</span>
             {% else %}
@@ -106,9 +123,9 @@
       </tr>
 
       <tr>
-        <td class="feat-col">Financial Protection Level</td>
+        <td class="feat-col" style="padding:{{ cell_pad }};">Financial Protection Level</td>
         {% for p in pkgs %}
-          <td class="pkg-val-col">
+          <td class="pkg-val-col" style="padding:{{ cell_pad }};">
             <span class="pill-mint">{{ (p.get('protection_level') or 'Basic')|upper }}</span>
           </td>
         {% endfor %}
@@ -116,14 +133,14 @@
 
       {# Optional Partner Skill Assessment #}
       <tr>
-        <td class="feat-col">Optional Partner Skill Assessment</td>
+        <td class="feat-col" style="padding:{{ cell_pad }};">Optional Partner Skill Assessment</td>
         {% for p in pkgs %}
-          <td class="pkg-val-col">
+          <td class="pkg-val-col" style="padding:{{ cell_pad }};">
             {% if p.addon and p.addon.enabled %}
               Included (+{{ sym(p.currency or 'INR') }}{{ '{:,.0f}'.format(p.addon.amount or 0) }})
             {% elif p.addon and (p.addon.amount or 0) > 0 %}
               Available (+{{ sym(p.currency or 'INR') }}{{ '{:,.0f}'.format(p.addon.amount or 0) }})
-            {% elif (p.name or '') == 'Standard PR Package' or loop.first %}
+            {% elif (p.name or '') == 'Standard PR Package' or (n_pkgs > 2 and loop.index <= 2) %}
               Available on request
             {% else %}
               —
@@ -133,9 +150,9 @@
       </tr>
 
       <tr>
-        <td class="feat-col" style="vertical-align:top;padding-top:5pt;">What's included</td>
+        <td class="feat-col" style="vertical-align:top;padding-top:3pt;padding-bottom:3pt;">What's included</td>
         {% for p in pkgs %}
-          <td class="pkg-val-col" style="vertical-align:top;padding-top:5pt;">
+          <td class="pkg-val-col" style="vertical-align:top;padding-top:3pt;padding-bottom:3pt;">
             <ul class="incl-list">
               {% for inc in (p.inclusions or []) %}
                 <li>{{ inc }}</li>
@@ -161,7 +178,7 @@
     {% endif %}
   {% endfor %}
   {% if not official_by_ccy %}
-    {% set official_by_ccy = {'AUD': 8061, 'USD': 435, 'INR': 1500} %}
+    {% set official_by_ccy = {'INR': 22000} %}
   {% endif %}
   {% set off_inr = official_by_ccy.get('INR', 0) %}
 
@@ -172,8 +189,8 @@
     {% endif %}
   {% endfor %}
 
-  <div class="grand-section-title">TOTAL ESTIMATED INVESTMENT</div>
-  <div class="grand-grid">
+  <div class="grand-section-title" style="margin-top:5pt;margin-bottom:3pt;font-size:7.5pt;">TOTAL ESTIMATED INVESTMENT</div>
+  <div class="grand-grid" style="gap:{{ '4pt' if n_pkgs >= 3 else '8pt' }};">
     {% for p in pkgs %}
       {% set is_hi = p.get('highlight', p.get('recommended', False)) %}
       {% set ao = p.addon %}
@@ -181,30 +198,30 @@
       {% set total_inr = pkg_total + off_inr %}
       {% set grand_display = (foreign_parts + ['₹' ~ '{:,.0f}'.format(total_inr)])|join(' + ') %}
       
-      <div class="grand-card {{ 'card-hi' if is_hi else 'card-std' }}">
-        <div class="grand-card-title">{{ p.name }}</div>
+      <div class="grand-card {{ 'card-hi' if is_hi else 'card-std' }}" style="padding:{{ '4pt 6pt' if n_pkgs >= 3 else '6pt 10pt' }};">
+        <div class="grand-card-title" style="font-size:{{ '7.5pt' if n_pkgs >= 3 else '8.5pt' }};margin-bottom:3pt;">{{ p.name }}</div>
         <table class="grand-kv-table">
           <tr>
-            <td>LEAMSS Package Fee</td>
-            <td class="amt">{{ sym(p.currency or 'INR') }}{{ '{:,.0f}'.format(pkg_total) }}</td>
+            <td style="font-size:{{ '6.5pt' if n_pkgs >= 3 else '7pt' }};">LEAMSS Package Fee</td>
+            <td class="amt" style="font-size:{{ '6.5pt' if n_pkgs >= 3 else '7pt' }};">{{ sym(p.currency or 'INR') }}{{ '{:,.0f}'.format(pkg_total) }}</td>
           </tr>
           {% for ccy, amt in official_by_ccy.items() %}
             <tr>
-              <td>Govt / third-party ({{ ccy }})</td>
-              <td class="amt">{{ sym(ccy) }}{{ '{:,.0f}'.format(amt) }}</td>
+              <td style="font-size:{{ '6.5pt' if n_pkgs >= 3 else '7pt' }};">Govt / third-party ({{ ccy }})</td>
+              <td class="amt" style="font-size:{{ '6.5pt' if n_pkgs >= 3 else '7pt' }};">{{ sym(ccy) }}{{ '{:,.0f}'.format(amt) }}</td>
             </tr>
           {% endfor %}
         </table>
-        <div class="grand-divider"></div>
+        <div class="grand-divider" style="margin:2.5pt 0;"></div>
         <div class="grand-total-row">
-          <span class="grand-total-label">TOTAL ESTIMATED</span>
-          <span class="grand-total-val">{{ grand_display }}</span>
+          <span class="grand-total-label" style="font-size:{{ '6.5pt' if n_pkgs >= 3 else '7.5pt' }};">TOTAL ESTIMATED</span>
+          <span class="grand-total-val" style="font-size:{{ '7.5pt' if n_pkgs >= 3 else '8.5pt' }};">{{ grand_display }}</span>
         </div>
       </div>
     {% endfor %}
   </div>
 
-  <div class="grand-footer-disclaimer">
+  <div class="grand-footer-disclaimer" style="margin-top:4pt;font-size:6.2pt;line-height:1.25;">
     Government &amp; third-party fees are identical across packages and payable separately to the respective authorities. Figures are indicative estimates and confirmed in your personalised proposal.
   </div>
 
@@ -214,22 +231,18 @@
       border-collapse: separate;
       border-spacing: 0;
       table-layout: fixed;
-      margin-top: 6pt;
-      margin-bottom: 4pt;
-      font-size: 7.5pt;
+      margin-top: 4pt;
+      margin-bottom: 2pt;
     }
     .pkg-compare th,
     .pkg-compare td {
-      padding: 3.5pt 8pt;
       border-bottom: 0.5pt solid #E2E8F0;
     }
     .feat-col-head {
-      width: 34%;
       background: transparent;
       border-bottom: none !important;
     }
     .feat-col {
-      width: 34%;
       text-align: left !important;
       font-weight: 700;
       color: #334155;
@@ -238,22 +251,19 @@
       vertical-align: middle;
     }
     .pkg-head-col {
-      width: 33%;
       border-bottom: none !important;
     }
     .pkg-head-std {
       background: #CCFBF1;
-      border-top-left-radius: 8pt;
-      border-top-right-radius: 8pt;
-      padding: 8pt 6pt 6pt 6pt;
+      border-top-left-radius: 6pt;
+      border-top-right-radius: 6pt;
       text-align: center;
       vertical-align: bottom;
     }
     .pkg-head-hi {
       background: #0F766E;
-      border-top-left-radius: 8pt;
-      border-top-right-radius: 8pt;
-      padding: 6pt 6pt 6pt 6pt;
+      border-top-left-radius: 6pt;
+      border-top-right-radius: 6pt;
       text-align: center;
       vertical-align: bottom;
     }
@@ -262,17 +272,17 @@
       background: #E5A93C;
       color: #1F2937;
       font-family: 'Manrope', sans-serif;
-      font-size: 6.5pt;
+      font-size: 5.8pt;
       font-weight: 800;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
-      padding: 1.5pt 6pt;
-      border-radius: 4pt;
-      margin-bottom: 3pt;
+      letter-spacing: 0.04em;
+      padding: 1pt 4pt;
+      border-radius: 3pt;
+      margin-bottom: 2pt;
     }
     .pkg-title {
       font-family: 'Playfair Display', serif;
-      font-size: 10pt;
+      font-size: 8.5pt;
       font-weight: 700;
       color: #0F766E;
       line-height: 1.15;
@@ -282,12 +292,12 @@
     }
     .pkg-sub {
       font-family: 'Manrope', sans-serif;
-      font-size: 6.5pt;
+      font-size: 5.8pt;
       font-weight: 800;
       text-transform: uppercase;
-      letter-spacing: 0.08em;
+      letter-spacing: 0.06em;
       color: #0F766E;
-      margin-top: 2pt;
+      margin-top: 1.5pt;
     }
     .pkg-sub-hi {
       color: rgba(255, 255, 255, 0.9) !important;
@@ -299,87 +309,78 @@
     }
     .pkg-compare .big-amt {
       font-family: 'Playfair Display', serif;
-      font-size: 12.5pt;
       font-weight: 800;
       color: #0F766E;
     }
     .chk-green {
       color: #10B981;
       font-weight: 800;
-      font-size: 11pt;
+      font-size: 9.5pt;
     }
     .chk-red {
       color: #EF4444;
       font-weight: 800;
-      font-size: 11pt;
+      font-size: 9.5pt;
     }
     .pill-mint {
       display: inline-block;
       background: #CCFBF1;
       color: #0F766E;
       font-family: 'Manrope', sans-serif;
-      font-size: 6.8pt;
+      font-size: 6.2pt;
       font-weight: 800;
-      letter-spacing: 0.08em;
+      letter-spacing: 0.06em;
       text-transform: uppercase;
-      padding: 2pt 9pt;
+      padding: 1.5pt 6pt;
       border-radius: 999pt;
     }
     .incl-list {
       list-style-type: disc;
-      padding-left: 12pt;
+      padding-left: 9pt;
       margin: 0;
       text-align: left;
     }
     .incl-list li {
-      font-size: 6.8pt;
-      line-height: 1.35;
+      font-size: 6.2pt;
+      line-height: 1.25;
       color: #334155;
-      margin-bottom: 2pt;
+      margin-bottom: 1.5pt;
     }
 
     .grand-section-title {
       font-family: 'Manrope', sans-serif;
       color: #0F766E;
-      font-size: 8.5pt;
       font-weight: 800;
-      letter-spacing: 0.12em;
+      letter-spacing: 0.1em;
       text-transform: uppercase;
-      margin-top: 10pt;
-      margin-bottom: 5pt;
     }
     .grand-grid {
       display: flex;
-      gap: 10pt;
     }
     .grand-card {
       flex: 1;
       background: #FFFFFF;
-      border-radius: 8pt;
-      padding: 8pt 12pt;
+      border-radius: 6pt;
       box-sizing: border-box;
+      min-width: 0;
     }
     .grand-card.card-std {
       border: 1pt solid #CBD5E1;
     }
     .grand-card.card-hi {
-      border: 1.5pt solid #0F766E;
+      border: 1.2pt solid #0F766E;
     }
     .grand-card-title {
       font-family: 'Manrope', sans-serif;
-      font-size: 9pt;
       font-weight: 800;
       color: #0F766E;
-      margin-bottom: 5pt;
     }
     .grand-kv-table {
       width: 100%;
       border-collapse: collapse;
-      margin-bottom: 4pt;
     }
     .grand-kv-table td {
-      padding: 1.5pt 0;
-      font-size: 7.2pt;
+      padding: 0.8pt 0;
       border: none;
       color: #334155;
     }
@@ -389,33 +390,26 @@
       color: #1F2937;
     }
     .grand-divider {
-      border-top: 1pt solid #0F766E;
-      margin: 4pt 0;
+      border-top: 0.75pt solid #0F766E;
     }
     .grand-total-row {
       display: flex;
       justify-content: space-between;
       align-items: baseline;
-      padding-top: 2pt;
     }
     .grand-total-label {
       font-family: 'Manrope', sans-serif;
-      font-size: 7.5pt;
       font-weight: 800;
       color: #334155;
-      letter-spacing: 0.05em;
+      letter-spacing: 0.04em;
     }
     .grand-total-val {
       font-family: 'Playfair Display', serif;
-      font-size: 9.5pt;
       font-weight: 800;
       color: #0F766E;
     }
     .grand-footer-disclaimer {
-      font-size: 6.8pt;
       color: #64748B;
-      line-height: 1.35;
-      margin-top: 6pt;
     }
   </style>
 

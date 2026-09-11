@@ -2,7 +2,6 @@
 {# Expects: ctx_country, ctx_index #}
 {% set c = ctx_country %}
 {% set cc = (c.country_code or '')|upper %}
-{# direct hex pairs (color, darker_for_gradient) — WeasyPrint doesn't support color-mix in gradients #}
 {% set country_palette = {
   'AU': ('#0F766E', '#0A4F4A'),
   'CA': ('#D32F2F', '#8C1A1A'),
@@ -16,35 +15,36 @@
 {% set occ = c.occupation or {} %}
 {% set ok  = (c.total or 0) >= (c.pass_mark or 999) %}
 
+{# ─── PAGE 1: Hero Banner + Occupation Details + Visa Pathways ─── #}
 <div class="page">
   {# Hero banner per country #}
   <div style="background:linear-gradient(135deg, {{ country_color }} 0%, {{ country_color }} 60%, {{ country_color_dark }} 100%);
               color:#FFFFFF;
-              border-radius:10pt;
-              padding:18pt 20pt;
-              margin-bottom:14pt;">
+              border-radius:8pt;
+              padding:12pt 16pt;
+              margin-bottom:8pt;">
     <div style="display:flex;align-items:flex-start;justify-content:space-between;">
       <div>
-        <div class="eyebrow" style="color:rgba(255,255,255,0.7);">Section 04.{{ ctx_index }}</div>
-        <h1 style="color:#FFFFFF;font-size:30pt;margin-bottom:4pt;">
+        <div class="eyebrow" style="color:rgba(255,255,255,0.75);font-size:7.5pt;margin-bottom:2pt;">Section 04.{{ ctx_index }}</div>
+        <h1 style="color:#FFFFFF;font-size:24pt;margin-bottom:2pt;line-height:1.1;">
           {{ c.country_name or c.country_code }}
         </h1>
-        <div style="opacity:0.85;font-size:11pt;color:#FFFFFF;">
+        <div style="opacity:0.9;font-size:9.5pt;color:#FFFFFF;">
           Pathway: <b>Visa {{ c.visa_subclass or 'Skilled' }}</b>
         </div>
       </div>
       <div style="text-align:right;color:#FFFFFF;">
-        <div style="font-family:'Playfair Display',serif;font-size:48pt;font-weight:800;line-height:1;color:#FFFFFF;">
+        <div style="font-family:'Playfair Display',serif;font-size:36pt;font-weight:800;line-height:1;color:#FFFFFF;">
           {{ c.total or 0 }}
         </div>
-        <div style="opacity:0.85;font-size:9pt;color:#FFFFFF;">
+        <div style="opacity:0.85;font-size:8pt;color:#FFFFFF;">
           pass mark <b>{{ c.pass_mark or '—' }}</b>
         </div>
-        <div style="margin-top:8pt;">
+        <div style="margin-top:4pt;">
           {% if ok %}
-            <span class="pill" style="background:#FFFFFF;color:{{ country_color }};">✓ Eligible</span>
+            <span class="pill" style="background:#FFFFFF;color:{{ country_color }};font-size:7pt;padding:2pt 8pt;">✓ Eligible</span>
           {% else %}
-            <span class="pill" style="background:#D4A017;color:#1F2937;">Below threshold</span>
+            <span class="pill" style="background:#D4A017;color:#1F2937;font-size:7pt;padding:2pt 8pt;">Below threshold</span>
           {% endif %}
         </div>
       </div>
@@ -53,46 +53,44 @@
 
   {# Occupation block #}
   {% if occ %}
-    <h3>Occupation Details</h3>
-    <table class="kv">
+    <h3 style="font-size:11pt;color:var(--teal-800);margin-bottom:4pt;">Occupation Details</h3>
+    <table class="kv" style="margin-bottom:6pt;font-size:8pt;">
       <tbody>
-        <tr><td style="width:36%;color:var(--slate-500);">Code</td><td><b>{{ occ.code or '—' }}</b></td></tr>
-        <tr><td style="color:var(--slate-500);">Title</td><td><b>{{ occ.title or '—' }}</b></td></tr>
+        <tr><td style="width:30%;color:var(--slate-500);padding:3pt 6pt;">Code</td><td style="padding:3pt 6pt;"><b>{{ occ.code or '—' }}</b></td></tr>
+        <tr><td style="color:var(--slate-500);padding:3pt 6pt;">Title</td><td style="padding:3pt 6pt;"><b>{{ occ.title or '—' }}</b></td></tr>
         {% if occ.classification_type %}
-        <tr><td style="color:var(--slate-500);">Classification</td><td>{{ occ.classification_type }} {{ occ.classification_version or '' }}</td></tr>
-        {% endif %}
-        {% if occ.skill_level %}
-        <tr><td style="color:var(--slate-500);">Skill Level</td><td>{{ occ.skill_level }}</td></tr>
+        <tr><td style="color:var(--slate-500);padding:3pt 6pt;">Classification</td><td style="padding:3pt 6pt;">{{ occ.classification_type }} {{ occ.classification_version or '' }}</td></tr>
         {% endif %}
         {% if (occ.assessing_authority or {}).name %}
-        <tr><td style="color:var(--slate-500);">Assessing Authority</td><td>{{ occ.assessing_authority.name }}</td></tr>
+        <tr><td style="color:var(--slate-500);padding:3pt 6pt;">Assessing Authority</td><td style="padding:3pt 6pt;">{{ occ.assessing_authority.name }}</td></tr>
         {% endif %}
         {% set lists = (occ.visa_pathways or {}).pathway_lists or [] %}
         {% if lists %}
-        <tr><td style="color:var(--slate-500);">Pathway Lists</td><td>{{ lists|join(', ') }}</td></tr>
+        <tr><td style="color:var(--slate-500);padding:3pt 6pt;">Pathway Lists</td><td style="padding:3pt 6pt;">{{ lists|join('; ') }}</td></tr>
         {% endif %}
       </tbody>
     </table>
 
     {% if occ.description %}
-      <div class="note teal"><b>Description:</b> {{ occ.description|truncate(420) }}</div>
+      <div class="note teal" style="margin-top:4pt;margin-bottom:8pt;padding:4pt 8pt;font-size:7.5pt;line-height:1.35;">
+        <b>Description:</b> {{ occ.description|truncate(260) }}
+      </div>
     {% endif %}
   {% endif %}
-</div>
 
-<div class="page">
   {# Visa eligibility table #}
   {% set vp = (occ.visa_pathways or {}) %}
   {% set visas = vp.visa_eligibility or [] %}
   {% if visas %}
-    <div class="section-header">
-      <span class="eyebrow">Section 04.{{ ctx_index }} · Visas</span>
-      <h1>Visa Pathway Eligibility</h1>
-      <span class="rule"></span>
-    </div>
-    <table class="kv">
+    <h3 style="font-size:11pt;color:var(--teal-800);margin-bottom:4pt;margin-top:6pt;">Visa Pathway Eligibility</h3>
+    <table class="kv" style="margin-bottom:0;font-size:8pt;">
       <thead>
-        <tr><th>Subclass</th><th>Eligible</th><th>List</th><th>Notes</th></tr>
+        <tr>
+          <th style="padding:4pt 6pt;">Subclass</th>
+          <th style="padding:4pt 6pt;text-align:center;">Eligible</th>
+          <th style="padding:4pt 6pt;">List</th>
+          <th style="padding:4pt 6pt;">Notes</th>
+        </tr>
       </thead>
       <tbody>
         {% for v in visas %}
@@ -100,10 +98,10 @@
           {% set vmeta = (c.visa_subclasses_meta or {}).get(sub) or {} %}
           {% set note_text = v.notes or vmeta.description or vmeta.name or '' %}
           <tr>
-            <td><b>{{ sub }}</b></td>
-            <td>{% if v.eligible %}<span class="pill teal">✓ Yes</span>{% else %}<span class="pill slate">✗ No</span>{% endif %}</td>
-            <td>{{ v.list or '—' }}</td>
-            <td class="muted" style="font-size:9pt;">{{ (note_text or '')|truncate(90) }}</td>
+            <td style="padding:3pt 6pt;"><b>{{ sub }}</b></td>
+            <td style="padding:3pt 6pt;text-align:center;">{% if v.eligible %}<span class="pill teal" style="font-size:6.5pt;padding:1.5pt 6pt;">✓ Yes</span>{% else %}<span class="pill slate" style="font-size:6.5pt;padding:1.5pt 6pt;">✗ No</span>{% endif %}</td>
+            <td style="padding:3pt 6pt;font-size:7.5pt;">{{ v.list or '—' }}</td>
+            <td class="muted" style="padding:3pt 6pt;font-size:7.5pt;">{{ (note_text or '')|truncate(70) }}</td>
           </tr>
         {% endfor %}
       </tbody>
@@ -111,54 +109,65 @@
   {% endif %}
 </div>
 
+{# ─── PAGE 2: State Demand + Points Breakdown ─── #}
 <div class="page">
   {# State / Territory demand (AU) #}
   {% set state_elig = occ.state_territory_eligibility or [] %}
   {% if state_elig %}
-    <div class="section-header">
+    <div class="section-header" style="margin-bottom:6pt;">
       <span class="eyebrow">Section 04.{{ ctx_index }} · Demand &amp; Points</span>
-      <h1>State / Territory Demand</h1>
-      <span class="rule"></span>
+      <h1 style="font-size:20pt;margin:2pt 0 3pt 0;">State / Territory Demand</h1>
+      <span class="rule" style="margin:3pt 0 5pt 0;"></span>
     </div>
-    <table class="kv">
+    <table class="kv" style="margin-bottom:10pt;font-size:8pt;">
       <thead>
-        <tr><th>State</th><th>Demand</th><th style="text-align:center;">190</th><th style="text-align:center;">491</th></tr>
+        <tr>
+          <th style="padding:4pt 6pt;">State</th>
+          <th style="padding:4pt 6pt;">Demand</th>
+          <th style="padding:4pt 6pt;text-align:center;">Subclass 190</th>
+          <th style="padding:4pt 6pt;text-align:center;">Subclass 491</th>
+        </tr>
       </thead>
       <tbody>
         {% for s in state_elig %}
           <tr>
-            <td><b>{{ s.state }}</b></td>
-            <td>{{ (s.demand or '—').replace('_', ' ')|title }}</td>
-            <td style="text-align:center;">{% if s.sc190 %}<span style="color:var(--teal-700);font-weight:800;">✓</span>{% else %}<span class="muted">—</span>{% endif %}</td>
-            <td style="text-align:center;">{% if s.sc491 %}<span style="color:var(--teal-700);font-weight:800;">✓</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+            <td style="padding:3pt 6pt;"><b>{{ s.state }}</b></td>
+            <td style="padding:3pt 6pt;">{{ (s.demand or '—').replace('_', ' ')|title }}</td>
+            <td style="padding:3pt 6pt;text-align:center;">{% if s.sc190 %}<span style="color:var(--teal-700);font-weight:800;">✓ Open</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+            <td style="padding:3pt 6pt;text-align:center;">{% if s.sc491 %}<span style="color:var(--teal-700);font-weight:800;">✓ Open</span>{% else %}<span class="muted">—</span>{% endif %}</td>
           </tr>
         {% endfor %}
       </tbody>
     </table>
+  {% else %}
+    <div class="section-header" style="margin-bottom:6pt;">
+      <span class="eyebrow">Section 04.{{ ctx_index }} · Points Breakdown</span>
+      <h1 style="font-size:20pt;margin:2pt 0 3pt 0;">Points Assessment</h1>
+      <span class="rule" style="margin:3pt 0 5pt 0;"></span>
+    </div>
   {% endif %}
 
-  {# Points breakdown — horizontal bars instead of plain table #}
+  {# Points breakdown — horizontal bars #}
   {% set breakdown = c.breakdown or {} %}
   {% if breakdown %}
-    <div class="spacer-sm"></div>
-    <h3>Points Breakdown</h3>
+    <h3 style="font-size:11pt;color:var(--teal-800);margin-bottom:6pt;">Points Breakdown</h3>
     {% set max_pts = 30 %}
     {% for k, v in breakdown.items() %}
       {% set pts = v.points if v is mapping else v %}
       {% set pct = ((pts|int * 100) / max_pts) if pts else 4 %}
       {% if pct > 100 %}{% set pct = 100 %}{% endif %}
       <div style="display:flex;align-items:center;gap:8pt;margin-bottom:4pt;">
-        <div style="width:140pt;font-size:9pt;color:var(--slate-700);">{{ k.replace('_',' ')|title }}</div>
-        <div style="flex:1;height:12pt;background:var(--slate-100);border-radius:6pt;overflow:hidden;">
+        <div style="width:130pt;font-size:8.5pt;color:var(--slate-700);">{{ k.replace('_',' ')|title }}</div>
+        <div style="flex:1;height:10pt;background:var(--slate-100);border-radius:5pt;overflow:hidden;">
           <div style="height:100%;width:{{ pct }}%;
                       background:{{ country_color }};
-                      border-radius:6pt;"></div>
+                      border-radius:5pt;"></div>
         </div>
-        <div style="width:36pt;font-weight:800;color:{{ country_color }};text-align:right;font-size:10pt;">{{ pts or 0 }}</div>
+        <div style="width:30pt;font-weight:800;color:{{ country_color }};text-align:right;font-size:9.5pt;">{{ pts or 0 }}</div>
       </div>
     {% endfor %}
     <div style="display:flex;justify-content:flex-end;margin-top:8pt;">
-      <div style="background:{{ country_color }};color:var(--white);padding:6pt 14pt;border-radius:6pt;font-weight:800;">
+      <div style="background:{{ country_color }};color:var(--white);padding:5pt 12pt;border-radius:6pt;font-weight:800;font-size:9pt;">
         TOTAL · {{ c.total or 0 }} points
       </div>
     </div>
@@ -166,11 +175,11 @@
 
   {# How to gain points callout #}
   {% if not ok %}
-    <div class="spacer-md"></div>
-    <div class="note">
+    <div class="note" style="margin-top:8pt;padding:6pt 10pt;font-size:7.5pt;line-height:1.35;">
       <b>How to gain points:</b> Consider improving your IELTS / PTE score, gaining additional years
       of skilled experience, or completing an Australian/Canadian study credential. Your LEAMSS
       counsellor will map a 6-12 month uplift plan as part of the proposal.
     </div>
   {% endif %}
 </div>
+
