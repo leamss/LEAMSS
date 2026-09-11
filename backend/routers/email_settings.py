@@ -115,11 +115,38 @@ DEFAULTS: Dict[str, Any] = {
     "attach_resume": True,
     "qr_file_id": None,
     "offer_banner_file_id": None,
-    # WhatsApp Cloud API Settings
+    # WhatsApp Cloud API Settings & Editable Message Templates
     "whatsapp_phone_number_id": "",
     "whatsapp_access_token": "",
     "whatsapp_waba_id": "",
     "whatsapp_sender_display": "+91 77383 52427 (LEAMSS Official)",
+    "whatsapp_template_report": (
+        "Hello {name},\n\n"
+        "🎉 Congratulations! Your migration profile assessment from LEAMSS has been completed.\n\n"
+        "📋 *Client:* {name}\n"
+        "🆔 *Assessment ID:* {id}\n"
+        "🏆 *Best Country:* {country} (Score: {score} pts)\n\n"
+        "📎 *Access Your Branded 23-Page Assessment Report (Read-only):*\n{report_url}\n\n"
+        "Our migration strategy team is available to assist with your next steps.\n"
+        "LEAMSS — Toll-Free: 1800-210-2427 · hello@leamss.com"
+    ),
+    "whatsapp_template_sla": (
+        "Dear {name},\n\n"
+        "Thank you for completing your migration profile assessment with LEAMSS.\n\n"
+        "📋 *Assessment ID:* {id}\n"
+        "🏆 *Outcome:* Positive ({country} · {score} pts)\n\n"
+        "🔗 *View Full Report:* {report_url}\n"
+        "💳 *Secure Payment Link:* {payment_link}\n\n"
+        "Please reply once payment is initiated to activate your dedicated Case Manager.\n"
+        "LEAMSS — Toll-Free: 1800-210-2427 · hello@leamss.com"
+    ),
+    "whatsapp_template_consultation": (
+        "Hi {name}! 🌟\n\n"
+        "Our migration experts have completed your evaluation for {country} with a score of {score} points.\n\n"
+        "📎 *Review your report here:* {report_url}\n\n"
+        "Would you like to schedule a quick 15-minute call with our senior migration advisor to discuss your visa pathway? Reply to this message directly.\n"
+        "LEAMSS — www.leamss.com"
+    ),
 }
 
 # Fields the client may PUT (assets are handled by upload endpoints).
@@ -131,6 +158,7 @@ _EDITABLE = {
     "banks_international", "calendly_link", "indicative_note", "closing", "contact_phone",
     "contact_email", "website", "attach_report", "attach_sla", "sla_filename", "attach_resume",
     "whatsapp_phone_number_id", "whatsapp_access_token", "whatsapp_waba_id", "whatsapp_sender_display",
+    "whatsapp_template_report", "whatsapp_template_sla", "whatsapp_template_consultation",
 }
 
 

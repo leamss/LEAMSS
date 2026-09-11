@@ -1277,22 +1277,53 @@ async def get_assessment_whatsapp_preview(id: str, current_user: dict = Depends(
     public_url = f"{base_origin}/sales/report/{share_token}"
     payment_link = settings.get("payment_link") or "https://rzp.io/rzp/IndepdenceJjMJwx1"
 
-    # Standard default templates
+    # Standard default templates & texts from settings
+    tmpl_report = settings.get("whatsapp_template_report") or (
+        "Hello {name},\n\n"
+        "🎉 Congratulations! Your migration profile assessment from LEAMSS has been completed.\n\n"
+        "📋 *Client:* {name}\n"
+        "🆔 *Assessment ID:* {id}\n"
+        "🏆 *Best Country:* {country} (Score: {score} pts)\n\n"
+        "📎 *Access Your Branded 23-Page Assessment Report (Read-only):*\n{report_url}\n\n"
+        "Our migration strategy team is available to assist with your next steps.\n"
+        "LEAMSS — Toll-Free: 1800-210-2427 · hello@leamss.com"
+    )
+    tmpl_sla = settings.get("whatsapp_template_sla") or (
+        "Dear {name},\n\n"
+        "Thank you for completing your migration profile assessment with LEAMSS.\n\n"
+        "📋 *Assessment ID:* {id}\n"
+        "🏆 *Outcome:* Positive ({country} · {score} pts)\n\n"
+        "🔗 *View Full Report:* {report_url}\n"
+        "💳 *Secure Payment Link:* {payment_link}\n\n"
+        "Please reply once payment is initiated to activate your dedicated Case Manager.\n"
+        "LEAMSS — Toll-Free: 1800-210-2427 · hello@leamss.com"
+    )
+    tmpl_consultation = settings.get("whatsapp_template_consultation") or (
+        "Hi {name}! 🌟\n\n"
+        "Our migration experts have completed your evaluation for {country} with a score of {score} points.\n\n"
+        "📎 *Review your report here:* {report_url}\n\n"
+        "Would you like to schedule a quick 15-minute call with our senior migration advisor to discuss your visa pathway? Reply to this message directly.\n"
+        "LEAMSS — www.leamss.com"
+    )
+
     templates = [
         {
             "id": "report_summary",
             "name": "Full Assessment Outcome & Report",
             "description": "Sends congratulations, score breakdown, and public report link",
+            "template_body": tmpl_report,
         },
         {
             "id": "sla_payment",
             "name": "SLA & Payment Instructions",
             "description": "Sends payment details, service agreement, and onboarding info",
+            "template_body": tmpl_sla,
         },
         {
             "id": "consultation_followup",
             "name": "Consultation Follow-up & Booking",
             "description": "Follow-up message with link to schedule free consultation",
+            "template_body": tmpl_consultation,
         },
     ]
 
@@ -1358,37 +1389,53 @@ async def send_assessment_whatsapp(
     s = await get_settings()
     payment_link = s.get("payment_link") or "https://rzp.io/rzp/IndepdenceJjMJwx1"
 
+    def _render(tmpl: str) -> str:
+        return (
+            tmpl
+            .replace("{name}", client_name)
+            .replace("{id}", id)
+            .replace("{country}", str(best_country))
+            .replace("{score}", str(best_total))
+            .replace("{report_url}", public_url)
+            .replace("{payment_link}", payment_link)
+        )
+
     if req.custom_message and req.custom_message.strip():
         msg_text = req.custom_message.strip()
     elif req.template_id == "sla_payment":
-        msg_text = (
-            f"Dear {client_name},\n\n"
-            f"Thank you for completing your migration profile assessment with LEAMSS.\n\n"
-            f"📋 *Assessment ID:* {id}\n"
-            f"🏆 *Outcome:* Positive ({best_country} · {best_total} pts)\n\n"
-            f"🔗 *View Full Report:* {public_url}\n"
-            f"💳 *Secure Payment Link:* {payment_link}\n\n"
-            f"Please reply to this WhatsApp message once payment is initiated to activate your dedicated Case Manager."
+        raw_tmpl = s.get("whatsapp_template_sla") or (
+            "Dear {name},\n\n"
+            "Thank you for completing your migration profile assessment with LEAMSS.\n\n"
+            "📋 *Assessment ID:* {id}\n"
+            "🏆 *Outcome:* Positive ({country} · {score} pts)\n\n"
+            "🔗 *View Full Report:* {report_url}\n"
+            "💳 *Secure Payment Link:* {payment_link}\n\n"
+            "Please reply once payment is initiated to activate your dedicated Case Manager.\n"
+            "LEAMSS — Toll-Free: 1800-210-2427 · hello@leamss.com"
         )
+        msg_text = _render(raw_tmpl)
     elif req.template_id == "consultation_followup":
-        msg_text = (
-            f"Hi {client_name}! 🌟\n\n"
-            f"Our migration experts have completed your evaluation for {best_country} with a score of {best_total} points.\n\n"
-            f"📎 *Review your report here:* {public_url}\n\n"
-            f"Would you like to schedule a quick 15-minute call with our senior migration advisor to discuss your visa pathway? Reply to this message directly."
+        raw_tmpl = s.get("whatsapp_template_consultation") or (
+            "Hi {name}! 🌟\n\n"
+            "Our migration experts have completed your evaluation for {country} with a score of {score} points.\n\n"
+            "📎 *Review your report here:* {report_url}\n\n"
+            "Would you like to schedule a quick 15-minute call with our senior migration advisor to discuss your visa pathway? Reply to this message directly.\n"
+            "LEAMSS — www.leamss.com"
         )
+        msg_text = _render(raw_tmpl)
     else:
         # Default report outcome template
-        msg_text = (
-            f"Hello {client_name},\n\n"
-            f"🎉 Congratulations! Your migration profile assessment from LEAMSS has been completed.\n\n"
-            f"📋 *Client:* {client_name}\n"
-            f"🆔 *Assessment ID:* {id}\n"
-            f"🏆 *Best Country:* {best_country} (Score: {best_total} pts)\n\n"
-            f"📎 *Access Your Branded 23-Page Assessment Report (Read-only):*\n{public_url}\n\n"
-            f"Our migration strategy team is available to assist with your next steps.\n"
-            f"LEAMSS — Toll-Free: 1800-210-2427 · hello@leamss.com"
+        raw_tmpl = s.get("whatsapp_template_report") or (
+            "Hello {name},\n\n"
+            "🎉 Congratulations! Your migration profile assessment from LEAMSS has been completed.\n\n"
+            "📋 *Client:* {name}\n"
+            "🆔 *Assessment ID:* {id}\n"
+            "🏆 *Best Country:* {country} (Score: {score} pts)\n\n"
+            "📎 *Access Your Branded 23-Page Assessment Report (Read-only):*\n{report_url}\n\n"
+            "Our migration strategy team is available to assist with your next steps.\n"
+            "LEAMSS — Toll-Free: 1800-210-2427 · hello@leamss.com"
         )
+        msg_text = _render(raw_tmpl)
 
     now = datetime.now(timezone.utc)
     send_error = None

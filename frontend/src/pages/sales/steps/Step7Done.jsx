@@ -806,7 +806,16 @@ function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent }) {
 
     let msg = customMessage;
     if (!msg) {
-      if (selectedTemplate === 'sla_payment') {
+      const activeTmpl = (data?.templates || []).find(t => t.id === selectedTemplate);
+      if (activeTmpl?.template_body) {
+        msg = activeTmpl.template_body
+          .replace(/\{name\}/g, clientName)
+          .replace(/\{id\}/g, assessment?.id || '')
+          .replace(/\{country\}/g, country)
+          .replace(/\{score\}/g, String(score))
+          .replace(/\{report_url\}/g, reportUrl)
+          .replace(/\{payment_link\}/g, paymentUrl);
+      } else if (selectedTemplate === 'sla_payment') {
         msg = `Dear ${clientName},\n\n`
           + `Thank you for completing your migration profile assessment with LEAMSS.\n\n`
           + `📋 *Assessment ID:* ${assessment?.id}\n`

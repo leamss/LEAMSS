@@ -60,6 +60,7 @@ export default function EmailSettingsDialog({ headers, onClose }) {
         'indicative_note', 'closing', 'contact_phone', 'contact_email', 'website',
         'attach_report', 'attach_sla', 'sla_filename', 'attach_resume',
         'whatsapp_phone_number_id', 'whatsapp_access_token', 'whatsapp_waba_id', 'whatsapp_sender_display',
+        'whatsapp_template_report', 'whatsapp_template_sla', 'whatsapp_template_consultation',
       ];
       const updates = {};
       editable.forEach((k) => { if (st[k] !== undefined) updates[k] = st[k]; });
@@ -309,33 +310,113 @@ export default function EmailSettingsDialog({ headers, onClose }) {
                 </label>
               </TabsContent>
 
-              {/* WHATSAPP CLOUD API */}
-              <TabsContent value="whatsapp" className="space-y-3 mt-0">
+              {/* WHATSAPP TEMPLATES & CLOUD API */}
+              <TabsContent value="whatsapp" className="space-y-4 mt-0">
                 <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-xs text-emerald-900 space-y-1">
-                  <p className="font-bold flex items-center gap-1.5"><MessageSquare className="h-4 w-4 text-emerald-600" />Meta WhatsApp Cloud API (Automated Dispatches)</p>
+                  <p className="font-bold flex items-center gap-1.5"><MessageSquare className="h-4 w-4 text-emerald-600" />WhatsApp Message Templates &amp; Automation</p>
                   <p className="text-[11px] text-emerald-700">
-                    Configure your official Meta WhatsApp Business API keys to allow 1-click automated report deliveries. If left blank, the system automatically uses <strong>1-Click WhatsApp Web / App</strong> deep-linking.
+                    Customize your WhatsApp message templates below. Dynamic variables like <code className="bg-emerald-100 text-emerald-900 px-1 rounded font-mono">{"{name}"}</code>, <code className="bg-emerald-100 text-emerald-900 px-1 rounded font-mono">{"{country}"}</code>, <code className="bg-emerald-100 text-emerald-900 px-1 rounded font-mono">{"{score}"}</code>, and <code className="bg-emerald-100 text-emerald-900 px-1 rounded font-mono">{"{report_url}"}</code> will be auto-replaced for each client.
                   </p>
                 </div>
 
-                <Field label="Phone Number ID (Meta Graph API)" hint="From Meta Developer App -> WhatsApp -> API Setup">
-                  <Input placeholder="e.g. 105829472948271" value={st.whatsapp_phone_number_id || ''} onChange={(e) => up('whatsapp_phone_number_id', e.target.value)} className="text-xs font-mono" data-testid="es-whatsapp-phone-id" />
-                </Field>
-
-                <Field label="WhatsApp System User Permanent Access Token" hint="Meta Business Manager -> System Users -> WhatsApp Message Send Token">
-                  <Input type="password" placeholder="EAAG..." value={st.whatsapp_access_token || ''} onChange={(e) => up('whatsapp_access_token', e.target.value)} className="text-xs font-mono" data-testid="es-whatsapp-token" />
-                </Field>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <Field label="WhatsApp Business Account ID (WABA ID)">
-                    <Input placeholder="e.g. 109283746501928" value={st.whatsapp_waba_id || ''} onChange={(e) => up('whatsapp_waba_id', e.target.value)} className="text-xs font-mono" data-testid="es-whatsapp-waba-id" />
-                  </Field>
-                  <Field label="Official Sender Display Name / Number">
-                    <Input placeholder="+91 77383 52427 (LEAMSS Official)" value={st.whatsapp_sender_display || ''} onChange={(e) => up('whatsapp_sender_display', e.target.value)} className="text-xs" data-testid="es-whatsapp-sender" />
-                  </Field>
+                {/* TEMPLATE 1: Full Assessment Outcome */}
+                <div className="border rounded-lg p-3 bg-white space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                      📋 1. Full Assessment Outcome &amp; Report Template
+                    </Label>
+                    <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded font-medium border border-emerald-200">Default Template</span>
+                  </div>
+                  <Textarea
+                    value={st.whatsapp_template_report ?? (
+                      "Hello {name},\n\n"
+                      + "🎉 Congratulations! Your migration profile assessment from LEAMSS has been completed.\n\n"
+                      + "📋 *Client:* {name}\n"
+                      + "🆔 *Assessment ID:* {id}\n"
+                      + "🏆 *Best Country:* {country} (Score: {score} pts)\n\n"
+                      + "📎 *Access Your Branded 23-Page Assessment Report (Read-only):*\n{report_url}\n\n"
+                      + "Our migration strategy team is available to assist with your next steps.\n"
+                      + "LEAMSS — Toll-Free: 1800-210-2427 · hello@leamss.com"
+                    )}
+                    onChange={(e) => up('whatsapp_template_report', e.target.value)}
+                    rows={7}
+                    className="text-xs font-mono"
+                    data-testid="es-whatsapp-template-report"
+                  />
+                  <p className="text-[10px] text-slate-400">Placeholders: <code>{"{name}"}</code>, <code>{"{id}"}</code>, <code>{"{country}"}</code>, <code>{"{score}"}</code>, <code>{"{report_url}"}</code>, <code>{"{payment_link}"}</code></p>
                 </div>
 
-                <div className="rounded-lg border bg-slate-50 p-3 space-y-2 mt-2">
+                {/* TEMPLATE 2: SLA & Payment */}
+                <div className="border rounded-lg p-3 bg-white space-y-2">
+                  <Label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    💳 2. SLA &amp; Payment Instructions Template
+                  </Label>
+                  <Textarea
+                    value={st.whatsapp_template_sla ?? (
+                      "Dear {name},\n\n"
+                      + "Thank you for completing your migration profile assessment with LEAMSS.\n\n"
+                      + "📋 *Assessment ID:* {id}\n"
+                      + "🏆 *Outcome:* Positive ({country} · {score} pts)\n\n"
+                      + "🔗 *View Full Report:* {report_url}\n"
+                      + "💳 *Secure Payment Link:* {payment_link}\n\n"
+                      + "Please reply once payment is initiated to activate your dedicated Case Manager.\n"
+                      + "LEAMSS — Toll-Free: 1800-210-2427 · hello@leamss.com"
+                    )}
+                    onChange={(e) => up('whatsapp_template_sla', e.target.value)}
+                    rows={6}
+                    className="text-xs font-mono"
+                    data-testid="es-whatsapp-template-sla"
+                  />
+                  <p className="text-[10px] text-slate-400">Placeholders: <code>{"{name}"}</code>, <code>{"{id}"}</code>, <code>{"{country}"}</code>, <code>{"{score}"}</code>, <code>{"{report_url}"}</code>, <code>{"{payment_link}"}</code></p>
+                </div>
+
+                {/* TEMPLATE 3: Consultation Booking */}
+                <div className="border rounded-lg p-3 bg-white space-y-2">
+                  <Label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    📞 3. Consultation Follow-up &amp; Booking Template
+                  </Label>
+                  <Textarea
+                    value={st.whatsapp_template_consultation ?? (
+                      "Hi {name}! 🌟\n\n"
+                      + "Our migration experts have completed your evaluation for {country} with a score of {score} points.\n\n"
+                      + "📎 *Review your report here:* {report_url}\n\n"
+                      + "Would you like to schedule a quick 15-minute call with our senior migration advisor to discuss your visa pathway? Reply to this message directly.\n"
+                      + "LEAMSS — www.leamss.com"
+                    )}
+                    onChange={(e) => up('whatsapp_template_consultation', e.target.value)}
+                    rows={5}
+                    className="text-xs font-mono"
+                    data-testid="es-whatsapp-template-consultation"
+                  />
+                  <p className="text-[10px] text-slate-400">Placeholders: <code>{"{name}"}</code>, <code>{"{id}"}</code>, <code>{"{country}"}</code>, <code>{"{score}"}</code>, <code>{"{report_url}"}</code></p>
+                </div>
+
+                {/* META API CONFIGURATION */}
+                <div className="border rounded-lg p-3 bg-slate-50 space-y-3">
+                  <p className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    ⚙️ Meta WhatsApp Cloud API Credentials
+                  </p>
+
+                  <Field label="Phone Number ID (Meta Graph API)" hint="From Meta Developer App -> WhatsApp -> API Setup">
+                    <Input placeholder="e.g. 1333562563181243" value={st.whatsapp_phone_number_id || ''} onChange={(e) => up('whatsapp_phone_number_id', e.target.value)} className="text-xs font-mono bg-white" data-testid="es-whatsapp-phone-id" />
+                  </Field>
+
+                  <Field label="WhatsApp System User Permanent Access Token" hint="Meta Business Manager -> System Users -> WhatsApp Message Send Token">
+                    <Input type="password" placeholder="EAA..." value={st.whatsapp_access_token || ''} onChange={(e) => up('whatsapp_access_token', e.target.value)} className="text-xs font-mono bg-white" data-testid="es-whatsapp-token" />
+                  </Field>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <Field label="WhatsApp Business Account ID (WABA ID)">
+                      <Input placeholder="e.g. 2844277542613884" value={st.whatsapp_waba_id || ''} onChange={(e) => up('whatsapp_waba_id', e.target.value)} className="text-xs font-mono bg-white" data-testid="es-whatsapp-waba-id" />
+                    </Field>
+                    <Field label="Official Sender Display Name / Number">
+                      <Input placeholder="+91 77188 82427 (LEAMSS Official)" value={st.whatsapp_sender_display || ''} onChange={(e) => up('whatsapp_sender_display', e.target.value)} className="text-xs bg-white" data-testid="es-whatsapp-sender" />
+                    </Field>
+                  </div>
+                </div>
+
+                {/* TEST DISPATCH */}
+                <div className="rounded-lg border bg-slate-50 p-3 space-y-2">
                   <p className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                     <Send className="h-3.5 w-3.5 text-emerald-600" />Test WhatsApp Message Dispatch
                   </p>
@@ -344,7 +425,7 @@ export default function EmailSettingsDialog({ headers, onClose }) {
                       placeholder="+91 98765 43210"
                       value={testWhatsAppTo}
                       onChange={(e) => setTestWhatsAppTo(e.target.value)}
-                      className="text-xs font-mono h-8 flex-1"
+                      className="text-xs font-mono h-8 flex-1 bg-white"
                       data-testid="es-test-whatsapp-phone"
                     />
                     <Button
