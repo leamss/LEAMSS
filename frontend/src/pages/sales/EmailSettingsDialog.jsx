@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -11,7 +12,7 @@ import {
 } from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
-  Loader2, Upload, Trash2, Plus, XCircle, Mail, Gift, CreditCard, Paperclip, MessageSquare, Send,
+  Loader2, Upload, Trash2, Plus, XCircle, Mail, Gift, CreditCard, Paperclip, MessageSquare, Send, Settings,
 } from 'lucide-react';
 import { API } from './lib/constants';
 
@@ -24,6 +25,7 @@ const Field = ({ label, children, hint }) => (
 );
 
 export default function EmailSettingsDialog({ headers, onClose }) {
+  const navigate = useNavigate();
   const [st, setSt] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -312,11 +314,23 @@ export default function EmailSettingsDialog({ headers, onClose }) {
 
               {/* WHATSAPP TEMPLATES & CLOUD API */}
               <TabsContent value="whatsapp" className="space-y-4 mt-0">
-                <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-xs text-emerald-900 space-y-1">
-                  <p className="font-bold flex items-center gap-1.5"><MessageSquare className="h-4 w-4 text-emerald-600" />WhatsApp Message Templates &amp; Automation</p>
-                  <p className="text-[11px] text-emerald-700">
-                    Customize your WhatsApp message templates below. Dynamic variables like <code className="bg-emerald-100 text-emerald-900 px-1 rounded font-mono">{"{name}"}</code>, <code className="bg-emerald-100 text-emerald-900 px-1 rounded font-mono">{"{country}"}</code>, <code className="bg-emerald-100 text-emerald-900 px-1 rounded font-mono">{"{score}"}</code>, and <code className="bg-emerald-100 text-emerald-900 px-1 rounded font-mono">{"{report_url}"}</code> will be auto-replaced for each client.
-                  </p>
+                <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-xs text-emerald-900 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5">
+                  <div className="space-y-1">
+                    <p className="font-bold flex items-center gap-1.5"><MessageSquare className="h-4 w-4 text-emerald-600" />WhatsApp Message Templates &amp; Automation</p>
+                    <p className="text-[11px] text-emerald-700">
+                      Customize your WhatsApp message templates below. Dynamic variables like <code className="bg-emerald-100 text-emerald-900 px-1 rounded font-mono">{"{name}"}</code>, <code className="bg-emerald-100 text-emerald-900 px-1 rounded font-mono">{"{country}"}</code>, <code className="bg-emerald-100 text-emerald-900 px-1 rounded font-mono">{"{score}"}</code>, and <code className="bg-emerald-100 text-emerald-900 px-1 rounded font-mono">{"{report_url}"}</code> will be auto-replaced for each client.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="shrink-0 bg-white border-emerald-300 text-emerald-800 hover:bg-emerald-100 text-xs font-semibold"
+                    onClick={() => { onClose(); navigate('/sales/whatsapp-templates'); }}
+                  >
+                    <Settings className="h-3.5 w-3.5 mr-1 text-emerald-600" />
+                    Templates Manager ↗
+                  </Button>
                 </div>
 
                 {/* TEMPLATE 1: Full Assessment Outcome */}

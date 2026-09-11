@@ -25,12 +25,13 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 import {
   ArrowLeft, Search, FileText, Sparkles, Trash2, Briefcase, Share2,
   CheckCircle2, Loader2, AlertTriangle, ExternalLink, RefreshCw, Play, Users,
-  Settings,
+  Settings, Mail, MessageSquare,
 } from 'lucide-react';
 
 import { formatApiError } from '@/lib/apiErrors';
 import { API } from './lib/constants';
 import EmailSettingsDialog from './EmailSettingsDialog';
+import { IndividualEmailDialog, IndividualWhatsAppDialog } from './steps/Step7Done';
 
 
 export default function MyAssessments() {
@@ -53,6 +54,8 @@ export default function MyAssessments() {
   const [paPickerFor, setPaPickerFor] = useState(null);
   const [selectedPartner, setSelectedPartner] = useState('');
   const [showEmailSettings, setShowEmailSettings] = useState(false);
+  const [emailAssessment, setEmailAssessment] = useState(null);
+  const [whatsappAssessment, setWhatsappAssessment] = useState(null);
 
   // Debounce search
   useEffect(() => {
@@ -173,11 +176,21 @@ export default function MyAssessments() {
               size="sm"
               variant="outline"
               onClick={() => setShowEmailSettings(true)}
-              className="border-emerald-300 text-emerald-700 hover:bg-emerald-50 font-medium"
-              data-testid="email-whatsapp-settings-btn"
+              className="border-indigo-300 text-indigo-700 hover:bg-indigo-50 font-medium"
+              data-testid="email-settings-btn"
             >
-              <Settings className="h-4 w-4 mr-1 text-emerald-600" />
-              Email &amp; WhatsApp Settings
+              <Mail className="h-4 w-4 mr-1 text-indigo-600" />
+              Email Settings
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => navigate('/sales/whatsapp-templates')}
+              className="border-emerald-300 text-emerald-700 hover:bg-emerald-50 font-medium"
+              data-testid="whatsapp-templates-btn"
+            >
+              <MessageSquare className="h-4 w-4 mr-1 text-emerald-600" />
+              WhatsApp Templates
             </Button>
             <Button size="sm" variant="outline" onClick={() => navigate('/sales/bulk-assessment')} className="border-teal-300 text-teal-700 hover:bg-teal-50" data-testid="bulk-assessment-btn">
               <Users className="h-4 w-4 mr-1" />Bulk Pre-Assessment
@@ -242,6 +255,8 @@ export default function MyAssessments() {
               onDelete={onDelete}
               onCreatePA={onCreatePA}
               onContinue={onContinue}
+              onEmail={(itm) => setEmailAssessment(itm)}
+              onWhatsApp={(itm) => setWhatsappAssessment(itm)}
             />)}
           </div>
         )}
@@ -260,11 +275,31 @@ export default function MyAssessments() {
           />
         )}
 
-        {/* Email & WhatsApp Settings Modal */}
+        {/* Email Settings Modal */}
         {showEmailSettings && (
           <EmailSettingsDialog
             headers={headers}
             onClose={() => setShowEmailSettings(false)}
+          />
+        )}
+
+        {/* Individual Assessment Email Modal */}
+        {emailAssessment && (
+          <IndividualEmailDialog
+            assessment={emailAssessment}
+            headers={headers}
+            onClose={() => setEmailAssessment(null)}
+            onSent={() => { load(); }}
+          />
+        )}
+
+        {/* Individual Assessment WhatsApp Modal */}
+        {whatsappAssessment && (
+          <IndividualWhatsAppDialog
+            assessment={whatsappAssessment}
+            headers={headers}
+            onClose={() => setWhatsappAssessment(null)}
+            onSent={() => { load(); }}
           />
         )}
       </div>
@@ -273,7 +308,7 @@ export default function MyAssessments() {
 }
 
 
-function AssessmentRow({ item, isAdmin, busy, onDelete, onCreatePA, onContinue }) {
+function AssessmentRow({ item, isAdmin, busy, onDelete, onCreatePA, onContinue, onEmail, onWhatsApp }) {
   const navigate = useNavigate();
   const linked = !!item.linked_pa_id;
   const shared = !!(item.share_active && item.share_token);
@@ -324,11 +359,11 @@ function AssessmentRow({ item, isAdmin, busy, onDelete, onCreatePA, onContinue }
         </div>
 
         {/* Actions */}
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-wrap items-center gap-1.5 justify-end">
           <Button
             variant="outline"
             size="sm"
-            className="h-7 text-[10px] border-indigo-300 text-indigo-700 hover:bg-indigo-50"
+            className="h-7 text-[10px] border-indigo-300 text-indigo-700 hover:bg-indigo-50 font-medium"
             disabled={busy}
             onClick={() => onContinue(item.id)}
             data-testid={`continue-${item.id}`}
@@ -336,15 +371,41 @@ function AssessmentRow({ item, isAdmin, busy, onDelete, onCreatePA, onContinue }
             {busy ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Play className="h-3 w-3 mr-1" />}
             Continue
           </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-[10px] border-indigo-200 text-indigo-700 hover:bg-indigo-50 font-medium"
+            disabled={busy}
+            onClick={() => onEmail(item)}
+            data-testid={`email-${item.id}`}
+          >
+            <Mail className="h-3 w-3 mr-1 text-indigo-600" />
+            Email
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-[10px] border-emerald-300 text-emerald-700 hover:bg-emerald-50 font-medium"
+            disabled={busy}
+            onClick={() => onWhatsApp(item)}
+            data-testid={`whatsapp-${item.id}`}
+          >
+            <MessageSquare className="h-3 w-3 mr-1 text-emerald-600" />
+            WhatsApp
+          </Button>
+
           {shared && (
             <Button variant="outline" size="sm" className="h-7 text-[10px]" onClick={() => window.open(`/sales/report/${item.share_token}`, '_blank')} data-testid={`view-shared-${item.id}`}>
               <ExternalLink className="h-3 w-3 mr-1" />Public link
             </Button>
           )}
+
           {!linked && (
             <Button
               size="sm"
-              className="h-7 text-[10px] bg-indigo-600 hover:bg-indigo-700"
+              className="h-7 text-[10px] bg-indigo-600 hover:bg-indigo-700 font-medium"
               disabled={busy}
               onClick={() => onCreatePA(item.id)}
               data-testid={`create-pa-${item.id}`}
@@ -353,9 +414,11 @@ function AssessmentRow({ item, isAdmin, busy, onDelete, onCreatePA, onContinue }
               Create PA
             </Button>
           )}
+
           {linked && (
             <Badge className="bg-emerald-50 text-emerald-700 text-[9px] justify-center">PA: {item.linked_pa_id?.slice(0, 8)}…</Badge>
           )}
+
           <Button
             variant="outline"
             size="sm"

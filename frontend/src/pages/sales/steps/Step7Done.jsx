@@ -653,7 +653,7 @@ function ReportActions({ saved }) {
 // ════════════════════════════════════════════════════════════════
 // Individual Assessment Email Dialog (Matches Bulk Pre-Assessment)
 // ════════════════════════════════════════════════════════════════
-function IndividualEmailDialog({ assessment, headers, onClose, onSent }) {
+export function IndividualEmailDialog({ assessment, headers, onClose, onSent }) {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
   const [recipientEmail, setRecipientEmail] = useState(assessment?.client_email || '');
@@ -790,7 +790,7 @@ function IndividualEmailDialog({ assessment, headers, onClose, onSent }) {
 // ════════════════════════════════════════════════════════════════
 // Individual Assessment WhatsApp Dialog (Meta Cloud API + 1-Click)
 // ════════════════════════════════════════════════════════════════
-function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent, onOpenSettings }) {
+export function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent, onOpenSettings }) {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
