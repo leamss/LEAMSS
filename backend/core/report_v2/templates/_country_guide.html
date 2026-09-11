@@ -2,7 +2,7 @@
 {% for g in (snap.country_guides or []) %}
 
 {# ─── PAGE 1: Overview, PR Pathways, Eligibility Snapshot ─── #}
-<div class="page" style="page-break-before:always;">
+<div class="page">
 
   <div class="section-header">
     <span class="eyebrow">Section 07{% if loop.index > 1 %}.{{ loop.index }}{% endif %} · Country Guide</span>
@@ -49,7 +49,7 @@
 {% endfor %}
 
 {% if page2_sections %}
-<div class="page" style="page-break-before:always;">
+<div class="page">
 
   {% for s in page2_sections %}
     {% set body = (s.body_markdown or '')|trim %}
@@ -81,7 +81,7 @@
 
 {# ─── PAGE 3: Frequently Asked Questions ─── #}
 {% if g.faq %}
-<div class="page" style="page-break-before:always;">
+<div class="page">
 
   <h2 style="margin-top:0;margin-bottom:14pt;color:var(--teal-800);font-size:14pt;">Frequently Asked Questions</h2>
   {% for f in g.faq %}
