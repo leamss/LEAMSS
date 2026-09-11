@@ -8,9 +8,11 @@ import { Button } from '@/components/ui/button';
 import {
   ArrowRight, FileText, Loader2, MessageSquare, Search, Send, Trophy, UserCheck,
   FileBadge, Link2, Mail, Copy, Lock, CheckCircle2, Circle, Clock, Paperclip, Download,
+  Settings,
 } from 'lucide-react';
 import { formatApiError } from '@/lib/apiErrors';
 import { API } from '../lib/constants';
+import EmailSettingsDialog from '../EmailSettingsDialog';
 
 const ADMIN_ROLES = new Set(['admin', 'admin_owner', 'case_manager']);
 
@@ -190,6 +192,16 @@ export default function Step7Done({ saved, createPA, navigate, headers, creating
         >
           <MessageSquare className="h-4 w-4 mr-1 text-emerald-600" />
           {whatsappSent ? 'WhatsApp Sent ✓' : 'Send on WhatsApp'}
+        </Button>
+        <Button
+          size="default"
+          variant="outline"
+          onClick={() => setSettingsDialogOpen(true)}
+          data-testid="template-settings-btn"
+          className="border-slate-300 text-slate-700 hover:bg-slate-50 font-medium"
+        >
+          <Settings className="h-4 w-4 mr-1 text-slate-600" />
+          Template Settings
         </Button>
         <Button size="default" variant="outline" onClick={() => setShareDialogOpen(true)} data-testid="save-share-btn" className="border-emerald-300 text-emerald-700 hover:bg-emerald-50">
           <Send className="h-4 w-4 mr-1" />Save &amp; Share
@@ -471,6 +483,18 @@ export default function Step7Done({ saved, createPA, navigate, headers, creating
           headers={headers}
           onClose={() => setWhatsappDialogOpen(false)}
           onSent={() => setWhatsappSent(true)}
+          onOpenSettings={() => {
+            setWhatsappDialogOpen(false);
+            setSettingsDialogOpen(true);
+          }}
+        />
+      )}
+
+      {/* Template & API Settings Modal */}
+      {settingsDialogOpen && (
+        <EmailSettingsDialog
+          headers={headers}
+          onClose={() => setSettingsDialogOpen(false)}
         />
       )}
     </div>
@@ -766,7 +790,7 @@ function IndividualEmailDialog({ assessment, headers, onClose, onSent }) {
 // ════════════════════════════════════════════════════════════════
 // Individual Assessment WhatsApp Dialog (Meta Cloud API + 1-Click)
 // ════════════════════════════════════════════════════════════════
-function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent }) {
+function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent, onOpenSettings }) {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
   const [recipientPhone, setRecipientPhone] = useState(assessment?.client_phone || '');
@@ -891,6 +915,19 @@ function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent }) {
               <p className="text-xs text-slate-500">Auto-share assessment outcome, 23-page PDF link &amp; payment instructions</p>
             </div>
           </div>
+          {onOpenSettings && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs text-emerald-700 border-emerald-300 hover:bg-emerald-50 flex items-center gap-1 font-medium"
+              onClick={onOpenSettings}
+              data-testid="whatsapp-dialog-edit-templates-btn"
+            >
+              <Settings className="h-3.5 w-3.5 text-emerald-600" />
+              Edit Templates
+            </Button>
+          )}
         </div>
 
         {loading ? (
