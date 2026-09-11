@@ -25,11 +25,12 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 import {
   ArrowLeft, Search, FileText, Sparkles, Trash2, Briefcase, Share2,
   CheckCircle2, Loader2, AlertTriangle, ExternalLink, RefreshCw, Play, Users,
+  Settings,
 } from 'lucide-react';
 
 import { formatApiError } from '@/lib/apiErrors';
-
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+import { API } from './lib/constants';
+import EmailSettingsDialog from './EmailSettingsDialog';
 
 
 export default function MyAssessments() {
@@ -51,6 +52,7 @@ export default function MyAssessments() {
   const [partners, setPartners] = useState([]);
   const [paPickerFor, setPaPickerFor] = useState(null);
   const [selectedPartner, setSelectedPartner] = useState('');
+  const [showEmailSettings, setShowEmailSettings] = useState(false);
 
   // Debounce search
   useEffect(() => {
@@ -163,9 +165,19 @@ export default function MyAssessments() {
               </p>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button variant="outline" size="sm" onClick={load} data-testid="refresh-btn">
               <RefreshCw className="h-4 w-4 mr-1" />Refresh
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setShowEmailSettings(true)}
+              className="border-emerald-300 text-emerald-700 hover:bg-emerald-50 font-medium"
+              data-testid="email-whatsapp-settings-btn"
+            >
+              <Settings className="h-4 w-4 mr-1 text-emerald-600" />
+              Email &amp; WhatsApp Settings
             </Button>
             <Button size="sm" variant="outline" onClick={() => navigate('/sales/bulk-assessment')} className="border-teal-300 text-teal-700 hover:bg-teal-50" data-testid="bulk-assessment-btn">
               <Users className="h-4 w-4 mr-1" />Bulk Pre-Assessment
@@ -245,6 +257,14 @@ export default function MyAssessments() {
               if (!selectedPartner) { toast.error('Pick a partner first'); return; }
               doCreatePA(paPickerFor, selectedPartner);
             }}
+          />
+        )}
+
+        {/* Email & WhatsApp Settings Modal */}
+        {showEmailSettings && (
+          <EmailSettingsDialog
+            headers={headers}
+            onClose={() => setShowEmailSettings(false)}
           />
         )}
       </div>
