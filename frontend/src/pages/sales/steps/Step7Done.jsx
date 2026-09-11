@@ -824,6 +824,14 @@ function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent }) {
         attach_report: true,
       }, { headers: authHeaders, timeout: 60000 });
 
+      if (r.data?.ok === false || r.data?.error) {
+        toast.error(r.data.error || 'WhatsApp message could not be sent', {
+          description: 'Click "Open WhatsApp Web / App" to send directly to this recipient.',
+          duration: 9000,
+        });
+        return;
+      }
+
       if (r.data.is_simulated) {
         toast.warning(`Simulated WhatsApp dispatch to ${r.data.sent_to}`, {
           description: 'Meta WhatsApp Cloud API keys are not configured on server. Use "Open WhatsApp Web" below to send instantly to the client!',
@@ -837,7 +845,10 @@ function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent }) {
     } catch (e) {
       console.error('Send WhatsApp error:', e, e.response?.data);
       const detail = e?.response?.data?.detail || e?.response?.data?.message || (typeof e?.response?.data === 'string' ? e.response.data : null) || e?.message || 'Failed to send on WhatsApp';
-      toast.error(typeof detail === 'string' ? detail : JSON.stringify(detail));
+      toast.error(typeof detail === 'string' ? detail : JSON.stringify(detail), {
+        description: 'Tip: You can use "Open WhatsApp Web / App" below to deliver the report instantly.',
+        duration: 9000,
+      });
     } finally {
       setSending(false);
     }

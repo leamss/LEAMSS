@@ -1393,8 +1393,14 @@ async def send_assessment_whatsapp(
     try:
         res = await send_whatsapp_text(to_phone=clean_phone, text=msg_text)
     except Exception as exc:
-        logger.error("WhatsApp send error for assessment %s: %s", id, exc)
-        raise HTTPException(status_code=400, detail=str(exc))
+        err_str = str(exc)
+        logger.error("WhatsApp send error for assessment %s: %s", id, err_str)
+        return {
+            "ok": False,
+            "error": err_str,
+            "sent_to": clean_phone,
+            "public_url": public_url,
+        }
 
     is_simulated = res.get("status") == "simulated"
 
