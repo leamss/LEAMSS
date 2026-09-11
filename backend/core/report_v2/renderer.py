@@ -85,8 +85,11 @@ def _enrich_snapshot(snap: Dict[str, Any]) -> Dict[str, Any]:
     cc = (best.get("country_code") or "AU").upper()
     client_pts = best.get("total") or snap.get("best_total") or snap.get("points") or 80
 
-    # 1) Ensure Country Guides are present (Pages 14-16)
-    if not snap.get("country_guides"):
+    # 1) Ensure Country Guides are present (Pages 15-17)
+    has_valid_cg = bool(snap.get("country_guides") and any(
+        len(g.get("sections") or []) > 0 for g in snap["country_guides"]
+    ))
+    if not has_valid_cg:
         snap["country_guides"] = [get_curated_country_guide(cc)]
 
     # 2) Extract or fallback primary occupation
@@ -94,11 +97,11 @@ def _enrich_snapshot(snap: Dict[str, Any]) -> Dict[str, Any]:
     if not primary_occ and snap.get("countries"):
         primary_occ = snap["countries"][0].get("occupation")
     if not primary_occ:
-        primary_occ = {"code": "142111", "title": "Retail Managers (General)", "country_code": cc}
+        primary_occ = {"code": "133111", "title": "Construction Project Manager", "country_code": cc}
         snap["occupation"] = primary_occ
 
-    clean_code = str(primary_occ.get("code") or "142111").strip()
-    clean_title = primary_occ.get("title") or "Retail Managers (General)"
+    clean_code = str(primary_occ.get("code") or "133111").strip()
+    clean_title = primary_occ.get("title") or "Construction Project Manager"
 
     # 3) Ensure ANZSCO Profile is present (Page 5)
     if not snap.get("anzsco_profile"):
@@ -107,22 +110,22 @@ def _enrich_snapshot(snap: Dict[str, Any]) -> Dict[str, Any]:
             "title": clean_title,
             "description": f"Live labour-market signals for {clean_code[:4]} · {clean_title}, sourced from ABS & ANZSCO Feb 2026. Use this to anchor every conversation about state demand, salary, and pathway choice.",
             "anzsco_profile": {
-                "median_weekly_earnings_aud": 1620.0,
-                "employed_count": 247500,
+                "median_weekly_earnings_aud": 3751.0,
+                "employed_count": 134300,
                 "median_age": 42,
-                "female_share_pct": 48.0,
+                "female_share_pct": 11.0,
             },
-            "state_distribution": {"NSW": 31.7, "VIC": 24.3, "QLD": 22.3, "WA": 10.9, "SA": 6.6},
-            "industries_ranked": ["Retail Trade", "Accommodation and Food Services"],
+            "state_distribution": {"NSW": 33.3, "VIC": 24.8, "QLD": 22.2, "WA": 10.2, "SA": 5.1},
+            "industries_ranked": ["Construction", "Professional, Scientific and Technical Services"],
             "tasks": [
-                "Determining product mix, stock levels and service standards",
-                "Formulating and implementing purchasing and marketing policies, and setting prices",
-                "Promoting and advertising the establishment's goods and services",
-                "Selling goods and services to customers and advising them on product use",
-                "Maintaining records of stock levels and financial transactions",
-                "Undertaking budgeting for the establishment",
-                "Controlling selection, training and supervision of staff",
-                "Ensuring compliance with occupational health and safety regulations"
+                "Interpreting architectural drawings and specifications",
+                "Coordinating labour resources, and procurement and delivery of materials, plant and equipment",
+                "Consulting with architects, engineering professionals and other professionals, and technical and trades workers",
+                "Negotiating with building owners, property developers and subcontractors involved in the construction process to ensure projects are completed on time and within budget",
+                "Preparing tenders and contract bids",
+                "Operating and implementing coordinated work programs for sites",
+                "Ensuring adherence to building legislation and standards of performance, quality, cost and safety",
+                "Arranging submission of plans to local authorities"
             ],
         }
 
@@ -142,8 +145,8 @@ def _enrich_snapshot(snap: Dict[str, Any]) -> Dict[str, Any]:
 
     # 5) Ensure Occupation Pathways Comparison is present (Page 7)
     if not snap.get("occupation_comparison") or len((snap["occupation_comparison"].get("occupations") or [])) < 2:
-        alt_code = "224999" if clean_code == "142111" else ("261312" if clean_code.startswith("2613") else "224999")
-        alt_title = "Information and Organisation Professionals (not covered elsewhere)" if alt_code == "224999" else "Developer Programmer"
+        alt_code = "133211" if clean_code == "133111" else ("261312" if clean_code.startswith("2613") else "224999")
+        alt_title = "Engineering Manager" if alt_code == "133211" else ("Developer Programmer" if alt_code == "261312" else "Information and Organisation Professionals (not covered elsewhere)")
         snap["occupation_comparison"] = {
             "occupations": [
                 {
@@ -151,9 +154,9 @@ def _enrich_snapshot(snap: Dict[str, Any]) -> Dict[str, Any]:
                     "country_code": cc,
                     "code": clean_code,
                     "title": clean_title,
-                    "assessing_authority_name": "Vocational Education and Training Assessment Services",
+                    "assessing_authority_name": "VETASSESS",
                     "skill_assessment_fee": {"amount": 1225, "currency": "AUD", "inr": 70000},
-                    "visa_subclasses": ["186", "482", "494"],
+                    "visa_subclasses": ["186", "189", "190", "407", "482", "485", "489", "491", "494"],
                     "min_invitation_points": 90,
                     "skillselect_tier": "Tier 2",
                     "points": client_pts,
@@ -165,9 +168,9 @@ def _enrich_snapshot(snap: Dict[str, Any]) -> Dict[str, Any]:
                     "country_code": cc,
                     "code": alt_code,
                     "title": alt_title,
-                    "assessing_authority_name": "Vocational Education and Training Assessment Services",
-                    "skill_assessment_fee": {"amount": 1225, "currency": "AUD", "inr": 70000},
-                    "visa_subclasses": ["186", "190", "407", "482", "489", "491", "494"],
+                    "assessing_authority_name": "EA",
+                    "skill_assessment_fee": {"amount": 1150, "currency": "AUD", "inr": 80000},
+                    "visa_subclasses": ["186", "189", "190", "407", "482", "485", "489", "491", "494"],
                     "min_invitation_points": 90,
                     "skillselect_tier": "Tier 2",
                     "points": client_pts,
@@ -183,12 +186,13 @@ def _enrich_snapshot(snap: Dict[str, Any]) -> Dict[str, Any]:
     target_eoi_code = alt_occ.get("code") if alt_occ else clean_code
     target_eoi_title = alt_occ.get("title") if alt_occ else clean_title
 
-    if not snap.get("eoi_backlog") or not (snap["eoi_backlog"].get("unified") or {}).get("rows"):
+    has_valid_eoi = bool(snap.get("eoi_backlog") and (snap["eoi_backlog"].get("unified") or {}).get("rows"))
+    if not has_valid_eoi:
         snap["eoi_backlog"] = _build_indicative_eoi(target_eoi_code, target_eoi_title, client_pts)
 
-    if not snap.get("eoi_backlog_alts") or len(snap["eoi_backlog_alts"]) == 0:
-        if alt_occ:
-            snap["eoi_backlog_alts"] = [_build_indicative_eoi(target_eoi_code, target_eoi_title, client_pts)]
+    has_valid_alts = bool(snap.get("eoi_backlog_alts") and len(snap["eoi_backlog_alts"]) > 0 and (snap["eoi_backlog_alts"][0].get("unified") or {}).get("rows"))
+    if not has_valid_alts:
+        snap["eoi_backlog_alts"] = [_build_indicative_eoi(target_eoi_code, target_eoi_title, client_pts)]
 
     # 7) Ensure Eligibility Verdict is present (Page 3)
     if not snap.get("eligibility_verdict"):

@@ -48,14 +48,12 @@
 
   {# ─── EOI Backlog (SkillSelect pool competition) — primary or alternate ── #}
   {% if snap.eoi_backlog_alts and snap.eoi_backlog_alts|length > 0 %}
-    {% for alt_eoi in (snap.eoi_backlog_alts or [])[:1] %}
-      {% if alt_eoi.unified and alt_eoi.unified.rows %}
-        {% set eoi_ctx = alt_eoi %}
-        {% set eoi_is_alt = true %}
-        {% include "_eoi_backlog.html" %}
-      {% endif %}
-    {% endfor %}
-  {% elif snap.eoi_backlog and snap.eoi_backlog.unified and snap.eoi_backlog.unified.rows %}
+    {% set eoi_ctx = snap.eoi_backlog_alts[0] %}
+    {% set eoi_is_alt = true %}
+    {% include "_eoi_backlog.html" %}
+  {% elif snap.eoi_backlog %}
+    {% set eoi_ctx = snap.eoi_backlog %}
+    {% set eoi_is_alt = false %}
     {% include "_eoi_backlog.html" %}
   {% endif %}
 
@@ -78,7 +76,7 @@
   {% endif %}
 
   {# ─── Country Guide ─────────────────────────────────────────────── #}
-  {% if snap.country_guides %}
+  {% if snap.country_guides and snap.country_guides|length > 0 %}
     {% include "_country_guide.html" %}
   {% endif %}
 
