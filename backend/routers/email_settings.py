@@ -116,10 +116,10 @@ DEFAULTS: Dict[str, Any] = {
     "qr_file_id": None,
     "offer_banner_file_id": None,
     # WhatsApp Cloud API Settings & Editable Message Templates
-    "whatsapp_phone_number_id": "",
-    "whatsapp_access_token": "",
-    "whatsapp_waba_id": "",
-    "whatsapp_sender_display": "+91 77383 52427 (LEAMSS Official)",
+    "whatsapp_phone_number_id": "552459977946600",
+    "whatsapp_access_token": "EAAW0FmF4ZAp8BSdhIfgwvsBuDjL3tKQVd2mWAaLbvsD1kHZBjIBEZB9TEzltKv5OFPEQEFZAVwx3phvGB2AsfSMXi28ZBUZAusQa7gdkzV88AYQDI3pZAPhkVXvhJUUax7JVCcQD0d8qnbu8YZBOGHrQofKJgXt7LZB3ZCtRXrZCUXCosfdhFmeLuVZCRMZATgiOSKcA6swZDZD",
+    "whatsapp_waba_id": "28283386151278316",
+    "whatsapp_sender_display": "+91 96199 92427 (LEAMSS Official)",
     "whatsapp_template_report": (
         "Hello {name},\n\n"
         "🎉 Congratulations! Your migration profile assessment from LEAMSS has been completed.\n\n"

@@ -957,7 +957,7 @@ export function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent,
         attach_resume: attachResume,
         attach_sla: attachSla,
         attach_qr: attachQr,
-      }, { headers: authHeaders, timeout: 60000 });
+      }, { headers: authHeaders, timeout: 120000 });
 
       if (r.data?.ok) {
         const attCount = (r.data?.attachments_sent || []).length;
@@ -969,8 +969,8 @@ export function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent,
       }
     } catch (e) {
       console.error('Send WhatsApp dispatch:', e);
-      const errMsg = e.response?.data?.detail || e.message || 'WhatsApp sending failed.';
-      toast.error(`WhatsApp Error: ${errMsg}`);
+      const errMsg = e.response?.data?.detail || e.response?.data?.error || formatApiError(e, 'WhatsApp Error');
+      toast.error(errMsg);
     } finally {
       setSending(false);
     }
