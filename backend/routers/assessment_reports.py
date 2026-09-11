@@ -175,6 +175,9 @@ async def _build_occupation_comparison(
             elif isinstance(ao, str) and ao.strip():
                 c_str = ao.strip()
                 if c_str not in seen_codes:
+                    seen_codes.add(c_str)
+                    occ_list.append({"code": c_str, "is_primary": False})
+
     if len(occ_list) < 2 and primary and primary.get("code"):
         pcode = str(primary.get("code")).strip()
         pcc = (primary.get("country_code") or "AU").upper()
