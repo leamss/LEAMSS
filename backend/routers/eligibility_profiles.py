@@ -819,6 +819,28 @@ async def resume_extract(
     parsed["resume_file_id"] = str(file_id)
     parsed["resume_filename"] = file.filename
 
+    # Guaranteed email and phone extraction fallbacks from resume text
+    import re
+    if not parsed.get("email"):
+        em_match = re.search(r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+', text)
+        if em_match:
+            parsed["email"] = em_match.group(0).strip()
+
+    if not parsed.get("phone"):
+        ph_match = re.search(r'(?:\+?\d{1,3}[-.\s]?)?\(?\d{2,5}\)?[-.\s]?\d{3,5}[-.\s]?\d{3,5}', text)
+        if ph_match and len(re.sub(r'\D', '', ph_match.group(0))) >= 10:
+            parsed["phone"] = ph_match.group(0).strip()
+
+    # Normalize top level fields for frontend wizard consumption
+    p_applicant = parsed.get("primary_applicant") or {}
+    p_personal = p_applicant.get("personal") or {}
+    if parsed.get("email") and not p_personal.get("email"):
+        p_personal["email"] = parsed["email"]
+    if parsed.get("phone") and not p_personal.get("phone"):
+        p_personal["phone"] = parsed["phone"]
+    if parsed.get("name") and not p_personal.get("full_name"):
+        p_personal["full_name"] = parsed["name"]
+
     # Clean up: ensure schema_version=2 + status=draft for downstream wizard
     parsed.setdefault("schema_version", 2)
     parsed.setdefault("status", "draft")

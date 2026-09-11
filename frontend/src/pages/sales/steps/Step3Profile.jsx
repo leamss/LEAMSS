@@ -284,12 +284,16 @@ export default function Step3Profile({ data, update, setData, headers }) {
             const ed = p.education || {};
             const pf = p.professional || {};
             const lg = (p.language || {}).scores || {};
+            const extName = extracted.name || extracted.client_name || per.full_name || per.name || '';
+            const extEmail = extracted.email || extracted.client_email || per.email || per.contact_email || (extracted.personal || {}).email || '';
+            const extPhone = extracted.phone || extracted.client_phone || per.phone || per.contact_phone || per.mobile || (extracted.personal || {}).phone || '';
+
             // 1) Fetch client details + profile fields from the resume
             setData(d => ({
               ...d,
-              client_name: extracted.name || per.full_name || d.client_name,
-              client_email: extracted.email || d.client_email,
-              client_phone: extracted.phone || d.client_phone,
+              client_name: extName || d.client_name,
+              client_email: extEmail || d.client_email,
+              client_phone: extPhone || d.client_phone,
               age: per.age || d.age,
               qualification: ed.highest_qualification || d.qualification,
               years_experience_total: pf.years_experience_total || d.years_experience_total,

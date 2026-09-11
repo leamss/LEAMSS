@@ -211,9 +211,11 @@ export default function ClientAssessment() {
     try {
       const payload = {
         client_name: data.client_name || 'Unnamed client',
-        client_email: data.client_email,
-        client_phone: data.client_phone,
+        client_email: data.client_email || undefined,
+        client_phone: data.client_phone || undefined,
         profile: buildProfile(data),
+        resume_file_id: data.resume_file_id || undefined,
+        resume_filename: data.resume_filename || undefined,
         occupation: data.occupation_code ? {
           country_code: data.occupation_country,
           code: data.occupation_code,
@@ -246,9 +248,15 @@ export default function ClientAssessment() {
         if (r.data?.id) setEditingId(r.data.id);
         if (advance) toast.success('Assessment saved');
       }
-      setSaved(r.data);
+      const savedDoc = {
+        ...r.data,
+        client_email: r.data?.client_email || data.client_email || '',
+        client_phone: r.data?.client_phone || data.client_phone || '',
+        client_name: r.data?.client_name || data.client_name || '',
+      };
+      setSaved(savedDoc);
       if (advance) setStep(8);
-      return r.data;
+      return savedDoc;
     } catch (e) {
       toast.error(formatApiError(e, 'Save failed'));
       throw e;

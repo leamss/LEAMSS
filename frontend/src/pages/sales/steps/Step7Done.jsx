@@ -656,9 +656,18 @@ function ReportActions({ saved }) {
 // Individual Assessment Email Dialog (Matches Bulk Pre-Assessment)
 // ════════════════════════════════════════════════════════════════
 export function IndividualEmailDialog({ assessment, headers, onClose, onSent }) {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
-  const [recipientEmail, setRecipientEmail] = useState(assessment?.client_email || '');
+  const [recipientEmail, setRecipientEmail] = useState(
+    assessment?.client_email
+    || assessment?.profile_snapshot?.client_email
+    || assessment?.profile_snapshot?.primary_applicant?.personal?.email
+    || assessment?.profile_snapshot?.email
+    || assessment?.profile?.primary_applicant?.personal?.email
+    || assessment?.profile?.email
+    || ''
+  );
   const [selectedMailbox, setSelectedMailbox] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState('');
   const [bccSelf, setBccSelf] = useState(true);
@@ -756,12 +765,32 @@ export function IndividualEmailDialog({ assessment, headers, onClose, onSent }) 
               </select>
             </div>
 
+            <div>
+              <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 block">Email Template</label>
+              <select
+                value={selectedTemplate}
+                onChange={e => setSelectedTemplate(e.target.value)}
+                className="w-full border border-slate-200 rounded px-2.5 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                data-testid="email-template-select"
+              >
+                <option value="">Default Assessment Report Template</option>
+                {(data?.templates || []).map(t => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
+            </div>
+
             <div className="rounded border bg-slate-50/50 p-2.5 space-y-1.5">
               <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 block">Attachments Included</span>
               <div className="flex flex-wrap gap-1.5">
                 <span className="text-[11px] px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center gap-1 font-medium">
                   <FileText className="h-3 w-3" />23-Page PDF Report
                 </span>
+                {data?.has_resume && (
+                  <span className="text-[11px] px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1 font-medium" title={data?.resume_filename || 'Candidate Resume'}>
+                    <Paperclip className="h-3 w-3 text-amber-600" />Resume ({data?.resume_filename || 'PDF'})
+                  </span>
+                )}
                 {data?.attach_sla && (
                   <span className="text-[11px] px-2 py-0.5 rounded bg-teal-50 text-teal-700 border border-teal-200 flex items-center gap-1 font-medium">
                     <Paperclip className="h-3 w-3" />Service Agreement (SLA)
@@ -802,7 +831,17 @@ export function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent,
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
-  const [recipientPhone, setRecipientPhone] = useState(assessment?.client_phone || '');
+  const [recipientPhone, setRecipientPhone] = useState(
+    assessment?.client_phone
+    || assessment?.profile_snapshot?.client_phone
+    || assessment?.profile_snapshot?.primary_applicant?.personal?.phone
+    || assessment?.profile_snapshot?.primary_applicant?.personal?.mobile
+    || assessment?.profile_snapshot?.phone
+    || assessment?.profile?.primary_applicant?.personal?.phone
+    || assessment?.profile?.primary_applicant?.personal?.mobile
+    || assessment?.profile?.phone
+    || ''
+  );
   const [selectedTemplate, setSelectedTemplate] = useState('report_summary');
   const [customMessage, setCustomMessage] = useState('');
   const [attachReport, setAttachReport] = useState(true);

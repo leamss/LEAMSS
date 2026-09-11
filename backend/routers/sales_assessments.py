@@ -93,15 +93,19 @@ async def save_assessment(req: SaveAssessmentRequest, current_user: dict = Depen
     # Pick best target by points (or by recommendation language if scoring metric differs)
     best = max(results, key=lambda r: r.get("total", 0)) if results else None
 
+    c_name = (req.client_name or "").strip() or (req.profile or {}).get("client_name") or (req.profile or {}).get("primary_applicant", {}).get("personal", {}).get("full_name") or (req.profile or {}).get("name") or "Unnamed client"
+    c_email = (req.client_email or "").strip() or (req.profile or {}).get("client_email") or (req.profile or {}).get("primary_applicant", {}).get("personal", {}).get("email") or (req.profile or {}).get("email") or (req.profile or {}).get("primary_applicant", {}).get("personal", {}).get("contact_email") or None
+    c_phone = (req.client_phone or "").strip() or (req.profile or {}).get("client_phone") or (req.profile or {}).get("primary_applicant", {}).get("personal", {}).get("phone") or (req.profile or {}).get("phone") or (req.profile or {}).get("primary_applicant", {}).get("personal", {}).get("mobile") or None
+
     resume_fid = req.resume_file_id or (req.profile or {}).get("resume_file_id") or (req.profile or {}).get("primary_applicant", {}).get("resume_file_id")
     resume_fname = req.resume_filename or (req.profile or {}).get("resume_filename") or (req.profile or {}).get("primary_applicant", {}).get("resume_filename")
     resume_u = req.resume_url or (req.profile or {}).get("resume_url") or (req.profile or {}).get("resume_link")
 
     doc = {
         "id": assessment_id,
-        "client_name": req.client_name,
-        "client_email": req.client_email,
-        "client_phone": req.client_phone,
+        "client_name": c_name,
+        "client_email": c_email,
+        "client_phone": c_phone,
         "profile_snapshot": req.profile,
         "occupation": req.occupation,
         "additional_occupations": req.additional_occupations,
@@ -314,10 +318,14 @@ async def update_assessment(assessment_id: str, req: SaveAssessmentRequest, curr
     new_best_reco = best.get("recommendation") if best else None
 
     now = datetime.now(timezone.utc)
+    c_name = (req.client_name or "").strip() or (req.profile or {}).get("client_name") or (req.profile or {}).get("primary_applicant", {}).get("personal", {}).get("full_name") or (req.profile or {}).get("name") or existing.get("client_name") or "Unnamed client"
+    c_email = (req.client_email or "").strip() or (req.profile or {}).get("client_email") or (req.profile or {}).get("primary_applicant", {}).get("personal", {}).get("email") or (req.profile or {}).get("email") or existing.get("client_email") or None
+    c_phone = (req.client_phone or "").strip() or (req.profile or {}).get("client_phone") or (req.profile or {}).get("primary_applicant", {}).get("personal", {}).get("phone") or (req.profile or {}).get("phone") or existing.get("client_phone") or None
+
     update_doc = {
-        "client_name": req.client_name,
-        "client_email": req.client_email,
-        "client_phone": req.client_phone,
+        "client_name": c_name,
+        "client_email": c_email,
+        "client_phone": c_phone,
         "profile_snapshot": req.profile,
         "occupation": req.occupation,
         "additional_occupations": req.additional_occupations or [],
@@ -973,6 +981,82 @@ async def public_share_view(token: str, request: Request):
 # Individual Assessment Email Send (matches bulk email engine & templates)
 # ────────────────────────────────────────────────────────────────────────────
 
+async def _read_resume_gridfs(resume_fid: Any) -> Optional[bytes]:
+    """Safely fetch file bytes from GridFS across all known bucket collections."""
+    if not resume_fid:
+        return None
+    from bson import ObjectId
+    from motor.motor_asyncio import AsyncIOMotorGridFSBucket
+    try:
+        oid = ObjectId(resume_fid) if isinstance(resume_fid, str) and len(resume_fid) == 24 else resume_fid
+    except Exception:
+        return None
+    for b_name in ["resume_files", "bulk_resumes", "fs"]:
+        try:
+            gridfs = AsyncIOMotorGridFSBucket(db, bucket_name=b_name)
+            grid_out = await gridfs.open_download_stream(oid)
+            data = await grid_out.read()
+            if data:
+                return data
+        except Exception:
+            continue
+    return None
+
+
+async def _resolve_assessment_email(doc: dict) -> str:
+    """Extract candidate email from assessment fields, snapshot, primary_applicant, or resume."""
+    snap = doc.get("profile_snapshot") or {}
+    pri = snap.get("primary_applicant") or {}
+    pri_per = pri.get("personal") or {}
+    prof = doc.get("profile") or {}
+    prof_pri = prof.get("primary_applicant") or {}
+    prof_per = prof_pri.get("personal") or {}
+
+    email = (
+        doc.get("client_email")
+        or doc.get("email")
+        or pri_per.get("email")
+        or pri.get("email")
+        or snap.get("client_email")
+        or snap.get("email")
+        or prof_per.get("email")
+        or prof_pri.get("email")
+        or prof.get("client_email")
+        or prof.get("email")
+        or (doc.get("resume_profile") or {}).get("email")
+        or (doc.get("extracted_profile") or {}).get("email")
+        or (doc.get("resume_data") or {}).get("email")
+    )
+    if email and "@" in str(email):
+        return str(email).strip().lower()
+
+    # Try extracting email from attached resume PDF/file if stored
+    resume_fid = (
+        doc.get("resume_file_id")
+        or snap.get("resume_file_id")
+        or pri.get("resume_file_id")
+        or prof.get("resume_file_id")
+    )
+    if resume_fid:
+        try:
+            import io
+            import re
+            import pdfplumber
+            data = await _read_resume_gridfs(resume_fid)
+            if data:
+                with pdfplumber.open(io.BytesIO(data)) as pdf:
+                    text = ""
+                    for p in pdf.pages[:3]:
+                        text += (p.extract_text() or "") + "\n"
+                    m = re.search(r"([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)", text)
+                    if m:
+                        return m.group(1).strip().lower()
+        except Exception:
+            pass
+
+    return ""
+
+
 @router.get("/{id}/email-preview")
 async def get_assessment_email_preview(id: str, current_user: dict = Depends(get_current_user)):
     from routers.bulk_assessments import gmail_is_configured, gmail_default_sender
@@ -1004,11 +1088,12 @@ async def get_assessment_email_preview(id: str, current_user: dict = Depends(get
         or (doc.get("profile_snapshot") or {}).get("resume_link")
     )
     res_fname = doc.get("resume_filename") or (doc.get("profile_snapshot") or {}).get("resume_filename") or (doc.get("profile_snapshot") or {}).get("primary_applicant", {}).get("resume_filename")
+    resolved_email = await _resolve_assessment_email(doc)
 
     return {
         "assessment_id": id,
         "client_name": doc.get("client_name"),
-        "client_email": doc.get("client_email"),
+        "client_email": resolved_email or doc.get("client_email") or "",
         "is_configured": is_configured,
         "default_sender": default_sender,
         "mailboxes": mailboxes,
@@ -1049,7 +1134,8 @@ async def send_assessment_email(id: str, req: SendSingleEmailRequest, current_us
     if not doc:
         raise HTTPException(status_code=404, detail="Assessment not found")
 
-    to = (req.recipient_email or doc.get("client_email") or "").strip()
+    resolved_email = await _resolve_assessment_email(doc)
+    to = (req.recipient_email or resolved_email or doc.get("client_email") or "").strip()
     if not to or "@" not in to:
         raise HTTPException(status_code=400, detail="Client has no valid email address.")
 
@@ -1198,14 +1284,29 @@ class SendWhatsAppRequest(BaseModel):
 
 
 async def _resolve_assessment_phone(doc: dict) -> str:
-    """Extract candidate phone number from assessment fields, snapshot, or resume."""
+    """Extract candidate phone number from assessment fields, snapshot, primary_applicant, or resume."""
+    snap = doc.get("profile_snapshot") or {}
+    pri = snap.get("primary_applicant") or {}
+    pri_per = pri.get("personal") or {}
+    prof = doc.get("profile") or {}
+    prof_pri = prof.get("primary_applicant") or {}
+    prof_per = prof_pri.get("personal") or {}
+
     phone = (
         doc.get("client_phone")
         or doc.get("phone")
-        or (doc.get("profile_snapshot") or {}).get("primary_applicant", {}).get("phone")
-        or (doc.get("profile_snapshot") or {}).get("phone")
-        or (doc.get("profile") or {}).get("primary_applicant", {}).get("phone")
-        or (doc.get("profile") or {}).get("phone")
+        or pri_per.get("phone")
+        or pri_per.get("mobile")
+        or pri.get("phone")
+        or pri.get("mobile")
+        or snap.get("client_phone")
+        or snap.get("phone")
+        or prof_per.get("phone")
+        or prof_per.get("mobile")
+        or prof_pri.get("phone")
+        or prof_pri.get("mobile")
+        or prof.get("client_phone")
+        or prof.get("phone")
         or (doc.get("resume_profile") or {}).get("phone")
         or (doc.get("extracted_profile") or {}).get("phone")
         or (doc.get("resume_data") or {}).get("phone")
@@ -1216,19 +1317,16 @@ async def _resolve_assessment_phone(doc: dict) -> str:
     # Try extracting phone from attached resume PDF if stored
     resume_fid = (
         doc.get("resume_file_id")
-        or (doc.get("profile_snapshot") or {}).get("resume_file_id")
-        or (doc.get("profile_snapshot") or {}).get("primary_applicant", {}).get("resume_file_id")
+        or snap.get("resume_file_id")
+        or pri.get("resume_file_id")
+        or prof.get("resume_file_id")
     )
     if resume_fid:
         try:
             import io
             import re
             import pdfplumber
-            from bson import ObjectId
-            from motor.motor_asyncio import AsyncIOMotorGridFSBucket
-            gridfs = AsyncIOMotorGridFSBucket(db, bucket_name="bulk_resumes")
-            grid_out = await gridfs.open_download_stream(ObjectId(resume_fid))
-            data = await grid_out.read()
+            data = await _read_resume_gridfs(resume_fid)
             if data:
                 with pdfplumber.open(io.BytesIO(data)) as pdf:
                     text = ""
