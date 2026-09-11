@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   ArrowRight, FileText, Loader2, MessageSquare, Search, Send, Trophy, UserCheck,
-  FileBadge, Link2, Mail, Copy, Lock, CheckCircle2, Circle, Clock, Paperclip,
+  FileBadge, Link2, Mail, Copy, Lock, CheckCircle2, Circle, Clock, Paperclip, Download,
 } from 'lucide-react';
 import { formatApiError } from '@/lib/apiErrors';
 import { API } from '../lib/constants';
@@ -487,7 +487,36 @@ function ReportActions({ saved }) {
   const token = localStorage.getItem('token');
   const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token]);
 
-  const generate = async () => {
+  const existingSnapId = snap?.snapshot_id || saved?.report_snapshot_id || saved?.snapshot_id;
+
+  const downloadPdf = async (snapshotId) => {
+    const targetId = snapshotId || existingSnapId;
+    if (!targetId) return;
+    setGenerating(true);
+    try {
+      const pdfUrl = `${API}/assessment-reports/${targetId}/pdf`;
+      const resp = await fetch(pdfUrl, { headers });
+      if (!resp.ok) {
+        throw new Error(`PDF download failed (${resp.status}): ${resp.statusText}`);
+      }
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `LEAMSS_Assessment_Report_${saved?.client_name ? saved.client_name.replace(/\s+/g, '_') : 'Applicant'}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+      toast.success('Report downloaded successfully');
+    } catch (e) {
+      toast.error(formatApiError(e, 'PDF download failed'));
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const generateAndDownload = async () => {
     if (!saved?.id) {
       toast.error('Save the assessment first');
       return;
@@ -500,27 +529,7 @@ function ReportActions({ saved }) {
         { headers, timeout: 120000 }
       );
       setSnap(r.data);
-      // Auto-open PDF in new tab
-      const pdfUrl = `${API}/assessment-reports/${r.data.snapshot_id}/pdf`;
-      const resp = await fetch(pdfUrl, { headers });
-      if (!resp.ok) {
-        throw new Error(`PDF download failed (${resp.status}): ${resp.statusText}`);
-      }
-      const blob = await resp.blob();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.target = '_blank';
-      link.rel = 'noopener';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      setTimeout(() => URL.revokeObjectURL(url), 120000);
-      toast.success('Report generated successfully', {
-        description: r.data.warnings?.length
-          ? `${r.data.warnings.length} verification warning(s) — admin should verify KB`
-          : 'Snapshot is immutable · Branded PDF opened in new tab',
-      });
+      await downloadPdf(r.data.snapshot_id);
     } catch (e) {
       toast.error(formatApiError(e, 'Report generation failed'));
     } finally {
@@ -529,12 +538,13 @@ function ReportActions({ saved }) {
   };
 
   const createShare = async () => {
-    if (!snap) {
-      toast.error('Generate the report first');
+    const snapshotId = snap?.snapshot_id || existingSnapId;
+    if (!snapshotId) {
+      await generateAndDownload();
       return;
     }
     try {
-      const r = await axios.post(`${API}/assessment-reports/${snap.snapshot_id}/share`,
+      const r = await axios.post(`${API}/assessment-reports/${snapshotId}/share`,
         { expires_in_days: 30 }, { headers });
       const url = `${window.location.origin}/reports/view/${r.data.share_token}`;
       setShareUrl(url);
@@ -549,18 +559,27 @@ function ReportActions({ saved }) {
 
   return (
     <>
-      {!snap ? (
-        <Button size="default" className="bg-amber-600 hover:bg-amber-700"
-          onClick={generate} disabled={generating} data-testid="generate-report-btn">
-          {generating ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <FileBadge className="h-4 w-4 mr-1" />}
-          {generating ? 'Generating…' : 'Generate Report'}
-        </Button>
-      ) : (
-        <Button size="default" variant="outline" className="border-amber-400 bg-amber-50 text-amber-900 hover:bg-amber-100"
-          onClick={createShare} data-testid="share-report-btn">
-          <Link2 className="h-4 w-4 mr-1" />Public Link
-        </Button>
-      )}
+      <Button
+        size="default"
+        className="bg-amber-600 hover:bg-amber-700 text-white font-medium"
+        onClick={() => existingSnapId ? downloadPdf(existingSnapId) : generateAndDownload()}
+        disabled={generating}
+        data-testid="generate-report-btn"
+      >
+        {generating ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Download className="h-4 w-4 mr-1" />}
+        {generating ? 'Downloading…' : 'Download Report'}
+      </Button>
+
+      <Button
+        size="default"
+        variant="outline"
+        className="border-amber-400 bg-amber-50 text-amber-900 hover:bg-amber-100 font-medium"
+        onClick={createShare}
+        data-testid="share-report-btn"
+      >
+        <Link2 className="h-4 w-4 mr-1" />Public Link
+      </Button>
+
       {shareOpen && shareUrl && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" data-testid="share-modal">
           <Card className="bg-white p-5 max-w-md w-full">
