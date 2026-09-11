@@ -133,53 +133,47 @@ async def send_whatsapp_text(
         return resp.json()
 
 
-async def send_whatsapp_document_by_url(
+async def send_whatsapp_template(
     to_phone: str,
-    document_url: str,
-    filename: str = "Assessment_Report.pdf",
-    caption: str = "",
+    template_name: str = "hello_world",
+    language_code: str = "en_US",
+    components: Optional[List[Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
-    """Send a PDF or document via hosted public link to recipient on WhatsApp."""
+    """Send an approved WhatsApp message template."""
     cfg = await get_whatsapp_config()
     clean_phone = normalize_phone_number(to_phone)
     if not clean_phone:
         raise ValueError("Invalid recipient phone number")
 
     if not cfg["is_configured"]:
-        logger.warning("WhatsApp API not configured. Simulated document dispatch to %s", clean_phone)
-        return {
-            "status": "simulated",
-            "sent_to": clean_phone,
-            "document_url": document_url,
-            "filename": filename,
-            "caption": caption,
-        }
+        raise RuntimeError("WhatsApp API is not configured.")
 
     url = f"{GRAPH_BASE_URL}/{cfg['phone_number_id']}/messages"
     headers = {
         "Authorization": f"Bearer {cfg['access_token']}",
         "Content-Type": "application/json",
     }
-    payload = {
+    payload: Dict[str, Any] = {
         "messaging_product": "whatsapp",
         "recipient_type": "individual",
         "to": clean_phone,
-        "type": "document",
-        "document": {
-            "link": document_url,
-            "filename": filename,
-            "caption": caption,
+        "type": "template",
+        "template": {
+            "name": template_name,
+            "language": {"code": language_code},
         },
     }
+    if components:
+        payload["template"]["components"] = components
 
-    async with httpx.AsyncClient(timeout=45.0) as client:
+    async with httpx.AsyncClient(timeout=30.0) as client:
         resp = await client.post(url, json=payload, headers=headers)
         if resp.status_code >= 400:
-            logger.error("WhatsApp document send error (%s): %s", resp.status_code, resp.text)
+            logger.error("WhatsApp template error (%s): %s", resp.status_code, resp.text)
             try:
                 err_data = resp.json()
                 err_msg = err_data.get("error", {}).get("message", resp.text)
             except Exception:
                 err_msg = resp.text
-            raise RuntimeError(f"WhatsApp Cloud API Error: {err_msg}")
+            raise RuntimeError(f"WhatsApp Template Error: {err_msg}")
         return resp.json()
