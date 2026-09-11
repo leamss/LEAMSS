@@ -205,7 +205,29 @@ def _enrich_snapshot(snap: Dict[str, Any]) -> Dict[str, Any]:
             "pass_mark": 65,
         }
 
+    # 8) Ensure Cost Estimator & Service Packages are present (Pages 12-13)
+    from routers.sales_wizard_v2 import DEFAULT_PACKAGES
+    if not snap.get("cost_estimator"):
+        snap["cost_estimator"] = {
+            "currency": "INR",
+            "items": [
+                {"category": "Government Fees", "label": f"Visa Application Fee (Subclass {best.get('visa_subclass') or '189'})", "amount": 4770, "currency": "AUD", "is_estimated": True},
+                {"category": "Skill Assessment", "label": f"{clean_title} Assessment", "amount": 1225, "currency": "AUD", "is_estimated": True},
+                {"category": "English Test", "label": "IELTS / PTE / TOEFL", "amount": 22000, "currency": "INR", "is_estimated": True},
+            ],
+            "packages": DEFAULT_PACKAGES,
+            "service_packages": DEFAULT_PACKAGES,
+            "total_by_currency": {"INR": 22000, "AUD": 5995},
+        }
+    else:
+        ce = snap["cost_estimator"]
+        pkgs = ce.get("service_packages") or ce.get("packages")
+        if not pkgs:
+            ce["service_packages"] = DEFAULT_PACKAGES
+            ce["packages"] = DEFAULT_PACKAGES
+
     return snap
+
 
 
 def render_pdf_v2(snapshot: Dict[str, Any]) -> bytes:
