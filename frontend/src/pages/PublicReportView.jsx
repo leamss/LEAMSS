@@ -13,9 +13,13 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Download, Loader2, ShieldCheck, AlertCircle, Trophy, Globe2, Mail } from 'lucide-react';
 
-const BACKEND_URL = (typeof window !== 'undefined' && window.location.hostname.includes('leamss.com'))
-  ? 'https://api.leamss.com'
-  : (process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001');
+const BACKEND_URL = (() => {
+  if (typeof window === 'undefined') return process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
+  const h = window.location.hostname;
+  if (h.includes('leamss.com')) return 'https://api.leamss.com';
+  if (h !== 'localhost' && h !== '127.0.0.1') return `${window.location.protocol}//${h}:8001`;
+  return process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
+})();
 const API = `${BACKEND_URL}/api`;
 
 export default function PublicReportView() {

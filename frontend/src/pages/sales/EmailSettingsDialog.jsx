@@ -13,8 +13,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
   Loader2, Upload, Trash2, Plus, XCircle, Mail, Gift, CreditCard, Paperclip, MessageSquare, Send,
 } from 'lucide-react';
-
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+import { API } from './lib/constants';
 
 const Field = ({ label, children, hint }) => (
   <div className="space-y-1">

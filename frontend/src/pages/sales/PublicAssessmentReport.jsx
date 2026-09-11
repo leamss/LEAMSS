@@ -19,7 +19,7 @@ import {
   Globe, Briefcase, GraduationCap, MessageSquare, CheckCircle2, ShieldCheck,
 } from 'lucide-react';
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+import { API } from './lib/constants';
 
 export default function PublicAssessmentReport() {
   const { token } = useParams();

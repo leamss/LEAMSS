@@ -44,5 +44,15 @@ export const COUNTRIES = [
   { code: 'NZ', name: 'New Zealand', flag: '🇳🇿' },
 ];
 
-export const BACKEND_URL = (typeof window !== 'undefined' && window.location.hostname.includes('leamss.com')) ? 'https://api.leamss.com' : (process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001');
+export const getBackendUrl = () => {
+  if (typeof window === 'undefined') return process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
+  const hostname = window.location.hostname;
+  if (hostname.includes('leamss.com')) return 'https://api.leamss.com';
+  if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+    return `${window.location.protocol}//${hostname}:8001`;
+  }
+  return process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
+};
+
+export const BACKEND_URL = getBackendUrl();
 export const API = `${BACKEND_URL}/api`;
