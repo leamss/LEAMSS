@@ -125,7 +125,9 @@ async def send_whatsapp_text(
                 error_obj = err_data.get("error", {})
                 code = error_obj.get("code")
                 err_msg = error_obj.get("message", resp.text)
-                if code == 131030 or "not in allowed list" in err_msg.lower():
+                if code == 190 or "authentication error" in err_msg.lower() or "expired" in err_msg.lower():
+                    err_msg = "Meta WhatsApp Access Token has expired. Please generate a new token in Meta Developers (or generate a permanent System User token), or click 'Open WhatsApp Web' to send directly."
+                elif code == 131030 or "not in allowed list" in err_msg.lower():
                     err_msg = f"Recipient +{clean_phone} is not in Meta developer test list. Click 'Open WhatsApp Web' to send directly, or add this number to the test recipient list in Meta Developers."
                 elif code == 131047 or "24 hours" in err_msg.lower():
                     err_msg = f"Cannot send direct template outside 24h window. Please click 'Open WhatsApp Web' to send directly to +{clean_phone}."
