@@ -92,13 +92,7 @@ async def send_whatsapp_text(
         raise ValueError("Invalid recipient phone number")
 
     if not cfg["is_configured"]:
-        logger.warning("WhatsApp API not configured. Simulated dispatch to %s", clean_phone)
-        return {
-            "status": "simulated",
-            "sent_to": clean_phone,
-            "message": "WhatsApp API credentials not configured yet. Message simulated successfully.",
-            "text": text,
-        }
+        raise RuntimeError("WhatsApp API is not configured. Please add your WhatsApp Access Token & Phone Number ID in Settings -> WhatsApp tab or backend/.env.")
 
     url = f"{GRAPH_BASE_URL}/{cfg['phone_number_id']}/messages"
     headers = {
@@ -126,13 +120,13 @@ async def send_whatsapp_text(
                 code = error_obj.get("code")
                 err_msg = error_obj.get("message", resp.text)
                 if code == 190 or "authentication error" in err_msg.lower() or "expired" in err_msg.lower():
-                    err_msg = "Meta WhatsApp Access Token has expired. Please generate a new token in Meta Developers (or generate a permanent System User token), or click 'Open WhatsApp Web' to send directly."
+                    err_msg = "Meta WhatsApp Access Token has expired. Please update token in Settings -> WhatsApp."
                 elif code == 131030 or "not in allowed list" in err_msg.lower():
-                    err_msg = f"Recipient +{clean_phone} is not in Meta developer test list. Click 'Open WhatsApp Web' to send directly, or add this number to the test recipient list in Meta Developers."
+                    err_msg = f"Recipient +{clean_phone} is not in Meta developer test list. Please add +{clean_phone} under 'Manage phone number list' in developers.facebook.com > WhatsApp > API Setup, or switch Meta App to 'Live' mode."
                 elif code == 131047 or "24 hours" in err_msg.lower():
-                    err_msg = f"Cannot send direct template outside 24h window. Please click 'Open WhatsApp Web' to send directly to +{clean_phone}."
+                    err_msg = f"Cannot send plain text outside 24h customer window to +{clean_phone}. A template message or customer reply is required by Meta."
                 elif code == 200:
-                    err_msg = "Meta Cloud API Permissions error. Please use 'Open WhatsApp Web' for direct sending."
+                    err_msg = "Meta Cloud API Permissions error. Please verify whatsapp_business_messaging permission in Meta App."
             except Exception:
                 err_msg = resp.text
             raise RuntimeError(f"{err_msg}")
