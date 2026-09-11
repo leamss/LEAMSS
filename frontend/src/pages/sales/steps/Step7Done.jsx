@@ -33,6 +33,7 @@ export default function Step7Done({ saved, createPA, navigate, headers, creating
   const [emailSent, setEmailSent] = useState(Boolean(saved?.email_status === 'sent'));
   const [whatsappDialogOpen, setWhatsappDialogOpen] = useState(false);
   const [whatsappSent, setWhatsappSent] = useState(Boolean(saved?.whatsapp_status === 'sent'));
+  const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
   const [shareInfo, setShareInfo] = useState(null);
   const [shareLoading, setShareLoading] = useState(false);
   const [expiryDays, setExpiryDays] = useState(30);
