@@ -177,3 +177,214 @@ async def send_whatsapp_template(
                 err_msg = resp.text
             raise RuntimeError(f"WhatsApp Template Error: {err_msg}")
         return resp.json()
+
+
+async def upload_whatsapp_media(
+    file_bytes: bytes,
+    mime_type: str = "application/pdf",
+    filename: str = "document.pdf",
+) -> Dict[str, Any]:
+    """Upload binary file to Meta WhatsApp Cloud API and return the media ID."""
+    cfg = await get_whatsapp_config()
+    if not cfg["is_configured"]:
+        raise RuntimeError("WhatsApp API is not configured.")
+
+    url = f"{GRAPH_BASE_URL}/{cfg['phone_number_id']}/media"
+    headers = {
+        "Authorization": f"Bearer {cfg['access_token']}",
+    }
+    files = {
+        "file": (filename, file_bytes, mime_type),
+    }
+    data = {
+        "messaging_product": "whatsapp",
+        "type": mime_type,
+    }
+
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        resp = await client.post(url, data=data, files=files, headers=headers)
+        if resp.status_code >= 400:
+            logger.error("WhatsApp media upload error (%s): %s", resp.status_code, resp.text)
+            try:
+                err_data = resp.json()
+                err_msg = err_data.get("error", {}).get("message", resp.text)
+            except Exception:
+                err_msg = resp.text
+            raise RuntimeError(f"WhatsApp Media Upload Error: {err_msg}")
+        return resp.json()
+
+
+async def send_whatsapp_document_by_id(
+    to_phone: str,
+    media_id: str,
+    filename: str = "Assessment_Report.pdf",
+    caption: str = "",
+) -> Dict[str, Any]:
+    """Send a PDF or document via uploaded Meta Media ID to recipient on WhatsApp."""
+    cfg = await get_whatsapp_config()
+    clean_phone = normalize_phone_number(to_phone)
+    if not clean_phone:
+        raise ValueError("Invalid recipient phone number")
+
+    if not cfg["is_configured"]:
+        raise RuntimeError("WhatsApp API is not configured.")
+
+    url = f"{GRAPH_BASE_URL}/{cfg['phone_number_id']}/messages"
+    headers = {
+        "Authorization": f"Bearer {cfg['access_token']}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "messaging_product": "whatsapp",
+        "recipient_type": "individual",
+        "to": clean_phone,
+        "type": "document",
+        "document": {
+            "id": media_id,
+            "filename": filename,
+            "caption": caption,
+        },
+    }
+
+    async with httpx.AsyncClient(timeout=45.0) as client:
+        resp = await client.post(url, json=payload, headers=headers)
+        if resp.status_code >= 400:
+            logger.error("WhatsApp document by ID send error (%s): %s", resp.status_code, resp.text)
+            try:
+                err_data = resp.json()
+                err_msg = err_data.get("error", {}).get("message", resp.text)
+            except Exception:
+                err_msg = resp.text
+            raise RuntimeError(f"WhatsApp Document Send Error: {err_msg}")
+        return resp.json()
+
+
+async def send_whatsapp_image_by_id(
+    to_phone: str,
+    media_id: str,
+    caption: str = "",
+) -> Dict[str, Any]:
+    """Send an image (e.g. Payment QR) via uploaded Meta Media ID to recipient on WhatsApp."""
+    cfg = await get_whatsapp_config()
+    clean_phone = normalize_phone_number(to_phone)
+    if not clean_phone:
+        raise ValueError("Invalid recipient phone number")
+
+    if not cfg["is_configured"]:
+        raise RuntimeError("WhatsApp API is not configured.")
+
+    url = f"{GRAPH_BASE_URL}/{cfg['phone_number_id']}/messages"
+    headers = {
+        "Authorization": f"Bearer {cfg['access_token']}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "messaging_product": "whatsapp",
+        "recipient_type": "individual",
+        "to": clean_phone,
+        "type": "image",
+        "image": {
+            "id": media_id,
+            "caption": caption,
+        },
+    }
+
+    async with httpx.AsyncClient(timeout=45.0) as client:
+        resp = await client.post(url, json=payload, headers=headers)
+        if resp.status_code >= 400:
+            logger.error("WhatsApp image by ID send error (%s): %s", resp.status_code, resp.text)
+            try:
+                err_data = resp.json()
+                err_msg = err_data.get("error", {}).get("message", resp.text)
+            except Exception:
+                err_msg = resp.text
+            raise RuntimeError(f"WhatsApp Image Send Error: {err_msg}")
+        return resp.json()
+
+
+async def send_whatsapp_document_by_url(
+    to_phone: str,
+    document_url: str,
+    filename: str = "Assessment_Report.pdf",
+    caption: str = "",
+) -> Dict[str, Any]:
+    """Send a PDF or document via hosted public link to recipient on WhatsApp."""
+    cfg = await get_whatsapp_config()
+    clean_phone = normalize_phone_number(to_phone)
+    if not clean_phone:
+        raise ValueError("Invalid recipient phone number")
+
+    if not cfg["is_configured"]:
+        raise RuntimeError("WhatsApp API is not configured.")
+
+    url = f"{GRAPH_BASE_URL}/{cfg['phone_number_id']}/messages"
+    headers = {
+        "Authorization": f"Bearer {cfg['access_token']}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "messaging_product": "whatsapp",
+        "recipient_type": "individual",
+        "to": clean_phone,
+        "type": "document",
+        "document": {
+            "link": document_url,
+            "filename": filename,
+            "caption": caption,
+        },
+    }
+
+    async with httpx.AsyncClient(timeout=45.0) as client:
+        resp = await client.post(url, json=payload, headers=headers)
+        if resp.status_code >= 400:
+            logger.error("WhatsApp document send error (%s): %s", resp.status_code, resp.text)
+            try:
+                err_data = resp.json()
+                err_msg = err_data.get("error", {}).get("message", resp.text)
+            except Exception:
+                err_msg = resp.text
+            raise RuntimeError(f"WhatsApp Document Send Error: {err_msg}")
+        return resp.json()
+
+
+async def send_whatsapp_image_by_url(
+    to_phone: str,
+    image_url: str,
+    caption: str = "",
+) -> Dict[str, Any]:
+    """Send an image (e.g. Payment QR) via hosted public link to recipient on WhatsApp."""
+    cfg = await get_whatsapp_config()
+    clean_phone = normalize_phone_number(to_phone)
+    if not clean_phone:
+        raise ValueError("Invalid recipient phone number")
+
+    if not cfg["is_configured"]:
+        raise RuntimeError("WhatsApp API is not configured.")
+
+    url = f"{GRAPH_BASE_URL}/{cfg['phone_number_id']}/messages"
+    headers = {
+        "Authorization": f"Bearer {cfg['access_token']}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "messaging_product": "whatsapp",
+        "recipient_type": "individual",
+        "to": clean_phone,
+        "type": "image",
+        "image": {
+            "link": image_url,
+            "caption": caption,
+        },
+    }
+
+    async with httpx.AsyncClient(timeout=45.0) as client:
+        resp = await client.post(url, json=payload, headers=headers)
+        if resp.status_code >= 400:
+            logger.error("WhatsApp image send error (%s): %s", resp.status_code, resp.text)
+            try:
+                err_data = resp.json()
+                err_msg = err_data.get("error", {}).get("message", resp.text)
+            except Exception:
+                err_msg = resp.text
+            raise RuntimeError(f"WhatsApp Image Send Error: {err_msg}")
+        return resp.json()

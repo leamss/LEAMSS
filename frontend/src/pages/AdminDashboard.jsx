@@ -1272,6 +1272,7 @@ const AdminDashboard = () => {
         { id: 'sales-bulk-assessment', icon: Users, label: 'Bulk Pre-Assessment', onClick: () => navigate('/sales/bulk-assessment') },
         { id: 'sales-fee-master', icon: Calculator, label: 'Skill Fee Master', onClick: () => navigate('/sales/fee-master') },
         { id: 'sales-email-templates', icon: Mail, label: 'Email Templates', onClick: () => navigate('/sales/email-templates') },
+        { id: 'sales-whatsapp-templates', icon: MessageSquare, label: 'WhatsApp Templates', onClick: () => navigate('/sales/whatsapp-templates') },
         { id: 'admin-eoi-backlog', icon: BarChart3, label: 'EOI Backlog Admin', onClick: () => navigate('/admin/kb/eoi-backlog') },
         { id: 'eligibility-kb', icon: Globe, label: 'Knowledge Base (Admin)', onClick: () => navigate('/admin/eligibility/knowledge-base') },
         // Phase 7.4 — hidden per Sir's directive (consolidated into Client Assessment wizard)

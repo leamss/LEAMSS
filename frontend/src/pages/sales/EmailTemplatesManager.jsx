@@ -16,7 +16,7 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import {
-  ArrowLeft, Plus, Save, Trash2, Loader2, Eye, LayoutTemplate, Star, Sparkles,
+  ArrowLeft, Plus, Save, Trash2, Loader2, Eye, LayoutTemplate, Star, Sparkles, MessageSquare,
 } from 'lucide-react';
 import { formatApiError } from '@/lib/apiErrors';
 
@@ -170,9 +170,20 @@ export default function EmailTemplatesManager() {
               <p className="text-xs text-slate-500">Create reusable emails with placeholders — pick them when sending to clients.</p>
             </div>
           </div>
-          <Button onClick={newTemplate} className="bg-teal-700 hover:bg-teal-800 text-white" data-testid="new-template-btn">
-            <Plus className="h-4 w-4 mr-1" />New Template
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate('/sales/whatsapp-templates')}
+              className="text-xs border-slate-300 text-slate-700 hover:bg-slate-100"
+            >
+              <MessageSquare className="h-3.5 w-3.5 mr-1 text-emerald-600" />
+              WhatsApp Templates
+            </Button>
+            <Button onClick={newTemplate} className="bg-teal-700 hover:bg-teal-800 text-white text-xs h-9" data-testid="new-template-btn">
+              <Plus className="h-4 w-4 mr-1" />New Template
+            </Button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr_1fr] gap-4">

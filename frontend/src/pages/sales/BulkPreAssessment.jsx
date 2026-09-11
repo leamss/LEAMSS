@@ -41,7 +41,7 @@ import {
   ArrowLeft, Upload, Download, FileSpreadsheet, Loader2, RefreshCw, Play,
   CheckCircle2, XCircle, AlertTriangle, Edit3, FileText, Users, Package, Sparkles,
   Info, Check, ClipboardCheck, FileUser, ExternalLink, Search, Star, Mail, Send,
-  MoreVertical, Ban, RotateCcw, LayoutTemplate, Trash2,
+  MoreVertical, Ban, RotateCcw, LayoutTemplate, Trash2, MessageSquare,
 } from 'lucide-react';
 
 // Open a client's resume link (from the uploaded Excel) in a new tab
@@ -648,7 +648,10 @@ export default function BulkPreAssessment() {
                   <FileText className="h-3 w-3 mr-1" />Email Settings
                 </Button>
                 <Button size="sm" variant="outline" className="h-7 text-[10px]" onClick={() => navigate('/sales/email-templates')} data-testid="open-email-templates">
-                  <LayoutTemplate className="h-3 w-3 mr-1" />Templates
+                  <LayoutTemplate className="h-3 w-3 mr-1" />Email Templates
+                </Button>
+                <Button size="sm" variant="outline" className="h-7 text-[10px] border-emerald-300 text-emerald-700 hover:bg-emerald-50" onClick={() => navigate('/sales/whatsapp-templates')} data-testid="open-whatsapp-templates">
+                  <MessageSquare className="h-3 w-3 mr-1 text-emerald-600" />WhatsApp Templates
                 </Button>
               </div>
             </div>

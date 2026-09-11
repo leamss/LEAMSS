@@ -791,11 +791,15 @@ function IndividualEmailDialog({ assessment, headers, onClose, onSent }) {
 // Individual Assessment WhatsApp Dialog (Meta Cloud API + 1-Click)
 // ════════════════════════════════════════════════════════════════
 function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent, onOpenSettings }) {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
   const [recipientPhone, setRecipientPhone] = useState(assessment?.client_phone || '');
   const [selectedTemplate, setSelectedTemplate] = useState('report_summary');
   const [customMessage, setCustomMessage] = useState('');
+  const [attachReport, setAttachReport] = useState(true);
+  const [attachSla, setAttachSla] = useState(true);
+  const [attachQr, setAttachQr] = useState(true);
   const [sending, setSending] = useState(false);
 
   const authHeaders = useMemo(() => {
@@ -811,6 +815,9 @@ function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent, onOpen
         const r = await axios.get(`${API}/sales/assessments/${assessment.id}/whatsapp-preview`, { headers: authHeaders });
         setData(r.data);
         if (r.data.client_phone) setRecipientPhone(r.data.client_phone);
+        if (r.data.attach_report !== undefined) setAttachReport(Boolean(r.data.attach_report));
+        if (r.data.attach_sla !== undefined) setAttachSla(Boolean(r.data.attach_sla));
+        if (r.data.attach_qr !== undefined) setAttachQr(Boolean(r.data.attach_qr));
       } catch (e) {
         toast.error(formatApiError(e, 'Could not load WhatsApp configuration'));
       } finally {
@@ -818,6 +825,16 @@ function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent, onOpen
       }
     })();
   }, [assessment?.id, authHeaders]);
+
+  const handleTemplateChange = (tmplId) => {
+    setSelectedTemplate(tmplId);
+    const tmpl = (data?.templates || []).find(t => t.id === tmplId);
+    if (tmpl) {
+      if (tmpl.attach_report !== undefined) setAttachReport(Boolean(tmpl.attach_report));
+      if (tmpl.attach_sla !== undefined) setAttachSla(Boolean(tmpl.attach_sla));
+      if (tmpl.attach_qr !== undefined) setAttachQr(Boolean(tmpl.attach_qr));
+    }
+  };
 
   const handleDirectWebShare = (overridePhone) => {
     const raw = (overridePhone || recipientPhone || '').replace(/[^\d]/g, '');
@@ -834,9 +851,12 @@ function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent, onOpen
       if (activeTmpl?.template_body) {
         msg = activeTmpl.template_body
           .replace(/\{name\}/g, clientName)
+          .replace(/\{client_name\}/g, clientName)
           .replace(/\{id\}/g, assessment?.id || '')
           .replace(/\{country\}/g, country)
           .replace(/\{score\}/g, String(score))
+          .replace(/\{points\}/g, String(score))
+          .replace(/\{pass_mark\}/g, "65")
           .replace(/\{report_url\}/g, reportUrl)
           .replace(/\{payment_link\}/g, paymentUrl);
       } else if (selectedTemplate === 'sla_payment') {
@@ -883,11 +903,14 @@ function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent, onOpen
         recipient_phone: cleanPhone,
         template_id: selectedTemplate,
         custom_message: customMessage || null,
-        attach_report: true,
+        attach_report: attachReport,
+        attach_sla: attachSla,
+        attach_qr: attachQr,
       }, { headers: authHeaders, timeout: 60000 });
 
       if (r.data?.ok) {
-        toast.success(`Message automatically sent to +${r.data.sent_to || cleanPhone} on WhatsApp!`);
+        const attCount = (r.data?.attachments_sent || []).length;
+        toast.success(`Message and ${attCount} attachment(s) sent to +${r.data.sent_to || cleanPhone} on WhatsApp!`);
         onSent?.();
         onClose();
       } else {
@@ -912,22 +935,22 @@ function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent, onOpen
             </div>
             <div>
               <h3 className="text-base font-bold text-slate-900">Send on WhatsApp</h3>
-              <p className="text-xs text-slate-500">Auto-share assessment outcome, 23-page PDF link &amp; payment instructions</p>
+              <p className="text-xs text-slate-500">Auto-send outcome + Report PDF, SLA, and Payment QR attachments</p>
             </div>
           </div>
-          {onOpenSettings && (
+          <div className="flex items-center gap-1.5">
             <Button
               type="button"
               variant="outline"
               size="sm"
               className="h-7 text-xs text-emerald-700 border-emerald-300 hover:bg-emerald-50 flex items-center gap-1 font-medium"
-              onClick={onOpenSettings}
-              data-testid="whatsapp-dialog-edit-templates-btn"
+              onClick={() => { onClose(); navigate('/sales/whatsapp-templates'); }}
+              data-testid="whatsapp-dialog-manage-templates-btn"
             >
               <Settings className="h-3.5 w-3.5 text-emerald-600" />
-              Edit Templates
+              Templates Manager
             </Button>
-          )}
+          </div>
         </div>
 
         {loading ? (
@@ -950,11 +973,20 @@ function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent, onOpen
             </div>
 
             <div>
-              <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 block">WhatsApp Template</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 block">WhatsApp Template</label>
+                <button
+                  type="button"
+                  onClick={() => { onClose(); navigate('/sales/whatsapp-templates'); }}
+                  className="text-[10px] text-emerald-600 hover:underline font-medium"
+                >
+                  + Create / Edit Templates
+                </button>
+              </div>
               <select
                 value={selectedTemplate}
-                onChange={e => setSelectedTemplate(e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-2.5 py-2 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                onChange={e => handleTemplateChange(e.target.value)}
+                className="w-full border border-slate-200 rounded-lg px-2.5 py-2 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
                 data-testid="whatsapp-template-select"
               >
                 {(data?.templates || []).map(t => (
@@ -964,32 +996,54 @@ function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent, onOpen
             </div>
 
             <div>
-              <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 block">Custom Note (Optional)</label>
+              <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1 block">Custom Note / Override Message</label>
               <textarea
                 value={customMessage}
                 onChange={e => setCustomMessage(e.target.value)}
-                placeholder="Leave blank to use the standard verified template message..."
+                placeholder="Leave blank to use the selected template message above..."
                 rows={2}
                 className="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
             </div>
 
-            <div className="rounded-lg border bg-slate-50/50 p-2.5 space-y-1.5">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 block">Included in WhatsApp Dispatch</span>
-              <div className="flex flex-wrap gap-1.5">
-                <span className="text-[11px] px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1 font-medium">
-                  <FileText className="h-3 w-3" />23-Page Assessment PDF Link
-                </span>
-                {data?.attach_sla && (
-                  <span className="text-[11px] px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-800 border border-indigo-200 flex items-center gap-1 font-medium">
-                    <Paperclip className="h-3 w-3" />Service Agreement (SLA)
-                  </span>
-                )}
-                {data?.attach_qr && (
-                  <span className="text-[11px] px-2.5 py-1 rounded-full bg-teal-50 text-teal-800 border border-teal-200 flex items-center gap-1 font-medium">
-                    💳 Payment Link &amp; QR
-                  </span>
-                )}
+            {/* Attachments Section */}
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50/30 p-3 space-y-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-900 block">
+                📎 WhatsApp Attachments to Dispatch ({[attachReport, attachSla, attachQr].filter(Boolean).length})
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <label className={`flex items-center gap-1.5 p-2 rounded-lg border text-xs cursor-pointer transition-colors ${attachReport ? 'bg-emerald-100/70 border-emerald-400 text-emerald-900 font-medium' : 'bg-white border-slate-200 text-slate-500'}`}>
+                  <input
+                    type="checkbox"
+                    checked={attachReport}
+                    onChange={e => setAttachReport(e.target.checked)}
+                    className="rounded text-emerald-600 focus:ring-emerald-500"
+                  />
+                  <FileText className="h-3.5 w-3.5 text-rose-600 shrink-0" />
+                  <span className="truncate">Report PDF (23p)</span>
+                </label>
+
+                <label className={`flex items-center gap-1.5 p-2 rounded-lg border text-xs cursor-pointer transition-colors ${attachSla ? 'bg-blue-100/70 border-blue-400 text-blue-900 font-medium' : 'bg-white border-slate-200 text-slate-500'}`}>
+                  <input
+                    type="checkbox"
+                    checked={attachSla}
+                    onChange={e => setAttachSla(e.target.checked)}
+                    className="rounded text-blue-600 focus:ring-blue-500"
+                  />
+                  <Paperclip className="h-3.5 w-3.5 text-blue-600 shrink-0" />
+                  <span className="truncate">SLA Agreement</span>
+                </label>
+
+                <label className={`flex items-center gap-1.5 p-2 rounded-lg border text-xs cursor-pointer transition-colors ${attachQr ? 'bg-purple-100/70 border-purple-400 text-purple-900 font-medium' : 'bg-white border-slate-200 text-slate-500'}`}>
+                  <input
+                    type="checkbox"
+                    checked={attachQr}
+                    onChange={e => setAttachQr(e.target.checked)}
+                    className="rounded text-purple-600 focus:ring-purple-500"
+                  />
+                  <span className="text-xs">💳</span>
+                  <span className="truncate">Payment QR</span>
+                </label>
               </div>
             </div>
           </div>
@@ -1010,7 +1064,7 @@ function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent, onOpen
             <Button variant="outline" size="sm" onClick={onClose} disabled={sending}>Cancel</Button>
             <Button
               size="sm"
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-sm"
               onClick={handleSend}
               disabled={sending || loading}
               data-testid="confirm-send-whatsapp-btn"

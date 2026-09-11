@@ -1310,22 +1310,49 @@ async def get_assessment_whatsapp_preview(id: str, current_user: dict = Depends(
         {
             "id": "report_summary",
             "name": "Full Assessment Outcome & Report",
-            "description": "Sends congratulations, score breakdown, and public report link",
+            "description": "Sends congratulations, score breakdown, and attachments",
             "template_body": tmpl_report,
+            "attach_report": True,
+            "attach_sla": bool(settings.get("attach_sla") and settings.get("sla_file_id")),
+            "attach_qr": bool(settings.get("qr_file_id")),
         },
         {
             "id": "sla_payment",
             "name": "SLA & Payment Instructions",
             "description": "Sends payment details, service agreement, and onboarding info",
             "template_body": tmpl_sla,
+            "attach_report": True,
+            "attach_sla": bool(settings.get("sla_file_id")),
+            "attach_qr": bool(settings.get("qr_file_id")),
         },
         {
             "id": "consultation_followup",
             "name": "Consultation Follow-up & Booking",
             "description": "Follow-up message with link to schedule free consultation",
             "template_body": tmpl_consultation,
+            "attach_report": False,
+            "attach_sla": False,
+            "attach_qr": False,
         },
     ]
+
+    # Load custom user-created WhatsApp templates from database
+    try:
+        custom_docs = await db["whatsapp_templates"].find({}).sort("created_at", 1).to_list(200)
+        for cd in custom_docs:
+            cd.pop("_id", None)
+            templates.append({
+                "id": cd.get("id"),
+                "name": cd.get("name"),
+                "description": f"Category: {cd.get('category', 'general')}",
+                "template_body": cd.get("body"),
+                "attach_report": bool(cd.get("attach_report", True)),
+                "attach_sla": bool(cd.get("attach_sla", False)),
+                "attach_qr": bool(cd.get("attach_qr", False)),
+                "is_default": bool(cd.get("is_default", False)),
+            })
+    except Exception:
+        pass
 
     return {
         "assessment_id": id,
@@ -1354,8 +1381,11 @@ async def send_assessment_whatsapp(
         get_whatsapp_config,
         normalize_phone_number,
         send_whatsapp_text,
+        upload_whatsapp_media,
+        send_whatsapp_document_by_id,
+        send_whatsapp_image_by_id,
     )
-    from routers.email_settings import get_settings
+    from routers.email_settings import get_settings, read_asset_bytes
 
     if not _can_access(current_user):
         raise HTTPException(status_code=403, detail="Not authorised")
@@ -1383,48 +1413,95 @@ async def send_assessment_whatsapp(
     public_url = f"{base_origin}/sales/report/{share_token}"
 
     client_name = doc.get("client_name") or "Applicant"
+    occ = doc.get("occupation") or {}
+    results = doc.get("results") or []
+    best_res = max(results, key=lambda r: r.get("total", 0)) if results else {}
     best_country = doc.get("best_country_code") or "AU"
-    best_total = doc.get("best_total") or 0
+    best_total = best_res.get("total") or doc.get("best_total") or 0
 
     s = await get_settings()
     payment_link = s.get("payment_link") or "https://rzp.io/rzp/IndepdenceJjMJwx1"
 
     def _render(tmpl: str) -> str:
-        return (
+        res = (
             tmpl
             .replace("{name}", client_name)
+            .replace("{client_name}", client_name)
             .replace("{id}", id)
             .replace("{country}", str(best_country))
             .replace("{score}", str(best_total))
+            .replace("{points}", str(best_total))
+            .replace("{pass_mark}", "65")
+            .replace("{occupation}", str(occ.get("title") or "Professional"))
+            .replace("{code}", str(occ.get("code") or ""))
+            .replace("{best_subclass}", str(best_res.get("subclass") or "189"))
             .replace("{report_url}", public_url)
             .replace("{payment_link}", payment_link)
+            .replace("{upi_id}", str(s.get("upi_id") or "7738352427@okbizaxis"))
+            .replace("{consultant_name}", str(s.get("sender_name") or "LEAMSS Migration Team"))
+            .replace("{calendly_link}", str(s.get("calendly_link") or "https://calendly.com/leamss"))
+            .replace("{offer_badge}", str(s.get("offer_badge") or "Special Enrolment Offer"))
+            .replace("{offer_price}", str(s.get("offer_price") or "₹80,000 + 18% GST"))
+            .replace("{offer_regular_fee}", str(s.get("offer_regular_fee") or "₹1,55,000 + 18% GST"))
+            .replace("{offer_savings}", str(s.get("offer_savings") or "You Save ₹75,000"))
+            .replace("{offer_valid_till}", str(s.get("offer_valid_till") or "15 August 2026"))
+            .replace("{company}", "LEAMSS")
+            .replace("{phone}", "+91 77188 82427")
         )
+        return res
+
+    # Resolve message body
+    attach_report_flag = req.attach_report
+    attach_sla_flag = req.attach_sla
+    attach_qr_flag = req.attach_qr
 
     if req.custom_message and req.custom_message.strip():
-        msg_text = req.custom_message.strip()
-    elif req.template_id == "sla_payment":
-        raw_tmpl = s.get("whatsapp_template_sla") or (
-            "Dear {name},\n\n"
-            "Thank you for completing your migration profile assessment with LEAMSS.\n\n"
-            "📋 *Assessment ID:* {id}\n"
-            "🏆 *Outcome:* Positive ({country} · {score} pts)\n\n"
-            "🔗 *View Full Report:* {report_url}\n"
-            "💳 *Secure Payment Link:* {payment_link}\n\n"
-            "Please reply once payment is initiated to activate your dedicated Case Manager.\n"
-            "LEAMSS — Toll-Free: 1800-210-2427 · hello@leamss.com"
-        )
-        msg_text = _render(raw_tmpl)
-    elif req.template_id == "consultation_followup":
-        raw_tmpl = s.get("whatsapp_template_consultation") or (
-            "Hi {name}! 🌟\n\n"
-            "Our migration experts have completed your evaluation for {country} with a score of {score} points.\n\n"
-            "📎 *Review your report here:* {report_url}\n\n"
-            "Would you like to schedule a quick 15-minute call with our senior migration advisor to discuss your visa pathway? Reply to this message directly.\n"
-            "LEAMSS — www.leamss.com"
-        )
-        msg_text = _render(raw_tmpl)
+        msg_text = _render(req.custom_message.strip())
+    elif req.template_id:
+        # Check custom template in DB first
+        custom_t = await db["whatsapp_templates"].find_one({"id": req.template_id})
+        if custom_t:
+            msg_text = _render(custom_t.get("body") or "")
+            if "attach_report" in custom_t:
+                attach_report_flag = bool(custom_t["attach_report"])
+            if "attach_sla" in custom_t:
+                attach_sla_flag = bool(custom_t["attach_sla"])
+            if "attach_qr" in custom_t:
+                attach_qr_flag = bool(custom_t["attach_qr"])
+        elif req.template_id == "sla_payment":
+            raw_tmpl = s.get("whatsapp_template_sla") or (
+                "Dear {name},\n\n"
+                "Thank you for completing your migration profile assessment with LEAMSS.\n\n"
+                "📋 *Assessment ID:* {id}\n"
+                "🏆 *Outcome:* Positive ({country} · {score} pts)\n\n"
+                "🔗 *View Full Report:* {report_url}\n"
+                "💳 *Secure Payment Link:* {payment_link}\n\n"
+                "Please reply once payment is initiated to activate your dedicated Case Manager.\n"
+                "LEAMSS — Toll-Free: 1800-210-2427 · hello@leamss.com"
+            )
+            msg_text = _render(raw_tmpl)
+        elif req.template_id == "consultation_followup":
+            raw_tmpl = s.get("whatsapp_template_consultation") or (
+                "Hi {name}! 🌟\n\n"
+                "Our migration experts have completed your evaluation for {country} with a score of {score} points.\n\n"
+                "📎 *Review your report here:* {report_url}\n\n"
+                "Would you like to schedule a quick 15-minute call with our senior migration advisor to discuss your visa pathway? Reply to this message directly.\n"
+                "LEAMSS — www.leamss.com"
+            )
+            msg_text = _render(raw_tmpl)
+        else:
+            raw_tmpl = s.get("whatsapp_template_report") or (
+                "Hello {name},\n\n"
+                "🎉 Congratulations! Your migration profile assessment from LEAMSS has been completed.\n\n"
+                "📋 *Client:* {name}\n"
+                "🆔 *Assessment ID:* {id}\n"
+                "🏆 *Best Country:* {country} (Score: {score} pts)\n\n"
+                "📎 *Access Your Branded 23-Page Assessment Report (Read-only):*\n{report_url}\n\n"
+                "Our migration strategy team is available to assist with your next steps.\n"
+                "LEAMSS — Toll-Free: 1800-210-2427 · hello@leamss.com"
+            )
+            msg_text = _render(raw_tmpl)
     else:
-        # Default report outcome template
         raw_tmpl = s.get("whatsapp_template_report") or (
             "Hello {name},\n\n"
             "🎉 Congratulations! Your migration profile assessment from LEAMSS has been completed.\n\n"
@@ -1440,14 +1517,69 @@ async def send_assessment_whatsapp(
     now = datetime.now(timezone.utc)
     send_error = None
     is_simulated = False
+    dispatched_attachments = []
 
+    # 1. Send Main Text Message
     try:
         res = await send_whatsapp_text(to_phone=clean_phone, text=msg_text)
         is_simulated = res.get("status") == "simulated"
     except Exception as exc:
         send_error = str(exc)
-        logger.warning("WhatsApp API dispatch for assessment %s encountered: %s", id, send_error)
+        logger.warning("WhatsApp API text dispatch for assessment %s encountered: %s", id, send_error)
         raise HTTPException(status_code=400, detail=send_error)
+
+    # 2. Attach Assessment Report PDF (23 pages)
+    if attach_report_flag:
+        try:
+            snap_data = await _build_snapshot(doc, persona="client", mode="combined", include_unverified=False)
+            pdf_bytes = await asyncio.to_thread(render_pdf_v2, snap_data)
+            if pdf_bytes:
+                rep_fname = _report_filename(doc.get("client_name"), id)
+                up_rep = await upload_whatsapp_media(pdf_bytes, mime_type="application/pdf", filename=rep_fname)
+                if up_rep.get("id"):
+                    await send_whatsapp_document_by_id(
+                        to_phone=clean_phone,
+                        media_id=up_rep["id"],
+                        filename=rep_fname,
+                        caption=f"📄 Pre-Assessment Report — {client_name}",
+                    )
+                    dispatched_attachments.append("report_pdf")
+        except Exception as e:
+            logger.warning("Failed to dispatch WhatsApp Report PDF attachment: %s", e)
+
+    # 3. Attach Service Level Agreement (SLA PDF)
+    if attach_sla_flag and s.get("sla_file_id"):
+        try:
+            sla_bytes = await read_asset_bytes(s["sla_file_id"])
+            if sla_bytes:
+                sla_fname = s.get("sla_filename") or "LEAMSS-Service-Level-Agreement.pdf"
+                up_sla = await upload_whatsapp_media(sla_bytes, mime_type="application/pdf", filename=sla_fname)
+                if up_sla.get("id"):
+                    await send_whatsapp_document_by_id(
+                        to_phone=clean_phone,
+                        media_id=up_sla["id"],
+                        filename=sla_fname,
+                        caption="📑 Official Service Level Agreement (SLA) — LEAMSS",
+                    )
+                    dispatched_attachments.append("sla_pdf")
+        except Exception as e:
+            logger.warning("Failed to dispatch WhatsApp SLA attachment: %s", e)
+
+    # 4. Attach Payment QR Image
+    if attach_qr_flag and s.get("qr_file_id"):
+        try:
+            qr_bytes = await read_asset_bytes(s["qr_file_id"])
+            if qr_bytes:
+                up_qr = await upload_whatsapp_media(qr_bytes, mime_type="image/png", filename="LEAMSS-Payment-QR.png")
+                if up_qr.get("id"):
+                    await send_whatsapp_image_by_id(
+                        to_phone=clean_phone,
+                        media_id=up_qr["id"],
+                        caption="💳 LEAMSS Official Payment QR & Banking Details",
+                    )
+                    dispatched_attachments.append("payment_qr")
+        except Exception as e:
+            logger.warning("Failed to dispatch WhatsApp QR attachment: %s", e)
 
     await assessments_col.update_one({"id": id}, {"$set": {
         "whatsapp_status": "sent",
@@ -1455,6 +1587,7 @@ async def send_assessment_whatsapp(
         "whatsapp_sent_at": now,
         "whatsapp_template": req.template_id or "default",
         "whatsapp_is_simulated": is_simulated,
+        "whatsapp_attachments": dispatched_attachments,
         "whatsapp_last_error": None,
     }})
 
@@ -1465,6 +1598,7 @@ async def send_assessment_whatsapp(
         "is_simulated": is_simulated,
         "public_url": public_url,
         "message_text": msg_text,
+        "attachments_sent": dispatched_attachments,
         "status": "sent",
     }
 

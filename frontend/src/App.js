@@ -122,6 +122,7 @@ import ResumeUpload from '@/pages/ResumeUpload';
 import EOIBacklogAdmin from '@/pages/admin/EOIBacklogAdmin';
 import BulkPreAssessment from '@/pages/sales/BulkPreAssessment';
 import EmailTemplatesManager from '@/pages/sales/EmailTemplatesManager';
+import WhatsAppTemplatesManager from '@/pages/sales/WhatsAppTemplatesManager';
 import FeeMaster from '@/pages/sales/FeeMaster';
 import ProposalBuilder from '@/pages/sales/ProposalBuilder';
 import ClientPortalLogin from '@/pages/client-portal/ClientPortalLogin';
@@ -568,6 +569,11 @@ function App() {
           <Route path="/sales/email-templates" element={
             <RequirePermission allowRoles={['admin_owner', 'admin', 'sales_executive', 'sr_sales_executive', 'sales_manager', 'sales_head', 'partner', 'case_manager']}>
               <EmailTemplatesManager />
+            </RequirePermission>
+          } />
+          <Route path="/sales/whatsapp-templates" element={
+            <RequirePermission allowRoles={['admin_owner', 'admin', 'sales_executive', 'sr_sales_executive', 'sales_manager', 'sales_head', 'partner', 'case_manager']}>
+              <WhatsAppTemplatesManager />
             </RequirePermission>
           } />
           <Route path="/sales/fee-master" element={
