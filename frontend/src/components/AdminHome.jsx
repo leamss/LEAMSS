@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   ClipboardList, Briefcase, Users, TrendingUp, ArrowRight,
   Sparkles, AlertCircle, CheckCircle, UserCheck, Package, DollarSign, Shield,
-  CalendarClock, Link2, UsersRound
+  CalendarClock, Link2, UsersRound, MessageSquare
 } from 'lucide-react';
 import DropoffRecoveryWidget from '@/components/DropoffRecoveryWidget';
 import DocExpiryWidget from '@/components/DocExpiryWidget';
@@ -284,6 +284,7 @@ onClick={() => navigate('/admin/sales/standard-approvals')}              testId=
         <h2 className="text-lg font-bold text-slate-800 mb-3">Quick access</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
+            { icon: MessageSquare, label: 'WhatsApp Live Chat', custom: () => navigate('/sales/whatsapp-chat'), accent: 'emerald' },
             { icon: ClipboardList, label: 'Pre-Assessments', tab: 'pre-assessments' },
             { icon: Briefcase, label: 'All Cases', tab: 'cases' },
             { icon: Users, label: 'Users', tab: 'users' },
@@ -308,12 +309,12 @@ onClick={() => navigate('/admin/sales/standard-approvals')}              testId=
             },
           ].map(x => (
             <Card
-              key={x.tab}
+              key={x.label}
               onClick={() => x.custom ? x.custom() : onNavigate?.(x.tab)}
-              className={`p-4 cursor-pointer hover:shadow-md transition-all border-slate-200 ${x.accent === 'amber' ? 'hover:border-amber-400 bg-gradient-to-br from-amber-50/40 to-transparent' : x.accent === 'indigo' ? 'hover:border-leamss-teal-400 bg-gradient-to-br from-leamss-teal-50/40 to-transparent' : 'hover:border-[#2a777a]/30'}`}
-              data-testid={`quick-${x.tab}`}
+              className={`p-4 cursor-pointer hover:shadow-md transition-all border-slate-200 ${x.accent === 'emerald' ? 'hover:border-emerald-500 bg-gradient-to-br from-emerald-50/50 to-transparent' : x.accent === 'amber' ? 'hover:border-amber-400 bg-gradient-to-br from-amber-50/40 to-transparent' : x.accent === 'indigo' ? 'hover:border-leamss-teal-400 bg-gradient-to-br from-leamss-teal-50/40 to-transparent' : 'hover:border-[#2a777a]/30'}`}
+              data-testid={`quick-${x.label}`}
             >
-              <x.icon className={`h-5 w-5 mb-2 ${x.accent === 'amber' ? 'text-amber-600' : x.accent === 'indigo' ? 'text-leamss-teal-600' : 'text-[#2a777a]'}`} />
+              <x.icon className={`h-5 w-5 mb-2 ${x.accent === 'emerald' ? 'text-emerald-600' : x.accent === 'amber' ? 'text-amber-600' : x.accent === 'indigo' ? 'text-leamss-teal-600' : 'text-[#2a777a]'}`} />
               <p className="text-sm font-semibold text-slate-800">{x.label}</p>
             </Card>
           ))}
