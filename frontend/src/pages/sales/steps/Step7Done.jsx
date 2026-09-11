@@ -853,20 +853,17 @@ function IndividualWhatsAppDialog({ assessment, headers, onClose, onSent }) {
         attach_report: true,
       }, { headers: authHeaders, timeout: 60000 });
 
-      if (r.data?.ok && !r.data?.requires_web_open && !r.data?.is_simulated) {
-        toast.success(`Report dispatched to +${r.data.sent_to} via WhatsApp!`);
+      if (r.data?.ok) {
+        toast.success(`Message automatically sent to +${r.data.sent_to || cleanPhone} on WhatsApp!`);
+        onSent?.();
+        onClose();
       } else {
-        handleDirectWebShare(cleanPhone);
-        toast.success(`Opening WhatsApp for +${cleanPhone}...`);
+        toast.error(r.data?.api_error || 'Failed to send WhatsApp message automatically.');
       }
-      onSent?.();
-      onClose();
     } catch (e) {
       console.error('Send WhatsApp dispatch:', e);
-      handleDirectWebShare(cleanPhone);
-      toast.success(`Opening WhatsApp Web...`);
-      onSent?.();
-      onClose();
+      const errMsg = e.response?.data?.detail || e.message || 'WhatsApp sending failed.';
+      toast.error(`WhatsApp Error: ${errMsg}`);
     } finally {
       setSending(false);
     }

@@ -1400,6 +1400,7 @@ async def send_assessment_whatsapp(
     except Exception as exc:
         send_error = str(exc)
         logger.warning("WhatsApp API dispatch for assessment %s encountered: %s", id, send_error)
+        raise HTTPException(status_code=400, detail=send_error)
 
     await assessments_col.update_one({"id": id}, {"$set": {
         "whatsapp_status": "sent",
@@ -1407,7 +1408,7 @@ async def send_assessment_whatsapp(
         "whatsapp_sent_at": now,
         "whatsapp_template": req.template_id or "default",
         "whatsapp_is_simulated": is_simulated,
-        "whatsapp_last_error": send_error,
+        "whatsapp_last_error": None,
     }})
 
     return {
@@ -1415,8 +1416,6 @@ async def send_assessment_whatsapp(
         "sent_to": clean_phone,
         "sent_at": now.isoformat(),
         "is_simulated": is_simulated,
-        "api_error": send_error,
-        "requires_web_open": bool(send_error or is_simulated),
         "public_url": public_url,
         "message_text": msg_text,
         "status": "sent",
