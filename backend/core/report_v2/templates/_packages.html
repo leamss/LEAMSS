@@ -13,25 +13,26 @@
 {% if pkgs %}
 <div class="page">
 
-  <div class="section-header" style="margin-bottom:5pt;">
-    <span class="eyebrow">Section 07 · Investment Options</span>
-    <h1 style="font-size:19pt;margin:2pt 0 3pt 0;">LEAMSS Service Packages</h1>
-    <span class="rule" style="margin:4pt 0 6pt 0;"></span>
-    <p class="lead" style="font-size:8pt;margin-bottom:0;line-height:1.35;">Choose the level of financial protection that suits you. Every package includes
-       dedicated case management, continuous profile tracking, and end-to-end documentation assistance.
-       Government &amp; statutory fees are payable separately.</p>
+  <div class="section-header" style="margin-bottom:6pt;">
+    <h1 style="font-size:20pt;margin:0 0 3pt 0;color:var(--teal-800);">LEAMSS Service Packages</h1>
+    <span class="rule" style="margin:3pt 0 6pt 0;"></span>
+    <p class="lead" style="font-size:8.5pt;margin-bottom:0;line-height:1.4;color:var(--slate-700);">
+      Choose the level of financial protection that suits you. Every package includes professional processing support, a dedicated case manager and full documentation assistance. Government &amp; third-party fees are payable separately (see the breakdown above).
+    </p>
   </div>
 
   <table class="pkg-compare">
     <thead>
       <tr>
-        <th class="feat-col">&nbsp;</th>
+        <th class="feat-col-head">&nbsp;</th>
         {% for p in pkgs %}
           {% set is_hi = p.get('highlight', p.get('recommended', False)) %}
-          <th class="{{ 'pkg-hi' if is_hi }}">
-            {% if is_hi %}<div class="pkg-ribbon">★ Recommended</div>{% endif %}
-            <div class="pkg-name">{{ p.name }}</div>
-            <div class="pkg-level">{{ (p.get('protection_level') or 'Basic')|upper }} PROTECTION</div>
+          <th class="pkg-head-col {{ 'pkg-head-hi' if is_hi else 'pkg-head-std' }}">
+            {% if is_hi %}
+              <div class="pkg-ribbon">★ Recommended</div>
+            {% endif %}
+            <div class="pkg-title {{ 'pkg-title-hi' if is_hi }}">{{ p.name }}</div>
+            <div class="pkg-sub {{ 'pkg-sub-hi' if is_hi }}">{{ (p.get('protection_level') or 'Basic')|upper }} PROTECTION</div>
           </th>
         {% endfor %}
       </tr>
@@ -45,7 +46,7 @@
           {% set base = p.total or p.total_payable or ((p.professional_fee or 0) - (p.discount or 0) + (p.gst or 0)) %}
           {% set ao = p.addon %}
           {% set gt = base + ((ao.amount or 0) if (ao and ao.enabled) else 0) %}
-          <td class="{{ 'pkg-hi' if is_hi }}">
+          <td class="pkg-val-col">
             <span class="big-amt">{{ sym(p.currency or 'INR') }}{{ '{:,.0f}'.format(gt) }}</span>
           </td>
         {% endfor %}
@@ -54,79 +55,91 @@
       <tr>
         <td class="feat-col">Professional / Policy Fee</td>
         {% for p in pkgs %}
-          {% set is_hi = p.get('highlight', p.get('recommended', False)) %}
-          <td class="{{ 'pkg-hi' if is_hi }}">{{ sym(p.currency or 'INR') }}{{ '{:,.0f}'.format(p.professional_fee or 0) }}</td>
+          <td class="pkg-val-col">{{ sym(p.currency or 'INR') }}{{ '{:,.0f}'.format(p.professional_fee or 0) }}</td>
         {% endfor %}
       </tr>
 
       <tr>
         <td class="feat-col">Lump-sum Discount</td>
         {% for p in pkgs %}
-          {% set is_hi = p.get('highlight', p.get('recommended', False)) %}
-          <td class="{{ 'pkg-hi' if is_hi }}">{% if (p.discount or 0) > 0 %}<span style="color:var(--teal-700);font-weight:700;">− {{ sym(p.currency or 'INR') }}{{ '{:,.0f}'.format(p.discount) }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+          <td class="pkg-val-col">
+            {% if (p.discount or 0) > 0 %}
+              − {{ sym(p.currency or 'INR') }}{{ '{:,.0f}'.format(p.discount) }}
+            {% else %}
+              —
+            {% endif %}
+          </td>
         {% endfor %}
       </tr>
 
       <tr>
         <td class="feat-col">GST @ 18%</td>
         {% for p in pkgs %}
-          {% set is_hi = p.get('highlight', p.get('recommended', False)) %}
-          <td class="{{ 'pkg-hi' if is_hi }}">{{ sym(p.currency or 'INR') }}{{ '{:,.0f}'.format(p.gst or 0) }}</td>
+          <td class="pkg-val-col">{{ sym(p.currency or 'INR') }}{{ '{:,.0f}'.format(p.gst or 0) }}</td>
         {% endfor %}
       </tr>
 
       <tr>
         <td class="feat-col">100% Professional Fee Refund on Refusal</td>
         {% for p in pkgs %}
-          {% set is_hi = p.get('highlight', p.get('recommended', False)) %}
-          <td class="{{ 'pkg-hi' if is_hi }}">{% if p.professional_fee_refund or p.refund_professional_fee %}<span class="yes">✓</span>{% else %}<span class="no">✗</span>{% endif %}</td>
+          <td class="pkg-val-col">
+            {% if p.professional_fee_refund or p.refund_professional_fee %}
+              <span class="chk-green">✓</span>
+            {% else %}
+              <span class="chk-red">✗</span>
+            {% endif %}
+          </td>
         {% endfor %}
       </tr>
 
       <tr>
         <td class="feat-col">100% Government Fee Refund on Refusal</td>
         {% for p in pkgs %}
-          {% set is_hi = p.get('highlight', p.get('recommended', False)) %}
-          <td class="{{ 'pkg-hi' if is_hi }}">{% if p.govt_fee_refund or p.refund_government_fee %}<span class="yes">✓</span>{% else %}<span class="no">✗</span>{% endif %}</td>
+          <td class="pkg-val-col">
+            {% if p.govt_fee_refund or p.refund_government_fee %}
+              <span class="chk-green">✓</span>
+            {% else %}
+              <span class="chk-red">✗</span>
+            {% endif %}
+          </td>
         {% endfor %}
       </tr>
 
       <tr>
         <td class="feat-col">Financial Protection Level</td>
         {% for p in pkgs %}
-          {% set is_hi = p.get('highlight', p.get('recommended', False)) %}
-          <td class="{{ 'pkg-hi' if is_hi }}"><span class="pill {{ 'solid-teal' if is_hi else 'teal' }}" style="font-size:6.5pt;padding:1pt 6pt;">{{ (p.get('protection_level') or 'Basic')|title }}</span></td>
+          <td class="pkg-val-col">
+            <span class="pill-mint">{{ (p.get('protection_level') or 'Basic')|upper }}</span>
+          </td>
         {% endfor %}
       </tr>
 
-      {# Optional add-on row if any package has an addon #}
-      {% set has_addon = false %}
-      {% for p in pkgs %}{% if p.addon and p.addon.name or (p.addon and p.addon.amount) %}{% set has_addon = true %}{% endif %}{% endfor %}
-      {% if has_addon %}
+      {# Optional Partner Skill Assessment #}
       <tr>
         <td class="feat-col">Optional Partner Skill Assessment</td>
         {% for p in pkgs %}
-          {% set is_hi = p.get('highlight', p.get('recommended', False)) %}
-          <td class="{{ 'pkg-hi' if is_hi }}">
+          <td class="pkg-val-col">
             {% if p.addon and p.addon.enabled %}
-              <span style="font-weight:700;color:var(--teal-700);">Included (+{{ sym(p.currency or 'INR') }}{{ '{:,.0f}'.format(p.addon.amount or 0) }})</span>
+              Included (+{{ sym(p.currency or 'INR') }}{{ '{:,.0f}'.format(p.addon.amount or 0) }})
             {% elif p.addon and (p.addon.amount or 0) > 0 %}
-              <span class="muted">Available (+{{ sym(p.currency or 'INR') }}{{ '{:,.0f}'.format(p.addon.amount or 0) }})</span>
+              Available (+{{ sym(p.currency or 'INR') }}{{ '{:,.0f}'.format(p.addon.amount or 0) }})
+            {% elif (p.name or '') == 'Standard PR Package' or loop.first %}
+              Available on request
             {% else %}
-              <span class="muted">—</span>
+              —
             {% endif %}
           </td>
         {% endfor %}
       </tr>
-      {% endif %}
 
       <tr>
-        <td class="feat-col">What's included</td>
+        <td class="feat-col" style="vertical-align:top;padding-top:5pt;">What's included</td>
         {% for p in pkgs %}
-          {% set is_hi = p.get('highlight', p.get('recommended', False)) %}
-          <td class="{{ 'pkg-hi' if is_hi }}" style="text-align:left;">
-            <ul class="incl">
-              {% for inc in (p.inclusions or []) %}<li>{{ inc }}</li>{% endfor %}
+          <td class="pkg-val-col" style="vertical-align:top;padding-top:5pt;">
+            <ul class="incl-list">
+              {% for inc in (p.inclusions or []) %}
+                <li>{{ inc }}</li>
+              {% endfor %}
             </ul>
           </td>
         {% endfor %}
@@ -135,214 +148,274 @@
   </table>
 
   {# ── Total Estimated Investment per package (LEAMSS fee + official/govt fees) ── #}
-  {% set excluded = ['LEAMSS Professional Fees', 'Protection Policy Coverage'] %}
-  {% set official_inr = 22000 %}
+  {% set official_by_ccy = {} %}
+  {% set excluded_cats = ['LEAMSS Professional Fees', 'Protection Policy Coverage'] %}
   {% for it in (ce.get('items') or []) %}
-    {% if it.category not in excluded and (it.currency or 'INR') == 'INR' and (it.amount or 0) > 0 %}
-      {% set official_inr = it.amount %}
+    {% if it.category not in excluded_cats and (it.amount or 0) > 0 %}
+      {% set ccy = (it.currency or 'INR')|upper %}
+      {% if ccy not in official_by_ccy %}
+        {% set _ = official_by_ccy.update({ccy: it.amount}) %}
+      {% else %}
+        {% set _ = official_by_ccy.update({ccy: official_by_ccy[ccy] + it.amount}) %}
+      {% endif %}
+    {% endif %}
+  {% endfor %}
+  {% if not official_by_ccy %}
+    {% set official_by_ccy = {'AUD': 8061, 'USD': 435, 'INR': 1500} %}
+  {% endif %}
+  {% set off_inr = official_by_ccy.get('INR', 0) %}
+
+  {% set foreign_parts = [] %}
+  {% for ccy, amt in official_by_ccy.items() %}
+    {% if ccy != 'INR' and amt > 0 %}
+      {% set _ = foreign_parts.append(sym(ccy) ~ '{:,.0f}'.format(amt)) %}
     {% endif %}
   {% endfor %}
 
-  <div class="grand-wrap">
-    <div class="eyebrow" style="color:var(--teal-700);font-size:7pt;margin-bottom:2pt;">Total Estimated Investment (Package + Mandatory Third-Party Fees)</div>
-    <div class="grand-grid">
-      {% for p in pkgs %}
-        {% set is_hi = p.get('highlight', p.get('recommended', False)) %}
-        {% set ao = p.addon %}
-        {% set pkg_total = (p.total or 0) + ((ao.amount or 0) if (ao and ao.enabled) else 0) %}
-        {% set gt_inr = pkg_total + official_inr %}
-        <div class="grand-card {{ 'grand-hi' if is_hi }}">
-          <div class="grand-name">{{ p.name }}</div>
-          <table class="grand-kv">
-            <tr><td>LEAMSS Package Fee</td><td style="text-align:right;">{{ sym(p.currency or 'INR') }}{{ '{:,.0f}'.format(pkg_total) }}</td></tr>
-            <tr><td>Govt / third-party (INR est.)</td><td style="text-align:right;">₹{{ '{:,.0f}'.format(official_inr) }}</td></tr>
-          </table>
-          <div class="grand-total-line">
-            <span>TOTAL ESTIMATED</span>
-            <span class="grand-amt">+ ₹{{ '{:,.0f}'.format(gt_inr) }}</span>
-          </div>
+  <div class="grand-section-title">TOTAL ESTIMATED INVESTMENT</div>
+  <div class="grand-grid">
+    {% for p in pkgs %}
+      {% set is_hi = p.get('highlight', p.get('recommended', False)) %}
+      {% set ao = p.addon %}
+      {% set pkg_total = (p.total or 0) + ((ao.amount or 0) if (ao and ao.enabled) else 0) %}
+      {% set total_inr = pkg_total + off_inr %}
+      {% set grand_display = (foreign_parts + ['₹' ~ '{:,.0f}'.format(total_inr)])|join(' + ') %}
+      
+      <div class="grand-card {{ 'card-hi' if is_hi else 'card-std' }}">
+        <div class="grand-card-title">{{ p.name }}</div>
+        <table class="grand-kv-table">
+          <tr>
+            <td>LEAMSS Package Fee</td>
+            <td class="amt">{{ sym(p.currency or 'INR') }}{{ '{:,.0f}'.format(pkg_total) }}</td>
+          </tr>
+          {% for ccy, amt in official_by_ccy.items() %}
+            <tr>
+              <td>Govt / third-party ({{ ccy }})</td>
+              <td class="amt">{{ sym(ccy) }}{{ '{:,.0f}'.format(amt) }}</td>
+            </tr>
+          {% endfor %}
+        </table>
+        <div class="grand-divider"></div>
+        <div class="grand-total-row">
+          <span class="grand-total-label">TOTAL ESTIMATED</span>
+          <span class="grand-total-val">{{ grand_display }}</span>
         </div>
-      {% endfor %}
-    </div>
+      </div>
+    {% endfor %}
   </div>
 
-  <div class="note teal" style="margin-top:4pt;padding:3.5pt 7pt;font-size:6.5pt;line-height:1.25;">
-    🛡 <b>Financial protection you can trust.</b> LEAMSS professional consultation and case management services are covered by the package fee. Government visa charges, skill-assessment authority fees, IELTS/PTE, medical tests, and statutory fees are payable separately to the respective authorities.
+  <div class="grand-footer-disclaimer">
+    Government &amp; third-party fees are identical across packages and payable separately to the respective authorities. Figures are indicative estimates and confirmed in your personalised proposal.
   </div>
 
   <style>
     .pkg-compare {
       width: 100%;
-      border-collapse: collapse;
+      border-collapse: separate;
+      border-spacing: 0;
       table-layout: fixed;
-      background: var(--white);
-      border: 1pt solid var(--border);
-      border-radius: 6pt;
-      margin-top: 3pt;
+      margin-top: 6pt;
       margin-bottom: 4pt;
-      font-size: 7.2pt;
+      font-size: 7.5pt;
     }
     .pkg-compare th,
     .pkg-compare td {
-      padding: 2.8pt 5pt;
-      text-align: center;
-      vertical-align: middle;
-      border-bottom: 0.5pt solid var(--border);
-      border-right: 0.5pt solid var(--border);
+      padding: 3.5pt 8pt;
+      border-bottom: 0.5pt solid #E2E8F0;
     }
-    .pkg-compare th:last-child,
-    .pkg-compare td:last-child {
-      border-right: none;
+    .feat-col-head {
+      width: 34%;
+      background: transparent;
+      border-bottom: none !important;
     }
-    .pkg-compare thead th {
-      background: var(--slate-100);
-      color: var(--teal-800);
-      padding: 5pt 5pt;
-      vertical-align: top;
-    }
-    .pkg-compare thead th.pkg-hi {
-      background: var(--teal-50);
-      border-top: 2.5pt solid var(--teal-700);
-      border-bottom: 1.5pt solid var(--teal-100);
-    }
-    .pkg-compare td.pkg-hi {
-      background: rgba(204, 251, 241, 0.12);
-    }
-    .pkg-compare .feat-col {
-      width: 32%;
+    .feat-col {
+      width: 34%;
       text-align: left !important;
       font-weight: 700;
-      color: var(--slate-700);
-      background: var(--slate-50);
+      color: #334155;
+      background: transparent;
+      padding-left: 0 !important;
+      vertical-align: middle;
     }
-    .pkg-compare .pkg-ribbon {
+    .pkg-head-col {
+      width: 33%;
+      border-bottom: none !important;
+    }
+    .pkg-head-std {
+      background: #CCFBF1;
+      border-top-left-radius: 8pt;
+      border-top-right-radius: 8pt;
+      padding: 8pt 6pt 6pt 6pt;
+      text-align: center;
+      vertical-align: bottom;
+    }
+    .pkg-head-hi {
+      background: #0F766E;
+      border-top-left-radius: 8pt;
+      border-top-right-radius: 8pt;
+      padding: 6pt 6pt 6pt 6pt;
+      text-align: center;
+      vertical-align: bottom;
+    }
+    .pkg-ribbon {
       display: inline-block;
-      background: var(--teal-700);
-      color: var(--white);
+      background: #E5A93C;
+      color: #1F2937;
       font-family: 'Manrope', sans-serif;
-      font-size: 6.2pt;
+      font-size: 6.5pt;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 1.5pt 6pt;
+      border-radius: 4pt;
+      margin-bottom: 3pt;
+    }
+    .pkg-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 10pt;
+      font-weight: 700;
+      color: #0F766E;
+      line-height: 1.15;
+    }
+    .pkg-title-hi {
+      color: #FFFFFF !important;
+    }
+    .pkg-sub {
+      font-family: 'Manrope', sans-serif;
+      font-size: 6.5pt;
       font-weight: 800;
       text-transform: uppercase;
       letter-spacing: 0.08em;
-      padding: 1pt 4.5pt;
-      border-radius: 3pt;
-      margin-bottom: 2pt;
+      color: #0F766E;
+      margin-top: 2pt;
     }
-    .pkg-compare .pkg-name {
-      font-family: 'Playfair Display', serif;
-      font-size: 9pt;
-      font-weight: 700;
-      color: var(--teal-800);
-      line-height: 1.15;
+    .pkg-sub-hi {
+      color: rgba(255, 255, 255, 0.9) !important;
     }
-    .pkg-compare .pkg-level {
-      font-family: 'Manrope', sans-serif;
-      font-size: 6pt;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: var(--orange-500);
-      margin-top: 1.5pt;
-    }
-    .pkg-compare tr.total-row td {
-      background: var(--teal-50);
-      border-bottom: 1.2pt solid var(--teal-100);
-      padding: 3.5pt 5pt;
+    .pkg-val-col {
+      text-align: center;
+      vertical-align: middle;
+      color: #1F2937;
     }
     .pkg-compare .big-amt {
       font-family: 'Playfair Display', serif;
+      font-size: 12.5pt;
+      font-weight: 800;
+      color: #0F766E;
+    }
+    .chk-green {
+      color: #10B981;
+      font-weight: 800;
       font-size: 11pt;
-      font-weight: 800;
-      color: var(--teal-700);
     }
-    .pkg-compare .yes {
+    .chk-red {
+      color: #EF4444;
+      font-weight: 800;
+      font-size: 11pt;
+    }
+    .pill-mint {
       display: inline-block;
-      color: #059669;
+      background: #CCFBF1;
+      color: #0F766E;
+      font-family: 'Manrope', sans-serif;
+      font-size: 6.8pt;
       font-weight: 800;
-      font-size: 9pt;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 2pt 9pt;
+      border-radius: 999pt;
     }
-    .pkg-compare .no {
-      display: inline-block;
-      color: #DC2626;
-      font-weight: 800;
-      font-size: 9pt;
-    }
-    .pkg-compare ul.incl {
-      list-style: none;
-      padding: 0;
+    .incl-list {
+      list-style-type: disc;
+      padding-left: 12pt;
       margin: 0;
       text-align: left;
     }
-    .pkg-compare ul.incl li {
-      position: relative;
-      padding-left: 8pt;
-      margin-bottom: 1.5pt;
-      font-size: 6.5pt;
-      line-height: 1.25;
-      color: var(--slate-700);
+    .incl-list li {
+      font-size: 6.8pt;
+      line-height: 1.35;
+      color: #334155;
+      margin-bottom: 2pt;
     }
-    .pkg-compare ul.incl li::before {
-      content: "•";
-      position: absolute;
-      left: 0;
-      color: var(--teal-700);
+
+    .grand-section-title {
+      font-family: 'Manrope', sans-serif;
+      color: #0F766E;
+      font-size: 8.5pt;
       font-weight: 800;
-    }
-    .grand-wrap {
-      margin-top: 4pt;
-      page-break-inside: avoid;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-top: 10pt;
+      margin-bottom: 5pt;
     }
     .grand-grid {
       display: flex;
-      gap: 5pt;
+      gap: 10pt;
     }
     .grand-card {
       flex: 1;
-      background: var(--white);
-      border: 1pt solid var(--border);
-      border-radius: 5pt;
-      padding: 4.5pt 7pt;
-      page-break-inside: avoid;
+      background: #FFFFFF;
+      border-radius: 8pt;
+      padding: 8pt 12pt;
+      box-sizing: border-box;
     }
-    .grand-card.grand-hi {
-      background: var(--teal-50);
-      border: 1.2pt solid var(--teal-700);
-      box-shadow: var(--shadow-sm);
+    .grand-card.card-std {
+      border: 1pt solid #CBD5E1;
     }
-    .grand-name {
-      font-family: 'Playfair Display', serif;
-      font-size: 7.5pt;
-      font-weight: 700;
-      color: var(--teal-800);
-      margin-bottom: 1.5pt;
+    .grand-card.card-hi {
+      border: 1.5pt solid #0F766E;
     }
-    .grand-kv {
+    .grand-card-title {
+      font-family: 'Manrope', sans-serif;
+      font-size: 9pt;
+      font-weight: 800;
+      color: #0F766E;
+      margin-bottom: 5pt;
+    }
+    .grand-kv-table {
       width: 100%;
       border-collapse: collapse;
-      margin: 1.5pt 0;
+      margin-bottom: 4pt;
     }
-    .grand-kv td {
-      padding: 0.8pt 0;
-      font-size: 6.2pt;
-      color: var(--slate-700);
+    .grand-kv-table td {
+      padding: 1.5pt 0;
+      font-size: 7.2pt;
       border: none;
+      color: #334155;
     }
-    .grand-total-line {
-      border-top: 0.75pt dashed var(--teal-600);
-      padding-top: 1.5pt;
-      margin-top: 1.5pt;
+    .grand-kv-table td.amt {
+      text-align: right;
+      font-weight: 700;
+      color: #1F2937;
+    }
+    .grand-divider {
+      border-top: 1pt solid #0F766E;
+      margin: 4pt 0;
+    }
+    .grand-total-row {
       display: flex;
       justify-content: space-between;
       align-items: baseline;
-      font-weight: 800;
-      font-size: 6.8pt;
-      color: var(--teal-800);
+      padding-top: 2pt;
     }
-    .grand-amt {
-      font-family: 'Playfair Display', serif;
-      font-size: 8.2pt;
+    .grand-total-label {
+      font-family: 'Manrope', sans-serif;
+      font-size: 7.5pt;
       font-weight: 800;
-      color: var(--teal-700);
+      color: #334155;
+      letter-spacing: 0.05em;
+    }
+    .grand-total-val {
+      font-family: 'Playfair Display', serif;
+      font-size: 9.5pt;
+      font-weight: 800;
+      color: #0F766E;
+    }
+    .grand-footer-disclaimer {
+      font-size: 6.8pt;
+      color: #64748B;
+      line-height: 1.35;
+      margin-top: 6pt;
     }
   </style>
 
