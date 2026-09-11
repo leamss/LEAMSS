@@ -13,13 +13,17 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Download, Loader2, ShieldCheck, AlertCircle, Trophy, Globe2, Mail } from 'lucide-react';
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const BACKEND_URL = (typeof window !== 'undefined' && window.location.hostname.includes('leamss.com'))
+  ? 'https://api.leamss.com'
+  : (process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001');
+const API = `${BACKEND_URL}/api`;
 
 export default function PublicReportView() {
   const { token } = useParams();
   const [meta, setMeta] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     axios.get(`${API}/assessment-reports/public/${token}`)
@@ -52,50 +56,73 @@ export default function PublicReportView() {
 
   const best = meta?.best_country || {};
 
-  return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-blue-50" data-testid="public-report-view">
-      {/* Brand banner */}
-      <div className="bg-gradient-to-r from-blue-900 to-leamss-teal-800 text-white p-6">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <div>
-              <h1 className="text-3xl font-bold">LEAMSS</h1>
-              <p className="text-xs text-amber-300 italic">{meta?.tagline || 'We Value Emotions'}</p>
-              <p className="text-[10px] text-blue-200 mt-1">{meta?.company}</p>
-            </div>
-            <div className="text-right">
-              <Badge className="bg-amber-500 text-white text-[10px]">
-                <ShieldCheck className="h-3 w-3 mr-1" />Verified Snapshot
-              </Badge>
-              <p className="text-[10px] text-blue-200 mt-1 font-mono">
-                {meta?.snapshot_id}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
+  const handleDownloadPdf = async () => {
+    setDownloading(true);
+    try {
+      const pdfUrl = `${API}/assessment-reports/public/${token}/pdf`;
+      const resp = await fetch(pdfUrl);
+      if (!resp.ok) {
+        throw new Error(`PDF download failed (${resp.status})`);
+      }
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `LEAMSS_Assessment_Report_${meta?.client_name ? meta.client_name.replace(/\s+/g, '_') : 'Applicant'}.pdf`;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (e) {
+      window.open(`${API}/assessment-reports/public/${token}/pdf`, '_blank');
+    } finally {
+      setDownloading(false);
+    }
+  };
 
-      <div className="max-w-4xl mx-auto p-6 space-y-4">
-        {/* Title */}
-        <Card className="p-6 border-l-4 border-l-amber-500" data-testid="report-title">
-          <h2 className="text-2xl font-bold text-slate-900">
-            Assessment Report for <span className="text-blue-800">{meta?.client_name}</span>
+  return (
+    <div className="min-h-screen bg-slate-100 flex flex-col justify-between" data-testid="public-report-view">
+      {/* Header banner */}
+      <header className="bg-blue-900 text-white p-4 shadow">
+        <div className="max-w-4xl mx-auto flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-bold tracking-tight">LEAMSS</h1>
+            <p className="text-[10px] text-amber-300">We Value Emotions</p>
+            <p className="text-[10px] text-blue-200">Ladhani Education &amp; Migration Services Pvt. Ltd.</p>
+          </div>
+          <Badge className="bg-emerald-600 text-white text-xs">
+            <ShieldCheck className="h-3.5 w-3.5 mr-1 inline" />Verified Snapshot
+          </Badge>
+        </div>
+      </header>
+
+      <div className="max-w-4xl mx-auto w-full p-4 space-y-4 my-4 flex-1">
+        {/* Title card */}
+        <Card className="p-6 border-l-4 border-l-amber-500 shadow-sm">
+          <p className="text-[10px] uppercase font-bold text-slate-400">
+            Report Reference: {meta?.snapshot_id || meta?.assessment_id}
+          </p>
+          <h2 className="text-2xl font-bold text-slate-900 mt-1">
+            Assessment Report for {meta?.client_name || 'Client'}
           </h2>
           <p className="text-xs text-slate-500 mt-1">
-            Generated on {meta?.generated_at ? new Date(meta.generated_at).toLocaleString() : '—'}
+            Generated on {new Date(meta?.created_at).toLocaleString()}
           </p>
         </Card>
 
-        {/* Best country */}
-        {best?.country_name && (
-          <Card className="p-5" data-testid="best-country">
+        {/* Top outcome summary */}
+        {best && (
+          <Card className="p-6 bg-white border-slate-200">
             <div className="flex items-center justify-between flex-wrap gap-3">
               <div>
-                <p className="text-[10px] uppercase font-bold text-slate-500">Top Recommendation</p>
-                <h3 className="text-2xl font-bold flex items-center gap-2 mt-1">
-                  <Trophy className="h-7 w-7 text-amber-500" />
-                  {best.flag} {best.country_name}
-                </h3>
+                <p className="text-[10px] uppercase font-bold text-slate-400">Top Recommendation</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <Trophy className="h-6 w-6 text-amber-500" />
+                  <h3 className="text-xl font-bold text-slate-900">
+                    {best.country_code} {best.country_name}
+                  </h3>
+                </div>
                 <p className="text-xs text-slate-500 mt-1">
                   {meta?.countries_count} country option{meta?.countries_count !== 1 ? 's' : ''} included
                 </p>
@@ -118,16 +145,18 @@ export default function PublicReportView() {
               </h3>
               <p className="text-xs text-slate-600 mt-1">
                 Download the complete professional PDF with all sections (Cover · Client Profile · Per-Country Details ·
-                Visa Pathways · Points Breakdown · Cost & Process · Indicative Checklist · Disclaimer).
+                Visa Pathways · Points Breakdown · Cost &amp; Process · Indicative Checklist · Disclaimer).
               </p>
             </div>
             <Button
               size="lg"
               className="bg-blue-800 hover:bg-blue-900 text-white"
-              onClick={() => window.open(`${API}/assessment-reports/public/${token}/pdf`, '_blank')}
+              onClick={handleDownloadPdf}
+              disabled={downloading}
               data-testid="download-pdf-btn"
             >
-              <Download className="h-4 w-4 mr-2" />Download PDF
+              {downloading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
+              {downloading ? 'Downloading…' : 'Download PDF'}
             </Button>
           </div>
         </Card>
@@ -160,7 +189,7 @@ export default function PublicReportView() {
       </div>
 
       <footer className="bg-slate-900 text-slate-400 text-center text-[10px] p-3 mt-6">
-        © Ladhani Education & Migration Services Pvt. Ltd. · We Value Emotions
+        © Ladhani Education &amp; Migration Services Pvt. Ltd. · We Value Emotions
       </footer>
     </div>
   );
