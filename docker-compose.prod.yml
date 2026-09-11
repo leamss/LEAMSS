@@ -1,13 +1,6 @@
 version: '3.8'
 
 services:
-  mongo:
-    image: mongo:latest
-    restart: always
-    network_mode: "host"
-    volumes:
-      - mongo_data:/data/db
-
   backend:
     build:
       context: ./backend
@@ -29,8 +22,3 @@ services:
     restart: always
     ports:
       - "3000:80"
-
-volumes:
-  mongo_data:
-
-
