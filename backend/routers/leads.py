@@ -75,7 +75,9 @@ async def get_leads(
     current_user: dict = Depends(get_current_user)
 ):
     """Get all leads (admin/partner)"""
-    if current_user["role"] not in ["admin", "partner", "case_manager", "sales_executive", "sr_sales_executive"]:
+    role = current_user.get("rbac_role") or current_user.get("role") or ""
+    allowed_roles = ["admin", "admin_owner", "partner", "case_manager", "sales_executive", "sr_sales_executive", "sales_manager", "sales_head"]
+    if role not in allowed_roles and "*" not in (current_user.get("permissions") or []):
         raise HTTPException(status_code=403, detail="Not authorized")
     
     query = {}
@@ -85,10 +87,11 @@ async def get_leads(
         query["assigned_to"] = assigned_to
     if source:
         query["source"] = source
-    if current_user["role"] in ["partner", "sales_executive", "sr_sales_executive"]:
+    if role in ["partner", "sales_executive", "sr_sales_executive", "sales_manager", "sales_head"]:
         query["$or"] = [
             {"assigned_to": current_user["id"]},
             {"partner_id": current_user["id"]},
+            {"created_by": current_user["id"]},
             {"assigned_to": None},
             {"assigned_to": ""},
             {"assigned_to": "Unassigned"},
@@ -107,17 +110,20 @@ async def get_leads(
 @router.get("/pipeline-stats")
 async def get_pipeline_stats(current_user: dict = Depends(get_current_user)):
     """Get lead pipeline statistics"""
-    if current_user["role"] not in ["admin", "partner", "case_manager", "sales_executive", "sr_sales_executive"]:
+    role = current_user.get("rbac_role") or current_user.get("role") or ""
+    allowed_roles = ["admin", "admin_owner", "partner", "case_manager", "sales_executive", "sr_sales_executive", "sales_manager", "sales_head"]
+    if role not in allowed_roles and "*" not in (current_user.get("permissions") or []):
         raise HTTPException(status_code=403, detail="Not authorized")
     
     stages = ["new", "contacted", "not_connected", "payment_done", "prospect", "not_interested", "converted"]
     stats = {}
     for stage in stages:
         query = {"stage": stage}
-        if current_user["role"] in ["partner", "sales_executive", "sr_sales_executive"]:
+        if role in ["partner", "sales_executive", "sr_sales_executive", "sales_manager", "sales_head"]:
             query["$or"] = [
                 {"assigned_to": current_user["id"]},
                 {"partner_id": current_user["id"]},
+                {"created_by": current_user["id"]},
                 {"assigned_to": None},
                 {"assigned_to": ""},
                 {"assigned_to": "Unassigned"},
@@ -484,6 +490,27 @@ async def bulk_assign_leads(payload: dict, current_user: dict = Depends(get_curr
         {"$set": update_doc}
     )
 
+    # Sync assignment to linked pre_assessments and sales_assessments
+    assigned_leads = await leads_col.find({"id": {"$in": lead_ids}}, {"id": 1, "pa_id": 1, "assessment_id": 1}).to_list(1000)
+    pa_ids = [l["pa_id"] for l in assigned_leads if l.get("pa_id")]
+    sa_ids = [l["assessment_id"] for l in assigned_leads if l.get("assessment_id")]
+    
+    pa_query = [{"lead_id": {"$in": lead_ids}}]
+    if pa_ids:
+        pa_query.append({"id": {"$in": pa_ids}})
+    await db["pre_assessments"].update_many(
+        {"$or": pa_query},
+        {"$set": update_doc}
+    )
+    
+    sa_query = [{"lead_id": {"$in": lead_ids}}]
+    if sa_ids:
+        sa_query.append({"id": {"$in": sa_ids}})
+    await db["sales_assessments"].update_many(
+        {"$or": sa_query},
+        {"$set": update_doc}
+    )
+
     return {
         "status": "success",
         "updated_count": result.modified_count,
@@ -532,6 +559,18 @@ async def assign_single_lead(lead_id: str, payload: dict, current_user: dict = D
         {"id": lead_id},
         {"$set": update_doc}
     )
+
+    # Sync to linked pre_assessments and sales_assessments
+    lead_doc = await leads_col.find_one({"id": lead_id}, {"pa_id": 1, "assessment_id": 1})
+    pa_q = [{"lead_id": lead_id}]
+    if lead_doc and lead_doc.get("pa_id"):
+        pa_q.append({"id": lead_doc["pa_id"]})
+    await db["pre_assessments"].update_many({"$or": pa_q}, {"$set": update_doc})
+
+    sa_q = [{"lead_id": lead_id}]
+    if lead_doc and lead_doc.get("assessment_id"):
+        sa_q.append({"id": lead_doc["assessment_id"]})
+    await db["sales_assessments"].update_many({"$or": sa_q}, {"$set": update_doc})
 
     return {
         "status": "success",

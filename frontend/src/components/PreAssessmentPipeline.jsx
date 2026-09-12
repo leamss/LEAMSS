@@ -9,7 +9,7 @@ import {
   Plus, Send, CheckCircle, Clock, XCircle, FileText, Upload, 
   CreditCard, Eye, ChevronDown, ChevronUp, Search,
   Edit3,
-  AlertTriangle, RefreshCw, Filter, Bell
+  AlertTriangle, RefreshCw, Filter, Bell, MessageSquare, Mail, Phone
 } from 'lucide-react';
 import FunnelProgress from '@/components/FunnelProgress';
 import PaymentHistoryTimeline from '@/components/PaymentHistoryTimeline';
@@ -863,6 +863,32 @@ const getNextAction = (pa) => {
                     <p className="text-sm text-slate-500">{pa.country} — {pa.service_type} {pa.product_name ? `(${pa.product_name})` : ''}</p>
                   </div>
                   <Badge className={`${stageInfo.bgColor} ${stageInfo.textColor} border-0`}>{stageInfo.label}</Badge>
+                  {pa.client_mobile && (
+                    <a
+                      href={`https://wa.me/${(pa.client_mobile.replace(/[^\d+]/g, '').startsWith('+') ? pa.client_mobile.replace(/[^\d+]/g, '').slice(1) : pa.client_mobile.replace(/[^\d+]/g, '').length === 10 ? '91' + pa.client_mobile.replace(/[^\d+]/g, '') : pa.client_mobile.replace(/[^\d+]/g, ''))}?text=${encodeURIComponent(`Hi ${pa.client_name}, this is Team LEAMSS following up on your ${pa.country || ''} ${pa.service_type || 'immigration'} application (Ref: ${pa.pa_number || ''}).`)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="hidden sm:inline-flex"
+                      title="Follow up on WhatsApp"
+                    >
+                      <Button variant="outline" size="sm" className="h-8 text-emerald-700 border-emerald-300 hover:bg-emerald-50">
+                        <MessageSquare className="h-3.5 w-3.5 mr-1 text-emerald-600" /> WhatsApp
+                      </Button>
+                    </a>
+                  )}
+                  {pa.client_email && (
+                    <a
+                      href={`mailto:${pa.client_email}?subject=${encodeURIComponent(`LEAMSS Pre-Assessment Update — ${pa.pa_number || pa.client_name}`)}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="hidden sm:inline-flex"
+                      title="Send Email"
+                    >
+                      <Button variant="outline" size="sm" className="h-8 text-sky-700 border-sky-300 hover:bg-sky-50">
+                        <Mail className="h-3.5 w-3.5 mr-1 text-sky-600" /> Email
+                      </Button>
+                    </a>
+                  )}
                   <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); handlePreviewAsClient(pa.id); }}
                     className="hidden md:inline-flex border-[#f7620b]/40 text-[#f7620b] hover:bg-[#f7620b]/5"
                     data-testid={`preview-client-header-${pa.id}`} title="Open client's portal view in a new tab">

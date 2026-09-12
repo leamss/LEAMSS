@@ -152,7 +152,33 @@ async def list_assessments(
         raise HTTPException(status_code=403, detail="Not authorised")
     role = _user_role(current_user)
     is_admin = role in ("admin", "admin_owner") or "*" in (current_user.get("permissions") or [])
-    query: Dict[str, Any] = {} if is_admin else {"created_by": current_user["id"]}
+    if is_admin:
+        query: Dict[str, Any] = {}
+    else:
+        user_id = current_user["id"]
+        assigned_leads = await db["leads"].find(
+            {"$or": [{"partner_id": user_id}, {"assigned_to": user_id}, {"created_by": user_id}]},
+            {"id": 1}
+        ).to_list(1000)
+        assigned_lead_ids = [l["id"] for l in assigned_leads if l.get("id")]
+
+        assigned_pas = await db["pre_assessments"].find(
+            {"$or": [{"partner_id": user_id}, {"assigned_to": user_id}, {"created_by": user_id}]},
+            {"id": 1, "source_smart_sales_assessment_id": 1}
+        ).to_list(1000)
+        assigned_pa_ids = [p["id"] for p in assigned_pas if p.get("id")]
+        assigned_source_sa_ids = [p["source_smart_sales_assessment_id"] for p in assigned_pas if p.get("source_smart_sales_assessment_id")]
+
+        query: Dict[str, Any] = {
+            "$or": [
+                {"created_by": user_id},
+                {"partner_id": user_id},
+                {"assigned_to": user_id},
+                {"id": {"$in": assigned_source_sa_ids}},
+                {"lead_id": {"$in": assigned_lead_ids}},
+                {"linked_pa_id": {"$in": assigned_pa_ids}},
+            ]
+        }
     if search:
         query["client_name"] = {"$regex": search, "$options": "i"}
     items = []
@@ -269,6 +295,35 @@ async def delete_orphaned_pa(pa_id: str, current_user: dict = Depends(get_curren
     return {"ok": True}
 
 
+async def _assert_can_access_sa_doc(doc: dict, current_user: dict):
+    role = _user_role(current_user)
+    is_admin = role in ("admin", "admin_owner") or "*" in (current_user.get("permissions") or [])
+    if is_admin:
+        return
+    user_id = current_user["id"]
+    if (
+        doc.get("created_by") == user_id or
+        doc.get("partner_id") == user_id or
+        doc.get("assigned_to") == user_id
+    ):
+        return
+    # Check lead link
+    if doc.get("lead_id"):
+        lead = await db["leads"].find_one({"id": doc["lead_id"]}, {"partner_id": 1, "assigned_to": 1, "created_by": 1})
+        if lead and (lead.get("partner_id") == user_id or lead.get("assigned_to") == user_id or lead.get("created_by") == user_id):
+            return
+    # Check PA link
+    if doc.get("linked_pa_id"):
+        pa = await db["pre_assessments"].find_one({"id": doc["linked_pa_id"]}, {"partner_id": 1, "assigned_to": 1, "created_by": 1})
+        if pa and (pa.get("partner_id") == user_id or pa.get("assigned_to") == user_id or pa.get("created_by") == user_id):
+            return
+    # Check source_smart_sales_assessment_id in pre_assessments
+    pa_src = await db["pre_assessments"].find_one({"source_smart_sales_assessment_id": doc.get("id")}, {"partner_id": 1, "assigned_to": 1, "created_by": 1})
+    if pa_src and (pa_src.get("partner_id") == user_id or pa_src.get("assigned_to") == user_id or pa_src.get("created_by") == user_id):
+        return
+    raise HTTPException(status_code=403, detail="Not the owner or assigned user")
+
+
 @router.get("/{assessment_id}")
 async def get_assessment(assessment_id: str, current_user: dict = Depends(get_current_user)):
     if not _can_access(current_user):
@@ -276,10 +331,7 @@ async def get_assessment(assessment_id: str, current_user: dict = Depends(get_cu
     d = await assessments_col.find_one({"id": assessment_id}, {"_id": 0})
     if not d:
         raise HTTPException(status_code=404, detail="Assessment not found")
-    role = _user_role(current_user)
-    is_admin = role in ("admin", "admin_owner") or "*" in (current_user.get("permissions") or [])
-    if not is_admin and d.get("created_by") != current_user["id"]:
-        raise HTTPException(status_code=403, detail="Not the owner")
+    await _assert_can_access_sa_doc(d, current_user)
     return _strip(d)
 
 
@@ -302,7 +354,7 @@ async def delete_assessment(assessment_id: str, current_user: dict = Depends(get
 async def update_assessment(assessment_id: str, req: SaveAssessmentRequest, current_user: dict = Depends(get_current_user)):
     """Phase 6.8.5 — update existing assessment in-place (used by Resume/Continue flow).
 
-    Permissions: owner OR admin. Re-runs the calculator and refreshes results +
+    Permissions: owner OR admin OR assigned user. Re-runs the calculator and refreshes results +
     best_country snapshot. Preserves linked_pa_id / share_* fields.
 
     Phase 6.8.6 Bug Fix — when the assessment already has a `linked_pa_id`, the
@@ -315,10 +367,7 @@ async def update_assessment(assessment_id: str, req: SaveAssessmentRequest, curr
     existing = await assessments_col.find_one({"id": assessment_id})
     if not existing:
         raise HTTPException(status_code=404, detail="Assessment not found")
-    role = _user_role(current_user)
-    is_admin = role in ("admin", "admin_owner") or "*" in (current_user.get("permissions") or [])
-    if not is_admin and existing.get("created_by") != current_user["id"]:
-        raise HTTPException(status_code=403, detail="Not the owner")
+    await _assert_can_access_sa_doc(existing, current_user)
 
     # Re-run calculator
     results = []

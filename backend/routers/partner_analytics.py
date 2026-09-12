@@ -194,8 +194,47 @@ async def get_targets(current_user: dict = Depends(get_current_user)):
 
 @router.get("/pipeline-summary")
 async def get_pipeline_summary(current_user: dict = Depends(get_current_user)):
-    """Get pre-assessment pipeline summary grouped by stage"""
-    query = {"partner_id": current_user["id"]} if current_user["role"] != "admin" else {}
+    """Get pre-assessment pipeline summary grouped by stage with full contact details for follow-up."""
+    role = current_user.get("role") or ""
+    rbac_role = current_user.get("rbac_role") or ""
+    is_admin = role in ("admin", "admin_owner") or rbac_role in ("admin", "admin_owner") or "*" in (current_user.get("permissions") or [])
+
+    if is_admin:
+        query = {}
+    else:
+        uid = current_user["id"]
+        uemail = (current_user.get("email") or "").lower()
+        pid = current_user.get("partner_id") or (uid if role == "partner" or rbac_role == "partner" else None)
+        
+        user_matches = [
+            {"partner_id": uid},
+            {"assigned_to": uid},
+            {"created_by_user_id": uid},
+            {"created_by": uid},
+        ]
+        if uemail:
+            user_matches.extend([
+                {"partner_id": uemail},
+                {"assigned_to": uemail},
+                {"created_by_email": uemail},
+            ])
+        if pid:
+            user_matches.append({"partner_id": pid})
+            
+        lead_ids = []
+        lead_query = [{"assigned_to": uid}, {"partner_id": uid}]
+        if uemail:
+            lead_query.extend([{"assigned_to": uemail}, {"partner_id": uemail}])
+        if pid:
+            lead_query.append({"partner_id": pid})
+        async for l in db["leads"].find({"$or": lead_query}, {"id": 1, "pa_id": 1}):
+            if l.get("id"): lead_ids.append(l["id"])
+            if l.get("pa_id"): lead_ids.append(l["pa_id"])
+        if lead_ids:
+            user_matches.append({"lead_id": {"$in": lead_ids}})
+            user_matches.append({"id": {"$in": lead_ids}})
+            
+        query = {"$or": user_matches}
 
     pipeline = [
         {"$match": query},
@@ -204,8 +243,12 @@ async def get_pipeline_summary(current_user: dict = Depends(get_current_user)):
             "count": {"$sum": 1},
             "items": {"$push": {
                 "id": "$id", "pa_number": "$pa_number",
-                "client_name": "$client_name", "country": "$country",
-                "service_type": "$service_type", "created_at": "$created_at"
+                "client_name": "$client_name", "client_email": "$client_email",
+                "client_mobile": "$client_mobile", "country": "$country",
+                "service_type": "$service_type", "stage": "$stage",
+                "lead_id": "$lead_id", "fee_payment_status": "$fee_payment_status",
+                "notes": "$notes", "education": "$education", "work_experience": "$work_experience",
+                "created_at": "$created_at"
             }}
         }},
         {"$sort": {"_id": 1}}
@@ -218,6 +261,6 @@ async def get_pipeline_summary(current_user: dict = Depends(get_current_user)):
         for item in items:
             if item.get("created_at") and hasattr(item["created_at"], "isoformat"):
                 item["created_at"] = item["created_at"].isoformat()
-        result[stage["_id"]] = {"count": stage["count"], "items": items[:10]}
+        result[stage["_id"]] = {"count": stage["count"], "items": items}
 
     return result

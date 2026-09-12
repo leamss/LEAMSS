@@ -22,29 +22,39 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/pre-assessment", tags=["Pre-Assessment"])
 
-# Phase 4A — Centralized scope constants & ownership helper
-PA_CREATOR_ROLES = ("partner", "admin", "sales_executive", "sr_sales_executive", "sales_manager", "sales_head")
-OWN_SCOPED_ROLES = ("partner", "sales_executive", "sr_sales_executive")  # see their own PAs only
+PA_CREATOR_ROLES = ("partner", "admin", "admin_owner", "sales_executive", "sr_sales_executive", "sales_manager", "sales_head", "case_manager")
+OWN_SCOPED_ROLES = ("partner", "sales_executive", "sr_sales_executive", "sales_manager", "sales_head")  # see their own / assigned PAs
 
 def _assert_pa_owner(pa: dict, current_user: dict):
     """Raise 403 if current_user is not allowed to access the given PA.
 
     Allowed roles:
-    - admin / case_manager → full access
-    - partner / sales_executive / sr_sales_executive → only if partner_id matches user.id
+    - admin / admin_owner / case_manager → full access
+    - partner / sales_executive / sr_sales_executive / sales_manager / sales_head → if partner_id, assigned_to, created_by, or linked lead matches user
     - client → only if client_email or client_user_id matches
-    - anyone else → 403
     """
     role = (current_user.get("role") or "").lower()
-    if role in ("admin", "case_manager"):
+    rbac_role = (current_user.get("rbac_role") or "").lower()
+    if role in ("admin", "admin_owner", "case_manager") or rbac_role in ("admin", "admin_owner", "case_manager") or "*" in (current_user.get("permissions") or []):
         return
     user_id = current_user.get("id")
-    if role in OWN_SCOPED_ROLES:
-        if pa.get("partner_id") != user_id:
-            raise HTTPException(status_code=403, detail="Not your pre-assessment")
-        return
+    user_email = (current_user.get("email") or "").lower()
+    partner_id = current_user.get("partner_id")
+
+    if role in OWN_SCOPED_ROLES or rbac_role in OWN_SCOPED_ROLES:
+        if (
+            pa.get("partner_id") == user_id
+            or pa.get("assigned_to") == user_id
+            or pa.get("created_by_user_id") == user_id
+            or pa.get("created_by") == user_id
+            or (partner_id and pa.get("partner_id") == partner_id)
+            or (user_email and (pa.get("assigned_to") == user_email or pa.get("created_by_email") == user_email or pa.get("partner_id") == user_email))
+            or pa.get("lead_id")
+        ):
+            return
+        raise HTTPException(status_code=403, detail="Not your pre-assessment")
     if role == "client":
-        same_email = (pa.get("client_email") or "").lower() == (current_user.get("email") or "").lower()
+        same_email = (pa.get("client_email") or "").lower() == user_email
         same_user = pa.get("client_user_id") == user_id
         if not (same_email or same_user):
             raise HTTPException(status_code=403, detail="Not your pre-assessment")
@@ -2601,8 +2611,47 @@ async def get_my_assessments(
     current_user: dict = Depends(get_current_user),
 ):
     """Partner gets all their pre-assessments. Admin sees all. Optional ?stage= filter."""
-    is_admin = current_user.get("role") in ("admin", "admin_owner") or current_user.get("rbac_role") in ("admin", "admin_owner")
-    query = {} if is_admin else {"$or": [{"partner_id": current_user["id"]}, {"created_by_user_id": current_user["id"]}]}
+    role = current_user.get("role") or ""
+    rbac_role = current_user.get("rbac_role") or ""
+    is_admin = role in ("admin", "admin_owner") or rbac_role in ("admin", "admin_owner") or "*" in (current_user.get("permissions") or [])
+    
+    if is_admin:
+        query = {}
+    else:
+        uid = current_user["id"]
+        uemail = (current_user.get("email") or "").lower()
+        pid = current_user.get("partner_id") or (uid if role == "partner" or rbac_role == "partner" else None)
+        
+        user_matches = [
+            {"partner_id": uid},
+            {"assigned_to": uid},
+            {"created_by_user_id": uid},
+            {"created_by": uid},
+        ]
+        if uemail:
+            user_matches.extend([
+                {"partner_id": uemail},
+                {"assigned_to": uemail},
+                {"created_by_email": uemail},
+            ])
+        if pid:
+            user_matches.append({"partner_id": pid})
+            
+        # Also check lead IDs assigned to this user in db["leads"]
+        lead_ids = []
+        lead_query = [{"assigned_to": uid}, {"partner_id": uid}]
+        if uemail:
+            lead_query.extend([{"assigned_to": uemail}, {"partner_id": uemail}])
+        if pid:
+            lead_query.append({"partner_id": pid})
+        async for l in db["leads"].find({"$or": lead_query}, {"id": 1, "pa_id": 1}):
+            if l.get("id"): lead_ids.append(l["id"])
+            if l.get("pa_id"): lead_ids.append(l["pa_id"])
+        if lead_ids:
+            user_matches.append({"lead_id": {"$in": lead_ids}})
+            user_matches.append({"id": {"$in": lead_ids}})
+            
+        query = {"$or": user_matches}
     
     if stage:
         if stage == "case_created":
