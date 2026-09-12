@@ -31,17 +31,15 @@ echo "[$(date '+%Y-%m-%d %H:%M:%S')] Deploying updates ($LOCAL_COMMIT -> $REMOTE
 # Reset working directory cleanly to match origin/main
 git reset --hard origin/main
 
-# Build & restart containers
+# Build & restart containers with zero downtime
 if [ -f "docker-compose.prod.yml" ]; then
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] Rebuilding Docker production containers..."
-    sudo docker-compose -f docker-compose.prod.yml down --remove-orphans
-    sudo docker-compose -f docker-compose.prod.yml build --no-cache
-    sudo docker-compose -f docker-compose.prod.yml up -d
+    sudo docker-compose -f docker-compose.prod.yml build
+    sudo docker-compose -f docker-compose.prod.yml up -d --remove-orphans
 elif [ -f "docker-compose.yml" ]; then
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] Rebuilding Docker containers..."
-    sudo docker-compose down --remove-orphans
-    sudo docker-compose build --no-cache
-    sudo docker-compose up -d
+    sudo docker-compose build
+    sudo docker-compose up -d --remove-orphans
 fi
 
 # Clean up dangling images to keep EC2 disk & RAM clean and fast
