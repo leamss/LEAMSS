@@ -219,19 +219,239 @@ async def complete_follow_up(follow_up_id: str, data: dict, current_user: dict =
     return {"message": "Follow-up completed"}
 
 
-@router.post("/{lead_id}/convert")
-async def convert_lead(lead_id: str, data: dict, current_user: dict = Depends(get_current_user)):
-    """Convert a lead to a sale"""
-    if current_user["role"] not in ["admin", "partner", "sales_executive", "sr_sales_executive"]:
+@router.post("/{lead_id}/convert-to-pa")
+async def convert_lead_to_pa(lead_id: str, payload: dict = None, current_user: dict = Depends(get_current_user)):
+    """Converts a Lead into a full Pre-Assessment in one click."""
+    if current_user["role"] not in ["admin", "partner", "case_manager", "sales_executive", "sr_sales_executive", "sales_manager", "sales_head"]:
+        raise HTTPException(status_code=403, detail="Not authorized to convert leads to Pre-Assessment")
+
+    lead = await leads_col.find_one({"id": lead_id}, {"_id": 0})
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+
+    p = payload or {}
+    pa_id = str(uuid.uuid4())
+    pa_number = f"PA-{datetime.now().strftime('%Y%m%d')}-{pa_id[:6].upper()}"
+    country_code = (p.get("country") or lead.get("country_of_interest") or "AU").upper()[:2]
+    service_type = p.get("service_type") or lead.get("service_interested") or "General Skilled Migration"
+
+    partner_id = lead.get("assigned_to") or current_user["id"]
+    partner_name = lead.get("assigned_to_name") or current_user.get("name", "Admin")
+
+    pa_doc = {
+        "id": pa_id,
+        "pa_number": pa_number,
+        "partner_id": partner_id,
+        "partner_name": partner_name,
+        "created_by_user_id": current_user["id"],
+        "created_by_role": current_user.get("role", "partner"),
+        "created_by_user_type": current_user.get("user_type", "internal"),
+        "client_name": lead.get("name", "Unnamed Client"),
+        "client_email": lead.get("email", ""),
+        "client_mobile": lead.get("phone", ""),
+        "country": country_code,
+        "target_country": country_code,
+        "service_type": service_type,
+        "product_id": p.get("product_id", ""),
+        "product_name": p.get("product_name", "General Skilled Migration"),
+        "education": lead.get("latest_qualification", ""),
+        "work_experience": lead.get("total_work_experience", ""),
+        "dob": lead.get("date_of_birth", ""),
+        "marital_status": lead.get("marital_status", ""),
+        "notes": lead.get("message") or f"Converted from CRM Lead {lead.get('unique_id', '')}",
+        "lead_id": lead_id,
+        "lead_source": lead.get("source", "website"),
+        "lead_source_detail": lead.get("subsource", ""),
+        "stage": "new",
+        "status": "active",
+        "fee_payment_status": "paid" if lead.get("payment_status") == "success" else "pending",
+        "sale_type": "standard",
+        "pa_fees_amount": lead.get("payment_amount") or 5100,
+        "created_at": datetime.now(timezone.utc),
+        "updated_at": datetime.now(timezone.utc),
+    }
+
+    await db["pre_assessments"].insert_one(pa_doc)
+
+    # Link resume document if available
+    resume_url = lead.get("resume_url") or lead.get("resume_path")
+    if resume_url:
+        doc_id = str(uuid.uuid4())
+        await db["pre_assessment_documents"].insert_one({
+            "id": doc_id,
+            "pre_assessment_id": pa_id,
+            "name": f"Resume - {lead.get('name', 'Lead')}",
+            "doc_type": "resume",
+            "file_url": resume_url,
+            "file_path": lead.get("resume_path", ""),
+            "status": "uploaded",
+            "uploaded_at": datetime.now(timezone.utc),
+        })
+
+    # Mark lead as converted
+    await leads_col.update_one(
+        {"id": lead_id},
+        {"$set": {
+            "converted": True,
+            "converted_pa_id": pa_id,
+            "converted_pa_number": pa_number,
+            "stage": "converted",
+            "updated_at": datetime.now(timezone.utc)
+        }}
+    )
+
+    await log_activity(
+        current_user["id"], current_user.get("name", ""),
+        "convert_lead_to_pa", "lead", lead_id,
+        f"Converted Lead {lead.get('name')} to Pre-Assessment {pa_number}"
+    )
+
+    return {
+        "status": "success",
+        "message": "Pre-Assessment created successfully",
+        "pa_id": pa_id,
+        "pa_number": pa_number,
+        "deep_link": f"/admin?tab=pre-assessments&pa_id={pa_id}"
+    }
+
+
+@router.post("/bulk-create-pa")
+async def bulk_create_pa(payload: dict, current_user: dict = Depends(get_current_user)):
+    """Creates Pre-Assessments for multiple selected leads in bulk."""
+    if current_user["role"] not in ["admin", "partner", "case_manager", "sales_executive", "sr_sales_executive", "sales_manager"]:
         raise HTTPException(status_code=403, detail="Not authorized")
-    
-    await leads_col.update_one({"id": lead_id}, {"$set": {
-        "stage": "converted",
-        "converted": True,
-        "converted_sale_id": data.get("sale_id"),
-        "updated_at": datetime.now(timezone.utc)
-    }})
-    return {"message": "Lead converted to sale"}
+
+    lead_ids = payload.get("lead_ids", [])
+    if not lead_ids:
+        raise HTTPException(status_code=400, detail="No lead IDs provided")
+
+    created_pas = []
+    leads = await leads_col.find({"id": {"$in": lead_ids}}, {"_id": 0}).to_list(100)
+
+    for lead in leads:
+        lead_id = lead["id"]
+        pa_id = str(uuid.uuid4())
+        pa_number = f"PA-{datetime.now().strftime('%Y%m%d')}-{pa_id[:6].upper()}"
+        country_code = (lead.get("country_of_interest") or "AU").upper()[:2]
+        service_type = lead.get("service_interested") or "General Skilled Migration"
+
+        pa_doc = {
+            "id": pa_id,
+            "pa_number": pa_number,
+            "partner_id": lead.get("assigned_to") or current_user["id"],
+            "partner_name": lead.get("assigned_to_name") or current_user.get("name", "Admin"),
+            "created_by_user_id": current_user["id"],
+            "created_by_role": current_user.get("role", "partner"),
+            "client_name": lead.get("name", "Client"),
+            "client_email": lead.get("email", ""),
+            "client_mobile": lead.get("phone", ""),
+            "country": country_code,
+            "target_country": country_code,
+            "service_type": service_type,
+            "product_id": "",
+            "product_name": "General Skilled Migration",
+            "education": lead.get("latest_qualification", ""),
+            "work_experience": lead.get("total_work_experience", ""),
+            "dob": lead.get("date_of_birth", ""),
+            "marital_status": lead.get("marital_status", ""),
+            "notes": f"Bulk converted from Lead {lead.get('unique_id', '')}",
+            "lead_id": lead_id,
+            "lead_source": lead.get("source", "website"),
+            "stage": "new",
+            "status": "active",
+            "fee_payment_status": "paid" if lead.get("payment_status") == "success" else "pending",
+            "sale_type": "standard",
+            "pa_fees_amount": 5100,
+            "created_at": datetime.now(timezone.utc),
+            "updated_at": datetime.now(timezone.utc),
+        }
+        await db["pre_assessments"].insert_one(pa_doc)
+
+        resume_url = lead.get("resume_url") or lead.get("resume_path")
+        if resume_url:
+            await db["pre_assessment_documents"].insert_one({
+                "id": str(uuid.uuid4()),
+                "pre_assessment_id": pa_id,
+                "name": f"Resume - {lead.get('name', 'Lead')}",
+                "doc_type": "resume",
+                "file_url": resume_url,
+                "status": "uploaded",
+                "uploaded_at": datetime.now(timezone.utc),
+            })
+
+        await leads_col.update_one(
+            {"id": lead_id},
+            {"$set": {
+                "converted": True,
+                "converted_pa_id": pa_id,
+                "converted_pa_number": pa_number,
+                "stage": "converted",
+                "updated_at": datetime.now(timezone.utc)
+            }}
+        )
+
+        created_pas.append({
+            "lead_id": lead_id,
+            "client_name": lead.get("name"),
+            "pa_id": pa_id,
+            "pa_number": pa_number,
+        })
+
+    return {
+        "status": "success",
+        "created_count": len(created_pas),
+        "pa_list": created_pas,
+    }
+
+
+@router.post("/bulk-assign")
+async def bulk_assign_leads(payload: dict, current_user: dict = Depends(get_current_user)):
+    """Assign multiple leads to a team member."""
+    if current_user["role"] not in ["admin", "case_manager", "sales_manager", "sales_head"]:
+        raise HTTPException(status_code=403, detail="Admin or manager access required for bulk assignment")
+
+    lead_ids = payload.get("lead_ids", [])
+    assigned_to = payload.get("assigned_to")
+    assigned_to_name = payload.get("assigned_to_name")
+
+    if not lead_ids or not assigned_to:
+        raise HTTPException(status_code=400, detail="lead_ids and assigned_to are required")
+
+    result = await leads_col.update_many(
+        {"id": {"$in": lead_ids}},
+        {"$set": {
+            "assigned_to": assigned_to,
+            "assigned_to_name": assigned_to_name or "Assigned Agent",
+            "updated_at": datetime.now(timezone.utc)
+        }}
+    )
+
+    return {
+        "status": "success",
+        "updated_count": result.modified_count,
+        "assigned_to_name": assigned_to_name,
+    }
+
+
+@router.put("/{lead_id}/assign")
+async def assign_single_lead(lead_id: str, payload: dict, current_user: dict = Depends(get_current_user)):
+    """Assign a single lead to a team member."""
+    assigned_to = payload.get("assigned_to")
+    assigned_to_name = payload.get("assigned_to_name")
+
+    if not assigned_to:
+        raise HTTPException(status_code=400, detail="assigned_to is required")
+
+    await leads_col.update_one(
+        {"id": lead_id},
+        {"$set": {
+            "assigned_to": assigned_to,
+            "assigned_to_name": assigned_to_name or "Assigned Agent",
+            "updated_at": datetime.now(timezone.utc)
+        }}
+    )
+
+    return {"status": "success", "message": "Lead assigned successfully"}
 
 
 @router.delete("/{lead_id}")
@@ -240,4 +460,4 @@ async def delete_lead(lead_id: str, current_user: dict = Depends(get_current_use
     if current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
     await leads_col.delete_one({"id": lead_id})
-    return {"message": "Lead deleted"}
+    return {"message": "Lead deleted"}
