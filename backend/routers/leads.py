@@ -86,7 +86,15 @@ async def get_leads(
     if source:
         query["source"] = source
     if current_user["role"] in ["partner", "sales_executive", "sr_sales_executive"]:
-        query["assigned_to"] = current_user["id"]
+        query["$or"] = [
+            {"assigned_to": current_user["id"]},
+            {"partner_id": current_user["id"]},
+            {"assigned_to": None},
+            {"assigned_to": ""},
+            {"assigned_to": "Unassigned"},
+            {"assigned_to": {"$exists": False}},
+            {"source": {"$regex": "website|navratri|landing", "$options": "i"}}
+        ]
     
     leads = await leads_col.find(query, {"_id": 0}).sort("created_at", -1).to_list(limit)
     for lead in leads:
@@ -107,7 +115,15 @@ async def get_pipeline_stats(current_user: dict = Depends(get_current_user)):
     for stage in stages:
         query = {"stage": stage}
         if current_user["role"] in ["partner", "sales_executive", "sr_sales_executive"]:
-            query["assigned_to"] = current_user["id"]
+            query["$or"] = [
+                {"assigned_to": current_user["id"]},
+                {"partner_id": current_user["id"]},
+                {"assigned_to": None},
+                {"assigned_to": ""},
+                {"assigned_to": "Unassigned"},
+                {"assigned_to": {"$exists": False}},
+                {"source": {"$regex": "website|navratri|landing", "$options": "i"}}
+            ]
         stats[stage] = await leads_col.count_documents(query)
     
     total = sum(stats.values())
@@ -124,7 +140,15 @@ async def get_pipeline_stats(current_user: dict = Depends(get_current_user)):
 async def _get_source_stats(user):
     query = {}
     if user["role"] in ["partner", "sales_executive", "sr_sales_executive"]:
-        query["assigned_to"] = user["id"]
+        query["$or"] = [
+            {"assigned_to": user["id"]},
+            {"partner_id": user["id"]},
+            {"assigned_to": None},
+            {"assigned_to": ""},
+            {"assigned_to": "Unassigned"},
+            {"assigned_to": {"$exists": False}},
+            {"source": {"$regex": "website|navratri|landing", "$options": "i"}}
+        ]
     pipeline = [
         {"$match": query},
         {"$group": {"_id": "$source", "count": {"$sum": 1}}},

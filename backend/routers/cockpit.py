@@ -89,7 +89,15 @@ def _own_pa_query(user: dict) -> Dict[str, Any]:
 def _own_lead_query(user: dict) -> Dict[str, Any]:
     if _is_admin(user):
         return {}
-    return {"assigned_to": user["id"]}
+    return {"$or": [
+        {"assigned_to": user["id"]},
+        {"partner_id": user["id"]},
+        {"assigned_to": None},
+        {"assigned_to": ""},
+        {"assigned_to": "Unassigned"},
+        {"assigned_to": {"$exists": False}},
+        {"source": {"$regex": "website|navratri|landing", "$options": "i"}}
+    ]}
 
 
 # ─── Card builders (per source) ──────────────────────────────────────────────
@@ -259,12 +267,24 @@ async def get_cards(
     is_admin = _is_admin(current_user)
 
     # Owner override
-    if owner == "me" or (not is_admin and owner != "all"):
-        own_filter_lead = {"assigned_to": current_user["id"]}
+    if owner == "me":
+        own_filter_lead = {"$or": [{"assigned_to": current_user["id"]}, {"partner_id": current_user["id"]}]}
+        own_filter_sa   = {"created_by":  current_user["id"]}
+        own_filter_pa   = {"partner_id":  current_user["id"]}
+    elif not is_admin and owner != "all":
+        own_filter_lead = {"$or": [
+            {"assigned_to": current_user["id"]},
+            {"partner_id": current_user["id"]},
+            {"assigned_to": None},
+            {"assigned_to": ""},
+            {"assigned_to": "Unassigned"},
+            {"assigned_to": {"$exists": False}},
+            {"source": {"$regex": "website|navratri|landing", "$options": "i"}}
+        ]}
         own_filter_sa   = {"created_by":  current_user["id"]}
         own_filter_pa   = {"partner_id":  current_user["id"]}
     elif owner and owner not in ("all", "me"):
-        own_filter_lead = {"assigned_to": owner}
+        own_filter_lead = {"$or": [{"assigned_to": owner}, {"partner_id": owner}]}
         own_filter_sa   = {"created_by":  owner}
         own_filter_pa   = {"partner_id":  owner}
     else:
