@@ -144,6 +144,37 @@ export default function Cockpit() {
     }
   };
 
+  const handleSendToBulkAssessment = async (leadIds = []) => {
+    try {
+      setBulkActionLoading(true);
+      const res = await axios.post(`${API}/bulk-assessments/from-leads`, {
+        lead_ids: leadIds.length ? leadIds : undefined,
+        batch_name: `Website Registrations (${new Date().toLocaleDateString('en-GB')})`,
+      }, { headers });
+      setBulkActionLoading(false);
+      setSelectedLeadIds([]);
+      navigate('/sales/bulk-assessment');
+    } catch (e) {
+      setBulkActionLoading(false);
+      alert(e.response?.data?.detail || 'Failed to create bulk assessment batch');
+    }
+  };
+
+  const handleStartClientAssessment = (rec = {}) => {
+    const params = new URLSearchParams();
+    if (rec.name || selectedCard?.name) params.set('name', rec.name || selectedCard?.name || '');
+    if (rec.email) params.set('email', rec.email);
+    if (rec.phone || rec.mobile) params.set('phone', rec.phone || rec.mobile);
+    if (rec.latest_qualification || rec.qualification) params.set('qualification', rec.latest_qualification || rec.qualification);
+    if (rec.total_work_experience || rec.experience) params.set('experience', rec.total_work_experience || rec.experience);
+    if (rec.date_of_birth || rec.dob) params.set('dob', rec.date_of_birth || rec.dob);
+    if (rec.marital_status) params.set('marital', rec.marital_status);
+    if (rec.resume_url || rec.resume_path) params.set('resume_url', rec.resume_url || rec.resume_path);
+    if (selectedCard?.id) params.set('lead_id', selectedCard.id);
+
+    navigate(`/sales/client-assessment?${params.toString()}`);
+  };
+
   const handleAssignLead = async (leadId, agentId, agentName) => {
     try {
       await axios.put(`${API}/leads/${leadId}/assign`, { assigned_to: agentId, assigned_to_name: agentName }, { headers });
@@ -470,6 +501,14 @@ export default function Cockpit() {
                 data-testid="cockpit-search-input"
               />
             </div>
+            <button
+              onClick={() => handleSendToBulkAssessment(selectedLeadIds)}
+              className="px-3 py-1.5 rounded-md border text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm hover:opacity-90"
+              style={{ borderColor: C.gold, background: C.goldWash, color: C.orangeDeep }}
+              title="Open Bulk Pre-Assessment with website registrations"
+            >
+              <Sparkles className="h-3.5 w-3.5" /> Bulk Assessment (Reports)
+            </button>
           </div>
           <p className="text-xs" style={{ color: C.muted }}>
             Showing <strong style={{ color: C.ink }}>{cards.length}</strong>
@@ -546,6 +585,17 @@ export default function Cockpit() {
                 >
                   <Zap className={`h-3.5 w-3.5 ${bulkActionLoading ? 'animate-spin' : ''}`} />
                   {bulkActionLoading ? 'Creating...' : 'Bulk Pre-Assessments'}
+                </button>
+
+                {/* Bulk Assessment Reports */}
+                <button
+                  onClick={() => handleSendToBulkAssessment(selectedLeadIds)}
+                  disabled={bulkActionLoading}
+                  className="px-3.5 py-1.5 rounded-lg text-xs font-bold text-white shadow-sm flex items-center gap-1.5 disabled:opacity-50"
+                  style={{ background: C.orange }}
+                >
+                  <Sparkles className={`h-3.5 w-3.5 ${bulkActionLoading ? 'animate-spin' : ''}`} />
+                  {bulkActionLoading ? 'Processing...' : 'Bulk Assessment (Reports)'}
                 </button>
 
                 <button
@@ -790,12 +840,12 @@ export default function Cockpit() {
                   </div>
                 )}
 
-                {/* 1-Click Pre-Assessment Conversion Banner */}
+                {/* 1-Click Pre-Assessment & Client Assessment Action Banner */}
                 {selectedCard.type === 'lead' && (
-                  <div className="p-4 rounded-xl border shadow-sm space-y-2" style={{ background: '#FFFFFF', borderColor: C.gold }}>
+                  <div className="p-4 rounded-xl border shadow-sm space-y-3" style={{ background: '#FFFFFF', borderColor: C.gold }}>
                     <div className="flex items-center justify-between">
                       <p className="text-xs font-bold uppercase tracking-wider flex items-center gap-1.5" style={{ color: C.orangeDeep }}>
-                        <Zap className="h-4 w-4" /> Pre-Assessment Action
+                        <Zap className="h-4 w-4" /> Assessment Actions
                       </p>
                       {cardDetail?.record?.converted_pa_number && (
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded" style={{ background: C.tealWash, color: C.tealDark }}>
@@ -804,16 +854,35 @@ export default function Cockpit() {
                       )}
                     </div>
                     <p className="text-xs" style={{ color: C.body }}>
-                      Create an official Pre-Assessment record with client profile & attached resume in 1 click.
+                      Create an official record, launch full report calculation with attached resume, or process in bulk.
                     </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => handleConvertToPA(selectedCard.id)}
+                        disabled={convertingPA}
+                        className="w-full py-2.5 px-3 rounded-lg font-bold text-xs text-white flex items-center justify-center gap-1.5 shadow-sm transition-all hover:opacity-95 disabled:opacity-50"
+                        style={{ background: C.orange }}
+                      >
+                        <Zap className={`h-3.5 w-3.5 ${convertingPA ? 'animate-spin' : ''}`} />
+                        {convertingPA ? 'Creating...' : '⚡ Create PA'}
+                      </button>
+
+                      <button
+                        onClick={() => handleStartClientAssessment(cardDetail?.record || {})}
+                        className="w-full py-2.5 px-3 rounded-lg font-bold text-xs text-white flex items-center justify-center gap-1.5 shadow-sm transition-all hover:opacity-95"
+                        style={{ background: C.teal }}
+                      >
+                        <Wand2 className="h-3.5 w-3.5" /> Client Assessment
+                      </button>
+                    </div>
+
                     <button
-                      onClick={() => handleConvertToPA(selectedCard.id)}
-                      disabled={convertingPA}
-                      className="w-full py-2.5 px-4 rounded-lg font-bold text-xs text-white flex items-center justify-center gap-2 shadow-sm transition-all hover:opacity-95 disabled:opacity-50"
-                      style={{ background: C.orange }}
+                      onClick={() => handleSendToBulkAssessment([selectedCard.id])}
+                      disabled={bulkActionLoading}
+                      className="w-full py-2 px-3 rounded-lg font-semibold text-xs border flex items-center justify-center gap-1.5 transition-all hover:bg-slate-50 disabled:opacity-50"
+                      style={{ borderColor: C.border, color: C.body, background: '#FAFAFA' }}
                     >
-                      <Zap className={`h-4 w-4 ${convertingPA ? 'animate-spin' : ''}`} />
-                      {convertingPA ? 'Generating Pre-Assessment...' : '⚡ Create Pre-Assessment Now'}
+                      <Sparkles className="h-3.5 w-3.5 text-amber-500" /> Send to Bulk Pre-Assessment Queue
                     </button>
                   </div>
                 )}

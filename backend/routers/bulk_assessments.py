@@ -526,6 +526,117 @@ async def validate_upload(
             "needs_ai": needs_ai, "invalid": len(row_docs) - valid - needs_ai, "preview": preview}
 
 
+@router.post("/from-leads")
+async def create_batch_from_leads(
+    payload: dict,
+    current_user: dict = Depends(get_current_user),
+):
+    """Create a Bulk Pre-Assessment batch directly from CRM leads."""
+    if not _can(current_user):
+        raise HTTPException(status_code=403, detail="Not authorised")
+
+    lead_ids = payload.get("lead_ids", [])
+    batch_name = payload.get("batch_name") or f"Website Registrations ({datetime.now(timezone.utc).strftime('%d %b %Y')})"
+
+    query = {}
+    if lead_ids:
+        query["id"] = {"$in": lead_ids}
+    else:
+        query["$or"] = [
+            {"source": "website"},
+            {"campaign_tag": "Navratri Offer 2026"},
+            {"tags": "Website Registration"},
+            {"unique_id": {"$exists": True, "$ne": None}}
+        ]
+
+    cursor = db["leads"].find(query).sort("created_at", -1).limit(500)
+    leads = await cursor.to_list(length=500)
+
+    if not leads:
+        raise HTTPException(status_code=404, detail="No matching leads found to create bulk assessment batch.")
+
+    batch_id = f"BATCH-{datetime.now(timezone.utc).strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
+    now = datetime.now(timezone.utc)
+    row_docs = []
+    valid = 0
+    needs_ai = 0
+
+    for idx, lead in enumerate(leads):
+        dob_val = lead.get("date_of_birth") or lead.get("dob") or ""
+        name_val = lead.get("name") or lead.get("full_name") or "Unnamed Client"
+        raw_row = {
+            "name": name_val,
+            "email": lead.get("email") or "",
+            "phone": lead.get("phone") or lead.get("mobile") or "",
+            "dob": dob_val,
+            "qualification": lead.get("latest_qualification") or lead.get("qualification") or "",
+            "experience": lead.get("total_work_experience") or lead.get("experience") or "",
+            "gender": lead.get("gender") or "",
+            "marital_status": lead.get("marital_status") or "",
+            "resume_link": lead.get("resume_url") or lead.get("resume_path") or "",
+            "anzsco_code": lead.get("occupation_code") or lead.get("anzsco_code") or "",
+        }
+
+        rowmap = {
+            "name": "name", "email": "email", "phone": "phone", "dob": "dob",
+            "qualification": "qualification", "experience": "experience",
+            "gender": "gender", "marital_status": "marital_status",
+            "resume_link": "resume_link", "anzsco_code": "anzsco_code"
+        }
+
+        res = await _parse_and_validate_row(rowmap, pd.Series(raw_row))
+        if res["status"] == "valid":
+            valid += 1
+        elif res["status"] == "needs_ai":
+            needs_ai += 1
+
+        row_docs.append({
+            "id": str(uuid.uuid4()),
+            "batch_id": batch_id,
+            "row_index": idx + 1,
+            "lead_id": lead.get("id"),
+            "parsed": res["parsed"],
+            "errors": res["errors"],
+            "status": res["status"],
+            "assessment_id": None,
+            "snapshot_id": None,
+            "pdf_file_id": None,
+            "points": None,
+            "created_at": now,
+        })
+
+    if row_docs:
+        await ROWS.insert_many(row_docs)
+
+    batch = {
+        "id": batch_id,
+        "name": batch_name,
+        "status": "ready",
+        "source": "crm_leads",
+        "total": len(row_docs),
+        "valid": valid,
+        "invalid": len(row_docs) - valid - needs_ai,
+        "needs_ai": needs_ai,
+        "generated": 0,
+        "failed": 0,
+        "show_eoi_backlog": True,
+        "created_by": current_user["id"],
+        "created_by_email": current_user.get("email"),
+        "created_by_name": current_user.get("name") or current_user.get("email"),
+        "partner_id": current_user.get("partner_id") or (current_user["id"] if (current_user.get("role") == "partner" or current_user.get("rbac_role") == "partner") else None),
+        "created_at": now,
+    }
+    await BATCHES.insert_one(batch)
+
+    return {
+        "batch_id": batch_id,
+        "total": len(row_docs),
+        "valid": valid,
+        "needs_ai": needs_ai,
+        "invalid": len(row_docs) - valid - needs_ai,
+    }
+
+
 # ─────────────────────────────────────────────────────────────
 # AI enrich: Resume Link → ANZSCO code (+ fill missing fields)
 # ─────────────────────────────────────────────────────────────

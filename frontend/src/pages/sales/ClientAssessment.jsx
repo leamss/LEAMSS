@@ -21,7 +21,7 @@ import { toast } from 'sonner';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
-  CheckCircle2, ChevronLeft, ChevronRight, Save, Sparkles,
+  CheckCircle2, ChevronLeft, ChevronRight, Save, Sparkles, FileText, ExternalLink, Bot,
 } from 'lucide-react';
 
 import { formatApiError } from '@/lib/apiErrors';
@@ -178,6 +178,69 @@ export default function ClientAssessment() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Pre-populate candidate profile & attached resume from CRM Lead / Website Registration
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const name = params.get('name');
+    const email = params.get('email');
+    const phone = params.get('phone');
+    const qual = params.get('qualification');
+    const exp = params.get('experience');
+    const dob = params.get('dob');
+    const marital = params.get('marital') || params.get('marital_status');
+    const resumeUrl = params.get('resume_url') || params.get('resume');
+
+    // Also check sessionStorage
+    let stored = null;
+    try {
+      const raw = sessionStorage.getItem('client_assessment_prefill');
+      if (raw) {
+        stored = JSON.parse(raw);
+        sessionStorage.removeItem('client_assessment_prefill');
+      }
+    } catch (e) { /* ignore */ }
+
+    const pName = name || stored?.name;
+    const pEmail = email || stored?.email;
+    const pPhone = phone || stored?.phone;
+    const pQual = qual || stored?.qualification;
+    const pExp = exp || stored?.experience;
+    const pDob = dob || stored?.dob;
+    const pMarital = marital || stored?.marital_status;
+    const pResume = resumeUrl || stored?.resume_url;
+
+    if (pName || pEmail || pResume) {
+      let ageVal = '';
+      if (pDob) {
+        const birthYear = new Date(pDob).getFullYear();
+        const currentYear = new Date().getFullYear();
+        if (!isNaN(birthYear) && birthYear > 1940 && birthYear <= currentYear) {
+          ageVal = String(Math.max(18, currentYear - birthYear));
+        }
+      }
+
+      setData(d => ({
+        ...d,
+        client_name: pName || d.client_name,
+        client_email: pEmail || d.client_email,
+        client_phone: pPhone || d.client_phone,
+        age: ageVal || d.age,
+        qualification: pQual || d.qualification,
+        years_experience_total: pExp ? String(pExp) : d.years_experience_total,
+        marital_status: pMarital || d.marital_status,
+        resume_url: pResume || d.resume_url,
+        approach: pResume ? 'resume_upload' : d.approach,
+      }));
+
+      if (pResume) {
+        toast.success(`Candidate profile & resume loaded: ${pName || 'Website Lead'}`);
+      } else if (pName) {
+        toast.success(`Candidate profile loaded: ${pName}`);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const update = (field, val) => setData(d => ({ ...d, [field]: val }));
   const goNext = () => setStep(s => Math.min(8, s + 1));
   const goBack = () => setStep(s => Math.max(1, s - 1));
@@ -325,6 +388,36 @@ export default function ClientAssessment() {
             <Button variant="ghost" size="sm" onClick={() => navigate('/sales/occupations')}>Back to Search</Button>
           </div>
         </div>
+
+        {/* Attached Resume Banner if present */}
+        {data.resume_url && (
+          <div className="p-3.5 rounded-xl border border-indigo-200 bg-indigo-50/80 flex items-center justify-between gap-4 shadow-sm" data-testid="lead-resume-banner">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-9 h-9 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0">
+                <FileText className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-indigo-950 flex items-center gap-1.5">
+                  Uploaded Resume Attached from CRM Lead
+                  <span className="text-[10px] bg-indigo-200 text-indigo-800 font-semibold px-2 py-0.5 rounded-full">Active</span>
+                </p>
+                <p className="text-[11px] text-indigo-700 truncate max-w-md">
+                  {data.client_name ? `${data.client_name}'s resume is ready for report generation & AI analysis.` : 'Resume ready for report generation.'}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <a
+                href={data.resume_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-1.5 bg-white border border-indigo-300 text-indigo-700 hover:bg-indigo-100 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm"
+              >
+                <ExternalLink className="h-3.5 w-3.5" /> View / Download PDF
+              </a>
+            </div>
+          </div>
+        )}
 
         {/* Stepper */}
         <Card className="p-3" data-testid="stepper">
